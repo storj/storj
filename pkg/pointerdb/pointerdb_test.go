@@ -10,7 +10,6 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"strconv"
 	"testing"
 
 	"github.com/gogo/protobuf/proto"
@@ -25,7 +24,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"storj.io/storj/internal/testidentity"
-	"storj.io/storj/internal/teststorj"
+	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
@@ -42,6 +41,10 @@ type mockAPIKeys struct {
 	info console.APIKeyInfo
 	err  error
 }
+
+var (
+	identities = testplanet.NewPregeneratedIdentities()
+)
 
 // GetByKey return api key info for given key
 func (keys *mockAPIKeys) GetByKey(ctx context.Context, key console.APIKey) (*console.APIKeyInfo, error) {
@@ -100,7 +103,7 @@ func TestServicePut(t *testing.T) {
 func makePointer(ctx context.Context, t *testing.T, numOfValidPieces, numOfInvalidPieces int) *pb.Pointer {
 	pieces := make([]*pb.RemotePiece, numOfValidPieces+numOfInvalidPieces)
 	for i := 0; i < numOfValidPieces; i++ {
-		identity, err := testidentity.NewTestIdentity(ctx)
+		identity, err := identities.NewIdentity()
 		assert.NoError(t, err)
 		pieces[i] = &pb.RemotePiece{
 			PieceNum: int32(i),
@@ -116,11 +119,11 @@ func makePointer(ctx context.Context, t *testing.T, numOfValidPieces, numOfInval
 
 	// public key did not match expected signer
 	for i := numOfValidPieces; i < len(pieces); i++ {
-		identity, err := testidentity.NewTestIdentity(ctx)
+		identity, err := identities.NewIdentity()
 		assert.NoError(t, err)
 		pieces[i] = &pb.RemotePiece{
 			PieceNum: int32(i),
-			NodeId:   teststorj.NodeIDFromString(strconv.Itoa(i)),
+			NodeId:   storj.NodeID{byte(i)},
 			Hash:     &pb.SignedHash{Hash: make([]byte, 32)},
 		}
 
