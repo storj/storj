@@ -60,7 +60,7 @@ func generateCSV(ctx context.Context, start time.Time, end time.Time, output io.
 			return err
 		}
 
-		row.Wallet = stats.Meta.Wallet
+		row.Wallet = stats.Operator.Wallet
 		record := structToStringSlice(row)
 		if err := w.Write(record); err != nil {
 			return err

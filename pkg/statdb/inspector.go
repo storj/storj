@@ -41,10 +41,7 @@ func (srv *Inspector) CreateStats(ctx context.Context, req *pb.CreateStatsReques
 		AuditSuccessCount:  req.AuditSuccessCount,
 		UptimeCount:        req.UptimeCount,
 		UptimeSuccessCount: req.UptimeSuccessCount,
-		Meta: pb.NodeOperator{
-			Email:  "",
-			Wallet: "",
-		},
+		Operator:           pb.NodeOperator{},
 	}
 
 	_, err := srv.statdb.Create(ctx, req.NodeId, stats)

@@ -6,7 +6,6 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"strings"
 
 	"github.com/zeebo/errs"
@@ -39,10 +38,7 @@ func getNodeStats(nodeID storj.NodeID, dbNode *dbx.Node) *statdb.NodeStats {
 		UptimeRatio:        dbNode.UptimeRatio,
 		UptimeSuccessCount: dbNode.UptimeSuccessCount,
 		UptimeCount:        dbNode.TotalUptimeCount,
-		Meta: pb.NodeOperator{
-			Wallet: dbNode.Wallet,
-			Email:  dbNode.Email,
-		},
+		Operator:           pb.NodeOperator{},
 	}
 	return nodeStats
 }
@@ -62,8 +58,6 @@ func (s *statDB) Create(ctx context.Context, nodeID storj.NodeID, startingStats 
 		email              string
 	)
 
-	fmt.Printf("starting stats: %+v\n", startingStats)
-
 	if startingStats != nil {
 		totalAuditCount = startingStats.AuditCount
 		auditSuccessCount = startingStats.AuditSuccessCount
@@ -78,8 +72,8 @@ func (s *statDB) Create(ctx context.Context, nodeID storj.NodeID, startingStats 
 		if err != nil {
 			return nil, errUptime.Wrap(err)
 		}
-		wallet = startingStats.Meta.Wallet
-		email = startingStats.Meta.Email
+		wallet = startingStats.Operator.Wallet
+		email = startingStats.Operator.Email
 	}
 
 	dbNode, err := s.db.Create_Node(

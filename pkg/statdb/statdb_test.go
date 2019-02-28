@@ -117,7 +117,7 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 				AuditSuccessCount:  tt.auditSuccessCount,
 				UptimeCount:        tt.uptimeCount,
 				UptimeSuccessCount: tt.uptimeSuccessCount,
-				Meta:               pb.NodeOperator{},
+				Operator:           pb.NodeOperator{},
 			}
 
 			_, err := sdb.Create(ctx, tt.nodeID, nodeStats)

@@ -53,5 +53,5 @@ type NodeStats struct {
 	UptimeRatio        float64
 	UptimeSuccessCount int64
 	UptimeCount        int64
-	Meta               pb.NodeOperator
+	Operator           pb.NodeOperator
 }
