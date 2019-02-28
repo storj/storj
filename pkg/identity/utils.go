@@ -58,22 +58,36 @@ func writeFile(path string, dirmode, filemode os.FileMode, data []byte) error {
 	return nil
 }
 
-func statTLSFiles(certPath, keyPath string) TLSFilesStatus {
-	_, err := os.Stat(certPath)
-	hasCert := !os.IsNotExist(err)
-
-	_, err = os.Stat(keyPath)
-	hasKey := !os.IsNotExist(err)
-
-	if hasCert && hasKey {
-		return CertKey
-	} else if hasCert {
-		return CertNoKey
-	} else if hasKey {
-		return NoCertKey
+func statTLSFiles(certPath, keyPath string) (status TLSFilesStatus, err error) {
+	_, err = os.Stat(certPath)
+	hasCert := true
+	if err != nil {
+		if os.IsNotExist(err) {
+			hasCert = false
+		} else {
+			return NoCertNoKey, err
+		}
 	}
 
-	return NoCertNoKey
+	_, err = os.Stat(keyPath)
+	hasKey := true
+	if err != nil {
+		if os.IsNotExist(err) {
+			hasKey = false
+		} else {
+			return NoCertNoKey, err
+		}
+	}
+
+	if hasCert && hasKey {
+		return CertKey, nil
+	} else if hasCert {
+		return CertNoKey, nil
+	} else if hasKey {
+		return NoCertKey, nil
+	}
+
+	return NoCertNoKey, nil
 }
 
 func (t TLSFilesStatus) String() string {

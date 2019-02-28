@@ -176,7 +176,7 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 }
 
 // Status returns the status of the CA cert/key files for the config
-func (caS CASetupConfig) Status() TLSFilesStatus {
+func (caS CASetupConfig) Status() (TLSFilesStatus, error) {
 	return statTLSFiles(caS.CertPath, caS.KeyPath)
 }
 
