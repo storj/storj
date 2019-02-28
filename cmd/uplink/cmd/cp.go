@@ -36,7 +36,7 @@ func init() {
 		RunE:  copyMain,
 	}, RootCmd)
 	progress = cpCmd.Flags().Bool("progress", true, "if true, show progress")
-	expires = cpCmd.Flags().String("expires", "", "optional expiration date of an object")
+	expires = cpCmd.Flags().String("expires", "", "optional expiration date of an object. Please use format (yyyy-mm-ddThh:mm:ssZhh:mm)")
 }
 
 // upload transfers src from local machine to s3 compatible object dst
