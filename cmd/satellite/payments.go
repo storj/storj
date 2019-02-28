@@ -53,25 +53,20 @@ func generateCSV(ctx context.Context, start time.Time, end time.Time, output io.
 	}
 
 	for _, row := range rows {
-		nid := row.NodeID
-		wallet, err := db.OverlayCache().GetWalletAddress(ctx, nid)
-		if err != nil {
-			return err
-		}
-		row.Wallet = wallet
+		row.Wallet = ""
 		record := structToStringSlice(row)
 		if err := w.Write(record); err != nil {
-			return err
+			return errs.Wrap(err)
 		}
 	}
 	if err := w.Error(); err != nil {
-		return err
+		return errs.Wrap(err)
 	}
 	w.Flush()
 	if output != os.Stdout {
 		fmt.Println("Generated payment report")
 	}
-	return err
+	return nil
 }
 
 func structToStringSlice(s *accounting.CSVRow) []string {
