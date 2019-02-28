@@ -9,7 +9,7 @@ import { getToken } from '@/utils/tokenManager';
 
 // Satellite url
 const satelliteUrl = new HttpLink({
-    uri: 'https://satellite.dev.storj.io/api/graphql/v0',
+    uri: 'http://localhost:10100/api/graphql/v0',
 
 });
 
