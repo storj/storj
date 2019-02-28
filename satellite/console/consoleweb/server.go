@@ -63,7 +63,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, list
 		listener: listener,
 	}
 
-	log.Printf("Starting Satellite UI...")
+	s.log.Debug("Starting Satellite UI...")
 
 	mux := http.NewServeMux()
 	fs := http.FileServer(http.Dir(server.config.StaticDir))
