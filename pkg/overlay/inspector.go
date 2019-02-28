@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/pb"
 )
 
