@@ -113,7 +113,7 @@ type lockedBandwidthAgreement struct {
 }
 
 // CreateAgreement adds a new bandwidth agreement.
-func (m *lockedBandwidthAgreement) CreateAgreement(ctx context.Context, a1 *pb.Order) error {
+func (m *lockedBandwidthAgreement) CreateAgreement(ctx context.Context, a1 *pb.RenterBandwidthAllocation) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.CreateAgreement(ctx, a1)
@@ -597,6 +597,13 @@ func (m *lockedStatDB) UpdateBatch(ctx context.Context, requests []*statdb.Updat
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UpdateBatch(ctx, requests)
+}
+
+// UpdateOperator updates the email and wallet for a given node ID for satellite payments.
+func (m *lockedStatDB) UpdateOperator(ctx context.Context, node storj.NodeID, updatedOperator pb.NodeOperator) (stats *statdb.NodeStats, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateOperator(ctx, node, updatedOperator)
 }
 
 // UpdateUptime updates a single storagenode's uptime stats.

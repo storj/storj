@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 )
@@ -157,6 +158,21 @@ func (discovery *Discovery) refresh(ctx context.Context) error {
 		err = discovery.cache.Put(ctx, ping.Id, ping)
 		if err != nil {
 			discovery.log.Error("could not put node into cache", zap.String("ID", ping.Id.String()), zap.Error(err))
+		}
+
+		// update email and wallet with correct info
+		_, info, err := discovery.kad.FetchInfo(ctx, ping.GetAddress())
+		if err != nil {
+			discovery.log.Warn("could not fetch node info", zap.String("ID", ping.GetAddress().String()))
+			continue
+		}
+
+		_, err = discovery.statdb.UpdateOperator(ctx, ping.Id, pb.NodeOperator{
+			Wallet: info.GetOperator().GetWallet(),
+			Email:  info.GetOperator().GetEmail(),
+		})
+		if err != nil {
+			discovery.log.Warn("could not update node operator", zap.String("ID", ping.GetAddress().String()))
 		}
 	}
 
