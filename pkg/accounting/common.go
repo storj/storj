@@ -38,5 +38,6 @@ type CSVRow struct {
 	GetAuditTotal     int64
 	PutTotal          int64
 	GetTotal          int64
+	Date              time.Time
 	Wallet            string
 }
