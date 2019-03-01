@@ -181,6 +181,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 	var err error
 
 	{ // setup listener and server
+		log.Debug("Starting listener and server")
 		peer.Public.Listener, err = net.Listen("tcp", config.Server.Address)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -202,6 +203,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 	}
 
 	{ // setup overlay
+		log.Debug("Starting overlay")
 		config := config.Overlay
 		peer.Overlay.Service = overlay.NewCache(peer.DB.OverlayCache(), peer.DB.StatDB())
 
@@ -224,6 +226,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 	}
 
 	{ // setup kademlia
+		log.Debug("Setting up Kademlia")
 		config := config.Kademlia
 		// TODO: move this setup logic into kademlia package
 		if config.ExternalAddress == "" {
@@ -244,6 +247,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 
 		{ // setup routing table
 			// TODO: clean this up, should be part of database
+			log.Debug("Setting up routing table")
 			bucketIdentifier := peer.ID().String()[:5] // need a way to differentiate between nodes if running more than one simultaneously
 			dbpath := filepath.Join(config.DBPath, fmt.Sprintf("kademlia_%s.db", bucketIdentifier))
 
@@ -279,17 +283,20 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 	}
 
 	{ // setup reputation
+		log.Debug("Setting up reputation")
 		// TODO: find better structure with overlay
 		peer.Reputation.Inspector = statdb.NewInspector(peer.DB.StatDB())
 		pb.RegisterStatDBInspectorServer(peer.Public.Server.GRPC(), peer.Reputation.Inspector)
 	}
 
 	{ // setup discovery
+		log.Debug("Setting up discovery")
 		config := config.Discovery
 		peer.Discovery.Service = discovery.New(peer.Log.Named("discovery"), peer.Overlay.Service, peer.Kademlia.Service, peer.DB.StatDB(), config)
 	}
 
 	{ // setup metainfo
+		log.Debug("Setting up metainfo")
 		db, err := pointerdb.NewStore(config.PointerDB.DatabaseURL)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -309,12 +316,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 	}
 
 	{ // setup agreements
+		log.Debug("Setting up agreements")
 		bwServer := bwagreement.NewServer(peer.DB.BandwidthAgreement(), peer.DB.CertDB(), peer.Identity.Leaf.PublicKey, peer.Log.Named("agreements"), peer.Identity.ID)
 		peer.Agreements.Endpoint = bwServer
 		pb.RegisterBandwidthServer(peer.Public.Server.GRPC(), peer.Agreements.Endpoint)
 	}
 
 	{ // setup datarepair
+		log.Debug("Setting up datarepair")
 		// TODO: simplify argument list somehow
 		peer.Repair.Checker = checker.NewChecker(
 			peer.Metainfo.Service,
@@ -333,6 +342,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 	}
 
 	{ // setup audit
+		log.Debug("Setting up audits")
 		config := config.Audit
 
 		peer.Audit.Service, err = audit.NewService(peer.Log.Named("audit"),
@@ -348,11 +358,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 	}
 
 	{ // setup accounting
+		log.Debug("Setting up accounting")
 		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.Accounting(), peer.DB.BandwidthAgreement(), peer.Metainfo.Service, peer.Overlay.Endpoint, 0, config.Tally.Interval)
 		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.Accounting(), config.Rollup.Interval)
 	}
 
 	{ // setup console
+		log.Debug("Setting up console")
 		config := config.Console
 
 		peer.Console.Listener, err = net.Listen("tcp", config.Address)

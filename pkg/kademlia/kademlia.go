@@ -99,6 +99,11 @@ func (k *Kademlia) SetBootstrapNodes(nodes []pb.Node) { k.bootstrapNodes = nodes
 // GetBootstrapNodes gets the bootstrap nodes.
 func (k *Kademlia) GetBootstrapNodes() []pb.Node { return k.bootstrapNodes }
 
+// DumpNodes returns all the nodes in the node database
+func (k *Kademlia) DumpNodes(ctx context.Context) ([]*pb.Node, error) {
+	return k.routingTable.DumpNodes()
+}
+
 // Bootstrap contacts one of a set of pre defined trusted nodes on the network and
 // begins populating the local Kademlia node
 func (k *Kademlia) Bootstrap(ctx context.Context) error {
