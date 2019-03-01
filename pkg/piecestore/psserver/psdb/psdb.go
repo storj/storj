@@ -396,7 +396,7 @@ func (db *DB) GetTotalBandwidthBetween(startdate time.Time, enddate time.Time) (
 	}
 
 	var count int
-	rows := db.DB.QueryRow("SELECT COUNT(*) as count FROM bandwidth_agreements")
+	rows := db.DB.QueryRow(`SELECT COUNT(*) as count FROM bandwidth_agreements WHERE daystart_utc_sec BETWEEN ? AND ?`, startTimeUnix, endTimeUnix)
 	err = rows.Scan(&count)
 	if err != nil {
 		return 0, err
