@@ -4,6 +4,7 @@
 package main
 
 import (
+	"storj.io/storj/pkg/utils"
 	"crypto/x509/pkix"
 	"encoding/json"
 	"fmt"
@@ -20,6 +21,7 @@ import (
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/utils"
 )
 
 const (
@@ -136,6 +138,11 @@ func cmdAuthorize(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
 	serviceDir := serviceDirectory(args[0])
+
+	if writable, err := utils.IsWritable(serviceDir); !writable && err != nil {
+		return errs.New("%s is not a writeable directory: %s", serviceDir, err)
+	}
+
 	authToken := args[1]
 
 	caCertPath := filepath.Join(serviceDir, "ca.cert")
