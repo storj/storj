@@ -43,9 +43,8 @@ func generateCSV(ctx context.Context, start time.Time, end time.Time, output io.
 		"bytes:BWRepair-GET",
 		"bytes:BWRepair-PUT",
 		"bytes:BWAudit",
-		"bytes:BWGet",
 		"bytes:BWPut",
-		"date",
+		"bytes:BWGet",
 		"walletAddress",
 	}
 	if err := w.Write(headers); err != nil {
@@ -85,9 +84,8 @@ func structToStringSlice(s *accounting.CSVRow) []string {
 		strconv.FormatInt(s.GetRepairTotal, 10),
 		strconv.FormatInt(s.PutRepairTotal, 10),
 		strconv.FormatInt(s.GetAuditTotal, 10),
-		strconv.FormatInt(s.GetTotal, 10),
 		strconv.FormatInt(s.PutTotal, 10),
-		s.Date.Format("2006-01-02"),
+		strconv.FormatInt(s.GetTotal, 10),
 		s.Wallet,
 	}
 	return record
