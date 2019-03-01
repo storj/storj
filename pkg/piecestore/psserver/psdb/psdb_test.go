@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/pb"
@@ -31,7 +31,7 @@ func newDB(t testing.TB, id string) (*psdb.DB, func()) {
 	db, err := psdb.Open(dbpath)
 	require.NoError(t, err)
 
-	err = db.Migration().Run(zap.NewNop(), db)
+	err = db.Migration().Run(zaptest.NewLogger(t), db)
 	require.NoError(t, err)
 
 	return db, func() {
@@ -66,6 +66,66 @@ func TestHappyPath(t *testing.T) {
 		{ID: "\x00", Expiration: ^int64(0)},
 		{ID: "test", Expiration: 666},
 	}
+
+	bandwidthAllocation := func(signature string, satelliteID storj.NodeID, total int64) *pb.Order {
+		return &pb.Order{
+			PayerAllocation: pb.OrderLimit{SatelliteId: satelliteID},
+			Total:           total,
+			Signature:       []byte(signature),
+		}
+	}
+
+	//TODO: use better data
+	nodeIDAB := teststorj.NodeIDFromString("AB")
+	allocationTests := []*pb.Order{
+		bandwidthAllocation("signed by test", nodeIDAB, 0),
+		bandwidthAllocation("signed by sigma", nodeIDAB, 10),
+		bandwidthAllocation("signed by sigma", nodeIDAB, 98),
+		bandwidthAllocation("signed by test", nodeIDAB, 3),
+	}
+
+	type bwUsage struct {
+		size    int64
+		timenow time.Time
+	}
+
+	bwtests := []bwUsage{
+		// size is total size stored
+		{size: 1110, timenow: time.Now()},
+	}
+
+	t.Run("Empty", func(t *testing.T) {
+		t.Run("Bandwidth Allocation", func(t *testing.T) {
+			for _, test := range allocationTests {
+				agreements, err := db.GetBandwidthAllocationBySignature(test.Signature)
+				require.Len(t, agreements, 0)
+				require.NoError(t, err)
+			}
+		})
+
+		t.Run("Get all Bandwidth Allocations", func(t *testing.T) {
+			agreementGroups, err := db.GetBandwidthAllocations()
+			require.Len(t, agreementGroups, 0)
+			require.NoError(t, err)
+		})
+
+		t.Run("GetBandwidthUsedByDay", func(t *testing.T) {
+			for _, bw := range bwtests {
+				size, err := db.GetBandwidthUsedByDay(bw.timenow)
+				require.NoError(t, err)
+				require.Equal(t, int64(0), size)
+			}
+		})
+
+		t.Run("GetTotalBandwidthBetween", func(t *testing.T) {
+			for _, bw := range bwtests {
+				size, err := db.GetTotalBandwidthBetween(bw.timenow, bw.timenow)
+				require.NoError(t, err)
+				require.Equal(t, int64(0), size)
+			}
+		})
+
+	})
 
 	t.Run("Create", func(t *testing.T) {
 		for P := 0; P < concurrency; P++ {
@@ -130,35 +190,7 @@ func TestHappyPath(t *testing.T) {
 		}
 	})
 
-	bandwidthAllocation := func(signature string, satelliteID storj.NodeID, total int64) *pb.Order {
-		return &pb.Order{
-			PayerAllocation: pb.OrderLimit{SatelliteId: satelliteID},
-			Total:           total,
-			Signature:       []byte(signature),
-		}
-	}
-
-	//TODO: use better data
-	nodeIDAB := teststorj.NodeIDFromString("AB")
-	allocationTests := []*pb.Order{
-		bandwidthAllocation("signed by test", nodeIDAB, 0),
-		bandwidthAllocation("signed by sigma", nodeIDAB, 10),
-		bandwidthAllocation("signed by sigma", nodeIDAB, 98),
-		bandwidthAllocation("signed by test", nodeIDAB, 3),
-	}
-
-	type bwUsage struct {
-		size    int64
-		timenow time.Time
-	}
-
-	bwtests := []bwUsage{
-		// size is total size stored
-		{size: 1110, timenow: time.Now()},
-	}
-
 	t.Run("Bandwidth Allocation", func(t *testing.T) {
-
 		for P := 0; P < concurrency; P++ {
 			t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
 				t.Parallel()
