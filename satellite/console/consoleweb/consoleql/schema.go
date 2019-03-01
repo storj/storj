@@ -6,11 +6,10 @@ package consoleql
 import (
 	"sync"
 
-	"storj.io/storj/satellite/mailservice"
-
 	"github.com/graphql-go/graphql"
 
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/mailservice"
 )
 
 // creatingSchemaMutex locks graphql.NewSchema method because it's not thread-safe

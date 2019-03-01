@@ -6,9 +6,8 @@ package consoleql
 import (
 	"github.com/graphql-go/graphql"
 
-	"storj.io/storj/satellite/mailservice"
-
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/mailservice"
 )
 
 // Types return graphql type objects

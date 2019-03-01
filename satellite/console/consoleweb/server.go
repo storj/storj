@@ -10,8 +10,6 @@ import (
 	"net/http"
 	"path/filepath"
 
-	"storj.io/storj/satellite/mailservice"
-
 	"github.com/graphql-go/graphql"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -20,6 +18,7 @@ import (
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
+	"storj.io/storj/satellite/mailservice"
 )
 
 const (
