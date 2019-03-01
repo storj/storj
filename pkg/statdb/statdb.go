@@ -27,7 +27,7 @@ type DB interface {
 	FindInvalidNodes(ctx context.Context, nodeIDs storj.NodeIDList, maxStats *NodeStats) (invalid storj.NodeIDList, err error)
 	// Update all parts of single storagenode's stats.
 	Update(ctx context.Context, request *UpdateRequest) (stats *NodeStats, err error)
-	// UpdateNodeStats takes a NodeStats and updates the applicable entries
+	// UpdateOperator updates the email and wallet for a given node ID for satellite payments.
 	UpdateOperator(ctx context.Context, node storj.NodeID, updatedStats *NodeStats) (stats *NodeStats, err error)
 	// UpdateUptime updates a single storagenode's uptime stats.
 	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error)
