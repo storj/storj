@@ -2,9 +2,8 @@
 // See LICENSE for copying information.
 
 syntax = "proto3";
+package v0_1;
 option go_package = "pb";
-
-package storjv3_0_0;
 
 import "google/protobuf/timestamp.proto";
 import "gogo.proto";
@@ -43,7 +42,7 @@ message RedundancyScheme {
 message RemotePiece {
   int32 piece_num = 1;
   bytes node_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
-  storjv3_0_0.SignedHash hash = 3;
+  SignedHash hash = 3;
 }
 
 message RemoteSegment {
@@ -100,9 +99,9 @@ message PutResponse {
 // GetResponse is a response message for the Get rpc call
 message GetResponse {
   Pointer pointer = 1;
-  repeated storjv3_0_0.Node nodes = 2;
-  storjv3_0_0.PayerBandwidthAllocation pba = 3;
-  storjv3_0_0.SignedMessage authorization = 4;
+  repeated Node nodes = 2;
+  PayerBandwidthAllocation pba = 3;
+  SignedMessage authorization = 4;
 }
 
 // ListResponse is a response message for the List rpc call
@@ -134,9 +133,9 @@ message IterateRequest {
 }
 
 message PayerBandwidthAllocationRequest {
-  storjv3_0_0.BandwidthAction action = 1;
+  BandwidthAction action = 1;
 }
 
 message PayerBandwidthAllocationResponse {
-  storjv3_0_0.PayerBandwidthAllocation pba = 1;
+  PayerBandwidthAllocation pba = 1;
 }

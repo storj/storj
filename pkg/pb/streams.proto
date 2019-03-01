@@ -2,9 +2,8 @@
 // See LICENSE for copying information.
 
 syntax = "proto3";
+package v0_1;
 option go_package = "pb";
-
-package storjv3_0_0;
 
 message SegmentMeta {
     bytes encrypted_key = 1;
@@ -23,4 +22,10 @@ message StreamMeta {
     int32 encryption_type = 2;
     int32 encryption_block_size = 3;
     SegmentMeta last_segment_meta = 4;
+}
+
+// SerializableMeta is the object metadata that will be stored serialized
+message SerializableMeta {
+	string content_type = 1;
+	map<string, string> user_defined = 2;
 }

@@ -3,15 +3,14 @@
 
 package pb
 
-import proto "github.com/gogo/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import _ "github.com/gogo/protobuf/gogoproto"
-import duration "github.com/golang/protobuf/ptypes/duration"
-
 import (
-	context "golang.org/x/net/context"
+	context "context"
+	fmt "fmt"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/gogo/protobuf/proto"
+	duration "github.com/golang/protobuf/ptypes/duration"
 	grpc "google.golang.org/grpc"
+	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -42,6 +41,7 @@ var Restriction_Operator_name = map[int32]string{
 	3: "LTE",
 	4: "GTE",
 }
+
 var Restriction_Operator_value = map[string]int32{
 	"LT":  0,
 	"EQ":  1,
@@ -53,8 +53,9 @@ var Restriction_Operator_value = map[string]int32{
 func (x Restriction_Operator) String() string {
 	return proto.EnumName(Restriction_Operator_name, int32(x))
 }
+
 func (Restriction_Operator) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_76c45e0279eb4100, []int{13, 0}
+	return fileDescriptor_61fc82527fbe24ad, []int{13, 0}
 }
 
 type Restriction_Operand int32
@@ -68,6 +69,7 @@ var Restriction_Operand_name = map[int32]string{
 	0: "FREE_BANDWIDTH",
 	1: "FREE_DISK",
 }
+
 var Restriction_Operand_value = map[string]int32{
 	"FREE_BANDWIDTH": 0,
 	"FREE_DISK":      1,
@@ -76,8 +78,9 @@ var Restriction_Operand_value = map[string]int32{
 func (x Restriction_Operand) String() string {
 	return proto.EnumName(Restriction_Operand_name, int32(x))
 }
+
 func (Restriction_Operand) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_76c45e0279eb4100, []int{13, 1}
+	return fileDescriptor_61fc82527fbe24ad, []int{13, 1}
 }
 
 // LookupRequest is is request message for the lookup rpc call
@@ -92,7 +95,7 @@ func (m *LookupRequest) Reset()         { *m = LookupRequest{} }
 func (m *LookupRequest) String() string { return proto.CompactTextString(m) }
 func (*LookupRequest) ProtoMessage()    {}
 func (*LookupRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_76c45e0279eb4100, []int{0}
+	return fileDescriptor_61fc82527fbe24ad, []int{0}
 }
 func (m *LookupRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LookupRequest.Unmarshal(m, b)
@@ -100,8 +103,8 @@ func (m *LookupRequest) XXX_Unmarshal(b []byte) error {
 func (m *LookupRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_LookupRequest.Marshal(b, m, deterministic)
 }
-func (dst *LookupRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_LookupRequest.Merge(dst, src)
+func (m *LookupRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LookupRequest.Merge(m, src)
 }
 func (m *LookupRequest) XXX_Size() int {
 	return xxx_messageInfo_LookupRequest.Size(m)
@@ -114,7 +117,7 @@ var xxx_messageInfo_LookupRequest proto.InternalMessageInfo
 
 // LookupResponse is is response message for the lookup rpc call
 type LookupResponse struct {
-	Node                 *Node    `protobuf:"bytes,1,opt,name=node" json:"node,omitempty"`
+	Node                 *Node    `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -124,7 +127,7 @@ func (m *LookupResponse) Reset()         { *m = LookupResponse{} }
 func (m *LookupResponse) String() string { return proto.CompactTextString(m) }
 func (*LookupResponse) ProtoMessage()    {}
 func (*LookupResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_76c45e0279eb4100, []int{1}
+	return fileDescriptor_61fc82527fbe24ad, []int{1}
 }
 func (m *LookupResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LookupResponse.Unmarshal(m, b)
@@ -132,8 +135,8 @@ func (m *LookupResponse) XXX_Unmarshal(b []byte) error {
 func (m *LookupResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_LookupResponse.Marshal(b, m, deterministic)
 }
-func (dst *LookupResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_LookupResponse.Merge(dst, src)
+func (m *LookupResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LookupResponse.Merge(m, src)
 }
 func (m *LookupResponse) XXX_Size() int {
 	return xxx_messageInfo_LookupResponse.Size(m)
@@ -151,9 +154,9 @@ func (m *LookupResponse) GetNode() *Node {
 	return nil
 }
 
-// LookupRequests is a list of LookupRequest
+//LookupRequests is a list of LookupRequest
 type LookupRequests struct {
-	LookupRequest        []*LookupRequest `protobuf:"bytes,1,rep,name=lookup_request,json=lookupRequest" json:"lookup_request,omitempty"`
+	LookupRequest        []*LookupRequest `protobuf:"bytes,1,rep,name=lookup_request,json=lookupRequest,proto3" json:"lookup_request,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -163,7 +166,7 @@ func (m *LookupRequests) Reset()         { *m = LookupRequests{} }
 func (m *LookupRequests) String() string { return proto.CompactTextString(m) }
 func (*LookupRequests) ProtoMessage()    {}
 func (*LookupRequests) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_76c45e0279eb4100, []int{2}
+	return fileDescriptor_61fc82527fbe24ad, []int{2}
 }
 func (m *LookupRequests) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LookupRequests.Unmarshal(m, b)
@@ -171,8 +174,8 @@ func (m *LookupRequests) XXX_Unmarshal(b []byte) error {
 func (m *LookupRequests) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_LookupRequests.Marshal(b, m, deterministic)
 }
-func (dst *LookupRequests) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_LookupRequests.Merge(dst, src)
+func (m *LookupRequests) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LookupRequests.Merge(m, src)
 }
 func (m *LookupRequests) XXX_Size() int {
 	return xxx_messageInfo_LookupRequests.Size(m)
@@ -190,9 +193,9 @@ func (m *LookupRequests) GetLookupRequest() []*LookupRequest {
 	return nil
 }
 
-// LookupResponse is a list of LookupResponse
+//LookupResponse is a list of LookupResponse
 type LookupResponses struct {
-	LookupResponse       []*LookupResponse `protobuf:"bytes,1,rep,name=lookup_response,json=lookupResponse" json:"lookup_response,omitempty"`
+	LookupResponse       []*LookupResponse `protobuf:"bytes,1,rep,name=lookup_response,json=lookupResponse,proto3" json:"lookup_response,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
@@ -202,7 +205,7 @@ func (m *LookupResponses) Reset()         { *m = LookupResponses{} }
 func (m *LookupResponses) String() string { return proto.CompactTextString(m) }
 func (*LookupResponses) ProtoMessage()    {}
 func (*LookupResponses) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_76c45e0279eb4100, []int{3}
+	return fileDescriptor_61fc82527fbe24ad, []int{3}
 }
 func (m *LookupResponses) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LookupResponses.Unmarshal(m, b)
@@ -210,8 +213,8 @@ func (m *LookupResponses) XXX_Unmarshal(b []byte) error {
 func (m *LookupResponses) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_LookupResponses.Marshal(b, m, deterministic)
 }
-func (dst *LookupResponses) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_LookupResponses.Merge(dst, src)
+func (m *LookupResponses) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LookupResponses.Merge(m, src)
 }
 func (m *LookupResponses) XXX_Size() int {
 	return xxx_messageInfo_LookupResponses.Size(m)
@@ -231,7 +234,7 @@ func (m *LookupResponses) GetLookupResponse() []*LookupResponse {
 
 // FindStorageNodesResponse is is response message for the FindStorageNodes rpc call
 type FindStorageNodesResponse struct {
-	Nodes                []*Node  `protobuf:"bytes,1,rep,name=nodes" json:"nodes,omitempty"`
+	Nodes                []*Node  `protobuf:"bytes,1,rep,name=nodes,proto3" json:"nodes,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -241,7 +244,7 @@ func (m *FindStorageNodesResponse) Reset()         { *m = FindStorageNodesRespon
 func (m *FindStorageNodesResponse) String() string { return proto.CompactTextString(m) }
 func (*FindStorageNodesResponse) ProtoMessage()    {}
 func (*FindStorageNodesResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_76c45e0279eb4100, []int{4}
+	return fileDescriptor_61fc82527fbe24ad, []int{4}
 }
 func (m *FindStorageNodesResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FindStorageNodesResponse.Unmarshal(m, b)
@@ -249,8 +252,8 @@ func (m *FindStorageNodesResponse) XXX_Unmarshal(b []byte) error {
 func (m *FindStorageNodesResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_FindStorageNodesResponse.Marshal(b, m, deterministic)
 }
-func (dst *FindStorageNodesResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_FindStorageNodesResponse.Merge(dst, src)
+func (m *FindStorageNodesResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FindStorageNodesResponse.Merge(m, src)
 }
 func (m *FindStorageNodesResponse) XXX_Size() int {
 	return xxx_messageInfo_FindStorageNodesResponse.Size(m)
@@ -271,8 +274,8 @@ func (m *FindStorageNodesResponse) GetNodes() []*Node {
 // FindStorageNodesRequest is is request message for the FindStorageNodes rpc call
 type FindStorageNodesRequest struct {
 	ObjectSize           int64              `protobuf:"varint,1,opt,name=object_size,json=objectSize,proto3" json:"object_size,omitempty"`
-	ContractLength       *duration.Duration `protobuf:"bytes,2,opt,name=contract_length,json=contractLength" json:"contract_length,omitempty"`
-	Opts                 *OverlayOptions    `protobuf:"bytes,3,opt,name=opts" json:"opts,omitempty"`
+	ContractLength       *duration.Duration `protobuf:"bytes,2,opt,name=contract_length,json=contractLength,proto3" json:"contract_length,omitempty"`
+	Opts                 *OverlayOptions    `protobuf:"bytes,3,opt,name=opts,proto3" json:"opts,omitempty"`
 	Start                NodeID             `protobuf:"bytes,4,opt,name=start,proto3,customtype=NodeID" json:"start"`
 	MinNodes             int64              `protobuf:"varint,5,opt,name=min_nodes,json=minNodes,proto3" json:"min_nodes,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
@@ -284,7 +287,7 @@ func (m *FindStorageNodesRequest) Reset()         { *m = FindStorageNodesRequest
 func (m *FindStorageNodesRequest) String() string { return proto.CompactTextString(m) }
 func (*FindStorageNodesRequest) ProtoMessage()    {}
 func (*FindStorageNodesRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_76c45e0279eb4100, []int{5}
+	return fileDescriptor_61fc82527fbe24ad, []int{5}
 }
 func (m *FindStorageNodesRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FindStorageNodesRequest.Unmarshal(m, b)
@@ -292,8 +295,8 @@ func (m *FindStorageNodesRequest) XXX_Unmarshal(b []byte) error {
 func (m *FindStorageNodesRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_FindStorageNodesRequest.Marshal(b, m, deterministic)
 }
-func (dst *FindStorageNodesRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_FindStorageNodesRequest.Merge(dst, src)
+func (m *FindStorageNodesRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FindStorageNodesRequest.Merge(m, src)
 }
 func (m *FindStorageNodesRequest) XXX_Size() int {
 	return xxx_messageInfo_FindStorageNodesRequest.Size(m)
@@ -334,12 +337,12 @@ func (m *FindStorageNodesRequest) GetMinNodes() int64 {
 
 // OverlayOptions is a set of criteria that a node must meet to be considered for a storage opportunity
 type OverlayOptions struct {
-	MaxLatency           *duration.Duration `protobuf:"bytes,1,opt,name=max_latency,json=maxLatency" json:"max_latency,omitempty"`
-	MinStats             *NodeStats         `protobuf:"bytes,2,opt,name=min_stats,json=minStats" json:"min_stats,omitempty"`
+	MaxLatency           *duration.Duration `protobuf:"bytes,1,opt,name=max_latency,json=maxLatency,proto3" json:"max_latency,omitempty"`
+	MinStats             *NodeStats         `protobuf:"bytes,2,opt,name=min_stats,json=minStats,proto3" json:"min_stats,omitempty"`
 	MinSpeedKbps         int64              `protobuf:"varint,3,opt,name=min_speed_kbps,json=minSpeedKbps,proto3" json:"min_speed_kbps,omitempty"`
 	Amount               int64              `protobuf:"varint,4,opt,name=amount,proto3" json:"amount,omitempty"`
-	Restrictions         *NodeRestrictions  `protobuf:"bytes,5,opt,name=restrictions" json:"restrictions,omitempty"`
-	ExcludedNodes        []NodeID           `protobuf:"bytes,6,rep,name=excluded_nodes,json=excludedNodes,customtype=NodeID" json:"excluded_nodes,omitempty"`
+	Restrictions         *NodeRestrictions  `protobuf:"bytes,5,opt,name=restrictions,proto3" json:"restrictions,omitempty"`
+	ExcludedNodes        []NodeID           `protobuf:"bytes,6,rep,name=excluded_nodes,json=excludedNodes,proto3,customtype=NodeID" json:"excluded_nodes,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -349,7 +352,7 @@ func (m *OverlayOptions) Reset()         { *m = OverlayOptions{} }
 func (m *OverlayOptions) String() string { return proto.CompactTextString(m) }
 func (*OverlayOptions) ProtoMessage()    {}
 func (*OverlayOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_76c45e0279eb4100, []int{6}
+	return fileDescriptor_61fc82527fbe24ad, []int{6}
 }
 func (m *OverlayOptions) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_OverlayOptions.Unmarshal(m, b)
@@ -357,8 +360,8 @@ func (m *OverlayOptions) XXX_Unmarshal(b []byte) error {
 func (m *OverlayOptions) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_OverlayOptions.Marshal(b, m, deterministic)
 }
-func (dst *OverlayOptions) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_OverlayOptions.Merge(dst, src)
+func (m *OverlayOptions) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_OverlayOptions.Merge(m, src)
 }
 func (m *OverlayOptions) XXX_Size() int {
 	return xxx_messageInfo_OverlayOptions.Size(m)
@@ -405,8 +408,8 @@ func (m *OverlayOptions) GetRestrictions() *NodeRestrictions {
 }
 
 type QueryRequest struct {
-	Sender               *Node    `protobuf:"bytes,1,opt,name=sender" json:"sender,omitempty"`
-	Target               *Node    `protobuf:"bytes,2,opt,name=target" json:"target,omitempty"`
+	Sender               *Node    `protobuf:"bytes,1,opt,name=sender,proto3" json:"sender,omitempty"`
+	Target               *Node    `protobuf:"bytes,2,opt,name=target,proto3" json:"target,omitempty"`
 	Limit                int64    `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
 	Pingback             bool     `protobuf:"varint,4,opt,name=pingback,proto3" json:"pingback,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -418,7 +421,7 @@ func (m *QueryRequest) Reset()         { *m = QueryRequest{} }
 func (m *QueryRequest) String() string { return proto.CompactTextString(m) }
 func (*QueryRequest) ProtoMessage()    {}
 func (*QueryRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_76c45e0279eb4100, []int{7}
+	return fileDescriptor_61fc82527fbe24ad, []int{7}
 }
 func (m *QueryRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_QueryRequest.Unmarshal(m, b)
@@ -426,8 +429,8 @@ func (m *QueryRequest) XXX_Unmarshal(b []byte) error {
 func (m *QueryRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_QueryRequest.Marshal(b, m, deterministic)
 }
-func (dst *QueryRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_QueryRequest.Merge(dst, src)
+func (m *QueryRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryRequest.Merge(m, src)
 }
 func (m *QueryRequest) XXX_Size() int {
 	return xxx_messageInfo_QueryRequest.Size(m)
@@ -467,8 +470,8 @@ func (m *QueryRequest) GetPingback() bool {
 }
 
 type QueryResponse struct {
-	Sender               *Node    `protobuf:"bytes,1,opt,name=sender" json:"sender,omitempty"`
-	Response             []*Node  `protobuf:"bytes,2,rep,name=response" json:"response,omitempty"`
+	Sender               *Node    `protobuf:"bytes,1,opt,name=sender,proto3" json:"sender,omitempty"`
+	Response             []*Node  `protobuf:"bytes,2,rep,name=response,proto3" json:"response,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -478,7 +481,7 @@ func (m *QueryResponse) Reset()         { *m = QueryResponse{} }
 func (m *QueryResponse) String() string { return proto.CompactTextString(m) }
 func (*QueryResponse) ProtoMessage()    {}
 func (*QueryResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_76c45e0279eb4100, []int{8}
+	return fileDescriptor_61fc82527fbe24ad, []int{8}
 }
 func (m *QueryResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_QueryResponse.Unmarshal(m, b)
@@ -486,8 +489,8 @@ func (m *QueryResponse) XXX_Unmarshal(b []byte) error {
 func (m *QueryResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_QueryResponse.Marshal(b, m, deterministic)
 }
-func (dst *QueryResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_QueryResponse.Merge(dst, src)
+func (m *QueryResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryResponse.Merge(m, src)
 }
 func (m *QueryResponse) XXX_Size() int {
 	return xxx_messageInfo_QueryResponse.Size(m)
@@ -522,7 +525,7 @@ func (m *PingRequest) Reset()         { *m = PingRequest{} }
 func (m *PingRequest) String() string { return proto.CompactTextString(m) }
 func (*PingRequest) ProtoMessage()    {}
 func (*PingRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_76c45e0279eb4100, []int{9}
+	return fileDescriptor_61fc82527fbe24ad, []int{9}
 }
 func (m *PingRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PingRequest.Unmarshal(m, b)
@@ -530,8 +533,8 @@ func (m *PingRequest) XXX_Unmarshal(b []byte) error {
 func (m *PingRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_PingRequest.Marshal(b, m, deterministic)
 }
-func (dst *PingRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_PingRequest.Merge(dst, src)
+func (m *PingRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_PingRequest.Merge(m, src)
 }
 func (m *PingRequest) XXX_Size() int {
 	return xxx_messageInfo_PingRequest.Size(m)
@@ -552,7 +555,7 @@ func (m *PingResponse) Reset()         { *m = PingResponse{} }
 func (m *PingResponse) String() string { return proto.CompactTextString(m) }
 func (*PingResponse) ProtoMessage()    {}
 func (*PingResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_76c45e0279eb4100, []int{10}
+	return fileDescriptor_61fc82527fbe24ad, []int{10}
 }
 func (m *PingResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PingResponse.Unmarshal(m, b)
@@ -560,8 +563,8 @@ func (m *PingResponse) XXX_Unmarshal(b []byte) error {
 func (m *PingResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_PingResponse.Marshal(b, m, deterministic)
 }
-func (dst *PingResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_PingResponse.Merge(dst, src)
+func (m *PingResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_PingResponse.Merge(m, src)
 }
 func (m *PingResponse) XXX_Size() int {
 	return xxx_messageInfo_PingResponse.Size(m)
@@ -583,7 +586,7 @@ func (m *InfoRequest) Reset()         { *m = InfoRequest{} }
 func (m *InfoRequest) String() string { return proto.CompactTextString(m) }
 func (*InfoRequest) ProtoMessage()    {}
 func (*InfoRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_76c45e0279eb4100, []int{11}
+	return fileDescriptor_61fc82527fbe24ad, []int{11}
 }
 func (m *InfoRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_InfoRequest.Unmarshal(m, b)
@@ -591,8 +594,8 @@ func (m *InfoRequest) XXX_Unmarshal(b []byte) error {
 func (m *InfoRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_InfoRequest.Marshal(b, m, deterministic)
 }
-func (dst *InfoRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_InfoRequest.Merge(dst, src)
+func (m *InfoRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_InfoRequest.Merge(m, src)
 }
 func (m *InfoRequest) XXX_Size() int {
 	return xxx_messageInfo_InfoRequest.Size(m)
@@ -604,9 +607,9 @@ func (m *InfoRequest) XXX_DiscardUnknown() {
 var xxx_messageInfo_InfoRequest proto.InternalMessageInfo
 
 type InfoResponse struct {
-	Type                 NodeType      `protobuf:"varint,2,opt,name=type,proto3,enum=storjv3_0_0.NodeType" json:"type,omitempty"`
-	Operator             *NodeOperator `protobuf:"bytes,3,opt,name=operator" json:"operator,omitempty"`
-	Capacity             *NodeCapacity `protobuf:"bytes,4,opt,name=capacity" json:"capacity,omitempty"`
+	Type                 NodeType      `protobuf:"varint,2,opt,name=type,proto3,enum=v0_1.NodeType" json:"type,omitempty"`
+	Operator             *NodeOperator `protobuf:"bytes,3,opt,name=operator,proto3" json:"operator,omitempty"`
+	Capacity             *NodeCapacity `protobuf:"bytes,4,opt,name=capacity,proto3" json:"capacity,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -616,7 +619,7 @@ func (m *InfoResponse) Reset()         { *m = InfoResponse{} }
 func (m *InfoResponse) String() string { return proto.CompactTextString(m) }
 func (*InfoResponse) ProtoMessage()    {}
 func (*InfoResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_76c45e0279eb4100, []int{12}
+	return fileDescriptor_61fc82527fbe24ad, []int{12}
 }
 func (m *InfoResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_InfoResponse.Unmarshal(m, b)
@@ -624,8 +627,8 @@ func (m *InfoResponse) XXX_Unmarshal(b []byte) error {
 func (m *InfoResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_InfoResponse.Marshal(b, m, deterministic)
 }
-func (dst *InfoResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_InfoResponse.Merge(dst, src)
+func (m *InfoResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_InfoResponse.Merge(m, src)
 }
 func (m *InfoResponse) XXX_Size() int {
 	return xxx_messageInfo_InfoResponse.Size(m)
@@ -658,8 +661,8 @@ func (m *InfoResponse) GetCapacity() *NodeCapacity {
 }
 
 type Restriction struct {
-	Operator             Restriction_Operator `protobuf:"varint,1,opt,name=operator,proto3,enum=storjv3_0_0.Restriction_Operator" json:"operator,omitempty"`
-	Operand              Restriction_Operand  `protobuf:"varint,2,opt,name=operand,proto3,enum=storjv3_0_0.Restriction_Operand" json:"operand,omitempty"`
+	Operator             Restriction_Operator `protobuf:"varint,1,opt,name=operator,proto3,enum=v0_1.Restriction_Operator" json:"operator,omitempty"`
+	Operand              Restriction_Operand  `protobuf:"varint,2,opt,name=operand,proto3,enum=v0_1.Restriction_Operand" json:"operand,omitempty"`
 	Value                int64                `protobuf:"varint,3,opt,name=value,proto3" json:"value,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
 	XXX_unrecognized     []byte               `json:"-"`
@@ -670,7 +673,7 @@ func (m *Restriction) Reset()         { *m = Restriction{} }
 func (m *Restriction) String() string { return proto.CompactTextString(m) }
 func (*Restriction) ProtoMessage()    {}
 func (*Restriction) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_76c45e0279eb4100, []int{13}
+	return fileDescriptor_61fc82527fbe24ad, []int{13}
 }
 func (m *Restriction) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Restriction.Unmarshal(m, b)
@@ -678,8 +681,8 @@ func (m *Restriction) XXX_Unmarshal(b []byte) error {
 func (m *Restriction) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Restriction.Marshal(b, m, deterministic)
 }
-func (dst *Restriction) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Restriction.Merge(dst, src)
+func (m *Restriction) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Restriction.Merge(m, src)
 }
 func (m *Restriction) XXX_Size() int {
 	return xxx_messageInfo_Restriction.Size(m)
@@ -712,22 +715,85 @@ func (m *Restriction) GetValue() int64 {
 }
 
 func init() {
-	proto.RegisterType((*LookupRequest)(nil), "storjv3_0_0.LookupRequest")
-	proto.RegisterType((*LookupResponse)(nil), "storjv3_0_0.LookupResponse")
-	proto.RegisterType((*LookupRequests)(nil), "storjv3_0_0.LookupRequests")
-	proto.RegisterType((*LookupResponses)(nil), "storjv3_0_0.LookupResponses")
-	proto.RegisterType((*FindStorageNodesResponse)(nil), "storjv3_0_0.FindStorageNodesResponse")
-	proto.RegisterType((*FindStorageNodesRequest)(nil), "storjv3_0_0.FindStorageNodesRequest")
-	proto.RegisterType((*OverlayOptions)(nil), "storjv3_0_0.OverlayOptions")
-	proto.RegisterType((*QueryRequest)(nil), "storjv3_0_0.QueryRequest")
-	proto.RegisterType((*QueryResponse)(nil), "storjv3_0_0.QueryResponse")
-	proto.RegisterType((*PingRequest)(nil), "storjv3_0_0.PingRequest")
-	proto.RegisterType((*PingResponse)(nil), "storjv3_0_0.PingResponse")
-	proto.RegisterType((*InfoRequest)(nil), "storjv3_0_0.InfoRequest")
-	proto.RegisterType((*InfoResponse)(nil), "storjv3_0_0.InfoResponse")
-	proto.RegisterType((*Restriction)(nil), "storjv3_0_0.Restriction")
-	proto.RegisterEnum("storjv3_0_0.Restriction_Operator", Restriction_Operator_name, Restriction_Operator_value)
-	proto.RegisterEnum("storjv3_0_0.Restriction_Operand", Restriction_Operand_name, Restriction_Operand_value)
+	proto.RegisterEnum("v0_1.Restriction_Operator", Restriction_Operator_name, Restriction_Operator_value)
+	proto.RegisterEnum("v0_1.Restriction_Operand", Restriction_Operand_name, Restriction_Operand_value)
+	proto.RegisterType((*LookupRequest)(nil), "v0_1.LookupRequest")
+	proto.RegisterType((*LookupResponse)(nil), "v0_1.LookupResponse")
+	proto.RegisterType((*LookupRequests)(nil), "v0_1.LookupRequests")
+	proto.RegisterType((*LookupResponses)(nil), "v0_1.LookupResponses")
+	proto.RegisterType((*FindStorageNodesResponse)(nil), "v0_1.FindStorageNodesResponse")
+	proto.RegisterType((*FindStorageNodesRequest)(nil), "v0_1.FindStorageNodesRequest")
+	proto.RegisterType((*OverlayOptions)(nil), "v0_1.OverlayOptions")
+	proto.RegisterType((*QueryRequest)(nil), "v0_1.QueryRequest")
+	proto.RegisterType((*QueryResponse)(nil), "v0_1.QueryResponse")
+	proto.RegisterType((*PingRequest)(nil), "v0_1.PingRequest")
+	proto.RegisterType((*PingResponse)(nil), "v0_1.PingResponse")
+	proto.RegisterType((*InfoRequest)(nil), "v0_1.InfoRequest")
+	proto.RegisterType((*InfoResponse)(nil), "v0_1.InfoResponse")
+	proto.RegisterType((*Restriction)(nil), "v0_1.Restriction")
+}
+
+func init() { proto.RegisterFile("overlay.proto", fileDescriptor_61fc82527fbe24ad) }
+
+var fileDescriptor_61fc82527fbe24ad = []byte{
+	// 910 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x54, 0xcd, 0x8e, 0xdb, 0x44,
+	0x1c, 0x5f, 0xe7, 0xbb, 0xff, 0x24, 0xde, 0x30, 0x5d, 0x4a, 0x6a, 0xc4, 0xee, 0xca, 0xaa, 0x60,
+	0x0f, 0x25, 0xdd, 0x66, 0x2b, 0x04, 0x2b, 0x38, 0x10, 0x92, 0x96, 0xa8, 0x51, 0xb7, 0x3b, 0x1b,
+	0x09, 0x09, 0x0e, 0x96, 0x63, 0x4f, 0x8d, 0x89, 0xe3, 0x31, 0x9e, 0xf1, 0x6a, 0xd3, 0x27, 0xe0,
+	0xcc, 0x03, 0x70, 0xe5, 0x55, 0x38, 0xf0, 0x04, 0x1c, 0xfa, 0x02, 0x5c, 0x79, 0x00, 0x34, 0x1f,
+	0x4e, 0x6c, 0x9a, 0x45, 0x3d, 0xd9, 0xf3, 0xff, 0xfd, 0x7e, 0xff, 0xef, 0x19, 0xe8, 0xd2, 0x6b,
+	0x92, 0x46, 0xee, 0x7a, 0x90, 0xa4, 0x94, 0x53, 0x54, 0xbb, 0x3e, 0x75, 0x1e, 0x5b, 0x87, 0x01,
+	0xa5, 0x41, 0x44, 0x1e, 0x49, 0xdb, 0x22, 0x7b, 0xf5, 0xc8, 0xcf, 0x52, 0x97, 0x87, 0x34, 0x56,
+	0x2c, 0x0b, 0x02, 0x1a, 0xd0, 0xfc, 0x3f, 0xa6, 0x3e, 0x51, 0xff, 0xf6, 0xe7, 0xd0, 0x9d, 0x51,
+	0xba, 0xcc, 0x12, 0x4c, 0x7e, 0xce, 0x08, 0xe3, 0xe8, 0x13, 0x68, 0x0a, 0xd8, 0x09, 0xfd, 0xbe,
+	0x71, 0x6c, 0x9c, 0x74, 0x46, 0xe6, 0x1f, 0x6f, 0x8e, 0xf6, 0xfe, 0x7a, 0x73, 0xd4, 0x78, 0x41,
+	0x7d, 0x32, 0x1d, 0xe3, 0x86, 0x80, 0xa7, 0xbe, 0x7d, 0x0a, 0x66, 0xae, 0x64, 0x09, 0x8d, 0x19,
+	0x41, 0x87, 0x50, 0x13, 0x98, 0xd4, 0xb5, 0x87, 0x30, 0x10, 0x89, 0x0d, 0x84, 0x0a, 0x4b, 0xbb,
+	0x3d, 0xdb, 0x2a, 0x64, 0x2c, 0x86, 0xce, 0xc1, 0x8c, 0xa4, 0xc5, 0x49, 0x95, 0xa9, 0x6f, 0x1c,
+	0x57, 0x4f, 0xda, 0xc3, 0xbb, 0x4a, 0x5b, 0x62, 0xe3, 0x6e, 0x54, 0x3c, 0xda, 0x2f, 0x61, 0xbf,
+	0x1c, 0x9f, 0xa1, 0xaf, 0x60, 0x7f, 0xe3, 0x4e, 0xd9, 0xb4, 0xbf, 0x83, 0xb2, 0x3f, 0x85, 0x61,
+	0x33, 0x2a, 0x9d, 0xed, 0x2f, 0xa1, 0xff, 0x34, 0x8c, 0xfd, 0x2b, 0x4e, 0x53, 0x37, 0x20, 0x22,
+	0x71, 0xb6, 0xa9, 0xed, 0x18, 0xea, 0xa2, 0x06, 0xa6, 0x1d, 0x16, 0x8b, 0x53, 0x80, 0xfd, 0xb7,
+	0x01, 0x1f, 0xbc, 0x2d, 0x57, 0x4d, 0x3d, 0x82, 0x36, 0x5d, 0xfc, 0x44, 0x3c, 0xee, 0xb0, 0xf0,
+	0xb5, 0x6a, 0x50, 0x15, 0x83, 0x32, 0x5d, 0x85, 0xaf, 0x09, 0x1a, 0xc1, 0xbe, 0x47, 0x63, 0x9e,
+	0xba, 0x1e, 0x77, 0x22, 0x12, 0x07, 0xfc, 0xc7, 0x7e, 0x45, 0x76, 0xf1, 0xfe, 0x40, 0x0d, 0x76,
+	0x90, 0x0f, 0x76, 0x30, 0xd6, 0x83, 0xc5, 0x66, 0xae, 0x98, 0x49, 0x01, 0x3a, 0x81, 0x1a, 0x4d,
+	0x38, 0xeb, 0x57, 0xa5, 0x50, 0x97, 0x7c, 0xa1, 0x76, 0xe5, 0x22, 0x11, 0x12, 0x86, 0x25, 0x03,
+	0x3d, 0x80, 0x3a, 0xe3, 0x6e, 0xca, 0xfb, 0xb5, 0x9d, 0x13, 0x56, 0x20, 0xfa, 0x10, 0xee, 0xac,
+	0xc2, 0xd8, 0x51, 0x65, 0xd7, 0x65, 0xca, 0xad, 0x55, 0x18, 0xcb, 0xc2, 0xec, 0xdf, 0x2b, 0x60,
+	0x96, 0x7d, 0xa3, 0x73, 0x68, 0xaf, 0xdc, 0x1b, 0x27, 0x72, 0x39, 0x89, 0xbd, 0xb5, 0xde, 0x82,
+	0xff, 0xc9, 0x1f, 0x56, 0xee, 0xcd, 0x4c, 0x91, 0xd1, 0x43, 0x15, 0x8b, 0x71, 0x97, 0x33, 0x5d,
+	0xf9, 0xfe, 0xb6, 0xc5, 0x57, 0xc2, 0x2c, 0x83, 0xcb, 0x3f, 0xf4, 0x00, 0x4c, 0xc9, 0x4e, 0x08,
+	0xf1, 0x9d, 0xe5, 0x22, 0x51, 0x35, 0x57, 0x71, 0x47, 0x30, 0x84, 0xf1, 0xf9, 0x22, 0x61, 0xe8,
+	0x1e, 0x34, 0xdc, 0x15, 0xcd, 0x62, 0x55, 0x66, 0x15, 0xeb, 0x13, 0x3a, 0x87, 0x4e, 0x4a, 0x18,
+	0x4f, 0x43, 0x4f, 0xe6, 0x2d, 0x4b, 0x6b, 0x0f, 0xef, 0x15, 0x26, 0x5a, 0x40, 0x71, 0x89, 0x8b,
+	0x1e, 0x83, 0x49, 0x6e, 0xbc, 0x28, 0xf3, 0x89, 0xaf, 0x1b, 0xd3, 0x38, 0xae, 0x9e, 0x74, 0x46,
+	0x50, 0x68, 0x5f, 0x37, 0x67, 0xa8, 0x4e, 0xfd, 0x62, 0x40, 0xe7, 0x32, 0x23, 0xe9, 0x3a, 0x5f,
+	0x06, 0x1b, 0x1a, 0x8c, 0xc4, 0x3e, 0x49, 0x77, 0x5c, 0x14, 0x8d, 0x08, 0x0e, 0x77, 0xd3, 0x80,
+	0x70, 0xdd, 0x8c, 0x12, 0x47, 0x21, 0xe8, 0x00, 0xea, 0x51, 0xb8, 0x0a, 0xb9, 0x2e, 0x5e, 0x1d,
+	0x90, 0x05, 0xad, 0x24, 0x8c, 0x83, 0x85, 0xeb, 0x2d, 0x65, 0xdd, 0x2d, 0xbc, 0x39, 0xdb, 0x3f,
+	0x40, 0x57, 0x67, 0xa2, 0xb7, 0xfa, 0x5d, 0x52, 0xf9, 0x18, 0x5a, 0x9b, 0xdb, 0x54, 0x79, 0x6b,
+	0xf9, 0x37, 0x98, 0xdd, 0x85, 0xf6, 0xcb, 0x30, 0x0e, 0xf2, 0xeb, 0x69, 0x42, 0x47, 0x1d, 0xb7,
+	0xf0, 0x34, 0x7e, 0x45, 0x73, 0xf8, 0x57, 0x03, 0x3a, 0xea, 0xbc, 0x49, 0xa5, 0xc6, 0xd7, 0x09,
+	0x91, 0xf5, 0x9a, 0x43, 0x73, 0x1b, 0x62, 0xbe, 0x4e, 0x08, 0x96, 0x18, 0x1a, 0x40, 0x8b, 0x26,
+	0x24, 0x75, 0x39, 0x4d, 0xf5, 0x96, 0xa3, 0x2d, 0xef, 0x42, 0x23, 0x78, 0xc3, 0x11, 0x7c, 0xcf,
+	0x4d, 0x5c, 0x2f, 0xe4, 0x6b, 0xd9, 0x8b, 0x12, 0xff, 0x1b, 0x8d, 0xe0, 0x0d, 0xc7, 0xfe, 0xc7,
+	0x80, 0x76, 0x61, 0xf8, 0xe8, 0xb3, 0x42, 0x3c, 0x43, 0xe6, 0x65, 0x29, 0x7d, 0x81, 0x34, 0xd8,
+	0x11, 0xf7, 0x0c, 0x9a, 0xf2, 0x3f, 0xf6, 0x75, 0x39, 0xf7, 0x6f, 0x91, 0xc5, 0x3e, 0xce, 0x99,
+	0x62, 0x9c, 0xd7, 0x6e, 0x94, 0x91, 0x7c, 0x9c, 0xf2, 0x60, 0x3f, 0x81, 0x56, 0x1e, 0x00, 0x35,
+	0xa0, 0x32, 0x9b, 0xf7, 0xf6, 0xc4, 0x77, 0x72, 0xd9, 0x33, 0xc4, 0xf7, 0xd9, 0xbc, 0x57, 0x41,
+	0x4d, 0xa8, 0xce, 0xe6, 0x93, 0x5e, 0x55, 0xfc, 0x3c, 0x9b, 0x4f, 0x7a, 0x35, 0xfb, 0x21, 0x34,
+	0xb5, 0x7f, 0x84, 0xc0, 0x7c, 0x8a, 0x27, 0x13, 0x67, 0xf4, 0xf5, 0x8b, 0xf1, 0x77, 0xd3, 0xf1,
+	0xfc, 0xdb, 0xde, 0x1e, 0xea, 0xc2, 0x1d, 0x69, 0x1b, 0x4f, 0xaf, 0x9e, 0xf7, 0x8c, 0xe1, 0x9f,
+	0x06, 0x34, 0xf5, 0x5d, 0x46, 0x67, 0xd0, 0x50, 0xaf, 0x24, 0xda, 0xf5, 0x06, 0x5b, 0x3b, 0x1f,
+	0x52, 0xf4, 0x05, 0xc0, 0x28, 0x8b, 0x96, 0x5a, 0x78, 0xb0, 0x43, 0xc8, 0xac, 0xf7, 0x77, 0x29,
+	0x19, 0xba, 0x84, 0xde, 0x7f, 0x1f, 0x4d, 0xf4, 0x91, 0xa2, 0xde, 0xf2, 0x98, 0x5a, 0x87, 0xb7,
+	0xc1, 0xca, 0xe7, 0xf0, 0x37, 0x03, 0xea, 0xca, 0xd1, 0x29, 0xd4, 0xe5, 0xbe, 0x23, 0x3d, 0xf6,
+	0xe2, 0x35, 0xb4, 0xee, 0x96, 0x6c, 0xba, 0x92, 0x4f, 0xa1, 0x26, 0xb6, 0x16, 0xbd, 0xa7, 0xc0,
+	0xc2, 0x42, 0x5b, 0xa8, 0x68, 0xd2, 0xf4, 0x27, 0x62, 0x5f, 0x24, 0x2c, 0x76, 0x39, 0x57, 0x15,
+	0xf6, 0x3c, 0x57, 0x15, 0x57, 0x7d, 0x54, 0xfb, 0xbe, 0x92, 0x2c, 0x16, 0x0d, 0xf9, 0x22, 0x9e,
+	0xfd, 0x1b, 0x00, 0x00, 0xff, 0xff, 0xc7, 0x81, 0xa2, 0xfc, 0xcf, 0x07, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -760,7 +826,7 @@ func NewOverlayClient(cc *grpc.ClientConn) OverlayClient {
 
 func (c *overlayClient) Lookup(ctx context.Context, in *LookupRequest, opts ...grpc.CallOption) (*LookupResponse, error) {
 	out := new(LookupResponse)
-	err := c.cc.Invoke(ctx, "/storjv3_0_0.Overlay/Lookup", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/v0_1.Overlay/Lookup", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -769,7 +835,7 @@ func (c *overlayClient) Lookup(ctx context.Context, in *LookupRequest, opts ...g
 
 func (c *overlayClient) BulkLookup(ctx context.Context, in *LookupRequests, opts ...grpc.CallOption) (*LookupResponses, error) {
 	out := new(LookupResponses)
-	err := c.cc.Invoke(ctx, "/storjv3_0_0.Overlay/BulkLookup", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/v0_1.Overlay/BulkLookup", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -778,7 +844,7 @@ func (c *overlayClient) BulkLookup(ctx context.Context, in *LookupRequests, opts
 
 func (c *overlayClient) FindStorageNodes(ctx context.Context, in *FindStorageNodesRequest, opts ...grpc.CallOption) (*FindStorageNodesResponse, error) {
 	out := new(FindStorageNodesResponse)
-	err := c.cc.Invoke(ctx, "/storjv3_0_0.Overlay/FindStorageNodes", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/v0_1.Overlay/FindStorageNodes", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -809,7 +875,7 @@ func _Overlay_Lookup_Handler(srv interface{}, ctx context.Context, dec func(inte
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/storjv3_0_0.Overlay/Lookup",
+		FullMethod: "/v0_1.Overlay/Lookup",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(OverlayServer).Lookup(ctx, req.(*LookupRequest))
@@ -827,7 +893,7 @@ func _Overlay_BulkLookup_Handler(srv interface{}, ctx context.Context, dec func(
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/storjv3_0_0.Overlay/BulkLookup",
+		FullMethod: "/v0_1.Overlay/BulkLookup",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(OverlayServer).BulkLookup(ctx, req.(*LookupRequests))
@@ -845,7 +911,7 @@ func _Overlay_FindStorageNodes_Handler(srv interface{}, ctx context.Context, dec
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/storjv3_0_0.Overlay/FindStorageNodes",
+		FullMethod: "/v0_1.Overlay/FindStorageNodes",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(OverlayServer).FindStorageNodes(ctx, req.(*FindStorageNodesRequest))
@@ -854,7 +920,7 @@ func _Overlay_FindStorageNodes_Handler(srv interface{}, ctx context.Context, dec
 }
 
 var _Overlay_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "storjv3_0_0.Overlay",
+	ServiceName: "v0_1.Overlay",
 	HandlerType: (*OverlayServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -893,7 +959,7 @@ func NewNodesClient(cc *grpc.ClientConn) NodesClient {
 
 func (c *nodesClient) Query(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryResponse, error) {
 	out := new(QueryResponse)
-	err := c.cc.Invoke(ctx, "/storjv3_0_0.Nodes/Query", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/v0_1.Nodes/Query", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -902,7 +968,7 @@ func (c *nodesClient) Query(ctx context.Context, in *QueryRequest, opts ...grpc.
 
 func (c *nodesClient) Ping(ctx context.Context, in *PingRequest, opts ...grpc.CallOption) (*PingResponse, error) {
 	out := new(PingResponse)
-	err := c.cc.Invoke(ctx, "/storjv3_0_0.Nodes/Ping", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/v0_1.Nodes/Ping", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -911,7 +977,7 @@ func (c *nodesClient) Ping(ctx context.Context, in *PingRequest, opts ...grpc.Ca
 
 func (c *nodesClient) RequestInfo(ctx context.Context, in *InfoRequest, opts ...grpc.CallOption) (*InfoResponse, error) {
 	out := new(InfoResponse)
-	err := c.cc.Invoke(ctx, "/storjv3_0_0.Nodes/RequestInfo", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/v0_1.Nodes/RequestInfo", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -939,7 +1005,7 @@ func _Nodes_Query_Handler(srv interface{}, ctx context.Context, dec func(interfa
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/storjv3_0_0.Nodes/Query",
+		FullMethod: "/v0_1.Nodes/Query",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(NodesServer).Query(ctx, req.(*QueryRequest))
@@ -957,7 +1023,7 @@ func _Nodes_Ping_Handler(srv interface{}, ctx context.Context, dec func(interfac
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/storjv3_0_0.Nodes/Ping",
+		FullMethod: "/v0_1.Nodes/Ping",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(NodesServer).Ping(ctx, req.(*PingRequest))
@@ -975,7 +1041,7 @@ func _Nodes_RequestInfo_Handler(srv interface{}, ctx context.Context, dec func(i
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/storjv3_0_0.Nodes/RequestInfo",
+		FullMethod: "/v0_1.Nodes/RequestInfo",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(NodesServer).RequestInfo(ctx, req.(*InfoRequest))
@@ -984,7 +1050,7 @@ func _Nodes_RequestInfo_Handler(srv interface{}, ctx context.Context, dec func(i
 }
 
 var _Nodes_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "storjv3_0_0.Nodes",
+	ServiceName: "v0_1.Nodes",
 	HandlerType: (*NodesServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -1002,68 +1068,4 @@ var _Nodes_serviceDesc = grpc.ServiceDesc{
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "overlay.proto",
-}
-
-func init() { proto.RegisterFile("overlay.proto", fileDescriptor_overlay_76c45e0279eb4100) }
-
-var fileDescriptor_overlay_76c45e0279eb4100 = []byte{
-	// 928 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x54, 0xdd, 0x6e, 0xe3, 0x44,
-	0x14, 0xae, 0xf3, 0xbf, 0x27, 0x89, 0x1b, 0x46, 0xb0, 0xa4, 0x2e, 0xd0, 0x62, 0x75, 0xb5, 0x45,
-	0x82, 0x74, 0x49, 0x41, 0xa0, 0x45, 0x20, 0x35, 0x9b, 0x6c, 0x89, 0x36, 0xda, 0xb2, 0x4e, 0xa4,
-	0x95, 0xb8, 0xb1, 0x1c, 0x7b, 0xd6, 0x78, 0xeb, 0x78, 0x8c, 0x67, 0x5c, 0x35, 0x7b, 0xc9, 0x43,
-	0xf0, 0x0a, 0x3c, 0x01, 0xef, 0xb0, 0xcf, 0xc0, 0xc5, 0x3e, 0x04, 0x17, 0x5c, 0xa3, 0xf9, 0x71,
-	0x6a, 0x37, 0x69, 0x10, 0x57, 0xf6, 0xcc, 0xf9, 0xbe, 0x6f, 0xce, 0xf9, 0xe6, 0x9c, 0x81, 0x36,
-	0xb9, 0xc2, 0x49, 0xe8, 0x2c, 0x7b, 0x71, 0x42, 0x18, 0x41, 0x4d, 0xca, 0x48, 0xf2, 0xfa, 0xea,
-	0xd4, 0x7e, 0x64, 0x3f, 0x32, 0x3e, 0xf1, 0x09, 0xf1, 0x43, 0x7c, 0x22, 0x42, 0xf3, 0xf4, 0xd5,
-	0x89, 0x97, 0x26, 0x0e, 0x0b, 0x48, 0x24, 0xc1, 0x06, 0xf8, 0xc4, 0x27, 0xd9, 0x7f, 0x44, 0x3c,
-	0x2c, 0xff, 0xcd, 0x6f, 0xa1, 0x3d, 0x21, 0xe4, 0x32, 0x8d, 0x2d, 0xfc, 0x6b, 0x8a, 0x29, 0x43,
-	0x0f, 0xa1, 0xce, 0xc3, 0x76, 0xe0, 0x75, 0xb5, 0x43, 0xed, 0xb8, 0x35, 0xd0, 0xdf, 0xbe, 0x3b,
-	0xd8, 0xf9, 0xeb, 0xdd, 0x41, 0xed, 0x39, 0xf1, 0xf0, 0x78, 0x68, 0xd5, 0x78, 0x78, 0xec, 0x99,
-	0xdf, 0x80, 0x9e, 0x31, 0x69, 0x4c, 0x22, 0x8a, 0xd1, 0x03, 0xa8, 0xf0, 0x98, 0xe0, 0x35, 0xfb,
-	0xef, 0xf5, 0x72, 0xf9, 0xf5, 0x38, 0xd9, 0x12, 0x61, 0x73, 0x7a, 0x43, 0x14, 0x47, 0x52, 0x74,
-	0x06, 0x7a, 0x28, 0x76, 0xec, 0x44, 0x6e, 0x75, 0xb5, 0xc3, 0xf2, 0x71, 0xb3, 0x6f, 0x14, 0x24,
-	0x0a, 0x24, 0xab, 0x1d, 0xe6, 0x97, 0xe6, 0x4b, 0xd8, 0x2d, 0x66, 0x43, 0xd1, 0x10, 0x76, 0x57,
-	0xaa, 0x72, 0x4f, 0xc9, 0xee, 0x6f, 0x94, 0x95, 0x10, 0x4b, 0x0f, 0x0b, 0x6b, 0xf3, 0x09, 0x74,
-	0x9f, 0x06, 0x91, 0x37, 0x65, 0x24, 0x71, 0x7c, 0xcc, 0xcb, 0xa0, 0xab, 0x82, 0x1f, 0x42, 0x95,
-	0x57, 0x44, 0x95, 0xee, 0x86, 0x8a, 0x65, 0xdc, 0xfc, 0x5b, 0x83, 0x0f, 0xd7, 0x55, 0xa4, 0xe1,
-	0x07, 0xd0, 0x24, 0xf3, 0xd7, 0xd8, 0x65, 0x36, 0x0d, 0xde, 0x48, 0xf3, 0xca, 0x16, 0xc8, 0xad,
-	0x69, 0xf0, 0x06, 0xa3, 0x01, 0xec, 0xba, 0x24, 0x62, 0x89, 0xe3, 0x32, 0x3b, 0xc4, 0x91, 0xcf,
-	0x7e, 0xe9, 0x96, 0x84, 0xc3, 0x7b, 0x3d, 0x79, 0xe9, 0xbd, 0xec, 0xd2, 0x7b, 0x43, 0x75, 0xe9,
-	0x96, 0x9e, 0x31, 0x26, 0x82, 0x80, 0x4e, 0xa0, 0x42, 0x62, 0x46, 0xbb, 0x65, 0x41, 0x2c, 0x1a,
-	0x70, 0x21, 0xbb, 0xea, 0x22, 0xe6, 0x4c, 0x6a, 0x09, 0x20, 0x3a, 0x82, 0x2a, 0x65, 0x4e, 0xc2,
-	0xba, 0x95, 0x8d, 0x4d, 0x20, 0x83, 0x68, 0x1f, 0xee, 0x2d, 0x82, 0xc8, 0x96, 0x26, 0x54, 0x45,
-	0xe6, 0x8d, 0x45, 0x10, 0x89, 0xfa, 0xcc, 0x3f, 0x4b, 0xa0, 0x17, 0xb5, 0xd1, 0x63, 0x68, 0x2e,
-	0x9c, 0x6b, 0x3b, 0x74, 0x18, 0x8e, 0xdc, 0xa5, 0x6a, 0x94, 0x2d, 0x65, 0xc0, 0xc2, 0xb9, 0x9e,
-	0x48, 0x30, 0x3a, 0x95, 0x67, 0x51, 0xe6, 0x30, 0xaa, 0x0c, 0xb8, 0xbf, 0x66, 0xf8, 0x94, 0x47,
-	0x45, 0x0e, 0xe2, 0x0f, 0x1d, 0x81, 0x2e, 0x48, 0x31, 0xc6, 0x9e, 0x7d, 0x39, 0x8f, 0xa5, 0x03,
-	0x65, 0xab, 0xc5, 0x11, 0x7c, 0xf3, 0xd9, 0x3c, 0xa6, 0xe8, 0x3e, 0xd4, 0x9c, 0x05, 0x49, 0x23,
-	0x59, 0x6d, 0xd9, 0x52, 0x2b, 0x74, 0x06, 0xad, 0x04, 0x53, 0x96, 0x04, 0xae, 0x48, 0x5f, 0x54,
-	0xd8, 0xec, 0x7f, 0xbc, 0x7e, 0xcd, 0x39, 0x90, 0x55, 0xa0, 0xa0, 0x2f, 0x41, 0xc7, 0xd7, 0x6e,
-	0x98, 0x7a, 0xd8, 0x53, 0x36, 0xd5, 0x0e, 0xcb, 0xc7, 0xad, 0x01, 0xe4, 0xcc, 0x6c, 0x67, 0x08,
-	0xe9, 0xdb, 0xef, 0x1a, 0xb4, 0x5e, 0xa4, 0x38, 0x59, 0x66, 0x1d, 0xf2, 0x19, 0xd4, 0x28, 0x8e,
-	0x3c, 0x9c, 0xdc, 0x3d, 0x59, 0x0a, 0xc0, 0xa1, 0xcc, 0x49, 0x7c, 0xcc, 0x94, 0x43, 0x9b, 0xa0,
-	0x12, 0x80, 0xde, 0x87, 0x6a, 0x18, 0x2c, 0x02, 0xa6, 0x1c, 0x91, 0x0b, 0x64, 0x40, 0x23, 0x0e,
-	0x22, 0x7f, 0xee, 0xb8, 0x97, 0xc2, 0x8c, 0x86, 0xb5, 0x5a, 0x9b, 0x01, 0xb4, 0x55, 0x5e, 0xaa,
-	0xff, 0xff, 0x47, 0x62, 0x5f, 0x40, 0x63, 0x35, 0x85, 0xa5, 0xbb, 0xa6, 0x65, 0x05, 0x31, 0xdb,
-	0xd0, 0xfc, 0x29, 0x88, 0xfc, 0x6c, 0xba, 0x75, 0x68, 0xc9, 0xe5, 0x4d, 0x78, 0x1c, 0xbd, 0x22,
-	0x59, 0xf8, 0x0f, 0x0d, 0x5a, 0x72, 0xbd, 0x4a, 0xac, 0xc2, 0x96, 0x31, 0x16, 0x26, 0xe8, 0xfd,
-	0x0f, 0xd6, 0x4e, 0x9a, 0x2d, 0x63, 0x6c, 0x09, 0x08, 0xfa, 0x1a, 0x1a, 0x24, 0xc6, 0x89, 0xc3,
-	0x48, 0xa2, 0xa6, 0x63, 0x6f, 0x0d, 0x7e, 0xa1, 0x00, 0xd6, 0x0a, 0xca, 0x69, 0xae, 0x13, 0x3b,
-	0x6e, 0xc0, 0x96, 0xc2, 0xa7, 0x4d, 0xb4, 0x27, 0x0a, 0x60, 0xad, 0xa0, 0xe6, 0x6f, 0x25, 0x68,
-	0xe6, 0xba, 0x05, 0x7d, 0x9f, 0x3b, 0x5d, 0x13, 0xc9, 0x7e, 0x5a, 0x90, 0xc9, 0x61, 0x7b, 0x1b,
-	0xb2, 0x78, 0x0c, 0x75, 0xf1, 0x1f, 0x79, 0xaa, 0xd4, 0xc3, 0xed, 0xec, 0xc8, 0xb3, 0x32, 0x02,
-	0xbf, 0xff, 0x2b, 0x27, 0x4c, 0x71, 0x76, 0xff, 0x62, 0x61, 0x7e, 0x05, 0x8d, 0xec, 0x1c, 0x54,
-	0x83, 0xd2, 0x64, 0xd6, 0xd9, 0xe1, 0xdf, 0xd1, 0x8b, 0x8e, 0xc6, 0xbf, 0xe7, 0xb3, 0x4e, 0x09,
-	0xd5, 0xa1, 0x3c, 0x99, 0x8d, 0x3a, 0x65, 0xfe, 0x73, 0x3e, 0x1b, 0x75, 0x2a, 0xe6, 0xe7, 0x50,
-	0x57, 0xfa, 0x08, 0x81, 0xfe, 0xd4, 0x1a, 0x8d, 0xec, 0xc1, 0xd9, 0xf3, 0xe1, 0xcb, 0xf1, 0x70,
-	0xf6, 0x63, 0x67, 0x07, 0xb5, 0xe1, 0x9e, 0xd8, 0x1b, 0x8e, 0xa7, 0xcf, 0x3a, 0x5a, 0xff, 0x1f,
-	0x0d, 0xea, 0xea, 0x61, 0x40, 0x67, 0x50, 0x93, 0x0f, 0x30, 0xda, 0xf2, 0xd8, 0x1b, 0xdb, 0x5e,
-	0x6c, 0x74, 0x0e, 0x30, 0x48, 0xc3, 0x4b, 0x25, 0xb3, 0x7f, 0xb7, 0x0c, 0x35, 0x3e, 0xda, 0xa2,
-	0x43, 0x91, 0x0d, 0x9d, 0xdb, 0x8f, 0x34, 0x3a, 0x2a, 0x30, 0xee, 0x78, 0xc3, 0x8d, 0x07, 0xff,
-	0x81, 0x92, 0x27, 0xf4, 0xdf, 0x6a, 0x50, 0x95, 0xb2, 0x3f, 0x40, 0x55, 0x8c, 0x12, 0x2a, 0x76,
-	0x4d, 0x7e, 0xec, 0x0d, 0x63, 0x53, 0x48, 0xd5, 0xfc, 0x1d, 0x54, 0xf8, 0x40, 0xa0, 0x6e, 0x01,
-	0x93, 0x1b, 0x19, 0x63, 0x6f, 0x43, 0x44, 0x91, 0x07, 0xbc, 0x07, 0x05, 0x8a, 0x0f, 0xcd, 0x2d,
-	0x8d, 0xdc, 0x5c, 0xdd, 0xd2, 0xc8, 0x4f, 0xd8, 0xa0, 0xf2, 0x73, 0x29, 0x9e, 0xcf, 0x6b, 0xe2,
-	0xc9, 0x3e, 0xfd, 0x37, 0x00, 0x00, 0xff, 0xff, 0xb8, 0x82, 0xd7, 0xfd, 0x9a, 0x08, 0x00, 0x00,
 }

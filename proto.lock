@@ -39,7 +39,7 @@
             "rpcs": [
               {
                 "name": "BandwidthAgreements",
-                "in_type": "storjv3_0_0.RenterBandwidthAllocation",
+                "in_type": "RenterBandwidthAllocation",
                 "out_type": "AgreementsSummary"
               }
             ]
@@ -51,7 +51,7 @@
           }
         ],
         "package": {
-          "name": "storjv3_0_0"
+          "name": "v0_1"
         }
       }
     },
@@ -104,7 +104,7 @@
           }
         ],
         "package": {
-          "name": "storjv3_0_0"
+          "name": "v0_1"
         }
       }
     },
@@ -130,7 +130,7 @@
           }
         ],
         "package": {
-          "name": "storjv3_0_0"
+          "name": "v0_1"
         }
       }
     },
@@ -725,7 +725,7 @@
               {
                 "id": 2,
                 "name": "nodes",
-                "type": "storjv3_0_0.Node",
+                "type": "Node",
                 "is_repeated": true
               }
             ]
@@ -736,7 +736,7 @@
               {
                 "id": 2,
                 "name": "nodes",
-                "type": "storjv3_0_0.Node",
+                "type": "Node",
                 "is_repeated": true
               }
             ]
@@ -747,7 +747,7 @@
               {
                 "id": 1,
                 "name": "nodes",
-                "type": "storjv3_0_0.Node",
+                "type": "Node",
                 "is_repeated": true
               }
             ]
@@ -808,12 +808,12 @@
               {
                 "id": 1,
                 "name": "node",
-                "type": "storjv3_0_0.Node"
+                "type": "Node"
               },
               {
                 "id": 2,
                 "name": "meta",
-                "type": "storjv3_0_0.NodeMetadata"
+                "type": "NodeMetadata"
               }
             ]
           },
@@ -823,7 +823,7 @@
               {
                 "id": 1,
                 "name": "address",
-                "type": "storjv3_0_0.NodeAddress"
+                "type": "NodeAddress"
               }
             ]
           },
@@ -848,17 +848,17 @@
               {
                 "id": 2,
                 "name": "type",
-                "type": "storjv3_0_0.NodeType"
+                "type": "NodeType"
               },
               {
                 "id": 3,
                 "name": "operator",
-                "type": "storjv3_0_0.NodeOperator"
+                "type": "NodeOperator"
               },
               {
                 "id": 4,
                 "name": "capacity",
-                "type": "storjv3_0_0.NodeCapacity"
+                "type": "NodeCapacity"
               }
             ]
           },
@@ -908,7 +908,7 @@
               {
                 "id": 2,
                 "name": "nodes",
-                "type": "storjv3_0_0.Node",
+                "type": "Node",
                 "is_repeated": true
               }
             ]
@@ -922,7 +922,7 @@
               {
                 "id": 1,
                 "name": "nodes",
-                "type": "storjv3_0_0.Node",
+                "type": "Node",
                 "is_repeated": true
               }
             ]
@@ -1004,37 +1004,7 @@
           }
         ],
         "package": {
-          "name": "storjv3_0_0"
-        }
-      }
-    },
-    {
-      "protopath": "pkg:/:pb:/:meta.proto",
-      "def": {
-        "messages": [
-          {
-            "name": "SerializableMeta",
-            "fields": [
-              {
-                "id": 1,
-                "name": "content_type",
-                "type": "string"
-              }
-            ],
-            "maps": [
-              {
-                "key_type": "string",
-                "field": {
-                  "id": 2,
-                  "name": "user_defined",
-                  "type": "string"
-                }
-              }
-            ]
-          }
-        ],
-        "package": {
-          "name": "storjv3_0_0"
+          "name": "v0_1"
         }
       }
     },
@@ -1289,7 +1259,7 @@
           }
         ],
         "package": {
-          "name": "storjv3_0_0"
+          "name": "v0_1"
         }
       }
     },
@@ -1361,7 +1331,7 @@
               {
                 "id": 1,
                 "name": "node",
-                "type": "storjv3_0_0.Node"
+                "type": "Node"
               }
             ]
           },
@@ -1393,7 +1363,7 @@
               {
                 "id": 1,
                 "name": "nodes",
-                "type": "storjv3_0_0.Node",
+                "type": "Node",
                 "is_repeated": true
               }
             ]
@@ -1449,7 +1419,7 @@
               {
                 "id": 2,
                 "name": "min_stats",
-                "type": "storjv3_0_0.NodeStats"
+                "type": "NodeStats"
               },
               {
                 "id": 3,
@@ -1464,7 +1434,7 @@
               {
                 "id": 5,
                 "name": "restrictions",
-                "type": "storjv3_0_0.NodeRestrictions"
+                "type": "NodeRestrictions"
               },
               {
                 "id": 6,
@@ -1486,12 +1456,12 @@
               {
                 "id": 1,
                 "name": "sender",
-                "type": "storjv3_0_0.Node"
+                "type": "Node"
               },
               {
                 "id": 2,
                 "name": "target",
-                "type": "storjv3_0_0.Node"
+                "type": "Node"
               },
               {
                 "id": 3,
@@ -1511,12 +1481,12 @@
               {
                 "id": 1,
                 "name": "sender",
-                "type": "storjv3_0_0.Node"
+                "type": "Node"
               },
               {
                 "id": 2,
                 "name": "response",
-                "type": "storjv3_0_0.Node",
+                "type": "Node",
                 "is_repeated": true
               }
             ]
@@ -1536,17 +1506,17 @@
               {
                 "id": 2,
                 "name": "type",
-                "type": "storjv3_0_0.NodeType"
+                "type": "NodeType"
               },
               {
                 "id": 3,
                 "name": "operator",
-                "type": "storjv3_0_0.NodeOperator"
+                "type": "NodeOperator"
               },
               {
                 "id": 4,
                 "name": "capacity",
-                "type": "storjv3_0_0.NodeCapacity"
+                "type": "NodeCapacity"
               }
             ]
           },
@@ -1625,7 +1595,7 @@
           }
         ],
         "package": {
-          "name": "storjv3_0_0"
+          "name": "v0_1"
         }
       }
     },
@@ -2183,7 +2153,7 @@
           }
         ],
         "package": {
-          "name": "storjv3_0_0"
+          "name": "v0_1"
         }
       }
     },
@@ -2274,7 +2244,7 @@
               {
                 "id": 3,
                 "name": "hash",
-                "type": "storjv3_0_0.SignedHash"
+                "type": "SignedHash"
               }
             ]
           },
@@ -2418,18 +2388,18 @@
               {
                 "id": 2,
                 "name": "nodes",
-                "type": "storjv3_0_0.Node",
+                "type": "Node",
                 "is_repeated": true
               },
               {
                 "id": 3,
                 "name": "pba",
-                "type": "storjv3_0_0.PayerBandwidthAllocation"
+                "type": "PayerBandwidthAllocation"
               },
               {
                 "id": 4,
                 "name": "authorization",
-                "type": "storjv3_0_0.SignedMessage"
+                "type": "SignedMessage"
               }
             ]
           },
@@ -2515,7 +2485,7 @@
               {
                 "id": 1,
                 "name": "action",
-                "type": "storjv3_0_0.BandwidthAction"
+                "type": "BandwidthAction"
               }
             ]
           },
@@ -2525,7 +2495,7 @@
               {
                 "id": 1,
                 "name": "pba",
-                "type": "storjv3_0_0.PayerBandwidthAllocation"
+                "type": "PayerBandwidthAllocation"
               }
             ]
           }
@@ -2577,7 +2547,7 @@
           }
         ],
         "package": {
-          "name": "storjv3_0_0"
+          "name": "v0_1"
         }
       }
     },
@@ -2649,10 +2619,30 @@
                 "type": "SegmentMeta"
               }
             ]
+          },
+          {
+            "name": "SerializableMeta",
+            "fields": [
+              {
+                "id": 1,
+                "name": "content_type",
+                "type": "string"
+              }
+            ],
+            "maps": [
+              {
+                "key_type": "string",
+                "field": {
+                  "id": 2,
+                  "name": "user_defined",
+                  "type": "string"
+                }
+              }
+            ]
           }
         ],
         "package": {
-          "name": "storjv3_0_0"
+          "name": "v0_1"
         }
       }
     }

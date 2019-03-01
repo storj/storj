@@ -2,14 +2,13 @@
 // See LICENSE for copying information.
 
 syntax = "proto3";
+package v0_1;
 option go_package = "pb";
-
-package storjv3_0_0;
 
 import "piecestore.proto";
 
 service Bandwidth {
-  rpc BandwidthAgreements(storjv3_0_0.RenterBandwidthAllocation) returns (AgreementsSummary) {}
+  rpc BandwidthAgreements(RenterBandwidthAllocation) returns (AgreementsSummary) {}
 }
 
 message AgreementsSummary {
