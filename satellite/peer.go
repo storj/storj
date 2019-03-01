@@ -376,6 +376,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 	}
 
 	{ // setup mailservice
+		log.Debug("Setting up mail service")
 		// TODO(yar): test multiple satellites using same OAUTH credentials
 		mailConfig := config.Mail
 
