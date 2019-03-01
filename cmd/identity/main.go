@@ -4,7 +4,6 @@
 package main
 
 import (
-	"storj.io/storj/pkg/utils"
 	"crypto/x509/pkix"
 	"encoding/json"
 	"fmt"
