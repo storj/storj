@@ -13,8 +13,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"storj.io/storj/satellite/mailservice/simulate"
-
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -48,6 +46,7 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/storelogger"
