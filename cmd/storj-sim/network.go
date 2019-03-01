@@ -174,8 +174,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 				"--mail.smtp-server-address", "smtp.gmail.com:587",
 				"--mail.from", "Storj <yaroslav-satellite-test@storj.io>",
-				// TODO: add mailservice templatepath
-				"--mail.template-path", "/home/riko/Workspace/storj/storj/web/satellite/static/emails",
+				// TODO: templatepath for travis
+				"--mail.template-path", "/home/travis/gopath/src/storj.io/storj/web/satellite/static/emails",
 			},
 			"run": {},
 		})
