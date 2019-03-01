@@ -61,6 +61,10 @@ func TestGrapqhlMutation(t *testing.T) {
 			t.Fatal(err)
 		}
 
+		rootObject := make(map[string]interface{})
+		rootObject["origin"] = "http://doesntmatter.com/"
+		rootObject[consoleql.ActivationPath] = "?activationToken="
+
 		schema, err := consoleql.CreateSchema(service, mailService)
 		if err != nil {
 			t.Fatal(err)
@@ -96,7 +100,7 @@ func TestGrapqhlMutation(t *testing.T) {
 				Schema:        schema,
 				Context:       ctx,
 				RequestString: query,
-				RootObject:    make(map[string]interface{}),
+				RootObject:    rootObject,
 			})
 
 			for _, err := range result.Errors {
@@ -148,7 +152,7 @@ func TestGrapqhlMutation(t *testing.T) {
 				Schema:        schema,
 				Context:       ctx,
 				RequestString: query,
-				RootObject:    make(map[string]interface{}),
+				RootObject:    rootObject,
 			})
 
 			for _, err := range result.Errors {
@@ -178,7 +182,7 @@ func TestGrapqhlMutation(t *testing.T) {
 				Schema:        schema,
 				Context:       authCtx,
 				RequestString: query,
-				RootObject:    make(map[string]interface{}),
+				RootObject:    rootObject,
 			})
 
 			for _, err := range result.Errors {

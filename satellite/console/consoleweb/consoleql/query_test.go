@@ -45,6 +45,10 @@ func TestGraphqlQuery(t *testing.T) {
 			t.Fatal(err)
 		}
 
+		rootObject := make(map[string]interface{})
+		rootObject["origin"] = "http://doesntmatter.com/"
+		rootObject[consoleql.ActivationPath] = "?activationToken="
+
 		creator := consoleql.TypeCreator{}
 		if err = creator.Create(service, mailService); err != nil {
 			t.Fatal(err)
@@ -106,7 +110,7 @@ func TestGraphqlQuery(t *testing.T) {
 				Schema:        schema,
 				Context:       authCtx,
 				RequestString: query,
-				RootObject:    make(map[string]interface{}),
+				RootObject:    rootObject,
 			})
 
 			for _, err := range result.Errors {
