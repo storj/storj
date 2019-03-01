@@ -5,7 +5,6 @@ package statdb_test
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -118,7 +117,6 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 				AuditSuccessCount:  tt.auditSuccessCount,
 				UptimeCount:        tt.uptimeCount,
 				UptimeSuccessCount: tt.uptimeSuccessCount,
-				Operator:           pb.NodeOperator{},
 			}
 
 			_, err := sdb.Create(ctx, tt.nodeID, nodeStats)
@@ -145,11 +143,8 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 	}
 
 	{ // TestUpdateOperator
-
 		nodeID := storj.NodeID{10}
 		stats, err := sdb.CreateEntryIfNotExists(ctx, nodeID)
-
-		fmt.Printf("\n\n ### STATS %+v\n\n", stats)
 
 		assert.NoError(t, err)
 
@@ -171,10 +166,26 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 		assert.NotNil(t, found)
 		assert.NoError(t, err)
 
-		fmt.Printf("\n\n ### FOUND %+v \n\n", found)
-
-		assert.Equal(t, updatedStats.Operator.Wallet, found.)
+		assert.Equal(t, updatedStats.Operator.Wallet, found.Operator.Wallet)
 		assert.Equal(t, updatedStats.Operator.Email, found.Operator.Email)
+
+		updateEmail, err := sdb.UpdateOperator(ctx, nodeID, &statdb.NodeStats{
+			Operator: pb.NodeOperator{
+				Email: "def456@gmail.com",
+			},
+		})
+		assert.NoError(t, err)
+		assert.NotNil(t, updateEmail)
+		assert.Equal(t, updateEmail.Operator.Email, "def456@gmail.com")
+
+		updateWallet, err := sdb.UpdateOperator(ctx, nodeID, &statdb.NodeStats{
+			Operator: pb.NodeOperator{
+				Wallet: "0x2222222222222222222222222222222222222222",
+			},
+		})
+		assert.NoError(t, err)
+		assert.NotNil(t, updateWallet)
+		assert.Equal(t, updateWallet.Operator.Wallet, "0x2222222222222222222222222222222222222222")
 	}
 
 	{ // TestUpdateExists

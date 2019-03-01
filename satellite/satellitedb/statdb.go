@@ -6,12 +6,12 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"strings"
 
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
@@ -38,6 +38,10 @@ func getNodeStats(nodeID storj.NodeID, dbNode *dbx.Node) *statdb.NodeStats {
 		UptimeRatio:        dbNode.UptimeRatio,
 		UptimeSuccessCount: dbNode.UptimeSuccessCount,
 		UptimeCount:        dbNode.TotalUptimeCount,
+		Operator: pb.NodeOperator{
+			Email:  dbNode.Email,
+			Wallet: dbNode.Wallet,
+		},
 	}
 	return nodeStats
 }
@@ -240,7 +244,6 @@ func (s *statDB) UpdateOperator(ctx context.Context, nodeID storj.NodeID, update
 	}
 
 	updated := getNodeStats(updateStats.NodeID, updatedDBNode)
-	fmt.Printf("returning updated %+v\n", updated)
 
 	return updated, utils.CombineErrors(err, tx.Commit())
 }

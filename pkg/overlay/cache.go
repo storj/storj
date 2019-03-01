@@ -186,6 +186,16 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 		return err
 	}
 
+	_, err = cache.statDB.UpdateOperator(ctx, nodeID, &statdb.NodeStats{
+		Operator: pb.NodeOperator{
+			Email:  value.Metadata.GetEmail(),
+			Wallet: value.Metadata.GetWallet(),
+		},
+	})
+	if err != nil {
+		return OverlayError.Wrap(err)
+	}
+
 	value.Reputation = &pb.NodeStats{
 		AuditSuccessRatio:  stats.AuditSuccessRatio,
 		AuditSuccessCount:  stats.AuditSuccessCount,
