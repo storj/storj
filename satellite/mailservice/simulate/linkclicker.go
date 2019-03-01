@@ -4,11 +4,11 @@
 package simulate
 
 import (
-	"bytes"
 	"net/http"
+	"regexp"
+	"strings"
 
 	"github.com/zeebo/errs"
-	"golang.org/x/net/html"
 
 	"storj.io/storj/internal/post"
 )
@@ -24,38 +24,20 @@ func (clicker *LinkClicker) FromAddress() post.Address {
 
 // SendEmail click all links from email html parts
 func (clicker *LinkClicker) SendEmail(msg *post.Message) error {
+	regx := regexp.MustCompile(`href="([^\s])+"`)
 	// collect all links
 	var links []string
 	for _, part := range msg.Parts {
-		if part.Type != "text/html; charset=UTF-8" {
-			continue
-		}
-
-		buffer := bytes.NewBufferString(msg.Parts[0].Content)
-		tokenizer := html.NewTokenizer(buffer)
-
-	Loop:
-		for {
-			tokenType := tokenizer.Next()
-
-			switch tokenType {
-			case html.ErrorToken:
-				break Loop
-			case html.StartTagToken:
-				token := tokenizer.Token()
-				if token.Data == "a" {
-					for _, attr := range token.Attr {
-						if attr.Key == "href" {
-							links = append(links, attr.Val)
-						}
-					}
-				}
-			default:
+		tags := findLinkTags(part.Content)
+		for _, tag := range tags {
+			href := regx.FindString(tag)
+			if href == "" {
 				continue
 			}
+
+			links = append(links, href[len(`href="`):len(href)-1])
 		}
 	}
-
 	// click all links
 	var sendError error
 	for _, link := range links {
@@ -64,4 +46,26 @@ func (clicker *LinkClicker) SendEmail(msg *post.Message) error {
 	}
 
 	return sendError
+}
+
+func findLinkTags(body string) []string {
+	var tags []string
+Loop:
+	for {
+		stTag := strings.Index(body, "<a")
+		if stTag < 0 {
+			break Loop
+		}
+
+		stripped := body[stTag:]
+		endTag := strings.Index(stripped, "</a>")
+		if endTag < 0 {
+			break Loop
+		}
+
+		offset := endTag + len("</a>") + 1
+		body = stripped[offset:]
+		tags = append(tags, stripped[:offset])
+	}
+	return tags
 }
