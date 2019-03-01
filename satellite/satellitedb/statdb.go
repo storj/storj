@@ -225,7 +225,7 @@ func (s *statDB) Update(ctx context.Context, updateReq *statdb.UpdateRequest) (s
 }
 
 // UpdateStats takes a NodeStats struct and updates the appropriate node with that information
-func (s *statDB) UpdateOperator(ctx context.Context, nodeID storj.NodeID, updateStats *statdb.NodeStats) (stats *statdb.NodeStats, err error) {
+func (s *statDB) UpdateOperator(ctx context.Context, nodeID storj.NodeID, operator pb.NodeOperator) (stats *statdb.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	tx, err := s.db.Open(ctx)
@@ -234,8 +234,8 @@ func (s *statDB) UpdateOperator(ctx context.Context, nodeID storj.NodeID, update
 	}
 
 	updateFields := dbx.Node_Update_Fields{
-		Wallet: dbx.Node_Wallet(updateStats.Operator.GetWallet()),
-		Email:  dbx.Node_Email(updateStats.Operator.GetEmail()),
+		Wallet: dbx.Node_Wallet(operator.GetWallet()),
+		Email:  dbx.Node_Email(operator.GetEmail()),
 	}
 
 	updatedDBNode, err := tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
@@ -243,7 +243,7 @@ func (s *statDB) UpdateOperator(ctx context.Context, nodeID storj.NodeID, update
 		return nil, Error.Wrap(tx.Rollback())
 	}
 
-	updated := getNodeStats(updateStats.NodeID, updatedDBNode)
+	updated := getNodeStats(nodeID, updatedDBNode)
 
 	return updated, utils.CombineErrors(err, tx.Commit())
 }

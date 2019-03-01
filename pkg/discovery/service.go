@@ -167,11 +167,9 @@ func (discovery *Discovery) refresh(ctx context.Context) error {
 			continue
 		}
 
-		_, err = discovery.statdb.UpdateOperator(ctx, ping.Id, &statdb.NodeStats{
-			Operator: pb.NodeOperator{
-				Wallet: info.GetOperator().GetWallet(),
-				Email:  info.GetOperator().GetEmail(),
-			},
+		_, err = discovery.statdb.UpdateOperator(ctx, ping.Id, pb.NodeOperator{
+			Wallet: info.GetOperator().GetWallet(),
+			Email:  info.GetOperator().GetEmail(),
 		})
 		if err != nil {
 			discovery.log.Warn("could not update node operator", zap.String("ID", ping.GetAddress().String()))

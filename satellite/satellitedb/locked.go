@@ -599,11 +599,11 @@ func (m *lockedStatDB) UpdateBatch(ctx context.Context, requests []*statdb.Updat
 	return m.db.UpdateBatch(ctx, requests)
 }
 
-// UpdateNodeStats takes a NodeStats and updates the applicable entries
-func (m *lockedStatDB) UpdateOperator(ctx context.Context, node storj.NodeID, updatedStats *statdb.NodeStats) (stats *statdb.NodeStats, err error) {
+// UpdateOperator updates the email and wallet for a given node ID for satellite payments.
+func (m *lockedStatDB) UpdateOperator(ctx context.Context, node storj.NodeID, updatedOperator pb.NodeOperator) (stats *statdb.NodeStats, err error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.UpdateOperator(ctx, node, updatedStats)
+	return m.db.UpdateOperator(ctx, node, updatedOperator)
 }
 
 // UpdateUptime updates a single storagenode's uptime stats.
