@@ -28,7 +28,7 @@ type DB interface {
 	// Update all parts of single storagenode's stats.
 	Update(ctx context.Context, request *UpdateRequest) (stats *NodeStats, err error)
 	// UpdateNodeStats takes a NodeStats and updates the applicable entries
-	UpdateOperator(ctx context.Context, updatedStats *NodeStats) (stats *NodeStats, err error)
+	UpdateOperator(ctx context.Context, node storj.NodeID, updatedStats *NodeStats) (stats *NodeStats, err error)
 	// UpdateUptime updates a single storagenode's uptime stats.
 	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error)
 	// UpdateAuditSuccess updates a single storagenode's audit stats.

@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strings"
 
 	"github.com/zeebo/errs"
@@ -220,19 +221,10 @@ func (s *statDB) Update(ctx context.Context, updateReq *statdb.UpdateRequest) (s
 }
 
 // UpdateStats takes a NodeStats struct and updates the appropriate node with that information
-func (s *statDB) UpdateOperator(ctx context.Context, updateStats *statdb.NodeStats) (stats *statdb.NodeStats, err error) {
+func (s *statDB) UpdateOperator(ctx context.Context, nodeID storj.NodeID, updateStats *statdb.NodeStats) (stats *statdb.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if updateStats.NodeID.String() == "" {
-		return nil, Error.Wrap(err)
-	}
-
 	tx, err := s.db.Open(ctx)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	dbNode, err := tx.Get_Node_By_Id(ctx, dbx.Node_Id(updateStats.NodeID.Bytes()))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -242,15 +234,15 @@ func (s *statDB) UpdateOperator(ctx context.Context, updateStats *statdb.NodeSta
 		Email:  dbx.Node_Email(updateStats.Operator.GetEmail()),
 	}
 
-	updatedDBNode, err := tx.Update_Node_By_Id(ctx, dbx.Node_Id(updateStats.NodeID.Bytes()), updateFields)
-
+	updatedDBNode, err := tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
 	if err != nil {
 		return nil, Error.Wrap(tx.Rollback())
 	}
 
-	updatedStats := getNodeStats(updateStats.NodeID, updatedDBNode)
+	updated := getNodeStats(updateStats.NodeID, updatedDBNode)
+	fmt.Printf("returning updated %+v\n", updated)
 
-	return stats, utils.CombineErrors(err, tx.Commit())
+	return updated, utils.CombineErrors(err, tx.Commit())
 }
 
 // UpdateUptime updates a single storagenode's uptime stats in the db

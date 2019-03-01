@@ -607,10 +607,10 @@ func (m *lockedStatDB) UpdateBatch(ctx context.Context, requests []*statdb.Updat
 }
 
 // UpdateNodeStats takes a NodeStats and updates the applicable entries
-func (m *lockedStatDB) UpdateOperator(ctx context.Context, updatedStats *statdb.NodeStats) (stats *statdb.NodeStats, err error) {
+func (m *lockedStatDB) UpdateOperator(ctx context.Context, node storj.NodeID, updatedStats *statdb.NodeStats) (stats *statdb.NodeStats, err error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.UpdateOperator(ctx, updatedStats)
+	return m.db.UpdateOperator(ctx, node, updatedStats)
 }
 
 // UpdateUptime updates a single storagenode's uptime stats.

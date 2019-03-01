@@ -5,6 +5,7 @@ package statdb_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -145,8 +146,11 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 
 	{ // TestUpdateOperator
 
-		nodeID := storj.NodeID{5555555}
+		nodeID := storj.NodeID{10}
 		stats, err := sdb.CreateEntryIfNotExists(ctx, nodeID)
+
+		fmt.Printf("\n\n ### STATS %+v\n\n", stats)
+
 		assert.NoError(t, err)
 
 		assert.Equal(t, stats.Operator.Wallet, "")
@@ -159,9 +163,18 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 			},
 		}
 
-		updated, err := sdb.UpdateOperator(ctx, updatedStats)
+		update, err := sdb.UpdateOperator(ctx, nodeID, updatedStats)
 		assert.NoError(t, err)
-		assert.Equal(t, updated.Operator.Wallet, updatedStats.Operator.Wallet)
+		assert.NotNil(t, update)
+
+		found, err := sdb.Get(ctx, nodeID)
+		assert.NotNil(t, found)
+		assert.NoError(t, err)
+
+		fmt.Printf("\n\n ### FOUND %+v \n\n", found)
+
+		assert.Equal(t, updatedStats.Operator.Wallet, found.)
+		assert.Equal(t, updatedStats.Operator.Email, found.Operator.Email)
 	}
 
 	{ // TestUpdateExists
