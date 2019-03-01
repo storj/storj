@@ -66,8 +66,8 @@ type Storage interface {
 	// Close closes the underlying database.
 	Close() error
 
-	// PiecePath returns path of the specified piece on disk.
-	PiecePath(pieceID string) (string, error)
+	// Size returns size of the piece
+	Size(pieceID string) (int64, error)
 	// Info returns the current status of the disk.
 	Info() (pstore.DiskInfo, error)
 }
@@ -184,12 +184,7 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, e
 		return nil, err
 	}
 
-	path, err := s.storage.PiecePath(id)
-	if err != nil {
-		return nil, err
-	}
-
-	fileInfo, err := os.Stat(path)
+	size, err := s.storage.Size(id)
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +196,7 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, e
 	}
 
 	s.log.Info("Successfully retrieved meta", zap.String("Piece ID", in.GetId()))
-	return &pb.PieceSummary{Id: in.GetId(), PieceSize: fileInfo.Size(), ExpirationUnixSec: ttl}, nil
+	return &pb.PieceSummary{Id: in.GetId(), PieceSize: size, ExpirationUnixSec: ttl}, nil
 }
 
 // Stats returns current statistics about the server.
@@ -278,13 +273,10 @@ func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDelet
 }
 
 func (s *Server) deleteByID(id string) error {
-	if err := s.storage.Delete(id); err != nil {
-		return err
-	}
-	if err := s.DB.DeleteTTLByID(id); err != nil {
-		return err
-	}
-	return nil
+	return errs.Combine(
+		s.DB.DeleteTTLByID(id),
+		s.storage.Delete(id),
+	)
 }
 
 func (s *Server) verifySignature(ctx context.Context, rba *pb.Order) error {
