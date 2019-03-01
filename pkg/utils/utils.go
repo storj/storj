@@ -4,6 +4,8 @@
 package utils
 
 import (
+	"os"
+	"syscall"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -83,4 +85,32 @@ func discardNil(ch chan error) chan error {
 		close(r)
 	}()
 	return r
+}
+
+// IsWritable determines if a directory is writeable
+func IsWritable(path string) (bool, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return false, err
+	}
+
+	if !info.IsDir() {
+		return false, errs.New("Path %s is not a directory", path)
+	}
+
+	// Check if the user bit is enabled in file permission
+	if info.Mode().Perm()&(1<<(uint(7))) == 0 {
+		return false, errs.New("Write permission bit is not set on this file for user")
+	}
+
+	var stat syscall.Stat_t
+	if err = syscall.Stat(path, &stat); err != nil {
+		return false, errs.New("Unable to get stat")
+	}
+
+	if uint32(os.Geteuid()) != stat.Uid {
+		return false, errs.New("User doesn't have permission to write to this directory")
+	}
+
+	return true, nil
 }
