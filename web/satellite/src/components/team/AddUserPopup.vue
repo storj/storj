@@ -35,7 +35,7 @@
                                     <path d="M25 18.977V21.046H20.9722V25H19.0046V21.046H15V18.977H19.0046V15H20.9722V18.977H25Z" fill="white" />
                                 </svg>
                             </div>
-                            <p v-bind:class="[isMaxInputsCount ? 'inactive-label' : '']">Add Another</p>
+                            <p v-bind:class="[ isMaxInputsCount ? 'inactive-label' : '' ]">Add Another</p>
                         </div>
                     </div>
                     <div class='add-user__form-container__button-container'>
@@ -55,7 +55,7 @@
                     <path d="M18.1489 17.043H21.9149V28H18.1489V17.043ZM20 12C20.5816 12 21.0567 12.1823 21.4255 12.5468C21.8085 12.8979 22 13.357 22 13.9241C22 14.4776 21.8085 14.9367 21.4255 15.3013C21.0567 15.6658 20.5816 15.8481 20 15.8481C19.4184 15.8481 18.9362 15.6658 18.5532 15.3013C18.1844 14.9367 18 14.4776 18 13.9241C18 13.357 18.1844 12.8979 18.5532 12.5468C18.9362 12.1823 19.4184 12 20 12Z" fill="#F5F6FA"/>
                 </svg>
                 <div class="notification-wrap__text">
-                    <p>If the team member you want to invite to join the project is still not on this Satellite, please share this link to the signup page and ask them to register here: <a>www.storj.io/satellite/register</a></p>
+                    <p>If the team member you want to invite to join the project is still not on this Satellite, please share this link to the signup page and ask them to register here: <a href="https://storj.io/">www.storj.io/satellite/register</a></p>
                 </div>
             </div>
         </div>
@@ -299,6 +299,12 @@ export default class AddUserPopup extends Vue {}
         font-family: 'font_regular' !important;
         font-size: 16px;
         line-height: 25px;
+
+        a {
+            color: #2683FF;
+            text-decoration: none;
+            cursor: pointer;
+        }
     }
 
     .add-user {
