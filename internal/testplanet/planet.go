@@ -12,6 +12,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -454,9 +455,16 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			planet.config.Reconfigure.Satellite(log, i, &config)
 		}
 
+		// TODO: find source file, to set static path
+		_, filename, _, ok := runtime.Caller(0)
+		if !ok {
+			return xs, errs.New("no caller information")
+		}
+		storjRoot := strings.TrimSuffix(filename, "/internal/testplanet/planet.go")
+
 		// TODO: for development only
-		config.Console.StaticDir = "./web/satellite"
-		config.Mail.TemplatePath = "./web/satellite/static/emails"
+		config.Console.StaticDir = filepath.Join(storjRoot, "web/satellite")
+		config.Mail.TemplatePath = filepath.Join(storjRoot, "web/satellite/static/emails")
 
 		peer, err := satellite.New(log, identity, db, &config)
 		if err != nil {
