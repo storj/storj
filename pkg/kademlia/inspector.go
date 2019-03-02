@@ -119,13 +119,18 @@ func (srv *Inspector) DumpNodes(ctx context.Context, req *pb.DumpNodesRequest) (
 
 // NodeInfo sends a PING RPC to a node and returns its local info.
 func (srv *Inspector) NodeInfo(ctx context.Context, req *pb.NodeInfoRequest) (*pb.NodeInfoResponse, error) {
-	id, info, err := srv.dht.FetchInfo(ctx, req.Address)
+	self := srv.dht.Local()
+
+	info, err := srv.dht.FetchInfo(ctx, pb.Node{
+		Id:      req.Id,
+		Address: req.Address,
+		Type:    self.Type,
+	})
 	if err != nil {
 		return &pb.NodeInfoResponse{}, err
 	}
 
 	return &pb.NodeInfoResponse{
-		Id:       id.ID,
 		Type:     info.GetType(),
 		Operator: info.GetOperator(),
 		Capacity: info.GetCapacity(),

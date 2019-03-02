@@ -54,7 +54,11 @@ func NewClient(tlsOpts *tlsopts.Options, obs ...Observer) Client {
 	}
 }
 
-// DialNode returns a grpc connection with tls to a node
+// DialNode returns a grpc connection with tls to a node.
+//
+// Use this method for communicating with nodes as it is more secure than
+// DialAddress. The connection will be established successfully only if the
+// target node has the private key for the requested node ID.
 func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if node != nil {
@@ -87,7 +91,11 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 	return conn, nil
 }
 
-// DialAddress returns a grpc connection with tls to an IP address
+// DialAddress returns a grpc connection with tls to an IP address.
+//
+// Do not use this method unless having a good reason. In most cases DialNode
+// should be used for communicating with nodes as it is more secure than
+// DialAddress.
 func (transport *Transport) DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
 

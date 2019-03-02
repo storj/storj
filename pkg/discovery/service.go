@@ -161,7 +161,7 @@ func (discovery *Discovery) refresh(ctx context.Context) error {
 		}
 
 		// update email and wallet with correct info
-		_, info, err := discovery.kad.FetchInfo(ctx, ping.GetAddress())
+		info, err := discovery.kad.FetchInfo(ctx, *node)
 		if err != nil {
 			discovery.log.Warn("could not fetch node info", zap.String("ID", ping.GetAddress().String()))
 			continue
