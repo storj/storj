@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/mail"
+	"net/smtp"
 	"os"
 	"path/filepath"
 
@@ -16,6 +18,8 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/internal/post"
+	"storj.io/storj/internal/post/oauth2"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/accounting/rollup"
 	"storj.io/storj/pkg/accounting/tally"
@@ -41,6 +45,8 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/storelogger"
@@ -97,6 +103,7 @@ type Config struct {
 	Tally  tally.Config
 	Rollup rollup.Config
 
+	Mail    mailservice.Config
 	Console consoleweb.Config
 }
 
@@ -161,6 +168,10 @@ type Peer struct {
 	Accounting struct {
 		Tally  *tally.Tally
 		Rollup *rollup.Rollup
+	}
+
+	Mail struct {
+		Service *mailservice.Service
 	}
 
 	Console struct {
@@ -363,30 +374,93 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.Accounting(), config.Rollup.Interval)
 	}
 
-	{ // setup console
-		log.Debug("Setting up console")
-		config := config.Console
+	{ // setup mailservice
+		log.Debug("Setting up mail service")
+		// TODO(yar): test multiple satellites using same OAUTH credentials
+		mailConfig := config.Mail
 
-		peer.Console.Listener, err = net.Listen("tcp", config.Address)
+		// validate from mail address
+		from, err := mail.ParseAddress(mailConfig.From)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Console.Service, err = console.NewService(peer.Log.Named("console:service"),
-			// TODO: use satellite key
+		// validate smtp server address
+		host, _, err := net.SplitHostPort(mailConfig.SMTPServerAddress)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		var sender mailservice.Sender
+		switch mailConfig.AuthType {
+		case "oauth2":
+			creds := oauth2.Credentials{
+				ClientID:     mailConfig.ClientID,
+				ClientSecret: mailConfig.ClientSecret,
+				TokenURI:     mailConfig.TokenURI,
+			}
+			token, err := oauth2.RefreshToken(creds, mailConfig.RefreshToken)
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			sender = &post.SMTPSender{
+				From: *from,
+				Auth: &oauth2.Auth{
+					UserEmail: from.Address,
+					Storage:   oauth2.NewTokenStore(creds, *token),
+				},
+				ServerAddress: mailConfig.SMTPServerAddress,
+			}
+		case "plain":
+			sender = &post.SMTPSender{
+				From:          *from,
+				Auth:          smtp.PlainAuth("", mailConfig.PlainLogin, mailConfig.PlainPassword, host),
+				ServerAddress: mailConfig.SMTPServerAddress,
+			}
+		default:
+			sender = &simulate.LinkClicker{}
+		}
+
+		peer.Mail.Service, err = mailservice.New(
+			peer.Log.Named("mailservice:service"),
+			sender,
+			mailConfig.TemplatePath,
+		)
+
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+	}
+
+	{ // setup console
+		log.Debug("Setting up console")
+		consoleConfig := config.Console
+
+		peer.Console.Listener, err = net.Listen("tcp", consoleConfig.Address)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Console.Service, err = console.NewService(
+			peer.Log.Named("console:service"),
+			// TODO(yar): use satellite key
 			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 			peer.DB.Console(),
-			config.PasswordCost,
+			consoleConfig.PasswordCost,
 		)
 
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Console.Endpoint = consoleweb.NewServer(peer.Log.Named("console:endpoint"),
-			config,
+		peer.Console.Endpoint = consoleweb.NewServer(
+			peer.Log.Named("console:endpoint"),
+			consoleConfig,
 			peer.Console.Service,
-			peer.Console.Listener)
+			peer.Mail.Service,
+			peer.Console.Listener,
+		)
 	}
 
 	return peer, nil
