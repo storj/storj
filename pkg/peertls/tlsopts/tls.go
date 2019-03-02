@@ -70,10 +70,6 @@ func (opts *Options) TLSConfig(id storj.NodeID) *tls.Config {
 func verifyIdentity(id storj.NodeID) peertls.PeerCertVerificationFunc {
 	return func(_ [][]byte, parsedChains [][]*x509.Certificate) (err error) {
 		defer mon.TaskNamed("verifyIdentity")(nil)(&err)
-		if id == (storj.NodeID{}) {
-			return nil
-		}
-
 		peer, err := identity.PeerIdentityFromCerts(parsedChains[0][0], parsedChains[0][1], parsedChains[0][2:])
 		if err != nil {
 			return err
