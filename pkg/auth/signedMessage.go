@@ -63,7 +63,7 @@ func SignMessage(msg SignableMessage, ID identity.FullIdentity) error {
 		return ErrSign.Wrap(err)
 	}
 	msg.SetSignature(signature)
-	msg.SetCerts(ID.ChainRaw())
+	msg.SetCerts(ID.RawChain())
 	return nil
 }
 

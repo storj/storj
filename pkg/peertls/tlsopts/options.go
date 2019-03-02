@@ -88,6 +88,6 @@ func (opts *Options) configure(c Config) (err error) {
 
 	opts.PCVFuncs = pcvs
 
-	opts.Cert, err = peertls.TLSCert(opts.Ident.ChainRaw(), opts.Ident.Leaf, opts.Ident.Key)
+	opts.Cert, err = peertls.TLSCert(opts.Ident.RawChain(), opts.Ident.Leaf, opts.Ident.Key)
 	return err
 }
