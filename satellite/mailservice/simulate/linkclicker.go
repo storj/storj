@@ -24,6 +24,7 @@ func (clicker *LinkClicker) FromAddress() post.Address {
 
 // SendEmail click all links from email html parts
 func (clicker *LinkClicker) SendEmail(msg *post.Message) error {
+	// dirty way to find links without pulling in a html dependency
 	regx := regexp.MustCompile(`href="([^\s])+"`)
 	// collect all links
 	var links []string

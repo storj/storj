@@ -111,10 +111,19 @@ func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg
 
 	err = service.sender.SendEmail(m)
 	// log error
+
+	var recipients []string
+	for _, recipient := range to {
+		recipients = append(recipients, recipient.String())
+	}
+
 	if err != nil {
-		service.log.Info("error from mail sender", zap.String("error", err.Error()))
+		service.log.Info("error from mail sender",
+			zap.String("error", err.Error()),
+			zap.Strings("recipients", recipients))
 	} else {
-		service.log.Info("successfully send message")
+		service.log.Info("successfully send message",
+			zap.Strings("recipients", recipients))
 	}
 
 	return err
