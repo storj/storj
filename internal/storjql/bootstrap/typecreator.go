@@ -5,6 +5,7 @@ package bootstrapweb
 
 import (
 	"github.com/graphql-go/graphql"
+
 	"storj.io/storj/bootstrap/bootstrapweb"
 )
 

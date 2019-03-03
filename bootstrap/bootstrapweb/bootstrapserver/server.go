@@ -10,13 +10,13 @@ import (
 	"net/http"
 	"path/filepath"
 
-	"storj.io/storj/bootstrap/bootstrapweb"
-	"storj.io/storj/internal/storjql"
-
 	"github.com/graphql-go/graphql"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+
+	"storj.io/storj/bootstrap/bootstrapweb"
+	"storj.io/storj/internal/storjql"
 )
 
 const (
