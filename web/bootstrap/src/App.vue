@@ -18,3 +18,22 @@
 
 </script>
 
+<style lang="scss">
+    body {
+        margin: 0 !important;
+    }
+    @font-face {
+        font-family: "montserrat_regular";
+        src: url("../../satellite/static/fonts/montserrat_regular.ttf");
+    }
+
+    @font-face {
+        font-family: "montserrat_medium";
+        src: url("../../satellite/static/fonts/montserrat_medium.ttf");
+    }
+
+    @font-face {
+        font-family: "montserrat_bold";
+        src: url("../../satellite/static/fonts/montserrat_bold.ttf");
+    }
+</style>

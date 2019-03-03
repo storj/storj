@@ -25,7 +25,7 @@ import (
 
 	"storj.io/storj/bootstrap"
 	"storj.io/storj/bootstrap/bootstrapdb"
-	"storj.io/storj/bootstrap/bootstrapweb"
+	"storj.io/storj/bootstrap/bootstrapweb/bootstrapserver"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/accounting/rollup"
 	"storj.io/storj/pkg/accounting/tally"
@@ -620,7 +620,7 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 				Wallet: "0x" + strings.Repeat("00", 20),
 			},
 		},
-		BootstrapWeb: bootstrapweb.Config{
+		BootstrapWeb: bootstrapserver.Config{
 			Address:   "127.0.0.1:0",
 			StaticDir: "./web/bootstrap", // TODO: for development only
 		},

@@ -3,8 +3,9 @@
 
 import apolloManager from '@/utils/apolloManager';
 import gql from 'graphql-tag';
+import { NodeStatus } from '@/types/nodeStatus';
 
-export async function isNodeUp(nodeId: string): Promise<boolean> {
+export async function checkAvailability(nodeId: string): Promise<number> {
     try {
         let response: any = await apolloManager.query(
             {
@@ -20,12 +21,12 @@ export async function isNodeUp(nodeId: string): Promise<boolean> {
         );
 
         if (response.errors) {
-            return false;
+            return NodeStatus.Error;
         }
 
-        return response.data.status;
+        return response.data.isNodeUp ? NodeStatus.Active : NodeStatus.Error;
 
     } catch (e) {
-        return false;
+        return NodeStatus.Error;
     }
 }

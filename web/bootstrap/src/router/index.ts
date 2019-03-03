@@ -8,14 +8,14 @@ import Search from '@/views/Search.vue';
 Vue.use(Router);
 
 let router = new Router({
-	mode: 'history',
-	routes: [
-		{
-			path: '',
-			name: '',
-			component: Search
-		},
-	]
+    mode: 'history',
+    routes: [
+        {
+            path: '',
+            name: '',
+            component: Search
+        },
+    ]
 });
 
 export default router;

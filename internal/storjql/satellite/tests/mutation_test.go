@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package consoleql_test
+package tests
 
 import (
 	"bytes"
@@ -15,12 +15,13 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/post"
+	"storj.io/storj/internal/storjql"
+	consoleql "storj.io/storj/internal/storjql/satellite"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
-	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
@@ -56,7 +57,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		mailService, err := mailservice.New(log, &discardSender{}, "testdata")
+		mailService, err := mailservice.New(log, &discardSender{}, "../testdata")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -65,7 +66,7 @@ func TestGrapqhlMutation(t *testing.T) {
 		rootObject["origin"] = "http://doesntmatter.com/"
 		rootObject[consoleql.ActivationPath] = "?activationToken="
 
-		schema, err := consoleql.CreateSchema(service, mailService)
+		schema, err := storjql.CreateConsoleSchema(service, mailService)
 		if err != nil {
 			t.Fatal(err)
 		}

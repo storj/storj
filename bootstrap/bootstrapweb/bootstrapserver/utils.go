@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package bootstrapweb
+package bootstrapserver
 
 import (
 	"encoding/json"
@@ -10,6 +10,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	bootstrapql "storj.io/storj/internal/storjql/bootstrap"
 	"storj.io/storj/pkg/utils"
 )
 
@@ -24,7 +25,7 @@ type graphqlJSON struct {
 func getQuery(req *http.Request) (query graphqlJSON, err error) {
 	switch req.Method {
 	case http.MethodGet:
-		query.Query = req.URL.Query().Get(Query)
+		query.Query = req.URL.Query().Get(bootstrapql.Query)
 		return query, nil
 	case http.MethodPost:
 		return queryPOST(req)

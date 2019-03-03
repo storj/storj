@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package bootstrapweb
+package bootstrapserver
 
 import (
 	"context"
@@ -9,6 +9,9 @@ import (
 	"net"
 	"net/http"
 	"path/filepath"
+
+	"storj.io/storj/bootstrap/bootstrapweb"
+	"storj.io/storj/internal/storjql"
 
 	"github.com/graphql-go/graphql"
 	"github.com/zeebo/errs"
@@ -37,7 +40,7 @@ type Server struct {
 	log *zap.Logger
 
 	config   Config
-	service  *Service
+	service  *bootstrapweb.Service
 	listener net.Listener
 
 	schema graphql.Schema
@@ -45,7 +48,7 @@ type Server struct {
 }
 
 // NewServer creates new instance of bootstrap web server
-func NewServer(logger *zap.Logger, config Config, service *Service, listener net.Listener) *Server {
+func NewServer(logger *zap.Logger, config Config, service *bootstrapweb.Service, listener net.Listener) *Server {
 	server := Server{
 		log:      logger,
 		service:  service,
@@ -107,7 +110,7 @@ func (s *Server) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 // Run starts the server that host webapp and api endpoint
 func (s *Server) Run(ctx context.Context) error {
 	var err error
-	s.schema, err = CreateSchema(s.service)
+	s.schema, err = storjql.CreateBootstrapSchema(s.service)
 	if err != nil {
 		return Error.Wrap(err)
 	}

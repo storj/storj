@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/bootstrap/bootstrapweb"
+	"storj.io/storj/bootstrap/bootstrapweb/bootstrapserver"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
@@ -42,7 +43,7 @@ type Config struct {
 	Server   server.Config
 	Kademlia kademlia.Config
 
-	BootstrapWeb bootstrapweb.Config
+	BootstrapWeb bootstrapserver.Config
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
@@ -77,7 +78,7 @@ type Peer struct {
 	BootstrapWeb struct {
 		Listener net.Listener
 		Service  *bootstrapweb.Service
-		Endpoint *bootstrapweb.Server
+		Endpoint *bootstrapserver.Server
 	}
 }
 
@@ -170,7 +171,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.BootstrapWeb.Endpoint = bootstrapweb.NewServer(
+		peer.BootstrapWeb.Endpoint = bootstrapserver.NewServer(
 			peer.Log.Named("bootstrapWeb:endpoint"),
 			config,
 			peer.BootstrapWeb.Service,

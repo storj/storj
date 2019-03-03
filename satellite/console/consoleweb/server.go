@@ -15,9 +15,10 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/storj/internal/storjql"
+	consoleql "storj.io/storj/internal/storjql/satellite"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
 )
 
@@ -136,7 +137,7 @@ func (s *Server) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 // Run starts the server that host webapp and api endpoint
 func (s *Server) Run(ctx context.Context) error {
 	var err error
-	s.schema, err = consoleql.CreateSchema(s.service, s.mailService)
+	s.schema, err = storjql.CreateConsoleSchema(s.service, s.mailService)
 	if err != nil {
 		return Error.Wrap(err)
 	}

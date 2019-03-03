@@ -5,6 +5,7 @@ package bootstrapweb
 
 import (
 	"github.com/graphql-go/graphql"
+	"storj.io/storj/bootstrap/bootstrapweb"
 )
 
 // Types return graphql type objects
@@ -18,7 +19,7 @@ type TypeCreator struct {
 }
 
 // Create create types and check for error
-func (c *TypeCreator) Create(service *Service) error {
+func (c *TypeCreator) Create(service *bootstrapweb.Service) error {
 	// root objects
 	c.query = rootQuery(service, c)
 

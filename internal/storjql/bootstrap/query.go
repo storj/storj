@@ -6,6 +6,7 @@ package bootstrapweb
 import (
 	"github.com/graphql-go/graphql"
 
+	"storj.io/storj/bootstrap/bootstrapweb"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -20,7 +21,7 @@ const (
 )
 
 // rootQuery creates query for graphql
-func rootQuery(service *Service, types Types) *graphql.Object {
+func rootQuery(service *bootstrapweb.Service, types Types) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: Query,
 		Fields: graphql.Fields{

@@ -1,0 +1,7 @@
+export const MUTATIONS = {
+    SET_NODE_STATUS: 'SET_NODE_STATUS',
+};
+
+export const ACTIONS = {
+    CHECK_NODE_STATUS: 'CHECK_NODE_STATUS',
+};

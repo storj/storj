@@ -4,7 +4,7 @@
 <template>
 	<div class="overlay">
 		<div class="overlay__main-container">
-			<div class="overlay__main-container__svg" v-if="!isSuccessCheck && !isFailureCheck">
+			<div class="overlay__main-container__svg" v-if="nodeStatus.isNone">
 				<div class="loading-line"></div>
 				<svg width="120px" height="120px" viewBox="0 0 120 120" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
 					<defs>
@@ -23,36 +23,50 @@
 					</g>
 				</svg>
 			</div>
-			<Success v-if="isSuccessCheck"/>
-			<Failure v-if="isFailureCheck"/>
+			<Success v-if="nodeStatus.isActive"/>
+			<Failure v-if="nodeStatus.isError"/>
 		</div>
 	</div>
 </template>
 
-<script>
+<script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import Success from './SuccessNodeConnectivity.vue';
-import Failure from './FailureNodeConnectivity.vue';
+import Success from './Success.vue';
+import Failure from './Failure.vue';
+import { NodeStatus } from '../types/nodeStatus';
 
 @Component({
-	mounted() {
-	    setTimeout(() => {
-	        this.$data.isFailureCheck = true;
-	    }, 3500)
-	},
-	data: function () {
-		return {
-		    isSuccessCheck: false,
-			isFailureCheck: false,
-		}
+    mounted() {
+        (document as any).querySelector('.overlay').classList.add('active');
+    },
+    data: function () {
+        return {
+            isSuccessCheck: false,
+            isFailureCheck: false,
+        };
+    },
+    computed: {
+        nodeStatus: function () {
+            const currentNodeStatus = this.$store.state.nodeStatus;
+
+            const isNone = currentNodeStatus === NodeStatus.None;
+            const isActive = currentNodeStatus === NodeStatus.Active;
+            const isError = currentNodeStatus === NodeStatus.Error;
+
+            return {
+                isNone,
+                isActive,
+                isError,
+            };
+        },
     },
     components: {
         Success,
-        Failure
+        Failure,
     },
 })
 
-export default class NodeLoading extends Vue {}
+export default class Loading extends Vue {}
 </script>
 
 <style lang="scss">

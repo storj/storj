@@ -61,7 +61,7 @@
         <div class="failure-container__animation-container">
             <p class="failure-container__title">Your Node Not Found</p>
             <p class="failure-container__info">Please check your Node ID or restart your Storj Node and try again later</p>
-            <div class="overlay__main-container__button">
+            <div class="overlay__main-container__button" @click="onTryAgainClick">
                 <p class="overlay__main-container__button__text">Try Again</p>
             </div>
             <p class="overlay__main-container__support">Or Contact our <a>Support</a></p>
@@ -69,18 +69,23 @@
 	</div>
 </template>
 
-<script>
+<script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
 @Component({
     mounted() {
         setTimeout(() => {
-            document.querySelector('.failure-container').classList.add('active');
+            (document as any).querySelector('.failure-container').classList.add('active');
         }, 500);
-    }
+    },
+    methods: {
+        onTryAgainClick: function () {
+            location.reload();
+        },
+    },
 })
 
-export default class FailureNodeConnectivity extends Vue {}
+export default class Failure extends Vue {}
 </script>
 
 <style lang="scss">

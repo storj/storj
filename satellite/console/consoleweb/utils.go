@@ -11,8 +11,8 @@ import (
 
 	"github.com/zeebo/errs"
 
+	consoleql "storj.io/storj/internal/storjql/satellite"
 	"storj.io/storj/pkg/utils"
-	"storj.io/storj/satellite/console/consoleweb/consoleql"
 )
 
 // JSON request from graphql clients

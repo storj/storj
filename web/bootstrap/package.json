@@ -21,7 +21,8 @@
     "vue-class-component": "^6.0.0",
     "vue-clipboards": "^1.2.4",
     "vue-property-decorator": "^7.0.0",
-    "vue-router": "^3.0.1"
+    "vue-router": "^3.0.1",
+    "vuex": "^3.0.1"
   },
   "devDependencies": {
     "@babel/core": "^7.0.0",
