@@ -1,3 +1,6 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 export const MUTATIONS = {
     SET_NODE_STATUS: 'SET_NODE_STATUS',
 };
