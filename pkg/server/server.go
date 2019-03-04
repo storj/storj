@@ -43,13 +43,13 @@ type Server struct {
 
 // New creates a Server out of an Identity, a net.Listener,
 // a UnaryServerInterceptor, and a set of services.
-func New(opts *tlsopts.Options, pubAddr, privAddr string, interceptor grpc.UnaryServerInterceptor, services ...Service) (*Server, error) {
+func New(opts *tlsopts.Options, publicAddr, privateAddr string, interceptor grpc.UnaryServerInterceptor, services ...Service) (*Server, error) {
 	unaryInterceptor := unaryInterceptor
 	if interceptor != nil {
 		unaryInterceptor = combineInterceptors(unaryInterceptor, interceptor)
 	}
 
-	publicListener, err := net.Listen("tcp", pubAddr)
+	publicListener, err := net.Listen("tcp", publicAddr)
 	if err != nil {
 		return nil, errs.Combine(err, publicListener.Close())
 	}
@@ -62,7 +62,7 @@ func New(opts *tlsopts.Options, pubAddr, privAddr string, interceptor grpc.Unary
 		),
 	}
 
-	privateListener, err := net.Listen("tcp", privAddr)
+	privateListener, err := net.Listen("tcp", privateAddr)
 	if err != nil {
 		return nil, errs.Combine(err, privateListener.Close())
 	}
@@ -98,7 +98,7 @@ func (p *Server) GRPC() *grpc.Server { return p.public.grpc }
 // PrivateGRPC returns the server's gRPC handle for registration purposes
 func (p *Server) PrivateGRPC() *grpc.Server { return p.private.grpc }
 
-// Close shuts down the server and closes listeners
+// Close shuts down the server
 func (p *Server) Close() error {
 	p.public.grpc.GracefulStop()
 	p.private.grpc.GracefulStop()
