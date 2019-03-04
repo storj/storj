@@ -134,7 +134,9 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 
 	// Ensure timer is stopped in the case of repair threshold is reached, but
 	// not the success threshold due to errors instead of slowness.
-	timer.Stop()
+	if timer != nil {
+		timer.Stop()
+	}
 
 	/* clean up the partially uploaded segment's pieces */
 	defer func() {
