@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
@@ -67,9 +68,9 @@ func TestHappyPath(t *testing.T) {
 		{ID: "test", Expiration: 666},
 	}
 
-	bandwidthAllocation := func(signature string, satelliteID storj.NodeID, total int64) *pb.Order {
+	bandwidthAllocation := func(serialnum, signature string, satelliteID storj.NodeID, total int64) *pb.Order {
 		return &pb.Order{
-			PayerAllocation: pb.OrderLimit{SatelliteId: satelliteID},
+			PayerAllocation: pb.OrderLimit{SatelliteId: satelliteID, SerialNumber: serialnum},
 			Total:           total,
 			Signature:       []byte(signature),
 		}
@@ -78,10 +79,10 @@ func TestHappyPath(t *testing.T) {
 	//TODO: use better data
 	nodeIDAB := teststorj.NodeIDFromString("AB")
 	allocationTests := []*pb.Order{
-		bandwidthAllocation("signed by test", nodeIDAB, 0),
-		bandwidthAllocation("signed by sigma", nodeIDAB, 10),
-		bandwidthAllocation("signed by sigma", nodeIDAB, 98),
-		bandwidthAllocation("signed by test", nodeIDAB, 3),
+		bandwidthAllocation("serialnum_1", "signed by test", nodeIDAB, 0),
+		bandwidthAllocation("serialnum_2", "signed by sigma", nodeIDAB, 10),
+		bandwidthAllocation("serialnum_3", "signed by sigma", nodeIDAB, 98),
+		bandwidthAllocation("serialnum_4", "signed by test", nodeIDAB, 3),
 	}
 
 	type bwUsage struct {
@@ -283,6 +284,32 @@ func TestHappyPath(t *testing.T) {
 			})
 		}
 	})
+
+	type bwaUsage struct {
+		serialnum string
+		status    psdb.BwaStatus
+	}
+
+	bwatests := []bwaUsage{
+		{serialnum: "serialnum_1", status: psdb.BwaStatusUNSENT},
+		{serialnum: "serialnum_2", status: psdb.BwaStatusREJECT},
+		{serialnum: "serialnum_3", status: psdb.BwaStatusSENT},
+	}
+	t.Run("UpdateBandwidthAllocationStatus", func(t *testing.T) {
+		for P := 0; P < concurrency; P++ {
+			t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
+				t.Parallel()
+				for _, bw := range bwatests {
+					err := db.UpdateBandwidthAllocationStatus(bw.serialnum, bw.status)
+					require.NoError(t, err)
+					status, err := db.GetBwaStatusBySerialNum(bw.serialnum)
+					require.NoError(t, err)
+					assert.Equal(t, bw.status, status)
+				}
+			})
+		}
+	})
+
 }
 
 func BenchmarkWriteBandwidthAllocation(b *testing.B) {
