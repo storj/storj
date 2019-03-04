@@ -40,7 +40,7 @@ func rootQuery(service *bootstrapweb.Service, types Types) *graphql.Object {
 						return false, err
 					}
 
-					return service.IsNodeUp(p.Context, nodeID)
+					return service.IsNodeAvailable(p.Context, nodeID)
 				},
 			},
 		},
