@@ -62,7 +62,12 @@ func NewService(log *zap.Logger, signer Signer, store DB, passwordCost int) (*Se
 		passwordCost = bcrypt.DefaultCost
 	}
 
-	return &Service{Signer: signer, store: store, log: log, passwordCost: passwordCost}, nil
+	return &Service{
+		Signer:       signer,
+		store:        store,
+		log:          log,
+		passwordCost: passwordCost,
+	}, nil
 }
 
 // CreateUser gets password hash value and creates new inactive User
@@ -93,23 +98,18 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser) (u *User, err
 		PasswordHash: hash,
 	})
 
-	// TODO: send "finish registration email" when email service will be ready
-	//activationToken, err := s.GenerateActivationToken(ctx, u.ID, email, u.CreatedAt.Add(tokenExpirationTime))
-	//if err != nil {
-	//	return nil, err
-	//}
-
 	return u, err
 }
 
 // GenerateActivationToken - is a method for generating activation token
-func (s *Service) GenerateActivationToken(ctx context.Context, id uuid.UUID, email string, expirationDate time.Time) (activationToken string, err error) {
+func (s *Service) GenerateActivationToken(ctx context.Context, id uuid.UUID, email string) (activationToken string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	//TODO: activation token should differ from auth token
 	claims := &consoleauth.Claims{
 		ID:         id,
 		Email:      email,
-		Expiration: expirationDate,
+		Expiration: time.Now().Add(time.Hour * 24),
 	}
 
 	return s.createToken(claims)

@@ -16,7 +16,6 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
-	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/piecestore/psserver/agreementsender"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
@@ -33,8 +32,8 @@ type DB interface {
 	// Close closes the database
 	Close() error
 
+	Storage() psserver.Storage
 	// TODO: use better interfaces
-	Storage() *pstore.Storage
 	PSDB() *psdb.DB
 	RoutingTable() (kdb, ndb storage.KeyValueStore)
 }

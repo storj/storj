@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information
 
-package gmail
+package oauth2
 
 import (
 	"encoding/json"
@@ -16,7 +16,7 @@ import (
 	"github.com/zeebo/errs"
 )
 
-// Auth is XOAUTH2 implementation of smtp.Auth interface for gmail
+// Auth is XOAUTH2 implementation of smtp.Auth interface
 type Auth struct {
 	UserEmail string
 
@@ -43,7 +43,7 @@ func (auth *Auth) Next(fromServer []byte, more bool) (toServer []byte, err error
 	return nil, nil
 }
 
-// Token represents OAUTH2 token
+// Token represents OAuth2 token
 type Token struct {
 	AccessToken  string    `json:"access_token"`
 	RefreshToken string    `json:"refresh_token"`
@@ -51,14 +51,14 @@ type Token struct {
 	Expiry       time.Time `json:"expiry"`
 }
 
-// Credentials represents OAUTH2 credentials
+// Credentials represents OAuth2 credentials
 type Credentials struct {
 	ClientID     string `json:"client_id"`
 	ClientSecret string `json:"client_secret"`
 	TokenURI     string `json:"token_uri"`
 }
 
-// TokenStore is a thread safe storage for OAUTH2 token and credentials
+// TokenStore is a thread safe storage for OAuth2 token and credentials
 type TokenStore struct {
 	mu    sync.Mutex
 	token Token

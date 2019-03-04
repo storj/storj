@@ -7,6 +7,7 @@ import (
 	"github.com/graphql-go/graphql"
 
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/mailservice"
 )
 
 // Types return graphql type objects
@@ -44,7 +45,7 @@ type TypeCreator struct {
 }
 
 // Create create types and check for error
-func (c *TypeCreator) Create(service *console.Service) error {
+func (c *TypeCreator) Create(service *console.Service, mailService *mailservice.Service) error {
 	// inputs
 	c.userInput = graphqlUserInput(c)
 	if err := c.userInput.Error(); err != nil {
@@ -93,7 +94,7 @@ func (c *TypeCreator) Create(service *console.Service) error {
 		return err
 	}
 
-	c.mutation = rootMutation(service, c)
+	c.mutation = rootMutation(service, mailService, c)
 	if err := c.mutation.Error(); err != nil {
 		return err
 	}
