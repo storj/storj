@@ -16,6 +16,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/bootstrap/bootstrapweb"
+	"storj.io/storj/bootstrap/bootstrapweb/bootstrapserver/bootstrapql"
 	"storj.io/storj/internal/storjql"
 )
 
@@ -110,7 +111,10 @@ func (s *Server) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 // Run starts the server that host webapp and api endpoint
 func (s *Server) Run(ctx context.Context) error {
 	var err error
-	s.schema, err = storjql.CreateBootstrapSchema(s.service)
+
+	storjql.WithLock(func() {
+		s.schema, err = bootstrapql.CreateSchema(s.service)
+	})
 	if err != nil {
 		return Error.Wrap(err)
 	}

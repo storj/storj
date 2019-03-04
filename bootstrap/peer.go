@@ -75,7 +75,7 @@ type Peer struct {
 	}
 
 	// Web server with web UI
-	BootstrapWeb struct {
+	Web struct {
 		Listener net.Listener
 		Service  *bootstrapweb.Service
 		Endpoint *bootstrapserver.Server
@@ -157,12 +157,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 	{ // setup bootstrap web ui
 		config := config.BootstrapWeb
 
-		peer.BootstrapWeb.Listener, err = net.Listen("tcp", config.Address)
+		peer.Web.Listener, err = net.Listen("tcp", config.Address)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.BootstrapWeb.Service, err = bootstrapweb.NewService(
+		peer.Web.Service, err = bootstrapweb.NewService(
 			peer.Log.Named("bootstrapWeb:service"),
 			peer.Kademlia.Service,
 		)
@@ -171,11 +171,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.BootstrapWeb.Endpoint = bootstrapserver.NewServer(
+		peer.Web.Endpoint = bootstrapserver.NewServer(
 			peer.Log.Named("bootstrapWeb:endpoint"),
 			config,
-			peer.BootstrapWeb.Service,
-			peer.BootstrapWeb.Listener,
+			peer.Web.Service,
+			peer.Web.Listener,
 		)
 	}
 
@@ -198,7 +198,7 @@ func (peer *Peer) Run(ctx context.Context) error {
 		return ignoreCancel(peer.Public.Server.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.BootstrapWeb.Endpoint.Run(ctx))
+		return ignoreCancel(peer.Web.Endpoint.Run(ctx))
 	})
 
 	return group.Wait()
@@ -227,8 +227,12 @@ func (peer *Peer) Close() error {
 		}
 	}
 
-	if peer.BootstrapWeb.Endpoint != nil {
-		errlist.Add(peer.BootstrapWeb.Endpoint.Close())
+	if peer.Web.Endpoint != nil {
+		errlist.Add(peer.Web.Endpoint.Close())
+	} else {
+		if peer.Web.Listener != nil {
+			errlist.Add(peer.Web.Listener.Close())
+		}
 	}
 
 	// close services in reverse initialization order

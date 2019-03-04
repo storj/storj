@@ -15,7 +15,6 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/post"
-	"storj.io/storj/internal/storjql"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite"
@@ -66,7 +65,7 @@ func TestGrapqhlMutation(t *testing.T) {
 		rootObject["origin"] = "http://doesntmatter.com/"
 		rootObject[consoleql.ActivationPath] = "?activationToken="
 
-		schema, err := storjql.CreateConsoleSchema(service, mailService)
+		schema, err := consoleql.CreateSchema(service, mailService)
 		if err != nil {
 			t.Fatal(err)
 		}
