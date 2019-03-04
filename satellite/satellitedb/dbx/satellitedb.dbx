@@ -132,6 +132,9 @@ model node (
 
 	field created_at timestamp ( autoinsert )
 	field updated_at timestamp ( autoinsert, autoupdate )
+
+	field wallet 			text ( updatable )
+	field email 			text ( updatable )
 )
 
 create node ( )
@@ -181,11 +184,6 @@ create overlay_cache_node ( )
 read one (
 	select overlay_cache_node
 	where  overlay_cache_node.node_id = ?
-)
-
-read one (
-	select overlay_cache_node.operator_wallet
-	where overlay_cache_node.node_id = ?
 )
 
 read limitoffset (

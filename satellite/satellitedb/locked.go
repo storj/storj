@@ -113,7 +113,7 @@ type lockedBandwidthAgreement struct {
 }
 
 // CreateAgreement adds a new bandwidth agreement.
-func (m *lockedBandwidthAgreement) CreateAgreement(ctx context.Context, a1 *pb.Order) error {
+func (m *lockedBandwidthAgreement) CreateAgreement(ctx context.Context, a1 *pb.RenterBandwidthAllocation) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.CreateAgreement(ctx, a1)
@@ -468,13 +468,6 @@ func (m *lockedOverlayCache) GetAll(ctx context.Context, nodeIDs storj.NodeIDLis
 	return m.db.GetAll(ctx, nodeIDs)
 }
 
-// GetWalletAddress gets the node's wallet address
-func (m *lockedOverlayCache) GetWalletAddress(ctx context.Context, id storj.NodeID) (string, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetWalletAddress(ctx, id)
-}
-
 // List lists nodes starting from cursor
 func (m *lockedOverlayCache) List(ctx context.Context, cursor storj.NodeID, limit int) ([]*pb.Node, error) {
 	m.Lock()
@@ -604,6 +597,13 @@ func (m *lockedStatDB) UpdateBatch(ctx context.Context, requests []*statdb.Updat
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UpdateBatch(ctx, requests)
+}
+
+// UpdateOperator updates the email and wallet for a given node ID for satellite payments.
+func (m *lockedStatDB) UpdateOperator(ctx context.Context, node storj.NodeID, updatedOperator pb.NodeOperator) (stats *statdb.NodeStats, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateOperator(ctx, node, updatedOperator)
 }
 
 // UpdateUptime updates a single storagenode's uptime stats.

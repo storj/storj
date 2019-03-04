@@ -109,43 +109,26 @@ func (dialer *Dialer) FetchPeerIdentity(ctx context.Context, target pb.Node) (pI
 	return identity.PeerIdentityFromPeer(p)
 }
 
-// FetchInfo connects to a node address and returns its node info.
-func (dialer *Dialer) FetchInfo(ctx context.Context, address *pb.NodeAddress) (*identity.PeerIdentity, *pb.InfoResponse, error) {
+// FetchInfo connects to a node and returns its node info.
+func (dialer *Dialer) FetchInfo(ctx context.Context, target pb.Node) (*pb.InfoResponse, error) {
 	if !dialer.limit.Lock() {
-		return nil, nil, context.Canceled
+		return nil, context.Canceled
 	}
 	defer dialer.limit.Unlock()
 
-	conn, err := dialer.dialAddress(ctx, address)
+	conn, err := dialer.dial(ctx, target)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	p := &peer.Peer{}
-	pCall := grpc.Peer(p)
+	resp, err := conn.client.RequestInfo(ctx, &pb.InfoRequest{})
 
-	resp, err := conn.client.RequestInfo(ctx, &pb.InfoRequest{}, pCall)
-	if err != nil {
-		return nil, nil, errs.Combine(err, conn.disconnect())
-	}
-
-	id, err := identity.PeerIdentityFromPeer(p)
-
-	return id, resp, errs.Combine(err, conn.disconnect())
+	return resp, errs.Combine(err, conn.disconnect())
 }
 
 // dial dials the specified node.
 func (dialer *Dialer) dial(ctx context.Context, target pb.Node) (*Conn, error) {
 	grpcconn, err := dialer.transport.DialNode(ctx, &target)
-	return &Conn{
-		conn:   grpcconn,
-		client: pb.NewNodesClient(grpcconn),
-	}, err
-}
-
-// dialAddress dials the specified address.
-func (dialer *Dialer) dialAddress(ctx context.Context, address *pb.NodeAddress) (*Conn, error) {
-	grpcconn, err := dialer.transport.DialAddress(ctx, address.GetAddress())
 	return &Conn{
 		conn:   grpcconn,
 		client: pb.NewNodesClient(grpcconn),

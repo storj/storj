@@ -1,6 +1,14 @@
 #!/bin/sh
 set -euo pipefail
 
+if [[ ! -f "${IDENT_PATH}/identity.key" ]]; then
+  cd /tmp
+  wget https://storj-v3-alpha-builds.storage.googleapis.com/e82d336-go1.11/identity_linux_amd64.zip
+  unzip identity_linux_amd64.zip
+  mv identity_linux_amd64 identity
+  /tmp/identity create --difficulty ${CERT_DIFFICULTY:-30} storagenode
+fi
+
 if [[ ! -f "${CONF_PATH}/config.yaml" ]]; then
 	./storagenode setup
 fi
