@@ -24,22 +24,34 @@ type Service interface {
 // Server represents a bundle of services defined by a specific ID.
 // Examples of servers are the satellite, the storagenode, and the uplink.
 type Server struct {
-	lis      net.Listener
-	grpc     *grpc.Server
-	next     []Service
-	identity *identity.FullIdentity
+	publicListener  net.Listener
+	privateListener net.Listener
+	grpc            *grpc.Server
+	next            []Service
+	identity        *identity.FullIdentity
 }
 
 // New creates a Server out of an Identity, a net.Listener,
 // a UnaryServerInterceptor, and a set of services.
-func New(opts *tlsopts.Options, lis net.Listener, interceptor grpc.UnaryServerInterceptor, services ...Service) (*Server, error) {
+func New(opts *tlsopts.Options, pubAddr, privAddr string, interceptor grpc.UnaryServerInterceptor, services ...Service) (*Server, error) {
 	unaryInterceptor := unaryInterceptor
 	if interceptor != nil {
 		unaryInterceptor = combineInterceptors(unaryInterceptor, interceptor)
 	}
 
+	pubLis, err := net.Listen("tcp", pubAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	privLis, err := net.Listen("tcp", privAddr)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Server{
-		lis: lis,
+		publicListener:  pubLis,
+		privateListener: privLis,
 		grpc: grpc.NewServer(
 			grpc.StreamInterceptor(streamInterceptor),
 			grpc.UnaryInterceptor(unaryInterceptor),
@@ -53,8 +65,17 @@ func New(opts *tlsopts.Options, lis net.Listener, interceptor grpc.UnaryServerIn
 // Identity returns the server's identity
 func (p *Server) Identity() *identity.FullIdentity { return p.identity }
 
-// Addr returns the server's listener address
-func (p *Server) Addr() net.Addr { return p.lis.Addr() }
+// PublicAddr returns the server's listener address
+func (p *Server) PublicAddr() net.Addr { return p.publicListener.Addr() }
+
+// PrivateAddr returns the server's listener address
+func (p *Server) PrivateAddr() net.Addr { return p.privateListener.Addr() }
+
+// PublicListener returns the server's public listener
+func (p *Server) PublicListener() net.Listener { return p.publicListener }
+
+// PrivateListener returns the server's private listener
+func (p *Server) PrivateListener() net.Listener { return p.privateListener }
 
 // GRPC returns the server's gRPC handle for registration purposes
 func (p *Server) GRPC() *grpc.Server { return p.grpc }
@@ -85,7 +106,11 @@ func (p *Server) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		defer cancel()
-		return p.grpc.Serve(p.lis)
+		return p.grpc.Serve(p.publicListener)
+	})
+	group.Go(func() error {
+		defer cancel()
+		return p.grpc.Serve(p.privateListener)
 	})
 
 	return group.Wait()

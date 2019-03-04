@@ -18,14 +18,15 @@ import (
 // Config holds server specific configuration parameters
 type Config struct {
 	tlsopts.Config
-	Address string `user:"true" help:"address to listen on" default:":7777"`
+	PublicAddress  string `user:"true" help:"public address to listen on" default:":7777"`
+	PrivateAddress string `user:"true" help:"private address to listen on" default:"localhost:0"`
 }
 
 // Run will run the given responsibilities with the configured identity.
 func (sc Config) Run(ctx context.Context, identity *identity.FullIdentity, interceptor grpc.UnaryServerInterceptor, services ...Service) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	lis, err := net.Listen("tcp", sc.Address)
+	lis, err := net.Listen("tcp", sc.PublicAddress)
 	if err != nil {
 		return err
 	}
@@ -49,6 +50,6 @@ func (sc Config) Run(ctx context.Context, identity *identity.FullIdentity, inter
 		}
 	}()
 
-	zap.S().Infof("Node %s started on %s", server.Identity().ID, sc.Address)
+	zap.S().Infof("Node %s started on %s", server.Identity().ID, sc.PublicAddress)
 	return server.Run(ctx)
 }
