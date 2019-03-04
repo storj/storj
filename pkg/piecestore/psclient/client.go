@@ -169,7 +169,7 @@ func (ps *PieceStore) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 
 	err = writer.Verify()
 	if err != nil {
-		return nil, errs.Combine(err, ps.Delete(ctx, id, rba.PayerAllocation.SatelliteId))
+		return nil, ClientError.Wrap(err)
 	}
 
 	return writer.storagenodeHash, nil
