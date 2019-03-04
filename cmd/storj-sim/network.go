@@ -177,7 +177,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--console.address", net.JoinHostPort(host, strconv.Itoa(consolePort+i)),
 				"--console.static-dir", filepath.Join(storjRoot, "web/satellite/"),
 				"--server.address", process.Address,
-				"--console.static-dir", "./web/satellite/",
 
 				"--kademlia.bootstrap-addr", bootstrap.Address,
 				"--repairer.overlay-addr", process.Address,
