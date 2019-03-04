@@ -163,7 +163,6 @@ func (t *Tally) calculateAtRestData(ctx context.Context) (latestTally time.Time,
 				}
 				pieceSize := segmentSize / int64(minReq)
 				for _, piece := range pieces {
-					t.logger.Debug("found piece on Node ID" + piece.NodeId.String())
 					nodeData[piece.NodeId] += float64(pieceSize)
 				}
 			}
