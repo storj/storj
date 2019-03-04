@@ -136,7 +136,7 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 		return Error.Wrap(err)
 	}
 	// Upload the repaired pieces to the repairNodes
-	successfulNodes, _, err := s.ec.Put(ctx, repairNodes, rs, pid, r, convertTime(pr.GetExpirationDate()), pbaPut)
+	successfulNodes, hashes, err := s.ec.Put(ctx, repairNodes, rs, pid, r, convertTime(pr.GetExpirationDate()), pbaPut)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -150,9 +150,9 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 	}
 
 	metadata := pr.GetMetadata()
-	pointer, err := makeRemotePointer(healthyNodes, rs, pid, rr.Size(), pr.GetExpirationDate(), metadata)
+	pointer, err := makeRemotePointer(healthyNodes, hashes, rs, pid, rr.Size(), pr.GetExpirationDate(), metadata)
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 
 	// update the segment info in the pointerDB

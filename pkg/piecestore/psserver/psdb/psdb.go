@@ -33,7 +33,7 @@ var (
 // DB is a piece store database
 type DB struct {
 	mu sync.Mutex
-	DB *sql.DB // TODO: hide
+	db *sql.DB
 }
 
 // Agreement is a struct that contains a bandwidth agreement and the associated signature
@@ -53,7 +53,7 @@ func Open(DBPath string) (db *DB, err error) {
 		return nil, Error.Wrap(err)
 	}
 	db = &DB{
-		DB: sqlite,
+		db: sqlite,
 	}
 
 	return db, nil
@@ -67,7 +67,7 @@ func OpenInMemory() (db *DB, err error) {
 	}
 
 	db = &DB{
-		DB: sqlite,
+		db: sqlite,
 	}
 
 	return db, nil
@@ -185,7 +185,7 @@ func (db *DB) Migration() *migrate.Migration {
 
 // Close the database
 func (db *DB) Close() error {
-	return db.DB.Close()
+	return db.db.Close()
 }
 
 func (db *DB) locked() func() {
@@ -200,7 +200,7 @@ func (db *DB) DeleteExpired(ctx context.Context) (expired []string, err error) {
 
 	// TODO: add limit
 
-	tx, err := db.DB.BeginTx(ctx, nil)
+	tx, err := db.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -208,7 +208,7 @@ func (db *DB) DeleteExpired(ctx context.Context) (expired []string, err error) {
 
 	now := time.Now().Unix()
 
-	rows, err := tx.Query("SELECT id FROM ttl WHERE 0 < expires AND ? < expires", now)
+	rows, err := tx.Query("SELECT id FROM ttl WHERE expires > 0 AND expires < ?", now)
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +224,7 @@ func (db *DB) DeleteExpired(ctx context.Context) (expired []string, err error) {
 		return nil, err
 	}
 
-	_, err = tx.Exec(`DELETE FROM ttl WHERE 0 < expires AND ? < expires`, now)
+	_, err = tx.Exec(`DELETE FROM ttl WHERE expires > 0 AND expires < ?`, now)
 	if err != nil {
 		return nil, err
 	}
@@ -245,7 +245,7 @@ func (db *DB) WriteBandwidthAllocToDB(rba *pb.Order) error {
 	// If the agreements are sorted we can send them in bulk streams to the satellite
 	t := time.Now()
 	startofthedayunixsec := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).Unix()
-	_, err = db.DB.Exec(`INSERT INTO bandwidth_agreements (satellite, agreement, signature, uplink, serial_num, total, max_size, created_utc_sec, expiration_utc_sec, action, daystart_utc_sec) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+	_, err = db.db.Exec(`INSERT INTO bandwidth_agreements (satellite, agreement, signature, uplink, serial_num, total, max_size, created_utc_sec, expiration_utc_sec, action, daystart_utc_sec) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		rba.PayerAllocation.SatelliteId.Bytes(), rbaBytes, rba.GetSignature(),
 		rba.PayerAllocation.UplinkId.Bytes(), rba.PayerAllocation.SerialNumber,
 		rba.Total, rba.PayerAllocation.MaxSize, rba.PayerAllocation.CreatedUnixSec,
@@ -254,10 +254,10 @@ func (db *DB) WriteBandwidthAllocToDB(rba *pb.Order) error {
 	return err
 }
 
-// DeleteBandwidthAllocationBySignature finds an allocation by signature and deletes it
-func (db *DB) DeleteBandwidthAllocationBySignature(signature []byte) error {
+// DeleteBandwidthAllocationBySerialnum finds an allocation by signature and deletes it
+func (db *DB) DeleteBandwidthAllocationBySerialnum(serialnum string) error {
 	defer db.locked()()
-	_, err := db.DB.Exec(`DELETE FROM bandwidth_agreements WHERE signature=?`, signature)
+	_, err := db.db.Exec(`DELETE FROM bandwidth_agreements WHERE serial_num=?`, serialnum)
 	if err == sql.ErrNoRows {
 		err = nil
 	}
@@ -268,7 +268,7 @@ func (db *DB) DeleteBandwidthAllocationBySignature(signature []byte) error {
 func (db *DB) GetBandwidthAllocationBySignature(signature []byte) ([]*pb.Order, error) {
 	defer db.locked()()
 
-	rows, err := db.DB.Query(`SELECT agreement FROM bandwidth_agreements WHERE signature = ?`, signature)
+	rows, err := db.db.Query(`SELECT agreement FROM bandwidth_agreements WHERE signature = ?`, signature)
 	if err != nil {
 		return nil, err
 	}
@@ -299,7 +299,7 @@ func (db *DB) GetBandwidthAllocationBySignature(signature []byte) ([]*pb.Order, 
 func (db *DB) GetBandwidthAllocations() (map[storj.NodeID][]*Agreement, error) {
 	defer db.locked()()
 
-	rows, err := db.DB.Query(`SELECT satellite, agreement FROM bandwidth_agreements`)
+	rows, err := db.db.Query(`SELECT satellite, agreement FROM bandwidth_agreements`)
 	if err != nil {
 		return nil, err
 	}
@@ -336,7 +336,7 @@ func (db *DB) AddTTL(id string, expiration, size int64) error {
 	defer db.locked()()
 
 	created := time.Now().Unix()
-	_, err := db.DB.Exec("INSERT OR REPLACE INTO ttl (id, created, expires, size) VALUES (?, ?, ?, ?)", id, created, expiration, size)
+	_, err := db.db.Exec("INSERT OR REPLACE INTO ttl (id, created, expires, size) VALUES (?, ?, ?, ?)", id, created, expiration, size)
 	return err
 }
 
@@ -344,34 +344,27 @@ func (db *DB) AddTTL(id string, expiration, size int64) error {
 func (db *DB) GetTTLByID(id string) (expiration int64, err error) {
 	defer db.locked()()
 
-	err = db.DB.QueryRow(`SELECT expires FROM ttl WHERE id=?`, id).Scan(&expiration)
+	err = db.db.QueryRow(`SELECT expires FROM ttl WHERE id=?`, id).Scan(&expiration)
 	return expiration, err
 }
 
 // SumTTLSizes sums the size column on the ttl table
-func (db *DB) SumTTLSizes() (sum int64, err error) {
+func (db *DB) SumTTLSizes() (int64, error) {
 	defer db.locked()()
 
-	var count int
-	rows := db.DB.QueryRow("SELECT COUNT(*) as count FROM ttl")
-	err = rows.Scan(&count)
-	if err != nil {
-		return 0, err
-	}
-
-	if count == 0 {
+	var sum *int64
+	err := db.db.QueryRow(`SELECT SUM(size) FROM ttl;`).Scan(&sum)
+	if err == sql.ErrNoRows || sum == nil {
 		return 0, nil
 	}
-
-	err = db.DB.QueryRow(`SELECT SUM(size) FROM ttl;`).Scan(&sum)
-	return sum, err
+	return *sum, err
 }
 
 // DeleteTTLByID finds the TTL in the database by id and delete it
 func (db *DB) DeleteTTLByID(id string) error {
 	defer db.locked()()
 
-	_, err := db.DB.Exec(`DELETE FROM ttl WHERE id=?`, id)
+	_, err := db.db.Exec(`DELETE FROM ttl WHERE id=?`, id)
 	if err == sql.ErrNoRows {
 		err = nil
 	}
@@ -384,7 +377,7 @@ func (db *DB) GetBandwidthUsedByDay(t time.Time) (size int64, err error) {
 }
 
 // GetTotalBandwidthBetween each row in the bwusagetbl contains the total bw used per day
-func (db *DB) GetTotalBandwidthBetween(startdate time.Time, enddate time.Time) (totalbwusage int64, err error) {
+func (db *DB) GetTotalBandwidthBetween(startdate time.Time, enddate time.Time) (int64, error) {
 	defer db.locked()()
 
 	startTimeUnix := time.Date(startdate.Year(), startdate.Month(), startdate.Day(), 0, 0, 0, 0, startdate.Location()).Unix()
@@ -392,26 +385,22 @@ func (db *DB) GetTotalBandwidthBetween(startdate time.Time, enddate time.Time) (
 	defaultunixtime := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, time.Now().Location()).Unix()
 
 	if (endTimeUnix < startTimeUnix) && (startTimeUnix > defaultunixtime || endTimeUnix > defaultunixtime) {
-		return totalbwusage, errors.New("Invalid date range")
+		return 0, errors.New("Invalid date range")
 	}
 
-	var count int
-	rows := db.DB.QueryRow("SELECT COUNT(*) as count FROM bandwidth_agreements")
-	err = rows.Scan(&count)
-	if err != nil {
-		return 0, err
-	}
-
-	if count == 0 {
+	var totalUsage *int64
+	err := db.db.QueryRow(`SELECT SUM(total) FROM bandwidth_agreements WHERE daystart_utc_sec BETWEEN ? AND ?`, startTimeUnix, endTimeUnix).Scan(&totalUsage)
+	if err == sql.ErrNoRows || totalUsage == nil {
 		return 0, nil
 	}
-
-	err = db.DB.QueryRow(`SELECT SUM(total) FROM bandwidth_agreements WHERE daystart_utc_sec BETWEEN ? AND ?`, startTimeUnix, endTimeUnix).Scan(&totalbwusage)
-	return totalbwusage, err
+	return *totalUsage, err
 }
 
+// RawDB returns access to the raw database, only for migration tests.
+func (db *DB) RawDB() *sql.DB { return db.db }
+
 // Begin begins transaction
-func (db *DB) Begin() (*sql.Tx, error) { return db.DB.Begin() }
+func (db *DB) Begin() (*sql.Tx, error) { return db.db.Begin() }
 
 // Rebind rebind parameters
 func (db *DB) Rebind(s string) string { return s }

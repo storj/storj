@@ -100,6 +100,11 @@ func (k *Kademlia) SetBootstrapNodes(nodes []pb.Node) { k.bootstrapNodes = nodes
 // GetBootstrapNodes gets the bootstrap nodes.
 func (k *Kademlia) GetBootstrapNodes() []pb.Node { return k.bootstrapNodes }
 
+// DumpNodes returns all the nodes in the node database
+func (k *Kademlia) DumpNodes(ctx context.Context) ([]*pb.Node, error) {
+	return k.routingTable.DumpNodes()
+}
+
 // Bootstrap contacts one of a set of pre defined trusted nodes on the network and
 // begins populating the local Kademlia node
 func (k *Kademlia) Bootstrap(ctx context.Context) error {
@@ -188,17 +193,17 @@ func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
 }
 
 // FetchInfo connects to a node address and returns the node info
-func (k *Kademlia) FetchInfo(ctx context.Context, address *pb.NodeAddress) (*identity.PeerIdentity, *pb.InfoResponse, error) {
+func (k *Kademlia) FetchInfo(ctx context.Context, node pb.Node) (*pb.InfoResponse, error) {
 	if !k.lookups.Start() {
-		return nil, nil, context.Canceled
+		return nil, context.Canceled
 	}
 	defer k.lookups.Done()
 
-	id, info, err := k.dialer.FetchInfo(ctx, address)
+	info, err := k.dialer.FetchInfo(ctx, node)
 	if err != nil {
-		return nil, nil, NodeErr.Wrap(err)
+		return nil, NodeErr.Wrap(err)
 	}
-	return id, info, nil
+	return info, nil
 }
 
 // FindNode looks up the provided NodeID first in the local Node, and if it is not found

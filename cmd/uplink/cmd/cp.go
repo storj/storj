@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	progressbar "github.com/cheggaaa/pb"
 	"github.com/spf13/cobra"
@@ -25,6 +26,7 @@ import (
 
 var (
 	progress *bool
+	expires  *string
 )
 
 func init() {
@@ -34,6 +36,7 @@ func init() {
 		RunE:  copyMain,
 	}, RootCmd)
 	progress = cpCmd.Flags().Bool("progress", true, "if true, show progress")
+	expires = cpCmd.Flags().String("expires", "", "optional expiration date of an object. Please use format (yyyy-mm-ddThh:mm:ssZhh:mm)")
 }
 
 // upload transfers src from local machine to s3 compatible object dst
@@ -44,6 +47,17 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 
 	if dst.IsLocal() {
 		return fmt.Errorf("destination must be Storj URL: %s", dst)
+	}
+
+	var expiration time.Time
+	if *expires != "" {
+		expiration, err = time.Parse(time.RFC3339, *expires)
+		if err != nil {
+			return err
+		}
+		if expiration.Before(time.Now()) {
+			return fmt.Errorf("Invalid expiration date: (%s) has already passed", *expires)
+		}
 	}
 
 	// if object name not specified, default to filename
@@ -79,6 +93,7 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 	createInfo := storj.CreateObject{
 		RedundancyScheme: cfg.GetRedundancyScheme(),
 		EncryptionScheme: cfg.GetEncryptionScheme(),
+		Expires:          expiration.UTC(),
 	}
 	obj, err := metainfo.CreateObject(ctx, dst.Bucket(), dst.Path(), &createInfo)
 	if err != nil {

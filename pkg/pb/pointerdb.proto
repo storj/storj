@@ -43,6 +43,7 @@ message RedundancyScheme {
 message RemotePiece {
   int32 piece_num = 1;
   bytes node_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  piecestoreroutes.SignedHash hash = 3;
 }
 
 message RemoteSegment {
@@ -50,7 +51,6 @@ message RemoteSegment {
   // TODO: may want to use customtype and fixed-length byte slice
   string piece_id = 2;
   repeated RemotePiece remote_pieces = 3;
-
   bytes merkle_root = 4; // root hash of the hashes of all of these pieces
 }
 

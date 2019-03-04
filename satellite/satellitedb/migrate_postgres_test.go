@@ -142,7 +142,7 @@ func TestMigratePostgres(t *testing.T) {
 
 				// find the matching expected version
 				expected, ok := snapshots.FindVersion(step.Version)
-				require.True(t, ok)
+				require.True(t, ok, "Missing snapshot v%d. Did you forget to add a snapshot for the new migration?", step.Version)
 
 				// insert data for new tables
 				if newdata := newData(expected); newdata != "" && step.Version > base.Version {

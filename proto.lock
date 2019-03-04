@@ -817,16 +817,6 @@
             "fields": [
               {
                 "id": 1,
-                "name": "address",
-                "type": "node.NodeAddress"
-              }
-            ]
-          },
-          {
-            "name": "NodeInfoResponse",
-            "fields": [
-              {
-                "id": 1,
                 "name": "id",
                 "type": "bytes",
                 "options": [
@@ -842,16 +832,26 @@
               },
               {
                 "id": 2,
+                "name": "address",
+                "type": "node.NodeAddress"
+              }
+            ]
+          },
+          {
+            "name": "NodeInfoResponse",
+            "fields": [
+              {
+                "id": 1,
                 "name": "type",
                 "type": "node.NodeType"
               },
               {
-                "id": 3,
+                "id": 2,
                 "name": "operator",
                 "type": "node.NodeOperator"
               },
               {
-                "id": 4,
+                "id": 3,
                 "name": "capacity",
                 "type": "node.NodeCapacity"
               }
@@ -907,6 +907,20 @@
                 "is_repeated": true
               }
             ]
+          },
+          {
+            "name": "DumpNodesRequest"
+          },
+          {
+            "name": "DumpNodesResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "nodes",
+                "type": "node.Node",
+                "is_repeated": true
+              }
+            ]
           }
         ],
         "services": [
@@ -937,6 +951,11 @@
                 "name": "FindNear",
                 "in_type": "FindNearRequest",
                 "out_type": "FindNearResponse"
+              },
+              {
+                "name": "DumpNodes",
+                "in_type": "DumpNodesRequest",
+                "out_type": "DumpNodesResponse"
               }
             ]
           },
@@ -947,6 +966,11 @@
                 "name": "CountNodes",
                 "in_type": "CountNodesRequest",
                 "out_type": "CountNodesResponse"
+              },
+              {
+                "name": "DumpNodes",
+                "in_type": "DumpNodesRequest",
+                "out_type": "DumpNodesResponse"
               }
             ]
           },
@@ -2160,6 +2184,11 @@
                     "value": "false"
                   }
                 ]
+              },
+              {
+                "id": 3,
+                "name": "hash",
+                "type": "piecestoreroutes.SignedHash"
               }
             ]
           },

@@ -137,7 +137,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 			return Meta{}, Error.Wrap(err)
 		}
 
-		successfulNodes, _, err := s.ec.Put(ctx, nodes, s.rs, pieceID, sizedReader, expiration, pba)
+		successfulNodes, successfulHashes, err := s.ec.Put(ctx, nodes, s.rs, pieceID, sizedReader, expiration, pba)
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
@@ -148,9 +148,9 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		}
 		path = p
 
-		pointer, err = makeRemotePointer(successfulNodes, s.rs, pieceID, sizedReader.Size(), exp, metadata)
+		pointer, err = makeRemotePointer(successfulNodes, successfulHashes, s.rs, pieceID, sizedReader.Size(), exp, metadata)
 		if err != nil {
-			return Meta{}, err
+			return Meta{}, Error.Wrap(err)
 		}
 	}
 
@@ -223,7 +223,11 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 }
 
 // makeRemotePointer creates a pointer of type remote
-func makeRemotePointer(nodes []*pb.Node, rs eestream.RedundancyStrategy, pieceID psclient.PieceID, readerSize int64, exp *timestamp.Timestamp, metadata []byte) (pointer *pb.Pointer, err error) {
+func makeRemotePointer(nodes []*pb.Node, hashes []*pb.SignedHash, rs eestream.RedundancyStrategy, pieceID psclient.PieceID, readerSize int64, exp *timestamp.Timestamp, metadata []byte) (pointer *pb.Pointer, err error) {
+	if len(nodes) != len(hashes) {
+		return nil, Error.New("unable to make pointer: size of nodes != size of hashes")
+	}
+
 	var remotePieces []*pb.RemotePiece
 	for i := range nodes {
 		if nodes[i] == nil {
@@ -232,6 +236,7 @@ func makeRemotePointer(nodes []*pb.Node, rs eestream.RedundancyStrategy, pieceID
 		remotePieces = append(remotePieces, &pb.RemotePiece{
 			PieceNum: int32(i),
 			NodeId:   nodes[i].Id,
+			Hash:     hashes[i],
 		})
 	}
 

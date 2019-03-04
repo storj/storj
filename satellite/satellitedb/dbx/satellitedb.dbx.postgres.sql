@@ -65,6 +65,8 @@ CREATE TABLE nodes (
 	uptime_ratio double precision NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
+	wallet text NOT NULL,
+	email text NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE overlay_cache_nodes (

@@ -102,15 +102,32 @@ func (srv *Inspector) LookupNode(ctx context.Context, req *pb.LookupNodeRequest)
 	}, nil
 }
 
+// DumpNodes returns all of the nodes in the routing table database.
+func (srv *Inspector) DumpNodes(ctx context.Context, req *pb.DumpNodesRequest) (*pb.DumpNodesResponse, error) {
+	nodes, err := srv.dht.DumpNodes(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.DumpNodesResponse{
+		Nodes: nodes,
+	}, nil
+}
+
 // NodeInfo sends a PING RPC to a node and returns its local info.
 func (srv *Inspector) NodeInfo(ctx context.Context, req *pb.NodeInfoRequest) (*pb.NodeInfoResponse, error) {
-	id, info, err := srv.dht.FetchInfo(ctx, req.Address)
+	self := srv.dht.Local()
+
+	info, err := srv.dht.FetchInfo(ctx, pb.Node{
+		Id:      req.Id,
+		Address: req.Address,
+		Type:    self.Type,
+	})
 	if err != nil {
 		return &pb.NodeInfoResponse{}, err
 	}
 
 	return &pb.NodeInfoResponse{
-		Id:       id.ID,
 		Type:     info.GetType(),
 		Operator: info.GetOperator(),
 		Capacity: info.GetCapacity(),
