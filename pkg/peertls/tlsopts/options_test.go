@@ -102,6 +102,6 @@ func TestNewOptions(t *testing.T) {
 		assert.NoError(t, err)
 		assert.True(t, reflect.DeepEqual(fi, opts.Ident))
 		assert.Equal(t, c.config, opts.Config)
-		assert.Len(t, opts.PCVFuncs, c.pcvFuncsLen)
+		assert.Len(t, opts.VerificationFuncs, c.pcvFuncsLen)
 	}
 }
