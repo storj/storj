@@ -82,7 +82,7 @@ func (s *StreamWriter) Close() error {
 
 	s.storagenodeHash = reply.SignedHash
 
-	zap.S().Debugf("Stream close and recv summary: %v", reply)
+	zap.S().Debugf("Stream close and recv summary: %s, %d", reply.Message, reply.TotalReceived)
 
 	return nil
 }
