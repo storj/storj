@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information
 
-package mail
+package post
 
 import (
 	"crypto/tls"
@@ -12,20 +12,28 @@ import (
 	"github.com/zeebo/errs"
 )
 
+// Address is alias of net/mail.Address
+type Address = mail.Address
+
 // SMTPSender is smtp sender
 type SMTPSender struct {
 	ServerAddress string
 
-	From mail.Address
+	From Address
 	Auth smtp.Auth
+}
+
+// FromAddress implements satellite/mail.SMTPSender
+func (sender *SMTPSender) FromAddress() Address {
+	return sender.From
 }
 
 // SendEmail sends email message to the given recipient
 func (sender *SMTPSender) SendEmail(msg *Message) error {
-	host, _, err := net.SplitHostPort(sender.ServerAddress)
-	if err != nil {
-		return err
-	}
+	// TODO: validate address before initializing SMTPSender
+	// suppress error because address should be validated
+	// before creating SMTPSender
+	host, _, _ := net.SplitHostPort(sender.ServerAddress)
 
 	client, err := smtp.Dial(sender.ServerAddress)
 	if err != nil {
@@ -73,5 +81,8 @@ func (sender *SMTPSender) SendEmail(msg *Message) error {
 		return err
 	}
 
-	return client.Quit()
+	// send quit msg to stop gracefully returns err on
+	// success but we don't really care about the result
+	_ = client.Quit()
+	return nil
 }

@@ -132,6 +132,9 @@ model node (
 
 	field created_at timestamp ( autoinsert )
 	field updated_at timestamp ( autoinsert, autoupdate )
+
+	field wallet 			text ( updatable )
+	field email 			text ( updatable )
 )
 
 create node ( )
