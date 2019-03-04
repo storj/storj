@@ -38,9 +38,16 @@ func (opts *Options) ServerOption() grpc.ServerOption {
 
 // DialOption returns a grpc `DialOption` for making outgoing connections
 // to the node with this peer identity.
-// id is an optional id of the node we are dialing.
-func (opts *Options) DialOption(id storj.NodeID) grpc.DialOption {
-	return grpc.WithTransportCredentials(opts.TransportCredentials(id))
+func (opts *Options) DialOption(id storj.NodeID) (grpc.DialOption, error) {
+	if id.IsZero() {
+		return nil, Error.New("no ID specified for DialOption")
+	}
+	return grpc.WithTransportCredentials(opts.TransportCredentials(id)), nil
+}
+
+// DialUnverifiedIDOption returns a grpc `DialUnverifiedIDOption`
+func (opts *Options) DialUnverifiedIDOption() grpc.DialOption {
+	return grpc.WithTransportCredentials(opts.TransportCredentials(storj.NodeID{}))
 }
 
 // TransportCredentials returns a grpc `credentials.TransportCredentials`
@@ -54,10 +61,12 @@ func (opts *Options) TLSConfig(id storj.NodeID) *tls.Config {
 	pcvFuncs := append(
 		[]peertls.PeerCertVerificationFunc{
 			peertls.VerifyPeerCertChains,
-			verifyIdentity(id),
 		},
 		opts.PCVFuncs...,
 	)
+	if !id.IsZero() {
+		pcvFuncs = append(pcvFuncs, verifyIdentity(id))
+	}
 	return &tls.Config{
 		Certificates:       []tls.Certificate{*opts.Cert},
 		InsecureSkipVerify: true,
@@ -70,10 +79,6 @@ func (opts *Options) TLSConfig(id storj.NodeID) *tls.Config {
 func verifyIdentity(id storj.NodeID) peertls.PeerCertVerificationFunc {
 	return func(_ [][]byte, parsedChains [][]*x509.Certificate) (err error) {
 		defer mon.TaskNamed("verifyIdentity")(nil)(&err)
-		if id == (storj.NodeID{}) {
-			return nil
-		}
-
 		peer, err := identity.PeerIdentityFromCerts(parsedChains[0][0], parsedChains[0][1], parsedChains[0][2:])
 		if err != nil {
 			return err

@@ -14,7 +14,6 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/storj"
 )
 
 var (
@@ -68,8 +67,13 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 		return nil, Error.New("no address")
 	}
 
+	dialOption, err := transport.tlsOpts.DialOption(node.Id)
+	if err != nil {
+		return nil, err
+	}
+
 	options := append([]grpc.DialOption{
-		transport.tlsOpts.DialOption(node.Id),
+		dialOption,
 		grpc.WithBlock(),
 		grpc.FailOnNonTempDialError(true),
 	}, opts...)
@@ -100,7 +104,7 @@ func (transport *Transport) DialAddress(ctx context.Context, address string, opt
 	defer mon.Task()(&ctx)(&err)
 
 	options := append([]grpc.DialOption{
-		transport.tlsOpts.DialOption(storj.NodeID{}),
+		transport.tlsOpts.DialUnverifiedIDOption(),
 		grpc.WithBlock(),
 		grpc.FailOnNonTempDialError(true),
 	}, opts...)

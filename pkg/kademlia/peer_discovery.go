@@ -103,7 +103,7 @@ func (lookup *peerDiscovery) Run(ctx context.Context) (target *pb.Node, err erro
 					if !ok {
 						lookup.log.Debug("connecting to node failed",
 							zap.Any("target", lookup.target),
-							zap.Any("dial", next.Id),
+							zap.Any("dial-node", next.Id),
 							zap.Any("dial-address", next.Address.Address),
 							zap.Error(err),
 						)
