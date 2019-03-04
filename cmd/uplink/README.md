@@ -1,6 +1,6 @@
 # Uplink
 
-Documentation for developing and building the uplink service
+Documentation for developing and building the uplink service.
 
 Usage:
 
