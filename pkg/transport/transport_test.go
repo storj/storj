@@ -74,6 +74,14 @@ func TestDialNode(t *testing.T) {
 				},
 				Type: pb.NodeType_STORAGE,
 			},
+			{
+				Id: storj.NodeID{},
+				Address: &pb.NodeAddress{
+					Transport: pb.NodeTransport_TCP_TLS_GRPC,
+					Address:   planet.StorageNodes[1].Addr(),
+				},
+				Type: pb.NodeType_STORAGE,
+			},
 		}
 
 		for _, target := range targets {
