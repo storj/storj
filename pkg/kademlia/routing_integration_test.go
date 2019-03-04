@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/kademlia/testrouting"
