@@ -28,7 +28,7 @@ import (
 
 var (
 	// Addr is the address of peer from command flags
-	Addr = flag.String("address", "localhost:7778", "address of peer to inspect")
+	Addr = flag.String("address", "127.0.0.1:7778", "address of peer to inspect")
 
 	// IdentityPath is the path to the identity the inspector should use for network communication
 	IdentityPath = flag.String("identity-path", "", "path to the identity certificate for use on the network")

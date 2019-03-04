@@ -62,7 +62,9 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	online, err := getConnectionStatus(ctx, tc, ident)
+	bnAddr := runCfg.Kademlia.BootstrapAddr
+
+	online, err := getConnectionStatus(ctx, tc, ident, bnAddr)
 	if err != nil {
 		zap.S().Error("error getting connection status %s", err.Error())
 	}
@@ -157,7 +159,7 @@ func clearScreen() {
 	}
 }
 
-func getConnectionStatus(ctx context.Context, tc transport.Client, id *identity.FullIdentity) (bool, error) {
+func getConnectionStatus(ctx context.Context, tc transport.Client, id *identity.FullIdentity, bnAddr string) (bool, error) {
 	bn := &pb.Node{
 		Address: &pb.NodeAddress{
 			Address:   dashboardCfg.BootstrapAddr,

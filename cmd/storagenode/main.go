@@ -75,9 +75,9 @@ var (
 
 	diagCfg      storagenode.Config
 	dashboardCfg struct {
-		Address         string `default:":28969" help:"address for dashboard service"`
 		ExternalAddress string `default:":28967" help:"address that your node is listening on if using a tunneling service"`
 		BootstrapAddr   string `default:"bootstrap.storj.io:8888" help:"address of server the storage node was bootstrapped against"`
+		Address         string `default:"127.0.0.1:7778" help:"address for dashboard service"`
 	}
 
 	defaultConfDir = fpath.ApplicationDir("storj", "storagenode")
@@ -90,8 +90,8 @@ var (
 )
 
 const (
-	defaultPublicServerAddr  = ":28967"
-	defaultPrivateServerAddr = ":28969"
+	defaultServerAddr        = ":28967"
+	defaultPrivateServerAddr = "127.0.0.1:7778"
 )
 
 func init() {
@@ -202,7 +202,12 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 	serverAddress := cmd.Flag("server.address")
 	if !serverAddress.Changed {
-		overrides[serverAddress.Name] = defaultPublicServerAddr
+		overrides[serverAddress.Name] = defaultServerAddr
+	}
+
+	serverPrivateAddress := cmd.Flag("server.private-address")
+	if !serverPrivateAddress.Changed {
+		overrides[serverPrivateAddress.Name] = defaultPrivateServerAddr
 	}
 
 	configFile := filepath.Join(setupDir, "config.yaml")

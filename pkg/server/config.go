@@ -5,7 +5,6 @@ package server
 
 import (
 	"context"
-	"net"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -18,19 +17,13 @@ import (
 // Config holds server specific configuration parameters
 type Config struct {
 	tlsopts.Config
-	PublicAddress  string `user:"true" help:"public address to listen on" default:":7777"`
-	PrivateAddress string `user:"true" help:"private address to listen on" default:"localhost:0"`
+	Address        string `user:"true" help:"public address to listen on" default:":7777"`
+	PrivateAddress string `user:"true" help:"private address to listen on" default:"127.0.0.1:7778"`
 }
 
 // Run will run the given responsibilities with the configured identity.
 func (sc Config) Run(ctx context.Context, identity *identity.FullIdentity, interceptor grpc.UnaryServerInterceptor, services ...Service) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	lis, err := net.Listen("tcp", sc.PublicAddress)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = lis.Close() }()
 
 	opts, err := tlsopts.NewOptions(identity, sc.Config)
 	if err != nil {
@@ -38,7 +31,7 @@ func (sc Config) Run(ctx context.Context, identity *identity.FullIdentity, inter
 	}
 	defer func() { err = utils.CombineErrors(err, opts.RevDB.Close()) }()
 
-	server, err := New(opts, lis, interceptor, services...)
+	server, err := New(opts, sc.Address, sc.PrivateAddress, interceptor, services...)
 	if err != nil {
 		return err
 	}
@@ -50,6 +43,6 @@ func (sc Config) Run(ctx context.Context, identity *identity.FullIdentity, inter
 		}
 	}()
 
-	zap.S().Infof("Node %s started on %s", server.Identity().ID, sc.PublicAddress)
+	zap.S().Infof("Node %s started on %s", server.Identity().ID, sc.Address)
 	return server.Run(ctx)
 }
