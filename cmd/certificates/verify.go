@@ -99,13 +99,8 @@ func checkCAChain(opts checkOpts, errFmt string) {
 }
 
 func checkIdentContainsCA(opts checkOpts, errFmt string) {
-	identChainBytes := append([][]byte{
-		opts.identity.Leaf.Raw,
-		opts.identity.CA.Raw,
-	}, opts.ca.RestChainRaw()...)
-	caChainBytes := append([][]byte{
-		opts.ca.Cert.Raw,
-	}, opts.ca.RestChainRaw()...)
+	identChainBytes := opts.identity.RawChain()
+	caChainBytes := opts.ca.RawChain()
 
 	for i, caCert := range caChainBytes {
 		j := i + 1

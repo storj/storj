@@ -253,6 +253,15 @@ func NewFullIdentity(ctx context.Context, difficulty uint16, concurrency uint) (
 	return identity, err
 }
 
+// ToChains takes a number of certificate chains and returns them as a 2d slice of chains of certificates.
+func ToChains(chains ...[]*x509.Certificate) [][]*x509.Certificate {
+	combinedChains := make([][]*x509.Certificate, len(chains))
+	for i, chain := range chains {
+		combinedChains[i] = chain
+	}
+	return combinedChains
+}
+
 // Status returns the status of the identity cert/key files for the config
 func (is SetupConfig) Status() TLSFilesStatus {
 	return statTLSFiles(is.CertPath, is.KeyPath)
@@ -390,22 +399,28 @@ func (ic PeerConfig) SaveBackup(pi *PeerIdentity) error {
 	}.Save(pi)
 }
 
-// ChainRaw returns all of the certificate chain as a 2d byte slice
-func (fi *FullIdentity) ChainRaw() [][]byte {
-	chain := [][]byte{fi.Leaf.Raw, fi.CA.Raw}
-	for _, cert := range fi.RestChain {
-		chain = append(chain, cert.Raw)
-	}
-	return chain
+// Chain returns the Identity's certificate chain
+func (fi *FullIdentity) Chain() []*x509.Certificate {
+	return append([]*x509.Certificate{fi.Leaf, fi.CA}, fi.RestChain...)
 }
 
-// RestChainRaw returns the rest (excluding leaf and CA) of the certificate chain as a 2d byte slice
-func (fi *FullIdentity) RestChainRaw() [][]byte {
-	var chain [][]byte
-	for _, cert := range fi.RestChain {
-		chain = append(chain, cert.Raw)
+// RawChain returns all of the certificate chain as a 2d byte slice
+func (fi *FullIdentity) RawChain() [][]byte {
+	chain := fi.Chain()
+	rawChain := make([][]byte, len(chain))
+	for i, cert := range chain {
+		rawChain[i] = cert.Raw
 	}
-	return chain
+	return rawChain
+}
+
+// RawRestChain returns the rest (excluding leaf and CA) of the certificate chain as a 2d byte slice
+func (fi *FullIdentity) RawRestChain() [][]byte {
+	rawChain := make([][]byte, len(fi.RestChain))
+	for _, cert := range fi.RestChain {
+		rawChain = append(rawChain, cert.Raw)
+	}
+	return rawChain
 }
 
 // PeerIdentity converts a FullIdentity into a PeerIdentity

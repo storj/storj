@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/storj"
 )
 
 func TestNewOptions(t *testing.T) {
@@ -102,6 +103,29 @@ func TestNewOptions(t *testing.T) {
 		assert.NoError(t, err)
 		assert.True(t, reflect.DeepEqual(fi, opts.Ident))
 		assert.Equal(t, c.config, opts.Config)
-		assert.Len(t, opts.PCVFuncs, c.pcvFuncsLen)
+		assert.Len(t, opts.VerificationFuncs, c.pcvFuncsLen)
 	}
+}
+
+func TestOptions_DialOption_error_on_empty_ID(t *testing.T) {
+	ident, err := testplanet.PregeneratedIdentity(0)
+	require.NoError(t, err)
+
+	opts, err := tlsopts.NewOptions(ident, tlsopts.Config{})
+	require.NoError(t, err)
+
+	dialOption, err := opts.DialOption(storj.NodeID{})
+	assert.Nil(t, dialOption)
+	assert.Error(t, err)
+}
+
+func TestOptions_DialUnverifiedIDOption(t *testing.T) {
+	ident, err := testplanet.PregeneratedIdentity(0)
+	require.NoError(t, err)
+
+	opts, err := tlsopts.NewOptions(ident, tlsopts.Config{})
+	require.NoError(t, err)
+
+	dialOption := opts.DialUnverifiedIDOption()
+	assert.NotNil(t, dialOption)
 }
