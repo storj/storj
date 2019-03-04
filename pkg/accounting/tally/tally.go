@@ -124,26 +124,25 @@ func (t *Tally) calculateAtRestData(ctx context.Context) (latestTally time.Time,
 				// handle conditions with buckets with no files
 				if len(pathElements) == 3 {
 					bucketCount++
-				} else {
-					if len(pathElements) >= 4 {
-						project, segment, bucketName := pathElements[0], pathElements[1], pathElements[2]
-						bucketID := storj.JoinPaths(project, bucketName)
+				} else if len(pathElements) >= 4 {
 
-						// paths are iterated in order, so everything in a bucket is
-						// iterated together. When a project or bucket changes,
-						// the previous bucket is completely finished.
-						if currentBucket != bucketID {
-							if currentBucket != "" {
-								// report the previous bucket and add to the totals
-								currentBucketStats.Report("bucket")
-								totalStats.Combine(&currentBucketStats)
-								currentBucketStats = stats{}
-							}
-							currentBucket = bucketID
+					project, segment, bucketName := pathElements[0], pathElements[1], pathElements[2]
+					bucketID := storj.JoinPaths(project, bucketName)
+
+					// paths are iterated in order, so everything in a bucket is
+					// iterated together. When a project or bucket changes,
+					// the previous bucket is completely finished.
+					if currentBucket != bucketID {
+						if currentBucket != "" {
+							// report the previous bucket and add to the totals
+							currentBucketStats.Report("bucket")
+							totalStats.Combine(&currentBucketStats)
+							currentBucketStats = stats{}
 						}
-
-						currentBucketStats.AddSegment(pointer, segment == "l")
+						currentBucket = bucketID
 					}
+
+					currentBucketStats.AddSegment(pointer, segment == "l")
 				}
 
 				remote := pointer.GetRemote()
