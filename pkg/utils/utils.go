@@ -5,7 +5,6 @@ package utils
 
 import (
 	"os"
-	"syscall"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -99,17 +98,8 @@ func IsWritable(path string) (bool, error) {
 	}
 
 	// Check if the user bit is enabled in file permission
-	if info.Mode().Perm()&(1<<(uint(7))) == 0 {
+	if info.Mode().Perm()&0200 == 0 {
 		return false, errs.New("Write permission bit is not set on this file for user")
-	}
-
-	var stat syscall.Stat_t
-	if err = syscall.Stat(path, &stat); err != nil {
-		return false, errs.New("Unable to get stat")
-	}
-
-	if uint32(os.Geteuid()) != stat.Uid {
-		return false, errs.New("User doesn't have permission to write to this directory")
 	}
 
 	return true, nil
