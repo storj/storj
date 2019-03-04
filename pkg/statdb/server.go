@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package overlay
+package statdb
 
 import (
 	"context"
@@ -50,7 +50,7 @@ func (server *Server) Lookup(ctx context.Context, req *pb.LookupRequest) (_ *pb.
 	}
 
 	return &pb.LookupResponse{
-		Node: na,
+		Node: na.GetNode(),
 	}, nil
 }
 
@@ -63,29 +63,6 @@ func (server *Server) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) (
 		return nil, ServerError.New("could not get nodes requested %s\n", err)
 	}
 	return nodesToLookupResponses(ns), nil
-}
-
-// NodeCriteria are the requirements for selecting nodes
-type NodeCriteria struct {
-	FreeBandwidth int64
-	FreeDisk      int64
-
-	AuditCount         int64
-	AuditSuccessRatio  float64
-	UptimeCount        int64
-	UptimeSuccessRatio float64
-
-	Excluded []storj.NodeID
-}
-
-// NewNodeCriteria are the requirement for selecting new nodes
-type NewNodeCriteria struct {
-	FreeBandwidth int64
-	FreeDisk      int64
-
-	AuditThreshold int64
-
-	Excluded []storj.NodeID
 }
 
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
@@ -113,10 +90,10 @@ func lookupRequestsToNodeIDs(reqs *pb.LookupRequests) (ids storj.NodeIDList) {
 }
 
 // nodesToLookupResponses returns LookupResponses from the nodes
-func nodesToLookupResponses(nodes []*pb.Node) *pb.LookupResponses {
+func nodesToLookupResponses(nodes []*pb.NodeDossier) *pb.LookupResponses {
 	var rs []*pb.LookupResponse
 	for _, v := range nodes {
-		r := &pb.LookupResponse{Node: v}
+		r := &pb.LookupResponse{Node: v.GetNode()}
 		rs = append(rs, r)
 	}
 	return &pb.LookupResponses{LookupResponse: rs}

@@ -14,9 +14,9 @@ import (
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	_ "storj.io/storj/pkg/pointerdb/auth" // ensures that we add api key flag to current executable
+	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/storage"
@@ -37,14 +37,14 @@ type Server struct {
 	logger     *zap.Logger
 	service    *Service
 	allocation *AllocationSigner
-	cache      *overlay.Cache
+	cache      *statdb.Cache
 	config     Config
 	identity   *identity.FullIdentity
 	apiKeys    APIKeys
 }
 
 // NewServer creates instance of Server
-func NewServer(logger *zap.Logger, service *Service, allocation *AllocationSigner, cache *overlay.Cache, config Config, identity *identity.FullIdentity, apiKeys APIKeys) *Server {
+func NewServer(logger *zap.Logger, service *Service, allocation *AllocationSigner, cache *statdb.Cache, config Config, identity *identity.FullIdentity, apiKeys APIKeys) *Server {
 	return &Server{
 		logger:     logger,
 		service:    service,
@@ -200,7 +200,7 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 			s.logger.Error("Error getting node from cache", zap.String("ID", piece.NodeId.String()), zap.Error(err))
 			continue
 		}
-		nodes = append(nodes, node)
+		nodes = append(nodes, node.GetNode())
 	}
 
 	r = &pb.GetResponse{

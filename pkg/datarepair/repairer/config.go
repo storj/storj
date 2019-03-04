@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
+	"storj.io/storj/pkg/statdb"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/transport"
@@ -29,8 +29,8 @@ type Config struct {
 func (c Config) GetSegmentRepairer(ctx context.Context, tc transport.Client) (ss SegmentRepairer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var oc overlay.Client
-	oc, err = overlay.NewClientContext(ctx, tc, c.OverlayAddr)
+	var oc statdb.Client
+	oc, err = statdb.NewClientContext(ctx, tc, c.OverlayAddr)
 	if err != nil {
 		return nil, err
 	}

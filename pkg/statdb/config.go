@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package overlay
+package statdb
 
 import (
 	"strings"
@@ -15,8 +15,8 @@ import (
 
 var (
 	mon = monkit.Package()
-	// Error represents an overlay error
-	Error = errs.Class("overlay error")
+	// Error represents a statdb error
+	Error = errs.Class("statdb error")
 )
 
 // Config is a configuration struct for everything you need to start the

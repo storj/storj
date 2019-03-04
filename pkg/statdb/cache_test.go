@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package overlay_test
+package statdb_test
 
 import (
 	"context"

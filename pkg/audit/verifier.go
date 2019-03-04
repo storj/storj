@@ -13,9 +13,9 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psclient"
+	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 )
@@ -41,19 +41,19 @@ type downloader interface {
 // defaultDownloader downloads shares from networked storage nodes
 type defaultDownloader struct {
 	transport transport.Client
-	overlay   *overlay.Cache
+	statDB    statdb.DB
 	identity  *identity.FullIdentity
 	reporter
 }
 
 // newDefaultDownloader creates a defaultDownloader
-func newDefaultDownloader(transport transport.Client, overlay *overlay.Cache, id *identity.FullIdentity) *defaultDownloader {
-	return &defaultDownloader{transport: transport, overlay: overlay, identity: id}
+func newDefaultDownloader(transport transport.Client, statDB statdb.DB, id *identity.FullIdentity) *defaultDownloader {
+	return &defaultDownloader{transport: transport, statDB: statDB, identity: id}
 }
 
 // NewVerifier creates a Verifier
-func NewVerifier(transport transport.Client, overlay *overlay.Cache, id *identity.FullIdentity) *Verifier {
-	return &Verifier{downloader: newDefaultDownloader(transport, overlay, id)}
+func NewVerifier(transport transport.Client, statDB statdb.DB, id *identity.FullIdentity) *Verifier {
+	return &Verifier{downloader: newDefaultDownloader(transport, statDB, id)}
 }
 
 // getShare use piece store clients to download shares from a given node
@@ -63,8 +63,8 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 	defer mon.Task()(&ctx)(&err)
 
 	if fromNode == nil {
-		// TODO(moby) perhaps we should not penalize this node's reputation if it is not returned by the overlay
-		return s, Error.New("no node returned from overlay for piece %s", id.String())
+		// TODO(moby) perhaps we should not penalize this node's reputation if it is not returned by the statdb
+		return s, Error.New("no node returned from statdb for piece %s", id.String())
 	}
 
 	ps, err := psclient.NewPSClient(ctx, d.transport, fromNode, 0)
@@ -116,8 +116,8 @@ func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Poin
 		nodeIds = append(nodeIds, p.NodeId)
 	}
 
-	// TODO(moby) nodeSlice will not include offline nodes, so overlay should update uptime for these nodes
-	nodeSlice, err := d.overlay.GetAll(ctx, nodeIds)
+	// TODO(moby) nodeSlice will not include offline nodes, so statdb should update uptime for these nodes
+	nodeSlice, err := d.statDB.GetAll(ctx, nodeIds)
 	if err != nil {
 		return nil, nodes, err
 	}
@@ -133,7 +133,7 @@ func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Poin
 		paddedSize := calcPadded(pointer.GetSegmentSize(), shareSize)
 		pieceSize := paddedSize / int64(pointer.Remote.Redundancy.GetMinReq())
 
-		s, err := d.getShare(ctx, stripeIndex, shareSize, int(pieces[i].PieceNum), pieceID, pieceSize, node, pba)
+		s, err := d.getShare(ctx, stripeIndex, shareSize, int(pieces[i].PieceNum), pieceID, pieceSize, node.GetNode(), pba)
 		if err != nil {
 			s = Share{
 				Error:       err,

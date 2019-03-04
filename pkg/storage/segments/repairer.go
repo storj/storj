@@ -8,24 +8,24 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psclient"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
+	"storj.io/storj/pkg/statdb"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storj"
 )
 
 // Repairer for segments
 type Repairer struct {
-	oc        overlay.Client
+	oc        statdb.Client
 	ec        ecclient.Client
 	pdb       pdbclient.Client
 	nodeStats *pb.NodeStats
 }
 
 // NewSegmentRepairer creates a new instance of SegmentRepairer
-func NewSegmentRepairer(oc overlay.Client, ec ecclient.Client, pdb pdbclient.Client) *Repairer {
+func NewSegmentRepairer(oc statdb.Client, ec ecclient.Client, pdb pdbclient.Client) *Repairer {
 	return &Repairer{oc: oc, ec: ec, pdb: pdb}
 }
 
@@ -77,7 +77,7 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 	}
 
 	// Request Overlay for n-h new storage nodes
-	op := overlay.Options{Amount: totalNilNodes, Space: 0, Excluded: excludeNodeIDs}
+	op := statdb.Options{Amount: totalNilNodes, Space: 0, Excluded: excludeNodeIDs}
 	newNodes, err := s.oc.Choose(ctx, op)
 	if err != nil {
 		return err

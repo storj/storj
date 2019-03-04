@@ -14,7 +14,6 @@ import (
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
@@ -38,7 +37,7 @@ type Config struct {
 // Discovery struct loads on cache, kad, and statdb
 type Discovery struct {
 	log    *zap.Logger
-	cache  *overlay.Cache
+	cache  *statdb.Cache
 	kad    *kademlia.Kademlia
 	statdb statdb.DB
 
@@ -52,7 +51,7 @@ type Discovery struct {
 }
 
 // New returns a new discovery service.
-func New(logger *zap.Logger, ol *overlay.Cache, kad *kademlia.Kademlia, stat statdb.DB, config Config) *Discovery {
+func New(logger *zap.Logger, ol *statdb.Cache, kad *kademlia.Kademlia, stat statdb.DB, config Config) *Discovery {
 	discovery := &Discovery{
 		log:    logger,
 		cache:  ol,
@@ -133,16 +132,16 @@ func (discovery *Discovery) refresh(ctx context.Context) error {
 			return ctx.Err()
 		}
 
-		ping, err := discovery.kad.Ping(ctx, *node)
+		ping, err := discovery.kad.Ping(ctx, *node.GetNode())
 		if err != nil {
-			discovery.log.Info("could not ping node", zap.String("ID", node.Id.String()), zap.Error(err))
-			_, err := discovery.statdb.UpdateUptime(ctx, node.Id, false)
+			discovery.log.Info("could not ping node", zap.String("ID", node.GetNode().Id.String()), zap.Error(err))
+			_, err := discovery.statdb.UpdateUptime(ctx, node.GetNode().Id, false)
 			if err != nil {
-				discovery.log.Error("could not update node uptime in statdb", zap.String("ID", node.Id.String()), zap.Error(err))
+				discovery.log.Error("could not update node uptime in statdb", zap.String("ID", node.GetNode().Id.String()), zap.Error(err))
 			}
-			err = discovery.cache.Delete(ctx, node.Id)
+			err = discovery.cache.Delete(ctx, node.GetNode().Id)
 			if err != nil {
-				discovery.log.Error("deleting unresponsive node from cache", zap.String("ID", node.Id.String()), zap.Error(err))
+				discovery.log.Error("deleting unresponsive node from cache", zap.String("ID", node.GetNode().Id.String()), zap.Error(err))
 			}
 			continue
 		}
@@ -161,7 +160,7 @@ func (discovery *Discovery) refresh(ctx context.Context) error {
 		}
 
 		// update email and wallet with correct info
-		info, err := discovery.kad.FetchInfo(ctx, *node)
+		info, err := discovery.kad.FetchInfo(ctx, *node.GetNode())
 		if err != nil {
 			discovery.log.Warn("could not fetch node info", zap.String("ID", ping.GetAddress().String()))
 			continue

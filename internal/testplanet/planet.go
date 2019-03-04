@@ -36,13 +36,13 @@ import (
 	"storj.io/storj/pkg/discovery"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/server"
+	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
@@ -397,8 +397,8 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 					Wallet: "0x" + strings.Repeat("00", 20),
 				},
 			},
-			Overlay: overlay.Config{
-				Node: overlay.NodeSelectionConfig{
+			StatDB: statdb.Config{
+				Node: statdb.NodeSelectionConfig{
 					UptimeRatio:           0,
 					UptimeCount:           0,
 					AuditSuccessRatio:     0,

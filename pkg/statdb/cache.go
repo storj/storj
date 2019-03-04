@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package overlay
+package statdb
 
 import (
 	"context"
@@ -11,7 +11,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 )
@@ -36,36 +35,14 @@ var ErrNotEnoughNodes = errs.Class("not enough nodes")
 // OverlayError creates class of errors for stack traces
 var OverlayError = errs.Class("Overlay Error")
 
-// DB implements the database for overlay.Cache
-type DB interface {
-	// SelectStorageNodes looks up nodes based on criteria
-	SelectStorageNodes(ctx context.Context, count int, criteria *NodeCriteria) ([]*pb.Node, error)
-	// SelectNewStorageNodes looks up nodes based on new node criteria
-	SelectNewStorageNodes(ctx context.Context, count int, criteria *NewNodeCriteria) ([]*pb.Node, error)
-
-	// Get looks up the node by nodeID
-	Get(ctx context.Context, nodeID storj.NodeID) (*pb.Node, error)
-	// GetAll looks up nodes based on the ids from the overlay cache
-	GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*pb.Node, error)
-	// List lists nodes starting from cursor
-	List(ctx context.Context, cursor storj.NodeID, limit int) ([]*pb.Node, error)
-	// Paginate will page through the database nodes
-	Paginate(ctx context.Context, offset int64, limit int) ([]*pb.Node, bool, error)
-	// Update updates node information
-	Update(ctx context.Context, value *pb.Node) error
-	// Delete deletes node based on id
-	Delete(ctx context.Context, id storj.NodeID) error
-}
-
 // Cache is used to store overlay data in Redis
 type Cache struct {
-	db     DB
-	statDB statdb.DB
+	db DB
 }
 
 // NewCache returns a new Cache
-func NewCache(db DB, sdb statdb.DB) *Cache {
-	return &Cache{db: db, statDB: sdb}
+func NewCache(db DB) *Cache {
+	return &Cache{db: db}
 }
 
 // Close closes resources
@@ -78,17 +55,17 @@ func (cache *Cache) Inspect(ctx context.Context) (storage.Keys, error) {
 }
 
 // List returns a list of nodes from the cache DB
-func (cache *Cache) List(ctx context.Context, cursor storj.NodeID, limit int) ([]*pb.Node, error) {
+func (cache *Cache) List(ctx context.Context, cursor storj.NodeID, limit int) ([]*pb.NodeDossier, error) {
 	return cache.db.List(ctx, cursor, limit)
 }
 
 // Paginate returns a list of `limit` nodes starting from `start` offset.
-func (cache *Cache) Paginate(ctx context.Context, offset int64, limit int) ([]*pb.Node, bool, error) {
+func (cache *Cache) Paginate(ctx context.Context, offset int64, limit int) ([]*pb.NodeDossier, bool, error) {
 	return cache.db.Paginate(ctx, offset, limit)
 }
 
 // Get looks up the provided nodeID from the overlay cache
-func (cache *Cache) Get(ctx context.Context, nodeID storj.NodeID) (*pb.Node, error) {
+func (cache *Cache) Get(ctx context.Context, nodeID storj.NodeID) (*pb.NodeDossier, error) {
 	if nodeID.IsZero() {
 		return nil, ErrEmptyNode
 	}
@@ -161,7 +138,7 @@ func (cache *Cache) FindStorageNodes(ctx context.Context, req *pb.FindStorageNod
 }
 
 // GetAll looks up the provided ids from the overlay cache
-func (cache *Cache) GetAll(ctx context.Context, ids storj.NodeIDList) ([]*pb.Node, error) {
+func (cache *Cache) GetAll(ctx context.Context, ids storj.NodeIDList) ([]*pb.NodeDossier, error) {
 	if len(ids) == 0 {
 		return nil, OverlayError.New("no ids provided")
 	}
@@ -182,12 +159,12 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 
 	// TODO: Do we really need this here?
 	// Create a new statdb node with 0 rep, if new node
-	_, err := cache.statDB.CreateEntryIfNotExists(ctx, nodeID)
+	_, err := cache.db.CreateEntryIfNotExists(ctx, nodeID)
 	if err != nil {
 		return err
 	}
 
-	return cache.db.Update(ctx, &value)
+	return cache.db.Update(ctx, &pb.NodeDossier{Node: &value})
 }
 
 // Delete will remove the node from the cache. Used when a node hard disconnects or fails
@@ -204,7 +181,7 @@ func (cache *Cache) ConnFailure(ctx context.Context, node *pb.Node, failureError
 	// TODO: Kademlia paper specifies 5 unsuccessful PINGs before removing the node
 	// from our routing table, but this is the cache so maybe we want to treat
 	// it differently.
-	_, err := cache.statDB.UpdateUptime(ctx, node.Id, false)
+	_, err := cache.db.UpdateUptime(ctx, node.Id, false)
 	if err != nil {
 		zap.L().Debug("error updating uptime for node in statDB", zap.Error(err))
 	}
@@ -216,7 +193,7 @@ func (cache *Cache) ConnSuccess(ctx context.Context, node *pb.Node) {
 	if err != nil {
 		zap.L().Debug("error updating uptime for node in statDB", zap.Error(err))
 	}
-	_, err = cache.statDB.UpdateUptime(ctx, node.Id, true)
+	_, err = cache.db.UpdateUptime(ctx, node.Id, true)
 	if err != nil {
 		zap.L().Debug("error updating statdDB with node connection info", zap.Error(err))
 	}

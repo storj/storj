@@ -84,11 +84,11 @@ func (reporter *Reporter) recordAuditFailStatus(ctx context.Context, failedAudit
 	failedIDs := storj.NodeIDList{}
 
 	for _, nodeID := range failedAuditNodeIDs {
-		_, err := reporter.statdb.Update(ctx, &statdb.UpdateRequest{
-			NodeID:       nodeID,
-			IsUp:         true,
-			AuditSuccess: false,
-		})
+		// _, err := reporter.statdb.Update(ctx, &statdb.UpdateRequest{
+		// 	NodeID:       nodeID,
+		// 	IsUp:         true,
+		// 	AuditSuccess: false,
+		// })
 		if err != nil {
 			failedIDs = append(failedIDs, nodeID)
 		}
@@ -121,11 +121,11 @@ func (reporter *Reporter) recordAuditSuccessStatus(ctx context.Context, successN
 	failedIDs := storj.NodeIDList{}
 
 	for _, nodeID := range successNodeIDs {
-		_, err := reporter.statdb.Update(ctx, &statdb.UpdateRequest{
-			NodeID:       nodeID,
-			IsUp:         true,
-			AuditSuccess: true,
-		})
+		// _, err := reporter.statdb.Update(ctx, &statdb.UpdateRequest{
+		// 	NodeID:       nodeID,
+		// 	IsUp:         true,
+		// 	AuditSuccess: true,
+		// })
 		if err != nil {
 			failedIDs = append(failedIDs, nodeID)
 		}

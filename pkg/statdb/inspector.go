@@ -6,31 +6,43 @@ package statdb
 import (
 	"context"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/pb"
 )
 
 // Inspector is a gRPC service for inspecting statdb internals
 type Inspector struct {
-	statdb DB
+	db DB
 }
 
 // NewInspector creates an Inspector
 func NewInspector(sdb DB) *Inspector {
-	return &Inspector{statdb: sdb}
+	return &Inspector{db: sdb}
+}
+
+// CountNodes returns the number of nodes in the db
+func (srv *Inspector) CountNodes(ctx context.Context, req *pb.CountNodesRequest) (*pb.CountNodesResponse, error) {
+	return &pb.CountNodesResponse{}, errs.New("Not Implemented")
+}
+
+// DumpNodes returns all of the nodes from the db
+func (srv *Inspector) DumpNodes(ctx context.Context, req *pb.DumpNodesRequest) (*pb.DumpNodesResponse, error) {
+	return &pb.DumpNodesResponse{}, errs.New("Not Implemented")
 }
 
 // GetStats returns the stats for a particular node ID
 func (srv *Inspector) GetStats(ctx context.Context, req *pb.GetStatsRequest) (*pb.GetStatsResponse, error) {
-	stats, err := srv.statdb.Get(ctx, req.NodeId)
+	dossier, err := srv.db.Get(ctx, req.NodeId)
 	if err != nil {
 		return nil, err
 	}
 
 	return &pb.GetStatsResponse{
-		AuditCount:  stats.AuditCount,
-		AuditRatio:  stats.AuditSuccessRatio,
-		UptimeCount: stats.UptimeCount,
-		UptimeRatio: stats.UptimeRatio,
+		AuditCount:  dossier.GetReputation().GetAuditCount(),
+		AuditRatio:  dossier.GetReputation().GetAuditSuccessRatio(),
+		UptimeCount: dossier.GetReputation().GetUptimeCount(),
+		UptimeRatio: dossier.GetReputation().GetUptimeRatio(),
 	}, nil
 }
 
@@ -43,7 +55,7 @@ func (srv *Inspector) CreateStats(ctx context.Context, req *pb.CreateStatsReques
 		UptimeSuccessCount: req.UptimeSuccessCount,
 	}
 
-	_, err := srv.statdb.Create(ctx, req.NodeId, stats)
+	_, err := srv.db.Create(ctx, req.NodeId, stats)
 	if err != nil {
 		return nil, err
 	}

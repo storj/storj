@@ -16,11 +16,11 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/eestream"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psclient"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/ranger"
+	"storj.io/storj/pkg/statdb"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storj"
 )
@@ -54,7 +54,7 @@ type Store interface {
 }
 
 type segmentStore struct {
-	oc            overlay.Client
+	oc            statdb.Client
 	ec            ecclient.Client
 	pdb           pdbclient.Client
 	rs            eestream.RedundancyStrategy
@@ -62,7 +62,7 @@ type segmentStore struct {
 }
 
 // NewSegmentStore creates a new instance of segmentStore
-func NewSegmentStore(oc overlay.Client, ec ecclient.Client, pdb pdbclient.Client, rs eestream.RedundancyStrategy, threshold int) Store {
+func NewSegmentStore(oc statdb.Client, ec ecclient.Client, pdb pdbclient.Client, rs eestream.RedundancyStrategy, threshold int) Store {
 	return &segmentStore{
 		oc:            oc,
 		ec:            ec,
@@ -120,7 +120,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 
 		// uses overlay client to request a list of nodes according to configured standards
 		nodes, err := s.oc.Choose(ctx,
-			overlay.Options{
+			statdb.Options{
 				Amount:    s.rs.TotalCount(),
 				Bandwidth: sizedReader.Size() / int64(s.rs.TotalCount()),
 				Space:     sizedReader.Size() / int64(s.rs.TotalCount()),
@@ -345,7 +345,7 @@ func calcNeededNodes(rs *pb.RedundancyScheme) int32 {
 // lookupNodes, if necessary, calls Lookup to get node addresses from the overlay.
 // It also realigns the nodes to an indexed list of nodes based on the piece number.
 // Missing pieces are represented by a nil node.
-func lookupAndAlignNodes(ctx context.Context, oc overlay.Client, nodes []*pb.Node, seg *pb.RemoteSegment) (result []*pb.Node, err error) {
+func lookupAndAlignNodes(ctx context.Context, oc statdb.Client, nodes []*pb.Node, seg *pb.RemoteSegment) (result []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if nodes == nil {

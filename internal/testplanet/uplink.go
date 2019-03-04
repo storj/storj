@@ -17,10 +17,10 @@ import (
 
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
+	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/stream"
@@ -130,7 +130,7 @@ func (uplink *Uplink) DialPointerDB(destination Peer, apikey string) (pdbclient.
 }
 
 // DialOverlay dials destination and returns an overlay.Client
-func (uplink *Uplink) DialOverlay(destination Peer) (overlay.Client, error) {
+func (uplink *Uplink) DialOverlay(destination Peer) (statdb.Client, error) {
 	info := destination.Local()
 	conn, err := uplink.Transport.DialNode(context.Background(), &info.Node, grpc.WithBlock())
 	if err != nil {
@@ -138,7 +138,7 @@ func (uplink *Uplink) DialOverlay(destination Peer) (overlay.Client, error) {
 	}
 
 	// TODO: handle disconnect
-	return overlay.NewClientFrom(pb.NewOverlayClient(conn)), nil
+	return statdb.NewClientFrom(pb.NewOverlayClient(conn)), nil
 }
 
 // Upload data to specific satellite

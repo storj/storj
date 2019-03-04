@@ -18,7 +18,6 @@ import (
 	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
@@ -434,75 +433,6 @@ func (m *lockedIrreparable) IncrementRepairAttempts(ctx context.Context, segment
 	return m.db.IncrementRepairAttempts(ctx, segmentInfo)
 }
 
-// OverlayCache returns database for caching overlay information
-func (m *locked) OverlayCache() overlay.DB {
-	m.Lock()
-	defer m.Unlock()
-	return &lockedOverlayCache{m.Locker, m.db.OverlayCache()}
-}
-
-// lockedOverlayCache implements locking wrapper for overlay.DB
-type lockedOverlayCache struct {
-	sync.Locker
-	db overlay.DB
-}
-
-// Delete deletes node based on id
-func (m *lockedOverlayCache) Delete(ctx context.Context, id storj.NodeID) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Delete(ctx, id)
-}
-
-// Get looks up the node by nodeID
-func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*pb.Node, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Get(ctx, nodeID)
-}
-
-// GetAll looks up nodes based on the ids from the overlay cache
-func (m *lockedOverlayCache) GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*pb.Node, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetAll(ctx, nodeIDs)
-}
-
-// List lists nodes starting from cursor
-func (m *lockedOverlayCache) List(ctx context.Context, cursor storj.NodeID, limit int) ([]*pb.Node, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.List(ctx, cursor, limit)
-}
-
-// Paginate will page through the database nodes
-func (m *lockedOverlayCache) Paginate(ctx context.Context, offset int64, limit int) ([]*pb.Node, bool, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Paginate(ctx, offset, limit)
-}
-
-// SelectNewStorageNodes looks up nodes based on new node criteria
-func (m *lockedOverlayCache) SelectNewStorageNodes(ctx context.Context, count int, criteria *overlay.NewNodeCriteria) ([]*pb.Node, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.SelectNewStorageNodes(ctx, count, criteria)
-}
-
-// SelectStorageNodes looks up nodes based on criteria
-func (m *lockedOverlayCache) SelectStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) ([]*pb.Node, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.SelectStorageNodes(ctx, count, criteria)
-}
-
-// Update updates node information
-func (m *lockedOverlayCache) Update(ctx context.Context, value *pb.Node) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Update(ctx, value)
-}
-
 // RepairQueue returns queue for segments that need repairing
 func (m *locked) RepairQueue() queue.RepairQueue {
 	m.Lock()
@@ -551,17 +481,24 @@ type lockedStatDB struct {
 }
 
 // Create adds a new stats entry for node.
-func (m *lockedStatDB) Create(ctx context.Context, nodeID storj.NodeID, initial *statdb.NodeStats) (stats *statdb.NodeStats, err error) {
+func (m *lockedStatDB) Create(ctx context.Context, nodeID storj.NodeID, initial *statdb.NodeStats) (dossier *pb.NodeDossier, err error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Create(ctx, nodeID, initial)
 }
 
 // CreateEntryIfNotExists creates a node stats entry if it didn't already exist.
-func (m *lockedStatDB) CreateEntryIfNotExists(ctx context.Context, nodeID storj.NodeID) (stats *statdb.NodeStats, err error) {
+func (m *lockedStatDB) CreateEntryIfNotExists(ctx context.Context, nodeID storj.NodeID) (dossier *pb.NodeDossier, err error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.CreateEntryIfNotExists(ctx, nodeID)
+}
+
+// Delete deletes node based on id
+func (m *lockedStatDB) Delete(ctx context.Context, id storj.NodeID) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Delete(ctx, id)
 }
 
 // FindInvalidNodes finds a subset of storagenodes that have stats below provided reputation requirements.
@@ -572,21 +509,56 @@ func (m *lockedStatDB) FindInvalidNodes(ctx context.Context, nodeIDs storj.NodeI
 }
 
 // Get returns node stats.
-func (m *lockedStatDB) Get(ctx context.Context, nodeID storj.NodeID) (stats *statdb.NodeStats, err error) {
+func (m *lockedStatDB) Get(ctx context.Context, nodeID storj.NodeID) (dossier *pb.NodeDossier, err error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Get(ctx, nodeID)
 }
 
-// Update all parts of single storagenode's stats.
-func (m *lockedStatDB) Update(ctx context.Context, request *statdb.UpdateRequest) (stats *statdb.NodeStats, err error) {
+// GetAll looks up nodes based on the ids from the overlay cache
+func (m *lockedStatDB) GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*pb.NodeDossier, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Update(ctx, request)
+	return m.db.GetAll(ctx, nodeIDs)
+}
+
+// List lists nodes starting from cursor
+func (m *lockedStatDB) List(ctx context.Context, cursor storj.NodeID, limit int) ([]*pb.NodeDossier, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.List(ctx, cursor, limit)
+}
+
+// Paginate will page through the database nodes
+func (m *lockedStatDB) Paginate(ctx context.Context, offset int64, limit int) ([]*pb.NodeDossier, bool, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Paginate(ctx, offset, limit)
+}
+
+// SelectNewStorageNodes looks up nodes based on new node criteria
+func (m *lockedStatDB) SelectNewStorageNodes(ctx context.Context, count int, criteria *statdb.NewNodeCriteria) ([]*pb.Node, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SelectNewStorageNodes(ctx, count, criteria)
+}
+
+// SelectStorageNodes looks up nodes based on criteria
+func (m *lockedStatDB) SelectStorageNodes(ctx context.Context, count int, criteria *statdb.NodeCriteria) ([]*pb.Node, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SelectStorageNodes(ctx, count, criteria)
+}
+
+// Update updates node information
+func (m *lockedStatDB) Update(ctx context.Context, value *pb.NodeDossier) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Update(ctx, value)
 }
 
 // UpdateAuditSuccess updates a single storagenode's audit stats.
-func (m *lockedStatDB) UpdateAuditSuccess(ctx context.Context, nodeID storj.NodeID, auditSuccess bool) (stats *statdb.NodeStats, err error) {
+func (m *lockedStatDB) UpdateAuditSuccess(ctx context.Context, nodeID storj.NodeID, auditSuccess bool) (dossier *pb.NodeDossier, err error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UpdateAuditSuccess(ctx, nodeID, auditSuccess)
@@ -600,14 +572,14 @@ func (m *lockedStatDB) UpdateBatch(ctx context.Context, requests []*statdb.Updat
 }
 
 // UpdateOperator updates the email and wallet for a given node ID for satellite payments.
-func (m *lockedStatDB) UpdateOperator(ctx context.Context, node storj.NodeID, updatedOperator pb.NodeOperator) (stats *statdb.NodeStats, err error) {
+func (m *lockedStatDB) UpdateOperator(ctx context.Context, node storj.NodeID, updatedOperator pb.NodeOperator) (dossier *pb.NodeDossier, err error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UpdateOperator(ctx, node, updatedOperator)
 }
 
 // UpdateUptime updates a single storagenode's uptime stats.
-func (m *lockedStatDB) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *statdb.NodeStats, err error) {
+func (m *lockedStatDB) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (dossier *pb.NodeDossier, err error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UpdateUptime(ctx, nodeID, isUp)

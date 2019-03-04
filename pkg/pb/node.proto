@@ -8,21 +8,10 @@ package node;
 
 import "gogo.proto";
 
-// TODO move statdb.Update() stuff out of here
-// Node represents a node in the overlay network
-// Node is info for a updating a single storagenode, used in the Update rpc calls
+// Node contains the minimum info to identify and communicate with a storage node.
 message Node {
     bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
     NodeAddress address = 2;
-}
-
-// NodeType is an enum of possible node types
-enum NodeType {
-    INVALID = 0;
-    SATELLITE = 1;
-    STORAGE = 2;
-    UPLINK = 3;
-    BOOTSTRAP = 4;
 }
 
 // NodeAddress contains the information needed to communicate with a node on the network
@@ -35,16 +24,21 @@ message NodeAddress {
 enum NodeTransport {
     TCP_TLS_GRPC = 0;
 }
-// NodeStats is the reputation characteristics of a node
-message NodeStats {
-    bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
-    int64 latency_90 = 2; // 90th percentile measure of storagenode latency
-    double audit_success_ratio = 3; // (auditSuccessCount / totalAuditCount)
-    double uptime_ratio = 4; // (uptimeCount / totalUptimeCheckCount)
-    int64 audit_count = 5;
-    int64 audit_success_count = 6;
-    int64 uptime_count = 7;
-    int64 uptime_success_count = 8;
+ 
+// NodeInfo is the info that a storage node can determine for itself
+message NodeInfo {
+    NodeType type = 1;
+    NodeOperator operator = 2;
+    NodeCapacity capacity = 3;
+}
+
+// NodeType is an enum of possible node types
+enum NodeType {
+    INVALID = 0;
+    SATELLITE = 1;
+    STORAGE = 2;
+    UPLINK = 3;
+    BOOTSTRAP = 4;
 }
 
 // NodeOperator contains info about the storage node operator
@@ -58,3 +52,24 @@ message NodeCapacity {
     int64 free_bandwidth = 1;
     int64 free_disk = 2;
 }
+
+// NodeStats is the reputation characteristics of a node
+message NodeStats {
+    bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    int64 latency_90 = 2; // 90th percentile measure of storagenode latency
+    double audit_success_ratio = 3; // (auditSuccessCount / totalAuditCount)
+    double uptime_ratio = 4; // (uptimeCount / totalUptimeCheckCount)
+    int64 audit_count = 5;
+    int64 audit_success_count = 6;
+    int64 uptime_count = 7;
+    int64 uptime_success_count = 8;
+}
+ 
+// NodeDossier is the complete info that the satellite tracks for a storage node
+message NodeDossier {
+    Node node = 1;
+    bool online = 2;
+    NodeInfo info = 3;
+    NodeStats reputation = 4;
+}
+ 

@@ -10,7 +10,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/satellite/satellitedb"
 )
 
@@ -19,7 +19,7 @@ type cacheConfig struct {
 	Database  string `help:"overlay database connection string" default:"sqlite3://$CONFDIR/master.db"`
 }
 
-func (c cacheConfig) open(ctx context.Context) (cache *overlay.Cache, dbClose func(), err error) {
+func (c cacheConfig) open(ctx context.Context) (cache *statdb.Cache, dbClose func(), err error) {
 	database, err := satellitedb.New(zap.L().Named("db"), c.Database)
 	if err != nil {
 		return nil, nil, errs.New("error connecting to database: %+v", err)
@@ -31,5 +31,5 @@ func (c cacheConfig) open(ctx context.Context) (cache *overlay.Cache, dbClose fu
 		}
 	}
 
-	return overlay.NewCache(database.OverlayCache(), database.StatDB()), dbClose, nil
+	return statdb.NewCache(database.StatDB()), dbClose, nil
 }

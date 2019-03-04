@@ -15,9 +15,9 @@ import (
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
+	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storage/buckets"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
@@ -94,7 +94,7 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, errlist.Err()
 	}
 
-	oc, err := overlay.NewClient(tc, c.Client.OverlayAddr)
+	oc, err := statdb.NewClient(tc, c.Client.OverlayAddr)
 	if err != nil {
 		return nil, nil, Error.New("failed to connect to overlay: %v", err)
 	}
