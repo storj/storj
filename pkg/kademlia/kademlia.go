@@ -181,7 +181,7 @@ func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
 	}
 	defer k.lookups.Done()
 
-	ok, err := k.dialer.Ping(ctx, node)
+	ok, err := k.dialer.PingNode(ctx, node)
 	if err != nil {
 		return pb.Node{}, NodeErr.Wrap(err)
 	}
