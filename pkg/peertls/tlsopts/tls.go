@@ -18,21 +18,7 @@ import (
 // ServerOption returns a grpc `ServerOption` for incoming connections
 // to the node with this full identity.
 func (opts *Options) ServerOption() grpc.ServerOption {
-	pcvFuncs := append(
-		[]peertls.PeerCertVerificationFunc{
-			peertls.VerifyPeerCertChains,
-		},
-		opts.PCVFuncs...,
-	)
-	tlsConfig := &tls.Config{
-		Certificates:       []tls.Certificate{*opts.Cert},
-		InsecureSkipVerify: true,
-		ClientAuth:         tls.RequireAnyClientCert,
-		VerifyPeerCertificate: peertls.VerifyPeerFunc(
-			pcvFuncs...,
-		),
-	}
-
+	tlsConfig := opts.ServerTLSConfig()
 	return grpc.Creds(credentials.NewTLS(tlsConfig))
 }
 
@@ -42,38 +28,51 @@ func (opts *Options) DialOption(id storj.NodeID) (grpc.DialOption, error) {
 	if id.IsZero() {
 		return nil, Error.New("no ID specified for DialOption")
 	}
-	return grpc.WithTransportCredentials(opts.TransportCredentials(id)), nil
+	tlsConfig := opts.ClientTLSConfig(id)
+	return grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)), nil
 }
 
 // DialUnverifiedIDOption returns a grpc `DialUnverifiedIDOption`
 func (opts *Options) DialUnverifiedIDOption() grpc.DialOption {
-	return grpc.WithTransportCredentials(opts.TransportCredentials(storj.NodeID{}))
+	tlsConfig := opts.tlsConfig(false)
+	return grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig))
 }
 
-// TransportCredentials returns a grpc `credentials.TransportCredentials`
-// implementation for use within peertls.
-func (opts *Options) TransportCredentials(id storj.NodeID) credentials.TransportCredentials {
-	return credentials.NewTLS(opts.TLSConfig(id))
+// ServerTLSConfig returns a TSLConfig for use as a server in handshaking with a peer.
+func (opts *Options) ServerTLSConfig() *tls.Config {
+	return opts.tlsConfig(true)
 }
 
-// TLSConfig returns a TSLConfig for use in handshaking with a peer.
-func (opts *Options) TLSConfig(id storj.NodeID) *tls.Config {
-	pcvFuncs := append(
+// ClientTLSConfig returns a TSLConfig for use as a client in handshaking with a peer.
+func (opts *Options) ClientTLSConfig(id storj.NodeID) *tls.Config {
+	return opts.tlsConfig(false, verifyIdentity(id))
+}
+
+func (opts *Options) tlsConfig(isServer bool, verificationFuncs ...peertls.PeerCertVerificationFunc) *tls.Config {
+	verificationFuncs = append(
 		[]peertls.PeerCertVerificationFunc{
 			peertls.VerifyPeerCertChains,
 		},
-		opts.PCVFuncs...,
+		verificationFuncs...,
 	)
-	if !id.IsZero() {
-		pcvFuncs = append(pcvFuncs, verifyIdentity(id))
-	}
-	return &tls.Config{
+	verificationFuncs = append(
+		verificationFuncs,
+		opts.VerificationFuncs...,
+	)
+
+	config := &tls.Config{
 		Certificates:       []tls.Certificate{*opts.Cert},
 		InsecureSkipVerify: true,
 		VerifyPeerCertificate: peertls.VerifyPeerFunc(
-			pcvFuncs...,
+			verificationFuncs...,
 		),
 	}
+
+	if isServer {
+		config.ClientAuth = tls.RequireAnyClientCert
+	}
+
+	return config
 }
 
 func verifyIdentity(id storj.NodeID) peertls.PeerCertVerificationFunc {
