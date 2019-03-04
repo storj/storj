@@ -16,9 +16,9 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/internal/storjql"
-	consoleql "storj.io/storj/internal/storjql/satellite"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
 )
 

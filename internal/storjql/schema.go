@@ -9,9 +9,9 @@ import (
 	"github.com/graphql-go/graphql"
 
 	"storj.io/storj/bootstrap/bootstrapweb"
-	bootstrapql "storj.io/storj/internal/storjql/bootstrap"
-	satelliteql "storj.io/storj/internal/storjql/satellite"
+	"storj.io/storj/bootstrap/bootstrapweb/bootstrapserver/bootstrapql"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
 )
 
@@ -39,7 +39,7 @@ func CreateConsoleSchema(service *console.Service, mailService *mailservice.Serv
 	creatingSchemaMutex.Lock()
 	defer creatingSchemaMutex.Unlock()
 
-	creator := satelliteql.TypeCreator{}
+	creator := consoleql.TypeCreator{}
 	err := creator.Create(service, mailService)
 	if err != nil {
 		return graphql.Schema{}, err

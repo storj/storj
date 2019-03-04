@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package bootstrapweb
+package bootstrapql
 
 import (
 	"github.com/graphql-go/graphql"

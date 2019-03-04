@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package tests
+package consoleql_test
 
 import (
 	"fmt"
@@ -12,12 +12,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap/zaptest"
 
-	consoleql "storj.io/storj/internal/storjql/satellite"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
@@ -40,7 +40,7 @@ func TestGraphqlQuery(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		mailService, err := mailservice.New(log, &discardSender{}, "../testdata")
+		mailService, err := mailservice.New(log, &discardSender{}, "testdata")
 		if err != nil {
 			t.Fatal(err)
 		}

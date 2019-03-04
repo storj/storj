@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information
 
-package satellite
+package consoleql
 
 const (
 	// ActivationPath is key for pass which handles account activation

@@ -10,7 +10,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	bootstrapql "storj.io/storj/internal/storjql/bootstrap"
+	"storj.io/storj/bootstrap/bootstrapweb/bootstrapserver/bootstrapql"
 	"storj.io/storj/pkg/utils"
 )
 
