@@ -68,11 +68,7 @@ func New(opts *tlsopts.Options, publicAddr, privateAddr string, interceptor grpc
 	}
 	private := private{
 		listener: privateListener,
-		grpc: grpc.NewServer(
-			grpc.StreamInterceptor(streamInterceptor),
-			grpc.UnaryInterceptor(unaryInterceptor),
-			opts.ServerOption(),
-		),
+		grpc:     grpc.NewServer(),
 	}
 
 	return &Server{

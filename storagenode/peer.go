@@ -161,7 +161,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 		pb.RegisterPieceStoreRoutesServer(peer.Server.GRPC(), peer.Storage.Endpoint)
 
 		peer.Storage.Inspector = psserver.NewInspector(peer.Storage.Endpoint)
-		pb.RegisterPieceStoreInspectorServer(peer.Public.Server.GRPC(), peer.Storage.Inspector)
+		pb.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage.Inspector)
 
 		// TODO: organize better
 		peer.Storage.Monitor = psserver.NewMonitor(peer.Log.Named("piecestore:monitor"), config.KBucketRefreshInterval, peer.Kademlia.RoutingTable, peer.Storage.Endpoint)
@@ -202,8 +202,9 @@ func (peer *Peer) Run(ctx context.Context) error {
 	group.Go(func() error {
 		// TODO: move the message into Server instead
 		// Don't change the format of this comment, it is used to figure out the node id.
-		peer.Log.Sugar().Infof("Node %s started on %s", peer.Identity.ID, peer.Addr())
-		peer.Log.Sugar().Infof("Node %s started on %s", peer.Identity.ID, peer.PrivateAddr())
+		peer.Log.Sugar().Infof("Node %s", peer.Identity.ID)
+		peer.Log.Sugar().Infof("Public server started on %s", peer.Identity.ID, peer.Addr())
+		peer.Log.Sugar().Infof("Private server started on %s", peer.Identity.ID, peer.PrivateAddr())
 		return ignoreCancel(peer.Server.Run(ctx))
 	})
 

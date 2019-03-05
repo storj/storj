@@ -34,6 +34,7 @@ type Observer interface {
 // Client defines the interface to an transport client.
 type Client interface {
 	DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (*grpc.ClientConn, error)
+	DialNodeInsecure(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (*grpc.ClientConn, error)
 	DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (*grpc.ClientConn, error)
 	Identity() *identity.FullIdentity
 	WithObservers(obs ...Observer) *Transport
@@ -49,6 +50,13 @@ type Transport struct {
 func NewClient(tlsOpts *tlsopts.Options, obs ...Observer) Client {
 	return &Transport{
 		tlsOpts:   tlsOpts,
+		observers: obs,
+	}
+}
+
+// NewClientInsecure returns a newly instantiated Transport Client without tls
+func NewClientInsecure(obs ...Observer) Client {
+	return &Transport{
 		observers: obs,
 	}
 }
@@ -110,6 +118,32 @@ func (transport *Transport) DialAddress(ctx context.Context, address string, opt
 	}, opts...)
 
 	conn, err = grpc.DialContext(ctx, address, options...)
+	if err == context.Canceled {
+		return nil, err
+	}
+	return conn, Error.Wrap(err)
+}
+
+// DialNodeInsecure returns an insecure grpc connection without tls to a node.
+//
+// Use this method for communication with localhost. For example, with the inspector or debugging services.
+// Otherwise in most cases DialNode should be used for communicating with nodes since it is secure.
+func (transport *Transport) DialNodeInsecure(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if node != nil {
+		node.Type.DPanicOnInvalid("transport dial node insecure")
+	}
+	if node.Address == nil || node.Address.Address == "" {
+		return nil, Error.New("no address")
+	}
+
+	options := append([]grpc.DialOption{
+		grpc.WithInsecure(),
+		grpc.WithBlock(),
+		grpc.FailOnNonTempDialError(true),
+	}, opts...)
+
+	conn, err = grpc.DialContext(ctx, node.GetAddress().Address, options...)
 	if err == context.Canceled {
 		return nil, err
 	}

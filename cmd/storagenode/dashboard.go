@@ -36,12 +36,6 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Info("Node ID: ", ident.ID)
 	}
 
-	tlsOpts, err := tlsopts.NewOptions(ident, tlsopts.Config{})
-	if err != nil {
-		return err
-	}
-
-	tc := transport.NewClient(tlsOpts)
 	n := &pb.Node{
 		Id: ident.ID,
 		Address: &pb.NodeAddress{
@@ -51,12 +45,20 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 		Type: pb.NodeType_STORAGE,
 	}
 
+	tc := transport.NewClientInsecure()
 	client, err := newDashboardClient(ctx, tc, n)
 	if err != nil {
 		return err
 	}
 
-	online, err := getConnectionStatus(ctx, tc, ident)
+	tlsOpts, err := tlsopts.NewOptions(ident, tlsopts.Config{})
+	if err != nil {
+		return err
+	}
+
+	bootstrapAddr := runCfg.Kademlia.BootstrapAddr
+	tc = transport.NewClient(tlsOpts)
+	online, err := getConnectionStatus(ctx, tc, ident, bootstrapAddr)
 	if err != nil {
 		zap.S().Error("error getting connection status %s", err.Error())
 	}
@@ -143,7 +145,7 @@ func (dash *DashboardClient) Stats(ctx context.Context) (*pb.StatSummaryResponse
 }
 
 func newDashboardClient(ctx context.Context, tc transport.Client, n *pb.Node) (*DashboardClient, error) {
-	conn, err := tc.DialNode(ctx, n)
+	conn, err := tc.DialNodeInsecure(ctx, n)
 	if err != nil {
 		return &DashboardClient{}, err
 	}
@@ -173,10 +175,10 @@ func clearScreen() {
 	}
 }
 
-func getConnectionStatus(ctx context.Context, tc transport.Client, id *identity.FullIdentity) (bool, error) {
+func getConnectionStatus(ctx context.Context, tc transport.Client, id *identity.FullIdentity, bootstrapAddr string) (bool, error) {
 	bn := &pb.Node{
 		Address: &pb.NodeAddress{
-			Address:   dashboardCfg.BootstrapAddr,
+			Address:   bootstrapAddr,
 			Transport: 0,
 		},
 		Type: pb.NodeType_BOOTSTRAP,
@@ -189,7 +191,7 @@ func getConnectionStatus(ctx context.Context, tc transport.Client, id *identity.
 
 	resp, err := inspector.kad.PingNode(ctx, &pb.PingNodeRequest{
 		Id:      id.ID,
-		Address: dashboardCfg.ExternalAddress,
+		Address: dashboardCfg.Address,
 	})
 
 	if err != nil {
