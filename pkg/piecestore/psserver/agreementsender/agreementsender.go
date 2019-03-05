@@ -105,14 +105,14 @@ func (as *AgreementSender) SendAgreementsToSatellite(ctx context.Context, satID 
 			default:
 				// CASE REJECTED: successful connection with sat established but either failed or rejected received
 				as.log.Warn("Agreementsender had agreement explicitly rejected/failed by satellite")
-				err = as.DB.UpdateBandwidthAllocationStatus(rba.PayerAllocation.SerialNumber, psdb.BwaStatusREJECT)
+				err = as.DB.UpdateBandwidthAllocationStatus(rba.PayerAllocation.SerialNumber, psdb.AgreementStatusReject)
 				if err != nil {
 					as.log.Error("Agreementsender error", zap.Error(err))
 				}
 			}
 		} else {
 			// updates the status to "SENT"
-			err = as.DB.UpdateBandwidthAllocationStatus(rba.PayerAllocation.SerialNumber, psdb.BwaStatusSENT)
+			err = as.DB.UpdateBandwidthAllocationStatus(rba.PayerAllocation.SerialNumber, psdb.AgreementStatusSent)
 			if err != nil {
 				as.log.Error("Agreementsender error", zap.Error(err))
 			}

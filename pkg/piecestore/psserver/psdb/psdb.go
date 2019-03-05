@@ -30,16 +30,16 @@ var (
 	Error = errs.Class("psdb")
 )
 
-// BwaStatus keep tracks of the BWA payout status
-type BwaStatus int32
+// AgreementStatus keep tracks of the agreement payout status
+type AgreementStatus int32
 
 const (
-	// BwaStatusUNSENT sets the BWA status to UNSENT
-	BwaStatusUNSENT = iota
-	// BwaStatusSENT  sets the BWA status to SENT
-	BwaStatusSENT
-	// BwaStatusREJECT sets the BWA status to REJEC
-	BwaStatusREJECT
+	// AgreementStatusUnsent sets the agreement status to UNSENT
+	AgreementStatusUnsent = iota
+	// AgreementStatusSent  sets the agreement status to SENT
+	AgreementStatusSent
+	// AgreementStatusReject sets the agreement status to REJECT
+	AgreementStatusReject
 	// add new status here ...
 )
 
@@ -268,7 +268,7 @@ func (db *DB) WriteBandwidthAllocToDB(rba *pb.Order) error {
 	_, err = db.db.Exec(`INSERT INTO bandwidth_agreements (satellite, agreement, signature, uplink, serial_num, total, max_size, created_utc_sec, status, expiration_utc_sec, action, daystart_utc_sec) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		rba.PayerAllocation.SatelliteId.Bytes(), rbaBytes, rba.GetSignature(),
 		rba.PayerAllocation.UplinkId.Bytes(), rba.PayerAllocation.SerialNumber,
-		rba.Total, rba.PayerAllocation.MaxSize, rba.PayerAllocation.CreatedUnixSec, BwaStatusUNSENT,
+		rba.Total, rba.PayerAllocation.MaxSize, rba.PayerAllocation.CreatedUnixSec, AgreementStatusUnsent,
 		rba.PayerAllocation.ExpirationUnixSec, rba.PayerAllocation.GetAction().String(),
 		startofthedayunixsec)
 	return err
@@ -288,7 +288,7 @@ func (db *DB) DeleteBandwidthAllocationPayouts() error {
 }
 
 // UpdateBandwidthAllocationStatus update the bwa payout status
-func (db *DB) UpdateBandwidthAllocationStatus(serialnum string, status BwaStatus) (err error) {
+func (db *DB) UpdateBandwidthAllocationStatus(serialnum string, status AgreementStatus) (err error) {
 	defer db.locked()()
 	_, err = db.db.Exec(`UPDATE bandwidth_agreements SET status = ? WHERE serial_num = ?`, status, serialnum)
 	return err
@@ -339,7 +339,7 @@ func (db *DB) GetBandwidthAllocationBySignature(signature []byte) ([]*pb.Order, 
 func (db *DB) GetBandwidthAllocations() (map[storj.NodeID][]*Agreement, error) {
 	defer db.locked()()
 
-	rows, err := db.db.Query(`SELECT satellite, agreement FROM bandwidth_agreements WHERE status = ?`, BwaStatusUNSENT)
+	rows, err := db.db.Query(`SELECT satellite, agreement FROM bandwidth_agreements WHERE status = ?`, AgreementStatusUnsent)
 	if err != nil {
 		return nil, err
 	}
@@ -372,7 +372,7 @@ func (db *DB) GetBandwidthAllocations() (map[storj.NodeID][]*Agreement, error) {
 }
 
 // GetBwaStatusBySerialNum get BWA status by serial num
-func (db *DB) GetBwaStatusBySerialNum(serialnum string) (status BwaStatus, err error) {
+func (db *DB) GetBwaStatusBySerialNum(serialnum string) (status AgreementStatus, err error) {
 	defer db.locked()()
 	err = db.db.QueryRow(`SELECT status FROM bandwidth_agreements WHERE serial_num=?`, serialnum).Scan(&status)
 	return status, err

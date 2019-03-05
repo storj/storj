@@ -287,13 +287,13 @@ func TestHappyPath(t *testing.T) {
 
 	type bwaUsage struct {
 		serialnum string
-		status    psdb.BwaStatus
+		status    psdb.AgreementStatus
 	}
 
 	bwatests := []bwaUsage{
-		{serialnum: "serialnum_1", status: psdb.BwaStatusUNSENT},
-		{serialnum: "serialnum_2", status: psdb.BwaStatusREJECT},
-		{serialnum: "serialnum_3", status: psdb.BwaStatusSENT},
+		{serialnum: "serialnum_1", status: psdb.AgreementStatusUnsent},
+		{serialnum: "serialnum_2", status: psdb.AgreementStatusReject},
+		{serialnum: "serialnum_3", status: psdb.AgreementStatusSent},
 	}
 	t.Run("UpdateBandwidthAllocationStatus", func(t *testing.T) {
 		for P := 0; P < concurrency; P++ {
