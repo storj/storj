@@ -40,8 +40,8 @@ type VerificationFuncs struct {
 // NewOptions is a constructor for `tls options` given an identity and config
 func NewOptions(i *identity.FullIdentity, c Config) (*Options, error) {
 	opts := &Options{
-		Config: c,
-		Ident:  i,
+		Config:            c,
+		Ident:             i,
 		VerificationFuncs: new(VerificationFuncs),
 	}
 
