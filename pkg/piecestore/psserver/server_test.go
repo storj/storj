@@ -379,6 +379,29 @@ func TestPbaValidation(t *testing.T) {
 			expire:      time.Hour,
 			err:         "rpc error: code = Unknown desc = store error: payer bandwidth allocation: invalid action GET",
 		},
+		{ // expires now
+			satelliteID: satID1,
+			uplinkID:    upID1,
+			whitelist:   []storj.NodeID{satID1.ID, satID2.ID},
+			action:      pb.BandwidthAction_GET,
+			expire:      0 * time.Second,
+			err:         "rpc error: code = Unknown desc = Payer agreement: Agreement is expired:",
+		},
+		{ // expired yesterday
+			satelliteID: satID1,
+			uplinkID:    upID1,
+			whitelist:   []storj.NodeID{satID1.ID, satID2.ID},
+			action:      pb.BandwidthAction_GET,
+			expire:      -23*time.Hour - 55*time.Second,
+			err:         "rpc error: code = Unknown desc = Payer agreement: Agreement is expired:",
+		},
+		{ // expires in 30 seconds
+			satelliteID: satID1,
+			uplinkID:    upID1,
+			whitelist:   []storj.NodeID{satID1.ID, satID2.ID},
+			action:      pb.BandwidthAction_GET,
+			expire:      30 * time.Second,
+		},
 	}
 
 	for _, tt := range tests {
@@ -418,7 +441,7 @@ func TestPbaValidation(t *testing.T) {
 			_, err = stream.CloseAndRecv()
 			if tt.err != "" {
 				require.NotNil(t, err)
-				require.Equal(t, tt.err, err.Error())
+				require.Contains(t, err.Error(), tt.err)
 				return
 			}
 		})
