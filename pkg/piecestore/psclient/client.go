@@ -15,6 +15,7 @@ import (
 	"golang.org/x/net/context"
 
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
@@ -152,7 +153,7 @@ func (ps *PieceStore) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 
 	bufw := bufio.NewWriterSize(writer, 32*1024)
 
-	_, err = io.Copy(bufw, data)
+	_, err = sync2.Copy(ctx, bufw, data)
 	if err != nil {
 		return nil, err
 	}

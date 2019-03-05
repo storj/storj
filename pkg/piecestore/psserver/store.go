@@ -12,6 +12,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/utils"
@@ -120,7 +121,7 @@ func (s *Server) storeData(ctx context.Context, stream pb.PieceStoreRoutes_Store
 	spaceLeft := s.totalAllocated - spaceUsed
 	reader := NewStreamReader(s, stream, bwLeft, spaceLeft)
 
-	total, err = io.Copy(storeFile, reader)
+	total, err = sync2.Copy(ctx, storeFile, reader)
 
 	if err != nil && err != io.EOF {
 		return 0, nil, err
