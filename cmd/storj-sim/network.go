@@ -112,13 +112,14 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 	processes := NewProcesses()
 	var (
-		configDir       = flags.Directory
-		host            = flags.Host
-		gatewayPort     = 9000
-		bootstrapPort   = 9999
-		satellitePort   = 10000
-		storageNodePort = 11000
-		consolePort     = 10100
+		configDir        = flags.Directory
+		host             = flags.Host
+		gatewayPort      = 9000
+		bootstrapPort    = 9999
+		satellitePort    = 10000
+		storageNodePort  = 11000
+		consolePort      = 10100
+		bootstrapWebPort = 10010
 	)
 
 	bootstrap := processes.New(Info{
@@ -131,6 +132,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	bootstrap.Arguments = withCommon(Arguments{
 		"setup": {
 			"--identity-dir", bootstrap.Directory,
+
+			"--web.address", net.JoinHostPort(host, strconv.Itoa(bootstrapWebPort)),
+
 			"--server.address", bootstrap.Address,
 
 			"--kademlia.bootstrap-addr", bootstrap.Address,
