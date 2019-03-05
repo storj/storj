@@ -75,8 +75,9 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 	remainder := shareSize % 8
 	if remainder == 0 {
 		bandwidthMsgSize = shareSize / 8
+	} else {
+		bandwidthMsgSize = shareSize + 8 - remainder
 	}
-	bandwidthMsgSize = shareSize + 8 - remainder
 
 	ps, err := psclient.NewPSClient(ctx, d.transport, fromNode, bandwidthMsgSize)
 	if err != nil {
