@@ -67,10 +67,18 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 		return s, Error.New("no node returned from overlay for piece %s", id.String())
 	}
 	fromNode.Type.DPanicOnInvalid("audit getShare")
+
 	// TODO(nat): the reason for dividing by 8 is because later in psclient/readerwriter.go
 	// the bandwidthMsgSize is arbitrarily multiplied by 8 as a reasonable threshold
-	// for message trust size drift.
-	ps, err := psclient.NewPSClient(ctx, d.transport, fromNode, shareSize/8)
+	// for message trust size drift. The 8 should eventually be a config value.
+	var bandwidthMsgSize int
+	remainder := shareSize % 8
+	if remainder == 0 {
+		bandwidthMsgSize = shareSize / 8
+	}
+	bandwidthMsgSize = shareSize + 8 - remainder
+
+	ps, err := psclient.NewPSClient(ctx, d.transport, fromNode, bandwidthMsgSize)
 	if err != nil {
 		return s, err
 	}
