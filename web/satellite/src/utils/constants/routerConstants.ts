@@ -34,6 +34,10 @@ const ROUTES = {
         path: '/api-keys',
         name: 'ApiKeys'
     },
+    USAGE_REPORT: {
+        path: '/project-details/usage-report',
+        name: 'UsageReport'
+    },
     BUCKETS: {
         path: '/buckets',
         name: 'Buckets'
