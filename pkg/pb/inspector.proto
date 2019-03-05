@@ -6,7 +6,6 @@ option go_package = "pb";
 
 import "gogo.proto";
 import "node.proto";
-import "piecestore.proto";
 import "google/protobuf/duration.proto";
 
 
@@ -45,7 +44,7 @@ service PieceStoreInspector {
   // Stats return space and bandwidth stats for a storagenode
   rpc Stats(StatsRequest) returns (StatSummaryResponse) {}
   // Dashboard returns stats for a specific storagenode
-  rpc Dashboard(DashboardRequest) returns (stream DashboardResponse) {}
+  rpc Dashboard(DashboardRequest) returns (DashboardResponse) {}
 }
 
 // GetStats

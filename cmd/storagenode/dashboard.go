@@ -6,7 +6,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"runtime"
@@ -44,6 +43,7 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 
 	tc := transport.NewClient(tlsOpts)
 	n := &pb.Node{
+		Id: ident.ID,
 		Address: &pb.NodeAddress{
 			Address:   dashboardCfg.Address,
 			Transport: 0,
@@ -56,22 +56,13 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	stream, err := client.Dashboard(ctx)
-	if err != nil {
-		return err
-	}
-
 	online, err := getConnectionStatus(ctx, tc, ident)
 	if err != nil {
 		zap.S().Error("error getting connection status %s", err.Error())
 	}
 
 	for {
-		data, err := stream.Recv()
-		if err == io.EOF {
-			break
-		}
-
+		data, err := client.Dashboard(ctx)
 		if err != nil {
 			return err
 		}
@@ -131,6 +122,8 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 		if err = w.Flush(); err != nil {
 			return err
 		}
+
+		time.Sleep(3 * time.Second)
 	}
 
 	return nil
@@ -142,12 +135,12 @@ type DashboardClient struct {
 }
 
 // Dashboard returns a simple terminal dashboard displaying info
-func (dash *DashboardClient) Dashboard(ctx context.Context) (pb.PieceStoreInspector_DashboardClient, error) {
+func (dash *DashboardClient) Dashboard(ctx context.Context) (*pb.DashboardResponse, error) {
 	return dash.client.Dashboard(ctx, &pb.DashboardRequest{})
 }
 
 // Stats will retrieve stats about a piece storage node
-func (dash *DashboardClient) Stats(ctx context.Context) (pb.StatSummary, error) {
+func (dash *DashboardClient) Stats(ctx context.Context) (*pb.StatSummaryResponse, error) {
 	return dash.client.Stats(ctx, &pb.StatsRequest{})
 }
 

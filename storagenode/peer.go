@@ -172,7 +172,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 		pb.RegisterPieceStoreRoutesServer(peer.Public.Server.GRPC(), peer.Storage.Endpoint)
 
 		peer.Storage.Inspector = psserver.NewInspector(peer.Storage.Endpoint)
-		pb.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage.Inspector)
+		pb.RegisterPieceStoreInspectorServer(peer.Public.Server.GRPC(), peer.Storage.Inspector)
 
 		// TODO: organize better
 		peer.Storage.Monitor = psserver.NewMonitor(peer.Log.Named("piecestore:monitor"), config.KBucketRefreshInterval, peer.Kademlia.RoutingTable, peer.Storage.Endpoint)

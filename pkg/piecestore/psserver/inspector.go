@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
-	"go.uber.org/zap"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
@@ -26,7 +25,7 @@ func NewInspector(psserver *Server) *Inspector {
 	}
 }
 
-func (s *Inspector) retrieveStats() (*pb.StatSummary, error) {
+func (s *Inspector) retrieveStats() (*pb.StatSummaryResponse, error) {
 	totalUsed, err := s.ps.DB.SumTTLSizes()
 	if err != nil {
 		return nil, err
@@ -37,7 +36,7 @@ func (s *Inspector) retrieveStats() (*pb.StatSummary, error) {
 		return nil, err
 	}
 
-	return &pb.StatSummary{
+	return &pb.StatSummaryResponse{
 		UsedSpace:          totalUsed,
 		AvailableSpace:     (s.ps.totalAllocated - totalUsed),
 		UsedBandwidth:      totalUsedBandwidth,
@@ -46,7 +45,7 @@ func (s *Inspector) retrieveStats() (*pb.StatSummary, error) {
 }
 
 // Stats returns current statistics about the server.
-func (s *Inspector) Stats(ctx context.Context, in *pb.StatsReq) (*pb.StatSummary, error) {
+func (s *Inspector) Stats(ctx context.Context, in *pb.StatsRequest) (*pb.StatSummaryResponse, error) {
 	s.ps.log.Debug("Getting Stats...")
 
 	statsSummary, err := s.retrieveStats()
@@ -59,15 +58,15 @@ func (s *Inspector) Stats(ctx context.Context, in *pb.StatsReq) (*pb.StatSummary
 	return statsSummary, nil
 }
 
-func (s *Inspector) getDashboardData(ctx context.Context) (*pb.DashboardStats, error) {
+func (s *Inspector) getDashboardData(ctx context.Context) (*pb.DashboardResponse, error) {
 	statsSummary, err := s.retrieveStats()
 	if err != nil {
-		return &pb.DashboardStats{}, ServerError.Wrap(err)
+		return &pb.DashboardResponse{}, ServerError.Wrap(err)
 	}
 
 	nodes, err := s.ps.kad.FindNear(ctx, storj.NodeID{}, 10000000)
 	if err != nil {
-		return &pb.DashboardStats{}, ServerError.Wrap(err)
+		return &pb.DashboardResponse{}, ServerError.Wrap(err)
 	}
 
 	bootstrapNodes := s.ps.kad.GetBootstrapNodes()
@@ -78,7 +77,7 @@ func (s *Inspector) getDashboardData(ctx context.Context) (*pb.DashboardStats, e
 		bsNodes[i] = node.Address.Address
 	}
 
-	return &pb.DashboardStats{
+	return &pb.DashboardResponse{
 		NodeId:           s.ps.kad.Local().Id.String(),
 		NodeConnections:  int64(len(nodes)),
 		BootstrapAddress: strings.Join(bsNodes[:], ", "),
@@ -90,30 +89,12 @@ func (s *Inspector) getDashboardData(ctx context.Context) (*pb.DashboardStats, e
 	}, nil
 }
 
-// Dashboard is a stream that sends data every `interval` seconds to the listener.
-func (s *Inspector) Dashboard(in *pb.DashboardReq, stream pb.PieceStoreRoutes_DashboardServer) (err error) {
-	ctx := stream.Context()
-	ticker := time.NewTicker(3 * time.Second)
-
-	for {
-		select {
-		case <-ctx.Done():
-			if ctx.Err() == context.Canceled {
-				return nil
-			}
-
-			return ctx.Err()
-		case <-ticker.C:
-			data, err := s.getDashboardData(ctx)
-			if err != nil {
-				s.ps.log.Warn("unable to create dashboard data proto")
-				continue
-			}
-
-			if err := stream.Send(data); err != nil {
-				s.ps.log.Error("error sending dashboard stream", zap.Error(err))
-				return err
-			}
-		}
+// Dashboard returns dashboard data.
+func (s *Inspector) Dashboard(ctx context.Context, in *pb.DashboardRequest) (*pb.DashboardResponse, error) {
+	data, err := s.getDashboardData(ctx)
+	if err != nil {
+		s.ps.log.Warn("unable to create dashboard data proto")
+		return nil, err
 	}
+	return data, nil
 }
