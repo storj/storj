@@ -5,6 +5,7 @@ package satellitedb
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -195,11 +196,11 @@ func (db *accountingDB) SaveRollup(ctx context.Context, latestRollup time.Time, 
 
 // QueryPaymentInfo queries StatDB, Accounting Rollup on nodeID
 func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*accounting.CSVRow, error) {
-	var sql = `SELECT n.id, n.created_at, n.audit_success_ratio, r.at_rest_total, r.get_repair_total,
+	var sqlStmt = `SELECT n.id, n.created_at, n.audit_success_ratio, r.at_rest_total, r.get_repair_total,
 	    r.put_repair_total, r.get_audit_total, r.put_total, r.get_total, o.operator_wallet
 	    FROM (
-			SELECT node_id, SUM(at_rest_total) AS at_rest_total, SUM(get_repair_total) AS get_repair_total, 
-			SUM(put_repair_total) AS put_repair_total, SUM(get_audit_total) AS get_audit_total, 
+			SELECT node_id, SUM(at_rest_total) AS at_rest_total, SUM(get_repair_total) AS get_repair_total,
+			SUM(put_repair_total) AS put_repair_total, SUM(get_audit_total) AS get_audit_total,
 			SUM(put_total) AS put_total, SUM(get_total) AS get_total
 			FROM accounting_rollups
 			WHERE start_time >= ? AND start_time < ?
@@ -208,7 +209,7 @@ func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, e
 		LEFT JOIN nodes n ON n.id = r.node_id
 		LEFT JOIN overlay_cache_nodes o ON n.id = o.node_id
 	    ORDER BY n.id`
-	rows, err := db.db.DB.Query(db.db.Rebind(sql), start.UTC(), end.UTC())
+	rows, err := db.db.DB.Query(db.db.Rebind(sqlStmt), start.UTC(), end.UTC())
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -217,10 +218,14 @@ func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, e
 	for rows.Next() {
 		var nodeID []byte
 		r := &accounting.CSVRow{}
+		var wallet sql.NullString
 		err := rows.Scan(&nodeID, &r.NodeCreationDate, &r.AuditSuccessRatio, &r.AtRestTotal, &r.GetRepairTotal,
-			&r.PutRepairTotal, &r.GetAuditTotal, &r.PutTotal, &r.GetTotal, &r.Wallet)
+			&r.PutRepairTotal, &r.GetAuditTotal, &r.PutTotal, &r.GetTotal, &wallet)
 		if err != nil {
 			return csv, Error.Wrap(err)
+		}
+		if wallet.Valid {
+			r.Wallet = wallet.String
 		}
 		id, err := storj.NodeIDFromBytes(nodeID)
 		if err != nil {

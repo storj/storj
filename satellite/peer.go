@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/mail"
+	"net/smtp"
 	"os"
 	"path/filepath"
 
@@ -16,6 +18,8 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/internal/post"
+	"storj.io/storj/internal/post/oauth2"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/accounting/rollup"
 	"storj.io/storj/pkg/accounting/tally"
@@ -41,6 +45,8 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/storelogger"
@@ -97,6 +103,7 @@ type Config struct {
 	Tally  tally.Config
 	Rollup rollup.Config
 
+	Mail    mailservice.Config
 	Console consoleweb.Config
 }
 
@@ -163,6 +170,10 @@ type Peer struct {
 		Rollup *rollup.Rollup
 	}
 
+	Mail struct {
+		Service *mailservice.Service
+	}
+
 	Console struct {
 		Listener net.Listener
 		Service  *console.Service
@@ -181,6 +192,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 	var err error
 
 	{ // setup listener and server
+		log.Debug("Starting listener and server")
 		peer.Public.Listener, err = net.Listen("tcp", config.Server.Address)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -202,6 +214,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 	}
 
 	{ // setup overlay
+		log.Debug("Starting overlay")
 		config := config.Overlay
 		peer.Overlay.Service = overlay.NewCache(peer.DB.OverlayCache(), peer.DB.StatDB())
 
@@ -224,6 +237,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 	}
 
 	{ // setup kademlia
+		log.Debug("Setting up Kademlia")
 		config := config.Kademlia
 		// TODO: move this setup logic into kademlia package
 		if config.ExternalAddress == "" {
@@ -244,6 +258,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 
 		{ // setup routing table
 			// TODO: clean this up, should be part of database
+			log.Debug("Setting up routing table")
 			bucketIdentifier := peer.ID().String()[:5] // need a way to differentiate between nodes if running more than one simultaneously
 			dbpath := filepath.Join(config.DBPath, fmt.Sprintf("kademlia_%s.db", bucketIdentifier))
 
@@ -279,17 +294,20 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 	}
 
 	{ // setup reputation
+		log.Debug("Setting up reputation")
 		// TODO: find better structure with overlay
 		peer.Reputation.Inspector = statdb.NewInspector(peer.DB.StatDB())
 		pb.RegisterStatDBInspectorServer(peer.Public.Server.GRPC(), peer.Reputation.Inspector)
 	}
 
 	{ // setup discovery
+		log.Debug("Setting up discovery")
 		config := config.Discovery
 		peer.Discovery.Service = discovery.New(peer.Log.Named("discovery"), peer.Overlay.Service, peer.Kademlia.Service, peer.DB.StatDB(), config)
 	}
 
 	{ // setup metainfo
+		log.Debug("Setting up metainfo")
 		db, err := pointerdb.NewStore(config.PointerDB.DatabaseURL)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -309,12 +327,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 	}
 
 	{ // setup agreements
+		log.Debug("Setting up agreements")
 		bwServer := bwagreement.NewServer(peer.DB.BandwidthAgreement(), peer.DB.CertDB(), peer.Identity.Leaf.PublicKey, peer.Log.Named("agreements"), peer.Identity.ID)
 		peer.Agreements.Endpoint = bwServer
 		pb.RegisterBandwidthServer(peer.Public.Server.GRPC(), peer.Agreements.Endpoint)
 	}
 
 	{ // setup datarepair
+		log.Debug("Setting up datarepair")
 		// TODO: simplify argument list somehow
 		peer.Repair.Checker = checker.NewChecker(
 			peer.Metainfo.Service,
@@ -333,6 +353,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 	}
 
 	{ // setup audit
+		log.Debug("Setting up audits")
 		config := config.Audit
 
 		peer.Audit.Service, err = audit.NewService(peer.Log.Named("audit"),
@@ -348,33 +369,98 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 	}
 
 	{ // setup accounting
+		log.Debug("Setting up accounting")
 		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.Accounting(), peer.DB.BandwidthAgreement(), peer.Metainfo.Service, peer.Overlay.Endpoint, 0, config.Tally.Interval)
 		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.Accounting(), config.Rollup.Interval)
 	}
 
-	{ // setup console
-		config := config.Console
+	{ // setup mailservice
+		log.Debug("Setting up mail service")
+		// TODO(yar): test multiple satellites using same OAUTH credentials
+		mailConfig := config.Mail
 
-		peer.Console.Listener, err = net.Listen("tcp", config.Address)
+		// validate from mail address
+		from, err := mail.ParseAddress(mailConfig.From)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Console.Service, err = console.NewService(peer.Log.Named("console:service"),
-			// TODO: use satellite key
+		// validate smtp server address
+		host, _, err := net.SplitHostPort(mailConfig.SMTPServerAddress)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		var sender mailservice.Sender
+		switch mailConfig.AuthType {
+		case "oauth2":
+			creds := oauth2.Credentials{
+				ClientID:     mailConfig.ClientID,
+				ClientSecret: mailConfig.ClientSecret,
+				TokenURI:     mailConfig.TokenURI,
+			}
+			token, err := oauth2.RefreshToken(creds, mailConfig.RefreshToken)
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			sender = &post.SMTPSender{
+				From: *from,
+				Auth: &oauth2.Auth{
+					UserEmail: from.Address,
+					Storage:   oauth2.NewTokenStore(creds, *token),
+				},
+				ServerAddress: mailConfig.SMTPServerAddress,
+			}
+		case "plain":
+			sender = &post.SMTPSender{
+				From:          *from,
+				Auth:          smtp.PlainAuth("", mailConfig.PlainLogin, mailConfig.PlainPassword, host),
+				ServerAddress: mailConfig.SMTPServerAddress,
+			}
+		default:
+			sender = &simulate.LinkClicker{}
+		}
+
+		peer.Mail.Service, err = mailservice.New(
+			peer.Log.Named("mailservice:service"),
+			sender,
+			mailConfig.TemplatePath,
+		)
+
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+	}
+
+	{ // setup console
+		log.Debug("Setting up console")
+		consoleConfig := config.Console
+
+		peer.Console.Listener, err = net.Listen("tcp", consoleConfig.Address)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Console.Service, err = console.NewService(
+			peer.Log.Named("console:service"),
+			// TODO(yar): use satellite key
 			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 			peer.DB.Console(),
-			config.PasswordCost,
+			consoleConfig.PasswordCost,
 		)
 
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Console.Endpoint = consoleweb.NewServer(peer.Log.Named("console:endpoint"),
-			config,
+		peer.Console.Endpoint = consoleweb.NewServer(
+			peer.Log.Named("console:endpoint"),
+			consoleConfig,
 			peer.Console.Service,
-			peer.Console.Listener)
+			peer.Mail.Service,
+			peer.Console.Listener,
+		)
 	}
 
 	return peer, nil
@@ -446,8 +532,8 @@ func (peer *Peer) Close() error {
 	if peer.Console.Endpoint != nil {
 		errlist.Add(peer.Console.Endpoint.Close())
 	} else {
-		if peer.Console.Endpoint != nil {
-			errlist.Add(peer.Public.Listener.Close())
+		if peer.Console.Listener != nil {
+			errlist.Add(peer.Console.Listener.Close())
 		}
 	}
 

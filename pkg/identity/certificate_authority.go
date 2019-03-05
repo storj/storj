@@ -380,8 +380,23 @@ func (ca *FullCertificateAuthority) NewIdentity() (*FullIdentity, error) {
 
 }
 
-// RestChainRaw returns the rest (excluding leaf and CA) of the certificate chain as a 2d byte slice
-func (ca *FullCertificateAuthority) RestChainRaw() [][]byte {
+// Chain returns the CA's certificate chain
+func (ca *FullCertificateAuthority) Chain() []*x509.Certificate {
+	return append([]*x509.Certificate{ca.Cert}, ca.RestChain...)
+}
+
+// RawChain returns the CA's certificate chain as a 2d byte slice
+func (ca *FullCertificateAuthority) RawChain() [][]byte {
+	chain := ca.Chain()
+	rawChain := make([][]byte, len(chain))
+	for i, cert := range chain {
+		rawChain[i] = cert.Raw
+	}
+	return rawChain
+}
+
+// RawRestChain returns the "rest" (excluding `ca.Cert`) of the certificate chain as a 2d byte slice
+func (ca *FullCertificateAuthority) RawRestChain() [][]byte {
 	var chain [][]byte
 	for _, cert := range ca.RestChain {
 		chain = append(chain, cert.Raw)
