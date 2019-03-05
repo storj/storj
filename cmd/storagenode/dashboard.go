@@ -125,8 +125,6 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 
 		time.Sleep(3 * time.Second)
 	}
-
-	return nil
 }
 
 // DashboardClient is the struct that holds the client

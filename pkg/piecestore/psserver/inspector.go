@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
+
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
