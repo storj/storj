@@ -621,7 +621,7 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 			},
 		},
 		Web: bootstrapserver.Config{
-			Address:   "127.0.0.1:8081",
+			Address:   "127.0.0.1:0",
 			StaticDir: "./web/bootstrap", // TODO: for development only
 		},
 	}
