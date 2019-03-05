@@ -19,7 +19,13 @@ import { Component, Vue } from 'vue-property-decorator';
 import DashboardHeader from '@/components/header/Header.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 import { removeToken, setToken } from '@/utils/tokenManager';
-import { NOTIFICATION_ACTIONS, PROJETS_ACTIONS, PM_ACTIONS, USER_ACTIONS } from '@/utils/constants/actionNames';
+import {
+    NOTIFICATION_ACTIONS,
+    PROJETS_ACTIONS,
+    PM_ACTIONS,
+    USER_ACTIONS,
+    API_KEYS_ACTIONS
+} from "@/utils/constants/actionNames";
 import ROUTES from '@/utils/constants/routerConstants';
 import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuccessPopup.vue';
 
@@ -60,13 +66,22 @@ import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuc
 
         this.$store.dispatch(PROJETS_ACTIONS.SELECT, getProjectsResponse.data[0].id);
 
-        if (!this.$store.getters.selectedProject.id) return;
+        if (!this.$store.getters.selectedProject.id) {
 
-        const projectMembersResponse = await this.$store.dispatch(PM_ACTIONS.FETCH, {limit: 20, offset: 0});
+            return;
+        }
 
-        if (projectMembersResponse.isSuccess) return;
+        this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
-        this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+        const projectMembersResponse = await this.$store.dispatch(PM_ACTIONS.FETCH);
+        if (!projectMembersResponse.isSuccess) {
+            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+        }
+
+        const keysResponse = await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
+        if (!keysResponse.isSuccess) {
+            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch api keys');
+        }
     },
     components: {
         ProjectCreationSuccessPopup,
