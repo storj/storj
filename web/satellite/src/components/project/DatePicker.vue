@@ -319,6 +319,9 @@
 		background: #C1C1C1;
 		border-radius: 2px;
 	}
+	.cov-date-box {
+		font-family: 'montserrat_medium';
+	}
 </style>
 <template>
 	<div class="cov-vue-date">
@@ -654,6 +657,7 @@
                         if (this.selectedDays.length === 2) {
                             this.$emit('change', this.selectedDays);
                             this.showInfo.check = false;
+                            this.selectedDays = [];
                         }
                     }
                 }
@@ -746,7 +750,6 @@
                 this.showDay(this.checked.currentMoment);
             },
             showCheck: function showCheck() {
-                console.log('SHOWCHECK');
                 if (this.date.time === '') {
                     this.showDay();
                 } else {

@@ -48,7 +48,7 @@
 				<p>Current Roll Up Period <b>{{dateRange.startDate.toLocaleDateString("en-US")}} to {{dateRange.endDate.toLocaleDateString("en-US")}}</b></p>
 				<div class="usage-report-container__main-area__footer__report-area">
 					<p>Download Advanced Report</p>
-					<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+					<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" @click.prevent="onReportClick">
 						<rect width="40" height="40" rx="4" fill="#E2ECF7"/>
 						<path d="M25.6491 19.2809L21.2192 23.5281C20.891 23.8427 20.3988 24 20.0707 24C19.7425 24 19.2503 23.8427 19.0862 23.5281L14.4922 19.2809C13.8359 18.6517 13.8359 17.8652 14.4922 17.236C14.8204 16.9213 15.1485 16.9213 15.6407 16.9213C15.9689 16.9213 16.4611 17.0787 16.6252 17.3933L18.594 19.1236L18.594 11.4157C18.594 10.6292 19.2503 10 20.0707 10C20.891 10 21.5473 10.6292 21.5473 11.4157L21.5473 19.1236L23.5162 17.236C23.6803 16.9213 24.1725 16.9213 24.5006 16.9213C24.8288 16.9213 25.321 17.0787 25.4851 17.3933C26.1414 17.8652 26.1414 18.809 25.6491 19.2809Z" fill="#2683FF"/>
 						<rect x="11" y="28" width="18" height="2" rx="1" fill="#2683FF"/>
@@ -140,6 +140,10 @@
                     });
 
                     target.classList.add('active');
+                },
+                onReportClick: function (): void {
+                    let route = this.$router.resolve(ROUTES.REPORT_TABLE);
+                    window.open(route.href, '_blank');
                 },
             },
         }
