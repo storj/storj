@@ -6,6 +6,8 @@ option go_package = "pb";
 
 import "gogo.proto";
 import "node.proto";
+import "google/protobuf/duration.proto";
+
 
 package inspector;
 
@@ -36,6 +38,13 @@ service StatDBInspector {
   rpc GetStats(GetStatsRequest) returns (GetStatsResponse);
   // CreateStats creates a node with specified stats
   rpc CreateStats(CreateStatsRequest) returns (CreateStatsResponse);
+}
+
+service PieceStoreInspector {
+  // Stats return space and bandwidth stats for a storagenode
+  rpc Stats(StatsRequest) returns (StatSummaryResponse) {}
+  // Dashboard returns stats for a specific storagenode
+  rpc Dashboard(DashboardRequest) returns (DashboardResponse) {}
 }
 
 // GetStats
@@ -141,4 +150,27 @@ message DumpNodesRequest {}
 
 message DumpNodesResponse {
   repeated node.Node nodes = 1;
+}
+message StatsRequest {
+}
+
+message StatSummaryResponse {
+  int64 used_space = 1;
+  int64 available_space = 2;
+  int64 used_bandwidth = 3;
+  int64 available_bandwidth = 4;
+}
+
+message DashboardRequest {
+}
+
+message DashboardResponse {
+  string node_id = 1;
+  int64 node_connections = 2;
+  string bootstrap_address = 3;
+  string internal_address = 4;
+  string external_address = 5;
+  StatSummaryResponse stats = 6;
+  bool connection = 7;
+  google.protobuf.Duration uptime = 8;
 }

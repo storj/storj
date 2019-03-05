@@ -818,6 +818,51 @@
             ]
           },
           {
+            "name": "NodeInfoRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "address",
+                "type": "node.NodeAddress"
+              }
+            ]
+          },
+          {
+            "name": "NodeInfoResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "type",
+                "type": "node.NodeType"
+              },
+              {
+                "id": 2,
+                "name": "operator",
+                "type": "node.NodeOperator"
+              },
+              {
+                "id": 3,
+                "name": "capacity",
+                "type": "node.NodeCapacity"
+              }
+            ]
+          },
+          {
             "name": "FindNearRequest",
             "fields": [
               {
@@ -867,6 +912,96 @@
                 "is_repeated": true
               }
             ]
+          },
+          {
+            "name": "DumpNodesRequest"
+          },
+          {
+            "name": "DumpNodesResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "nodes",
+                "type": "node.Node",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "StatsRequest"
+          },
+          {
+            "name": "StatSummaryResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "used_space",
+                "type": "int64"
+              },
+              {
+                "id": 2,
+                "name": "available_space",
+                "type": "int64"
+              },
+              {
+                "id": 3,
+                "name": "used_bandwidth",
+                "type": "int64"
+              },
+              {
+                "id": 4,
+                "name": "available_bandwidth",
+                "type": "int64"
+              }
+            ]
+          },
+          {
+            "name": "DashboardRequest"
+          },
+          {
+            "name": "DashboardResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "node_id",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "node_connections",
+                "type": "int64"
+              },
+              {
+                "id": 3,
+                "name": "bootstrap_address",
+                "type": "string"
+              },
+              {
+                "id": 4,
+                "name": "internal_address",
+                "type": "string"
+              },
+              {
+                "id": 5,
+                "name": "external_address",
+                "type": "string"
+              },
+              {
+                "id": 6,
+                "name": "stats",
+                "type": "StatSummaryResponse"
+              },
+              {
+                "id": 7,
+                "name": "connection",
+                "type": "bool"
+              },
+              {
+                "id": 8,
+                "name": "uptime",
+                "type": "google.protobuf.Duration"
+              }
+            ]
           }
         ],
         "services": [
@@ -889,9 +1024,19 @@
                 "out_type": "LookupNodeResponse"
               },
               {
+                "name": "NodeInfo",
+                "in_type": "NodeInfoRequest",
+                "out_type": "NodeInfoResponse"
+              },
+              {
                 "name": "FindNear",
                 "in_type": "FindNearRequest",
                 "out_type": "FindNearResponse"
+              },
+              {
+                "name": "DumpNodes",
+                "in_type": "DumpNodesRequest",
+                "out_type": "DumpNodesResponse"
               }
             ]
           },
@@ -902,6 +1047,11 @@
                 "name": "CountNodes",
                 "in_type": "CountNodesRequest",
                 "out_type": "CountNodesResponse"
+              },
+              {
+                "name": "DumpNodes",
+                "in_type": "DumpNodesRequest",
+                "out_type": "DumpNodesResponse"
               }
             ]
           },
@@ -919,6 +1069,21 @@
                 "out_type": "CreateStatsResponse"
               }
             ]
+          },
+          {
+            "name": "PieceStoreInspector",
+            "rpcs": [
+              {
+                "name": "Stats",
+                "in_type": "StatsRequest",
+                "out_type": "StatSummaryResponse"
+              },
+              {
+                "name": "Dashboard",
+                "in_type": "DashboardRequest",
+                "out_type": "DashboardResponse"
+              }
+            ]
           }
         ],
         "imports": [
@@ -927,6 +1092,9 @@
           },
           {
             "path": "node.proto"
+          },
+          {
+            "path": "google/protobuf/duration.proto"
           }
         ],
         "package": {
@@ -1002,21 +1170,6 @@
           }
         ],
         "messages": [
-          {
-            "name": "NodeRestrictions",
-            "fields": [
-              {
-                "id": 1,
-                "name": "free_bandwidth",
-                "type": "int64"
-              },
-              {
-                "id": 2,
-                "name": "free_disk",
-                "type": "int64"
-              }
-            ]
-          },
           {
             "name": "Node",
             "fields": [
@@ -1164,6 +1317,36 @@
             ]
           },
           {
+            "name": "NodeOperator",
+            "fields": [
+              {
+                "id": 1,
+                "name": "email",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "wallet",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "name": "NodeCapacity",
+            "fields": [
+              {
+                "id": 1,
+                "name": "free_bandwidth",
+                "type": "int64"
+              },
+              {
+                "id": 2,
+                "name": "free_disk",
+                "type": "int64"
+              }
+            ]
+          },
+          {
             "name": "NodeMetadata",
             "fields": [
               {
@@ -1175,6 +1358,21 @@
                 "id": 2,
                 "name": "wallet",
                 "type": "string"
+              }
+            ]
+          },
+          {
+            "name": "NodeRestrictions",
+            "fields": [
+              {
+                "id": 1,
+                "name": "free_bandwidth",
+                "type": "int64"
+              },
+              {
+                "id": 2,
+                "name": "free_disk",
+                "type": "int64"
               }
             ]
           }
@@ -1424,6 +1622,29 @@
             "name": "PingResponse"
           },
           {
+            "name": "InfoRequest"
+          },
+          {
+            "name": "InfoResponse",
+            "fields": [
+              {
+                "id": 2,
+                "name": "type",
+                "type": "node.NodeType"
+              },
+              {
+                "id": 3,
+                "name": "operator",
+                "type": "node.NodeOperator"
+              },
+              {
+                "id": 4,
+                "name": "capacity",
+                "type": "node.NodeCapacity"
+              }
+            ]
+          },
+          {
             "name": "Restriction",
             "fields": [
               {
@@ -1477,6 +1698,11 @@
                 "name": "Ping",
                 "in_type": "PingRequest",
                 "out_type": "PingResponse"
+              },
+              {
+                "name": "RequestInfo",
+                "in_type": "InfoRequest",
+                "out_type": "InfoResponse"
               }
             ]
           }
@@ -1661,7 +1887,18 @@
               {
                 "id": 3,
                 "name": "authorization",
-                "type": "SignedMessage"
+                "type": "SignedMessage",
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
+              },
+              {
+                "id": 4,
+                "name": "signed_hash",
+                "type": "SignedHash"
               }
             ],
             "messages": [
@@ -1698,7 +1935,28 @@
               {
                 "id": 2,
                 "name": "authorization",
-                "type": "SignedMessage"
+                "type": "SignedMessage",
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
+              },
+              {
+                "id": 3,
+                "name": "satellite_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ]
           },
@@ -1738,7 +1996,13 @@
               {
                 "id": 3,
                 "name": "authorization",
-                "type": "SignedMessage"
+                "type": "SignedMessage",
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
               }
             ],
             "messages": [
@@ -1790,7 +2054,28 @@
               {
                 "id": 3,
                 "name": "authorization",
-                "type": "SignedMessage"
+                "type": "SignedMessage",
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
+              },
+              {
+                "id": 4,
+                "name": "satellite_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ]
           },
@@ -1816,34 +2101,11 @@
                 "id": 2,
                 "name": "total_received",
                 "type": "int64"
-              }
-            ]
-          },
-          {
-            "name": "StatsReq"
-          },
-          {
-            "name": "StatSummary",
-            "fields": [
-              {
-                "id": 1,
-                "name": "used_space",
-                "type": "int64"
-              },
-              {
-                "id": 2,
-                "name": "available_space",
-                "type": "int64"
               },
               {
                 "id": 3,
-                "name": "used_bandwidth",
-                "type": "int64"
-              },
-              {
-                "id": 4,
-                "name": "available_bandwidth",
-                "type": "int64"
+                "name": "signed_hash",
+                "type": "SignedHash"
               }
             ]
           },
@@ -1868,50 +2130,23 @@
             ]
           },
           {
-            "name": "DashboardReq"
-          },
-          {
-            "name": "DashboardStats",
+            "name": "SignedHash",
             "fields": [
               {
                 "id": 1,
-                "name": "node_id",
-                "type": "string"
+                "name": "hash",
+                "type": "bytes"
               },
               {
                 "id": 2,
-                "name": "node_connections",
-                "type": "int64"
+                "name": "certs",
+                "type": "bytes",
+                "is_repeated": true
               },
               {
                 "id": 3,
-                "name": "bootstrap_address",
-                "type": "string"
-              },
-              {
-                "id": 4,
-                "name": "internal_address",
-                "type": "string"
-              },
-              {
-                "id": 5,
-                "name": "external_address",
-                "type": "string"
-              },
-              {
-                "id": 6,
-                "name": "stats",
-                "type": "StatSummary"
-              },
-              {
-                "id": 7,
-                "name": "connection",
-                "type": "bool"
-              },
-              {
-                "id": 8,
-                "name": "uptime",
-                "type": "google.protobuf.Duration"
+                "name": "signature",
+                "type": "bytes"
               }
             ]
           }
@@ -1942,17 +2177,6 @@
                 "name": "Delete",
                 "in_type": "PieceDelete",
                 "out_type": "PieceDeleteSummary"
-              },
-              {
-                "name": "Stats",
-                "in_type": "StatsReq",
-                "out_type": "StatSummary"
-              },
-              {
-                "name": "Dashboard",
-                "in_type": "DashboardReq",
-                "out_type": "DashboardStats",
-                "out_streamed": true
               }
             ]
           }
@@ -2053,6 +2277,11 @@
                     "value": "false"
                   }
                 ]
+              },
+              {
+                "id": 3,
+                "name": "hash",
+                "type": "piecestoreroutes.SignedHash"
               }
             ]
           },
