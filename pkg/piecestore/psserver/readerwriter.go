@@ -46,6 +46,8 @@ type StreamReader struct {
 	spaceRemaining      int64
 	sofar               int64
 	hash                hash.Hash
+
+	done *pb.SignedHash
 }
 
 // NewStreamReader returns a new StreamReader for Server.Store
@@ -83,6 +85,9 @@ func NewStreamReader(s *Server, stream pb.PieceStoreRoutes_StoreServer, bandwidt
 			sr.bandwidthAllocation = rba
 			sr.currentTotal = rba.Total
 		}
+
+		sr.done = recv.SignedHash
+
 		return pd.GetContent(), nil
 	})
 

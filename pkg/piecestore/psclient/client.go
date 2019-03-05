@@ -4,7 +4,6 @@
 package psclient
 
 import (
-	"bufio"
 	"flag"
 	"fmt"
 	"io"
@@ -15,7 +14,6 @@ import (
 	"golang.org/x/net/context"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
@@ -151,15 +149,18 @@ func (ps *PieceStore) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 
 	writer := NewStreamWriter(stream, ps, rba)
 
-	bufw := bufio.NewWriterSize(writer, 32*1024)
+	_, err = io.Copy(writer, data)
+	if err != nil {
+		return nil, ClientError.Wrap(err)
+	}
 
-	_, err = sync2.Copy(ctx, bufw, data)
+	signedHash := &pb.SignedHash{Hash: writer.hash.Sum(nil)}
+	err = auth.SignMessage(signedHash, *ps.selfID)
 	if err != nil {
 		return nil, err
 	}
-
-	err = bufw.Flush()
-	if err != nil {
+	msg.SignedHash = signedHash
+	if err := stream.Send(msg); err != nil {
 		return nil, err
 	}
 

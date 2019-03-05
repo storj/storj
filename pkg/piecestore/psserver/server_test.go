@@ -306,9 +306,15 @@ func TestStore(t *testing.T) {
 			})
 			require.NoError(t, err)
 
+			hash := sha256.New()
+			_, err = hash.Write(tt.content)
+			require.NoError(t, err)
+			signedHash := &pb.SignedHash{Hash: hash.Sum(nil)}
+
 			msg := &pb.PieceStore{
 				PieceData:           &pb.PieceStore_PieceData{Content: tt.content},
 				BandwidthAllocation: rba,
+				SignedHash:          signedHash,
 			}
 			// Write the buffer to the stream we opened earlier
 			err = stream.Send(msg)

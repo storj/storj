@@ -80,6 +80,10 @@ func (s *StreamWriter) Close() error {
 
 // Verify storage node signed hash
 func (s *StreamWriter) Verify() error {
+	if s.storagenodeHash == nil {
+		return ClientError.New("storage node piece hash not provided")
+	}
+
 	if err := auth.VerifyMsg(s.storagenodeHash, s.signer.remoteID); err != nil {
 		return ClientError.Wrap(err)
 	}

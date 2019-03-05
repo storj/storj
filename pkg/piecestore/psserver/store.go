@@ -12,10 +12,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/utils"
 )
 
 // OK - Success!
@@ -62,32 +60,17 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 	if err != nil {
 		return err
 	}
-	total, hash, err := s.storeData(ctx, reqStream, id)
-	if err != nil {
-		return err
-	}
-
-	if err = s.DB.AddTTL(id, pd.GetExpirationUnixSec(), total); err != nil {
-		deleteErr := s.deleteByID(id)
-		return StoreError.New("failed to write piece meta data to database: %v", utils.CombineErrors(err, deleteErr))
-	}
-
-	signedHash := &pb.SignedHash{Hash: hash}
-	err = auth.SignMessage(signedHash, *s.identity)
+	err = s.storeData(ctx, pd, reqStream, id)
 	if err != nil {
 		return err
 	}
 
 	s.log.Info("Successfully stored", zap.String("Piece ID", fmt.Sprint(pd.GetId())))
 
-	return reqStream.SendAndClose(&pb.PieceStoreSummary{
-		Message:       OK,
-		TotalReceived: total,
-		SignedHash:    signedHash,
-	})
+	return nil
 }
 
-func (s *Server) storeData(ctx context.Context, stream pb.PieceStoreRoutes_StoreServer, id string) (total int64, hash []byte, err error) {
+func (s *Server) storeData(ctx context.Context, pd *pb.PieceStore_PieceData, stream pb.PieceStoreRoutes_StoreServer, id string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// Delete data if we error
@@ -102,35 +85,54 @@ func (s *Server) storeData(ctx context.Context, stream pb.PieceStoreRoutes_Store
 	// Initialize file for storing data
 	storeFile, err := s.storage.Writer(id)
 	if err != nil {
-		return 0, nil, err
+		return err
 	}
 
-	defer func() {
-		err = errs.Combine(err, storeFile.Close())
-	}()
+	defer func() { err = errs.Combine(err, storeFile.Close()) }()
 
 	bwUsed, err := s.DB.GetTotalBandwidthBetween(getBeginningOfMonth(), time.Now())
 	if err != nil {
-		return 0, nil, err
+		return err
 	}
 	spaceUsed, err := s.DB.SumTTLSizes()
 	if err != nil {
-		return 0, nil, err
+		return err
 	}
 	bwLeft := s.totalBwAllocated - bwUsed
 	spaceLeft := s.totalAllocated - spaceUsed
 	reader := NewStreamReader(s, stream, bwLeft, spaceLeft)
 
-	total, err = sync2.Copy(ctx, storeFile, reader)
-
+	total, err := io.Copy(storeFile, reader)
 	if err != nil && err != io.EOF {
-		return 0, nil, err
+		return err
 	}
 
+	if reader.done == nil {
+		return StoreError.New("no uplink piece hash for verification")
+	}
+
+	// TODO verify incomming piece hash signature
+
+	// TODO save to DB in goroutine
 	err = s.DB.WriteBandwidthAllocToDB(reader.bandwidthAllocation)
 	if err != nil {
-		return 0, nil, err
+		return StoreError.Wrap(err)
 	}
-	hash = reader.hash.Sum(nil)
-	return total, hash, nil
+
+	if err = s.DB.AddTTL(id, pd.GetExpirationUnixSec(), total); err != nil {
+		return StoreError.New("failed to write piece meta data to database: %v", err)
+	}
+
+	hash := reader.hash.Sum(nil)
+	signedHash := &pb.SignedHash{Hash: hash}
+	err = auth.SignMessage(signedHash, *s.identity)
+	if err != nil {
+		return err
+	}
+
+	return stream.SendAndClose(&pb.PieceStoreSummary{
+		Message:       OK,
+		TotalReceived: total,
+		SignedHash:    signedHash,
+	})
 }
