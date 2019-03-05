@@ -23,7 +23,6 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/piecestore/psclient"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/transport"
 )
@@ -52,12 +51,12 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 		Type: pb.NodeType_STORAGE,
 	}
 
-	lc, err := psclient.NewLiteClient(ctx, tc, n)
+	client, err := newDashboardClient(ctx, tc, n)
 	if err != nil {
 		return err
 	}
 
-	stream, err := lc.Dashboard(ctx)
+	stream, err := client.Dashboard(ctx)
 	if err != nil {
 		return err
 	}
@@ -135,6 +134,32 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	return nil
+}
+
+// DashboardClient is the struct that holds the client
+type DashboardClient struct {
+	client pb.PieceStoreInspectorClient
+}
+
+// Dashboard returns a simple terminal dashboard displaying info
+func (dash *DashboardClient) Dashboard(ctx context.Context) (pb.PieceStoreInspector_DashboardClient, error) {
+	return dash.client.Dashboard(ctx, &pb.DashboardRequest{})
+}
+
+// Stats will retrieve stats about a piece storage node
+func (dash *DashboardClient) Stats(ctx context.Context) (pb.StatSummary, error) {
+	return dash.client.Stats(ctx, &pb.StatsRequest{})
+}
+
+func newDashboardClient(ctx context.Context, tc transport.Client, n *pb.Node) (*DashboardClient, error) {
+	conn, err := tc.DialNode(ctx, n)
+	if err != nil {
+		return &DashboardClient{}, err
+	}
+
+	return &DashboardClient{
+		client: pb.NewPieceStoreInspectorClient(conn),
+	}, nil
 }
 
 func whiteInt(value int64) string {

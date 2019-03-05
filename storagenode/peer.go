@@ -80,6 +80,7 @@ type Peer struct {
 		Endpoint  *psserver.Server // TODO: separate into endpoint and service
 		Monitor   *psserver.Monitor
 		Collector *psserver.Collector
+		Inspector *psserver.Inspector
 	}
 
 	Agreements struct {
@@ -169,6 +170,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 			return nil, errs.Combine(err, peer.Close())
 		}
 		pb.RegisterPieceStoreRoutesServer(peer.Public.Server.GRPC(), peer.Storage.Endpoint)
+
+		peer.Storage.Inspector = psserver.NewInspector(peer.Storage.Endpoint)
+		pb.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage.Inspector)
 
 		// TODO: organize better
 		peer.Storage.Monitor = psserver.NewMonitor(peer.Log.Named("piecestore:monitor"), config.KBucketRefreshInterval, peer.Kademlia.RoutingTable, peer.Storage.Endpoint)
