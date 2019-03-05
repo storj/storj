@@ -16,7 +16,7 @@ func CreateSchema(service *console.Service, mailService *mailservice.Service) (s
 	storjql.WithLock(func() {
 		creator := TypeCreator{}
 
-		err := creator.Create(service, mailService)
+		err = creator.Create(service, mailService)
 		if err != nil {
 			return
 		}

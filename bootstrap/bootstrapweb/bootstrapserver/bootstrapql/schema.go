@@ -15,7 +15,7 @@ func CreateSchema(service *bootstrapweb.Service) (schema graphql.Schema, err err
 	storjql.WithLock(func() {
 		creator := TypeCreator{}
 
-		err := creator.Create(service)
+		err = creator.Create(service)
 		if err != nil {
 			return
 		}
