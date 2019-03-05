@@ -17,7 +17,6 @@ import (
 
 	"storj.io/storj/bootstrap/bootstrapweb"
 	"storj.io/storj/bootstrap/bootstrapweb/bootstrapserver/bootstrapql"
-	"storj.io/storj/internal/storjql"
 )
 
 const (
@@ -112,9 +111,7 @@ func (s *Server) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 func (s *Server) Run(ctx context.Context) error {
 	var err error
 
-	storjql.WithLock(func() {
-		s.schema, err = bootstrapql.CreateSchema(s.service)
-	})
+	s.schema, err = bootstrapql.CreateSchema(s.service)
 	if err != nil {
 		return Error.Wrap(err)
 	}

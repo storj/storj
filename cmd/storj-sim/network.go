@@ -133,7 +133,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		"setup": {
 			"--identity-dir", bootstrap.Directory,
 
-			"--bootstrap-web.address", net.JoinHostPort(host, strconv.Itoa(bootstrapWebPort)),
+			"--web.address", net.JoinHostPort(host, strconv.Itoa(bootstrapWebPort)),
 
 			"--server.address", bootstrap.Address,
 

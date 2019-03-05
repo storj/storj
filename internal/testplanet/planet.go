@@ -620,7 +620,7 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 				Wallet: "0x" + strings.Repeat("00", 20),
 			},
 		},
-		BootstrapWeb: bootstrapserver.Config{
+		Web: bootstrapserver.Config{
 			Address:   "127.0.0.1:0",
 			StaticDir: "./web/bootstrap", // TODO: for development only
 		},

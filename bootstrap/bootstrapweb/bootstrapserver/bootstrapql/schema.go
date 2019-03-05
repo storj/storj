@@ -7,18 +7,23 @@ import (
 	"github.com/graphql-go/graphql"
 
 	"storj.io/storj/bootstrap/bootstrapweb"
+	"storj.io/storj/internal/storjql"
 )
 
 // CreateSchema creates a schema for bootstrap graphql api
-func CreateSchema(service *bootstrapweb.Service) (graphql.Schema, error) {
-	creator := TypeCreator{}
+func CreateSchema(service *bootstrapweb.Service) (schema graphql.Schema, err error) {
+	storjql.WithLock(func() {
+		creator := TypeCreator{}
 
-	err := creator.Create(service)
-	if err != nil {
-		return graphql.Schema{}, err
-	}
+		err := creator.Create(service)
+		if err != nil {
+			return
+		}
 
-	return graphql.NewSchema(graphql.SchemaConfig{
-		Query: creator.RootQuery(),
+		schema, err = graphql.NewSchema(graphql.SchemaConfig{
+			Query: creator.RootQuery(),
+		})
 	})
+
+	return schema, err
 }

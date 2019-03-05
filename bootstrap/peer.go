@@ -43,7 +43,7 @@ type Config struct {
 	Server   server.Config
 	Kademlia kademlia.Config
 
-	BootstrapWeb bootstrapserver.Config
+	Web bootstrapserver.Config
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
@@ -155,7 +155,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 	}
 
 	{ // setup bootstrap web ui
-		config := config.BootstrapWeb
+		config := config.Web
 
 		peer.Web.Listener, err = net.Listen("tcp", config.Address)
 		if err != nil {

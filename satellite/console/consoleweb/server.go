@@ -15,7 +15,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/internal/storjql"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
@@ -138,9 +137,7 @@ func (s *Server) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 func (s *Server) Run(ctx context.Context) error {
 	var err error
 
-	storjql.WithLock(func() {
-		s.schema, err = consoleql.CreateSchema(s.service, s.mailService)
-	})
+	s.schema, err = consoleql.CreateSchema(s.service, s.mailService)
 	if err != nil {
 		return Error.Wrap(err)
 	}
