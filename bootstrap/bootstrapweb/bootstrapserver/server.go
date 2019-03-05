@@ -1,7 +1,7 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package consoleweb
+package bootstrapserver
 
 import (
 	"context"
@@ -15,58 +15,46 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/pkg/auth"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleweb/consoleql"
-	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/bootstrap/bootstrapweb"
+	"storj.io/storj/bootstrap/bootstrapweb/bootstrapserver/bootstrapql"
 )
 
 const (
-	authorization = "Authorization"
-	contentType   = "Content-Type"
-
-	authorizationBearer = "Bearer "
+	contentType = "Content-Type"
 
 	applicationJSON    = "application/json"
 	applicationGraphql = "application/graphql"
 )
 
-// Error is satellite console error type
-var Error = errs.Class("satellite console error")
+// Error is bootstrap web error type
+var Error = errs.Class("bootstrap web error")
 
-// Config contains configuration for console web server
+// Config contains configuration for bootstrap web server
 type Config struct {
-	Address   string `help:"server address of the graphql api gateway and frontend app" default:"127.0.0.1:8081"`
+	Address   string `help:"server address of the graphql api gateway and frontend app" default:"127.0.0.1:8082"`
 	StaticDir string `help:"path to static resources" default:""`
-
-	PasswordCost int `internal:"true" help:"password hashing cost (0=automatic)" default:"0"`
 }
 
-// Server represents console web server
+// Server represents bootstrap web server
 type Server struct {
 	log *zap.Logger
 
-	config      Config
-	service     *console.Service
-	mailService *mailservice.Service
-
+	config   Config
+	service  *bootstrapweb.Service
 	listener net.Listener
-	server   http.Server
 
 	schema graphql.Schema
+	server http.Server
 }
 
-// NewServer creates new instance of console server
-func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, listener net.Listener) *Server {
+// NewServer creates new instance of bootstrap web server
+func NewServer(logger *zap.Logger, config Config, service *bootstrapweb.Service, listener net.Listener) *Server {
 	server := Server{
-		log:         logger,
-		config:      config,
-		listener:    listener,
-		service:     service,
-		mailService: mailService,
+		log:      logger,
+		service:  service,
+		config:   config,
+		listener: listener,
 	}
-
-	logger.Debug("Starting Satellite UI...")
 
 	mux := http.NewServeMux()
 	fs := http.FileServer(http.Dir(server.config.StaticDir))
@@ -94,33 +82,19 @@ func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
 func (s *Server) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set(contentType, applicationJSON)
 
-	token := getToken(req)
 	query, err := getQuery(req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	ctx := auth.WithAPIKey(context.Background(), []byte(token))
-	auth, err := s.service.Authorize(ctx)
-	if err != nil {
-		ctx = console.WithAuthFailure(ctx, err)
-	} else {
-		ctx = console.WithAuth(ctx, auth)
-	}
-
-	rootObject := make(map[string]interface{})
-	//TODO: add public address to config for production
-	rootObject["origin"] = "http://" + s.listener.Addr().String() + "/"
-	rootObject[consoleql.ActivationPath] = "?activationToken="
-
 	result := graphql.Do(graphql.Params{
 		Schema:         s.schema,
-		Context:        ctx,
+		Context:        context.Background(),
 		RequestString:  query.Query,
 		VariableValues: query.Variables,
 		OperationName:  query.OperationName,
-		RootObject:     rootObject,
+		RootObject:     make(map[string]interface{}),
 	})
 
 	err = json.NewEncoder(w).Encode(result)
@@ -137,7 +111,7 @@ func (s *Server) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 func (s *Server) Run(ctx context.Context) error {
 	var err error
 
-	s.schema, err = consoleql.CreateSchema(s.service, s.mailService)
+	s.schema, err = bootstrapql.CreateSchema(s.service)
 	if err != nil {
 		return Error.Wrap(err)
 	}
