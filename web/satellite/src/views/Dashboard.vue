@@ -25,7 +25,7 @@ import {
     PM_ACTIONS,
     USER_ACTIONS,
     API_KEYS_ACTIONS
-} from "@/utils/constants/actionNames";
+} from '@/utils/constants/actionNames';
 import ROUTES from '@/utils/constants/routerConstants';
 import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuccessPopup.vue';
 
@@ -66,10 +66,7 @@ import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuc
 
         this.$store.dispatch(PROJETS_ACTIONS.SELECT, getProjectsResponse.data[0].id);
 
-        if (!this.$store.getters.selectedProject.id) {
-
-            return;
-        }
+        if (!this.$store.getters.selectedProject.id) return;
 
         this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
