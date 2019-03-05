@@ -87,6 +87,7 @@ import Checkbox from '@/components/common/Checkbox.vue';
 import EmptyState from '@/components/common/EmptyStateArea.vue';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 import { PROJETS_ACTIONS, APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import ROUTES from '@/utils/constants/routerConstants';
 import DeleteProjectPopup from '@/components/project/DeleteProjectPopup.vue';
 
 @Component(
@@ -127,7 +128,10 @@ import DeleteProjectPopup from '@/components/project/DeleteProjectPopup.vue';
             },
             toggleDeleteDialog: function (): void {
                 this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_PROJ);
-            }
+            },
+            onMoreClick: function (): void {
+                this.$router.push(ROUTES.USAGE_REPORT);
+            },
         },
         computed: {
             name: function (): string {
