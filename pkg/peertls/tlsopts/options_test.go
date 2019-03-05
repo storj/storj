@@ -36,14 +36,15 @@ func TestNewOptions(t *testing.T) {
 	assert.NoError(t, err)
 
 	cases := []struct {
-		testID      string
-		config      tlsopts.Config
-		pcvFuncsLen int
+		testID                     string
+		config                     tlsopts.Config
+		clientVerificationFuncsLen int
+		serverVerificationFuncsLen int
 	}{
 		{
 			"default",
 			tlsopts.Config{},
-			0,
+			0, 0,
 		}, {
 			"revocation processing",
 			tlsopts.Config{
@@ -52,14 +53,14 @@ func TestNewOptions(t *testing.T) {
 					Revocation: true,
 				},
 			},
-			2,
+			2, 2,
 		}, {
 			"ca whitelist verification",
 			tlsopts.Config{
 				PeerCAWhitelistPath: whitelistPath,
 				UsePeerCAWhitelist:  true,
 			},
-			1,
+			1, 0,
 		}, {
 			"ca whitelist verification and whitelist signed leaf verification",
 			tlsopts.Config{
@@ -70,7 +71,7 @@ func TestNewOptions(t *testing.T) {
 					WhitelistSignedLeaf: true,
 				},
 			},
-			2,
+			2, 1,
 		}, {
 			"revocation processing and whitelist verification",
 			tlsopts.Config{
@@ -82,7 +83,7 @@ func TestNewOptions(t *testing.T) {
 					Revocation: true,
 				},
 			},
-			3,
+			3, 2,
 		}, {
 			"revocation processing, whitelist, and signed leaf verification",
 			tlsopts.Config{
@@ -95,7 +96,7 @@ func TestNewOptions(t *testing.T) {
 					WhitelistSignedLeaf: true,
 				},
 			},
-			3,
+			3, 2,
 		},
 	}
 
@@ -105,7 +106,8 @@ func TestNewOptions(t *testing.T) {
 		assert.NoError(t, err)
 		assert.True(t, reflect.DeepEqual(fi, opts.Ident))
 		assert.Equal(t, c.config, opts.Config)
-		assert.Len(t, opts.VerificationFuncs, c.pcvFuncsLen)
+		assert.Len(t, opts.VerificationFuncs.Client(), c.clientVerificationFuncsLen)
+		assert.Len(t, opts.VerificationFuncs.Server(), c.serverVerificationFuncsLen)
 	}
 }
 
