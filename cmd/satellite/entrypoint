@@ -10,9 +10,7 @@ if [[ -n "${API_KEY:-}" ]]; then
   export STORJ_REPAIRER_API_KEY="${API_KEY}"
 fi
 
-if [[ -n "${OVERLAY_URL:-}" ]]; then
-	export STORJ_POINTER_DB_DATABASE_URL="${OVERLAY_URL}"
-else
+if [[ -n "${STORJ_DATABASE:-}" ]]; then
   export STORJ_POINTER_DB_DATABASE_URL="${STORJ_DATABASE}"
 fi
 

@@ -119,8 +119,10 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 					rs.RepairThreshold(), elapsed.Seconds(), more.Seconds(), rs.OptimalThreshold())
 
 				timer = time.AfterFunc(more, func() {
-					zap.S().Infof("Timer expired. Successfully uploaded to %d nodes. Canceling the long tail...", atomic.LoadInt32(&successfulCount))
-					cancel()
+					if ctx.Err() != context.Canceled {
+						zap.S().Infof("Timer expired. Successfully uploaded to %d nodes. Canceling the long tail...", atomic.LoadInt32(&successfulCount))
+						cancel()
+					}
 				})
 			case rs.OptimalThreshold():
 				zap.S().Infof("Success threshold (%d nodes) reached. Canceling the long tail...", rs.OptimalThreshold())
@@ -128,6 +130,12 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 				cancel()
 			}
 		}
+	}
+
+	// Ensure timer is stopped in the case of repair threshold is reached, but
+	// not the success threshold due to errors instead of slowness.
+	if timer != nil {
+		timer.Stop()
 	}
 
 	/* clean up the partially uploaded segment's pieces */

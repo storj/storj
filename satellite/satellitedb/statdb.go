@@ -11,6 +11,7 @@ import (
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
@@ -37,6 +38,10 @@ func getNodeStats(nodeID storj.NodeID, dbNode *dbx.Node) *statdb.NodeStats {
 		UptimeRatio:        dbNode.UptimeRatio,
 		UptimeSuccessCount: dbNode.UptimeSuccessCount,
 		UptimeCount:        dbNode.TotalUptimeCount,
+		Operator: pb.NodeOperator{
+			Email:  dbNode.Email,
+			Wallet: dbNode.Wallet,
+		},
 	}
 	return nodeStats
 }
@@ -52,6 +57,8 @@ func (s *statDB) Create(ctx context.Context, nodeID storj.NodeID, startingStats 
 		totalUptimeCount   int64
 		uptimeSuccessCount int64
 		uptimeRatio        float64
+		wallet             string
+		email              string
 	)
 
 	if startingStats != nil {
@@ -68,6 +75,8 @@ func (s *statDB) Create(ctx context.Context, nodeID storj.NodeID, startingStats 
 		if err != nil {
 			return nil, errUptime.Wrap(err)
 		}
+		wallet = startingStats.Operator.Wallet
+		email = startingStats.Operator.Email
 	}
 
 	dbNode, err := s.db.Create_Node(
@@ -79,6 +88,8 @@ func (s *statDB) Create(ctx context.Context, nodeID storj.NodeID, startingStats 
 		dbx.Node_UptimeSuccessCount(uptimeSuccessCount),
 		dbx.Node_TotalUptimeCount(totalUptimeCount),
 		dbx.Node_UptimeRatio(uptimeRatio),
+		dbx.Node_Wallet(wallet),
+		dbx.Node_Email(email),
 	)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -211,6 +222,30 @@ func (s *statDB) Update(ctx context.Context, updateReq *statdb.UpdateRequest) (s
 
 	nodeStats := getNodeStats(nodeID, dbNode)
 	return nodeStats, Error.Wrap(tx.Commit())
+}
+
+// UpdateStats takes a NodeStats struct and updates the appropriate node with that information
+func (s *statDB) UpdateOperator(ctx context.Context, nodeID storj.NodeID, operator pb.NodeOperator) (stats *statdb.NodeStats, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	tx, err := s.db.Open(ctx)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	updateFields := dbx.Node_Update_Fields{
+		Wallet: dbx.Node_Wallet(operator.GetWallet()),
+		Email:  dbx.Node_Email(operator.GetEmail()),
+	}
+
+	updatedDBNode, err := tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
+	if err != nil {
+		return nil, Error.Wrap(tx.Rollback())
+	}
+
+	updated := getNodeStats(nodeID, updatedDBNode)
+
+	return updated, utils.CombineErrors(err, tx.Commit())
 }
 
 // UpdateUptime updates a single storagenode's uptime stats in the db

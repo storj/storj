@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
@@ -79,6 +80,7 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 			UptimeCount:        currUptimeCount,
 			UptimeSuccessCount: currUptimeSuccess,
 		}
+
 		_, err := sdb.Create(ctx, nodeID, nodeStats)
 		assert.Error(t, err)
 	}
@@ -138,6 +140,47 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 		assert.Contains(t, invalid, storj.NodeID{3})
 		assert.Contains(t, invalid, storj.NodeID{6})
 		assert.Len(t, invalid, 3)
+	}
+
+	{ // TestUpdateOperator
+		nodeID := storj.NodeID{10}
+		stats, err := sdb.CreateEntryIfNotExists(ctx, nodeID)
+
+		assert.NoError(t, err)
+
+		assert.Equal(t, stats.Operator.Wallet, "")
+		assert.Equal(t, stats.Operator.Email, "")
+
+		update, err := sdb.UpdateOperator(ctx, nodeID, pb.NodeOperator{
+			Wallet: "0x1111111111111111111111111111111111111111",
+			Email:  "abc123@gmail.com",
+		})
+
+		assert.NoError(t, err)
+		assert.NotNil(t, update)
+
+		found, err := sdb.Get(ctx, nodeID)
+		assert.NotNil(t, found)
+		assert.NoError(t, err)
+
+		assert.Equal(t, "0x1111111111111111111111111111111111111111", found.Operator.Wallet)
+		assert.Equal(t, "abc123@gmail.com", found.Operator.Email)
+
+		updateEmail, err := sdb.UpdateOperator(ctx, nodeID, pb.NodeOperator{
+			Email: "def456@gmail.com",
+		})
+
+		assert.NoError(t, err)
+		assert.NotNil(t, updateEmail)
+		assert.Equal(t, updateEmail.Operator.Email, "def456@gmail.com")
+
+		updateWallet, err := sdb.UpdateOperator(ctx, nodeID, pb.NodeOperator{
+			Wallet: "0x2222222222222222222222222222222222222222",
+		})
+
+		assert.NoError(t, err)
+		assert.NotNil(t, updateWallet)
+		assert.Equal(t, updateWallet.Operator.Wallet, "0x2222222222222222222222222222222222222222")
 	}
 
 	{ // TestUpdateExists

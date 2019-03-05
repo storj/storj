@@ -29,3 +29,14 @@ npm run lint
 ```
 npm run test:unit
 ```
+
+### Build docker container
+From root of the repository, run:
+```
+make satellite-ui-image
+```
+
+### Run docker container
+```
+docker run -p 8080:8080 storjlabs/satellite-ui:latest
+```

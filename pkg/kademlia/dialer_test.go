@@ -27,7 +27,7 @@ func TestDialer(t *testing.T) {
 		// TODO: also use satellites
 		peers := planet.StorageNodes
 
-		{ // Ping: storage node pings all other storage nodes
+		{ // PingNode: storage node pings all other storage nodes
 			self := planet.StorageNodes[0]
 
 			dialer := kademlia.NewDialer(zaptest.NewLogger(t), self.Transport)
@@ -38,7 +38,7 @@ func TestDialer(t *testing.T) {
 			for _, peer := range peers {
 				peer := peer
 				group.Go(func() error {
-					pinged, err := dialer.Ping(ctx, peer.Local())
+					pinged, err := dialer.PingNode(ctx, peer.Local())
 					var pingErr error
 					if !pinged {
 						pingErr = fmt.Errorf("ping to %s should have succeeded", peer.ID())

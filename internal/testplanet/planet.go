@@ -12,6 +12,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -45,6 +46,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/storagenodedb"
@@ -439,6 +441,11 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			Rollup: rollup.Config{
 				Interval: 120 * time.Second,
 			},
+			Mail: mailservice.Config{
+				SMTPServerAddress: "smtp.gmail.com:587",
+				From:              "Labs <yaroslav-satellite-test@storj.io>",
+				AuthType:          "simulate",
+			},
 			Console: consoleweb.Config{
 				Address:      "127.0.0.1:0",
 				PasswordCost: console.TestPasswordCost,
@@ -448,8 +455,16 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			planet.config.Reconfigure.Satellite(log, i, &config)
 		}
 
+		// TODO: find source file, to set static path
+		_, filename, _, ok := runtime.Caller(0)
+		if !ok {
+			return xs, errs.New("no caller information")
+		}
+		storjRoot := strings.TrimSuffix(filename, "/internal/testplanet/planet.go")
+
 		// TODO: for development only
-		config.Console.StaticDir = "./web/satellite"
+		config.Console.StaticDir = filepath.Join(storjRoot, "web/satellite")
+		config.Mail.TemplatePath = filepath.Join(storjRoot, "web/satellite/static/emails")
 
 		peer, err := satellite.New(log, identity, db, &config)
 		if err != nil {
