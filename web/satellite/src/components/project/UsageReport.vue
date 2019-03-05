@@ -45,7 +45,7 @@
 				</div>
 			</div>
 			<div class="usage-report-container__main-area__footer">
-				<p>Current Roll Up Period <b>{{dateRange.startDate.toLocaleDateString("en-US")}} to {{dateRange.endDate.toLocaleDateString("en-US")}}</b></p>
+				<p>Current Roll Up Period <b>{{dateRange.startDate.toLocaleDateString("en-US")}}</b> to <b>{{dateRange.endDate.toLocaleDateString("en-US")}}</b></p>
 				<div class="usage-report-container__main-area__footer__report-area">
 					<p>Download Advanced Report</p>
 					<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" @click.prevent="onReportClick">
@@ -84,7 +84,7 @@
                         startDate: previousDate,
 	                    endDate: currentDate,
                     }
-	            }
+	            };
 	        },
             components: {
                 Datepicker,
@@ -107,7 +107,7 @@
 
                     this.$data.dateRange.startDate = previousDate;
                     this.$data.dateRange.endDate = currentDate;
-		            (this as any).onButtonClickAction(event);
+	                (this as any).onButtonClickAction(event);
 	            },
                 onPreviousRollupClick: function (event: any) {
                     const currentDate = new Date();
@@ -121,16 +121,18 @@
                 },
                 onCustomDateClick: function (event: any) {
 	                (this as any).$refs.datePicker.showCheck();
-                    (this as any).onButtonClickAction(event);
+	                (this as any).onButtonClickAction(event);
                 },
                 onButtonClickAction: function (event: any) {
                     let eventTarget = event.target;
 
-                    if (eventTarget.children.length === 0)
+                    if (eventTarget.children.length === 0) {
                         eventTarget = eventTarget.parentNode;
+                    }
 
-                    if (eventTarget.classList.contains('active'))
+                    if (eventTarget.classList.contains('active')) {
                         return;
+                    }
 
                     (this as any).changeActiveClass(eventTarget);
                 },

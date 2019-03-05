@@ -378,7 +378,7 @@
 		</div>
 	</div>
 </template>
-<script>
+<script lang="js">
     import { Component, Vue } from 'vue-property-decorator';
 
     let _moment = require('moment');
@@ -439,6 +439,7 @@
                         value: hour < 10 ? '0' + hour : hour
                     });
                 }
+
                 return list;
             }
             function mins() {
@@ -451,6 +452,7 @@
                         value: min < 10 ? '0' + min : min
                     });
                 }
+
                 return list;
             }
 
@@ -489,6 +491,7 @@
         methods: {
             pad: function pad(n) {
                 n = Math.floor(n);
+
                 return n < 10 ? '0' + n : n;
             },
             nextMonth: function nextMonth(type) {
@@ -605,6 +608,7 @@
                         day.unavailable = true;
                     }
                 });
+
                 return days;
             },
             limitFromTo: function limitFromTo(limit, days) {
@@ -617,6 +621,7 @@
                         }
                     });
                 }
+
                 return days;
             },
             getLimitCondition: function getLimitCondition(limit, day) {
@@ -730,11 +735,13 @@
 
                 let listDom = document.getElementById('yearList');
                 listDom.addEventListener('scroll', function (e) {
-                    if (listDom.scrollTop < listDom.scrollHeight - 100) {
-                        let len = _this4.library.year.length;
-                        let lastYear = _this4.library.year[len - 1];
-                        _this4.library.year.push(lastYear + 1);
+                    if (listDom.scrollTop >= listDom.scrollHeight - 100) {
+                        return;
                     }
+
+                    let len = _this4.library.year.length;
+                    let lastYear = _this4.library.year[len - 1];
+                    _this4.library.year.push(lastYear + 1);
                 }, false);
             },
             setYear: function setYear(year) {
@@ -810,12 +817,15 @@
                 this.$emit('change', this.date.time);
             },
             dismiss: function dismiss(evt) {
-                if (evt.target.className === 'datepicker-overlay') {
-                    if (this.option.dismissible === undefined || this.option.dismissible) {
-                        this.showInfo.check = false;
-                        this.$emit('cancel');
-                    }
+                if (evt.target.className !== 'datepicker-overlay') {
+                    return;
                 }
+                if (!this.option.dismissible) {
+                    return;
+                }
+
+                this.showInfo.check = false;
+                this.$emit('cancel');
             },
             shiftActTime: function shiftActTime() {
                 // shift activated time items to visible position.

@@ -86,7 +86,7 @@ let router = new Router({
         {
           path: ROUTES.REPORT_TABLE.path,
           name: ROUTES.REPORT_TABLE.name,
-          component: ReportTable
+          component: ReportTable,
         },
         {
             path: '*',
