@@ -339,7 +339,9 @@ model bucket_usage (
 
     field  remote_stored_data uint64
     field  inline_stored_data uint64
-    field  segments           uint
+    field  remote_segments    uint
+    field  inline_segments    uint
+    field  objects            uint
     field  metadata_size      uint64
     field  repair_egress      uint64
     field  get_egress         uint64
@@ -358,13 +360,15 @@ read limitoffset (
     select bucket_usage
     where bucket_usage.bucket_id = ?
     where bucket_usage.rollup_end_time > ?
+    where bucket_usage.rollup_end_time <= ?
     orderby asc bucket_usage.rollup_end_time
 )
 
 read limitoffset (
     select bucket_usage
     where bucket_usage.bucket_id = ?
-    where bucket_usage.rollup_end_time < ?
+    where bucket_usage.rollup_end_time > ?
+    where bucket_usage.rollup_end_time <= ?
     orderby desc bucket_usage.rollup_end_time
 )
 

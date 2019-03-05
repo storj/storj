@@ -235,41 +235,42 @@ func (m *lockedAPIKeys) Update(ctx context.Context, key console.APIKeyInfo) erro
 	return m.db.Update(ctx, key)
 }
 
-// BucketUsages is a getter for BucketUsages repository
-func (m *lockedConsole) BucketUsages() console.BucketUsages {
+// BucketUsage is a getter for accounting.BucketUsage repository
+func (m *lockedConsole) BucketUsage() accounting.BucketUsage {
 	m.Lock()
 	defer m.Unlock()
-	return &lockedBucketUsages{m.Locker, m.db.BucketUsages()}
+	return &lockedBucketUsage{m.Locker, m.db.BucketUsage()}
 }
 
-// lockedBucketUsages implements locking wrapper for console.BucketUsages
-type lockedBucketUsages struct {
+// lockedBucketUsage implements locking wrapper for accounting.BucketUsage
+type lockedBucketUsage struct {
 	sync.Locker
-	db console.BucketUsages
+	db accounting.BucketUsage
 }
 
-func (m *lockedBucketUsages) Create(ctx context.Context, a1 console.BucketUsage) (*console.BucketUsage, error) {
+// Count(ctx context.Context, buckedID uuid.UUID, ) ()
+func (m *lockedBucketUsage) Create(ctx context.Context, rollup accounting.BucketRollup) (*accounting.BucketRollup, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Create(ctx, a1)
+	return m.db.Create(ctx, rollup)
 }
 
-func (m *lockedBucketUsages) Delete(ctx context.Context, a1 uuid.UUID) error {
+func (m *lockedBucketUsage) Delete(ctx context.Context, id uuid.UUID) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Delete(ctx, a1)
+	return m.db.Delete(ctx, id)
 }
 
-func (m *lockedBucketUsages) Get(ctx context.Context, a1 uuid.UUID) (*console.BucketUsage, error) {
+func (m *lockedBucketUsage) Get(ctx context.Context, id uuid.UUID) (*accounting.BucketRollup, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Get(ctx, a1)
+	return m.db.Get(ctx, id)
 }
 
-func (m *lockedBucketUsages) GetByBucketID(ctx context.Context, a1 *console.UsageIterator) ([]console.BucketUsage, error) {
+func (m *lockedBucketUsage) GetPaged(ctx context.Context, cursor *accounting.BucketRollupCursor) ([]accounting.BucketRollup, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetByBucketID(ctx, a1)
+	return m.db.GetPaged(ctx, cursor)
 }
 
 // ProjectMembers is a getter for ProjectMembers repository

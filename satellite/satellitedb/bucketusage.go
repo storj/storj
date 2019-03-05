@@ -8,17 +8,17 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
-	"storj.io/storj/satellite/console"
+	"storj.io/storj/pkg/accounting"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
-type bucketusages struct {
+type bucketusage struct {
 	db dbx.Methods
 }
 
 // Get retrieves bucket usage rollup info by id
-func (bucketusages *bucketusages) Get(ctx context.Context, id uuid.UUID) (*console.BucketUsage, error) {
-	dbxUsage, err := bucketusages.db.Get_BucketUsage_By_Id(ctx, dbx.BucketUsage_Id(id[:]))
+func (usage *bucketusage) Get(ctx context.Context, id uuid.UUID) (*accounting.BucketRollup, error) {
+	dbxUsage, err := usage.db.Get_BucketUsage_By_Id(ctx, dbx.BucketUsage_Id(id[:]))
 	if err != nil {
 		return nil, err
 	}
@@ -26,25 +26,27 @@ func (bucketusages *bucketusages) Get(ctx context.Context, id uuid.UUID) (*conso
 	return fromDBXUsage(dbxUsage)
 }
 
-// GetByBucketID retrieves list of bucket usage rollup entries
-func (bucketusages *bucketusages) GetByBucketID(ctx context.Context, iterator *console.UsageIterator) ([]console.BucketUsage, error) {
+// GetPaged retrieves list of bucket usage rollup entries for given cursor
+func (usage bucketusage) GetPaged(ctx context.Context, cursor *accounting.BucketRollupCursor) ([]accounting.BucketRollup, error) {
 	var getUsage func(context.Context,
 		dbx.BucketUsage_BucketId_Field,
 		dbx.BucketUsage_RollupEndTime_Field,
+		dbx.BucketUsage_RollupEndTime_Field,
 		int, int64) ([]*dbx.BucketUsage, error)
 
-	switch iterator.Direction {
-	case console.Bkwd:
-		getUsage = bucketusages.db.Limited_BucketUsage_By_BucketId_And_RollupEndTime_Less_OrderBy_Desc_RollupEndTime
+	switch cursor.Order {
+	case accounting.Desc:
+		getUsage = usage.db.Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Desc_RollupEndTime
 	default:
-		getUsage = bucketusages.db.Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_OrderBy_Asc_RollupEndTime
+		getUsage = usage.db.Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Asc_RollupEndTime
 	}
 
 	dbxUsages, err := getUsage(
 		ctx,
-		dbx.BucketUsage_BucketId(iterator.BucketID[:]),
-		dbx.BucketUsage_RollupEndTime(iterator.Cursor),
-		iterator.Limit,
+		dbx.BucketUsage_BucketId(cursor.BucketID[:]),
+		dbx.BucketUsage_RollupEndTime(cursor.After),
+		dbx.BucketUsage_RollupEndTime(cursor.Before),
+		cursor.PageSize,
 		0,
 	)
 
@@ -52,47 +54,91 @@ func (bucketusages *bucketusages) GetByBucketID(ctx context.Context, iterator *c
 		return nil, err
 	}
 
-	var usages []console.BucketUsage
+	var rollups []accounting.BucketRollup
 	for _, dbxUsage := range dbxUsages {
-		usage, err := fromDBXUsage(dbxUsage)
+		rollup, err := fromDBXUsage(dbxUsage)
 		if err != nil {
 			return nil, err
 		}
 
-		usages = append(usages, *usage)
+		rollups = append(rollups, *rollup)
 	}
 
-	size := len(usages)
-	if size == iterator.Limit {
-		iterator.Next = &console.UsageIterator{
-			BucketID:  iterator.BucketID,
-			Cursor:    usages[size-1].RollupEndTime,
-			Direction: iterator.Direction,
-			Limit:     iterator.Limit,
+	switch cursor.Order {
+	// going backwards
+	case accounting.Desc:
+		dbxUsages, err := getUsage(
+			ctx,
+			dbx.BucketUsage_BucketId(cursor.BucketID[:]),
+			dbx.BucketUsage_RollupEndTime(cursor.After),
+			dbx.BucketUsage_RollupEndTime(rollups[len(rollups)-1].RollupEndTime),
+			2,
+			0,
+		)
+
+		if err != nil {
+			return nil, err
+		}
+
+		if len(dbxUsages) == 2 {
+			cursor.Next = &accounting.BucketRollupCursor{
+				BucketID: cursor.BucketID,
+				After:    cursor.After,
+				Before:   dbxUsages[1].RollupEndTime,
+				Order:    cursor.Order,
+				PageSize: cursor.PageSize,
+			}
+		}
+	// going forward
+	default:
+		dbxUsages, err := getUsage(
+			ctx,
+			dbx.BucketUsage_BucketId(cursor.BucketID[:]),
+			dbx.BucketUsage_RollupEndTime(rollups[len(rollups)-1].RollupEndTime),
+			dbx.BucketUsage_RollupEndTime(cursor.Before),
+			1,
+			0,
+		)
+
+		if err != nil {
+			return nil, err
+		}
+
+		if len(dbxUsages) > 0 {
+			cursor.Next = &accounting.BucketRollupCursor{
+				BucketID: cursor.BucketID,
+				After:    rollups[len(rollups)-1].RollupEndTime,
+				Before:   cursor.Before,
+				Order:    cursor.Order,
+				PageSize: cursor.PageSize,
+			}
 		}
 	}
-	return usages, nil
+
+	return rollups, nil
 }
 
 // Create creates new bucket usage rollup
-func (bucketusages *bucketusages) Create(ctx context.Context, usage console.BucketUsage) (*console.BucketUsage, error) {
+func (usage bucketusage) Create(ctx context.Context, rollup accounting.BucketRollup) (*accounting.BucketRollup, error) {
 	id, err := uuid.New()
 	if err != nil {
 		return nil, err
 	}
 
-	dbxUsage, err := bucketusages.db.Create_BucketUsage(
+	dbxUsage, err := usage.db.Create_BucketUsage(
 		ctx,
 		dbx.BucketUsage_Id(id[:]),
-		dbx.BucketUsage_BucketId(usage.BucketID[:]),
-		dbx.BucketUsage_RollupEndTime(usage.RollupEndTime),
-		dbx.BucketUsage_RemoteStoredData(usage.RemoteStoredData),
-		dbx.BucketUsage_InlineStoredData(usage.InlineStoredData),
-		dbx.BucketUsage_Segments(usage.Segments),
-		dbx.BucketUsage_MetadataSize(usage.MetadataSize),
-		dbx.BucketUsage_RepairEgress(usage.RepairEgress),
-		dbx.BucketUsage_GetEgress(usage.GetEgress),
-		dbx.BucketUsage_AuditEgress(usage.AuditEgress),
+		dbx.BucketUsage_BucketId(rollup.BucketID[:]),
+		dbx.BucketUsage_RollupEndTime(rollup.RollupEndTime),
+		dbx.BucketUsage_RemoteStoredData(rollup.RemoteStoredData),
+		dbx.BucketUsage_InlineStoredData(rollup.InlineStoredData),
+		dbx.BucketUsage_RemoteSegments(rollup.RemoteSegments),
+		dbx.BucketUsage_InlineSegments(rollup.InlineSegments),
+		dbx.BucketUsage_Objects(rollup.Objects),
+		dbx.BucketUsage_MetadataSize(rollup.MetadataSize),
+		dbx.BucketUsage_RepairEgress(rollup.RepairEgress),
+		dbx.BucketUsage_GetEgress(rollup.GetEgress),
+		dbx.BucketUsage_AuditEgress(rollup.AuditEgress),
 	)
 
 	if err != nil {
@@ -103,13 +149,13 @@ func (bucketusages *bucketusages) Create(ctx context.Context, usage console.Buck
 }
 
 // Delete deletes bucket usage rollup entry by id
-func (bucketusages *bucketusages) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := bucketusages.db.Delete_BucketUsage_By_Id(ctx, dbx.BucketUsage_Id(id[:]))
+func (usage *bucketusage) Delete(ctx context.Context, id uuid.UUID) error {
+	_, err := usage.db.Delete_BucketUsage_By_Id(ctx, dbx.BucketUsage_Id(id[:]))
 	return err
 }
 
-// fromDBXUsage helper method to conert dbx.BucketUsage to console.BucketUsage
-func fromDBXUsage(dbxUsage *dbx.BucketUsage) (*console.BucketUsage, error) {
+// fromDBXUsage helper method to conert dbx.BucketUsage to accounting.BucketRollup
+func fromDBXUsage(dbxUsage *dbx.BucketUsage) (*accounting.BucketRollup, error) {
 	id, err := bytesToUUID(dbxUsage.Id)
 	if err != nil {
 		return nil, err
@@ -120,13 +166,15 @@ func fromDBXUsage(dbxUsage *dbx.BucketUsage) (*console.BucketUsage, error) {
 		return nil, err
 	}
 
-	return &console.BucketUsage{
+	return &accounting.BucketRollup{
 		ID:               id,
 		BucketID:         bucketID,
 		RollupEndTime:    dbxUsage.RollupEndTime,
 		RemoteStoredData: dbxUsage.RemoteStoredData,
 		InlineStoredData: dbxUsage.InlineStoredData,
-		Segments:         dbxUsage.Segments,
+		RemoteSegments:   dbxUsage.RemoteSegments,
+		InlineSegments:   dbxUsage.InlineSegments,
+		Objects:          dbxUsage.Objects,
 		MetadataSize:     dbxUsage.MetadataSize,
 		RepairEgress:     dbxUsage.RepairEgress,
 		GetEgress:        dbxUsage.GetEgress,
