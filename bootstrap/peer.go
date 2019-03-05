@@ -5,12 +5,16 @@ package bootstrap
 
 import (
 	"context"
+	"net"
+	"net/http"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/bootstrap/bootstrapweb"
+	"storj.io/storj/bootstrap/bootstrapweb/bootstrapserver"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
@@ -38,6 +42,8 @@ type Config struct {
 
 	Server   server.Config
 	Kademlia kademlia.Config
+
+	Web bootstrapserver.Config
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
@@ -62,6 +68,13 @@ type Peer struct {
 		Service      *kademlia.Kademlia
 		Endpoint     *kademlia.Endpoint
 		Inspector    *kademlia.Inspector
+	}
+
+	// Web server with web UI
+	Web struct {
+		Listener net.Listener
+		Service  *bootstrapweb.Service
+		Endpoint *bootstrapserver.Server
 	}
 }
 
@@ -131,6 +144,31 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 		pb.RegisterKadInspectorServer(peer.Server.PrivateGRPC(), peer.Kademlia.Inspector)
 	}
 
+	{ // setup bootstrap web ui
+		config := config.Web
+
+		peer.Web.Listener, err = net.Listen("tcp", config.Address)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Web.Service, err = bootstrapweb.NewService(
+			peer.Log.Named("bootstrapWeb:service"),
+			peer.Kademlia.Service,
+		)
+
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Web.Endpoint = bootstrapserver.NewServer(
+			peer.Log.Named("bootstrapWeb:endpoint"),
+			config,
+			peer.Web.Service,
+			peer.Web.Listener,
+		)
+	}
+
 	return peer, nil
 }
 
@@ -151,12 +189,15 @@ func (peer *Peer) Run(ctx context.Context) error {
 		peer.Log.Sugar().Infof("Node %s started on %s", peer.Identity.ID, peer.PrivateAddr())
 		return ignoreCancel(peer.Server.Run(ctx))
 	})
+	group.Go(func() error {
+		return ignoreCancel(peer.Web.Endpoint.Run(ctx))
+	})
 
 	return group.Wait()
 }
 
 func ignoreCancel(err error) error {
-	if err == context.Canceled || err == grpc.ErrServerStopped {
+	if err == context.Canceled || err == grpc.ErrServerStopped || err == http.ErrServerClosed {
 		return nil
 	}
 	return err
@@ -171,6 +212,14 @@ func (peer *Peer) Close() error {
 	// close servers, to avoid new connections to closing subsystems
 	if peer.Server != nil {
 		errlist.Add(peer.Server.Close())
+	}
+
+	if peer.Web.Endpoint != nil {
+		errlist.Add(peer.Web.Endpoint.Close())
+	} else {
+		if peer.Web.Listener != nil {
+			errlist.Add(peer.Web.Listener.Close())
+		}
 	}
 
 	// close services in reverse initialization order

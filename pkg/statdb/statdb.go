@@ -8,6 +8,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -26,6 +27,8 @@ type DB interface {
 	FindInvalidNodes(ctx context.Context, nodeIDs storj.NodeIDList, maxStats *NodeStats) (invalid storj.NodeIDList, err error)
 	// Update all parts of single storagenode's stats.
 	Update(ctx context.Context, request *UpdateRequest) (stats *NodeStats, err error)
+	// UpdateOperator updates the email and wallet for a given node ID for satellite payments.
+	UpdateOperator(ctx context.Context, node storj.NodeID, updatedOperator pb.NodeOperator) (stats *NodeStats, err error)
 	// UpdateUptime updates a single storagenode's uptime stats.
 	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error)
 	// UpdateAuditSuccess updates a single storagenode's audit stats.
@@ -52,4 +55,5 @@ type NodeStats struct {
 	UptimeRatio        float64
 	UptimeSuccessCount int64
 	UptimeCount        int64
+	Operator           pb.NodeOperator
 }

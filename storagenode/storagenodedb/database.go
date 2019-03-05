@@ -9,6 +9,7 @@ import (
 
 	"storj.io/storj/pkg/kademlia"
 	pstore "storj.io/storj/pkg/piecestore"
+	"storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
@@ -29,7 +30,7 @@ type Config struct {
 // DB contains access to different database tables
 type DB struct {
 	log      *zap.Logger
-	storage  *pstore.Storage
+	storage  psserver.Storage
 	psdb     *psdb.DB
 	kdb, ndb storage.KeyValueStore
 }
@@ -93,7 +94,7 @@ func (db *DB) Close() error {
 }
 
 // Storage returns piecestore location
-func (db *DB) Storage() *pstore.Storage {
+func (db *DB) Storage() psserver.Storage {
 	return db.storage
 }
 

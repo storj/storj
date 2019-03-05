@@ -207,6 +207,7 @@ func NodeInfo(cmd *cobra.Command, args []string) (err error) {
 
 	// now ask the node directly for its node info
 	info, err := i.kadclient.NodeInfo(context.Background(), &pb.NodeInfoRequest{
+		Id:      n.GetNode().Id,
 		Address: n.GetNode().GetAddress(),
 	})
 	if err != nil {

@@ -23,11 +23,11 @@ var (
 
 // Options holds config, identity, and peer verification function data for use with tls.
 type Options struct {
-	Config   Config
-	Ident    *identity.FullIdentity
-	RevDB    *identity.RevocationDB
-	PCVFuncs []peertls.PeerCertVerificationFunc
-	Cert     *tls.Certificate
+	Config            Config
+	Ident             *identity.FullIdentity
+	RevDB             *identity.RevocationDB
+	VerificationFuncs []peertls.PeerCertVerificationFunc
+	Cert              *tls.Certificate
 }
 
 // NewOptions is a constructor for `tls options` given an identity and config
@@ -86,8 +86,8 @@ func (opts *Options) configure(c Config) (err error) {
 		}
 	}
 
-	opts.PCVFuncs = pcvs
+	opts.VerificationFuncs = pcvs
 
-	opts.Cert, err = peertls.TLSCert(opts.Ident.ChainRaw(), opts.Ident.Leaf, opts.Ident.Key)
+	opts.Cert, err = peertls.TLSCert(opts.Ident.RawChain(), opts.Ident.Leaf, opts.Ident.Key)
 	return err
 }
