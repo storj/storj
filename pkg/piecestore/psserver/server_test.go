@@ -502,7 +502,7 @@ func NewTest(ctx context.Context, t *testing.T, snID, upID *identity.FullIdentit
 	}
 
 	//init ps server grpc
-	sc := server.Config{}
+	sc := server.Config{Address: "127.0.0.1:0", PrivateAddress: "127.0.0.1:0"}
 	options, err := tlsopts.NewOptions(snID, sc.Config)
 	require.NoError(t, err)
 
