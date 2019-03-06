@@ -26,6 +26,24 @@ func NewIdentities(list ...*identity.FullIdentity) *Identities {
 	}
 }
 
+// MustPregeneratedIdentity returns a pregenerated identity or panics
+func MustPregeneratedIdentity(index int) *identity.FullIdentity {
+	identity, err := PregeneratedIdentity(index)
+	if err != nil {
+		panic(err)
+	}
+	return identity
+}
+
+// MustPregeneratedSignedIdentity returns a pregenerated identity or panics
+func MustPregeneratedSignedIdentity(index int) *identity.FullIdentity {
+	identity, err := PregeneratedSignedIdentity(index)
+	if err != nil {
+		panic(err)
+	}
+	return identity
+}
+
 // PregeneratedIdentity returns a pregenerated identity from a list
 func PregeneratedIdentity(index int) (*identity.FullIdentity, error) {
 	if pregeneratedIdentities.next >= len(pregeneratedIdentities.list) {

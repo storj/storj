@@ -4,8 +4,11 @@
 package consoleql
 
 import (
+	"fmt"
+
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/post"
 	"storj.io/storj/satellite/console"
@@ -277,12 +280,32 @@ func rootMutation(service *console.Service, mailService *mailservice.Service, ty
 						userEmails = append(userEmails, email.(string))
 					}
 
-					err = service.AddProjectMembers(p.Context, *projectID, userEmails)
+					project, err := service.GetProject(p.Context, *projectID)
 					if err != nil {
 						return nil, err
 					}
 
-					return service.GetProject(p.Context, *projectID)
+					users, err := service.AddProjectMembers(p.Context, *projectID, userEmails)
+					if err != nil {
+						return nil, err
+					}
+
+					var emailErr errs.Group
+					for _, user := range users {
+						err = mailService.SendRendered(
+							p.Context,
+							[]post.Address{{Address: user.Email, Name: fmt.Sprintf("%s %s", user.FirstName, user.LastName)}},
+							&ProjectInvitationEmail{
+								UserName:    user.FirstName,
+								ProjectName: user.LastName,
+							},
+						)
+						if err != nil {
+							emailErr.Add(err)
+						}
+					}
+
+					return project, emailErr.Err()
 				},
 			},
 			// delete user membership for given project
