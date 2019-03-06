@@ -6,10 +6,9 @@ package consoleql
 import (
 	"fmt"
 
-	"github.com/zeebo/errs"
-
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/post"
 	"storj.io/storj/satellite/console"
