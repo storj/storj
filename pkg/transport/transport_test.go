@@ -138,7 +138,7 @@ func TestDialNode(t *testing.T) {
 		assert.NoError(t, conn.Close())
 	})
 
-	t.Run("DialNode with bad client certificate", func(t *testing.T) {
+	t.Run("DialNode with unsigned identity", func(t *testing.T) {
 		target := &pb.Node{
 			Id: planet.StorageNodes[1].ID(),
 			Address: &pb.NodeAddress{
@@ -157,13 +157,12 @@ func TestDialNode(t *testing.T) {
 		)
 		cancel()
 
-		tag := fmt.Sprintf("%+v", target)
-		assert.Nil(t, conn, tag)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "bad certificate")
+		assert.NotNil(t, conn)
+		require.NoError(t, err)
+		assert.NoError(t, conn.Close())
 	})
 
-	t.Run("DialAddress with bad client certificate", func(t *testing.T) {
+	t.Run("DialAddress with unsigned identity", func(t *testing.T) {
 		timedCtx, cancel := context.WithTimeout(ctx, time.Second)
 		dialOption := unsignedClientOpts.DialUnverifiedIDOption()
 		conn, err := client.DialAddress(
@@ -171,9 +170,9 @@ func TestDialNode(t *testing.T) {
 		)
 		cancel()
 
-		assert.Nil(t, conn)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "bad certificate")
+		assert.NotNil(t, conn)
+		require.NoError(t, err)
+		assert.NoError(t, conn.Close())
 	})
 
 	t.Run("DialAddress with valid address", func(t *testing.T) {
