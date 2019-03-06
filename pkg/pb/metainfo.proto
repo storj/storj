@@ -51,8 +51,8 @@ message OrderLimit2 {
     google.protobuf.Timestamp order_expiration = 9;
   
     bytes satellite_signature = 10;
-    repeated bytes satellite_signature_certs = 11; 
 }
+
 
 // Order2 is a one step of fullfilling Amount number of bytes from an OrderLimit2 with SerialNumber
 message Order2 {
