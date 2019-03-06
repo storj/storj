@@ -89,8 +89,7 @@ message SegmentCommitRequest {
     bytes bucket = 1;
     bytes path = 2;
     int64 segment = 3;
-
-    repeated PieceHash storage_node_piecehashes = 4;
+    pointerdb.Pointer pointer = 4;
 }
 
 message SegmentCommitResponse {
