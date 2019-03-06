@@ -22,7 +22,6 @@ type Config struct {
 	OverlayAddr   string        `help:"Address to contact overlay server through"`
 	PointerDBAddr string        `help:"Address to contact pointerdb server through"`
 	MaxBufferMem  memory.Size   `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4M"`
-	APIKey        string        `help:"repairer-specific pointerdb access credential"`
 }
 
 // GetSegmentRepairer creates a new segment repairer from storeConfig values
