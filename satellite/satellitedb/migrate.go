@@ -319,6 +319,28 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					ALTER TABLE nodes ALTER COLUMN email SET NOT NULL;`,
 				},
 			},
+			{
+				Description: "Add bucket usage rollup table",
+				Version:     6,
+				Action: migrate.SQL{
+					`CREATE TABLE bucket_usages (
+						id BLOB NOT NULL,
+						bucket_id BLOB NOT NULL,
+						rollup_end_time TIMESTAMP NOT NULL,
+						remote_stored_data INTEGER NOT NULL,
+						inline_stored_data INTEGER NOT NULL,
+						remote_segments INTEGER NOT NULL,
+						inline_segments INTEGER NOT NULL,
+						objects INTEGER NOT NULL,
+						metadata_size INTEGER NOT NULL,
+						repair_egress INTEGER NOT NULL,
+						get_egress INTEGER NOT NULL,
+						audit_egress INTEGER NOT NULL,
+						PRIMARY KEY ( id ),
+						UNIQUE ( rollup_end_time, bucket_id )
+					)`,
+				},
+			},
 		},
 	}
 }
