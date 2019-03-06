@@ -140,7 +140,7 @@ func (discovery *Discovery) refresh(ctx context.Context) error {
 		ping, err := discovery.kad.Ping(ctx, *node)
 		if err != nil {
 			discovery.log.Info("could not ping node", zap.String("ID", node.Id.String()), zap.Error(err))
-			_, err := discovery.statdb.UpdateUptime(ctx, node.Id, false)
+			_, err := discovery.statdb.UpdateUptimeOrCreate(ctx, node.Id, false)
 			if err != nil {
 				discovery.log.Error("could not update node uptime in statdb", zap.String("ID", node.Id.String()), zap.Error(err))
 			}
@@ -155,7 +155,7 @@ func (discovery *Discovery) refresh(ctx context.Context) error {
 			return ctx.Err()
 		}
 
-		_, err = discovery.statdb.UpdateUptime(ctx, ping.Id, true)
+		_, err = discovery.statdb.UpdateUptimeOrCreate(ctx, ping.Id, true)
 		if err != nil {
 			discovery.log.Error("could not update node uptime in statdb", zap.String("ID", ping.Id.String()), zap.Error(err))
 		}
@@ -195,6 +195,10 @@ func (discovery *Discovery) searchGraveyard(ctx context.Context) error {
 			return ctx.Err()
 		}
 
+		if n.Id.IsZero() {
+			continue
+		}
+
 		ping, err := discovery.kad.Ping(ctx, *n)
 		if err != nil {
 			discovery.log.Debug("could not ping node in graveyard check")
@@ -212,26 +216,13 @@ func (discovery *Discovery) searchGraveyard(ctx context.Context) error {
 			errors.Add(err)
 		}
 
-		_, err = discovery.statdb.UpdateUptime(ctx, ping.Id, true)
+		_, err = discovery.statdb.UpdateUptimeOrCreate(ctx, ping.Id, true)
 		if err != nil {
 			discovery.log.Warn("could not update node uptime")
 			errors.Add(err)
 		}
 	}
 	return errors.Err()
-}
-
-// Bootstrap walks the initialized network and populates the cache
-func (discovery *Discovery) bootstrap(ctx context.Context) error {
-	// o := overlay.LoadFromContext(ctx)
-	// kad := kademlia.LoadFromContext(ctx)
-	// TODO(coyle): make Bootstrap work
-	// look in our routing table
-	// get every node we know about
-	// ask every node for every node they know about
-	// for each newly known node, ask those nodes for every node they know about
-	// continue until no new nodes are found
-	return nil
 }
 
 // Discovery runs lookups for random node ID's to find new nodes in the network

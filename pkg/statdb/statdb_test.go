@@ -243,6 +243,7 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 	{ // TestUpdateUptimeOrCreate
 		id := storj.NodeID{111}
 		found, err := sdb.Get(ctx, id)
+		assert.NoError(t, err)
 		assert.Nil(t, found)
 		created, err := sdb.UpdateUptimeOrCreate(ctx, id, true)
 		assert.NoError(t, err)
