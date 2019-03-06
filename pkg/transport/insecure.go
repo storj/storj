@@ -13,7 +13,6 @@ import (
 //
 // Use this method for communication with localhost. For example, with the inspector or debugging services.
 // Otherwise in most cases DialNode should be used for communicating with nodes since it is secure.
-// func (transport *Transport) DialAddressInsecure(ctx context.Context, address string, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
 func DialAddressInsecure(ctx context.Context, address string, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
 
