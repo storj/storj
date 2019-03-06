@@ -51,7 +51,7 @@ func New(opts *tlsopts.Options, publicAddr, privateAddr string, interceptor grpc
 
 	publicListener, err := net.Listen("tcp", publicAddr)
 	if err != nil {
-		return nil, errs.Combine(err, publicListener.Close())
+		return nil, err
 	}
 	public := public{
 		listener: publicListener,
@@ -64,7 +64,7 @@ func New(opts *tlsopts.Options, publicAddr, privateAddr string, interceptor grpc
 
 	privateListener, err := net.Listen("tcp", privateAddr)
 	if err != nil {
-		return nil, errs.Combine(err, privateListener.Close())
+		return nil, errs.Combine(err, publicListener.Close())
 	}
 	private := private{
 		listener: privateListener,
