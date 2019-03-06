@@ -1,0 +1,99 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "pb";
+
+package metainfo;
+
+import "gogo.proto";
+import "google/protobuf/timestamp.proto";
+
+service PieceStoreRoutes {
+    rpc CreateSegment(SegmentWriteRequest) returns (OrderLimitResponse) {}
+    rpc CommitSegment(SegmentCommitRequest) returns (SegmentCommitResponse) {}
+    rpc DownloadSegment(SegementDownloadRequest) returns (OrderLimitResponse) {}
+    rpc DeleteSegment(SegmentDeleteRequest) returns (OrderLimitResponse) {}
+}
+
+enum Action {
+    INVALID    = 0;
+    PUT        = 1;
+    GET        = 2;
+    GET_AUDIT  = 3;
+    GET_REPAIR = 4;
+    PUT_REPAIR = 5;
+    DELETE     = 6;
+}
+  
+message OrderLimit {
+    // unique serial to avoid replay attacks
+    bytes serial_number = 1; // can this be int64?
+    // satellite who issued this order limit allowing orderer to do the specified action
+    bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID"]; 
+    // uplink who requested or whom behalf the order limit to do an action
+    bytes uplink_id   = 3 [(gogoproto.customtype) = "NodeID"];
+    // storage node who can reclaim the order limit specified by serial
+    bytes storage_node_id = 4 [(gogoproto.customtype) = "NodeID"];
+  
+    // piece which is allowed to be touched
+    bytes piece_id = 5 [(gogoproto.customtype) = "PieceID"];
+    // limit in bytes how much can be changed
+    int64  limit  = 6;
+    Action action = 7;
+  
+    google.protobuf.Timestamp piece_expiration = 8;
+    google.protobuf.Timestamp order_expiration = 9;
+  
+    bytes satellite_signature = 10;
+}
+  
+message Order {
+    // serial of the order limit that was signed
+    bytes serial_number    = 1;
+    // amount to be signed for
+    int64 amount           = 2;
+    // signature
+    bytes uplink_signature = 3;
+}
+  
+message PieceHash {
+    // piece id
+    bytes piece_id = 1;
+    // hash of the piece that was/is uploaded
+    bytes hash = 2;
+    // signature either satellite or storage node
+    bytes signature = 3;
+  }
+
+message SegmentWriteRequest {
+    bytes bucket = 1;
+    int64 segment = 2;
+    bytes encrypted_path = 3;
+}
+
+message SegmentCommitRequest {
+    bytes bucket = 1;
+    int64 segment = 2;
+    bytes encrypted_path = 3;
+
+    repeated PieceHash storage_node_piecehashes = 4;
+}
+
+message SegmentCommitResponse {
+}
+
+message SegementDownloadRequest {
+    bytes bucket = 1; 
+    bytes encrypted_path = 2;
+}
+
+message SegmentDeleteRequest {
+    bytes bucket = 1;
+    int64 segment = 2;
+    bytes encrypted_path = 3;
+}
+
+message OrderLimitResponse {
+    repeated OrderLimit limits = 1;
+}
