@@ -21,7 +21,6 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/transport"
 )
@@ -34,8 +33,8 @@ func (dash *dashboardClient) dashboard(ctx context.Context) (*pb.DashboardRespon
 	return dash.client.Dashboard(ctx, &pb.DashboardRequest{})
 }
 
-func newDashboardClient(ctx context.Context, n *pb.Node) (*dashboardClient, error) {
-	conn, err := transport.DialAddressInsecure(ctx, n.Address.Address)
+func newDashboardClient(ctx context.Context, address string) (*dashboardClient, error) {
+	conn, err := transport.DialAddressInsecure(ctx, address)
 	if err != nil {
 		return &dashboardClient{}, err
 	}
@@ -55,21 +54,12 @@ func cmdDashboard(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Info("Node ID: ", ident.ID)
 	}
 
-	n := &pb.Node{
-		Id: ident.ID,
-		Address: &pb.NodeAddress{
-			Address:   dashboardCfg.Address,
-			Transport: 0,
-		},
-		Type: pb.NodeType_STORAGE,
-	}
-
 	online, err := getConnectionStatus(ctx, ident)
 	if err != nil {
 		zap.S().Error("error getting connection status %s", err.Error())
 	}
 
-	client, err := newDashboardClient(ctx, n)
+	client, err := newDashboardClient(ctx, dashboardCfg.Address)
 	if err != nil {
 		return err
 	}
@@ -169,27 +159,28 @@ func clearScreen() {
 	}
 }
 
+type inspector struct {
+	kadclient pb.KadInspectorClient
+}
+
+func newInspectorClient(ctx context.Context, bootstrapAddress string) (*inspector, error) {
+	conn, err := transport.DialAddressInsecure(ctx, bootstrapAddress)
+	if err != nil {
+		return &inspector{}, err
+	}
+
+	return &inspector{
+		kadclient: pb.NewKadInspectorClient(conn),
+	}, nil
+}
+
 func getConnectionStatus(ctx context.Context, id *identity.FullIdentity) (bool, error) {
-	bn := &pb.Node{
-		Address: &pb.NodeAddress{
-			Address:   runCfg.Kademlia.BootstrapAddr,
-			Transport: 0,
-		},
-		Type: pb.NodeType_BOOTSTRAP,
-	}
-
-	tlsOpts, err := tlsopts.NewOptions(id, tlsopts.Config{})
+	inspector, err := newInspectorClient(ctx, dashboardCfg.BootstrapAddr)
 	if err != nil {
 		return false, err
 	}
 
-	tc := transport.NewClient(tlsOpts)
-	inspector, err := newInspectorClient(ctx, tc, bn)
-	if err != nil {
-		return false, err
-	}
-
-	resp, err := inspector.kad.PingNode(ctx, &pb.PingNodeRequest{
+	resp, err := inspector.kadclient.PingNode(ctx, &pb.PingNodeRequest{
 		Id:      id.ID,
 		Address: dashboardCfg.Address,
 	})
@@ -204,16 +195,4 @@ func getConnectionStatus(ctx context.Context, id *identity.FullIdentity) (bool, 
 	}
 
 	return false, err
-}
-
-func newInspectorClient(ctx context.Context, tc transport.Client, bn *pb.Node) (*Inspector, error) {
-	conn, err := tc.DialNode(ctx, bn)
-	if err != nil {
-		return &Inspector{}, err
-	}
-
-	return &Inspector{
-		kad: pb.NewKadInspectorClient(conn),
-	}, nil
-
 }

@@ -616,7 +616,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, serverIdent)
 
-	sc := server.Config{Address: "127.0.0.1:0", PrivateAddress: "127.0.0.1:7778"}
+	sc := server.Config{Address: "127.0.0.1:7788", PrivateAddress: "127.0.0.1:0"}
 	opts, err := tlsopts.NewOptions(serverIdent, sc.Config)
 	require.NoError(t, err)
 	require.NotNil(t, opts)

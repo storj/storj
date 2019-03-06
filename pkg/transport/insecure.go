@@ -23,6 +23,9 @@ func DialAddressInsecure(ctx context.Context, address string, opts ...grpc.DialO
 		grpc.FailOnNonTempDialError(true),
 	}, opts...)
 
+	ctx, cf := context.WithTimeout(ctx, timeout)
+	defer cf()
+
 	conn, err = grpc.DialContext(ctx, address, options...)
 	if err == context.Canceled {
 		return nil, err
