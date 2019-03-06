@@ -9,6 +9,7 @@ package metainfo;
 import "gogo.proto";
 import "google/protobuf/timestamp.proto";
 
+// Metainfo it's a satellite RPC service
 service Metainfo {
     rpc CreateSegment(SegmentWriteRequest) returns (OrderLimitResponse) {}
     rpc CommitSegment(SegmentCommitRequest) returns (SegmentCommitResponse) {}
@@ -16,6 +17,7 @@ service Metainfo {
     rpc DeleteSegment(SegmentDeleteRequest) returns (OrderLimitResponse) {}
 }
 
+// Action is an enumeration of all possible executed action on storage node
 enum Action {
     INVALID    = 0;
     PUT        = 1;
@@ -25,7 +27,8 @@ enum Action {
     PUT_REPAIR = 5;
     DELETE     = 6;
 }
-  
+
+// OrderLimit2 is provided by satellite to execute specific action on storage node within some limits
 message OrderLimit2 {
     // unique serial to avoid replay attacks
     bytes serial_number = 1; // can this be int64?
@@ -47,7 +50,8 @@ message OrderLimit2 {
   
     bytes satellite_signature = 10;
 }
-  
+
+// Order2 is a one step of fullfilling Amount number of bytes from an OrderLimit2 with SerialNumber
 message Order2 {
     // serial of the order limit that was signed
     bytes serial_number    = 1;

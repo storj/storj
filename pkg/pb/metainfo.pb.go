@@ -25,6 +25,7 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
+// Action is an enumeration of all possible executed action on storage node
 type Action int32
 
 const (
@@ -60,9 +61,10 @@ func (x Action) String() string {
 	return proto.EnumName(Action_name, int32(x))
 }
 func (Action) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_metainfo_d5a07c71f34c2d65, []int{0}
+	return fileDescriptor_metainfo_dcc7a8f4a749c102, []int{0}
 }
 
+// OrderLimit2 is provided by satellite to execute specific action on storage node within some limits
 type OrderLimit2 struct {
 	// unique serial to avoid replay attacks
 	SerialNumber []byte `protobuf:"bytes,1,opt,name=serial_number,json=serialNumber,proto3" json:"serial_number,omitempty"`
@@ -89,7 +91,7 @@ func (m *OrderLimit2) Reset()         { *m = OrderLimit2{} }
 func (m *OrderLimit2) String() string { return proto.CompactTextString(m) }
 func (*OrderLimit2) ProtoMessage()    {}
 func (*OrderLimit2) Descriptor() ([]byte, []int) {
-	return fileDescriptor_metainfo_d5a07c71f34c2d65, []int{0}
+	return fileDescriptor_metainfo_dcc7a8f4a749c102, []int{0}
 }
 func (m *OrderLimit2) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_OrderLimit2.Unmarshal(m, b)
@@ -151,6 +153,7 @@ func (m *OrderLimit2) GetSatelliteSignature() []byte {
 	return nil
 }
 
+// Order2 is a one step of fullfilling Amount number of bytes from an OrderLimit2 with SerialNumber
 type Order2 struct {
 	// serial of the order limit that was signed
 	SerialNumber []byte `protobuf:"bytes,1,opt,name=serial_number,json=serialNumber,proto3" json:"serial_number,omitempty"`
@@ -167,7 +170,7 @@ func (m *Order2) Reset()         { *m = Order2{} }
 func (m *Order2) String() string { return proto.CompactTextString(m) }
 func (*Order2) ProtoMessage()    {}
 func (*Order2) Descriptor() ([]byte, []int) {
-	return fileDescriptor_metainfo_d5a07c71f34c2d65, []int{1}
+	return fileDescriptor_metainfo_dcc7a8f4a749c102, []int{1}
 }
 func (m *Order2) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Order2.Unmarshal(m, b)
@@ -224,7 +227,7 @@ func (m *PieceHash) Reset()         { *m = PieceHash{} }
 func (m *PieceHash) String() string { return proto.CompactTextString(m) }
 func (*PieceHash) ProtoMessage()    {}
 func (*PieceHash) Descriptor() ([]byte, []int) {
-	return fileDescriptor_metainfo_d5a07c71f34c2d65, []int{2}
+	return fileDescriptor_metainfo_dcc7a8f4a749c102, []int{2}
 }
 func (m *PieceHash) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PieceHash.Unmarshal(m, b)
@@ -278,7 +281,7 @@ func (m *SegmentWriteRequest) Reset()         { *m = SegmentWriteRequest{} }
 func (m *SegmentWriteRequest) String() string { return proto.CompactTextString(m) }
 func (*SegmentWriteRequest) ProtoMessage()    {}
 func (*SegmentWriteRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_metainfo_d5a07c71f34c2d65, []int{3}
+	return fileDescriptor_metainfo_dcc7a8f4a749c102, []int{3}
 }
 func (m *SegmentWriteRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentWriteRequest.Unmarshal(m, b)
@@ -333,7 +336,7 @@ func (m *SegmentCommitRequest) Reset()         { *m = SegmentCommitRequest{} }
 func (m *SegmentCommitRequest) String() string { return proto.CompactTextString(m) }
 func (*SegmentCommitRequest) ProtoMessage()    {}
 func (*SegmentCommitRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_metainfo_d5a07c71f34c2d65, []int{4}
+	return fileDescriptor_metainfo_dcc7a8f4a749c102, []int{4}
 }
 func (m *SegmentCommitRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentCommitRequest.Unmarshal(m, b)
@@ -391,7 +394,7 @@ func (m *SegmentCommitResponse) Reset()         { *m = SegmentCommitResponse{} }
 func (m *SegmentCommitResponse) String() string { return proto.CompactTextString(m) }
 func (*SegmentCommitResponse) ProtoMessage()    {}
 func (*SegmentCommitResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_metainfo_d5a07c71f34c2d65, []int{5}
+	return fileDescriptor_metainfo_dcc7a8f4a749c102, []int{5}
 }
 func (m *SegmentCommitResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentCommitResponse.Unmarshal(m, b)
@@ -423,7 +426,7 @@ func (m *SegementDownloadRequest) Reset()         { *m = SegementDownloadRequest
 func (m *SegementDownloadRequest) String() string { return proto.CompactTextString(m) }
 func (*SegementDownloadRequest) ProtoMessage()    {}
 func (*SegementDownloadRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_metainfo_d5a07c71f34c2d65, []int{6}
+	return fileDescriptor_metainfo_dcc7a8f4a749c102, []int{6}
 }
 func (m *SegementDownloadRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegementDownloadRequest.Unmarshal(m, b)
@@ -470,7 +473,7 @@ func (m *SegmentDeleteRequest) Reset()         { *m = SegmentDeleteRequest{} }
 func (m *SegmentDeleteRequest) String() string { return proto.CompactTextString(m) }
 func (*SegmentDeleteRequest) ProtoMessage()    {}
 func (*SegmentDeleteRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_metainfo_d5a07c71f34c2d65, []int{7}
+	return fileDescriptor_metainfo_dcc7a8f4a749c102, []int{7}
 }
 func (m *SegmentDeleteRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentDeleteRequest.Unmarshal(m, b)
@@ -522,7 +525,7 @@ func (m *OrderLimitResponse) Reset()         { *m = OrderLimitResponse{} }
 func (m *OrderLimitResponse) String() string { return proto.CompactTextString(m) }
 func (*OrderLimitResponse) ProtoMessage()    {}
 func (*OrderLimitResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_metainfo_d5a07c71f34c2d65, []int{8}
+	return fileDescriptor_metainfo_dcc7a8f4a749c102, []int{8}
 }
 func (m *OrderLimitResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_OrderLimitResponse.Unmarshal(m, b)
@@ -733,9 +736,9 @@ var _Metainfo_serviceDesc = grpc.ServiceDesc{
 	Metadata: "metainfo.proto",
 }
 
-func init() { proto.RegisterFile("metainfo.proto", fileDescriptor_metainfo_d5a07c71f34c2d65) }
+func init() { proto.RegisterFile("metainfo.proto", fileDescriptor_metainfo_dcc7a8f4a749c102) }
 
-var fileDescriptor_metainfo_d5a07c71f34c2d65 = []byte{
+var fileDescriptor_metainfo_dcc7a8f4a749c102 = []byte{
 	// 748 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x54, 0x4d, 0x6f, 0xda, 0x4a,
 	0x14, 0x8d, 0x81, 0x18, 0xb8, 0x04, 0xb0, 0x26, 0x5f, 0x7e, 0x28, 0xef, 0xc1, 0xe3, 0xe9, 0x49,
