@@ -75,14 +75,13 @@ message PieceHash {
 
 message SegmentWriteRequest {
     bytes bucket = 1;
-    int64 segment = 2;
-    bytes encrypted_path = 3;
+    bytes encrypted_path = 2;
 }
 
 message SegmentCommitRequest {
     bytes bucket = 1;
-    int64 segment = 2;
-    bytes encrypted_path = 3;
+    bytes encrypted_path = 2;
+    int64 segment = 3;
 
     repeated PieceHash storage_node_piecehashes = 4;
 }
@@ -93,12 +92,13 @@ message SegmentCommitResponse {
 message SegementDownloadRequest {
     bytes bucket = 1; 
     bytes encrypted_path = 2;
+    int64 segment = 3;
 }
 
 message SegmentDeleteRequest {
     bytes bucket = 1;
-    int64 segment = 2;
     bytes encrypted_path = 3;
+    int64 segment = 3;
 }
 
 message OrderLimitResponse {
