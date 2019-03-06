@@ -97,7 +97,7 @@ message SegementDownloadRequest {
 
 message SegmentDeleteRequest {
     bytes bucket = 1;
-    bytes encrypted_path = 3;
+    bytes encrypted_path = 2;
     int64 segment = 3;
 }
 
