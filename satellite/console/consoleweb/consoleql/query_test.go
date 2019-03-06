@@ -261,7 +261,7 @@ func TestGraphqlQuery(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		assert.Equal(t, 2, users)
+		assert.Equal(t, 2, len(users))
 
 		t.Run("Project query team members", func(t *testing.T) {
 			query := fmt.Sprintf(
