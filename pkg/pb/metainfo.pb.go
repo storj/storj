@@ -61,7 +61,7 @@ func (x Action) String() string {
 	return proto.EnumName(Action_name, int32(x))
 }
 func (Action) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_metainfo_e72d8eaaa7c07de1, []int{0}
+	return fileDescriptor_metainfo_81201a0821d30606, []int{0}
 }
 
 // OrderLimit2 is provided by satellite to execute specific action on storage node within some limits
@@ -92,7 +92,7 @@ func (m *OrderLimit2) Reset()         { *m = OrderLimit2{} }
 func (m *OrderLimit2) String() string { return proto.CompactTextString(m) }
 func (*OrderLimit2) ProtoMessage()    {}
 func (*OrderLimit2) Descriptor() ([]byte, []int) {
-	return fileDescriptor_metainfo_e72d8eaaa7c07de1, []int{0}
+	return fileDescriptor_metainfo_81201a0821d30606, []int{0}
 }
 func (m *OrderLimit2) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_OrderLimit2.Unmarshal(m, b)
@@ -178,7 +178,7 @@ func (m *Order2) Reset()         { *m = Order2{} }
 func (m *Order2) String() string { return proto.CompactTextString(m) }
 func (*Order2) ProtoMessage()    {}
 func (*Order2) Descriptor() ([]byte, []int) {
-	return fileDescriptor_metainfo_e72d8eaaa7c07de1, []int{1}
+	return fileDescriptor_metainfo_81201a0821d30606, []int{1}
 }
 func (m *Order2) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Order2.Unmarshal(m, b)
@@ -235,7 +235,7 @@ func (m *PieceHash) Reset()         { *m = PieceHash{} }
 func (m *PieceHash) String() string { return proto.CompactTextString(m) }
 func (*PieceHash) ProtoMessage()    {}
 func (*PieceHash) Descriptor() ([]byte, []int) {
-	return fileDescriptor_metainfo_e72d8eaaa7c07de1, []int{2}
+	return fileDescriptor_metainfo_81201a0821d30606, []int{2}
 }
 func (m *PieceHash) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PieceHash.Unmarshal(m, b)
@@ -288,7 +288,7 @@ func (m *SegmentWriteRequest) Reset()         { *m = SegmentWriteRequest{} }
 func (m *SegmentWriteRequest) String() string { return proto.CompactTextString(m) }
 func (*SegmentWriteRequest) ProtoMessage()    {}
 func (*SegmentWriteRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_metainfo_e72d8eaaa7c07de1, []int{3}
+	return fileDescriptor_metainfo_81201a0821d30606, []int{3}
 }
 func (m *SegmentWriteRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentWriteRequest.Unmarshal(m, b)
@@ -336,7 +336,7 @@ func (m *SegmentCommitRequest) Reset()         { *m = SegmentCommitRequest{} }
 func (m *SegmentCommitRequest) String() string { return proto.CompactTextString(m) }
 func (*SegmentCommitRequest) ProtoMessage()    {}
 func (*SegmentCommitRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_metainfo_e72d8eaaa7c07de1, []int{4}
+	return fileDescriptor_metainfo_81201a0821d30606, []int{4}
 }
 func (m *SegmentCommitRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentCommitRequest.Unmarshal(m, b)
@@ -394,7 +394,7 @@ func (m *SegmentCommitResponse) Reset()         { *m = SegmentCommitResponse{} }
 func (m *SegmentCommitResponse) String() string { return proto.CompactTextString(m) }
 func (*SegmentCommitResponse) ProtoMessage()    {}
 func (*SegmentCommitResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_metainfo_e72d8eaaa7c07de1, []int{5}
+	return fileDescriptor_metainfo_81201a0821d30606, []int{5}
 }
 func (m *SegmentCommitResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentCommitResponse.Unmarshal(m, b)
@@ -427,7 +427,7 @@ func (m *SegementDownloadRequest) Reset()         { *m = SegementDownloadRequest
 func (m *SegementDownloadRequest) String() string { return proto.CompactTextString(m) }
 func (*SegementDownloadRequest) ProtoMessage()    {}
 func (*SegementDownloadRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_metainfo_e72d8eaaa7c07de1, []int{6}
+	return fileDescriptor_metainfo_81201a0821d30606, []int{6}
 }
 func (m *SegementDownloadRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegementDownloadRequest.Unmarshal(m, b)
@@ -481,7 +481,7 @@ func (m *SegmentDeleteRequest) Reset()         { *m = SegmentDeleteRequest{} }
 func (m *SegmentDeleteRequest) String() string { return proto.CompactTextString(m) }
 func (*SegmentDeleteRequest) ProtoMessage()    {}
 func (*SegmentDeleteRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_metainfo_e72d8eaaa7c07de1, []int{7}
+	return fileDescriptor_metainfo_81201a0821d30606, []int{7}
 }
 func (m *SegmentDeleteRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentDeleteRequest.Unmarshal(m, b)
@@ -533,7 +533,7 @@ func (m *OrderLimitResponse) Reset()         { *m = OrderLimitResponse{} }
 func (m *OrderLimitResponse) String() string { return proto.CompactTextString(m) }
 func (*OrderLimitResponse) ProtoMessage()    {}
 func (*OrderLimitResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_metainfo_e72d8eaaa7c07de1, []int{8}
+	return fileDescriptor_metainfo_81201a0821d30606, []int{8}
 }
 func (m *OrderLimitResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_OrderLimitResponse.Unmarshal(m, b)
@@ -577,7 +577,7 @@ func (m *ListSegmentsRequest) Reset()         { *m = ListSegmentsRequest{} }
 func (m *ListSegmentsRequest) String() string { return proto.CompactTextString(m) }
 func (*ListSegmentsRequest) ProtoMessage()    {}
 func (*ListSegmentsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_metainfo_e72d8eaaa7c07de1, []int{9}
+	return fileDescriptor_metainfo_81201a0821d30606, []int{9}
 }
 func (m *ListSegmentsRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListSegmentsRequest.Unmarshal(m, b)
@@ -658,7 +658,7 @@ func (m *ListSegmentsResponse) Reset()         { *m = ListSegmentsResponse{} }
 func (m *ListSegmentsResponse) String() string { return proto.CompactTextString(m) }
 func (*ListSegmentsResponse) ProtoMessage()    {}
 func (*ListSegmentsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_metainfo_e72d8eaaa7c07de1, []int{10}
+	return fileDescriptor_metainfo_81201a0821d30606, []int{10}
 }
 func (m *ListSegmentsResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListSegmentsResponse.Unmarshal(m, b)
@@ -705,7 +705,7 @@ func (m *ListSegmentsResponse_Item) Reset()         { *m = ListSegmentsResponse_
 func (m *ListSegmentsResponse_Item) String() string { return proto.CompactTextString(m) }
 func (*ListSegmentsResponse_Item) ProtoMessage()    {}
 func (*ListSegmentsResponse_Item) Descriptor() ([]byte, []int) {
-	return fileDescriptor_metainfo_e72d8eaaa7c07de1, []int{10, 0}
+	return fileDescriptor_metainfo_81201a0821d30606, []int{10, 0}
 }
 func (m *ListSegmentsResponse_Item) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListSegmentsResponse_Item.Unmarshal(m, b)
@@ -966,9 +966,9 @@ var _Metainfo_serviceDesc = grpc.ServiceDesc{
 	Metadata: "metainfo.proto",
 }
 
-func init() { proto.RegisterFile("metainfo.proto", fileDescriptor_metainfo_e72d8eaaa7c07de1) }
+func init() { proto.RegisterFile("metainfo.proto", fileDescriptor_metainfo_81201a0821d30606) }
 
-var fileDescriptor_metainfo_e72d8eaaa7c07de1 = []byte{
+var fileDescriptor_metainfo_81201a0821d30606 = []byte{
 	// 967 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x55, 0xdd, 0x6e, 0x1b, 0x55,
 	0x10, 0xee, 0x66, 0x9d, 0xb5, 0x77, 0x1c, 0xc7, 0xd6, 0x49, 0x9a, 0x6c, 0x4d, 0xd3, 0x98, 0xed,
