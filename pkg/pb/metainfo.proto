@@ -17,7 +17,7 @@ service Metainfo {
     rpc CommitSegment(SegmentCommitRequest) returns (SegmentCommitResponse);
     rpc DownloadSegment(SegmentDownloadRequest) returns (SegmentDownloadResponse);
     rpc DeleteSegment(SegmentDeleteRequest) returns (OrderLimitResponse);
-    rpc ListSegment(ListSegmentsRequest) returns (ListSegmentsResponse);
+    rpc ListSegments(ListSegmentsRequest) returns (ListSegmentsResponse);
 }
 
 // Action is an enumeration of all possible executed action on storage node
