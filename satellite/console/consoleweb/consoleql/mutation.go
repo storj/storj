@@ -5,6 +5,7 @@ package consoleql
 
 import (
 	"fmt"
+
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
 
@@ -288,7 +289,7 @@ func rootMutation(service *console.Service, mailService *mailservice.Service, ty
 							p.Context,
 							[]post.Address{{Address: user.Email, Name: fmt.Sprintf("%s %s", user.FirstName, user.LastName)}},
 							&ProjectInvitationEmail{
-								UserName: user.FirstName,
+								UserName:    user.FirstName,
 								ProjectName: user.LastName,
 							},
 						)

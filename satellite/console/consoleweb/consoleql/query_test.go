@@ -254,14 +254,14 @@ func TestGraphqlQuery(t *testing.T) {
 			user2.Email = "muu2@email.com"
 		})
 
-		err = service.AddProjectMembers(authCtx, createdProject.ID, []string{
+		users, err := service.AddProjectMembers(authCtx, createdProject.ID, []string{
 			user1.Email,
 			user2.Email,
 		})
-
 		if err != nil {
 			t.Fatal(err)
 		}
+		assert.Equal(t, 2, users)
 
 		t.Run("Project query team members", func(t *testing.T) {
 			query := fmt.Sprintf(
