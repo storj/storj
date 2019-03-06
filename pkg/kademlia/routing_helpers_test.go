@@ -11,6 +11,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/testcontext"
@@ -78,9 +79,7 @@ func TestAddNode(t *testing.T) {
 	defer ctx.Cleanup()
 	rt := createRoutingTable(teststorj.NodeIDFromString("OO"))
 	defer ctx.Check(rt.Close)
-	// bucket, err := rt.kadBucketDB.Get(storage.Key([]byte{255, 255}))
-	// assert.NoError(t, err)
-	// assert.NotNil(t, bucket)
+
 	cases := []struct {
 		testID  string
 		node    *pb.Node
@@ -205,23 +204,24 @@ func TestAddNode(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.testID, func(t *testing.T) {
 			ok, err := rt.addNode(c.node)
-			assert.Equal(t, c.added, ok)
-			assert.NoError(t, err)
+			require.NoError(t, err)
+			require.Equal(t, c.added, ok)
 			kadKeys, err := rt.kadBucketDB.List(nil, 0)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			for i, v := range kadKeys {
-				assert.True(t, bytes.Equal(c.kadIDs[i], v[:2]))
+				require.True(t, bytes.Equal(c.kadIDs[i], v[:2]))
 				ids, err := rt.getNodeIDsWithinKBucket(keyToBucketID(v))
-				assert.NoError(t, err)
+				require.NoError(t, err)
+				require.True(t, len(ids) == len(c.nodeIDs[i]))
 				for j, id := range ids {
-					assert.True(t, bytes.Equal(teststorj.NodeIDFromString(c.nodeIDs[i][j]).Bytes(), id.Bytes()))
+					require.True(t, bytes.Equal(teststorj.NodeIDFromString(c.nodeIDs[i][j]).Bytes(), id.Bytes()))
 				}
 			}
 
 			if c.testID == "8O" {
 				nodeID80 := teststorj.NodeIDFromString("8O")
 				n := rt.replacementCache[keyToBucketID(nodeID80.Bytes())]
-				assert.Equal(t, nodeID80.Bytes(), n[0].Id.Bytes())
+				require.Equal(t, nodeID80.Bytes(), n[0].Id.Bytes())
 			}
 
 		})
@@ -314,54 +314,11 @@ func TestGetKBucketID(t *testing.T) {
 	assert.Equal(t, kadIDA[:2], keyA[:2])
 }
 
-func TestDetermineFurthestIDWithinK(t *testing.T) {
+func TestWouldBeInNearestK(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
-	rt := createRoutingTable(storj.NodeID{127, 255})
+	rt := createRoutingTableWith(storj.NodeID{127, 255}, routingTableOpts{bucketSize: 2})
 	defer ctx.Check(rt.Close)
-	cases := []struct {
-		testID           string
-		nodeID           []byte
-		expectedFurthest []byte
-	}{
-		{testID: "xor 0",
-			nodeID:           []byte{127, 255},
-			expectedFurthest: []byte{127, 255},
-		},
-		{testID: "xor 240",
-			nodeID:           []byte{143, 255},
-			expectedFurthest: []byte{143, 255},
-		},
-		{testID: "xor 128",
-			nodeID:           []byte{255, 255},
-			expectedFurthest: []byte{143, 255},
-		},
-		{testID: "xor 192",
-			nodeID:           []byte{191, 255},
-			expectedFurthest: []byte{143, 255},
-		},
-		{testID: "xor 250",
-			nodeID:           []byte{133, 255},
-			expectedFurthest: []byte{133, 255},
-		},
-	}
-	for _, c := range cases {
-		t.Run(c.testID, func(t *testing.T) {
-			assert.NoError(t, rt.nodeBucketDB.Put(teststorj.NodeIDFromBytes(c.nodeID).Bytes(), []byte("")))
-			nodes, err := rt.nodeBucketDB.List(nil, 0)
-			assert.NoError(t, err)
-			furthest := rt.determineFurthestIDWithinK(teststorj.NodeIDsFromBytes(nodes.ByteSlices()...))
-			assert.Equal(t, c.expectedFurthest, furthest[:2])
-		})
-	}
-}
-
-func TestNodeIsWithinNearestK(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-	rt := createRoutingTable(storj.NodeID{127, 255})
-	defer ctx.Check(rt.Close)
-	rt.bucketSize = 2
 
 	cases := []struct {
 		testID  string
@@ -369,30 +326,29 @@ func TestNodeIsWithinNearestK(t *testing.T) {
 		closest bool
 	}{
 		{testID: "A",
-			nodeID:  storj.NodeID{127, 255},
+			nodeID:  storj.NodeID{127, 255}, //XOR from [127, 255] is 0
 			closest: true,
 		},
 		{testID: "B",
-			nodeID:  storj.NodeID{143, 255},
+			nodeID:  storj.NodeID{143, 255}, //XOR from [127, 255] is 240
 			closest: true,
 		},
 		{testID: "C",
-			nodeID:  storj.NodeID{255, 255},
+			nodeID:  storj.NodeID{255, 255}, //XOR from [127, 255] is 128
 			closest: true,
 		},
 		{testID: "D",
-			nodeID:  storj.NodeID{191, 255},
-			closest: true,
+			nodeID:  storj.NodeID{191, 255}, //XOR from [127, 255] is 192
+			closest: false,
 		},
 		{testID: "E",
-			nodeID:  storj.NodeID{133, 255},
+			nodeID:  storj.NodeID{133, 255}, //XOR from [127, 255] is 250
 			closest: false,
 		},
 	}
-
 	for _, c := range cases {
 		t.Run(c.testID, func(t *testing.T) {
-			result, err := rt.nodeIsWithinNearestK(c.nodeID)
+			result, err := rt.wouldBeInNearestK(c.nodeID)
 			assert.NoError(t, err)
 			assert.Equal(t, c.closest, result)
 			assert.NoError(t, rt.nodeBucketDB.Put(c.nodeID.Bytes(), []byte("")))
@@ -620,7 +576,7 @@ func TestDetermineLeafDepth(t *testing.T) {
 	defer ctx.Cleanup()
 	rt := createRoutingTable(teststorj.NodeIDFromString("AA"))
 	defer ctx.Check(rt.Close)
-	idA, idB, idC := storj.NodeID(firstBucketID), storj.NodeID(firstBucketID), storj.NodeID(firstBucketID)
+	idA, idB, idC := firstBucketID, firstBucketID, firstBucketID
 	idA[0] = 255
 	idB[0] = 127
 	idC[0] = 63
@@ -669,7 +625,7 @@ func TestDetermineLeafDepth(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.testID, func(t *testing.T) {
 			c.addNode()
-			d, err := rt.determineLeafDepth(bucketID(c.id))
+			d, err := rt.determineLeafDepth(c.id)
 			assert.NoError(t, err)
 			assert.Equal(t, c.depth, d)
 		})

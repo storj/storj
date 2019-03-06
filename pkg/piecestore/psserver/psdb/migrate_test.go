@@ -95,7 +95,7 @@ func TestMigrate(t *testing.T) {
 			defer func() { require.NoError(t, db.Close()) }()
 
 			// insert the base data into sqlite
-			_, err = db.DB.Exec(base.Script)
+			_, err = db.RawDB().Exec(base.Script)
 			require.NoError(t, err)
 
 			// get migration for this database
@@ -118,19 +118,19 @@ func TestMigrate(t *testing.T) {
 
 				// insert data for new tables
 				if newdata := newData(expected); newdata != "" && step.Version > base.Version {
-					_, err = db.DB.Exec(newdata)
+					_, err = db.RawDB().Exec(newdata)
 					require.NoError(t, err, tag)
 				}
 
 				// load schema from database
-				currentSchema, err := sqliteutil.QuerySchema(db.DB)
+				currentSchema, err := sqliteutil.QuerySchema(db.RawDB())
 				require.NoError(t, err, tag)
 
 				// we don't care changes in versions table
 				currentSchema.DropTable("versions")
 
 				// load data from database
-				currentData, err := sqliteutil.QueryData(db.DB, currentSchema)
+				currentData, err := sqliteutil.QueryData(db.RawDB(), currentSchema)
 				require.NoError(t, err, tag)
 
 				// verify schema and data

@@ -113,7 +113,7 @@ type lockedBandwidthAgreement struct {
 }
 
 // CreateAgreement adds a new bandwidth agreement.
-func (m *lockedBandwidthAgreement) CreateAgreement(ctx context.Context, a1 *pb.Order) error {
+func (m *lockedBandwidthAgreement) CreateAgreement(ctx context.Context, a1 *pb.RenterBandwidthAllocation) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.CreateAgreement(ctx, a1)
@@ -233,6 +233,44 @@ func (m *lockedAPIKeys) Update(ctx context.Context, key console.APIKeyInfo) erro
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Update(ctx, key)
+}
+
+// BucketUsage is a getter for accounting.BucketUsage repository
+func (m *lockedConsole) BucketUsage() accounting.BucketUsage {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedBucketUsage{m.Locker, m.db.BucketUsage()}
+}
+
+// lockedBucketUsage implements locking wrapper for accounting.BucketUsage
+type lockedBucketUsage struct {
+	sync.Locker
+	db accounting.BucketUsage
+}
+
+// Count(ctx context.Context, buckedID uuid.UUID, ) ()
+func (m *lockedBucketUsage) Create(ctx context.Context, rollup accounting.BucketRollup) (*accounting.BucketRollup, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Create(ctx, rollup)
+}
+
+func (m *lockedBucketUsage) Delete(ctx context.Context, id uuid.UUID) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Delete(ctx, id)
+}
+
+func (m *lockedBucketUsage) Get(ctx context.Context, id uuid.UUID) (*accounting.BucketRollup, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Get(ctx, id)
+}
+
+func (m *lockedBucketUsage) GetPaged(ctx context.Context, cursor *accounting.BucketRollupCursor) ([]accounting.BucketRollup, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetPaged(ctx, cursor)
 }
 
 // ProjectMembers is a getter for ProjectMembers repository
@@ -468,13 +506,6 @@ func (m *lockedOverlayCache) GetAll(ctx context.Context, nodeIDs storj.NodeIDLis
 	return m.db.GetAll(ctx, nodeIDs)
 }
 
-// GetWalletAddress gets the node's wallet address
-func (m *lockedOverlayCache) GetWalletAddress(ctx context.Context, id storj.NodeID) (string, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetWalletAddress(ctx, id)
-}
-
 // List lists nodes starting from cursor
 func (m *lockedOverlayCache) List(ctx context.Context, cursor storj.NodeID, limit int) ([]*pb.Node, error) {
 	m.Lock()
@@ -604,6 +635,13 @@ func (m *lockedStatDB) UpdateBatch(ctx context.Context, requests []*statdb.Updat
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UpdateBatch(ctx, requests)
+}
+
+// UpdateOperator updates the email and wallet for a given node ID for satellite payments.
+func (m *lockedStatDB) UpdateOperator(ctx context.Context, node storj.NodeID, updatedOperator pb.NodeOperator) (stats *statdb.NodeStats, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateOperator(ctx, node, updatedOperator)
 }
 
 // UpdateUptime updates a single storagenode's uptime stats.

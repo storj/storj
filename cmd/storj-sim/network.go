@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -111,13 +112,14 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 	processes := NewProcesses()
 	var (
-		configDir       = flags.Directory
-		host            = flags.Host
-		gatewayPort     = 9000
-		bootstrapPort   = 9999
-		satellitePort   = 10000
-		storageNodePort = 11000
-		consolePort     = 10100
+		configDir        = flags.Directory
+		host             = flags.Host
+		gatewayPort      = 9000
+		bootstrapPort    = 9999
+		satellitePort    = 10000
+		storageNodePort  = 11000
+		consolePort      = 10100
+		bootstrapWebPort = 10010
 	)
 
 	bootstrap := processes.New(Info{
@@ -130,6 +132,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	bootstrap.Arguments = withCommon(Arguments{
 		"setup": {
 			"--identity-dir", bootstrap.Directory,
+
+			"--web.address", net.JoinHostPort(host, strconv.Itoa(bootstrapWebPort)),
+
 			"--server.address", bootstrap.Address,
 
 			"--kademlia.bootstrap-addr", bootstrap.Address,
@@ -159,10 +164,18 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		// satellite must wait for bootstrap to start
 		process.WaitForStart(bootstrap)
 
+		// TODO: find source file, to set static path
+		_, filename, _, ok := runtime.Caller(0)
+		if !ok {
+			return nil, errs.Combine(processes.Close(), errs.New("no caller information"))
+		}
+		storjRoot := strings.TrimSuffix(filename, "/cmd/storj-sim/network.go")
+
 		process.Arguments = withCommon(Arguments{
 			"setup": {
 				"--identity-dir", process.Directory,
 				"--console.address", net.JoinHostPort(host, strconv.Itoa(consolePort+i)),
+				"--console.static-dir", filepath.Join(storjRoot, "web/satellite/"),
 				"--server.address", process.Address,
 
 				"--kademlia.bootstrap-addr", bootstrap.Address,
@@ -171,6 +184,10 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 				"--server.extensions.revocation=false",
 				"--server.use-peer-ca-whitelist=false",
+
+				"--mail.smtp-server-address", "smtp.gmail.com:587",
+				"--mail.from", "Storj <yaroslav-satellite-test@storj.io>",
+				"--mail.template-path", filepath.Join(storjRoot, "web/satellite/static/emails"),
 			},
 			"run": {},
 		})

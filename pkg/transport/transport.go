@@ -14,7 +14,6 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/storj"
 )
 
 var (
@@ -54,7 +53,11 @@ func NewClient(tlsOpts *tlsopts.Options, obs ...Observer) Client {
 	}
 }
 
-// DialNode returns a grpc connection with tls to a node
+// DialNode returns a grpc connection with tls to a node.
+//
+// Use this method for communicating with nodes as it is more secure than
+// DialAddress. The connection will be established successfully only if the
+// target node has the private key for the requested node ID.
 func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if node != nil {
@@ -64,9 +67,16 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 		return nil, Error.New("no address")
 	}
 
-	// add ID of node we are wanting to connect to
-	dialOpt := transport.tlsOpts.DialOption(node.Id)
-	options := append([]grpc.DialOption{dialOpt, grpc.WithBlock(), grpc.FailOnNonTempDialError(true)}, opts...)
+	dialOption, err := transport.tlsOpts.DialOption(node.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	options := append([]grpc.DialOption{
+		dialOption,
+		grpc.WithBlock(),
+		grpc.FailOnNonTempDialError(true),
+	}, opts...)
 
 	ctx, cf := context.WithTimeout(ctx, timeout)
 	defer cf()
@@ -85,12 +95,19 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 	return conn, nil
 }
 
-// DialAddress returns a grpc connection with tls to an IP address
+// DialAddress returns a grpc connection with tls to an IP address.
+//
+// Do not use this method unless having a good reason. In most cases DialNode
+// should be used for communicating with nodes as it is more secure than
+// DialAddress.
 func (transport *Transport) DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	dialOpt := transport.tlsOpts.DialOption(storj.NodeID{})
-	options := append([]grpc.DialOption{dialOpt, grpc.WithBlock(), grpc.FailOnNonTempDialError(true)}, opts...)
+	options := append([]grpc.DialOption{
+		transport.tlsOpts.DialUnverifiedIDOption(),
+		grpc.WithBlock(),
+		grpc.FailOnNonTempDialError(true),
+	}, opts...)
 
 	conn, err = grpc.DialContext(ctx, address, options...)
 	if err == context.Canceled {

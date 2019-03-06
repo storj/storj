@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"sync/atomic"
 
 	"github.com/zeebo/errs"
@@ -21,7 +20,7 @@ import (
 // RetrieveError is a type of error for failures in Server.Retrieve()
 var RetrieveError = errs.Class("retrieve error")
 
-// Retrieve -- Retrieve data from piecestore and send to client
+// Retrieve servers data from piecestore and sends to client
 func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
@@ -62,20 +61,13 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 	)
 
 	// Get path to data being retrieved
-	path, err := s.storage.PiecePath(id)
+	fileSize, err := s.storage.Size(id)
 	if err != nil {
 		return err
 	}
 
-	// Verify that the path exists
-	fileInfo, err := os.Stat(path)
-	if err != nil {
-		return RetrieveError.Wrap(err)
-	}
-
 	// Read the size specified
 	totalToRead := pd.GetPieceSize()
-	fileSize := fileInfo.Size()
 
 	// Read the entire file if specified -1 but make sure we do it from the correct offset
 	if pd.GetPieceSize() <= -1 || totalToRead+pd.GetOffset() > fileSize {

@@ -307,6 +307,40 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					return nil
 				}),
 			},
+			{
+				Description: "Add wallet column",
+				Version:     5,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD wallet TEXT;
+					ALTER TABLE nodes ADD email TEXT;
+					UPDATE nodes SET wallet = '';
+					UPDATE nodes SET email = '';
+					ALTER TABLE nodes ALTER COLUMN wallet SET NOT NULL;
+					ALTER TABLE nodes ALTER COLUMN email SET NOT NULL;`,
+				},
+			},
+			{
+				Description: "Add bucket usage rollup table",
+				Version:     6,
+				Action: migrate.SQL{
+					`CREATE TABLE bucket_usages (
+  						id bytea NOT NULL,
+  						bucket_id bytea NOT NULL,
+  						rollup_end_time timestamp with time zone NOT NULL,
+  						remote_stored_data bigint NOT NULL,
+  						inline_stored_data bigint NOT NULL,
+  						remote_segments integer NOT NULL,
+  						inline_segments integer NOT NULL,
+  						objects integer NOT NULL,
+  						metadata_size bigint NOT NULL,
+  						repair_egress bigint NOT NULL,
+  						get_egress bigint NOT NULL,
+  						audit_egress bigint NOT NULL,
+  						PRIMARY KEY ( id ),
+  						UNIQUE ( rollup_end_time, bucket_id )
+					)`,
+				},
+			},
 		},
 	}
 }

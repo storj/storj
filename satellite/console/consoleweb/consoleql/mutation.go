@@ -4,10 +4,15 @@
 package consoleql
 
 import (
+	"fmt"
+
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/zeebo/errs"
 
+	"storj.io/storj/internal/post"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/mailservice"
 )
 
 const (
@@ -50,7 +55,7 @@ const (
 )
 
 // rootMutation creates mutation for graphql populated by AccountsClient
-func rootMutation(service *console.Service, types Types) *graphql.Object {
+func rootMutation(service *console.Service, mailService *mailservice.Service, types Types) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: Mutation,
 		Fields: graphql.Fields{
@@ -68,7 +73,26 @@ func rootMutation(service *console.Service, types Types) *graphql.Object {
 
 					user, err := service.CreateUser(p.Context, createUser)
 					if err != nil {
-						return "", err
+						return nil, err
+					}
+
+					token, err := service.GenerateActivationToken(p.Context, user.ID, user.Email)
+					if err != nil {
+						return user, err
+					}
+
+					rootObject := p.Info.RootValue.(map[string]interface{})
+					link := rootObject["origin"].(string) + rootObject[ActivationPath].(string) + token
+
+					err = mailService.SendRendered(
+						p.Context,
+						[]post.Address{{Address: user.Email, Name: user.FirstName}},
+						&AccountActivationEmail{
+							ActivationLink: link,
+						},
+					)
+					if err != nil {
+						return user, err
 					}
 
 					return user, nil
@@ -256,12 +280,32 @@ func rootMutation(service *console.Service, types Types) *graphql.Object {
 						userEmails = append(userEmails, email.(string))
 					}
 
-					err = service.AddProjectMembers(p.Context, *projectID, userEmails)
+					project, err := service.GetProject(p.Context, *projectID)
 					if err != nil {
 						return nil, err
 					}
 
-					return service.GetProject(p.Context, *projectID)
+					users, err := service.AddProjectMembers(p.Context, *projectID, userEmails)
+					if err != nil {
+						return nil, err
+					}
+
+					var emailErr errs.Group
+					for _, user := range users {
+						err = mailService.SendRendered(
+							p.Context,
+							[]post.Address{{Address: user.Email, Name: fmt.Sprintf("%s %s", user.FirstName, user.LastName)}},
+							&ProjectInvitationEmail{
+								UserName:    user.FirstName,
+								ProjectName: user.LastName,
+							},
+						)
+						if err != nil {
+							emailErr.Add(err)
+						}
+					}
+
+					return project, emailErr.Err()
 				},
 			},
 			// delete user membership for given project

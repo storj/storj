@@ -13,7 +13,6 @@ import (
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/storj"
 )
 
 var (
@@ -38,9 +37,9 @@ func main() {
 		panic(err)
 	}
 
-	dialOption := clientOptions.DialOption(storj.NodeID{})
+	dialOption := clientOptions.DialUnverifiedIDOption()
 
-	conn, err := grpc.Dial(*targetAddr, dialOption)
+	conn, err := grpc.Dial(*targetAddr, dialOption, grpc.WithInsecure())
 	if err != nil {
 		panic(err)
 	}

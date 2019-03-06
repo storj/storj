@@ -62,7 +62,12 @@ func NewService(log *zap.Logger, signer Signer, store DB, passwordCost int) (*Se
 		passwordCost = bcrypt.DefaultCost
 	}
 
-	return &Service{Signer: signer, store: store, log: log, passwordCost: passwordCost}, nil
+	return &Service{
+		Signer:       signer,
+		store:        store,
+		log:          log,
+		passwordCost: passwordCost,
+	}, nil
 }
 
 // CreateUser gets password hash value and creates new inactive User
@@ -93,23 +98,18 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser) (u *User, err
 		PasswordHash: hash,
 	})
 
-	// TODO: send "finish registration email" when email service will be ready
-	//activationToken, err := s.GenerateActivationToken(ctx, u.ID, email, u.CreatedAt.Add(tokenExpirationTime))
-	//if err != nil {
-	//	return nil, err
-	//}
-
 	return u, err
 }
 
 // GenerateActivationToken - is a method for generating activation token
-func (s *Service) GenerateActivationToken(ctx context.Context, id uuid.UUID, email string, expirationDate time.Time) (activationToken string, err error) {
+func (s *Service) GenerateActivationToken(ctx context.Context, id uuid.UUID, email string) (activationToken string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	//TODO: activation token should differ from auth token
 	claims := &consoleauth.Claims{
 		ID:         id,
 		Email:      email,
-		Expiration: expirationDate,
+		Expiration: time.Now().Add(time.Hour * 24),
 	}
 
 	return s.createToken(claims)
@@ -369,40 +369,40 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, descri
 }
 
 // AddProjectMembers adds users by email to given project
-func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, emails []string) (err error) {
+func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, emails []string) (users []*User, err error) {
 	defer mon.Task()(&ctx)(&err)
 	auth, err := GetAuth(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if _, err = s.isProjectMember(ctx, auth.User.ID, projectID); err != nil {
-		return ErrUnauthorized.Wrap(err)
+		return nil, ErrUnauthorized.Wrap(err)
 	}
 
-	var userIDs []uuid.UUID
+	//var userIDs []uuid.UUID
 	var userErr errs.Group
 
 	// collect user querying errors
 	for _, email := range emails {
 		user, err := s.store.Users().GetByEmail(ctx, email)
-
 		if err != nil {
 			userErr.Add(err)
 			continue
 		}
 
-		userIDs = append(userIDs, user.ID)
+		users = append(users, user)
+		//userIDs = append(userIDs, user.ID)
 	}
 
 	if err = userErr.Err(); err != nil {
-		return err
+		return nil, err
 	}
 
 	// add project members in transaction scope
 	tx, err := s.store.BeginTx(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	defer func() {
@@ -414,15 +414,15 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 		err = tx.Commit()
 	}()
 
-	for _, uID := range userIDs {
-		_, err = tx.ProjectMembers().Insert(ctx, uID, projectID)
+	for _, user := range users {
+		_, err = tx.ProjectMembers().Insert(ctx, user.ID, projectID)
 
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return nil
+	return users, nil
 }
 
 // DeleteProjectMembers removes users by email from given project

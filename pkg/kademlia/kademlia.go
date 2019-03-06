@@ -11,6 +11,8 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/peer"
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
@@ -99,6 +101,11 @@ func (k *Kademlia) SetBootstrapNodes(nodes []pb.Node) { k.bootstrapNodes = nodes
 // GetBootstrapNodes gets the bootstrap nodes.
 func (k *Kademlia) GetBootstrapNodes() []pb.Node { return k.bootstrapNodes }
 
+// DumpNodes returns all the nodes in the node database
+func (k *Kademlia) DumpNodes(ctx context.Context) ([]*pb.Node, error) {
+	return k.routingTable.DumpNodes()
+}
+
 // Bootstrap contacts one of a set of pre defined trusted nodes on the network and
 // begins populating the local Kademlia node
 func (k *Kademlia) Bootstrap(ctx context.Context) error {
@@ -115,13 +122,28 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 	}
 
 	var errs errs.Group
-	for _, node := range k.bootstrapNodes {
+	for i, node := range k.bootstrapNodes {
 		if ctx.Err() != nil {
 			errs.Add(ctx.Err())
 			return errs.Err()
 		}
 
-		_, err := k.dialer.Ping(ctx, node)
+		p := &peer.Peer{}
+		pCall := grpc.Peer(p)
+		_, err := k.dialer.PingAddress(ctx, node.Address.Address, pCall)
+		if err != nil {
+			errs.Add(err)
+		}
+
+		ident, err := identity.PeerIdentityFromPeer(p)
+		if err != nil {
+			errs.Add(err)
+		}
+
+		k.routingTable.mutex.Lock()
+		node.Id = ident.ID
+		k.bootstrapNodes[i] = node
+		k.routingTable.mutex.Unlock()
 		if err == nil {
 			// We have pinged successfully one bootstrap node.
 			// Clear any errors and break the cycle.
@@ -176,7 +198,7 @@ func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
 	}
 	defer k.lookups.Done()
 
-	ok, err := k.dialer.Ping(ctx, node)
+	ok, err := k.dialer.PingNode(ctx, node)
 	if err != nil {
 		return pb.Node{}, NodeErr.Wrap(err)
 	}
@@ -187,17 +209,17 @@ func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
 }
 
 // FetchInfo connects to a node address and returns the node info
-func (k *Kademlia) FetchInfo(ctx context.Context, address *pb.NodeAddress) (*identity.PeerIdentity, *pb.InfoResponse, error) {
+func (k *Kademlia) FetchInfo(ctx context.Context, node pb.Node) (*pb.InfoResponse, error) {
 	if !k.lookups.Start() {
-		return nil, nil, context.Canceled
+		return nil, context.Canceled
 	}
 	defer k.lookups.Done()
 
-	id, info, err := k.dialer.FetchInfo(ctx, address)
+	info, err := k.dialer.FetchInfo(ctx, node)
 	if err != nil {
-		return nil, nil, NodeErr.Wrap(err)
+		return nil, NodeErr.Wrap(err)
 	}
-	return id, info, nil
+	return info, nil
 }
 
 // FindNode looks up the provided NodeID first in the local Node, and if it is not found

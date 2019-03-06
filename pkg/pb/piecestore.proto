@@ -14,8 +14,6 @@ service PieceStoreRoutes {
   rpc Retrieve(stream PieceRetrieval) returns (stream PieceRetrievalStream) {}
   rpc Store(stream PieceStore) returns (PieceStoreSummary) {}
   rpc Delete(PieceDelete) returns (PieceDeleteSummary) {}
-  rpc Stats(StatsReq) returns (StatSummary) {}
-  rpc Dashboard(DashboardReq) returns (stream DashboardStats) {}
 }
 
 enum BandwidthAction {
@@ -111,32 +109,10 @@ message PieceStoreSummary {
   SignedHash signed_hash = 3;
 }
 
-message StatsReq {}
-
-message StatSummary {
-  int64 used_space = 1;
-  int64 available_space = 2;
-  int64 used_bandwidth = 3;
-  int64 available_bandwidth = 4;
-}
-
 message SignedMessage {
   bytes data = 1;
   bytes signature = 2;
   bytes public_key = 3;
-}
-
-message DashboardReq { }
-
-message DashboardStats {
-  string node_id = 1;
-  int64 node_connections = 2;
-  string bootstrap_address = 3;
-  string internal_address = 4;
-  string external_address = 5;
-  StatSummary stats = 6;
-  bool connection = 7;
-  google.protobuf.Duration uptime = 8;
 }
 
 message SignedHash {
