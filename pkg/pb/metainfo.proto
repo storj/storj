@@ -81,6 +81,8 @@ message PieceHash {
 message SegmentWriteRequest {
     bytes bucket = 1;
     bytes path = 2;
+    int32 total_nodes = 3;
+    int64 max_segment_size = 4;
 }
 
 message SegmentCommitRequest {
