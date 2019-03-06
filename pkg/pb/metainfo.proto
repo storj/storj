@@ -9,7 +9,7 @@ package metainfo;
 import "gogo.proto";
 import "google/protobuf/timestamp.proto";
 
-service PieceStoreRoutes {
+service Metainfo {
     rpc CreateSegment(SegmentWriteRequest) returns (OrderLimitResponse) {}
     rpc CommitSegment(SegmentCommitRequest) returns (SegmentCommitResponse) {}
     rpc DownloadSegment(SegementDownloadRequest) returns (OrderLimitResponse) {}
