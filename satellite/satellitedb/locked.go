@@ -612,3 +612,10 @@ func (m *lockedStatDB) UpdateUptime(ctx context.Context, nodeID storj.NodeID, is
 	defer m.Unlock()
 	return m.db.UpdateUptime(ctx, nodeID, isUp)
 }
+
+// UpdateUptimeOrCreate
+func (m *lockedStatDB) UpdateUptimeOrCreate(ctx context.Context, noodeID storj.NodeID, isUp bool) (stats *statdb.NodeStats, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateUptimeOrCreate(ctx, noodeID, isUp)
+}

@@ -368,6 +368,32 @@ func (s *statDB) CreateEntryIfNotExists(ctx context.Context, nodeID storj.NodeID
 	return getStats, nil
 }
 
+// UpdateUptimeOrCreate will try to find and update a node's uptime. If it can't find it,
+// it will create that Node in StatDB and set it's uptime
+func (s *statDB) UpdateUptimeOrCreate(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *statdb.NodeStats, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	stats, err = s.UpdateUptime(ctx, nodeID, isUp)
+	if noRowsError(err) {
+		_, err := s.Create(ctx, nodeID, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		updated, err := s.UpdateUptime(ctx, nodeID, isUp)
+		if err != nil {
+			return nil, err
+		}
+
+		return updated, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return stats, nil
+}
+
 func updateRatioVars(newStatus bool, successCount, totalCount int64) (int64, int64, float64) {
 	totalCount++
 	if newStatus {
@@ -392,4 +418,9 @@ func checkRatioVars(successCount, totalCount int64) (ratio float64, err error) {
 	}
 	ratio = float64(successCount) / float64(totalCount)
 	return ratio, nil
+}
+
+// nowRowsError returns true if the error passed to it is a 'no rows' error.
+func noRowsError(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "no rows in result set")
 }

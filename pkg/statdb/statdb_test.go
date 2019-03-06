@@ -240,6 +240,18 @@ func testDatabase(ctx context.Context, t *testing.T, sdb statdb.DB) {
 		assert.EqualValues(t, currAuditCount, stats.AuditCount)
 		assert.EqualValues(t, newUptimeRatio, stats.UptimeRatio)
 	}
+	{ // TestUpdateUptimeOrCreate
+		id := storj.NodeID{111}
+		found, err := sdb.Get(ctx, id)
+		assert.Nil(t, found)
+		created, err := sdb.UpdateUptimeOrCreate(ctx, id, true)
+		assert.NoError(t, err)
+		assert.NotNil(t, created)
+
+		found, err = sdb.Get(ctx, id)
+		assert.NoError(t, err)
+		assert.NotNil(t, found)
+	}
 
 	{ // TestUpdateAuditSuccessExists
 		auditSuccessRatio := getRatio(currAuditSuccess, currAuditCount)
