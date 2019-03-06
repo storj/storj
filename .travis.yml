@@ -40,7 +40,7 @@ matrix:
         - go install -race ./...
       script:
         - go run scripts/use-ports.go -from 1024 -to 10000 &
-        - go test -race -cover -coverprofile=.coverprofile -json -timeout 9m ./... | tparse -all -top
+        - go test -vet=off -race -cover -coverprofile=.coverprofile -json -timeout 9m ./... | tparse -all -top
         - goveralls -coverprofile=.coverprofile -service=travis-ci
         - rm .coverprofile
         - go run scripts/check-clean-directory.go
@@ -56,11 +56,14 @@ matrix:
         - cp go.mod go.mod.backup
         - go get github.com/ckaznocha/protoc-gen-lint
         - go get golang.org/x/tools/go/packages
+        # install protolock
+        - go get github.com/nilslice/protolock/cmd/protolock
         - cp go.mod.backup go.mod
       script:
         - go run ./scripts/check-copyright.go
         - go run ./scripts/check-imports.go ./...
         - go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint
+        - protolock status
         - golangci-lint run
         - ./scripts/check-travis-tidy.sh
 

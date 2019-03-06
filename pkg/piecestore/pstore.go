@@ -15,6 +15,14 @@ import (
 	"storj.io/storj/pkg/ranger"
 )
 
+// IDLength -- Minimum ID length
+const IDLength = 20
+
+// Errors
+var (
+	Error = errs.Class("piecestore error")
+)
+
 // Storage stores piecestore pieces
 type Storage struct {
 	dir string
@@ -38,25 +46,15 @@ func (storage *Storage) Info() (DiskInfo, error) {
 	rootPath := filepath.Dir(filepath.Clean(storage.dir))
 	diskSpace, err := disk.Usage(rootPath)
 	if err != nil {
-		return DiskInfo{}, err
+		return DiskInfo{}, Error.Wrap(err)
 	}
 	return DiskInfo{
 		AvailableSpace: int64(diskSpace.Free),
 	}, nil
 }
 
-// IDLength -- Minimum ID length
-const IDLength = 20
-
-// Errors
-var (
-	Error = errs.Class("piecestore error")
-	MkDir = errs.Class("piecestore MkdirAll")
-	Open  = errs.Class("piecestore OpenFile")
-)
-
-// PiecePath creates piece storage path from id and dir
-func (storage *Storage) PiecePath(pieceID string) (string, error) {
+// piecePath creates piece storage path from id and dir
+func (storage *Storage) piecePath(pieceID string) (string, error) {
 	if len(pieceID) < IDLength {
 		return "", Error.New("invalid id length")
 	}
@@ -64,32 +62,49 @@ func (storage *Storage) PiecePath(pieceID string) (string, error) {
 	return filepath.Join(storage.dir, folder1, folder2, filename), nil
 }
 
+// Size returns piece size.
+func (storage *Storage) Size(pieceID string) (int64, error) {
+	path, err := storage.piecePath(pieceID)
+	if err != nil {
+		return 0, err
+	}
+
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+
+	return fileInfo.Size(), nil
+}
+
 // Writer returns a writer that can be used to store piece.
 func (storage *Storage) Writer(pieceID string) (io.WriteCloser, error) {
-	path, err := storage.PiecePath(pieceID)
+	path, err := storage.piecePath(pieceID)
 	if err != nil {
 		return nil, err
 	}
 	if err = os.MkdirAll(filepath.Dir(path), 0700); err != nil {
-		return nil, MkDir.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if err != nil {
-		return nil, Open.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 	return file, nil
 }
 
 // Reader returns a reader for the specified piece at the location
 func (storage *Storage) Reader(ctx context.Context, pieceID string, offset int64, length int64) (io.ReadCloser, error) {
-	path, err := storage.PiecePath(pieceID)
+	path, err := storage.piecePath(pieceID)
 	if err != nil {
 		return nil, err
 	}
+
 	info, err := os.Stat(path)
 	if err != nil {
 		return nil, err
 	}
+
 	if offset >= info.Size() || offset < 0 {
 		return nil, Error.New("invalid offset: %v", offset)
 	}
@@ -100,23 +115,25 @@ func (storage *Storage) Reader(ctx context.Context, pieceID string, offset int64
 	if info.Size() < offset+length {
 		length = info.Size() - offset
 	}
+
 	rr, err := ranger.FileRanger(path)
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
-	return rr.Range(ctx, offset, length)
+
+	r, err := rr.Range(ctx, offset, length)
+	return r, Error.Wrap(err)
 }
 
 // Delete deletes piece from storage
 func (storage *Storage) Delete(pieceID string) error {
-	path, err := storage.PiecePath(pieceID)
+	path, err := storage.piecePath(pieceID)
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
-
 	err = os.Remove(path)
 	if os.IsNotExist(err) {
 		err = nil
 	}
-	return err
+	return Error.Wrap(err)
 }

@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package psdb
+package psdb_test
 
 import (
 	"io/ioutil"
@@ -11,41 +11,40 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/storj"
 )
 
 const concurrency = 10
 
-func newDB(t testing.TB, id string) (*DB, func()) {
+func newDB(t testing.TB, id string) (*psdb.DB, func()) {
 	tmpdir, err := ioutil.TempDir("", "storj-psdb-"+id)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+
 	dbpath := filepath.Join(tmpdir, "psdb.db")
 
-	db, err := Open(dbpath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	db, err := psdb.Open(dbpath)
+	require.NoError(t, err)
+
+	err = db.Migration().Run(zaptest.NewLogger(t), db)
+	require.NoError(t, err)
 
 	return db, func() {
 		err := db.Close()
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 		err = os.RemoveAll(tmpdir)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 	}
 }
 
 func TestNewInmemory(t *testing.T) {
-	db, err := OpenInMemory()
+	db, err := psdb.OpenInMemory()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,6 +67,66 @@ func TestHappyPath(t *testing.T) {
 		{ID: "\x00", Expiration: ^int64(0)},
 		{ID: "test", Expiration: 666},
 	}
+
+	bandwidthAllocation := func(serialnum, signature string, satelliteID storj.NodeID, total int64) *pb.Order {
+		return &pb.Order{
+			PayerAllocation: pb.OrderLimit{SatelliteId: satelliteID, SerialNumber: serialnum},
+			Total:           total,
+			Signature:       []byte(signature),
+		}
+	}
+
+	//TODO: use better data
+	nodeIDAB := teststorj.NodeIDFromString("AB")
+	allocationTests := []*pb.Order{
+		bandwidthAllocation("serialnum_1", "signed by test", nodeIDAB, 0),
+		bandwidthAllocation("serialnum_2", "signed by sigma", nodeIDAB, 10),
+		bandwidthAllocation("serialnum_3", "signed by sigma", nodeIDAB, 98),
+		bandwidthAllocation("serialnum_4", "signed by test", nodeIDAB, 3),
+	}
+
+	type bwUsage struct {
+		size    int64
+		timenow time.Time
+	}
+
+	bwtests := []bwUsage{
+		// size is total size stored
+		{size: 1110, timenow: time.Now()},
+	}
+
+	t.Run("Empty", func(t *testing.T) {
+		t.Run("Bandwidth Allocation", func(t *testing.T) {
+			for _, test := range allocationTests {
+				agreements, err := db.GetBandwidthAllocationBySignature(test.Signature)
+				require.Len(t, agreements, 0)
+				require.NoError(t, err)
+			}
+		})
+
+		t.Run("Get all Bandwidth Allocations", func(t *testing.T) {
+			agreementGroups, err := db.GetBandwidthAllocations()
+			require.Len(t, agreementGroups, 0)
+			require.NoError(t, err)
+		})
+
+		t.Run("GetBandwidthUsedByDay", func(t *testing.T) {
+			for _, bw := range bwtests {
+				size, err := db.GetBandwidthUsedByDay(bw.timenow)
+				require.NoError(t, err)
+				require.Equal(t, int64(0), size)
+			}
+		})
+
+		t.Run("GetTotalBandwidthBetween", func(t *testing.T) {
+			for _, bw := range bwtests {
+				size, err := db.GetTotalBandwidthBetween(bw.timenow, bw.timenow)
+				require.NoError(t, err)
+				require.Equal(t, int64(0), size)
+			}
+		})
+
+	})
 
 	t.Run("Create", func(t *testing.T) {
 		for P := 0; P < concurrency; P++ {
@@ -132,23 +191,6 @@ func TestHappyPath(t *testing.T) {
 		}
 	})
 
-	bandwidthAllocation := func(signature string, satelliteID storj.NodeID, total int64) *pb.RenterBandwidthAllocation {
-		return &pb.RenterBandwidthAllocation{
-			PayerAllocation: pb.PayerBandwidthAllocation{SatelliteId: satelliteID},
-			Total:           total,
-			Signature:       []byte(signature),
-		}
-	}
-
-	//TODO: use better data
-	nodeIDAB := teststorj.NodeIDFromString("AB")
-	allocationTests := []*pb.RenterBandwidthAllocation{
-		bandwidthAllocation("signed by test", nodeIDAB, 0),
-		bandwidthAllocation("signed by sigma", nodeIDAB, 10),
-		bandwidthAllocation("signed by sigma", nodeIDAB, 98),
-		bandwidthAllocation("signed by test", nodeIDAB, 3),
-	}
-
 	t.Run("Bandwidth Allocation", func(t *testing.T) {
 		for P := 0; P < concurrency; P++ {
 			t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
@@ -208,31 +250,18 @@ func TestHappyPath(t *testing.T) {
 			})
 		}
 	})
-}
 
-func TestBandwidthUsage(t *testing.T) {
-	db, cleanup := newDB(t, "2")
-	defer cleanup()
-
-	type BWUSAGE struct {
-		size    int64
-		timenow time.Time
-	}
-
-	bwtests := []BWUSAGE{
-		{size: 1000, timenow: time.Now()},
-	}
-
-	var bwTotal int64
-	t.Run("AddBandwidthUsed", func(t *testing.T) {
+	t.Run("GetBandwidthUsedByDay", func(t *testing.T) {
 		for P := 0; P < concurrency; P++ {
-			bwTotal = bwTotal + bwtests[0].size
 			t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
 				t.Parallel()
 				for _, bw := range bwtests {
-					err := db.AddBandwidthUsed(bw.size)
+					size, err := db.GetBandwidthUsedByDay(bw.timenow)
 					if err != nil {
 						t.Fatal(err)
+					}
+					if bw.size != size {
+						t.Fatalf("expected %d got %d", bw.size, size)
 					}
 				}
 			})
@@ -248,7 +277,7 @@ func TestBandwidthUsage(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					if bwTotal != size {
+					if bw.size != size {
 						t.Fatalf("expected %d got %d", bw.size, size)
 					}
 				}
@@ -256,22 +285,31 @@ func TestBandwidthUsage(t *testing.T) {
 		}
 	})
 
-	t.Run("GetBandwidthUsedByDay", func(t *testing.T) {
+	type bwaUsage struct {
+		serialnum string
+		status    psdb.AgreementStatus
+	}
+
+	bwatests := []bwaUsage{
+		{serialnum: "serialnum_1", status: psdb.AgreementStatusUnsent},
+		{serialnum: "serialnum_2", status: psdb.AgreementStatusReject},
+		{serialnum: "serialnum_3", status: psdb.AgreementStatusSent},
+	}
+	t.Run("UpdateBandwidthAllocationStatus", func(t *testing.T) {
 		for P := 0; P < concurrency; P++ {
 			t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
 				t.Parallel()
-				for _, bw := range bwtests {
-					size, err := db.GetBandwidthUsedByDay(bw.timenow)
-					if err != nil {
-						t.Fatal(err)
-					}
-					if bwTotal != size {
-						t.Fatalf("expected %d got %d", bw.size, size)
-					}
+				for _, bw := range bwatests {
+					err := db.UpdateBandwidthAllocationStatus(bw.serialnum, bw.status)
+					require.NoError(t, err)
+					status, err := db.GetBwaStatusBySerialNum(bw.serialnum)
+					require.NoError(t, err)
+					assert.Equal(t, bw.status, status)
 				}
 			})
 		}
 	})
+
 }
 
 func BenchmarkWriteBandwidthAllocation(b *testing.B) {
@@ -281,8 +319,8 @@ func BenchmarkWriteBandwidthAllocation(b *testing.B) {
 	b.RunParallel(func(b *testing.PB) {
 		for b.Next() {
 			for i := 0; i < WritesPerLoop; i++ {
-				_ = db.WriteBandwidthAllocToDB(&pb.RenterBandwidthAllocation{
-					PayerAllocation: pb.PayerBandwidthAllocation{},
+				_ = db.WriteBandwidthAllocToDB(&pb.Order{
+					PayerAllocation: pb.OrderLimit{},
 					Total:           156,
 					Signature:       []byte("signed by test"),
 				})

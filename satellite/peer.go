@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/mail"
+	"net/smtp"
 	"os"
 	"path/filepath"
 
@@ -16,12 +18,15 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/internal/post"
+	"storj.io/storj/internal/post/oauth2"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/accounting/rollup"
 	"storj.io/storj/pkg/accounting/tally"
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/bwagreement"
+	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
@@ -31,6 +36,7 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/statdb"
@@ -40,6 +46,8 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/storelogger"
@@ -59,6 +67,8 @@ type DB interface {
 
 	// BandwidthAgreement returns database for storing bandwidth agreements
 	BandwidthAgreement() bwagreement.DB
+	// CertDB returns database for storing uplink's public key & ID
+	CertDB() certdb.DB
 	// StatDB returns database for storing node statistics
 	StatDB() statdb.DB
 	// OverlayCache returns database for caching overlay information
@@ -96,6 +106,7 @@ type Config struct {
 	Tally  tally.Config
 	Rollup rollup.Config
 
+	Mail    mailservice.Config
 	Console consoleweb.Config
 }
 
@@ -151,7 +162,7 @@ type Peer struct {
 	}
 
 	Repair struct {
-		Checker  checker.Checker // TODO: convert to actual struct
+		Checker  *checker.Checker
 		Repairer *repairer.Service
 	}
 	Audit struct {
@@ -161,6 +172,10 @@ type Peer struct {
 	Accounting struct {
 		Tally  *tally.Tally
 		Rollup *rollup.Rollup
+	}
+
+	Mail struct {
+		Service *mailservice.Service
 	}
 
 	Console struct {
@@ -177,25 +192,28 @@ type Peer struct {
 // New creates a new satellite
 func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*Peer, error) {
 	peer := &Peer{
-		Log:       log,
-		Identity:  full,
-		DB:        db,
-		Transport: transport.NewClient(full),
+		Log:      log,
+		Identity: full,
+		DB:       db,
 	}
 
 	var err error
 
 	{ // setup listener and server
+		log.Debug("Starting listener and server")
 		peer.Public.Listener, err = net.Listen("tcp", config.Server.Address)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		publicConfig := server.Config{Address: peer.Public.Listener.Addr().String()}
-		publicOptions, err := server.NewOptions(peer.Identity, publicConfig)
+		publicConfig := config.Server
+		publicConfig.Address = peer.Public.Listener.Addr().String()
+		publicOptions, err := tlsopts.NewOptions(peer.Identity, publicConfig.Config)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+
+		peer.Transport = transport.NewClient(publicOptions)
 
 		peer.Public.Server, err = server.New(publicOptions, peer.Public.Listener, grpcauth.NewAPIKeyInterceptor())
 		if err != nil {
@@ -203,7 +221,31 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		}
 	}
 
+	{ // setup overlay
+		log.Debug("Starting overlay")
+		config := config.Overlay
+		peer.Overlay.Service = overlay.NewCache(peer.DB.OverlayCache(), peer.DB.StatDB())
+
+		peer.Transport = peer.Transport.WithObservers(peer.Overlay.Service)
+
+		nodeSelectionConfig := &overlay.NodeSelectionConfig{
+			UptimeCount:           config.Node.UptimeCount,
+			UptimeRatio:           config.Node.UptimeRatio,
+			AuditSuccessRatio:     config.Node.AuditSuccessRatio,
+			AuditCount:            config.Node.AuditCount,
+			NewNodeAuditThreshold: config.Node.NewNodeAuditThreshold,
+			NewNodePercentage:     config.Node.NewNodePercentage,
+		}
+
+		peer.Overlay.Endpoint = overlay.NewServer(peer.Log.Named("overlay:endpoint"), peer.Overlay.Service, nodeSelectionConfig)
+		pb.RegisterOverlayServer(peer.Public.Server.GRPC(), peer.Overlay.Endpoint)
+
+		peer.Overlay.Inspector = overlay.NewInspector(peer.Overlay.Service)
+		pb.RegisterOverlayInspectorServer(peer.Public.Server.GRPC(), peer.Overlay.Inspector)
+	}
+
 	{ // setup kademlia
+		log.Debug("Setting up Kademlia")
 		config := config.Kademlia
 		// TODO: move this setup logic into kademlia package
 		if config.ExternalAddress == "" {
@@ -224,6 +266,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 
 		{ // setup routing table
 			// TODO: clean this up, should be part of database
+			log.Debug("Setting up routing table")
 			bucketIdentifier := peer.ID().String()[:5] // need a way to differentiate between nodes if running more than one simultaneously
 			dbpath := filepath.Join(config.DBPath, fmt.Sprintf("kademlia_%s.db", bucketIdentifier))
 
@@ -241,10 +284,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
 			}
+
+			peer.Transport = peer.Transport.WithObservers(peer.Kademlia.RoutingTable)
 		}
 
 		// TODO: reduce number of arguments
-		peer.Kademlia.Service, err = kademlia.NewService(peer.Log.Named("kademlia"), self, config.BootstrapNodes(), peer.Identity, config.Alpha, peer.Kademlia.RoutingTable)
+		peer.Kademlia.Service, err = kademlia.NewService(peer.Log.Named("kademlia"), self, config.BootstrapNodes(), peer.Transport, config.Alpha, peer.Kademlia.RoutingTable)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -256,38 +301,21 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		pb.RegisterKadInspectorServer(peer.Public.Server.GRPC(), peer.Kademlia.Inspector)
 	}
 
-	{ // setup overlay
-		config := config.Overlay
-		peer.Overlay.Service = overlay.NewCache(peer.DB.OverlayCache(), peer.DB.StatDB())
-
-		nodeSelectionConfig := &overlay.NodeSelectionConfig{
-			UptimeCount:           config.Node.UptimeCount,
-			UptimeRatio:           config.Node.UptimeRatio,
-			AuditSuccessRatio:     config.Node.AuditSuccessRatio,
-			AuditCount:            config.Node.AuditCount,
-			NewNodeAuditThreshold: config.Node.NewNodeAuditThreshold,
-			NewNodePercentage:     config.Node.NewNodePercentage,
-		}
-
-		peer.Overlay.Endpoint = overlay.NewServer(peer.Log.Named("overlay:endpoint"), peer.Overlay.Service, nodeSelectionConfig)
-		pb.RegisterOverlayServer(peer.Public.Server.GRPC(), peer.Overlay.Endpoint)
-
-		peer.Overlay.Inspector = overlay.NewInspector(peer.Overlay.Service)
-		pb.RegisterOverlayInspectorServer(peer.Public.Server.GRPC(), peer.Overlay.Inspector)
-	}
-
 	{ // setup reputation
+		log.Debug("Setting up reputation")
 		// TODO: find better structure with overlay
 		peer.Reputation.Inspector = statdb.NewInspector(peer.DB.StatDB())
 		pb.RegisterStatDBInspectorServer(peer.Public.Server.GRPC(), peer.Reputation.Inspector)
 	}
 
 	{ // setup discovery
+		log.Debug("Setting up discovery")
 		config := config.Discovery
 		peer.Discovery.Service = discovery.New(peer.Log.Named("discovery"), peer.Overlay.Service, peer.Kademlia.Service, peer.DB.StatDB(), config)
 	}
 
 	{ // setup pointerdb
+		log.Debug("Setting up pointerdb")
 		db, err := pointerdb.NewStore(config.PointerDB.DatabaseURL)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -295,7 +323,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 
 		peer.Pointerdb.Database = storelogger.New(peer.Log.Named("pdb"), db)
 		peer.Pointerdb.Service = pointerdb.NewService(peer.Log.Named("pointerdb"), peer.Pointerdb.Database)
-		peer.Pointerdb.Allocation = pointerdb.NewAllocationSigner(peer.Identity, config.PointerDB.BwExpiration)
+		peer.Pointerdb.Allocation = pointerdb.NewAllocationSigner(peer.Identity, config.PointerDB.BwExpiration, peer.DB.CertDB())
 		peer.Pointerdb.Endpoint = pointerdb.NewServer(peer.Log.Named("pointerdb:endpoint"),
 			peer.Pointerdb.Service,
 			peer.Pointerdb.Allocation,
@@ -308,12 +336,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 	}
 
 	{ // setup agreements
-		bwServer := bwagreement.NewServer(peer.DB.BandwidthAgreement(), peer.Log.Named("agreements"), peer.Identity.ID)
+		log.Debug("Setting up agreements")
+		bwServer := bwagreement.NewServer(peer.DB.BandwidthAgreement(), peer.DB.CertDB(), peer.Identity.Leaf.PublicKey, peer.Log.Named("agreements"), peer.Identity.ID)
 		peer.Agreements.Endpoint = bwServer
 		pb.RegisterBandwidthServer(peer.Public.Server.GRPC(), peer.Agreements.Endpoint)
 	}
 
 	{ // setup datarepair
+		log.Debug("Setting up datarepair")
 		// TODO: simplify argument list somehow
 		peer.Repair.Checker = checker.NewChecker(
 			peer.Pointerdb.Service,
@@ -322,20 +352,24 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			0, peer.Log.Named("checker"),
 			config.Checker.Interval)
 
-		peer.Repair.Repairer = repairer.NewService(peer.DB.RepairQueue(), &config.Repairer, peer.Identity, config.Repairer.Interval, config.Repairer.MaxRepair)
+		if config.Repairer.OverlayAddr == "" {
+			config.Repairer.OverlayAddr = peer.Addr()
+		}
+		if config.Repairer.PointerDBAddr == "" {
+			config.Repairer.PointerDBAddr = peer.Addr()
+		}
+		peer.Repair.Repairer = repairer.NewService(peer.DB.RepairQueue(), &config.Repairer, peer.Transport, config.Repairer.Interval, config.Repairer.MaxRepair)
 	}
 
 	{ // setup audit
+		log.Debug("Setting up audits")
 		config := config.Audit
-
-		// TODO: use common transport Client and close to avoid leak
-		transportClient := transport.NewClient(peer.Identity)
 
 		peer.Audit.Service, err = audit.NewService(peer.Log.Named("audit"),
 			peer.DB.StatDB(),
 			config.Interval, config.MaxRetriesStatDB,
 			peer.Pointerdb.Service, peer.Pointerdb.Allocation,
-			transportClient, peer.Overlay.Service,
+			peer.Transport, peer.Overlay.Service,
 			peer.Identity,
 		)
 		if err != nil {
@@ -344,33 +378,98 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 	}
 
 	{ // setup accounting
+		log.Debug("Setting up accounting")
 		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.Accounting(), peer.DB.BandwidthAgreement(), peer.Pointerdb.Service, peer.Overlay.Endpoint, 0, config.Tally.Interval)
 		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.Accounting(), config.Rollup.Interval)
 	}
 
-	{ // setup console
-		config := config.Console
+	{ // setup mailservice
+		log.Debug("Setting up mail service")
+		// TODO(yar): test multiple satellites using same OAUTH credentials
+		mailConfig := config.Mail
 
-		peer.Console.Listener, err = net.Listen("tcp", config.Address)
+		// validate from mail address
+		from, err := mail.ParseAddress(mailConfig.From)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Console.Service, err = console.NewService(peer.Log.Named("console:service"),
-			// TODO: use satellite key
+		// validate smtp server address
+		host, _, err := net.SplitHostPort(mailConfig.SMTPServerAddress)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		var sender mailservice.Sender
+		switch mailConfig.AuthType {
+		case "oauth2":
+			creds := oauth2.Credentials{
+				ClientID:     mailConfig.ClientID,
+				ClientSecret: mailConfig.ClientSecret,
+				TokenURI:     mailConfig.TokenURI,
+			}
+			token, err := oauth2.RefreshToken(creds, mailConfig.RefreshToken)
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			sender = &post.SMTPSender{
+				From: *from,
+				Auth: &oauth2.Auth{
+					UserEmail: from.Address,
+					Storage:   oauth2.NewTokenStore(creds, *token),
+				},
+				ServerAddress: mailConfig.SMTPServerAddress,
+			}
+		case "plain":
+			sender = &post.SMTPSender{
+				From:          *from,
+				Auth:          smtp.PlainAuth("", mailConfig.PlainLogin, mailConfig.PlainPassword, host),
+				ServerAddress: mailConfig.SMTPServerAddress,
+			}
+		default:
+			sender = &simulate.LinkClicker{}
+		}
+
+		peer.Mail.Service, err = mailservice.New(
+			peer.Log.Named("mailservice:service"),
+			sender,
+			mailConfig.TemplatePath,
+		)
+
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+	}
+
+	{ // setup console
+		log.Debug("Setting up console")
+		consoleConfig := config.Console
+
+		peer.Console.Listener, err = net.Listen("tcp", consoleConfig.Address)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Console.Service, err = console.NewService(
+			peer.Log.Named("console:service"),
+			// TODO(yar): use satellite key
 			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 			peer.DB.Console(),
-			config.PasswordCost,
+			consoleConfig.PasswordCost,
 		)
 
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Console.Endpoint = consoleweb.NewServer(peer.Log.Named("console:endpoint"),
-			config,
+		peer.Console.Endpoint = consoleweb.NewServer(
+			peer.Log.Named("console:endpoint"),
+			consoleConfig,
 			peer.Console.Service,
-			peer.Console.Listener)
+			peer.Mail.Service,
+			peer.Console.Listener,
+		)
 	}
 
 	{
@@ -396,7 +495,7 @@ func (peer *Peer) Run(ctx context.Context) error {
 		return ignoreCancel(peer.Kademlia.Service.Bootstrap(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Kademlia.Service.RunRefresh(ctx))
+		return ignoreCancel(peer.Kademlia.Service.Run(ctx))
 	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Discovery.Service.Run(ctx))
@@ -447,8 +546,8 @@ func (peer *Peer) Close() error {
 	if peer.Console.Endpoint != nil {
 		errlist.Add(peer.Console.Endpoint.Close())
 	} else {
-		if peer.Console.Endpoint != nil {
-			errlist.Add(peer.Public.Listener.Close())
+		if peer.Console.Listener != nil {
+			errlist.Add(peer.Console.Listener.Close())
 		}
 	}
 
@@ -475,19 +574,19 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.Discovery.Service.Close())
 	}
 
-	if peer.Overlay.Endpoint != nil {
-		errlist.Add(peer.Overlay.Endpoint.Close())
-	}
-	if peer.Overlay.Service != nil {
-		errlist.Add(peer.Overlay.Service.Close())
-	}
-
 	// TODO: add kademlia.Endpoint for consistency
 	if peer.Kademlia.Service != nil {
 		errlist.Add(peer.Kademlia.Service.Close())
 	}
 	if peer.Kademlia.RoutingTable != nil {
 		errlist.Add(peer.Kademlia.RoutingTable.Close())
+	}
+
+	if peer.Overlay.Endpoint != nil {
+		errlist.Add(peer.Overlay.Endpoint.Close())
+	}
+	if peer.Overlay.Service != nil {
+		errlist.Add(peer.Overlay.Service.Close())
 	}
 
 	if peer.Kademlia.ndb != nil || peer.Kademlia.kdb != nil {

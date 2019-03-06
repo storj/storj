@@ -12,6 +12,8 @@ import (
 )
 
 func TestSleep(t *testing.T) {
+	t.Parallel()
+
 	const sleepError = time.Second / 2 // should be larger than most system error with regards to sleep
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -27,6 +29,8 @@ func TestSleep(t *testing.T) {
 }
 
 func TestSleep_Cancel(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 

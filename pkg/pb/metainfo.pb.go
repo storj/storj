@@ -80,8 +80,8 @@ func (m *ObjectHealthRequest) GetPath() string {
 }
 
 type ObjectHealthResponse struct {
-	Redundancy           *RedundancyScheme                 `protobuf:"bytes,1,opt,name=redundancy" json:"redundancy,omitempty"`
-	Segments             *ObjectHealthResponse_SegmentInfo `protobuf:"bytes,2,opt,name=segments" json:"segments,omitempty"`
+	Redundancy           *RedundancyScheme                 `protobuf:"bytes,1,opt,name=redundancy,proto3" json:"redundancy,omitempty"`
+	Segments             *ObjectHealthResponse_SegmentInfo `protobuf:"bytes,2,opt,name=segments,proto3" json:"segments,omitempty"`
 	NumberOfSegments     int64                             `protobuf:"varint,3,opt,name=number_of_segments,json=numberOfSegments,proto3" json:"number_of_segments,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                          `json:"-"`
 	XXX_unrecognized     []byte                            `json:"-"`

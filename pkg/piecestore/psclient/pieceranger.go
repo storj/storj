@@ -19,28 +19,27 @@ import (
 var Error = errs.Class("pieceRanger error")
 
 type pieceRanger struct {
-	c             *PieceStore
-	id            PieceID
-	size          int64
-	stream        pb.PieceStoreRoutes_RetrieveClient
-	pba           *pb.PayerBandwidthAllocation
-	authorization *pb.SignedMessage
+	c      *PieceStore
+	id     PieceID
+	size   int64
+	stream pb.PieceStoreRoutes_RetrieveClient
+	pba    *pb.OrderLimit
 }
 
 // PieceRanger PieceRanger returns a Ranger from a PieceID.
-func PieceRanger(ctx context.Context, c *PieceStore, stream pb.PieceStoreRoutes_RetrieveClient, id PieceID, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (ranger.Ranger, error) {
+func PieceRanger(ctx context.Context, c *PieceStore, stream pb.PieceStoreRoutes_RetrieveClient, id PieceID, pba *pb.OrderLimit) (ranger.Ranger, error) {
 	piece, err := c.Meta(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	return &pieceRanger{c: c, id: id, size: piece.PieceSize, stream: stream, pba: pba, authorization: authorization}, nil
+	return &pieceRanger{c: c, id: id, size: piece.PieceSize, stream: stream, pba: pba}, nil
 }
 
 // PieceRangerSize creates a PieceRanger with known size.
 // Use it if you know the piece size. This will safe the extra request for
 // retrieving the piece size from the piece storage.
-func PieceRangerSize(c *PieceStore, stream pb.PieceStoreRoutes_RetrieveClient, id PieceID, size int64, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) ranger.Ranger {
-	return &pieceRanger{c: c, id: id, size: size, stream: stream, pba: pba, authorization: authorization}
+func PieceRangerSize(c *PieceStore, stream pb.PieceStoreRoutes_RetrieveClient, id PieceID, size int64, pba *pb.OrderLimit) ranger.Ranger {
+	return &pieceRanger{c: c, id: id, size: size, stream: stream, pba: pba}
 }
 
 // Size implements Ranger.Size
@@ -63,10 +62,23 @@ func (r *pieceRanger) Range(ctx context.Context, offset, length int64) (io.ReadC
 		return ioutil.NopCloser(bytes.NewReader([]byte{})), nil
 	}
 
+	// Making a copy, otherwise there will be a data race
+	// when another goroutine tries to write the cached size
+	// of this instance at the same time.
+	pbaClone := r.pba.Clone()
+
+	rba := &pb.Order{
+		PayerAllocation: pbaClone,
+		StorageNodeId:   r.c.remoteID,
+	}
+
 	// send piece data
-	if err := r.stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: r.id.String(), PieceSize: length, Offset: offset}, Authorization: r.authorization}); err != nil {
+	if err := r.stream.Send(&pb.PieceRetrieval{
+		PieceData:           &pb.PieceRetrieval_PieceData{Id: r.id.String(), PieceSize: length, Offset: offset},
+		BandwidthAllocation: rba,
+	}); err != nil {
 		return nil, err
 	}
 
-	return NewStreamReader(r.c, r.stream, r.pba, r.size), nil
+	return NewStreamReader(r.c, r.stream, rba, r.size), nil
 }

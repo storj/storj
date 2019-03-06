@@ -4,7 +4,10 @@
 package psclient
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"fmt"
+	"hash"
 
 	"go.uber.org/zap"
 
@@ -14,34 +17,49 @@ import (
 	"storj.io/storj/pkg/utils"
 )
 
-// StreamWriter creates a StreamWriter for writing data to the piece store server
+// StreamWriter handles uplink or satellite writing data to the piece store server
 type StreamWriter struct {
-	stream       pb.PieceStoreRoutes_StoreClient
-	signer       *PieceStore // We need this for signing
-	totalWritten int64
-	pba          *pb.PayerBandwidthAllocation
+	stream          pb.PieceStoreRoutes_StoreClient
+	signer          *PieceStore // We need this for signing
+	totalWritten    int64
+	rba             *pb.Order
+	hash            hash.Hash
+	storagenodeHash *pb.SignedHash
+}
+
+// NewStreamWriter creates a StreamWriter for writing data to the piece store server
+func NewStreamWriter(stream pb.PieceStoreRoutes_StoreClient, signer *PieceStore, rba *pb.Order) *StreamWriter {
+	return &StreamWriter{
+		stream: stream,
+		signer: signer,
+		rba:    rba,
+		hash:   sha256.New(),
+	}
 }
 
 // Write Piece data to a piece store server upload stream
 func (s *StreamWriter) Write(b []byte) (int, error) {
 	updatedAllocation := s.totalWritten + int64(len(b))
-	rba := &pb.RenterBandwidthAllocation{
-		PayerAllocation: *s.pba,
-		Total:           updatedAllocation,
-		StorageNodeId:   s.signer.remoteID,
-	}
-	err := auth.SignMessage(rba, *s.signer.selfID)
+
+	s.rba.Total = updatedAllocation
+	err := auth.SignMessage(s.rba, *s.signer.selfID)
 	if err != nil {
 		return 0, err
 	}
+
 	msg := &pb.PieceStore{
 		PieceData:           &pb.PieceStore_PieceData{Content: b},
-		BandwidthAllocation: rba,
+		BandwidthAllocation: s.rba,
 	}
 	s.totalWritten = updatedAllocation
 	// Second we send the actual content
 	if err := s.stream.Send(msg); err != nil {
 		return 0, fmt.Errorf("%v.Send() = %v", s.stream, err)
+	}
+
+	_, err = s.hash.Write(b)
+	if err != nil {
+		return 0, err
 	}
 	return len(b), nil
 }
@@ -53,7 +71,23 @@ func (s *StreamWriter) Close() error {
 		return err
 	}
 
-	zap.S().Infof("Stream close and recv summary: %v", reply)
+	s.storagenodeHash = reply.SignedHash
+
+	zap.S().Debugf("Stream close and recv summary: %s, %d", reply.Message, reply.TotalReceived)
+
+	return nil
+}
+
+// Verify storage node signed hash
+func (s *StreamWriter) Verify() error {
+	if err := auth.VerifyMsg(s.storagenodeHash, s.signer.remoteID); err != nil {
+		return ClientError.Wrap(err)
+	}
+
+	clientHash := s.hash.Sum(nil)
+	if bytes.Compare(s.storagenodeHash.Hash, clientHash) != 0 {
+		return ErrHashDoesNotMatch
+	}
 
 	return nil
 }
@@ -70,7 +104,7 @@ type StreamReader struct {
 }
 
 // NewStreamReader creates a StreamReader for reading data from the piece store server
-func NewStreamReader(client *PieceStore, stream pb.PieceStoreRoutes_RetrieveClient, pba *pb.PayerBandwidthAllocation, size int64) *StreamReader {
+func NewStreamReader(client *PieceStore, stream pb.PieceStoreRoutes_RetrieveClient, rba *pb.Order, size int64) *StreamReader {
 	sr := &StreamReader{
 		pendingAllocs: sync2.NewThrottle(),
 		client:        client,
@@ -92,11 +126,9 @@ func NewStreamReader(client *PieceStore, stream pb.PieceStoreRoutes_RetrieveClie
 			if sr.allocated+trustedSize > size {
 				allocate = size - sr.allocated
 			}
-			rba := &pb.RenterBandwidthAllocation{
-				PayerAllocation: *pba,
-				Total:           sr.allocated + allocate,
-				StorageNodeId:   sr.client.remoteID,
-			}
+
+			rba.Total = sr.allocated + allocate
+
 			err := auth.SignMessage(rba, *client.selfID)
 			if err != nil {
 				sr.pendingAllocs.Fail(err)

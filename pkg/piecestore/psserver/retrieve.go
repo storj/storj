@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"sync/atomic"
 
 	"github.com/zeebo/errs"
@@ -21,7 +20,7 @@ import (
 // RetrieveError is a type of error for failures in Server.Retrieve()
 var RetrieveError = errs.Class("retrieve error")
 
-// Retrieve -- Retrieve data from piecestore and send to client
+// Retrieve servers data from piecestore and sends to client
 func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
@@ -35,17 +34,22 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 		return RetrieveError.New("error receiving piece data")
 	}
 
-	authorization := recv.GetAuthorization()
-	if err := s.verifier(authorization); err != nil {
-		return ServerError.Wrap(err)
-	}
-
 	pd := recv.GetPieceData()
 	if pd == nil {
 		return RetrieveError.New("PieceStore message is nil")
 	}
 
-	id, err := getNamespacedPieceID([]byte(pd.GetId()), getNamespace(authorization))
+	rba := recv.GetBandwidthAllocation()
+	if rba == nil {
+		return RetrieveError.New("Order message is nil")
+	}
+
+	pba := rba.PayerAllocation
+	if pb.Equal(&pba, &pb.OrderLimit{}) {
+		return RetrieveError.New("OrderLimit message is empty")
+	}
+
+	id, err := getNamespacedPieceID([]byte(pd.GetId()), pba.SatelliteId.Bytes())
 	if err != nil {
 		return err
 	}
@@ -57,20 +61,13 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 	)
 
 	// Get path to data being retrieved
-	path, err := s.storage.PiecePath(id)
+	fileSize, err := s.storage.Size(id)
 	if err != nil {
 		return err
 	}
 
-	// Verify that the path exists
-	fileInfo, err := os.Stat(path)
-	if err != nil {
-		return RetrieveError.Wrap(err)
-	}
-
 	// Read the size specified
 	totalToRead := pd.GetPieceSize()
-	fileSize := fileInfo.Size()
 
 	// Read the entire file if specified -1 but make sure we do it from the correct offset
 	if pd.GetPieceSize() <= -1 || totalToRead+pd.GetOffset() > fileSize {
@@ -109,7 +106,7 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 	// Bandwidth Allocation recv loop
 	go func() {
 		var lastTotal int64
-		var lastAllocation *pb.RenterBandwidthAllocation
+		var lastAllocation *pb.Order
 		defer func() {
 			if lastAllocation == nil {
 				return
@@ -187,11 +184,6 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 			}
 			used -= nextMessageSize - n
 		}
-	}
-
-	// write to bandwidth usage table
-	if err = s.DB.AddBandwidthUsed(used); err != nil {
-		return retrieved, allocated, RetrieveError.New("failed to write bandwidth info to database: %v", err)
 	}
 
 	// TODO: handle errors

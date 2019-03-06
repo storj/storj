@@ -15,7 +15,6 @@ import (
 // DHT is the interface for the DHT in the Storj network
 type DHT interface {
 	FindNear(ctx context.Context, start storj.NodeID, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error)
-	GetRoutingTable() RoutingTable
 	Bootstrap(ctx context.Context) error
 	Ping(ctx context.Context, node pb.Node) (pb.Node, error)
 	FindNode(ctx context.Context, ID storj.NodeID) (pb.Node, error)
@@ -29,12 +28,14 @@ type RoutingTable interface {
 	K() int
 	CacheSize() int
 	GetBucketIds() (storage.Keys, error)
-	FindNear(id storj.NodeID, limit int) ([]*pb.Node, error)
+	FindNear(id storj.NodeID, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error)
 	ConnectionSuccess(node *pb.Node) error
 	ConnectionFailed(node *pb.Node) error
 	// these are for refreshing
 	SetBucketTimestamp(id []byte, now time.Time) error
 	GetBucketTimestamp(id []byte) (time.Time, error)
+
+	Close() error
 }
 
 // Bucket is a set of methods to act on kademlia k buckets

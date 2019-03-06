@@ -16,7 +16,6 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/eestream"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psclient"
 	"storj.io/storj/pkg/ranger"
@@ -29,9 +28,9 @@ var mon = monkit.Package()
 
 // Client defines an interface for storing erasure coded data to piece store nodes
 type Client interface {
-	Put(ctx context.Context, nodes []*pb.Node, rs eestream.RedundancyStrategy, pieceID psclient.PieceID, data io.Reader, expiration time.Time, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (successfulNodes []*pb.Node, err error)
-	Get(ctx context.Context, nodes []*pb.Node, es eestream.ErasureScheme, pieceID psclient.PieceID, size int64, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (ranger.Ranger, error)
-	Delete(ctx context.Context, nodes []*pb.Node, pieceID psclient.PieceID, authorization *pb.SignedMessage) error
+	Put(ctx context.Context, nodes []*pb.Node, rs eestream.RedundancyStrategy, pieceID psclient.PieceID, data io.Reader, expiration time.Time, pba *pb.OrderLimit) (successfulNodes []*pb.Node, successfulHashes []*pb.SignedHash, err error)
+	Get(ctx context.Context, nodes []*pb.Node, es eestream.ErasureScheme, pieceID psclient.PieceID, size int64, pba *pb.OrderLimit) (ranger.Ranger, error)
+	Delete(ctx context.Context, nodes []*pb.Node, pieceID psclient.PieceID, satelliteID storj.NodeID) error
 }
 
 type psClientFunc func(context.Context, transport.Client, *pb.Node, int) (psclient.Client, error)
@@ -44,8 +43,7 @@ type ecClient struct {
 }
 
 // NewClient from the given identity and max buffer memory
-func NewClient(identity *identity.FullIdentity, memoryLimit int) Client {
-	tc := transport.NewClient(identity)
+func NewClient(tc transport.Client, memoryLimit int) Client {
 	return &ecClient{
 		transport:       tc,
 		memoryLimit:     memoryLimit,
@@ -58,29 +56,30 @@ func (ec *ecClient) newPSClient(ctx context.Context, n *pb.Node) (psclient.Clien
 	return ec.newPSClientFunc(ctx, ec.transport, n, 0)
 }
 
-func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.RedundancyStrategy, pieceID psclient.PieceID, data io.Reader, expiration time.Time, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (successfulNodes []*pb.Node, err error) {
+func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.RedundancyStrategy, pieceID psclient.PieceID, data io.Reader, expiration time.Time, pba *pb.OrderLimit) (successfulNodes []*pb.Node, successfulHashes []*pb.SignedHash, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(nodes) != rs.TotalCount() {
-		return nil, Error.New("size of nodes slice (%d) does not match total count (%d) of erasure scheme", len(nodes), rs.TotalCount())
+		return nil, nil, Error.New("size of nodes slice (%d) does not match total count (%d) of erasure scheme", len(nodes), rs.TotalCount())
 	}
 
 	if nonNilCount(nodes) < rs.RepairThreshold() {
-		return nil, Error.New("number of non-nil nodes (%d) is less than repair threshold (%d) of erasure scheme", nonNilCount(nodes), rs.RepairThreshold())
+		return nil, nil, Error.New("number of non-nil nodes (%d) is less than repair threshold (%d) of erasure scheme", nonNilCount(nodes), rs.RepairThreshold())
 	}
 
 	if !unique(nodes) {
-		return nil, Error.New("duplicated nodes are not allowed")
+		return nil, nil, Error.New("duplicated nodes are not allowed")
 	}
 
 	padded := eestream.PadReader(ioutil.NopCloser(data), rs.StripeSize())
 	readers, err := eestream.EncodeReader(ctx, padded, rs)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	type info struct {
-		i   int
-		err error
+		i    int
+		err  error
+		hash *pb.SignedHash
 	}
 	infos := make(chan info, len(nodes))
 
@@ -95,12 +94,13 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 		}
 
 		go func(i int, node *pb.Node) {
-			err := ec.putPiece(psCtx, ctx, node, pieceID, readers[i], expiration, pba, authorization)
-			infos <- info{i: i, err: err}
+			hash, err := ec.putPiece(psCtx, ctx, node, pieceID, readers[i], expiration, pba)
+			infos <- info{i: i, err: err, hash: hash}
 		}(i, node)
 	}
 
 	successfulNodes = make([]*pb.Node, len(nodes))
+	successfulHashes = make([]*pb.SignedHash, len(nodes))
 	var successfulCount int32
 	var timer *time.Timer
 
@@ -108,6 +108,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 		info := <-infos
 		if info.err == nil {
 			successfulNodes[info.i] = nodes[info.i]
+			successfulHashes[info.i] = info.hash
 
 			switch int(atomic.AddInt32(&successfulCount, 1)) {
 			case rs.RepairThreshold():
@@ -118,8 +119,10 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 					rs.RepairThreshold(), elapsed.Seconds(), more.Seconds(), rs.OptimalThreshold())
 
 				timer = time.AfterFunc(more, func() {
-					zap.S().Infof("Timer expired. Successfully uploaded to %d nodes. Canceling the long tail...", atomic.LoadInt32(&successfulCount))
-					cancel()
+					if ctx.Err() != context.Canceled {
+						zap.S().Infof("Timer expired. Successfully uploaded to %d nodes. Canceling the long tail...", atomic.LoadInt32(&successfulCount))
+						cancel()
+					}
 				})
 			case rs.OptimalThreshold():
 				zap.S().Infof("Success threshold (%d nodes) reached. Canceling the long tail...", rs.OptimalThreshold())
@@ -129,45 +132,51 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 		}
 	}
 
+	// Ensure timer is stopped in the case of repair threshold is reached, but
+	// not the success threshold due to errors instead of slowness.
+	if timer != nil {
+		timer.Stop()
+	}
+
 	/* clean up the partially uploaded segment's pieces */
 	defer func() {
 		select {
 		case <-ctx.Done():
 			err = utils.CombineErrors(
 				Error.New("upload cancelled by user"),
-				ec.Delete(context.Background(), nodes, pieceID, authorization),
+				ec.Delete(context.Background(), nodes, pieceID, pba.SatelliteId),
 			)
 		default:
 		}
 	}()
 
 	if int(atomic.LoadInt32(&successfulCount)) < rs.RepairThreshold() {
-		return nil, Error.New("successful puts (%d) less than repair threshold (%d)", successfulCount, rs.RepairThreshold())
+		return nil, nil, Error.New("successful puts (%d) less than repair threshold (%d)", successfulCount, rs.RepairThreshold())
 	}
 
-	return successfulNodes, nil
+	return successfulNodes, successfulHashes, nil
 }
 
-func (ec *ecClient) putPiece(ctx, parent context.Context, node *pb.Node, pieceID psclient.PieceID, data io.ReadCloser, expiration time.Time, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (err error) {
+func (ec *ecClient) putPiece(ctx, parent context.Context, node *pb.Node, pieceID psclient.PieceID, data io.ReadCloser, expiration time.Time, pba *pb.OrderLimit) (hash *pb.SignedHash, err error) {
 	defer func() { err = errs.Combine(err, data.Close()) }()
 
 	if node == nil {
 		_, err = io.Copy(ioutil.Discard, data)
-		return err
+		return nil, err
 	}
 	derivedPieceID, err := pieceID.Derive(node.Id.Bytes())
 
 	if err != nil {
 		zap.S().Errorf("Failed deriving piece id for %s: %v", pieceID, err)
-		return err
+		return nil, err
 	}
 	ps, err := ec.newPSClient(ctx, node)
 	if err != nil {
 		zap.S().Errorf("Failed dialing for putting piece %s -> %s to node %s: %v",
 			pieceID, derivedPieceID, node.Id, err)
-		return err
+		return nil, err
 	}
-	err = ps.Put(ctx, derivedPieceID, data, expiration, pba, authorization)
+	hash, err = ps.Put(ctx, derivedPieceID, data, expiration, pba)
 	defer func() { err = errs.Combine(err, ps.Close()) }()
 	// Canceled context means the piece upload was interrupted by user or due
 	// to slow connection. No error logging for this case.
@@ -187,11 +196,11 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, node *pb.Node, pieceID
 			pieceID, derivedPieceID, node.Id, nodeAddress, err)
 	}
 
-	return err
+	return hash, err
 }
 
 func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.ErasureScheme,
-	pieceID psclient.PieceID, size int64, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (rr ranger.Ranger, err error) {
+	pieceID psclient.PieceID, size int64, pba *pb.OrderLimit) (rr ranger.Ranger, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(nodes) != es.TotalCount() {
@@ -238,7 +247,6 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.Erasu
 				id:                derivedPieceID,
 				size:              pieceSize,
 				pba:               pba,
-				authorization:     authorization,
 			}
 
 			ch <- rangerInfo{i: i, rr: rr, err: nil}
@@ -260,7 +268,7 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.Erasu
 	return eestream.Unpad(rr, int(paddedSize-size))
 }
 
-func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID psclient.PieceID, authorization *pb.SignedMessage) (err error) {
+func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID psclient.PieceID, satelliteID storj.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	errch := make(chan error, len(nodes))
@@ -289,7 +297,7 @@ func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID psclie
 				errch <- err
 				return
 			}
-			err = ps.Delete(ctx, derivedPieceID, authorization)
+			err = ps.Delete(ctx, derivedPieceID, satelliteID)
 			// normally the bellow call should be deferred, but doing so fails
 			// randomly the unit tests
 			err = errs.Combine(err, ps.Close())
@@ -364,8 +372,7 @@ type lazyPieceRanger struct {
 	node              *pb.Node
 	id                psclient.PieceID
 	size              int64
-	pba               *pb.PayerBandwidthAllocation
-	authorization     *pb.SignedMessage
+	pba               *pb.OrderLimit
 }
 
 // Size implements Ranger.Size
@@ -381,7 +388,7 @@ func (lr *lazyPieceRanger) Range(ctx context.Context, offset, length int64) (io.
 		if err != nil {
 			return nil, err
 		}
-		ranger, err := ps.Get(ctx, lr.id, lr.size, lr.pba, lr.authorization)
+		ranger, err := ps.Get(ctx, lr.id, lr.size, lr.pba)
 		if err != nil {
 			return nil, err
 		}

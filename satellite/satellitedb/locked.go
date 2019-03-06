@@ -7,6 +7,7 @@ package satellitedb
 
 import (
 	"context"
+	"crypto"
 	"sync"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/bwagreement"
+	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/overlay"
@@ -131,6 +133,33 @@ func (m *lockedBandwidthAgreement) GetUplinkStats(ctx context.Context, a1 time.T
 	return m.db.GetUplinkStats(ctx, a1, a2)
 }
 
+// CertDB returns database for storing uplink's public key & ID
+func (m *locked) CertDB() certdb.DB {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedCertDB{m.Locker, m.db.CertDB()}
+}
+
+// lockedCertDB implements locking wrapper for certdb.DB
+type lockedCertDB struct {
+	sync.Locker
+	db certdb.DB
+}
+
+// GetPublicKey gets the public key of uplink corresponding to uplink id
+func (m *lockedCertDB) GetPublicKey(ctx context.Context, a1 storj.NodeID) (crypto.PublicKey, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetPublicKey(ctx, a1)
+}
+
+// SavePublicKey adds a new bandwidth agreement.
+func (m *lockedCertDB) SavePublicKey(ctx context.Context, a1 storj.NodeID, a2 crypto.PublicKey) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SavePublicKey(ctx, a1, a2)
+}
+
 // Close closes the database
 func (m *locked) Close() error {
 	m.Lock()
@@ -206,18 +235,42 @@ func (m *lockedAPIKeys) Update(ctx context.Context, key console.APIKeyInfo) erro
 	return m.db.Update(ctx, key)
 }
 
-// Close is used to close db connection
-func (m *lockedConsole) Close() error {
+// BucketUsage is a getter for accounting.BucketUsage repository
+func (m *lockedConsole) BucketUsage() accounting.BucketUsage {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Close()
+	return &lockedBucketUsage{m.Locker, m.db.BucketUsage()}
 }
 
-// CreateTables is a method for creating all tables for satellitedb
-func (m *lockedConsole) CreateTables() error {
+// lockedBucketUsage implements locking wrapper for accounting.BucketUsage
+type lockedBucketUsage struct {
+	sync.Locker
+	db accounting.BucketUsage
+}
+
+// Count(ctx context.Context, buckedID uuid.UUID, ) ()
+func (m *lockedBucketUsage) Create(ctx context.Context, rollup accounting.BucketRollup) (*accounting.BucketRollup, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.CreateTables()
+	return m.db.Create(ctx, rollup)
+}
+
+func (m *lockedBucketUsage) Delete(ctx context.Context, id uuid.UUID) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Delete(ctx, id)
+}
+
+func (m *lockedBucketUsage) Get(ctx context.Context, id uuid.UUID) (*accounting.BucketRollup, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Get(ctx, id)
+}
+
+func (m *lockedBucketUsage) GetPaged(ctx context.Context, cursor *accounting.BucketRollupCursor) ([]accounting.BucketRollup, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetPaged(ctx, cursor)
 }
 
 // ProjectMembers is a getter for ProjectMembers repository
@@ -453,13 +506,6 @@ func (m *lockedOverlayCache) GetAll(ctx context.Context, nodeIDs storj.NodeIDLis
 	return m.db.GetAll(ctx, nodeIDs)
 }
 
-// GetWalletAddress gets the node's wallet address
-func (m *lockedOverlayCache) GetWalletAddress(ctx context.Context, id storj.NodeID) (string, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetWalletAddress(ctx, id)
-}
-
 // List lists nodes starting from cursor
 func (m *lockedOverlayCache) List(ctx context.Context, cursor storj.NodeID, limit int) ([]*pb.Node, error) {
 	m.Lock()
@@ -474,18 +520,18 @@ func (m *lockedOverlayCache) Paginate(ctx context.Context, offset int64, limit i
 	return m.db.Paginate(ctx, offset, limit)
 }
 
-// SelectNewNodes looks up nodes based on new node criteria
-func (m *lockedOverlayCache) SelectNewNodes(ctx context.Context, count int, criteria *overlay.NewNodeCriteria) ([]*pb.Node, error) {
+// SelectNewStorageNodes looks up nodes based on new node criteria
+func (m *lockedOverlayCache) SelectNewStorageNodes(ctx context.Context, count int, criteria *overlay.NewNodeCriteria) ([]*pb.Node, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.SelectNewNodes(ctx, count, criteria)
+	return m.db.SelectNewStorageNodes(ctx, count, criteria)
 }
 
-// SelectNodes looks up nodes based on criteria
-func (m *lockedOverlayCache) SelectNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) ([]*pb.Node, error) {
+// SelectStorageNodes looks up nodes based on criteria
+func (m *lockedOverlayCache) SelectStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) ([]*pb.Node, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.SelectNodes(ctx, count, criteria)
+	return m.db.SelectStorageNodes(ctx, count, criteria)
 }
 
 // Update updates node information
@@ -589,6 +635,13 @@ func (m *lockedStatDB) UpdateBatch(ctx context.Context, requests []*statdb.Updat
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UpdateBatch(ctx, requests)
+}
+
+// UpdateOperator updates the email and wallet for a given node ID for satellite payments.
+func (m *lockedStatDB) UpdateOperator(ctx context.Context, node storj.NodeID, updatedOperator pb.NodeOperator) (stats *statdb.NodeStats, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateOperator(ctx, node, updatedOperator)
 }
 
 // UpdateUptime updates a single storagenode's uptime stats.

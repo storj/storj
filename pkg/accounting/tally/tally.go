@@ -101,15 +101,50 @@ func (t *Tally) calculateAtRestData(ctx context.Context) (latestTally time.Time,
 	}
 	nodeData = make(map[storj.NodeID]float64)
 
+	var currentBucket string
+	var bucketCount int64
+	var totalStats, currentBucketStats stats
+
 	err = t.pointerdb.Iterate("", "", true, false,
 		func(it storage.Iterator) error {
 			var item storage.ListItem
 			for it.Next(&item) {
+
 				pointer := &pb.Pointer{}
 				err = proto.Unmarshal(item.Value, pointer)
 				if err != nil {
 					return Error.Wrap(err)
 				}
+
+				pathElements := storj.SplitPath(storj.Path(item.Key))
+				// check to make sure there are at least *4* path elements. the first three
+				// are project, segment, and bucket name, but we want to make sure we're talking
+				// about an actual object, and that there's an object name specified
+
+				// handle conditions with buckets with no files
+				if len(pathElements) == 3 {
+					bucketCount++
+				} else if len(pathElements) >= 4 {
+
+					project, segment, bucketName := pathElements[0], pathElements[1], pathElements[2]
+					bucketID := storj.JoinPaths(project, bucketName)
+
+					// paths are iterated in order, so everything in a bucket is
+					// iterated together. When a project or bucket changes,
+					// the previous bucket is completely finished.
+					if currentBucket != bucketID {
+						if currentBucket != "" {
+							// report the previous bucket and add to the totals
+							currentBucketStats.Report("bucket")
+							totalStats.Combine(&currentBucketStats)
+							currentBucketStats = stats{}
+						}
+						currentBucket = bucketID
+					}
+
+					currentBucketStats.AddSegment(pointer, segment == "l")
+				}
+
 				remote := pointer.GetRemote()
 				if remote == nil {
 					continue
@@ -132,19 +167,27 @@ func (t *Tally) calculateAtRestData(ctx context.Context) (latestTally time.Time,
 				}
 				pieceSize := segmentSize / int64(minReq)
 				for _, piece := range pieces {
-					t.logger.Info("found piece on Node ID" + piece.NodeId.String())
 					nodeData[piece.NodeId] += float64(pieceSize)
 				}
 			}
 			return nil
 		},
 	)
-	if len(nodeData) == 0 {
-		return latestTally, nodeData, nil
-	}
 	if err != nil {
 		return latestTally, nodeData, Error.Wrap(err)
 	}
+
+	if currentBucket != "" {
+		// wrap up the last bucket
+		totalStats.Combine(&currentBucketStats)
+	}
+	totalStats.Report("total")
+	mon.IntVal("bucket_count").Observe(bucketCount)
+
+	if len(nodeData) == 0 {
+		return latestTally, nodeData, nil
+	}
+
 	//store byte hours, not just bytes
 	numHours := time.Now().Sub(latestTally).Hours()
 	if latestTally.IsZero() {

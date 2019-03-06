@@ -20,6 +20,7 @@ import (
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
@@ -74,6 +75,12 @@ var (
 		Args:  cobra.MinimumNArgs(1),
 		RunE:  LookupNode,
 	}
+	nodeInfoCmd = &cobra.Command{
+		Use:   "node-info <node_id>",
+		Short: "get node info directly from node",
+		Args:  cobra.MinimumNArgs(1),
+		RunE:  NodeInfo,
+	}
 	dumpNodesCmd = &cobra.Command{
 		Use:   "dump-nodes",
 		Short: "dump all nodes in the routing table",
@@ -124,12 +131,16 @@ func NewInspector(address, path string) (*Inspector, error) {
 		CertPath: fmt.Sprintf("%s/identity.cert", path),
 		KeyPath:  fmt.Sprintf("%s/identity.key", path),
 	}.Load()
-
 	if err != nil {
-		return &Inspector{}, ErrIdentity.Wrap(err)
+		return nil, ErrIdentity.Wrap(err)
 	}
 
-	tc := transport.NewClient(id)
+	tlsOpts, err := tlsopts.NewOptions(id, tlsopts.Config{})
+	if err != nil {
+		return nil, err
+	}
+
+	tc := transport.NewClient(tlsOpts)
 	conn, err := tc.DialAddress(ctx, address)
 	if err != nil {
 		return &Inspector{}, ErrInspectorDial.Wrap(err)
@@ -175,6 +186,35 @@ func LookupNode(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	fmt.Println(prettyPrint(n))
+
+	return nil
+}
+
+// NodeInfo get node info directly from the node with provided Node ID
+func NodeInfo(cmd *cobra.Command, args []string) (err error) {
+	i, err := NewInspector(*Addr, *IdentityPath)
+	if err != nil {
+		return ErrInspectorDial.Wrap(err)
+	}
+
+	// first lookup the node to get its address
+	n, err := i.kadclient.LookupNode(context.Background(), &pb.LookupNodeRequest{
+		Id: args[0],
+	})
+	if err != nil {
+		return ErrRequest.Wrap(err)
+	}
+
+	// now ask the node directly for its node info
+	info, err := i.kadclient.NodeInfo(context.Background(), &pb.NodeInfoRequest{
+		Id:      n.GetNode().Id,
+		Address: n.GetNode().GetAddress(),
+	})
+	if err != nil {
+		return ErrRequest.Wrap(err)
+	}
+
+	fmt.Println(prettyPrint(info))
 
 	return nil
 }
@@ -409,6 +449,7 @@ func init() {
 	kadCmd.AddCommand(countNodeCmd)
 	kadCmd.AddCommand(pingNodeCmd)
 	kadCmd.AddCommand(lookupNodeCmd)
+	kadCmd.AddCommand(nodeInfoCmd)
 	kadCmd.AddCommand(dumpNodesCmd)
 
 	statsCmd.AddCommand(getStatsCmd)

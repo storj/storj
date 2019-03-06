@@ -7,10 +7,8 @@ import (
 	"bytes"
 	"context"
 	"crypto"
-	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -55,7 +53,7 @@ type CASetupConfig struct {
 	KeyPath        string `help:"path to the private key for this identity" default:"$IDENTITYDIR/ca.key"`
 	Difficulty     uint64 `help:"minimum difficulty for identity generation" default:"30"`
 	Timeout        string `help:"timeout for CA generation; golang duration string (0 no timeout)" default:"5m"`
-	Overwrite      bool   `help:"if true, existing CA certs AND keys will overwritten" default:"false"`
+	Overwrite      bool   `help:"if true, existing CA certs AND keys will overwritten" default:"false" setup:"true"`
 	Concurrency    uint   `help:"number of concurrent workers for certificate authority generation" default:"4"`
 }
 
@@ -92,7 +90,7 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 		i         = new(uint32)
 
 		mu          sync.Mutex
-		selectedKey *ecdsa.PrivateKey
+		selectedKey crypto.PrivateKey
 		selectedID  storj.NodeID
 	)
 
@@ -114,7 +112,7 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 		}
 	}
 	err = GenerateKeys(ctx, minimumLoggableDifficulty, int(opts.Concurrency),
-		func(k *ecdsa.PrivateKey, id storj.NodeID) (done bool, err error) {
+		func(k crypto.PrivateKey, id storj.NodeID) (done bool, err error) {
 			if opts.Logger != nil {
 				if atomic.AddUint32(i, 1)%100 == 0 {
 					updateStatus()
@@ -238,10 +236,9 @@ func (fc FullCAConfig) Load() (*FullCertificateAuthority, error) {
 	if err != nil {
 		return nil, peertls.ErrNotExist.Wrap(err)
 	}
-	kp, _ := pem.Decode(kb)
-	k, err := x509.ParseECPrivateKey(kp.Bytes)
+	k, err := pkcrypto.PrivateKeyFromPEM(kb)
 	if err != nil {
-		return nil, errs.New("unable to parse EC private key: %v", err)
+		return nil, err
 	}
 
 	return &FullCertificateAuthority{
@@ -271,7 +268,7 @@ func (fc FullCAConfig) Save(ca *FullCertificateAuthority) error {
 	}
 
 	if fc.KeyPath != "" {
-		if err := pkcrypto.WriteKey(&keyData, ca.Key); err != nil {
+		if err := pkcrypto.WritePrivateKeyPEM(&keyData, ca.Key); err != nil {
 			writeErrs.Add(err)
 			return writeErrs.Err()
 		}
@@ -299,7 +296,7 @@ func (pc PeerCAConfig) Load() (*PeerCertificateAuthority, error) {
 		return nil, peertls.ErrNotExist.Wrap(err)
 	}
 
-	chain, err := DecodeAndParseChainPEM(chainPEM)
+	chain, err := pkcrypto.CertsFromPEM(chainPEM)
 	if err != nil {
 		return nil, errs.New("failed to load identity %#v: %v",
 			pc.CertPath, err)
@@ -383,8 +380,23 @@ func (ca *FullCertificateAuthority) NewIdentity() (*FullIdentity, error) {
 
 }
 
-// RestChainRaw returns the rest (excluding leaf and CA) of the certificate chain as a 2d byte slice
-func (ca *FullCertificateAuthority) RestChainRaw() [][]byte {
+// Chain returns the CA's certificate chain
+func (ca *FullCertificateAuthority) Chain() []*x509.Certificate {
+	return append([]*x509.Certificate{ca.Cert}, ca.RestChain...)
+}
+
+// RawChain returns the CA's certificate chain as a 2d byte slice
+func (ca *FullCertificateAuthority) RawChain() [][]byte {
+	chain := ca.Chain()
+	rawChain := make([][]byte, len(chain))
+	for i, cert := range chain {
+		rawChain[i] = cert.Raw
+	}
+	return rawChain
+}
+
+// RawRestChain returns the "rest" (excluding `ca.Cert`) of the certificate chain as a 2d byte slice
+func (ca *FullCertificateAuthority) RawRestChain() [][]byte {
 	var chain [][]byte
 	for _, cert := range ca.RestChain {
 		chain = append(chain, cert.Raw)
@@ -408,7 +420,7 @@ func (ca *FullCertificateAuthority) Sign(cert *x509.Certificate) (*x509.Certific
 		return nil, errs.Wrap(err)
 	}
 
-	signedCert, err := x509.ParseCertificate(signedCertBytes)
+	signedCert, err := pkcrypto.CertFromDER(signedCertBytes)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}

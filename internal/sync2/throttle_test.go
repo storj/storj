@@ -60,6 +60,8 @@ func ExampleThrottle() {
 }
 
 func TestThrottleBasic(t *testing.T) {
+	t.Parallel()
+
 	throttle := sync2.NewThrottle()
 	var stage int64
 	c := make(chan error, 1)

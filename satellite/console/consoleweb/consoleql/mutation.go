@@ -4,10 +4,15 @@
 package consoleql
 
 import (
+	"fmt"
+
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/zeebo/errs"
 
+	"storj.io/storj/internal/post"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/mailservice"
 )
 
 const (
@@ -38,8 +43,8 @@ const (
 
 	// CreateAPIKeyMutation is a mutation name for api key creation
 	CreateAPIKeyMutation = "createAPIKey"
-	// DeleteAPIKeyMutation is a mutation name for api key deleting
-	DeleteAPIKeyMutation = "deleteAPIKey"
+	// DeleteAPIKeysMutation is a mutation name for api key deleting
+	DeleteAPIKeysMutation = "deleteAPIKeys"
 
 	// InputArg is argument name for all input types
 	InputArg = "input"
@@ -50,12 +55,12 @@ const (
 )
 
 // rootMutation creates mutation for graphql populated by AccountsClient
-func rootMutation(service *console.Service, types Types) *graphql.Object {
+func rootMutation(service *console.Service, mailService *mailservice.Service, types Types) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: Mutation,
 		Fields: graphql.Fields{
 			CreateUserMutation: &graphql.Field{
-				Type: graphql.String,
+				Type: types.User(),
 				Args: graphql.FieldConfigArgument{
 					InputArg: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(types.UserInput()),
@@ -68,10 +73,29 @@ func rootMutation(service *console.Service, types Types) *graphql.Object {
 
 					user, err := service.CreateUser(p.Context, createUser)
 					if err != nil {
-						return "", err
+						return nil, err
 					}
 
-					return user.ID.String(), nil
+					token, err := service.GenerateActivationToken(p.Context, user.ID, user.Email)
+					if err != nil {
+						return user, err
+					}
+
+					rootObject := p.Info.RootValue.(map[string]interface{})
+					link := rootObject["origin"].(string) + rootObject[ActivationPath].(string) + token
+
+					err = mailService.SendRendered(
+						p.Context,
+						[]post.Address{{Address: user.Email, Name: user.FirstName}},
+						&AccountActivationEmail{
+							ActivationLink: link,
+						},
+					)
+					if err != nil {
+						return user, err
+					}
+
+					return user, nil
 				},
 			},
 			UpdateAccountMutation: &graphql.Field{
@@ -256,12 +280,32 @@ func rootMutation(service *console.Service, types Types) *graphql.Object {
 						userEmails = append(userEmails, email.(string))
 					}
 
-					err = service.AddProjectMembers(p.Context, *projectID, userEmails)
+					project, err := service.GetProject(p.Context, *projectID)
 					if err != nil {
 						return nil, err
 					}
 
-					return service.GetProject(p.Context, *projectID)
+					users, err := service.AddProjectMembers(p.Context, *projectID, userEmails)
+					if err != nil {
+						return nil, err
+					}
+
+					var emailErr errs.Group
+					for _, user := range users {
+						err = mailService.SendRendered(
+							p.Context,
+							[]post.Address{{Address: user.Email, Name: fmt.Sprintf("%s %s", user.FirstName, user.LastName)}},
+							&ProjectInvitationEmail{
+								UserName:    user.FirstName,
+								ProjectName: user.LastName,
+							},
+						)
+						if err != nil {
+							emailErr.Add(err)
+						}
+					}
+
+					return project, emailErr.Err()
 				},
 			},
 			// delete user membership for given project
@@ -329,32 +373,39 @@ func rootMutation(service *console.Service, types Types) *graphql.Object {
 				},
 			},
 			// deletes api key
-			DeleteAPIKeyMutation: &graphql.Field{
-				Type: types.APIKeyInfo(),
+			DeleteAPIKeysMutation: &graphql.Field{
+				Type: graphql.NewList(types.APIKeyInfo()),
 				Args: graphql.FieldConfigArgument{
 					FieldID: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
+						Type: graphql.NewNonNull(graphql.NewList(graphql.String)),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					keyID, _ := p.Args[FieldID].(string)
+					paramKeysID, _ := p.Args[FieldID].([]interface{})
 
-					id, err := uuid.Parse(keyID)
+					var keyIds []uuid.UUID
+					var keys []console.APIKeyInfo
+					for _, id := range paramKeysID {
+						keyID, err := uuid.Parse(id.(string))
+						if err != nil {
+							return nil, err
+						}
+
+						key, err := service.GetAPIKeyInfo(p.Context, *keyID)
+						if err != nil {
+							return nil, err
+						}
+
+						keyIds = append(keyIds, *keyID)
+						keys = append(keys, *key)
+					}
+
+					err := service.DeleteAPIKeys(p.Context, keyIds)
 					if err != nil {
 						return nil, err
 					}
 
-					key, err := service.GetAPIKeyInfo(p.Context, *id)
-					if err != nil {
-						return nil, err
-					}
-
-					err = service.DeleteAPIKey(p.Context, *id)
-					if err != nil {
-						return nil, err
-					}
-
-					return key, nil
+					return keys, nil
 				},
 			},
 		},

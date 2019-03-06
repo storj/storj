@@ -6,6 +6,8 @@ package overlay
 import (
 	"context"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/pb"
 )
 
@@ -29,4 +31,9 @@ func (srv *Inspector) CountNodes(ctx context.Context, req *pb.CountNodesRequest)
 	return &pb.CountNodesResponse{
 		Count: int64(len(overlayKeys)),
 	}, nil
+}
+
+// DumpNodes returns all of the nodes in the overlay cachea
+func (srv *Inspector) DumpNodes(ctx context.Context, req *pb.DumpNodesRequest) (*pb.DumpNodesResponse, error) {
+	return &pb.DumpNodesResponse{}, errs.New("Not Implemented")
 }

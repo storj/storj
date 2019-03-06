@@ -59,12 +59,12 @@ var (
 		Use:   "reports",
 		Short: "Generate a report",
 	}
-	paymentsCmd = &cobra.Command{
-		Use:   "payments [start] [end]",
-		Short: "Generate a payment report for a given period",
-		Long:  "Generate a payment report for a given period. Format dates using YYYY-MM-DD",
+	nodeUsageCmd = &cobra.Command{
+		Use:   "storagenode-usage [start] [end]",
+		Short: "Generate a node usage report for a given period to use for payments",
+		Long:  "Generate a node usage report for a given period to use for payments. Format dates using YYYY-MM-DD",
 		Args:  cobra.MinimumNArgs(2),
-		RunE:  cmdPayments,
+		RunE:  cmdNodeUsage,
 	}
 
 	runCfg   Satellite
@@ -77,7 +77,7 @@ var (
 		Database   string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
 		QListLimit int    `help:"maximum segments that can be requested" default:"1000"`
 	}
-	paymentsCfg struct {
+	nodeUsageCfg struct {
 		Database string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
 		Output   string `help:"destination of report output" default:""`
 	}
@@ -115,12 +115,12 @@ func init() {
 	rootCmd.AddCommand(diagCmd)
 	rootCmd.AddCommand(qdiagCmd)
 	rootCmd.AddCommand(reportsCmd)
-	reportsCmd.AddCommand(paymentsCmd)
+	reportsCmd.AddCommand(nodeUsageCmd)
 	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 	cfgstruct.Bind(qdiagCmd.Flags(), &qdiagCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.Bind(paymentsCmd.Flags(), &paymentsCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(nodeUsageCmd.Flags(), &nodeUsageCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -136,7 +136,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Error("Failed to initialize telemetry batcher: ", err)
 	}
 
-	db, err := satellitedb.New(runCfg.Database)
+	db, err := satellitedb.New(log.Named("db"), runCfg.Database)
 
 	if err != nil {
 		return errs.New("Error starting master database on satellite: %+v", err)
@@ -181,7 +181,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {
-	database, err := satellitedb.New(diagCfg.Database)
+	database, err := satellitedb.New(zap.L().Named("db"), diagCfg.Database)
 	if err != nil {
 		return errs.New("error connecting to master database on satellite: %+v", err)
 	}
@@ -216,7 +216,7 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
 
 	// open the master db
-	database, err := satellitedb.New(qdiagCfg.Database)
+	database, err := satellitedb.New(zap.L().Named("db"), qdiagCfg.Database)
 	if err != nil {
 		return errs.New("error connecting to master database on satellite: %+v", err)
 	}
@@ -246,7 +246,7 @@ func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
 	return w.Flush()
 }
 
-func cmdPayments(cmd *cobra.Command, args []string) (err error) {
+func cmdNodeUsage(cmd *cobra.Command, args []string) (err error) {
 	ctx := process.Ctx(cmd)
 
 	layout := "2006-01-02"
@@ -265,12 +265,12 @@ func cmdPayments(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// send output to stdout
-	if paymentsCfg.Output == "" {
+	if nodeUsageCfg.Output == "" {
 		return generateCSV(ctx, start, end, os.Stdout)
 	}
 
 	// send output to file
-	file, err := os.Create(paymentsCfg.Output)
+	file, err := os.Create(nodeUsageCfg.Output)
 	if err != nil {
 		return err
 	}

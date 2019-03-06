@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
@@ -60,15 +59,15 @@ var (
 
 	identityDir, configDir string
 	defaultIdentityDir     = fpath.ApplicationDir("storj", "identity")
-	defaultConfigDir       = fpath.ApplicationDir("storj")
+	defaultConfigDir       = fpath.ApplicationDir("storj", "identity")
 )
 
 func init() {
 	rootCmd.AddCommand(newServiceCmd)
 	rootCmd.AddCommand(authorizeCmd)
 
-	cfgstruct.Bind(newServiceCmd.Flags(), &config, cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.Bind(authorizeCmd.Flags(), &config, cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(newServiceCmd.Flags(), &config, cfgstruct.ConfDir(defaultConfigDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(authorizeCmd.Flags(), &config, cfgstruct.ConfDir(defaultConfigDir), cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func main() {
@@ -120,8 +119,8 @@ func cmdNewService(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("Unsigned identity is located in %q\n", serviceDir)
-	fmt.Println(color.CyanString("Please *move* CA key to secure storage - it is only needed for identity management!"))
-	fmt.Println(color.CyanString("\t%s", caConfig.KeyPath))
+	fmt.Println("Please *move* CA key to secure storage - it is only needed for identity management!")
+	fmt.Printf("\t%s\n", caConfig.KeyPath)
 	return nil
 }
 
@@ -160,7 +159,7 @@ func cmdAuthorize(cmd *cobra.Command, args []string) error {
 		return errs.New("error occurred while signing certificate: %s\n(identity files were still generated and saved, if you try again existing files will be loaded)", err)
 	}
 
-	signedChain, err := identity.ParseCertChain(signedChainBytes)
+	signedChain, err := pkcrypto.CertsFromDER(signedChainBytes)
 	if err != nil {
 		return nil
 	}
@@ -195,10 +194,7 @@ func cmdAuthorize(cmd *cobra.Command, args []string) error {
 }
 
 func printExtensions(cert []byte, exts []pkix.Extension) error {
-	hash, err := pkcrypto.SHA256Hash(cert)
-	if err != nil {
-		return err
-	}
+	hash := pkcrypto.SHA256Hash(cert)
 	b64Hash, err := json.Marshal(hash)
 	if err != nil {
 		return err

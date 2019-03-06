@@ -14,14 +14,29 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/storj/internal/post"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
+	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
+
+// discardSender discard sending of an actual email
+type discardSender struct{}
+
+// SendEmail immediately returns with nil error
+func (*discardSender) SendEmail(msg *post.Message) error {
+	return nil
+}
+
+// FromAddress returns empty post.Address
+func (*discardSender) FromAddress() post.Address {
+	return post.Address{}
+}
 
 func TestGrapqhlMutation(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
@@ -41,7 +56,16 @@ func TestGrapqhlMutation(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		schema, err := consoleql.CreateSchema(service)
+		mailService, err := mailservice.New(log, &discardSender{}, "testdata")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		rootObject := make(map[string]interface{})
+		rootObject["origin"] = "http://doesntmatter.com/"
+		rootObject[consoleql.ActivationPath] = "?activationToken="
+
+		schema, err := consoleql.CreateSchema(service, mailService)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -61,14 +85,10 @@ func TestGrapqhlMutation(t *testing.T) {
 		}
 
 		t.Run("Activate account mutation", func(t *testing.T) {
-			t.Skip("skip it until we will have activation flow ready")
-
-			//TODO(yar): skip it until we will have activation flow ready
 			activationToken, err := service.GenerateActivationToken(
 				ctx,
 				rootUser.ID,
 				createUser.Email,
-				rootUser.CreatedAt.Add(time.Hour*24),
 			)
 			if err != nil {
 				t.Fatal(err)
@@ -80,7 +100,7 @@ func TestGrapqhlMutation(t *testing.T) {
 				Schema:        schema,
 				Context:       ctx,
 				RequestString: query,
-				RootObject:    make(map[string]interface{}),
+				RootObject:    rootObject,
 			})
 
 			for _, err := range result.Errors {
@@ -121,7 +141,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			}
 
 			query := fmt.Sprintf(
-				"mutation {createUser(input:{email:\"%s\",password:\"%s\",firstName:\"%s\",lastName:\"%s\"})}",
+				"mutation {createUser(input:{email:\"%s\",password:\"%s\",firstName:\"%s\",lastName:\"%s\"}){id,lastName,firstName,email,createdAt}}",
 				newUser.Email,
 				newUser.Password,
 				newUser.FirstName,
@@ -132,7 +152,7 @@ func TestGrapqhlMutation(t *testing.T) {
 				Schema:        schema,
 				Context:       ctx,
 				RequestString: query,
-				RootObject:    make(map[string]interface{}),
+				RootObject:    rootObject,
 			})
 
 			for _, err := range result.Errors {
@@ -144,9 +164,10 @@ func TestGrapqhlMutation(t *testing.T) {
 			}
 
 			data := result.Data.(map[string]interface{})
-			id := data[consoleql.CreateUserMutation].(string)
+			usrData := data[consoleql.CreateUserMutation].(map[string]interface{})
+			idStr := usrData["id"].(string)
 
-			uID, err := uuid.Parse(id)
+			uID, err := uuid.Parse(idStr)
 			assert.NoError(t, err)
 
 			user, err := service.GetUser(authCtx, *uID)
@@ -161,7 +182,7 @@ func TestGrapqhlMutation(t *testing.T) {
 				Schema:        schema,
 				Context:       authCtx,
 				RequestString: query,
-				RootObject:    make(map[string]interface{}),
+				RootObject:    rootObject,
 			})
 
 			for _, err := range result.Errors {
@@ -370,14 +391,10 @@ func TestGrapqhlMutation(t *testing.T) {
 		}
 
 		t.Run("Activation", func(t *testing.T) {
-			t.Skip("skip it until we will have activation flow ready")
-
-			//TODO(yar): skip it until we will have activation flow ready
 			activationToken1, err := service.GenerateActivationToken(
 				ctx,
 				user1.ID,
 				"u1@email.net",
-				user1.CreatedAt.Add(time.Hour*24),
 			)
 			if err != nil {
 				t.Fatal(err, project)
@@ -402,14 +419,10 @@ func TestGrapqhlMutation(t *testing.T) {
 		}
 
 		t.Run("Activation", func(t *testing.T) {
-			t.Skip("skip it until we will have activation flow ready")
-
-			//TODO(yar): skip it until we will have activation flow ready
 			activationToken2, err := service.GenerateActivationToken(
 				ctx,
 				user2.ID,
 				"u2@email.net",
-				user2.CreatedAt.Add(time.Hour*24),
 			)
 			if err != nil {
 				t.Fatal(err, project)
@@ -499,17 +512,20 @@ func TestGrapqhlMutation(t *testing.T) {
 			}
 
 			query := fmt.Sprintf(
-				"mutation {deleteAPIKey(id:\"%s\"){name,projectID}}",
-				id.String(),
+				"mutation {deleteAPIKeys(id:[\"%s\"]){name,projectID}}",
+				keyID,
 			)
 
 			result := testQuery(t, query)
-
 			data := result.(map[string]interface{})
-			keyInfo := data[consoleql.DeleteAPIKeyMutation].(map[string]interface{})
+			keyInfoList := data[consoleql.DeleteAPIKeysMutation].([]interface{})
 
-			assert.Equal(t, info.Name, keyInfo[consoleql.FieldName])
-			assert.Equal(t, project.ID.String(), keyInfo[consoleql.FieldProjectID])
+			for _, k := range keyInfoList {
+				keyInfo := k.(map[string]interface{})
+
+				assert.Equal(t, info.Name, keyInfo[consoleql.FieldName])
+				assert.Equal(t, project.ID.String(), keyInfo[consoleql.FieldProjectID])
+			}
 		})
 
 		t.Run("Delete project mutation", func(t *testing.T) {

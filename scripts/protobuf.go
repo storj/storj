@@ -56,6 +56,7 @@ func run(command, root string) error {
 			"github.com/ckaznocha/protoc-gen-lint@68a05858965b31eb872cbeb8d027507a94011acc",
 			// See https://github.com/gogo/protobuf#most-speed-and-most-customization
 			"github.com/gogo/protobuf/protoc-gen-gogo@"+gogoVersion,
+			"github.com/nilslice/protolock/cmd/protolock",
 		)
 	case "generate":
 		return walkdirs(root, generate)
@@ -115,12 +116,26 @@ func install(deps ...string) error {
 func generate(dir string, dirs []string, files []string) error {
 	defer switchdir(dir)()
 
+	cmd := exec.Command("protolock", "status")
+	local, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	cmd.Dir = findProtolockDir(local)
+	out, err := cmd.CombinedOutput()
+	if len(out) > 0 {
+		fmt.Println(string(out))
+	}
+	if err != nil {
+		return err
+	}
+
 	args := []string{"--gogo_out=plugins=grpc:.", "--lint_out=."}
 	args = appendCommonArguments(args, dir, dirs, files)
 
-	cmd := exec.Command(*protoc, args...)
+	cmd = exec.Command(*protoc, args...)
 	fmt.Println(strings.Join(cmd.Args, " "))
-	out, err := cmd.CombinedOutput()
+	out, err = cmd.CombinedOutput()
 	if len(out) > 0 {
 		fmt.Println(string(out))
 	}
@@ -234,4 +249,13 @@ func listProtoFiles(root string) ([]string, error) {
 	})
 
 	return files, err
+}
+
+func findProtolockDir(dir string) string {
+	protolock := filepath.Join(dir, "proto.lock")
+	if _, err := os.Stat(protolock); err != nil {
+		return findProtolockDir(filepath.Dir(dir))
+	}
+
+	return dir
 }

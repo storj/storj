@@ -4,10 +4,12 @@
 package checker_test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
@@ -17,49 +19,23 @@ import (
 )
 
 func TestIdentifyInjuredSegments(t *testing.T) {
-	// TODO note satellite's: own sub-systems need to be disabled
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		time.Sleep(2 * time.Second)
-		const numberOfNodes = 10
-
-		pieces := make([]*pb.RemotePiece, 0, numberOfNodes)
-		// use online nodes
-		for i, storagenode := range planet.StorageNodes {
-			pieces = append(pieces, &pb.RemotePiece{
-				PieceNum: int32(i),
-				NodeId:   storagenode.Identity.ID,
-			})
-		}
-
-		// simulate offline nodes
-		expectedLostPieces := make(map[int32]bool)
-		for i := len(pieces); i < numberOfNodes; i++ {
-			pieces = append(pieces, &pb.RemotePiece{
-				PieceNum: int32(i),
-				NodeId:   storj.NodeID{byte(i)},
-			})
-			expectedLostPieces[int32(i)] = true
-		}
-		pointer := &pb.Pointer{
-			Remote: &pb.RemoteSegment{
-				Redundancy: &pb.RedundancyScheme{
-					MinReq:          int32(4),
-					RepairThreshold: int32(8),
-				},
-				PieceId:      "fake-piece-id",
-				RemotePieces: pieces,
-			},
-		}
-
-		// put test pointer to db
-		pointerdb := planet.Satellites[0].Metainfo.Service
-		err := pointerdb.Put(pointer.Remote.PieceId, pointer)
-		assert.NoError(t, err)
-
 		checker := planet.Satellites[0].Repair.Checker
-		err = checker.IdentifyInjuredSegments(ctx)
+		checker.Loop.Stop()
+
+		//add noise to pointerdb before bad record
+		for x := 0; x < 1000; x++ {
+			makePointer(t, planet, fmt.Sprintf("a-%d", x), false)
+		}
+		//create piece that needs repair
+		makePointer(t, planet, fmt.Sprintf("b"), true)
+		//add more noise to pointerdb after bad record
+		for x := 0; x < 1000; x++ {
+			makePointer(t, planet, fmt.Sprintf("c-%d", x), false)
+		}
+		err := checker.IdentifyInjuredSegments(ctx)
 		assert.NoError(t, err)
 
 		//check if the expected segments were added to the queue
@@ -67,22 +43,24 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 		injuredSegment, err := repairQueue.Dequeue(ctx)
 		assert.NoError(t, err)
 
-		assert.Equal(t, "fake-piece-id", injuredSegment.Path)
-		assert.Equal(t, len(expectedLostPieces), len(injuredSegment.LostPieces))
+		numValidNode := int32(len(planet.StorageNodes))
+		assert.Equal(t, "b", injuredSegment.Path)
+		assert.Equal(t, len(planet.StorageNodes), len(injuredSegment.LostPieces))
 		for _, lostPiece := range injuredSegment.LostPieces {
-			if !expectedLostPieces[lostPiece] {
-				t.Error("should be lost: ", lostPiece)
-			}
+			// makePointer() starts with numValidNode good pieces
+			assert.True(t, lostPiece >= numValidNode, fmt.Sprintf("%d >= %d \n", lostPiece, numValidNode))
+			// makePointer() than has numValidNode bad pieces
+			assert.True(t, lostPiece < numValidNode*2, fmt.Sprintf("%d < %d \n", lostPiece, numValidNode*2))
 		}
 	})
 }
 
 func TestOfflineNodes(t *testing.T) {
-	// TODO note satellite's: own sub-systems need to be disabled
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		time.Sleep(2 * time.Second)
+		checker := planet.Satellites[0].Repair.Checker
+		checker.Loop.Stop()
 
 		const numberOfNodes = 10
 		nodeIDs := storj.NodeIDList{}
@@ -99,7 +77,6 @@ func TestOfflineNodes(t *testing.T) {
 			expectedOffline = append(expectedOffline, int32(i))
 		}
 
-		checker := planet.Satellites[0].Repair.Checker
 		offline, err := checker.OfflineNodes(ctx, nodeIDs)
 		assert.NoError(t, err)
 		assert.Equal(t, expectedOffline, offline)
@@ -107,11 +84,11 @@ func TestOfflineNodes(t *testing.T) {
 }
 
 func TestIdentifyIrreparableSegments(t *testing.T) {
-	// TODO note satellite's: own sub-systems need to be disabled
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 3, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		time.Sleep(2 * time.Second)
+		checker := planet.Satellites[0].Repair.Checker
+		checker.Loop.Stop()
 
 		const numberOfNodes = 10
 		pieces := make([]*pb.RemotePiece, 0, numberOfNodes)
@@ -148,7 +125,6 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		err := pointerdb.Put(pointer.Remote.PieceId, pointer)
 		assert.NoError(t, err)
 
-		checker := planet.Satellites[0].Repair.Checker
 		err = checker.IdentifyInjuredSegments(ctx)
 		assert.NoError(t, err)
 
@@ -179,4 +155,43 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		assert.Equal(t, 2, int(remoteSegmentInfo.RepairAttemptCount))
 		assert.True(t, firstRepair < remoteSegmentInfo.RepairUnixSec)
 	})
+}
+
+func makePointer(t *testing.T, planet *testplanet.Planet, pieceID string, createLost bool) {
+	numOfStorageNodes := len(planet.StorageNodes)
+	pieces := make([]*pb.RemotePiece, 0, numOfStorageNodes)
+	// use online nodes
+	for i := 0; i < numOfStorageNodes; i++ {
+		pieces = append(pieces, &pb.RemotePiece{
+			PieceNum: int32(i),
+			NodeId:   planet.StorageNodes[i].Identity.ID,
+		})
+	}
+	// simulate offline nodes equal to the number of online nodes
+	if createLost {
+		for i := 0; i < numOfStorageNodes; i++ {
+			pieces = append(pieces, &pb.RemotePiece{
+				PieceNum: int32(numOfStorageNodes + i),
+				NodeId:   storj.NodeID{byte(i)},
+			})
+		}
+	}
+	minReq, repairThreshold := numOfStorageNodes-1, numOfStorageNodes-1
+	if createLost {
+		minReq, repairThreshold = numOfStorageNodes-1, numOfStorageNodes+1
+	}
+	pointer := &pb.Pointer{
+		Remote: &pb.RemoteSegment{
+			Redundancy: &pb.RedundancyScheme{
+				MinReq:          int32(minReq),
+				RepairThreshold: int32(repairThreshold),
+			},
+			PieceId:      pieceID,
+			RemotePieces: pieces,
+		},
+	}
+	// put test pointer to db
+	pointerdb := planet.Satellites[0].Metainfo.Service
+	err := pointerdb.Put(pointer.Remote.PieceId, pointer)
+	require.NoError(t, err)
 }

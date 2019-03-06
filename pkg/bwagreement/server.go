@@ -5,16 +5,20 @@ package bwagreement
 
 import (
 	"context"
+	"crypto"
 	"strings"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
+	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -41,7 +45,7 @@ type UplinkStat struct {
 // DB stores bandwidth agreements.
 type DB interface {
 	// CreateAgreement adds a new bandwidth agreement.
-	CreateAgreement(context.Context, *pb.RenterBandwidthAllocation) error
+	CreateAgreement(context.Context, *pb.Order) error
 	// GetTotalsSince returns the sum of each bandwidth type after (exluding) a given date range
 	GetTotals(context.Context, time.Time, time.Time) (map[storj.NodeID][]int64, error)
 	//GetTotals returns stats about an uplink
@@ -50,22 +54,24 @@ type DB interface {
 
 // Server is an implementation of the pb.BandwidthServer interface
 type Server struct {
-	db     DB
+	bwdb   DB
+	certdb certdb.DB
+	pkey   crypto.PublicKey
 	NodeID storj.NodeID
 	logger *zap.Logger
 }
 
 // NewServer creates instance of Server
-func NewServer(db DB, logger *zap.Logger, nodeID storj.NodeID) *Server {
+func NewServer(db DB, upldb certdb.DB, pkey crypto.PublicKey, logger *zap.Logger, nodeID storj.NodeID) *Server {
 	// TODO: reorder arguments, rename logger -> log
-	return &Server{db: db, logger: logger, NodeID: nodeID}
+	return &Server{bwdb: db, certdb: upldb, pkey: pkey, logger: logger, NodeID: nodeID}
 }
 
 // Close closes resources
 func (s *Server) Close() error { return nil }
 
 // BandwidthAgreements receives and stores bandwidth agreements from storage nodes
-func (s *Server) BandwidthAgreements(ctx context.Context, rba *pb.RenterBandwidthAllocation) (reply *pb.AgreementsSummary, err error) {
+func (s *Server) BandwidthAgreements(ctx context.Context, rba *pb.Order) (reply *pb.AgreementsSummary, err error) {
 	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("Received Agreement...")
 	reply = &pb.AgreementsSummary{
@@ -85,16 +91,13 @@ func (s *Server) BandwidthAgreements(ctx context.Context, rba *pb.RenterBandwidt
 	if exp.Before(time.Now().UTC()) {
 		return reply, pb.ErrPayer.Wrap(auth.ErrExpired.New("%v vs %v", exp, time.Now().UTC()))
 	}
-	//verify message crypto
-	if err := auth.VerifyMsg(rba, pba.UplinkId); err != nil {
-		return reply, pb.ErrRenter.Wrap(err)
-	}
-	if err := auth.VerifyMsg(&pba, pba.SatelliteId); err != nil {
-		return reply, pb.ErrPayer.Wrap(err)
+
+	if err = s.verifySignature(ctx, rba); err != nil {
+		return reply, err
 	}
 
 	//save and return rersults
-	if err = s.db.CreateAgreement(ctx, rba); err != nil {
+	if err = s.bwdb.CreateAgreement(ctx, rba); err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") ||
 			strings.Contains(err.Error(), "violates unique constraint") {
 			return reply, pb.ErrPayer.Wrap(auth.ErrSerial.Wrap(err))
@@ -105,4 +108,41 @@ func (s *Server) BandwidthAgreements(ctx context.Context, rba *pb.RenterBandwidt
 	reply.Status = pb.AgreementsSummary_OK
 	s.logger.Debug("Stored Agreement...")
 	return reply, nil
+}
+
+func (s *Server) verifySignature(ctx context.Context, rba *pb.Order) error {
+	pba := rba.GetPayerAllocation()
+
+	// Get renter's public key from uplink agreement db
+	uplinkInfo, err := s.certdb.GetPublicKey(ctx, pba.UplinkId)
+	if err != nil {
+		return pb.ErrRenter.Wrap(auth.ErrVerify.New("Failed to unmarshal OrderLimit: %+v", err))
+	}
+
+	// verify Renter's (uplink) signature
+	rbad := *rba
+	rbad.SetSignature(nil)
+	rbad.SetCerts(nil)
+	rbadBytes, err := proto.Marshal(&rbad)
+	if err != nil {
+		return Error.New("marshalling error: %+v", err)
+	}
+
+	if err := pkcrypto.HashAndVerifySignature(uplinkInfo, rbadBytes, rba.GetSignature()); err != nil {
+		return pb.ErrRenter.Wrap(auth.ErrVerify.Wrap(err))
+	}
+
+	// verify Payer's (satellite) signature
+	pbad := pba
+	pbad.SetSignature(nil)
+	pbad.SetCerts(nil)
+	pbadBytes, err := proto.Marshal(&pbad)
+	if err != nil {
+		return Error.New("marshalling error: %+v", err)
+	}
+
+	if err := pkcrypto.HashAndVerifySignature(s.pkey, pbadBytes, pba.GetSignature()); err != nil {
+		return pb.ErrPayer.Wrap(auth.ErrVerify.Wrap(err))
+	}
+	return nil
 }

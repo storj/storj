@@ -6,15 +6,19 @@ package bootstrap
 import (
 	"context"
 	"net"
+	"net/http"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/bootstrap/bootstrapweb"
+	"storj.io/storj/bootstrap/bootstrapweb/bootstrapserver"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
@@ -38,6 +42,8 @@ type Config struct {
 
 	Server   server.Config
 	Kademlia kademlia.Config
+
+	Web bootstrapserver.Config
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
@@ -67,15 +73,21 @@ type Peer struct {
 		Endpoint     *kademlia.Endpoint
 		Inspector    *kademlia.Inspector
 	}
+
+	// Web server with web UI
+	Web struct {
+		Listener net.Listener
+		Service  *bootstrapweb.Service
+		Endpoint *bootstrapserver.Server
+	}
 }
 
 // New creates a new Bootstrap Node.
 func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*Peer, error) {
 	peer := &Peer{
-		Log:       log,
-		Identity:  full,
-		DB:        db,
-		Transport: transport.NewClient(full),
+		Log:      log,
+		Identity: full,
+		DB:       db,
 	}
 
 	var err error
@@ -86,11 +98,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		publicConfig := server.Config{Address: peer.Public.Listener.Addr().String()}
-		publicOptions, err := server.NewOptions(peer.Identity, publicConfig)
+		publicConfig := config.Server
+		publicConfig.Address = peer.Public.Listener.Addr().String()
+		publicOptions, err := tlsopts.NewOptions(peer.Identity, publicConfig.Config)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+
+		peer.Transport = transport.NewClient(publicOptions)
 
 		peer.Public.Server, err = server.New(publicOptions, peer.Public.Listener, nil)
 		if err != nil {
@@ -124,8 +139,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 			return nil, errs.Combine(err, peer.Close())
 		}
 
+		peer.Transport = peer.Transport.WithObservers(peer.Kademlia.RoutingTable)
+
 		// TODO: reduce number of arguments
-		peer.Kademlia.Service, err = kademlia.NewService(peer.Log.Named("kademlia"), self, config.BootstrapNodes(), peer.Identity, config.Alpha, peer.Kademlia.RoutingTable)
+		peer.Kademlia.Service, err = kademlia.NewService(peer.Log.Named("kademlia"), self, config.BootstrapNodes(), peer.Transport, config.Alpha, peer.Kademlia.RoutingTable)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -135,6 +152,31 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 
 		peer.Kademlia.Inspector = kademlia.NewInspector(peer.Kademlia.Service, peer.Identity)
 		pb.RegisterKadInspectorServer(peer.Public.Server.GRPC(), peer.Kademlia.Inspector)
+	}
+
+	{ // setup bootstrap web ui
+		config := config.Web
+
+		peer.Web.Listener, err = net.Listen("tcp", config.Address)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Web.Service, err = bootstrapweb.NewService(
+			peer.Log.Named("bootstrapWeb:service"),
+			peer.Kademlia.Service,
+		)
+
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Web.Endpoint = bootstrapserver.NewServer(
+			peer.Log.Named("bootstrapWeb:endpoint"),
+			config,
+			peer.Web.Service,
+			peer.Web.Listener,
+		)
 	}
 
 	return peer, nil
@@ -148,19 +190,22 @@ func (peer *Peer) Run(ctx context.Context) error {
 		return ignoreCancel(peer.Kademlia.Service.Bootstrap(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Kademlia.Service.RunRefresh(ctx))
+		return ignoreCancel(peer.Kademlia.Service.Run(ctx))
 	})
 	group.Go(func() error {
 		// TODO: move the message into Server instead
 		peer.Log.Sugar().Infof("Node %s started on %s", peer.Identity.ID, peer.Public.Server.Addr().String())
 		return ignoreCancel(peer.Public.Server.Run(ctx))
 	})
+	group.Go(func() error {
+		return ignoreCancel(peer.Web.Endpoint.Run(ctx))
+	})
 
 	return group.Wait()
 }
 
 func ignoreCancel(err error) error {
-	if err == context.Canceled || err == grpc.ErrServerStopped {
+	if err == context.Canceled || err == grpc.ErrServerStopped || err == http.ErrServerClosed {
 		return nil
 	}
 	return err
@@ -179,6 +224,14 @@ func (peer *Peer) Close() error {
 		// peer.Public.Server automatically closes listener
 		if peer.Public.Listener != nil {
 			errlist.Add(peer.Public.Listener.Close())
+		}
+	}
+
+	if peer.Web.Endpoint != nil {
+		errlist.Add(peer.Web.Endpoint.Close())
+	} else {
+		if peer.Web.Listener != nil {
+			errlist.Add(peer.Web.Listener.Close())
 		}
 	}
 

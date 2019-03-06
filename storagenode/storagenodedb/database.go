@@ -5,9 +5,11 @@ package storagenodedb
 
 import (
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/kademlia"
 	pstore "storj.io/storj/pkg/piecestore"
+	"storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
@@ -27,13 +29,14 @@ type Config struct {
 
 // DB contains access to different database tables
 type DB struct {
-	storage  *pstore.Storage
+	log      *zap.Logger
+	storage  psserver.Storage
 	psdb     *psdb.DB
 	kdb, ndb storage.KeyValueStore
 }
 
 // New creates a new master database for storage node
-func New(config Config) (*DB, error) {
+func New(log *zap.Logger, config Config) (*DB, error) {
 	storage := pstore.NewStorage(config.Storage)
 
 	psdb, err := psdb.Open(config.Info)
@@ -47,6 +50,7 @@ func New(config Config) (*DB, error) {
 	}
 
 	return &DB{
+		log:     log,
 		storage: storage,
 		psdb:    psdb,
 		kdb:     dbs[0],
@@ -56,7 +60,7 @@ func New(config Config) (*DB, error) {
 
 // NewInMemory creates new inmemory master database for storage node
 // TODO: still stores data on disk
-func NewInMemory(storageDir string) (*DB, error) {
+func NewInMemory(log *zap.Logger, storageDir string) (*DB, error) {
 	storage := pstore.NewStorage(storageDir)
 
 	psdb, err := psdb.OpenInMemory()
@@ -65,6 +69,7 @@ func NewInMemory(storageDir string) (*DB, error) {
 	}
 
 	return &DB{
+		log:     log,
 		storage: storage,
 		psdb:    psdb,
 		kdb:     teststore.New(),
@@ -74,7 +79,8 @@ func NewInMemory(storageDir string) (*DB, error) {
 
 // CreateTables creates any necessary tables.
 func (db *DB) CreateTables() error {
-	return nil
+	migration := db.psdb.Migration()
+	return migration.Run(db.log.Named("migration"), db.psdb)
 }
 
 // Close closes any resources.
@@ -88,7 +94,7 @@ func (db *DB) Close() error {
 }
 
 // Storage returns piecestore location
-func (db *DB) Storage() *pstore.Storage {
+func (db *DB) Storage() psserver.Storage {
 	return db.storage
 }
 

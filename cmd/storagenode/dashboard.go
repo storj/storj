@@ -6,12 +6,12 @@ package main
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"runtime"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/golang/protobuf/ptypes"
@@ -21,12 +21,13 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/piecestore/psclient"
+	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/transport"
 )
 
 func dashCmd(cmd *cobra.Command, args []string) (err error) {
-	ctx := context.Background()
+	ctx := process.Ctx(cmd)
 
 	ident, err := runCfg.Identity.Load()
 	if err != nil {
@@ -35,8 +36,14 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Info("Node ID: ", ident.ID)
 	}
 
-	tc := transport.NewClient(ident)
+	tlsOpts, err := tlsopts.NewOptions(ident, tlsopts.Config{})
+	if err != nil {
+		return err
+	}
+
+	tc := transport.NewClient(tlsOpts)
 	n := &pb.Node{
+		Id: ident.ID,
 		Address: &pb.NodeAddress{
 			Address:   dashboardCfg.Address,
 			Transport: 0,
@@ -44,12 +51,7 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 		Type: pb.NodeType_STORAGE,
 	}
 
-	lc, err := psclient.NewLiteClient(ctx, tc, n)
-	if err != nil {
-		return err
-	}
-
-	stream, err := lc.Dashboard(ctx)
+	client, err := newDashboardClient(ctx, tc, n)
 	if err != nil {
 		return err
 	}
@@ -60,18 +62,15 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	for {
-		data, err := stream.Recv()
-		if err == io.EOF {
-			break
-		}
-
+		data, err := client.Dashboard(ctx)
 		if err != nil {
 			return err
 		}
 
 		clearScreen()
-		heading := color.New(color.FgGreen, color.Bold)
+		color.NoColor = !useColor
 
+		heading := color.New(color.FgGreen, color.Bold)
 		_, _ = heading.Printf("\nStorage Node Dashboard\n")
 		_, _ = heading.Printf("\n======================\n\n")
 
@@ -86,9 +85,9 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 
 		uptime, err := ptypes.Duration(data.GetUptime())
 		if err != nil {
-			fmt.Fprintf(w, "Uptime\t%s\n", color.RedString(uptime.String()))
+			fmt.Fprintf(w, "Uptime\t%s\n", color.RedString(uptime.Truncate(time.Second).String()))
 		} else {
-			fmt.Fprintf(w, "Uptime\t%s\n", color.YellowString(uptime.String()))
+			fmt.Fprintf(w, "Uptime\t%s\n", color.YellowString(uptime.Truncate(time.Second).String()))
 		}
 
 		if err = w.Flush(); err != nil {
@@ -123,9 +122,35 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 		if err = w.Flush(); err != nil {
 			return err
 		}
+
+		time.Sleep(3 * time.Second)
+	}
+}
+
+// DashboardClient is the struct that holds the client
+type DashboardClient struct {
+	client pb.PieceStoreInspectorClient
+}
+
+// Dashboard returns a simple terminal dashboard displaying info
+func (dash *DashboardClient) Dashboard(ctx context.Context) (*pb.DashboardResponse, error) {
+	return dash.client.Dashboard(ctx, &pb.DashboardRequest{})
+}
+
+// Stats will retrieve stats about a piece storage node
+func (dash *DashboardClient) Stats(ctx context.Context) (*pb.StatSummaryResponse, error) {
+	return dash.client.Stats(ctx, &pb.StatsRequest{})
+}
+
+func newDashboardClient(ctx context.Context, tc transport.Client, n *pb.Node) (*DashboardClient, error) {
+	conn, err := tc.DialNode(ctx, n)
+	if err != nil {
+		return &DashboardClient{}, err
 	}
 
-	return nil
+	return &DashboardClient{
+		client: pb.NewPieceStoreInspectorClient(conn),
+	}, nil
 }
 
 func whiteInt(value int64) string {

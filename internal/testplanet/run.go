@@ -4,15 +4,15 @@
 package testplanet
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb"
@@ -21,7 +21,7 @@ import (
 
 // Run runs testplanet in multiple configurations.
 func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.Context, planet *Planet)) {
-	schemaSuffix := randomSchemaSuffix()
+	schemaSuffix := pgutil.RandomString(8)
 	t.Log("schema-suffix ", schemaSuffix)
 
 	for _, satelliteDB := range satellitedbtest.Databases() {
@@ -38,9 +38,9 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 
 			planetConfig := config
 			planetConfig.Reconfigure.NewBootstrapDB = nil
-			planetConfig.Reconfigure.NewSatelliteDB = func(index int) (satellite.DB, error) {
+			planetConfig.Reconfigure.NewSatelliteDB = func(log *zap.Logger, index int) (satellite.DB, error) {
 				schema := strings.ToLower(t.Name() + "-satellite/" + strconv.Itoa(index) + "-" + schemaSuffix)
-				db, err := satellitedb.New(satellitedbtest.WithSchema(satelliteDB.URL, schema))
+				db, err := satellitedb.New(log, pgutil.ConnstrWithSchema(satelliteDB.URL, schema))
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -80,10 +80,4 @@ func (db *satelliteSchema) Close() error {
 		db.DB.DropSchema(db.schema),
 		db.DB.Close(),
 	)
-}
-
-func randomSchemaSuffix() string {
-	var data [8]byte
-	_, _ = rand.Read(data[:])
-	return hex.EncodeToString(data[:])
 }

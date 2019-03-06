@@ -138,13 +138,12 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 
 		pieceID := psclient.NewPieceID()
 
-		authorization := s.pdb.SignedMessage()
 		pba, err := s.pdb.PayerBandwidthAllocation(ctx, pb.BandwidthAction_PUT)
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
 
-		successfulNodes, err := s.ec.Put(ctx, nodes, s.rs, pieceID, sizedReader, expiration, pba, authorization)
+		successfulNodes, successfulHashes, err := s.ec.Put(ctx, nodes, s.rs, pieceID, sizedReader, expiration, pba)
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
@@ -155,9 +154,9 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		}
 		path = p
 
-		pointer, err = makeRemotePointer(successfulNodes, s.rs, pieceID, sizedReader.Size(), exp, metadata)
+		pointer, err = makeRemotePointer(successfulNodes, successfulHashes, s.rs, pieceID, sizedReader.Size(), exp, metadata)
 		if err != nil {
-			return Meta{}, err
+			return Meta{}, Error.Wrap(err)
 		}
 	}
 
@@ -219,8 +218,7 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 			node.Type.DPanicOnInvalid("ss get")
 		}
 
-		authorization := s.pdb.SignedMessage()
-		rr, err = s.ec.Get(ctx, selected, rs, pid, pr.GetSegmentSize(), pba, authorization)
+		rr, err = s.ec.Get(ctx, selected, rs, pid, pr.GetSegmentSize(), pba)
 		if err != nil {
 			return nil, Meta{}, Error.Wrap(err)
 		}
@@ -232,7 +230,11 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 }
 
 // makeRemotePointer creates a pointer of type remote
-func makeRemotePointer(nodes []*pb.Node, rs eestream.RedundancyStrategy, pieceID psclient.PieceID, readerSize int64, exp *timestamp.Timestamp, metadata []byte) (pointer *pb.Pointer, err error) {
+func makeRemotePointer(nodes []*pb.Node, hashes []*pb.SignedHash, rs eestream.RedundancyStrategy, pieceID psclient.PieceID, readerSize int64, exp *timestamp.Timestamp, metadata []byte) (pointer *pb.Pointer, err error) {
+	if len(nodes) != len(hashes) {
+		return nil, Error.New("unable to make pointer: size of nodes != size of hashes")
+	}
+
 	var remotePieces []*pb.RemotePiece
 	for i := range nodes {
 		if nodes[i] == nil {
@@ -242,6 +244,7 @@ func makeRemotePointer(nodes []*pb.Node, rs eestream.RedundancyStrategy, pieceID
 		remotePieces = append(remotePieces, &pb.RemotePiece{
 			PieceNum: int32(i),
 			NodeId:   nodes[i].Id,
+			Hash:     hashes[i],
 		})
 	}
 
@@ -270,7 +273,7 @@ func makeRemotePointer(nodes []*pb.Node, rs eestream.RedundancyStrategy, pieceID
 func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pr, nodes, _, err := s.pdb.Get(ctx, path)
+	pr, nodes, pba, err := s.pdb.Get(ctx, path)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -289,9 +292,8 @@ func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) 
 			}
 		}
 
-		authorization := s.pdb.SignedMessage()
 		// ecclient sends delete request
-		err = s.ec.Delete(ctx, nodes, pid, authorization)
+		err = s.ec.Delete(ctx, nodes, pid, pba.SatelliteId)
 		if err != nil {
 			return Error.Wrap(err)
 		}

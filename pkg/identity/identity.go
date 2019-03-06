@@ -7,9 +7,7 @@ import (
 	"bytes"
 	"context"
 	"crypto"
-	"crypto/ecdsa"
 	"crypto/sha256"
-	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
@@ -19,7 +17,6 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 
@@ -61,7 +58,7 @@ type FullIdentity struct {
 type SetupConfig struct {
 	CertPath  string `help:"path to the certificate chain for this identity" default:"$IDENTITYDIR/identity.cert"`
 	KeyPath   string `help:"path to the private key for this identity" default:"$IDENTITYDIR/identity.key"`
-	Overwrite bool   `help:"if true, existing identity certs AND keys will overwritten for" default:"false"`
+	Overwrite bool   `help:"if true, existing identity certs AND keys will overwritten for" default:"false" setup:"true"`
 	Version   string `help:"semantic version of identity storage format" default:"0"`
 }
 
@@ -77,6 +74,49 @@ type PeerConfig struct {
 	CertPath string `help:"path to the certificate chain for this identity" default:"$IDENTITYDIR/identity.cert" user:"true"`
 }
 
+// FullCertificateAuthorityFromPEM loads a FullIdentity from a certificate chain and
+// private key PEM-encoded bytes
+func FullCertificateAuthorityFromPEM(chainPEM, keyPEM []byte) (*FullCertificateAuthority, error) {
+	peerCA, err := PeerCertificateAuthorityFromPEM(chainPEM)
+	if err != nil {
+		return nil, err
+	}
+
+	// NB: there shouldn't be multiple keys in the key file but if there
+	// are, this uses the first one
+	key, err := pkcrypto.PrivateKeyFromPEM(keyPEM)
+	if err != nil {
+		return nil, err
+	}
+
+	return &FullCertificateAuthority{
+		RestChain: peerCA.RestChain,
+		Cert:      peerCA.Cert,
+		Key:       key,
+		ID:        peerCA.ID,
+	}, nil
+}
+
+// PeerCertificateAuthorityFromPEM loads a FullIdentity from a certificate chain and
+// private key PEM-encoded bytes
+func PeerCertificateAuthorityFromPEM(chainPEM []byte) (*PeerCertificateAuthority, error) {
+	chain, err := pkcrypto.CertsFromPEM(chainPEM)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	// NB: the "leaf" cert in a CA chain is the "CA" cert in an identity chain
+	nodeID, err := NodeIDFromKey(chain[peertls.LeafIndex].PublicKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PeerCertificateAuthority{
+		RestChain: chain[peertls.CAIndex:],
+		Cert:      chain[peertls.LeafIndex],
+		ID:        nodeID,
+	}, nil
+}
+
 // FullIdentityFromPEM loads a FullIdentity from a certificate chain and
 // private key PEM-encoded bytes
 func FullIdentityFromPEM(chainPEM, keyPEM []byte) (*FullIdentity, error) {
@@ -85,15 +125,11 @@ func FullIdentityFromPEM(chainPEM, keyPEM []byte) (*FullIdentity, error) {
 		return nil, err
 	}
 
-	keysBytes, err := decodePEM(keyPEM)
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
 	// NB: there shouldn't be multiple keys in the key file but if there
 	// are, this uses the first one
-	key, err := x509.ParseECPrivateKey(keysBytes[0])
+	key, err := pkcrypto.PrivateKeyFromPEM(keyPEM)
 	if err != nil {
-		return nil, errs.New("unable to parse EC private key: %v", err)
+		return nil, err
 	}
 
 	return &FullIdentity{
@@ -108,12 +144,12 @@ func FullIdentityFromPEM(chainPEM, keyPEM []byte) (*FullIdentity, error) {
 // PeerIdentityFromPEM loads a PeerIdentity from a certificate chain and
 // private key PEM-encoded bytes
 func PeerIdentityFromPEM(chainPEM []byte) (*PeerIdentity, error) {
-	chain, err := DecodeAndParseChainPEM(chainPEM)
+	chain, err := pkcrypto.CertsFromPEM(chainPEM)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 	if len(chain) < peertls.CAIndex+1 {
-		return nil, ErrChainLength.New("identity chain does not contain a CA certificate")
+		return nil, pkcrypto.ErrChainLength.New("identity chain does not contain a CA certificate")
 	}
 	nodeID, err := NodeIDFromKey(chain[peertls.CAIndex].PublicKey)
 	if err != nil {
@@ -126,19 +162,6 @@ func PeerIdentityFromPEM(chainPEM []byte) (*PeerIdentity, error) {
 		Leaf:      chain[peertls.LeafIndex],
 		ID:        nodeID,
 	}, nil
-}
-
-// ParseCertChain converts a chain of certificate bytes into x509 certs
-func ParseCertChain(chain [][]byte) ([]*x509.Certificate, error) {
-	c := make([]*x509.Certificate, len(chain))
-	for i, ct := range chain {
-		cp, err := x509.ParseCertificate(ct)
-		if err != nil {
-			return nil, errs.Wrap(err)
-		}
-		c[i] = cp
-	}
-	return c, nil
 }
 
 // PeerIdentityFromCerts loads a PeerIdentity from a pair of leaf and ca x509 certificates
@@ -192,7 +215,7 @@ func NodeIDFromCertPath(certPath string) (storj.NodeID, error) {
 
 // NodeIDFromPEM loads a node ID from certificate bytes
 func NodeIDFromPEM(pemBytes []byte) (storj.NodeID, error) {
-	chain, err := DecodeAndParseChainPEM(pemBytes)
+	chain, err := pkcrypto.CertsFromPEM(pemBytes)
 	if err != nil {
 		return storj.NodeID{}, Error.New("invalid identity certificate")
 	}
@@ -204,14 +227,6 @@ func NodeIDFromPEM(pemBytes []byte) (storj.NodeID, error) {
 
 // NodeIDFromKey hashes a public key and creates a node ID from it
 func NodeIDFromKey(k crypto.PublicKey) (storj.NodeID, error) {
-	if ek, ok := k.(*ecdsa.PublicKey); ok {
-		return NodeIDFromECDSAKey(ek)
-	}
-	return storj.NodeID{}, storj.ErrNodeID.New("invalid key type: %T", k)
-}
-
-// NodeIDFromECDSAKey hashes a public key and creates a node ID from it
-func NodeIDFromECDSAKey(k *ecdsa.PublicKey) (storj.NodeID, error) {
 	// id = sha256(sha256(pkix(k)))
 	kb, err := x509.MarshalPKIXPublicKey(k)
 	if err != nil {
@@ -236,6 +251,15 @@ func NewFullIdentity(ctx context.Context, difficulty uint16, concurrency uint) (
 		return nil, err
 	}
 	return identity, err
+}
+
+// ToChains takes a number of certificate chains and returns them as a 2d slice of chains of certificates.
+func ToChains(chains ...[]*x509.Certificate) [][]*x509.Certificate {
+	combinedChains := make([][]*x509.Certificate, len(chains))
+	for i, chain := range chains {
+		combinedChains[i] = chain
+	}
+	return combinedChains
 }
 
 // Status returns the status of the identity cert/key files for the config
@@ -299,7 +323,7 @@ func (ic Config) Save(fi *FullIdentity) error {
 	}
 
 	if ic.KeyPath != "" {
-		writeKeyErr = pkcrypto.WriteKey(&keyData, fi.Key)
+		writeKeyErr = pkcrypto.WritePrivateKeyPEM(&keyData, fi.Key)
 		writeKeyDataErr = writeKeyData(ic.KeyPath, keyData.Bytes())
 	}
 
@@ -375,67 +399,28 @@ func (ic PeerConfig) SaveBackup(pi *PeerIdentity) error {
 	}.Save(pi)
 }
 
-// ChainRaw returns all of the certificate chain as a 2d byte slice
-func (fi *FullIdentity) ChainRaw() [][]byte {
-	chain := [][]byte{fi.Leaf.Raw, fi.CA.Raw}
+// Chain returns the Identity's certificate chain
+func (fi *FullIdentity) Chain() []*x509.Certificate {
+	return append([]*x509.Certificate{fi.Leaf, fi.CA}, fi.RestChain...)
+}
+
+// RawChain returns all of the certificate chain as a 2d byte slice
+func (fi *FullIdentity) RawChain() [][]byte {
+	chain := fi.Chain()
+	rawChain := make([][]byte, len(chain))
+	for i, cert := range chain {
+		rawChain[i] = cert.Raw
+	}
+	return rawChain
+}
+
+// RawRestChain returns the rest (excluding leaf and CA) of the certificate chain as a 2d byte slice
+func (fi *FullIdentity) RawRestChain() [][]byte {
+	rawChain := make([][]byte, len(fi.RestChain))
 	for _, cert := range fi.RestChain {
-		chain = append(chain, cert.Raw)
+		rawChain = append(rawChain, cert.Raw)
 	}
-	return chain
-}
-
-// RestChainRaw returns the rest (excluding leaf and CA) of the certificate chain as a 2d byte slice
-func (fi *FullIdentity) RestChainRaw() [][]byte {
-	var chain [][]byte
-	for _, cert := range fi.RestChain {
-		chain = append(chain, cert.Raw)
-	}
-	return chain
-}
-
-// ServerOption returns a grpc `ServerOption` for incoming connections
-// to the node with this full identity
-func (fi *FullIdentity) ServerOption(pcvFuncs ...peertls.PeerCertVerificationFunc) (grpc.ServerOption, error) {
-	c, err := peertls.TLSCert(fi.ChainRaw(), fi.Leaf, fi.Key)
-	if err != nil {
-		return nil, err
-	}
-
-	pcvFuncs = append(
-		[]peertls.PeerCertVerificationFunc{peertls.VerifyPeerCertChains},
-		pcvFuncs...,
-	)
-	tlsConfig := &tls.Config{
-		Certificates:       []tls.Certificate{*c},
-		InsecureSkipVerify: true,
-		ClientAuth:         tls.RequireAnyClientCert,
-		VerifyPeerCertificate: peertls.VerifyPeerFunc(
-			pcvFuncs...,
-		),
-	}
-
-	return grpc.Creds(credentials.NewTLS(tlsConfig)), nil
-}
-
-// DialOption returns a grpc `DialOption` for making outgoing connections
-// to the node with this peer identity
-// id is an optional id of the node we are dialing
-func (fi *FullIdentity) DialOption(id storj.NodeID) (grpc.DialOption, error) {
-	c, err := peertls.TLSCert(fi.ChainRaw(), fi.Leaf, fi.Key)
-	if err != nil {
-		return nil, err
-	}
-
-	tlsConfig := &tls.Config{
-		Certificates:       []tls.Certificate{*c},
-		InsecureSkipVerify: true,
-		VerifyPeerCertificate: peertls.VerifyPeerFunc(
-			peertls.VerifyPeerCertChains,
-			verifyIdentity(id),
-		),
-	}
-
-	return grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)), nil
+	return rawChain
 }
 
 // PeerIdentity converts a FullIdentity into a PeerIdentity
@@ -445,26 +430,6 @@ func (fi *FullIdentity) PeerIdentity() *PeerIdentity {
 		Leaf:      fi.Leaf,
 		ID:        fi.ID,
 		RestChain: fi.RestChain,
-	}
-}
-
-func verifyIdentity(id storj.NodeID) peertls.PeerCertVerificationFunc {
-	return func(_ [][]byte, parsedChains [][]*x509.Certificate) (err error) {
-		defer mon.TaskNamed("verifyIdentity")(nil)(&err)
-		if id == (storj.NodeID{}) {
-			return nil
-		}
-
-		peer, err := PeerIdentityFromCerts(parsedChains[0][0], parsedChains[0][1], parsedChains[0][2:])
-		if err != nil {
-			return err
-		}
-
-		if peer.ID.String() != id.String() {
-			return Error.New("peer ID did not match requested ID")
-		}
-
-		return nil
 	}
 }
 

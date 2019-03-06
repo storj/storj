@@ -59,18 +59,21 @@ var (
 		Annotations: map[string]string{"type": "setup"},
 	}
 	diagCmd = &cobra.Command{
-		Use:   "diag",
-		Short: "Diagnostic Tool support",
-		RunE:  cmdDiag,
+		Use:         "diag",
+		Short:       "Diagnostic Tool support",
+		RunE:        cmdDiag,
+		Annotations: map[string]string{"type": "helper"},
 	}
 	dashboardCmd = &cobra.Command{
-		Use:   "dashboard",
-		Short: "Display a dashbaord",
-		RunE:  dashCmd,
+		Use:         "dashboard",
+		Short:       "Display a dashbaord",
+		RunE:        dashCmd,
+		Annotations: map[string]string{"type": "helper"},
 	}
 	runCfg   StorageNodeFlags
 	setupCfg StorageNodeFlags
 
+	diagCfg      storagenode.Config
 	dashboardCfg struct {
 		Address         string `default:":28967" help:"address for dashboard service"`
 		ExternalAddress string `default:":28967" help:"address that your node is listening on if using a tunneling service"`
@@ -83,6 +86,7 @@ var (
 	defaultDiagDir     string
 	confDir            string
 	identityDir        string
+	useColor           bool
 )
 
 const (
@@ -109,6 +113,7 @@ func init() {
 	if err != nil {
 		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
 	}
+	rootCmd.PersistentFlags().BoolVar(&useColor, "color", false, "use color in user interface")
 
 	defaultDiagDir = filepath.Join(defaultConfDir, "storage")
 	rootCmd.AddCommand(runCmd)
@@ -119,7 +124,7 @@ func init() {
 	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 	cfgstruct.BindSetup(configCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.Bind(diagCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 	cfgstruct.Bind(dashboardCmd.Flags(), &dashboardCfg, cfgstruct.ConfDir(defaultDiagDir))
 }
 
@@ -149,7 +154,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Error("Failed to initialize telemetry batcher: ", err)
 	}
 
-	db, err := storagenodedb.New(databaseConfig(runCfg.Config))
+	db, err := storagenodedb.New(log.Named("db"), databaseConfig(runCfg.Config))
 
 	if err != nil {
 		return errs.New("Error starting master database on storagenode: %+v", err)
@@ -243,7 +248,7 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	db, err := storagenodedb.New(databaseConfig(runCfg.Config))
+	db, err := storagenodedb.New(zap.L().Named("db"), databaseConfig(diagCfg))
 	if err != nil {
 		return errs.New("Error starting master database on storagenode: %v", err)
 	}

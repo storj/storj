@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -299,6 +298,22 @@ CREATE TABLE accounting_timestamps (
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
 );
+CREATE TABLE bucket_usages (
+	id bytea NOT NULL,
+	bucket_id bytea NOT NULL,
+	rollup_end_time timestamp with time zone NOT NULL,
+	remote_stored_data bigint NOT NULL,
+	inline_stored_data bigint NOT NULL,
+	remote_segments integer NOT NULL,
+	inline_segments integer NOT NULL,
+	objects integer NOT NULL,
+	metadata_size bigint NOT NULL,
+	repair_egress bigint NOT NULL,
+	get_egress bigint NOT NULL,
+	audit_egress bigint NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( rollup_end_time, bucket_id )
+);
 CREATE TABLE bwagreements (
 	serialnum text NOT NULL,
 	storage_node_id bytea NOT NULL,
@@ -308,6 +323,12 @@ CREATE TABLE bwagreements (
 	created_at timestamp with time zone NOT NULL,
 	expires_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( serialnum )
+);
+CREATE TABLE certRecords (
+	publickey bytea NOT NULL,
+	id bytea NOT NULL,
+	update_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
 );
 CREATE TABLE injuredsegments (
 	id bigserial NOT NULL,
@@ -332,6 +353,8 @@ CREATE TABLE nodes (
 	uptime_ratio double precision NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
+	wallet text NOT NULL,
+	email text NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE overlay_cache_nodes (
@@ -364,11 +387,11 @@ CREATE TABLE users (
 	id bytea NOT NULL,
 	first_name text NOT NULL,
 	last_name text NOT NULL,
-	email text,
+	email text NOT NULL,
 	password_hash bytea NOT NULL,
+	status integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( email )
+	PRIMARY KEY ( id )
 );
 CREATE TABLE api_keys (
 	id bytea NOT NULL,
@@ -475,6 +498,22 @@ CREATE TABLE accounting_timestamps (
 	value TIMESTAMP NOT NULL,
 	PRIMARY KEY ( name )
 );
+CREATE TABLE bucket_usages (
+	id BLOB NOT NULL,
+	bucket_id BLOB NOT NULL,
+	rollup_end_time TIMESTAMP NOT NULL,
+	remote_stored_data INTEGER NOT NULL,
+	inline_stored_data INTEGER NOT NULL,
+	remote_segments INTEGER NOT NULL,
+	inline_segments INTEGER NOT NULL,
+	objects INTEGER NOT NULL,
+	metadata_size INTEGER NOT NULL,
+	repair_egress INTEGER NOT NULL,
+	get_egress INTEGER NOT NULL,
+	audit_egress INTEGER NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( rollup_end_time, bucket_id )
+);
 CREATE TABLE bwagreements (
 	serialnum TEXT NOT NULL,
 	storage_node_id BLOB NOT NULL,
@@ -484,6 +523,12 @@ CREATE TABLE bwagreements (
 	created_at TIMESTAMP NOT NULL,
 	expires_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( serialnum )
+);
+CREATE TABLE certRecords (
+	publickey BLOB NOT NULL,
+	id BLOB NOT NULL,
+	update_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id )
 );
 CREATE TABLE injuredsegments (
 	id INTEGER NOT NULL,
@@ -508,6 +553,8 @@ CREATE TABLE nodes (
 	uptime_ratio REAL NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	updated_at TIMESTAMP NOT NULL,
+	wallet TEXT NOT NULL,
+	email TEXT NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE overlay_cache_nodes (
@@ -540,11 +587,11 @@ CREATE TABLE users (
 	id BLOB NOT NULL,
 	first_name TEXT NOT NULL,
 	last_name TEXT NOT NULL,
-	email TEXT,
+	email TEXT NOT NULL,
 	password_hash BLOB NOT NULL,
+	status INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( email )
+	PRIMARY KEY ( id )
 );
 CREATE TABLE api_keys (
 	id BLOB NOT NULL,
@@ -989,6 +1036,254 @@ func (f AccountingTimestamps_Value_Field) value() interface{} {
 
 func (AccountingTimestamps_Value_Field) _Column() string { return "value" }
 
+type BucketUsage struct {
+	Id               []byte
+	BucketId         []byte
+	RollupEndTime    time.Time
+	RemoteStoredData uint64
+	InlineStoredData uint64
+	RemoteSegments   uint
+	InlineSegments   uint
+	Objects          uint
+	MetadataSize     uint64
+	RepairEgress     uint64
+	GetEgress        uint64
+	AuditEgress      uint64
+}
+
+func (BucketUsage) _Table() string { return "bucket_usages" }
+
+type BucketUsage_Update_Fields struct {
+}
+
+type BucketUsage_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func BucketUsage_Id(v []byte) BucketUsage_Id_Field {
+	return BucketUsage_Id_Field{_set: true, _value: v}
+}
+
+func (f BucketUsage_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketUsage_Id_Field) _Column() string { return "id" }
+
+type BucketUsage_BucketId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func BucketUsage_BucketId(v []byte) BucketUsage_BucketId_Field {
+	return BucketUsage_BucketId_Field{_set: true, _value: v}
+}
+
+func (f BucketUsage_BucketId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketUsage_BucketId_Field) _Column() string { return "bucket_id" }
+
+type BucketUsage_RollupEndTime_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func BucketUsage_RollupEndTime(v time.Time) BucketUsage_RollupEndTime_Field {
+	return BucketUsage_RollupEndTime_Field{_set: true, _value: v}
+}
+
+func (f BucketUsage_RollupEndTime_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketUsage_RollupEndTime_Field) _Column() string { return "rollup_end_time" }
+
+type BucketUsage_RemoteStoredData_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func BucketUsage_RemoteStoredData(v uint64) BucketUsage_RemoteStoredData_Field {
+	return BucketUsage_RemoteStoredData_Field{_set: true, _value: v}
+}
+
+func (f BucketUsage_RemoteStoredData_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketUsage_RemoteStoredData_Field) _Column() string { return "remote_stored_data" }
+
+type BucketUsage_InlineStoredData_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func BucketUsage_InlineStoredData(v uint64) BucketUsage_InlineStoredData_Field {
+	return BucketUsage_InlineStoredData_Field{_set: true, _value: v}
+}
+
+func (f BucketUsage_InlineStoredData_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketUsage_InlineStoredData_Field) _Column() string { return "inline_stored_data" }
+
+type BucketUsage_RemoteSegments_Field struct {
+	_set   bool
+	_null  bool
+	_value uint
+}
+
+func BucketUsage_RemoteSegments(v uint) BucketUsage_RemoteSegments_Field {
+	return BucketUsage_RemoteSegments_Field{_set: true, _value: v}
+}
+
+func (f BucketUsage_RemoteSegments_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketUsage_RemoteSegments_Field) _Column() string { return "remote_segments" }
+
+type BucketUsage_InlineSegments_Field struct {
+	_set   bool
+	_null  bool
+	_value uint
+}
+
+func BucketUsage_InlineSegments(v uint) BucketUsage_InlineSegments_Field {
+	return BucketUsage_InlineSegments_Field{_set: true, _value: v}
+}
+
+func (f BucketUsage_InlineSegments_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketUsage_InlineSegments_Field) _Column() string { return "inline_segments" }
+
+type BucketUsage_Objects_Field struct {
+	_set   bool
+	_null  bool
+	_value uint
+}
+
+func BucketUsage_Objects(v uint) BucketUsage_Objects_Field {
+	return BucketUsage_Objects_Field{_set: true, _value: v}
+}
+
+func (f BucketUsage_Objects_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketUsage_Objects_Field) _Column() string { return "objects" }
+
+type BucketUsage_MetadataSize_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func BucketUsage_MetadataSize(v uint64) BucketUsage_MetadataSize_Field {
+	return BucketUsage_MetadataSize_Field{_set: true, _value: v}
+}
+
+func (f BucketUsage_MetadataSize_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketUsage_MetadataSize_Field) _Column() string { return "metadata_size" }
+
+type BucketUsage_RepairEgress_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func BucketUsage_RepairEgress(v uint64) BucketUsage_RepairEgress_Field {
+	return BucketUsage_RepairEgress_Field{_set: true, _value: v}
+}
+
+func (f BucketUsage_RepairEgress_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketUsage_RepairEgress_Field) _Column() string { return "repair_egress" }
+
+type BucketUsage_GetEgress_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func BucketUsage_GetEgress(v uint64) BucketUsage_GetEgress_Field {
+	return BucketUsage_GetEgress_Field{_set: true, _value: v}
+}
+
+func (f BucketUsage_GetEgress_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketUsage_GetEgress_Field) _Column() string { return "get_egress" }
+
+type BucketUsage_AuditEgress_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func BucketUsage_AuditEgress(v uint64) BucketUsage_AuditEgress_Field {
+	return BucketUsage_AuditEgress_Field{_set: true, _value: v}
+}
+
+func (f BucketUsage_AuditEgress_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketUsage_AuditEgress_Field) _Column() string { return "audit_egress" }
+
 type Bwagreement struct {
 	Serialnum     string
 	StorageNodeId []byte
@@ -1136,6 +1431,74 @@ func (f Bwagreement_ExpiresAt_Field) value() interface{} {
 }
 
 func (Bwagreement_ExpiresAt_Field) _Column() string { return "expires_at" }
+
+type CertRecord struct {
+	Publickey []byte
+	Id        []byte
+	UpdateAt  time.Time
+}
+
+func (CertRecord) _Table() string { return "certRecords" }
+
+type CertRecord_Update_Fields struct {
+}
+
+type CertRecord_Publickey_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func CertRecord_Publickey(v []byte) CertRecord_Publickey_Field {
+	return CertRecord_Publickey_Field{_set: true, _value: v}
+}
+
+func (f CertRecord_Publickey_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CertRecord_Publickey_Field) _Column() string { return "publickey" }
+
+type CertRecord_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func CertRecord_Id(v []byte) CertRecord_Id_Field {
+	return CertRecord_Id_Field{_set: true, _value: v}
+}
+
+func (f CertRecord_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CertRecord_Id_Field) _Column() string { return "id" }
+
+type CertRecord_UpdateAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func CertRecord_UpdateAt(v time.Time) CertRecord_UpdateAt_Field {
+	return CertRecord_UpdateAt_Field{_set: true, _value: v}
+}
+
+func (f CertRecord_UpdateAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CertRecord_UpdateAt_Field) _Column() string { return "update_at" }
 
 type Injuredsegment struct {
 	Id   int64
@@ -1307,6 +1670,8 @@ type Node struct {
 	UptimeRatio        float64
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
+	Wallet             string
+	Email              string
 }
 
 func (Node) _Table() string { return "nodes" }
@@ -1318,6 +1683,8 @@ type Node_Update_Fields struct {
 	UptimeSuccessCount Node_UptimeSuccessCount_Field
 	TotalUptimeCount   Node_TotalUptimeCount_Field
 	UptimeRatio        Node_UptimeRatio_Field
+	Wallet             Node_Wallet_Field
+	Email              Node_Email_Field
 }
 
 type Node_Id_Field struct {
@@ -1490,6 +1857,44 @@ func (f Node_UpdatedAt_Field) value() interface{} {
 }
 
 func (Node_UpdatedAt_Field) _Column() string { return "updated_at" }
+
+type Node_Wallet_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Node_Wallet(v string) Node_Wallet_Field {
+	return Node_Wallet_Field{_set: true, _value: v}
+}
+
+func (f Node_Wallet_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Node_Wallet_Field) _Column() string { return "wallet" }
+
+type Node_Email_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Node_Email(v string) Node_Email_Field {
+	return Node_Email_Field{_set: true, _value: v}
+}
+
+func (f Node_Email_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Node_Email_Field) _Column() string { return "email" }
 
 type OverlayCacheNode struct {
 	NodeId             []byte
@@ -1905,22 +2310,20 @@ type User struct {
 	Id           []byte
 	FirstName    string
 	LastName     string
-	Email        *string
+	Email        string
 	PasswordHash []byte
+	Status       int
 	CreatedAt    time.Time
 }
 
 func (User) _Table() string { return "users" }
-
-type User_Create_Fields struct {
-	Email User_Email_Field
-}
 
 type User_Update_Fields struct {
 	FirstName    User_FirstName_Field
 	LastName     User_LastName_Field
 	Email        User_Email_Field
 	PasswordHash User_PasswordHash_Field
+	Status       User_Status_Field
 }
 
 type User_Id_Field struct {
@@ -1983,25 +2386,12 @@ func (User_LastName_Field) _Column() string { return "last_name" }
 type User_Email_Field struct {
 	_set   bool
 	_null  bool
-	_value *string
+	_value string
 }
 
 func User_Email(v string) User_Email_Field {
-	return User_Email_Field{_set: true, _value: &v}
+	return User_Email_Field{_set: true, _value: v}
 }
-
-func User_Email_Raw(v *string) User_Email_Field {
-	if v == nil {
-		return User_Email_Null()
-	}
-	return User_Email(*v)
-}
-
-func User_Email_Null() User_Email_Field {
-	return User_Email_Field{_set: true, _null: true}
-}
-
-func (f User_Email_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
 func (f User_Email_Field) value() interface{} {
 	if !f._set || f._null {
@@ -2030,6 +2420,25 @@ func (f User_PasswordHash_Field) value() interface{} {
 }
 
 func (User_PasswordHash_Field) _Column() string { return "password_hash" }
+
+type User_Status_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func User_Status(v int) User_Status_Field {
+	return User_Status_Field{_set: true, _value: v}
+}
+
+func (f User_Status_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (User_Status_Field) _Column() string { return "status" }
 
 type User_CreatedAt_Field struct {
 	_set   bool
@@ -2282,10 +2691,54 @@ func __sqlbundle_Render(dialect __sqlbundle_Dialect, sql __sqlbundle_SQL, ops ..
 	return dialect.Rebind(out)
 }
 
-var __sqlbundle_reSpace = regexp.MustCompile(`\s+`)
+func __sqlbundle_flattenSQL(x string) string {
+	// trim whitespace from beginning and end
+	s, e := 0, len(x)-1
+	for s < len(x) && (x[s] == ' ' || x[s] == '\t' || x[s] == '\n') {
+		s++
+	}
+	for s <= e && (x[e] == ' ' || x[e] == '\t' || x[e] == '\n') {
+		e--
+	}
+	if s > e {
+		return ""
+	}
+	x = x[s : e+1]
 
-func __sqlbundle_flattenSQL(s string) string {
-	return strings.TrimSpace(__sqlbundle_reSpace.ReplaceAllString(s, " "))
+	// check for whitespace that needs fixing
+	wasSpace := false
+	for i := 0; i < len(x); i++ {
+		r := x[i]
+		justSpace := r == ' '
+		if (wasSpace && justSpace) || r == '\t' || r == '\n' {
+			// whitespace detected, start writing a new string
+			var result strings.Builder
+			result.Grow(len(x))
+			if wasSpace {
+				result.WriteString(x[:i-1])
+			} else {
+				result.WriteString(x[:i])
+			}
+			for p := i; p < len(x); p++ {
+				for p < len(x) && (x[p] == ' ' || x[p] == '\t' || x[p] == '\n') {
+					p++
+				}
+				result.WriteByte(' ')
+
+				start := p
+				for p < len(x) && !(x[p] == ' ' || x[p] == '\t' || x[p] == '\n') {
+					p++
+				}
+				result.WriteString(x[start:p])
+			}
+
+			return result.String()
+		}
+		wasSpace = justSpace
+	}
+
+	// no problematic whitespace found
+	return x
 }
 
 // this type is specially named to match up with the name returned by the
@@ -2364,6 +2817,8 @@ type __sqlbundle_Condition struct {
 func (*__sqlbundle_Condition) private() {}
 
 func (c *__sqlbundle_Condition) Render() string {
+	// TODO(jeff): maybe check if we can use placeholders instead of the
+	// literal null: this would make the templates easier.
 
 	switch {
 	case c.Equal && c.Null:
@@ -2397,23 +2852,6 @@ func (h *__sqlbundle_Hole) Render() string { return h.SQL.Render() }
 
 type Id_Row struct {
 	Id []byte
-}
-
-type Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_Row struct {
-	Node_Id                         []byte
-	Node_CreatedAt                  time.Time
-	Node_AuditSuccessRatio          float64
-	AccountingRollup_StartTime      time.Time
-	AccountingRollup_PutTotal       int64
-	AccountingRollup_GetTotal       int64
-	AccountingRollup_GetAuditTotal  int64
-	AccountingRollup_GetRepairTotal int64
-	AccountingRollup_PutRepairTotal int64
-	AccountingRollup_AtRestTotal    float64
-}
-
-type OperatorWallet_Row struct {
-	OperatorWallet string
 }
 
 type Value_Row struct {
@@ -2567,7 +3005,9 @@ func (obj *postgresImpl) Create_Node(ctx context.Context,
 	node_audit_success_ratio Node_AuditSuccessRatio_Field,
 	node_uptime_success_count Node_UptimeSuccessCount_Field,
 	node_total_uptime_count Node_TotalUptimeCount_Field,
-	node_uptime_ratio Node_UptimeRatio_Field) (
+	node_uptime_ratio Node_UptimeRatio_Field,
+	node_wallet Node_Wallet_Field,
+	node_email Node_Email_Field) (
 	node *Node, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
@@ -2580,14 +3020,16 @@ func (obj *postgresImpl) Create_Node(ctx context.Context,
 	__uptime_ratio_val := node_uptime_ratio.value()
 	__created_at_val := __now
 	__updated_at_val := __now
+	__wallet_val := node_wallet.value()
+	__email_val := node_email.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, audit_success_count, total_audit_count, audit_success_ratio, uptime_success_count, total_uptime_count, uptime_ratio, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, audit_success_count, total_audit_count, audit_success_ratio, uptime_success_count, total_uptime_count, uptime_ratio, created_at, updated_at, wallet, email ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val)
+	obj.logStmt(__stmt, __id_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val, __wallet_val, __email_val)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt, __id_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val, __wallet_val, __email_val).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -2665,25 +3107,26 @@ func (obj *postgresImpl) Create_User(ctx context.Context,
 	user_id User_Id_Field,
 	user_first_name User_FirstName_Field,
 	user_last_name User_LastName_Field,
-	user_password_hash User_PasswordHash_Field,
-	optional User_Create_Fields) (
+	user_email User_Email_Field,
+	user_password_hash User_PasswordHash_Field) (
 	user *User, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__id_val := user_id.value()
 	__first_name_val := user_first_name.value()
 	__last_name_val := user_last_name.value()
-	__email_val := optional.Email.value()
+	__email_val := user_email.value()
 	__password_hash_val := user_password_hash.value()
+	__status_val := int(0)
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO users ( id, first_name, last_name, email, password_hash, created_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING users.id, users.first_name, users.last_name, users.email, users.password_hash, users.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO users ( id, first_name, last_name, email, password_hash, status, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) RETURNING users.id, users.first_name, users.last_name, users.email, users.password_hash, users.status, users.created_at")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __first_name_val, __last_name_val, __email_val, __password_hash_val, __created_at_val)
+	obj.logStmt(__stmt, __id_val, __first_name_val, __last_name_val, __email_val, __password_hash_val, __status_val, __created_at_val)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __first_name_val, __last_name_val, __email_val, __password_hash_val, __created_at_val).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __id_val, __first_name_val, __last_name_val, __email_val, __password_hash_val, __status_val, __created_at_val).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.Status, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -2766,6 +3209,71 @@ func (obj *postgresImpl) Create_ApiKey(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return api_key, nil
+
+}
+
+func (obj *postgresImpl) Create_BucketUsage(ctx context.Context,
+	bucket_usage_id BucketUsage_Id_Field,
+	bucket_usage_bucket_id BucketUsage_BucketId_Field,
+	bucket_usage_rollup_end_time BucketUsage_RollupEndTime_Field,
+	bucket_usage_remote_stored_data BucketUsage_RemoteStoredData_Field,
+	bucket_usage_inline_stored_data BucketUsage_InlineStoredData_Field,
+	bucket_usage_remote_segments BucketUsage_RemoteSegments_Field,
+	bucket_usage_inline_segments BucketUsage_InlineSegments_Field,
+	bucket_usage_objects BucketUsage_Objects_Field,
+	bucket_usage_metadata_size BucketUsage_MetadataSize_Field,
+	bucket_usage_repair_egress BucketUsage_RepairEgress_Field,
+	bucket_usage_get_egress BucketUsage_GetEgress_Field,
+	bucket_usage_audit_egress BucketUsage_AuditEgress_Field) (
+	bucket_usage *BucketUsage, err error) {
+	__id_val := bucket_usage_id.value()
+	__bucket_id_val := bucket_usage_bucket_id.value()
+	__rollup_end_time_val := bucket_usage_rollup_end_time.value()
+	__remote_stored_data_val := bucket_usage_remote_stored_data.value()
+	__inline_stored_data_val := bucket_usage_inline_stored_data.value()
+	__remote_segments_val := bucket_usage_remote_segments.value()
+	__inline_segments_val := bucket_usage_inline_segments.value()
+	__objects_val := bucket_usage_objects.value()
+	__metadata_size_val := bucket_usage_metadata_size.value()
+	__repair_egress_val := bucket_usage_repair_egress.value()
+	__get_egress_val := bucket_usage_get_egress.value()
+	__audit_egress_val := bucket_usage_audit_egress.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_usages ( id, bucket_id, rollup_end_time, remote_stored_data, inline_stored_data, remote_segments, inline_segments, objects, metadata_size, repair_egress, get_egress, audit_egress ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __id_val, __bucket_id_val, __rollup_end_time_val, __remote_stored_data_val, __inline_stored_data_val, __remote_segments_val, __inline_segments_val, __objects_val, __metadata_size_val, __repair_egress_val, __get_egress_val, __audit_egress_val)
+
+	bucket_usage = &BucketUsage{}
+	err = obj.driver.QueryRow(__stmt, __id_val, __bucket_id_val, __rollup_end_time_val, __remote_stored_data_val, __inline_stored_data_val, __remote_segments_val, __inline_segments_val, __objects_val, __metadata_size_val, __repair_egress_val, __get_egress_val, __audit_egress_val).Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket_usage, nil
+
+}
+
+func (obj *postgresImpl) Create_CertRecord(ctx context.Context,
+	certRecord_publickey CertRecord_Publickey_Field,
+	certRecord_id CertRecord_Id_Field) (
+	certRecord *CertRecord, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__publickey_val := certRecord_publickey.value()
+	__id_val := certRecord_id.value()
+	__update_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO certRecords ( publickey, id, update_at ) VALUES ( ?, ?, ? ) RETURNING certRecords.publickey, certRecords.id, certRecords.update_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __publickey_val, __id_val, __update_at_val)
+
+	certRecord = &CertRecord{}
+	err = obj.driver.QueryRow(__stmt, __publickey_val, __id_val, __update_at_val).Scan(&certRecord.Publickey, &certRecord.Id, &certRecord.UpdateAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return certRecord, nil
 
 }
 
@@ -3058,7 +3566,7 @@ func (obj *postgresImpl) Get_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field) (
 	node *Node, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at FROM nodes WHERE nodes.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email FROM nodes WHERE nodes.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, node_id.value())
@@ -3067,7 +3575,7 @@ func (obj *postgresImpl) Get_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -3107,40 +3615,6 @@ func (obj *postgresImpl) All_Node_Id(ctx context.Context) (
 
 }
 
-func (obj *postgresImpl) All_Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_By_AccountingRollup_StartTime_GreaterOrEqual_And_AccountingRollup_StartTime_Less_OrderBy_Asc_Node_Id(ctx context.Context,
-	accounting_rollup_start_time_greater_or_equal AccountingRollup_StartTime_Field,
-	accounting_rollup_start_time_less AccountingRollup_StartTime_Field) (
-	rows []*Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_Row, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.created_at, nodes.audit_success_ratio, accounting_rollups.start_time, accounting_rollups.put_total, accounting_rollups.get_total, accounting_rollups.get_audit_total, accounting_rollups.get_repair_total, accounting_rollups.put_repair_total, accounting_rollups.at_rest_total FROM nodes  JOIN accounting_rollups ON nodes.id = accounting_rollups.node_id WHERE accounting_rollups.start_time >= ? AND accounting_rollups.start_time < ? ORDER BY nodes.id")
-
-	var __values []interface{}
-	__values = append(__values, accounting_rollup_start_time_greater_or_equal.value(), accounting_rollup_start_time_less.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		row := &Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_Row{}
-		err = __rows.Scan(&row.Node_Id, &row.Node_CreatedAt, &row.Node_AuditSuccessRatio, &row.AccountingRollup_StartTime, &row.AccountingRollup_PutTotal, &row.AccountingRollup_GetTotal, &row.AccountingRollup_GetAuditTotal, &row.AccountingRollup_GetRepairTotal, &row.AccountingRollup_PutRepairTotal, &row.AccountingRollup_AtRestTotal)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, row)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
 func (obj *postgresImpl) Get_OverlayCacheNode_By_NodeId(ctx context.Context,
 	overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
 	overlay_cache_node *OverlayCacheNode, err error) {
@@ -3159,27 +3633,6 @@ func (obj *postgresImpl) Get_OverlayCacheNode_By_NodeId(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return overlay_cache_node, nil
-
-}
-
-func (obj *postgresImpl) Get_OverlayCacheNode_OperatorWallet_By_NodeId(ctx context.Context,
-	overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
-	row *OperatorWallet_Row, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT overlay_cache_nodes.operator_wallet FROM overlay_cache_nodes WHERE overlay_cache_nodes.node_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, overlay_cache_node_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	row = &OperatorWallet_Row{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&row.OperatorWallet)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return row, nil
 
 }
 
@@ -3288,30 +3741,45 @@ func (obj *postgresImpl) Limited_Injuredsegment(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Get_User_By_Email(ctx context.Context,
+func (obj *postgresImpl) Get_User_By_Email_And_Status_Not_Number(ctx context.Context,
 	user_email User_Email_Field) (
 	user *User, err error) {
 
-	var __cond_0 = &__sqlbundle_Condition{Left: "users.email", Equal: true, Right: "?", Null: true}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.created_at FROM users WHERE "), __cond_0}}
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.status, users.created_at FROM users WHERE users.email = ? AND users.status != 0 LIMIT 2")
 
 	var __values []interface{}
-	__values = append(__values)
-
-	if !user_email.isnull() {
-		__cond_0.Null = false
-		__values = append(__values, user_email.value())
-	}
+	__values = append(__values, user_email.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.CreatedAt)
+	__rows, err := obj.driver.Query(__stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
+	defer __rows.Close()
+
+	if !__rows.Next() {
+		if err := __rows.Err(); err != nil {
+			return nil, obj.makeErr(err)
+		}
+		return nil, makeErr(sql.ErrNoRows)
+	}
+
+	user = &User{}
+	err = __rows.Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.Status, &user.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	if __rows.Next() {
+		return nil, tooManyRows("User_By_Email_And_Status_Not_Number")
+	}
+
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+
 	return user, nil
 
 }
@@ -3320,7 +3788,7 @@ func (obj *postgresImpl) Get_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	user *User, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.created_at FROM users WHERE users.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.status, users.created_at FROM users WHERE users.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, user_id.value())
@@ -3329,7 +3797,7 @@ func (obj *postgresImpl) Get_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.Status, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -3567,6 +4035,124 @@ func (obj *postgresImpl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Co
 
 }
 
+func (obj *postgresImpl) Get_BucketUsage_By_Id(ctx context.Context,
+	bucket_usage_id BucketUsage_Id_Field) (
+	bucket_usage *BucketUsage, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_usage_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket_usage = &BucketUsage{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket_usage, nil
+
+}
+
+func (obj *postgresImpl) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Asc_RollupEndTime(ctx context.Context,
+	bucket_usage_bucket_id BucketUsage_BucketId_Field,
+	bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
+	bucket_usage_rollup_end_time_less_or_equal BucketUsage_RollupEndTime_Field,
+	limit int, offset int64) (
+	rows []*BucketUsage, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.bucket_id = ? AND bucket_usages.rollup_end_time > ? AND bucket_usages.rollup_end_time <= ? ORDER BY bucket_usages.rollup_end_time LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_usage_bucket_id.value(), bucket_usage_rollup_end_time_greater.value(), bucket_usage_rollup_end_time_less_or_equal.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bucket_usage := &BucketUsage{}
+		err = __rows.Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bucket_usage)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Desc_RollupEndTime(ctx context.Context,
+	bucket_usage_bucket_id BucketUsage_BucketId_Field,
+	bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
+	bucket_usage_rollup_end_time_less_or_equal BucketUsage_RollupEndTime_Field,
+	limit int, offset int64) (
+	rows []*BucketUsage, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.bucket_id = ? AND bucket_usages.rollup_end_time > ? AND bucket_usages.rollup_end_time <= ? ORDER BY bucket_usages.rollup_end_time DESC LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_usage_bucket_id.value(), bucket_usage_rollup_end_time_greater.value(), bucket_usage_rollup_end_time_less_or_equal.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bucket_usage := &BucketUsage{}
+		err = __rows.Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bucket_usage)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) Get_CertRecord_By_Id(ctx context.Context,
+	certRecord_id CertRecord_Id_Field) (
+	certRecord *CertRecord, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.publickey, certRecords.id, certRecords.update_at FROM certRecords WHERE certRecords.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, certRecord_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	certRecord = &CertRecord{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&certRecord.Publickey, &certRecord.Id, &certRecord.UpdateAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return certRecord, nil
+
+}
+
 func (obj *postgresImpl) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	update Irreparabledb_Update_Fields) (
@@ -3668,7 +4254,7 @@ func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
 	node *Node, err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -3704,6 +4290,16 @@ func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("uptime_ratio = ?"))
 	}
 
+	if update.Wallet._set {
+		__values = append(__values, update.Wallet.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet = ?"))
+	}
+
+	if update.Email._set {
+		__values = append(__values, update.Email.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
+	}
+
 	__now := obj.db.Hooks.Now().UTC()
 
 	__values = append(__values, __now)
@@ -3718,7 +4314,7 @@ func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -3834,7 +4430,7 @@ func (obj *postgresImpl) Update_User_By_Id(ctx context.Context,
 	user *User, err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ? RETURNING users.id, users.first_name, users.last_name, users.email, users.password_hash, users.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ? RETURNING users.id, users.first_name, users.last_name, users.email, users.password_hash, users.status, users.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -3860,6 +4456,11 @@ func (obj *postgresImpl) Update_User_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("password_hash = ?"))
 	}
 
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
 	if len(__sets_sql.SQLs) == 0 {
 		return nil, emptyUpdate()
 	}
@@ -3873,7 +4474,7 @@ func (obj *postgresImpl) Update_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.Status, &user.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -3961,6 +4562,42 @@ func (obj *postgresImpl) Update_ApiKey_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return api_key, nil
+}
+
+func (obj *postgresImpl) Update_CertRecord_By_Id(ctx context.Context,
+	certRecord_id CertRecord_Id_Field,
+	update CertRecord_Update_Fields) (
+	certRecord *CertRecord, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE certRecords SET "), __sets, __sqlbundle_Literal(" WHERE certRecords.id = ? RETURNING certRecords.publickey, certRecords.id, certRecords.update_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("update_at = ?"))
+
+	__args = append(__args, certRecord_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	certRecord = &CertRecord{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&certRecord.Publickey, &certRecord.Id, &certRecord.UpdateAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return certRecord, nil
 }
 
 func (obj *postgresImpl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
@@ -4224,6 +4861,58 @@ func (obj *postgresImpl) Delete_ApiKey_By_Id(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Delete_BucketUsage_By_Id(ctx context.Context,
+	bucket_usage_id BucketUsage_Id_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bucket_usages WHERE bucket_usages.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_usage_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *postgresImpl) Delete_CertRecord_By_Id(ctx context.Context,
+	certRecord_id CertRecord_Id_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM certRecords WHERE certRecords.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, certRecord_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (impl postgresImpl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(*pq.Error); ok {
@@ -4317,7 +5006,27 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM certRecords;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM bwagreements;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM bucket_usages;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -4524,7 +5233,9 @@ func (obj *sqlite3Impl) Create_Node(ctx context.Context,
 	node_audit_success_ratio Node_AuditSuccessRatio_Field,
 	node_uptime_success_count Node_UptimeSuccessCount_Field,
 	node_total_uptime_count Node_TotalUptimeCount_Field,
-	node_uptime_ratio Node_UptimeRatio_Field) (
+	node_uptime_ratio Node_UptimeRatio_Field,
+	node_wallet Node_Wallet_Field,
+	node_email Node_Email_Field) (
 	node *Node, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
@@ -4537,13 +5248,15 @@ func (obj *sqlite3Impl) Create_Node(ctx context.Context,
 	__uptime_ratio_val := node_uptime_ratio.value()
 	__created_at_val := __now
 	__updated_at_val := __now
+	__wallet_val := node_wallet.value()
+	__email_val := node_email.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, audit_success_count, total_audit_count, audit_success_ratio, uptime_success_count, total_uptime_count, uptime_ratio, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, audit_success_count, total_audit_count, audit_success_ratio, uptime_success_count, total_uptime_count, uptime_ratio, created_at, updated_at, wallet, email ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val)
+	obj.logStmt(__stmt, __id_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val, __wallet_val, __email_val)
 
-	__res, err := obj.driver.Exec(__stmt, __id_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val)
+	__res, err := obj.driver.Exec(__stmt, __id_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val, __wallet_val, __email_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -4631,24 +5344,25 @@ func (obj *sqlite3Impl) Create_User(ctx context.Context,
 	user_id User_Id_Field,
 	user_first_name User_FirstName_Field,
 	user_last_name User_LastName_Field,
-	user_password_hash User_PasswordHash_Field,
-	optional User_Create_Fields) (
+	user_email User_Email_Field,
+	user_password_hash User_PasswordHash_Field) (
 	user *User, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__id_val := user_id.value()
 	__first_name_val := user_first_name.value()
 	__last_name_val := user_last_name.value()
-	__email_val := optional.Email.value()
+	__email_val := user_email.value()
 	__password_hash_val := user_password_hash.value()
+	__status_val := int(0)
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO users ( id, first_name, last_name, email, password_hash, created_at ) VALUES ( ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO users ( id, first_name, last_name, email, password_hash, status, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __first_name_val, __last_name_val, __email_val, __password_hash_val, __created_at_val)
+	obj.logStmt(__stmt, __id_val, __first_name_val, __last_name_val, __email_val, __password_hash_val, __status_val, __created_at_val)
 
-	__res, err := obj.driver.Exec(__stmt, __id_val, __first_name_val, __last_name_val, __email_val, __password_hash_val, __created_at_val)
+	__res, err := obj.driver.Exec(__stmt, __id_val, __first_name_val, __last_name_val, __email_val, __password_hash_val, __status_val, __created_at_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -4744,6 +5458,77 @@ func (obj *sqlite3Impl) Create_ApiKey(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return obj.getLastApiKey(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_BucketUsage(ctx context.Context,
+	bucket_usage_id BucketUsage_Id_Field,
+	bucket_usage_bucket_id BucketUsage_BucketId_Field,
+	bucket_usage_rollup_end_time BucketUsage_RollupEndTime_Field,
+	bucket_usage_remote_stored_data BucketUsage_RemoteStoredData_Field,
+	bucket_usage_inline_stored_data BucketUsage_InlineStoredData_Field,
+	bucket_usage_remote_segments BucketUsage_RemoteSegments_Field,
+	bucket_usage_inline_segments BucketUsage_InlineSegments_Field,
+	bucket_usage_objects BucketUsage_Objects_Field,
+	bucket_usage_metadata_size BucketUsage_MetadataSize_Field,
+	bucket_usage_repair_egress BucketUsage_RepairEgress_Field,
+	bucket_usage_get_egress BucketUsage_GetEgress_Field,
+	bucket_usage_audit_egress BucketUsage_AuditEgress_Field) (
+	bucket_usage *BucketUsage, err error) {
+	__id_val := bucket_usage_id.value()
+	__bucket_id_val := bucket_usage_bucket_id.value()
+	__rollup_end_time_val := bucket_usage_rollup_end_time.value()
+	__remote_stored_data_val := bucket_usage_remote_stored_data.value()
+	__inline_stored_data_val := bucket_usage_inline_stored_data.value()
+	__remote_segments_val := bucket_usage_remote_segments.value()
+	__inline_segments_val := bucket_usage_inline_segments.value()
+	__objects_val := bucket_usage_objects.value()
+	__metadata_size_val := bucket_usage_metadata_size.value()
+	__repair_egress_val := bucket_usage_repair_egress.value()
+	__get_egress_val := bucket_usage_get_egress.value()
+	__audit_egress_val := bucket_usage_audit_egress.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_usages ( id, bucket_id, rollup_end_time, remote_stored_data, inline_stored_data, remote_segments, inline_segments, objects, metadata_size, repair_egress, get_egress, audit_egress ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __id_val, __bucket_id_val, __rollup_end_time_val, __remote_stored_data_val, __inline_stored_data_val, __remote_segments_val, __inline_segments_val, __objects_val, __metadata_size_val, __repair_egress_val, __get_egress_val, __audit_egress_val)
+
+	__res, err := obj.driver.Exec(__stmt, __id_val, __bucket_id_val, __rollup_end_time_val, __remote_stored_data_val, __inline_stored_data_val, __remote_segments_val, __inline_segments_val, __objects_val, __metadata_size_val, __repair_egress_val, __get_egress_val, __audit_egress_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastBucketUsage(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_CertRecord(ctx context.Context,
+	certRecord_publickey CertRecord_Publickey_Field,
+	certRecord_id CertRecord_Id_Field) (
+	certRecord *CertRecord, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__publickey_val := certRecord_publickey.value()
+	__id_val := certRecord_id.value()
+	__update_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO certRecords ( publickey, id, update_at ) VALUES ( ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __publickey_val, __id_val, __update_at_val)
+
+	__res, err := obj.driver.Exec(__stmt, __publickey_val, __id_val, __update_at_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastCertRecord(ctx, __pk)
 
 }
 
@@ -5036,7 +5821,7 @@ func (obj *sqlite3Impl) Get_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field) (
 	node *Node, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at FROM nodes WHERE nodes.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email FROM nodes WHERE nodes.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, node_id.value())
@@ -5045,7 +5830,7 @@ func (obj *sqlite3Impl) Get_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -5085,40 +5870,6 @@ func (obj *sqlite3Impl) All_Node_Id(ctx context.Context) (
 
 }
 
-func (obj *sqlite3Impl) All_Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_By_AccountingRollup_StartTime_GreaterOrEqual_And_AccountingRollup_StartTime_Less_OrderBy_Asc_Node_Id(ctx context.Context,
-	accounting_rollup_start_time_greater_or_equal AccountingRollup_StartTime_Field,
-	accounting_rollup_start_time_less AccountingRollup_StartTime_Field) (
-	rows []*Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_Row, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.created_at, nodes.audit_success_ratio, accounting_rollups.start_time, accounting_rollups.put_total, accounting_rollups.get_total, accounting_rollups.get_audit_total, accounting_rollups.get_repair_total, accounting_rollups.put_repair_total, accounting_rollups.at_rest_total FROM nodes  JOIN accounting_rollups ON nodes.id = accounting_rollups.node_id WHERE accounting_rollups.start_time >= ? AND accounting_rollups.start_time < ? ORDER BY nodes.id")
-
-	var __values []interface{}
-	__values = append(__values, accounting_rollup_start_time_greater_or_equal.value(), accounting_rollup_start_time_less.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		row := &Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_Row{}
-		err = __rows.Scan(&row.Node_Id, &row.Node_CreatedAt, &row.Node_AuditSuccessRatio, &row.AccountingRollup_StartTime, &row.AccountingRollup_PutTotal, &row.AccountingRollup_GetTotal, &row.AccountingRollup_GetAuditTotal, &row.AccountingRollup_GetRepairTotal, &row.AccountingRollup_PutRepairTotal, &row.AccountingRollup_AtRestTotal)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, row)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
 func (obj *sqlite3Impl) Get_OverlayCacheNode_By_NodeId(ctx context.Context,
 	overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
 	overlay_cache_node *OverlayCacheNode, err error) {
@@ -5137,27 +5888,6 @@ func (obj *sqlite3Impl) Get_OverlayCacheNode_By_NodeId(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return overlay_cache_node, nil
-
-}
-
-func (obj *sqlite3Impl) Get_OverlayCacheNode_OperatorWallet_By_NodeId(ctx context.Context,
-	overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
-	row *OperatorWallet_Row, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT overlay_cache_nodes.operator_wallet FROM overlay_cache_nodes WHERE overlay_cache_nodes.node_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, overlay_cache_node_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	row = &OperatorWallet_Row{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&row.OperatorWallet)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return row, nil
 
 }
 
@@ -5266,30 +5996,45 @@ func (obj *sqlite3Impl) Limited_Injuredsegment(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Get_User_By_Email(ctx context.Context,
+func (obj *sqlite3Impl) Get_User_By_Email_And_Status_Not_Number(ctx context.Context,
 	user_email User_Email_Field) (
 	user *User, err error) {
 
-	var __cond_0 = &__sqlbundle_Condition{Left: "users.email", Equal: true, Right: "?", Null: true}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.created_at FROM users WHERE "), __cond_0}}
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.status, users.created_at FROM users WHERE users.email = ? AND users.status != 0 LIMIT 2")
 
 	var __values []interface{}
-	__values = append(__values)
-
-	if !user_email.isnull() {
-		__cond_0.Null = false
-		__values = append(__values, user_email.value())
-	}
+	__values = append(__values, user_email.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.CreatedAt)
+	__rows, err := obj.driver.Query(__stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
+	defer __rows.Close()
+
+	if !__rows.Next() {
+		if err := __rows.Err(); err != nil {
+			return nil, obj.makeErr(err)
+		}
+		return nil, makeErr(sql.ErrNoRows)
+	}
+
+	user = &User{}
+	err = __rows.Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.Status, &user.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	if __rows.Next() {
+		return nil, tooManyRows("User_By_Email_And_Status_Not_Number")
+	}
+
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+
 	return user, nil
 
 }
@@ -5298,7 +6043,7 @@ func (obj *sqlite3Impl) Get_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	user *User, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.created_at FROM users WHERE users.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.status, users.created_at FROM users WHERE users.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, user_id.value())
@@ -5307,7 +6052,7 @@ func (obj *sqlite3Impl) Get_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.Status, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -5545,6 +6290,124 @@ func (obj *sqlite3Impl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Con
 
 }
 
+func (obj *sqlite3Impl) Get_BucketUsage_By_Id(ctx context.Context,
+	bucket_usage_id BucketUsage_Id_Field) (
+	bucket_usage *BucketUsage, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_usage_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket_usage = &BucketUsage{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket_usage, nil
+
+}
+
+func (obj *sqlite3Impl) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Asc_RollupEndTime(ctx context.Context,
+	bucket_usage_bucket_id BucketUsage_BucketId_Field,
+	bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
+	bucket_usage_rollup_end_time_less_or_equal BucketUsage_RollupEndTime_Field,
+	limit int, offset int64) (
+	rows []*BucketUsage, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.bucket_id = ? AND bucket_usages.rollup_end_time > ? AND bucket_usages.rollup_end_time <= ? ORDER BY bucket_usages.rollup_end_time LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_usage_bucket_id.value(), bucket_usage_rollup_end_time_greater.value(), bucket_usage_rollup_end_time_less_or_equal.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bucket_usage := &BucketUsage{}
+		err = __rows.Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bucket_usage)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Desc_RollupEndTime(ctx context.Context,
+	bucket_usage_bucket_id BucketUsage_BucketId_Field,
+	bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
+	bucket_usage_rollup_end_time_less_or_equal BucketUsage_RollupEndTime_Field,
+	limit int, offset int64) (
+	rows []*BucketUsage, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.bucket_id = ? AND bucket_usages.rollup_end_time > ? AND bucket_usages.rollup_end_time <= ? ORDER BY bucket_usages.rollup_end_time DESC LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_usage_bucket_id.value(), bucket_usage_rollup_end_time_greater.value(), bucket_usage_rollup_end_time_less_or_equal.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bucket_usage := &BucketUsage{}
+		err = __rows.Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bucket_usage)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) Get_CertRecord_By_Id(ctx context.Context,
+	certRecord_id CertRecord_Id_Field) (
+	certRecord *CertRecord, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.publickey, certRecords.id, certRecords.update_at FROM certRecords WHERE certRecords.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, certRecord_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	certRecord = &CertRecord{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&certRecord.Publickey, &certRecord.Id, &certRecord.UpdateAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return certRecord, nil
+
+}
+
 func (obj *sqlite3Impl) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	update Irreparabledb_Update_Fields) (
@@ -5702,6 +6565,16 @@ func (obj *sqlite3Impl) Update_Node_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("uptime_ratio = ?"))
 	}
 
+	if update.Wallet._set {
+		__values = append(__values, update.Wallet.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet = ?"))
+	}
+
+	if update.Email._set {
+		__values = append(__values, update.Email.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
+	}
+
 	__now := obj.db.Hooks.Now().UTC()
 
 	__values = append(__values, __now)
@@ -5721,12 +6594,12 @@ func (obj *sqlite3Impl) Update_Node_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at FROM nodes WHERE nodes.id = ?")
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email FROM nodes WHERE nodes.id = ?")
 
 	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
 	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
 
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -5878,6 +6751,11 @@ func (obj *sqlite3Impl) Update_User_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("password_hash = ?"))
 	}
 
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
 	if len(__sets_sql.SQLs) == 0 {
 		return nil, emptyUpdate()
 	}
@@ -5896,12 +6774,12 @@ func (obj *sqlite3Impl) Update_User_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.created_at FROM users WHERE users.id = ?")
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.status, users.created_at FROM users WHERE users.id = ?")
 
 	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
 	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
 
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.Status, &user.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -6009,6 +6887,52 @@ func (obj *sqlite3Impl) Update_ApiKey_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return api_key, nil
+}
+
+func (obj *sqlite3Impl) Update_CertRecord_By_Id(ctx context.Context,
+	certRecord_id CertRecord_Id_Field,
+	update CertRecord_Update_Fields) (
+	certRecord *CertRecord, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE certRecords SET "), __sets, __sqlbundle_Literal(" WHERE certRecords.id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("update_at = ?"))
+
+	__args = append(__args, certRecord_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	certRecord = &CertRecord{}
+	_, err = obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT certRecords.publickey, certRecords.id, certRecords.update_at FROM certRecords WHERE certRecords.id = ?")
+
+	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
+	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
+
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&certRecord.Publickey, &certRecord.Id, &certRecord.UpdateAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return certRecord, nil
 }
 
 func (obj *sqlite3Impl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
@@ -6272,6 +7196,58 @@ func (obj *sqlite3Impl) Delete_ApiKey_By_Id(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Delete_BucketUsage_By_Id(ctx context.Context,
+	bucket_usage_id BucketUsage_Id_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bucket_usages WHERE bucket_usages.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_usage_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *sqlite3Impl) Delete_CertRecord_By_Id(ctx context.Context,
+	certRecord_id CertRecord_Id_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM certRecords WHERE certRecords.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, certRecord_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *sqlite3Impl) getLastBwagreement(ctx context.Context,
 	pk int64) (
 	bwagreement *Bwagreement, err error) {
@@ -6366,13 +7342,13 @@ func (obj *sqlite3Impl) getLastNode(ctx context.Context,
 	pk int64) (
 	node *Node, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at FROM nodes WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email FROM nodes WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -6420,13 +7396,13 @@ func (obj *sqlite3Impl) getLastUser(ctx context.Context,
 	pk int64) (
 	user *User, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.created_at FROM users WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.status, users.created_at FROM users WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.Status, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -6485,6 +7461,42 @@ func (obj *sqlite3Impl) getLastApiKey(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return api_key, nil
+
+}
+
+func (obj *sqlite3Impl) getLastBucketUsage(ctx context.Context,
+	pk int64) (
+	bucket_usage *BucketUsage, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	bucket_usage = &BucketUsage{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket_usage, nil
+
+}
+
+func (obj *sqlite3Impl) getLastCertRecord(ctx context.Context,
+	pk int64) (
+	certRecord *CertRecord, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.publickey, certRecords.id, certRecords.update_at FROM certRecords WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	certRecord = &CertRecord{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&certRecord.Publickey, &certRecord.Id, &certRecord.UpdateAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return certRecord, nil
 
 }
 
@@ -6586,7 +7598,27 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM certRecords;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM bwagreements;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM bucket_usages;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -6740,17 +7772,6 @@ func (rx *Rx) All_Node_Id(ctx context.Context) (
 	return tx.All_Node_Id(ctx)
 }
 
-func (rx *Rx) All_Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_By_AccountingRollup_StartTime_GreaterOrEqual_And_AccountingRollup_StartTime_Less_OrderBy_Asc_Node_Id(ctx context.Context,
-	accounting_rollup_start_time_greater_or_equal AccountingRollup_StartTime_Field,
-	accounting_rollup_start_time_less AccountingRollup_StartTime_Field) (
-	rows []*Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_Row, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.All_Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_By_AccountingRollup_StartTime_GreaterOrEqual_And_AccountingRollup_StartTime_Less_OrderBy_Asc_Node_Id(ctx, accounting_rollup_start_time_greater_or_equal, accounting_rollup_start_time_less)
-}
-
 func (rx *Rx) All_Project(ctx context.Context) (
 	rows []*Project, err error) {
 	var tx *Tx
@@ -6839,6 +7860,28 @@ func (rx *Rx) Create_ApiKey(ctx context.Context,
 
 }
 
+func (rx *Rx) Create_BucketUsage(ctx context.Context,
+	bucket_usage_id BucketUsage_Id_Field,
+	bucket_usage_bucket_id BucketUsage_BucketId_Field,
+	bucket_usage_rollup_end_time BucketUsage_RollupEndTime_Field,
+	bucket_usage_remote_stored_data BucketUsage_RemoteStoredData_Field,
+	bucket_usage_inline_stored_data BucketUsage_InlineStoredData_Field,
+	bucket_usage_remote_segments BucketUsage_RemoteSegments_Field,
+	bucket_usage_inline_segments BucketUsage_InlineSegments_Field,
+	bucket_usage_objects BucketUsage_Objects_Field,
+	bucket_usage_metadata_size BucketUsage_MetadataSize_Field,
+	bucket_usage_repair_egress BucketUsage_RepairEgress_Field,
+	bucket_usage_get_egress BucketUsage_GetEgress_Field,
+	bucket_usage_audit_egress BucketUsage_AuditEgress_Field) (
+	bucket_usage *BucketUsage, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_BucketUsage(ctx, bucket_usage_id, bucket_usage_bucket_id, bucket_usage_rollup_end_time, bucket_usage_remote_stored_data, bucket_usage_inline_stored_data, bucket_usage_remote_segments, bucket_usage_inline_segments, bucket_usage_objects, bucket_usage_metadata_size, bucket_usage_repair_egress, bucket_usage_get_egress, bucket_usage_audit_egress)
+
+}
+
 func (rx *Rx) Create_Bwagreement(ctx context.Context,
 	bwagreement_serialnum Bwagreement_Serialnum_Field,
 	bwagreement_storage_node_id Bwagreement_StorageNodeId_Field,
@@ -6852,6 +7895,18 @@ func (rx *Rx) Create_Bwagreement(ctx context.Context,
 		return
 	}
 	return tx.Create_Bwagreement(ctx, bwagreement_serialnum, bwagreement_storage_node_id, bwagreement_uplink_id, bwagreement_action, bwagreement_total, bwagreement_expires_at)
+
+}
+
+func (rx *Rx) Create_CertRecord(ctx context.Context,
+	certRecord_publickey CertRecord_Publickey_Field,
+	certRecord_id CertRecord_Id_Field) (
+	certRecord *CertRecord, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_CertRecord(ctx, certRecord_publickey, certRecord_id)
 
 }
 
@@ -6888,13 +7943,15 @@ func (rx *Rx) Create_Node(ctx context.Context,
 	node_audit_success_ratio Node_AuditSuccessRatio_Field,
 	node_uptime_success_count Node_UptimeSuccessCount_Field,
 	node_total_uptime_count Node_TotalUptimeCount_Field,
-	node_uptime_ratio Node_UptimeRatio_Field) (
+	node_uptime_ratio Node_UptimeRatio_Field,
+	node_wallet Node_Wallet_Field,
+	node_email Node_Email_Field) (
 	node *Node, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_Node(ctx, node_id, node_audit_success_count, node_total_audit_count, node_audit_success_ratio, node_uptime_success_count, node_total_uptime_count, node_uptime_ratio)
+	return tx.Create_Node(ctx, node_id, node_audit_success_count, node_total_audit_count, node_audit_success_ratio, node_uptime_success_count, node_total_uptime_count, node_uptime_ratio, node_wallet, node_email)
 
 }
 
@@ -6952,14 +8009,14 @@ func (rx *Rx) Create_User(ctx context.Context,
 	user_id User_Id_Field,
 	user_first_name User_FirstName_Field,
 	user_last_name User_LastName_Field,
-	user_password_hash User_PasswordHash_Field,
-	optional User_Create_Fields) (
+	user_email User_Email_Field,
+	user_password_hash User_PasswordHash_Field) (
 	user *User, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_User(ctx, user_id, user_first_name, user_last_name, user_password_hash, optional)
+	return tx.Create_User(ctx, user_id, user_first_name, user_last_name, user_email, user_password_hash)
 
 }
 
@@ -6991,6 +8048,26 @@ func (rx *Rx) Delete_ApiKey_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Delete_ApiKey_By_Id(ctx, api_key_id)
+}
+
+func (rx *Rx) Delete_BucketUsage_By_Id(ctx context.Context,
+	bucket_usage_id BucketUsage_Id_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_BucketUsage_By_Id(ctx, bucket_usage_id)
+}
+
+func (rx *Rx) Delete_CertRecord_By_Id(ctx context.Context,
+	certRecord_id CertRecord_Id_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_CertRecord_By_Id(ctx, certRecord_id)
 }
 
 func (rx *Rx) Delete_Injuredsegment_By_Id(ctx context.Context,
@@ -7123,6 +8200,26 @@ func (rx *Rx) Get_ApiKey_By_Key(ctx context.Context,
 	return tx.Get_ApiKey_By_Key(ctx, api_key_key)
 }
 
+func (rx *Rx) Get_BucketUsage_By_Id(ctx context.Context,
+	bucket_usage_id BucketUsage_Id_Field) (
+	bucket_usage *BucketUsage, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_BucketUsage_By_Id(ctx, bucket_usage_id)
+}
+
+func (rx *Rx) Get_CertRecord_By_Id(ctx context.Context,
+	certRecord_id CertRecord_Id_Field) (
+	certRecord *CertRecord, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_CertRecord_By_Id(ctx, certRecord_id)
+}
+
 func (rx *Rx) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 	irreparabledb *Irreparabledb, err error) {
@@ -7153,16 +8250,6 @@ func (rx *Rx) Get_OverlayCacheNode_By_NodeId(ctx context.Context,
 	return tx.Get_OverlayCacheNode_By_NodeId(ctx, overlay_cache_node_node_id)
 }
 
-func (rx *Rx) Get_OverlayCacheNode_OperatorWallet_By_NodeId(ctx context.Context,
-	overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
-	row *OperatorWallet_Row, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_OverlayCacheNode_OperatorWallet_By_NodeId(ctx, overlay_cache_node_node_id)
-}
-
 func (rx *Rx) Get_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	project *Project, err error) {
@@ -7173,14 +8260,14 @@ func (rx *Rx) Get_Project_By_Id(ctx context.Context,
 	return tx.Get_Project_By_Id(ctx, project_id)
 }
 
-func (rx *Rx) Get_User_By_Email(ctx context.Context,
+func (rx *Rx) Get_User_By_Email_And_Status_Not_Number(ctx context.Context,
 	user_email User_Email_Field) (
 	user *User, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Get_User_By_Email(ctx, user_email)
+	return tx.Get_User_By_Email_And_Status_Not_Number(ctx, user_email)
 }
 
 func (rx *Rx) Get_User_By_Id(ctx context.Context,
@@ -7191,6 +8278,32 @@ func (rx *Rx) Get_User_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Get_User_By_Id(ctx, user_id)
+}
+
+func (rx *Rx) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Asc_RollupEndTime(ctx context.Context,
+	bucket_usage_bucket_id BucketUsage_BucketId_Field,
+	bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
+	bucket_usage_rollup_end_time_less_or_equal BucketUsage_RollupEndTime_Field,
+	limit int, offset int64) (
+	rows []*BucketUsage, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Asc_RollupEndTime(ctx, bucket_usage_bucket_id, bucket_usage_rollup_end_time_greater, bucket_usage_rollup_end_time_less_or_equal, limit, offset)
+}
+
+func (rx *Rx) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Desc_RollupEndTime(ctx context.Context,
+	bucket_usage_bucket_id BucketUsage_BucketId_Field,
+	bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
+	bucket_usage_rollup_end_time_less_or_equal BucketUsage_RollupEndTime_Field,
+	limit int, offset int64) (
+	rows []*BucketUsage, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Desc_RollupEndTime(ctx, bucket_usage_bucket_id, bucket_usage_rollup_end_time_greater, bucket_usage_rollup_end_time_less_or_equal, limit, offset)
 }
 
 func (rx *Rx) Limited_Bwagreement(ctx context.Context,
@@ -7255,6 +8368,17 @@ func (rx *Rx) Update_ApiKey_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Update_ApiKey_By_Id(ctx, api_key_id, update)
+}
+
+func (rx *Rx) Update_CertRecord_By_Id(ctx context.Context,
+	certRecord_id CertRecord_Id_Field,
+	update CertRecord_Update_Fields) (
+	certRecord *CertRecord, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_CertRecord_By_Id(ctx, certRecord_id, update)
 }
 
 func (rx *Rx) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
@@ -7338,11 +8462,6 @@ type Methods interface {
 	All_Node_Id(ctx context.Context) (
 		rows []*Id_Row, err error)
 
-	All_Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_By_AccountingRollup_StartTime_GreaterOrEqual_And_AccountingRollup_StartTime_Less_OrderBy_Asc_Node_Id(ctx context.Context,
-		accounting_rollup_start_time_greater_or_equal AccountingRollup_StartTime_Field,
-		accounting_rollup_start_time_less AccountingRollup_StartTime_Field) (
-		rows []*Node_Id_Node_CreatedAt_Node_AuditSuccessRatio_AccountingRollup_StartTime_AccountingRollup_PutTotal_AccountingRollup_GetTotal_AccountingRollup_GetAuditTotal_AccountingRollup_GetRepairTotal_AccountingRollup_PutRepairTotal_AccountingRollup_AtRestTotal_Row, err error)
-
 	All_Project(ctx context.Context) (
 		rows []*Project, err error)
 
@@ -7385,6 +8504,21 @@ type Methods interface {
 		api_key_name ApiKey_Name_Field) (
 		api_key *ApiKey, err error)
 
+	Create_BucketUsage(ctx context.Context,
+		bucket_usage_id BucketUsage_Id_Field,
+		bucket_usage_bucket_id BucketUsage_BucketId_Field,
+		bucket_usage_rollup_end_time BucketUsage_RollupEndTime_Field,
+		bucket_usage_remote_stored_data BucketUsage_RemoteStoredData_Field,
+		bucket_usage_inline_stored_data BucketUsage_InlineStoredData_Field,
+		bucket_usage_remote_segments BucketUsage_RemoteSegments_Field,
+		bucket_usage_inline_segments BucketUsage_InlineSegments_Field,
+		bucket_usage_objects BucketUsage_Objects_Field,
+		bucket_usage_metadata_size BucketUsage_MetadataSize_Field,
+		bucket_usage_repair_egress BucketUsage_RepairEgress_Field,
+		bucket_usage_get_egress BucketUsage_GetEgress_Field,
+		bucket_usage_audit_egress BucketUsage_AuditEgress_Field) (
+		bucket_usage *BucketUsage, err error)
+
 	Create_Bwagreement(ctx context.Context,
 		bwagreement_serialnum Bwagreement_Serialnum_Field,
 		bwagreement_storage_node_id Bwagreement_StorageNodeId_Field,
@@ -7393,6 +8527,11 @@ type Methods interface {
 		bwagreement_total Bwagreement_Total_Field,
 		bwagreement_expires_at Bwagreement_ExpiresAt_Field) (
 		bwagreement *Bwagreement, err error)
+
+	Create_CertRecord(ctx context.Context,
+		certRecord_publickey CertRecord_Publickey_Field,
+		certRecord_id CertRecord_Id_Field) (
+		certRecord *CertRecord, err error)
 
 	Create_Injuredsegment(ctx context.Context,
 		injuredsegment_info Injuredsegment_Info_Field) (
@@ -7413,7 +8552,9 @@ type Methods interface {
 		node_audit_success_ratio Node_AuditSuccessRatio_Field,
 		node_uptime_success_count Node_UptimeSuccessCount_Field,
 		node_total_uptime_count Node_TotalUptimeCount_Field,
-		node_uptime_ratio Node_UptimeRatio_Field) (
+		node_uptime_ratio Node_UptimeRatio_Field,
+		node_wallet Node_Wallet_Field,
+		node_email Node_Email_Field) (
 		node *Node, err error)
 
 	Create_OverlayCacheNode(ctx context.Context,
@@ -7449,8 +8590,8 @@ type Methods interface {
 		user_id User_Id_Field,
 		user_first_name User_FirstName_Field,
 		user_last_name User_LastName_Field,
-		user_password_hash User_PasswordHash_Field,
-		optional User_Create_Fields) (
+		user_email User_Email_Field,
+		user_password_hash User_PasswordHash_Field) (
 		user *User, err error)
 
 	Delete_AccountingRaw_By_Id(ctx context.Context,
@@ -7463,6 +8604,14 @@ type Methods interface {
 
 	Delete_ApiKey_By_Id(ctx context.Context,
 		api_key_id ApiKey_Id_Field) (
+		deleted bool, err error)
+
+	Delete_BucketUsage_By_Id(ctx context.Context,
+		bucket_usage_id BucketUsage_Id_Field) (
+		deleted bool, err error)
+
+	Delete_CertRecord_By_Id(ctx context.Context,
+		certRecord_id CertRecord_Id_Field) (
 		deleted bool, err error)
 
 	Delete_Injuredsegment_By_Id(ctx context.Context,
@@ -7517,6 +8666,14 @@ type Methods interface {
 		api_key_key ApiKey_Key_Field) (
 		api_key *ApiKey, err error)
 
+	Get_BucketUsage_By_Id(ctx context.Context,
+		bucket_usage_id BucketUsage_Id_Field) (
+		bucket_usage *BucketUsage, err error)
+
+	Get_CertRecord_By_Id(ctx context.Context,
+		certRecord_id CertRecord_Id_Field) (
+		certRecord *CertRecord, err error)
+
 	Get_Irreparabledb_By_Segmentpath(ctx context.Context,
 		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 		irreparabledb *Irreparabledb, err error)
@@ -7529,21 +8686,31 @@ type Methods interface {
 		overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
 		overlay_cache_node *OverlayCacheNode, err error)
 
-	Get_OverlayCacheNode_OperatorWallet_By_NodeId(ctx context.Context,
-		overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
-		row *OperatorWallet_Row, err error)
-
 	Get_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
 		project *Project, err error)
 
-	Get_User_By_Email(ctx context.Context,
+	Get_User_By_Email_And_Status_Not_Number(ctx context.Context,
 		user_email User_Email_Field) (
 		user *User, err error)
 
 	Get_User_By_Id(ctx context.Context,
 		user_id User_Id_Field) (
 		user *User, err error)
+
+	Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Asc_RollupEndTime(ctx context.Context,
+		bucket_usage_bucket_id BucketUsage_BucketId_Field,
+		bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
+		bucket_usage_rollup_end_time_less_or_equal BucketUsage_RollupEndTime_Field,
+		limit int, offset int64) (
+		rows []*BucketUsage, err error)
+
+	Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Desc_RollupEndTime(ctx context.Context,
+		bucket_usage_bucket_id BucketUsage_BucketId_Field,
+		bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
+		bucket_usage_rollup_end_time_less_or_equal BucketUsage_RollupEndTime_Field,
+		limit int, offset int64) (
+		rows []*BucketUsage, err error)
 
 	Limited_Bwagreement(ctx context.Context,
 		limit int, offset int64) (
@@ -7572,6 +8739,11 @@ type Methods interface {
 		api_key_id ApiKey_Id_Field,
 		update ApiKey_Update_Fields) (
 		api_key *ApiKey, err error)
+
+	Update_CertRecord_By_Id(ctx context.Context,
+		certRecord_id CertRecord_Id_Field,
+		update CertRecord_Update_Fields) (
+		certRecord *CertRecord, err error)
 
 	Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,

@@ -3,7 +3,11 @@
 
 package console
 
-import "context"
+import (
+	"context"
+
+	"storj.io/storj/pkg/accounting"
+)
 
 // DB contains access to different satellite databases
 type DB interface {
@@ -15,11 +19,8 @@ type DB interface {
 	ProjectMembers() ProjectMembers
 	// APIKeys is a getter for APIKeys repository
 	APIKeys() APIKeys
-
-	// CreateTables is a method for creating all tables for satellitedb
-	CreateTables() error
-	// Close is used to close db connection
-	Close() error
+	// BucketUsage is a getter for accounting.BucketUsage repository
+	BucketUsage() accounting.BucketUsage
 
 	// BeginTransaction is a method for opening transaction
 	BeginTx(ctx context.Context) (DBTx, error)

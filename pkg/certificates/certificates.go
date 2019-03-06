@@ -9,6 +9,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/rsa"
 	"encoding/gob"
 	"fmt"
 	"strconv"
@@ -109,6 +110,7 @@ type Client struct {
 
 func init() {
 	gob.Register(&ecdsa.PublicKey{})
+	gob.Register(&rsa.PublicKey{})
 	gob.Register(elliptic.P256())
 }
 
@@ -123,8 +125,7 @@ func NewServer(log *zap.Logger, signer *identity.FullCertificateAuthority, authD
 }
 
 // NewClient creates a new certificate signing grpc client
-func NewClient(ctx context.Context, ident *identity.FullIdentity, address string) (*Client, error) {
-	tc := transport.NewClient(ident)
+func NewClient(ctx context.Context, tc transport.Client, address string) (*Client, error) {
 	conn, err := tc.DialAddress(ctx, address)
 	if err != nil {
 		return nil, err
@@ -226,7 +227,7 @@ func (c CertificateSigner) Sign(ctx context.Context, req *pb.SigningRequest) (*p
 	}
 
 	signedChainBytes := [][]byte{signedPeerCA.Raw, c.signer.Cert.Raw}
-	signedChainBytes = append(signedChainBytes, c.signer.RestChainRaw()...)
+	signedChainBytes = append(signedChainBytes, c.signer.RawRestChain()...)
 	err = c.authDB.Claim(&ClaimOpts{
 		Req:           req,
 		Peer:          grpcPeer,
@@ -376,6 +377,27 @@ func (authDB *AuthorizationDB) Claim(opts *ClaimOpts) error {
 		}
 	}
 	return nil
+}
+
+// Unclaim removes a claim from an authorization.
+func (authDB *AuthorizationDB) Unclaim(authToken string) error {
+	token, err := ParseToken(authToken)
+	if err != nil {
+		return err
+	}
+
+	auths, err := authDB.Get(token.UserID)
+	if err != nil {
+		return err
+	}
+
+	for i, auth := range auths {
+		if auth.Token.Equal(token) {
+			auths[i].Claim = nil
+			return authDB.put(token.UserID, auths)
+		}
+	}
+	return errs.New("token not found in authorizations DB")
 }
 
 func (authDB *AuthorizationDB) add(userID string, newAuths Authorizations) error {

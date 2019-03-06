@@ -26,6 +26,8 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/pkg/utils"
@@ -619,7 +621,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 	require.NotNil(t, listener)
 
 	serverConfig := server.Config{Address: listener.Addr().String()}
-	opts, err := server.NewOptions(serverIdent, serverConfig)
+	opts, err := tlsopts.NewOptions(serverIdent, serverConfig.Config)
 	require.NoError(t, err)
 	require.NotNil(t, opts)
 
@@ -655,7 +657,11 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, clientIdent)
 
-	client, err := NewClient(ctx, clientIdent, listener.Addr().String())
+	tlsOptions, err := tlsopts.NewOptions(clientIdent, tlsopts.Config{})
+	require.NoError(t, err)
+	clientTransport := transport.NewClient(tlsOptions)
+
+	client, err := NewClient(ctx, clientTransport, listener.Addr().String())
 	require.NoError(t, err)
 	require.NotNil(t, client)
 
@@ -663,13 +669,13 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, signedChainBytes)
 
-	signedChain, err := identity.ParseCertChain(signedChainBytes)
+	signedChain, err := pkcrypto.CertsFromDER(signedChainBytes)
 	require.NoError(t, err)
 
 	assert.Equal(t, clientIdent.CA.RawTBSCertificate, signedChain[0].RawTBSCertificate)
 	assert.Equal(t, signingCA.Cert.Raw, signedChainBytes[1])
 	// TODO: test scenario with rest chain
-	//assert.Equal(t, signingCA.RestChainRaw(), signedChainBytes[1:])
+	//assert.Equal(t, signingCA.RawRestChain(), signedChainBytes[1:])
 
 	err = signedChain[0].CheckSignatureFrom(signingCA.Cert)
 	assert.NoError(t, err)
@@ -732,8 +738,12 @@ func TestNewClient(t *testing.T) {
 		}
 	})
 
+	tlsOptions, err := tlsopts.NewOptions(ident, tlsopts.Config{})
+	require.NoError(t, err)
+	clientTransport := transport.NewClient(tlsOptions)
+
 	t.Run("Basic", func(t *testing.T) {
-		client, err := NewClient(ctx, ident, listener.Addr().String())
+		client, err := NewClient(ctx, clientTransport, listener.Addr().String())
 		assert.NoError(t, err)
 		assert.NotNil(t, client)
 
@@ -741,8 +751,7 @@ func TestNewClient(t *testing.T) {
 	})
 
 	t.Run("ClientFrom", func(t *testing.T) {
-		tc := transport.NewClient(ident)
-		conn, err := tc.DialAddress(ctx, listener.Addr().String())
+		conn, err := clientTransport.DialAddress(ctx, listener.Addr().String())
 		require.NoError(t, err)
 		require.NotNil(t, conn)
 
@@ -829,13 +838,13 @@ func TestCertificateSigner_Sign(t *testing.T) {
 	require.NotNil(t, res)
 	require.NotEmpty(t, res.Chain)
 
-	signedChain, err := identity.ParseCertChain(res.Chain)
+	signedChain, err := pkcrypto.CertsFromDER(res.Chain)
 	require.NoError(t, err)
 
 	assert.Equal(t, clientIdent.CA.RawTBSCertificate, signedChain[0].RawTBSCertificate)
 	assert.Equal(t, signingCA.Cert.Raw, signedChain[1].Raw)
 	// TODO: test scenario with rest chain
-	//assert.Equal(t, signingCA.RestChainRaw(), res.Chain[1:])
+	//assert.Equal(t, signingCA.RawRestChain(), res.Chain[1:])
 
 	err = signedChain[0].CheckSignatureFrom(signingCA.Cert)
 	assert.NoError(t, err)

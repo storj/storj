@@ -6,8 +6,8 @@
         <div class="delete-api-key-container__wrap">
             <div class="delete-api-key-container__selected-api-keys-count">
                 <span class="delete-api-key-container__selected-api-keys-count__button"></span>
-                <p class="delete-api-key-container__selected-api-keys-count__count">{{ count }}</p>
-                <p class="delete-api-key-container__selected-api-keys-count__total-count"> of <span>X</span> API Keys Selected</p>
+                <p class="delete-api-key-container__selected-api-keys-count__count">{{ selectedAPIKeysCount }}</p>
+                <p class="delete-api-key-container__selected-api-keys-count__total-count"> of <span>{{ allAPIKeysCount }}</span> API Keys Selected</p>
             </div>
             <div class="delete-api-key-container__buttons-group">
                 <Button 
@@ -30,24 +30,33 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 import Button from '@/components/common/Button.vue';
-import { API_KEYS_ACTIONS } from "@/utils/constants/actionNames";
+import { API_KEYS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({
     methods: {
         onDelete: async function () {
-           let selectedKeys: any[] = this.$store.getters.selectedAPIKeys;
+            let selectedKeys: any[] = this.$store.getters.selectedAPIKeys.map((key) => {return key.id; });
 
-           for (let i = 0; i < selectedKeys.length; i++) {
-               this.$store.dispatch(API_KEYS_ACTIONS.DELETE, selectedKeys[i].id);
-           }
+            const dispatchResult = await this.$store.dispatch(API_KEYS_ACTIONS.DELETE, selectedKeys);
+
+            let keySuffix = selectedKeys.length > 1 ? '\'s' : '';
+
+            if (dispatchResult.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, `API key${keySuffix} deleted successfully`);
+            } else {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Error during deletion API key${keySuffix}`);
+            }
         },
         onClearSelection: function (): void {
             this.$store.dispatch(API_KEYS_ACTIONS.CLEAR_SELECTION);
         },
     },
     computed: {
-        count: function (): number {
+        selectedAPIKeysCount: function (): number {
             return this.$store.getters.selectedAPIKeys.length;
+        },
+        allAPIKeysCount: function (): number {
+            return this.$store.state.apiKeysModule.apiKeys.length;
         }
     },
     components: {

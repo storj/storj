@@ -16,14 +16,14 @@ Vue.use(Vuex);
 
 // Satellite store (vuex)
 const store = new Vuex.Store({
-	modules: {
-		usersModule,
-		projectsModule,
-		projectMembersModule,
-		notificationsModule,
-		appStateModule,
+    modules: {
+        usersModule,
+        projectsModule,
+        projectMembersModule,
+        notificationsModule,
+        appStateModule,
         apiKeysModule
-	}
+    }
 });
 
 export default store;

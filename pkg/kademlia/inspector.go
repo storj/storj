@@ -40,8 +40,7 @@ func (srv *Inspector) CountNodes(ctx context.Context, req *pb.CountNodesRequest)
 
 // GetBuckets returns all kademlia buckets for current kademlia instance
 func (srv *Inspector) GetBuckets(ctx context.Context, req *pb.GetBucketsRequest) (*pb.GetBucketsResponse, error) {
-	rt := srv.dht.GetRoutingTable()
-	b, err := rt.GetBucketIds()
+	b, err := srv.dht.GetBucketIds()
 	if err != nil {
 		return nil, err
 	}
@@ -72,8 +71,7 @@ func (srv *Inspector) FindNear(ctx context.Context, req *pb.FindNearRequest) (*p
 
 // PingNode sends a PING RPC to the provided node ID in the Kad network.
 func (srv *Inspector) PingNode(ctx context.Context, req *pb.PingNodeRequest) (*pb.PingNodeResponse, error) {
-	rt := srv.dht.GetRoutingTable()
-	self := rt.Local()
+	self := srv.dht.Local()
 
 	_, err := srv.dht.Ping(ctx, pb.Node{
 		Id:   req.Id,
@@ -104,5 +102,37 @@ func (srv *Inspector) LookupNode(ctx context.Context, req *pb.LookupNodeRequest)
 
 	return &pb.LookupNodeResponse{
 		Node: &node,
+	}, nil
+}
+
+// DumpNodes returns all of the nodes in the routing table database.
+func (srv *Inspector) DumpNodes(ctx context.Context, req *pb.DumpNodesRequest) (*pb.DumpNodesResponse, error) {
+	nodes, err := srv.dht.DumpNodes(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.DumpNodesResponse{
+		Nodes: nodes,
+	}, nil
+}
+
+// NodeInfo sends a PING RPC to a node and returns its local info.
+func (srv *Inspector) NodeInfo(ctx context.Context, req *pb.NodeInfoRequest) (*pb.NodeInfoResponse, error) {
+	self := srv.dht.Local()
+
+	info, err := srv.dht.FetchInfo(ctx, pb.Node{
+		Id:      req.Id,
+		Address: req.Address,
+		Type:    self.Type,
+	})
+	if err != nil {
+		return &pb.NodeInfoResponse{}, err
+	}
+
+	return &pb.NodeInfoResponse{
+		Type:     info.GetType(),
+		Operator: info.GetOperator(),
+		Capacity: info.GetCapacity(),
 	}, nil
 }

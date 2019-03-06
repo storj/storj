@@ -6,23 +6,31 @@ option go_package = "pb";
 
 import "gogo.proto";
 import "node.proto";
+import "google/protobuf/duration.proto";
+
 
 package inspector;
 
 service KadInspector {
   // CountNodes returns the number of nodes in the routing table
   rpc CountNodes(CountNodesRequest) returns (CountNodesResponse);
-  // PingNodes sends a PING RPC to a node and returns it's availability
+  // PingNode sends a PING RPC to a node and returns its availability
   rpc PingNode(PingNodeRequest) returns (PingNodeResponse);
   // LookupNode triggers a Kademlia FindNode and returns the response
   rpc LookupNode(LookupNodeRequest) returns (LookupNodeResponse);
+  // NodeInfo sends a PING RPC to a node and returns its local info
+  rpc NodeInfo(NodeInfoRequest) returns (NodeInfoResponse);
   // FindNear returns limit number of IDs "near" the Start ID
   rpc FindNear(FindNearRequest) returns (FindNearResponse);
+  // DumpNodes returns all the nodes in the node database
+  rpc DumpNodes(DumpNodesRequest) returns (DumpNodesResponse);
 }
 
 service OverlayInspector {
   // CountNodes returns the number of nodes in the cache
   rpc CountNodes(CountNodesRequest) returns (CountNodesResponse);
+  // DumpNodes returns all the nodes in the cache
+  rpc DumpNodes(DumpNodesRequest) returns (DumpNodesResponse);
 }
 
 service StatDBInspector {
@@ -30,6 +38,13 @@ service StatDBInspector {
   rpc GetStats(GetStatsRequest) returns (GetStatsResponse);
   // CreateStats creates a node with specified stats
   rpc CreateStats(CreateStatsRequest) returns (CreateStatsResponse);
+}
+
+service PieceStoreInspector {
+  // Stats return space and bandwidth stats for a storagenode
+  rpc Stats(StatsRequest) returns (StatSummaryResponse) {}
+  // Dashboard returns stats for a specific storagenode
+  rpc Dashboard(DashboardRequest) returns (DashboardResponse) {}
 }
 
 // GetStats
@@ -110,6 +125,17 @@ message LookupNodeResponse {
   node.NodeMetadata meta = 2;
 }
 
+message NodeInfoRequest {
+  bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  node.NodeAddress address = 2;
+}
+
+message NodeInfoResponse {
+  node.NodeType type = 1;
+  node.NodeOperator operator = 2;
+  node.NodeCapacity capacity = 3;
+}
+
 message FindNearRequest {
   bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
   bytes start = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
@@ -118,4 +144,33 @@ message FindNearRequest {
 
 message FindNearResponse {
   repeated node.Node nodes = 2;
+}
+
+message DumpNodesRequest {}
+
+message DumpNodesResponse {
+  repeated node.Node nodes = 1;
+}
+message StatsRequest {
+}
+
+message StatSummaryResponse {
+  int64 used_space = 1;
+  int64 available_space = 2;
+  int64 used_bandwidth = 3;
+  int64 available_bandwidth = 4;
+}
+
+message DashboardRequest {
+}
+
+message DashboardResponse {
+  string node_id = 1;
+  int64 node_connections = 2;
+  string bootstrap_address = 3;
+  string internal_address = 4;
+  string external_address = 5;
+  StatSummaryResponse stats = 6;
+  bool connection = 7;
+  google.protobuf.Duration uptime = 8;
 }

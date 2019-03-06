@@ -26,6 +26,22 @@ CREATE TABLE accounting_timestamps (
 	value TIMESTAMP NOT NULL,
 	PRIMARY KEY ( name )
 );
+CREATE TABLE bucket_usages (
+	id BLOB NOT NULL,
+	bucket_id BLOB NOT NULL,
+	rollup_end_time TIMESTAMP NOT NULL,
+	remote_stored_data INTEGER NOT NULL,
+	inline_stored_data INTEGER NOT NULL,
+	remote_segments INTEGER NOT NULL,
+	inline_segments INTEGER NOT NULL,
+	objects INTEGER NOT NULL,
+	metadata_size INTEGER NOT NULL,
+	repair_egress INTEGER NOT NULL,
+	get_egress INTEGER NOT NULL,
+	audit_egress INTEGER NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( rollup_end_time, bucket_id )
+);
 CREATE TABLE bwagreements (
 	serialnum TEXT NOT NULL,
 	storage_node_id BLOB NOT NULL,
@@ -35,6 +51,12 @@ CREATE TABLE bwagreements (
 	created_at TIMESTAMP NOT NULL,
 	expires_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( serialnum )
+);
+CREATE TABLE certRecords (
+	publickey BLOB NOT NULL,
+	id BLOB NOT NULL,
+	update_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id )
 );
 CREATE TABLE injuredsegments (
 	id INTEGER NOT NULL,
@@ -59,6 +81,8 @@ CREATE TABLE nodes (
 	uptime_ratio REAL NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	updated_at TIMESTAMP NOT NULL,
+	wallet TEXT NOT NULL,
+	email TEXT NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE overlay_cache_nodes (
@@ -91,11 +115,11 @@ CREATE TABLE users (
 	id BLOB NOT NULL,
 	first_name TEXT NOT NULL,
 	last_name TEXT NOT NULL,
-	email TEXT,
+	email TEXT NOT NULL,
 	password_hash BLOB NOT NULL,
+	status INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( email )
+	PRIMARY KEY ( id )
 );
 CREATE TABLE api_keys (
 	id BLOB NOT NULL,

@@ -23,10 +23,13 @@ import (
 	"storj.io/storj/pkg/transport"
 )
 
-// ClientError is any error returned by the client
-var ClientError = errs.Class("piecestore client error")
-
 var (
+	// ClientError is any error returned by the client
+	ClientError = errs.Class("piecestore client error")
+
+	// ErrHashDoesNotMatch indicates hash comparison failed
+	ErrHashDoesNotMatch = ClientError.New("hash does not match")
+
 	defaultBandwidthMsgSize = 32 * memory.KB
 	maxBandwidthMsgSize     = 64 * memory.KB
 )
@@ -43,9 +46,9 @@ func init() {
 // Client is an interface describing the functions for interacting with piecestore nodes
 type Client interface {
 	Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, error)
-	Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, ba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) error
-	Get(ctx context.Context, id PieceID, size int64, ba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (ranger.Ranger, error)
-	Delete(ctx context.Context, pieceID PieceID, authorization *pb.SignedMessage) error
+	Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, ba *pb.OrderLimit) (*pb.SignedHash, error)
+	Get(ctx context.Context, id PieceID, size int64, ba *pb.OrderLimit) (ranger.Ranger, error)
+	Delete(ctx context.Context, pieceID PieceID, satelliteID storj.NodeID) error
 	io.Closer
 }
 
@@ -117,63 +120,82 @@ func (ps *PieceStore) Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, e
 }
 
 // Put uploads a Piece to a piece store Server
-func (ps *PieceStore) Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, ba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) error {
+func (ps *PieceStore) Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, pba *pb.OrderLimit) (*pb.SignedHash, error) {
 	stream, err := ps.client.Store(ctx)
 	if err != nil {
-		return err
+		return nil, err
+	}
+
+	// Making a clone, otherwise there will be a data race
+	// when another goroutine tries to write the cached size
+	// of this instance at the same time.
+	pbaClone := pba.Clone()
+
+	rba := &pb.Order{
+		PayerAllocation: pbaClone,
+		StorageNodeId:   ps.remoteID,
 	}
 
 	msg := &pb.PieceStore{
-		PieceData:     &pb.PieceStore_PieceData{Id: id.String(), ExpirationUnixSec: ttl.Unix()},
-		Authorization: authorization,
+		PieceData:           &pb.PieceStore_PieceData{Id: id.String(), ExpirationUnixSec: ttl.Unix()},
+		BandwidthAllocation: rba,
 	}
 	if err = stream.Send(msg); err != nil {
 		if _, closeErr := stream.CloseAndRecv(); closeErr != nil {
 			zap.S().Errorf("error closing stream %s :: %v.Send() = %v", closeErr, stream, closeErr)
 		}
 
-		return fmt.Errorf("%v.Send() = %v", stream, err)
+		return nil, fmt.Errorf("%v.Send() = %v", stream, err)
 	}
 
-	writer := &StreamWriter{signer: ps, stream: stream, pba: ba}
-
-	defer func() {
-		if err := writer.Close(); err != nil && err != io.EOF {
-			zap.S().Debugf("failed to close writer: %s\n", err)
-		}
-	}()
+	writer := NewStreamWriter(stream, ps, rba)
 
 	bufw := bufio.NewWriterSize(writer, 32*1024)
 
 	_, err = io.Copy(bufw, data)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return bufw.Flush()
+	err = bufw.Flush()
+	if err != nil {
+		return nil, err
+	}
+
+	err = writer.Close()
+	if err != nil && err != io.EOF {
+		return nil, ClientError.New("failure during closing writer: %v", err)
+	}
+
+	err = writer.Verify()
+	if err != nil {
+		return nil, ClientError.Wrap(err)
+	}
+
+	return writer.storagenodeHash, nil
 }
 
 // Get begins downloading a Piece from a piece store Server
-func (ps *PieceStore) Get(ctx context.Context, id PieceID, size int64, ba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (ranger.Ranger, error) {
+func (ps *PieceStore) Get(ctx context.Context, id PieceID, size int64, ba *pb.OrderLimit) (ranger.Ranger, error) {
 	stream, err := ps.client.Retrieve(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return PieceRangerSize(ps, stream, id, size, ba, authorization), nil
+	return PieceRangerSize(ps, stream, id, size, ba), nil
 }
 
 // Delete a Piece from a piece store Server
-func (ps *PieceStore) Delete(ctx context.Context, id PieceID, authorization *pb.SignedMessage) error {
-	reply, err := ps.client.Delete(ctx, &pb.PieceDelete{Id: id.String(), Authorization: authorization})
+func (ps *PieceStore) Delete(ctx context.Context, id PieceID, satelliteID storj.NodeID) error {
+	reply, err := ps.client.Delete(ctx, &pb.PieceDelete{Id: id.String(), SatelliteId: satelliteID})
 	if err != nil {
 		return err
 	}
-	zap.S().Infof("Delete request route summary: %v", reply)
+	zap.S().Debugf("Delete request route summary: %v", reply)
 	return nil
 }
 
 // sign a message using the clients private key
-func (ps *PieceStore) sign(rba *pb.RenterBandwidthAllocation) (err error) {
+func (ps *PieceStore) sign(rba *pb.Order) (err error) {
 	return auth.SignMessage(rba, *ps.selfID)
 }

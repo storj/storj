@@ -6,7 +6,6 @@ package kademlia_test
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
@@ -23,13 +22,12 @@ func TestDialer(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 3,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		time.Sleep(2 * time.Second)
-		expectedKademliaEntries := 1 + len(planet.Satellites) + len(planet.StorageNodes)
+		expectedKademliaEntries := len(planet.Satellites) + len(planet.StorageNodes)
 
 		// TODO: also use satellites
 		peers := planet.StorageNodes
 
-		{ // Ping: storage node pings all other storage nodes
+		{ // PingNode: storage node pings all other storage nodes
 			self := planet.StorageNodes[0]
 
 			dialer := kademlia.NewDialer(zaptest.NewLogger(t), self.Transport)
@@ -40,7 +38,7 @@ func TestDialer(t *testing.T) {
 			for _, peer := range peers {
 				peer := peer
 				group.Go(func() error {
-					pinged, err := dialer.Ping(ctx, peer.Local())
+					pinged, err := dialer.PingNode(ctx, peer.Local())
 					var pingErr error
 					if !pinged {
 						pingErr = fmt.Errorf("ping to %s should have succeeded", peer.ID())
@@ -79,7 +77,6 @@ func TestDialer(t *testing.T) {
 						if len(results) != expectedKademliaEntries {
 							return errs.Combine(errTag, fmt.Errorf("expected %d got %d: %s", expectedKademliaEntries, len(results), pb.NodesToIDs(results)))
 						}
-
 						return nil
 					}
 					return nil
@@ -117,7 +114,6 @@ func TestDialer(t *testing.T) {
 						if len(results) != expectedKademliaEntries {
 							return errs.Combine(errTag, fmt.Errorf("expected %d got %d: %s", expectedKademliaEntries, len(results), pb.NodesToIDs(results)))
 						}
-
 						return nil
 					})
 				}

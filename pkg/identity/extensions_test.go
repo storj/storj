@@ -83,6 +83,7 @@ func TestParseExtensions(t *testing.T) {
 
 	revDB, err := NewRevocationDBBolt(ctx.File("revocations.db"))
 	assert.NoError(t, err)
+	defer ctx.Check(revDB.Close)
 
 	cases := []struct {
 		testID    string

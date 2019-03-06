@@ -47,14 +47,6 @@ type EncryptionConfig struct {
 	PathType  int         `help:"Type of encryption to use for paths (0=Unencrypted, 1=AES-GCM, 2=SecretBox)" default:"1"`
 }
 
-// MinioConfig is a configuration struct that keeps details about starting
-// Minio
-type MinioConfig struct {
-	AccessKey string `help:"Minio Access Key to use" default:"insecure-dev-access-key"`
-	SecretKey string `help:"Minio Secret Key to use" default:"insecure-dev-secret-key"`
-	Dir       string `help:"Minio generic server config path" default:"$CONFDIR/minio"`
-}
-
 // ClientConfig is a configuration struct for the miniogw that controls how
 // the miniogw figures out how to talk to the rest of the network.
 type ClientConfig struct {
@@ -70,6 +62,14 @@ type ClientConfig struct {
 // ServerConfig determines how minio listens for requests
 type ServerConfig struct {
 	Address string `help:"address to serve S3 api over" default:"localhost:7777"`
+}
+
+// MinioConfig is a configuration struct that keeps details about starting
+// Minio
+type MinioConfig struct {
+	AccessKey string `help:"Minio Access Key to use" default:"insecure-dev-access-key"`
+	SecretKey string `help:"Minio Secret Key to use" default:"insecure-dev-secret-key"`
+	Dir       string `help:"Minio generic server config path" default:"$CONFDIR/minio"`
 }
 
 // Config is a general miniogw configuration struct. This should be everything

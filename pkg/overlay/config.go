@@ -5,7 +5,6 @@ package overlay
 
 import (
 	"strings"
-	"time"
 
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
@@ -23,8 +22,7 @@ var (
 // Config is a configuration struct for everything you need to start the
 // Overlay cache responsibility.
 type Config struct {
-	RefreshInterval time.Duration `help:"the interval at which the cache refreshes itself in seconds" default:"1s"`
-	Node            NodeSelectionConfig
+	Node NodeSelectionConfig
 }
 
 // LookupConfig is a configuration struct for querying the overlay cache with one or more node IDs

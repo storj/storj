@@ -100,6 +100,35 @@ func (s *Server) validateSegment(req *pb.PutRequest) error {
 	return nil
 }
 
+func (s *Server) filterValidPieces(pointer *pb.Pointer) error {
+	if pointer.Type == pb.Pointer_REMOTE {
+		var remotePieces []*pb.RemotePiece
+		remote := pointer.Remote
+		for _, piece := range remote.RemotePieces {
+			err := auth.VerifyMsg(piece.Hash, piece.NodeId)
+			if err == nil {
+				// set to nil after verification to avoid storing in DB
+				piece.Hash.SetCerts(nil)
+				piece.Hash.SetSignature(nil)
+				remotePieces = append(remotePieces, piece)
+			} else {
+				// TODO satellite should send Delete request for piece that failed
+				s.logger.Warn("unable to verify piece hash: %v", zap.Error(err))
+			}
+		}
+
+		if int32(len(remotePieces)) < remote.Redundancy.SuccessThreshold {
+			return Error.New("Number of valid pieces is lower then success threshold: %v < %v",
+				len(remotePieces),
+				remote.Redundancy.SuccessThreshold,
+			)
+		}
+
+		remote.RemotePieces = remotePieces
+	}
+	return nil
+}
+
 // Put formats and hands off a key/value (path/pointer) to be saved to boltdb
 func (s *Server) Put(ctx context.Context, req *pb.PutRequest) (resp *pb.PutResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -110,6 +139,11 @@ func (s *Server) Put(ctx context.Context, req *pb.PutRequest) (resp *pb.PutRespo
 	}
 
 	keyInfo, err := s.validateAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	err = s.filterValidPieces(req.Pointer)
 	if err != nil {
 		return nil, err
 	}
@@ -148,19 +182,12 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	authorization, err := s.getSignedMessage()
-	if err != nil {
-		s.logger.Error("err getting signed message", zap.Error(err))
-		return nil, status.Errorf(codes.Internal, err.Error())
-	}
-
 	nodes := []*pb.Node{}
 
 	var r = &pb.GetResponse{
-		Pointer:       pointer,
-		Nodes:         nil,
-		Pba:           pba.GetPba(),
-		Authorization: authorization,
+		Pointer: pointer,
+		Nodes:   nil,
+		Pba:     pba.GetPba(),
 	}
 
 	if !s.config.Overlay || pointer.Remote == nil {
@@ -182,10 +209,9 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 		}
 	}
 	r = &pb.GetResponse{
-		Pointer:       pointer,
-		Nodes:         nodes,
-		Pba:           pba.GetPba(),
-		Authorization: authorization,
+		Pointer: pointer,
+		Nodes:   nodes,
+		Pba:     pba.GetPba(),
 	}
 
 	return r, nil
@@ -241,7 +267,7 @@ func (s *Server) Iterate(ctx context.Context, req *pb.IterateRequest, f func(it 
 	return s.service.Iterate(prefix, req.First, req.Recurse, req.Reverse, f)
 }
 
-// PayerBandwidthAllocation returns PayerBandwidthAllocation struct, signed and with given action type
+// PayerBandwidthAllocation returns OrderLimit struct, signed and with given action type
 func (s *Server) PayerBandwidthAllocation(ctx context.Context, req *pb.PayerBandwidthAllocationRequest) (res *pb.PayerBandwidthAllocationResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -263,13 +289,4 @@ func (s *Server) PayerBandwidthAllocation(ctx context.Context, req *pb.PayerBand
 	}
 
 	return &pb.PayerBandwidthAllocationResponse{Pba: pba}, nil
-}
-
-func (s *Server) getSignedMessage() (*pb.SignedMessage, error) {
-	signature, err := auth.GenerateSignature(s.identity.ID.Bytes(), s.identity)
-	if err != nil {
-		return nil, err
-	}
-
-	return auth.NewSignedMessage(signature, s.identity)
 }

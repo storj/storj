@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
+	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -39,8 +40,17 @@ func TestGraphqlQuery(t *testing.T) {
 			t.Fatal(err)
 		}
 
+		mailService, err := mailservice.New(log, &discardSender{}, "testdata")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		rootObject := make(map[string]interface{})
+		rootObject["origin"] = "http://doesntmatter.com/"
+		rootObject[consoleql.ActivationPath] = "?activationToken="
+
 		creator := consoleql.TypeCreator{}
-		if err = creator.Create(service); err != nil {
+		if err = creator.Create(service, mailService); err != nil {
 			t.Fatal(err)
 		}
 
@@ -68,14 +78,10 @@ func TestGraphqlQuery(t *testing.T) {
 		}
 
 		t.Run("Activation", func(t *testing.T) {
-			t.Skip("skip it until we will have activation flow ready")
-
-			//TODO(yar): skip it until we will have activation flow ready
 			activationToken, err := service.GenerateActivationToken(
 				ctx,
 				rootUser.ID,
 				"mtest@email.com",
-				rootUser.CreatedAt.Add(time.Hour*24),
 			)
 			if err != nil {
 				t.Fatal(err)
@@ -104,7 +110,7 @@ func TestGraphqlQuery(t *testing.T) {
 				Schema:        schema,
 				Context:       authCtx,
 				RequestString: query,
-				RootObject:    make(map[string]interface{}),
+				RootObject:    rootObject,
 			})
 
 			for _, err := range result.Errors {
@@ -203,14 +209,10 @@ func TestGraphqlQuery(t *testing.T) {
 		}
 
 		t.Run("Activation", func(t *testing.T) {
-			t.Skip("skip it until we will have activation flow ready")
-
-			//TODO(yar): skip it until we will have activation flow ready
 			activationToken1, err := service.GenerateActivationToken(
 				ctx,
 				user1.ID,
 				"muu1@email.com",
-				user1.CreatedAt.Add(time.Hour*24),
 			)
 			if err != nil {
 				t.Fatal(err)
@@ -237,14 +239,10 @@ func TestGraphqlQuery(t *testing.T) {
 		}
 
 		t.Run("Activation", func(t *testing.T) {
-			t.Skip("skip it until we will have activation flow ready")
-
-			//TODO(yar): skip it until we will have activation flow ready
 			activationToken2, err := service.GenerateActivationToken(
 				ctx,
 				user2.ID,
 				"muu2@email.com",
-				user2.CreatedAt.Add(time.Hour*24),
 			)
 			if err != nil {
 				t.Fatal(err)
@@ -256,14 +254,14 @@ func TestGraphqlQuery(t *testing.T) {
 			user2.Email = "muu2@email.com"
 		})
 
-		err = service.AddProjectMembers(authCtx, createdProject.ID, []string{
+		users, err := service.AddProjectMembers(authCtx, createdProject.ID, []string{
 			user1.Email,
 			user2.Email,
 		})
-
 		if err != nil {
 			t.Fatal(err)
 		}
+		assert.Equal(t, 2, len(users))
 
 		t.Run("Project query team members", func(t *testing.T) {
 			query := fmt.Sprintf(

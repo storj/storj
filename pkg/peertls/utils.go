@@ -22,6 +22,30 @@ import (
 	"storj.io/storj/pkg/pkcrypto"
 )
 
+// NonTemporaryError is an error with a `Temporary` method which always returns false.
+// It is intended for use with grpc.
+//
+// (see https://godoc.org/google.golang.org/grpc#WithDialer
+// and https://godoc.org/google.golang.org/grpc#FailOnNonTempDialError).
+type NonTemporaryError struct{ error }
+
+// NewNonTemporaryError returns a new temporary error for use with grpc.
+func NewNonTemporaryError(err error) NonTemporaryError {
+	return NonTemporaryError{
+		error: errs.Wrap(err),
+	}
+}
+
+// Temporary returns false to indicate that is is a non-temporary error
+func (nte NonTemporaryError) Temporary() bool {
+	return false
+}
+
+// Err returns the underlying error
+func (nte NonTemporaryError) Err() error {
+	return nte.error
+}
+
 func verifyChainSignatures(certs []*x509.Certificate) error {
 	for i, cert := range certs {
 		j := len(certs)
@@ -45,7 +69,7 @@ func verifyChainSignatures(certs []*x509.Certificate) error {
 }
 
 func verifyCertSignature(parentCert, childCert *x509.Certificate) error {
-	return pkcrypto.VerifySignature(childCert.Signature, childCert.RawTBSCertificate, parentCert.PublicKey)
+	return pkcrypto.HashAndVerifySignature(parentCert.PublicKey, childCert.RawTBSCertificate, childCert.Signature)
 }
 
 func newSerialNumber() (*big.Int, error) {

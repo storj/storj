@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -111,13 +112,14 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 	processes := NewProcesses()
 	var (
-		configDir       = flags.Directory
-		host            = flags.Host
-		gatewayPort     = 9000
-		bootstrapPort   = 9999
-		satellitePort   = 10000
-		storageNodePort = 11000
-		consolePort     = 10100
+		configDir        = flags.Directory
+		host             = flags.Host
+		gatewayPort      = 9000
+		bootstrapPort    = 9999
+		satellitePort    = 10000
+		storageNodePort  = 11000
+		consolePort      = 10100
+		bootstrapWebPort = 10010
 	)
 
 	bootstrap := processes.New(Info{
@@ -130,11 +132,17 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	bootstrap.Arguments = withCommon(Arguments{
 		"setup": {
 			"--identity-dir", bootstrap.Directory,
+
+			"--web.address", net.JoinHostPort(host, strconv.Itoa(bootstrapWebPort)),
+
 			"--server.address", bootstrap.Address,
 
 			"--kademlia.bootstrap-addr", bootstrap.Address,
 			"--kademlia.operator.email", "bootstrap@example.com",
 			"--kademlia.operator.wallet", "0x0123456789012345678901234567890123456789",
+
+			"--server.extensions.revocation=false",
+			"--server.use-peer-ca-whitelist=false",
 		},
 		"run": {},
 	})
@@ -156,15 +164,30 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		// satellite must wait for bootstrap to start
 		process.WaitForStart(bootstrap)
 
+		// TODO: find source file, to set static path
+		_, filename, _, ok := runtime.Caller(0)
+		if !ok {
+			return nil, errs.Combine(processes.Close(), errs.New("no caller information"))
+		}
+		storjRoot := strings.TrimSuffix(filename, "/cmd/storj-sim/network.go")
+
 		process.Arguments = withCommon(Arguments{
 			"setup": {
 				"--identity-dir", process.Directory,
 				"--console.address", net.JoinHostPort(host, strconv.Itoa(consolePort+i)),
+				"--console.static-dir", filepath.Join(storjRoot, "web/satellite/"),
 				"--server.address", process.Address,
 
 				"--kademlia.bootstrap-addr", bootstrap.Address,
 				"--repairer.overlay-addr", process.Address,
 				"--repairer.pointer-db-addr", process.Address,
+
+				"--server.extensions.revocation=false",
+				"--server.use-peer-ca-whitelist=false",
+
+				"--mail.smtp-server-address", "smtp.gmail.com:587",
+				"--mail.from", "Storj <yaroslav-satellite-test@storj.io>",
+				"--mail.template-path", filepath.Join(storjRoot, "web/satellite/static/emails"),
 			},
 			"run": {},
 		})
@@ -202,6 +225,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--rs.repair-threshold", strconv.Itoa(2 * flags.StorageNodeCount / 5),
 				"--rs.success-threshold", strconv.Itoa(3 * flags.StorageNodeCount / 5),
 				"--rs.max-threshold", strconv.Itoa(4 * flags.StorageNodeCount / 5),
+
+				"--tls.extensions.revocation=false",
+				"--tls.use-peer-ca-whitelist=false",
 			},
 			"run": {},
 		})
@@ -268,8 +294,11 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			Address:    net.JoinHostPort(host, strconv.Itoa(storageNodePort+i)),
 		})
 
-		// storage node must wait for bootstrap to start
+		// storage node must wait for bootstrap and satellites to start
 		process.WaitForStart(bootstrap)
+		for _, satellite := range satellites {
+			process.WaitForStart(satellite)
+		}
 
 		process.Arguments = withCommon(Arguments{
 			"setup": {
@@ -279,6 +308,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--kademlia.bootstrap-addr", bootstrap.Address,
 				"--kademlia.operator.email", fmt.Sprintf("storage%d@example.com", i),
 				"--kademlia.operator.wallet", "0x0123456789012345678901234567890123456789",
+
+				"--server.extensions.revocation=false",
+				"--server.use-peer-ca-whitelist=false",
 			},
 			"run": {},
 		})

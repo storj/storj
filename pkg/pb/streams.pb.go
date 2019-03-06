@@ -130,7 +130,7 @@ type StreamMeta struct {
 	EncryptedStreamInfo  []byte       `protobuf:"bytes,1,opt,name=encrypted_stream_info,json=encryptedStreamInfo,proto3" json:"encrypted_stream_info,omitempty"`
 	EncryptionType       int32        `protobuf:"varint,2,opt,name=encryption_type,json=encryptionType,proto3" json:"encryption_type,omitempty"`
 	EncryptionBlockSize  int32        `protobuf:"varint,3,opt,name=encryption_block_size,json=encryptionBlockSize,proto3" json:"encryption_block_size,omitempty"`
-	LastSegmentMeta      *SegmentMeta `protobuf:"bytes,4,opt,name=last_segment_meta,json=lastSegmentMeta" json:"last_segment_meta,omitempty"`
+	LastSegmentMeta      *SegmentMeta `protobuf:"bytes,4,opt,name=last_segment_meta,json=lastSegmentMeta,proto3" json:"last_segment_meta,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
 	XXX_unrecognized     []byte       `json:"-"`
 	XXX_sizecache        int32        `json:"-"`

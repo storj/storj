@@ -10,7 +10,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
@@ -35,8 +34,8 @@ type AgreementSender struct { // TODO: rename to service
 // TODO: take transport instead of identity as argument
 
 // New creates an Agreement Sender
-func New(log *zap.Logger, DB *psdb.DB, identity *identity.FullIdentity, kad *kademlia.Kademlia, checkInterval time.Duration) *AgreementSender {
-	return &AgreementSender{DB: DB, log: log, transport: transport.NewClient(identity), kad: kad, checkInterval: checkInterval}
+func New(log *zap.Logger, DB *psdb.DB, tc transport.Client, kad *kademlia.Kademlia, checkInterval time.Duration) *AgreementSender {
+	return &AgreementSender{DB: DB, log: log, transport: tc, kad: kad, checkInterval: checkInterval}
 }
 
 // Run the agreement sender with a context to check for cancel
@@ -51,8 +50,14 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 			as.log.Error("Agreementsender could not retrieve bandwidth allocations", zap.Error(err))
 			continue
 		}
+		// send agreement payouts
 		for satellite, agreements := range agreementGroups {
 			as.SendAgreementsToSatellite(ctx, satellite, agreements)
+		}
+
+		// Delete older payout irrespective of its status
+		if err = as.DB.DeleteBandwidthAllocationPayouts(); err != nil {
+			as.log.Error("Agreementsender failed to delete bandwidth allocation", zap.Error(err))
 		}
 		select {
 		case <-ticker.C:
@@ -80,8 +85,7 @@ func (as *AgreementSender) SendAgreementsToSatellite(ctx context.Context, satID 
 	}
 	client := pb.NewBandwidthClient(conn)
 	defer func() {
-		err := conn.Close()
-		if err != nil {
+		if err := conn.Close(); err != nil {
 			as.log.Warn("Agreementsender failed to close connection", zap.Error(err))
 		}
 	}()
@@ -89,22 +93,29 @@ func (as *AgreementSender) SendAgreementsToSatellite(ctx context.Context, satID 
 	//todo:  stop sending these one-by-one, send all at once
 	for _, agreement := range agreements {
 		rba := agreement.Agreement
+		// Send agreement to satellite
+		sat, err := client.BandwidthAgreements(ctx, &rba)
 		if err != nil {
-			as.log.Warn("Agreementsender failed to deserialize agreement : will delete", zap.Error(err))
-		} else {
-			// Send agreement to satellite
-			r, err := client.BandwidthAgreements(ctx, &rba)
-			if err != nil || r.GetStatus() == pb.AgreementsSummary_FAIL {
-				as.log.Warn("Agreementsender failed to send agreement to satellite : will retry", zap.Error(err))
-				continue
-			} else if r.GetStatus() == pb.AgreementsSummary_REJECTED {
-				//todo: something better than a delete here?
-				as.log.Error("Agreementsender had agreement explicitly rejected by satellite : will delete", zap.Error(err))
+			switch sat.GetStatus() {
+			case pb.AgreementsSummary_FAIL:
+				// CASE FAILED: connection with sat couldnt be established or connection
+				// is established but lost before receiving response from satellite
+				// no updates to the bwa status is done, so it remains "UNSENT"
+				as.log.Warn("Agreementsender lost connection", zap.Error(err))
+			default:
+				// CASE REJECTED: successful connection with sat established but either failed or rejected received
+				as.log.Warn("Agreementsender had agreement explicitly rejected/failed by satellite")
+				err = as.DB.UpdateBandwidthAllocationStatus(rba.PayerAllocation.SerialNumber, psdb.AgreementStatusReject)
+				if err != nil {
+					as.log.Error("Agreementsender error", zap.Error(err))
+				}
 			}
-		}
-		// Delete from PSDB by signature
-		if err = as.DB.DeleteBandwidthAllocationBySignature(agreement.Signature); err != nil {
-			as.log.Error("Agreementsender failed to delete bandwidth allocation", zap.Error(err))
+		} else {
+			// updates the status to "SENT"
+			err = as.DB.UpdateBandwidthAllocationStatus(rba.PayerAllocation.SerialNumber, psdb.AgreementStatusSent)
+			if err != nil {
+				as.log.Error("Agreementsender error", zap.Error(err))
+			}
 		}
 	}
 }

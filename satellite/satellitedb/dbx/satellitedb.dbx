@@ -132,6 +132,9 @@ model node (
 
 	field created_at timestamp ( autoinsert )
 	field updated_at timestamp ( autoinsert, autoupdate )
+
+	field wallet 			text ( updatable )
+	field email 			text ( updatable )
 )
 
 create node ( )
@@ -145,15 +148,6 @@ read one (
 
 read all (
 	select node.id
-)
-
-// payment csv generation query
-read all (
-	select node.id node.created_at node.audit_success_ratio accounting_rollup.start_time accounting_rollup.put_total accounting_rollup.get_total accounting_rollup.get_audit_total accounting_rollup.get_repair_total accounting_rollup.put_repair_total accounting_rollup.at_rest_total
-	where accounting_rollup.start_time >= ? 
-	where accounting_rollup.start_time < ?
-	join node.id = accounting_rollup.node_id
-	orderby asc node.id
 )
 
 //--- overlaycache ---//
@@ -192,11 +186,6 @@ read one (
 	where  overlay_cache_node.node_id = ?
 )
 
-read one (
-	select overlay_cache_node.operator_wallet
-	where overlay_cache_node.node_id = ?
-)
-
 read limitoffset (
 	select overlay_cache_node
 	where  overlay_cache_node.node_id >= ?
@@ -229,20 +218,22 @@ delete injuredsegment ( where injuredsegment.id = ? )
 
 model user (
     key id
-    unique email
 
     field id               blob
     field first_name       text      ( updatable )
     field last_name        text      ( updatable )
 
-    field email            text      ( updatable, nullable )
+    field email            text      ( updatable )
     field password_hash    blob      ( updatable )
+
+    field status           int       ( updatable, autoinsert )
 
     field created_at       timestamp ( autoinsert )
 )
 read one (
     select user
     where user.email = ?
+    where user.status != 0
 )
 read one (
     select user
@@ -303,18 +294,18 @@ delete project_member (
 )
 
 model api_key (
-    key id
+    key    id
     unique key
     unique name project_id
 
-    field id blob
-    field project_id project.id cascade
+    field  id          blob
+    field  project_id  project.id cascade
 
-    field key blob
+    field  key         blob
 
-    field name text (updatable)
+    field  name        text       (updatable)
 
-    field created_at    timestamp ( autoinsert )
+    field  created_at  timestamp  (autoinsert)
 )
 
 create api_key ()
@@ -333,4 +324,69 @@ read all (
     select api_key
     where api_key.project_id = ?
     orderby asc api_key.name
+)
+
+//-----bucket_usage----//
+
+model bucket_usage (
+    key    id
+    unique rollup_end_time bucket_id
+
+    field  id                 blob
+    field  bucket_id          blob      //--TODO: add foreign key constraint--//
+
+    field  rollup_end_time    timestamp
+
+    field  remote_stored_data uint64
+    field  inline_stored_data uint64
+    field  remote_segments    uint
+    field  inline_segments    uint
+    field  objects            uint
+    field  metadata_size      uint64
+    field  repair_egress      uint64
+    field  get_egress         uint64
+    field  audit_egress       uint64
+)
+
+create bucket_usage ()
+delete bucket_usage ( where bucket_usage.id = ? )
+
+read one (
+    select bucket_usage
+    where  bucket_usage.id = ?
+)
+
+read limitoffset (
+    select bucket_usage
+    where bucket_usage.bucket_id = ?
+    where bucket_usage.rollup_end_time > ?
+    where bucket_usage.rollup_end_time <= ?
+    orderby asc bucket_usage.rollup_end_time
+)
+
+read limitoffset (
+    select bucket_usage
+    where bucket_usage.bucket_id = ?
+    where bucket_usage.rollup_end_time > ?
+    where bucket_usage.rollup_end_time <= ?
+    orderby desc bucket_usage.rollup_end_time
+)
+
+//--- certRecord ---//
+
+model certRecord (
+	key id 
+
+	field publickey  blob		//--uplink public key--//
+	field id         blob		//--uplink node id  --//
+	field update_at timestamp ( autoinsert, autoupdate )
+)
+
+create certRecord ( )
+delete certRecord ( where certRecord.id = ? )
+update certRecord ( where certRecord.id = ? )
+
+read one (
+	select certRecord
+	where  certRecord.id = ?
 )

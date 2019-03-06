@@ -1,0 +1,2667 @@
+{
+  "definitions": [
+    {
+      "protopath": "pkg:/:pb:/:bandwidth.proto",
+      "def": {
+        "enums": [
+          {
+            "name": "AgreementsSummary.Status",
+            "enum_fields": [
+              {
+                "name": "FAIL"
+              },
+              {
+                "name": "OK",
+                "integer": 1
+              },
+              {
+                "name": "REJECTED",
+                "integer": 2
+              }
+            ]
+          }
+        ],
+        "messages": [
+          {
+            "name": "AgreementsSummary",
+            "fields": [
+              {
+                "id": 1,
+                "name": "status",
+                "type": "Status"
+              }
+            ]
+          }
+        ],
+        "services": [
+          {
+            "name": "Bandwidth",
+            "rpcs": [
+              {
+                "name": "BandwidthAgreements",
+                "in_type": "piecestoreroutes.RenterBandwidthAllocation",
+                "out_type": "AgreementsSummary"
+              }
+            ]
+          }
+        ],
+        "imports": [
+          {
+            "path": "piecestore.proto"
+          }
+        ],
+        "package": {
+          "name": "bandwidth"
+        }
+      }
+    },
+    {
+      "protopath": "pkg:/:pb:/:certificate.proto",
+      "def": {
+        "messages": [
+          {
+            "name": "SigningRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "auth_token",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "timestamp",
+                "type": "int64"
+              }
+            ]
+          },
+          {
+            "name": "SigningResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "chain",
+                "type": "bytes",
+                "is_repeated": true
+              }
+            ]
+          }
+        ],
+        "services": [
+          {
+            "name": "Certificates",
+            "rpcs": [
+              {
+                "name": "Sign",
+                "in_type": "SigningRequest",
+                "out_type": "SigningResponse"
+              }
+            ]
+          }
+        ],
+        "imports": [
+          {
+            "path": "gogo.proto"
+          }
+        ],
+        "package": {
+          "name": "node"
+        }
+      }
+    },
+    {
+      "protopath": "pkg:/:pb:/:datarepair.proto",
+      "def": {
+        "messages": [
+          {
+            "name": "InjuredSegment",
+            "fields": [
+              {
+                "id": 1,
+                "name": "path",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "lost_pieces",
+                "type": "int32",
+                "is_repeated": true
+              }
+            ]
+          }
+        ],
+        "package": {
+          "name": "repair"
+        }
+      }
+    },
+    {
+      "protopath": "pkg:/:pb:/:gogo.proto",
+      "def": {
+        "messages": [
+          {
+            "name": "google.protobuf.EnumOptions",
+            "fields": [
+              {
+                "id": 62001,
+                "name": "goproto_enum_prefix",
+                "type": "bool"
+              },
+              {
+                "id": 62021,
+                "name": "goproto_enum_stringer",
+                "type": "bool"
+              },
+              {
+                "id": 62022,
+                "name": "enum_stringer",
+                "type": "bool"
+              },
+              {
+                "id": 62023,
+                "name": "enum_customname",
+                "type": "string"
+              },
+              {
+                "id": 62024,
+                "name": "enumdecl",
+                "type": "bool"
+              }
+            ]
+          },
+          {
+            "name": "google.protobuf.EnumValueOptions",
+            "fields": [
+              {
+                "id": 66001,
+                "name": "enumvalue_customname",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "name": "google.protobuf.FileOptions",
+            "fields": [
+              {
+                "id": 63001,
+                "name": "goproto_getters_all",
+                "type": "bool"
+              },
+              {
+                "id": 63002,
+                "name": "goproto_enum_prefix_all",
+                "type": "bool"
+              },
+              {
+                "id": 63003,
+                "name": "goproto_stringer_all",
+                "type": "bool"
+              },
+              {
+                "id": 63004,
+                "name": "verbose_equal_all",
+                "type": "bool"
+              },
+              {
+                "id": 63005,
+                "name": "face_all",
+                "type": "bool"
+              },
+              {
+                "id": 63006,
+                "name": "gostring_all",
+                "type": "bool"
+              },
+              {
+                "id": 63007,
+                "name": "populate_all",
+                "type": "bool"
+              },
+              {
+                "id": 63008,
+                "name": "stringer_all",
+                "type": "bool"
+              },
+              {
+                "id": 63009,
+                "name": "onlyone_all",
+                "type": "bool"
+              },
+              {
+                "id": 63013,
+                "name": "equal_all",
+                "type": "bool"
+              },
+              {
+                "id": 63014,
+                "name": "description_all",
+                "type": "bool"
+              },
+              {
+                "id": 63015,
+                "name": "testgen_all",
+                "type": "bool"
+              },
+              {
+                "id": 63016,
+                "name": "benchgen_all",
+                "type": "bool"
+              },
+              {
+                "id": 63017,
+                "name": "marshaler_all",
+                "type": "bool"
+              },
+              {
+                "id": 63018,
+                "name": "unmarshaler_all",
+                "type": "bool"
+              },
+              {
+                "id": 63019,
+                "name": "stable_marshaler_all",
+                "type": "bool"
+              },
+              {
+                "id": 63020,
+                "name": "sizer_all",
+                "type": "bool"
+              },
+              {
+                "id": 63021,
+                "name": "goproto_enum_stringer_all",
+                "type": "bool"
+              },
+              {
+                "id": 63022,
+                "name": "enum_stringer_all",
+                "type": "bool"
+              },
+              {
+                "id": 63023,
+                "name": "unsafe_marshaler_all",
+                "type": "bool"
+              },
+              {
+                "id": 63024,
+                "name": "unsafe_unmarshaler_all",
+                "type": "bool"
+              },
+              {
+                "id": 63025,
+                "name": "goproto_extensions_map_all",
+                "type": "bool"
+              },
+              {
+                "id": 63026,
+                "name": "goproto_unrecognized_all",
+                "type": "bool"
+              },
+              {
+                "id": 63027,
+                "name": "gogoproto_import",
+                "type": "bool"
+              },
+              {
+                "id": 63028,
+                "name": "protosizer_all",
+                "type": "bool"
+              },
+              {
+                "id": 63029,
+                "name": "compare_all",
+                "type": "bool"
+              },
+              {
+                "id": 63030,
+                "name": "typedecl_all",
+                "type": "bool"
+              },
+              {
+                "id": 63031,
+                "name": "enumdecl_all",
+                "type": "bool"
+              },
+              {
+                "id": 63032,
+                "name": "goproto_registration",
+                "type": "bool"
+              },
+              {
+                "id": 63033,
+                "name": "messagename_all",
+                "type": "bool"
+              },
+              {
+                "id": 63034,
+                "name": "goproto_sizecache_all",
+                "type": "bool"
+              },
+              {
+                "id": 63035,
+                "name": "goproto_unkeyed_all",
+                "type": "bool"
+              }
+            ]
+          },
+          {
+            "name": "google.protobuf.MessageOptions",
+            "fields": [
+              {
+                "id": 64001,
+                "name": "goproto_getters",
+                "type": "bool"
+              },
+              {
+                "id": 64003,
+                "name": "goproto_stringer",
+                "type": "bool"
+              },
+              {
+                "id": 64004,
+                "name": "verbose_equal",
+                "type": "bool"
+              },
+              {
+                "id": 64005,
+                "name": "face",
+                "type": "bool"
+              },
+              {
+                "id": 64006,
+                "name": "gostring",
+                "type": "bool"
+              },
+              {
+                "id": 64007,
+                "name": "populate",
+                "type": "bool"
+              },
+              {
+                "id": 67008,
+                "name": "stringer",
+                "type": "bool"
+              },
+              {
+                "id": 64009,
+                "name": "onlyone",
+                "type": "bool"
+              },
+              {
+                "id": 64013,
+                "name": "equal",
+                "type": "bool"
+              },
+              {
+                "id": 64014,
+                "name": "description",
+                "type": "bool"
+              },
+              {
+                "id": 64015,
+                "name": "testgen",
+                "type": "bool"
+              },
+              {
+                "id": 64016,
+                "name": "benchgen",
+                "type": "bool"
+              },
+              {
+                "id": 64017,
+                "name": "marshaler",
+                "type": "bool"
+              },
+              {
+                "id": 64018,
+                "name": "unmarshaler",
+                "type": "bool"
+              },
+              {
+                "id": 64019,
+                "name": "stable_marshaler",
+                "type": "bool"
+              },
+              {
+                "id": 64020,
+                "name": "sizer",
+                "type": "bool"
+              },
+              {
+                "id": 64023,
+                "name": "unsafe_marshaler",
+                "type": "bool"
+              },
+              {
+                "id": 64024,
+                "name": "unsafe_unmarshaler",
+                "type": "bool"
+              },
+              {
+                "id": 64025,
+                "name": "goproto_extensions_map",
+                "type": "bool"
+              },
+              {
+                "id": 64026,
+                "name": "goproto_unrecognized",
+                "type": "bool"
+              },
+              {
+                "id": 64028,
+                "name": "protosizer",
+                "type": "bool"
+              },
+              {
+                "id": 64030,
+                "name": "typedecl",
+                "type": "bool"
+              },
+              {
+                "id": 64033,
+                "name": "messagename",
+                "type": "bool"
+              },
+              {
+                "id": 64034,
+                "name": "goproto_sizecache",
+                "type": "bool"
+              },
+              {
+                "id": 64035,
+                "name": "goproto_unkeyed",
+                "type": "bool"
+              }
+            ]
+          },
+          {
+            "name": "google.protobuf.FieldOptions",
+            "fields": [
+              {
+                "id": 65001,
+                "name": "nullable",
+                "type": "bool"
+              },
+              {
+                "id": 65002,
+                "name": "embed",
+                "type": "bool"
+              },
+              {
+                "id": 65003,
+                "name": "customtype",
+                "type": "string"
+              },
+              {
+                "id": 65004,
+                "name": "customname",
+                "type": "string"
+              },
+              {
+                "id": 65005,
+                "name": "jsontag",
+                "type": "string"
+              },
+              {
+                "id": 65006,
+                "name": "moretags",
+                "type": "string"
+              },
+              {
+                "id": 65007,
+                "name": "casttype",
+                "type": "string"
+              },
+              {
+                "id": 65008,
+                "name": "castkey",
+                "type": "string"
+              },
+              {
+                "id": 65009,
+                "name": "castvalue",
+                "type": "string"
+              },
+              {
+                "id": 65010,
+                "name": "stdtime",
+                "type": "bool"
+              },
+              {
+                "id": 65011,
+                "name": "stdduration",
+                "type": "bool"
+              },
+              {
+                "id": 65012,
+                "name": "wktpointer",
+                "type": "bool"
+              },
+              {
+                "id": 65013,
+                "name": "compare",
+                "type": "bool"
+              }
+            ]
+          }
+        ],
+        "imports": [
+          {
+            "path": "google/protobuf/descriptor.proto"
+          }
+        ],
+        "package": {
+          "name": "gogoproto"
+        }
+      }
+    },
+    {
+      "protopath": "pkg:/:pb:/:inspector.proto",
+      "def": {
+        "messages": [
+          {
+            "name": "GetStatsRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "node_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "GetStatsResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "audit_count",
+                "type": "int64"
+              },
+              {
+                "id": 2,
+                "name": "audit_ratio",
+                "type": "double"
+              },
+              {
+                "id": 3,
+                "name": "uptime_count",
+                "type": "int64"
+              },
+              {
+                "id": 4,
+                "name": "uptime_ratio",
+                "type": "double"
+              }
+            ]
+          },
+          {
+            "name": "CreateStatsRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "node_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "audit_count",
+                "type": "int64"
+              },
+              {
+                "id": 3,
+                "name": "audit_success_count",
+                "type": "int64"
+              },
+              {
+                "id": 4,
+                "name": "uptime_count",
+                "type": "int64"
+              },
+              {
+                "id": 5,
+                "name": "uptime_success_count",
+                "type": "int64"
+              }
+            ]
+          },
+          {
+            "name": "CreateStatsResponse"
+          },
+          {
+            "name": "CountNodesResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "count",
+                "type": "int64"
+              }
+            ]
+          },
+          {
+            "name": "CountNodesRequest"
+          },
+          {
+            "name": "GetBucketsRequest"
+          },
+          {
+            "name": "GetBucketsResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "total",
+                "type": "int64"
+              },
+              {
+                "id": 2,
+                "name": "ids",
+                "type": "bytes",
+                "is_repeated": true,
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "GetBucketRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "GetBucketResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "nodes",
+                "type": "node.Node",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "Bucket",
+            "fields": [
+              {
+                "id": 2,
+                "name": "nodes",
+                "type": "node.Node",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "BucketList",
+            "fields": [
+              {
+                "id": 1,
+                "name": "nodes",
+                "type": "node.Node",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "PingNodeRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "address",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "name": "PingNodeResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "ok",
+                "type": "bool"
+              }
+            ]
+          },
+          {
+            "name": "LookupNodeRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "id",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "address",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "name": "LookupNodeResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "node",
+                "type": "node.Node"
+              },
+              {
+                "id": 2,
+                "name": "meta",
+                "type": "node.NodeMetadata"
+              }
+            ]
+          },
+          {
+            "name": "NodeInfoRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "address",
+                "type": "node.NodeAddress"
+              }
+            ]
+          },
+          {
+            "name": "NodeInfoResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "type",
+                "type": "node.NodeType"
+              },
+              {
+                "id": 2,
+                "name": "operator",
+                "type": "node.NodeOperator"
+              },
+              {
+                "id": 3,
+                "name": "capacity",
+                "type": "node.NodeCapacity"
+              }
+            ]
+          },
+          {
+            "name": "FindNearRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "start",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 3,
+                "name": "limit",
+                "type": "int64"
+              }
+            ]
+          },
+          {
+            "name": "FindNearResponse",
+            "fields": [
+              {
+                "id": 2,
+                "name": "nodes",
+                "type": "node.Node",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "DumpNodesRequest"
+          },
+          {
+            "name": "DumpNodesResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "nodes",
+                "type": "node.Node",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "StatsRequest"
+          },
+          {
+            "name": "StatSummaryResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "used_space",
+                "type": "int64"
+              },
+              {
+                "id": 2,
+                "name": "available_space",
+                "type": "int64"
+              },
+              {
+                "id": 3,
+                "name": "used_bandwidth",
+                "type": "int64"
+              },
+              {
+                "id": 4,
+                "name": "available_bandwidth",
+                "type": "int64"
+              }
+            ]
+          },
+          {
+            "name": "DashboardRequest"
+          },
+          {
+            "name": "DashboardResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "node_id",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "node_connections",
+                "type": "int64"
+              },
+              {
+                "id": 3,
+                "name": "bootstrap_address",
+                "type": "string"
+              },
+              {
+                "id": 4,
+                "name": "internal_address",
+                "type": "string"
+              },
+              {
+                "id": 5,
+                "name": "external_address",
+                "type": "string"
+              },
+              {
+                "id": 6,
+                "name": "stats",
+                "type": "StatSummaryResponse"
+              },
+              {
+                "id": 7,
+                "name": "connection",
+                "type": "bool"
+              },
+              {
+                "id": 8,
+                "name": "uptime",
+                "type": "google.protobuf.Duration"
+              }
+            ]
+          }
+        ],
+        "services": [
+          {
+            "name": "KadInspector",
+            "rpcs": [
+              {
+                "name": "CountNodes",
+                "in_type": "CountNodesRequest",
+                "out_type": "CountNodesResponse"
+              },
+              {
+                "name": "PingNode",
+                "in_type": "PingNodeRequest",
+                "out_type": "PingNodeResponse"
+              },
+              {
+                "name": "LookupNode",
+                "in_type": "LookupNodeRequest",
+                "out_type": "LookupNodeResponse"
+              },
+              {
+                "name": "NodeInfo",
+                "in_type": "NodeInfoRequest",
+                "out_type": "NodeInfoResponse"
+              },
+              {
+                "name": "FindNear",
+                "in_type": "FindNearRequest",
+                "out_type": "FindNearResponse"
+              },
+              {
+                "name": "DumpNodes",
+                "in_type": "DumpNodesRequest",
+                "out_type": "DumpNodesResponse"
+              }
+            ]
+          },
+          {
+            "name": "OverlayInspector",
+            "rpcs": [
+              {
+                "name": "CountNodes",
+                "in_type": "CountNodesRequest",
+                "out_type": "CountNodesResponse"
+              },
+              {
+                "name": "DumpNodes",
+                "in_type": "DumpNodesRequest",
+                "out_type": "DumpNodesResponse"
+              }
+            ]
+          },
+          {
+            "name": "StatDBInspector",
+            "rpcs": [
+              {
+                "name": "GetStats",
+                "in_type": "GetStatsRequest",
+                "out_type": "GetStatsResponse"
+              },
+              {
+                "name": "CreateStats",
+                "in_type": "CreateStatsRequest",
+                "out_type": "CreateStatsResponse"
+              }
+            ]
+          },
+          {
+            "name": "PieceStoreInspector",
+            "rpcs": [
+              {
+                "name": "Stats",
+                "in_type": "StatsRequest",
+                "out_type": "StatSummaryResponse"
+              },
+              {
+                "name": "Dashboard",
+                "in_type": "DashboardRequest",
+                "out_type": "DashboardResponse"
+              }
+            ]
+          }
+        ],
+        "imports": [
+          {
+            "path": "gogo.proto"
+          },
+          {
+            "path": "node.proto"
+          },
+          {
+            "path": "google/protobuf/duration.proto"
+          }
+        ],
+        "package": {
+          "name": "inspector"
+        }
+      }
+    },
+    {
+      "protopath": "pkg:/:pb:/:meta.proto",
+      "def": {
+        "messages": [
+          {
+            "name": "SerializableMeta",
+            "fields": [
+              {
+                "id": 1,
+                "name": "content_type",
+                "type": "string"
+              }
+            ],
+            "maps": [
+              {
+                "key_type": "string",
+                "field": {
+                  "id": 2,
+                  "name": "user_defined",
+                  "type": "string"
+                }
+              }
+            ]
+          }
+        ],
+        "package": {
+          "name": "objects"
+        }
+      }
+    },
+    {
+      "protopath": "pkg:/:pb:/:node.proto",
+      "def": {
+        "enums": [
+          {
+            "name": "NodeType",
+            "enum_fields": [
+              {
+                "name": "INVALID"
+              },
+              {
+                "name": "SATELLITE",
+                "integer": 1
+              },
+              {
+                "name": "STORAGE",
+                "integer": 2
+              },
+              {
+                "name": "UPLINK",
+                "integer": 3
+              },
+              {
+                "name": "BOOTSTRAP",
+                "integer": 4
+              }
+            ]
+          },
+          {
+            "name": "NodeTransport",
+            "enum_fields": [
+              {
+                "name": "TCP_TLS_GRPC"
+              }
+            ]
+          }
+        ],
+        "messages": [
+          {
+            "name": "Node",
+            "fields": [
+              {
+                "id": 1,
+                "name": "id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "address",
+                "type": "NodeAddress"
+              },
+              {
+                "id": 3,
+                "name": "type",
+                "type": "NodeType"
+              },
+              {
+                "id": 4,
+                "name": "restrictions",
+                "type": "NodeRestrictions"
+              },
+              {
+                "id": 5,
+                "name": "reputation",
+                "type": "NodeStats"
+              },
+              {
+                "id": 6,
+                "name": "metadata",
+                "type": "NodeMetadata"
+              },
+              {
+                "id": 7,
+                "name": "latency_list",
+                "type": "int64",
+                "is_repeated": true
+              },
+              {
+                "id": 8,
+                "name": "audit_success",
+                "type": "bool"
+              },
+              {
+                "id": 9,
+                "name": "is_up",
+                "type": "bool"
+              },
+              {
+                "id": 10,
+                "name": "update_latency",
+                "type": "bool"
+              },
+              {
+                "id": 11,
+                "name": "update_audit_success",
+                "type": "bool"
+              },
+              {
+                "id": 12,
+                "name": "update_uptime",
+                "type": "bool"
+              }
+            ]
+          },
+          {
+            "name": "NodeAddress",
+            "fields": [
+              {
+                "id": 1,
+                "name": "transport",
+                "type": "NodeTransport"
+              },
+              {
+                "id": 2,
+                "name": "address",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "name": "NodeStats",
+            "fields": [
+              {
+                "id": 1,
+                "name": "node_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "latency_90",
+                "type": "int64"
+              },
+              {
+                "id": 3,
+                "name": "audit_success_ratio",
+                "type": "double"
+              },
+              {
+                "id": 4,
+                "name": "uptime_ratio",
+                "type": "double"
+              },
+              {
+                "id": 5,
+                "name": "audit_count",
+                "type": "int64"
+              },
+              {
+                "id": 6,
+                "name": "audit_success_count",
+                "type": "int64"
+              },
+              {
+                "id": 7,
+                "name": "uptime_count",
+                "type": "int64"
+              },
+              {
+                "id": 8,
+                "name": "uptime_success_count",
+                "type": "int64"
+              }
+            ]
+          },
+          {
+            "name": "NodeOperator",
+            "fields": [
+              {
+                "id": 1,
+                "name": "email",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "wallet",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "name": "NodeCapacity",
+            "fields": [
+              {
+                "id": 1,
+                "name": "free_bandwidth",
+                "type": "int64"
+              },
+              {
+                "id": 2,
+                "name": "free_disk",
+                "type": "int64"
+              }
+            ]
+          },
+          {
+            "name": "NodeMetadata",
+            "fields": [
+              {
+                "id": 1,
+                "name": "email",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "wallet",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "name": "NodeRestrictions",
+            "fields": [
+              {
+                "id": 1,
+                "name": "free_bandwidth",
+                "type": "int64"
+              },
+              {
+                "id": 2,
+                "name": "free_disk",
+                "type": "int64"
+              }
+            ]
+          }
+        ],
+        "imports": [
+          {
+            "path": "gogo.proto"
+          }
+        ],
+        "package": {
+          "name": "node"
+        }
+      }
+    },
+    {
+      "protopath": "pkg:/:pb:/:overlay.proto",
+      "def": {
+        "enums": [
+          {
+            "name": "Restriction.Operator",
+            "enum_fields": [
+              {
+                "name": "LT"
+              },
+              {
+                "name": "EQ",
+                "integer": 1
+              },
+              {
+                "name": "GT",
+                "integer": 2
+              },
+              {
+                "name": "LTE",
+                "integer": 3
+              },
+              {
+                "name": "GTE",
+                "integer": 4
+              }
+            ]
+          },
+          {
+            "name": "Restriction.Operand",
+            "enum_fields": [
+              {
+                "name": "FREE_BANDWIDTH"
+              },
+              {
+                "name": "FREE_DISK",
+                "integer": 1
+              }
+            ]
+          }
+        ],
+        "messages": [
+          {
+            "name": "LookupRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "node_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "LookupResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "node",
+                "type": "node.Node"
+              }
+            ]
+          },
+          {
+            "name": "LookupRequests",
+            "fields": [
+              {
+                "id": 1,
+                "name": "lookup_request",
+                "type": "LookupRequest",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "LookupResponses",
+            "fields": [
+              {
+                "id": 1,
+                "name": "lookup_response",
+                "type": "LookupResponse",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "FindStorageNodesResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "nodes",
+                "type": "node.Node",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "FindStorageNodesRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "object_size",
+                "type": "int64"
+              },
+              {
+                "id": 2,
+                "name": "contract_length",
+                "type": "google.protobuf.Duration"
+              },
+              {
+                "id": 3,
+                "name": "opts",
+                "type": "OverlayOptions"
+              },
+              {
+                "id": 4,
+                "name": "start",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 5,
+                "name": "min_nodes",
+                "type": "int64"
+              }
+            ]
+          },
+          {
+            "name": "OverlayOptions",
+            "fields": [
+              {
+                "id": 1,
+                "name": "max_latency",
+                "type": "google.protobuf.Duration"
+              },
+              {
+                "id": 2,
+                "name": "min_stats",
+                "type": "node.NodeStats"
+              },
+              {
+                "id": 3,
+                "name": "min_speed_kbps",
+                "type": "int64"
+              },
+              {
+                "id": 4,
+                "name": "amount",
+                "type": "int64"
+              },
+              {
+                "id": 5,
+                "name": "restrictions",
+                "type": "node.NodeRestrictions"
+              },
+              {
+                "id": 6,
+                "name": "excluded_nodes",
+                "type": "bytes",
+                "is_repeated": true,
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "QueryRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "sender",
+                "type": "node.Node"
+              },
+              {
+                "id": 2,
+                "name": "target",
+                "type": "node.Node"
+              },
+              {
+                "id": 3,
+                "name": "limit",
+                "type": "int64"
+              },
+              {
+                "id": 4,
+                "name": "pingback",
+                "type": "bool"
+              }
+            ]
+          },
+          {
+            "name": "QueryResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "sender",
+                "type": "node.Node"
+              },
+              {
+                "id": 2,
+                "name": "response",
+                "type": "node.Node",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "PingRequest"
+          },
+          {
+            "name": "PingResponse"
+          },
+          {
+            "name": "InfoRequest"
+          },
+          {
+            "name": "InfoResponse",
+            "fields": [
+              {
+                "id": 2,
+                "name": "type",
+                "type": "node.NodeType"
+              },
+              {
+                "id": 3,
+                "name": "operator",
+                "type": "node.NodeOperator"
+              },
+              {
+                "id": 4,
+                "name": "capacity",
+                "type": "node.NodeCapacity"
+              }
+            ]
+          },
+          {
+            "name": "Restriction",
+            "fields": [
+              {
+                "id": 1,
+                "name": "operator",
+                "type": "Operator"
+              },
+              {
+                "id": 2,
+                "name": "operand",
+                "type": "Operand"
+              },
+              {
+                "id": 3,
+                "name": "value",
+                "type": "int64"
+              }
+            ]
+          }
+        ],
+        "services": [
+          {
+            "name": "Overlay",
+            "rpcs": [
+              {
+                "name": "Lookup",
+                "in_type": "LookupRequest",
+                "out_type": "LookupResponse"
+              },
+              {
+                "name": "BulkLookup",
+                "in_type": "LookupRequests",
+                "out_type": "LookupResponses"
+              },
+              {
+                "name": "FindStorageNodes",
+                "in_type": "FindStorageNodesRequest",
+                "out_type": "FindStorageNodesResponse"
+              }
+            ]
+          },
+          {
+            "name": "Nodes",
+            "rpcs": [
+              {
+                "name": "Query",
+                "in_type": "QueryRequest",
+                "out_type": "QueryResponse"
+              },
+              {
+                "name": "Ping",
+                "in_type": "PingRequest",
+                "out_type": "PingResponse"
+              },
+              {
+                "name": "RequestInfo",
+                "in_type": "InfoRequest",
+                "out_type": "InfoResponse"
+              }
+            ]
+          }
+        ],
+        "imports": [
+          {
+            "path": "google/protobuf/duration.proto"
+          },
+          {
+            "path": "gogo.proto"
+          },
+          {
+            "path": "node.proto"
+          }
+        ],
+        "package": {
+          "name": "overlay"
+        }
+      }
+    },
+    {
+      "protopath": "pkg:/:pb:/:piecestore.proto",
+      "def": {
+        "enums": [
+          {
+            "name": "BandwidthAction",
+            "enum_fields": [
+              {
+                "name": "PUT"
+              },
+              {
+                "name": "GET",
+                "integer": 1
+              },
+              {
+                "name": "GET_AUDIT",
+                "integer": 2
+              },
+              {
+                "name": "GET_REPAIR",
+                "integer": 3
+              },
+              {
+                "name": "PUT_REPAIR",
+                "integer": 4
+              }
+            ]
+          }
+        ],
+        "messages": [
+          {
+            "name": "PayerBandwidthAllocation",
+            "fields": [
+              {
+                "id": 1,
+                "name": "satellite_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "uplink_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 3,
+                "name": "max_size",
+                "type": "int64"
+              },
+              {
+                "id": 4,
+                "name": "expiration_unix_sec",
+                "type": "int64"
+              },
+              {
+                "id": 5,
+                "name": "serial_number",
+                "type": "string"
+              },
+              {
+                "id": 6,
+                "name": "action",
+                "type": "BandwidthAction"
+              },
+              {
+                "id": 7,
+                "name": "created_unix_sec",
+                "type": "int64"
+              },
+              {
+                "id": 8,
+                "name": "certs",
+                "type": "bytes",
+                "is_repeated": true
+              },
+              {
+                "id": 9,
+                "name": "signature",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "RenterBandwidthAllocation",
+            "fields": [
+              {
+                "id": 1,
+                "name": "payer_allocation",
+                "type": "PayerBandwidthAllocation",
+                "options": [
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "total",
+                "type": "int64"
+              },
+              {
+                "id": 3,
+                "name": "storage_node_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 4,
+                "name": "certs",
+                "type": "bytes",
+                "is_repeated": true
+              },
+              {
+                "id": 5,
+                "name": "signature",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "PieceStore",
+            "fields": [
+              {
+                "id": 1,
+                "name": "bandwidth_allocation",
+                "type": "RenterBandwidthAllocation"
+              },
+              {
+                "id": 2,
+                "name": "piece_data",
+                "type": "PieceData"
+              },
+              {
+                "id": 3,
+                "name": "authorization",
+                "type": "SignedMessage",
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
+              },
+              {
+                "id": 4,
+                "name": "signed_hash",
+                "type": "SignedHash"
+              }
+            ],
+            "messages": [
+              {
+                "name": "PieceData",
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "id",
+                    "type": "string"
+                  },
+                  {
+                    "id": 2,
+                    "name": "expiration_unix_sec",
+                    "type": "int64"
+                  },
+                  {
+                    "id": 3,
+                    "name": "content",
+                    "type": "bytes"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "PieceId",
+            "fields": [
+              {
+                "id": 1,
+                "name": "id",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "authorization",
+                "type": "SignedMessage",
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
+              },
+              {
+                "id": 3,
+                "name": "satellite_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "PieceSummary",
+            "fields": [
+              {
+                "id": 1,
+                "name": "id",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "piece_size",
+                "type": "int64"
+              },
+              {
+                "id": 3,
+                "name": "expiration_unix_sec",
+                "type": "int64"
+              }
+            ]
+          },
+          {
+            "name": "PieceRetrieval",
+            "fields": [
+              {
+                "id": 1,
+                "name": "bandwidth_allocation",
+                "type": "RenterBandwidthAllocation"
+              },
+              {
+                "id": 2,
+                "name": "piece_data",
+                "type": "PieceData"
+              },
+              {
+                "id": 3,
+                "name": "authorization",
+                "type": "SignedMessage",
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
+              }
+            ],
+            "messages": [
+              {
+                "name": "PieceData",
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "id",
+                    "type": "string"
+                  },
+                  {
+                    "id": 2,
+                    "name": "piece_size",
+                    "type": "int64"
+                  },
+                  {
+                    "id": 3,
+                    "name": "offset",
+                    "type": "int64"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "PieceRetrievalStream",
+            "fields": [
+              {
+                "id": 1,
+                "name": "piece_size",
+                "type": "int64"
+              },
+              {
+                "id": 2,
+                "name": "content",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "PieceDelete",
+            "fields": [
+              {
+                "id": 1,
+                "name": "id",
+                "type": "string"
+              },
+              {
+                "id": 3,
+                "name": "authorization",
+                "type": "SignedMessage",
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
+              },
+              {
+                "id": 4,
+                "name": "satellite_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "PieceDeleteSummary",
+            "fields": [
+              {
+                "id": 1,
+                "name": "message",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "name": "PieceStoreSummary",
+            "fields": [
+              {
+                "id": 1,
+                "name": "message",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "total_received",
+                "type": "int64"
+              },
+              {
+                "id": 3,
+                "name": "signed_hash",
+                "type": "SignedHash"
+              }
+            ]
+          },
+          {
+            "name": "SignedMessage",
+            "fields": [
+              {
+                "id": 1,
+                "name": "data",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "signature",
+                "type": "bytes"
+              },
+              {
+                "id": 3,
+                "name": "public_key",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "SignedHash",
+            "fields": [
+              {
+                "id": 1,
+                "name": "hash",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "certs",
+                "type": "bytes",
+                "is_repeated": true
+              },
+              {
+                "id": 3,
+                "name": "signature",
+                "type": "bytes"
+              }
+            ]
+          }
+        ],
+        "services": [
+          {
+            "name": "PieceStoreRoutes",
+            "rpcs": [
+              {
+                "name": "Piece",
+                "in_type": "PieceId",
+                "out_type": "PieceSummary"
+              },
+              {
+                "name": "Retrieve",
+                "in_type": "PieceRetrieval",
+                "out_type": "PieceRetrievalStream",
+                "in_streamed": true,
+                "out_streamed": true
+              },
+              {
+                "name": "Store",
+                "in_type": "PieceStore",
+                "out_type": "PieceStoreSummary",
+                "in_streamed": true
+              },
+              {
+                "name": "Delete",
+                "in_type": "PieceDelete",
+                "out_type": "PieceDeleteSummary"
+              }
+            ]
+          }
+        ],
+        "imports": [
+          {
+            "path": "gogo.proto"
+          },
+          {
+            "path": "google/protobuf/duration.proto"
+          }
+        ],
+        "package": {
+          "name": "piecestoreroutes"
+        }
+      }
+    },
+    {
+      "protopath": "pkg:/:pb:/:pointerdb.proto",
+      "def": {
+        "enums": [
+          {
+            "name": "RedundancyScheme.SchemeType",
+            "enum_fields": [
+              {
+                "name": "RS"
+              }
+            ]
+          },
+          {
+            "name": "Pointer.DataType",
+            "enum_fields": [
+              {
+                "name": "INLINE"
+              },
+              {
+                "name": "REMOTE",
+                "integer": 1
+              }
+            ]
+          }
+        ],
+        "messages": [
+          {
+            "name": "RedundancyScheme",
+            "fields": [
+              {
+                "id": 1,
+                "name": "type",
+                "type": "SchemeType"
+              },
+              {
+                "id": 2,
+                "name": "min_req",
+                "type": "int32"
+              },
+              {
+                "id": 3,
+                "name": "total",
+                "type": "int32"
+              },
+              {
+                "id": 4,
+                "name": "repair_threshold",
+                "type": "int32"
+              },
+              {
+                "id": 5,
+                "name": "success_threshold",
+                "type": "int32"
+              },
+              {
+                "id": 6,
+                "name": "erasure_share_size",
+                "type": "int32"
+              }
+            ]
+          },
+          {
+            "name": "RemotePiece",
+            "fields": [
+              {
+                "id": 1,
+                "name": "piece_num",
+                "type": "int32"
+              },
+              {
+                "id": 2,
+                "name": "node_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 3,
+                "name": "hash",
+                "type": "piecestoreroutes.SignedHash"
+              }
+            ]
+          },
+          {
+            "name": "RemoteSegment",
+            "fields": [
+              {
+                "id": 1,
+                "name": "redundancy",
+                "type": "RedundancyScheme"
+              },
+              {
+                "id": 2,
+                "name": "piece_id",
+                "type": "string"
+              },
+              {
+                "id": 3,
+                "name": "remote_pieces",
+                "type": "RemotePiece",
+                "is_repeated": true
+              },
+              {
+                "id": 4,
+                "name": "merkle_root",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "Pointer",
+            "fields": [
+              {
+                "id": 1,
+                "name": "type",
+                "type": "DataType"
+              },
+              {
+                "id": 3,
+                "name": "inline_segment",
+                "type": "bytes"
+              },
+              {
+                "id": 4,
+                "name": "remote",
+                "type": "RemoteSegment"
+              },
+              {
+                "id": 5,
+                "name": "segment_size",
+                "type": "int64"
+              },
+              {
+                "id": 6,
+                "name": "creation_date",
+                "type": "google.protobuf.Timestamp"
+              },
+              {
+                "id": 7,
+                "name": "expiration_date",
+                "type": "google.protobuf.Timestamp"
+              },
+              {
+                "id": 8,
+                "name": "metadata",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "PutRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "path",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "pointer",
+                "type": "Pointer"
+              }
+            ]
+          },
+          {
+            "name": "GetRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "path",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "name": "ListRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "prefix",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "start_after",
+                "type": "string"
+              },
+              {
+                "id": 3,
+                "name": "end_before",
+                "type": "string"
+              },
+              {
+                "id": 4,
+                "name": "recursive",
+                "type": "bool"
+              },
+              {
+                "id": 5,
+                "name": "limit",
+                "type": "int32"
+              },
+              {
+                "id": 6,
+                "name": "meta_flags",
+                "type": "fixed32"
+              }
+            ]
+          },
+          {
+            "name": "PutResponse"
+          },
+          {
+            "name": "GetResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "pointer",
+                "type": "Pointer"
+              },
+              {
+                "id": 2,
+                "name": "nodes",
+                "type": "node.Node",
+                "is_repeated": true
+              },
+              {
+                "id": 3,
+                "name": "pba",
+                "type": "piecestoreroutes.PayerBandwidthAllocation"
+              },
+              {
+                "id": 4,
+                "name": "authorization",
+                "type": "piecestoreroutes.SignedMessage"
+              }
+            ]
+          },
+          {
+            "name": "ListResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "items",
+                "type": "Item",
+                "is_repeated": true
+              },
+              {
+                "id": 2,
+                "name": "more",
+                "type": "bool"
+              }
+            ],
+            "messages": [
+              {
+                "name": "Item",
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "path",
+                    "type": "string"
+                  },
+                  {
+                    "id": 2,
+                    "name": "pointer",
+                    "type": "Pointer"
+                  },
+                  {
+                    "id": 3,
+                    "name": "is_prefix",
+                    "type": "bool"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "DeleteRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "path",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "name": "DeleteResponse"
+          },
+          {
+            "name": "IterateRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "prefix",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "first",
+                "type": "string"
+              },
+              {
+                "id": 3,
+                "name": "recurse",
+                "type": "bool"
+              },
+              {
+                "id": 4,
+                "name": "reverse",
+                "type": "bool"
+              }
+            ]
+          },
+          {
+            "name": "PayerBandwidthAllocationRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "action",
+                "type": "piecestoreroutes.BandwidthAction"
+              }
+            ]
+          },
+          {
+            "name": "PayerBandwidthAllocationResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "pba",
+                "type": "piecestoreroutes.PayerBandwidthAllocation"
+              }
+            ]
+          }
+        ],
+        "services": [
+          {
+            "name": "PointerDB",
+            "rpcs": [
+              {
+                "name": "Put",
+                "in_type": "PutRequest",
+                "out_type": "PutResponse"
+              },
+              {
+                "name": "Get",
+                "in_type": "GetRequest",
+                "out_type": "GetResponse"
+              },
+              {
+                "name": "List",
+                "in_type": "ListRequest",
+                "out_type": "ListResponse"
+              },
+              {
+                "name": "Delete",
+                "in_type": "DeleteRequest",
+                "out_type": "DeleteResponse"
+              },
+              {
+                "name": "PayerBandwidthAllocation",
+                "in_type": "PayerBandwidthAllocationRequest",
+                "out_type": "PayerBandwidthAllocationResponse"
+              }
+            ]
+          }
+        ],
+        "imports": [
+          {
+            "path": "google/protobuf/timestamp.proto"
+          },
+          {
+            "path": "gogo.proto"
+          },
+          {
+            "path": "node.proto"
+          },
+          {
+            "path": "piecestore.proto"
+          }
+        ],
+        "package": {
+          "name": "pointerdb"
+        }
+      }
+    },
+    {
+      "protopath": "pkg:/:pb:/:streams.proto",
+      "def": {
+        "messages": [
+          {
+            "name": "SegmentMeta",
+            "fields": [
+              {
+                "id": 1,
+                "name": "encrypted_key",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "key_nonce",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "StreamInfo",
+            "fields": [
+              {
+                "id": 1,
+                "name": "number_of_segments",
+                "type": "int64"
+              },
+              {
+                "id": 2,
+                "name": "segments_size",
+                "type": "int64"
+              },
+              {
+                "id": 3,
+                "name": "last_segment_size",
+                "type": "int64"
+              },
+              {
+                "id": 4,
+                "name": "metadata",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "StreamMeta",
+            "fields": [
+              {
+                "id": 1,
+                "name": "encrypted_stream_info",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "encryption_type",
+                "type": "int32"
+              },
+              {
+                "id": 3,
+                "name": "encryption_block_size",
+                "type": "int32"
+              },
+              {
+                "id": 4,
+                "name": "last_segment_meta",
+                "type": "SegmentMeta"
+              }
+            ]
+          }
+        ],
+        "package": {
+          "name": "streams"
+        }
+      }
+    }
+  ]
+}

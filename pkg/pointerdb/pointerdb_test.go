@@ -1,10 +1,11 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package pointerdb
+package pointerdb_test
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -16,17 +17,21 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
 	"storj.io/storj/internal/testidentity"
+	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/teststore"
 )
@@ -36,6 +41,10 @@ type mockAPIKeys struct {
 	info console.APIKeyInfo
 	err  error
 }
+
+var (
+	identities = testplanet.NewPregeneratedIdentities()
+)
 
 // GetByKey return api key info for given key
 func (keys *mockAPIKeys) GetByKey(ctx context.Context, key console.APIKey) (*console.APIKeyInfo, error) {
@@ -47,31 +56,40 @@ func TestServicePut(t *testing.T) {
 	apiKeys := &mockAPIKeys{}
 
 	for i, tt := range []struct {
-		apiKey    []byte
-		err       error
-		errString string
+		apiKey             []byte
+		numOfValidPieces   int
+		numOfInvalidPieces int
+		err                error
+		errString          string
 	}{
-		{[]byte(validAPIKey.String()), nil, ""},
-		{[]byte("wrong key"), nil, status.Errorf(codes.Unauthenticated, "Invalid API credential").Error()},
-		{nil, errors.New("put error"), status.Errorf(codes.Internal, "internal error").Error()},
+		{[]byte(validAPIKey.String()), 8, 0, nil, ""},
+		{[]byte(validAPIKey.String()), 6, 0, nil, ""},
+		{[]byte(validAPIKey.String()), 3, 0, nil, "pointerdb error: Number of valid pieces is lower then success threshold: 3 < 6"},
+
+		{[]byte(validAPIKey.String()), 6, 2, nil, ""},
+		{[]byte(validAPIKey.String()), 3, 5, nil, "pointerdb error: Number of valid pieces is lower then success threshold: 3 < 6"},
+
+		{[]byte("wrong key"), 1, 0, nil, status.Errorf(codes.Unauthenticated, "Invalid API credential").Error()},
+		{nil, 8, 0, errors.New("put error"), status.Errorf(codes.Internal, "internal error").Error()},
 	} {
 		ctx := context.Background()
 		ctx = auth.WithAPIKey(ctx, tt.apiKey)
 
 		errTag := fmt.Sprintf("Test case #%d", i)
 
+		log := zaptest.NewLogger(t)
 		db := teststore.New()
-		service := NewService(zap.NewNop(), db)
-		s := Server{service: service, logger: zap.NewNop(), apiKeys: apiKeys}
+		service := pointerdb.NewService(log, db)
+		s := pointerdb.NewServer(log, service, nil, nil, pointerdb.Config{}, nil, apiKeys)
 
 		path := "a/b/c"
-		pr := pb.Pointer{}
+		pointer := makePointer(ctx, t, tt.numOfValidPieces, tt.numOfInvalidPieces)
 
 		if tt.err != nil {
 			db.ForceError++
 		}
 
-		req := pb.PutRequest{Path: path, Pointer: &pr}
+		req := pb.PutRequest{Path: path, Pointer: pointer}
 		_, err := s.Put(ctx, &req)
 
 		if err != nil {
@@ -80,6 +98,55 @@ func TestServicePut(t *testing.T) {
 			assert.NoError(t, err, errTag)
 		}
 	}
+}
+
+func makePointer(ctx context.Context, t *testing.T, numOfValidPieces, numOfInvalidPieces int) *pb.Pointer {
+	pieces := make([]*pb.RemotePiece, numOfValidPieces+numOfInvalidPieces)
+	for i := 0; i < numOfValidPieces; i++ {
+		identity, err := identities.NewIdentity()
+		assert.NoError(t, err)
+		pieces[i] = &pb.RemotePiece{
+			PieceNum: int32(i),
+			NodeId:   identity.ID,
+			Hash:     &pb.SignedHash{Hash: make([]byte, 32)},
+		}
+
+		_, err = rand.Read(pieces[i].Hash.Hash)
+		assert.NoError(t, err)
+		err = auth.SignMessage(pieces[i].Hash, *identity)
+		assert.NoError(t, err)
+	}
+
+	// public key did not match expected signer
+	for i := numOfValidPieces; i < len(pieces); i++ {
+		identity, err := identities.NewIdentity()
+		assert.NoError(t, err)
+		pieces[i] = &pb.RemotePiece{
+			PieceNum: int32(i),
+			NodeId:   storj.NodeID{byte(i)},
+			Hash:     &pb.SignedHash{Hash: make([]byte, 32)},
+		}
+
+		_, err = rand.Read(pieces[i].Hash.Hash)
+		assert.NoError(t, err)
+		err = auth.SignMessage(pieces[i].Hash, *identity)
+		assert.NoError(t, err)
+	}
+
+	pointer := &pb.Pointer{
+		Type: pb.Pointer_REMOTE,
+		Remote: &pb.RemoteSegment{
+			Redundancy: &pb.RedundancyScheme{
+				MinReq:           2,
+				RepairThreshold:  4,
+				SuccessThreshold: 6,
+				Total:            8,
+			},
+			RemotePieces: pieces,
+		},
+	}
+
+	return pointer
 }
 
 func TestServiceGet(t *testing.T) {
@@ -97,6 +164,14 @@ func TestServiceGet(t *testing.T) {
 
 	validAPIKey := console.APIKey{}
 	apiKeys := &mockAPIKeys{}
+	// creating in-memory db and opening connection
+	satdb, err := satellitedb.NewInMemory(zaptest.NewLogger(t))
+	defer func() {
+		err = satdb.Close()
+		assert.NoError(t, err)
+	}()
+	err = satdb.CreateTables()
+	assert.NoError(t, err)
 
 	for i, tt := range []struct {
 		apiKey    []byte
@@ -113,10 +188,10 @@ func TestServiceGet(t *testing.T) {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
 		db := teststore.New()
-		service := NewService(zap.NewNop(), db)
-		allocation := NewAllocationSigner(identity, 45)
+		service := pointerdb.NewService(zap.NewNop(), db)
+		allocation := pointerdb.NewAllocationSigner(identity, 45, satdb.CertDB())
 
-		s := NewServer(zap.NewNop(), service, allocation, nil, Config{}, identity, apiKeys)
+		s := pointerdb.NewServer(zap.NewNop(), service, allocation, nil, pointerdb.Config{}, identity, apiKeys)
 
 		path := "a/b/c"
 
@@ -140,7 +215,6 @@ func TestServiceGet(t *testing.T) {
 			assert.NoError(t, err, errTag)
 			assert.True(t, pb.Equal(pr, resp.Pointer), errTag)
 
-			assert.NotNil(t, resp.GetAuthorization())
 			assert.NotNil(t, resp.GetPba())
 		}
 	}
@@ -168,8 +242,8 @@ func TestServiceDelete(t *testing.T) {
 
 		db := teststore.New()
 		_ = db.Put(storage.Key(storj.JoinPaths(apiKeys.info.ProjectID.String(), path)), storage.Value("hello"))
-		service := NewService(zap.NewNop(), db)
-		s := Server{service: service, logger: zap.NewNop(), apiKeys: apiKeys}
+		service := pointerdb.NewService(zap.NewNop(), db)
+		s := pointerdb.NewServer(zap.NewNop(), service, nil, nil, pointerdb.Config{}, nil, apiKeys)
 
 		if tt.err != nil {
 			db.ForceError++
@@ -191,8 +265,8 @@ func TestServiceList(t *testing.T) {
 	apiKeys := &mockAPIKeys{}
 
 	db := teststore.New()
-	service := NewService(zap.NewNop(), db)
-	server := Server{service: service, logger: zap.NewNop(), apiKeys: apiKeys}
+	service := pointerdb.NewService(zap.NewNop(), db)
+	server := pointerdb.NewServer(zap.NewNop(), service, nil, nil, pointerdb.Config{}, nil, apiKeys)
 
 	pointer := &pb.Pointer{}
 	pointer.CreationDate = ptypes.TimestampNow()

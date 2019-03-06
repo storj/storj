@@ -75,7 +75,7 @@ export async function fetchProjectsRequest(): Promise<RequestResponse<Project[]>
         }
     } catch (e) {
         result.errorMessage = e.message;
-	}
+    }
 
     return result;
 }

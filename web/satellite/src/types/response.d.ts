@@ -5,4 +5,4 @@ declare type RequestResponse<T> = {
     isSuccess: boolean,
     errorMessage: string,
     data: T
-}
+};

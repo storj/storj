@@ -20,7 +20,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import SearchArea from './SearchArea.vue';
 import Button from '@/components/common/Button.vue';
 import SortApiKeysHeader from '@/components/apiKeys/headerArea/SortApiKeysHeader.vue';
-import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({
     components: {

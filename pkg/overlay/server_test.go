@@ -5,7 +5,6 @@ package overlay_test
 
 import (
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,9 +21,6 @@ func TestServer(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		// we wait a second for all the nodes to complete bootstrapping off the satellite
-		time.Sleep(2 * time.Second)
-
 		satellite := planet.Satellites[0]
 		server := satellite.Overlay.Endpoint
 		// TODO: handle cleanup
@@ -66,9 +62,6 @@ func TestNodeSelection(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		var err error
 		satellite := planet.Satellites[0]
-
-		// we wait a second for all the nodes to complete bootstrapping off the satellite
-		time.Sleep(2 * time.Second)
 
 		// This sets a reputable audit count for a certain number of nodes.
 		for i, node := range planet.StorageNodes {

@@ -5,8 +5,6 @@ package pdbclient
 
 import (
 	"context"
-	"sync/atomic"
-	"unsafe"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -14,7 +12,6 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth/grpcauth"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
@@ -27,8 +24,7 @@ var (
 
 // PointerDB creates a grpcClient
 type PointerDB struct {
-	client        pb.PointerDBClient
-	authorization unsafe.Pointer // *pb.SignedMessage
+	client pb.PointerDBClient
 }
 
 // New Used as a public function
@@ -49,25 +45,23 @@ type ListItem struct {
 // Client services offerred for the interface
 type Client interface {
 	Put(ctx context.Context, path storj.Path, pointer *pb.Pointer) error
-	Get(ctx context.Context, path storj.Path) (*pb.Pointer, []*pb.Node, *pb.PayerBandwidthAllocation, error)
+	Get(ctx context.Context, path storj.Path) (*pb.Pointer, []*pb.Node, *pb.OrderLimit, error)
 	List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
 	Delete(ctx context.Context, path storj.Path) error
 
-	SignedMessage() *pb.SignedMessage
-	PayerBandwidthAllocation(context.Context, pb.BandwidthAction) (*pb.PayerBandwidthAllocation, error)
+	PayerBandwidthAllocation(context.Context, pb.BandwidthAction) (*pb.OrderLimit, error)
 
 	// Disconnect() error // TODO: implement
 }
 
 // NewClient initializes a new pointerdb client
-func NewClient(identity *identity.FullIdentity, address string, APIKey string) (*PointerDB, error) {
-	return NewClientContext(context.TODO(), identity, address, APIKey)
+func NewClient(tc transport.Client, address string, APIKey string) (*PointerDB, error) {
+	return NewClientContext(context.TODO(), tc, address, APIKey)
 }
 
 // NewClientContext initializes a new pointerdb client
-func NewClientContext(ctx context.Context, identity *identity.FullIdentity, address string, APIKey string) (*PointerDB, error) {
+func NewClientContext(ctx context.Context, tc transport.Client, address string, APIKey string) (*PointerDB, error) {
 	apiKeyInjector := grpcauth.NewAPIKeyInjector(APIKey)
-	tc := transport.NewClient(identity)
 	conn, err := tc.DialAddress(
 		ctx,
 		address,
@@ -93,7 +87,7 @@ func (pdb *PointerDB) Put(ctx context.Context, path storj.Path, pointer *pb.Poin
 }
 
 // Get is the interface to make a GET request, needs PATH and APIKey
-func (pdb *PointerDB) Get(ctx context.Context, path storj.Path) (pointer *pb.Pointer, nodes []*pb.Node, pba *pb.PayerBandwidthAllocation, err error) {
+func (pdb *PointerDB) Get(ctx context.Context, path storj.Path) (pointer *pb.Pointer, nodes []*pb.Node, pba *pb.OrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	res, err := pdb.client.Get(ctx, &pb.GetRequest{Path: path})
@@ -103,8 +97,6 @@ func (pdb *PointerDB) Get(ctx context.Context, path storj.Path) (pointer *pb.Poi
 		}
 		return nil, nil, nil, Error.Wrap(err)
 	}
-
-	atomic.StorePointer(&pdb.authorization, unsafe.Pointer(res.GetAuthorization()))
 
 	if res.GetPointer().GetType() == pb.Pointer_INLINE {
 		return res.GetPointer(), nodes, res.GetPba(), nil
@@ -167,7 +159,7 @@ func (pdb *PointerDB) Delete(ctx context.Context, path storj.Path) (err error) {
 }
 
 // PayerBandwidthAllocation gets payer bandwidth allocation message
-func (pdb *PointerDB) PayerBandwidthAllocation(ctx context.Context, action pb.BandwidthAction) (resp *pb.PayerBandwidthAllocation, err error) {
+func (pdb *PointerDB) PayerBandwidthAllocation(ctx context.Context, action pb.BandwidthAction) (resp *pb.OrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := pdb.client.PayerBandwidthAllocation(ctx, &pb.PayerBandwidthAllocationRequest{Action: action})
@@ -175,9 +167,4 @@ func (pdb *PointerDB) PayerBandwidthAllocation(ctx context.Context, action pb.Ba
 		return nil, err
 	}
 	return response.GetPba(), nil
-}
-
-// SignedMessage gets signed message from last request
-func (pdb *PointerDB) SignedMessage() *pb.SignedMessage {
-	return (*pb.SignedMessage)(atomic.LoadPointer(&pdb.authorization))
 }

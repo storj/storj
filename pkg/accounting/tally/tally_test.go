@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
@@ -15,6 +16,7 @@ import (
 	"storj.io/storj/pkg/bwagreement/testbwagreement"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
+	"storj.io/storj/satellite"
 )
 
 func TestQueryNoAgreements(t *testing.T) {
@@ -32,7 +34,9 @@ func TestQueryWithBw(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		sendGeneratedAgreements(ctx, t, planet)
+		db := planet.Satellites[0].DB
+		sendGeneratedAgreements(ctx, t, db, planet)
+
 		tally := planet.Satellites[0].Accounting.Tally
 		tallyEnd, bwTotals, err := tally.QueryBW(ctx)
 		require.NoError(t, err)
@@ -50,7 +54,7 @@ func TestQueryWithBw(t *testing.T) {
 	})
 }
 
-func sendGeneratedAgreements(ctx context.Context, t *testing.T, planet *testplanet.Planet) {
+func sendGeneratedAgreements(ctx context.Context, t *testing.T, db satellite.DB, planet *testplanet.Planet) {
 	satID := planet.Satellites[0].Identity
 	upID := planet.Uplinks[0].Identity
 	snID := planet.StorageNodes[0].Identity
@@ -65,9 +69,11 @@ func sendGeneratedAgreements(ctx context.Context, t *testing.T, planet *testplan
 
 	agreements := make([]*psdb.Agreement, len(actions))
 	for i, action := range actions {
-		pba, err := testbwagreement.GeneratePayerBandwidthAllocation(action, satID, upID, time.Hour)
+		pba, err := testbwagreement.GenerateOrderLimit(action, satID, upID, time.Hour)
 		require.NoError(t, err)
-		rba, err := testbwagreement.GenerateRenterBandwidthAllocation(pba, snID.ID, upID, 1000)
+		err = db.CertDB().SavePublicKey(ctx, pba.UplinkId, upID.Leaf.PublicKey)
+		assert.NoError(t, err)
+		rba, err := testbwagreement.GenerateOrder(pba, snID.ID, upID, 1000)
 		require.NoError(t, err)
 		agreements[i] = &psdb.Agreement{Agreement: *rba}
 	}

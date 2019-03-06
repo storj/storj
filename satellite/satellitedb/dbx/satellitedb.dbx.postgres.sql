@@ -26,6 +26,22 @@ CREATE TABLE accounting_timestamps (
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
 );
+CREATE TABLE bucket_usages (
+	id bytea NOT NULL,
+	bucket_id bytea NOT NULL,
+	rollup_end_time timestamp with time zone NOT NULL,
+	remote_stored_data bigint NOT NULL,
+	inline_stored_data bigint NOT NULL,
+	remote_segments integer NOT NULL,
+	inline_segments integer NOT NULL,
+	objects integer NOT NULL,
+	metadata_size bigint NOT NULL,
+	repair_egress bigint NOT NULL,
+	get_egress bigint NOT NULL,
+	audit_egress bigint NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( rollup_end_time, bucket_id )
+);
 CREATE TABLE bwagreements (
 	serialnum text NOT NULL,
 	storage_node_id bytea NOT NULL,
@@ -35,6 +51,12 @@ CREATE TABLE bwagreements (
 	created_at timestamp with time zone NOT NULL,
 	expires_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( serialnum )
+);
+CREATE TABLE certRecords (
+	publickey bytea NOT NULL,
+	id bytea NOT NULL,
+	update_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
 );
 CREATE TABLE injuredsegments (
 	id bigserial NOT NULL,
@@ -59,6 +81,8 @@ CREATE TABLE nodes (
 	uptime_ratio double precision NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
+	wallet text NOT NULL,
+	email text NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE overlay_cache_nodes (
@@ -91,11 +115,11 @@ CREATE TABLE users (
 	id bytea NOT NULL,
 	first_name text NOT NULL,
 	last_name text NOT NULL,
-	email text,
+	email text NOT NULL,
 	password_hash bytea NOT NULL,
+	status integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( email )
+	PRIMARY KEY ( id )
 );
 CREATE TABLE api_keys (
 	id bytea NOT NULL,
