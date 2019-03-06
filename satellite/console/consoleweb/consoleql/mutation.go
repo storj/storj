@@ -5,6 +5,7 @@ package consoleql
 
 import (
 	"fmt"
+
 	"github.com/zeebo/errs"
 
 	"github.com/graphql-go/graphql"
