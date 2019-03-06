@@ -369,40 +369,40 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, descri
 }
 
 // AddProjectMembers adds users by email to given project
-func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, emails []string) (err error) {
+func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, emails []string) (users []*User, err error) {
 	defer mon.Task()(&ctx)(&err)
 	auth, err := GetAuth(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if _, err = s.isProjectMember(ctx, auth.User.ID, projectID); err != nil {
-		return ErrUnauthorized.Wrap(err)
+		return nil, ErrUnauthorized.Wrap(err)
 	}
 
-	var userIDs []uuid.UUID
+	//var userIDs []uuid.UUID
 	var userErr errs.Group
 
 	// collect user querying errors
 	for _, email := range emails {
 		user, err := s.store.Users().GetByEmail(ctx, email)
-
 		if err != nil {
 			userErr.Add(err)
 			continue
 		}
 
-		userIDs = append(userIDs, user.ID)
+		users = append(users, user)
+		//userIDs = append(userIDs, user.ID)
 	}
 
 	if err = userErr.Err(); err != nil {
-		return err
+		return nil, err
 	}
 
 	// add project members in transaction scope
 	tx, err := s.store.BeginTx(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	defer func() {
@@ -414,15 +414,15 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 		err = tx.Commit()
 	}()
 
-	for _, uID := range userIDs {
-		_, err = tx.ProjectMembers().Insert(ctx, uID, projectID)
+	for _, user := range users {
+		_, err = tx.ProjectMembers().Insert(ctx, user.ID, projectID)
 
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return nil
+	return users, nil
 }
 
 // DeleteProjectMembers removes users by email from given project

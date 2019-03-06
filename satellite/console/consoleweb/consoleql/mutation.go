@@ -4,6 +4,7 @@
 package consoleql
 
 import (
+	"fmt"
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
 
@@ -277,9 +278,23 @@ func rootMutation(service *console.Service, mailService *mailservice.Service, ty
 						userEmails = append(userEmails, email.(string))
 					}
 
-					err = service.AddProjectMembers(p.Context, *projectID, userEmails)
+					users, err := service.AddProjectMembers(p.Context, *projectID, userEmails)
 					if err != nil {
 						return nil, err
+					}
+
+					for _, user := range users {
+						err = mailService.SendRendered(
+							p.Context,
+							[]post.Address{{Address: user.Email, Name: fmt.Sprintf("%s %s", user.FirstName, user.LastName)}},
+							&ProjectInvitationEmail{
+								UserName: user.FirstName,
+								ProjectName: user.LastName,
+							},
+						)
+						if err != nil {
+							return user, err
+						}
 					}
 
 					return service.GetProject(p.Context, *projectID)
