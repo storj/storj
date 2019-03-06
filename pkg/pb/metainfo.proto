@@ -101,7 +101,7 @@ message SegementDownloadRequest {
 }
 
 message SegementDownloadResponse {
-    repeated OrderLimit2 limits = 1;
+    repeated AddressedOrderLimit addressed_limits = 1;
     pointerdb.Pointer pointer = 2;
 }
 
