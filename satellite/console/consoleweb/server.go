@@ -136,6 +136,7 @@ func (s *Server) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 // Run starts the server that host webapp and api endpoint
 func (s *Server) Run(ctx context.Context) error {
 	var err error
+
 	s.schema, err = consoleql.CreateSchema(s.service, s.mailService)
 	if err != nil {
 		return Error.Wrap(err)

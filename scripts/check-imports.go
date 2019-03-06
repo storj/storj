@@ -74,14 +74,17 @@ func main() {
 
 	sort.Slice(pkgs, func(i, k int) bool { return pkgs[i].ID < pkgs[k].ID })
 	correct := true
+	incorrectPkgs := []string{}
 	for _, pkg := range pkgs {
 		if !correctPackage(pkg) {
+			incorrectPkgs = append(incorrectPkgs, pkg.String())
 			correct = false
 		}
 	}
 
 	if !correct {
-		fmt.Fprintln(os.Stderr, "imports not in the correct order")
+		fmt.Fprintln(os.Stderr, "Error: imports are not in the correct order for package/s: ", incorrectPkgs)
+		fmt.Fprintln(os.Stderr, "Correct order should be: std packages -> external packages -> storj.io packages.")
 		os.Exit(1)
 	}
 }

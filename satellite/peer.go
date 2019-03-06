@@ -532,8 +532,8 @@ func (peer *Peer) Close() error {
 	if peer.Console.Endpoint != nil {
 		errlist.Add(peer.Console.Endpoint.Close())
 	} else {
-		if peer.Console.Endpoint != nil {
-			errlist.Add(peer.Public.Listener.Close())
+		if peer.Console.Listener != nil {
+			errlist.Add(peer.Console.Listener.Close())
 		}
 	}
 
