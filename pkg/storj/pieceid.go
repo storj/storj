@@ -7,13 +7,16 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha512"
-	"encoding/hex"
+	"encoding/base32"
 
 	"github.com/zeebo/errs"
 )
 
 // ErrPieceID is used when something goes wrong with a piece ID
 var ErrPieceID = errs.Class("piece ID error")
+
+// base32Encoding without padding
+var base32Encoding = base32.StdEncoding.WithPadding(base32.NoPadding)
 
 // PieceID2 is the unique identifier for pieces
 type PieceID2 [32]byte
@@ -32,7 +35,7 @@ func NewPieceID() PieceID2 {
 
 // PieceIDFromString decodes a hex encoded piece ID string
 func PieceIDFromString(s string) (PieceID2, error) {
-	idBytes, err := hex.DecodeString(s)
+	idBytes, err := base32Encoding.DecodeString(s)
 	if err != nil {
 		return PieceID2{}, ErrNodeID.Wrap(err)
 	}
@@ -56,7 +59,7 @@ func (id PieceID2) IsZero() bool {
 }
 
 // String representation of the piece ID
-func (id PieceID2) String() string { return hex.EncodeToString(id.Bytes()) }
+func (id PieceID2) String() string { return base32Encoding.EncodeToString(id.Bytes()) }
 
 // Bytes returns bytes of the piece ID
 func (id PieceID2) Bytes() []byte { return id[:] }
