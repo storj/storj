@@ -84,7 +84,7 @@ func (s *Server) CommitSegment(ctx context.Context, req *pb.SegmentCommitRequest
 	return &pb.SegmentCommitResponse{}, nil
 }
 
-func (s *Server) DownloadSegment(ctx context.Context, req *pb.SegementDownloadRequest) (resp *pb.OrderLimitResponse, err error) {
+func (s *Server) DownloadSegment(ctx context.Context, req *pb.SegmentDownloadRequest) (resp *pb.OrderLimitResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = s.validateAuth(ctx)
