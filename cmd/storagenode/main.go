@@ -31,11 +31,6 @@ type StorageNodeFlags struct {
 	storagenode.Config
 }
 
-// Inspector holds the kad client for node inspection
-type Inspector struct {
-	kad pb.KadInspectorClient
-}
-
 var (
 	rootCmd = &cobra.Command{
 		Use:   "storagenode",
