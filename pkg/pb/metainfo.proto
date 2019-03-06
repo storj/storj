@@ -119,9 +119,9 @@ message OrderLimitResponse {
 
 message ListSegmentsRequest {
     bytes bucket = 1;
-    string prefix = 2;
-    string start_after = 3;
-    string end_before = 4;
+    bytes prefix = 2;
+    bytes start_after = 3;
+    bytes end_before = 4;
     bool recursive = 5;
     int32 limit = 6;
     fixed32 meta_flags = 7;
@@ -129,7 +129,7 @@ message ListSegmentsRequest {
 
 message ListSegmentsResponse {
     message Item {
-        string path = 1;
+        bytes path = 1;
         pointerdb.Pointer pointer = 2;
         bool is_prefix = 3;
     }
