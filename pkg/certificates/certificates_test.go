@@ -616,16 +616,12 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, serverIdent)
 
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	require.NotNil(t, listener)
-
-	serverConfig := server.Config{Address: listener.Addr().String()}
-	opts, err := tlsopts.NewOptions(serverIdent, serverConfig.Config)
+	sc := server.Config{Address: "127.0.0.1:0", PrivateAddress: "127.0.0.1:7778"}
+	opts, err := tlsopts.NewOptions(serverIdent, sc.Config)
 	require.NoError(t, err)
 	require.NotNil(t, opts)
 
-	service, err := server.New(opts, listener, nil, config)
+	service, err := server.New(opts, sc.Address, sc.PrivateAddress, nil, config)
 	require.NoError(t, err)
 	require.NotNil(t, service)
 
@@ -661,7 +657,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 	require.NoError(t, err)
 	clientTransport := transport.NewClient(tlsOptions)
 
-	client, err := NewClient(ctx, clientTransport, listener.Addr().String())
+	client, err := NewClient(ctx, clientTransport, service.Addr().String())
 	require.NoError(t, err)
 	require.NotNil(t, client)
 
@@ -698,7 +694,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 	now := time.Now().Unix()
 	claim := updatedAuths[0].Claim
 
-	listenerHost, _, err := net.SplitHostPort(listener.Addr().String())
+	listenerHost, _, err := net.SplitHostPort(service.Addr().String())
 	require.NoError(t, err)
 	claimHost, _, err := net.SplitHostPort(claim.Addr)
 	require.NoError(t, err)

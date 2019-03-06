@@ -26,7 +26,26 @@ import (
 	"storj.io/storj/pkg/transport"
 )
 
-func dashCmd(cmd *cobra.Command, args []string) (err error) {
+type dashboardClient struct {
+	client pb.PieceStoreInspectorClient
+}
+
+func (dash *dashboardClient) dashboard(ctx context.Context) (*pb.DashboardResponse, error) {
+	return dash.client.Dashboard(ctx, &pb.DashboardRequest{})
+}
+
+func newDashboardClient(ctx context.Context, n *pb.Node) (*dashboardClient, error) {
+	conn, err := transport.DialAddressInsecure(ctx, n.Address.Address)
+	if err != nil {
+		return &dashboardClient{}, err
+	}
+
+	return &dashboardClient{
+		client: pb.NewPieceStoreInspectorClient(conn),
+	}, nil
+}
+
+func cmdDashboard(cmd *cobra.Command, args []string) (err error) {
 	ctx := process.Ctx(cmd)
 
 	ident, err := runCfg.Identity.Load()
@@ -45,114 +64,89 @@ func dashCmd(cmd *cobra.Command, args []string) (err error) {
 		Type: pb.NodeType_STORAGE,
 	}
 
-	tc := transport.NewClientInsecure()
-	client, err := newDashboardClient(ctx, tc, n)
-	if err != nil {
-		return err
-	}
-
-	tlsOpts, err := tlsopts.NewOptions(ident, tlsopts.Config{})
-	if err != nil {
-		return err
-	}
-
-	bootstrapAddr := runCfg.Kademlia.BootstrapAddr
-	tc = transport.NewClient(tlsOpts)
-	online, err := getConnectionStatus(ctx, tc, ident, bootstrapAddr)
+	online, err := getConnectionStatus(ctx, ident)
 	if err != nil {
 		zap.S().Error("error getting connection status %s", err.Error())
 	}
 
+	client, err := newDashboardClient(ctx, n)
+	if err != nil {
+		return err
+	}
+
 	for {
-		data, err := client.Dashboard(ctx)
+		data, err := client.dashboard(ctx)
 		if err != nil {
 			return err
 		}
 
-		clearScreen()
-		color.NoColor = !useColor
-
-		heading := color.New(color.FgGreen, color.Bold)
-		_, _ = heading.Printf("\nStorage Node Dashboard\n")
-		_, _ = heading.Printf("\n======================\n\n")
-
-		w := tabwriter.NewWriter(color.Output, 0, 0, 1, ' ', 0)
-		fmt.Fprintf(w, "ID\t%s\n", color.YellowString(data.GetNodeId()))
-
-		if online {
-			fmt.Fprintf(w, "Status\t%s\n", color.GreenString("ONLINE"))
-		} else {
-			fmt.Fprintf(w, "Status\t%s\n", color.RedString("OFFLINE"))
-		}
-
-		uptime, err := ptypes.Duration(data.GetUptime())
-		if err != nil {
-			fmt.Fprintf(w, "Uptime\t%s\n", color.RedString(uptime.Truncate(time.Second).String()))
-		} else {
-			fmt.Fprintf(w, "Uptime\t%s\n", color.YellowString(uptime.Truncate(time.Second).String()))
-		}
-
-		if err = w.Flush(); err != nil {
+		if err := printDashboard(data, online); err != nil {
 			return err
 		}
 
-		stats := data.GetStats()
-		if stats != nil {
-			availableBandwidth := color.WhiteString(memory.Size(stats.GetAvailableBandwidth()).Base10String())
-			usedBandwidth := color.WhiteString(memory.Size(stats.GetUsedBandwidth()).Base10String())
-			availableSpace := color.WhiteString(memory.Size(stats.GetAvailableSpace()).Base10String())
-			usedSpace := color.WhiteString(memory.Size(stats.GetUsedSpace()).Base10String())
-
-			w = tabwriter.NewWriter(color.Output, 0, 0, 5, ' ', tabwriter.AlignRight)
-			fmt.Fprintf(w, "\n\t%s\t%s\t\n", color.GreenString("Available"), color.GreenString("Used"))
-			fmt.Fprintf(w, "Bandwidth\t%s\t%s\t\n", availableBandwidth, usedBandwidth)
-			fmt.Fprintf(w, "Disk\t%s\t%s\t\n", availableSpace, usedSpace)
-			if err = w.Flush(); err != nil {
-				return err
-			}
-
-		} else {
-			color.Yellow("Loading...\n")
-		}
-
-		w = tabwriter.NewWriter(color.Output, 0, 0, 1, ' ', 0)
-		// TODO: Get addresses from server data
-		fmt.Fprintf(w, "\nBootstrap\t%s\n", color.WhiteString(data.GetBootstrapAddress()))
-		fmt.Fprintf(w, "Internal\t%s\n", color.WhiteString(dashboardCfg.Address))
-		fmt.Fprintf(w, "External\t%s\n", color.WhiteString(data.GetExternalAddress()))
-		fmt.Fprintf(w, "\nNeighborhood Size %+v\n", whiteInt(data.GetNodeConnections()))
-		if err = w.Flush(); err != nil {
-			return err
-		}
-
+		// Refresh the dashboard every 3 seconds
 		time.Sleep(3 * time.Second)
 	}
 }
 
-// DashboardClient is the struct that holds the client
-type DashboardClient struct {
-	client pb.PieceStoreInspectorClient
-}
+func printDashboard(data *pb.DashboardResponse, online bool) error {
+	clearScreen()
+	color.NoColor = !useColor
 
-// Dashboard returns a simple terminal dashboard displaying info
-func (dash *DashboardClient) Dashboard(ctx context.Context) (*pb.DashboardResponse, error) {
-	return dash.client.Dashboard(ctx, &pb.DashboardRequest{})
-}
+	heading := color.New(color.FgGreen, color.Bold)
+	_, _ = heading.Printf("\nStorage Node Dashboard\n")
+	_, _ = heading.Printf("\n======================\n\n")
 
-// Stats will retrieve stats about a piece storage node
-func (dash *DashboardClient) Stats(ctx context.Context) (*pb.StatSummaryResponse, error) {
-	return dash.client.Stats(ctx, &pb.StatsRequest{})
-}
+	w := tabwriter.NewWriter(color.Output, 0, 0, 1, ' ', 0)
+	fmt.Fprintf(w, "ID\t%s\n", color.YellowString(data.GetNodeId()))
 
-func newDashboardClient(ctx context.Context, tc transport.Client, n *pb.Node) (*DashboardClient, error) {
-	conn, err := tc.DialNodeInsecure(ctx, n)
-	if err != nil {
-		return &DashboardClient{}, err
+	if online {
+		fmt.Fprintf(w, "Status\t%s\n", color.GreenString("ONLINE"))
+	} else {
+		fmt.Fprintf(w, "Status\t%s\n", color.RedString("OFFLINE"))
 	}
 
-	return &DashboardClient{
-		client: pb.NewPieceStoreInspectorClient(conn),
-	}, nil
+	uptime, err := ptypes.Duration(data.GetUptime())
+	if err != nil {
+		fmt.Fprintf(w, "Uptime\t%s\n", color.RedString(uptime.Truncate(time.Second).String()))
+	} else {
+		fmt.Fprintf(w, "Uptime\t%s\n", color.YellowString(uptime.Truncate(time.Second).String()))
+	}
+
+	if err = w.Flush(); err != nil {
+		return err
+	}
+
+	stats := data.GetStats()
+	if stats != nil {
+		availableBandwidth := color.WhiteString(memory.Size(stats.GetAvailableBandwidth()).Base10String())
+		usedBandwidth := color.WhiteString(memory.Size(stats.GetUsedBandwidth()).Base10String())
+		availableSpace := color.WhiteString(memory.Size(stats.GetAvailableSpace()).Base10String())
+		usedSpace := color.WhiteString(memory.Size(stats.GetUsedSpace()).Base10String())
+
+		w = tabwriter.NewWriter(color.Output, 0, 0, 5, ' ', tabwriter.AlignRight)
+		fmt.Fprintf(w, "\n\t%s\t%s\t\n", color.GreenString("Available"), color.GreenString("Used"))
+		fmt.Fprintf(w, "Bandwidth\t%s\t%s\t\n", availableBandwidth, usedBandwidth)
+		fmt.Fprintf(w, "Disk\t%s\t%s\t\n", availableSpace, usedSpace)
+		if err = w.Flush(); err != nil {
+			return err
+		}
+
+	} else {
+		color.Yellow("Loading...\n")
+	}
+
+	w = tabwriter.NewWriter(color.Output, 0, 0, 1, ' ', 0)
+	// TODO: Get addresses from server data
+	fmt.Fprintf(w, "\nBootstrap\t%s\n", color.WhiteString(data.GetBootstrapAddress()))
+	fmt.Fprintf(w, "Internal\t%s\n", color.WhiteString(dashboardCfg.Address))
+	fmt.Fprintf(w, "External\t%s\n", color.WhiteString(data.GetExternalAddress()))
+	fmt.Fprintf(w, "\nNeighborhood Size %+v\n", whiteInt(data.GetNodeConnections()))
+	if err = w.Flush(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func whiteInt(value int64) string {
@@ -175,15 +169,21 @@ func clearScreen() {
 	}
 }
 
-func getConnectionStatus(ctx context.Context, tc transport.Client, id *identity.FullIdentity, bootstrapAddr string) (bool, error) {
+func getConnectionStatus(ctx context.Context, id *identity.FullIdentity) (bool, error) {
 	bn := &pb.Node{
 		Address: &pb.NodeAddress{
-			Address:   bootstrapAddr,
+			Address:   runCfg.Kademlia.BootstrapAddr,
 			Transport: 0,
 		},
 		Type: pb.NodeType_BOOTSTRAP,
 	}
 
+	tlsOpts, err := tlsopts.NewOptions(id, tlsopts.Config{})
+	if err != nil {
+		return false, err
+	}
+
+	tc := transport.NewClient(tlsOpts)
 	inspector, err := newInspectorClient(ctx, tc, bn)
 	if err != nil {
 		return false, err

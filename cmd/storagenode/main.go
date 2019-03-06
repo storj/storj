@@ -67,12 +67,12 @@ var (
 	dashboardCmd = &cobra.Command{
 		Use:         "dashboard",
 		Short:       "Display a dashbaord",
-		RunE:        dashCmd,
+		RunE:        cmdDashboard,
 		Annotations: map[string]string{"type": "helper"},
 	}
-	runCfg   StorageNodeFlags
-	setupCfg StorageNodeFlags
 
+	runCfg       StorageNodeFlags
+	setupCfg     StorageNodeFlags
 	diagCfg      storagenode.Config
 	dashboardCfg struct {
 		Address string `default:"127.0.0.1:7778" help:"address for dashboard service"`
