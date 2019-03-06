@@ -33,7 +33,7 @@ var (
 	mon = monkit.Package()
 )
 
-// Sender is
+// Sender sends emails
 type Sender interface {
 	SendEmail(msg *post.Message) error
 	FromAddress() post.Address
@@ -110,8 +110,8 @@ func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg
 	}
 
 	err = service.sender.SendEmail(m)
-	// log error
 
+	// log error
 	var recipients []string
 	for _, recipient := range to {
 		recipients = append(recipients, recipient.String())
