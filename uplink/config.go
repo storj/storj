@@ -131,7 +131,7 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 
 	buckets := buckets.NewStore(streams)
 
-	return kvmetainfo.New(buckets, streams, segments, pdb, key), streams, nil
+	return kvmetainfo.New(buckets, streams, segments, pdb, oc, key), streams, nil
 }
 
 // GetRedundancyScheme returns the configured redundancy scheme for new uploads
