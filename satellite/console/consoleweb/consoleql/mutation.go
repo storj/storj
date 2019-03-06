@@ -5,6 +5,7 @@ package consoleql
 
 import (
 	"fmt"
+	"github.com/zeebo/errs"
 
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -279,11 +280,17 @@ func rootMutation(service *console.Service, mailService *mailservice.Service, ty
 						userEmails = append(userEmails, email.(string))
 					}
 
+					project, err := service.GetProject(p.Context, *projectID)
+					if err != nil {
+						return nil, err
+					}
+
 					users, err := service.AddProjectMembers(p.Context, *projectID, userEmails)
 					if err != nil {
 						return nil, err
 					}
 
+					var emailErr errs.Group
 					for _, user := range users {
 						err = mailService.SendRendered(
 							p.Context,
@@ -294,11 +301,11 @@ func rootMutation(service *console.Service, mailService *mailservice.Service, ty
 							},
 						)
 						if err != nil {
-							return user, err
+							emailErr.Add(err)
 						}
 					}
 
-					return service.GetProject(p.Context, *projectID)
+					return project, emailErr.Err()
 				},
 			},
 			// delete user membership for given project
