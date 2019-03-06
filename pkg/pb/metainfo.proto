@@ -8,6 +8,7 @@ package metainfo;
 
 import "gogo.proto";
 import "google/protobuf/timestamp.proto";
+import "node.proto";
 import "pointerdb.proto";
 
 // Metainfo it's a satellite RPC service
@@ -53,6 +54,10 @@ message OrderLimit2 {
     bytes satellite_signature = 10;
 }
 
+message AddressedOrderLimit {
+    OrderLimit2 limit = 1;
+    node.NodeAddress storage_node_address = 2;
+}
 
 // Order2 is a one step of fullfilling Amount number of bytes from an OrderLimit2 with SerialNumber
 message Order2 {
@@ -107,7 +112,7 @@ message SegmentDeleteRequest {
 }
 
 message OrderLimitResponse {
-    repeated OrderLimit2 limits = 1;
+    repeated AddressedOrderLimit addressed_limits = 1;
 }
 
 message ListSegmentsRequest {
