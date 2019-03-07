@@ -339,7 +339,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		if config.Repairer.PointerDBAddr == "" {
 			config.Repairer.PointerDBAddr = peer.Addr()
 		}
-		peer.Repair.Repairer = repairer.NewService(peer.DB.RepairQueue(), &config.Repairer, peer.Transport, config.Repairer.Interval, config.Repairer.MaxRepair)
+		peer.Repair.Repairer = repairer.NewService(peer.DB.RepairQueue(), 
+		&config.Repairer, 
+		peer.Transport, 
+		config.Repairer.Interval, 
+		config.Repairer.MaxRepair)
 	}
 
 	{ // setup audit

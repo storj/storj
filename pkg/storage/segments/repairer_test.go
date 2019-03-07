@@ -11,6 +11,8 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/assert"
 
+	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/teststorj"
 	mock_overlay "storj.io/storj/pkg/overlay/mocks"
 	"storj.io/storj/pkg/pb"
@@ -20,15 +22,20 @@ import (
 )
 
 func TestNewSegmentRepairer(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	// ctrl := gomock.NewController(t)
+	// defer ctrl.Finish()
 
-	mockOC := mock_overlay.NewMockClient(ctrl)
-	mockEC := mock_ecclient.NewMockClient(ctrl)
-	mockPDB := mock_pointerdb.NewMockClient(ctrl)
+	// mockOC := mock_overlay.NewMockClient(ctrl)
+	// mockEC := mock_ecclient.NewMockClient(ctrl)
+	// mockPDB := mock_pointerdb.NewMockClient(ctrl)
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		mockPDB := planet.Satellites[0].Metainfo.Endpoint
+		ss := NewSegmentRepairer(mockOC, mockEC, mockPDB)
+		assert.NotNil(t, ss)
+	})
 
-	ss := NewSegmentRepairer(mockOC, mockEC, mockPDB)
-	assert.NotNil(t, ss)
 }
 
 func TestSegmentStoreRepairRemote(t *testing.T) {

@@ -9,7 +9,6 @@ import (
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/pointerdb/pdbclient"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/transport"
@@ -33,11 +32,11 @@ func (c Config) GetSegmentRepairer(ctx context.Context, tc transport.Client) (ss
 	if err != nil {
 		return nil, err
 	}
-
-	pdb, err := pdbclient.NewClientContext(ctx, tc, c.PointerDBAddr, c.APIKey)
-	if err != nil {
-		return nil, err
-	}
+	pdbServer := 
+	// pdb, err := pdbclient.NewClientContext(ctx, tc, c.PointerDBAddr, c.APIKey)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	ec := ecclient.NewClient(tc, c.MaxBufferMem.Int())
 	return segments.NewSegmentRepairer(oc, ec, pdb), nil
