@@ -191,7 +191,7 @@ func addExampleProjectWithKey(key *string, activationAddress, address string) er
 		}
 
 		request.Header.Add("Content-Type", "application/graphql")
-		request.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token.Token))
+		request.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token.Token.Token))
 
 		if err := graphqlDo(&client, request, &createProject); err != nil {
 			return err
@@ -220,7 +220,7 @@ func addExampleProjectWithKey(key *string, activationAddress, address string) er
 		}
 
 		request.Header.Add("Content-Type", "application/graphql")
-		request.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token.Token))
+		request.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token.Token.Token))
 
 		if err := graphqlDo(&client, request, &createAPIKey); err != nil {
 			return err
