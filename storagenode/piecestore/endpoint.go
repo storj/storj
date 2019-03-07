@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 )
 
@@ -46,11 +47,7 @@ type Trust interface {
 type PieceMeta interface {
 	Add(ctx context.Context, limit pb.OrderLimit2, hash pb.PieceHash) error
 	Delete(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID2) error
-}
-
-type Orders interface {
-	// not sure whether there's a need to duplicate, but just in case
-	Add(ctx context.Context, limit pb.OrderLimit2, order pb.Order2) error
+	// Iteration for collector
 }
 
 // TODO: should the reader, writer have context for read/write?
@@ -73,7 +70,7 @@ type Endpoint struct {
 	Pieces *pieces.Store
 
 	PieceMeta PieceMeta
-	Orders    Orders
+	Orders    orders.Table
 }
 
 func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequest) (_ *pb.PieceDeleteResponse, err error) {

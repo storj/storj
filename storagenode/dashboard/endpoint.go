@@ -4,4 +4,8 @@
 package inspector
 
 // Endpoint does inspectory things, see
-type Endpoint struct{}
+type Endpoint struct {
+	// pieces.Store
+	// kademlia
+	// orders
+}
