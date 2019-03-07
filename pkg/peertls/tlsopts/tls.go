@@ -55,10 +55,19 @@ func (opts *Options) tlsConfig(isServer bool, verificationFuncs ...peertls.PeerC
 		},
 		verificationFuncs...,
 	)
-	verificationFuncs = append(
-		verificationFuncs,
-		opts.VerificationFuncs...,
-	)
+
+	switch isServer {
+	case true:
+		verificationFuncs = append(
+			verificationFuncs,
+			opts.VerificationFuncs.server...,
+		)
+	case false:
+		verificationFuncs = append(
+			verificationFuncs,
+			opts.VerificationFuncs.client...,
+		)
+	}
 
 	config := &tls.Config{
 		Certificates:       []tls.Certificate{*opts.Cert},

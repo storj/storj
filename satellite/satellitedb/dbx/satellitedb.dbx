@@ -294,18 +294,18 @@ delete project_member (
 )
 
 model api_key (
-    key id
+    key    id
     unique key
     unique name project_id
 
-    field id blob
-    field project_id project.id cascade
+    field  id          blob
+    field  project_id  project.id cascade
 
-    field key blob
+    field  key         blob
 
-    field name text (updatable)
+    field  name        text       (updatable)
 
-    field created_at    timestamp ( autoinsert )
+    field  created_at  timestamp  (autoinsert)
 )
 
 create api_key ()
@@ -324,6 +324,52 @@ read all (
     select api_key
     where api_key.project_id = ?
     orderby asc api_key.name
+)
+
+//-----bucket_usage----//
+
+model bucket_usage (
+    key    id
+    unique rollup_end_time bucket_id
+
+    field  id                 blob
+    field  bucket_id          blob      //--TODO: add foreign key constraint--//
+
+    field  rollup_end_time    timestamp
+
+    field  remote_stored_data uint64
+    field  inline_stored_data uint64
+    field  remote_segments    uint
+    field  inline_segments    uint
+    field  objects            uint
+    field  metadata_size      uint64
+    field  repair_egress      uint64
+    field  get_egress         uint64
+    field  audit_egress       uint64
+)
+
+create bucket_usage ()
+delete bucket_usage ( where bucket_usage.id = ? )
+
+read one (
+    select bucket_usage
+    where  bucket_usage.id = ?
+)
+
+read limitoffset (
+    select bucket_usage
+    where bucket_usage.bucket_id = ?
+    where bucket_usage.rollup_end_time > ?
+    where bucket_usage.rollup_end_time <= ?
+    orderby asc bucket_usage.rollup_end_time
+)
+
+read limitoffset (
+    select bucket_usage
+    where bucket_usage.bucket_id = ?
+    where bucket_usage.rollup_end_time > ?
+    where bucket_usage.rollup_end_time <= ?
+    orderby desc bucket_usage.rollup_end_time
 )
 
 //--- certRecord ---//

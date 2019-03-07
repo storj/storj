@@ -30,6 +30,19 @@ var (
 	Error = errs.Class("psdb")
 )
 
+// AgreementStatus keep tracks of the agreement payout status
+type AgreementStatus int32
+
+const (
+	// AgreementStatusUnsent sets the agreement status to UNSENT
+	AgreementStatusUnsent = iota
+	// AgreementStatusSent  sets the agreement status to SENT
+	AgreementStatusSent
+	// AgreementStatusReject sets the agreement status to REJECT
+	AgreementStatusReject
+	// add new status here ...
+)
+
 // DB is a piece store database
 type DB struct {
 	mu sync.Mutex
@@ -178,6 +191,13 @@ func (db *DB) Migration() *migrate.Migration {
 					return nil
 				}),
 			},
+			{
+				Description: "Add status column for bandwidth_agreements",
+				Version:     2,
+				Action: migrate.SQL{
+					`ALTER TABLE bandwidth_agreements ADD COLUMN status INT(10) DEFAULT 0`,
+				},
+			},
 		},
 	}
 	return migration
@@ -245,12 +265,32 @@ func (db *DB) WriteBandwidthAllocToDB(rba *pb.Order) error {
 	// If the agreements are sorted we can send them in bulk streams to the satellite
 	t := time.Now()
 	startofthedayunixsec := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).Unix()
-	_, err = db.db.Exec(`INSERT INTO bandwidth_agreements (satellite, agreement, signature, uplink, serial_num, total, max_size, created_utc_sec, expiration_utc_sec, action, daystart_utc_sec) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+	_, err = db.db.Exec(`INSERT INTO bandwidth_agreements (satellite, agreement, signature, uplink, serial_num, total, max_size, created_utc_sec, status, expiration_utc_sec, action, daystart_utc_sec) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		rba.PayerAllocation.SatelliteId.Bytes(), rbaBytes, rba.GetSignature(),
 		rba.PayerAllocation.UplinkId.Bytes(), rba.PayerAllocation.SerialNumber,
-		rba.Total, rba.PayerAllocation.MaxSize, rba.PayerAllocation.CreatedUnixSec,
+		rba.Total, rba.PayerAllocation.MaxSize, rba.PayerAllocation.CreatedUnixSec, AgreementStatusUnsent,
 		rba.PayerAllocation.ExpirationUnixSec, rba.PayerAllocation.GetAction().String(),
 		startofthedayunixsec)
+	return err
+}
+
+// DeleteBandwidthAllocationPayouts delete paid and/or old payout enteries based on days old
+func (db *DB) DeleteBandwidthAllocationPayouts() error {
+	defer db.locked()()
+
+	//@TODO make a config value for older days
+	t := time.Now().Add(time.Hour * 24 * -90).Unix()
+	_, err := db.db.Exec(`DELETE FROM bandwidth_agreements WHERE created_utc_sec < ?`, t)
+	if err == sql.ErrNoRows {
+		err = nil
+	}
+	return err
+}
+
+// UpdateBandwidthAllocationStatus update the bwa payout status
+func (db *DB) UpdateBandwidthAllocationStatus(serialnum string, status AgreementStatus) (err error) {
+	defer db.locked()()
+	_, err = db.db.Exec(`UPDATE bandwidth_agreements SET status = ? WHERE serial_num = ?`, status, serialnum)
 	return err
 }
 
@@ -295,11 +335,11 @@ func (db *DB) GetBandwidthAllocationBySignature(signature []byte) ([]*pb.Order, 
 	return agreements, nil
 }
 
-// GetBandwidthAllocations all bandwidth agreements and sorts by satellite
+// GetBandwidthAllocations all bandwidth agreements
 func (db *DB) GetBandwidthAllocations() (map[storj.NodeID][]*Agreement, error) {
 	defer db.locked()()
 
-	rows, err := db.db.Query(`SELECT satellite, agreement FROM bandwidth_agreements`)
+	rows, err := db.db.Query(`SELECT satellite, agreement FROM bandwidth_agreements WHERE status = ?`, AgreementStatusUnsent)
 	if err != nil {
 		return nil, err
 	}
@@ -329,6 +369,13 @@ func (db *DB) GetBandwidthAllocations() (map[storj.NodeID][]*Agreement, error) {
 		agreements[satelliteID] = append(agreements[satelliteID], agreement)
 	}
 	return agreements, nil
+}
+
+// GetBwaStatusBySerialNum get BWA status by serial num
+func (db *DB) GetBwaStatusBySerialNum(serialnum string) (status AgreementStatus, err error) {
+	defer db.locked()()
+	err = db.db.QueryRow(`SELECT status FROM bandwidth_agreements WHERE serial_num=?`, serialnum).Scan(&status)
+	return status, err
 }
 
 // AddTTL adds TTL into database by id
