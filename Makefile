@@ -125,7 +125,7 @@ gateway-image: ## Build gateway Docker image
 satellite-image: ## Build satellite Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/satellite:${TAG}${CUSTOMTAG} -f cmd/satellite/Dockerfile .
 .PHONY: satellite-ui-image
-satellite-ui-image: ## Build satellite Docker image
+satellite-ui-image: ## Build satellite-ui Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/satellite-ui:${TAG}${CUSTOMTAG} -f web/satellite/Dockerfile .
 .PHONY: storagenode-image
 storagenode-image: ## Build storagenode Docker image
