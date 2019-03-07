@@ -10,6 +10,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/timestamp"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
@@ -72,9 +73,19 @@ func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context
 	return pba, err
 }
 
+// OrderLimitParameters parameters necessary to create OrderLimit
+type OrderLimitParameters struct {
+	UplinkIdentity  *identity.PeerIdentity
+	StorageNodeID   storj.NodeID
+	PieceID         storj.PieceID2
+	Action          pb.Action
+	Limit           int64
+	PieceExpiration *timestamp.Timestamp
+}
+
 // OrderLimit returns generated order limit
-func (allocation *AllocationSigner) OrderLimit(ctx context.Context, uplinkIdentity *identity.PeerIdentity, storageNodeID storj.NodeID, pieceID storj.PieceID2, action pb.Action) (pba *pb.OrderLimit2, err error) {
-	if uplinkIdentity == nil {
+func (allocation *AllocationSigner) OrderLimit(ctx context.Context, parameters OrderLimitParameters) (pba *pb.OrderLimit2, err error) {
+	if parameters.UplinkIdentity == nil {
 		return nil, Error.New("missing uplink identity")
 	}
 	serialNum, err := uuid.New()
@@ -83,12 +94,12 @@ func (allocation *AllocationSigner) OrderLimit(ctx context.Context, uplinkIdenti
 	}
 
 	// store the corresponding uplink's id and public key into certDB db
-	err = allocation.certdb.SavePublicKey(ctx, uplinkIdentity.ID, uplinkIdentity.Leaf.PublicKey)
+	err = allocation.certdb.SavePublicKey(ctx, parameters.UplinkIdentity.ID, parameters.UplinkIdentity.Leaf.PublicKey)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := allocation.restrictActionsOrderLimit(uplinkIdentity.ID, action); err != nil {
+	if err := allocation.restrictActionsOrderLimit(parameters.UplinkIdentity.ID, parameters.Action); err != nil {
 		return nil, err
 	}
 
@@ -97,18 +108,20 @@ func (allocation *AllocationSigner) OrderLimit(ctx context.Context, uplinkIdenti
 	if err != nil {
 		return nil, err
 	}
+
 	pba = &pb.OrderLimit2{
-		SerialNumber:  []byte(serialNum.String()),
-		SatelliteId:   allocation.satelliteIdentity.ID,
-		UplinkId:      uplinkIdentity.ID,
-		StorageNodeId: storageNodeID,
-		PieceId:       pieceID,
-		Action:        action,
-		// Limit: 0,
-		// PieceExpiration:
+		SerialNumber:    []byte(serialNum.String()),
+		SatelliteId:     allocation.satelliteIdentity.ID,
+		UplinkId:        parameters.UplinkIdentity.ID,
+		StorageNodeId:   parameters.StorageNodeID,
+		PieceId:         parameters.PieceID,
+		Action:          parameters.Action,
+		Limit:           parameters.Limit,
+		PieceExpiration: parameters.PieceExpiration,
 		OrderExpiration: orderExpiration,
 	}
 
+	//TODO this needs to be review if make sense
 	msgBytes, err := proto.Marshal(pba)
 	if err != nil {
 		return nil, auth.ErrMarshal.Wrap(err)
