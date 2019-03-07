@@ -93,15 +93,15 @@ func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
 
 // appHandler is web app http handler function
 func (s *Server) accountActivationHandler(w http.ResponseWriter, req *http.Request) {
-	//vars := mux.Vars(req)
 	activationToken := req.URL.Query().Get("token")
 
 	err := s.service.ActivateAccount(context.Background(), activationToken)
 	if err != nil {
 		http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "errors", "404.html"))
+		return
 	}
 
-	http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "activation", "activated.html"))
+	http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "activation", "success.html"))
 }
 
 // grapqlHandler is graphql endpoint http handler function
