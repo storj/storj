@@ -4,15 +4,15 @@ GOARCH ?= amd64
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
 BRANCH := $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
 ifeq (${BRANCH},master)
-	TAG    := $(shell git rev-parse --short HEAD)-go${GO_VERSION}
-	TRACKED_BRANCH := true
-	LATEST_TAG := latest
+TAG    := $(shell git rev-parse --short HEAD)-go${GO_VERSION}
+TRACKED_BRANCH := true
+LATEST_TAG := latest
 else
-	TAG    := $(shell git rev-parse --short HEAD)-${BRANCH}-go${GO_VERSION}
-	ifneq (,$(findstring release-,$(BRANCH)))
-		TRACKED_BRANCH := true
-		LATEST_TAG := ${BRANCH}-latest
-	endif
+TAG    := $(shell git rev-parse --short HEAD)-${BRANCH}-go${GO_VERSION}
+ifneq (,$(findstring release-,$(BRANCH)))
+TRACKED_BRANCH := true
+LATEST_TAG := ${BRANCH}-latest
+endif
 endif
 CUSTOMTAG ?=
 
@@ -202,16 +202,16 @@ push-images: ## Push Docker images to Docker Hub (jenkins)
 	docker push storjlabs/storagenode:${TAG}${CUSTOMTAG}
 	docker push storjlabs/uplink:${TAG}${CUSTOMTAG}
 	docker push storjlabs/gateway:${TAG}${CUSTOMTAG}
-	ifeq (${TRACKED_BRANCH},true)
-		docker tag storjlabs/satellite:${TAG}${CUSTOMTAG} storjlabs/satellite:${LATEST_TAG}
-		docker push storjlabs/satellite:${LATEST_TAG}
-		docker tag storjlabs/satellite:${TAG}${CUSTOMTAG} storjlabs/storagenode:${LATEST_TAG}
-		docker push storjlabs/storagenode:${LATEST_TAG}
-		docker tag storjlabs/satellite:${TAG}${CUSTOMTAG} storjlabs/uplink:${LATEST_TAG}
-		docker push storjlabs/uplink:${LATEST_TAG}
-		docker tag storjlabs/satellite:${TAG}${CUSTOMTAG} storjlabs/gateway:${LATEST_TAG}
-		docker push storjlabs/gateway:${LATEST_TAG}
-	endif
+ifeq (${TRACKED_BRANCH},true)
+	docker tag storjlabs/satellite:${TAG}${CUSTOMTAG} storjlabs/satellite:${LATEST_TAG}
+	docker push storjlabs/satellite:${LATEST_TAG}
+	docker tag storjlabs/satellite:${TAG}${CUSTOMTAG} storjlabs/storagenode:${LATEST_TAG}
+	docker push storjlabs/storagenode:${LATEST_TAG}
+	docker tag storjlabs/satellite:${TAG}${CUSTOMTAG} storjlabs/uplink:${LATEST_TAG}
+	docker push storjlabs/uplink:${LATEST_TAG}
+	docker tag storjlabs/satellite:${TAG}${CUSTOMTAG} storjlabs/gateway:${LATEST_TAG}
+	docker push storjlabs/gateway:${LATEST_TAG}
+endif
 
 .PHONY: binaries-upload
 binaries-upload: ## Upload binaries to Google Storage (jenkins)
