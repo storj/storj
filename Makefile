@@ -5,8 +5,12 @@ COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
 BRANCH := $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
 ifeq (${BRANCH},master)
 TAG    	:= $(shell git rev-parse --short HEAD)-go${GO_VERSION}
+LATEST_TAG := latest
 else
 TAG    	:= $(shell git rev-parse --short HEAD)-${BRANCH}-go${GO_VERSION}
+  ifneq (,$(findstring release-,$(BRANCH)))
+    LATEST_TAG := ${BRANCH}-latest
+  endif
 endif
 CUSTOMTAG ?=
 
@@ -194,16 +198,16 @@ deploy: ## Update Kubernetes deployments in staging (jenkins)
 push-images: ## Push Docker images to Docker Hub (jenkins)
 	docker tag storjlabs/satellite:${TAG} storjlabs/satellite:latest
 	docker push storjlabs/satellite:${TAG}
-	docker push storjlabs/satellite:latest
+	docker push storjlabs/satellite:${LATEST_TAG}
 	docker tag storjlabs/storagenode:${TAG} storjlabs/storagenode:latest
 	docker push storjlabs/storagenode:${TAG}
-	docker push storjlabs/storagenode:latest
+	docker push storjlabs/storagenode:${LATEST_TAG}
 	docker tag storjlabs/uplink:${TAG} storjlabs/uplink:latest
 	docker push storjlabs/uplink:${TAG}
-	docker push storjlabs/uplink:latest
+	docker push storjlabs/uplink:${LATEST_TAG}
 	docker tag storjlabs/gateway:${TAG} storjlabs/gateway:latest
 	docker push storjlabs/gateway:${TAG}
-	docker push storjlabs/gateway:latest
+	docker push storjlabs/gateway:${LATEST_TAG}
 
 .PHONY: binaries-upload
 binaries-upload: ## Upload binaries to Google Storage (jenkins)
