@@ -7,6 +7,7 @@ import (
 	"context"
 	"net"
 
+	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
@@ -21,30 +22,58 @@ type Service interface {
 	Run(ctx context.Context, server *Server) error
 }
 
+type public struct {
+	listener net.Listener
+	grpc     *grpc.Server
+}
+
+type private struct {
+	listener net.Listener
+	grpc     *grpc.Server
+}
+
 // Server represents a bundle of services defined by a specific ID.
 // Examples of servers are the satellite, the storagenode, and the uplink.
 type Server struct {
-	lis      net.Listener
-	grpc     *grpc.Server
+	public   public
+	private  private
 	next     []Service
 	identity *identity.FullIdentity
 }
 
 // New creates a Server out of an Identity, a net.Listener,
 // a UnaryServerInterceptor, and a set of services.
-func New(opts *tlsopts.Options, lis net.Listener, interceptor grpc.UnaryServerInterceptor, services ...Service) (*Server, error) {
+func New(opts *tlsopts.Options, publicAddr, privateAddr string, interceptor grpc.UnaryServerInterceptor, services ...Service) (*Server, error) {
 	unaryInterceptor := unaryInterceptor
 	if interceptor != nil {
 		unaryInterceptor = combineInterceptors(unaryInterceptor, interceptor)
 	}
 
-	return &Server{
-		lis: lis,
+	publicListener, err := net.Listen("tcp", publicAddr)
+	if err != nil {
+		return nil, err
+	}
+	public := public{
+		listener: publicListener,
 		grpc: grpc.NewServer(
 			grpc.StreamInterceptor(streamInterceptor),
 			grpc.UnaryInterceptor(unaryInterceptor),
 			opts.ServerOption(),
 		),
+	}
+
+	privateListener, err := net.Listen("tcp", privateAddr)
+	if err != nil {
+		return nil, errs.Combine(err, publicListener.Close())
+	}
+	private := private{
+		listener: privateListener,
+		grpc:     grpc.NewServer(),
+	}
+
+	return &Server{
+		public:   public,
+		private:  private,
 		next:     services,
 		identity: opts.Ident,
 	}, nil
@@ -53,15 +82,22 @@ func New(opts *tlsopts.Options, lis net.Listener, interceptor grpc.UnaryServerIn
 // Identity returns the server's identity
 func (p *Server) Identity() *identity.FullIdentity { return p.identity }
 
-// Addr returns the server's listener address
-func (p *Server) Addr() net.Addr { return p.lis.Addr() }
+// Addr returns the server's public listener address
+func (p *Server) Addr() net.Addr { return p.public.listener.Addr() }
+
+// PrivateAddr returns the server's private listener address
+func (p *Server) PrivateAddr() net.Addr { return p.private.listener.Addr() }
 
 // GRPC returns the server's gRPC handle for registration purposes
-func (p *Server) GRPC() *grpc.Server { return p.grpc }
+func (p *Server) GRPC() *grpc.Server { return p.public.grpc }
+
+// PrivateGRPC returns the server's gRPC handle for registration purposes
+func (p *Server) PrivateGRPC() *grpc.Server { return p.private.grpc }
 
 // Close shuts down the server
 func (p *Server) Close() error {
-	p.grpc.GracefulStop()
+	p.public.grpc.GracefulStop()
+	p.private.grpc.GracefulStop()
 	return nil
 }
 
@@ -85,7 +121,11 @@ func (p *Server) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		defer cancel()
-		return p.grpc.Serve(p.lis)
+		return p.public.grpc.Serve(p.public.listener)
+	})
+	group.Go(func() error {
+		defer cancel()
+		return p.private.grpc.Serve(p.private.listener)
 	})
 
 	return group.Wait()
