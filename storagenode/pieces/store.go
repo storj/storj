@@ -25,6 +25,7 @@ type Writer interface {
 type Reader interface {
 	ReadAt(offset int64, data []byte) error
 	Size() int64
+	Close() error
 }
 
 type Store struct {

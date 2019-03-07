@@ -16,7 +16,7 @@ import (
 
 type Table interface {
 	// not sure whether there's a need to duplicate, but just in case
-	Add(ctx context.Context, limit pb.OrderLimit2, order pb.Order2) error
+	Add(ctx context.Context, limit *pb.OrderLimit2, order *pb.Order2) error
 }
 
 type SenderConfig struct {

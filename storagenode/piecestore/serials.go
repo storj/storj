@@ -5,14 +5,15 @@ package piecestore
 
 import (
 	"sync"
-	"time"
+
+	"github.com/golang/protobuf/ptypes/timestamp"
 
 	"storj.io/storj/pkg/storj"
 )
 
 type SerialNumbers struct {
 	mu   sync.Mutex
-	seen map[SerialNumber]time.Time
+	seen map[SerialNumber]timestamp.Timestamp
 }
 
 type SerialNumber struct {
@@ -20,12 +21,12 @@ type SerialNumber struct {
 	SerialNumber string
 }
 
-func LoadSerialNumbers(infos PieceInfos) *SerialNumbers {
+func LoadSerialNumbers(infos PieceMeta) *SerialNumbers {
 	// TODO: load all active them from infos
 	panic("TODO")
 }
 
-func (serials *SerialNumber) Add(satelliteID storj.NodeID, serialNumber []byte, expiration time.Time) bool {
+func (serials *SerialNumbers) Add(satelliteID storj.NodeID, serialNumber []byte, expiration *timestamp.Timestamp) bool {
 	serials.mu.Lock()
 	defer serials.mu.Unlock()
 
@@ -35,6 +36,10 @@ func (serials *SerialNumber) Add(satelliteID storj.NodeID, serialNumber []byte, 
 		return false
 	}
 
-	serials.seen[serial] = expiration
+	serials.seen[serial] = *expiration
 	return true
+}
+
+func (serials *SerialNumbers) Collect() {
+	panic("TODO")
 }

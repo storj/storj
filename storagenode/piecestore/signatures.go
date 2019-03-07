@@ -4,9 +4,10 @@
 package piecestore
 
 import (
+	"bytes"
 	"context"
-	"time"
 
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/identity"
@@ -14,30 +15,29 @@ import (
 )
 
 var (
-	ErrVerifyBadRequest       = errs.New("bad request")
-	ErrVerifyNotAuthorized    = errs.New("not authorized")
-	ErrVerifyUntrusted        = errs.New("untrusted")
-	ErrVerifyDuplicateRequest = errs.New("duplicate request")
+	ErrVerifyNotAuthorized    = errs.Class("not authorized")
+	ErrVerifyUntrusted        = errs.Class("untrusted")
+	ErrVerifyDuplicateRequest = errs.Class("duplicate request")
 )
 
 func (endpoint *Endpoint) VerifyOrderLimit(ctx context.Context, limit *pb.OrderLimit2) error {
 	// sanity checks
 	switch {
 	case limit.Limit < 0:
-		return ErrVerifyBadRequest.New("order limit is negative")
-	case endpoint.Signer.ID() != limit.StorageNodeId:
-		return ErrVerifyBadRequest.New("order intended for other storagenode: %v", limit.StorageNodeId)
+		return ErrProtocol.New("order limit is negative")
+	case endpoint.signer.ID() != limit.StorageNodeId:
+		return ErrProtocol.New("order intended for other storagenode: %v", limit.StorageNodeId)
 	case endpoint.IsExpired(limit.PieceExpiration):
-		return ErrVerifyBadRequest.New("piece expired: %v", limit.PieceExpiration)
+		return ErrProtocol.New("piece expired: %v", limit.PieceExpiration)
 	case endpoint.IsExpired(limit.OrderExpiration):
-		return ErrVerifyBadRequest.New("order expired: %v", limit.OrderExpiration)
+		return ErrProtocol.New("order expired: %v", limit.OrderExpiration)
 
 	case limit.SatelliteId.IsZero():
-		return ErrVerifyBadRequest.New("missing satellite id")
+		return ErrProtocol.New("missing satellite id")
 	case limit.UplinkId.IsZero():
-		return ErrVerifyBadRequest.New("missing uplink id")
+		return ErrProtocol.New("missing uplink id")
 	case len(limit.SatelliteSignature) == 0:
-		return ErrVerifyBadRequest.New("satellite signature missing")
+		return ErrProtocol.New("satellite signature missing")
 	}
 
 	// either uplink or satellite can only make the request
@@ -48,32 +48,27 @@ func (endpoint *Endpoint) VerifyOrderLimit(ctx context.Context, limit *pb.OrderL
 		return ErrVerifyNotAuthorized.New("uplink:%s satellite:%s sender %s", limit.UplinkId, limit.SatelliteId, peer.ID)
 	}
 
-	if err := endpoint.trust.VerifySatellite(ctx, limit.SatelliteID); err != nil {
+	if err := endpoint.trust.VerifySatelliteID(ctx, limit.SatelliteId); err != nil {
 		return ErrVerifyUntrusted.Wrap(err)
 	}
-	if err := endpoint.trust.VerifyUplink(ctx, limit.UplinkID); err != nil {
+	if err := endpoint.trust.VerifyUplinkID(ctx, limit.UplinkId); err != nil {
 		return ErrVerifyUntrusted.Wrap(err)
 	}
+
 	if err := endpoint.VerifyOrderLimitSignature(ctx, limit); err != nil {
 		return ErrVerifyUntrusted.Wrap(err)
 	}
 
-	if ok := endpoint.ActiveSerials.Add(limit.SatelliteID, limit.SerialNumber, limit.OrderExpiration); !ok {
+	if ok := endpoint.activeSerials.Add(limit.SatelliteId, limit.SerialNumber, limit.OrderExpiration); !ok {
 		return ErrVerifyDuplicateRequest.Wrap(err)
 	}
 
 	return nil
 }
 
-func (endpoint *Endpoint) VerifyOrderLimitSignature(ctx context.Context, limit *pb.OrderLimit2) error {
-	// TODO: remove signature before encoding and verifying
-	bytes := encodeLimitAsBytes(limit)
-	err := endpoint.Trust.VerifySatelliteSignature(ctx, bytes, limit.SatelliteId)
-	return Error.Wrap(err)
-}
-
 func (endpoint *Endpoint) VerifyOrder(ctx context.Context, peer *identity.PeerIdentity, limit *pb.OrderLimit2, order *pb.Order2, largestOrderAmount int64) error {
-	if order.SerialNumber != limit.SerialNumber {
+	// if order.SerialNumber != limit.SerialNumber {
+	if !bytes.Equal(order.SerialNumber, limit.SerialNumber) {
 		return ErrProtocol.New("order serial number changed during upload") // TODO: report grpc status bad message
 	}
 	if order.Amount < largestOrderAmount {
@@ -82,12 +77,74 @@ func (endpoint *Endpoint) VerifyOrder(ctx context.Context, peer *identity.PeerId
 	if order.Amount > limit.Limit {
 		return ErrProtocol.New("order exceeded allowed amount") // TODO: report grpc status bad message
 	}
-	if err := endpoint.VerifyOrderSignature(ctx, order, peer); err != nil {
-		return ErrProtocol.New("order invalid signature") // TODO: report grpc status bad message
+	if err := endpoint.VerifyOrderSignature(ctx, peer, order); err != nil {
+		return ErrVerifyUntrusted.New("invalid order signature") // TODO: report grpc status bad message
 	}
 	return nil
 }
 
-func (endpoint *Endpoint) IsExpired(date time.Time) bool {
-	return date.Expired.Before(time.Now().Sub(endpoint.Config.ExpirationGracePeriod))
+func (endpoint *Endpoint) VerifyPieceHash(ctx context.Context, peer *identity.PeerIdentity, limit *pb.OrderLimit2, hash *pb.PieceHash, expectedHash []byte) error {
+	if limit.PieceId != hash.PieceId {
+		return ErrProtocol.New("piece id changed") // TODO: report grpc status bad message
+	}
+	if !bytes.Equal(hash.Hash, expectedHash) {
+		return ErrProtocol.New("hashes don't match") // TODO: report grpc status bad message
+	}
+
+	if err := endpoint.VerifyPieceHashSignature(ctx, peer, hash); err != nil {
+		return ErrVerifyUntrusted.New("invalid hash signature") // TODO: report grpc status bad message
+	}
+
+	return nil
+}
+
+func (endpoint *Endpoint) SignPieceHash(unsigned *pb.PieceHash) (*pb.PieceHash, error) {
+	panic("TODO")
+}
+
+func (endpoint *Endpoint) IsExpired(expiration *timestamp.Timestamp) bool {
+	panic("TODO")
+	// return expiration.Before(time.Now().Sub(endpoint.Config.ExpirationGracePeriod))
+}
+
+func (endpoint *Endpoint) VerifyOrderLimitSignature(ctx context.Context, limit *pb.OrderLimit2) error {
+	// TODO: remove signature before encoding and verifying
+	bytes, err := encodeOrderLimitAsBytes(limit)
+	if err != nil {
+		return ErrProtocol.Wrap(err)
+	}
+	err = endpoint.trust.VerifySignatureWithID(ctx, bytes, limit.SatelliteSignature, limit.SatelliteId)
+	return Error.Wrap(err)
+}
+
+func (endpoint *Endpoint) VerifyOrderSignature(ctx context.Context, peer *identity.PeerIdentity, order *pb.Order2) error {
+	// TODO: remove signature before encoding and verifying
+	bytes, err := encodeOrderAsBytes(order)
+	if err != nil {
+		return ErrProtocol.Wrap(err)
+	}
+	err = endpoint.trust.VerifySignature(ctx, bytes, order.UplinkSignature, peer)
+	return Error.Wrap(err)
+}
+
+func (endpoint *Endpoint) VerifyPieceHashSignature(ctx context.Context, peer *identity.PeerIdentity, hash *pb.PieceHash) error {
+	// TODO: remove signature before encoding and verifying
+	bytes, err := encodePieceHashAsBytes(hash)
+	if err != nil {
+		return ErrProtocol.Wrap(err)
+	}
+	err = endpoint.trust.VerifySignature(ctx, bytes, hash.Signature, peer)
+	return Error.Wrap(err)
+}
+
+func encodeOrderLimitAsBytes(*pb.OrderLimit2) ([]byte, error) {
+	panic("TODO")
+}
+
+func encodeOrderAsBytes(*pb.Order2) ([]byte, error) {
+	panic("TODO")
+}
+
+func encodePieceHashAsBytes(*pb.PieceHash) ([]byte, error) {
+	panic("TODO")
 }

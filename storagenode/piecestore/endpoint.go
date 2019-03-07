@@ -4,7 +4,6 @@
 package piecestore
 
 import (
-	"bytes"
 	"context"
 	"io"
 	"time"
@@ -21,6 +20,7 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
+	"storj.io/storj/storagenode/trust"
 )
 
 var (
@@ -36,16 +36,10 @@ type Signer interface {
 	SignHash(hash []byte) ([]byte, error)
 }
 
-type Trust interface {
-	VerifySatellite(context.Context, storj.NodeID) error
-	VerifyUplink(context.Context, storj.NodeID) error
-	VerifySignature(context.Context, []byte, storj.NodeID) error
-}
-
 // TODO: avoid protobuf definitions in interfaces
 
 type PieceMeta interface {
-	Add(ctx context.Context, limit pb.OrderLimit2, hash pb.PieceHash) error
+	Add(ctx context.Context, limit *pb.OrderLimit2, hash *pb.PieceHash) error
 	Delete(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID2) error
 	// Iteration for collector
 }
@@ -61,16 +55,16 @@ type Config struct {
 type Endpoint struct {
 	log *zap.Logger
 
-	Config Config
+	config Config
 
-	Signer        Signer
-	Trust         Trust
-	ActiveSerials *SerialNumbers
+	signer        Signer
+	trust         *trust.Pool
+	activeSerials *SerialNumbers
 
-	Pieces *pieces.Store
+	store *pieces.Store
 
-	PieceMeta PieceMeta
-	Orders    orders.Table
+	pieceMeta PieceMeta
+	orders    orders.Table
 }
 
 func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequest) (_ *pb.PieceDeleteResponse, err error) {
@@ -86,8 +80,8 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 	}
 
 	// TODO: parallelize this and maybe return early
-	pieceInfoErr := endpoint.PieceMeta.Delete(ctx, delete.Limit.SatelliteId, delete.Limit.PieceId)
-	pieceErr := endpoint.Pieces.Delete(ctx, delete.Limit.SatelliteId, delete.Limit.PieceId)
+	pieceInfoErr := endpoint.pieceMeta.Delete(ctx, delete.Limit.SatelliteId, delete.Limit.PieceId)
+	pieceErr := endpoint.store.Delete(ctx, delete.Limit.SatelliteId, delete.Limit.PieceId)
 
 	if err := errs.Combine(pieceInfoErr, pieceErr); err != nil {
 		// explicitly ignoring error because the errors
@@ -133,13 +127,13 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 		return Error.Wrap(err)
 	}
 
-	pieceWriter, err := endpoint.Pieces.Writer(ctx, limit.SatelliteId, limit.PieceId)
+	pieceWriter, err := endpoint.store.Writer(ctx, limit.SatelliteId, limit.PieceId)
 	if err != nil {
 		return ErrInternal.Wrap(err) // TODO: report grpc status internal server error
 	}
 	defer pieceWriter.Cancel() // similarly how transcation Rollback works
 
-	var largestOrder = &pb.Order2{}
+	var largestOrder *pb.Order2
 	for {
 		message, err = stream.Recv() // TODO: reuse messages to avoid allocations
 		if err != nil {
@@ -171,19 +165,12 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 			}
 
 		case message.Done != nil:
-			if message.Done.PieceId != limit.PieceId {
-				return ErrProtocol.New("done message piece id was different") // TODO: report grpc status internal server error
-			}
-			if err := endpoint.VerifyPieceHash(message.Done, peer); err != nil {
+			expectedHash := pieceWriter.Hash()
+			if err := endpoint.VerifyPieceHash(ctx, peer, limit, message.Done, expectedHash); err != nil {
 				return err // TODO: report grpc status internal server error
 			}
 
-			hash := pieceWriter.Hash()
-			if !bytes.Equal(hash, message.Hash) {
-				return ErrProtocol.New("hash mismatch") // TODO: report grpc status bad message
-			}
-
-			if err := pieceWriter.Commit(limit, largestOrder, message.Done); err != nil {
+			if err := pieceWriter.Commit(); err != nil {
 				return ErrInternal.Wrap(err) // TODO: report grpc status internal server error
 			}
 
@@ -191,22 +178,32 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 			{
 				// TODO: since we have successfully commited, we should try to later recover the orders
 				// from piece storage
-				if err := endpoint.PieceMeta.Add(limit, message.Done); err != nil {
+				if err := endpoint.pieceMeta.Add(ctx, limit, message.Done); err != nil {
 					return ErrInternal.Wrap(err)
 				}
-				if err := endpoint.Orders.Add(limit, largestOrder); err != nil {
-					return ErrInternal.Wrap(err)
+				if largestOrder != nil {
+					if err := endpoint.orders.Add(ctx, limit, largestOrder); err != nil {
+						return ErrInternal.Wrap(err)
+					}
 				}
 			}
 
+			storageNodeHash, err := endpoint.SignPieceHash(&pb.PieceHash{
+				PieceId: limit.PieceId,
+				Hash:    expectedHash,
+			})
+			if err != nil {
+				return ErrInternal.Wrap(err)
+			}
+
 			return stream.SendAndClose(&pb.PieceUploadResponse{
-				Done: endpoint.SignHash(limit.SerialNumber, limit.PieceId, pieceHash),
+				Done: storageNodeHash,
 			})
 		}
 	}
 }
 
-func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) error {
+func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
 
@@ -214,7 +211,6 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) error {
 	// TODO: set maximum message size
 
 	var message *pb.PieceDownloadRequest
-	var err error
 
 	// receive limit and chunk from uplink
 	message, err = stream.Recv()
@@ -224,13 +220,13 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) error {
 	if message.Limit == nil || message.Chunk == nil {
 		return ErrProtocol.New("expected order limit and chunk as the first message")
 	}
-	limit := message.Limit
+	limit, chunk := message.Limit, message.Chunk
 
 	if limit.Action != pb.Action_GET && limit.Action != pb.Action_GET_REPAIR && limit.Action != pb.Action_GET_AUDIT {
 		return ErrProtocol.New("expected get or get repair or audit action got %v", limit.Action) // TODO: report grpc status unauthorized or bad request
 	}
 
-	if message.Chunk.Size > limit.Limit {
+	if chunk.ChunkSize > limit.Limit {
 		return ErrProtocol.New("requested more that order limit allows")
 	}
 
@@ -243,7 +239,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) error {
 		return Error.Wrap(err)
 	}
 
-	pieceReader, err := endpoint.Pieces.Reader(limit.SatelliteID, limit.PieceID)
+	pieceReader, err := endpoint.store.Reader(ctx, limit.SatelliteId, limit.PieceId)
 	if err != nil {
 		return ErrInternal.Wrap(err) // TODO: report grpc status internal server error
 	}
@@ -256,7 +252,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) error {
 	}()
 
 	// TODO: verify chunk.Size behavior logic with regards to reading all
-	if chunk.Offset+chunk.Size > pieceReader.Size() {
+	if chunk.Offset+chunk.ChunkSize > pieceReader.Size() {
 		return Error.New("requested more data than available")
 	}
 
@@ -264,34 +260,29 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) error {
 
 	group, ctx := errgroup.WithContext(ctx)
 	group.Go(func() (err error) {
-		// ensure uplink notices when we have closed things
-		defer func() {
-			err = errs.Combine(err, stream.CloseSend())
-		}()
-
 		var maximumChunkSize = 1 * memory.MiB.Int64()
 
 		currentOffset := chunk.Offset
-		unsentAmount := chunk.Size
+		unsentAmount := chunk.ChunkSize
 		for unsentAmount > 0 {
 			tryToSend := min(unsentAmount, maximumChunkSize)
 
 			// TODO: add timeout here
 			chunkSize, err := throttle.ConsumeOrWait(tryToSend)
 			if err != nil {
-				return ErrInternal(err)
+				return ErrInternal.Wrap(err)
 			}
 
-			chunk := make([]byte, chunkSize)
-			err = pieceReader.ReadAt(currentOffset, chunk)
+			chunkData := make([]byte, chunkSize)
+			err = pieceReader.ReadAt(currentOffset, chunkData)
 			if err != nil {
 				return ErrInternal.Wrap(err)
 			}
 
-			err = stream.Send(&pb.DownloadResponseStream{
-				Chunk: &pb.DownloadResponseStream_Chunk{
+			err = stream.Send(&pb.PieceDownloadResponse{
+				Chunk: &pb.PieceDownloadResponse_Chunk{
 					Offset: currentOffset,
-					Chunk:  chunk,
+					Data:   chunkData,
 				},
 			})
 			if err != nil {
@@ -306,17 +297,20 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) error {
 	})
 
 	recvErr := func() (err error) {
+		var largestOrder *pb.Order2
+
 		defer func() {
 			// TODO: do this in a goroutine
-			if err2 := endpoint.Orders.Add(limit, largestOrder); err2 != nil {
-				return errs.Combine(err, ErrInternal.Wrap(err2))
+			if largestOrder != nil {
+				if err2 := endpoint.orders.Add(ctx, limit, largestOrder); err2 != nil {
+					err = errs.Combine(err, ErrInternal.Wrap(err2))
+				}
 			}
 		}()
 
 		// ensure that we always terminate sending goroutine
 		defer throttle.Fail(io.EOF)
 
-		largestOrder := *pb.Order{}
 		for {
 			// TODO: check errors
 			// TODO: add timeout here
@@ -340,4 +334,11 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) error {
 
 	// TODO: combine recvErr and sendErr somehow better
 	return Error.Wrap(errs.Combine(sendErr, recvErr))
+}
+
+func min(a, b int64) int64 {
+	if a < b {
+		return a
+	}
+	return b
 }
