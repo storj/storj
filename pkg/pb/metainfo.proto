@@ -83,6 +83,7 @@ message SegmentWriteRequest {
     bytes path = 2;
     pointerdb.RedundancyScheme redundancy = 3;
     int64 max_segment_size = 4;
+    google.protobuf.Timestamp expiration = 5;
 }
 
 message SegmentCommitRequest {
