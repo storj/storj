@@ -24,6 +24,7 @@ before_install:
 
 script:
   - go vet ./...
+  - exit 1
 
 # before_install:
 #   - source scripts/setup-gopath.sh
