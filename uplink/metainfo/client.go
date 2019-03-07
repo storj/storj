@@ -49,6 +49,7 @@ type ListItem struct {
 type Client interface {
 	CreateSegment(ctx context.Context, bucket string, path storj.Path, redundancy *pb.RedundancyScheme, maxSegmentSize int64, expiration time.Time) ([]*pb.AddressedOrderLimit, error)
 	CommitSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, pointer *pb.Pointer) error
+	SegmentInfo(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (*pb.Pointer, error)
 	ReadSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (*pb.Pointer, []*pb.AddressedOrderLimit, error)
 	DeleteSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) ([]*pb.AddressedOrderLimit, error)
 	ListSegments(ctx context.Context, bucket string, prefix, startAfter, endBefore storj.Path, recursive bool, limit int32, metaFlags uint32) (items []ListItem, more bool, err error)
@@ -107,6 +108,22 @@ func (metainfo *Metainfo) CommitSegment(ctx context.Context, bucket string, path
 	}
 
 	return nil
+}
+
+// SegmentInfo requests the pointer of a segment
+func (metainfo *Metainfo) SegmentInfo(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (pointer *pb.Pointer, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	response, err := metainfo.client.SegmentInfo(ctx, &pb.SegmentInfoRequest{
+		Bucket:  []byte(bucket),
+		Path:    []byte(path),
+		Segment: segmentIndex,
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return response.GetPointer(), nil
 }
 
 // ReadSegment requests the order limits for reading a segment

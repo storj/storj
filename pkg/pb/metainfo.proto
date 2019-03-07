@@ -15,6 +15,7 @@ import "pointerdb.proto";
 service Metainfo {
     rpc CreateSegment(SegmentWriteRequest) returns (OrderLimitResponse);
     rpc CommitSegment(SegmentCommitRequest) returns (SegmentCommitResponse);
+    rpc SegmentInfo(SegmentInfoRequest) returns (SegmentInfoResponse);
     rpc DownloadSegment(SegmentDownloadRequest) returns (SegmentDownloadResponse);
     rpc DeleteSegment(SegmentDeleteRequest) returns (OrderLimitResponse);
     rpc ListSegments(ListSegmentsRequest) returns (ListSegmentsResponse);
@@ -104,6 +105,16 @@ message SegmentDownloadRequest {
 
 message SegmentDownloadResponse {
     repeated AddressedOrderLimit addressed_limits = 1;
+    pointerdb.Pointer pointer = 2;
+}
+
+message SegmentInfoRequest {
+    bytes bucket = 1; 
+    bytes path = 2;
+    int64 segment = 3;
+}
+
+message SegmentInfoResponse {
     pointerdb.Pointer pointer = 2;
 }
 
