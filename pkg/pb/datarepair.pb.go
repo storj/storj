@@ -3,9 +3,11 @@
 
 package pb
 
-import proto "github.com/gogo/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/gogo/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -31,7 +33,7 @@ func (m *InjuredSegment) Reset()         { *m = InjuredSegment{} }
 func (m *InjuredSegment) String() string { return proto.CompactTextString(m) }
 func (*InjuredSegment) ProtoMessage()    {}
 func (*InjuredSegment) Descriptor() ([]byte, []int) {
-	return fileDescriptor_datarepair_45267f47333c8119, []int{0}
+	return fileDescriptor_b1b08e6fe9398aa6, []int{0}
 }
 func (m *InjuredSegment) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_InjuredSegment.Unmarshal(m, b)
@@ -39,8 +41,8 @@ func (m *InjuredSegment) XXX_Unmarshal(b []byte) error {
 func (m *InjuredSegment) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_InjuredSegment.Marshal(b, m, deterministic)
 }
-func (dst *InjuredSegment) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_InjuredSegment.Merge(dst, src)
+func (m *InjuredSegment) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_InjuredSegment.Merge(m, src)
 }
 func (m *InjuredSegment) XXX_Size() int {
 	return xxx_messageInfo_InjuredSegment.Size(m)
@@ -69,9 +71,9 @@ func init() {
 	proto.RegisterType((*InjuredSegment)(nil), "repair.InjuredSegment")
 }
 
-func init() { proto.RegisterFile("datarepair.proto", fileDescriptor_datarepair_45267f47333c8119) }
+func init() { proto.RegisterFile("datarepair.proto", fileDescriptor_b1b08e6fe9398aa6) }
 
-var fileDescriptor_datarepair_45267f47333c8119 = []byte{
+var fileDescriptor_b1b08e6fe9398aa6 = []byte{
 	// 119 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x12, 0x48, 0x49, 0x2c, 0x49,
 	0x2c, 0x4a, 0x2d, 0x48, 0xcc, 0x2c, 0xd2, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x83, 0xf0,
