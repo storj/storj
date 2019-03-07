@@ -4,10 +4,12 @@ GOARCH ?= amd64
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
 BRANCH := $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
 ifeq (${BRANCH},master)
-TAG    	:= $(shell git rev-parse --short HEAD)-go${GO_VERSION}
-LATEST_TAG := latest
+	TRACKED_BRANCH := true
+  TAG    	:= $(shell git rev-parse --short HEAD)-go${GO_VERSION}
+  LATEST_TAG := latest
 else
-TAG    	:= $(shell git rev-parse --short HEAD)-${BRANCH}-go${GO_VERSION}
+	TRACKED_BRANCH := true
+  TAG    	:= $(shell git rev-parse --short HEAD)-${BRANCH}-go${GO_VERSION}
   ifneq (,$(findstring release-,$(BRANCH)))
     LATEST_TAG := ${BRANCH}-latest
   endif
@@ -118,19 +120,19 @@ images: satellite-image storagenode-image uplink-image gateway-image ## Build ga
 
 .PHONY: gateway-image
 gateway-image: ## Build gateway Docker image
-	${DOCKER_BUILD} --pull=true -t storjlabs/gateway:${TAG}${CUSTOMTAG} -f cmd/gateway/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/gateway:${TAG}${CUSTOMTAG} -t storjlabs/gateway:${LATEST_TAG} -f cmd/gateway/Dockerfile .
 .PHONY: satellite-image
 satellite-image: ## Build satellite Docker image
-	${DOCKER_BUILD} --pull=true -t storjlabs/satellite:${TAG}${CUSTOMTAG} -f cmd/satellite/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/satellite:${TAG}${CUSTOMTAG} -t storjlabs/satellite:${LATEST_TAG} -f cmd/satellite/Dockerfile .
 .PHONY: satellite-ui-image
 satellite-ui-image: ## Build satellite Docker image
-	${DOCKER_BUILD} --pull=true -t storjlabs/satellite-ui:${TAG}${CUSTOMTAG} -t storjlabs/satellite-ui:latest -f web/satellite/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/satellite-ui:${TAG}${CUSTOMTAG} -t storjlabs/satellite-ui:${LATEST_TAG} -f web/satellite/Dockerfile .
 .PHONY: storagenode-image
 storagenode-image: ## Build storagenode Docker image
-	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG} -f cmd/storagenode/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG} -t storjlabs/storagenode:${LATEST_TAG} -f cmd/storagenode/Dockerfile .
 .PHONY: uplink-image
 uplink-image: ## Build uplink Docker image
-	${DOCKER_BUILD} --pull=true -t storjlabs/uplink:${TAG}${CUSTOMTAG} -f cmd/uplink/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/uplink:${TAG}${CUSTOMTAG} -t storjlabs/uplink:${LATEST_TAG} -f cmd/uplink/Dockerfile .
 
 .PHONY: binary
 binary: CUSTOMTAG = -${GOOS}-${GOARCH}
@@ -196,18 +198,24 @@ deploy: ## Update Kubernetes deployments in staging (jenkins)
 
 .PHONY: push-images
 push-images: ## Push Docker images to Docker Hub (jenkins)
-	docker tag storjlabs/satellite:${TAG} storjlabs/satellite:latest
+	docker tag storjlabs/satellite:${TAG}
 	docker push storjlabs/satellite:${TAG}
-	docker push storjlabs/satellite:${LATEST_TAG}
-	docker tag storjlabs/storagenode:${TAG} storjlabs/storagenode:latest
+	docker tag storjlabs/storagenode:${TAG}
 	docker push storjlabs/storagenode:${TAG}
-	docker push storjlabs/storagenode:${LATEST_TAG}
-	docker tag storjlabs/uplink:${TAG} storjlabs/uplink:latest
+	docker tag storjlabs/uplink:${TAG}
 	docker push storjlabs/uplink:${TAG}
-	docker push storjlabs/uplink:${LATEST_TAG}
-	docker tag storjlabs/gateway:${TAG} storjlabs/gateway:latest
+	docker tag storjlabs/gateway:${TAG}
 	docker push storjlabs/gateway:${TAG}
-	docker push storjlabs/gateway:${LATEST_TAG}
+	ifeq (${TRACKED_BRANCH},true)
+		docker tag storjlabs/satellite:${LATEST_TAG}
+		docker push storjlabs/satellite:${LATEST_TAG}
+		docker tag storjlabs/storagenode:${LATEST_TAG}
+		docker push storjlabs/storagenode:${LATEST_TAG}
+		docker tag storjlabs/uplink:${LATEST_TAG}
+		docker push storjlabs/uplink:${LATEST_TAG}
+		docker tag storjlabs/gateway:${LATEST_TAG}
+		docker push storjlabs/gateway:${LATEST_TAG}
+	endif
 
 .PHONY: binaries-upload
 binaries-upload: ## Upload binaries to Google Storage (jenkins)
@@ -223,12 +231,12 @@ binaries-clean: ## Remove all local release binaries (jenkins)
 	rm -rf release
 
 .PHONY: clean-images
-ifeq (${BRANCH},master)
+ifeq (${TRACKED_BRANCH},true)
 clean-images: ## Remove Docker images from local engine
-	-docker rmi storjlabs/gateway:${TAG} storjlabs/gateway:latest
-	-docker rmi storjlabs/satellite:${TAG} storjlabs/satellite:latest
-	-docker rmi storjlabs/storagenode:${TAG} storjlabs/storagenode:latest
-	-docker rmi storjlabs/uplink:${TAG} storjlabs/uplink:latest
+	-docker rmi storjlabs/gateway:${TAG} storjlabs/gateway:${LATEST_TAG}
+	-docker rmi storjlabs/satellite:${TAG} storjlabs/satellite:${LATEST_TAG}
+	-docker rmi storjlabs/storagenode:${TAG} storjlabs/storagenode:${LATEST_TAG}
+	-docker rmi storjlabs/uplink:${TAG} storjlabs/uplink:${LATEST_TAG}
 else
 clean-images:
 	-docker rmi storjlabs/gateway:${TAG}
