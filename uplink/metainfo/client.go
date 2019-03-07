@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
+	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -19,6 +20,9 @@ import (
 
 var (
 	mon = monkit.Package()
+
+	// Error is the errs class of standard metainfo errors
+	Error = errs.Class("metainfo error")
 )
 
 // Metainfo creates a grpcClient
@@ -59,7 +63,7 @@ func NewClient(ctx context.Context, tc transport.Client, address string, APIKey 
 		grpc.WithUnaryInterceptor(apiKeyInjector),
 	)
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 
 	return &Metainfo{client: pb.NewMetainfoClient(conn)}, nil
@@ -81,8 +85,11 @@ func (metainfo *Metainfo) CreateSegment(ctx context.Context, bucket string, path
 		MaxSegmentSize: maxSegmentSize,
 		Expiration:     exp,
 	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 
-	return response.GetAddressedLimits(), err
+	return response.GetAddressedLimits(), nil
 }
 
 // CommitSegment requests to store the pointer for the segment
@@ -95,8 +102,11 @@ func (metainfo *Metainfo) CommitSegment(ctx context.Context, bucket string, path
 		Segment: segmentIndex,
 		Pointer: pointer,
 	})
+	if err != nil {
+		return Error.Wrap(err)
+	}
 
-	return err
+	return nil
 }
 
 // ReadSegment requests the order limits for reading a segment
@@ -108,8 +118,11 @@ func (metainfo *Metainfo) ReadSegment(ctx context.Context, bucket string, path s
 		Path:    []byte(path),
 		Segment: segmentIndex,
 	})
+	if err != nil {
+		return nil, nil, Error.Wrap(err)
+	}
 
-	return response.GetPointer(), response.GetAddressedLimits(), err
+	return response.GetPointer(), response.GetAddressedLimits(), nil
 }
 
 // DeleteSegment requests the order limits for deleting a segment
@@ -121,8 +134,11 @@ func (metainfo *Metainfo) DeleteSegment(ctx context.Context, bucket string, path
 		Path:    []byte(path),
 		Segment: segmentIndex,
 	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 
-	return response.GetAddressedLimits(), err
+	return response.GetAddressedLimits(), nil
 }
 
 // ListSegments lists the available segments
@@ -138,6 +154,9 @@ func (metainfo *Metainfo) ListSegments(ctx context.Context, bucket string, prefi
 		Limit:      limit,
 		MetaFlags:  metaFlags,
 	})
+	if err != nil {
+		return nil, false, Error.Wrap(err)
+	}
 
 	list := response.GetItems()
 	items = make([]ListItem, len(list))
@@ -149,5 +168,5 @@ func (metainfo *Metainfo) ListSegments(ctx context.Context, bucket string, prefi
 		}
 	}
 
-	return items, response.GetMore(), err
+	return items, response.GetMore(), nil
 }
