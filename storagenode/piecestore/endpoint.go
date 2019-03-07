@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/storagenode/pieces"
 )
 
 var (
@@ -29,6 +30,11 @@ var (
 	ErrInternal = errs.Class("piecestore internal error")
 )
 
+type Signer interface {
+	ID() storj.NodeID
+	SignHash(hash []byte) ([]byte, error)
+}
+
 type Trust interface {
 	VerifySatellite(context.Context, storj.NodeID) error
 	VerifyUplink(context.Context, storj.NodeID) error
@@ -37,7 +43,7 @@ type Trust interface {
 
 // TODO: avoid protobuf definitions in interfaces
 
-type PieceInfos interface {
+type PieceMeta interface {
 	Add(ctx context.Context, limit pb.OrderLimit2, hash pb.PieceHash) error
 	Delete(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID2) error
 }
@@ -48,33 +54,6 @@ type Orders interface {
 }
 
 // TODO: should the reader, writer have context for read/write?
-
-type PieceWriter interface {
-	Write(data []byte) (int64, error)
-	Size() int64
-	Hash() []byte
-	Commit() error
-
-	// Drop deletes temporary file, unless Commit was called before
-	Drop()
-}
-
-type PieceReader interface {
-	ReadAt(offset int64, data []byte) error
-	Size() int64
-}
-
-type Pieces interface {
-	Writer(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID2) (PieceWriter, error)
-	// should reader take offset and size as arguments?
-	Reader(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID2) (PieceReader, error)
-	Delete(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID2) error
-}
-
-type Signer interface {
-	ID() storj.NodeID
-	SignHash(hash []byte) ([]byte, error)
-}
 
 var _ pb.PiecestoreServer = (*Endpoint)(nil)
 
@@ -91,10 +70,10 @@ type Endpoint struct {
 	Trust         Trust
 	ActiveSerials *SerialNumbers
 
-	Pieces Pieces
+	Pieces *pieces.Store
 
-	PieceInfos PieceInfos
-	Orders     Orders
+	PieceMeta PieceMeta
+	Orders    Orders
 }
 
 func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequest) (_ *pb.PieceDeleteResponse, err error) {
@@ -110,7 +89,7 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 	}
 
 	// TODO: parallelize this and maybe return early
-	pieceInfoErr := endpoint.PieceInfos.Delete(ctx, delete.Limit.SatelliteId, delete.Limit.PieceId)
+	pieceInfoErr := endpoint.PieceMeta.Delete(ctx, delete.Limit.SatelliteId, delete.Limit.PieceId)
 	pieceErr := endpoint.Pieces.Delete(ctx, delete.Limit.SatelliteId, delete.Limit.PieceId)
 
 	if err := errs.Combine(pieceInfoErr, pieceErr); err != nil {
@@ -161,7 +140,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 	if err != nil {
 		return ErrInternal.Wrap(err) // TODO: report grpc status internal server error
 	}
-	defer pieceWriter.Drop() // similarly how transcation Rollback works
+	defer pieceWriter.Cancel() // similarly how transcation Rollback works
 
 	var largestOrder = &pb.Order2{}
 	for {
@@ -215,7 +194,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 			{
 				// TODO: since we have successfully commited, we should try to later recover the orders
 				// from piece storage
-				if err := endpoint.PieceInfos.Add(limit, message.Done); err != nil {
+				if err := endpoint.PieceMeta.Add(limit, message.Done); err != nil {
 					return ErrInternal.Wrap(err)
 				}
 				if err := endpoint.Orders.Add(limit, largestOrder); err != nil {

@@ -6,38 +6,39 @@ package pieces
 import (
 	"context"
 
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/storage"
+
+	_ "storj.io/storj/storage/filestore"
 )
-
-// Implementations for the interfaces using filestore
-
-type Storage interface {
-	Writer(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (PieceWriter, error)
-	Reader(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (PieceReader, error)
-	Delete(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) error
-}
-
-type Table interface {
-	Add(ctx context.Context, limit pb.OrderLimit, hash pb.PieceHash) error
-	Delete(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) error
-}
 
 type Writer interface {
 	Write(data []byte) (int64, error)
-	Hash() []byte
-	Commit(pb.OrderLimit, pb.Order, pb.PieceHash) error
-	// alternative: Commit() error, we could save them separately ensuring that we can rebuild
+	Size() int64
 
-	// Cancel cancels writing to storage
+	Hash() []byte
+	Commit() error
+
 	Cancel()
 }
 
 type Reader interface {
 	ReadAt(offset int64, data []byte) error
 	Size() int64
+}
 
-	Limit() pb.OrderLimit
-	Order() pb.Order
-	Hash() pb.PieceHash
+type Store struct {
+	storage.Blobs
+}
+
+func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID2) (Writer, error) {
+	panic("TODO")
+}
+
+func (store *Store) Reader(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID2) (Reader, error) {
+	panic("TODO")
+}
+
+func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID2) error {
+	panic("TODO")
 }
