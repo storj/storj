@@ -432,7 +432,6 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				OverlayAddr:   "", // overridden in satellite.New
 				PointerDBAddr: "", // overridden in satellite.New
 				MaxBufferMem:  4 * memory.MB,
-				APIKey:        "",
 			},
 			Audit: audit.Config{
 				MaxRetriesStatDB: 0,
