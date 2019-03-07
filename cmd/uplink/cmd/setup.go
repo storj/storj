@@ -31,32 +31,15 @@ var (
 
 	confDir     string
 	identityDir string
+	isDev       bool
 )
 
 func init() {
-	confDirParam := cfgstruct.FindConfigDirParam()
-	if confDirParam != "" {
-		defaultConfDir = confDirParam
-	}
-	identityDirParam := cfgstruct.FindIdentityDirParam()
-	if identityDirParam != "" {
-		defaultIdentityDir = identityDirParam
-	}
-
-	RootCmd.PersistentFlags().StringVar(&confDir, "config-dir", defaultConfDir, "main directory for setup configuration")
-	err := RootCmd.PersistentFlags().SetAnnotation("config-dir", "setup", []string{"true"})
-	if err != nil {
-		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
-	}
-
-	RootCmd.PersistentFlags().StringVar(&identityDir, "identity-dir", defaultIdentityDir, "main directory for uplink identity credentials")
-	err = RootCmd.PersistentFlags().SetAnnotation("identity-dir", "setup", []string{"true"})
-	if err != nil {
-		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
-	}
-
+	cfgstruct.SetupFlag(zap.L(), RootCmd, &confDir, "config-dir", defaultConfDir, "main directory for uplink configuration")
+	cfgstruct.SetupFlag(zap.L(), RootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for uplink identity credentials")
+	cfgstruct.DevFlag(RootCmd, &isDev, false, "use development and test configuration settings")
 	RootCmd.AddCommand(setupCmd)
-	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, isDev, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {

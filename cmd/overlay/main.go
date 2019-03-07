@@ -39,13 +39,15 @@ var (
 	cacheCfg struct {
 		cacheConfig
 	}
+	isDev bool
 )
 
 func init() {
+	cfgstruct.DevFlag(rootCmd, &isDev, false, "use development and test configuration settings")
 	rootCmd.AddCommand(addCmd)
 	rootCmd.AddCommand(listCmd)
-	cfgstruct.Bind(addCmd.Flags(), &cacheCfg)
-	cfgstruct.Bind(listCmd.Flags(), &cacheCfg)
+	cfgstruct.Bind(addCmd.Flags(), &cacheCfg, isDev)
+	cfgstruct.Bind(listCmd.Flags(), &cacheCfg, isDev)
 }
 
 func cmdList(cmd *cobra.Command, args []string) (err error) {

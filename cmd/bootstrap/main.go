@@ -43,6 +43,7 @@ var (
 	defaultIdentityDir = fpath.ApplicationDir("storj", "identity", "bootstrap")
 	confDir            string
 	identityDir        string
+	isDev              bool
 )
 
 const (
@@ -50,30 +51,13 @@ const (
 )
 
 func init() {
-	confDirParam := cfgstruct.FindConfigDirParam()
-	if confDirParam != "" {
-		defaultConfDir = confDirParam
-	}
-	identityDirParam := cfgstruct.FindIdentityDirParam()
-	if identityDirParam != "" {
-		defaultIdentityDir = identityDirParam
-	}
-
-	rootCmd.PersistentFlags().StringVar(&confDir, "config-dir", defaultConfDir, "main directory for bootstrap configuration")
-	err := rootCmd.PersistentFlags().SetAnnotation("config-dir", "setup", []string{"true"})
-	if err != nil {
-		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
-	}
-	rootCmd.PersistentFlags().StringVar(&identityDir, "identity-dir", defaultIdentityDir, "main directory for bootstrap identity credentials")
-	err = rootCmd.PersistentFlags().SetAnnotation("identity-dir", "setup", []string{"true"})
-	if err != nil {
-		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
-	}
-
+	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for bootstrap configuration")
+	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for bootstrap identity credentials")
+	cfgstruct.DevFlag(rootCmd, &isDev, false, "use development and test configuration settings")
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
-	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(runCmd.Flags(), &runCfg, isDev, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, isDev, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {

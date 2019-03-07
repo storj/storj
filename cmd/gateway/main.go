@@ -67,34 +67,18 @@ var (
 
 	confDir     string
 	identityDir string
+	isDev       bool
 )
 
 func init() {
-	dirParam := cfgstruct.FindConfigDirParam()
-	if dirParam != "" {
-		defaultConfDir = dirParam
-	}
-	identityDirParam := cfgstruct.FindIdentityDirParam()
-	if identityDirParam != "" {
-		defaultIdentityDir = identityDirParam
-	}
-
-	rootCmd.PersistentFlags().StringVar(&confDir, "config-dir", defaultConfDir, "main directory for setup configuration")
-	err := rootCmd.PersistentFlags().SetAnnotation("config-dir", "setup", []string{"true"})
-	if err != nil {
-		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
-	}
-
-	rootCmd.PersistentFlags().StringVar(&identityDir, "identity-dir", defaultIdentityDir, "main directory for gateway identity credentials")
-	err = rootCmd.PersistentFlags().SetAnnotation("identity-dir", "setup", []string{"true"})
-	if err != nil {
-		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
-	}
+	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for setup configuration")
+	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for gateway identity credentials")
+	cfgstruct.DevFlag(rootCmd, &isDev, false, "use development and test configuration settings")
 
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
-	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(runCmd.Flags(), &runCfg, isDev, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, isDev, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {

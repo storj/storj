@@ -12,7 +12,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/memory"
 )
@@ -56,18 +58,18 @@ type confVar struct {
 // Bind sets flags on a FlagSet that match the configuration struct
 // 'config'. This works by traversing the config struct using the 'reflect'
 // package. Will ignore fields with `setup:"true"` tag.
-func Bind(flags FlagSet, config interface{}, opts ...BindOpt) {
-	bind(flags, config, false, opts...)
+func Bind(flags FlagSet, config interface{}, isDev bool, opts ...BindOpt) {
+	bind(flags, config, false, isDev, opts...)
 }
 
 // BindSetup sets flags on a FlagSet that match the configuration struct
 // 'config'. This works by traversing the config struct using the 'reflect'
 // package.
-func BindSetup(flags FlagSet, config interface{}, opts ...BindOpt) {
-	bind(flags, config, true, opts...)
+func BindSetup(flags FlagSet, config interface{}, isDev bool, opts ...BindOpt) {
+	bind(flags, config, true, isDev, opts...)
 }
 
-func bind(flags FlagSet, config interface{}, setupCommand bool, opts ...BindOpt) {
+func bind(flags FlagSet, config interface{}, setupCommand bool, isDev bool, opts ...BindOpt) {
 	ptrtype := reflect.TypeOf(config)
 	if ptrtype.Kind() != reflect.Ptr {
 		panic(fmt.Sprintf("invalid config type: %#v. Expecting pointer to struct.", config))
@@ -76,15 +78,15 @@ func bind(flags FlagSet, config interface{}, setupCommand bool, opts ...BindOpt)
 	for _, opt := range opts {
 		opt(vars)
 	}
-	bindConfig(flags, "", reflect.ValueOf(config).Elem(), vars, setupCommand, false)
+
+	bindConfig(flags, "", reflect.ValueOf(config).Elem(), vars, setupCommand, false, isDev)
 }
 
-func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string]confVar, setupCommand, setupStruct bool) {
+func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string]confVar, setupCommand, setupStruct bool, isDev bool) {
 	if val.Kind() != reflect.Struct {
 		panic(fmt.Sprintf("invalid config type: %#v. Expecting struct.", val.Interface()))
 	}
 	typ := val.Type()
-
 	resolvedVars := make(map[string]string, len(vars))
 	{
 		structpath := strings.Replace(prefix, ".", "/", -1)
@@ -114,19 +116,26 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 		switch field.Type.Kind() {
 		case reflect.Struct:
 			if field.Anonymous {
-				bindConfig(flags, prefix, fieldval, vars, setupCommand, onlyForSetup)
+				bindConfig(flags, prefix, fieldval, vars, setupCommand, onlyForSetup, isDev)
 			} else {
-				bindConfig(flags, flagname+".", fieldval, vars, setupCommand, onlyForSetup)
+				bindConfig(flags, flagname+".", fieldval, vars, setupCommand, onlyForSetup, isDev)
 			}
 		case reflect.Array, reflect.Slice:
 			digits := len(fmt.Sprint(fieldval.Len()))
 			for j := 0; j < fieldval.Len(); j++ {
 				padding := strings.Repeat("0", digits-len(fmt.Sprint(j)))
-				bindConfig(flags, fmt.Sprintf("%s.%s%d.", flagname, padding, j), fieldval.Index(j), vars, setupCommand, onlyForSetup)
+				bindConfig(flags, fmt.Sprintf("%s.%s%d.", flagname, padding, j), fieldval.Index(j), vars, setupCommand, onlyForSetup, isDev)
 			}
 		default:
 			help := field.Tag.Get("help")
 			def := field.Tag.Get("default")
+			if isDev {
+				devDef := field.Tag.Get("devfault")
+				if len(devDef) > 0 {
+					def = devDef
+					fmt.Printf(" !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! %s = %v\n", field.Name, devDef)
+				}
+			}
 			fieldaddr := fieldval.Addr().Interface()
 			check := func(err error) {
 				if err != nil {
@@ -218,4 +227,23 @@ func FindFlagEarly(flagName string) string {
 		}
 	}
 	return ""
+}
+
+//SetupFlag sets up flags that are needed before `flag.Parse` has been called
+func SetupFlag(log *zap.Logger, cmd *cobra.Command, dest *string, name, value, usage string) {
+	if foundValue := FindFlagEarly(name); foundValue != "" {
+		value = foundValue
+	}
+	cmd.PersistentFlags().StringVar(dest, name, value, usage)
+	if cmd.PersistentFlags().SetAnnotation(name, "setup", []string{"true"}) != nil {
+		log.Sugar().Errorf("Failed to set 'setup' annotation for '%s'", name)
+	}
+}
+
+//DevFlag sets up the dev flag, which is needed before `flag.Parse` has been called
+func DevFlag(cmd *cobra.Command, dest *bool, value bool, usage string) {
+	if customVal, err := strconv.ParseBool(FindFlagEarly("dev")); err == nil {
+		value = customVal
+	}
+	cmd.PersistentFlags().BoolVar(dest, "dev", value, usage)
 }
