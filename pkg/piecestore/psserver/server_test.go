@@ -10,7 +10,6 @@ import (
 	"io"
 	"io/ioutil"
 	"math"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -503,14 +502,11 @@ func NewTest(ctx context.Context, t *testing.T, snID, upID *identity.FullIdentit
 	}
 
 	//init ps server grpc
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	sc := server.Config{Address: "127.0.0.1:0", PrivateAddress: "127.0.0.1:0"}
+	options, err := tlsopts.NewOptions(snID, sc.Config)
 	require.NoError(t, err)
 
-	publicConfig := server.Config{Address: "127.0.0.1:0"}
-	publicOptions, err := tlsopts.NewOptions(snID, publicConfig.Config)
-	require.NoError(t, err)
-
-	grpcServer, err := server.New(publicOptions, listener, nil)
+	grpcServer, err := server.New(options, sc.Address, sc.PrivateAddress, nil)
 	require.NoError(t, err)
 
 	pb.RegisterPieceStoreRoutesServer(grpcServer.GRPC(), psServer)
@@ -521,7 +517,7 @@ func NewTest(ctx context.Context, t *testing.T, snID, upID *identity.FullIdentit
 	require.NoError(t, err)
 
 	// TODO: why aren't we using transport client here?
-	conn, err := grpc.Dial(listener.Addr().String(), tlsOptions.DialUnverifiedIDOption())
+	conn, err := grpc.Dial(grpcServer.Addr().String(), tlsOptions.DialUnverifiedIDOption())
 	require.NoError(t, err)
 	psClient := pb.NewPieceStoreRoutesClient(conn)
 	//cleanup callback
