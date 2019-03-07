@@ -116,7 +116,7 @@ func (s *Service) GenerateActivationToken(ctx context.Context, id uuid.UUID, ema
 }
 
 // ActivateAccount - is a method for activating user account after registration
-func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (authToken string, err error) {
+func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	token, err := consoleauth.FromBase64URLString(activationToken)
@@ -137,30 +137,16 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 	now := time.Now()
 
 	if user.Status != Inactive {
-		return "", errs.New("account is already active")
+		return errs.New("account is already active")
 	}
 
 	if now.After(user.CreatedAt.Add(tokenExpirationTime)) {
-		return "", errs.New("activation token has expired")
+		return errs.New("activation token has expired")
 	}
 
 	user.Status = Active
-	err = s.store.Users().Update(ctx, user)
-	if err != nil {
-		return "", err
-	}
 
-	claims = &consoleauth.Claims{
-		ID:         user.ID,
-		Expiration: time.Now().Add(tokenExpirationTime),
-	}
-
-	authToken, err = s.createToken(claims)
-	if err != nil {
-		return "", err
-	}
-
-	return authToken, err
+	return s.store.Users().Update(ctx, user)
 }
 
 // Token authenticates User by credentials and returns auth token

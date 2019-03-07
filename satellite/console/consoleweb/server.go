@@ -74,8 +74,9 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	mux.Handle("/api/graphql/v0", http.HandlerFunc(server.grapqlHandler))
 
 	if server.config.StaticDir != "" {
-		mux.Handle("/", http.HandlerFunc(server.appHandler))
+		mux.Handle("/activation/", http.HandlerFunc(server.accountActivationHandler))
 		mux.Handle("/static/", http.StripPrefix("/static", fs))
+		mux.Handle("/", http.HandlerFunc(server.appHandler))
 	}
 
 	server.server = http.Server{
@@ -88,6 +89,19 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 // appHandler is web app http handler function
 func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
 	http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "dist", "public", "index.html"))
+}
+
+// appHandler is web app http handler function
+func (s *Server) accountActivationHandler(w http.ResponseWriter, req *http.Request) {
+	//vars := mux.Vars(req)
+	activationToken := req.URL.Query().Get("token")
+
+	err := s.service.ActivateAccount(context.Background(), activationToken)
+	if err != nil {
+		http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "errors", "404.html"))
+	}
+
+	http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "activation", "activated.html"))
 }
 
 // grapqlHandler is graphql endpoint http handler function
@@ -112,7 +126,7 @@ func (s *Server) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 	rootObject := make(map[string]interface{})
 	//TODO: add public address to config for production
 	rootObject["origin"] = "http://" + s.listener.Addr().String() + "/"
-	rootObject[consoleql.ActivationPath] = "?activationToken="
+	rootObject[consoleql.ActivationPath] = "activation/?token="
 
 	result := graphql.Do(graphql.Params{
 		Schema:         s.schema,
