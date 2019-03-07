@@ -21,7 +21,8 @@ func (pool *Pool) VerifySatelliteID(ctx context.Context, id storj.NodeID) error 
 }
 
 func (pool *Pool) VerifyUplinkID(ctx context.Context, id storj.NodeID) error {
-	panic("TODO")
+	// trusting all the uplinks for now
+	return nil
 }
 
 func (pool *Pool) VerifySignatureWithID(ctx context.Context, data, signature []byte, id storj.NodeID) error {

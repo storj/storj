@@ -43,3 +43,12 @@ func (store *Store) Reader(ctx context.Context, satellite storj.NodeID, pieceID 
 func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID2) error {
 	panic("TODO")
 }
+
+type StorageStatus struct {
+	DiskUsed int64
+	DiskFree int64
+}
+
+func (store *Store) StorageStatus() StorageStatus {
+	panic("TODO")
+}
