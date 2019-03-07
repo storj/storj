@@ -95,6 +95,7 @@ message SegmentCommitRequest {
 }
 
 message SegmentCommitResponse {
+    pointerdb.Pointer pointer = 1;
 }
 
 message SegmentDownloadRequest {

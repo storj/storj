@@ -48,7 +48,7 @@ type ListItem struct {
 // Client interface for the Metainfo service
 type Client interface {
 	CreateSegment(ctx context.Context, bucket string, path storj.Path, redundancy *pb.RedundancyScheme, maxSegmentSize int64, expiration time.Time) ([]*pb.AddressedOrderLimit, error)
-	CommitSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, pointer *pb.Pointer) error
+	CommitSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, pointer *pb.Pointer) (*pb.Pointer, error)
 	SegmentInfo(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (*pb.Pointer, error)
 	ReadSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (*pb.Pointer, []*pb.AddressedOrderLimit, error)
 	DeleteSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) ([]*pb.AddressedOrderLimit, error)
@@ -94,20 +94,20 @@ func (metainfo *Metainfo) CreateSegment(ctx context.Context, bucket string, path
 }
 
 // CommitSegment requests to store the pointer for the segment
-func (metainfo *Metainfo) CommitSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, pointer *pb.Pointer) (err error) {
+func (metainfo *Metainfo) CommitSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, pointer *pb.Pointer) (savedPointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = metainfo.client.CommitSegment(ctx, &pb.SegmentCommitRequest{
+	response, err := metainfo.client.CommitSegment(ctx, &pb.SegmentCommitRequest{
 		Bucket:  []byte(bucket),
 		Path:    []byte(path),
 		Segment: segmentIndex,
 		Pointer: pointer,
 	})
 	if err != nil {
-		return Error.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
-	return nil
+	return response.GetPointer(), nil
 }
 
 // SegmentInfo requests the pointer of a segment
