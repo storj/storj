@@ -166,3 +166,13 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 	_, err = s.pdbServer.Put(ctx, &pb.PutRequest{Path: path, Pointer: pointer})
 	return err
 }
+
+// Close disconnects from all Repair related services
+func (s *Repairer) Close() error {
+		//TODO
+		//oc
+		//ec
+		//pdb
+		//nodestats
+		return nil
+}
