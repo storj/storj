@@ -92,6 +92,7 @@ message SegmentCommitRequest {
     bytes path = 2;
     int64 segment = 3;
     pointerdb.Pointer pointer = 4;
+    repeated OrderLimit2 original_limits = 5;
 }
 
 message SegmentCommitResponse {
