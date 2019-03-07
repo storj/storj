@@ -20,6 +20,21 @@ var (
 	ErrVerifyDuplicateRequest = errs.Class("duplicate request")
 )
 
+func (endpoint *Endpoint) SignPieceHash(unsigned *pb.PieceHash) (*pb.PieceHash, error) {
+	bytes, err := EncodePieceHashForSigning(unsigned)
+	if err != nil {
+		return nil, ErrInternal.Wrap(err)
+	}
+
+	signed := *unsigned
+	signed.Signature, err = endpoint.signer.HashAndSign(bytes)
+	if err != nil {
+		return nil, ErrInternal.Wrap(err)
+	}
+
+	return &signed, nil
+}
+
 func (endpoint *Endpoint) VerifyOrderLimit(ctx context.Context, limit *pb.OrderLimit2) error {
 	// sanity checks
 	switch {
@@ -98,18 +113,8 @@ func (endpoint *Endpoint) VerifyPieceHash(ctx context.Context, peer *identity.Pe
 	return nil
 }
 
-func (endpoint *Endpoint) SignPieceHash(unsigned *pb.PieceHash) (*pb.PieceHash, error) {
-	panic("TODO")
-}
-
-func (endpoint *Endpoint) IsExpired(expiration *timestamp.Timestamp) bool {
-	panic("TODO")
-	// return expiration.Before(time.Now().Sub(endpoint.Config.ExpirationGracePeriod))
-}
-
 func (endpoint *Endpoint) VerifyOrderLimitSignature(ctx context.Context, limit *pb.OrderLimit2) error {
-	// TODO: remove signature before encoding and verifying
-	bytes, err := encodeOrderLimitAsBytes(limit)
+	bytes, err := EncodeOrderLimitForSigning(limit)
 	if err != nil {
 		return ErrProtocol.Wrap(err)
 	}
@@ -118,8 +123,7 @@ func (endpoint *Endpoint) VerifyOrderLimitSignature(ctx context.Context, limit *
 }
 
 func (endpoint *Endpoint) VerifyOrderSignature(ctx context.Context, peer *identity.PeerIdentity, order *pb.Order2) error {
-	// TODO: remove signature before encoding and verifying
-	bytes, err := encodeOrderAsBytes(order)
+	bytes, err := EncodeOrderForSigning(order)
 	if err != nil {
 		return ErrProtocol.Wrap(err)
 	}
@@ -128,8 +132,7 @@ func (endpoint *Endpoint) VerifyOrderSignature(ctx context.Context, peer *identi
 }
 
 func (endpoint *Endpoint) VerifyPieceHashSignature(ctx context.Context, peer *identity.PeerIdentity, hash *pb.PieceHash) error {
-	// TODO: remove signature before encoding and verifying
-	bytes, err := encodePieceHashAsBytes(hash)
+	bytes, err := EncodePieceHashForSigning(hash)
 	if err != nil {
 		return ErrProtocol.Wrap(err)
 	}
@@ -137,14 +140,7 @@ func (endpoint *Endpoint) VerifyPieceHashSignature(ctx context.Context, peer *id
 	return Error.Wrap(err)
 }
 
-func encodeOrderLimitAsBytes(*pb.OrderLimit2) ([]byte, error) {
+func (endpoint *Endpoint) IsExpired(expiration *timestamp.Timestamp) bool {
 	panic("TODO")
-}
-
-func encodeOrderAsBytes(*pb.Order2) ([]byte, error) {
-	panic("TODO")
-}
-
-func encodePieceHashAsBytes(*pb.PieceHash) ([]byte, error) {
-	panic("TODO")
+	// return expiration.Before(time.Now().Sub(endpoint.Config.ExpirationGracePeriod))
 }

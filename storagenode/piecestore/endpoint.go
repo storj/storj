@@ -33,7 +33,7 @@ var (
 
 type Signer interface {
 	ID() storj.NodeID
-	SignHash(hash []byte) ([]byte, error)
+	HashAndSign(data []byte) ([]byte, error)
 }
 
 // TODO: avoid protobuf definitions in interfaces
