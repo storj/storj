@@ -16,6 +16,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/metainfo"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psclient"
@@ -54,6 +55,7 @@ type Store interface {
 }
 
 type segmentStore struct {
+	metainfo      metainfo.Client
 	oc            overlay.Client
 	ec            ecclient.Client
 	pdb           pdbclient.Client
@@ -62,11 +64,12 @@ type segmentStore struct {
 }
 
 // NewSegmentStore creates a new instance of segmentStore
-func NewSegmentStore(oc overlay.Client, ec ecclient.Client, pdb pdbclient.Client, rs eestream.RedundancyStrategy, threshold int) Store {
+func NewSegmentStore(metainfo metainfo.Client, oc overlay.Client, ec ecclient.Client, pdb pdbclient.Client, rs eestream.RedundancyStrategy, threshold int) Store {
 	return &segmentStore{
-		oc:            oc,
+		metainfo:      metainfo,
+		oc:            oc, // TODO: remove
 		ec:            ec,
-		pdb:           pdb,
+		pdb:           pdb, // TODO: remove
 		rs:            rs,
 		thresholdSize: threshold,
 	}
@@ -268,9 +271,12 @@ func makeRemotePointer(nodes []*pb.Node, hashes []*pb.SignedHash, rs eestream.Re
 	return pointer, nil
 }
 
-// Delete tells piece stores to delete a segment and deletes pointer from pointerdb
+// Delete requests the satellite to delete a segment and tells storage nodes
+// to delete the segment's pieces.
 func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	// s.metainfo.DeleteSegment()
 
 	pr, nodes, pba, err := s.pdb.Get(ctx, path)
 	if err != nil {
