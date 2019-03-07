@@ -14,7 +14,6 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/metainfo"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/peertls/tlsopts"
@@ -25,6 +24,7 @@ import (
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/uplink/metainfo"
 )
 
 // RSConfig is a configuration struct that keeps details about default

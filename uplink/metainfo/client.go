@@ -1,17 +1,22 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package uplink
+package metainfo
 
 import (
 	"context"
 
 	"google.golang.org/grpc"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+)
+
+var (
+	mon = monkit.Package()
 )
 
 // Metainfo creates a grpcClient
@@ -36,7 +41,7 @@ type ListItem struct {
 
 // Client interface for the Metainfo service
 type Client interface {
-	CreateSegment(ctx context.Context, bucket string, path storj.Path, totalNodes int32, maxSegmentSize int64) ([]*pb.AddressedOrderLimit, error)
+	CreateSegment(ctx context.Context, bucket string, path storj.Path, redundancy *pb.RedundancyScheme, maxSegmentSize int64) ([]*pb.AddressedOrderLimit, error)
 	CommitSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, pointer *pb.Pointer) error
 	ReadSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (*pb.Pointer, []*pb.AddressedOrderLimit, error)
 	DeleteSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) ([]*pb.AddressedOrderLimit, error)
@@ -59,13 +64,13 @@ func NewClient(ctx context.Context, tc transport.Client, address string, APIKey 
 }
 
 // CreateSegment requests the order limits for creating a new segment
-func (metainfo *Metainfo) CreateSegment(ctx context.Context, bucket string, path storj.Path, totalNodes int32, maxSegmentSize int64) (limits []*pb.AddressedOrderLimit, err error) {
+func (metainfo *Metainfo) CreateSegment(ctx context.Context, bucket string, path storj.Path, redundancy *pb.RedundancyScheme, maxSegmentSize int64) (limits []*pb.AddressedOrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := metainfo.client.CreateSegment(ctx, &pb.SegmentWriteRequest{
 		Bucket:         []byte(bucket),
 		Path:           []byte(path),
-		TotalNodes:     totalNodes,
+		Redundancy:     redundancy,
 		MaxSegmentSize: maxSegmentSize,
 	})
 
