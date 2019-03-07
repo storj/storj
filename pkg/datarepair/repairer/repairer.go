@@ -7,14 +7,29 @@ import (
 	"context"
 	"time"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/datarepair/queue"
+	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/pointerdb"
+	ecclient "storj.io/storj/pkg/storage/ec"
+	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storage"
 )
+
+// Config contains configurable values for repairer
+type Config struct {
+	MaxRepair     int           `help:"maximum segments that can be repaired concurrently" default:"100"`
+	Interval      time.Duration `help:"how frequently checker should audit segments" default:"3600s"`
+	OverlayAddr   string        `help:"Address to contact overlay server through"`
+	PointerDBAddr string        `help:"Address to contact pointerdb server through"`
+	MaxBufferMem  memory.Size   `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4M"`
+}
 
 // SegmentRepairer is a repairer for segments
 type SegmentRepairer interface {
@@ -29,31 +44,42 @@ type Service struct {
 	repairer  SegmentRepairer
 	limiter   *sync2.Limiter
 	ticker    *time.Ticker
+	pdbServer *pointerdb.Server
 }
 
 // NewService creates repairing service
-func NewService(queue queue.RepairQueue, config *Config, transport transport.Client, interval time.Duration, concurrency int) *Service {
+func NewService(queue queue.RepairQueue, config *Config, transport transport.Client, interval time.Duration, concurrency int, pdbServer *pointerdb.Server) *Service {
 	return &Service{
 		queue:     queue,
 		config:    config,
 		transport: transport,
 		limiter:   sync2.NewLimiter(concurrency),
 		ticker:    time.NewTicker(interval),
+		pdbServer: pdbServer,
 	}
 }
 
 // Close closes resources
-func (service *Service) Close() error { return nil }
+func (service *Service) Close() error {
+	// err := service.repairer.Close()
+	//close queue?
+	return nil
+}
 
 // Run runs the repairer service
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO: close segment repairer, currently this leaks connections
-	service.repairer, err = service.config.GetSegmentRepairer(ctx, service.transport)
+	// Initialize segment repairer
+	var oc overlay.Client
+	oc, err = overlay.NewClientContext(ctx, service.transport, service.config.OverlayAddr)
 	if err != nil {
 		return err
 	}
+	ec := ecclient.NewClient(service.transport, service.config.MaxBufferMem.Int())
+
+	service.repairer = segments.NewSegmentRepairer(oc, ec, service.pdbServer)
+	defer func() { err = errs.Combine(err, service.Close()) }()
 
 	// wait for all repairs to complete
 	defer service.limiter.Wait()
