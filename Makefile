@@ -120,19 +120,19 @@ images: satellite-image storagenode-image uplink-image gateway-image ## Build ga
 
 .PHONY: gateway-image
 gateway-image: ## Build gateway Docker image
-	${DOCKER_BUILD} --pull=true -t storjlabs/gateway:${TAG}${CUSTOMTAG} -t storjlabs/gateway:${LATEST_TAG} -f cmd/gateway/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/gateway:${TAG}${CUSTOMTAG} -f cmd/gateway/Dockerfile .
 .PHONY: satellite-image
 satellite-image: ## Build satellite Docker image
-	${DOCKER_BUILD} --pull=true -t storjlabs/satellite:${TAG}${CUSTOMTAG} -t storjlabs/satellite:${LATEST_TAG} -f cmd/satellite/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/satellite:${TAG}${CUSTOMTAG} -f cmd/satellite/Dockerfile .
 .PHONY: satellite-ui-image
 satellite-ui-image: ## Build satellite Docker image
-	${DOCKER_BUILD} --pull=true -t storjlabs/satellite-ui:${TAG}${CUSTOMTAG} -t storjlabs/satellite-ui:${LATEST_TAG} -f web/satellite/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/satellite-ui:${TAG}${CUSTOMTAG} -f web/satellite/Dockerfile .
 .PHONY: storagenode-image
 storagenode-image: ## Build storagenode Docker image
-	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG} -t storjlabs/storagenode:${LATEST_TAG} -f cmd/storagenode/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG} -f cmd/storagenode/Dockerfile .
 .PHONY: uplink-image
 uplink-image: ## Build uplink Docker image
-	${DOCKER_BUILD} --pull=true -t storjlabs/uplink:${TAG}${CUSTOMTAG} -t storjlabs/uplink:${LATEST_TAG} -f cmd/uplink/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/uplink:${TAG}${CUSTOMTAG} -f cmd/uplink/Dockerfile .
 
 .PHONY: binary
 binary: CUSTOMTAG = -${GOOS}-${GOARCH}
@@ -198,18 +198,18 @@ deploy: ## Update Kubernetes deployments in staging (jenkins)
 
 .PHONY: push-images
 push-images: ## Push Docker images to Docker Hub (jenkins)
-	docker push storjlabs/satellite:${TAG}
-	docker push storjlabs/storagenode:${TAG}
-	docker push storjlabs/uplink:${TAG}
-	docker push storjlabs/gateway:${TAG}
+	docker push storjlabs/satellite:${TAG}${CUSTOMTAG}
+	docker push storjlabs/storagenode:${TAG}${CUSTOMTAG}
+	docker push storjlabs/uplink:${TAG}${CUSTOMTAG}
+	docker push storjlabs/gateway:${TAG}${CUSTOMTAG}
 	ifeq (${TRACKED_BRANCH},true)
-		docker tag storjlabs/satellite:${TAG} storjlabs/satellite:${LATEST_TAG}
+		docker tag storjlabs/satellite:${TAG}${CUSTOMTAG} storjlabs/satellite:${LATEST_TAG}
 		docker push storjlabs/satellite:${LATEST_TAG}
-		docker tag storjlabs/satellite:${TAG} storjlabs/storagenode:${LATEST_TAG}
+		docker tag storjlabs/satellite:${TAG}${CUSTOMTAG} storjlabs/storagenode:${LATEST_TAG}
 		docker push storjlabs/storagenode:${LATEST_TAG}
-		docker tag storjlabs/satellite:${TAG} storjlabs/uplink:${LATEST_TAG}
+		docker tag storjlabs/satellite:${TAG}${CUSTOMTAG} storjlabs/uplink:${LATEST_TAG}
 		docker push storjlabs/uplink:${LATEST_TAG}
-		docker tag storjlabs/satellite:${TAG} storjlabs/gateway:${LATEST_TAG}
+		docker tag storjlabs/satellite:${TAG}${CUSTOMTAG} storjlabs/gateway:${LATEST_TAG}
 		docker push storjlabs/gateway:${LATEST_TAG}
 	endif
 
@@ -229,16 +229,16 @@ binaries-clean: ## Remove all local release binaries (jenkins)
 .PHONY: clean-images
 ifeq (${TRACKED_BRANCH},true)
 clean-images: ## Remove Docker images from local engine
-	-docker rmi storjlabs/gateway:${TAG} storjlabs/gateway:${LATEST_TAG}
-	-docker rmi storjlabs/satellite:${TAG} storjlabs/satellite:${LATEST_TAG}
-	-docker rmi storjlabs/storagenode:${TAG} storjlabs/storagenode:${LATEST_TAG}
-	-docker rmi storjlabs/uplink:${TAG} storjlabs/uplink:${LATEST_TAG}
+	-docker rmi storjlabs/gateway:${TAG}${CUSTOMTAG} storjlabs/gateway:${LATEST_TAG}
+	-docker rmi storjlabs/satellite:${TAG}${CUSTOMTAG} storjlabs/satellite:${LATEST_TAG}
+	-docker rmi storjlabs/storagenode:${TAG}${CUSTOMTAG} storjlabs/storagenode:${LATEST_TAG}
+	-docker rmi storjlabs/uplink:${TAG}${CUSTOMTAG} storjlabs/uplink:${LATEST_TAG}
 else
 clean-images:
-	-docker rmi storjlabs/gateway:${TAG}
-	-docker rmi storjlabs/satellite:${TAG}
-	-docker rmi storjlabs/storagenode:${TAG}
-	-docker rmi storjlabs/uplink:${TAG}
+	-docker rmi storjlabs/gateway:${TAG}${CUSTOMTAG}
+	-docker rmi storjlabs/satellite:${TAG}${CUSTOMTAG}
+	-docker rmi storjlabs/storagenode:${TAG}${CUSTOMTAG}
+	-docker rmi storjlabs/uplink:${TAG}${CUSTOMTAG}
 endif
 
 .PHONY: test-docker-clean
