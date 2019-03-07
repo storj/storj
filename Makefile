@@ -4,15 +4,15 @@ GOARCH ?= amd64
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
 BRANCH := $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
 ifeq (${BRANCH},master)
+	TAG    := $(shell git rev-parse --short HEAD)-go${GO_VERSION}
 	TRACKED_BRANCH := true
-  TAG    	:= $(shell git rev-parse --short HEAD)-go${GO_VERSION}
-  LATEST_TAG := latest
+	LATEST_TAG := latest
 else
-	TRACKED_BRANCH := true
-  TAG    	:= $(shell git rev-parse --short HEAD)-${BRANCH}-go${GO_VERSION}
-  ifneq (,$(findstring release-,$(BRANCH)))
-    LATEST_TAG := ${BRANCH}-latest
-  endif
+	TAG    := $(shell git rev-parse --short HEAD)-${BRANCH}-go${GO_VERSION}
+	ifneq (,$(findstring release-,$(BRANCH)))
+		TRACKED_BRANCH := true
+		LATEST_TAG := ${BRANCH}-latest
+	endif
 endif
 CUSTOMTAG ?=
 
@@ -198,22 +198,18 @@ deploy: ## Update Kubernetes deployments in staging (jenkins)
 
 .PHONY: push-images
 push-images: ## Push Docker images to Docker Hub (jenkins)
-	docker tag storjlabs/satellite:${TAG}
 	docker push storjlabs/satellite:${TAG}
-	docker tag storjlabs/storagenode:${TAG}
 	docker push storjlabs/storagenode:${TAG}
-	docker tag storjlabs/uplink:${TAG}
 	docker push storjlabs/uplink:${TAG}
-	docker tag storjlabs/gateway:${TAG}
 	docker push storjlabs/gateway:${TAG}
 	ifeq (${TRACKED_BRANCH},true)
-		docker tag storjlabs/satellite:${LATEST_TAG}
+		docker tag storjlabs/satellite:${TAG} storjlabs/satellite:${LATEST_TAG}
 		docker push storjlabs/satellite:${LATEST_TAG}
-		docker tag storjlabs/storagenode:${LATEST_TAG}
+		docker tag storjlabs/satellite:${TAG} storjlabs/storagenode:${LATEST_TAG}
 		docker push storjlabs/storagenode:${LATEST_TAG}
-		docker tag storjlabs/uplink:${LATEST_TAG}
+		docker tag storjlabs/satellite:${TAG} storjlabs/uplink:${LATEST_TAG}
 		docker push storjlabs/uplink:${LATEST_TAG}
-		docker tag storjlabs/gateway:${LATEST_TAG}
+		docker tag storjlabs/satellite:${TAG} storjlabs/gateway:${LATEST_TAG}
 		docker push storjlabs/gateway:${LATEST_TAG}
 	endif
 
