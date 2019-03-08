@@ -130,10 +130,8 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 			help := field.Tag.Get("help")
 			def := field.Tag.Get("default")
 			if isDev {
-				devDef := field.Tag.Get("devDefault")
-				if len(devDef) > 0 {
-					def = devDef
-					fmt.Printf(" !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! %s = %v\n", field.Name, devDef)
+				if devDefault, ok := field.Tag.Lookup("devDefault"); ok {
+					def = devDefault
 				}
 			}
 			fieldaddr := fieldval.Addr().Interface()
@@ -242,8 +240,16 @@ func SetupFlag(log *zap.Logger, cmd *cobra.Command, dest *string, name, value, u
 
 //DevFlag sets up the dev flag, which is needed before `flag.Parse` has been called
 func DevFlag(cmd *cobra.Command, dest *bool, value bool, usage string) {
-	if customVal, err := strconv.ParseBool(FindFlagEarly("dev")); err == nil {
-		value = customVal
+	for _, arg := range os.Args {
+		if strings.HasPrefix(arg, "--dev=") {
+			if val, err := strconv.ParseBool(strings.TrimPrefix(arg, "--dev=")); err == nil {
+				value = val
+				break
+			}
+		} else if arg == "--dev" {
+			value = true
+			break
+		}
 	}
 	cmd.PersistentFlags().BoolVar(dest, "dev", value, usage)
 }

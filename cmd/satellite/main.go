@@ -93,7 +93,7 @@ var (
 func init() {
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for satellite configuration")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for satellite identity credentials")
-	cfgstruct.DevFlag(rootCmd, &isDev, false, "use development and test configuration settings")
+	cfgstruct.DevFlag(rootCmd, &isDev, true, "use development and test configuration settings")
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(diagCmd)
