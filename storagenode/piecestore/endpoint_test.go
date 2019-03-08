@@ -27,6 +27,7 @@ func TestEndpointConnect(t *testing.T) {
 	require.NoError(t, err)
 	defer ctx.Check(client.Close)
 
+	// TODO: at the moment should fail because there's no signature and other things are wrong with it
 	err = client.Delete(ctx, &pb.OrderLimit2{})
 	t.Log(err)
 	require.Error(t, err)
