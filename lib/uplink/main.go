@@ -10,7 +10,10 @@ import (
 	"io"
 	"time"
 
+	"storj.io/storj/pkg/transport"
+
 	"storj.io/storj/pkg/miniogw"
+	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storj"
 )
@@ -23,7 +26,7 @@ type Identity interface {
 	Certs() []x509.Certificate
 }
 
-// Caveats could be things like a read-only restriction, a time-bound
+// Caveat could be a read-only restriction, a time-bound
 // restriction, a bucket-specific restriction, a path-prefix restriction, a
 // full path restriction, etc.
 type Caveat interface {
@@ -35,6 +38,7 @@ type Macaroon interface {
 	Restrict(caveats ...Caveat) Macaroon
 }
 
+// Config holds the configs for the Uplink
 type Config struct {
 	// MaxBufferMem controls upload performance and is system-specific
 	MaxBufferMem int
@@ -51,44 +55,75 @@ type Config struct {
 // a specific Satellite and caches connections and resources, allowing one to
 // create sessions delineated by specific access controls.
 type Uplink struct {
+	ID      *provider.FullIdentity
+	Session *Session
 }
 
 // NewUplink creates a new Uplink
 func NewUplink(identity Identity, satelliteAddr string, cfg Config) *Uplink {
-	panic("TODO")
+	id := &provider.FullIdentity{}
+
+	return &Uplink{
+		ID: id,
+	}
 }
 
-// A Share is all of the access information an application needs to store and
-// retrieve data. Someone with a share may have no restrictions within a project
-// (can create buckets, list buckets, list files, upload files, delete files,
-// etc), may be restricted to a single bucket, may be restricted to a prefix
-// within a bucket, or may even be restricted to a single file within a bucket.
-type Share struct {
-	Access Macaroon
-
-	// TODO: these should be per-bucket somehow maybe? oh man what a nightmare
+// BucketOpts holds the cipher, path, key, and enc. scheme for each bucket since they
+// can be different for each
+type BucketOpts struct {
 	PathCipher       storj.Cipher
 	EncPathPrefix    storj.Path
 	Key              storj.Key
 	EncryptionScheme storj.EncryptionScheme
 }
 
-// ParseShare parses a serialized Share
-func ParseShare(data []byte) (Share, error) {
+// Access is all of the access information an application needs to store and
+// retrieve data. Someone with a share may have no restrictions within a project
+// (can create buckets, list buckets, list files, upload files, delete files,
+// etc), may be restricted to a single bucket, may be restricted to a prefix
+// within a bucket, or may even be restricted to a single file within a bucket.
+// NB(dylan): You need an Access to start a Session
+type Access struct {
+	Permissions Macaroon
+
+	// TODO: these should be per-bucket somehow maybe? oh man what a nightmare
+	// Could be done via []Bucket with struct that has each of these
+	// PathCipher       storj.Cipher
+	// EncPathPrefix    storj.Path
+	// Key              storj.Key
+	// EncryptionScheme storj.EncryptionScheme
+
+	// Something like this?
+	// TODO(dylan): Shouldn't actually use string, this is just a placeholder
+	// until a more precise type is figured out - probably type Bucket
+	Buckets map[string]BucketOpts
+}
+
+// ParseAccess parses a serialized Access
+func ParseAccess(data []byte) (Access, error) {
 	panic("TODO")
 }
 
-func (s *Share) Serialize() ([]byte, error) {
+// Serialize serializes an Access message
+func (a *Access) Serialize() ([]byte, error) {
 	panic("TODO")
 }
 
 // Session represents a specific access session.
 type Session struct {
+	TransportClient *transport.Client
+	Gateway         *miniogw.Gateway
 }
 
-// A Session is created with a Share.
-func (u *Uplink) Session(share Share) *Session {
-	panic("TODO")
+// NewSession creates a Session with an Access struct.
+func (u *Uplink) NewSession(access Access) (*Session, error) {
+	fi := &provider.FullIdentity{}
+
+	tc := transport.NewClient(fi)
+
+	return &Session{
+		TransportClient: &tc,
+	}, nil
 }
 
 // GetBucket returns info about the requested bucket if authorized
@@ -97,8 +132,9 @@ func (s *Session) GetBucket(ctx context.Context, bucket string) (storj.Bucket,
 	panic("TODO")
 }
 
+// CreateBucketOptions holds the bucket opts
 type CreateBucketOptions struct {
-	PathCipher Cipher
+	PathCipher storj.Cipher
 	// this differs from storj.CreateBucket's choice of just using storj.Bucket
 	// by not having 2/3 unsettable fields.
 }
@@ -120,9 +156,9 @@ func (s *Session) ListBuckets(ctx context.Context, opts storj.BucketListOptions)
 	panic("TODO")
 }
 
-// Share creates a new share, potentially further restricted from the Share used
+// Access creates a new share, potentially further restricted from the Access used
 // to create this session.
-func (s *Session) Share(ctx context.Context, caveats ...Caveat) (Share, error) {
+func (s *Session) Access(ctx context.Context, caveats ...Caveat) (Access, error) {
 	panic("TODO")
 }
 
@@ -164,8 +200,8 @@ type ObjectPutOpts struct {
 	NodeSelection *miniogw.NodeSelectionConfig
 }
 
-// PutObject uploads a new object, if authorized.
-func (s *Session) PutObject(ctx context.Context, bucket string, path storj.Path,
+// Upload uploads a new object, if authorized.
+func (s *Session) Upload(ctx context.Context, bucket string, path storj.Path,
 	data io.Reader, opts ObjectPutOpts) error {
 	panic("TODO")
 }
@@ -201,6 +237,9 @@ type ListObjectsConfig struct {
 	Limit     int
 	Fields    ListObjectsFields
 }
+
+// ListObjectsFields is an interface that I haven't figured out yet
+type ListObjectsFields interface{}
 
 // ListObjects lists objects a user is authorized to see.
 func (s *Session) ListObjects(ctx context.Context, bucket string,
