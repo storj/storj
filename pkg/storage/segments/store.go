@@ -107,7 +107,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		ErasureShareSize: int32(s.rs.ErasureShareSize()),
 	}
 
-	limits, err := s.metainfo.CreateSegment(ctx, "", "", -1, redundancy, s.maxSegmentSize, expiration) // bucket, path and segment index are not known at this point
+	limits, rootPieceID, err := s.metainfo.CreateSegment(ctx, "", "", -1, redundancy, s.maxSegmentSize, expiration) // bucket, path and segment index are not known at this point
 	if err != nil {
 		return Meta{}, Error.Wrap(err)
 	}
@@ -153,15 +153,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		}
 		path = p
 
-		// TODO: make this easier
-		var pieceID storj.PieceID2
-		for _, addressedLimit := range limits {
-			if addressedLimit != nil {
-				pieceID = addressedLimit.GetLimit().PieceId
-			}
-		}
-
-		pointer, err = makeRemotePointer(successfulNodes, successfulHashes, s.rs, pieceID.String(), sizedReader.Size(), exp, metadata)
+		pointer, err = makeRemotePointer(successfulNodes, successfulHashes, s.rs, rootPieceID.String(), sizedReader.Size(), exp, metadata)
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
