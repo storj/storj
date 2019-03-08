@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
+	satellitedb "storj.io/storj/satellite/satellitedb/dbx"
 )
 
 var (
@@ -50,6 +51,8 @@ type DB interface {
 	GetTotals(context.Context, time.Time, time.Time) (map[storj.NodeID][]int64, error)
 	//GetTotals returns stats about an uplink
 	GetUplinkStats(context.Context, time.Time, time.Time) ([]UplinkStat, error)
+	//DeleteExpired deletes agreements that are expired and were created before some time
+	DeleteExpired(context.Context, time.Time, func(*satellitedb.Bwagreement) error) error
 }
 
 // Server is an implementation of the pb.BandwidthServer interface

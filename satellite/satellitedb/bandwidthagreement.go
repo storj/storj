@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	satellitedb "storj.io/storj/satellite/satellitedb/dbx"
 )
 
 type bandwidthagreement struct {
@@ -101,7 +102,25 @@ func (b *bandwidthagreement) GetTotals(ctx context.Context, from, to time.Time) 
 	return totals, nil
 }
 
-func (b *bandwidthagreement) DeletePaidAndExpired(ctx context.Context) error {
-	// TODO: implement deletion of paid and expired BWAs
-	return Error.New("DeletePaidAndExpired not implemented")
+//DeleteExpired deletes agreements that are expired and were created before some time
+func (b *bandwidthagreement) DeleteExpired(ctx context.Context, before time.Time, callback func(*satellitedb.Bwagreement) error) (err error) {
+	txn, err := b.db.Open(ctx)
+	if err != nil {
+		return errs.New("Failed to start transaction: %v", err)
+	}
+	defer func() {
+		if err == nil {
+			err = errs.Combine(err, txn.Commit())
+		} else {
+			err = errs.Combine(err, txn.Rollback())
+		}
+	}()
+	expired, err := txn.All_Bwagreement_By_CreatedAt_Less_And_ExpiresAt_Less(ctx, dbx.Bwagreement_CreatedAt(before), dbx.Bwagreement_ExpiresAt(time.Now()))
+	for _, b := range expired {
+		if err = callback(b); err != nil {
+			return err
+		}
+	}
+	_, err = txn.Delete_Bwagreement_By_CreatedAt_Less_And_ExpiresAt_Less(ctx, dbx.Bwagreement_CreatedAt(before), dbx.Bwagreement_ExpiresAt(time.Now()))
+	return err
 }

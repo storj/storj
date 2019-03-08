@@ -24,6 +24,7 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
+	satellitedb "storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // locked implements a locking wrapper around satellite.DB.
@@ -117,6 +118,13 @@ func (m *lockedBandwidthAgreement) CreateAgreement(ctx context.Context, a1 *pb.R
 	m.Lock()
 	defer m.Unlock()
 	return m.db.CreateAgreement(ctx, a1)
+}
+
+// DeleteExpired deletes agreements that are expired and were created before some time
+func (m *lockedBandwidthAgreement) DeleteExpired(ctx context.Context, a1 time.Time, a2 func(*satellitedb.Bwagreement) error) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.DeleteExpired(ctx, a1, a2)
 }
 
 // GetTotalsSince returns the sum of each bandwidth type after (exluding) a given date range
@@ -248,7 +256,6 @@ type lockedBucketUsage struct {
 	db accounting.BucketUsage
 }
 
-// Count(ctx context.Context, buckedID uuid.UUID, ) ()
 func (m *lockedBucketUsage) Create(ctx context.Context, rollup accounting.BucketRollup) (*accounting.BucketRollup, error) {
 	m.Lock()
 	defer m.Unlock()

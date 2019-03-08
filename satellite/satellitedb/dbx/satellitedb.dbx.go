@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -2691,54 +2692,10 @@ func __sqlbundle_Render(dialect __sqlbundle_Dialect, sql __sqlbundle_SQL, ops ..
 	return dialect.Rebind(out)
 }
 
-func __sqlbundle_flattenSQL(x string) string {
-	// trim whitespace from beginning and end
-	s, e := 0, len(x)-1
-	for s < len(x) && (x[s] == ' ' || x[s] == '\t' || x[s] == '\n') {
-		s++
-	}
-	for s <= e && (x[e] == ' ' || x[e] == '\t' || x[e] == '\n') {
-		e--
-	}
-	if s > e {
-		return ""
-	}
-	x = x[s : e+1]
+var __sqlbundle_reSpace = regexp.MustCompile(`\s+`)
 
-	// check for whitespace that needs fixing
-	wasSpace := false
-	for i := 0; i < len(x); i++ {
-		r := x[i]
-		justSpace := r == ' '
-		if (wasSpace && justSpace) || r == '\t' || r == '\n' {
-			// whitespace detected, start writing a new string
-			var result strings.Builder
-			result.Grow(len(x))
-			if wasSpace {
-				result.WriteString(x[:i-1])
-			} else {
-				result.WriteString(x[:i])
-			}
-			for p := i; p < len(x); p++ {
-				for p < len(x) && (x[p] == ' ' || x[p] == '\t' || x[p] == '\n') {
-					p++
-				}
-				result.WriteByte(' ')
-
-				start := p
-				for p < len(x) && !(x[p] == ' ' || x[p] == '\t' || x[p] == '\n') {
-					p++
-				}
-				result.WriteString(x[start:p])
-			}
-
-			return result.String()
-		}
-		wasSpace = justSpace
-	}
-
-	// no problematic whitespace found
-	return x
+func __sqlbundle_flattenSQL(s string) string {
+	return strings.TrimSpace(__sqlbundle_reSpace.ReplaceAllString(s, " "))
 }
 
 // this type is specially named to match up with the name returned by the
@@ -2817,8 +2774,6 @@ type __sqlbundle_Condition struct {
 func (*__sqlbundle_Condition) private() {}
 
 func (c *__sqlbundle_Condition) Render() string {
-	// TODO(jeff): maybe check if we can use placeholders instead of the
-	// literal null: this would make the templates easier.
 
 	switch {
 	case c.Equal && c.Null:
@@ -3352,6 +3307,40 @@ func (obj *postgresImpl) All_Bwagreement_By_CreatedAt_Greater(ctx context.Contex
 
 	var __values []interface{}
 	__values = append(__values, bwagreement_created_at_greater.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bwagreement := &Bwagreement{}
+		err = __rows.Scan(&bwagreement.Serialnum, &bwagreement.StorageNodeId, &bwagreement.UplinkId, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bwagreement)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) All_Bwagreement_By_CreatedAt_Less_And_ExpiresAt_Less(ctx context.Context,
+	bwagreement_created_at_less Bwagreement_CreatedAt_Field,
+	bwagreement_expires_at_less Bwagreement_ExpiresAt_Field) (
+	rows []*Bwagreement, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.serialnum, bwagreements.storage_node_id, bwagreements.uplink_id, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements WHERE bwagreements.created_at < ? AND bwagreements.expires_at < ?")
+
+	var __values []interface{}
+	__values = append(__values, bwagreement_created_at_less.value(), bwagreement_expires_at_less.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -4600,6 +4589,33 @@ func (obj *postgresImpl) Update_CertRecord_By_Id(ctx context.Context,
 	return certRecord, nil
 }
 
+func (obj *postgresImpl) Delete_Bwagreement_By_CreatedAt_Less_And_ExpiresAt_Less(ctx context.Context,
+	bwagreement_created_at_less Bwagreement_CreatedAt_Field,
+	bwagreement_expires_at_less Bwagreement_ExpiresAt_Field) (
+	count int64, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bwagreements WHERE bwagreements.created_at < ? AND bwagreements.expires_at < ?")
+
+	var __values []interface{}
+	__values = append(__values, bwagreement_created_at_less.value(), bwagreement_expires_at_less.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *postgresImpl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 	deleted bool, err error) {
@@ -5607,6 +5623,40 @@ func (obj *sqlite3Impl) All_Bwagreement_By_CreatedAt_Greater(ctx context.Context
 
 	var __values []interface{}
 	__values = append(__values, bwagreement_created_at_greater.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bwagreement := &Bwagreement{}
+		err = __rows.Scan(&bwagreement.Serialnum, &bwagreement.StorageNodeId, &bwagreement.UplinkId, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bwagreement)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) All_Bwagreement_By_CreatedAt_Less_And_ExpiresAt_Less(ctx context.Context,
+	bwagreement_created_at_less Bwagreement_CreatedAt_Field,
+	bwagreement_expires_at_less Bwagreement_ExpiresAt_Field) (
+	rows []*Bwagreement, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.serialnum, bwagreements.storage_node_id, bwagreements.uplink_id, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements WHERE bwagreements.created_at < ? AND bwagreements.expires_at < ?")
+
+	var __values []interface{}
+	__values = append(__values, bwagreement_created_at_less.value(), bwagreement_expires_at_less.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -6935,6 +6985,33 @@ func (obj *sqlite3Impl) Update_CertRecord_By_Id(ctx context.Context,
 	return certRecord, nil
 }
 
+func (obj *sqlite3Impl) Delete_Bwagreement_By_CreatedAt_Less_And_ExpiresAt_Less(ctx context.Context,
+	bwagreement_created_at_less Bwagreement_CreatedAt_Field,
+	bwagreement_expires_at_less Bwagreement_ExpiresAt_Field) (
+	count int64, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bwagreements WHERE bwagreements.created_at < ? AND bwagreements.expires_at < ?")
+
+	var __values []interface{}
+	__values = append(__values, bwagreement_created_at_less.value(), bwagreement_expires_at_less.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *sqlite3Impl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 	deleted bool, err error) {
@@ -7763,6 +7840,17 @@ func (rx *Rx) All_Bwagreement_By_CreatedAt_Greater(ctx context.Context,
 	return tx.All_Bwagreement_By_CreatedAt_Greater(ctx, bwagreement_created_at_greater)
 }
 
+func (rx *Rx) All_Bwagreement_By_CreatedAt_Less_And_ExpiresAt_Less(ctx context.Context,
+	bwagreement_created_at_less Bwagreement_CreatedAt_Field,
+	bwagreement_expires_at_less Bwagreement_ExpiresAt_Field) (
+	rows []*Bwagreement, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_Bwagreement_By_CreatedAt_Less_And_ExpiresAt_Less(ctx, bwagreement_created_at_less, bwagreement_expires_at_less)
+}
+
 func (rx *Rx) All_Node_Id(ctx context.Context) (
 	rows []*Id_Row, err error) {
 	var tx *Tx
@@ -8058,6 +8146,18 @@ func (rx *Rx) Delete_BucketUsage_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Delete_BucketUsage_By_Id(ctx, bucket_usage_id)
+}
+
+func (rx *Rx) Delete_Bwagreement_By_CreatedAt_Less_And_ExpiresAt_Less(ctx context.Context,
+	bwagreement_created_at_less Bwagreement_CreatedAt_Field,
+	bwagreement_expires_at_less Bwagreement_ExpiresAt_Field) (
+	count int64, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_Bwagreement_By_CreatedAt_Less_And_ExpiresAt_Less(ctx, bwagreement_created_at_less, bwagreement_expires_at_less)
+
 }
 
 func (rx *Rx) Delete_CertRecord_By_Id(ctx context.Context,
@@ -8459,6 +8559,11 @@ type Methods interface {
 		bwagreement_created_at_greater Bwagreement_CreatedAt_Field) (
 		rows []*Bwagreement, err error)
 
+	All_Bwagreement_By_CreatedAt_Less_And_ExpiresAt_Less(ctx context.Context,
+		bwagreement_created_at_less Bwagreement_CreatedAt_Field,
+		bwagreement_expires_at_less Bwagreement_ExpiresAt_Field) (
+		rows []*Bwagreement, err error)
+
 	All_Node_Id(ctx context.Context) (
 		rows []*Id_Row, err error)
 
@@ -8609,6 +8714,11 @@ type Methods interface {
 	Delete_BucketUsage_By_Id(ctx context.Context,
 		bucket_usage_id BucketUsage_Id_Field) (
 		deleted bool, err error)
+
+	Delete_Bwagreement_By_CreatedAt_Less_And_ExpiresAt_Less(ctx context.Context,
+		bwagreement_created_at_less Bwagreement_CreatedAt_Field,
+		bwagreement_expires_at_less Bwagreement_ExpiresAt_Field) (
+		count int64, err error)
 
 	Delete_CertRecord_By_Id(ctx context.Context,
 		certRecord_id CertRecord_Id_Field) (
