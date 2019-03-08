@@ -133,10 +133,6 @@ func (discovery *Discovery) refresh(ctx context.Context) error {
 			return ctx.Err()
 		}
 
-		if node.Id.IsZero() {
-			continue
-		}
-
 		ping, err := discovery.kad.Ping(ctx, *node)
 		if err != nil {
 			discovery.log.Info("could not ping node", zap.String("ID", node.Id.String()), zap.Error(err))
@@ -193,10 +189,6 @@ func (discovery *Discovery) searchGraveyard(ctx context.Context) error {
 	for _, n := range seen {
 		if ctx.Err() != nil {
 			return ctx.Err()
-		}
-
-		if n.Id.IsZero() {
-			continue
 		}
 
 		ping, err := discovery.kad.Ping(ctx, *n)
