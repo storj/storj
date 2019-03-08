@@ -12,6 +12,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psclient"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
+	ranger "storj.io/storj/pkg/ranger"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storj"
 )
@@ -120,15 +121,17 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 		return Error.Wrap(err)
 	}
 
-	pbaGet, err := s.pdb.PayerBandwidthAllocation(ctx, pb.BandwidthAction_GET_REPAIR)
-	if err != nil {
-		return Error.Wrap(err)
-	}
+	// TODO: adapt to Metainfo Client
+	var rr ranger.Ranger
+	// pbaGet, err := s.pdb.PayerBandwidthAllocation(ctx, pb.BandwidthAction_GET_REPAIR)
+	// if err != nil {
+	// 	return Error.Wrap(err)
+	// }
 	// Download the segment using just the healthyNodes
-	rr, err := s.ec.Get(ctx, healthyNodes, rs, pid, pr.GetSegmentSize(), pbaGet)
-	if err != nil {
-		return Error.Wrap(err)
-	}
+	// rr, err := s.ec.Get(ctx, healthyNodes, rs, pid, pr.GetSegmentSize(), pbaGet)
+	// if err != nil {
+	// 	return Error.Wrap(err)
+	// }
 
 	r, err := rr.Range(ctx, 0, rr.Size())
 	if err != nil {
@@ -136,15 +139,18 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 	}
 	defer func() { err = errs.Combine(err, r.Close()) }()
 
-	pbaPut, err := s.pdb.PayerBandwidthAllocation(ctx, pb.BandwidthAction_PUT_REPAIR)
-	if err != nil {
-		return Error.Wrap(err)
-	}
+	// TODO: adapt to Metainfo Client
+	var successfulNodes []*pb.Node
+	var hashes []*pb.SignedHash
+	// pbaPut, err := s.pdb.PayerBandwidthAllocation(ctx, pb.BandwidthAction_PUT_REPAIR)
+	// if err != nil {
+	// 	return Error.Wrap(err)
+	// }
 	// Upload the repaired pieces to the repairNodes
-	successfulNodes, hashes, err := s.ec.Put(ctx, repairNodes, rs, pid, r, convertTime(pr.GetExpirationDate()), pbaPut)
-	if err != nil {
-		return Error.Wrap(err)
-	}
+	// successfulNodes, hashes, err := s.ec.Put(ctx, repairNodes, rs, pid, r, convertTime(pr.GetExpirationDate()), pbaPut)
+	// if err != nil {
+	// 	return Error.Wrap(err)
+	// }
 
 	// Merge the successful nodes list into the healthy nodes list
 	for i, v := range healthyNodes {
@@ -155,7 +161,7 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 	}
 
 	metadata := pr.GetMetadata()
-	pointer, err := makeRemotePointer(healthyNodes, hashes, rs, pid, rr.Size(), pr.GetExpirationDate(), metadata)
+	pointer, err := makeRemotePointer(healthyNodes, hashes, rs, pid.String(), rr.Size(), pr.GetExpirationDate(), metadata)
 	if err != nil {
 		return Error.Wrap(err)
 	}

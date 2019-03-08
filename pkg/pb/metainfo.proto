@@ -13,11 +13,11 @@ import "pointerdb.proto";
 
 // Metainfo it's a satellite RPC service
 service Metainfo {
-    rpc CreateSegment(SegmentWriteRequest) returns (OrderLimitResponse);
+    rpc CreateSegment(SegmentWriteRequest) returns (SegmentWriteResponse);
     rpc CommitSegment(SegmentCommitRequest) returns (SegmentCommitResponse);
     rpc SegmentInfo(SegmentInfoRequest) returns (SegmentInfoResponse);
     rpc DownloadSegment(SegmentDownloadRequest) returns (SegmentDownloadResponse);
-    rpc DeleteSegment(SegmentDeleteRequest) returns (OrderLimitResponse);
+    rpc DeleteSegment(SegmentDeleteRequest) returns (SegmentDeleteResponse);
     rpc ListSegments(ListSegmentsRequest) returns (ListSegmentsResponse);
 }
 
@@ -82,9 +82,15 @@ message PieceHash {
 message SegmentWriteRequest {
     bytes bucket = 1;
     bytes path = 2;
-    pointerdb.RedundancyScheme redundancy = 3;
-    int64 max_segment_size = 4;
-    google.protobuf.Timestamp expiration = 5;
+    int64 segment = 3;
+    pointerdb.RedundancyScheme redundancy = 4;
+    int64 max_segment_size = 5;
+    google.protobuf.Timestamp expiration = 6;
+}
+
+message SegmentWriteResponse {
+    repeated AddressedOrderLimit addressed_limits = 1;
+    bytes root_piece_id = 2 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
 }
 
 message SegmentCommitRequest {
@@ -126,7 +132,7 @@ message SegmentDeleteRequest {
     int64 segment = 3;
 }
 
-message OrderLimitResponse {
+message SegmentDeleteResponse {
     repeated AddressedOrderLimit addressed_limits = 1;
 }
 
