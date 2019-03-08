@@ -15,7 +15,7 @@ import (
 	"storj.io/storj/pkg/transport"
 
 	"storj.io/storj/pkg/miniogw"
-	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storj"
 )
@@ -57,16 +57,16 @@ type Config struct {
 // a specific Satellite and caches connections and resources, allowing one to
 // create sessions delineated by specific access controls.
 type Uplink struct {
-	ID      *provider.FullIdentity
+	ID      *identity.FullIdentity
 	Session *Session
+	SatelliteAddr string
 }
 
 // NewUplink creates a new Uplink
-func NewUplink(identity Identity, satelliteAddr string, cfg Config) *Uplink {
-	id := &provider.FullIdentity{}
-
+func NewUplink(ident *identity.FullIdentity, satelliteAddr string, cfg Config) *Uplink {
 	return &Uplink{
 		ID: id,
+		SatelliteAddr: satelliteAddr,
 	}
 }
 
