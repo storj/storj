@@ -45,7 +45,7 @@ type PieceMeta interface {
 var _ pb.PiecestoreServer = (*Endpoint)(nil)
 
 type Config struct {
-	ExpirationGracePeriod time.Duration
+	ExpirationGracePeriod time.Duration `help:"how soon before expiration date should things be considered expired" default:"48h0m0s"`
 }
 
 type Endpoint struct {
