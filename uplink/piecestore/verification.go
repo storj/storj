@@ -12,11 +12,9 @@ import (
 )
 
 var (
-	ErrInternal               = errs.Class("internal")
-	ErrProtocol               = errs.Class("protocol")
-	ErrVerifyNotAuthorized    = errs.Class("not authorized")
-	ErrVerifyUntrusted        = errs.Class("untrusted")
-	ErrVerifyDuplicateRequest = errs.Class("duplicate request")
+	ErrInternal        = errs.Class("internal")
+	ErrProtocol        = errs.Class("protocol")
+	ErrVerifyUntrusted = errs.Class("untrusted")
 )
 
 func (client *Client) VerifyPieceHash(ctx context.Context, peer *identity.PeerIdentity, limit *pb.OrderLimit2, hash *pb.PieceHash, expectedHash []byte) error {
@@ -27,7 +25,7 @@ func (client *Client) VerifyPieceHash(ctx context.Context, peer *identity.PeerId
 		return ErrProtocol.New("piece id changed") // TODO: report grpc status bad message
 	}
 	if !bytes.Equal(hash.Hash, expectedHash) {
-		return ErrProtocol.New("hashes don't match") // TODO: report grpc status bad message
+		return ErrVerifyUntrusted.New("hashes don't match") // TODO: report grpc status bad message
 	}
 
 	if err := signing.VerifyPieceHashSignature(signing.SigneeFromPeerIdentity(peer), hash); err != nil {
