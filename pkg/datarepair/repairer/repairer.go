@@ -55,7 +55,7 @@ func NewService(queue queue.RepairQueue, config *Config, transport transport.Cli
 		transport: transport,
 		limiter:   sync2.NewLimiter(concurrency),
 		ticker:    time.NewTicker(interval),
-		pdb:       pdbServer,
+		pdb:       pdb,
 	}
 }
 
