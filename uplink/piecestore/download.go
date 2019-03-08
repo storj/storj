@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"hash"
+	"io"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
@@ -19,8 +20,10 @@ type Download struct {
 	stream pb.Piecestore_DownloadClient
 
 	hash           hash.Hash // TODO: use concrete implementation
-	undownloaded   int64
+	toDownload     int64
 	allocationStep int64
+
+	unread []byte
 
 	// when there's a send error then it will automatically close
 	sendError error
@@ -56,14 +59,30 @@ func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit2, offse
 		stream: stream,
 
 		hash:           sha256.New(),
-		undownloaded:   size,
 		allocationStep: client.config.InitialStep,
 	}, nil
 }
 
-func (client *Download) Read(data []byte) error {
-	panic("TODO")
-	// these correspond to piecestore.Endpoint methods
+func (client *Download) Read(data []byte) (read int, _ error) {
+	// todo proper checks
+	for client.toDownload > 0 {
+		// read from unread buffer
+
+		// if prefetch {
+		//     check whether we need to send new allocations
+
+		// if we emptied the unread buffer && read > 0
+		//     return read, nil
+
+		// resp, err := client.stream.Recv()
+		// add chunk to unread buffer
+	}
+
+	// all downloaded
+	if read == 0 {
+		return 0, io.EOF
+	}
+	return read, nil
 }
 
 func (client *Download) Close() error {
