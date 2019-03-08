@@ -10,12 +10,15 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/storage"
 )
 
 var (
@@ -121,6 +124,9 @@ func (metainfo *Metainfo) SegmentInfo(ctx context.Context, bucket string, path s
 		Segment: segmentIndex,
 	})
 	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return nil, storage.ErrKeyNotFound.Wrap(err)
+		}
 		return nil, Error.Wrap(err)
 	}
 
@@ -137,6 +143,9 @@ func (metainfo *Metainfo) ReadSegment(ctx context.Context, bucket string, path s
 		Segment: segmentIndex,
 	})
 	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return nil, nil, storage.ErrKeyNotFound.Wrap(err)
+		}
 		return nil, nil, Error.Wrap(err)
 	}
 
@@ -153,6 +162,9 @@ func (metainfo *Metainfo) DeleteSegment(ctx context.Context, bucket string, path
 		Segment: segmentIndex,
 	})
 	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return nil, storage.ErrKeyNotFound.Wrap(err)
+		}
 		return nil, Error.Wrap(err)
 	}
 

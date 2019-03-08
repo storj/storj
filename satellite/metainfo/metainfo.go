@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/storage"
 )
 
 var (
@@ -93,15 +94,18 @@ func (endpoint *Endpoint) SegmentInfo(ctx context.Context, req *pb.SegmentInfoRe
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	err = endpoint.validatePathElements(req.Bucket, req.Path)
+	err = endpoint.validateBucket(req.Bucket)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
 	// TODO refactor to use []byte directly
-	path := storj.JoinPaths(keyInfo.ProjectID.String(), strconv.FormatInt(req.Segment, 10), string(req.GetBucket()), string(req.GetPath()))
+	path := storj.JoinPaths(keyInfo.ProjectID.String(), strconv.FormatInt(req.Segment, 10), string(req.Bucket), string(req.Path))
 	pointer, err := endpoint.pointerdb.Get(path)
 	if err != nil {
+		if storage.ErrKeyNotFound.Has(err) {
+			return nil, status.Errorf(codes.NotFound, err.Error())
+		}
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
@@ -118,7 +122,7 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 	}
 
 	// TODO refactor to use []byte directly
-	path := storj.JoinPaths(keyInfo.ProjectID.String(), strconv.FormatInt(req.Segment, 10), string(req.GetBucket()), string(req.GetPath()))
+	path := storj.JoinPaths(keyInfo.ProjectID.String(), strconv.FormatInt(req.Segment, 10), string(req.Bucket), string(req.Path))
 	_, err = endpoint.pointerdb.Get(path)
 	if err == nil {
 		return nil, status.Error(codes.AlreadyExists, "segment already exists")
@@ -127,7 +131,8 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 	// TODO most probably needs more params
 	request := &pb.FindStorageNodesRequest{
 		Opts: &pb.OverlayOptions{
-			Amount: int64(req.Redundancy.Total),
+			Amount:       int64(req.Redundancy.Total),
+			Restrictions: &pb.NodeRestrictions{},
 		},
 	}
 	nodes, err := endpoint.cache.FindStorageNodes(ctx, request, endpoint.selectionPreferences)
@@ -166,7 +171,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	err = endpoint.validatePathElements(req.Bucket, req.Path)
+	err = endpoint.validateBucket(req.Bucket)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
@@ -181,14 +186,14 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	path := storj.JoinPaths(keyInfo.ProjectID.String(), string(req.GetBucket()), string(req.GetPath()))
-	err = endpoint.pointerdb.Put(path, req.GetPointer())
+	path := storj.JoinPaths(keyInfo.ProjectID.String(), strconv.FormatInt(req.Segment, 10), string(req.Bucket), string(req.Path))
+	err = endpoint.pointerdb.Put(path, req.Pointer)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
 	// TODO should this be Pointer from request or DB?
-	return &pb.SegmentCommitResponse{Pointer: req.GetPointer()}, nil
+	return &pb.SegmentCommitResponse{Pointer: req.Pointer}, nil
 }
 
 // DownloadSegment gets Pointer incase of INLINE data or list of OrderLimit necessary to download remote data
@@ -200,15 +205,18 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	err = endpoint.validatePathElements(req.Bucket, req.Path)
+	err = endpoint.validateBucket(req.Bucket)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
 	// TODO refactor to use []byte directly
-	path := storj.JoinPaths(keyInfo.ProjectID.String(), strconv.FormatInt(req.Segment, 10), string(req.GetBucket()), string(req.GetPath()))
+	path := storj.JoinPaths(keyInfo.ProjectID.String(), strconv.FormatInt(req.Segment, 10), string(req.Bucket), string(req.Path))
 	pointer, err := endpoint.pointerdb.Get(path)
 	if err != nil {
+		if storage.ErrKeyNotFound.Has(err) {
+			return nil, status.Errorf(codes.NotFound, err.Error())
+		}
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
@@ -235,15 +243,18 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	err = endpoint.validatePathElements(req.Bucket, req.Path)
+	err = endpoint.validateBucket(req.Bucket)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
 	// TODO refactor to use []byte directly
-	path := storj.JoinPaths(keyInfo.ProjectID.String(), strconv.FormatInt(req.Segment, 10), string(req.GetBucket()), string(req.GetPath()))
+	path := storj.JoinPaths(keyInfo.ProjectID.String(), strconv.FormatInt(req.Segment, 10), string(req.Bucket), string(req.Path))
 	pointer, err := endpoint.pointerdb.Get(path)
 	if err != nil {
+		if storage.ErrKeyNotFound.Has(err) {
+			return nil, status.Errorf(codes.NotFound, err.Error())
+		}
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
@@ -296,7 +307,7 @@ func (endpoint *Endpoint) createOrderLimitsForSegment(ctx context.Context, remot
 
 		limits[piece.PieceNum] = &pb.AddressedOrderLimit{
 			Limit:              orderLimit,
-			StorageNodeAddress: node.GetAddress(),
+			StorageNodeAddress: node.Address,
 		}
 
 	}
@@ -330,7 +341,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.ListSegments
 	}
 
 	// TODO refactor to use []byte directly
-	prefix := storj.JoinPaths(keyInfo.ProjectID.String(), string(req.GetBucket()), string(req.GetPrefix()))
+	prefix := storj.JoinPaths(keyInfo.ProjectID.String(), string(req.Bucket), string(req.Prefix))
 	items, more, err := endpoint.pointerdb.List(prefix, string(req.StartAfter), string(req.EndBefore), req.Recursive, req.Limit, req.MetaFlags)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "ListV2: %v", err)
@@ -376,12 +387,9 @@ func (endpoint *Endpoint) filterValidPieces(pointer *pb.Pointer) error {
 	return nil
 }
 
-func (endpoint *Endpoint) validatePathElements(bucket, path []byte) error {
+func (endpoint *Endpoint) validateBucket(bucket []byte) error {
 	if len(bucket) == 0 {
 		return errs.New("bucket not specified")
-	}
-	if len(path) == 0 {
-		return errs.New("path not specified")
 	}
 	return nil
 }
@@ -392,8 +400,8 @@ func (endpoint *Endpoint) validateCommit(req *pb.SegmentCommitRequest) error {
 		return err
 	}
 
-	if req.GetPointer().Type == pb.Pointer_REMOTE {
-		remote := req.GetPointer().Remote
+	if req.Pointer.Type == pb.Pointer_REMOTE {
+		remote := req.Pointer.Remote
 
 		if int32(len(req.OriginalLimits)) != remote.Redundancy.Total {
 			return Error.New("invalid no order limit for piece")
