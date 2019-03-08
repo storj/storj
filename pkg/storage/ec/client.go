@@ -167,18 +167,16 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 
 	storageNodeID := limit.GetLimit().StorageNodeId
 	pieceID := limit.GetLimit().PieceId
-	derivedPieceID := pieceID.Derive(storageNodeID)
 	ps, err := ec.newPSClient(ctx, &pb.Node{
 		Id:      storageNodeID,
 		Address: limit.GetStorageNodeAddress(),
 		Type:    pb.NodeType_STORAGE,
 	})
 	if err != nil {
-		zap.S().Errorf("Failed dialing for putting piece %s -> %s to node %s: %v",
-			pieceID, derivedPieceID, storageNodeID, err)
+		zap.S().Errorf("Failed dialing for putting piece %s to node %s: %v", pieceID, storageNodeID, err)
 		return nil, err
 	}
-	hash, err = ps.Put(ctx, psclient.PieceID(derivedPieceID.Bytes()), data, expiration, nil) // TODO: limit.GetLimit()
+	hash, err = ps.Put(ctx, psclient.PieceID(pieceID.Bytes()), data, expiration, nil) // TODO: limit.GetLimit()
 	defer func() { err = errs.Combine(err, ps.Close()) }()
 	// Canceled context means the piece upload was interrupted by user or due
 	// to slow connection. No error logging for this case.
@@ -194,8 +192,7 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 		if limit.GetStorageNodeAddress() != nil {
 			nodeAddress = limit.GetStorageNodeAddress().GetAddress()
 		}
-		zap.S().Errorf("Failed putting piece %s -> %s to node %s (%+v): %v",
-			pieceID, derivedPieceID, storageNodeID, nodeAddress, err)
+		zap.S().Errorf("Failed putting piece %s to node %s (%+v): %v", pieceID, storageNodeID, nodeAddress, err)
 	}
 
 	return hash, err
@@ -230,13 +227,9 @@ func (ec *ecClient) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, e
 		}
 
 		go func(i int, addressedLimit *pb.AddressedOrderLimit) {
-			storageNodeID := addressedLimit.GetLimit().StorageNodeId
-			pieceID := addressedLimit.GetLimit().PieceId
-			derivedPieceID := pieceID.Derive(storageNodeID) // TODO: perhaps do the piece id derivation on the satellite?
 			rr := &lazyPieceRanger{
 				newPSClientHelper: ec.newPSClient,
 				limit:             addressedLimit,
-				id:                derivedPieceID,
 				size:              pieceSize,
 			}
 			ch <- rangerInfo{i: i, rr: rr, err: nil}
@@ -272,23 +265,20 @@ func (ec *ecClient) Delete(ctx context.Context, limits []*pb.AddressedOrderLimit
 			satelliteID := addressedLimit.GetLimit().SatelliteId
 			storageNodeID := addressedLimit.GetLimit().StorageNodeId
 			pieceID := addressedLimit.GetLimit().PieceId
-			derivedPieceID := pieceID.Derive(storageNodeID) // TODO: perhaps do the piece id derivation on the satellite?
 			ps, err := ec.newPSClient(ctx, &pb.Node{
 				Id:      storageNodeID,
 				Address: addressedLimit.GetStorageNodeAddress(),
 				Type:    pb.NodeType_STORAGE,
 			})
 			if err != nil {
-				zap.S().Errorf("Failed dialing for deleting piece %s -> %s from node %s: %v",
-					pieceID, derivedPieceID, storageNodeID, err)
+				zap.S().Errorf("Failed dialing for deleting piece %s from node %s: %v", pieceID, storageNodeID, err)
 				errch <- err
 				return
 			}
-			err = ps.Delete(ctx, psclient.PieceID(derivedPieceID.Bytes()), satelliteID)
+			err = ps.Delete(ctx, psclient.PieceID(pieceID.Bytes()), satelliteID)
 			err = errs.Combine(err, ps.Close())
 			if err != nil {
-				zap.S().Errorf("Failed deleting piece %s -> %s from node %s: %v",
-					pieceID, derivedPieceID, storageNodeID, err)
+				zap.S().Errorf("Failed deleting piece %s from node %s: %v", pieceID, storageNodeID, err)
 			}
 			errch <- err
 		}(addressedLimit)
@@ -348,7 +338,6 @@ type lazyPieceRanger struct {
 	ranger            ranger.Ranger
 	newPSClientHelper psClientHelper
 	limit             *pb.AddressedOrderLimit
-	id                storj.PieceID2
 	size              int64
 }
 
@@ -368,7 +357,8 @@ func (lr *lazyPieceRanger) Range(ctx context.Context, offset, length int64) (io.
 		if err != nil {
 			return nil, err
 		}
-		ranger, err := ps.Get(ctx, psclient.PieceID(lr.id.Bytes()), lr.size, nil) // TODO: lr.limit.GetLimit()
+		pieceID := psclient.PieceID(lr.limit.GetLimit().PieceId.Bytes())
+		ranger, err := ps.Get(ctx, pieceID, lr.size, nil)
 		if err != nil {
 			return nil, err
 		}
