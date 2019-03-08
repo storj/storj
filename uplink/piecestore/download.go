@@ -7,6 +7,8 @@ import (
 	"context"
 	"io"
 
+	"storj.io/storj/pkg/auth/signing"
+
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/identity"
@@ -101,7 +103,7 @@ func (client *Download) Read(data []byte) (read int, _ error) {
 			// send an order
 			if newAllocation > 0 {
 				// sign the order
-				order, err := client.client.SignOrder(&pb.Order2{
+				order, err := signing.SignOrder(client.client.signer, &pb.Order2{
 					SerialNumber: client.limit.SerialNumber,
 					Amount:       newAllocation,
 				})

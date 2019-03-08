@@ -11,16 +11,11 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
 )
 
 var Error = errs.Class("piecestore")
-
-type Signer interface {
-	ID() storj.NodeID
-	HashAndSign(data []byte) ([]byte, error)
-}
 
 type Config struct {
 	InitialStep int64
@@ -32,7 +27,7 @@ type Config struct {
 type Client struct {
 	log *zap.Logger
 	// TODO: hide
-	signer Signer
+	signer signing.Signer
 	conn   *grpc.ClientConn
 	client pb.PiecestoreClient
 	config Config

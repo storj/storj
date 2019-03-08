@@ -10,6 +10,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 )
@@ -78,7 +79,7 @@ func (client *Upload) Write(data []byte) (written int, _ error) {
 		}
 
 		// create a signed order for the next chunk
-		order, err := client.client.SignOrder(&pb.Order2{
+		order, err := signing.SignOrder(client.client.signer, &pb.Order2{
 			SerialNumber: client.limit.SerialNumber,
 			Amount:       client.offset + int64(len(sendData)),
 		})
@@ -125,7 +126,7 @@ func (client *Upload) Close() (*pb.PieceHash, error) {
 	}
 
 	// sign the hash for storage node
-	uplinkHash, err := client.client.SignPieceHash(&pb.PieceHash{
+	uplinkHash, err := signing.SignPieceHash(client.client.signer, &pb.PieceHash{
 		PieceId: client.limit.PieceId,
 		Hash:    client.hash.Sum(nil),
 	})
