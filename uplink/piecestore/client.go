@@ -29,8 +29,7 @@ var defaultConfig = Config{
 }
 
 type Client struct {
-	log *zap.Logger
-	// TODO: hide
+	log    *zap.Logger
 	signer signing.Signer
 	conn   *grpc.ClientConn
 	client pb.PiecestoreClient
