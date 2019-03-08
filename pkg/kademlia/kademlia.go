@@ -121,11 +121,11 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 		return nil
 	}
 
-	var errs errs.Group
+	var errGroup errs.Group
 	for i, node := range k.bootstrapNodes {
 		if ctx.Err() != nil {
-			errs.Add(ctx.Err())
-			return errs.Err()
+			errGroup.Add(ctx.Err())
+			return errGroup.Err()
 		}
 
 		p := &peer.Peer{}
@@ -141,14 +141,14 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 
 				// We have pinged successfully one bootstrap node.
 				// Clear any errors and break the cycle.
-				errs = nil
+				errGroup = nil
 				break
 			}
-			errs.Add(err)
+			errGroup.Add(err)
 		}
-		errs.Add(err)
+		errGroup.Add(err)
 	}
-	err := errs.Err()
+	err := errGroup.Err()
 	if err != nil {
 		return err
 	}
