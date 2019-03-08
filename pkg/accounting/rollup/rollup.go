@@ -16,7 +16,7 @@ import (
 
 // Config contains configurable values for rollup
 type Config struct {
-	Interval time.Duration `help:"how frequently rollup should run" default:"120s"`
+	Interval time.Duration `help:"how frequently rollup should run" devDefault:"120s" default:"6h"`
 }
 
 // Rollup is the service for totalling data on storage nodes on daily intervals

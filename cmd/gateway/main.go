@@ -71,7 +71,7 @@ var (
 )
 
 func init() {
-	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for setup configuration")
+	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for gateway configuration")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for gateway identity credentials")
 	cfgstruct.DevFlag(rootCmd, &isDev, false, "use development and test configuration settings")
 
