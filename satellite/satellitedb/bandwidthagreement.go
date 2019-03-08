@@ -14,7 +14,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
-	satellitedb "storj.io/storj/satellite/satellitedb/dbx"
 )
 
 type bandwidthagreement struct {
@@ -103,7 +102,7 @@ func (b *bandwidthagreement) GetTotals(ctx context.Context, from, to time.Time) 
 }
 
 //DeleteExpired deletes agreements that are expired and were created before some time
-func (b *bandwidthagreement) DeleteExpired(ctx context.Context, before time.Time, callback func(*satellitedb.Bwagreement) error) (err error) {
+func (b *bandwidthagreement) DeleteExpired(ctx context.Context, before time.Time, callback func(*dbx.Bwagreement) error) (err error) {
 	txn, err := b.db.Open(ctx)
 	if err != nil {
 		return errs.New("Failed to start transaction: %v", err)
