@@ -131,5 +131,7 @@ func (endpoint *Endpoint) IsExpired(expiration *timestamp.Timestamp) bool {
 		return true
 	}
 
-	return expirationTime.After(time.Now().Sub(endpoint.Config.ExpirationGracePeriod))
+	// TODO: return specific error about either exceeding the expiration completely or just the grace period
+
+	return expirationTime.After(time.Now().Add(-endpoint.config.ExpirationGracePeriod))
 }
