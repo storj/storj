@@ -134,7 +134,7 @@ func NewInspector(address, path string) (*Inspector, error) {
 		return nil, ErrIdentity.Wrap(err)
 	}
 
-	conn, err := transport.DialAddressInsecure(ctx, address)
+	conn, err := transport.DialAddressEncrypted(ctx, address)
 	if err != nil {
 		return &Inspector{}, ErrInspectorDial.Wrap(err)
 	}

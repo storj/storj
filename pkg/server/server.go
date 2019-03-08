@@ -68,7 +68,9 @@ func New(opts *tlsopts.Options, publicAddr, privateAddr string, interceptor grpc
 	}
 	private := private{
 		listener: privateListener,
-		grpc:     grpc.NewServer(),
+		grpc: grpc.NewServer(
+			opts.ServerNoClientAuthOption(),
+		),
 	}
 
 	return &Server{

@@ -5,19 +5,23 @@ package transport
 
 import (
 	"context"
+	"crypto/tls"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
-// DialAddressInsecure returns an insecure grpc connection without tls to a node.
+// DialAddressEncrypted returns a grpc connection with encryption to a node; no client auth/cert is used.
 //
 // Use this method for communication with localhost. For example, with the inspector or debugging services.
 // Otherwise in most cases DialNode should be used for communicating with nodes since it is secure.
-func DialAddressInsecure(ctx context.Context, address string, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
+func DialAddressEncrypted(ctx context.Context, address string, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	options := append([]grpc.DialOption{
-		grpc.WithInsecure(),
+		grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
+			InsecureSkipVerify: true,
+		})),
 		grpc.WithBlock(),
 		grpc.FailOnNonTempDialError(true),
 	}, opts...)

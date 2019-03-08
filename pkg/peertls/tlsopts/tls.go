@@ -22,6 +22,15 @@ func (opts *Options) ServerOption() grpc.ServerOption {
 	return grpc.Creds(credentials.NewTLS(tlsConfig))
 }
 
+// ServerNoClientAuthOption returns a grpc `ServerOption` for incoming connections
+// to the node with this full identity. As opposed to `otps.ServerOption`, does not
+// require the client to have its own tls certificate.
+func (opts *Options) ServerNoClientAuthOption() grpc.ServerOption {
+	config := &tls.Config{ClientAuth: tls.NoClientCert}
+	tlsConfig := opts.tlsConfig(true, config)
+	return grpc.Creds(credentials.NewTLS(tlsConfig))
+}
+
 // DialOption returns a grpc `DialOption` for making outgoing connections
 // to the node with this peer identity.
 func (opts *Options) DialOption(id storj.NodeID) (grpc.DialOption, error) {
@@ -34,21 +43,22 @@ func (opts *Options) DialOption(id storj.NodeID) (grpc.DialOption, error) {
 
 // DialUnverifiedIDOption returns a grpc `DialUnverifiedIDOption`
 func (opts *Options) DialUnverifiedIDOption() grpc.DialOption {
-	tlsConfig := opts.tlsConfig(false)
+	tlsConfig := opts.tlsConfig(false, &tls.Config{})
 	return grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig))
 }
 
 // ServerTLSConfig returns a TSLConfig for use as a server in handshaking with a peer.
 func (opts *Options) ServerTLSConfig() *tls.Config {
-	return opts.tlsConfig(true)
+	config := &tls.Config{ClientAuth: tls.RequireAnyClientCert}
+	return opts.tlsConfig(true, config)
 }
 
 // ClientTLSConfig returns a TSLConfig for use as a client in handshaking with a peer.
 func (opts *Options) ClientTLSConfig(id storj.NodeID) *tls.Config {
-	return opts.tlsConfig(false, verifyIdentity(id))
+	return opts.tlsConfig(false, &tls.Config{}, verifyIdentity(id))
 }
 
-func (opts *Options) tlsConfig(isServer bool, verificationFuncs ...peertls.PeerCertVerificationFunc) *tls.Config {
+func (opts *Options) tlsConfig(isServer bool, baseConfig *tls.Config, verificationFuncs ...peertls.PeerCertVerificationFunc) *tls.Config {
 	verificationFuncs = append(
 		[]peertls.PeerCertVerificationFunc{
 			peertls.VerifyPeerCertChains,
@@ -72,13 +82,10 @@ func (opts *Options) tlsConfig(isServer bool, verificationFuncs ...peertls.PeerC
 	config := &tls.Config{
 		Certificates:       []tls.Certificate{*opts.Cert},
 		InsecureSkipVerify: true,
+		ClientAuth:         baseConfig.ClientAuth,
 		VerifyPeerCertificate: peertls.VerifyPeerFunc(
 			verificationFuncs...,
 		),
-	}
-
-	if isServer {
-		config.ClientAuth = tls.RequireAnyClientCert
 	}
 
 	return config

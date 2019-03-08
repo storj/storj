@@ -34,7 +34,7 @@ func (dash *dashboardClient) dashboard(ctx context.Context) (*pb.DashboardRespon
 }
 
 func newDashboardClient(ctx context.Context, address string) (*dashboardClient, error) {
-	conn, err := transport.DialAddressInsecure(ctx, address)
+	conn, err := transport.DialAddressEncrypted(ctx, address)
 	if err != nil {
 		return &dashboardClient{}, err
 	}
@@ -164,7 +164,7 @@ type inspector struct {
 }
 
 func newInspectorClient(ctx context.Context, bootstrapAddress string) (*inspector, error) {
-	conn, err := transport.DialAddressInsecure(ctx, bootstrapAddress)
+	conn, err := transport.DialAddressEncrypted(ctx, bootstrapAddress)
 	if err != nil {
 		return &inspector{}, err
 	}
