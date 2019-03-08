@@ -60,11 +60,7 @@ type Peer struct {
 
 	Transport transport.Client
 
-	// servers
-	Public struct {
-		Listener net.Listener
-		Server   *server.Server
-	}
+	Server *server.Server
 
 	// services and endpoints
 	Kademlia struct {
@@ -93,21 +89,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 	var err error
 
 	{ // setup listener and server
-		peer.Public.Listener, err = net.Listen("tcp", config.Server.Address)
+		sc := config.Server
+		options, err := tlsopts.NewOptions(peer.Identity, sc.Config)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		publicConfig := config.Server
-		publicConfig.Address = peer.Public.Listener.Addr().String()
-		publicOptions, err := tlsopts.NewOptions(peer.Identity, publicConfig.Config)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
+		peer.Transport = transport.NewClient(options)
 
-		peer.Transport = transport.NewClient(publicOptions)
-
-		peer.Public.Server, err = server.New(publicOptions, peer.Public.Listener, nil)
+		peer.Server, err = server.New(options, sc.Address, sc.PrivateAddress, nil)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -117,7 +107,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 		config := config.Kademlia
 		// TODO: move this setup logic into kademlia package
 		if config.ExternalAddress == "" {
-			config.ExternalAddress = peer.Public.Server.Addr().String()
+			config.ExternalAddress = peer.Addr()
 		}
 
 		self := pb.Node{
@@ -147,10 +137,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 		}
 
 		peer.Kademlia.Endpoint = kademlia.NewEndpoint(peer.Log.Named("kademlia:endpoint"), peer.Kademlia.Service, peer.Kademlia.RoutingTable)
-		pb.RegisterNodesServer(peer.Public.Server.GRPC(), peer.Kademlia.Endpoint)
+		pb.RegisterNodesServer(peer.Server.GRPC(), peer.Kademlia.Endpoint)
 
 		peer.Kademlia.Inspector = kademlia.NewInspector(peer.Kademlia.Service, peer.Identity)
-		pb.RegisterKadInspectorServer(peer.Public.Server.GRPC(), peer.Kademlia.Inspector)
+		pb.RegisterKadInspectorServer(peer.Server.PrivateGRPC(), peer.Kademlia.Inspector)
 	}
 
 	{ // setup bootstrap web ui
@@ -193,8 +183,11 @@ func (peer *Peer) Run(ctx context.Context) error {
 	})
 	group.Go(func() error {
 		// TODO: move the message into Server instead
-		peer.Log.Sugar().Infof("Node %s started on %s", peer.Identity.ID, peer.Public.Server.Addr().String())
-		return ignoreCancel(peer.Public.Server.Run(ctx))
+		// Don't change the format of this comment, it is used to figure out the node id.
+		peer.Log.Sugar().Infof("Node %s started", peer.Identity.ID)
+		peer.Log.Sugar().Infof("Public server started on %s", peer.Identity.ID, peer.Addr())
+		peer.Log.Sugar().Infof("Private server started on %s", peer.Identity.ID, peer.PrivateAddr())
+		return ignoreCancel(peer.Server.Run(ctx))
 	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Web.Endpoint.Run(ctx))
@@ -217,13 +210,8 @@ func (peer *Peer) Close() error {
 	// TODO: ensure that Close can be called on nil-s that way this code won't need the checks.
 
 	// close servers, to avoid new connections to closing subsystems
-	if peer.Public.Server != nil {
-		errlist.Add(peer.Public.Server.Close())
-	} else {
-		// peer.Public.Server automatically closes listener
-		if peer.Public.Listener != nil {
-			errlist.Add(peer.Public.Listener.Close())
-		}
+	if peer.Server != nil {
+		errlist.Add(peer.Server.Close())
 	}
 
 	if peer.Web.Endpoint != nil {
@@ -252,4 +240,7 @@ func (peer *Peer) ID() storj.NodeID { return peer.Identity.ID }
 func (peer *Peer) Local() pb.Node { return peer.Kademlia.RoutingTable.Local() }
 
 // Addr returns the public address.
-func (peer *Peer) Addr() string { return peer.Public.Server.Addr().String() }
+func (peer *Peer) Addr() string { return peer.Server.Addr().String() }
+
+// PrivateAddr returns the private address.
+func (peer *Peer) PrivateAddr() string { return peer.Server.PrivateAddr().String() }
