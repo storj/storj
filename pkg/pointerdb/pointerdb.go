@@ -193,7 +193,7 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 		return r, nil
 	}
 
-	for _, piece := range pointer.Remote.RemotePieces {
+	for _, piece := range pointer.GetRemote().GetRemotePieces() {
 		node, err := s.cache.Get(ctx, piece.NodeId)
 		if err != nil {
 			s.logger.Error("Error getting node from cache", zap.String("ID", piece.NodeId.String()), zap.Error(err))

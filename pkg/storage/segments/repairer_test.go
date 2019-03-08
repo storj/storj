@@ -21,7 +21,7 @@ func TestNewSegmentRepairer(t *testing.T) {
 		oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
 		assert.NoError(t, err)
 		ec := ecclient.NewClient(planet.Uplinks[0].Transport, 0)
-		pdb := planet.Satellites[0].Metainfo.Endpoint
+		pdb := planet.Satellites[0].Metainfo.Service
 		ss := segments.NewSegmentRepairer(oc, ec, pdb)
 		assert.NotNil(t, ss)
 	})
