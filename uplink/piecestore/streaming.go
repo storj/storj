@@ -148,7 +148,7 @@ func (client *Upload) Close() (*pb.PieceHash, error) {
 	verifyErr := client.client.VerifyPieceHash(client.stream.Context(), client.peer, client.limit, response.Done, uplinkHash.Hash)
 
 	// combine all the errors from before
-	return response, errs.Combine(combineSendCloseError(err, closeErr), verifyErr)
+	return response.Done, errs.Combine(combineSendCloseError(err, closeErr), verifyErr)
 }
 
 type Download struct {

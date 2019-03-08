@@ -70,7 +70,8 @@ type Endpoint struct {
 func NewEndpoint(log *zap.Logger) (*Endpoint, error) {
 	return &Endpoint{
 		log: log,
-	}
+		// TODO: panic
+	}, nil
 }
 
 func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequest) (_ *pb.PieceDeleteResponse, err error) {

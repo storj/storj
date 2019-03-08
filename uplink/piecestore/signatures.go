@@ -18,14 +18,29 @@ var (
 	ErrVerifyDuplicateRequest = errs.Class("duplicate request")
 )
 
-func SignPieceHash(signer Signer, unsigned *pb.PieceHash) (*pb.PieceHash, error) {
+func (client *Client) SignPieceHash(unsigned *pb.PieceHash) (*pb.PieceHash, error) {
 	bytes, err := EncodePieceHashForSigning(unsigned)
 	if err != nil {
 		return nil, ErrInternal.Wrap(err)
 	}
 
 	signed := *unsigned
-	signed.Signature, err = signer.HashAndSign(bytes)
+	signed.Signature, err = client.signer.HashAndSign(bytes)
+	if err != nil {
+		return nil, ErrInternal.Wrap(err)
+	}
+
+	return &signed, nil
+}
+
+func (client *Client) SignOrder(unsigned *pb.Order2) (*pb.Order2, error) {
+	bytes, err := EncodeOrderForSigning(unsigned)
+	if err != nil {
+		return nil, ErrInternal.Wrap(err)
+	}
+
+	signed := *unsigned
+	signed.UplinkSignature, err = client.signer.HashAndSign(bytes)
 	if err != nil {
 		return nil, ErrInternal.Wrap(err)
 	}
