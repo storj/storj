@@ -81,7 +81,7 @@ func NewSegmentStore(metainfo metainfo.Client, oc overlay.Client, ec ecclient.Cl
 func (s *segmentStore) Meta(ctx context.Context, path storj.Path) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, bucket, objectPath, segmentIndex, err := split(path)
+	bucket, objectPath, segmentIndex, err := split(path)
 	if err != nil {
 		return Meta{}, err
 	}
@@ -177,7 +177,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Ranger, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, bucket, objectPath, segmentIndex, err := split(path)
+	bucket, objectPath, segmentIndex, err := split(path)
 	if err != nil {
 		return nil, Meta{}, err
 	}
@@ -269,7 +269,7 @@ func makeRemotePointer(nodes []*pb.Node, hashes []*pb.SignedHash, rs eestream.Re
 func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, bucket, objectPath, segmentIndex, err := split(path)
+	bucket, objectPath, segmentIndex, err := split(path)
 	if err != nil {
 		return err
 	}
@@ -410,21 +410,20 @@ func convertTime(ts *timestamp.Timestamp) time.Time {
 	return t
 }
 
-func split(path storj.Path) (projectID, bucket string, objectPath storj.Path, segmentIndex int64, err error) {
+func split(path storj.Path) (bucket string, objectPath storj.Path, segmentIndex int64, err error) {
 	comp := storj.SplitPath(path)
-	if len(comp) < 3 {
-		return "", "", "", -2, Error.New("path too short: %d < 3", len(comp))
+	if len(comp) < 2 {
+		return "", "", -2, Error.New("path too short: %d < 2", len(comp))
 	}
 
-	projectID = comp[0]
-	bucket = comp[2]
-	objectPath = storj.JoinPaths(path[3:])
-	segmentIndex, err = convertSegmentIndex(comp[1])
+	bucket = comp[1]
+	objectPath = storj.JoinPaths(path[2:])
+	segmentIndex, err = convertSegmentIndex(comp[0])
 	if err != nil {
-		return "", "", "", -2, err
+		return "", "", -2, err
 	}
 
-	return projectID, bucket, objectPath, segmentIndex, nil
+	return bucket, objectPath, segmentIndex, nil
 }
 
 func convertSegmentIndex(segmentComp string) (segmentIndex int64, err error) {
