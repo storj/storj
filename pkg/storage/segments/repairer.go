@@ -20,13 +20,13 @@ import (
 type Repairer struct {
 	oc        overlay.Client
 	ec        ecclient.Client
-	pdbServer *pointerdb.Server
+	pdb       *pointerdb.Service
 	nodeStats *pb.NodeStats
 }
 
 // NewSegmentRepairer creates a new instance of SegmentRepairer
-func NewSegmentRepairer(oc overlay.Client, ec ecclient.Client, pdbServer *pointerdb.Server) *Repairer {
-	return &Repairer{oc: oc, ec: ec, pdbServer: pdbServer}
+func NewSegmentRepairer(oc overlay.Client, ec ecclient.Client, pdb *pointerdb.Service) *Repairer {
+	return &Repairer{oc: oc, ec: ec, pdb: pdb}
 }
 
 // Repair retrieves an at-risk segment and repairs and stores lost pieces on new nodes
@@ -34,12 +34,11 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 	defer mon.Task()(&ctx)(&err)
 
 	// Read the segment's pointer's info from the PointerDB
-	res, err := s.pdbServer.Get(ctx, &pb.GetRequest{Path: path})
+	pr, err := s.pdb.Get(path)
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	pr := res.GetPointer()
-	originalNodes := res.GetNodes()
+	originalNodes := pr.GetNodes()
 	if pr.GetType() != pb.Pointer_REMOTE {
 		return Error.New("cannot repair inline segment %s", psclient.PieceID(pr.GetInlineSegment()))
 	}
@@ -121,12 +120,12 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 		return Error.Wrap(err)
 	}
 
-	pbaGetRes, err := s.pdbServer.PayerBandwidthAllocation(ctx, &pb.PayerBandwidthAllocationRequest{Action: pb.BandwidthAction_GET_REPAIR})
+	pbaGet, err := s.pdb.PayerBandwidthAllocation(ctx, pb.BandwidthAction_GET_REPAIR)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 	// Download the segment using just the healthyNodes
-	rr, err := s.ec.Get(ctx, healthyNodes, rs, pid, pr.GetSegmentSize(), pbaGetRes.GetPba())
+	rr, err := s.ec.Get(ctx, healthyNodes, rs, pid, pr.GetSegmentSize(), pbaGet)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -137,12 +136,12 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 	}
 	defer func() { err = errs.Combine(err, r.Close()) }()
 
-	pbaPutRes, err := s.pdbServer.PayerBandwidthAllocation(ctx, &pb.PayerBandwidthAllocationRequest{Action: pb.BandwidthAction_PUT_REPAIR})
+	pbaPut, err := s.pdb.PayerBandwidthAllocation(ctx, pb.BandwidthAction_PUT_REPAIR)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 	// Upload the repaired pieces to the repairNodes
-	successfulNodes, hashes, err := s.ec.Put(ctx, repairNodes, rs, pid, r, convertTime(pr.GetExpirationDate()), pbaPutRes.GetPba())
+	successfulNodes, hashes, err := s.ec.Put(ctx, repairNodes, rs, pid, r, convertTime(pr.GetExpirationDate()), pbaPut)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -162,17 +161,15 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 	}
 
 	// update the segment info in the pointerDB
-
-	_, err = s.pdbServer.Put(ctx, &pb.PutRequest{Path: path, Pointer: pointer})
-	return err
+	return s.pdb.Put(path, pointer)
 }
 
 // Close disconnects from all Repair related services
 func (s *Repairer) Close() error {
-		//TODO
-		//oc
-		//ec
-		//pdb
-		//nodestats
-		return nil
+	//TODO
+	//oc
+	//ec
+	//pdb
+	//nodestats
+	return nil
 }
