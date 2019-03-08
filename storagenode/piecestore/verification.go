@@ -7,6 +7,8 @@ import (
 	"bytes"
 	"context"
 
+	"storj.io/storj/pkg/auth/signing"
+
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/zeebo/errs"
 
@@ -19,21 +21,6 @@ var (
 	ErrVerifyUntrusted        = errs.Class("untrusted")
 	ErrVerifyDuplicateRequest = errs.Class("duplicate request")
 )
-
-func (endpoint *Endpoint) SignPieceHash(unsigned *pb.PieceHash) (*pb.PieceHash, error) {
-	bytes, err := EncodePieceHashForSigning(unsigned)
-	if err != nil {
-		return nil, ErrInternal.Wrap(err)
-	}
-
-	signed := *unsigned
-	signed.Signature, err = endpoint.signer.HashAndSign(bytes)
-	if err != nil {
-		return nil, ErrInternal.Wrap(err)
-	}
-
-	return &signed, nil
-}
 
 func (endpoint *Endpoint) VerifyOrderLimit(ctx context.Context, limit *pb.OrderLimit2) error {
 	// sanity checks
@@ -92,9 +79,11 @@ func (endpoint *Endpoint) VerifyOrder(ctx context.Context, peer *identity.PeerId
 	if order.Amount > limit.Limit {
 		return ErrProtocol.New("order exceeded allowed amount") // TODO: report grpc status bad message
 	}
-	if err := endpoint.VerifyOrderSignature(ctx, peer, order); err != nil {
+
+	if err := signing.VerifyOrderSignature(signing.SigneeFromPeerIdentity(peer), order); err != nil {
 		return ErrVerifyUntrusted.New("invalid order signature") // TODO: report grpc status bad message
 	}
+
 	return nil
 }
 
@@ -109,38 +98,24 @@ func (endpoint *Endpoint) VerifyPieceHash(ctx context.Context, peer *identity.Pe
 		return ErrProtocol.New("hashes don't match") // TODO: report grpc status bad message
 	}
 
-	if err := endpoint.VerifyPieceHashSignature(ctx, peer, hash); err != nil {
-		return ErrVerifyUntrusted.New("invalid hash signature") // TODO: report grpc status bad message
+	if err := signing.VerifyPieceHashSignature(signing.SigneeFromPeerIdentity(peer), hash); err != nil {
+		return ErrVerifyUntrusted.New("invalid hash signature: %v", err) // TODO: report grpc status bad message
 	}
 
 	return nil
 }
 
 func (endpoint *Endpoint) VerifyOrderLimitSignature(ctx context.Context, limit *pb.OrderLimit2) error {
-	bytes, err := EncodeOrderLimitForSigning(limit)
+	signee, err := endpoint.trust.GetSignee(ctx, limit.SatelliteId)
 	if err != nil {
-		return ErrProtocol.Wrap(err)
+		return ErrVerifyUntrusted.New("unable to get signee: %v", err) // TODO: report grpc status bad message
 	}
-	err = endpoint.trust.VerifySignatureWithID(ctx, bytes, limit.SatelliteSignature, limit.SatelliteId)
-	return Error.Wrap(err)
-}
 
-func (endpoint *Endpoint) VerifyOrderSignature(ctx context.Context, peer *identity.PeerIdentity, order *pb.Order2) error {
-	bytes, err := EncodeOrderForSigning(order)
-	if err != nil {
-		return ErrProtocol.Wrap(err)
+	if err := signing.VerifyOrderLimitSignature(signee, limit); err != nil {
+		return ErrVerifyUntrusted.New("invalid order limit signature: %v", err) // TODO: report grpc status bad message
 	}
-	err = endpoint.trust.VerifySignature(ctx, bytes, order.UplinkSignature, peer)
-	return Error.Wrap(err)
-}
 
-func (endpoint *Endpoint) VerifyPieceHashSignature(ctx context.Context, peer *identity.PeerIdentity, hash *pb.PieceHash) error {
-	bytes, err := EncodePieceHashForSigning(hash)
-	if err != nil {
-		return ErrProtocol.Wrap(err)
-	}
-	err = endpoint.trust.VerifySignature(ctx, bytes, hash.Signature, peer)
-	return Error.Wrap(err)
+	return nil
 }
 
 func (endpoint *Endpoint) IsExpired(expiration *timestamp.Timestamp) bool {
