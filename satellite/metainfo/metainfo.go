@@ -4,6 +4,7 @@
 package metainfo
 
 import (
+	"bytes"
 	"context"
 	"strconv"
 
@@ -97,7 +98,8 @@ func (endpoint *Endpoint) SegmentInfo(ctx context.Context, req *pb.SegmentInfoRe
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	path := storj.JoinPaths(keyInfo.ProjectID.String(), string(req.GetBucket()), string(req.GetPath()))
+	// TODO refactor to use []byte directly
+	path := storj.JoinPaths(keyInfo.ProjectID.String(), strconv.FormatInt(req.Segment, 10), string(req.GetBucket()), string(req.GetPath()))
 	pointer, err := endpoint.pointerdb.Get(path)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
@@ -110,9 +112,16 @@ func (endpoint *Endpoint) SegmentInfo(ctx context.Context, req *pb.SegmentInfoRe
 func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWriteRequest) (resp *pb.OrderLimitResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = endpoint.validateAuth(ctx)
+	keyInfo, err := endpoint.validateAuth(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	// TODO refactor to use []byte directly
+	path := storj.JoinPaths(keyInfo.ProjectID.String(), strconv.FormatInt(req.Segment, 10), string(req.GetBucket()), string(req.GetPath()))
+	_, err = endpoint.pointerdb.Get(path)
+	if err == nil {
+		return nil, status.Error(codes.AlreadyExists, "segment already exists")
 	}
 
 	// TODO most probably needs more params
@@ -162,7 +171,10 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	// TODO validate pointer with OriginalOrderLimits
+	err = endpoint.validateCommit(req)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
 
 	err = endpoint.filterValidPieces(req.Pointer)
 	if err != nil {
@@ -175,7 +187,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	// TODO should this be Pointer from request or DB
+	// TODO should this be Pointer from request or DB?
 	return &pb.SegmentCommitResponse{Pointer: req.GetPointer()}, nil
 }
 
@@ -266,8 +278,8 @@ func (endpoint *Endpoint) createOrderLimitsForSegment(ctx context.Context, remot
 		return nil, err
 	}
 
-	limits := make([]*pb.AddressedOrderLimit, len(remote.RemotePieces))
-	for i, piece := range remote.RemotePieces {
+	limits := make([]*pb.AddressedOrderLimit, remote.Redundancy.Total)
+	for _, piece := range remote.RemotePieces {
 		orderLimit, err := endpoint.createOrderLimit(ctx, uplinkIdentity, piece.NodeId, pieceID, nil, 0, action)
 		if err != nil {
 			return nil, err
@@ -282,7 +294,7 @@ func (endpoint *Endpoint) createOrderLimitsForSegment(ctx context.Context, remot
 			node.Type.DPanicOnInvalid("metainfo server order limits")
 		}
 
-		limits[i] = &pb.AddressedOrderLimit{
+		limits[piece.PieceNum] = &pb.AddressedOrderLimit{
 			Limit:              orderLimit,
 			StorageNodeAddress: node.GetAddress(),
 		}
@@ -344,8 +356,7 @@ func (endpoint *Endpoint) filterValidPieces(pointer *pb.Pointer) error {
 			err := auth.VerifyMsg(piece.Hash, piece.NodeId)
 			if err == nil {
 				// set to nil after verification to avoid storing in DB
-				piece.Hash.SetCerts(nil)
-				piece.Hash.SetSignature(nil)
+				piece.Hash = nil
 				remotePieces = append(remotePieces, piece)
 			} else {
 				// TODO satellite should send Delete request for piece that failed
@@ -371,6 +382,58 @@ func (endpoint *Endpoint) validatePathElements(bucket, path []byte) error {
 	}
 	if len(path) == 0 {
 		return errs.New("path not specified")
+	}
+	return nil
+}
+
+func (endpoint *Endpoint) validateCommit(req *pb.SegmentCommitRequest) error {
+	err := endpoint.validatePointer(req.Pointer)
+	if err != nil {
+		return err
+	}
+
+	if req.GetPointer().Type == pb.Pointer_REMOTE {
+		remote := req.GetPointer().Remote
+
+		if int32(len(req.OriginalLimits)) != remote.Redundancy.Total {
+			return Error.New("invalid no order limit for piece")
+		}
+
+		for _, piece := range remote.RemotePieces {
+			limit := req.OriginalLimits[piece.PieceNum]
+
+			// TODO verify limit signature
+
+			if limit == nil {
+				return Error.New("invalid no order limit for piece")
+			}
+			if limit.PieceId.IsZero() || limit.PieceId.String() != remote.PieceId {
+				return Error.New("invalid order limit piece id")
+			}
+			if bytes.Compare(piece.NodeId.Bytes(), limit.StorageNodeId.Bytes()) != 0 {
+				return Error.New("piece NodeID != order limit NodeID")
+			}
+		}
+	}
+	return nil
+}
+
+func (endpoint *Endpoint) validatePointer(pointer *pb.Pointer) error {
+	if pointer == nil {
+		return Error.New("no pointer specified")
+	}
+
+	// TODO does it all?
+	if pointer.Type == pb.Pointer_REMOTE {
+		if pointer.Remote == nil {
+			return Error.New("no remote segment specified")
+		}
+		if pointer.Remote.RemotePieces == nil {
+			return Error.New("no remote segment pieces specified")
+		}
+		if pointer.Remote.Redundancy == nil {
+			return Error.New("no redundancy scheme specified")
+		}
 	}
 	return nil
 }
