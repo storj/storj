@@ -99,17 +99,14 @@ func networkDestroy(flags *Flags, args []string) error {
 func newNetwork(flags *Flags) (*Processes, error) {
 	// with common adds all common arguments to the process
 	withCommon := func(all Arguments) Arguments {
-		common := []string{
-			"--metrics.app-suffix", "sim",
-			"--log.level", "debug",
-			"--config-dir", ".",
-		}
-		if flags.IsDev {
-			common = append(common, "--dev")
-		}
 		for command, args := range all {
-			all[command] = append(append(common, command), args...)
-
+			all[command] = append([]string{
+				"--metrics.app-suffix", "sim",
+				"--log.level", "debug",
+				"--config-dir", ".",
+				"--dev",
+				command,
+			}, args...)
 		}
 		return all
 	}

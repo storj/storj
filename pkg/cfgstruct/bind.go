@@ -130,7 +130,7 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 			help := field.Tag.Get("help")
 			def := field.Tag.Get("default")
 			if isDev {
-				devDef := field.Tag.Get("devfault")
+				devDef := field.Tag.Get("devDefault")
 				if len(devDef) > 0 {
 					def = devDef
 					fmt.Printf(" !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! %s = %v\n", field.Name, devDef)
