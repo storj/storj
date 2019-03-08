@@ -411,14 +411,14 @@ func convertTime(ts *timestamp.Timestamp) time.Time {
 }
 
 func split(path storj.Path) (bucket string, objectPath storj.Path, segmentIndex int64, err error) {
-	comp := storj.SplitPath(path)
-	if len(comp) < 2 {
-		return "", "", -2, Error.New("path too short: %d < 2", len(comp))
+	components := storj.SplitPath(path)
+	if len(components) < 2 {
+		return "", "", -2, Error.New("path too short: %d < 2", len(components))
 	}
 
-	bucket = comp[1]
-	objectPath = storj.JoinPaths(path[2:])
-	segmentIndex, err = convertSegmentIndex(comp[0])
+	bucket = components[1]
+	objectPath = storj.JoinPaths(components[2:]...)
+	segmentIndex, err = convertSegmentIndex(components[0])
 	if err != nil {
 		return "", "", -2, err
 	}
