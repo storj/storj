@@ -50,7 +50,7 @@ type ListItem struct {
 
 // Client interface for the Metainfo service
 type Client interface {
-	CreateSegment(ctx context.Context, bucket string, path storj.Path, redundancy *pb.RedundancyScheme, maxSegmentSize int64, expiration time.Time) ([]*pb.AddressedOrderLimit, error)
+	CreateSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, redundancy *pb.RedundancyScheme, maxSegmentSize int64, expiration time.Time) ([]*pb.AddressedOrderLimit, error)
 	CommitSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, pointer *pb.Pointer, originalLimits []*pb.OrderLimit2) (*pb.Pointer, error)
 	SegmentInfo(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (*pb.Pointer, error)
 	ReadSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (*pb.Pointer, []*pb.AddressedOrderLimit, error)
@@ -74,7 +74,7 @@ func NewClient(ctx context.Context, tc transport.Client, address string, APIKey 
 }
 
 // CreateSegment requests the order limits for creating a new segment
-func (metainfo *Metainfo) CreateSegment(ctx context.Context, bucket string, path storj.Path, redundancy *pb.RedundancyScheme, maxSegmentSize int64, expiration time.Time) (limits []*pb.AddressedOrderLimit, err error) {
+func (metainfo *Metainfo) CreateSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, redundancy *pb.RedundancyScheme, maxSegmentSize int64, expiration time.Time) (limits []*pb.AddressedOrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	exp, err := ptypes.TimestampProto(expiration)
@@ -85,6 +85,7 @@ func (metainfo *Metainfo) CreateSegment(ctx context.Context, bucket string, path
 	response, err := metainfo.client.CreateSegment(ctx, &pb.SegmentWriteRequest{
 		Bucket:         []byte(bucket),
 		Path:           []byte(path),
+		Segment:        segmentIndex,
 		Redundancy:     redundancy,
 		MaxSegmentSize: maxSegmentSize,
 		Expiration:     exp,

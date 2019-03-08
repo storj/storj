@@ -107,7 +107,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		ErasureShareSize: int32(s.rs.ErasureShareSize()),
 	}
 
-	limits, err := s.metainfo.CreateSegment(ctx, "", "", redundancy, s.maxSegmentSize, expiration) // TODO: remove bucket and objectPath params
+	limits, err := s.metainfo.CreateSegment(ctx, "", "", -1, redundancy, s.maxSegmentSize, expiration) // bucket, path and segment index are not known at this point
 	if err != nil {
 		return Meta{}, Error.Wrap(err)
 	}
