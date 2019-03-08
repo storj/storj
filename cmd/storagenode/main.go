@@ -73,15 +73,11 @@ var (
 		Address       string `default:"127.0.0.1:7778" help:"address for dashboard service"`
 		BootstrapAddr string `default:"bootstrap.storj.io:8888" help:"address of server the storage node was bootstrapped against"`
 	}
-
-	defaultConfDir = fpath.ApplicationDir("storj", "storagenode")
-	// TODO: this path should be defined somewhere else
-	defaultIdentityDir = fpath.ApplicationDir("storj", "identity", "storagenode")
-	defaultDiagDir     string
-	confDir            string
-	identityDir        string
-	useColor           bool
-	isDev              bool
+	defaultDiagDir string
+	confDir        string
+	identityDir    string
+	useColor       bool
+	isDev          bool
 )
 
 const (
@@ -90,20 +86,22 @@ const (
 )
 
 func init() {
+	defaultConfDir := fpath.ApplicationDir("storj", "storagenode")
+	defaultIdentityDir := fpath.ApplicationDir("storj", "identity", "storagenode")
+	defaultDiagDir = filepath.Join(defaultConfDir, "storage")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for storagenode configuration")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for storagenode identity credentials")
 	cfgstruct.DevFlag(rootCmd, &isDev, false, "use development and test configuration settings")
 	rootCmd.PersistentFlags().BoolVar(&useColor, "color", false, "use color in user interface")
-	defaultDiagDir = filepath.Join(defaultConfDir, "storage")
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(diagCmd)
 	rootCmd.AddCommand(dashboardCmd)
-	cfgstruct.Bind(runCmd.Flags(), &runCfg, isDev, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, isDev, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.BindSetup(configCmd.Flags(), &setupCfg, isDev, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, isDev, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(runCmd.Flags(), &runCfg, isDev, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, isDev, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	cfgstruct.BindSetup(configCmd.Flags(), &setupCfg, isDev, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, isDev, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	cfgstruct.Bind(dashboardCmd.Flags(), &dashboardCfg, isDev, cfgstruct.ConfDir(defaultDiagDir))
 }
 

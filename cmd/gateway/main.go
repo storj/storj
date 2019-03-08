@@ -59,9 +59,6 @@ var (
 		RunE:  cmdRun,
 	}
 
-	defaultConfDir     = fpath.ApplicationDir("storj", "gateway")
-	defaultIdentityDir = fpath.ApplicationDir("storj", "identity", "gateway")
-
 	setupCfg GatewayFlags
 	runCfg   GatewayFlags
 
@@ -71,14 +68,16 @@ var (
 )
 
 func init() {
+	defaultConfDir := fpath.ApplicationDir("storj", "gateway")
+	defaultIdentityDir := fpath.ApplicationDir("storj", "identity", "gateway")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for gateway configuration")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for gateway identity credentials")
 	cfgstruct.DevFlag(rootCmd, &isDev, false, "use development and test configuration settings")
 
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
-	cfgstruct.Bind(runCmd.Flags(), &runCfg, isDev, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, isDev, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(runCmd.Flags(), &runCfg, isDev, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, isDev, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
