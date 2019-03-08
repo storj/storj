@@ -7,9 +7,11 @@ import (
 	"context"
 	"crypto"
 	"crypto/x509"
+	"errors"
 	"io"
 	"time"
 
+	minio "github.com/minio/minio/cmd"
 	"storj.io/storj/pkg/transport"
 
 	"storj.io/storj/pkg/miniogw"
@@ -88,7 +90,7 @@ type Access struct {
 
 	// TODO: these should be per-bucket somehow maybe? oh man what a nightmare
 	// Could be done via []Bucket with struct that has each of these
-	// PathCipher       storj.Cipher
+	// PathCipher       storj.Cipher // i.e. storj.AESGCM
 	// EncPathPrefix    storj.Path
 	// Key              storj.Key
 	// EncryptionScheme storj.EncryptionScheme
@@ -112,24 +114,37 @@ func (a *Access) Serialize() ([]byte, error) {
 // Session represents a specific access session.
 type Session struct {
 	TransportClient *transport.Client
-	Gateway         *miniogw.Gateway
+	Gateway         *minio.ObjectLayer
 }
 
 // NewSession creates a Session with an Access struct.
-func (u *Uplink) NewSession(access Access) (*Session, error) {
+func (u *Uplink) NewSession(access Access) error {
 	fi := &provider.FullIdentity{}
 
 	tc := transport.NewClient(fi)
 
-	return &Session{
+	// gateway := miniogw.NewGateway(ctx, fullIdentity)
+	// layer := miniogw.NewGatewayLayer()
+
+	u.Session = &Session{
 		TransportClient: &tc,
-	}, nil
+		Gateway:         nil,
+	}
+
+	return nil
 }
 
 // GetBucket returns info about the requested bucket if authorized
 func (s *Session) GetBucket(ctx context.Context, bucket string) (storj.Bucket,
 	error) {
-	panic("TODO")
+
+	// TODO: Wire up GetBucketInfo
+	// info, err := s.Gateway.GetObject(ctx, bucket)
+	// if err != nil {
+	// 	return storj.Bucket{}, err
+	// }
+
+	return storj.Bucket{}, nil
 }
 
 // CreateBucketOptions holds the bucket opts
@@ -142,18 +157,21 @@ type CreateBucketOptions struct {
 // CreateBucket creates a new bucket if authorized
 func (s *Session) CreateBucket(ctx context.Context, bucket string,
 	opts *CreateBucketOptions) (storj.Bucket, error) {
-	panic("TODO")
+
+	// s.Gateway.MakeBucketWithLocation(ctx, )
+
+	return storj.Bucket{}, nil
 }
 
 // DeleteBucket deletes a bucket if authorized
 func (s *Session) DeleteBucket(ctx context.Context, bucket string) error {
-	panic("TODO")
+	return errors.New("Not implemented")
 }
 
 // ListBuckets will list authorized buckets
 func (s *Session) ListBuckets(ctx context.Context, opts storj.BucketListOptions) (
 	storj.BucketList, error) {
-	panic("TODO")
+	return storj.BucketList{}, nil
 }
 
 // Access creates a new share, potentially further restricted from the Access used
@@ -186,7 +204,8 @@ type ObjectMeta struct {
 // authorized.
 func (s *Session) GetObject(ctx context.Context, bucket string, path storj.Path) (
 	ranger.Ranger, ObjectMeta, error) {
-	panic("TODO")
+
+	return nil, ObjectMeta{}, nil
 }
 
 // ObjectPutOpts controls options about uploading a new Object, if authorized.
@@ -212,6 +231,7 @@ func (s *Session) DeleteObject(ctx context.Context, bucket string,
 	panic("TODO")
 }
 
+// ListObjectsField numbers the fields of list objects
 type ListObjectsField int
 
 const (
@@ -224,9 +244,10 @@ const (
 	ListObjectsMetaAll         ListObjectsField = 1 << iota
 )
 
+// ListObjectsConfig holds params for listing objects with the Gateway
 type ListObjectsConfig struct {
 	// this differs from storj.ListOptions by removing the Delimiter field
-	// (ours is hardcoded as '/'), and adding the Fields field to optionally
+	// (ours is hardcoded as "/"), and adding the Fields field to optionally
 	// support efficient listing that doesn't require looking outside of the
 	// path index in pointerdb.
 
@@ -244,6 +265,10 @@ type ListObjectsFields interface{}
 // ListObjects lists objects a user is authorized to see.
 func (s *Session) ListObjects(ctx context.Context, bucket string,
 	cfg ListObjectsConfig) (items []ObjectMeta, more bool, err error) {
+
+	// TODO: wire up ListObjectsV2
+
+	// s.Gateway.ListObjectsV2(bucket, cfg.Prefix, "/", cfg.Limit)
 	panic("TODO")
 }
 
