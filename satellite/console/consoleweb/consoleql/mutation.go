@@ -23,8 +23,6 @@ const (
 	CreateUserMutation = "createUser"
 	// UpdateAccountMutation is a mutation name for account updating
 	UpdateAccountMutation = "updateAccount"
-	// ActivateAccountMutation is a mutation name for account activation
-	ActivateAccountMutation = "activateAccount"
 	// DeleteAccountMutation is a mutation name for account deletion
 	DeleteAccountMutation = "deleteAccount"
 	// ChangePasswordMutation is a mutation name for password changing
@@ -121,24 +119,6 @@ func rootMutation(service *console.Service, mailService *mailservice.Service, ty
 					}
 
 					return auth.User, nil
-				},
-			},
-			ActivateAccountMutation: &graphql.Field{
-				Type: graphql.String,
-				Args: graphql.FieldConfigArgument{
-					InputArg: &graphql.ArgumentConfig{
-						Type: graphql.String,
-					},
-				},
-				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					activationToken, _ := p.Args[InputArg].(string)
-
-					token, err := service.ActivateAccount(p.Context, activationToken)
-					if err != nil {
-						return nil, err
-					}
-
-					return token, nil
 				},
 			},
 			ChangePasswordMutation: &graphql.Field{

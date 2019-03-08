@@ -24,6 +24,7 @@ import (
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/uplink/metainfo"
 )
 
 // RSConfig is a configuration struct that keeps details about default
@@ -94,6 +95,11 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, errlist.Err()
 	}
 
+	metainfo, err := metainfo.NewClient(ctx, tc, c.Client.PointerDBAddr, c.Client.APIKey)
+	if err != nil {
+		return nil, nil, Error.New("failed to connect to metainfo service: %v", err)
+	}
+
 	oc, err := overlay.NewClient(tc, c.Client.OverlayAddr)
 	if err != nil {
 		return nil, nil, Error.New("failed to connect to overlay: %v", err)
@@ -114,7 +120,7 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, Error.New("failed to create redundancy strategy: %v", err)
 	}
 
-	segments := segments.NewSegmentStore(oc, ec, pdb, rs, c.Client.MaxInlineSize.Int())
+	segments := segments.NewSegmentStore(metainfo, oc, ec, pdb, rs, c.Client.MaxInlineSize.Int())
 
 	if c.RS.ErasureShareSize.Int()*c.RS.MinThreshold%c.Enc.BlockSize.Int() != 0 {
 		err = Error.New("EncryptionBlockSize must be a multiple of ErasureShareSize * RS MinThreshold")
