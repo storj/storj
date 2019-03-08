@@ -131,24 +131,20 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 		p := &peer.Peer{}
 		pCall := grpc.Peer(p)
 		_, err := k.dialer.PingAddress(ctx, node.Address.Address, pCall)
-		if err != nil {
-			errs.Add(err)
-		}
-
-		ident, err := identity.PeerIdentityFromPeer(p)
-		if err != nil {
-			errs.Add(err)
-		}
-
-		k.routingTable.mutex.Lock()
-		node.Id = ident.ID
-		k.bootstrapNodes[i] = node
-		k.routingTable.mutex.Unlock()
 		if err == nil {
-			// We have pinged successfully one bootstrap node.
-			// Clear any errors and break the cycle.
-			errs = nil
-			break
+			ident, err := identity.PeerIdentityFromPeer(p)
+			if err == nil {
+				k.routingTable.mutex.Lock()
+				node.Id = ident.ID
+				k.bootstrapNodes[i] = node
+				k.routingTable.mutex.Unlock()
+
+				// We have pinged successfully one bootstrap node.
+				// Clear any errors and break the cycle.
+				errs = nil
+				break
+			}
+			errs.Add(err)
 		}
 		errs.Add(err)
 	}
