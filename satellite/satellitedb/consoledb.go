@@ -8,6 +8,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/satellite/console"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -38,6 +39,11 @@ func (db *ConsoleDB) ProjectMembers() console.ProjectMembers {
 // APIKeys is a getter for APIKeys repository
 func (db *ConsoleDB) APIKeys() console.APIKeys {
 	return &apikeys{db.methods}
+}
+
+// BucketUsage is a getter for accounting.BucketUsage repository
+func (db *ConsoleDB) BucketUsage() accounting.BucketUsage {
+	return &bucketusage{db.methods}
 }
 
 // BeginTx is a method for opening transaction

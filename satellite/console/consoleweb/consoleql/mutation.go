@@ -4,8 +4,11 @@
 package consoleql
 
 import (
+	"fmt"
+
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/post"
 	"storj.io/storj/satellite/console"
@@ -20,8 +23,6 @@ const (
 	CreateUserMutation = "createUser"
 	// UpdateAccountMutation is a mutation name for account updating
 	UpdateAccountMutation = "updateAccount"
-	// ActivateAccountMutation is a mutation name for account activation
-	ActivateAccountMutation = "activateAccount"
 	// DeleteAccountMutation is a mutation name for account deletion
 	DeleteAccountMutation = "deleteAccount"
 	// ChangePasswordMutation is a mutation name for password changing
@@ -118,24 +119,6 @@ func rootMutation(service *console.Service, mailService *mailservice.Service, ty
 					}
 
 					return auth.User, nil
-				},
-			},
-			ActivateAccountMutation: &graphql.Field{
-				Type: graphql.String,
-				Args: graphql.FieldConfigArgument{
-					InputArg: &graphql.ArgumentConfig{
-						Type: graphql.String,
-					},
-				},
-				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					activationToken, _ := p.Args[InputArg].(string)
-
-					token, err := service.ActivateAccount(p.Context, activationToken)
-					if err != nil {
-						return nil, err
-					}
-
-					return token, nil
 				},
 			},
 			ChangePasswordMutation: &graphql.Field{
@@ -277,12 +260,32 @@ func rootMutation(service *console.Service, mailService *mailservice.Service, ty
 						userEmails = append(userEmails, email.(string))
 					}
 
-					err = service.AddProjectMembers(p.Context, *projectID, userEmails)
+					project, err := service.GetProject(p.Context, *projectID)
 					if err != nil {
 						return nil, err
 					}
 
-					return service.GetProject(p.Context, *projectID)
+					users, err := service.AddProjectMembers(p.Context, *projectID, userEmails)
+					if err != nil {
+						return nil, err
+					}
+
+					var emailErr errs.Group
+					for _, user := range users {
+						err = mailService.SendRendered(
+							p.Context,
+							[]post.Address{{Address: user.Email, Name: fmt.Sprintf("%s %s", user.FirstName, user.LastName)}},
+							&ProjectInvitationEmail{
+								UserName:    user.FirstName,
+								ProjectName: user.LastName,
+							},
+						)
+						if err != nil {
+							emailErr.Add(err)
+						}
+					}
+
+					return project, emailErr.Err()
 				},
 			},
 			// delete user membership for given project
