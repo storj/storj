@@ -118,7 +118,7 @@ func (endpoint *Endpoint) SegmentInfo(ctx context.Context, req *pb.SegmentInfoRe
 }
 
 // CreateSegment will generate requested number of OrderLimit with coresponding node addresses for them
-func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWriteRequest) (resp *pb.OrderLimitResponse, err error) {
+func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWriteRequest) (resp *pb.SegmentWriteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	keyInfo, err := endpoint.validateAuth(ctx)
@@ -164,7 +164,7 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 		}
 	}
 
-	return &pb.OrderLimitResponse{AddressedLimits: limits}, nil
+	return &pb.SegmentWriteResponse{AddressedLimits: limits}, nil
 }
 
 // CommitSegment commits segment metadata
@@ -248,7 +248,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 }
 
 // DeleteSegment deletes segment metadata from satellite and returns OrderLimit array to remove them from storage node
-func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDeleteRequest) (resp *pb.OrderLimitResponse, err error) {
+func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDeleteRequest) (resp *pb.SegmentDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	keyInfo, err := endpoint.validateAuth(ctx)
@@ -285,10 +285,10 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
-		return &pb.OrderLimitResponse{AddressedLimits: limits}, nil
+		return &pb.SegmentDeleteResponse{AddressedLimits: limits}, nil
 	}
 
-	return &pb.OrderLimitResponse{}, nil
+	return &pb.SegmentDeleteResponse{}, nil
 }
 
 func (endpoint *Endpoint) createOrderLimitsForSegment(ctx context.Context, remote *pb.RemoteSegment, action pb.Action) ([]*pb.AddressedOrderLimit, error) {

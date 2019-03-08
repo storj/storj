@@ -13,11 +13,11 @@ import "pointerdb.proto";
 
 // Metainfo it's a satellite RPC service
 service Metainfo {
-    rpc CreateSegment(SegmentWriteRequest) returns (OrderLimitResponse);
+    rpc CreateSegment(SegmentWriteRequest) returns (SegmentWriteResponse);
     rpc CommitSegment(SegmentCommitRequest) returns (SegmentCommitResponse);
     rpc SegmentInfo(SegmentInfoRequest) returns (SegmentInfoResponse);
     rpc DownloadSegment(SegmentDownloadRequest) returns (SegmentDownloadResponse);
-    rpc DeleteSegment(SegmentDeleteRequest) returns (OrderLimitResponse);
+    rpc DeleteSegment(SegmentDeleteRequest) returns (SegmentDeleteResponse);
     rpc ListSegments(ListSegmentsRequest) returns (ListSegmentsResponse);
 }
 
@@ -88,6 +88,11 @@ message SegmentWriteRequest {
     google.protobuf.Timestamp expiration = 6;
 }
 
+message SegmentWriteResponse {
+    repeated AddressedOrderLimit addressed_limits = 1;
+    bytes root_piece_id = 2;
+}
+
 message SegmentCommitRequest {
     bytes bucket = 1;
     bytes path = 2;
@@ -127,7 +132,7 @@ message SegmentDeleteRequest {
     int64 segment = 3;
 }
 
-message OrderLimitResponse {
+message SegmentDeleteResponse {
     repeated AddressedOrderLimit addressed_limits = 1;
 }
 
