@@ -112,14 +112,17 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 	processes := NewProcesses()
 	var (
-		configDir        = flags.Directory
-		host             = flags.Host
-		gatewayPort      = 9000
-		bootstrapPort    = 9999
-		satellitePort    = 10000
-		storageNodePort  = 11000
-		consolePort      = 10100
-		bootstrapWebPort = 10010
+		configDir              = flags.Directory
+		host                   = flags.Host
+		gatewayPort            = 9000
+		bootstrapPort          = 9999
+		bootstrapPrivatePort   = 9988
+		satellitePort          = 10000
+		satellitePrivatePort   = 11000
+		storageNodePort        = 12000
+		storageNodePrivatePort = 13000
+		consolePort            = 10100
+		bootstrapWebPort       = 10010
 	)
 
 	bootstrap := processes.New(Info{
@@ -136,6 +139,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			"--web.address", net.JoinHostPort(host, strconv.Itoa(bootstrapWebPort)),
 
 			"--server.address", bootstrap.Address,
+			"--server.private-address", net.JoinHostPort(host, strconv.Itoa(bootstrapPrivatePort)),
 
 			"--kademlia.bootstrap-addr", bootstrap.Address,
 			"--kademlia.operator.email", "bootstrap@example.com",
@@ -177,6 +181,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--console.address", net.JoinHostPort(host, strconv.Itoa(consolePort+i)),
 				"--console.static-dir", filepath.Join(storjRoot, "web/satellite/"),
 				"--server.address", process.Address,
+				"--server.private-address", net.JoinHostPort(host, strconv.Itoa(satellitePrivatePort+i)),
 
 				"--kademlia.bootstrap-addr", bootstrap.Address,
 				"--repairer.overlay-addr", process.Address,
@@ -257,12 +262,14 @@ func newNetwork(flags *Flags) (*Processes, error) {
 					return satelliteConfigErr
 				}
 
-				consoleAPIAddress := "http://" + consoleAddress + "/api/graphql/v0"
+				host := "http://" + consoleAddress
+				consoleActivationAddress := host + "/activation/?token="
+				consoleAPIAddress := host + "/api/graphql/v0"
 
 				// wait for console server to start
 				time.Sleep(3 * time.Second)
 
-				if err := addExampleProjectWithKey(&apiKey, consoleAPIAddress); err != nil {
+				if err := addExampleProjectWithKey(&apiKey, consoleActivationAddress, consoleAPIAddress); err != nil {
 					return err
 				}
 
@@ -304,6 +311,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			"setup": {
 				"--identity-dir", process.Directory,
 				"--server.address", process.Address,
+				"--server.private-address", net.JoinHostPort(host, strconv.Itoa(storageNodePrivatePort+i)),
 
 				"--kademlia.bootstrap-addr", bootstrap.Address,
 				"--kademlia.operator.email", fmt.Sprintf("storage%d@example.com", i),

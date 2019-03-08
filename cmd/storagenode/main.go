@@ -31,11 +31,6 @@ type StorageNodeFlags struct {
 	storagenode.Config
 }
 
-// Inspector holds the kad client for node inspection
-type Inspector struct {
-	kad pb.KadInspectorClient
-}
-
 var (
 	rootCmd = &cobra.Command{
 		Use:   "storagenode",
@@ -67,17 +62,16 @@ var (
 	dashboardCmd = &cobra.Command{
 		Use:         "dashboard",
 		Short:       "Display a dashbaord",
-		RunE:        dashCmd,
+		RunE:        cmdDashboard,
 		Annotations: map[string]string{"type": "helper"},
 	}
-	runCfg   StorageNodeFlags
-	setupCfg StorageNodeFlags
 
+	runCfg       StorageNodeFlags
+	setupCfg     StorageNodeFlags
 	diagCfg      storagenode.Config
 	dashboardCfg struct {
-		Address         string `default:":28967" help:"address for dashboard service"`
-		ExternalAddress string `default:":28967" help:"address that your node is listening on if using a tunneling service"`
-		BootstrapAddr   string `default:"bootstrap.storj.io:8888" help:"address of server the storage node was bootstrapped against"`
+		Address       string `default:"127.0.0.1:7778" help:"address for dashboard service"`
+		BootstrapAddr string `default:"bootstrap.storj.io:8888" help:"address of server the storage node was bootstrapped against"`
 	}
 
 	defaultConfDir = fpath.ApplicationDir("storj", "storagenode")
@@ -90,7 +84,8 @@ var (
 )
 
 const (
-	defaultServerAddr = ":28967"
+	defaultServerAddr        = ":28967"
+	defaultPrivateServerAddr = "127.0.0.1:7778"
 )
 
 func init() {
@@ -202,6 +197,11 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	serverAddress := cmd.Flag("server.address")
 	if !serverAddress.Changed {
 		overrides[serverAddress.Name] = defaultServerAddr
+	}
+
+	serverPrivateAddress := cmd.Flag("server.private-address")
+	if !serverPrivateAddress.Changed {
+		overrides[serverPrivateAddress.Name] = defaultPrivateServerAddr
 	}
 
 	configFile := filepath.Join(setupDir, "config.yaml")

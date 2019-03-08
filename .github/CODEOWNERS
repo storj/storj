@@ -1,0 +1,22 @@
+# piecestore
+/pkg/piecestore/ @aleitner
+
+# audits
+/pkg/audit/ @navillasa
+
+# node identity
+/pkg/certificates/ @bryanchriswhite
+/pkg/identity/ @bryanchriswhite
+/pkg/peertls/ @bryanchriswhite
+/pkg/transport/ @bryanchriswhite
+
+# repair
+/pkg/datarepair/ @jenlij
+
+# kademlia
+/pkg/dht/ @jenlij
+/pkg/kademlia/ @jenlij
+
+# bwagreement
+/pkg/bwagreement/ @wthorp
+
