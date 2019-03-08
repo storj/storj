@@ -302,13 +302,18 @@ func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) 
 func (s *segmentStore) List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pdbItems, more, err := s.pdb.List(ctx, prefix, startAfter, endBefore, recursive, limit, metaFlags)
+	bucket, strippedPrefix, _, err := split(prefix)
 	if err != nil {
-		return nil, false, err
+		return nil, false, Error.Wrap(err)
 	}
 
-	items = make([]ListItem, len(pdbItems))
-	for i, itm := range pdbItems {
+	list, more, err := s.metainfo.ListSegments(ctx, bucket, strippedPrefix, startAfter, endBefore, recursive, int32(limit), metaFlags)
+	if err != nil {
+		return nil, false, Error.Wrap(err)
+	}
+
+	items = make([]ListItem, len(list))
+	for i, itm := range list {
 		items[i] = ListItem{
 			Path:     itm.Path,
 			Meta:     convertMeta(itm.Pointer),
@@ -417,15 +422,18 @@ func convertTime(ts *timestamp.Timestamp) time.Time {
 
 func split(path storj.Path) (bucket string, objectPath storj.Path, segmentIndex int64, err error) {
 	components := storj.SplitPath(path)
-	if len(components) < 2 {
-		return "", "", -2, Error.New("path too short: %d < 2", len(components))
+	if len(components) < 1 {
+		return "", "", -2, Error.New("empty path", len(components))
 	}
 
-	bucket = components[1]
-	objectPath = storj.JoinPaths(components[2:]...)
 	segmentIndex, err = convertSegmentIndex(components[0])
 	if err != nil {
 		return "", "", -2, err
+	}
+
+	if len(components) > 1 {
+		bucket = components[1]
+		objectPath = storj.JoinPaths(components[2:]...)
 	}
 
 	return bucket, objectPath, segmentIndex, nil
