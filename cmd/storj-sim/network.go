@@ -262,12 +262,14 @@ func newNetwork(flags *Flags) (*Processes, error) {
 					return satelliteConfigErr
 				}
 
-				consoleAPIAddress := "http://" + consoleAddress + "/api/graphql/v0"
+				host := "http://" + consoleAddress
+				consoleActivationAddress := host + "/activation/?token="
+				consoleAPIAddress := host + "/api/graphql/v0"
 
 				// wait for console server to start
 				time.Sleep(3 * time.Second)
 
-				if err := addExampleProjectWithKey(&apiKey, consoleAPIAddress); err != nil {
+				if err := addExampleProjectWithKey(&apiKey, consoleActivationAddress, consoleAPIAddress); err != nil {
 					return err
 				}
 

@@ -342,53 +342,70 @@ func TestStore(t *testing.T) {
 }
 
 func TestPbaValidation(t *testing.T) {
-	t.Skip("broken")
-
 	ctx := testcontext.New(t)
-	snID, upID := newTestIdentity(ctx, t), newTestIdentity(ctx, t)
+	upID1, upID2 := newTestIdentity(ctx, t), newTestIdentity(ctx, t)
 	satID1, satID2, satID3 := newTestIdentity(ctx, t), newTestIdentity(ctx, t), newTestIdentity(ctx, t)
 	defer ctx.Cleanup()
 
 	tests := []struct {
-		satelliteID storj.NodeID
-		uplinkID    storj.NodeID
+		satelliteID *identity.FullIdentity
+		uplinkID    *identity.FullIdentity
 		whitelist   []storj.NodeID
 		action      pb.BandwidthAction
+		expire      time.Duration
 		err         string
 	}{
 		{ // unapproved satellite id
-			satelliteID: satID1.ID,
-			uplinkID:    upID.ID,
-			whitelist:   []storj.NodeID{satID1.ID, satID2.ID, satID3.ID},
+			satelliteID: satID3,
+			uplinkID:    upID1,
+			whitelist:   []storj.NodeID{satID1.ID, satID2.ID},
 			action:      pb.BandwidthAction_PUT,
-			err:         "rpc error: code = Unknown desc = store error: Satellite ID not approved",
+			expire:      time.Hour,
+			err:         "rpc error: code = Unknown desc = Payer agreement: not signed by any CA in the whitelist",
 		},
-		{ // missing satellite id
-			satelliteID: storj.NodeID{},
-			uplinkID:    upID.ID,
-			whitelist:   []storj.NodeID{satID1.ID, satID2.ID, satID3.ID},
+		{ // approved satellite id
+			satelliteID: satID2,
+			uplinkID:    upID2,
+			whitelist:   []storj.NodeID{satID1.ID, satID2.ID},
 			action:      pb.BandwidthAction_PUT,
-			err:         "rpc error: code = Unknown desc = store error: payer bandwidth allocation: missing satellite id",
-		},
-		{ // missing uplink id
-			satelliteID: satID1.ID,
-			uplinkID:    storj.NodeID{},
-			whitelist:   []storj.NodeID{satID1.ID, satID2.ID, satID3.ID},
-			action:      pb.BandwidthAction_PUT,
-			err:         "rpc error: code = Unknown desc = store error: payer bandwidth allocation: missing uplink id",
+			expire:      time.Hour,
 		},
 		{ // wrong action type
-			satelliteID: satID1.ID,
-			uplinkID:    upID.ID,
-			whitelist:   []storj.NodeID{satID1.ID, satID2.ID, satID3.ID},
+			satelliteID: satID1,
+			uplinkID:    upID1,
+			whitelist:   []storj.NodeID{satID1.ID, satID2.ID},
 			action:      pb.BandwidthAction_GET,
+			expire:      time.Hour,
 			err:         "rpc error: code = Unknown desc = store error: payer bandwidth allocation: invalid action GET",
+		},
+		{ // expires now
+			satelliteID: satID1,
+			uplinkID:    upID1,
+			whitelist:   []storj.NodeID{satID1.ID, satID2.ID},
+			action:      pb.BandwidthAction_GET,
+			expire:      0 * time.Second,
+			err:         "rpc error: code = Unknown desc = Payer agreement: Agreement is expired:",
+		},
+		{ // expired yesterday
+			satelliteID: satID1,
+			uplinkID:    upID1,
+			whitelist:   []storj.NodeID{satID1.ID, satID2.ID},
+			action:      pb.BandwidthAction_GET,
+			expire:      -23*time.Hour - 55*time.Second,
+			err:         "rpc error: code = Unknown desc = Payer agreement: Agreement is expired:",
+		},
+		{ // expires in 30 seconds
+			satelliteID: satID1,
+			uplinkID:    upID1,
+			whitelist:   []storj.NodeID{satID1.ID, satID2.ID},
+			action:      pb.BandwidthAction_GET,
+			expire:      30 * time.Second,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run("", func(t *testing.T) {
-			server, client, cleanup := NewTest(ctx, t, snID, upID, tt.whitelist)
+			server, client, cleanup := NewTest(ctx, t, tt.satelliteID, tt.uplinkID, tt.whitelist)
 			defer cleanup()
 
 			stream, err := client.Store(ctx)
@@ -396,9 +413,9 @@ func TestPbaValidation(t *testing.T) {
 
 			// Create Bandwidth Allocation Data
 			content := []byte("content")
-			pba, err := testbwagreement.GenerateOrderLimit(tt.action, satID1, upID, time.Hour)
+			pba, err := testbwagreement.GenerateOrderLimit(tt.action, tt.satelliteID, tt.uplinkID, tt.expire)
 			require.NoError(t, err)
-			rba, err := testbwagreement.GenerateOrder(pba, snID.ID, upID, int64(len(content)))
+			rba, err := testbwagreement.GenerateOrder(pba, tt.satelliteID.ID, tt.uplinkID, int64(len(content)))
 			require.NoError(t, err)
 			msg := &pb.PieceStore{
 				PieceData:           &pb.PieceStore_PieceData{Content: content},
@@ -423,7 +440,7 @@ func TestPbaValidation(t *testing.T) {
 			_, err = stream.CloseAndRecv()
 			if tt.err != "" {
 				require.NotNil(t, err)
-				require.Equal(t, tt.err, err.Error())
+				require.Contains(t, err.Error(), tt.err)
 				return
 			}
 		})
