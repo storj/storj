@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -99,8 +100,12 @@ func (endpoint *Endpoint) SegmentInfo(ctx context.Context, req *pb.SegmentInfoRe
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
+	path, err := endpoint.createPath(keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
 	// TODO refactor to use []byte directly
-	path := storj.JoinPaths(keyInfo.ProjectID.String(), strconv.FormatInt(req.Segment, 10), string(req.Bucket), string(req.Path))
 	pointer, err := endpoint.pointerdb.Get(path)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
@@ -186,7 +191,11 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	path := storj.JoinPaths(keyInfo.ProjectID.String(), strconv.FormatInt(req.Segment, 10), string(req.Bucket), string(req.Path))
+	path, err := endpoint.createPath(keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
 	err = endpoint.pointerdb.Put(path, req.Pointer)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
@@ -210,8 +219,12 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
+	path, err := endpoint.createPath(keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
 	// TODO refactor to use []byte directly
-	path := storj.JoinPaths(keyInfo.ProjectID.String(), strconv.FormatInt(req.Segment, 10), string(req.Bucket), string(req.Path))
 	pointer, err := endpoint.pointerdb.Get(path)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
@@ -248,8 +261,12 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
+	path, err := endpoint.createPath(keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
 	// TODO refactor to use []byte directly
-	path := storj.JoinPaths(keyInfo.ProjectID.String(), strconv.FormatInt(req.Segment, 10), string(req.Bucket), string(req.Path))
 	pointer, err := endpoint.pointerdb.Get(path)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
@@ -357,6 +374,17 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.ListSegments
 	}
 
 	return &pb.ListSegmentsResponse{Items: segmentItems, More: more}, nil
+}
+
+func (endpoint *Endpoint) createPath(projectID uuid.UUID, segmentIndex int64, bucket, path []byte) (string, error) {
+	if segmentIndex < -1 {
+		return "", Error.New("invalid segment index")
+	}
+	segment := "l"
+	if segmentIndex > -1 {
+		segment = "s" + strconv.FormatInt(segmentIndex, 10)
+	}
+	return storj.JoinPaths(projectID.String(), segment, string(bucket), string(path)), nil
 }
 
 func (endpoint *Endpoint) filterValidPieces(pointer *pb.Pointer) error {
