@@ -5,6 +5,7 @@ package piecestore
 
 import (
 	"context"
+	"io"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -43,4 +44,21 @@ func (client *Client) Delete(ctx context.Context, limit *pb.OrderLimit2) error {
 
 func (client *Client) Close() error {
 	panic("TODO")
+}
+
+func combineSendCloseError(sendError, closeError error) error {
+	if sendError != nil && closeError != nil {
+		if sendError == io.EOF {
+			sendError = nil
+		}
+	}
+	return errs.Combine(closeError, sendError)
+}
+
+func (client *Client) nextAllocationStep(previous int64) int64 {
+	next := previous * 3 / 2
+	if next > client.config.MaximumStep {
+		next = client.config.MaximumStep
+	}
+	return next
 }

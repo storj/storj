@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"hash"
-	"io"
 
 	"github.com/zeebo/errs"
 
@@ -113,10 +112,7 @@ func (client *Upload) Write(data []byte) (written int, _ error) {
 		written += len(sendData)
 
 		// update allocation step, incrementally building trust
-		client.allocationStep *= 3 / 2
-		if client.allocationStep > client.client.config.MaximumStep {
-			client.allocationStep = client.client.config.MaximumStep
-		}
+		client.allocationStep = client.client.nextAllocationStep(client.allocationStep)
 	}
 
 	return written, nil
@@ -149,30 +145,4 @@ func (client *Upload) Close() (*pb.PieceHash, error) {
 
 	// combine all the errors from before
 	return response.Done, errs.Combine(combineSendCloseError(err, closeErr), verifyErr)
-}
-
-type Download struct {
-	Client pb.PiecestoreClient
-}
-
-func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit2, offset, size int64) (*Download, error) {
-	panic("TODO")
-}
-
-func (client *Download) Read(data []byte) error {
-	panic("TODO")
-	// these correspond to piecestore.Endpoint methods
-}
-
-func (client *Download) Close() error {
-	panic("TODO")
-}
-
-func combineSendCloseError(sendError, closeError error) error {
-	if sendError != nil && closeError != nil {
-		if sendError == io.EOF {
-			sendError = nil
-		}
-	}
-	return errs.Combine(closeError, sendError)
 }
