@@ -33,16 +33,16 @@ var (
 	IdentityPath = flag.String("identity-path", "", "path to the identity certificate for use on the network")
 
 	// ErrInspectorDial throws when there are errors dialing the inspector server
-	ErrInspectorDial = errs.Class("error dialing inspector server:")
+	ErrInspectorDial = errs.Class("error dialing inspector server")
 
 	// ErrRequest is for gRPC request errors after dialing
-	ErrRequest = errs.Class("error processing request:")
+	ErrRequest = errs.Class("error processing request")
 
 	// ErrIdentity is for errors during identity creation for this CLI
-	ErrIdentity = errs.Class("error creating identity:")
+	ErrIdentity = errs.Class("error creating identity")
 
 	// ErrArgs throws when there are errors with CLI args
-	ErrArgs = errs.Class("error with CLI args:")
+	ErrArgs = errs.Class("error with CLI args")
 
 	// Commander CLI
 	rootCmd = &cobra.Command{
