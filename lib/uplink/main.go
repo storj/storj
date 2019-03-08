@@ -5,28 +5,28 @@ package uplink
 
 import (
 	"context"
-	"crypto"
-	"crypto/x509"
 	"errors"
+	"fmt"
 	"io"
 	"time"
 
 	minio "github.com/minio/minio/cmd"
 	"storj.io/storj/pkg/transport"
 
-	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/miniogw"
+	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storj"
 )
 
 // An Identity is a parsed leaf cert keypair with a certificate signed chain
 // up to the self-signed CA with the node ID.
-type Identity interface {
-	NodeID() storj.NodeID
-	Key() crypto.PrivateKey
-	Certs() []x509.Certificate
-}
+// type Identity interface {
+// 	NodeID() storj.NodeID
+// 	Key() crypto.PrivateKey
+// 	Certs() []x509.Certificate
+// }
 
 // Caveat could be a read-only restriction, a time-bound
 // restriction, a bucket-specific restriction, a path-prefix restriction, a
@@ -51,22 +51,25 @@ type Config struct {
 	EncBlockSize  int
 	MaxInlineSize int
 	SegmentSize   int64
+	TLSConfig     tlsopts.Config
 }
 
 // Uplink represents the main entrypoint to Storj V3. An Uplink connects to
 // a specific Satellite and caches connections and resources, allowing one to
 // create sessions delineated by specific access controls.
 type Uplink struct {
-	ID      *identity.FullIdentity
-	Session *Session
+	ID            *identity.FullIdentity
+	Session       *Session
 	SatelliteAddr string
+	Config        Config
 }
 
 // NewUplink creates a new Uplink
 func NewUplink(ident *identity.FullIdentity, satelliteAddr string, cfg Config) *Uplink {
 	return &Uplink{
-		ID: id,
+		ID:            id,
 		SatelliteAddr: satelliteAddr,
+		Config:        cfg,
 	}
 }
 
@@ -119,16 +122,14 @@ type Session struct {
 
 // NewSession creates a Session with an Access struct.
 func (u *Uplink) NewSession(access Access) error {
-	fi := &provider.FullIdentity{}
+	opts := tlsopts.NewOptions(u.Config.TLSConfig)
+	tc := transport.NewClient(opts)
 
-	tc := transport.NewClient(fi)
-
-	// gateway := miniogw.NewGateway(ctx, fullIdentity)
-	// layer := miniogw.NewGatewayLayer()
+	// gateway := miniogw.
 
 	u.Session = &Session{
-		TransportClient: &tc,
-		Gateway:         nil,
+		TransportClient: tc,
+		Gateway:         gateway,
 	}
 
 	return nil
@@ -138,12 +139,14 @@ func (u *Uplink) NewSession(access Access) error {
 func (s *Session) GetBucket(ctx context.Context, bucket string) (storj.Bucket,
 	error) {
 
-	// TODO: Wire up GetBucketInfo
-	// info, err := s.Gateway.GetObject(ctx, bucket)
-	// if err != nil {
-	// 	return storj.Bucket{}, err
-	// }
+	info, err := s.Gateway.GetBucketInfo(ctx, bucket)
+	if err != nil {
+		return storj.Bucket{}, err
+	}
 
+	fmt.Printf("bucket info: %+v\n", info)
+
+	// TODO: Wire up info to bucket
 	return storj.Bucket{}, nil
 }
 
