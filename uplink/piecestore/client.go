@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/pb"
 )
@@ -22,15 +23,27 @@ type Config struct {
 	MaximumStep int64
 }
 
-// Client can be used to implement psclient.Client
+var DefaultConfig = Config{
+	InitialStep: 256 * memory.KiB.Int64(),
+	MaximumStep: 5 * memory.MiB.Int64(),
+}
 
 type Client struct {
-	log *zap.Logger
-	// TODO: hide
+	log    *zap.Logger
 	signer signing.Signer
 	conn   *grpc.ClientConn
 	client pb.PiecestoreClient
 	config Config
+}
+
+func NewClient(log *zap.Logger, signer signing.Signer, conn *grpc.ClientConn, config Config) *Client {
+	return &Client{
+		log:    log,
+		signer: signer,
+		conn:   conn,
+		client: pb.NewPiecestoreClient(conn),
+		config: config,
+	}
 }
 
 func (client *Client) Delete(ctx context.Context, limit *pb.OrderLimit2) error {

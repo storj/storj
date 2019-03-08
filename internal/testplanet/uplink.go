@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
@@ -28,6 +29,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/uplink"
+	"storj.io/storj/uplink/piecestore"
 )
 
 // Uplink is a general purpose
@@ -128,6 +130,20 @@ func (uplink *Uplink) Shutdown() error { return nil }
 func (uplink *Uplink) DialPointerDB(destination Peer, apikey string) (pdbclient.Client, error) {
 	// TODO: handle disconnect
 	return pdbclient.NewClient(uplink.Transport, destination.Addr(), apikey)
+}
+
+// DialPiecestore dials destination storagenode and returns a piecestore client.
+func (uplink *Uplink) DialPiecestore(ctx context.Context, destination Peer) (*piecestore.Client, error) {
+	node := destination.Local()
+
+	conn, err := uplink.Transport.DialNode(ctx, &node)
+	if err != nil {
+		return nil, err
+	}
+
+	signer := signing.SignerFromFullIdentity(uplink.Transport.Identity())
+
+	return piecestore.NewClient(uplink.Log.Named("uplink>piecestore"), signer, conn, piecestore.DefaultConfig), nil
 }
 
 // DialOverlay dials destination and returns an overlay.Client

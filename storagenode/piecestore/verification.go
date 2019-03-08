@@ -6,9 +6,11 @@ package piecestore
 import (
 	"bytes"
 	"context"
+	"time"
 
 	"storj.io/storj/pkg/auth/signing"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/zeebo/errs"
 
@@ -119,6 +121,17 @@ func (endpoint *Endpoint) VerifyOrderLimitSignature(ctx context.Context, limit *
 }
 
 func (endpoint *Endpoint) IsExpired(expiration *timestamp.Timestamp) bool {
-	panic("TODO")
-	// return expiration.Before(time.Now().Sub(endpoint.Config.ExpirationGracePeriod))
+	if expiration == nil {
+		return true
+	}
+
+	expirationTime, err := ptypes.Timestamp(expiration)
+	if err != nil {
+		// TODO: return error
+		return true
+	}
+
+	// TODO: return specific error about either exceeding the expiration completely or just the grace period
+
+	return expirationTime.After(time.Now().Add(-endpoint.config.ExpirationGracePeriod))
 }

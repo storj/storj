@@ -11,6 +11,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
@@ -22,6 +23,10 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storage"
+	"storj.io/storj/storagenode/orders"
+	"storj.io/storj/storagenode/pieces"
+	"storj.io/storj/storagenode/piecestore"
+	"storj.io/storj/storagenode/trust"
 )
 
 // DB is the master database for Storage Node
@@ -44,6 +49,8 @@ type Config struct {
 	Server   server.Config
 	Kademlia kademlia.Config
 	Storage  psserver.Config
+
+	Storage2 piecestore.Config
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
@@ -80,6 +87,16 @@ type Peer struct {
 
 	Agreements struct {
 		Sender *agreementsender.AgreementSender
+	}
+
+	Storage2 struct {
+		Trust *trust.Pool
+
+		Store     *pieces.Store
+		PieceMeta piecestore.PieceMeta
+		Orders    orders.Table
+
+		Endpoint *piecestore.Endpoint
 	}
 }
 
@@ -175,6 +192,31 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 			peer.DB.PSDB(), peer.Transport, peer.Kademlia.Service,
 			config.AgreementSenderCheckInterval,
 		)
+	}
+
+	{ // setup storage 2
+		peer.Storage2.Trust, err = trust.NewPool(peer.Kademlia.Service, config.Storage.SatelliteIDRestriction, config.Storage.WhitelistedSatelliteIDs)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		// Store     *pieces.Store
+		// PieceMeta piecestore.PieceMeta
+		// Orders    orders.Table
+
+		peer.Storage2.Endpoint, err = piecestore.NewEndpoint(
+			peer.Log.Named("piecestore"),
+			signing.SignerFromFullIdentity(peer.Identity),
+			peer.Storage2.Trust,
+			peer.Storage2.Store,
+			peer.Storage2.PieceMeta,
+			peer.Storage2.Orders,
+			config.Storage2,
+		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		pb.RegisterPiecestoreServer(peer.Server.GRPC(), peer.Storage2.Endpoint)
 	}
 
 	return peer, nil
