@@ -381,7 +381,17 @@ func (endpoint *Endpoint) createPath(projectID uuid.UUID, segmentIndex int64, bu
 	if segmentIndex > -1 {
 		segment = "s" + strconv.FormatInt(segmentIndex, 10)
 	}
-	return storj.JoinPaths(projectID.String(), segment, string(bucket), string(path)), nil
+
+	entries := make([]string, 0)
+	entries = append(entries, projectID.String())
+	entries = append(entries, segment)
+	if len(bucket) != 0 {
+		entries = append(entries, string(bucket))
+	}
+	if len(path) != 0 {
+		entries = append(entries, string(path))
+	}
+	return storj.JoinPaths(entries...), nil
 }
 
 func (endpoint *Endpoint) filterValidPieces(pointer *pb.Pointer) error {
