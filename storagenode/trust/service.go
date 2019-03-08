@@ -6,6 +6,7 @@ package trust
 import (
 	"context"
 
+	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/storj"
 )
@@ -25,12 +26,8 @@ func (pool *Pool) VerifyUplinkID(ctx context.Context, id storj.NodeID) error {
 	return nil
 }
 
-func (pool *Pool) VerifySignatureWithID(ctx context.Context, data, signature []byte, id storj.NodeID) error {
+func (pool *Pool) GetSignee(ctx context.Context, id storj.NodeID) (signing.Signee, error) {
 	// lookup peer identity with id
 	// then call VerifySignature(ctx, data, signature, peer)
-	panic("TODO")
-}
-
-func (pool *Pool) VerifySignature(ctx context.Context, data, signature []byte, peer *identity.PeerIdentity) error {
 	panic("TODO")
 }

@@ -5,44 +5,59 @@ package piecestore
 
 import (
 	"context"
+	"io"
 
+	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
 )
 
-type Signer interface {
-	ID() storj.NodeID
-	SignHash(hash []byte) ([]byte, error)
-}
+var Error = errs.Class("piecestore")
 
 type Config struct {
-	StartingAllocationStep int64
-	MaximumAllocationStep  int64
+	InitialStep int64
+	MaximumStep int64
 }
+
+// Client can be used to implement psclient.Client
 
 type Client struct {
+	log *zap.Logger
 	// TODO: hide
-	Signer Signer
-	Conn   *grpc.ClientConn
-	Client pb.PiecestoreClient
-	Config Config
-}
-
-// These can be used to implement psclient.Client
-func (client *Client) Upload(ctx context.Context, limit *pb.OrderLimit2) (*Upload, error) {
-	panic("TODO")
-}
-
-func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit2, offset, size int64) (*Download, error) {
-	panic("TODO")
+	signer signing.Signer
+	conn   *grpc.ClientConn
+	client pb.PiecestoreClient
+	config Config
 }
 
 func (client *Client) Delete(ctx context.Context, limit *pb.OrderLimit2) error {
-	panic("TODO")
+	_, err := client.client.Delete(ctx, &pb.PieceDeleteRequest{
+		Limit: limit,
+	})
+	return Error.Wrap(err)
 }
 
 func (client *Client) Close() error {
-	panic("TODO")
+	return client.conn.Close()
+}
+
+func combineSendCloseError(sendError, closeError error) error {
+	if sendError != nil && closeError != nil {
+		if sendError == io.EOF {
+			sendError = nil
+		}
+	}
+	return errs.Combine(closeError, sendError)
+}
+
+func (client *Client) nextAllocationStep(previous int64) int64 {
+	// TODO: ensure that this is frame idependent
+	next := previous * 3 / 2
+	if next > client.config.MaximumStep {
+		next = client.config.MaximumStep
+	}
+	return next
 }

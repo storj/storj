@@ -15,6 +15,7 @@ import (
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
+	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -30,11 +31,6 @@ var (
 	ErrProtocol = errs.Class("piecestore protocol error")
 	ErrInternal = errs.Class("piecestore internal error")
 )
-
-type Signer interface {
-	ID() storj.NodeID
-	HashAndSign(data []byte) ([]byte, error)
-}
 
 // TODO: avoid protobuf definitions in interfaces
 
@@ -57,7 +53,7 @@ type Endpoint struct {
 
 	config Config
 
-	signer        Signer
+	signer        signing.Signer
 	trust         *trust.Pool
 	activeSerials *SerialNumbers
 
@@ -188,7 +184,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 				}
 			}
 
-			storageNodeHash, err := endpoint.SignPieceHash(&pb.PieceHash{
+			storageNodeHash, err := signing.SignPieceHash(endpoint.signer, &pb.PieceHash{
 				PieceId: limit.PieceId,
 				Hash:    expectedHash,
 			})
@@ -257,6 +253,8 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 	}
 
 	throttle := sync2.NewThrottle()
+
+	// TODO: see whether this can be implemented without a goroutine
 
 	group, ctx := errgroup.WithContext(ctx)
 	group.Go(func() (err error) {
