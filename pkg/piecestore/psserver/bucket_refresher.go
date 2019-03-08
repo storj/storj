@@ -21,19 +21,21 @@ var (
 
 // Monitor contains the information needed to run the bucket refresher service
 type Monitor struct { // TODO: rename to something clearer
-	log    *zap.Logger
-	ticker *time.Ticker
-	rt     *kademlia.RoutingTable
-	server *Server
+	log       *zap.Logger
+	ticker    *time.Ticker
+	rt        *kademlia.RoutingTable
+	server    *Server
+	inspector *Inspector
 }
 
 // NewMonitor creates a disk monitor
 func NewMonitor(log *zap.Logger, interval time.Duration, rt *kademlia.RoutingTable, server *Server) *Monitor {
 	return &Monitor{
-		log:    log,
-		ticker: time.NewTicker(interval),
-		rt:     rt,
-		server: server,
+		log:       log,
+		ticker:    time.NewTicker(interval),
+		rt:        rt,
+		server:    server,
+		inspector: NewInspector(server),
 	}
 }
 
@@ -55,7 +57,7 @@ func (service *Monitor) Run(ctx context.Context) error {
 
 // process will attempt to update the kademlia bucket with the latest information about the storage node
 func (service *Monitor) process(ctx context.Context) error {
-	stats, err := service.server.Stats(ctx, nil)
+	stats, err := service.inspector.Stats(ctx, nil)
 	if err != nil {
 		return Error.Wrap(err)
 	}

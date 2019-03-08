@@ -28,6 +28,8 @@ func TestNewPieceID(t *testing.T) {
 
 func TestDerivePieceID(t *testing.T) {
 	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	pid := NewPieceID()
 	fid, err := testidentity.NewTestIdentity(ctx)
 	assert.NoError(t, err)
