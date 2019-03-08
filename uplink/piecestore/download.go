@@ -68,11 +68,13 @@ func (client *Download) Read(data []byte) (read int, _ error) {
 	for client.toDownload > 0 {
 		// read from unread buffer
 
-		// if prefetch {
-		//     check whether we need to send new allocations
+		// check whether we need to send new allocations
 
 		// if we emptied the unread buffer && read > 0
 		//     return read, nil
+
+		// shouldn't try to read more data when we have error
+		// client.sendError != nil { return read, err }
 
 		// resp, err := client.stream.Recv()
 		// add chunk to unread buffer
