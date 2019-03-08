@@ -86,7 +86,7 @@ func TestGraphqlQuery(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, err = service.ActivateAccount(ctx, activationToken)
+			err = service.ActivateAccount(ctx, activationToken)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -217,7 +217,7 @@ func TestGraphqlQuery(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, err = service.ActivateAccount(ctx, activationToken1)
+			err = service.ActivateAccount(ctx, activationToken1)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -247,7 +247,7 @@ func TestGraphqlQuery(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, err = service.ActivateAccount(ctx, activationToken2)
+			err = service.ActivateAccount(ctx, activationToken2)
 			if err != nil {
 				t.Fatal(err)
 			}
