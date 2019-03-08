@@ -121,16 +121,9 @@ func (endpoint *Endpoint) SegmentInfo(ctx context.Context, req *pb.SegmentInfoRe
 func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWriteRequest) (resp *pb.SegmentWriteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx)
+	_, err = endpoint.validateAuth(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
-	}
-
-	// TODO refactor to use []byte directly
-	path := storj.JoinPaths(keyInfo.ProjectID.String(), strconv.FormatInt(req.Segment, 10), string(req.Bucket), string(req.Path))
-	_, err = endpoint.pointerdb.Get(path)
-	if err == nil {
-		return nil, status.Error(codes.AlreadyExists, "segment already exists")
 	}
 
 	// TODO most probably needs more params
@@ -150,10 +143,11 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	pieceID := storj.NewPieceID()
+	rootPieceID := storj.NewPieceID()
 	limits := make([]*pb.AddressedOrderLimit, len(nodes))
 	for i, node := range nodes {
-		orderLimit, err := endpoint.createOrderLimit(ctx, uplinkIdentity, node.Id, pieceID, req.Expiration, req.MaxSegmentSize, pb.Action_PUT)
+		derivedPieceID := rootPieceID.Derive(node.Id)
+		orderLimit, err := endpoint.createOrderLimit(ctx, uplinkIdentity, node.Id, derivedPieceID, req.Expiration, req.MaxSegmentSize, pb.Action_PUT)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
@@ -164,7 +158,7 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 		}
 	}
 
-	return &pb.SegmentWriteResponse{AddressedLimits: limits}, nil
+	return &pb.SegmentWriteResponse{AddressedLimits: limits, RootPieceId: rootPieceID}, nil
 }
 
 // CommitSegment commits segment metadata
