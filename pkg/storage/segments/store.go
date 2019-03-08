@@ -107,11 +107,6 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		ErasureShareSize: int32(s.rs.ErasureShareSize()),
 	}
 
-	limits, rootPieceID, err := s.metainfo.CreateSegment(ctx, "", "", -1, redundancy, s.maxSegmentSize, expiration) // bucket, path and segment index are not known at this point
-	if err != nil {
-		return Meta{}, Error.Wrap(err)
-	}
-
 	exp, err := ptypes.TimestampProto(expiration)
 	if err != nil {
 		return Meta{}, Error.Wrap(err)
@@ -125,6 +120,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 
 	var path storj.Path
 	var pointer *pb.Pointer
+	var originalLimits []*pb.OrderLimit2
 	if !remoteSized {
 		p, metadata, err := segmentInfo()
 		if err != nil {
@@ -140,6 +136,11 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 			Metadata:       metadata,
 		}
 	} else {
+		limits, rootPieceID, err := s.metainfo.CreateSegment(ctx, "", "", -1, redundancy, s.maxSegmentSize, expiration) // bucket, path and segment index are not known at this point
+		if err != nil {
+			return Meta{}, Error.Wrap(err)
+		}
+
 		sizedReader := SizeReader(peekReader)
 
 		successfulNodes, successfulHashes, err := s.ec.Put(ctx, limits, s.rs, sizedReader, expiration)
@@ -157,20 +158,24 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
+
+		originalLimits := make([]*pb.OrderLimit2, len(limits))
+		for i, addressedLimit := range limits {
+			originalLimits[i] = addressedLimit.GetLimit()
+		}
 	}
 
-	// puts pointer to pointerDB
-	err = s.pdb.Put(ctx, path, pointer)
+	bucket, objectPath, segmentIndex, err := split(path)
+	if err != nil {
+		return Meta{}, err
+	}
+
+	savedPointer, err := s.metainfo.CommitSegment(ctx, bucket, objectPath, segmentIndex, pointer, originalLimits)
 	if err != nil {
 		return Meta{}, Error.Wrap(err)
 	}
 
-	// get the metadata for the newly uploaded segment
-	m, err := s.Meta(ctx, path)
-	if err != nil {
-		return Meta{}, Error.Wrap(err)
-	}
-	return m, nil
+	return convertMeta(savedPointer), nil
 }
 
 // Get requests the satellite to read a segment and downloaded the pieces from the storage nodes
