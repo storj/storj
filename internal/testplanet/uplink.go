@@ -132,7 +132,7 @@ func (uplink *Uplink) DialPointerDB(destination Peer, apikey string) (pdbclient.
 	return pdbclient.NewClient(uplink.Transport, destination.Addr(), apikey)
 }
 
-// DialPointerDB dials destination with apikey and returns pointerdb Client
+// DialPiecestore dials destination storagenode and returns a piecestore client.
 func (uplink *Uplink) DialPiecestore(ctx context.Context, destination Peer) (*piecestore.Client, error) {
 	node := destination.Local()
 
