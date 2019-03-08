@@ -39,11 +39,14 @@ type Client struct {
 }
 
 func (client *Client) Delete(ctx context.Context, limit *pb.OrderLimit2) error {
-	panic("TODO")
+	_, err := client.client.Delete(ctx, &pb.PieceDeleteRequest{
+		Limit: limit,
+	})
+	return Error.Wrap(err)
 }
 
 func (client *Client) Close() error {
-	panic("TODO")
+	return client.conn.Close()
 }
 
 func combineSendCloseError(sendError, closeError error) error {
@@ -56,6 +59,7 @@ func combineSendCloseError(sendError, closeError error) error {
 }
 
 func (client *Client) nextAllocationStep(previous int64) int64 {
+	// TODO: ensure that this is frame idependent
 	next := previous * 3 / 2
 	if next > client.config.MaximumStep {
 		next = client.config.MaximumStep

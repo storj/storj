@@ -265,6 +265,8 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 
 	throttle := sync2.NewThrottle()
 
+	// TODO: see whether this can be implemented without a goroutine
+
 	group, ctx := errgroup.WithContext(ctx)
 	group.Go(func() (err error) {
 		var maximumChunkSize = 1 * memory.MiB.Int64()

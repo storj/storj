@@ -5,9 +5,9 @@ package piecestore
 
 import (
 	"context"
-	"crypto/sha256"
-	"hash"
 	"io"
+
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
@@ -19,11 +19,15 @@ type Download struct {
 	peer   *identity.PeerIdentity
 	stream pb.Piecestore_DownloadClient
 
-	hash           hash.Hash // TODO: use concrete implementation
-	toDownload     int64
+	read         int64 // how much data we have read so far
+	allocated    int64 // how far have we sent orders
+	downloaded   int64 // how much data have we downloaded
+	downloadSize int64 // how much do we want to download
+
+	// what is the step we consider to upload
 	allocationStep int64
 
-	unread []byte
+	unread ReadBuffer
 
 	// when there's a send error then it will automatically close
 	sendError error
@@ -58,26 +62,83 @@ func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit2, offse
 		peer:   peer,
 		stream: stream,
 
-		hash:           sha256.New(),
+		read: 0,
+
+		allocated:    0,
+		downloaded:   0,
+		downloadSize: size,
+
 		allocationStep: client.config.InitialStep,
 	}, nil
 }
 
 func (client *Download) Read(data []byte) (read int, _ error) {
-	// todo proper checks
-	for client.toDownload > 0 {
-		// read from unread buffer
+	for client.read < client.downloadSize {
+		// read from buffer
+		n, err := client.unread.Read(data)
+		client.read += int64(n)
+		read += n
 
-		// check whether we need to send new allocations
+		// if we have an error or are pending for an error, avoid further communication
+		if err != nil || client.unread.Errored() {
+			return read, err
+		}
 
-		// if we emptied the unread buffer && read > 0
-		//     return read, nil
+		// do we need to send a new order to storagenode
+		if client.allocated-client.downloaded < client.allocationStep {
+			newAllocation := client.allocationStep
 
-		// shouldn't try to read more data when we have error
-		// client.sendError != nil { return read, err }
+			// have we downloaded more than we have allocated due to a generous storagenode?
+			if client.allocated-client.downloaded < 0 {
+				newAllocation += client.downloaded - client.allocated
+			}
 
-		// resp, err := client.stream.Recv()
-		// add chunk to unread buffer
+			// ensure we don't allocate more than we intend to read
+			if client.allocated+newAllocation > client.downloadSize {
+				newAllocation = client.downloadSize - client.allocated
+			}
+
+			// send an order
+			if newAllocation > 0 {
+				// sign the order
+				order, err := client.client.SignOrder(&pb.Order2{
+					SerialNumber: client.limit.SerialNumber,
+					Amount:       newAllocation,
+				})
+				// something went wrong
+				if err != nil {
+					client.unread.IncludeError(err)
+					return read, nil
+				}
+
+				err = client.stream.Send(&pb.PieceDownloadRequest{
+					Order: order,
+				})
+				if err != nil {
+					client.sendError = err
+					client.unread.IncludeError(err)
+					return read, nil
+				}
+
+				// update our allocation step
+				client.allocationStep = client.client.nextAllocationStep(client.allocationStep)
+			}
+		} // if end allocation sending
+
+		// we have data, no need to wait for a chunk
+		if read > 0 {
+			return read, nil
+		}
+
+		// we don't have data, wait for a chunk from storage node
+		response, err := client.stream.Recv()
+		if response.Chunk != nil {
+			client.downloaded += int64(len(response.Chunk.Data))
+			client.unread.Fill(response.Chunk.Data)
+		}
+
+		// we still need to continue until we have actually handled all of the errors
+		client.unread.IncludeError(err)
 	}
 
 	// all downloaded
@@ -88,5 +149,47 @@ func (client *Download) Read(data []byte) (read int, _ error) {
 }
 
 func (client *Download) Close() error {
-	panic("TODO")
+	sendCloseError := client.stream.CloseSend()
+
+	_, recvError := client.stream.Recv()
+	// grpc signals good end of stream with io.EOF
+	if recvError == io.EOF {
+		recvError = nil
+	}
+
+	return Error.Wrap(combineSendCloseError(sendCloseError, recvError))
+
+}
+
+type ReadBuffer struct {
+	data []byte
+	err  error
+}
+
+func (buffer *ReadBuffer) Errored() bool { return buffer.err != nil }
+
+func (buffer *ReadBuffer) Empty() bool {
+	return len(buffer.data) == 0 && buffer.err == nil
+}
+
+func (buffer *ReadBuffer) IncludeError(err error) {
+	buffer.err = errs.Combine(buffer.err, err)
+}
+
+func (buffer *ReadBuffer) Fill(data []byte) {
+	buffer.data = data
+}
+
+func (buffer *ReadBuffer) Read(data []byte) (n int, err error) {
+	if len(buffer.data) > 0 {
+		n = copy(data, buffer.data)
+		buffer.data = buffer.data[n:]
+		return n, nil
+	}
+
+	if buffer.err != nil {
+		return 0, buffer.err
+	}
+
+	return 0, nil
 }
