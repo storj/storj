@@ -44,25 +44,26 @@ type Service struct {
 	repairer  SegmentRepairer
 	limiter   *sync2.Limiter
 	ticker    *time.Ticker
-	pdbServer *pointerdb.Server
+	pdb       *pointerdb.Service
 }
 
 // NewService creates repairing service
-func NewService(queue queue.RepairQueue, config *Config, transport transport.Client, interval time.Duration, concurrency int, pdbServer *pointerdb.Server) *Service {
+func NewService(queue queue.RepairQueue, config *Config, transport transport.Client, interval time.Duration, concurrency int, pdb *pointerdb.Service) *Service {
 	return &Service{
 		queue:     queue,
 		config:    config,
 		transport: transport,
 		limiter:   sync2.NewLimiter(concurrency),
 		ticker:    time.NewTicker(interval),
-		pdbServer: pdbServer,
+		pdb:       pdbServer,
 	}
 }
 
 // Close closes resources
 func (service *Service) Close() error {
+	// TODO
 	// err := service.repairer.Close()
-	//close queue?
+	// close queue?
 	return nil
 }
 
@@ -78,7 +79,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	}
 	ec := ecclient.NewClient(service.transport, service.config.MaxBufferMem.Int())
 
-	service.repairer = segments.NewSegmentRepairer(oc, ec, service.pdbServer)
+	service.repairer = segments.NewSegmentRepairer(oc, ec, service.pdb)
 	defer func() { err = errs.Combine(err, service.Close()) }()
 
 	// wait for all repairs to complete

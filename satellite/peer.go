@@ -344,7 +344,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			peer.Transport,
 			config.Repairer.Interval,
 			config.Repairer.MaxRepair,
-			peer.Metainfo.Endpoint,
+			peer.Metainfo.Service,
 		)
 	}
 
