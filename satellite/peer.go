@@ -47,6 +47,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/storelogger"
@@ -147,6 +148,7 @@ type Peer struct {
 		Allocation *pointerdb.AllocationSigner
 		Service    *pointerdb.Service
 		Endpoint   *pointerdb.Server
+		Endpoint2  *metainfo.Endpoint
 	}
 
 	Agreements struct {
@@ -313,7 +315,27 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			config.PointerDB,
 			peer.Identity, peer.DB.Console().APIKeys())
 
+		// TODO remove duplicated code
+		overlayConfig := config.Overlay
+		nodeSelectionConfig := &overlay.NodeSelectionConfig{
+			UptimeCount:           overlayConfig.Node.UptimeCount,
+			UptimeRatio:           overlayConfig.Node.UptimeRatio,
+			AuditSuccessRatio:     overlayConfig.Node.AuditSuccessRatio,
+			AuditCount:            overlayConfig.Node.AuditCount,
+			NewNodeAuditThreshold: overlayConfig.Node.NewNodeAuditThreshold,
+			NewNodePercentage:     overlayConfig.Node.NewNodePercentage,
+		}
+
+		peer.Metainfo.Endpoint2 = metainfo.NewEndpoint(peer.Log.Named("metainfo:endpoint"),
+			peer.Metainfo.Service,
+			peer.Metainfo.Allocation,
+			peer.Overlay.Service,
+			peer.DB.Console().APIKeys(),
+			config.PointerDB, nodeSelectionConfig)
+
 		pb.RegisterPointerDBServer(peer.Server.GRPC(), peer.Metainfo.Endpoint)
+
+		pb.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)
 	}
 
 	{ // setup agreements
