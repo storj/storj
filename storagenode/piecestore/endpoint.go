@@ -67,6 +67,12 @@ type Endpoint struct {
 	orders    orders.Table
 }
 
+func NewEndpoint(log *zap.Logger) (*Endpoint, error) {
+	return &Endpoint{
+		log: log,
+	}
+}
+
 func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequest) (_ *pb.PieceDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 

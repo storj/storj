@@ -6,37 +6,35 @@ package piecestore
 import (
 	"context"
 
+	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
 
+var Error = errs.Class("piecestore")
+
 type Signer interface {
 	ID() storj.NodeID
-	SignHash(hash []byte) ([]byte, error)
+	HashAndSign(data []byte) ([]byte, error)
 }
 
 type Config struct {
-	StartingAllocationStep int64
-	MaximumAllocationStep  int64
+	InitialStep int64
+	MaximumStep int64
 }
+
+// Client can be used to implement psclient.Client
 
 type Client struct {
+	log *zap.Logger
 	// TODO: hide
-	Signer Signer
-	Conn   *grpc.ClientConn
-	Client pb.PiecestoreClient
-	Config Config
-}
-
-// These can be used to implement psclient.Client
-func (client *Client) Upload(ctx context.Context, limit *pb.OrderLimit2) (*Upload, error) {
-	panic("TODO")
-}
-
-func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit2, offset, size int64) (*Download, error) {
-	panic("TODO")
+	signer Signer
+	conn   *grpc.ClientConn
+	client pb.PiecestoreClient
+	config Config
 }
 
 func (client *Client) Delete(ctx context.Context, limit *pb.OrderLimit2) error {

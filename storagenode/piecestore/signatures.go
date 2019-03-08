@@ -99,6 +99,9 @@ func (endpoint *Endpoint) VerifyOrder(ctx context.Context, peer *identity.PeerId
 }
 
 func (endpoint *Endpoint) VerifyPieceHash(ctx context.Context, peer *identity.PeerIdentity, limit *pb.OrderLimit2, hash *pb.PieceHash, expectedHash []byte) error {
+	if peer == nil || limit == nil || hash == nil || len(expectedHash) == 0 {
+		return ErrProtocol.New("invalid arguments")
+	}
 	if limit.PieceId != hash.PieceId {
 		return ErrProtocol.New("piece id changed") // TODO: report grpc status bad message
 	}
