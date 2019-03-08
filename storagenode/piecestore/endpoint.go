@@ -59,8 +59,26 @@ type Endpoint struct {
 
 	store *pieces.Store
 
-	pieceMeta PieceMeta
+	pieceMeta PieceMeta // todo should this be folded into pieces.Store instead?
 	orders    orders.Table
+}
+
+func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, store *pieces.Store, pieceMeta PieceMeta, orders orders.Table, config Config) (*Endpoint, error) {
+	activeSerials, err := LoadSerialNumbers(pieceMeta)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Endpoint{
+		log:           log,
+		config:        config,
+		signer:        signer,
+		trust:         trust,
+		activeSerials: activeSerials,
+		store:         store,
+		pieceMeta:     pieceMeta,
+		orders:        orders,
+	}, nil
 }
 
 func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequest) (_ *pb.PieceDeleteResponse, err error) {

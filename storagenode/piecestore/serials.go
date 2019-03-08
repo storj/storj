@@ -5,7 +5,9 @@ package piecestore
 
 import (
 	"sync"
+	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
 
 	"storj.io/storj/pkg/storj"
@@ -13,7 +15,7 @@ import (
 
 type SerialNumbers struct {
 	mu   sync.Mutex
-	seen map[SerialNumber]timestamp.Timestamp
+	seen map[SerialNumber]time.Time
 }
 
 type SerialNumber struct {
@@ -21,9 +23,11 @@ type SerialNumber struct {
 	SerialNumber string
 }
 
-func LoadSerialNumbers(infos PieceMeta) *SerialNumbers {
-	// TODO: load all active them from infos
-	panic("TODO")
+func LoadSerialNumbers(infos PieceMeta) (*SerialNumbers, error) {
+	// TODO: iterate infos
+	return &SerialNumbers{
+		seen: map[SerialNumber]time.Time{},
+	}, nil
 }
 
 func (serials *SerialNumbers) Add(satelliteID storj.NodeID, serialNumber []byte, expiration *timestamp.Timestamp) bool {
@@ -36,7 +40,8 @@ func (serials *SerialNumbers) Add(satelliteID storj.NodeID, serialNumber []byte,
 		return false
 	}
 
-	serials.seen[serial] = *expiration
+	// ignoring error, because at this point it should already be verified
+	serials.seen[serial], _ = ptypes.Timestamp(expiration)
 	return true
 }
 
