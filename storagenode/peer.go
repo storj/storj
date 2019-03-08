@@ -216,7 +216,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
-		// Endpoint * piecestore.Endpoint
+		pb.RegisterPiecestoreServer(peer.Server.GRPC(), peer.Storage2.Endpoint)
 	}
 
 	return peer, nil

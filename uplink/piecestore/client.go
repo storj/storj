@@ -23,7 +23,7 @@ type Config struct {
 	MaximumStep int64
 }
 
-var defaultConfig = Config{
+var DefaultConfig = Config{
 	InitialStep: 256 * memory.KiB.Int64(),
 	MaximumStep: 5 * memory.MiB.Int64(),
 }
