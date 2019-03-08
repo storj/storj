@@ -38,11 +38,11 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	originalNodes := pr.GetNodes()
+
 	if pr.GetType() != pb.Pointer_REMOTE {
 		return Error.New("cannot repair inline segment %s", psclient.PieceID(pr.GetInlineSegment()))
 	}
-
+	originalNodes := s.pdb.GetNodes(ctx, pr)
 	seg := pr.GetRemote()
 	pid := psclient.PieceID(seg.GetPieceId())
 
@@ -167,9 +167,5 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 // Close disconnects from all Repair related services
 func (s *Repairer) Close() error {
 	//TODO
-	//oc
-	//ec
-	//pdb
-	//nodestats
 	return nil
 }
