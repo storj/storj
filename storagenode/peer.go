@@ -22,7 +22,6 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storage"
-	"storj.io/storj/storagenode/piecestore"
 )
 
 // DB is the master database for Storage Node
@@ -77,10 +76,6 @@ type Peer struct {
 		Monitor   *psserver.Monitor
 		Collector *psserver.Collector
 		Inspector *psserver.Inspector
-	}
-
-	Storage2 struct {
-		Endpoint *piecestore.Endpoint
 	}
 
 	Agreements struct {
@@ -171,18 +166,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 		// TODO: organize better
 		peer.Storage.Monitor = psserver.NewMonitor(peer.Log.Named("piecestore:monitor"), config.KBucketRefreshInterval, peer.Kademlia.RoutingTable, peer.Storage.Endpoint)
 		peer.Storage.Collector = psserver.NewCollector(peer.Log.Named("piecestore:collector"), peer.DB.PSDB(), peer.DB.Storage(), config.CollectorInterval)
-	}
-
-	{ // setup piecestore2
-		// TODO: move this setup logic into psstore package
-		// config := config.Storage2
-
-		// TODO: psserver shouldn't need the private key
-		peer.Storage2.Endpoint, err = piecestore.NewEndpoint(peer.Log.Named("piecestore"))
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-		pb.RegisterPiecestoreServer(peer.Server.GRPC(), peer.Storage2.Endpoint)
 	}
 
 	{ // agreements
