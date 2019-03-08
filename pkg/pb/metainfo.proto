@@ -72,7 +72,7 @@ message Order2 {
   
 message PieceHash {
     // piece id
-    bytes piece_id = 1;
+    bytes piece_id = 1 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
     // hash of the piece that was/is uploaded
     bytes hash = 2;
     // signature either satellite or storage node
@@ -90,7 +90,7 @@ message SegmentWriteRequest {
 
 message SegmentWriteResponse {
     repeated AddressedOrderLimit addressed_limits = 1;
-    bytes root_piece_id = 2;
+    bytes root_piece_id = 2 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
 }
 
 message SegmentCommitRequest {
