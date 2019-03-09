@@ -37,6 +37,6 @@ func rename(oldpath, newpath string) error {
 }
 
 // openFileReadOnly opens the file with read only
-func openFileReadOnly(path string) (*os.File, error) {
-	return os.OpenFile(path, os.O_RDONLY, blobPermission)
+func openFileReadOnly(path string, perm os.FileMode) (*os.File, error) {
+	return os.OpenFile(path, os.O_RDONLY, perm)
 }
