@@ -79,14 +79,15 @@ func (dir *Dir) DeleteTemporary(file *os.File) error {
 	return errs.Combine(closeErr, os.Remove(file.Name()))
 }
 
-// blobToPath converts blob reference to a filepath
+// blobToPath converts blob reference to a filepath in permanent storage
 func (dir *Dir) blobToPath(ref storage.BlobRef) string {
 	namespace := pathEncoding.EncodeToString(ref.Namespace)
 	key := pathEncoding.EncodeToString(ref.Key)
 	return filepath.Join(dir.blobdir(), namespace, key[:2], key[2:])
 }
 
-// blobToTrashPath converts blob reference to a filepath
+// blobToTrashPath converts blob reference to a filepath in transient storage
+// the files in trash are deleted in an interval (in case the initial deletion didn't work for some reason)
 func (dir *Dir) blobToTrashPath(ref storage.BlobRef) string {
 	name := []byte{}
 	name = append(name, ref.Namespace...)
