@@ -9,13 +9,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
 
-var errSharingViolation = syscall.Errno(32)
+var errSharingViolation = windows.Errno(32)
 
 func isBusy(err error) bool {
 	err = underlyingError(err)
@@ -44,12 +43,12 @@ func diskInfoFromPath(path string) (info DiskInfo, err error) {
 }
 
 var (
-	kernel32             = syscall.MustLoadDLL("kernel32.dll")
+	kernel32             = windows.MustLoadDLL("kernel32.dll")
 	procGetDiskFreeSpace = kernel32.MustFindProc("GetDiskFreeSpaceExW")
 )
 
 func getDiskFreeSpace(path string) (int64, error) {
-	path16, err := syscall.UTF16PtrFromString(path)
+	path16, err := windows.UTF16PtrFromString(path)
 	if err != nil {
 		return -1, err
 	}
@@ -92,7 +91,7 @@ func getVolumeSerialNumber(path string) (string, error) {
 
 // windows api occasionally returns
 func ignoreSuccess(err error) error {
-	if err == syscall.Errno(0) {
+	if err == windows.Errno(0) {
 		return nil
 	}
 	return err
@@ -123,7 +122,9 @@ func rename(oldpath, newpath string) error {
 // openFileReadOnly opens the file with read only
 // a custom implementation, because os.Open doesn't support specifying FILE_SHARE_DELETE
 func openFileReadOnly(path string, perm os.FileMode) (*os.File, error) {
-	pathp, err := windows.UTF16PtrFromString(path)
+	// see https://msdn.microsoft.com/en-us/library/windows/desktop/aa365247(v=vs.85).aspx#maxpath
+	longpath := `\\?\` + path
+	pathp, err := windows.UTF16PtrFromString(longpath)
 	if err != nil {
 		return nil, err
 	}
