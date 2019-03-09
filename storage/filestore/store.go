@@ -15,13 +15,6 @@ import (
 // Error is the default filestore error class
 var Error = errs.Class("filestore error")
 
-const (
-	headerSize = 32
-
-	// TODO: implement readBufferSize  = 64 << 10 // 64 KB
-	// TODO: implement writeBufferSize = 64 << 10 // 64 KB
-)
-
 var _ storage.Blobs = (*Store)(nil)
 
 // Store implements a blob store

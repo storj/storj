@@ -20,25 +20,6 @@ import (
 	"storj.io/storj/storage/filestore"
 )
 
-func newTestStore(t testing.TB) (dir string, store *filestore.Store, cleanup func()) {
-	dir, err := ioutil.TempDir("", "filestore")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	store, err = filestore.NewAt(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return dir, store, func() {
-		err := os.RemoveAll(dir)
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-}
-
 func TestStoreLoad(t *testing.T) {
 	const blobSize = 8 << 10
 	const repeatCount = 16
