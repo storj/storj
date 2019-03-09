@@ -7,6 +7,7 @@ package filestore
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"syscall"
 	"unsafe"
@@ -95,4 +96,50 @@ func ignoreSuccess(err error) error {
 		return nil
 	}
 	return err
+}
+
+// rename implements atomic file rename on windows
+func rename(oldpath, newpath string) error {
+	const replace_existing = 0x1
+	const write_through = 0x8
+
+	oldpathp, err := windows.UTF16PtrFromString(oldpath)
+	if err != nil {
+		return &os.LinkError{Op: "replace", Old: oldpath, New: newpath, Err: err}
+	}
+	newpathp, err := windows.UTF16PtrFromString(newpath)
+	if err != nil {
+		return &os.LinkError{Op: "replace", Old: oldpath, New: newpath, Err: err}
+	}
+
+	err = windows.MoveFileEx(oldpathp, newpathp, windows.MOVEFILE_REPLACE_EXISTING|windows.MOVEFILE_WRITE_THROUGH)
+	if err != nil {
+		return &os.LinkError{Op: "replace", Old: oldpath, New: newpath, Err: err}
+	}
+
+	return nil
+}
+
+// openFileReadOnly opens the file with read only
+func openFileReadOnly(path string, perm os.FileMode) (*os.File, error) {
+	pathp, err := windows.UTF16PtrFromString(path)
+	if err != nil {
+		return nil, err
+	}
+
+	access := uint32(windows.GENERIC_READ)
+	sharemode := uint32(windows.FILE_SHARE_READ | windows.FILE_SHARE_WRITE | windows.FILE_SHARE_DELETE)
+
+	var sa windows.SecurityAttributes
+	sa.Length = uint32(unsafe.Sizeof(sa))
+	sa.InheritHandle = 1
+
+	createmode := uint32(windows.OPEN_EXISTING)
+
+	handle, err := windows.CreateFile(pathp, access, sharemode, &sa, createmode, windows.FILE_ATTRIBUTE_NORMAL, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	return os.NewFile(uintptr(handle), path), nil
 }

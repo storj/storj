@@ -4,7 +4,7 @@
 package filestore
 
 import (
-	"encoding/hex"
+	"encoding/base32"
 	"io"
 	"io/ioutil"
 	"math"
@@ -18,9 +18,11 @@ import (
 )
 
 const (
-	blobPermission = 0600
-	dirPermission  = 0700
+	blobPermission = 0655
+	dirPermission  = 0755
 )
+
+var pathEncoding = base32.NewEncoding("abcdefghijklmnopqrstuvwxyz234567").WithPadding('1')
 
 // Dir represents single folder for storing blobs
 type Dir struct {
@@ -46,7 +48,7 @@ func NewDir(path string) (*Dir, error) {
 // Path returns the directory path
 func (dir *Dir) Path() string { return dir.path }
 
-func (dir *Dir) blobdir() string  { return filepath.Join(dir.path) }
+func (dir *Dir) blobdir() string  { return filepath.Join(dir.path, "blob") }
 func (dir *Dir) tempdir() string  { return filepath.Join(dir.path, "tmp") }
 func (dir *Dir) trashdir() string { return filepath.Join(dir.path, "trash") }
 
@@ -77,10 +79,19 @@ func (dir *Dir) DeleteTemporary(file *os.File) error {
 	return errs.Combine(closeErr, os.Remove(file.Name()))
 }
 
-// refToPath converts blob reference to a filepath
-func (dir *Dir) refToPath(ref storage.BlobRef) string {
-	hex := hex.EncodeToString(ref[:])
-	return filepath.Join(dir.blobdir(), hex[0:2], hex[2:])
+// blobToPath converts blob reference to a filepath
+func (dir *Dir) blobToPath(ref storage.BlobRef) string {
+	namespace := pathEncoding.EncodeToString(ref.Namespace)
+	key := pathEncoding.EncodeToString(ref.Key)
+	return filepath.Join(dir.blobdir(), namespace, key[:2], key[2:])
+}
+
+// blobToTrashPath converts blob reference to a filepath
+func (dir *Dir) blobToTrashPath(ref storage.BlobRef) string {
+	name := []byte{}
+	name = append(name, ref.Namespace...)
+	name = append(name, ref.Key...)
+	return filepath.Join(dir.trashdir(), pathEncoding.EncodeToString(name))
 }
 
 // Commit commits temporary file to the permanent storage
@@ -96,17 +107,18 @@ func (dir *Dir) Commit(file *os.File, ref storage.BlobRef) error {
 		return errs.Combine(seekErr, truncErr, syncErr, chmodErr, closeErr, removeErr)
 	}
 
-	path := dir.refToPath(ref)
+	path := dir.blobToPath(ref)
 	mkdirErr := os.MkdirAll(filepath.Dir(path), dirPermission)
 	if os.IsExist(mkdirErr) {
 		mkdirErr = nil
 	}
+
 	if mkdirErr != nil {
 		removeErr := os.Remove(file.Name())
 		return errs.Combine(mkdirErr, removeErr)
 	}
 
-	renameErr := os.Rename(file.Name(), path)
+	renameErr := rename(file.Name(), path)
 	if renameErr != nil {
 		removeErr := os.Remove(file.Name())
 		return errs.Combine(renameErr, removeErr)
@@ -117,17 +129,17 @@ func (dir *Dir) Commit(file *os.File, ref storage.BlobRef) error {
 
 // Open opens the file with the specified ref
 func (dir *Dir) Open(ref storage.BlobRef) (*os.File, error) {
-	path := dir.refToPath(ref)
-	return os.OpenFile(path, os.O_RDONLY, blobPermission)
+	path := dir.blobToPath(ref)
+	return openFileReadOnly(path, blobPermission)
 }
 
 // Delete deletes file with the specified ref
 func (dir *Dir) Delete(ref storage.BlobRef) error {
-	path := dir.refToPath(ref)
+	path := dir.blobToPath(ref)
+	trashPath := dir.blobToTrashPath(ref)
 
 	// move to trash folder, this is allowed for some OS-es
-	trashPath := filepath.Join(dir.trashdir(), hex.EncodeToString(ref[:]))
-	moveErr := os.Rename(path, trashPath)
+	moveErr := rename(path, trashPath)
 
 	// ignore concurrent delete
 	if os.IsNotExist(moveErr) {

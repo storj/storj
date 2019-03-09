@@ -8,25 +8,40 @@ import (
 	"io"
 )
 
-// BlobRef is an unique reference to a blob
-type BlobRef [32]byte
+// BlobRef is a reference to a blob
+type BlobRef struct {
+	Namespace []byte
+	Key       []byte
+}
 
-// ReadSeekCloser is an interface that groups Read, ReadAt, Seek and Close.
-type ReadSeekCloser interface {
+// BlobReader is an interface that groups Read, ReadAt, Seek and Close.
+type BlobReader interface {
 	io.Reader
 	io.ReaderAt
 	io.Seeker
 	io.Closer
+	// Size returns the size of the blob
+	Size() int64
+}
+
+// BlobWriter is an interface that groups Read, ReadAt, Seek and Close.
+type BlobWriter interface {
+	io.Writer
+	// Cancel discards the blob.
+	Cancel() error
+	// Commit ensures that the blob is readable by others.
+	Commit() error
+	// Size returns the size of the blob
 	Size() int64
 }
 
 // Blobs is a blob storage interface
 type Blobs interface {
-	// Load loads blob with the specified reference
-	Load(context.Context, BlobRef) (ReadSeekCloser, error)
-	// Delete deletes the blob with the specified reference
-	Delete(context.Context, BlobRef) error
-	// Store stores blob from reader
-	// optionally takes a size argument for improvements, -1 is unknown size
-	Store(ctx context.Context, r io.Reader, size int64) (BlobRef, error)
+	// Create creates a new blob that can be written
+	// optionally takes a size argument for performance improvements, -1 is unknown size
+	Create(ctx context.Context, ref BlobRef, size int64) (BlobWriter, error)
+	// Open opens a reader with the specified namespace and key
+	Open(ctx context.Context, ref BlobRef) (BlobReader, error)
+	// Delete deletes the blob with the namespace and key
+	Delete(ctx context.Context, ref BlobRef) error
 }

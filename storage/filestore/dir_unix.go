@@ -7,6 +7,7 @@ package filestore
 
 import (
 	"fmt"
+	"os"
 
 	"golang.org/x/sys/unix"
 )
@@ -28,4 +29,14 @@ func diskInfoFromPath(path string) (info DiskInfo, err error) {
 	filesystemID := fmt.Sprintf("%08x%08x", stat.Fsid.Val[0], stat.Fsid.Val[1])
 
 	return DiskInfo{filesystemID, availableSpace}, nil
+}
+
+// rename renames oldpath to newpath
+func rename(oldpath, newpath string) error {
+	return os.Rename(oldpath, newpath)
+}
+
+// openFileReadOnly opens the file with read only
+func openFileReadOnly(path string) (*os.File, error) {
+	return os.OpenFile(path, os.O_RDONLY, blobPermission)
 }
