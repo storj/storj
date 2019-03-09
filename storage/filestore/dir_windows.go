@@ -121,6 +121,7 @@ func rename(oldpath, newpath string) error {
 }
 
 // openFileReadOnly opens the file with read only
+// a custom implementation, because os.Open doesn't support specifying FILE_SHARE_DELETE
 func openFileReadOnly(path string, perm os.FileMode) (*os.File, error) {
 	pathp, err := windows.UTF16PtrFromString(path)
 	if err != nil {
