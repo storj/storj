@@ -17,7 +17,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/storj"
-	satellitedb "storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/storage"
 )
 
@@ -88,7 +87,7 @@ func (t *Tally) Tally(ctx context.Context) error {
 		if err != nil {
 			errBWA = errs.New("Saving for bandwidth failed : %v", err)
 		} else {
-			_ = t.bwAgreementDB.DeleteExpired(ctx, tallyEnd, func(*satellitedb.Bwagreement) error {
+			_ = t.bwAgreementDB.DeleteExpired(ctx, tallyEnd, func(*bwagreement.SavedOrder) error {
 				//todo: write files to disk or whatever we decide to do here
 				return fmt.Errorf("Not implemented")
 			})

@@ -102,7 +102,7 @@ func (b *bandwidthagreement) GetTotals(ctx context.Context, from, to time.Time) 
 }
 
 //DeleteExpired deletes agreements that are expired and were created before some time
-func (b *bandwidthagreement) DeleteExpired(ctx context.Context, before time.Time, callback func(*dbx.Bwagreement) error) (err error) {
+func (b *bandwidthagreement) DeleteExpired(ctx context.Context, before time.Time, callback func(*bwagreement.SavedOrder) error) (err error) {
 	txn, err := b.db.Open(ctx)
 	if err != nil {
 		return errs.New("Failed to start transaction: %v", err)
@@ -116,7 +116,7 @@ func (b *bandwidthagreement) DeleteExpired(ctx context.Context, before time.Time
 	}()
 	expired, err := txn.All_Bwagreement_By_CreatedAt_Less_And_ExpiresAt_Less(ctx, dbx.Bwagreement_CreatedAt(before), dbx.Bwagreement_ExpiresAt(time.Now()))
 	for _, b := range expired {
-		if err = callback(b); err != nil {
+		if err = callback((*bwagreement.SavedOrder)(b)); err != nil {
 			return err
 		}
 	}

@@ -43,6 +43,9 @@ type UplinkStat struct {
 	TotalTransactions int
 }
 
+//SavedOrder allows use of dbx.Bwagreement without the namespace
+type SavedOrder satellitedb.Bwagreement
+
 // DB stores bandwidth agreements.
 type DB interface {
 	// CreateAgreement adds a new bandwidth agreement.
@@ -52,7 +55,7 @@ type DB interface {
 	//GetTotals returns stats about an uplink
 	GetUplinkStats(context.Context, time.Time, time.Time) ([]UplinkStat, error)
 	//DeleteExpired deletes agreements that are expired and were created before some time
-	DeleteExpired(context.Context, time.Time, func(*satellitedb.Bwagreement) error) error
+	DeleteExpired(context.Context, time.Time, func(*SavedOrder) error) error
 }
 
 // Server is an implementation of the pb.BandwidthServer interface

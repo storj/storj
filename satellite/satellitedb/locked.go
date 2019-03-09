@@ -24,7 +24,6 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
-	satellitedb "storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // locked implements a locking wrapper around satellite.DB.
@@ -121,7 +120,7 @@ func (m *lockedBandwidthAgreement) CreateAgreement(ctx context.Context, a1 *pb.R
 }
 
 // DeleteExpired deletes agreements that are expired and were created before some time
-func (m *lockedBandwidthAgreement) DeleteExpired(ctx context.Context, a1 time.Time, a2 func(*satellitedb.Bwagreement) error) error {
+func (m *lockedBandwidthAgreement) DeleteExpired(ctx context.Context, a1 time.Time, a2 func(*bwagreement.SavedOrder) error) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.DeleteExpired(ctx, a1, a2)
