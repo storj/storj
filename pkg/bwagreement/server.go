@@ -20,7 +20,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
-	satellitedb "storj.io/storj/satellite/satellitedb/dbx"
 )
 
 var (
@@ -44,7 +43,15 @@ type UplinkStat struct {
 }
 
 //SavedOrder allows use of dbx.Bwagreement without the namespace
-type SavedOrder satellitedb.Bwagreement
+type SavedOrder struct {
+	Serialnum     string
+	StorageNodeID []byte
+	UplinkID      []byte
+	Action        int64
+	Total         int64
+	CreatedAt     time.Time
+	ExpiresAt     time.Time
+}
 
 // DB stores bandwidth agreements.
 type DB interface {

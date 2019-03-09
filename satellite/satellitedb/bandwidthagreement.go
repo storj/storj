@@ -116,7 +116,16 @@ func (b *bandwidthagreement) DeleteExpired(ctx context.Context, before time.Time
 	}()
 	expired, err := txn.All_Bwagreement_By_CreatedAt_Less_And_ExpiresAt_Less(ctx, dbx.Bwagreement_CreatedAt(before), dbx.Bwagreement_ExpiresAt(time.Now()))
 	for _, b := range expired {
-		if err = callback((*bwagreement.SavedOrder)(b)); err != nil {
+		order := bwagreement.SavedOrder{
+			Serialnum:     b.Serialnum,
+			StorageNodeID: b.StorageNodeId,
+			UplinkID:      b.UplinkId,
+			Action:        b.Action,
+			Total:         b.Total,
+			CreatedAt:     b.CreatedAt,
+			ExpiresAt:     b.ExpiresAt,
+		}
+		if err = callback(&order); err != nil {
 			return err
 		}
 	}
