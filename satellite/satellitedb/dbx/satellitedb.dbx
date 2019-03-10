@@ -22,9 +22,9 @@ read all (
 	where  bwagreement.created_at > ?
 )
 
-//--- datarepair.irreparableDB ---//
+//--- irreparableDB ---//
 
-model irreparabledb (
+model irreparable_segment (
 	key segmentpath
 
 	field segmentpath          blob
@@ -34,14 +34,16 @@ model irreparabledb (
 	field repair_attempt_count int64 ( updatable )
 )
 
-create irreparabledb ( )
-update irreparabledb ( where irreparabledb.segmentpath = ? )
-delete irreparabledb ( where irreparabledb.segmentpath = ? )
+create irreparable_segment ( )
+update irreparable_segment ( where irreparable_segment.segmentpath = ? )
+delete irreparable_segment ( where irreparable_segment.segmentpath = ? )
 
 read one (
-	select irreparabledb
-	where  irreparabledb.segmentpath = ?
+	select irreparable_segment
+	where  irreparable_segment.segmentpath = ?
 )
+
+read limitoffset ( select irreparable_segment )
 
 //--- accounting ---//
 

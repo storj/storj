@@ -13,6 +13,8 @@ type DB interface {
 	IncrementRepairAttempts(ctx context.Context, segmentInfo *RemoteSegmentInfo) error
 	// Get returns irreparable segment info based on segmentPath.
 	Get(ctx context.Context, segmentPath []byte) (*RemoteSegmentInfo, error)
+	// GetLimited number of segments from offset
+	GetLimited(ctx context.Context, limit int, offset int64) ([]*RemoteSegmentInfo, error)
 	// Delete removes irreparable segment info based on segmentPath.
 	Delete(ctx context.Context, segmentPath []byte) error
 }
