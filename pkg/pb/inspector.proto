@@ -66,8 +66,12 @@ message IrreparableSegment {
   int64 repair_attempt_count = 5;
 }
 
-message ListSegmentsResponse {
+message SegmentGroup {
   repeated IrreparableSegment segments = 1;  
+}
+
+message ListSegmentsResponse {
+  bytes data = 1;
 }
 
 // GetStats
