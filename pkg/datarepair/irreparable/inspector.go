@@ -6,6 +6,8 @@ package irreparable
 import (
 	"context"
 
+	"github.com/golang/protobuf/proto"
+
 	"storj.io/storj/pkg/pb"
 )
 
@@ -20,7 +22,26 @@ func NewInspector(irrdb DB) *Inspector {
 }
 
 // List returns all files with an irreparable segment
-func (srv *Inspector) List(ctx, req *pb.ListRequest) (*pb.ListResponse, error) {
-	// need get all
-	files, err := srv.irrdb.Get
+func (srv *Inspector) List(ctx context.Context, req *pb.ListSegmentsRequest) (resp *pb.ListSegmentsResponse, err error) {
+	segments, err := srv.irrdb.GetLimited(ctx, int(req.GetLimit()), req.GetOffset())
+	if err != nil {
+		return nil, err
+	}
+
+	var msg *pb.SegmentGroup
+	for _, segment := range segments {
+		item := &pb.IrreparableSegment{
+			EncryptedPath:      segment.EncryptedSegmentPath,
+			SegmentDetail:      segment.EncryptedSegmentDetail,
+			LostPieces:         segment.LostPiecesCount,
+			LastRepairAttempt:  segment.RepairUnixSec,
+			RepairAttemptCount: segment.RepairAttemptCount,
+		}
+		msg.Segments = append(msg.Segments, item)
+	}
+	resp.Data, err = proto.Marshal(msg)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
