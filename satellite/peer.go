@@ -154,8 +154,9 @@ type Peer struct {
 	}
 
 	Repair struct {
-		Checker  *checker.Checker
-		Repairer *repairer.Service
+		Checker   *checker.Checker
+		Repairer  *repairer.Service
+		Inspector *irreparable.Inspector
 	}
 	Audit struct {
 		Service *audit.Service
@@ -340,6 +341,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			config.Repairer.PointerDBAddr = peer.Addr()
 		}
 		peer.Repair.Repairer = repairer.NewService(peer.DB.RepairQueue(), &config.Repairer, peer.Transport, config.Repairer.Interval, config.Repairer.MaxRepair)
+		peer.Repair.Inspector = irreparable.NewInspector(peer.DB.Irreparable())
+		pb.RegisterIrreparableInspectorServer(peer.Server.PrivateGRPC(), peer.Repair.Inspector)
 	}
 
 	{ // setup audit

@@ -21,8 +21,8 @@ func NewInspector(irrdb DB) *Inspector {
 	return &Inspector{irrdb: irrdb}
 }
 
-// List returns all files with an irreparable segment
-func (srv *Inspector) List(ctx context.Context, req *pb.ListSegmentsRequest) (resp *pb.ListSegmentsResponse, err error) {
+// ListSegments returns all files with an irreparable segment
+func (srv *Inspector) ListSegments(ctx context.Context, req *pb.ListSegmentsRequest) (resp *pb.ListSegmentsResponse, err error) {
 	segments, err := srv.irrdb.GetLimited(ctx, int(req.GetLimit()), req.GetOffset())
 	if err != nil {
 		return nil, err
