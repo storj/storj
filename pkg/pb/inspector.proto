@@ -47,6 +47,29 @@ service PieceStoreInspector {
   rpc Dashboard(DashboardRequest) returns (DashboardResponse) {}
 }
 
+service IrreparableInspector {
+  // ListSegments returns damaged segments
+  rpc ListSegments(ListSegmentsRequest) returns (ListSegmentsResponse);
+}
+
+// ListSegments
+message ListSegmentsRequest {
+  int64 limit = 1;
+  int64 offset = 2;
+}
+
+message IrreparableSegment {
+  bytes encrypted_path = 1;
+  bytes segment_detail = 2;
+  int64 lost_pieces = 3;
+  int64 last_repair_attempt = 4;
+  int64 repair_attempt_count = 5;
+}
+
+message ListSegmentsResponse {
+  repeated IrreparableSegment segments = 1;  
+}
+
 // GetStats
 message GetStatsRequest {
   bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
