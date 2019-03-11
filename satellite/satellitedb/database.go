@@ -43,8 +43,12 @@ func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !strings.Contains(source, "ApplicationName") {
-		source = fmt.Sprintf("%s?%s", source, "ApplicationName=Satellite")
+	if driver == "postgres" && !strings.Contains(source, "ApplicationName") {
+		if !strings.Contains(source, "?") {
+			source = fmt.Sprintf("%s?%s", source, "ApplicationName=Satellite")
+		} else {
+			source = fmt.Sprintf("%s&%s", source, "ApplicationName=Satellite")
+		}
 	}
 	db, err := dbx.Open(driver, source)
 	if err != nil {
