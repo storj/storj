@@ -49,12 +49,11 @@ type Endpoint struct {
 	pointerDBConfig      pointerdb.Config
 	selectionPreferences *overlay.NodeSelectionConfig
 	signer               signing.Signer
-	signee               signing.Signee
 }
 
 // NewEndpoint creates new metainfo endpoint instance
 func NewEndpoint(log *zap.Logger, pointerdb *pointerdb.Service, allocation *pointerdb.AllocationSigner,
-	cache *overlay.Cache, apiKeys APIKeys, identity *identity.FullIdentity, pointerDBConfig pointerdb.Config,
+	cache *overlay.Cache, apiKeys APIKeys, signer signing.Signer, pointerDBConfig pointerdb.Config,
 	selectionPreferences *overlay.NodeSelectionConfig) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
@@ -65,8 +64,7 @@ func NewEndpoint(log *zap.Logger, pointerdb *pointerdb.Service, allocation *poin
 		apiKeys:              apiKeys,
 		pointerDBConfig:      pointerDBConfig,
 		selectionPreferences: selectionPreferences,
-		signer:               signing.SignerFromFullIdentity(identity),
-		signee:               signing.SigneeFromFullIdentity(identity),
+		signer:               signer,
 	}
 }
 
@@ -460,7 +458,7 @@ func (endpoint *Endpoint) validateCommit(req *pb.SegmentCommitRequest) error {
 		for _, piece := range remote.RemotePieces {
 			limit := req.OriginalLimits[piece.PieceNum]
 
-			err := signing.VerifyOrderLimitSignature(endpoint.signee, limit)
+			err := signing.VerifyOrderLimitSignature(endpoint.signer, limit)
 			if err != nil {
 				return err
 			}

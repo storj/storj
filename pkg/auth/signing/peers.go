@@ -39,13 +39,6 @@ type PublicKey struct {
 	Key  crypto.PublicKey
 }
 
-func SigneeFromFullIdentity(identity *identity.FullIdentity) Signee {
-	return &PublicKey{
-		Self: identity.ID,
-		Key:  identity.Leaf.PublicKey,
-	}
-}
-
 func SigneeFromPeerIdentity(identity *identity.PeerIdentity) Signee {
 	return &PublicKey{
 		Self: identity.ID,
