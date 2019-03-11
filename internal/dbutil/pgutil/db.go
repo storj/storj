@@ -105,9 +105,9 @@ func QuerySnapshot(db dbschema.Queryer) (*dbschema.Snapshot, error) {
 func CheckApplicationName(s string) (r string) {
 	if !strings.Contains(s, "ApplicationName") {
 		if !strings.Contains(s, "?") {
-			r = fmt.Sprintf("%s?%s", s, "ApplicationName=Satellite")
+			r = fmt.Sprintf("%s?%s", s, "application_name=Satellite")
 		} else {
-			r = fmt.Sprintf("%s%s%s", s, "&", "ApplicationName=Satellite")
+			r = fmt.Sprintf("%s%s%s", s, "&", "application_name=Satellite")
 		}
 		return
 	}
