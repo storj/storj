@@ -107,8 +107,10 @@ func CheckApplicationName(s string) (r string) {
 		if !strings.Contains(s, "?") {
 			r = fmt.Sprintf("%s?%s", s, "ApplicationName=Satellite")
 		} else {
-			r = fmt.Sprintf("%s%s%s", s, "%26", "ApplicationName=Satellite")
+			r = fmt.Sprintf("%s%s%s", s, "&", "ApplicationName=Satellite")
 		}
+		return
 	}
-	return
+	//return source as is if ApplicationName is set
+	return s
 }
