@@ -45,7 +45,6 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 	}
 
 	seg := pr.GetRemote()
-	pid := psclient.PieceID(seg.GetPieceId())
 
 	originalNodes, err = lookupAndAlignNodes(ctx, s.oc, originalNodes, seg)
 	if err != nil {
@@ -161,7 +160,7 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 	}
 
 	metadata := pr.GetMetadata()
-	pointer, err := makeRemotePointer(healthyNodes, hashes, rs, pid.String(), rr.Size(), pr.GetExpirationDate(), metadata)
+	pointer, err := makeRemotePointer(healthyNodes, hashes, rs, seg.PieceId_2, rr.Size(), pr.GetExpirationDate(), metadata)
 	if err != nil {
 		return Error.Wrap(err)
 	}

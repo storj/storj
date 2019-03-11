@@ -186,10 +186,10 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	err = endpoint.filterValidPieces(req.Pointer)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
-	}
+	// err = endpoint.filterValidPieces(req.Pointer)
+	// if err != nil {
+	// 	return nil, status.Errorf(codes.Internal, err.Error())
+	// }
 
 	path, err := endpoint.createPath(keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
 	if err != nil {
@@ -465,7 +465,8 @@ func (endpoint *Endpoint) validateCommit(req *pb.SegmentCommitRequest) error {
 			if limit == nil {
 				return Error.New("invalid no order limit for piece")
 			}
-			if limit.PieceId.IsZero() || limit.PieceId.String() != remote.PieceId {
+			derivedPieceID := remote.PieceId_2.Derive(piece.NodeId)
+			if limit.PieceId.IsZero() || limit.PieceId != derivedPieceID {
 				return Error.New("invalid order limit piece id")
 			}
 			if bytes.Compare(piece.NodeId.Bytes(), limit.StorageNodeId.Bytes()) != 0 {
