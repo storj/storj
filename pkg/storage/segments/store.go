@@ -66,14 +66,15 @@ type segmentStore struct {
 }
 
 // NewSegmentStore creates a new instance of segmentStore
-func NewSegmentStore(metainfo metainfo.Client, oc overlay.Client, ec ecclient.Client, pdb pdbclient.Client, rs eestream.RedundancyStrategy, threshold int) Store {
+func NewSegmentStore(metainfo metainfo.Client, oc overlay.Client, ec ecclient.Client, pdb pdbclient.Client, rs eestream.RedundancyStrategy, threshold int, maxSegmentSize int64) Store {
 	return &segmentStore{
-		metainfo:      metainfo,
-		oc:            oc, // TODO: remove
-		ec:            ec,
-		pdb:           pdb, // TODO: remove
-		rs:            rs,
-		thresholdSize: threshold,
+		metainfo:       metainfo,
+		oc:             oc, // TODO: remove
+		ec:             ec,
+		pdb:            pdb, // TODO: remove
+		rs:             rs,
+		thresholdSize:  threshold,
+		maxSegmentSize: maxSegmentSize,
 	}
 }
 
@@ -154,7 +155,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		}
 		path = p
 
-		pointer, err = makeRemotePointer(successfulNodes, successfulHashes, s.rs, rootPieceID.String(), sizedReader.Size(), exp, metadata)
+		pointer, err = makeRemotePointer(successfulNodes, successfulHashes, s.rs, rootPieceID, sizedReader.Size(), exp, metadata)
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
@@ -230,7 +231,7 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 }
 
 // makeRemotePointer creates a pointer of type remote
-func makeRemotePointer(nodes []*pb.Node, hashes []*pb.SignedHash, rs eestream.RedundancyStrategy, pieceID string, readerSize int64, exp *timestamp.Timestamp, metadata []byte) (pointer *pb.Pointer, err error) {
+func makeRemotePointer(nodes []*pb.Node, hashes []*pb.PieceHash, rs eestream.RedundancyStrategy, pieceID storj.PieceID2, readerSize int64, exp *timestamp.Timestamp, metadata []byte) (pointer *pb.Pointer, err error) {
 	if len(nodes) != len(hashes) {
 		return nil, Error.New("unable to make pointer: size of nodes != size of hashes")
 	}
@@ -244,7 +245,10 @@ func makeRemotePointer(nodes []*pb.Node, hashes []*pb.SignedHash, rs eestream.Re
 		remotePieces = append(remotePieces, &pb.RemotePiece{
 			PieceNum: int32(i),
 			NodeId:   nodes[i].Id,
-			Hash:     hashes[i],
+			Hash: &pb.SignedHash{
+				Hash:      hashes[i].GetHash(),
+				Signature: hashes[i].GetSignature(),
+			},
 		})
 	}
 
@@ -259,7 +263,8 @@ func makeRemotePointer(nodes []*pb.Node, hashes []*pb.SignedHash, rs eestream.Re
 				SuccessThreshold: int32(rs.OptimalThreshold()),
 				ErasureShareSize: int32(rs.ErasureShareSize()),
 			},
-			PieceId:      pieceID,
+			PieceId:      pieceID.String(),
+			PieceId_2:    pieceID,
 			RemotePieces: remotePieces,
 		},
 		SegmentSize:    readerSize,

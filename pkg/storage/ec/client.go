@@ -13,28 +13,31 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/sync2"
+	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/piecestore/psclient"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/pkg/utils"
+	"storj.io/storj/uplink/piecestore"
 )
 
 var mon = monkit.Package()
 
 // Client defines an interface for storing erasure coded data to piece store nodes
 type Client interface {
-	Put(ctx context.Context, limits []*pb.AddressedOrderLimit, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time) (successfulNodes []*pb.Node, successfulHashes []*pb.SignedHash, err error)
+	Put(ctx context.Context, limits []*pb.AddressedOrderLimit, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error)
 	Get(ctx context.Context, limits []*pb.AddressedOrderLimit, es eestream.ErasureScheme, size int64) (ranger.Ranger, error)
 	Delete(ctx context.Context, limits []*pb.AddressedOrderLimit) error
 }
 
-type psClientFunc func(context.Context, transport.Client, *pb.Node, int) (psclient.Client, error)
-type psClientHelper func(context.Context, *pb.Node) (psclient.Client, error)
+type psClientFunc func(log *zap.Logger, signer signing.Signer, conn *grpc.ClientConn, config piecestore.Config) *piecestore.Client
+type psClientHelper func(context.Context, *pb.Node) (*piecestore.Client, error)
 
 type ecClient struct {
 	transport       transport.Client
@@ -47,16 +50,25 @@ func NewClient(tc transport.Client, memoryLimit int) Client {
 	return &ecClient{
 		transport:       tc,
 		memoryLimit:     memoryLimit,
-		newPSClientFunc: psclient.NewPSClient,
+		newPSClientFunc: piecestore.NewClient,
 	}
 }
 
-func (ec *ecClient) newPSClient(ctx context.Context, n *pb.Node) (psclient.Client, error) {
+func (ec *ecClient) newPSClient(ctx context.Context, n *pb.Node) (*piecestore.Client, error) {
 	n.Type.DPanicOnInvalid("new ps client")
-	return ec.newPSClientFunc(ctx, ec.transport, n, 0)
+	conn, err := ec.transport.DialNode(ctx, n)
+	if err != nil {
+		return nil, err
+	}
+	return ec.newPSClientFunc(
+		zap.L().Named(n.Id.String()),
+		signing.SignerFromFullIdentity(ec.transport.Identity()),
+		conn,
+		piecestore.DefaultConfig,
+	), nil
 }
 
-func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time) (successfulNodes []*pb.Node, successfulHashes []*pb.SignedHash, err error) {
+func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(limits) != rs.TotalCount() {
 		return nil, nil, Error.New("size of limits slice (%d) does not match total count (%d) of erasure scheme", len(limits), rs.TotalCount())
@@ -79,7 +91,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 	type info struct {
 		i    int
 		err  error
-		hash *pb.SignedHash
+		hash *pb.PieceHash
 	}
 	infos := make(chan info, len(limits))
 
@@ -96,7 +108,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 	}
 
 	successfulNodes = make([]*pb.Node, len(limits))
-	successfulHashes = make([]*pb.SignedHash, len(limits))
+	successfulHashes = make([]*pb.PieceHash, len(limits))
 	var successfulCount int32
 	var timer *time.Timer
 
@@ -157,7 +169,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 	return successfulNodes, successfulHashes, nil
 }
 
-func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrderLimit, data io.ReadCloser, expiration time.Time) (hash *pb.SignedHash, err error) {
+func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrderLimit, data io.ReadCloser, expiration time.Time) (hash *pb.PieceHash, err error) {
 	defer func() { err = errs.Combine(err, data.Close()) }()
 
 	if limit == nil {
@@ -176,8 +188,20 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 		zap.S().Errorf("Failed dialing for putting piece %s to node %s: %v", pieceID, storageNodeID, err)
 		return nil, err
 	}
-	hash, err = ps.Put(ctx, psclient.PieceID(pieceID.Bytes()), data, expiration, nil) // TODO: limit.GetLimit()
 	defer func() { err = errs.Combine(err, ps.Close()) }()
+
+	upload, err := ps.Upload(ctx, limit.GetLimit())
+	if err != nil {
+		zap.S().Errorf("Failed requesting upload of piece %s to node %s: %v", pieceID, storageNodeID, err)
+		return nil, err
+	}
+	defer func() {
+		h, closeErr := upload.Close()
+		hash = h
+		err = errs.Combine(err, closeErr)
+	}()
+
+	_, err = sync2.Copy(ctx, upload, data)
 	// Canceled context means the piece upload was interrupted by user or due
 	// to slow connection. No error logging for this case.
 	if ctx.Err() == context.Canceled {
@@ -192,7 +216,7 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 		if limit.GetStorageNodeAddress() != nil {
 			nodeAddress = limit.GetStorageNodeAddress().GetAddress()
 		}
-		zap.S().Errorf("Failed putting piece %s to node %s (%+v): %v", pieceID, storageNodeID, nodeAddress, err)
+		zap.S().Errorf("Failed uploading piece %s to node %s (%+v): %v", pieceID, storageNodeID, nodeAddress, err)
 	}
 
 	return hash, err
@@ -262,23 +286,21 @@ func (ec *ecClient) Delete(ctx context.Context, limits []*pb.AddressedOrderLimit
 		}
 
 		go func(addressedLimit *pb.AddressedOrderLimit) {
-			satelliteID := addressedLimit.GetLimit().SatelliteId
-			storageNodeID := addressedLimit.GetLimit().StorageNodeId
-			pieceID := addressedLimit.GetLimit().PieceId
+			limit := addressedLimit.GetLimit()
 			ps, err := ec.newPSClient(ctx, &pb.Node{
-				Id:      storageNodeID,
+				Id:      limit.StorageNodeId,
 				Address: addressedLimit.GetStorageNodeAddress(),
 				Type:    pb.NodeType_STORAGE,
 			})
 			if err != nil {
-				zap.S().Errorf("Failed dialing for deleting piece %s from node %s: %v", pieceID, storageNodeID, err)
+				zap.S().Errorf("Failed dialing for deleting piece %s from node %s: %v", limit.PieceId, limit.StorageNodeId, err)
 				errch <- err
 				return
 			}
-			err = ps.Delete(ctx, psclient.PieceID(pieceID.Bytes()), satelliteID)
+			err = ps.Delete(ctx, limit)
 			err = errs.Combine(err, ps.Close())
 			if err != nil {
-				zap.S().Errorf("Failed deleting piece %s from node %s: %v", pieceID, storageNodeID, err)
+				zap.S().Errorf("Failed deleting piece %s from node %s: %v", limit.PieceId, limit.StorageNodeId, err)
 			}
 			errch <- err
 		}(addressedLimit)
@@ -335,7 +357,6 @@ func calcPadded(size int64, blockSize int) int64 {
 }
 
 type lazyPieceRanger struct {
-	ranger            ranger.Ranger
 	newPSClientHelper psClientHelper
 	limit             *pb.AddressedOrderLimit
 	size              int64
@@ -348,23 +369,15 @@ func (lr *lazyPieceRanger) Size() int64 {
 
 // Range implements Ranger.Range to be lazily connected
 func (lr *lazyPieceRanger) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
-	if lr.ranger == nil {
-		ps, err := lr.newPSClientHelper(ctx, &pb.Node{
-			Id:      lr.limit.GetLimit().StorageNodeId,
-			Address: lr.limit.GetStorageNodeAddress(),
-			Type:    pb.NodeType_STORAGE,
-		})
-		if err != nil {
-			return nil, err
-		}
-		pieceID := psclient.PieceID(lr.limit.GetLimit().PieceId.Bytes())
-		ranger, err := ps.Get(ctx, pieceID, lr.size, nil)
-		if err != nil {
-			return nil, err
-		}
-		lr.ranger = ranger
+	ps, err := lr.newPSClientHelper(ctx, &pb.Node{
+		Id:      lr.limit.GetLimit().StorageNodeId,
+		Address: lr.limit.GetStorageNodeAddress(),
+		Type:    pb.NodeType_STORAGE,
+	})
+	if err != nil {
+		return nil, err
 	}
-	return lr.ranger.Range(ctx, offset, length)
+	return ps.Download(ctx, lr.limit.GetLimit(), offset, length)
 }
 
 func nonNilCount(limits []*pb.AddressedOrderLimit) int {

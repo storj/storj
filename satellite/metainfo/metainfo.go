@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
@@ -153,7 +154,8 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 	limits := make([]*pb.AddressedOrderLimit, len(nodes))
 	for i, node := range nodes {
 		derivedPieceID := rootPieceID.Derive(node.Id)
-		orderLimit, err := endpoint.createOrderLimit(ctx, uplinkIdentity, node.Id, derivedPieceID, req.Expiration, req.MaxSegmentSize, pb.Action_PUT)
+		maxPieceSize := calcPieceSize(req.GetMaxSegmentSize(), req.GetRedundancy())
+		orderLimit, err := endpoint.createOrderLimit(ctx, uplinkIdentity, node.Id, derivedPieceID, req.Expiration, maxPieceSize, pb.Action_PUT)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
@@ -186,10 +188,10 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	err = endpoint.filterValidPieces(req.Pointer)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
-	}
+	// err = endpoint.filterValidPieces(req.Pointer)
+	// if err != nil {
+	// 	return nil, status.Errorf(codes.Internal, err.Error())
+	// }
 
 	path, err := endpoint.createPath(keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
 	if err != nil {
@@ -236,7 +238,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	if pointer.Type == pb.Pointer_INLINE {
 		return &pb.SegmentDownloadResponse{Pointer: pointer}, nil
 	} else if pointer.Type == pb.Pointer_REMOTE && pointer.Remote != nil {
-		limits, err := endpoint.createOrderLimitsForSegment(ctx, pointer.Remote, pb.Action_GET)
+		limits, err := endpoint.createOrderLimitsForSegment(ctx, pointer, pb.Action_GET)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
@@ -281,7 +283,7 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 	}
 
 	if pointer.Type == pb.Pointer_REMOTE && pointer.Remote != nil {
-		limits, err := endpoint.createOrderLimitsForSegment(ctx, pointer.Remote, pb.Action_DELETE)
+		limits, err := endpoint.createOrderLimitsForSegment(ctx, pointer, pb.Action_DELETE)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
@@ -291,8 +293,8 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 	return &pb.SegmentDeleteResponse{}, nil
 }
 
-func (endpoint *Endpoint) createOrderLimitsForSegment(ctx context.Context, remote *pb.RemoteSegment, action pb.Action) ([]*pb.AddressedOrderLimit, error) {
-	if remote == nil {
+func (endpoint *Endpoint) createOrderLimitsForSegment(ctx context.Context, pointer *pb.Pointer, action pb.Action) ([]*pb.AddressedOrderLimit, error) {
+	if pointer.GetRemote() == nil {
 		return nil, nil
 	}
 
@@ -301,14 +303,15 @@ func (endpoint *Endpoint) createOrderLimitsForSegment(ctx context.Context, remot
 		return nil, err
 	}
 
-	pieceID, err := storj.PieceIDFromString(remote.PieceId)
-	if err != nil {
-		return nil, err
-	}
+	rootPieceID := pointer.GetRemote().PieceId_2
 
-	limits := make([]*pb.AddressedOrderLimit, remote.Redundancy.Total)
-	for _, piece := range remote.RemotePieces {
-		orderLimit, err := endpoint.createOrderLimit(ctx, uplinkIdentity, piece.NodeId, pieceID, nil, 0, action)
+	pieceSize := calcPieceSize(pointer.GetSegmentSize(), pointer.GetRemote().GetRedundancy())
+	expiration := pointer.ExpirationDate
+
+	var limits []*pb.AddressedOrderLimit
+	for _, piece := range pointer.GetRemote().GetRemotePieces() {
+		derivedPieceID := rootPieceID.Derive(piece.NodeId)
+		orderLimit, err := endpoint.createOrderLimit(ctx, uplinkIdentity, piece.NodeId, derivedPieceID, expiration, pieceSize, action)
 		if err != nil {
 			return nil, err
 		}
@@ -322,10 +325,10 @@ func (endpoint *Endpoint) createOrderLimitsForSegment(ctx context.Context, remot
 			node.Type.DPanicOnInvalid("metainfo server order limits")
 		}
 
-		limits[piece.PieceNum] = &pb.AddressedOrderLimit{
+		limits = append(limits, &pb.AddressedOrderLimit{
 			Limit:              orderLimit,
 			StorageNodeAddress: node.Address,
-		}
+		})
 
 	}
 	return limits, nil
@@ -465,7 +468,8 @@ func (endpoint *Endpoint) validateCommit(req *pb.SegmentCommitRequest) error {
 			if limit == nil {
 				return Error.New("invalid no order limit for piece")
 			}
-			if limit.PieceId.IsZero() || limit.PieceId.String() != remote.PieceId {
+			derivedPieceID := remote.PieceId_2.Derive(piece.NodeId)
+			if limit.PieceId.IsZero() || limit.PieceId != derivedPieceID {
 				return Error.New("invalid order limit piece id")
 			}
 			if bytes.Compare(piece.NodeId.Bytes(), limit.StorageNodeId.Bytes()) != 0 {
@@ -494,4 +498,26 @@ func (endpoint *Endpoint) validatePointer(pointer *pb.Pointer) error {
 		}
 	}
 	return nil
+}
+
+func calcPieceSize(segmentSize int64, redundancy *pb.RedundancyScheme) int64 {
+	encryptedBlockSize := 1 * memory.KiB.Int64() // TODO: this info is available on the client
+	encryptionOverhead := 16 * memory.B.Int64()  // TODO: this info is available on the client
+
+	blocks := segmentSize / (encryptedBlockSize - encryptionOverhead)
+	if segmentSize%(encryptedBlockSize-encryptionOverhead) != 0 {
+		blocks++
+	}
+
+	encryptedSegmentSize := blocks * encryptedBlockSize
+	stripeSize := int64(redundancy.GetMinReq() * redundancy.GetErasureShareSize())
+	stripes := encryptedSegmentSize / stripeSize
+	if encryptedSegmentSize%stripeSize != 0 {
+		stripes++
+	}
+
+	encodedSegmentSize := stripes * stripeSize
+	pieceSize := encodedSegmentSize / int64(redundancy.GetMinReq())
+
+	return pieceSize
 }
