@@ -37,13 +37,15 @@ func (db *DB) Migration() *migrate.Migration {
 					`ALTER TABLE pieceinfo
 						ADD CONSTRAINT pk_pieceinfo ON pieceinfo(satellite_id, id)`,
 
-					// table for storing order information
-					`CREATE TABLE orderinfo (
+					// table for storing bandwidth usage
+					`CREATE TABLE bandwidth_usage (
 						satellite     BLOB,
 						action        INTEGER,
 						amount        BIGINT,
 						created_at    TIMESTAMP without time zone
 					)`,
+					`CREATE INDEX idx_bandwidth_usage_satellite ON bandwidth_usage(satellite)`,
+					`CREATE INDEX idx_bandwidth_usage_created   ON bandwidth_usage(created_at)`,
 
 					// table for storing all unsent orders
 					`CREATE TABLE orders_unsent (
