@@ -50,7 +50,7 @@ func NewClient(tc transport.Client, memoryLimit int) Client {
 	return &ecClient{
 		transport:       tc,
 		memoryLimit:     memoryLimit,
-		newPSClientFunc: piecestore.NewClient, // TODO
+		newPSClientFunc: piecestore.NewClient,
 	}
 }
 
