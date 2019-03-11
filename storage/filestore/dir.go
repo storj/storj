@@ -18,8 +18,8 @@ import (
 )
 
 const (
-	blobPermission = 0655
-	dirPermission  = 0755
+	blobPermission = 0600
+	dirPermission  = 0700
 )
 
 var pathEncoding = base32.NewEncoding("abcdefghijklmnopqrstuvwxyz234567").WithPadding('1')

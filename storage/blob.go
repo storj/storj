@@ -21,7 +21,7 @@ type BlobReader interface {
 	io.Seeker
 	io.Closer
 	// Size returns the size of the blob
-	Size() int64
+	Size() (int64, error)
 }
 
 // BlobWriter is an interface that groups Read, ReadAt, Seek and Close.
@@ -32,7 +32,7 @@ type BlobWriter interface {
 	// Commit ensures that the blob is readable by others.
 	Commit() error
 	// Size returns the size of the blob
-	Size() int64
+	Size() (int64, error)
 }
 
 // Blobs is a blob storage interface

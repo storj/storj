@@ -12,7 +12,7 @@ import (
 	"storj.io/storj/storage"
 )
 
-// blobWriter implements reader that is offset by blob header size
+// blobReader implements reading blobs
 type blobReader struct {
 	*os.File
 }
@@ -22,12 +22,15 @@ func newBlobReader(file *os.File) *blobReader {
 }
 
 // Size returns how large is the blob.
-func (blob *blobReader) Size() int64 {
-	stat, _ := blob.Stat()
-	return stat.Size()
+func (blob *blobReader) Size() (int64, error) {
+	stat, err := blob.Stat()
+	if err != nil {
+		return 0, err
+	}
+	return stat.Size(), err
 }
 
-// blobWriter implements reader that is offset by blob header size
+// blobWriter implements writing blobs
 type blobWriter struct {
 	ref   storage.BlobRef
 	store *Store
@@ -53,7 +56,10 @@ func (blob *blobWriter) Commit() error {
 }
 
 // Size returns how much has been written so far.
-func (blob *blobWriter) Size() int64 {
-	p, _ := blob.Seek(0, io.SeekCurrent)
-	return p
+func (blob *blobWriter) Size() (int64, error) {
+	pos, err := blob.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return 0, err
+	}
+	return pos, err
 }

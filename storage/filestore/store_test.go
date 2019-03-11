@@ -114,7 +114,10 @@ func TestStoreLoad(t *testing.T) {
 	for _, ref := range refs {
 		reader, err := store.Open(ctx, ref)
 		require.NoError(t, err)
-		require.Equal(t, reader.Size(), int64(len(data)))
+
+		size, err := reader.Size()
+		require.NoError(t, err)
+		require.Equal(t, size, int64(len(data)))
 
 		_, err = io.ReadFull(reader, temp)
 		require.NoError(t, err)
