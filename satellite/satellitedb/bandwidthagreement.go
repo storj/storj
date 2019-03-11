@@ -20,16 +20,16 @@ type bandwidthagreement struct {
 	db *dbx.DB
 }
 
-func (b *bandwidthagreement) CreateAgreement(ctx context.Context, rba *pb.Order) (err error) {
-	expiration := time.Unix(rba.PayerAllocation.ExpirationUnixSec, 0)
-	_, err = b.db.Create_Bwagreement(
-		ctx,
-		dbx.Bwagreement_Serialnum(rba.PayerAllocation.SerialNumber+rba.StorageNodeId.String()),
-		dbx.Bwagreement_StorageNodeId(rba.StorageNodeId.Bytes()),
-		dbx.Bwagreement_UplinkId(rba.PayerAllocation.UplinkId.Bytes()),
-		dbx.Bwagreement_Action(int64(rba.PayerAllocation.Action)),
-		dbx.Bwagreement_Total(rba.Total),
-		dbx.Bwagreement_ExpiresAt(expiration),
+func (b *bandwidthagreement) SaveOrder(rba *pb.Order) (err error) {
+	var saveOrderSQL = `INSERT INTO bwagreements ( serialnum, storage_node_id, uplink_id, action, total, created_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? )`
+	_, err = b.db.DB.Exec(b.db.Rebind(saveOrderSQL),
+		rba.PayerAllocation.SerialNumber+rba.StorageNodeId.String(),
+		rba.StorageNodeId,
+		rba.PayerAllocation.UplinkId,
+		int64(rba.PayerAllocation.Action),
+		rba.Total,
+		time.Now().UTC(),
+		time.Unix(rba.PayerAllocation.ExpirationUnixSec, 0),
 	)
 	return err
 }
@@ -49,17 +49,11 @@ func (b *bandwidthagreement) GetUplinkStats(ctx context.Context, from, to time.T
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 	for rows.Next() {
-		var nodeID []byte
 		stat := bwagreement.UplinkStat{}
-		err := rows.Scan(&nodeID, &stat.TotalBytes, &stat.PutActionCount, &stat.GetActionCount, &stat.TotalTransactions)
+		err := rows.Scan(&stat.NodeID, &stat.TotalBytes, &stat.PutActionCount, &stat.GetActionCount, &stat.TotalTransactions)
 		if err != nil {
 			return stats, err
 		}
-		id, err := storj.NodeIDFromBytes(nodeID)
-		if err != nil {
-			return stats, err
-		}
-		stat.NodeID = id
 		stats = append(stats, stat)
 	}
 	return stats, nil
@@ -85,26 +79,22 @@ func (b *bandwidthagreement) GetTotals(ctx context.Context, from, to time.Time) 
 
 	totals := make(map[storj.NodeID][]int64)
 	for i := 0; rows.Next(); i++ {
-		var nodeID []byte
+		var nodeID storj.NodeID
 		data := make([]int64, len(pb.BandwidthAction_value))
 		err := rows.Scan(&nodeID, &data[pb.BandwidthAction_PUT], &data[pb.BandwidthAction_GET],
 			&data[pb.BandwidthAction_GET_AUDIT], &data[pb.BandwidthAction_GET_REPAIR], &data[pb.BandwidthAction_PUT_REPAIR])
 		if err != nil {
 			return totals, err
 		}
-		id, err := storj.NodeIDFromBytes(nodeID)
-		if err != nil {
-			return totals, err
-		}
-		totals[id] = data
+		totals[nodeID] = data
 	}
 	return totals, nil
 }
 
 //GetExpired gets orders that are expired and were created before some time
 func (b *bandwidthagreement) GetExpired(before time.Time, expiredAt time.Time) (orders []bwagreement.SavedOrder, err error) {
-	var getExpiredSQL = fmt.Sprintf(`SELECT serialnum, storage_node_id, uplink_id, action, total, created_at, expires_at 
-		FROM bwagreements WHERE created_at < ? AND expires_at < ?`)
+	var getExpiredSQL = `SELECT serialnum, storage_node_id, uplink_id, action, total, created_at, expires_at 
+		FROM bwagreements WHERE created_at < ? AND expires_at < ?`
 	rows, err := b.db.DB.Query(b.db.Rebind(getExpiredSQL), before, expiredAt)
 	if err != nil {
 		return nil, err
@@ -123,7 +113,7 @@ func (b *bandwidthagreement) GetExpired(before time.Time, expiredAt time.Time) (
 
 //DeleteExpired deletes orders that are expired and were created before some time
 func (b *bandwidthagreement) DeleteExpired(before time.Time, expiredAt time.Time) error {
-	var deleteExpiredSQL = fmt.Sprintf(`DELETE FROM bwagreements WHERE created_at < ? AND expires_at < ?`)
+	var deleteExpiredSQL = `DELETE FROM bwagreements WHERE created_at < ? AND expires_at < ?`
 	_, err := b.db.DB.Exec(b.db.Rebind(deleteExpiredSQL), before, expiredAt)
 	return err
 }

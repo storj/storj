@@ -14,22 +14,6 @@ model bwagreement (
 	field expires_at      timestamp
 )
 
-create bwagreement ( )
-read limitoffset ( select bwagreement)
-read all ( select bwagreement)
-read all (
-	select bwagreement
-	where  bwagreement.created_at > ?
-)
-read all (
-	select bwagreement
-	where bwagreement.created_at < ?
-	where  bwagreement.expires_at < ?
-)
-delete bwagreement(
-	where bwagreement.created_at < ?
-	where bwagreement.expires_at < ?
-)
 
 //--- datarepair.irreparableDB ---//
 

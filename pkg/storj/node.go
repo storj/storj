@@ -153,7 +153,7 @@ func (id NodeID) Value() (driver.Value, error) {
 func (id *NodeID) Scan(src interface{}) (err error) {
 	b, _ := src.([]byte)
 	n, err := NodeIDFromBytes(b)
-	id = &n
+	*id = n
 	return err
 }
 

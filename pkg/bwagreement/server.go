@@ -33,7 +33,7 @@ var (
 type Config struct {
 }
 
-//UplinkStat contains information about an uplink's returned bandwidth agreement
+//UplinkStat contains information about an uplink's returned Orders
 type UplinkStat struct {
 	NodeID            storj.NodeID
 	TotalBytes        int64
@@ -42,7 +42,7 @@ type UplinkStat struct {
 	TotalTransactions int
 }
 
-//SavedOrder allows use of dbx.Bwagreement without the namespace
+//SavedOrder is information from an Order pertaining to accounting
 type SavedOrder struct {
 	Serialnum     string
 	StorageNodeID storj.NodeID
@@ -53,10 +53,10 @@ type SavedOrder struct {
 	ExpiresAt     time.Time
 }
 
-// DB stores bandwidth agreements.
+// DB stores orders for accounting purposes
 type DB interface {
-	// CreateAgreement adds a new bandwidth agreement.
-	CreateAgreement(context.Context, *pb.Order) error
+	// SaveOrder saves an order for accounting
+	SaveOrder(*pb.Order) error
 	// GetTotalsSince returns the sum of each bandwidth type after (exluding) a given date range
 	GetTotals(context.Context, time.Time, time.Time) (map[storj.NodeID][]int64, error)
 	//GetTotals returns stats about an uplink
@@ -112,7 +112,7 @@ func (s *Server) BandwidthAgreements(ctx context.Context, rba *pb.Order) (reply 
 	}
 
 	//save and return rersults
-	if err = s.bwdb.CreateAgreement(ctx, rba); err != nil {
+	if err = s.bwdb.SaveOrder(rba); err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") ||
 			strings.Contains(err.Error(), "violates unique constraint") {
 			return reply, pb.ErrPayer.Wrap(auth.ErrSerial.Wrap(err))

@@ -112,13 +112,6 @@ type lockedBandwidthAgreement struct {
 	db bwagreement.DB
 }
 
-// CreateAgreement adds a new bandwidth agreement.
-func (m *lockedBandwidthAgreement) CreateAgreement(ctx context.Context, a1 *pb.RenterBandwidthAllocation) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.CreateAgreement(ctx, a1)
-}
-
 // DeleteExpired deletes orders that are expired and were created before some time
 func (m *lockedBandwidthAgreement) DeleteExpired(a0 time.Time, a1 time.Time) error {
 	m.Lock()
@@ -145,6 +138,13 @@ func (m *lockedBandwidthAgreement) GetUplinkStats(ctx context.Context, a1 time.T
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetUplinkStats(ctx, a1, a2)
+}
+
+// SaveOrder saves an order for accounting
+func (m *lockedBandwidthAgreement) SaveOrder(a0 *pb.RenterBandwidthAllocation) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SaveOrder(a0)
 }
 
 // CertDB returns database for storing uplink's public key & ID
