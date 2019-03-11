@@ -101,34 +101,29 @@ func (b *bandwidthagreement) GetTotals(ctx context.Context, from, to time.Time) 
 	return totals, nil
 }
 
-//DeleteExpired deletes agreements that are expired and were created before some time
-func (b *bandwidthagreement) DeleteExpired(ctx context.Context, before time.Time, callback func(*bwagreement.SavedOrder) error) (err error) {
-	txn, err := b.db.Open(ctx)
+//GetExpired gets orders that are expired and were created before some time
+func (b *bandwidthagreement) GetExpired(before time.Time, expiredAt time.Time) (orders []bwagreement.SavedOrder, err error) {
+	var getExpiredSQL = fmt.Sprintf(`SELECT serialnum, storage_node_id, uplink_id, action, total, created_at, expires_at 
+		FROM bwagreements WHERE created_at < ? AND expires_at < ?`)
+	rows, err := b.db.DB.Query(b.db.Rebind(getExpiredSQL), before, expiredAt)
 	if err != nil {
-		return errs.New("Failed to start transaction: %v", err)
+		return nil, err
 	}
-	defer func() {
-		if err == nil {
-			err = errs.Combine(err, txn.Commit())
-		} else {
-			err = errs.Combine(err, txn.Rollback())
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+	for i := 0; rows.Next(); i++ {
+		o := bwagreement.SavedOrder{}
+		err = rows.Scan(&o.Serialnum, &o.StorageNodeID, &o.UplinkID, &o.Action, &o.Total, &o.CreatedAt, &o.ExpiresAt)
+		if err != nil {
+			break
 		}
-	}()
-	expired, err := txn.All_Bwagreement_By_CreatedAt_Less_And_ExpiresAt_Less(ctx, dbx.Bwagreement_CreatedAt(before), dbx.Bwagreement_ExpiresAt(time.Now()))
-	for _, b := range expired {
-		order := bwagreement.SavedOrder{
-			Serialnum:     b.Serialnum,
-			StorageNodeID: b.StorageNodeId,
-			UplinkID:      b.UplinkId,
-			Action:        b.Action,
-			Total:         b.Total,
-			CreatedAt:     b.CreatedAt,
-			ExpiresAt:     b.ExpiresAt,
-		}
-		if err = callback(&order); err != nil {
-			return err
-		}
+		orders = append(orders, o)
 	}
-	_, err = txn.Delete_Bwagreement_By_CreatedAt_Less_And_ExpiresAt_Less(ctx, dbx.Bwagreement_CreatedAt(before), dbx.Bwagreement_ExpiresAt(time.Now()))
+	return orders, err
+}
+
+//DeleteExpired deletes orders that are expired and were created before some time
+func (b *bandwidthagreement) DeleteExpired(before time.Time, expiredAt time.Time) error {
+	var deleteExpiredSQL = fmt.Sprintf(`DELETE FROM bwagreements WHERE created_at < ? AND expires_at < ?`)
+	_, err := b.db.DB.Exec(b.db.Rebind(deleteExpiredSQL), before, expiredAt)
 	return err
 }

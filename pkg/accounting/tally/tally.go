@@ -5,7 +5,6 @@ package tally
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -87,10 +86,20 @@ func (t *Tally) Tally(ctx context.Context) error {
 		if err != nil {
 			errBWA = errs.New("Saving for bandwidth failed : %v", err)
 		} else {
-			_ = t.bwAgreementDB.DeleteExpired(ctx, tallyEnd, func(*bwagreement.SavedOrder) error {
-				//todo: write files to disk or whatever we decide to do here
-				return fmt.Errorf("Not implemented")
-			})
+			//remove expired records
+			now := time.Now()
+			_, err = t.bwAgreementDB.GetExpired(tallyEnd, now)
+			if err != nil {
+				return err
+			}
+			var expiredOrdersHaveBeenSaved bool
+			//todo: write files to disk or whatever we decide to do here
+			if expiredOrdersHaveBeenSaved {
+				err = t.bwAgreementDB.DeleteExpired(tallyEnd, now)
+				if err != nil {
+					return err
+				}
+			}
 		}
 	}
 	return errs.Combine(errAtRest, errBWA)

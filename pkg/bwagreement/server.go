@@ -45,8 +45,8 @@ type UplinkStat struct {
 //SavedOrder allows use of dbx.Bwagreement without the namespace
 type SavedOrder struct {
 	Serialnum     string
-	StorageNodeID []byte
-	UplinkID      []byte
+	StorageNodeID storj.NodeID
+	UplinkID      storj.NodeID
 	Action        int64
 	Total         int64
 	CreatedAt     time.Time
@@ -61,8 +61,10 @@ type DB interface {
 	GetTotals(context.Context, time.Time, time.Time) (map[storj.NodeID][]int64, error)
 	//GetTotals returns stats about an uplink
 	GetUplinkStats(context.Context, time.Time, time.Time) ([]UplinkStat, error)
-	//DeleteExpired deletes agreements that are expired and were created before some time
-	DeleteExpired(context.Context, time.Time, func(*SavedOrder) error) error
+	//GetExpired gets orders that are expired and were created before some time
+	GetExpired(time.Time, time.Time) ([]SavedOrder, error)
+	//DeleteExpired deletes orders that are expired and were created before some time
+	DeleteExpired(time.Time, time.Time) error
 }
 
 // Server is an implementation of the pb.BandwidthServer interface

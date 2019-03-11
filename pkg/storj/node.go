@@ -5,6 +5,7 @@ package storj
 
 import (
 	"crypto/sha256"
+	"database/sql/driver"
 	"math/bits"
 
 	"github.com/btcsuite/btcutil/base58"
@@ -141,6 +142,19 @@ func (id *NodeID) Size() int {
 // MarshalJSON serializes a node ID to a json string as bytes
 func (id NodeID) MarshalJSON() ([]byte, error) {
 	return []byte(`"` + id.String() + `"`), nil
+}
+
+// Value set a NodeID to a database field
+func (id NodeID) Value() (driver.Value, error) {
+	return id.Bytes(), nil
+}
+
+// Scan extracts a NodeID from a database field
+func (id *NodeID) Scan(src interface{}) (err error) {
+	b, _ := src.([]byte)
+	n, err := NodeIDFromBytes(b)
+	id = &n
+	return err
 }
 
 // UnmarshalJSON deserializes a json string (as bytes) to a node ID

@@ -119,11 +119,18 @@ func (m *lockedBandwidthAgreement) CreateAgreement(ctx context.Context, a1 *pb.R
 	return m.db.CreateAgreement(ctx, a1)
 }
 
-// DeleteExpired deletes agreements that are expired and were created before some time
-func (m *lockedBandwidthAgreement) DeleteExpired(ctx context.Context, a1 time.Time, a2 func(*bwagreement.SavedOrder) error) error {
+// DeleteExpired deletes orders that are expired and were created before some time
+func (m *lockedBandwidthAgreement) DeleteExpired(a0 time.Time, a1 time.Time) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.DeleteExpired(ctx, a1, a2)
+	return m.db.DeleteExpired(a0, a1)
+}
+
+// GetExpired gets orders that are expired and were created before some time
+func (m *lockedBandwidthAgreement) GetExpired(a0 time.Time, a1 time.Time) ([]bwagreement.SavedOrder, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetExpired(a0, a1)
 }
 
 // GetTotalsSince returns the sum of each bandwidth type after (exluding) a given date range
