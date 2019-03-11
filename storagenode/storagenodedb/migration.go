@@ -48,7 +48,7 @@ func (db *DB) Migration() *migrate.Migration {
 					`CREATE INDEX idx_bandwidth_usage_created   ON bandwidth_usage(created_at)`,
 
 					// table for storing all unsent orders
-					`CREATE TABLE orders_unsent (
+					`CREATE TABLE unsent_orders (
 						satellite_id  BLOB,
 						serial_number BLOB,
 
@@ -60,10 +60,10 @@ func (db *DB) Migration() *migrate.Migration {
 
 						FOREIGN KEY(uplink_certid) REFERENCES certificate(certid)
 					)`,
-					`CREATE INDEX idx_orders_unsent ON orders_unsent(satellite_id, serial_number)`,
+					`CREATE INDEX idx_orders_unsent ON unsent_orders(satellite_id, serial_number)`,
 
 					// table for storing all rejected orders
-					`CREATE TABLE orders_rejected (
+					`CREATE TABLE rejected_orders (
 						satellite_id  BLOB,
 						serial_number BLOB,
 
