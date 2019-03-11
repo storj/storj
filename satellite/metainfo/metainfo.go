@@ -236,7 +236,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	if pointer.Type == pb.Pointer_INLINE {
 		return &pb.SegmentDownloadResponse{Pointer: pointer}, nil
 	} else if pointer.Type == pb.Pointer_REMOTE && pointer.Remote != nil {
-		limits, err := endpoint.createOrderLimitsForSegment(ctx, pointer.Remote, pb.Action_GET)
+		limits, err := endpoint.createOrderLimitsForSegment(ctx, pointer, pb.Action_GET)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
@@ -281,7 +281,7 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 	}
 
 	if pointer.Type == pb.Pointer_REMOTE && pointer.Remote != nil {
-		limits, err := endpoint.createOrderLimitsForSegment(ctx, pointer.Remote, pb.Action_DELETE)
+		limits, err := endpoint.createOrderLimitsForSegment(ctx, pointer, pb.Action_DELETE)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
@@ -291,8 +291,8 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 	return &pb.SegmentDeleteResponse{}, nil
 }
 
-func (endpoint *Endpoint) createOrderLimitsForSegment(ctx context.Context, remote *pb.RemoteSegment, action pb.Action) ([]*pb.AddressedOrderLimit, error) {
-	if remote == nil {
+func (endpoint *Endpoint) createOrderLimitsForSegment(ctx context.Context, pointer *pb.Pointer, action pb.Action) ([]*pb.AddressedOrderLimit, error) {
+	if pointer == nil || pointer.Remote == nil {
 		return nil, nil
 	}
 
@@ -301,14 +301,17 @@ func (endpoint *Endpoint) createOrderLimitsForSegment(ctx context.Context, remot
 		return nil, err
 	}
 
-	pieceID, err := storj.PieceIDFromString(remote.PieceId)
+	pieceID, err := storj.PieceIDFromString(pointer.Remote.PieceId)
 	if err != nil {
 		return nil, err
 	}
 
+	limit := pointer.SegmentSize
+	expiration := pointer.ExpirationDate
+
 	var limits []*pb.AddressedOrderLimit
-	for _, piece := range remote.RemotePieces {
-		orderLimit, err := endpoint.createOrderLimit(ctx, uplinkIdentity, piece.NodeId, pieceID, nil, 0, action)
+	for _, piece := range pointer.Remote.RemotePieces {
+		orderLimit, err := endpoint.createOrderLimit(ctx, uplinkIdentity, piece.NodeId, pieceID, expiration, limit, action)
 		if err != nil {
 			return nil, err
 		}
