@@ -134,7 +134,7 @@ func (client *Download) Read(data []byte) (read int, _ error) {
 
 		// we don't have data, wait for a chunk from storage node
 		response, err := client.stream.Recv()
-		if response.Chunk != nil {
+		if response != nil && response.Chunk != nil {
 			client.downloaded += int64(len(response.Chunk.Data))
 			client.unread.Fill(response.Chunk.Data)
 		}
