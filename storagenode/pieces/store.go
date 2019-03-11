@@ -23,13 +23,16 @@ const (
 	preallocSize    = 4 * memory.MiB
 )
 
+// Error is the default error class.
 var Error = errs.Class("pieces error")
 
+// Store implements storing pieces onto a blob storage implementation.
 type Store struct {
 	log   *zap.Logger
 	blobs storage.Blobs
 }
 
+// NewStore creates a new piece store
 func NewStore(log *zap.Logger, blobs storage.Blobs) *Store {
 	return &Store{
 		log:   log,
@@ -37,6 +40,7 @@ func NewStore(log *zap.Logger, blobs storage.Blobs) *Store {
 	}
 }
 
+// Writer returns a new piece writer.
 func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID2) (*Writer, error) {
 	blob, err := store.blobs.Create(ctx, storage.BlobRef{
 		Namespace: satellite.Bytes(),
@@ -50,6 +54,7 @@ func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID 
 	return writer, Error.Wrap(err)
 }
 
+// Reader returns a new piece reader.
 func (store *Store) Reader(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID2) (*Reader, error) {
 	blob, err := store.blobs.Open(ctx, storage.BlobRef{
 		Namespace: satellite.Bytes(),
@@ -63,6 +68,7 @@ func (store *Store) Reader(ctx context.Context, satellite storj.NodeID, pieceID 
 	return reader, Error.Wrap(err)
 }
 
+// Delete deletes the specified piece.
 func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID2) error {
 	err := store.blobs.Delete(ctx, storage.BlobRef{
 		Namespace: satellite.Bytes(),
