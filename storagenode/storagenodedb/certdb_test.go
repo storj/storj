@@ -24,5 +24,4 @@ func TestCertDB(t *testing.T) {
 	defer ctx.Check(db.Close)
 
 	require.NoError(t, db.CreateTables(log))
-
 }

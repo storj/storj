@@ -89,19 +89,19 @@ func (db *infodb) Migration() *migrate.Migration {
 					)`,
 					// table for storing piece meta info
 					`CREATE TABLE pieceinfo (
-						satellite_id BLOB,
-						id           BLOB,
-						size         BIGINT,
-						expiration   TIMESTAMP without time zone, -- date when it can be deleted
+						satellite_id     BLOB,
+						piece_id         BLOB,
+						piece_size       BIGINT,
+						piece_expiration TIMESTAMP without time zone, -- date when it can be deleted
 
 						uplink_hash   BLOB, -- serialized pb.PieceHash signed by uplink
 						uplink_certid SERIAL,
 
 						FOREIGN KEY(uplink_certid) REFERENCES certificate(certid)
 					)`,
+
 					// primary key by satellite id and piece id
-					`ALTER TABLE pieceinfo
-						ADD CONSTRAINT pk_pieceinfo ON pieceinfo(satellite_id, id)`,
+					`CREATE UNIQUE INDEX pk_pieceinfo ON pieceinfo(satellite_id, piece_id)`,
 
 					// table for storing bandwidth usage
 					`CREATE TABLE bandwidth_usage (
@@ -118,8 +118,8 @@ func (db *infodb) Migration() *migrate.Migration {
 						satellite_id  BLOB,
 						serial_number BLOB,
 
-						order_limit   BLOB, -- serialized pb.OrderLimit
-						order         BLOB, -- serialized pb.Order
+						order_limit_serialized BLOB, -- serialized pb.OrderLimit
+						order_serialized       BLOB, -- serialized pb.Order
 						order_limit_expiration TIMESTAMP without time zone, -- when is the deadline for sending it
 
 						uplink_certid SERIAL,
@@ -133,8 +133,8 @@ func (db *infodb) Migration() *migrate.Migration {
 						satellite_id  BLOB,
 						serial_number BLOB,
 
-						order_limit   BLOB, -- serialized pb.OrderLimit
-						order         BLOB, -- serialized pb.Order
+						order_limit_serialized BLOB, -- serialized pb.OrderLimit
+						order_serialized       BLOB, -- serialized pb.Order
 
 						uplink_certid SERIAL,
 
@@ -150,8 +150,7 @@ func (db *infodb) Migration() *migrate.Migration {
 						expiration    TIMESTAMP without time zone
 					)`,
 					// primary key on satellite id and serial number
-					`ALTER TABLE used_serial 
-						ADD CONSTRAINT pk_used_serial ON used_serial(satellite_id, serial_number)`,
+					`CREATE UNIQUE INDEX pk_used_serial ON used_serial(satellite_id, serial_number)`,
 					// expiration index to allow fast deletion
 					`CREATE INDEX idx_used_serial ON used_serial(expiration)`,
 				},

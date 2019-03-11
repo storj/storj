@@ -36,6 +36,9 @@ func NewAt(path string) (*Store, error) {
 	return &Store{dir}, nil
 }
 
+// Close closes the store.
+func (store *Store) Close() error { return nil }
+
 // Open loads blob with the specified hash
 func (store *Store) Open(ctx context.Context, ref storage.BlobRef) (storage.BlobReader, error) {
 	file, openErr := store.dir.Open(ref)
