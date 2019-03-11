@@ -525,8 +525,6 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 
 		planet.databases = append(planet.databases, db)
 
-		satelliteIDs := strings.Join(whitelistedSatelliteIDs, ",")
-
 		config := storagenode.Config{
 			Server: server.Config{
 				Address:        "127.0.0.1:0",
@@ -558,7 +556,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 
 				AgreementSenderCheckInterval: time.Hour,
 				CollectorInterval:            time.Hour,
-				WhitelistedSatelliteIDs:      satelliteIDs,
+				WhitelistedSatelliteIDs:      strings.Join(whitelistedSatelliteIDs, ","),
 			},
 		}
 		if planet.config.Reconfigure.StorageNode != nil {
