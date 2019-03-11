@@ -21,9 +21,9 @@ type accountingDB struct {
 }
 
 // LastTimestamp records the greatest last tallied time
-func (db *accountingDB) LastTimestamp(ctx context.Context, timestampType string) (last time.Time, err error) {
+func (db *accountingDB) LastTimestamp(ctx context.Context, timestampType string) (time.Time, error) {
 	lastTally := time.Time{}
-	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+	err := db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
 		lastTally, err := tx.Find_AccountingTimestamps_Value_By_Name(ctx, dbx.AccountingTimestamps_Name(timestampType))
 		if lastTally == nil {
 			update := dbx.AccountingTimestamps_Value(time.Time{})
