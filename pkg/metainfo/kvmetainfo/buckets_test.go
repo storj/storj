@@ -5,7 +5,6 @@ package kvmetainfo_test
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"testing"
 
@@ -356,11 +355,6 @@ func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, buckets.Store,
 	}
 
 	TestAPIKey = apiKey.String()
-
-	err = flag.Set("pointer-db.auth.api-key", TestAPIKey)
-	if err != nil {
-		return nil, nil, nil, err
-	}
 
 	oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
 	if err != nil {
