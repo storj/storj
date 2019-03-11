@@ -18,6 +18,8 @@ import (
 type Pool struct {
 	kademlia *kademlia.Kademlia
 
+	mu sync.RWMutex
+
 	trustAllSatellites bool
 	trustedSatellites  map[storj.NodeID]*satelliteInfoCache
 }
@@ -68,6 +70,9 @@ func (pool *Pool) VerifySatelliteID(ctx context.Context, id storj.NodeID) error 
 		return nil
 	}
 
+	pool.mu.RLock()
+	defer pool.mu.RUnlock()
+
 	_, ok := pool.trustedSatellites[id]
 	if !ok {
 		return fmt.Errorf("satellite %q is untrusted", id)
@@ -82,9 +87,26 @@ func (pool *Pool) VerifyUplinkID(ctx context.Context, id storj.NodeID) error {
 
 func (pool *Pool) GetSignee(ctx context.Context, id storj.NodeID) (signing.Signee, error) {
 	// lookup peer identity with id
+	pool.mu.RLock()
 	info, ok := pool.trustedSatellites[id]
-	if !ok {
-		return nil, fmt.Errorf("signee %q is untrusted", id)
+	pool.mu.RUnlock()
+
+	if pool.trustAllSatellites {
+		// add a new entry
+		if !ok {
+			pool.mu.Lock()
+			// did another goroutine manage to make it first?
+			info, ok = pool.trustedSatellites[id]
+			if !ok {
+				info = &satelliteInfoCache{}
+				pool.trustedSatellites[id] = info
+			}
+			pool.mu.Unlock()
+		}
+	} else {
+		if !ok {
+			return nil, fmt.Errorf("signee %q is untrusted", id)
+		}
 	}
 
 	info.once.Do(func() {

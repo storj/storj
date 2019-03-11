@@ -176,6 +176,7 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 	for _, satellite := range planet.Satellites {
 		whitelistedSatellites = append(whitelistedSatellites, satellite.ID().String())
 	}
+
 	planet.StorageNodes, err = planet.newStorageNodes(config.StorageNodeCount, whitelistedSatellites)
 	if err != nil {
 		return nil, errs.Combine(err, planet.Shutdown())
@@ -556,7 +557,9 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 
 				AgreementSenderCheckInterval: time.Hour,
 				CollectorInterval:            time.Hour,
-				WhitelistedSatelliteIDs:      strings.Join(whitelistedSatelliteIDs, ","),
+
+				SatelliteIDRestriction:  true,
+				WhitelistedSatelliteIDs: strings.Join(whitelistedSatelliteIDs, ","),
 			},
 		}
 		if planet.config.Reconfigure.StorageNode != nil {
