@@ -22,16 +22,16 @@ func (db *irreparableDB) IncrementRepairAttempts(ctx context.Context, segmentInf
 		return Error.Wrap(err)
 	}
 
-	dbxInfo, err := tx.Get_IrreparableSegment_By_Segmentpath(ctx, dbx.IrreparableSegment_Segmentpath(segmentInfo.EncryptedSegmentPath))
+	dbxInfo, err := tx.Get_Irreparabledb_By_Segmentpath(ctx, dbx.Irreparabledb_Segmentpath(segmentInfo.EncryptedSegmentPath))
 	if err != nil {
 		// no rows err, so create/insert an entry
-		_, err = tx.Create_IrreparableSegment(
+		_, err = tx.Create_Irreparabledb(
 			ctx,
-			dbx.IrreparableSegment_Segmentpath(segmentInfo.EncryptedSegmentPath),
-			dbx.IrreparableSegment_Segmentdetail(segmentInfo.EncryptedSegmentDetail),
-			dbx.IrreparableSegment_PiecesLostCount(segmentInfo.LostPiecesCount),
-			dbx.IrreparableSegment_SegDamagedUnixSec(segmentInfo.RepairUnixSec),
-			dbx.IrreparableSegment_RepairAttemptCount(segmentInfo.RepairAttemptCount),
+			dbx.Irreparabledb_Segmentpath(segmentInfo.EncryptedSegmentPath),
+			dbx.Irreparabledb_Segmentdetail(segmentInfo.EncryptedSegmentDetail),
+			dbx.Irreparabledb_PiecesLostCount(segmentInfo.LostPiecesCount),
+			dbx.Irreparabledb_SegDamagedUnixSec(segmentInfo.RepairUnixSec),
+			dbx.Irreparabledb_RepairAttemptCount(segmentInfo.RepairAttemptCount),
 		)
 		if err != nil {
 			return Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
@@ -39,12 +39,12 @@ func (db *irreparableDB) IncrementRepairAttempts(ctx context.Context, segmentInf
 	} else {
 		// row exits increment the attempt counter
 		dbxInfo.RepairAttemptCount++
-		updateFields := dbx.IrreparableSegment_Update_Fields{}
-		updateFields.RepairAttemptCount = dbx.IrreparableSegment_RepairAttemptCount(dbxInfo.RepairAttemptCount)
-		updateFields.SegDamagedUnixSec = dbx.IrreparableSegment_SegDamagedUnixSec(segmentInfo.RepairUnixSec)
-		_, err = tx.Update_IrreparableSegment_By_Segmentpath(
+		updateFields := dbx.Irreparabledb_Update_Fields{}
+		updateFields.RepairAttemptCount = dbx.Irreparabledb_RepairAttemptCount(dbxInfo.RepairAttemptCount)
+		updateFields.SegDamagedUnixSec = dbx.Irreparabledb_SegDamagedUnixSec(segmentInfo.RepairUnixSec)
+		_, err = tx.Update_Irreparabledb_By_Segmentpath(
 			ctx,
-			dbx.IrreparableSegment_Segmentpath(dbxInfo.Segmentpath),
+			dbx.Irreparabledb_Segmentpath(dbxInfo.Segmentpath),
 			updateFields,
 		)
 		if err != nil {
@@ -57,7 +57,7 @@ func (db *irreparableDB) IncrementRepairAttempts(ctx context.Context, segmentInf
 
 // Get a irreparable's segment info from the db
 func (db *irreparableDB) Get(ctx context.Context, segmentPath []byte) (resp *irreparable.RemoteSegmentInfo, err error) {
-	dbxInfo, err := db.db.Get_IrreparableSegment_By_Segmentpath(ctx, dbx.IrreparableSegment_Segmentpath(segmentPath))
+	dbxInfo, err := db.db.Get_Irreparabledb_By_Segmentpath(ctx, dbx.Irreparabledb_Segmentpath(segmentPath))
 	if err != nil {
 		return &irreparable.RemoteSegmentInfo{}, Error.Wrap(err)
 	}
@@ -73,7 +73,7 @@ func (db *irreparableDB) Get(ctx context.Context, segmentPath []byte) (resp *irr
 
 // Getlimited number of irreparable segments by offset
 func (db *irreparableDB) GetLimited(ctx context.Context, limit int, offset int64) (resp []*irreparable.RemoteSegmentInfo, err error) {
-	rows, err := db.db.Limited_IrreparableSegment(ctx, limit, offset)
+	rows, err := db.db.Limited_Irreparabledb(ctx, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +93,7 @@ func (db *irreparableDB) GetLimited(ctx context.Context, limit int, offset int64
 
 // Delete a irreparable's segment info from the db
 func (db *irreparableDB) Delete(ctx context.Context, segmentPath []byte) (err error) {
-	_, err = db.db.Delete_IrreparableSegment_By_Segmentpath(ctx, dbx.IrreparableSegment_Segmentpath(segmentPath))
+	_, err = db.db.Delete_Irreparabledb_By_Segmentpath(ctx, dbx.Irreparabledb_Segmentpath(segmentPath))
 
 	return Error.Wrap(err)
 }

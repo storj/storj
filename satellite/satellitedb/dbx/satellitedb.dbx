@@ -24,7 +24,7 @@ read all (
 
 //--- irreparableDB ---//
 
-model irreparable_segment (
+model irreparabledb (
 	key segmentpath
 
 	field segmentpath          blob
@@ -34,16 +34,16 @@ model irreparable_segment (
 	field repair_attempt_count int64 ( updatable )
 )
 
-create irreparable_segment ( )
-update irreparable_segment ( where irreparable_segment.segmentpath = ? )
-delete irreparable_segment ( where irreparable_segment.segmentpath = ? )
+create irreparabledb ( )
+update irreparabledb ( where irreparabledb.segmentpath = ? )
+delete irreparabledb ( where irreparabledb.segmentpath = ? )
 
 read one (
-	select irreparable_segment
-	where  irreparable_segment.segmentpath = ?
+	select irreparabledb
+	where  irreparabledb.segmentpath = ?
 )
 
-read limitoffset ( select irreparable_segment )
+read limitoffset ( select irreparabledb )
 
 //--- accounting ---//
 

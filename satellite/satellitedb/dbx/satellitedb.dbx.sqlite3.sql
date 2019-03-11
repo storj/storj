@@ -63,7 +63,7 @@ CREATE TABLE injuredsegments (
 	info BLOB NOT NULL,
 	PRIMARY KEY ( id )
 );
-CREATE TABLE irreparable_segments (
+CREATE TABLE irreparabledbs (
 	segmentpath BLOB NOT NULL,
 	segmentdetail BLOB NOT NULL,
 	pieces_lost_count INTEGER NOT NULL,
