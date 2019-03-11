@@ -341,6 +341,13 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					)`,
 				},
 			},
+			{
+				Description: "Add index on bwagreements",
+				Version:     7,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS bwa_created_at ON bwagreements (created_at)`,
+				},
+			},
 		},
 	}
 }
