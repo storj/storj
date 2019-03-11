@@ -103,7 +103,7 @@ func QuerySnapshot(db dbschema.Queryer) (*dbschema.Snapshot, error) {
 
 //CheckApplicationName ensures that the Connection String contains an application name
 func CheckApplicationName(s string) (r string) {
-	if !strings.Contains(s, "ApplicationName") {
+	if !strings.Contains(s, "application_name") {
 		if !strings.Contains(s, "?") {
 			r = fmt.Sprintf("%s?%s", s, "application_name=Satellite")
 		} else {
