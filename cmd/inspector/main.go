@@ -44,7 +44,7 @@ var (
 	// ErrArgs throws when there are errors with CLI args
 	ErrArgs = errs.Class("error with CLI args:")
 
-	limit *int64
+	limit int64
 
 	// Commander CLI
 	rootCmd = &cobra.Command{
@@ -445,7 +445,7 @@ func CreateCSVStats(cmd *cobra.Command, args []string) (err error) {
 }
 
 func getSegments(cmd *cobra.Command, args []string) error {
-	if *limit <= int64(0) {
+	if limit <= int64(0) {
 		return ErrArgs.New("limit must be greater than 0")
 	}
 
@@ -454,7 +454,7 @@ func getSegments(cmd *cobra.Command, args []string) error {
 		return ErrInspectorDial.Wrap(err)
 	}
 
-	lim := *limit
+	lim := limit
 	length := lim
 	var offset int64
 
@@ -517,7 +517,7 @@ func init() {
 	statsCmd.AddCommand(createStatsCmd)
 	statsCmd.AddCommand(createCSVStatsCmd)
 
-	limit = irreparableCmd.Flags().Int64("limit", 1000, "max number of results per page")
+	irreparableCmd.Flags().Int64Var(&limit, "limit", 1000, "max number of results per page")
 
 	flag.Parse()
 }
