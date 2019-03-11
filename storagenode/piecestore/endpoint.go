@@ -162,7 +162,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 	}
 	defer pieceWriter.Cancel() // similarly how transcation Rollback works
 
-	var largestOrder *pb.Order2
+	largestOrder := &pb.Order2{}
 	for {
 		message, err = stream.Recv() // TODO: reuse messages to avoid allocations
 		if err != nil {
@@ -210,7 +210,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 				if err := endpoint.pieceMeta.Add(ctx, limit, message.Done); err != nil {
 					return ErrInternal.Wrap(err)
 				}
-				if largestOrder != nil {
+				if largestOrder.Amount > 0 {
 					if err := endpoint.orders.Add(ctx, limit, largestOrder); err != nil {
 						return ErrInternal.Wrap(err)
 					}
