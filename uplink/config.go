@@ -120,7 +120,7 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, Error.New("failed to create redundancy strategy: %v", err)
 	}
 
-	segments := segments.NewSegmentStore(metainfo, oc, ec, pdb, rs, c.Client.MaxInlineSize.Int())
+	segments := segments.NewSegmentStore(metainfo, oc, ec, pdb, rs, c.Client.MaxInlineSize.Int(), c.Client.SegmentSize.Int64())
 
 	if c.RS.ErasureShareSize.Int()*c.RS.MinThreshold%c.Enc.BlockSize.Int() != 0 {
 		err = Error.New("EncryptionBlockSize must be a multiple of ErasureShareSize * RS MinThreshold")
