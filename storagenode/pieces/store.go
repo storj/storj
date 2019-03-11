@@ -6,6 +6,8 @@ package pieces
 import (
 	"context"
 
+	"go.uber.org/zap"
+
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 
@@ -14,7 +16,7 @@ import (
 
 type Writer interface {
 	Write(data []byte) (int64, error)
-	Size() int64
+	Size() (int64, error)
 
 	Hash() []byte
 	Commit() error
@@ -24,12 +26,20 @@ type Writer interface {
 
 type Reader interface {
 	ReadAt(offset int64, data []byte) error
-	Size() int64
+	Size() (int64, error)
 	Close() error
 }
 
 type Store struct {
-	storage.Blobs
+	log   *zap.Logger
+	blobs storage.Blobs
+}
+
+func NewStore(log *zap.Logger, blobs storage.Blobs) *Store {
+	return &Store{
+		log:   log,
+		blobs: blobs,
+	}
 }
 
 func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID2) (Writer, error) {
