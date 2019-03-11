@@ -136,6 +136,8 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 	switch {
 	case err != nil:
 		return ErrProtocol.Wrap(err)
+	case message == nil:
+		return ErrProtocol.New("expected a message")
 	case message.Limit == nil:
 		return ErrProtocol.New("expected order limit as the first message")
 	}
@@ -168,6 +170,9 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 		if err != nil {
 			return ErrProtocol.Wrap(err) // TODO: report grpc status bad message
 		}
+		if message == nil {
+			return ErrProtocol.New("expected a message") // TODO: report grpc status bad message
+		}
 
 		switch {
 		default:
@@ -186,7 +191,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 
 			if largestOrder.Amount < pieceWriter.Size()+int64(len(message.Chunk.Data)) {
 				// TODO: should we write currently and give a chance for uplink to remedy the situation?
-				return ErrProtocol.New("not enough allocated") // TODO: report grpc status ?
+				return ErrProtocol.New("not enough allocated, allocated=%v writing=%v", largestOrder.Amount, pieceWriter.Size()+int64(len(message.Chunk.Data))) // TODO: report grpc status ?
 			}
 
 			if _, err := pieceWriter.Write(message.Chunk.Data); err != nil {
@@ -256,7 +261,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 	}
 
 	if chunk.ChunkSize > limit.Limit {
-		return ErrProtocol.New("requested more that order limit allows")
+		return ErrProtocol.New("requested more that order limit allows, limit=%v requested=%v", limit.Limit, chunk.ChunkSize)
 	}
 
 	if err := endpoint.VerifyOrderLimit(ctx, limit); err != nil {
@@ -282,7 +287,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 
 	// TODO: verify chunk.Size behavior logic with regards to reading all
 	if chunk.Offset+chunk.ChunkSize > pieceReader.Size() {
-		return Error.New("requested more data than available")
+		return Error.New("requested more data than available, requesting=%v available=%v", chunk.Offset+chunk.ChunkSize, pieceReader.Size())
 	}
 
 	throttle := sync2.NewThrottle()
@@ -351,6 +356,13 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 			// TODO: check errors
 			// TODO: add timeout here
 			message, err = stream.Recv()
+			if message == nil {
+				if err != nil {
+					return ErrProtocol.Wrap(err)
+				} else {
+					return ErrProtocol.New("expected order as the message")
+				}
+			}
 			if message.Order == nil {
 				return ErrProtocol.New("expected order as the message")
 			}
