@@ -4,10 +4,66 @@
 package storagenodedb
 
 import (
+	"database/sql"
+	"os"
+	"path/filepath"
+	"sync"
+
+	"github.com/zeebo/errs"
+	"go.uber.org/zap"
+
 	"storj.io/storj/internal/migrate"
 )
 
-func (db *DB) Migration() *migrate.Migration {
+var errSqlite = errs.Class("infodb")
+
+type infodb struct {
+	mu sync.Mutex
+	db *sql.DB
+}
+
+func newInfo(path string) (*infodb, error) {
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return nil, err
+	}
+
+	db, err := sql.Open("sqlite3", "file:"+path+"?_journal=WAL")
+	if err != nil {
+		return nil, errSqlite.Wrap(err)
+	}
+
+	return &infodb{db: db}, nil
+}
+
+func newInfoInMemory() (*infodb, error) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		return nil, errSqlite.Wrap(err)
+	}
+
+	return &infodb{db: db}, nil
+}
+
+// CreateTables creates any necessary tables.
+func (db *infodb) CreateTables(log *zap.Logger) error {
+	migration := db.Migration()
+	return migration.Run(log.Named("migration"), db)
+}
+
+// RawDB returns access to the raw database, only for migration tests.
+func (db *infodb) RawDB() *sql.DB { return db.db }
+
+// Begin begins transaction
+func (db *infodb) Begin() (*sql.Tx, error) { return db.db.Begin() }
+
+// Rebind rebind parameters
+func (db *infodb) Rebind(s string) string { return s }
+
+// Schema returns schema
+func (db *infodb) Schema() string { return "" }
+
+// Migration returns table migrations.
+func (db *infodb) Migration() *migrate.Migration {
 	return &migrate.Migration{
 		Table: "versions",
 		Steps: []*migrate.Step{
@@ -18,9 +74,9 @@ func (db *DB) Migration() *migrate.Migration {
 					// certificate table for storing uplink/satellite certificates
 					`CREATE TABLE certificate (
 						certid            SERIAL PRIMARY KEY,
+						node_id           BLOB,
 						certificate_pkix  BLOB UNIQUE
 					)`,
-
 					// table for storing piece meta info
 					`CREATE TABLE pieceinfo (
 						satellite_id BLOB,
@@ -48,7 +104,7 @@ func (db *DB) Migration() *migrate.Migration {
 					`CREATE INDEX idx_bandwidth_usage_created   ON bandwidth_usage(created_at)`,
 
 					// table for storing all unsent orders
-					`CREATE TABLE unsent_orders (
+					`CREATE TABLE unsent_order (
 						satellite_id  BLOB,
 						serial_number BLOB,
 
@@ -60,10 +116,10 @@ func (db *DB) Migration() *migrate.Migration {
 
 						FOREIGN KEY(uplink_certid) REFERENCES certificate(certid)
 					)`,
-					`CREATE INDEX idx_orders_unsent ON unsent_orders(satellite_id, serial_number)`,
+					`CREATE INDEX idx_unsent_order ON unsent_order(satellite_id, serial_number)`,
 
 					// table for storing all rejected orders
-					`CREATE TABLE rejected_orders (
+					`CREATE TABLE rejected_order (
 						satellite_id  BLOB,
 						serial_number BLOB,
 
@@ -78,16 +134,16 @@ func (db *DB) Migration() *migrate.Migration {
 					)`,
 
 					// table for keeping serials that need to be verified against
-					`CREATE TABLE used_serials (
+					`CREATE TABLE used_serial (
 						satellite_id  BLOB,
 						serial_number BLOB,
 						expiration    TIMESTAMP without time zone
 					)`,
 					// primary key on satellite id and serial number
-					`ALTER TABLE used_serials 
-						ADD CONSTRAINT pk_used_serials ON used_serials(satellite_id, serial_number)`,
+					`ALTER TABLE used_serial 
+						ADD CONSTRAINT pk_used_serial ON used_serial(satellite_id, serial_number)`,
 					// expiration index to allow fast deletion
-					`CREATE INDEX idx_used_serials ON used_serials(expiration)`,
+					`CREATE INDEX idx_used_serial ON used_serial(expiration)`,
 				},
 			},
 		},

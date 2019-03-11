@@ -25,6 +25,7 @@ type Config struct {
 	// TODO: figure out better names
 	Storage  string
 	Info     string
+	Info2    string
 	Kademlia string
 
 	Pieces string
@@ -32,10 +33,13 @@ type Config struct {
 
 // DB contains access to different database tables
 type DB struct {
-	log      *zap.Logger
-	storage  psserver.Storage
-	pieces   storage.Blobs
-	psdb     *psdb.DB
+	log     *zap.Logger
+	storage psserver.Storage
+	psdb    *psdb.DB
+
+	pieces storage.Blobs
+	info   *infodb
+
 	kdb, ndb storage.KeyValueStore
 }
 
@@ -48,6 +52,11 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 		return nil, err
 	}
 	pieces := filestore.New(piecesDir)
+
+	infodb, err := newInfo(config.Info2)
+	if err != nil {
+		return nil, err
+	}
 
 	psdb, err := psdb.Open(config.Info)
 	if err != nil {
@@ -63,9 +72,12 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 		log:     log,
 		storage: storage,
 		psdb:    psdb,
-		pieces:  pieces,
-		kdb:     dbs[0],
-		ndb:     dbs[1],
+
+		pieces: pieces,
+		info:   infodb,
+
+		kdb: dbs[0],
+		ndb: dbs[1],
 	}, nil
 }
 
@@ -80,6 +92,11 @@ func NewInMemory(log *zap.Logger, storageDir string) (*DB, error) {
 	}
 	pieces := filestore.New(piecesDir)
 
+	infodb, err := newInfoInMemory()
+	if err != nil {
+		return nil, err
+	}
+
 	psdb, err := psdb.OpenInMemory()
 	if err != nil {
 		return nil, err
@@ -89,9 +106,12 @@ func NewInMemory(log *zap.Logger, storageDir string) (*DB, error) {
 		log:     log,
 		storage: storage,
 		psdb:    psdb,
-		pieces:  pieces,
-		kdb:     teststore.New(),
-		ndb:     teststore.New(),
+
+		pieces: pieces,
+		info:   infodb,
+
+		kdb: teststore.New(),
+		ndb: teststore.New(),
 	}, nil
 }
 
