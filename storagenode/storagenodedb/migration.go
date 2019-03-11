@@ -40,7 +40,7 @@ func (db *DB) Migration() *migrate.Migration {
 					// table for storing order information
 					`CREATE TABLE orderinfo (
 						satellite     BLOB,
-						action        INTEGER, -- uint8
+						action        INTEGER,
 						amount        BIGINT
 					)`,
 
