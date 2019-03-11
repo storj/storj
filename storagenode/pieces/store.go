@@ -6,42 +6,75 @@ package pieces
 import (
 	"context"
 
+	"storj.io/storj/internal/memory"
+
+	"github.com/zeebo/errs"
+	"go.uber.org/zap"
+
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 
 	_ "storj.io/storj/storage/filestore"
 )
 
-type Writer interface {
-	Write(data []byte) (int64, error)
-	Size() int64
+const (
+	readBufferSize  = 256 * memory.KiB
+	writeBufferSize = 256 * memory.KiB
+	preallocSize    = 4 * memory.MiB
+)
 
-	Hash() []byte
-	Commit() error
+// Error is the default error class.
+var Error = errs.Class("pieces error")
 
-	Cancel()
-}
-
-type Reader interface {
-	ReadAt(offset int64, data []byte) error
-	Size() int64
-	Close() error
-}
-
+// Store implements storing pieces onto a blob storage implementation.
 type Store struct {
-	storage.Blobs
+	log   *zap.Logger
+	blobs storage.Blobs
 }
 
-func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID2) (Writer, error) {
-	panic("TODO")
+// NewStore creates a new piece store
+func NewStore(log *zap.Logger, blobs storage.Blobs) *Store {
+	return &Store{
+		log:   log,
+		blobs: blobs,
+	}
 }
 
-func (store *Store) Reader(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID2) (Reader, error) {
-	panic("TODO")
+// Writer returns a new piece writer.
+func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID2) (*Writer, error) {
+	blob, err := store.blobs.Create(ctx, storage.BlobRef{
+		Namespace: satellite.Bytes(),
+		Key:       pieceID.Bytes(),
+	}, preallocSize.Int64())
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	writer, err := NewWriter(blob, writeBufferSize.Int())
+	return writer, Error.Wrap(err)
 }
 
+// Reader returns a new piece reader.
+func (store *Store) Reader(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID2) (*Reader, error) {
+	blob, err := store.blobs.Open(ctx, storage.BlobRef{
+		Namespace: satellite.Bytes(),
+		Key:       pieceID.Bytes(),
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	reader, err := NewReader(blob, readBufferSize.Int())
+	return reader, Error.Wrap(err)
+}
+
+// Delete deletes the specified piece.
 func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID2) error {
-	panic("TODO")
+	err := store.blobs.Delete(ctx, storage.BlobRef{
+		Namespace: satellite.Bytes(),
+		Key:       pieceID.Bytes(),
+	})
+	return Error.Wrap(err)
 }
 
 type StorageStatus struct {

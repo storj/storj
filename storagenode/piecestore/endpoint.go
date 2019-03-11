@@ -40,6 +40,21 @@ type PieceMeta interface {
 	// Iteration for collector
 }
 
+type discardMeta struct{}
+
+func (discardMeta) Add(ctx context.Context, limit *pb.OrderLimit2, hash *pb.PieceHash) error {
+	return nil
+}
+func (discardMeta) Delete(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID2) error {
+	return nil
+}
+
+type discardOrders struct{}
+
+func (discardOrders) Add(ctx context.Context, limit *pb.OrderLimit2, order *pb.Order2) error {
+	return nil
+}
+
 // TODO: should the reader, writer have context for read/write?
 
 var _ pb.PiecestoreServer = (*Endpoint)(nil)
@@ -76,8 +91,8 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, stor
 		trust:         trust,
 		activeSerials: activeSerials,
 		store:         store,
-		pieceMeta:     pieceMeta,
-		orders:        orders,
+		pieceMeta:     discardMeta{},
+		orders:        discardOrders{},
 	}, nil
 }
 
@@ -290,7 +305,12 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 			}
 
 			chunkData := make([]byte, chunkSize)
-			err = pieceReader.ReadAt(currentOffset, chunkData)
+			_, err = pieceReader.Seek(currentOffset, io.SeekStart)
+			if err != nil {
+				return ErrInternal.Wrap(err)
+			}
+
+			_, err = pieceReader.Read(chunkData)
 			if err != nil {
 				return ErrInternal.Wrap(err)
 			}

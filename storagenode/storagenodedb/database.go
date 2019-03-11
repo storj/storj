@@ -13,6 +13,7 @@ import (
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
+	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storage/teststore"
 	"storj.io/storj/storagenode"
 )
@@ -25,12 +26,15 @@ type Config struct {
 	Storage  string
 	Info     string
 	Kademlia string
+
+	Pieces string
 }
 
 // DB contains access to different database tables
 type DB struct {
 	log      *zap.Logger
 	storage  psserver.Storage
+	pieces   storage.Blobs
 	psdb     *psdb.DB
 	kdb, ndb storage.KeyValueStore
 }
@@ -38,6 +42,12 @@ type DB struct {
 // New creates a new master database for storage node
 func New(log *zap.Logger, config Config) (*DB, error) {
 	storage := pstore.NewStorage(config.Storage)
+
+	piecesDir, err := filestore.NewDir(config.Pieces)
+	if err != nil {
+		return nil, err
+	}
+	pieces := filestore.New(piecesDir)
 
 	psdb, err := psdb.Open(config.Info)
 	if err != nil {
@@ -53,6 +63,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 		log:     log,
 		storage: storage,
 		psdb:    psdb,
+		pieces:  pieces,
 		kdb:     dbs[0],
 		ndb:     dbs[1],
 	}, nil
@@ -63,6 +74,12 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 func NewInMemory(log *zap.Logger, storageDir string) (*DB, error) {
 	storage := pstore.NewStorage(storageDir)
 
+	piecesDir, err := filestore.NewDir(storageDir)
+	if err != nil {
+		return nil, err
+	}
+	pieces := filestore.New(piecesDir)
+
 	psdb, err := psdb.OpenInMemory()
 	if err != nil {
 		return nil, err
@@ -72,6 +89,7 @@ func NewInMemory(log *zap.Logger, storageDir string) (*DB, error) {
 		log:     log,
 		storage: storage,
 		psdb:    psdb,
+		pieces:  pieces,
 		kdb:     teststore.New(),
 		ndb:     teststore.New(),
 	}, nil
@@ -96,6 +114,11 @@ func (db *DB) Close() error {
 // Storage returns piecestore location
 func (db *DB) Storage() psserver.Storage {
 	return db.storage
+}
+
+// Pieces returns blob storage for pieces
+func (db *DB) Pieces() storage.Blobs {
+	return db.pieces
 }
 
 // PSDB returns piecestore database

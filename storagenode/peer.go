@@ -37,6 +37,8 @@ type DB interface {
 	Close() error
 
 	Storage() psserver.Storage
+	Pieces() storage.Blobs
+
 	// TODO: use better interfaces
 	PSDB() *psdb.DB
 	RoutingTable() (kdb, ndb storage.KeyValueStore)
@@ -200,7 +202,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		// Store     *pieces.Store
+		peer.Storage2.Store = pieces.NewStore(peer.Log.Named("pieces"), peer.DB.Pieces())
 		// PieceMeta piecestore.PieceMeta
 		// Orders    orders.Table
 
