@@ -30,14 +30,14 @@ type Upload struct {
 }
 
 func (client *Client) Upload(ctx context.Context, limit *pb.OrderLimit2) (*Upload, error) {
-	peer, err := identity.PeerIdentityFromContext(ctx)
-	if err != nil {
-		return nil, ErrInternal.Wrap(err)
-	}
-
 	stream, err := client.client.Upload(ctx)
 	if err != nil {
 		return nil, err
+	}
+
+	peer, err := identity.PeerIdentityFromContext(stream.Context())
+	if err != nil {
+		return nil, ErrInternal.Wrap(err)
 	}
 
 	err = stream.Send(&pb.PieceUploadRequest{

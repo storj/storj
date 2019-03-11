@@ -331,6 +331,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			peer.Metainfo.Allocation,
 			peer.Overlay.Service,
 			peer.DB.Console().APIKeys(),
+			peer.Identity,
 			config.PointerDB, nodeSelectionConfig)
 
 		pb.RegisterPointerDBServer(peer.Server.GRPC(), peer.Metainfo.Endpoint)

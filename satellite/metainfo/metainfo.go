@@ -17,6 +17,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
+	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
@@ -44,12 +45,18 @@ type Endpoint struct {
 	allocation           *pointerdb.AllocationSigner
 	cache                *overlay.Cache
 	apiKeys              APIKeys
+	identity             *identity.FullIdentity
 	pointerDBConfig      pointerdb.Config
 	selectionPreferences *overlay.NodeSelectionConfig
+	signer               signing.Signer
+	signee               signing.Signee
 }
 
 // NewEndpoint creates new metainfo endpoint instance
-func NewEndpoint(log *zap.Logger, pointerdb *pointerdb.Service, allocation *pointerdb.AllocationSigner, cache *overlay.Cache, apiKeys APIKeys, pointerDBConfig pointerdb.Config, selectionPreferences *overlay.NodeSelectionConfig) *Endpoint {
+func NewEndpoint(log *zap.Logger, pointerdb *pointerdb.Service, allocation *pointerdb.AllocationSigner,
+	cache *overlay.Cache, apiKeys APIKeys, identity *identity.FullIdentity, pointerDBConfig pointerdb.Config,
+	selectionPreferences *overlay.NodeSelectionConfig) *Endpoint {
+	// TODO do something with too many params
 	return &Endpoint{
 		log:                  log,
 		pointerdb:            pointerdb,
@@ -58,6 +65,8 @@ func NewEndpoint(log *zap.Logger, pointerdb *pointerdb.Service, allocation *poin
 		apiKeys:              apiKeys,
 		pointerDBConfig:      pointerDBConfig,
 		selectionPreferences: selectionPreferences,
+		signer:               signing.SignerFromFullIdentity(identity),
+		signee:               signing.SigneeFromFullIdentity(identity),
 	}
 }
 
@@ -339,6 +348,12 @@ func (endpoint *Endpoint) createOrderLimit(ctx context.Context, uplinkIdentity *
 	if err != nil {
 		return nil, err
 	}
+
+	orderLimit, err = signing.SignOrderLimit(endpoint.signer, orderLimit)
+	if err != nil {
+		return nil, err
+	}
+
 	return orderLimit, nil
 }
 
@@ -445,7 +460,10 @@ func (endpoint *Endpoint) validateCommit(req *pb.SegmentCommitRequest) error {
 		for _, piece := range remote.RemotePieces {
 			limit := req.OriginalLimits[piece.PieceNum]
 
-			// TODO verify limit signature
+			err := signing.VerifyOrderLimitSignature(endpoint.signee, limit)
+			if err != nil {
+				return err
+			}
 
 			if limit == nil {
 				return Error.New("invalid no order limit for piece")
