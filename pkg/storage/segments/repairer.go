@@ -18,10 +18,10 @@ import (
 
 // Repairer for segments
 type Repairer struct {
-	oc        overlay.Client
-	ec        ecclient.Client
-	pdb       *pointerdb.Service
-	nodeStats *pb.NodeStats
+	oc  overlay.Client
+	ec  ecclient.Client
+	pdb *pointerdb.Service
+	// nodeStats *pb.NodeStats
 }
 
 // NewSegmentRepairer creates a new instance of SegmentRepairer
