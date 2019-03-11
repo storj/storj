@@ -118,7 +118,10 @@ func NewInMemory(log *zap.Logger, storageDir string) (*DB, error) {
 // CreateTables creates any necessary tables.
 func (db *DB) CreateTables() error {
 	migration := db.psdb.Migration()
-	return migration.Run(db.log.Named("migration"), db.psdb)
+	return errs.Combine(
+		migration.Run(db.log.Named("migration"), db.psdb),
+		db.info.CreateTables(),
+	)
 }
 
 // Close closes any resources.
