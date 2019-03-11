@@ -378,7 +378,9 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 
 		config := satellite.Config{
 			Server: server.Config{
-				Address: "127.0.0.1:0",
+				Address:        "127.0.0.1:0",
+				PrivateAddress: "127.0.0.1:0",
+
 				Config: tlsopts.Config{
 					RevocationDBURL:     "bolt://" + filepath.Join(storageDir, "revocation.db"),
 					UsePeerCAWhitelist:  true,
@@ -521,7 +523,9 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 
 		config := storagenode.Config{
 			Server: server.Config{
-				Address: "127.0.0.1:0",
+				Address:        "127.0.0.1:0",
+				PrivateAddress: "127.0.0.1:0",
+
 				Config: tlsopts.Config{
 					RevocationDBURL:     "bolt://" + filepath.Join(storageDir, "revocation.db"),
 					UsePeerCAWhitelist:  true,
@@ -601,7 +605,9 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 
 	config := bootstrap.Config{
 		Server: server.Config{
-			Address: "127.0.0.1:0",
+			Address:        "127.0.0.1:0",
+			PrivateAddress: "127.0.0.1:0",
+
 			Config: tlsopts.Config{
 				RevocationDBURL:     "bolt://" + filepath.Join(dbDir, "revocation.db"),
 				UsePeerCAWhitelist:  true,
