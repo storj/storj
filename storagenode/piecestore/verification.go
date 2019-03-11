@@ -76,10 +76,10 @@ func (endpoint *Endpoint) VerifyOrder(ctx context.Context, peer *identity.PeerId
 		return ErrProtocol.New("order serial number changed during upload") // TODO: report grpc status bad message
 	}
 	if order.Amount < largestOrderAmount {
-		return ErrProtocol.New("order contained smaller amount") // TODO: report grpc status bad message
+		return ErrProtocol.New("order contained smaller amount=%v, previous=%v", order.Amount, largestOrderAmount) // TODO: report grpc status bad message
 	}
 	if order.Amount > limit.Limit {
-		return ErrProtocol.New("order exceeded allowed amount") // TODO: report grpc status bad message
+		return ErrProtocol.New("order exceeded allowed amount=%v, limit=%v", order.Amount, limit.Limit) // TODO: report grpc status bad message
 	}
 
 	if err := signing.VerifyOrderSignature(signing.SigneeFromPeerIdentity(peer), order); err != nil {
