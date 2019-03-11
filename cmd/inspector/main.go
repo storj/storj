@@ -44,6 +44,8 @@ var (
 	// ErrArgs throws when there are errors with CLI args
 	ErrArgs = errs.Class("error with CLI args:")
 
+	limit *int64
+
 	// Commander CLI
 	rootCmd = &cobra.Command{
 		Use:   "inspector",
@@ -56,6 +58,11 @@ var (
 	statsCmd = &cobra.Command{
 		Use:   "statdb",
 		Short: "commands for statdb",
+	}
+	irreparableCmd = &cobra.Command{
+		Use:   "irreparable",
+		Short: "list segments in irreparable database",
+		RunE:  getSegments,
 	}
 	countNodeCmd = &cobra.Command{
 		Use:   "count",
@@ -119,6 +126,7 @@ type Inspector struct {
 	kadclient     pb.KadInspectorClient
 	overlayclient pb.OverlayInspectorClient
 	statdbclient  pb.StatDBInspectorClient
+	irrdbclient   pb.IrreparableInspectorClient
 }
 
 // NewInspector creates a new gRPC inspector client for access to kad,
@@ -144,6 +152,7 @@ func NewInspector(address, path string) (*Inspector, error) {
 		kadclient:     pb.NewKadInspectorClient(conn),
 		overlayclient: pb.NewOverlayInspectorClient(conn),
 		statdbclient:  pb.NewStatDBInspectorClient(conn),
+		irrdbclient:   pb.NewIrreparableInspectorClient(conn),
 	}, nil
 }
 
@@ -435,9 +444,39 @@ func CreateCSVStats(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
+func getSegments(cmd *cobra.Command, args []string) error {
+	i, err := NewInspector(*Addr, *IdentityPath)
+	if err != nil {
+		return ErrInspectorDial.Wrap(err)
+	}
+
+	lim := *limit
+	var offset int64
+	for {
+		resp, err := i.irrdbclient.ListSegments(context.Background(), &pb.ListSegmentsRequest{Limit: lim, Offset: offset})
+		if err != nil {
+			return ErrRequest.Wrap(err)
+		}
+		var result *pb.SegmentGroup
+		err = proto.Unmarshal(resp.Data, result)
+		if err != nil {
+			return err
+		}
+		if len(result.Segments) == 0 {
+			fmt.Println("End of results")
+			return nil
+		}
+		for _, seg := range result.Segments {
+			//TODO: format and paginate results
+			fmt.Println(seg)
+		}
+	}
+}
+
 func init() {
 	rootCmd.AddCommand(kadCmd)
 	rootCmd.AddCommand(statsCmd)
+	rootCmd.AddCommand(irreparableCmd)
 
 	kadCmd.AddCommand(countNodeCmd)
 	kadCmd.AddCommand(pingNodeCmd)
@@ -449,6 +488,8 @@ func init() {
 	statsCmd.AddCommand(getCSVStatsCmd)
 	statsCmd.AddCommand(createStatsCmd)
 	statsCmd.AddCommand(createCSVStatsCmd)
+
+	limit = irreparableCmd.Flags().Int64("limit", 1000, "max number of results per page")
 
 	flag.Parse()
 }
