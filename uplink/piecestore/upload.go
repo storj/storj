@@ -5,7 +5,6 @@ package piecestore
 
 import (
 	"context"
-	"crypto/sha256"
 	"hash"
 
 	"github.com/zeebo/errs"
@@ -13,6 +12,7 @@ import (
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/pkcrypto"
 )
 
 type Upload struct {
@@ -54,7 +54,7 @@ func (client *Client) Upload(ctx context.Context, limit *pb.OrderLimit2) (*Uploa
 		peer:   peer,
 		stream: stream,
 
-		hash:           sha256.New(),
+		hash:           pkcrypto.NewHash(),
 		offset:         0,
 		allocationStep: client.config.InitialStep,
 	}, nil
