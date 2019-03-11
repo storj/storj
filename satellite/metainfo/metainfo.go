@@ -45,7 +45,6 @@ type Endpoint struct {
 	allocation           *pointerdb.AllocationSigner
 	cache                *overlay.Cache
 	apiKeys              APIKeys
-	identity             *identity.FullIdentity
 	pointerDBConfig      pointerdb.Config
 	selectionPreferences *overlay.NodeSelectionConfig
 	signer               signing.Signer
