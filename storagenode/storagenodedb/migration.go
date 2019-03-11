@@ -15,23 +15,27 @@ func (db *DB) Migration() *migrate.Migration {
 				Description: "Initial setup",
 				Version:     0,
 				Action: migrate.SQL{
-					// table for storing piece meta info
-					`CREATE TABLE pieceinfo (
-						satellite_id BLOB UNIQUE,
-						id           BLOB UNIQUE,
-						hash         BLOB UNIQUE, -- serialized pb.PieceHash signed by uplink
-						size         BIGINT,
-						expiration   TIMESTAMP without time zone -- date when it can be deleted
-					)`,
-					// primary key by satellite id and piece id
-					`ALTER TABLE pieceinfo
-						ADD CONSTRAINT pk_pieceinfo ON pieceinfo(satellite_id, id)`,
-
 					// certificate table for storing uplink/satellite certificates
 					`CREATE TABLE certificate (
 						certid            SERIAL PRIMARY KEY,
 						certificate_pkix  BLOB UNIQUE
 					)`,
+
+					// table for storing piece meta info
+					`CREATE TABLE pieceinfo (
+						satellite_id BLOB,
+						id           BLOB,
+						size         BIGINT,
+						expiration   TIMESTAMP without time zone, -- date when it can be deleted
+						
+						uplink_hash   BLOB, -- serialized pb.PieceHash signed by uplink
+						uplink_certid SERIAL,
+
+						FOREIGN KEY(uplink_certid) REFERENCES certificate(certid)
+					)`,
+					// primary key by satellite id and piece id
+					`ALTER TABLE pieceinfo
+						ADD CONSTRAINT pk_pieceinfo ON pieceinfo(satellite_id, id)`,
 
 					// table for storing order information
 					`CREATE TABLE orderinfo (
