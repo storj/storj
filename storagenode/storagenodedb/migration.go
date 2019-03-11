@@ -50,6 +50,7 @@ func (db *DB) Migration() *migrate.Migration {
 					// table for storing all unsent orders
 					`CREATE TABLE orders_unsent (
 						satellite     BLOB,
+						serial_number BLOB,
 
 						order_limit   BLOB, -- serialized pb.OrderLimit
 						order         BLOB, -- serialized pb.Order
@@ -59,10 +60,12 @@ func (db *DB) Migration() *migrate.Migration {
 
 						FOREIGN KEY(uplink_certid) REFERENCES certificate(certid)
 					)`,
+					`CREATE INDEX idx_orders_unsent ON orders_unsent(satellite, serial_number)`,
 
 					// table for storing all rejected orders
 					`CREATE TABLE orders_rejected (
 						satellite     BLOB,
+						serial_number BLOB,
 
 						order_limit   BLOB, -- serialized pb.OrderLimit
 						order         BLOB, -- serialized pb.Order
