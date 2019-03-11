@@ -50,9 +50,9 @@ CREATE TABLE bwagreements (
   total bigint NOT NULL,
   created_at timestamp with time zone NOT NULL,
   expires_at timestamp with time zone NOT NULL,
-  PRIMARY KEY ( serialnum ),
-  INDEX ( created_at )
+  PRIMARY KEY ( serialnum )
 );
+CREATE INDEX bwa_created_at ON bwagreements ( created_at );
 CREATE TABLE certRecords (
   publickey bytea NOT NULL,
   id bytea NOT NULL,
