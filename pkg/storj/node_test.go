@@ -74,8 +74,8 @@ func TestNodeScan(t *testing.T) {
 
 // TestNodeValue tests NodeID.Value()
 func TestNodeValue(t *testing.T) {
-	tmpId := storj.NodeID{}
-	v, err := tmpId.Value()
+	tmpID := storj.NodeID{}
+	v, err := tmpID.Value()
 	require.NoError(t, err)
 	require.IsType(t, v, []byte{})
 	require.Len(t, v, storj.NodeIDSize)
