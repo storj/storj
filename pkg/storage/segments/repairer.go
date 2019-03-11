@@ -141,7 +141,7 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 
 	// TODO: adapt to Metainfo Client
 	var successfulNodes []*pb.Node
-	var hashes []*pb.SignedHash
+	var hashes []*pb.PieceHash
 	// pbaPut, err := s.pdb.PayerBandwidthAllocation(ctx, pb.BandwidthAction_PUT_REPAIR)
 	// if err != nil {
 	// 	return Error.Wrap(err)
