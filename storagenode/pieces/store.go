@@ -6,6 +6,9 @@ package pieces
 import (
 	"context"
 
+	"storj.io/storj/internal/memory"
+
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/storj"
@@ -14,21 +17,13 @@ import (
 	_ "storj.io/storj/storage/filestore"
 )
 
-type Writer interface {
-	Write(data []byte) (int64, error)
-	Size() (int64, error)
+const (
+	readBufferSize  = 256 * memory.KiB
+	writeBufferSize = 256 * memory.KiB
+	preallocSize    = 4 * memory.MiB
+)
 
-	Hash() []byte
-	Commit() error
-
-	Cancel()
-}
-
-type Reader interface {
-	ReadAt(offset int64, data []byte) error
-	Size() (int64, error)
-	Close() error
-}
+var Error = errs.Class("pieces error")
 
 type Store struct {
 	log   *zap.Logger
@@ -42,16 +37,38 @@ func NewStore(log *zap.Logger, blobs storage.Blobs) *Store {
 	}
 }
 
-func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID2) (Writer, error) {
-	panic("TODO")
+func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID2) (*Writer, error) {
+	blob, err := store.blobs.Create(ctx, storage.BlobRef{
+		Namespace: satellite.Bytes(),
+		Key:       pieceID.Bytes(),
+	}, preallocSize.Int64())
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	writer, err := NewWriter(blob, writeBufferSize.Int())
+	return writer, Error.Wrap(err)
 }
 
-func (store *Store) Reader(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID2) (Reader, error) {
-	panic("TODO")
+func (store *Store) Reader(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID2) (*Reader, error) {
+	blob, err := store.blobs.Open(ctx, storage.BlobRef{
+		Namespace: satellite.Bytes(),
+		Key:       pieceID.Bytes(),
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	reader, err := NewReader(blob, readBufferSize.Int())
+	return reader, Error.Wrap(err)
 }
 
 func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID2) error {
-	panic("TODO")
+	err := store.blobs.Delete(ctx, storage.BlobRef{
+		Namespace: satellite.Bytes(),
+		Key:       pieceID.Bytes(),
+	})
+	return Error.Wrap(err)
 }
 
 type StorageStatus struct {
