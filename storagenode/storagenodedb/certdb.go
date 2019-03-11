@@ -13,14 +13,17 @@ type certdb struct {
 	*infodb
 }
 
+// CertDB returns certificate database.
+func (db *infodb) CertDB() certdb { return certdb{db} }
+
 // Include includes the certificate in the table and returns an unique id.
-func (db *certdb) Include(ctx context.Context, id storj.NodeID, pkix []byte) (certid int64, err error) {
+func (db *certdb) Include(ctx context.Context, nodeid storj.NodeID, pkix []byte) (certid int64, err error) {
 	defer db.locked()()
 
 	result, err := db.db.Exec(`
 		INSERT INTO certificate(node_id, pkix) 
 			VALUES(?, ?) 
-		ON CONFLICT(pkix) IGNORE`, id, pkix)
+		ON CONFLICT(pkix) IGNORE`, nodeid.Bytes(), pkix)
 	if err != nil {
 		return -1, ErrInfo.Wrap(err)
 	}
