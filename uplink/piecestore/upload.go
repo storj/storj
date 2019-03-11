@@ -138,14 +138,19 @@ func (client *Upload) Close() (*pb.PieceHash, error) {
 	}
 
 	// exchange signed piece hashes
-	err = client.stream.Send(&pb.PieceUploadRequest{
+	sendErr := client.stream.Send(&pb.PieceUploadRequest{
 		Done: uplinkHash,
 	})
+
 	response, closeErr := client.stream.CloseAndRecv()
+	if response == nil || response.Done == nil {
+		// combine all the errors from before
+		return nil, combineSendCloseError(sendErr, closeErr)
+	}
 
 	// verification
 	verifyErr := client.client.VerifyPieceHash(client.stream.Context(), client.peer, client.limit, response.Done, uplinkHash.Hash)
 
 	// combine all the errors from before
-	return response.Done, errs.Combine(combineSendCloseError(err, closeErr), verifyErr)
+	return response.Done, errs.Combine(combineSendCloseError(sendErr, closeErr), verifyErr)
 }
