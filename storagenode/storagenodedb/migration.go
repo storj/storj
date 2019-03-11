@@ -53,6 +53,7 @@ func (db *DB) Migration() *migrate.Migration {
 						FOREIGN KEY(uplink_certid) REFERENCES certificate(certid)
 					)`,
 
+					// table for storing all rejected orders
 					`CREATE TABLE orders_rejected (
 						satellite     BLOB,
 
@@ -61,7 +62,7 @@ func (db *DB) Migration() *migrate.Migration {
 
 						uplink_certid SERIAL,
 
-						order_limit_expiration TIMESTAMP without time zone, -- when is the deadline for sending it
+						rejected_at            TIMESTAMP without time zone, -- when was it rejected
 						FOREIGN KEY(uplink_certid) REFERENCES certificate(certid)
 					)`,
 
