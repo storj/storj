@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/pkg/storj"
 )
@@ -60,4 +61,22 @@ func TestNodeID_Difficulty(t *testing.T) {
 
 		assert.Equal(t, testcase.difficulty, difficulty)
 	}
+}
+
+// TestNodeScan tests (*NodeID).Scan()
+func TestNodeScan(t *testing.T) {
+	tmpId := &storj.NodeID{}
+	require.Error(t, tmpId.Scan(32))
+	require.Error(t, tmpId.Scan(false))
+	require.Error(t, tmpId.Scan([]byte{}))
+	require.NoError(t, tmpId.Scan(tmpId.Bytes()))
+}
+
+// TestNodeValue tests NodeID.Value()
+func TestNodeValue(t *testing.T) {
+	tmpId := storj.NodeID{}
+	v, err := tmpId.Value()
+	require.NoError(t, err)
+	require.IsType(t, v, []byte{})
+	require.Len(t, v, storj.NodeIDSize)
 }
