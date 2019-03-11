@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"sync/atomic"
 
 	"github.com/zeebo/errs"
@@ -62,20 +61,13 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 	)
 
 	// Get path to data being retrieved
-	path, err := s.storage.PiecePath(id)
+	fileSize, err := s.storage.Size(id)
 	if err != nil {
 		return err
 	}
 
-	// Verify that the path exists
-	fileInfo, err := os.Stat(path)
-	if err != nil {
-		return RetrieveError.Wrap(err)
-	}
-
 	// Read the size specified
 	totalToRead := pd.GetPieceSize()
-	fileSize := fileInfo.Size()
 
 	// Read the entire file if specified -1 but make sure we do it from the correct offset
 	if pd.GetPieceSize() <= -1 || totalToRead+pd.GetOffset() > fileSize {

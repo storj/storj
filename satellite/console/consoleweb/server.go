@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
+	"storj.io/storj/satellite/mailservice"
 )
 
 const (
@@ -45,22 +46,27 @@ type Config struct {
 type Server struct {
 	log *zap.Logger
 
-	config   Config
-	service  *console.Service
+	config      Config
+	service     *console.Service
+	mailService *mailservice.Service
+
 	listener net.Listener
+	server   http.Server
 
 	schema graphql.Schema
-	server http.Server
 }
 
 // NewServer creates new instance of console server
-func NewServer(logger *zap.Logger, config Config, service *console.Service, listener net.Listener) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, listener net.Listener) *Server {
 	server := Server{
-		log:      logger,
-		service:  service,
-		config:   config,
-		listener: listener,
+		log:         logger,
+		config:      config,
+		listener:    listener,
+		service:     service,
+		mailService: mailService,
 	}
+
+	logger.Debug("Starting Satellite UI...")
 
 	mux := http.NewServeMux()
 	fs := http.FileServer(http.Dir(server.config.StaticDir))
@@ -103,13 +109,18 @@ func (s *Server) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 		ctx = console.WithAuth(ctx, auth)
 	}
 
+	rootObject := make(map[string]interface{})
+	//TODO: add public address to config for production
+	rootObject["origin"] = "http://" + s.listener.Addr().String() + "/"
+	rootObject[consoleql.ActivationPath] = "?activationToken="
+
 	result := graphql.Do(graphql.Params{
 		Schema:         s.schema,
 		Context:        ctx,
 		RequestString:  query.Query,
 		VariableValues: query.Variables,
 		OperationName:  query.OperationName,
-		RootObject:     make(map[string]interface{}),
+		RootObject:     rootObject,
 	})
 
 	err = json.NewEncoder(w).Encode(result)
@@ -125,7 +136,8 @@ func (s *Server) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 // Run starts the server that host webapp and api endpoint
 func (s *Server) Run(ctx context.Context) error {
 	var err error
-	s.schema, err = consoleql.CreateSchema(s.service)
+
+	s.schema, err = consoleql.CreateSchema(s.service, s.mailService)
 	if err != nil {
 		return Error.Wrap(err)
 	}

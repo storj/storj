@@ -10,7 +10,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 )
 
@@ -21,13 +20,13 @@ var ErrorCollector = errs.Class("piecestore collector")
 type Collector struct {
 	log     *zap.Logger
 	db      *psdb.DB
-	storage *pstore.Storage
+	storage Storage
 
 	interval time.Duration
 }
 
 // NewCollector returns a new piece collector
-func NewCollector(log *zap.Logger, db *psdb.DB, storage *pstore.Storage, interval time.Duration) *Collector {
+func NewCollector(log *zap.Logger, db *psdb.DB, storage Storage, interval time.Duration) *Collector {
 	return &Collector{
 		log:      log,
 		db:       db,

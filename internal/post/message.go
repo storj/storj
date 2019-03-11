@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information
 
-package mail
+package post
 
 import (
 	"bytes"
@@ -10,15 +10,14 @@ import (
 	"mime"
 	"mime/multipart"
 	"mime/quotedprintable"
-	"net/mail"
 	"net/textproto"
 	"time"
 )
 
 // Message is RFC compliant email message
 type Message struct {
-	From      mail.Address
-	To        []mail.Address
+	From      Address
+	To        []Address
 	Subject   string
 	ID        string
 	Date      time.Time

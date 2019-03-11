@@ -16,7 +16,6 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
-	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/piecestore/psserver/agreementsender"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
@@ -33,8 +32,8 @@ type DB interface {
 	// Close closes the database
 	Close() error
 
+	Storage() psserver.Storage
 	// TODO: use better interfaces
-	Storage() *pstore.Storage
 	PSDB() *psdb.DB
 	RoutingTable() (kdb, ndb storage.KeyValueStore)
 }
@@ -81,6 +80,7 @@ type Peer struct {
 		Endpoint  *psserver.Server // TODO: separate into endpoint and service
 		Monitor   *psserver.Monitor
 		Collector *psserver.Collector
+		Inspector *psserver.Inspector
 	}
 
 	Agreements struct {
@@ -170,6 +170,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 			return nil, errs.Combine(err, peer.Close())
 		}
 		pb.RegisterPieceStoreRoutesServer(peer.Public.Server.GRPC(), peer.Storage.Endpoint)
+
+		peer.Storage.Inspector = psserver.NewInspector(peer.Storage.Endpoint)
+		pb.RegisterPieceStoreInspectorServer(peer.Public.Server.GRPC(), peer.Storage.Inspector)
 
 		// TODO: organize better
 		peer.Storage.Monitor = psserver.NewMonitor(peer.Log.Named("piecestore:monitor"), config.KBucketRefreshInterval, peer.Kademlia.RoutingTable, peer.Storage.Endpoint)

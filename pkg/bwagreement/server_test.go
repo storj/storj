@@ -195,7 +195,7 @@ func testDatabase(ctx context.Context, t *testing.T, db satellite.DB) {
 		// Generate a new keypair for self signing bwagreements
 		manipID, err := testidentity.NewTestIdentity(ctx)
 		assert.NoError(t, err)
-		manipCerts := manipID.ChainRaw()
+		manipCerts := manipID.RawChain()
 		manipPrivKey := manipID.Key
 
 		/* Storage node can't manipulate the bwagreement size (or any other field)

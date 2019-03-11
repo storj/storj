@@ -14,14 +14,29 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/storj/internal/post"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
+	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
+
+// discardSender discard sending of an actual email
+type discardSender struct{}
+
+// SendEmail immediately returns with nil error
+func (*discardSender) SendEmail(msg *post.Message) error {
+	return nil
+}
+
+// FromAddress returns empty post.Address
+func (*discardSender) FromAddress() post.Address {
+	return post.Address{}
+}
 
 func TestGrapqhlMutation(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
@@ -41,7 +56,16 @@ func TestGrapqhlMutation(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		schema, err := consoleql.CreateSchema(service)
+		mailService, err := mailservice.New(log, &discardSender{}, "testdata")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		rootObject := make(map[string]interface{})
+		rootObject["origin"] = "http://doesntmatter.com/"
+		rootObject[consoleql.ActivationPath] = "?activationToken="
+
+		schema, err := consoleql.CreateSchema(service, mailService)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -65,7 +89,6 @@ func TestGrapqhlMutation(t *testing.T) {
 				ctx,
 				rootUser.ID,
 				createUser.Email,
-				rootUser.CreatedAt.Add(time.Hour*24),
 			)
 			if err != nil {
 				t.Fatal(err)
@@ -77,7 +100,7 @@ func TestGrapqhlMutation(t *testing.T) {
 				Schema:        schema,
 				Context:       ctx,
 				RequestString: query,
-				RootObject:    make(map[string]interface{}),
+				RootObject:    rootObject,
 			})
 
 			for _, err := range result.Errors {
@@ -129,7 +152,7 @@ func TestGrapqhlMutation(t *testing.T) {
 				Schema:        schema,
 				Context:       ctx,
 				RequestString: query,
-				RootObject:    make(map[string]interface{}),
+				RootObject:    rootObject,
 			})
 
 			for _, err := range result.Errors {
@@ -159,7 +182,7 @@ func TestGrapqhlMutation(t *testing.T) {
 				Schema:        schema,
 				Context:       authCtx,
 				RequestString: query,
-				RootObject:    make(map[string]interface{}),
+				RootObject:    rootObject,
 			})
 
 			for _, err := range result.Errors {
@@ -372,7 +395,6 @@ func TestGrapqhlMutation(t *testing.T) {
 				ctx,
 				user1.ID,
 				"u1@email.net",
-				user1.CreatedAt.Add(time.Hour*24),
 			)
 			if err != nil {
 				t.Fatal(err, project)
@@ -401,7 +423,6 @@ func TestGrapqhlMutation(t *testing.T) {
 				ctx,
 				user2.ID,
 				"u2@email.net",
-				user2.CreatedAt.Add(time.Hour*24),
 			)
 			if err != nil {
 				t.Fatal(err, project)
