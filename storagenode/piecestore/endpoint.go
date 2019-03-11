@@ -338,7 +338,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 	})
 
 	recvErr := func() (err error) {
-		var largestOrder *pb.Order2
+		largestOrder := &pb.Order2{}
 
 		defer func() {
 			// TODO: do this in a goroutine

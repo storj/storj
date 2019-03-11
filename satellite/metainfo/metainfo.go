@@ -303,7 +303,7 @@ func (endpoint *Endpoint) createOrderLimitsForSegment(ctx context.Context, point
 		return nil, err
 	}
 
-	pieceID, err := storj.PieceIDFromString(pointer.GetRemote().PieceId)
+	rootPieceID, err := storj.PieceIDFromString(pointer.GetRemote().PieceId)
 	if err != nil {
 		return nil, err
 	}
@@ -313,7 +313,8 @@ func (endpoint *Endpoint) createOrderLimitsForSegment(ctx context.Context, point
 
 	var limits []*pb.AddressedOrderLimit
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
-		orderLimit, err := endpoint.createOrderLimit(ctx, uplinkIdentity, piece.NodeId, pieceID, expiration, pieceSize, action)
+		derivedPieceID := rootPieceID.Derive(piece.NodeId)
+		orderLimit, err := endpoint.createOrderLimit(ctx, uplinkIdentity, piece.NodeId, derivedPieceID, expiration, pieceSize, action)
 		if err != nil {
 			return nil, err
 		}
