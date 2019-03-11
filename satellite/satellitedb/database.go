@@ -47,7 +47,7 @@ func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
 		if !strings.Contains(source, "?") {
 			source = fmt.Sprintf("%s?%s", source, "ApplicationName=Satellite")
 		} else {
-			source = fmt.Sprintf("%s&%s", source, "ApplicationName=Satellite")
+			source = fmt.Sprintf("%s%s%s", source, "%26", "ApplicationName=Satellite")
 		}
 	}
 	db, err := dbx.Open(driver, source)
