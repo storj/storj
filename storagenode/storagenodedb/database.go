@@ -53,7 +53,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 	}
 	pieces := filestore.New(piecesDir)
 
-	infodb, err := newInfo(config.Info2)
+	infodb, err := NewInfo(config.Info2)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func NewInMemory(log *zap.Logger, storageDir string) (*DB, error) {
 	}
 	pieces := filestore.New(piecesDir)
 
-	infodb, err := newInfoInMemory()
+	infodb, err := NewInfoInMemory()
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +120,7 @@ func (db *DB) CreateTables() error {
 	migration := db.psdb.Migration()
 	return errs.Combine(
 		migration.Run(db.log.Named("migration"), db.psdb),
-		db.info.CreateTables(),
+		db.info.CreateTables(db.log.Named("info")),
 	)
 }
 
@@ -130,6 +130,10 @@ func (db *DB) Close() error {
 		db.psdb.Close(),
 		db.kdb.Close(),
 		db.ndb.Close(),
+
+		db.pieces.Close(),
+		db.info.Close(),
+
 		db.storage.Close(),
 	)
 }

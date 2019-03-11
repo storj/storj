@@ -15,33 +15,43 @@ import (
 	"storj.io/storj/internal/migrate"
 )
 
-var errSqlite = errs.Class("infodb")
+var ErrInfo = errs.Class("infodb")
 
 type infodb struct {
 	mu sync.Mutex
 	db *sql.DB
 }
 
-func newInfo(path string) (*infodb, error) {
+func NewInfo(path string) (*infodb, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return nil, err
 	}
 
 	db, err := sql.Open("sqlite3", "file:"+path+"?_journal=WAL")
 	if err != nil {
-		return nil, errSqlite.Wrap(err)
+		return nil, ErrInfo.Wrap(err)
 	}
 
 	return &infodb{db: db}, nil
 }
 
-func newInfoInMemory() (*infodb, error) {
+func NewInfoInMemory() (*infodb, error) {
 	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
-		return nil, errSqlite.Wrap(err)
+		return nil, ErrInfo.Wrap(err)
 	}
 
 	return &infodb{db: db}, nil
+}
+
+// Close closes any resources.
+func (db *infodb) Close() error {
+	return db.db.Close()
+}
+
+func (db *infodb) locked() func() {
+	db.mu.Lock()
+	return db.mu.Unlock
 }
 
 // CreateTables creates any necessary tables.
@@ -73,9 +83,9 @@ func (db *infodb) Migration() *migrate.Migration {
 				Action: migrate.SQL{
 					// certificate table for storing uplink/satellite certificates
 					`CREATE TABLE certificate (
-						certid            SERIAL PRIMARY KEY,
-						node_id           BLOB,
-						certificate_pkix  BLOB UNIQUE
+						certid   SERIAL PRIMARY KEY,
+						node_id  BLOB,
+						pkix     BLOB UNIQUE
 					)`,
 					// table for storing piece meta info
 					`CREATE TABLE pieceinfo (
