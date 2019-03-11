@@ -12,7 +12,7 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-func TestNewPieceID(t *testing.T) {
+func TestPieceID_New(t *testing.T) {
 	a := storj.NewPieceID()
 	assert.NotEmpty(t, a)
 
@@ -20,7 +20,7 @@ func TestNewPieceID(t *testing.T) {
 	assert.NotEqual(t, a, b)
 }
 
-func TestEncode(t *testing.T) {
+func TestPieceID_Encode(t *testing.T) {
 	_, err := storj.PieceIDFromString("likn43kilfzd")
 	assert.Error(t, err)
 
@@ -40,7 +40,7 @@ func TestEncode(t *testing.T) {
 	}
 }
 
-func TestDerivePieceID(t *testing.T) {
+func TestPieceID_Derive(t *testing.T) {
 	pieceid := storj.NewPieceID()
 	a := testplanet.MustPregeneratedIdentity(0).ID
 	b := testplanet.MustPregeneratedIdentity(1).ID
