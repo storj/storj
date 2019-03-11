@@ -6,12 +6,22 @@ package storage
 import (
 	"context"
 	"io"
+
+	"github.com/zeebo/errs"
 )
+
+// ErrInvalidBlobRef is returned when an blob reference is invalid
+var ErrInvalidBlobRef = errs.Class("invalid blob ref")
 
 // BlobRef is a reference to a blob
 type BlobRef struct {
 	Namespace []byte
 	Key       []byte
+}
+
+// IsValid returns whether both namespace and key are specified
+func (ref *BlobRef) IsValid() bool {
+	return len(ref.Namespace) > 0 && len(ref.Key) > 0
 }
 
 // BlobReader is an interface that groups Read, ReadAt, Seek and Close.

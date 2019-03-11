@@ -10,7 +10,6 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -19,6 +18,12 @@ import (
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
 )
+
+func randomValue() []byte {
+	var id [32]byte
+	_, _ = rand.Read(id[:])
+	return id[:]
+}
 
 func TestStoreLoad(t *testing.T) {
 	const blobSize = 8 << 10
@@ -36,11 +41,12 @@ func TestStoreLoad(t *testing.T) {
 
 	refs := []storage.BlobRef{}
 
+	namespace := randomValue()
 	// store without size
 	for i := 0; i < repeatCount; i++ {
 		ref := storage.BlobRef{
-			Namespace: []byte{0},
-			Key:       []byte(strconv.Itoa(i)),
+			Namespace: namespace,
+			Key:       randomValue(),
 		}
 		refs = append(refs, ref)
 
@@ -54,11 +60,12 @@ func TestStoreLoad(t *testing.T) {
 		require.NoError(t, writer.Commit())
 	}
 
+	namespace = randomValue()
 	// store with size
 	for i := 0; i < repeatCount; i++ {
 		ref := storage.BlobRef{
-			Namespace: []byte{1},
-			Key:       []byte(strconv.Itoa(i)),
+			Namespace: namespace,
+			Key:       randomValue(),
 		}
 		refs = append(refs, ref)
 
@@ -72,11 +79,12 @@ func TestStoreLoad(t *testing.T) {
 		require.NoError(t, writer.Commit())
 	}
 
+	namespace = randomValue()
 	// store with larger size
 	{
 		ref := storage.BlobRef{
-			Namespace: []byte{2},
-			Key:       []byte{0},
+			Namespace: namespace,
+			Key:       randomValue(),
 		}
 		refs = append(refs, ref)
 
@@ -90,11 +98,12 @@ func TestStoreLoad(t *testing.T) {
 		require.NoError(t, writer.Commit())
 	}
 
+	namespace = randomValue()
 	// store with error
 	{
 		ref := storage.BlobRef{
-			Namespace: []byte{3},
-			Key:       []byte{0},
+			Namespace: namespace,
+			Key:       randomValue(),
 		}
 
 		writer, err := store.Create(ctx, ref, -1)

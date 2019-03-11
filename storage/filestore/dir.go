@@ -22,7 +22,7 @@ const (
 	dirPermission  = 0700
 )
 
-var pathEncoding = base32.NewEncoding("abcdefghijklmnopqrstuvwxyz234567").WithPadding('1')
+var pathEncoding = base32.NewEncoding("abcdefghijklmnopqrstuvwxyz234567").WithPadding(base32.NoPadding)
 
 // Dir represents single folder for storing blobs
 type Dir struct {
@@ -80,10 +80,18 @@ func (dir *Dir) DeleteTemporary(file *os.File) error {
 }
 
 // blobToPath converts blob reference to a filepath in permanent storage
-func (dir *Dir) blobToPath(ref storage.BlobRef) string {
+func (dir *Dir) blobToPath(ref storage.BlobRef) (string, error) {
+	if !ref.IsValid() {
+		return "", storage.ErrInvalidBlobRef.New("")
+	}
+
 	namespace := pathEncoding.EncodeToString(ref.Namespace)
 	key := pathEncoding.EncodeToString(ref.Key)
-	return filepath.Join(dir.blobdir(), namespace, key[:2], key[2:])
+	if len(key) < 3 {
+		// ensure we always have at least
+		key = "11" + key
+	}
+	return filepath.Join(dir.blobdir(), namespace, key[:2], key[2:]), nil
 }
 
 // blobToTrashPath converts blob reference to a filepath in transient storage
@@ -108,7 +116,12 @@ func (dir *Dir) Commit(file *os.File, ref storage.BlobRef) error {
 		return errs.Combine(seekErr, truncErr, syncErr, chmodErr, closeErr, removeErr)
 	}
 
-	path := dir.blobToPath(ref)
+	path, err := dir.blobToPath(ref)
+	if err != nil {
+		removeErr := os.Remove(file.Name())
+		return errs.Combine(err, removeErr)
+	}
+
 	mkdirErr := os.MkdirAll(filepath.Dir(path), dirPermission)
 	if os.IsExist(mkdirErr) {
 		mkdirErr = nil
@@ -130,13 +143,20 @@ func (dir *Dir) Commit(file *os.File, ref storage.BlobRef) error {
 
 // Open opens the file with the specified ref
 func (dir *Dir) Open(ref storage.BlobRef) (*os.File, error) {
-	path := dir.blobToPath(ref)
+	path, err := dir.blobToPath(ref)
+	if err != nil {
+		return nil, err
+	}
 	return openFileReadOnly(path, blobPermission)
 }
 
 // Delete deletes file with the specified ref
 func (dir *Dir) Delete(ref storage.BlobRef) error {
-	path := dir.blobToPath(ref)
+	path, err := dir.blobToPath(ref)
+	if err != nil {
+		return err
+	}
+
 	trashPath := dir.blobToTrashPath(ref)
 
 	// move to trash folder, this is allowed for some OS-es
@@ -151,7 +171,7 @@ func (dir *Dir) Delete(ref storage.BlobRef) error {
 	}
 
 	// try removing the file
-	err := os.Remove(trashPath)
+	err = os.Remove(trashPath)
 
 	// ignore concurrent deletes
 	if os.IsNotExist(err) {
