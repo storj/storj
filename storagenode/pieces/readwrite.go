@@ -6,6 +6,7 @@ package pieces
 import (
 	"bufio"
 	"hash"
+	"io"
 
 	"github.com/zeebo/errs"
 
@@ -67,6 +68,7 @@ func (w *Writer) Cancel() error {
 type Reader struct {
 	buf  bufio.Reader
 	blob storage.BlobReader
+	pos  int64
 	size int64
 }
 
@@ -88,7 +90,20 @@ func NewReader(blob storage.BlobReader, bufferSize int) (*Reader, error) {
 // Read reads data from the underlying blob, buffering as necessary.
 func (r *Reader) Read(data []byte) (int, error) {
 	n, err := r.blob.Read(data)
+	r.pos += int64(n)
 	return n, Error.Wrap(err)
+}
+
+// Seek seeks to the specified location.
+func (r *Reader) Seek(offset int64, whence int) (int64, error) {
+	if whence == io.SeekStart && r.pos == offset {
+		return r.pos, nil
+	}
+
+	r.buf.Reset(r.blob)
+	pos, err := r.blob.Seek(offset, whence)
+	r.pos = pos
+	return pos, Error.Wrap(err)
 }
 
 // ReadAt reads data at the specified offset
