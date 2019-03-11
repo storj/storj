@@ -39,17 +39,17 @@ func (db *DB) Migration() *migrate.Migration {
 
 					// table for storing bandwidth usage
 					`CREATE TABLE bandwidth_usage (
-						satellite     BLOB,
+						satellite_id  BLOB,
 						action        INTEGER,
 						amount        BIGINT,
 						created_at    TIMESTAMP without time zone
 					)`,
-					`CREATE INDEX idx_bandwidth_usage_satellite ON bandwidth_usage(satellite)`,
+					`CREATE INDEX idx_bandwidth_usage_satellite ON bandwidth_usage(satellite_id)`,
 					`CREATE INDEX idx_bandwidth_usage_created   ON bandwidth_usage(created_at)`,
 
 					// table for storing all unsent orders
 					`CREATE TABLE orders_unsent (
-						satellite     BLOB,
+						satellite_id  BLOB,
 						serial_number BLOB,
 
 						order_limit   BLOB, -- serialized pb.OrderLimit
@@ -60,11 +60,11 @@ func (db *DB) Migration() *migrate.Migration {
 
 						FOREIGN KEY(uplink_certid) REFERENCES certificate(certid)
 					)`,
-					`CREATE INDEX idx_orders_unsent ON orders_unsent(satellite, serial_number)`,
+					`CREATE INDEX idx_orders_unsent ON orders_unsent(satellite_id, serial_number)`,
 
 					// table for storing all rejected orders
 					`CREATE TABLE orders_rejected (
-						satellite     BLOB,
+						satellite_id  BLOB,
 						serial_number BLOB,
 
 						order_limit   BLOB, -- serialized pb.OrderLimit
