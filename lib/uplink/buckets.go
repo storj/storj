@@ -6,7 +6,6 @@ package uplink
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"storj.io/storj/pkg/storj"
 )
@@ -31,12 +30,12 @@ type CreateBucketOptions struct {
 func (s *Session) GetBucket(ctx context.Context, bucket string) (storj.Bucket,
 	error) {
 
-	info, err := s.Gateway.GetBucketInfo(ctx, bucket)
-	if err != nil {
-		return storj.Bucket{}, err
-	}
+	// info, err := s.Gateway.GetBucketInfo(ctx, bucket)
+	// if err != nil {
+	// 	return storj.Bucket{}, err
+	// }
 
-	fmt.Printf("bucket info: %+v\n", info)
+	// fmt.Printf("bucket info: %+v\n", *info)
 
 	// TODO: Wire up info to bucket
 	return storj.Bucket{}, nil

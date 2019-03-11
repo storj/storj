@@ -8,7 +8,7 @@ import (
 	"io"
 	"time"
 
-	"storj.io/storj/pkg/miniogw"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storj"
 )
@@ -49,7 +49,7 @@ type ObjectPutOpts struct {
 	// the satellite should probably tell the uplink what to use for these
 	// per bucket. also these should probably be denormalized and defined here.
 	RS            *storj.RedundancyScheme
-	NodeSelection *miniogw.NodeSelectionConfig
+	NodeSelection *overlay.NodeSelectionConfig
 }
 
 // Upload uploads a new object, if authorized.
@@ -68,13 +68,20 @@ func (s *Session) DeleteObject(ctx context.Context, bucket string,
 type ListObjectsField int
 
 const (
-	ListObjectsMetaNone        ListObjectsField = 0
-	ListObjectsMetaModified    ListObjectsField = 1 << iota
-	ListObjectsMetaExpiration  ListObjectsField = 1 << iota
-	ListObjectsMetaSize        ListObjectsField = 1 << iota
-	ListObjectsMetaChecksum    ListObjectsField = 1 << iota
+	// ListObjectsMetaNone opts
+	ListObjectsMetaNone ListObjectsField = 0
+	// ListObjectsMetaModified opts
+	ListObjectsMetaModified ListObjectsField = 1 << iota
+	// ListObjectsMetaExpiration opts
+	ListObjectsMetaExpiration ListObjectsField = 1 << iota
+	// ListObjectsMetaSize opts
+	ListObjectsMetaSize ListObjectsField = 1 << iota
+	// ListObjectsMetaChecksum opts
+	ListObjectsMetaChecksum ListObjectsField = 1 << iota
+	// ListObjectsMetaUserDefined opts
 	ListObjectsMetaUserDefined ListObjectsField = 1 << iota
-	ListObjectsMetaAll         ListObjectsField = 1 << iota
+	// ListObjectsMetaAll opts
+	ListObjectsMetaAll ListObjectsField = 1 << iota
 )
 
 // ListObjectsConfig holds params for listing objects with the Gateway

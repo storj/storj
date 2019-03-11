@@ -40,7 +40,7 @@ type Uplink struct {
 // NewUplink creates a new Uplink
 func NewUplink(ident *identity.FullIdentity, satelliteAddr string, cfg Config) *Uplink {
 	return &Uplink{
-		ID:            id,
+		ID:            ident,
 		SatelliteAddr: satelliteAddr,
 		Config:        cfg,
 	}
@@ -80,20 +80,24 @@ func (a *Access) Serialize() ([]byte, error) {
 
 // Session represents a specific access session.
 type Session struct {
-	TransportClient *transport.Client
+	TransportClient transport.Client
 	Gateway         *minio.ObjectLayer
 }
 
 // NewSession creates a Session with an Access struct.
 func (u *Uplink) NewSession(access Access) error {
-	opts := tlsopts.NewOptions(u.Config.TLSConfig)
+	opts, err := tlsopts.NewOptions(u.ID, u.Config.TLSConfig)
+	if err != nil {
+		return err
+	}
+
 	tc := transport.NewClient(opts)
 
 	// gateway := miniogw.
 
 	u.Session = &Session{
 		TransportClient: tc,
-		Gateway:         gateway,
+		Gateway:         nil,
 	}
 
 	return nil

@@ -2,6 +2,3 @@
 // See LICENSE for copying information.
 
 package uplink
-
-type CLI interface {
-}
