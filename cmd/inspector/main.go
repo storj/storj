@@ -445,32 +445,60 @@ func CreateCSVStats(cmd *cobra.Command, args []string) (err error) {
 }
 
 func getSegments(cmd *cobra.Command, args []string) error {
+	if *limit <= int64(0) {
+		return ErrArgs.New("limit must be greater than 0")
+	}
+
 	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
 
 	lim := *limit
+	length := lim
 	var offset int64
-	for {
+
+	// query DB and paginate results
+	for length >= lim {
 		resp, err := i.irrdbclient.ListSegments(context.Background(), &pb.ListSegmentsRequest{Limit: lim, Offset: offset})
 		if err != nil {
 			return ErrRequest.Wrap(err)
 		}
-		var result *pb.SegmentGroup
+		result := &pb.SegmentGroup{}
 		err = proto.Unmarshal(resp.Data, result)
 		if err != nil {
 			return err
 		}
-		if len(result.Segments) == 0 {
-			fmt.Println("End of results")
-			return nil
-		}
 		for _, seg := range result.Segments {
-			//TODO: format and paginate results
+			//TODO: format results
 			fmt.Println(seg)
 		}
+
+		length = int64(len(result.Segments))
+		offset += length
+		if length < lim {
+			return nil
+		}
+
+		fmt.Printf("Next page? (Y/n) ")
+		reader := bufio.NewReader(os.Stdin)
+		char, _, err := reader.ReadRune()
+		if err != nil {
+			return err
+		}
+
+		switch char {
+		case 'y':
+			continue
+		case 'Y':
+			continue
+		case '\n':
+			continue
+		default:
+			return nil
+		}
 	}
+	return nil
 }
 
 func init() {

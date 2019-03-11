@@ -22,13 +22,12 @@ func NewInspector(irrdb DB) *Inspector {
 }
 
 // ListSegments returns all files with an irreparable segment
-func (srv *Inspector) ListSegments(ctx context.Context, req *pb.ListSegmentsRequest) (resp *pb.ListSegmentsResponse, err error) {
+func (srv *Inspector) ListSegments(ctx context.Context, req *pb.ListSegmentsRequest) (*pb.ListSegmentsResponse, error) {
 	segments, err := srv.irrdb.GetLimited(ctx, int(req.GetLimit()), req.GetOffset())
 	if err != nil {
 		return nil, err
 	}
-
-	var msg *pb.SegmentGroup
+	var msg pb.SegmentGroup
 	for _, segment := range segments {
 		item := &pb.IrreparableSegment{
 			EncryptedPath:      segment.EncryptedSegmentPath,
@@ -39,9 +38,12 @@ func (srv *Inspector) ListSegments(ctx context.Context, req *pb.ListSegmentsRequ
 		}
 		msg.Segments = append(msg.Segments, item)
 	}
-	resp.Data, err = proto.Marshal(msg)
+
+	var resp pb.ListSegmentsResponse
+	resp.Data, err = proto.Marshal(&msg)
 	if err != nil {
 		return nil, err
 	}
-	return resp, nil
+
+	return &resp, err
 }
