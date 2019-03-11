@@ -66,8 +66,10 @@ func (client *Upload) Write(data []byte) (written int, _ error) {
 		return 0, ErrProtocol.Wrap(client.sendError)
 	}
 
-	// hash the content so far
-	_, _ = client.hash.Write(data) // guaranteed not to return error
+	fullData := data
+	defer func() {
+		_, _ = client.hash.Write(fullData[:written]) // guaranteed not to return error
+	}()
 
 	for len(data) > 0 {
 		// pick a data chunk to send
