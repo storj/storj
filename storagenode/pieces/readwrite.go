@@ -37,8 +37,8 @@ func NewWriter(blob storage.BlobWriter, bufferSize int) (*Writer, error) {
 func (w *Writer) Write(data []byte) (int, error) {
 	n, err := w.buf.Write(data)
 	w.size += int64(n)
-	_, hashErr := w.hash.Write(data[:n])
-	return n, Error.Wrap(errs.Combine(err, hashErr))
+	_, _ = w.hash.Write(data[:n]) // guaranteed not to return an error
+	return n, Error.Wrap(err)
 }
 
 // Size returns the amount of data written so far.
