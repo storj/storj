@@ -303,10 +303,7 @@ func (endpoint *Endpoint) createOrderLimitsForSegment(ctx context.Context, point
 		return nil, err
 	}
 
-	rootPieceID, err := storj.PieceIDFromString(pointer.GetRemote().PieceId)
-	if err != nil {
-		return nil, err
-	}
+	rootPieceID := pointer.GetRemote().PieceId_2
 
 	pieceSize := calcPieceSize(pointer.GetSegmentSize(), pointer.GetRemote().GetRedundancy())
 	expiration := pointer.ExpirationDate
