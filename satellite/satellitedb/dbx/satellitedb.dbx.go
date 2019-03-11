@@ -143,9 +143,6 @@ func Open(driver, source string) (db *DB, err error) {
 	var sql_db *sql.DB
 	switch driver {
 	case "postgres":
-		if !strings.Contains(source, "ApplicationName") {
-			source = fmt.Sprintf("%s?%s", source, "ApplicationName=Satellite")
-		}
 		sql_db, err = openpostgres(source)
 	case "sqlite3":
 		sql_db, err = opensqlite3(source)
