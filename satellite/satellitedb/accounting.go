@@ -24,12 +24,13 @@ type accountingDB struct {
 func (db *accountingDB) LastTimestamp(ctx context.Context, timestampType string) (time.Time, error) {
 	lastTally := time.Time{}
 	err := db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-		lastTally, err := tx.Find_AccountingTimestamps_Value_By_Name(ctx, dbx.AccountingTimestamps_Name(timestampType))
-		if lastTally == nil {
-			update := dbx.AccountingTimestamps_Value(time.Time{})
+		lt, err := tx.Find_AccountingTimestamps_Value_By_Name(ctx, dbx.AccountingTimestamps_Name(timestampType))
+		if lt == nil {
+			update := dbx.AccountingTimestamps_Value(lastTally)
 			_, err = tx.Create_AccountingTimestamps(ctx, dbx.AccountingTimestamps_Name(timestampType), update)
 			return err
 		}
+		lastTally = lt.Value
 		return err
 	})
 	return lastTally, err
