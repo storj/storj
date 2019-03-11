@@ -111,6 +111,6 @@ func CheckApplicationName(s string) (r string) {
 		}
 		return
 	}
-	//return source as is if ApplicationName is set
+	//return source as is if application_name is set
 	return s
 }
