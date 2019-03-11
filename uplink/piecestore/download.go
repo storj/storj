@@ -36,14 +36,14 @@ type Download struct {
 }
 
 func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit2, offset, size int64) (*Download, error) {
-	peer, err := identity.PeerIdentityFromContext(ctx)
-	if err != nil {
-		return nil, ErrInternal.Wrap(err)
-	}
-
 	stream, err := client.client.Download(ctx)
 	if err != nil {
 		return nil, err
+	}
+
+	peer, err := identity.PeerIdentityFromContext(stream.Context())
+	if err != nil {
+		return nil, ErrInternal.Wrap(err)
 	}
 
 	err = stream.Send(&pb.PieceDownloadRequest{

@@ -13,6 +13,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"storj.io/storj/pkg/auth/signing"
+
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -326,11 +328,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			NewNodePercentage:     overlayConfig.Node.NewNodePercentage,
 		}
 
+		signer := signing.SignerFromFullIdentity(peer.Identity)
 		peer.Metainfo.Endpoint2 = metainfo.NewEndpoint(peer.Log.Named("metainfo:endpoint"),
 			peer.Metainfo.Service,
 			peer.Metainfo.Allocation,
 			peer.Overlay.Service,
 			peer.DB.Console().APIKeys(),
+			signer,
 			config.PointerDB, nodeSelectionConfig)
 
 		pb.RegisterPointerDBServer(peer.Server.GRPC(), peer.Metainfo.Endpoint)
