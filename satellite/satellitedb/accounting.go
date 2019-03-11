@@ -30,7 +30,7 @@ func (db *accountingDB) LastTimestamp(ctx context.Context, timestampType string)
 			_, err = tx.Create_AccountingTimestamps(ctx, dbx.AccountingTimestamps_Name(timestampType), update)
 			return err
 		}
-		return nil
+		return err
 	})
 	return lastTally, err
 }
