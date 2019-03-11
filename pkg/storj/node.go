@@ -151,7 +151,10 @@ func (id NodeID) Value() (driver.Value, error) {
 
 // Scan extracts a NodeID from a database field
 func (id *NodeID) Scan(src interface{}) (err error) {
-	b, _ := src.([]byte)
+	b, ok := src.([]byte)
+	if !ok {
+		return ErrNodeID.New("NodeID Scan expects []byte")
+	}
 	n, err := NodeIDFromBytes(b)
 	*id = n
 	return err
