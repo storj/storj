@@ -5,6 +5,8 @@ package pgutil
 
 import (
 	"database/sql"
+	"fmt"
+	"strings"
 
 	"github.com/zeebo/errs"
 
@@ -97,4 +99,16 @@ func QuerySnapshot(db dbschema.Queryer) (*dbschema.Snapshot, error) {
 		Schema:  schema,
 		Data:    data,
 	}, err
+}
+
+//CheckApplicationName ensures that the Connection String contains an application name
+func CheckApplicationName(s string) (r string) {
+	if !strings.Contains(s, "ApplicationName") {
+		if !strings.Contains(s, "?") {
+			r = fmt.Sprintf("%s?%s", s, "ApplicationName=Satellite")
+		} else {
+			r = fmt.Sprintf("%s%s%s", s, "%26", "ApplicationName=Satellite")
+		}
+	}
+	return
 }

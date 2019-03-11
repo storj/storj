@@ -4,10 +4,8 @@
 package satellitedb
 
 import (
-	"fmt"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"strings"
 
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/dbutil/pgutil"
@@ -43,12 +41,8 @@ func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	if driver == "postgres" && !strings.Contains(source, "ApplicationName") {
-		if !strings.Contains(source, "?") {
-			source = fmt.Sprintf("%s?%s", source, "ApplicationName=Satellite")
-		} else {
-			source = fmt.Sprintf("%s%s%s", source, "%26", "ApplicationName=Satellite")
-		}
+	if driver == "postgres" {
+		source = pgutil.CheckApplicationName(source)
 	}
 	db, err := dbx.Open(driver, source)
 	if err != nil {
