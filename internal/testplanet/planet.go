@@ -172,7 +172,11 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
-	planet.StorageNodes, err = planet.newStorageNodes(config.StorageNodeCount)
+	whitelistedSatellites := make([]string, len(planet.Satellites))
+	for _, satellite := range planet.Satellites {
+		whitelistedSatellites = append(whitelistedSatellites, satellite.ID().String())
+	}
+	planet.StorageNodes, err = planet.newStorageNodes(config.StorageNodeCount, whitelistedSatellites)
 	if err != nil {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
@@ -481,7 +485,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 }
 
 // newStorageNodes initializes storage nodes
-func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
+func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []string) ([]*storagenode.Peer, error) {
 	// TODO: move into separate file
 	var xs []*storagenode.Peer
 	defer func() {
@@ -521,6 +525,8 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 
 		planet.databases = append(planet.databases, db)
 
+		satelliteIDs := strings.Join(whitelistedSatelliteIDs, ",")
+
 		config := storagenode.Config{
 			Server: server.Config{
 				Address:        "127.0.0.1:0",
@@ -552,6 +558,7 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 
 				AgreementSenderCheckInterval: time.Hour,
 				CollectorInterval:            time.Hour,
+				WhitelistedSatelliteIDs:      satelliteIDs,
 			},
 		}
 		if planet.config.Reconfigure.StorageNode != nil {
