@@ -27,7 +27,7 @@ func (db *DB) Migration() *migrate.Migration {
 						id           BLOB,
 						size         BIGINT,
 						expiration   TIMESTAMP without time zone, -- date when it can be deleted
-						
+
 						uplink_hash   BLOB, -- serialized pb.PieceHash signed by uplink
 						uplink_certid SERIAL,
 
@@ -41,7 +41,8 @@ func (db *DB) Migration() *migrate.Migration {
 					`CREATE TABLE orderinfo (
 						satellite     BLOB,
 						action        INTEGER,
-						amount        BIGINT
+						amount        BIGINT,
+						created_at    TIMESTAMP without time zone
 					)`,
 
 					// table for storing all unsent orders
@@ -50,10 +51,10 @@ func (db *DB) Migration() *migrate.Migration {
 
 						order_limit   BLOB, -- serialized pb.OrderLimit
 						order         BLOB, -- serialized pb.Order
+						order_limit_expiration TIMESTAMP without time zone, -- when is the deadline for sending it
 
 						uplink_certid SERIAL,
 
-						order_limit_expiration TIMESTAMP without time zone, -- when is the deadline for sending it
 						FOREIGN KEY(uplink_certid) REFERENCES certificate(certid)
 					)`,
 
@@ -66,7 +67,8 @@ func (db *DB) Migration() *migrate.Migration {
 
 						uplink_certid SERIAL,
 
-						rejected_at            TIMESTAMP without time zone, -- when was it rejected
+						rejected_at TIMESTAMP without time zone, -- when was it rejected
+
 						FOREIGN KEY(uplink_certid) REFERENCES certificate(certid)
 					)`,
 
