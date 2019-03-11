@@ -150,7 +150,25 @@ func (metainfo *Metainfo) ReadSegment(ctx context.Context, bucket string, path s
 		return nil, nil, Error.Wrap(err)
 	}
 
-	return response.GetPointer(), response.GetAddressedLimits(), nil
+	return response.GetPointer(), sortLimits(response.GetAddressedLimits(), response.GetPointer()), nil
+}
+
+// sortLimits sorts order limits and fill missing ones with nil values
+func sortLimits(limits []*pb.AddressedOrderLimit, pointer *pb.Pointer) []*pb.AddressedOrderLimit {
+	sorted := make([]*pb.AddressedOrderLimit, pointer.GetRemote().GetRedundancy().GetTotal())
+	for _, piece := range pointer.GetRemote().GetRemotePieces() {
+		sorted[piece.GetPieceNum()] = getLimitByStorageNodeID(limits, piece.NodeId)
+	}
+	return sorted
+}
+
+func getLimitByStorageNodeID(limits []*pb.AddressedOrderLimit, storageNodeID storj.NodeID) *pb.AddressedOrderLimit {
+	for _, limit := range limits {
+		if limit.GetLimit().StorageNodeId == storageNodeID {
+			return limit
+		}
+	}
+	return nil
 }
 
 // DeleteSegment requests the order limits for deleting a segment

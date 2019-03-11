@@ -306,7 +306,7 @@ func (endpoint *Endpoint) createOrderLimitsForSegment(ctx context.Context, remot
 		return nil, err
 	}
 
-	limits := make([]*pb.AddressedOrderLimit, remote.Redundancy.Total)
+	var limits []*pb.AddressedOrderLimit
 	for _, piece := range remote.RemotePieces {
 		orderLimit, err := endpoint.createOrderLimit(ctx, uplinkIdentity, piece.NodeId, pieceID, nil, 0, action)
 		if err != nil {
@@ -322,10 +322,10 @@ func (endpoint *Endpoint) createOrderLimitsForSegment(ctx context.Context, remot
 			node.Type.DPanicOnInvalid("metainfo server order limits")
 		}
 
-		limits[piece.PieceNum] = &pb.AddressedOrderLimit{
+		limits = append(limits, &pb.AddressedOrderLimit{
 			Limit:              orderLimit,
 			StorageNodeAddress: node.Address,
-		}
+		})
 
 	}
 	return limits, nil
