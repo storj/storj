@@ -305,7 +305,12 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 			}
 
 			chunkData := make([]byte, chunkSize)
-			err = pieceReader.ReadAt(currentOffset, chunkData)
+			_, err = pieceReader.Seek(currentOffset, io.SeekStart)
+			if err != nil {
+				return ErrInternal.Wrap(err)
+			}
+
+			_, err = pieceReader.Read(chunkData)
 			if err != nil {
 				return ErrInternal.Wrap(err)
 			}
