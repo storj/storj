@@ -145,7 +145,7 @@ func (client *Upload) Close() (*pb.PieceHash, error) {
 	response, closeErr := client.stream.CloseAndRecv()
 	if response == nil || response.Done == nil {
 		// combine all the errors from before
-		return nil, combineSendCloseError(sendErr, closeErr)
+		return nil, errs.Combine(ErrProtocol.New("expected piece hash"), combineSendCloseError(sendErr, closeErr))
 	}
 
 	// verification
