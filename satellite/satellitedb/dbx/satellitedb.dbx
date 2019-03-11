@@ -141,7 +141,14 @@ create node ( )
 update node ( where node.id = ? )
 delete node ( where node.id = ? )
 
+// "Get" query; fails if node not found
 read one (
+	select node
+	where  node.id = ?
+)
+
+// "Find" query; returns nil if node not found
+read scalar (
 	select node
 	where  node.id = ?
 )

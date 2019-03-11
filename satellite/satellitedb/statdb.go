@@ -103,9 +103,12 @@ func (s *statDB) Create(ctx context.Context, nodeID storj.NodeID, startingStats 
 func (s *statDB) Get(ctx context.Context, nodeID storj.NodeID) (stats *statdb.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	dbNode, err := s.db.Get_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()))
+	dbNode, err := s.db.Find_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()))
 	if err != nil {
 		return nil, Error.Wrap(err)
+	}
+	if dbNode == nil {
+		return nil, nil
 	}
 
 	nodeStats := getNodeStats(nodeID, dbNode)
@@ -354,16 +357,15 @@ func (s *statDB) CreateEntryIfNotExists(ctx context.Context, nodeID storj.NodeID
 	defer mon.Task()(&ctx)(&err)
 
 	getStats, err := s.Get(ctx, nodeID)
-	// TODO: figure out better way to confirm error is type dbx.ErrorCode_NoRows
-	if err != nil && strings.Contains(err.Error(), "no rows in result set") {
+	if err != nil {
+		return nil, err
+	}
+	if getStats == nil {
 		createStats, err := s.Create(ctx, nodeID, nil)
 		if err != nil {
 			return nil, err
 		}
 		return createStats, nil
-	}
-	if err != nil {
-		return nil, err
 	}
 	return getStats, nil
 }
