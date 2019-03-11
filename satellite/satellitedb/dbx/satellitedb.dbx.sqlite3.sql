@@ -26,6 +26,22 @@ CREATE TABLE accounting_timestamps (
 	value TIMESTAMP NOT NULL,
 	PRIMARY KEY ( name )
 );
+CREATE TABLE bucket_usages (
+	id BLOB NOT NULL,
+	bucket_id BLOB NOT NULL,
+	rollup_end_time TIMESTAMP NOT NULL,
+	remote_stored_data INTEGER NOT NULL,
+	inline_stored_data INTEGER NOT NULL,
+	remote_segments INTEGER NOT NULL,
+	inline_segments INTEGER NOT NULL,
+	objects INTEGER NOT NULL,
+	metadata_size INTEGER NOT NULL,
+	repair_egress INTEGER NOT NULL,
+	get_egress INTEGER NOT NULL,
+	audit_egress INTEGER NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( rollup_end_time, bucket_id )
+);
 CREATE TABLE bwagreements (
 	serialnum TEXT NOT NULL,
 	storage_node_id BLOB NOT NULL,

@@ -84,39 +84,15 @@ func TestGrapqhlMutation(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		t.Run("Activate account mutation", func(t *testing.T) {
-			activationToken, err := service.GenerateActivationToken(
-				ctx,
-				rootUser.ID,
-				createUser.Email,
-			)
-			if err != nil {
-				t.Fatal(err)
-			}
+		activationToken, err := service.GenerateActivationToken(ctx, rootUser.ID, rootUser.Email)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-			query := fmt.Sprintf("mutation {activateAccount(input:\"%s\")}", activationToken)
-
-			result := graphql.Do(graphql.Params{
-				Schema:        schema,
-				Context:       ctx,
-				RequestString: query,
-				RootObject:    rootObject,
-			})
-
-			for _, err := range result.Errors {
-				assert.NoError(t, err)
-			}
-
-			if result.HasErrors() {
-				t.Fatal()
-			}
-
-			data := result.Data.(map[string]interface{})
-			token := data[consoleql.ActivateAccountMutation].(string)
-
-			assert.NotEqual(t, "", token)
-			rootUser.Email = createUser.Email
-		})
+		err = service.ActivateAccount(ctx, activationToken)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		token, err := service.Token(ctx, createUser.Email, createUser.Password)
 		if err != nil {
@@ -399,7 +375,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			if err != nil {
 				t.Fatal(err, project)
 			}
-			_, err = service.ActivateAccount(ctx, activationToken1)
+			err = service.ActivateAccount(ctx, activationToken1)
 			if err != nil {
 				t.Fatal(err, project)
 			}
@@ -427,7 +403,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			if err != nil {
 				t.Fatal(err, project)
 			}
-			_, err = service.ActivateAccount(ctx, activationToken2)
+			err = service.ActivateAccount(ctx, activationToken2)
 			if err != nil {
 				t.Fatal(err, project)
 			}
