@@ -138,7 +138,7 @@ func cmdAuthorize(cmd *cobra.Command, args []string) error {
 
 	serviceDir := serviceDirectory(args[0])
 
-	if writable, err := utils.IsWritable(serviceDir); !writable && err != nil {
+	if writable, err := utils.IsWritable(serviceDir); !writable || err != nil {
 		return errs.New("%s is not a writeable directory: %s", serviceDir, err)
 	}
 
