@@ -29,15 +29,15 @@ func TestBandwidthDBAgreement(t *testing.T) {
 		snID, err := testidentity.NewTestIdentity(ctx)
 		require.NoError(t, err)
 
-		require.NoError(t, testCreateAgreement(ctx, t, db.BandwidthAgreement(), pb.BandwidthAction_PUT, "1", upID, snID))
-		require.Error(t, testCreateAgreement(ctx, t, db.BandwidthAgreement(), pb.BandwidthAction_GET, "1", upID, snID))
-		require.NoError(t, testCreateAgreement(ctx, t, db.BandwidthAgreement(), pb.BandwidthAction_GET, "2", upID, snID))
+		require.NoError(t, testSaveOrder(t, db.BandwidthAgreement(), pb.BandwidthAction_PUT, "1", upID, snID))
+		require.Error(t, testSaveOrder(t, db.BandwidthAgreement(), pb.BandwidthAction_GET, "1", upID, snID))
+		require.NoError(t, testSaveOrder(t, db.BandwidthAgreement(), pb.BandwidthAction_GET, "2", upID, snID))
 		testGetTotals(ctx, t, db.BandwidthAgreement(), snID)
 		testGetUplinkStats(ctx, t, db.BandwidthAgreement(), upID)
 	})
 }
 
-func testCreateAgreement(ctx context.Context, t *testing.T, b bwagreement.DB, action pb.BandwidthAction,
+func testSaveOrder(t *testing.T, b bwagreement.DB, action pb.BandwidthAction,
 	serialNum string, upID, snID *identity.FullIdentity) error {
 	rba := &pb.Order{
 		PayerAllocation: pb.OrderLimit{
@@ -48,7 +48,7 @@ func testCreateAgreement(ctx context.Context, t *testing.T, b bwagreement.DB, ac
 		Total:         1000,
 		StorageNodeId: snID.ID,
 	}
-	return b.CreateAgreement(ctx, rba)
+	return b.SaveOrder(rba)
 }
 
 func testGetUplinkStats(ctx context.Context, t *testing.T, b bwagreement.DB, upID *identity.FullIdentity) {
