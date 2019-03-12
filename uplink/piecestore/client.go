@@ -19,13 +19,19 @@ import (
 var Error = errs.Class("piecestore")
 
 type Config struct {
+	UploadBufferSize   int64
+	DownloadBufferSize int64
+
 	InitialStep int64
 	MaximumStep int64
 }
 
 var DefaultConfig = Config{
+	UploadBufferSize:   256 * memory.KiB.Int64(),
+	DownloadBufferSize: 256 * memory.KiB.Int64(),
+
 	InitialStep: 256 * memory.KiB.Int64(),
-	MaximumStep: 5 * memory.MiB.Int64(),
+	MaximumStep: 1 * memory.MiB.Int64(),
 }
 
 type Client struct {
@@ -57,15 +63,6 @@ func (client *Client) Close() error {
 	return client.conn.Close()
 }
 
-func combineSendCloseError(sendError, closeError error) error {
-	if sendError != nil && closeError != nil {
-		if sendError == io.EOF {
-			sendError = nil
-		}
-	}
-	return errs.Combine(closeError, sendError)
-}
-
 func (client *Client) nextAllocationStep(previous int64) int64 {
 	// TODO: ensure that this is frame idependent
 	next := previous * 3 / 2
@@ -73,4 +70,11 @@ func (client *Client) nextAllocationStep(previous int64) int64 {
 		next = client.config.MaximumStep
 	}
 	return next
+}
+
+func ignoreEOF(err error) error {
+	if err == io.EOF {
+		return nil
+	}
+	return err
 }

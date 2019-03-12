@@ -5,6 +5,7 @@ package pgutil
 
 import (
 	"database/sql"
+	"strings"
 
 	"github.com/zeebo/errs"
 
@@ -97,4 +98,18 @@ func QuerySnapshot(db dbschema.Queryer) (*dbschema.Snapshot, error) {
 		Schema:  schema,
 		Data:    data,
 	}, err
+}
+
+//CheckApplicationName ensures that the Connection String contains an application name
+func CheckApplicationName(s string) (r string) {
+	if !strings.Contains(s, "application_name") {
+		if !strings.Contains(s, "?") {
+			r = s + "?application_name=Satellite"
+			return
+		}
+		r = s + "&application_name=Satellite"
+		return
+	}
+	//return source as is if application_name is set
+	return s
 }

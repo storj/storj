@@ -15,6 +15,11 @@ import (
 	"storj.io/storj/pkg/pb"
 )
 
+type Downloader interface {
+	Read([]byte) (int, error)
+	Close() error
+}
+
 type Download struct {
 	client *Client
 	limit  *pb.OrderLimit2
@@ -30,12 +35,9 @@ type Download struct {
 	allocationStep int64
 
 	unread ReadBuffer
-
-	// when there's a send error then it will automatically close
-	sendError error
 }
 
-func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit2, offset, size int64) (*Download, error) {
+func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit2, offset, size int64) (Downloader, error) {
 	stream, err := client.client.Download(ctx)
 	if err != nil {
 		return nil, err
@@ -43,7 +45,9 @@ func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit2, offse
 
 	peer, err := identity.PeerIdentityFromContext(stream.Context())
 	if err != nil {
-		return nil, ErrInternal.Wrap(err)
+		closeErr := stream.CloseSend()
+		_, recvErr := stream.Recv()
+		return nil, ErrInternal.Wrap(errs.Combine(err, ignoreEOF(closeErr), ignoreEOF(recvErr)))
 	}
 
 	err = stream.Send(&pb.PieceDownloadRequest{
@@ -54,11 +58,12 @@ func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit2, offse
 		},
 	})
 	if err != nil {
-		_, closeErr := stream.Recv()
-		return nil, ErrProtocol.Wrap(combineSendCloseError(err, closeErr))
+		closeErr := stream.CloseSend()
+		_, recvErr := stream.Recv()
+		return nil, ErrProtocol.Wrap(errs.Combine(err, closeErr, recvErr))
 	}
 
-	return &Download{
+	download := &Download{
 		client: client,
 		limit:  limit,
 		peer:   peer,
@@ -71,6 +76,13 @@ func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit2, offse
 		downloadSize: size,
 
 		allocationStep: client.config.InitialStep,
+	}
+
+	if client.config.DownloadBufferSize <= 0 {
+		return &LockingDownload{download: download}, nil
+	}
+	return &LockingDownload{
+		download: NewBufferedDownload(download, int(client.config.DownloadBufferSize)),
 	}, nil
 }
 
@@ -82,6 +94,7 @@ func (client *Download) Read(data []byte) (read int, _ error) {
 		read += n
 
 		// if we have an error or are pending for an error, avoid further communication
+		// however we should still finish reading the unread data.
 		if err != nil || client.unread.Errored() {
 			return read, err
 		}
@@ -107,7 +120,7 @@ func (client *Download) Read(data []byte) (read int, _ error) {
 					SerialNumber: client.limit.SerialNumber,
 					Amount:       newAllocation,
 				})
-				// something went wrong
+				// something went wrong with signing
 				if err != nil {
 					client.unread.IncludeError(err)
 					return read, nil
@@ -117,7 +130,8 @@ func (client *Download) Read(data []byte) (read int, _ error) {
 					Order: order,
 				})
 				if err != nil {
-					client.sendError = err
+					// other side doesn't want to talk to us anymore,
+					// or network went down
 					client.unread.IncludeError(err)
 					return read, nil
 				}
@@ -151,22 +165,33 @@ func (client *Download) Read(data []byte) (read int, _ error) {
 }
 
 func (client *Download) Close() error {
-	sendCloseError := client.stream.CloseSend()
+	alldone := client.read == client.downloadSize
 
-	_, recvError := client.stream.Recv()
-	// grpc signals good end of stream with io.EOF
-	if recvError == io.EOF {
-		recvError = nil
+	// close our sending end
+	closeErr := client.stream.CloseSend()
+	// try to read any pending error message
+	_, recvErr := client.stream.Recv()
+
+	if alldone {
+		// if we are all done, then we expecte io.EOF, but don't care about them
+		return Error.Wrap(errs.Combine(ignoreEOF(closeErr), ignoreEOF(recvErr)))
 	}
 
-	return Error.Wrap(combineSendCloseError(sendCloseError, recvError))
+	if client.unread.Errored() {
+		// something went wrong and we didn't manage to download all the content
+		return Error.Wrap(errs.Combine(client.unread.Error(), closeErr, recvErr))
+	}
 
+	// we probably closed download early, so we can ignore io.EOF-s
+	return Error.Wrap(errs.Combine(ignoreEOF(closeErr), ignoreEOF(recvErr)))
 }
 
 type ReadBuffer struct {
 	data []byte
 	err  error
 }
+
+func (buffer *ReadBuffer) Error() error { return buffer.err }
 
 func (buffer *ReadBuffer) Errored() bool { return buffer.err != nil }
 

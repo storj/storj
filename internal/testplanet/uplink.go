@@ -256,6 +256,6 @@ func (uplink *Uplink) getConfig(satellite *satellite.Peer) uplink.Config {
 
 func getDefaultConfig() uplink.Config {
 	config := uplink.Config{}
-	cfgstruct.Bind(&pflag.FlagSet{}, &config)
+	cfgstruct.Bind(&pflag.FlagSet{}, &config, true)
 	return config
 }

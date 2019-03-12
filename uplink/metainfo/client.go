@@ -50,7 +50,7 @@ type ListItem struct {
 
 // Client interface for the Metainfo service
 type Client interface {
-	CreateSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, redundancy *pb.RedundancyScheme, maxSegmentSize int64, expiration time.Time) ([]*pb.AddressedOrderLimit, storj.PieceID2, error)
+	CreateSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, redundancy *pb.RedundancyScheme, maxEncryptedSegmentSize int64, expiration time.Time) ([]*pb.AddressedOrderLimit, storj.PieceID2, error)
 	CommitSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, pointer *pb.Pointer, originalLimits []*pb.OrderLimit2) (*pb.Pointer, error)
 	SegmentInfo(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (*pb.Pointer, error)
 	ReadSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (*pb.Pointer, []*pb.AddressedOrderLimit, error)
@@ -74,7 +74,7 @@ func NewClient(ctx context.Context, tc transport.Client, address string, APIKey 
 }
 
 // CreateSegment requests the order limits for creating a new segment
-func (metainfo *Metainfo) CreateSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, redundancy *pb.RedundancyScheme, maxSegmentSize int64, expiration time.Time) (limits []*pb.AddressedOrderLimit, rootPieceID storj.PieceID2, err error) {
+func (metainfo *Metainfo) CreateSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, redundancy *pb.RedundancyScheme, maxEncryptedSegmentSize int64, expiration time.Time) (limits []*pb.AddressedOrderLimit, rootPieceID storj.PieceID2, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	exp, err := ptypes.TimestampProto(expiration)
@@ -83,12 +83,12 @@ func (metainfo *Metainfo) CreateSegment(ctx context.Context, bucket string, path
 	}
 
 	response, err := metainfo.client.CreateSegment(ctx, &pb.SegmentWriteRequest{
-		Bucket:         []byte(bucket),
-		Path:           []byte(path),
-		Segment:        segmentIndex,
-		Redundancy:     redundancy,
-		MaxSegmentSize: maxSegmentSize,
-		Expiration:     exp,
+		Bucket:                  []byte(bucket),
+		Path:                    []byte(path),
+		Segment:                 segmentIndex,
+		Redundancy:              redundancy,
+		MaxEncryptedSegmentSize: maxEncryptedSegmentSize,
+		Expiration:              exp,
 	})
 	if err != nil {
 		return nil, rootPieceID, Error.Wrap(err)
@@ -150,7 +150,25 @@ func (metainfo *Metainfo) ReadSegment(ctx context.Context, bucket string, path s
 		return nil, nil, Error.Wrap(err)
 	}
 
-	return response.GetPointer(), response.GetAddressedLimits(), nil
+	return response.GetPointer(), sortLimits(response.GetAddressedLimits(), response.GetPointer()), nil
+}
+
+// sortLimits sorts order limits and fill missing ones with nil values
+func sortLimits(limits []*pb.AddressedOrderLimit, pointer *pb.Pointer) []*pb.AddressedOrderLimit {
+	sorted := make([]*pb.AddressedOrderLimit, pointer.GetRemote().GetRedundancy().GetTotal())
+	for _, piece := range pointer.GetRemote().GetRemotePieces() {
+		sorted[piece.GetPieceNum()] = getLimitByStorageNodeID(limits, piece.NodeId)
+	}
+	return sorted
+}
+
+func getLimitByStorageNodeID(limits []*pb.AddressedOrderLimit, storageNodeID storj.NodeID) *pb.AddressedOrderLimit {
+	for _, limit := range limits {
+		if limit.GetLimit().StorageNodeId == storageNodeID {
+			return limit
+		}
+	}
+	return nil
 }
 
 // DeleteSegment requests the order limits for deleting a segment

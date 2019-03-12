@@ -21,17 +21,10 @@ before_script:
 
 before_install:
   - source scripts/setup-gopath.sh
-
-script:
-  - go vet ./...
-  - exit 1
-
-# before_install:
-#   - source scripts/setup-gopath.sh
-# matrix:
-#   allow_failures:
-#     - os: windows # allow failures on windows because it's slow
-#   include:
+matrix:
+  allow_failures:
+    - os: windows # allow failures on windows because it's slow
+  include:
 #     ### tests ###
 #     - env:
 #         - MODE=tests
@@ -74,28 +67,28 @@ script:
 #         - golangci-lint run
 #         - ./scripts/check-travis-tidy.sh
 
-#     ### integration tests ###
-#     - env: MODE=integration
-#       services:
-#         - redis
-#       install:
-#         - source scripts/install-awscli.sh
-#         - make install-sim
-#       script:
-#         - set -o pipefail && make test-sim |& go run scripts/fail-on-race.go
-#         - set -o pipefail && make test-certificate-signing |& go run scripts/fail-on-race.go
+    ### integration tests ###
+    - env: MODE=integration
+      services:
+        - redis
+      install:
+        - source scripts/install-awscli.sh
+        - make install-sim
+      script:
+        - set -o pipefail && make test-sim |& go run scripts/fail-on-race.go
+        - set -o pipefail && make test-certificate-signing |& go run scripts/fail-on-race.go
 
-#     ### Docker tests ###
-#     - env: MODE=docker
-#       if: commit_message =~ /(?i:docker)/
-#       services:
-#         - docker
-#       before_install:
-#         - echo "skip"
-#       install:
-#         - source scripts/install-awscli.sh
-#       script:
-#         - set -o pipefail && make test-all-in-one |& go run scripts/fail-on-race.go
+    ### Docker tests ###
+    - env: MODE=docker
+      if: commit_message =~ /(?i:docker)/
+      services:
+        - docker
+      before_install:
+        - echo "skip"
+      install:
+        - source scripts/install-awscli.sh
+      script:
+        - set -o pipefail && make test-all-in-one |& go run scripts/fail-on-race.go
 
 #     ### windows tests ###
 #     - env: MODE=windows-tests
