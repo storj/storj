@@ -73,14 +73,11 @@ var (
 		Address       string `default:"127.0.0.1:7778" help:"address for dashboard service"`
 		BootstrapAddr string `default:"bootstrap.storj.io:8888" help:"address of server the storage node was bootstrapped against"`
 	}
-
-	defaultConfDir = fpath.ApplicationDir("storj", "storagenode")
-	// TODO: this path should be defined somewhere else
-	defaultIdentityDir = fpath.ApplicationDir("storj", "identity", "storagenode")
-	defaultDiagDir     string
-	confDir            string
-	identityDir        string
-	useColor           bool
+	defaultDiagDir string
+	confDir        string
+	identityDir    string
+	useColor       bool
+	isDev          bool
 )
 
 const (
@@ -89,38 +86,23 @@ const (
 )
 
 func init() {
-	confDirParam := cfgstruct.FindConfigDirParam()
-	if confDirParam != "" {
-		defaultConfDir = confDirParam
-	}
-	identityDirParam := cfgstruct.FindIdentityDirParam()
-	if identityDirParam != "" {
-		defaultIdentityDir = identityDirParam
-	}
-
-	rootCmd.PersistentFlags().StringVar(&confDir, "config-dir", defaultConfDir, "main directory for storagenode configuration")
-	err := rootCmd.PersistentFlags().SetAnnotation("config-dir", "setup", []string{"true"})
-	if err != nil {
-		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
-	}
-	rootCmd.PersistentFlags().StringVar(&identityDir, "identity-dir", defaultIdentityDir, "main directory for storagenode identity credentials")
-	err = rootCmd.PersistentFlags().SetAnnotation("identity-dir", "setup", []string{"true"})
-	if err != nil {
-		zap.S().Error("Failed to set 'setup' annotation for 'config-dir'")
-	}
-	rootCmd.PersistentFlags().BoolVar(&useColor, "color", false, "use color in user interface")
-
+	defaultConfDir := fpath.ApplicationDir("storj", "storagenode")
+	defaultIdentityDir := fpath.ApplicationDir("storj", "identity", "storagenode")
 	defaultDiagDir = filepath.Join(defaultConfDir, "storage")
+	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for storagenode configuration")
+	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for storagenode identity credentials")
+	cfgstruct.DevFlag(rootCmd, &isDev, false, "use development and test configuration settings")
+	rootCmd.PersistentFlags().BoolVar(&useColor, "color", false, "use color in user interface")
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(diagCmd)
 	rootCmd.AddCommand(dashboardCmd)
-	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.BindSetup(configCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.Bind(dashboardCmd.Flags(), &dashboardCfg, cfgstruct.ConfDir(defaultDiagDir))
+	cfgstruct.Bind(runCmd.Flags(), &runCfg, isDev, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, isDev, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	cfgstruct.BindSetup(configCmd.Flags(), &setupCfg, isDev, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, isDev, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	cfgstruct.Bind(dashboardCmd.Flags(), &dashboardCfg, isDev, cfgstruct.ConfDir(defaultDiagDir))
 }
 
 func databaseConfig(config storagenode.Config) storagenodedb.Config {
