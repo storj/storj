@@ -6,12 +6,14 @@ package uplink
 import (
 	"context"
 
-	minio "github.com/minio/minio/cmd"
 	"storj.io/storj/pkg/transport"
 
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/storj"
+	ul "storj.io/storj/uplink"
 )
 
 // Config holds the configs for the Uplink
@@ -31,7 +33,7 @@ type Config struct {
 // Session represents a specific access session.
 type Session struct {
 	TransportClient transport.Client
-	Gateway         *minio.ObjectLayer
+	Gateway         *miniogw.Gateway
 }
 
 // Access is all of the access information an application needs to store and
@@ -86,7 +88,7 @@ func (a *Access) Serialize() ([]byte, error) {
 }
 
 // NewSession creates a Session with an Access struct.
-func (u *Uplink) NewSession(access Access) error {
+func (u *Uplink) NewSession(ctx context.Context, access Access) error {
 	opts, err := tlsopts.NewOptions(u.ID, u.Config.TLSConfig)
 	if err != nil {
 		return err
@@ -94,7 +96,10 @@ func (u *Uplink) NewSession(access Access) error {
 
 	tc := transport.NewClient(opts)
 
-	gateway = getGateway() 
+	gateway, err := getGateway(ctx, u.ID)
+	if err != nil {
+		return err
+	}
 
 	u.Session = &Session{
 		TransportClient: tc,
@@ -110,26 +115,27 @@ func (s *Session) Access(ctx context.Context, caveats ...Caveat) (Access, error)
 	panic("TODO")
 }
 
-func getGateway() *miniogw.Gateway {
-	metainfo := 
+func getGateway(ctx context.Context, identity *identity.FullIdentity) (*miniogw.Gateway, error) {
+	// TODO: Dylan - Need to merge these defaults with Configs from this library
+	config := ul.Config{
+		Client: ul.ClientConfig{},
+		RS:     ul.RSConfig{},
+		Enc:    ul.EncryptionConfig{},
+		TLS:    tlsopts.Config{},
+	}
+
+	metainfo, streams, err := config.GetMetainfo(ctx, identity)
+	if err != nil {
+		return nil, err
+	}
 
 	gateway := miniogw.NewStorjGateway(
 		metainfo,
 		streams,
 		storj.AESGCM,
-		storj.EncryptionScheme{
-			Cipher:    storj.AESGCM,
-			BlockSize: 1 * memory.KB.Int32(),
-		},
-		storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: int16(rs.RequiredCount()),
-			RepairShares:   int16(rs.RepairThreshold()),
-			OptimalShares:  int16(rs.OptimalThreshold()),
-			TotalShares:    int16(rs.TotalCount()),
-			ShareSize:      int32(rs.ErasureShareSize()),
-		},
+		kvmetainfo.DefaultES,
+		kvmetainfo.DefaultRS,
 	)
 
-	return gateway
+	return gateway, nil
 }
