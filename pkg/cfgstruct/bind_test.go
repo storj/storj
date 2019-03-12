@@ -22,22 +22,22 @@ func assertEqual(actual, expected interface{}) {
 func TestBind(t *testing.T) {
 	f := pflag.NewFlagSet("test", pflag.PanicOnError)
 	var c struct {
-		String   string        `default:""`
-		Bool     bool          `default:"false"`
-		Int64    int64         `default:"0"`
-		Int      int           `default:"0"`
-		Uint64   uint64        `default:"0"`
-		Uint     uint          `default:"0"`
-		Float64  float64       `default:"0"`
-		Duration time.Duration `default:"0"`
+		String   string        `default:"" devDefault:"dev"`
+		Bool     bool          `default:"false" devDefault:"true"`
+		Int64    int64         `default:"0" devDefault:"1"`
+		Int      int           `default:"0" devDefault:"2"`
+		Uint64   uint64        `default:"0" devDefault:"3"`
+		Uint     uint          `default:"0" devDefault:"4"`
+		Float64  float64       `default:"0" devDefault:"5.5"`
+		Duration time.Duration `default:"0" devDefault:"1h"`
 		Struct   struct {
-			AnotherString string `default:""`
+			AnotherString string `default:"" devDefault:"dev2"`
 		}
 		Fields [10]struct {
-			AnotherInt int `default:"0"`
+			AnotherInt int `default:"0" devDefault:"6"`
 		}
 	}
-	Bind(f, &c)
+	Bind(f, &c, false)
 
 	assertEqual(c.String, string(""))
 	assertEqual(c.Bool, bool(false))
@@ -88,7 +88,7 @@ func TestConfDir(t *testing.T) {
 			}
 		}
 	}
-	Bind(f, &c, ConfDir("confpath"))
+	Bind(f, &c, false, ConfDir("confpath"))
 	assertEqual(f.Lookup("string").DefValue, "-confpath+")
 	assertEqual(f.Lookup("my-struct1.string").DefValue, "1confpath2")
 	assertEqual(f.Lookup("my-struct1.my-struct2.string").DefValue, "2confpath3")
@@ -105,8 +105,66 @@ func TestNesting(t *testing.T) {
 			}
 		}
 	}
-	Bind(f, &c, ConfDirNested("confpath"))
+	Bind(f, &c, false, ConfDirNested("confpath"))
 	assertEqual(f.Lookup("string").DefValue, "-confpath+")
 	assertEqual(f.Lookup("my-struct1.string").DefValue, filepath.FromSlash("1confpath/my-struct12"))
 	assertEqual(f.Lookup("my-struct1.my-struct2.string").DefValue, filepath.FromSlash("2confpath/my-struct1/my-struct23"))
+}
+
+func TestBindDevDefaults(t *testing.T) {
+	f := pflag.NewFlagSet("test", pflag.PanicOnError)
+	var c struct {
+		String   string        `default:"" devDefault:"dev"`
+		Bool     bool          `default:"false" devDefault:"true"`
+		Int64    int64         `default:"0" devDefault:"1"`
+		Int      int           `default:"0" devDefault:"2"`
+		Uint64   uint64        `default:"0" devDefault:"3"`
+		Uint     uint          `default:"0" devDefault:"4"`
+		Float64  float64       `default:"0" devDefault:"5.5"`
+		Duration time.Duration `default:"0" devDefault:"1h"`
+		Struct   struct {
+			AnotherString string `default:"" devDefault:"dev2"`
+		}
+		Fields [10]struct {
+			AnotherInt int `default:"0" devDefault:"6"`
+		}
+	}
+	Bind(f, &c, true)
+
+	assertEqual(c.String, string("dev"))
+	assertEqual(c.Bool, bool(true))
+	assertEqual(c.Int64, int64(1))
+	assertEqual(c.Int, int(2))
+	assertEqual(c.Uint64, uint64(3))
+	assertEqual(c.Uint, uint(4))
+	assertEqual(c.Float64, float64(5.5))
+	assertEqual(c.Duration, time.Hour)
+	assertEqual(c.Struct.AnotherString, string("dev2"))
+	assertEqual(c.Fields[0].AnotherInt, int(6))
+	assertEqual(c.Fields[3].AnotherInt, int(6))
+	err := f.Parse([]string{
+		"--string=1",
+		"--bool=true",
+		"--int64=1",
+		"--int=1",
+		"--uint64=1",
+		"--uint=1",
+		"--float64=1",
+		"--duration=1h",
+		"--struct.another-string=1",
+		"--fields.03.another-int=1"})
+	if err != nil {
+		panic(err)
+	}
+	assertEqual(c.String, string("1"))
+	assertEqual(c.Bool, bool(true))
+	assertEqual(c.Int64, int64(1))
+	assertEqual(c.Int, int(1))
+	assertEqual(c.Uint64, uint64(1))
+	assertEqual(c.Uint, uint(1))
+	assertEqual(c.Float64, float64(1))
+	assertEqual(c.Duration, time.Hour)
+	assertEqual(c.Struct.AnotherString, string("1"))
+	assertEqual(c.Fields[0].AnotherInt, int(6))
+	assertEqual(c.Fields[3].AnotherInt, int(1))
 }
