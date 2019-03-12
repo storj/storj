@@ -24,7 +24,7 @@ before_install:
 matrix:
   allow_failures:
     - os: windows # allow failures on windows because it's slow
-#   include:
+  include:
 #     ### tests ###
 #     - env:
 #         - MODE=tests
