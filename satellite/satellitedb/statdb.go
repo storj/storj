@@ -22,6 +22,9 @@ var (
 	mon             = monkit.Package()
 	errAuditSuccess = errs.Class("statdb audit success error")
 	errUptime       = errs.Class("statdb uptime error")
+
+	// ErrNodeNotFound may be returned when a node is not found in the statdb.
+	ErrNodeNotFound = errs.New("statdb node not found")
 )
 
 // StatDB implements the statdb RPC service
@@ -108,7 +111,7 @@ func (s *statDB) Get(ctx context.Context, nodeID storj.NodeID) (stats *statdb.No
 		return nil, Error.Wrap(err)
 	}
 	if dbNode == nil {
-		return nil, nil
+		return nil, ErrNodeNotFound
 	}
 
 	nodeStats := getNodeStats(nodeID, dbNode)
@@ -357,17 +360,10 @@ func (s *statDB) CreateEntryIfNotExists(ctx context.Context, nodeID storj.NodeID
 	defer mon.Task()(&ctx)(&err)
 
 	getStats, err := s.Get(ctx, nodeID)
-	if err != nil {
-		return nil, err
+	if err == ErrNodeNotFound {
+		return s.Create(ctx, nodeID, nil)
 	}
-	if getStats == nil {
-		createStats, err := s.Create(ctx, nodeID, nil)
-		if err != nil {
-			return nil, err
-		}
-		return createStats, nil
-	}
-	return getStats, nil
+	return getStats, err
 }
 
 func updateRatioVars(newStatus bool, successCount, totalCount int64) (int64, int64, float64) {
