@@ -106,10 +106,9 @@ func CheckApplicationName(s string) (r string) {
 		if !strings.Contains(s, "?") {
 			r = s + "?application_name=Satellite"
 			return
-		} else {
-			r = s + "&application_name=Satellite"
-			return
 		}
+		r = s + "&application_name=Satellite"
+		return
 	}
 	//return source as is if application_name is set
 	return s
