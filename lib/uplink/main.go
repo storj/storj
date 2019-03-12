@@ -117,6 +117,7 @@ func (s *Session) Access(ctx context.Context, caveats ...Caveat) (Access, error)
 
 func getGateway(ctx context.Context, identity *identity.FullIdentity) (*miniogw.Gateway, error) {
 	// TODO: Dylan - Need to merge these defaults with Configs from this library
+	// TODO: (dylan) Need to allow users of library to set defaults easier as well
 	config := ul.Config{
 		Client: ul.ClientConfig{},
 		RS:     ul.RSConfig{},
