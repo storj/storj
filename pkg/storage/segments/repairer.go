@@ -6,6 +6,8 @@ package segments
 import (
 	"context"
 
+	"storj.io/storj/pkg/eestream"
+
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/overlay"
@@ -115,7 +117,7 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 		return Error.New("Failed to replace all nil nodes (%d). (%d) new nodes not inserted", len(newNodes), totalRepairCount)
 	}
 
-	rs, err := makeRedundancyStrategy(pr.GetRemote().GetRedundancy())
+	rs, err := eestream.NewRedundancyStrategyFromProto(pr.GetRemote().GetRedundancy())
 	if err != nil {
 		return Error.Wrap(err)
 	}

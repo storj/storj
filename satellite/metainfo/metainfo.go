@@ -16,9 +16,9 @@ import (
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/auth/signing"
+	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
@@ -150,11 +150,16 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
+	redundancy, err := eestream.NewRedundancyStrategyFromProto(req.GetRedundancy())
+	if err != nil {
+		return nil, err
+	}
+
+	maxPieceSize := eestream.CalcPieceSize(req.GetMaxEncryptedSegmentSize(), redundancy)
 	rootPieceID := storj.NewPieceID()
 	limits := make([]*pb.AddressedOrderLimit, len(nodes))
 	for i, node := range nodes {
 		derivedPieceID := rootPieceID.Derive(node.Id)
-		maxPieceSize := calcPieceSize(req.GetMaxSegmentSize(), req.GetRedundancy())
 		orderLimit, err := endpoint.createOrderLimit(ctx, uplinkIdentity, node.Id, derivedPieceID, req.Expiration, maxPieceSize, pb.Action_PUT)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
@@ -305,7 +310,12 @@ func (endpoint *Endpoint) createOrderLimitsForSegment(ctx context.Context, point
 
 	rootPieceID := pointer.GetRemote().PieceId_2
 
-	pieceSize := calcPieceSize(pointer.GetSegmentSize(), pointer.GetRemote().GetRedundancy())
+	redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
+	if err != nil {
+		return nil, err
+	}
+
+	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
 	expiration := pointer.ExpirationDate
 
 	var limits []*pb.AddressedOrderLimit
@@ -498,26 +508,4 @@ func (endpoint *Endpoint) validatePointer(pointer *pb.Pointer) error {
 		}
 	}
 	return nil
-}
-
-func calcPieceSize(segmentSize int64, redundancy *pb.RedundancyScheme) int64 {
-	encryptedBlockSize := 1 * memory.KiB.Int64() // TODO: this info is available on the client
-	encryptionOverhead := 16 * memory.B.Int64()  // TODO: this info is available on the client
-
-	blocks := segmentSize / (encryptedBlockSize - encryptionOverhead)
-	if segmentSize%(encryptedBlockSize-encryptionOverhead) != 0 {
-		blocks++
-	}
-
-	encryptedSegmentSize := blocks * encryptedBlockSize
-	stripeSize := int64(redundancy.GetMinReq() * redundancy.GetErasureShareSize())
-	stripes := encryptedSegmentSize / stripeSize
-	if encryptedSegmentSize%stripeSize != 0 {
-		stripes++
-	}
-
-	encodedSegmentSize := stripes * stripeSize
-	pieceSize := encodedSegmentSize / int64(redundancy.GetMinReq())
-
-	return pieceSize
 }
