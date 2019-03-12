@@ -83,9 +83,9 @@ func (db *infodb) Migration() *migrate.Migration {
 				Action: migrate.SQL{
 					// table for keeping serials that need to be verified against
 					`CREATE TABLE used_serial (
-						satellite_id  BLOB,
-						serial_number BLOB,
-						expiration    TIMESTAMP without time zone
+						satellite_id  BLOB NOT NULL,
+						serial_number BLOB NOT NULL,
+						expiration    TIMESTAMP without time zone NOT NULL
 					)`,
 					// primary key on satellite id and serial number
 					`CREATE UNIQUE INDEX pk_used_serial ON used_serial(satellite_id, serial_number)`,
@@ -94,20 +94,20 @@ func (db *infodb) Migration() *migrate.Migration {
 
 					// certificate table for storing uplink/satellite certificates
 					`CREATE TABLE certificate (
-						cert_id  INTEGER PRIMARY KEY AUTOINCREMENT,
-						node_id  BLOB,
-						pkix     BLOB UNIQUE
+						cert_id  INTEGER PRIMARY KEY AUTOINCREMENT  NOT NULL,
+						node_id  BLOB NOT NULL,
+						pkix     BLOB UNIQUE NOT NULL
 					)`,
 
 					// table for storing piece meta info
 					`CREATE TABLE pieceinfo (
-						satellite_id     BLOB,
-						piece_id         BLOB,
-						piece_size       BIGINT,
-						piece_expiration TIMESTAMP without time zone, -- date when it can be deleted
+						satellite_id     BLOB   NOT NULL,
+						piece_id         BLOB   NOT NULL,
+						piece_size       BIGINT NOT NULL,
+						piece_expiration TIMESTAMP without time zone NOT NULL, -- date when it can be deleted
 
-						uplink_hash   BLOB, -- serialized pb.PieceHash signed by uplink
-						uplink_cert_id INTEGER,
+						uplink_hash    BLOB    NOT NULL, -- serialized pb.PieceHash signed by uplink
+						uplink_cert_id INTEGER NOT NULL,
 
 						FOREIGN KEY(uplink_cert_id) REFERENCES certificate(cert_id)
 					)`,
@@ -117,24 +117,24 @@ func (db *infodb) Migration() *migrate.Migration {
 
 					// table for storing bandwidth usage
 					`CREATE TABLE bandwidth_usage (
-						satellite_id  BLOB,
-						action        INTEGER,
-						amount        BIGINT,
-						created_at    TIMESTAMP without time zone
+						satellite_id  BLOB    NOT NULL,
+						action        INTEGER NOT NULL,
+						amount        BIGINT  NOT NULL,
+						created_at    TIMESTAMP without time zone NOT NULL
 					)`,
 					`CREATE INDEX idx_bandwidth_usage_satellite ON bandwidth_usage(satellite_id)`,
 					`CREATE INDEX idx_bandwidth_usage_created   ON bandwidth_usage(created_at)`,
 
 					// table for storing all unsent orders
 					`CREATE TABLE unsent_order (
-						satellite_id  BLOB,
-						serial_number BLOB,
+						satellite_id  BLOB NOT NULL,
+						serial_number BLOB NOT NULL,
 
-						order_limit_serialized BLOB, -- serialized pb.OrderLimit
-						order_serialized       BLOB, -- serialized pb.Order
-						order_limit_expiration TIMESTAMP without time zone, -- when is the deadline for sending it
+						order_limit_serialized BLOB NOT NULL, -- serialized pb.OrderLimit
+						order_serialized       BLOB NOT NULL, -- serialized pb.Order
+						order_limit_expiration TIMESTAMP without time zone NOT NULL, -- when is the deadline for sending it
 
-						uplink_cert_id INTEGER,
+						uplink_cert_id INTEGER NOT NULL,
 
 						FOREIGN KEY(uplink_cert_id) REFERENCES certificate(cert_id)
 					)`,
@@ -145,13 +145,13 @@ func (db *infodb) Migration() *migrate.Migration {
 						satellite_id  BLOB,
 						serial_number BLOB,
 						
-						order_limit_serialized BLOB, -- serialized pb.OrderLimit
-						order_serialized       BLOB, -- serialized pb.Order
+						order_limit_serialized BLOB NOT NULL, -- serialized pb.OrderLimit
+						order_serialized       BLOB NOT NULL, -- serialized pb.Order
 						
-						uplink_cert_id INTEGER,
+						uplink_cert_id INTEGER NOT NULL,
 						
-						status INT, -- accepted, rejected, confirmed
-						archived_at TIMESTAMP without time zone, -- when was it rejected
+						status INTEGER NOT NULL, -- accepted, rejected, confirmed
+						archived_at TIMESTAMP without time zone NOT NULL, -- when was it rejected
 						
 						FOREIGN KEY(uplink_cert_id) REFERENCES certificate(cert_id)
 					)`,
