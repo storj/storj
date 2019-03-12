@@ -50,6 +50,13 @@ type lockedAccounting struct {
 	db accounting.DB
 }
 
+// DeleteRawBefore deletes all raw tallies prior to some time
+func (m *lockedAccounting) DeleteRawBefore(latestRollup time.Time) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.DeleteRawBefore(latestRollup)
+}
+
 // GetRaw retrieves all raw tallies
 func (m *lockedAccounting) GetRaw(ctx context.Context) ([]*accounting.Raw, error) {
 	m.Lock()
@@ -248,7 +255,6 @@ type lockedBucketUsage struct {
 	db accounting.BucketUsage
 }
 
-// Count(ctx context.Context, buckedID uuid.UUID, ) ()
 func (m *lockedBucketUsage) Create(ctx context.Context, rollup accounting.BucketRollup) (*accounting.BucketRollup, error) {
 	m.Lock()
 	defer m.Unlock()

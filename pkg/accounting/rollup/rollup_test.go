@@ -14,7 +14,7 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-func TestQuery(t *testing.T) {
+func TestRollupRaws(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -35,14 +35,14 @@ func TestQuery(t *testing.T) {
 			err = planet.Satellites[0].DB.Accounting().SaveBWRaw(ctx, timestamp, timestamp, bwTotals)
 			assert.NoError(t, err)
 
-			err = planet.Satellites[0].Accounting.Rollup.Query(ctx)
+			err = planet.Satellites[0].Accounting.Rollup.RollupRaws(ctx)
 			assert.NoError(t, err)
 
 			// Advance time by 24 hours
 			timestamp = timestamp.Add(time.Hour * 24)
 			end := timestamp
 
-			// rollup.Query cuts off the hr/min/sec before saving, we need to do the same when querying
+			// rollup.RollupRaws cuts off the hr/min/sec before saving, we need to do the same when querying
 			start = time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, start.Location())
 			end = time.Date(end.Year(), end.Month(), end.Day(), 0, 0, 0, 0, end.Location())
 

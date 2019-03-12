@@ -41,15 +41,21 @@ func TestEncode(t *testing.T) {
 }
 
 func TestDerivePieceID(t *testing.T) {
-	pieceid := storj.NewPieceID()
-	a := testplanet.MustPregeneratedIdentity(0).ID
-	b := testplanet.MustPregeneratedIdentity(1).ID
+	a := storj.NewPieceID()
+	b := storj.NewPieceID()
 
-	apieceid := pieceid.Derive(a)
-	bpieceid := pieceid.Derive(b)
+	n0 := testplanet.MustPregeneratedIdentity(0).ID
+	n1 := testplanet.MustPregeneratedIdentity(1).ID
 
-	assert.NotEqual(t, apieceid, bpieceid)
+	assert.NotEqual(t, a.Derive(n0), a.Derive(n1), "a(n0) != a(n1)")
+	assert.NotEqual(t, b.Derive(n0), b.Derive(n1), "b(n0) != b(n1)")
+	assert.NotEqual(t, a.Derive(n0), b.Derive(n0), "a(n0) != b(n0)")
+	assert.NotEqual(t, a.Derive(n1), b.Derive(n1), "a(n1) != b(n1)")
 
-	assert.Equal(t, apieceid, pieceid.Derive(a))
-	assert.Equal(t, bpieceid, pieceid.Derive(b))
+	// idempotent
+	assert.Equal(t, a.Derive(n0), a.Derive(n0), "a(n0)")
+	assert.Equal(t, a.Derive(n1), a.Derive(n1), "a(n1)")
+
+	assert.Equal(t, b.Derive(n0), b.Derive(n0), "b(n0)")
+	assert.Equal(t, b.Derive(n1), b.Derive(n1), "b(n1)")
 }

@@ -12,7 +12,6 @@ import (
 
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/utils"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -22,26 +21,19 @@ type accountingDB struct {
 }
 
 // LastTimestamp records the greatest last tallied time
-func (db *accountingDB) LastTimestamp(ctx context.Context, timestampType string) (last time.Time, err error) {
-	// todo: use WithTx https://github.com/spacemonkeygo/dbx#transactions
-	tx, err := db.db.Open(ctx)
-	if err != nil {
-		return last, Error.Wrap(err)
-	}
-	defer func() {
-		if err == nil {
-			err = tx.Commit()
-		} else {
-			err = errs.Combine(err, tx.Rollback())
+func (db *accountingDB) LastTimestamp(ctx context.Context, timestampType string) (time.Time, error) {
+	lastTally := time.Time{}
+	err := db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+		lt, err := tx.Find_AccountingTimestamps_Value_By_Name(ctx, dbx.AccountingTimestamps_Name(timestampType))
+		if lt == nil {
+			update := dbx.AccountingTimestamps_Value(lastTally)
+			_, err = tx.Create_AccountingTimestamps(ctx, dbx.AccountingTimestamps_Name(timestampType), update)
+			return err
 		}
-	}()
-	lastTally, err := tx.Find_AccountingTimestamps_Value_By_Name(ctx, dbx.AccountingTimestamps_Name(timestampType))
-	if lastTally == nil {
-		update := dbx.AccountingTimestamps_Value(time.Time{})
-		_, err = tx.Create_AccountingTimestamps(ctx, dbx.AccountingTimestamps_Name(timestampType), update)
-		return time.Time{}, err
-	}
-	return lastTally.Value, err
+		lastTally = lt.Value
+		return err
+	})
+	return lastTally, err
 }
 
 // SaveBWRaw records granular tallies (sums of bw agreement values) to the database and updates the LastTimestamp
@@ -52,35 +44,27 @@ func (db *accountingDB) SaveBWRaw(ctx context.Context, tallyEnd time.Time, creat
 		return Error.New("In SaveBWRaw with empty bwtotals")
 	}
 	//insert all records in a transaction so if we fail, we don't have partial info stored
-	tx, err := db.db.Open(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	defer func() {
-		if err == nil {
-			err = tx.Commit()
-		} else {
-			err = utils.CombineErrors(err, tx.Rollback())
-		}
-	}()
-	//create a granular record per node id
-	for nodeID, totals := range bwTotals {
-		for actionType, total := range totals {
-			nID := dbx.AccountingRaw_NodeId(nodeID.Bytes())
-			end := dbx.AccountingRaw_IntervalEndTime(tallyEnd)
-			total := dbx.AccountingRaw_DataTotal(float64(total))
-			dataType := dbx.AccountingRaw_DataType(actionType)
-			timestamp := dbx.AccountingRaw_CreatedAt(created)
-			_, err = tx.Create_AccountingRaw(ctx, nID, end, total, dataType, timestamp)
-			if err != nil {
-				return Error.Wrap(err)
+	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+		//create a granular record per node id
+		for nodeID, totals := range bwTotals {
+			for actionType, total := range totals {
+				nID := dbx.AccountingRaw_NodeId(nodeID.Bytes())
+				end := dbx.AccountingRaw_IntervalEndTime(tallyEnd)
+				total := dbx.AccountingRaw_DataTotal(float64(total))
+				dataType := dbx.AccountingRaw_DataType(actionType)
+				timestamp := dbx.AccountingRaw_CreatedAt(created)
+				_, err = tx.Create_AccountingRaw(ctx, nID, end, total, dataType, timestamp)
+				if err != nil {
+					return Error.Wrap(err)
+				}
 			}
 		}
-	}
-	//save this batch's greatest time
-	update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(tallyEnd)}
-	_, err = tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastBandwidthTally), update)
-	return err
+		//save this batch's greatest time
+		update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(tallyEnd)}
+		_, err := tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastBandwidthTally), update)
+		return err
+	})
+	return Error.Wrap(err)
 }
 
 // SaveAtRestRaw records raw tallies of at rest data to the database
@@ -88,30 +72,22 @@ func (db *accountingDB) SaveAtRestRaw(ctx context.Context, latestTally time.Time
 	if len(nodeData) == 0 {
 		return Error.New("In SaveAtRestRaw with empty nodeData")
 	}
-	tx, err := db.db.Open(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	defer func() {
-		if err == nil {
-			err = tx.Commit()
-		} else {
-			err = utils.CombineErrors(err, tx.Rollback())
+	err := db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+		for k, v := range nodeData {
+			nID := dbx.AccountingRaw_NodeId(k.Bytes())
+			end := dbx.AccountingRaw_IntervalEndTime(latestTally)
+			total := dbx.AccountingRaw_DataTotal(v)
+			dataType := dbx.AccountingRaw_DataType(accounting.AtRest)
+			timestamp := dbx.AccountingRaw_CreatedAt(created)
+			_, err := tx.Create_AccountingRaw(ctx, nID, end, total, dataType, timestamp)
+			if err != nil {
+				return err
+			}
 		}
-	}()
-	for k, v := range nodeData {
-		nID := dbx.AccountingRaw_NodeId(k.Bytes())
-		end := dbx.AccountingRaw_IntervalEndTime(latestTally)
-		total := dbx.AccountingRaw_DataTotal(v)
-		dataType := dbx.AccountingRaw_DataType(accounting.AtRest)
-		timestamp := dbx.AccountingRaw_CreatedAt(created)
-		_, err = tx.Create_AccountingRaw(ctx, nID, end, total, dataType, timestamp)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-	}
-	update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(latestTally)}
-	_, err = tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastAtRestTally), update)
+		update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(latestTally)}
+		_, err := tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastAtRestTally), update)
+		return err
+	})
 	return Error.Wrap(err)
 }
 
@@ -162,35 +138,27 @@ func (db *accountingDB) SaveRollup(ctx context.Context, latestRollup time.Time, 
 	if len(stats) == 0 {
 		return Error.New("In SaveRollup with empty nodeData")
 	}
-	tx, err := db.db.Open(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	defer func() {
-		if err == nil {
-			err = tx.Commit()
-		} else {
-			err = utils.CombineErrors(err, tx.Rollback())
-		}
-	}()
-	for _, arsByDate := range stats {
-		for _, ar := range arsByDate {
-			nID := dbx.AccountingRollup_NodeId(ar.NodeID.Bytes())
-			start := dbx.AccountingRollup_StartTime(ar.StartTime)
-			put := dbx.AccountingRollup_PutTotal(ar.PutTotal)
-			get := dbx.AccountingRollup_GetTotal(ar.GetTotal)
-			audit := dbx.AccountingRollup_GetAuditTotal(ar.GetAuditTotal)
-			getRepair := dbx.AccountingRollup_GetRepairTotal(ar.GetRepairTotal)
-			putRepair := dbx.AccountingRollup_PutRepairTotal(ar.PutRepairTotal)
-			atRest := dbx.AccountingRollup_AtRestTotal(ar.AtRestTotal)
-			_, err = tx.Create_AccountingRollup(ctx, nID, start, put, get, audit, getRepair, putRepair, atRest)
-			if err != nil {
-				return Error.Wrap(err)
+	err := db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+		for _, arsByDate := range stats {
+			for _, ar := range arsByDate {
+				nID := dbx.AccountingRollup_NodeId(ar.NodeID.Bytes())
+				start := dbx.AccountingRollup_StartTime(ar.StartTime)
+				put := dbx.AccountingRollup_PutTotal(ar.PutTotal)
+				get := dbx.AccountingRollup_GetTotal(ar.GetTotal)
+				audit := dbx.AccountingRollup_GetAuditTotal(ar.GetAuditTotal)
+				getRepair := dbx.AccountingRollup_GetRepairTotal(ar.GetRepairTotal)
+				putRepair := dbx.AccountingRollup_PutRepairTotal(ar.PutRepairTotal)
+				atRest := dbx.AccountingRollup_AtRestTotal(ar.AtRestTotal)
+				_, err := tx.Create_AccountingRollup(ctx, nID, start, put, get, audit, getRepair, putRepair, atRest)
+				if err != nil {
+					return err
+				}
 			}
 		}
-	}
-	update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(latestRollup)}
-	_, err = tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastRollup), update)
+		update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(latestRollup)}
+		_, err := tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastRollup), update)
+		return err
+	})
 	return Error.Wrap(err)
 }
 
@@ -235,4 +203,11 @@ func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, e
 		csv = append(csv, r)
 	}
 	return csv, nil
+}
+
+// DeleteRawBefore deletes all raw tallies prior to some time
+func (db *accountingDB) DeleteRawBefore(latestRollup time.Time) error {
+	var deleteRawSQL = `DELETE FROM accounting_raws WHERE interval_end_time < ?`
+	_, err := db.db.DB.Exec(db.db.Rebind(deleteRawSQL), latestRollup)
+	return err
 }
