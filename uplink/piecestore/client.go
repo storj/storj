@@ -19,11 +19,17 @@ import (
 var Error = errs.Class("piecestore")
 
 type Config struct {
+	UploadBufferSize   int64
+	DownloadBufferSize int64
+
 	InitialStep int64
 	MaximumStep int64
 }
 
 var DefaultConfig = Config{
+	UploadBufferSize:   256 * memory.KiB.Int64(),
+	DownloadBufferSize: 256 * memory.KiB.Int64(),
+
 	InitialStep: 256 * memory.KiB.Int64(),
 	MaximumStep: 1 * memory.MiB.Int64(),
 }
