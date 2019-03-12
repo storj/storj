@@ -40,7 +40,7 @@ func (r *Rollup) Run(ctx context.Context) (err error) {
 	r.logger.Info("Rollup service starting up")
 	defer mon.Task()(&ctx)(&err)
 	for {
-		err = r.Query(ctx)
+		err = r.RollupRaws(ctx)
 		if err != nil {
 			r.logger.Error("Query failed", zap.Error(err))
 		}
@@ -52,8 +52,8 @@ func (r *Rollup) Run(ctx context.Context) (err error) {
 	}
 }
 
-// Query rolls up raw tally
-func (r *Rollup) Query(ctx context.Context) error {
+// RollupRaws rolls up raw tally
+func (r *Rollup) RollupRaws(ctx context.Context) error {
 	// only Rollup new things - get LastRollup
 	var latestTally time.Time
 	lastRollup, err := r.db.LastTimestamp(ctx, accounting.LastRollup)
@@ -109,5 +109,15 @@ func (r *Rollup) Query(ctx context.Context) error {
 		r.logger.Info("Rollup only found tallies for today")
 		return nil
 	}
-	return Error.Wrap(r.db.SaveRollup(ctx, latestTally, rollupStats))
+	err = r.db.SaveRollup(ctx, latestTally, rollupStats)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	//removed the rolled-up raws
+	var rolledUpRawsHaveBeenSaved bool
+	//todo: write files to disk or whatever we decide to do here
+	if rolledUpRawsHaveBeenSaved {
+		return Error.Wrap(r.db.DeleteRawBefore(latestTally))
+	}
+	return nil
 }
