@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package peertls
+package peertls // import "storj.io/storj/pkg/peertls"
 
 import (
 	"bytes"
