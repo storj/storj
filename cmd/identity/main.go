@@ -20,7 +20,6 @@ import (
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/utils"
 )
 
 const (
@@ -72,7 +71,7 @@ func init() {
 }
 
 func main() {
-	if writable, err := utils.IsWritable(identityDir); !writable || err != nil {
+	if writable, err := fpath.IsWritable(identityDir); !writable || err != nil {
 		fmt.Printf("%s is not a writeable directory: %s\n", identityDir, err)
 		return
 	}
