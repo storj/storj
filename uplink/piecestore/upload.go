@@ -126,6 +126,8 @@ func (client *Upload) Write(data []byte) (written int, _ error) {
 
 func (client *Upload) Close() (*pb.PieceHash, error) {
 	if client.sendError != nil {
+		// something happened during sending, try to figure out what exactly
+		// since sendError was already reported, we don't need to rehandle it.
 		_, closeErr := client.stream.CloseAndRecv()
 		return nil, Error.Wrap(closeErr)
 	}
@@ -136,30 +138,49 @@ func (client *Upload) Close() (*pb.PieceHash, error) {
 		Hash:    client.hash.Sum(nil),
 	})
 	if err != nil {
-		_, closeErr := client.stream.CloseAndRecv()
-		return nil, Error.Wrap(combineErrors(err, closeErr))
+		// failed to sign, let's close the sending side, no need to wait for a response
+		closeErr := client.stream.CloseSend()
+		if closeErr == io.EOF {
+			// io.EOF doesn't inform us about anything
+			closeErr = nil
+		}
+		return nil, Error.Wrap(errs.Combine(err, closeErr))
 	}
 
 	// exchange signed piece hashes
+	// 1. send our piece hash
 	sendErr := client.stream.Send(&pb.PieceUploadRequest{
 		Done: uplinkHash,
 	})
 
+	// 2. wait for a piece hash as a response
 	response, closeErr := client.stream.CloseAndRecv()
 	if response == nil || response.Done == nil {
 		// combine all the errors from before
-		return nil, errs.Combine(ErrProtocol.New("expected piece hash"), combineErrors(sendErr, closeErr))
+		if sendErr == io.EOF {
+			// failed to send
+			sendErr = nil
+		}
+		if closeErr == io.EOF {
+			// storage node closed before sending us a response
+			closeErr = nil
+		}
+		return nil, errs.Combine(ErrProtocol.New("expected piece hash"), sendErr, closeErr)
 	}
 
 	// verification
 	verifyErr := client.client.VerifyPieceHash(client.stream.Context(), client.peer, client.limit, response.Done, uplinkHash.Hash)
 
 	// find the final error
-	commErr := combineErrors(sendErr, closeErr)
-	if commErr == io.EOF {
-		commErr = nil
+	if sendErr == io.EOF {
+		// failed to send
+		sendErr = nil
+	}
+	if closeErr == io.EOF {
+		// storage node closed properly
+		closeErr = nil
 	}
 
 	// combine all the errors from before
-	return response.Done, errs.Combine(commErr, verifyErr)
+	return response.Done, errs.Combine(verifyErr, sendErr, closeErr)
 }

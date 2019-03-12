@@ -359,6 +359,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 			} else if err != nil {
 				return ErrProtocol.Wrap(err)
 			}
+
 			if message == nil || message.Order == nil {
 				return ErrProtocol.New("expected order as the message")
 			}
