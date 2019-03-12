@@ -460,21 +460,17 @@ func getSegments(cmd *cobra.Command, args []string) error {
 
 	// query DB and paginate results
 	for length >= lim {
-		resp, err := i.irrdbclient.ListSegments(context.Background(), &pb.ListSegmentsRequest{Limit: lim, Offset: offset})
+		res, err := i.irrdbclient.ListSegments(context.Background(), &pb.ListSegmentsRequest{Limit: lim, Offset: offset})
 		if err != nil {
 			return ErrRequest.Wrap(err)
 		}
-		result := &pb.SegmentGroup{}
-		err = proto.Unmarshal(resp.Data, result)
-		if err != nil {
-			return err
-		}
-		for _, seg := range result.Segments {
+
+		for _, seg := range res.Segments {
 			//TODO: format results
 			fmt.Println(seg)
 		}
 
-		length = int64(len(result.Segments))
+		length = int64(len(res.Segments))
 		offset += length
 		if length < lim {
 			return nil
