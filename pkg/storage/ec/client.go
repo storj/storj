@@ -235,35 +235,17 @@ func (ec *ecClient) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, e
 
 	paddedSize := calcPadded(size, es.StripeSize())
 	pieceSize := paddedSize / int64(es.RequiredCount())
+
 	rrs := map[int]ranger.Ranger{}
-
-	type rangerInfo struct {
-		i   int
-		rr  ranger.Ranger
-		err error
-	}
-	ch := make(chan rangerInfo, len(limits))
-
 	for i, addressedLimit := range limits {
 		if addressedLimit == nil {
-			ch <- rangerInfo{i: i, rr: nil, err: nil}
 			continue
 		}
 
-		go func(i int, addressedLimit *pb.AddressedOrderLimit) {
-			rr := &lazyPieceRanger{
-				newPSClientHelper: ec.newPSClient,
-				limit:             addressedLimit,
-				size:              pieceSize,
-			}
-			ch <- rangerInfo{i: i, rr: rr, err: nil}
-		}(i, addressedLimit)
-	}
-
-	for range limits {
-		rri := <-ch
-		if rri.err == nil && rri.rr != nil {
-			rrs[rri.i] = rri.rr
+		rrs[i] = &lazyPieceRanger{
+			newPSClientHelper: ec.newPSClient,
+			limit:             addressedLimit,
+			size:              pieceSize,
 		}
 	}
 
