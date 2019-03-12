@@ -81,9 +81,20 @@ func (db *infodb) Migration() *migrate.Migration {
 				Description: "Initial setup",
 				Version:     0,
 				Action: migrate.SQL{
+					// table for keeping serials that need to be verified against
+					`CREATE TABLE used_serial (
+						satellite_id  BLOB,
+						serial_number BLOB,
+						expiration    TIMESTAMP without time zone
+					)`,
+					// primary key on satellite id and serial number
+					`CREATE UNIQUE INDEX pk_used_serial ON used_serial(satellite_id, serial_number)`,
+					// expiration index to allow fast deletion
+					`CREATE INDEX idx_used_serial ON used_serial(expiration)`,
+
 					// certificate table for storing uplink/satellite certificates
 					`CREATE TABLE certificate (
-						certid   SERIAL PRIMARY KEY,
+						cert_id   SERIAL PRIMARY KEY,
 						node_id  BLOB,
 						pkix     BLOB UNIQUE
 					)`,
@@ -95,9 +106,9 @@ func (db *infodb) Migration() *migrate.Migration {
 						piece_expiration TIMESTAMP without time zone, -- date when it can be deleted
 
 						uplink_hash   BLOB, -- serialized pb.PieceHash signed by uplink
-						uplink_certid SERIAL,
+						uplink_cert_id SERIAL,
 
-						FOREIGN KEY(uplink_certid) REFERENCES certificate(certid)
+						FOREIGN KEY(uplink_cert_id) REFERENCES certificate(cert_id)
 					)`,
 
 					// primary key by satellite id and piece id
@@ -122,37 +133,28 @@ func (db *infodb) Migration() *migrate.Migration {
 						order_serialized       BLOB, -- serialized pb.Order
 						order_limit_expiration TIMESTAMP without time zone, -- when is the deadline for sending it
 
-						uplink_certid SERIAL,
+						uplink_cert_id SERIAL,
 
-						FOREIGN KEY(uplink_certid) REFERENCES certificate(certid)
+						FOREIGN KEY(uplink_cert_id) REFERENCES certificate(cert_id)
 					)`,
-					`CREATE INDEX idx_unsent_order ON unsent_order(satellite_id, serial_number)`,
+					`CREATE INDEX idx_orders ON unsent_order(satellite_id, serial_number)`,
 
-					// table for storing all rejected orders
-					`CREATE TABLE rejected_order (
+					// table for storing all sent orders
+					`CREATE TABLE order_archive (
 						satellite_id  BLOB,
 						serial_number BLOB,
-
+						
 						order_limit_serialized BLOB, -- serialized pb.OrderLimit
 						order_serialized       BLOB, -- serialized pb.Order
-
-						uplink_certid SERIAL,
-
-						rejected_at TIMESTAMP without time zone, -- when was it rejected
-
-						FOREIGN KEY(uplink_certid) REFERENCES certificate(certid)
+						
+						uplink_cert_id SERIAL,
+						
+						status INT, -- accepted, rejected, confirmed
+						archived_at TIMESTAMP without time zone, -- when was it rejected
+						
+						FOREIGN KEY(uplink_cert_id) REFERENCES certificate(cert_id)
 					)`,
-
-					// table for keeping serials that need to be verified against
-					`CREATE TABLE used_serial (
-						satellite_id  BLOB,
-						serial_number BLOB,
-						expiration    TIMESTAMP without time zone
-					)`,
-					// primary key on satellite id and serial number
-					`CREATE UNIQUE INDEX pk_used_serial ON used_serial(satellite_id, serial_number)`,
-					// expiration index to allow fast deletion
-					`CREATE INDEX idx_used_serial ON used_serial(expiration)`,
+					`CREATE INDEX idx_orders_status ON orders(status)`,
 				},
 			},
 		},
