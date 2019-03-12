@@ -7,6 +7,8 @@ import (
 	"context"
 	"errors"
 
+	"storj.io/storj/pkg/encryption"
+
 	"github.com/vivint/infectious"
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
@@ -120,7 +122,11 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, Error.New("failed to create redundancy strategy: %v", err)
 	}
 
-	segments := segments.NewSegmentStore(metainfo, oc, ec, pdb, rs, c.Client.MaxInlineSize.Int(), c.Client.SegmentSize.Int64())
+	maxEncryptedSegmentSize, err := encryption.CalcEncryptedSize(c.Client.SegmentSize.Int64(), c.GetEncryptionScheme())
+	if err != nil {
+		return nil, nil, Error.New("failed to calculate max encrypted segment size: %v", err)
+	}
+	segments := segments.NewSegmentStore(metainfo, oc, ec, pdb, rs, c.Client.MaxInlineSize.Int(), maxEncryptedSegmentSize)
 
 	if c.RS.ErasureShareSize.Int()*c.RS.MinThreshold%c.Enc.BlockSize.Int() != 0 {
 		err = Error.New("EncryptionBlockSize must be a multiple of ErasureShareSize * RS MinThreshold")

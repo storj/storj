@@ -13,7 +13,6 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
-	"github.com/vivint/infectious"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -56,25 +55,25 @@ type Store interface {
 }
 
 type segmentStore struct {
-	metainfo       metainfo.Client
-	oc             overlay.Client
-	ec             ecclient.Client
-	pdb            pdbclient.Client
-	rs             eestream.RedundancyStrategy
-	thresholdSize  int
-	maxSegmentSize int64
+	metainfo                metainfo.Client
+	oc                      overlay.Client
+	ec                      ecclient.Client
+	pdb                     pdbclient.Client
+	rs                      eestream.RedundancyStrategy
+	thresholdSize           int
+	maxEncryptedSegmentSize int64
 }
 
 // NewSegmentStore creates a new instance of segmentStore
-func NewSegmentStore(metainfo metainfo.Client, oc overlay.Client, ec ecclient.Client, pdb pdbclient.Client, rs eestream.RedundancyStrategy, threshold int, maxSegmentSize int64) Store {
+func NewSegmentStore(metainfo metainfo.Client, oc overlay.Client, ec ecclient.Client, pdb pdbclient.Client, rs eestream.RedundancyStrategy, threshold int, maxEncryptedSegmentSize int64) Store {
 	return &segmentStore{
-		metainfo:       metainfo,
-		oc:             oc, // TODO: remove
-		ec:             ec,
-		pdb:            pdb, // TODO: remove
-		rs:             rs,
-		thresholdSize:  threshold,
-		maxSegmentSize: maxSegmentSize,
+		metainfo:                metainfo,
+		oc:                      oc, // TODO: remove
+		ec:                      ec,
+		pdb:                     pdb, // TODO: remove
+		rs:                      rs,
+		thresholdSize:           threshold,
+		maxEncryptedSegmentSize: maxEncryptedSegmentSize,
 	}
 }
 
@@ -137,7 +136,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 			Metadata:       metadata,
 		}
 	} else {
-		limits, rootPieceID, err := s.metainfo.CreateSegment(ctx, "", "", -1, redundancy, s.maxSegmentSize, expiration) // bucket, path and segment index are not known at this point
+		limits, rootPieceID, err := s.metainfo.CreateSegment(ctx, "", "", -1, redundancy, s.maxEncryptedSegmentSize, expiration) // bucket, path and segment index are not known at this point
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
@@ -214,7 +213,7 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 			}
 		}
 
-		redundancy, err := makeRedundancyStrategy(pointer.GetRemote().GetRedundancy())
+		redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
 		if err != nil {
 			return nil, Meta{}, err
 		}
@@ -327,15 +326,6 @@ func (s *segmentStore) List(ctx context.Context, prefix, startAfter, endBefore s
 	}
 
 	return items, more, nil
-}
-
-func makeRedundancyStrategy(scheme *pb.RedundancyScheme) (eestream.RedundancyStrategy, error) {
-	fc, err := infectious.NewFEC(int(scheme.GetMinReq()), int(scheme.GetTotal()))
-	if err != nil {
-		return eestream.RedundancyStrategy{}, Error.Wrap(err)
-	}
-	es := eestream.NewRSScheme(fc, int(scheme.GetErasureShareSize()))
-	return eestream.NewRedundancyStrategy(es, int(scheme.GetRepairThreshold()), int(scheme.GetSuccessThreshold()))
 }
 
 // calcNeededNodes calculate how many minimum nodes are needed for download,
