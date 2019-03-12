@@ -55,7 +55,11 @@ func cmdSetup(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if config.Identity.Status() != identity.CertKey {
+	status, err := config.Identity.Status()
+	if err != nil {
+		return err
+	}
+	if status != identity.CertKey {
 		return errors.New("identity is missing")
 	}
 
