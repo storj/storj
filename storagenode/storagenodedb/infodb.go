@@ -85,7 +85,7 @@ func (db *infodb) Migration() *migrate.Migration {
 					`CREATE TABLE used_serial (
 						satellite_id  BLOB NOT NULL,
 						serial_number BLOB NOT NULL,
-						expiration    TIMESTAMP without time zone NOT NULL
+						expiration    TIMESTAMP NOT NULL
 					)`,
 					// primary key on satellite id and serial number
 					`CREATE UNIQUE INDEX pk_used_serial ON used_serial(satellite_id, serial_number)`,
@@ -101,10 +101,10 @@ func (db *infodb) Migration() *migrate.Migration {
 
 					// table for storing piece meta info
 					`CREATE TABLE pieceinfo (
-						satellite_id     BLOB   NOT NULL,
-						piece_id         BLOB   NOT NULL,
-						piece_size       BIGINT NOT NULL,
-						piece_expiration TIMESTAMP without time zone NOT NULL, -- date when it can be deleted
+						satellite_id     BLOB      NOT NULL,
+						piece_id         BLOB      NOT NULL,
+						piece_size       BIGINT    NOT NULL,
+						piece_expiration TIMESTAMP NOT NULL, -- date when it can be deleted
 
 						uplink_hash    BLOB    NOT NULL, -- serialized pb.PieceHash signed by uplink
 						uplink_cert_id INTEGER NOT NULL,
@@ -120,7 +120,7 @@ func (db *infodb) Migration() *migrate.Migration {
 						satellite_id  BLOB    NOT NULL,
 						action        INTEGER NOT NULL,
 						amount        BIGINT  NOT NULL,
-						created_at    TIMESTAMP without time zone NOT NULL
+						created_at    TIMESTAMP NOT NULL
 					)`,
 					`CREATE INDEX idx_bandwidth_usage_satellite ON bandwidth_usage(satellite_id)`,
 					`CREATE INDEX idx_bandwidth_usage_created   ON bandwidth_usage(created_at)`,
@@ -130,9 +130,9 @@ func (db *infodb) Migration() *migrate.Migration {
 						satellite_id  BLOB NOT NULL,
 						serial_number BLOB NOT NULL,
 
-						order_limit_serialized BLOB NOT NULL, -- serialized pb.OrderLimit
-						order_serialized       BLOB NOT NULL, -- serialized pb.Order
-						order_limit_expiration TIMESTAMP without time zone NOT NULL, -- when is the deadline for sending it
+						order_limit_serialized BLOB      NOT NULL, -- serialized pb.OrderLimit
+						order_serialized       BLOB      NOT NULL, -- serialized pb.Order
+						order_limit_expiration TIMESTAMP NOT NULL, -- when is the deadline for sending it
 
 						uplink_cert_id INTEGER NOT NULL,
 
@@ -150,8 +150,8 @@ func (db *infodb) Migration() *migrate.Migration {
 						
 						uplink_cert_id INTEGER NOT NULL,
 						
-						status INTEGER NOT NULL, -- accepted, rejected, confirmed
-						archived_at TIMESTAMP without time zone NOT NULL, -- when was it rejected
+						status      INTEGER   NOT NULL, -- accepted, rejected, confirmed
+						archived_at TIMESTAMP NOT NULL, -- when was it rejected
 						
 						FOREIGN KEY(uplink_cert_id) REFERENCES certificate(cert_id)
 					)`,
