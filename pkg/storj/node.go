@@ -6,17 +6,18 @@ package storj // import "storj.io/storj/pkg/storj"
 import (
 	"crypto/sha256"
 	"database/sql/driver"
+	"encoding/binary"
 	"math/bits"
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/zeebo/errs"
 )
 
-// IDVersion is the default version used in the base58check node ID encoding
-const IDVersion = 0
-
-// ErrNodeID is used when something goes wrong with a node id
-var ErrNodeID = errs.Class("node ID error")
+var (
+	// ErrNodeID is used when something goes wrong with a node id
+	ErrNodeID  = errs.Class("node ID error")
+	ErrVersion = errs.Class("node ID version error")
+)
 
 //NodeIDSize is the byte length of a NodeID
 const NodeIDSize = sha256.Size
@@ -27,8 +28,25 @@ type NodeID [NodeIDSize]byte
 // NodeIDList is a slice of NodeIDs (implements sort)
 type NodeIDList []NodeID
 
+func NewVersionedID(id NodeID, version IDVersion) NodeID {
+	switch version.Number {
+	case V1:
+		return id
+	default:
+		var versionedID NodeID
+		copy(versionedID[:], id[:])
+
+		var versionByte [2]byte
+		// NB: little endiannes puts least significant byte, (the version uint8 we want) at index 0.
+		binary.LittleEndian.PutUint16(versionByte[:], uint16(version.Number))
+		versionedID[NodeIDSize-1] = versionByte[0]
+		return versionedID
+	}
+}
+
 // NodeIDFromString decodes a base58check encoded node id string
 func NodeIDFromString(s string) (NodeID, error) {
+	// TODO: handle versions here!
 	idBytes, _, err := base58.CheckDecode(s)
 	if err != nil {
 		return NodeID{}, ErrNodeID.Wrap(err)
@@ -69,7 +87,8 @@ func NodeIDFromBytes(b []byte) (NodeID, error) {
 
 // String returns NodeID as base58 encoded string with checksum and version bytes
 func (id NodeID) String() string {
-	return base58.CheckEncode(id[:], IDVersion)
+	unversionedID := id.unversioned()
+	return base58.CheckEncode(unversionedID[:], byte(id.Version().Number))
 }
 
 // IsZero returns whether NodeID is unassigned
@@ -92,12 +111,29 @@ func (id NodeID) Less(b NodeID) bool {
 	return false
 }
 
+// Version returns the version of the identity format
+func (id NodeID) Version() IDVersion {
+	versionNumber := id.versionByte()
+	if versionNumber == 0 {
+		return IDVersions[V1]
+	}
+
+	version, err := GetIDVersion(IDVersionNumber(versionNumber))
+	// NB: when in doubt, use V1
+	if err != nil {
+		return IDVersions[V1]
+	}
+
+	return version
+}
+
 // Difficulty returns the number of trailing zero bits in a node ID
 func (id NodeID) Difficulty() (uint16, error) {
 	idLen := len(id)
 	var b byte
 	var zeroBits int
-	for i := 1; i <= idLen; i++ {
+	// NB: last difficulty byte is used for version as of V2
+	for i := 2; i <= idLen; i++ {
 		b = id[idLen-i]
 
 		if b != 0 {
@@ -184,3 +220,13 @@ func (n NodeIDList) Swap(i, j int) { n[i], n[j] = n[j], n[i] }
 
 // Less implements sort.Interface.Less()
 func (n NodeIDList) Less(i, j int) bool { return n[i].Less(n[j]) }
+
+func (id NodeID) versionByte() byte {
+	return id[NodeIDSize-1]
+}
+
+func (id NodeID) unversioned() NodeID {
+	unversionedID := NodeID{}
+	copy(unversionedID[:], id[:NodeIDSize-1])
+	return unversionedID
+}

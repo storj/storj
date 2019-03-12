@@ -6,9 +6,9 @@ package testpeertls
 import (
 	"crypto"
 	"crypto/x509"
-
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/pkcrypto"
+	"storj.io/storj/pkg/storj"
 )
 
 // NewCertChain creates a valid peertls certificate chain (and respective keys) of the desired length.
@@ -44,4 +44,23 @@ func NewCertChain(length int) (keys []crypto.PrivateKey, certs []*x509.Certifica
 		certs = append([]*x509.Certificate{cert}, certs...)
 	}
 	return keys, certs, nil
+}
+
+func NewVersionedCertChain(length int, version storj.IDVersionNumber) ([]crypto.PrivateKey, []*x509.Certificate, error) {
+	versionedCertIndex := peertls.CAIndex
+	if length < peertls.CAIndex+1 {
+		versionedCertIndex = peertls.CAIndex - 1
+	}
+
+	keys, chain, err := NewCertChain(length)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	caCert := chain[versionedCertIndex]
+	if err = storj.AddVersionExt(version, caCert); err != nil {
+		return nil, nil, err
+	}
+
+	return keys, chain, err
 }

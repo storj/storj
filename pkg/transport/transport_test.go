@@ -30,17 +30,17 @@ func TestDialNode(t *testing.T) {
 	}
 	defer ctx.Check(planet.Shutdown)
 
-	whitelistPath, err := planet.WriteWhitelist()
+	whitelistPath, err := planet.WriteWhitelist(storj.LatestIDVersion())
 	require.NoError(t, err)
 
 	planet.Start(ctx)
 
 	client := planet.StorageNodes[0].Transport
 
-	unsignedIdent, err := testplanet.PregeneratedIdentity(0)
+	unsignedIdent, err := testplanet.PregeneratedIdentity(0, storj.LatestIDVersion())
 	require.NoError(t, err)
 
-	signedIdent, err := testplanet.PregeneratedSignedIdentity(0)
+	signedIdent, err := testplanet.PregeneratedSignedIdentity(0, storj.LatestIDVersion())
 	require.NoError(t, err)
 
 	opts, err := tlsopts.NewOptions(signedIdent, tlsopts.Config{
@@ -197,7 +197,7 @@ func TestDialNode_BadServerCertificate(t *testing.T) {
 			StorageNodeCount: 2,
 			UplinkCount:      0,
 			Reconfigure:      testplanet.DisablePeerCAWhitelist,
-			Identities:       testplanet.NewPregeneratedIdentities(),
+			Identities:       testplanet.NewPregeneratedIdentities(storj.LatestIDVersion()),
 		},
 	)
 	if err != nil {
@@ -205,13 +205,13 @@ func TestDialNode_BadServerCertificate(t *testing.T) {
 	}
 	defer ctx.Check(planet.Shutdown)
 
-	whitelistPath, err := planet.WriteWhitelist()
+	whitelistPath, err := planet.WriteWhitelist(storj.LatestIDVersion())
 	require.NoError(t, err)
 
 	planet.Start(ctx)
 
 	client := planet.StorageNodes[0].Transport
-	ident, err := testplanet.PregeneratedSignedIdentity(0)
+	ident, err := testplanet.PregeneratedSignedIdentity(0, storj.LatestIDVersion())
 	require.NoError(t, err)
 
 	opts, err := tlsopts.NewOptions(ident, tlsopts.Config{

@@ -33,6 +33,7 @@ var (
 	// NB: 2.999.X is reserved for "example" OIDs
 	// (see http://oid-info.com/get/2.999)
 	// 2.999.1.X -- storj general/misc. extensions
+	// 2.999.2.X -- storj identity extensions
 
 	// SignedCertExtID is the asn1 object ID for a pkix extensionHandler holding a
 	// signature of the cert it's extending, signed by some CA (e.g. the root cert chain).
@@ -42,6 +43,8 @@ var (
 	// most recent certificate revocation data
 	// for the current TLS cert chain.
 	RevocationExtID = ExtensionID{2, 999, 1, 2}
+	IdentityVersionExtID    = asn1.ObjectIdentifier{2, 999, 2, 1}
+	IdentityPOWCounterExtID = asn1.ObjectIdentifier{2, 999, 2, 2}
 
 	// Error is used when an error occurs while processing an extension.
 	Error = errs.Class("extension error")
@@ -67,6 +70,7 @@ type Config struct {
 type Options struct {
 	PeerCAWhitelist []*x509.Certificate
 	RevDB           RevocationDB
+	PeerIDVersions  string
 }
 
 // HandlerFactories is a collection of `HandlerFactory`s for convenience.
