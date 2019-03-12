@@ -512,7 +512,7 @@ func init() {
 	statsCmd.AddCommand(createStatsCmd)
 	statsCmd.AddCommand(createCSVStatsCmd)
 
-	irreparableCmd.Flags().Int64Var(&irreparableLimit, "limit", 1000, "max number of results per page")
+	irreparableCmd.Flags().Int64Var(&irreparableLimit, "limit", 50, "max number of results per page")
 
 	flag.Parse()
 }
