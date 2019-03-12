@@ -230,10 +230,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 			closeErr := stream.SendAndClose(&pb.PieceUploadResponse{
 				Done: storageNodeHash,
 			})
-			if closeErr == io.EOF {
-				return nil
-			}
-			return ErrProtocol.Wrap(closeErr)
+			return ErrProtocol.Wrap(ignoreEOF(closeErr))
 		}
 	}
 }
@@ -328,11 +325,9 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 				},
 			})
 			if err != nil {
-				if err == io.EOF {
-					// uplink asked for a piece, but decided not to retrieve it, no need to return an error
-					return nil
-				}
-				return ErrProtocol.Wrap(err)
+				// err is io.EOF when uplink asked for a piece, but decided not to retrieve it,
+				// no need to propagate it
+				return ErrProtocol.Wrap(ignoreEOF(err))
 			}
 
 			currentOffset += chunkSize
@@ -353,11 +348,9 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 			// TODO: check errors
 			// TODO: add timeout here
 			message, err = stream.Recv()
-			if err == io.EOF {
-				// uplink closed the connection
-				return nil
-			} else if err != nil {
-				return ErrProtocol.Wrap(err)
+			if err != nil {
+				// err is io.EOF when uplink closed the connection, no need to return error
+				return ErrProtocol.Wrap(ignoreEOF(err))
 			}
 
 			if message == nil || message.Order == nil {
@@ -396,4 +389,11 @@ func min(a, b int64) int64 {
 		return a
 	}
 	return b
+}
+
+func ignoreEOF(err error) error {
+	if err == io.EOF {
+		return nil
+	}
+	return err
 }
