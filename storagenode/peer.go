@@ -123,7 +123,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 				Address:   config.ExternalAddress,
 			},
 			Metadata: &pb.NodeMetadata{
-				Email:  config.Operator.Email,
 				Wallet: config.Operator.Wallet,
 			},
 		}
