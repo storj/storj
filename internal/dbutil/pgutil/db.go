@@ -5,7 +5,6 @@ package pgutil
 
 import (
 	"database/sql"
-	"fmt"
 	"strings"
 
 	"github.com/zeebo/errs"
@@ -105,11 +104,12 @@ func QuerySnapshot(db dbschema.Queryer) (*dbschema.Snapshot, error) {
 func CheckApplicationName(s string) (r string) {
 	if !strings.Contains(s, "application_name") {
 		if !strings.Contains(s, "?") {
-			r = fmt.Sprintf("%s?%s", s, "application_name=Satellite")
+			r = s + "?application_name=Satellite"
+			return
 		} else {
-			r = fmt.Sprintf("%s%s%s", s, "&", "application_name=Satellite")
+			r = s + "&application_name=Satellite"
+			return
 		}
-		return
 	}
 	//return source as is if application_name is set
 	return s
