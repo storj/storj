@@ -13,7 +13,7 @@ import (
 
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/process"
 )
 
@@ -139,7 +139,7 @@ func cmdRevokeCA(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	if err := peertls.AddRevocationExt(ca.Key, ca.Cert, ca.Cert); err != nil {
+	if err := extensions.AddRevocationExt(ca.Key, ca.Cert, ca.Cert); err != nil {
 		return err
 	}
 
@@ -182,7 +182,7 @@ func cmdRevokePeerCA(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	ext, err := peertls.NewRevocationExt(ca.Key, peerCA.Cert)
+	ext, err := extensions.NewRevocationExt(ca.Key, peerCA.Cert)
 	if err != nil {
 		return err
 	}

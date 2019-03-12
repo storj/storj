@@ -19,6 +19,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
 )
@@ -364,7 +365,7 @@ func (ca *FullCertificateAuthority) NewIdentity() (*FullIdentity, error) {
 	}
 
 	if ca.RestChain != nil && len(ca.RestChain) > 0 {
-		err := peertls.AddSignedCertExt(ca.Key, leafCert)
+		err := extensions.AddSignedCertExt(ca.Key, leafCert)
 		if err != nil {
 			return nil, err
 		}

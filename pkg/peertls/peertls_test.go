@@ -19,6 +19,7 @@ import (
 
 	"storj.io/storj/internal/testpeertls"
 	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/pkcrypto"
 )
 
@@ -196,7 +197,7 @@ func TestAddExtension(t *testing.T) {
 		Value: randBytes,
 	}
 
-	err = peertls.AddExtension(chain[0], ext)
+	err = extensions.AddExtension(chain[0], ext)
 	assert.NoError(t, err)
 	assert.Len(t, chain[0].ExtraExtensions, 1)
 	assert.Equal(t, ext, chain[0].ExtraExtensions[0])
@@ -208,11 +209,11 @@ func TestAddSignedCertExt(t *testing.T) {
 		t.FailNow()
 	}
 
-	err = peertls.AddSignedCertExt(keys[0], chain[0])
+	err = extensions.AddSignedCertExt(keys[0], chain[0])
 	assert.NoError(t, err)
 
 	assert.Len(t, chain[0].ExtraExtensions, 1)
-	assert.Equal(t, peertls.ExtensionIDs[peertls.SignedCertExtID], chain[0].ExtraExtensions[0].Id)
+	assert.True(t, extensions.SignedCertExtID.ToASN1().Equal(chain[0].ExtraExtensions[0].Id))
 
 	err = pkcrypto.HashAndVerifySignature(
 		pkcrypto.PublicKeyFromPrivate(keys[0]),
@@ -229,10 +230,10 @@ func TestSignLeafExt(t *testing.T) {
 	}
 	caKey, leafCert := keys[0], chain[0]
 
-	err = peertls.AddSignedCertExt(caKey, leafCert)
+	err = extensions.AddSignedCertExt(caKey, leafCert)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(leafCert.ExtraExtensions))
-	assert.True(t, peertls.ExtensionIDs[peertls.SignedCertExtID].Equal(leafCert.ExtraExtensions[0].Id))
+	assert.True(t, extensions.SignedCertExtID.ToASN1().Equal(leafCert.ExtraExtensions[0].Id))
 
 	err = pkcrypto.HashAndVerifySignature(
 		pkcrypto.PublicKeyFromPrivate(caKey),
@@ -249,7 +250,7 @@ func TestRevocation_Sign(t *testing.T) {
 
 	leafHash := pkcrypto.SHA256Hash(leafCert.Raw)
 
-	rev := peertls.Revocation{
+	rev := extensions.Revocation{
 		Timestamp: time.Now().Unix(),
 		CertHash:  make([]byte, len(leafHash)),
 	}
@@ -266,7 +267,7 @@ func TestRevocation_Verify(t *testing.T) {
 
 	leafHash := pkcrypto.SHA256Hash(leafCert.Raw)
 
-	rev := peertls.Revocation{
+	rev := extensions.Revocation{
 		Timestamp: time.Now().Unix(),
 		CertHash:  make([]byte, len(leafHash)),
 	}
@@ -286,7 +287,7 @@ func TestRevocation_Marshal(t *testing.T) {
 
 	leafHash := pkcrypto.SHA256Hash(leafCert.Raw)
 
-	rev := peertls.Revocation{
+	rev := extensions.Revocation{
 		Timestamp: time.Now().Unix(),
 		CertHash:  make([]byte, len(leafHash)),
 	}
@@ -299,7 +300,7 @@ func TestRevocation_Marshal(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotEmpty(t, revBytes)
 
-	decodedRev := new(peertls.Revocation)
+	decodedRev := new(extensions.Revocation)
 	decoder := gob.NewDecoder(bytes.NewBuffer(revBytes))
 	err = decoder.Decode(decodedRev)
 	assert.NoError(t, err)
@@ -313,7 +314,7 @@ func TestRevocation_Unmarshal(t *testing.T) {
 
 	leafHash := pkcrypto.SHA256Hash(leafCert.Raw)
 
-	rev := peertls.Revocation{
+	rev := extensions.Revocation{
 		Timestamp: time.Now().Unix(),
 		CertHash:  make([]byte, len(leafHash)),
 	}
@@ -327,7 +328,7 @@ func TestRevocation_Unmarshal(t *testing.T) {
 	err = encoder.Encode(rev)
 	assert.NoError(t, err)
 
-	unmarshaledRev := new(peertls.Revocation)
+	unmarshaledRev := new(extensions.Revocation)
 	err = unmarshaledRev.Unmarshal(encodedRev.Bytes())
 	assert.NoError(t, err)
 	assert.NotNil(t, rev)
@@ -338,10 +339,10 @@ func TestNewRevocationExt(t *testing.T) {
 	keys, chain, err := testpeertls.NewCertChain(2)
 	assert.NoError(t, err)
 
-	ext, err := peertls.NewRevocationExt(keys[0], chain[0])
+	ext, err := extensions.NewRevocationExt(keys[0], chain[0])
 	assert.NoError(t, err)
 
-	var rev peertls.Revocation
+	var rev extensions.Revocation
 	err = rev.Unmarshal(ext.Value)
 	assert.NoError(t, err)
 
