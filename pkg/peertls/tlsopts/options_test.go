@@ -26,7 +26,7 @@ func TestNewOptions(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	fi, err := testplanet.PregeneratedIdentity(0)
+	fi, err := testplanet.PregeneratedIdentity(0, storj.LatestIDVersion())
 	require.NoError(t, err)
 
 	whitelistPath := ctx.File("whitelist.pem")
@@ -154,7 +154,7 @@ func TestOptions_ServerOption_Peer_CA_Whitelist(t *testing.T) {
 }
 
 func TestOptions_DialOption_error_on_empty_ID(t *testing.T) {
-	ident, err := testplanet.PregeneratedIdentity(0)
+	ident, err := testplanet.PregeneratedIdentity(0, storj.LatestIDVersion())
 	require.NoError(t, err)
 
 	opts, err := tlsopts.NewOptions(ident, tlsopts.Config{})
@@ -166,7 +166,7 @@ func TestOptions_DialOption_error_on_empty_ID(t *testing.T) {
 }
 
 func TestOptions_DialUnverifiedIDOption(t *testing.T) {
-	ident, err := testplanet.PregeneratedIdentity(0)
+	ident, err := testplanet.PregeneratedIdentity(0, storj.LatestIDVersion())
 	require.NoError(t, err)
 
 	opts, err := tlsopts.NewOptions(ident, tlsopts.Config{})

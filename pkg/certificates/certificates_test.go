@@ -10,6 +10,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"net"
+	"storj.io/storj/pkg/storj"
 	"testing"
 	"time"
 
@@ -34,7 +35,7 @@ import (
 )
 
 var (
-	idents = testplanet.NewPregeneratedIdentities()
+	idents = testplanet.NewPregeneratedIdentities(storj.LatestIDVersion())
 	t1     = Token{
 		UserID: "user@example.com",
 		Data:   [tokenDataLength]byte{1, 2, 3},

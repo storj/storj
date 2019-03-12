@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -23,15 +24,6 @@ func TestNodeID_Difficulty(t *testing.T) {
 		id         string
 		difficulty uint16
 	}{
-		{"0da09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113de0f1", 0},
-		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113de0fe", 1},
-		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113de0fc", 2},
-		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113de0f8", 3},
-		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113de030", 4},
-		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113de0e0", 5},
-		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113de0c0", 6},
-		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113de080", 7},
-		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113de500", 8},
 		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113dee00", 9},
 		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113dec00", 10},
 		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113de800", 11},
@@ -48,13 +40,13 @@ func TestNodeID_Difficulty(t *testing.T) {
 			t.Fatal()
 		}
 
-		var nodeid storj.NodeID
-		n := copy(nodeid[:], decoded)
-		if !assert.Equal(t, n, len(nodeid)) {
+		var nodeID storj.NodeID
+		n := copy(nodeID[:], decoded)
+		if !assert.Equal(t, n, len(nodeID)) {
 			t.Fatal()
 		}
 
-		difficulty, err := nodeid.Difficulty()
+		difficulty, err := nodeID.Difficulty()
 		if !assert.NoError(t, err) {
 			t.Fatal()
 		}
@@ -79,4 +71,88 @@ func TestNodeValue(t *testing.T) {
 	require.NoError(t, err)
 	require.IsType(t, v, []byte{})
 	require.Len(t, v, storj.NodeIDSize)
+}
+
+func TestNodeID_Version(t *testing.T) {
+	for _, testcase := range []struct {
+		id         string
+		difficulty uint16
+		version    storj.IDVersionNumber
+	}{
+		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113de500", 8, storj.V1},
+		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113dee00", 9, storj.V1},
+		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113dec00", 10, storj.V1},
+		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113de502", 8, storj.V2},
+		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113dee02", 9, storj.V2},
+		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113dec02", 10, storj.V2},
+	} {
+		decoded, err := hex.DecodeString(testcase.id)
+		require.NoError(t, err)
+
+		var nodeID storj.NodeID
+		n := copy(nodeID[:], decoded)
+		require.Equal(t, n, len(nodeID))
+
+		difficulty, err := nodeID.Difficulty()
+		require.NoError(t, err)
+
+		assert.Equal(t, testcase.difficulty, difficulty)
+		assert.Equal(t, testcase.version, nodeID.Version().Number)
+	}
+}
+
+func TestNodeID_String_Version(t *testing.T) {
+	for _, testcase := range []struct {
+		hexID    string
+		base58ID string
+		version  storj.IDVersionNumber
+	}{
+		{
+			"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113de500",
+			"12vha9oTFnerxYRgeQ2BZqoFrLrnmmf5UWTCY2jA77dBZN6Lg2T",
+			storj.V1,
+		},
+		{
+			"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113dee00",
+			"12vha9oTFnerxYRgeQ2BZqoFrLrnmmf5UWTCY2jA77dG3JN2sdZ",
+			storj.V1,
+		},
+		{
+			"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113dec00",
+			"12vha9oTFnerxYRgeQ2BZqoFrLrnmmf5UWTCY2jA77dF3YvWew7",
+			storj.V1,
+		},
+		{
+			"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113de502",
+			"6pBvchWxe1KEBb6TZGBUUzoga6E5BLq3nbR2L6x6RdxYeH2Adm",
+			storj.V2,
+		},
+		{
+			"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113dee02",
+			"6pBvchWxe1KEBb6TZGBUUzoga6E5BLq3nbR2L6x6Re32bKJBBk",
+			storj.V2,
+		},
+		{
+			"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113dec02",
+			"6pBvchWxe1KEBb6TZGBUUzoga6E5BLq3nbR2L6x6Re22qchU4f",
+			storj.V2,
+		},
+	} {
+		decoded, err := hex.DecodeString(testcase.hexID)
+		require.NoError(t, err)
+
+		var nodeID storj.NodeID
+		n := copy(nodeID[:], decoded)
+		require.Equal(t, n, len(nodeID))
+
+		base58Str := nodeID.String()
+		binID, version, err := base58.CheckDecode(base58Str)
+		require.NoError(t, err)
+
+		idVersion, err := storj.GetIDVersion(storj.IDVersionNumber(version))
+		require.NoError(t, err)
+
+		assert.Equal(t, testcase.version, idVersion.Number)
+		assert.Equal(t, nodeID[:storj.NodeIDSize-1], binID[:storj.NodeIDSize-1])
+	}
 }

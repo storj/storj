@@ -18,21 +18,27 @@ import (
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls/extensions"
+	"storj.io/storj/pkg/storj"
 )
 
 func TestNewCA(t *testing.T) {
 	const expectedDifficulty = 4
 
-	ca, err := identity.NewCA(context.Background(), identity.NewCAOptions{
-		Difficulty:  expectedDifficulty,
-		Concurrency: 5,
-	})
-	assert.NoError(t, err)
-	assert.NotEmpty(t, ca)
+	for _, version := range storj.IDVersions {
+		ca, err := identity.NewCA(context.Background(), identity.NewCAOptions{
+			VersionNumber: version.Number,
+			Difficulty:    expectedDifficulty,
+			Concurrency:   4,
+		})
+		assert.NoError(t, err)
+		require.NotEmpty(t, ca)
 
-	actualDifficulty, err := ca.ID.Difficulty()
-	assert.NoError(t, err)
-	assert.True(t, actualDifficulty >= expectedDifficulty)
+		assert.Equal(t, version.Number, ca.ID.Version().Number)
+
+		actualDifficulty, err := ca.ID.Difficulty()
+		assert.NoError(t, err)
+		assert.True(t, actualDifficulty >= expectedDifficulty)
+	}
 }
 
 func TestFullCertificateAuthority_NewIdentity(t *testing.T) {

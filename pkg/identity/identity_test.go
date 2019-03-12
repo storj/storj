@@ -6,9 +6,11 @@ package identity_test
 import (
 	"bytes"
 	"context"
+	"crypto"
 	"crypto/rand"
 	"crypto/x509/pkix"
 	"encoding/asn1"
+	"fmt"
 	"os"
 	"runtime"
 	"testing"
@@ -18,10 +20,12 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
+	"storj.io/storj/internal/testpeertls"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/pkcrypto"
+	"storj.io/storj/pkg/storj"
 )
 
 func TestPeerIdentityFromCertChain(t *testing.T) {
@@ -130,6 +134,22 @@ func TestConfig_SaveIdentity(t *testing.T) {
 		assert.Equal(t, fi.Leaf, loadedFi.Leaf)
 		assert.Equal(t, fi.CA, loadedFi.CA)
 		assert.Equal(t, fi.ID, loadedFi.ID)
+	}
+}
+
+func TestVersionedNodeIDFromKey(t *testing.T) {
+	_, chain, err := testpeertls.NewCertChain(1)
+	require.NoError(t, err)
+
+	pubKey, ok := chain[peertls.LeafIndex].PublicKey.(crypto.PublicKey)
+	require.True(t, ok)
+
+	for _, version := range storj.IDVersions {
+		t.Run(fmt.Sprintf("IdentityV%d", version.Number), func(t *testing.T) {
+			id, err := identity.VersionedNodeIDFromKey(pubKey, version)
+			require.NoError(t, err)
+			assert.Equal(t, version.Number, id.Version().Number)
+		})
 	}
 }
 

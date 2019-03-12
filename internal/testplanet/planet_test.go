@@ -13,45 +13,59 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/pkg/storj"
 )
 
 func TestBasic(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.New(t, 2, 4, 1)
-	require.NoError(t, err)
-	defer ctx.Check(planet.Shutdown)
+	test := func(version storj.IDVersion) {
+		planet, err := testplanet.NewWithIdentityVersion(t, &version, 2, 4, 1)
+		require.NoError(t, err)
+		defer ctx.Check(planet.Shutdown)
 
-	planet.Start(ctx)
+		planet.Start(ctx)
 
-	for _, satellite := range planet.Satellites {
-		t.Log("SATELLITE", satellite.ID(), satellite.Addr())
+		for _, satellite := range planet.Satellites {
+			t.Log("SATELLITE", satellite.ID(), satellite.Addr())
+		}
+		for _, storageNode := range planet.StorageNodes {
+			t.Log("STORAGE", storageNode.ID(), storageNode.Addr())
+		}
+		for _, uplink := range planet.Uplinks {
+			t.Log("UPLINK", uplink.ID(), uplink.Addr())
+		}
+
+		// TODO: questionable conflict resolution
+		// Example of using pointer db
+		_, err = planet.Uplinks[0].DialPointerDB(planet.Satellites[0], "apikey")
+		require.NoError(t, err)
+		// TODO: end questionable resolution
+
+		// ping a satellite
+		_, err = planet.StorageNodes[0].Kademlia.Service.Ping(ctx, planet.Satellites[0].Local())
+		require.NoError(t, err)
+
+		// ping a storage node
+		_, err = planet.StorageNodes[0].Kademlia.Service.Ping(ctx, planet.StorageNodes[1].Local())
+		require.NoError(t, err)
+
+		err = planet.StopPeer(planet.StorageNodes[1])
+		require.NoError(t, err)
+
+		// ping a stopped storage node
+		_, err = planet.StorageNodes[0].Kademlia.Service.Ping(ctx, planet.StorageNodes[1].Local())
+		require.Error(t, err)
+
+		// wait a bit to see whether some failures occur
+		time.Sleep(time.Second)
 	}
-	for _, storageNode := range planet.StorageNodes {
-		t.Log("STORAGE", storageNode.ID(), storageNode.Addr())
-	}
-	for _, uplink := range planet.Uplinks {
-		t.Log("UPLINK", uplink.ID(), uplink.Addr())
+
+	for _, version := range storj.IDVersions {
+		test(version)
 	}
 
-	// ping a satellite
-	_, err = planet.StorageNodes[0].Kademlia.Service.Ping(ctx, planet.Satellites[0].Local())
-	require.NoError(t, err)
-
-	// ping a storage node
-	_, err = planet.StorageNodes[0].Kademlia.Service.Ping(ctx, planet.StorageNodes[1].Local())
-	require.NoError(t, err)
-
-	err = planet.StopPeer(planet.StorageNodes[1])
-	require.NoError(t, err)
-
-	// ping a stopped storage node
-	_, err = planet.StorageNodes[0].Kademlia.Service.Ping(ctx, planet.StorageNodes[1].Local())
-	require.Error(t, err)
-
-	// wait a bit to see whether some failures occur
-	time.Sleep(time.Second)
 }
 
 func BenchmarkCreate(b *testing.B) {

@@ -15,11 +15,14 @@ import (
 	"go/format"
 	"os"
 
+	"storj.io/storj/pkg/storj"
+
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pkcrypto"
 )
 
 func main() {
+	versionFlag := flag.Uint("version", 0, "determines which identity version to generate (0 generates the latest version)")
 	signed := flag.Bool("signed", false, "if true, generate a signer and sign all identities")
 	count := flag.Int("count", 5, "number of identities to create")
 	out := flag.String("out", "identities_table.go", "generated file")
@@ -36,15 +39,27 @@ func main() {
 	`)
 
 	var (
-		signer    *identity.FullCertificateAuthority
-		restChain []*x509.Certificate
-		err       error
+		identityVersion storj.IDVersion
+		signer          *identity.FullCertificateAuthority
+		restChain       []*x509.Certificate
+		err             error
 	)
+
+	switch *versionFlag {
+	case 0:
+		identityVersion = storj.LatestIDVersion()
+	default:
+		identityVersion = storj.IDVersions[uint8(*versionFlag)]
+	}
+
+	caOpts := identity.NewCAOptions{
+		Version:     identityVersion,
+		Difficulty:  12,
+		Concurrency: 4,
+	}
+
 	if *signed {
-		signer, err = identity.NewCA(context.Background(), identity.NewCAOptions{
-			Difficulty:  12,
-			Concurrency: 4,
-		})
+		signer, err = identity.NewCA(context.Background(), caOpts)
 		if err != nil {
 			panic(err)
 		}
@@ -62,24 +77,20 @@ func main() {
 			panic(err)
 		}
 
-		fmt.Fprintf(&buf, "var pregeneratedSigner = mustParseCertificateAuthorityPEM(%q, %q)", chain.Bytes(), keys.Bytes())
+		fmt.Fprintf(&buf,
+			"var pregeneratedV%dSigner = mustParseCertificateAuthorityPEM(%q, %q)\n",
+			identityVersion.Number, chain.Bytes(), keys.Bytes(),
+		)
 	}
 
 	if *signed {
-		buf.WriteString(`
-			var pregeneratedSignedIdentities = NewIdentities(
-		`)
+		fmt.Fprintf(&buf, "var pregeneratedV%dSignedIdentities = NewIdentities(", identityVersion.Number)
 	} else {
-		buf.WriteString(`
-			var pregeneratedIdentities = NewIdentities(
-		`)
+		fmt.Fprintf(&buf, "var pregeneratedV%dIdentities = NewIdentities(", identityVersion.Number)
 	}
 	for k := 0; k < *count; k++ {
 		fmt.Println("Creating", k)
-		ca, err := identity.NewCA(context.Background(), identity.NewCAOptions{
-			Difficulty:  12,
-			Concurrency: 4,
-		})
+		ca, err := identity.NewCA(context.Background(), caOpts)
 		if err != nil {
 			panic(err)
 		}

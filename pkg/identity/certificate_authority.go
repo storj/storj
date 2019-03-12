@@ -61,6 +61,8 @@ type CASetupConfig struct {
 
 // NewCAOptions is used to pass parameters to `NewCA`
 type NewCAOptions struct {
+	// VersionNumber is the IDVersionNumber of the identity version to use
+	VersionNumber storj.IDVersionNumber
 	// Difficulty is the number of trailing zero-bits the nodeID must have
 	Difficulty uint16
 	// Concurrency is the number of go routines used to generate a CA of sufficient difficulty
@@ -96,6 +98,11 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 		selectedID  storj.NodeID
 	)
 
+	version, err := storj.GetIDVersion(opts.VersionNumber)
+	if err != nil {
+		return nil, err
+	}
+
 	if opts.Concurrency < 1 {
 		opts.Concurrency = 1
 	}
@@ -113,7 +120,7 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 			}
 		}
 	}
-	err = GenerateKeys(ctx, minimumLoggableDifficulty, int(opts.Concurrency),
+	err = GenerateKeys(ctx, minimumLoggableDifficulty, int(opts.Concurrency), version,
 		func(k crypto.PrivateKey, id storj.NodeID) (done bool, err error) {
 			if opts.Logger != nil {
 				if atomic.AddUint32(i, 1)%100 == 0 {
