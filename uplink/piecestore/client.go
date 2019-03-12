@@ -57,30 +57,6 @@ func (client *Client) Close() error {
 	return client.conn.Close()
 }
 
-func combineErrors(errors ...error) error {
-	eof := 0
-	failures := errors[:0]
-	for _, err := range errors {
-		if err == io.EOF {
-			eof++
-			continue
-		}
-		if err != nil {
-			failures = append(failures, err)
-		}
-	}
-
-	// no error detected
-	if eof == 0 && len(failures) == 0 {
-		return nil
-	}
-	if eof > 0 && len(failures) == 0 {
-		return io.EOF
-	}
-
-	return errs.Combine(failures...)
-}
-
 func (client *Client) nextAllocationStep(previous int64) int64 {
 	// TODO: ensure that this is frame idependent
 	next := previous * 3 / 2
@@ -88,4 +64,11 @@ func (client *Client) nextAllocationStep(previous int64) int64 {
 		next = client.config.MaximumStep
 	}
 	return next
+}
+
+func ignoreEOF(err error) error {
+	if err == io.EOF {
+		return nil
+	}
+	return err
 }

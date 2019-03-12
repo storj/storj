@@ -6,7 +6,6 @@ package piecestore
 import (
 	"context"
 	"hash"
-	"io"
 
 	"github.com/zeebo/errs"
 
@@ -46,7 +45,7 @@ func (client *Client) Upload(ctx context.Context, limit *pb.OrderLimit2) (*Uploa
 	})
 	if err != nil {
 		_, closeErr := stream.CloseAndRecv()
-		return nil, ErrProtocol.Wrap(combineErrors(err, closeErr))
+		return nil, ErrProtocol.Wrap(errs.Combine(err, closeErr))
 	}
 
 	return &Upload{
@@ -140,11 +139,8 @@ func (client *Upload) Close() (*pb.PieceHash, error) {
 	if err != nil {
 		// failed to sign, let's close the sending side, no need to wait for a response
 		closeErr := client.stream.CloseSend()
-		if closeErr == io.EOF {
-			// io.EOF doesn't inform us about anything
-			closeErr = nil
-		}
-		return nil, Error.Wrap(errs.Combine(err, closeErr))
+		// closeErr being io.EOF doesn't inform us about anything
+		return nil, Error.Wrap(errs.Combine(err, ignoreEOF(closeErr)))
 	}
 
 	// exchange signed piece hashes
@@ -157,30 +153,16 @@ func (client *Upload) Close() (*pb.PieceHash, error) {
 	response, closeErr := client.stream.CloseAndRecv()
 	if response == nil || response.Done == nil {
 		// combine all the errors from before
-		if sendErr == io.EOF {
-			// failed to send
-			sendErr = nil
-		}
-		if closeErr == io.EOF {
-			// storage node closed before sending us a response
-			closeErr = nil
-		}
-		return nil, errs.Combine(ErrProtocol.New("expected piece hash"), sendErr, closeErr)
+		// sendErr is io.EOF when failed to send, so don't care
+		// closeErr is io.EOF when storage node closed before sending us a response
+		return nil, errs.Combine(ErrProtocol.New("expected piece hash"), ignoreEOF(sendErr), ignoreEOF(closeErr))
 	}
 
 	// verification
 	verifyErr := client.client.VerifyPieceHash(client.stream.Context(), client.peer, client.limit, response.Done, uplinkHash.Hash)
 
-	// find the final error
-	if sendErr == io.EOF {
-		// failed to send
-		sendErr = nil
-	}
-	if closeErr == io.EOF {
-		// storage node closed properly
-		closeErr = nil
-	}
-
 	// combine all the errors from before
-	return response.Done, errs.Combine(verifyErr, sendErr, closeErr)
+	// sendErr is io.EOF when we failed to send
+	// closeErr is io.EOF when storage node closed properly
+	return response.Done, errs.Combine(verifyErr, ignoreEOF(sendErr), ignoreEOF(closeErr))
 }
