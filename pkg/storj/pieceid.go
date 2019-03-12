@@ -68,8 +68,9 @@ func (id PieceID2) Bytes() []byte { return id[:] }
 func (id PieceID2) Derive(storagenodeID NodeID) PieceID2 {
 	// TODO: should the secret / content be swapped?
 	mac := hmac.New(sha512.New, id.Bytes())
+	_, _ = mac.Write(storagenodeID.Bytes()) // on hash.Hash write never returns an error
 	var derived PieceID2
-	copy(derived[:], mac.Sum(storagenodeID.Bytes()))
+	copy(derived[:], mac.Sum(nil))
 	return derived
 }
 
