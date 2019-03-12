@@ -15,6 +15,11 @@ import (
 	"storj.io/storj/pkg/pb"
 )
 
+type Downloader interface {
+	Read([]byte) (int, error)
+	Close() error
+}
+
 type Download struct {
 	client *Client
 	limit  *pb.OrderLimit2
@@ -32,7 +37,7 @@ type Download struct {
 	unread ReadBuffer
 }
 
-func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit2, offset, size int64) (*Download, error) {
+func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit2, offset, size int64) (Downloader, error) {
 	stream, err := client.client.Download(ctx)
 	if err != nil {
 		return nil, err
@@ -58,7 +63,8 @@ func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit2, offse
 		return nil, ErrProtocol.Wrap(errs.Combine(err, closeErr, recvErr))
 	}
 
-	return &Download{
+	buffered := &BufferedDownload{}
+	buffered.download = Download{
 		client: client,
 		limit:  limit,
 		peer:   peer,
@@ -71,7 +77,9 @@ func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit2, offse
 		downloadSize: size,
 
 		allocationStep: client.config.InitialStep,
-	}, nil
+	}
+	buffered.Init()
+	return buffered, nil
 }
 
 func (client *Download) Read(data []byte) (read int, _ error) {

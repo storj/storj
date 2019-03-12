@@ -15,6 +15,11 @@ import (
 	"storj.io/storj/pkg/pkcrypto"
 )
 
+type Uploader interface {
+	Write([]byte) (int, error)
+	Close() (*pb.PieceHash, error)
+}
+
 type Upload struct {
 	client *Client
 	limit  *pb.OrderLimit2
@@ -29,7 +34,7 @@ type Upload struct {
 	sendError error
 }
 
-func (client *Client) Upload(ctx context.Context, limit *pb.OrderLimit2) (*Upload, error) {
+func (client *Client) Upload(ctx context.Context, limit *pb.OrderLimit2) (Uploader, error) {
 	stream, err := client.client.Upload(ctx)
 	if err != nil {
 		return nil, err
@@ -48,7 +53,8 @@ func (client *Client) Upload(ctx context.Context, limit *pb.OrderLimit2) (*Uploa
 		return nil, ErrProtocol.Wrap(errs.Combine(err, closeErr))
 	}
 
-	return &Upload{
+	buffered := &BufferedUpload{}
+	buffered.upload = Upload{
 		client: client,
 		limit:  limit,
 		peer:   peer,
@@ -57,7 +63,10 @@ func (client *Client) Upload(ctx context.Context, limit *pb.OrderLimit2) (*Uploa
 		hash:           pkcrypto.NewHash(),
 		offset:         0,
 		allocationStep: client.config.InitialStep,
-	}, nil
+	}
+	buffered.Init()
+
+	return buffered, nil
 }
 
 func (client *Upload) Write(data []byte) (written int, _ error) {
