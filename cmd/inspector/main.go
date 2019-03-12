@@ -15,6 +15,7 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
+	"github.com/segmentio/go-prompt"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
@@ -471,26 +472,13 @@ func getSegments(cmd *cobra.Command, args []string) error {
 
 		length = int64(len(res.Segments))
 		offset += length
-		if length < irreparableLimit {
-			return nil
-		}
 
-		fmt.Printf("Next page? (Y/n) ")
-		reader := bufio.NewReader(os.Stdin)
-		char, _, err := reader.ReadRune()
-		if err != nil {
-			return err
-		}
+		fmt.Printf("%d results\n", length)
 
-		switch char {
-		case 'y':
-			continue
-		case 'Y':
-			continue
-		case '\n':
-			continue
-		default:
-			return nil
+		if length >= irreparableLimit {
+			if !prompt.Confirm("Next page? (y/n)") {
+				break
+			}
 		}
 	}
 	return nil
