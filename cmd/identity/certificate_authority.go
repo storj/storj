@@ -106,11 +106,11 @@ func init() {
 	caCmd.AddCommand(revokeCACmd)
 	caCmd.AddCommand(revokePeerCACmd)
 
-	cfgstruct.Bind(newCACmd.Flags(), &newCACfg, cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.Bind(getIDCmd.Flags(), &getIDCfg, cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.Bind(caExtCmd.Flags(), &caExtCfg, cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.Bind(revokeCACmd.Flags(), &revokeCACfg, cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.Bind(revokePeerCACmd.Flags(), &revokePeerCACfg, cfgstruct.ConfDir(defaultConfigDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(newCACmd.Flags(), &newCACfg, isDev, cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(getIDCmd.Flags(), &getIDCfg, isDev, cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(caExtCmd.Flags(), &caExtCfg, isDev, cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(revokeCACmd.Flags(), &revokeCACfg, isDev, cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(revokePeerCACmd.Flags(), &revokePeerCACfg, isDev, cfgstruct.ConfDir(defaultConfigDir), cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func cmdNewCA(cmd *cobra.Command, args []string) error {
