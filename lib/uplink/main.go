@@ -10,6 +10,7 @@ import (
 	"storj.io/storj/pkg/transport"
 
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/peertls/tlsopts"
 )
 
@@ -27,23 +28,10 @@ type Config struct {
 	TLSConfig     tlsopts.Config
 }
 
-// Uplink represents the main entrypoint to Storj V3. An Uplink connects to
-// a specific Satellite and caches connections and resources, allowing one to
-// create sessions delineated by specific access controls.
-type Uplink struct {
-	ID            *identity.FullIdentity
-	Session       *Session
-	SatelliteAddr string
-	Config        Config
-}
-
-// NewUplink creates a new Uplink
-func NewUplink(ident *identity.FullIdentity, satelliteAddr string, cfg Config) *Uplink {
-	return &Uplink{
-		ID:            ident,
-		SatelliteAddr: satelliteAddr,
-		Config:        cfg,
-	}
+// Session represents a specific access session.
+type Session struct {
+	TransportClient transport.Client
+	Gateway         *minio.ObjectLayer
 }
 
 // Access is all of the access information an application needs to store and
@@ -68,6 +56,25 @@ type Access struct {
 	Buckets map[string]BucketOpts
 }
 
+// Uplink represents the main entrypoint to Storj V3. An Uplink connects to
+// a specific Satellite and caches connections and resources, allowing one to
+// create sessions delineated by specific access controls.
+type Uplink struct {
+	ID            *identity.FullIdentity
+	Session       *Session
+	SatelliteAddr string
+	Config        Config
+}
+
+// NewUplink creates a new Uplink
+func NewUplink(ident *identity.FullIdentity, satelliteAddr string, cfg Config) *Uplink {
+	return &Uplink{
+		ID:            ident,
+		SatelliteAddr: satelliteAddr,
+		Config:        cfg,
+	}
+}
+
 // ParseAccess parses a serialized Access
 func ParseAccess(data []byte) (Access, error) {
 	panic("TODO")
@@ -76,12 +83,6 @@ func ParseAccess(data []byte) (Access, error) {
 // Serialize serializes an Access message
 func (a *Access) Serialize() ([]byte, error) {
 	panic("TODO")
-}
-
-// Session represents a specific access session.
-type Session struct {
-	TransportClient transport.Client
-	Gateway         *minio.ObjectLayer
 }
 
 // NewSession creates a Session with an Access struct.
@@ -93,11 +94,11 @@ func (u *Uplink) NewSession(access Access) error {
 
 	tc := transport.NewClient(opts)
 
-	// gateway := miniogw.
+	gateway = getGateway() 
 
 	u.Session = &Session{
 		TransportClient: tc,
-		Gateway:         nil,
+		Gateway:         gateway,
 	}
 
 	return nil
@@ -107,4 +108,28 @@ func (u *Uplink) NewSession(access Access) error {
 // to create this session.
 func (s *Session) Access(ctx context.Context, caveats ...Caveat) (Access, error) {
 	panic("TODO")
+}
+
+func getGateway() *miniogw.Gateway {
+	metainfo := 
+
+	gateway := miniogw.NewStorjGateway(
+		metainfo,
+		streams,
+		storj.AESGCM,
+		storj.EncryptionScheme{
+			Cipher:    storj.AESGCM,
+			BlockSize: 1 * memory.KB.Int32(),
+		},
+		storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: int16(rs.RequiredCount()),
+			RepairShares:   int16(rs.RepairThreshold()),
+			OptimalShares:  int16(rs.OptimalThreshold()),
+			TotalShares:    int16(rs.TotalCount()),
+			ShareSize:      int32(rs.ErasureShareSize()),
+		},
+	)
+
+	return gateway
 }
