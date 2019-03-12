@@ -68,9 +68,9 @@ func TestUploadDownload(t *testing.T) {
 
 	// bind default values to config
 	var gwCfg config
-	cfgstruct.Bind(&pflag.FlagSet{}, &gwCfg)
+	cfgstruct.Bind(&pflag.FlagSet{}, &gwCfg, true)
 	var uplinkCfg uplink.Config
-	cfgstruct.Bind(&pflag.FlagSet{}, &uplinkCfg)
+	cfgstruct.Bind(&pflag.FlagSet{}, &uplinkCfg, true)
 
 	// minio config directory
 	gwCfg.Minio.Dir = ctx.Dir("minio")
