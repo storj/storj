@@ -39,11 +39,11 @@ func TestCertDB(t *testing.T) {
 	id0dup, err := certdb.Include(ctx, node0.ID, node0.PeerIdentity().Leaf.Raw)
 	require.NoError(t, err)
 
-	require.Equal(t, id0, id0dup)
-	require.NotEqual(t, id0, id0other)
+	require.Equal(t, id0, id0dup, "insert duplicate Leaf")
+	require.NotEqual(t, id0, id0other, "insert non-duplicate CA")
 
 	cert, err := certdb.LookupByCertID(ctx, id0)
-	require.NoError(t, err)
+	require.NoError(t, err, "lookup by id")
 
 	require.Equal(t, node0.PeerIdentity().Leaf.Raw, cert)
 }

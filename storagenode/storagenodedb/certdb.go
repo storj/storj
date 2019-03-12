@@ -5,6 +5,7 @@ package storagenodedb
 
 import (
 	"context"
+	"strings"
 
 	"storj.io/storj/pkg/storj"
 )
@@ -20,11 +21,11 @@ func (db *infodb) CertDB() certdb { return certdb{db} }
 func (db *certdb) Include(ctx context.Context, nodeid storj.NodeID, pkix []byte) (certid int64, err error) {
 	defer db.locked()()
 
-	result, err := db.db.Exec(`
-		INSERT INTO certificate(node_id, pkix) 
-			VALUES(?, ?) 
-		ON CONFLICT(pkix) IGNORE`, nodeid.Bytes(), pkix)
-	if err != nil {
+	result, err := db.db.Exec(`INSERT INTO certificate(node_id, pkix) VALUES(?, ?)`, nodeid.Bytes(), pkix)
+	if err != nil && strings.Contains(err.Error(), "UNIQUE constraint") {
+		err = db.db.QueryRow(`SELECT cert_id FROM certificate WHERE pkix = ?`, pkix).Scan(&certid)
+		return certid, ErrInfo.Wrap(err)
+	} else if err != nil {
 		return -1, ErrInfo.Wrap(err)
 	}
 
@@ -37,7 +38,7 @@ func (db *certdb) LookupByCertID(ctx context.Context, id int64) (pkix []byte, er
 	defer db.locked()()
 
 	var ppkix *[]byte
-	err = db.db.QueryRow(`SELECT pkix FROM certificate WHERE id = ?`, id).Scan(&ppkix)
+	err = db.db.QueryRow(`SELECT pkix FROM certificate WHERE cert_id = ?`, id).Scan(&ppkix)
 	if err != nil {
 		return nil, ErrInfo.Wrap(err)
 	}

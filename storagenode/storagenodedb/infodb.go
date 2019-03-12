@@ -94,10 +94,11 @@ func (db *infodb) Migration() *migrate.Migration {
 
 					// certificate table for storing uplink/satellite certificates
 					`CREATE TABLE certificate (
-						cert_id   SERIAL PRIMARY KEY,
+						cert_id  INTEGER PRIMARY KEY AUTOINCREMENT,
 						node_id  BLOB,
 						pkix     BLOB UNIQUE
 					)`,
+
 					// table for storing piece meta info
 					`CREATE TABLE pieceinfo (
 						satellite_id     BLOB,
@@ -106,7 +107,7 @@ func (db *infodb) Migration() *migrate.Migration {
 						piece_expiration TIMESTAMP without time zone, -- date when it can be deleted
 
 						uplink_hash   BLOB, -- serialized pb.PieceHash signed by uplink
-						uplink_cert_id SERIAL,
+						uplink_cert_id INTEGER,
 
 						FOREIGN KEY(uplink_cert_id) REFERENCES certificate(cert_id)
 					)`,
@@ -133,7 +134,7 @@ func (db *infodb) Migration() *migrate.Migration {
 						order_serialized       BLOB, -- serialized pb.Order
 						order_limit_expiration TIMESTAMP without time zone, -- when is the deadline for sending it
 
-						uplink_cert_id SERIAL,
+						uplink_cert_id INTEGER,
 
 						FOREIGN KEY(uplink_cert_id) REFERENCES certificate(cert_id)
 					)`,
@@ -147,14 +148,15 @@ func (db *infodb) Migration() *migrate.Migration {
 						order_limit_serialized BLOB, -- serialized pb.OrderLimit
 						order_serialized       BLOB, -- serialized pb.Order
 						
-						uplink_cert_id SERIAL,
+						uplink_cert_id INTEGER,
 						
 						status INT, -- accepted, rejected, confirmed
 						archived_at TIMESTAMP without time zone, -- when was it rejected
 						
 						FOREIGN KEY(uplink_cert_id) REFERENCES certificate(cert_id)
 					)`,
-					`CREATE INDEX idx_orders_status ON orders(status)`,
+					`CREATE INDEX idx_order_archive_satellite ON order_archive(satellite_id)`,
+					`CREATE INDEX idx_order_archive_status ON order_archive(status)`,
 				},
 			},
 		},
