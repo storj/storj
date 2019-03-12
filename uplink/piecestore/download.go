@@ -63,8 +63,7 @@ func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit2, offse
 		return nil, ErrProtocol.Wrap(errs.Combine(err, closeErr, recvErr))
 	}
 
-	buffered := &BufferedDownload{}
-	buffered.download = Download{
+	download := &Download{
 		client: client,
 		limit:  limit,
 		peer:   peer,
@@ -78,8 +77,11 @@ func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit2, offse
 
 		allocationStep: client.config.InitialStep,
 	}
-	buffered.Init()
-	return buffered, nil
+
+	if client.config.DownloadBufferSize <= 0 {
+		return download, nil
+	}
+	return NewBufferedDownload(download, int(client.config.DownloadBufferSize)), nil
 }
 
 func (client *Download) Read(data []byte) (read int, _ error) {

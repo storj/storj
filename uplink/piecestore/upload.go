@@ -53,8 +53,7 @@ func (client *Client) Upload(ctx context.Context, limit *pb.OrderLimit2) (Upload
 		return nil, ErrProtocol.Wrap(errs.Combine(err, closeErr))
 	}
 
-	buffered := &BufferedUpload{}
-	buffered.upload = Upload{
+	upload := &Upload{
 		client: client,
 		limit:  limit,
 		peer:   peer,
@@ -64,9 +63,11 @@ func (client *Client) Upload(ctx context.Context, limit *pb.OrderLimit2) (Upload
 		offset:         0,
 		allocationStep: client.config.InitialStep,
 	}
-	buffered.Init()
 
-	return buffered, nil
+	if client.config.UploadBufferSize <= 0 {
+		return upload, nil
+	}
+	return NewBufferedUpload(upload, int(client.config.UploadBufferSize)), nil
 }
 
 func (client *Upload) Write(data []byte) (written int, _ error) {

@@ -13,11 +13,14 @@ import (
 
 type BufferedUpload struct {
 	buffer bufio.Writer
-	upload Upload
+	upload *Upload
 }
 
-func (upload *BufferedUpload) Init() {
-	upload.buffer = *bufio.NewWriterSize(&upload.upload, 256<<10)
+func NewBufferedUpload(upload *Upload, size int) Uploader {
+	buffered := &BufferedUpload{}
+	buffered.upload = upload
+	buffered.buffer = *bufio.NewWriterSize(buffered.upload, size)
+	return buffered
 }
 
 func (upload *BufferedUpload) Write(data []byte) (int, error) {
@@ -32,11 +35,14 @@ func (upload *BufferedUpload) Close() (*pb.PieceHash, error) {
 
 type BufferedDownload struct {
 	buffer   bufio.Reader
-	download Download
+	download *Download
 }
 
-func (download *BufferedDownload) Init() {
-	download.buffer = *bufio.NewReaderSize(&download.download, 256<<10)
+func NewBufferedDownload(download *Download, size int) Downloader {
+	buffered := &BufferedDownload{}
+	buffered.download = download
+	buffered.buffer = *bufio.NewReaderSize(buffered.download, size)
+	return buffered
 }
 
 func (download *BufferedDownload) Read(p []byte) (int, error) {
