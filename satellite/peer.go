@@ -335,9 +335,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		if config.Repairer.OverlayAddr == "" {
 			config.Repairer.OverlayAddr = peer.Addr()
 		}
-		if config.Repairer.PointerDBAddr == "" {
-			config.Repairer.PointerDBAddr = peer.Addr()
-		}
 		peer.Repair.Repairer = repairer.NewService(peer.DB.RepairQueue(),
 			&config.Repairer,
 			peer.Transport,

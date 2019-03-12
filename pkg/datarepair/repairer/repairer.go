@@ -24,11 +24,10 @@ import (
 
 // Config contains configurable values for repairer
 type Config struct {
-	MaxRepair     int           `help:"maximum segments that can be repaired concurrently" default:"100"`
-	Interval      time.Duration `help:"how frequently checker should audit segments" default:"3600s"`
-	OverlayAddr   string        `help:"Address to contact overlay server through"`
-	PointerDBAddr string        `help:"Address to contact pointerdb server through"`
-	MaxBufferMem  memory.Size   `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4M"`
+	MaxRepair    int           `help:"maximum segments that can be repaired concurrently" default:"100"`
+	Interval     time.Duration `help:"how frequently checker should audit segments" default:"3600s"`
+	OverlayAddr  string        `help:"Address to contact overlay server through"`
+	MaxBufferMem memory.Size   `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4M"`
 }
 
 // SegmentRepairer is a repairer for segments
