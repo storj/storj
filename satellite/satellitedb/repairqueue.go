@@ -90,7 +90,7 @@ func (r *repairQueue) Peekqueue(ctx context.Context, limit int) ([]pb.InjuredSeg
 	if limit <= 0 || limit > storage.LookupLimit {
 		limit = storage.LookupLimit
 	}
-	rows, err := r.db.Limited_Injuredsegment_OrderBy_Asc_Id(ctx, limit, 0)
+	rows, err := r.db.Limited_Injuredsegment(ctx, limit, 0)
 	if err != nil {
 		return nil, err
 	}
