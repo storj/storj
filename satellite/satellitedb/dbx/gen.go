@@ -4,6 +4,8 @@
 package satellitedb
 
 import (
+	"context"
+
 	"github.com/zeebo/errs"
 )
 
@@ -19,4 +21,20 @@ func init() {
 		}
 		return c.Wrap(e)
 	}
+}
+
+// WithTx wraps DB code in a transaction
+func (db *DB) WithTx(ctx context.Context, fn func(context.Context, *Tx) error) (err error) {
+	tx, err := db.Open(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == nil {
+			err = tx.Commit()
+		} else {
+			err = errs.Combine(err, tx.Rollback())
+		}
+	}()
+	return fn(ctx, tx)
 }
