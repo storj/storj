@@ -68,9 +68,9 @@ func init() {
 	idCmd.AddCommand(leafExtCmd)
 	idCmd.AddCommand(revokeLeafCmd)
 
-	cfgstruct.Bind(newIDCmd.Flags(), &newIDCfg, cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.Bind(leafExtCmd.Flags(), &leafExtCfg, cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.Bind(revokeLeafCmd.Flags(), &revokeLeafCfg, cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(newIDCmd.Flags(), &newIDCfg, isDev, cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(leafExtCmd.Flags(), &leafExtCfg, isDev, cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(revokeLeafCmd.Flags(), &revokeLeafCfg, isDev, cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func cmdNewID(cmd *cobra.Command, args []string) (err error) {
