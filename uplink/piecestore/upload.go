@@ -65,9 +65,11 @@ func (client *Client) Upload(ctx context.Context, limit *pb.OrderLimit2) (Upload
 	}
 
 	if client.config.UploadBufferSize <= 0 {
-		return upload, nil
+		return &LockingUpload{upload: upload}, nil
 	}
-	return NewBufferedUpload(upload, int(client.config.UploadBufferSize)), nil
+	return &LockingUpload{
+		upload: NewBufferedUpload(upload, int(client.config.UploadBufferSize)),
+	}, nil
 }
 
 func (client *Upload) Write(data []byte) (written int, _ error) {

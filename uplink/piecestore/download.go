@@ -79,9 +79,11 @@ func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit2, offse
 	}
 
 	if client.config.DownloadBufferSize <= 0 {
-		return download, nil
+		return &LockingDownload{download: download}, nil
 	}
-	return NewBufferedDownload(download, int(client.config.DownloadBufferSize)), nil
+	return &LockingDownload{
+		download: NewBufferedDownload(download, int(client.config.DownloadBufferSize)),
+	}, nil
 }
 
 func (client *Download) Read(data []byte) (read int, _ error) {

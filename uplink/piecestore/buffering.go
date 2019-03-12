@@ -5,6 +5,7 @@ package piecestore
 
 import (
 	"bufio"
+	"sync"
 
 	"github.com/zeebo/errs"
 
@@ -50,5 +51,39 @@ func (download *BufferedDownload) Read(p []byte) (int, error) {
 }
 
 func (download *BufferedDownload) Close() error {
+	return download.download.Close()
+}
+
+type LockingUpload struct {
+	mu     sync.Mutex
+	upload Uploader
+}
+
+func (upload *LockingUpload) Write(p []byte) (int, error) {
+	upload.mu.Lock()
+	defer upload.mu.Unlock()
+	return upload.upload.Write(p)
+}
+
+func (upload *LockingUpload) Close() (*pb.PieceHash, error) {
+	upload.mu.Lock()
+	defer upload.mu.Unlock()
+	return upload.upload.Close()
+}
+
+type LockingDownload struct {
+	mu       sync.Mutex
+	download Downloader
+}
+
+func (download *LockingDownload) Read(p []byte) (int, error) {
+	download.mu.Lock()
+	defer download.mu.Unlock()
+	return download.download.Read(p)
+}
+
+func (download *LockingDownload) Close() error {
+	download.mu.Lock()
+	defer download.mu.Unlock()
 	return download.download.Close()
 }
