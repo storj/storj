@@ -29,6 +29,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/uplink"
+	"storj.io/storj/uplink/metainfo"
 	"storj.io/storj/uplink/piecestore"
 )
 
@@ -130,6 +131,12 @@ func (uplink *Uplink) Shutdown() error { return nil }
 func (uplink *Uplink) DialPointerDB(destination Peer, apikey string) (pdbclient.Client, error) {
 	// TODO: handle disconnect
 	return pdbclient.NewClient(uplink.Transport, destination.Addr(), apikey)
+}
+
+// DialMetainfo dials destination with apikey and returns metainfo Client
+func (uplink *Uplink) DialMetainfo(ctx context.Context, destination Peer, apikey string) (metainfo.Client, error) {
+	// TODO: handle disconnect
+	return metainfo.NewClient(ctx, uplink.Transport, destination.Addr(), apikey)
 }
 
 // DialPiecestore dials destination storagenode and returns a piecestore client.

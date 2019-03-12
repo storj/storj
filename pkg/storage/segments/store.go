@@ -19,7 +19,6 @@ import (
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/ranger"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storj"
@@ -58,19 +57,17 @@ type segmentStore struct {
 	metainfo                metainfo.Client
 	oc                      overlay.Client
 	ec                      ecclient.Client
-	pdb                     pdbclient.Client
 	rs                      eestream.RedundancyStrategy
 	thresholdSize           int
 	maxEncryptedSegmentSize int64
 }
 
 // NewSegmentStore creates a new instance of segmentStore
-func NewSegmentStore(metainfo metainfo.Client, oc overlay.Client, ec ecclient.Client, pdb pdbclient.Client, rs eestream.RedundancyStrategy, threshold int, maxEncryptedSegmentSize int64) Store {
+func NewSegmentStore(metainfo metainfo.Client, oc overlay.Client, ec ecclient.Client, rs eestream.RedundancyStrategy, threshold int, maxEncryptedSegmentSize int64) Store {
 	return &segmentStore{
 		metainfo:                metainfo,
 		oc:                      oc, // TODO: remove
 		ec:                      ec,
-		pdb:                     pdb, // TODO: remove
 		rs:                      rs,
 		thresholdSize:           threshold,
 		maxEncryptedSegmentSize: maxEncryptedSegmentSize,
