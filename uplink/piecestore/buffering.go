@@ -17,7 +17,7 @@ type BufferedUpload struct {
 }
 
 func (upload *BufferedUpload) Init() {
-	upload.buffer.Reset(&upload.upload)
+	upload.buffer = *bufio.NewWriterSize(&upload.upload, 256<<10)
 }
 
 func (upload *BufferedUpload) Write(data []byte) (int, error) {
@@ -36,7 +36,7 @@ type BufferedDownload struct {
 }
 
 func (download *BufferedDownload) Init() {
-	download.buffer.Reset(&download.download)
+	download.buffer = *bufio.NewReaderSize(&download.download, 256<<10)
 }
 
 func (download *BufferedDownload) Read(p []byte) (int, error) {
