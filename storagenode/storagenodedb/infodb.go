@@ -106,8 +106,8 @@ func (db *infodb) Migration() *migrate.Migration {
 						piece_size       BIGINT    NOT NULL,
 						piece_expiration TIMESTAMP NOT NULL, -- date when it can be deleted
 
-						uplink_hash    BLOB    NOT NULL, -- serialized pb.PieceHash signed by uplink
-						uplink_cert_id INTEGER NOT NULL,
+						uplink_piece_hash BLOB    NOT NULL, -- serialized pb.PieceHash signed by uplink
+						uplink_cert_id    INTEGER NOT NULL,
 
 						FOREIGN KEY(uplink_cert_id) REFERENCES certificate(cert_id)
 					)`,

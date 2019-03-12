@@ -5,6 +5,7 @@ package pieces
 
 import (
 	"context"
+	"time"
 
 	"storj.io/storj/internal/memory"
 
@@ -25,6 +26,18 @@ const (
 
 // Error is the default error class.
 var Error = errs.Class("pieces error")
+
+type Info struct {
+	SatelliteID storj.NodeID
+
+	PieceID         storj.PieceID2
+	PieceSize       int64
+	PieceExpiration time.Time
+
+	UplinkPieceHash []byte
+	UplinkID        storj.NodeID
+	UplinkCert      []byte
+}
 
 // Store implements storing pieces onto a blob storage implementation.
 type Store struct {
