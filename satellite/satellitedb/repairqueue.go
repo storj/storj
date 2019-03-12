@@ -5,8 +5,11 @@ package satellitedb
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/lib/pq"
+	"github.com/mattn/go-sqlite3"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/utils"
@@ -31,45 +34,63 @@ func (r *repairQueue) Enqueue(ctx context.Context, seg *pb.InjuredSegment) error
 	return err
 }
 
-func (r *repairQueue) Dequeue(ctx context.Context) (pb.InjuredSegment, error) {
-	// TODO: fix out of order issue
-	tx, err := r.db.Open(ctx)
+func (r *repairQueue) Dequeue(ctx context.Context) (seg pb.InjuredSegment, err error) {
+	// note: BeginTx(ctx, &sql.TxOptions{Isolation: ...) didn't work
+	// so we're using SQL 'FOR UPDATE' below instead
+	tx, err := r.db.DB.Begin()
 	if err != nil {
-		return pb.InjuredSegment{}, Error.Wrap(err)
+		return seg, Error.Wrap(err)
 	}
-
-	res, err := tx.First_Injuredsegment(ctx)
+	defer func() {
+		if err == nil {
+			err = Error.Wrap(tx.Commit())
+		} else {
+			err = Error.Wrap(utils.CombineErrors(tx.Rollback(), err))
+		}
+	}()
+	//get top
+	selectSQL := ""
+	switch t := r.db.DB.Driver().(type) {
+	case *sqlite3.SQLiteDriver:
+		selectSQL = `SELECT id, info FROM injuredsegments LIMIT 1`
+	case *pq.Driver:
+		selectSQL = `SELECT id, info FROM injuredsegments LIMIT 1 FOR UPDATE`
+	default:
+		return seg, fmt.Errorf("Unsupported driver %t", t)
+	}
+	rows, err := tx.Query(selectSQL)
 	if err != nil {
-		return pb.InjuredSegment{}, Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
-	} else if res == nil {
-		return pb.InjuredSegment{}, Error.Wrap(utils.CombineErrors(storage.ErrEmptyQueue.New(""), tx.Rollback()))
+		return seg, err
 	}
-
-	deleted, err := tx.Delete_Injuredsegment_By_Id(
-		ctx,
-		dbx.Injuredsegment_Id(res.Id),
-	)
+	//defer func() { err = errs.Combine(err, rows.Close()) }()
+	if !rows.Next() {
+		rows.Close()
+		return seg, rows.Err()
+	}
+	var id int64
+	err = rows.Scan(&id, &seg)
 	if err != nil {
-		return pb.InjuredSegment{}, Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
-	} else if !deleted {
-		return pb.InjuredSegment{}, Error.Wrap(utils.CombineErrors(Error.New("Injured segment not deleted"), tx.Rollback()))
+		rows.Close()
+		return seg, err
 	}
-	if err := tx.Commit(); err != nil {
-		return pb.InjuredSegment{}, Error.Wrap(err)
+	rows.Close()
+	//delete
+	res, err := tx.Exec(r.db.Rebind(`DELETE FROM injuredsegments WHERE id = ?`), id)
+	if err != nil {
+		return seg, err
 	}
-
-	seg := &pb.InjuredSegment{}
-	if err = proto.Unmarshal(res.Info, seg); err != nil {
-		return pb.InjuredSegment{}, Error.Wrap(err)
+	count, err := res.RowsAffected()
+	if count != 1 {
+		return seg, fmt.Errorf("Injured segment not deleted")
 	}
-	return *seg, nil
+	return seg, err
 }
 
 func (r *repairQueue) Peekqueue(ctx context.Context, limit int) ([]pb.InjuredSegment, error) {
 	if limit <= 0 || limit > storage.LookupLimit {
 		limit = storage.LookupLimit
 	}
-	rows, err := r.db.Limited_Injuredsegment(ctx, limit, 0)
+	rows, err := r.db.Limited_Injuredsegment_OrderBy_Asc_Id(ctx, limit, 0)
 	if err != nil {
 		return nil, err
 	}
