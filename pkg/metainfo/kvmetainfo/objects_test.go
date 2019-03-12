@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testplanet"
@@ -40,9 +41,7 @@ func TestCreateObject(t *testing.T) {
 
 	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
-		if !assert.NoError(t, err) {
-			return
-		}
+		require.NoError(t, err)
 
 		for i, tt := range []struct {
 			create     *storj.CreateObject
@@ -70,9 +69,7 @@ func TestCreateObject(t *testing.T) {
 			errTag := fmt.Sprintf("%d. %+v", i, tt)
 
 			obj, err := db.CreateObject(ctx, bucket.Name, TestFile, tt.create)
-			if !assert.NoError(t, err) {
-				return
-			}
+			require.NoError(t, err)
 
 			info := obj.Info()
 
@@ -89,10 +86,7 @@ func TestCreateObject(t *testing.T) {
 func TestGetObject(t *testing.T) {
 	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
-		if !assert.NoError(t, err) {
-			return
-		}
-
+		require.NoError(t, err)
 		upload(ctx, t, db, streams, bucket, TestFile, nil)
 
 		_, err = db.GetObject(ctx, "", "")
@@ -120,14 +114,10 @@ func TestGetObjectStream(t *testing.T) {
 	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
 		data := make([]byte, 32*memory.KB)
 		_, err := rand.Read(data)
-		if !assert.NoError(t, err) {
-			return
-		}
+		require.NoError(t, err)
 
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
-		if !assert.NoError(t, err) {
-			return
-		}
+		require.NoError(t, err)
 
 		upload(ctx, t, db, streams, bucket, "empty-file", nil)
 		upload(ctx, t, db, streams, bucket, "small-file", []byte("test"))
@@ -165,47 +155,33 @@ func TestGetObjectStream(t *testing.T) {
 
 func upload(ctx context.Context, t *testing.T, db *kvmetainfo.DB, streams streams.Store, bucket storj.Bucket, path storj.Path, data []byte) {
 	obj, err := db.CreateObject(ctx, bucket.Name, path, nil)
-	if !assert.NoError(t, err) {
-		return
-	}
+	require.NoError(t, err)
 
 	str, err := obj.CreateStream(ctx)
-	if !assert.NoError(t, err) {
-		return
-	}
+	require.NoError(t, err)
 
 	upload := stream.NewUpload(ctx, str, streams)
 
 	_, err = upload.Write(data)
-	if !assert.NoError(t, err) {
-		return
-	}
+	require.NoError(t, err)
 
 	err = upload.Close()
-	if !assert.NoError(t, err) {
-		return
-	}
+	require.NoError(t, err)
 
 	err = obj.Commit(ctx)
-	if !assert.NoError(t, err) {
-		return
-	}
+	require.NoError(t, err)
 }
 
 func assertStream(ctx context.Context, t *testing.T, db *kvmetainfo.DB, streams streams.Store, bucket storj.Bucket, path storj.Path, size int64, content []byte) {
 	readOnly, err := db.GetObjectStream(ctx, bucket.Name, path)
-	if !assert.NoError(t, err) {
-		return
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, path, readOnly.Info().Path)
 	assert.Equal(t, TestBucket, readOnly.Info().Bucket.Name)
 	assert.Equal(t, storj.AESGCM, readOnly.Info().Bucket.PathCipher)
 
 	segments, more, err := readOnly.Segments(ctx, 0, 0)
-	if !assert.NoError(t, err) {
-		return
-	}
+	require.NoError(t, err)
 
 	assert.False(t, more)
 	if !assert.Equal(t, 1, len(segments)) {
@@ -228,9 +204,7 @@ func assertStream(ctx context.Context, t *testing.T, db *kvmetainfo.DB, streams 
 
 	data := make([]byte, len(content))
 	n, err := io.ReadFull(download, data)
-	if !assert.NoError(t, err) {
-		return
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, len(content), n)
 	assert.Equal(t, content, data)
@@ -293,9 +267,7 @@ func TestDeleteObject(t *testing.T) {
 func TestListObjectsEmpty(t *testing.T) {
 	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
-		if !assert.NoError(t, err) {
-			return
-		}
+		require.NoError(t, err)
 
 		_, err = db.ListObjects(ctx, "", storj.ListOptions{})
 		assert.True(t, storj.ErrNoBucket.Has(err))
@@ -321,9 +293,7 @@ func TestListObjectsEmpty(t *testing.T) {
 func TestListObjects(t *testing.T) {
 	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
 		bucket, err := db.CreateBucket(ctx, TestBucket, &storj.Bucket{PathCipher: storj.Unencrypted})
-		if !assert.NoError(t, err) {
-			return
-		}
+		require.NoError(t, err)
 
 		filePaths := []string{
 			"a", "aa", "b", "bb", "c",
@@ -336,9 +306,7 @@ func TestListObjects(t *testing.T) {
 		}
 
 		otherBucket, err := db.CreateBucket(ctx, "otherbucket", nil)
-		if !assert.NoError(t, err) {
-			return
-		}
+		require.NoError(t, err)
 
 		upload(ctx, t, db, streams, otherBucket, "file-in-other-bucket", nil)
 
