@@ -6,6 +6,7 @@ package piecestore
 import (
 	"context"
 	"hash"
+	"io"
 
 	"github.com/zeebo/errs"
 
@@ -45,7 +46,7 @@ func (client *Client) Upload(ctx context.Context, limit *pb.OrderLimit2) (*Uploa
 	})
 	if err != nil {
 		_, closeErr := stream.CloseAndRecv()
-		return nil, ErrProtocol.Wrap(combineSendCloseError(err, closeErr))
+		return nil, ErrProtocol.Wrap(combineErrors(err, closeErr))
 	}
 
 	return &Upload{
@@ -68,7 +69,9 @@ func (client *Upload) Write(data []byte) (written int, _ error) {
 
 	fullData := data
 	defer func() {
-		_, _ = client.hash.Write(fullData[:written]) // guaranteed not to return error
+		// write the hash of the data sent to the server
+		// guaranteed not to return error
+		_, _ = client.hash.Write(fullData[:written])
 	}()
 
 	for len(data) > 0 {
@@ -134,7 +137,7 @@ func (client *Upload) Close() (*pb.PieceHash, error) {
 	})
 	if err != nil {
 		_, closeErr := client.stream.CloseAndRecv()
-		return nil, Error.Wrap(combineSendCloseError(err, closeErr))
+		return nil, Error.Wrap(combineErrors(err, closeErr))
 	}
 
 	// exchange signed piece hashes
@@ -145,12 +148,18 @@ func (client *Upload) Close() (*pb.PieceHash, error) {
 	response, closeErr := client.stream.CloseAndRecv()
 	if response == nil || response.Done == nil {
 		// combine all the errors from before
-		return nil, errs.Combine(ErrProtocol.New("expected piece hash"), combineSendCloseError(sendErr, closeErr))
+		return nil, errs.Combine(ErrProtocol.New("expected piece hash"), combineErrors(sendErr, closeErr))
 	}
 
 	// verification
 	verifyErr := client.client.VerifyPieceHash(client.stream.Context(), client.peer, client.limit, response.Done, uplinkHash.Hash)
 
+	// find the final error
+	commErr := combineErrors(sendErr, closeErr)
+	if commErr == io.EOF {
+		commErr = nil
+	}
+
 	// combine all the errors from before
-	return response.Done, errs.Combine(combineSendCloseError(sendErr, closeErr), verifyErr)
+	return response.Done, errs.Combine(commErr, verifyErr)
 }

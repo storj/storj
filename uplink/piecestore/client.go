@@ -57,13 +57,28 @@ func (client *Client) Close() error {
 	return client.conn.Close()
 }
 
-func combineSendCloseError(sendError, closeError error) error {
-	if sendError != nil && closeError != nil {
-		if sendError == io.EOF {
-			sendError = nil
+func combineErrors(errors ...error) error {
+	eof := 0
+	failures := errors[:0]
+	for _, err := range errors {
+		if err == io.EOF {
+			eof++
+			continue
+		}
+		if err != nil {
+			failures = append(failures, err)
 		}
 	}
-	return errs.Combine(closeError, sendError)
+
+	// no error detected
+	if eof == 0 && len(failures) == 0 {
+		return nil
+	}
+	if eof > 0 && len(failures) == 0 {
+		return io.EOF
+	}
+
+	return errs.Combine(failures...)
 }
 
 func (client *Client) nextAllocationStep(previous int64) int64 {

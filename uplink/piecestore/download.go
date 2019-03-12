@@ -43,7 +43,9 @@ func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit2, offse
 
 	peer, err := identity.PeerIdentityFromContext(stream.Context())
 	if err != nil {
-		return nil, ErrInternal.Wrap(err)
+		closeErr := stream.CloseSend()
+		_, recvErr := stream.Recv()
+		return nil, ErrInternal.Wrap(combineErrors(err, closeErr, recvErr))
 	}
 
 	err = stream.Send(&pb.PieceDownloadRequest{
@@ -54,8 +56,9 @@ func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit2, offse
 		},
 	})
 	if err != nil {
-		_, closeErr := stream.Recv()
-		return nil, ErrProtocol.Wrap(combineSendCloseError(err, closeErr))
+		closeErr := stream.CloseSend()
+		_, recvErr := stream.Recv()
+		return nil, ErrProtocol.Wrap(combineErrors(err, closeErr, recvErr))
 	}
 
 	return &Download{
@@ -151,15 +154,15 @@ func (client *Download) Read(data []byte) (read int, _ error) {
 }
 
 func (client *Download) Close() error {
-	sendCloseError := client.stream.CloseSend()
-
+	closeErr := client.stream.CloseSend()
 	_, recvError := client.stream.Recv()
-	// grpc signals good end of stream with io.EOF
-	if recvError == io.EOF {
-		recvError = nil
+
+	finalError := combineErrors(recvError, client.sendError, closeErr)
+	if finalError == io.EOF {
+		finalError = nil
 	}
 
-	return Error.Wrap(combineSendCloseError(sendCloseError, recvError))
+	return Error.Wrap(finalError)
 
 }
 
