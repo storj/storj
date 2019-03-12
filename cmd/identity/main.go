@@ -72,6 +72,11 @@ func init() {
 }
 
 func main() {
+	if writable, err := utils.IsWritable(identityDir); !writable || err != nil {
+		fmt.Printf("%s is not a writeable directory: %s\n", identityDir, err)
+		return
+	}
+
 	process.Exec(rootCmd)
 }
 
@@ -137,10 +142,6 @@ func cmdAuthorize(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
 	serviceDir := serviceDirectory(args[0])
-
-	if writable, err := utils.IsWritable(serviceDir); !writable || err != nil {
-		return errs.New("%s is not a writeable directory: %s", serviceDir, err)
-	}
 
 	authToken := args[1]
 

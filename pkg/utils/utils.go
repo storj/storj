@@ -5,6 +5,7 @@ package utils
 
 import (
 	"os"
+	"path"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -87,20 +88,33 @@ func discardNil(ch chan error) chan error {
 }
 
 // IsWritable determines if a directory is writeable
-func IsWritable(path string) (bool, error) {
-	info, err := os.Stat(path)
+func IsWritable(filepath string) (bool, error) {
+	info, err := os.Stat(filepath)
 	if err != nil {
 		return false, err
 	}
 
 	if !info.IsDir() {
-		return false, errs.New("Path %s is not a directory", path)
+		return false, errs.New("Path %s is not a directory", filepath)
 	}
 
 	// Check if the user bit is enabled in file permission
 	if info.Mode().Perm()&0200 == 0 {
 		return false, errs.New("Write permission bit is not set on this file for user")
 	}
+
+	// Test if user can create file
+	// There is no OS cross-compatible method for
+	// determining if a user has write permissions on a folder.
+	// We can test by attempting to create a file in the folder.
+	testFile := path.Join(filepath, ".perm")
+	file, err := os.Create(testFile) // For read access.
+	if err != nil {
+		return false, errs.New("Write permission bit is not set on this file for user")
+	}
+
+	_ = file.Close()
+	_ = os.Remove(testFile)
 
 	return true, nil
 }
