@@ -267,7 +267,7 @@ func ToChains(chains ...[]*x509.Certificate) [][]*x509.Certificate {
 }
 
 // Status returns the status of the identity cert/key files for the config
-func (is SetupConfig) Status() TLSFilesStatus {
+func (is SetupConfig) Status() (TLSFilesStatus, error) {
 	return statTLSFiles(is.CertPath, is.KeyPath)
 }
 
