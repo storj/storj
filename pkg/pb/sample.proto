@@ -1,0 +1,19 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "pb";
+
+package pb;
+
+service Sample {
+  rpc SampleBidirectional(stream SampleBidirectionalRequest) returns (stream SampleBidirectionalResponse) {}
+}
+
+message SampleBidirectionalRequest {
+  bytes data = 1;
+}
+
+message SampleBidirectionalResponse {
+  bytes data = 1;
+}
