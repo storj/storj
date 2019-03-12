@@ -30,19 +30,19 @@ func TestCertDB(t *testing.T) {
 
 	node0 := testplanet.MustPregeneratedIdentity(0)
 
-	id0, err := certdb.Include(ctx, node0.ID, node0.PeerIdentity().Leaf.Raw)
+	idLeaf, err := certdb.Include(ctx, node0.ID, node0.PeerIdentity().Leaf.Raw)
 	require.NoError(t, err)
 
-	id0other, err := certdb.Include(ctx, node0.ID, node0.PeerIdentity().CA.Raw)
+	idCA, err := certdb.Include(ctx, node0.ID, node0.PeerIdentity().CA.Raw)
 	require.NoError(t, err)
 
-	id0dup, err := certdb.Include(ctx, node0.ID, node0.PeerIdentity().Leaf.Raw)
+	idLeafDuplicate, err := certdb.Include(ctx, node0.ID, node0.PeerIdentity().Leaf.Raw)
 	require.NoError(t, err)
 
-	require.Equal(t, id0, id0dup, "insert duplicate Leaf")
-	require.NotEqual(t, id0, id0other, "insert non-duplicate CA")
+	require.Equal(t, idLeaf, idLeafDuplicate, "insert duplicate Leaf")
+	require.NotEqual(t, idLeaf, idCA, "insert non-duplicate CA")
 
-	cert, err := certdb.LookupByCertID(ctx, id0)
+	cert, err := certdb.LookupByCertID(ctx, idLeaf)
 	require.NoError(t, err, "lookup by id")
 
 	require.Equal(t, node0.PeerIdentity().Leaf.Raw, cert)
