@@ -19,6 +19,8 @@ type Flags struct {
 	SatelliteCount   int
 	StorageNodeCount int
 	Identities       int
+
+	IsDev bool
 }
 
 var printCommands bool
@@ -47,6 +49,7 @@ func main() {
 	rootCmd.PersistentFlags().IntVarP(&flags.Identities, "identities", "", 10, "number of identities to create")
 
 	rootCmd.PersistentFlags().BoolVarP(&printCommands, "print-commands", "x", false, "print commands as they are run")
+	rootCmd.PersistentFlags().BoolVarP(&flags.IsDev, "dev", "", false, "use configuration values tuned for development")
 
 	networkCmd := &cobra.Command{
 		Use:   "network",

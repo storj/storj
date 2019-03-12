@@ -22,7 +22,7 @@ var (
 )
 
 func init() {
-	cfgstruct.Bind(pflag.CommandLine, &identityConfig, cfgstruct.ConfDir("$HOME/.storj/gw"))
+	cfgstruct.Bind(pflag.CommandLine, &identityConfig, true, cfgstruct.ConfDir("$HOME/.storj/gw"))
 }
 
 func main() {
