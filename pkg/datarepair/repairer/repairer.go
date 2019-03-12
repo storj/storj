@@ -71,6 +71,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// Initialize segment repairer
+	// TODO: replace overlay client with overlay cache (and get rid of service.config.OverlayAddr)
 	var oc overlay.Client
 	oc, err = overlay.NewClientContext(ctx, service.transport, service.config.OverlayAddr)
 	if err != nil {
