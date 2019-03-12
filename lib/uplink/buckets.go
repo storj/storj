@@ -8,6 +8,7 @@ import (
 	"errors"
 
 	"storj.io/storj/pkg/storj"
+	ul "storj.io/storj/uplink"
 )
 
 // BucketOpts holds the cipher, path, key, and enc. scheme for each bucket since they
@@ -22,6 +23,7 @@ type BucketOpts struct {
 // CreateBucketOptions holds the bucket opts
 type CreateBucketOptions struct {
 	PathCipher storj.Cipher
+	EncConfig  ul.EncryptionConfig // EncConfig is the default encryption configuration to create buckets with
 	// this differs from storj.CreateBucket's choice of just using storj.Bucket
 	// by not having 2/3 unsettable fields.
 }

@@ -37,9 +37,9 @@ func TestNewUplink(t *testing.T) {
 				cfg:           Config{},
 			},
 			want: &Uplink{
-				ID:            testIdentity,
-				SatelliteAddr: "satellite.example.com",
-				Config:        Config{},
+				id:            testIdentity,
+				satelliteAddr: "satellite.example.com",
+				config:        Config{},
 			},
 		},
 	}

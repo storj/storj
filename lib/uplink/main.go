@@ -10,7 +10,6 @@ import (
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
-	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/storj"
 	ul "storj.io/storj/uplink"
@@ -32,8 +31,9 @@ type Config struct {
 
 // Session represents a specific access session.
 type Session struct {
+	name            string
 	TransportClient transport.Client
-	Gateway         *miniogw.Gateway
+	Gateway         *Client
 }
 
 // Access is all of the access information an application needs to store and
@@ -62,18 +62,18 @@ type Access struct {
 // a specific Satellite and caches connections and resources, allowing one to
 // create sessions delineated by specific access controls.
 type Uplink struct {
-	ID            *identity.FullIdentity
-	Session       *Session
-	SatelliteAddr string
-	Config        Config
+	id            *identity.FullIdentity
+	session       []*Session
+	satelliteAddr string
+	config        Config
 }
 
 // NewUplink creates a new Uplink
 func NewUplink(ident *identity.FullIdentity, satelliteAddr string, cfg Config) *Uplink {
 	return &Uplink{
-		ID:            ident,
-		SatelliteAddr: satelliteAddr,
-		Config:        cfg,
+		id:            ident,
+		satelliteAddr: satelliteAddr,
+		config:        cfg,
 	}
 }
 
@@ -89,23 +89,23 @@ func (a *Access) Serialize() ([]byte, error) {
 
 // NewSession creates a Session with an Access struct.
 func (u *Uplink) NewSession(ctx context.Context, access Access) error {
-	opts, err := tlsopts.NewOptions(u.ID, u.Config.TLSConfig)
+	opts, err := tlsopts.NewOptions(u.id, u.config.TLSConfig)
 	if err != nil {
 		return err
 	}
 
 	tc := transport.NewClient(opts)
 
-	gateway, err := getGateway(ctx, u.ID)
+	gateway, err := getGateway(ctx, u.id)
 	if err != nil {
 		return err
 	}
-
-	u.Session = &Session{
+	session := &Session{
 		TransportClient: tc,
 		Gateway:         gateway,
 	}
 
+	u.session = append(u.session, session)
 	return nil
 }
 
@@ -115,7 +115,7 @@ func (s *Session) Access(ctx context.Context, caveats ...Caveat) (Access, error)
 	panic("TODO")
 }
 
-func getGateway(ctx context.Context, identity *identity.FullIdentity) (*miniogw.Gateway, error) {
+func getGateway(ctx context.Context, identity *identity.FullIdentity) (*Client, error) {
 	// TODO: Dylan - Need to merge these defaults with Configs from this library
 	// TODO: (dylan) Need to allow users of library to set defaults easier as well
 	config := ul.Config{
@@ -130,7 +130,7 @@ func getGateway(ctx context.Context, identity *identity.FullIdentity) (*miniogw.
 		return nil, err
 	}
 
-	gateway := miniogw.NewStorjGateway(
+	client := NewStorjUplink(
 		metainfo,
 		streams,
 		storj.AESGCM,
@@ -138,5 +138,5 @@ func getGateway(ctx context.Context, identity *identity.FullIdentity) (*miniogw.
 		kvmetainfo.DefaultRS,
 	)
 
-	return gateway, nil
+	return client, nil
 }
