@@ -57,15 +57,6 @@ func (client *Client) Close() error {
 	return client.conn.Close()
 }
 
-func combineSendCloseError(sendError, closeError error) error {
-	if sendError != nil && closeError != nil {
-		if sendError == io.EOF {
-			sendError = nil
-		}
-	}
-	return errs.Combine(closeError, sendError)
-}
-
 func (client *Client) nextAllocationStep(previous int64) int64 {
 	// TODO: ensure that this is frame idependent
 	next := previous * 3 / 2
@@ -73,4 +64,11 @@ func (client *Client) nextAllocationStep(previous int64) int64 {
 		next = client.config.MaximumStep
 	}
 	return next
+}
+
+func ignoreEOF(err error) error {
+	if err == io.EOF {
+		return nil
+	}
+	return err
 }

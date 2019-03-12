@@ -45,7 +45,7 @@ func (client *Client) Upload(ctx context.Context, limit *pb.OrderLimit2) (*Uploa
 	})
 	if err != nil {
 		_, closeErr := stream.CloseAndRecv()
-		return nil, ErrProtocol.Wrap(combineSendCloseError(err, closeErr))
+		return nil, ErrProtocol.Wrap(errs.Combine(err, closeErr))
 	}
 
 	return &Upload{
@@ -68,7 +68,9 @@ func (client *Upload) Write(data []byte) (written int, _ error) {
 
 	fullData := data
 	defer func() {
-		_, _ = client.hash.Write(fullData[:written]) // guaranteed not to return error
+		// write the hash of the data sent to the server
+		// guaranteed not to return error
+		_, _ = client.hash.Write(fullData[:written])
 	}()
 
 	for len(data) > 0 {
@@ -123,6 +125,8 @@ func (client *Upload) Write(data []byte) (written int, _ error) {
 
 func (client *Upload) Close() (*pb.PieceHash, error) {
 	if client.sendError != nil {
+		// something happened during sending, try to figure out what exactly
+		// since sendError was already reported, we don't need to rehandle it.
 		_, closeErr := client.stream.CloseAndRecv()
 		return nil, Error.Wrap(closeErr)
 	}
@@ -133,24 +137,32 @@ func (client *Upload) Close() (*pb.PieceHash, error) {
 		Hash:    client.hash.Sum(nil),
 	})
 	if err != nil {
-		_, closeErr := client.stream.CloseAndRecv()
-		return nil, Error.Wrap(combineSendCloseError(err, closeErr))
+		// failed to sign, let's close the sending side, no need to wait for a response
+		closeErr := client.stream.CloseSend()
+		// closeErr being io.EOF doesn't inform us about anything
+		return nil, Error.Wrap(errs.Combine(err, ignoreEOF(closeErr)))
 	}
 
 	// exchange signed piece hashes
+	// 1. send our piece hash
 	sendErr := client.stream.Send(&pb.PieceUploadRequest{
 		Done: uplinkHash,
 	})
 
+	// 2. wait for a piece hash as a response
 	response, closeErr := client.stream.CloseAndRecv()
 	if response == nil || response.Done == nil {
 		// combine all the errors from before
-		return nil, errs.Combine(ErrProtocol.New("expected piece hash"), combineSendCloseError(sendErr, closeErr))
+		// sendErr is io.EOF when failed to send, so don't care
+		// closeErr is io.EOF when storage node closed before sending us a response
+		return nil, errs.Combine(ErrProtocol.New("expected piece hash"), ignoreEOF(sendErr), ignoreEOF(closeErr))
 	}
 
 	// verification
 	verifyErr := client.client.VerifyPieceHash(client.stream.Context(), client.peer, client.limit, response.Done, uplinkHash.Hash)
 
 	// combine all the errors from before
-	return response.Done, errs.Combine(combineSendCloseError(sendErr, closeErr), verifyErr)
+	// sendErr is io.EOF when we failed to send
+	// closeErr is io.EOF when storage node closed properly
+	return response.Done, errs.Combine(verifyErr, ignoreEOF(sendErr), ignoreEOF(closeErr))
 }

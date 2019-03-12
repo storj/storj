@@ -75,6 +75,7 @@ func (endpoint *Endpoint) VerifyOrder(ctx context.Context, peer *identity.PeerId
 	if !bytes.Equal(order.SerialNumber, limit.SerialNumber) {
 		return ErrProtocol.New("order serial number changed during upload") // TODO: report grpc status bad message
 	}
+	// TODO: add check for minimum allocation step
 	if order.Amount < largestOrderAmount {
 		return ErrProtocol.New("order contained smaller amount=%v, previous=%v", order.Amount, largestOrderAmount) // TODO: report grpc status bad message
 	}

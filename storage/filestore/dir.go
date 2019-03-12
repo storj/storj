@@ -147,7 +147,11 @@ func (dir *Dir) Open(ref storage.BlobRef) (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	return openFileReadOnly(path, blobPermission)
+	file, err := openFileReadOnly(path, blobPermission)
+	if err != nil {
+		return nil, Error.New("unable to open %q: %v", path, err)
+	}
+	return file, nil
 }
 
 // Delete deletes file with the specified ref

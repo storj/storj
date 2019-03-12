@@ -48,6 +48,8 @@ func NewService(log *zap.Logger, sdb statdb.DB, interval time.Duration, maxRetri
 
 // Run runs auditing service
 func (service *Service) Run(ctx context.Context) (err error) {
+	return nil
+
 	defer mon.Task()(&ctx)(&err)
 	service.log.Info("Audit cron is starting up")
 	for {

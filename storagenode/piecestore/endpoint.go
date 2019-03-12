@@ -165,9 +165,13 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 	defer pieceWriter.Cancel() // similarly how transcation Rollback works
 
 	largestOrder := &pb.Order2{}
+	defer endpoint.SaveOrder(ctx, limit, largestOrder)
+
 	for {
 		message, err = stream.Recv() // TODO: reuse messages to avoid allocations
-		if err != nil {
+		if err == io.EOF {
+			return ErrProtocol.New("unexpected EOF")
+		} else if err != nil {
 			return ErrProtocol.Wrap(err) // TODO: report grpc status bad message
 		}
 		if message == nil {
@@ -176,7 +180,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 
 		switch {
 		default:
-			return ErrProtocol.New("message didn't contain any of order, chunk nor done") // TODO: report grpc status bad message
+			return ErrProtocol.New("message didn't contain any of order, chunk or done") // TODO: report grpc status bad message
 
 		case message.Order != nil:
 			if err := endpoint.VerifyOrder(ctx, peer, limit, message.Order, largestOrder.Amount); err != nil {
@@ -210,15 +214,8 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 
 			// TODO: do this in a goroutine
 			{
-				// TODO: since we have successfully commited, we should try to later recover the orders
-				// from piece storage
 				if err := endpoint.pieceMeta.Add(ctx, limit, message.Done); err != nil {
 					return ErrInternal.Wrap(err)
-				}
-				if largestOrder.Amount > 0 {
-					if err := endpoint.orders.Add(ctx, limit, largestOrder); err != nil {
-						return ErrInternal.Wrap(err)
-					}
 				}
 			}
 
@@ -230,9 +227,10 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 				return ErrInternal.Wrap(err)
 			}
 
-			return stream.SendAndClose(&pb.PieceUploadResponse{
+			closeErr := stream.SendAndClose(&pb.PieceUploadResponse{
 				Done: storageNodeHash,
 			})
+			return ErrProtocol.Wrap(ignoreEOF(closeErr))
 		}
 	}
 }
@@ -291,7 +289,6 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 	}
 
 	throttle := sync2.NewThrottle()
-
 	// TODO: see whether this can be implemented without a goroutine
 
 	group, ctx := errgroup.WithContext(ctx)
@@ -306,7 +303,8 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 			// TODO: add timeout here
 			chunkSize, err := throttle.ConsumeOrWait(tryToSend)
 			if err != nil {
-				return ErrInternal.Wrap(err)
+				// this can happen only because uplink decided to close the connection
+				return nil
 			}
 
 			chunkData := make([]byte, chunkSize)
@@ -327,7 +325,9 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 				},
 			})
 			if err != nil {
-				return ErrProtocol.Wrap(err)
+				// err is io.EOF when uplink asked for a piece, but decided not to retrieve it,
+				// no need to propagate it
+				return ErrProtocol.Wrap(ignoreEOF(err))
 			}
 
 			currentOffset += chunkSize
@@ -339,15 +339,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 
 	recvErr := func() (err error) {
 		largestOrder := &pb.Order2{}
-
-		defer func() {
-			// TODO: do this in a goroutine
-			if largestOrder != nil {
-				if err2 := endpoint.orders.Add(ctx, limit, largestOrder); err2 != nil {
-					err = errs.Combine(err, ErrInternal.Wrap(err2))
-				}
-			}
-		}()
+		defer endpoint.SaveOrder(ctx, limit, largestOrder)
 
 		// ensure that we always terminate sending goroutine
 		defer throttle.Fail(io.EOF)
@@ -356,22 +348,21 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 			// TODO: check errors
 			// TODO: add timeout here
 			message, err = stream.Recv()
-			if message == nil {
-				if err != nil {
-					return ErrProtocol.Wrap(err)
-				} else {
-					return ErrProtocol.New("expected order as the message")
-				}
+			if err != nil {
+				// err is io.EOF when uplink closed the connection, no need to return error
+				return ErrProtocol.Wrap(ignoreEOF(err))
 			}
-			if message.Order == nil {
+
+			if message == nil || message.Order == nil {
 				return ErrProtocol.New("expected order as the message")
 			}
+
 			if err := endpoint.VerifyOrder(ctx, peer, limit, message.Order, largestOrder.Amount); err != nil {
 				return err
 			}
 			if err := throttle.Produce(message.Order.Amount - largestOrder.Amount); err != nil {
 				// shouldn't happen since only receiving side is calling Fail
-				return ErrProtocol.Wrap(err)
+				return ErrInternal.Wrap(err)
 			}
 			largestOrder = message.Order
 		}
@@ -379,9 +370,18 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 
 	// ensure we wait for sender to complete
 	sendErr := group.Wait()
-
-	// TODO: combine recvErr and sendErr somehow better
 	return Error.Wrap(errs.Combine(sendErr, recvErr))
+}
+
+func (endpoint *Endpoint) SaveOrder(ctx context.Context, limit *pb.OrderLimit2, order *pb.Order2) {
+	// TODO: do this in a goroutine
+	if order == nil || order.Amount <= 0 {
+		return
+	}
+	err := endpoint.orders.Add(ctx, limit, order)
+	if err != nil {
+		endpoint.log.Error("failed to add order", zap.Error(err))
+	}
 }
 
 func min(a, b int64) int64 {
@@ -389,4 +389,11 @@ func min(a, b int64) int64 {
 		return a
 	}
 	return b
+}
+
+func ignoreEOF(err error) error {
+	if err == io.EOF {
+		return nil
+	}
+	return err
 }
