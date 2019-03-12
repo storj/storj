@@ -44,7 +44,7 @@ var (
 	// ErrArgs throws when there are errors with CLI args
 	ErrArgs = errs.Class("error with CLI args:")
 
-	limit int64
+	irreparableLimit int64
 
 	// Commander CLI
 	rootCmd = &cobra.Command{
@@ -445,7 +445,7 @@ func CreateCSVStats(cmd *cobra.Command, args []string) (err error) {
 }
 
 func getSegments(cmd *cobra.Command, args []string) error {
-	if limit <= int64(0) {
+	if irreparableLimit <= int64(0) {
 		return ErrArgs.New("limit must be greater than 0")
 	}
 
@@ -454,13 +454,12 @@ func getSegments(cmd *cobra.Command, args []string) error {
 		return ErrInspectorDial.Wrap(err)
 	}
 
-	lim := limit
-	length := lim
+	length := irreparableLimit
 	var offset int64
 
 	// query DB and paginate results
-	for length >= lim {
-		res, err := i.irrdbclient.ListSegments(context.Background(), &pb.ListSegmentsRequest{Limit: lim, Offset: offset})
+	for length >= irreparableLimit {
+		res, err := i.irrdbclient.ListSegments(context.Background(), &pb.ListSegmentsRequest{Limit: irreparableLimit, Offset: offset})
 		if err != nil {
 			return ErrRequest.Wrap(err)
 		}
@@ -472,7 +471,7 @@ func getSegments(cmd *cobra.Command, args []string) error {
 
 		length = int64(len(res.Segments))
 		offset += length
-		if length < lim {
+		if length < irreparableLimit {
 			return nil
 		}
 
@@ -513,7 +512,7 @@ func init() {
 	statsCmd.AddCommand(createStatsCmd)
 	statsCmd.AddCommand(createCSVStatsCmd)
 
-	irreparableCmd.Flags().Int64Var(&limit, "limit", 1000, "max number of results per page")
+	irreparableCmd.Flags().Int64Var(&irreparableLimit, "limit", 1000, "max number of results per page")
 
 	flag.Parse()
 }
