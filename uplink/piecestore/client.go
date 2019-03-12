@@ -25,7 +25,7 @@ type Config struct {
 
 var DefaultConfig = Config{
 	InitialStep: 256 * memory.KiB.Int64(),
-	MaximumStep: 5 * memory.MiB.Int64(),
+	MaximumStep: 1 * memory.MiB.Int64(),
 }
 
 type Client struct {
