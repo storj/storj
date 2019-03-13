@@ -68,9 +68,9 @@ func init() {
 	idCmd.AddCommand(leafExtCmd)
 	idCmd.AddCommand(revokeLeafCmd)
 
-	cfgstruct.Bind(newIDCmd.Flags(), &newIDCfg, cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.Bind(leafExtCmd.Flags(), &leafExtCfg, cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.Bind(revokeLeafCmd.Flags(), &revokeLeafCfg, cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(newIDCmd.Flags(), &newIDCfg, isDev, cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(leafExtCmd.Flags(), &leafExtCfg, isDev, cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(revokeLeafCmd.Flags(), &revokeLeafCfg, isDev, cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func cmdNewID(cmd *cobra.Command, args []string) (err error) {
@@ -79,7 +79,10 @@ func cmdNewID(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	s := newIDCfg.Identity.Status()
+	s, err := newIDCfg.Identity.Status()
+	if err != nil {
+		return err
+	}
 	if s == identity.NoCertNoKey || newIDCfg.Identity.Overwrite {
 		_, err := newIDCfg.Identity.Create(ca)
 		return err
