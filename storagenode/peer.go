@@ -206,13 +206,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 		}
 
 		peer.Storage2.Store = pieces.NewStore(peer.Log.Named("pieces"), peer.DB.Pieces())
-		// PieceMeta piecestore.PieceMeta
 
 		peer.Storage2.Endpoint, err = piecestore.NewEndpoint(
 			peer.Log.Named("piecestore"),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Storage2.Trust,
 			peer.Storage2.Store,
+			peer.DB.PieceInfo(),
 			peer.DB.Orders(),
 			peer.DB.UsedSerials(),
 			config.Storage2,

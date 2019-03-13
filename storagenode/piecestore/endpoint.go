@@ -8,6 +8,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -44,11 +45,12 @@ type Endpoint struct {
 	trust  *trust.Pool
 
 	store       *pieces.Store
+	pieceinfo   pieces.DB
 	orders      orders.DB
 	usedSerials UsedSerials
 }
 
-func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, store *pieces.Store, orders orders.DB, usedSerials UsedSerials, config Config) (*Endpoint, error) {
+func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, store *pieces.Store, pieceinfo pieces.DB, orders orders.DB, usedSerials UsedSerials, config Config) (*Endpoint, error) {
 	return &Endpoint{
 		log:    log,
 		config: config,
@@ -57,6 +59,7 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, stor
 		trust:  trust,
 
 		store:       store,
+		pieceinfo:   pieceinfo,
 		orders:      orders,
 		usedSerials: usedSerials,
 	}, nil
@@ -75,8 +78,7 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 	}
 
 	// TODO: parallelize this and maybe return early
-	// pieceInfoErr := endpoint.pieceMeta.Delete(ctx, delete.Limit.SatelliteId, delete.Limit.PieceId)
-	var pieceInfoErr error
+	pieceInfoErr := endpoint.pieceinfo.Delete(ctx, delete.Limit.SatelliteId, delete.Limit.PieceId)
 	pieceErr := endpoint.store.Delete(ctx, delete.Limit.SatelliteId, delete.Limit.PieceId)
 
 	if err := errs.Combine(pieceInfoErr, pieceErr); err != nil {
@@ -181,9 +183,26 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 
 			// TODO: do this in a goroutine
 			{
-				// if err := endpoint.pieceMeta.Add(ctx, limit, message.Done); err != nil {
-				// 	return ErrInternal.Wrap(err)
-				// }
+				expiration, err := ptypes.Timestamp(limit.PieceExpiration)
+				if err != nil {
+					return ErrInternal.Wrap(err)
+				}
+
+				// TODO: maybe this should be as a pieceWriter.Commit(ctx, info)
+				info := &pieces.Info{
+					SatelliteID: limit.SatelliteId,
+
+					PieceID:         limit.PieceId,
+					PieceSize:       pieceWriter.Size(),
+					PieceExpiration: expiration,
+
+					UplinkPieceHash: message.Done,
+					Uplink:          peer,
+				}
+
+				if err := endpoint.pieceinfo.Add(ctx, info); err != nil {
+					return ErrInternal.Wrap(err)
+				}
 			}
 
 			storageNodeHash, err := signing.SignPieceHash(endpoint.signer, &pb.PieceHash{
