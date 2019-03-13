@@ -5,6 +5,7 @@ package uplink
 
 import (
 	"context"
+	"fmt"
 
 	"storj.io/storj/pkg/transport"
 
@@ -27,13 +28,16 @@ type Config struct {
 	MaxInlineSize int
 	SegmentSize   int64
 	TLSConfig     tlsopts.Config
+
+	// Default Configs
+	SatelliteAddr string
+	APIKey        string
 }
 
 // Session represents a specific access session.
 type Session struct {
-	name            string
-	TransportClient transport.Client
-	Gateway         *Client
+	transport transport.Client
+	client    *Client
 }
 
 // Access is all of the access information an application needs to store and
@@ -63,7 +67,7 @@ type Access struct {
 // create sessions delineated by specific access controls.
 type Uplink struct {
 	id            *identity.FullIdentity
-	session       []*Session
+	session       map[string]*Session
 	satelliteAddr string
 	config        Config
 }
@@ -77,35 +81,27 @@ func NewUplink(ident *identity.FullIdentity, satelliteAddr string, cfg Config) *
 	}
 }
 
-// ParseAccess parses a serialized Access
-func ParseAccess(data []byte) (Access, error) {
-	panic("TODO")
-}
-
-// Serialize serializes an Access message
-func (a *Access) Serialize() ([]byte, error) {
-	panic("TODO")
-}
-
 // NewSession creates a Session with an Access struct.
-func (u *Uplink) NewSession(ctx context.Context, access Access) error {
+func (u *Uplink) NewSession(ctx context.Context, name string, access Access) error {
 	opts, err := tlsopts.NewOptions(u.id, u.config.TLSConfig)
 	if err != nil {
+		fmt.Printf("tlsopts error: %+v\n", err)
 		return err
 	}
 
 	tc := transport.NewClient(opts)
-
-	gateway, err := getGateway(ctx, u.id)
+	gateway, err := u.NewClient(ctx, u.id)
 	if err != nil {
+		fmt.Printf("get gateway error: %+v\n", err)
 		return err
 	}
-	session := &Session{
-		TransportClient: tc,
-		Gateway:         gateway,
+
+	// TODO: Only handling this via name until I get a better alternative implemented.
+	u.session[name] = &Session{
+		transport: tc,
+		client:    gateway,
 	}
 
-	u.session = append(u.session, session)
 	return nil
 }
 
@@ -115,14 +111,21 @@ func (s *Session) Access(ctx context.Context, caveats ...Caveat) (Access, error)
 	panic("TODO")
 }
 
-func getGateway(ctx context.Context, identity *identity.FullIdentity) (*Client, error) {
-	// TODO: Dylan - Need to merge these defaults with Configs from this library
+// NewClient returns a gateway instance
+func (u *Uplink) NewClient(ctx context.Context, identity *identity.FullIdentity) (*Client, error) {
+	// TODO: (dylan) Need to merge these defaults with Configs from this library
 	// TODO: (dylan) Need to allow users of library to set defaults easier as well
 	config := ul.Config{
-		Client: ul.ClientConfig{},
-		RS:     ul.RSConfig{},
-		Enc:    ul.EncryptionConfig{},
-		TLS:    tlsopts.Config{},
+		Client: ul.ClientConfig{
+			OverlayAddr:   u.config.SatelliteAddr,
+			PointerDBAddr: u.config.SatelliteAddr,
+
+			// TODO(dylan): This needs to change to macaroons eventually.
+			APIKey: u.config.APIKey,
+		},
+		RS:  ul.RSConfig{},
+		Enc: ul.EncryptionConfig{},
+		TLS: tlsopts.Config{},
 	}
 
 	metainfo, streams, err := config.GetMetainfo(ctx, identity)

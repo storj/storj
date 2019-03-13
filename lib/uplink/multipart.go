@@ -173,8 +173,8 @@ func (client *Client) ListObjectParts(ctx context.Context, bucket, object, uploa
 }
 
 // TODO: implement
-// func (layer *gatewayLayer) ListMultipartUploads(ctx context.Context, bucket, prefix, keyMarker, uploadIDMarker, delimiter string, maxUploads int) (result minio.ListMultipartsInfo, err error) {
-// func (layer *gatewayLayer) CopyObjectPart(ctx context.Context, srcBucket, srcObject, destBucket, destObject string, uploadID string, partID int, startOffset int64, length int64, srcInfo minio.ObjectInfo) (info minio.PartInfo, err error) {
+// func (client *Client) ListMultipartUploads(ctx context.Context, bucket, prefix, keyMarker, uploadIDMarker, delimiter string, maxUploads int) (result minio.ListMultipartsInfo, err error) {
+// func (client *Client) CopyObjectPart(ctx context.Context, srcBucket, srcObject, destBucket, destObject string, uploadID string, partID int, startOffset int64, length int64, srcInfo minio.ObjectInfo) (info minio.PartInfo, err error) {
 
 // MultipartUploads manages pending multipart uploads
 type MultipartUploads struct {
@@ -190,7 +190,7 @@ func NewMultipartUploads() *MultipartUploads {
 	}
 }
 
-// Create creates a new upload
+// Create starts a new multipart upload and returns a *MultipartUpload or error if there were any issues.
 func (uploads *MultipartUploads) Create(bucket, object string, metadata map[string]string) (*MultipartUpload, error) {
 	uploads.mu.Lock()
 	defer uploads.mu.Unlock()
