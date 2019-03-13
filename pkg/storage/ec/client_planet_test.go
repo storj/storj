@@ -4,10 +4,12 @@
 package ecclient_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"testing"
 	"time"
 
@@ -34,31 +36,43 @@ const (
 )
 
 func TestECClient(t *testing.T) {
-	runTest(t, func(ctx context.Context, planet *testplanet.Planet, ec ecclient.Client) {
-		k := storageNodes / 2
-		n := storageNodes
-		fc, err := infectious.NewFEC(k, n)
-		require.NoError(t, err)
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
-		es := eestream.NewRSScheme(fc, dataSize.Int()/n)
-		rs, err := eestream.NewRedundancyStrategy(es, 0, 0)
-		require.NoError(t, err)
+	planet, err := testplanet.New(t, 1, storageNodes, 1)
+	if !assert.NoError(t, err) {
+		return
+	}
 
-		successfulNodes, successfulHashes := testPut(ctx, t, planet, ec, rs)
-		if t.Failed() {
-			return
-		}
+	defer ctx.Check(planet.Shutdown)
 
-		testGet(ctx, t, planet, ec, es, successfulNodes, successfulHashes)
-		if t.Failed() {
-			return
-		}
+	planet.Start(ctx)
 
-		testDelete(ctx, t, planet, ec, successfulNodes, successfulHashes)
-	})
+	ec := ecclient.NewClient(planet.Uplinks[0].Transport, 0)
+
+	k := storageNodes / 2
+	n := storageNodes
+	fc, err := infectious.NewFEC(k, n)
+	require.NoError(t, err)
+
+	es := eestream.NewRSScheme(fc, dataSize.Int()/n)
+	rs, err := eestream.NewRedundancyStrategy(es, 0, 0)
+	require.NoError(t, err)
+
+	data, err := ioutil.ReadAll(io.LimitReader(rand.Reader, dataSize.Int64()))
+	require.NoError(t, err)
+
+	// Erasure encode some random data and upload the pieces
+	successfulNodes, successfulHashes := testPut(ctx, t, planet, ec, rs, data)
+
+	// Download the pieces and erasure decode the data
+	testGet(ctx, t, planet, ec, es, data, successfulNodes, successfulHashes)
+
+	// Delete the pieces
+	testDelete(ctx, t, planet, ec, successfulNodes, successfulHashes)
 }
 
-func testPut(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ecclient.Client, rs eestream.RedundancyStrategy) ([]*pb.Node, []*pb.PieceHash) {
+func testPut(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ecclient.Client, rs eestream.RedundancyStrategy, data []byte) ([]*pb.Node, []*pb.PieceHash) {
 	var err error
 	limits := make([]*pb.AddressedOrderLimit, rs.TotalCount())
 	for i := 0; i < len(limits); i++ {
@@ -68,7 +82,7 @@ func testPut(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ec
 
 	ttl := time.Now()
 
-	r := io.LimitReader(rand.Reader, dataSize.Int64())
+	r := bytes.NewReader(data)
 
 	successfulNodes, successfulHashes, err := ec.Put(ctx, limits, rs, r, ttl)
 
@@ -97,7 +111,7 @@ func testPut(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ec
 	return successfulNodes, successfulHashes
 }
 
-func testGet(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ecclient.Client, es eestream.ErasureScheme, successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash) {
+func testGet(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ecclient.Client, es eestream.ErasureScheme, data []byte, successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash) {
 	var err error
 	limits := make([]*pb.AddressedOrderLimit, es.TotalCount())
 	for i := 0; i < len(limits); i++ {
@@ -108,14 +122,15 @@ func testGet(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ec
 	}
 
 	rr, err := ec.Get(ctx, limits, es, dataSize.Int64())
+	require.NoError(t, err)
 
-	if assert.NoError(t, err) {
-		assert.NotNil(t, rr)
-		r, err := rr.Range(ctx, 0, 0)
-		assert.NoError(t, err)
-		r.Close()
-		assert.NoError(t, err)
-	}
+	r, err := rr.Range(ctx, 0, rr.Size())
+	require.NoError(t, err)
+	readData, err := ioutil.ReadAll(r)
+	require.NoError(t, err)
+	assert.Equal(t, data, readData)
+	r.Close()
+	require.NoError(t, err)
 }
 
 func testDelete(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ecclient.Client, successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash) {
@@ -131,24 +146,6 @@ func testDelete(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec
 	err = ec.Delete(ctx, limits)
 
 	assert.NoError(t, err)
-}
-
-func runTest(t *testing.T, test func(context.Context, *testplanet.Planet, ecclient.Client)) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	planet, err := testplanet.New(t, 1, storageNodes, 1)
-	if !assert.NoError(t, err) {
-		return
-	}
-
-	defer ctx.Check(planet.Shutdown)
-
-	planet.Start(ctx)
-
-	ec := ecclient.NewClient(planet.Uplinks[0].Transport, 0)
-
-	test(ctx, planet, ec)
 }
 
 func newAddressedOrderLimit(action pb.Action, satellite *satellite.Peer, uplink *testplanet.Uplink, storageNode *storagenode.Peer, pieceID storj.PieceID2) (*pb.AddressedOrderLimit, error) {
