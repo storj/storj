@@ -10,6 +10,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/storagenode/piecestore"
 )
 
 type usedSerials struct {
@@ -17,7 +18,10 @@ type usedSerials struct {
 }
 
 // UsedSerials returns certificate database.
-func (db *infodb) UsedSerials() usedSerials { return usedSerials{db} }
+func (db *DB) UsedSerials() piecestore.UsedSerials { return db.info.UsedSerials() }
+
+// UsedSerials returns certificate database.
+func (db *infodb) UsedSerials() piecestore.UsedSerials { return &usedSerials{db} }
 
 // Add adds a serial to the database.
 func (db *usedSerials) Add(ctx context.Context, satelliteID storj.NodeID, serialNumber []byte, expiration time.Time) error {
@@ -40,12 +44,9 @@ func (db *usedSerials) DeleteExpired(ctx context.Context, now time.Time) error {
 	return ErrInfo.Wrap(err)
 }
 
-// SerialNumberFn is callback from IterateAll
-type SerialNumberFn func(satelliteID storj.NodeID, serialNumber []byte, expiration time.Time)
-
 // IterateAll iterates all serials.
 // Note, this will lock the database and should only be used during startup.
-func (db *usedSerials) IterateAll(ctx context.Context, fn SerialNumberFn) (err error) {
+func (db *usedSerials) IterateAll(ctx context.Context, fn piecestore.SerialNumberFn) (err error) {
 	defer db.locked()()
 
 	rows, err := db.db.Query(`SELECT satellite_id, serial_number, expiration FROM used_serial`)

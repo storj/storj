@@ -29,6 +29,7 @@ const (
 // Error is the default error class.
 var Error = errs.Class("pieces error")
 
+// Info contains all the information we need to know about a Piece to manage them.
 type Info struct {
 	SatelliteID storj.NodeID
 
@@ -38,6 +39,14 @@ type Info struct {
 
 	UplinkPieceHash *pb.PieceHash
 	Uplink          *identity.PeerIdentity
+}
+
+// DB stores meta information about a piece, the actual piece is stored in storage.Blobs
+type DB interface {
+	// Add inserts Info to the database.
+	Add(context.Context, *Info) error
+	// Get returns Info about a piece.
+	Get(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID2) (*Info, error)
 }
 
 // Store implements storing pieces onto a blob storage implementation.

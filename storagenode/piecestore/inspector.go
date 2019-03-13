@@ -13,5 +13,5 @@ import (
 type Inspector struct {
 	pieces   *pieces.Store
 	kademlia *kademlia.Kademlia
-	orders   orders.Table
+	orders   orders.DB
 }
