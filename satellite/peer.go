@@ -303,8 +303,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		}
 
 		peer.Metainfo.Database = storelogger.New(peer.Log.Named("pdb"), db)
-		peer.Metainfo.Service = pointerdb.NewService(peer.Log.Named("pointerdb"), peer.Metainfo.Database)
 		peer.Metainfo.Allocation = pointerdb.NewAllocationSigner(peer.Identity, config.PointerDB.BwExpiration, peer.DB.CertDB())
+		peer.Metainfo.Service = pointerdb.NewService(peer.Log.Named("pointerdb"), peer.Metainfo.Database, peer.Metainfo.Allocation, peer.Overlay.Service)
 		peer.Metainfo.Endpoint = pointerdb.NewServer(peer.Log.Named("pointerdb:endpoint"),
 			peer.Metainfo.Service,
 			peer.Metainfo.Allocation,
@@ -335,10 +335,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		if config.Repairer.OverlayAddr == "" {
 			config.Repairer.OverlayAddr = peer.Addr()
 		}
-		if config.Repairer.PointerDBAddr == "" {
-			config.Repairer.PointerDBAddr = peer.Addr()
-		}
-		peer.Repair.Repairer = repairer.NewService(peer.DB.RepairQueue(), &config.Repairer, peer.Transport, config.Repairer.Interval, config.Repairer.MaxRepair)
+		peer.Repair.Repairer = repairer.NewService(peer.DB.RepairQueue(),
+			&config.Repairer,
+			peer.Transport,
+			config.Repairer.Interval,
+			config.Repairer.MaxRepair,
+			peer.Metainfo.Service,
+		)
 	}
 
 	{ // setup audit

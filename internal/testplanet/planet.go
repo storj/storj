@@ -427,12 +427,10 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				Interval: 30 * time.Second,
 			},
 			Repairer: repairer.Config{
-				MaxRepair:     10,
-				Interval:      time.Hour,
-				OverlayAddr:   "", // overridden in satellite.New
-				PointerDBAddr: "", // overridden in satellite.New
-				MaxBufferMem:  4 * memory.MB,
-				APIKey:        "",
+				MaxRepair:    10,
+				Interval:     time.Hour,
+				OverlayAddr:  "", // overridden in satellite.New
+				MaxBufferMem: 4 * memory.MB,
 			},
 			Audit: audit.Config{
 				MaxRetriesStatDB: 0,

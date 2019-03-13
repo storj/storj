@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
-	"flag"
 	"fmt"
 	"strings"
 	"testing"
@@ -680,11 +679,6 @@ func initEnv(planet *testplanet.Planet) (minio.ObjectLayer, storj.Metainfo, stre
 	}
 
 	TestAPIKey = apiKey.String()
-
-	err = flag.Set("pointer-db.auth.api-key", TestAPIKey)
-	if err != nil {
-		return nil, nil, nil, err
-	}
 
 	oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
 	if err != nil {

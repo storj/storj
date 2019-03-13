@@ -79,7 +79,7 @@ func TestServicePut(t *testing.T) {
 
 		log := zaptest.NewLogger(t)
 		db := teststore.New()
-		service := pointerdb.NewService(log, db)
+		service := pointerdb.NewService(log, db, nil, nil)
 		s := pointerdb.NewServer(log, service, nil, nil, pointerdb.Config{}, nil, apiKeys)
 
 		path := "a/b/c"
@@ -188,7 +188,7 @@ func TestServiceGet(t *testing.T) {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
 		db := teststore.New()
-		service := pointerdb.NewService(zap.NewNop(), db)
+		service := pointerdb.NewService(zap.NewNop(), db, nil, nil)
 		allocation := pointerdb.NewAllocationSigner(identity, 45, satdb.CertDB())
 
 		s := pointerdb.NewServer(zap.NewNop(), service, allocation, nil, pointerdb.Config{}, identity, apiKeys)
@@ -242,7 +242,7 @@ func TestServiceDelete(t *testing.T) {
 
 		db := teststore.New()
 		_ = db.Put(storage.Key(storj.JoinPaths(apiKeys.info.ProjectID.String(), path)), storage.Value("hello"))
-		service := pointerdb.NewService(zap.NewNop(), db)
+		service := pointerdb.NewService(zap.NewNop(), db, nil, nil)
 		s := pointerdb.NewServer(zap.NewNop(), service, nil, nil, pointerdb.Config{}, nil, apiKeys)
 
 		if tt.err != nil {
@@ -265,7 +265,7 @@ func TestServiceList(t *testing.T) {
 	apiKeys := &mockAPIKeys{}
 
 	db := teststore.New()
-	service := pointerdb.NewService(zap.NewNop(), db)
+	service := pointerdb.NewService(zap.NewNop(), db, nil, nil)
 	server := pointerdb.NewServer(zap.NewNop(), service, nil, nil, pointerdb.Config{}, nil, apiKeys)
 
 	pointer := &pb.Pointer{}

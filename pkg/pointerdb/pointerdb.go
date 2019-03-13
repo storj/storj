@@ -16,7 +16,6 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	_ "storj.io/storj/pkg/pointerdb/auth" // ensures that we add api key flag to current executable
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/storage"
@@ -194,7 +193,7 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 		return r, nil
 	}
 
-	for _, piece := range pointer.Remote.RemotePieces {
+	for _, piece := range pointer.GetRemote().GetRemotePieces() {
 		node, err := s.cache.Get(ctx, piece.NodeId)
 		if err != nil {
 			s.logger.Error("Error getting node from cache", zap.String("ID", piece.NodeId.String()), zap.Error(err))

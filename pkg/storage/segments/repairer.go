@@ -11,21 +11,21 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psclient"
-	"storj.io/storj/pkg/pointerdb/pdbclient"
+	"storj.io/storj/pkg/pointerdb"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storj"
 )
 
 // Repairer for segments
 type Repairer struct {
-	oc        overlay.Client
-	ec        ecclient.Client
-	pdb       pdbclient.Client
-	nodeStats *pb.NodeStats
+	oc  overlay.Client
+	ec  ecclient.Client
+	pdb *pointerdb.Service
+	// nodeStats *pb.NodeStats
 }
 
 // NewSegmentRepairer creates a new instance of SegmentRepairer
-func NewSegmentRepairer(oc overlay.Client, ec ecclient.Client, pdb pdbclient.Client) *Repairer {
+func NewSegmentRepairer(oc overlay.Client, ec ecclient.Client, pdb *pointerdb.Service) *Repairer {
 	return &Repairer{oc: oc, ec: ec, pdb: pdb}
 }
 
@@ -34,7 +34,7 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 	defer mon.Task()(&ctx)(&err)
 
 	// Read the segment's pointer's info from the PointerDB
-	pr, originalNodes, _, err := s.pdb.Get(ctx, path)
+	pr, err := s.pdb.Get(path)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -42,7 +42,7 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 	if pr.GetType() != pb.Pointer_REMOTE {
 		return Error.New("cannot repair inline segment %s", psclient.PieceID(pr.GetInlineSegment()))
 	}
-
+	originalNodes := s.pdb.GetNodes(ctx, pr)
 	seg := pr.GetRemote()
 	pid := psclient.PieceID(seg.GetPieceId())
 
@@ -161,5 +161,11 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 	}
 
 	// update the segment info in the pointerDB
-	return s.pdb.Put(ctx, path, pointer)
+	return s.pdb.Put(path, pointer)
+}
+
+// Close disconnects from all Repair related services
+func (s *Repairer) Close() error {
+	//TODO
+	return nil
 }

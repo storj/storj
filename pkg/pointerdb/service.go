@@ -4,11 +4,17 @@
 package pointerdb
 
 import (
+	"context"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
+	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/storage"
@@ -16,13 +22,15 @@ import (
 
 // Service structure
 type Service struct {
-	logger *zap.Logger
-	DB     storage.KeyValueStore
+	logger     *zap.Logger
+	DB         storage.KeyValueStore
+	allocation *AllocationSigner
+	cache      *overlay.Cache
 }
 
 // NewService creates new pointerdb service
-func NewService(logger *zap.Logger, db storage.KeyValueStore) *Service {
-	return &Service{logger: logger, DB: db}
+func NewService(logger *zap.Logger, db storage.KeyValueStore, allocation *AllocationSigner, cache *overlay.Cache) *Service {
+	return &Service{logger: logger, DB: db, allocation: allocation, cache: cache}
 }
 
 // Put puts pointer to db under specific path
@@ -155,4 +163,36 @@ func (s *Service) Iterate(prefix string, first string, recurse bool, reverse boo
 		Reverse: reverse,
 	}
 	return s.DB.Iterate(opts, f)
+}
+
+// PayerBandwidthAllocation gets payer bandwidth allocation message
+func (s *Service) PayerBandwidthAllocation(ctx context.Context, action pb.BandwidthAction) (resp *pb.OrderLimit, err error) {
+	pi, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	pba, err := s.allocation.PayerBandwidthAllocation(ctx, pi, action)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+	return pba, nil
+}
+
+// GetNodes returns the nodes associated with the pointer
+func (s *Service) GetNodes(ctx context.Context, pointer *pb.Pointer) (nodes []*pb.Node) {
+	for _, piece := range pointer.GetRemote().GetRemotePieces() {
+		node, err := s.cache.Get(ctx, piece.NodeId)
+		if err != nil {
+			s.logger.Error("Error getting node from cache", zap.String("ID", piece.NodeId.String()), zap.Error(err))
+			continue
+		}
+		nodes = append(nodes, node)
+	}
+
+	for _, v := range nodes {
+		if v != nil {
+			v.Type.DPanicOnInvalid("pdb server Get")
+		}
+	}
+	return nodes
 }
