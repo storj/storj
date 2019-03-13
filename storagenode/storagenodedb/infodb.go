@@ -95,8 +95,8 @@ func (db *infodb) Migration() *migrate.Migration {
 					// certificate table for storing uplink/satellite certificates
 					`CREATE TABLE certificate (
 						cert_id       INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-						node_id       BLOB        NOT NULL,
-						peer_identity BLOB UNIQUE NOT NULL -- PEM encoded
+						node_id       BLOB        NOT NULL, -- same NodeID can have multiple valid leaf certificates
+						peer_identity BLOB UNIQUE NOT NULL  -- PEM encoded
 					)`,
 
 					// table for storing piece meta info
