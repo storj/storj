@@ -21,7 +21,7 @@ func NewInspector(irrdb DB) *Inspector {
 
 // ListSegments returns a number of irreparable segments by limit and offset
 func (srv *Inspector) ListSegments(ctx context.Context, req *pb.ListSegmentsRequest) (*pb.ListSegmentsResponse, error) {
-	segments, err := srv.irrdb.GetLimited(ctx, int(req.GetLimit()), req.GetOffset())
+	segments, err := srv.irrdb.GetLimited(ctx, int(req.GetLimit()), int64(req.GetOffset()))
 	if err != nil {
 		return nil, err
 	}
@@ -31,7 +31,7 @@ func (srv *Inspector) ListSegments(ctx context.Context, req *pb.ListSegmentsRequ
 		item := &pb.IrreparableSegment{
 			EncryptedPath:      segment.EncryptedSegmentPath,
 			SegmentDetail:      segment.EncryptedSegmentDetail,
-			LostPieces:         segment.LostPiecesCount,
+			LostPieces:         int32(segment.LostPiecesCount),
 			LastRepairAttempt:  segment.RepairUnixSec,
 			RepairAttemptCount: segment.RepairAttemptCount,
 		}

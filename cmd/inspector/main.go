@@ -48,7 +48,7 @@ var (
 	// ErrArgs throws when there are errors with CLI args
 	ErrArgs = errs.Class("error with CLI args:")
 
-	irreparableLimit int64
+	irreparableLimit int32
 
 	// Commander CLI
 	rootCmd = &cobra.Command{
@@ -449,7 +449,7 @@ func CreateCSVStats(cmd *cobra.Command, args []string) (err error) {
 }
 
 func getSegments(cmd *cobra.Command, args []string) error {
-	if irreparableLimit <= int64(0) {
+	if irreparableLimit <= int32(0) {
 		return ErrArgs.New("limit must be greater than 0")
 	}
 
@@ -459,7 +459,7 @@ func getSegments(cmd *cobra.Command, args []string) error {
 	}
 
 	length := irreparableLimit
-	var offset int64
+	var offset int32
 
 	// query DB and paginate results
 	for length >= irreparableLimit {
@@ -484,7 +484,7 @@ func getSegments(cmd *cobra.Command, args []string) error {
 			out.WriteTo(os.Stdout)
 		}
 
-		length = int64(len(res.Segments))
+		length = int32(len(res.Segments))
 		offset += length
 
 		if length >= irreparableLimit {
@@ -498,7 +498,7 @@ func getSegments(cmd *cobra.Command, args []string) error {
 
 type formattedSegment struct {
 	EncryptedPath      string      `json:"encrypted_path"`
-	LostPieces         int64       `json:"lost_pieces"`
+	LostPieces         int32       `json:"lost_pieces"`
 	LastRepairAttempt  time.Time   `json:"last_repair_attempt"`
 	RepairAttemptCount int64       `json:"repair_attempt_count"`
 	SegmentDetail      *pb.Pointer `json:"segment_detail"`
@@ -539,7 +539,7 @@ func init() {
 	statsCmd.AddCommand(createStatsCmd)
 	statsCmd.AddCommand(createCSVStatsCmd)
 
-	irreparableCmd.Flags().Int64Var(&irreparableLimit, "limit", 50, "max number of results per page")
+	irreparableCmd.Flags().Int32Var(&irreparableLimit, "limit", 50, "max number of results per page")
 
 	flag.Parse()
 }
