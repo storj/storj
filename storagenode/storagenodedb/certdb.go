@@ -4,10 +4,13 @@
 package storagenodedb
 
 import (
+	"bytes"
 	"context"
+	"crypto/x509"
 	"strings"
 
-	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/peertls"
 )
 
 type certdb struct {
@@ -18,12 +21,18 @@ type certdb struct {
 func (db *infodb) CertDB() certdb { return certdb{db} }
 
 // Include includes the certificate in the table and returns an unique id.
-func (db *certdb) Include(ctx context.Context, nodeid storj.NodeID, pkix []byte) (certid int64, err error) {
+func (db *certdb) Include(ctx context.Context, pi *identity.PeerIdentity) (certid int64, err error) {
+	var pem bytes.Buffer
+	err = peertls.WriteChain(&pem, append([]*x509.Certificate{pi.Leaf, pi.CA}, pi.RestChain...)...)
+	if err != nil {
+		return -1, ErrInfo.Wrap(err)
+	}
+
 	defer db.locked()()
 
-	result, err := db.db.Exec(`INSERT INTO certificate(node_id, pkix) VALUES(?, ?)`, nodeid.Bytes(), pkix)
+	result, err := db.db.Exec(`INSERT INTO certificate(node_id, peer_identity) VALUES(?, ?)`, pi.ID, pem.Bytes())
 	if err != nil && strings.Contains(err.Error(), "UNIQUE constraint") {
-		err = db.db.QueryRow(`SELECT cert_id FROM certificate WHERE pkix = ?`, pkix).Scan(&certid)
+		err = db.db.QueryRow(`SELECT cert_id FROM certificate WHERE peer_identity = ?`, pem.Bytes()).Scan(&certid)
 		return certid, ErrInfo.Wrap(err)
 	} else if err != nil {
 		return -1, ErrInfo.Wrap(err)
@@ -34,16 +43,20 @@ func (db *certdb) Include(ctx context.Context, nodeid storj.NodeID, pkix []byte)
 }
 
 // LookupByCertID finds certificate by the certid returned by Include.
-func (db *certdb) LookupByCertID(ctx context.Context, id int64) (pkix []byte, err error) {
-	defer db.locked()()
+func (db *certdb) LookupByCertID(ctx context.Context, id int64) (*identity.PeerIdentity, error) {
+	var pem *[]byte
 
-	var ppkix *[]byte
-	err = db.db.QueryRow(`SELECT pkix FROM certificate WHERE cert_id = ?`, id).Scan(&ppkix)
+	db.mu.Lock()
+	err := db.db.QueryRow(`SELECT peer_identity FROM certificate WHERE cert_id = ?`, id).Scan(&pem)
+	db.mu.Unlock()
+
 	if err != nil {
 		return nil, ErrInfo.Wrap(err)
 	}
-	if ppkix == nil {
+	if pem == nil {
 		return nil, ErrInfo.New("did not find certificate")
 	}
-	return *ppkix, nil
+
+	peer, err := identity.PeerIdentityFromPEM(*pem)
+	return peer, ErrInfo.Wrap(err)
 }

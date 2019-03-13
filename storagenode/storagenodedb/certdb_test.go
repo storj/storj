@@ -28,22 +28,23 @@ func TestCertDB(t *testing.T) {
 
 	certdb := db.CertDB()
 
-	node0 := testplanet.MustPregeneratedIdentity(0)
+	node0 := testplanet.MustPregeneratedSignedIdentity(0)
+	node1 := testplanet.MustPregeneratedSignedIdentity(1)
 
-	idLeaf, err := certdb.Include(ctx, node0.ID, node0.PeerIdentity().Leaf.Raw)
+	certid0, err := certdb.Include(ctx, node0.PeerIdentity())
 	require.NoError(t, err)
 
-	idCA, err := certdb.Include(ctx, node0.ID, node0.PeerIdentity().CA.Raw)
+	certid1, err := certdb.Include(ctx, node1.PeerIdentity())
 	require.NoError(t, err)
 
-	idLeafDuplicate, err := certdb.Include(ctx, node0.ID, node0.PeerIdentity().Leaf.Raw)
+	certid0duplicate, err := certdb.Include(ctx, node0.PeerIdentity())
 	require.NoError(t, err)
 
-	require.Equal(t, idLeaf, idLeafDuplicate, "insert duplicate Leaf")
-	require.NotEqual(t, idLeaf, idCA, "insert non-duplicate CA")
+	require.Equal(t, certid0, certid0duplicate, "insert duplicate")
+	require.NotEqual(t, certid0, certid1, "insert non-duplicate")
 
-	cert, err := certdb.LookupByCertID(ctx, idLeaf)
+	identity, err := certdb.LookupByCertID(ctx, certid0)
 	require.NoError(t, err, "lookup by id")
 
-	require.Equal(t, node0.PeerIdentity().Leaf.Raw, cert)
+	require.Equal(t, node0.PeerIdentity(), identity)
 }

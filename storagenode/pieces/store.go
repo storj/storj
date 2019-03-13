@@ -12,6 +12,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 
@@ -34,9 +36,8 @@ type Info struct {
 	PieceSize       int64
 	PieceExpiration time.Time
 
-	UplinkPieceHash []byte
-	UplinkID        storj.NodeID
-	UplinkCert      []byte
+	UplinkPieceHash *pb.PieceHash
+	UplinkIdentity  *identity.PeerIdentity
 }
 
 // Store implements storing pieces onto a blob storage implementation.
