@@ -56,15 +56,15 @@ type SavedOrder struct {
 // DB stores orders for accounting purposes
 type DB interface {
 	// SaveOrder saves an order for accounting
-	SaveOrder(*pb.Order) error
+	SaveOrder(context.Context, *pb.Order) error
 	// GetTotalsSince returns the sum of each bandwidth type after (exluding) a given date range
 	GetTotals(context.Context, time.Time, time.Time) (map[storj.NodeID][]int64, error)
 	//GetTotals returns stats about an uplink
 	GetUplinkStats(context.Context, time.Time, time.Time) ([]UplinkStat, error)
 	//GetExpired gets orders that are expired and were created before some time
-	GetExpired(time.Time, time.Time) ([]SavedOrder, error)
+	GetExpired(context.Context, time.Time, time.Time) ([]SavedOrder, error)
 	//DeleteExpired deletes orders that are expired and were created before some time
-	DeleteExpired(time.Time, time.Time) error
+	DeleteExpired(context.Context, time.Time, time.Time) error
 }
 
 // Server is an implementation of the pb.BandwidthServer interface
@@ -112,7 +112,7 @@ func (s *Server) BandwidthAgreements(ctx context.Context, rba *pb.Order) (reply 
 	}
 
 	//save and return rersults
-	if err = s.bwdb.SaveOrder(rba); err != nil {
+	if err = s.bwdb.SaveOrder(ctx, rba); err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") ||
 			strings.Contains(err.Error(), "violates unique constraint") {
 			return reply, pb.ErrPayer.Wrap(auth.ErrSerial.Wrap(err))

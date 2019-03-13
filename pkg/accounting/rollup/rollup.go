@@ -117,7 +117,7 @@ func (r *Rollup) RollupRaws(ctx context.Context) error {
 	var rolledUpRawsHaveBeenSaved bool
 	//todo: write files to disk or whatever we decide to do here
 	if rolledUpRawsHaveBeenSaved {
-		return Error.Wrap(r.db.DeleteRawBefore(latestTally))
+		return Error.Wrap(r.db.DeleteRawBefore(ctx, latestTally))
 	}
 	return nil
 }

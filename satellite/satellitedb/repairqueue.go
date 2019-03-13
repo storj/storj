@@ -37,12 +37,7 @@ func (r *repairQueue) Enqueue(ctx context.Context, seg *pb.InjuredSegment) error
 func (r *repairQueue) postgresDequeue(ctx context.Context) (seg pb.InjuredSegment, err error) {
 	err = r.db.DB.QueryRowContext(ctx, `
 	DELETE FROM injuredsegments
-		WHERE id = (
-			SELECT id FROM injuredsegments
-				ORDER BY id
-				FOR UPDATE SKIP LOCKED
-				LIMIT 1
-		)
+		WHERE id = ( SELECT id FROM injuredsegments ORDER BY id FOR UPDATE SKIP LOCKED LIMIT 1 )
 		RETURNING info
 	`).Scan(&seg)
 	if err == sql.ErrNoRows {
@@ -63,10 +58,13 @@ func (r *repairQueue) sqliteDequeue(ctx context.Context) (seg pb.InjuredSegment,
 			return err
 		}
 		count, err := res.RowsAffected()
+		if err != nil {
+			return err
+		}
 		if count != 1 {
 			return fmt.Errorf("Expected 1, got %d segments deleted", count)
 		}
-		return err
+		return nil
 	})
 	if err == sql.ErrNoRows {
 		err = storage.ErrEmptyQueue.New("")
