@@ -14,6 +14,7 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/jsonpb"
@@ -473,15 +474,24 @@ func getSegments(cmd *cobra.Command, args []string) error {
 			return err
 		}
 
+		objects := sortSegments(segments)
+		if len(objects) == 0 {
+			break
+		}
 		// format and print segments
-		for _, seg := range segments {
-			result, err := json.Marshal(seg)
-			if err != nil {
-				return err
-			}
-			var out bytes.Buffer
-			json.Indent(&out, result, "", "  ")
-			out.WriteTo(os.Stdout)
+		result, err := json.Marshal(objects)
+		if err != nil {
+			return err
+		}
+
+		var out bytes.Buffer
+		err = json.Indent(&out, result, "", "  ")
+		if err != nil {
+			return err
+		}
+		_, err = out.WriteTo(os.Stdout)
+		if err != nil {
+			return err
 		}
 
 		length = int32(len(res.Segments))
@@ -497,11 +507,23 @@ func getSegments(cmd *cobra.Command, args []string) error {
 }
 
 type formattedSegment struct {
-	EncryptedPath      string      `json:"encrypted_path"`
-	LostPieces         int32       `json:"lost_pieces"`
-	LastRepairAttempt  time.Time   `json:"last_repair_attempt"`
-	RepairAttemptCount int64       `json:"repair_attempt_count"`
-	SegmentDetail      *pb.Pointer `json:"segment_detail"`
+	EncryptedSegmentPath string      `json:"encrypted_segment_path"`
+	LostPieces           int32       `json:"lost_pieces"`
+	LastRepairAttempt    time.Time   `json:"last_repair_attempt"`
+	RepairAttemptCount   int64       `json:"repair_attempt_count"`
+	SegmentDetail        *pb.Pointer `json:"segment_detail"`
+}
+
+// sortSegments by the object they belong to
+func sortSegments(segments []*formattedSegment) map[string][]*formattedSegment {
+	objects := make(map[string][]*formattedSegment)
+	for _, seg := range segments {
+		path := storj.SplitPath(seg.EncryptedSegmentPath)
+		path = append(path[:1], path[2:]...)
+		objPath := strings.Join(path, "/")
+		objects[objPath] = append(objects[objPath], seg)
+	}
+	return objects
 }
 
 // unpackSegmentDetail unmarshals a slice of segments' pointers for viewing
@@ -513,11 +535,11 @@ func unpackSegmentDetail(packed []*pb.IrreparableSegment) (unpacked []*formatted
 			return nil, err
 		}
 		unpacked = append(unpacked, &formattedSegment{
-			EncryptedPath:      string(seg.EncryptedPath),
-			LostPieces:         seg.LostPieces,
-			LastRepairAttempt:  time.Unix(seg.LastRepairAttempt, 0).UTC(),
-			RepairAttemptCount: seg.RepairAttemptCount,
-			SegmentDetail:      p,
+			EncryptedSegmentPath: string(seg.EncryptedPath),
+			LostPieces:           seg.LostPieces,
+			LastRepairAttempt:    time.Unix(seg.LastRepairAttempt, 0).UTC(),
+			RepairAttemptCount:   seg.RepairAttemptCount,
+			SegmentDetail:        p,
 		})
 	}
 	return unpacked, nil
