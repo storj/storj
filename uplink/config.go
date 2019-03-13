@@ -17,7 +17,6 @@ import (
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/storage/buckets"
@@ -102,11 +101,6 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, Error.New("failed to connect to metainfo service: %v", err)
 	}
 
-	oc, err := overlay.NewClient(tc, c.Client.OverlayAddr)
-	if err != nil {
-		return nil, nil, Error.New("failed to connect to overlay: %v", err)
-	}
-
 	pdb, err := pdbclient.NewClient(tc, c.Client.PointerDBAddr, c.Client.APIKey)
 	if err != nil {
 		return nil, nil, Error.New("failed to connect to pointer DB: %v", err)
@@ -126,7 +120,7 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 	if err != nil {
 		return nil, nil, Error.New("failed to calculate max encrypted segment size: %v", err)
 	}
-	segments := segments.NewSegmentStore(metainfo, oc, ec, rs, c.Client.MaxInlineSize.Int(), maxEncryptedSegmentSize)
+	segments := segments.NewSegmentStore(metainfo, ec, rs, c.Client.MaxInlineSize.Int(), maxEncryptedSegmentSize)
 
 	if c.RS.ErasureShareSize.Int()*c.RS.MinThreshold%c.Enc.BlockSize.Int() != 0 {
 		err = Error.New("EncryptionBlockSize must be a multiple of ErasureShareSize * RS MinThreshold")

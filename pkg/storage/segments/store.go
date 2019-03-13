@@ -55,7 +55,6 @@ type Store interface {
 
 type segmentStore struct {
 	metainfo                metainfo.Client
-	oc                      overlay.Client
 	ec                      ecclient.Client
 	rs                      eestream.RedundancyStrategy
 	thresholdSize           int
@@ -63,10 +62,9 @@ type segmentStore struct {
 }
 
 // NewSegmentStore creates a new instance of segmentStore
-func NewSegmentStore(metainfo metainfo.Client, oc overlay.Client, ec ecclient.Client, rs eestream.RedundancyStrategy, threshold int, maxEncryptedSegmentSize int64) Store {
+func NewSegmentStore(metainfo metainfo.Client, ec ecclient.Client, rs eestream.RedundancyStrategy, threshold int, maxEncryptedSegmentSize int64) Store {
 	return &segmentStore{
 		metainfo:                metainfo,
-		oc:                      oc, // TODO: remove
 		ec:                      ec,
 		rs:                      rs,
 		thresholdSize:           threshold,

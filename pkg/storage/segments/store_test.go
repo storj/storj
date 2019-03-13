@@ -28,24 +28,11 @@ import (
 	storj "storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/storage"
-	"storj.io/storj/uplink/metainfo"
 )
 
 // TODO add more error cases
 
 func TestSegmentStoreMeta(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	planet, err := testplanet.New(t, 1, 10, 1)
-	require.NoError(t, err)
-
-	defer ctx.Check(planet.Shutdown)
-
-	planet.Start(ctx)
-
-	segmentStore, _ := createSegmentStore(t, planet)
-
 	for _, tt := range []struct {
 		pathInput  string
 		data       []byte
@@ -54,25 +41,27 @@ func TestSegmentStoreMeta(t *testing.T) {
 	}{
 		{"l/path/1/2/3", []byte("content"), []byte("metadata"), time.Now().UTC().Add(time.Hour * 12)},
 	} {
-		expectedSize := int64(len(tt.data))
-		reader := bytes.NewReader(tt.data)
+		runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
+			expectedSize := int64(len(tt.data))
+			reader := bytes.NewReader(tt.data)
 
-		beforeModified := time.Now()
-		meta, err := segmentStore.Put(ctx, reader, tt.expiration, func() (storj.Path, []byte, error) {
-			return tt.pathInput, tt.metadata, nil
+			beforeModified := time.Now()
+			meta, err := segmentStore.Put(ctx, reader, tt.expiration, func() (storj.Path, []byte, error) {
+				return tt.pathInput, tt.metadata, nil
+			})
+			require.NoError(t, err)
+			assert.Equal(t, expectedSize, meta.Size)
+			assert.Equal(t, tt.metadata, meta.Data)
+			assert.Equal(t, tt.expiration, meta.Expiration)
+			assert.True(t, meta.Modified.After(beforeModified))
+
+			meta, err = segmentStore.Meta(ctx, tt.pathInput)
+			require.NoError(t, err)
+			assert.Equal(t, expectedSize, meta.Size)
+			assert.Equal(t, tt.metadata, meta.Data)
+			assert.Equal(t, tt.expiration, meta.Expiration)
+			assert.True(t, meta.Modified.After(beforeModified))
 		})
-		require.NoError(t, err)
-		assert.Equal(t, expectedSize, meta.Size)
-		assert.Equal(t, tt.metadata, meta.Data)
-		assert.Equal(t, tt.expiration, meta.Expiration)
-		assert.True(t, meta.Modified.After(beforeModified))
-
-		meta, err = segmentStore.Meta(ctx, tt.pathInput)
-		require.NoError(t, err)
-		assert.Equal(t, expectedSize, meta.Size)
-		assert.Equal(t, tt.metadata, meta.Data)
-		assert.Equal(t, tt.expiration, meta.Expiration)
-		assert.True(t, meta.Modified.After(beforeModified))
 	}
 }
 
@@ -86,11 +75,7 @@ func TestSegmentStorePutGetRemote(t *testing.T) {
 	}{
 		{"test remote put/get", "s0/test_bucket/mypath/1", []byte("metadata"), time.Now().UTC(), createTestData(t, 100*memory.KiB.Int64())},
 	} {
-		testplanet.Run(t, testplanet.Config{
-			SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
-		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-			segmentStore, _ := createSegmentStore(t, planet)
-
+		runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
 			_, err := segmentStore.Put(ctx, bytes.NewReader(tt.content), tt.expiration, func() (storj.Path, []byte, error) {
 				return tt.path, tt.metadata, nil
 			})
@@ -112,11 +97,7 @@ func TestSegmentStorePutGetInline(t *testing.T) {
 	}{
 		{"test inline put/get", "l/path/1", []byte("metadata"), time.Now().UTC(), createTestData(t, 2*memory.KiB.Int64())},
 	} {
-		testplanet.Run(t, testplanet.Config{
-			SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
-		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-			segmentStore, _ := createSegmentStore(t, planet)
-
+		runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
 			_, err := segmentStore.Put(ctx, bytes.NewReader(tt.content), tt.expiration, func() (storj.Path, []byte, error) {
 				return tt.path, tt.metadata, nil
 			})
@@ -138,11 +119,7 @@ func TestSegmentStoreDeleteInline(t *testing.T) {
 	}{
 		{"test inline delete", "l/path/1", []byte("metadata"), time.Now().UTC(), createTestData(t, 2*memory.KiB.Int64())},
 	} {
-		testplanet.Run(t, testplanet.Config{
-			SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
-		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-			segmentStore, _ := createSegmentStore(t, planet)
-
+		runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
 			_, err := segmentStore.Put(ctx, bytes.NewReader(tt.content), tt.expiration, func() (storj.Path, []byte, error) {
 				return tt.path, tt.metadata, nil
 			})
@@ -171,10 +148,7 @@ func TestSegmentStoreDeleteRemote(t *testing.T) {
 	}{
 		{"test remote delete", "s0/test_bucket/mypath/1", []byte("metadata"), time.Now().UTC(), createTestData(t, 100*memory.KiB.Int64())},
 	} {
-		testplanet.Run(t, testplanet.Config{
-			SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
-		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-			segmentStore, _ := createSegmentStore(t, planet)
+		runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
 
 			_, err := segmentStore.Put(ctx, bytes.NewReader(tt.content), tt.expiration, func() (storj.Path, []byte, error) {
 				return tt.path, tt.metadata, nil
@@ -195,10 +169,7 @@ func TestSegmentStoreDeleteRemote(t *testing.T) {
 }
 
 func TestSegmentStoreList(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		segmentStore, _ := createSegmentStore(t, planet)
+	runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
 
 		expiration := time.Now().Add(24 * time.Hour * 10)
 
@@ -284,40 +255,44 @@ func createTestData(t *testing.T, size int64) []byte {
 	return data
 }
 
-func createSegmentStore(t *testing.T, planet *testplanet.Planet) (segments.Store, metainfo.Client) {
-	// TODO move apikey creation to testplanet
-	project, err := planet.Satellites[0].DB.Console().Projects().Insert(context.Background(), &console.Project{
-		Name: "testProject",
+func runTest(t *testing.T, test func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store)) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// TODO move apikey creation to testplanet
+		project, err := planet.Satellites[0].DB.Console().Projects().Insert(context.Background(), &console.Project{
+			Name: "testProject",
+		})
+		require.NoError(t, err)
+
+		apiKey := console.APIKey{}
+		apiKeyInfo := console.APIKeyInfo{
+			ProjectID: project.ID,
+			Name:      "testKey",
+		}
+
+		// add api key to db
+		_, err = planet.Satellites[0].DB.Console().APIKeys().Create(context.Background(), apiKey, apiKeyInfo)
+		require.NoError(t, err)
+
+		TestAPIKey := apiKey.String()
+
+		oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
+		require.NoError(t, err)
+
+		metainfo, err := planet.Uplinks[0].DialMetainfo(context.Background(), planet.Satellites[0], TestAPIKey)
+		require.NoError(t, err)
+
+		ec := ecclient.NewClient(planet.Uplinks[0].Transport, 0)
+		fc, err := infectious.NewFEC(2, 4)
+		require.NoError(t, err)
+
+		rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, 1*memory.KiB.Int()), 0, 0)
+		require.NoError(t, err)
+
+		segmentStore := segments.NewSegmentStore(metainfo, oc, ec, rs, 4*memory.KiB.Int(), 8*memory.MiB.Int64())
+		assert.NotNil(t, segmentStore)
+
+		test(t, ctx, planet, segmentStore)
 	})
-	require.NoError(t, err)
-
-	apiKey := console.APIKey{}
-	apiKeyInfo := console.APIKeyInfo{
-		ProjectID: project.ID,
-		Name:      "testKey",
-	}
-
-	// add api key to db
-	_, err = planet.Satellites[0].DB.Console().APIKeys().Create(context.Background(), apiKey, apiKeyInfo)
-	require.NoError(t, err)
-
-	TestAPIKey := apiKey.String()
-
-	oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
-	require.NoError(t, err)
-
-	metainfo, err := planet.Uplinks[0].DialMetainfo(context.Background(), planet.Satellites[0], TestAPIKey)
-	require.NoError(t, err)
-
-	ec := ecclient.NewClient(planet.Uplinks[0].Transport, 0)
-	fc, err := infectious.NewFEC(4, 6)
-	require.NoError(t, err)
-
-	rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, 1*memory.KB.Int()), 4, 6)
-	require.NoError(t, err)
-
-	segmentStore := segments.NewSegmentStore(metainfo, oc, ec, rs, 4*memory.KiB.Int(), 8*memory.MiB.Int64())
-	assert.NotNil(t, segmentStore)
-
-	return segmentStore, metainfo
 }
