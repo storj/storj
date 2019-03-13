@@ -12,6 +12,7 @@ import (
 	"storj.io/storj/satellite/console"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/vivint/infectious"
 
 	"storj.io/storj/internal/memory"
@@ -208,9 +209,7 @@ func TestListBuckets(t *testing.T) {
 
 		for _, name := range bucketNames {
 			_, err := db.CreateBucket(ctx, name, nil)
-			if !assert.NoError(t, err) {
-				return
-			}
+			require.NoError(t, err)
 		}
 
 		for i, tt := range []struct {
@@ -316,18 +315,14 @@ func runTest(t *testing.T, test func(context.Context, *testplanet.Planet, *kvmet
 	defer ctx.Cleanup()
 
 	planet, err := testplanet.New(t, 1, 4, 1)
-	if !assert.NoError(t, err) {
-		return
-	}
+	require.NoError(t, err)
 
 	defer ctx.Check(planet.Shutdown)
 
 	planet.Start(ctx)
 
 	db, buckets, streams, err := newMetainfoParts(planet)
-	if !assert.NoError(t, err) {
-		return
-	}
+	require.NoError(t, err)
 
 	test(ctx, planet, db, buckets, streams)
 }
@@ -372,6 +367,11 @@ func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, buckets.Store,
 		return nil, nil, nil, err
 	}
 
+	metainfo, err := planet.Uplinks[0].DialMetainfo(context.Background(), planet.Satellites[0], TestAPIKey)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
 	ec := ecclient.NewClient(planet.Uplinks[0].Transport, 0)
 	fc, err := infectious.NewFEC(2, 4)
 	if err != nil {
@@ -383,7 +383,7 @@ func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, buckets.Store,
 		return nil, nil, nil, err
 	}
 
-	segments := segments.NewSegmentStore(oc, ec, pdb, rs, 8*memory.KB.Int())
+	segments := segments.NewSegmentStore(metainfo, oc, ec, rs, 8*memory.KB.Int(), 8*memory.MiB.Int64())
 
 	key := new(storj.Key)
 	copy(key[:], TestEncKey)
