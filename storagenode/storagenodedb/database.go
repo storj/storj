@@ -37,8 +37,10 @@ type DB struct {
 	storage psserver.Storage
 	psdb    *psdb.DB
 
-	pieces      storage.Blobs
-	closePieces func() error
+	pieces interface {
+		storage.Blobs
+		Close() error
+	}
 
 	info *infodb
 
@@ -75,8 +77,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 		storage: storage,
 		psdb:    psdb,
 
-		pieces:      pieces,
-		closePieces: pieces.Close,
+		pieces: pieces,
 
 		info: infodb,
 
@@ -111,8 +112,7 @@ func NewInMemory(log *zap.Logger, storageDir string) (*DB, error) {
 		storage: storage,
 		psdb:    psdb,
 
-		pieces:      pieces,
-		closePieces: pieces.Close,
+		pieces: pieces,
 
 		info: infodb,
 
@@ -137,7 +137,7 @@ func (db *DB) Close() error {
 		db.kdb.Close(),
 		db.ndb.Close(),
 
-		db.closePieces(),
+		db.pieces.Close(),
 		db.info.Close(),
 
 		db.storage.Close(),
