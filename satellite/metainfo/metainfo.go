@@ -208,8 +208,12 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	// TODO should this be Pointer from request or DB?
-	return &pb.SegmentCommitResponse{Pointer: req.Pointer}, nil
+	pointer, err := endpoint.pointerdb.Get(path)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	return &pb.SegmentCommitResponse{Pointer: pointer}, nil
 }
 
 // DownloadSegment gets Pointer incase of INLINE data or list of OrderLimit necessary to download remote data

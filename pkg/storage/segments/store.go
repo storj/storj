@@ -193,7 +193,7 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 	case pb.Pointer_INLINE:
 		return ranger.ByteRanger(pointer.InlineSegment), convertMeta(pointer), nil
 	case pb.Pointer_REMOTE:
-		needed := calcNeededNodes(pointer.GetRemote().GetRedundancy())
+		needed := CalcNeededNodes(pointer.GetRemote().GetRedundancy())
 		selected := make([]*pb.AddressedOrderLimit, len(limits))
 
 		for _, i := range rand.Perm(len(limits)) {
@@ -327,7 +327,7 @@ func (s *segmentStore) List(ctx context.Context, prefix, startAfter, endBefore s
 
 // calcNeededNodes calculate how many minimum nodes are needed for download,
 // based on t = k + (n-o)k/o
-func calcNeededNodes(rs *pb.RedundancyScheme) int32 {
+func CalcNeededNodes(rs *pb.RedundancyScheme) int32 {
 	extra := int32(1)
 
 	if rs.GetSuccessThreshold() > 0 {
@@ -415,7 +415,7 @@ func convertTime(ts *timestamp.Timestamp) time.Time {
 func split(path storj.Path) (bucket string, objectPath storj.Path, segmentIndex int64, err error) {
 	components := storj.SplitPath(path)
 	if len(components) < 1 {
-		return "", "", -2, Error.New("empty path", len(components))
+		return "", "", -2, Error.New("empty path")
 	}
 
 	segmentIndex, err = convertSegmentIndex(components[0])
