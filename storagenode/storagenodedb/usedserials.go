@@ -40,9 +40,11 @@ func (db *usedSerials) DeleteExpired(ctx context.Context, now time.Time) error {
 	return ErrInfo.Wrap(err)
 }
 
+// SerialNumberFn is callback from IterateAll
 type SerialNumberFn func(satelliteID storj.NodeID, serialNumber []byte, expiration time.Time)
 
-// IterateAll iterates all serials
+// IterateAll iterates all serials.
+// Note, this will lock the database and should only be used during startup.
 func (db *usedSerials) IterateAll(ctx context.Context, fn SerialNumberFn) (err error) {
 	defer db.locked()()
 
