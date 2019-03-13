@@ -42,7 +42,6 @@ type Info struct {
 }
 
 // DB stores meta information about a piece, the actual piece is stored in storage.Blobs
-// TODO: figure out better name
 type DB interface {
 	// Add inserts Info to the database.
 	Add(context.Context, *Info) error
