@@ -16,9 +16,7 @@ import (
 	"storj.io/storj/storagenode/orders"
 )
 
-type ordersdb struct {
-	*infodb
-}
+type ordersdb struct{ *infodb }
 
 // Orders returns database for storing orders
 func (db *DB) Orders() orders.DB { return db.info.Orders() }
