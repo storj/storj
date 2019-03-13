@@ -8,6 +8,8 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
@@ -68,7 +70,7 @@ func (usage *BandwidthUsage) Include(action pb.Action, amount int64) {
 }
 
 // Summary returns summary of bandwidth usages
-func (db *bandwidthusage) Summary(ctx context.Context, from, to time.Time) (*BandwidthUsage, error) {
+func (db *bandwidthusage) Summary(ctx context.Context, from, to time.Time) (_ *BandwidthUsage, err error) {
 	defer db.locked()()
 
 	usage := &BandwidthUsage{}
@@ -84,6 +86,7 @@ func (db *bandwidthusage) Summary(ctx context.Context, from, to time.Time) (*Ban
 		}
 		return nil, ErrInfo.Wrap(err)
 	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	for rows.Next() {
 		var action pb.Action
@@ -99,7 +102,7 @@ func (db *bandwidthusage) Summary(ctx context.Context, from, to time.Time) (*Ban
 }
 
 // SummaryBySatellite returns summary of bandwidth usage grouping by satellite.
-func (db *bandwidthusage) SummaryBySatellite(ctx context.Context, from, to time.Time) (map[storj.NodeID]*BandwidthUsage, error) {
+func (db *bandwidthusage) SummaryBySatellite(ctx context.Context, from, to time.Time) (_ map[storj.NodeID]*BandwidthUsage, err error) {
 	defer db.locked()()
 
 	entries := map[storj.NodeID]*BandwidthUsage{}
@@ -115,6 +118,7 @@ func (db *bandwidthusage) SummaryBySatellite(ctx context.Context, from, to time.
 		}
 		return nil, ErrInfo.Wrap(err)
 	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	for rows.Next() {
 		var satelliteID storj.NodeID

@@ -37,7 +37,7 @@ type Info struct {
 	PieceExpiration time.Time
 
 	UplinkPieceHash *pb.PieceHash
-	UplinkIdentity  *identity.PeerIdentity
+	Uplink          *identity.PeerIdentity
 }
 
 // Store implements storing pieces onto a blob storage implementation.

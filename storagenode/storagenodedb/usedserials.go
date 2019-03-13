@@ -52,9 +52,7 @@ func (db *usedSerials) IterateAll(ctx context.Context, fn SerialNumberFn) (err e
 	if err != nil {
 		return ErrInfo.Wrap(err)
 	}
-	defer func() {
-		err = errs.Combine(err, ErrInfo.Wrap(rows.Close()))
-	}()
+	defer func() { err = errs.Combine(err, ErrInfo.Wrap(rows.Close())) }()
 
 	for rows.Next() {
 		var satelliteID storj.NodeID

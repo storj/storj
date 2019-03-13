@@ -24,7 +24,7 @@ func (db *infodb) PieceInfo() pieceinfo { return pieceinfo{db} }
 // Add inserts piece information into the database.
 func (db *pieceinfo) Add(ctx context.Context, info *pieces.Info) error {
 	certdb := db.CertDB()
-	certid, err := certdb.Include(ctx, info.UplinkIdentity)
+	certid, err := certdb.Include(ctx, info.Uplink)
 	if err != nil {
 		return ErrInfo.Wrap(err)
 	}
@@ -74,7 +74,7 @@ func (db *pieceinfo) Get(ctx context.Context, satelliteID storj.NodeID, pieceID 
 		return nil, ErrInfo.Wrap(err)
 	}
 
-	info.UplinkIdentity, err = identity.PeerIdentityFromPEM(uplinkIdentity)
+	info.Uplink, err = identity.PeerIdentityFromPEM(uplinkIdentity)
 	if err != nil {
 		return nil, ErrInfo.Wrap(err)
 	}
