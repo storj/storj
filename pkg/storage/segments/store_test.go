@@ -10,6 +10,7 @@ import (
 	"fmt"
 	io "io"
 	"io/ioutil"
+	"strconv"
 	"testing"
 	time "time"
 
@@ -30,42 +31,51 @@ import (
 	"storj.io/storj/storage"
 )
 
-// TODO add more error cases
-
 func TestSegmentStoreMeta(t *testing.T) {
-	for _, tt := range []struct {
-		pathInput  string
+	for i, tt := range []struct {
+		path       string
 		data       []byte
 		metadata   []byte
 		expiration time.Time
+		err        string
 	}{
-		{"l/path/1/2/3", []byte("content"), []byte("metadata"), time.Now().UTC().Add(time.Hour * 12)},
+		{"l/path/1/2/3", []byte("content"), []byte("metadata"), time.Now().UTC().Add(time.Hour * 12), ""},
+		{"l/not_exists_path/1/2/3", []byte{}, []byte{}, time.Now(), "key not found"},
+		{"", []byte{}, []byte{}, time.Now(), "invalid segment component"},
 	} {
-		runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
-			expectedSize := int64(len(tt.data))
-			reader := bytes.NewReader(tt.data)
+		t.Run("#"+strconv.Itoa(i), func(t *testing.T) {
+			runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
+				expectedSize := int64(len(tt.data))
+				reader := bytes.NewReader(tt.data)
 
-			beforeModified := time.Now()
-			meta, err := segmentStore.Put(ctx, reader, tt.expiration, func() (storj.Path, []byte, error) {
-				return tt.pathInput, tt.metadata, nil
+				beforeModified := time.Now()
+				if tt.err == "" {
+					meta, err := segmentStore.Put(ctx, reader, tt.expiration, func() (storj.Path, []byte, error) {
+						return tt.path, tt.metadata, nil
+					})
+					require.NoError(t, err)
+					assert.Equal(t, expectedSize, meta.Size)
+					assert.Equal(t, tt.metadata, meta.Data)
+					assert.Equal(t, tt.expiration, meta.Expiration)
+					assert.True(t, meta.Modified.After(beforeModified))
+				}
+
+				meta, err := segmentStore.Meta(ctx, tt.path)
+				if tt.err == "" {
+					require.NoError(t, err)
+					assert.Equal(t, expectedSize, meta.Size)
+					assert.Equal(t, tt.metadata, meta.Data)
+					assert.Equal(t, tt.expiration, meta.Expiration)
+					assert.True(t, meta.Modified.After(beforeModified))
+				} else {
+					require.Contains(t, err.Error(), tt.err)
+				}
 			})
-			require.NoError(t, err)
-			assert.Equal(t, expectedSize, meta.Size)
-			assert.Equal(t, tt.metadata, meta.Data)
-			assert.Equal(t, tt.expiration, meta.Expiration)
-			assert.True(t, meta.Modified.After(beforeModified))
-
-			meta, err = segmentStore.Meta(ctx, tt.pathInput)
-			require.NoError(t, err)
-			assert.Equal(t, expectedSize, meta.Size)
-			assert.Equal(t, tt.metadata, meta.Data)
-			assert.Equal(t, tt.expiration, meta.Expiration)
-			assert.True(t, meta.Modified.After(beforeModified))
 		})
 	}
 }
 
-func TestSegmentStorePutGetRemote(t *testing.T) {
+func TestSegmentStorePutGet(t *testing.T) {
 	for _, tt := range []struct {
 		name       string
 		path       string
@@ -73,6 +83,7 @@ func TestSegmentStorePutGetRemote(t *testing.T) {
 		expiration time.Time
 		content    []byte
 	}{
+		{"test inline put/get", "l/path/1", []byte("metadata"), time.Now().UTC(), createTestData(t, 2*memory.KiB.Int64())},
 		{"test remote put/get", "s0/test_bucket/mypath/1", []byte("metadata"), time.Now().UTC(), createTestData(t, 100*memory.KiB.Int64())},
 	} {
 		runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
@@ -87,7 +98,7 @@ func TestSegmentStorePutGetRemote(t *testing.T) {
 	}
 }
 
-func TestSegmentStorePutGetInline(t *testing.T) {
+func TestSegmentStoreDelete(t *testing.T) {
 	for _, tt := range []struct {
 		name       string
 		path       string
@@ -95,29 +106,8 @@ func TestSegmentStorePutGetInline(t *testing.T) {
 		expiration time.Time
 		content    []byte
 	}{
-		{"test inline put/get", "l/path/1", []byte("metadata"), time.Now().UTC(), createTestData(t, 2*memory.KiB.Int64())},
-	} {
-		runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
-			_, err := segmentStore.Put(ctx, bytes.NewReader(tt.content), tt.expiration, func() (storj.Path, []byte, error) {
-				return tt.path, tt.metadata, nil
-			})
-			require.NoError(t, err, tt.name)
-
-			_, _, err = segmentStore.Get(ctx, tt.path)
-			require.NoError(t, err, tt.name)
-		})
-	}
-}
-
-func TestSegmentStoreDeleteInline(t *testing.T) {
-	for _, tt := range []struct {
-		name       string
-		path       string
-		metadata   []byte
-		expiration time.Time
-		content    []byte
-	}{
-		{"test inline delete", "l/path/1", []byte("metadata"), time.Now().UTC(), createTestData(t, 2*memory.KiB.Int64())},
+		{"test inline delete", "l/path/1", []byte("metadata"), time.Now(), createTestData(t, 2*memory.KiB.Int64())},
+		{"test remote delete", "s0/test_bucket/mypath/1", []byte("metadata"), time.Now(), createTestData(t, 100*memory.KiB.Int64())},
 	} {
 		runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
 			_, err := segmentStore.Put(ctx, bytes.NewReader(tt.content), tt.expiration, func() (storj.Path, []byte, error) {
@@ -128,40 +118,16 @@ func TestSegmentStoreDeleteInline(t *testing.T) {
 			_, _, err = segmentStore.Get(ctx, tt.path)
 			require.NoError(t, err, tt.name)
 
+			// delete existing
 			err = segmentStore.Delete(ctx, tt.path)
 			require.NoError(t, err, tt.name)
 
 			_, _, err = segmentStore.Get(ctx, tt.path)
 			require.Error(t, err, tt.name)
 			require.True(t, storage.ErrKeyNotFound.Has(err))
-		})
-	}
-}
 
-func TestSegmentStoreDeleteRemote(t *testing.T) {
-	for _, tt := range []struct {
-		name       string
-		path       string
-		metadata   []byte
-		expiration time.Time
-		content    []byte
-	}{
-		{"test remote delete", "s0/test_bucket/mypath/1", []byte("metadata"), time.Now().UTC(), createTestData(t, 100*memory.KiB.Int64())},
-	} {
-		runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
-
-			_, err := segmentStore.Put(ctx, bytes.NewReader(tt.content), tt.expiration, func() (storj.Path, []byte, error) {
-				return tt.path, tt.metadata, nil
-			})
-			require.NoError(t, err, tt.name)
-
-			_, _, err = segmentStore.Get(ctx, tt.path)
-			require.NoError(t, err, tt.name)
-
+			// delete non existing
 			err = segmentStore.Delete(ctx, tt.path)
-			require.NoError(t, err, tt.name)
-
-			_, _, err = segmentStore.Get(ctx, tt.path)
 			require.Error(t, err, tt.name)
 			require.True(t, storage.ErrKeyNotFound.Has(err))
 		})
@@ -170,7 +136,6 @@ func TestSegmentStoreDeleteRemote(t *testing.T) {
 
 func TestSegmentStoreList(t *testing.T) {
 	runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
-
 		expiration := time.Now().Add(24 * time.Hour * 10)
 
 		segments := []struct {
@@ -219,6 +184,12 @@ func TestSegmentStoreList(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, more)
 		require.Equal(t, 2, len(items))
+
+		// should list nothing
+		items, more, err = segmentStore.List(ctx, "l/CCCC", "", "", true, 10, meta.None)
+		require.NoError(t, err)
+		require.False(t, more)
+		require.Equal(t, 0, len(items))
 	})
 }
 
