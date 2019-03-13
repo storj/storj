@@ -31,7 +31,8 @@ func (db *bandwidthusage) Add(ctx context.Context, satelliteID storj.NodeID, act
 	return ErrInfo.Wrap(err)
 }
 
-// Bandwidth usage
+// Bandwidth usage information
+// TODO: move to a better place
 type BandwidthUsage struct {
 	Invalid int64
 	Unknown int64
