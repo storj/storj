@@ -406,7 +406,8 @@ CREATE TABLE api_keys (
 CREATE TABLE bwagreement_buckets (
 	id bytea NOT NULL,
 	serialnum text NOT NULL REFERENCES bwagreements( serialnum ) ON DELETE CASCADE,
-	bucket_id text NOT NULL,
+	bucket_id bytea NOT NULL,
+	project_id bytea NOT NULL,
 	action bigint NOT NULL,
 	total bigint NOT NULL,
 	created_at timestamp with time zone NOT NULL,
@@ -615,7 +616,8 @@ CREATE TABLE api_keys (
 CREATE TABLE bwagreement_buckets (
 	id BLOB NOT NULL,
 	serialnum TEXT NOT NULL REFERENCES bwagreements( serialnum ) ON DELETE CASCADE,
-	bucket_id TEXT NOT NULL,
+	bucket_id BLOB NOT NULL,
+	project_id BLOB NOT NULL,
 	action INTEGER NOT NULL,
 	total INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
@@ -2589,7 +2591,8 @@ func (ApiKey_CreatedAt_Field) _Column() string { return "created_at" }
 type BwagreementBucket struct {
 	Id        []byte
 	Serialnum string
-	BucketId  string
+	BucketId  []byte
+	ProjectId []byte
 	Action    int64
 	Total     int64
 	CreatedAt time.Time
@@ -2641,10 +2644,10 @@ func (BwagreementBucket_Serialnum_Field) _Column() string { return "serialnum" }
 type BwagreementBucket_BucketId_Field struct {
 	_set   bool
 	_null  bool
-	_value string
+	_value []byte
 }
 
-func BwagreementBucket_BucketId(v string) BwagreementBucket_BucketId_Field {
+func BwagreementBucket_BucketId(v []byte) BwagreementBucket_BucketId_Field {
 	return BwagreementBucket_BucketId_Field{_set: true, _value: v}
 }
 
@@ -2656,6 +2659,25 @@ func (f BwagreementBucket_BucketId_Field) value() interface{} {
 }
 
 func (BwagreementBucket_BucketId_Field) _Column() string { return "bucket_id" }
+
+type BwagreementBucket_ProjectId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func BwagreementBucket_ProjectId(v []byte) BwagreementBucket_ProjectId_Field {
+	return BwagreementBucket_ProjectId_Field{_set: true, _value: v}
+}
+
+func (f BwagreementBucket_ProjectId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BwagreementBucket_ProjectId_Field) _Column() string { return "project_id" }
 
 type BwagreementBucket_Action_Field struct {
 	_set   bool
@@ -3427,6 +3449,7 @@ func (obj *postgresImpl) Create_BwagreementBucket(ctx context.Context,
 	bwagreement_bucket_id BwagreementBucket_Id_Field,
 	bwagreement_bucket_serialnum BwagreementBucket_Serialnum_Field,
 	bwagreement_bucket_bucket_id BwagreementBucket_BucketId_Field,
+	bwagreement_bucket_project_id BwagreementBucket_ProjectId_Field,
 	bwagreement_bucket_action BwagreementBucket_Action_Field,
 	bwagreement_bucket_total BwagreementBucket_Total_Field) (
 	bwagreement_bucket *BwagreementBucket, err error) {
@@ -3435,17 +3458,18 @@ func (obj *postgresImpl) Create_BwagreementBucket(ctx context.Context,
 	__id_val := bwagreement_bucket_id.value()
 	__serialnum_val := bwagreement_bucket_serialnum.value()
 	__bucket_id_val := bwagreement_bucket_bucket_id.value()
+	__project_id_val := bwagreement_bucket_project_id.value()
 	__action_val := bwagreement_bucket_action.value()
 	__total_val := bwagreement_bucket_total.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bwagreement_buckets ( id, serialnum, bucket_id, action, total, created_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING bwagreement_buckets.id, bwagreement_buckets.serialnum, bwagreement_buckets.bucket_id, bwagreement_buckets.action, bwagreement_buckets.total, bwagreement_buckets.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bwagreement_buckets ( id, serialnum, bucket_id, project_id, action, total, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) RETURNING bwagreement_buckets.id, bwagreement_buckets.serialnum, bwagreement_buckets.bucket_id, bwagreement_buckets.project_id, bwagreement_buckets.action, bwagreement_buckets.total, bwagreement_buckets.created_at")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __serialnum_val, __bucket_id_val, __action_val, __total_val, __created_at_val)
+	obj.logStmt(__stmt, __id_val, __serialnum_val, __bucket_id_val, __project_id_val, __action_val, __total_val, __created_at_val)
 
 	bwagreement_bucket = &BwagreementBucket{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __serialnum_val, __bucket_id_val, __action_val, __total_val, __created_at_val).Scan(&bwagreement_bucket.Id, &bwagreement_bucket.Serialnum, &bwagreement_bucket.BucketId, &bwagreement_bucket.Action, &bwagreement_bucket.Total, &bwagreement_bucket.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __id_val, __serialnum_val, __bucket_id_val, __project_id_val, __action_val, __total_val, __created_at_val).Scan(&bwagreement_bucket.Id, &bwagreement_bucket.Serialnum, &bwagreement_bucket.BucketId, &bwagreement_bucket.ProjectId, &bwagreement_bucket.Action, &bwagreement_bucket.Total, &bwagreement_bucket.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -4334,7 +4358,7 @@ func (obj *postgresImpl) All_BwagreementBucket_By_BucketId_And_Action(ctx contex
 	bwagreement_bucket_action BwagreementBucket_Action_Field) (
 	rows []*BwagreementBucket, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreement_buckets.id, bwagreement_buckets.serialnum, bwagreement_buckets.bucket_id, bwagreement_buckets.action, bwagreement_buckets.total, bwagreement_buckets.created_at FROM bwagreement_buckets WHERE bwagreement_buckets.bucket_id = ? AND bwagreement_buckets.action = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreement_buckets.id, bwagreement_buckets.serialnum, bwagreement_buckets.bucket_id, bwagreement_buckets.project_id, bwagreement_buckets.action, bwagreement_buckets.total, bwagreement_buckets.created_at FROM bwagreement_buckets WHERE bwagreement_buckets.bucket_id = ? AND bwagreement_buckets.action = ?")
 
 	var __values []interface{}
 	__values = append(__values, bwagreement_bucket_bucket_id.value(), bwagreement_bucket_action.value())
@@ -4350,7 +4374,7 @@ func (obj *postgresImpl) All_BwagreementBucket_By_BucketId_And_Action(ctx contex
 
 	for __rows.Next() {
 		bwagreement_bucket := &BwagreementBucket{}
-		err = __rows.Scan(&bwagreement_bucket.Id, &bwagreement_bucket.Serialnum, &bwagreement_bucket.BucketId, &bwagreement_bucket.Action, &bwagreement_bucket.Total, &bwagreement_bucket.CreatedAt)
+		err = __rows.Scan(&bwagreement_bucket.Id, &bwagreement_bucket.Serialnum, &bwagreement_bucket.BucketId, &bwagreement_bucket.ProjectId, &bwagreement_bucket.Action, &bwagreement_bucket.Total, &bwagreement_bucket.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -5808,6 +5832,7 @@ func (obj *sqlite3Impl) Create_BwagreementBucket(ctx context.Context,
 	bwagreement_bucket_id BwagreementBucket_Id_Field,
 	bwagreement_bucket_serialnum BwagreementBucket_Serialnum_Field,
 	bwagreement_bucket_bucket_id BwagreementBucket_BucketId_Field,
+	bwagreement_bucket_project_id BwagreementBucket_ProjectId_Field,
 	bwagreement_bucket_action BwagreementBucket_Action_Field,
 	bwagreement_bucket_total BwagreementBucket_Total_Field) (
 	bwagreement_bucket *BwagreementBucket, err error) {
@@ -5816,16 +5841,17 @@ func (obj *sqlite3Impl) Create_BwagreementBucket(ctx context.Context,
 	__id_val := bwagreement_bucket_id.value()
 	__serialnum_val := bwagreement_bucket_serialnum.value()
 	__bucket_id_val := bwagreement_bucket_bucket_id.value()
+	__project_id_val := bwagreement_bucket_project_id.value()
 	__action_val := bwagreement_bucket_action.value()
 	__total_val := bwagreement_bucket_total.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bwagreement_buckets ( id, serialnum, bucket_id, action, total, created_at ) VALUES ( ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bwagreement_buckets ( id, serialnum, bucket_id, project_id, action, total, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __serialnum_val, __bucket_id_val, __action_val, __total_val, __created_at_val)
+	obj.logStmt(__stmt, __id_val, __serialnum_val, __bucket_id_val, __project_id_val, __action_val, __total_val, __created_at_val)
 
-	__res, err := obj.driver.Exec(__stmt, __id_val, __serialnum_val, __bucket_id_val, __action_val, __total_val, __created_at_val)
+	__res, err := obj.driver.Exec(__stmt, __id_val, __serialnum_val, __bucket_id_val, __project_id_val, __action_val, __total_val, __created_at_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -6718,7 +6744,7 @@ func (obj *sqlite3Impl) All_BwagreementBucket_By_BucketId_And_Action(ctx context
 	bwagreement_bucket_action BwagreementBucket_Action_Field) (
 	rows []*BwagreementBucket, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreement_buckets.id, bwagreement_buckets.serialnum, bwagreement_buckets.bucket_id, bwagreement_buckets.action, bwagreement_buckets.total, bwagreement_buckets.created_at FROM bwagreement_buckets WHERE bwagreement_buckets.bucket_id = ? AND bwagreement_buckets.action = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreement_buckets.id, bwagreement_buckets.serialnum, bwagreement_buckets.bucket_id, bwagreement_buckets.project_id, bwagreement_buckets.action, bwagreement_buckets.total, bwagreement_buckets.created_at FROM bwagreement_buckets WHERE bwagreement_buckets.bucket_id = ? AND bwagreement_buckets.action = ?")
 
 	var __values []interface{}
 	__values = append(__values, bwagreement_bucket_bucket_id.value(), bwagreement_bucket_action.value())
@@ -6734,7 +6760,7 @@ func (obj *sqlite3Impl) All_BwagreementBucket_By_BucketId_And_Action(ctx context
 
 	for __rows.Next() {
 		bwagreement_bucket := &BwagreementBucket{}
-		err = __rows.Scan(&bwagreement_bucket.Id, &bwagreement_bucket.Serialnum, &bwagreement_bucket.BucketId, &bwagreement_bucket.Action, &bwagreement_bucket.Total, &bwagreement_bucket.CreatedAt)
+		err = __rows.Scan(&bwagreement_bucket.Id, &bwagreement_bucket.Serialnum, &bwagreement_bucket.BucketId, &bwagreement_bucket.ProjectId, &bwagreement_bucket.Action, &bwagreement_bucket.Total, &bwagreement_bucket.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -7895,13 +7921,13 @@ func (obj *sqlite3Impl) getLastBwagreementBucket(ctx context.Context,
 	pk int64) (
 	bwagreement_bucket *BwagreementBucket, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreement_buckets.id, bwagreement_buckets.serialnum, bwagreement_buckets.bucket_id, bwagreement_buckets.action, bwagreement_buckets.total, bwagreement_buckets.created_at FROM bwagreement_buckets WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreement_buckets.id, bwagreement_buckets.serialnum, bwagreement_buckets.bucket_id, bwagreement_buckets.project_id, bwagreement_buckets.action, bwagreement_buckets.total, bwagreement_buckets.created_at FROM bwagreement_buckets WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	bwagreement_bucket = &BwagreementBucket{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&bwagreement_bucket.Id, &bwagreement_bucket.Serialnum, &bwagreement_bucket.BucketId, &bwagreement_bucket.Action, &bwagreement_bucket.Total, &bwagreement_bucket.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&bwagreement_bucket.Id, &bwagreement_bucket.Serialnum, &bwagreement_bucket.BucketId, &bwagreement_bucket.ProjectId, &bwagreement_bucket.Action, &bwagreement_bucket.Total, &bwagreement_bucket.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -8332,6 +8358,7 @@ func (rx *Rx) Create_BwagreementBucket(ctx context.Context,
 	bwagreement_bucket_id BwagreementBucket_Id_Field,
 	bwagreement_bucket_serialnum BwagreementBucket_Serialnum_Field,
 	bwagreement_bucket_bucket_id BwagreementBucket_BucketId_Field,
+	bwagreement_bucket_project_id BwagreementBucket_ProjectId_Field,
 	bwagreement_bucket_action BwagreementBucket_Action_Field,
 	bwagreement_bucket_total BwagreementBucket_Total_Field) (
 	bwagreement_bucket *BwagreementBucket, err error) {
@@ -8339,7 +8366,7 @@ func (rx *Rx) Create_BwagreementBucket(ctx context.Context,
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_BwagreementBucket(ctx, bwagreement_bucket_id, bwagreement_bucket_serialnum, bwagreement_bucket_bucket_id, bwagreement_bucket_action, bwagreement_bucket_total)
+	return tx.Create_BwagreementBucket(ctx, bwagreement_bucket_id, bwagreement_bucket_serialnum, bwagreement_bucket_bucket_id, bwagreement_bucket_project_id, bwagreement_bucket_action, bwagreement_bucket_total)
 
 }
 
@@ -9003,6 +9030,7 @@ type Methods interface {
 		bwagreement_bucket_id BwagreementBucket_Id_Field,
 		bwagreement_bucket_serialnum BwagreementBucket_Serialnum_Field,
 		bwagreement_bucket_bucket_id BwagreementBucket_BucketId_Field,
+		bwagreement_bucket_project_id BwagreementBucket_ProjectId_Field,
 		bwagreement_bucket_action BwagreementBucket_Action_Field,
 		bwagreement_bucket_total BwagreementBucket_Total_Field) (
 		bwagreement_bucket *BwagreementBucket, err error)

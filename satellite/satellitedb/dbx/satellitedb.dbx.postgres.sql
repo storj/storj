@@ -134,7 +134,8 @@ CREATE TABLE api_keys (
 CREATE TABLE bwagreement_buckets (
 	id bytea NOT NULL,
 	serialnum text NOT NULL REFERENCES bwagreements( serialnum ) ON DELETE CASCADE,
-	bucket_id text NOT NULL,
+	bucket_id bytea NOT NULL,
+	project_id bytea NOT NULL,
 	action bigint NOT NULL,
 	total bigint NOT NULL,
 	created_at timestamp with time zone NOT NULL,

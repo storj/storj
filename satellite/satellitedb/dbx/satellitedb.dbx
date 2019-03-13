@@ -398,7 +398,8 @@ model bwagreement_bucket (
 
 	field id              blob
 	field serialnum       bwagreement.serialnum cascade
-	field bucket_id       text
+	field bucket_id       blob
+	field project_id      blob
 	field action          int64
 	field total           int64
 	field created_at      timestamp                     ( autoinsert )

@@ -342,16 +342,11 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				Description: "Change bucket_id type",
-				Version:     6,
+				Description: "Add bwagreement_buckets table, alter bucket_usage columns",
+				Version:     7,
 				Action: migrate.SQL{
-					`ALTER TABLE bucket_usages ALTER COLUMN bucket_id TYPE text;`,
-				},
-			},
-			{
-				Description: "Add bwagreement_buckets table",
-				Version:     6,
-				Action: migrate.SQL{
+					`ALTER TABLE bucket_usages ALTER COLUMN bucket_id TYPE BYTEA;`,
+					`ALTER TABLE bucket_usages ADD COLUMN project_id BYTEA;`,
 					`CREATE TABLE bwagreement_buckets (
 						id bytea NOT NULL,
 						serialnum text NOT NULL REFERENCES bwagreements( serialnum ) ON DELETE CASCADE,
