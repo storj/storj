@@ -7,9 +7,7 @@ option go_package = "pb";
 package piecestore;
 
 import "gogo.proto";
-import "google/protobuf/duration.proto";
-
-import "metainfo.proto";
+import "orders.proto";
 
 service Piecestore {
     rpc Upload(stream PieceUploadRequest) returns (PieceUploadResponse) {}
@@ -27,9 +25,9 @@ service Piecestore {
 //
 message PieceUploadRequest {
     // first message to show that we are allowed to upload
-    metainfo.OrderLimit2 limit = 1;
+    orders.OrderLimit2 limit = 1;
     // order for uploading
-    metainfo.Order2      order = 2;
+    orders.Order2      order = 2;
 
     // data message
     message Chunk {
@@ -38,11 +36,11 @@ message PieceUploadRequest {
     }
     Chunk      chunk = 3;
     // final message
-    metainfo.PieceHash done = 4;
+    orders.PieceHash done = 4;
 }
 
 message PieceUploadResponse {
-    metainfo.PieceHash done = 1;
+    orders.PieceHash done = 1;
 }
 
 // Expected order of messages from uplink:
@@ -53,9 +51,9 @@ message PieceUploadResponse {
 //      <- PieceDownloadResponse.Chunk
 message PieceDownloadRequest {
     // first message to show that we are allowed to upload
-    metainfo.OrderLimit2 limit = 1;
+    orders.OrderLimit2 limit = 1;
     // order for downloading
-    metainfo.Order2      order = 2;
+    orders.Order2      order = 2;
 
     // Chunk that we wish to download
     message Chunk {
@@ -77,7 +75,7 @@ message PieceDownloadResponse {
 }
 
 message PieceDeleteRequest {
-    metainfo.OrderLimit2 limit = 1;
+    orders.OrderLimit2 limit = 1;
 }
 
 message PieceDeleteResponse {
