@@ -25,25 +25,25 @@ matrix:
   allow_failures:
     - os: windows # allow failures on windows because it's slow
   include:
-#     ### tests ###
-#     - env:
-#         - MODE=tests
-#         - STORJ_POSTGRES_TEST=postgres://postgres@localhost/teststorj?sslmode=disable
-#       services:
-#         - redis
-#         - postgresql
-#       install:
-#         - pushd ~
-#         - GOBIN=${GOPATH}/bin GOPATH=~/gotools go get github.com/mattn/goveralls
-#         - GOBIN=${GOPATH}/bin GOPATH=~/gotools go get github.com/mfridman/tparse
-#         - popd
-#         - go install -race ./...
-#       script:
-#         - go run scripts/use-ports.go -from 1024 -to 10000 &
-#         - go test -vet=off -race -cover -coverprofile=.coverprofile -json -timeout 9m ./... | tparse -all -top
-#         - goveralls -coverprofile=.coverprofile -service=travis-ci
-#         - rm .coverprofile
-#         - go run scripts/check-clean-directory.go
+    ### tests ###
+    - env:
+        - MODE=tests
+        - STORJ_POSTGRES_TEST=postgres://postgres@localhost/teststorj?sslmode=disable
+      services:
+        - redis
+        - postgresql
+      install:
+        - pushd ~
+        - GOBIN=${GOPATH}/bin GOPATH=~/gotools go get github.com/mattn/goveralls
+        - GOBIN=${GOPATH}/bin GOPATH=~/gotools go get github.com/mfridman/tparse
+        - popd
+        - go install -race ./...
+      script:
+        - go run scripts/use-ports.go -from 1024 -to 10000 &
+        - go test -vet=off -race -cover -coverprofile=.coverprofile -json -timeout 9m ./... | tparse -all -top
+        - goveralls -coverprofile=.coverprofile -service=travis-ci
+        - rm .coverprofile
+        - go run scripts/check-clean-directory.go
 
 #     ### run linters ###
 #     - env: MODE=lint
@@ -90,25 +90,25 @@ matrix:
       script:
         - set -o pipefail && make test-all-in-one |& go run scripts/fail-on-race.go
 
-#     ### windows tests ###
-#     - env: MODE=windows-tests
-#       if: commit_message =~ /(?i:windows)/
-#       os: windows
-#       services:
-#         - redis
-#       cache:
-#         directories:
-#           - "%HOME%/cache"
-#       before_install:
-#         - powershell -executionpolicy bypass -File scripts/setup-gopath.ps1
-#       install:
-#         - go get github.com/mattn/goveralls
-#         - go install -race ./...
-#       script:
-#         - go test -race -cover -coverprofile=.coverprofile ./...
-#         - goveralls -coverprofile=.coverprofile -service=travis-ci
+    ### windows tests ###
+    - env: MODE=windows-tests
+      if: commit_message =~ /(?i:windows)/
+      os: windows
+      services:
+        - redis
+      cache:
+        directories:
+          - "%HOME%/cache"
+      before_install:
+        - powershell -executionpolicy bypass -File scripts/setup-gopath.ps1
+      install:
+        - go get github.com/mattn/goveralls
+        - go install -race ./...
+      script:
+        - go test -race -cover -coverprofile=.coverprofile ./...
+        - goveralls -coverprofile=.coverprofile -service=travis-ci
 
-#   fast_finish: true
+  fast_finish: true
 
-# addons:
-#   postgresql: "9.5"
+addons:
+  postgresql: "9.5"
