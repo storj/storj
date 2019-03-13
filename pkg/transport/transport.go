@@ -5,10 +5,12 @@ package transport
 
 import (
 	"context"
+	"net"
 	"time"
 
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/benchmark/latency"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/identity"
@@ -127,6 +129,46 @@ func (transport *Transport) WithObservers(obs ...Observer) *Transport {
 	tr.observers = append(tr.observers, transport.observers...)
 	tr.observers = append(tr.observers, obs...)
 	return tr
+}
+
+// SlowTransport is a slow version of transport
+type SlowTransport struct {
+	client  Client
+	network latency.Network
+}
+
+// DialNode dials a node very slowly
+func (slowTransport *SlowTransport) DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+	netdialer := &net.Dialer{}
+	dialerOpt := grpc.WithContextDialer(slowTransport.network.ContextDialer(netdialer.DialContext))
+
+	return slowTransport.client.DialNode(ctx, node, append(opts, dialerOpt)...)
+}
+
+// DialAddress dials an address with latency
+func (slowTransport *SlowTransport) DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+	netdialer := &net.Dialer{}
+	dialerOpt := grpc.WithContextDialer(slowTransport.network.ContextDialer(netdialer.DialContext))
+
+	return slowTransport.client.DialAddress(ctx, address, append(opts, dialerOpt)...)
+}
+
+// Identity for slowTransport
+func (slowTransport *SlowTransport) Identity() *identity.FullIdentity {
+	return slowTransport.client.Identity()
+}
+
+// WithObservers calls WithObservers for slowTransport
+func (slowTransport *SlowTransport) WithObservers(obs ...Observer) *Transport {
+	return slowTransport.client.WithObservers(obs...)
+}
+
+// NewClientWithLatency makes a slower transport client for testing purposes
+func NewClientWithLatency(client Client, network latency.Network) Client {
+	return &SlowTransport{
+		client:  client,
+		network: network,
+	}
 }
 
 func alertFail(ctx context.Context, obs []Observer, node *pb.Node, err error) {
