@@ -9,6 +9,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/pieces"
 )
@@ -28,13 +29,18 @@ func (db *pieceinfo) Add(ctx context.Context, info *pieces.Info) error {
 		return ErrInfo.Wrap(err)
 	}
 
+	uplinkPieceHash, err := proto.Marshal(info.UplinkPieceHash)
+	if err != nil {
+		return ErrInfo.Wrap(err)
+	}
+
 	defer db.locked()()
 
 	_, err = db.db.Exec(`
 		INSERT INTO
 			pieceinfo(satellite_id, piece_id, piece_size, piece_expiration, uplink_piece_hash, uplink_cert_id)
 		VALUES (?,?,?,?,?,?)
-	`, info.SatelliteID, info.PieceID, info.PieceSize, info.UplinkPieceHash, certid)
+	`, info.SatelliteID, info.PieceID, info.PieceSize, info.PieceExpiration, uplinkPieceHash, certid)
 
 	return ErrInfo.Wrap(err)
 }
@@ -46,7 +52,7 @@ func (db *pieceinfo) Get(ctx context.Context, satelliteID storj.NodeID, pieceID 
 	info.SatelliteID = satelliteID
 	info.PieceID = pieceID
 
-	var pieceHash []byte
+	var uplinkPieceHash []byte
 	var uplinkIdentity []byte
 
 	db.mu.Lock()
@@ -54,14 +60,16 @@ func (db *pieceinfo) Get(ctx context.Context, satelliteID storj.NodeID, pieceID 
 		SELECT piece_size, piece_expiration, uplink_piece_hash, certificate.peer_identity
 		FROM pieceinfo
 		INNER JOIN certificate ON pieceinfo.uplink_cert_id = certificate.cert_id
-	`).Scan(&info.PieceSize, &info.PieceExpiration, &pieceHash, &uplinkIdentity)
+		WHERE satellite_id = ? AND piece_id = ?
+	`, satelliteID, pieceID).Scan(&info.PieceSize, &info.PieceExpiration, &uplinkPieceHash, &uplinkIdentity)
 	db.mu.Unlock()
 
 	if err != nil {
 		return nil, ErrInfo.Wrap(err)
 	}
 
-	err = proto.Unmarshal(pieceHash, info.UplinkPieceHash)
+	info.UplinkPieceHash = &pb.PieceHash{}
+	err = proto.Unmarshal(uplinkPieceHash, info.UplinkPieceHash)
 	if err != nil {
 		return nil, ErrInfo.Wrap(err)
 	}
