@@ -696,6 +696,11 @@ func initEnv(planet *testplanet.Planet) (minio.ObjectLayer, storj.Metainfo, stre
 		return nil, nil, nil, err
 	}
 
+	metainfo, err := planet.Uplinks[0].DialMetainfo(context.Background(), planet.Satellites[0], TestAPIKey)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
 	ec := ecclient.NewClient(planet.Uplinks[0].Transport, 0)
 	fc, err := infectious.NewFEC(2, 4)
 	if err != nil {
@@ -707,7 +712,7 @@ func initEnv(planet *testplanet.Planet) (minio.ObjectLayer, storj.Metainfo, stre
 		return nil, nil, nil, err
 	}
 
-	segments := segments.NewSegmentStore(oc, ec, pdb, rs, 8*memory.KB.Int())
+	segments := segments.NewSegmentStore(metainfo, oc, ec, rs, 4*memory.KiB.Int(), 8*memory.MiB.Int64())
 
 	key := new(storj.Key)
 	copy(key[:], TestEncKey)
@@ -719,10 +724,10 @@ func initEnv(planet *testplanet.Planet) (minio.ObjectLayer, storj.Metainfo, stre
 
 	buckets := buckets.NewStore(streams)
 
-	metainfo := kvmetainfo.New(buckets, streams, segments, pdb, key)
+	kvmetainfo := kvmetainfo.New(buckets, streams, segments, pdb, key)
 
 	gateway := NewStorjGateway(
-		metainfo,
+		kvmetainfo,
 		streams,
 		storj.AESGCM,
 		storj.EncryptionScheme{
@@ -741,7 +746,7 @@ func initEnv(planet *testplanet.Planet) (minio.ObjectLayer, storj.Metainfo, stre
 
 	layer, err := gateway.NewGatewayLayer(auth.Credentials{})
 
-	return layer, metainfo, streams, err
+	return layer, kvmetainfo, streams, err
 }
 
 func createFile(ctx context.Context, metainfo storj.Metainfo, streams streams.Store, bucket string, path storj.Path, createInfo *storj.CreateObject, data []byte) (storj.Object, error) {
