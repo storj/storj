@@ -5,12 +5,15 @@ package pieces
 
 import (
 	"context"
+	"time"
 
 	"storj.io/storj/internal/memory"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 
@@ -25,6 +28,17 @@ const (
 
 // Error is the default error class.
 var Error = errs.Class("pieces error")
+
+type Info struct {
+	SatelliteID storj.NodeID
+
+	PieceID         storj.PieceID2
+	PieceSize       int64
+	PieceExpiration time.Time
+
+	UplinkPieceHash *pb.PieceHash
+	Uplink          *identity.PeerIdentity
+}
 
 // Store implements storing pieces onto a blob storage implementation.
 type Store struct {
