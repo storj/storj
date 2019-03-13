@@ -23,7 +23,7 @@ var (
 	mon = monkit.Package()
 
 	// Error is the errs class of standard End User Client errors
-	Error = errs.Class("Storj Gateway error")
+	Error = errs.Class("libuplink error")
 )
 
 // NewStorjUplink creates a *Storj object from an existing ObjectStore

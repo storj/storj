@@ -13,26 +13,25 @@ import (
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/storj"
-	ul "storj.io/storj/uplink"
 )
 
 // Config holds the configs for the Uplink
-type Config struct {
-	// MaxBufferMem controls upload performance and is system-specific
-	MaxBufferMem int
+// type Config struct {
+// 	// MaxBufferMem controls upload performance and is system-specific
+// 	MaxBufferMem int
 
-	// These should only be relevant for new files; these values for existing
-	// files should come from the metainfo index. It's unlikely these will ever
-	// change much.
-	EncBlockSize  int
-	MaxInlineSize int
-	SegmentSize   int64
-	TLSConfig     tlsopts.Config
+// 	// These should only be relevant for new files; these values for existing
+// 	// files should come from the metainfo index. It's unlikely these will ever
+// 	// change much.
+// 	EncBlockSize  int
+// 	MaxInlineSize int
+// 	SegmentSize   int64
+// 	TLSConfig     tlsopts.Config
 
-	// Default Configs
-	SatelliteAddr string
-	APIKey        string
-}
+// 	// Default Configs
+// 	SatelliteAddr string
+// 	APIKey        string
+// }
 
 // Session represents a specific access session.
 type Session struct {
@@ -82,22 +81,24 @@ func NewUplink(ident *identity.FullIdentity, satelliteAddr string, cfg Config) *
 }
 
 // NewSession creates a Session with an Access struct.
-func (u *Uplink) NewSession(ctx context.Context, name string, access Access) error {
-	opts, err := tlsopts.NewOptions(u.id, u.config.TLSConfig)
+func (u *Uplink) NewSession(ctx context.Context, bucketName string, cfg Config, access Access) error {
+	opts, err := tlsopts.NewOptions(u.id, u.config.TLS)
 	if err != nil {
 		fmt.Printf("tlsopts error: %+v\n", err)
 		return err
 	}
 
 	tc := transport.NewClient(opts)
-	gateway, err := u.NewClient(ctx, u.id)
+	gateway, err := u.NewClient(ctx, u.id, cfg)
 	if err != nil {
-		fmt.Printf("get gateway error: %+v\n", err)
+		fmt.Printf("gateway error: %+v\n", err)
 		return err
 	}
 
 	// TODO: Only handling this via name until I get a better alternative implemented.
-	u.session[name] = &Session{
+	u.session = make(map[string]*Session)
+
+	u.session[bucketName] = &Session{
 		transport: tc,
 		client:    gateway,
 	}
@@ -112,23 +113,10 @@ func (s *Session) Access(ctx context.Context, caveats ...Caveat) (Access, error)
 }
 
 // NewClient returns a gateway instance
-func (u *Uplink) NewClient(ctx context.Context, identity *identity.FullIdentity) (*Client, error) {
+func (u *Uplink) NewClient(ctx context.Context, identity *identity.FullIdentity, cfg Config) (*Client, error) {
 	// TODO: (dylan) Need to merge these defaults with Configs from this library
 	// TODO: (dylan) Need to allow users of library to set defaults easier as well
-	config := ul.Config{
-		Client: ul.ClientConfig{
-			OverlayAddr:   u.config.SatelliteAddr,
-			PointerDBAddr: u.config.SatelliteAddr,
-
-			// TODO(dylan): This needs to change to macaroons eventually.
-			APIKey: u.config.APIKey,
-		},
-		RS:  ul.RSConfig{},
-		Enc: ul.EncryptionConfig{},
-		TLS: tlsopts.Config{},
-	}
-
-	metainfo, streams, err := config.GetMetainfo(ctx, identity)
+	metainfo, streams, err := cfg.GetMetainfo(ctx, identity)
 	if err != nil {
 		return nil, err
 	}
