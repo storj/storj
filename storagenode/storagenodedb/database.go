@@ -111,8 +111,10 @@ func NewInMemory(log *zap.Logger, storageDir string) (*DB, error) {
 		storage: storage,
 		psdb:    psdb,
 
-		pieces: pieces,
-		info:   infodb,
+		pieces:      pieces,
+		closePieces: pieces.Close,
+
+		info: infodb,
 
 		kdb: teststore.New(),
 		ndb: teststore.New(),
