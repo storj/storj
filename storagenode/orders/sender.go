@@ -9,14 +9,25 @@ import (
 
 	"go.uber.org/zap"
 
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/storagenode/orders"
 )
 
-type Table interface {
-	// not sure whether there's a need to duplicate, but just in case
-	Add(ctx context.Context, limit *pb.OrderLimit2, order *pb.Order2) error
+// Info contains full information about an order.
+type Info struct {
+	Limit  *pb.OrderLimit2
+	Order  *pb.Order2
+	Uplink *identity.PeerIdentity
+}
+
+type DB interface {
+	// Enqueue inserts order to the list of orders needing to be sent to the satellite.
+	Enqueue(ctx context.Context, info *orders.Info) error
+	// ListUnsent returns orders that haven't been sent yet.
+	ListUnsent(ctx context.Context, limit int) ([]*orders.Info, error)
 }
 
 type SenderConfig struct {
@@ -31,7 +42,7 @@ type Sender struct {
 	client   transport.Client
 	kademlia *kademlia.Kademlia
 
-	table Table
+	table DB
 
 	config SenderConfig
 }

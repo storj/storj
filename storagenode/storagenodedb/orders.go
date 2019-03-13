@@ -13,25 +13,18 @@ import (
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/storagenode/orders"
 )
 
-type orders struct {
+type ordersdb struct {
 	*infodb
 }
 
 // Orders returns database for storing orders
-func (db *infodb) Orders() orders { return orders{db} }
-
-// OrderInfo contains full information about an order.
-// TODO: move to a better location.
-type OrderInfo struct {
-	Limit  *pb.OrderLimit2
-	Order  *pb.Order2
-	Uplink *identity.PeerIdentity
-}
+func (db *infodb) Orders() orders.Table { return ordersdb{db} }
 
 // Enqueue inserts order to the unsent list
-func (db *orders) Enqueue(ctx context.Context, info *OrderInfo) error {
+func (db *ordersdb) Enqueue(ctx context.Context, info *orders.Info) error {
 	certdb := db.CertDB()
 
 	uplinkCertID, err := certdb.Include(ctx, info.Uplink)
@@ -68,7 +61,7 @@ func (db *orders) Enqueue(ctx context.Context, info *OrderInfo) error {
 }
 
 // ListUnsent returns orders that haven't been sent yet.
-func (db *orders) ListUnsent(ctx context.Context, limit int) (_ []*OrderInfo, err error) {
+func (db *ordersdb) ListUnsent(ctx context.Context, limit int) (_ []*orders.Info, err error) {
 	defer db.locked()()
 
 	rows, err := db.db.Query(`
@@ -85,7 +78,7 @@ func (db *orders) ListUnsent(ctx context.Context, limit int) (_ []*OrderInfo, er
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	var infos []*OrderInfo
+	var infos []*orders.Info
 	for rows.Next() {
 		var limitSerialized []byte
 		var orderSerialized []byte
@@ -96,7 +89,7 @@ func (db *orders) ListUnsent(ctx context.Context, limit int) (_ []*OrderInfo, er
 			return nil, ErrInfo.Wrap(err)
 		}
 
-		var info OrderInfo
+		var info orders.Info
 		info.Limit = &pb.OrderLimit2{}
 		info.Order = &pb.Order2{}
 

@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package storagenodedb_test
+package orders_test
 
 import (
 	"testing"
@@ -16,7 +16,6 @@ import (
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/storagenode/storagenodedb"
 )
 
 func TestOrders(t *testing.T) {
