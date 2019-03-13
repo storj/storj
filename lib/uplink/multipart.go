@@ -18,16 +18,17 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-func (layer *gatewayLayer) NewMultipartUpload(ctx context.Context, bucket, object string, metadata map[string]string) (uploadID string, err error) {
+// NewMultipartUpload starts a new multipart upload.
+func (client *Client) NewMultipartUpload(ctx context.Context, bucket, object string, metadata map[string]string) (uploadID string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// Check that the bucket exists
-	_, err = layer.gateway.metainfo.GetBucket(ctx, bucket)
+	_, err = client.metainfo.GetBucket(ctx, bucket)
 	if err != nil {
 		return "", convertError(err, bucket, "")
 	}
 
-	uploads := layer.gateway.multipart
+	uploads := client.multipart
 
 	upload, err := uploads.Create(bucket, object, metadata)
 	if err != nil {
@@ -41,10 +42,10 @@ func (layer *gatewayLayer) NewMultipartUpload(ctx context.Context, bucket, objec
 		createInfo := storj.CreateObject{
 			ContentType:      contentType,
 			Metadata:         metadata,
-			RedundancyScheme: layer.gateway.redundancy,
-			EncryptionScheme: layer.gateway.encryption,
+			RedundancyScheme: client.redundancy,
+			EncryptionScheme: client.encryption,
 		}
-		objInfo, err := layer.putObject(ctx, bucket, object, upload.Stream, &createInfo)
+		objInfo, err := client.putObject(ctx, bucket, object, upload.Stream, &createInfo)
 
 		uploads.RemoveByID(upload.ID)
 
@@ -58,10 +59,11 @@ func (layer *gatewayLayer) NewMultipartUpload(ctx context.Context, bucket, objec
 	return upload.ID, nil
 }
 
-func (layer *gatewayLayer) PutObjectPart(ctx context.Context, bucket, object, uploadID string, partID int, data *hash.Reader) (info minio.PartInfo, err error) {
+// PutObjectPart puts a part of a multipart upload
+func (client *Client) PutObjectPart(ctx context.Context, bucket, object, uploadID string, partID int, data *hash.Reader) (info minio.PartInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	uploads := layer.gateway.multipart
+	uploads := client.multipart
 
 	upload, err := uploads.Get(bucket, object, uploadID)
 	if err != nil {
@@ -90,10 +92,11 @@ func (layer *gatewayLayer) PutObjectPart(ctx context.Context, bucket, object, up
 	return partInfo, nil
 }
 
-func (layer *gatewayLayer) AbortMultipartUpload(ctx context.Context, bucket, object, uploadID string) (err error) {
+// AbortMultipartUpload aborts a multipart upload
+func (client *Client) AbortMultipartUpload(ctx context.Context, bucket, object, uploadID string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	uploads := layer.gateway.multipart
+	uploads := client.multipart
 
 	upload, err := uploads.Remove(bucket, object, uploadID)
 	if err != nil {
@@ -109,10 +112,11 @@ func (layer *gatewayLayer) AbortMultipartUpload(ctx context.Context, bucket, obj
 	return nil
 }
 
-func (layer *gatewayLayer) CompleteMultipartUpload(ctx context.Context, bucket, object, uploadID string, uploadedParts []minio.CompletePart) (objInfo minio.ObjectInfo, err error) {
+// CompleteMultipartUpload will resume a multipart upload
+func (client *Client) CompleteMultipartUpload(ctx context.Context, bucket, object, uploadID string, uploadedParts []minio.CompletePart) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	uploads := layer.gateway.multipart
+	uploads := client.multipart
 	upload, err := uploads.Remove(bucket, object, uploadID)
 	if err != nil {
 		return minio.ObjectInfo{}, err
@@ -126,10 +130,11 @@ func (layer *gatewayLayer) CompleteMultipartUpload(ctx context.Context, bucket, 
 	return result.Info, result.Error
 }
 
-func (layer *gatewayLayer) ListObjectParts(ctx context.Context, bucket, object, uploadID string, partNumberMarker int, maxParts int) (result minio.ListPartsInfo, err error) {
+// ListObjectParts will list the parts of a multipart upload
+func (client *Client) ListObjectParts(ctx context.Context, bucket, object, uploadID string, partNumberMarker int, maxParts int) (result minio.ListPartsInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	uploads := layer.gateway.multipart
+	uploads := client.multipart
 	upload, err := uploads.Get(bucket, object, uploadID)
 	if err != nil {
 		return minio.ListPartsInfo{}, err
