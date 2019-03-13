@@ -5,13 +5,16 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/csv"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
@@ -465,23 +468,59 @@ func getSegments(cmd *cobra.Command, args []string) error {
 			return ErrRequest.Wrap(err)
 		}
 
-		for _, seg := range res.Segments {
-			//TODO: format results
-			fmt.Println(seg)
+		segments, err := unpackSegmentDetail(res.Segments)
+		if err != nil {
+			return err
+		}
+
+		// format and print segments
+		for _, seg := range segments {
+			result, err := json.Marshal(seg)
+			if err != nil {
+				return err
+			}
+			var out bytes.Buffer
+			json.Indent(&out, result, "", "  ")
+			out.WriteTo(os.Stdout)
 		}
 
 		length = int64(len(res.Segments))
 		offset += length
 
-		fmt.Printf("%d results\n", length)
-
 		if length >= irreparableLimit {
-			if !prompt.Confirm("Next page? (y/n)") {
+			if !prompt.Confirm("\nNext page? (y/n)") {
 				break
 			}
 		}
 	}
 	return nil
+}
+
+type formattedSegment struct {
+	EncryptedPath      string      `json:"encrypted_path"`
+	LostPieces         int64       `json:"lost_pieces"`
+	LastRepairAttempt  time.Time   `json:"last_repair_attempt"`
+	RepairAttemptCount int64       `json:"repair_attempt_count"`
+	SegmentDetail      *pb.Pointer `json:"segment_detail"`
+}
+
+// unpackSegmentDetail unmarshals a slice of segments' pointers for viewing
+func unpackSegmentDetail(packed []*pb.IrreparableSegment) (unpacked []*formattedSegment, err error) {
+	for _, seg := range packed {
+		p := &pb.Pointer{}
+		err = proto.Unmarshal(seg.SegmentDetail, p)
+		if err != nil {
+			return nil, err
+		}
+		unpacked = append(unpacked, &formattedSegment{
+			EncryptedPath:      string(seg.EncryptedPath),
+			LostPieces:         seg.LostPieces,
+			LastRepairAttempt:  time.Unix(seg.LastRepairAttempt, 0).UTC(),
+			RepairAttemptCount: seg.RepairAttemptCount,
+			SegmentDetail:      p,
+		})
+	}
+	return unpacked, nil
 }
 
 func init() {
