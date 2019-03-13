@@ -333,7 +333,8 @@ model bucket_usage (
     unique rollup_end_time bucket_id
 
     field  id                 blob
-    field  bucket_id          text      //--TODO: add foreign key constraint--//
+    field  bucket_id          blob      //--TODO: add foreign key constraint--//
+    field  project_id         blob
 
     field  rollup_end_time    timestamp
 

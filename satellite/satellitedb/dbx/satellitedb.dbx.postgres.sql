@@ -28,7 +28,8 @@ CREATE TABLE accounting_timestamps (
 );
 CREATE TABLE bucket_usages (
 	id bytea NOT NULL,
-	bucket_id text NOT NULL,
+	bucket_id bytea NOT NULL,
+	project_id bytea NOT NULL,
 	rollup_end_time timestamp with time zone NOT NULL,
 	remote_stored_data bigint NOT NULL,
 	inline_stored_data bigint NOT NULL,

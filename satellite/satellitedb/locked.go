@@ -248,7 +248,6 @@ type lockedBucketUsage struct {
 	db accounting.BucketUsage
 }
 
-// Count(ctx context.Context, buckedID uuid.UUID, ) ()
 func (m *lockedBucketUsage) Create(ctx context.Context, rollup accounting.BucketRollup) (*accounting.BucketRollup, error) {
 	m.Lock()
 	defer m.Unlock()

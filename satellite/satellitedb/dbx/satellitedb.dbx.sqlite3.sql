@@ -28,7 +28,8 @@ CREATE TABLE accounting_timestamps (
 );
 CREATE TABLE bucket_usages (
 	id BLOB NOT NULL,
-	bucket_id TEXT NOT NULL,
+	bucket_id BLOB NOT NULL,
+	project_id BLOB NOT NULL,
 	rollup_end_time TIMESTAMP NOT NULL,
 	remote_stored_data INTEGER NOT NULL,
 	inline_stored_data INTEGER NOT NULL,
