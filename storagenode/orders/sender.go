@@ -13,7 +13,6 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/transport"
-	"storj.io/storj/storagenode/orders"
 )
 
 // Info contains full information about an order.
@@ -25,9 +24,9 @@ type Info struct {
 
 type DB interface {
 	// Enqueue inserts order to the list of orders needing to be sent to the satellite.
-	Enqueue(ctx context.Context, info *orders.Info) error
+	Enqueue(ctx context.Context, info *Info) error
 	// ListUnsent returns orders that haven't been sent yet.
-	ListUnsent(ctx context.Context, limit int) ([]*orders.Info, error)
+	ListUnsent(ctx context.Context, limit int) ([]*Info, error)
 }
 
 type SenderConfig struct {

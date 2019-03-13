@@ -21,7 +21,10 @@ type ordersdb struct {
 }
 
 // Orders returns database for storing orders
-func (db *infodb) Orders() orders.Table { return ordersdb{db} }
+func (db *DB) Orders() orders.DB { return db.info.Orders() }
+
+// Orders returns database for storing orders
+func (db *infodb) Orders() orders.DB { return &ordersdb{db} }
 
 // Enqueue inserts order to the unsent list
 func (db *ordersdb) Enqueue(ctx context.Context, info *orders.Info) error {

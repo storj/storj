@@ -49,12 +49,6 @@ func (discardMeta) Delete(ctx context.Context, satellite storj.NodeID, pieceID s
 	return nil
 }
 
-type discardOrders struct{}
-
-func (discardOrders) Add(ctx context.Context, limit *pb.OrderLimit2, order *pb.Order2) error {
-	return nil
-}
-
 // TODO: should the reader, writer have context for read/write?
 
 var _ pb.PiecestoreServer = (*Endpoint)(nil)
@@ -75,10 +69,10 @@ type Endpoint struct {
 	store *pieces.Store
 
 	pieceMeta PieceMeta // todo should this be folded into pieces.Store instead?
-	orders    orders.Table
+	orders    orders.DB
 }
 
-func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, store *pieces.Store, pieceMeta PieceMeta, orders orders.Table, config Config) (*Endpoint, error) {
+func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, store *pieces.Store, pieceMeta PieceMeta, orders orders.DB, config Config) (*Endpoint, error) {
 	activeSerials, err := LoadSerialNumbers(pieceMeta)
 	if err != nil {
 		return nil, err
@@ -92,7 +86,7 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, stor
 		activeSerials: activeSerials,
 		store:         store,
 		pieceMeta:     discardMeta{},
-		orders:        discardOrders{},
+		orders:        orders,
 	}, nil
 }
 
@@ -165,7 +159,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 	defer pieceWriter.Cancel() // similarly how transcation Rollback works
 
 	largestOrder := &pb.Order2{}
-	defer endpoint.SaveOrder(ctx, limit, largestOrder)
+	defer endpoint.SaveOrder(ctx, limit, largestOrder, peer)
 
 	for {
 		message, err = stream.Recv() // TODO: reuse messages to avoid allocations
@@ -339,7 +333,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 
 	recvErr := func() (err error) {
 		largestOrder := &pb.Order2{}
-		defer endpoint.SaveOrder(ctx, limit, largestOrder)
+		defer endpoint.SaveOrder(ctx, limit, largestOrder, peer)
 
 		// ensure that we always terminate sending goroutine
 		defer throttle.Fail(io.EOF)
@@ -373,12 +367,16 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 	return Error.Wrap(errs.Combine(sendErr, recvErr))
 }
 
-func (endpoint *Endpoint) SaveOrder(ctx context.Context, limit *pb.OrderLimit2, order *pb.Order2) {
+func (endpoint *Endpoint) SaveOrder(ctx context.Context, limit *pb.OrderLimit2, order *pb.Order2, uplink *identity.PeerIdentity) {
 	// TODO: do this in a goroutine
 	if order == nil || order.Amount <= 0 {
 		return
 	}
-	err := endpoint.orders.Add(ctx, limit, order)
+	err := endpoint.orders.Enqueue(ctx, &orders.Info{
+		Limit:  limit,
+		Order:  order,
+		Uplink: uplink,
+	})
 	if err != nil {
 		endpoint.log.Error("failed to add order", zap.Error(err))
 	}

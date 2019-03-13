@@ -39,6 +39,8 @@ type DB interface {
 	Storage() psserver.Storage
 	Pieces() storage.Blobs
 
+	Orders() orders.DB
+
 	// TODO: use better interfaces
 	PSDB() *psdb.DB
 	RoutingTable() (kdb, ndb storage.KeyValueStore)
@@ -96,7 +98,6 @@ type Peer struct {
 
 		Store     *pieces.Store
 		PieceMeta piecestore.PieceMeta
-		Orders    orders.Table
 
 		Endpoint *piecestore.Endpoint
 	}
@@ -204,7 +205,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 
 		peer.Storage2.Store = pieces.NewStore(peer.Log.Named("pieces"), peer.DB.Pieces())
 		// PieceMeta piecestore.PieceMeta
-		// Orders    orders.Table
 
 		peer.Storage2.Endpoint, err = piecestore.NewEndpoint(
 			peer.Log.Named("piecestore"),
@@ -212,7 +212,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 			peer.Storage2.Trust,
 			peer.Storage2.Store,
 			peer.Storage2.PieceMeta,
-			peer.Storage2.Orders,
+			peer.DB.Orders(),
 			config.Storage2,
 		)
 		if err != nil {

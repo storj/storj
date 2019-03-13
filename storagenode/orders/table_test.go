@@ -4,80 +4,84 @@
 package orders_test
 
 import (
+	"crypto/rand"
 	"testing"
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/orders"
+	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 )
 
 func TestOrders(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
 
-	log := zaptest.NewLogger(t)
+		ordersdb := db.Orders()
 
-	db, err := storagenodedb.NewInfoInMemory()
-	require.NoError(t, err)
-	defer ctx.Check(db.Close)
+		storagenode := testplanet.MustPregeneratedSignedIdentity(0)
 
-	require.NoError(t, db.CreateTables(log))
+		satellite0 := testplanet.MustPregeneratedSignedIdentity(1)
 
-	ordersdb := db.Orders()
+		uplink := testplanet.MustPregeneratedSignedIdentity(3)
+		piece := storj.NewPieceID()
 
-	storagenode := testplanet.MustPregeneratedSignedIdentity(0)
+		serialNumber := newRandomSerial()
 
-	satellite0 := testplanet.MustPregeneratedSignedIdentity(1)
+		// basic test
+		_, err := ordersdb.ListUnsent(ctx, 100)
+		require.NoError(t, err)
 
-	uplink := testplanet.MustPregeneratedSignedIdentity(3)
-	piece := storj.NewPieceID()
+		now := ptypes.TimestampNow()
 
-	serialNumber := newRandomSerial()
+		limit, err := signing.SignOrderLimit(signing.SignerFromFullIdentity(satellite0), &pb.OrderLimit2{
+			SerialNumber:    serialNumber,
+			SatelliteId:     satellite0.ID,
+			UplinkId:        uplink.ID,
+			StorageNodeId:   storagenode.ID,
+			PieceId:         piece,
+			Limit:           100,
+			Action:          pb.Action_GET,
+			PieceExpiration: now,
+			OrderExpiration: now,
+		})
+		require.NoError(t, err)
 
-	// basic test
-	_, err = ordersdb.ListUnsent(ctx, 100)
-	require.NoError(t, err)
+		order, err := signing.SignOrder(signing.SignerFromFullIdentity(uplink), &pb.Order2{
+			SerialNumber: serialNumber,
+			Amount:       50,
+		})
+		require.NoError(t, err)
 
-	now := ptypes.TimestampNow()
+		info := &orders.Info{limit, order, uplink.PeerIdentity()}
 
-	limit, err := signing.SignOrderLimit(signing.SignerFromFullIdentity(satellite0), &pb.OrderLimit2{
-		SerialNumber:    serialNumber,
-		SatelliteId:     satellite0.ID,
-		UplinkId:        uplink.ID,
-		StorageNodeId:   storagenode.ID,
-		PieceId:         piece,
-		Limit:           100,
-		Action:          pb.Action_GET,
-		PieceExpiration: now,
-		OrderExpiration: now,
+		// basic add
+		err = ordersdb.Enqueue(ctx, info)
+		require.NoError(t, err)
+
+		// duplicate add
+		err = ordersdb.Enqueue(ctx, info)
+		require.Error(t, err, "duplicate add")
+
+		unsent, err := ordersdb.ListUnsent(ctx, 100)
+		require.NoError(t, err)
+
+		require.Empty(t, cmp.Diff([]*orders.Info{info}, unsent, cmp.Comparer(pb.Equal)))
 	})
-	require.NoError(t, err)
+}
 
-	order, err := signing.SignOrder(signing.SignerFromFullIdentity(uplink), &pb.Order2{
-		SerialNumber: serialNumber,
-		Amount:       50,
-	})
-	require.NoError(t, err)
-
-	info := &storagenodedb.OrderInfo{limit, order, uplink.PeerIdentity()}
-
-	// basic add
-	err = ordersdb.Enqueue(ctx, info)
-	require.NoError(t, err)
-
-	// duplicate add
-	err = ordersdb.Enqueue(ctx, info)
-	require.Error(t, err, "duplicate add")
-
-	orders, err := ordersdb.ListUnsent(ctx, 100)
-	require.NoError(t, err)
-
-	require.Empty(t, cmp.Diff([]*storagenodedb.OrderInfo{info}, orders, cmp.Comparer(pb.Equal)))
+// TODO: move somewhere better
+func newRandomSerial() []byte {
+	var serial [16]byte
+	_, _ = rand.Read(serial[:])
+	return serial[:]
 }
