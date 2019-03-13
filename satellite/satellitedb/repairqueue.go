@@ -5,6 +5,7 @@ package satellitedb
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
@@ -44,7 +45,10 @@ func (r *repairQueue) postgresDequeue(ctx context.Context) (seg pb.InjuredSegmen
 		)
 		RETURNING info
 	`).Scan(&seg)
-	return seg, err // err will be sql.ErrNoRows when there were no rows left
+	if err == sql.ErrNoRows {
+		err = storage.ErrEmptyQueue.New("")
+	}
+	return seg, err
 }
 
 func (r *repairQueue) sqliteDequeue(ctx context.Context) (seg pb.InjuredSegment, err error) {
@@ -64,6 +68,9 @@ func (r *repairQueue) sqliteDequeue(ctx context.Context) (seg pb.InjuredSegment,
 		}
 		return nil
 	})
+	if err == sql.ErrNoRows {
+		err = storage.ErrEmptyQueue.New("")
+	}
 	return seg, err
 }
 
