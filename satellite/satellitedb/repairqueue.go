@@ -12,7 +12,6 @@ import (
 	"github.com/mattn/go-sqlite3"
 
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/utils"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/storage"
 )
@@ -34,56 +33,49 @@ func (r *repairQueue) Enqueue(ctx context.Context, seg *pb.InjuredSegment) error
 	return err
 }
 
-func (r *repairQueue) Dequeue(ctx context.Context) (seg pb.InjuredSegment, err error) {
-	// note: BeginTx(ctx, &sql.TxOptions{Isolation: ...) didn't work
-	// so we're using SQL 'FOR UPDATE' below instead
-	tx, err := r.db.DB.Begin()
-	if err != nil {
-		return seg, Error.Wrap(err)
-	}
-	defer func() {
-		if err == nil {
-			err = Error.Wrap(tx.Commit())
-		} else {
-			err = Error.Wrap(utils.CombineErrors(tx.Rollback(), err))
+func (r *repairQueue) postgresDequeue(ctx context.Context) (seg pb.InjuredSegment, err error) {
+	err = r.db.DB.QueryRowContext(ctx, `
+	DELETE FROM injuredsegments
+		WHERE id = (
+			SELECT id FROM injuredsegments
+				ORDER BY id
+				FOR UPDATE SKIP LOCKED
+				LIMIT 1
+		)
+		RETURNING info
+	`).Scan(&seg)
+	return seg, err // err will be sql.ErrNoRows when there were no rows left
+}
+
+func (r *repairQueue) sqliteDequeue(ctx context.Context) (seg pb.InjuredSegment, err error) {
+	err = r.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+		var id int64
+		err = tx.Tx.QueryRowContext(ctx, `SELECT id, info FROM injuredsegments ORDER BY id LIMIT 1`).Scan(&id, &seg)
+		if err != nil {
+			return err
 		}
-	}()
-	//get top
-	selectSQL := ""
+		res, err := tx.Tx.ExecContext(ctx, r.db.Rebind(`DELETE FROM injuredsegments WHERE id = ?`), id)
+		if err != nil {
+			return err
+		}
+		count, err := res.RowsAffected()
+		if count != 1 {
+			return fmt.Errorf("Expected 1, got %d segments deleted", count)
+		}
+		return nil
+	})
+	return seg, err
+}
+
+func (r *repairQueue) Dequeue(ctx context.Context) (seg pb.InjuredSegment, err error) {
 	switch t := r.db.DB.Driver().(type) {
 	case *sqlite3.SQLiteDriver:
-		selectSQL = `SELECT id, info FROM injuredsegments LIMIT 1`
+		return r.sqliteDequeue(ctx)
 	case *pq.Driver:
-		selectSQL = `SELECT id, info FROM injuredsegments LIMIT 1 FOR UPDATE`
+		return r.postgresDequeue(ctx)
 	default:
-		return seg, fmt.Errorf("Unsupported driver %t", t)
+		return seg, fmt.Errorf("Unsupported database %t", t)
 	}
-	rows, err := tx.Query(selectSQL)
-	if err != nil {
-		return seg, err
-	}
-	//defer func() { err = errs.Combine(err, rows.Close()) }()
-	if !rows.Next() {
-		rows.Close()
-		return seg, rows.Err()
-	}
-	var id int64
-	err = rows.Scan(&id, &seg)
-	if err != nil {
-		rows.Close()
-		return seg, err
-	}
-	rows.Close()
-	//delete
-	res, err := tx.Exec(r.db.Rebind(`DELETE FROM injuredsegments WHERE id = ?`), id)
-	if err != nil {
-		return seg, err
-	}
-	count, err := res.RowsAffected()
-	if count != 1 {
-		return seg, fmt.Errorf("Injured segment not deleted")
-	}
-	return seg, err
 }
 
 func (r *repairQueue) Peekqueue(ctx context.Context, limit int) ([]pb.InjuredSegment, error) {
