@@ -26,7 +26,7 @@ func (db *usedSerials) Add(ctx context.Context, satelliteID storj.NodeID, serial
 	_, err := db.db.Exec(`
 		INSERT INTO 
 			used_serial(satellite_id, serial_number, expiration) 
-		VALUES(?, ?, ?)`, satelliteID.Bytes(), serialNumber, expiration)
+		VALUES(?, ?, ?)`, satelliteID, serialNumber, expiration)
 
 	return ErrInfo.Wrap(err)
 }
@@ -56,16 +56,10 @@ func (db *usedSerials) IterateAll(ctx context.Context, fn SerialNumberFn) (err e
 
 	for rows.Next() {
 		var satelliteID storj.NodeID
-		var satelliteIDBytes []byte
 		var serialNumber []byte
 		var expiration time.Time
 
-		err := rows.Scan(&satelliteIDBytes, &serialNumber, &expiration)
-		if err != nil {
-			return ErrInfo.Wrap(err)
-		}
-
-		satelliteID, err = storj.NodeIDFromBytes(satelliteIDBytes)
+		err := rows.Scan(&satelliteID, &serialNumber, &expiration)
 		if err != nil {
 			return ErrInfo.Wrap(err)
 		}
