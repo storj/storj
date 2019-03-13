@@ -78,6 +78,7 @@ func TestPieceInfo(t *testing.T) {
 		_, err = pieceinfos.Get(ctx, info0.SatelliteID, info0.PieceID)
 		require.Error(t, err, "getting element that doesn't exist")
 
+		// adding stuff
 		err = pieceinfos.Add(ctx, info0)
 		require.NoError(t, err)
 
@@ -87,6 +88,7 @@ func TestPieceInfo(t *testing.T) {
 		err = pieceinfos.Add(ctx, info0)
 		require.Error(t, err, "adding duplicate")
 
+		// getting the added information
 		info0loaded, err := pieceinfos.Get(ctx, info0.SatelliteID, info0.PieceID)
 		require.NoError(t, err)
 		require.Empty(t, cmp.Diff(info0, info0loaded, cmp.Comparer(pb.Equal)))
@@ -94,5 +96,17 @@ func TestPieceInfo(t *testing.T) {
 		info1loaded, err := pieceinfos.Get(ctx, info1.SatelliteID, info1.PieceID)
 		require.NoError(t, err)
 		require.Empty(t, cmp.Diff(info1, info1loaded, cmp.Comparer(pb.Equal)))
+
+		// deleting
+		err = pieceinfos.Delete(ctx, info0.SatelliteID, info0.PieceID)
+		require.NoError(t, err)
+		err = pieceinfos.Delete(ctx, info1.SatelliteID, info1.PieceID)
+		require.NoError(t, err)
+
+		// getting after delete
+		_, err = pieceinfos.Get(ctx, info0.SatelliteID, info0.PieceID)
+		require.Error(t, err)
+		_, err = pieceinfos.Get(ctx, info1.SatelliteID, info1.PieceID)
+		require.Error(t, err)
 	})
 }

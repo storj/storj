@@ -47,6 +47,8 @@ type DB interface {
 	Add(context.Context, *Info) error
 	// Get returns Info about a piece.
 	Get(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID2) (*Info, error)
+	// Delete deletes Info about a piece.
+	Delete(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID2) error
 }
 
 // Store implements storing pieces onto a blob storage implementation.
