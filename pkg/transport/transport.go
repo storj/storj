@@ -131,24 +131,56 @@ func (transport *Transport) WithObservers(obs ...Observer) *Transport {
 	return tr
 }
 
+func alertFail(ctx context.Context, obs []Observer, node *pb.Node, err error) {
+	for _, o := range obs {
+		o.ConnFailure(ctx, node, err)
+	}
+}
+
+func alertSuccess(ctx context.Context, obs []Observer, node *pb.Node) {
+	for _, o := range obs {
+		o.ConnSuccess(ctx, node)
+	}
+}
+
 // SlowTransport is a slow version of transport
 type SlowTransport struct {
 	client  Client
 	network latency.Network
 }
 
+// NewClientWithLatency makes a slower transport client for testing purposes
+func NewClientWithLatency(client Client, network latency.Network) Client {
+	return &SlowTransport{
+		client:  client,
+		network: network,
+	}
+}
+
 // DialNode dials a node very slowly
 func (slowTransport *SlowTransport) DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
-	netdialer := &net.Dialer{}
-	dialerOpt := grpc.WithContextDialer(slowTransport.network.ContextDialer(netdialer.DialContext))
+    dialerOpt := grpc.WithDialer(func(address string) (net.Conn, error) {
+        netdialer := &net.Dialer{}
+        conn, err := netdialer.DialContext(ctx, "tcp", address)
+        if err != nil {
+            return nil, err
+        }
+        return slowTransport.network.Conn(conn)
+    })
 
 	return slowTransport.client.DialNode(ctx, node, append(opts, dialerOpt)...)
 }
 
 // DialAddress dials an address with latency
 func (slowTransport *SlowTransport) DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
-	netdialer := &net.Dialer{}
-	dialerOpt := grpc.WithContextDialer(slowTransport.network.ContextDialer(netdialer.DialContext))
+    dialerOpt := grpc.WithDialer(func(address string) (net.Conn, error) {
+        netdialer := &net.Dialer{}
+        conn, err := netdialer.DialContext(ctx, "tcp", address)
+        if err != nil {
+            return nil, err
+        }
+        return slowTransport.network.Conn(conn)
+    })
 
 	return slowTransport.client.DialAddress(ctx, address, append(opts, dialerOpt)...)
 }
@@ -161,24 +193,4 @@ func (slowTransport *SlowTransport) Identity() *identity.FullIdentity {
 // WithObservers calls WithObservers for slowTransport
 func (slowTransport *SlowTransport) WithObservers(obs ...Observer) *Transport {
 	return slowTransport.client.WithObservers(obs...)
-}
-
-// NewClientWithLatency makes a slower transport client for testing purposes
-func NewClientWithLatency(client Client, network latency.Network) Client {
-	return &SlowTransport{
-		client:  client,
-		network: network,
-	}
-}
-
-func alertFail(ctx context.Context, obs []Observer, node *pb.Node, err error) {
-	for _, o := range obs {
-		o.ConnFailure(ctx, node, err)
-	}
-}
-
-func alertSuccess(ctx context.Context, obs []Observer, node *pb.Node) {
-	for _, o := range obs {
-		o.ConnSuccess(ctx, node)
-	}
 }
