@@ -9,7 +9,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/piecestore"
 )
 
 type Config struct {
@@ -21,6 +20,6 @@ type Config struct {
 type Service struct {
 	log *zap.Logger
 
-	pieces *pieces.Store
-	meta   piecestore.PieceMeta
+	pieces     *pieces.Store
+	pieceinfos pieces.DB
 }

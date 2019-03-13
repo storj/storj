@@ -81,3 +81,12 @@ func (db *pieceinfo) Get(ctx context.Context, satelliteID storj.NodeID, pieceID 
 
 	return info, nil
 }
+
+// Delete deletes piece information.
+func (db *pieceinfo) Delete(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID2) error {
+	defer db.locked()()
+
+	_, err := db.db.Exec(`DELETE FROM pieceinfo WHERE satellite_id = ? AND piece_id = ?`, satelliteID, pieceID)
+
+	return ErrInfo.Wrap(err)
+}
