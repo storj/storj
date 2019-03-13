@@ -277,9 +277,6 @@ func runTest(t *testing.T, test func(t *testing.T, ctx *testcontext.Context, pla
 
 		TestAPIKey := apiKey.String()
 
-		oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
-		require.NoError(t, err)
-
 		metainfo, err := planet.Uplinks[0].DialMetainfo(context.Background(), planet.Satellites[0], TestAPIKey)
 		require.NoError(t, err)
 
@@ -290,7 +287,7 @@ func runTest(t *testing.T, test func(t *testing.T, ctx *testcontext.Context, pla
 		rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, 1*memory.KiB.Int()), 0, 0)
 		require.NoError(t, err)
 
-		segmentStore := segments.NewSegmentStore(metainfo, oc, ec, rs, 4*memory.KiB.Int(), 8*memory.MiB.Int64())
+		segmentStore := segments.NewSegmentStore(metainfo, ec, rs, 4*memory.KiB.Int(), 8*memory.MiB.Int64())
 		assert.NotNil(t, segmentStore)
 
 		test(t, ctx, planet, segmentStore)
