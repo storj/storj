@@ -23,6 +23,7 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storage"
+	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
@@ -42,6 +43,7 @@ type DB interface {
 	Orders() orders.DB
 	PieceInfo() pieces.DB
 	CertDB() trust.CertDB
+	Bandwidth() bandwidth.DB
 
 	// TODO: use better interfaces
 	PSDB() *psdb.DB

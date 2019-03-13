@@ -12,17 +12,19 @@ import (
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/storagenode/bandwidth"
 )
 
-type bandwidthusage struct {
-	*infodb
-}
+type bandwidthdb struct{ *infodb }
 
-// BandwidthUsage returns table for storing bandwidth usage.
-func (db *infodb) BandwidthUsage() bandwidthusage { return bandwidthusage{db} }
+// Bandwidth returns table for storing bandwidth usage.
+func (db *DB) Bandwidth() bandwidth.DB { return db.info.Bandwidth() }
+
+// Bandwidth returns table for storing bandwidth usage.
+func (db *infodb) Bandwidth() bandwidth.DB { return &bandwidthdb{db} }
 
 // Add adds bandwidth usage to the table
-func (db *bandwidthusage) Add(ctx context.Context, satelliteID storj.NodeID, action pb.Action, amount int64, created time.Time) error {
+func (db *bandwidthdb) Add(ctx context.Context, satelliteID storj.NodeID, action pb.Action, amount int64, created time.Time) error {
 	defer db.locked()()
 
 	_, err := db.db.Exec(`
@@ -33,47 +35,11 @@ func (db *bandwidthusage) Add(ctx context.Context, satelliteID storj.NodeID, act
 	return ErrInfo.Wrap(err)
 }
 
-// Bandwidth usage information
-// TODO: move to a better place
-type BandwidthUsage struct {
-	Invalid int64
-	Unknown int64
-
-	Put       int64
-	Get       int64
-	GetAudit  int64
-	GetRepair int64
-	PutRepair int64
-	Delete    int64
-}
-
-// Include adds specified action to the appropriate field.
-func (usage *BandwidthUsage) Include(action pb.Action, amount int64) {
-	switch action {
-	case pb.Action_INVALID:
-		usage.Invalid += amount
-	case pb.Action_PUT:
-		usage.Put += amount
-	case pb.Action_GET:
-		usage.Get += amount
-	case pb.Action_GET_AUDIT:
-		usage.GetAudit += amount
-	case pb.Action_GET_REPAIR:
-		usage.GetRepair += amount
-	case pb.Action_PUT_REPAIR:
-		usage.PutRepair += amount
-	case pb.Action_DELETE:
-		usage.Delete += amount
-	default:
-		usage.Unknown += amount
-	}
-}
-
 // Summary returns summary of bandwidth usages
-func (db *bandwidthusage) Summary(ctx context.Context, from, to time.Time) (_ *BandwidthUsage, err error) {
+func (db *bandwidthdb) Summary(ctx context.Context, from, to time.Time) (_ *bandwidth.Usage, err error) {
 	defer db.locked()()
 
-	usage := &BandwidthUsage{}
+	usage := &bandwidth.Usage{}
 
 	rows, err := db.db.Query(`
 		SELECT action, sum(amount) 
@@ -102,10 +68,10 @@ func (db *bandwidthusage) Summary(ctx context.Context, from, to time.Time) (_ *B
 }
 
 // SummaryBySatellite returns summary of bandwidth usage grouping by satellite.
-func (db *bandwidthusage) SummaryBySatellite(ctx context.Context, from, to time.Time) (_ map[storj.NodeID]*BandwidthUsage, err error) {
+func (db *bandwidthdb) SummaryBySatellite(ctx context.Context, from, to time.Time) (_ map[storj.NodeID]*bandwidth.Usage, err error) {
 	defer db.locked()()
 
-	entries := map[storj.NodeID]*BandwidthUsage{}
+	entries := map[storj.NodeID]*bandwidth.Usage{}
 
 	rows, err := db.db.Query(`
 		SELECT satellite_id, action, sum(amount) 
@@ -132,7 +98,7 @@ func (db *bandwidthusage) SummaryBySatellite(ctx context.Context, from, to time.
 
 		entry, ok := entries[satelliteID]
 		if !ok {
-			entry = &BandwidthUsage{}
+			entry = &bandwidth.Usage{}
 			entries[satelliteID] = entry
 		}
 
