@@ -41,6 +41,7 @@ type DB interface {
 
 	Orders() orders.DB
 	PieceInfo() pieces.DB
+	CertDB() trust.CertDB
 
 	// TODO: use better interfaces
 	PSDB() *psdb.DB
