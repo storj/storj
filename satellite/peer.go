@@ -116,11 +116,7 @@ type Peer struct {
 
 	Transport transport.Client
 
-	// servers
-	Public struct {
-		Listener net.Listener
-		Server   *server.Server
-	}
+	Server *server.Server
 
 	// services and endpoints
 	Kademlia struct {
@@ -193,21 +189,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 
 	{ // setup listener and server
 		log.Debug("Starting listener and server")
-		peer.Public.Listener, err = net.Listen("tcp", config.Server.Address)
+		sc := config.Server
+		options, err := tlsopts.NewOptions(peer.Identity, sc.Config)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		publicConfig := config.Server
-		publicConfig.Address = peer.Public.Listener.Addr().String()
-		publicOptions, err := tlsopts.NewOptions(peer.Identity, publicConfig.Config)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
+		peer.Transport = transport.NewClient(options)
 
-		peer.Transport = transport.NewClient(publicOptions)
-
-		peer.Public.Server, err = server.New(publicOptions, peer.Public.Listener, grpcauth.NewAPIKeyInterceptor())
+		peer.Server, err = server.New(options, sc.Address, sc.PrivateAddress, grpcauth.NewAPIKeyInterceptor())
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -230,10 +220,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		}
 
 		peer.Overlay.Endpoint = overlay.NewServer(peer.Log.Named("overlay:endpoint"), peer.Overlay.Service, nodeSelectionConfig)
-		pb.RegisterOverlayServer(peer.Public.Server.GRPC(), peer.Overlay.Endpoint)
+		pb.RegisterOverlayServer(peer.Server.GRPC(), peer.Overlay.Endpoint)
 
 		peer.Overlay.Inspector = overlay.NewInspector(peer.Overlay.Service)
-		pb.RegisterOverlayInspectorServer(peer.Public.Server.GRPC(), peer.Overlay.Inspector)
+		pb.RegisterOverlayInspectorServer(peer.Server.PrivateGRPC(), peer.Overlay.Inspector)
 	}
 
 	{ // setup kademlia
@@ -241,7 +231,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		config := config.Kademlia
 		// TODO: move this setup logic into kademlia package
 		if config.ExternalAddress == "" {
-			config.ExternalAddress = peer.Public.Server.Addr().String()
+			config.ExternalAddress = peer.Addr()
 		}
 
 		self := pb.Node{
@@ -251,7 +241,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 				Address: config.ExternalAddress,
 			},
 			Metadata: &pb.NodeMetadata{
-				Email:  config.Operator.Email,
 				Wallet: config.Operator.Wallet,
 			},
 		}
@@ -287,17 +276,17 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		}
 
 		peer.Kademlia.Endpoint = kademlia.NewEndpoint(peer.Log.Named("kademlia:endpoint"), peer.Kademlia.Service, peer.Kademlia.RoutingTable)
-		pb.RegisterNodesServer(peer.Public.Server.GRPC(), peer.Kademlia.Endpoint)
+		pb.RegisterNodesServer(peer.Server.GRPC(), peer.Kademlia.Endpoint)
 
 		peer.Kademlia.Inspector = kademlia.NewInspector(peer.Kademlia.Service, peer.Identity)
-		pb.RegisterKadInspectorServer(peer.Public.Server.GRPC(), peer.Kademlia.Inspector)
+		pb.RegisterKadInspectorServer(peer.Server.PrivateGRPC(), peer.Kademlia.Inspector)
 	}
 
 	{ // setup reputation
 		log.Debug("Setting up reputation")
 		// TODO: find better structure with overlay
 		peer.Reputation.Inspector = statdb.NewInspector(peer.DB.StatDB())
-		pb.RegisterStatDBInspectorServer(peer.Public.Server.GRPC(), peer.Reputation.Inspector)
+		pb.RegisterStatDBInspectorServer(peer.Server.PrivateGRPC(), peer.Reputation.Inspector)
 	}
 
 	{ // setup discovery
@@ -323,14 +312,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			config.PointerDB,
 			peer.Identity, peer.DB.Console().APIKeys())
 
-		pb.RegisterPointerDBServer(peer.Public.Server.GRPC(), peer.Metainfo.Endpoint)
+		pb.RegisterPointerDBServer(peer.Server.GRPC(), peer.Metainfo.Endpoint)
 	}
 
 	{ // setup agreements
 		log.Debug("Setting up agreements")
 		bwServer := bwagreement.NewServer(peer.DB.BandwidthAgreement(), peer.DB.CertDB(), peer.Identity.Leaf.PublicKey, peer.Log.Named("agreements"), peer.Identity.ID)
 		peer.Agreements.Endpoint = bwServer
-		pb.RegisterBandwidthServer(peer.Public.Server.GRPC(), peer.Agreements.Endpoint)
+		pb.RegisterBandwidthServer(peer.Server.GRPC(), peer.Agreements.Endpoint)
 	}
 
 	{ // setup datarepair
@@ -503,8 +492,11 @@ func (peer *Peer) Run(ctx context.Context) error {
 	})
 	group.Go(func() error {
 		// TODO: move the message into Server instead
-		peer.Log.Sugar().Infof("Node %s started on %s", peer.Identity.ID, peer.Public.Server.Addr().String())
-		return ignoreCancel(peer.Public.Server.Run(ctx))
+		// Don't change the format of this comment, it is used to figure out the node id.
+		peer.Log.Sugar().Infof("Node %s started", peer.Identity.ID)
+		peer.Log.Sugar().Infof("Public server started on %s", peer.Identity.ID, peer.Addr())
+		peer.Log.Sugar().Infof("Private server started on %s", peer.Identity.ID, peer.PrivateAddr())
+		return ignoreCancel(peer.Server.Run(ctx))
 	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Console.Endpoint.Run(ctx))
@@ -520,13 +512,8 @@ func (peer *Peer) Close() error {
 	// TODO: ensure that Close can be called on nil-s that way this code won't need the checks.
 
 	// close servers, to avoid new connections to closing subsystems
-	if peer.Public.Server != nil {
-		errlist.Add(peer.Public.Server.Close())
-	} else {
-		// peer.Public.Server automatically closes listener
-		if peer.Public.Listener != nil {
-			errlist.Add(peer.Public.Listener.Close())
-		}
+	if peer.Server != nil {
+		errlist.Add(peer.Server.Close())
 	}
 
 	if peer.Console.Endpoint != nil {
@@ -590,4 +577,7 @@ func (peer *Peer) ID() storj.NodeID { return peer.Identity.ID }
 func (peer *Peer) Local() pb.Node { return peer.Kademlia.RoutingTable.Local() }
 
 // Addr returns the public address.
-func (peer *Peer) Addr() string { return peer.Public.Server.Addr().String() }
+func (peer *Peer) Addr() string { return peer.Server.Addr().String() }
+
+// PrivateAddr returns the private address.
+func (peer *Peer) PrivateAddr() string { return peer.Server.PrivateAddr().String() }

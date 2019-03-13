@@ -41,7 +41,9 @@ func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	if driver == "postgres" {
+		source = pgutil.CheckApplicationName(source)
+	}
 	db, err := dbx.Open(driver, source)
 	if err != nil {
 		return nil, Error.New("failed opening database %q, %q: %v",

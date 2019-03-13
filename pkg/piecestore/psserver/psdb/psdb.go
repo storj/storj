@@ -198,6 +198,13 @@ func (db *DB) Migration() *migrate.Migration {
 					`ALTER TABLE bandwidth_agreements ADD COLUMN status INT(10) DEFAULT 0`,
 				},
 			},
+			{
+				Description: "Add index on serial number for bandwidth_agreements",
+				Version:     3,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS idx_bwa_serial ON bandwidth_agreements (serial_num)`,
+				},
+			},
 		},
 	}
 	return migration

@@ -20,7 +20,6 @@ import (
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
@@ -28,7 +27,7 @@ import (
 
 var (
 	// Addr is the address of peer from command flags
-	Addr = flag.String("address", "localhost:7778", "address of peer to inspect")
+	Addr = flag.String("address", "127.0.0.1:7778", "address of peer to inspect")
 
 	// IdentityPath is the path to the identity the inspector should use for network communication
 	IdentityPath = flag.String("identity-path", "", "path to the identity certificate for use on the network")
@@ -114,7 +113,7 @@ var (
 	}
 )
 
-// Inspector gives access to kademlia and overlay cache
+// Inspector gives access to kademlia, overlay cache, and statDB
 type Inspector struct {
 	identity      *identity.FullIdentity
 	kadclient     pb.KadInspectorClient
@@ -122,8 +121,8 @@ type Inspector struct {
 	statdbclient  pb.StatDBInspectorClient
 }
 
-// NewInspector creates a new gRPC inspector server for access to kad
-// and the overlay cache
+// NewInspector creates a new gRPC inspector client for access to kad,
+// overlay cache, and statDB
 func NewInspector(address, path string) (*Inspector, error) {
 	ctx := context.Background()
 
@@ -135,13 +134,7 @@ func NewInspector(address, path string) (*Inspector, error) {
 		return nil, ErrIdentity.Wrap(err)
 	}
 
-	tlsOpts, err := tlsopts.NewOptions(id, tlsopts.Config{})
-	if err != nil {
-		return nil, err
-	}
-
-	tc := transport.NewClient(tlsOpts)
-	conn, err := tc.DialAddress(ctx, address)
+	conn, err := transport.DialAddressInsecure(ctx, address)
 	if err != nil {
 		return &Inspector{}, ErrInspectorDial.Wrap(err)
 	}
