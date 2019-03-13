@@ -18,7 +18,6 @@ import (
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/trust"
@@ -31,26 +30,6 @@ var (
 	ErrProtocol = errs.Class("piecestore protocol error")
 	ErrInternal = errs.Class("piecestore internal error")
 )
-
-// TODO: avoid protobuf definitions in interfaces
-
-type PieceMeta interface {
-	Add(ctx context.Context, limit *pb.OrderLimit2, hash *pb.PieceHash) error
-	Delete(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID2) error
-	// Iteration for collector
-}
-
-type discardMeta struct{}
-
-func (discardMeta) Add(ctx context.Context, limit *pb.OrderLimit2, hash *pb.PieceHash) error {
-	return nil
-}
-func (discardMeta) Delete(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID2) error {
-	return nil
-}
-
-// TODO: should the reader, writer have context for read/write?
-
 var _ pb.PiecestoreServer = (*Endpoint)(nil)
 
 type Config struct {
@@ -58,35 +37,28 @@ type Config struct {
 }
 
 type Endpoint struct {
-	log *zap.Logger
-
+	log    *zap.Logger
 	config Config
 
-	signer        signing.Signer
-	trust         *trust.Pool
-	activeSerials *SerialNumbers
+	signer signing.Signer
+	trust  *trust.Pool
 
-	store *pieces.Store
-
-	pieceMeta PieceMeta // todo should this be folded into pieces.Store instead?
-	orders    orders.DB
+	store       *pieces.Store
+	orders      orders.DB
+	usedSerials UsedSerials
 }
 
-func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, store *pieces.Store, pieceMeta PieceMeta, orders orders.DB, config Config) (*Endpoint, error) {
-	activeSerials, err := LoadSerialNumbers(pieceMeta)
-	if err != nil {
-		return nil, err
-	}
-
+func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, store *pieces.Store, orders orders.DB, usedSerials UsedSerials, config Config) (*Endpoint, error) {
 	return &Endpoint{
-		log:           log,
-		config:        config,
-		signer:        signer,
-		trust:         trust,
-		activeSerials: activeSerials,
-		store:         store,
-		pieceMeta:     discardMeta{},
-		orders:        orders,
+		log:    log,
+		config: config,
+
+		signer: signer,
+		trust:  trust,
+
+		store:       store,
+		orders:      orders,
+		usedSerials: usedSerials,
 	}, nil
 }
 
