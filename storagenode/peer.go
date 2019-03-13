@@ -99,11 +99,8 @@ type Peer struct {
 	}
 
 	Storage2 struct {
-		Trust *trust.Pool
-
-		Store     *pieces.Store
-		PieceMeta piecestore.PieceMeta
-
+		Trust    *trust.Pool
+		Store    *pieces.Store
 		Endpoint *piecestore.Endpoint
 	}
 }
@@ -216,8 +213,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Storage2.Trust,
 			peer.Storage2.Store,
-			peer.Storage2.PieceMeta,
 			peer.DB.Orders(),
+			peer.DB.UsedSerials(),
 			config.Storage2,
 		)
 		if err != nil {

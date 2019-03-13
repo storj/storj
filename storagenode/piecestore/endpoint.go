@@ -75,7 +75,8 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 	}
 
 	// TODO: parallelize this and maybe return early
-	pieceInfoErr := endpoint.pieceMeta.Delete(ctx, delete.Limit.SatelliteId, delete.Limit.PieceId)
+	// pieceInfoErr := endpoint.pieceMeta.Delete(ctx, delete.Limit.SatelliteId, delete.Limit.PieceId)
+	var pieceInfoErr error
 	pieceErr := endpoint.store.Delete(ctx, delete.Limit.SatelliteId, delete.Limit.PieceId)
 
 	if err := errs.Combine(pieceInfoErr, pieceErr); err != nil {
@@ -180,9 +181,9 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 
 			// TODO: do this in a goroutine
 			{
-				if err := endpoint.pieceMeta.Add(ctx, limit, message.Done); err != nil {
-					return ErrInternal.Wrap(err)
-				}
+				// if err := endpoint.pieceMeta.Add(ctx, limit, message.Done); err != nil {
+				// 	return ErrInternal.Wrap(err)
+				// }
 			}
 
 			storageNodeHash, err := signing.SignPieceHash(endpoint.signer, &pb.PieceHash{

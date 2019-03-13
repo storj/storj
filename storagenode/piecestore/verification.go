@@ -63,7 +63,12 @@ func (endpoint *Endpoint) VerifyOrderLimit(ctx context.Context, limit *pb.OrderL
 		return ErrVerifyUntrusted.Wrap(err)
 	}
 
-	if ok := endpoint.activeSerials.Add(limit.SatelliteId, limit.SerialNumber, limit.OrderExpiration); !ok {
+	// TODO: use min of piece and order expiration instead
+	serialExpiration, err := ptypes.Timestamp(limit.OrderExpiration)
+	if err != nil {
+		return ErrInternal.Wrap(err)
+	}
+	if err := endpoint.usedSerials.Add(ctx, limit.SatelliteId, limit.SerialNumber, serialExpiration); err != nil {
 		return ErrVerifyDuplicateRequest.Wrap(err)
 	}
 
@@ -71,7 +76,6 @@ func (endpoint *Endpoint) VerifyOrderLimit(ctx context.Context, limit *pb.OrderL
 }
 
 func (endpoint *Endpoint) VerifyOrder(ctx context.Context, peer *identity.PeerIdentity, limit *pb.OrderLimit2, order *pb.Order2, largestOrderAmount int64) error {
-	// if order.SerialNumber != limit.SerialNumber {
 	if !bytes.Equal(order.SerialNumber, limit.SerialNumber) {
 		return ErrProtocol.New("order serial number changed during upload") // TODO: report grpc status bad message
 	}
