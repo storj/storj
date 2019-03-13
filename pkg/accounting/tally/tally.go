@@ -87,6 +87,21 @@ func (t *Tally) Tally(ctx context.Context) error {
 		err = t.SaveBWRaw(ctx, tallyEnd, time.Now().UTC(), bwTotals)
 		if err != nil {
 			errBWA = errs.New("Saving for bandwidth failed : %v", err)
+		} else {
+			//remove expired records
+			now := time.Now()
+			_, err = t.bwAgreementDB.GetExpired(tallyEnd, now)
+			if err != nil {
+				return err
+			}
+			var expiredOrdersHaveBeenSaved bool
+			//todo: write files to disk or whatever we decide to do here
+			if expiredOrdersHaveBeenSaved {
+				err = t.bwAgreementDB.DeleteExpired(tallyEnd, now)
+				if err != nil {
+					return err
+				}
+			}
 		}
 	}
 	return errs.Combine(errAtRest, errBWA)
