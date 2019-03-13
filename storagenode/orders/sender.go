@@ -22,6 +22,7 @@ type Info struct {
 	Uplink *identity.PeerIdentity
 }
 
+// DB implements storing orders for sending to the satellite.
 type DB interface {
 	// Enqueue inserts order to the list of orders needing to be sent to the satellite.
 	Enqueue(ctx context.Context, info *Info) error
@@ -29,19 +30,18 @@ type DB interface {
 	ListUnsent(ctx context.Context, limit int) ([]*Info, error)
 }
 
+// SenderConfig defines configuration for sending orders.
 type SenderConfig struct {
 	Interval time.Duration
 }
 
-// Sender which looks through piecestore.Orders and sends them to satellite
-// should be roughly copy-paste of agreement sender
+// Sender sends every interval unsent orders to the satellite.
 type Sender struct {
 	log *zap.Logger
 
 	client   transport.Client
 	kademlia *kademlia.Kademlia
 
-	table DB
-
+	table  DB
 	config SenderConfig
 }
