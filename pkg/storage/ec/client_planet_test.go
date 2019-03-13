@@ -40,9 +40,7 @@ func TestECClient(t *testing.T) {
 	defer ctx.Cleanup()
 
 	planet, err := testplanet.New(t, 1, storageNodes, 1)
-	if !assert.NoError(t, err) {
-		return
-	}
+	require.NoError(t, err)
 
 	defer ctx.Check(planet.Shutdown)
 
@@ -86,7 +84,7 @@ func testPut(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ec
 
 	successfulNodes, successfulHashes, err := ec.Put(ctx, limits, rs, r, ttl)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, len(limits), len(successfulNodes))
 
 	slowNodes := 0
@@ -145,7 +143,7 @@ func testDelete(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec
 
 	err = ec.Delete(ctx, limits)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func newAddressedOrderLimit(action pb.Action, satellite *satellite.Peer, uplink *testplanet.Uplink, storageNode *storagenode.Peer, pieceID storj.PieceID2) (*pb.AddressedOrderLimit, error) {
