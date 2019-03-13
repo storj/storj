@@ -66,7 +66,7 @@ func (r *repairQueue) sqliteDequeue(ctx context.Context) (seg pb.InjuredSegment,
 		if count != 1 {
 			return fmt.Errorf("Expected 1, got %d segments deleted", count)
 		}
-		return nil
+		return err
 	})
 	if err == sql.ErrNoRows {
 		err = storage.ErrEmptyQueue.New("")
