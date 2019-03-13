@@ -6,8 +6,10 @@ package segments_test
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"fmt"
-	"math/rand"
+	io "io"
+	"io/ioutil"
 	"testing"
 	time "time"
 
@@ -82,7 +84,7 @@ func TestSegmentStorePutGetRemote(t *testing.T) {
 		expiration time.Time
 		content    []byte
 	}{
-		{"test remote put", "s0/test_bucket/mypath/1", []byte("metadata"), time.Now().UTC(), createTestData(t, 100*memory.KiB.Int64())},
+		{"test remote put/get", "s0/test_bucket/mypath/1", []byte("metadata"), time.Now().UTC(), createTestData(t, 100*memory.KiB.Int64())},
 	} {
 		testplanet.Run(t, testplanet.Config{
 			SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
@@ -108,7 +110,7 @@ func TestSegmentStorePutGetInline(t *testing.T) {
 		expiration time.Time
 		content    []byte
 	}{
-		{"test inline put", "l/path/1", []byte("metadata"), time.Now().UTC(), createTestData(t, 2*memory.KiB.Int64())},
+		{"test inline put/get", "l/path/1", []byte("metadata"), time.Now().UTC(), createTestData(t, 2*memory.KiB.Int64())},
 	} {
 		testplanet.Run(t, testplanet.Config{
 			SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
@@ -277,10 +279,9 @@ func TestCalcNeededNodes(t *testing.T) {
 }
 
 func createTestData(t *testing.T, size int64) []byte {
-	expectedData := make([]byte, size)
-	_, err := rand.Read(expectedData)
-	assert.NoError(t, err)
-	return expectedData
+	data, err := ioutil.ReadAll(io.LimitReader(rand.Reader, size))
+	require.NoError(t, err)
+	return data
 }
 
 func createSegmentStore(t *testing.T, planet *testplanet.Planet) (segments.Store, metainfo.Client) {
