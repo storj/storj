@@ -54,6 +54,4 @@ type Blobs interface {
 	Open(ctx context.Context, ref BlobRef) (BlobReader, error)
 	// Delete deletes the blob with the namespace and key
 	Delete(ctx context.Context, ref BlobRef) error
-	// Close closes the storage
-	Close() error
 }
