@@ -168,8 +168,8 @@ func auditShares(ctx context.Context, required, total int, originals map[int]Sha
 	return pieceNums, nil
 }
 
-// verify downloads shares then verifies the data correctness at the given stripe
-func (verifier *Verifier) verify(ctx context.Context, stripe *Stripe) (verifiedNodes *RecordAuditsInfo, err error) {
+// Verify downloads shares then verifies the data correctness at the given stripe
+func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe) (verifiedNodes *RecordAuditsInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	pointer := stripe.Segment
