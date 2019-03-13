@@ -111,7 +111,6 @@ func (db *infodb) Migration() *migrate.Migration {
 
 						FOREIGN KEY(uplink_cert_id) REFERENCES certificate(cert_id)
 					)`,
-
 					// primary key by satellite id and piece id
 					`CREATE UNIQUE INDEX pk_pieceinfo ON pieceinfo(satellite_id, piece_id)`,
 
@@ -138,7 +137,7 @@ func (db *infodb) Migration() *migrate.Migration {
 
 						FOREIGN KEY(uplink_cert_id) REFERENCES certificate(cert_id)
 					)`,
-					`CREATE INDEX idx_orders ON unsent_order(satellite_id, serial_number)`,
+					`CREATE UNIQUE INDEX idx_orders ON unsent_order(satellite_id, serial_number)`,
 
 					// table for storing all sent orders
 					`CREATE TABLE order_archive (

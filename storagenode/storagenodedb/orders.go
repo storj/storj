@@ -23,14 +23,15 @@ type orders struct {
 func (db *infodb) Orders() orders { return orders{db} }
 
 // OrderInfo contains full information about an order.
+// TODO: move to a better location.
 type OrderInfo struct {
 	Limit  *pb.OrderLimit2
 	Order  *pb.Order2
 	Uplink *identity.PeerIdentity
 }
 
-// EnqueueForSending inserts order to the unsent list
-func (db *orders) EnqueueForSending(ctx context.Context, info *OrderInfo) error {
+// Enqueue inserts order to the unsent list
+func (db *orders) Enqueue(ctx context.Context, info *OrderInfo) error {
 	certdb := db.CertDB()
 
 	uplinkCertID, err := certdb.Include(ctx, info.Uplink)
