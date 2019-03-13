@@ -7,11 +7,11 @@
 			<div class="pagination-container__pages">
 				<div v-html="arrowLeft" class="pagination-container__button"></div>
 				<div class="pagination-container__items">
-					<span v-bind:class="selected ? 'selected' : ''">1</span>
-					<span v-bind:class="selected ? 'selected' : ''">2</span>
-					<span v-bind:class="selected ? 'selected' : ''">3</span>
-					<span v-bind:class="selected ? 'selected' : ''">4</span>
-					<span v-bind:class="selected ? 'selected' : ''">5</span>
+					<span class="selected">1</span>
+					<span>2</span>
+					<span>3</span>
+					<span>4</span>
+					<span>5</span>
 				</div>
 				<div v-html="arrowRight" class="pagination-container__button"></div>
 			</div>
@@ -25,17 +25,17 @@
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
     import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+
     @Component({
         data: function() {
             return {
                 arrowLeft: EMPTY_STATE_IMAGES.ARROW_LEFT,
                 arrowRight: EMPTY_STATE_IMAGES.ARROW_RIGHT,
-                selected: false,
             };
         },
     })
-    export default class PaginationArea extends Vue {
-    }
+
+    export default class PaginationArea extends Vue {}
 </script>
 
 <style scoped lang="scss">

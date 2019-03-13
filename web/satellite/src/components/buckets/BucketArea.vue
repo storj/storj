@@ -3,20 +3,18 @@
 
 <template>
 	<div>
-		<div v-if="buckets > 0" class="api-keys-header">
-			<p>Buckets</p>
-			<SearchArea/>
-		</div>
-		<div v-if="buckets > 0" class="api-keys-container">
-			<div class="api-keys-container__content">
-				<BucketItem />
-				<BucketItem />
-				<BucketItem />
-				<BucketItem />
-				<BucketItem />
-				<BucketItem />
+		<div v-if="buckets > 0" class="buckets-overflow">
+			<div class="buckets-header">
+				<p>Buckets</p>
+				<SearchArea/>
 			</div>
-			<PaginationArea />
+			<div class="buckets-container">
+				<table style="width:98.5%; margin-top:20px;">
+					<SortingHeader />
+					<BucketItem />
+				</table>
+				<PaginationArea />
+			</div>
 		</div>
 		<EmptyState
 			v-if="buckets === 0"
@@ -31,6 +29,7 @@
     import SearchArea from '@/components/buckets/SearchArea.vue';
     import BucketItem from '@/components/buckets/BucketItem.vue';
     import PaginationArea from '@/components/buckets/PaginationArea.vue';
+    import SortingHeader from '@/components/buckets/SortingHeader.vue';
     import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 
     @Component({
@@ -43,6 +42,7 @@
         components: {
             EmptyState,
             SearchArea,
+            SortingHeader,
             BucketItem,
             PaginationArea,
         }
@@ -51,10 +51,46 @@
 </script>
 
 <style scoped lang="scss">
-	.api-keys-header {
-		padding: 44px 40px 0 40px;
+	.buckets-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 44px 40px 0 92px;
+
+		p {
+			font-family: 'montserrat_bold';
+			font-size: 24px;
+			line-height: 29px;
+			color: #384B65;
+			margin-right: 50px;
+			margin-block-start: 0em;
+			margin-block-end: 0em;
+		}
 	}
-	.api-keys-container {
+	.table-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 20px 90px 0 40px;
+
+		&:last-child {
+			padding-left: 20px;
+		}
+	}
+	.buckets-container {
 		padding: 0px 40px 0 60px;
+	}
+
+	@media screen and (max-height: 880px) {
+		.buckets-overflow {
+			overflow-y: scroll;
+			height: 600px;
+		}
+	}
+
+	@media screen and (max-height: 700px) {
+		.buckets-overflow {
+			height: 570px;
+		}
 	}
 </style>
