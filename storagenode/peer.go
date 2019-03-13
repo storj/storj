@@ -40,6 +40,7 @@ type DB interface {
 	Pieces() storage.Blobs
 
 	Orders() orders.DB
+	PieceInfo() pieces.DB
 
 	// TODO: use better interfaces
 	PSDB() *psdb.DB
