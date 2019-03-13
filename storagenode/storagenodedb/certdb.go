@@ -11,6 +11,7 @@ import (
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/storagenode/trust"
 )
 
 type certdb struct {
@@ -18,7 +19,10 @@ type certdb struct {
 }
 
 // CertDB returns certificate database.
-func (db *infodb) CertDB() certdb { return certdb{db} }
+func (db *DB) CertDB() trust.CertDB { return db.info.CertDB() }
+
+// CertDB returns certificate database.
+func (db *infodb) CertDB() trust.CertDB { return &certdb{db} }
 
 // Include includes the certificate in the table and returns an unique id.
 func (db *certdb) Include(ctx context.Context, pi *identity.PeerIdentity) (certid int64, err error) {

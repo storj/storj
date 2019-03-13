@@ -14,12 +14,13 @@ import (
 	"storj.io/storj/storagenode/pieces"
 )
 
-type pieceinfo struct {
-	*infodb
-}
+type pieceinfo struct{ *infodb }
 
-// PieceInfo returns piece info database
-func (db *infodb) PieceInfo() pieceinfo { return pieceinfo{db} }
+// PieceInfo returns database for storing piece information
+func (db *DB) PieceInfo() pieces.DB { return db.info.PieceInfo() }
+
+// PieceInfo returns database for storing piece information
+func (db *infodb) PieceInfo() pieces.DB { return &pieceinfo{db} }
 
 // Add inserts piece information into the database.
 func (db *pieceinfo) Add(ctx context.Context, info *pieces.Info) error {
@@ -47,7 +48,6 @@ func (db *pieceinfo) Add(ctx context.Context, info *pieces.Info) error {
 
 // Get gets piece information by satellite id and piece id.
 func (db *pieceinfo) Get(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID2) (*pieces.Info, error) {
-
 	info := &pieces.Info{}
 	info.SatelliteID = satelliteID
 	info.PieceID = pieceID
