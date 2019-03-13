@@ -428,15 +428,19 @@ func (endpoint *Endpoint) filterValidPieces(pointer *pb.Pointer) error {
 		var remotePieces []*pb.RemotePiece
 		remote := pointer.Remote
 		for _, piece := range remote.RemotePieces {
-			err := auth.VerifyMsg(piece.Hash, piece.NodeId)
-			if err == nil {
-				// set to nil after verification to avoid storing in DB
-				piece.Hash = nil
-				remotePieces = append(remotePieces, piece)
-			} else {
-				// TODO satellite should send Delete request for piece that failed
-				endpoint.log.Warn("unable to verify piece hash: %v", zap.Error(err))
-			}
+			// TODO enable verification
+
+			// err := auth.VerifyMsg(piece.Hash, piece.NodeId)
+			// if err == nil {
+			// 	// set to nil after verification to avoid storing in DB
+			// 	piece.Hash = nil
+			// 	remotePieces = append(remotePieces, piece)
+			// } else {
+			// 	// TODO satellite should send Delete request for piece that failed
+			// 	s.logger.Warn("unable to verify piece hash: %v", zap.Error(err))
+			// }
+
+			remotePieces = append(remotePieces, piece)
 		}
 
 		if int32(len(remotePieces)) < remote.Redundancy.SuccessThreshold {

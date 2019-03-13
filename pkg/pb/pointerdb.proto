@@ -10,6 +10,7 @@ import "google/protobuf/timestamp.proto";
 import "gogo.proto";
 import "node.proto";
 import "piecestore.proto";
+import "orders.proto";
 
 // PointerDB defines the interface for interacting with the network state persistence layer
 service PointerDB {
@@ -43,7 +44,7 @@ message RedundancyScheme {
 message RemotePiece {
   int32 piece_num = 1;
   bytes node_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
-  piecestoreroutes.SignedHash hash = 3;
+  orders.PieceHash hash = 3;
 }
 
 message RemoteSegment {
