@@ -13,7 +13,6 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/sync2"
@@ -36,21 +35,18 @@ type Client interface {
 	Delete(ctx context.Context, limits []*pb.AddressedOrderLimit) error
 }
 
-type psClientFunc func(log *zap.Logger, signer signing.Signer, conn *grpc.ClientConn, config piecestore.Config) *piecestore.Client
 type psClientHelper func(context.Context, *pb.Node) (*piecestore.Client, error)
 
 type ecClient struct {
-	transport       transport.Client
-	memoryLimit     int
-	newPSClientFunc psClientFunc
+	transport   transport.Client
+	memoryLimit int
 }
 
 // NewClient from the given identity and max buffer memory
 func NewClient(tc transport.Client, memoryLimit int) Client {
 	return &ecClient{
-		transport:       tc,
-		memoryLimit:     memoryLimit,
-		newPSClientFunc: piecestore.NewClient,
+		transport:   tc,
+		memoryLimit: memoryLimit,
 	}
 }
 
@@ -60,7 +56,7 @@ func (ec *ecClient) newPSClient(ctx context.Context, n *pb.Node) (*piecestore.Cl
 	if err != nil {
 		return nil, err
 	}
-	return ec.newPSClientFunc(
+	return piecestore.NewClient(
 		zap.L().Named(n.Id.String()),
 		signing.SignerFromFullIdentity(ec.transport.Identity()),
 		conn,
@@ -114,33 +110,36 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 
 	for range limits {
 		info := <-infos
-		if info.err == nil {
-			successfulNodes[info.i] = &pb.Node{
-				Id:      limits[info.i].GetLimit().StorageNodeId,
-				Address: limits[info.i].GetStorageNodeAddress(),
-				Type:    pb.NodeType_STORAGE,
-			}
-			successfulHashes[info.i] = info.hash
+		if info.err != nil {
+			zap.S().Debugf("Upload to storage node %s failed: %v", limits[info.i].GetLimit().StorageNodeId, info.err)
+			continue
+		}
 
-			switch int(atomic.AddInt32(&successfulCount, 1)) {
-			case rs.RepairThreshold():
-				elapsed := time.Since(start)
-				more := elapsed * 3 / 2
+		successfulNodes[info.i] = &pb.Node{
+			Id:      limits[info.i].GetLimit().StorageNodeId,
+			Address: limits[info.i].GetStorageNodeAddress(),
+			Type:    pb.NodeType_STORAGE,
+		}
+		successfulHashes[info.i] = info.hash
 
-				zap.S().Infof("Repair threshold (%d nodes) reached in %.2f s. Starting a timer for %.2f s for reaching the success threshold (%d nodes)...",
-					rs.RepairThreshold(), elapsed.Seconds(), more.Seconds(), rs.OptimalThreshold())
+		switch int(atomic.AddInt32(&successfulCount, 1)) {
+		case rs.RepairThreshold():
+			elapsed := time.Since(start)
+			more := elapsed * 3 / 2
 
-				timer = time.AfterFunc(more, func() {
-					if ctx.Err() != context.Canceled {
-						zap.S().Infof("Timer expired. Successfully uploaded to %d nodes. Canceling the long tail...", atomic.LoadInt32(&successfulCount))
-						cancel()
-					}
-				})
-			case rs.OptimalThreshold():
-				zap.S().Infof("Success threshold (%d nodes) reached. Canceling the long tail...", rs.OptimalThreshold())
-				timer.Stop()
-				cancel()
-			}
+			zap.S().Infof("Repair threshold (%d nodes) reached in %.2f s. Starting a timer for %.2f s for reaching the success threshold (%d nodes)...",
+				rs.RepairThreshold(), elapsed.Seconds(), more.Seconds(), rs.OptimalThreshold())
+
+			timer = time.AfterFunc(more, func() {
+				if ctx.Err() != context.Canceled {
+					zap.S().Infof("Timer expired. Successfully uploaded to %d nodes. Canceling the long tail...", atomic.LoadInt32(&successfulCount))
+					cancel()
+				}
+			})
+		case rs.OptimalThreshold():
+			zap.S().Infof("Success threshold (%d nodes) reached. Canceling the long tail...", rs.OptimalThreshold())
+			timer.Stop()
+			cancel()
 		}
 	}
 

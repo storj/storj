@@ -241,10 +241,7 @@ func makeRemotePointer(nodes []*pb.Node, hashes []*pb.PieceHash, rs eestream.Red
 		remotePieces = append(remotePieces, &pb.RemotePiece{
 			PieceNum: int32(i),
 			NodeId:   nodes[i].Id,
-			Hash: &pb.SignedHash{
-				Hash:      hashes[i].GetHash(),
-				Signature: hashes[i].GetSignature(),
-			},
+			Hash:     hashes[i],
 		})
 	}
 
