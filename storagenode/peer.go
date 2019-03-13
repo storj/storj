@@ -44,6 +44,7 @@ type DB interface {
 	PieceInfo() pieces.DB
 	CertDB() trust.CertDB
 	Bandwidth() bandwidth.DB
+	UsedSerials() piecestore.UsedSerials
 
 	// TODO: use better interfaces
 	PSDB() *psdb.DB
