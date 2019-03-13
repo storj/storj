@@ -28,7 +28,7 @@ CREATE TABLE accounting_timestamps (
 );
 CREATE TABLE bucket_usages (
 	id BLOB NOT NULL,
-	bucket_id BLOB NOT NULL,
+	bucket_id TEXT NOT NULL,
 	rollup_end_time TIMESTAMP NOT NULL,
 	remote_stored_data INTEGER NOT NULL,
 	inline_stored_data INTEGER NOT NULL,
@@ -130,6 +130,15 @@ CREATE TABLE api_keys (
 	PRIMARY KEY ( id ),
 	UNIQUE ( key ),
 	UNIQUE ( name, project_id )
+);
+CREATE TABLE bwagreement_buckets (
+	id BLOB NOT NULL,
+	serialnum TEXT NOT NULL REFERENCES bwagreements( serialnum ) ON DELETE CASCADE,
+	bucket_id TEXT NOT NULL,
+	action INTEGER NOT NULL,
+	total INTEGER NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id )
 );
 CREATE TABLE project_members (
 	member_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,

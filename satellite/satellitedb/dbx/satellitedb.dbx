@@ -333,7 +333,7 @@ model bucket_usage (
     unique rollup_end_time bucket_id
 
     field  id                 blob
-    field  bucket_id          blob      //--TODO: add foreign key constraint--//
+    field  bucket_id          text      //--TODO: add foreign key constraint--//
 
     field  rollup_end_time    timestamp
 
@@ -389,4 +389,26 @@ update certRecord ( where certRecord.id = ? )
 read one (
 	select certRecord
 	where  certRecord.id = ?
+)
+
+//--- bwagreement_bucket ---//
+
+model bwagreement_bucket (
+	key id
+
+	field id              blob
+	field serialnum       bwagreement.serialnum cascade
+	field bucket_id       text
+	field action          int64
+	field total           int64
+	field created_at      timestamp                     ( autoinsert )
+)
+
+create bwagreement_bucket ( )
+delete bwagreement_bucket ( where bwagreement_bucket.id = ? )
+delete bwagreement_bucket ( where bwagreement_bucket.bucket_id = ? )
+read all (
+	select bwagreement_bucket
+	where  bwagreement_bucket.bucket_id = ?
+	where  bwagreement_bucket.action = ?
 )

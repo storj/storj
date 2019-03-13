@@ -300,7 +300,7 @@ CREATE TABLE accounting_timestamps (
 );
 CREATE TABLE bucket_usages (
 	id bytea NOT NULL,
-	bucket_id bytea NOT NULL,
+	bucket_id text NOT NULL,
 	rollup_end_time timestamp with time zone NOT NULL,
 	remote_stored_data bigint NOT NULL,
 	inline_stored_data bigint NOT NULL,
@@ -403,6 +403,15 @@ CREATE TABLE api_keys (
 	UNIQUE ( key ),
 	UNIQUE ( name, project_id )
 );
+CREATE TABLE bwagreement_buckets (
+	id bytea NOT NULL,
+	serialnum text NOT NULL REFERENCES bwagreements( serialnum ) ON DELETE CASCADE,
+	bucket_id text NOT NULL,
+	action bigint NOT NULL,
+	total bigint NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE project_members (
 	member_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
@@ -500,7 +509,7 @@ CREATE TABLE accounting_timestamps (
 );
 CREATE TABLE bucket_usages (
 	id BLOB NOT NULL,
-	bucket_id BLOB NOT NULL,
+	bucket_id TEXT NOT NULL,
 	rollup_end_time TIMESTAMP NOT NULL,
 	remote_stored_data INTEGER NOT NULL,
 	inline_stored_data INTEGER NOT NULL,
@@ -602,6 +611,15 @@ CREATE TABLE api_keys (
 	PRIMARY KEY ( id ),
 	UNIQUE ( key ),
 	UNIQUE ( name, project_id )
+);
+CREATE TABLE bwagreement_buckets (
+	id BLOB NOT NULL,
+	serialnum TEXT NOT NULL REFERENCES bwagreements( serialnum ) ON DELETE CASCADE,
+	bucket_id TEXT NOT NULL,
+	action INTEGER NOT NULL,
+	total INTEGER NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id )
 );
 CREATE TABLE project_members (
 	member_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
@@ -1038,7 +1056,7 @@ func (AccountingTimestamps_Value_Field) _Column() string { return "value" }
 
 type BucketUsage struct {
 	Id               []byte
-	BucketId         []byte
+	BucketId         string
 	RollupEndTime    time.Time
 	RemoteStoredData uint64
 	InlineStoredData uint64
@@ -1078,10 +1096,10 @@ func (BucketUsage_Id_Field) _Column() string { return "id" }
 type BucketUsage_BucketId_Field struct {
 	_set   bool
 	_null  bool
-	_value []byte
+	_value string
 }
 
-func BucketUsage_BucketId(v []byte) BucketUsage_BucketId_Field {
+func BucketUsage_BucketId(v string) BucketUsage_BucketId_Field {
 	return BucketUsage_BucketId_Field{_set: true, _value: v}
 }
 
@@ -2568,6 +2586,134 @@ func (f ApiKey_CreatedAt_Field) value() interface{} {
 
 func (ApiKey_CreatedAt_Field) _Column() string { return "created_at" }
 
+type BwagreementBucket struct {
+	Id        []byte
+	Serialnum string
+	BucketId  string
+	Action    int64
+	Total     int64
+	CreatedAt time.Time
+}
+
+func (BwagreementBucket) _Table() string { return "bwagreement_buckets" }
+
+type BwagreementBucket_Update_Fields struct {
+}
+
+type BwagreementBucket_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func BwagreementBucket_Id(v []byte) BwagreementBucket_Id_Field {
+	return BwagreementBucket_Id_Field{_set: true, _value: v}
+}
+
+func (f BwagreementBucket_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BwagreementBucket_Id_Field) _Column() string { return "id" }
+
+type BwagreementBucket_Serialnum_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func BwagreementBucket_Serialnum(v string) BwagreementBucket_Serialnum_Field {
+	return BwagreementBucket_Serialnum_Field{_set: true, _value: v}
+}
+
+func (f BwagreementBucket_Serialnum_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BwagreementBucket_Serialnum_Field) _Column() string { return "serialnum" }
+
+type BwagreementBucket_BucketId_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func BwagreementBucket_BucketId(v string) BwagreementBucket_BucketId_Field {
+	return BwagreementBucket_BucketId_Field{_set: true, _value: v}
+}
+
+func (f BwagreementBucket_BucketId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BwagreementBucket_BucketId_Field) _Column() string { return "bucket_id" }
+
+type BwagreementBucket_Action_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func BwagreementBucket_Action(v int64) BwagreementBucket_Action_Field {
+	return BwagreementBucket_Action_Field{_set: true, _value: v}
+}
+
+func (f BwagreementBucket_Action_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BwagreementBucket_Action_Field) _Column() string { return "action" }
+
+type BwagreementBucket_Total_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func BwagreementBucket_Total(v int64) BwagreementBucket_Total_Field {
+	return BwagreementBucket_Total_Field{_set: true, _value: v}
+}
+
+func (f BwagreementBucket_Total_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BwagreementBucket_Total_Field) _Column() string { return "total" }
+
+type BwagreementBucket_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func BwagreementBucket_CreatedAt(v time.Time) BwagreementBucket_CreatedAt_Field {
+	return BwagreementBucket_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f BwagreementBucket_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BwagreementBucket_CreatedAt_Field) _Column() string { return "created_at" }
+
 type ProjectMember struct {
 	MemberId  []byte
 	ProjectId []byte
@@ -3274,6 +3420,36 @@ func (obj *postgresImpl) Create_CertRecord(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return certRecord, nil
+
+}
+
+func (obj *postgresImpl) Create_BwagreementBucket(ctx context.Context,
+	bwagreement_bucket_id BwagreementBucket_Id_Field,
+	bwagreement_bucket_serialnum BwagreementBucket_Serialnum_Field,
+	bwagreement_bucket_bucket_id BwagreementBucket_BucketId_Field,
+	bwagreement_bucket_action BwagreementBucket_Action_Field,
+	bwagreement_bucket_total BwagreementBucket_Total_Field) (
+	bwagreement_bucket *BwagreementBucket, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := bwagreement_bucket_id.value()
+	__serialnum_val := bwagreement_bucket_serialnum.value()
+	__bucket_id_val := bwagreement_bucket_bucket_id.value()
+	__action_val := bwagreement_bucket_action.value()
+	__total_val := bwagreement_bucket_total.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bwagreement_buckets ( id, serialnum, bucket_id, action, total, created_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING bwagreement_buckets.id, bwagreement_buckets.serialnum, bwagreement_buckets.bucket_id, bwagreement_buckets.action, bwagreement_buckets.total, bwagreement_buckets.created_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __id_val, __serialnum_val, __bucket_id_val, __action_val, __total_val, __created_at_val)
+
+	bwagreement_bucket = &BwagreementBucket{}
+	err = obj.driver.QueryRow(__stmt, __id_val, __serialnum_val, __bucket_id_val, __action_val, __total_val, __created_at_val).Scan(&bwagreement_bucket.Id, &bwagreement_bucket.Serialnum, &bwagreement_bucket.BucketId, &bwagreement_bucket.Action, &bwagreement_bucket.Total, &bwagreement_bucket.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bwagreement_bucket, nil
 
 }
 
@@ -4153,6 +4329,40 @@ func (obj *postgresImpl) Get_CertRecord_By_Id(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) All_BwagreementBucket_By_BucketId_And_Action(ctx context.Context,
+	bwagreement_bucket_bucket_id BwagreementBucket_BucketId_Field,
+	bwagreement_bucket_action BwagreementBucket_Action_Field) (
+	rows []*BwagreementBucket, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreement_buckets.id, bwagreement_buckets.serialnum, bwagreement_buckets.bucket_id, bwagreement_buckets.action, bwagreement_buckets.total, bwagreement_buckets.created_at FROM bwagreement_buckets WHERE bwagreement_buckets.bucket_id = ? AND bwagreement_buckets.action = ?")
+
+	var __values []interface{}
+	__values = append(__values, bwagreement_bucket_bucket_id.value(), bwagreement_bucket_action.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bwagreement_bucket := &BwagreementBucket{}
+		err = __rows.Scan(&bwagreement_bucket.Id, &bwagreement_bucket.Serialnum, &bwagreement_bucket.BucketId, &bwagreement_bucket.Action, &bwagreement_bucket.Total, &bwagreement_bucket.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bwagreement_bucket)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *postgresImpl) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	update Irreparabledb_Update_Fields) (
@@ -4913,6 +5123,58 @@ func (obj *postgresImpl) Delete_CertRecord_By_Id(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Delete_BwagreementBucket_By_Id(ctx context.Context,
+	bwagreement_bucket_id BwagreementBucket_Id_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bwagreement_buckets WHERE bwagreement_buckets.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, bwagreement_bucket_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *postgresImpl) Delete_BwagreementBucket_By_BucketId(ctx context.Context,
+	bwagreement_bucket_bucket_id BwagreementBucket_BucketId_Field) (
+	count int64, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bwagreement_buckets WHERE bwagreement_buckets.bucket_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, bwagreement_bucket_bucket_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (impl postgresImpl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(*pq.Error); ok {
@@ -4927,6 +5189,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 	var __res sql.Result
 	var __count int64
 	__res, err = obj.driver.Exec("DELETE FROM project_members;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM bwagreement_buckets;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -5529,6 +5801,39 @@ func (obj *sqlite3Impl) Create_CertRecord(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return obj.getLastCertRecord(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_BwagreementBucket(ctx context.Context,
+	bwagreement_bucket_id BwagreementBucket_Id_Field,
+	bwagreement_bucket_serialnum BwagreementBucket_Serialnum_Field,
+	bwagreement_bucket_bucket_id BwagreementBucket_BucketId_Field,
+	bwagreement_bucket_action BwagreementBucket_Action_Field,
+	bwagreement_bucket_total BwagreementBucket_Total_Field) (
+	bwagreement_bucket *BwagreementBucket, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := bwagreement_bucket_id.value()
+	__serialnum_val := bwagreement_bucket_serialnum.value()
+	__bucket_id_val := bwagreement_bucket_bucket_id.value()
+	__action_val := bwagreement_bucket_action.value()
+	__total_val := bwagreement_bucket_total.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bwagreement_buckets ( id, serialnum, bucket_id, action, total, created_at ) VALUES ( ?, ?, ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __id_val, __serialnum_val, __bucket_id_val, __action_val, __total_val, __created_at_val)
+
+	__res, err := obj.driver.Exec(__stmt, __id_val, __serialnum_val, __bucket_id_val, __action_val, __total_val, __created_at_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastBwagreementBucket(ctx, __pk)
 
 }
 
@@ -6408,6 +6713,40 @@ func (obj *sqlite3Impl) Get_CertRecord_By_Id(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) All_BwagreementBucket_By_BucketId_And_Action(ctx context.Context,
+	bwagreement_bucket_bucket_id BwagreementBucket_BucketId_Field,
+	bwagreement_bucket_action BwagreementBucket_Action_Field) (
+	rows []*BwagreementBucket, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreement_buckets.id, bwagreement_buckets.serialnum, bwagreement_buckets.bucket_id, bwagreement_buckets.action, bwagreement_buckets.total, bwagreement_buckets.created_at FROM bwagreement_buckets WHERE bwagreement_buckets.bucket_id = ? AND bwagreement_buckets.action = ?")
+
+	var __values []interface{}
+	__values = append(__values, bwagreement_bucket_bucket_id.value(), bwagreement_bucket_action.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bwagreement_bucket := &BwagreementBucket{}
+		err = __rows.Scan(&bwagreement_bucket.Id, &bwagreement_bucket.Serialnum, &bwagreement_bucket.BucketId, &bwagreement_bucket.Action, &bwagreement_bucket.Total, &bwagreement_bucket.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bwagreement_bucket)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *sqlite3Impl) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	update Irreparabledb_Update_Fields) (
@@ -7248,6 +7587,58 @@ func (obj *sqlite3Impl) Delete_CertRecord_By_Id(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Delete_BwagreementBucket_By_Id(ctx context.Context,
+	bwagreement_bucket_id BwagreementBucket_Id_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bwagreement_buckets WHERE bwagreement_buckets.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, bwagreement_bucket_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *sqlite3Impl) Delete_BwagreementBucket_By_BucketId(ctx context.Context,
+	bwagreement_bucket_bucket_id BwagreementBucket_BucketId_Field) (
+	count int64, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bwagreement_buckets WHERE bwagreement_buckets.bucket_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, bwagreement_bucket_bucket_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *sqlite3Impl) getLastBwagreement(ctx context.Context,
 	pk int64) (
 	bwagreement *Bwagreement, err error) {
@@ -7500,6 +7891,24 @@ func (obj *sqlite3Impl) getLastCertRecord(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) getLastBwagreementBucket(ctx context.Context,
+	pk int64) (
+	bwagreement_bucket *BwagreementBucket, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreement_buckets.id, bwagreement_buckets.serialnum, bwagreement_buckets.bucket_id, bwagreement_buckets.action, bwagreement_buckets.total, bwagreement_buckets.created_at FROM bwagreement_buckets WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	bwagreement_bucket = &BwagreementBucket{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&bwagreement_bucket.Id, &bwagreement_bucket.Serialnum, &bwagreement_bucket.BucketId, &bwagreement_bucket.Action, &bwagreement_bucket.Total, &bwagreement_bucket.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bwagreement_bucket, nil
+
+}
+
 func (impl sqlite3Impl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(sqlite3.Error); ok {
@@ -7519,6 +7928,16 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 	var __res sql.Result
 	var __count int64
 	__res, err = obj.driver.Exec("DELETE FROM project_members;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM bwagreement_buckets;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -7753,6 +8172,17 @@ func (rx *Rx) All_Bwagreement(ctx context.Context) (
 	return tx.All_Bwagreement(ctx)
 }
 
+func (rx *Rx) All_BwagreementBucket_By_BucketId_And_Action(ctx context.Context,
+	bwagreement_bucket_bucket_id BwagreementBucket_BucketId_Field,
+	bwagreement_bucket_action BwagreementBucket_Action_Field) (
+	rows []*BwagreementBucket, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_BwagreementBucket_By_BucketId_And_Action(ctx, bwagreement_bucket_bucket_id, bwagreement_bucket_action)
+}
+
 func (rx *Rx) All_Bwagreement_By_CreatedAt_Greater(ctx context.Context,
 	bwagreement_created_at_greater Bwagreement_CreatedAt_Field) (
 	rows []*Bwagreement, err error) {
@@ -7895,6 +8325,21 @@ func (rx *Rx) Create_Bwagreement(ctx context.Context,
 		return
 	}
 	return tx.Create_Bwagreement(ctx, bwagreement_serialnum, bwagreement_storage_node_id, bwagreement_uplink_id, bwagreement_action, bwagreement_total, bwagreement_expires_at)
+
+}
+
+func (rx *Rx) Create_BwagreementBucket(ctx context.Context,
+	bwagreement_bucket_id BwagreementBucket_Id_Field,
+	bwagreement_bucket_serialnum BwagreementBucket_Serialnum_Field,
+	bwagreement_bucket_bucket_id BwagreementBucket_BucketId_Field,
+	bwagreement_bucket_action BwagreementBucket_Action_Field,
+	bwagreement_bucket_total BwagreementBucket_Total_Field) (
+	bwagreement_bucket *BwagreementBucket, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_BwagreementBucket(ctx, bwagreement_bucket_id, bwagreement_bucket_serialnum, bwagreement_bucket_bucket_id, bwagreement_bucket_action, bwagreement_bucket_total)
 
 }
 
@@ -8058,6 +8503,27 @@ func (rx *Rx) Delete_BucketUsage_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Delete_BucketUsage_By_Id(ctx, bucket_usage_id)
+}
+
+func (rx *Rx) Delete_BwagreementBucket_By_BucketId(ctx context.Context,
+	bwagreement_bucket_bucket_id BwagreementBucket_BucketId_Field) (
+	count int64, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_BwagreementBucket_By_BucketId(ctx, bwagreement_bucket_bucket_id)
+
+}
+
+func (rx *Rx) Delete_BwagreementBucket_By_Id(ctx context.Context,
+	bwagreement_bucket_id BwagreementBucket_Id_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_BwagreementBucket_By_Id(ctx, bwagreement_bucket_id)
 }
 
 func (rx *Rx) Delete_CertRecord_By_Id(ctx context.Context,
@@ -8455,6 +8921,11 @@ type Methods interface {
 	All_Bwagreement(ctx context.Context) (
 		rows []*Bwagreement, err error)
 
+	All_BwagreementBucket_By_BucketId_And_Action(ctx context.Context,
+		bwagreement_bucket_bucket_id BwagreementBucket_BucketId_Field,
+		bwagreement_bucket_action BwagreementBucket_Action_Field) (
+		rows []*BwagreementBucket, err error)
+
 	All_Bwagreement_By_CreatedAt_Greater(ctx context.Context,
 		bwagreement_created_at_greater Bwagreement_CreatedAt_Field) (
 		rows []*Bwagreement, err error)
@@ -8527,6 +8998,14 @@ type Methods interface {
 		bwagreement_total Bwagreement_Total_Field,
 		bwagreement_expires_at Bwagreement_ExpiresAt_Field) (
 		bwagreement *Bwagreement, err error)
+
+	Create_BwagreementBucket(ctx context.Context,
+		bwagreement_bucket_id BwagreementBucket_Id_Field,
+		bwagreement_bucket_serialnum BwagreementBucket_Serialnum_Field,
+		bwagreement_bucket_bucket_id BwagreementBucket_BucketId_Field,
+		bwagreement_bucket_action BwagreementBucket_Action_Field,
+		bwagreement_bucket_total BwagreementBucket_Total_Field) (
+		bwagreement_bucket *BwagreementBucket, err error)
 
 	Create_CertRecord(ctx context.Context,
 		certRecord_publickey CertRecord_Publickey_Field,
@@ -8608,6 +9087,14 @@ type Methods interface {
 
 	Delete_BucketUsage_By_Id(ctx context.Context,
 		bucket_usage_id BucketUsage_Id_Field) (
+		deleted bool, err error)
+
+	Delete_BwagreementBucket_By_BucketId(ctx context.Context,
+		bwagreement_bucket_bucket_id BwagreementBucket_BucketId_Field) (
+		count int64, err error)
+
+	Delete_BwagreementBucket_By_Id(ctx context.Context,
+		bwagreement_bucket_id BwagreementBucket_Id_Field) (
 		deleted bool, err error)
 
 	Delete_CertRecord_By_Id(ctx context.Context,
