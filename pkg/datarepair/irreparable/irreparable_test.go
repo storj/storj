@@ -75,17 +75,6 @@ func TestIrreparable(t *testing.T) {
 			assert.Equal(t, segments[2], segs[1])
 		}
 
-		// When limit or offset is negative, postgres returns an error, but SQLite does not
-		// { // Test GetLimited with negative limit
-		// 	_, err := irrdb.GetLimited(ctx, -3, 0)
-		// 	assert.Error(t, err)
-		// }
-
-		// { // Test GetLimited with negative offset
-		// 	_, err := irrdb.GetLimited(ctx, 1, -3)
-		// 	assert.Error(t, err)
-		// }
-
 		{ // Test repair count incrementation
 			err := irrdb.IncrementRepairAttempts(ctx, segments[0])
 			assert.NoError(t, err)
