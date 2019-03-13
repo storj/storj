@@ -141,8 +141,8 @@ func (db *infodb) Migration() *migrate.Migration {
 
 					// table for storing all sent orders
 					`CREATE TABLE order_archive (
-						satellite_id  BLOB,
-						serial_number BLOB,
+						satellite_id  BLOB NOT NULL,
+						serial_number BLOB NOT NULL,
 						
 						order_limit_serialized BLOB NOT NULL, -- serialized pb.OrderLimit
 						order_serialized       BLOB NOT NULL, -- serialized pb.Order
