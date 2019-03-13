@@ -7,6 +7,7 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha512"
+	"database/sql/driver"
 	"encoding/base32"
 
 	"github.com/zeebo/errs"
@@ -110,4 +111,20 @@ func (id *PieceID2) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	return nil
+}
+
+// Value set a PieceID2 to a database field
+func (id PieceID2) Value() (driver.Value, error) {
+	return id.Bytes(), nil
+}
+
+// Scan extracts a PieceID2 from a database field
+func (id *PieceID2) Scan(src interface{}) (err error) {
+	b, ok := src.([]byte)
+	if !ok {
+		return ErrNodeID.New("PieceID2 Scan expects []byte")
+	}
+	n, err := PieceIDFromBytes(b)
+	*id = n
+	return err
 }
