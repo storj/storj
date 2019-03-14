@@ -38,3 +38,13 @@ func (n *InjuredSegment) Scan(value interface{}) error {
 func (n InjuredSegment) Value() (driver.Value, error) {
 	return value(&n)
 }
+
+// Scan implements the Scanner interface.
+func (n *Order) Scan(value interface{}) error {
+	return scan(n, value)
+}
+
+// Value implements the driver Valuer interface.
+func (n Order) Value() (driver.Value, error) {
+	return value(&n)
+}
