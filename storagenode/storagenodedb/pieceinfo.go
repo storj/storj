@@ -8,7 +8,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/pieces"
@@ -74,7 +73,7 @@ func (db *pieceinfo) Get(ctx context.Context, satelliteID storj.NodeID, pieceID 
 		return nil, ErrInfo.Wrap(err)
 	}
 
-	info.Uplink, err = identity.PeerIdentityFromPEM(uplinkIdentity)
+	info.Uplink, err = decodePeerIdentity(uplinkIdentity)
 	if err != nil {
 		return nil, ErrInfo.Wrap(err)
 	}

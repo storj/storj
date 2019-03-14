@@ -11,7 +11,6 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storagenode/orders"
 )
@@ -83,9 +82,9 @@ func (db *ordersdb) ListUnsent(ctx context.Context, limit int) (_ []*orders.Info
 	for rows.Next() {
 		var limitSerialized []byte
 		var orderSerialized []byte
-		var uplinkPEM []byte
+		var uplinkIdentity []byte
 
-		err := rows.Scan(&limitSerialized, &orderSerialized, &uplinkPEM)
+		err := rows.Scan(&limitSerialized, &orderSerialized, &uplinkIdentity)
 		if err != nil {
 			return nil, ErrInfo.Wrap(err)
 		}
@@ -104,7 +103,7 @@ func (db *ordersdb) ListUnsent(ctx context.Context, limit int) (_ []*orders.Info
 			return nil, ErrInfo.Wrap(err)
 		}
 
-		info.Uplink, err = identity.PeerIdentityFromPEM(uplinkPEM)
+		info.Uplink, err = decodePeerIdentity(uplinkIdentity)
 		if err != nil {
 			return nil, ErrInfo.Wrap(err)
 		}
