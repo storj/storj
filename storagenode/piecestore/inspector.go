@@ -53,8 +53,7 @@ func (inspector *Inspector) retrieveStats(ctx context.Context) (*pb.StatSummaryR
 		return nil, err
 	}
 
-	totalUsedBandwidth := usage.Get + usage.GetAudit + usage.GetRepair + usage.Put + usage.PutRepair +
-		usage.Delete + +usage.Invalid + usage.Unknown
+	totalUsedBandwidth := usage.TotalUsedBandwidth()
 
 	return &pb.StatSummaryResponse{
 		UsedSpace:          totalUsedSpace,

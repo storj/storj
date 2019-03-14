@@ -91,7 +91,6 @@ type Peer struct {
 		Endpoint  *psserver.Server // TODO: separate into endpoint and service
 		Monitor   *psserver.Monitor
 		Collector *psserver.Collector
-		Inspector *psserver.Inspector
 	}
 
 	Agreements struct {
