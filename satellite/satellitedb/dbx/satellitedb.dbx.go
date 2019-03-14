@@ -298,6 +298,16 @@ CREATE TABLE accounting_timestamps (
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
 );
+CREATE TABLE bucket_bandwidth_usages (
+	id bytea NOT NULL,
+	serialnum text NOT NULL,
+	bucket_id bytea NOT NULL,
+	project_id bytea NOT NULL,
+	action bigint NOT NULL,
+	total bigint NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE bucket_usages (
 	id bytea NOT NULL,
 	bucket_id bytea NOT NULL,
@@ -404,16 +414,6 @@ CREATE TABLE api_keys (
 	UNIQUE ( key ),
 	UNIQUE ( name, project_id )
 );
-CREATE TABLE bwagreement_buckets (
-	id bytea NOT NULL,
-	serialnum text NOT NULL REFERENCES bwagreements( serialnum ) ON DELETE CASCADE,
-	bucket_id bytea NOT NULL,
-	project_id bytea NOT NULL,
-	action bigint NOT NULL,
-	total bigint NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id )
-);
 CREATE TABLE project_members (
 	member_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
@@ -508,6 +508,16 @@ CREATE TABLE accounting_timestamps (
 	name TEXT NOT NULL,
 	value TIMESTAMP NOT NULL,
 	PRIMARY KEY ( name )
+);
+CREATE TABLE bucket_bandwidth_usages (
+	id BLOB NOT NULL,
+	serialnum TEXT NOT NULL,
+	bucket_id BLOB NOT NULL,
+	project_id BLOB NOT NULL,
+	action INTEGER NOT NULL,
+	total INTEGER NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id )
 );
 CREATE TABLE bucket_usages (
 	id BLOB NOT NULL,
@@ -614,16 +624,6 @@ CREATE TABLE api_keys (
 	PRIMARY KEY ( id ),
 	UNIQUE ( key ),
 	UNIQUE ( name, project_id )
-);
-CREATE TABLE bwagreement_buckets (
-	id BLOB NOT NULL,
-	serialnum TEXT NOT NULL REFERENCES bwagreements( serialnum ) ON DELETE CASCADE,
-	bucket_id BLOB NOT NULL,
-	project_id BLOB NOT NULL,
-	action INTEGER NOT NULL,
-	total INTEGER NOT NULL,
-	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( id )
 );
 CREATE TABLE project_members (
 	member_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
@@ -1057,6 +1057,154 @@ func (f AccountingTimestamps_Value_Field) value() interface{} {
 }
 
 func (AccountingTimestamps_Value_Field) _Column() string { return "value" }
+
+type BucketBandwidthUsage struct {
+	Id        []byte
+	Serialnum string
+	BucketId  []byte
+	ProjectId []byte
+	Action    int64
+	Total     int64
+	CreatedAt time.Time
+}
+
+func (BucketBandwidthUsage) _Table() string { return "bucket_bandwidth_usages" }
+
+type BucketBandwidthUsage_Update_Fields struct {
+}
+
+type BucketBandwidthUsage_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func BucketBandwidthUsage_Id(v []byte) BucketBandwidthUsage_Id_Field {
+	return BucketBandwidthUsage_Id_Field{_set: true, _value: v}
+}
+
+func (f BucketBandwidthUsage_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketBandwidthUsage_Id_Field) _Column() string { return "id" }
+
+type BucketBandwidthUsage_Serialnum_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func BucketBandwidthUsage_Serialnum(v string) BucketBandwidthUsage_Serialnum_Field {
+	return BucketBandwidthUsage_Serialnum_Field{_set: true, _value: v}
+}
+
+func (f BucketBandwidthUsage_Serialnum_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketBandwidthUsage_Serialnum_Field) _Column() string { return "serialnum" }
+
+type BucketBandwidthUsage_BucketId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func BucketBandwidthUsage_BucketId(v []byte) BucketBandwidthUsage_BucketId_Field {
+	return BucketBandwidthUsage_BucketId_Field{_set: true, _value: v}
+}
+
+func (f BucketBandwidthUsage_BucketId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketBandwidthUsage_BucketId_Field) _Column() string { return "bucket_id" }
+
+type BucketBandwidthUsage_ProjectId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func BucketBandwidthUsage_ProjectId(v []byte) BucketBandwidthUsage_ProjectId_Field {
+	return BucketBandwidthUsage_ProjectId_Field{_set: true, _value: v}
+}
+
+func (f BucketBandwidthUsage_ProjectId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketBandwidthUsage_ProjectId_Field) _Column() string { return "project_id" }
+
+type BucketBandwidthUsage_Action_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func BucketBandwidthUsage_Action(v int64) BucketBandwidthUsage_Action_Field {
+	return BucketBandwidthUsage_Action_Field{_set: true, _value: v}
+}
+
+func (f BucketBandwidthUsage_Action_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketBandwidthUsage_Action_Field) _Column() string { return "action" }
+
+type BucketBandwidthUsage_Total_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func BucketBandwidthUsage_Total(v int64) BucketBandwidthUsage_Total_Field {
+	return BucketBandwidthUsage_Total_Field{_set: true, _value: v}
+}
+
+func (f BucketBandwidthUsage_Total_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketBandwidthUsage_Total_Field) _Column() string { return "total" }
+
+type BucketBandwidthUsage_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func BucketBandwidthUsage_CreatedAt(v time.Time) BucketBandwidthUsage_CreatedAt_Field {
+	return BucketBandwidthUsage_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f BucketBandwidthUsage_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketBandwidthUsage_CreatedAt_Field) _Column() string { return "created_at" }
 
 type BucketUsage struct {
 	Id               []byte
@@ -2610,154 +2758,6 @@ func (f ApiKey_CreatedAt_Field) value() interface{} {
 
 func (ApiKey_CreatedAt_Field) _Column() string { return "created_at" }
 
-type BwagreementBucket struct {
-	Id        []byte
-	Serialnum string
-	BucketId  []byte
-	ProjectId []byte
-	Action    int64
-	Total     int64
-	CreatedAt time.Time
-}
-
-func (BwagreementBucket) _Table() string { return "bwagreement_buckets" }
-
-type BwagreementBucket_Update_Fields struct {
-}
-
-type BwagreementBucket_Id_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func BwagreementBucket_Id(v []byte) BwagreementBucket_Id_Field {
-	return BwagreementBucket_Id_Field{_set: true, _value: v}
-}
-
-func (f BwagreementBucket_Id_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (BwagreementBucket_Id_Field) _Column() string { return "id" }
-
-type BwagreementBucket_Serialnum_Field struct {
-	_set   bool
-	_null  bool
-	_value string
-}
-
-func BwagreementBucket_Serialnum(v string) BwagreementBucket_Serialnum_Field {
-	return BwagreementBucket_Serialnum_Field{_set: true, _value: v}
-}
-
-func (f BwagreementBucket_Serialnum_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (BwagreementBucket_Serialnum_Field) _Column() string { return "serialnum" }
-
-type BwagreementBucket_BucketId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func BwagreementBucket_BucketId(v []byte) BwagreementBucket_BucketId_Field {
-	return BwagreementBucket_BucketId_Field{_set: true, _value: v}
-}
-
-func (f BwagreementBucket_BucketId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (BwagreementBucket_BucketId_Field) _Column() string { return "bucket_id" }
-
-type BwagreementBucket_ProjectId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func BwagreementBucket_ProjectId(v []byte) BwagreementBucket_ProjectId_Field {
-	return BwagreementBucket_ProjectId_Field{_set: true, _value: v}
-}
-
-func (f BwagreementBucket_ProjectId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (BwagreementBucket_ProjectId_Field) _Column() string { return "project_id" }
-
-type BwagreementBucket_Action_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func BwagreementBucket_Action(v int64) BwagreementBucket_Action_Field {
-	return BwagreementBucket_Action_Field{_set: true, _value: v}
-}
-
-func (f BwagreementBucket_Action_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (BwagreementBucket_Action_Field) _Column() string { return "action" }
-
-type BwagreementBucket_Total_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func BwagreementBucket_Total(v int64) BwagreementBucket_Total_Field {
-	return BwagreementBucket_Total_Field{_set: true, _value: v}
-}
-
-func (f BwagreementBucket_Total_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (BwagreementBucket_Total_Field) _Column() string { return "total" }
-
-type BwagreementBucket_CreatedAt_Field struct {
-	_set   bool
-	_null  bool
-	_value time.Time
-}
-
-func BwagreementBucket_CreatedAt(v time.Time) BwagreementBucket_CreatedAt_Field {
-	return BwagreementBucket_CreatedAt_Field{_set: true, _value: v}
-}
-
-func (f BwagreementBucket_CreatedAt_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (BwagreementBucket_CreatedAt_Field) _Column() string { return "created_at" }
-
 type ProjectMember struct {
 	MemberId  []byte
 	ProjectId []byte
@@ -3469,35 +3469,35 @@ func (obj *postgresImpl) Create_CertRecord(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Create_BwagreementBucket(ctx context.Context,
-	bwagreement_bucket_id BwagreementBucket_Id_Field,
-	bwagreement_bucket_serialnum BwagreementBucket_Serialnum_Field,
-	bwagreement_bucket_bucket_id BwagreementBucket_BucketId_Field,
-	bwagreement_bucket_project_id BwagreementBucket_ProjectId_Field,
-	bwagreement_bucket_action BwagreementBucket_Action_Field,
-	bwagreement_bucket_total BwagreementBucket_Total_Field) (
-	bwagreement_bucket *BwagreementBucket, err error) {
+func (obj *postgresImpl) Create_BucketBandwidthUsage(ctx context.Context,
+	bucket_bandwidth_usage_id BucketBandwidthUsage_Id_Field,
+	bucket_bandwidth_usage_serialnum BucketBandwidthUsage_Serialnum_Field,
+	bucket_bandwidth_usage_bucket_id BucketBandwidthUsage_BucketId_Field,
+	bucket_bandwidth_usage_project_id BucketBandwidthUsage_ProjectId_Field,
+	bucket_bandwidth_usage_action BucketBandwidthUsage_Action_Field,
+	bucket_bandwidth_usage_total BucketBandwidthUsage_Total_Field) (
+	bucket_bandwidth_usage *BucketBandwidthUsage, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
-	__id_val := bwagreement_bucket_id.value()
-	__serialnum_val := bwagreement_bucket_serialnum.value()
-	__bucket_id_val := bwagreement_bucket_bucket_id.value()
-	__project_id_val := bwagreement_bucket_project_id.value()
-	__action_val := bwagreement_bucket_action.value()
-	__total_val := bwagreement_bucket_total.value()
+	__id_val := bucket_bandwidth_usage_id.value()
+	__serialnum_val := bucket_bandwidth_usage_serialnum.value()
+	__bucket_id_val := bucket_bandwidth_usage_bucket_id.value()
+	__project_id_val := bucket_bandwidth_usage_project_id.value()
+	__action_val := bucket_bandwidth_usage_action.value()
+	__total_val := bucket_bandwidth_usage_total.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bwagreement_buckets ( id, serialnum, bucket_id, project_id, action, total, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) RETURNING bwagreement_buckets.id, bwagreement_buckets.serialnum, bwagreement_buckets.bucket_id, bwagreement_buckets.project_id, bwagreement_buckets.action, bwagreement_buckets.total, bwagreement_buckets.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_bandwidth_usages ( id, serialnum, bucket_id, project_id, action, total, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) RETURNING bucket_bandwidth_usages.id, bucket_bandwidth_usages.serialnum, bucket_bandwidth_usages.bucket_id, bucket_bandwidth_usages.project_id, bucket_bandwidth_usages.action, bucket_bandwidth_usages.total, bucket_bandwidth_usages.created_at")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __id_val, __serialnum_val, __bucket_id_val, __project_id_val, __action_val, __total_val, __created_at_val)
 
-	bwagreement_bucket = &BwagreementBucket{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __serialnum_val, __bucket_id_val, __project_id_val, __action_val, __total_val, __created_at_val).Scan(&bwagreement_bucket.Id, &bwagreement_bucket.Serialnum, &bwagreement_bucket.BucketId, &bwagreement_bucket.ProjectId, &bwagreement_bucket.Action, &bwagreement_bucket.Total, &bwagreement_bucket.CreatedAt)
+	bucket_bandwidth_usage = &BucketBandwidthUsage{}
+	err = obj.driver.QueryRow(__stmt, __id_val, __serialnum_val, __bucket_id_val, __project_id_val, __action_val, __total_val, __created_at_val).Scan(&bucket_bandwidth_usage.Id, &bucket_bandwidth_usage.Serialnum, &bucket_bandwidth_usage.BucketId, &bucket_bandwidth_usage.ProjectId, &bucket_bandwidth_usage.Action, &bucket_bandwidth_usage.Total, &bucket_bandwidth_usage.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-	return bwagreement_bucket, nil
+	return bucket_bandwidth_usage, nil
 
 }
 
@@ -4377,15 +4377,15 @@ func (obj *postgresImpl) Get_CertRecord_By_Id(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) All_BwagreementBucket_By_BucketId_And_Action(ctx context.Context,
-	bwagreement_bucket_bucket_id BwagreementBucket_BucketId_Field,
-	bwagreement_bucket_action BwagreementBucket_Action_Field) (
-	rows []*BwagreementBucket, err error) {
+func (obj *postgresImpl) All_BucketBandwidthUsage_By_BucketId_And_Action(ctx context.Context,
+	bucket_bandwidth_usage_bucket_id BucketBandwidthUsage_BucketId_Field,
+	bucket_bandwidth_usage_action BucketBandwidthUsage_Action_Field) (
+	rows []*BucketBandwidthUsage, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreement_buckets.id, bwagreement_buckets.serialnum, bwagreement_buckets.bucket_id, bwagreement_buckets.project_id, bwagreement_buckets.action, bwagreement_buckets.total, bwagreement_buckets.created_at FROM bwagreement_buckets WHERE bwagreement_buckets.bucket_id = ? AND bwagreement_buckets.action = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_usages.id, bucket_bandwidth_usages.serialnum, bucket_bandwidth_usages.bucket_id, bucket_bandwidth_usages.project_id, bucket_bandwidth_usages.action, bucket_bandwidth_usages.total, bucket_bandwidth_usages.created_at FROM bucket_bandwidth_usages WHERE bucket_bandwidth_usages.bucket_id = ? AND bucket_bandwidth_usages.action = ?")
 
 	var __values []interface{}
-	__values = append(__values, bwagreement_bucket_bucket_id.value(), bwagreement_bucket_action.value())
+	__values = append(__values, bucket_bandwidth_usage_bucket_id.value(), bucket_bandwidth_usage_action.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -4397,12 +4397,12 @@ func (obj *postgresImpl) All_BwagreementBucket_By_BucketId_And_Action(ctx contex
 	defer __rows.Close()
 
 	for __rows.Next() {
-		bwagreement_bucket := &BwagreementBucket{}
-		err = __rows.Scan(&bwagreement_bucket.Id, &bwagreement_bucket.Serialnum, &bwagreement_bucket.BucketId, &bwagreement_bucket.ProjectId, &bwagreement_bucket.Action, &bwagreement_bucket.Total, &bwagreement_bucket.CreatedAt)
+		bucket_bandwidth_usage := &BucketBandwidthUsage{}
+		err = __rows.Scan(&bucket_bandwidth_usage.Id, &bucket_bandwidth_usage.Serialnum, &bucket_bandwidth_usage.BucketId, &bucket_bandwidth_usage.ProjectId, &bucket_bandwidth_usage.Action, &bucket_bandwidth_usage.Total, &bucket_bandwidth_usage.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		rows = append(rows, bwagreement_bucket)
+		rows = append(rows, bucket_bandwidth_usage)
 	}
 	if err := __rows.Err(); err != nil {
 		return nil, obj.makeErr(err)
@@ -5171,14 +5171,14 @@ func (obj *postgresImpl) Delete_CertRecord_By_Id(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Delete_BwagreementBucket_By_Id(ctx context.Context,
-	bwagreement_bucket_id BwagreementBucket_Id_Field) (
+func (obj *postgresImpl) Delete_BucketBandwidthUsage_By_Id(ctx context.Context,
+	bucket_bandwidth_usage_id BucketBandwidthUsage_Id_Field) (
 	deleted bool, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bwagreement_buckets WHERE bwagreement_buckets.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bucket_bandwidth_usages WHERE bucket_bandwidth_usages.id = ?")
 
 	var __values []interface{}
-	__values = append(__values, bwagreement_bucket_id.value())
+	__values = append(__values, bucket_bandwidth_usage_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -5197,14 +5197,14 @@ func (obj *postgresImpl) Delete_BwagreementBucket_By_Id(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Delete_BwagreementBucket_By_BucketId(ctx context.Context,
-	bwagreement_bucket_bucket_id BwagreementBucket_BucketId_Field) (
+func (obj *postgresImpl) Delete_BucketBandwidthUsage_By_BucketId(ctx context.Context,
+	bucket_bandwidth_usage_bucket_id BucketBandwidthUsage_BucketId_Field) (
 	count int64, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bwagreement_buckets WHERE bwagreement_buckets.bucket_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bucket_bandwidth_usages WHERE bucket_bandwidth_usages.bucket_id = ?")
 
 	var __values []interface{}
-	__values = append(__values, bwagreement_bucket_bucket_id.value())
+	__values = append(__values, bucket_bandwidth_usage_bucket_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -5237,16 +5237,6 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 	var __res sql.Result
 	var __count int64
 	__res, err = obj.driver.Exec("DELETE FROM project_members;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM bwagreement_buckets;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -5347,6 +5337,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM bucket_usages;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM bucket_bandwidth_usages;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -5854,25 +5854,25 @@ func (obj *sqlite3Impl) Create_CertRecord(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Create_BwagreementBucket(ctx context.Context,
-	bwagreement_bucket_id BwagreementBucket_Id_Field,
-	bwagreement_bucket_serialnum BwagreementBucket_Serialnum_Field,
-	bwagreement_bucket_bucket_id BwagreementBucket_BucketId_Field,
-	bwagreement_bucket_project_id BwagreementBucket_ProjectId_Field,
-	bwagreement_bucket_action BwagreementBucket_Action_Field,
-	bwagreement_bucket_total BwagreementBucket_Total_Field) (
-	bwagreement_bucket *BwagreementBucket, err error) {
+func (obj *sqlite3Impl) Create_BucketBandwidthUsage(ctx context.Context,
+	bucket_bandwidth_usage_id BucketBandwidthUsage_Id_Field,
+	bucket_bandwidth_usage_serialnum BucketBandwidthUsage_Serialnum_Field,
+	bucket_bandwidth_usage_bucket_id BucketBandwidthUsage_BucketId_Field,
+	bucket_bandwidth_usage_project_id BucketBandwidthUsage_ProjectId_Field,
+	bucket_bandwidth_usage_action BucketBandwidthUsage_Action_Field,
+	bucket_bandwidth_usage_total BucketBandwidthUsage_Total_Field) (
+	bucket_bandwidth_usage *BucketBandwidthUsage, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
-	__id_val := bwagreement_bucket_id.value()
-	__serialnum_val := bwagreement_bucket_serialnum.value()
-	__bucket_id_val := bwagreement_bucket_bucket_id.value()
-	__project_id_val := bwagreement_bucket_project_id.value()
-	__action_val := bwagreement_bucket_action.value()
-	__total_val := bwagreement_bucket_total.value()
+	__id_val := bucket_bandwidth_usage_id.value()
+	__serialnum_val := bucket_bandwidth_usage_serialnum.value()
+	__bucket_id_val := bucket_bandwidth_usage_bucket_id.value()
+	__project_id_val := bucket_bandwidth_usage_project_id.value()
+	__action_val := bucket_bandwidth_usage_action.value()
+	__total_val := bucket_bandwidth_usage_total.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bwagreement_buckets ( id, serialnum, bucket_id, project_id, action, total, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_bandwidth_usages ( id, serialnum, bucket_id, project_id, action, total, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __id_val, __serialnum_val, __bucket_id_val, __project_id_val, __action_val, __total_val, __created_at_val)
@@ -5885,7 +5885,7 @@ func (obj *sqlite3Impl) Create_BwagreementBucket(ctx context.Context,
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-	return obj.getLastBwagreementBucket(ctx, __pk)
+	return obj.getLastBucketBandwidthUsage(ctx, __pk)
 
 }
 
@@ -6765,15 +6765,15 @@ func (obj *sqlite3Impl) Get_CertRecord_By_Id(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) All_BwagreementBucket_By_BucketId_And_Action(ctx context.Context,
-	bwagreement_bucket_bucket_id BwagreementBucket_BucketId_Field,
-	bwagreement_bucket_action BwagreementBucket_Action_Field) (
-	rows []*BwagreementBucket, err error) {
+func (obj *sqlite3Impl) All_BucketBandwidthUsage_By_BucketId_And_Action(ctx context.Context,
+	bucket_bandwidth_usage_bucket_id BucketBandwidthUsage_BucketId_Field,
+	bucket_bandwidth_usage_action BucketBandwidthUsage_Action_Field) (
+	rows []*BucketBandwidthUsage, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreement_buckets.id, bwagreement_buckets.serialnum, bwagreement_buckets.bucket_id, bwagreement_buckets.project_id, bwagreement_buckets.action, bwagreement_buckets.total, bwagreement_buckets.created_at FROM bwagreement_buckets WHERE bwagreement_buckets.bucket_id = ? AND bwagreement_buckets.action = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_usages.id, bucket_bandwidth_usages.serialnum, bucket_bandwidth_usages.bucket_id, bucket_bandwidth_usages.project_id, bucket_bandwidth_usages.action, bucket_bandwidth_usages.total, bucket_bandwidth_usages.created_at FROM bucket_bandwidth_usages WHERE bucket_bandwidth_usages.bucket_id = ? AND bucket_bandwidth_usages.action = ?")
 
 	var __values []interface{}
-	__values = append(__values, bwagreement_bucket_bucket_id.value(), bwagreement_bucket_action.value())
+	__values = append(__values, bucket_bandwidth_usage_bucket_id.value(), bucket_bandwidth_usage_action.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -6785,12 +6785,12 @@ func (obj *sqlite3Impl) All_BwagreementBucket_By_BucketId_And_Action(ctx context
 	defer __rows.Close()
 
 	for __rows.Next() {
-		bwagreement_bucket := &BwagreementBucket{}
-		err = __rows.Scan(&bwagreement_bucket.Id, &bwagreement_bucket.Serialnum, &bwagreement_bucket.BucketId, &bwagreement_bucket.ProjectId, &bwagreement_bucket.Action, &bwagreement_bucket.Total, &bwagreement_bucket.CreatedAt)
+		bucket_bandwidth_usage := &BucketBandwidthUsage{}
+		err = __rows.Scan(&bucket_bandwidth_usage.Id, &bucket_bandwidth_usage.Serialnum, &bucket_bandwidth_usage.BucketId, &bucket_bandwidth_usage.ProjectId, &bucket_bandwidth_usage.Action, &bucket_bandwidth_usage.Total, &bucket_bandwidth_usage.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		rows = append(rows, bwagreement_bucket)
+		rows = append(rows, bucket_bandwidth_usage)
 	}
 	if err := __rows.Err(); err != nil {
 		return nil, obj.makeErr(err)
@@ -7639,14 +7639,14 @@ func (obj *sqlite3Impl) Delete_CertRecord_By_Id(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Delete_BwagreementBucket_By_Id(ctx context.Context,
-	bwagreement_bucket_id BwagreementBucket_Id_Field) (
+func (obj *sqlite3Impl) Delete_BucketBandwidthUsage_By_Id(ctx context.Context,
+	bucket_bandwidth_usage_id BucketBandwidthUsage_Id_Field) (
 	deleted bool, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bwagreement_buckets WHERE bwagreement_buckets.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bucket_bandwidth_usages WHERE bucket_bandwidth_usages.id = ?")
 
 	var __values []interface{}
-	__values = append(__values, bwagreement_bucket_id.value())
+	__values = append(__values, bucket_bandwidth_usage_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -7665,14 +7665,14 @@ func (obj *sqlite3Impl) Delete_BwagreementBucket_By_Id(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Delete_BwagreementBucket_By_BucketId(ctx context.Context,
-	bwagreement_bucket_bucket_id BwagreementBucket_BucketId_Field) (
+func (obj *sqlite3Impl) Delete_BucketBandwidthUsage_By_BucketId(ctx context.Context,
+	bucket_bandwidth_usage_bucket_id BucketBandwidthUsage_BucketId_Field) (
 	count int64, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bwagreement_buckets WHERE bwagreement_buckets.bucket_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bucket_bandwidth_usages WHERE bucket_bandwidth_usages.bucket_id = ?")
 
 	var __values []interface{}
-	__values = append(__values, bwagreement_bucket_bucket_id.value())
+	__values = append(__values, bucket_bandwidth_usage_bucket_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -7943,21 +7943,21 @@ func (obj *sqlite3Impl) getLastCertRecord(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) getLastBwagreementBucket(ctx context.Context,
+func (obj *sqlite3Impl) getLastBucketBandwidthUsage(ctx context.Context,
 	pk int64) (
-	bwagreement_bucket *BwagreementBucket, err error) {
+	bucket_bandwidth_usage *BucketBandwidthUsage, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreement_buckets.id, bwagreement_buckets.serialnum, bwagreement_buckets.bucket_id, bwagreement_buckets.project_id, bwagreement_buckets.action, bwagreement_buckets.total, bwagreement_buckets.created_at FROM bwagreement_buckets WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_usages.id, bucket_bandwidth_usages.serialnum, bucket_bandwidth_usages.bucket_id, bucket_bandwidth_usages.project_id, bucket_bandwidth_usages.action, bucket_bandwidth_usages.total, bucket_bandwidth_usages.created_at FROM bucket_bandwidth_usages WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
-	bwagreement_bucket = &BwagreementBucket{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&bwagreement_bucket.Id, &bwagreement_bucket.Serialnum, &bwagreement_bucket.BucketId, &bwagreement_bucket.ProjectId, &bwagreement_bucket.Action, &bwagreement_bucket.Total, &bwagreement_bucket.CreatedAt)
+	bucket_bandwidth_usage = &BucketBandwidthUsage{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&bucket_bandwidth_usage.Id, &bucket_bandwidth_usage.Serialnum, &bucket_bandwidth_usage.BucketId, &bucket_bandwidth_usage.ProjectId, &bucket_bandwidth_usage.Action, &bucket_bandwidth_usage.Total, &bucket_bandwidth_usage.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-	return bwagreement_bucket, nil
+	return bucket_bandwidth_usage, nil
 
 }
 
@@ -7980,16 +7980,6 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 	var __res sql.Result
 	var __count int64
 	__res, err = obj.driver.Exec("DELETE FROM project_members;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM bwagreement_buckets;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -8090,6 +8080,16 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM bucket_usages;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM bucket_bandwidth_usages;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -8215,6 +8215,17 @@ func (rx *Rx) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Context,
 	return tx.All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx, api_key_project_id)
 }
 
+func (rx *Rx) All_BucketBandwidthUsage_By_BucketId_And_Action(ctx context.Context,
+	bucket_bandwidth_usage_bucket_id BucketBandwidthUsage_BucketId_Field,
+	bucket_bandwidth_usage_action BucketBandwidthUsage_Action_Field) (
+	rows []*BucketBandwidthUsage, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_BucketBandwidthUsage_By_BucketId_And_Action(ctx, bucket_bandwidth_usage_bucket_id, bucket_bandwidth_usage_action)
+}
+
 func (rx *Rx) All_Bwagreement(ctx context.Context) (
 	rows []*Bwagreement, err error) {
 	var tx *Tx
@@ -8222,17 +8233,6 @@ func (rx *Rx) All_Bwagreement(ctx context.Context) (
 		return
 	}
 	return tx.All_Bwagreement(ctx)
-}
-
-func (rx *Rx) All_BwagreementBucket_By_BucketId_And_Action(ctx context.Context,
-	bwagreement_bucket_bucket_id BwagreementBucket_BucketId_Field,
-	bwagreement_bucket_action BwagreementBucket_Action_Field) (
-	rows []*BwagreementBucket, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.All_BwagreementBucket_By_BucketId_And_Action(ctx, bwagreement_bucket_bucket_id, bwagreement_bucket_action)
 }
 
 func (rx *Rx) All_Bwagreement_By_CreatedAt_Greater(ctx context.Context,
@@ -8342,6 +8342,22 @@ func (rx *Rx) Create_ApiKey(ctx context.Context,
 
 }
 
+func (rx *Rx) Create_BucketBandwidthUsage(ctx context.Context,
+	bucket_bandwidth_usage_id BucketBandwidthUsage_Id_Field,
+	bucket_bandwidth_usage_serialnum BucketBandwidthUsage_Serialnum_Field,
+	bucket_bandwidth_usage_bucket_id BucketBandwidthUsage_BucketId_Field,
+	bucket_bandwidth_usage_project_id BucketBandwidthUsage_ProjectId_Field,
+	bucket_bandwidth_usage_action BucketBandwidthUsage_Action_Field,
+	bucket_bandwidth_usage_total BucketBandwidthUsage_Total_Field) (
+	bucket_bandwidth_usage *BucketBandwidthUsage, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_BucketBandwidthUsage(ctx, bucket_bandwidth_usage_id, bucket_bandwidth_usage_serialnum, bucket_bandwidth_usage_bucket_id, bucket_bandwidth_usage_project_id, bucket_bandwidth_usage_action, bucket_bandwidth_usage_total)
+
+}
+
 func (rx *Rx) Create_BucketUsage(ctx context.Context,
 	bucket_usage_id BucketUsage_Id_Field,
 	bucket_usage_bucket_id BucketUsage_BucketId_Field,
@@ -8378,22 +8394,6 @@ func (rx *Rx) Create_Bwagreement(ctx context.Context,
 		return
 	}
 	return tx.Create_Bwagreement(ctx, bwagreement_serialnum, bwagreement_storage_node_id, bwagreement_uplink_id, bwagreement_action, bwagreement_total, bwagreement_expires_at)
-
-}
-
-func (rx *Rx) Create_BwagreementBucket(ctx context.Context,
-	bwagreement_bucket_id BwagreementBucket_Id_Field,
-	bwagreement_bucket_serialnum BwagreementBucket_Serialnum_Field,
-	bwagreement_bucket_bucket_id BwagreementBucket_BucketId_Field,
-	bwagreement_bucket_project_id BwagreementBucket_ProjectId_Field,
-	bwagreement_bucket_action BwagreementBucket_Action_Field,
-	bwagreement_bucket_total BwagreementBucket_Total_Field) (
-	bwagreement_bucket *BwagreementBucket, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Create_BwagreementBucket(ctx, bwagreement_bucket_id, bwagreement_bucket_serialnum, bwagreement_bucket_bucket_id, bwagreement_bucket_project_id, bwagreement_bucket_action, bwagreement_bucket_total)
 
 }
 
@@ -8549,6 +8549,27 @@ func (rx *Rx) Delete_ApiKey_By_Id(ctx context.Context,
 	return tx.Delete_ApiKey_By_Id(ctx, api_key_id)
 }
 
+func (rx *Rx) Delete_BucketBandwidthUsage_By_BucketId(ctx context.Context,
+	bucket_bandwidth_usage_bucket_id BucketBandwidthUsage_BucketId_Field) (
+	count int64, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_BucketBandwidthUsage_By_BucketId(ctx, bucket_bandwidth_usage_bucket_id)
+
+}
+
+func (rx *Rx) Delete_BucketBandwidthUsage_By_Id(ctx context.Context,
+	bucket_bandwidth_usage_id BucketBandwidthUsage_Id_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_BucketBandwidthUsage_By_Id(ctx, bucket_bandwidth_usage_id)
+}
+
 func (rx *Rx) Delete_BucketUsage_By_Id(ctx context.Context,
 	bucket_usage_id BucketUsage_Id_Field) (
 	deleted bool, err error) {
@@ -8557,27 +8578,6 @@ func (rx *Rx) Delete_BucketUsage_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Delete_BucketUsage_By_Id(ctx, bucket_usage_id)
-}
-
-func (rx *Rx) Delete_BwagreementBucket_By_BucketId(ctx context.Context,
-	bwagreement_bucket_bucket_id BwagreementBucket_BucketId_Field) (
-	count int64, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Delete_BwagreementBucket_By_BucketId(ctx, bwagreement_bucket_bucket_id)
-
-}
-
-func (rx *Rx) Delete_BwagreementBucket_By_Id(ctx context.Context,
-	bwagreement_bucket_id BwagreementBucket_Id_Field) (
-	deleted bool, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Delete_BwagreementBucket_By_Id(ctx, bwagreement_bucket_id)
 }
 
 func (rx *Rx) Delete_CertRecord_By_Id(ctx context.Context,
@@ -8972,13 +8972,13 @@ type Methods interface {
 		api_key_project_id ApiKey_ProjectId_Field) (
 		rows []*ApiKey, err error)
 
+	All_BucketBandwidthUsage_By_BucketId_And_Action(ctx context.Context,
+		bucket_bandwidth_usage_bucket_id BucketBandwidthUsage_BucketId_Field,
+		bucket_bandwidth_usage_action BucketBandwidthUsage_Action_Field) (
+		rows []*BucketBandwidthUsage, err error)
+
 	All_Bwagreement(ctx context.Context) (
 		rows []*Bwagreement, err error)
-
-	All_BwagreementBucket_By_BucketId_And_Action(ctx context.Context,
-		bwagreement_bucket_bucket_id BwagreementBucket_BucketId_Field,
-		bwagreement_bucket_action BwagreementBucket_Action_Field) (
-		rows []*BwagreementBucket, err error)
 
 	All_Bwagreement_By_CreatedAt_Greater(ctx context.Context,
 		bwagreement_created_at_greater Bwagreement_CreatedAt_Field) (
@@ -9029,6 +9029,15 @@ type Methods interface {
 		api_key_name ApiKey_Name_Field) (
 		api_key *ApiKey, err error)
 
+	Create_BucketBandwidthUsage(ctx context.Context,
+		bucket_bandwidth_usage_id BucketBandwidthUsage_Id_Field,
+		bucket_bandwidth_usage_serialnum BucketBandwidthUsage_Serialnum_Field,
+		bucket_bandwidth_usage_bucket_id BucketBandwidthUsage_BucketId_Field,
+		bucket_bandwidth_usage_project_id BucketBandwidthUsage_ProjectId_Field,
+		bucket_bandwidth_usage_action BucketBandwidthUsage_Action_Field,
+		bucket_bandwidth_usage_total BucketBandwidthUsage_Total_Field) (
+		bucket_bandwidth_usage *BucketBandwidthUsage, err error)
+
 	Create_BucketUsage(ctx context.Context,
 		bucket_usage_id BucketUsage_Id_Field,
 		bucket_usage_bucket_id BucketUsage_BucketId_Field,
@@ -9053,15 +9062,6 @@ type Methods interface {
 		bwagreement_total Bwagreement_Total_Field,
 		bwagreement_expires_at Bwagreement_ExpiresAt_Field) (
 		bwagreement *Bwagreement, err error)
-
-	Create_BwagreementBucket(ctx context.Context,
-		bwagreement_bucket_id BwagreementBucket_Id_Field,
-		bwagreement_bucket_serialnum BwagreementBucket_Serialnum_Field,
-		bwagreement_bucket_bucket_id BwagreementBucket_BucketId_Field,
-		bwagreement_bucket_project_id BwagreementBucket_ProjectId_Field,
-		bwagreement_bucket_action BwagreementBucket_Action_Field,
-		bwagreement_bucket_total BwagreementBucket_Total_Field) (
-		bwagreement_bucket *BwagreementBucket, err error)
 
 	Create_CertRecord(ctx context.Context,
 		certRecord_publickey CertRecord_Publickey_Field,
@@ -9141,16 +9141,16 @@ type Methods interface {
 		api_key_id ApiKey_Id_Field) (
 		deleted bool, err error)
 
-	Delete_BucketUsage_By_Id(ctx context.Context,
-		bucket_usage_id BucketUsage_Id_Field) (
-		deleted bool, err error)
-
-	Delete_BwagreementBucket_By_BucketId(ctx context.Context,
-		bwagreement_bucket_bucket_id BwagreementBucket_BucketId_Field) (
+	Delete_BucketBandwidthUsage_By_BucketId(ctx context.Context,
+		bucket_bandwidth_usage_bucket_id BucketBandwidthUsage_BucketId_Field) (
 		count int64, err error)
 
-	Delete_BwagreementBucket_By_Id(ctx context.Context,
-		bwagreement_bucket_id BwagreementBucket_Id_Field) (
+	Delete_BucketBandwidthUsage_By_Id(ctx context.Context,
+		bucket_bandwidth_usage_id BucketBandwidthUsage_Id_Field) (
+		deleted bool, err error)
+
+	Delete_BucketUsage_By_Id(ctx context.Context,
+		bucket_usage_id BucketUsage_Id_Field) (
 		deleted bool, err error)
 
 	Delete_CertRecord_By_Id(ctx context.Context,

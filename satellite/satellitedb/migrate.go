@@ -345,17 +345,17 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Description: "Add bwagreement_buckets table, alter bucket_usage columns",
 				Version:     7,
 				Action: migrate.SQL{
-					`ALTER TABLE bucket_usages ALTER COLUMN bucket_id TYPE BYTEA;`,
 					`ALTER TABLE bucket_usages ADD COLUMN project_id BYTEA;`,
-					`CREATE TABLE bwagreement_buckets (
+					`CREATE TABLE bucket_bandwidth_usages (
 						id bytea NOT NULL,
-						serialnum text NOT NULL REFERENCES bwagreements( serialnum ) ON DELETE CASCADE,
-						bucket_id text NOT NULL,
+						serialnum text NOT NULL,
+						bucket_id bytea NOT NULL,
+						project_id bytea NOT NULL,
 						action bigint NOT NULL,
 						total bigint NOT NULL,
 						created_at timestamp with time zone NOT NULL,
 						PRIMARY KEY ( id )
-					)`,
+					);`,
 				},
 			},
 		},

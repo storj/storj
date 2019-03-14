@@ -53,15 +53,15 @@ CREATE TABLE bwagreements (
   expires_at timestamp with time zone NOT NULL,
   PRIMARY KEY ( serialnum )
 );
-CREATE TABLE bwagreement_buckets (
-  id bytea NOT NULL,
-  serialnum text NOT NULL REFERENCES bwagreements( serialnum ) ON DELETE CASCADE,
-  bucket_id bytea NOT NULL,
-  project_id bytea NOT NULL,
-  action bigint NOT NULL,
-  total bigint NOT NULL,
-  created_at timestamp with time zone NOT NULL,
-  PRIMARY KEY ( id )
+CREATE TABLE bucket_bandwidth_usages (
+	id bytea NOT NULL,
+	serialnum text NOT NULL,
+	bucket_id bytea NOT NULL,
+	project_id bytea NOT NULL,
+	action bigint NOT NULL,
+	total bigint NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
 );
 CREATE TABLE certRecords (
   publickey bytea NOT NULL,
@@ -176,4 +176,4 @@ INSERT INTO "certrecords" VALUES (E'0Y0\\023\\006\\007*\\206H\\316=\\002\\001\\0
 INSERT INTO "bucket_usages" ("id", "bucket_id", "project_id", "rollup_end_time", "remote_stored_data", "inline_stored_data", "remote_segments", "inline_segments", "objects", "metadata_size", "repair_egress", "get_egress", "audit_egress") VALUES (E'\\153\\313\\233\\074\\327\\177\\136\\070\\346\\001",'::bytea, E'\\366\\146\\032\\321\\316\\161\\070\\133\\302\\271",'::bytea, E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, '2019-03-06 08:28:24.677953+00', 10, 11, 12, 13, 14, 15, 16, 17, 18)
 
 -- NEW DATA --
-INSERT INTO "bwagreement_buckets" ("id", "serialnum", "bucket_id", "project_id", "action", "total", "created_at") VALUES (E'\\153\\313\\233\\074\\327\\177\\136\\070\\346\\001",'::bytea, '8fc0ceaa-984c-4d52-bcf4-b5429e1e35e812FpiifDbcJkePa12jxjDEutKrfLmwzT7sz2jfVwpYqgtM8B74c', E'\\366\\146\\032\\321\\316\\161\\070\\133\\302\\271",'::bytea, E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, 1, 666, '2019-02-14 16:09:54+00')
+INSERT INTO "bucket_bandwidth_usages" ("id", "serialnum", "bucket_id", "project_id", "action", "total", "created_at") VALUES (E'\\153\\313\\233\\074\\327\\177\\136\\070\\346\\001",'::bytea, '8fc0ceaa-984c-4d52-bcf4-b5429e1e35e812FpiifDbcJkePa12jxjDEutKrfLmwzT7sz2jfVwpYqgtM8B74c', E'\\366\\146\\032\\321\\316\\161\\070\\133\\302\\271",'::bytea, E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, 1, 666, '2019-02-14 16:09:54+00')

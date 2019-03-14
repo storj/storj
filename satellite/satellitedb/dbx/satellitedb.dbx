@@ -392,13 +392,13 @@ read one (
 	where  certRecord.id = ?
 )
 
-//--- bwagreement_bucket ---//
+//--- bucket_bandwidth_usage ---//
 
-model bwagreement_bucket (
+model bucket_bandwidth_usage (
 	key id
 
 	field id              blob
-	field serialnum       bwagreement.serialnum cascade
+	field serialnum       text  //-- can't "bwagreement.serialnum cascade" due to different lifecycles --//
 	field bucket_id       blob
 	field project_id      blob
 	field action          int64
@@ -406,11 +406,11 @@ model bwagreement_bucket (
 	field created_at      timestamp                     ( autoinsert )
 )
 
-create bwagreement_bucket ( )
-delete bwagreement_bucket ( where bwagreement_bucket.id = ? )
-delete bwagreement_bucket ( where bwagreement_bucket.bucket_id = ? )
+create bucket_bandwidth_usage ( )
+delete bucket_bandwidth_usage ( where bucket_bandwidth_usage.id = ? )
+delete bucket_bandwidth_usage ( where bucket_bandwidth_usage.bucket_id = ? )
 read all (
-	select bwagreement_bucket
-	where  bwagreement_bucket.bucket_id = ?
-	where  bwagreement_bucket.action = ?
+	select bucket_bandwidth_usage
+	where  bucket_bandwidth_usage.bucket_id = ?
+	where  bucket_bandwidth_usage.action = ?
 )
