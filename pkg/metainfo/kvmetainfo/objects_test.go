@@ -31,12 +31,12 @@ func TestCreateObject(t *testing.T) {
 		RepairShares:   35,
 		OptimalShares:  80,
 		TotalShares:    95,
-		ShareSize:      2 * memory.KB.Int32(),
+		ShareSize:      2 * memory.KiB.Int32(),
 	}
 
 	customES := storj.EncryptionScheme{
 		Cipher:    storj.Unencrypted,
-		BlockSize: 1 * memory.KB.Int32(),
+		BlockSize: 1 * memory.KiB.Int32(),
 	}
 
 	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
@@ -112,7 +112,7 @@ func TestGetObject(t *testing.T) {
 
 func TestGetObjectStream(t *testing.T) {
 	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
-		data := make([]byte, 32*memory.KB)
+		data := make([]byte, 32*memory.KiB)
 		_, err := rand.Read(data)
 		require.NoError(t, err)
 
@@ -137,7 +137,7 @@ func TestGetObjectStream(t *testing.T) {
 
 		assertStream(ctx, t, db, streams, bucket, "empty-file", 0, []byte{})
 		assertStream(ctx, t, db, streams, bucket, "small-file", 4, []byte("test"))
-		assertStream(ctx, t, db, streams, bucket, "large-file", 32*memory.KB.Int64(), data)
+		assertStream(ctx, t, db, streams, bucket, "large-file", 32*memory.KiB.Int64(), data)
 
 		/* TODO: Disable stopping due to flakiness.
 		// Stop randomly half of the storage nodes and remove them from satellite's overlay cache
@@ -148,7 +148,7 @@ func TestGetObjectStream(t *testing.T) {
 		}
 
 		// try downloading the large file again
-		assertStream(ctx, t, db, streams, bucket, "large-file", 32*memory.KB.Int64(), data)
+		assertStream(ctx, t, db, streams, bucket, "large-file", 32*memory.KiB.Int64(), data)
 		*/
 	})
 }
@@ -190,7 +190,7 @@ func assertStream(ctx context.Context, t *testing.T, db *kvmetainfo.DB, streams 
 
 	assert.EqualValues(t, 0, segments[0].Index)
 	assert.EqualValues(t, len(content), segments[0].Size)
-	if segments[0].Size > 4*memory.KB.Int64() {
+	if segments[0].Size > 4*memory.KiB.Int64() {
 		assertRemoteSegment(t, segments[0])
 	} else {
 		assertInlineSegment(t, segments[0], content)
