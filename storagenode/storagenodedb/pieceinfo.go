@@ -47,7 +47,7 @@ func (db *pieceinfo) Add(ctx context.Context, info *pieces.Info) error {
 }
 
 // Get gets piece information by satellite id and piece id.
-func (db *pieceinfo) Get(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID2) (*pieces.Info, error) {
+func (db *pieceinfo) Get(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (*pieces.Info, error) {
 	info := &pieces.Info{}
 	info.SatelliteID = satelliteID
 	info.PieceID = pieceID
@@ -83,7 +83,7 @@ func (db *pieceinfo) Get(ctx context.Context, satelliteID storj.NodeID, pieceID 
 }
 
 // Delete deletes piece information.
-func (db *pieceinfo) Delete(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID2) error {
+func (db *pieceinfo) Delete(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) error {
 	defer db.locked()()
 
 	_, err := db.db.Exec(`DELETE FROM pieceinfo WHERE satellite_id = ? AND piece_id = ?`, satelliteID, pieceID)

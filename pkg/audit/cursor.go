@@ -148,7 +148,7 @@ func (cursor *Cursor) createOrderLimits(ctx context.Context, pointer *pb.Pointer
 	}
 
 	auditorIdentity := cursor.identity.PeerIdentity()
-	rootPieceID := pointer.GetRemote().PieceId_2
+	rootPieceID := pointer.GetRemote().RootPieceId
 	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
 	expiration := pointer.ExpirationDate
 
@@ -178,7 +178,7 @@ func (cursor *Cursor) createOrderLimits(ctx context.Context, pointer *pb.Pointer
 	return limits, nil
 }
 
-func (cursor *Cursor) createOrderLimit(ctx context.Context, uplinkIdentity *identity.PeerIdentity, nodeID storj.NodeID, pieceID pb.PieceID, expiration *timestamp.Timestamp, limit int64, action pb.Action) (*pb.OrderLimit2, error) {
+func (cursor *Cursor) createOrderLimit(ctx context.Context, uplinkIdentity *identity.PeerIdentity, nodeID storj.NodeID, pieceID storj.PieceID, expiration *timestamp.Timestamp, limit int64, action pb.Action) (*pb.OrderLimit2, error) {
 	parameters := pointerdb.OrderLimitParameters{
 		UplinkIdentity:  uplinkIdentity,
 		StorageNodeID:   nodeID,

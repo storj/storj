@@ -212,7 +212,7 @@ func assertStream(ctx context.Context, t *testing.T, db *kvmetainfo.DB, streams 
 
 func assertInlineSegment(t *testing.T, segment storj.Segment, content []byte) {
 	assert.Equal(t, content, segment.Inline)
-	assert.Nil(t, segment.PieceID)
+	assert.True(t, segment.PieceID.IsZero())
 	assert.Equal(t, 0, len(segment.Pieces))
 }
 

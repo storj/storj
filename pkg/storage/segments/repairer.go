@@ -66,7 +66,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 	}
 
 	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
-	rootPieceID := pointer.GetRemote().PieceId_2
+	rootPieceID := pointer.GetRemote().RootPieceId
 	expiration := pointer.GetExpirationDate()
 
 	var excludeNodeIDs storj.NodeIDList
@@ -186,7 +186,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 	return repairer.pointerdb.Put(path, pointer)
 }
 
-func (repairer *Repairer) createOrderLimit(ctx context.Context, repairerIdentity *identity.PeerIdentity, nodeID storj.NodeID, pieceID pb.PieceID, expiration *timestamp.Timestamp, limit int64, action pb.Action) (*pb.OrderLimit2, error) {
+func (repairer *Repairer) createOrderLimit(ctx context.Context, repairerIdentity *identity.PeerIdentity, nodeID storj.NodeID, pieceID storj.PieceID, expiration *timestamp.Timestamp, limit int64, action pb.Action) (*pb.OrderLimit2, error) {
 	parameters := pointerdb.OrderLimitParameters{
 		UplinkIdentity:  repairerIdentity,
 		StorageNodeID:   nodeID,

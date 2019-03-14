@@ -308,7 +308,7 @@ func (endpoint *Endpoint) createOrderLimitsForSegment(ctx context.Context, point
 		return nil, err
 	}
 
-	rootPieceID := pointer.GetRemote().PieceId_2
+	rootPieceID := pointer.GetRemote().RootPieceId
 
 	redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
 	if err != nil {
@@ -344,7 +344,7 @@ func (endpoint *Endpoint) createOrderLimitsForSegment(ctx context.Context, point
 	return limits, nil
 }
 
-func (endpoint *Endpoint) createOrderLimit(ctx context.Context, uplinkIdentity *identity.PeerIdentity, nodeID storj.NodeID, pieceID pb.PieceID, expiration *timestamp.Timestamp, limit int64, action pb.Action) (*pb.OrderLimit2, error) {
+func (endpoint *Endpoint) createOrderLimit(ctx context.Context, uplinkIdentity *identity.PeerIdentity, nodeID storj.NodeID, pieceID storj.PieceID, expiration *timestamp.Timestamp, limit int64, action pb.Action) (*pb.OrderLimit2, error) {
 	parameters := pointerdb.OrderLimitParameters{
 		UplinkIdentity:  uplinkIdentity,
 		StorageNodeID:   nodeID,
@@ -482,7 +482,7 @@ func (endpoint *Endpoint) validateCommit(req *pb.SegmentCommitRequest) error {
 			if limit == nil {
 				return Error.New("invalid no order limit for piece")
 			}
-			derivedPieceID := remote.PieceId_2.Derive(piece.NodeId)
+			derivedPieceID := remote.RootPieceId.Derive(piece.NodeId)
 			if limit.PieceId.IsZero() || limit.PieceId != derivedPieceID {
 				return Error.New("invalid order limit piece id")
 			}

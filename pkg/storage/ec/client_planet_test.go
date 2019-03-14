@@ -147,12 +147,13 @@ func testDelete(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec
 	require.NoError(t, err)
 }
 
-func newAddressedOrderLimit(action pb.Action, satellite *satellite.Peer, uplink *testplanet.Uplink, storageNode *storagenode.Peer, pieceID storj.PieceID2) (*pb.AddressedOrderLimit, error) {
+func newAddressedOrderLimit(action pb.Action, satellite *satellite.Peer, uplink *testplanet.Uplink, storageNode *storagenode.Peer, pieceID storj.PieceID) (*pb.AddressedOrderLimit, error) {
 	// TODO refactor to avoid OrderLimit duplication
 	serialNumber, err := uuid.New()
 	if err != nil {
 		return nil, err
 	}
+
 	limit := &pb.OrderLimit2{
 		SerialNumber:    []byte(serialNumber.String()),
 		SatelliteId:     satellite.ID(),

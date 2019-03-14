@@ -3030,23 +3030,7 @@
               },
               {
                 "id": 2,
-                "name": "piece_id",
-                "type": "string"
-              },
-              {
-                "id": 3,
-                "name": "remote_pieces",
-                "type": "RemotePiece",
-                "is_repeated": true
-              },
-              {
-                "id": 4,
-                "name": "merkle_root",
-                "type": "bytes"
-              },
-              {
-                "id": 5,
-                "name": "piece_id_2",
+                "name": "root_piece_id",
                 "type": "bytes",
                 "options": [
                   {
@@ -3058,6 +3042,17 @@
                     "value": "false"
                   }
                 ]
+              },
+              {
+                "id": 3,
+                "name": "remote_pieces",
+                "type": "RemotePiece",
+                "is_repeated": true
+              },
+              {
+                "id": 4,
+                "name": "merkle_root",
+                "type": "bytes"
               }
             ]
           },

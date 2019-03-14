@@ -30,7 +30,7 @@ var Error = errs.Class("pieces error")
 type Info struct {
 	SatelliteID storj.NodeID
 
-	PieceID         storj.PieceID2
+	PieceID         storj.PieceID
 	PieceSize       int64
 	PieceExpiration time.Time
 
@@ -43,9 +43,9 @@ type DB interface {
 	// Add inserts Info to the database.
 	Add(context.Context, *Info) error
 	// Get returns Info about a piece.
-	Get(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID2) (*Info, error)
+	Get(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (*Info, error)
 	// Delete deletes Info about a piece.
-	Delete(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID2) error
+	Delete(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) error
 	// SpaceUsed calculates disk space used by all pieces
 	SpaceUsed(ctx context.Context) (int64, error)
 }
@@ -65,7 +65,7 @@ func NewStore(log *zap.Logger, blobs storage.Blobs) *Store {
 }
 
 // Writer returns a new piece writer.
-func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID2) (*Writer, error) {
+func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (*Writer, error) {
 	blob, err := store.blobs.Create(ctx, storage.BlobRef{
 		Namespace: satellite.Bytes(),
 		Key:       pieceID.Bytes(),
@@ -79,7 +79,7 @@ func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID 
 }
 
 // Reader returns a new piece reader.
-func (store *Store) Reader(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID2) (*Reader, error) {
+func (store *Store) Reader(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (*Reader, error) {
 	blob, err := store.blobs.Open(ctx, storage.BlobRef{
 		Namespace: satellite.Bytes(),
 		Key:       pieceID.Bytes(),
@@ -93,7 +93,7 @@ func (store *Store) Reader(ctx context.Context, satellite storj.NodeID, pieceID 
 }
 
 // Delete deletes the specified piece.
-func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID2) error {
+func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) error {
 	err := store.blobs.Delete(ctx, storage.BlobRef{
 		Namespace: satellite.Bytes(),
 		Key:       pieceID.Bytes(),

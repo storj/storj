@@ -67,7 +67,7 @@ func makePointer(path storj.Path) pb.PutRequest {
 					RepairThreshold:  2,
 					SuccessThreshold: 3,
 				},
-				PieceId:      "testId",
+				RootPieceId:  teststorj.PieceIDFromString("testId"),
 				RemotePieces: rps,
 			},
 			SegmentSize: int64(1),

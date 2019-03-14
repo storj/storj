@@ -224,7 +224,7 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 }
 
 // makeRemotePointer creates a pointer of type remote
-func makeRemotePointer(nodes []*pb.Node, hashes []*pb.PieceHash, rs eestream.RedundancyStrategy, pieceID storj.PieceID2, readerSize int64, exp *timestamp.Timestamp, metadata []byte) (pointer *pb.Pointer, err error) {
+func makeRemotePointer(nodes []*pb.Node, hashes []*pb.PieceHash, rs eestream.RedundancyStrategy, pieceID storj.PieceID, readerSize int64, exp *timestamp.Timestamp, metadata []byte) (pointer *pb.Pointer, err error) {
 	if len(nodes) != len(hashes) {
 		return nil, Error.New("unable to make pointer: size of nodes != size of hashes")
 	}
@@ -253,8 +253,7 @@ func makeRemotePointer(nodes []*pb.Node, hashes []*pb.PieceHash, rs eestream.Red
 				SuccessThreshold: int32(rs.OptimalThreshold()),
 				ErasureShareSize: int32(rs.ErasureShareSize()),
 			},
-			PieceId:      pieceID.String(),
-			PieceId_2:    pieceID,
+			RootPieceId:  pieceID,
 			RemotePieces: remotePieces,
 		},
 		SegmentSize:    readerSize,
