@@ -169,14 +169,15 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 
 	// Add the successfully uploaded pieces to the healthyPieces
 	for i, node := range successfulNodes {
-		if node == nil {
-			// copy the successfuNode info
-			healthyPieces = append(healthyPieces, &pb.RemotePiece{
-				PieceNum: int32(i),
-				NodeId:   node.Id,
-				Hash:     hashes[i],
-			})
+		if node != nil {
+			continue
 		}
+		// copy the successfuNode info
+		healthyPieces = append(healthyPieces, &pb.RemotePiece{
+			PieceNum: int32(i),
+			NodeId:   node.Id,
+			Hash:     hashes[i],
+		})
 	}
 
 	// Update the remote pieces in the pointer
