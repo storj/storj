@@ -91,7 +91,6 @@ type Peer struct {
 		Endpoint  *psserver.Server // TODO: separate into endpoint and service
 		Monitor   *psserver.Monitor
 		Collector *psserver.Collector
-		Inspector *psserver.Inspector
 	}
 
 	Agreements struct {
@@ -99,9 +98,10 @@ type Peer struct {
 	}
 
 	Storage2 struct {
-		Trust    *trust.Pool
-		Store    *pieces.Store
-		Endpoint *piecestore.Endpoint
+		Trust     *trust.Pool
+		Store     *pieces.Store
+		Endpoint  *piecestore.Endpoint
+		Inspector *piecestore.Inspector
 	}
 }
 
@@ -181,9 +181,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 		}
 		pb.RegisterPieceStoreRoutesServer(peer.Server.GRPC(), peer.Storage.Endpoint)
 
-		peer.Storage.Inspector = psserver.NewInspector(peer.Storage.Endpoint)
-		pb.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage.Inspector)
-
 		// TODO: organize better
 		peer.Storage.Monitor = psserver.NewMonitor(peer.Log.Named("piecestore:monitor"), config.KBucketRefreshInterval, peer.Kademlia.RoutingTable, peer.Storage.Endpoint)
 		peer.Storage.Collector = psserver.NewCollector(peer.Log.Named("piecestore:collector"), peer.DB.PSDB(), peer.DB.Storage(), config.CollectorInterval)
@@ -214,6 +211,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 			peer.Storage2.Store,
 			peer.DB.PieceInfo(),
 			peer.DB.Orders(),
+			peer.DB.Bandwidth(),
 			peer.DB.UsedSerials(),
 			config.Storage2,
 		)
@@ -221,6 +219,16 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 			return nil, errs.Combine(err, peer.Close())
 		}
 		pb.RegisterPiecestoreServer(peer.Server.GRPC(), peer.Storage2.Endpoint)
+
+		peer.Storage2.Inspector = piecestore.NewInspector(
+			peer.Log.Named("pieces"),
+			peer.DB.PieceInfo(),
+			peer.Kademlia.Service,
+			peer.DB.Bandwidth(),
+			peer.DB.PSDB(),
+			config.Storage,
+		)
+		pb.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage2.Inspector)
 	}
 
 	return peer, nil
