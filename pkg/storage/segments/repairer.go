@@ -71,11 +71,12 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 
 	var excludeNodeIDs storj.NodeIDList
 	var healthyPieces []*pb.RemotePiece
+	lostPiecesSet := sliceToSet(lostPieces)
 
 	// Populate healthyPieces with all pieces from the pointer except those correlating to indices in lostPieces
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
 		excludeNodeIDs = append(excludeNodeIDs, piece.NodeId)
-		if !contains(lostPieces, piece.GetPieceNum()) {
+		if _, ok := lostPiecesSet[piece.GetPieceNum()]; !ok {
 			healthyPieces = append(healthyPieces, piece)
 		}
 	}
@@ -204,12 +205,11 @@ func (repairer *Repairer) createOrderLimit(ctx context.Context, repairerIdentity
 	return orderLimit, Error.Wrap(err)
 }
 
-// contains checks if n exists in list
-func contains(list []int32, n int32) bool {
-	for i := range list {
-		if n == list[i] {
-			return true
-		}
+// sliceToSet converts the given slice to a set
+func sliceToSet(slice []int32) map[int32]struct{} {
+	set := make(map[int32]struct{}, len(slice))
+	for _, value := range slice {
+		set[value] = struct{}{}
 	}
-	return false
+	return set
 }
