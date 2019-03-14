@@ -28,9 +28,13 @@ func (upload *BufferedUpload) Write(data []byte) (int, error) {
 	return upload.buffer.Write(data)
 }
 
-func (upload *BufferedUpload) Close() (*pb.PieceHash, error) {
+func (upload *BufferedUpload) Cancel() error {
+	return upload.upload.Cancel()
+}
+
+func (upload *BufferedUpload) Commit() (*pb.PieceHash, error) {
 	flushErr := upload.buffer.Flush()
-	piece, closeErr := upload.upload.Close()
+	piece, closeErr := upload.upload.Commit()
 	return piece, errs.Combine(flushErr, closeErr)
 }
 
@@ -65,10 +69,16 @@ func (upload *LockingUpload) Write(p []byte) (int, error) {
 	return upload.upload.Write(p)
 }
 
-func (upload *LockingUpload) Close() (*pb.PieceHash, error) {
+func (upload *LockingUpload) Cancel() error {
 	upload.mu.Lock()
 	defer upload.mu.Unlock()
-	return upload.upload.Close()
+	return upload.upload.Cancel()
+}
+
+func (upload *LockingUpload) Commit() (*pb.PieceHash, error) {
+	upload.mu.Lock()
+	defer upload.mu.Unlock()
+	return upload.upload.Commit()
 }
 
 type LockingDownload struct {
