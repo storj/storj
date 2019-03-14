@@ -101,6 +101,7 @@ func TestInspectorDashboard(t *testing.T) {
 		assert.True(t, response.Uptime.Nanos > 0)
 		assert.Equal(t, storageNode.ID(), response.NodeId)
 		assert.Equal(t, storageNode.Addr(), response.ExternalAddress)
+		assert.Equal(t, int64(len(planet.StorageNodes)+len(planet.Satellites)), response.NodeConnections)
 		assert.NotNil(t, response.Stats)
 	}
 }
