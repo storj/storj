@@ -13,8 +13,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"storj.io/storj/pkg/auth/signing"
-
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -27,6 +25,7 @@ import (
 	"storj.io/storj/pkg/accounting/tally"
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/auth/grpcauth"
+	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/datarepair/checker"
@@ -327,14 +326,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			NewNodePercentage:     overlayConfig.Node.NewNodePercentage,
 		}
 
-		signer := signing.SignerFromFullIdentity(peer.Identity)
-		peer.Metainfo.Endpoint2 = metainfo.NewEndpoint(peer.Log.Named("metainfo:endpoint"),
+		peer.Metainfo.Endpoint2 = metainfo.NewEndpoint(
+			peer.Log.Named("metainfo:endpoint"),
 			peer.Metainfo.Service,
 			peer.Metainfo.Allocation,
 			peer.Overlay.Service,
 			peer.DB.Console().APIKeys(),
-			signer,
-			config.PointerDB, nodeSelectionConfig)
+			signing.SignerFromFullIdentity(peer.Identity),
+			nodeSelectionConfig)
 
 		pb.RegisterPointerDBServer(peer.Server.GRPC(), peer.Metainfo.Endpoint)
 
@@ -358,13 +357,29 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			0, peer.Log.Named("checker"),
 			config.Checker.Interval)
 
-		if config.Repairer.OverlayAddr == "" {
-			config.Repairer.OverlayAddr = peer.Addr()
+		// TODO remove duplicated code
+		overlayConfig := config.Overlay
+		nodeSelectionConfig := &overlay.NodeSelectionConfig{
+			UptimeCount:           overlayConfig.Node.UptimeCount,
+			UptimeRatio:           overlayConfig.Node.UptimeRatio,
+			AuditSuccessRatio:     overlayConfig.Node.AuditSuccessRatio,
+			AuditCount:            overlayConfig.Node.AuditCount,
+			NewNodeAuditThreshold: overlayConfig.Node.NewNodeAuditThreshold,
+			NewNodePercentage:     overlayConfig.Node.NewNodePercentage,
 		}
-		if config.Repairer.PointerDBAddr == "" {
-			config.Repairer.PointerDBAddr = peer.Addr()
-		}
-		peer.Repair.Repairer = repairer.NewService(peer.DB.RepairQueue(), &config.Repairer, peer.Transport, config.Repairer.Interval, config.Repairer.MaxRepair)
+
+		peer.Repair.Repairer = repairer.NewService(
+			peer.DB.RepairQueue(),
+			&config.Repairer,
+			config.Repairer.Interval,
+			config.Repairer.MaxRepair,
+			peer.Transport,
+			peer.Metainfo.Service,
+			peer.Metainfo.Allocation,
+			peer.Overlay.Service,
+			signing.SignerFromFullIdentity(peer.Identity),
+			nodeSelectionConfig,
+		)
 	}
 
 	{ // setup audit

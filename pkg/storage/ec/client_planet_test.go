@@ -127,7 +127,7 @@ func testGet(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ec
 	readData, err := ioutil.ReadAll(r)
 	require.NoError(t, err)
 	assert.Equal(t, data, readData)
-	r.Close()
+	assert.NoError(t, r.Close())
 	require.NoError(t, err)
 }
 

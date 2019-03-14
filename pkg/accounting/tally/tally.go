@@ -50,10 +50,9 @@ func New(logger *zap.Logger, accountingDB accounting.DB, bwAgreementDB bwagreeme
 
 // Run the Tally loop
 func (t *Tally) Run(ctx context.Context) (err error) {
-	return nil
-
 	t.logger.Info("Tally service starting up")
 	defer mon.Task()(&ctx)(&err)
+
 	for {
 		if err = t.Tally(ctx); err != nil {
 			t.logger.Error("Tally failed", zap.Error(err))

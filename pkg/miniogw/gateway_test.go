@@ -702,7 +702,7 @@ func initEnv(planet *testplanet.Planet) (minio.ObjectLayer, storj.Metainfo, stre
 		return nil, nil, nil, err
 	}
 
-	rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, 1*memory.KB.Int()), 3, 4)
+	rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, 1*memory.KiB.Int()), 3, 4)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -712,7 +712,7 @@ func initEnv(planet *testplanet.Planet) (minio.ObjectLayer, storj.Metainfo, stre
 	key := new(storj.Key)
 	copy(key[:], TestEncKey)
 
-	streams, err := streams.NewStreamStore(segments, 64*memory.MB.Int64(), key, 1*memory.KB.Int(), storj.AESGCM)
+	streams, err := streams.NewStreamStore(segments, 64*memory.MiB.Int64(), key, 1*memory.KiB.Int(), storj.AESGCM)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -727,7 +727,7 @@ func initEnv(planet *testplanet.Planet) (minio.ObjectLayer, storj.Metainfo, stre
 		storj.AESGCM,
 		storj.EncryptionScheme{
 			Cipher:    storj.AESGCM,
-			BlockSize: 1 * memory.KB.Int32(),
+			BlockSize: 1 * memory.KiB.Int32(),
 		},
 		storj.RedundancyScheme{
 			Algorithm:      storj.ReedSolomon,

@@ -5,10 +5,10 @@ package storagenodedb
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/gogo/protobuf/proto"
 
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/pieces"
@@ -74,7 +74,7 @@ func (db *pieceinfo) Get(ctx context.Context, satelliteID storj.NodeID, pieceID 
 		return nil, ErrInfo.Wrap(err)
 	}
 
-	info.Uplink, err = identity.PeerIdentityFromPEM(uplinkIdentity)
+	info.Uplink, err = decodePeerIdentity(uplinkIdentity)
 	if err != nil {
 		return nil, ErrInfo.Wrap(err)
 	}
@@ -89,4 +89,16 @@ func (db *pieceinfo) Delete(ctx context.Context, satelliteID storj.NodeID, piece
 	_, err := db.db.Exec(`DELETE FROM pieceinfo WHERE satellite_id = ? AND piece_id = ?`, satelliteID, pieceID)
 
 	return ErrInfo.Wrap(err)
+}
+
+// SpaceUsed calculates disk space used by all pieces
+func (db *pieceinfo) SpaceUsed(ctx context.Context) (int64, error) {
+	defer db.locked()()
+
+	var sum *int64
+	err := db.db.QueryRow(`SELECT SUM(piece_size) FROM pieceinfo;`).Scan(&sum)
+	if err == sql.ErrNoRows || sum == nil {
+		return 0, nil
+	}
+	return *sum, err
 }

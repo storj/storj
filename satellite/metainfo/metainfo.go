@@ -46,15 +46,12 @@ type Endpoint struct {
 	allocation           *pointerdb.AllocationSigner
 	cache                *overlay.Cache
 	apiKeys              APIKeys
-	pointerDBConfig      pointerdb.Config
 	selectionPreferences *overlay.NodeSelectionConfig
 	signer               signing.Signer
 }
 
 // NewEndpoint creates new metainfo endpoint instance
-func NewEndpoint(log *zap.Logger, pointerdb *pointerdb.Service, allocation *pointerdb.AllocationSigner,
-	cache *overlay.Cache, apiKeys APIKeys, signer signing.Signer, pointerDBConfig pointerdb.Config,
-	selectionPreferences *overlay.NodeSelectionConfig) *Endpoint {
+func NewEndpoint(log *zap.Logger, pointerdb *pointerdb.Service, allocation *pointerdb.AllocationSigner, cache *overlay.Cache, apiKeys APIKeys, signer signing.Signer, selectionPreferences *overlay.NodeSelectionConfig) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
 		log:                  log,
@@ -62,7 +59,6 @@ func NewEndpoint(log *zap.Logger, pointerdb *pointerdb.Service, allocation *poin
 		allocation:           allocation,
 		cache:                cache,
 		apiKeys:              apiKeys,
-		pointerDBConfig:      pointerDBConfig,
 		selectionPreferences: selectionPreferences,
 		signer:               signer,
 	}

@@ -6,6 +6,7 @@ package piecestore
 import (
 	"context"
 	"hash"
+	"io"
 
 	"github.com/zeebo/errs"
 
@@ -15,11 +16,17 @@ import (
 	"storj.io/storj/pkg/pkcrypto"
 )
 
+// Uploader defines the interface for uploading a piece.
 type Uploader interface {
+	// Write uploads data to the storage node.
 	Write([]byte) (int, error)
-	Close() (*pb.PieceHash, error)
+	// Cancel cancels the upload.
+	Cancel() error
+	// Commit finalizes the upload.
+	Commit() (*pb.PieceHash, error)
 }
 
+// Upload implements uploading to the storage node.
 type Upload struct {
 	client *Client
 	limit  *pb.OrderLimit2
@@ -31,9 +38,11 @@ type Upload struct {
 	allocationStep int64
 
 	// when there's a send error then it will automatically close
+	finished  bool
 	sendError error
 }
 
+// Upload initiates an upload to the storage node.
 func (client *Client) Upload(ctx context.Context, limit *pb.OrderLimit2) (Uploader, error) {
 	stream, err := client.client.Upload(ctx)
 	if err != nil {
@@ -72,7 +81,11 @@ func (client *Client) Upload(ctx context.Context, limit *pb.OrderLimit2) (Upload
 	}, nil
 }
 
+// Write sends data to the storagenode allocating as necessary.
 func (client *Upload) Write(data []byte) (written int, _ error) {
+	if client.finished {
+		return 0, io.EOF
+	}
 	// if we already encountered an error, keep returning it
 	if client.sendError != nil {
 		return 0, ErrProtocol.Wrap(client.sendError)
@@ -135,7 +148,22 @@ func (client *Upload) Write(data []byte) (written int, _ error) {
 	return written, nil
 }
 
-func (client *Upload) Close() (*pb.PieceHash, error) {
+// Cancel cancels the uploading.
+func (client *Upload) Cancel() error {
+	if client.finished {
+		return io.EOF
+	}
+	client.finished = true
+	return Error.Wrap(client.stream.CloseSend())
+}
+
+// Commit finishes uploading by sending the piece-hash and retrieving the piece-hash.
+func (client *Upload) Commit() (*pb.PieceHash, error) {
+	if client.finished {
+		return nil, io.EOF
+	}
+	client.finished = true
+
 	if client.sendError != nil {
 		// something happened during sending, try to figure out what exactly
 		// since sendError was already reported, we don't need to rehandle it.

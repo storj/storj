@@ -342,49 +342,6 @@ func CalcNeededNodes(rs *pb.RedundancyScheme) int32 {
 	return needed
 }
 
-// lookupNodes, if necessary, calls Lookup to get node addresses from the overlay.
-// It also realigns the nodes to an indexed list of nodes based on the piece number.
-// Missing pieces are represented by a nil node.
-func lookupAndAlignNodes(ctx context.Context, oc overlay.Client, nodes []*pb.Node, seg *pb.RemoteSegment) (result []*pb.Node, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if nodes == nil {
-		// Get list of all nodes IDs storing a piece from the segment
-		var nodeIds storj.NodeIDList
-		for _, p := range seg.RemotePieces {
-			nodeIds = append(nodeIds, p.NodeId)
-		}
-		// Lookup the node info from node IDs
-		nodes, err = oc.BulkLookup(ctx, nodeIds)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-	}
-	for _, v := range nodes {
-		if v != nil {
-			v.Type.DPanicOnInvalid("lookup and align nodes")
-		}
-	}
-
-	// Realign the nodes
-	result = make([]*pb.Node, seg.GetRedundancy().GetTotal())
-	for i, p := range seg.GetRemotePieces() {
-		result[p.PieceNum] = nodes[i]
-	}
-
-	return result, nil
-}
-
-// contains checks if n exists in list
-func contains(list []int32, n int) bool {
-	for i := range list {
-		if n == int(list[i]) {
-			return true
-		}
-	}
-	return false
-}
-
 // convertMeta converts pointer to segment metadata
 func convertMeta(pr *pb.Pointer) Meta {
 	return Meta{

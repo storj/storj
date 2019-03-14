@@ -7,17 +7,14 @@ import (
 	"context"
 	"time"
 
-	"storj.io/storj/internal/memory"
-
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
-
-	_ "storj.io/storj/storage/filestore"
 )
 
 const (
@@ -49,6 +46,8 @@ type DB interface {
 	Get(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID2) (*Info, error)
 	// Delete deletes Info about a piece.
 	Delete(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID2) error
+	// SpaceUsed calculates disk space used by all pieces
+	SpaceUsed(ctx context.Context) (int64, error)
 }
 
 // Store implements storing pieces onto a blob storage implementation.
@@ -102,11 +101,13 @@ func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID 
 	return Error.Wrap(err)
 }
 
+// StorageStatus contains information about the disk store is using.
 type StorageStatus struct {
 	DiskUsed int64
 	DiskFree int64
 }
 
+// StorageStatus returns information abpout the disk.
 func (store *Store) StorageStatus() StorageStatus {
 	panic("TODO")
 }

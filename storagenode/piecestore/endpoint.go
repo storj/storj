@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/trust"
@@ -27,16 +28,21 @@ import (
 var (
 	mon = monkit.Package()
 
-	Error       = errs.Class("piecestore error")
-	ErrProtocol = errs.Class("piecestore protocol error")
-	ErrInternal = errs.Class("piecestore internal error")
+	// Error is the default error class for piecestore errors
+	Error = errs.Class("piecestore")
+	// ErrProtocol is the default error class for protocol errors.
+	ErrProtocol = errs.Class("piecestore protocol")
+	// ErrInternal is the default error class for internal piecestore errors.
+	ErrInternal = errs.Class("piecestore internal")
 )
 var _ pb.PiecestoreServer = (*Endpoint)(nil)
 
+// Config defines parameters for piecestore endpoint.
 type Config struct {
 	ExpirationGracePeriod time.Duration `help:"how soon before expiration date should things be considered expired" default:"48h0m0s"`
 }
 
+// Endpoint implements uploading, downloading and deleting for a storage node.
 type Endpoint struct {
 	log    *zap.Logger
 	config Config
@@ -47,10 +53,12 @@ type Endpoint struct {
 	store       *pieces.Store
 	pieceinfo   pieces.DB
 	orders      orders.DB
+	usage       bandwidth.DB
 	usedSerials UsedSerials
 }
 
-func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, store *pieces.Store, pieceinfo pieces.DB, orders orders.DB, usedSerials UsedSerials, config Config) (*Endpoint, error) {
+// NewEndpoint creates a new piecestore endpoint.
+func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, store *pieces.Store, pieceinfo pieces.DB, orders orders.DB, usage bandwidth.DB, usedSerials UsedSerials, config Config) (*Endpoint, error) {
 	return &Endpoint{
 		log:    log,
 		config: config,
@@ -61,10 +69,12 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, stor
 		store:       store,
 		pieceinfo:   pieceinfo,
 		orders:      orders,
+		usage:       usage,
 		usedSerials: usedSerials,
 	}, nil
 }
 
+// Delete handles deleting a piece on piece store.
 func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequest) (_ *pb.PieceDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -84,14 +94,17 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 	if err := errs.Combine(pieceInfoErr, pieceErr); err != nil {
 		// explicitly ignoring error because the errors
 		// TODO: add more debug info
-		endpoint.log.Error("unable to delete", zap.Error(err))
+		endpoint.log.Error("delete failed", zap.Stringer("Piece ID", delete.Limit.PieceId), zap.Error(err))
 		// TODO: report internal server internal or missing error using grpc status,
 		// e.g. missing might happen when we get a deletion request after garbage collection has deleted it
+	} else {
+		endpoint.log.Debug("deleted", zap.Stringer("Piece ID", delete.Limit.PieceId))
 	}
 
 	return &pb.PieceDeleteResponse{}, nil
 }
 
+// Upload handles uploading a piece on piece store.
 func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
@@ -122,6 +135,14 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 		return err // TODO: report grpc status unauthorized or bad request
 	}
 
+	defer func() {
+		if err != nil {
+			endpoint.log.Debug("upload failed", zap.Stringer("Piece ID", limit.PieceId), zap.Error(err))
+		} else {
+			endpoint.log.Debug("uploaded", zap.Stringer("Piece ID", limit.PieceId))
+		}
+	}()
+
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
 		return Error.Wrap(err)
@@ -131,10 +152,15 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 	if err != nil {
 		return ErrInternal.Wrap(err) // TODO: report grpc status internal server error
 	}
-	defer pieceWriter.Cancel() // similarly how transcation Rollback works
+	defer func() {
+		// cancel error if it hasn't been committed
+		if cancelErr := pieceWriter.Cancel(); cancelErr != nil {
+			endpoint.log.Error("error during cancelling a piece write", zap.Error(cancelErr))
+		}
+	}()
 
-	largestOrder := &pb.Order2{}
-	defer endpoint.SaveOrder(ctx, limit, largestOrder, peer)
+	largestOrder := pb.Order2{}
+	defer endpoint.SaveOrder(ctx, limit, &largestOrder, peer)
 
 	for {
 		message, err = stream.Recv() // TODO: reuse messages to avoid allocations
@@ -155,7 +181,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 			if err := endpoint.VerifyOrder(ctx, peer, limit, message.Order, largestOrder.Amount); err != nil {
 				return err
 			}
-			largestOrder = message.Order
+			largestOrder = *message.Order
 
 		case message.Chunk != nil:
 			if message.Chunk.Offset != pieceWriter.Size() {
@@ -221,6 +247,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 	}
 }
 
+// Download implements downloading a piece from piece store.
 func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
@@ -251,6 +278,14 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 	if err := endpoint.VerifyOrderLimit(ctx, limit); err != nil {
 		return Error.Wrap(err) // TODO: report grpc status unauthorized or bad request
 	}
+
+	defer func() {
+		if err != nil {
+			endpoint.log.Debug("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Error(err))
+		} else {
+			endpoint.log.Debug("downloaded", zap.Stringer("Piece ID", limit.PieceId))
+		}
+	}()
 
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
@@ -324,8 +359,8 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 	})
 
 	recvErr := func() (err error) {
-		largestOrder := &pb.Order2{}
-		defer endpoint.SaveOrder(ctx, limit, largestOrder, peer)
+		largestOrder := pb.Order2{}
+		defer endpoint.SaveOrder(ctx, limit, &largestOrder, peer)
 
 		// ensure that we always terminate sending goroutine
 		defer throttle.Fail(io.EOF)
@@ -350,7 +385,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 				// shouldn't happen since only receiving side is calling Fail
 				return ErrInternal.Wrap(err)
 			}
-			largestOrder = message.Order
+			largestOrder = *message.Order
 		}
 	}()
 
@@ -359,6 +394,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 	return Error.Wrap(errs.Combine(sendErr, recvErr))
 }
 
+// SaveOrder saves the order with all necessary information. It assumes it has been already verified.
 func (endpoint *Endpoint) SaveOrder(ctx context.Context, limit *pb.OrderLimit2, order *pb.Order2, uplink *identity.PeerIdentity) {
 	// TODO: do this in a goroutine
 	if order == nil || order.Amount <= 0 {
@@ -371,9 +407,15 @@ func (endpoint *Endpoint) SaveOrder(ctx context.Context, limit *pb.OrderLimit2, 
 	})
 	if err != nil {
 		endpoint.log.Error("failed to add order", zap.Error(err))
+	} else {
+		err := endpoint.usage.Add(ctx, limit.SatelliteId, limit.Action, order.Amount, time.Now())
+		if err != nil {
+			endpoint.log.Error("failed to add bandwidth usage", zap.Error(err))
+		}
 	}
 }
 
+// min finds the min of two values
 func min(a, b int64) int64 {
 	if a < b {
 		return a
@@ -381,6 +423,7 @@ func min(a, b int64) int64 {
 	return b
 }
 
+// ignoreEOF ignores io.EOF error.
 func ignoreEOF(err error) error {
 	if err == io.EOF {
 		return nil

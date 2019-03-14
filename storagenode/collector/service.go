@@ -11,15 +11,23 @@ import (
 	"storj.io/storj/storagenode/pieces"
 )
 
+// Config defines parameters for storage node Collector.
 type Config struct {
 	Interval time.Duration
 }
 
-// Service which looks through piecestore.PieceInfos and deletes them from piecestore.Pieces
-// should roughly correspond to pkg/piecestore/psserver.Collector from previous.
+// Service implements collecting expired pieces on the storage node.
 type Service struct {
-	log *zap.Logger
-
+	log        *zap.Logger
 	pieces     *pieces.Store
 	pieceinfos pieces.DB
+}
+
+// NewService creates a new collector service.
+func NewService(log *zap.Logger, pieces *pieces.Store, pieceinfos pieces.DB) *Service {
+	return &Service{
+		log:        log,
+		pieces:     pieces,
+		pieceinfos: pieceinfos,
+	}
 }
