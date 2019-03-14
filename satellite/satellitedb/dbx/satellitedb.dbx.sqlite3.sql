@@ -111,6 +111,14 @@ CREATE TABLE projects (
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE satellite_reg_tokens (
+	secret BLOB NOT NULL,
+	owner_id BLOB,
+	proj_limit INTEGER NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( secret ),
+	UNIQUE ( owner_id )
+);
 CREATE TABLE users (
 	id BLOB NOT NULL,
 	first_name TEXT NOT NULL,

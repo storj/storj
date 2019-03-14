@@ -14,6 +14,13 @@ model bwagreement (
 	field expires_at      timestamp
 )
 
+create bwagreement ( )
+read limitoffset ( select bwagreement)
+read all ( select bwagreement)
+read all (
+	select bwagreement
+	where  bwagreement.created_at > ?
+)
 
 //--- irreparableDB ---//
 
@@ -395,3 +402,28 @@ read one (
 	select certRecord
 	where  certRecord.id = ?
 )
+
+//--- satellite registration token for Vanguard release (temporary table) ---//
+
+model satellite_reg_token (
+    key secret
+    unique owner_id
+
+    field secret     blob
+    field owner_id   blob       ( updatable, nullable )
+
+    field proj_limit int
+
+    field created_at timestamp  ( autoinsert )
+)
+
+create satellite_reg_token ( )
+read one (
+    select satellite_reg_token
+    where  satellite_reg_token.secret = ?
+)
+read one (
+    select satellite_reg_token
+    where  satellite_reg_token.owner_id = ?
+)
+update satellite_reg_token ( where satellite_reg_token.secret = ? )

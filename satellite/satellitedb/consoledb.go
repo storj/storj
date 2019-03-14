@@ -46,6 +46,11 @@ func (db *ConsoleDB) BucketUsage() accounting.BucketUsage {
 	return &bucketusage{db.methods}
 }
 
+// RegTokens is a getter for RegTokens repository
+func (db *ConsoleDB) RegTokens() console.RegTokens {
+	return &regTokens{db.methods}
+}
+
 // BeginTx is a method for opening transaction
 func (db *ConsoleDB) BeginTx(ctx context.Context) (console.DBTx, error) {
 	if db.db == nil {

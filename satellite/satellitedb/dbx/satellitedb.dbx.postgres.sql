@@ -111,6 +111,14 @@ CREATE TABLE projects (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE satellite_reg_tokens (
+	secret bytea NOT NULL,
+	owner_id bytea,
+	proj_limit integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( secret ),
+	UNIQUE ( owner_id )
+);
 CREATE TABLE users (
 	id bytea NOT NULL,
 	first_name text NOT NULL,

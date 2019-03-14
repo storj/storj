@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -383,6 +384,14 @@ CREATE TABLE projects (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE satellite_reg_tokens (
+	secret bytea NOT NULL,
+	owner_id bytea,
+	proj_limit integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( secret ),
+	UNIQUE ( owner_id )
+);
 CREATE TABLE users (
 	id bytea NOT NULL,
 	first_name text NOT NULL,
@@ -582,6 +591,14 @@ CREATE TABLE projects (
 	description TEXT NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
+);
+CREATE TABLE satellite_reg_tokens (
+	secret BLOB NOT NULL,
+	owner_id BLOB,
+	proj_limit INTEGER NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( secret ),
+	UNIQUE ( owner_id )
 );
 CREATE TABLE users (
 	id BLOB NOT NULL,
@@ -2306,6 +2323,112 @@ func (f Project_CreatedAt_Field) value() interface{} {
 
 func (Project_CreatedAt_Field) _Column() string { return "created_at" }
 
+type SatelliteRegToken struct {
+	Secret    []byte
+	OwnerId   []byte
+	ProjLimit int
+	CreatedAt time.Time
+}
+
+func (SatelliteRegToken) _Table() string { return "satellite_reg_tokens" }
+
+type SatelliteRegToken_Create_Fields struct {
+	OwnerId SatelliteRegToken_OwnerId_Field
+}
+
+type SatelliteRegToken_Update_Fields struct {
+	OwnerId SatelliteRegToken_OwnerId_Field
+}
+
+type SatelliteRegToken_Secret_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func SatelliteRegToken_Secret(v []byte) SatelliteRegToken_Secret_Field {
+	return SatelliteRegToken_Secret_Field{_set: true, _value: v}
+}
+
+func (f SatelliteRegToken_Secret_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (SatelliteRegToken_Secret_Field) _Column() string { return "secret" }
+
+type SatelliteRegToken_OwnerId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func SatelliteRegToken_OwnerId(v []byte) SatelliteRegToken_OwnerId_Field {
+	return SatelliteRegToken_OwnerId_Field{_set: true, _value: v}
+}
+
+func SatelliteRegToken_OwnerId_Raw(v []byte) SatelliteRegToken_OwnerId_Field {
+	if v == nil {
+		return SatelliteRegToken_OwnerId_Null()
+	}
+	return SatelliteRegToken_OwnerId(v)
+}
+
+func SatelliteRegToken_OwnerId_Null() SatelliteRegToken_OwnerId_Field {
+	return SatelliteRegToken_OwnerId_Field{_set: true, _null: true}
+}
+
+func (f SatelliteRegToken_OwnerId_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f SatelliteRegToken_OwnerId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (SatelliteRegToken_OwnerId_Field) _Column() string { return "owner_id" }
+
+type SatelliteRegToken_ProjLimit_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func SatelliteRegToken_ProjLimit(v int) SatelliteRegToken_ProjLimit_Field {
+	return SatelliteRegToken_ProjLimit_Field{_set: true, _value: v}
+}
+
+func (f SatelliteRegToken_ProjLimit_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (SatelliteRegToken_ProjLimit_Field) _Column() string { return "proj_limit" }
+
+type SatelliteRegToken_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func SatelliteRegToken_CreatedAt(v time.Time) SatelliteRegToken_CreatedAt_Field {
+	return SatelliteRegToken_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f SatelliteRegToken_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (SatelliteRegToken_CreatedAt_Field) _Column() string { return "created_at" }
+
 type User struct {
 	Id           []byte
 	FirstName    string
@@ -2691,54 +2814,10 @@ func __sqlbundle_Render(dialect __sqlbundle_Dialect, sql __sqlbundle_SQL, ops ..
 	return dialect.Rebind(out)
 }
 
-func __sqlbundle_flattenSQL(x string) string {
-	// trim whitespace from beginning and end
-	s, e := 0, len(x)-1
-	for s < len(x) && (x[s] == ' ' || x[s] == '\t' || x[s] == '\n') {
-		s++
-	}
-	for s <= e && (x[e] == ' ' || x[e] == '\t' || x[e] == '\n') {
-		e--
-	}
-	if s > e {
-		return ""
-	}
-	x = x[s : e+1]
+var __sqlbundle_reSpace = regexp.MustCompile(`\s+`)
 
-	// check for whitespace that needs fixing
-	wasSpace := false
-	for i := 0; i < len(x); i++ {
-		r := x[i]
-		justSpace := r == ' '
-		if (wasSpace && justSpace) || r == '\t' || r == '\n' {
-			// whitespace detected, start writing a new string
-			var result strings.Builder
-			result.Grow(len(x))
-			if wasSpace {
-				result.WriteString(x[:i-1])
-			} else {
-				result.WriteString(x[:i])
-			}
-			for p := i; p < len(x); p++ {
-				for p < len(x) && (x[p] == ' ' || x[p] == '\t' || x[p] == '\n') {
-					p++
-				}
-				result.WriteByte(' ')
-
-				start := p
-				for p < len(x) && !(x[p] == ' ' || x[p] == '\t' || x[p] == '\n') {
-					p++
-				}
-				result.WriteString(x[start:p])
-			}
-
-			return result.String()
-		}
-		wasSpace = justSpace
-	}
-
-	// no problematic whitespace found
-	return x
+func __sqlbundle_flattenSQL(s string) string {
+	return strings.TrimSpace(__sqlbundle_reSpace.ReplaceAllString(s, " "))
 }
 
 // this type is specially named to match up with the name returned by the
@@ -2817,8 +2896,6 @@ type __sqlbundle_Condition struct {
 func (*__sqlbundle_Condition) private() {}
 
 func (c *__sqlbundle_Condition) Render() string {
-	// TODO(jeff): maybe check if we can use placeholders instead of the
-	// literal null: this would make the templates easier.
 
 	switch {
 	case c.Equal && c.Null:
@@ -2856,6 +2933,38 @@ type Id_Row struct {
 
 type Value_Row struct {
 	Value time.Time
+}
+
+func (obj *postgresImpl) Create_Bwagreement(ctx context.Context,
+	bwagreement_serialnum Bwagreement_Serialnum_Field,
+	bwagreement_storage_node_id Bwagreement_StorageNodeId_Field,
+	bwagreement_uplink_id Bwagreement_UplinkId_Field,
+	bwagreement_action Bwagreement_Action_Field,
+	bwagreement_total Bwagreement_Total_Field,
+	bwagreement_expires_at Bwagreement_ExpiresAt_Field) (
+	bwagreement *Bwagreement, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__serialnum_val := bwagreement_serialnum.value()
+	__storage_node_id_val := bwagreement_storage_node_id.value()
+	__uplink_id_val := bwagreement_uplink_id.value()
+	__action_val := bwagreement_action.value()
+	__total_val := bwagreement_total.value()
+	__created_at_val := __now
+	__expires_at_val := bwagreement_expires_at.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bwagreements ( serialnum, storage_node_id, uplink_id, action, total, created_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) RETURNING bwagreements.serialnum, bwagreements.storage_node_id, bwagreements.uplink_id, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __serialnum_val, __storage_node_id_val, __uplink_id_val, __action_val, __total_val, __created_at_val, __expires_at_val)
+
+	bwagreement = &Bwagreement{}
+	err = obj.driver.QueryRow(__stmt, __serialnum_val, __storage_node_id_val, __uplink_id_val, __action_val, __total_val, __created_at_val, __expires_at_val).Scan(&bwagreement.Serialnum, &bwagreement.StorageNodeId, &bwagreement.UplinkId, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bwagreement, nil
+
 }
 
 func (obj *postgresImpl) Create_Irreparabledb(ctx context.Context,
@@ -3242,6 +3351,132 @@ func (obj *postgresImpl) Create_CertRecord(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return certRecord, nil
+
+}
+
+func (obj *postgresImpl) Create_SatelliteRegToken(ctx context.Context,
+	satellite_reg_token_secret SatelliteRegToken_Secret_Field,
+	satellite_reg_token_proj_limit SatelliteRegToken_ProjLimit_Field,
+	optional SatelliteRegToken_Create_Fields) (
+	satellite_reg_token *SatelliteRegToken, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__secret_val := satellite_reg_token_secret.value()
+	__owner_id_val := optional.OwnerId.value()
+	__proj_limit_val := satellite_reg_token_proj_limit.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO satellite_reg_tokens ( secret, owner_id, proj_limit, created_at ) VALUES ( ?, ?, ?, ? ) RETURNING satellite_reg_tokens.secret, satellite_reg_tokens.owner_id, satellite_reg_tokens.proj_limit, satellite_reg_tokens.created_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __secret_val, __owner_id_val, __proj_limit_val, __created_at_val)
+
+	satellite_reg_token = &SatelliteRegToken{}
+	err = obj.driver.QueryRow(__stmt, __secret_val, __owner_id_val, __proj_limit_val, __created_at_val).Scan(&satellite_reg_token.Secret, &satellite_reg_token.OwnerId, &satellite_reg_token.ProjLimit, &satellite_reg_token.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return satellite_reg_token, nil
+
+}
+
+func (obj *postgresImpl) Limited_Bwagreement(ctx context.Context,
+	limit int, offset int64) (
+	rows []*Bwagreement, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.serialnum, bwagreements.storage_node_id, bwagreements.uplink_id, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bwagreement := &Bwagreement{}
+		err = __rows.Scan(&bwagreement.Serialnum, &bwagreement.StorageNodeId, &bwagreement.UplinkId, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bwagreement)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) All_Bwagreement(ctx context.Context) (
+	rows []*Bwagreement, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.serialnum, bwagreements.storage_node_id, bwagreements.uplink_id, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bwagreement := &Bwagreement{}
+		err = __rows.Scan(&bwagreement.Serialnum, &bwagreement.StorageNodeId, &bwagreement.UplinkId, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bwagreement)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) All_Bwagreement_By_CreatedAt_Greater(ctx context.Context,
+	bwagreement_created_at_greater Bwagreement_CreatedAt_Field) (
+	rows []*Bwagreement, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.serialnum, bwagreements.storage_node_id, bwagreements.uplink_id, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements WHERE bwagreements.created_at > ?")
+
+	var __values []interface{}
+	__values = append(__values, bwagreement_created_at_greater.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bwagreement := &Bwagreement{}
+		err = __rows.Scan(&bwagreement.Serialnum, &bwagreement.StorageNodeId, &bwagreement.UplinkId, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bwagreement)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
 
 }
 
@@ -4080,6 +4315,55 @@ func (obj *postgresImpl) Get_CertRecord_By_Id(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Get_SatelliteRegToken_By_Secret(ctx context.Context,
+	satellite_reg_token_secret SatelliteRegToken_Secret_Field) (
+	satellite_reg_token *SatelliteRegToken, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT satellite_reg_tokens.secret, satellite_reg_tokens.owner_id, satellite_reg_tokens.proj_limit, satellite_reg_tokens.created_at FROM satellite_reg_tokens WHERE satellite_reg_tokens.secret = ?")
+
+	var __values []interface{}
+	__values = append(__values, satellite_reg_token_secret.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	satellite_reg_token = &SatelliteRegToken{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&satellite_reg_token.Secret, &satellite_reg_token.OwnerId, &satellite_reg_token.ProjLimit, &satellite_reg_token.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return satellite_reg_token, nil
+
+}
+
+func (obj *postgresImpl) Get_SatelliteRegToken_By_OwnerId(ctx context.Context,
+	satellite_reg_token_owner_id SatelliteRegToken_OwnerId_Field) (
+	satellite_reg_token *SatelliteRegToken, err error) {
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "satellite_reg_tokens.owner_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT satellite_reg_tokens.secret, satellite_reg_tokens.owner_id, satellite_reg_tokens.proj_limit, satellite_reg_tokens.created_at FROM satellite_reg_tokens WHERE "), __cond_0}}
+
+	var __values []interface{}
+	__values = append(__values)
+
+	if !satellite_reg_token_owner_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, satellite_reg_token_owner_id.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	satellite_reg_token = &SatelliteRegToken{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&satellite_reg_token.Secret, &satellite_reg_token.OwnerId, &satellite_reg_token.ProjLimit, &satellite_reg_token.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return satellite_reg_token, nil
+
+}
+
 func (obj *postgresImpl) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	update Irreparabledb_Update_Fields) (
@@ -4527,6 +4811,46 @@ func (obj *postgresImpl) Update_CertRecord_By_Id(ctx context.Context,
 	return certRecord, nil
 }
 
+func (obj *postgresImpl) Update_SatelliteRegToken_By_Secret(ctx context.Context,
+	satellite_reg_token_secret SatelliteRegToken_Secret_Field,
+	update SatelliteRegToken_Update_Fields) (
+	satellite_reg_token *SatelliteRegToken, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE satellite_reg_tokens SET "), __sets, __sqlbundle_Literal(" WHERE satellite_reg_tokens.secret = ? RETURNING satellite_reg_tokens.secret, satellite_reg_tokens.owner_id, satellite_reg_tokens.proj_limit, satellite_reg_tokens.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.OwnerId._set {
+		__values = append(__values, update.OwnerId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("owner_id = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, satellite_reg_token_secret.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	satellite_reg_token = &SatelliteRegToken{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&satellite_reg_token.Secret, &satellite_reg_token.OwnerId, &satellite_reg_token.ProjLimit, &satellite_reg_token.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return satellite_reg_token, nil
+}
+
 func (obj *postgresImpl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 	deleted bool, err error) {
@@ -4883,6 +5207,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM satellite_reg_tokens;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM projects;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -4995,6 +5329,41 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 	count += __count
 
 	return count, nil
+
+}
+
+func (obj *sqlite3Impl) Create_Bwagreement(ctx context.Context,
+	bwagreement_serialnum Bwagreement_Serialnum_Field,
+	bwagreement_storage_node_id Bwagreement_StorageNodeId_Field,
+	bwagreement_uplink_id Bwagreement_UplinkId_Field,
+	bwagreement_action Bwagreement_Action_Field,
+	bwagreement_total Bwagreement_Total_Field,
+	bwagreement_expires_at Bwagreement_ExpiresAt_Field) (
+	bwagreement *Bwagreement, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__serialnum_val := bwagreement_serialnum.value()
+	__storage_node_id_val := bwagreement_storage_node_id.value()
+	__uplink_id_val := bwagreement_uplink_id.value()
+	__action_val := bwagreement_action.value()
+	__total_val := bwagreement_total.value()
+	__created_at_val := __now
+	__expires_at_val := bwagreement_expires_at.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bwagreements ( serialnum, storage_node_id, uplink_id, action, total, created_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __serialnum_val, __storage_node_id_val, __uplink_id_val, __action_val, __total_val, __created_at_val, __expires_at_val)
+
+	__res, err := obj.driver.Exec(__stmt, __serialnum_val, __storage_node_id_val, __uplink_id_val, __action_val, __total_val, __created_at_val, __expires_at_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastBwagreement(ctx, __pk)
 
 }
 
@@ -5421,6 +5790,135 @@ func (obj *sqlite3Impl) Create_CertRecord(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return obj.getLastCertRecord(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_SatelliteRegToken(ctx context.Context,
+	satellite_reg_token_secret SatelliteRegToken_Secret_Field,
+	satellite_reg_token_proj_limit SatelliteRegToken_ProjLimit_Field,
+	optional SatelliteRegToken_Create_Fields) (
+	satellite_reg_token *SatelliteRegToken, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__secret_val := satellite_reg_token_secret.value()
+	__owner_id_val := optional.OwnerId.value()
+	__proj_limit_val := satellite_reg_token_proj_limit.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO satellite_reg_tokens ( secret, owner_id, proj_limit, created_at ) VALUES ( ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __secret_val, __owner_id_val, __proj_limit_val, __created_at_val)
+
+	__res, err := obj.driver.Exec(__stmt, __secret_val, __owner_id_val, __proj_limit_val, __created_at_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastSatelliteRegToken(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Limited_Bwagreement(ctx context.Context,
+	limit int, offset int64) (
+	rows []*Bwagreement, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.serialnum, bwagreements.storage_node_id, bwagreements.uplink_id, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bwagreement := &Bwagreement{}
+		err = __rows.Scan(&bwagreement.Serialnum, &bwagreement.StorageNodeId, &bwagreement.UplinkId, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bwagreement)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) All_Bwagreement(ctx context.Context) (
+	rows []*Bwagreement, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.serialnum, bwagreements.storage_node_id, bwagreements.uplink_id, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bwagreement := &Bwagreement{}
+		err = __rows.Scan(&bwagreement.Serialnum, &bwagreement.StorageNodeId, &bwagreement.UplinkId, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bwagreement)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) All_Bwagreement_By_CreatedAt_Greater(ctx context.Context,
+	bwagreement_created_at_greater Bwagreement_CreatedAt_Field) (
+	rows []*Bwagreement, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.serialnum, bwagreements.storage_node_id, bwagreements.uplink_id, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements WHERE bwagreements.created_at > ?")
+
+	var __values []interface{}
+	__values = append(__values, bwagreement_created_at_greater.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bwagreement := &Bwagreement{}
+		err = __rows.Scan(&bwagreement.Serialnum, &bwagreement.StorageNodeId, &bwagreement.UplinkId, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bwagreement)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
 
 }
 
@@ -6259,6 +6757,55 @@ func (obj *sqlite3Impl) Get_CertRecord_By_Id(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Get_SatelliteRegToken_By_Secret(ctx context.Context,
+	satellite_reg_token_secret SatelliteRegToken_Secret_Field) (
+	satellite_reg_token *SatelliteRegToken, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT satellite_reg_tokens.secret, satellite_reg_tokens.owner_id, satellite_reg_tokens.proj_limit, satellite_reg_tokens.created_at FROM satellite_reg_tokens WHERE satellite_reg_tokens.secret = ?")
+
+	var __values []interface{}
+	__values = append(__values, satellite_reg_token_secret.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	satellite_reg_token = &SatelliteRegToken{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&satellite_reg_token.Secret, &satellite_reg_token.OwnerId, &satellite_reg_token.ProjLimit, &satellite_reg_token.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return satellite_reg_token, nil
+
+}
+
+func (obj *sqlite3Impl) Get_SatelliteRegToken_By_OwnerId(ctx context.Context,
+	satellite_reg_token_owner_id SatelliteRegToken_OwnerId_Field) (
+	satellite_reg_token *SatelliteRegToken, err error) {
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "satellite_reg_tokens.owner_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT satellite_reg_tokens.secret, satellite_reg_tokens.owner_id, satellite_reg_tokens.proj_limit, satellite_reg_tokens.created_at FROM satellite_reg_tokens WHERE "), __cond_0}}
+
+	var __values []interface{}
+	__values = append(__values)
+
+	if !satellite_reg_token_owner_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, satellite_reg_token_owner_id.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	satellite_reg_token = &SatelliteRegToken{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&satellite_reg_token.Secret, &satellite_reg_token.OwnerId, &satellite_reg_token.ProjLimit, &satellite_reg_token.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return satellite_reg_token, nil
+
+}
+
 func (obj *sqlite3Impl) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	update Irreparabledb_Update_Fields) (
@@ -6786,6 +7333,56 @@ func (obj *sqlite3Impl) Update_CertRecord_By_Id(ctx context.Context,
 	return certRecord, nil
 }
 
+func (obj *sqlite3Impl) Update_SatelliteRegToken_By_Secret(ctx context.Context,
+	satellite_reg_token_secret SatelliteRegToken_Secret_Field,
+	update SatelliteRegToken_Update_Fields) (
+	satellite_reg_token *SatelliteRegToken, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE satellite_reg_tokens SET "), __sets, __sqlbundle_Literal(" WHERE satellite_reg_tokens.secret = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.OwnerId._set {
+		__values = append(__values, update.OwnerId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("owner_id = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, satellite_reg_token_secret.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	satellite_reg_token = &SatelliteRegToken{}
+	_, err = obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT satellite_reg_tokens.secret, satellite_reg_tokens.owner_id, satellite_reg_tokens.proj_limit, satellite_reg_tokens.created_at FROM satellite_reg_tokens WHERE satellite_reg_tokens.secret = ?")
+
+	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
+	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
+
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&satellite_reg_token.Secret, &satellite_reg_token.OwnerId, &satellite_reg_token.ProjLimit, &satellite_reg_token.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return satellite_reg_token, nil
+}
+
 func (obj *sqlite3Impl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 	deleted bool, err error) {
@@ -7099,6 +7696,24 @@ func (obj *sqlite3Impl) Delete_CertRecord_By_Id(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) getLastBwagreement(ctx context.Context,
+	pk int64) (
+	bwagreement *Bwagreement, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.serialnum, bwagreements.storage_node_id, bwagreements.uplink_id, bwagreements.action, bwagreements.total, bwagreements.created_at, bwagreements.expires_at FROM bwagreements WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	bwagreement = &Bwagreement{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&bwagreement.Serialnum, &bwagreement.StorageNodeId, &bwagreement.UplinkId, &bwagreement.Action, &bwagreement.Total, &bwagreement.CreatedAt, &bwagreement.ExpiresAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bwagreement, nil
+
+}
+
 func (obj *sqlite3Impl) getLastIrreparabledb(ctx context.Context,
 	pk int64) (
 	irreparabledb *Irreparabledb, err error) {
@@ -7333,6 +7948,24 @@ func (obj *sqlite3Impl) getLastCertRecord(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) getLastSatelliteRegToken(ctx context.Context,
+	pk int64) (
+	satellite_reg_token *SatelliteRegToken, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT satellite_reg_tokens.secret, satellite_reg_tokens.owner_id, satellite_reg_tokens.proj_limit, satellite_reg_tokens.created_at FROM satellite_reg_tokens WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	satellite_reg_token = &SatelliteRegToken{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&satellite_reg_token.Secret, &satellite_reg_token.OwnerId, &satellite_reg_token.ProjLimit, &satellite_reg_token.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return satellite_reg_token, nil
+
+}
+
 func (impl sqlite3Impl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(sqlite3.Error); ok {
@@ -7372,6 +8005,16 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM users;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM satellite_reg_tokens;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -7577,6 +8220,25 @@ func (rx *Rx) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Context,
 	return tx.All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx, api_key_project_id)
 }
 
+func (rx *Rx) All_Bwagreement(ctx context.Context) (
+	rows []*Bwagreement, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_Bwagreement(ctx)
+}
+
+func (rx *Rx) All_Bwagreement_By_CreatedAt_Greater(ctx context.Context,
+	bwagreement_created_at_greater Bwagreement_CreatedAt_Field) (
+	rows []*Bwagreement, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_Bwagreement_By_CreatedAt_Greater(ctx, bwagreement_created_at_greater)
+}
+
 func (rx *Rx) All_Node_Id(ctx context.Context) (
 	rows []*Id_Row, err error) {
 	var tx *Tx
@@ -7696,6 +8358,22 @@ func (rx *Rx) Create_BucketUsage(ctx context.Context,
 
 }
 
+func (rx *Rx) Create_Bwagreement(ctx context.Context,
+	bwagreement_serialnum Bwagreement_Serialnum_Field,
+	bwagreement_storage_node_id Bwagreement_StorageNodeId_Field,
+	bwagreement_uplink_id Bwagreement_UplinkId_Field,
+	bwagreement_action Bwagreement_Action_Field,
+	bwagreement_total Bwagreement_Total_Field,
+	bwagreement_expires_at Bwagreement_ExpiresAt_Field) (
+	bwagreement *Bwagreement, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_Bwagreement(ctx, bwagreement_serialnum, bwagreement_storage_node_id, bwagreement_uplink_id, bwagreement_action, bwagreement_total, bwagreement_expires_at)
+
+}
+
 func (rx *Rx) Create_CertRecord(ctx context.Context,
 	certRecord_publickey CertRecord_Publickey_Field,
 	certRecord_id CertRecord_Id_Field) (
@@ -7800,6 +8478,19 @@ func (rx *Rx) Create_ProjectMember(ctx context.Context,
 		return
 	}
 	return tx.Create_ProjectMember(ctx, project_member_member_id, project_member_project_id)
+
+}
+
+func (rx *Rx) Create_SatelliteRegToken(ctx context.Context,
+	satellite_reg_token_secret SatelliteRegToken_Secret_Field,
+	satellite_reg_token_proj_limit SatelliteRegToken_ProjLimit_Field,
+	optional SatelliteRegToken_Create_Fields) (
+	satellite_reg_token *SatelliteRegToken, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_SatelliteRegToken(ctx, satellite_reg_token_secret, satellite_reg_token_proj_limit, optional)
 
 }
 
@@ -8068,6 +8759,26 @@ func (rx *Rx) Get_Project_By_Id(ctx context.Context,
 	return tx.Get_Project_By_Id(ctx, project_id)
 }
 
+func (rx *Rx) Get_SatelliteRegToken_By_OwnerId(ctx context.Context,
+	satellite_reg_token_owner_id SatelliteRegToken_OwnerId_Field) (
+	satellite_reg_token *SatelliteRegToken, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_SatelliteRegToken_By_OwnerId(ctx, satellite_reg_token_owner_id)
+}
+
+func (rx *Rx) Get_SatelliteRegToken_By_Secret(ctx context.Context,
+	satellite_reg_token_secret SatelliteRegToken_Secret_Field) (
+	satellite_reg_token *SatelliteRegToken, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_SatelliteRegToken_By_Secret(ctx, satellite_reg_token_secret)
+}
+
 func (rx *Rx) Get_User_By_Email_And_Status_Not_Number(ctx context.Context,
 	user_email User_Email_Field) (
 	user *User, err error) {
@@ -8112,6 +8823,16 @@ func (rx *Rx) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_Roll
 		return
 	}
 	return tx.Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Desc_RollupEndTime(ctx, bucket_usage_bucket_id, bucket_usage_rollup_end_time_greater, bucket_usage_rollup_end_time_less_or_equal, limit, offset)
+}
+
+func (rx *Rx) Limited_Bwagreement(ctx context.Context,
+	limit int, offset int64) (
+	rows []*Bwagreement, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_Bwagreement(ctx, limit, offset)
 }
 
 func (rx *Rx) Limited_Injuredsegment(ctx context.Context,
@@ -8233,6 +8954,17 @@ func (rx *Rx) Update_Project_By_Id(ctx context.Context,
 	return tx.Update_Project_By_Id(ctx, project_id, update)
 }
 
+func (rx *Rx) Update_SatelliteRegToken_By_Secret(ctx context.Context,
+	satellite_reg_token_secret SatelliteRegToken_Secret_Field,
+	update SatelliteRegToken_Update_Fields) (
+	satellite_reg_token *SatelliteRegToken, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_SatelliteRegToken_By_Secret(ctx, satellite_reg_token_secret, update)
+}
+
 func (rx *Rx) Update_User_By_Id(ctx context.Context,
 	user_id User_Id_Field,
 	update User_Update_Fields) (
@@ -8259,6 +8991,13 @@ type Methods interface {
 	All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Context,
 		api_key_project_id ApiKey_ProjectId_Field) (
 		rows []*ApiKey, err error)
+
+	All_Bwagreement(ctx context.Context) (
+		rows []*Bwagreement, err error)
+
+	All_Bwagreement_By_CreatedAt_Greater(ctx context.Context,
+		bwagreement_created_at_greater Bwagreement_CreatedAt_Field) (
+		rows []*Bwagreement, err error)
 
 	All_Node_Id(ctx context.Context) (
 		rows []*Id_Row, err error)
@@ -8320,6 +9059,15 @@ type Methods interface {
 		bucket_usage_audit_egress BucketUsage_AuditEgress_Field) (
 		bucket_usage *BucketUsage, err error)
 
+	Create_Bwagreement(ctx context.Context,
+		bwagreement_serialnum Bwagreement_Serialnum_Field,
+		bwagreement_storage_node_id Bwagreement_StorageNodeId_Field,
+		bwagreement_uplink_id Bwagreement_UplinkId_Field,
+		bwagreement_action Bwagreement_Action_Field,
+		bwagreement_total Bwagreement_Total_Field,
+		bwagreement_expires_at Bwagreement_ExpiresAt_Field) (
+		bwagreement *Bwagreement, err error)
+
 	Create_CertRecord(ctx context.Context,
 		certRecord_publickey CertRecord_Publickey_Field,
 		certRecord_id CertRecord_Id_Field) (
@@ -8377,6 +9125,12 @@ type Methods interface {
 		project_member_member_id ProjectMember_MemberId_Field,
 		project_member_project_id ProjectMember_ProjectId_Field) (
 		project_member *ProjectMember, err error)
+
+	Create_SatelliteRegToken(ctx context.Context,
+		satellite_reg_token_secret SatelliteRegToken_Secret_Field,
+		satellite_reg_token_proj_limit SatelliteRegToken_ProjLimit_Field,
+		optional SatelliteRegToken_Create_Fields) (
+		satellite_reg_token *SatelliteRegToken, err error)
 
 	Create_User(ctx context.Context,
 		user_id User_Id_Field,
@@ -8486,6 +9240,14 @@ type Methods interface {
 		project_id Project_Id_Field) (
 		project *Project, err error)
 
+	Get_SatelliteRegToken_By_OwnerId(ctx context.Context,
+		satellite_reg_token_owner_id SatelliteRegToken_OwnerId_Field) (
+		satellite_reg_token *SatelliteRegToken, err error)
+
+	Get_SatelliteRegToken_By_Secret(ctx context.Context,
+		satellite_reg_token_secret SatelliteRegToken_Secret_Field) (
+		satellite_reg_token *SatelliteRegToken, err error)
+
 	Get_User_By_Email_And_Status_Not_Number(ctx context.Context,
 		user_email User_Email_Field) (
 		user *User, err error)
@@ -8507,6 +9269,10 @@ type Methods interface {
 		bucket_usage_rollup_end_time_less_or_equal BucketUsage_RollupEndTime_Field,
 		limit int, offset int64) (
 		rows []*BucketUsage, err error)
+
+	Limited_Bwagreement(ctx context.Context,
+		limit int, offset int64) (
+		rows []*Bwagreement, err error)
 
 	Limited_Injuredsegment(ctx context.Context,
 		limit int, offset int64) (
@@ -8560,6 +9326,11 @@ type Methods interface {
 		project_id Project_Id_Field,
 		update Project_Update_Fields) (
 		project *Project, err error)
+
+	Update_SatelliteRegToken_By_Secret(ctx context.Context,
+		satellite_reg_token_secret SatelliteRegToken_Secret_Field,
+		update SatelliteRegToken_Update_Fields) (
+		satellite_reg_token *SatelliteRegToken, err error)
 
 	Update_User_By_Id(ctx context.Context,
 		user_id User_Id_Field,
