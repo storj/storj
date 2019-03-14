@@ -17,7 +17,6 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/eestream"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
 	ecclient "storj.io/storj/pkg/storage/ec"
@@ -55,7 +54,6 @@ type Store interface {
 
 type segmentStore struct {
 	metainfo                metainfo.Client
-	oc                      overlay.Client
 	ec                      ecclient.Client
 	rs                      eestream.RedundancyStrategy
 	thresholdSize           int
@@ -63,10 +61,9 @@ type segmentStore struct {
 }
 
 // NewSegmentStore creates a new instance of segmentStore
-func NewSegmentStore(metainfo metainfo.Client, oc overlay.Client, ec ecclient.Client, rs eestream.RedundancyStrategy, threshold int, maxEncryptedSegmentSize int64) Store {
+func NewSegmentStore(metainfo metainfo.Client, ec ecclient.Client, rs eestream.RedundancyStrategy, threshold int, maxEncryptedSegmentSize int64) Store {
 	return &segmentStore{
 		metainfo:                metainfo,
-		oc:                      oc, // TODO: remove
 		ec:                      ec,
 		rs:                      rs,
 		thresholdSize:           threshold,
@@ -193,7 +190,7 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 	case pb.Pointer_INLINE:
 		return ranger.ByteRanger(pointer.InlineSegment), convertMeta(pointer), nil
 	case pb.Pointer_REMOTE:
-		needed := calcNeededNodes(pointer.GetRemote().GetRedundancy())
+		needed := CalcNeededNodes(pointer.GetRemote().GetRedundancy())
 		selected := make([]*pb.AddressedOrderLimit, len(limits))
 
 		for _, i := range rand.Perm(len(limits)) {
@@ -322,9 +319,9 @@ func (s *segmentStore) List(ctx context.Context, prefix, startAfter, endBefore s
 	return items, more, nil
 }
 
-// calcNeededNodes calculate how many minimum nodes are needed for download,
+// CalcNeededNodes calculate how many minimum nodes are needed for download,
 // based on t = k + (n-o)k/o
-func calcNeededNodes(rs *pb.RedundancyScheme) int32 {
+func CalcNeededNodes(rs *pb.RedundancyScheme) int32 {
 	extra := int32(1)
 
 	if rs.GetSuccessThreshold() > 0 {
@@ -369,7 +366,7 @@ func convertTime(ts *timestamp.Timestamp) time.Time {
 func split(path storj.Path) (bucket string, objectPath storj.Path, segmentIndex int64, err error) {
 	components := storj.SplitPath(path)
 	if len(components) < 1 {
-		return "", "", -2, Error.New("empty path", len(components))
+		return "", "", -2, Error.New("empty path")
 	}
 
 	segmentIndex, err = convertSegmentIndex(components[0])

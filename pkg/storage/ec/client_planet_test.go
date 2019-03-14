@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vivint/infectious"
@@ -147,7 +148,13 @@ func testDelete(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec
 }
 
 func newAddressedOrderLimit(action pb.Action, satellite *satellite.Peer, uplink *testplanet.Uplink, storageNode *storagenode.Peer, pieceID storj.PieceID2) (*pb.AddressedOrderLimit, error) {
+	// TODO refactor to avoid OrderLimit duplication
+	serialNumber, err := uuid.New()
+	if err != nil {
+		return nil, err
+	}
 	limit := &pb.OrderLimit2{
+		SerialNumber:    []byte(serialNumber.String()),
 		SatelliteId:     satellite.ID(),
 		UplinkId:        uplink.ID(),
 		StorageNodeId:   storageNode.ID(),
@@ -158,7 +165,7 @@ func newAddressedOrderLimit(action pb.Action, satellite *satellite.Peer, uplink 
 		OrderExpiration: new(timestamp.Timestamp),
 	}
 
-	limit, err := signing.SignOrderLimit(signing.SignerFromFullIdentity(satellite.Identity), limit)
+	limit, err = signing.SignOrderLimit(signing.SignerFromFullIdentity(satellite.Identity), limit)
 	if err != nil {
 		return nil, err
 	}
