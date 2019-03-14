@@ -15,11 +15,14 @@ import (
 	"storj.io/storj/pkg/pb"
 )
 
+// Downloader is interface that can be used for downloading content.
+// It matches signature of `io.ReadCloser`.
 type Downloader interface {
 	Read([]byte) (int, error)
 	Close() error
 }
 
+// Download implements downloading from a piecestore.
 type Download struct {
 	client *Client
 	limit  *pb.OrderLimit2
@@ -37,6 +40,7 @@ type Download struct {
 	unread ReadBuffer
 }
 
+// Download starts a new download using the specified order limit at the specified offset and size.
 func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit2, offset, size int64) (Downloader, error) {
 	stream, err := client.client.Download(ctx)
 	if err != nil {
@@ -85,6 +89,7 @@ func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit2, offse
 	}, nil
 }
 
+// Read downloads data from the storage node allocating as necessary.
 func (client *Download) Read(data []byte) (read int, _ error) {
 	for client.read < client.downloadSize {
 		// read from buffer
@@ -163,6 +168,7 @@ func (client *Download) Read(data []byte) (read int, _ error) {
 	return read, nil
 }
 
+// Close closes the downloading.
 func (client *Download) Close() error {
 	alldone := client.read == client.downloadSize
 
@@ -185,27 +191,34 @@ func (client *Download) Close() error {
 	return Error.Wrap(errs.Combine(ignoreEOF(closeErr), ignoreEOF(recvErr)))
 }
 
+// ReadBuffer implements buffered reading with an error.
 type ReadBuffer struct {
 	data []byte
 	err  error
 }
 
+// Error returns an error if it was encountered.
 func (buffer *ReadBuffer) Error() error { return buffer.err }
 
+// Errored returns whether the buffer contains an error.
 func (buffer *ReadBuffer) Errored() bool { return buffer.err != nil }
 
+// Empty checks whether buffer needs to be filled.
 func (buffer *ReadBuffer) Empty() bool {
 	return len(buffer.data) == 0 && buffer.err == nil
 }
 
+// IncludeError adds error at the end of the buffer.
 func (buffer *ReadBuffer) IncludeError(err error) {
 	buffer.err = errs.Combine(buffer.err, err)
 }
 
+// Fill fills the buffer with the specified bytes.
 func (buffer *ReadBuffer) Fill(data []byte) {
 	buffer.data = data
 }
 
+// Read reads from the buffer.
 func (buffer *ReadBuffer) Read(data []byte) (n int, err error) {
 	if len(buffer.data) > 0 {
 		n = copy(data, buffer.data)
