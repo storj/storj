@@ -38,7 +38,7 @@ func TestSegmentStoreRepair(t *testing.T) {
 
 		// get a remote segment from pointerdb
 		pdb := satellite.Metainfo.Service
-		listResponse, _, err := pdb.List("", "", "", true, 10, 0)
+		listResponse, _, err := pdb.List("", "", "", true, 0, 0)
 		assert.NoError(t, err)
 
 		var path string
