@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+// Pool implements different peer verifications.
 type Pool struct {
 	kademlia *kademlia.Kademlia
 
@@ -24,12 +25,14 @@ type Pool struct {
 	trustedSatellites  map[storj.NodeID]*satelliteInfoCache
 }
 
+// satellite info cache, caches information about a satellite.
 type satelliteInfoCache struct {
 	once     sync.Once
 	identity *identity.PeerIdentity
 	err      error
 }
 
+// NewPool creates a new trust pool using kademlia to find certificates and with the specified list of trusted satellites.
 func NewPool(kademlia *kademlia.Kademlia, trustAll bool, trustedSatelliteIDs string) (*Pool, error) {
 	if trustAll {
 		return &Pool{
@@ -65,6 +68,7 @@ func NewPool(kademlia *kademlia.Kademlia, trustAll bool, trustedSatelliteIDs str
 	}, nil
 }
 
+// VerifySatelliteID checks whether id corresponds to a trusted satellite.
 func (pool *Pool) VerifySatelliteID(ctx context.Context, id storj.NodeID) error {
 	if pool.trustAllSatellites {
 		return nil
@@ -80,11 +84,13 @@ func (pool *Pool) VerifySatelliteID(ctx context.Context, id storj.NodeID) error 
 	return nil
 }
 
+// VerifyUplinkID verifides whether id corresponds to a trusted uplink.
 func (pool *Pool) VerifyUplinkID(ctx context.Context, id storj.NodeID) error {
 	// trusting all the uplinks for now
 	return nil
 }
 
+// GetSignee gets the corresponding signee for verifying signatures.
 func (pool *Pool) GetSignee(ctx context.Context, id storj.NodeID) (signing.Signee, error) {
 	// lookup peer identity with id
 	pool.mu.RLock()

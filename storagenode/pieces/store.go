@@ -99,11 +99,13 @@ func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID 
 	return Error.Wrap(err)
 }
 
+// StorageStatus contains information about the disk store is using.
 type StorageStatus struct {
 	DiskUsed int64
 	DiskFree int64
 }
 
+// StorageStatus returns information abpout the disk.
 func (store *Store) StorageStatus() StorageStatus {
 	panic("TODO")
 }

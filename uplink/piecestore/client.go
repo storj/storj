@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/pkg/pb"
 )
 
+// Error is the default error class for piecestore client.
 var Error = errs.Class("piecestore")
 
 // Config defines piecestore client parameters fro upload and download.
