@@ -183,8 +183,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--server.private-address", net.JoinHostPort(host, strconv.Itoa(satellitePrivatePort+i)),
 
 				"--kademlia.bootstrap-addr", bootstrap.Address,
-				"--repairer.overlay-addr", process.Address,
-				"--repairer.pointer-db-addr", process.Address,
 
 				"--server.extensions.revocation=false",
 				"--server.use-peer-ca-whitelist=false",
