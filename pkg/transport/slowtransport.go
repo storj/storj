@@ -17,30 +17,30 @@ import (
 
 // SlowTransport is a slow version of transport
 type SlowTransport struct {
-	client  Client
-	network latency.Network
+	Client  Client
+	Network latency.Network
 }
 
 // NewClientWithLatency makes a slower transport client for testing purposes
 func NewClientWithLatency(client Client, network latency.Network) Client {
 	return &SlowTransport{
-		client:  client,
-		network: network,
+		Client:  client,
+		Network: network,
 	}
 }
 
 // DialNode dials a node with latency
 func (slowTransport *SlowTransport) DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
-	dialerOpt := grpc.WithDialer(func(address string, dur time.Duration) (net.Conn, error) {
+	dialerOpt := grpc.WithContextDialer(func(ctx context.Context, address string) (net.Conn, error) {
 		netdialer := &net.Dialer{}
 		conn, err := netdialer.DialContext(ctx, "tcp", address)
 		if err != nil {
 			return nil, err
 		}
-		return slowTransport.network.Conn(conn)
+		return slowTransport.Network.Conn(conn)
 	})
 
-	return slowTransport.client.DialNode(ctx, node, append(opts, dialerOpt)...)
+	return slowTransport.Client.DialNode(ctx, node, append(opts, dialerOpt)...)
 }
 
 // DialAddress dials an address with latency
@@ -51,18 +51,18 @@ func (slowTransport *SlowTransport) DialAddress(ctx context.Context, address str
 		if err != nil {
 			return nil, err
 		}
-		return slowTransport.network.Conn(conn)
+		return slowTransport.Network.Conn(conn)
 	})
 
-	return slowTransport.client.DialAddress(ctx, address, append(opts, dialerOpt)...)
+	return slowTransport.Client.DialAddress(ctx, address, append(opts, dialerOpt)...)
 }
 
 // Identity for SlowTransport
 func (slowTransport *SlowTransport) Identity() *identity.FullIdentity {
-	return slowTransport.client.Identity()
+	return slowTransport.Client.Identity()
 }
 
 // WithObservers calls WithObservers for SlowTransport
 func (slowTransport *SlowTransport) WithObservers(obs ...Observer) *Transport {
-	return slowTransport.client.WithObservers(obs...)
+	return slowTransport.Client.WithObservers(obs...)
 }
