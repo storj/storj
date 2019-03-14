@@ -129,7 +129,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 			node.Type.DPanicOnInvalid("repair 2")
 		}
 
-		for pieceNum < redundancy.TotalCount() && getLimits[pieceNum] != nil {
+		for pieceNum < redundancy.TotalCount() && getLimits[pieceNum] == nil {
 			pieceNum++
 		}
 
@@ -147,6 +147,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 			Limit:              orderLimit,
 			StorageNodeAddress: node.Address,
 		}
+		pieceNum++
 	}
 
 	// Download the segment using just the healthy pieces
