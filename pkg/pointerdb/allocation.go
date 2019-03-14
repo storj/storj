@@ -76,7 +76,7 @@ func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context
 type OrderLimitParameters struct {
 	UplinkIdentity  *identity.PeerIdentity
 	StorageNodeID   storj.NodeID
-	PieceID         storj.PieceID2
+	PieceID         storj.PieceID
 	Action          pb.Action
 	Limit           int64
 	PieceExpiration *timestamp.Timestamp

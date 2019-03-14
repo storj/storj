@@ -13,6 +13,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
@@ -115,14 +116,14 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 					MinReq:          int32(4),
 					RepairThreshold: int32(8),
 				},
-				PieceId:      "fake-piece-id",
+				RootPieceId:  teststorj.PieceIDFromString("fake-piece-id"),
 				RemotePieces: pieces,
 			},
 		}
 
 		// put test pointer to db
 		pointerdb := planet.Satellites[0].Metainfo.Service
-		err := pointerdb.Put(pointer.Remote.PieceId, pointer)
+		err := pointerdb.Put(pointer.Remote.RootPieceId.String(), pointer)
 		assert.NoError(t, err)
 
 		err = checker.IdentifyInjuredSegments(ctx)
@@ -186,12 +187,12 @@ func makePointer(t *testing.T, planet *testplanet.Planet, pieceID string, create
 				MinReq:          int32(minReq),
 				RepairThreshold: int32(repairThreshold),
 			},
-			PieceId:      pieceID,
+			RootPieceId:  teststorj.PieceIDFromString(pieceID),
 			RemotePieces: pieces,
 		},
 	}
 	// put test pointer to db
 	pointerdb := planet.Satellites[0].Metainfo.Service
-	err := pointerdb.Put(pointer.Remote.PieceId, pointer)
+	err := pointerdb.Put(pointer.Remote.RootPieceId.String(), pointer)
 	require.NoError(t, err)
 }

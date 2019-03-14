@@ -15,4 +15,4 @@ type NodeID = storj.NodeID
 type NodeIDList = storj.NodeIDList
 
 // PieceID is an alias to storj.PieceID for use in generated protobuf code
-type PieceID = storj.PieceID2
+type PieceID = storj.PieceID

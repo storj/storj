@@ -202,7 +202,7 @@ func makePutRequest(path storj.Path) pb.PutRequest {
 					SuccessThreshold: 3,
 					ErasureShareSize: 2,
 				},
-				PieceId:      "testId",
+				RootPieceId:  teststorj.PieceIDFromString("testId"),
 				RemotePieces: rps,
 			},
 			SegmentSize: int64(10),
