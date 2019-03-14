@@ -88,7 +88,7 @@ func printDashboard(data *pb.DashboardResponse, online bool) error {
 	_, _ = heading.Printf("\n======================\n\n")
 
 	w := tabwriter.NewWriter(color.Output, 0, 0, 1, ' ', 0)
-	fmt.Fprintf(w, "ID\t%s\n", color.YellowString(data.GetNodeId()))
+	fmt.Fprintf(w, "ID\t%s\n", color.YellowString(data.NodeId.String()))
 
 	if online {
 		fmt.Fprintf(w, "Status\t%s\n", color.GreenString("ONLINE"))

@@ -46,6 +46,8 @@ type DB interface {
 	Get(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (*Info, error)
 	// Delete deletes Info about a piece.
 	Delete(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) error
+	// SpaceUsed calculates disk space used by all pieces
+	SpaceUsed(ctx context.Context) (int64, error)
 }
 
 // Store implements storing pieces onto a blob storage implementation.

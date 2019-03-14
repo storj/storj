@@ -79,7 +79,7 @@ func (s *Inspector) getDashboardData(ctx context.Context) (*pb.DashboardResponse
 	}
 
 	return &pb.DashboardResponse{
-		NodeId:           s.ps.kad.Local().Id.String(),
+		NodeId:           s.ps.kad.Local().Id,
 		NodeConnections:  int64(len(nodes)),
 		BootstrapAddress: strings.Join(bsNodes[:], ", "),
 		InternalAddress:  "",
