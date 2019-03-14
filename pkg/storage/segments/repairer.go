@@ -172,7 +172,6 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 		if node != nil {
 			continue
 		}
-		// copy the successfuNode info
 		healthyPieces = append(healthyPieces, &pb.RemotePiece{
 			PieceNum: int32(i),
 			NodeId:   node.Id,
