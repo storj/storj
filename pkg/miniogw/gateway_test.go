@@ -686,11 +686,6 @@ func initEnv(planet *testplanet.Planet) (minio.ObjectLayer, storj.Metainfo, stre
 		return nil, nil, nil, err
 	}
 
-	oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
 	pdb, err := planet.Uplinks[0].DialPointerDB(planet.Satellites[0], TestAPIKey)
 	if err != nil {
 		return nil, nil, nil, err
@@ -712,7 +707,7 @@ func initEnv(planet *testplanet.Planet) (minio.ObjectLayer, storj.Metainfo, stre
 		return nil, nil, nil, err
 	}
 
-	segments := segments.NewSegmentStore(metainfo, oc, ec, rs, 4*memory.KiB.Int(), 8*memory.MiB.Int64())
+	segments := segments.NewSegmentStore(metainfo, ec, rs, 4*memory.KiB.Int(), 8*memory.MiB.Int64())
 
 	key := new(storj.Key)
 	copy(key[:], TestEncKey)
