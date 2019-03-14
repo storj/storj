@@ -4,7 +4,7 @@
 // +build ignore
 
 // gen_identities generates random identities table for testing
-package main
+package testidentity
 
 import (
 	"bytes"

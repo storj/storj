@@ -10,7 +10,6 @@ import (
 	"encoding/gob"
 	"fmt"
 	"net"
-	"storj.io/storj/pkg/storj"
 	"testing"
 	"time"
 
@@ -24,18 +23,18 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
-	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/server"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storage"
 )
 
 var (
-	idents = testplanet.NewPregeneratedIdentities(storj.LatestIDVersion())
+	idents = testidentity.NewPregeneratedIdentities(storj.LatestIDVersion())
 	t1     = Token{
 		UserID: "user@example.com",
 		Data:   [tokenDataLength]byte{1, 2, 3},

@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -44,8 +44,8 @@ func TestPieceID_Derive(t *testing.T) {
 	a := storj.NewPieceID()
 	b := storj.NewPieceID()
 
-	n0 := testplanet.MustPregeneratedIdentity(0, storj.LatestIDVersion()).ID
-	n1 := testplanet.MustPregeneratedIdentity(1, storj.LatestIDVersion()).ID
+	n0 := testidentity.MustPregeneratedIdentity(0, storj.LatestIDVersion()).ID
+	n1 := testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion()).ID
 
 	assert.NotEqual(t, a.Derive(n0), a.Derive(n1), "a(n0) != a(n1)")
 	assert.NotEqual(t, b.Derive(n0), b.Derive(n1), "b(n0) != b(n1)")

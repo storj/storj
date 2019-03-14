@@ -14,7 +14,6 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testpeertls"
-	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/extensions"
@@ -25,7 +24,7 @@ import (
 
 func TestVerifyIdentity_success(t *testing.T) {
 	for i := 0; i < 50; i++ {
-		ident, err := testplanet.PregeneratedIdentity(i, storj.LatestIDVersion())
+		ident, err := testidentity.PregeneratedIdentity(i, storj.LatestIDVersion())
 		require.NoError(t, err)
 
 		err = tlsopts.VerifyIdentity(ident.ID)(nil, identity.ToChains(ident.Chain()))
@@ -35,7 +34,7 @@ func TestVerifyIdentity_success(t *testing.T) {
 
 func TestVerifyIdentity_success_signed(t *testing.T) {
 	for i := 0; i < 50; i++ {
-		ident, err := testplanet.PregeneratedSignedIdentity(i, storj.LatestIDVersion())
+		ident, err := testidentity.PregeneratedSignedIdentity(i, storj.LatestIDVersion())
 		require.NoError(t, err)
 
 		err = tlsopts.VerifyIdentity(ident.ID)(nil, identity.ToChains(ident.Chain()))
@@ -44,10 +43,10 @@ func TestVerifyIdentity_success_signed(t *testing.T) {
 }
 
 func TestVerifyIdentity_error(t *testing.T) {
-	ident, err := testplanet.PregeneratedIdentity(0, storj.LatestIDVersion())
+	ident, err := testidentity.PregeneratedIdentity(0, storj.LatestIDVersion())
 	require.NoError(t, err)
 
-	identTheftVictim, err := testplanet.PregeneratedIdentity(1, storj.LatestIDVersion())
+	identTheftVictim, err := testidentity.PregeneratedIdentity(1, storj.LatestIDVersion())
 	require.NoError(t, err)
 
 	cases := []struct {
