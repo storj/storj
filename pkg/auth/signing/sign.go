@@ -54,7 +54,7 @@ func SignOrder(uplink Signer, unsigned *pb.Order2) (*pb.Order2, error) {
 	return &signed, nil
 }
 
-// SignOrder signs the piece hash using the specified signer.
+// SignPieceHash signs the piece hash using the specified signer.
 // Signer is either uplink or storage node.
 func SignPieceHash(signer Signer, unsigned *pb.PieceHash) (*pb.PieceHash, error) {
 	bytes, err := EncodePieceHash(unsigned)

@@ -18,11 +18,16 @@ import (
 )
 
 var (
-	ErrVerifyNotAuthorized    = errs.Class("not authorized")
-	ErrVerifyUntrusted        = errs.Class("untrusted")
+	// ErrVerifyNotAuthorized is returned when the one submitting the action is not authorized to perform that action.
+	ErrVerifyNotAuthorized = errs.Class("not authorized")
+	// ErrVerifyUntrusted is returned when action is not trusted.
+	ErrVerifyUntrusted = errs.Class("untrusted")
+	// ErrVerifyDuplicateRequest is returned when serial number has been already used to submit an action.
 	ErrVerifyDuplicateRequest = errs.Class("duplicate request")
 )
 
+// VerifyOrderLimit verifies that the order limit is properly signed and has sane values.
+// It also verifies that the serial number has not been used.
 func (endpoint *Endpoint) VerifyOrderLimit(ctx context.Context, limit *pb.OrderLimit2) error {
 	// sanity checks
 	switch {
@@ -74,6 +79,7 @@ func (endpoint *Endpoint) VerifyOrderLimit(ctx context.Context, limit *pb.OrderL
 	return nil
 }
 
+// VerifyOrder verifies that the order corresponds to the order limit and has all the necessary fields.
 func (endpoint *Endpoint) VerifyOrder(ctx context.Context, peer *identity.PeerIdentity, limit *pb.OrderLimit2, order *pb.Order2, largestOrderAmount int64) error {
 	if !bytes.Equal(order.SerialNumber, limit.SerialNumber) {
 		return ErrProtocol.New("order serial number changed during upload") // TODO: report grpc status bad message
@@ -93,6 +99,7 @@ func (endpoint *Endpoint) VerifyOrder(ctx context.Context, peer *identity.PeerId
 	return nil
 }
 
+// VerifyPieceHash verifies whether the piece hash is properly signed and matches the locally computed hash.
 func (endpoint *Endpoint) VerifyPieceHash(ctx context.Context, peer *identity.PeerIdentity, limit *pb.OrderLimit2, hash *pb.PieceHash, expectedHash []byte) error {
 	if peer == nil || limit == nil || hash == nil || len(expectedHash) == 0 {
 		return ErrProtocol.New("invalid arguments")
@@ -111,6 +118,7 @@ func (endpoint *Endpoint) VerifyPieceHash(ctx context.Context, peer *identity.Pe
 	return nil
 }
 
+// VerifyOrderLimitSignature verifies that the order limit signature is valid.
 func (endpoint *Endpoint) VerifyOrderLimitSignature(ctx context.Context, limit *pb.OrderLimit2) error {
 	signee, err := endpoint.trust.GetSignee(ctx, limit.SatelliteId)
 	if err != nil {
@@ -124,6 +132,7 @@ func (endpoint *Endpoint) VerifyOrderLimitSignature(ctx context.Context, limit *
 	return nil
 }
 
+// IsExpired checks whether the date has already expired (with a threshold) at the time of calling this function.
 func (endpoint *Endpoint) IsExpired(expiration *timestamp.Timestamp) bool {
 	if expiration == nil {
 		return true

@@ -43,12 +43,12 @@ func main() {
 
 	filesizes := &memory.Sizes{
 		Default: []memory.Size{
-			1 * memory.KB,
-			256 * memory.KB,
-			1 * memory.MB,
-			32 * memory.MB,
-			64 * memory.MB,
-			256 * memory.MB,
+			1 * memory.KiB,
+			256 * memory.KiB,
+			1 * memory.MiB,
+			32 * memory.MiB,
+			64 * memory.MiB,
+			256 * memory.MiB,
 		},
 	}
 	flag.Var(filesizes, "filesize", "filesizes to test with")
