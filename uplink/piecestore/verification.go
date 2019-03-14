@@ -12,11 +12,15 @@ import (
 )
 
 var (
-	ErrInternal        = errs.Class("internal")
-	ErrProtocol        = errs.Class("protocol")
+	// ErrInternal is an error class for internal errors.
+	ErrInternal = errs.Class("internal")
+	// ErrProtocol is an error class for unexpected protocol sequence.
+	ErrProtocol = errs.Class("protocol")
+	// ErrVerifyUntrusted is an error in case there is a trust issue.
 	ErrVerifyUntrusted = errs.Class("untrusted")
 )
 
+// VerifyPieceHash verifies piece hash which is sent by peer.
 func (client *Client) VerifyPieceHash(ctx context.Context, peer *identity.PeerIdentity, limit *pb.OrderLimit2, hash *pb.PieceHash, expectedHash []byte) error {
 	if peer == nil || limit == nil || hash == nil || len(expectedHash) == 0 {
 		return ErrProtocol.New("invalid arguments")

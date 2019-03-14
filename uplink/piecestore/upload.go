@@ -18,7 +18,7 @@ import (
 
 // Uploader defines the interface for uploading a piece.
 type Uploader interface {
-	// Write sends data to the upload.
+	// Write uploads data to the storage node.
 	Write([]byte) (int, error)
 	// Cancel cancels the upload.
 	Cancel() error
@@ -26,6 +26,7 @@ type Uploader interface {
 	Commit() (*pb.PieceHash, error)
 }
 
+// Upload implements uploading to the storage node.
 type Upload struct {
 	client *Client
 	limit  *pb.OrderLimit2
@@ -41,6 +42,7 @@ type Upload struct {
 	sendError error
 }
 
+// Upload initiates an upload to the storage node.
 func (client *Client) Upload(ctx context.Context, limit *pb.OrderLimit2) (Uploader, error) {
 	stream, err := client.client.Upload(ctx)
 	if err != nil {
