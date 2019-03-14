@@ -35,7 +35,6 @@ type Service struct {
 	allocation           *pointerdb.AllocationSigner
 	cache                *overlay.Cache
 	selectionPreferences *overlay.NodeSelectionConfig
-	signer               signing.Signer
 	repairer             SegmentRepairer
 }
 
