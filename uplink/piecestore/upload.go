@@ -6,6 +6,7 @@ package piecestore
 import (
 	"context"
 	"hash"
+	"io"
 
 	"github.com/zeebo/errs"
 
@@ -31,6 +32,7 @@ type Upload struct {
 	allocationStep int64
 
 	// when there's a send error then it will automatically close
+	finished  bool
 	sendError error
 }
 
@@ -72,7 +74,11 @@ func (client *Client) Upload(ctx context.Context, limit *pb.OrderLimit2) (Upload
 	}, nil
 }
 
+// Write sends data to the storagenode allocating as necessary.
 func (client *Upload) Write(data []byte) (written int, _ error) {
+	if client.finished {
+		return 0, io.EOF
+	}
 	// if we already encountered an error, keep returning it
 	if client.sendError != nil {
 		return 0, ErrProtocol.Wrap(client.sendError)
@@ -135,7 +141,22 @@ func (client *Upload) Write(data []byte) (written int, _ error) {
 	return written, nil
 }
 
+// Cancel cancels the uploading.
+func (client *Upload) Cancel() error {
+	if client.finished {
+		return io.EOF
+	}
+	client.finished = true
+	return Error.Wrap(client.stream.CloseSend())
+}
+
+// Commit finishes uploading by sending the piece-hash and retrieving the piece-hash.
 func (client *Upload) Commit() (*pb.PieceHash, error) {
+	if client.finished {
+		return nil, io.EOF
+	}
+	client.finished = true
+
 	if client.sendError != nil {
 		// something happened during sending, try to figure out what exactly
 		// since sendError was already reported, we don't need to rehandle it.
