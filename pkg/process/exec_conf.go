@@ -24,6 +24,8 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
 
+const envPrefix = "STORJ"
+
 // ExecuteWithConfig runs a Cobra command with the provided default config
 func ExecuteWithConfig(cmd *cobra.Command, defaultConfig string) {
 	flag.String("config", os.ExpandEnv(defaultConfig), "config file")
@@ -160,8 +162,9 @@ func cleanup(cmd *cobra.Command) {
 		if err != nil {
 			return err
 		}
-		vip.SetEnvPrefix("storj")
-		vip.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
+		vip.SetEnvPrefix(envPrefix)
+		envReplacer := strings.NewReplacer(".", "_", "-", "_")
+		vip.SetEnvKeyReplacer(envReplacer)
 		vip.AutomaticEnv()
 
 		cfgFlag := cmd.Flags().Lookup("config-dir")
@@ -179,7 +182,10 @@ func cleanup(cmd *cobra.Command) {
 		// go back and propagate changed config values to appropriate flags
 		var brokenKeys []string
 		var brokenVals []string
-		for _, key := range vip.AllKeys() {
+		allKeys := vip.AllKeys()
+		expectedEnv := make(map[string]bool, len(allKeys))
+		for _, key := range allKeys {
+			expectedEnv[envPrefix+"_"+strings.ToUpper(envReplacer.Replace(key))] = true
 			if cmd.Flags().Lookup(key) == nil {
 				// flag couldn't be found
 				brokenKeys = append(brokenKeys, key)
@@ -192,6 +198,15 @@ func cleanup(cmd *cobra.Command) {
 				}
 				// revert Changed value
 				cmd.Flag(key).Changed = oldChanged
+			}
+		}
+
+		// require that any STORJ_ prefixed environment variable is considered broken
+		// if we didn't expect it
+		for _, env := range os.Environ() {
+			parts := strings.SplitN(env, "=", 2)
+			if strings.HasPrefix(parts[0], envPrefix+"_") && !expectedEnv[parts[0]] {
+				brokenKeys = append(brokenKeys, parts[0])
 			}
 		}
 
@@ -217,11 +232,11 @@ func cleanup(cmd *cobra.Command) {
 		// okay now that logging is working, inform about the broken keys
 		if cmd.Annotations["type"] != "helper" {
 			for _, key := range brokenKeys {
-				logger.Sugar().Infof("Invalid configuration file key: %s", key)
+				logger.Sugar().Fatalf("Invalid configuration file key: %s", key)
 			}
 		}
 		for _, key := range brokenVals {
-			logger.Sugar().Infof("Invalid configuration file value for key: %s", key)
+			logger.Sugar().Fatalf("Invalid configuration file value for key: %s", key)
 		}
 
 		err = initDebug(logger, monkit.Default)
