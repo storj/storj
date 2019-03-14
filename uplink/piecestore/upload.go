@@ -16,8 +16,13 @@ import (
 	"storj.io/storj/pkg/pkcrypto"
 )
 
+// Uploader defines the interface for uploading a piece.
 type Uploader interface {
+	// Write sends data to the upload.
 	Write([]byte) (int, error)
+	// Cancel cancels the upload.
+	Cancel() error
+	// Commit finalizes the upload.
 	Commit() (*pb.PieceHash, error)
 }
 

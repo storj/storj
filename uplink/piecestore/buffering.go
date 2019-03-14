@@ -28,6 +28,10 @@ func (upload *BufferedUpload) Write(data []byte) (int, error) {
 	return upload.buffer.Write(data)
 }
 
+func (upload *BufferedUpload) Cancel() error {
+	return upload.upload.Cancel()
+}
+
 func (upload *BufferedUpload) Commit() (*pb.PieceHash, error) {
 	flushErr := upload.buffer.Flush()
 	piece, closeErr := upload.upload.Commit()
@@ -63,6 +67,12 @@ func (upload *LockingUpload) Write(p []byte) (int, error) {
 	upload.mu.Lock()
 	defer upload.mu.Unlock()
 	return upload.upload.Write(p)
+}
+
+func (upload *LockingUpload) Cancel() error {
+	upload.mu.Lock()
+	defer upload.mu.Unlock()
+	return upload.upload.Cancel()
 }
 
 func (upload *LockingUpload) Commit() (*pb.PieceHash, error) {
