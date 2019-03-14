@@ -195,7 +195,7 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 		return nil, err
 	}
 	defer func() {
-		h, closeErr := upload.Close()
+		h, closeErr := upload.Commit()
 		hash = h
 		err = errs.Combine(err, closeErr)
 	}()

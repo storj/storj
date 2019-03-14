@@ -17,7 +17,7 @@ import (
 
 type Uploader interface {
 	Write([]byte) (int, error)
-	Close() (*pb.PieceHash, error)
+	Commit() (*pb.PieceHash, error)
 }
 
 type Upload struct {
@@ -135,7 +135,7 @@ func (client *Upload) Write(data []byte) (written int, _ error) {
 	return written, nil
 }
 
-func (client *Upload) Close() (*pb.PieceHash, error) {
+func (client *Upload) Commit() (*pb.PieceHash, error) {
 	if client.sendError != nil {
 		// something happened during sending, try to figure out what exactly
 		// since sendError was already reported, we don't need to rehandle it.
