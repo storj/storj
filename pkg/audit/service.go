@@ -37,9 +37,9 @@ type Service struct {
 func NewService(log *zap.Logger, sdb statdb.DB, interval time.Duration, maxRetries int, pointers *pointerdb.Service, allocation *pointerdb.AllocationSigner, transport transport.Client, overlay *overlay.Cache, identity *identity.FullIdentity) (service *Service, err error) {
 	return &Service{
 		log: log,
-		// TODO: instead of overlay.Client use overlay.Service
-		Cursor:   NewCursor(pointers, allocation, identity),
-		Verifier: NewVerifier(transport, overlay, identity),
+
+		Cursor:   NewCursor(pointers, allocation, overlay, identity),
+		Verifier: NewVerifier(log.Named("audit:verifier"), transport, overlay, identity),
 		Reporter: NewReporter(sdb, maxRetries),
 
 		ticker: time.NewTicker(interval),
