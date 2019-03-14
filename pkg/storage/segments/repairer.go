@@ -6,133 +6,154 @@ package segments
 import (
 	"context"
 
-	"storj.io/storj/pkg/eestream"
-
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/pkg/auth/signing"
+	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/piecestore/psclient"
-	"storj.io/storj/pkg/pointerdb/pdbclient"
-	ranger "storj.io/storj/pkg/ranger"
+	"storj.io/storj/pkg/pointerdb"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storj"
 )
 
 // Repairer for segments
 type Repairer struct {
-	oc        overlay.Client
-	ec        ecclient.Client
-	pdb       pdbclient.Client
-	nodeStats *pb.NodeStats
+	pointerdb            *pointerdb.Service
+	allocation           *pointerdb.AllocationSigner
+	cache                *overlay.Cache
+	ec                   ecclient.Client
+	selectionPreferences *overlay.NodeSelectionConfig
+	signer               signing.Signer
 }
 
 // NewSegmentRepairer creates a new instance of SegmentRepairer
-func NewSegmentRepairer(oc overlay.Client, ec ecclient.Client, pdb pdbclient.Client) *Repairer {
-	return &Repairer{oc: oc, ec: ec, pdb: pdb}
+func NewSegmentRepairer(pointerdb *pointerdb.Service, allocation *pointerdb.AllocationSigner, cache *overlay.Cache, ec ecclient.Client, signer signing.Signer, selectionPreferences *overlay.NodeSelectionConfig) *Repairer {
+	return &Repairer{
+		pointerdb:            pointerdb,
+		allocation:           allocation,
+		cache:                cache,
+		ec:                   ec,
+		signer:               signer,
+		selectionPreferences: selectionPreferences,
+	}
 }
 
 // Repair retrieves an at-risk segment and repairs and stores lost pieces on new nodes
-func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int32) (err error) {
+func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int32) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// Read the segment's pointer's info from the PointerDB
-	pr, originalNodes, _, err := s.pdb.Get(ctx, path)
+	// Read the segment pointer from the PointerDB
+	pointer, err := repairer.pointerdb.Get(path)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	if pr.GetType() != pb.Pointer_REMOTE {
-		return Error.New("cannot repair inline segment %s", psclient.PieceID(pr.GetInlineSegment()))
+	if pointer.GetType() != pb.Pointer_REMOTE {
+		return Error.New("cannot repair inline segment %s", path)
 	}
 
-	seg := pr.GetRemote()
-
-	originalNodes, err = lookupAndAlignNodes(ctx, s.oc, originalNodes, seg)
+	repairerIdentity, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	// Get the nodes list that needs to be excluded
+	redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
+	rootPieceID := pointer.GetRemote().PieceId_2
+	expiration := pointer.GetExpirationDate()
+
 	var excludeNodeIDs storj.NodeIDList
+	var healthyPieces []*pb.RemotePiece
+	lostPiecesSet := sliceToSet(lostPieces)
 
-	// Count the number of nil nodes thats needs to be repaired
-	totalNilNodes := 0
-
-	healthyNodes := make([]*pb.Node, len(originalNodes))
-
-	// Populate healthyNodes with all nodes from originalNodes except those correlating to indices in lostPieces
-	for i, v := range originalNodes {
-		if v == nil {
-			totalNilNodes++
-			continue
+	// Populate healthyPieces with all pieces from the pointer except those correlating to indices in lostPieces
+	for _, piece := range pointer.GetRemote().GetRemotePieces() {
+		excludeNodeIDs = append(excludeNodeIDs, piece.NodeId)
+		if _, ok := lostPiecesSet[piece.GetPieceNum()]; !ok {
+			healthyPieces = append(healthyPieces, piece)
 		}
-		v.Type.DPanicOnInvalid("repair")
-		excludeNodeIDs = append(excludeNodeIDs, v.Id)
+	}
 
-		// If node index exists in lostPieces, skip adding it to healthyNodes
-		if contains(lostPieces, i) {
-			totalNilNodes++
-		} else {
-			healthyNodes[i] = v
+	// Create the order limits for the GET_REPAIR action
+	getLimits := make([]*pb.AddressedOrderLimit, redundancy.TotalCount())
+	for _, piece := range healthyPieces {
+		derivedPieceID := rootPieceID.Derive(piece.NodeId)
+		orderLimit, err := repairer.createOrderLimit(ctx, repairerIdentity, piece.NodeId, derivedPieceID, expiration, pieceSize, pb.Action_GET_REPAIR)
+		if err != nil {
+			return err
+		}
+
+		node, err := repairer.cache.Get(ctx, piece.NodeId)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		if node != nil {
+			node.Type.DPanicOnInvalid("repair")
+		}
+
+		getLimits[piece.GetPieceNum()] = &pb.AddressedOrderLimit{
+			Limit:              orderLimit,
+			StorageNodeAddress: node.Address,
 		}
 	}
 
 	// Request Overlay for n-h new storage nodes
-	op := overlay.Options{Amount: totalNilNodes, Space: 0, Excluded: excludeNodeIDs}
-	newNodes, err := s.oc.Choose(ctx, op)
-	if err != nil {
-		return err
+	request := &pb.FindStorageNodesRequest{
+		Opts: &pb.OverlayOptions{
+			Amount: int64(redundancy.TotalCount()) - int64(len(healthyPieces)),
+			Restrictions: &pb.NodeRestrictions{
+				FreeBandwidth: pieceSize,
+				FreeDisk:      pieceSize,
+			},
+			ExcludedNodes: excludeNodeIDs,
+		},
 	}
-
-	if totalNilNodes != len(newNodes) {
-		return Error.New("Number of new nodes from overlay (%d) does not equal total nil nodes (%d)", len(newNodes), totalNilNodes)
-	}
-
-	totalRepairCount := len(newNodes)
-
-	// Make a repair nodes list just with new unique ids
-	repairNodes := make([]*pb.Node, len(healthyNodes))
-	for i, vr := range healthyNodes {
-		// Check that totalRepairCount is non-negative
-		if totalRepairCount < 0 {
-			return Error.New("Total repair count (%d) less than zero", totalRepairCount)
-		}
-
-		// Find the nil nodes in the healthyNodes list
-		if vr == nil {
-			// Assign the item in repairNodes list with an item from the newNode list
-			totalRepairCount--
-			repairNodes[i] = newNodes[totalRepairCount]
-		}
-	}
-	for _, v := range repairNodes {
-		if v != nil {
-			v.Type.DPanicOnInvalid("repair 2")
-		}
-	}
-
-	// Check that all nil nodes have a replacement prepared
-	if totalRepairCount != 0 {
-		return Error.New("Failed to replace all nil nodes (%d). (%d) new nodes not inserted", len(newNodes), totalRepairCount)
-	}
-
-	rs, err := eestream.NewRedundancyStrategyFromProto(pr.GetRemote().GetRedundancy())
+	newNodes, err := repairer.cache.FindStorageNodes(ctx, request, repairer.selectionPreferences)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	// TODO: adapt to Metainfo Client
-	var rr ranger.Ranger
-	// pbaGet, err := s.pdb.PayerBandwidthAllocation(ctx, pb.BandwidthAction_GET_REPAIR)
-	// if err != nil {
-	// 	return Error.Wrap(err)
-	// }
-	// Download the segment using just the healthyNodes
-	// rr, err := s.ec.Get(ctx, healthyNodes, rs, pid, pr.GetSegmentSize(), pbaGet)
-	// if err != nil {
-	// 	return Error.Wrap(err)
-	// }
+	// Create the order limits for the PUT_REPAIR action
+	putLimits := make([]*pb.AddressedOrderLimit, redundancy.TotalCount())
+	pieceNum := 0
+	for _, node := range newNodes {
+		if node != nil {
+			node.Type.DPanicOnInvalid("repair 2")
+		}
+
+		for pieceNum < redundancy.TotalCount() && getLimits[pieceNum] != nil {
+			pieceNum++
+		}
+
+		if pieceNum >= redundancy.TotalCount() {
+			break // should not happen
+		}
+
+		derivedPieceID := rootPieceID.Derive(node.Id)
+		orderLimit, err := repairer.createOrderLimit(ctx, repairerIdentity, node.Id, derivedPieceID, expiration, pieceSize, pb.Action_GET_REPAIR)
+		if err != nil {
+			return err
+		}
+
+		putLimits[pieceNum] = &pb.AddressedOrderLimit{
+			Limit:              orderLimit,
+			StorageNodeAddress: node.Address,
+		}
+	}
+
+	// Download the segment using just the healthy pieces
+	rr, err := repairer.ec.Get(ctx, getLimits, redundancy, pointer.GetSegmentSize())
+	if err != nil {
+		return Error.Wrap(err)
+	}
 
 	r, err := rr.Range(ctx, 0, rr.Size())
 	if err != nil {
@@ -140,33 +161,55 @@ func (s *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int
 	}
 	defer func() { err = errs.Combine(err, r.Close()) }()
 
-	// TODO: adapt to Metainfo Client
-	var successfulNodes []*pb.Node
-	var hashes []*pb.PieceHash
-	// pbaPut, err := s.pdb.PayerBandwidthAllocation(ctx, pb.BandwidthAction_PUT_REPAIR)
-	// if err != nil {
-	// 	return Error.Wrap(err)
-	// }
-	// Upload the repaired pieces to the repairNodes
-	// successfulNodes, hashes, err := s.ec.Put(ctx, repairNodes, rs, pid, r, convertTime(pr.GetExpirationDate()), pbaPut)
-	// if err != nil {
-	// 	return Error.Wrap(err)
-	// }
-
-	// Merge the successful nodes list into the healthy nodes list
-	for i, v := range healthyNodes {
-		if v == nil {
-			// copy the successfuNode info
-			healthyNodes[i] = successfulNodes[i]
-		}
-	}
-
-	metadata := pr.GetMetadata()
-	pointer, err := makeRemotePointer(healthyNodes, hashes, rs, seg.PieceId_2, rr.Size(), pr.GetExpirationDate(), metadata)
+	// Upload the repaired pieces
+	successfulNodes, hashes, err := repairer.ec.Put(ctx, putLimits, redundancy, r, convertTime(expiration))
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	// update the segment info in the pointerDB
-	return s.pdb.Put(ctx, path, pointer)
+	// Add the successfully uploaded pieces to the healthyPieces
+	for i, node := range successfulNodes {
+		if node != nil {
+			continue
+		}
+		healthyPieces = append(healthyPieces, &pb.RemotePiece{
+			PieceNum: int32(i),
+			NodeId:   node.Id,
+			Hash:     hashes[i],
+		})
+	}
+
+	// Update the remote pieces in the pointer
+	pointer.GetRemote().RemotePieces = healthyPieces
+
+	// Update the segment pointer in the PointerDB
+	return repairer.pointerdb.Put(path, pointer)
+}
+
+func (repairer *Repairer) createOrderLimit(ctx context.Context, repairerIdentity *identity.PeerIdentity, nodeID storj.NodeID, pieceID pb.PieceID, expiration *timestamp.Timestamp, limit int64, action pb.Action) (*pb.OrderLimit2, error) {
+	parameters := pointerdb.OrderLimitParameters{
+		UplinkIdentity:  repairerIdentity,
+		StorageNodeID:   nodeID,
+		PieceID:         pieceID,
+		Action:          action,
+		PieceExpiration: expiration,
+		Limit:           limit,
+	}
+
+	orderLimit, err := repairer.allocation.OrderLimit(ctx, parameters)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	orderLimit, err = signing.SignOrderLimit(repairer.signer, orderLimit)
+	return orderLimit, Error.Wrap(err)
+}
+
+// sliceToSet converts the given slice to a set
+func sliceToSet(slice []int32) map[int32]struct{} {
+	set := make(map[int32]struct{}, len(slice))
+	for _, value := range slice {
+		set[value] = struct{}{}
+	}
+	return set
 }
