@@ -9,12 +9,10 @@ import (
 	"math/big"
 	"sync"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/vivint/infectious"
 
-	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/storage/meta"
@@ -23,31 +21,23 @@ import (
 
 // Stripe keeps track of a stripe's index and its parent segment
 type Stripe struct {
-	Index       int64
-	Segment     *pb.Pointer
-	OrderLimits []*pb.AddressedOrderLimit
+	Index   int
+	Segment *pb.Pointer
+	PBA     *pb.OrderLimit
 }
 
 // Cursor keeps track of audit location in pointer db
 type Cursor struct {
-	pointerdb  *pointerdb.Service
+	pointers   *pointerdb.Service
 	allocation *pointerdb.AllocationSigner
-	cache      *overlay.Cache
 	identity   *identity.FullIdentity
-	signer     signing.Signer
 	lastPath   storj.Path
 	mutex      sync.Mutex
 }
 
 // NewCursor creates a Cursor which iterates over pointer db
-func NewCursor(pointerdb *pointerdb.Service, allocation *pointerdb.AllocationSigner, cache *overlay.Cache, identity *identity.FullIdentity) *Cursor {
-	return &Cursor{
-		pointerdb:  pointerdb,
-		allocation: allocation,
-		cache:      cache,
-		identity:   identity,
-		signer:     signing.SignerFromFullIdentity(identity),
-	}
+func NewCursor(pointers *pointerdb.Service, allocation *pointerdb.AllocationSigner, identity *identity.FullIdentity) *Cursor {
+	return &Cursor{pointers: pointers, allocation: allocation, identity: identity}
 }
 
 // NextStripe returns a random stripe to be audited
@@ -59,7 +49,7 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 	var path storj.Path
 	var more bool
 
-	pointerItems, more, err = cursor.pointerdb.List("", cursor.lastPath, "", true, 0, meta.None)
+	pointerItems, more, err = cursor.pointers.List("", cursor.lastPath, "", true, 0, meta.None)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +73,12 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 	}
 
 	// get pointer info
-	pointer, err := cursor.pointerdb.Get(path)
+	pointer, err := cursor.pointers.Get(path)
+	if err != nil {
+		return nil, err
+	}
+	peerIdentity := &identity.PeerIdentity{ID: cursor.identity.ID, Leaf: cursor.identity.Leaf}
+	pba, err := cursor.allocation.PayerBandwidthAllocation(ctx, peerIdentity, pb.BandwidthAction_GET_AUDIT)
 	if err != nil {
 		return nil, err
 	}
@@ -92,44 +87,53 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 		return nil, nil
 	}
 
-	if pointer.GetSegmentSize() == 0 {
-		return nil, nil
-	}
-
-	index, err := getRandomStripe(pointer)
+	// create the erasure scheme so we can get the stripe size
+	es, err := makeErasureScheme(pointer.GetRemote().GetRedundancy())
 	if err != nil {
 		return nil, err
 	}
 
-	limits, err := cursor.createOrderLimits(ctx, pointer)
+	if pointer.GetSegmentSize() == 0 {
+		return nil, nil
+	}
+
+	index, err := getRandomStripe(es, pointer)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Stripe{
-		Index:       index,
-		Segment:     pointer,
-		OrderLimits: limits,
+		Index:   index,
+		Segment: pointer,
+		PBA:     pba,
 	}, nil
 }
 
-func getRandomStripe(pointer *pb.Pointer) (index int64, err error) {
-	redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
+func makeErasureScheme(rs *pb.RedundancyScheme) (eestream.ErasureScheme, error) {
+	required := int(rs.GetMinReq())
+	total := int(rs.GetTotal())
+
+	fc, err := infectious.NewFEC(required, total)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
+	es := eestream.NewRSScheme(fc, int(rs.GetErasureShareSize()))
+	return es, nil
+}
+
+func getRandomStripe(es eestream.ErasureScheme, pointer *pb.Pointer) (index int, err error) {
+	stripeSize := es.StripeSize()
 
 	// the last segment could be smaller than stripe size
-	if pointer.GetSegmentSize() < int64(redundancy.StripeSize()) {
+	if pointer.GetSegmentSize() < int64(stripeSize) {
 		return 0, nil
 	}
 
-	randomStripeIndex, err := rand.Int(rand.Reader, big.NewInt(pointer.GetSegmentSize()/int64(redundancy.StripeSize())))
+	randomStripeIndex, err := rand.Int(rand.Reader, big.NewInt(pointer.GetSegmentSize()/int64(stripeSize)))
 	if err != nil {
 		return -1, err
 	}
-
-	return randomStripeIndex.Int64(), nil
+	return int(randomStripeIndex.Int64()), nil
 }
 
 func getRandomPointer(pointerItems []*pb.ListResponse_Item) (pointer *pb.ListResponse_Item, err error) {
@@ -137,71 +141,7 @@ func getRandomPointer(pointerItems []*pb.ListResponse_Item) (pointer *pb.ListRes
 	if err != nil {
 		return &pb.ListResponse_Item{}, err
 	}
-
-	return pointerItems[randomNum.Int64()], nil
-}
-
-func (cursor *Cursor) createOrderLimits(ctx context.Context, pointer *pb.Pointer) ([]*pb.AddressedOrderLimit, error) {
-	auditorIdentity, err := identity.PeerIdentityFromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	rootPieceID := pointer.GetRemote().PieceId_2
-
-	redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
-	if err != nil {
-		return nil, err
-	}
-
-	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
-	expiration := pointer.ExpirationDate
-
-	limits := make([]*pb.AddressedOrderLimit, redundancy.TotalCount())
-	for _, piece := range pointer.GetRemote().GetRemotePieces() {
-		derivedPieceID := rootPieceID.Derive(piece.NodeId)
-		orderLimit, err := cursor.createOrderLimit(ctx, auditorIdentity, piece.NodeId, derivedPieceID, expiration, pieceSize, pb.Action_GET_AUDIT)
-		if err != nil {
-			return nil, err
-		}
-
-		node, err := cursor.cache.Get(ctx, piece.NodeId)
-		if err != nil {
-			return nil, err
-		}
-
-		if node != nil {
-			node.Type.DPanicOnInvalid("auditor order limits")
-		}
-
-		limits[piece.GetPieceNum()] = &pb.AddressedOrderLimit{
-			Limit:              orderLimit,
-			StorageNodeAddress: node.Address,
-		}
-	}
-
-	return limits, nil
-}
-
-func (cursor *Cursor) createOrderLimit(ctx context.Context, uplinkIdentity *identity.PeerIdentity, nodeID storj.NodeID, pieceID pb.PieceID, expiration *timestamp.Timestamp, limit int64, action pb.Action) (*pb.OrderLimit2, error) {
-	parameters := pointerdb.OrderLimitParameters{
-		UplinkIdentity:  uplinkIdentity,
-		StorageNodeID:   nodeID,
-		PieceID:         pieceID,
-		Action:          action,
-		PieceExpiration: expiration,
-		Limit:           limit,
-	}
-
-	orderLimit, err := cursor.allocation.OrderLimit(ctx, parameters)
-	if err != nil {
-		return nil, err
-	}
-
-	orderLimit, err = signing.SignOrderLimit(cursor.signer, orderLimit)
-	if err != nil {
-		return nil, err
-	}
-
-	return orderLimit, nil
+	randomNumInt64 := randomNum.Int64()
+	pointerItem := pointerItems[randomNumInt64]
+	return pointerItem, nil
 }

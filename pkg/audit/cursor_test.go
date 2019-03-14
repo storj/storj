@@ -80,11 +80,10 @@ func TestAuditSegment(t *testing.T) {
 			},
 		}
 
-		pointerdb := planet.Satellites[0].Metainfo.Service
+		pointers := planet.Satellites[0].Metainfo.Service
 		allocation := planet.Satellites[0].Metainfo.Allocation
-		cache := planet.Satellites[0].Overlay.Service
 		// create a pdb client and instance of audit
-		cursor := audit.NewCursor(pointerdb, allocation, cache, planet.Satellites[0].Identity)
+		cursor := audit.NewCursor(pointers, allocation, planet.Satellites[0].Identity)
 
 		// put 10 paths in db
 		t.Run("putToDB", func(t *testing.T) {
@@ -96,7 +95,7 @@ func TestAuditSegment(t *testing.T) {
 					putRequest := makePutRequest(tt.path)
 
 					// put pointer into db
-					err := pointerdb.Put(tt.path, putRequest.Pointer)
+					err := pointers.Put(tt.path, putRequest.Pointer)
 					if err != nil {
 						t.Fatalf("failed to put %v: error: %v", putRequest.Pointer, err)
 						assert1.NotNil(err)
@@ -126,7 +125,7 @@ func TestAuditSegment(t *testing.T) {
 
 		// test to see how random paths are
 		t.Run("probabilisticTest", func(t *testing.T) {
-			list, _, err := pointerdb.List("", "", "", true, 10, meta.None)
+			list, _, err := pointers.List("", "", "", true, 10, meta.None)
 			require.NoError(t, err)
 			require.Len(t, list, 10)
 
