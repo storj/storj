@@ -71,7 +71,8 @@ func TestSegmentStoreRepair(t *testing.T) {
 		}
 		for _, node := range planet.StorageNodes {
 			if nodesToKill[node.ID()] {
-				planet.StopPeer(node)
+				err = planet.StopPeer(node)
+				assert.NoError(t, err)
 			}
 		}
 
