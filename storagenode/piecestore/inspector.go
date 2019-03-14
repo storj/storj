@@ -8,8 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"storj.io/storj/storagenode/bandwidth"
-
 	"github.com/golang/protobuf/ptypes"
 	"go.uber.org/zap"
 
@@ -18,6 +16,7 @@ import (
 	"storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/pieces"
 )
 
