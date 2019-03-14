@@ -12,8 +12,6 @@ import (
 
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/storage"
-
-	_ "storj.io/storj/storage/filestore"
 )
 
 // Writer implements a piece writer that writes content to blob store and calculates a hash.

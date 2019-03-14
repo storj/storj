@@ -11,7 +11,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
-
 	"github.com/skyrings/skyring-common/tools/uuid"
 
 	"storj.io/storj/pkg/auth"

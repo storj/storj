@@ -8,12 +8,11 @@ import (
 	"context"
 	"time"
 
-	"storj.io/storj/pkg/auth/signing"
-
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 )
