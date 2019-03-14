@@ -7,8 +7,9 @@ import (
 	"context"
 	"time"
 
+	"storj.io/storj/pkg/identity"
+
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb"
 	ecclient "storj.io/storj/pkg/storage/ec"
@@ -24,10 +25,10 @@ type Config struct {
 }
 
 // GetSegmentRepairer creates a new segment repairer from storeConfig values
-func (c Config) GetSegmentRepairer(ctx context.Context, tc transport.Client, pointerdb *pointerdb.Service, allocation *pointerdb.AllocationSigner, cache *overlay.Cache, signer signing.Signer, selectionPreferences *overlay.NodeSelectionConfig) (ss SegmentRepairer, err error) {
+func (c Config) GetSegmentRepairer(ctx context.Context, tc transport.Client, pointerdb *pointerdb.Service, allocation *pointerdb.AllocationSigner, cache *overlay.Cache, identity *identity.FullIdentity, selectionPreferences *overlay.NodeSelectionConfig) (ss SegmentRepairer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	ec := ecclient.NewClient(tc, c.MaxBufferMem.Int())
 
-	return segments.NewSegmentRepairer(pointerdb, allocation, cache, ec, signer, selectionPreferences), nil
+	return segments.NewSegmentRepairer(pointerdb, allocation, cache, ec, identity, selectionPreferences), nil
 }
