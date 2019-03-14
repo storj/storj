@@ -5,6 +5,7 @@ package ecclient
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"sort"
@@ -80,6 +81,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 	}
 
 	padded := eestream.PadReader(ioutil.NopCloser(data), rs.StripeSize())
+	fmt.Println("padded", padded)
 	readers, err := eestream.EncodeReader(ctx, padded, rs)
 	if err != nil {
 		return nil, nil, err
@@ -99,7 +101,12 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 
 	for i, addressedLimit := range limits {
 		go func(i int, addressedLimit *pb.AddressedOrderLimit) {
+			fmt.Println("readers", i)
+			fmt.Println(&readers[i])
 			hash, err := ec.putPiece(psCtx, ctx, addressedLimit, readers[i], expiration)
+			if err != nil {
+				fmt.Println(i, err)
+			}
 			infos <- info{i: i, err: err, hash: hash}
 		}(i, addressedLimit)
 	}
@@ -112,6 +119,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 	for range limits {
 		info := <-infos
 		if info.err != nil {
+			fmt.Println("info err", info.err)
 			zap.S().Debugf("Upload to storage node %s failed: %v", limits[info.i].GetLimit().StorageNodeId, info.err)
 			continue
 		}
