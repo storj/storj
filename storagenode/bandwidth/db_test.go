@@ -96,6 +96,6 @@ func TestDB(t *testing.T) {
 		}
 		usageBySatellite, err = bandwidthdb.SummaryBySatellite(ctx, now.Add(time.Hour), now.Add(10*time.Hour))
 		require.NoError(t, err)
-		require.Equal(t, expectedUsage, usage)
+		require.Equal(t, expectedUsageBySatellite, usageBySatellite)
 	})
 }

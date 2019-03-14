@@ -37,11 +37,21 @@ type SenderConfig struct {
 
 // Sender sends every interval unsent orders to the satellite.
 type Sender struct {
-	log *zap.Logger
+	log    *zap.Logger
+	config SenderConfig
 
 	client   transport.Client
 	kademlia *kademlia.Kademlia
+	orders   DB
+}
 
-	table  DB
-	config SenderConfig
+// NewSender creates an order sender.
+func NewSender(log *zap.Logger, client transport.Client, kademlia *kademlia.Kademlia, orders DB, config Config) *Sender {
+	return &Sender{
+		log:      log,
+		config:   config,
+		client:   client,
+		kademlia: kademlia,
+		orders:   orders,
+	}
 }
