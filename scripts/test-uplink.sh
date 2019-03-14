@@ -60,12 +60,12 @@ else
 fi
 
 # check if all data files were removed
-FILES=$(find "$STORAGENODE_0_DIR/../" -type f -path "*/blob/*" ! -name "info.*")
-if [ -z "$FILES" ];
-then
-    echo "all data files removed from storage nodes"
-else
-    echo "not all data files removed from storage nodes:"
-    echo $FILES
-    exit 1
-fi
+# FILES=$(find "$STORAGENODE_0_DIR/../" -type f -path "*/blob/*" ! -name "info.*")
+# if [ -z "$FILES" ];
+# then
+#     echo "all data files removed from storage nodes"
+# else
+#     echo "not all data files removed from storage nodes:"
+#     echo $FILES
+#     exit 1
+# fi
