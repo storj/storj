@@ -20,9 +20,9 @@ type bandwidthagreement struct {
 	db *dbx.DB
 }
 
-func (b *bandwidthagreement) SaveOrder(rba *pb.Order) (err error) {
+func (b *bandwidthagreement) SaveOrder(ctx context.Context, rba *pb.Order) (err error) {
 	var saveOrderSQL = `INSERT INTO bwagreements ( serialnum, storage_node_id, uplink_id, action, total, created_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? )`
-	_, err = b.db.DB.Exec(b.db.Rebind(saveOrderSQL),
+	_, err = b.db.DB.ExecContext(ctx, b.db.Rebind(saveOrderSQL),
 		rba.PayerAllocation.SerialNumber+rba.StorageNodeId.String(),
 		rba.StorageNodeId,
 		rba.PayerAllocation.UplinkId,
@@ -43,7 +43,7 @@ func (b *bandwidthagreement) GetUplinkStats(ctx context.Context, from, to time.T
 		FROM bwagreements WHERE created_at > ? 
 		AND created_at <= ? GROUP BY uplink_id ORDER BY uplink_id`,
 		pb.BandwidthAction_PUT, pb.BandwidthAction_GET)
-	rows, err := b.db.DB.Query(b.db.Rebind(uplinkSQL), from.UTC(), to.UTC())
+	rows, err := b.db.DB.QueryContext(ctx, b.db.Rebind(uplinkSQL), from.UTC(), to.UTC())
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +71,7 @@ func (b *bandwidthagreement) GetTotals(ctx context.Context, from, to time.Time) 
 		GROUP BY storage_node_id ORDER BY storage_node_id`, pb.BandwidthAction_PUT,
 		pb.BandwidthAction_GET, pb.BandwidthAction_GET_AUDIT,
 		pb.BandwidthAction_GET_REPAIR, pb.BandwidthAction_PUT_REPAIR)
-	rows, err := b.db.DB.Query(b.db.Rebind(getTotalsSQL), from.UTC(), to.UTC())
+	rows, err := b.db.DB.QueryContext(ctx, b.db.Rebind(getTotalsSQL), from.UTC(), to.UTC())
 	if err != nil {
 		return nil, err
 	}
@@ -92,10 +92,10 @@ func (b *bandwidthagreement) GetTotals(ctx context.Context, from, to time.Time) 
 }
 
 //GetExpired gets orders that are expired and were created before some time
-func (b *bandwidthagreement) GetExpired(before time.Time, expiredAt time.Time) (orders []bwagreement.SavedOrder, err error) {
+func (b *bandwidthagreement) GetExpired(ctx context.Context, before time.Time, expiredAt time.Time) (orders []bwagreement.SavedOrder, err error) {
 	var getExpiredSQL = `SELECT serialnum, storage_node_id, uplink_id, action, total, created_at, expires_at 
 		FROM bwagreements WHERE created_at < ? AND expires_at < ?`
-	rows, err := b.db.DB.Query(b.db.Rebind(getExpiredSQL), before, expiredAt)
+	rows, err := b.db.DB.QueryContext(ctx, b.db.Rebind(getExpiredSQL), before, expiredAt)
 	if err != nil {
 		return nil, err
 	}
@@ -112,8 +112,8 @@ func (b *bandwidthagreement) GetExpired(before time.Time, expiredAt time.Time) (
 }
 
 //DeleteExpired deletes orders that are expired and were created before some time
-func (b *bandwidthagreement) DeleteExpired(before time.Time, expiredAt time.Time) error {
+func (b *bandwidthagreement) DeleteExpired(ctx context.Context, before time.Time, expiredAt time.Time) error {
 	var deleteExpiredSQL = `DELETE FROM bwagreements WHERE created_at < ? AND expires_at < ?`
-	_, err := b.db.DB.Exec(b.db.Rebind(deleteExpiredSQL), before, expiredAt)
+	_, err := b.db.DB.ExecContext(ctx, b.db.Rebind(deleteExpiredSQL), before, expiredAt)
 	return err
 }
