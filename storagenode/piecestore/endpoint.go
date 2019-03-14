@@ -27,16 +27,21 @@ import (
 var (
 	mon = monkit.Package()
 
-	Error       = errs.Class("piecestore error")
-	ErrProtocol = errs.Class("piecestore protocol error")
-	ErrInternal = errs.Class("piecestore internal error")
+	// Error is the default error class for piecestore errors
+	Error = errs.Class("piecestore")
+	// ErrProtocol is the default error class for protocol errors.
+	ErrProtocol = errs.Class("piecestore protocol")
+	// ErrInternal is the default error class for internal piecestore errors.
+	ErrInternal = errs.Class("piecestore internal")
 )
 var _ pb.PiecestoreServer = (*Endpoint)(nil)
 
+// Config defines parameters for piecestore endpoint.
 type Config struct {
 	ExpirationGracePeriod time.Duration `help:"how soon before expiration date should things be considered expired" default:"48h0m0s"`
 }
 
+// Endpoint implements uploading, downloading and deleting for a storage node.
 type Endpoint struct {
 	log    *zap.Logger
 	config Config
@@ -50,6 +55,7 @@ type Endpoint struct {
 	usedSerials UsedSerials
 }
 
+// NewEndpoint creates a new piecestore endpoint.
 func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, store *pieces.Store, pieceinfo pieces.DB, orders orders.DB, usedSerials UsedSerials, config Config) (*Endpoint, error) {
 	return &Endpoint{
 		log:    log,
@@ -65,6 +71,7 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, stor
 	}, nil
 }
 
+// Delete handles deleting a piece on piece store.
 func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequest) (_ *pb.PieceDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -94,6 +101,7 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 	return &pb.PieceDeleteResponse{}, nil
 }
 
+// Upload handles uploading a piece on piece store.
 func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
@@ -141,7 +149,12 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 	if err != nil {
 		return ErrInternal.Wrap(err) // TODO: report grpc status internal server error
 	}
-	defer pieceWriter.Cancel() // similarly how transcation Rollback works
+	defer func() {
+		// cancel error if it hasn't been committed
+		if cancelErr := pieceWriter.Cancel(); cancelErr != nil {
+			endpoint.log.Error("error during cancelling a piece write", zap.Error(cancelErr))
+		}
+	}()
 
 	largestOrder := &pb.Order2{}
 	defer endpoint.SaveOrder(ctx, limit, largestOrder, peer)
@@ -231,6 +244,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 	}
 }
 
+// Download implements downloading a piece from piece store.
 func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
@@ -377,6 +391,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 	return Error.Wrap(errs.Combine(sendErr, recvErr))
 }
 
+// SaveOrder saves the order with all necessary information. It assumes it has been already verified.
 func (endpoint *Endpoint) SaveOrder(ctx context.Context, limit *pb.OrderLimit2, order *pb.Order2, uplink *identity.PeerIdentity) {
 	// TODO: do this in a goroutine
 	if order == nil || order.Amount <= 0 {
@@ -392,6 +407,7 @@ func (endpoint *Endpoint) SaveOrder(ctx context.Context, limit *pb.OrderLimit2, 
 	}
 }
 
+// min finds the min of two values
 func min(a, b int64) int64 {
 	if a < b {
 		return a
@@ -399,6 +415,7 @@ func min(a, b int64) int64 {
 	return b
 }
 
+// ignoreEOF ignores io.EOF error.
 func ignoreEOF(err error) error {
 	if err == io.EOF {
 		return nil
