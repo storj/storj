@@ -12,6 +12,8 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/pkg/auth/signing"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
@@ -25,15 +27,17 @@ func TestSegmentStoreRepair(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// first, upload some remote data
 		uplink := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+
 		testData := make([]byte, 5*memory.MiB)
 		_, err := rand.Read(testData)
 		assert.NoError(t, err)
 
-		err = uplink.Upload(ctx, planet.Satellites[0], "test/bucket", "test/path", testData)
+		err = uplink.Upload(ctx, satellite, "test/bucket", "test/path", testData)
 		assert.NoError(t, err)
 
 		// get a remote segment from pointerdb
-		pdb := planet.Satellites[0].Metainfo.Service
+		pdb := satellite.Metainfo.Service
 		listResponse, _, err := pdb.List("", "", "", true, 10, 0)
 		assert.NoError(t, err)
 
@@ -73,10 +77,14 @@ func TestSegmentStoreRepair(t *testing.T) {
 		}
 
 		// repair segment
-		oc, err := uplink.DialOverlay(planet.Satellites[0])
-		assert.NoError(t, err)
+		overlayDB := satellite.DB.OverlayCache()
+		statDB := satellite.DB.StatDB()
+		oc := overlay.NewCache(overlayDB, statDB)
+		as := satellite.Metainfo.Allocation
 		ec := ecclient.NewClient(uplink.Transport, 0)
-		repairer := segments.NewSegmentRepairer(oc, ec, pdb)
+		signer := signing.SignerFromFullIdentity(satellite.Identity)
+		selectionConfig := &overlay.NodeSelectionConfig{}
+		repairer := segments.NewSegmentRepairer(pdb, as, oc, ec, signer, selectionConfig)
 		assert.NotNil(t, repairer)
 
 		err = repairer.Repair(ctx, path, lostPieces)
