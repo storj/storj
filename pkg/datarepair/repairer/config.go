@@ -7,8 +7,9 @@ import (
 	"context"
 	"time"
 
-	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/identity"
+
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb"
 	ecclient "storj.io/storj/pkg/storage/ec"
