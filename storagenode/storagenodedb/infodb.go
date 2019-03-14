@@ -24,8 +24,8 @@ type infodb struct {
 	db *sql.DB
 }
 
-// NewInfo creates or opens infodb at the specified path.
-func NewInfo(path string) (*infodb, error) {
+// newInfo creates or opens infodb at the specified path.
+func newInfo(path string) (*infodb, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return nil, err
 	}
@@ -38,8 +38,8 @@ func NewInfo(path string) (*infodb, error) {
 	return &infodb{db: db}, nil
 }
 
-// NewInfoInMemory creates a new inmemory infodb.
-func NewInfoInMemory() (*infodb, error) {
+// newInfoInMemory creates a new inmemory infodb.
+func newInfoInMemory() (*infodb, error) {
 	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
 		return nil, ErrInfo.Wrap(err)
