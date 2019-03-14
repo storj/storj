@@ -25,7 +25,7 @@ type Pool struct {
 	trustedSatellites  map[storj.NodeID]*satelliteInfoCache
 }
 
-// satellite info cache, caches information about a satellite.
+// satelliteInfoCache caches identity information about a satellite
 type satelliteInfoCache struct {
 	once     sync.Once
 	identity *identity.PeerIdentity
