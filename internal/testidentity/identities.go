@@ -1,14 +1,14 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information
 
-package testplanet
+package testidentity
 
 import (
 	"errors"
-
-	"storj.io/storj/pkg/storj"
+	"testing"
 
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/storj"
 )
 
 //go:generate go run gen_identities.go -version 1 -count 150 -out V1_identities_table.go
@@ -17,21 +17,25 @@ import (
 //go:generate go run gen_identities.go -signed -version 2 -count 150 -out V2_signed_identities_table.go
 
 var (
-	identityVersions = map[storj.IDVersionNumber]*Identities{
+	IdentityVersions = VersionedIdentitiesMap{
 		storj.V1: pregeneratedV1Identities,
 		storj.V2: pregeneratedV2Identities,
 	}
 
-	signedIdentityVersions = map[storj.IDVersionNumber]*Identities{
+	SignedIdentityVersions = VersionedIdentitiesMap{
 		storj.V1: pregeneratedV1SignedIdentities,
 		storj.V2: pregeneratedV2SignedIdentities,
 	}
 
-	signerVersions = map[storj.IDVersionNumber]*identity.FullCertificateAuthority{
+	SignerVersions = VersionedCertificateAuthorityMap{
 		storj.V1: pregeneratedV1Signer,
 		storj.V2: pregeneratedV2Signer,
 	}
 )
+
+type VersionedIdentitiesMap map[storj.IDVersionNumber]*Identities
+type VersionedCertificateAuthorityMap map[storj.IDVersionNumber]*identity.FullCertificateAuthority
+type IdentityTestFactory func(*testing.T, IdentityTest)
 
 // Identities is a pregenerated full identity table.
 type Identities struct {
@@ -67,7 +71,7 @@ func MustPregeneratedSignedIdentity(index int, version storj.IDVersion) *identit
 
 // PregeneratedIdentity returns a pregenerated identity from a list
 func PregeneratedIdentity(index int, version storj.IDVersion) (*identity.FullIdentity, error) {
-	pregeneratedIdentities := identityVersions[version.Number]
+	pregeneratedIdentities := IdentityVersions[version.Number]
 
 	if pregeneratedIdentities.next >= len(pregeneratedIdentities.list) {
 		return nil, errors.New("out of pregenerated identities")
@@ -77,7 +81,7 @@ func PregeneratedIdentity(index int, version storj.IDVersion) (*identity.FullIde
 
 // PregeneratedSignedIdentity returns a signed pregenerated identity from a list
 func PregeneratedSignedIdentity(index int, version storj.IDVersion) (*identity.FullIdentity, error) {
-	pregeneratedSignedIdentities := signedIdentityVersions[version.Number]
+	pregeneratedSignedIdentities := SignedIdentityVersions[version.Number]
 
 	if pregeneratedSignedIdentities.next >= len(pregeneratedSignedIdentities.list) {
 		return nil, errors.New("out of signed pregenerated identities")
@@ -87,18 +91,18 @@ func PregeneratedSignedIdentity(index int, version storj.IDVersion) (*identity.F
 
 // NewPregeneratedIdentities retruns a new table from provided identities.
 func NewPregeneratedIdentities(version storj.IDVersion) *Identities {
-	return identityVersions[version.Number].Clone()
+	return IdentityVersions[version.Number].Clone()
 }
 
 // NewPregeneratedSignedIdentities retruns a new table from provided signed identities.
 func NewPregeneratedSignedIdentities(version storj.IDVersion) *Identities {
-	return signedIdentityVersions[version.Number].Clone()
+	return SignedIdentityVersions[version.Number].Clone()
 }
 
 // NewPregeneratedSigner returns the signer for all pregenerated, signed identities
 func NewPregeneratedSigner(version storj.IDVersion) *identity.FullCertificateAuthority {
 	//return pregeneratedV1Signer
-	return signerVersions[version.Number]
+	return SignerVersions[version.Number]
 }
 
 // Clone creates a shallow clone of the table.

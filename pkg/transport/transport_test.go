@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
@@ -37,10 +38,10 @@ func TestDialNode(t *testing.T) {
 
 	client := planet.StorageNodes[0].Transport
 
-	unsignedIdent, err := testplanet.PregeneratedIdentity(0, storj.LatestIDVersion())
+	unsignedIdent, err := testidentity.PregeneratedIdentity(0, storj.LatestIDVersion())
 	require.NoError(t, err)
 
-	signedIdent, err := testplanet.PregeneratedSignedIdentity(0, storj.LatestIDVersion())
+	signedIdent, err := testidentity.PregeneratedSignedIdentity(0, storj.LatestIDVersion())
 	require.NoError(t, err)
 
 	opts, err := tlsopts.NewOptions(signedIdent, tlsopts.Config{
@@ -197,7 +198,7 @@ func TestDialNode_BadServerCertificate(t *testing.T) {
 			StorageNodeCount: 2,
 			UplinkCount:      0,
 			Reconfigure:      testplanet.DisablePeerCAWhitelist,
-			Identities:       testplanet.NewPregeneratedIdentities(storj.LatestIDVersion()),
+			Identities:       testidentity.NewPregeneratedIdentities(storj.LatestIDVersion()),
 		},
 	)
 	if err != nil {
@@ -211,7 +212,7 @@ func TestDialNode_BadServerCertificate(t *testing.T) {
 	planet.Start(ctx)
 
 	client := planet.StorageNodes[0].Transport
-	ident, err := testplanet.PregeneratedSignedIdentity(0, storj.LatestIDVersion())
+	ident, err := testidentity.PregeneratedSignedIdentity(0, storj.LatestIDVersion())
 	require.NoError(t, err)
 
 	opts, err := tlsopts.NewOptions(ident, tlsopts.Config{
