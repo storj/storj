@@ -9,6 +9,7 @@ import (
 	"storj.io/storj/pkg/pb"
 )
 
+// EncodeOrderLimit encodes order limit into bytes for signing.
 func EncodeOrderLimit(limit *pb.OrderLimit2) ([]byte, error) {
 	signature := limit.SatelliteSignature
 	limit.SatelliteSignature = nil
@@ -16,6 +17,7 @@ func EncodeOrderLimit(limit *pb.OrderLimit2) ([]byte, error) {
 	return proto.Marshal(limit)
 }
 
+// EncodeOrder encodes order into bytes for signing.
 func EncodeOrder(order *pb.Order2) ([]byte, error) {
 	signature := order.UplinkSignature
 	order.UplinkSignature = nil
@@ -23,6 +25,7 @@ func EncodeOrder(order *pb.Order2) ([]byte, error) {
 	return proto.Marshal(order)
 }
 
+// EncodePieceHash encodes piece hash into bytes for signing.
 func EncodePieceHash(hash *pb.PieceHash) ([]byte, error) {
 	signature := hash.Signature
 	hash.Signature = nil

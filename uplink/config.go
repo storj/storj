@@ -7,14 +7,13 @@ import (
 	"context"
 	"errors"
 
-	"storj.io/storj/pkg/encryption"
-
 	"github.com/vivint/infectious"
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/overlay"

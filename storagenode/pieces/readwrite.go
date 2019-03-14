@@ -12,8 +12,6 @@ import (
 
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/storage"
-
-	_ "storj.io/storj/storage/filestore"
 )
 
 // Writer implements a piece writer that writes content to blob store and calculates a hash.
@@ -79,7 +77,7 @@ func NewReader(blob storage.BlobReader, bufferSize int) (*Reader, error) {
 	reader := &Reader{}
 	reader.buf = *bufio.NewReaderSize(blob, bufferSize)
 	reader.blob = blob
-	reader.size = int64(size)
+	reader.size = size
 
 	return reader, nil
 }
