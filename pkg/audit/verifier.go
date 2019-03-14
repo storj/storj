@@ -7,12 +7,14 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"time"
 
 	"github.com/vivint/infectious"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
@@ -22,7 +24,14 @@ import (
 	"storj.io/storj/uplink/piecestore"
 )
 
-var mon = monkit.Package()
+var (
+	mon = monkit.Package()
+
+	// todo(nat): make this configurable
+	// this is minimum bytes per second acceptable transfer rate
+	// from a storage node to a satellite
+	submissionSpeed = 128 * memory.B
+)
 
 // Share represents required information about an audited share
 type Share struct {
@@ -72,6 +81,15 @@ func (d *defaultDownloader) getShare(ctx context.Context, limit *pb.AddressedOrd
 	if err != nil {
 		return Share{}, err
 	}
+
+	bandwidthMsgSize := shareSize
+	seconds := bandwidthMsgSize / submissionSpeed.Int32()
+
+	allottedTime := time.Now().Local().Add(time.Second * time.Duration(seconds))
+
+	newCtx, cancel := context.WithDeadline(ctx, allottedTime)
+	defer cancel()
+
 	ps := piecestore.NewClient(
 		d.log.Named(storageNodeID.String()),
 		signing.SignerFromFullIdentity(d.transport.Identity()),
@@ -81,7 +99,7 @@ func (d *defaultDownloader) getShare(ctx context.Context, limit *pb.AddressedOrd
 
 	offset := int64(shareSize) * stripeIndex
 
-	downloader, err := ps.Download(ctx, limit.GetLimit(), offset, int64(shareSize))
+	downloader, err := ps.Download(newCtx, limit.GetLimit(), offset, int64(shareSize))
 	if err != nil {
 		return Share{}, err
 	}

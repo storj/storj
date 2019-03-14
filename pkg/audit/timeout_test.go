@@ -23,9 +23,12 @@ func TestAuditTimeout(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
+		err := planet.Satellites[0].Audit.Service.Close()
+		assert.NoError(t, err)
+
 		uplink := planet.Uplinks[0]
 		testData := make([]byte, 5*memory.MiB)
-		_, err := rand.Read(testData)
+		_, err = rand.Read(testData)
 		assert.NoError(t, err)
 
 		err = uplink.Upload(ctx, planet.Satellites[0], "test/bucket", "test/path", testData)
@@ -47,7 +50,7 @@ func TestAuditTimeout(t *testing.T) {
 
 		overlay := planet.Satellites[0].Overlay.Service
 		tc := planet.Satellites[0].Transport
-		slowtc := transport.NewClientWithLatency(tc, latency.Longhaul)
+		slowtc := transport.NewClientWithLatency(tc, latency.Local)
 		require.NotNil(t, slowtc)
 
 		verifier := audit.NewVerifier(slowtc, overlay, planet.Satellites[0].Identity)
@@ -56,7 +59,8 @@ func TestAuditTimeout(t *testing.T) {
 		// We want this version of the verifier to be used for all auditing within the test
 		// which should cause the test to fail because of the slowness.
 
-		// _, err = verifier.Verify(ctx, stripe)
-		// assert.Error(t, err)
+		_, err = verifier.Verify(ctx, stripe)
+		t.Error(err)
+		assert.Error(t, err)
 	})
 }

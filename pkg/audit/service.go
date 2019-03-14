@@ -9,6 +9,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb"
@@ -30,7 +31,7 @@ type Service struct {
 	Verifier *Verifier
 	Reporter reporter
 
-	ticker *time.Ticker
+	Loop sync2.Cycle
 }
 
 // NewService instantiates a Service with access to a Cursor and Verifier
@@ -42,7 +43,7 @@ func NewService(log *zap.Logger, sdb statdb.DB, interval time.Duration, maxRetri
 		Verifier: NewVerifier(log.Named("audit:verifier"), transport, overlay, identity),
 		Reporter: NewReporter(sdb, maxRetries),
 
-		ticker: time.NewTicker(interval),
+		Loop: *sync2.NewCycle(interval),
 	}, nil
 }
 
@@ -51,18 +52,19 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	service.log.Info("Audit cron is starting up")
 
-	for {
+	return service.Loop.Run(ctx, func(ctx context.Context) error {
 		err := service.process(ctx)
 		if err != nil {
 			service.log.Error("process", zap.Error(err))
 		}
+		return err
+	})
+}
 
-		select {
-		case <-service.ticker.C:
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
+// Close halts the audit loop
+func (service *Service) Close() error {
+	service.Loop.Close()
+	return nil
 }
 
 // process picks a random stripe and verifies correctness
