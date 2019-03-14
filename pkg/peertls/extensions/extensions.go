@@ -42,9 +42,9 @@ var (
 	// RevocationExtID is the asn1 object ID for a pkix extensionHandler containing the
 	// most recent certificate revocation data
 	// for the current TLS cert chain.
-	RevocationExtID = ExtensionID{2, 999, 1, 2}
-	IdentityVersionExtID    = asn1.ObjectIdentifier{2, 999, 2, 1}
-	IdentityPOWCounterExtID = asn1.ObjectIdentifier{2, 999, 2, 2}
+	RevocationExtID         = ExtensionID{2, 999, 1, 2}
+	IdentityVersionExtID    = ExtensionID{2, 999, 2, 1}
+	IdentityPOWCounterExtID = ExtensionID{2, 999, 2, 2}
 
 	// Error is used when an error occurs while processing an extension.
 	Error = errs.Class("extension error")
@@ -105,7 +105,7 @@ func init() {
 	)
 }
 
-// NewHandlerFactory builds a `HandlerFactory` pointer from an `ExtensionID` and a `handlerFactoryFunc`.
+// NewHandlerFactory builds a `HandlerFactory` pointer from an `ExtensionID` and a `HandlerFactoryFunc`.
 func NewHandlerFactory(id *ExtensionID, handlerFactory HandlerFactoryFunc) *HandlerFactory {
 	return &HandlerFactory{
 		id:      id,

@@ -15,10 +15,9 @@ import (
 	"go/format"
 	"os"
 
-	"storj.io/storj/pkg/storj"
-
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pkcrypto"
+	"storj.io/storj/pkg/storj"
 )
 
 func main() {
@@ -49,13 +48,13 @@ func main() {
 	case 0:
 		identityVersion = storj.LatestIDVersion()
 	default:
-		identityVersion = storj.IDVersions[uint8(*versionFlag)]
+		identityVersion = storj.IDVersions[storj.IDVersionNumber(*versionFlag)]
 	}
 
 	caOpts := identity.NewCAOptions{
-		Version:     identityVersion,
-		Difficulty:  12,
-		Concurrency: 4,
+		VersionNumber: identityVersion.Number,
+		Difficulty:    12,
+		Concurrency:   4,
 	}
 
 	if *signed {
