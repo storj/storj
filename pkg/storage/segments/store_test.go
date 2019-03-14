@@ -83,17 +83,27 @@ func TestSegmentStorePutGet(t *testing.T) {
 		expiration time.Time
 		content    []byte
 	}{
-		{"test inline put/get", "l/path/1", []byte("metadata"), time.Now().UTC(), createTestData(t, 2*memory.KiB.Int64())},
-		{"test remote put/get", "s0/test_bucket/mypath/1", []byte("metadata"), time.Now().UTC(), createTestData(t, 100*memory.KiB.Int64())},
+		{"test inline put/get", "l/path/1", []byte("metadata-intline"), time.Now().UTC(), createTestData(t, 2*memory.KiB.Int64())},
+		{"test remote put/get", "s0/test_bucket/mypath/1", []byte("metadata-remote"), time.Now().UTC(), createTestData(t, 100*memory.KiB.Int64())},
 	} {
 		runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
-			_, err := segmentStore.Put(ctx, bytes.NewReader(tt.content), tt.expiration, func() (storj.Path, []byte, error) {
+			metadata, err := segmentStore.Put(ctx, bytes.NewReader(tt.content), tt.expiration, func() (storj.Path, []byte, error) {
 				return tt.path, tt.metadata, nil
 			})
 			require.NoError(t, err, tt.name)
+			require.Equal(t, tt.metadata, metadata.Data)
 
-			_, _, err = segmentStore.Get(ctx, tt.path)
+			rr, metadata, err := segmentStore.Get(ctx, tt.path)
 			require.NoError(t, err, tt.name)
+			require.Equal(t, tt.metadata, metadata.Data)
+
+			reader, err := rr.Range(ctx, 0, rr.Size())
+			require.NoError(t, err, tt.name)
+			content, err := ioutil.ReadAll(reader)
+			require.NoError(t, err, tt.name)
+			require.Equal(t, tt.content, content)
+
+			require.NoError(t, reader.Close(), tt.name)
 		})
 	}
 }
