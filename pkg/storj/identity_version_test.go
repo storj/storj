@@ -6,6 +6,8 @@ package storj_test
 import (
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"storj.io/storj/pkg/peertls/extensions"
+	"storj.io/storj/pkg/peertls/tlsopts"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -102,13 +104,16 @@ func TestIDVersionExtensionHandler_success(t *testing.T) {
 
 	for _, testcase := range testcases {
 		t.Log(testcase.name)
-		opts := peertls.ExtensionOptions{PeerIDVersions: testcase.versions}
+		opts := &extensions.Options{PeerIDVersions: testcase.versions}
 
 		ext := testcase.chain[peertls.CAIndex].ExtraExtensions[0]
-		err := storj.NewIDVersionExtensionHandler().NewVerifier(opts)(ext, identity.ToChains(testcase.chain))
+		err := storj.IDVersionHandler.NewHandlerFunc(opts)(ext, identity.ToChains(testcase.chain))
 		assert.NoError(t, err)
 
-		err = peertls.AvailableExtensionHandlers.VerifyFunc(opts)(nil, identity.ToChains(testcase.chain))
+		extensionMap := tlsopts.NewExtensionsMap(testcase.chain...)
+		handlerFuncMap := extensions.AllHandlers.WithOptions(opts)
+
+		err = extensionMap.HandleExtensions(handlerFuncMap, identity.ToChains(testcase.chain)) // nil, identity.ToChains(testcase.chain))
 		assert.NoError(t, err)
 	}
 }
@@ -128,18 +133,20 @@ func TestIDVersionExtensionHandler_error(t *testing.T) {
 		{"single version mismatch", "1", identityV2Chain},
 		{"multiple versions mismatch", "1,3", identityV2Chain},
 		{"latest version", "latest", identityV1Chain},
-		//{"alpha version", "alpha", identityV1Chain},
 	}
 
 	for _, testcase := range testcases {
 		t.Log(testcase.name)
-		opts := peertls.ExtensionOptions{PeerIDVersions: testcase.versions}
+		opts := &extensions.Options{PeerIDVersions: testcase.versions}
 
 		ext := testcase.chain[peertls.CAIndex].ExtraExtensions[0]
-		err := storj.NewIDVersionExtensionHandler().NewVerifier(opts)(ext, identity.ToChains(testcase.chain))
+		err := storj.IDVersionHandler.NewHandlerFunc(opts)(ext, identity.ToChains(testcase.chain))
 		assert.Error(t, err)
 
-		err = peertls.AvailableExtensionHandlers.VerifyFunc(opts)(nil, identity.ToChains(testcase.chain))
+		extensionMap := tlsopts.NewExtensionsMap(testcase.chain...)
+		handlerFuncMap := extensions.AllHandlers.WithOptions(opts)
+
+		err = extensionMap.HandleExtensions(handlerFuncMap, identity.ToChains(testcase.chain)) // nil, identity.ToChains(testcase.chain))
 		assert.Error(t, err)
 	}
 }
@@ -155,7 +162,7 @@ func TestAddVersionExt(t *testing.T) {
 
 		versionExt := new(pkix.Extension)
 		for _, ext := range cert.ExtraExtensions {
-			if ext.Id.Equal(peertls.IdentityVersionExtID) {
+			if extensions.IdentityVersionExtID.ToASN1().Equal(ext.Id) {
 				*versionExt = ext
 				break
 			}

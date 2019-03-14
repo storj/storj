@@ -48,8 +48,8 @@ func NewIdentities(list ...*identity.FullIdentity) *Identities {
 }
 
 // MustPregeneratedIdentity returns a pregenerated identity or panics
-func MustPregeneratedIdentity(index int) *identity.FullIdentity {
-	identity, err := PregeneratedIdentity(index)
+func MustPregeneratedIdentity(index int, version storj.IDVersion) *identity.FullIdentity {
+	identity, err := PregeneratedIdentity(index, version)
 	if err != nil {
 		panic(err)
 	}
@@ -57,8 +57,8 @@ func MustPregeneratedIdentity(index int) *identity.FullIdentity {
 }
 
 // MustPregeneratedSignedIdentity returns a pregenerated identity or panics
-func MustPregeneratedSignedIdentity(index int) *identity.FullIdentity {
-	identity, err := PregeneratedSignedIdentity(index)
+func MustPregeneratedSignedIdentity(index int, version storj.IDVersion) *identity.FullIdentity {
+	identity, err := PregeneratedSignedIdentity(index, version)
 	if err != nil {
 		panic(err)
 	}

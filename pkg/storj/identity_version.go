@@ -7,11 +7,10 @@ import (
 	"crypto"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/asn1"
 	"strconv"
 	"strings"
 
-	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/pkcrypto"
 )
 
@@ -40,7 +39,9 @@ var (
 		},
 	}
 
-	IDVersionExtensionOID = peertls.IdentityVersionExtID
+	IDVersionHandler = extensions.NewHandlerFactory(
+		&extensions.IdentityVersionExtID, idVersionHandler,
+	)
 )
 
 type IDVersionNumber uint8
@@ -50,18 +51,8 @@ type IDVersion struct {
 	NewPrivateKey func() (crypto.PrivateKey, error)
 }
 
-type IDVersionExtensionHandler struct {
-	oid *asn1.ObjectIdentifier
-}
-
 func init() {
-	peertls.AvailableExtensionHandlers.Register(NewIDVersionExtensionHandler())
-}
-
-func NewIDVersionExtensionHandler() peertls.ExtensionHandler {
-	return &IDVersionExtensionHandler{
-		oid: &IDVersionExtensionOID,
-	}
+	extensions.AllHandlers.Register(IDVersionHandler)
 }
 
 func GetIDVersion(number IDVersionNumber) (IDVersion, error) {
@@ -82,13 +73,12 @@ func LatestIDVersion() IDVersion {
 }
 
 func IDVersionFromCert(cert *x509.Certificate) (IDVersion, error) {
-	// TODO: switch to cert.Extensions; ExtraExtensions is not populated when parsing!
 	for _, ext := range cert.ExtraExtensions {
-		if ext.Id.Equal(peertls.IdentityVersionExtID) {
+		if extensions.IdentityVersionExtID.ToASN1().Equal(ext.Id) {
 			return GetIDVersion(IDVersionNumber(ext.Value[0]))
 		}
 	}
-	return IDVersion{}, ErrVersion.New("unknown version")
+	return IDVersion{}, ErrVersion.New("certificate doesn't contain an identity version extension")
 }
 
 func IDVersionInVersions(versionNumber IDVersionNumber, versionsStr string) error {
@@ -137,17 +127,13 @@ func IDVersionInVersions(versionNumber IDVersionNumber, versionsStr string) erro
 
 // TODO: should this include signature?
 func AddVersionExt(version IDVersionNumber, cert *x509.Certificate) error {
-	return peertls.AddExtension(cert, pkix.Extension{
-		Id:    peertls.IdentityVersionExtID,
+	return extensions.AddExtension(cert, pkix.Extension{
+		Id:    extensions.IdentityVersionExtID.ToASN1(),
 		Value: []byte{byte(version)},
 	})
 }
 
-func (idVersionExtHandler *IDVersionExtensionHandler) OID() *asn1.ObjectIdentifier {
-	return idVersionExtHandler.oid
-}
-
-func (idVersionExtHandler *IDVersionExtensionHandler) NewVerifier(opts peertls.ExtensionOptions) peertls.ExtensionVerificationFunc {
+func idVersionHandler(opts *extensions.Options) extensions.HandlerFunc {
 	return func(ext pkix.Extension, chain [][]*x509.Certificate) error {
 		return IDVersionInVersions(IDVersionNumber(ext.Value[0]), opts.PeerIDVersions)
 	}
