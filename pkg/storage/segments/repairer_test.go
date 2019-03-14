@@ -12,7 +12,6 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	ecclient "storj.io/storj/pkg/storage/ec"
@@ -21,7 +20,7 @@ import (
 )
 
 func TestSegmentStoreRepair(t *testing.T) {
-	numStorageNodes := 6
+	numStorageNodes := 10
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: numStorageNodes, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -54,7 +53,7 @@ func TestSegmentStoreRepair(t *testing.T) {
 		// calculate how many storagenodes to kill
 		redundancy := pointer.GetRemote().GetRedundancy()
 		remotePieces := pointer.GetRemote().GetRemotePieces()
-		minReq := redundancy.GetMinReq()
+		minReq := redundancy.GetRepairThreshold()
 		numPieces := len(remotePieces)
 		toKill := numPieces - int(minReq)
 		// we should have enough storage nodes to repair on
@@ -82,9 +81,7 @@ func TestSegmentStoreRepair(t *testing.T) {
 		oc := overlay.NewCache(overlayDB, statDB)
 		as := satellite.Metainfo.Allocation
 		ec := ecclient.NewClient(uplink.Transport, 0)
-		signer := signing.SignerFromFullIdentity(satellite.Identity)
-		selectionConfig := &overlay.NodeSelectionConfig{}
-		repairer := segments.NewSegmentRepairer(pdb, as, oc, ec, signer, selectionConfig)
+		repairer := segments.NewSegmentRepairer(pdb, as, oc, ec, satellite.Identity, &overlay.NodeSelectionConfig{})
 		assert.NotNil(t, repairer)
 
 		err = repairer.Repair(ctx, path, lostPieces)
