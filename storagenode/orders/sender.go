@@ -46,7 +46,7 @@ type Sender struct {
 }
 
 // NewSender creates an order sender.
-func NewSender(log *zap.Logger, client transport.Client, kademlia *kademlia.Kademlia, orders DB, config Config) *Sender {
+func NewSender(log *zap.Logger, client transport.Client, kademlia *kademlia.Kademlia, orders DB, config SenderConfig) *Sender {
 	return &Sender{
 		log:      log,
 		config:   config,
