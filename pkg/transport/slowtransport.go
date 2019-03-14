@@ -6,7 +6,6 @@ package transport
 import (
 	"context"
 	"net"
-	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/benchmark/latency"
@@ -45,7 +44,7 @@ func (slowTransport *SlowTransport) DialNode(ctx context.Context, node *pb.Node,
 
 // DialAddress dials an address with latency
 func (slowTransport *SlowTransport) DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
-	dialerOpt := grpc.WithDialer(func(address string, dur time.Duration) (net.Conn, error) {
+	dialerOpt := grpc.WithContextDialer(func(ctx context.Context, address string) (net.Conn, error) {
 		netdialer := &net.Dialer{}
 		conn, err := netdialer.DialContext(ctx, "tcp", address)
 		if err != nil {
