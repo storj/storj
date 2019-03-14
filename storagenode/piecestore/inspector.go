@@ -95,7 +95,7 @@ func (inspector *Inspector) getDashboardData(ctx context.Context) (*pb.Dashboard
 	}
 
 	return &pb.DashboardResponse{
-		NodeId:           inspector.kademlia.Local().Id.String(),
+		NodeId:           inspector.kademlia.Local().Id,
 		NodeConnections:  int64(len(nodes)),
 		BootstrapAddress: strings.Join(bsNodes[:], ", "),
 		InternalAddress:  "",

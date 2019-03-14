@@ -82,7 +82,7 @@ func TestInspectorDashboard(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.True(t, response.Uptime.Nanos > 0)
-		assert.Equal(t, storageNode.ID().String(), response.NodeId)
+		assert.Equal(t, storageNode.ID(), response.NodeId)
 		assert.Equal(t, storageNode.Addr(), response.ExternalAddress)
 		assert.NotNil(t, response.Stats)
 	}
@@ -99,7 +99,7 @@ func TestInspectorDashboard(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.True(t, response.Uptime.Nanos > 0)
-		assert.Equal(t, storageNode.ID().String(), response.NodeId)
+		assert.Equal(t, storageNode.ID(), response.NodeId)
 		assert.Equal(t, storageNode.Addr(), response.ExternalAddress)
 		assert.NotNil(t, response.Stats)
 	}
