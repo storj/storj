@@ -84,9 +84,11 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 	if err := errs.Combine(pieceInfoErr, pieceErr); err != nil {
 		// explicitly ignoring error because the errors
 		// TODO: add more debug info
-		endpoint.log.Error("unable to delete", zap.Error(err))
+		endpoint.log.Error("delete failed", zap.Stringer("Piece ID", delete.Limit.PieceId), zap.Error(err))
 		// TODO: report internal server internal or missing error using grpc status,
 		// e.g. missing might happen when we get a deletion request after garbage collection has deleted it
+	} else {
+		endpoint.log.Debug("deleted", zap.Stringer("Piece ID", delete.Limit.PieceId))
 	}
 
 	return &pb.PieceDeleteResponse{}, nil
@@ -121,6 +123,14 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 	if err := endpoint.VerifyOrderLimit(ctx, limit); err != nil {
 		return err // TODO: report grpc status unauthorized or bad request
 	}
+
+	defer func() {
+		if err != nil {
+			endpoint.log.Debug("upload failed", zap.Stringer("Piece ID", limit.PieceId), zap.Error(err))
+		} else {
+			endpoint.log.Debug("uploaded", zap.Stringer("Piece ID", limit.PieceId))
+		}
+	}()
 
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
@@ -251,6 +261,14 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 	if err := endpoint.VerifyOrderLimit(ctx, limit); err != nil {
 		return Error.Wrap(err) // TODO: report grpc status unauthorized or bad request
 	}
+
+	defer func() {
+		if err != nil {
+			endpoint.log.Debug("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Error(err))
+		} else {
+			endpoint.log.Debug("downloaded", zap.Stringer("Piece ID", limit.PieceId))
+		}
+	}()
 
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
