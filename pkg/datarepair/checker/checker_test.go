@@ -123,7 +123,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 
 		// put test pointer to db
 		pointerdb := planet.Satellites[0].Metainfo.Service
-		err := pointerdb.Put(pointer.Remote.RootPieceId.String(), pointer)
+		err := pointerdb.Put("fake-piece-id", pointer)
 		assert.NoError(t, err)
 
 		err = checker.IdentifyInjuredSegments(ctx)
@@ -193,6 +193,6 @@ func makePointer(t *testing.T, planet *testplanet.Planet, pieceID string, create
 	}
 	// put test pointer to db
 	pointerdb := planet.Satellites[0].Metainfo.Service
-	err := pointerdb.Put(pointer.Remote.RootPieceId.String(), pointer)
+	err := pointerdb.Put(pieceID, pointer)
 	require.NoError(t, err)
 }
