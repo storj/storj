@@ -53,8 +53,8 @@ func (usage *Usage) Include(action pb.Action, amount int64) {
 	}
 }
 
-// TotalUsedBandwidth sums all type of bandwidth
-func (usage *Usage) TotalUsedBandwidth() int64 {
+// Total sums all type of bandwidths
+func (usage *Usage) Total() int64 {
 	return usage.Get + usage.GetAudit + usage.GetRepair + usage.Put + usage.PutRepair +
 		usage.Delete + +usage.Invalid + usage.Unknown
 }
