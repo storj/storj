@@ -476,6 +476,9 @@ func getSegments(cmd *cobra.Command, args []string) error {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		err = enc.Encode(objects)
+		if err != nil {
+			return err
+		}
 
 		length = int32(len(res.Segments))
 		offset += length
