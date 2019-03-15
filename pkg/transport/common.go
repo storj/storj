@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
-
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
 
