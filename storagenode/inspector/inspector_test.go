@@ -58,6 +58,8 @@ func TestInspectorStats(t *testing.T) {
 			assert.True(t, response.UsedBandwidth > 0)
 			assert.Equal(t, availableBandwidth-response.UsedBandwidth, response.AvailableBandwidth)
 			assert.Equal(t, availableSpace-response.UsedSpace, response.AvailableSpace)
+
+			assert.Equal(t, response.UsedSpace, response.UsedBandwidth)
 		} else {
 			assert.Zero(t, response.UsedSpace)
 			// TODO track why this is failing
