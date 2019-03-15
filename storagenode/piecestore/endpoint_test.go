@@ -7,6 +7,7 @@ import (
 	"io"
 	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -14,6 +15,8 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/storagenode/bandwidth"
+	"storj.io/storj/uplink/piecestore"
 )
 
 func TestUploadAndPartialDownload(t *testing.T) {
@@ -33,6 +36,7 @@ func TestUploadAndPartialDownload(t *testing.T) {
 	err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "test/bucket", "test/path", expectedData)
 	assert.NoError(t, err)
 
+	var totalDownload int64
 	for _, tt := range []struct {
 		offset, size int64
 	}{
@@ -40,6 +44,11 @@ func TestUploadAndPartialDownload(t *testing.T) {
 		{1513, 1584},
 		{13581, 4783},
 	} {
+		if piecestore.DefaultConfig.InitialStep < tt.size {
+			t.Fatal("test expects initial step to be larger than size to download")
+		}
+		totalDownload += piecestore.DefaultConfig.InitialStep
+
 		download, err := planet.Uplinks[0].DownloadStream(ctx, planet.Satellites[0], "test/bucket", "test/path")
 		require.NoError(t, err)
 
@@ -56,4 +65,17 @@ func TestUploadAndPartialDownload(t *testing.T) {
 
 		require.NoError(t, download.Close())
 	}
+
+	var totalBandwidthUsage bandwidth.Usage
+	for _, storagenode := range planet.StorageNodes {
+		usage, err := storagenode.DB.Bandwidth().Summary(ctx, time.Now().Add(-10*time.Hour), time.Now().Add(10*time.Hour))
+		require.NoError(t, err)
+		totalBandwidthUsage.Add(usage)
+	}
+
+	totalUpload := int64(len(expectedData))
+	t.Log(totalUpload, totalBandwidthUsage.Put, int64(len(planet.StorageNodes))*totalUpload)
+	assert.True(t, totalUpload < totalBandwidthUsage.Put && totalBandwidthUsage.Put < int64(len(planet.StorageNodes))*totalUpload)
+	t.Log(totalDownload, totalBandwidthUsage.Get, int64(len(planet.StorageNodes))*totalDownload)
+	assert.True(t, totalBandwidthUsage.Get < int64(len(planet.StorageNodes))*totalDownload)
 }
