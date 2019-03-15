@@ -136,7 +136,6 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 
 	maxPieceSize := eestream.CalcPieceSize(req.GetMaxEncryptedSegmentSize(), redundancy)
 
-	// TODO most probably needs more params
 	request := &pb.FindStorageNodesRequest{
 		Opts: &pb.OverlayOptions{
 			Amount: int64(req.Redundancy.Total),
