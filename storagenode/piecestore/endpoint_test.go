@@ -48,7 +48,7 @@ func TestUploadAndPartialDownload(t *testing.T) {
 		assert.Equal(t, pos, tt.offset)
 
 		data := make([]byte, tt.size)
-		n, err := download.Read(data)
+		n, err := io.ReadFull(download, data)
 		require.NoError(t, err)
 		assert.Equal(t, int(tt.size), n)
 
