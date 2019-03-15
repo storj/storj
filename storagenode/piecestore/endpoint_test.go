@@ -73,6 +73,11 @@ func TestUploadAndPartialDownload(t *testing.T) {
 		totalBandwidthUsage.Add(usage)
 	}
 
+	err = planet.Uplinks[0].Delete(ctx, planet.Satellites[0], "test/bucket", "test/path")
+	require.NoError(t, err)
+	_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "test/bucket", "test/path")
+	require.Error(t, err)
+
 	// check rough limits for the upload and download
 	totalUpload := int64(len(expectedData))
 	t.Log(totalUpload, totalBandwidthUsage.Put, int64(len(planet.StorageNodes))*totalUpload)

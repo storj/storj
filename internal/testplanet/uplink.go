@@ -251,6 +251,16 @@ func (uplink *Uplink) Download(ctx context.Context, satellite *satellite.Peer, b
 	return data, nil
 }
 
+// Delete data to specific satellite
+func (uplink *Uplink) Delete(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) error {
+	config := uplink.getConfig(satellite)
+	metainfo, _, err := config.GetMetainfo(ctx, uplink.Identity)
+	if err != nil {
+		return err
+	}
+	return metainfo.DeleteObject(ctx, bucket, path)
+}
+
 func (uplink *Uplink) getConfig(satellite *satellite.Peer) uplink.Config {
 	config := getDefaultConfig()
 	config.Client.OverlayAddr = satellite.Addr()
