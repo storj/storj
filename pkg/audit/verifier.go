@@ -26,11 +26,6 @@ import (
 
 var (
 	mon = monkit.Package()
-
-	// todo(nat): make this configurable
-	// this is minimum bytes per second acceptable transfer rate
-	// from a storage node to a satellite
-	submissionSpeed = 128 * memory.B
 )
 
 // Share represents required information about an audited share
@@ -55,16 +50,18 @@ type defaultDownloader struct {
 	transport transport.Client
 	overlay   *overlay.Cache
 	reporter
+
+	minBytesPerSecond memory.Size
 }
 
 // newDefaultDownloader creates a defaultDownloader
-func newDefaultDownloader(log *zap.Logger, transport transport.Client, overlay *overlay.Cache, id *identity.FullIdentity) *defaultDownloader {
-	return &defaultDownloader{log: log, transport: transport, overlay: overlay}
+func newDefaultDownloader(log *zap.Logger, transport transport.Client, overlay *overlay.Cache, id *identity.FullIdentity, minBytesPerSecond memory.Size) *defaultDownloader {
+	return &defaultDownloader{log: log, transport: transport, overlay: overlay, identity: id, minBytesPerSecond: minBytesPerSecond}
 }
 
 // NewVerifier creates a Verifier
-func NewVerifier(log *zap.Logger, transport transport.Client, overlay *overlay.Cache, id *identity.FullIdentity) *Verifier {
-	return &Verifier{downloader: newDefaultDownloader(log, transport, overlay, id)}
+func NewVerifier(log *zap.Logger, transport transport.Client, overlay *overlay.Cache, id *identity.FullIdentity, minBytesPerSecond memory.Size) *Verifier {
+	return &Verifier{downloader: newDefaultDownloader(log, transport, overlay, id, minBytesPerSecond)}
 }
 
 // getShare use piece store client to download shares from nodes
@@ -83,7 +80,7 @@ func (d *defaultDownloader) getShare(ctx context.Context, limit *pb.AddressedOrd
 	}
 
 	bandwidthMsgSize := shareSize
-	seconds := bandwidthMsgSize / submissionSpeed.Int32()
+	seconds := bandwidthMsgSize / d.minBytesPerSecond.Int32()
 
 	allottedTime := time.Now().Local().Add(time.Second * time.Duration(seconds))
 

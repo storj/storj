@@ -9,6 +9,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
@@ -19,8 +20,9 @@ import (
 
 // Config contains configurable values for audit service
 type Config struct {
-	MaxRetriesStatDB int           `help:"max number of times to attempt updating a statdb batch" default:"3"`
-	Interval         time.Duration `help:"how frequently segments are audited" default:"30s"`
+	MaxRetriesStatDB  int           `help:"max number of times to attempt updating a statdb batch" default:"3"`
+	Interval          time.Duration `help:"how frequently segments are audited" default:"30s"`
+	MinBytesPerSecond memory.Size   `help:"the minimum acceptable bytes that storage nodes can transfer per second to the satellite" default:"128B"`
 }
 
 // Service helps coordinate Cursor and Verifier to run the audit process continuously
@@ -35,12 +37,14 @@ type Service struct {
 }
 
 // NewService instantiates a Service with access to a Cursor and Verifier
-func NewService(log *zap.Logger, sdb statdb.DB, interval time.Duration, maxRetries int, pointers *pointerdb.Service, allocation *pointerdb.AllocationSigner, transport transport.Client, overlay *overlay.Cache, identity *identity.FullIdentity) (service *Service, err error) {
+func NewService(log *zap.Logger, sdb statdb.DB, interval time.Duration, maxRetries int,
+	minBytesPerSecond memory.Size, pointerdb *pointerdb.Service, allocation *pointerdb.AllocationSigner,
+	transport transport.Client, overlay *overlay.Cache, identity *identity.FullIdentity) (service *Service, err error) {
 	return &Service{
 		log: log,
 
-		Cursor:   NewCursor(pointers, allocation, overlay, identity),
-		Verifier: NewVerifier(log.Named("audit:verifier"), transport, overlay, identity),
+		Cursor:   NewCursor(pointerdb, allocation, overlay, identity),
+		Verifier: NewVerifier(log.Named("audit:verifier"), transport, overlay, identity, minBytesPerSecond),
 		Reporter: NewReporter(sdb, maxRetries),
 
 		Loop: *sync2.NewCycle(interval),
