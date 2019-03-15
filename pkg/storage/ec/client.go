@@ -22,7 +22,6 @@ import (
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/uplink/piecestore"
 )
 
@@ -155,7 +154,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 	defer func() {
 		select {
 		case <-ctx.Done():
-			err = utils.CombineErrors(
+			err = errs.Combine(
 				Error.New("upload cancelled by user"),
 				// ec.Delete(context.Background(), nodes, pieceID, pba.SatelliteId), //TODO
 			)
@@ -253,7 +252,7 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 	defer func() {
 		select {
 		case <-ctx.Done():
-			err = utils.CombineErrors(
+			err = errs.Combine(
 				Error.New("repair cancelled"),
 				// ec.Delete(context.Background(), nodes, pieceID, pba.SatelliteId), //TODO
 			)
