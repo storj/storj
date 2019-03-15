@@ -7,14 +7,17 @@ import (
 	"bufio"
 	"context"
 	"encoding/csv"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
+	prompt "github.com/segmentio/go-prompt"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
@@ -44,6 +47,8 @@ var (
 	// ErrArgs throws when there are errors with CLI args
 	ErrArgs = errs.Class("error with CLI args:")
 
+	irreparableLimit int32
+
 	// Commander CLI
 	rootCmd = &cobra.Command{
 		Use:   "inspector",
@@ -56,6 +61,11 @@ var (
 	statsCmd = &cobra.Command{
 		Use:   "statdb",
 		Short: "commands for statdb",
+	}
+	irreparableCmd = &cobra.Command{
+		Use:   "irreparable",
+		Short: "list segments in irreparable database",
+		RunE:  getSegments,
 	}
 	countNodeCmd = &cobra.Command{
 		Use:   "count",
@@ -119,6 +129,7 @@ type Inspector struct {
 	kadclient     pb.KadInspectorClient
 	overlayclient pb.OverlayInspectorClient
 	statdbclient  pb.StatDBInspectorClient
+	irrdbclient   pb.IrreparableInspectorClient
 }
 
 // NewInspector creates a new gRPC inspector client for access to kad,
@@ -144,6 +155,7 @@ func NewInspector(address, path string) (*Inspector, error) {
 		kadclient:     pb.NewKadInspectorClient(conn),
 		overlayclient: pb.NewOverlayInspectorClient(conn),
 		statdbclient:  pb.NewStatDBInspectorClient(conn),
+		irrdbclient:   pb.NewIrreparableInspectorClient(conn),
 	}, nil
 }
 
@@ -435,9 +447,69 @@ func CreateCSVStats(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
+func getSegments(cmd *cobra.Command, args []string) error {
+	if irreparableLimit <= int32(0) {
+		return ErrArgs.New("limit must be greater than 0")
+	}
+
+	i, err := NewInspector(*Addr, *IdentityPath)
+	if err != nil {
+		return ErrInspectorDial.Wrap(err)
+	}
+
+	length := irreparableLimit
+	var offset int32
+
+	// query DB and paginate results
+	for length >= irreparableLimit {
+		res, err := i.irrdbclient.ListSegments(context.Background(), &pb.ListSegmentsRequest{Limit: irreparableLimit, Offset: offset})
+		if err != nil {
+			return ErrRequest.Wrap(err)
+		}
+
+		objects := sortSegments(res.Segments)
+		if len(objects) == 0 {
+			break
+		}
+
+		// format and print segments
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		err = enc.Encode(objects)
+		if err != nil {
+			return err
+		}
+
+		length = int32(len(res.Segments))
+		offset += length
+
+		if length >= irreparableLimit {
+			if !prompt.Confirm("\nNext page? (y/n)") {
+				break
+			}
+		}
+	}
+	return nil
+}
+
+// sortSegments by the object they belong to
+func sortSegments(segments []*pb.IrreparableSegment) map[string][]*pb.IrreparableSegment {
+	objects := make(map[string][]*pb.IrreparableSegment)
+	for _, seg := range segments {
+		pathElements := storj.SplitPath(string(seg.Path))
+
+		// by removing the segment index, we can easily sort segments into a map of objects
+		pathElements = append(pathElements[:1], pathElements[2:]...)
+		objPath := strings.Join(pathElements, "/")
+		objects[objPath] = append(objects[objPath], seg)
+	}
+	return objects
+}
+
 func init() {
 	rootCmd.AddCommand(kadCmd)
 	rootCmd.AddCommand(statsCmd)
+	rootCmd.AddCommand(irreparableCmd)
 
 	kadCmd.AddCommand(countNodeCmd)
 	kadCmd.AddCommand(pingNodeCmd)
@@ -449,6 +521,8 @@ func init() {
 	statsCmd.AddCommand(getCSVStatsCmd)
 	statsCmd.AddCommand(createStatsCmd)
 	statsCmd.AddCommand(createCSVStatsCmd)
+
+	irreparableCmd.Flags().Int32Var(&irreparableLimit, "limit", 50, "max number of results per page")
 
 	flag.Parse()
 }

@@ -14,15 +14,8 @@ model bwagreement (
 	field expires_at      timestamp
 )
 
-create bwagreement ( )
-read limitoffset ( select bwagreement)
-read all ( select bwagreement)
-read all (
-	select bwagreement
-	where  bwagreement.created_at > ?
-)
 
-//--- datarepair.irreparableDB ---//
+//--- irreparableDB ---//
 
 model irreparabledb (
 	key segmentpath
@@ -41,6 +34,11 @@ delete irreparabledb ( where irreparabledb.segmentpath = ? )
 read one (
 	select irreparabledb
 	where  irreparabledb.segmentpath = ?
+)
+
+read limitoffset ( 
+	select irreparabledb 
+	orderby asc irreparabledb.segmentpath 
 )
 
 //--- accounting ---//
