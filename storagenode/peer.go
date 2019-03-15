@@ -88,9 +88,8 @@ type Peer struct {
 	}
 
 	Storage struct {
-		Endpoint  *psserver.Server // TODO: separate into endpoint and service
-		Monitor   *psserver.Monitor
-		Collector *psserver.Collector
+		Endpoint *psserver.Server // TODO: separate into endpoint and service
+		Monitor  *psserver.Monitor
 	}
 
 	Agreements struct {
@@ -183,7 +182,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 
 		// TODO: organize better
 		peer.Storage.Monitor = psserver.NewMonitor(peer.Log.Named("piecestore:monitor"), config.KBucketRefreshInterval, peer.Kademlia.RoutingTable, peer.Storage.Endpoint)
-		peer.Storage.Collector = psserver.NewCollector(peer.Log.Named("piecestore:collector"), peer.DB.PSDB(), peer.DB.Storage(), config.CollectorInterval)
 	}
 
 	{ // agreements
@@ -249,9 +247,6 @@ func (peer *Peer) Run(ctx context.Context) error {
 	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Storage.Monitor.Run(ctx))
-	})
-	group.Go(func() error {
-		return ignoreCancel(peer.Storage.Collector.Run(ctx))
 	})
 	group.Go(func() error {
 		// TODO: move the message into Server instead
