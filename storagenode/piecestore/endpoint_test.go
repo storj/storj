@@ -4,31 +4,56 @@
 package piecestore_test
 
 import (
+	"io"
+	"math/rand"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/pkg/pb"
 )
 
-func TestEndpointConnect(t *testing.T) {
+func TestEndpointUploadAndPartialDownload(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.New(t, 0, 1, 1)
+	planet, err := testplanet.New(t, 1, 6, 1)
 	require.NoError(t, err)
 	defer ctx.Check(planet.Shutdown)
 
 	planet.Start(ctx)
 
-	client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
+	expectedData := make([]byte, 100*memory.KiB)
+	_, err = rand.Read(expectedData)
 	require.NoError(t, err)
-	defer ctx.Check(client.Close)
 
-	// TODO: at the moment should fail because there's no signature and other things are wrong with it
-	err = client.Delete(ctx, &pb.OrderLimit2{})
-	t.Log(err)
-	require.Error(t, err)
+	err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "test/bucket", "test/path", expectedData)
+	assert.NoError(t, err)
+
+	for _, tt := range []struct {
+		offset, size int64
+	}{
+		{0, 15310},
+		{1513, 13584},
+		{13581, 45783},
+	} {
+		download, err := planet.Uplinks[0].DownloadStream(ctx, planet.Satellites[0], "test/bucket", "test/path")
+		require.NoError(t, err)
+
+		pos, err := download.Seek(tt.offset, io.SeekStart)
+		require.NoError(t, err)
+		assert.Equal(t, pos, tt.offset)
+
+		data := make([]byte, tt.size)
+		n, err := download.Read(data)
+		require.NoError(t, err)
+		assert.Equal(t, n, int(tt.size))
+
+		assert.Equal(t, expectedData[tt.offset:tt.offset+tt.size], data)
+
+		require.NoError(t, download.Close())
+	}
 }

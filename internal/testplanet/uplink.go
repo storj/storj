@@ -220,20 +220,28 @@ func uploadStream(ctx context.Context, streams streams.Store, mutableObject stor
 	return errs.Combine(err, upload.Close())
 }
 
-// Download data from specific satellite
-func (uplink *Uplink) Download(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) ([]byte, error) {
+// DownloadStream returns stream for downloading data.
+func (uplink *Uplink) DownloadStream(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) (*stream.Download, error) {
 	config := uplink.getConfig(satellite)
 	metainfo, streams, err := config.GetMetainfo(ctx, uplink.Identity)
 	if err != nil {
-		return []byte{}, err
+		return nil, err
 	}
 
 	readOnlyStream, err := metainfo.GetObjectStream(ctx, bucket, path)
 	if err != nil {
-		return []byte{}, err
+		return nil, err
 	}
 
-	download := stream.NewDownload(ctx, readOnlyStream, streams)
+	return stream.NewDownload(ctx, readOnlyStream, streams), nil
+}
+
+// Download data from specific satellite
+func (uplink *Uplink) Download(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) ([]byte, error) {
+	download, err := uplink.DownloadStream(ctx, satellite, bucket, path)
+	if err != nil {
+		return []byte{}, err
+	}
 	defer func() { err = errs.Combine(err, download.Close()) }()
 
 	data, err := ioutil.ReadAll(download)
