@@ -5,7 +5,6 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"encoding/csv"
 	"encoding/json"
@@ -478,21 +477,11 @@ func getSegments(cmd *cobra.Command, args []string) error {
 		if len(objects) == 0 {
 			break
 		}
-		// format and print segments
-		result, err := json.Marshal(objects)
-		if err != nil {
-			return err
-		}
 
-		var out bytes.Buffer
-		err = json.Indent(&out, result, "", "  ")
-		if err != nil {
-			return err
-		}
-		_, err = out.WriteTo(os.Stdout)
-		if err != nil {
-			return err
-		}
+		// format and print segments
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		err = enc.Encode(objects)
 
 		length = int32(len(res.Segments))
 		offset += length
@@ -518,9 +507,11 @@ type formattedSegment struct {
 func sortSegments(segments []*formattedSegment) map[string][]*formattedSegment {
 	objects := make(map[string][]*formattedSegment)
 	for _, seg := range segments {
-		path := storj.SplitPath(seg.EncryptedSegmentPath)
-		path = append(path[:1], path[2:]...)
-		objPath := strings.Join(path, "/")
+		pathElements := storj.SplitPath(seg.EncryptedSegmentPath)
+
+		// by removing the segment index, we can easily sort segments into a map of objects
+		pathElements = append(pathElements[:1], pathElements[2:]...)
+		objPath := strings.Join(pathElements, "/")
 		objects[objPath] = append(objects[objPath], seg)
 	}
 	return objects
