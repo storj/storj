@@ -6,6 +6,7 @@ package segments_test
 import (
 	"crypto/rand"
 	"testing"
+	time "time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -82,7 +83,7 @@ func TestSegmentStoreRepair(t *testing.T) {
 		oc := overlay.NewCache(overlayDB, statDB)
 		as := satellite.Metainfo.Allocation
 		ec := ecclient.NewClient(uplink.Transport, 0)
-		repairer := segments.NewSegmentRepairer(pdb, as, oc, ec, satellite.Identity, &overlay.NodeSelectionConfig{})
+		repairer := segments.NewSegmentRepairer(pdb, as, oc, ec, satellite.Identity, &overlay.NodeSelectionConfig{}, time.Minute)
 		assert.NotNil(t, repairer)
 
 		err = repairer.Repair(ctx, path, lostPieces)
