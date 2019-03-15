@@ -129,11 +129,20 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	// TODO most probably needs more params
+	redundancy, err := eestream.NewRedundancyStrategyFromProto(req.GetRedundancy())
+	if err != nil {
+		return nil, err
+	}
+
+	maxPieceSize := eestream.CalcPieceSize(req.GetMaxEncryptedSegmentSize(), redundancy)
+
 	request := &pb.FindStorageNodesRequest{
 		Opts: &pb.OverlayOptions{
-			Amount:       int64(req.Redundancy.Total),
-			Restrictions: &pb.NodeRestrictions{},
+			Amount: int64(req.Redundancy.Total),
+			Restrictions: &pb.NodeRestrictions{
+				FreeBandwidth: maxPieceSize,
+				FreeDisk:      maxPieceSize,
+			},
 		},
 	}
 	nodes, err := endpoint.cache.FindStorageNodes(ctx, request, endpoint.selectionPreferences)
@@ -146,12 +155,6 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	redundancy, err := eestream.NewRedundancyStrategyFromProto(req.GetRedundancy())
-	if err != nil {
-		return nil, err
-	}
-
-	maxPieceSize := eestream.CalcPieceSize(req.GetMaxEncryptedSegmentSize(), redundancy)
 	rootPieceID := storj.NewPieceID()
 	limits := make([]*pb.AddressedOrderLimit, len(nodes))
 	for i, node := range nodes {

@@ -90,8 +90,7 @@ type Peer struct {
 	}
 
 	Storage struct {
-		Endpoint  *psserver.Server // TODO: separate into endpoint and service
-		Collector *psserver.Collector
+		Endpoint *psserver.Server // TODO: separate into endpoint and service
 	}
 
 	Agreements struct {
@@ -182,9 +181,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 			return nil, errs.Combine(err, peer.Close())
 		}
 		pb.RegisterPieceStoreRoutesServer(peer.Server.GRPC(), peer.Storage.Endpoint)
-
-		// TODO: organize better
-		peer.Storage.Collector = psserver.NewCollector(peer.Log.Named("piecestore:collector"), peer.DB.PSDB(), peer.DB.Storage(), config.CollectorInterval)
 	}
 
 	{ // agreements
@@ -262,9 +258,6 @@ func (peer *Peer) Run(ctx context.Context) error {
 	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Storage2.Monitor.Run(ctx))
-	})
-	group.Go(func() error {
-		return ignoreCancel(peer.Storage.Collector.Run(ctx))
 	})
 	group.Go(func() error {
 		// TODO: move the message into Server instead
