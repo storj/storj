@@ -57,6 +57,9 @@ func TestAuditTimeout(t *testing.T) {
 		require.NotNil(t, verifier)
 
 		_, err = verifier.Verify(ctx, stripe)
-		// assert.Error(t, err)
+		assert.Error(t, err)
+		if err != nil {
+			assert.Contains(t, err, "context deadline exceeded")
+		}
 	})
 }
