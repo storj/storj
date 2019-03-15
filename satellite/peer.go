@@ -393,6 +393,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		peer.Audit.Service, err = audit.NewService(peer.Log.Named("audit"),
 			peer.DB.StatDB(),
 			config.Interval, config.MaxRetriesStatDB,
+			config.MinBytesPerSecond,
 			peer.Metainfo.Service, peer.Metainfo.Allocation,
 			peer.Transport, peer.Overlay.Service,
 			peer.Identity,

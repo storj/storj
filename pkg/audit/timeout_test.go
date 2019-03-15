@@ -53,7 +53,7 @@ func TestAuditTimeout(t *testing.T) {
 		slowtc := transport.NewClientWithLatency(tc, latency.Local)
 		require.NotNil(t, slowtc)
 
-		verifier := audit.NewVerifier(slowtc, overlay, planet.Satellites[0].Identity)
+		verifier := audit.NewVerifier(slowtc, overlay, planet.Satellites[0].Identity, 128)
 		require.NotNil(t, verifier)
 
 		_, err = verifier.Verify(ctx, stripe)
