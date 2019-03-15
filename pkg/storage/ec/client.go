@@ -235,7 +235,7 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 		}
 		successfulHashes[info.i] = info.hash
 
-		if int(atomic.AddInt32(&successfulCount, 1)) == rs.OptimalThreshold() {
+		if int(atomic.AddInt32(&successfulCount, 1)) == optimalCount {
 			zap.S().Infof("Success threshold (%d nodes) reached by repairing to %d nodes. Canceling the long tail...",
 				rs.OptimalThreshold(), optimalCount)
 			timer.Stop()
