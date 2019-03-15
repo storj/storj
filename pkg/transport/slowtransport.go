@@ -32,7 +32,9 @@ func NewClientWithLatency(client Client, network latency.Network) Client {
 func (slowTransport *SlowTransport) DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
 	dialerOpt := grpc.WithContextDialer(func(ctx context.Context, address string) (net.Conn, error) {
 		netdialer := &net.Dialer{}
-		conn, err := netdialer.DialContext(ctx, "tcp", address)
+		dctx := slowTransport.Network.ContextDialer(netdialer.DialContext)
+
+		conn, err := dctx(ctx, "tcp", address)
 		if err != nil {
 			return nil, err
 		}
@@ -46,7 +48,10 @@ func (slowTransport *SlowTransport) DialNode(ctx context.Context, node *pb.Node,
 func (slowTransport *SlowTransport) DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
 	dialerOpt := grpc.WithContextDialer(func(ctx context.Context, address string) (net.Conn, error) {
 		netdialer := &net.Dialer{}
-		conn, err := netdialer.DialContext(ctx, "tcp", address)
+
+		dctx := slowTransport.Network.ContextDialer(netdialer.DialContext)
+
+		conn, err := dctx(ctx, "tcp", address)
 		if err != nil {
 			return nil, err
 		}
