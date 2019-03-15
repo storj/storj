@@ -43,7 +43,10 @@ read one (
 	where  irreparabledb.segmentpath = ?
 )
 
-read limitoffset ( select irreparabledb )
+read limitoffset ( 
+	select irreparabledb 
+	orderby asc irreparabledb.segmentpath 
+)
 
 //--- accounting ---//
 
