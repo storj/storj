@@ -29,7 +29,11 @@ const ROUTES = {
     API_KEYS: {
         path: '/api-keys',
         name: 'ApiKeys'
-    }
+    },
+    BUCKETS: {
+        path: '/buckets',
+        name: 'Buckets'
+    },
 };
 
 export default ROUTES;
