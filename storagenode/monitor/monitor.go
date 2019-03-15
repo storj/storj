@@ -15,7 +15,7 @@ import (
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/storagenode/inspector"
+	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/pieces"
 )
 
@@ -34,9 +34,10 @@ type Config struct {
 // Service which monitors disk usage and updates kademlia network as necessary.
 type Service struct {
 	log                *zap.Logger
+	routingTable       *kademlia.RoutingTable
 	store              *pieces.Store
-	inspector          *inspector.Endpoint
-	rt                 *kademlia.RoutingTable
+	pieceInfo          pieces.DB
+	usageDB            bandwidth.DB
 	allocatedDiskSpace int64
 	allocatedBandwidth int64
 	Loop               sync2.Cycle
@@ -45,12 +46,13 @@ type Service struct {
 // TODO: should it be responsible for monitoring actual bandwidth as well?
 
 // NewService creates a new storage node monitoring service.
-func NewService(log *zap.Logger, store *pieces.Store, inspector *inspector.Endpoint, rt *kademlia.RoutingTable, allocatedDiskSpace, allocatedBandwidth int64, interval time.Duration) *Service {
+func NewService(log *zap.Logger, routingTable *kademlia.RoutingTable, store *pieces.Store, pieceInfo pieces.DB, usageDB bandwidth.DB, allocatedDiskSpace, allocatedBandwidth int64, interval time.Duration) *Service {
 	return &Service{
 		log:                log,
+		routingTable:       routingTable,
 		store:              store,
-		inspector:          inspector,
-		rt:                 rt,
+		pieceInfo:          pieceInfo,
+		usageDB:            usageDB,
 		allocatedDiskSpace: allocatedDiskSpace,
 		allocatedBandwidth: allocatedBandwidth,
 		Loop:               *sync2.NewCycle(interval),
@@ -69,12 +71,15 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	}
 	freeDiskSpace := info.DiskFree
 
-	stats, err := service.inspector.Stats(ctx, nil)
+	totalUsed, err := service.usedSpace(ctx)
 	if err != nil {
-		return Error.Wrap(err)
+		return err
 	}
-	totalUsed := stats.UsedSpace
-	usedBandwidth := stats.UsedBandwidth
+
+	usedBandwidth, err := service.usedBandwidth(ctx)
+	if err != nil {
+		return err
+	}
 
 	if usedBandwidth > service.allocatedBandwidth {
 		log.Warn("Exceed the allowed Bandwidth setting")
@@ -113,22 +118,49 @@ func (service *Service) Run(ctx context.Context) (err error) {
 }
 
 func (service *Service) updateNodeInformation(ctx context.Context) error {
-	stats, err := service.inspector.Stats(ctx, nil)
+	usedSpace, err := service.usedSpace(ctx)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	self := service.rt.Local()
+	usedBandwidth, err := service.usedBandwidth(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	self := service.routingTable.Local()
 
 	self.Restrictions = &pb.NodeRestrictions{
-		FreeBandwidth: stats.AvailableBandwidth,
-		FreeDisk:      stats.AvailableSpace,
+		FreeBandwidth: service.allocatedBandwidth - usedBandwidth,
+		FreeDisk:      service.allocatedDiskSpace - usedSpace,
 	}
 
 	// Update the routing table with latest restrictions
-	if err := service.rt.UpdateSelf(&self); err != nil {
+	if err := service.routingTable.UpdateSelf(&self); err != nil {
 		return Error.Wrap(err)
 	}
 
 	return nil
+}
+
+func (service *Service) usedSpace(ctx context.Context) (int64, error) {
+	usedSpace, err := service.pieceInfo.SpaceUsed(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return usedSpace, nil
+}
+
+func (service *Service) usedBandwidth(ctx context.Context) (int64, error) {
+	usage, err := service.usageDB.Summary(ctx, getBeginningOfMonth(), time.Now())
+	if err != nil {
+		return 0, err
+	}
+	return usage.Total(), nil
+}
+
+func getBeginningOfMonth() time.Time {
+	t := time.Now()
+	y, m, _ := t.Date()
+	return time.Date(y, m, 1, 0, 0, 0, 0, time.Now().Location())
 }

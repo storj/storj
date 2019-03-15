@@ -91,7 +91,6 @@ type Peer struct {
 
 	Storage struct {
 		Endpoint  *psserver.Server // TODO: separate into endpoint and service
-		Monitor   *psserver.Monitor
 		Collector *psserver.Collector
 	}
 
@@ -185,7 +184,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 		pb.RegisterPieceStoreRoutesServer(peer.Server.GRPC(), peer.Storage.Endpoint)
 
 		// TODO: organize better
-		peer.Storage.Monitor = psserver.NewMonitor(peer.Log.Named("piecestore:monitor"), config.KBucketRefreshInterval, peer.Kademlia.RoutingTable, peer.Storage.Endpoint)
 		peer.Storage.Collector = psserver.NewCollector(peer.Log.Named("piecestore:collector"), peer.DB.PSDB(), peer.DB.Storage(), config.CollectorInterval)
 	}
 
@@ -235,9 +233,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 
 		peer.Storage2.Monitor = monitor.NewService(
 			log.Named("piecestore:monitor"),
-			peer.Storage2.Store,
-			peer.Storage2.Inspector,
 			peer.Kademlia.RoutingTable,
+			peer.Storage2.Store,
+			peer.DB.PieceInfo(),
+			peer.DB.Bandwidth(),
 			config.Storage.AllocatedDiskSpace.Int64(),
 			config.Storage.AllocatedBandwidth.Int64(),
 			//TODO use config.Storage.Monitor.Interval, but for some reason is not set
@@ -260,9 +259,6 @@ func (peer *Peer) Run(ctx context.Context) error {
 	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Agreements.Sender.Run(ctx))
-	})
-	group.Go(func() error {
-		return ignoreCancel(peer.Storage.Monitor.Run(ctx))
 	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Storage2.Monitor.Run(ctx))
