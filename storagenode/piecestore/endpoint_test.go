@@ -36,9 +36,9 @@ func TestEndpointUploadAndPartialDownload(t *testing.T) {
 	for _, tt := range []struct {
 		offset, size int64
 	}{
-		{0, 15310},
-		{1513, 13584},
-		{13581, 45783},
+		{0, 1510},
+		{1513, 1584},
+		{13581, 4783},
 	} {
 		download, err := planet.Uplinks[0].DownloadStream(ctx, planet.Satellites[0], "test/bucket", "test/path")
 		require.NoError(t, err)
@@ -50,7 +50,7 @@ func TestEndpointUploadAndPartialDownload(t *testing.T) {
 		data := make([]byte, tt.size)
 		n, err := download.Read(data)
 		require.NoError(t, err)
-		assert.Equal(t, n, int(tt.size))
+		assert.Equal(t, int(tt.size), n)
 
 		assert.Equal(t, expectedData[tt.offset:tt.offset+tt.size], data)
 
