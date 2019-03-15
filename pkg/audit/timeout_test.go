@@ -19,7 +19,7 @@ import (
 )
 
 // TestGetShareTimeout should test that getShare calls
-// will have context cancelled if it takes too long to
+// will have context canceled if it takes too long to
 // receive data back from a storage node.
 func TestGetShareTimeout(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
