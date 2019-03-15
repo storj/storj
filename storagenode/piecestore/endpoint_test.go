@@ -73,6 +73,7 @@ func TestUploadAndPartialDownload(t *testing.T) {
 		totalBandwidthUsage.Add(usage)
 	}
 
+	// check rough limits for the upload and download
 	totalUpload := int64(len(expectedData))
 	t.Log(totalUpload, totalBandwidthUsage.Put, int64(len(planet.StorageNodes))*totalUpload)
 	assert.True(t, totalUpload < totalBandwidthUsage.Put && totalBandwidthUsage.Put < int64(len(planet.StorageNodes))*totalUpload)
