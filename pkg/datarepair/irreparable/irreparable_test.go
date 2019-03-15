@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/pkg/datarepair/irreparable"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
@@ -24,14 +24,14 @@ func TestIrreparable(t *testing.T) {
 		irrdb := db.Irreparable()
 
 		// Create and insert test segment infos into DB
-		var segments []*irreparable.RemoteSegmentInfo
+		var segments []*pb.IrreparableSegment
 		for i := 0; i < 3; i++ {
-			segments = append(segments, &irreparable.RemoteSegmentInfo{
-				EncryptedSegmentPath:   []byte(strconv.Itoa(i)),
-				EncryptedSegmentDetail: []byte(strconv.Itoa(i)),
-				LostPiecesCount:        int64(i),
-				RepairUnixSec:          time.Now().Unix(),
-				RepairAttemptCount:     int64(10),
+			segments = append(segments, &pb.IrreparableSegment{
+				Path:               []byte(strconv.Itoa(i)),
+				SegmentDetail:      &pb.Pointer{},
+				LostPieces:         int32(i),
+				LastRepairAttempt:  time.Now().Unix(),
+				RepairAttemptCount: int64(10),
 			})
 			err := irrdb.IncrementRepairAttempts(ctx, segments[i])
 			assert.NoError(t, err)
@@ -80,16 +80,16 @@ func TestIrreparable(t *testing.T) {
 			assert.NoError(t, err)
 			segments[0].RepairAttemptCount++
 
-			dbxInfo, err := irrdb.Get(ctx, segments[0].EncryptedSegmentPath)
+			dbxInfo, err := irrdb.Get(ctx, segments[0].Path)
 			assert.NoError(t, err)
 			assert.Equal(t, segments[0], dbxInfo)
 		}
 
 		{ //Delete existing entry
-			err := irrdb.Delete(ctx, segments[0].EncryptedSegmentPath)
+			err := irrdb.Delete(ctx, segments[0].Path)
 			assert.NoError(t, err)
 
-			_, err = irrdb.Get(ctx, segments[0].EncryptedSegmentPath)
+			_, err = irrdb.Get(ctx, segments[0].Path)
 			assert.Error(t, err)
 		}
 	})

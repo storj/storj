@@ -6,6 +6,7 @@ package irreparable
 import (
 	"context"
 
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"storj.io/storj/pkg/pb"
 )
 
@@ -27,16 +28,28 @@ func (srv *Inspector) ListSegments(ctx context.Context, req *pb.ListSegmentsRequ
 	}
 
 	var resp pb.ListSegmentsResponse
-	for _, segment := range segments {
-		item := &pb.IrreparableSegment{
-			EncryptedPath:      segment.EncryptedSegmentPath,
-			SegmentDetail:      segment.EncryptedSegmentDetail,
-			LostPieces:         int32(segment.LostPiecesCount),
-			LastRepairAttempt:  segment.RepairUnixSec,
-			RepairAttemptCount: segment.RepairAttemptCount,
-		}
-		resp.Segments = append(resp.Segments, item)
+	resp.Segments = segments
+
+	p := &pb.Pointer{
+		Remote: &pb.RemoteSegment{
+			Redundancy:   &pb.RedundancyScheme{},
+			RemotePieces: []*pb.RemotePiece{&pb.RemotePiece{}},
+		},
+		CreationDate:   &timestamp.Timestamp{},
+		ExpirationDate: &timestamp.Timestamp{},
 	}
 
+	for i := 0; i < 10; i++ {
+
+		item := &pb.IrreparableSegment{
+			Path:               []byte{'a', '/', 'l', '/', 'c'},
+			SegmentDetail:      p,
+			LostPieces:         3,
+			LastRepairAttempt:  1234567890,
+			RepairAttemptCount: 5,
+		}
+		resp.Segments = append(resp.Segments, item)
+
+	}
 	return &resp, err
 }

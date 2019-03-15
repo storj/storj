@@ -6,7 +6,9 @@ package satellitedb
 import (
 	"context"
 
-	"storj.io/storj/pkg/datarepair/irreparable"
+	"github.com/golang/protobuf/proto"
+
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/utils"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -16,21 +18,26 @@ type irreparableDB struct {
 }
 
 // IncrementRepairAttempts a db entry for to increment the repair attempts field
-func (db *irreparableDB) IncrementRepairAttempts(ctx context.Context, segmentInfo *irreparable.RemoteSegmentInfo) (err error) {
+func (db *irreparableDB) IncrementRepairAttempts(ctx context.Context, segmentInfo *pb.IrreparableSegment) (err error) {
 	tx, err := db.db.Open(ctx)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	dbxInfo, err := tx.Get_Irreparabledb_By_Segmentpath(ctx, dbx.Irreparabledb_Segmentpath(segmentInfo.EncryptedSegmentPath))
+	bytes, err := proto.Marshal(segmentInfo.SegmentDetail)
+	if err != nil {
+		return err
+	}
+
+	dbxInfo, err := tx.Get_Irreparabledb_By_Segmentpath(ctx, dbx.Irreparabledb_Segmentpath(segmentInfo.Path))
 	if err != nil {
 		// no rows err, so create/insert an entry
 		_, err = tx.Create_Irreparabledb(
 			ctx,
-			dbx.Irreparabledb_Segmentpath(segmentInfo.EncryptedSegmentPath),
-			dbx.Irreparabledb_Segmentdetail(segmentInfo.EncryptedSegmentDetail),
-			dbx.Irreparabledb_PiecesLostCount(segmentInfo.LostPiecesCount),
-			dbx.Irreparabledb_SegDamagedUnixSec(segmentInfo.RepairUnixSec),
+			dbx.Irreparabledb_Segmentpath(segmentInfo.Path),
+			dbx.Irreparabledb_Segmentdetail(bytes),
+			dbx.Irreparabledb_PiecesLostCount(int64(segmentInfo.LostPieces)),
+			dbx.Irreparabledb_SegDamagedUnixSec(segmentInfo.LastRepairAttempt),
 			dbx.Irreparabledb_RepairAttemptCount(segmentInfo.RepairAttemptCount),
 		)
 		if err != nil {
@@ -41,7 +48,7 @@ func (db *irreparableDB) IncrementRepairAttempts(ctx context.Context, segmentInf
 		dbxInfo.RepairAttemptCount++
 		updateFields := dbx.Irreparabledb_Update_Fields{}
 		updateFields.RepairAttemptCount = dbx.Irreparabledb_RepairAttemptCount(dbxInfo.RepairAttemptCount)
-		updateFields.SegDamagedUnixSec = dbx.Irreparabledb_SegDamagedUnixSec(segmentInfo.RepairUnixSec)
+		updateFields.SegDamagedUnixSec = dbx.Irreparabledb_SegDamagedUnixSec(segmentInfo.LastRepairAttempt)
 		_, err = tx.Update_Irreparabledb_By_Segmentpath(
 			ctx,
 			dbx.Irreparabledb_Segmentpath(dbxInfo.Segmentpath),
@@ -56,35 +63,47 @@ func (db *irreparableDB) IncrementRepairAttempts(ctx context.Context, segmentInf
 }
 
 // Get a irreparable's segment info from the db
-func (db *irreparableDB) Get(ctx context.Context, segmentPath []byte) (resp *irreparable.RemoteSegmentInfo, err error) {
+func (db *irreparableDB) Get(ctx context.Context, segmentPath []byte) (resp *pb.IrreparableSegment, err error) {
 	dbxInfo, err := db.db.Get_Irreparabledb_By_Segmentpath(ctx, dbx.Irreparabledb_Segmentpath(segmentPath))
 	if err != nil {
-		return &irreparable.RemoteSegmentInfo{}, Error.Wrap(err)
+		return &pb.IrreparableSegment{}, Error.Wrap(err)
 	}
 
-	return &irreparable.RemoteSegmentInfo{
-		EncryptedSegmentPath:   dbxInfo.Segmentpath,
-		EncryptedSegmentDetail: dbxInfo.Segmentdetail,
-		LostPiecesCount:        dbxInfo.PiecesLostCount,
-		RepairUnixSec:          dbxInfo.SegDamagedUnixSec,
-		RepairAttemptCount:     dbxInfo.RepairAttemptCount,
+	p := &pb.Pointer{}
+
+	err = proto.Unmarshal(dbxInfo.Segmentdetail, p)
+	if err != nil {
+		return &pb.IrreparableSegment{}, err
+	}
+
+	return &pb.IrreparableSegment{
+		Path:               dbxInfo.Segmentpath,
+		SegmentDetail:      p,
+		LostPieces:         int32(dbxInfo.PiecesLostCount),
+		LastRepairAttempt:  dbxInfo.SegDamagedUnixSec,
+		RepairAttemptCount: dbxInfo.RepairAttemptCount,
 	}, nil
 }
 
 // Getlimited number of irreparable segments by offset
-func (db *irreparableDB) GetLimited(ctx context.Context, limit int, offset int64) (resp []*irreparable.RemoteSegmentInfo, err error) {
+func (db *irreparableDB) GetLimited(ctx context.Context, limit int, offset int64) (resp []*pb.IrreparableSegment, err error) {
 	rows, err := db.db.Limited_Irreparabledb(ctx, limit, offset)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, row := range rows {
-		segment := &irreparable.RemoteSegmentInfo{
-			EncryptedSegmentPath:   row.Segmentpath,
-			EncryptedSegmentDetail: row.Segmentdetail,
-			LostPiecesCount:        row.PiecesLostCount,
-			RepairUnixSec:          row.SegDamagedUnixSec,
-			RepairAttemptCount:     row.RepairAttemptCount,
+		p := &pb.Pointer{}
+		err = proto.Unmarshal(row.Segmentdetail, p)
+		if err != nil {
+			return nil, err
+		}
+		segment := &pb.IrreparableSegment{
+			Path:               row.Segmentpath,
+			SegmentDetail:      p,
+			LostPieces:         int32(row.PiecesLostCount),
+			LastRepairAttempt:  row.SegDamagedUnixSec,
+			RepairAttemptCount: row.RepairAttemptCount,
 		}
 		resp = append(resp, segment)
 	}

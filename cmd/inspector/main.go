@@ -14,7 +14,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
@@ -468,12 +467,7 @@ func getSegments(cmd *cobra.Command, args []string) error {
 			return ErrRequest.Wrap(err)
 		}
 
-		segments, err := unpackSegmentDetail(res.Segments)
-		if err != nil {
-			return err
-		}
-
-		objects := sortSegments(segments)
+		objects := sortSegments(res.Segments)
 		if len(objects) == 0 {
 			break
 		}
@@ -495,19 +489,11 @@ func getSegments(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-type formattedSegment struct {
-	EncryptedSegmentPath string      `json:"encrypted_segment_path"`
-	LostPieces           int32       `json:"lost_pieces"`
-	LastRepairAttempt    time.Time   `json:"last_repair_attempt"`
-	RepairAttemptCount   int64       `json:"repair_attempt_count"`
-	SegmentDetail        *pb.Pointer `json:"segment_detail"`
-}
-
 // sortSegments by the object they belong to
-func sortSegments(segments []*formattedSegment) map[string][]*formattedSegment {
-	objects := make(map[string][]*formattedSegment)
+func sortSegments(segments []*pb.IrreparableSegment) map[string][]*pb.IrreparableSegment {
+	objects := make(map[string][]*pb.IrreparableSegment)
 	for _, seg := range segments {
-		pathElements := storj.SplitPath(seg.EncryptedSegmentPath)
+		pathElements := storj.SplitPath(string(seg.Path))
 
 		// by removing the segment index, we can easily sort segments into a map of objects
 		pathElements = append(pathElements[:1], pathElements[2:]...)
@@ -515,25 +501,6 @@ func sortSegments(segments []*formattedSegment) map[string][]*formattedSegment {
 		objects[objPath] = append(objects[objPath], seg)
 	}
 	return objects
-}
-
-// unpackSegmentDetail unmarshals a slice of segments' pointers for viewing
-func unpackSegmentDetail(packed []*pb.IrreparableSegment) (unpacked []*formattedSegment, err error) {
-	for _, seg := range packed {
-		p := &pb.Pointer{}
-		err = proto.Unmarshal(seg.SegmentDetail, p)
-		if err != nil {
-			return nil, err
-		}
-		unpacked = append(unpacked, &formattedSegment{
-			EncryptedSegmentPath: string(seg.EncryptedPath),
-			LostPieces:           seg.LostPieces,
-			LastRepairAttempt:    time.Unix(seg.LastRepairAttempt, 0).UTC(),
-			RepairAttemptCount:   seg.RepairAttemptCount,
-			SegmentDetail:        p,
-		})
-	}
-	return unpacked, nil
 }
 
 func init() {

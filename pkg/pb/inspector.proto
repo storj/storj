@@ -6,6 +6,7 @@ option go_package = "pb";
 
 import "gogo.proto";
 import "node.proto";
+import "pointerdb.proto";
 import "google/protobuf/duration.proto";
 
 
@@ -59,8 +60,8 @@ message ListSegmentsRequest {
 }
 
 message IrreparableSegment {
-  bytes encrypted_path = 1;
-  bytes segment_detail = 2;
+  bytes path = 1;
+  pointerdb.Pointer segment_detail = 2;
   int32 lost_pieces = 3;
   int64 last_repair_attempt = 4;
   int64 repair_attempt_count = 5;
