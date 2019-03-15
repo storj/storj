@@ -35,7 +35,6 @@ type Service struct {
 	allocation           *pointerdb.AllocationSigner
 	cache                *overlay.Cache
 	selectionPreferences *overlay.NodeSelectionConfig
-	signer               signing.Signer
 	repairer             SegmentRepairer
 }
 
@@ -51,7 +50,6 @@ func NewService(queue queue.RepairQueue, config *Config, interval time.Duration,
 		allocation:           allocation,
 		cache:                cache,
 		selectionPreferences: selectionPreferences,
-		signer:               signer,
 	}
 }
 
@@ -63,7 +61,15 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO: close segment repairer, currently this leaks connections
-	service.repairer, err = service.config.GetSegmentRepairer(ctx, service.transport, service.pointerdb, service.allocation, service.cache, service.signer, service.selectionPreferences)
+	service.repairer, err = service.config.GetSegmentRepairer(
+		ctx,
+		service.transport,
+		service.pointerdb,
+		service.allocation,
+		service.cache,
+		service.transport.Identity(),
+		service.selectionPreferences,
+	)
 	if err != nil {
 		return err
 	}
