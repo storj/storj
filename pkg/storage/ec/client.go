@@ -31,6 +31,7 @@ var mon = monkit.Package()
 // Client defines an interface for storing erasure coded data to piece store nodes
 type Client interface {
 	Put(ctx context.Context, limits []*pb.AddressedOrderLimit, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error)
+	Repair(ctx context.Context, limits []*pb.AddressedOrderLimit, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time, timeout time.Duration) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error)
 	Get(ctx context.Context, limits []*pb.AddressedOrderLimit, es eestream.ErasureScheme, size int64) (ranger.Ranger, error)
 	Delete(ctx context.Context, limits []*pb.AddressedOrderLimit) error
 }
@@ -66,6 +67,7 @@ func (ec *ecClient) newPSClient(ctx context.Context, n *pb.Node) (*piecestore.Cl
 
 func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	if len(limits) != rs.TotalCount() {
 		return nil, nil, Error.New("size of limits slice (%d) does not match total count (%d) of erasure scheme", len(limits), rs.TotalCount())
 	}
@@ -149,7 +151,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 		timer.Stop()
 	}
 
-	/* clean up the partially uploaded segment's pieces */
+	// TODO: clean up the partially uploaded segment's pieces
 	defer func() {
 		select {
 		case <-ctx.Done():
@@ -164,6 +166,100 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 	if int(atomic.LoadInt32(&successfulCount)) < rs.RepairThreshold() {
 		return nil, nil, Error.New("successful puts (%d) less than repair threshold (%d)", successfulCount, rs.RepairThreshold())
 	}
+
+	return successfulNodes, successfulHashes, nil
+}
+
+func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time, timeout time.Duration) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if len(limits) != rs.TotalCount() {
+		return nil, nil, Error.New("size of limits slice (%d) does not match total count (%d) of erasure scheme", len(limits), rs.TotalCount())
+	}
+
+	if !unique(limits) {
+		return nil, nil, Error.New("duplicated nodes are not allowed")
+	}
+
+	padded := eestream.PadReader(ioutil.NopCloser(data), rs.StripeSize())
+	readers, err := eestream.EncodeReader(ctx, padded, rs)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	type info struct {
+		i    int
+		err  error
+		hash *pb.PieceHash
+	}
+	infos := make(chan info, len(limits))
+
+	psCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	for i, addressedLimit := range limits {
+		go func(i int, addressedLimit *pb.AddressedOrderLimit) {
+			hash, err := ec.putPiece(psCtx, ctx, addressedLimit, readers[i], expiration)
+			infos <- info{i: i, err: err, hash: hash}
+		}(i, addressedLimit)
+	}
+
+	successfulNodes = make([]*pb.Node, len(limits))
+	successfulHashes = make([]*pb.PieceHash, len(limits))
+	var successfulCount int32
+
+	// how many nodes must be repaired to reach the success threshold: o - (n - r)
+	optimalCount := rs.OptimalThreshold() - (rs.TotalCount() - nonNilCount(limits))
+
+	zap.S().Infof("Starting a timer for %s for repairing to %d nodes to reach the success threshold (%d nodes)...",
+		timeout, optimalCount, rs.OptimalThreshold())
+
+	timer := time.AfterFunc(timeout, func() {
+		if ctx.Err() != context.Canceled {
+			zap.S().Infof("Timer expired. Successfully repaired to %d nodes. Canceling the long tail...", atomic.LoadInt32(&successfulCount))
+			cancel()
+		}
+	})
+
+	for range limits {
+		info := <-infos
+		if info.err != nil {
+			zap.S().Debugf("Repair to storage node %s failed: %v", limits[info.i].GetLimit().StorageNodeId, info.err)
+			continue
+		}
+
+		successfulNodes[info.i] = &pb.Node{
+			Id:      limits[info.i].GetLimit().StorageNodeId,
+			Address: limits[info.i].GetStorageNodeAddress(),
+			Type:    pb.NodeType_STORAGE,
+		}
+		successfulHashes[info.i] = info.hash
+
+		if int(atomic.AddInt32(&successfulCount, 1)) == rs.OptimalThreshold() {
+			zap.S().Infof("Success threshold (%d nodes) reached by repairing to %d nodes. Canceling the long tail...",
+				rs.OptimalThreshold(), optimalCount)
+			timer.Stop()
+			cancel()
+		}
+	}
+
+	// Ensure timer is stopped in the case the success threshold is not reached
+	// due to errors instead of slowness.
+	if timer != nil {
+		timer.Stop()
+	}
+
+	// TODO: clean up the partially uploaded segment's pieces
+	defer func() {
+		select {
+		case <-ctx.Done():
+			err = utils.CombineErrors(
+				Error.New("repair cancelled"),
+				// ec.Delete(context.Background(), nodes, pieceID, pba.SatelliteId), //TODO
+			)
+		default:
+		}
+	}()
 
 	return successfulNodes, successfulHashes, nil
 }
