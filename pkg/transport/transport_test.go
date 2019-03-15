@@ -6,29 +6,25 @@ package transport_test
 import (
 	"context"
 	"fmt"
-	"net"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/benchmark/latency"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
 )
 
 func TestDialNode(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.New(t, 1, 2, 0)
+	planet, err := testplanet.New(t, 0, 2, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,20 +105,8 @@ func TestDialNode(t *testing.T) {
 			Type: pb.NodeType_STORAGE,
 		}
 
-		tc := planet.Satellites[0].Transport
-		slowTransport := transport.SlowTransport{Client: tc, Network: latency.Local}
-
-		dialerOpt := grpc.WithContextDialer(func(ctx context.Context, address string) (net.Conn, error) {
-			netdialer := &net.Dialer{}
-			conn, err := netdialer.DialContext(ctx, "tcp", address)
-			if err != nil {
-				return nil, err
-			}
-			return slowTransport.Network.Conn(conn)
-		})
-
 		timedCtx, cancel := context.WithTimeout(ctx, time.Second)
-		conn, err := client.DialNode(timedCtx, target, dialerOpt)
+		conn, err := client.DialNode(timedCtx, target)
 		cancel()
 
 		assert.NoError(t, err)

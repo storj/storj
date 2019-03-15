@@ -171,10 +171,15 @@ func auditShares(ctx context.Context, required, total int, originals map[int]Sha
 		return nil, err
 	}
 
-	err = f.Correct(copies)
-	if err != nil {
-		return nil, err
+	// There's a chance that we don't have enough shares
+	// because nodes wouldn't return the data despite being online.
+	if len(copies) > required {
+		err = f.Correct(copies)
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	for _, share := range copies {
 		if !bytes.Equal(originals[share.Number].Data, share.Data) {
 			pieceNums = append(pieceNums, share.Number)

@@ -6,10 +6,10 @@ package audit_test
 import (
 	"crypto/rand"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc/benchmark/latency"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
@@ -18,7 +18,10 @@ import (
 	"storj.io/storj/pkg/transport"
 )
 
-func TestAuditTimeout(t *testing.T) {
+// TestGetShareTimeout should test that getShare calls
+// will have context cancelled if it takes too long to
+// receive data back from a storage node.
+func TestGetShareTimeout(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -50,16 +53,18 @@ func TestAuditTimeout(t *testing.T) {
 
 		overlay := planet.Satellites[0].Overlay.Service
 		tc := planet.Satellites[0].Transport
-		slowtc := transport.NewClientWithLatency(tc, latency.Local)
+		slowtc := transport.NewClientWithLatency(tc, 200*time.Second)
 		require.NotNil(t, slowtc)
 
-		verifier := audit.NewVerifier(slowtc, overlay, planet.Satellites[0].Identity, 128)
+		// This config value will create a very short timeframe allowed for receiving
+		// data from storage nodes. This will cause context to cancel and start
+		// downloading from new nodes.
+		minBytesPerSecond := memory.Size(110000)
+
+		verifier := audit.NewVerifier(slowtc, overlay, planet.Satellites[0].Identity, minBytesPerSecond)
 		require.NotNil(t, verifier)
 
 		_, err = verifier.Verify(ctx, stripe)
-		assert.Error(t, err)
-		if err != nil {
-			assert.Contains(t, err, "context deadline exceeded")
-		}
+		assert.NoError(t, err)
 	})
 }
