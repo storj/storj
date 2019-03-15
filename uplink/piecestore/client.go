@@ -33,7 +33,7 @@ var DefaultConfig = Config{
 	UploadBufferSize:   256 * memory.KiB.Int64(),
 	DownloadBufferSize: 256 * memory.KiB.Int64(),
 
-	InitialStep: 256 * memory.KiB.Int64(),
+	InitialStep: 64 * memory.KiB.Int64(),
 	MaximumStep: 1 * memory.MiB.Int64(),
 }
 

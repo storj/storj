@@ -53,8 +53,26 @@ func (usage *Usage) Include(action pb.Action, amount int64) {
 	}
 }
 
+// Add adds another usage to this one.
+func (usage *Usage) Add(b *Usage) {
+	usage.Invalid += b.Invalid
+	usage.Unknown += b.Unknown
+	usage.Put += b.Put
+	usage.Get += b.Get
+	usage.GetAudit += b.GetAudit
+	usage.GetRepair += b.GetRepair
+	usage.PutRepair += b.PutRepair
+	usage.Delete += b.Delete
+}
+
 // Total sums all type of bandwidths
 func (usage *Usage) Total() int64 {
-	return usage.Get + usage.GetAudit + usage.GetRepair + usage.Put + usage.PutRepair +
-		usage.Delete + +usage.Invalid + usage.Unknown
+	return usage.Invalid +
+		usage.Unknown +
+		usage.Put +
+		usage.Get +
+		usage.GetAudit +
+		usage.GetRepair +
+		usage.PutRepair +
+		usage.Delete
 }
