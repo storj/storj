@@ -8,8 +8,6 @@ import (
 	"io"
 	"time"
 
-	"storj.io/storj/storagenode/monitor"
-
 	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -22,6 +20,7 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storagenode/bandwidth"
+	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/trust"
