@@ -134,3 +134,13 @@ func (db *DB) Console() console.DB {
 		methods: db.db,
 	}
 }
+
+// BucketBWUsage returns database for tracking bandwidth agreements associated with buckets
+func (db *DB) BucketBWUsage() accounting.BucketBandwidthUsage {
+	return &bucketBandwidthUsage{db: db.db}
+}
+
+// BucketUsage returns database for tracking bucket usages rollups
+func (db *DB) BucketUsage() accounting.BucketUsage {
+	return &bucketusage{db: db.db}
+}

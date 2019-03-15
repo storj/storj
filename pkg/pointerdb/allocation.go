@@ -10,6 +10,7 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
+	acct "storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/identity"
@@ -22,19 +23,21 @@ type AllocationSigner struct {
 	satelliteIdentity *identity.FullIdentity
 	bwExpiration      int
 	certdb            certdb.DB
+	bucketBWUsageDB   acct.BucketBandwidthUsage
 }
 
 // NewAllocationSigner creates new instance
-func NewAllocationSigner(satelliteIdentity *identity.FullIdentity, bwExpiration int, upldb certdb.DB) *AllocationSigner {
+func NewAllocationSigner(satelliteIdentity *identity.FullIdentity, bwExpiration int, upldb certdb.DB, bucketBWDB acct.BucketBandwidthUsage) *AllocationSigner {
 	return &AllocationSigner{
 		satelliteIdentity: satelliteIdentity,
 		bwExpiration:      bwExpiration,
 		certdb:            upldb,
+		bucketBWUsageDB:   bucketBWDB,
 	}
 }
 
 // PayerBandwidthAllocation returns generated payer bandwidth allocation
-func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context, peerIdentity *identity.PeerIdentity, action pb.BandwidthAction) (pba *pb.OrderLimit, err error) {
+func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context, peerIdentity *identity.PeerIdentity, action pb.BandwidthAction, path storj.Path) (pba *pb.OrderLimit, err error) {
 	if peerIdentity == nil {
 		return nil, Error.New("missing peer identity")
 	}
@@ -66,6 +69,14 @@ func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context
 		SerialNumber:      serialNum.String(),
 	}
 	err = auth.SignMessage(pba, *allocation.satelliteIdentity)
+
+	// When an OrderLimit is created, create the associated bucket
+	// bandwidth usage record.
+	err = allocation.bucketBWUsageDB.Create(ctx, pba, path)
+	if err != nil {
+		return nil, err
+	}
+
 	return pba, err
 }
 

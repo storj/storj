@@ -8,6 +8,9 @@ import (
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
+
+	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 )
 
 // BucketUsage is bucket usage rollup repository
@@ -16,6 +19,13 @@ type BucketUsage interface {
 	GetPaged(ctx context.Context, cursor *BucketRollupCursor) ([]BucketRollup, error)
 	Create(ctx context.Context, rollup BucketRollup) (*BucketRollup, error)
 	Delete(ctx context.Context, id uuid.UUID) error
+}
+
+// BucketBandwidthUsage is bucket bandwidth usage
+type BucketBandwidthUsage interface {
+	Create(ctx context.Context, pba *pb.OrderLimit, path storj.Path) error
+	GetAllByBucketIDAndAction(ctx context.Context, bucketID string, action pb.BandwidthAction) ([]BucketBWUsage, error)
+	DeleteByBucketID(ctx context.Context, bucketID string) error
 }
 
 // Order is sorting order can be asc or desc
@@ -42,8 +52,9 @@ type BucketRollupCursor struct {
 
 // BucketRollup holds usage rollup info
 type BucketRollup struct {
-	ID       uuid.UUID
-	BucketID uuid.UUID
+	ID        uuid.UUID
+	BucketID  string
+	ProjectID string
 
 	RollupEndTime time.Time
 
@@ -57,4 +68,15 @@ type BucketRollup struct {
 	RepairEgress uint64
 	GetEgress    uint64
 	AuditEgress  uint64
+}
+
+// BucketBWUsage mirrors dbx.BucketBandwidthWUsage, allowing us to use that struct without leaking dbx
+type BucketBWUsage struct {
+	ID        uuid.UUID
+	Serialnum string
+	BucketID  string
+	ProjectID string
+	Action    int64
+	Total     int64
+	CreatedAt time.Time
 }

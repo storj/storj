@@ -5171,32 +5171,6 @@ func (obj *postgresImpl) Delete_CertRecord_By_Id(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Delete_BucketBandwidthUsage_By_Id(ctx context.Context,
-	bucket_bandwidth_usage_id BucketBandwidthUsage_Id_Field) (
-	deleted bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bucket_bandwidth_usages WHERE bucket_bandwidth_usages.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_bandwidth_usage_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
 func (obj *postgresImpl) Delete_BucketBandwidthUsage_By_BucketId(ctx context.Context,
 	bucket_bandwidth_usage_bucket_id BucketBandwidthUsage_BucketId_Field) (
 	count int64, err error) {
@@ -7639,32 +7613,6 @@ func (obj *sqlite3Impl) Delete_CertRecord_By_Id(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Delete_BucketBandwidthUsage_By_Id(ctx context.Context,
-	bucket_bandwidth_usage_id BucketBandwidthUsage_Id_Field) (
-	deleted bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bucket_bandwidth_usages WHERE bucket_bandwidth_usages.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_bandwidth_usage_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
 func (obj *sqlite3Impl) Delete_BucketBandwidthUsage_By_BucketId(ctx context.Context,
 	bucket_bandwidth_usage_bucket_id BucketBandwidthUsage_BucketId_Field) (
 	count int64, err error) {
@@ -8560,16 +8508,6 @@ func (rx *Rx) Delete_BucketBandwidthUsage_By_BucketId(ctx context.Context,
 
 }
 
-func (rx *Rx) Delete_BucketBandwidthUsage_By_Id(ctx context.Context,
-	bucket_bandwidth_usage_id BucketBandwidthUsage_Id_Field) (
-	deleted bool, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Delete_BucketBandwidthUsage_By_Id(ctx, bucket_bandwidth_usage_id)
-}
-
 func (rx *Rx) Delete_BucketUsage_By_Id(ctx context.Context,
 	bucket_usage_id BucketUsage_Id_Field) (
 	deleted bool, err error) {
@@ -9144,10 +9082,6 @@ type Methods interface {
 	Delete_BucketBandwidthUsage_By_BucketId(ctx context.Context,
 		bucket_bandwidth_usage_bucket_id BucketBandwidthUsage_BucketId_Field) (
 		count int64, err error)
-
-	Delete_BucketBandwidthUsage_By_Id(ctx context.Context,
-		bucket_bandwidth_usage_id BucketBandwidthUsage_Id_Field) (
-		deleted bool, err error)
 
 	Delete_BucketUsage_By_Id(ctx context.Context,
 		bucket_usage_id BucketUsage_Id_Field) (

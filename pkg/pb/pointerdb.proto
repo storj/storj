@@ -135,6 +135,7 @@ message IterateRequest {
 
 message PayerBandwidthAllocationRequest {
   piecestoreroutes.BandwidthAction action = 1;
+  string path = 2;
 }
 
 message PayerBandwidthAllocationResponse {

@@ -49,7 +49,7 @@ type Client interface {
 	List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
 	Delete(ctx context.Context, path storj.Path) error
 
-	PayerBandwidthAllocation(context.Context, pb.BandwidthAction) (*pb.OrderLimit, error)
+	PayerBandwidthAllocation(context.Context, pb.BandwidthAction, storj.Path) (*pb.OrderLimit, error)
 
 	// Disconnect() error // TODO: implement
 }
@@ -159,10 +159,10 @@ func (pdb *PointerDB) Delete(ctx context.Context, path storj.Path) (err error) {
 }
 
 // PayerBandwidthAllocation gets payer bandwidth allocation message
-func (pdb *PointerDB) PayerBandwidthAllocation(ctx context.Context, action pb.BandwidthAction) (resp *pb.OrderLimit, err error) {
+func (pdb *PointerDB) PayerBandwidthAllocation(ctx context.Context, action pb.BandwidthAction, path storj.Path) (resp *pb.OrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	response, err := pdb.client.PayerBandwidthAllocation(ctx, &pb.PayerBandwidthAllocationRequest{Action: action})
+	response, err := pdb.client.PayerBandwidthAllocation(ctx, &pb.PayerBandwidthAllocationRequest{Action: action, Path: path})
 	if err != nil {
 		return nil, err
 	}

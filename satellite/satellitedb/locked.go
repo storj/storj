@@ -133,6 +133,74 @@ func (m *lockedBandwidthAgreement) GetUplinkStats(ctx context.Context, a1 time.T
 	return m.db.GetUplinkStats(ctx, a1, a2)
 }
 
+// BucketBWUsage returns database for satellite console
+func (m *locked) BucketBWUsage() accounting.BucketBandwidthUsage {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedBucketBWUsage{m.Locker, m.db.BucketBWUsage()}
+}
+
+// lockedBucketBWUsage implements locking wrapper for accounting.BucketBandwidthUsage
+type lockedBucketBWUsage struct {
+	sync.Locker
+	db accounting.BucketBandwidthUsage
+}
+
+func (m *lockedBucketBWUsage) Create(ctx context.Context, pba *pb.PayerBandwidthAllocation, path string) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Create(ctx, pba, path)
+}
+
+func (m *lockedBucketBWUsage) DeleteByBucketID(ctx context.Context, bucketID string) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.DeleteByBucketID(ctx, bucketID)
+}
+
+func (m *lockedBucketBWUsage) GetAllByBucketIDAndAction(ctx context.Context, bucketID string, action pb.BandwidthAction) ([]accounting.BucketBWUsage, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetAllByBucketIDAndAction(ctx, bucketID, action)
+}
+
+// BucketUsage returns
+func (m *locked) BucketUsage() accounting.BucketUsage {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedBucketUsage{m.Locker, m.db.BucketUsage()}
+}
+
+// lockedBucketUsage implements locking wrapper for accounting.BucketUsage
+type lockedBucketUsage struct {
+	sync.Locker
+	db accounting.BucketUsage
+}
+
+func (m *lockedBucketUsage) Create(ctx context.Context, rollup accounting.BucketRollup) (*accounting.BucketRollup, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Create(ctx, rollup)
+}
+
+func (m *lockedBucketUsage) Delete(ctx context.Context, id uuid.UUID) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Delete(ctx, id)
+}
+
+func (m *lockedBucketUsage) Get(ctx context.Context, id uuid.UUID) (*accounting.BucketRollup, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Get(ctx, id)
+}
+
+func (m *lockedBucketUsage) GetPaged(ctx context.Context, cursor *accounting.BucketRollupCursor) ([]accounting.BucketRollup, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetPaged(ctx, cursor)
+}
+
 // CertDB returns database for storing uplink's public key & ID
 func (m *locked) CertDB() certdb.DB {
 	m.Lock()
@@ -240,36 +308,6 @@ func (m *lockedConsole) BucketUsage() accounting.BucketUsage {
 	m.Lock()
 	defer m.Unlock()
 	return &lockedBucketUsage{m.Locker, m.db.BucketUsage()}
-}
-
-// lockedBucketUsage implements locking wrapper for accounting.BucketUsage
-type lockedBucketUsage struct {
-	sync.Locker
-	db accounting.BucketUsage
-}
-
-func (m *lockedBucketUsage) Create(ctx context.Context, rollup accounting.BucketRollup) (*accounting.BucketRollup, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Create(ctx, rollup)
-}
-
-func (m *lockedBucketUsage) Delete(ctx context.Context, id uuid.UUID) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Delete(ctx, id)
-}
-
-func (m *lockedBucketUsage) Get(ctx context.Context, id uuid.UUID) (*accounting.BucketRollup, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Get(ctx, id)
-}
-
-func (m *lockedBucketUsage) GetPaged(ctx context.Context, cursor *accounting.BucketRollupCursor) ([]accounting.BucketRollup, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetPaged(ctx, cursor)
 }
 
 // ProjectMembers is a getter for ProjectMembers repository

@@ -128,7 +128,8 @@ func (usage bucketusage) Create(ctx context.Context, rollup accounting.BucketRol
 	dbxUsage, err := usage.db.Create_BucketUsage(
 		ctx,
 		dbx.BucketUsage_Id(id[:]),
-		dbx.BucketUsage_BucketId(rollup.BucketID[:]),
+		dbx.BucketUsage_BucketId([]byte(rollup.BucketID)),
+		dbx.BucketUsage_ProjectId([]byte(rollup.ProjectID)),
 		dbx.BucketUsage_RollupEndTime(rollup.RollupEndTime),
 		dbx.BucketUsage_RemoteStoredData(rollup.RemoteStoredData),
 		dbx.BucketUsage_InlineStoredData(rollup.InlineStoredData),
@@ -161,14 +162,9 @@ func fromDBXUsage(dbxUsage *dbx.BucketUsage) (*accounting.BucketRollup, error) {
 		return nil, err
 	}
 
-	bucketID, err := bytesToUUID(dbxUsage.BucketId)
-	if err != nil {
-		return nil, err
-	}
-
 	return &accounting.BucketRollup{
 		ID:               id,
-		BucketID:         bucketID,
+		BucketID:         string(dbxUsage.BucketId),
 		RollupEndTime:    dbxUsage.RollupEndTime,
 		RemoteStoredData: dbxUsage.RemoteStoredData,
 		InlineStoredData: dbxUsage.InlineStoredData,

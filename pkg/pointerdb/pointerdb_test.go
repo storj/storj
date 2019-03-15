@@ -189,7 +189,7 @@ func TestServiceGet(t *testing.T) {
 
 		db := teststore.New()
 		service := pointerdb.NewService(zap.NewNop(), db)
-		allocation := pointerdb.NewAllocationSigner(identity, 45, satdb.CertDB())
+		allocation := pointerdb.NewAllocationSigner(identity, 45, satdb.CertDB(), satdb.BucketBWUsage())
 
 		s := pointerdb.NewServer(zap.NewNop(), service, allocation, nil, pointerdb.Config{}, identity, apiKeys)
 
