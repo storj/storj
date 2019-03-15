@@ -24,6 +24,8 @@ import (
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode/bandwidth"
+	"storj.io/storj/storagenode/inspector"
+	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
@@ -101,7 +103,8 @@ type Peer struct {
 		Trust     *trust.Pool
 		Store     *pieces.Store
 		Endpoint  *piecestore.Endpoint
-		Inspector *piecestore.Inspector
+		Inspector *inspector.Endpoint
+		Monitor   *monitor.Service
 	}
 }
 
@@ -220,8 +223,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 		}
 		pb.RegisterPiecestoreServer(peer.Server.GRPC(), peer.Storage2.Endpoint)
 
-		peer.Storage2.Inspector = piecestore.NewInspector(
-			peer.Log.Named("pieces"),
+		peer.Storage2.Inspector = inspector.NewEndpoint(
+			peer.Log.Named("pieces:inspector"),
 			peer.DB.PieceInfo(),
 			peer.Kademlia.Service,
 			peer.DB.Bandwidth(),
@@ -229,6 +232,17 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 			config.Storage,
 		)
 		pb.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage2.Inspector)
+
+		peer.Storage2.Monitor = monitor.NewService(
+			log.Named("piecestore:monitor"),
+			peer.Storage2.Store,
+			peer.Storage2.Inspector,
+			peer.Kademlia.RoutingTable,
+			config.Storage.AllocatedDiskSpace.Int64(),
+			config.Storage.AllocatedBandwidth.Int64(),
+			//TODO use config.Storage.Monitor.Interval, but for some reason is not set
+			config.Storage.KBucketRefreshInterval,
+		)
 	}
 
 	return peer, nil
@@ -249,6 +263,9 @@ func (peer *Peer) Run(ctx context.Context) error {
 	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Storage.Monitor.Run(ctx))
+	})
+	group.Go(func() error {
+		return ignoreCancel(peer.Storage2.Monitor.Run(ctx))
 	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Storage.Collector.Run(ctx))

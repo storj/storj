@@ -8,6 +8,8 @@ import (
 	"io"
 	"time"
 
+	"storj.io/storj/storagenode/monitor"
+
 	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -40,6 +42,8 @@ var _ pb.PiecestoreServer = (*Endpoint)(nil)
 // Config defines parameters for piecestore endpoint.
 type Config struct {
 	ExpirationGracePeriod time.Duration `help:"how soon before expiration date should things be considered expired" default:"48h0m0s"`
+
+	Monitor monitor.Config
 }
 
 // Endpoint implements uploading, downloading and deleting for a storage node.

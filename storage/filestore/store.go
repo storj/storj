@@ -72,3 +72,12 @@ func (store *Store) Create(ctx context.Context, ref storage.BlobRef, size int64)
 	}
 	return newBlobWriter(ref, store, file), nil
 }
+
+// FreeSpace returns how much space left in underlying directory
+func (store *Store) FreeSpace() (int64, error) {
+	info, err := store.dir.Info()
+	if err != nil {
+		return 0, err
+	}
+	return info.AvailableSpace, nil
+}
