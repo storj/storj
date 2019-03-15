@@ -16,7 +16,7 @@ import (
 	"storj.io/storj/internal/testplanet"
 )
 
-func TestEndpointUploadAndPartialDownload(t *testing.T) {
+func TestUploadAndPartialDownload(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -42,6 +42,7 @@ func TestEndpointUploadAndPartialDownload(t *testing.T) {
 	} {
 		download, err := planet.Uplinks[0].DownloadStream(ctx, planet.Satellites[0], "test/bucket", "test/path")
 		require.NoError(t, err)
+		defer ctx.Check(download.Close)
 
 		pos, err := download.Seek(tt.offset, io.SeekStart)
 		require.NoError(t, err)
@@ -53,7 +54,5 @@ func TestEndpointUploadAndPartialDownload(t *testing.T) {
 		assert.Equal(t, int(tt.size), n)
 
 		assert.Equal(t, expectedData[tt.offset:tt.offset+tt.size], data)
-
-		require.NoError(t, download.Close())
 	}
 }
