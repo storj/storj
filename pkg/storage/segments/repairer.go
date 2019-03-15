@@ -5,6 +5,7 @@ package segments
 
 import (
 	"context"
+	time "time"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/zeebo/errs"
@@ -28,10 +29,11 @@ type Repairer struct {
 	selectionPreferences *overlay.NodeSelectionConfig
 	signer               signing.Signer
 	identity             *identity.FullIdentity
+	timeout              time.Duration
 }
 
 // NewSegmentRepairer creates a new instance of SegmentRepairer
-func NewSegmentRepairer(pointerdb *pointerdb.Service, allocation *pointerdb.AllocationSigner, cache *overlay.Cache, ec ecclient.Client, identity *identity.FullIdentity, selectionPreferences *overlay.NodeSelectionConfig) *Repairer {
+func NewSegmentRepairer(pointerdb *pointerdb.Service, allocation *pointerdb.AllocationSigner, cache *overlay.Cache, ec ecclient.Client, identity *identity.FullIdentity, selectionPreferences *overlay.NodeSelectionConfig, timeout time.Duration) *Repairer {
 	return &Repairer{
 		pointerdb:            pointerdb,
 		allocation:           allocation,
@@ -40,6 +42,7 @@ func NewSegmentRepairer(pointerdb *pointerdb.Service, allocation *pointerdb.Allo
 		identity:             identity,
 		signer:               signing.SignerFromFullIdentity(identity),
 		selectionPreferences: selectionPreferences,
+		timeout:              timeout,
 	}
 }
 
@@ -160,7 +163,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 	defer func() { err = errs.Combine(err, r.Close()) }()
 
 	// Upload the repaired pieces
-	successfulNodes, hashes, err := repairer.ec.Put(ctx, putLimits, redundancy, r, convertTime(expiration))
+	successfulNodes, hashes, err := repairer.ec.Repair(ctx, putLimits, redundancy, r, convertTime(expiration), repairer.timeout)
 	if err != nil {
 		return Error.Wrap(err)
 	}
