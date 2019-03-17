@@ -147,9 +147,6 @@ func makeCopies(ctx context.Context, originals map[int]Share) (copies []infectio
 	defer mon.Task()(&ctx)(&err)
 	copies = make([]infectious.Share, 0, len(originals))
 	for _, original := range originals {
-		if original.Error != nil {
-			continue
-		}
 		copies = append(copies, infectious.Share{
 			Data:   append([]byte{}, original.Data...),
 			Number: original.PieceNum})
@@ -171,13 +168,9 @@ func auditShares(ctx context.Context, required, total int, originals map[int]Sha
 		return nil, err
 	}
 
-	// There's a chance that we don't have enough shares
-	// because nodes wouldn't return the data despite being online.
-	if len(copies) > required {
-		err = f.Correct(copies)
-		if err != nil {
-			return nil, err
-		}
+	err = f.Correct(copies)
+	if err != nil {
+		return nil, err
 	}
 
 	for _, share := range copies {
@@ -201,20 +194,37 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe) (verifiedN
 	}
 
 	var offlineNodes storj.NodeIDList
-	for pieceNum := range shares {
+	var failedNodes storj.NodeIDList
+	sharesToAudit := make(map[int]Share)
+
+	for pieceNum, share := range shares {
 		if shares[pieceNum].Error != nil {
-			offlineNodes = append(offlineNodes, nodes[pieceNum])
+			if shares[pieceNum].Error == context.DeadlineExceeded {
+				failedNodes = append(failedNodes, nodes[pieceNum])
+			} else {
+				offlineNodes = append(offlineNodes, nodes[pieceNum])
+			}
+		} else {
+			sharesToAudit[pieceNum] = share
 		}
 	}
 
 	required := int(pointer.Remote.Redundancy.GetMinReq())
 	total := int(pointer.Remote.Redundancy.GetTotal())
-	pieceNums, err := auditShares(ctx, required, total, shares)
+
+	if len(sharesToAudit) < required {
+		return &RecordAuditsInfo{
+			SuccessNodeIDs: nil,
+			FailNodeIDs:    failedNodes,
+			OfflineNodeIDs: offlineNodes,
+		}, nil
+	}
+
+	pieceNums, err := auditShares(ctx, required, total, sharesToAudit)
 	if err != nil {
 		return nil, err
 	}
 
-	var failedNodes storj.NodeIDList
 	for _, pieceNum := range pieceNums {
 		failedNodes = append(failedNodes, nodes[pieceNum])
 	}
