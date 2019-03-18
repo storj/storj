@@ -135,7 +135,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 		}
 
 		derivedPieceID := rootPieceID.Derive(node.Id)
-		orderLimit, err := repairer.createOrderLimit(ctx, node.Id, derivedPieceID, expiration, pieceSize, pb.Action_GET_REPAIR)
+		orderLimit, err := repairer.createOrderLimit(ctx, node.Id, derivedPieceID, expiration, pieceSize, pb.Action_PUT_REPAIR)
 		if err != nil {
 			return err
 		}
@@ -144,6 +144,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 			Limit:              orderLimit,
 			StorageNodeAddress: node.Address,
 		}
+		pieceNum++
 	}
 
 	// Download the segment using just the healthy pieces
@@ -166,7 +167,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 
 	// Add the successfully uploaded pieces to the healthyPieces
 	for i, node := range successfulNodes {
-		if node != nil {
+		if node == nil {
 			continue
 		}
 		healthyPieces = append(healthyPieces, &pb.RemotePiece{
