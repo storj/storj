@@ -7,6 +7,7 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha512"
+	"database/sql/driver"
 	"encoding/base32"
 
 	"github.com/zeebo/errs"
@@ -18,12 +19,12 @@ var ErrPieceID = errs.Class("piece ID error")
 // base32Encoding without padding
 var base32Encoding = base32.StdEncoding.WithPadding(base32.NoPadding)
 
-// PieceID2 is the unique identifier for pieces
-type PieceID2 [32]byte
+// PieceID is the unique identifier for pieces
+type PieceID [32]byte
 
 // NewPieceID creates a piece ID
-func NewPieceID() PieceID2 {
-	var id PieceID2
+func NewPieceID() PieceID {
+	var id PieceID
 
 	_, err := rand.Read(id[:])
 	if err != nil {
@@ -34,80 +35,96 @@ func NewPieceID() PieceID2 {
 }
 
 // PieceIDFromString decodes a hex encoded piece ID string
-func PieceIDFromString(s string) (PieceID2, error) {
+func PieceIDFromString(s string) (PieceID, error) {
 	idBytes, err := base32Encoding.DecodeString(s)
 	if err != nil {
-		return PieceID2{}, ErrNodeID.Wrap(err)
+		return PieceID{}, ErrNodeID.Wrap(err)
 	}
 	return PieceIDFromBytes(idBytes)
 }
 
 // PieceIDFromBytes converts a byte slice into a piece ID
-func PieceIDFromBytes(b []byte) (PieceID2, error) {
-	if len(b) != len(PieceID2{}) {
-		return PieceID2{}, ErrPieceID.New("not enough bytes to make a piece ID; have %d, need %d", len(b), len(NodeID{}))
+func PieceIDFromBytes(b []byte) (PieceID, error) {
+	if len(b) != len(PieceID{}) {
+		return PieceID{}, ErrPieceID.New("not enough bytes to make a piece ID; have %d, need %d", len(b), len(NodeID{}))
 	}
 
-	var id PieceID2
+	var id PieceID
 	copy(id[:], b[:])
 	return id, nil
 }
 
 // IsZero returns whether piece ID is unassigned
-func (id PieceID2) IsZero() bool {
-	return id == PieceID2{}
+func (id PieceID) IsZero() bool {
+	return id == PieceID{}
 }
 
 // String representation of the piece ID
-func (id PieceID2) String() string { return base32Encoding.EncodeToString(id.Bytes()) }
+func (id PieceID) String() string { return base32Encoding.EncodeToString(id.Bytes()) }
 
 // Bytes returns bytes of the piece ID
-func (id PieceID2) Bytes() []byte { return id[:] }
+func (id PieceID) Bytes() []byte { return id[:] }
 
-// Derive a new PieceID2 from the current piece ID and the given storage node ID
-func (id PieceID2) Derive(storagenodeID NodeID) PieceID2 {
+// Derive a new PieceID from the current piece ID and the given storage node ID
+func (id PieceID) Derive(storagenodeID NodeID) PieceID {
 	// TODO: should the secret / content be swapped?
 	mac := hmac.New(sha512.New, id.Bytes())
 	_, _ = mac.Write(storagenodeID.Bytes()) // on hash.Hash write never returns an error
-	var derived PieceID2
+	var derived PieceID
 	copy(derived[:], mac.Sum(nil))
 	return derived
 }
 
 // Marshal serializes a piece ID
-func (id PieceID2) Marshal() ([]byte, error) {
+func (id PieceID) Marshal() ([]byte, error) {
 	return id.Bytes(), nil
 }
 
 // MarshalTo serializes a piece ID into the passed byte slice
-func (id *PieceID2) MarshalTo(data []byte) (n int, err error) {
+func (id *PieceID) MarshalTo(data []byte) (n int, err error) {
 	n = copy(data, id.Bytes())
 	return n, nil
 }
 
 // Unmarshal deserializes a piece ID
-func (id *PieceID2) Unmarshal(data []byte) error {
+func (id *PieceID) Unmarshal(data []byte) error {
 	var err error
 	*id, err = PieceIDFromBytes(data)
 	return err
 }
 
 // Size returns the length of a piece ID (implements gogo's custom type interface)
-func (id *PieceID2) Size() int {
+func (id *PieceID) Size() int {
 	return len(id)
 }
 
 // MarshalJSON serializes a piece ID to a json string as bytes
-func (id PieceID2) MarshalJSON() ([]byte, error) {
+func (id PieceID) MarshalJSON() ([]byte, error) {
 	return []byte(`"` + id.String() + `"`), nil
 }
 
 // UnmarshalJSON deserializes a json string (as bytes) to a piece ID
-func (id *PieceID2) UnmarshalJSON(data []byte) error {
+func (id *PieceID) UnmarshalJSON(data []byte) error {
 	var err error
 	*id, err = PieceIDFromString(string(data))
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+// Value set a PieceID to a database field
+func (id PieceID) Value() (driver.Value, error) {
+	return id.Bytes(), nil
+}
+
+// Scan extracts a PieceID from a database field
+func (id *PieceID) Scan(src interface{}) (err error) {
+	b, ok := src.([]byte)
+	if !ok {
+		return ErrNodeID.New("PieceID Scan expects []byte")
+	}
+	n, err := PieceIDFromBytes(b)
+	*id = n
+	return err
 }

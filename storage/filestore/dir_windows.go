@@ -97,16 +97,26 @@ func ignoreSuccess(err error) error {
 	return err
 }
 
+// Adds `\\?` prefix to ensure that API recognizes it as a long path.
+// see https://msdn.microsoft.com/en-us/library/windows/desktop/aa365247(v=vs.85).aspx#maxpath
+func tryFixLongPath(path string) string {
+	abspath, err := filepath.Abs(path)
+	if err != nil {
+		return path
+	}
+	return `\\?\` + abspath
+}
+
 // rename implements atomic file rename on windows
 func rename(oldpath, newpath string) error {
 	const replace_existing = 0x1
 	const write_through = 0x8
 
-	oldpathp, err := windows.UTF16PtrFromString(oldpath)
+	oldpathp, err := windows.UTF16PtrFromString(tryFixLongPath(oldpath))
 	if err != nil {
 		return &os.LinkError{Op: "replace", Old: oldpath, New: newpath, Err: err}
 	}
-	newpathp, err := windows.UTF16PtrFromString(newpath)
+	newpathp, err := windows.UTF16PtrFromString(tryFixLongPath(newpath))
 	if err != nil {
 		return &os.LinkError{Op: "replace", Old: oldpath, New: newpath, Err: err}
 	}
@@ -122,9 +132,7 @@ func rename(oldpath, newpath string) error {
 // openFileReadOnly opens the file with read only
 // a custom implementation, because os.Open doesn't support specifying FILE_SHARE_DELETE
 func openFileReadOnly(path string, perm os.FileMode) (*os.File, error) {
-	// see https://msdn.microsoft.com/en-us/library/windows/desktop/aa365247(v=vs.85).aspx#maxpath
-	longpath := `\\?\` + path
-	pathp, err := windows.UTF16PtrFromString(longpath)
+	pathp, err := windows.UTF16PtrFromString(tryFixLongPath(path))
 	if err != nil {
 		return nil, err
 	}

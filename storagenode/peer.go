@@ -11,6 +11,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
@@ -22,6 +23,13 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storage"
+	"storj.io/storj/storagenode/bandwidth"
+	"storj.io/storj/storagenode/inspector"
+	"storj.io/storj/storagenode/monitor"
+	"storj.io/storj/storagenode/orders"
+	"storj.io/storj/storagenode/pieces"
+	"storj.io/storj/storagenode/piecestore"
+	"storj.io/storj/storagenode/trust"
 )
 
 // DB is the master database for Storage Node
@@ -32,6 +40,14 @@ type DB interface {
 	Close() error
 
 	Storage() psserver.Storage
+	Pieces() storage.Blobs
+
+	Orders() orders.DB
+	PieceInfo() pieces.DB
+	CertDB() trust.CertDB
+	Bandwidth() bandwidth.DB
+	UsedSerials() piecestore.UsedSerials
+
 	// TODO: use better interfaces
 	PSDB() *psdb.DB
 	RoutingTable() (kdb, ndb storage.KeyValueStore)
@@ -44,6 +60,8 @@ type Config struct {
 	Server   server.Config
 	Kademlia kademlia.Config
 	Storage  psserver.Config
+
+	Storage2 piecestore.Config
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
@@ -72,14 +90,19 @@ type Peer struct {
 	}
 
 	Storage struct {
-		Endpoint  *psserver.Server // TODO: separate into endpoint and service
-		Monitor   *psserver.Monitor
-		Collector *psserver.Collector
-		Inspector *psserver.Inspector
+		Endpoint *psserver.Server // TODO: separate into endpoint and service
 	}
 
 	Agreements struct {
 		Sender *agreementsender.AgreementSender
+	}
+
+	Storage2 struct {
+		Trust     *trust.Pool
+		Store     *pieces.Store
+		Endpoint  *piecestore.Endpoint
+		Inspector *inspector.Endpoint
+		Monitor   *monitor.Service
 	}
 }
 
@@ -158,13 +181,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 			return nil, errs.Combine(err, peer.Close())
 		}
 		pb.RegisterPieceStoreRoutesServer(peer.Server.GRPC(), peer.Storage.Endpoint)
-
-		peer.Storage.Inspector = psserver.NewInspector(peer.Storage.Endpoint)
-		pb.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage.Inspector)
-
-		// TODO: organize better
-		peer.Storage.Monitor = psserver.NewMonitor(peer.Log.Named("piecestore:monitor"), config.KBucketRefreshInterval, peer.Kademlia.RoutingTable, peer.Storage.Endpoint)
-		peer.Storage.Collector = psserver.NewCollector(peer.Log.Named("piecestore:collector"), peer.DB.PSDB(), peer.DB.Storage(), config.CollectorInterval)
 	}
 
 	{ // agreements
@@ -173,6 +189,54 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 			peer.Log.Named("agreements"),
 			peer.DB.PSDB(), peer.Transport, peer.Kademlia.Service,
 			config.AgreementSenderCheckInterval,
+		)
+	}
+
+	{ // setup storage 2
+		trustAllSatellites := !config.Storage.SatelliteIDRestriction
+		peer.Storage2.Trust, err = trust.NewPool(peer.Kademlia.Service, trustAllSatellites, config.Storage.WhitelistedSatelliteIDs)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Storage2.Store = pieces.NewStore(peer.Log.Named("pieces"), peer.DB.Pieces())
+
+		peer.Storage2.Endpoint, err = piecestore.NewEndpoint(
+			peer.Log.Named("piecestore"),
+			signing.SignerFromFullIdentity(peer.Identity),
+			peer.Storage2.Trust,
+			peer.Storage2.Store,
+			peer.DB.PieceInfo(),
+			peer.DB.Orders(),
+			peer.DB.Bandwidth(),
+			peer.DB.UsedSerials(),
+			config.Storage2,
+		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		pb.RegisterPiecestoreServer(peer.Server.GRPC(), peer.Storage2.Endpoint)
+
+		peer.Storage2.Inspector = inspector.NewEndpoint(
+			peer.Log.Named("pieces:inspector"),
+			peer.DB.PieceInfo(),
+			peer.Kademlia.Service,
+			peer.DB.Bandwidth(),
+			peer.DB.PSDB(),
+			config.Storage,
+		)
+		pb.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage2.Inspector)
+
+		peer.Storage2.Monitor = monitor.NewService(
+			log.Named("piecestore:monitor"),
+			peer.Kademlia.RoutingTable,
+			peer.Storage2.Store,
+			peer.DB.PieceInfo(),
+			peer.DB.Bandwidth(),
+			config.Storage.AllocatedDiskSpace.Int64(),
+			config.Storage.AllocatedBandwidth.Int64(),
+			//TODO use config.Storage.Monitor.Interval, but for some reason is not set
+			config.Storage.KBucketRefreshInterval,
 		)
 	}
 
@@ -193,10 +257,7 @@ func (peer *Peer) Run(ctx context.Context) error {
 		return ignoreCancel(peer.Agreements.Sender.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Storage.Monitor.Run(ctx))
-	})
-	group.Go(func() error {
-		return ignoreCancel(peer.Storage.Collector.Run(ctx))
+		return ignoreCancel(peer.Storage2.Monitor.Run(ctx))
 	})
 	group.Go(func() error {
 		// TODO: move the message into Server instead

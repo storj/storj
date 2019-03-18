@@ -147,7 +147,11 @@ func (dir *Dir) Open(ref storage.BlobRef) (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	return openFileReadOnly(path, blobPermission)
+	file, err := openFileReadOnly(path, blobPermission)
+	if err != nil {
+		return nil, Error.New("unable to open %q: %v", path, err)
+	}
+	return file, nil
 }
 
 // Delete deletes file with the specified ref
@@ -255,5 +259,9 @@ type DiskInfo struct {
 
 // Info returns information about the current state of the dir
 func (dir *Dir) Info() (DiskInfo, error) {
-	return diskInfoFromPath(dir.path)
+	path, err := filepath.Abs(dir.path)
+	if err != nil {
+		return DiskInfo{}, err
+	}
+	return diskInfoFromPath(path)
 }

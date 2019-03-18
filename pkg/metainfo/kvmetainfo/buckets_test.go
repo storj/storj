@@ -12,6 +12,7 @@ import (
 	"storj.io/storj/satellite/console"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/vivint/infectious"
 
 	"storj.io/storj/internal/memory"
@@ -208,9 +209,7 @@ func TestListBuckets(t *testing.T) {
 
 		for _, name := range bucketNames {
 			_, err := db.CreateBucket(ctx, name, nil)
-			if !assert.NoError(t, err) {
-				return
-			}
+			require.NoError(t, err)
 		}
 
 		for i, tt := range []struct {
@@ -316,18 +315,14 @@ func runTest(t *testing.T, test func(context.Context, *testplanet.Planet, *kvmet
 	defer ctx.Cleanup()
 
 	planet, err := testplanet.New(t, 1, 4, 1)
-	if !assert.NoError(t, err) {
-		return
-	}
+	require.NoError(t, err)
 
 	defer ctx.Check(planet.Shutdown)
 
 	planet.Start(ctx)
 
 	db, buckets, streams, err := newMetainfoParts(planet)
-	if !assert.NoError(t, err) {
-		return
-	}
+	require.NoError(t, err)
 
 	test(ctx, planet, db, buckets, streams)
 }
@@ -362,12 +357,12 @@ func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, buckets.Store,
 		return nil, nil, nil, err
 	}
 
-	oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
+	pdb, err := planet.Uplinks[0].DialPointerDB(planet.Satellites[0], TestAPIKey)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	pdb, err := planet.Uplinks[0].DialPointerDB(planet.Satellites[0], TestAPIKey)
+	metainfo, err := planet.Uplinks[0].DialMetainfo(context.Background(), planet.Satellites[0], TestAPIKey)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -378,17 +373,17 @@ func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, buckets.Store,
 		return nil, nil, nil, err
 	}
 
-	rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, 1*memory.KB.Int()), 3, 4)
+	rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, 1*memory.KiB.Int()), 0, 0)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	segments := segments.NewSegmentStore(oc, ec, pdb, rs, 8*memory.KB.Int())
+	segments := segments.NewSegmentStore(metainfo, ec, rs, 8*memory.KiB.Int(), 8*memory.MiB.Int64())
 
 	key := new(storj.Key)
 	copy(key[:], TestEncKey)
 
-	streams, err := streams.NewStreamStore(segments, 64*memory.MB.Int64(), key, 1*memory.KB.Int(), storj.AESGCM)
+	streams, err := streams.NewStreamStore(segments, 64*memory.MiB.Int64(), key, 1*memory.KiB.Int(), storj.AESGCM)
 	if err != nil {
 		return nil, nil, nil, err
 	}

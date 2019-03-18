@@ -109,6 +109,7 @@ func databaseConfig(config storagenode.Config) storagenodedb.Config {
 	return storagenodedb.Config{
 		Storage:  config.Storage.Path,
 		Info:     filepath.Join(config.Storage.Path, "piecestore.db"),
+		Info2:    filepath.Join(config.Storage.Path, "info.db"),
 		Kademlia: config.Kademlia.DBPath,
 	}
 }
