@@ -323,7 +323,7 @@ func (pc PeerCAConfig) Load() (*PeerCertificateAuthority, error) {
 
 	return &PeerCertificateAuthority{
 		// NB: `CAIndex` is in the context of a complete chain (incl. leaf).
-		// Here we're loading the CA chain (nodeID.e. without leaf).
+		// Here we're loading the CA chain (i.e. without leaf).
 		RestChain: chain[peertls.CAIndex:],
 		Cert:      chain[peertls.CAIndex-1],
 		ID:        nodeID,
