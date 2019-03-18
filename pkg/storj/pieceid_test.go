@@ -20,7 +20,7 @@ func TestNewPieceID(t *testing.T) {
 	assert.NotEqual(t, a, b)
 }
 
-func TestEncode(t *testing.T) {
+func TestPieceID_Encode(t *testing.T) {
 	_, err := storj.PieceIDFromString("likn43kilfzd")
 	assert.Error(t, err)
 
@@ -40,7 +40,7 @@ func TestEncode(t *testing.T) {
 	}
 }
 
-func TestDerivePieceID(t *testing.T) {
+func TestPieceID_Derive(t *testing.T) {
 	a := storj.NewPieceID()
 	b := storj.NewPieceID()
 

@@ -54,4 +54,6 @@ type Blobs interface {
 	Open(ctx context.Context, ref BlobRef) (BlobReader, error)
 	// Delete deletes the blob with the namespace and key
 	Delete(ctx context.Context, ref BlobRef) error
+	// FreeSpace return how much free space left for writing
+	FreeSpace() (int64, error)
 }

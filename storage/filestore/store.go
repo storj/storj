@@ -36,6 +36,9 @@ func NewAt(path string) (*Store, error) {
 	return &Store{dir}, nil
 }
 
+// Close closes the store.
+func (store *Store) Close() error { return nil }
+
 // Open loads blob with the specified hash
 func (store *Store) Open(ctx context.Context, ref storage.BlobRef) (storage.BlobReader, error) {
 	file, openErr := store.dir.Open(ref)
@@ -68,4 +71,13 @@ func (store *Store) Create(ctx context.Context, ref storage.BlobRef, size int64)
 		return nil, Error.Wrap(err)
 	}
 	return newBlobWriter(ref, store, file), nil
+}
+
+// FreeSpace returns how much space left in underlying directory
+func (store *Store) FreeSpace() (int64, error) {
+	info, err := store.dir.Info()
+	if err != nil {
+		return 0, err
+	}
+	return info.AvailableSpace, nil
 }

@@ -462,7 +462,7 @@ func getSegments(cmd *cobra.Command, args []string) error {
 
 	// query DB and paginate results
 	for length >= irreparableLimit {
-		res, err := i.irrdbclient.ListSegments(context.Background(), &pb.ListSegmentsRequest{Limit: irreparableLimit, Offset: offset})
+		res, err := i.irrdbclient.ListIrreparableSegments(context.Background(), &pb.ListIrreparableSegmentsRequest{Limit: irreparableLimit, Offset: offset})
 		if err != nil {
 			return ErrRequest.Wrap(err)
 		}
