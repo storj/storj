@@ -82,7 +82,7 @@ type Server struct {
 
 // NewServer creates instance of Server
 func NewServer(db DB, upldb certdb.DB, pkey crypto.PublicKey, log *zap.Logger, nodeID storj.NodeID) *Server {
-	// TODO: reorder arguments, rename log -> log
+	// TODO: reorder arguments
 	return &Server{bwdb: db, certdb: upldb, pkey: pkey, log: log, NodeID: nodeID}
 }
 
@@ -130,7 +130,8 @@ func (s *Server) BandwidthAgreements(ctx context.Context, rba *pb.Order) (reply 
 }
 
 // Settlement receives and handles agreements.
-func (s *Server) Settlement(ctx context.Context, client pb.Bandwidth_SettlementServer) (err error) {
+func (s *Server) Settlement(client pb.Bandwidth_SettlementServer) (err error) {
+	ctx := client.Context()
 	defer mon.Task()(&ctx)(&err)
 
 	peer, err := identity.PeerIdentityFromContext(ctx)
