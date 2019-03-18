@@ -101,6 +101,8 @@ func TestPieces(t *testing.T) {
 
 		// cancel writing
 		require.NoError(t, writer.Cancel())
+		// commit should not fail
+		require.Error(t, writer.Commit())
 
 		// read should fail
 		_, err = store.Reader(ctx, satelliteID, cancelledPieceID)

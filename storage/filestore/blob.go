@@ -57,7 +57,7 @@ func (blob *blobWriter) Cancel() error {
 // Commit moves the file to the target location.
 func (blob *blobWriter) Commit() error {
 	if blob.closed {
-		return nil
+		return Error.New("already closed")
 	}
 	blob.closed = true
 	err := blob.store.dir.Commit(blob.File, blob.ref)

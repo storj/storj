@@ -50,7 +50,7 @@ func (w *Writer) Hash() []byte { return w.hash.Sum(nil) }
 // Commit commits piece to permanent storage.
 func (w *Writer) Commit() error {
 	if w.closed {
-		return nil
+		return Error.New("already closed")
 	}
 	w.closed = true
 	if err := w.buf.Flush(); err != nil {
