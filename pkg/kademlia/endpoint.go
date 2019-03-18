@@ -6,6 +6,7 @@ package kademlia
 import (
 	"context"
 	"sync/atomic"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -35,8 +36,14 @@ func NewEndpoint(log *zap.Logger, service *Kademlia, routingTable *RoutingTable)
 
 // Query is a node to node communication query
 func (endpoint *Endpoint) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error) {
+
+	duration := time.Second * time.Duration(req.QueryTimeout)
+
+	timedCtx, cancel := context.WithTimeout(ctx, duration)
+	defer cancel()
+
 	if req.GetPingback() {
-		endpoint.pingback(ctx, req.Sender)
+		endpoint.pingback(timedCtx, req.Sender)
 	}
 
 	nodes, err := endpoint.routingTable.FindNear(req.Target.Id, int(req.Limit))

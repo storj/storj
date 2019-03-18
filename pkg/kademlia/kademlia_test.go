@@ -528,5 +528,16 @@ func newKademlia(log *zap.Logger, nodeType pb.NodeType, bootstrapNodes []pb.Node
 	}
 	transportClient := transport.NewClient(tlsOptions, rt)
 
-	return NewService(log, self, bootstrapNodes, transportClient, alpha, rt)
+	kadConfig := Config{
+		Alpha:        alpha,
+		QueryTimeout: int32(120),
+	}
+
+	kad, err := NewService(log, self, transportClient, rt, kadConfig)
+	if err != nil {
+		return nil, err
+	}
+	kad.bootstrapNodes = bootstrapNodes
+
+	return kad, nil
 }

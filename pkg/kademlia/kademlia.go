@@ -57,13 +57,14 @@ type Kademlia struct {
 }
 
 // NewService returns a newly configured Kademlia instance
-func NewService(log *zap.Logger, self pb.Node, bootstrapNodes []pb.Node, transport transport.Client, alpha int, rt *RoutingTable) (*Kademlia, error) {
+func NewService(log *zap.Logger, self pb.Node, transport transport.Client, rt *RoutingTable,
+	config Config) (*Kademlia, error) {
 	k := &Kademlia{
 		log:              log,
-		alpha:            alpha,
+		alpha:            config.Alpha,
 		routingTable:     rt,
-		bootstrapNodes:   bootstrapNodes,
-		dialer:           NewDialer(log.Named("dialer"), transport),
+		bootstrapNodes:   config.BootstrapNodes(),
+		dialer:           NewDialer(log.Named("dialer"), transport, config.QueryTimeout),
 		refreshThreshold: int64(time.Minute),
 	}
 

@@ -19,9 +19,10 @@ import (
 
 // Dialer is a kademlia dialer
 type Dialer struct {
-	log       *zap.Logger
-	transport transport.Client
-	limit     sync2.Semaphore
+	log          *zap.Logger
+	transport    transport.Client
+	limit        sync2.Semaphore
+	queryTimeout int32
 }
 
 // Conn represents a kademlia connection
@@ -31,10 +32,11 @@ type Conn struct {
 }
 
 // NewDialer creates a dialer for kademlia.
-func NewDialer(log *zap.Logger, transport transport.Client) *Dialer {
+func NewDialer(log *zap.Logger, transport transport.Client, queryTimeout int32) *Dialer {
 	dialer := &Dialer{
-		log:       log,
-		transport: transport,
+		log:          log,
+		transport:    transport,
+		queryTimeout: queryTimeout,
 	}
 	dialer.limit.Init(32) // TODO: limit should not be hardcoded
 	return dialer
@@ -59,10 +61,11 @@ func (dialer *Dialer) Lookup(ctx context.Context, self pb.Node, ask pb.Node, fin
 	}
 
 	resp, err := conn.client.Query(ctx, &pb.QueryRequest{
-		Limit:    20, // TODO: should not be hardcoded, but instead kademlia k value, routing table depth, etc
-		Sender:   &self,
-		Target:   &find,
-		Pingback: true, // should only be true during bucket refreshing
+		Limit:        20, // TODO: should not be hardcoded, but instead kademlia k value, routing table depth, etc
+		Sender:       &self,
+		Target:       &find,
+		Pingback:     true,                // should only be true during bucket refreshing
+		QueryTimeout: dialer.queryTimeout, // default is 60, later cast to seconds
 	})
 	if err != nil {
 		return nil, errs.Combine(err, conn.disconnect())

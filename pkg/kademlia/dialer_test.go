@@ -30,7 +30,8 @@ func TestDialer(t *testing.T) {
 		{ // PingNode: storage node pings all other storage nodes
 			self := planet.StorageNodes[0]
 
-			dialer := kademlia.NewDialer(zaptest.NewLogger(t), self.Transport)
+			queryTimeout := int32(60)
+			dialer := kademlia.NewDialer(zaptest.NewLogger(t), self.Transport, queryTimeout)
 			defer ctx.Check(dialer.Close)
 
 			var group errgroup.Group
@@ -51,7 +52,8 @@ func TestDialer(t *testing.T) {
 
 		{ // Lookup: storage node query every node for everyone elese
 			self := planet.StorageNodes[1]
-			dialer := kademlia.NewDialer(zaptest.NewLogger(t), self.Transport)
+			queryTimeout := int32(60)
+			dialer := kademlia.NewDialer(zaptest.NewLogger(t), self.Transport, queryTimeout)
 			defer ctx.Check(dialer.Close)
 
 			var group errgroup.Group
@@ -88,7 +90,8 @@ func TestDialer(t *testing.T) {
 
 		{ // Lookup: storage node queries every node for missing storj.NodeID{} and storj.NodeID{255}
 			self := planet.StorageNodes[2]
-			dialer := kademlia.NewDialer(zaptest.NewLogger(t), self.Transport)
+			queryTimeout := int32(60)
+			dialer := kademlia.NewDialer(zaptest.NewLogger(t), self.Transport, queryTimeout)
 			defer ctx.Check(dialer.Close)
 
 			targets := []storj.NodeID{
