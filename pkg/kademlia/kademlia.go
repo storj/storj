@@ -120,6 +120,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 	}
 
 	var errGroup errs.Group
+	var foundOnlineBootstrap bool
 	for i, node := range k.bootstrapNodes {
 		if ctx.Err() != nil {
 			errGroup.Add(ctx.Err())
@@ -127,29 +128,30 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 		}
 
 		ident, err := k.dialer.FetchPeerIdentityUnverified(ctx, node.Address.Address)
-		if err == nil {
-			k.routingTable.mutex.Lock()
-			node.Id = ident.ID
-			k.bootstrapNodes[i] = node
-			k.routingTable.mutex.Unlock()
-
-			// We have pinged successfully one bootstrap node.
-			// Clear any errors and break the cycle.
-			errGroup = nil
-			break
+		if err != nil {
+			errGroup.Add(err)
+			continue
 		}
-		errGroup.Add(err)
+
+		k.routingTable.mutex.Lock()
+		node.Id = ident.ID
+		k.bootstrapNodes[i] = node
+		k.routingTable.mutex.Unlock()
+		foundOnlineBootstrap = true
 	}
-	err := errGroup.Err()
-	if err != nil {
-		return err
+
+	if !foundOnlineBootstrap {
+		err := errGroup.Err()
+		if err != nil {
+			return err
+		}
 	}
 
 	//find nodes most similar to self
 	k.routingTable.mutex.Lock()
 	id := k.routingTable.self.Id
 	k.routingTable.mutex.Unlock()
-	_, err = k.lookup(ctx, id, true)
+	_, err := k.lookup(ctx, id, true)
 
 	// TODO(dylan): We do not currently handle this last bit of behavior.
 	// ```
