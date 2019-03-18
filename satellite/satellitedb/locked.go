@@ -51,10 +51,10 @@ type lockedAccounting struct {
 }
 
 // DeleteRawBefore deletes all raw tallies prior to some time
-func (m *lockedAccounting) DeleteRawBefore(latestRollup time.Time) error {
+func (m *lockedAccounting) DeleteRawBefore(ctx context.Context, latestRollup time.Time) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.DeleteRawBefore(latestRollup)
+	return m.db.DeleteRawBefore(ctx, latestRollup)
 }
 
 // GetRaw retrieves all raw tallies
@@ -119,11 +119,18 @@ type lockedBandwidthAgreement struct {
 	db bwagreement.DB
 }
 
-// CreateAgreement adds a new bandwidth agreement.
-func (m *lockedBandwidthAgreement) CreateAgreement(ctx context.Context, a1 *pb.RenterBandwidthAllocation) error {
+// DeleteExpired deletes orders that are expired and were created before some time
+func (m *lockedBandwidthAgreement) DeleteExpired(ctx context.Context, a1 time.Time, a2 time.Time) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.CreateAgreement(ctx, a1)
+	return m.db.DeleteExpired(ctx, a1, a2)
+}
+
+// GetExpired gets orders that are expired and were created before some time
+func (m *lockedBandwidthAgreement) GetExpired(ctx context.Context, a1 time.Time, a2 time.Time) ([]bwagreement.SavedOrder, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetExpired(ctx, a1, a2)
 }
 
 // GetTotalsSince returns the sum of each bandwidth type after (exluding) a given date range
@@ -138,6 +145,13 @@ func (m *lockedBandwidthAgreement) GetUplinkStats(ctx context.Context, a1 time.T
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetUplinkStats(ctx, a1, a2)
+}
+
+// SaveOrder saves an order for accounting
+func (m *lockedBandwidthAgreement) SaveOrder(ctx context.Context, a1 *pb.RenterBandwidthAllocation) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SaveOrder(ctx, a1)
 }
 
 // CertDB returns database for storing uplink's public key & ID
@@ -465,14 +479,21 @@ func (m *lockedIrreparable) Delete(ctx context.Context, segmentPath []byte) erro
 }
 
 // Get returns irreparable segment info based on segmentPath.
-func (m *lockedIrreparable) Get(ctx context.Context, segmentPath []byte) (*irreparable.RemoteSegmentInfo, error) {
+func (m *lockedIrreparable) Get(ctx context.Context, segmentPath []byte) (*pb.IrreparableSegment, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Get(ctx, segmentPath)
 }
 
+// GetLimited gets a limited number of irreparable segments by offset
+func (m *lockedIrreparable) GetLimited(ctx context.Context, limit int, offset int64) ([]*pb.IrreparableSegment, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetLimited(ctx, limit, offset)
+}
+
 // IncrementRepairAttempts increments the repair attempts.
-func (m *lockedIrreparable) IncrementRepairAttempts(ctx context.Context, segmentInfo *irreparable.RemoteSegmentInfo) error {
+func (m *lockedIrreparable) IncrementRepairAttempts(ctx context.Context, segmentInfo *pb.IrreparableSegment) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.IncrementRepairAttempts(ctx, segmentInfo)

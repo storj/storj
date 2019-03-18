@@ -6,6 +6,7 @@ option go_package = "pb";
 
 import "gogo.proto";
 import "node.proto";
+import "pointerdb.proto";
 import "google/protobuf/duration.proto";
 
 
@@ -45,6 +46,29 @@ service PieceStoreInspector {
   rpc Stats(StatsRequest) returns (StatSummaryResponse) {}
   // Dashboard returns stats for a specific storagenode
   rpc Dashboard(DashboardRequest) returns (DashboardResponse) {}
+}
+
+service IrreparableInspector {
+  // ListSegments returns damaged segments
+  rpc ListSegments(ListSegmentsRequest) returns (ListSegmentsResponse);
+}
+
+// ListSegments
+message ListSegmentsRequest {
+  int32 limit = 1;
+  int32 offset = 2;
+}
+
+message IrreparableSegment {
+  bytes path = 1;
+  pointerdb.Pointer segment_detail = 2;
+  int32 lost_pieces = 3;
+  int64 last_repair_attempt = 4;
+  int64 repair_attempt_count = 5;
+}
+
+message ListSegmentsResponse {
+  repeated IrreparableSegment segments = 1;
 }
 
 // GetStats
