@@ -111,6 +111,11 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 
 	for range limits {
 		info := <-infos
+
+		if limits[info.i] == nil {
+			continue
+		}
+
 		if info.err != nil {
 			zap.S().Debugf("Upload to storage node %s failed: %v", limits[info.i].GetLimit().StorageNodeId, info.err)
 			continue
@@ -222,6 +227,11 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 
 	for range limits {
 		info := <-infos
+
+		if limits[info.i] == nil {
+			continue
+		}
+
 		if info.err != nil {
 			zap.S().Debugf("Repair to storage node %s failed: %v", limits[info.i].GetLimit().StorageNodeId, info.err)
 			continue
@@ -267,8 +277,8 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 	defer func() { err = errs.Combine(err, data.Close()) }()
 
 	if limit == nil {
-		_, err = io.Copy(ioutil.Discard, data)
-		return nil, err
+		_, _ = io.Copy(ioutil.Discard, data)
+		return nil, nil
 	}
 
 	storageNodeID := limit.GetLimit().StorageNodeId
