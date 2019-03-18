@@ -75,7 +75,7 @@ func testPut(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ec
 	var err error
 	limits := make([]*pb.AddressedOrderLimit, rs.TotalCount())
 	for i := 0; i < len(limits); i++ {
-		limits[i], err = newAddressedOrderLimit(pb.Action_PUT, planet.Satellites[0], planet.Uplinks[0], planet.StorageNodes[i], storj.NewPieceID())
+		limits[i], err = newAddressedOrderLimit(pb.PieceAction_PUT, planet.Satellites[0], planet.Uplinks[0], planet.StorageNodes[i], storj.NewPieceID())
 		require.NoError(t, err)
 	}
 
@@ -115,7 +115,7 @@ func testGet(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ec
 	limits := make([]*pb.AddressedOrderLimit, es.TotalCount())
 	for i := 0; i < len(limits); i++ {
 		if successfulNodes[i] != nil {
-			limits[i], err = newAddressedOrderLimit(pb.Action_GET, planet.Satellites[0], planet.Uplinks[0], planet.StorageNodes[i], successfulHashes[i].PieceId)
+			limits[i], err = newAddressedOrderLimit(pb.PieceAction_GET, planet.Satellites[0], planet.Uplinks[0], planet.StorageNodes[i], successfulHashes[i].PieceId)
 			require.NoError(t, err)
 		}
 	}
@@ -137,7 +137,7 @@ func testDelete(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec
 	limits := make([]*pb.AddressedOrderLimit, len(successfulNodes))
 	for i := 0; i < len(limits); i++ {
 		if successfulNodes[i] != nil {
-			limits[i], err = newAddressedOrderLimit(pb.Action_DELETE, planet.Satellites[0], planet.Uplinks[0], planet.StorageNodes[i], successfulHashes[i].PieceId)
+			limits[i], err = newAddressedOrderLimit(pb.PieceAction_DELETE, planet.Satellites[0], planet.Uplinks[0], planet.StorageNodes[i], successfulHashes[i].PieceId)
 			require.NoError(t, err)
 		}
 	}
@@ -147,7 +147,7 @@ func testDelete(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec
 	require.NoError(t, err)
 }
 
-func newAddressedOrderLimit(action pb.Action, satellite *satellite.Peer, uplink *testplanet.Uplink, storageNode *storagenode.Peer, pieceID storj.PieceID) (*pb.AddressedOrderLimit, error) {
+func newAddressedOrderLimit(action pb.PieceAction, satellite *satellite.Peer, uplink *testplanet.Uplink, storageNode *storagenode.Peer, pieceID storj.PieceID) (*pb.AddressedOrderLimit, error) {
 	// TODO refactor to avoid OrderLimit duplication
 	serialNumber, err := uuid.New()
 	if err != nil {

@@ -9,8 +9,8 @@ package orders;
 import "gogo.proto";
 import "google/protobuf/timestamp.proto";
 
-// Action is an enumeration of all possible executed action on storage node
-enum Action {
+// PieceAction is an enumeration of all possible executed actions on storage node
+enum PieceAction {
     INVALID = 0;
     PUT = 1;
     GET = 2;
@@ -35,7 +35,7 @@ message OrderLimit2 {
     bytes piece_id = 5 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
     // limit in bytes how much can be changed
     int64  limit = 6;
-    Action action = 7;
+    PieceAction action = 7;
   
     google.protobuf.Timestamp piece_expiration = 8;
     google.protobuf.Timestamp order_expiration = 9;

@@ -559,6 +559,62 @@
       "def": {
         "messages": [
           {
+            "name": "ListIrreparableSegmentsRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "limit",
+                "type": "int32"
+              },
+              {
+                "id": 2,
+                "name": "offset",
+                "type": "int32"
+              }
+            ]
+          },
+          {
+            "name": "IrreparableSegment",
+            "fields": [
+              {
+                "id": 1,
+                "name": "path",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "segment_detail",
+                "type": "pointerdb.Pointer"
+              },
+              {
+                "id": 3,
+                "name": "lost_pieces",
+                "type": "int32"
+              },
+              {
+                "id": 4,
+                "name": "last_repair_attempt",
+                "type": "int64"
+              },
+              {
+                "id": 5,
+                "name": "repair_attempt_count",
+                "type": "int64"
+              }
+            ]
+          },
+          {
+            "name": "ListIrreparableSegmentsResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "segments",
+                "type": "IrreparableSegment",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
             "name": "GetStatsRequest",
             "fields": [
               {
@@ -1094,6 +1150,16 @@
                 "out_type": "DashboardResponse"
               }
             ]
+          },
+          {
+            "name": "IrreparableInspector",
+            "rpcs": [
+              {
+                "name": "ListIrreparableSegments",
+                "in_type": "ListIrreparableSegmentsRequest",
+                "out_type": "ListIrreparableSegmentsResponse"
+              }
+            ]
           }
         ],
         "imports": [
@@ -1102,6 +1168,9 @@
           },
           {
             "path": "node.proto"
+          },
+          {
+            "path": "pointerdb.proto"
           },
           {
             "path": "google/protobuf/duration.proto"
@@ -1758,7 +1827,7 @@
       "def": {
         "enums": [
           {
-            "name": "Action",
+            "name": "PieceAction",
             "enum_fields": [
               {
                 "name": "INVALID"
@@ -1867,7 +1936,7 @@
               {
                 "id": 7,
                 "name": "action",
-                "type": "Action"
+                "type": "PieceAction"
               },
               {
                 "id": 8,

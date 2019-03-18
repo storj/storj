@@ -78,7 +78,7 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, stor
 func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequest) (_ *pb.PieceDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if delete.Limit.Action != pb.Action_DELETE {
+	if delete.Limit.Action != pb.PieceAction_DELETE {
 		return nil, Error.New("expected delete action got %v", delete.Limit.Action) // TODO: report grpc status unauthorized or bad request
 	}
 
@@ -127,7 +127,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 
 	// TODO: verify that we have have expected amount of storage before continuing
 
-	if limit.Action != pb.Action_PUT && limit.Action != pb.Action_PUT_REPAIR {
+	if limit.Action != pb.PieceAction_PUT && limit.Action != pb.PieceAction_PUT_REPAIR {
 		return ErrProtocol.New("expected put or put repair action got %v", limit.Action) // TODO: report grpc status unauthorized or bad request
 	}
 
@@ -267,7 +267,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 	}
 	limit, chunk := message.Limit, message.Chunk
 
-	if limit.Action != pb.Action_GET && limit.Action != pb.Action_GET_REPAIR && limit.Action != pb.Action_GET_AUDIT {
+	if limit.Action != pb.PieceAction_GET && limit.Action != pb.PieceAction_GET_REPAIR && limit.Action != pb.PieceAction_GET_AUDIT {
 		return ErrProtocol.New("expected get or get repair or audit action got %v", limit.Action) // TODO: report grpc status unauthorized or bad request
 	}
 
