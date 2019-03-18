@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/lib/pq"
+	"github.com/mattn/go-sqlite3"
 	_ "github.com/mattn/go-sqlite3" // register sqlite to sql
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -56,34 +58,27 @@ type Agreement struct {
 }
 
 // Open opens DB at DBPath
-func Open(DBPath string) (db *DB, err error) {
-	if err = os.MkdirAll(filepath.Dir(DBPath), 0700); err != nil {
+func Open(DBPath string) (*DB, error) {
+	if err := os.MkdirAll(filepath.Dir(DBPath), 0700); err != nil {
 		return nil, err
 	}
 
-	sqlite, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?%s", DBPath, "_journal=WAL"))
+	db, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=memory&_journal=WAL&_busy_timeout=30000", DBPath))
+	db.SetMaxOpenConns(1)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	db = &DB{
-		db: sqlite,
-	}
-
-	return db, nil
+	return &DB{db: db}, nil
 }
 
 // OpenInMemory opens sqlite DB inmemory
-func OpenInMemory() (db *DB, err error) {
-	sqlite, err := sql.Open("sqlite3", ":memory:")
+func OpenInMemory() (*DB, error) {
+	db, err := sql.Open("sqlite3", "file::memory:?mode=memory&_journal=WAL&_busy_timeout=30000")
+	db.SetMaxOpenConns(1) //alternative to cache=shared or a mutex
 	if err != nil {
 		return nil, err
 	}
-
-	db = &DB{
-		db: sqlite,
-	}
-
-	return db, nil
+	return &DB{db: db}, nil
 }
 
 // Migration define piecestore DB migration
@@ -215,31 +210,27 @@ func (db *DB) Close() error {
 	return db.db.Close()
 }
 
-func (db *DB) locked() func() {
-	db.mu.Lock()
-	return db.mu.Unlock
-}
-
 // DeleteExpired deletes expired pieces
 func (db *DB) DeleteExpired(ctx context.Context) (expired []string, err error) {
+	switch t := db.db.Driver().(type) {
+	case *sqlite3.SQLiteDriver:
+		return db.sqliteDeleteExpired(ctx)
+	case *pq.Driver:
+		return db.postgresDeleteExpired(ctx)
+	default:
+		return expired, fmt.Errorf("Unsupported database %t", t)
+	}
+}
+
+// postgresDeleteExpired deletes expired pieces
+func (db *DB) postgresDeleteExpired(ctx context.Context) (expired []string, err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer db.locked()()
-
-	// TODO: add limit
-
-	tx, err := db.db.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = tx.Rollback() }()
-
 	now := time.Now().Unix()
-
-	rows, err := tx.Query("SELECT id FROM ttl WHERE expires > 0 AND expires < ?", now)
+	rows, err := db.db.QueryContext(ctx, `DELETE FROM ttl WHERE expires > 0 AND expires < ? RETURNING id`, now)
 	if err != nil {
 		return nil, err
 	}
-
+	defer func() { err = rows.Close() }()
 	for rows.Next() {
 		var id string
 		if err := rows.Scan(&id); err != nil {
@@ -247,16 +238,50 @@ func (db *DB) DeleteExpired(ctx context.Context) (expired []string, err error) {
 		}
 		expired = append(expired, id)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
+	return expired, err
+}
 
-	_, err = tx.Exec(`DELETE FROM ttl WHERE expires > 0 AND expires < ?`, now)
+// sqliteDeleteExpired deletes expired pieces
+func (db *DB) sqliteDeleteExpired(ctx context.Context) (expired []string, err error) {
+	defer mon.Task()(&ctx)(&err)
+	tx, err := db.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		if err == nil {
+			err = tx.Commit()
+		}
+		if err != nil {
+			err = Error.Wrap(tx.Rollback())
+		}
+	}()
 
-	return expired, tx.Commit()
+	now := time.Now().Unix() // TODO: add limit
+	rows, err := tx.QueryContext(ctx, `SELECT id FROM ttl WHERE expires > 0 AND expires < ?`, now)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = rows.Close() }()
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		expired = append(expired, id)
+	}
+	res, err := tx.ExecContext(ctx, `DELETE FROM ttl WHERE expires > 0 AND expires < ?`, now)
+	if err != nil {
+		return expired, err
+	}
+	count, err := res.RowsAffected()
+	if err != nil {
+		return expired, err
+	}
+	if count != int64(len(expired)) {
+		return expired, fmt.Errorf("Expected %d, got %d expired deleted", len(expired), count)
+	}
+	return expired, err
 }
 
 // WriteBandwidthAllocToDB inserts bandwidth agreement into DB
@@ -265,7 +290,6 @@ func (db *DB) WriteBandwidthAllocToDB(rba *pb.Order) error {
 	if err != nil {
 		return err
 	}
-	defer db.locked()()
 
 	// We begin extracting the satellite_id
 	// The satellite id can be used to sort the bandwidth agreements
@@ -283,8 +307,6 @@ func (db *DB) WriteBandwidthAllocToDB(rba *pb.Order) error {
 
 // DeleteBandwidthAllocationPayouts delete paid and/or old payout enteries based on days old
 func (db *DB) DeleteBandwidthAllocationPayouts() error {
-	defer db.locked()()
-
 	//@TODO make a config value for older days
 	t := time.Now().Add(time.Hour * 24 * -90).Unix()
 	_, err := db.db.Exec(`DELETE FROM bandwidth_agreements WHERE created_utc_sec < ?`, t)
@@ -296,14 +318,12 @@ func (db *DB) DeleteBandwidthAllocationPayouts() error {
 
 // UpdateBandwidthAllocationStatus update the bwa payout status
 func (db *DB) UpdateBandwidthAllocationStatus(serialnum string, status AgreementStatus) (err error) {
-	defer db.locked()()
 	_, err = db.db.Exec(`UPDATE bandwidth_agreements SET status = ? WHERE serial_num = ?`, status, serialnum)
 	return err
 }
 
 // DeleteBandwidthAllocationBySerialnum finds an allocation by signature and deletes it
 func (db *DB) DeleteBandwidthAllocationBySerialnum(serialnum string) error {
-	defer db.locked()()
 	_, err := db.db.Exec(`DELETE FROM bandwidth_agreements WHERE serial_num=?`, serialnum)
 	if err == sql.ErrNoRows {
 		err = nil
@@ -313,8 +333,6 @@ func (db *DB) DeleteBandwidthAllocationBySerialnum(serialnum string) error {
 
 // GetBandwidthAllocationBySignature finds allocation info by signature
 func (db *DB) GetBandwidthAllocationBySignature(signature []byte) ([]*pb.Order, error) {
-	defer db.locked()()
-
 	rows, err := db.db.Query(`SELECT agreement FROM bandwidth_agreements WHERE signature = ?`, signature)
 	if err != nil {
 		return nil, err
@@ -325,28 +343,21 @@ func (db *DB) GetBandwidthAllocationBySignature(signature []byte) ([]*pb.Order, 
 		}
 	}()
 
-	agreements := []*pb.Order{}
+	orders := []*pb.Order{}
 	for rows.Next() {
-		var rbaBytes []byte
-		err := rows.Scan(&rbaBytes)
+		order := &pb.Order{}
+		err := rows.Scan(order)
 		if err != nil {
-			return agreements, err
+			return orders, err
 		}
-		rba := &pb.Order{}
-		err = proto.Unmarshal(rbaBytes, rba)
-		if err != nil {
-			return agreements, err
-		}
-		agreements = append(agreements, rba)
+		orders = append(orders, order)
 	}
-	return agreements, nil
+	return orders, nil
 }
 
 // GetBandwidthAllocations all bandwidth agreements
-func (db *DB) GetBandwidthAllocations() (map[storj.NodeID][]*Agreement, error) {
-	defer db.locked()()
-
-	rows, err := db.db.Query(`SELECT satellite, agreement FROM bandwidth_agreements WHERE status = ?`, AgreementStatusUnsent)
+func (db *DB) GetBandwidthAllocations(ctx context.Context) (map[storj.NodeID][]*Agreement, error) {
+	rows, err := db.db.QueryContext(ctx, `SELECT satellite, agreement FROM bandwidth_agreements WHERE status = ?`, AgreementStatusUnsent)
 	if err != nil {
 		return nil, err
 	}
@@ -358,20 +369,11 @@ func (db *DB) GetBandwidthAllocations() (map[storj.NodeID][]*Agreement, error) {
 
 	agreements := make(map[storj.NodeID][]*Agreement)
 	for rows.Next() {
-		rbaBytes := []byte{}
 		agreement := &Agreement{}
-		var satellite []byte
-		err := rows.Scan(&satellite, &rbaBytes)
+		satelliteID := storj.NodeID{}
+		err := rows.Scan(&satelliteID, &agreement.Agreement)
 		if err != nil {
 			return agreements, err
-		}
-		err = proto.Unmarshal(rbaBytes, &agreement.Agreement)
-		if err != nil {
-			return agreements, err
-		}
-		satelliteID, err := storj.NodeIDFromBytes(satellite)
-		if err != nil {
-			return nil, err
 		}
 		agreements[satelliteID] = append(agreements[satelliteID], agreement)
 	}
@@ -380,15 +382,12 @@ func (db *DB) GetBandwidthAllocations() (map[storj.NodeID][]*Agreement, error) {
 
 // GetBwaStatusBySerialNum get BWA status by serial num
 func (db *DB) GetBwaStatusBySerialNum(serialnum string) (status AgreementStatus, err error) {
-	defer db.locked()()
 	err = db.db.QueryRow(`SELECT status FROM bandwidth_agreements WHERE serial_num=?`, serialnum).Scan(&status)
 	return status, err
 }
 
 // AddTTL adds TTL into database by id
 func (db *DB) AddTTL(id string, expiration, size int64) error {
-	defer db.locked()()
-
 	created := time.Now().Unix()
 	_, err := db.db.Exec("INSERT OR REPLACE INTO ttl (id, created, expires, size) VALUES (?, ?, ?, ?)", id, created, expiration, size)
 	return err
@@ -396,16 +395,12 @@ func (db *DB) AddTTL(id string, expiration, size int64) error {
 
 // GetTTLByID finds the TTL in the database by id and return it
 func (db *DB) GetTTLByID(id string) (expiration int64, err error) {
-	defer db.locked()()
-
 	err = db.db.QueryRow(`SELECT expires FROM ttl WHERE id=?`, id).Scan(&expiration)
 	return expiration, err
 }
 
 // SumTTLSizes sums the size column on the ttl table
 func (db *DB) SumTTLSizes() (int64, error) {
-	defer db.locked()()
-
 	var sum *int64
 	err := db.db.QueryRow(`SELECT SUM(size) FROM ttl;`).Scan(&sum)
 	if err == sql.ErrNoRows || sum == nil {
@@ -416,8 +411,6 @@ func (db *DB) SumTTLSizes() (int64, error) {
 
 // DeleteTTLByID finds the TTL in the database by id and delete it
 func (db *DB) DeleteTTLByID(id string) error {
-	defer db.locked()()
-
 	_, err := db.db.Exec(`DELETE FROM ttl WHERE id=?`, id)
 	if err == sql.ErrNoRows {
 		err = nil
@@ -432,8 +425,6 @@ func (db *DB) GetBandwidthUsedByDay(t time.Time) (size int64, err error) {
 
 // GetTotalBandwidthBetween each row in the bwusagetbl contains the total bw used per day
 func (db *DB) GetTotalBandwidthBetween(startdate time.Time, enddate time.Time) (int64, error) {
-	defer db.locked()()
-
 	startTimeUnix := time.Date(startdate.Year(), startdate.Month(), startdate.Day(), 0, 0, 0, 0, startdate.Location()).Unix()
 	endTimeUnix := time.Date(enddate.Year(), enddate.Month(), enddate.Day(), 24, 0, 0, 0, enddate.Location()).Unix()
 	defaultunixtime := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, time.Now().Location()).Unix()

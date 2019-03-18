@@ -23,7 +23,7 @@ const (
 	// DefaultPostgresConn is a connstring that works with docker-compose
 	DefaultPostgresConn = "postgres://storj:storj-pass@test-postgres/teststorj?sslmode=disable"
 	// DefaultSqliteConn is a connstring that is inmemory
-	DefaultSqliteConn = "sqlite3://file::memory:?mode=memory"
+	DefaultSqliteConn = "sqlite3://file::memory:?mode=memory&_journal=WAL&_busy_timeout=30000"
 )
 
 var (
@@ -62,7 +62,6 @@ func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
 			}
 
 			log := zaptest.NewLogger(t)
-
 			schema := strings.ToLower(t.Name() + "-satellite/x-" + schemaSuffix)
 			connstr := pgutil.ConnstrWithSchema(dbInfo.URL, schema)
 			db, err := satellitedb.New(log, connstr)

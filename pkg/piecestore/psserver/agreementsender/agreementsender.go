@@ -45,7 +45,7 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 	defer ticker.Stop()
 	for {
 		as.log.Debug("AgreementSender is running", zap.Duration("duration", as.checkInterval))
-		agreementGroups, err := as.DB.GetBandwidthAllocations()
+		agreementGroups, err := as.DB.GetBandwidthAllocations(ctx)
 		if err != nil {
 			as.log.Error("Agreementsender could not retrieve bandwidth allocations", zap.Error(err))
 			continue

@@ -95,7 +95,7 @@ func TestParallel(t *testing.T) {
 		defer ctx.Cleanup()
 
 		q := db.RepairQueue()
-		const N = 100
+		const N = 3000
 		errs := make(chan error, N*2)
 		entries := make(chan *pb.InjuredSegment, N*2)
 		var wg sync.WaitGroup

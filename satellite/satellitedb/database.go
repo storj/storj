@@ -44,22 +44,29 @@ func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
 	if driver == "postgres" {
 		source = pgutil.CheckApplicationName(source)
 	}
-	db, err := dbx.Open(driver, source)
+	dbx, err := dbx.Open(driver, source)
 	if err != nil {
 		return nil, Error.New("failed opening database %q, %q: %v",
 			driver, source, err)
 	}
-
-	core := &DB{log: log, db: db, driver: driver}
+	db := dbx.DB //consitent naming for search and replaces
 	if driver == "sqlite3" {
-		return newLocked(core), nil
+		// this prevents the need for mutexes
+		db.SetMaxOpenConns(1)
+	} else {
+		db.SetMaxOpenConns(50)
 	}
+
+	core := &DB{log: log, db: dbx, driver: driver}
+	// if driver == "sqlite3" {
+	// 	return newLocked(core), nil
+	// }
 	return core, nil
 }
 
 // NewInMemory creates instance of Sqlite in memory satellite database
 func NewInMemory(log *zap.Logger) (satellite.DB, error) {
-	return New(log, "sqlite3://file::memory:?mode=memory")
+	return New(log, "sqlite3://file::memory:?mode=memory&_journal=WAL&_busy_timeout=30000")
 }
 
 // Close is used to close db connection

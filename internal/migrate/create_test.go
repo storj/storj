@@ -21,7 +21,8 @@ import (
 )
 
 func TestCreate_Sqlite(t *testing.T) {
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := sql.Open("sqlite3", "file::memory:?mode=memory&_journal=WAL&_busy_timeout=30000")
+	db.SetMaxOpenConns(1)
 	if err != nil {
 		t.Fatal(err)
 	}

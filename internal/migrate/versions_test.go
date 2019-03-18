@@ -22,7 +22,9 @@ import (
 )
 
 func TestBasicMigrationSqlite(t *testing.T) {
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := sql.Open("sqlite3", "file::memory:?mode=memory&_journal=WAL&_busy_timeout=30000")
+
+	db.SetMaxOpenConns(1)
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
@@ -104,7 +106,8 @@ func basicMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 }
 
 func TestMultipleMigrationSqlite(t *testing.T) {
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := sql.Open("sqlite3", "file::memory:?mode=memory&_journal=WAL&_busy_timeout=30000")
+	db.SetMaxOpenConns(1)
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
@@ -177,7 +180,8 @@ func multipleMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 }
 
 func TestFailedMigrationSqlite(t *testing.T) {
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := sql.Open("sqlite3", "file::memory:?mode=memory&_journal=WAL&_busy_timeout=30000")
+	db.SetMaxOpenConns(1)
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 

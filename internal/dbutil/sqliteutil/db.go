@@ -14,7 +14,8 @@ import (
 
 // LoadSchemaFromSQL inserts script into connstr and loads schema.
 func LoadSchemaFromSQL(script string) (_ *dbschema.Schema, err error) {
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := sql.Open("sqlite3", "file::memory:?mode=memory&_journal=WAL&_busy_timeout=30000")
+	db.SetMaxOpenConns(1)
 	if err != nil {
 		return nil, err
 	}
@@ -30,7 +31,8 @@ func LoadSchemaFromSQL(script string) (_ *dbschema.Schema, err error) {
 
 // LoadSnapshotFromSQL inserts script into connstr and loads schema.
 func LoadSnapshotFromSQL(script string) (_ *dbschema.Snapshot, err error) {
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := sql.Open("sqlite3", "file::memory:?mode=memory&_journal=WAL&_busy_timeout=30000")
+	db.SetMaxOpenConns(1)
 	if err != nil {
 		return nil, err
 	}

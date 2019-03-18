@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
@@ -54,6 +55,8 @@ func TestNewInmemory(t *testing.T) {
 }
 
 func TestHappyPath(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 	db, cleanup := newDB(t, "1")
 	defer cleanup()
 
@@ -105,7 +108,7 @@ func TestHappyPath(t *testing.T) {
 		})
 
 		t.Run("Get all Bandwidth Allocations", func(t *testing.T) {
-			agreementGroups, err := db.GetBandwidthAllocations()
+			agreementGroups, err := db.GetBandwidthAllocations(ctx)
 			require.Len(t, agreementGroups, 0)
 			require.NoError(t, err)
 		})
@@ -227,7 +230,7 @@ func TestHappyPath(t *testing.T) {
 			t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
 				t.Parallel()
 
-				agreementGroups, err := db.GetBandwidthAllocations()
+				agreementGroups, err := db.GetBandwidthAllocations(ctx)
 				if err != nil {
 					t.Fatal(err)
 				}

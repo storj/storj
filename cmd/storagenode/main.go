@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -219,6 +220,7 @@ func cmdConfig(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {
+	ctx := context.Background()
 	diagDir, err := filepath.Abs(confDir)
 	if err != nil {
 		return err
@@ -240,7 +242,7 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	}()
 
 	//get all bandwidth aggrements entries already ordered
-	bwAgreements, err := db.PSDB().GetBandwidthAllocations()
+	bwAgreements, err := db.PSDB().GetBandwidthAllocations(ctx)
 	if err != nil {
 		fmt.Printf("storage node 'bandwidth_agreements' table read error: %v\n", err)
 		return err
