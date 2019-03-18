@@ -105,7 +105,8 @@ func (dialer *Dialer) FetchPeerIdentity(ctx context.Context, target pb.Node) (_ 
 
 	p := &peer.Peer{}
 	_, err = conn.client.Ping(ctx, &pb.PingRequest{}, grpc.Peer(p))
-	return identity.PeerIdentityFromPeer(p)
+	ident, errFromPeer := identity.PeerIdentityFromPeer(p)
+	return ident, errs.Combine(err, errFromPeer)
 }
 
 // FetchPeerIdentityUnverified connects to an address and returns its peer identity (no node ID verification).
@@ -125,7 +126,8 @@ func (dialer *Dialer) FetchPeerIdentityUnverified(ctx context.Context, address s
 
 	p := &peer.Peer{}
 	_, err = conn.client.Ping(ctx, &pb.PingRequest{}, grpc.Peer(p))
-	return identity.PeerIdentityFromPeer(p)
+	ident, errFromPeer := identity.PeerIdentityFromPeer(p)
+	return ident, errs.Combine(err, errFromPeer)
 }
 
 // FetchInfo connects to a node and returns its node info.
