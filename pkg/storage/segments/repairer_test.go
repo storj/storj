@@ -21,7 +21,7 @@ import (
 )
 
 func TestSegmentStoreRepair(t *testing.T) {
-	numStorageNodes := 12
+	numStorageNodes := 10
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: numStorageNodes, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
