@@ -185,7 +185,11 @@ func PeerIdentityFromPeer(peer *peer.Peer) (*PeerIdentity, error) {
 		return nil, Error.New("peer AuthInfo is nil")
 	}
 
-	tlsInfo := peer.AuthInfo.(credentials.TLSInfo)
+	tlsInfo, ok := peer.AuthInfo.(credentials.TLSInfo)
+	if !ok {
+		return nil, Error.New("peer AuthInfo is not credentials.TLSInfo")
+	}
+
 	c := tlsInfo.State.PeerCertificates
 	if len(c) < 2 {
 		return nil, Error.New("invalid certificate chain")
