@@ -54,7 +54,7 @@ func TestSegmentStoreRepair(t *testing.T) {
 		// calculate how many storagenodes to kill
 		redundancy := pointer.GetRemote().GetRedundancy()
 		remotePieces := pointer.GetRemote().GetRemotePieces()
-		minReq := redundancy.GetRepairThreshold()
+		minReq := redundancy.GetMinReq()
 		numPieces := len(remotePieces)
 		toKill := numPieces - int(minReq)
 		// we should have enough storage nodes to repair on
@@ -63,10 +63,10 @@ func TestSegmentStoreRepair(t *testing.T) {
 		// kill nodes and track lost pieces
 		var lostPieces []int32
 		nodesToKill := make(map[storj.NodeID]bool)
-		nodesToKeepAlive := storj.NodeIDList{}
+		nodesToKeepAlive := make(map[storj.NodeID]bool)
 		for i, piece := range remotePieces {
 			if i >= toKill {
-				nodesToKeepAlive = append(nodesToKeepAlive, piece.NodeId)
+				nodesToKeepAlive[piece.NodeId] = true
 				continue
 			}
 			nodesToKill[piece.NodeId] = true
@@ -91,20 +91,26 @@ func TestSegmentStoreRepair(t *testing.T) {
 		err = repairer.Repair(ctx, path, lostPieces)
 		assert.NoError(t, err)
 
+		// kill nodes kept alive to ensure repair worked
+		for _, node := range planet.StorageNodes {
+			if nodesToKeepAlive[node.ID()] {
+				err = planet.StopPeer(node)
+				assert.NoError(t, err)
+			}
+		}
+
+		// we should be able to download data without any of the original nodes
+		newData, err := uplink.Download(ctx, satellite, "test/bucket", "test/path")
+		assert.NoError(t, err)
+		assert.Equal(t, newData, testData)
+
 		// updated pointer should not contain any of the killed nodes
 		pointer, err = pdb.Get(path)
 		assert.NoError(t, err)
 
-		// remotePieces = pointer.GetRemote().GetRemotePieces()
-		// assert.Equal(t, numPieces, len(remotePieces))
-
-		repairNodes := make(map[storj.NodeID]bool)
+		remotePieces = pointer.GetRemote().GetRemotePieces()
 		for _, piece := range remotePieces {
-			repairNodes[piece.NodeId] = true
 			assert.False(t, nodesToKill[piece.NodeId])
-		}
-		for _, id := range nodesToKeepAlive {
-			assert.True(t, repairNodes[id])
 		}
 	})
 }
