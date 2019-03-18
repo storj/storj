@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
@@ -37,9 +38,10 @@ func TestGetShareTimeout(t *testing.T) {
 		err = uplink.Upload(ctx, planet.Satellites[0], "test/bucket", "test/path", testData)
 		assert.NoError(t, err)
 
-		pointers := planet.Satellites[0].Metainfo.Service
+		pointerdb := planet.Satellites[0].Metainfo.Service
 		allocation := planet.Satellites[0].Metainfo.Allocation
-		cursor := audit.NewCursor(pointers, allocation, planet.Satellites[0].Identity)
+		overlay := planet.Satellites[0].Overlay.Service
+		cursor := audit.NewCursor(pointerdb, allocation, overlay, planet.Satellites[0].Identity)
 
 		var stripe *audit.Stripe
 		for {
@@ -51,7 +53,6 @@ func TestGetShareTimeout(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, stripe)
 
-		overlay := planet.Satellites[0].Overlay.Service
 		tc := planet.Satellites[0].Transport
 		slowtc := transport.NewClientWithLatency(tc, 200*time.Second)
 		require.NotNil(t, slowtc)
@@ -61,7 +62,7 @@ func TestGetShareTimeout(t *testing.T) {
 		// downloading from new nodes.
 		minBytesPerSecond := memory.Size(110000)
 
-		verifier := audit.NewVerifier(slowtc, overlay, planet.Satellites[0].Identity, minBytesPerSecond)
+		verifier := audit.NewVerifier(zap.L(), slowtc, overlay, planet.Satellites[0].Identity, minBytesPerSecond)
 		require.NotNil(t, verifier)
 
 		_, err = verifier.Verify(ctx, stripe)
