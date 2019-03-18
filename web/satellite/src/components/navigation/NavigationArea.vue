@@ -73,7 +73,7 @@ export default class NavigationArea extends Vue {
              display: flex;
              justify-content: flex-start;
              align-items: center;
-            &.router-link-exact-active,
+            &.router-link-active,
             &:hover {
                  border-left: 3px solid #2683FF;
                 .svg path:not(.white) {
@@ -91,7 +91,7 @@ export default class NavigationArea extends Vue {
                     font-size: 16px;
                     line-height: 23px;
                     color: #354049;
-                    margin-left: 15px;;
+                    margin-left: 15px;
                 }
 
                 &__add-button {

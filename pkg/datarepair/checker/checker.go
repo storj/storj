@@ -153,12 +153,12 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 
 					remoteSegmentsLost++
 					// make an entry in to the irreparable table
-					segmentInfo := &irreparable.RemoteSegmentInfo{
-						EncryptedSegmentPath:   item.Key,
-						EncryptedSegmentDetail: item.Value,
-						LostPiecesCount:        int64(len(missingPieces)),
-						RepairUnixSec:          time.Now().Unix(),
-						RepairAttemptCount:     int64(1),
+					segmentInfo := &pb.IrreparableSegment{
+						Path:               item.Key,
+						SegmentDetail:      pointer,
+						LostPieces:         int32(len(missingPieces)),
+						LastRepairAttempt:  time.Now().Unix(),
+						RepairAttemptCount: int64(1),
 					}
 
 					//add the entry if new or update attempt count if already exists

@@ -3266,6 +3266,41 @@ func (obj *postgresImpl) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Limited_Irreparabledb_OrderBy_Asc_Segmentpath(ctx context.Context,
+	limit int, offset int64) (
+	rows []*Irreparabledb, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count FROM irreparabledbs ORDER BY irreparabledbs.segmentpath LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		irreparabledb := &Irreparabledb{}
+		err = __rows.Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, irreparabledb)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *postgresImpl) Find_AccountingTimestamps_Value_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field) (
 	row *Value_Row, err error) {
@@ -5383,6 +5418,41 @@ func (obj *sqlite3Impl) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return irreparabledb, nil
+
+}
+
+func (obj *sqlite3Impl) Limited_Irreparabledb_OrderBy_Asc_Segmentpath(ctx context.Context,
+	limit int, offset int64) (
+	rows []*Irreparabledb, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count FROM irreparabledbs ORDER BY irreparabledbs.segmentpath LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		irreparabledb := &Irreparabledb{}
+		err = __rows.Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, irreparabledb)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
 
 }
 
@@ -7996,6 +8066,16 @@ func (rx *Rx) Limited_Injuredsegment(ctx context.Context,
 	return tx.Limited_Injuredsegment(ctx, limit, offset)
 }
 
+func (rx *Rx) Limited_Irreparabledb_OrderBy_Asc_Segmentpath(ctx context.Context,
+	limit int, offset int64) (
+	rows []*Irreparabledb, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_Irreparabledb_OrderBy_Asc_Segmentpath(ctx, limit, offset)
+}
+
 func (rx *Rx) Limited_OverlayCacheNode_By_NodeId_GreaterOrEqual(ctx context.Context,
 	overlay_cache_node_node_id_greater_or_equal OverlayCacheNode_NodeId_Field,
 	limit int, offset int64) (
@@ -8369,6 +8449,10 @@ type Methods interface {
 	Limited_Injuredsegment(ctx context.Context,
 		limit int, offset int64) (
 		rows []*Injuredsegment, err error)
+
+	Limited_Irreparabledb_OrderBy_Asc_Segmentpath(ctx context.Context,
+		limit int, offset int64) (
+		rows []*Irreparabledb, err error)
 
 	Limited_OverlayCacheNode_By_NodeId_GreaterOrEqual(ctx context.Context,
 		overlay_cache_node_node_id_greater_or_equal OverlayCacheNode_NodeId_Field,
