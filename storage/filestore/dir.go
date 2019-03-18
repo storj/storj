@@ -259,5 +259,9 @@ type DiskInfo struct {
 
 // Info returns information about the current state of the dir
 func (dir *Dir) Info() (DiskInfo, error) {
-	return diskInfoFromPath(dir.path)
+	path, err := filepath.Abs(dir.path)
+	if err != nil {
+		return DiskInfo{}, err
+	}
+	return diskInfoFromPath(path)
 }
