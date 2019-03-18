@@ -66,7 +66,7 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 					return nil
 				})
 			}
-			group.Wait()
+			_ = group.Wait() // doesn't return errors
 		}
 
 		// Delete older payout irrespective of its status
