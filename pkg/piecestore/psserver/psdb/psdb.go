@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -47,7 +46,7 @@ const (
 
 // DB is a piece store database
 type DB struct {
-	mu sync.Mutex
+	//mu sync.Mutex
 	db *sql.DB
 }
 
