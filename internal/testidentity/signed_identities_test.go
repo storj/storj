@@ -19,6 +19,7 @@ func TestPregeneratedIdentity(t *testing.T) {
 	IdentityVersionsTest(t, func(t *testing.T, ident *identity.FullIdentity) {
 		seenIDVersions[ident.ID.Version().Number] = void{}
 		fmt.Printf("version %d\n", ident.ID.Version().Number)
+		fmt.Printf("version %d\n", ident.ID.Version().Number)
 
 		chains := [][]*x509.Certificate{
 			append([]*x509.Certificate{ident.Leaf, ident.CA}, ident.RestChain...),

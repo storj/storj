@@ -105,6 +105,11 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 	if opts.Logger != nil {
 		fmt.Fprintf(opts.Logger, "Generating key with a minimum a difficulty of %d...\n", opts.Difficulty)
 	}
+
+	if opts.Version.Number == 0 {
+		opts.Version = storj.LatestIDVersion()
+	}
+
 	updateStatus := func() {
 		if opts.Logger != nil {
 			count := atomic.LoadUint32(i)
@@ -174,7 +179,9 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 		return nil, err
 	}
 
-	opts.Version.ApplyToCert(cert)
+	if err := storj.AddVersionExt(opts.Version.Number, cert); err != nil {
+		return nil, err
+	}
 
 	ca := &FullCertificateAuthority{
 		Cert: cert,

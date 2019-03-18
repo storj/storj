@@ -91,51 +91,100 @@ func TestFullIdentityFromPEM(t *testing.T) {
 	assert.Equal(t, leafKey, fullIdent.Key)
 }
 
+func TestConfig_SaveIdentity_with_extension(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	testidentity.IdentityVersionsTest(t, func(t *testing.T, ident *identity.FullIdentity) {
+		identCfg := &identity.Config{
+			CertPath: ctx.File("chain.pem"),
+			KeyPath:  ctx.File("key.pem"),
+		}
+
+		chainPEM := bytes.NewBuffer([]byte{})
+		assert.NoError(t, pkcrypto.WriteCertPEM(chainPEM, ident.Leaf))
+		assert.NoError(t, pkcrypto.WriteCertPEM(chainPEM, ident.CA))
+
+		privateKey := ident.Key
+		assert.NotEmpty(t, privateKey)
+
+		keyPEM := bytes.NewBuffer([]byte{})
+		assert.NoError(t, pkcrypto.WritePrivateKeyPEM(keyPEM, privateKey))
+
+		{ // test saving
+			err := identCfg.Save(ident)
+			assert.NoError(t, err)
+
+			certInfo, err := os.Stat(identCfg.CertPath)
+			assert.NoError(t, err)
+
+			keyInfo, err := os.Stat(identCfg.KeyPath)
+			assert.NoError(t, err)
+
+			// TODO (windows): ignoring for windows due to different default permissions
+			if runtime.GOOS != "windows" {
+				assert.Equal(t, os.FileMode(0644), certInfo.Mode())
+				assert.Equal(t, os.FileMode(0600), keyInfo.Mode())
+			}
+		}
+
+		{ // test loading
+			loadedFi, err := identCfg.Load()
+			assert.NoError(t, err)
+			assert.Equal(t, ident.Key, loadedFi.Key)
+			assert.Equal(t, ident.Leaf, loadedFi.Leaf)
+			assert.Equal(t, ident.CA, loadedFi.CA)
+			assert.Equal(t, ident.ID, loadedFi.ID)
+		}
+	})
+}
+
 func TestConfig_SaveIdentity(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	ic := &identity.Config{
-		CertPath: ctx.File("chain.pem"),
-		KeyPath:  ctx.File("key.pem"),
-	}
-	fi := pregeneratedIdentity(t)
-
-	chainPEM := bytes.NewBuffer([]byte{})
-	assert.NoError(t, pkcrypto.WriteCertPEM(chainPEM, fi.Leaf))
-	assert.NoError(t, pkcrypto.WriteCertPEM(chainPEM, fi.CA))
-
-	privateKey := fi.Key
-	assert.NotEmpty(t, privateKey)
-
-	keyPEM := bytes.NewBuffer([]byte{})
-	assert.NoError(t, pkcrypto.WritePrivateKeyPEM(keyPEM, privateKey))
-
-	{ // test saving
-		err := ic.Save(fi)
-		assert.NoError(t, err)
-
-		certInfo, err := os.Stat(ic.CertPath)
-		assert.NoError(t, err)
-
-		keyInfo, err := os.Stat(ic.KeyPath)
-		assert.NoError(t, err)
-
-		// TODO (windows): ignoring for windows due to different default permissions
-		if runtime.GOOS != "windows" {
-			assert.Equal(t, os.FileMode(0644), certInfo.Mode())
-			assert.Equal(t, os.FileMode(0600), keyInfo.Mode())
+	testidentity.IdentityVersionsTest(t, func(t *testing.T, ident *identity.FullIdentity) {
+		identCfg := &identity.Config{
+			CertPath: ctx.File("chain.pem"),
+			KeyPath:  ctx.File("key.pem"),
 		}
-	}
 
-	{ // test loading
-		loadedFi, err := ic.Load()
-		assert.NoError(t, err)
-		assert.Equal(t, fi.Key, loadedFi.Key)
-		assert.Equal(t, fi.Leaf, loadedFi.Leaf)
-		assert.Equal(t, fi.CA, loadedFi.CA)
-		assert.Equal(t, fi.ID, loadedFi.ID)
-	}
+		chainPEM := bytes.NewBuffer([]byte{})
+		assert.NoError(t, pkcrypto.WriteCertPEM(chainPEM, ident.Leaf))
+		assert.NoError(t, pkcrypto.WriteCertPEM(chainPEM, ident.CA))
+
+		privateKey := ident.Key
+		assert.NotEmpty(t, privateKey)
+
+		keyPEM := bytes.NewBuffer([]byte{})
+		assert.NoError(t, pkcrypto.WritePrivateKeyPEM(keyPEM, privateKey))
+
+		{ // test saving
+			err := identCfg.Save(ident)
+			assert.NoError(t, err)
+
+			certInfo, err := os.Stat(identCfg.CertPath)
+			assert.NoError(t, err)
+
+			keyInfo, err := os.Stat(identCfg.KeyPath)
+			assert.NoError(t, err)
+
+			// TODO (windows): ignoring for windows due to different default permissions
+			if runtime.GOOS != "windows" {
+				assert.Equal(t, os.FileMode(0644), certInfo.Mode())
+				assert.Equal(t, os.FileMode(0600), keyInfo.Mode())
+			}
+		}
+
+		{ // test loading
+			loadedFi, err := identCfg.Load()
+			assert.NoError(t, err)
+			assert.Equal(t, ident.Key, loadedFi.Key)
+			assert.Equal(t, ident.Leaf, loadedFi.Leaf)
+			assert.Equal(t, ident.CA, loadedFi.CA)
+			assert.Equal(t, ident.ID, loadedFi.ID)
+		}
+	})
 }
 
 func TestVersionedNodeIDFromKey(t *testing.T) {
@@ -235,36 +284,4 @@ func TestManageableIdentity_Revoke(t *testing.T) {
 
 	err = rev.Verify(manageableFullIdent.CA.Cert)
 	assert.NoError(t, err)
-}
-
-func pregeneratedIdentity(t *testing.T) *identity.FullIdentity {
-	const chain = `-----BEGIN CERTIFICATE-----
-MIIBQDCB56ADAgECAhB+u3d03qyW/ROgwy/ZsPccMAoGCCqGSM49BAMCMAAwIhgP
-MDAwMTAxMDEwMDAwMDBaGA8wMDAxMDEwMTAwMDAwMFowADBZMBMGByqGSM49AgEG
-CCqGSM49AwEHA0IABIZrEPV/ExEkF0qUF0fJ3qSeGt5oFUX231v02NSUywcQ/Ve0
-v3nHbmcJdjWBis2AkfL25mYDVC25jLl4tylMKumjPzA9MA4GA1UdDwEB/wQEAwIF
-oDAdBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYBBQUHAwIwDAYDVR0TAQH/BAIwADAK
-BggqhkjOPQQDAgNIADBFAiEA2ZvsR0ncw4mHRIg2Isavd+XVEoMo/etXQRAkDy9n
-wyoCIDykUsqjshc9kCrXOvPSN8GuO2bNoLu5C7K1GlE/HI2X
------END CERTIFICATE-----
------BEGIN CERTIFICATE-----
-MIIBODCB4KADAgECAhAOcvhKe5TWT44LqFfgA1f8MAoGCCqGSM49BAMCMAAwIhgP
-MDAwMTAxMDEwMDAwMDBaGA8wMDAxMDEwMTAwMDAwMFowADBZMBMGByqGSM49AgEG
-CCqGSM49AwEHA0IABIZrEPV/ExEkF0qUF0fJ3qSeGt5oFUX231v02NSUywcQ/Ve0
-v3nHbmcJdjWBis2AkfL25mYDVC25jLl4tylMKumjODA2MA4GA1UdDwEB/wQEAwIC
-BDATBgNVHSUEDDAKBggrBgEFBQcDATAPBgNVHRMBAf8EBTADAQH/MAoGCCqGSM49
-BAMCA0cAMEQCIGAZfPT1qvlnkTacojTtP20ZWf6XbnSztJHIKlUw6AE+AiB5Vcjj
-awRaC5l1KBPGqiKB0coVXDwhW+K70l326MPUcg==
------END CERTIFICATE-----`
-
-	const key = `-----BEGIN EC PRIVATE KEY-----
-MHcCAQEEIKGjEetrxKrzl+AL1E5LXke+1ElyAdjAmr88/1Kx09+doAoGCCqGSM49
-AwEHoUQDQgAEoLy/0hs5deTXZunRumsMkiHpF0g8wAc58aXANmr7Mxx9tzoIYFnx
-0YN4VDKdCtUJa29yA6TIz1MiIDUAcB5YCA==
------END EC PRIVATE KEY-----`
-
-	fi, err := identity.FullIdentityFromPEM([]byte(chain), []byte(key))
-	assert.NoError(t, err)
-
-	return fi
 }

@@ -5,7 +5,6 @@ package storj_test
 
 import (
 	"crypto/x509"
-	"crypto/x509/pkix"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"testing"
@@ -152,22 +151,21 @@ func TestIDVersionExtensionHandler_error(t *testing.T) {
 }
 
 func TestAddVersionExt(t *testing.T) {
-	for versionNumber := range storj.IDVersions {
-		_, chain, err := testpeertls.NewCertChain(1)
+	for _, version := range storj.IDVersions {
+		key, err := version.NewPrivateKey()
 		require.NoError(t, err)
-		cert := chain[0]
 
-		err = storj.AddVersionExt(versionNumber, cert)
-		assert.NoError(t, err)
+		template, err := peertls.CATemplate()
+		require.NoError(t, err)
 
-		versionExt := new(pkix.Extension)
-		for _, ext := range cert.ExtraExtensions {
-			if extensions.IdentityVersionExtID.ToASN1().Equal(ext.Id) {
-				*versionExt = ext
-				break
-			}
-		}
-		require.NotEmpty(t, versionExt)
-		assert.Equal(t, versionExt.Value, []byte{byte(versionNumber)})
+		cert, err := peertls.NewCert(key, nil, template, nil)
+		require.NoError(t, err)
+
+		assert.Len(t, cert.ExtraExtensions, 0)
+
+		err = storj.AddVersionExt(version.Number, cert)
+		require.Len(t, cert.ExtraExtensions, 1)
+		assert.True(t, extensions.IdentityVersionExtID.Equal(cert.ExtraExtensions[0].Id))
+		assert.Equal(t, version.Number, storj.IDVersionNumber(cert.ExtraExtensions[0].Value[0]))
 	}
 }
