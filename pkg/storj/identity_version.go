@@ -74,7 +74,7 @@ func LatestIDVersion() IDVersion {
 
 func IDVersionFromCert(cert *x509.Certificate) (IDVersion, error) {
 	for _, ext := range cert.ExtraExtensions {
-		if extensions.IdentityVersionExtID.ToASN1().Equal(ext.Id) {
+		if extensions.IdentityVersionExtID.Equal(ext.Id) {
 			return GetIDVersion(IDVersionNumber(ext.Value[0]))
 		}
 	}
@@ -135,13 +135,9 @@ func IDVersionInVersions(versionNumber IDVersionNumber, versionsStr string) erro
 // TODO: should this include signature?
 func AddVersionExt(version IDVersionNumber, cert *x509.Certificate) error {
 	return extensions.AddExtension(cert, pkix.Extension{
-		Id:    extensions.IdentityVersionExtID.ToASN1(),
+		Id:    extensions.IdentityVersionExtID,
 		Value: []byte{byte(version)},
 	})
-}
-
-func (version IDVersion) ApplyToCert(cert *x509.Certificate) {
-	extensions.Add
 }
 
 func idVersionHandler(opts *extensions.Options) extensions.HandlerFunc {

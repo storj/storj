@@ -6,14 +6,16 @@ package testidentity
 import (
 	"context"
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/storj"
 )
 
 type IdentityTest func(*testing.T, *identity.FullIdentity)
+type SignerTest func(*testing.T, *identity.FullCertificateAuthority)
 
 // NewTestIdentity is a helper function to generate new node identities with
 // correct difficulty and concurrency
@@ -73,6 +75,18 @@ func CompleteIdentityVersionsTest(t *testing.T, test IdentityTest) {
 	t.Run("signed identity", func(t *testing.T) {
 		SignedIdentityVersionsTest(t, test)
 	})
+}
+
+func SignerVersionsTest(t *testing.T, test SignerTest) {
+	for versionNumber := range storj.IDVersions {
+		t.Run(fmt.Sprintf("identity version %d", versionNumber), func(t *testing.T) {
+			fmt.Printf("t.Run version %d\n", versionNumber)
+			ca := SignerVersions[versionNumber]
+
+			fmt.Printf("actual version %d\n", ca.ID.Version().Number)
+			test(t, ca)
+		})
+	}
 }
 
 // NewTestManageablePeerIdentity returns a new manageable peer identity for use in tests.
