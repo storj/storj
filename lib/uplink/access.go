@@ -10,6 +10,16 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+// Access is all of the access information an application needs to store and
+// retrieve data. Someone with a share may have no restrictions within a project
+// (can create buckets, list buckets, list files, upload files, delete files,
+// etc), may be restricted to a single bucket, may be restricted to a prefix
+// within a bucket, or may even be restricted to a single file within a bucket.
+type Access struct {
+	Permissions Permissions
+	Uplink      *Uplink
+}
+
 // A Macaroon represents an access credential to certain resources
 type Macaroon interface {
 	Serialize() ([]byte, error)
@@ -39,7 +49,8 @@ func (a *Access) Serialize() ([]byte, error) {
 
 // CreateBucket creates a bucket from the passed opts
 func (a *Access) CreateBucket(ctx context.Context, bucket string, opts CreateBucketOptions) (storj.Bucket, error) {
-	panic("TODO")
+
+	return storj.Bucket{}, nil
 }
 
 // DeleteBucket deletes a bucket if authorized
