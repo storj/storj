@@ -27,7 +27,7 @@ func TestMonitor(t *testing.T) {
 	planet.Start(ctx)
 
 	var freeBandwidth int64
-	var freeSpace int64
+	// var freeSpace int64
 	for _, storageNode := range planet.StorageNodes {
 		storageNode.Storage2.Monitor.Loop.Pause()
 
@@ -36,7 +36,7 @@ func TestMonitor(t *testing.T) {
 
 		// assume that all storage nodes have the same initial values
 		freeBandwidth = info.Capacity.FreeBandwidth
-		freeSpace = info.Capacity.FreeDisk
+		// freeSpace = info.Capacity.FreeDisk
 	}
 
 	expectedData := make([]byte, 100*memory.KiB)
