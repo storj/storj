@@ -5,7 +5,7 @@ package segments
 
 import (
 	"context"
-	time "time"
+	"time"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/zeebo/errs"
