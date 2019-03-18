@@ -74,6 +74,8 @@ func TestPieces(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, int(length), n)
 
+			require.NoError(t, reader.Close())
+
 			return data
 		}
 
@@ -108,5 +110,4 @@ func TestPieces(t *testing.T) {
 		_, err = store.Reader(ctx, satelliteID, cancelledPieceID)
 		assert.Error(t, err)
 	}
-
 }
