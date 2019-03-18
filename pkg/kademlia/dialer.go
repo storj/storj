@@ -88,24 +88,8 @@ func (dialer *Dialer) PingNode(ctx context.Context, target pb.Node) (bool, error
 	return err == nil, errs.Combine(err, conn.disconnect())
 }
 
-// PingAddress pings target by address (no node ID verification).
-func (dialer *Dialer) PingAddress(ctx context.Context, address string, opts ...grpc.CallOption) (bool, error) {
-	if !dialer.limit.Lock() {
-		return false, context.Canceled
-	}
-	defer dialer.limit.Unlock()
-
-	conn, err := dialer.dialAddress(ctx, address)
-	if err != nil {
-		return false, err
-	}
-
-	_, err = conn.client.Ping(ctx, &pb.PingRequest{}, opts...)
-	return err == nil, errs.Combine(err, conn.disconnect())
-}
-
 // FetchPeerIdentity connects to a node and returns its peer identity
-func (dialer *Dialer) FetchPeerIdentity(ctx context.Context, target pb.Node) (pID *identity.PeerIdentity, err error) {
+func (dialer *Dialer) FetchPeerIdentity(ctx context.Context, target pb.Node) (_ *identity.PeerIdentity, err error) {
 	if !dialer.limit.Lock() {
 		return nil, context.Canceled
 	}
@@ -120,8 +104,27 @@ func (dialer *Dialer) FetchPeerIdentity(ctx context.Context, target pb.Node) (pI
 	}()
 
 	p := &peer.Peer{}
-	pCall := grpc.Peer(p)
-	_, err = conn.client.Ping(ctx, &pb.PingRequest{}, pCall)
+	_, err = conn.client.Ping(ctx, &pb.PingRequest{}, grpc.Peer(p))
+	return identity.PeerIdentityFromPeer(p)
+}
+
+// FetchPeerIdentityUnverified connects to an address and returns its peer identity (no node ID verification).
+func (dialer *Dialer) FetchPeerIdentityUnverified(ctx context.Context, address string, opts ...grpc.CallOption) (_ *identity.PeerIdentity, err error) {
+	if !dialer.limit.Lock() {
+		return nil, context.Canceled
+	}
+	defer dialer.limit.Unlock()
+
+	conn, err := dialer.dialAddress(ctx, address)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err = errs.Combine(err, conn.disconnect())
+	}()
+
+	p := &peer.Peer{}
+	_, err = conn.client.Ping(ctx, &pb.PingRequest{}, grpc.Peer(p))
 	return identity.PeerIdentityFromPeer(p)
 }
 

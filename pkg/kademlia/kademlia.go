@@ -11,8 +11,6 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/peer"
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
@@ -128,23 +126,17 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 			return errGroup.Err()
 		}
 
-		p := &peer.Peer{}
-		pCall := grpc.Peer(p)
-		_, err := k.dialer.PingAddress(ctx, node.Address.Address, pCall)
+		ident, err := k.dialer.FetchPeerIdentityUnverified(ctx, node.Address.Address)
 		if err == nil {
-			ident, err := identity.PeerIdentityFromPeer(p)
-			if err == nil {
-				k.routingTable.mutex.Lock()
-				node.Id = ident.ID
-				k.bootstrapNodes[i] = node
-				k.routingTable.mutex.Unlock()
+			k.routingTable.mutex.Lock()
+			node.Id = ident.ID
+			k.bootstrapNodes[i] = node
+			k.routingTable.mutex.Unlock()
 
-				// We have pinged successfully one bootstrap node.
-				// Clear any errors and break the cycle.
-				errGroup = nil
-				break
-			}
-			errGroup.Add(err)
+			// We have pinged successfully one bootstrap node.
+			// Clear any errors and break the cycle.
+			errGroup = nil
+			break
 		}
 		errGroup.Add(err)
 	}
