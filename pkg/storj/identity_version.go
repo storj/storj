@@ -78,7 +78,14 @@ func IDVersionFromCert(cert *x509.Certificate) (IDVersion, error) {
 			return GetIDVersion(IDVersionNumber(ext.Value[0]))
 		}
 	}
-	return IDVersion{}, ErrVersion.New("certificate doesn't contain an identity version extension")
+
+	// NB: for backward-compatibility with V1 certificate generation, V1 is used
+	// when no version extension exists.
+	// TODO(beta maybe?): Error here instead; we should drop support for
+	//  certificates without a version extension.
+	//
+	// return IDVersion{}, ErrVersion.New("certificate doesn't contain an identity version extension")
+	return IDVersions[V1], nil
 }
 
 func IDVersionInVersions(versionNumber IDVersionNumber, versionsStr string) error {
@@ -131,6 +138,10 @@ func AddVersionExt(version IDVersionNumber, cert *x509.Certificate) error {
 		Id:    extensions.IdentityVersionExtID.ToASN1(),
 		Value: []byte{byte(version)},
 	})
+}
+
+func (version IDVersion) ApplyToCert(cert *x509.Certificate) {
+	extensions.Add
 }
 
 func idVersionHandler(opts *extensions.Options) extensions.HandlerFunc {

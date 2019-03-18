@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto"
 	"crypto/rand"
+	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"fmt"
@@ -48,7 +49,7 @@ func TestPeerIdentityFromCertChain(t *testing.T) {
 	leafCert, err := peertls.CreateCertificate(pkcrypto.PublicKeyFromPrivate(leafKey), caKey, leafTemplate, caTemplate)
 	assert.NoError(t, err)
 
-	peerIdent, err := identity.PeerIdentityFromCerts(leafCert, caCert, nil)
+	peerIdent, err := identity.PeerIdentityFromChain([]*x509.Certificate{leafCert, caCert})
 	assert.NoError(t, err)
 	assert.Equal(t, caCert, peerIdent.CA)
 	assert.Equal(t, leafCert, peerIdent.Leaf)
@@ -147,7 +148,7 @@ func TestVersionedNodeIDFromKey(t *testing.T) {
 
 	for _, version := range storj.IDVersions {
 		t.Run(fmt.Sprintf("IdentityV%d", version.Number), func(t *testing.T) {
-			id, err := identity.VersionedNodeIDFromKey(pubKey, version)
+			id, err := identity.NodeIDFromKey(pubKey, version)
 			require.NoError(t, err)
 			assert.Equal(t, version.Number, id.Version().Number)
 		})
