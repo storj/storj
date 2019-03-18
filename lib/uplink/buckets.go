@@ -5,6 +5,7 @@ package uplink
 
 import (
 	"storj.io/storj/pkg/storj"
+	ul "storj.io/storj/uplink"
 )
 
 // BucketOpts holds the cipher, path, key, and enc. scheme for each bucket since they
@@ -19,9 +20,11 @@ type BucketOpts struct {
 // Bucket is a struct that allows operations on a Bucket after a user providers Permissions
 type Bucket struct {
 	Access *Access
+	Opts   *BucketOpts
 }
 
 // CreateBucketOptions holds the bucket opts
 type CreateBucketOptions struct {
-	Path storj.Cipher
+	Path      storj.Cipher
+	EncConfig ul.EncryptionConfig
 }

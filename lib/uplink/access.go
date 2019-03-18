@@ -49,8 +49,19 @@ func (a *Access) Serialize() ([]byte, error) {
 
 // CreateBucket creates a bucket from the passed opts
 func (a *Access) CreateBucket(ctx context.Context, bucket string, opts CreateBucketOptions) (storj.Bucket, error) {
+	cfg := a.Uplink.config
+	metainfo, _, err := cfg.GetMetainfo(ctx, a.Uplink.id)
+	if err != nil {
+		return storj.Bucket{}, nil
+	}
 
-	return storj.Bucket{}, nil
+	encScheme := cfg.GetEncryptionScheme()
+
+	created, err := metainfo.CreateBucket(ctx, bucket, &storj.Bucket{PathCipher: encScheme.Cipher})
+	if err != nil {
+		return storj.Bucket{}, err
+	}
+	return created, nil
 }
 
 // DeleteBucket deletes a bucket if authorized
@@ -65,10 +76,27 @@ func (a *Access) ListBuckets(ctx context.Context, opts storj.BucketListOptions) 
 
 // GetBucketInfo returns info about the requested bucket if authorized
 func (a *Access) GetBucketInfo(ctx context.Context, bucket string) (storj.Bucket, error) {
-	panic("TODO")
+	config := a.Uplink.config
+	metainfo, _, err := config.GetMetainfo(ctx, a.Uplink.id)
+	if err != nil {
+		return storj.Bucket{}, err
+	}
+
+	b, err := metainfo.GetBucket(ctx, bucket)
+	if err != nil {
+		return storj.Bucket{}, err
+	}
+
+	return b, nil
 }
 
 // GetBucket returns a Bucket with the given Encryption information
-func (a *Access) GetBucket(ctx context.Context, bucket string, encryption Encryption) (*Bucket, error) {
-	panic("TODO")
+func (a *Access) GetBucket(ctx context.Context, bucket string, encryption storj.EncryptionScheme) *Bucket {
+	opts := &BucketOpts{
+		PathCipher: encryption.Cipher,
+	}
+	return &Bucket{
+		Access: a,
+		Opts:   opts,
+	}
 }

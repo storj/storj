@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"storj.io/storj/pkg/identity"
+	ul "storj.io/storj/uplink"
 )
 
 // Uplink represents the main entrypoint to Storj V3. An Uplink connects to
@@ -15,7 +16,7 @@ import (
 type Uplink struct {
 	id            *identity.FullIdentity
 	satelliteAddr string
-	config        config
+	config        ul.Config
 }
 
 // Access returns a pointer to an Access for bucket operations to occur on
@@ -27,7 +28,7 @@ func (u *Uplink) Access(ctx context.Context, permissions Permissions) *Access {
 }
 
 // NewUplink returns a pointer to a new Uplink or an error
-func NewUplink(identity *identity.FullIdentity, satelliteAddr string, cfg config) *Uplink {
+func NewUplink(identity *identity.FullIdentity, satelliteAddr string, cfg ul.Config) *Uplink {
 	return &Uplink{
 		id:            identity,
 		satelliteAddr: satelliteAddr,
