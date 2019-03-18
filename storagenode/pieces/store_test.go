@@ -56,6 +56,8 @@ func TestPieces(t *testing.T) {
 
 		// commit
 		require.NoError(t, writer.Commit())
+		// after commit we should be able to call cancel without an error
+		require.NoError(t, writer.Cancel())
 	}
 
 	{ // valid reads

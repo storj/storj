@@ -58,6 +58,8 @@ func TestStoreLoad(t *testing.T) {
 		require.Equal(t, n, len(data))
 
 		require.NoError(t, writer.Commit())
+		// after committing we should be able to call cancel without an error
+		require.NoError(t, writer.Cancel())
 	}
 
 	namespace = randomValue()
