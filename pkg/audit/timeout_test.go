@@ -60,10 +60,15 @@ func TestGetShareTimeout(t *testing.T) {
 		// This config value will create a very short timeframe allowed for receiving
 		// data from storage nodes. This will cause context to cancel and start
 		// downloading from new nodes.
-		minBytesPerSecond := memory.Size(110000)
+		minBytesPerSecond := 110 * memory.KB
 
 		verifier := audit.NewVerifier(zap.L(), slowtc, overlay, planet.Satellites[0].Identity, minBytesPerSecond)
 		require.NotNil(t, verifier)
+
+		err = planet.StopPeer(planet.StorageNodes[0])
+		err = planet.StopPeer(planet.StorageNodes[1])
+		err = planet.StopPeer(planet.StorageNodes[2])
+		err = planet.StopPeer(planet.StorageNodes[3])
 
 		_, err = verifier.Verify(ctx, stripe)
 		assert.NoError(t, err)

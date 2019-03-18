@@ -15,5 +15,5 @@ var (
 	//Error is the errs class of standard Transport Client errors
 	Error = errs.Class("transport error")
 	// default time to wait for a connection to be established
-	timeout = 20 * time.Second
+	connWaitTimeout = 20 * time.Second
 )

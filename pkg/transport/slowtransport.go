@@ -15,15 +15,15 @@ import (
 
 // SlowTransport is a slow version of transport
 type SlowTransport struct {
-	client  Client
-	latency time.Duration
+	client      Client
+	dialLatency time.Duration
 }
 
 // NewClientWithLatency makes a slower transport client for testing purposes
-func NewClientWithLatency(client Client, latency time.Duration) Client {
+func NewClientWithLatency(client Client, dialLatency time.Duration) Client {
 	return &SlowTransport{
-		client:  client,
-		latency: latency,
+		client:      client,
+		dialLatency: dialLatency,
 	}
 }
 
@@ -32,7 +32,7 @@ func (slowTransport *SlowTransport) DialNode(ctx context.Context, node *pb.Node,
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
-	case <-time.After(slowTransport.latency):
+	case <-time.After(slowTransport.dialLatency):
 		break
 	}
 
@@ -44,7 +44,7 @@ func (slowTransport *SlowTransport) DialAddress(ctx context.Context, address str
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
-	case <-time.After(slowTransport.latency):
+	case <-time.After(slowTransport.dialLatency):
 		break
 	}
 

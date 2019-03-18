@@ -67,19 +67,19 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 		grpc.FailOnNonTempDialError(true),
 	}, opts...)
 
-	ctx, cf := context.WithTimeout(ctx, timeout)
+	timedCtx, cf := context.WithTimeout(ctx, connWaitTimeout)
 	defer cf()
 
-	conn, err = grpc.DialContext(ctx, node.GetAddress().Address, options...)
+	conn, err = grpc.DialContext(timedCtx, node.GetAddress().Address, options...)
 	if err != nil {
 		if err == context.Canceled {
 			return nil, err
 		}
-		alertFail(ctx, transport.observers, node, err)
+		alertFail(timedCtx, transport.observers, node, err)
 		return nil, Error.Wrap(err)
 	}
 
-	alertSuccess(ctx, transport.observers, node)
+	alertSuccess(timedCtx, transport.observers, node)
 
 	return conn, nil
 }
