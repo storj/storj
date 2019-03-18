@@ -16,8 +16,8 @@ import (
 // ErrPieceID is used when something goes wrong with a piece ID
 var ErrPieceID = errs.Class("piece ID error")
 
-// pieceIdEncoding without padding
-var pieceIdEncoding = base32.StdEncoding.WithPadding(base32.NoPadding)
+// pieceIDEncoding is base32 without padding
+var pieceIDEncoding = base32.StdEncoding.WithPadding(base32.NoPadding)
 
 // PieceID is the unique identifier for pieces
 type PieceID [32]byte
@@ -36,7 +36,7 @@ func NewPieceID() PieceID {
 
 // PieceIDFromString decodes a hex encoded piece ID string
 func PieceIDFromString(s string) (PieceID, error) {
-	idBytes, err := pieceIdEncoding.DecodeString(s)
+	idBytes, err := pieceIDEncoding.DecodeString(s)
 	if err != nil {
 		return PieceID{}, ErrNodeID.Wrap(err)
 	}
@@ -60,7 +60,7 @@ func (id PieceID) IsZero() bool {
 }
 
 // String representation of the piece ID
-func (id PieceID) String() string { return pieceIdEncoding.EncodeToString(id.Bytes()) }
+func (id PieceID) String() string { return pieceIDEncoding.EncodeToString(id.Bytes()) }
 
 // Bytes returns bytes of the piece ID
 func (id PieceID) Bytes() []byte { return id[:] }
