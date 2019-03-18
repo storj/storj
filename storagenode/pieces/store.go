@@ -107,7 +107,14 @@ type StorageStatus struct {
 	DiskFree int64
 }
 
-// StorageStatus returns information abpout the disk.
-func (store *Store) StorageStatus() StorageStatus {
-	panic("TODO")
+// StorageStatus returns information about the disk.
+func (store *Store) StorageStatus() (StorageStatus, error) {
+	diskFree, err := store.blobs.FreeSpace()
+	if err != nil {
+		return StorageStatus{}, err
+	}
+	return StorageStatus{
+		DiskUsed: -1, // TODO set value
+		DiskFree: diskFree,
+	}, nil
 }

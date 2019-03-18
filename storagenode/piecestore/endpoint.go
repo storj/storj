@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storagenode/bandwidth"
+	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/trust"
@@ -40,6 +41,8 @@ var _ pb.PiecestoreServer = (*Endpoint)(nil)
 // Config defines parameters for piecestore endpoint.
 type Config struct {
 	ExpirationGracePeriod time.Duration `help:"how soon before expiration date should things be considered expired" default:"48h0m0s"`
+
+	Monitor monitor.Config
 }
 
 // Endpoint implements uploading, downloading and deleting for a storage node.
