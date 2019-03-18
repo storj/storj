@@ -125,3 +125,22 @@ func DeriveKey(key *storj.Key, message string) (*storj.Key, error) {
 
 	return derived, nil
 }
+
+// CalcEncryptedSize calculates what would be the size of the cipher data after
+// encrypting data with dataSize using a Transformer with the given encryption
+// scheme.
+func CalcEncryptedSize(dataSize int64, scheme storj.EncryptionScheme) (int64, error) {
+	transformer, err := NewEncrypter(scheme.Cipher, new(storj.Key), new(storj.Nonce), int(scheme.BlockSize))
+	if err != nil {
+		return 0, err
+	}
+
+	blocks := dataSize / int64(transformer.InBlockSize())
+	if dataSize%int64(transformer.InBlockSize()) != 0 {
+		blocks++
+	}
+
+	encryptedSize := blocks * int64(transformer.OutBlockSize())
+
+	return encryptedSize, nil
+}

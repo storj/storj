@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
@@ -28,6 +29,8 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/uplink"
+	"storj.io/storj/uplink/metainfo"
+	"storj.io/storj/uplink/piecestore"
 )
 
 // Uplink is a general purpose
@@ -130,6 +133,26 @@ func (uplink *Uplink) DialPointerDB(destination Peer, apikey string) (pdbclient.
 	return pdbclient.NewClient(uplink.Transport, destination.Addr(), apikey)
 }
 
+// DialMetainfo dials destination with apikey and returns metainfo Client
+func (uplink *Uplink) DialMetainfo(ctx context.Context, destination Peer, apikey string) (metainfo.Client, error) {
+	// TODO: handle disconnect
+	return metainfo.NewClient(ctx, uplink.Transport, destination.Addr(), apikey)
+}
+
+// DialPiecestore dials destination storagenode and returns a piecestore client.
+func (uplink *Uplink) DialPiecestore(ctx context.Context, destination Peer) (*piecestore.Client, error) {
+	node := destination.Local()
+
+	conn, err := uplink.Transport.DialNode(ctx, &node)
+	if err != nil {
+		return nil, err
+	}
+
+	signer := signing.SignerFromFullIdentity(uplink.Transport.Identity())
+
+	return piecestore.NewClient(uplink.Log.Named("uplink>piecestore"), signer, conn, piecestore.DefaultConfig), nil
+}
+
 // DialOverlay dials destination and returns an overlay.Client
 func (uplink *Uplink) DialOverlay(destination Peer) (overlay.Client, error) {
 	info := destination.Local()
@@ -197,20 +220,28 @@ func uploadStream(ctx context.Context, streams streams.Store, mutableObject stor
 	return errs.Combine(err, upload.Close())
 }
 
-// Download data from specific satellite
-func (uplink *Uplink) Download(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) ([]byte, error) {
+// DownloadStream returns stream for downloading data.
+func (uplink *Uplink) DownloadStream(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) (*stream.Download, error) {
 	config := uplink.getConfig(satellite)
 	metainfo, streams, err := config.GetMetainfo(ctx, uplink.Identity)
 	if err != nil {
-		return []byte{}, err
+		return nil, err
 	}
 
 	readOnlyStream, err := metainfo.GetObjectStream(ctx, bucket, path)
 	if err != nil {
-		return []byte{}, err
+		return nil, err
 	}
 
-	download := stream.NewDownload(ctx, readOnlyStream, streams)
+	return stream.NewDownload(ctx, readOnlyStream, streams), nil
+}
+
+// Download data from specific satellite
+func (uplink *Uplink) Download(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) ([]byte, error) {
+	download, err := uplink.DownloadStream(ctx, satellite, bucket, path)
+	if err != nil {
+		return []byte{}, err
+	}
 	defer func() { err = errs.Combine(err, download.Close()) }()
 
 	data, err := ioutil.ReadAll(download)
@@ -218,6 +249,16 @@ func (uplink *Uplink) Download(ctx context.Context, satellite *satellite.Peer, b
 		return []byte{}, err
 	}
 	return data, nil
+}
+
+// Delete data to specific satellite
+func (uplink *Uplink) Delete(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) error {
+	config := uplink.getConfig(satellite)
+	metainfo, _, err := config.GetMetainfo(ctx, uplink.Identity)
+	if err != nil {
+		return err
+	}
+	return metainfo.DeleteObject(ctx, bucket, path)
 }
 
 func (uplink *Uplink) getConfig(satellite *satellite.Peer) uplink.Config {

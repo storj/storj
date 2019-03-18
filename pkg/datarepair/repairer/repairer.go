@@ -10,7 +10,10 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/sync2"
+	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/datarepair/queue"
+	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storage"
@@ -23,22 +26,30 @@ type SegmentRepairer interface {
 
 // Service contains the information needed to run the repair service
 type Service struct {
-	queue     queue.RepairQueue
-	config    *Config
-	transport transport.Client
-	repairer  SegmentRepairer
-	limiter   *sync2.Limiter
-	ticker    *time.Ticker
+	queue                queue.RepairQueue
+	config               *Config
+	limiter              *sync2.Limiter
+	ticker               *time.Ticker
+	transport            transport.Client
+	pointerdb            *pointerdb.Service
+	allocation           *pointerdb.AllocationSigner
+	cache                *overlay.Cache
+	selectionPreferences *overlay.NodeSelectionConfig
+	repairer             SegmentRepairer
 }
 
 // NewService creates repairing service
-func NewService(queue queue.RepairQueue, config *Config, transport transport.Client, interval time.Duration, concurrency int) *Service {
+func NewService(queue queue.RepairQueue, config *Config, interval time.Duration, concurrency int, transport transport.Client, pointerdb *pointerdb.Service, allocation *pointerdb.AllocationSigner, cache *overlay.Cache, signer signing.Signer, selectionPreferences *overlay.NodeSelectionConfig) *Service {
 	return &Service{
-		queue:     queue,
-		config:    config,
-		transport: transport,
-		limiter:   sync2.NewLimiter(concurrency),
-		ticker:    time.NewTicker(interval),
+		queue:                queue,
+		config:               config,
+		limiter:              sync2.NewLimiter(concurrency),
+		ticker:               time.NewTicker(interval),
+		transport:            transport,
+		pointerdb:            pointerdb,
+		allocation:           allocation,
+		cache:                cache,
+		selectionPreferences: selectionPreferences,
 	}
 }
 
@@ -50,7 +61,15 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO: close segment repairer, currently this leaks connections
-	service.repairer, err = service.config.GetSegmentRepairer(ctx, service.transport)
+	service.repairer, err = service.config.GetSegmentRepairer(
+		ctx,
+		service.transport,
+		service.pointerdb,
+		service.allocation,
+		service.cache,
+		service.transport.Identity(),
+		service.selectionPreferences,
+	)
 	if err != nil {
 		return err
 	}
