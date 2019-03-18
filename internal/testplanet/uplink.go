@@ -19,7 +19,6 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/stream"
@@ -124,12 +123,6 @@ func (uplink *Uplink) Local() pb.Node { return uplink.Info }
 
 // Shutdown shuts down all uplink dependencies
 func (uplink *Uplink) Shutdown() error { return nil }
-
-// DialPointerDB dials destination with apikey and returns pointerdb Client
-func (uplink *Uplink) DialPointerDB(destination Peer, apikey string) (pdbclient.Client, error) {
-	// TODO: handle disconnect
-	return pdbclient.NewClient(uplink.Transport, destination.Addr(), apikey)
-}
 
 // DialMetainfo dials destination with apikey and returns metainfo Client
 func (uplink *Uplink) DialMetainfo(ctx context.Context, destination Peer, apikey string) (metainfo.Client, error) {

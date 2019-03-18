@@ -357,11 +357,6 @@ func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, buckets.Store,
 		return nil, nil, nil, err
 	}
 
-	pdb, err := planet.Uplinks[0].DialPointerDB(planet.Satellites[0], TestAPIKey)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
 	metainfo, err := planet.Uplinks[0].DialMetainfo(context.Background(), planet.Satellites[0], TestAPIKey)
 	if err != nil {
 		return nil, nil, nil, err
@@ -390,7 +385,7 @@ func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, buckets.Store,
 
 	buckets := buckets.NewStore(streams)
 
-	return kvmetainfo.New(buckets, streams, segments, pdb, key), buckets, streams, nil
+	return kvmetainfo.New(metainfo, buckets, streams, segments, key), buckets, streams, nil
 }
 
 func forAllCiphers(test func(cipher storj.Cipher)) {

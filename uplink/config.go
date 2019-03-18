@@ -17,7 +17,6 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/storage/buckets"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
@@ -100,11 +99,6 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, Error.New("failed to connect to metainfo service: %v", err)
 	}
 
-	pdb, err := pdbclient.NewClient(tc, c.Client.PointerDBAddr, c.Client.APIKey)
-	if err != nil {
-		return nil, nil, Error.New("failed to connect to pointer DB: %v", err)
-	}
-
 	ec := ecclient.NewClient(tc, c.RS.MaxBufferMem.Int())
 	fc, err := infectious.NewFEC(c.RS.MinThreshold, c.RS.MaxThreshold)
 	if err != nil {
@@ -136,7 +130,7 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 
 	buckets := buckets.NewStore(streams)
 
-	return kvmetainfo.New(buckets, streams, segments, pdb, key), streams, nil
+	return kvmetainfo.New(metainfo, buckets, streams, segments, key), streams, nil
 }
 
 // GetRedundancyScheme returns the configured redundancy scheme for new uploads

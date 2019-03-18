@@ -80,7 +80,15 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (segment
 		return segment, err
 	}
 
-	pointer, _, _, err := stream.db.pointers.Get(ctx, segmentPath)
+	pathComponents := storj.SplitPath(stream.encryptedPath)
+	bucket := pathComponents[0]
+	segmentPath = storj.JoinPaths(pathComponents[1:]...)
+
+	if isLastSegment {
+		index = -1
+	}
+
+	pointer, err := stream.db.metainfo.SegmentInfo(ctx, bucket, segmentPath, index)
 	if err != nil {
 		return segment, err
 	}
