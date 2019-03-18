@@ -69,11 +69,9 @@ func (d *defaultDownloader) getShare(ctx context.Context, limit *pb.AddressedOrd
 	defer mon.Task()(&ctx)(&err)
 
 	bandwidthMsgSize := shareSize
-	seconds := bandwidthMsgSize / d.minBytesPerSecond.Int32()
+	duration := time.Duration(bandwidthMsgSize / d.minBytesPerSecond.Int32())
 
-	allottedTime := time.Now().Local().Add(time.Second * time.Duration(seconds))
-
-	timedCtx, cancel := context.WithDeadline(ctx, allottedTime)
+	timedCtx, cancel := context.WithTimeout(ctx, duration)
 	defer cancel()
 
 	storageNodeID := limit.GetLimit().StorageNodeId
