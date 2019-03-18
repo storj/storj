@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package piecestore
+package inspector
 
 import (
 	"context"
@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
@@ -20,8 +22,15 @@ import (
 	"storj.io/storj/storagenode/pieces"
 )
 
-// Inspector does inspectory things
-type Inspector struct {
+var (
+	mon = monkit.Package()
+
+	// Error is the default error class for piecestore monitor errors
+	Error = errs.Class("piecestore inspector")
+)
+
+// Endpoint does inspectory things
+type Endpoint struct {
 	log       *zap.Logger
 	pieceInfo pieces.DB
 	kademlia  *kademlia.Kademlia
@@ -32,9 +41,9 @@ type Inspector struct {
 	config    psserver.Config
 }
 
-// NewInspector creates piecestore inspector instance
-func NewInspector(log *zap.Logger, pieceInfo pieces.DB, kademlia *kademlia.Kademlia, usageDB bandwidth.DB, psdbDB *psdb.DB, config psserver.Config) *Inspector {
-	return &Inspector{
+// NewEndpoint creates piecestore inspector instance
+func NewEndpoint(log *zap.Logger, pieceInfo pieces.DB, kademlia *kademlia.Kademlia, usageDB bandwidth.DB, psdbDB *psdb.DB, config psserver.Config) *Endpoint {
+	return &Endpoint{
 		log:       log,
 		pieceInfo: pieceInfo,
 		kademlia:  kademlia,
@@ -45,7 +54,7 @@ func NewInspector(log *zap.Logger, pieceInfo pieces.DB, kademlia *kademlia.Kadem
 	}
 }
 
-func (inspector *Inspector) retrieveStats(ctx context.Context) (*pb.StatSummaryResponse, error) {
+func (inspector *Endpoint) retrieveStats(ctx context.Context) (*pb.StatSummaryResponse, error) {
 	totalUsedSpace, err := inspector.pieceInfo.SpaceUsed(ctx)
 	if err != nil {
 		return nil, err
@@ -73,7 +82,9 @@ func (inspector *Inspector) retrieveStats(ctx context.Context) (*pb.StatSummaryR
 }
 
 // Stats returns current statistics about the storage node
-func (inspector *Inspector) Stats(ctx context.Context, in *pb.StatsRequest) (*pb.StatSummaryResponse, error) {
+func (inspector *Endpoint) Stats(ctx context.Context, in *pb.StatsRequest) (out *pb.StatSummaryResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	inspector.log.Debug("Getting Stats...")
 
 	statsSummary, err := inspector.retrieveStats(ctx)
@@ -86,7 +97,7 @@ func (inspector *Inspector) Stats(ctx context.Context, in *pb.StatsRequest) (*pb
 	return statsSummary, nil
 }
 
-func (inspector *Inspector) getDashboardData(ctx context.Context) (*pb.DashboardResponse, error) {
+func (inspector *Endpoint) getDashboardData(ctx context.Context) (*pb.DashboardResponse, error) {
 	statsSummary, err := inspector.retrieveStats(ctx)
 	if err != nil {
 		return &pb.DashboardResponse{}, Error.Wrap(err)
@@ -117,7 +128,9 @@ func (inspector *Inspector) getDashboardData(ctx context.Context) (*pb.Dashboard
 }
 
 // Dashboard returns dashboard information
-func (inspector *Inspector) Dashboard(ctx context.Context, in *pb.DashboardRequest) (*pb.DashboardResponse, error) {
+func (inspector *Endpoint) Dashboard(ctx context.Context, in *pb.DashboardRequest) (out *pb.DashboardResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	data, err := inspector.getDashboardData(ctx)
 	if err != nil {
 		inspector.log.Warn("unable to get dashboard information")

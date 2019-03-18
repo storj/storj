@@ -32,18 +32,23 @@ func (blob *blobReader) Size() (int64, error) {
 
 // blobWriter implements writing blobs
 type blobWriter struct {
-	ref   storage.BlobRef
-	store *Store
+	ref    storage.BlobRef
+	store  *Store
+	closed bool
 
 	*os.File
 }
 
 func newBlobWriter(ref storage.BlobRef, store *Store, file *os.File) *blobWriter {
-	return &blobWriter{ref, store, file}
+	return &blobWriter{ref, store, false, file}
 }
 
 // Cancel discards the blob.
 func (blob *blobWriter) Cancel() error {
+	if blob.closed {
+		return nil
+	}
+	blob.closed = true
 	err := blob.File.Close()
 	removeErr := os.Remove(blob.File.Name())
 	return Error.Wrap(errs.Combine(err, removeErr))
@@ -51,6 +56,10 @@ func (blob *blobWriter) Cancel() error {
 
 // Commit moves the file to the target location.
 func (blob *blobWriter) Commit() error {
+	if blob.closed {
+		return Error.New("already closed")
+	}
+	blob.closed = true
 	err := blob.store.dir.Commit(blob.File, blob.ref)
 	return Error.Wrap(err)
 }

@@ -159,7 +159,7 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 	limits := make([]*pb.AddressedOrderLimit, len(nodes))
 	for i, node := range nodes {
 		derivedPieceID := rootPieceID.Derive(node.Id)
-		orderLimit, err := endpoint.createOrderLimit(ctx, uplinkIdentity, node.Id, derivedPieceID, req.Expiration, maxPieceSize, pb.Action_PUT)
+		orderLimit, err := endpoint.createOrderLimit(ctx, uplinkIdentity, node.Id, derivedPieceID, req.Expiration, maxPieceSize, pb.PieceAction_PUT)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
@@ -246,7 +246,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	if pointer.Type == pb.Pointer_INLINE {
 		return &pb.SegmentDownloadResponse{Pointer: pointer}, nil
 	} else if pointer.Type == pb.Pointer_REMOTE && pointer.Remote != nil {
-		limits, err := endpoint.createOrderLimitsForSegment(ctx, pointer, pb.Action_GET)
+		limits, err := endpoint.createOrderLimitsForSegment(ctx, pointer, pb.PieceAction_GET)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
@@ -291,7 +291,7 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 	}
 
 	if pointer.Type == pb.Pointer_REMOTE && pointer.Remote != nil {
-		limits, err := endpoint.createOrderLimitsForSegment(ctx, pointer, pb.Action_DELETE)
+		limits, err := endpoint.createOrderLimitsForSegment(ctx, pointer, pb.PieceAction_DELETE)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
@@ -301,7 +301,7 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 	return &pb.SegmentDeleteResponse{}, nil
 }
 
-func (endpoint *Endpoint) createOrderLimitsForSegment(ctx context.Context, pointer *pb.Pointer, action pb.Action) ([]*pb.AddressedOrderLimit, error) {
+func (endpoint *Endpoint) createOrderLimitsForSegment(ctx context.Context, pointer *pb.Pointer, action pb.PieceAction) ([]*pb.AddressedOrderLimit, error) {
 	if pointer.GetRemote() == nil {
 		return nil, nil
 	}
@@ -347,7 +347,7 @@ func (endpoint *Endpoint) createOrderLimitsForSegment(ctx context.Context, point
 	return limits, nil
 }
 
-func (endpoint *Endpoint) createOrderLimit(ctx context.Context, uplinkIdentity *identity.PeerIdentity, nodeID storj.NodeID, pieceID storj.PieceID, expiration *timestamp.Timestamp, limit int64, action pb.Action) (*pb.OrderLimit2, error) {
+func (endpoint *Endpoint) createOrderLimit(ctx context.Context, uplinkIdentity *identity.PeerIdentity, nodeID storj.NodeID, pieceID storj.PieceID, expiration *timestamp.Timestamp, limit int64, action pb.PieceAction) (*pb.OrderLimit2, error) {
 	parameters := pointerdb.OrderLimitParameters{
 		UplinkIdentity:  uplinkIdentity,
 		StorageNodeID:   nodeID,

@@ -39,22 +39,22 @@ func TestDB(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, map[storj.NodeID]*bandwidth.Usage{}, usageBySatellite)
 
-		actions := []pb.Action{
-			pb.Action_INVALID,
+		actions := []pb.PieceAction{
+			pb.PieceAction_INVALID,
 
-			pb.Action_PUT,
-			pb.Action_GET,
-			pb.Action_GET_AUDIT,
-			pb.Action_GET_REPAIR,
-			pb.Action_PUT_REPAIR,
-			pb.Action_DELETE,
+			pb.PieceAction_PUT,
+			pb.PieceAction_GET,
+			pb.PieceAction_GET_AUDIT,
+			pb.PieceAction_GET_REPAIR,
+			pb.PieceAction_PUT_REPAIR,
+			pb.PieceAction_DELETE,
 
-			pb.Action_PUT,
-			pb.Action_GET,
-			pb.Action_GET_AUDIT,
-			pb.Action_GET_REPAIR,
-			pb.Action_PUT_REPAIR,
-			pb.Action_DELETE,
+			pb.PieceAction_PUT,
+			pb.PieceAction_GET,
+			pb.PieceAction_GET_AUDIT,
+			pb.PieceAction_GET_REPAIR,
+			pb.PieceAction_PUT_REPAIR,
+			pb.PieceAction_DELETE,
 		}
 
 		expectedUsage := &bandwidth.Usage{}

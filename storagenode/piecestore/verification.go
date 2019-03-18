@@ -81,7 +81,7 @@ func (endpoint *Endpoint) VerifyOrderLimit(ctx context.Context, limit *pb.OrderL
 
 // VerifyOrder verifies that the order corresponds to the order limit and has all the necessary fields.
 func (endpoint *Endpoint) VerifyOrder(ctx context.Context, peer *identity.PeerIdentity, limit *pb.OrderLimit2, order *pb.Order2, largestOrderAmount int64) error {
-	if !bytes.Equal(order.SerialNumber, limit.SerialNumber) {
+	if order.SerialNumber != limit.SerialNumber {
 		return ErrProtocol.New("order serial number changed during upload") // TODO: report grpc status bad message
 	}
 	// TODO: add check for minimum allocation step

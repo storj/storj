@@ -50,7 +50,7 @@ func TestOrders(t *testing.T) {
 			StorageNodeId:   storagenode.ID,
 			PieceId:         piece,
 			Limit:           100,
-			Action:          pb.Action_GET,
+			Action:          pb.PieceAction_GET,
 			PieceExpiration: now,
 			OrderExpiration: now,
 		})
@@ -80,8 +80,8 @@ func TestOrders(t *testing.T) {
 }
 
 // TODO: move somewhere better
-func newRandomSerial() []byte {
-	var serial [16]byte
+func newRandomSerial() storj.SerialNumber {
+	var serial storj.SerialNumber
 	_, _ = rand.Read(serial[:])
-	return serial[:]
+	return serial
 }

@@ -24,6 +24,8 @@ import (
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode/bandwidth"
+	"storj.io/storj/storagenode/inspector"
+	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
@@ -89,7 +91,6 @@ type Peer struct {
 
 	Storage struct {
 		Endpoint *psserver.Server // TODO: separate into endpoint and service
-		Monitor  *psserver.Monitor
 	}
 
 	Agreements struct {
@@ -100,7 +101,8 @@ type Peer struct {
 		Trust     *trust.Pool
 		Store     *pieces.Store
 		Endpoint  *piecestore.Endpoint
-		Inspector *piecestore.Inspector
+		Inspector *inspector.Endpoint
+		Monitor   *monitor.Service
 	}
 }
 
@@ -179,9 +181,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 			return nil, errs.Combine(err, peer.Close())
 		}
 		pb.RegisterPieceStoreRoutesServer(peer.Server.GRPC(), peer.Storage.Endpoint)
-
-		// TODO: organize better
-		peer.Storage.Monitor = psserver.NewMonitor(peer.Log.Named("piecestore:monitor"), config.KBucketRefreshInterval, peer.Kademlia.RoutingTable, peer.Storage.Endpoint)
 	}
 
 	{ // agreements
@@ -218,8 +217,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 		}
 		pb.RegisterPiecestoreServer(peer.Server.GRPC(), peer.Storage2.Endpoint)
 
-		peer.Storage2.Inspector = piecestore.NewInspector(
-			peer.Log.Named("pieces"),
+		peer.Storage2.Inspector = inspector.NewEndpoint(
+			peer.Log.Named("pieces:inspector"),
 			peer.DB.PieceInfo(),
 			peer.Kademlia.Service,
 			peer.DB.Bandwidth(),
@@ -227,6 +226,18 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 			config.Storage,
 		)
 		pb.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage2.Inspector)
+
+		peer.Storage2.Monitor = monitor.NewService(
+			log.Named("piecestore:monitor"),
+			peer.Kademlia.RoutingTable,
+			peer.Storage2.Store,
+			peer.DB.PieceInfo(),
+			peer.DB.Bandwidth(),
+			config.Storage.AllocatedDiskSpace.Int64(),
+			config.Storage.AllocatedBandwidth.Int64(),
+			//TODO use config.Storage.Monitor.Interval, but for some reason is not set
+			config.Storage.KBucketRefreshInterval,
+		)
 	}
 
 	return peer, nil
@@ -246,14 +257,14 @@ func (peer *Peer) Run(ctx context.Context) error {
 		return ignoreCancel(peer.Agreements.Sender.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Storage.Monitor.Run(ctx))
+		return ignoreCancel(peer.Storage2.Monitor.Run(ctx))
 	})
 	group.Go(func() error {
 		// TODO: move the message into Server instead
 		// Don't change the format of this comment, it is used to figure out the node id.
 		peer.Log.Sugar().Infof("Node %s started", peer.Identity.ID)
-		peer.Log.Sugar().Infof("Public server started on %s", peer.Identity.ID, peer.Addr())
-		peer.Log.Sugar().Infof("Private server started on %s", peer.Identity.ID, peer.PrivateAddr())
+		peer.Log.Sugar().Infof("Public server started on %s", peer.Addr())
+		peer.Log.Sugar().Infof("Private server started on %s", peer.PrivateAddr())
 		return ignoreCancel(peer.Server.Run(ctx))
 	})
 

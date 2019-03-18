@@ -5,7 +5,7 @@ package segments
 
 import (
 	"context"
-	time "time"
+	"time"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/zeebo/errs"
@@ -85,7 +85,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 	getLimits := make([]*pb.AddressedOrderLimit, redundancy.TotalCount())
 	for _, piece := range healthyPieces {
 		derivedPieceID := rootPieceID.Derive(piece.NodeId)
-		orderLimit, err := repairer.createOrderLimit(ctx, piece.NodeId, derivedPieceID, expiration, pieceSize, pb.Action_GET_REPAIR)
+		orderLimit, err := repairer.createOrderLimit(ctx, piece.NodeId, derivedPieceID, expiration, pieceSize, pb.PieceAction_GET_REPAIR)
 		if err != nil {
 			return err
 		}
@@ -138,7 +138,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 		}
 
 		derivedPieceID := rootPieceID.Derive(node.Id)
-		orderLimit, err := repairer.createOrderLimit(ctx, node.Id, derivedPieceID, expiration, pieceSize, pb.Action_GET_REPAIR)
+		orderLimit, err := repairer.createOrderLimit(ctx, node.Id, derivedPieceID, expiration, pieceSize, pb.PieceAction_PUT_REPAIR)
 		if err != nil {
 			return err
 		}
@@ -170,7 +170,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 
 	// Add the successfully uploaded pieces to the healthyPieces
 	for i, node := range successfulNodes {
-		if node != nil {
+		if node == nil {
 			continue
 		}
 		healthyPieces = append(healthyPieces, &pb.RemotePiece{
@@ -187,7 +187,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 	return repairer.pointerdb.Put(path, pointer)
 }
 
-func (repairer *Repairer) createOrderLimit(ctx context.Context, nodeID storj.NodeID, pieceID storj.PieceID, expiration *timestamp.Timestamp, limit int64, action pb.Action) (*pb.OrderLimit2, error) {
+func (repairer *Repairer) createOrderLimit(ctx context.Context, nodeID storj.NodeID, pieceID storj.PieceID, expiration *timestamp.Timestamp, limit int64, action pb.PieceAction) (*pb.OrderLimit2, error) {
 	parameters := pointerdb.OrderLimitParameters{
 		UplinkIdentity:  repairer.identity.PeerIdentity(),
 		StorageNodeID:   nodeID,

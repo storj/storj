@@ -20,6 +20,8 @@ type Writer struct {
 	hash hash.Hash
 	blob storage.BlobWriter
 	size int64
+
+	closed bool
 }
 
 // NewWriter creates a new writer for storage.BlobWriter.
@@ -47,14 +49,22 @@ func (w *Writer) Hash() []byte { return w.hash.Sum(nil) }
 
 // Commit commits piece to permanent storage.
 func (w *Writer) Commit() error {
+	if w.closed {
+		return Error.New("already closed")
+	}
+	w.closed = true
 	if err := w.buf.Flush(); err != nil {
-		return Error.Wrap(errs.Combine(err, w.Cancel()))
+		return Error.Wrap(errs.Combine(err, w.blob.Cancel()))
 	}
 	return Error.Wrap(w.blob.Commit())
 }
 
 // Cancel deletes any temporarily written data.
 func (w *Writer) Cancel() error {
+	if w.closed {
+		return nil
+	}
+	w.closed = true
 	w.buf.Reset(nil)
 	return Error.Wrap(w.blob.Cancel())
 }

@@ -24,7 +24,7 @@ func (db *DB) UsedSerials() piecestore.UsedSerials { return db.info.UsedSerials(
 func (db *infodb) UsedSerials() piecestore.UsedSerials { return &usedSerials{db} }
 
 // Add adds a serial to the database.
-func (db *usedSerials) Add(ctx context.Context, satelliteID storj.NodeID, serialNumber []byte, expiration time.Time) error {
+func (db *usedSerials) Add(ctx context.Context, satelliteID storj.NodeID, serialNumber storj.SerialNumber, expiration time.Time) error {
 	defer db.locked()()
 
 	_, err := db.db.Exec(`
@@ -57,7 +57,7 @@ func (db *usedSerials) IterateAll(ctx context.Context, fn piecestore.SerialNumbe
 
 	for rows.Next() {
 		var satelliteID storj.NodeID
-		var serialNumber []byte
+		var serialNumber storj.SerialNumber
 		var expiration time.Time
 
 		err := rows.Scan(&satelliteID, &serialNumber, &expiration)

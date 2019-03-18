@@ -15,7 +15,7 @@ model bwagreement (
 )
 
 
-//--- datarepair.irreparableDB ---//
+//--- irreparableDB ---//
 
 model irreparabledb (
 	key segmentpath
@@ -34,6 +34,11 @@ delete irreparabledb ( where irreparabledb.segmentpath = ? )
 read one (
 	select irreparabledb
 	where  irreparabledb.segmentpath = ?
+)
+
+read limitoffset ( 
+	select irreparabledb 
+	orderby asc irreparabledb.segmentpath 
 )
 
 //--- accounting ---//
