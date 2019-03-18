@@ -1,0 +1,63 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "pb";
+
+package orders;
+
+import "gogo.proto";
+import "google/protobuf/timestamp.proto";
+
+// PieceAction is an enumeration of all possible executed actions on storage node
+enum PieceAction {
+    INVALID = 0;
+    PUT = 1;
+    GET = 2;
+    GET_AUDIT = 3;
+    GET_REPAIR = 4;
+    PUT_REPAIR = 5;
+    DELETE = 6;
+}
+
+// OrderLimit2 is provided by satellite to execute specific action on storage node within some limits
+message OrderLimit2 {
+    // unique serial to avoid replay attacks
+    bytes serial_number = 1; // can this be int64?
+    // satellite who issued this order limit allowing orderer to do the specified action
+    bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false]; 
+    // uplink who requested or whom behalf the order limit to do an action
+    bytes uplink_id = 3 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    // storage node who can reclaim the order limit specified by serial
+    bytes storage_node_id = 4 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  
+    // piece which is allowed to be touched
+    bytes piece_id = 5 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
+    // limit in bytes how much can be changed
+    int64  limit = 6;
+    PieceAction action = 7;
+  
+    google.protobuf.Timestamp piece_expiration = 8;
+    google.protobuf.Timestamp order_expiration = 9;
+  
+    bytes satellite_signature = 10;
+}
+
+// Order2 is a one step of fullfilling Amount number of bytes from an OrderLimit2 with SerialNumber
+message Order2 {
+    // serial of the order limit that was signed
+    bytes serial_number = 1;
+    // amount to be signed for
+    int64 amount = 2;
+    // signature
+    bytes uplink_signature = 3;
+}
+
+message PieceHash {
+    // piece id
+    bytes piece_id = 1 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
+    // hash of the piece that was/is uploaded
+    bytes hash = 2;
+    // signature either satellite or storage node
+    bytes signature = 3;
+}

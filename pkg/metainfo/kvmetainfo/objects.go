@@ -36,13 +36,13 @@ var DefaultRS = storj.RedundancyScheme{
 	RepairShares:   30,
 	OptimalShares:  40,
 	TotalShares:    50,
-	ShareSize:      1 * memory.KB.Int32(),
+	ShareSize:      1 * memory.KiB.Int32(),
 }
 
 // DefaultES default values for EncryptionScheme
 var DefaultES = storj.EncryptionScheme{
 	Cipher:    storj.AESGCM,
-	BlockSize: 1 * memory.KB.Int32(),
+	BlockSize: 1 * memory.KiB.Int32(),
 }
 
 // GetObject returns information about an object

@@ -186,7 +186,7 @@ func (ctx *Context) reportRunning() {
 
 	ctx.test.Error(message.String())
 
-	stack := make([]byte, 1*memory.MB.Int())
+	stack := make([]byte, 1*memory.MiB.Int())
 	n := runtime.Stack(stack, true)
 	stack = stack[:n]
 	ctx.test.Error("Full Stack Trace:\n", string(stack))
