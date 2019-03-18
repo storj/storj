@@ -106,13 +106,7 @@ func (u *Uplink) NewSession(ctx context.Context, bucketName string, cfg Config, 
 	return nil
 }
 
-// Access creates a new share, potentially further restricted from the Access used
-// to create this session.
-func (s *Session) Access(ctx context.Context, caveats ...Caveat) (Access, error) {
-	panic("TODO")
-}
-
-// NewClient returns a gateway instance
+// NewClient returns a client instance
 func (u *Uplink) NewClient(ctx context.Context, identity *identity.FullIdentity, cfg Config) (*Client, error) {
 	// TODO: (dylan) Need to merge these defaults with Configs from this library
 	// TODO: (dylan) Need to allow users of library to set defaults easier as well
