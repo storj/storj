@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/storage/buckets"
@@ -134,9 +135,14 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, Error.New("failed to create stream store: %v", err)
 	}
 
+	oc, err := overlay.NewClient(tc, c.Client.OverlayAddr)
+	if err != nil {
+		return nil, nil, Error.New("failed to connect to overlay: %v", err)
+	}
+
 	buckets := buckets.NewStore(streams)
 
-	return kvmetainfo.New(buckets, streams, segments, pdb, key), streams, nil
+	return kvmetainfo.New(buckets, streams, segments, pdb, oc, key), streams, nil
 }
 
 // GetRedundancyScheme returns the configured redundancy scheme for new uploads

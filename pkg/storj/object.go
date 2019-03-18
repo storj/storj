@@ -59,6 +59,8 @@ type Stream struct {
 	// FixedSegmentSize is the size of each segment,
 	// when all segments have the same size. It is -1 otherwise.
 	FixedSegmentSize int64
+	// SegmentList is segments info
+	SegmentList []Segment
 
 	// RedundancyScheme specifies redundancy strategy used for this stream
 	RedundancyScheme
@@ -91,6 +93,9 @@ type Segment struct {
 	// Encryption
 	EncryptedKeyNonce Nonce
 	EncryptedKey      EncryptedPrivateKey
+	// Pieces building info
+	Needed int32
+	Online int32
 }
 
 // Piece is information where a piece is located
