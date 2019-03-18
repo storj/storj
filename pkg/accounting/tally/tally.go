@@ -52,6 +52,7 @@ func New(logger *zap.Logger, accountingDB accounting.DB, bwAgreementDB bwagreeme
 func (t *Tally) Run(ctx context.Context) (err error) {
 	t.logger.Info("Tally service starting up")
 	defer mon.Task()(&ctx)(&err)
+
 	for {
 		if err = t.Tally(ctx); err != nil {
 			t.logger.Error("Tally failed", zap.Error(err))
@@ -88,14 +89,14 @@ func (t *Tally) Tally(ctx context.Context) error {
 		} else {
 			//remove expired records
 			now := time.Now()
-			_, err = t.bwAgreementDB.GetExpired(tallyEnd, now)
+			_, err = t.bwAgreementDB.GetExpired(ctx, tallyEnd, now)
 			if err != nil {
 				return err
 			}
 			var expiredOrdersHaveBeenSaved bool
 			//todo: write files to disk or whatever we decide to do here
 			if expiredOrdersHaveBeenSaved {
-				err = t.bwAgreementDB.DeleteExpired(tallyEnd, now)
+				err = t.bwAgreementDB.DeleteExpired(ctx, tallyEnd, now)
 				if err != nil {
 					return err
 				}

@@ -22,12 +22,12 @@ func TestCopy(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	r := io.LimitReader(rand.Reader, 32*memory.KB.Int64())
+	r := io.LimitReader(rand.Reader, 32*memory.KiB.Int64())
 
 	n, err := sync2.Copy(ctx, ioutil.Discard, r)
 
 	assert.NoError(t, err)
-	assert.Equal(t, n, 32*memory.KB.Int64())
+	assert.Equal(t, n, 32*memory.KiB.Int64())
 }
 
 func TestCopy_Cancel(t *testing.T) {
@@ -36,7 +36,7 @@ func TestCopy_Cancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	r := io.LimitReader(rand.Reader, 32*memory.KB.Int64())
+	r := io.LimitReader(rand.Reader, 32*memory.KiB.Int64())
 
 	n, err := sync2.Copy(ctx, ioutil.Discard, r)
 

@@ -12,6 +12,7 @@ import ProjectDetails from '@/components/project/ProjectDetailsArea.vue';
 import TeamArea from '@/components/team/TeamArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
 import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
+import BucketArea from '@/components/buckets/BucketArea.vue';
 import { getToken } from '@/utils/tokenManager';
 
 Vue.use(Router);
@@ -57,6 +58,11 @@ let router = new Router({
                     name: ROUTES.API_KEYS.name,
                     component: ApiKeysArea
                 },
+                {
+                    path: ROUTES.BUCKETS.path,
+                    name: ROUTES.BUCKETS.name,
+                    component: BucketArea
+                },
                 // {
                 //     path: '/',
                 //     name: 'dashboardArea',
@@ -68,7 +74,7 @@ let router = new Router({
             path: '*',
             name: '404',
             component: Page404
-        }
+        },
     ]
 });
 
