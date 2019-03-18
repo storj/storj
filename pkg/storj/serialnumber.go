@@ -97,7 +97,7 @@ func (id SerialNumber) Value() (driver.Value, error) {
 func (id *SerialNumber) Scan(src interface{}) (err error) {
 	b, ok := src.([]byte)
 	if !ok {
-		return ErrNodeID.New("SerialNumber Scan expects []byte")
+		return ErrSerialNumber.New("SerialNumber Scan expects []byte")
 	}
 	n, err := SerialNumberFromBytes(b)
 	*id = n
