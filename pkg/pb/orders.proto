@@ -23,7 +23,7 @@ enum PieceAction {
 // OrderLimit2 is provided by satellite to execute specific action on storage node within some limits
 message OrderLimit2 {
     // unique serial to avoid replay attacks
-    bytes serial_number = 1; // can this be int64?
+    bytes serial_number = 1 [(gogoproto.customtype) = "SerialNumber", (gogoproto.nullable) = false];
     // satellite who issued this order limit allowing orderer to do the specified action
     bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false]; 
     // uplink who requested or whom behalf the order limit to do an action
@@ -46,7 +46,7 @@ message OrderLimit2 {
 // Order2 is a one step of fullfilling Amount number of bytes from an OrderLimit2 with SerialNumber
 message Order2 {
     // serial of the order limit that was signed
-    bytes serial_number = 1;
+    bytes serial_number = 1 [(gogoproto.customtype) = "SerialNumber", (gogoproto.nullable) = false];
     // amount to be signed for
     int64 amount = 2;
     // signature

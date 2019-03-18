@@ -109,7 +109,7 @@ func (allocation *AllocationSigner) OrderLimit(ctx context.Context, parameters O
 	}
 
 	pba = &pb.OrderLimit2{
-		SerialNumber:    []byte(serialNum.String()),
+		SerialNumber:    storj.SerialNumber(*serialNum),
 		SatelliteId:     allocation.satelliteIdentity.ID,
 		UplinkId:        parameters.UplinkIdentity.ID,
 		StorageNodeId:   parameters.StorageNodeID,
