@@ -56,7 +56,7 @@ type defaultDownloader struct {
 
 // newDefaultDownloader creates a defaultDownloader
 func newDefaultDownloader(log *zap.Logger, transport transport.Client, overlay *overlay.Cache, id *identity.FullIdentity, minBytesPerSecond memory.Size) *defaultDownloader {
-	return &defaultDownloader{log: log, transport: transport, overlay: overlay, identity: id, minBytesPerSecond: minBytesPerSecond}
+	return &defaultDownloader{log: log, transport: transport, overlay: overlay, minBytesPerSecond: minBytesPerSecond}
 }
 
 // NewVerifier creates a Verifier
@@ -68,9 +68,17 @@ func NewVerifier(log *zap.Logger, transport transport.Client, overlay *overlay.C
 func (d *defaultDownloader) getShare(ctx context.Context, limit *pb.AddressedOrderLimit, stripeIndex int64, shareSize int32, pieceNum int) (share Share, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	bandwidthMsgSize := shareSize
+	seconds := bandwidthMsgSize / d.minBytesPerSecond.Int32()
+
+	allottedTime := time.Now().Local().Add(time.Second * time.Duration(seconds))
+
+	timedCtx, cancel := context.WithDeadline(ctx, allottedTime)
+	defer cancel()
+
 	storageNodeID := limit.GetLimit().StorageNodeId
 
-	conn, err := d.transport.DialNode(ctx, &pb.Node{
+	conn, err := d.transport.DialNode(timedCtx, &pb.Node{
 		Id:      storageNodeID,
 		Address: limit.GetStorageNodeAddress(),
 		Type:    pb.NodeType_STORAGE,
@@ -78,14 +86,6 @@ func (d *defaultDownloader) getShare(ctx context.Context, limit *pb.AddressedOrd
 	if err != nil {
 		return Share{}, err
 	}
-
-	bandwidthMsgSize := shareSize
-	seconds := bandwidthMsgSize / d.minBytesPerSecond.Int32()
-
-	allottedTime := time.Now().Local().Add(time.Second * time.Duration(seconds))
-
-	newCtx, cancel := context.WithDeadline(ctx, allottedTime)
-	defer cancel()
 
 	ps := piecestore.NewClient(
 		d.log.Named(storageNodeID.String()),
@@ -96,7 +96,7 @@ func (d *defaultDownloader) getShare(ctx context.Context, limit *pb.AddressedOrd
 
 	offset := int64(shareSize) * stripeIndex
 
-	downloader, err := ps.Download(newCtx, limit.GetLimit(), offset, int64(shareSize))
+	downloader, err := ps.Download(timedCtx, limit.GetLimit(), offset, int64(shareSize))
 	if err != nil {
 		return Share{}, err
 	}
