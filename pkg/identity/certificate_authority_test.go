@@ -26,9 +26,9 @@ func TestNewCA(t *testing.T) {
 
 	for _, version := range storj.IDVersions {
 		ca, err := identity.NewCA(context.Background(), identity.NewCAOptions{
-			VersionNumber: version.Number,
-			Difficulty:    expectedDifficulty,
-			Concurrency:   4,
+			Version:     version,
+			Difficulty:  expectedDifficulty,
+			Concurrency: 4,
 		})
 		assert.NoError(t, err)
 		require.NotEmpty(t, ca)
@@ -100,6 +100,36 @@ func TestFullCAConfig_Save(t *testing.T) {
 	// TODO(bryanchriswhite): test with only cert path
 	// TODO(bryanchriswhite): test with only key path
 	t.SkipNow()
+}
+
+func TestFullCAConfig_Load_extensions(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	for _, version := range storj.IDVersions {
+		caCfg := identity.CASetupConfig{
+			CertPath: ctx.File("ca.cert"),
+			KeyPath:  ctx.File("ca.key"),
+		}
+
+		{
+			ca, err := caCfg.Create(ctx, version, nil)
+			require.NoError(t, err)
+
+			caVersion, err := ca.Version()
+			require.NoError(t, err)
+			require.Equal(t, version.Number, caVersion.Number)
+		}
+
+		{
+			ca, err := caCfg.FullConfig().Load()
+			require.NoError(t, err)
+			caVersion, err := ca.Version()
+			require.NoError(t, err)
+			assert.Equal(t, version.Number, caVersion.Number)
+		}
+
+	}
 }
 
 func BenchmarkNewCA(b *testing.B) {

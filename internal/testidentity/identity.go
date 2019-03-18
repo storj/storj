@@ -20,7 +20,7 @@ type IdentityTest func(*testing.T, *identity.FullIdentity)
 func NewTestIdentity(ctx context.Context) (*identity.FullIdentity, error) {
 	ca, err := identity.NewCA(ctx, identity.NewCAOptions{
 		//VersionNumber: storj.V1,
-		Difficulty:  8,
+		Difficulty:  10,
 		Concurrency: 4,
 	})
 	if err != nil {
@@ -55,9 +55,11 @@ func IdentityVersionsTest(t *testing.T, test IdentityTest) {
 func SignedIdentityVersionsTest(t *testing.T, test IdentityTest) {
 	for versionNumber := range storj.IDVersions {
 		t.Run(fmt.Sprintf("identity version %d", versionNumber), func(t *testing.T) {
+			fmt.Printf("t.Run version %d\n", versionNumber)
 			ident, err := SignedIdentityVersions[versionNumber].NewIdentity()
 			require.NoError(t, err)
 
+			fmt.Printf("actual version %d\n", ident.ID.Version().Number)
 			test(t, ident)
 		})
 	}

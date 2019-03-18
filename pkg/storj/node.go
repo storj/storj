@@ -6,7 +6,6 @@ package storj // import "storj.io/storj/pkg/storj"
 import (
 	"crypto/sha256"
 	"database/sql/driver"
-	"encoding/binary"
 	"math/bits"
 
 	"github.com/btcsuite/btcutil/base58"
@@ -36,22 +35,24 @@ func NewVersionedID(id NodeID, version IDVersion) NodeID {
 		var versionedID NodeID
 		copy(versionedID[:], id[:])
 
-		var versionByte [2]byte
-		// NB: little endiannes puts least significant byte, (the version uint8 we want) at index 0.
-		binary.LittleEndian.PutUint16(versionByte[:], uint16(version.Number))
-		versionedID[NodeIDSize-1] = versionByte[0]
+		versionedID[NodeIDSize-1] = byte(version.Number)
 		return versionedID
 	}
 }
 
 // NodeIDFromString decodes a base58check encoded node id string
 func NodeIDFromString(s string) (NodeID, error) {
-	// TODO: handle versions here!
-	idBytes, _, err := base58.CheckDecode(s)
+	idBytes, versionNumber, err := base58.CheckDecode(s)
 	if err != nil {
 		return NodeID{}, ErrNodeID.Wrap(err)
 	}
-	return NodeIDFromBytes(idBytes)
+	unversionedID, err := NodeIDFromBytes(idBytes)
+	if err != nil {
+		return NodeID{}, err
+	}
+
+	version := IDVersions[IDVersionNumber(versionNumber)]
+	return NewVersionedID(unversionedID, version), nil
 }
 
 // NodeIDsFromBytes converts a 2d byte slice into a list of nodes
