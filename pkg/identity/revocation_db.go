@@ -22,8 +22,8 @@ type RevocationDB struct {
 	DB storage.KeyValueStore
 }
 
-// NewRevDB returns a new revocation database given the URL
-func NewRevDB(revocationDBURL string) (*RevocationDB, error) {
+// NewRevocationDB returns a new revocation database given the URL
+func NewRevocationDB(revocationDBURL string) (*RevocationDB, error) {
 	driver, source, err := dbutil.SplitConnstr(revocationDBURL)
 	if err != nil {
 		return nil, extensions.ErrRevocationDB.Wrap(err)

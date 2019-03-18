@@ -209,11 +209,11 @@ func TestAddSignedCertExt(t *testing.T) {
 		t.FailNow()
 	}
 
-	err = extensions.AddSignedCertExt(keys[0], chain[0])
+	err = extensions.AddSignedCert(keys[0], chain[0])
 	assert.NoError(t, err)
 
 	assert.Len(t, chain[0].ExtraExtensions, 1)
-	assert.True(t, extensions.SignedCertExtID.ToASN1().Equal(chain[0].ExtraExtensions[0].Id))
+	assert.True(t, extensions.SignedCertExtID.Equal(chain[0].ExtraExtensions[0].Id))
 
 	err = pkcrypto.HashAndVerifySignature(
 		pkcrypto.PublicKeyFromPrivate(keys[0]),
@@ -230,10 +230,10 @@ func TestSignLeafExt(t *testing.T) {
 	}
 	caKey, leafCert := keys[0], chain[0]
 
-	err = extensions.AddSignedCertExt(caKey, leafCert)
+	err = extensions.AddSignedCert(caKey, leafCert)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(leafCert.ExtraExtensions))
-	assert.True(t, extensions.SignedCertExtID.ToASN1().Equal(leafCert.ExtraExtensions[0].Id))
+	assert.True(t, extensions.SignedCertExtID.Equal(leafCert.ExtraExtensions[0].Id))
 
 	err = pkcrypto.HashAndVerifySignature(
 		pkcrypto.PublicKeyFromPrivate(caKey),

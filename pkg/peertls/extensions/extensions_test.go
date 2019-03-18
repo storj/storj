@@ -33,7 +33,7 @@ func TestParseExtensions(t *testing.T) {
 	whitelistSignedKeys, whitelistSignedChain, err := testpeertls.NewCertChain(3)
 	assert.NoError(t, err)
 
-	err = extensions.AddSignedCertExt(whitelistSignedKeys[0], whitelistSignedChain[0])
+	err = extensions.AddSignedCert(whitelistSignedKeys[0], whitelistSignedChain[0])
 	assert.NoError(t, err)
 
 	_, unrelatedChain, err := testpeertls.NewCertChain(1)
@@ -120,7 +120,7 @@ func TestParseExtensions(t *testing.T) {
 				assert.NoError(t, err)
 
 				err = revDB.Put(chain, pkix.Extension{
-					Id:    extensions.RevocationExtID.ToASN1(),
+					Id:    extensions.RevocationExtID,
 					Value: revBytes,
 				})
 				assert.NoError(t, err)
@@ -137,7 +137,7 @@ func TestParseExtensions(t *testing.T) {
 				_, chain, _, err := testpeertls.NewRevokedLeafChain()
 				assert.NoError(t, err)
 
-				err = extensions.AddSignedCertExt(whitelistSignedKeys[0], chain[0])
+				err = extensions.AddSignedCert(whitelistSignedKeys[0], chain[0])
 				assert.NoError(t, err)
 
 				return chain
@@ -190,7 +190,7 @@ func TestHandlers_Register(t *testing.T) {
 	iterate(limit, func(i int) {
 		ids = append(ids, &extensions.ExtensionID{2, 999, 999, i})
 		opts = append(opts, &extensions.Options{})
-		exts = append(exts, pkix.Extension{Id: ids[i].ToASN1()})
+		exts = append(exts, pkix.Extension{Id: *ids[i]})
 
 		_, chain, err := testpeertls.NewCertChain(2)
 		require.NoError(t, err)
@@ -198,7 +198,7 @@ func TestHandlers_Register(t *testing.T) {
 	})
 
 	iterate(limit, func(i int) {
-		testHandler := extensions.NewHandler(
+		testHandler := extensions.NewHandlerFactory(
 			ids[i],
 			func(opt *extensions.Options) extensions.HandlerFunc {
 				assert.Equal(t, opts[i], opt)
@@ -209,7 +209,7 @@ func TestHandlers_Register(t *testing.T) {
 					assert.Equal(t, exts[i], ext)
 
 					assert.NotNil(t, ext.Id)
-					assert.Equal(t, ids[i].ToASN1(), ext.Id)
+					assert.Equal(t, *ids[i], ext.Id)
 
 					assert.NotNil(t, chain)
 					assert.Equal(t, chains[i], chain)

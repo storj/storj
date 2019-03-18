@@ -25,7 +25,7 @@ func TestRevocationDB_Get(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	testidentity.RevocationDBsTest(ctx, t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
+	testidentity.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
 		// NB: key indices are reversed as compared to chain indices
 		keys, chain, err := testpeertls.NewCertChain(2)
 		require.NoError(t, err)
@@ -64,7 +64,7 @@ func TestRevocationDB_Put_success(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	testidentity.RevocationDBsTest(ctx, t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
+	testidentity.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
 		// NB: key indices are reversed as compared to chain indices
 		keys, chain, err := testpeertls.NewCertChain(2)
 		require.NoError(t, err)
@@ -72,6 +72,8 @@ func TestRevocationDB_Put_success(t *testing.T) {
 		firstRevocation, err := extensions.NewRevocationExt(keys[0], chain[peertls.LeafIndex])
 		require.NoError(t, err)
 
+		// NB: revocation timestamps need to be different between revocations for the same
+		// identity to be valid.
 		time.Sleep(time.Second)
 		newerRevocation, err := extensions.NewRevocationExt(keys[0], chain[peertls.LeafIndex])
 		assert.NoError(t, err)
@@ -113,7 +115,7 @@ func TestRevocationDB_Put_error(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	testidentity.RevocationDBsTest(ctx, t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
+	testidentity.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
 		// NB: key indices are reversed as compared to chain indices
 		keys, chain, err := testpeertls.NewCertChain(2)
 		require.NoError(t, err)

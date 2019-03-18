@@ -26,7 +26,7 @@ var (
 
 	// CAWhitelistSignedLeafHandler verifies that the leaf cert of the remote peer's
 	// identity was signed by one of the CA certs in the whitelist.
-	CAWhitelistSignedLeafHandler = NewHandler(
+	CAWhitelistSignedLeafHandler = NewHandlerFactory(
 		&SignedCertExtID, caWhitelistSignedLeafHandler,
 	)
 
@@ -54,7 +54,7 @@ var (
 )
 
 // ExtensionID is an alias to an `asn1.ObjectIdentifier`.
-type ExtensionID asn1.ObjectIdentifier
+type ExtensionID = asn1.ObjectIdentifier
 
 // Config is used to bind cli flags for determining which extensions will
 // be used by the server
@@ -101,24 +101,24 @@ func init() {
 	)
 }
 
-// NewHandler builds a `Handler` pointer from an `ExtensionID` and a `handlerFactoryFunc`.
-func NewHandler(id *ExtensionID, handlerFactory HandlerFactoryFunc) *HandlerFactory {
+// NewHandlerFactory builds a `HandlerFactory` pointer from an `ExtensionID` and a `handlerFactoryFunc`.
+func NewHandlerFactory(id *ExtensionID, handlerFactory HandlerFactoryFunc) *HandlerFactory {
 	return &HandlerFactory{
 		id:      id,
 		factory: handlerFactory,
 	}
 }
 
-// AddSignedCertExt generates a signed certificate extension for a cert and attaches
+// AddSignedCert generates a signed certificate extension for a cert and attaches
 // it to that cert.
-func AddSignedCertExt(key crypto.PrivateKey, cert *x509.Certificate) error {
+func AddSignedCert(key crypto.PrivateKey, cert *x509.Certificate) error {
 	signature, err := pkcrypto.HashAndSign(key, cert.RawTBSCertificate)
 	if err != nil {
 		return err
 	}
 
 	err = AddExtension(cert, pkix.Extension{
-		Id:    SignedCertExtID.ToASN1(),
+		Id:    SignedCertExtID,
 		Value: signature,
 	})
 	if err != nil {
@@ -169,16 +169,6 @@ func (handlerFactory *HandlerFactory) ID() *ExtensionID {
 // NewHandlerFunc returns a new `HandlerFunc` with the passed `Options`.
 func (handlerFactory *HandlerFactory) NewHandlerFunc(opts *Options) HandlerFunc {
 	return handlerFactory.factory(opts)
-}
-
-// String calls the asn1 object ID equivalent string method.
-func (id ExtensionID) String() string {
-	return id.ToASN1().String()
-}
-
-// ToASN1 converts an `ExtensionID` into an `asn1.ObjectIdentifier`
-func (id ExtensionID) ToASN1() asn1.ObjectIdentifier {
-	return asn1.ObjectIdentifier(id)
 }
 
 func uniqueExts(exts []pkix.Extension) bool {

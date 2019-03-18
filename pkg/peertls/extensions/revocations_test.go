@@ -20,11 +20,11 @@ import (
 	"storj.io/storj/storage"
 )
 
-func TestRevocationCheckExtensionHandler(t *testing.T) {
+func TestRevocationCheckHandler(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	testidentity.RevocationDBsTest(ctx, t, func(t *testing.T, revDB extensions.RevocationDB, _ storage.KeyValueStore) {
+	testidentity.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, _ storage.KeyValueStore) {
 		keys, chain, err := testpeertls.NewCertChain(2)
 		assert.NoError(t, err)
 
@@ -82,11 +82,11 @@ func TestRevocationCheckExtensionHandler(t *testing.T) {
 	})
 }
 
-func TestRevocationUpdateExtensionHandler(t *testing.T) {
+func TestRevocationUpdateHandler(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	testidentity.RevocationDBsTest(ctx, t, func(t *testing.T, revDB extensions.RevocationDB, _ storage.KeyValueStore) {
+	testidentity.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, _ storage.KeyValueStore) {
 		keys, chain, err := testpeertls.NewCertChain(2)
 		assert.NoError(t, err)
 

@@ -21,10 +21,10 @@ import (
 var (
 	// RevocationCheckHandler ensures that a remote peer's certificate chain
 	// doesn't contain any revoked certificates.
-	RevocationCheckHandler = NewHandler(&RevocationExtID, revocationChecker)
+	RevocationCheckHandler = NewHandlerFactory(&RevocationExtID, revocationChecker)
 	// RevocationUpdateHandler looks for certificate revocation extensions on a
 	// remote peer's certificate chain, adding them to the revocation DB if valid.
-	RevocationUpdateHandler = NewHandler(&RevocationExtID, revocationUpdater)
+	RevocationUpdateHandler = NewHandlerFactory(&RevocationExtID, revocationUpdater)
 )
 
 // ErrRevocation is used when an error occurs involving a certificate revocation
@@ -83,7 +83,7 @@ func NewRevocationExt(key crypto.PrivateKey, revokedCert *x509.Certificate) (pki
 	}
 
 	ext := pkix.Extension{
-		Id:    RevocationExtID.ToASN1(),
+		Id:    RevocationExtID,
 		Value: revBytes,
 	}
 

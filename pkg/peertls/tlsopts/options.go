@@ -98,13 +98,12 @@ func (opts *Options) configure() (err error) {
 	}
 
 	if opts.Config.Extensions.Revocation {
-		opts.RevDB, err = identity.NewRevDB(opts.Config.RevocationDBURL)
+		opts.RevDB, err = identity.NewRevocationDB(opts.Config.RevocationDBURL)
 		if err != nil {
 			return err
 		}
 	}
 
-	//opts.VerificationFuncs.Add(peertls.AllExtensionHandlers.VerifyFunc(opts.Options()))
 	opts.handleExtensions(extensions.AllHandlers)
 
 	opts.Cert, err = peertls.TLSCert(opts.Ident.RawChain(), opts.Ident.Leaf, opts.Ident.Key)
