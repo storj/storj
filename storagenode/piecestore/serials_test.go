@@ -39,13 +39,13 @@ func TestUsedSerials(t *testing.T) {
 		err := usedSerials.DeleteExpired(ctx, now.Add(6*time.Minute))
 		assert.NoError(t, err)
 
-		err = usedSerials.IterateAll(ctx, func(satellite storj.NodeID, serialNumber []byte, expiration time.Time) {})
+		err = usedSerials.IterateAll(ctx, func(satellite storj.NodeID, serialNumber storj.SerialNumber, expiration time.Time) {})
 		assert.NoError(t, err)
 
 		// let's start adding data
 		type Serial struct {
 			SatelliteID  storj.NodeID
-			SerialNumber []byte
+			SerialNumber storj.SerialNumber
 			Expiration   time.Time
 		}
 
@@ -73,7 +73,7 @@ func TestUsedSerials(t *testing.T) {
 
 		// ensure we can list all of them
 		listedNumbers := []Serial{}
-		err = usedSerials.IterateAll(ctx, func(satellite storj.NodeID, serialNumber []byte, expiration time.Time) {
+		err = usedSerials.IterateAll(ctx, func(satellite storj.NodeID, serialNumber storj.SerialNumber, expiration time.Time) {
 			listedNumbers = append(listedNumbers, Serial{satellite, serialNumber, expiration})
 		})
 
@@ -86,7 +86,7 @@ func TestUsedSerials(t *testing.T) {
 
 		// ensure we can list after delete
 		listedAfterDelete := []Serial{}
-		err = usedSerials.IterateAll(ctx, func(satellite storj.NodeID, serialNumber []byte, expiration time.Time) {
+		err = usedSerials.IterateAll(ctx, func(satellite storj.NodeID, serialNumber storj.SerialNumber, expiration time.Time) {
 			listedAfterDelete = append(listedAfterDelete, Serial{satellite, serialNumber, expiration})
 		})
 
@@ -99,8 +99,9 @@ func TestUsedSerials(t *testing.T) {
 	})
 }
 
-func newRandomSerial() []byte {
-	var serial [16]byte
+// TODO: move somewhere better
+func newRandomSerial() storj.SerialNumber {
+	var serial storj.SerialNumber
 	_, _ = rand.Read(serial[:])
-	return serial[:]
+	return serial
 }

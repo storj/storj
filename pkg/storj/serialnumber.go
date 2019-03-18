@@ -4,6 +4,7 @@
 package storj
 
 import (
+	"database/sql/driver"
 	"encoding/base32"
 
 	"github.com/zeebo/errs"
@@ -85,4 +86,20 @@ func (id *SerialNumber) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	return nil
+}
+
+// Value set a SerialNumber to a database field
+func (id SerialNumber) Value() (driver.Value, error) {
+	return id.Bytes(), nil
+}
+
+// Scan extracts a SerialNumber from a database field
+func (id *SerialNumber) Scan(src interface{}) (err error) {
+	b, ok := src.([]byte)
+	if !ok {
+		return ErrNodeID.New("SerialNumber Scan expects []byte")
+	}
+	n, err := SerialNumberFromBytes(b)
+	*id = n
+	return err
 }
