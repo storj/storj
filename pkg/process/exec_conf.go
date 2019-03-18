@@ -232,11 +232,11 @@ func cleanup(cmd *cobra.Command) {
 		// okay now that logging is working, inform about the broken keys
 		if cmd.Annotations["type"] != "helper" {
 			for _, key := range brokenKeys {
-				logger.Sugar().Fatalf("Invalid configuration file key: %s", key)
+				logger.Sugar().Fatalf("Invalid configuration key: %s", key)
 			}
 		}
 		for _, key := range brokenVals {
-			logger.Sugar().Fatalf("Invalid configuration file value for key: %s", key)
+			logger.Sugar().Fatalf("Invalid configuration value for key: %s", key)
 		}
 
 		err = initDebug(logger, monkit.Default)
