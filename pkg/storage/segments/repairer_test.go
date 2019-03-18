@@ -84,7 +84,7 @@ func TestSegmentStoreRepair(t *testing.T) {
 		statDB := satellite.DB.StatDB()
 		oc := overlay.NewCache(overlayDB, statDB)
 		as := satellite.Metainfo.Allocation
-		ec := ecclient.NewClient(uplink.Transport, 0)
+		ec := ecclient.NewClient(satellite.Transport, 0)
 		repairer := segments.NewSegmentRepairer(pdb, as, oc, ec, satellite.Identity, &overlay.NodeSelectionConfig{}, time.Minute)
 		assert.NotNil(t, repairer)
 
