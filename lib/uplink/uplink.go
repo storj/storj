@@ -53,15 +53,20 @@ func (client *Client) Name() string {
 	return "storj"
 }
 
+// Access parses a Permissions and returns a pointer to an Access for bucket operations
+func (u *Uplink) Access(permissions Permissions) *Access {
+	return &Access{}
+}
+
 // // NewGatewayLayer implements cmd.Gateway
 // func (client *Client) NewGatewayLayer(creds auth.Credentials) (minio.ObjectLayer, error) {
 // 	return &gatewayLayer{gateway: client}, nil
 // }
 
 // Production implements cmd.Gateway
-func (c}lient *Client) Production() bool {
+func (client *Client) Production() bool {
 	return false
-
+}
 
 // type gatewayLayer struct {
 // 	// minio.GatewayUnsupported

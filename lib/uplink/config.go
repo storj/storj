@@ -8,24 +8,12 @@ package uplink
 
 import (
 	"context"
-	"errors"
-
-	"github.com/vivint/infectious"
-	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/metainfo/kvmetainfo"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/pointerdb/pdbclient"
-	"storj.io/storj/pkg/storage/buckets"
-	ecclient "storj.io/storj/pkg/storage/ec"
-	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
 )
 
 // RSConfig is a configuration struct that keeps details about default
@@ -61,7 +49,7 @@ type ClientConfig struct {
 }
 
 // Config uplink configuration
-type Config struct {
+type config struct {
 	Client ClientConfig
 	RS     RSConfig
 	Enc    EncryptionConfig
@@ -69,68 +57,13 @@ type Config struct {
 }
 
 // GetMetainfo returns an implementation of storj.Metainfo
-func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity) (db storj.Metainfo, ss streams.Store, err error) {
+func (c config) getMetaInfo(ctx context.Context, identity *identity.FullIdentity) (db storj.Metainfo, ss streams.Store, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	tlsOpts, err := tlsopts.NewOptions(identity, c.TLS)
-	if err != nil {
-		return nil, nil, err
-	}
-	tc := transport.NewClient(tlsOpts)
-
-	if c.Client.OverlayAddr == "" || c.Client.PointerDBAddr == "" {
-		var errlist errs.Group
-		if c.Client.OverlayAddr == "" {
-			errlist.Add(errors.New("overlay address not specified"))
-		}
-		if c.Client.PointerDBAddr == "" {
-			errlist.Add(errors.New("pointerdb address not specified"))
-		}
-		return nil, nil, errlist.Err()
-	}
-
-	oc, err := overlay.NewClient(tc, c.Client.OverlayAddr)
-	if err != nil {
-		return nil, nil, Error.New("failed to connect to overlay: %v", err)
-	}
-
-	pdb, err := pdbclient.NewClient(tc, c.Client.PointerDBAddr, c.Client.APIKey)
-	if err != nil {
-		return nil, nil, Error.New("failed to connect to pointer DB: %v", err)
-	}
-
-	ec := ecclient.NewClient(tc, c.RS.MaxBufferMem.Int())
-	fc, err := infectious.NewFEC(c.RS.MinThreshold, c.RS.MaxThreshold)
-	if err != nil {
-		return nil, nil, Error.New("failed to create erasure coding client: %v", err)
-	}
-	rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, c.RS.ErasureShareSize.Int()), c.RS.RepairThreshold, c.RS.SuccessThreshold)
-	if err != nil {
-		return nil, nil, Error.New("failed to create redundancy strategy: %v", err)
-	}
-
-	segments := segments.NewSegmentStore(oc, ec, pdb, rs, c.Client.MaxInlineSize.Int())
-
-	if c.RS.ErasureShareSize.Int()*c.RS.MinThreshold%c.Enc.BlockSize.Int() != 0 {
-		err = Error.New("EncryptionBlockSize must be a multiple of ErasureShareSize * RS MinThreshold")
-		return nil, nil, err
-	}
-
-	key := new(storj.Key)
-	copy(key[:], c.Enc.Key)
-
-	streams, err := streams.NewStreamStore(segments, c.Client.SegmentSize.Int64(), key, c.Enc.BlockSize.Int(), storj.Cipher(c.Enc.DataType))
-	if err != nil {
-		return nil, nil, Error.New("failed to create stream store: %v", err)
-	}
-
-	buckets := buckets.NewStore(streams)
-
-	return kvmetainfo.New(buckets, streams, segments, pdb, key), streams, nil
+	return c.getMetaInfo(ctx, identity)
 }
 
 // GetRedundancyScheme returns the configured redundancy scheme for new uploads
-func (c Config) GetRedundancyScheme() storj.RedundancyScheme {
+func (c config) GetRedundancyScheme() storj.RedundancyScheme {
 	return storj.RedundancyScheme{
 		Algorithm:      storj.ReedSolomon,
 		RequiredShares: int16(c.RS.MinThreshold),
@@ -141,7 +74,7 @@ func (c Config) GetRedundancyScheme() storj.RedundancyScheme {
 }
 
 // GetEncryptionScheme returns the configured encryption scheme for new uploads
-func (c Config) GetEncryptionScheme() storj.EncryptionScheme {
+func (c config) GetEncryptionScheme() storj.EncryptionScheme {
 	return storj.EncryptionScheme{
 		Cipher:    storj.Cipher(c.Enc.DataType),
 		BlockSize: int32(c.Enc.BlockSize),

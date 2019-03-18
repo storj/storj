@@ -68,11 +68,11 @@ type Uplink struct {
 	id            *identity.FullIdentity
 	session       map[string]*Session
 	satelliteAddr string
-	config        Config
+	config        config
 }
 
 // NewUplink creates a new Uplink
-func NewUplink(ident *identity.FullIdentity, satelliteAddr string, cfg Config) *Uplink {
+func NewUplink(ident *identity.FullIdentity, satelliteAddr string, cfg config) *Uplink {
 	return &Uplink{
 		id:            ident,
 		satelliteAddr: satelliteAddr,
@@ -81,7 +81,7 @@ func NewUplink(ident *identity.FullIdentity, satelliteAddr string, cfg Config) *
 }
 
 // NewSession creates a Session with an Access struct.
-func (u *Uplink) NewSession(ctx context.Context, bucketName string, cfg Config, access Access) error {
+func (u *Uplink) NewSession(ctx context.Context, bucketName string, cfg config, access Access) error {
 	opts, err := tlsopts.NewOptions(u.id, u.config.TLS)
 	if err != nil {
 		fmt.Printf("tlsopts error: %+v\n", err)
@@ -107,10 +107,10 @@ func (u *Uplink) NewSession(ctx context.Context, bucketName string, cfg Config, 
 }
 
 // NewClient returns a client instance
-func (u *Uplink) NewClient(ctx context.Context, identity *identity.FullIdentity, cfg Config) (*Client, error) {
+func (u *Uplink) NewClient(ctx context.Context, identity *identity.FullIdentity, cfg config) (*Client, error) {
 	// TODO: (dylan) Need to merge these defaults with Configs from this library
 	// TODO: (dylan) Need to allow users of library to set defaults easier as well
-	metainfo, streams, err := cfg.GetMetainfo(ctx, identity)
+	metainfo, streams, err := cfg.getMetaInfo(ctx, identity)
 	if err != nil {
 		return nil, err
 	}
