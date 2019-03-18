@@ -66,9 +66,13 @@ func TestGetShareTimeout(t *testing.T) {
 		require.NotNil(t, verifier)
 
 		err = planet.StopPeer(planet.StorageNodes[0])
+		assert.NoError(t, err)
 		err = planet.StopPeer(planet.StorageNodes[1])
+		assert.NoError(t, err)
 		err = planet.StopPeer(planet.StorageNodes[2])
+		assert.NoError(t, err)
 		err = planet.StopPeer(planet.StorageNodes[3])
+		assert.NoError(t, err)
 
 		_, err = verifier.Verify(ctx, stripe)
 		assert.NoError(t, err)
