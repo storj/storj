@@ -155,7 +155,7 @@ func newAddressedOrderLimit(action pb.PieceAction, satellite *satellite.Peer, up
 	}
 
 	limit := &pb.OrderLimit2{
-		SerialNumber:    []byte(serialNumber.String()),
+		SerialNumber:    storj.SerialNumber(*serialNumber),
 		SatelliteId:     satellite.ID(),
 		UplinkId:        uplink.ID(),
 		StorageNodeId:   storageNode.ID(),

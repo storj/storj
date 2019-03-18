@@ -80,8 +80,8 @@ func TestOrders(t *testing.T) {
 }
 
 // TODO: move somewhere better
-func newRandomSerial() []byte {
-	var serial [16]byte
+func newRandomSerial() storj.SerialNumber {
+	var serial storj.SerialNumber
 	_, _ = rand.Read(serial[:])
-	return serial[:]
+	return serial
 }
