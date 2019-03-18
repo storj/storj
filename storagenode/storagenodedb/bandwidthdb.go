@@ -24,7 +24,7 @@ func (db *DB) Bandwidth() bandwidth.DB { return db.info.Bandwidth() }
 func (db *infodb) Bandwidth() bandwidth.DB { return &bandwidthdb{db} }
 
 // Add adds bandwidth usage to the table
-func (db *bandwidthdb) Add(ctx context.Context, satelliteID storj.NodeID, action pb.Action, amount int64, created time.Time) error {
+func (db *bandwidthdb) Add(ctx context.Context, satelliteID storj.NodeID, action pb.PieceAction, amount int64, created time.Time) error {
 	defer db.locked()()
 
 	_, err := db.db.Exec(`
@@ -55,7 +55,7 @@ func (db *bandwidthdb) Summary(ctx context.Context, from, to time.Time) (_ *band
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	for rows.Next() {
-		var action pb.Action
+		var action pb.PieceAction
 		var amount int64
 		err := rows.Scan(&action, &amount)
 		if err != nil {
@@ -88,7 +88,7 @@ func (db *bandwidthdb) SummaryBySatellite(ctx context.Context, from, to time.Tim
 
 	for rows.Next() {
 		var satelliteID storj.NodeID
-		var action pb.Action
+		var action pb.PieceAction
 		var amount int64
 
 		err := rows.Scan(&satelliteID, &action, &amount)

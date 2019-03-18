@@ -77,7 +77,7 @@ type OrderLimitParameters struct {
 	UplinkIdentity  *identity.PeerIdentity
 	StorageNodeID   storj.NodeID
 	PieceID         storj.PieceID
-	Action          pb.Action
+	Action          pb.PieceAction
 	Limit           int64
 	PieceExpiration *timestamp.Timestamp
 }
@@ -149,15 +149,15 @@ func (allocation *AllocationSigner) restrictActions(peerID storj.NodeID, action 
 	}
 }
 
-func (allocation *AllocationSigner) restrictActionsOrderLimit(peerID storj.NodeID, action pb.Action) error {
+func (allocation *AllocationSigner) restrictActionsOrderLimit(peerID storj.NodeID, action pb.PieceAction) error {
 	switch action {
-	case pb.Action_GET_REPAIR, pb.Action_PUT_REPAIR, pb.Action_GET_AUDIT:
+	case pb.PieceAction_GET_REPAIR, pb.PieceAction_PUT_REPAIR, pb.PieceAction_GET_AUDIT:
 		if peerID != allocation.satelliteIdentity.ID {
 			return errors.New("action restricted to signing satellite")
 		}
 
 		return nil
-	case pb.Action_GET, pb.Action_PUT, pb.Action_DELETE:
+	case pb.PieceAction_GET, pb.PieceAction_PUT, pb.PieceAction_DELETE:
 		return nil
 	default:
 		return errors.New("unknown action restriction")

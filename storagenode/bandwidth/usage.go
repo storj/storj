@@ -13,7 +13,7 @@ import (
 
 // DB contains information about bandwidth usage.
 type DB interface {
-	Add(ctx context.Context, satelliteID storj.NodeID, action pb.Action, amount int64, created time.Time) error
+	Add(ctx context.Context, satelliteID storj.NodeID, action pb.PieceAction, amount int64, created time.Time) error
 	Summary(ctx context.Context, from, to time.Time) (*Usage, error)
 	SummaryBySatellite(ctx context.Context, from, to time.Time) (map[storj.NodeID]*Usage, error)
 }
@@ -32,21 +32,21 @@ type Usage struct {
 }
 
 // Include adds specified action to the appropriate field.
-func (usage *Usage) Include(action pb.Action, amount int64) {
+func (usage *Usage) Include(action pb.PieceAction, amount int64) {
 	switch action {
-	case pb.Action_INVALID:
+	case pb.PieceAction_INVALID:
 		usage.Invalid += amount
-	case pb.Action_PUT:
+	case pb.PieceAction_PUT:
 		usage.Put += amount
-	case pb.Action_GET:
+	case pb.PieceAction_GET:
 		usage.Get += amount
-	case pb.Action_GET_AUDIT:
+	case pb.PieceAction_GET_AUDIT:
 		usage.GetAudit += amount
-	case pb.Action_GET_REPAIR:
+	case pb.PieceAction_GET_REPAIR:
 		usage.GetRepair += amount
-	case pb.Action_PUT_REPAIR:
+	case pb.PieceAction_PUT_REPAIR:
 		usage.PutRepair += amount
-	case pb.Action_DELETE:
+	case pb.PieceAction_DELETE:
 		usage.Delete += amount
 	default:
 		usage.Unknown += amount

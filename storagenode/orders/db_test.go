@@ -50,7 +50,7 @@ func TestOrders(t *testing.T) {
 			StorageNodeId:   storagenode.ID,
 			PieceId:         piece,
 			Limit:           100,
-			Action:          pb.Action_GET,
+			Action:          pb.PieceAction_GET,
 			PieceExpiration: now,
 			OrderExpiration: now,
 		})

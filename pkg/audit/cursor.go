@@ -150,7 +150,7 @@ func (cursor *Cursor) createOrderLimits(ctx context.Context, pointer *pb.Pointer
 	limits := make([]*pb.AddressedOrderLimit, pointer.GetRemote().GetRedundancy().GetTotal())
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
 		derivedPieceID := rootPieceID.Derive(piece.NodeId)
-		orderLimit, err := cursor.createOrderLimit(ctx, auditorIdentity, piece.NodeId, derivedPieceID, expiration, int64(shareSize), pb.Action_GET_AUDIT)
+		orderLimit, err := cursor.createOrderLimit(ctx, auditorIdentity, piece.NodeId, derivedPieceID, expiration, int64(shareSize), pb.PieceAction_GET_AUDIT)
 		if err != nil {
 			return nil, err
 		}
@@ -173,7 +173,7 @@ func (cursor *Cursor) createOrderLimits(ctx context.Context, pointer *pb.Pointer
 	return limits, nil
 }
 
-func (cursor *Cursor) createOrderLimit(ctx context.Context, uplinkIdentity *identity.PeerIdentity, nodeID storj.NodeID, pieceID storj.PieceID, expiration *timestamp.Timestamp, limit int64, action pb.Action) (*pb.OrderLimit2, error) {
+func (cursor *Cursor) createOrderLimit(ctx context.Context, uplinkIdentity *identity.PeerIdentity, nodeID storj.NodeID, pieceID storj.PieceID, expiration *timestamp.Timestamp, limit int64, action pb.PieceAction) (*pb.OrderLimit2, error) {
 	parameters := pointerdb.OrderLimitParameters{
 		UplinkIdentity:  uplinkIdentity,
 		StorageNodeID:   nodeID,
