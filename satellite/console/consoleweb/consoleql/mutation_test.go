@@ -127,12 +127,12 @@ func TestGrapqhlMutation(t *testing.T) {
 			}
 
 			query := fmt.Sprintf(
-				"mutation {createUser(input:{email:\"%s\",password:\"%s\",firstName:\"%s\",lastName:\"%s\"}, regTokenSecret: \"%s\"){id,lastName,firstName,email,createdAt}}",
+				"mutation {createUser(input:{email:\"%s\",password:\"%s\",firstName:\"%s\",lastName:\"%s\"}, secret: \"%s\"){id,lastName,firstName,email,createdAt}}",
 				newUser.Email,
 				newUser.Password,
 				newUser.FirstName,
 				newUser.LastName,
-				regTokenTest.Secret.String(),
+				regTokenTest.Secret,
 			)
 
 			result := graphql.Do(graphql.Params{

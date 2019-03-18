@@ -50,8 +50,8 @@ const (
 	FieldProjectID = "projectID"
 	// FieldNewPassword is a field name for new password
 	FieldNewPassword = "newPassword"
-	// RegTokenSecret is a field name for registration token for user creation during Vanguard release
-	RegTokenSecret = "regTokenSecret"
+	// Secret is a field name for registration token for user creation during Vanguard release
+	Secret = "secret"
 )
 
 // rootMutation creates mutation for graphql populated by AccountsClient
@@ -65,22 +65,22 @@ func rootMutation(service *console.Service, mailService *mailservice.Service, ty
 					InputArg: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(types.UserInput()),
 					},
-					RegTokenSecret: &graphql.ArgumentConfig{
+					Secret: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
 					},
 				},
 				// creates user and company from input params and returns userID if succeed
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					input, _ := p.Args[InputArg].(map[string]interface{})
-					regTokenSecretInput, _ := p.Args[RegTokenSecret].(string)
+					secretInput, _ := p.Args[Secret].(string)
 					createUser := fromMapCreateUser(input)
 
-					regToken, err := uuid.Parse(regTokenSecretInput)
+					secret, err := console.RegistrationSecretFromBase64(secretInput)
 					if err != nil {
 						return nil, err
 					}
 
-					user, err := service.CreateUser(p.Context, createUser, *regToken)
+					user, err := service.CreateUser(p.Context, createUser, secret)
 					if err != nil {
 						return nil, err
 					}

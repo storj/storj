@@ -384,10 +384,10 @@ CREATE TABLE projects (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
-CREATE TABLE satellite_reg_tokens (
+CREATE TABLE registration_tokens (
 	secret bytea NOT NULL,
 	owner_id bytea,
-	proj_limit integer NOT NULL,
+	project_limit integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
@@ -592,10 +592,10 @@ CREATE TABLE projects (
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
-CREATE TABLE satellite_reg_tokens (
+CREATE TABLE registration_tokens (
 	secret BLOB NOT NULL,
 	owner_id BLOB,
-	proj_limit INTEGER NOT NULL,
+	project_limit INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
@@ -2323,111 +2323,111 @@ func (f Project_CreatedAt_Field) value() interface{} {
 
 func (Project_CreatedAt_Field) _Column() string { return "created_at" }
 
-type SatelliteRegToken struct {
-	Secret    []byte
-	OwnerId   []byte
-	ProjLimit int
-	CreatedAt time.Time
+type RegistrationToken struct {
+	Secret       []byte
+	OwnerId      []byte
+	ProjectLimit int
+	CreatedAt    time.Time
 }
 
-func (SatelliteRegToken) _Table() string { return "satellite_reg_tokens" }
+func (RegistrationToken) _Table() string { return "registration_tokens" }
 
-type SatelliteRegToken_Create_Fields struct {
-	OwnerId SatelliteRegToken_OwnerId_Field
+type RegistrationToken_Create_Fields struct {
+	OwnerId RegistrationToken_OwnerId_Field
 }
 
-type SatelliteRegToken_Update_Fields struct {
-	OwnerId SatelliteRegToken_OwnerId_Field
+type RegistrationToken_Update_Fields struct {
+	OwnerId RegistrationToken_OwnerId_Field
 }
 
-type SatelliteRegToken_Secret_Field struct {
+type RegistrationToken_Secret_Field struct {
 	_set   bool
 	_null  bool
 	_value []byte
 }
 
-func SatelliteRegToken_Secret(v []byte) SatelliteRegToken_Secret_Field {
-	return SatelliteRegToken_Secret_Field{_set: true, _value: v}
+func RegistrationToken_Secret(v []byte) RegistrationToken_Secret_Field {
+	return RegistrationToken_Secret_Field{_set: true, _value: v}
 }
 
-func (f SatelliteRegToken_Secret_Field) value() interface{} {
+func (f RegistrationToken_Secret_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (SatelliteRegToken_Secret_Field) _Column() string { return "secret" }
+func (RegistrationToken_Secret_Field) _Column() string { return "secret" }
 
-type SatelliteRegToken_OwnerId_Field struct {
+type RegistrationToken_OwnerId_Field struct {
 	_set   bool
 	_null  bool
 	_value []byte
 }
 
-func SatelliteRegToken_OwnerId(v []byte) SatelliteRegToken_OwnerId_Field {
-	return SatelliteRegToken_OwnerId_Field{_set: true, _value: v}
+func RegistrationToken_OwnerId(v []byte) RegistrationToken_OwnerId_Field {
+	return RegistrationToken_OwnerId_Field{_set: true, _value: v}
 }
 
-func SatelliteRegToken_OwnerId_Raw(v []byte) SatelliteRegToken_OwnerId_Field {
+func RegistrationToken_OwnerId_Raw(v []byte) RegistrationToken_OwnerId_Field {
 	if v == nil {
-		return SatelliteRegToken_OwnerId_Null()
+		return RegistrationToken_OwnerId_Null()
 	}
-	return SatelliteRegToken_OwnerId(v)
+	return RegistrationToken_OwnerId(v)
 }
 
-func SatelliteRegToken_OwnerId_Null() SatelliteRegToken_OwnerId_Field {
-	return SatelliteRegToken_OwnerId_Field{_set: true, _null: true}
+func RegistrationToken_OwnerId_Null() RegistrationToken_OwnerId_Field {
+	return RegistrationToken_OwnerId_Field{_set: true, _null: true}
 }
 
-func (f SatelliteRegToken_OwnerId_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+func (f RegistrationToken_OwnerId_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f SatelliteRegToken_OwnerId_Field) value() interface{} {
+func (f RegistrationToken_OwnerId_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (SatelliteRegToken_OwnerId_Field) _Column() string { return "owner_id" }
+func (RegistrationToken_OwnerId_Field) _Column() string { return "owner_id" }
 
-type SatelliteRegToken_ProjLimit_Field struct {
+type RegistrationToken_ProjectLimit_Field struct {
 	_set   bool
 	_null  bool
 	_value int
 }
 
-func SatelliteRegToken_ProjLimit(v int) SatelliteRegToken_ProjLimit_Field {
-	return SatelliteRegToken_ProjLimit_Field{_set: true, _value: v}
+func RegistrationToken_ProjectLimit(v int) RegistrationToken_ProjectLimit_Field {
+	return RegistrationToken_ProjectLimit_Field{_set: true, _value: v}
 }
 
-func (f SatelliteRegToken_ProjLimit_Field) value() interface{} {
+func (f RegistrationToken_ProjectLimit_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (SatelliteRegToken_ProjLimit_Field) _Column() string { return "proj_limit" }
+func (RegistrationToken_ProjectLimit_Field) _Column() string { return "project_limit" }
 
-type SatelliteRegToken_CreatedAt_Field struct {
+type RegistrationToken_CreatedAt_Field struct {
 	_set   bool
 	_null  bool
 	_value time.Time
 }
 
-func SatelliteRegToken_CreatedAt(v time.Time) SatelliteRegToken_CreatedAt_Field {
-	return SatelliteRegToken_CreatedAt_Field{_set: true, _value: v}
+func RegistrationToken_CreatedAt(v time.Time) RegistrationToken_CreatedAt_Field {
+	return RegistrationToken_CreatedAt_Field{_set: true, _value: v}
 }
 
-func (f SatelliteRegToken_CreatedAt_Field) value() interface{} {
+func (f RegistrationToken_CreatedAt_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (SatelliteRegToken_CreatedAt_Field) _Column() string { return "created_at" }
+func (RegistrationToken_CreatedAt_Field) _Column() string { return "created_at" }
 
 type User struct {
 	Id           []byte
@@ -3322,29 +3322,29 @@ func (obj *postgresImpl) Create_CertRecord(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Create_SatelliteRegToken(ctx context.Context,
-	satellite_reg_token_secret SatelliteRegToken_Secret_Field,
-	satellite_reg_token_proj_limit SatelliteRegToken_ProjLimit_Field,
-	optional SatelliteRegToken_Create_Fields) (
-	satellite_reg_token *SatelliteRegToken, err error) {
+func (obj *postgresImpl) Create_RegistrationToken(ctx context.Context,
+	registration_token_secret RegistrationToken_Secret_Field,
+	registration_token_project_limit RegistrationToken_ProjectLimit_Field,
+	optional RegistrationToken_Create_Fields) (
+	registration_token *RegistrationToken, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
-	__secret_val := satellite_reg_token_secret.value()
+	__secret_val := registration_token_secret.value()
 	__owner_id_val := optional.OwnerId.value()
-	__proj_limit_val := satellite_reg_token_proj_limit.value()
+	__project_limit_val := registration_token_project_limit.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO satellite_reg_tokens ( secret, owner_id, proj_limit, created_at ) VALUES ( ?, ?, ?, ? ) RETURNING satellite_reg_tokens.secret, satellite_reg_tokens.owner_id, satellite_reg_tokens.proj_limit, satellite_reg_tokens.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO registration_tokens ( secret, owner_id, project_limit, created_at ) VALUES ( ?, ?, ?, ? ) RETURNING registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __secret_val, __owner_id_val, __proj_limit_val, __created_at_val)
+	obj.logStmt(__stmt, __secret_val, __owner_id_val, __project_limit_val, __created_at_val)
 
-	satellite_reg_token = &SatelliteRegToken{}
-	err = obj.driver.QueryRow(__stmt, __secret_val, __owner_id_val, __proj_limit_val, __created_at_val).Scan(&satellite_reg_token.Secret, &satellite_reg_token.OwnerId, &satellite_reg_token.ProjLimit, &satellite_reg_token.CreatedAt)
+	registration_token = &RegistrationToken{}
+	err = obj.driver.QueryRow(__stmt, __secret_val, __owner_id_val, __project_limit_val, __created_at_val).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-	return satellite_reg_token, nil
+	return registration_token, nil
 
 }
 
@@ -4183,52 +4183,52 @@ func (obj *postgresImpl) Get_CertRecord_By_Id(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Get_SatelliteRegToken_By_Secret(ctx context.Context,
-	satellite_reg_token_secret SatelliteRegToken_Secret_Field) (
-	satellite_reg_token *SatelliteRegToken, err error) {
+func (obj *postgresImpl) Get_RegistrationToken_By_Secret(ctx context.Context,
+	registration_token_secret RegistrationToken_Secret_Field) (
+	registration_token *RegistrationToken, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT satellite_reg_tokens.secret, satellite_reg_tokens.owner_id, satellite_reg_tokens.proj_limit, satellite_reg_tokens.created_at FROM satellite_reg_tokens WHERE satellite_reg_tokens.secret = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at FROM registration_tokens WHERE registration_tokens.secret = ?")
 
 	var __values []interface{}
-	__values = append(__values, satellite_reg_token_secret.value())
+	__values = append(__values, registration_token_secret.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	satellite_reg_token = &SatelliteRegToken{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&satellite_reg_token.Secret, &satellite_reg_token.OwnerId, &satellite_reg_token.ProjLimit, &satellite_reg_token.CreatedAt)
+	registration_token = &RegistrationToken{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-	return satellite_reg_token, nil
+	return registration_token, nil
 
 }
 
-func (obj *postgresImpl) Get_SatelliteRegToken_By_OwnerId(ctx context.Context,
-	satellite_reg_token_owner_id SatelliteRegToken_OwnerId_Field) (
-	satellite_reg_token *SatelliteRegToken, err error) {
+func (obj *postgresImpl) Get_RegistrationToken_By_OwnerId(ctx context.Context,
+	registration_token_owner_id RegistrationToken_OwnerId_Field) (
+	registration_token *RegistrationToken, err error) {
 
-	var __cond_0 = &__sqlbundle_Condition{Left: "satellite_reg_tokens.owner_id", Equal: true, Right: "?", Null: true}
+	var __cond_0 = &__sqlbundle_Condition{Left: "registration_tokens.owner_id", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT satellite_reg_tokens.secret, satellite_reg_tokens.owner_id, satellite_reg_tokens.proj_limit, satellite_reg_tokens.created_at FROM satellite_reg_tokens WHERE "), __cond_0}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at FROM registration_tokens WHERE "), __cond_0}}
 
 	var __values []interface{}
 	__values = append(__values)
 
-	if !satellite_reg_token_owner_id.isnull() {
+	if !registration_token_owner_id.isnull() {
 		__cond_0.Null = false
-		__values = append(__values, satellite_reg_token_owner_id.value())
+		__values = append(__values, registration_token_owner_id.value())
 	}
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	satellite_reg_token = &SatelliteRegToken{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&satellite_reg_token.Secret, &satellite_reg_token.OwnerId, &satellite_reg_token.ProjLimit, &satellite_reg_token.CreatedAt)
+	registration_token = &RegistrationToken{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-	return satellite_reg_token, nil
+	return registration_token, nil
 
 }
 
@@ -4679,13 +4679,13 @@ func (obj *postgresImpl) Update_CertRecord_By_Id(ctx context.Context,
 	return certRecord, nil
 }
 
-func (obj *postgresImpl) Update_SatelliteRegToken_By_Secret(ctx context.Context,
-	satellite_reg_token_secret SatelliteRegToken_Secret_Field,
-	update SatelliteRegToken_Update_Fields) (
-	satellite_reg_token *SatelliteRegToken, err error) {
+func (obj *postgresImpl) Update_RegistrationToken_By_Secret(ctx context.Context,
+	registration_token_secret RegistrationToken_Secret_Field,
+	update RegistrationToken_Update_Fields) (
+	registration_token *RegistrationToken, err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE satellite_reg_tokens SET "), __sets, __sqlbundle_Literal(" WHERE satellite_reg_tokens.secret = ? RETURNING satellite_reg_tokens.secret, satellite_reg_tokens.owner_id, satellite_reg_tokens.proj_limit, satellite_reg_tokens.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE registration_tokens SET "), __sets, __sqlbundle_Literal(" WHERE registration_tokens.secret = ? RETURNING registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -4700,7 +4700,7 @@ func (obj *postgresImpl) Update_SatelliteRegToken_By_Secret(ctx context.Context,
 		return nil, emptyUpdate()
 	}
 
-	__args = append(__args, satellite_reg_token_secret.value())
+	__args = append(__args, registration_token_secret.value())
 
 	__values = append(__values, __args...)
 	__sets.SQL = __sets_sql
@@ -4708,15 +4708,15 @@ func (obj *postgresImpl) Update_SatelliteRegToken_By_Secret(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	satellite_reg_token = &SatelliteRegToken{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&satellite_reg_token.Secret, &satellite_reg_token.OwnerId, &satellite_reg_token.ProjLimit, &satellite_reg_token.CreatedAt)
+	registration_token = &RegistrationToken{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-	return satellite_reg_token, nil
+	return registration_token, nil
 }
 
 func (obj *postgresImpl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
@@ -5075,7 +5075,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM satellite_reg_tokens;")
+	__res, err = obj.driver.Exec("DELETE FROM registration_tokens;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -5626,24 +5626,24 @@ func (obj *sqlite3Impl) Create_CertRecord(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Create_SatelliteRegToken(ctx context.Context,
-	satellite_reg_token_secret SatelliteRegToken_Secret_Field,
-	satellite_reg_token_proj_limit SatelliteRegToken_ProjLimit_Field,
-	optional SatelliteRegToken_Create_Fields) (
-	satellite_reg_token *SatelliteRegToken, err error) {
+func (obj *sqlite3Impl) Create_RegistrationToken(ctx context.Context,
+	registration_token_secret RegistrationToken_Secret_Field,
+	registration_token_project_limit RegistrationToken_ProjectLimit_Field,
+	optional RegistrationToken_Create_Fields) (
+	registration_token *RegistrationToken, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
-	__secret_val := satellite_reg_token_secret.value()
+	__secret_val := registration_token_secret.value()
 	__owner_id_val := optional.OwnerId.value()
-	__proj_limit_val := satellite_reg_token_proj_limit.value()
+	__project_limit_val := registration_token_project_limit.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO satellite_reg_tokens ( secret, owner_id, proj_limit, created_at ) VALUES ( ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO registration_tokens ( secret, owner_id, project_limit, created_at ) VALUES ( ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __secret_val, __owner_id_val, __proj_limit_val, __created_at_val)
+	obj.logStmt(__stmt, __secret_val, __owner_id_val, __project_limit_val, __created_at_val)
 
-	__res, err := obj.driver.Exec(__stmt, __secret_val, __owner_id_val, __proj_limit_val, __created_at_val)
+	__res, err := obj.driver.Exec(__stmt, __secret_val, __owner_id_val, __project_limit_val, __created_at_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -5651,7 +5651,7 @@ func (obj *sqlite3Impl) Create_SatelliteRegToken(ctx context.Context,
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-	return obj.getLastSatelliteRegToken(ctx, __pk)
+	return obj.getLastRegistrationToken(ctx, __pk)
 
 }
 
@@ -6490,52 +6490,52 @@ func (obj *sqlite3Impl) Get_CertRecord_By_Id(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Get_SatelliteRegToken_By_Secret(ctx context.Context,
-	satellite_reg_token_secret SatelliteRegToken_Secret_Field) (
-	satellite_reg_token *SatelliteRegToken, err error) {
+func (obj *sqlite3Impl) Get_RegistrationToken_By_Secret(ctx context.Context,
+	registration_token_secret RegistrationToken_Secret_Field) (
+	registration_token *RegistrationToken, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT satellite_reg_tokens.secret, satellite_reg_tokens.owner_id, satellite_reg_tokens.proj_limit, satellite_reg_tokens.created_at FROM satellite_reg_tokens WHERE satellite_reg_tokens.secret = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at FROM registration_tokens WHERE registration_tokens.secret = ?")
 
 	var __values []interface{}
-	__values = append(__values, satellite_reg_token_secret.value())
+	__values = append(__values, registration_token_secret.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	satellite_reg_token = &SatelliteRegToken{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&satellite_reg_token.Secret, &satellite_reg_token.OwnerId, &satellite_reg_token.ProjLimit, &satellite_reg_token.CreatedAt)
+	registration_token = &RegistrationToken{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-	return satellite_reg_token, nil
+	return registration_token, nil
 
 }
 
-func (obj *sqlite3Impl) Get_SatelliteRegToken_By_OwnerId(ctx context.Context,
-	satellite_reg_token_owner_id SatelliteRegToken_OwnerId_Field) (
-	satellite_reg_token *SatelliteRegToken, err error) {
+func (obj *sqlite3Impl) Get_RegistrationToken_By_OwnerId(ctx context.Context,
+	registration_token_owner_id RegistrationToken_OwnerId_Field) (
+	registration_token *RegistrationToken, err error) {
 
-	var __cond_0 = &__sqlbundle_Condition{Left: "satellite_reg_tokens.owner_id", Equal: true, Right: "?", Null: true}
+	var __cond_0 = &__sqlbundle_Condition{Left: "registration_tokens.owner_id", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT satellite_reg_tokens.secret, satellite_reg_tokens.owner_id, satellite_reg_tokens.proj_limit, satellite_reg_tokens.created_at FROM satellite_reg_tokens WHERE "), __cond_0}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at FROM registration_tokens WHERE "), __cond_0}}
 
 	var __values []interface{}
 	__values = append(__values)
 
-	if !satellite_reg_token_owner_id.isnull() {
+	if !registration_token_owner_id.isnull() {
 		__cond_0.Null = false
-		__values = append(__values, satellite_reg_token_owner_id.value())
+		__values = append(__values, registration_token_owner_id.value())
 	}
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	satellite_reg_token = &SatelliteRegToken{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&satellite_reg_token.Secret, &satellite_reg_token.OwnerId, &satellite_reg_token.ProjLimit, &satellite_reg_token.CreatedAt)
+	registration_token = &RegistrationToken{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-	return satellite_reg_token, nil
+	return registration_token, nil
 
 }
 
@@ -7066,13 +7066,13 @@ func (obj *sqlite3Impl) Update_CertRecord_By_Id(ctx context.Context,
 	return certRecord, nil
 }
 
-func (obj *sqlite3Impl) Update_SatelliteRegToken_By_Secret(ctx context.Context,
-	satellite_reg_token_secret SatelliteRegToken_Secret_Field,
-	update SatelliteRegToken_Update_Fields) (
-	satellite_reg_token *SatelliteRegToken, err error) {
+func (obj *sqlite3Impl) Update_RegistrationToken_By_Secret(ctx context.Context,
+	registration_token_secret RegistrationToken_Secret_Field,
+	update RegistrationToken_Update_Fields) (
+	registration_token *RegistrationToken, err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE satellite_reg_tokens SET "), __sets, __sqlbundle_Literal(" WHERE satellite_reg_tokens.secret = ?")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE registration_tokens SET "), __sets, __sqlbundle_Literal(" WHERE registration_tokens.secret = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -7087,7 +7087,7 @@ func (obj *sqlite3Impl) Update_SatelliteRegToken_By_Secret(ctx context.Context,
 		return nil, emptyUpdate()
 	}
 
-	__args = append(__args, satellite_reg_token_secret.value())
+	__args = append(__args, registration_token_secret.value())
 
 	__values = append(__values, __args...)
 	__sets.SQL = __sets_sql
@@ -7095,25 +7095,25 @@ func (obj *sqlite3Impl) Update_SatelliteRegToken_By_Secret(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	satellite_reg_token = &SatelliteRegToken{}
+	registration_token = &RegistrationToken{}
 	_, err = obj.driver.Exec(__stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
 
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT satellite_reg_tokens.secret, satellite_reg_tokens.owner_id, satellite_reg_tokens.proj_limit, satellite_reg_tokens.created_at FROM satellite_reg_tokens WHERE satellite_reg_tokens.secret = ?")
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at FROM registration_tokens WHERE registration_tokens.secret = ?")
 
 	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
 	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
 
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&satellite_reg_token.Secret, &satellite_reg_token.OwnerId, &satellite_reg_token.ProjLimit, &satellite_reg_token.CreatedAt)
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-	return satellite_reg_token, nil
+	return registration_token, nil
 }
 
 func (obj *sqlite3Impl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
@@ -7663,21 +7663,21 @@ func (obj *sqlite3Impl) getLastCertRecord(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) getLastSatelliteRegToken(ctx context.Context,
+func (obj *sqlite3Impl) getLastRegistrationToken(ctx context.Context,
 	pk int64) (
-	satellite_reg_token *SatelliteRegToken, err error) {
+	registration_token *RegistrationToken, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT satellite_reg_tokens.secret, satellite_reg_tokens.owner_id, satellite_reg_tokens.proj_limit, satellite_reg_tokens.created_at FROM satellite_reg_tokens WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at FROM registration_tokens WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
-	satellite_reg_token = &SatelliteRegToken{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&satellite_reg_token.Secret, &satellite_reg_token.OwnerId, &satellite_reg_token.ProjLimit, &satellite_reg_token.CreatedAt)
+	registration_token = &RegistrationToken{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-	return satellite_reg_token, nil
+	return registration_token, nil
 
 }
 
@@ -7729,7 +7729,7 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM satellite_reg_tokens;")
+	__res, err = obj.driver.Exec("DELETE FROM registration_tokens;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -8161,16 +8161,16 @@ func (rx *Rx) Create_ProjectMember(ctx context.Context,
 
 }
 
-func (rx *Rx) Create_SatelliteRegToken(ctx context.Context,
-	satellite_reg_token_secret SatelliteRegToken_Secret_Field,
-	satellite_reg_token_proj_limit SatelliteRegToken_ProjLimit_Field,
-	optional SatelliteRegToken_Create_Fields) (
-	satellite_reg_token *SatelliteRegToken, err error) {
+func (rx *Rx) Create_RegistrationToken(ctx context.Context,
+	registration_token_secret RegistrationToken_Secret_Field,
+	registration_token_project_limit RegistrationToken_ProjectLimit_Field,
+	optional RegistrationToken_Create_Fields) (
+	registration_token *RegistrationToken, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_SatelliteRegToken(ctx, satellite_reg_token_secret, satellite_reg_token_proj_limit, optional)
+	return tx.Create_RegistrationToken(ctx, registration_token_secret, registration_token_project_limit, optional)
 
 }
 
@@ -8439,24 +8439,24 @@ func (rx *Rx) Get_Project_By_Id(ctx context.Context,
 	return tx.Get_Project_By_Id(ctx, project_id)
 }
 
-func (rx *Rx) Get_SatelliteRegToken_By_OwnerId(ctx context.Context,
-	satellite_reg_token_owner_id SatelliteRegToken_OwnerId_Field) (
-	satellite_reg_token *SatelliteRegToken, err error) {
+func (rx *Rx) Get_RegistrationToken_By_OwnerId(ctx context.Context,
+	registration_token_owner_id RegistrationToken_OwnerId_Field) (
+	registration_token *RegistrationToken, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Get_SatelliteRegToken_By_OwnerId(ctx, satellite_reg_token_owner_id)
+	return tx.Get_RegistrationToken_By_OwnerId(ctx, registration_token_owner_id)
 }
 
-func (rx *Rx) Get_SatelliteRegToken_By_Secret(ctx context.Context,
-	satellite_reg_token_secret SatelliteRegToken_Secret_Field) (
-	satellite_reg_token *SatelliteRegToken, err error) {
+func (rx *Rx) Get_RegistrationToken_By_Secret(ctx context.Context,
+	registration_token_secret RegistrationToken_Secret_Field) (
+	registration_token *RegistrationToken, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Get_SatelliteRegToken_By_Secret(ctx, satellite_reg_token_secret)
+	return tx.Get_RegistrationToken_By_Secret(ctx, registration_token_secret)
 }
 
 func (rx *Rx) Get_User_By_Email_And_Status_Not_Number(ctx context.Context,
@@ -8624,15 +8624,15 @@ func (rx *Rx) Update_Project_By_Id(ctx context.Context,
 	return tx.Update_Project_By_Id(ctx, project_id, update)
 }
 
-func (rx *Rx) Update_SatelliteRegToken_By_Secret(ctx context.Context,
-	satellite_reg_token_secret SatelliteRegToken_Secret_Field,
-	update SatelliteRegToken_Update_Fields) (
-	satellite_reg_token *SatelliteRegToken, err error) {
+func (rx *Rx) Update_RegistrationToken_By_Secret(ctx context.Context,
+	registration_token_secret RegistrationToken_Secret_Field,
+	update RegistrationToken_Update_Fields) (
+	registration_token *RegistrationToken, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Update_SatelliteRegToken_By_Secret(ctx, satellite_reg_token_secret, update)
+	return tx.Update_RegistrationToken_By_Secret(ctx, registration_token_secret, update)
 }
 
 func (rx *Rx) Update_User_By_Id(ctx context.Context,
@@ -8780,11 +8780,11 @@ type Methods interface {
 		project_member_project_id ProjectMember_ProjectId_Field) (
 		project_member *ProjectMember, err error)
 
-	Create_SatelliteRegToken(ctx context.Context,
-		satellite_reg_token_secret SatelliteRegToken_Secret_Field,
-		satellite_reg_token_proj_limit SatelliteRegToken_ProjLimit_Field,
-		optional SatelliteRegToken_Create_Fields) (
-		satellite_reg_token *SatelliteRegToken, err error)
+	Create_RegistrationToken(ctx context.Context,
+		registration_token_secret RegistrationToken_Secret_Field,
+		registration_token_project_limit RegistrationToken_ProjectLimit_Field,
+		optional RegistrationToken_Create_Fields) (
+		registration_token *RegistrationToken, err error)
 
 	Create_User(ctx context.Context,
 		user_id User_Id_Field,
@@ -8894,13 +8894,13 @@ type Methods interface {
 		project_id Project_Id_Field) (
 		project *Project, err error)
 
-	Get_SatelliteRegToken_By_OwnerId(ctx context.Context,
-		satellite_reg_token_owner_id SatelliteRegToken_OwnerId_Field) (
-		satellite_reg_token *SatelliteRegToken, err error)
+	Get_RegistrationToken_By_OwnerId(ctx context.Context,
+		registration_token_owner_id RegistrationToken_OwnerId_Field) (
+		registration_token *RegistrationToken, err error)
 
-	Get_SatelliteRegToken_By_Secret(ctx context.Context,
-		satellite_reg_token_secret SatelliteRegToken_Secret_Field) (
-		satellite_reg_token *SatelliteRegToken, err error)
+	Get_RegistrationToken_By_Secret(ctx context.Context,
+		registration_token_secret RegistrationToken_Secret_Field) (
+		registration_token *RegistrationToken, err error)
 
 	Get_User_By_Email_And_Status_Not_Number(ctx context.Context,
 		user_email User_Email_Field) (
@@ -8977,10 +8977,10 @@ type Methods interface {
 		update Project_Update_Fields) (
 		project *Project, err error)
 
-	Update_SatelliteRegToken_By_Secret(ctx context.Context,
-		satellite_reg_token_secret SatelliteRegToken_Secret_Field,
-		update SatelliteRegToken_Update_Fields) (
-		satellite_reg_token *SatelliteRegToken, err error)
+	Update_RegistrationToken_By_Secret(ctx context.Context,
+		registration_token_secret RegistrationToken_Secret_Field,
+		update RegistrationToken_Update_Fields) (
+		registration_token *RegistrationToken, err error)
 
 	Update_User_By_Id(ctx context.Context,
 		user_id User_Id_Field,

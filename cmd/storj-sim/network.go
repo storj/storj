@@ -260,13 +260,14 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				}
 
 				host := "http://" + consoleAddress
+				createRegistrationTokenAddress := host + "/registrationToken/?projectsLimit=1"
 				consoleActivationAddress := host + "/activation/?token="
 				consoleAPIAddress := host + "/api/graphql/v0"
 
 				// wait for console server to start
 				time.Sleep(3 * time.Second)
 
-				if err := addExampleProjectWithKey(&apiKey, consoleActivationAddress, consoleAPIAddress); err != nil {
+				if err := addExampleProjectWithKey(&apiKey, createRegistrationTokenAddress, consoleActivationAddress, consoleAPIAddress); err != nil {
 					return err
 				}
 

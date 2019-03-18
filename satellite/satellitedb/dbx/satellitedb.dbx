@@ -398,25 +398,25 @@ read one (
 
 //--- satellite registration token for Vanguard release (temporary table) ---//
 
-model satellite_reg_token (
+model registration_token (
     key secret
     unique owner_id
 
-    field secret     blob
-    field owner_id   blob       ( updatable, nullable )
+    field secret        blob
+    field owner_id      blob       ( updatable, nullable )
 
-    field proj_limit int
+    field project_limit int
 
-    field created_at timestamp  ( autoinsert )
+    field created_at    timestamp  ( autoinsert )
 )
 
-create satellite_reg_token ( )
+create registration_token ( )
 read one (
-    select satellite_reg_token
-    where  satellite_reg_token.secret = ?
+    select registration_token
+    where  registration_token.secret = ?
 )
 read one (
-    select satellite_reg_token
-    where  satellite_reg_token.owner_id = ?
+    select registration_token
+    where  registration_token.owner_id = ?
 )
-update satellite_reg_token ( where satellite_reg_token.secret = ? )
+update registration_token ( where registration_token.secret = ? )

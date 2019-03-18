@@ -80,8 +80,45 @@ func generateActivationKey(userID uuid.UUID, email string, createdAt time.Time) 
 	return token.String(), nil
 }
 
-func addExampleProjectWithKey(key *string, activationAddress, address string) error {
+func addExampleProjectWithKey(key *string, createRegistrationTokenAddress, activationAddress, address string) error {
 	client := http.Client{}
+
+	var createTokenResponse struct {
+		Secret string
+		Error  error
+	}
+	{
+		request, err := http.NewRequest(
+			http.MethodGet,
+			createRegistrationTokenAddress,
+			nil)
+		if err != nil {
+			return err
+		}
+
+		resp, err := client.Do(request)
+		if err != nil {
+			return err
+		}
+
+		b, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+
+		if err = json.NewDecoder(bytes.NewReader(b)).Decode(&createTokenResponse); err != nil {
+			return err
+		}
+
+		if createTokenResponse.Error != nil {
+			return createTokenResponse.Error
+		}
+
+		err = resp.Body.Close()
+		if err != nil {
+			return err
+		}
+	}
 
 	// create user
 	var user struct {
@@ -93,10 +130,11 @@ func addExampleProjectWithKey(key *string, activationAddress, address string) er
 	}
 	{
 		createUserQuery := fmt.Sprintf(
-			"mutation {createUser(input:{email:\"%s\",password:\"%s\",firstName:\"%s\",lastName:\"\"}){id,email,createdAt}}",
+			"mutation {createUser(input:{email:\"%s\",password:\"%s\",firstName:\"%s\",lastName:\"\"}, secret:\"%s\" ){id,email,createdAt}}",
 			"example@mail.com",
 			"123a123",
-			"Alice")
+			"Alice",
+			createTokenResponse.Secret)
 
 		request, err := http.NewRequest(
 			http.MethodPost,

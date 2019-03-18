@@ -389,42 +389,42 @@ func (m *lockedProjects) Update(ctx context.Context, project *console.Project) e
 	return m.db.Update(ctx, project)
 }
 
-// RegTokens is a getter for RegTokens repository
-func (m *lockedConsole) RegTokens() console.RegTokens {
+// RegistrationTokens is a getter for RegistrationTokens repository
+func (m *lockedConsole) RegistrationTokens() console.RegistrationTokens {
 	m.Lock()
 	defer m.Unlock()
-	return &lockedRegTokens{m.Locker, m.db.RegTokens()}
+	return &lockedRegistrationTokens{m.Locker, m.db.RegistrationTokens()}
 }
 
-// lockedRegTokens implements locking wrapper for console.RegTokens
-type lockedRegTokens struct {
+// lockedRegistrationTokens implements locking wrapper for console.RegistrationTokens
+type lockedRegistrationTokens struct {
 	sync.Locker
-	db console.RegTokens
+	db console.RegistrationTokens
 }
 
-// CreateRegToken creates new registration token
-func (m *lockedRegTokens) CreateRegToken(ctx context.Context, projLimit int) (*console.RegToken, error) {
+// Create creates new registration token
+func (m *lockedRegistrationTokens) Create(ctx context.Context, projectLimit int) (*console.RegistrationToken, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.CreateRegToken(ctx, projLimit)
+	return m.db.Create(ctx, projectLimit)
 }
 
 // GetByOwnerID retrieves RegTokenInfo by ownerID
-func (m *lockedRegTokens) GetByOwnerID(ctx context.Context, ownerID uuid.UUID) (*console.RegToken, error) {
+func (m *lockedRegistrationTokens) GetByOwnerID(ctx context.Context, ownerID uuid.UUID) (*console.RegistrationToken, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetByOwnerID(ctx, ownerID)
 }
 
 // GetBySecret retrieves RegTokenInfo with given Secret
-func (m *lockedRegTokens) GetBySecret(ctx context.Context, secret uuid.UUID) (*console.RegToken, error) {
+func (m *lockedRegistrationTokens) GetBySecret(ctx context.Context, secret console.RegistrationSecret) (*console.RegistrationToken, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetBySecret(ctx, secret)
 }
 
 // UpdateOwner updates registration token's owner
-func (m *lockedRegTokens) UpdateOwner(ctx context.Context, secret uuid.UUID, ownerID uuid.UUID) error {
+func (m *lockedRegistrationTokens) UpdateOwner(ctx context.Context, secret console.RegistrationSecret, ownerID uuid.UUID) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UpdateOwner(ctx, secret, ownerID)

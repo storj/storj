@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"path/filepath"
+	"strconv"
 
 	"github.com/graphql-go/graphql"
 	"github.com/zeebo/errs"
@@ -75,6 +76,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 
 	if server.config.StaticDir != "" {
 		mux.Handle("/activation/", http.HandlerFunc(server.accountActivationHandler))
+		mux.Handle("/registrationToken/", http.HandlerFunc(server.createRegistrationTokenHandler))
 		mux.Handle("/static/", http.StripPrefix("/static", fs))
 		mux.Handle("/", http.HandlerFunc(server.appHandler))
 	}
@@ -91,7 +93,41 @@ func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
 	http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "dist", "public", "index.html"))
 }
 
-// appHandler is web app http handler function
+// accountActivationHandler is web app http handler function
+// TODO: add some auth token in request header to prevent unauthorized token creation
+func (s *Server) createRegistrationTokenHandler(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set(contentType, applicationJSON)
+
+	var response struct {
+		Secret string `json:"secret"`
+		Error  error  `json:"error,omitempty"`
+	}
+
+	defer func() {
+		err := json.NewEncoder(w).Encode(&response)
+		if err != nil {
+			s.log.Error(err.Error())
+		}
+	}()
+
+	projectsLimitInput := req.URL.Query().Get("projectsLimit")
+
+	projectsLimit, err := strconv.Atoi(projectsLimitInput)
+	if err != nil {
+		response.Error = err
+		return
+	}
+
+	token, err := s.service.CreateRegToken(context.Background(), projectsLimit)
+	if err != nil {
+		response.Error = err
+		return
+	}
+
+	response.Secret = token.Secret.String()
+}
+
+// accountActivationHandler is web app http handler function
 func (s *Server) accountActivationHandler(w http.ResponseWriter, req *http.Request) {
 	activationToken := req.URL.Query().Get("token")
 

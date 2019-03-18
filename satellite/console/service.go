@@ -71,14 +71,14 @@ func NewService(log *zap.Logger, signer Signer, store DB, passwordCost int) (*Se
 }
 
 // CreateUser gets password hash value and creates new inactive User
-func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret uuid.UUID) (u *User, err error) {
+func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if err := user.IsValid(); err != nil {
 		return nil, err
 	}
 
 	// TODO: remove after vanguard release
-	registrationToken, err := s.store.RegTokens().GetBySecret(ctx, tokenSecret)
+	registrationToken, err := s.store.RegistrationTokens().GetBySecret(ctx, tokenSecret)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +107,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret u
 		PasswordHash: hash,
 	})
 
-	err = s.store.RegTokens().UpdateOwner(ctx, registrationToken.Secret, u.ID)
+	err = s.store.RegistrationTokens().UpdateOwner(ctx, registrationToken.Secret, u.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -653,7 +653,7 @@ func (s *Service) Authorize(ctx context.Context) (a Authorization, err error) {
 // checkProjectLimit is used to check if user is able to create a new project
 // TODO: remove after vanguard release
 func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) error {
-	registrationToken, err := s.store.RegTokens().GetByOwnerID(ctx, userID)
+	registrationToken, err := s.store.RegistrationTokens().GetByOwnerID(ctx, userID)
 	if err != nil {
 		return err
 	}
@@ -662,8 +662,8 @@ func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) error
 	if err != nil {
 		return err
 	}
-	if len(projects) >= registrationToken.ProjLimit {
-		return errs.New("max project count is %d", registrationToken.ProjLimit)
+	if len(projects) >= registrationToken.ProjectLimit {
+		return errs.New("max project count is %d", registrationToken.ProjectLimit)
 	}
 
 	return nil
@@ -671,8 +671,8 @@ func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) error
 
 // CreateRegToken creates new registration token. Needed for testing
 // TODO: remove after vanguard release
-func (s *Service) CreateRegToken(ctx context.Context, projLimit int) (*RegToken, error) {
-	return s.store.RegTokens().CreateRegToken(ctx, projLimit)
+func (s *Service) CreateRegToken(ctx context.Context, projLimit int) (*RegistrationToken, error) {
+	return s.store.RegistrationTokens().Create(ctx, projLimit)
 }
 
 // createToken creates string representation
