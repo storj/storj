@@ -69,9 +69,10 @@ func (d *defaultDownloader) getShare(ctx context.Context, limit *pb.AddressedOrd
 	defer mon.Task()(&ctx)(&err)
 
 	bandwidthMsgSize := shareSize
-	duration := time.Duration(bandwidthMsgSize / d.minBytesPerSecond.Int32())
 
-	timedCtx, cancel := context.WithTimeout(ctx, duration)
+	// determines number of seconds allotted for receiving data from a storage node
+	seconds := time.Second * time.Duration(bandwidthMsgSize/d.minBytesPerSecond.Int32())
+	timedCtx, cancel := context.WithTimeout(ctx, seconds)
 	defer cancel()
 
 	storageNodeID := limit.GetLimit().StorageNodeId
@@ -84,7 +85,6 @@ func (d *defaultDownloader) getShare(ctx context.Context, limit *pb.AddressedOrd
 	if err != nil {
 		return Share{}, err
 	}
-
 	ps := piecestore.NewClient(
 		d.log.Named(storageNodeID.String()),
 		signing.SignerFromFullIdentity(d.transport.Identity()),
@@ -197,7 +197,8 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe) (verifiedN
 
 	for pieceNum, share := range shares {
 		if shares[pieceNum].Error != nil {
-			if shares[pieceNum].Error == context.DeadlineExceeded {
+			if shares[pieceNum].Error == context.DeadlineExceeded ||
+				!transport.Error.Has(shares[pieceNum].Error) {
 				failedNodes = append(failedNodes, nodes[pieceNum])
 			} else {
 				offlineNodes = append(offlineNodes, nodes[pieceNum])
