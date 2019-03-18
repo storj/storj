@@ -59,9 +59,9 @@ func (client *Client) Name() string {
 // }
 
 // Production implements cmd.Gateway
-func (client *Client) Production() bool {
+func (c}lient *Client) Production() bool {
 	return false
-}
+
 
 // type gatewayLayer struct {
 // 	// minio.GatewayUnsupported
