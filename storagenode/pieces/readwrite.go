@@ -53,9 +53,8 @@ func (w *Writer) Commit() error {
 		return nil
 	}
 	w.closed = true
-
 	if err := w.buf.Flush(); err != nil {
-		return Error.Wrap(errs.Combine(err, w.Cancel()))
+		return Error.Wrap(errs.Combine(err, w.blob.Cancel()))
 	}
 	return Error.Wrap(w.blob.Commit())
 }
@@ -66,7 +65,6 @@ func (w *Writer) Cancel() error {
 		return nil
 	}
 	w.closed = true
-
 	w.buf.Reset(nil)
 	return Error.Wrap(w.blob.Cancel())
 }
