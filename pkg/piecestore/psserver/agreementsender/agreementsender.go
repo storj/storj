@@ -52,9 +52,21 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 			as.log.Error("could not retrieve bandwidth allocations", zap.Error(err))
 			continue
 		}
-		// send agreement payouts
-		for satellite, agreements := range agreementGroups {
-			as.SettleAgreements(ctx, satellite, agreements)
+
+		if len(agreementGroups) > 0 {
+			var group errgroup.Group
+			// send agreement payouts
+			for satellite, agreements := range agreementGroups {
+				satellite, agreements := satellite, agreements
+				group.Go(func() error {
+					timedCtx, cancel := context.WithTimeout(ctx, time.Hour)
+					defer cancel()
+
+					as.SettleAgreements(timedCtx, satellite, agreements)
+					return nil
+				})
+			}
+			group.Wait()
 		}
 
 		// Delete older payout irrespective of its status
