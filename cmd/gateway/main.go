@@ -110,9 +110,8 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	overrides := map[string]interface{}{
-		"client.api-key":         setupCfg.APIKey,
-		"client.pointer-db-addr": setupCfg.SatelliteAddr,
-		"client.overlay-addr":    setupCfg.SatelliteAddr,
+		"client.api-key":        setupCfg.APIKey,
+		"client.satellite-addr": setupCfg.SatelliteAddr,
 	}
 
 	accessKeyFlag := cmd.Flag("minio.access-key")

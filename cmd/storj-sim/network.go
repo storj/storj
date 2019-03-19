@@ -220,8 +220,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 				"--server.address", process.Address,
 
-				"--client.overlay-addr", satellite.Address,
-				"--client.pointer-db-addr", satellite.Address,
+				"--client.satellite-addr", satellite.Address,
 
 				"--rs.min-threshold", strconv.Itoa(1 * flags.StorageNodeCount / 5),
 				"--rs.repair-threshold", strconv.Itoa(2 * flags.StorageNodeCount / 5),

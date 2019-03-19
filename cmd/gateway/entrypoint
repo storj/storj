@@ -12,8 +12,7 @@ if [[ -n "${API_KEY:-}" ]]; then
 fi
 
 if [ -n "${SATELLITE_ADDR:-}" ]; then
-	RUN_PARAMS="${RUN_PARAMS} --client.overlay-addr $SATELLITE_ADDR"
-	RUN_PARAMS="${RUN_PARAMS} --client.pointer-db-addr $SATELLITE_ADDR"
+	RUN_PARAMS="${RUN_PARAMS} --client.satellite-addr $SATELLITE_ADDR"
 fi
 
 exec ./gateway run $RUN_PARAMS "$@"
