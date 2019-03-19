@@ -539,8 +539,8 @@ func (peer *Peer) Run(ctx context.Context) error {
 		// TODO: move the message into Server instead
 		// Don't change the format of this comment, it is used to figure out the node id.
 		peer.Log.Sugar().Infof("Node %s started", peer.Identity.ID)
-		peer.Log.Sugar().Infof("Public server started on %s", peer.Identity.ID, peer.Addr())
-		peer.Log.Sugar().Infof("Private server started on %s", peer.Identity.ID, peer.PrivateAddr())
+		peer.Log.Sugar().Infof("Public server started on %s", peer.Addr())
+		peer.Log.Sugar().Infof("Private server started on %s", peer.PrivateAddr())
 		return ignoreCancel(peer.Server.Run(ctx))
 	})
 	group.Go(func() error {

@@ -11,13 +11,13 @@ import (
 )
 
 // SerialNumberFn is callback from IterateAll
-type SerialNumberFn func(satelliteID storj.NodeID, serialNumber []byte, expiration time.Time)
+type SerialNumberFn func(satelliteID storj.NodeID, serialNumber storj.SerialNumber, expiration time.Time)
 
 // UsedSerials is a persistent store for serial numbers.
 // TODO: maybe this should be in orders.UsedSerials
 type UsedSerials interface {
 	// Add adds a serial to the database.
-	Add(ctx context.Context, satelliteID storj.NodeID, serialNumber []byte, expiration time.Time) error
+	Add(ctx context.Context, satelliteID storj.NodeID, serialNumber storj.SerialNumber, expiration time.Time) error
 	// DeleteExpired deletes expired serial numbers
 	DeleteExpired(ctx context.Context, now time.Time) error
 

@@ -27,7 +27,6 @@ func TestMonitor(t *testing.T) {
 	planet.Start(ctx)
 
 	var freeBandwidth int64
-	var freeSpace int64
 	for _, storageNode := range planet.StorageNodes {
 		storageNode.Storage2.Monitor.Loop.Pause()
 
@@ -36,14 +35,13 @@ func TestMonitor(t *testing.T) {
 
 		// assume that all storage nodes have the same initial values
 		freeBandwidth = info.Capacity.FreeBandwidth
-		freeSpace = info.Capacity.FreeDisk
 	}
 
 	expectedData := make([]byte, 100*memory.KiB)
 	_, err = rand.Read(expectedData)
 	require.NoError(t, err)
 
-	err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "test/bucket", "test/path", expectedData)
+	err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
 	require.NoError(t, err)
 
 	nodeAssertions := 0
@@ -56,7 +54,6 @@ func TestMonitor(t *testing.T) {
 		stats, err := storageNode.Storage2.Inspector.Stats(ctx, &pb.StatsRequest{})
 		require.NoError(t, err)
 		if stats.UsedSpace > 0 {
-			assert.Equal(t, freeSpace-stats.UsedSpace, info.Capacity.FreeDisk)
 			assert.Equal(t, freeBandwidth-stats.UsedBandwidth, info.Capacity.FreeBandwidth)
 			nodeAssertions++
 		}
