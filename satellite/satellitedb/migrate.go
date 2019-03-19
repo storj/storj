@@ -356,6 +356,20 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`CREATE INDEX IF NOT EXISTS bwa_created_at ON bwagreements (created_at)`,
 				},
 			},
+			{
+				Description: "Add registration_tokens table",
+				Version:     8,
+				Action: migrate.SQL{
+					`CREATE TABLE registration_tokens (
+                         secret bytea NOT NULL,
+						 owner_id bytea,
+						 project_limit integer NOT NULL,
+						 created_at timestamp with time zone NOT NULL,
+						 PRIMARY KEY ( secret ),
+						 UNIQUE ( owner_id )
+					)`,
+				},
+			},
 		},
 	}
 }
