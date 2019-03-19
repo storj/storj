@@ -5,7 +5,6 @@ package kademlia
 
 import (
 	"context"
-	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -20,10 +19,9 @@ import (
 
 // Dialer is a kademlia dialer
 type Dialer struct {
-	log          *zap.Logger
-	transport    transport.Client
-	limit        sync2.Semaphore
-	queryTimeout time.Duration
+	log       *zap.Logger
+	transport transport.Client
+	limit     sync2.Semaphore
 }
 
 // Conn represents a kademlia connection
