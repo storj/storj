@@ -8,6 +8,7 @@ import (
 	"context"
 	"io"
 	"io/ioutil"
+	"net/http"
 
 	"storj.io/storj/pkg/stream"
 	"storj.io/storj/pkg/utils"
@@ -75,10 +76,12 @@ func (b *Bucket) Upload(ctx context.Context, path storj.Path, data []byte, opts 
 
 	encScheme := b.Access.Uplink.config.GetEncryptionScheme()
 	redScheme := b.Access.Uplink.config.GetRedundancyScheme()
+	contentType := http.DetectContentType(data)
 
 	create := storj.CreateObject{
 		RedundancyScheme: redScheme,
 		EncryptionScheme: encScheme,
+		ContentType:      contentType,
 	}
 
 	obj, err := metainfo.CreateObject(ctx, b.Bucket.Name, path, &create)
