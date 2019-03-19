@@ -56,6 +56,7 @@ func TestUplink(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, storjBucket)
 		assert.Equal(t, storjBucket.Name, "testbucket")
+		assert.IsType(t, storj.Bucket{}, storjBucket)
 
 		encOpts := storj.EncryptionScheme{}
 		getbucket := access.GetBucket(ctx, "testbucket", encOpts)
@@ -80,6 +81,7 @@ func TestUplink(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.NotNil(t, list)
+		assert.Equal(t, len(list.Items), 0)
 
 		testdata := []byte{1, 1, 1, 1, 1}
 		uploadOpts := UploadOpts{}
@@ -100,6 +102,7 @@ func TestUplink(t *testing.T) {
 		assert.NotNil(t, list2)
 		assert.NoError(t, err)
 		assert.NotNil(t, list2.Items)
+		assert.Equal(t, len(list2.Items), 1)
 	})
 }
 
