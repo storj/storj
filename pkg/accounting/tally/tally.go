@@ -27,21 +27,22 @@ type Config struct {
 
 // Tally is the service for accounting for data stored on each storage node
 type Tally struct { // TODO: rename Tally to Service
+	logger        *zap.Logger
 	pointerdb     *pointerdb.Service
 	overlay       *overlay.Service
 	limit         int
-	logger        *zap.Logger
 	ticker        *time.Ticker
 	accountingDB  accounting.DB
 	bwAgreementDB bwagreement.DB // bwagreements database
 }
 
 // New creates a new Tally
-func New(logger *zap.Logger, accountingDB accounting.DB, bwAgreementDB bwagreement.DB, pointerdb *pointerdb.Service, overlay pb.OverlayServer, limit int, interval time.Duration) *Tally {
+func New(logger *zap.Logger, accountingDB accounting.DB, bwAgreementDB bwagreement.DB, pointerdb *pointerdb.Service, overlay *overlay.Service, limit int, interval time.Duration) *Tally {
 	return &Tally{
-		pointerdb:     pointerdb,
-		limit:         limit,
 		logger:        logger,
+		pointerdb:     pointerdb,
+		overlay:       overlay,
+		limit:         limit,
 		ticker:        time.NewTicker(interval),
 		accountingDB:  accountingDB,
 		bwAgreementDB: bwAgreementDB,

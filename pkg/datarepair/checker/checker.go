@@ -152,6 +152,9 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 						}
 					}
 
+					// TODO: irreparable segment should be using storj.NodeID or something, since at the point of repair
+					//       it may have been already repaired once.
+
 					remoteSegmentsLost++
 					// make an entry in to the irreparable table
 					segmentInfo := &pb.IrreparableSegment{
