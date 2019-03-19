@@ -21,7 +21,7 @@ func TestQuery(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	db, err := sql.Open("sqlite3", "file::memory:?mode=memory&_journal=WAL&_busy_timeout=30000")
+	db, err := sql.Open("sqlite3", sqliteutil.InMemory)
 	db.SetMaxOpenConns(1)
 	require.NoError(t, err)
 

@@ -9,6 +9,7 @@ import (
 
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/dbutil/pgutil"
+	"storj.io/storj/internal/dbutil/sqliteutil"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/certdb"
@@ -66,7 +67,7 @@ func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
 
 // NewInMemory creates instance of Sqlite in memory satellite database
 func NewInMemory(log *zap.Logger) (satellite.DB, error) {
-	return New(log, "sqlite3://file::memory:?mode=memory&_journal=WAL&_busy_timeout=30000")
+	return New(log, "sqlite3://" + sqliteutil.InMemory)
 }
 
 // Close is used to close db connection

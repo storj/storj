@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/dbutil/pgutil"
+	"storj.io/storj/internal/dbutil/sqliteutil"
 	"storj.io/storj/internal/migrate"
 
 	_ "github.com/lib/pq"
@@ -21,7 +22,7 @@ import (
 )
 
 func TestCreate_Sqlite(t *testing.T) {
-	db, err := sql.Open("sqlite3", "file::memory:?mode=memory&_journal=WAL&_busy_timeout=30000")
+	db, err := sql.Open("sqlite3", sqliteutil.InMemory)
 	db.SetMaxOpenConns(1)
 	if err != nil {
 		t.Fatal(err)

@@ -8,13 +8,15 @@ import (
 	"strconv"
 
 	"github.com/zeebo/errs"
-
 	"storj.io/storj/internal/dbutil/dbschema"
 )
 
+//InMemory is the connection string we use for connecting to SQLite in memory
+const InMemory = "file::memory:?mode=memory&_journal=WAL&_busy_timeout=30000"
+
 // LoadSchemaFromSQL inserts script into connstr and loads schema.
 func LoadSchemaFromSQL(script string) (_ *dbschema.Schema, err error) {
-	db, err := sql.Open("sqlite3", "file::memory:?mode=memory&_journal=WAL&_busy_timeout=30000")
+	db, err := sql.Open("sqlite3", InMemory)
 	db.SetMaxOpenConns(1)
 	if err != nil {
 		return nil, err
@@ -31,7 +33,7 @@ func LoadSchemaFromSQL(script string) (_ *dbschema.Schema, err error) {
 
 // LoadSnapshotFromSQL inserts script into connstr and loads schema.
 func LoadSnapshotFromSQL(script string) (_ *dbschema.Snapshot, err error) {
-	db, err := sql.Open("sqlite3", "file::memory:?mode=memory&_journal=WAL&_busy_timeout=30000")
+	db, err := sql.Open("sqlite3", InMemory)
 	db.SetMaxOpenConns(1)
 	if err != nil {
 		return nil, err

@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/dbutil/pgutil"
+	"storj.io/storj/internal/dbutil/sqliteutil"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb"
 )
@@ -23,7 +24,7 @@ const (
 	// DefaultPostgresConn is a connstring that works with docker-compose
 	DefaultPostgresConn = "postgres://storj:storj-pass@test-postgres/teststorj?sslmode=disable"
 	// DefaultSqliteConn is a connstring that is inmemory
-	DefaultSqliteConn = "sqlite3://file::memory:?mode=memory&_journal=WAL&_busy_timeout=30000"
+	DefaultSqliteConn = "sqlite3://" + sqliteutil.InMemory
 )
 
 var (

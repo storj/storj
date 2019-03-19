@@ -10,17 +10,17 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/lib/pq"
-	"github.com/mattn/go-sqlite3"
 	_ "github.com/mattn/go-sqlite3" // register sqlite to sql
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/migrate"
+	"storj.io/storj/internal/dbutil/sqliteutil"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
@@ -62,7 +62,7 @@ func Open(DBPath string) (*DB, error) {
 		return nil, err
 	}
 
-	db, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=memory&_journal=WAL&_busy_timeout=30000", DBPath))
+	db, err := sql.Open("sqlite3", strings.Replace(sqliteutil.InMemory, ":memory:", DBPath, 1))
 	db.SetMaxOpenConns(1)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -72,7 +72,7 @@ func Open(DBPath string) (*DB, error) {
 
 // OpenInMemory opens sqlite DB inmemory
 func OpenInMemory() (*DB, error) {
-	db, err := sql.Open("sqlite3", "file::memory:?mode=memory&_journal=WAL&_busy_timeout=30000")
+	db, err := sql.Open("sqlite3", sqliteutil.InMemory)
 	db.SetMaxOpenConns(1) //alternative to cache=shared or a mutex
 	if err != nil {
 		return nil, err
@@ -211,37 +211,6 @@ func (db *DB) Close() error {
 
 // DeleteExpired deletes expired pieces
 func (db *DB) DeleteExpired(ctx context.Context) (expired []string, err error) {
-	switch t := db.db.Driver().(type) {
-	case *sqlite3.SQLiteDriver:
-		return db.sqliteDeleteExpired(ctx)
-	case *pq.Driver:
-		return db.postgresDeleteExpired(ctx)
-	default:
-		return expired, fmt.Errorf("Unsupported database %t", t)
-	}
-}
-
-// postgresDeleteExpired deletes expired pieces
-func (db *DB) postgresDeleteExpired(ctx context.Context) (expired []string, err error) {
-	defer mon.Task()(&ctx)(&err)
-	now := time.Now().Unix()
-	rows, err := db.db.QueryContext(ctx, `DELETE FROM ttl WHERE expires > 0 AND expires < ? RETURNING id`, now)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { err = rows.Close() }()
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		expired = append(expired, id)
-	}
-	return expired, err
-}
-
-// sqliteDeleteExpired deletes expired pieces
-func (db *DB) sqliteDeleteExpired(ctx context.Context) (expired []string, err error) {
 	defer mon.Task()(&ctx)(&err)
 	tx, err := db.db.BeginTx(ctx, nil)
 	if err != nil {
