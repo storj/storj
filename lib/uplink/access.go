@@ -52,24 +52,23 @@ func (a *Access) CreateBucket(ctx context.Context, bucket string, opts CreateBuc
 	cfg := a.Uplink.config
 	metainfo, _, err := cfg.GetMetainfo(ctx, a.Uplink.id)
 	if err != nil {
-		return storj.Bucket{}, nil
+		return storj.Bucket{}, Error.Wrap(err)
 	}
 
 	encScheme := cfg.GetEncryptionScheme()
 
 	created, err := metainfo.CreateBucket(ctx, bucket, &storj.Bucket{PathCipher: encScheme.Cipher})
 	if err != nil {
-		return storj.Bucket{}, err
+		return storj.Bucket{}, Error.Wrap(err)
 	}
 	return created, nil
 }
 
 // DeleteBucket deletes a bucket if authorized
 func (a *Access) DeleteBucket(ctx context.Context, bucket string) error {
-	cfg := a.Uplink.config
-	metainfo, _, err := cfg.GetMetainfo(ctx, a.Uplink.id)
+	metainfo, _, err := a.Uplink.config.GetMetainfo(ctx, a.Uplink.id)
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 
 	return metainfo.DeleteBucket(ctx, bucket)
@@ -77,10 +76,9 @@ func (a *Access) DeleteBucket(ctx context.Context, bucket string) error {
 
 // ListBuckets will list authorized buckets
 func (a *Access) ListBuckets(ctx context.Context, opts storj.BucketListOptions) (storj.BucketList, error) {
-	cfg := a.Uplink.config
-	metainfo, _, err := cfg.GetMetainfo(ctx, a.Uplink.id)
+	metainfo, _, err := a.Uplink.config.GetMetainfo(ctx, a.Uplink.id)
 	if err != nil {
-		return storj.BucketList{}, err
+		return storj.BucketList{}, Error.Wrap(err)
 	}
 
 	return metainfo.ListBuckets(ctx, opts)
@@ -88,15 +86,14 @@ func (a *Access) ListBuckets(ctx context.Context, opts storj.BucketListOptions) 
 
 // GetBucketInfo returns info about the requested bucket if authorized
 func (a *Access) GetBucketInfo(ctx context.Context, bucket string) (storj.Bucket, error) {
-	config := a.Uplink.config
-	metainfo, _, err := config.GetMetainfo(ctx, a.Uplink.id)
+	metainfo, _, err := a.Uplink.config.GetMetainfo(ctx, a.Uplink.id)
 	if err != nil {
-		return storj.Bucket{}, err
+		return storj.Bucket{}, Error.Wrap(err)
 	}
 
 	b, err := metainfo.GetBucket(ctx, bucket)
 	if err != nil {
-		return storj.Bucket{}, err
+		return storj.Bucket{}, Error.Wrap(err)
 	}
 
 	return b, nil
