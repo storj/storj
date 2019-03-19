@@ -132,7 +132,6 @@ type Peer struct {
 
 	Overlay struct {
 		Service   *overlay.Cache
-		Endpoint  *overlay.Server
 		Inspector *overlay.Inspector
 	}
 

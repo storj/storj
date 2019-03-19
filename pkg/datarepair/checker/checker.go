@@ -39,14 +39,14 @@ type Checker struct {
 	statdb      statdb.DB
 	pointerdb   *pointerdb.Service
 	repairQueue queue.RepairQueue
-	overlay     *overlay.Service
+	overlay     *overlay.Cache
 	irrdb       irreparable.DB
 	logger      *zap.Logger
 	Loop        sync2.Cycle
 }
 
 // NewChecker creates a new instance of checker
-func NewChecker(pointerdb *pointerdb.Service, sdb statdb.DB, repairQueue queue.RepairQueue, overlay *overlay.Service, irrdb irreparable.DB, limit int, logger *zap.Logger, interval time.Duration) *Checker {
+func NewChecker(pointerdb *pointerdb.Service, sdb statdb.DB, repairQueue queue.RepairQueue, overlay *overlay.Cache, irrdb irreparable.DB, limit int, logger *zap.Logger, interval time.Duration) *Checker {
 	// TODO: reorder arguments
 	checker := &Checker{
 		statdb:      sdb,

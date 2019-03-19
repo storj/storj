@@ -29,7 +29,7 @@ type Config struct {
 type Tally struct { // TODO: rename Tally to Service
 	logger        *zap.Logger
 	pointerdb     *pointerdb.Service
-	overlay       *overlay.Service
+	overlay       *overlay.Cache
 	limit         int
 	ticker        *time.Ticker
 	accountingDB  accounting.DB
@@ -37,7 +37,7 @@ type Tally struct { // TODO: rename Tally to Service
 }
 
 // New creates a new Tally
-func New(logger *zap.Logger, accountingDB accounting.DB, bwAgreementDB bwagreement.DB, pointerdb *pointerdb.Service, overlay *overlay.Service, limit int, interval time.Duration) *Tally {
+func New(logger *zap.Logger, accountingDB accounting.DB, bwAgreementDB bwagreement.DB, pointerdb *pointerdb.Service, overlay *overlay.Cache, limit int, interval time.Duration) *Tally {
 	return &Tally{
 		logger:        logger,
 		pointerdb:     pointerdb,

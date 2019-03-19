@@ -57,15 +57,56 @@ type DB interface {
 	Delete(ctx context.Context, id storj.NodeID) error
 }
 
+// FindStorageNodeRequest defines easy request parameters.
+type FindStorageNodeRequest struct {
+	MinimumRequiredNodes int
+	RequestedCount       int
+
+	FreeBandwidth int64
+	FreeDisk      int64
+
+	ExcludedNodes []storj.NodeID
+}
+
+// NodeCriteria are the requirements for selecting nodes
+type NodeCriteria struct {
+	FreeBandwidth int64
+	FreeDisk      int64
+
+	AuditCount         int64
+	AuditSuccessRatio  float64
+	UptimeCount        int64
+	UptimeSuccessRatio float64
+
+	Excluded []storj.NodeID
+}
+
+// NewNodeCriteria are the requirement for selecting new nodes
+type NewNodeCriteria struct {
+	FreeBandwidth int64
+	FreeDisk      int64
+
+	AuditThreshold int64
+
+	Excluded []storj.NodeID
+}
+
 // Cache is used to store overlay data in Redis
 type Cache struct {
-	db     DB
-	statDB statdb.DB
+	log         *zap.Logger
+	db          DB
+	statDB      statdb.DB
+	preferences NodeSelectionConfig
 }
 
 // NewCache returns a new Cache
-func NewCache(db DB, sdb statdb.DB) *Cache {
-	return &Cache{db: db, statDB: sdb}
+func NewCache(log *zap.Logger, db DB, sdb statdb.DB, preferences NodeSelectionConfig) *Cache {
+	return &Cache{
+		log:         log,
+		db:          db,
+		statDB:      sdb,
+		preferences: preferences,
+	}
 }
 
 // Close closes resources
@@ -94,6 +135,28 @@ func (cache *Cache) Get(ctx context.Context, nodeID storj.NodeID) (*pb.Node, err
 	}
 
 	return cache.db.Get(ctx, nodeID)
+}
+
+// OfflineNodes returns indices of the nodes that are offline
+func (cache *Cache) OfflineNodes(ctx context.Context, nodes []storj.NodeID) (offline []int, err error) {
+	// TODO: optimize
+	results, err := cache.GetAll(ctx, nodes)
+	if err != nil {
+		return nil, err
+	}
+
+	for i, r := range results {
+		if r == nil {
+			offline = append(offline, i)
+		}
+	}
+
+	return offline, nil
+}
+
+// FindStorageNodesDefault searches the overlay network for nodes that meet the provided requirements
+func (cache *Cache) FindStorageNodesDefault(ctx context.Context, req FindStorageNodeRequest) (_ []*pb.Node, err error) {
+	return cache.FindStorageNodes(ctx, req, &cache.preferences)
 }
 
 // FindStorageNodes searches the overlay network for nodes that meet the provided criteria
