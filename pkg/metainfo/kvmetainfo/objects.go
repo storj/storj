@@ -16,7 +16,6 @@ import (
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/encryption"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/objects"
@@ -386,12 +385,15 @@ func (db *DB) objectStreamFromMeta(ctx context.Context, bucket storj.Bucket, pat
 		return storj.Object{}, err
 	}
 
+	components := storj.SplitPath(encryptedPath)
+
 	var segmentList []storj.Segment
 	for i := int64(0); i < stream.NumberOfSegments-1; i++ {
-		currentPath := storj.JoinPaths(fmt.Sprintf("s%d", i), encryptedPath)
-		pointer, nodes, _, err := db.pointers.Get(ctx, currentPath)
+		pointer, limits, err := db.metainfo.ReadSegment(ctx, bucket.Name, components[1], i)
+
 		if err != nil {
 			if storage.ErrKeyNotFound.Has(err) {
+				fmt.Println("Hello Hello........")
 				err = storj.ErrObjectNotFound.Wrap(err)
 			}
 			return storj.Object{}, err
@@ -408,13 +410,9 @@ func (db *DB) objectStreamFromMeta(ctx context.Context, bucket storj.Bucket, pat
 			// minium need pieces
 			segInfo.Needed = calcNeededNodes(pointer.GetRemote().GetRedundancy())
 
-			nodes, err := lookupAndAlignNodes(ctx, db.overlay, nodes, seg)
-			if err != nil {
-				return storj.Object{}, err
-			}
-
+			segInfo.Online = countOnlineNodes(ctx, limits)
 			// currently available nodes
-			segInfo.Online = int32(len(nodes))
+			// segInfo.Online = int32(len(nodes))
 
 		} else {
 			// TODO: handle better
@@ -454,37 +452,15 @@ func calcNeededNodes(rs *pb.RedundancyScheme) int32 {
 	return needed
 }
 
-// lookupNodes, if necessary, calls Lookup to get node addresses from the overlay.
-// It also realigns the nodes to an indexed list of nodes based on the piece number.
-// Missing pieces are represented by a nil node.
-func lookupAndAlignNodes(ctx context.Context, oc overlay.Client, nodes []*pb.Node, seg *pb.RemoteSegment) (result []*pb.Node, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if nodes == nil {
-		// Get list of all nodes IDs storing a piece from the segment
-		var nodeIds storj.NodeIDList
-		for _, p := range seg.RemotePieces {
-			nodeIds = append(nodeIds, p.NodeId)
-		}
-		// Lookup the node info from node IDs
-		nodes, err = oc.BulkLookup(ctx, nodeIds)
-		if err != nil {
-			return nil, err
-		}
-	}
+// countOnlineNodes counts the number of online nodes
+func countOnlineNodes(ctx context.Context, nodes []*pb.AddressedOrderLimit) (count int32) {
 	for _, v := range nodes {
 		if v != nil {
-			v.Type.DPanicOnInvalid("lookup and align nodes")
+			count++
 		}
 	}
 
-	// Realign the nodes
-	result = make([]*pb.Node, seg.GetRedundancy().GetTotal())
-	for i, p := range seg.GetRemotePieces() {
-		result[p.PieceNum] = nodes[i]
-	}
-
-	return result, nil
+	return count
 }
 
 // convertTime converts gRPC timestamp to Go time
