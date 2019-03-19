@@ -18,22 +18,27 @@ import (
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/uplink"
 )
 
 func TestSegmentStoreRepair(t *testing.T) {
-	numStorageNodes := 10
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: numStorageNodes, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// first, upload some remote data
-		uplink := planet.Uplinks[0]
+		ul := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
 
 		testData := make([]byte, 5*memory.MiB)
 		_, err := rand.Read(testData)
 		assert.NoError(t, err)
 
-		err = uplink.Upload(ctx, satellite, "test/bucket", "test/path", testData)
+		err = ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
+			MinThreshold:     1,
+			RepairThreshold:  2,
+			SuccessThreshold: 3,
+			MaxThreshold:     4,
+		}, "test/bucket", "test/path", testData)
 		assert.NoError(t, err)
 
 		// get a remote segment from pointerdb
@@ -100,7 +105,7 @@ func TestSegmentStoreRepair(t *testing.T) {
 		}
 
 		// we should be able to download data without any of the original nodes
-		newData, err := uplink.Download(ctx, satellite, "test/bucket", "test/path")
+		newData, err := ul.Download(ctx, satellite, "test/bucket", "test/path")
 		assert.NoError(t, err)
 		assert.Equal(t, newData, testData)
 
