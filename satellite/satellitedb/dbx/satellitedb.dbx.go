@@ -3486,6 +3486,30 @@ func (obj *postgresImpl) Get_Node_By_Id(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Find_Node_By_Id(ctx context.Context,
+	node_id Node_Id_Field) (
+	node *Node, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email FROM nodes WHERE nodes.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	node = &Node{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return node, nil
+
+}
+
 func (obj *postgresImpl) All_Node_Id(ctx context.Context) (
 	rows []*Id_Row, err error) {
 
@@ -5634,6 +5658,30 @@ func (obj *sqlite3Impl) Get_Node_By_Id(ctx context.Context,
 
 	node = &Node{}
 	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return node, nil
+
+}
+
+func (obj *sqlite3Impl) Find_Node_By_Id(ctx context.Context,
+	node_id Node_Id_Field) (
+	node *Node, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email FROM nodes WHERE nodes.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	node = &Node{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7901,6 +7949,16 @@ func (rx *Rx) Find_AccountingTimestamps_Value_By_Name(ctx context.Context,
 	return tx.Find_AccountingTimestamps_Value_By_Name(ctx, accounting_timestamps_name)
 }
 
+func (rx *Rx) Find_Node_By_Id(ctx context.Context,
+	node_id Node_Id_Field) (
+	node *Node, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Find_Node_By_Id(ctx, node_id)
+}
+
 func (rx *Rx) First_Injuredsegment(ctx context.Context) (
 	injuredsegment *Injuredsegment, err error) {
 	var tx *Tx
@@ -8380,6 +8438,10 @@ type Methods interface {
 	Find_AccountingTimestamps_Value_By_Name(ctx context.Context,
 		accounting_timestamps_name AccountingTimestamps_Name_Field) (
 		row *Value_Row, err error)
+
+	Find_Node_By_Id(ctx context.Context,
+		node_id Node_Id_Field) (
+		node *Node, err error)
 
 	First_Injuredsegment(ctx context.Context) (
 		injuredsegment *Injuredsegment, err error)

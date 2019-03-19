@@ -13,12 +13,10 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
@@ -151,18 +149,6 @@ func (uplink *Uplink) DialPiecestore(ctx context.Context, destination Peer) (*pi
 	signer := signing.SignerFromFullIdentity(uplink.Transport.Identity())
 
 	return piecestore.NewClient(uplink.Log.Named("uplink>piecestore"), signer, conn, piecestore.DefaultConfig), nil
-}
-
-// DialOverlay dials destination and returns an overlay.Client
-func (uplink *Uplink) DialOverlay(destination Peer) (overlay.Client, error) {
-	info := destination.Local()
-	conn, err := uplink.Transport.DialNode(context.Background(), &info, grpc.WithBlock())
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO: handle disconnect
-	return overlay.NewClientFrom(pb.NewOverlayClient(conn)), nil
 }
 
 // Upload data to specific satellite
