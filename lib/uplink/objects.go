@@ -80,5 +80,5 @@ type ListObjectsFields interface{}
 
 // Range returns an objects data
 func (o *Object) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
-
+	panic("TODO")
 }
