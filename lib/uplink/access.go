@@ -66,12 +66,24 @@ func (a *Access) CreateBucket(ctx context.Context, bucket string, opts CreateBuc
 
 // DeleteBucket deletes a bucket if authorized
 func (a *Access) DeleteBucket(ctx context.Context, bucket string) error {
-	panic("TODO")
+	cfg := a.Uplink.config
+	metainfo, _, err := cfg.GetMetainfo(ctx, a.Uplink.id)
+	if err != nil {
+		return err
+	}
+
+	return metainfo.DeleteBucket(ctx, bucket)
 }
 
 // ListBuckets will list authorized buckets
 func (a *Access) ListBuckets(ctx context.Context, opts storj.BucketListOptions) (storj.BucketList, error) {
-	panic("TODO")
+	cfg := a.Uplink.config
+	metainfo, _, err := cfg.GetMetainfo(ctx, a.Uplink.id)
+	if err != nil {
+		return storj.BucketList{}, err
+	}
+
+	return metainfo.ListBuckets(ctx, opts)
 }
 
 // GetBucketInfo returns info about the requested bucket if authorized
@@ -93,7 +105,8 @@ func (a *Access) GetBucketInfo(ctx context.Context, bucket string) (storj.Bucket
 // GetBucket returns a Bucket with the given Encryption information
 func (a *Access) GetBucket(ctx context.Context, bucket string, encryption storj.EncryptionScheme) *Bucket {
 	opts := &BucketOpts{
-		PathCipher: encryption.Cipher,
+		PathCipher:       encryption.Cipher,
+		EncryptionScheme: a.Uplink.config.GetEncryptionScheme(),
 	}
 	return &Bucket{
 		Access: a,
