@@ -155,13 +155,13 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 		timer.Stop()
 	}
 
-	// TODO: clean up the partially uploaded segment's pieces
 	defer func() {
 		select {
 		case <-ctx.Done():
 			err = errs.Combine(
 				Error.New("upload cancelled by user"),
-				// ec.Delete(context.Background(), nodes, pieceID, pba.SatelliteId), //TODO
+				// TODO: clean up the partially uploaded segment's pieces
+				// ec.Delete(context.Background(), nodes, pieceID, pba.SatelliteId),
 			)
 		default:
 		}
