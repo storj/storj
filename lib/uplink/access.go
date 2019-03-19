@@ -5,16 +5,11 @@ package uplink
 
 import (
 	"context"
-	"errors"
 
 	"storj.io/storj/pkg/storj"
 )
 
-// Access is all of the access information an application needs to store and
-// retrieve data. Someone with a share may have no restrictions within a project
-// (can create buckets, list buckets, list files, upload files, delete files,
-// etc), may be restricted to a single bucket, may be restricted to a prefix
-// within a bucket, or may even be restricted to a single file within a bucket.
+// Access holds a reference to Uplink and a set of permissions for actions on a bucket.
 type Access struct {
 	Permissions Permissions
 	Uplink      *Uplink
@@ -29,22 +24,13 @@ type Macaroon interface {
 // Permissions are parsed by Uplink and return an Access struct
 type Permissions struct {
 	Macaroon Macaroon
+	APIKey   string
 }
 
 // Caveat could be a read-only restriction, a time-bound
 // restriction, a bucket-specific restriction, a path-prefix restriction, a
 // full path restriction, etc.
 type Caveat interface {
-}
-
-// ParseAccess parses a serialized Access
-func ParseAccess(data []byte) (Access, error) {
-	return Access{}, errors.New("not implemented")
-}
-
-// Serialize serializes an Access message
-func (a *Access) Serialize() ([]byte, error) {
-	return []byte{}, errors.New("not implemented")
 }
 
 // CreateBucket creates a bucket from the passed opts
@@ -57,11 +43,7 @@ func (a *Access) CreateBucket(ctx context.Context, bucket string, opts CreateBuc
 
 	encScheme := cfg.GetEncryptionScheme()
 
-	created, err := metainfo.CreateBucket(ctx, bucket, &storj.Bucket{PathCipher: encScheme.Cipher})
-	if err != nil {
-		return storj.Bucket{}, Error.Wrap(err)
-	}
-	return created, nil
+	return metainfo.CreateBucket(ctx, bucket, &storj.Bucket{PathCipher: encScheme.Cipher})
 }
 
 // DeleteBucket deletes a bucket if authorized
@@ -91,22 +73,21 @@ func (a *Access) GetBucketInfo(ctx context.Context, bucket string) (storj.Bucket
 		return storj.Bucket{}, Error.Wrap(err)
 	}
 
-	b, err := metainfo.GetBucket(ctx, bucket)
-	if err != nil {
-		return storj.Bucket{}, Error.Wrap(err)
-	}
-
-	return b, nil
+	return metainfo.GetBucket(ctx, bucket)
 }
 
 // GetBucket returns a Bucket with the given Encryption information
 func (a *Access) GetBucket(ctx context.Context, bucket string, encryption storj.EncryptionScheme) *Bucket {
-	opts := &BucketOpts{
+	opts := &Encryption{
 		PathCipher:       encryption.Cipher,
 		EncryptionScheme: a.Uplink.config.GetEncryptionScheme(),
 	}
 	return &Bucket{
 		Access: a,
-		Opts:   opts,
+		Enc:    opts,
+		Bucket: storj.Bucket{
+			Name:       bucket,
+			PathCipher: encryption.Cipher,
+		},
 	}
 }
