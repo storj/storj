@@ -16,9 +16,9 @@ import (
 	ul "storj.io/storj/uplink"
 )
 
-// BucketOpts holds the cipher, path, key, and enc. scheme for each bucket since they
+// Encryption holds the cipher, path, key, and enc. scheme for each bucket since they
 // can be different for each
-type BucketOpts struct {
+type Encryption struct {
 	PathCipher       storj.Cipher
 	EncPathPrefix    storj.Path
 	Key              storj.Key
@@ -28,7 +28,7 @@ type BucketOpts struct {
 // Bucket is a struct that allows operations on a Bucket after a user providers Permissions
 type Bucket struct {
 	Access *Access
-	Opts   *BucketOpts
+	Enc    *Encryption
 	Bucket storj.Bucket
 }
 
