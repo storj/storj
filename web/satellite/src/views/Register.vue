@@ -2,82 +2,117 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="register" v-on:keyup.enter="onCreateClick">
-        <div class="register-area">
-            <div class="register-area__scrollable">
-                <div class="register-area__scrollable__navLabel">
-                    <router-link to="/" exact>
-                        <svg class="register-area__scrollable__navLabel__back-image" width="19" height="19"
-                             viewBox="0 0 19 19" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path fill-rule="evenodd" clip-rule="evenodd"
-                                  d="M10.5607 0.43934C11.1464 1.02513 11.1464 1.97487 10.5607 2.56066L5.12132 8H17.5C18.3284 8 19 8.67157 19 9.5C19 10.3284 18.3284 11 17.5 11H5.12132L10.5607 16.4393C11.1464 17.0251 11.1464 17.9749 10.5607 18.5607C9.97487 19.1464 9.02513 19.1464 8.43934 18.5607L0.43934 10.5607C-0.146447 9.97487 -0.146447 9.02513 0.43934 8.43934L8.43934 0.43934C9.02513 -0.146447 9.97487 -0.146447 10.5607 0.43934Z"
-                                  fill="#384B65"/>
-                        </svg>
-                    </router-link>
-                    <h1>Sign Up</h1>
+    <div class="register-container" v-on:keyup.enter="onCreateClick">
+        <div class="loading-overlay">
+            <img src="../../static/images/register/Loading.gif">
+        </div>
+        <img class="planet" src="../../static/images/Mars.png" alt="" >
+        <div class="register-container__wrapper">
+            <div class="register-container__header">
+                <img class="register-container__logo" src="../../static/images/login/Logo.svg" alt="logo" v-on:click="onLogoClick">
+                <div class="register-container__register-button" v-on:click.prevent="onLoginPress">
+                    <p>Login</p>
                 </div>
-                <div class="register-area__scrollable__form-area">
-                    <HeaderedInput
-                            class="full-input"
-                            label="First name"
-                            placeholder="Enter First Name"
-                            :error="firstNameError"
-                            @setData="setFirstName">
-                    </HeaderedInput>
-                    <HeaderedInput
-                            class="full-input"
-                            label="Last Name"
-                            placeholder="Enter Last Name"
-                            @setData="setLastName">
-                    </HeaderedInput>
-                    <HeaderedInput
-                            class="full-input"
-                            label="Email"
-                            placeholder="Enter Email"
-                            :error="emailError"
-                            @setData="setEmail">
-                    </HeaderedInput>
-                    <HeaderedInput
+            </div>
+            <div class="register-area-wrapper">
+                <div class="register-area">
+                    <div class="register-area__title-container">
+                        <h1>Sign Up to Storj</h1>
+                        <p>Satellite:<b>Mars</b></p>
+                    </div>
+                    <HeaderlessInput
+                        class="full-input"
+                        label="Full name"
+                        placeholder="Enter Full Name"
+                        :error="fullNameError"
+                        @setData="setFullName"
+                        width="100%"
+                        height="46px"
+                        isWhite>
+                    </HeaderlessInput>
+                    <HeaderlessInput
+                        class="full-input"
+                        label="Preferred Short Name"
+                        placeholder="Enter Short Name"
+                        :error="shortNameError"
+                        @setData="setShortName"
+                        width="100%"
+                        height="46px"
+                        isWhite>
+                    </HeaderlessInput>
+                    <HeaderlessInput
+                        class="full-input"
+                        label="Email"
+                        placeholder="Enter Email"
+                        :error="emailError"
+                        @setData="setEmail"
+                        width="100%"
+                        height="46px"
+                        isWhite>
+                    </HeaderlessInput>
+                    <HeaderlessInput
+                        class="full-input"
+                        label="Authorization token"
+                        placeholder="Enter Authorization token"
+                        :error="tokenError"
+                        @setData="setAuthToken"
+                        width="100%"
+                        height="46px"
+                        isWhite>
+                    </HeaderlessInput>
+                    <div class="register-input">
+                        <HeaderlessInput
                             class="full-input"
                             label="Password"
                             placeholder="Enter Password"
                             :error="passwordError"
                             @setData="setPassword"
+                            width="100%"
+                            height="46px"
+                            isWhite
                             isPassword>
-                    </HeaderedInput>
-                    <HeaderedInput
+                        </HeaderlessInput>
+                        <span
+                            v-html="infoImage"
+                            title="Use 6 or more characters with a mix of letters and numbers"></span>
+                    </div>
+                    <div class="register-input">
+                        <HeaderlessInput
                             class="full-input"
                             label="Repeat Password"
                             placeholder="Repeat Password"
                             :error="repeatedPasswordError"
                             @setData="setRepeatedPassword"
-                            isPassword>
-                    </HeaderedInput>
-                    <!-- end of optional area -->
-                    <div class="register-area__scrollable__form-area__terms-area">
-                        <Checkbox
-                                class="register-area__scrollable__form-area__terms-area__checkbox"
-                                @setData="setTermsAccepted"
-                                :isCheckboxError="isTermsAcceptedError"/>
-                        <h2>I agree to the Storj Bridge Hosting <a>Terms & Conditions</a></h2>
+                            width="100%"
+                            height="46px"
+                            isPassword
+                            isWhite >
+                        </HeaderlessInput>
+                        <span v-html="infoImage"></span>
                     </div>
-                    <Button id="createAccountButton" class="register-area__scrollable__form-area__create-button" label="Create Account"
-                            width="100%" height="48px" :onPress="onCreateClick"/>
+                    <div class="register-area__submit-container">
+                        <div class="register-area__submit-container__terms-area">
+                            <label class="container">
+                                <input type="checkbox" v-model="isTermsAccepted">
+                                <span v-bind:class="[isTermsAcceptedError ? 'checkmark error': 'checkmark']"></span>
+                            </label>
+                            <h2>I agree to the <a>Terms & Conditions</a></h2>
+                        </div>
+                        <div id="createAccountButton" class="register-area__submit-container__create-button" v-on:click.prevent="onCreateClick">
+                            <p>Create Account</p>
+                        </div>
+                    </div>
                 </div>
             </div>
-
         </div>
-
-        <img class="layout-image" src="../../static/images/register/RegisterImage.svg"/>
         <RegistrationSuccessPopup />
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import HeaderedInput from '@/components/common/HeaderedInput.vue';
-import Checkbox from '@/components/common/Checkbox.vue';
-import Button from '@/components/common/Button.vue';
+import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 import RegistrationSuccessPopup from '@/components/common/RegistrationSuccessPopup.vue';
 import { validateEmail, validatePassword } from '@/utils/validation';
 import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
@@ -105,11 +140,8 @@ import { createUserRequest } from '@/api/users';
                 this.$data.repeatedPassword = value;
                 this.$data.repeatedPasswordError = '';
             },
-            setTermsAccepted: function (value: boolean) {
-                this.$data.isTermsAccepted = value;
-                this.$data.isTermsAcceptedError = false;
-            },
             onCreateClick: async function () {
+                (document as any).querySelector('.loading-overlay').classList.add('active');
                 let hasError = false;
                 const firstName = this.$data.firstName.trim();
                 const email = this.$data.email.trim();
@@ -174,11 +206,13 @@ import { createUserRequest } from '@/api/users';
                 isTermsAcceptedError: false,
             };
         },
-        computed: {},
+        computed: {
+            infoImage: function() {
+                return EMPTY_STATE_IMAGES.INFO
+            },
+        },
         components: {
-            HeaderedInput,
-            Checkbox,
-            Button,
+            HeaderlessInput,
             RegistrationSuccessPopup
         }
     })
@@ -194,239 +228,333 @@ export default class Register extends Vue {
         margin: 0 !important;
     }
 
-    .register {
+    .register-container {
         position: fixed;
-        background-color: #fff;
-        display: flex;
-        flex-direction: row;
-        justify-content: space-between;
-        align-items: center;
-        height: 100vh;
         width: 100%;
-        overflow: hidden;
+        height: 100%;
+        left: 0;
+        top: 0;
+        z-index: 10;
+        background-size: contain;
+        display: flex;
+        justify-content: flex-start;
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 60px 0px 0px 104px;
+        background-image: url("../../static/images/Background.png");
+        background-repeat: no-repeat;
+        background-size: auto;
+
+        .register-input {
+            position: relative;
+            width: 100%;
+
+            span {
+                position: absolute;
+                top: 66px;
+                right: 43px;
+            }
+        }
+
+        &__wrapper {
+            min-width: 50%;
+            height: 86vh;
+        }
+
+        &__header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-direction: row;
+            width: 100%;
+        }
+
+        &__logo {
+            width: 139px;
+            height: 62px;
+        }
+
+        &__register-button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: transparent;
+            border-radius: 6px;
+            border: 1px solid white;
+            cursor: pointer;
+            width: 160px;
+            height: 48px;
+
+            p {
+                font-family: 'montserrat_bold';
+                font-size: 14px;
+                line-height: 19px;
+                margin-block-start: 0;
+                margin-block-end: 0;
+                color: white;
+            }
+
+            &:hover {
+                background-color: white;
+
+                p {
+                    color: #2683FF;
+                }
+            }
+        }
+    }
+
+    .register-area-wrapper {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: flex-start;
+        justify-content: flex-end;
+        margin-top: 50px;
     }
 
     .register-area {
-        background-color: white;
-        width: 100%;
-        max-height: 100vh;
+        background-color: transparent;
+        width: 620px;
+        border-radius: 6px;
+        display: flex;
+        justify-content: center;
+        flex-direction: column;
+        align-items: flex-start;
 
-        &__scrollable {
-            height: 100vh;
+        &__title-container {
+            height: 48px;
             display: flex;
-            flex-direction: column;
-            justify-content: flex-start;
+            justify-content: space-between;
+            align-items: flex-end;
+            flex-direction: row;
+            margin-bottom: 20px;
+            width: 100%;
 
-            &__navLabel {
+            h1 {
+                font-family: 'montserrat_bold';
+                font-size: 22px;
+                color: white;
+                line-height: 27px;
+                margin-block-start: 0;
+                margin-block-end: 0;
+            }
+
+            p {
+                font-family: 'montserrat_regular';
+                font-size: 16px;
+                color: white;
+                line-height: 21px;
+                margin-block-start: 0;
+                margin-block-end: 0;
+
+                b {
+                    font-family: 'montserrat_bold';
+                    margin-left: 7px;
+                }
+            }
+        }
+
+        &__submit-container {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            margin-top: 20px;
+
+            &__terms-area {
+                display: flex;
+                flex-direction: row;
+                justify-content: center;
+                align-items: center;
+
+                &__checkbox {
+                    align-self: center;
+                }
+
+                h2 {
+                    font-family: 'montserrat_regular';
+                    font-size: 14px;
+                    line-height: 20px;
+                    margin-top: 14px;
+                    margin-left: 10px;
+                    color: white;
+                }
+
+                a {
+                    color: white;
+                    font-family: 'montserrat_bold';
+
+                    &:hover {
+                        text-decoration: underline;
+                    }
+                }
+
+                .container {
+                    display: block;
+                    position: relative;
+                    padding-left: 20px;
+                    height: 25px;
+                    width: 25px;
+                    cursor: pointer;
+                    font-size: 22px;
+                    -webkit-user-select: none;
+                    -moz-user-select: none;
+                    -ms-user-select: none;
+                    user-select: none;
+                    outline: none;
+                }
+
+                .container input {
+                    position: absolute;
+                    opacity: 0;
+                    cursor: pointer;
+                    height: 0;
+                    width: 0;
+                }
+
+                .checkmark {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    height: 25px;
+                    width: 25px;
+                    border: 2px solid white;
+                    border-radius: 4px;
+                }
+
+                .container:hover input ~ .checkmark {
+                    background-color: white;
+                }
+
+                .container input:checked ~ .checkmark {
+                    border: 2px solid white;
+                    background-color: transparent;
+                }
+
+                .checkmark:after {
+                    content: "";
+                    position: absolute;
+                    display: none;
+                }
+
+                .checkmark.error {
+                    border-color: red;
+                }
+
+                .container input:checked ~ .checkmark:after {
+                    display: block;
+                }
+
+                .container .checkmark:after {
+                    left: 9px;
+                    top: 5px;
+                    width: 5px;
+                    height: 10px;
+                    border: solid white;
+                    border-width: 0 3px 3px 0;
+                    -webkit-transform: rotate(45deg);
+                    -ms-transform: rotate(45deg);
+                    transform: rotate(45deg);
+                }
+            }
+
+            &__create-button {
                 display: flex;
                 align-items: center;
-                flex-direction: row;
-                justify-content: flex-start;
-                align-self: center;
-                width: 68%;
-                margin-top: 70px;
-                h1 {
-                    color: #384B65;
-                    margin-left: 24px;
-                    font-family: 'montserrat_bold'
+                justify-content: center;
+                background-color: #2683FF;
+                border-radius: 6px;
+                cursor: pointer;
+                width: 160px;
+                height: 48px;
+                box-shadow: 0px 16px 24px #3A54DF;
+
+                p {
+                    font-family: 'montserrat_bold';
+                    font-size: 14px;
+                    line-height: 19px;
+                    margin-block-start: 0;
+                    margin-block-end: 0;
+                    color: white;
                 }
 
-                &__back-image {
-                    width: 21px;
-                    height: 21px;
-
-                    &:hover path {
-                        fill: #2683FF !important;
-                    }
-                }
-            }
-
-            &__form-area {
-                margin-top: 50px;
-                align-self: center;
-                width: 35vw;
-
-                &__company-area {
-                    display: flex;
-                    flex-direction: row;
-                    justify-content: space-between;
-                    align-items: center;
-                    width: 100%;
-                    margin-top: 32px;
-                    h2 {
-                        font-family: 'montserrat_bold';
-                        font-size: 20px;
-                        line-height: 27px;
-                        margin-right: 11px;
-                    }
-                ;
-                    &__details-area {
-                        cursor: pointer;
-                        display: flex;
-                        flex-direction: row;
-                        justify-content: center;
-                        align-items: center;
-
-                        &__text {
-                            font-size: 16px;
-                            line-height: 23px;
-                        }
-
-                        &__expander-area {
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                            width: 28px;
-                            height: 28px;
-                            border-radius: 4px;
-
-                            &:hover {
-                                background-color: #E2ECF7;
-                            }
-                        }
-                    }
-                ;
-                }
-
-                &__terms-area {
-                    display: flex;
-                    flex-direction: row;
-                    justify-content: flex-start;
-                    margin-top: 20px;
-
-                    &__checkbox {
-                        align-self: center;
-                    }
-                ;
-
-                    h2 {
-                        font-family: 'montserrat_regular';
-                        font-size: 14px;
-                        line-height: 20px;
-                        margin-top: 30px;
-                        margin-left: 10px;
-                    }
-                ;
-                    a {
-                        color: #2683FF;
-                        font-family: 'montserrat_bold';
-
-                        &:hover {
-                            text-decoration: underline;
-                        }
-                    }
-                }
-
-                &__create-button {
-                    margin-top: 30px;
-                    margin-bottom: 100px;
+                &:hover {
+                    box-shadow: none;
                 }
             }
         }
     }
 
-    .input-container.full-input {
+    .input-wrap.full-input {
         width: 100%;
     }
 
-    .layout-image {
-        background-color: #2683FF;
-        display: block;
+    .planet {
+        position: absolute;
+        bottom: -61px;
+        right: -257px;
+        z-index: -100;
+    }
+
+    .loading-overlay {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        left: 0;
         height: 100vh;
+        z-index: 100;
+        background-color: rgba(134, 134, 148, 0.7);
+        visibility: hidden;
+        opacity: 0;
+        -webkit-transition: all 0.5s linear;
+        -moz-transition: all 0.5s linear;
+        -o-transition: all 0.5s linear;
+        transition: all 0.5s linear;
+
+        img {
+            z-index: 200;
+        }
     }
 
-    a {
-        cursor: pointer;
-    }
-
-    #optional-area {
-        height: auto;
+    .loading-overlay.active {
         visibility: visible;
         opacity: 1;
-        transition: 0.5s;
     }
 
-    #optional-area.optional-area--active {
-        animation: mymove 0.5s ease-in-out;
-    }
+    @media screen and (max-height: 950px) {
+        .register-container {
+            overflow: hidden;
 
-    #optional-area.optional-area {
-        height: 0px;
-        visibility: hidden;
-        position: absolute;
-        animation: mymoveout 0.5s ease-in-out;
-    }
+            &__wrapper {
+                height: 870px;
+                overflow-y: scroll;
+                overflow-x: hidden;
+                -ms-overflow-style: none;
+                overflow: -moz-scrollbars-none;
 
-    @keyframes mymove {
-        from {
-            height: 0px;
-            visibility: hidden;
-            opacity: 0;
-        }
-        to {
-            height: 100%;
-            visibility: visible;
-            opacity: 1;
-        }
-    }
-
-    @keyframes mymoveout {
-        from {
-            height: 100%;
-            visibility: visible;
-            opacity: 1;
-        }
-        to {
-            height: 0px;
-            visibility: hidden;
-            opacity: 0;
-        }
-    }
-
-    @media screen and (max-width: 1440px) {
-        .register-area {
-            background-color: white;
-            width: 100%;
-            max-height: 100vh;
-
-            &__scrollable {
-                 width: 60vw;
-            }
-        }
-    }
-
-    @media screen and (max-width: 720px), screen and (max-height: 880px) {
-        .register {
-            flex-direction: column;
-        }
-        .layout-image {
-            position: absolute;
-            display: block;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 200px;
-        }
-        .register-area {
-            width: 100vw;
-            overflow-y: scroll;
-            height: calc(100vh - 200px);
-
-            &__scrollable {
-                 width: auto;
-
-                &__form-area {
-
-                    &__create-button {
-                         margin-bottom: 50px;
-                    }
-                }
-
-                &__form-area {
-                     width: 75vw;
+                &::-webkit-scrollbar {
+                    width: 0 !important;
+                    display: none;
                 }
             }
         }
     }
 
+    @media screen and (max-height: 810px) {
+        .register-container {
+            &__wrapper {
+                height: 660px;
+            }
+        }
+
+        .register-area__submit-container {
+            margin-bottom: 25px;
+        }
+    }
 </style>
