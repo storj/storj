@@ -29,11 +29,7 @@ type ObjectMeta struct {
 	Expires  time.Time
 
 	Size     int64
-	Checksum string
-
-	// this differs from storj.Object by not having Version (yet), and not
-	// having a Stream embedded. I'm also not sold on splitting ContentType out
-	// from Metadata but shrugemoji.
+	Checksum []byte
 }
 
 // UploadOpts controls options about uploading a new Object, if authorized.
@@ -84,5 +80,5 @@ type ListObjectsFields interface{}
 
 // Range returns an objects data
 func (o *Object) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
-	return nil, nil
+
 }
