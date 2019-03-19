@@ -389,6 +389,47 @@ func (m *lockedProjects) Update(ctx context.Context, project *console.Project) e
 	return m.db.Update(ctx, project)
 }
 
+// RegistrationTokens is a getter for RegistrationTokens repository
+func (m *lockedConsole) RegistrationTokens() console.RegistrationTokens {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedRegistrationTokens{m.Locker, m.db.RegistrationTokens()}
+}
+
+// lockedRegistrationTokens implements locking wrapper for console.RegistrationTokens
+type lockedRegistrationTokens struct {
+	sync.Locker
+	db console.RegistrationTokens
+}
+
+// Create creates new registration token
+func (m *lockedRegistrationTokens) Create(ctx context.Context, projectLimit int) (*console.RegistrationToken, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Create(ctx, projectLimit)
+}
+
+// GetByOwnerID retrieves RegTokenInfo by ownerID
+func (m *lockedRegistrationTokens) GetByOwnerID(ctx context.Context, ownerID uuid.UUID) (*console.RegistrationToken, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetByOwnerID(ctx, ownerID)
+}
+
+// GetBySecret retrieves RegTokenInfo with given Secret
+func (m *lockedRegistrationTokens) GetBySecret(ctx context.Context, secret console.RegistrationSecret) (*console.RegistrationToken, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetBySecret(ctx, secret)
+}
+
+// UpdateOwner updates registration token's owner
+func (m *lockedRegistrationTokens) UpdateOwner(ctx context.Context, secret console.RegistrationSecret, ownerID uuid.UUID) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateOwner(ctx, secret, ownerID)
+}
+
 // Users is a getter for Users repository
 func (m *lockedConsole) Users() console.Users {
 	m.Lock()

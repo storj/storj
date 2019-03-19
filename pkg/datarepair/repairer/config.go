@@ -19,7 +19,8 @@ import (
 // Config contains configurable values for repairer
 type Config struct {
 	MaxRepair    int           `help:"maximum segments that can be repaired concurrently" default:"100"`
-	Interval     time.Duration `help:"how frequently checker should audit segments" default:"3600s"`
+	Interval     time.Duration `help:"how frequently checker should audit segments" default:"1h0m0s"`
+	Timeout      time.Duration `help:"time limit for uploading repaired pieces to new storage nodes" default:"1m0s"`
 	MaxBufferMem memory.Size   `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4M"`
 }
 
@@ -29,5 +30,5 @@ func (c Config) GetSegmentRepairer(ctx context.Context, tc transport.Client, poi
 
 	ec := ecclient.NewClient(tc, c.MaxBufferMem.Int())
 
-	return segments.NewSegmentRepairer(pointerdb, allocation, cache, ec, identity, selectionPreferences), nil
+	return segments.NewSegmentRepairer(pointerdb, allocation, cache, ec, identity, selectionPreferences, c.Timeout), nil
 }

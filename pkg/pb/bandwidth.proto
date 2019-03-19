@@ -10,6 +10,7 @@ import "piecestore.proto";
 
 service Bandwidth {
   rpc BandwidthAgreements(piecestoreroutes.RenterBandwidthAllocation) returns (AgreementsSummary) {}
+  rpc Settlement(stream BandwidthSettlementRequest) returns (stream BandwidthSettlementResponse) {}
 }
 
 message AgreementsSummary {
@@ -20,4 +21,13 @@ message AgreementsSummary {
   }
 
   Status status = 1;
+}
+
+message BandwidthSettlementRequest {
+    piecestoreroutes.RenterBandwidthAllocation allocation = 1;
+}
+
+message BandwidthSettlementResponse {
+    string serial_number = 1;
+    AgreementsSummary.Status status = 2;
 }
