@@ -4,11 +4,12 @@
 package segments_test
 
 import (
-	"crypto/rand"
+	"math/rand"
 	"testing"
-	time "time"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
@@ -38,13 +39,13 @@ func TestSegmentStoreRepair(t *testing.T) {
 			RepairThreshold:  2,
 			SuccessThreshold: 3,
 			MaxThreshold:     4,
-		}, "test/bucket", "test/path", testData)
-		assert.NoError(t, err)
+		}, "testbucket", "test/path", testData)
+		require.NoError(t, err)
 
 		// get a remote segment from pointerdb
 		pdb := satellite.Metainfo.Service
 		listResponse, _, err := pdb.List("", "", "", true, 0, 0)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		var path string
 		var pointer *pb.Pointer
@@ -56,7 +57,9 @@ func TestSegmentStoreRepair(t *testing.T) {
 				break
 			}
 		}
+
 		// calculate how many storagenodes to kill
+		numStorageNodes := len(planet.StorageNodes)
 		redundancy := pointer.GetRemote().GetRedundancy()
 		remotePieces := pointer.GetRemote().GetRemotePieces()
 		minReq := redundancy.GetMinReq()
@@ -85,9 +88,7 @@ func TestSegmentStoreRepair(t *testing.T) {
 		}
 
 		// repair segment
-		overlayDB := satellite.DB.OverlayCache()
-		statDB := satellite.DB.StatDB()
-		oc := overlay.NewCache(overlayDB, statDB)
+		oc := satellite.Overlay.Service
 		as := satellite.Metainfo.Allocation
 		ec := ecclient.NewClient(satellite.Transport, 0)
 		repairer := segments.NewSegmentRepairer(pdb, as, oc, ec, satellite.Identity, &overlay.NodeSelectionConfig{}, time.Minute)
@@ -105,7 +106,7 @@ func TestSegmentStoreRepair(t *testing.T) {
 		}
 
 		// we should be able to download data without any of the original nodes
-		newData, err := ul.Download(ctx, satellite, "test/bucket", "test/path")
+		newData, err := ul.Download(ctx, satellite, "testbucket", "test/path")
 		assert.NoError(t, err)
 		assert.Equal(t, newData, testData)
 
