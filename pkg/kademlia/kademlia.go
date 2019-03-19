@@ -43,13 +43,13 @@ type discoveryOptions struct {
 
 // Kademlia is an implementation of kademlia adhering to the DHT interface.
 type Kademlia struct {
-	log            *zap.Logger
-	alpha          int // alpha is a system wide concurrency parameter
-	routingTable   *RoutingTable
-	bootstrapNodes []pb.Node
-	dialer         *Dialer
-	lookups        sync2.WorkGroup
-	queryTimeout   time.Duration
+	log             *zap.Logger
+	alpha           int // alpha is a system wide concurrency parameter
+	routingTable    *RoutingTable
+	bootstrapNodes  []pb.Node
+	dialer          *Dialer
+	lookups         sync2.WorkGroup
+	pingbackTimeout time.Duration
 
 	bootstrapFinished sync2.Fence
 
@@ -66,7 +66,7 @@ func NewService(log *zap.Logger, self pb.Node, transport transport.Client, rt *R
 		bootstrapNodes:   config.BootstrapNodes(),
 		dialer:           NewDialer(log.Named("dialer"), transport),
 		refreshThreshold: int64(time.Minute),
-		queryTimeout:     config.QueryTimeout,
+		pingbackTimeout:  config.PingbackTimeout,
 	}
 
 	return k, nil

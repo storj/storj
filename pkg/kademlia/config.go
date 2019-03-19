@@ -31,7 +31,7 @@ type Config struct {
 	// TODO: reduce the number of flags here
 	Alpha int `help:"alpha is a system wide concurrency parameter" default:"5"`
 	// TODO: make this a shorter amount of time
-	QueryTimeout time.Duration `help:"query timeout is the allotted time in seconds for a query to complete" default:"60s"`
+	PingbackTimeout time.Duration `help:"pingback timeout is the allotted time for a pingback to complete" default:"60s"`
 	RoutingTableConfig
 }
 
