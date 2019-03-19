@@ -40,7 +40,6 @@ type Uplink struct {
 	Identity         *identity.FullIdentity
 	Transport        transport.Client
 	StorageNodeCount int
-	RS               *uplink.RSConfig
 	APIKey           map[storj.NodeID]string
 }
 
@@ -60,7 +59,6 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 		Log:              planet.log.Named(name),
 		Identity:         identity,
 		StorageNodeCount: storageNodeCount,
-		RS:               planet.config.RS,
 	}
 
 	uplink.Log.Debug("id=" + identity.ID.String())
@@ -269,17 +267,10 @@ func (uplink *Uplink) getConfig(satellite *satellite.Peer) uplink.Config {
 	config.Client.PointerDBAddr = satellite.Addr()
 	config.Client.APIKey = uplink.APIKey[satellite.ID()]
 
-	if uplink.RS != nil {
-		config.RS.MinThreshold = uplink.RS.MinThreshold
-		config.RS.RepairThreshold = uplink.RS.RepairThreshold
-		config.RS.SuccessThreshold = uplink.RS.SuccessThreshold
-		config.RS.MaxThreshold = uplink.RS.MaxThreshold
-	} else {
-		config.RS.MinThreshold = 1 * uplink.StorageNodeCount / 5
-		config.RS.RepairThreshold = 2 * uplink.StorageNodeCount / 5
-		config.RS.SuccessThreshold = 3 * uplink.StorageNodeCount / 5
-		config.RS.MaxThreshold = 4 * uplink.StorageNodeCount / 5
-	}
+	config.RS.MinThreshold = 1 * uplink.StorageNodeCount / 5
+	config.RS.RepairThreshold = 2 * uplink.StorageNodeCount / 5
+	config.RS.SuccessThreshold = 3 * uplink.StorageNodeCount / 5
+	config.RS.MaxThreshold = 4 * uplink.StorageNodeCount / 5
 
 	config.TLS.UsePeerCAWhitelist = false
 	config.TLS.Extensions.Revocation = false

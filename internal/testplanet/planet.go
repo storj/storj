@@ -51,7 +51,6 @@ import (
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/storagenodedb"
-	"storj.io/storj/uplink"
 )
 
 // Peer represents one of StorageNode or Satellite
@@ -70,7 +69,6 @@ type Config struct {
 	StorageNodeCount int
 	UplinkCount      int
 
-	RS          *uplink.RSConfig
 	Identities  *Identities
 	Reconfigure Reconfigure
 }
@@ -137,16 +135,6 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 		SatelliteCount:   satelliteCount,
 		StorageNodeCount: storageNodeCount,
 		UplinkCount:      uplinkCount,
-	})
-}
-
-// NewWithRSValues creates a new full system with custom redundancy scheme values
-func NewWithRSValues(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCount int, rs *uplink.RSConfig) (*Planet, error) {
-	return NewCustom(log, Config{
-		SatelliteCount:   satelliteCount,
-		StorageNodeCount: storageNodeCount,
-		UplinkCount:      uplinkCount,
-		RS:               rs,
 	})
 }
 
