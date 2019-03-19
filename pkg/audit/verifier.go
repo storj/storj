@@ -71,7 +71,7 @@ func (d *defaultDownloader) getShare(ctx context.Context, limit *pb.AddressedOrd
 	bandwidthMsgSize := shareSize
 
 	// determines number of seconds allotted for receiving data from a storage node
-	seconds := time.Second * time.Duration(bandwidthMsgSize/d.minBytesPerSecond.Int32())
+	seconds := time.Duration(int32(time.Second) * bandwidthMsgSize / d.minBytesPerSecond.Int32())
 	timedCtx, cancel := context.WithTimeout(ctx, seconds)
 	defer cancel()
 

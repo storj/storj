@@ -4,7 +4,7 @@
 package audit_test
 
 import (
-	"crypto/rand"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -35,7 +35,7 @@ func TestGetShareTimeout(t *testing.T) {
 		_, err = rand.Read(testData)
 		assert.NoError(t, err)
 
-		err = uplink.Upload(ctx, planet.Satellites[0], "test/bucket", "test/path", testData)
+		err = uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		assert.NoError(t, err)
 
 		pointerdb := planet.Satellites[0].Metainfo.Service
@@ -69,6 +69,7 @@ func TestGetShareTimeout(t *testing.T) {
 		verifier := audit.NewVerifier(zap.L(), slowClient, overlay, planet.Satellites[0].Identity, minBytesPerSecond)
 		require.NotNil(t, verifier)
 
+		// stop some storage nodes to ensure audit can deal with it
 		err = planet.StopPeer(planet.StorageNodes[0])
 		assert.NoError(t, err)
 		err = planet.StopPeer(planet.StorageNodes[1])
