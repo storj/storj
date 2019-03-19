@@ -169,7 +169,7 @@ func (endpoint *Endpoint) VerifyAvailableBandwidth(ctx context.Context, limit *p
 	if err != nil {
 		return ErrInternal.Wrap(err)
 	}
-	allocatedBandwidth := endpoint.oldConfig.AllocatedDiskSpace.Int64()
+	allocatedBandwidth := endpoint.oldConfig.AllocatedBandwidth.Int64()
 	if (allocatedBandwidth - usage.Total()) < limit.Limit {
 		return ErrProtocol.New("out of bandwidth")
 	}
