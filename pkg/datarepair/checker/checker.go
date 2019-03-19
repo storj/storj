@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/statdb"
@@ -38,14 +39,14 @@ type Checker struct {
 	statdb      statdb.DB
 	pointerdb   *pointerdb.Service
 	repairQueue queue.RepairQueue
-	overlay     pb.OverlayServer
+	overlay     *overlay.Service
 	irrdb       irreparable.DB
 	logger      *zap.Logger
 	Loop        sync2.Cycle
 }
 
 // NewChecker creates a new instance of checker
-func NewChecker(pointerdb *pointerdb.Service, sdb statdb.DB, repairQueue queue.RepairQueue, overlay pb.OverlayServer, irrdb irreparable.DB, limit int, logger *zap.Logger, interval time.Duration) *Checker {
+func NewChecker(pointerdb *pointerdb.Service, sdb statdb.DB, repairQueue queue.RepairQueue, overlay *overlay.Service, irrdb irreparable.DB, limit int, logger *zap.Logger, interval time.Duration) *Checker {
 	// TODO: reorder arguments
 	checker := &Checker{
 		statdb:      sdb,
@@ -115,7 +116,7 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 				}
 
 				// Find all offline nodes
-				offlineNodes, err := checker.OfflineNodes(ctx, nodeIDs)
+				offlineNodes, err := checker.overlay.OfflineNodes(ctx, nodeIDs)
 				if err != nil {
 					return Error.New("error getting offline nodes %s", err)
 				}
@@ -182,23 +183,8 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 	return nil
 }
 
-// OfflineNodes returns the indices of offline nodes
-func (checker *Checker) OfflineNodes(ctx context.Context, nodeIDs storj.NodeIDList) (offline []int32, err error) {
-	responses, err := checker.overlay.BulkLookup(ctx, pb.NodeIDsToLookupRequests(nodeIDs))
-	if err != nil {
-		return []int32{}, err
-	}
-	nodes := pb.LookupResponsesToNodes(responses)
-	for i, n := range nodes {
-		if n == nil {
-			offline = append(offline, int32(i))
-		}
-	}
-	return offline, nil
-}
-
 // Find invalidNodes by checking the audit results that are place in statdb
-func (checker *Checker) invalidNodes(ctx context.Context, nodeIDs storj.NodeIDList) (invalidNodes []int32, err error) {
+func (checker *Checker) invalidNodes(ctx context.Context, nodeIDs storj.NodeIDList) (invalidNodes []int, err error) {
 	// filter if nodeIDs have invalid pieces from auditing results
 	maxStats := &statdb.NodeStats{
 		AuditSuccessRatio: 0, // TODO: update when we have stats added to statdb
@@ -217,7 +203,7 @@ func (checker *Checker) invalidNodes(ctx context.Context, nodeIDs storj.NodeIDLi
 
 	for i, nID := range nodeIDs {
 		if invalidNodesMap[nID] {
-			invalidNodes = append(invalidNodes, int32(i))
+			invalidNodes = append(invalidNodes, i)
 		}
 	}
 
@@ -225,16 +211,18 @@ func (checker *Checker) invalidNodes(ctx context.Context, nodeIDs storj.NodeIDLi
 }
 
 // combine the offline nodes with nodes marked invalid by statdb
-func combineOfflineWithInvalid(offlineNodes []int32, invalidNodes []int32) (missingPieces []int32) {
-	missingPieces = append(missingPieces, offlineNodes...)
+func combineOfflineWithInvalid(offlineNodes []int, invalidNodes []int) (missingPieces []int32) {
+	for _, offline := range offlineNodes {
+		missingPieces = append(missingPieces, int32(offline))
+	}
 
-	offlineMap := make(map[int32]bool)
+	offlineMap := make(map[int]bool)
 	for _, i := range offlineNodes {
 		offlineMap[i] = true
 	}
 	for _, i := range invalidNodes {
 		if !offlineMap[i] {
-			missingPieces = append(missingPieces, i)
+			missingPieces = append(missingPieces, int32(i))
 		}
 	}
 

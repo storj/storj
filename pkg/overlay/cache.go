@@ -97,23 +97,15 @@ func (cache *Cache) Get(ctx context.Context, nodeID storj.NodeID) (*pb.Node, err
 }
 
 // FindStorageNodes searches the overlay network for nodes that meet the provided criteria
-func (cache *Cache) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesRequest, preferences *NodeSelectionConfig) ([]*pb.Node, error) {
-	// TODO: use a nicer struct for input
-
-	minimumRequiredNodes := int(req.GetMinNodes())
-	freeBandwidth := req.GetOpts().GetRestrictions().FreeBandwidth
-	freeDisk := req.GetOpts().GetRestrictions().FreeDisk
-	excludedNodes := req.GetOpts().ExcludedNodes
-	requestedCount := int(req.GetOpts().GetAmount())
-
+func (cache *Cache) FindStorageNodes(ctx context.Context, req FindStorageNodeRequest, preferences *NodeSelectionConfig) ([]*pb.Node, error) {
 	// TODO: verify logic
 
 	// TODO: add sanity limits to requested node count
 	// TODO: add sanity limits to excluded nodes
 
-	reputableNodeCount := minimumRequiredNodes
+	reputableNodeCount := req.MinimumRequiredNodes
 	if reputableNodeCount <= 0 {
-		reputableNodeCount = requestedCount
+		reputableNodeCount = req.RequestedCount
 	}
 
 	auditCount := preferences.AuditCount
@@ -122,15 +114,15 @@ func (cache *Cache) FindStorageNodes(ctx context.Context, req *pb.FindStorageNod
 	}
 
 	reputableNodes, err := cache.db.SelectStorageNodes(ctx, reputableNodeCount, &NodeCriteria{
-		FreeBandwidth: freeBandwidth,
-		FreeDisk:      freeDisk,
+		FreeBandwidth: req.FreeBandwidth,
+		FreeDisk:      req.FreeDisk,
 
 		AuditCount:         auditCount,
 		AuditSuccessRatio:  preferences.AuditSuccessRatio,
 		UptimeCount:        preferences.UptimeCount,
 		UptimeSuccessRatio: preferences.UptimeRatio,
 
-		Excluded: excludedNodes,
+		Excluded: req.ExcludedNodes,
 	})
 	if err != nil {
 		return nil, err
@@ -138,12 +130,12 @@ func (cache *Cache) FindStorageNodes(ctx context.Context, req *pb.FindStorageNod
 
 	newNodeCount := int64(float64(reputableNodeCount) * preferences.NewNodePercentage)
 	newNodes, err := cache.db.SelectNewStorageNodes(ctx, int(newNodeCount), &NewNodeCriteria{
-		FreeBandwidth: freeBandwidth,
-		FreeDisk:      freeDisk,
+		FreeBandwidth: req.FreeBandwidth,
+		FreeDisk:      req.FreeDisk,
 
 		AuditThreshold: preferences.NewNodeAuditThreshold,
 
-		Excluded: excludedNodes,
+		Excluded: req.ExcludedNodes,
 	})
 	if err != nil {
 		return nil, err
