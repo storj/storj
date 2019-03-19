@@ -127,14 +127,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						created_at timestamp with time zone NOT NULL,
 						PRIMARY KEY ( id )
 					)`,
-					`CREATE TABLE IF NOT EXISTS registration_tokens (
-                         secret bytea NOT NULL,
-						 owner_id bytea,
-						 project_limit integer NOT NULL,
-						 created_at timestamp with time zone NOT NULL,
-						 PRIMARY KEY ( secret ),
-						 UNIQUE ( owner_id )
-					)`,
 					`CREATE TABLE IF NOT EXISTS users (
 						id bytea NOT NULL,
 						first_name text NOT NULL,
