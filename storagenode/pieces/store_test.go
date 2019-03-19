@@ -56,6 +56,8 @@ func TestPieces(t *testing.T) {
 
 		// commit
 		require.NoError(t, writer.Commit())
+		// after commit we should be able to call cancel without an error
+		require.NoError(t, writer.Cancel())
 	}
 
 	{ // valid reads
@@ -71,6 +73,8 @@ func TestPieces(t *testing.T) {
 			n, err := io.ReadFull(reader, data)
 			require.NoError(t, err)
 			require.Equal(t, int(length), n)
+
+			require.NoError(t, reader.Close())
 
 			return data
 		}
@@ -99,10 +103,11 @@ func TestPieces(t *testing.T) {
 
 		// cancel writing
 		require.NoError(t, writer.Cancel())
+		// commit should not fail
+		require.Error(t, writer.Commit())
 
 		// read should fail
 		_, err = store.Reader(ctx, satelliteID, cancelledPieceID)
 		assert.Error(t, err)
 	}
-
 }
