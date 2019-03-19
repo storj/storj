@@ -354,7 +354,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 }
 
 func identitySetup(network *Processes) (*Processes, error) {
-	processes := NewProcesses()
+	processes := NewProcesses(network.Directory)
 
 	for _, process := range network.List {
 		identity := processes.New(Info{
