@@ -57,8 +57,7 @@ type Kademlia struct {
 }
 
 // NewService returns a newly configured Kademlia instance
-func NewService(log *zap.Logger, self pb.Node, transport transport.Client, rt *RoutingTable,
-	config Config) (*Kademlia, error) {
+func NewService(log *zap.Logger, self pb.Node, transport transport.Client, rt *RoutingTable, config Config) (*Kademlia, error) {
 	k := &Kademlia{
 		log:              log,
 		alpha:            config.Alpha,
