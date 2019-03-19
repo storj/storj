@@ -77,8 +77,7 @@ func TestUploadDownload(t *testing.T) {
 
 	// addresses
 	gwCfg.Server.Address = "127.0.0.1:7777"
-	uplinkCfg.Client.OverlayAddr = planet.Satellites[0].Addr()
-	uplinkCfg.Client.PointerDBAddr = planet.Satellites[0].Addr()
+	uplinkCfg.Client.SatelliteAddr = planet.Satellites[0].Addr()
 
 	// keys
 	uplinkCfg.Client.APIKey = "apiKey"

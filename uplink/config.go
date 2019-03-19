@@ -49,10 +49,7 @@ type EncryptionConfig struct {
 // ClientConfig is a configuration struct for the uplink that controls how
 // to talk to the rest of the network.
 type ClientConfig struct {
-	// TODO(jt): these should probably be the same
-	OverlayAddr   string `help:"Address to contact overlay server through"`
-	PointerDBAddr string `help:"Address to contact pointerdb server through"`
-
+	SatelliteAddr string      `help:"Address to contact the satellite"`
 	APIKey        string      `help:"API Key (TODO: this needs to change to macaroons somehow)"`
 	MaxInlineSize memory.Size `help:"max inline segment size in bytes" default:"4KiB"`
 	SegmentSize   memory.Size `help:"the size of a segment in bytes" default:"64MiB"`
@@ -83,18 +80,11 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 	}
 	tc := transport.NewClient(tlsOpts)
 
-	if c.Client.OverlayAddr == "" || c.Client.PointerDBAddr == "" {
-		var errlist errs.Group
-		if c.Client.OverlayAddr == "" {
-			errlist.Add(errors.New("overlay address not specified"))
-		}
-		if c.Client.PointerDBAddr == "" {
-			errlist.Add(errors.New("pointerdb address not specified"))
-		}
-		return nil, nil, errlist.Err()
+	if c.Client.SatelliteAddr == "" {
+		return nil, nil, errors.New("satellite address not specified")
 	}
 
-	metainfo, err := metainfo.NewClient(ctx, tc, c.Client.PointerDBAddr, c.Client.APIKey)
+	metainfo, err := metainfo.NewClient(ctx, tc, c.Client.SatelliteAddr, c.Client.APIKey)
 	if err != nil {
 		return nil, nil, Error.New("failed to connect to metainfo service: %v", err)
 	}

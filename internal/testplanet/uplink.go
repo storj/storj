@@ -242,8 +242,7 @@ func (uplink *Uplink) Delete(ctx context.Context, satellite *satellite.Peer, buc
 
 func (uplink *Uplink) getConfig(satellite *satellite.Peer) uplink.Config {
 	config := getDefaultConfig()
-	config.Client.OverlayAddr = satellite.Addr()
-	config.Client.PointerDBAddr = satellite.Addr()
+	config.Client.SatelliteAddr = satellite.Addr()
 	config.Client.APIKey = uplink.APIKey[satellite.ID()]
 
 	config.RS.MinThreshold = 1 * uplink.StorageNodeCount / 5
