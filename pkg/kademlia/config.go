@@ -6,7 +6,6 @@ package kademlia
 import (
 	"fmt"
 	"regexp"
-	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -30,8 +29,6 @@ type Config struct {
 
 	// TODO: reduce the number of flags here
 	Alpha int `help:"alpha is a system wide concurrency parameter" default:"5"`
-	// TODO: make this a shorter amount of time
-	PingbackTimeout time.Duration `help:"pingback timeout is the allotted time for a pingback to complete" default:"60s"`
 	RoutingTableConfig
 }
 

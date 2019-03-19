@@ -6,6 +6,7 @@ package kademlia
 import (
 	"context"
 	"sync/atomic"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -18,18 +19,20 @@ var EndpointError = errs.Class("kademlia endpoint error")
 
 // Endpoint implements the kademlia Endpoints
 type Endpoint struct {
-	log          *zap.Logger
-	service      *Kademlia
-	routingTable *RoutingTable
-	connected    int32
+	log             *zap.Logger
+	service         *Kademlia
+	routingTable    *RoutingTable
+	connected       int32
+	pingbackTimeout time.Duration
 }
 
 // NewEndpoint returns a new kademlia endpoint
-func NewEndpoint(log *zap.Logger, service *Kademlia, routingTable *RoutingTable) *Endpoint {
+func NewEndpoint(log *zap.Logger, service *Kademlia, routingTable *RoutingTable, pingbackTimeout time.Duration) *Endpoint {
 	return &Endpoint{
-		service:      service,
-		routingTable: routingTable,
-		log:          log,
+		service:         service,
+		routingTable:    routingTable,
+		log:             log,
+		pingbackTimeout: pingbackTimeout,
 	}
 }
 
@@ -37,7 +40,7 @@ func NewEndpoint(log *zap.Logger, service *Kademlia, routingTable *RoutingTable)
 func (endpoint *Endpoint) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error) {
 
 	if req.GetPingback() {
-		timedCtx, cancel := context.WithTimeout(ctx, endpoint.service.pingbackTimeout)
+		timedCtx, cancel := context.WithTimeout(ctx, endpoint.pingbackTimeout)
 		defer cancel()
 		endpoint.pingback(timedCtx, req.Sender)
 	}

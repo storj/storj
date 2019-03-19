@@ -403,7 +403,6 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 					Email:  prefix + "@example.com",
 					Wallet: "0x" + strings.Repeat("00", 20),
 				},
-				PingbackTimeout: 60 * time.Second,
 			},
 			Overlay: overlay.Config{
 				Node: overlay.NodeSelectionConfig{
@@ -546,7 +545,6 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 					Email:  prefix + "@example.com",
 					Wallet: "0x" + strings.Repeat("00", 20),
 				},
-				PingbackTimeout: 60 * time.Second,
 			},
 			Storage: psserver.Config{
 				Path:                   "", // TODO: this argument won't be needed with master storagenodedb
@@ -632,7 +630,6 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 				Email:  prefix + "@example.com",
 				Wallet: "0x" + strings.Repeat("00", 20),
 			},
-			PingbackTimeout: 60 * time.Second,
 		},
 		Web: bootstrapserver.Config{
 			Address:   "127.0.0.1:0",
