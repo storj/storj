@@ -14,38 +14,38 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-// ServerError creates class of errors for stack traces
-var ServerError = errs.Class("Server Error")
+// Error is the default error class for overlay
+var Error = errs.Class("overlay")
 
-// Server implements our overlay RPC service
-type Server struct {
+// Service implements selecting nodes based on specified config.
+type Service struct {
 	log         *zap.Logger
-	cache       *Cache
 	metrics     *monkit.Registry
+	cache       *Cache
 	preferences *NodeSelectionConfig
 }
 
-// NewServer creates a new Overlay Server
-func NewServer(log *zap.Logger, cache *Cache, preferences *NodeSelectionConfig) *Server {
-	return &Server{
+// NewService creates a new Overlay Service
+func NewService(log *zap.Logger, cache *Cache, preferences *NodeSelectionConfig) *Service {
+	return &Service{
 		cache:       cache,
-		log:         log,
 		metrics:     monkit.Default,
+		log:         log,
 		preferences: preferences,
 	}
 }
 
 // Close closes resources
-func (server *Server) Close() error { return nil }
+func (service *Service) Close() error { return nil }
 
 // Lookup finds the address of a node in our overlay network
-func (server *Server) Lookup(ctx context.Context, req *pb.LookupRequest) (_ *pb.LookupResponse, err error) {
+func (service *Service) Lookup(ctx context.Context, req *pb.LookupRequest) (_ *pb.LookupResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	na, err := server.cache.Get(ctx, req.NodeId)
+	na, err := service.cache.Get(ctx, req.NodeId)
 
 	if err != nil {
-		server.log.Error("Error looking up node", zap.Error(err), zap.String("nodeID", req.NodeId.String()))
+		service.log.Error("Error looking up node", zap.Error(err), zap.String("nodeID", req.NodeId.String()))
 		return nil, err
 	}
 
@@ -55,12 +55,12 @@ func (server *Server) Lookup(ctx context.Context, req *pb.LookupRequest) (_ *pb.
 }
 
 // BulkLookup finds the addresses of nodes in our overlay network
-func (server *Server) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) (_ *pb.LookupResponses, err error) {
+func (service *Service) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) (_ *pb.LookupResponses, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	ns, err := server.cache.GetAll(ctx, lookupRequestsToNodeIDs(reqs))
+	ns, err := service.cache.GetAll(ctx, lookupRequestsToNodeIDs(reqs))
 	if err != nil {
-		return nil, ServerError.New("could not get nodes requested %s\n", err)
+		return nil, Error.New("could not get nodes requested %s\n", err)
 	}
 	return nodesToLookupResponses(ns), nil
 }
@@ -89,16 +89,16 @@ type NewNodeCriteria struct {
 }
 
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
-func (server *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesRequest) (resp *pb.FindStorageNodesResponse, err error) {
+func (service *Service) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesRequest) (resp *pb.FindStorageNodesResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return server.FindStorageNodesWithPreferences(ctx, req, server.preferences)
+	return service.FindStorageNodesWithPreferences(ctx, req, service.preferences)
 }
 
 // FindStorageNodesWithPreferences searches the overlay network for nodes that meet the provided requirements
 // exposed mainly for testing
-func (server *Server) FindStorageNodesWithPreferences(ctx context.Context, req *pb.FindStorageNodesRequest, preferences *NodeSelectionConfig) (resp *pb.FindStorageNodesResponse, err error) {
+func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req *pb.FindStorageNodesRequest, preferences *NodeSelectionConfig) (resp *pb.FindStorageNodesResponse, err error) {
 	// TODO: use better structs for find storage nodes
-	nodes, err := server.cache.FindStorageNodes(ctx, req, preferences)
+	nodes, err := service.cache.FindStorageNodes(ctx, req, preferences)
 	return &pb.FindStorageNodesResponse{
 		Nodes: nodes,
 	}, err
