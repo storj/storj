@@ -17,7 +17,8 @@ var (
 
 // Config contains everything necessary for a server
 type Config struct {
-	Path                    string        `help:"path to store data in" default:"$CONFDIR/storage"`
+	Path string `help:"path to store data in" default:"$CONFDIR/storage"`
+
 	WhitelistedSatelliteIDs string        `help:"a comma-separated list of approved satellite node ids" default:""`
 	SatelliteIDRestriction  bool          `help:"if true, only allow data from approved satellites" default:"false"`
 	AllocatedDiskSpace      memory.Size   `user:"true" help:"total allocated disk space in bytes" default:"1TB"`
