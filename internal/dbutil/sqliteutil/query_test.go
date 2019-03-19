@@ -22,8 +22,8 @@ func TestQuery(t *testing.T) {
 	defer ctx.Cleanup()
 
 	db, err := sql.Open("sqlite3", sqliteutil.InMemory)
-	db.SetMaxOpenConns(1)
 	require.NoError(t, err)
+	db.SetMaxOpenConns(1)
 
 	defer ctx.Check(db.Close)
 

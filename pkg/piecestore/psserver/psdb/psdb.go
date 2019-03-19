@@ -46,7 +46,6 @@ const (
 
 // DB is a piece store database
 type DB struct {
-	//mu sync.Mutex
 	db *sql.DB
 }
 
@@ -61,22 +60,21 @@ func Open(DBPath string) (*DB, error) {
 	if err := os.MkdirAll(filepath.Dir(DBPath), 0700); err != nil {
 		return nil, err
 	}
-
 	db, err := sql.Open("sqlite3", strings.Replace(sqliteutil.InMemory, ":memory:", DBPath, 1))
-	db.SetMaxOpenConns(1)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
+	db.SetMaxOpenConns(1)
 	return &DB{db: db}, nil
 }
 
 // OpenInMemory opens sqlite DB inmemory
 func OpenInMemory() (*DB, error) {
 	db, err := sql.Open("sqlite3", sqliteutil.InMemory)
-	db.SetMaxOpenConns(1) //alternative to cache=shared or a mutex
 	if err != nil {
 		return nil, err
 	}
+	db.SetMaxOpenConns(1)
 	return &DB{db: db}, nil
 }
 

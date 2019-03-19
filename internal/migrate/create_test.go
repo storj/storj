@@ -23,10 +23,10 @@ import (
 
 func TestCreate_Sqlite(t *testing.T) {
 	db, err := sql.Open("sqlite3", sqliteutil.InMemory)
-	db.SetMaxOpenConns(1)
 	if err != nil {
 		t.Fatal(err)
 	}
+	db.SetMaxOpenConns(1)
 	defer func() { assert.NoError(t, db.Close()) }()
 
 	// should create table

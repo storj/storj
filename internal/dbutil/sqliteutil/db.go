@@ -17,10 +17,10 @@ const InMemory = "file::memory:?mode=memory&_journal=WAL&_busy_timeout=30000"
 // LoadSchemaFromSQL inserts script into connstr and loads schema.
 func LoadSchemaFromSQL(script string) (_ *dbschema.Schema, err error) {
 	db, err := sql.Open("sqlite3", InMemory)
-	db.SetMaxOpenConns(1)
 	if err != nil {
 		return nil, err
 	}
+	db.SetMaxOpenConns(1)
 	defer func() { err = errs.Combine(err, db.Close()) }()
 
 	_, err = db.Exec(script)
@@ -34,10 +34,10 @@ func LoadSchemaFromSQL(script string) (_ *dbschema.Schema, err error) {
 // LoadSnapshotFromSQL inserts script into connstr and loads schema.
 func LoadSnapshotFromSQL(script string) (_ *dbschema.Snapshot, err error) {
 	db, err := sql.Open("sqlite3", InMemory)
-	db.SetMaxOpenConns(1)
 	if err != nil {
 		return nil, err
 	}
+	db.SetMaxOpenConns(1)
 	defer func() { err = errs.Combine(err, db.Close()) }()
 
 	_, err = db.Exec(script)

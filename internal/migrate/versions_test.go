@@ -24,9 +24,8 @@ import (
 
 func TestBasicMigrationSqlite(t *testing.T) {
 	db, err := sql.Open("sqlite3", sqliteutil.InMemory)
-
-	db.SetMaxOpenConns(1)
 	require.NoError(t, err)
+	db.SetMaxOpenConns(1)
 	defer func() { assert.NoError(t, db.Close()) }()
 
 	basicMigration(t, db, &sqliteDB{DB: db})
@@ -108,8 +107,8 @@ func basicMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 
 func TestMultipleMigrationSqlite(t *testing.T) {
 	db, err := sql.Open("sqlite3", sqliteutil.InMemory)
-	db.SetMaxOpenConns(1)
 	require.NoError(t, err)
+	db.SetMaxOpenConns(1)
 	defer func() { assert.NoError(t, db.Close()) }()
 
 	multipleMigration(t, db, &sqliteDB{DB: db})
@@ -182,8 +181,8 @@ func multipleMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 
 func TestFailedMigrationSqlite(t *testing.T) {
 	db, err := sql.Open("sqlite3", sqliteutil.InMemory)
-	db.SetMaxOpenConns(1)
 	require.NoError(t, err)
+	db.SetMaxOpenConns(1)
 	defer func() { assert.NoError(t, db.Close()) }()
 
 	failedMigration(t, db, &sqliteDB{DB: db})
