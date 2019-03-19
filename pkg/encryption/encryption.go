@@ -13,7 +13,7 @@ import (
 const (
 	// AESGCMNonceSize is the size of an AES-GCM nonce
 	AESGCMNonceSize = 12
-
+	// unit32Size is the number of bytes in the uint32 type
 	uint32Size = 4
 )
 
