@@ -174,11 +174,15 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		}
 		storjRoot := strings.TrimSuffix(filename, "/cmd/storj-sim/network.go")
 
+		consoleAuthToken := "secure_token"
+
 		process.Arguments = withCommon(process.Directory, Arguments{
 			"setup": {
 				"--identity-dir", process.Directory,
 				"--console.address", net.JoinHostPort(host, strconv.Itoa(consolePort+i)),
 				"--console.static-dir", filepath.Join(storjRoot, "web/satellite/"),
+				// TODO: remove console.auth-token after vanguard release
+				"--console.auth-token", consoleAuthToken,
 				"--server.address", process.Address,
 				"--server.private-address", net.JoinHostPort(host, strconv.Itoa(satellitePrivatePort+i)),
 

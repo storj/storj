@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
-	"io"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -47,8 +46,8 @@ type RegistrationToken struct {
 func NewRegistrationSecret() (RegistrationSecret, error) {
 	var b [32]byte
 
-	n, err := io.ReadFull(rand.Reader, b[:])
-	if err != nil || n != 32 {
+	_, err := rand.Read(b[:])
+	if err != nil {
 		return b, errs.New("error creating registration secret")
 	}
 

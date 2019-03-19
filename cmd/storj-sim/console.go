@@ -85,7 +85,7 @@ func addExampleProjectWithKey(key *string, createRegistrationTokenAddress, activ
 
 	var createTokenResponse struct {
 		Secret string
-		Error  error
+		Error  string
 	}
 	{
 		request, err := http.NewRequest(
@@ -95,6 +95,7 @@ func addExampleProjectWithKey(key *string, createRegistrationTokenAddress, activ
 		if err != nil {
 			return err
 		}
+		request.Header.Set("Authorization", "secure_token")
 
 		resp, err := client.Do(request)
 		if err != nil {
@@ -110,8 +111,8 @@ func addExampleProjectWithKey(key *string, createRegistrationTokenAddress, activ
 			return err
 		}
 
-		if createTokenResponse.Error != nil {
-			return createTokenResponse.Error
+		if createTokenResponse.Error != "" {
+			return errs.New(createTokenResponse.Error)
 		}
 
 		err = resp.Body.Close()

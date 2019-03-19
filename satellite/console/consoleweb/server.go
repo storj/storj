@@ -40,6 +40,9 @@ type Config struct {
 	Address   string `help:"server address of the graphql api gateway and frontend app" default:"127.0.0.1:8081"`
 	StaticDir string `help:"path to static resources" default:""`
 
+	// TODO: remove after Vanguard release
+	AuthToken string `help:"auth token needed for access to registration token creation endpoint" default:""`
+
 	PasswordCost int `internal:"true" help:"password hashing cost (0=automatic)" default:"0"`
 }
 
@@ -100,7 +103,7 @@ func (s *Server) createRegistrationTokenHandler(w http.ResponseWriter, req *http
 
 	var response struct {
 		Secret string `json:"secret"`
-		Error  error  `json:"error,omitempty"`
+		Error  string `json:"error,omitempty"`
 	}
 
 	defer func() {
@@ -110,17 +113,24 @@ func (s *Server) createRegistrationTokenHandler(w http.ResponseWriter, req *http
 		}
 	}()
 
+	authToken := req.Header.Get("Authorization")
+	if authToken != s.config.AuthToken {
+		w.WriteHeader(401)
+		response.Error = "unauthorized"
+		return
+	}
+
 	projectsLimitInput := req.URL.Query().Get("projectsLimit")
 
 	projectsLimit, err := strconv.Atoi(projectsLimitInput)
 	if err != nil {
-		response.Error = err
+		response.Error = err.Error()
 		return
 	}
 
 	token, err := s.service.CreateRegToken(context.Background(), projectsLimit)
 	if err != nil {
-		response.Error = err
+		response.Error = err.Error()
 		return
 	}
 
