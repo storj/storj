@@ -4,7 +4,6 @@
 package piecestore_test
 
 import (
-	"crypto/sha256"
 	"io"
 	"math/rand"
 	"testing"
@@ -17,9 +16,9 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/uplink/piecestore"
@@ -39,7 +38,7 @@ func TestUploadAndPartialDownload(t *testing.T) {
 	_, err = rand.Read(expectedData)
 	require.NoError(t, err)
 
-	err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testBucket", "test/path", expectedData)
+	err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
 	assert.NoError(t, err)
 
 	var totalDownload int64
@@ -55,7 +54,7 @@ func TestUploadAndPartialDownload(t *testing.T) {
 		}
 		totalDownload += piecestore.DefaultConfig.InitialStep
 
-		download, err := planet.Uplinks[0].DownloadStream(ctx, planet.Satellites[0], "testBucket", "test/path")
+		download, err := planet.Uplinks[0].DownloadStream(ctx, planet.Satellites[0], "testbucket", "test/path")
 		require.NoError(t, err)
 
 		pos, err := download.Seek(tt.offset, io.SeekStart)
@@ -79,9 +78,9 @@ func TestUploadAndPartialDownload(t *testing.T) {
 		totalBandwidthUsage.Add(usage)
 	}
 
-	err = planet.Uplinks[0].Delete(ctx, planet.Satellites[0], "testBucket", "test/path")
+	err = planet.Uplinks[0].Delete(ctx, planet.Satellites[0], "testbucket", "test/path")
 	require.NoError(t, err)
-	_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testBucket", "test/path")
+	_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path")
 	require.Error(t, err)
 
 	// check rough limits for the upload and download
@@ -106,32 +105,34 @@ func TestUpload(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, tt := range []struct {
-		pieceID storj.PieceID
-		content []byte
-		action  pb.PieceAction
-		err     string
+		pieceID       storj.PieceID
+		contentLength memory.Size
+		action        pb.PieceAction
+		err           string
 	}{
 		{ // should successfully store data
-			pieceID: teststorj.PieceIDFromString("99999999999999999999"),
-			content: []byte("xyzwq"),
-			action:  pb.PieceAction_PUT,
-			err:     "",
+			pieceID:       storj.PieceID{1},
+			contentLength: 50 * memory.KiB,
+			action:        pb.PieceAction_PUT,
+			err:           "",
 		},
 		{ // should err with piece ID not specified
-			pieceID: teststorj.PieceIDFromBytes(make([]byte, 32)),
-			content: []byte("xyzwq"),
-			action:  pb.PieceAction_PUT,
-			err:     "missing piece id",
+			pieceID:       storj.PieceID{},
+			contentLength: 1 * memory.KiB,
+			action:        pb.PieceAction_PUT,
+			err:           "missing piece id",
 		},
-		{ // should successfully store data
-			pieceID: teststorj.PieceIDFromString("99999999999999999999"),
-			content: []byte("xyzwq"),
-			action:  pb.PieceAction_GET,
-			err:     "expected put or put repair action got GET",
+		{ // should err because invalid action
+			pieceID:       storj.PieceID{1},
+			contentLength: 1 * memory.KiB,
+			action:        pb.PieceAction_GET,
+			err:           "expected put or put repair action got GET",
 		},
 	} {
-		sum := sha256.Sum256(tt.content)
-		expectedHash := sum[:]
+		data := make([]byte, tt.contentLength.Int64())
+		_, _ = rand.Read(data[:])
+
+		expectedHash := pkcrypto.SHA256Hash(data)
 
 		var serialNumber storj.SerialNumber
 		_, _ = rand.Read(serialNumber[:])
@@ -146,7 +147,7 @@ func TestUpload(t *testing.T) {
 			serialNumber,
 			24*time.Hour,
 			24*time.Hour,
-			100,
+			int64(len(data)),
 		)
 		signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
 		orderLimit, err = signing.SignOrderLimit(signer, orderLimit)
@@ -155,7 +156,7 @@ func TestUpload(t *testing.T) {
 		uploader, err := client.Upload(ctx, orderLimit)
 		require.NoError(t, err)
 
-		_, err = uploader.Write(tt.content)
+		_, err = uploader.Write(data)
 		require.NoError(t, err)
 
 		pieceHash, err := uploader.Commit()
@@ -190,17 +191,20 @@ func TestDownload(t *testing.T) {
 	var serialNumber storj.SerialNumber
 	_, _ = rand.Read(serialNumber[:])
 
+	expectedData := make([]byte, 10*memory.KiB)
+	_, _ = rand.Read(expectedData)
+
 	orderLimit := GenerateOrderLimit(
 		t,
 		planet.Satellites[0].ID(),
 		planet.Uplinks[0].ID(),
 		planet.StorageNodes[0].ID(),
-		teststorj.PieceIDFromString("existing-piece-id"),
+		storj.PieceID{1},
 		pb.PieceAction_PUT,
 		serialNumber,
 		24*time.Hour,
 		24*time.Hour,
-		100,
+		int64(len(expectedData)),
 	)
 	signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
 	orderLimit, err = signing.SignOrderLimit(signer, orderLimit)
@@ -209,7 +213,6 @@ func TestDownload(t *testing.T) {
 	uploader, err := client.Upload(ctx, orderLimit)
 	require.NoError(t, err)
 
-	expectedData := []byte("for-download-test")
 	_, err = uploader.Write(expectedData)
 	require.NoError(t, err)
 
@@ -227,7 +230,7 @@ func TestDownload(t *testing.T) {
 			err:     "",
 		},
 		{ // should err with piece ID not specified
-			pieceID: teststorj.PieceIDFromString("non-existing-piece"),
+			pieceID: storj.PieceID{2},
 			action:  pb.PieceAction_GET,
 			err:     "no such file or directory", // TODO fix returned error
 		},
@@ -250,7 +253,7 @@ func TestDownload(t *testing.T) {
 			serialNumber,
 			24*time.Hour,
 			24*time.Hour,
-			100,
+			int64(len(expectedData)),
 		)
 		signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
 		orderLimit, err = signing.SignOrderLimit(signer, orderLimit)
@@ -259,7 +262,7 @@ func TestDownload(t *testing.T) {
 		downloader, err := client.Download(ctx, orderLimit, 0, int64(len(expectedData)))
 		require.NoError(t, err)
 
-		buffer := make([]byte, 100)
+		buffer := make([]byte, len(expectedData))
 		n, err := downloader.Read(buffer)
 
 		if tt.err != "" {
@@ -295,17 +298,20 @@ func TestDelete(t *testing.T) {
 	var serialNumber storj.SerialNumber
 	_, _ = rand.Read(serialNumber[:])
 
+	expectedData := make([]byte, 10*memory.KiB)
+	_, _ = rand.Read(expectedData)
+
 	orderLimit := GenerateOrderLimit(
 		t,
 		planet.Satellites[0].ID(),
 		planet.Uplinks[0].ID(),
 		planet.StorageNodes[0].ID(),
-		teststorj.PieceIDFromString("existing-piece-id"),
+		storj.PieceID{1},
 		pb.PieceAction_PUT,
 		serialNumber,
 		24*time.Hour,
 		24*time.Hour,
-		100,
+		int64(len(expectedData)),
 	)
 	signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
 	orderLimit, err = signing.SignOrderLimit(signer, orderLimit)
@@ -314,7 +320,6 @@ func TestDelete(t *testing.T) {
 	uploader, err := client.Upload(ctx, orderLimit)
 	require.NoError(t, err)
 
-	expectedData := []byte("for-delete-test")
 	_, err = uploader.Write(expectedData)
 	require.NoError(t, err)
 
@@ -332,7 +337,7 @@ func TestDelete(t *testing.T) {
 			err:     "",
 		},
 		{ // should err with piece ID not specified
-			pieceID: teststorj.PieceIDFromString("non-existing-piece"),
+			pieceID: storj.PieceID{99},
 			action:  pb.PieceAction_DELETE,
 			err:     "", // TODO should this return error
 		},

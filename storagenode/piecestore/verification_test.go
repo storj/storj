@@ -4,14 +4,16 @@
 package piecestore_test
 
 import (
+	"math/rand"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
@@ -41,52 +43,57 @@ func TestOrderLimitValidation(t *testing.T) {
 		err             string
 	}{
 		{ // unapproved satellite id
-			satelliteID:     testplanet.MustPregeneratedIdentity(0),
-			pieceID:         teststorj.PieceIDFromString("piece-id-1"),
+			satelliteID:     testplanet.MustPregeneratedIdentity(100),
+			pieceID:         storj.PieceID{1},
 			action:          pb.PieceAction_PUT,
-			serialNumber:    storj.SerialNumber([16]byte{1}),
+			serialNumber:    storj.SerialNumber{1},
 			pieceExpiration: 4 * 24 * time.Hour,
 			orderExpiration: 4 * 24 * time.Hour,
+			limit:           memory.KiB.Int64(),
 			err:             " is untrusted",
 		},
 		{ // approved satellite id
-			pieceID:         teststorj.PieceIDFromString("piece-id-2"),
+			pieceID:         storj.PieceID{2},
 			action:          pb.PieceAction_PUT,
-			serialNumber:    storj.SerialNumber([16]byte{2}),
+			serialNumber:    storj.SerialNumber{2},
 			pieceExpiration: 4 * 24 * time.Hour,
 			orderExpiration: 4 * 24 * time.Hour,
+			limit:           memory.KiB.Int64(),
 		},
 		{ // wrong action type
-			pieceID:         teststorj.PieceIDFromString("piece-id-3"),
+			pieceID:         storj.PieceID{2},
 			action:          pb.PieceAction_GET,
-			serialNumber:    storj.SerialNumber([16]byte{3}),
+			serialNumber:    storj.SerialNumber{3},
 			pieceExpiration: 4 * 24 * time.Hour,
 			orderExpiration: 4 * 24 * time.Hour,
+			limit:           memory.KiB.Int64(),
 			err:             "expected put or put repair action got GET",
 		},
 		{ // piece expired
-			pieceID:         teststorj.PieceIDFromString("piece-id-4"),
+			pieceID:         storj.PieceID{4},
 			action:          pb.PieceAction_PUT,
-			serialNumber:    storj.SerialNumber([16]byte{4}),
+			serialNumber:    storj.SerialNumber{4},
 			pieceExpiration: -4 * 24 * time.Hour,
 			orderExpiration: 4 * 24 * time.Hour,
+			limit:           memory.KiB.Int64(),
 			err:             "piece expired:",
 		},
 		{ // limit is negative
-			pieceID:         teststorj.PieceIDFromString("piece-id-5"),
+			pieceID:         storj.PieceID{5},
 			action:          pb.PieceAction_PUT,
-			serialNumber:    storj.SerialNumber([16]byte{5}),
+			serialNumber:    storj.SerialNumber{5},
 			pieceExpiration: 4 * 24 * time.Hour,
 			orderExpiration: 4 * 24 * time.Hour,
 			limit:           -1,
 			err:             "order limit is negative",
 		},
 		{ // order limit expired
-			pieceID:         teststorj.PieceIDFromString("piece-id-6"),
+			pieceID:         storj.PieceID{6},
 			action:          pb.PieceAction_PUT,
-			serialNumber:    storj.SerialNumber([16]byte{5}),
+			serialNumber:    storj.SerialNumber{5},
 			pieceExpiration: 4 * 24 * time.Hour,
 			orderExpiration: -4 * 24 * time.Hour,
+			limit:           memory.KiB.Int64(),
 			err:             "order expired:",
 		},
 	} {
@@ -119,7 +126,12 @@ func TestOrderLimitValidation(t *testing.T) {
 		uploader, err := client.Upload(ctx, orderLimit)
 		require.NoError(t, err)
 
-		_, err = uploader.Commit()
+		data := make([]byte, 1*memory.KiB)
+		_, _ = rand.Read(data)
+
+		_, writeErr := uploader.Write(data)
+		_, commitErr := uploader.Commit()
+		err = errs.Combine(writeErr, commitErr)
 		if tt.err != "" {
 			require.Error(t, err)
 			require.Contains(t, err.Error(), tt.err)
