@@ -458,6 +458,9 @@ func (endpoint *Endpoint) validateBucket(bucket []byte) error {
 	if len(bucket) == 0 {
 		return errs.New("bucket not specified")
 	}
+	if bytes.ContainsAny(bucket, "/") {
+		return errs.New("bucket should not contain slash")
+	}
 	return nil
 }
 
