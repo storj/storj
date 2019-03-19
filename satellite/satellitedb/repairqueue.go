@@ -31,10 +31,7 @@ func (r *repairQueue) Enqueue(ctx context.Context, seg *pb.InjuredSegment) error
 		ctx,
 		dbx.Injuredsegment_Info(val),
 	)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 func (r *repairQueue) postgresDequeue(ctx context.Context) (seg pb.InjuredSegment, err error) {
