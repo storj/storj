@@ -30,10 +30,11 @@ func TestOrderLimitValidation(t *testing.T) {
 
 	planet.Start(ctx)
 
+	unapprovedSatellite, err := planet.NewIdentity()
+	require.NoError(t, err)
+
 	for _, tt := range []struct {
-		satelliteID     *identity.FullIdentity
-		uplinkID        storj.NodeID
-		storageNodeID   storj.NodeID
+		satellite       *identity.FullIdentity
 		pieceID         storj.PieceID
 		action          pb.PieceAction
 		serialNumber    storj.SerialNumber
@@ -43,7 +44,7 @@ func TestOrderLimitValidation(t *testing.T) {
 		err             string
 	}{
 		{ // unapproved satellite id
-			satelliteID:     testplanet.MustPregeneratedIdentity(100),
+			satellite:       unapprovedSatellite,
 			pieceID:         storj.PieceID{1},
 			action:          pb.PieceAction_PUT,
 			serialNumber:    storj.SerialNumber{1},
@@ -102,9 +103,9 @@ func TestOrderLimitValidation(t *testing.T) {
 
 		signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
 		satellite := planet.Satellites[0].Identity
-		if tt.satelliteID != nil {
-			signer = signing.SignerFromFullIdentity(tt.satelliteID)
-			satellite = tt.satelliteID
+		if tt.satellite != nil {
+			signer = signing.SignerFromFullIdentity(tt.satellite)
+			satellite = tt.satellite
 		}
 
 		orderLimit := GenerateOrderLimit(
