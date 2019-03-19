@@ -46,7 +46,7 @@ func TestInspectorStats(t *testing.T) {
 	_, err = rand.Read(expectedData)
 	require.NoError(t, err)
 
-	err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], nil, "test/bucket", "test/path", expectedData)
+	err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "test/bucket", "test/path", expectedData)
 	require.NoError(t, err)
 
 	for _, storageNode := range planet.StorageNodes {
@@ -93,7 +93,7 @@ func TestInspectorDashboard(t *testing.T) {
 	_, err = rand.Read(expectedData)
 	require.NoError(t, err)
 
-	err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], nil, "test/bucket", "test/path", expectedData)
+	err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "test/bucket", "test/path", expectedData)
 	require.NoError(t, err)
 
 	for _, storageNode := range planet.StorageNodes {
