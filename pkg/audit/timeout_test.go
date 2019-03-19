@@ -53,16 +53,20 @@ func TestGetShareTimeout(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, stripe)
 
-		tc := planet.Satellites[0].Transport
-		slowtc := transport.NewClientWithLatency(tc, 200*time.Second)
-		require.NotNil(t, slowtc)
+		network := &transport.SimulatedNetwork{
+			DialLatency:    200 * time.Second,
+			BytesPerSecond: 1 * memory.KB,
+		}
+
+		slowClient := network.NewClient(planet.Satellites[0].Transport)
+		require.NotNil(t, slowClient)
 
 		// This config value will create a very short timeframe allowed for receiving
 		// data from storage nodes. This will cause context to cancel and start
 		// downloading from new nodes.
 		minBytesPerSecond := 110 * memory.KB
 
-		verifier := audit.NewVerifier(zap.L(), slowtc, overlay, planet.Satellites[0].Identity, minBytesPerSecond)
+		verifier := audit.NewVerifier(zap.L(), slowClient, overlay, planet.Satellites[0].Identity, minBytesPerSecond)
 		require.NotNil(t, verifier)
 
 		err = planet.StopPeer(planet.StorageNodes[0])
