@@ -9,6 +9,8 @@ import (
 
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/memory"
+	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb"
@@ -18,8 +20,9 @@ import (
 
 // Config contains configurable values for audit service
 type Config struct {
-	MaxRetriesStatDB int           `help:"max number of times to attempt updating a statdb batch" default:"3"`
-	Interval         time.Duration `help:"how frequently segments are audited" default:"30s"`
+	MaxRetriesStatDB  int           `help:"max number of times to attempt updating a statdb batch" default:"3"`
+	Interval          time.Duration `help:"how frequently segments are audited" default:"30s"`
+	MinBytesPerSecond memory.Size   `help:"the minimum acceptable bytes that storage nodes can transfer per second to the satellite" default:"128B"`
 }
 
 // Service helps coordinate Cursor and Verifier to run the audit process continuously
@@ -30,19 +33,21 @@ type Service struct {
 	Verifier *Verifier
 	Reporter reporter
 
-	ticker *time.Ticker
+	Loop sync2.Cycle
 }
 
 // NewService instantiates a Service with access to a Cursor and Verifier
-func NewService(log *zap.Logger, sdb statdb.DB, interval time.Duration, maxRetries int, pointers *pointerdb.Service, allocation *pointerdb.AllocationSigner, transport transport.Client, overlay *overlay.Cache, identity *identity.FullIdentity) (service *Service, err error) {
+func NewService(log *zap.Logger, config Config, sdb statdb.DB, pointerdb *pointerdb.Service,
+	allocation *pointerdb.AllocationSigner, transport transport.Client, overlay *overlay.Cache,
+	identity *identity.FullIdentity) (service *Service, err error) {
 	return &Service{
 		log: log,
 
-		Cursor:   NewCursor(pointers, allocation, overlay, identity),
-		Verifier: NewVerifier(log.Named("audit:verifier"), transport, overlay, identity),
-		Reporter: NewReporter(sdb, maxRetries),
+		Cursor:   NewCursor(pointerdb, allocation, overlay, identity),
+		Verifier: NewVerifier(log.Named("audit:verifier"), transport, overlay, identity, config.MinBytesPerSecond),
+		Reporter: NewReporter(sdb, config.MaxRetriesStatDB),
 
-		ticker: time.NewTicker(interval),
+		Loop: *sync2.NewCycle(config.Interval),
 	}, nil
 }
 
@@ -51,18 +56,19 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	service.log.Info("Audit cron is starting up")
 
-	for {
+	return service.Loop.Run(ctx, func(ctx context.Context) error {
 		err := service.process(ctx)
 		if err != nil {
 			service.log.Error("process", zap.Error(err))
 		}
+		return err
+	})
+}
 
-		select {
-		case <-service.ticker.C:
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
+// Close halts the audit loop
+func (service *Service) Close() error {
+	service.Loop.Close()
+	return nil
 }
 
 // process picks a random stripe and verifies correctness
@@ -75,7 +81,7 @@ func (service *Service) process(ctx context.Context) error {
 		return nil
 	}
 
-	verifiedNodes, err := service.Verifier.verify(ctx, stripe)
+	verifiedNodes, err := service.Verifier.Verify(ctx, stripe)
 	if err != nil {
 		return err
 	}
