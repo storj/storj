@@ -138,6 +138,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 		ident, err := identity.PeerIdentityFromPeer(p)
 		if err != nil {
 			errs.Add(err)
+			continue
 		}
 
 		k.routingTable.mutex.Lock()
