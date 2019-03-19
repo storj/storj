@@ -33,7 +33,7 @@ func TestUploadAndPartialDownload(t *testing.T) {
 	_, err = rand.Read(expectedData)
 	require.NoError(t, err)
 
-	err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "test/bucket", "test/path", expectedData)
+	err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], nil, "test/bucket", "test/path", expectedData)
 	assert.NoError(t, err)
 
 	var totalDownload int64
