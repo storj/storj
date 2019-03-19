@@ -6,6 +6,7 @@ package kademlia_test
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
@@ -30,7 +31,7 @@ func TestDialer(t *testing.T) {
 		{ // PingNode: storage node pings all other storage nodes
 			self := planet.StorageNodes[0]
 
-			queryTimeout := int32(60)
+			queryTimeout := time.Duration(60) * time.Second
 			dialer := kademlia.NewDialer(zaptest.NewLogger(t), self.Transport, queryTimeout)
 			defer ctx.Check(dialer.Close)
 
@@ -52,7 +53,7 @@ func TestDialer(t *testing.T) {
 
 		{ // Lookup: storage node query every node for everyone elese
 			self := planet.StorageNodes[1]
-			queryTimeout := int32(60)
+			queryTimeout := time.Duration(60) * time.Second
 			dialer := kademlia.NewDialer(zaptest.NewLogger(t), self.Transport, queryTimeout)
 			defer ctx.Check(dialer.Close)
 
@@ -90,7 +91,7 @@ func TestDialer(t *testing.T) {
 
 		{ // Lookup: storage node queries every node for missing storj.NodeID{} and storj.NodeID{255}
 			self := planet.StorageNodes[2]
-			queryTimeout := int32(60)
+			queryTimeout := time.Duration(60) * time.Second
 			dialer := kademlia.NewDialer(zaptest.NewLogger(t), self.Transport, queryTimeout)
 			defer ctx.Check(dialer.Close)
 

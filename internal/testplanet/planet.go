@@ -403,6 +403,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 					Email:  prefix + "@example.com",
 					Wallet: "0x" + strings.Repeat("00", 20),
 				},
+				QueryTimeout: time.Duration(60) * time.Second, // TODO: why didn't it default to 60s when not set here?
 			},
 			Overlay: overlay.Config{
 				Node: overlay.NodeSelectionConfig{
@@ -545,6 +546,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 					Email:  prefix + "@example.com",
 					Wallet: "0x" + strings.Repeat("00", 20),
 				},
+				QueryTimeout: time.Duration(60) * time.Second, // TODO: why didn't it default to 60s when not set here?
 			},
 			Storage: psserver.Config{
 				Path:                   "", // TODO: this argument won't be needed with master storagenodedb

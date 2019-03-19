@@ -6,6 +6,7 @@ package kademlia
 import (
 	"fmt"
 	"regexp"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -30,7 +31,7 @@ type Config struct {
 	// TODO: reduce the number of flags here
 	Alpha int `help:"alpha is a system wide concurrency parameter" default:"5"`
 	// TODO: make this a shorter amount of time
-	QueryTimeout int32 `help:"query timeout is the allotted time in seconds for a query to complete" default:"60"`
+	QueryTimeout time.Duration `help:"query timeout is the allotted time in seconds for a query to complete" default:"60s"`
 	RoutingTableConfig
 }
 

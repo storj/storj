@@ -5,7 +5,9 @@ package kademlia
 
 import (
 	"context"
+	"time"
 
+	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -22,7 +24,7 @@ type Dialer struct {
 	log          *zap.Logger
 	transport    transport.Client
 	limit        sync2.Semaphore
-	queryTimeout int32
+	queryTimeout time.Duration
 }
 
 // Conn represents a kademlia connection
@@ -32,7 +34,7 @@ type Conn struct {
 }
 
 // NewDialer creates a dialer for kademlia.
-func NewDialer(log *zap.Logger, transport transport.Client, queryTimeout int32) *Dialer {
+func NewDialer(log *zap.Logger, transport transport.Client, queryTimeout time.Duration) *Dialer {
 	dialer := &Dialer{
 		log:          log,
 		transport:    transport,
@@ -60,12 +62,16 @@ func (dialer *Dialer) Lookup(ctx context.Context, self pb.Node, ask pb.Node, fin
 		return nil, err
 	}
 
+	durationSeconds := &duration.Duration{
+		Seconds: int64(dialer.queryTimeout.Seconds()),
+	}
+
 	resp, err := conn.client.Query(ctx, &pb.QueryRequest{
 		Limit:        20, // TODO: should not be hardcoded, but instead kademlia k value, routing table depth, etc
 		Sender:       &self,
 		Target:       &find,
-		Pingback:     true,                // should only be true during bucket refreshing
-		QueryTimeout: dialer.queryTimeout, // default is 60, later cast to seconds
+		Pingback:     true, // should only be true during bucket refreshing
+		QueryTimeout: durationSeconds,
 	})
 	if err != nil {
 		return nil, errs.Combine(err, conn.disconnect())
