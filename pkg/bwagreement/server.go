@@ -185,7 +185,7 @@ func (s *Server) Settlement(client pb.Bandwidth_SettlementServer) (err error) {
 			}
 		}
 
-		if err = s.bwdb.SaveOrder(ctx, allocation); err != nil {
+		if err = s.bwdb.SaveOrder(allocation); err != nil {
 			s.log.Debug("saving order failed", zap.String("serial", payerAllocation.SerialNumber), zap.Error(err))
 			duplicateRequest := strings.Contains(err.Error(), "UNIQUE constraint failed") || strings.Contains(err.Error(), "violates unique constraint")
 			if duplicateRequest {
