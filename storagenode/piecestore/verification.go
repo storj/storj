@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/storagenode/bandwidth"
 )
 
 var (
@@ -147,4 +148,30 @@ func (endpoint *Endpoint) IsExpired(expiration *timestamp.Timestamp) bool {
 	// TODO: return specific error about either exceeding the expiration completely or just the grace period
 
 	return expirationTime.After(time.Now().Add(-endpoint.config.ExpirationGracePeriod))
+}
+
+// VerifyAvailableSpace verifies whether there is available disk space
+func (endpoint *Endpoint) VerifyAvailableSpace(ctx context.Context, limit *pb.OrderLimit2) error {
+	usedSpace, err := endpoint.pieceinfo.SpaceUsed(ctx)
+	if err != nil {
+		return ErrInternal.Wrap(err)
+	}
+	allocatedSpace := endpoint.oldConfig.AllocatedDiskSpace.Int64()
+	if (allocatedSpace - usedSpace) < limit.Limit {
+		return ErrProtocol.New("out of space")
+	}
+	return nil
+}
+
+// VerifyAvailableBandwidth verifies whether there is available bandwidth
+func (endpoint *Endpoint) VerifyAvailableBandwidth(ctx context.Context, limit *pb.OrderLimit2) error {
+	usage, err := bandwidth.TotalMonthlySummary(ctx, endpoint.usage)
+	if err != nil {
+		return ErrInternal.Wrap(err)
+	}
+	allocatedBandwidth := endpoint.oldConfig.AllocatedDiskSpace.Int64()
+	if (allocatedBandwidth - usage.Total()) < limit.Limit {
+		return ErrProtocol.New("out of bandwidth")
+	}
+	return nil
 }

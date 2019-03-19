@@ -59,7 +59,7 @@ func (inspector *Endpoint) retrieveStats(ctx context.Context) (*pb.StatSummaryRe
 	if err != nil {
 		return nil, err
 	}
-	usage, err := inspector.usageDB.Summary(ctx, getBeginningOfMonth(), time.Now())
+	usage, err := bandwidth.TotalMonthlySummary(ctx, inspector.usageDB)
 	if err != nil {
 		return nil, err
 	}
@@ -137,10 +137,4 @@ func (inspector *Endpoint) Dashboard(ctx context.Context, in *pb.DashboardReques
 		return nil, err
 	}
 	return data, nil
-}
-
-func getBeginningOfMonth() time.Time {
-	t := time.Now()
-	y, m, _ := t.Date()
-	return time.Date(y, m, 1, 0, 0, 0, 0, time.Now().Location())
 }

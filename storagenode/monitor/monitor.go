@@ -151,15 +151,9 @@ func (service *Service) usedSpace(ctx context.Context) (int64, error) {
 }
 
 func (service *Service) usedBandwidth(ctx context.Context) (int64, error) {
-	usage, err := service.usageDB.Summary(ctx, getBeginningOfMonth(), time.Now())
+	usage, err := bandwidth.TotalMonthlySummary(ctx, service.usageDB)
 	if err != nil {
 		return 0, err
 	}
 	return usage.Total(), nil
-}
-
-func getBeginningOfMonth() time.Time {
-	t := time.Now()
-	y, m, _ := t.Date()
-	return time.Date(y, m, 1, 0, 0, 0, 0, time.Now().Location())
 }

@@ -211,6 +211,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 			peer.DB.Bandwidth(),
 			peer.DB.UsedSerials(),
 			config.Storage2,
+			config.Storage,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())

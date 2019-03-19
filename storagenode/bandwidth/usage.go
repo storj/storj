@@ -76,3 +76,14 @@ func (usage *Usage) Total() int64 {
 		usage.PutRepair +
 		usage.Delete
 }
+
+// TotalMonthlySummary returns total bandwidth usage for current month
+func TotalMonthlySummary(ctx context.Context, db DB) (*Usage, error) {
+	return db.Summary(ctx, getBeginningOfMonth(), time.Now())
+}
+
+func getBeginningOfMonth() time.Time {
+	t := time.Now()
+	y, m, _ := t.Date()
+	return time.Date(y, m, 1, 0, 0, 0, 0, time.Now().Location())
+}

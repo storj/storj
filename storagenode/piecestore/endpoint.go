@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/orders"
@@ -47,8 +48,9 @@ type Config struct {
 
 // Endpoint implements uploading, downloading and deleting for a storage node.
 type Endpoint struct {
-	log    *zap.Logger
-	config Config
+	log       *zap.Logger
+	config    Config
+	oldConfig psserver.Config // TODO remove with final cleanup
 
 	signer signing.Signer
 	trust  *trust.Pool
@@ -61,10 +63,11 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates a new piecestore endpoint.
-func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, store *pieces.Store, pieceinfo pieces.DB, orders orders.DB, usage bandwidth.DB, usedSerials UsedSerials, config Config) (*Endpoint, error) {
+func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, store *pieces.Store, pieceinfo pieces.DB, orders orders.DB, usage bandwidth.DB, usedSerials UsedSerials, config Config, oldConfig psserver.Config) (*Endpoint, error) {
 	return &Endpoint{
-		log:    log,
-		config: config,
+		log:       log,
+		config:    config,
+		oldConfig: oldConfig,
 
 		signer: signer,
 		trust:  trust,
@@ -136,6 +139,10 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 
 	if err := endpoint.VerifyOrderLimit(ctx, limit); err != nil {
 		return err // TODO: report grpc status unauthorized or bad request
+	}
+
+	if err := endpoint.VerifyAvailableSpace(ctx, limit); err != nil {
+		return err
 	}
 
 	defer func() {
@@ -280,6 +287,10 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 
 	if err := endpoint.VerifyOrderLimit(ctx, limit); err != nil {
 		return Error.Wrap(err) // TODO: report grpc status unauthorized or bad request
+	}
+
+	if err := endpoint.VerifyAvailableBandwidth(ctx, limit); err != nil {
+		return err
 	}
 
 	defer func() {
