@@ -76,7 +76,6 @@ message QueryRequest {
     node.Node target = 2;
     int64 limit = 3;
     bool pingback = 4;
-    google.protobuf.Duration query_timeout = 5; // allotted time for a query to complete
 }
 
 message QueryResponse {

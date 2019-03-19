@@ -632,6 +632,7 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 				Email:  prefix + "@example.com",
 				Wallet: "0x" + strings.Repeat("00", 20),
 			},
+			QueryTimeout: 60 * time.Second,
 		},
 		Web: bootstrapserver.Config{
 			Address:   "127.0.0.1:0",

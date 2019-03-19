@@ -49,6 +49,7 @@ type Kademlia struct {
 	bootstrapNodes []pb.Node
 	dialer         *Dialer
 	lookups        sync2.WorkGroup
+	queryTimeout   time.Duration
 
 	bootstrapFinished sync2.Fence
 
@@ -63,8 +64,9 @@ func NewService(log *zap.Logger, self pb.Node, transport transport.Client, rt *R
 		alpha:            config.Alpha,
 		routingTable:     rt,
 		bootstrapNodes:   config.BootstrapNodes(),
-		dialer:           NewDialer(log.Named("dialer"), transport, config.QueryTimeout),
+		dialer:           NewDialer(log.Named("dialer"), transport),
 		refreshThreshold: int64(time.Minute),
+		queryTimeout:     config.QueryTimeout,
 	}
 
 	return k, nil
