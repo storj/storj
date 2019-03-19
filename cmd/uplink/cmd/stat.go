@@ -44,11 +44,12 @@ func statObject(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	obj, err := metainfo.GetObject(ctx, dst.Bucket(), dst.Path())
+	objStream, err := metainfo.GetObjectStream(ctx, dst.Bucket(), dst.Path())
 	if err != nil {
 		return err
 	}
 
+	obj := objStream.Info()
 	// initialize the table header (fields)
 	const padding = 3
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.AlignRight|tabwriter.Debug)
