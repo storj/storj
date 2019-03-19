@@ -52,6 +52,7 @@
                     </HeaderlessInput>
                     <HeaderlessInput
                         class="full-input"
+                        ref="tokenInput"
                         label="Authorization token"
                         placeholder="Enter Authorization token"
                         :error="tokenError"
@@ -214,6 +215,14 @@ import { createUserRequest } from '@/api/users';
         components: {
             HeaderlessInput,
             RegistrationSuccessPopup
+        },
+        mounted(): void {
+            let token: any = this.$route.query.token.toString();
+
+            if(token) {
+                let tokenInput: any = this.$refs['tokenInput'];
+                tokenInput.setValue(token);
+            }
         }
     })
 
