@@ -11,3 +11,8 @@ type Encryption struct {
 	EncPathPrefix storj.Path
 	PathCipher    storj.Cipher
 }
+
+// APIKey is an interface for authenticating with the Satellite
+type APIKey interface {
+	Serialize() ([]byte, error)
+}

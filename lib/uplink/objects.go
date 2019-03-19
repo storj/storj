@@ -4,10 +4,17 @@
 package uplink
 
 import (
+	"context"
+	"io"
 	"time"
 
 	"storj.io/storj/pkg/storj"
 )
+
+// Object holds the information for a given object
+type Object struct {
+	Meta ObjectMeta
+}
 
 // ObjectMeta represents metadata about a specific Object
 type ObjectMeta struct {
@@ -29,8 +36,8 @@ type ObjectMeta struct {
 	// from Metadata but shrugemoji.
 }
 
-// ObjectPutOpts controls options about uploading a new Object, if authorized.
-type ObjectPutOpts struct {
+// UploadOpts controls options about uploading a new Object, if authorized.
+type UploadOpts struct {
 	Metadata map[string]string
 	Expires  time.Time
 
@@ -74,3 +81,8 @@ type ListObjectsConfig struct {
 
 // ListObjectsFields is an interface that I haven't figured out yet
 type ListObjectsFields interface{}
+
+// Range returns an objects data
+func (o *Object) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
+	return nil, nil
+}
