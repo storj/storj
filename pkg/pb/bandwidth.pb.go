@@ -88,29 +88,121 @@ func (m *AgreementsSummary) GetStatus() AgreementsSummary_Status {
 	return AgreementsSummary_FAIL
 }
 
+type BandwidthSettlementRequest struct {
+	Allocation           *RenterBandwidthAllocation `protobuf:"bytes,1,opt,name=allocation,proto3" json:"allocation,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                   `json:"-"`
+	XXX_unrecognized     []byte                     `json:"-"`
+	XXX_sizecache        int32                      `json:"-"`
+}
+
+func (m *BandwidthSettlementRequest) Reset()         { *m = BandwidthSettlementRequest{} }
+func (m *BandwidthSettlementRequest) String() string { return proto.CompactTextString(m) }
+func (*BandwidthSettlementRequest) ProtoMessage()    {}
+func (*BandwidthSettlementRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_ed768d1bfad2d961, []int{1}
+}
+func (m *BandwidthSettlementRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_BandwidthSettlementRequest.Unmarshal(m, b)
+}
+func (m *BandwidthSettlementRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_BandwidthSettlementRequest.Marshal(b, m, deterministic)
+}
+func (m *BandwidthSettlementRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BandwidthSettlementRequest.Merge(m, src)
+}
+func (m *BandwidthSettlementRequest) XXX_Size() int {
+	return xxx_messageInfo_BandwidthSettlementRequest.Size(m)
+}
+func (m *BandwidthSettlementRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_BandwidthSettlementRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_BandwidthSettlementRequest proto.InternalMessageInfo
+
+func (m *BandwidthSettlementRequest) GetAllocation() *RenterBandwidthAllocation {
+	if m != nil {
+		return m.Allocation
+	}
+	return nil
+}
+
+type BandwidthSettlementResponse struct {
+	SerialNumber         string                   `protobuf:"bytes,1,opt,name=serial_number,json=serialNumber,proto3" json:"serial_number,omitempty"`
+	Status               AgreementsSummary_Status `protobuf:"varint,2,opt,name=status,proto3,enum=bandwidth.AgreementsSummary_Status" json:"status,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
+	XXX_unrecognized     []byte                   `json:"-"`
+	XXX_sizecache        int32                    `json:"-"`
+}
+
+func (m *BandwidthSettlementResponse) Reset()         { *m = BandwidthSettlementResponse{} }
+func (m *BandwidthSettlementResponse) String() string { return proto.CompactTextString(m) }
+func (*BandwidthSettlementResponse) ProtoMessage()    {}
+func (*BandwidthSettlementResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_ed768d1bfad2d961, []int{2}
+}
+func (m *BandwidthSettlementResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_BandwidthSettlementResponse.Unmarshal(m, b)
+}
+func (m *BandwidthSettlementResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_BandwidthSettlementResponse.Marshal(b, m, deterministic)
+}
+func (m *BandwidthSettlementResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BandwidthSettlementResponse.Merge(m, src)
+}
+func (m *BandwidthSettlementResponse) XXX_Size() int {
+	return xxx_messageInfo_BandwidthSettlementResponse.Size(m)
+}
+func (m *BandwidthSettlementResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_BandwidthSettlementResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_BandwidthSettlementResponse proto.InternalMessageInfo
+
+func (m *BandwidthSettlementResponse) GetSerialNumber() string {
+	if m != nil {
+		return m.SerialNumber
+	}
+	return ""
+}
+
+func (m *BandwidthSettlementResponse) GetStatus() AgreementsSummary_Status {
+	if m != nil {
+		return m.Status
+	}
+	return AgreementsSummary_FAIL
+}
+
 func init() {
 	proto.RegisterEnum("bandwidth.AgreementsSummary_Status", AgreementsSummary_Status_name, AgreementsSummary_Status_value)
 	proto.RegisterType((*AgreementsSummary)(nil), "bandwidth.AgreementsSummary")
+	proto.RegisterType((*BandwidthSettlementRequest)(nil), "bandwidth.BandwidthSettlementRequest")
+	proto.RegisterType((*BandwidthSettlementResponse)(nil), "bandwidth.BandwidthSettlementResponse")
 }
 
 func init() { proto.RegisterFile("bandwidth.proto", fileDescriptor_ed768d1bfad2d961) }
 
 var fileDescriptor_ed768d1bfad2d961 = []byte{
-	// 210 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0x4f, 0x4a, 0xcc, 0x4b,
-	0x29, 0xcf, 0x4c, 0x29, 0xc9, 0xd0, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0xe2, 0x84, 0x0b, 0x48,
-	0x09, 0x14, 0x64, 0xa6, 0x26, 0xa7, 0x16, 0x97, 0xe4, 0x17, 0xa5, 0x42, 0x24, 0x95, 0xaa, 0xb8,
-	0x04, 0x1d, 0xd3, 0x8b, 0x52, 0x53, 0x73, 0x53, 0xf3, 0x4a, 0x8a, 0x83, 0x4b, 0x73, 0x73, 0x13,
-	0x8b, 0x2a, 0x85, 0xac, 0xb9, 0xd8, 0x8a, 0x4b, 0x12, 0x4b, 0x4a, 0x8b, 0x25, 0x18, 0x15, 0x18,
-	0x35, 0xf8, 0x8c, 0x94, 0xf5, 0x10, 0x66, 0x62, 0xa8, 0xd6, 0x0b, 0x06, 0x2b, 0x0d, 0x82, 0x6a,
-	0x51, 0xd2, 0xe0, 0x62, 0x83, 0x88, 0x08, 0x71, 0x70, 0xb1, 0xb8, 0x39, 0x7a, 0xfa, 0x08, 0x30,
-	0x08, 0xb1, 0x71, 0x31, 0xf9, 0x7b, 0x0b, 0x30, 0x0a, 0xf1, 0x70, 0x71, 0x04, 0xb9, 0x7a, 0xb9,
-	0x3a, 0x87, 0xb8, 0xba, 0x08, 0x30, 0x19, 0xe5, 0x73, 0x71, 0x3a, 0xc1, 0xcc, 0x15, 0x4a, 0xe2,
-	0x12, 0x86, 0x73, 0x10, 0x76, 0x08, 0x69, 0xeb, 0x21, 0x9c, 0x5c, 0x94, 0x5f, 0x5a, 0x92, 0x5a,
-	0xac, 0x17, 0x94, 0x9a, 0x57, 0x92, 0x5a, 0x84, 0x50, 0x9c, 0x93, 0x93, 0x9f, 0x9c, 0x58, 0x92,
-	0x99, 0x9f, 0x27, 0x25, 0x83, 0xcf, 0x9d, 0x4a, 0x0c, 0x4e, 0x2c, 0x51, 0x4c, 0x05, 0x49, 0x49,
-	0x6c, 0x60, 0x9f, 0x1b, 0x03, 0x02, 0x00, 0x00, 0xff, 0xff, 0x2a, 0x6a, 0xd9, 0xfd, 0x29, 0x01,
-	0x00, 0x00,
+	// 311 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x52, 0x4f, 0x4b, 0xfb, 0x40,
+	0x14, 0x6c, 0x42, 0x09, 0xed, 0xfb, 0xf5, 0xa7, 0x71, 0xbd, 0x48, 0xf4, 0x20, 0x5b, 0x94, 0x82,
+	0x10, 0xa4, 0x1e, 0x3d, 0xb5, 0x5a, 0x41, 0x2b, 0x0a, 0x5b, 0x4f, 0x5e, 0x64, 0xd3, 0x3e, 0x34,
+	0x90, 0xec, 0xc6, 0xdd, 0x17, 0x44, 0x2f, 0x7e, 0x47, 0x3f, 0x91, 0xb0, 0xd1, 0xa4, 0xe0, 0x3f,
+	0x7a, 0x9d, 0x9d, 0x99, 0x37, 0x33, 0x2c, 0xac, 0x27, 0x52, 0x2d, 0x9e, 0xd2, 0x05, 0x3d, 0xc4,
+	0x85, 0xd1, 0xa4, 0x59, 0xb7, 0x06, 0xa2, 0xb0, 0x48, 0x71, 0x8e, 0x96, 0xb4, 0xc1, 0xea, 0x91,
+	0xbf, 0xc0, 0xc6, 0xe8, 0xde, 0x20, 0xe6, 0xa8, 0xc8, 0xce, 0xca, 0x3c, 0x97, 0xe6, 0x99, 0x1d,
+	0x43, 0x60, 0x49, 0x52, 0x69, 0xb7, 0xbc, 0x5d, 0x6f, 0xb0, 0x36, 0xec, 0xc7, 0x8d, 0xe7, 0x17,
+	0x76, 0x3c, 0x73, 0x54, 0xf1, 0x21, 0xe1, 0x03, 0x08, 0x2a, 0x84, 0x75, 0xa0, 0x7d, 0x36, 0x3a,
+	0xbf, 0x0c, 0x5b, 0x2c, 0x00, 0xff, 0x7a, 0x1a, 0x7a, 0xac, 0x07, 0x1d, 0x31, 0xb9, 0x98, 0x9c,
+	0xdc, 0x4c, 0x4e, 0x43, 0x9f, 0xa7, 0x10, 0x8d, 0x3f, 0x7d, 0x67, 0x48, 0x94, 0x39, 0x5f, 0x81,
+	0x8f, 0x25, 0x5a, 0x62, 0x53, 0x00, 0x99, 0x65, 0x7a, 0x2e, 0x29, 0xd5, 0xca, 0x05, 0xf9, 0x37,
+	0x3c, 0x88, 0x9b, 0x02, 0x46, 0x97, 0x84, 0x36, 0x16, 0xa8, 0x08, 0x4d, 0xed, 0x33, 0xaa, 0x25,
+	0x62, 0x49, 0xce, 0x5f, 0x61, 0xfb, 0xdb, 0x53, 0xb6, 0xd0, 0xca, 0x22, 0xeb, 0xc3, 0x7f, 0x8b,
+	0x26, 0x95, 0xd9, 0x9d, 0x2a, 0xf3, 0x04, 0x8d, 0x3b, 0xd7, 0x15, 0xbd, 0x0a, 0xbc, 0x72, 0xd8,
+	0xd2, 0x2a, 0xfe, 0xca, 0xab, 0x0c, 0xdf, 0x3c, 0xe8, 0xd6, 0x09, 0x58, 0x02, 0x9b, 0x4d, 0xe2,
+	0x5a, 0xca, 0x56, 0xa9, 0x17, 0xed, 0xfc, 0x76, 0x9e, 0xb7, 0x98, 0x04, 0x68, 0x9a, 0xb2, 0xbd,
+	0x25, 0xf6, 0xcf, 0xa3, 0x47, 0xfb, 0x7f, 0xd1, 0xaa, 0xc1, 0x78, 0x6b, 0xe0, 0x1d, 0x7a, 0xe3,
+	0xf6, 0xad, 0x5f, 0x24, 0x49, 0xe0, 0x7e, 0xd2, 0xd1, 0x7b, 0x00, 0x00, 0x00, 0xff, 0xff, 0x43,
+	0x1b, 0x7d, 0x0f, 0x79, 0x02, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -126,6 +218,7 @@ const _ = grpc.SupportPackageIsVersion4
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type BandwidthClient interface {
 	BandwidthAgreements(ctx context.Context, in *RenterBandwidthAllocation, opts ...grpc.CallOption) (*AgreementsSummary, error)
+	Settlement(ctx context.Context, opts ...grpc.CallOption) (Bandwidth_SettlementClient, error)
 }
 
 type bandwidthClient struct {
@@ -145,9 +238,41 @@ func (c *bandwidthClient) BandwidthAgreements(ctx context.Context, in *RenterBan
 	return out, nil
 }
 
+func (c *bandwidthClient) Settlement(ctx context.Context, opts ...grpc.CallOption) (Bandwidth_SettlementClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_Bandwidth_serviceDesc.Streams[0], "/bandwidth.Bandwidth/Settlement", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &bandwidthSettlementClient{stream}
+	return x, nil
+}
+
+type Bandwidth_SettlementClient interface {
+	Send(*BandwidthSettlementRequest) error
+	Recv() (*BandwidthSettlementResponse, error)
+	grpc.ClientStream
+}
+
+type bandwidthSettlementClient struct {
+	grpc.ClientStream
+}
+
+func (x *bandwidthSettlementClient) Send(m *BandwidthSettlementRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *bandwidthSettlementClient) Recv() (*BandwidthSettlementResponse, error) {
+	m := new(BandwidthSettlementResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // BandwidthServer is the server API for Bandwidth service.
 type BandwidthServer interface {
 	BandwidthAgreements(context.Context, *RenterBandwidthAllocation) (*AgreementsSummary, error)
+	Settlement(Bandwidth_SettlementServer) error
 }
 
 func RegisterBandwidthServer(s *grpc.Server, srv BandwidthServer) {
@@ -172,6 +297,32 @@ func _Bandwidth_BandwidthAgreements_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Bandwidth_Settlement_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(BandwidthServer).Settlement(&bandwidthSettlementServer{stream})
+}
+
+type Bandwidth_SettlementServer interface {
+	Send(*BandwidthSettlementResponse) error
+	Recv() (*BandwidthSettlementRequest, error)
+	grpc.ServerStream
+}
+
+type bandwidthSettlementServer struct {
+	grpc.ServerStream
+}
+
+func (x *bandwidthSettlementServer) Send(m *BandwidthSettlementResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *bandwidthSettlementServer) Recv() (*BandwidthSettlementRequest, error) {
+	m := new(BandwidthSettlementRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 var _Bandwidth_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "bandwidth.Bandwidth",
 	HandlerType: (*BandwidthServer)(nil),
@@ -181,6 +332,13 @@ var _Bandwidth_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Bandwidth_BandwidthAgreements_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Settlement",
+			Handler:       _Bandwidth_Settlement_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+	},
 	Metadata: "bandwidth.proto",
 }

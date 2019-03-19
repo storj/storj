@@ -24,15 +24,17 @@ import (
 
 // Processes contains list of processes
 type Processes struct {
-	Output *PrefixWriter
-	List   []*Process
+	Output    *PrefixWriter
+	Directory string
+	List      []*Process
 }
 
 // NewProcesses returns a group of processes
-func NewProcesses() *Processes {
+func NewProcesses(dir string) *Processes {
 	return &Processes{
-		Output: NewPrefixWriter("sim", os.Stdout),
-		List:   nil,
+		Output:    NewPrefixWriter("sim", os.Stdout),
+		Directory: dir,
+		List:      nil,
 	}
 }
 
@@ -168,7 +170,7 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 	defer process.Status.Exited.Release()
 
 	cmd := exec.CommandContext(ctx, process.Executable, process.Arguments[command]...)
-	cmd.Dir = process.Directory
+	cmd.Dir = process.processes.Directory
 	cmd.Env = append(os.Environ(), "STORJ_LOG_NOTIME=1")
 
 	{ // setup standard output with logging into file

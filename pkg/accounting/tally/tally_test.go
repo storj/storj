@@ -78,5 +78,5 @@ func sendGeneratedAgreements(ctx context.Context, t *testing.T, db satellite.DB,
 		agreements[i] = &psdb.Agreement{Agreement: *rba}
 	}
 
-	sender.SendAgreementsToSatellite(ctx, satID.ID, agreements)
+	sender.SettleAgreements(ctx, satID.ID, agreements)
 }
