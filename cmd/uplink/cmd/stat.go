@@ -50,6 +50,7 @@ func statObject(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	obj := objStream.Info()
+
 	// initialize the table header (fields)
 	const padding = 3
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.AlignRight|tabwriter.Debug)
@@ -59,10 +60,18 @@ func statObject(cmd *cobra.Command, args []string) (err error) {
 		"\t", "-", "\t", "-", "\t", "-", "\t\n")
 
 	// populate the row fields
-	for _, segInfo := range obj.SegmentList {
+	segList, _, _ := objStream.Segments(ctx, 0, obj.SegmentCount)
+	for _, segInfo := range segList {
+		online := 0
+		for _, v := range segInfo.Pieces {
+			if v.Online == true {
+				online++
+			}
+		}
+
 		fmt.Fprint(w, "-", "\t", "-", "\t", "-", "\t", "-", "\t",
 			"-", "\t", segInfo.Index, "\t", segInfo.Size,
-			"\t", segInfo.PieceID.String(), "\t", segInfo.Needed, "\t", segInfo.Online, "\t\n")
+			"\t", segInfo.PieceID.String(), "\t", obj.Stream.RedundancyScheme.RequiredShares, "\t", online, "\t\n")
 	}
 
 	// display the data

@@ -390,12 +390,7 @@ func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, buckets.Store,
 
 	buckets := buckets.NewStore(streams)
 
-	oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	return kvmetainfo.New(buckets, streams, segments, pdb, oc, key), buckets, streams, nil
+	return kvmetainfo.New(buckets, streams, segments, pdb, metainfo, key), buckets, streams, nil
 }
 
 func forAllCiphers(test func(cipher storj.Cipher)) {

@@ -134,11 +134,6 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, Error.New("failed to create stream store: %v", err)
 	}
 
-	// oc, err := overlay.NewClient(tc, c.Client.OverlayAddr)
-	// if err != nil {
-	// 	return nil, nil, Error.New("failed to connect to overlay: %v", err)
-	// }
-
 	buckets := buckets.NewStore(streams)
 
 	return kvmetainfo.New(buckets, streams, segments, pdb, metainfo, key), streams, nil

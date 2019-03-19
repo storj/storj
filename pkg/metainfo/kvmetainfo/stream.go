@@ -45,6 +45,8 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (segment
 	}
 
 	var segmentPath storj.Path
+	var pointer *pb.Pointer
+	var limits []*pb.AddressedOrderLimit
 	isLastSegment := segment.Index+1 == stream.info.SegmentCount
 	if !isLastSegment {
 		segmentPath = getSegmentPath(stream.encryptedPath, index)
@@ -62,11 +64,16 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (segment
 		segment.Size = stream.info.FixedSegmentSize
 		copy(segment.EncryptedKeyNonce[:], segmentMeta.KeyNonce)
 		segment.EncryptedKey = segmentMeta.EncryptedKey
+		components := storj.SplitPath(segmentPath)
+		pointer, limits, _ = stream.db.metainfo.ReadSegment(ctx, components[1], components[2], index)
 	} else {
 		segmentPath = storj.JoinPaths("l", stream.encryptedPath)
 		segment.Size = stream.info.LastSegment.Size
 		segment.EncryptedKeyNonce = stream.info.LastSegment.EncryptedKeyNonce
 		segment.EncryptedKey = stream.info.LastSegment.EncryptedKey
+		components := storj.SplitPath(segmentPath)
+		// index set as -1 for last "l" segment
+		pointer, limits, _ = stream.db.metainfo.ReadSegment(ctx, components[1], components[2], -1)
 	}
 
 	contentKey, err := encryption.DecryptKey(segment.EncryptedKey, stream.Info().EncryptionScheme.Cipher, stream.streamKey, &segment.EncryptedKeyNonce)
@@ -80,11 +87,6 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (segment
 		return segment, err
 	}
 
-	pointer, _, _, err := stream.db.pointers.Get(ctx, segmentPath)
-	if err != nil {
-		return segment, err
-	}
-
 	if pointer.GetType() == pb.Pointer_INLINE {
 		segment.Inline, err = encryption.Decrypt(pointer.InlineSegment, stream.info.EncryptionScheme.Cipher, contentKey, nonce)
 	} else {
@@ -93,11 +95,25 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (segment
 		for _, piece := range pointer.Remote.RemotePieces {
 			var nodeID storj.NodeID
 			copy(nodeID[:], piece.NodeId.Bytes())
-			segment.Pieces = append(segment.Pieces, storj.Piece{Number: byte(piece.PieceNum), Location: nodeID})
+			segment.Pieces = append(segment.Pieces, storj.Piece{Number: byte(piece.PieceNum), Location: nodeID, Online: isNodeOnline(ctx, limits, nodeID)})
 		}
 	}
 
 	return segment, nil
+}
+
+// countOnlineNodes counts the number of online nodes
+func isNodeOnline(ctx context.Context, limits []*pb.AddressedOrderLimit, storageNodeID storj.NodeID) bool {
+	for _, limit := range limits {
+		if limit != nil && limit.GetLimit().StorageNodeId == storageNodeID {
+			if limit.StorageNodeAddress.Address != "" {
+				return true
+			}
+			return false
+		}
+		continue
+	}
+	return false
 }
 
 func (stream *readonlyStream) Segments(ctx context.Context, index int64, limit int64) (infos []storj.Segment, more bool, err error) {
