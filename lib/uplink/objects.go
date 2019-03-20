@@ -37,7 +37,7 @@ type UploadOpts struct {
 	Metadata map[string]string
 	Expires  time.Time
 
-	EncryptionScheme *storj.EncryptionScheme
+	Encryption *Encryption
 }
 
 // ListObjectsField numbers the fields of list objects

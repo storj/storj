@@ -33,17 +33,19 @@ type Permissions struct {
 type Caveat interface {
 }
 
+// CreateBucketOptions holds the bucket opts
+type CreateBucketOptions struct {
+	Encryption Encryption
+}
+
 // CreateBucket creates a bucket from the passed opts
 func (a *Access) CreateBucket(ctx context.Context, bucket string, opts CreateBucketOptions) (storj.Bucket, error) {
-	cfg := a.Uplink.config
-	metainfo, _, err := cfg.GetMetainfo(ctx, a.Uplink.id)
+	metainfo, _, err := a.Uplink.config.GetMetainfo(ctx, a.Uplink.id)
 	if err != nil {
 		return storj.Bucket{}, Error.Wrap(err)
 	}
 
-	encScheme := cfg.GetEncryptionScheme()
-
-	return metainfo.CreateBucket(ctx, bucket, &storj.Bucket{PathCipher: encScheme.Cipher})
+	return metainfo.CreateBucket(ctx, bucket, &storj.Bucket{PathCipher: opts.Encryption.PathCipher})
 }
 
 // DeleteBucket deletes a bucket if authorized

@@ -14,7 +14,6 @@ import (
 	"storj.io/storj/pkg/utils"
 
 	"storj.io/storj/pkg/storj"
-	ul "storj.io/storj/uplink"
 )
 
 // Encryption holds the cipher, path, key, and enc. scheme for each bucket since they
@@ -31,12 +30,6 @@ type Bucket struct {
 	Access *Access
 	Enc    *Encryption
 	Bucket storj.Bucket
-}
-
-// CreateBucketOptions holds the bucket opts
-type CreateBucketOptions struct {
-	Path      storj.Cipher
-	EncConfig ul.EncryptionConfig
 }
 
 // GetObject returns the info for a given object
