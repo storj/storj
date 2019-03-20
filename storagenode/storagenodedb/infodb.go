@@ -109,7 +109,7 @@ func (db *infodb) Migration() *migrate.Migration {
 						satellite_id     BLOB      NOT NULL,
 						piece_id         BLOB      NOT NULL,
 						piece_size       BIGINT    NOT NULL,
-						piece_expiration TIMESTAMP NOT NULL, -- date when it can be deleted
+						piece_expiration TIMESTAMP, -- date when it can be deleted
 
 						uplink_piece_hash BLOB    NOT NULL, -- serialized pb.PieceHash signed by uplink
 						uplink_cert_id    INTEGER NOT NULL,
