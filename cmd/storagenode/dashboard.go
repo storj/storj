@@ -84,10 +84,20 @@ func printDashboard(data *pb.DashboardResponse) error {
 	w := tabwriter.NewWriter(color.Output, 0, 0, 1, ' ', 0)
 	fmt.Fprintf(w, "ID\t%s\n", color.YellowString(data.NodeId.String()))
 
-	if data.Connection {
-		fmt.Fprintf(w, "Status\t%s\n", color.GreenString("ONLINE"))
+	lastContacted, err := ptypes.Timestamp(data.LastPinged)
+	if err != nil {
+		lastContacted = time.Time{}
+	}
+	lastQueried, err := ptypes.Timestamp(data.LastQueried)
+	if err == nil {
+		if lastQueried.After(lastContacted) {
+			lastContacted = lastQueried
+		}
+	}
+	if lastContacted.IsZero() {
+		fmt.Fprintf(w, "Last contacted:\t%s\n", color.RedString("NEVER"))
 	} else {
-		fmt.Fprintf(w, "Status\t%s\n", color.RedString("OFFLINE"))
+		fmt.Fprintf(w, "Last contacted:\t%s\n", color.GreenString(fmt.Sprintf("%s ago", time.Since(lastContacted))))
 	}
 
 	uptime, err := ptypes.Duration(data.GetUptime())

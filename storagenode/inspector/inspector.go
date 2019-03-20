@@ -115,13 +115,25 @@ func (inspector *Endpoint) getDashboardData(ctx context.Context) (*pb.DashboardR
 		bsNodes[i] = node.Address.Address
 	}
 
+	pinged, err := ptypes.TimestampProto(inspector.kademlia.LastPinged())
+	if err != nil {
+		inspector.log.Warn("last ping time bad", zap.Error(err))
+		pinged = nil
+	}
+	queried, err := ptypes.TimestampProto(inspector.kademlia.LastQueried())
+	if err != nil {
+		inspector.log.Warn("last query time bad", zap.Error(err))
+		queried = nil
+	}
+
 	return &pb.DashboardResponse{
 		NodeId:           inspector.kademlia.Local().Id,
 		NodeConnections:  int64(len(nodes)),
 		BootstrapAddress: strings.Join(bsNodes[:], ", "),
 		InternalAddress:  "",
 		ExternalAddress:  inspector.kademlia.Local().Address.Address,
-		Connection:       !inspector.kademlia.LastPinged().IsZero(),
+		LastPinged:       pinged,
+		LastQueried:      queried,
 		Uptime:           ptypes.DurationProto(time.Since(inspector.startTime)),
 		Stats:            statsSummary,
 	}, nil

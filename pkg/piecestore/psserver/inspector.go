@@ -84,7 +84,6 @@ func (s *Inspector) getDashboardData(ctx context.Context) (*pb.DashboardResponse
 		BootstrapAddress: strings.Join(bsNodes[:], ", "),
 		InternalAddress:  "",
 		ExternalAddress:  s.ps.kad.Local().Address.Address,
-		Connection:       true,
 		Uptime:           ptypes.DurationProto(time.Since(s.ps.startTime)),
 		Stats:            statsSummary,
 	}, nil

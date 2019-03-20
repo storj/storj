@@ -38,6 +38,7 @@ func NewEndpoint(log *zap.Logger, service *Kademlia, routingTable *RoutingTable,
 
 // Query is a node to node communication query
 func (endpoint *Endpoint) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error) {
+	endpoint.service.Queried()
 
 	if req.GetPingback() {
 		timedCtx, cancel := context.WithTimeout(ctx, endpoint.pingbackTimeout)
