@@ -88,7 +88,7 @@ func (k *Kademlia) LastPinged() time.Time {
 	return k.lastPinged
 }
 
-// Ping notifies the service it has been remotely pinged.
+// Pinged notifies the service it has been remotely pinged.
 func (k *Kademlia) Pinged() {
 	k.mu.Lock()
 	defer k.mu.Unlock()
