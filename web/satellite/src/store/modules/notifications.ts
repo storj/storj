@@ -4,6 +4,7 @@
 import { NOTIFICATION_MUTATIONS } from '../mutationConstants';
 import { NOTIFICATION_TYPES } from '@/utils/constants/notification';
 import { DelayedNotification } from '@/types/DelayedNotification';
+import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
 export const notificationsModule = {
     state: {
@@ -36,10 +37,13 @@ export const notificationsModule = {
         [NOTIFICATION_MUTATIONS.RESUME](state: any): void {
             state.notificationQueue[0].start();
         },
+        [NOTIFICATION_MUTATIONS.CLEAR](state: any): void {
+            state.notificationQueue = [];
+        },
     },
     actions: {
         // Commits muttation for adding success notification
-        success: function ({commit}: any, message: string): void {
+        [NOTIFICATION_ACTIONS.SUCCESS]: function ({commit}: any, message: string): void {
             const notification = new DelayedNotification(
                 () => commit(NOTIFICATION_MUTATIONS.DELETE),
                 NOTIFICATION_TYPES.SUCCESS,
@@ -49,7 +53,7 @@ export const notificationsModule = {
             commit(NOTIFICATION_MUTATIONS.ADD, notification);
         },
         // Commits muttation for adding info notification
-        notify: function ({commit}: any, message: string): void {
+        [NOTIFICATION_ACTIONS.NOTIFY]: function ({commit}: any, message: string): void {
 
             const notification = new DelayedNotification(
                 () => commit(NOTIFICATION_MUTATIONS.DELETE),
@@ -60,7 +64,7 @@ export const notificationsModule = {
             commit(NOTIFICATION_MUTATIONS.ADD, notification);
         },
         // Commits muttation for adding error notification
-        error: function ({commit}: any, message: string): void {
+        [NOTIFICATION_ACTIONS.ERROR]: function ({commit}: any, message: string): void {
             const notification = new DelayedNotification(
                 () => commit(NOTIFICATION_MUTATIONS.DELETE),
                 NOTIFICATION_TYPES.ERROR,
@@ -69,14 +73,17 @@ export const notificationsModule = {
 
             commit(NOTIFICATION_MUTATIONS.ADD, notification);
         },
-        deleteNotification: function ({commit}: any): void {
+        [NOTIFICATION_ACTIONS.DELETE]: function ({commit}: any): void {
             commit(NOTIFICATION_MUTATIONS.DELETE);
         },
-        pauseNotification: function ({commit}: any): void {
+        [NOTIFICATION_ACTIONS.PAUSE]: function ({commit}: any): void {
             commit(NOTIFICATION_MUTATIONS.PAUSE);
         },
-        resumeNotification: function ({commit}: any): void {
+        [NOTIFICATION_ACTIONS.RESUME]: function ({commit}: any): void {
             commit(NOTIFICATION_MUTATIONS.RESUME);
+        },
+        [NOTIFICATION_ACTIONS.CLEAR]: function ({commit}): void {
+            commit(NOTIFICATION_MUTATIONS.CLEAR);
         },
     },
     getters: {
