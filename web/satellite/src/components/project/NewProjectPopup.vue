@@ -86,9 +86,9 @@
 
                     this.$data.self.selectCreatedProject();
 
-                    if (this.$data.self.isFirstProject()) {
-                        return;
-                    }
+                    this.$data.self.fetchProjectMembers();
+
+                    this.$data.self.checkIfsFirstProject();
                 },
                 validateProjectName: function(): boolean {
                     this.$data.projectName = this.$data.projectName.trim();
@@ -129,14 +129,12 @@
 
                     this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
                 },
-                isFirstProject(): boolean {
+                checkIfsFirstProject: function() {
                     let isFirstProject = this.$store.state.projectsModule.projects.length === 1;
 
                     isFirstProject
                         ? this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP)
                         : this.$data.self.notifySuccess('Project created successfully!');
-
-                    return isFirstProject;
                 },
                 fetchProjectMembers: async function(): Promise<any> {
                     this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
