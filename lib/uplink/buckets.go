@@ -90,6 +90,9 @@ func (b *Bucket) Upload(ctx context.Context, path storj.Path, data []byte, opts 
 	upload := stream.NewUpload(ctx, mutableStream, streams)
 
 	_, err = io.Copy(upload, reader)
+	if err != nil {
+		return Error.Wrap(err)
+	}
 
 	return utils.CombineErrors(err, upload.Close())
 }

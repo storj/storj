@@ -107,7 +107,6 @@ func TestUplink(t *testing.T) {
 }
 
 func getConfig(satellite *satellite.Peer, planet *testplanet.Planet) ul.Config {
-	// Get these configs figured out cause they're throwing hella errors
 	config := getDefaultConfig()
 	config.Client.OverlayAddr = satellite.Addr()
 	config.Client.PointerDBAddr = satellite.Addr()
