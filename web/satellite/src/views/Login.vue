@@ -77,10 +77,10 @@ import { LOADING_CLASSES } from '@/utils/constants/classConstants';
         onLogoClick: function (): void {
             location.reload();
         },
-        setEmail: function (value: string) {
+        setEmail: function (value: string): void {
             this.$data.email = value;
         },
-        setPassword: function (value: string) {
+        setPassword: function (value: string): void {
             this.$data.password = value;
         },
         activateLoadingOverlay: function(): void {
@@ -89,7 +89,7 @@ import { LOADING_CLASSES } from '@/utils/constants/classConstants';
                 this.$data.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY;
             }, 2000);
         },
-        onLogin: async function () {
+        onLogin: async function (): Promise<any> {
             if (!this.$data.email || !this.$data.password) {
                 return;
             }
