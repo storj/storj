@@ -121,7 +121,7 @@ func (inspector *Endpoint) getDashboardData(ctx context.Context) (*pb.DashboardR
 		BootstrapAddress: strings.Join(bsNodes[:], ", "),
 		InternalAddress:  "",
 		ExternalAddress:  inspector.kademlia.Local().Address.Address,
-		Connection:       true,
+		Connection:       !inspector.kademlia.LastPinged().IsZero(),
 		Uptime:           ptypes.DurationProto(time.Since(inspector.startTime)),
 		Stats:            statsSummary,
 	}, nil
