@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -37,14 +38,13 @@ var (
 	tryAgain = errs.New("test needs to run again")
 )
 
+type randDefaultSource struct{}
+
+func (randSource *randDefaultSource) Read(p []byte) (int, error) {
+	return rand.Read(p)
+}
+
 func makeRandomContentsFile(path string, size int64) (err error) {
-	inFile, err := os.Open("/dev/urandom")
-	if err != nil {
-		return err
-	}
-	defer func() {
-		err = errs.Combine(err, inFile.Close())
-	}()
 	outFile, err := os.Create(path)
 	if err != nil {
 		return err
@@ -52,7 +52,7 @@ func makeRandomContentsFile(path string, size int64) (err error) {
 	defer func() {
 		err = errs.Combine(err, outFile.Close())
 	}()
-	if _, err := io.CopyN(outFile, inFile, size); err != nil {
+	if _, err := io.CopyN(outFile, &randDefaultSource{}, size); err != nil {
 		return err
 	}
 	return nil
