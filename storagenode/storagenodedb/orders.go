@@ -12,6 +12,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/orders"
 )
 
@@ -112,4 +113,14 @@ func (db *ordersdb) ListUnsent(ctx context.Context, limit int) (_ []*orders.Info
 	}
 
 	return infos, ErrInfo.Wrap(rows.Err())
+}
+
+// ListUnsentBySatellite returns orders that haven't been sent yet grouped by satellite.
+func (db *ordersdb) ListUnsentBySatellite(ctx context.Context) (map[storj.NodeID][]*orders.Info, error) {
+	return nil, ErrInfo.New("unhandled")
+}
+
+// Archive marks order as being handled.
+func (db *ordersdb) Archive(ctx context.Context, satellite storj.NodeID, serial storj.SerialNumber, status orders.Status) error {
+	return ErrInfo.New("unhandled")
 }

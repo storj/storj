@@ -26,10 +26,10 @@ type Info struct {
 	Uplink *identity.PeerIdentity
 }
 
-type OrderStatus byte
+type Status byte
 
 const (
-	StatusInvalid OrderStatus = iota
+	StatusInvalid Status = iota
 	StatusAccepted
 	StatusRejected
 )
@@ -43,7 +43,7 @@ type DB interface {
 	// ListUnsentBySatellite returns orders that haven't been sent yet grouped by satellite.
 	ListUnsentBySatellite(ctx context.Context) (map[storj.NodeID][]*Info, error)
 	// Archive marks order as being handled.
-	Archive(ctx context.Context, satellite storj.NodeID, serial storj.SerialNumber, status OrderStatus) error
+	Archive(ctx context.Context, satellite storj.NodeID, serial storj.SerialNumber, status Status) error
 }
 
 // SenderConfig defines configuration for sending orders.
