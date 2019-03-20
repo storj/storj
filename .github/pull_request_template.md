@@ -8,8 +8,9 @@
  - [ ] Does the code follow [our testing guide](https://github.com/storj/docs/blob/master/code/Testing.md)?
  - [ ] Could the PR be broken into smaller PRs?
  - [ ] Does the new code have enough tests? (*every* PR should have tests or justification otherwise. Bug-fix PRs especially)
- - [ ] Does the new code have enough documentation? (comments and or diagrams)
+ - [ ] Does the new code have enough documentation that answers "how do I use it?" and "what does it do?"? (both source documentation and [higher level](https://github.com/storj/docs), diagrams?)
  - [ ] Does any documentation need updating?
+
 
 Thanks for submitting a PR!
 
