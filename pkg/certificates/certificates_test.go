@@ -567,7 +567,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	testidentity.SignerVersionsTest(t, func(t *testing.T, signer *identity.FullCertificateAuthority) {
+	testidentity.SignerVersionsTest(t, func(t *testing.T, version storj.IDVersion, signer *identity.FullCertificateAuthority) {
 		caCert := ctx.File("ca.cert")
 		caKey := ctx.File("ca.key")
 		userID := "user@example.com"
@@ -774,7 +774,7 @@ func TestCertificateSigner_Sign(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	testidentity.SignerVersionsTest(t, func(t *testing.T, signer *identity.FullCertificateAuthority) {
+	testidentity.SignerVersionsTest(t, func(t *testing.T, version storj.IDVersion, signer *identity.FullCertificateAuthority) {
 		caCert := ctx.File("ca.cert")
 		caKey := ctx.File("ca.key")
 		userID := "user@example.com"
