@@ -112,8 +112,8 @@ export async function createUserRequest(user: User, password: string): Promise<R
                                 password: "${password}",
                                 firstName: "${user.firstName}",
                                 lastName: "${user.lastName}",
-                                secret: "${user.secret}",
-                            }
+                            },
+                            secret: "${user.secret}",
                         ){email}
                     }`
                 ),

@@ -183,7 +183,6 @@ import { createUserRequest } from '@/api/users';
                 this.$data.secretError = '';
             },
             onCreateClick: async function () {
-                (document as any).querySelector('.loading-overlay').classList.add('active');
                 let hasError = false;
                 const firstName = this.$data.firstName.trim();
                 const email = this.$data.email.trim();
@@ -216,6 +215,8 @@ import { createUserRequest } from '@/api/users';
 
                 if (hasError) return;
 
+                (document as any).querySelector('.loading-overlay').classList.add('active');
+
                 let user = {
                     email,
                     firstName,
@@ -226,6 +227,7 @@ import { createUserRequest } from '@/api/users';
                 let response = await createUserRequest(user, this.$data.password);
                 if (!response.isSuccess) {
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
+                    (document as any).querySelector('.loading-overlay').classList.remove('active');
 
                     return;
                 }
@@ -254,6 +256,7 @@ import { createUserRequest } from '@/api/users';
             if(token) {
                 let tokenInput: any = this.$refs['tokenInput'];
                 tokenInput.setValue(token);
+                this.$data.secret = token;
             }
         }
     })
