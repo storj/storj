@@ -1,5 +1,4 @@
-// Copyright (C) 2019 Storj Labs, Inc.
-// See LICENSE for copying information.
+// Copyright (C) 2019 Storj Labs, Inc. // See LICENSE for copying information.
 
 package macaroon
 
@@ -10,35 +9,36 @@ import (
 	"crypto/subtle"
 )
 
+// Macaroon ...
 type Macaroon struct {
 	head    []byte
 	caveats []Caveat
 	tail    []byte
 }
 
+// Caveat ...
 type Caveat struct {
 	Identifier string
 }
 
-func NewUnrestrictedMacaroon(secret []byte) (*Macaroon, error) {
-	head, err := NewNonce()
-	if err != nil {
-		return nil, err
-	}
-
+// NewUnrestricted creates Macaroon with random Head and generated Tail
+func NewUnrestricted(identifier []byte, secret []byte) *Macaroon {
 	return &Macaroon{
-		head: head,
-		tail: sign(secret, head),
-	}, nil
+		head: identifier,
+		tail: sign(secret, identifier),
+	}
 }
 
+// sign
 func sign(secret []byte, data []byte) []byte {
 	signer := hmac.New(sha256.New, secret)
-	signer.Write(data)
+	// Error skipped because sha256 does not return error
+	_, _ = signer.Write(data)
 
 	return signer.Sum(nil)
 }
 
+// NewSecret generates cryptographically random 32 bytes
 func NewSecret() (secret []byte, err error) {
 	secret = make([]byte, 32)
 
@@ -50,6 +50,7 @@ func NewSecret() (secret []byte, err error) {
 	return secret, nil
 }
 
+// NewNonce generates cryptographically random 32 bytes
 func NewNonce() (nonce []byte, err error) {
 	nonce = make([]byte, 32)
 
@@ -61,6 +62,7 @@ func NewNonce() (nonce []byte, err error) {
 	return nonce, nil
 }
 
+// AddFirstPartyCaveat creates signed macaroon with appended caveat
 func (m *Macaroon) AddFirstPartyCaveat(c Caveat) (macaroon *Macaroon, err error) {
 	macaroon = m.Copy()
 
@@ -70,6 +72,8 @@ func (m *Macaroon) AddFirstPartyCaveat(c Caveat) (macaroon *Macaroon, err error)
 	return macaroon, nil
 }
 
+// CheckUnpack reconstructs with all caveats from the secret and compares tails.
+// Returns list of Caveats if tails matches.
 func CheckUnpack(secret []byte, macaroon *Macaroon) (c []Caveat, ok bool) {
 	tail := sign(secret, macaroon.head)
 	for _, cav := range macaroon.caveats {
@@ -83,36 +87,47 @@ func CheckUnpack(secret []byte, macaroon *Macaroon) (c []Caveat, ok bool) {
 	return macaroon.Caveats(), true
 }
 
+// Head returns copy of macaroon head
 func (m *Macaroon) Head() (head []byte) {
+	if len(m.head) == 0 {
+		return nil
+	}
+
 	head = make([]byte, len(m.head))
 	copy(head, m.head)
 
 	return head
 }
 
+// Caveats returns copy of macaroon caveats
 func (m *Macaroon) Caveats() (caveats []Caveat) {
+	if len(m.caveats) == 0 {
+		return nil
+	}
+
 	caveats = make([]Caveat, len(m.caveats))
 	copy(caveats, m.caveats)
 
 	return caveats
 }
 
+// Tail returns copy of macaroon tail
 func (m *Macaroon) Tail() (tail []byte) {
+	if len(m.tail) == 0 {
+		return nil
+	}
+
 	tail = make([]byte, len(m.tail))
 	copy(tail, m.tail)
 
 	return tail
 }
 
+// Copy return copy of macaroon
 func (m *Macaroon) Copy() *Macaroon {
-	mac := Macaroon{}
-
-	mac.head = make([]byte, len(m.head))
-	copy(mac.head, m.head)
-	mac.caveats = make([]Caveat, len(m.caveats))
-	copy(mac.caveats, m.caveats)
-	mac.tail = make([]byte, len(m.tail))
-	copy(mac.tail, m.tail)
-
-	return &mac
+	return &Macaroon{
+		head:    m.Head(),
+		caveats: m.Caveats(),
+		tail:    m.Tail(),
+	}
 }

@@ -14,7 +14,7 @@ const (
 	fieldEOS            fieldType = 0
 	fieldLocation       fieldType = 1
 	fieldIdentifier     fieldType = 2
-	fieldVerificationId fieldType = 4
+	fieldVerificationID fieldType = 4
 	fieldSignature      fieldType = 6
 )
 
@@ -23,6 +23,7 @@ type packet struct {
 	data      []byte
 }
 
+// Serialize converts macaroon to binary format
 func Serialize(m *Macaroon) (data []byte) {
 	// Start data from version int
 	data = append(data, 2)
@@ -54,6 +55,24 @@ func Serialize(m *Macaroon) (data []byte) {
 	return data
 }
 
+// serializePacket converts packet to binary
+func serializePacket(data []byte, p packet) []byte {
+
+	data = appendVarint(data, int(p.fieldType))
+	data = appendVarint(data, len(p.data))
+	data = append(data, p.data...)
+
+	return data
+}
+
+func appendVarint(data []byte, x int) []byte {
+	var buf [binary.MaxVarintLen32]byte
+	n := binary.PutUvarint(buf[:], uint64(x))
+
+	return append(data, buf[:n]...)
+}
+
+// Deserialize converts binary to macaroon
 func Deserialize(data []byte) (*Macaroon, error) {
 	// skip version
 	data = data[1:]
@@ -62,18 +81,18 @@ func Deserialize(data []byte) (*Macaroon, error) {
 	if err != nil {
 		return nil, err
 	}
-	var loc string
 	if len(section) > 0 && section[0].fieldType == fieldLocation {
-		loc = string(section[0].data)
 		section = section[1:]
 	}
-	println(loc)
 	if len(section) != 1 || section[0].fieldType != fieldIdentifier {
 		return nil, errors.New("invalid macaroon header")
 	}
 
 	mac := Macaroon{}
 	mac.head = section[0].data
+	if section[0].data == nil {
+
+	}
 	for {
 		rest, section, err := parseSection(data)
 		if err != nil {
@@ -85,7 +104,6 @@ func Deserialize(data []byte) (*Macaroon, error) {
 		}
 		var cav Caveat
 		if len(section) > 0 && section[0].fieldType == fieldLocation {
-			//cav.Location = string(section[0].data)
 			section = section[1:]
 		}
 		if len(section) == 0 || section[0].fieldType != fieldIdentifier {
@@ -104,7 +122,7 @@ func Deserialize(data []byte) (*Macaroon, error) {
 		if len(section) != 1 {
 			return nil, errors.New("extra fields found in caveat")
 		}
-		if section[0].fieldType != fieldVerificationId {
+		if section[0].fieldType != fieldVerificationID {
 			return nil, errors.New("invalid field found in caveat")
 		}
 		//cav.VerificationId = section[0].data
@@ -129,6 +147,7 @@ func Deserialize(data []byte) (*Macaroon, error) {
 	return &mac, nil
 }
 
+// parseSection returns data leftover and packet array
 func parseSection(data []byte) ([]byte, []packet, error) {
 	prevFieldType := fieldType(-1)
 	var packets []packet
@@ -152,6 +171,7 @@ func parseSection(data []byte) ([]byte, []packet, error) {
 	}
 }
 
+// parsePacket returns data leftover and packet
 func parsePacket(data []byte) ([]byte, packet, error) {
 	data, ft, err := parseVarint(data)
 	if err != nil {
@@ -170,25 +190,15 @@ func parsePacket(data []byte) ([]byte, packet, error) {
 	if packLen > len(data) {
 		return nil, packet{}, errors.New("out of bounds")
 	}
+	if packLen == 0 {
+		p.data = nil
+
+		return data, p, nil
+	}
+
 	p.data = data[0:packLen]
 
 	return data[packLen:], p, nil
-}
-
-func serializePacket(data []byte, p packet) []byte {
-
-	data = appendVarint(data, int(p.fieldType))
-	data = appendVarint(data, len(p.data))
-	data = append(data, p.data...)
-
-	return data
-}
-
-func appendVarint(data []byte, x int) []byte {
-	var buf [binary.MaxVarintLen32]byte
-	n := binary.PutUvarint(buf[:], uint64(x))
-
-	return append(data, buf[:n]...)
 }
 
 func parseVarint(data []byte) ([]byte, int, error) {
