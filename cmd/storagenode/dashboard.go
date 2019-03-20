@@ -162,18 +162,3 @@ func clearScreen() {
 		fmt.Print(strings.Repeat("\n", 100))
 	}
 }
-
-type inspector struct {
-	kadclient pb.KadInspectorClient
-}
-
-func newInspectorClient(ctx context.Context, bootstrapAddress string) (*inspector, error) {
-	conn, err := transport.DialAddressInsecure(ctx, bootstrapAddress)
-	if err != nil {
-		return &inspector{}, err
-	}
-
-	return &inspector{
-		kadclient: pb.NewKadInspectorClient(conn),
-	}, nil
-}
