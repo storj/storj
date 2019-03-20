@@ -98,11 +98,13 @@ func printDashboard(data *pb.DashboardResponse) error {
 	}
 	switch {
 	case lastContacted.IsZero():
-		fmt.Fprintf(w, "Last contacted:\t%s\n", color.RedString("NEVER"))
+		fmt.Fprintf(w, "Last Contact:\t%s\n", color.RedString("NEVER"))
 	case time.Since(lastContacted) >= contactWindow:
-		fmt.Fprintf(w, "Last contacted:\t%s\n", color.RedString(fmt.Sprintf("%s ago", time.Since(lastContacted))))
+		fmt.Fprintf(w, "Last Contact:\t%s\n", color.RedString(fmt.Sprintf("%s ago",
+			time.Since(lastContacted).Truncate(time.Second))))
 	default:
-		fmt.Fprintf(w, "Last contacted:\t%s\n", color.GreenString(fmt.Sprintf("%s ago", time.Since(lastContacted))))
+		fmt.Fprintf(w, "Last Contact:\t%s\n", color.GreenString(fmt.Sprintf("%s ago",
+			time.Since(lastContacted).Truncate(time.Second))))
 	}
 
 	uptime, err := ptypes.Duration(data.GetUptime())
