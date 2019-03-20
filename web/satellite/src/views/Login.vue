@@ -3,7 +3,7 @@
 
 <template>
     <div class="login-container" v-on:keyup.enter="onLogin">
-        <div class="loading-overlay">
+        <div v-bind:class="loadingClassName">
             <img class="loading-overlay__logo" src="../../static/images/login/Logo.svg" alt="loading-logo">
         </div>
         <img class="planet" src="../../static/images/Mars.png" alt="" >
@@ -56,13 +56,13 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 import Button from '@/components/common/Button.vue';
 import { setToken } from '@/utils/tokenManager';
 import ROUTES from '../utils/constants/routerConstants';
-import { NOTIFICATION_ACTIONS } from '../utils/constants/actionNames';
+import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { getTokenRequest } from '@/api/users';
+import { LOADING_CLASSES } from '@/utils/constants/classConstants';
 
 @Component({
     data: function () {
@@ -70,6 +70,7 @@ import { getTokenRequest } from '@/api/users';
         return {
             email: '',
             password: '',
+            loadingClassName: LOADING_CLASSES.LOADING_OVERLAY,
         };
     },
     methods: {
@@ -82,15 +83,18 @@ import { getTokenRequest } from '@/api/users';
         setPassword: function (value: string) {
             this.$data.password = value;
         },
+        activateLoadingOverlay: function(): void {
+            this.$data.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY_ACTIVE;
+            setTimeout(() => {
+                this.$data.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY;
+            }, 2000);
+        },
         onLogin: async function () {
             if(!this.$data.email || !this.$data.password) {
                 return;
             }
 
-            (document as any).querySelector('.loading-overlay').classList.add('active');
-            setTimeout(() => {
-                (document as any).querySelector('.loading-overlay').classList.remove('active');
-            }, 2000);
+            (this as any).activateLoadingOverlay();
 
             let loginResponse = await getTokenRequest(this.$data.email, this.$data.password);
             if (!loginResponse.isSuccess) {

@@ -3,7 +3,7 @@
 
 <template>
     <div class="register-container" v-on:keyup.enter="onCreateClick">
-        <div class="loading-overlay">
+        <div v-bind:class="loadingClassName">
             <img src="../../static/images/register/Loading.gif">
         </div>
         <img class="planet" src="../../static/images/Mars.png" alt="" >
@@ -69,17 +69,6 @@
                         height="46px"
                         isWhite>
                     </HeaderlessInput>
-                    <HeaderlessInput
-                        class="full-input"
-                        ref="tokenInput"
-                        label="Authorization token"
-                        placeholder="Enter Authorization token"
-                        :error="secretError"
-                        @setData="setAuthToken"
-                        width="100%"
-                        height="46px"
-                        isWhite>
-                    </HeaderlessInput>
                     <div class="register-input">
                         <HeaderlessInput
                             class="full-input"
@@ -136,6 +125,7 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 import RegistrationSuccessPopup from '@/components/common/RegistrationSuccessPopup.vue';
 import { validateEmail, validatePassword } from '@/utils/validation';
 import ROUTES from '@/utils/constants/routerConstants';
+import { LOADING_CLASSES } from '@/utils/constants/classConstants';
 import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { createUserRequest } from '@/api/users';
 
@@ -156,6 +146,7 @@ import { createUserRequest } from '@/api/users';
                 isTermsAcceptedError: false,
                 secret: '',
                 secretError: '',
+                loadingClassName: LOADING_CLASSES.LOADING_OVERLAY,
             };
         },
         methods: {
@@ -178,61 +169,61 @@ import { createUserRequest } from '@/api/users';
                 this.$data.repeatedPassword = value;
                 this.$data.repeatedPasswordError = '';
             },
-            setAuthToken: function (value: string) {
-                this.$data.secret = value;
-                this.$data.secretError = '';
-            },
-            onCreateClick: async function () {
-                let hasError = false;
-                const firstName = this.$data.firstName.trim();
-                const email = this.$data.email.trim();
-                const lastName = this.$data.lastName.trim();
-
-                if (!firstName) {
+            validateFields: function (): boolean {
+                if (!this.$data.firstName.trim()) {
                     this.$data.firstNameError = 'Invalid First Name';
-                    hasError = true;
+                    return false;
                 }
 
-                if (!validateEmail(email)) {
+                if (!validateEmail(this.$data.email.trim())) {
                     this.$data.emailError = 'Invalid Email';
-                    hasError = true;
+                    return false;
                 }
 
                 if (!validatePassword(this.$data.password)) {
                     this.$data.passwordError = 'Invalid Password';
-                    hasError = true;
+                    return false;
                 }
 
                 if (this.$data.repeatedPassword !== this.$data.password) {
                     this.$data.repeatedPasswordError = 'Password doesn\'t match';
-                    hasError = true;
+                    return false;
                 }
 
                 if (!this.$data.isTermsAccepted) {
                     this.$data.isTermsAcceptedError = true;
-                    hasError = true;
+                    return false;
                 }
 
-                if (hasError) return;
-
-                (document as any).querySelector('.loading-overlay').classList.add('active');
-
+                return true;
+            },
+            createUser: async function() {
                 let user = {
-                    email,
-                    firstName,
-                    lastName,
-                    secret: this.$data.secret,
+                    email: this.$data.email.trim(),
+                    firstName: this.$data.firstName.trim(),
+                    lastName: this.$data.lastName.trim(),
+                    secret: this.$data.secret.trim(),
                 };
 
                 let response = await createUserRequest(user, this.$data.password);
+
                 if (!response.isSuccess) {
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
-                    (document as any).querySelector('.loading-overlay').classList.remove('active');
+                    this.$data.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY;
 
                     return;
                 }
 
                 this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION_POPUP);
+            },
+            onCreateClick: function () {
+                let self = this as any;
+
+                if (!self.validateFields()) return;
+
+                this.$data.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY_ACTIVE;
+
+                self.createUser();
             },
             onLogoClick: function (): void {
                 location.reload();
@@ -251,11 +242,9 @@ import { createUserRequest } from '@/api/users';
             RegistrationSuccessPopup
         },
         mounted(): void {
-            let token: any = this.$route.query.token.toString();
+            let token: any = this.$route.query.token ? this.$route.query.token.toString() : null;
 
             if(token) {
-                let tokenInput: any = this.$refs['tokenInput'];
-                tokenInput.setValue(token);
                 this.$data.secret = token;
             }
         }
@@ -572,12 +561,12 @@ export default class Register extends Vue {
         opacity: 1;
     }
 
-    @media screen and (max-height: 950px) {
+    @media screen and (max-height: 840px) {
         .register-container {
             overflow: hidden;
 
             &__wrapper {
-                height: 870px;
+                height: 770px;
                 overflow-y: scroll;
                 overflow-x: hidden;
                 -ms-overflow-style: none;
@@ -594,7 +583,7 @@ export default class Register extends Vue {
     @media screen and (max-height: 810px) {
         .register-container {
             &__wrapper {
-                height: 660px;
+                height: 700px;
             }
         }
 
