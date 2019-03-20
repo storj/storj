@@ -376,7 +376,10 @@ func (ca *FullCertificateAuthority) NewIdentity(exts ...pkix.Extension) (*FullId
 	if err != nil {
 		return nil, err
 	}
-	leafKey, err := pkcrypto.GeneratePrivateKey()
+	// TODO: add test for this!
+	version, err := ca.Version()
+	leafKey, err := version.NewPrivateKey()
+	//leafKey, err := pkcrypto.GeneratePrivateKey()
 	if err != nil {
 		return nil, err
 	}

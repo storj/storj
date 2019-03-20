@@ -14,8 +14,8 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-type IdentityTest func(*testing.T, *identity.FullIdentity)
-type SignerTest func(*testing.T, *identity.FullCertificateAuthority)
+type IdentityTest func(*testing.T, storj.IDVersion, *identity.FullIdentity)
+type SignerTest func(*testing.T, storj.IDVersion, *identity.FullCertificateAuthority)
 
 // NewTestIdentity is a helper function to generate new node identities with
 // correct difficulty and concurrency
@@ -44,25 +44,24 @@ func NewTestCA(ctx context.Context) (*identity.FullCertificateAuthority, error) 
 }
 
 func IdentityVersionsTest(t *testing.T, test IdentityTest) {
-	for versionNumber := range storj.IDVersions {
+	for versionNumber, version := range storj.IDVersions {
 		t.Run(fmt.Sprintf("identity version %d", versionNumber), func(t *testing.T) {
 			ident, err := IdentityVersions[versionNumber].NewIdentity()
 			require.NoError(t, err)
 
-			test(t, ident)
+			test(t, version, ident)
 		})
 	}
 }
 
 func SignedIdentityVersionsTest(t *testing.T, test IdentityTest) {
-	for versionNumber := range storj.IDVersions {
+	for versionNumber, version := range storj.IDVersions {
 		t.Run(fmt.Sprintf("identity version %d", versionNumber), func(t *testing.T) {
 			fmt.Printf("t.Run version %d\n", versionNumber)
 			ident, err := SignedIdentityVersions[versionNumber].NewIdentity()
 			require.NoError(t, err)
 
-			fmt.Printf("actual version %d\n", ident.ID.Version().Number)
-			test(t, ident)
+			test(t, version, ident)
 		})
 	}
 }
@@ -78,13 +77,12 @@ func CompleteIdentityVersionsTest(t *testing.T, test IdentityTest) {
 }
 
 func SignerVersionsTest(t *testing.T, test SignerTest) {
-	for versionNumber := range storj.IDVersions {
+	for versionNumber, version := range storj.IDVersions {
 		t.Run(fmt.Sprintf("identity version %d", versionNumber), func(t *testing.T) {
 			fmt.Printf("t.Run version %d\n", versionNumber)
 			ca := SignerVersions[versionNumber]
 
-			fmt.Printf("actual version %d\n", ca.ID.Version().Number)
-			test(t, ca)
+			test(t, version, ca)
 		})
 	}
 }

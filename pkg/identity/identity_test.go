@@ -91,25 +91,38 @@ func TestFullIdentityFromPEM(t *testing.T) {
 	assert.Equal(t, leafKey, fullIdent.Key)
 }
 
-func TestConfig_SaveIdentity_with_extension(t *testing.T) {
+func TestConfig_Save_with_extension(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	testidentity.IdentityVersionsTest(t, func(t *testing.T, ident *identity.FullIdentity) {
+	testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, version storj.IDVersion, ident *identity.FullIdentity) {
 		identCfg := &identity.Config{
 			CertPath: ctx.File("chain.pem"),
 			KeyPath:  ctx.File("key.pem"),
 		}
 
-		chainPEM := bytes.NewBuffer([]byte{})
-		assert.NoError(t, pkcrypto.WriteCertPEM(chainPEM, ident.Leaf))
-		assert.NoError(t, pkcrypto.WriteCertPEM(chainPEM, ident.CA))
+		{ // pre-save version assertions
+			assert.Equal(t, version.Number, ident.ID.Version())
 
-		privateKey := ident.Key
-		assert.NotEmpty(t, privateKey)
+			caVersion, err := storj.IDVersionFromCert(ident.CA)
+			require.NoError(t, err)
+			assert.Equal(t, version.Number, caVersion.Number)
 
-		keyPEM := bytes.NewBuffer([]byte{})
-		assert.NoError(t, pkcrypto.WritePrivateKeyPEM(keyPEM, privateKey))
+			var versionExt pkix.Extension
+			for _, ext := range ident.CA.ExtraExtensions {
+				if ext.Id.Equal(extensions.IdentityVersionExtID) {
+					versionExt = ext
+					break
+				}
+			}
+
+			if ident.ID.Version().Number == 1 {
+				require.NotEmpty(t, versionExt)
+				assert.Equal(t, ident.ID.Version().Number, storj.IDVersionNumber(versionExt.Value[0]))
+			} else {
+				assert.Empty(t, versionExt)
+			}
+		}
 
 		{ // test saving
 			err := identCfg.Save(ident)
@@ -135,15 +148,30 @@ func TestConfig_SaveIdentity_with_extension(t *testing.T) {
 			assert.Equal(t, ident.Leaf, loadedFi.Leaf)
 			assert.Equal(t, ident.CA, loadedFi.CA)
 			assert.Equal(t, ident.ID, loadedFi.ID)
+
+			var versionExt pkix.Extension
+			for _, ext := range ident.CA.Extensions {
+				if ext.Id.Equal(extensions.IdentityVersionExtID) {
+					versionExt = ext
+					break
+				}
+			}
+
+			if ident.ID.Version().Number == 1 {
+				require.NotEmpty(t, versionExt)
+				assert.Equal(t, ident.ID.Version().Number, storj.IDVersionNumber(versionExt.Value[0]))
+			} else {
+				assert.Empty(t, versionExt)
+			}
 		}
 	})
 }
 
-func TestConfig_SaveIdentity(t *testing.T) {
+func TestConfig_Save(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	testidentity.IdentityVersionsTest(t, func(t *testing.T, ident *identity.FullIdentity) {
+	testidentity.IdentityVersionsTest(t, func(t *testing.T, version storj.IDVersion, ident *identity.FullIdentity) {
 		identCfg := &identity.Config{
 			CertPath: ctx.File("chain.pem"),
 			KeyPath:  ctx.File("key.pem"),
