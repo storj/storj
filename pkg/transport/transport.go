@@ -67,8 +67,8 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 		grpc.FailOnNonTempDialError(true),
 	}, opts...)
 
-	timedCtx, cf := context.WithTimeout(ctx, connWaitTimeout)
-	defer cf()
+	timedCtx, cancel := context.WithTimeout(ctx, connWaitTimeout)
+	defer cancel()
 
 	conn, err = grpc.DialContext(timedCtx, node.GetAddress().Address, options...)
 	if err != nil {
@@ -98,7 +98,10 @@ func (transport *Transport) DialAddress(ctx context.Context, address string, opt
 		grpc.FailOnNonTempDialError(true),
 	}, opts...)
 
-	conn, err = grpc.DialContext(ctx, address, options...)
+	timedCtx, cancel := context.WithTimeout(ctx, connWaitTimeout)
+	defer cancel()
+
+	conn, err = grpc.DialContext(timedCtx, address, options...)
 	if err == context.Canceled {
 		return nil, err
 	}
