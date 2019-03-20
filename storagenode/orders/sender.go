@@ -26,10 +26,20 @@ type Info struct {
 	Uplink *identity.PeerIdentity
 }
 
+// ArchivedInfo contains full information about an archived order.
+type ArchivedInfo struct {
+	Limit  *pb.OrderLimit2
+	Order  *pb.Order2
+	Uplink *identity.PeerIdentity
+
+	Status     Status
+	ArchivedAt time.Time
+}
+
 type Status byte
 
 const (
-	StatusInvalid Status = iota
+	StatusUnsent Status = iota
 	StatusAccepted
 	StatusRejected
 )
@@ -42,8 +52,12 @@ type DB interface {
 	ListUnsent(ctx context.Context, limit int) ([]*Info, error)
 	// ListUnsentBySatellite returns orders that haven't been sent yet grouped by satellite.
 	ListUnsentBySatellite(ctx context.Context) (map[storj.NodeID][]*Info, error)
+
 	// Archive marks order as being handled.
 	Archive(ctx context.Context, satellite storj.NodeID, serial storj.SerialNumber, status Status) error
+
+	// ListArchived returns orders that have been sent.
+	ListArchived(ctx context.Context, limit int) ([]*ArchivedInfo, error)
 }
 
 // SenderConfig defines configuration for sending orders.
