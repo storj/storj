@@ -33,7 +33,7 @@ func TestUploadAndPartialDownload(t *testing.T) {
 	_, err = rand.Read(expectedData)
 	require.NoError(t, err)
 
-	err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "test/bucket", "test/path", expectedData)
+	err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
 	assert.NoError(t, err)
 
 	var totalDownload int64
@@ -49,7 +49,7 @@ func TestUploadAndPartialDownload(t *testing.T) {
 		}
 		totalDownload += piecestore.DefaultConfig.InitialStep
 
-		download, err := planet.Uplinks[0].DownloadStream(ctx, planet.Satellites[0], "test/bucket", "test/path")
+		download, err := planet.Uplinks[0].DownloadStream(ctx, planet.Satellites[0], "testbucket", "test/path")
 		require.NoError(t, err)
 
 		pos, err := download.Seek(tt.offset, io.SeekStart)
@@ -73,9 +73,9 @@ func TestUploadAndPartialDownload(t *testing.T) {
 		totalBandwidthUsage.Add(usage)
 	}
 
-	err = planet.Uplinks[0].Delete(ctx, planet.Satellites[0], "test/bucket", "test/path")
+	err = planet.Uplinks[0].Delete(ctx, planet.Satellites[0], "testbucket", "test/path")
 	require.NoError(t, err)
-	_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "test/bucket", "test/path")
+	_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path")
 	require.Error(t, err)
 
 	// check rough limits for the upload and download

@@ -62,7 +62,11 @@ func TestOrders(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		info := &orders.Info{limit, order, uplink.PeerIdentity()}
+		info := &orders.Info{
+			Limit:  limit,
+			Order:  order,
+			Uplink: uplink.PeerIdentity(),
+		}
 
 		// basic add
 		err = ordersdb.Enqueue(ctx, info)
