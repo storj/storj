@@ -58,7 +58,7 @@ func TestUplink(t *testing.T) {
 		assert.Equal(t, storjBucket.Name, "testbucket")
 		assert.IsType(t, storj.Bucket{}, storjBucket)
 
-		encOpts := storj.EncryptionScheme{}
+		encOpts := &Encryption{}
 		getbucket := access.GetBucket(ctx, "testbucket", encOpts)
 		assert.NoError(t, err)
 		assert.NotNil(t, getbucket)

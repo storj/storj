@@ -77,17 +77,13 @@ func (a *Access) GetBucketInfo(ctx context.Context, bucket string) (storj.Bucket
 }
 
 // GetBucket returns a Bucket with the given Encryption information
-func (a *Access) GetBucket(ctx context.Context, bucket string, encryption storj.EncryptionScheme) *Bucket {
-	opts := &Encryption{
-		PathCipher:       encryption.Cipher,
-		EncryptionScheme: a.Uplink.config.GetEncryptionScheme(),
-	}
+func (a *Access) GetBucket(ctx context.Context, bucket string, encryption *Encryption) *Bucket {
 	return &Bucket{
 		Access: a,
-		Enc:    opts,
+		Enc:    encryption,
 		Bucket: storj.Bucket{
 			Name:       bucket,
-			PathCipher: encryption.Cipher,
+			PathCipher: encryption.PathCipher,
 		},
 	}
 }
