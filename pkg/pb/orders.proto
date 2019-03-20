@@ -75,7 +75,7 @@ message SettlementRequest {
 message SettlementResponse {
     enum Status {
         INVALID  = 0;
-        OK       = 1;
+        ACCEPTED = 1;
         REJECTED = 2;
     }
 
