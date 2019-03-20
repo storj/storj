@@ -64,7 +64,7 @@ message PieceHash {
 
 
 service Orders {
-  rpc Settlement(stream SettlementRequest) returns (stream SettlementResponse) {}
+    rpc Settlement(stream SettlementRequest) returns (stream SettlementResponse) {}
 }
 
 message SettlementRequest {
