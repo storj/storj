@@ -31,6 +31,31 @@
                 "type": "Status"
               }
             ]
+          },
+          {
+            "name": "BandwidthSettlementRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "allocation",
+                "type": "piecestoreroutes.RenterBandwidthAllocation"
+              }
+            ]
+          },
+          {
+            "name": "BandwidthSettlementResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "serial_number",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "status",
+                "type": "AgreementsSummary.Status"
+              }
+            ]
           }
         ],
         "services": [
@@ -41,6 +66,13 @@
                 "name": "BandwidthAgreements",
                 "in_type": "piecestoreroutes.RenterBandwidthAllocation",
                 "out_type": "AgreementsSummary"
+              },
+              {
+                "name": "Settlement",
+                "in_type": "BandwidthSettlementRequest",
+                "out_type": "BandwidthSettlementResponse",
+                "in_streamed": true,
+                "out_streamed": true
               }
             ]
           }
@@ -1866,7 +1898,17 @@
               {
                 "id": 1,
                 "name": "serial_number",
-                "type": "bytes"
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "SerialNumber"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 2,
@@ -1961,7 +2003,17 @@
               {
                 "id": 1,
                 "name": "serial_number",
-                "type": "bytes"
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "SerialNumber"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 2,

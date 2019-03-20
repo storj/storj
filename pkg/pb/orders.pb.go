@@ -3,13 +3,11 @@
 
 package pb
 
-import (
-	fmt "fmt"
-	_ "github.com/gogo/protobuf/gogoproto"
-	proto "github.com/gogo/protobuf/proto"
-	timestamp "github.com/golang/protobuf/ptypes/timestamp"
-	math "math"
-)
+import proto "github.com/gogo/protobuf/proto"
+import fmt "fmt"
+import math "math"
+import _ "github.com/gogo/protobuf/gogoproto"
+import timestamp "github.com/golang/protobuf/ptypes/timestamp"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -44,7 +42,6 @@ var PieceAction_name = map[int32]string{
 	5: "PUT_REPAIR",
 	6: "DELETE",
 }
-
 var PieceAction_value = map[string]int32{
 	"INVALID":    0,
 	"PUT":        1,
@@ -58,9 +55,8 @@ var PieceAction_value = map[string]int32{
 func (x PieceAction) String() string {
 	return proto.EnumName(PieceAction_name, int32(x))
 }
-
 func (PieceAction) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_e0f5d4cf0fc9e41b, []int{0}
+	return fileDescriptor_orders_56c8ce6b930bdc90, []int{0}
 }
 
 // OrderLimit2 is provided by satellite to execute specific action on storage node within some limits
@@ -78,8 +74,8 @@ type OrderLimit2 struct {
 	// limit in bytes how much can be changed
 	Limit                int64                `protobuf:"varint,6,opt,name=limit,proto3" json:"limit,omitempty"`
 	Action               PieceAction          `protobuf:"varint,7,opt,name=action,proto3,enum=orders.PieceAction" json:"action,omitempty"`
-	PieceExpiration      *timestamp.Timestamp `protobuf:"bytes,8,opt,name=piece_expiration,json=pieceExpiration,proto3" json:"piece_expiration,omitempty"`
-	OrderExpiration      *timestamp.Timestamp `protobuf:"bytes,9,opt,name=order_expiration,json=orderExpiration,proto3" json:"order_expiration,omitempty"`
+	PieceExpiration      *timestamp.Timestamp `protobuf:"bytes,8,opt,name=piece_expiration,json=pieceExpiration" json:"piece_expiration,omitempty"`
+	OrderExpiration      *timestamp.Timestamp `protobuf:"bytes,9,opt,name=order_expiration,json=orderExpiration" json:"order_expiration,omitempty"`
 	SatelliteSignature   []byte               `protobuf:"bytes,10,opt,name=satellite_signature,json=satelliteSignature,proto3" json:"satellite_signature,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
 	XXX_unrecognized     []byte               `json:"-"`
@@ -90,7 +86,7 @@ func (m *OrderLimit2) Reset()         { *m = OrderLimit2{} }
 func (m *OrderLimit2) String() string { return proto.CompactTextString(m) }
 func (*OrderLimit2) ProtoMessage()    {}
 func (*OrderLimit2) Descriptor() ([]byte, []int) {
-	return fileDescriptor_e0f5d4cf0fc9e41b, []int{0}
+	return fileDescriptor_orders_56c8ce6b930bdc90, []int{0}
 }
 func (m *OrderLimit2) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_OrderLimit2.Unmarshal(m, b)
@@ -98,8 +94,8 @@ func (m *OrderLimit2) XXX_Unmarshal(b []byte) error {
 func (m *OrderLimit2) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_OrderLimit2.Marshal(b, m, deterministic)
 }
-func (m *OrderLimit2) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_OrderLimit2.Merge(m, src)
+func (dst *OrderLimit2) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_OrderLimit2.Merge(dst, src)
 }
 func (m *OrderLimit2) XXX_Size() int {
 	return xxx_messageInfo_OrderLimit2.Size(m)
@@ -162,7 +158,7 @@ func (m *Order2) Reset()         { *m = Order2{} }
 func (m *Order2) String() string { return proto.CompactTextString(m) }
 func (*Order2) ProtoMessage()    {}
 func (*Order2) Descriptor() ([]byte, []int) {
-	return fileDescriptor_e0f5d4cf0fc9e41b, []int{1}
+	return fileDescriptor_orders_56c8ce6b930bdc90, []int{1}
 }
 func (m *Order2) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Order2.Unmarshal(m, b)
@@ -170,8 +166,8 @@ func (m *Order2) XXX_Unmarshal(b []byte) error {
 func (m *Order2) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Order2.Marshal(b, m, deterministic)
 }
-func (m *Order2) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Order2.Merge(m, src)
+func (dst *Order2) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Order2.Merge(dst, src)
 }
 func (m *Order2) XXX_Size() int {
 	return xxx_messageInfo_Order2.Size(m)
@@ -212,7 +208,7 @@ func (m *PieceHash) Reset()         { *m = PieceHash{} }
 func (m *PieceHash) String() string { return proto.CompactTextString(m) }
 func (*PieceHash) ProtoMessage()    {}
 func (*PieceHash) Descriptor() ([]byte, []int) {
-	return fileDescriptor_e0f5d4cf0fc9e41b, []int{2}
+	return fileDescriptor_orders_56c8ce6b930bdc90, []int{2}
 }
 func (m *PieceHash) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PieceHash.Unmarshal(m, b)
@@ -220,8 +216,8 @@ func (m *PieceHash) XXX_Unmarshal(b []byte) error {
 func (m *PieceHash) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_PieceHash.Marshal(b, m, deterministic)
 }
-func (m *PieceHash) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_PieceHash.Merge(m, src)
+func (dst *PieceHash) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_PieceHash.Merge(dst, src)
 }
 func (m *PieceHash) XXX_Size() int {
 	return xxx_messageInfo_PieceHash.Size(m)
@@ -247,15 +243,15 @@ func (m *PieceHash) GetSignature() []byte {
 }
 
 func init() {
-	proto.RegisterEnum("orders.PieceAction", PieceAction_name, PieceAction_value)
 	proto.RegisterType((*OrderLimit2)(nil), "orders.OrderLimit2")
 	proto.RegisterType((*Order2)(nil), "orders.Order2")
 	proto.RegisterType((*PieceHash)(nil), "orders.PieceHash")
+	proto.RegisterEnum("orders.PieceAction", PieceAction_name, PieceAction_value)
 }
 
-func init() { proto.RegisterFile("orders.proto", fileDescriptor_e0f5d4cf0fc9e41b) }
+func init() { proto.RegisterFile("orders.proto", fileDescriptor_orders_56c8ce6b930bdc90) }
 
-var fileDescriptor_e0f5d4cf0fc9e41b = []byte{
+var fileDescriptor_orders_56c8ce6b930bdc90 = []byte{
 	// 502 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x52, 0x4d, 0x6b, 0xdb, 0x40,
 	0x10, 0x8d, 0xfc, 0x21, 0xdb, 0xe3, 0x2f, 0xb1, 0x09, 0x45, 0x98, 0x82, 0x4d, 0x4e, 0x6e, 0x02,
