@@ -27,12 +27,14 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
+
+	"storj.io/storj/internal/memory"
 )
 
 var (
 	numTries      = flag.Int("num-tries", 20, "number of tries to cause a hang")
 	bucketName    = flag.String("bucket", "bukkit", "name of bucket to use for test")
-	fileSize      = flag.Int64("file-size", 5*1024*1024, "size of test file to use")
+	fileSize      = flag.Int64("file-size", int64(5*memory.MiB), "size of test file to use")
 	deleteTimeout = flag.Duration("timeout", 60*time.Second, "how long to wait for a delete to succeed or time out")
 
 	tryAgain = errs.New("test needs to run again")
