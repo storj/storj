@@ -72,7 +72,12 @@ func TestGraphqlQuery(t *testing.T) {
 			Password: "123a123",
 		}
 
-		rootUser, err := service.CreateUser(ctx, createUser)
+		regToken, err := service.CreateRegToken(ctx, 2)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		rootUser, err := service.CreateUser(ctx, createUser, regToken.Secret)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -195,6 +200,11 @@ func TestGraphqlQuery(t *testing.T) {
 			assert.True(t, createdProject.CreatedAt.Equal(createdAt))
 		})
 
+		regTokenUser1, err := service.CreateRegToken(ctx, 2)
+		if err != nil {
+			t.Fatal(err)
+		}
+
 		user1, err := service.CreateUser(authCtx, console.CreateUser{
 			UserInfo: console.UserInfo{
 				FirstName: "Mickey",
@@ -202,7 +212,7 @@ func TestGraphqlQuery(t *testing.T) {
 				Email:     "muu1@email.com",
 			},
 			Password: "123a123",
-		})
+		}, regTokenUser1.Secret)
 
 		if err != nil {
 			t.Fatal(err)
@@ -225,6 +235,11 @@ func TestGraphqlQuery(t *testing.T) {
 
 		})
 
+		regTokenUser2, err := service.CreateRegToken(ctx, 2)
+		if err != nil {
+			t.Fatal(err)
+		}
+
 		user2, err := service.CreateUser(authCtx, console.CreateUser{
 			UserInfo: console.UserInfo{
 				FirstName: "Dubas",
@@ -232,7 +247,7 @@ func TestGraphqlQuery(t *testing.T) {
 				Email:     "muu2@email.com",
 			},
 			Password: "123a123",
-		})
+		}, regTokenUser2.Secret)
 
 		if err != nil {
 			t.Fatal(err)
