@@ -36,8 +36,10 @@ type ArchivedInfo struct {
 	ArchivedAt time.Time
 }
 
+// Status is the archival status of the order.
 type Status byte
 
+// Statuses for satellite responses.
 const (
 	StatusUnsent Status = iota
 	StatusAccepted
