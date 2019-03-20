@@ -3,14 +3,15 @@
 
 package pb
 
+import proto "github.com/gogo/protobuf/proto"
+import fmt "fmt"
+import math "math"
+import _ "github.com/gogo/protobuf/gogoproto"
+import timestamp "github.com/golang/protobuf/ptypes/timestamp"
+
 import (
-	context "context"
-	fmt "fmt"
-	_ "github.com/gogo/protobuf/gogoproto"
-	proto "github.com/gogo/protobuf/proto"
-	timestamp "github.com/golang/protobuf/ptypes/timestamp"
+	context "golang.org/x/net/context"
 	grpc "google.golang.org/grpc"
-	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -25,8 +26,8 @@ var _ = math.Inf
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 type AddressedOrderLimit struct {
-	Limit                *OrderLimit2 `protobuf:"bytes,1,opt,name=limit,proto3" json:"limit,omitempty"`
-	StorageNodeAddress   *NodeAddress `protobuf:"bytes,2,opt,name=storage_node_address,json=storageNodeAddress,proto3" json:"storage_node_address,omitempty"`
+	Limit                *OrderLimit2 `protobuf:"bytes,1,opt,name=limit" json:"limit,omitempty"`
+	StorageNodeAddress   *NodeAddress `protobuf:"bytes,2,opt,name=storage_node_address,json=storageNodeAddress" json:"storage_node_address,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
 	XXX_unrecognized     []byte       `json:"-"`
 	XXX_sizecache        int32        `json:"-"`
@@ -36,7 +37,7 @@ func (m *AddressedOrderLimit) Reset()         { *m = AddressedOrderLimit{} }
 func (m *AddressedOrderLimit) String() string { return proto.CompactTextString(m) }
 func (*AddressedOrderLimit) ProtoMessage()    {}
 func (*AddressedOrderLimit) Descriptor() ([]byte, []int) {
-	return fileDescriptor_631e2f30a93cd64e, []int{0}
+	return fileDescriptor_metainfo_276e8cbdaf144613, []int{0}
 }
 func (m *AddressedOrderLimit) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AddressedOrderLimit.Unmarshal(m, b)
@@ -44,8 +45,8 @@ func (m *AddressedOrderLimit) XXX_Unmarshal(b []byte) error {
 func (m *AddressedOrderLimit) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_AddressedOrderLimit.Marshal(b, m, deterministic)
 }
-func (m *AddressedOrderLimit) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_AddressedOrderLimit.Merge(m, src)
+func (dst *AddressedOrderLimit) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AddressedOrderLimit.Merge(dst, src)
 }
 func (m *AddressedOrderLimit) XXX_Size() int {
 	return xxx_messageInfo_AddressedOrderLimit.Size(m)
@@ -74,9 +75,9 @@ type SegmentWriteRequest struct {
 	Bucket                  []byte               `protobuf:"bytes,1,opt,name=bucket,proto3" json:"bucket,omitempty"`
 	Path                    []byte               `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
 	Segment                 int64                `protobuf:"varint,3,opt,name=segment,proto3" json:"segment,omitempty"`
-	Redundancy              *RedundancyScheme    `protobuf:"bytes,4,opt,name=redundancy,proto3" json:"redundancy,omitempty"`
+	Redundancy              *RedundancyScheme    `protobuf:"bytes,4,opt,name=redundancy" json:"redundancy,omitempty"`
 	MaxEncryptedSegmentSize int64                `protobuf:"varint,5,opt,name=max_encrypted_segment_size,json=maxEncryptedSegmentSize,proto3" json:"max_encrypted_segment_size,omitempty"`
-	Expiration              *timestamp.Timestamp `protobuf:"bytes,6,opt,name=expiration,proto3" json:"expiration,omitempty"`
+	Expiration              *timestamp.Timestamp `protobuf:"bytes,6,opt,name=expiration" json:"expiration,omitempty"`
 	XXX_NoUnkeyedLiteral    struct{}             `json:"-"`
 	XXX_unrecognized        []byte               `json:"-"`
 	XXX_sizecache           int32                `json:"-"`
@@ -86,7 +87,7 @@ func (m *SegmentWriteRequest) Reset()         { *m = SegmentWriteRequest{} }
 func (m *SegmentWriteRequest) String() string { return proto.CompactTextString(m) }
 func (*SegmentWriteRequest) ProtoMessage()    {}
 func (*SegmentWriteRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_631e2f30a93cd64e, []int{1}
+	return fileDescriptor_metainfo_276e8cbdaf144613, []int{1}
 }
 func (m *SegmentWriteRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentWriteRequest.Unmarshal(m, b)
@@ -94,8 +95,8 @@ func (m *SegmentWriteRequest) XXX_Unmarshal(b []byte) error {
 func (m *SegmentWriteRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SegmentWriteRequest.Marshal(b, m, deterministic)
 }
-func (m *SegmentWriteRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SegmentWriteRequest.Merge(m, src)
+func (dst *SegmentWriteRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SegmentWriteRequest.Merge(dst, src)
 }
 func (m *SegmentWriteRequest) XXX_Size() int {
 	return xxx_messageInfo_SegmentWriteRequest.Size(m)
@@ -149,7 +150,7 @@ func (m *SegmentWriteRequest) GetExpiration() *timestamp.Timestamp {
 }
 
 type SegmentWriteResponse struct {
-	AddressedLimits      []*AddressedOrderLimit `protobuf:"bytes,1,rep,name=addressed_limits,json=addressedLimits,proto3" json:"addressed_limits,omitempty"`
+	AddressedLimits      []*AddressedOrderLimit `protobuf:"bytes,1,rep,name=addressed_limits,json=addressedLimits" json:"addressed_limits,omitempty"`
 	RootPieceId          PieceID                `protobuf:"bytes,2,opt,name=root_piece_id,json=rootPieceId,proto3,customtype=PieceID" json:"root_piece_id"`
 	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
 	XXX_unrecognized     []byte                 `json:"-"`
@@ -160,7 +161,7 @@ func (m *SegmentWriteResponse) Reset()         { *m = SegmentWriteResponse{} }
 func (m *SegmentWriteResponse) String() string { return proto.CompactTextString(m) }
 func (*SegmentWriteResponse) ProtoMessage()    {}
 func (*SegmentWriteResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_631e2f30a93cd64e, []int{2}
+	return fileDescriptor_metainfo_276e8cbdaf144613, []int{2}
 }
 func (m *SegmentWriteResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentWriteResponse.Unmarshal(m, b)
@@ -168,8 +169,8 @@ func (m *SegmentWriteResponse) XXX_Unmarshal(b []byte) error {
 func (m *SegmentWriteResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SegmentWriteResponse.Marshal(b, m, deterministic)
 }
-func (m *SegmentWriteResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SegmentWriteResponse.Merge(m, src)
+func (dst *SegmentWriteResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SegmentWriteResponse.Merge(dst, src)
 }
 func (m *SegmentWriteResponse) XXX_Size() int {
 	return xxx_messageInfo_SegmentWriteResponse.Size(m)
@@ -191,8 +192,8 @@ type SegmentCommitRequest struct {
 	Bucket               []byte         `protobuf:"bytes,1,opt,name=bucket,proto3" json:"bucket,omitempty"`
 	Path                 []byte         `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
 	Segment              int64          `protobuf:"varint,3,opt,name=segment,proto3" json:"segment,omitempty"`
-	Pointer              *Pointer       `protobuf:"bytes,4,opt,name=pointer,proto3" json:"pointer,omitempty"`
-	OriginalLimits       []*OrderLimit2 `protobuf:"bytes,5,rep,name=original_limits,json=originalLimits,proto3" json:"original_limits,omitempty"`
+	Pointer              *Pointer       `protobuf:"bytes,4,opt,name=pointer" json:"pointer,omitempty"`
+	OriginalLimits       []*OrderLimit2 `protobuf:"bytes,5,rep,name=original_limits,json=originalLimits" json:"original_limits,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
 	XXX_unrecognized     []byte         `json:"-"`
 	XXX_sizecache        int32          `json:"-"`
@@ -202,7 +203,7 @@ func (m *SegmentCommitRequest) Reset()         { *m = SegmentCommitRequest{} }
 func (m *SegmentCommitRequest) String() string { return proto.CompactTextString(m) }
 func (*SegmentCommitRequest) ProtoMessage()    {}
 func (*SegmentCommitRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_631e2f30a93cd64e, []int{3}
+	return fileDescriptor_metainfo_276e8cbdaf144613, []int{3}
 }
 func (m *SegmentCommitRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentCommitRequest.Unmarshal(m, b)
@@ -210,8 +211,8 @@ func (m *SegmentCommitRequest) XXX_Unmarshal(b []byte) error {
 func (m *SegmentCommitRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SegmentCommitRequest.Marshal(b, m, deterministic)
 }
-func (m *SegmentCommitRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SegmentCommitRequest.Merge(m, src)
+func (dst *SegmentCommitRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SegmentCommitRequest.Merge(dst, src)
 }
 func (m *SegmentCommitRequest) XXX_Size() int {
 	return xxx_messageInfo_SegmentCommitRequest.Size(m)
@@ -258,7 +259,7 @@ func (m *SegmentCommitRequest) GetOriginalLimits() []*OrderLimit2 {
 }
 
 type SegmentCommitResponse struct {
-	Pointer              *Pointer `protobuf:"bytes,1,opt,name=pointer,proto3" json:"pointer,omitempty"`
+	Pointer              *Pointer `protobuf:"bytes,1,opt,name=pointer" json:"pointer,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -268,7 +269,7 @@ func (m *SegmentCommitResponse) Reset()         { *m = SegmentCommitResponse{} }
 func (m *SegmentCommitResponse) String() string { return proto.CompactTextString(m) }
 func (*SegmentCommitResponse) ProtoMessage()    {}
 func (*SegmentCommitResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_631e2f30a93cd64e, []int{4}
+	return fileDescriptor_metainfo_276e8cbdaf144613, []int{4}
 }
 func (m *SegmentCommitResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentCommitResponse.Unmarshal(m, b)
@@ -276,8 +277,8 @@ func (m *SegmentCommitResponse) XXX_Unmarshal(b []byte) error {
 func (m *SegmentCommitResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SegmentCommitResponse.Marshal(b, m, deterministic)
 }
-func (m *SegmentCommitResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SegmentCommitResponse.Merge(m, src)
+func (dst *SegmentCommitResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SegmentCommitResponse.Merge(dst, src)
 }
 func (m *SegmentCommitResponse) XXX_Size() int {
 	return xxx_messageInfo_SegmentCommitResponse.Size(m)
@@ -308,7 +309,7 @@ func (m *SegmentDownloadRequest) Reset()         { *m = SegmentDownloadRequest{}
 func (m *SegmentDownloadRequest) String() string { return proto.CompactTextString(m) }
 func (*SegmentDownloadRequest) ProtoMessage()    {}
 func (*SegmentDownloadRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_631e2f30a93cd64e, []int{5}
+	return fileDescriptor_metainfo_276e8cbdaf144613, []int{5}
 }
 func (m *SegmentDownloadRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentDownloadRequest.Unmarshal(m, b)
@@ -316,8 +317,8 @@ func (m *SegmentDownloadRequest) XXX_Unmarshal(b []byte) error {
 func (m *SegmentDownloadRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SegmentDownloadRequest.Marshal(b, m, deterministic)
 }
-func (m *SegmentDownloadRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SegmentDownloadRequest.Merge(m, src)
+func (dst *SegmentDownloadRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SegmentDownloadRequest.Merge(dst, src)
 }
 func (m *SegmentDownloadRequest) XXX_Size() int {
 	return xxx_messageInfo_SegmentDownloadRequest.Size(m)
@@ -350,8 +351,8 @@ func (m *SegmentDownloadRequest) GetSegment() int64 {
 }
 
 type SegmentDownloadResponse struct {
-	AddressedLimits      []*AddressedOrderLimit `protobuf:"bytes,1,rep,name=addressed_limits,json=addressedLimits,proto3" json:"addressed_limits,omitempty"`
-	Pointer              *Pointer               `protobuf:"bytes,2,opt,name=pointer,proto3" json:"pointer,omitempty"`
+	AddressedLimits      []*AddressedOrderLimit `protobuf:"bytes,1,rep,name=addressed_limits,json=addressedLimits" json:"addressed_limits,omitempty"`
+	Pointer              *Pointer               `protobuf:"bytes,2,opt,name=pointer" json:"pointer,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
 	XXX_unrecognized     []byte                 `json:"-"`
 	XXX_sizecache        int32                  `json:"-"`
@@ -361,7 +362,7 @@ func (m *SegmentDownloadResponse) Reset()         { *m = SegmentDownloadResponse
 func (m *SegmentDownloadResponse) String() string { return proto.CompactTextString(m) }
 func (*SegmentDownloadResponse) ProtoMessage()    {}
 func (*SegmentDownloadResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_631e2f30a93cd64e, []int{6}
+	return fileDescriptor_metainfo_276e8cbdaf144613, []int{6}
 }
 func (m *SegmentDownloadResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentDownloadResponse.Unmarshal(m, b)
@@ -369,8 +370,8 @@ func (m *SegmentDownloadResponse) XXX_Unmarshal(b []byte) error {
 func (m *SegmentDownloadResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SegmentDownloadResponse.Marshal(b, m, deterministic)
 }
-func (m *SegmentDownloadResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SegmentDownloadResponse.Merge(m, src)
+func (dst *SegmentDownloadResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SegmentDownloadResponse.Merge(dst, src)
 }
 func (m *SegmentDownloadResponse) XXX_Size() int {
 	return xxx_messageInfo_SegmentDownloadResponse.Size(m)
@@ -408,7 +409,7 @@ func (m *SegmentInfoRequest) Reset()         { *m = SegmentInfoRequest{} }
 func (m *SegmentInfoRequest) String() string { return proto.CompactTextString(m) }
 func (*SegmentInfoRequest) ProtoMessage()    {}
 func (*SegmentInfoRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_631e2f30a93cd64e, []int{7}
+	return fileDescriptor_metainfo_276e8cbdaf144613, []int{7}
 }
 func (m *SegmentInfoRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentInfoRequest.Unmarshal(m, b)
@@ -416,8 +417,8 @@ func (m *SegmentInfoRequest) XXX_Unmarshal(b []byte) error {
 func (m *SegmentInfoRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SegmentInfoRequest.Marshal(b, m, deterministic)
 }
-func (m *SegmentInfoRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SegmentInfoRequest.Merge(m, src)
+func (dst *SegmentInfoRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SegmentInfoRequest.Merge(dst, src)
 }
 func (m *SegmentInfoRequest) XXX_Size() int {
 	return xxx_messageInfo_SegmentInfoRequest.Size(m)
@@ -450,7 +451,7 @@ func (m *SegmentInfoRequest) GetSegment() int64 {
 }
 
 type SegmentInfoResponse struct {
-	Pointer              *Pointer `protobuf:"bytes,2,opt,name=pointer,proto3" json:"pointer,omitempty"`
+	Pointer              *Pointer `protobuf:"bytes,2,opt,name=pointer" json:"pointer,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -460,7 +461,7 @@ func (m *SegmentInfoResponse) Reset()         { *m = SegmentInfoResponse{} }
 func (m *SegmentInfoResponse) String() string { return proto.CompactTextString(m) }
 func (*SegmentInfoResponse) ProtoMessage()    {}
 func (*SegmentInfoResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_631e2f30a93cd64e, []int{8}
+	return fileDescriptor_metainfo_276e8cbdaf144613, []int{8}
 }
 func (m *SegmentInfoResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentInfoResponse.Unmarshal(m, b)
@@ -468,8 +469,8 @@ func (m *SegmentInfoResponse) XXX_Unmarshal(b []byte) error {
 func (m *SegmentInfoResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SegmentInfoResponse.Marshal(b, m, deterministic)
 }
-func (m *SegmentInfoResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SegmentInfoResponse.Merge(m, src)
+func (dst *SegmentInfoResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SegmentInfoResponse.Merge(dst, src)
 }
 func (m *SegmentInfoResponse) XXX_Size() int {
 	return xxx_messageInfo_SegmentInfoResponse.Size(m)
@@ -500,7 +501,7 @@ func (m *SegmentDeleteRequest) Reset()         { *m = SegmentDeleteRequest{} }
 func (m *SegmentDeleteRequest) String() string { return proto.CompactTextString(m) }
 func (*SegmentDeleteRequest) ProtoMessage()    {}
 func (*SegmentDeleteRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_631e2f30a93cd64e, []int{9}
+	return fileDescriptor_metainfo_276e8cbdaf144613, []int{9}
 }
 func (m *SegmentDeleteRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentDeleteRequest.Unmarshal(m, b)
@@ -508,8 +509,8 @@ func (m *SegmentDeleteRequest) XXX_Unmarshal(b []byte) error {
 func (m *SegmentDeleteRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SegmentDeleteRequest.Marshal(b, m, deterministic)
 }
-func (m *SegmentDeleteRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SegmentDeleteRequest.Merge(m, src)
+func (dst *SegmentDeleteRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SegmentDeleteRequest.Merge(dst, src)
 }
 func (m *SegmentDeleteRequest) XXX_Size() int {
 	return xxx_messageInfo_SegmentDeleteRequest.Size(m)
@@ -542,7 +543,7 @@ func (m *SegmentDeleteRequest) GetSegment() int64 {
 }
 
 type SegmentDeleteResponse struct {
-	AddressedLimits      []*AddressedOrderLimit `protobuf:"bytes,1,rep,name=addressed_limits,json=addressedLimits,proto3" json:"addressed_limits,omitempty"`
+	AddressedLimits      []*AddressedOrderLimit `protobuf:"bytes,1,rep,name=addressed_limits,json=addressedLimits" json:"addressed_limits,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
 	XXX_unrecognized     []byte                 `json:"-"`
 	XXX_sizecache        int32                  `json:"-"`
@@ -552,7 +553,7 @@ func (m *SegmentDeleteResponse) Reset()         { *m = SegmentDeleteResponse{} }
 func (m *SegmentDeleteResponse) String() string { return proto.CompactTextString(m) }
 func (*SegmentDeleteResponse) ProtoMessage()    {}
 func (*SegmentDeleteResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_631e2f30a93cd64e, []int{10}
+	return fileDescriptor_metainfo_276e8cbdaf144613, []int{10}
 }
 func (m *SegmentDeleteResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentDeleteResponse.Unmarshal(m, b)
@@ -560,8 +561,8 @@ func (m *SegmentDeleteResponse) XXX_Unmarshal(b []byte) error {
 func (m *SegmentDeleteResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SegmentDeleteResponse.Marshal(b, m, deterministic)
 }
-func (m *SegmentDeleteResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SegmentDeleteResponse.Merge(m, src)
+func (dst *SegmentDeleteResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SegmentDeleteResponse.Merge(dst, src)
 }
 func (m *SegmentDeleteResponse) XXX_Size() int {
 	return xxx_messageInfo_SegmentDeleteResponse.Size(m)
@@ -596,7 +597,7 @@ func (m *ListSegmentsRequest) Reset()         { *m = ListSegmentsRequest{} }
 func (m *ListSegmentsRequest) String() string { return proto.CompactTextString(m) }
 func (*ListSegmentsRequest) ProtoMessage()    {}
 func (*ListSegmentsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_631e2f30a93cd64e, []int{11}
+	return fileDescriptor_metainfo_276e8cbdaf144613, []int{11}
 }
 func (m *ListSegmentsRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListSegmentsRequest.Unmarshal(m, b)
@@ -604,8 +605,8 @@ func (m *ListSegmentsRequest) XXX_Unmarshal(b []byte) error {
 func (m *ListSegmentsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ListSegmentsRequest.Marshal(b, m, deterministic)
 }
-func (m *ListSegmentsRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ListSegmentsRequest.Merge(m, src)
+func (dst *ListSegmentsRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListSegmentsRequest.Merge(dst, src)
 }
 func (m *ListSegmentsRequest) XXX_Size() int {
 	return xxx_messageInfo_ListSegmentsRequest.Size(m)
@@ -666,7 +667,7 @@ func (m *ListSegmentsRequest) GetMetaFlags() uint32 {
 }
 
 type ListSegmentsResponse struct {
-	Items                []*ListSegmentsResponse_Item `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	Items                []*ListSegmentsResponse_Item `protobuf:"bytes,1,rep,name=items" json:"items,omitempty"`
 	More                 bool                         `protobuf:"varint,2,opt,name=more,proto3" json:"more,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                     `json:"-"`
 	XXX_unrecognized     []byte                       `json:"-"`
@@ -677,7 +678,7 @@ func (m *ListSegmentsResponse) Reset()         { *m = ListSegmentsResponse{} }
 func (m *ListSegmentsResponse) String() string { return proto.CompactTextString(m) }
 func (*ListSegmentsResponse) ProtoMessage()    {}
 func (*ListSegmentsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_631e2f30a93cd64e, []int{12}
+	return fileDescriptor_metainfo_276e8cbdaf144613, []int{12}
 }
 func (m *ListSegmentsResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListSegmentsResponse.Unmarshal(m, b)
@@ -685,8 +686,8 @@ func (m *ListSegmentsResponse) XXX_Unmarshal(b []byte) error {
 func (m *ListSegmentsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ListSegmentsResponse.Marshal(b, m, deterministic)
 }
-func (m *ListSegmentsResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ListSegmentsResponse.Merge(m, src)
+func (dst *ListSegmentsResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListSegmentsResponse.Merge(dst, src)
 }
 func (m *ListSegmentsResponse) XXX_Size() int {
 	return xxx_messageInfo_ListSegmentsResponse.Size(m)
@@ -713,7 +714,7 @@ func (m *ListSegmentsResponse) GetMore() bool {
 
 type ListSegmentsResponse_Item struct {
 	Path                 []byte   `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	Pointer              *Pointer `protobuf:"bytes,2,opt,name=pointer,proto3" json:"pointer,omitempty"`
+	Pointer              *Pointer `protobuf:"bytes,2,opt,name=pointer" json:"pointer,omitempty"`
 	IsPrefix             bool     `protobuf:"varint,3,opt,name=is_prefix,json=isPrefix,proto3" json:"is_prefix,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -724,7 +725,7 @@ func (m *ListSegmentsResponse_Item) Reset()         { *m = ListSegmentsResponse_
 func (m *ListSegmentsResponse_Item) String() string { return proto.CompactTextString(m) }
 func (*ListSegmentsResponse_Item) ProtoMessage()    {}
 func (*ListSegmentsResponse_Item) Descriptor() ([]byte, []int) {
-	return fileDescriptor_631e2f30a93cd64e, []int{12, 0}
+	return fileDescriptor_metainfo_276e8cbdaf144613, []int{12, 0}
 }
 func (m *ListSegmentsResponse_Item) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListSegmentsResponse_Item.Unmarshal(m, b)
@@ -732,8 +733,8 @@ func (m *ListSegmentsResponse_Item) XXX_Unmarshal(b []byte) error {
 func (m *ListSegmentsResponse_Item) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ListSegmentsResponse_Item.Marshal(b, m, deterministic)
 }
-func (m *ListSegmentsResponse_Item) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ListSegmentsResponse_Item.Merge(m, src)
+func (dst *ListSegmentsResponse_Item) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListSegmentsResponse_Item.Merge(dst, src)
 }
 func (m *ListSegmentsResponse_Item) XXX_Size() int {
 	return xxx_messageInfo_ListSegmentsResponse_Item.Size(m)
@@ -765,6 +766,75 @@ func (m *ListSegmentsResponse_Item) GetIsPrefix() bool {
 	return false
 }
 
+type StorageNodeInfoRequest struct {
+	NodeId               []NodeID `protobuf:"bytes,1,rep,name=node_id,json=nodeId,customtype=NodeID" json:"node_id"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *StorageNodeInfoRequest) Reset()         { *m = StorageNodeInfoRequest{} }
+func (m *StorageNodeInfoRequest) String() string { return proto.CompactTextString(m) }
+func (*StorageNodeInfoRequest) ProtoMessage()    {}
+func (*StorageNodeInfoRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_metainfo_276e8cbdaf144613, []int{13}
+}
+func (m *StorageNodeInfoRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_StorageNodeInfoRequest.Unmarshal(m, b)
+}
+func (m *StorageNodeInfoRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_StorageNodeInfoRequest.Marshal(b, m, deterministic)
+}
+func (dst *StorageNodeInfoRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_StorageNodeInfoRequest.Merge(dst, src)
+}
+func (m *StorageNodeInfoRequest) XXX_Size() int {
+	return xxx_messageInfo_StorageNodeInfoRequest.Size(m)
+}
+func (m *StorageNodeInfoRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_StorageNodeInfoRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_StorageNodeInfoRequest proto.InternalMessageInfo
+
+type StorageNodeInfoResponse struct {
+	StorageNodeAddress   []*NodeAddress `protobuf:"bytes,1,rep,name=storage_node_address,json=storageNodeAddress" json:"storage_node_address,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
+	XXX_unrecognized     []byte         `json:"-"`
+	XXX_sizecache        int32          `json:"-"`
+}
+
+func (m *StorageNodeInfoResponse) Reset()         { *m = StorageNodeInfoResponse{} }
+func (m *StorageNodeInfoResponse) String() string { return proto.CompactTextString(m) }
+func (*StorageNodeInfoResponse) ProtoMessage()    {}
+func (*StorageNodeInfoResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_metainfo_276e8cbdaf144613, []int{14}
+}
+func (m *StorageNodeInfoResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_StorageNodeInfoResponse.Unmarshal(m, b)
+}
+func (m *StorageNodeInfoResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_StorageNodeInfoResponse.Marshal(b, m, deterministic)
+}
+func (dst *StorageNodeInfoResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_StorageNodeInfoResponse.Merge(dst, src)
+}
+func (m *StorageNodeInfoResponse) XXX_Size() int {
+	return xxx_messageInfo_StorageNodeInfoResponse.Size(m)
+}
+func (m *StorageNodeInfoResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_StorageNodeInfoResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_StorageNodeInfoResponse proto.InternalMessageInfo
+
+func (m *StorageNodeInfoResponse) GetStorageNodeAddress() []*NodeAddress {
+	if m != nil {
+		return m.StorageNodeAddress
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*AddressedOrderLimit)(nil), "metainfo.AddressedOrderLimit")
 	proto.RegisterType((*SegmentWriteRequest)(nil), "metainfo.SegmentWriteRequest")
@@ -780,66 +850,8 @@ func init() {
 	proto.RegisterType((*ListSegmentsRequest)(nil), "metainfo.ListSegmentsRequest")
 	proto.RegisterType((*ListSegmentsResponse)(nil), "metainfo.ListSegmentsResponse")
 	proto.RegisterType((*ListSegmentsResponse_Item)(nil), "metainfo.ListSegmentsResponse.Item")
-}
-
-func init() { proto.RegisterFile("metainfo.proto", fileDescriptor_631e2f30a93cd64e) }
-
-var fileDescriptor_631e2f30a93cd64e = []byte{
-	// 856 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x55, 0x4f, 0x6f, 0x1b, 0x45,
-	0x14, 0x67, 0xed, 0x38, 0x4e, 0x9e, 0x9d, 0x1a, 0x26, 0x21, 0x5d, 0x6d, 0x1b, 0x6c, 0x96, 0x4b,
-	0x90, 0xd0, 0x56, 0x4a, 0x4f, 0x50, 0x2e, 0x4d, 0x52, 0x44, 0x50, 0x5b, 0xa2, 0x09, 0x02, 0xa9,
-	0x42, 0xac, 0xc6, 0xde, 0xe7, 0xed, 0x08, 0xef, 0xce, 0x32, 0x33, 0x86, 0xb4, 0x77, 0x3e, 0x40,
-	0x0f, 0x7c, 0xa7, 0x1e, 0xf8, 0x00, 0x88, 0x43, 0xbe, 0x03, 0xdf, 0x00, 0xed, 0xec, 0x8c, 0xbd,
-	0x89, 0x6d, 0x42, 0x25, 0xdf, 0xe6, 0xbd, 0xf9, 0xcd, 0xfb, 0xf7, 0x7b, 0xef, 0x0d, 0xdc, 0xc9,
-	0x50, 0x33, 0x9e, 0x8f, 0x45, 0x54, 0x48, 0xa1, 0x05, 0xd9, 0x72, 0x72, 0x00, 0xa9, 0x48, 0xad,
-	0x36, 0xe8, 0xa7, 0x42, 0xa4, 0x13, 0x7c, 0x60, 0xa4, 0xe1, 0x74, 0xfc, 0x40, 0xf3, 0x0c, 0x95,
-	0x66, 0x59, 0x61, 0x01, 0x90, 0x8b, 0x04, 0xed, 0xb9, 0x57, 0x08, 0x9e, 0x6b, 0x94, 0xc9, 0xd0,
-	0x2a, 0xba, 0x42, 0x26, 0x28, 0x55, 0x25, 0x85, 0xbf, 0x7b, 0xb0, 0xfb, 0x38, 0x49, 0x24, 0x2a,
-	0x85, 0xc9, 0xb7, 0xe5, 0xcd, 0x53, 0x9e, 0x71, 0x4d, 0x3e, 0x85, 0xd6, 0xa4, 0x3c, 0xf8, 0xde,
-	0xc0, 0x3b, 0xec, 0x1c, 0xed, 0x46, 0xf6, 0xd5, 0x1c, 0x72, 0x44, 0x2b, 0x04, 0x39, 0x81, 0x3d,
-	0xa5, 0x85, 0x64, 0x29, 0xc6, 0xa5, 0xdf, 0x98, 0x55, 0xe6, 0xfc, 0x86, 0x79, 0xf9, 0x41, 0x64,
-	0x82, 0x79, 0x2e, 0x12, 0xb4, 0x7e, 0x28, 0xb1, 0xf0, 0x9a, 0x2e, 0x7c, 0xd3, 0x80, 0xdd, 0x0b,
-	0x4c, 0x33, 0xcc, 0xf5, 0x0f, 0x92, 0x6b, 0xa4, 0xf8, 0xcb, 0x14, 0x95, 0x26, 0xfb, 0xb0, 0x39,
-	0x9c, 0x8e, 0x7e, 0xc6, 0x2a, 0x90, 0x2e, 0xb5, 0x12, 0x21, 0xb0, 0x51, 0x30, 0xfd, 0xd2, 0x38,
-	0xe9, 0x52, 0x73, 0x26, 0x3e, 0xb4, 0x55, 0x65, 0xc2, 0x6f, 0x0e, 0xbc, 0xc3, 0x26, 0x75, 0x22,
-	0x79, 0x04, 0x20, 0x31, 0x99, 0xe6, 0x09, 0xcb, 0x47, 0xaf, 0xfc, 0x0d, 0x13, 0xd8, 0xbd, 0x68,
-	0x5e, 0x19, 0x3a, 0xbb, 0xbc, 0x18, 0xbd, 0xc4, 0x0c, 0x69, 0x0d, 0x4e, 0x1e, 0x41, 0x90, 0xb1,
-	0xcb, 0x18, 0xf3, 0x91, 0x7c, 0x55, 0x68, 0x4c, 0x62, 0x6b, 0x35, 0x56, 0xfc, 0x35, 0xfa, 0x2d,
-	0xe3, 0xe9, 0x6e, 0xc6, 0x2e, 0x9f, 0x38, 0x80, 0xcd, 0xe3, 0x82, 0xbf, 0x46, 0xf2, 0x05, 0x00,
-	0x5e, 0x16, 0x5c, 0x32, 0xcd, 0x45, 0xee, 0x6f, 0x1a, 0xcf, 0x41, 0x54, 0x11, 0x18, 0x39, 0x02,
-	0xa3, 0xef, 0x1c, 0x81, 0xb4, 0x86, 0x0e, 0xff, 0xf0, 0x60, 0xef, 0x7a, 0x4d, 0x54, 0x21, 0x72,
-	0x85, 0xe4, 0x6b, 0x78, 0x9f, 0x39, 0xce, 0x62, 0x43, 0x82, 0xf2, 0xbd, 0x41, 0xf3, 0xb0, 0x73,
-	0x74, 0x10, 0xcd, 0x3a, 0x68, 0x09, 0xab, 0xb4, 0x37, 0x7b, 0x66, 0x64, 0x45, 0x1e, 0xc2, 0x8e,
-	0x14, 0x42, 0xc7, 0x05, 0xc7, 0x11, 0xc6, 0x3c, 0xa9, 0xea, 0x79, 0xdc, 0x7b, 0x7b, 0xd5, 0x7f,
-	0xef, 0xef, 0xab, 0x7e, 0xfb, 0xbc, 0xd4, 0x9f, 0x9d, 0xd2, 0x4e, 0x89, 0xaa, 0x84, 0x24, 0x7c,
-	0x3b, 0x8f, 0xeb, 0x44, 0x64, 0xa5, 0xdd, 0xb5, 0x92, 0xf5, 0x19, 0xb4, 0x2d, 0x33, 0x96, 0x29,
-	0x52, 0x63, 0xea, 0xbc, 0x3a, 0x51, 0x07, 0x21, 0x5f, 0x42, 0x4f, 0x48, 0x9e, 0xf2, 0x9c, 0x4d,
-	0x5c, 0x29, 0x5a, 0xa6, 0x14, 0x4b, 0x5b, 0xf6, 0x8e, 0xc3, 0x56, 0xf9, 0x87, 0x4f, 0xe0, 0xc3,
-	0x1b, 0x99, 0xd8, 0x12, 0xd7, 0x82, 0xf0, 0x6e, 0x0d, 0x22, 0xfc, 0x09, 0xf6, 0xad, 0x99, 0x53,
-	0xf1, 0x5b, 0x3e, 0x11, 0x2c, 0x59, 0x6b, 0x49, 0xc2, 0x37, 0x1e, 0xdc, 0x5d, 0x70, 0xb0, 0xf6,
-	0x66, 0xa8, 0xe5, 0xdc, 0xb8, 0x3d, 0xe7, 0x17, 0x40, 0x6c, 0x48, 0x67, 0xf9, 0x58, 0xac, 0x37,
-	0xdf, 0x93, 0xd9, 0x32, 0xa8, 0x6c, 0x2f, 0x92, 0xf2, 0x3f, 0x02, 0xfc, 0x71, 0xd6, 0xa5, 0xa7,
-	0x38, 0xc1, 0x35, 0xaf, 0x94, 0x90, 0xcd, 0x3a, 0xc7, 0x59, 0x5f, 0x37, 0x1f, 0xe1, 0x5f, 0x1e,
-	0xec, 0x3e, 0xe5, 0x4a, 0x5b, 0x3f, 0xea, 0xb6, 0x04, 0xf6, 0x61, 0xb3, 0x90, 0x38, 0xe6, 0x97,
-	0x36, 0x05, 0x2b, 0x91, 0x3e, 0x74, 0x94, 0x66, 0x52, 0xc7, 0x6c, 0x5c, 0x96, 0xae, 0x69, 0x2e,
-	0xc1, 0xa8, 0x1e, 0x97, 0x1a, 0x72, 0x00, 0x80, 0x79, 0x12, 0x0f, 0x71, 0x2c, 0x24, 0x9a, 0xa1,
-	0xeb, 0xd2, 0x6d, 0xcc, 0x93, 0x63, 0xa3, 0x20, 0xf7, 0x61, 0x5b, 0xe2, 0x68, 0x2a, 0x15, 0xff,
-	0xb5, 0xda, 0x77, 0x5b, 0x74, 0xae, 0x20, 0x7b, 0xee, 0xa7, 0x28, 0x97, 0x5b, 0xcb, 0x7d, 0x0a,
-	0x07, 0x00, 0x65, 0xb2, 0xf1, 0x78, 0xc2, 0x52, 0xe5, 0xb7, 0x07, 0xde, 0x61, 0x9b, 0x6e, 0x97,
-	0x9a, 0xaf, 0x4a, 0x45, 0xf8, 0xa7, 0x07, 0x7b, 0xd7, 0x53, 0xb3, 0xd5, 0xfb, 0x1c, 0x5a, 0x5c,
-	0x63, 0xe6, 0x4a, 0xf6, 0xc9, 0xbc, 0x64, 0xcb, 0xe0, 0xd1, 0x99, 0xc6, 0x8c, 0x56, 0x2f, 0x4a,
-	0xfe, 0xb2, 0x32, 0xfe, 0x86, 0x89, 0xd0, 0x9c, 0x03, 0x84, 0x8d, 0x12, 0x32, 0xe3, 0xd6, 0xab,
-	0x71, 0xfb, 0x4e, 0xdd, 0x44, 0xee, 0xc1, 0x36, 0x57, 0xb1, 0xad, 0x6f, 0xd3, 0xb8, 0xd8, 0xe2,
-	0xea, 0xdc, 0xc8, 0x47, 0xff, 0x34, 0x61, 0xeb, 0x99, 0x0d, 0x94, 0x3c, 0x87, 0x9d, 0x13, 0x89,
-	0x4c, 0xa3, 0x8d, 0x96, 0xd4, 0x78, 0x5f, 0xf2, 0xc5, 0x05, 0x1f, 0xad, 0xba, 0xb6, 0x25, 0x39,
-	0x87, 0x9d, 0x6a, 0x39, 0x39, 0x7b, 0x8b, 0x0f, 0xae, 0xad, 0xe1, 0xa0, 0xbf, 0xf2, 0xde, 0x5a,
-	0xfc, 0x06, 0x3a, 0xb5, 0xf1, 0x22, 0xf7, 0x17, 0xf0, 0xb5, 0x89, 0x0e, 0x0e, 0x56, 0xdc, 0x5a,
-	0x5b, 0xdf, 0x43, 0xcf, 0xad, 0x24, 0x17, 0xdf, 0x60, 0xe1, 0xc5, 0x8d, 0xad, 0x18, 0x7c, 0xfc,
-	0x1f, 0x88, 0x79, 0xd6, 0xd5, 0x60, 0xad, 0xce, 0xfa, 0xda, 0x58, 0x2f, 0xc9, 0xfa, 0xc6, 0x60,
-	0x3e, 0x83, 0x6e, 0xbd, 0x87, 0xea, 0xb4, 0x2c, 0x99, 0xb2, 0x3a, 0x2d, 0xcb, 0x5a, 0xef, 0x78,
-	0xe3, 0x45, 0xa3, 0x18, 0x0e, 0x37, 0xcd, 0x1f, 0xfe, 0xf0, 0xdf, 0x00, 0x00, 0x00, 0xff, 0xff,
-	0xbd, 0xa9, 0x5c, 0xa6, 0xba, 0x09, 0x00, 0x00,
+	proto.RegisterType((*StorageNodeInfoRequest)(nil), "metainfo.StorageNodeInfoRequest")
+	proto.RegisterType((*StorageNodeInfoResponse)(nil), "metainfo.StorageNodeInfoResponse")
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -860,6 +872,7 @@ type MetainfoClient interface {
 	DownloadSegment(ctx context.Context, in *SegmentDownloadRequest, opts ...grpc.CallOption) (*SegmentDownloadResponse, error)
 	DeleteSegment(ctx context.Context, in *SegmentDeleteRequest, opts ...grpc.CallOption) (*SegmentDeleteResponse, error)
 	ListSegments(ctx context.Context, in *ListSegmentsRequest, opts ...grpc.CallOption) (*ListSegmentsResponse, error)
+	StorageNodeInfo(ctx context.Context, in *StorageNodeInfoRequest, opts ...grpc.CallOption) (*StorageNodeInfoResponse, error)
 }
 
 type metainfoClient struct {
@@ -924,6 +937,15 @@ func (c *metainfoClient) ListSegments(ctx context.Context, in *ListSegmentsReque
 	return out, nil
 }
 
+func (c *metainfoClient) StorageNodeInfo(ctx context.Context, in *StorageNodeInfoRequest, opts ...grpc.CallOption) (*StorageNodeInfoResponse, error) {
+	out := new(StorageNodeInfoResponse)
+	err := c.cc.Invoke(ctx, "/metainfo.Metainfo/StorageNodeInfo", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MetainfoServer is the server API for Metainfo service.
 type MetainfoServer interface {
 	CreateSegment(context.Context, *SegmentWriteRequest) (*SegmentWriteResponse, error)
@@ -932,6 +954,7 @@ type MetainfoServer interface {
 	DownloadSegment(context.Context, *SegmentDownloadRequest) (*SegmentDownloadResponse, error)
 	DeleteSegment(context.Context, *SegmentDeleteRequest) (*SegmentDeleteResponse, error)
 	ListSegments(context.Context, *ListSegmentsRequest) (*ListSegmentsResponse, error)
+	StorageNodeInfo(context.Context, *StorageNodeInfoRequest) (*StorageNodeInfoResponse, error)
 }
 
 func RegisterMetainfoServer(s *grpc.Server, srv MetainfoServer) {
@@ -1046,6 +1069,24 @@ func _Metainfo_ListSegments_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Metainfo_StorageNodeInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StorageNodeInfoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MetainfoServer).StorageNodeInfo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/metainfo.Metainfo/StorageNodeInfo",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MetainfoServer).StorageNodeInfo(ctx, req.(*StorageNodeInfoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _Metainfo_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "metainfo.Metainfo",
 	HandlerType: (*MetainfoServer)(nil),
@@ -1074,7 +1115,75 @@ var _Metainfo_serviceDesc = grpc.ServiceDesc{
 			MethodName: "ListSegments",
 			Handler:    _Metainfo_ListSegments_Handler,
 		},
+		{
+			MethodName: "StorageNodeInfo",
+			Handler:    _Metainfo_StorageNodeInfo_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "metainfo.proto",
+}
+
+func init() { proto.RegisterFile("metainfo.proto", fileDescriptor_metainfo_276e8cbdaf144613) }
+
+var fileDescriptor_metainfo_276e8cbdaf144613 = []byte{
+	// 918 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x56, 0xcd, 0x6e, 0xdb, 0x46,
+	0x10, 0x2e, 0xad, 0x3f, 0x7b, 0x24, 0x5b, 0xed, 0xda, 0xb5, 0x09, 0x26, 0xae, 0x54, 0xf6, 0x50,
+	0x17, 0x28, 0x18, 0xc0, 0x39, 0xb5, 0xe9, 0xc5, 0x3f, 0x29, 0xea, 0x22, 0x49, 0x0d, 0xba, 0x48,
+	0x81, 0xa0, 0x08, 0xb1, 0xd2, 0x8e, 0x94, 0x45, 0x45, 0x2e, 0xbb, 0xbb, 0x6a, 0x9d, 0xdc, 0xfb,
+	0x00, 0x39, 0xf4, 0x9d, 0x52, 0xa0, 0x0f, 0x50, 0xf4, 0x90, 0x67, 0x29, 0xb8, 0x5c, 0x4a, 0x94,
+	0x45, 0xd5, 0x09, 0xa0, 0xdb, 0xce, 0xec, 0xec, 0xec, 0x7c, 0xdf, 0x37, 0x9c, 0x25, 0xec, 0xc4,
+	0xa8, 0x29, 0x4f, 0x46, 0x22, 0x48, 0xa5, 0xd0, 0x82, 0x6c, 0x16, 0xb6, 0x07, 0x63, 0x31, 0xb6,
+	0x5e, 0xaf, 0x37, 0x16, 0x62, 0x3c, 0xc1, 0x7b, 0xc6, 0x1a, 0x4c, 0x47, 0xf7, 0x34, 0x8f, 0x51,
+	0x69, 0x1a, 0xa7, 0x36, 0x00, 0x12, 0xc1, 0xd0, 0xae, 0xbb, 0xa9, 0xe0, 0x89, 0x46, 0xc9, 0x06,
+	0xd6, 0xd1, 0x11, 0x92, 0xa1, 0x54, 0xb9, 0xe5, 0xff, 0xe1, 0xc0, 0xee, 0x09, 0x63, 0x12, 0x95,
+	0x42, 0xf6, 0x43, 0xb6, 0xf3, 0x88, 0xc7, 0x5c, 0x93, 0x2f, 0xa0, 0x31, 0xc9, 0x16, 0xae, 0xd3,
+	0x77, 0x8e, 0xda, 0xc7, 0xbb, 0x81, 0x3d, 0x35, 0x0f, 0x39, 0x0e, 0xf3, 0x08, 0x72, 0x06, 0x7b,
+	0x4a, 0x0b, 0x49, 0xc7, 0x18, 0x65, 0xf7, 0x46, 0x34, 0x4f, 0xe7, 0x6e, 0x98, 0x93, 0x1f, 0x05,
+	0xa6, 0x98, 0x27, 0x82, 0xa1, 0xbd, 0x27, 0x24, 0x36, 0xbc, 0xe4, 0xf3, 0x5f, 0x6f, 0xc0, 0xee,
+	0x15, 0x8e, 0x63, 0x4c, 0xf4, 0x4f, 0x92, 0x6b, 0x0c, 0xf1, 0xd7, 0x29, 0x2a, 0x4d, 0xf6, 0xa1,
+	0x39, 0x98, 0x0e, 0x7f, 0xc1, 0xbc, 0x90, 0x4e, 0x68, 0x2d, 0x42, 0xa0, 0x9e, 0x52, 0xfd, 0xc2,
+	0x5c, 0xd2, 0x09, 0xcd, 0x9a, 0xb8, 0xd0, 0x52, 0x79, 0x0a, 0xb7, 0xd6, 0x77, 0x8e, 0x6a, 0x61,
+	0x61, 0x92, 0x07, 0x00, 0x12, 0xd9, 0x34, 0x61, 0x34, 0x19, 0xbe, 0x74, 0xeb, 0xa6, 0xb0, 0x3b,
+	0xc1, 0x9c, 0x99, 0x70, 0xb6, 0x79, 0x35, 0x7c, 0x81, 0x31, 0x86, 0xa5, 0x70, 0xf2, 0x00, 0xbc,
+	0x98, 0x5e, 0x47, 0x98, 0x0c, 0xe5, 0xcb, 0x54, 0x23, 0x8b, 0x6c, 0xd6, 0x48, 0xf1, 0x57, 0xe8,
+	0x36, 0xcc, 0x4d, 0x07, 0x31, 0xbd, 0x7e, 0x58, 0x04, 0x58, 0x1c, 0x57, 0xfc, 0x15, 0x92, 0xaf,
+	0x01, 0xf0, 0x3a, 0xe5, 0x92, 0x6a, 0x2e, 0x12, 0xb7, 0x69, 0x6e, 0xf6, 0x82, 0x5c, 0xc0, 0xa0,
+	0x10, 0x30, 0xf8, 0xb1, 0x10, 0x30, 0x2c, 0x45, 0xfb, 0x7f, 0x3a, 0xb0, 0xb7, 0xc8, 0x89, 0x4a,
+	0x45, 0xa2, 0x90, 0x7c, 0x07, 0x1f, 0xd2, 0x42, 0xb3, 0xc8, 0x88, 0xa0, 0x5c, 0xa7, 0x5f, 0x3b,
+	0x6a, 0x1f, 0x1f, 0x06, 0xb3, 0x0e, 0xaa, 0x50, 0x35, 0xec, 0xce, 0x8e, 0x19, 0x5b, 0x91, 0xfb,
+	0xb0, 0x2d, 0x85, 0xd0, 0x51, 0xca, 0x71, 0x88, 0x11, 0x67, 0x39, 0x9f, 0xa7, 0xdd, 0x37, 0x6f,
+	0x7b, 0x1f, 0xfc, 0xfb, 0xb6, 0xd7, 0xba, 0xcc, 0xfc, 0x17, 0xe7, 0x61, 0x3b, 0x8b, 0xca, 0x0d,
+	0xe6, 0xbf, 0x99, 0xd7, 0x75, 0x26, 0xe2, 0x2c, 0xef, 0x5a, 0xc5, 0xfa, 0x12, 0x5a, 0x56, 0x19,
+	0xab, 0x14, 0x29, 0x29, 0x75, 0x99, 0xaf, 0xc2, 0x22, 0x84, 0x7c, 0x03, 0x5d, 0x21, 0xf9, 0x98,
+	0x27, 0x74, 0x52, 0x50, 0xd1, 0x30, 0x54, 0x54, 0xb6, 0xec, 0x4e, 0x11, 0x9b, 0xe3, 0xf7, 0x1f,
+	0xc2, 0xc7, 0x37, 0x90, 0x58, 0x8a, 0x4b, 0x45, 0x38, 0xb7, 0x16, 0xe1, 0x3f, 0x87, 0x7d, 0x9b,
+	0xe6, 0x5c, 0xfc, 0x9e, 0x4c, 0x04, 0x65, 0x6b, 0xa5, 0xc4, 0x7f, 0xed, 0xc0, 0xc1, 0xd2, 0x05,
+	0x6b, 0x6f, 0x86, 0x12, 0xe6, 0x8d, 0xdb, 0x31, 0x3f, 0x03, 0x62, 0x4b, 0xba, 0x48, 0x46, 0x62,
+	0xbd, 0x78, 0xcf, 0x66, 0xc3, 0x20, 0xcf, 0xbd, 0x2c, 0xca, 0x3b, 0x14, 0xf8, 0xf3, 0xac, 0x4b,
+	0xcf, 0x71, 0x82, 0x6b, 0x1e, 0x29, 0x3e, 0x9d, 0x75, 0x4e, 0x91, 0x7d, 0xdd, 0x7a, 0xf8, 0xff,
+	0x38, 0xb0, 0xfb, 0x88, 0x2b, 0x6d, 0xef, 0x51, 0xb7, 0x01, 0xd8, 0x87, 0x66, 0x2a, 0x71, 0xc4,
+	0xaf, 0x2d, 0x04, 0x6b, 0x91, 0x1e, 0xb4, 0x95, 0xa6, 0x52, 0x47, 0x74, 0x94, 0x51, 0x57, 0x33,
+	0x9b, 0x60, 0x5c, 0x27, 0x99, 0x87, 0x1c, 0x02, 0x60, 0xc2, 0xa2, 0x01, 0x8e, 0x84, 0x44, 0xf3,
+	0xd1, 0x75, 0xc2, 0x2d, 0x4c, 0xd8, 0xa9, 0x71, 0x90, 0xbb, 0xb0, 0x25, 0x71, 0x38, 0x95, 0x8a,
+	0xff, 0x96, 0xcf, 0xbb, 0xcd, 0x70, 0xee, 0x20, 0x7b, 0xc5, 0x4b, 0x91, 0x0d, 0xb7, 0x46, 0xf1,
+	0x28, 0x1c, 0x02, 0x64, 0x60, 0xa3, 0xd1, 0x84, 0x8e, 0x95, 0xdb, 0xea, 0x3b, 0x47, 0xad, 0x70,
+	0x2b, 0xf3, 0x7c, 0x9b, 0x39, 0xfc, 0xbf, 0x1d, 0xd8, 0x5b, 0x84, 0x66, 0xd9, 0xfb, 0x0a, 0x1a,
+	0x5c, 0x63, 0x5c, 0x50, 0xf6, 0xd9, 0x9c, 0xb2, 0xaa, 0xf0, 0xe0, 0x42, 0x63, 0x1c, 0xe6, 0x27,
+	0x32, 0xfd, 0xe2, 0xac, 0xfe, 0x0d, 0x53, 0xa1, 0x59, 0x7b, 0x08, 0xf5, 0x2c, 0x64, 0xa6, 0xad,
+	0x53, 0xd2, 0xf6, 0xbd, 0xba, 0x89, 0xdc, 0x81, 0x2d, 0xae, 0x22, 0xcb, 0x6f, 0xcd, 0x5c, 0xb1,
+	0xc9, 0xd5, 0xa5, 0xb1, 0xfd, 0x13, 0xd8, 0xbf, 0x9a, 0xbf, 0x69, 0xe5, 0xef, 0xe1, 0x73, 0x68,
+	0x99, 0x47, 0x91, 0x33, 0x83, 0xa8, 0x73, 0xba, 0x63, 0x47, 0x6b, 0xd3, 0x44, 0x9e, 0x87, 0xcd,
+	0x6c, 0xfb, 0x82, 0xf9, 0xcf, 0xe1, 0x60, 0x29, 0x85, 0xe5, 0x64, 0xd5, 0x03, 0x9b, 0x53, 0xf4,
+	0x6e, 0x0f, 0xec, 0xf1, 0x5f, 0x75, 0xd8, 0x7c, 0x6c, 0xb9, 0x24, 0x4f, 0x60, 0xfb, 0x4c, 0x22,
+	0xd5, 0x68, 0x09, 0x25, 0xa5, 0xd6, 0xac, 0x78, 0x85, 0xbd, 0x4f, 0x56, 0x6d, 0xdb, 0x0a, 0x2f,
+	0x61, 0x3b, 0x9f, 0x9f, 0x45, 0xbe, 0xe5, 0x03, 0x0b, 0x2f, 0x85, 0xd7, 0x5b, 0xb9, 0x6f, 0x33,
+	0x7e, 0x0f, 0xed, 0xd2, 0x04, 0x20, 0x77, 0x97, 0xe2, 0x4b, 0x24, 0x7b, 0x87, 0x2b, 0x76, 0x6d,
+	0xae, 0xa7, 0xd0, 0x2d, 0xa6, 0x66, 0x51, 0x5f, 0x7f, 0xe9, 0xc4, 0x8d, 0xc1, 0xed, 0x7d, 0xfa,
+	0x3f, 0x11, 0x73, 0xd4, 0xf9, 0xb7, 0xbf, 0x1a, 0xf5, 0xc2, 0xe4, 0xa9, 0x40, 0x7d, 0x63, 0x76,
+	0x3c, 0x86, 0x4e, 0xb9, 0xcd, 0xcb, 0xb2, 0x54, 0x0c, 0x82, 0xb2, 0x2c, 0x95, 0x1f, 0xd3, 0x53,
+	0xe8, 0xde, 0xe8, 0xa9, 0x05, 0xe0, 0x95, 0x1d, 0xbb, 0x00, 0xbc, 0xba, 0x21, 0x4f, 0xeb, 0xcf,
+	0x36, 0xd2, 0xc1, 0xa0, 0x69, 0x7e, 0x5f, 0xee, 0xff, 0x17, 0x00, 0x00, 0xff, 0xff, 0xae, 0xef,
+	0xca, 0xe7, 0xb5, 0x0a, 0x00, 0x00,
 }

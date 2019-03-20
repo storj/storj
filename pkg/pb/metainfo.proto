@@ -20,6 +20,7 @@ service Metainfo {
     rpc DownloadSegment(SegmentDownloadRequest) returns (SegmentDownloadResponse);
     rpc DeleteSegment(SegmentDeleteRequest) returns (SegmentDeleteResponse);
     rpc ListSegments(ListSegmentsRequest) returns (ListSegmentsResponse);
+    rpc StorageNodeInfo(StorageNodeInfoRequest) returns (StorageNodeInfoResponse);
 }
 
 message AddressedOrderLimit {
@@ -103,4 +104,12 @@ message ListSegmentsResponse {
       
     repeated Item items = 1;
     bool more = 2;
+}
+
+message StorageNodeInfoRequest {
+    repeated bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message StorageNodeInfoResponse {
+    repeated node.NodeAddress storage_node_address = 1;
 }

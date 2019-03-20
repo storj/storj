@@ -120,6 +120,31 @@ func (endpoint *Endpoint) SegmentInfo(ctx context.Context, req *pb.SegmentInfoRe
 	return &pb.SegmentInfoResponse{Pointer: pointer}, nil
 }
 
+// StorageNodeInfo returns address of storage nodeID
+func (endpoint *Endpoint) StorageNodeInfo(ctx context.Context, req *pb.StorageNodeInfoRequest) (resp *pb.StorageNodeInfoResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	nodes, err := endpoint.cache.GetAll(ctx, req.NodeId)
+	if err != nil {
+		return nil, err
+	}
+
+	var storageNodeAddr []*pb.NodeAddress
+	for _, node := range nodes {
+		if node != nil {
+			node.Type.DPanicOnInvalid("metainfo server order limits")
+		}
+
+		storageNodeAddr = append(storageNodeAddr, &pb.NodeAddress{
+			Address: node.GetAddress().String(),
+		})
+	}
+
+	return &pb.StorageNodeInfoResponse{
+		StorageNodeAddress: storageNodeAddr,
+	}, nil
+}
+
 // CreateSegment will generate requested number of OrderLimit with coresponding node addresses for them
 func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWriteRequest) (resp *pb.SegmentWriteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)

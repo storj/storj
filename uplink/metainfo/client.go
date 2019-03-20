@@ -57,6 +57,7 @@ type Client interface {
 	ReadSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (*pb.Pointer, []*pb.AddressedOrderLimit, error)
 	DeleteSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) ([]*pb.AddressedOrderLimit, error)
 	ListSegments(ctx context.Context, bucket string, prefix, startAfter, endBefore storj.Path, recursive bool, limit int32, metaFlags uint32) (items []ListItem, more bool, err error)
+	StorageNodeInfo(ctx context.Context, nodeID []storj.NodeID) ([]*pb.NodeAddress, error)
 }
 
 // NewClient initializes a new metainfo client
@@ -136,6 +137,23 @@ func (metainfo *Metainfo) SegmentInfo(ctx context.Context, bucket string, path s
 	}
 
 	return response.GetPointer(), nil
+}
+
+// StorageNodeInfo requests the storagenodes addresses
+func (metainfo *Metainfo) StorageNodeInfo(ctx context.Context, nodeID []storj.NodeID) (nodesAddress []*pb.NodeAddress, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	response, err := metainfo.client.StorageNodeInfo(ctx, &pb.StorageNodeInfoRequest{
+		NodeId: nodeID,
+	})
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return nil, storage.ErrKeyNotFound.Wrap(err)
+		}
+		return nil, Error.Wrap(err)
+	}
+
+	return response.GetStorageNodeAddress(), nil
 }
 
 // ReadSegment requests the order limits for reading a segment

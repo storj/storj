@@ -46,7 +46,6 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (segment
 
 	var segmentPath storj.Path
 	var pointer *pb.Pointer
-	var limits []*pb.AddressedOrderLimit
 	isLastSegment := segment.Index+1 == stream.info.SegmentCount
 	if !isLastSegment {
 		segmentPath = getSegmentPath(stream.encryptedPath, index)
@@ -65,7 +64,7 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (segment
 		copy(segment.EncryptedKeyNonce[:], segmentMeta.KeyNonce)
 		segment.EncryptedKey = segmentMeta.EncryptedKey
 		components := storj.SplitPath(segmentPath)
-		pointer, limits, _ = stream.db.metainfo.ReadSegment(ctx, components[1], components[2], index)
+		pointer, _ = stream.db.metainfo.SegmentInfo(ctx, components[1], components[2], index)
 	} else {
 		segmentPath = storj.JoinPaths("l", stream.encryptedPath)
 		segment.Size = stream.info.LastSegment.Size
@@ -73,7 +72,7 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (segment
 		segment.EncryptedKey = stream.info.LastSegment.EncryptedKey
 		components := storj.SplitPath(segmentPath)
 		// index set as -1 for last "l" segment
-		pointer, limits, _ = stream.db.metainfo.ReadSegment(ctx, components[1], components[2], -1)
+		pointer, _ = stream.db.metainfo.SegmentInfo(ctx, components[1], components[2], -1)
 	}
 
 	contentKey, err := encryption.DecryptKey(segment.EncryptedKey, stream.Info().EncryptionScheme.Cipher, stream.streamKey, &segment.EncryptedKeyNonce)
@@ -95,7 +94,7 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (segment
 		for _, piece := range pointer.Remote.RemotePieces {
 			var nodeID storj.NodeID
 			copy(nodeID[:], piece.NodeId.Bytes())
-			segment.Pieces = append(segment.Pieces, storj.Piece{Number: byte(piece.PieceNum), Location: nodeID, Online: isNodeOnline(ctx, limits, nodeID)})
+			segment.Pieces = append(segment.Pieces, storj.Piece{Number: byte(piece.PieceNum), Location: nodeID})
 		}
 	}
 
