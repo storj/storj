@@ -10,7 +10,7 @@
         <div class="register-container__wrapper">
             <div class="register-container__header">
                 <img class="register-container__logo" src="../../static/images/login/Logo.svg" alt="logo" v-on:click="onLogoClick">
-                <div class="register-container__register-button" v-on:click.prevent="onLoginPress">
+                <div class="register-container__register-button" v-on:click.prevent="onLoginClick">
                     <p>Login</p>
                 </div>
             </div>
@@ -20,22 +20,41 @@
                         <h1>Sign Up to Storj</h1>
                         <p>Satellite:<b>Mars</b></p>
                     </div>
+                    <!--<HeaderlessInput-->
+                        <!--class="full-input"-->
+                        <!--label="Full name"-->
+                        <!--placeholder="Enter Full Name"-->
+                        <!--:error="fullNameError"-->
+                        <!--@setData="setFullName"-->
+                        <!--width="100%"-->
+                        <!--height="46px"-->
+                        <!--isWhite>-->
+                    <!--</HeaderlessInput>-->
+                    <!--<HeaderlessInput-->
+                        <!--class="full-input"-->
+                        <!--label="Preferred Short Name"-->
+                        <!--placeholder="Enter Short Name"-->
+                        <!--:error="shortNameError"-->
+                        <!--@setData="setShortName"-->
+                        <!--width="100%"-->
+                        <!--height="46px"-->
+                        <!--isWhite>-->
+                    <!--</HeaderlessInput>-->
                     <HeaderlessInput
                         class="full-input"
-                        label="Full name"
-                        placeholder="Enter Full Name"
-                        :error="fullNameError"
-                        @setData="setFullName"
+                        label="First name"
+                        placeholder="Enter First Name"
+                        :error="firstNameError"
+                        @setData="setFirstName"
                         width="100%"
                         height="46px"
                         isWhite>
                     </HeaderlessInput>
                     <HeaderlessInput
                         class="full-input"
-                        label="Preferred Short Name"
+                        label="Last Name"
                         placeholder="Enter Short Name"
-                        :error="shortNameError"
-                        @setData="setShortName"
+                        @setData="setLastName"
                         width="100%"
                         height="46px"
                         isWhite>
@@ -55,7 +74,7 @@
                         ref="tokenInput"
                         label="Authorization token"
                         placeholder="Enter Authorization token"
-                        :error="tokenError"
+                        :error="secretError"
                         @setData="setAuthToken"
                         width="100%"
                         height="46px"
@@ -116,11 +135,29 @@ import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 import RegistrationSuccessPopup from '@/components/common/RegistrationSuccessPopup.vue';
 import { validateEmail, validatePassword } from '@/utils/validation';
+import ROUTES from '@/utils/constants/routerConstants';
 import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { createUserRequest } from '@/api/users';
 
 @Component(
     {
+        data: function () {
+            return {
+                firstName: '',
+                firstNameError: '',
+                lastName: '',
+                email: '',
+                emailError: '',
+                password: '',
+                passwordError: '',
+                repeatedPassword: '',
+                repeatedPasswordError: '',
+                isTermsAccepted: false,
+                isTermsAcceptedError: false,
+                secret: '',
+                secretError: '',
+            };
+        },
         methods: {
             setEmail: function (value: string) {
                 this.$data.email = value;
@@ -140,6 +177,10 @@ import { createUserRequest } from '@/api/users';
             setRepeatedPassword: function (value: string) {
                 this.$data.repeatedPassword = value;
                 this.$data.repeatedPasswordError = '';
+            },
+            setAuthToken: function (value: string) {
+                this.$data.secret = value;
+                this.$data.secretError = '';
             },
             onCreateClick: async function () {
                 (document as any).querySelector('.loading-overlay').classList.add('active');
@@ -179,6 +220,7 @@ import { createUserRequest } from '@/api/users';
                     email,
                     firstName,
                     lastName,
+                    secret: this.$data.secret,
                 };
 
                 let response = await createUserRequest(user, this.$data.password);
@@ -189,23 +231,13 @@ import { createUserRequest } from '@/api/users';
                 }
 
                 this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION_POPUP);
-            }
-        },
-        data: function (): RegisterData {
-
-            return {
-                firstName: '',
-                firstNameError: '',
-                lastName: '',
-                email: '',
-                emailError: '',
-                password: '',
-                passwordError: '',
-                repeatedPassword: '',
-                repeatedPasswordError: '',
-                isTermsAccepted: false,
-                isTermsAcceptedError: false,
-            };
+            },
+            onLogoClick: function (): void {
+                location.reload();
+            },
+            onLoginClick: function (): void {
+                this.$router.push(ROUTES.LOGIN.path);
+            },
         },
         computed: {
             infoImage: function() {

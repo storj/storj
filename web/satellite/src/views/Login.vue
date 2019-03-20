@@ -3,11 +3,14 @@
 
 <template>
     <div class="login-container" v-on:keyup.enter="onLogin">
+        <div class="loading-overlay">
+            <img class="loading-overlay__logo" src="../../static/images/login/Logo.svg" alt="loading-logo">
+        </div>
         <img class="planet" src="../../static/images/Mars.png" alt="" >
         <div class="login-container__wrapper">
             <div class="login-container__header">
                 <img class="login-container__logo" src="../../static/images/login/Logo.svg" alt="logo" v-on:click="onLogoClick">
-                <div class="login-container__register-button" v-on:click.prevent="onSignUpPress">
+                <div class="login-container__register-button" v-on:click.prevent="onSignUpClick">
                     <p>Create Account</p>
                 </div>
             </div>
@@ -67,7 +70,6 @@ import { getTokenRequest } from '@/api/users';
         return {
             email: '',
             password: '',
-            token: ''
         };
     },
     methods: {
@@ -81,6 +83,15 @@ import { getTokenRequest } from '@/api/users';
             this.$data.password = value;
         },
         onLogin: async function () {
+            if(!this.$data.email || !this.$data.password) {
+                return;
+            }
+
+            (document as any).querySelector('.loading-overlay').classList.add('active');
+            setTimeout(() => {
+                (document as any).querySelector('.loading-overlay').classList.remove('active');
+            }, 2000);
+
             let loginResponse = await getTokenRequest(this.$data.email, this.$data.password);
             if (!loginResponse.isSuccess) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, loginResponse.errorMessage);
@@ -90,8 +101,10 @@ import { getTokenRequest } from '@/api/users';
 
             setToken(loginResponse.data);
             this.$router.push(ROUTES.DASHBOARD.path);
-        }
-
+        },
+        onSignUpClick: function (): void {
+            this.$router.push(ROUTES.REGISTER.path);
+        },
     },
     components: {
         HeaderlessInput,
@@ -335,5 +348,38 @@ export default class Login extends Vue {
                 }
             }
         }
+    }
+
+    .loading-overlay {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        left: 0;
+        height: 100vh;
+        width: 0;
+        z-index: 100;
+        background-color: rgba(134, 134, 148, 0.7);
+        visibility: hidden;
+        opacity: 0;
+        -webkit-transition: all 0.5s linear;
+        -moz-transition: all 0.5s linear;
+        -o-transition: all 0.5s linear;
+        transition: all 0.5s linear;
+
+        &__logo {
+            width: 240px;
+            height: 110px;
+            z-index: 200;
+        }
+    }
+
+    .loading-overlay.active {
+        width: 100vw;
+        visibility: visible;
+        opacity: 1;
     }
 </style>

@@ -13,7 +13,8 @@ export async function updateAccountRequest(user: User): Promise<RequestResponse<
         data: {
             firstName: '',
             lastName: '',
-            email: ''
+            email: '',
+            secret: '',
         }
     };
 
@@ -111,6 +112,7 @@ export async function createUserRequest(user: User, password: string): Promise<R
                                 password: "${password}",
                                 firstName: "${user.firstName}",
                                 lastName: "${user.lastName}",
+                                secret: "${user.secret}",
                             }
                         ){email}
                     }`
@@ -179,7 +181,8 @@ export async function getUserRequest(): Promise<RequestResponse<User>> {
         data: {
             firstName: '',
             lastName: '',
-            email: ''
+            email: '',
+            secret: '',
         }
     };
 

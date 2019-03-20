@@ -19,7 +19,8 @@ describe('mutations', () => {
             user: {
                 firstName: '',
                 lastName: '',
-                email: ''
+                email: '',
+                secret: '',
             }
         };
 
@@ -28,7 +29,8 @@ describe('mutations', () => {
         const user = {
             firstName: 'firstName',
             lastName: 'lastName',
-            email: 'email'
+            email: 'email',
+            secret: 'secret'
         };
 
         store.commit(USER_MUTATIONS.SET_USER_INFO, user);
@@ -44,6 +46,7 @@ describe('mutations', () => {
                 firstName: 'firstName',
                 lastName: 'lastName',
                 email: 'email',
+                secret: 'secret',
             }
         };
 
@@ -61,13 +64,15 @@ describe('mutations', () => {
             user: {
                 firstName: '',
                 lastName: '',
-                email: ''
+                email: '',
+                secret: '',
             }
         };
         const user = {
             firstName: 'firstName',
             lastName: 'lastName',
-            email: 'email'
+            email: 'email',
+            secret: 'secret',
         };
 
         const store = new Vuex.Store({state, mutations});
@@ -91,6 +96,7 @@ describe('actions', () => {
                     firstName: 'firstName',
                     lastName: 'lastName',
                     email: 'email',
+                    secret: 'secret',
                 }
             })
         );
@@ -98,7 +104,8 @@ describe('actions', () => {
         const user = {
             firstName: '',
             lastName: '',
-            email: ''
+            email: '',
+            secret: '',
         };
 
         const dispatchResponse = await usersModule.actions.updateAccount({commit}, user);
@@ -107,7 +114,8 @@ describe('actions', () => {
         expect(commit).toHaveBeenCalledWith(USER_MUTATIONS.UPDATE_USER_INFO, {
             firstName: 'firstName',
             lastName: 'lastName',
-            email: 'email'
+            email: 'email',
+            secret: 'secret',
         });
     });
 
@@ -121,7 +129,8 @@ describe('actions', () => {
         const user = {
             firstName: '',
             lastName: '',
-            email: ''
+            email: '',
+            secret: '',
         };
 
         const dispatchResponse = await usersModule.actions.updateAccount({commit}, user);
@@ -166,7 +175,8 @@ describe('actions', () => {
                 data: {
                     firstName: '',
                     lastName: '',
-                    email: ''
+                    email: '',
+                    secret: '',
                 }
             })
         );
@@ -198,6 +208,7 @@ describe('getters', () => {
                 firstName: 'firstName',
                 lastName: 'lastName',
                 email: 'email',
+                secret: 'secret',
             }
         };
 
