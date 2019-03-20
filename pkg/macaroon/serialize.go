@@ -57,7 +57,6 @@ func Serialize(m *Macaroon) (data []byte) {
 
 // serializePacket converts packet to binary
 func serializePacket(data []byte, p packet) []byte {
-
 	data = appendVarint(data, int(p.fieldType))
 	data = appendVarint(data, len(p.data))
 	data = append(data, p.data...)
@@ -90,9 +89,6 @@ func Deserialize(data []byte) (*Macaroon, error) {
 
 	mac := Macaroon{}
 	mac.head = section[0].data
-	if section[0].data == nil {
-
-	}
 	for {
 		rest, section, err := parseSection(data)
 		if err != nil {
@@ -203,15 +199,8 @@ func parsePacket(data []byte) ([]byte, packet, error) {
 
 func parseVarint(data []byte) ([]byte, int, error) {
 	value, n := binary.Uvarint(data)
-	if n > 0 {
-		if value > 0x7fffffff {
-			return nil, 0, errors.New("varint error")
-		}
-
-		return data[n:], int(value), nil
-	}
-	if n == 0 {
+	if n <= 0 || value > 0x7fffffff {
 		return nil, 0, errors.New("varint error")
 	}
-	return nil, 0, errors.New("varint error")
+	return data[n:], int(value), nil
 }
