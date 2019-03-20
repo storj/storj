@@ -140,6 +140,10 @@ export default class AddApiKeyPopup extends Vue {
                 }
             }
         }
+
+        &__close-cross-container {
+            cursor: pointer;
+        }
     }
     .input-container.full-input {
         width: 100%;
