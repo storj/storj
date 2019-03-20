@@ -129,59 +129,55 @@ import { createUserRequest } from '@/api/users';
             };
         },
         methods: {
-            setEmail: function (value: string) {
+            setEmail: function (value: string): void {
                 this.$data.email = value;
                 this.$data.emailError = '';
             },
-            setFirstName: function (value: string) {
+            setFirstName: function (value: string): void {
                 this.$data.firstName = value;
                 this.$data.firstNameError = '';
             },
-            setLastName: function (value: string) {
+            setLastName: function (value: string): void {
                 this.$data.lastName = value;
             },
-            setPassword: function (value: string) {
+            setPassword: function (value: string): void {
                 this.$data.password = value;
                 this.$data.passwordError = '';
             },
-            setRepeatedPassword: function (value: string) {
+            setRepeatedPassword: function (value: string): void {
                 this.$data.repeatedPassword = value;
                 this.$data.repeatedPasswordError = '';
             },
             validateFields: function (): boolean {
+                let isNoErrors = true;
                 if (!this.$data.firstName.trim()) {
                     this.$data.firstNameError = 'Invalid First Name';
-
-                    return false;
+                    isNoErrors = false;
                 }
 
                 if (!validateEmail(this.$data.email.trim())) {
                     this.$data.emailError = 'Invalid Email';
-
-                    return false;
+                    isNoErrors = false;
                 }
 
                 if (!validatePassword(this.$data.password)) {
                     this.$data.passwordError = 'Invalid Password';
-
-                    return false;
+                    isNoErrors = false;
                 }
 
                 if (this.$data.repeatedPassword !== this.$data.password) {
                     this.$data.repeatedPasswordError = 'Password doesn\'t match';
-
-                    return false;
+                    isNoErrors = false;
                 }
 
                 if (!this.$data.isTermsAccepted) {
                     this.$data.isTermsAcceptedError = true;
-
-                    return false;
+                    isNoErrors = false;
                 }
 
-                return true;
+                return isNoErrors;
             },
-            createUser: async function() {
+            createUser: async function(): Promise<any> {
                 let user = {
                     email: this.$data.email.trim(),
                     firstName: this.$data.firstName.trim(),
@@ -199,7 +195,7 @@ import { createUserRequest } from '@/api/users';
 
                 this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION_POPUP);
             },
-            onCreateClick: function () {
+            onCreateClick: function (): any {
                 let self = this as any;
 
                 if (!self.validateFields()) return;
