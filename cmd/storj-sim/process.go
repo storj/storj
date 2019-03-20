@@ -81,8 +81,8 @@ type Info struct {
 	Address    string
 	Directory  string
 	ID         string
-	Extra      []string
 	Pid        int
+	Extra      []string
 }
 
 // Env returns process flags
