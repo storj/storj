@@ -8,11 +8,13 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 )
 
@@ -29,16 +31,22 @@ type DB interface {
 	Enqueue(ctx context.Context, info *Info) error
 	// ListUnsent returns orders that haven't been sent yet.
 	ListUnsent(ctx context.Context, limit int) ([]*Info, error)
+	// ListUnsentBySatellite returns orders that haven't been sent yet grouped by satellite.
+	ListUnsentBySatellite(ctx context.Context) (map[storj.NodeID]*Info, error)
+	// Archive marks order as being handled.
+	Archive(ctx context.Context, satellite storj.NodeID, serial storj.SerialNumber) error
 }
 
 // SenderConfig defines configuration for sending orders.
 type SenderConfig struct {
-	Interval time.Duration
+	Interval      time.Duration
+	SettleTimeout time.Duration
 }
 
 // Sender sends every interval unsent orders to the satellite.
 type Sender struct {
-	log *zap.Logger
+	log    *zap.Logger
+	config SenderConfig
 
 	client   transport.Client
 	kademlia *kademlia.Kademlia
@@ -62,8 +70,31 @@ func NewSender(log *zap.Logger, client transport.Client, kademlia *kademlia.Kade
 // Run sends orders on every interval to the appropriate satellites.
 func (sender *Sender) Run(ctx context.Context) error {
 	return sender.Loop.Run(ctx, func(ctx context.Context) error {
+		sender.log.Debug("sending")
+
+		ordersBySatellite, err := sender.orders.ListUnsentBySatellite(ctx)
+		if err != nil {
+			sender.log.Error("listing orders", zap.Error(err))
+			return nil
+		}
+
+		if len(ordersBySatellite) > 0 {
+			var group errgroup.Group
+			ctx, cancel := context.WithTimeout(ctx, sender.config.SettleTimeout)
+
+			for satellite, agreements := range ordersBySatellite {
+				group.Go(func() error {
+				})
+			}
+		}
+
 		return nil
 	})
+}
+
+// Settle uploads agreements to the satellite.
+func (sender *Sender) Settle(ctx context.Context, satellite storj.NodeID, orders []*Info) {
+
 }
 
 // Close stops the sending service.
