@@ -24,6 +24,8 @@ import (
 	"storj.io/storj/pkg/transport"
 )
 
+const contactWindow = time.Hour * 4
+
 type dashboardClient struct {
 	client pb.PieceStoreInspectorClient
 }
@@ -94,9 +96,12 @@ func printDashboard(data *pb.DashboardResponse) error {
 			lastContacted = lastQueried
 		}
 	}
-	if lastContacted.IsZero() {
+	switch {
+	case lastContacted.IsZero():
 		fmt.Fprintf(w, "Last contacted:\t%s\n", color.RedString("NEVER"))
-	} else {
+	case time.Since(lastContacted) >= contactWindow:
+		fmt.Fprintf(w, "Last contacted:\t%s\n", color.RedString(fmt.Sprintf("%s ago", time.Since(lastContacted))))
+	default:
 		fmt.Fprintf(w, "Last contacted:\t%s\n", color.GreenString(fmt.Sprintf("%s ago", time.Since(lastContacted))))
 	}
 
