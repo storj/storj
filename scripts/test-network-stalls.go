@@ -60,54 +60,23 @@ func makeRandomContentsFile(path string, size int64) (err error) {
 	return nil
 }
 
-// ErrorWithOutput returns an exit error with all collected output.
-type ErrorWithOutput struct {
-	*exec.ExitError
-	Output []byte
-}
-
-func (e *ErrorWithOutput) Error() string {
-	return e.ExitError.Error() + "\nOutput: " + string(e.Output)
-}
-
 type uplinkRunner struct {
 	execName  string
 	configDir string
 	logLevel  string
 }
 
-func (ur *uplinkRunner) run(ctx context.Context, stdout, stderr io.Writer, args ...string) error {
+// Run runs the uplink executable with the given arguments, and hands back its
+// output as well as an error if there were any problems with the execution or if
+// the uplink exited non-zero.
+func (ur *uplinkRunner) Run(ctx context.Context, args ...string) ([]byte, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	cmdArgs := []string{"--config-dir", ur.configDir, "--log.level", ur.logLevel}
 	cmdArgs = append(cmdArgs, args...)
 	cmd := exec.CommandContext(ctx, ur.execName, cmdArgs...)
-	cmd.Stdout = stdout
-	cmd.Stderr = stderr
-	return cmd.Run()
-}
-
-func (ur *uplinkRunner) GetOutputCtx(ctx context.Context, args ...string) ([]byte, error) {
-	var buf bytes.Buffer
-	err := ur.run(ctx, &buf, &buf, args...)
-	return buf.Bytes(), err
-}
-
-func (ur *uplinkRunner) GetOutput(args ...string) ([]byte, error) {
-	return ur.GetOutputCtx(context.Background(), args...)
-}
-
-func (ur *uplinkRunner) CallCtx(ctx context.Context, args ...string) error {
-	output, err := ur.GetOutputCtx(ctx, args...)
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			return &ErrorWithOutput{exitErr, output}
-		}
-		return err
-	}
-	return nil
-}
-
-func (ur *uplinkRunner) Call(args ...string) error {
-	return ur.CallCtx(context.Background(), args...)
+	return cmd.CombinedOutput()
 }
 
 // skip the first four whitespace-delimited fields and keep the rest
@@ -120,7 +89,7 @@ func (ur *uplinkRunner) doesRemoteExist(remotePath string) (bool, error) {
 	}
 	bucketAndDir := strings.Join(pathParts[:len(pathParts)-1], "/")
 	filenamePart := []byte(pathParts[len(pathParts)-1])
-	output, err := ur.GetOutput("ls", bucketAndDir)
+	output, err := ur.Run(nil, "ls", bucketAndDir)
 	if err != nil {
 		return false, err
 	}
@@ -133,7 +102,7 @@ func (ur *uplinkRunner) doesRemoteExist(remotePath string) (bool, error) {
 }
 
 func storeFileAndCheck(uplink *uplinkRunner, srcFile, dstFile string) error {
-	if err := uplink.Call("cp", srcFile, dstFile); err != nil {
+	if _, err := uplink.Run(nil, "cp", srcFile, dstFile); err != nil {
 		return errs.New("Could not copy file into storj-sim network: %v", err)
 	}
 	if exists, err := uplink.doesRemoteExist(dstFile); err != nil {
@@ -159,7 +128,7 @@ func deleteWhileStallingAndCheck(uplink *uplinkRunner, dstFile string, nodeProc 
 
 	go stallNode(ctx, nodeProc)
 
-	output, err := uplink.GetOutputCtx(ctx, "rm", dstFile)
+	output, err := uplink.Run(ctx, "rm", dstFile)
 	if err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
 			// (uplink did not time out, but this test did)
@@ -211,14 +180,14 @@ func runTest() error {
 	if err := makeRandomContentsFile(srcFile, *fileSize); err != nil {
 		return errs.New("could not create test file with random contents: %v", err)
 	}
-	if err := uplink.Call("mb", bucket); err != nil {
+	if _, err := uplink.Run(nil, "mb", bucket); err != nil {
 		return errs.New("could not create test bucket: %v", err)
 	}
 	defer func() {
 		// explicitly ignoring errors here; we don't much care if they fail,
 		// because this is best-effort
-		_ = uplink.Call("rm", dstFile)
-		_ = uplink.Call("rb", bucket)
+		_, _ = uplink.Run(nil, "rm", dstFile)
+		_, _ = uplink.Run(nil, "rb", bucket)
 	}()
 
 	// run test
