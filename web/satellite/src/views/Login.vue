@@ -90,7 +90,7 @@ import { LOADING_CLASSES } from '@/utils/constants/classConstants';
             }, 2000);
         },
         onLogin: async function () {
-            if(!this.$data.email || !this.$data.password) {
+            if (!this.$data.email || !this.$data.password) {
                 return;
             }
 

@@ -20,26 +20,6 @@
                         <h1>Sign Up to Storj</h1>
                         <p>Satellite:<b>Mars</b></p>
                     </div>
-                    <!--<HeaderlessInput-->
-                        <!--class="full-input"-->
-                        <!--label="Full name"-->
-                        <!--placeholder="Enter Full Name"-->
-                        <!--:error="fullNameError"-->
-                        <!--@setData="setFullName"-->
-                        <!--width="100%"-->
-                        <!--height="46px"-->
-                        <!--isWhite>-->
-                    <!--</HeaderlessInput>-->
-                    <!--<HeaderlessInput-->
-                        <!--class="full-input"-->
-                        <!--label="Preferred Short Name"-->
-                        <!--placeholder="Enter Short Name"-->
-                        <!--:error="shortNameError"-->
-                        <!--@setData="setShortName"-->
-                        <!--width="100%"-->
-                        <!--height="46px"-->
-                        <!--isWhite>-->
-                    <!--</HeaderlessInput>-->
                     <HeaderlessInput
                         class="full-input"
                         label="First name"
@@ -145,7 +125,6 @@ import { createUserRequest } from '@/api/users';
                 isTermsAccepted: false,
                 isTermsAcceptedError: false,
                 secret: '',
-                secretError: '',
                 loadingClassName: LOADING_CLASSES.LOADING_OVERLAY,
             };
         },
@@ -172,26 +151,31 @@ import { createUserRequest } from '@/api/users';
             validateFields: function (): boolean {
                 if (!this.$data.firstName.trim()) {
                     this.$data.firstNameError = 'Invalid First Name';
+
                     return false;
                 }
 
                 if (!validateEmail(this.$data.email.trim())) {
                     this.$data.emailError = 'Invalid Email';
+
                     return false;
                 }
 
                 if (!validatePassword(this.$data.password)) {
                     this.$data.passwordError = 'Invalid Password';
+
                     return false;
                 }
 
                 if (this.$data.repeatedPassword !== this.$data.password) {
                     this.$data.repeatedPasswordError = 'Password doesn\'t match';
+
                     return false;
                 }
 
                 if (!this.$data.isTermsAccepted) {
                     this.$data.isTermsAcceptedError = true;
+
                     return false;
                 }
 
@@ -202,10 +186,9 @@ import { createUserRequest } from '@/api/users';
                     email: this.$data.email.trim(),
                     firstName: this.$data.firstName.trim(),
                     lastName: this.$data.lastName.trim(),
-                    secret: this.$data.secret.trim(),
                 };
 
-                let response = await createUserRequest(user, this.$data.password);
+                let response = await createUserRequest(user, this.$data.password, this.$data.secret.trim());
 
                 if (!response.isSuccess) {
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
@@ -234,7 +217,8 @@ import { createUserRequest } from '@/api/users';
         },
         computed: {
             infoImage: function() {
-                return EMPTY_STATE_IMAGES.INFO
+
+                return EMPTY_STATE_IMAGES.INFO;
             },
         },
         components: {
@@ -242,10 +226,8 @@ import { createUserRequest } from '@/api/users';
             RegistrationSuccessPopup
         },
         mounted(): void {
-            let token: any = this.$route.query.token ? this.$route.query.token.toString() : null;
-
-            if(token) {
-                this.$data.secret = token;
+            if (this.$route.query.token) {
+                this.$data.secret = this.$route.query.token.toString();
             }
         }
     })

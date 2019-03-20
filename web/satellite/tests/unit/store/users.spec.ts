@@ -20,7 +20,6 @@ describe('mutations', () => {
                 firstName: '',
                 lastName: '',
                 email: '',
-                secret: '',
             }
         };
 
@@ -30,7 +29,6 @@ describe('mutations', () => {
             firstName: 'firstName',
             lastName: 'lastName',
             email: 'email',
-            secret: 'secret'
         };
 
         store.commit(USER_MUTATIONS.SET_USER_INFO, user);
@@ -46,7 +44,6 @@ describe('mutations', () => {
                 firstName: 'firstName',
                 lastName: 'lastName',
                 email: 'email',
-                secret: 'secret',
             }
         };
 
@@ -65,14 +62,12 @@ describe('mutations', () => {
                 firstName: '',
                 lastName: '',
                 email: '',
-                secret: '',
             }
         };
         const user = {
             firstName: 'firstName',
             lastName: 'lastName',
             email: 'email',
-            secret: 'secret',
         };
 
         const store = new Vuex.Store({state, mutations});
@@ -96,7 +91,6 @@ describe('actions', () => {
                     firstName: 'firstName',
                     lastName: 'lastName',
                     email: 'email',
-                    secret: 'secret',
                 }
             })
         );
@@ -105,7 +99,6 @@ describe('actions', () => {
             firstName: '',
             lastName: '',
             email: '',
-            secret: '',
         };
 
         const dispatchResponse = await usersModule.actions.updateAccount({commit}, user);
@@ -115,7 +108,6 @@ describe('actions', () => {
             firstName: 'firstName',
             lastName: 'lastName',
             email: 'email',
-            secret: 'secret',
         });
     });
 
@@ -130,7 +122,6 @@ describe('actions', () => {
             firstName: '',
             lastName: '',
             email: '',
-            secret: '',
         };
 
         const dispatchResponse = await usersModule.actions.updateAccount({commit}, user);
@@ -176,7 +167,6 @@ describe('actions', () => {
                     firstName: '',
                     lastName: '',
                     email: '',
-                    secret: '',
                 }
             })
         );
@@ -208,7 +198,6 @@ describe('getters', () => {
                 firstName: 'firstName',
                 lastName: 'lastName',
                 email: 'email',
-                secret: 'secret',
             }
         };
 

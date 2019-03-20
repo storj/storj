@@ -14,7 +14,6 @@ export async function updateAccountRequest(user: User): Promise<RequestResponse<
             firstName: '',
             lastName: '',
             email: '',
-            secret: '',
         }
     };
 
@@ -94,7 +93,7 @@ export async function changePasswordRequest(password: string, newPassword: strin
 // Performs Create user graqhQL request.
 // Throws an exception if error occurs
 // Returns object with newly created user
-export async function createUserRequest(user: User, password: string): Promise<RequestResponse<null>> {
+export async function createUserRequest(user: User, password: string, secret: string): Promise<RequestResponse<null>> {
     let result: RequestResponse<null> = {
         errorMessage: '',
         isSuccess: false,
@@ -113,7 +112,7 @@ export async function createUserRequest(user: User, password: string): Promise<R
                                 firstName: "${user.firstName}",
                                 lastName: "${user.lastName}",
                             },
-                            secret: "${user.secret}",
+                            secret: "${secret}",
                         ){email}
                     }`
                 ),
@@ -182,7 +181,6 @@ export async function getUserRequest(): Promise<RequestResponse<User>> {
             firstName: '',
             lastName: '',
             email: '',
-            secret: '',
         }
     };
 
