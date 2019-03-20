@@ -10,10 +10,9 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/stream"
 	"storj.io/storj/pkg/utils"
-
-	"storj.io/storj/pkg/storj"
 )
 
 // Encryption holds the cipher, path, key, and enc. scheme for each bucket since they
