@@ -34,11 +34,16 @@ import (
 var (
 	numTries      = flag.Int("num-tries", 20, "number of tries to cause a hang")
 	bucketName    = flag.String("bucket", "bukkit", "name of bucket to use for test")
-	fileSize      = flag.Int64("file-size", int64(5*memory.MiB), "size of test file to use")
 	deleteTimeout = flag.Duration("timeout", 60*time.Second, "how long to wait for a delete to succeed or time out")
+
+	fileSize memory.Size = 5 * memory.MiB
 
 	tryAgain = errs.New("test needs to run again")
 )
+
+func init() {
+	flag.Var(&fileSize, "file-size", "size of test file to use")
+}
 
 type randDefaultSource struct{}
 
@@ -46,7 +51,7 @@ func (randSource *randDefaultSource) Read(p []byte) (int, error) {
 	return rand.Read(p)
 }
 
-func makeRandomContentsFile(path string, size int64) (err error) {
+func makeRandomContentsFile(path string, size memory.Size) (err error) {
 	outFile, err := os.Create(path)
 	if err != nil {
 		return err
@@ -54,7 +59,7 @@ func makeRandomContentsFile(path string, size int64) (err error) {
 	defer func() {
 		err = errs.Combine(err, outFile.Close())
 	}()
-	if _, err := io.CopyN(outFile, &randDefaultSource{}, size); err != nil {
+	if _, err := io.CopyN(outFile, &randDefaultSource{}, int64(size)); err != nil {
 		return err
 	}
 	return nil
@@ -177,7 +182,7 @@ func runTest() error {
 	bucket := "sj://" + *bucketName
 	srcFile := filepath.Join(tempDir, "to-storj-sim")
 	dstFile := bucket + "/in-storj-sim"
-	if err := makeRandomContentsFile(srcFile, *fileSize); err != nil {
+	if err := makeRandomContentsFile(srcFile, fileSize); err != nil {
 		return errs.New("could not create test file with random contents: %v", err)
 	}
 	if _, err := uplink.Run(nil, "mb", bucket); err != nil {
