@@ -117,7 +117,48 @@ func (db *ordersdb) ListUnsent(ctx context.Context, limit int) (_ []*orders.Info
 
 // ListUnsentBySatellite returns orders that haven't been sent yet grouped by satellite.
 func (db *ordersdb) ListUnsentBySatellite(ctx context.Context) (map[storj.NodeID][]*orders.Info, error) {
-	return nil, ErrInfo.New("unhandled")
+	// TODO: add some limiting
+
+	rows, err := db.db.Query(`
+		SELECT order_limit_serialized, order_serialized
+		FROM unsent_order
+	`)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, ErrInfo.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	infos := map[storj.NodeID][]*orders.Info{}
+	for rows.Next() {
+		var limitSerialized []byte
+		var orderSerialized []byte
+
+		err := rows.Scan(&limitSerialized, &orderSerialized)
+		if err != nil {
+			return nil, ErrInfo.Wrap(err)
+		}
+
+		var info orders.Info
+		info.Limit = &pb.OrderLimit2{}
+		info.Order = &pb.Order2{}
+
+		err = proto.Unmarshal(limitSerialized, info.Limit)
+		if err != nil {
+			return nil, ErrInfo.Wrap(err)
+		}
+
+		err = proto.Unmarshal(orderSerialized, info.Order)
+		if err != nil {
+			return nil, ErrInfo.Wrap(err)
+		}
+
+		infos[info.Limit.SatelliteId] = append(infos[info.Limit.SatelliteId], &info)
+	}
+
+	return infos, ErrInfo.Wrap(rows.Err())
 }
 
 // Archive marks order as being handled.
