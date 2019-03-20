@@ -3,6 +3,10 @@
 
 // +build ignore
 
+// Tests whether the uplink tool correctly times out when one of the storage nodes it's talking to
+// suddenly stops responding. In particular, this currently tests that happening during a Delete
+// operation, because that is where we have observed indefinite hangs before.
+
 package main
 
 import (
