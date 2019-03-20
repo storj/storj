@@ -35,6 +35,8 @@ func NewEndpoint(log *zap.Logger, service *Kademlia, routingTable *RoutingTable)
 
 // Query is a node to node communication query
 func (endpoint *Endpoint) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error) {
+	endpoint.service.Queried()
+
 	if req.GetPingback() {
 		endpoint.pingback(ctx, req.Sender)
 	}
@@ -73,7 +75,7 @@ func (endpoint *Endpoint) pingback(ctx context.Context, target *pb.Node) {
 
 // Ping provides an easy way to verify a node is online and accepting requests
 func (endpoint *Endpoint) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingResponse, error) {
-	//TODO
+	endpoint.service.Pinged()
 	return &pb.PingResponse{}, nil
 }
 

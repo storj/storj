@@ -7,7 +7,7 @@ option go_package = "pb";
 import "gogo.proto";
 import "node.proto";
 import "google/protobuf/duration.proto";
-
+import "google/protobuf/timestamp.proto";
 
 package inspector;
 
@@ -171,6 +171,7 @@ message DashboardResponse {
   string internal_address = 4;
   string external_address = 5;
   StatSummaryResponse stats = 6;
-  bool connection = 7;
-  google.protobuf.Duration uptime = 8;
+  google.protobuf.Duration uptime = 7;
+  google.protobuf.Timestamp last_pinged = 8;
+  google.protobuf.Timestamp last_queried = 9;
 }

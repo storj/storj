@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
+	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -78,13 +79,25 @@ func (s *Inspector) getDashboardData(ctx context.Context) (*pb.DashboardResponse
 		bsNodes[i] = node.Address.Address
 	}
 
+	pinged, err := ptypes.TimestampProto(s.ps.kad.LastPinged())
+	if err != nil {
+		s.ps.log.Warn("last ping time bad", zap.Error(err))
+		pinged = nil
+	}
+	queried, err := ptypes.TimestampProto(s.ps.kad.LastQueried())
+	if err != nil {
+		s.ps.log.Warn("last query time bad", zap.Error(err))
+		queried = nil
+	}
+
 	return &pb.DashboardResponse{
 		NodeId:           s.ps.kad.Local().Id.String(),
 		NodeConnections:  int64(len(nodes)),
 		BootstrapAddress: strings.Join(bsNodes[:], ", "),
 		InternalAddress:  "",
 		ExternalAddress:  s.ps.kad.Local().Address.Address,
-		Connection:       true,
+		LastPinged:       pinged,
+		LastQueried:      queried,
 		Uptime:           ptypes.DurationProto(time.Since(s.ps.startTime)),
 		Stats:            statsSummary,
 	}, nil

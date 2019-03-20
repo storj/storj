@@ -6,6 +6,7 @@ package kademlia
 import (
 	"context"
 	"math/rand"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -54,6 +55,10 @@ type Kademlia struct {
 
 	refreshThreshold int64
 	RefreshBuckets   sync2.Cycle
+
+	mu          sync.Mutex
+	lastPinged  time.Time
+	lastQueried time.Time
 }
 
 // NewService returns a newly configured Kademlia instance
@@ -76,6 +81,34 @@ func (k *Kademlia) Close() error {
 	k.lookups.Close()
 	k.lookups.Wait()
 	return dialerErr
+}
+
+// LastPinged returns last time someone pinged this node.
+func (k *Kademlia) LastPinged() time.Time {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	return k.lastPinged
+}
+
+// Pinged notifies the service it has been remotely pinged.
+func (k *Kademlia) Pinged() {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	k.lastPinged = time.Now()
+}
+
+// LastQueried returns last time someone queried this node.
+func (k *Kademlia) LastQueried() time.Time {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	return k.lastQueried
+}
+
+// Queried notifies the service it has been remotely queried
+func (k *Kademlia) Queried() {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	k.lastQueried = time.Now()
 }
 
 // FindNear returns all nodes from a starting node up to a maximum limit

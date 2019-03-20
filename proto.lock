@@ -31,6 +31,31 @@
                 "type": "Status"
               }
             ]
+          },
+          {
+            "name": "BandwidthSettlementRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "allocation",
+                "type": "piecestoreroutes.RenterBandwidthAllocation"
+              }
+            ]
+          },
+          {
+            "name": "BandwidthSettlementResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "serial_number",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "status",
+                "type": "AgreementsSummary.Status"
+              }
+            ]
           }
         ],
         "services": [
@@ -41,6 +66,13 @@
                 "name": "BandwidthAgreements",
                 "in_type": "piecestoreroutes.RenterBandwidthAllocation",
                 "out_type": "AgreementsSummary"
+              },
+              {
+                "name": "Settlement",
+                "in_type": "BandwidthSettlementRequest",
+                "out_type": "BandwidthSettlementResponse",
+                "in_streamed": true,
+                "out_streamed": true
               }
             ]
           }
@@ -993,13 +1025,18 @@
               },
               {
                 "id": 7,
-                "name": "connection",
-                "type": "bool"
+                "name": "uptime",
+                "type": "google.protobuf.Duration"
               },
               {
                 "id": 8,
-                "name": "uptime",
-                "type": "google.protobuf.Duration"
+                "name": "last_pinged",
+                "type": "google.protobuf.Timestamp"
+              },
+              {
+                "id": 9,
+                "name": "last_queried",
+                "type": "google.protobuf.Timestamp"
               }
             ]
           }
@@ -1095,6 +1132,9 @@
           },
           {
             "path": "google/protobuf/duration.proto"
+          },
+          {
+            "path": "google/protobuf/timestamp.proto"
           }
         ],
         "package": {
