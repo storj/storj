@@ -11,8 +11,6 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/peer"
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
@@ -121,47 +119,39 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 		return nil
 	}
 
-	var errs errs.Group
+	var errGroup errs.Group
+	var foundOnlineBootstrap bool
 	for i, node := range k.bootstrapNodes {
 		if ctx.Err() != nil {
-			errs.Add(ctx.Err())
-			return errs.Err()
+			errGroup.Add(ctx.Err())
+			return errGroup.Err()
 		}
 
-		p := &peer.Peer{}
-		pCall := grpc.Peer(p)
-		_, err := k.dialer.PingAddress(ctx, node.Address.Address, pCall)
+		ident, err := k.dialer.FetchPeerIdentityUnverified(ctx, node.Address.Address)
 		if err != nil {
-			errs.Add(err)
-		}
-
-		ident, err := identity.PeerIdentityFromPeer(p)
-		if err != nil {
-			errs.Add(err)
+			errGroup.Add(err)
+			continue
 		}
 
 		k.routingTable.mutex.Lock()
 		node.Id = ident.ID
 		k.bootstrapNodes[i] = node
 		k.routingTable.mutex.Unlock()
-		if err == nil {
-			// We have pinged successfully one bootstrap node.
-			// Clear any errors and break the cycle.
-			errs = nil
-			break
-		}
-		errs.Add(err)
+		foundOnlineBootstrap = true
 	}
-	err := errs.Err()
-	if err != nil {
-		return err
+
+	if !foundOnlineBootstrap {
+		err := errGroup.Err()
+		if err != nil {
+			return err
+		}
 	}
 
 	//find nodes most similar to self
 	k.routingTable.mutex.Lock()
 	id := k.routingTable.self.Id
 	k.routingTable.mutex.Unlock()
-	_, err = k.lookup(ctx, id, true)
+	_, err := k.lookup(ctx, id, true)
 
 	// TODO(dylan): We do not currently handle this last bit of behavior.
 	// ```

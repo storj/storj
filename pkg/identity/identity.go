@@ -181,7 +181,15 @@ func PeerIdentityFromCerts(leaf, ca *x509.Certificate, rest []*x509.Certificate)
 
 // PeerIdentityFromPeer loads a PeerIdentity from a peer connection
 func PeerIdentityFromPeer(peer *peer.Peer) (*PeerIdentity, error) {
-	tlsInfo := peer.AuthInfo.(credentials.TLSInfo)
+	if peer.AuthInfo == nil {
+		return nil, Error.New("peer AuthInfo is nil")
+	}
+
+	tlsInfo, ok := peer.AuthInfo.(credentials.TLSInfo)
+	if !ok {
+		return nil, Error.New("peer AuthInfo is not credentials.TLSInfo")
+	}
+
 	c := tlsInfo.State.PeerCertificates
 	if len(c) < 2 {
 		return nil, Error.New("invalid certificate chain")
