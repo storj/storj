@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -47,6 +48,11 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 
 	if dst.IsLocal() {
 		return fmt.Errorf("destination must be Storj URL: %s", dst)
+	}
+
+	valid := validateURL(dst.String())
+	if !valid {
+		return errs.New("invalid destination url format")
 	}
 
 	var expiration time.Time
@@ -143,6 +149,11 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 
 	if !dst.IsLocal() {
 		return fmt.Errorf("destination must be local path: %s", dst)
+	}
+
+	valid := validateURL(src.String())
+	if !valid {
+		return errs.New("invalid url format")
 	}
 
 	metainfo, streams, err := cfg.Metainfo(ctx)
@@ -298,4 +309,24 @@ func copyMain(cmd *cobra.Command, args []string) (err error) {
 
 	// if copying from one remote location to another
 	return copy(ctx, src, dst)
+}
+
+func validateURL(dst string) bool {
+	parsed, err := url.Parse(dst)
+	if err != nil {
+		fmt.Printf("error parsing URL: %+v", err)
+		return false
+	}
+
+	if parsed.Scheme == "" {
+		fmt.Printf("url must have a valid scheme %s", parsed.Scheme)
+		return false
+	}
+
+	if strings.Contains(dst, "///") {
+		fmt.Printf("Invalid formatting in URL")
+		return false
+	}
+
+	return strings.Contains(dst, "://")
 }
