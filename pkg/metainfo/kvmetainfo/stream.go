@@ -45,7 +45,6 @@ func (stream *readonlyStream) Segment(ctx context.Context, index int64) (segment
 	}
 
 	var segmentPath storj.Path
-	var pointer *pb.Pointer
 	isLastSegment := segment.Index+1 == stream.info.SegmentCount
 	if !isLastSegment {
 		segmentPath = getSegmentPath(stream.encryptedPath, index)
@@ -63,16 +62,11 @@ func (stream *readonlyStream) Segment(ctx context.Context, index int64) (segment
 		segment.Size = stream.info.FixedSegmentSize
 		copy(segment.EncryptedKeyNonce[:], segmentMeta.KeyNonce)
 		segment.EncryptedKey = segmentMeta.EncryptedKey
-		components := storj.SplitPath(segmentPath)
-		pointer, _ = stream.db.metainfo.SegmentInfo(ctx, components[1], components[2], index)
 	} else {
 		segmentPath = storj.JoinPaths("l", stream.encryptedPath)
 		segment.Size = stream.info.LastSegment.Size
 		segment.EncryptedKeyNonce = stream.info.LastSegment.EncryptedKeyNonce
 		segment.EncryptedKey = stream.info.LastSegment.EncryptedKey
-		components := storj.SplitPath(segmentPath)
-		// index set as -1 for last "l" segment
-		pointer, _ = stream.db.metainfo.SegmentInfo(ctx, components[1], components[2], -1)
 	}
 
 	contentKey, err := encryption.DecryptKey(segment.EncryptedKey, stream.Info().EncryptionScheme.Cipher, stream.streamKey, &segment.EncryptedKeyNonce)
@@ -82,6 +76,11 @@ func (stream *readonlyStream) Segment(ctx context.Context, index int64) (segment
 
 	nonce := new(storj.Nonce)
 	_, err = encryption.Increment(nonce, index+1)
+	if err != nil {
+		return segment, 0, err
+	}
+
+	pointer, _, _, err := stream.db.pointers.Get(ctx, segmentPath)
 	if err != nil {
 		return segment, 0, err
 	}

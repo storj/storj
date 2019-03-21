@@ -97,5 +97,4 @@ type Segment struct {
 type Piece struct {
 	Number   byte
 	Location NodeID
-	Online   bool
 }
