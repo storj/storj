@@ -321,6 +321,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 				"--server.extensions.revocation=false",
 				"--server.use-peer-ca-whitelist=false",
+				"--storage.satellite-id-restriction=false",
 			},
 			"run": {},
 		})
