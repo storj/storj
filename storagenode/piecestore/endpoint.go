@@ -52,8 +52,9 @@ type Endpoint struct {
 	config    Config
 	oldConfig psserver.Config // TODO remove with final cleanup
 
-	signer signing.Signer
-	trust  *trust.Pool
+	signer  signing.Signer
+	trust   *trust.Pool
+	monitor *monitor.Service
 
 	store       *pieces.Store
 	pieceinfo   pieces.DB
@@ -63,14 +64,14 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates a new piecestore endpoint.
-func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, store *pieces.Store, pieceinfo pieces.DB, orders orders.DB, usage bandwidth.DB, usedSerials UsedSerials, config Config, oldConfig psserver.Config) (*Endpoint, error) {
+func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, store *pieces.Store, pieceinfo pieces.DB, orders orders.DB, usage bandwidth.DB, usedSerials UsedSerials, config Config, oldConfig psserver.Config) (*Endpoint, error) {
 	return &Endpoint{
-		log:       log,
-		config:    config,
-		oldConfig: oldConfig,
+		log:    log,
+		config: config,
 
-		signer: signer,
-		trust:  trust,
+		signer:  signer,
+		trust:   trust,
+		monitor: monitor,
 
 		store:       store,
 		pieceinfo:   pieceinfo,

@@ -15,7 +15,6 @@ import (
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/storagenode/bandwidth"
 )
 
 var (
@@ -153,12 +152,11 @@ func (endpoint *Endpoint) IsExpired(expiration *timestamp.Timestamp) bool {
 
 // VerifyAvailableSpace verifies whether there is available disk space
 func (endpoint *Endpoint) VerifyAvailableSpace(ctx context.Context, limit *pb.OrderLimit2) error {
-	usedSpace, err := endpoint.pieceinfo.SpaceUsed(ctx)
+	availableSpace, err := endpoint.monitor.AvailableSpace(ctx)
 	if err != nil {
 		return ErrInternal.Wrap(err)
 	}
-	allocatedSpace := endpoint.oldConfig.AllocatedDiskSpace.Int64()
-	if (allocatedSpace - usedSpace) < limit.Limit {
+	if availableSpace < limit.Limit {
 		return ErrProtocol.New("out of space")
 	}
 	return nil
@@ -166,12 +164,11 @@ func (endpoint *Endpoint) VerifyAvailableSpace(ctx context.Context, limit *pb.Or
 
 // VerifyAvailableBandwidth verifies whether there is available bandwidth
 func (endpoint *Endpoint) VerifyAvailableBandwidth(ctx context.Context, limit *pb.OrderLimit2) error {
-	usage, err := bandwidth.TotalMonthlySummary(ctx, endpoint.usage)
+	availableBandwidth, err := endpoint.monitor.AvailableBandwidth(ctx)
 	if err != nil {
 		return ErrInternal.Wrap(err)
 	}
-	allocatedBandwidth := endpoint.oldConfig.AllocatedBandwidth.Int64()
-	if (allocatedBandwidth - usage.Total()) < limit.Limit {
+	if availableBandwidth < limit.Limit {
 		return ErrProtocol.New("out of bandwidth")
 	}
 	return nil

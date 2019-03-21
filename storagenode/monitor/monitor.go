@@ -64,11 +64,11 @@ func (service *Service) Run(ctx context.Context) (err error) {
 
 	// get the disk space details
 	// The returned path ends in a slash only if it represents a root directory, such as "/" on Unix or `C:\` on Windows.
-	info, err := service.store.StorageStatus()
+	storageStatus, err := service.store.StorageStatus()
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	freeDiskSpace := info.DiskFree
+	freeDiskSpace := storageStatus.DiskFree
 
 	totalUsed, err := service.usedSpace(ctx)
 	if err != nil {
@@ -88,23 +88,24 @@ func (service *Service) Run(ctx context.Context) (err error) {
 
 	// check your hard drive is big enough
 	// first time setup as a piece node server
+	allocatedDiskSpace := service.allocatedDiskSpace
 	if totalUsed == 0 && freeDiskSpace < service.allocatedDiskSpace {
-		service.allocatedDiskSpace = freeDiskSpace
-		service.log.Warn("Disk space is less than requested. Allocating space", zap.Int64("bytes", service.allocatedDiskSpace))
+		allocatedDiskSpace = freeDiskSpace
+		service.log.Warn("Disk space is less than requested. Allocating space", zap.Int64("bytes", allocatedDiskSpace))
 	}
 
 	// on restarting the Piece node server, assuming already been working as a node
 	// used above the alloacated space, user changed the allocation space setting
 	// before restarting
-	if totalUsed >= service.allocatedDiskSpace {
-		service.log.Warn("Used more space than allocated. Allocating space", zap.Int64("bytes", service.allocatedDiskSpace))
+	if totalUsed >= allocatedDiskSpace {
+		service.log.Warn("Used more space than allocated. Allocating space", zap.Int64("bytes", allocatedDiskSpace))
 	}
 
-	// the available diskspace is less than remaining allocated space,
+	// the available disk space is less than remaining allocated space,
 	// due to change of setting before restarting
 	if freeDiskSpace < service.allocatedDiskSpace-totalUsed {
-		service.allocatedDiskSpace = freeDiskSpace
-		service.log.Warn("Disk space is less than requested. Allocating space", zap.Int64("bytes", service.allocatedDiskSpace))
+		allocatedDiskSpace = freeDiskSpace
+		service.log.Warn("Disk space is less than requested. Allocating space", zap.Int64("bytes", allocatedDiskSpace))
 	}
 
 	return service.Loop.Run(ctx, func(ctx context.Context) error {
@@ -156,4 +157,24 @@ func (service *Service) usedBandwidth(ctx context.Context) (int64, error) {
 		return 0, err
 	}
 	return usage.Total(), nil
+}
+
+// AvailableSpace returns available disk space for upload
+func (service *Service) AvailableSpace(ctx context.Context) (int64, error) {
+	usedSpace, err := service.pieceInfo.SpaceUsed(ctx)
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+	allocatedSpace := service.allocatedDiskSpace
+	return allocatedSpace - usedSpace, nil
+}
+
+// AvailableBandwidth returns available bandwidth for upload/download
+func (service *Service) AvailableBandwidth(ctx context.Context) (int64, error) {
+	usage, err := bandwidth.TotalMonthlySummary(ctx, service.usageDB)
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+	allocatedBandwidth := service.allocatedBandwidth
+	return allocatedBandwidth - usage.Total(), nil
 }
