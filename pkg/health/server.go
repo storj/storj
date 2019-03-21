@@ -71,11 +71,26 @@ func (endpoint *HealthEndpoint) SegmentStat(ctx context.Context, in *pb.SegmentH
 		return nil, Error.Wrap(err)
 	}
 
-	resp.MinReq = 0
-	resp.Total = 0
-	resp.RepairThreshold = 0
-	resp.SuccessThreshold = 0
-	resp.OnlineNodes = 0
+	for _, node := range nodes {
+		if node.GetIsUp() {
+			resp.OnlineNodes += 1
+		}
+	}
+
+	neededForRepair := resp.OnlineNodes - int32(redundancy.RepairThreshold())
+	if neededForRepair < 0 {
+		neededForRepair = int32(0)
+	}
+
+	neededForSuccess := resp.OnlineNodes - int32(redundancy.OptimalThreshold())
+	if neededForSuccess < 0 {
+		neededForSuccess = int32(0)
+	}
+
+	resp.MinReq = int32(redundancy.RequiredCount())
+	resp.Total = int32(redundancy.TotalCount())
+	resp.RepairThreshold = neededForRepair
+	resp.SuccessThreshold = neededForSuccess
 
 	return resp, nil
 }
