@@ -163,7 +163,7 @@ func TestAddVersionExt(t *testing.T) {
 
 		assert.Len(t, cert.ExtraExtensions, 0)
 
-		err = storj.AddVersionExt(version.Number, cert)
+		err = storj.AddVersionExt(version, cert)
 		require.Len(t, cert.ExtraExtensions, 1)
 		assert.True(t, extensions.IdentityVersionExtID.Equal(cert.ExtraExtensions[0].Id))
 		assert.Equal(t, version.Number, storj.IDVersionNumber(cert.ExtraExtensions[0].Value[0]))

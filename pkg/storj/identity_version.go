@@ -133,10 +133,10 @@ func IDVersionInVersions(versionNumber IDVersionNumber, versionsStr string) erro
 }
 
 // TODO: should this include signature?
-func AddVersionExt(version IDVersionNumber, cert *x509.Certificate) error {
+func AddVersionExt(version IDVersion, cert *x509.Certificate) error {
 	return extensions.AddExtension(cert, pkix.Extension{
 		Id:    extensions.IdentityVersionExtID,
-		Value: []byte{byte(version)},
+		Value: []byte{byte(version.Number)},
 	})
 }
 

@@ -46,7 +46,12 @@ func NewCertChain(length int) (keys []crypto.PrivateKey, certs []*x509.Certifica
 	return keys, certs, nil
 }
 
-func NewVersionedCertChain(length int, version storj.IDVersionNumber) ([]crypto.PrivateKey, []*x509.Certificate, error) {
+func NewVersionedCertChain(length int, versionNumber storj.IDVersionNumber) ([]crypto.PrivateKey, []*x509.Certificate, error) {
+	version, err := storj.GetIDVersion(versionNumber)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	versionedCertIndex := peertls.CAIndex
 	if length < peertls.CAIndex+1 {
 		versionedCertIndex = peertls.CAIndex - 1

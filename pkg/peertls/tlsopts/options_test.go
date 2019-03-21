@@ -125,7 +125,7 @@ func TestOptions_ServerOption_Peer_CA_Whitelist(t *testing.T) {
 
 	target := planet.StorageNodes[1].Local()
 
-	testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, ident *identity.FullIdentity) {
+	testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, version storj.IDVersion, ident *identity.FullIdentity) {
 		opts, err := tlsopts.NewOptions(ident, tlsopts.Config{})
 		require.NoError(t, err)
 
@@ -141,7 +141,7 @@ func TestOptions_ServerOption_Peer_CA_Whitelist(t *testing.T) {
 }
 
 func TestOptions_DialOption_error_on_empty_ID(t *testing.T) {
-	testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, ident *identity.FullIdentity) {
+	testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, version storj.IDVersion, ident *identity.FullIdentity) {
 		opts, err := tlsopts.NewOptions(ident, tlsopts.Config{})
 		require.NoError(t, err)
 
@@ -152,7 +152,7 @@ func TestOptions_DialOption_error_on_empty_ID(t *testing.T) {
 }
 
 func TestOptions_DialUnverifiedIDOption(t *testing.T) {
-	testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, ident *identity.FullIdentity) {
+	testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, version storj.IDVersion, ident *identity.FullIdentity) {
 		opts, err := tlsopts.NewOptions(ident, tlsopts.Config{})
 		require.NoError(t, err)
 

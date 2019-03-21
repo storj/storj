@@ -39,25 +39,17 @@ func main() {
 	`)
 
 	var (
-		identityVersion storj.IDVersion
 		signer          *identity.FullCertificateAuthority
 		restChain       []*x509.Certificate
 		err             error
 	)
 
-	switch *versionFlag {
-	case 0:
-		identityVersion = storj.LatestIDVersion()
-	default:
-		identityVersion = storj.IDVersions[storj.IDVersionNumber(*versionFlag)]
-	}
-
-	fmt.Printf("%+v\n", identityVersion)
 	caOpts := identity.NewCAOptions{
-		Version:     identityVersion,
-		Difficulty:  12,
-		Concurrency: 4,
+		VersionNumber: storj.IDVersionNumber(*versionFlag),
+		Difficulty:    12,
+		Concurrency:   4,
 	}
+	//fmt.Printf("caOpts: %+v/n", caOpts)
 
 	if *signed {
 		signer, err = identity.NewCA(context.Background(), caOpts)
@@ -80,17 +72,17 @@ func main() {
 
 		fmt.Fprintf(&buf,
 			"var pregeneratedV%dSigner = mustParseCertificateAuthorityPEM(%q, %q)\n",
-			identityVersion.Number, chain.Bytes(), keys.Bytes(),
+			*versionFlag, chain.Bytes(), keys.Bytes(),
 		)
 	}
 
 	if *signed {
-		fmt.Fprintf(&buf, "var pregeneratedV%dSignedIdentities = NewIdentities(", identityVersion.Number)
+		fmt.Fprintf(&buf, "var pregeneratedV%dSignedIdentities = NewIdentities(", *versionFlag)
 	} else {
-		fmt.Fprintf(&buf, "var pregeneratedV%dIdentities = NewIdentities(", identityVersion.Number)
+		fmt.Fprintf(&buf, "var pregeneratedV%dIdentities = NewIdentities(", *versionFlag)
 	}
 	for k := 0; k < *count; k++ {
-		fmt.Println("Creating", k)
+		//fmt.Println("Creating", k)
 		ca, err := identity.NewCA(context.Background(), caOpts)
 		if err != nil {
 			panic(err)
