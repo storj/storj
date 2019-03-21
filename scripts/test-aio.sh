@@ -44,13 +44,18 @@ echo "=> Secret Key: $secret_access_key"
 export AWS_ACCESS_KEY_ID="$access_key_id"
 export AWS_SECRET_ACCESS_KEY="$secret_access_key"
 
-
 aws configure set default.region us-east-1
 
 echo "=> Making test files"
-head -c 1024 </dev/urandom > "$TMP_DIR/small-upload-testfile" # create 1mb file of random bytes (inline)
-head -c 5120 </dev/urandom > "$TMP_DIR/big-upload-testfile"   # create 5mb file of random bytes (remote)
-head -c 5 </dev/urandom > "$TMP_DIR/multipart-upload-testfile"     # create 5kb file of random bytes (remote)
+random_bytes_file(){
+	size=$1
+	output=$2
+	dd if=/dev/urandom of="$output" count=1 bs="$size" >/dev/null 2>&1
+}
+
+random_bytes_file 1x1024x1024 "$TMP_DIR/small-upload-testfile"     # create 1mb file of random bytes (inline)
+random_bytes_file 5x1024x1024 "$TMP_DIR/big-upload-testfile"       # create 5mb file of random bytes (remote)
+random_bytes_file      5x1024 "$TMP_DIR/multipart-upload-testfile" # create 5kb file of random bytes (remote)
 
 echo "=> Making bucket"
 aws s3 --endpoint=http://localhost:7777/ mb s3://bucket
@@ -89,24 +94,24 @@ aws s3 --endpoint=http://localhost:7777/ rb s3://bucket --force
 echo "=> Comparing test files downloaded with uploaded versions"
 if cmp "$TMP_DIR/small-upload-testfile" "$CMP_DIR/small-download-testfile"
 then
-  echo "Downloaded file matches uploaded file"
+	echo "Downloaded file matches uploaded file"
 else
-  echo "Downloaded file does not match uploaded file"
-  exit 1
+	echo "Downloaded file does not match uploaded file"
+	exit 1
 fi
 
 if cmp "$TMP_DIR/big-upload-testfile" "$CMP_DIR/big-download-testfile"
 then
-  echo "Downloaded file matches uploaded file"
+	echo "Downloaded file matches uploaded file"
 else
-  echo "Downloaded file does not match uploaded file"
-  exit 1
+	echo "Downloaded file does not match uploaded file"
+	exit 1
 fi
 
 if cmp "$TMP_DIR/multipart-upload-testfile" "$CMP_DIR/multipart-download-testfile"
 then
-  echo "Downloaded file matches uploaded file"
+	echo "Downloaded file matches uploaded file"
 else
-  echo "Downloaded file does not match uploaded file"
-  exit 1
+	echo "Downloaded file does not match uploaded file"
+	exit 1
 fi

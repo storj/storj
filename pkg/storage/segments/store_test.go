@@ -83,8 +83,8 @@ func TestSegmentStorePutGet(t *testing.T) {
 		expiration time.Time
 		content    []byte
 	}{
-		{"test inline put/get", "l/path/1", []byte("metadata-intline"), time.Now().UTC(), createTestData(t, 2*memory.KiB.Int64())},
-		{"test remote put/get", "s0/test_bucket/mypath/1", []byte("metadata-remote"), time.Now().UTC(), createTestData(t, 100*memory.KiB.Int64())},
+		{"test inline put/get", "l/path/1", []byte("metadata-intline"), time.Time{}, createTestData(t, 2*memory.KiB.Int64())},
+		{"test remote put/get", "s0/test_bucket/mypath/1", []byte("metadata-remote"), time.Time{}, createTestData(t, 100*memory.KiB.Int64())},
 	} {
 		runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
 			metadata, err := segmentStore.Put(ctx, bytes.NewReader(tt.content), tt.expiration, func() (storj.Path, []byte, error) {
@@ -116,8 +116,8 @@ func TestSegmentStoreDelete(t *testing.T) {
 		expiration time.Time
 		content    []byte
 	}{
-		{"test inline delete", "l/path/1", []byte("metadata"), time.Now(), createTestData(t, 2*memory.KiB.Int64())},
-		{"test remote delete", "s0/test_bucket/mypath/1", []byte("metadata"), time.Now(), createTestData(t, 100*memory.KiB.Int64())},
+		{"test inline delete", "l/path/1", []byte("metadata"), time.Time{}, createTestData(t, 2*memory.KiB.Int64())},
+		{"test remote delete", "s0/test_bucket/mypath/1", []byte("metadata"), time.Time{}, createTestData(t, 100*memory.KiB.Int64())},
 	} {
 		runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
 			_, err := segmentStore.Put(ctx, bytes.NewReader(tt.content), tt.expiration, func() (storj.Path, []byte, error) {

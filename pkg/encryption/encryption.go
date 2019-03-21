@@ -139,10 +139,8 @@ func CalcEncryptedSize(dataSize int64, scheme storj.EncryptionScheme) (int64, er
 		return 0, err
 	}
 
-	blocks := (dataSize + uint32Size) / int64(transformer.InBlockSize())
-	if (dataSize+uint32Size)%int64(transformer.InBlockSize()) != 0 {
-		blocks++
-	}
+	inBlockSize := int64(transformer.InBlockSize())
+	blocks := (dataSize + uint32Size + inBlockSize - 1) / inBlockSize
 
 	encryptedSize := blocks * int64(transformer.OutBlockSize())
 

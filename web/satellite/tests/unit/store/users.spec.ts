@@ -19,7 +19,7 @@ describe('mutations', () => {
             user: {
                 firstName: '',
                 lastName: '',
-                email: ''
+                email: '',
             }
         };
 
@@ -28,7 +28,7 @@ describe('mutations', () => {
         const user = {
             firstName: 'firstName',
             lastName: 'lastName',
-            email: 'email'
+            email: 'email',
         };
 
         store.commit(USER_MUTATIONS.SET_USER_INFO, user);
@@ -61,13 +61,13 @@ describe('mutations', () => {
             user: {
                 firstName: '',
                 lastName: '',
-                email: ''
+                email: '',
             }
         };
         const user = {
             firstName: 'firstName',
             lastName: 'lastName',
-            email: 'email'
+            email: 'email',
         };
 
         const store = new Vuex.Store({state, mutations});
@@ -98,7 +98,7 @@ describe('actions', () => {
         const user = {
             firstName: '',
             lastName: '',
-            email: ''
+            email: '',
         };
 
         const dispatchResponse = await usersModule.actions.updateAccount({commit}, user);
@@ -107,7 +107,7 @@ describe('actions', () => {
         expect(commit).toHaveBeenCalledWith(USER_MUTATIONS.UPDATE_USER_INFO, {
             firstName: 'firstName',
             lastName: 'lastName',
-            email: 'email'
+            email: 'email',
         });
     });
 
@@ -121,7 +121,7 @@ describe('actions', () => {
         const user = {
             firstName: '',
             lastName: '',
-            email: ''
+            email: '',
         };
 
         const dispatchResponse = await usersModule.actions.updateAccount({commit}, user);
@@ -166,7 +166,7 @@ describe('actions', () => {
                 data: {
                     firstName: '',
                     lastName: '',
-                    email: ''
+                    email: '',
                 }
             })
         );
