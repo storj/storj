@@ -64,8 +64,8 @@ type DB interface {
 
 // SenderConfig defines configuration for sending orders.
 type SenderConfig struct {
-	Interval      time.Duration
-	SettleTimeout time.Duration
+	Interval time.Duration `help:"duration between sending" default:"1h0m0s"`
+	Timeout  time.Duration `help:"timeout for sending" default:"1h0m0s"`
 }
 
 // Sender sends every interval unsent orders to the satellite.
@@ -105,7 +105,7 @@ func (sender *Sender) Run(ctx context.Context) error {
 
 		if len(ordersBySatellite) > 0 {
 			var group errgroup.Group
-			ctx, cancel := context.WithTimeout(ctx, sender.config.SettleTimeout)
+			ctx, cancel := context.WithTimeout(ctx, sender.config.Timeout)
 			defer cancel()
 
 			for satelliteID, orders := range ordersBySatellite {
