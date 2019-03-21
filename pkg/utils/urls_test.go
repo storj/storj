@@ -49,6 +49,13 @@ func TestValidateURL(t *testing.T) {
 			},
 			want: true,
 		},
+		{
+			name: "test // appearing after the scheme",
+			args: args{
+				dst: "sj://bucket///test",
+			},
+			want: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
