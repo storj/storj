@@ -166,8 +166,43 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 		// TODO: also use satellites
 		peers := planet.StorageNodes
 
-		{ // FetchPeerIdentity
+		{ // PingNode
 			self := planet.StorageNodes[0]
+
+			tlsOpts, err := tlsopts.NewOptions(self.Identity, tlsopts.Config{})
+			require.NoError(t, err)
+
+			self.Transport = transport.NewClient(tlsOpts, 20*time.Millisecond)
+
+			network := &transport.SimulatedNetwork{
+				DialLatency:    200 * time.Second,
+				BytesPerSecond: 1 * memory.KB,
+			}
+
+			slowClient := network.NewClient(self.Transport)
+			require.NotNil(t, slowClient)
+
+			dialer := kademlia.NewDialer(zaptest.NewLogger(t), slowClient)
+			defer ctx.Check(dialer.Close)
+
+			var group errgroup.Group
+			defer ctx.Check(group.Wait)
+
+			for _, peer := range peers {
+				peer := peer
+				group.Go(func() error {
+					_, err := dialer.PingNode(ctx, peer.Local())
+					require.NotNil(t, err)
+					require.Error(t, err, context.DeadlineExceeded)
+					require.True(t, transport.Error.Has(err))
+
+					return nil
+				})
+			}
+		}
+
+		{ // FetchPeerIdentity
+			self := planet.StorageNodes[1]
 
 			tlsOpts, err := tlsopts.NewOptions(self.Identity, tlsopts.Config{})
 			require.NoError(t, err)
@@ -203,8 +238,8 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 			})
 		}
 
-		{ // Lookup: ensure slow conns trigger timeouts
-			self := planet.StorageNodes[3]
+		{ // Lookup
+			self := planet.StorageNodes[2]
 
 			tlsOpts, err := tlsopts.NewOptions(self.Identity, tlsopts.Config{})
 			require.NoError(t, err)
