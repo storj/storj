@@ -4,10 +4,10 @@
 package encryption_test
 
 import (
-	"crypto/rand"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"testing"
 
 	"storj.io/storj/pkg/eestream"
@@ -49,7 +49,8 @@ func TestCalcEncryptedSize(t *testing.T) {
 			encrypter, err := encryption.NewEncrypter(scheme.Cipher, new(storj.Key), new(storj.Nonce), int(scheme.BlockSize))
 			require.NoError(t, err, errTag)
 
-			reader := encryption.TransformReader(eestream.PadReader(ioutil.NopCloser(io.LimitReader(rand.Reader, dataSize)), encrypter.InBlockSize()), encrypter, 0)
+			randReader := ioutil.NopCloser(io.LimitReader(rand.New(rand.NewSource(rand.Int63())), dataSize))
+			reader := encryption.TransformReader(eestream.PadReader(randReader, encrypter.InBlockSize()), encrypter, 0)
 
 			cipherData, err := ioutil.ReadAll(reader)
 			assert.NoError(t, err, errTag)

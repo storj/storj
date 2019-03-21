@@ -6,7 +6,6 @@ package eestream
 import (
 	"bytes"
 	"context"
-	cryptorand "crypto/rand"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -668,7 +667,8 @@ func TestCalcPieceSize(t *testing.T) {
 
 		calculatedSize := CalcPieceSize(dataSize, es)
 
-		readers, err := EncodeReader(ctx, PadReader(ioutil.NopCloser(io.LimitReader(cryptorand.Reader, dataSize)), es.StripeSize()), rs)
+		randReader := ioutil.NopCloser(io.LimitReader(rand.New(rand.NewSource(rand.Int63())), dataSize))
+		readers, err := EncodeReader(ctx, PadReader(randReader, es.StripeSize()), rs)
 		require.NoError(t, err, errTag)
 
 		for _, reader := range readers {
