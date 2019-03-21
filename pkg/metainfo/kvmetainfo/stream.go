@@ -63,7 +63,6 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (segment
 		copy(segment.EncryptedKeyNonce[:], segmentMeta.KeyNonce)
 		segment.EncryptedKey = segmentMeta.EncryptedKey
 	} else {
-		segmentPath = storj.JoinPaths("l", stream.encryptedPath)
 		segment.Size = stream.info.LastSegment.Size
 		segment.EncryptedKeyNonce = stream.info.LastSegment.EncryptedKeyNonce
 		segment.EncryptedKey = stream.info.LastSegment.EncryptedKey
