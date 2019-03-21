@@ -24,7 +24,7 @@ import (
 	"storj.io/storj/pkg/transport"
 )
 
-const contactWindow = time.Hour * 4
+const contactWindow = time.Minute * 10
 
 type dashboardClient struct {
 	client pb.PieceStoreInspectorClient
