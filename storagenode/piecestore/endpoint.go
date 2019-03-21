@@ -212,9 +212,13 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 
 			// TODO: do this in a goroutine
 			{
-				expiration, err := ptypes.Timestamp(limit.PieceExpiration)
-				if err != nil {
-					return ErrInternal.Wrap(err)
+				var expiration *time.Time
+				if limit.PieceExpiration != nil {
+					exp, err := ptypes.Timestamp(limit.PieceExpiration)
+					if err != nil {
+						return ErrInternal.Wrap(err)
+					}
+					expiration = &exp
 				}
 
 				// TODO: maybe this should be as a pieceWriter.Commit(ctx, info)

@@ -21,6 +21,8 @@ type DB interface {
 	APIKeys() APIKeys
 	// BucketUsage is a getter for accounting.BucketUsage repository
 	BucketUsage() accounting.BucketUsage
+	// RegistrationTokens is a getter for RegistrationTokens repository
+	RegistrationTokens() RegistrationTokens
 
 	// BeginTransaction is a method for opening transaction
 	BeginTx(ctx context.Context) (DBTx, error)

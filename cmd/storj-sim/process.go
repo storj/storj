@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -80,6 +81,7 @@ type Info struct {
 	Address    string
 	Directory  string
 	ID         string
+	Pid        int
 	Extra      []string
 }
 
@@ -109,6 +111,9 @@ func (info *Info) Env() []string {
 	}
 	if info.Directory != "" {
 		env = append(env, name+"_DIR="+info.Directory)
+	}
+	if info.Pid != 0 {
+		env = append(env, name+"_PID="+strconv.Itoa(info.Pid))
 	}
 	for _, extra := range info.Extra {
 		env = append(env, name+"_"+extra)
@@ -228,6 +233,7 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 	if err != nil {
 		return err
 	}
+	process.Info.Pid = cmd.Process.Pid
 
 	if command == "setup" || process.Address == "" {
 		// during setup we aren't starting the addresses, so we can release the dependencies immediately

@@ -4,7 +4,7 @@
 declare type User = {
     firstName: string,
     lastName: string,
-    email: string
+    email: string,
 };
 
 // Used in users module to pass parameters to action
