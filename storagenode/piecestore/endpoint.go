@@ -145,6 +145,10 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 		return err
 	}
 
+	if err := endpoint.VerifyAvailableBandwidth(ctx, limit); err != nil {
+		return err
+	}
+
 	defer func() {
 		if err != nil {
 			endpoint.log.Debug("upload failed", zap.Stringer("Piece ID", limit.PieceId), zap.Error(err))
