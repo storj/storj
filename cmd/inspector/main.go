@@ -21,6 +21,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
@@ -120,6 +121,13 @@ var (
 		Short: "Create node stats from csv",
 		Args:  cobra.MinimumNArgs(1),
 		RunE:  CreateCSVStats,
+	}
+	objectStatsCmd = &cobra.Command{
+		// TODO: add args to usage
+		Use:   "objectstats <path>",
+		Short: "Get stats about an object's health",
+		Args:  cobra.MinimumNArgs(1),
+		RunE:  ObjectStats,
 	}
 )
 
@@ -444,6 +452,21 @@ func CreateCSVStats(cmd *cobra.Command, args []string) (err error) {
 
 		fmt.Printf("Created statdb entry for ID %s\n", nodeID)
 	}
+	return nil
+}
+
+// CreateCSVStats creates node with stats in statdb based on a CSV
+func ObjectStats(cmd *cobra.Command, args []string) (err error) {
+	i, err := NewInspector(*Addr, *IdentityPath)
+	if err != nil {
+		return ErrInspectorDial.Wrap(err)
+	}
+
+	dst, err := fpath.New(args[0])
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

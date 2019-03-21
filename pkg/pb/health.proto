@@ -1,0 +1,39 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "pb";
+
+package health;
+
+import "gogo.proto";
+import "pointerdb.proto";
+
+service Health {
+    rpc ObjectStat(ObjectHealthRequest) returns (ObjectHealthResponse) {}
+    rpc SegmentStat(SegmentHealthRequest) returns (SegmentInfo) {}
+}
+
+message SegmentInfo{
+    int32 min_req = 2;           // minimum required for reconstruction (k)
+    int32 total = 3;             // total amount of pieces we generated (n)
+    int32 repair_threshold = 4;  // amount of pieces we need to drop to before triggering repair (m)
+    int32 success_threshold = 5; // amount of pieces we need to store to call it a success (o)
+    int32 online_nodes = 6;      // amount of pieces with nodes that are online
+}
+
+message SegmentHealthRequest {
+    bytes encrypted_path = 1;
+}
+
+message ObjectHealthRequest {
+    bytes encrypted_path = 1;
+    bytes bucket = 2;
+    bytes uplink_id = 3 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false]; // Uplink Identity
+}
+
+message ObjectHealthResponse {
+    pointerdb.RedundancyScheme redundancy = 1; // expected segment info
+    repeated SegmentInfo segments = 2;         // actual segment info 
+    int64 number_of_segments = 3;              // number of segments
+} 
