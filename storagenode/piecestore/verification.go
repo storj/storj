@@ -35,7 +35,7 @@ func (endpoint *Endpoint) VerifyOrderLimit(ctx context.Context, limit *pb.OrderL
 		return ErrProtocol.New("order limit is negative")
 	case endpoint.signer.ID() != limit.StorageNodeId:
 		return ErrProtocol.New("order intended for other storagenode: %v", limit.StorageNodeId)
-	case endpoint.IsExpired(limit.PieceExpiration):
+	case limit.PieceExpiration != nil && endpoint.IsExpired(limit.PieceExpiration):
 		return ErrProtocol.New("piece expired: %v", limit.PieceExpiration)
 	case endpoint.IsExpired(limit.OrderExpiration):
 		return ErrProtocol.New("order expired: %v", limit.OrderExpiration)
@@ -45,7 +45,9 @@ func (endpoint *Endpoint) VerifyOrderLimit(ctx context.Context, limit *pb.OrderL
 	case limit.UplinkId.IsZero():
 		return ErrProtocol.New("missing uplink id")
 	case len(limit.SatelliteSignature) == 0:
-		return ErrProtocol.New("satellite signature missing")
+		return ErrProtocol.New("missing satellite signature")
+	case limit.PieceId.IsZero():
+		return ErrProtocol.New("missing piece id")
 	}
 
 	// either uplink or satellite can only make the request
@@ -145,6 +147,5 @@ func (endpoint *Endpoint) IsExpired(expiration *timestamp.Timestamp) bool {
 	}
 
 	// TODO: return specific error about either exceeding the expiration completely or just the grace period
-
-	return expirationTime.After(time.Now().Add(-endpoint.config.ExpirationGracePeriod))
+	return expirationTime.Before(time.Now().Add(-endpoint.config.ExpirationGracePeriod))
 }
