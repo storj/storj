@@ -59,15 +59,8 @@ func statObject(cmd *cobra.Command, args []string) (err error) {
 		obj.Stream.Size, "\t", obj.Stream.SegmentCount, "\t", "-",
 		"\t", "-", "\t", "-", "\t", "-", "\t\n")
 
-	// populate the row fields
-	segList, _, _ := objStream.Segments(ctx, 0, obj.SegmentCount)
-	for _, segInfo := range segList {
-		online := 0
-		for _, v := range segInfo.Pieces {
-			if v.Online == true {
-				online++
-			}
-		}
+	for index := 0; index < int(obj.SegmentCount); index++ {
+		segInfo, online, _ := objStream.Segment(ctx, int64(index))
 
 		fmt.Fprint(w, "-", "\t", "-", "\t", "-", "\t", "-", "\t",
 			"-", "\t", segInfo.Index, "\t", segInfo.Size,

@@ -189,6 +189,8 @@ type ReadOnlyStream interface {
 	// SegmentsAt returns the segment that contains the byteOffset and following segments.
 	// Limit specifies how much to return at most.
 	SegmentsAt(ctx context.Context, byteOffset int64, limit int64) (infos []Segment, more bool, err error)
+	// Segment returns a particular segment at index, and current the storage node addresses.
+	Segment(ctx context.Context, index int64) (segment Segment, count int64, err error)
 	// Segments returns the segment at index.
 	// Limit specifies how much to return at most.
 	Segments(ctx context.Context, index int64, limit int64) (infos []Segment, more bool, err error)
