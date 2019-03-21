@@ -112,13 +112,14 @@ require (
 	go.uber.org/atomic v1.3.2 // indirect
 	go.uber.org/multierr v1.1.0 // indirect
 	go.uber.org/zap v1.9.1
-	golang.org/x/crypto v0.0.0-20190225124518-7f87c0fbb88b
-	golang.org/x/net v0.0.0-20190225153610-fe579d43d832
+	golang.org/x/crypto v0.0.0-20190320223903-b7391e95e576
+	golang.org/x/net v0.0.0-20190320064053-1272bf9dcd53
 	golang.org/x/sync v0.0.0-20181221193216-37e7f081c4d4
-	golang.org/x/sys v0.0.0-20190225065934-cc5685c2db12
+	golang.org/x/sys v0.0.0-20190321052220-f7bb7a8bee54
 	golang.org/x/text v0.3.1-0.20180807135948-17ff2d5776d2 // indirect
 	golang.org/x/time v0.0.0-20181108054448-85acf8d2951c // indirect
-	golang.org/x/tools v0.0.0-20190225234524-2dc4ef2775b8
+	golang.org/x/tools v0.0.0-20190321154406-ae772f11d294
+	google.golang.org/appengine v1.4.0 // indirect
 	google.golang.org/genproto v0.0.0-20190219182410-082222b4a5c5 // indirect
 	google.golang.org/grpc v1.19.0
 	gopkg.in/Shopify/sarama.v1 v1.18.0 // indirect
