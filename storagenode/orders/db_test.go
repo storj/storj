@@ -88,9 +88,13 @@ func TestOrders(t *testing.T) {
 		// list by group
 		unsentGrouped, err := ordersdb.ListUnsentBySatellite(ctx)
 		require.NoError(t, err)
-		require.Empty(t, cmp.Diff(map[storj.NodeID][]*orders.Info{
-			satellite0.ID: []*orders.Info{{Limit: limit, Order: order}},
-		}, unsentGrouped, cmp.Comparer(pb.Equal)))
+
+		expectedGrouped := map[storj.NodeID][]*orders.Info{
+			satellite0.ID: []*orders.Info{
+				{Limit: limit, Order: order},
+			},
+		}
+		require.Empty(t, cmp.Diff(expectedGrouped, unsentGrouped, cmp.Comparer(pb.Equal)))
 
 		// test archival
 		err = ordersdb.Archive(ctx, satellite0.ID, serialNumber, orders.StatusAccepted)
