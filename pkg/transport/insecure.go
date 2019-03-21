@@ -5,7 +5,6 @@ package transport
 
 import (
 	"context"
-	"time"
 
 	"google.golang.org/grpc"
 )
@@ -14,7 +13,7 @@ import (
 //
 // Use this method for communication with localhost. For example, with the inspector or debugging services.
 // Otherwise in most cases DialNode should be used for communicating with nodes since it is secure.
-func DialAddressInsecure(ctx context.Context, address string, connTimeout time.Duration, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
+func DialAddressInsecure(ctx context.Context, address string, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	options := append([]grpc.DialOption{
@@ -23,8 +22,8 @@ func DialAddressInsecure(ctx context.Context, address string, connTimeout time.D
 		grpc.FailOnNonTempDialError(true),
 	}, opts...)
 
-	timedCtx, cancel := context.WithTimeout(ctx, connTimeout)
-	defer cancel()
+	timedCtx, cf := context.WithTimeout(ctx, connWaitTimeout)
+	defer cf()
 
 	conn, err = grpc.DialContext(timedCtx, address, options...)
 	if err == context.Canceled {
