@@ -654,6 +654,7 @@ func TestCalcPieceSize(t *testing.T) {
 		1,
 		1*memory.KiB.Int64() - uint32Size,
 		1 * memory.KiB.Int64(),
+		32*memory.KiB.Int64() - uint32Size,
 		32 * memory.KiB.Int64(),
 		32*memory.KiB.Int64() + 100,
 	} {
