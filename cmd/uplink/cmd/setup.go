@@ -55,10 +55,5 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	overrides := map[string]interface{}{
-		"client.api-key":        setupCfg.APIKey,
-		"client.satellite-addr": setupCfg.SatelliteAddr,
-	}
-
-	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
+	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), nil)
 }

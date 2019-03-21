@@ -49,8 +49,8 @@ type EncryptionConfig struct {
 // ClientConfig is a configuration struct for the uplink that controls how
 // to talk to the rest of the network.
 type ClientConfig struct {
-	SatelliteAddr string      `help:"Address to contact the satellite"`
-	APIKey        string      `help:"API Key (TODO: this needs to change to macaroons somehow)"`
+	APIKey        string      `default:"" help:"the api key to use for the satellite" noprefix:"true"`
+	SatelliteAddr string      `default:"localhost:7778" help:"the address to use for the satellite" noprefix:"true"`
 	MaxInlineSize memory.Size `help:"max inline segment size in bytes" default:"4KiB"`
 	SegmentSize   memory.Size `help:"the size of a segment in bytes" default:"64MiB"`
 }
