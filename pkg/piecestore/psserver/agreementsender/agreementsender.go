@@ -87,24 +87,24 @@ func (as *AgreementSender) SettleAgreements(ctx context.Context, satelliteID sto
 
 	satellite, err := as.kad.FindNode(ctx, satelliteID)
 	if err != nil {
-		as.log.Warn("could not find satellite", zap.Error(err))
+		as.log.Warn("could not find satellite", zap.String("satellite id", satelliteID.String()), zap.Error(err))
 		return
 	}
 
 	conn, err := as.transport.DialNode(ctx, &satellite)
 	if err != nil {
-		as.log.Warn("could not dial satellite", zap.Error(err))
+		as.log.Warn("could not dial satellite", zap.String("satellite id", satelliteID.String()), zap.Error(err))
 		return
 	}
 	defer func() {
 		if err := conn.Close(); err != nil {
-			as.log.Warn("failed to close connection", zap.Error(err))
+			as.log.Warn("failed to close connection", zap.String("satellite id", satelliteID.String()), zap.Error(err))
 		}
 	}()
 
 	client, err := pb.NewBandwidthClient(conn).Settlement(ctx)
 	if err != nil {
-		as.log.Error("failed to start settlement", zap.Error(err))
+		as.log.Error("failed to start settlement", zap.String("satellite id", satelliteID.String()), zap.Error(err))
 		return
 	}
 
@@ -127,7 +127,7 @@ func (as *AgreementSender) SettleAgreements(ctx context.Context, satelliteID sto
 			if err == io.EOF {
 				break
 			}
-			as.log.Error("failed to recv response", zap.Error(err))
+			as.log.Error("failed to recv response", zap.String("satellite id", satelliteID.String()), zap.Error(err))
 			break
 		}
 
@@ -135,19 +135,19 @@ func (as *AgreementSender) SettleAgreements(ctx context.Context, satelliteID sto
 		case pb.AgreementsSummary_REJECTED:
 			err = as.DB.UpdateBandwidthAllocationStatus(response.SerialNumber, psdb.AgreementStatusReject)
 			if err != nil {
-				as.log.Error("error", zap.Error(err))
+				as.log.Error("error", zap.String("satellite id", satelliteID.String()), zap.Error(err))
 			}
 		case pb.AgreementsSummary_OK:
 			err = as.DB.UpdateBandwidthAllocationStatus(response.SerialNumber, psdb.AgreementStatusSent)
 			if err != nil {
-				as.log.Error("error", zap.Error(err))
+				as.log.Error("error", zap.String("satellite id", satelliteID.String()), zap.Error(err))
 			}
 		default:
-			as.log.Error("unexpected response", zap.Error(err))
+			as.log.Error("unexpected response", zap.String("satellite id", satelliteID.String()), zap.Error(err))
 		}
 	}
 
 	if err := group.Wait(); err != nil {
-		as.log.Error("sending agreements returned an error", zap.Error(err))
+		as.log.Error("sending agreements returned an error", zap.String("satellite id", satelliteID.String()), zap.Error(err))
 	}
 }
