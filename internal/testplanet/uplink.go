@@ -186,6 +186,55 @@ func (uplink *Uplink) Upload(ctx context.Context, satellite *satellite.Peer, buc
 	return nil
 }
 
+// UploadWithConfig uploads data to specific satellite with configured values
+func (uplink *Uplink) UploadWithConfig(ctx context.Context, satellite *satellite.Peer, redundancy *uplink.RSConfig, bucket string, path storj.Path, data []byte) error {
+	config := uplink.getConfig(satellite)
+	if redundancy != nil {
+		config.RS.MinThreshold = redundancy.MinThreshold
+		config.RS.RepairThreshold = redundancy.RepairThreshold
+		config.RS.SuccessThreshold = redundancy.SuccessThreshold
+		config.RS.MaxThreshold = redundancy.MaxThreshold
+	}
+
+	metainfo, streams, err := config.GetMetainfo(ctx, uplink.Identity)
+	if err != nil {
+		return err
+	}
+
+	encScheme := config.GetEncryptionScheme()
+	redScheme := config.GetRedundancyScheme()
+
+	// create bucket if not exists
+	_, err = metainfo.GetBucket(ctx, bucket)
+	if err != nil {
+		if storj.ErrBucketNotFound.Has(err) {
+			_, err := metainfo.CreateBucket(ctx, bucket, &storj.Bucket{PathCipher: encScheme.Cipher})
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+
+	createInfo := storj.CreateObject{
+		RedundancyScheme: redScheme,
+		EncryptionScheme: encScheme,
+	}
+	obj, err := metainfo.CreateObject(ctx, bucket, path, &createInfo)
+	if err != nil {
+		return err
+	}
+
+	reader := bytes.NewReader(data)
+	err = uploadStream(ctx, streams, obj, reader)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func uploadStream(ctx context.Context, streams streams.Store, mutableObject storj.MutableObject, reader io.Reader) error {
 	mutableStream, err := mutableObject.CreateStream(ctx)
 	if err != nil {

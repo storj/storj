@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -24,15 +25,17 @@ import (
 
 // Processes contains list of processes
 type Processes struct {
-	Output *PrefixWriter
-	List   []*Process
+	Output    *PrefixWriter
+	Directory string
+	List      []*Process
 }
 
 // NewProcesses returns a group of processes
-func NewProcesses() *Processes {
+func NewProcesses(dir string) *Processes {
 	return &Processes{
-		Output: NewPrefixWriter("sim", os.Stdout),
-		List:   nil,
+		Output:    NewPrefixWriter("sim", os.Stdout),
+		Directory: dir,
+		List:      nil,
 	}
 }
 
@@ -78,6 +81,7 @@ type Info struct {
 	Address    string
 	Directory  string
 	ID         string
+	Pid        int
 	Extra      []string
 }
 
@@ -107,6 +111,9 @@ func (info *Info) Env() []string {
 	}
 	if info.Directory != "" {
 		env = append(env, name+"_DIR="+info.Directory)
+	}
+	if info.Pid != 0 {
+		env = append(env, name+"_PID="+strconv.Itoa(info.Pid))
 	}
 	for _, extra := range info.Extra {
 		env = append(env, name+"_"+extra)
@@ -168,7 +175,7 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 	defer process.Status.Exited.Release()
 
 	cmd := exec.CommandContext(ctx, process.Executable, process.Arguments[command]...)
-	cmd.Dir = process.Directory
+	cmd.Dir = process.processes.Directory
 	cmd.Env = append(os.Environ(), "STORJ_LOG_NOTIME=1")
 
 	{ // setup standard output with logging into file
@@ -226,6 +233,7 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 	if err != nil {
 		return err
 	}
+	process.Info.Pid = cmd.Process.Pid
 
 	if command == "setup" || process.Address == "" {
 		// during setup we aren't starting the addresses, so we can release the dependencies immediately

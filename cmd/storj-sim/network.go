@@ -98,8 +98,8 @@ func networkDestroy(flags *Flags, args []string) error {
 // newNetwork creates a default network
 func newNetwork(flags *Flags) (*Processes, error) {
 	// with common adds all common arguments to the process
-	withCommon := func(all Arguments) Arguments {
-		common := []string{"--metrics.app-suffix", "sim", "--log.level", "debug", "--config-dir", "."}
+	withCommon := func(dir string, all Arguments) Arguments {
+		common := []string{"--metrics.app-suffix", "sim", "--log.level", "debug", "--config-dir", dir}
 		if flags.IsDev {
 			common = append(common, "--dev")
 		}
@@ -109,9 +109,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		return all
 	}
 
-	processes := NewProcesses()
+	processes := NewProcesses(flags.Directory)
+
 	var (
-		configDir              = flags.Directory
 		host                   = flags.Host
 		gatewayPort            = 9000
 		bootstrapPort          = 9999
@@ -127,11 +127,11 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	bootstrap := processes.New(Info{
 		Name:       "bootstrap/0",
 		Executable: "bootstrap",
-		Directory:  filepath.Join(configDir, "bootstrap", "0"),
+		Directory:  filepath.Join(processes.Directory, "bootstrap", "0"),
 		Address:    net.JoinHostPort(host, strconv.Itoa(bootstrapPort)),
 	})
 
-	bootstrap.Arguments = withCommon(Arguments{
+	bootstrap.Arguments = withCommon(bootstrap.Directory, Arguments{
 		"setup": {
 			"--identity-dir", bootstrap.Directory,
 
@@ -159,7 +159,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process := processes.New(Info{
 			Name:       fmt.Sprintf("satellite/%d", i),
 			Executable: "satellite",
-			Directory:  filepath.Join(configDir, "satellite", fmt.Sprint(i)),
+			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
 			Address:    net.JoinHostPort(host, strconv.Itoa(satellitePort+i)),
 		})
 		satellites = append(satellites, process)
@@ -174,11 +174,15 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		}
 		storjRoot := strings.TrimSuffix(filename, "/cmd/storj-sim/network.go")
 
-		process.Arguments = withCommon(Arguments{
+		consoleAuthToken := "secure_token"
+
+		process.Arguments = withCommon(process.Directory, Arguments{
 			"setup": {
 				"--identity-dir", process.Directory,
 				"--console.address", net.JoinHostPort(host, strconv.Itoa(consolePort+i)),
 				"--console.static-dir", filepath.Join(storjRoot, "web/satellite/"),
+				// TODO: remove console.auth-token after vanguard release
+				"--console.auth-token", consoleAuthToken,
 				"--server.address", process.Address,
 				"--server.private-address", net.JoinHostPort(host, strconv.Itoa(satellitePrivatePort+i)),
 
@@ -205,7 +209,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process := processes.New(Info{
 			Name:       fmt.Sprintf("gateway/%d", i),
 			Executable: "gateway",
-			Directory:  filepath.Join(configDir, "gateway", fmt.Sprint(i)),
+			Directory:  filepath.Join(processes.Directory, "gateway", fmt.Sprint(i)),
 			Address:    net.JoinHostPort(host, strconv.Itoa(gatewayPort+i)),
 			Extra:      []string{},
 		})
@@ -213,7 +217,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		// gateway must wait for the corresponding satellite to start up
 		process.WaitForStart(satellite)
 
-		process.Arguments = withCommon(Arguments{
+		process.Arguments = withCommon(process.Directory, Arguments{
 			"setup": {
 				"--identity-dir", process.Directory,
 				"--satellite-addr", satellite.Address,
@@ -259,13 +263,14 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				}
 
 				host := "http://" + consoleAddress
+				createRegistrationTokenAddress := host + "/registrationToken/?projectsLimit=1"
 				consoleActivationAddress := host + "/activation/?token="
 				consoleAPIAddress := host + "/api/graphql/v0"
 
 				// wait for console server to start
 				time.Sleep(3 * time.Second)
 
-				if err := addExampleProjectWithKey(&apiKey, consoleActivationAddress, consoleAPIAddress); err != nil {
+				if err := addExampleProjectWithKey(&apiKey, createRegistrationTokenAddress, consoleActivationAddress, consoleAPIAddress); err != nil {
 					return err
 				}
 
@@ -293,7 +298,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process := processes.New(Info{
 			Name:       fmt.Sprintf("storagenode/%d", i),
 			Executable: "storagenode",
-			Directory:  filepath.Join(configDir, "storagenode", fmt.Sprint(i)),
+			Directory:  filepath.Join(processes.Directory, "storagenode", fmt.Sprint(i)),
 			Address:    net.JoinHostPort(host, strconv.Itoa(storageNodePort+i)),
 		})
 
@@ -303,7 +308,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			process.WaitForStart(satellite)
 		}
 
-		process.Arguments = withCommon(Arguments{
+		process.Arguments = withCommon(process.Directory, Arguments{
 			"setup": {
 				"--identity-dir", process.Directory,
 				"--server.address", process.Address,
@@ -353,7 +358,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 }
 
 func identitySetup(network *Processes) (*Processes, error) {
-	processes := NewProcesses()
+	processes := NewProcesses(network.Directory)
 
 	for _, process := range network.List {
 		identity := processes.New(Info{

@@ -10,8 +10,12 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-// AESGCMNonceSize is the size of an AES-GCM nonce
-const AESGCMNonceSize = 12
+const (
+	// AESGCMNonceSize is the size of an AES-GCM nonce
+	AESGCMNonceSize = 12
+	// unit32Size is the number of bytes in the uint32 type
+	uint32Size = 4
+)
 
 // AESGCMNonce represents the nonce used by the AES-GCM protocol
 type AESGCMNonce [AESGCMNonceSize]byte
@@ -135,10 +139,8 @@ func CalcEncryptedSize(dataSize int64, scheme storj.EncryptionScheme) (int64, er
 		return 0, err
 	}
 
-	blocks := dataSize / int64(transformer.InBlockSize())
-	if dataSize%int64(transformer.InBlockSize()) != 0 {
-		blocks++
-	}
+	inBlockSize := int64(transformer.InBlockSize())
+	blocks := (dataSize + uint32Size + inBlockSize - 1) / inBlockSize
 
 	encryptedSize := blocks * int64(transformer.OutBlockSize())
 

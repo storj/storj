@@ -38,8 +38,13 @@ func TestOrders(t *testing.T) {
 		serialNumber := newRandomSerial()
 
 		// basic test
-		_, err := ordersdb.ListUnsent(ctx, 100)
+		emptyUnsent, err := ordersdb.ListUnsent(ctx, 100)
 		require.NoError(t, err)
+		require.Len(t, emptyUnsent, 0)
+
+		emptyArchive, err := ordersdb.ListArchived(ctx, 100)
+		require.NoError(t, err)
+		require.Len(t, emptyArchive, 0)
 
 		now := ptypes.TimestampNow()
 
@@ -62,7 +67,11 @@ func TestOrders(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		info := &orders.Info{limit, order, uplink.PeerIdentity()}
+		info := &orders.Info{
+			Limit:  limit,
+			Order:  order,
+			Uplink: uplink.PeerIdentity(),
+		}
 
 		// basic add
 		err = ordersdb.Enqueue(ctx, info)
@@ -74,8 +83,48 @@ func TestOrders(t *testing.T) {
 
 		unsent, err := ordersdb.ListUnsent(ctx, 100)
 		require.NoError(t, err)
-
 		require.Empty(t, cmp.Diff([]*orders.Info{info}, unsent, cmp.Comparer(pb.Equal)))
+
+		// list by group
+		unsentGrouped, err := ordersdb.ListUnsentBySatellite(ctx)
+		require.NoError(t, err)
+
+		expectedGrouped := map[storj.NodeID][]*orders.Info{
+			satellite0.ID: []*orders.Info{
+				{Limit: limit, Order: order},
+			},
+		}
+		require.Empty(t, cmp.Diff(expectedGrouped, unsentGrouped, cmp.Comparer(pb.Equal)))
+
+		// test archival
+		err = ordersdb.Archive(ctx, satellite0.ID, serialNumber, orders.StatusAccepted)
+		require.NoError(t, err)
+
+		// duplicate archive
+		err = ordersdb.Archive(ctx, satellite0.ID, serialNumber, orders.StatusRejected)
+		require.Error(t, err)
+
+		// shouldn't be in unsent list
+		unsent, err = ordersdb.ListUnsent(ctx, 100)
+		require.NoError(t, err)
+		require.Len(t, unsent, 0)
+
+		// it should now be in the archive
+		archived, err := ordersdb.ListArchived(ctx, 100)
+		require.NoError(t, err)
+		require.Len(t, archived, 1)
+
+		require.Empty(t, cmp.Diff([]*orders.ArchivedInfo{
+			{
+				Limit:  limit,
+				Order:  order,
+				Uplink: uplink.PeerIdentity(),
+
+				Status:     orders.StatusAccepted,
+				ArchivedAt: archived[0].ArchivedAt,
+			},
+		}, archived, cmp.Comparer(pb.Equal)))
+
 	})
 }
 
