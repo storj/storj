@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"time"
 
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
@@ -60,7 +61,7 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 
 	uplink.Log.Debug("id=" + identity.ID.String())
 
-	uplink.Transport = transport.NewClient(tlsOpts)
+	uplink.Transport = transport.NewClient(tlsOpts, 20*time.Second)
 
 	uplink.Info = pb.Node{
 		Id:   uplink.Identity.ID,

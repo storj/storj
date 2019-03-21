@@ -6,6 +6,7 @@ package uplink
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/vivint/infectious"
 	"github.com/zeebo/errs"
@@ -78,7 +79,7 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 	if err != nil {
 		return nil, nil, err
 	}
-	tc := transport.NewClient(tlsOpts)
+	tc := transport.NewClient(tlsOpts, 20*time.Second)
 
 	if c.Client.SatelliteAddr == "" {
 		return nil, nil, errors.New("satellite address not specified")

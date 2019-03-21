@@ -31,8 +31,9 @@ type Client interface {
 
 // Transport interface structure
 type Transport struct {
-	tlsOpts   *tlsopts.Options
-	observers []Observer
+	tlsOpts        *tlsopts.Options
+	observers      []Observer
+	requestTimeout time.Duration
 }
 
 // InvokeTimeout enables timeouts for an overly long method call
@@ -41,18 +42,19 @@ type InvokeTimeout struct {
 }
 
 // Intercept adds a context timeout to a method call
-func (opt InvokeTimeout) Intercept(ctx context.Context, method string, req interface{}, reply interface{},
+func (it InvokeTimeout) Intercept(ctx context.Context, method string, req interface{}, reply interface{},
 	cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-	ctx, cancel := context.WithTimeout(ctx, opt.Timeout)
+	timedCtx, cancel := context.WithTimeout(ctx, it.Timeout)
 	defer cancel()
-	return invoker(ctx, method, req, reply, cc, opts...)
+	return invoker(timedCtx, method, req, reply, cc, opts...)
 }
 
 // NewClient returns a newly instantiated Transport Client
-func NewClient(tlsOpts *tlsopts.Options, obs ...Observer) Client {
+func NewClient(tlsOpts *tlsopts.Options, requestTimeout time.Duration, obs ...Observer) Client {
 	return &Transport{
-		tlsOpts:   tlsOpts,
-		observers: obs,
+		tlsOpts:        tlsOpts,
+		requestTimeout: requestTimeout,
+		observers:      obs,
 	}
 }
 
@@ -79,19 +81,22 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 		dialOption,
 		grpc.WithBlock(),
 		grpc.FailOnNonTempDialError(true),
-		grpc.WithUnaryInterceptor(InvokeTimeout{connWaitTimeout}.Intercept),
+		grpc.WithUnaryInterceptor(InvokeTimeout{transport.requestTimeout}.Intercept),
 	}, opts...)
 
-	conn, err = grpc.DialContext(ctx, node.GetAddress().Address, options...)
+	timedCtx, cancel := context.WithTimeout(ctx, transport.requestTimeout)
+	defer cancel()
+
+	conn, err = grpc.DialContext(timedCtx, node.GetAddress().Address, options...)
 	if err != nil {
 		if err == context.Canceled {
 			return nil, err
 		}
-		alertFail(ctx, transport.observers, node, err)
+		alertFail(timedCtx, transport.observers, node, err)
 		return nil, Error.Wrap(err)
 	}
 
-	alertSuccess(ctx, transport.observers, node)
+	alertSuccess(timedCtx, transport.observers, node)
 
 	return conn, nil
 }
@@ -108,10 +113,13 @@ func (transport *Transport) DialAddress(ctx context.Context, address string, opt
 		transport.tlsOpts.DialUnverifiedIDOption(),
 		grpc.WithBlock(),
 		grpc.FailOnNonTempDialError(true),
-		grpc.WithUnaryInterceptor(InvokeTimeout{connWaitTimeout}.Intercept),
+		grpc.WithUnaryInterceptor(InvokeTimeout{transport.requestTimeout}.Intercept),
 	}, opts...)
 
-	conn, err = grpc.DialContext(ctx, address, options...)
+	timedCtx, cancel := context.WithTimeout(ctx, transport.requestTimeout)
+	defer cancel()
+
+	conn, err = grpc.DialContext(timedCtx, address, options...)
 	if err == context.Canceled {
 		return nil, err
 	}
@@ -125,7 +133,7 @@ func (transport *Transport) Identity() *identity.FullIdentity {
 
 // WithObservers returns a new transport including the listed observers.
 func (transport *Transport) WithObservers(obs ...Observer) *Transport {
-	tr := &Transport{tlsOpts: transport.tlsOpts}
+	tr := &Transport{tlsOpts: transport.tlsOpts, requestTimeout: transport.requestTimeout}
 	tr.observers = append(tr.observers, transport.observers...)
 	tr.observers = append(tr.observers, obs...)
 	return tr
