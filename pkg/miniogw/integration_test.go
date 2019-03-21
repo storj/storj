@@ -63,9 +63,6 @@ func TestUploadDownload(t *testing.T) {
 	_, err = planet.Satellites[0].DB.Console().APIKeys().Create(context.Background(), apiKey, apiKeyInfo)
 	assert.NoError(t, err)
 
-	err = flag.Set("pointer-db.auth.api-key", apiKey.String())
-	assert.NoError(t, err)
-
 	// bind default values to config
 	var gwCfg config
 	cfgstruct.Bind(&pflag.FlagSet{}, &gwCfg, true)
