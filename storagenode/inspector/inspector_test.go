@@ -6,7 +6,9 @@ package inspector_test
 import (
 	"math/rand"
 	"testing"
+	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -70,6 +72,8 @@ func TestInspectorStats(t *testing.T) {
 }
 
 func TestInspectorDashboard(t *testing.T) {
+	testStartedTime := time.Now()
+
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -99,6 +103,14 @@ func TestInspectorDashboard(t *testing.T) {
 	for _, storageNode := range planet.StorageNodes {
 		response, err := storageNode.Storage2.Inspector.Dashboard(ctx, &pb.DashboardRequest{})
 		require.NoError(t, err)
+
+		lastPinged, err := ptypes.Timestamp(response.LastPinged)
+		assert.NoError(t, err)
+		assert.True(t, lastPinged.After(testStartedTime))
+
+		lastQueried, err := ptypes.Timestamp(response.LastQueried)
+		assert.NoError(t, err)
+		assert.True(t, lastQueried.After(testStartedTime))
 
 		assert.True(t, response.Uptime.Nanos > 0)
 		assert.Equal(t, storageNode.ID(), response.NodeId)
