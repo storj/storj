@@ -49,6 +49,7 @@ type FullCertificateAuthority struct {
 
 // CASetupConfig is for creating a CA
 type CASetupConfig struct {
+	VersionNumber  uint   `default:"0" help:"which identity version to use (0 is latest)"`
 	ParentCertPath string `help:"path to the parent authority's certificate chain"`
 	ParentKeyPath  string `help:"path to the parent authority's private key"`
 	CertPath       string `help:"path to the certificate chain for this identity" default:"$IDENTITYDIR/ca.cert"`
@@ -61,8 +62,8 @@ type CASetupConfig struct {
 
 // NewCAOptions is used to pass parameters to `NewCA`
 type NewCAOptions struct {
-	// Version is the IDVersion to use for the identity
-	Version storj.IDVersion
+	// VersionNumber is the IDVersion to use for the identity
+	VersionNumber storj.IDVersionNumber
 	// Difficulty is the number of trailing zero-bits the nodeID must have
 	Difficulty uint16
 	// Concurrency is the number of go routines used to generate a CA of sufficient difficulty
@@ -106,8 +107,9 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 		fmt.Fprintf(opts.Logger, "Generating key with a minimum a difficulty of %d...\n", opts.Difficulty)
 	}
 
-	if opts.Version.Number == 0 {
-		opts.Version = storj.LatestIDVersion()
+	version, err := storj.GetIDVersion(opts.VersionNumber)
+	if err != nil {
+		return nil, err
 	}
 
 	updateStatus := func() {
@@ -120,7 +122,7 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 			}
 		}
 	}
-	err = GenerateKeys(ctx, minimumLoggableDifficulty, int(opts.Concurrency), opts.Version,
+	err = GenerateKeys(ctx, minimumLoggableDifficulty, int(opts.Concurrency), version,
 		func(k crypto.PrivateKey, id storj.NodeID) (done bool, err error) {
 			if opts.Logger != nil {
 				if atomic.AddUint32(i, 1)%100 == 0 {
@@ -179,7 +181,7 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 		return nil, err
 	}
 
-	if err := storj.AddVersionExt(opts.Version.Number, cert); err != nil {
+	if err := storj.AddVersionExt(version, cert); err != nil {
 		return nil, err
 	}
 
@@ -200,7 +202,7 @@ func (caS CASetupConfig) Status() (TLSFilesStatus, error) {
 }
 
 // Create generates and saves a CA using the config
-func (caS CASetupConfig) Create(ctx context.Context, version storj.IDVersion, logger io.Writer) (*FullCertificateAuthority, error) {
+func (caS CASetupConfig) Create(ctx context.Context, logger io.Writer) (*FullCertificateAuthority, error) {
 	var (
 		err    error
 		parent *FullCertificateAuthority
@@ -220,12 +222,12 @@ func (caS CASetupConfig) Create(ctx context.Context, version storj.IDVersion, lo
 	}
 
 	ca, err := NewCA(ctx, NewCAOptions{
-		Version:     version,
-		Difficulty:  uint16(caS.Difficulty),
-		Concurrency: caS.Concurrency,
-		ParentCert:  parent.Cert,
-		ParentKey:   parent.Key,
-		Logger:      logger,
+		VersionNumber: storj.IDVersionNumber(caS.VersionNumber),
+		Difficulty:    uint16(caS.Difficulty),
+		Concurrency:   caS.Concurrency,
+		ParentCert:    parent.Cert,
+		ParentKey:     parent.Key,
+		Logger:        logger,
 	})
 	if err != nil {
 		return nil, err
@@ -438,6 +440,12 @@ func (ca *FullCertificateAuthority) PeerCA() *PeerCertificateAuthority {
 
 // Sign signs the passed certificate with ca certificate
 func (ca *FullCertificateAuthority) Sign(cert *x509.Certificate) (*x509.Certificate, error) {
+	// TODO: fix extension serialization
+	// <!-- temporary workaround
+	//extraExtensions := cert.ExtraExtensions
+	//cert.ExtraExtensions = []pkix.Extension{}
+	// -->
+
 	signedCertBytes, err := x509.CreateCertificate(rand.Reader, cert, ca.Cert, cert.PublicKey, ca.Key)
 	if err != nil {
 		return nil, errs.Wrap(err)
@@ -447,6 +455,10 @@ func (ca *FullCertificateAuthority) Sign(cert *x509.Certificate) (*x509.Certific
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
+
+	// <!-- temporary workaround
+	//signedCert.ExtraExtensions = extraExtensions
+	// -->
 
 	return signedCert, nil
 }
