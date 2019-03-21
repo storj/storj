@@ -9,14 +9,14 @@ import (
 	"crypto/subtle"
 )
 
-// Macaroon ...
+// Macaroon is a struct that determine contextual caveats and authorization
 type Macaroon struct {
 	head    []byte
 	caveats []Caveat
 	tail    []byte
 }
 
-// Caveat ...
+// Caveat is a struct that determine restriction
 type Caveat struct {
 	Identifier string
 }
