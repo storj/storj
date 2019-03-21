@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -77,9 +78,12 @@ func NewClient(ctx context.Context, tc transport.Client, address string, APIKey 
 func (metainfo *Metainfo) CreateSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, redundancy *pb.RedundancyScheme, maxEncryptedSegmentSize int64, expiration time.Time) (limits []*pb.AddressedOrderLimit, rootPieceID storj.PieceID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	exp, err := ptypes.TimestampProto(expiration)
-	if err != nil {
-		return nil, rootPieceID, err
+	var exp *timestamp.Timestamp
+	if !expiration.IsZero() {
+		exp, err = ptypes.TimestampProto(expiration)
+		if err != nil {
+			return nil, rootPieceID, err
+		}
 	}
 
 	response, err := metainfo.client.CreateSegment(ctx, &pb.SegmentWriteRequest{
