@@ -205,11 +205,11 @@ push-images: ## Push Docker images to Docker Hub (jenkins)
 ifeq (${TRACKED_BRANCH},true)
 	docker tag storjlabs/satellite:${TAG}${CUSTOMTAG} storjlabs/satellite:${LATEST_TAG}
 	docker push storjlabs/satellite:${LATEST_TAG}
-	docker tag storjlabs/satellite:${TAG}${CUSTOMTAG} storjlabs/storagenode:${LATEST_TAG}
+	docker tag storjlabs/storagenode:${TAG}${CUSTOMTAG} storjlabs/storagenode:${LATEST_TAG}
 	docker push storjlabs/storagenode:${LATEST_TAG}
-	docker tag storjlabs/satellite:${TAG}${CUSTOMTAG} storjlabs/uplink:${LATEST_TAG}
+	docker tag storjlabs/uplink:${TAG}${CUSTOMTAG} storjlabs/uplink:${LATEST_TAG}
 	docker push storjlabs/uplink:${LATEST_TAG}
-	docker tag storjlabs/satellite:${TAG}${CUSTOMTAG} storjlabs/gateway:${LATEST_TAG}
+	docker tag storjlabs/gateway:${TAG}${CUSTOMTAG} storjlabs/gateway:${LATEST_TAG}
 	docker push storjlabs/gateway:${LATEST_TAG}
 endif
 
