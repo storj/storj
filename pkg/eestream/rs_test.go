@@ -6,6 +6,7 @@ package eestream
 import (
 	"bytes"
 	"context"
+	cryptorand "crypto/rand"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -16,10 +17,13 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/vivint/infectious"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/readcloser"
+	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storj"
@@ -637,6 +641,39 @@ func BenchmarkReedSolomonErasureScheme(b *testing.B) {
 					}
 				}
 			})
+		}
+	}
+}
+
+func TestCalcPieceSize(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	for i, dataSize := range []int64{
+		0,
+		1,
+		1*memory.KiB.Int64() - uint32Size,
+		1 * memory.KiB.Int64(),
+		32 * memory.KiB.Int64(),
+		32*memory.KiB.Int64() + 100,
+	} {
+		errTag := fmt.Sprintf("%d. %+v", i, dataSize)
+
+		fc, err := infectious.NewFEC(2, 4)
+		require.NoError(t, err, errTag)
+		es := NewRSScheme(fc, 1*memory.KiB.Int())
+		rs, err := NewRedundancyStrategy(es, 0, 0)
+		require.NoError(t, err, errTag)
+
+		calculatedSize := CalcPieceSize(int64(dataSize), es)
+
+		readers, err := EncodeReader(ctx, PadReader(ioutil.NopCloser(io.LimitReader(cryptorand.Reader, dataSize)), es.StripeSize()), rs)
+		require.NoError(t, err, errTag)
+
+		for _, reader := range readers {
+			piece, err := ioutil.ReadAll(reader)
+			assert.NoError(t, err, errTag)
+			assert.EqualValues(t, calculatedSize, len(piece), errTag)
 		}
 	}
 }
