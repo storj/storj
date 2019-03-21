@@ -666,7 +666,7 @@ func TestCalcPieceSize(t *testing.T) {
 		rs, err := NewRedundancyStrategy(es, 0, 0)
 		require.NoError(t, err, errTag)
 
-		calculatedSize := CalcPieceSize(int64(dataSize), es)
+		calculatedSize := CalcPieceSize(dataSize, es)
 
 		readers, err := EncodeReader(ctx, PadReader(ioutil.NopCloser(io.LimitReader(cryptorand.Reader, dataSize)), es.StripeSize()), rs)
 		require.NoError(t, err, errTag)

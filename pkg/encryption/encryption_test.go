@@ -43,7 +43,7 @@ func TestCalcEncryptedSize(t *testing.T) {
 
 			scheme := storj.EncryptionScheme{Cipher: cipher, BlockSize: 1 * memory.KiB.Int32()}
 
-			calculatedSize, err := encryption.CalcEncryptedSize(int64(dataSize), scheme)
+			calculatedSize, err := encryption.CalcEncryptedSize(dataSize, scheme)
 			require.NoError(t, err, errTag)
 
 			encrypter, err := encryption.NewEncrypter(scheme.Cipher, new(storj.Key), new(storj.Nonce), int(scheme.BlockSize))
