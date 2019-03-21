@@ -19,18 +19,20 @@ var EndpointError = errs.Class("kademlia endpoint error")
 
 // Endpoint implements the kademlia Endpoints
 type Endpoint struct {
-	log          *zap.Logger
-	service      *Kademlia
-	routingTable *RoutingTable
-	connected    int32
+	log             *zap.Logger
+	service         *Kademlia
+	routingTable    *RoutingTable
+	connected       int32
+	pingbackTimeout time.Duration
 }
 
 // NewEndpoint returns a new kademlia endpoint
 func NewEndpoint(log *zap.Logger, service *Kademlia, routingTable *RoutingTable, pingbackTimeout time.Duration) *Endpoint {
 	return &Endpoint{
-		service:      service,
-		routingTable: routingTable,
-		log:          log,
+		service:         service,
+		routingTable:    routingTable,
+		log:             log,
+		pingbackTimeout: pingbackTimeout,
 	}
 }
 
@@ -39,7 +41,9 @@ func (endpoint *Endpoint) Query(ctx context.Context, req *pb.QueryRequest) (*pb.
 	endpoint.service.Queried()
 
 	if req.GetPingback() {
-		endpoint.pingback(ctx, req.Sender)
+		timedCtx, cancel := context.WithTimeout(ctx, endpoint.pingbackTimeout)
+		defer cancel()
+		endpoint.pingback(timedCtx, req.Sender)
 	}
 
 	nodes, err := endpoint.routingTable.FindNear(req.Target.Id, int(req.Limit))
