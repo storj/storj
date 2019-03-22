@@ -11,7 +11,6 @@ import (
 
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/peertls/extensions"
 )
 
 var (
@@ -115,12 +114,8 @@ func cmdRevokeLeaf(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	updatedIdent, err := ca.NewIdentity()
-	if err != nil {
-		return err
-	}
-
-	if err := extensions.AddRevocationExt(ca.Key, originalIdent.Leaf, updatedIdent.Leaf); err != nil {
+	manageableIdent := identity.NewManageableIdentity(originalIdent, ca)
+	if err := manageableIdent.Revoke(); err != nil {
 		return err
 	}
 
@@ -129,10 +124,10 @@ func cmdRevokeLeaf(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	updateCfg := identity.Config{
+	updateCfg := identity.PeerConfig{
 		CertPath: revokeLeafCfg.Identity.CertPath,
 	}
-	if err := updateCfg.Save(updatedIdent); err != nil {
+	if err := updateCfg.Save(manageableIdent.PeerIdentity); err != nil {
 		return err
 	}
 	return nil

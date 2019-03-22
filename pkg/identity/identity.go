@@ -54,11 +54,11 @@ type FullIdentity struct {
 	Key crypto.PrivateKey
 }
 
-// ManageableIdentity is a `FullIdentity` and it's corresponding `FullCertificateAuthority`
+// ManageablePeerIdentity is a `PeerIdentity` and it's corresponding `FullCertificateAuthority`
 // in a single struct. It is used for making changes to the identity that require CA
 // authorization; e.g. adding extensions.
-type ManageableIdentity struct {
-	*FullIdentity
+type ManageablePeerIdentity struct {
+	*PeerIdentity
 	CA *FullCertificateAuthority
 }
 
@@ -280,9 +280,9 @@ func ToChains(chains ...[]*x509.Certificate) [][]*x509.Certificate {
 }
 
 // NewManageableIdentity returns a manageable identity given a full identity and a full certificate authority.
-func NewManageableIdentity(ident *FullIdentity, ca *FullCertificateAuthority) *ManageableIdentity {
-	return &ManageableIdentity{
-		FullIdentity: ident,
+func NewManageableIdentity(ident *PeerIdentity, ca *FullCertificateAuthority) *ManageablePeerIdentity {
+	return &ManageablePeerIdentity{
+		PeerIdentity: ident,
 		CA:           ca,
 	}
 }
@@ -393,14 +393,14 @@ func (ic PeerConfig) Load() (*PeerIdentity, error) {
 }
 
 // Save saves a PeerIdentity according to the config
-func (ic PeerConfig) Save(fi *PeerIdentity) error {
+func (ic PeerConfig) Save(peerIdent *PeerIdentity) error {
 	var (
 		certData                         bytes.Buffer
 		writeChainErr, writeChainDataErr error
 	)
 
-	chain := []*x509.Certificate{fi.Leaf, fi.CA}
-	chain = append(chain, fi.RestChain...)
+	chain := []*x509.Certificate{peerIdent.Leaf, peerIdent.CA}
+	chain = append(chain, peerIdent.RestChain...)
 
 	if ic.CertPath != "" {
 		writeChainErr = peertls.WriteChain(&certData, chain...)
@@ -461,36 +461,36 @@ func (fi *FullIdentity) PeerIdentity() *PeerIdentity {
 // AddExtension adds extensions to the leaf cert of an identity. Extensions
 // are serialized into the certificate's raw bytes and is re-signed by it's
 // certificate authority.
-func (manIdent *ManageableIdentity) AddExtension(ext ...pkix.Extension) error {
-	if err := extensions.AddExtension(manIdent.Leaf, ext...); err != nil {
+func (manageableIdent *ManageablePeerIdentity) AddExtension(ext ...pkix.Extension) error {
+	if err := extensions.AddExtension(manageableIdent.Leaf, ext...); err != nil {
 		return err
 	}
 
-	updatedCert, err := peertls.NewCert(manIdent.Key, manIdent.CA.Key, manIdent.Leaf, manIdent.CA.Cert)
+	updatedCert, err := peertls.NewCert(manageableIdent.Leaf.PublicKey, manageableIdent.CA.Key, manageableIdent.Leaf, manageableIdent.CA.Cert)
 	if err != nil {
 		return err
 	}
 
-	manIdent.Leaf = updatedCert
+	manageableIdent.Leaf = updatedCert
 	return nil
 }
 
 // Revoke extends the CA certificate with a certificate revocation extension.
-func (manIdent *ManageableIdentity) Revoke() error {
-	ext, err := extensions.NewRevocationExt(manIdent.CA.Key, manIdent.Leaf)
+func (manageableIdent *ManageablePeerIdentity) Revoke() error {
+	ext, err := extensions.NewRevocationExt(manageableIdent.CA.Key, manageableIdent.Leaf)
 	if err != nil {
 		return err
 	}
 
 	// TODO: pass `ext` to `NewIdentity`
-	revokingIdent, err := manIdent.CA.NewIdentity()
+	revokingIdent, err := manageableIdent.CA.NewIdentity()
 	if err != nil {
 		return err
 	}
 
-	manIdent.Leaf = revokingIdent.Leaf
+	manageableIdent.Leaf = revokingIdent.Leaf
 
-	return manIdent.AddExtension(ext)
+	return manageableIdent.AddExtension(ext)
 }
 
 func backupPath(path string) string {

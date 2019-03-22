@@ -179,31 +179,30 @@ func TestVerifyCAWhitelist(t *testing.T) {
 
 func TestAddExtension(t *testing.T) {
 	_, chain, err := testpeertls.NewCertChain(1)
-	if !assert.NoError(t, err) {
-		t.FailNow()
-	}
+	require.NoError(t, err)
 
-	// NB: there's nothing special about length 32
-	randBytes := make([]byte, 32)
-	exampleID := asn1.ObjectIdentifier{2, 999}
-	i, err := rand.Read(randBytes)
+	cert := chain[0]
+	assert.Len(t, cert.ExtraExtensions, 0)
+
+	randBytes := make([]byte, 10)
+	rand.Read(randBytes)
 	if !assert.NoError(t, err) {
 		t.FailNow()
 	}
-	assert.Equal(t, 32, i)
 
 	ext := pkix.Extension{
-		Id:    exampleID,
+		Id:    asn1.ObjectIdentifier{2, 999, int(randBytes[0])},
 		Value: randBytes,
 	}
 
-	err = extensions.AddExtension(chain[0], ext)
+	err = extensions.AddExtension(cert, ext)
 	assert.NoError(t, err)
-	assert.Len(t, chain[0].ExtraExtensions, 1)
-	assert.Equal(t, ext, chain[0].ExtraExtensions[0])
+	assert.Len(t, cert.ExtraExtensions, 1)
+	assert.Equal(t, ext, cert.ExtraExtensions[0])
 }
 
 func TestAddSignedCertExt(t *testing.T) {
+	// TODO: remove?
 	keys, chain, err := testpeertls.NewCertChain(1)
 	if !assert.NoError(t, err) {
 		t.FailNow()
