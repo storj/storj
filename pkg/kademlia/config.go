@@ -23,7 +23,7 @@ var (
 // server endpoints (and not necessarily client code).
 type Config struct {
 	BootstrapAddr   string `help:"the Kademlia node to bootstrap against" default:""`
-	DBPath          string `help:"the path for storage node db services to be created on" default:"$CONFDIR/kademlia"`
+	DBPath          string `help:"the path for storage node db services to be created on" default:"$CONFDIR/kademlia.db"`
 	ExternalAddress string `user:"true" help:"the public address of the Kademlia node, useful for nodes behind NAT" default:""`
 	Operator        OperatorConfig
 

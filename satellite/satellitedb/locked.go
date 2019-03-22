@@ -24,6 +24,7 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/storage"
 )
 
 // locked implements a locking wrapper around satellite.DB.
@@ -526,7 +527,7 @@ func (m *lockedIrreparable) Get(ctx context.Context, segmentPath []byte) (*pb.Ir
 	return m.db.Get(ctx, segmentPath)
 }
 
-// GetLimited gets a limited number of irreparable segments by offset
+// GetLimited number of segments from offset
 func (m *lockedIrreparable) GetLimited(ctx context.Context, limit int, offset int64) ([]*pb.IrreparableSegment, error) {
 	m.Lock()
 	defer m.Unlock()
@@ -641,6 +642,13 @@ func (m *lockedRepairQueue) Peekqueue(ctx context.Context, limit int) ([]pb.Inju
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Peekqueue(ctx, limit)
+}
+
+// RoutingTable returns kademlia routing table
+func (m *locked) RoutingTable() (kdb storage.KeyValueStore, ndb storage.KeyValueStore) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.RoutingTable()
 }
 
 // StatDB returns database for storing node statistics
