@@ -195,7 +195,7 @@ func populateTestData(t *testing.T, planet *testplanet.Planet, expiration *times
 	cache := planet.Satellites[0].Overlay.Service
 	cursor := audit.NewCursor(pointerdb, allocation, cache, planet.Satellites[0].Identity)
 
-	// put 10 expired pointers in db
+	// put 10 pointers in db with expirations
 	t.Run("putToDB", func(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.bm, func(t *testing.T) {
