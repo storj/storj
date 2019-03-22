@@ -108,8 +108,7 @@ func TestUplink(t *testing.T) {
 
 func getConfig(satellite *satellite.Peer, planet *testplanet.Planet) ul.Config {
 	config := getDefaultConfig()
-	config.Client.OverlayAddr = satellite.Addr()
-	config.Client.PointerDBAddr = satellite.Addr()
+	config.Client.SatelliteAddr = satellite.Addr()
 	config.Client.APIKey = planet.Uplinks[0].APIKey[satellite.ID()]
 
 	config.RS.MinThreshold = 1 * len(planet.StorageNodes) / 5
