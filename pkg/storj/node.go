@@ -1,10 +1,11 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package storj
+package storj // import "storj.io/storj/pkg/storj"
 
 import (
 	"crypto/sha256"
+	"database/sql/driver"
 	"math/bits"
 
 	"github.com/btcsuite/btcutil/base58"
@@ -16,10 +17,8 @@ import (
 // IDVersion is the default version used in the base58check node ID encoding
 const IDVersion = 0
 
-var (
-	// ErrNodeID is used when something goes wrong with a node id
-	ErrNodeID = errs.Class("node ID error")
-)
+// ErrNodeID is used when something goes wrong with a node id
+var ErrNodeID = errs.Class("node ID error")
 
 //NodeIDSize is the byte length of a NodeID
 const NodeIDSize = sha256.Size
@@ -143,6 +142,22 @@ func (id *NodeID) Size() int {
 // MarshalJSON serializes a node ID to a json string as bytes
 func (id NodeID) MarshalJSON() ([]byte, error) {
 	return []byte(`"` + id.String() + `"`), nil
+}
+
+// Value set a NodeID to a database field
+func (id NodeID) Value() (driver.Value, error) {
+	return id.Bytes(), nil
+}
+
+// Scan extracts a NodeID from a database field
+func (id *NodeID) Scan(src interface{}) (err error) {
+	b, ok := src.([]byte)
+	if !ok {
+		return ErrNodeID.New("NodeID Scan expects []byte")
+	}
+	n, err := NodeIDFromBytes(b)
+	*id = n
+	return err
 }
 
 // UnmarshalJSON deserializes a json string (as bytes) to a node ID

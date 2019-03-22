@@ -56,12 +56,12 @@ type Kademlia struct {
 }
 
 // NewService returns a newly configured Kademlia instance
-func NewService(log *zap.Logger, self dht.LocalNode, bootstrapNodes []pb.Node, transport transport.Client, alpha int, rt *RoutingTable) (*Kademlia, error) {
+func NewService(log *zap.Logger, self dht.LocalNode, transport transport.Client, rt *RoutingTable, config Config) (*Kademlia, error) {
 	k := &Kademlia{
 		log:              log,
-		alpha:            alpha,
+		alpha:            config.Alpha,
 		routingTable:     rt,
-		bootstrapNodes:   bootstrapNodes,
+		bootstrapNodes:   config.BootstrapNodes(),
 		dialer:           NewDialer(log.Named("dialer"), transport),
 		refreshThreshold: int64(time.Minute),
 	}
@@ -120,32 +120,39 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 		return nil
 	}
 
-	var errs errs.Group
-	for _, node := range k.bootstrapNodes {
+	var errGroup errs.Group
+	var foundOnlineBootstrap bool
+	for i, node := range k.bootstrapNodes {
 		if ctx.Err() != nil {
-			errs.Add(ctx.Err())
-			return errs.Err()
+			errGroup.Add(ctx.Err())
+			return errGroup.Err()
 		}
 
-		_, err := k.dialer.Ping(ctx, node)
-		if err == nil {
-			// We have pinged successfully one bootstrap node.
-			// Clear any errors and break the cycle.
-			errs = nil
-			break
+		ident, err := k.dialer.FetchPeerIdentityUnverified(ctx, node.Address.Address)
+		if err != nil {
+			errGroup.Add(err)
+			continue
 		}
-		errs.Add(err)
+
+		k.routingTable.mutex.Lock()
+		node.Id = ident.ID
+		k.bootstrapNodes[i] = node
+		k.routingTable.mutex.Unlock()
+		foundOnlineBootstrap = true
 	}
-	err := errs.Err()
-	if err != nil {
-		return err
+
+	if !foundOnlineBootstrap {
+		err := errGroup.Err()
+		if err != nil {
+			return err
+		}
 	}
 
 	//find nodes most similar to self
 	k.routingTable.mutex.Lock()
 	id := k.routingTable.self.Id
 	k.routingTable.mutex.Unlock()
-	_, err = k.lookup(ctx, id, true)
+	_, err := k.lookup(ctx, id, true)
 
 	// TODO(dylan): We do not currently handle this last bit of behavior.
 	// ```
@@ -182,7 +189,7 @@ func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
 	}
 	defer k.lookups.Done()
 
-	ok, err := k.dialer.Ping(ctx, node)
+	ok, err := k.dialer.PingNode(ctx, node)
 	if err != nil {
 		return pb.Node{}, NodeErr.Wrap(err)
 	}

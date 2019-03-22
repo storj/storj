@@ -80,8 +80,46 @@ func generateActivationKey(userID uuid.UUID, email string, createdAt time.Time) 
 	return token.String(), nil
 }
 
-func addExampleProjectWithKey(key *string, address string) error {
+func addExampleProjectWithKey(key *string, createRegistrationTokenAddress, activationAddress, address string) error {
 	client := http.Client{}
+
+	var createTokenResponse struct {
+		Secret string
+		Error  string
+	}
+	{
+		request, err := http.NewRequest(
+			http.MethodGet,
+			createRegistrationTokenAddress,
+			nil)
+		if err != nil {
+			return err
+		}
+		request.Header.Set("Authorization", "secure_token")
+
+		resp, err := client.Do(request)
+		if err != nil {
+			return err
+		}
+
+		b, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+
+		if err = json.NewDecoder(bytes.NewReader(b)).Decode(&createTokenResponse); err != nil {
+			return err
+		}
+
+		if createTokenResponse.Error != "" {
+			return errs.New(createTokenResponse.Error)
+		}
+
+		err = resp.Body.Close()
+		if err != nil {
+			return err
+		}
+	}
 
 	// create user
 	var user struct {
@@ -93,10 +131,11 @@ func addExampleProjectWithKey(key *string, address string) error {
 	}
 	{
 		createUserQuery := fmt.Sprintf(
-			"mutation {createUser(input:{email:\"%s\",password:\"%s\",firstName:\"%s\",lastName:\"\"}){id,email,createdAt}}",
+			"mutation {createUser(input:{email:\"%s\",password:\"%s\",firstName:\"%s\",lastName:\"\"}, secret:\"%s\" ){id,email,createdAt}}",
 			"example@mail.com",
 			"123a123",
-			"Alice")
+			"Alice",
+			createTokenResponse.Secret)
 
 		request, err := http.NewRequest(
 			http.MethodPost,
@@ -115,7 +154,9 @@ func addExampleProjectWithKey(key *string, address string) error {
 	}
 
 	var token struct {
-		ActivateAccount string
+		Token struct {
+			Token string
+		}
 	}
 	{
 		userID, err := uuid.Parse(user.CreateUser.ID)
@@ -128,14 +169,33 @@ func addExampleProjectWithKey(key *string, address string) error {
 			return err
 		}
 
-		activateAccountQuery := fmt.Sprintf(
-			"mutation {activateAccount(input:\"%s\")}",
-			activationToken)
-
 		request, err := http.NewRequest(
+			http.MethodGet,
+			activationAddress+activationToken,
+			nil)
+		if err != nil {
+			return err
+		}
+
+		resp, err := client.Do(request)
+		if err != nil {
+			return err
+		}
+
+		err = resp.Body.Close()
+		if err != nil {
+			return err
+		}
+
+		tokenQuery := fmt.Sprintf(
+			"query {token(email:\"%s\",password:\"%s\"){token}}",
+			"example@mail.com",
+			"123a123")
+
+		request, err = http.NewRequest(
 			http.MethodPost,
 			address,
-			bytes.NewReader([]byte(activateAccountQuery)))
+			bytes.NewReader([]byte(tokenQuery)))
 
 		if err != nil {
 			return err
@@ -170,7 +230,7 @@ func addExampleProjectWithKey(key *string, address string) error {
 		}
 
 		request.Header.Add("Content-Type", "application/graphql")
-		request.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token.ActivateAccount))
+		request.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token.Token.Token))
 
 		if err := graphqlDo(&client, request, &createProject); err != nil {
 			return err
@@ -199,7 +259,7 @@ func addExampleProjectWithKey(key *string, address string) error {
 		}
 
 		request.Header.Add("Content-Type", "application/graphql")
-		request.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token.ActivateAccount))
+		request.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token.Token.Token))
 
 		if err := graphqlDo(&client, request, &createAPIKey); err != nil {
 			return err

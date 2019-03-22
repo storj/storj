@@ -19,27 +19,18 @@ import { Component, Vue } from 'vue-property-decorator';
 import DashboardHeader from '@/components/header/Header.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 import { removeToken, setToken } from '@/utils/tokenManager';
-import { NOTIFICATION_ACTIONS, PROJETS_ACTIONS, PM_ACTIONS, USER_ACTIONS } from '@/utils/constants/actionNames';
+import {
+    NOTIFICATION_ACTIONS,
+    PROJETS_ACTIONS,
+    PM_ACTIONS,
+    USER_ACTIONS,
+    API_KEYS_ACTIONS
+} from '@/utils/constants/actionNames';
 import ROUTES from '@/utils/constants/routerConstants';
 import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuccessPopup.vue';
 
 @Component({
     beforeMount: async function() {
-        const activationTokenParam = this.$route.query['activationToken'];
-
-        if (activationTokenParam) {
-            const response = await this.$store.dispatch(USER_ACTIONS.ACTIVATE, activationTokenParam);
-            if (!response.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to activate account');
-                this.$router.push(ROUTES.LOGIN);
-
-                removeToken();
-
-                return;
-            }
-
-            setToken(response.data);
-        }
         // TODO: should place here some animation while all needed data is fetching
         let response: RequestResponse<User> = await this.$store.dispatch(USER_ACTIONS.GET);
 
@@ -62,11 +53,17 @@ import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuc
 
         if (!this.$store.getters.selectedProject.id) return;
 
-        const projectMembersResponse = await this.$store.dispatch(PM_ACTIONS.FETCH, {limit: 20, offset: 0});
+        this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
-        if (projectMembersResponse.isSuccess) return;
+        const projectMembersResponse = await this.$store.dispatch(PM_ACTIONS.FETCH);
+        if (!projectMembersResponse.isSuccess) {
+            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+        }
 
-        this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+        const keysResponse = await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
+        if (!keysResponse.isSuccess) {
+            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch api keys');
+        }
     },
     components: {
         ProjectCreationSuccessPopup,

@@ -14,15 +14,8 @@ model bwagreement (
 	field expires_at      timestamp
 )
 
-create bwagreement ( )
-read limitoffset ( select bwagreement)
-read all ( select bwagreement)
-read all (
-	select bwagreement
-	where  bwagreement.created_at > ?
-)
 
-//--- datarepair.irreparableDB ---//
+//--- irreparableDB ---//
 
 model irreparabledb (
 	key segmentpath
@@ -41,6 +34,11 @@ delete irreparabledb ( where irreparabledb.segmentpath = ? )
 read one (
 	select irreparabledb
 	where  irreparabledb.segmentpath = ?
+)
+
+read limitoffset ( 
+	select irreparabledb 
+	orderby asc irreparabledb.segmentpath 
 )
 
 //--- accounting ---//
@@ -147,7 +145,14 @@ create node ( )
 update node ( where node.id = ? )
 delete node ( where node.id = ? )
 
+// "Get" query; fails if node not found
 read one (
+	select node
+	where  node.id = ?
+)
+
+// "Find" query; returns nil if node not found
+read scalar (
 	select node
 	where  node.id = ?
 )
@@ -261,18 +266,18 @@ delete project_member (
 )
 
 model api_key (
-    key id
+    key    id
     unique key
     unique name project_id
 
-    field id blob
-    field project_id project.id cascade
+    field  id          blob
+    field  project_id  project.id cascade
 
-    field key blob
+    field  key         blob
 
-    field name text (updatable)
+    field  name        text       (updatable)
 
-    field created_at    timestamp ( autoinsert )
+    field  created_at  timestamp  (autoinsert)
 )
 
 create api_key ()
@@ -293,6 +298,52 @@ read all (
     orderby asc api_key.name
 )
 
+//-----bucket_usage----//
+
+model bucket_usage (
+    key    id
+    unique rollup_end_time bucket_id
+
+    field  id                 blob
+    field  bucket_id          blob      //--TODO: add foreign key constraint--//
+
+    field  rollup_end_time    timestamp
+
+    field  remote_stored_data uint64
+    field  inline_stored_data uint64
+    field  remote_segments    uint
+    field  inline_segments    uint
+    field  objects            uint
+    field  metadata_size      uint64
+    field  repair_egress      uint64
+    field  get_egress         uint64
+    field  audit_egress       uint64
+)
+
+create bucket_usage ()
+delete bucket_usage ( where bucket_usage.id = ? )
+
+read one (
+    select bucket_usage
+    where  bucket_usage.id = ?
+)
+
+read limitoffset (
+    select bucket_usage
+    where bucket_usage.bucket_id = ?
+    where bucket_usage.rollup_end_time > ?
+    where bucket_usage.rollup_end_time <= ?
+    orderby asc bucket_usage.rollup_end_time
+)
+
+read limitoffset (
+    select bucket_usage
+    where bucket_usage.bucket_id = ?
+    where bucket_usage.rollup_end_time > ?
+    where bucket_usage.rollup_end_time <= ?
+    orderby desc bucket_usage.rollup_end_time
+)
+
 //--- certRecord ---//
 
 model certRecord (
@@ -311,3 +362,28 @@ read one (
 	select certRecord
 	where  certRecord.id = ?
 )
+
+//--- satellite registration token for Vanguard release (temporary table) ---//
+
+model registration_token (
+    key secret
+    unique owner_id
+
+    field secret        blob
+    field owner_id      blob       ( updatable, nullable )
+
+    field project_limit int
+
+    field created_at    timestamp  ( autoinsert )
+)
+
+create registration_token ( )
+read one (
+    select registration_token
+    where  registration_token.secret = ?
+)
+read one (
+    select registration_token
+    where  registration_token.owner_id = ?
+)
+update registration_token ( where registration_token.secret = ? )

@@ -23,7 +23,7 @@
                     Please check your inbox and use the verification link we shared with you in last email.</p>
                 <p>Didn’t receive a verification email?</p>
                 <div class="register-success-popup__form-container__button-container">
-                    <Button label="Resend Email" width="450px" height="50px" :onPress="onCloseClick" isWhite />
+                    <Button label="Go to Login" width="450px" height="50px" :onPress="onCloseClick" isWhite />
                 </div>
             </div>
             <div class="register-success-popup__close-cross-container">

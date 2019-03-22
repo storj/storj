@@ -22,6 +22,7 @@ export const NOTIFICATION_ACTIONS = {
     DELETE: 'deleteNotification',
     PAUSE: 'pauseNotification',
     RESUME: 'resumeNotification',
+    CLEAR: 'clearNotifications',
 };
 
 export const PM_ACTIONS = {

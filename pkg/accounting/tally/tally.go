@@ -21,7 +21,7 @@ import (
 
 // Config contains configurable values for tally
 type Config struct {
-	Interval time.Duration `help:"how frequently tally should run" default:"30s"`
+	Interval time.Duration `help:"how frequently tally should run" default:"1h" devDefault:"30s"`
 }
 
 // Tally is the service for accounting for data stored on each storage node
@@ -52,6 +52,7 @@ func New(logger *zap.Logger, accountingDB accounting.DB, bwAgreementDB bwagreeme
 func (t *Tally) Run(ctx context.Context) (err error) {
 	t.logger.Info("Tally service starting up")
 	defer mon.Task()(&ctx)(&err)
+
 	for {
 		if err = t.Tally(ctx); err != nil {
 			t.logger.Error("Tally failed", zap.Error(err))
@@ -85,6 +86,21 @@ func (t *Tally) Tally(ctx context.Context) error {
 		err = t.SaveBWRaw(ctx, tallyEnd, time.Now().UTC(), bwTotals)
 		if err != nil {
 			errBWA = errs.New("Saving for bandwidth failed : %v", err)
+		} else {
+			//remove expired records
+			now := time.Now()
+			_, err = t.bwAgreementDB.GetExpired(ctx, tallyEnd, now)
+			if err != nil {
+				return err
+			}
+			var expiredOrdersHaveBeenSaved bool
+			//todo: write files to disk or whatever we decide to do here
+			if expiredOrdersHaveBeenSaved {
+				err = t.bwAgreementDB.DeleteExpired(ctx, tallyEnd, now)
+				if err != nil {
+					return err
+				}
+			}
 		}
 	}
 	return errs.Combine(errAtRest, errBWA)
@@ -120,7 +136,12 @@ func (t *Tally) calculateAtRestData(ctx context.Context) (latestTally time.Time,
 				// check to make sure there are at least *4* path elements. the first three
 				// are project, segment, and bucket name, but we want to make sure we're talking
 				// about an actual object, and that there's an object name specified
-				if len(pathElements) >= 4 {
+
+				// handle conditions with buckets with no files
+				if len(pathElements) == 3 {
+					bucketCount++
+				} else if len(pathElements) >= 4 {
+
 					project, segment, bucketName := pathElements[0], pathElements[1], pathElements[2]
 					bucketID := storj.JoinPaths(project, bucketName)
 
@@ -128,7 +149,6 @@ func (t *Tally) calculateAtRestData(ctx context.Context) (latestTally time.Time,
 					// iterated together. When a project or bucket changes,
 					// the previous bucket is completely finished.
 					if currentBucket != bucketID {
-						bucketCount++
 						if currentBucket != "" {
 							// report the previous bucket and add to the totals
 							currentBucketStats.Report("bucket")
@@ -172,17 +192,17 @@ func (t *Tally) calculateAtRestData(ctx context.Context) (latestTally time.Time,
 	if err != nil {
 		return latestTally, nodeData, Error.Wrap(err)
 	}
-	if len(nodeData) == 0 {
-		return latestTally, nodeData, nil
-	}
 
 	if currentBucket != "" {
 		// wrap up the last bucket
-		currentBucketStats.Report("bucket")
 		totalStats.Combine(&currentBucketStats)
 	}
 	totalStats.Report("total")
 	mon.IntVal("bucket_count").Observe(bucketCount)
+
+	if len(nodeData) == 0 {
+		return latestTally, nodeData, nil
+	}
 
 	//store byte hours, not just bytes
 	numHours := time.Now().Sub(latestTally).Hours()

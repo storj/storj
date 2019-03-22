@@ -17,6 +17,7 @@ func NewReaderSource(src func() ([]byte, error)) *ReaderSource {
 
 // Read implements io.Reader
 func (rs *ReaderSource) Read(p []byte) (n int, err error) {
+	// TODO: bug, buffer should be fully read before returning an error
 	if rs.err != nil {
 		return 0, rs.err
 	}

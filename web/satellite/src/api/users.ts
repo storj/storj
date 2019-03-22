@@ -13,7 +13,7 @@ export async function updateAccountRequest(user: User): Promise<RequestResponse<
         data: {
             firstName: '',
             lastName: '',
-            email: ''
+            email: '',
         }
     };
 
@@ -93,7 +93,7 @@ export async function changePasswordRequest(password: string, newPassword: strin
 // Performs Create user graqhQL request.
 // Throws an exception if error occurs
 // Returns object with newly created user
-export async function createUserRequest(user: User, password: string): Promise<RequestResponse<null>> {
+export async function createUserRequest(user: User, password: string, secret: string): Promise<RequestResponse<null>> {
     let result: RequestResponse<null> = {
         errorMessage: '',
         isSuccess: false,
@@ -111,7 +111,8 @@ export async function createUserRequest(user: User, password: string): Promise<R
                                 password: "${password}",
                                 firstName: "${user.firstName}",
                                 lastName: "${user.lastName}",
-                            }
+                            },
+                            secret: "${secret}",
                         ){email}
                     }`
                 ),
@@ -179,7 +180,7 @@ export async function getUserRequest(): Promise<RequestResponse<User>> {
         data: {
             firstName: '',
             lastName: '',
-            email: ''
+            email: '',
         }
     };
 
@@ -233,43 +234,6 @@ export async function deleteAccountRequest(password: string): Promise<RequestRes
                     }`
                 ),
                 fetchPolicy: 'no-cache'
-            }
-        );
-
-        if (response.errors) {
-            result.errorMessage = response.errors[0].message;
-        } else {
-            result.isSuccess = true;
-        }
-    } catch (e) {
-        result.errorMessage = e.message;
-    }
-
-    return result;
-}
-
-// Performs graphQL request.
-// Returns Token string.
-// Throws an exception if error occurs
-export async function activateAccountRequest(token: string): Promise<RequestResponse<string>> {
-    let result: RequestResponse<string> = {
-        errorMessage: '',
-        isSuccess: false,
-        data: ''
-    };
-
-    try {
-        let response = await apolloManager.mutate(
-            {
-                mutation: gql(`
-				    mutation {
-				        activateAccount(input: "${token}") {
-				            token
-				        }
-				    }
-				`),
-                fetchPolicy: 'no-cache'
-
             }
         );
 

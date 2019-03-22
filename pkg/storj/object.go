@@ -93,9 +93,6 @@ type Segment struct {
 	EncryptedKey      EncryptedPrivateKey
 }
 
-// PieceID is an identificator for a piece
-type PieceID []byte
-
 // Piece is information where a piece is located
 type Piece struct {
 	Number   byte

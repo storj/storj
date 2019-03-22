@@ -312,16 +312,15 @@ func (s *statDB) UpdateBatch(ctx context.Context, updateReqList []*statdb.Update
 	var nodeStatsList []*statdb.NodeStats
 	var allErrors []error
 	failedUpdateReqs = []*statdb.UpdateRequest{}
-	for _, updateReq := range updateReqList {
-
-		// nodeStats, err := s.Update(ctx, updateReq)
-		// if err != nil {
-		// 	allErrors = append(allErrors, err)
-		// 	failedUpdateReqs = append(failedUpdateReqs, updateReq)
-		// } else {
-		// 	nodeStatsList = append(nodeStatsList, nodeStats)
-		// }
-	}
+	// for _, updateReq := range updateReqList {
+	// 	nodeStats, err := s.Update(ctx, updateReq)
+	// 	if err != nil {
+	// 		allErrors = append(allErrors, err)
+	// 		failedUpdateReqs = append(failedUpdateReqs, updateReq)
+	// 	} else {
+	// 		nodeStatsList = append(nodeStatsList, nodeStats)
+	// 	}
+	// }
 
 	if len(allErrors) > 0 {
 		return nodeStatsList, failedUpdateReqs, Error.Wrap(utils.CombineErrors(allErrors...))

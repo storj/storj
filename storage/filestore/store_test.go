@@ -4,8 +4,6 @@
 package filestore_test
 
 import (
-	"bytes"
-	"context"
 	"errors"
 	"io"
 	"io/ioutil"
@@ -14,179 +12,211 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
+	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
 )
 
-func newTestStore(t testing.TB) (dir string, store *filestore.Store, cleanup func()) {
-	dir, err := ioutil.TempDir("", "filestore")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	store, err = filestore.NewAt(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return dir, store, func() {
-		err := os.RemoveAll(dir)
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
+func randomValue() []byte {
+	var id [32]byte
+	_, _ = rand.Read(id[:])
+	return id[:]
 }
 
 func TestStoreLoad(t *testing.T) {
 	const blobSize = 8 << 10
 	const repeatCount = 16
 
-	ctx := context.Background()
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
-	_, store, cleanup := newTestStore(t)
-	defer cleanup()
+	store, err := filestore.NewAt(ctx.Dir("store"))
+	require.NoError(t, err)
 
 	data := make([]byte, blobSize)
 	temp := make([]byte, len(data))
 	_, _ = rand.Read(data)
 
-	refs := map[storage.BlobRef]bool{}
+	refs := []storage.BlobRef{}
 
+	namespace := randomValue()
 	// store without size
 	for i := 0; i < repeatCount; i++ {
-		ref, err := store.Store(ctx, bytes.NewReader(data), -1)
-		if err != nil {
-			t.Fatal(err)
+		ref := storage.BlobRef{
+			Namespace: namespace,
+			Key:       randomValue(),
 		}
-		if refs[ref] {
-			t.Fatal("duplicate ref received")
-		}
-		refs[ref] = true
+		refs = append(refs, ref)
+
+		writer, err := store.Create(ctx, ref, -1)
+		require.NoError(t, err)
+
+		n, err := writer.Write(data)
+		require.NoError(t, err)
+		require.Equal(t, n, len(data))
+
+		require.NoError(t, writer.Commit())
+		// after committing we should be able to call cancel without an error
+		require.NoError(t, writer.Cancel())
+		// two commits should fail
+		require.Error(t, writer.Commit())
 	}
 
+	namespace = randomValue()
 	// store with size
 	for i := 0; i < repeatCount; i++ {
-		ref, err := store.Store(ctx, bytes.NewReader(data), int64(len(data)))
-		if err != nil {
-			t.Fatal(err)
+		ref := storage.BlobRef{
+			Namespace: namespace,
+			Key:       randomValue(),
 		}
-		if refs[ref] {
-			t.Fatal("duplicate ref received")
-		}
-		refs[ref] = true
+		refs = append(refs, ref)
+
+		writer, err := store.Create(ctx, ref, int64(len(data)))
+		require.NoError(t, err)
+
+		n, err := writer.Write(data)
+		require.NoError(t, err)
+		require.Equal(t, n, len(data))
+
+		require.NoError(t, writer.Commit())
 	}
 
+	namespace = randomValue()
 	// store with larger size
 	{
-		ref, err := store.Store(ctx, bytes.NewReader(data), int64(len(data))*2)
-		if err != nil {
-			t.Fatal(err)
+		ref := storage.BlobRef{
+			Namespace: namespace,
+			Key:       randomValue(),
 		}
-		if refs[ref] {
-			t.Fatal("duplicate ref received")
-		}
-		refs[ref] = true
+		refs = append(refs, ref)
+
+		writer, err := store.Create(ctx, ref, int64(len(data)*2))
+		require.NoError(t, err)
+
+		n, err := writer.Write(data)
+		require.NoError(t, err)
+		require.Equal(t, n, len(data))
+
+		require.NoError(t, writer.Commit())
 	}
 
+	namespace = randomValue()
 	// store with error
 	{
-		_, err := store.Store(ctx, &errorReader{}, int64(len(data)))
-		if err == nil {
-			t.Fatal("expected store error")
+		ref := storage.BlobRef{
+			Namespace: namespace,
+			Key:       randomValue(),
 		}
+
+		writer, err := store.Create(ctx, ref, -1)
+		require.NoError(t, err)
+
+		n, err := writer.Write(data)
+		require.NoError(t, err)
+		require.Equal(t, n, len(data))
+
+		require.NoError(t, writer.Cancel())
+		// commit after cancel should return an error
+		require.Error(t, writer.Commit())
+
+		_, err = store.Open(ctx, ref)
+		require.Error(t, err)
 	}
 
 	// try reading all the blobs
-	for ref := range refs {
-		reader, err := store.Load(ctx, ref)
-		if err != nil {
-			t.Fatal(err)
-		}
+	for _, ref := range refs {
+		reader, err := store.Open(ctx, ref)
+		require.NoError(t, err)
 
-		if reader.Size() != int64(len(data)) {
-			t.Fatal(err)
-		}
+		size, err := reader.Size()
+		require.NoError(t, err)
+		require.Equal(t, size, int64(len(data)))
 
 		_, err = io.ReadFull(reader, temp)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
-		err = reader.Close()
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if !bytes.Equal(data, temp) {
-			t.Fatal("data mismatch")
-		}
+		require.NoError(t, reader.Close())
+		require.Equal(t, data, temp)
 	}
 
 	// delete the blobs
-	for ref := range refs {
+	for _, ref := range refs {
 		err := store.Delete(ctx, ref)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 	}
 
 	// try reading all the blobs
-	for ref := range refs {
-		_, err := store.Load(ctx, ref)
-		if err == nil {
-			t.Fatal("expected error when loading invalid ref")
-		}
+	for _, ref := range refs {
+		_, err := store.Open(ctx, ref)
+		require.Error(t, err)
 	}
 }
 
 func TestDeleteWhileReading(t *testing.T) {
 	const blobSize = 8 << 10
+	const repeatCount = 16
 
-	ctx := context.Background()
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
-	dir, store, cleanup := newTestStore(t)
-	defer cleanup()
+	store, err := filestore.NewAt(ctx.Dir("store"))
+	require.NoError(t, err)
 
 	data := make([]byte, blobSize)
 	_, _ = rand.Read(data)
 
-	ref, err := store.Store(ctx, bytes.NewReader(data), -1)
-	if err != nil {
-		t.Fatal(err)
+	ref := storage.BlobRef{
+		Namespace: []byte{0},
+		Key:       []byte{1},
 	}
 
-	rd, loadErr := store.Load(ctx, ref)
-	if loadErr != nil {
-		t.Fatal(loadErr)
-	}
+	writer, err := store.Create(ctx, ref, -1)
+	require.NoError(t, err)
+
+	_, err = writer.Write(data)
+	require.NoError(t, err)
+
+	// loading uncommitted file should fail
+	_, err = store.Open(ctx, ref)
+	require.Error(t, err, "loading uncommitted file should fail")
+
+	// commit the file
+	err = writer.Commit()
+	require.NoError(t, err, "commit the file")
+
+	// open a reader
+	reader, err := store.Open(ctx, ref)
+	require.NoError(t, err, "open a reader")
+
 	// double close, just in case
-	defer func() { _ = rd.Close() }()
+	defer func() { _ = reader.Close() }()
 
-	deleteErr := store.Delete(ctx, ref)
-	if deleteErr != nil {
-		t.Fatal(deleteErr)
-	}
+	// delete while reading
+	err = store.Delete(ctx, ref)
+	require.NoError(t, err, "delete while reading")
 
-	result, readErr := ioutil.ReadAll(rd)
-	if readErr != nil {
-		t.Fatal(readErr)
-	}
-	if closeErr := rd.Close(); closeErr != nil {
-		t.Fatal(closeErr)
-	}
-	if !bytes.Equal(data, result) {
-		t.Fatalf("data mismatch: %v %v", data, result)
-	}
+	// opening deleted file should fail
+	_, err = store.Open(ctx, ref)
+	require.Error(t, err, "opening deleted file should fail")
 
+	// read all content
+	result, err := ioutil.ReadAll(reader)
+	require.NoError(t, err, "read all content")
+
+	// finally close reader
+	err = reader.Close()
+	require.NoError(t, err)
+
+	// should be able to read the full content
+	require.Equal(t, data, result)
+
+	// collect trash
 	_ = store.GarbageCollect(ctx)
 
-	_, secondLoadErr := store.Load(ctx, ref)
-	if !os.IsNotExist(secondLoadErr) {
-		t.Fatalf("expected not-exist error got %v", secondLoadErr)
-	}
-
 	// flaky test, for checking whether files have been actually deleted from disk
-	err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+	err = filepath.Walk(ctx.Dir("store"), func(path string, info os.FileInfo, err error) error {
 		if info.IsDir() {
 			return nil
 		}
@@ -195,31 +225,4 @@ func TestDeleteWhileReading(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-}
-
-type errorReader struct{}
-
-func (errorReader *errorReader) Read(data []byte) (n int, err error) {
-	return 0, errors.New("internal-error")
-}
-
-func BenchmarkStoreDelete(b *testing.B) {
-	ctx := context.Background()
-
-	var data [8 << 10]byte
-
-	_, store, cleanup := newTestStore(b)
-	defer cleanup()
-
-	b.StartTimer()
-	for i := 0; i < b.N; i++ {
-		ref, err := store.Store(ctx, bytes.NewReader(data[:]), int64(len(data)))
-		if err != nil {
-			b.Fatal(err)
-		}
-		if err := store.Delete(ctx, ref); err != nil {
-			b.Fatal(err)
-		}
-	}
-	b.StopTimer()
 }

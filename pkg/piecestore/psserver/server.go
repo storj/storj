@@ -16,7 +16,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/mr-tron/base58/base58"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -143,6 +142,9 @@ func NewEndpoint(log *zap.Logger, config Config, storage Storage, db *psdb.DB, i
 	if config.SatelliteIDRestriction {
 		idStrings := strings.Split(config.WhitelistedSatelliteIDs, ",")
 		for _, s := range idStrings {
+			if s == "" {
+				continue
+			}
 			satID, err := storj.NodeIDFromString(s)
 			if err != nil {
 				return nil, err
@@ -197,62 +199,6 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, e
 
 	s.log.Info("Successfully retrieved meta", zap.String("Piece ID", in.GetId()))
 	return &pb.PieceSummary{Id: in.GetId(), PieceSize: size, ExpirationUnixSec: ttl}, nil
-}
-
-// Stats returns current statistics about the server.
-func (s *Server) Stats(ctx context.Context, in *pb.StatsReq) (*pb.StatSummary, error) {
-	s.log.Debug("Getting Stats...")
-
-	statsSummary, err := s.retrieveStats()
-	if err != nil {
-		return nil, err
-	}
-
-	s.log.Info("Successfully retrieved Stats...")
-
-	return statsSummary, nil
-}
-
-func (s *Server) retrieveStats() (*pb.StatSummary, error) {
-	totalUsed, err := s.DB.SumTTLSizes()
-	if err != nil {
-		return nil, err
-	}
-
-	totalUsedBandwidth, err := s.DB.GetTotalBandwidthBetween(getBeginningOfMonth(), time.Now())
-	if err != nil {
-		return nil, err
-	}
-
-	return &pb.StatSummary{UsedSpace: totalUsed, AvailableSpace: (s.totalAllocated - totalUsed), UsedBandwidth: totalUsedBandwidth, AvailableBandwidth: (s.totalBwAllocated - totalUsedBandwidth)}, nil
-}
-
-// Dashboard is a stream that sends data every `interval` seconds to the listener.
-func (s *Server) Dashboard(in *pb.DashboardReq, stream pb.PieceStoreRoutes_DashboardServer) (err error) {
-	ctx := stream.Context()
-	ticker := time.NewTicker(3 * time.Second)
-
-	for {
-		select {
-		case <-ctx.Done():
-			if ctx.Err() == context.Canceled {
-				return nil
-			}
-
-			return ctx.Err()
-		case <-ticker.C:
-			data, err := s.getDashboardData(ctx)
-			if err != nil {
-				s.log.Warn("unable to create dashboard data proto")
-				continue
-			}
-
-			if err := stream.Send(data); err != nil {
-				s.log.Error("error sending dashboard stream", zap.Error(err))
-				return err
-			}
-		}
-	}
 }
 
 // Delete deletes data based on the specified ID.
@@ -362,35 +308,4 @@ func getNamespacedPieceID(pieceID, namespace []byte) (string, error) {
 	}
 	h := mac.Sum(nil)
 	return base58.Encode(h), nil
-}
-
-func (s *Server) getDashboardData(ctx context.Context) (*pb.DashboardStats, error) {
-	statsSummary, err := s.retrieveStats()
-	if err != nil {
-		return &pb.DashboardStats{}, ServerError.Wrap(err)
-	}
-
-	nodes, err := s.kad.FindNear(ctx, storj.NodeID{}, 10000000)
-	if err != nil {
-		return &pb.DashboardStats{}, ServerError.Wrap(err)
-	}
-
-	bootstrapNodes := s.kad.GetBootstrapNodes()
-
-	bsNodes := make([]string, len(bootstrapNodes))
-
-	for i, node := range bootstrapNodes {
-		bsNodes[i] = node.Address.Address
-	}
-
-	return &pb.DashboardStats{
-		NodeId:           s.kad.Local().Id.String(),
-		NodeConnections:  int64(len(nodes)),
-		BootstrapAddress: strings.Join(bsNodes[:], ", "),
-		InternalAddress:  "",
-		ExternalAddress:  s.kad.Local().Address.Address,
-		Connection:       true,
-		Uptime:           ptypes.DurationProto(time.Since(s.startTime)),
-		Stats:            statsSummary,
-	}, nil
 }

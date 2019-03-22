@@ -72,7 +72,12 @@ func TestGraphqlQuery(t *testing.T) {
 			Password: "123a123",
 		}
 
-		rootUser, err := service.CreateUser(ctx, createUser)
+		regToken, err := service.CreateRegToken(ctx, 2)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		rootUser, err := service.CreateUser(ctx, createUser, regToken.Secret)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -86,7 +91,7 @@ func TestGraphqlQuery(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, err = service.ActivateAccount(ctx, activationToken)
+			err = service.ActivateAccount(ctx, activationToken)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -195,6 +200,11 @@ func TestGraphqlQuery(t *testing.T) {
 			assert.True(t, createdProject.CreatedAt.Equal(createdAt))
 		})
 
+		regTokenUser1, err := service.CreateRegToken(ctx, 2)
+		if err != nil {
+			t.Fatal(err)
+		}
+
 		user1, err := service.CreateUser(authCtx, console.CreateUser{
 			UserInfo: console.UserInfo{
 				FirstName: "Mickey",
@@ -202,7 +212,7 @@ func TestGraphqlQuery(t *testing.T) {
 				Email:     "muu1@email.com",
 			},
 			Password: "123a123",
-		})
+		}, regTokenUser1.Secret)
 
 		if err != nil {
 			t.Fatal(err)
@@ -217,13 +227,18 @@ func TestGraphqlQuery(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, err = service.ActivateAccount(ctx, activationToken1)
+			err = service.ActivateAccount(ctx, activationToken1)
 			if err != nil {
 				t.Fatal(err)
 			}
 			user1.Email = "muu1@email.com"
 
 		})
+
+		regTokenUser2, err := service.CreateRegToken(ctx, 2)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		user2, err := service.CreateUser(authCtx, console.CreateUser{
 			UserInfo: console.UserInfo{
@@ -232,7 +247,7 @@ func TestGraphqlQuery(t *testing.T) {
 				Email:     "muu2@email.com",
 			},
 			Password: "123a123",
-		})
+		}, regTokenUser2.Secret)
 
 		if err != nil {
 			t.Fatal(err)
@@ -247,21 +262,21 @@ func TestGraphqlQuery(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, err = service.ActivateAccount(ctx, activationToken2)
+			err = service.ActivateAccount(ctx, activationToken2)
 			if err != nil {
 				t.Fatal(err)
 			}
 			user2.Email = "muu2@email.com"
 		})
 
-		err = service.AddProjectMembers(authCtx, createdProject.ID, []string{
+		users, err := service.AddProjectMembers(authCtx, createdProject.ID, []string{
 			user1.Email,
 			user2.Email,
 		})
-
 		if err != nil {
 			t.Fatal(err)
 		}
+		assert.Equal(t, 2, len(users))
 
 		t.Run("Project query team members", func(t *testing.T) {
 			query := fmt.Sprintf(

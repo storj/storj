@@ -6,12 +6,15 @@ package bwagreement
 import (
 	"context"
 	"crypto"
+	"io"
 	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
@@ -33,7 +36,7 @@ var (
 type Config struct {
 }
 
-//UplinkStat contains information about an uplink's returned bandwidth agreement
+//UplinkStat contains information about an uplink's returned Orders
 type UplinkStat struct {
 	NodeID            storj.NodeID
 	TotalBytes        int64
@@ -42,14 +45,29 @@ type UplinkStat struct {
 	TotalTransactions int
 }
 
-// DB stores bandwidth agreements.
+//SavedOrder is information from an Order pertaining to accounting
+type SavedOrder struct {
+	Serialnum     string
+	StorageNodeID storj.NodeID
+	UplinkID      storj.NodeID
+	Action        int64
+	Total         int64
+	CreatedAt     time.Time
+	ExpiresAt     time.Time
+}
+
+// DB stores orders for accounting purposes
 type DB interface {
-	// CreateAgreement adds a new bandwidth agreement.
-	CreateAgreement(context.Context, *pb.Order) error
+	// SaveOrder saves an order for accounting
+	SaveOrder(context.Context, *pb.Order) error
 	// GetTotalsSince returns the sum of each bandwidth type after (exluding) a given date range
 	GetTotals(context.Context, time.Time, time.Time) (map[storj.NodeID][]int64, error)
 	//GetTotals returns stats about an uplink
 	GetUplinkStats(context.Context, time.Time, time.Time) ([]UplinkStat, error)
+	//GetExpired gets orders that are expired and were created before some time
+	GetExpired(context.Context, time.Time, time.Time) ([]SavedOrder, error)
+	//DeleteExpired deletes orders that are expired and were created before some time
+	DeleteExpired(context.Context, time.Time, time.Time) error
 }
 
 // Server is an implementation of the pb.BandwidthServer interface
@@ -58,13 +76,13 @@ type Server struct {
 	certdb certdb.DB
 	pkey   crypto.PublicKey
 	NodeID storj.NodeID
-	logger *zap.Logger
+	log    *zap.Logger
 }
 
 // NewServer creates instance of Server
-func NewServer(db DB, upldb certdb.DB, pkey crypto.PublicKey, logger *zap.Logger, nodeID storj.NodeID) *Server {
-	// TODO: reorder arguments, rename logger -> log
-	return &Server{bwdb: db, certdb: upldb, pkey: pkey, logger: logger, NodeID: nodeID}
+func NewServer(db DB, upldb certdb.DB, pkey crypto.PublicKey, log *zap.Logger, nodeID storj.NodeID) *Server {
+	// TODO: reorder arguments
+	return &Server{bwdb: db, certdb: upldb, pkey: pkey, log: log, NodeID: nodeID}
 }
 
 // Close closes resources
@@ -73,7 +91,7 @@ func (s *Server) Close() error { return nil }
 // BandwidthAgreements receives and stores bandwidth agreements from storage nodes
 func (s *Server) BandwidthAgreements(ctx context.Context, rba *pb.Order) (reply *pb.AgreementsSummary, err error) {
 	defer mon.Task()(&ctx)(&err)
-	s.logger.Debug("Received Agreement...")
+	s.log.Debug("Received Agreement...")
 	reply = &pb.AgreementsSummary{
 		Status: pb.AgreementsSummary_REJECTED,
 	}
@@ -97,7 +115,7 @@ func (s *Server) BandwidthAgreements(ctx context.Context, rba *pb.Order) (reply 
 	}
 
 	//save and return rersults
-	if err = s.bwdb.CreateAgreement(ctx, rba); err != nil {
+	if err = s.bwdb.SaveOrder(ctx, rba); err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") ||
 			strings.Contains(err.Error(), "violates unique constraint") {
 			return reply, pb.ErrPayer.Wrap(auth.ErrSerial.Wrap(err))
@@ -106,8 +124,89 @@ func (s *Server) BandwidthAgreements(ctx context.Context, rba *pb.Order) (reply 
 		return reply, pb.ErrPayer.Wrap(err)
 	}
 	reply.Status = pb.AgreementsSummary_OK
-	s.logger.Debug("Stored Agreement...")
+	s.log.Debug("Stored Agreement...")
 	return reply, nil
+}
+
+// Settlement receives and handles agreements.
+func (s *Server) Settlement(client pb.Bandwidth_SettlementServer) (err error) {
+	ctx := client.Context()
+	defer mon.Task()(&ctx)(&err)
+
+	peer, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		return status.Error(codes.Unauthenticated, err.Error())
+	}
+
+	formatError := func(err error) error {
+		if err == io.EOF {
+			return nil
+		}
+		return status.Error(codes.Unknown, err.Error())
+	}
+
+	s.log.Debug("Settlement", zap.Any("storage node ID", peer.ID))
+	for {
+		request, err := client.Recv()
+		if err != nil {
+			return formatError(err)
+		}
+
+		if request == nil || request.Allocation == nil {
+			return status.Error(codes.InvalidArgument, "allocation missing")
+		}
+		allocation := request.Allocation
+		payerAllocation := allocation.PayerAllocation
+
+		if allocation.StorageNodeId != peer.ID {
+			return status.Error(codes.Unauthenticated, "only specified storage node can settle allocation")
+		}
+
+		allocationExpiration := time.Unix(payerAllocation.GetExpirationUnixSec(), 0)
+		if allocationExpiration.Before(time.Now()) {
+			s.log.Debug("allocation expired", zap.String("serial", payerAllocation.SerialNumber), zap.Error(err))
+			err := client.Send(&pb.BandwidthSettlementResponse{
+				SerialNumber: payerAllocation.SerialNumber,
+				Status:       pb.AgreementsSummary_REJECTED,
+			})
+			if err != nil {
+				return formatError(err)
+			}
+		}
+
+		if err = s.verifySignature(ctx, allocation); err != nil {
+			s.log.Debug("signature verification failed", zap.String("serial", payerAllocation.SerialNumber), zap.Error(err))
+			err := client.Send(&pb.BandwidthSettlementResponse{
+				SerialNumber: payerAllocation.SerialNumber,
+				Status:       pb.AgreementsSummary_REJECTED,
+			})
+			if err != nil {
+				return formatError(err)
+			}
+		}
+
+		if err = s.bwdb.SaveOrder(ctx, allocation); err != nil {
+			s.log.Debug("saving order failed", zap.String("serial", payerAllocation.SerialNumber), zap.Error(err))
+			duplicateRequest := strings.Contains(err.Error(), "UNIQUE constraint failed") || strings.Contains(err.Error(), "violates unique constraint")
+			if duplicateRequest {
+				err := client.Send(&pb.BandwidthSettlementResponse{
+					SerialNumber: payerAllocation.SerialNumber,
+					Status:       pb.AgreementsSummary_REJECTED,
+				})
+				if err != nil {
+					return formatError(err)
+				}
+			}
+		}
+
+		err = client.Send(&pb.BandwidthSettlementResponse{
+			SerialNumber: payerAllocation.SerialNumber,
+			Status:       pb.AgreementsSummary_OK,
+		})
+		if err != nil {
+			return formatError(err)
+		}
+	}
 }
 
 func (s *Server) verifySignature(ctx context.Context, rba *pb.Order) error {

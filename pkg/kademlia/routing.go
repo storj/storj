@@ -200,15 +200,12 @@ func (rt *RoutingTable) FindNear(target storj.NodeID, limit int, restrictions ..
 }
 
 // UpdateSelf updates a node on the routing table
-func (rt *RoutingTable) UpdateSelf() error {
-	// TODO: replace UpdateSelf with UpdateAddress
-	node := rt.Local().Node
-
+func (rt *RoutingTable) UpdateSelf(node *dht.LocalNode) error {
 	rt.mutex.Lock()
-	rt.seen[node.Id] = &node
+	rt.seen[node.Id] = &node.Node
 	rt.mutex.Unlock()
 
-	if err := rt.updateNode(&node); err != nil {
+	if err := rt.updateNode(&node.Node); err != nil {
 		return RoutingErr.New("could not update node %s", err)
 	}
 

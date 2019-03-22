@@ -13,3 +13,9 @@ type NodeID = storj.NodeID
 
 // NodeIDList is an alias to storj.NodeIDList for use in generated protobuf code
 type NodeIDList = storj.NodeIDList
+
+// PieceID is an alias to storj.PieceID for use in generated protobuf code
+type PieceID = storj.PieceID
+
+// SerialNumber is an alias to storj.SerialNumber for use in generated protobuf code
+type SerialNumber = storj.SerialNumber

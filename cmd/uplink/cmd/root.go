@@ -28,7 +28,7 @@ type UplinkFlags struct {
 
 var cfg UplinkFlags
 
-// RootCmd represents the base CLI command when called without any subcommands
+//RootCmd represents the base CLI command when called without any subcommands
 var RootCmd = &cobra.Command{
 	Use:   "uplink",
 	Short: "The Storj client-side CLI",
@@ -50,7 +50,7 @@ func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
 		defaultIdentityDir = identityDirParam
 	}
 
-	cfgstruct.Bind(cmd.Flags(), &cfg, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(cmd.Flags(), &cfg, isDev, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 	return cmd
 }
 

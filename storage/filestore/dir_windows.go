@@ -7,14 +7,14 @@ package filestore
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
-	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
 
-var errSharingViolation = syscall.Errno(32)
+var errSharingViolation = windows.Errno(32)
 
 func isBusy(err error) bool {
 	err = underlyingError(err)
@@ -43,12 +43,12 @@ func diskInfoFromPath(path string) (info DiskInfo, err error) {
 }
 
 var (
-	kernel32             = syscall.MustLoadDLL("kernel32.dll")
+	kernel32             = windows.MustLoadDLL("kernel32.dll")
 	procGetDiskFreeSpace = kernel32.MustFindProc("GetDiskFreeSpaceExW")
 )
 
 func getDiskFreeSpace(path string) (int64, error) {
-	path16, err := syscall.UTF16PtrFromString(path)
+	path16, err := windows.UTF16PtrFromString(path)
 	if err != nil {
 		return -1, err
 	}
@@ -91,8 +91,65 @@ func getVolumeSerialNumber(path string) (string, error) {
 
 // windows api occasionally returns
 func ignoreSuccess(err error) error {
-	if err == syscall.Errno(0) {
+	if err == windows.Errno(0) {
 		return nil
 	}
 	return err
+}
+
+// Adds `\\?` prefix to ensure that API recognizes it as a long path.
+// see https://msdn.microsoft.com/en-us/library/windows/desktop/aa365247(v=vs.85).aspx#maxpath
+func tryFixLongPath(path string) string {
+	abspath, err := filepath.Abs(path)
+	if err != nil {
+		return path
+	}
+	return `\\?\` + abspath
+}
+
+// rename implements atomic file rename on windows
+func rename(oldpath, newpath string) error {
+	const replace_existing = 0x1
+	const write_through = 0x8
+
+	oldpathp, err := windows.UTF16PtrFromString(tryFixLongPath(oldpath))
+	if err != nil {
+		return &os.LinkError{Op: "replace", Old: oldpath, New: newpath, Err: err}
+	}
+	newpathp, err := windows.UTF16PtrFromString(tryFixLongPath(newpath))
+	if err != nil {
+		return &os.LinkError{Op: "replace", Old: oldpath, New: newpath, Err: err}
+	}
+
+	err = windows.MoveFileEx(oldpathp, newpathp, windows.MOVEFILE_REPLACE_EXISTING|windows.MOVEFILE_WRITE_THROUGH)
+	if err != nil {
+		return &os.LinkError{Op: "replace", Old: oldpath, New: newpath, Err: err}
+	}
+
+	return nil
+}
+
+// openFileReadOnly opens the file with read only
+// a custom implementation, because os.Open doesn't support specifying FILE_SHARE_DELETE
+func openFileReadOnly(path string, perm os.FileMode) (*os.File, error) {
+	pathp, err := windows.UTF16PtrFromString(tryFixLongPath(path))
+	if err != nil {
+		return nil, err
+	}
+
+	access := uint32(windows.GENERIC_READ)
+	sharemode := uint32(windows.FILE_SHARE_READ | windows.FILE_SHARE_WRITE | windows.FILE_SHARE_DELETE)
+
+	var sa windows.SecurityAttributes
+	sa.Length = uint32(unsafe.Sizeof(sa))
+	sa.InheritHandle = 1
+
+	createmode := uint32(windows.OPEN_EXISTING)
+
+	handle, err := windows.CreateFile(pathp, access, sharemode, &sa, createmode, windows.FILE_ATTRIBUTE_NORMAL, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	return os.NewFile(uintptr(handle), path), nil
 }

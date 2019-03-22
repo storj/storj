@@ -71,10 +71,19 @@ func NewService(log *zap.Logger, signer Signer, store DB, passwordCost int) (*Se
 }
 
 // CreateUser gets password hash value and creates new inactive User
-func (s *Service) CreateUser(ctx context.Context, user CreateUser) (u *User, err error) {
+func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if err := user.IsValid(); err != nil {
 		return nil, err
+	}
+
+	// TODO: remove after vanguard release
+	registrationToken, err := s.store.RegistrationTokens().GetBySecret(ctx, tokenSecret)
+	if err != nil {
+		return nil, err
+	}
+	if registrationToken.OwnerID != nil {
+		return nil, errs.New("token is already used")
 	}
 
 	// TODO: store original email input in the db,
@@ -98,6 +107,11 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser) (u *User, err
 		PasswordHash: hash,
 	})
 
+	err = s.store.RegistrationTokens().UpdateOwner(ctx, registrationToken.Secret, u.ID)
+	if err != nil {
+		return nil, err
+	}
+
 	return u, err
 }
 
@@ -116,7 +130,7 @@ func (s *Service) GenerateActivationToken(ctx context.Context, id uuid.UUID, ema
 }
 
 // ActivateAccount - is a method for activating user account after registration
-func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (authToken string, err error) {
+func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	token, err := consoleauth.FromBase64URLString(activationToken)
@@ -137,30 +151,16 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 	now := time.Now()
 
 	if user.Status != Inactive {
-		return "", errs.New("account is already active")
+		return errs.New("account is already active")
 	}
 
 	if now.After(user.CreatedAt.Add(tokenExpirationTime)) {
-		return "", errs.New("activation token has expired")
+		return errs.New("activation token has expired")
 	}
 
 	user.Status = Active
-	err = s.store.Users().Update(ctx, user)
-	if err != nil {
-		return "", err
-	}
 
-	claims = &consoleauth.Claims{
-		ID:         user.ID,
-		Expiration: time.Now().Add(tokenExpirationTime),
-	}
-
-	authToken, err = s.createToken(claims)
-	if err != nil {
-		return "", err
-	}
-
-	return authToken, err
+	return s.store.Users().Update(ctx, user)
 }
 
 // Token authenticates User by credentials and returns auth token
@@ -301,6 +301,12 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		return nil, err
 	}
 
+	// TODO: remove after vanguard release
+	err = s.checkProjectLimit(ctx, auth.User.ID)
+	if err != nil {
+		return
+	}
+
 	project := &Project{
 		Description: projectInfo.Description,
 		Name:        projectInfo.Name,
@@ -369,40 +375,40 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, descri
 }
 
 // AddProjectMembers adds users by email to given project
-func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, emails []string) (err error) {
+func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, emails []string) (users []*User, err error) {
 	defer mon.Task()(&ctx)(&err)
 	auth, err := GetAuth(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if _, err = s.isProjectMember(ctx, auth.User.ID, projectID); err != nil {
-		return ErrUnauthorized.Wrap(err)
+		return nil, ErrUnauthorized.Wrap(err)
 	}
 
-	var userIDs []uuid.UUID
+	//var userIDs []uuid.UUID
 	var userErr errs.Group
 
 	// collect user querying errors
 	for _, email := range emails {
 		user, err := s.store.Users().GetByEmail(ctx, email)
-
 		if err != nil {
 			userErr.Add(err)
 			continue
 		}
 
-		userIDs = append(userIDs, user.ID)
+		users = append(users, user)
+		//userIDs = append(userIDs, user.ID)
 	}
 
 	if err = userErr.Err(); err != nil {
-		return err
+		return nil, err
 	}
 
 	// add project members in transaction scope
 	tx, err := s.store.BeginTx(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	defer func() {
@@ -414,15 +420,15 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 		err = tx.Commit()
 	}()
 
-	for _, uID := range userIDs {
-		_, err = tx.ProjectMembers().Insert(ctx, uID, projectID)
+	for _, user := range users {
+		_, err = tx.ProjectMembers().Insert(ctx, user.ID, projectID)
 
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return nil
+	return users, nil
 }
 
 // DeleteProjectMembers removes users by email from given project
@@ -642,6 +648,31 @@ func (s *Service) Authorize(ctx context.Context) (a Authorization, err error) {
 		User:   *user,
 		Claims: *claims,
 	}, nil
+}
+
+// checkProjectLimit is used to check if user is able to create a new project
+// TODO: remove after vanguard release
+func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) error {
+	registrationToken, err := s.store.RegistrationTokens().GetByOwnerID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	projects, err := s.GetUsersProjects(ctx)
+	if err != nil {
+		return err
+	}
+	if len(projects) >= registrationToken.ProjectLimit {
+		return errs.New("max project count is %d", registrationToken.ProjectLimit)
+	}
+
+	return nil
+}
+
+// CreateRegToken creates new registration token. Needed for testing
+// TODO: remove after vanguard release
+func (s *Service) CreateRegToken(ctx context.Context, projLimit int) (*RegistrationToken, error) {
+	return s.store.RegistrationTokens().Create(ctx, projLimit)
 }
 
 // createToken creates string representation

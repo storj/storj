@@ -35,7 +35,7 @@ import { APP_STATE_ACTIONS, PROJETS_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS, A
                 this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PROJECTS);
                 this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
-                const pmResponse = await this.$store.dispatch(PM_ACTIONS.FETCH, {limit: 20, offset: 0});
+                const pmResponse = await this.$store.dispatch(PM_ACTIONS.FETCH);
                 const keysResponse = await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
 
                 if (!pmResponse.isSuccess) {

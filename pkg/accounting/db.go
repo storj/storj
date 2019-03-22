@@ -52,4 +52,6 @@ type DB interface {
 	SaveRollup(ctx context.Context, latestTally time.Time, stats RollupStats) error
 	// QueryPaymentInfo queries StatDB, Accounting Rollup on nodeID
 	QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*CSVRow, error)
+	// DeleteRawBefore deletes all raw tallies prior to some time
+	DeleteRawBefore(ctx context.Context, latestRollup time.Time) error
 }

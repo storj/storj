@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"path/filepath"
+	"strconv"
 
 	"github.com/graphql-go/graphql"
 	"github.com/zeebo/errs"
@@ -38,6 +39,9 @@ var Error = errs.Class("satellite console error")
 type Config struct {
 	Address   string `help:"server address of the graphql api gateway and frontend app" default:"127.0.0.1:8081"`
 	StaticDir string `help:"path to static resources" default:""`
+
+	// TODO: remove after Vanguard release
+	AuthToken string `help:"auth token needed for access to registration token creation endpoint" default:""`
 
 	PasswordCost int `internal:"true" help:"password hashing cost (0=automatic)" default:"0"`
 }
@@ -74,8 +78,10 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	mux.Handle("/api/graphql/v0", http.HandlerFunc(server.grapqlHandler))
 
 	if server.config.StaticDir != "" {
-		mux.Handle("/", http.HandlerFunc(server.appHandler))
+		mux.Handle("/activation/", http.HandlerFunc(server.accountActivationHandler))
+		mux.Handle("/registrationToken/", http.HandlerFunc(server.createRegistrationTokenHandler))
 		mux.Handle("/static/", http.StripPrefix("/static", fs))
+		mux.Handle("/", http.HandlerFunc(server.appHandler))
 	}
 
 	server.server = http.Server{
@@ -88,6 +94,60 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 // appHandler is web app http handler function
 func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
 	http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "dist", "public", "index.html"))
+}
+
+// accountActivationHandler is web app http handler function
+// TODO: add some auth token in request header to prevent unauthorized token creation
+func (s *Server) createRegistrationTokenHandler(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set(contentType, applicationJSON)
+
+	var response struct {
+		Secret string `json:"secret"`
+		Error  string `json:"error,omitempty"`
+	}
+
+	defer func() {
+		err := json.NewEncoder(w).Encode(&response)
+		if err != nil {
+			s.log.Error(err.Error())
+		}
+	}()
+
+	authToken := req.Header.Get("Authorization")
+	if authToken != s.config.AuthToken {
+		w.WriteHeader(401)
+		response.Error = "unauthorized"
+		return
+	}
+
+	projectsLimitInput := req.URL.Query().Get("projectsLimit")
+
+	projectsLimit, err := strconv.Atoi(projectsLimitInput)
+	if err != nil {
+		response.Error = err.Error()
+		return
+	}
+
+	token, err := s.service.CreateRegToken(context.Background(), projectsLimit)
+	if err != nil {
+		response.Error = err.Error()
+		return
+	}
+
+	response.Secret = token.Secret.String()
+}
+
+// accountActivationHandler is web app http handler function
+func (s *Server) accountActivationHandler(w http.ResponseWriter, req *http.Request) {
+	activationToken := req.URL.Query().Get("token")
+
+	err := s.service.ActivateAccount(context.Background(), activationToken)
+	if err != nil {
+		http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "errors", "404.html"))
+		return
+	}
+
+	http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "activation", "success.html"))
 }
 
 // grapqlHandler is graphql endpoint http handler function
@@ -112,7 +172,7 @@ func (s *Server) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 	rootObject := make(map[string]interface{})
 	//TODO: add public address to config for production
 	rootObject["origin"] = "http://" + s.listener.Addr().String() + "/"
-	rootObject[consoleql.ActivationPath] = "?activationToken="
+	rootObject[consoleql.ActivationPath] = "activation/?token="
 
 	result := graphql.Do(graphql.Params{
 		Schema:         s.schema,
@@ -136,6 +196,7 @@ func (s *Server) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 // Run starts the server that host webapp and api endpoint
 func (s *Server) Run(ctx context.Context) error {
 	var err error
+
 	s.schema, err = consoleql.CreateSchema(s.service, s.mailService)
 	if err != nil {
 		return Error.Wrap(err)

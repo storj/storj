@@ -27,18 +27,19 @@ func TestDialer(t *testing.T) {
 		// TODO: also use satellites
 		peers := planet.StorageNodes
 
-		{ // Ping: storage node pings all other storage nodes
+		{ // PingNode: storage node pings all other storage nodes
 			self := planet.StorageNodes[0]
 
 			dialer := kademlia.NewDialer(zaptest.NewLogger(t), self.Transport)
 			defer ctx.Check(dialer.Close)
 
 			var group errgroup.Group
+			defer ctx.Check(group.Wait)
 
 			for _, peer := range peers {
 				peer := peer
 				group.Go(func() error {
-					pinged, err := dialer.Ping(ctx, peer.Local().Node)
+					pinged, err := dialer.PingNode(ctx, peer.Local().Node)
 					var pingErr error
 					if !pinged {
 						pingErr = fmt.Errorf("ping to %s should have succeeded", peer.ID())
@@ -46,7 +47,36 @@ func TestDialer(t *testing.T) {
 					return errs.Combine(pingErr, err)
 				})
 			}
+		}
+
+		{ // FetchPeerIdentity: storage node fetches identity of the satellite
+			self := planet.StorageNodes[0]
+
+			dialer := kademlia.NewDialer(zaptest.NewLogger(t), self.Transport)
+			defer ctx.Check(dialer.Close)
+
+			var group errgroup.Group
 			defer ctx.Check(group.Wait)
+
+			group.Go(func() error {
+				ident, err := dialer.FetchPeerIdentity(ctx, planet.Satellites[0].Local())
+				if err != nil {
+					return fmt.Errorf("failed to fetch peer identity")
+				}
+				if ident.ID != planet.Satellites[0].Local().Id {
+					return fmt.Errorf("fetched wrong identity")
+				}
+
+				ident, err = dialer.FetchPeerIdentityUnverified(ctx, planet.Satellites[0].Addr())
+				if err != nil {
+					return fmt.Errorf("failed to fetch peer identity from address")
+				}
+				if ident.ID != planet.Satellites[0].Local().Id {
+					return fmt.Errorf("fetched wrong identity from address")
+				}
+
+				return nil
+			})
 		}
 
 		{ // Lookup: storage node query every node for everyone elese
@@ -55,6 +85,7 @@ func TestDialer(t *testing.T) {
 			defer ctx.Check(dialer.Close)
 
 			var group errgroup.Group
+			defer ctx.Check(group.Wait)
 
 			for _, peer := range peers {
 				peer := peer
@@ -80,8 +111,6 @@ func TestDialer(t *testing.T) {
 					return nil
 				})
 			}
-
-			defer ctx.Check(group.Wait)
 		}
 
 		{ // Lookup: storage node queries every node for missing storj.NodeID{} and storj.NodeID{255}
@@ -95,6 +124,7 @@ func TestDialer(t *testing.T) {
 			}
 
 			var group errgroup.Group
+			defer ctx.Check(group.Wait)
 
 			for _, target := range targets {
 				target := target
@@ -116,8 +146,6 @@ func TestDialer(t *testing.T) {
 					})
 				}
 			}
-
-			defer ctx.Check(group.Wait)
 		}
 	})
 }

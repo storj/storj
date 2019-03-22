@@ -319,6 +319,49 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					ALTER TABLE nodes ALTER COLUMN email SET NOT NULL;`,
 				},
 			},
+			{
+				Description: "Add bucket usage rollup table",
+				Version:     6,
+				Action: migrate.SQL{
+					`CREATE TABLE bucket_usages (
+  						id bytea NOT NULL,
+  						bucket_id bytea NOT NULL,
+  						rollup_end_time timestamp with time zone NOT NULL,
+  						remote_stored_data bigint NOT NULL,
+  						inline_stored_data bigint NOT NULL,
+  						remote_segments integer NOT NULL,
+  						inline_segments integer NOT NULL,
+  						objects integer NOT NULL,
+  						metadata_size bigint NOT NULL,
+  						repair_egress bigint NOT NULL,
+  						get_egress bigint NOT NULL,
+  						audit_egress bigint NOT NULL,
+  						PRIMARY KEY ( id ),
+  						UNIQUE ( rollup_end_time, bucket_id )
+					)`,
+				},
+			},
+			{
+				Description: "Add index on bwagreements",
+				Version:     7,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS bwa_created_at ON bwagreements (created_at)`,
+				},
+			},
+			{
+				Description: "Add registration_tokens table",
+				Version:     8,
+				Action: migrate.SQL{
+					`CREATE TABLE registration_tokens (
+                         secret bytea NOT NULL,
+						 owner_id bytea,
+						 project_limit integer NOT NULL,
+						 created_at timestamp with time zone NOT NULL,
+						 PRIMARY KEY ( secret ),
+						 UNIQUE ( owner_id )
+					)`,
+				},
+			},
 		},
 	}
 }

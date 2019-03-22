@@ -12,6 +12,7 @@ import (
 	"net/smtp"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -25,6 +26,7 @@ import (
 	"storj.io/storj/pkg/accounting/tally"
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/auth/grpcauth"
+	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/datarepair/checker"
@@ -47,6 +49,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/storelogger"
@@ -114,11 +117,7 @@ type Peer struct {
 
 	Transport transport.Client
 
-	// servers
-	Public struct {
-		Listener net.Listener
-		Server   *server.Server
-	}
+	Server *server.Server
 
 	// services and endpoints
 	Kademlia struct {
@@ -149,6 +148,7 @@ type Peer struct {
 		Allocation *pointerdb.AllocationSigner
 		Service    *pointerdb.Service
 		Endpoint   *pointerdb.Server
+		Endpoint2  *metainfo.Endpoint
 	}
 
 	Agreements struct {
@@ -156,8 +156,9 @@ type Peer struct {
 	}
 
 	Repair struct {
-		Checker  *checker.Checker
-		Repairer *repairer.Service
+		Checker   *checker.Checker
+		Repairer  *repairer.Service
+		Inspector *irreparable.Inspector
 	}
 	Audit struct {
 		Service *audit.Service
@@ -191,21 +192,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 
 	{ // setup listener and server
 		log.Debug("Starting listener and server")
-		peer.Public.Listener, err = net.Listen("tcp", config.Server.Address)
+		sc := config.Server
+		options, err := tlsopts.NewOptions(peer.Identity, sc.Config)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		publicConfig := config.Server
-		publicConfig.Address = peer.Public.Listener.Addr().String()
-		publicOptions, err := tlsopts.NewOptions(peer.Identity, publicConfig.Config)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
+		peer.Transport = transport.NewClient(options)
 
-		peer.Transport = transport.NewClient(publicOptions)
-
-		peer.Public.Server, err = server.New(publicOptions, peer.Public.Listener, grpcauth.NewAPIKeyInterceptor())
+		peer.Server, err = server.New(options, sc.Address, sc.PrivateAddress, grpcauth.NewAPIKeyInterceptor())
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -228,10 +223,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		}
 
 		peer.StatDB.Endpoint = statdb.NewServer(peer.Log.Named("statdb:endpoint"), peer.StatDB.Service, nodeSelectionConfig)
-		pb.RegisterOverlayServer(peer.Public.Server.GRPC(), peer.StatDB.Endpoint)
+		pb.RegisterOverlayServer(peer.Server.GRPC(), peer.StatDB.Endpoint)
 
 		peer.StatDB.Inspector = statdb.NewInspector(peer.DB.StatDB())
-		pb.RegisterOverlayInspectorServer(peer.Public.Server.GRPC(), peer.StatDB.Inspector)
+		pb.RegisterOverlayInspectorServer(peer.Server.PrivateGRPC(), peer.StatDB.Inspector)
 	}
 
 	{ // setup kademlia
@@ -239,7 +234,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		config := config.Kademlia
 		// TODO: move this setup logic into kademlia package
 		if config.ExternalAddress == "" {
-			config.ExternalAddress = peer.Public.Server.Addr().String()
+			config.ExternalAddress = peer.Addr()
 		}
 
 		self := dht.LocalNode{
@@ -276,24 +271,23 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			peer.Transport = peer.Transport.WithObservers(peer.Kademlia.RoutingTable)
 		}
 
-		// TODO: reduce number of arguments
-		peer.Kademlia.Service, err = kademlia.NewService(peer.Log.Named("kademlia"), self, config.BootstrapNodes(), peer.Transport, config.Alpha, peer.Kademlia.RoutingTable)
+		peer.Kademlia.Service, err = kademlia.NewService(peer.Log.Named("kademlia"), self, peer.Transport, peer.Kademlia.RoutingTable, config)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Kademlia.Endpoint = kademlia.NewEndpoint(peer.Log.Named("kademlia:endpoint"), peer.Kademlia.Service, peer.Kademlia.RoutingTable)
-		pb.RegisterNodesServer(peer.Public.Server.GRPC(), peer.Kademlia.Endpoint)
+		peer.Kademlia.Endpoint = kademlia.NewEndpoint(peer.Log.Named("kademlia:endpoint"), peer.Kademlia.Service, peer.Kademlia.RoutingTable, 60*time.Second)
+		pb.RegisterNodesServer(peer.Server.GRPC(), peer.Kademlia.Endpoint)
 
 		peer.Kademlia.Inspector = kademlia.NewInspector(peer.Kademlia.Service, peer.Identity)
-		pb.RegisterKadInspectorServer(peer.Public.Server.GRPC(), peer.Kademlia.Inspector)
+		pb.RegisterKadInspectorServer(peer.Server.PrivateGRPC(), peer.Kademlia.Inspector)
 	}
 
 	{ // setup reputation
 		log.Debug("Setting up reputation")
 		// TODO: find better structure with statdb
 		peer.Reputation.Inspector = statdb.NewInspector(peer.DB.StatDB())
-		pb.RegisterStatDBInspectorServer(peer.Public.Server.GRPC(), peer.Reputation.Inspector)
+		pb.RegisterStatDBInspectorServer(peer.Server.PrivateGRPC(), peer.Reputation.Inspector)
 	}
 
 	{ // setup discovery
@@ -319,14 +313,36 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			config.PointerDB,
 			peer.Identity, peer.DB.Console().APIKeys())
 
-		pb.RegisterPointerDBServer(peer.Public.Server.GRPC(), peer.Metainfo.Endpoint)
+		// TODO remove duplicated code
+		statDBConfig := config.StatDB
+		nodeSelectionConfig := &statdb.NodeSelectionConfig{
+			UptimeCount:           statDBConfig.Node.UptimeCount,
+			UptimeRatio:           statDBConfig.Node.UptimeRatio,
+			AuditSuccessRatio:     statDBConfig.Node.AuditSuccessRatio,
+			AuditCount:            statDBConfig.Node.AuditCount,
+			NewNodeAuditThreshold: statDBConfig.Node.NewNodeAuditThreshold,
+			NewNodePercentage:     statDBConfig.Node.NewNodePercentage,
+		}
+
+		peer.Metainfo.Endpoint2 = metainfo.NewEndpoint(
+			peer.Log.Named("metainfo:endpoint"),
+			peer.Metainfo.Service,
+			peer.Metainfo.Allocation,
+			peer.DB.StatDB(),
+			peer.DB.Console().APIKeys(),
+			signing.SignerFromFullIdentity(peer.Identity),
+			nodeSelectionConfig)
+
+		pb.RegisterPointerDBServer(peer.Server.GRPC(), peer.Metainfo.Endpoint)
+
+		pb.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)
 	}
 
 	{ // setup agreements
 		log.Debug("Setting up agreements")
 		bwServer := bwagreement.NewServer(peer.DB.BandwidthAgreement(), peer.DB.CertDB(), peer.Identity.Leaf.PublicKey, peer.Log.Named("agreements"), peer.Identity.ID)
 		peer.Agreements.Endpoint = bwServer
-		pb.RegisterBandwidthServer(peer.Public.Server.GRPC(), peer.Agreements.Endpoint)
+		pb.RegisterBandwidthServer(peer.Server.GRPC(), peer.Agreements.Endpoint)
 	}
 
 	{ // setup datarepair
@@ -339,13 +355,32 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			0, peer.Log.Named("checker"),
 			config.Checker.Interval)
 
-		if config.Repairer.OverlayAddr == "" {
-			config.Repairer.OverlayAddr = peer.Addr()
+		// TODO remove duplicated code
+		statDBConfig := config.StatDB
+		nodeSelectionConfig := &statdb.NodeSelectionConfig{
+			UptimeCount:           statDBConfig.Node.UptimeCount,
+			UptimeRatio:           statDBConfig.Node.UptimeRatio,
+			AuditSuccessRatio:     statDBConfig.Node.AuditSuccessRatio,
+			AuditCount:            statDBConfig.Node.AuditCount,
+			NewNodeAuditThreshold: statDBConfig.Node.NewNodeAuditThreshold,
+			NewNodePercentage:     statDBConfig.Node.NewNodePercentage,
 		}
-		if config.Repairer.PointerDBAddr == "" {
-			config.Repairer.PointerDBAddr = peer.Addr()
-		}
-		peer.Repair.Repairer = repairer.NewService(peer.DB.RepairQueue(), &config.Repairer, peer.Transport, config.Repairer.Interval, config.Repairer.MaxRepair)
+
+		peer.Repair.Repairer = repairer.NewService(
+			peer.DB.RepairQueue(),
+			&config.Repairer,
+			config.Repairer.Interval,
+			config.Repairer.MaxRepair,
+			peer.Transport,
+			peer.Metainfo.Service,
+			peer.Metainfo.Allocation,
+			peer.DB.StatDB(),
+			signing.SignerFromFullIdentity(peer.Identity),
+			nodeSelectionConfig,
+		)
+
+		peer.Repair.Inspector = irreparable.NewInspector(peer.DB.Irreparable())
+		pb.RegisterIrreparableInspectorServer(peer.Server.PrivateGRPC(), peer.Repair.Inspector)
 	}
 
 	{ // setup audit
@@ -353,8 +388,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		config := config.Audit
 
 		peer.Audit.Service, err = audit.NewService(peer.Log.Named("audit"),
+			config,
 			peer.DB.StatDB(),
-			config.Interval, config.MaxRetriesStatDB,
 			peer.Metainfo.Service, peer.Metainfo.Allocation,
 			peer.Transport, peer.Identity,
 		)
@@ -498,8 +533,11 @@ func (peer *Peer) Run(ctx context.Context) error {
 	})
 	group.Go(func() error {
 		// TODO: move the message into Server instead
-		peer.Log.Sugar().Infof("Node %s started on %s", peer.Identity.ID, peer.Public.Server.Addr().String())
-		return ignoreCancel(peer.Public.Server.Run(ctx))
+		// Don't change the format of this comment, it is used to figure out the node id.
+		peer.Log.Sugar().Infof("Node %s started", peer.Identity.ID)
+		peer.Log.Sugar().Infof("Public server started on %s", peer.Addr())
+		peer.Log.Sugar().Infof("Private server started on %s", peer.PrivateAddr())
+		return ignoreCancel(peer.Server.Run(ctx))
 	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Console.Endpoint.Run(ctx))
@@ -515,20 +553,15 @@ func (peer *Peer) Close() error {
 	// TODO: ensure that Close can be called on nil-s that way this code won't need the checks.
 
 	// close servers, to avoid new connections to closing subsystems
-	if peer.Public.Server != nil {
-		errlist.Add(peer.Public.Server.Close())
-	} else {
-		// peer.Public.Server automatically closes listener
-		if peer.Public.Listener != nil {
-			errlist.Add(peer.Public.Listener.Close())
-		}
+	if peer.Server != nil {
+		errlist.Add(peer.Server.Close())
 	}
 
 	if peer.Console.Endpoint != nil {
 		errlist.Add(peer.Console.Endpoint.Close())
 	} else {
-		if peer.Console.Endpoint != nil {
-			errlist.Add(peer.Public.Listener.Close())
+		if peer.Console.Listener != nil {
+			errlist.Add(peer.Console.Listener.Close())
 		}
 	}
 
@@ -585,4 +618,7 @@ func (peer *Peer) ID() storj.NodeID { return peer.Identity.ID }
 func (peer *Peer) Local() dht.LocalNode { return peer.Kademlia.RoutingTable.Local() }
 
 // Addr returns the public address.
-func (peer *Peer) Addr() string { return peer.Public.Server.Addr().String() }
+func (peer *Peer) Addr() string { return peer.Server.Addr().String() }
+
+// PrivateAddr returns the private address.
+func (peer *Peer) PrivateAddr() string { return peer.Server.PrivateAddr().String() }

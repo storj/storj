@@ -90,8 +90,13 @@ func TestPeerDiscovery(t *testing.T) {
 	defer targetServer.GracefulStop()
 
 	bootstrapNodes := []pb.Node{{Id: bootID.ID, Address: &pb.NodeAddress{Address: bootAddress}}}
-	k, err := newKademlia(zaptest.NewLogger(t), bootstrapNodes, testAddress, testID, ctx.Dir("test"), defaultAlpha)
+	metadata := &pb.NodeMetadata{
+		Wallet: "OperatorWallet",
+	}
+	k, err := newKademlia(zaptest.NewLogger(t), bootstrapNodes, testAddress, metadata, testID, ctx.Dir("test"), defaultAlpha)
 	assert.NoError(t, err)
+	rt := k.routingTable
+	assert.Equal(t, rt.Local().Metadata.Wallet, "OperatorWallet")
 
 	defer ctx.Check(k.Close)
 
@@ -158,7 +163,8 @@ func testNode(ctx *testcontext.Context, name string, t *testing.T, bn []pb.Node)
 	logger := zaptest.NewLogger(t)
 	k, err := newKademlia(logger, bn, lis.Addr().String(), fid, ctx.Dir(name), defaultAlpha)
 	assert.NoError(t, err)
-	s := NewEndpoint(logger, k, k.routingTable)
+
+	s := NewEndpoint(logger, k, k.routingTable, 60*time.Second)
 	// new ident opts
 
 	serverOptions, err := tlsopts.NewOptions(fid, tlsopts.Config{})
@@ -428,5 +434,15 @@ func newKademlia(log *zap.Logger, bootstrapNodes []pb.Node, address string, iden
 	}
 	transportClient := transport.NewClient(tlsOptions, rt)
 
-	return NewService(log, self, bootstrapNodes, transportClient, alpha, rt)
+	kadConfig := Config{
+		Alpha: alpha,
+	}
+
+	kad, err := NewService(log, self, transportClient, rt, kadConfig)
+	if err != nil {
+		return nil, err
+	}
+	kad.bootstrapNodes = bootstrapNodes
+
+	return kad, nil
 }

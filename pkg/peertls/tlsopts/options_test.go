@@ -13,8 +13,11 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/transport"
 )
 
 func TestNewOptions(t *testing.T) {
@@ -33,14 +36,15 @@ func TestNewOptions(t *testing.T) {
 	assert.NoError(t, err)
 
 	cases := []struct {
-		testID      string
-		config      tlsopts.Config
-		pcvFuncsLen int
+		testID                     string
+		config                     tlsopts.Config
+		clientVerificationFuncsLen int
+		serverVerificationFuncsLen int
 	}{
 		{
 			"default",
 			tlsopts.Config{},
-			0,
+			0, 0,
 		}, {
 			"revocation processing",
 			tlsopts.Config{
@@ -49,14 +53,14 @@ func TestNewOptions(t *testing.T) {
 					Revocation: true,
 				},
 			},
-			2,
+			2, 2,
 		}, {
 			"ca whitelist verification",
 			tlsopts.Config{
 				PeerCAWhitelistPath: whitelistPath,
 				UsePeerCAWhitelist:  true,
 			},
-			1,
+			1, 0,
 		}, {
 			"ca whitelist verification and whitelist signed leaf verification",
 			tlsopts.Config{
@@ -67,7 +71,7 @@ func TestNewOptions(t *testing.T) {
 					WhitelistSignedLeaf: true,
 				},
 			},
-			2,
+			2, 1,
 		}, {
 			"revocation processing and whitelist verification",
 			tlsopts.Config{
@@ -79,7 +83,7 @@ func TestNewOptions(t *testing.T) {
 					Revocation: true,
 				},
 			},
-			3,
+			3, 2,
 		}, {
 			"revocation processing, whitelist, and signed leaf verification",
 			tlsopts.Config{
@@ -92,7 +96,7 @@ func TestNewOptions(t *testing.T) {
 					WhitelistSignedLeaf: true,
 				},
 			},
-			3,
+			3, 2,
 		},
 	}
 
@@ -102,6 +106,70 @@ func TestNewOptions(t *testing.T) {
 		assert.NoError(t, err)
 		assert.True(t, reflect.DeepEqual(fi, opts.Ident))
 		assert.Equal(t, c.config, opts.Config)
-		assert.Len(t, opts.PCVFuncs, c.pcvFuncsLen)
+		assert.Len(t, opts.VerificationFuncs.Client(), c.clientVerificationFuncsLen)
+		assert.Len(t, opts.VerificationFuncs.Server(), c.serverVerificationFuncsLen)
 	}
+}
+
+type identFunc func(int) (*identity.FullIdentity, error)
+
+func TestOptions_ServerOption_Peer_CA_Whitelist(t *testing.T) {
+	ctx := testcontext.New(t)
+
+	planet, err := testplanet.New(t, 0, 2, 0)
+	require.NoError(t, err)
+
+	planet.Start(ctx)
+	defer ctx.Check(planet.Shutdown)
+
+	target := planet.StorageNodes[1].Local()
+
+	testCases := []struct {
+		name   string
+		identF identFunc
+	}{
+		{"unsigned client identity", testplanet.PregeneratedIdentity},
+		{"signed client identity", testplanet.PregeneratedSignedIdentity},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			ident, err := testCase.identF(0)
+			require.NoError(t, err)
+
+			opts, err := tlsopts.NewOptions(ident, tlsopts.Config{})
+			require.NoError(t, err)
+
+			dialOption, err := opts.DialOption(target.Id)
+			require.NoError(t, err)
+
+			transportClient := transport.NewClient(opts)
+
+			conn, err := transportClient.DialNode(ctx, &target, dialOption)
+			assert.NotNil(t, conn)
+			assert.NoError(t, err)
+		})
+	}
+}
+
+func TestOptions_DialOption_error_on_empty_ID(t *testing.T) {
+	ident, err := testplanet.PregeneratedIdentity(0)
+	require.NoError(t, err)
+
+	opts, err := tlsopts.NewOptions(ident, tlsopts.Config{})
+	require.NoError(t, err)
+
+	dialOption, err := opts.DialOption(storj.NodeID{})
+	assert.Nil(t, dialOption)
+	assert.Error(t, err)
+}
+
+func TestOptions_DialUnverifiedIDOption(t *testing.T) {
+	ident, err := testplanet.PregeneratedIdentity(0)
+	require.NoError(t, err)
+
+	opts, err := tlsopts.NewOptions(ident, tlsopts.Config{})
+	require.NoError(t, err)
+
+	dialOption := opts.DialUnverifiedIDOption()
+	assert.NotNil(t, dialOption)
 }

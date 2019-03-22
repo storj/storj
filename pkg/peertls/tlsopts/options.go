@@ -23,18 +23,26 @@ var (
 
 // Options holds config, identity, and peer verification function data for use with tls.
 type Options struct {
-	Config   Config
-	Ident    *identity.FullIdentity
-	RevDB    *identity.RevocationDB
-	PCVFuncs []peertls.PeerCertVerificationFunc
-	Cert     *tls.Certificate
+	Config            Config
+	Ident             *identity.FullIdentity
+	RevDB             *identity.RevocationDB
+	VerificationFuncs *VerificationFuncs
+	Cert              *tls.Certificate
+}
+
+// VerificationFuncs keeps track of of client and server peer certificate verification
+// functions for use in tls handshakes.
+type VerificationFuncs struct {
+	client []peertls.PeerCertVerificationFunc
+	server []peertls.PeerCertVerificationFunc
 }
 
 // NewOptions is a constructor for `tls options` given an identity and config
 func NewOptions(i *identity.FullIdentity, c Config) (*Options, error) {
 	opts := &Options{
-		Config: c,
-		Ident:  i,
+		Config:            c,
+		Ident:             i,
+		VerificationFuncs: new(VerificationFuncs),
 	}
 
 	err := opts.configure(c)
@@ -48,7 +56,6 @@ func NewOptions(i *identity.FullIdentity, c Config) (*Options, error) {
 // configure adds peer certificate verification functions and revocation
 // database to the config.
 func (opts *Options) configure(c Config) (err error) {
-	var pcvs []peertls.PeerCertVerificationFunc
 	parseOpts := peertls.ParseExtOptions{}
 
 	if c.UsePeerCAWhitelist {
@@ -64,7 +71,7 @@ func (opts *Options) configure(c Config) (err error) {
 			return Error.Wrap(err)
 		}
 		parseOpts.CAWhitelist = parsed
-		pcvs = append(pcvs, peertls.VerifyCAWhitelist(parsed))
+		opts.VerificationFuncs.ClientAdd(peertls.VerifyCAWhitelist(parsed))
 	}
 
 	if c.Extensions.Revocation {
@@ -72,22 +79,50 @@ func (opts *Options) configure(c Config) (err error) {
 		if err != nil {
 			return err
 		}
-		pcvs = append(pcvs, identity.VerifyUnrevokedChainFunc(opts.RevDB))
+		opts.VerificationFuncs.Add(identity.VerifyUnrevokedChainFunc(opts.RevDB))
 	}
 
 	exts := peertls.ParseExtensions(c.Extensions, parseOpts)
-	pcvs = append(pcvs, exts.VerifyFunc())
+	opts.VerificationFuncs.Add(exts.VerifyFunc())
 
-	// NB: remove nil elements
-	for i, f := range pcvs {
+	opts.Cert, err = peertls.TLSCert(opts.Ident.RawChain(), opts.Ident.Leaf, opts.Ident.Key)
+	return err
+}
+
+// Client returns the client verification functions.
+func (vf *VerificationFuncs) Client() []peertls.PeerCertVerificationFunc {
+	return vf.client
+}
+
+// Server returns the server verification functions.
+func (vf *VerificationFuncs) Server() []peertls.PeerCertVerificationFunc {
+	return vf.server
+}
+
+// Add adds verification functions so the client and server lists.
+func (vf *VerificationFuncs) Add(verificationFuncs ...peertls.PeerCertVerificationFunc) {
+	vf.ClientAdd(verificationFuncs...)
+	vf.ServerAdd(verificationFuncs...)
+}
+
+// ClientAdd adds verification functions so the client list.
+func (vf *VerificationFuncs) ClientAdd(verificationFuncs ...peertls.PeerCertVerificationFunc) {
+	verificationFuncs = removeNils(verificationFuncs)
+	vf.client = append(vf.client, verificationFuncs...)
+}
+
+// ServerAdd adds verification functions so the server list.
+func (vf *VerificationFuncs) ServerAdd(verificationFuncs ...peertls.PeerCertVerificationFunc) {
+	verificationFuncs = removeNils(verificationFuncs)
+	vf.server = append(vf.server, verificationFuncs...)
+}
+
+func removeNils(verificationFuncs []peertls.PeerCertVerificationFunc) []peertls.PeerCertVerificationFunc {
+	for i, f := range verificationFuncs {
 		if f == nil {
-			copy(pcvs[i:], pcvs[i+1:])
-			pcvs = pcvs[:len(pcvs)-1]
+			copy(verificationFuncs[i:], verificationFuncs[i+1:])
+			verificationFuncs = verificationFuncs[:len(verificationFuncs)-1]
 		}
 	}
-
-	opts.PCVFuncs = pcvs
-
-	opts.Cert, err = peertls.TLSCert(opts.Ident.ChainRaw(), opts.Ident.Leaf, opts.Ident.Key)
-	return err
+	return verificationFuncs
 }

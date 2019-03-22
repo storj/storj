@@ -125,7 +125,7 @@ func testDatabase(ctx context.Context, t *testing.T, db satellite.DB) {
 		   For safety we will try it anyway to make sure nothing strange will happen */
 		{
 			reply, err := satellite.BandwidthAgreements(ctxSN2, rbaNode2)
-			assert.True(t, auth.ErrSerial.Has(err))
+			assert.True(t, auth.ErrSerial.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 	}
@@ -157,7 +157,7 @@ func testDatabase(ctx context.Context, t *testing.T, db satellite.DB) {
 			assert.NoError(t, err)
 
 			reply, err := satellite.BandwidthAgreements(ctxSN1, rba)
-			assert.Error(t, err)
+			assert.True(t, auth.ErrExpired.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 
@@ -172,7 +172,7 @@ func testDatabase(ctx context.Context, t *testing.T, db satellite.DB) {
 			assert.NoError(t, err)
 
 			reply, err := satellite.BandwidthAgreements(ctxSN1, rba)
-			assert.Error(t, err)
+			assert.True(t, auth.ErrExpired.Has(err), err.Error())
 			assert.Equal(t, pb.AgreementsSummary_REJECTED, reply.Status)
 		}
 	}
@@ -195,7 +195,7 @@ func testDatabase(ctx context.Context, t *testing.T, db satellite.DB) {
 		// Generate a new keypair for self signing bwagreements
 		manipID, err := testidentity.NewTestIdentity(ctx)
 		assert.NoError(t, err)
-		manipCerts := manipID.ChainRaw()
+		manipCerts := manipID.RawChain()
 		manipPrivKey := manipID.Key
 
 		/* Storage node can't manipulate the bwagreement size (or any other field)
