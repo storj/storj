@@ -30,6 +30,8 @@ func TestSegmentStoreRepair(t *testing.T) {
 		ul := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
 
+		satellite.Repair.Checker.Loop.Stop()
+
 		testData := make([]byte, 1*memory.MiB)
 		_, err := rand.Read(testData)
 		assert.NoError(t, err)
