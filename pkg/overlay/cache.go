@@ -159,15 +159,13 @@ func (cache *Cache) OfflineNodes(ctx context.Context, nodes []storj.NodeID) (off
 	return offline, nil
 }
 
-// FindStorageNodesDefault searches the overlay network for nodes that meet the provided requirements
-func (cache *Cache) FindStorageNodesDefault(ctx context.Context, req FindStorageNodeRequest) (_ []*pb.Node, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	return cache.FindStorageNodes(ctx, req, &cache.preferences)
+// FindStorageNodes searches the overlay network for nodes that meet the provided requirements
+func (cache *Cache) FindStorageNodes(ctx context.Context, req FindStorageNodeRequest) ([]*pb.Node, error) {
+	return cache.FindStorageNodesWithPreferences(ctx, req, &cache.preferences)
 }
 
-// FindStorageNodes searches the overlay network for nodes that meet the provided criteria
-func (cache *Cache) FindStorageNodes(ctx context.Context, req FindStorageNodeRequest, preferences *NodeSelectionConfig) (_ []*pb.Node, err error) {
+// FindStorageNodesWithPreferences searches the overlay network for nodes that meet the provided criteria
+func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req FindStorageNodeRequest, preferences *NodeSelectionConfig) (_ []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO: verify logic

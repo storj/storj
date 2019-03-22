@@ -110,7 +110,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 		FreeDisk:       pieceSize,
 		ExcludedNodes:  excludeNodeIDs,
 	}
-	newNodes, err := repairer.cache.FindStorageNodesDefault(ctx, request)
+	newNodes, err := repairer.cache.FindStorageNodes(ctx, request)
 	if err != nil {
 		return Error.Wrap(err)
 	}

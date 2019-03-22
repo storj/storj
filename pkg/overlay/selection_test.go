@@ -180,7 +180,7 @@ func TestNodeSelection(t *testing.T) {
 				excludedNodes = append(excludedNodes, storageNode.ID())
 			}
 
-			response, err := service.FindStorageNodes(ctx, overlay.FindStorageNodeRequest{
+			response, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodeRequest{
 				FreeBandwidth:  0,
 				FreeDisk:       0,
 				RequestedCount: tt.RequestCount,

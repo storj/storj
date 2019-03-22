@@ -139,7 +139,7 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 		FreeBandwidth:  maxPieceSize,
 		FreeDisk:       maxPieceSize,
 	}
-	nodes, err := endpoint.cache.FindStorageNodesDefault(ctx, request)
+	nodes, err := endpoint.cache.FindStorageNodes(ctx, request)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
