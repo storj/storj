@@ -377,7 +377,7 @@ read limitoffset (
     orderby desc bucket_usage.rollup_end_time
 )
 
-//--- used serials ---//
+//--- tracking serial numbers ---//
 
 model serial_number (
 	key    id
