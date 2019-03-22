@@ -24,14 +24,14 @@ import (
 // receive data back from a storage node.
 func TestGetShareTimeout(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
 		err := planet.Satellites[0].Audit.Service.Close()
 		assert.NoError(t, err)
 
 		uplink := planet.Uplinks[0]
-		testData := make([]byte, 5*memory.MiB)
+		testData := make([]byte, 1*memory.MiB)
 		_, err = rand.Read(testData)
 		assert.NoError(t, err)
 
