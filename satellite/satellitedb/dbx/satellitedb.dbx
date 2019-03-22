@@ -377,6 +377,102 @@ read limitoffset (
     orderby desc bucket_usage.rollup_end_time
 )
 
+//--- tracking serial numbers ---//
+
+model serial_number (
+	key    id
+	unique serial_number
+
+	field id            serial
+	field serial_number blob
+
+	field bucket_id     blob
+	field expires_at    utimestamp
+
+	index (
+		fields expires_at
+	)
+)
+
+model used_serial (
+	key    serial_number_id
+	unique serial_number_id storage_node_id 
+
+	field serial_number_id serial_number.id cascade
+	field storage_node_id  blob
+)
+
+// inserting a new serial number
+create serial_number ()
+
+// finding out information about the serial number
+read scalar (
+	select serial_number
+	where  serial_number.serial_number = ?
+)
+
+// deleting expired serial numbers
+delete serial_number (
+	where serial_number.expires_at <= ?
+)
+
+// for preventing duplicate serial numbers
+create used_serial ()
+
+// --- bucket roll up tables --- //
+
+model bucket_bandwidth_rollup (
+	key    bucket_id
+	unique bucket_id interval_start interval_seconds action
+
+	field bucket_id        blob
+	field interval_start   utimestamp
+	field interval_seconds uint
+	field action           uint
+
+	field inline    uint64
+	field allocated uint64
+	field settled   uint64
+)
+
+model bucket_storage_rollup (
+	key    bucket_id
+	unique bucket_id interval_start interval_seconds
+
+	field bucket_id        blob
+	field interval_start   utimestamp
+	field interval_seconds uint
+
+	field inline uint64
+	field remote uint64
+)
+
+// --- storage node roll up tables --- //
+
+model storagenode_bandwidth_rollup (
+	key    storagenode_id
+	unique storagenode_id interval_start interval_seconds action
+
+	field storagenode_id   blob
+	field interval_start   utimestamp
+	field interval_seconds uint
+	field action           uint
+
+	field allocated uint64
+	field settled   uint64
+)
+
+model storagenode_storage_rollup (
+	key    storagenode_id
+	unique storagenode_id interval_start interval_seconds
+
+	field storagenode_id   blob
+	field interval_start   utimestamp
+	field interval_seconds uint
+
+	field total            uint64
+)
+
 //--- certRecord ---//
 
 model certRecord (
