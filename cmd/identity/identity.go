@@ -101,7 +101,7 @@ func cmdLeafExtensions(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	return printExtensions(ident.Leaf.Raw, ident.Leaf.ExtraExtensions)
+	return printExtensions(ident.Leaf.Raw, ident.Leaf.Extensions)
 }
 
 func cmdRevokeLeaf(cmd *cobra.Command, args []string) (err error) {

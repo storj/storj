@@ -370,13 +370,6 @@ func (ca *FullCertificateAuthority) NewIdentity() (*FullIdentity, error) {
 		return nil, err
 	}
 
-	if ca.RestChain != nil && len(ca.RestChain) > 0 {
-		err := extensions.AddSignedCert(ca.Key, leafCert)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	return &FullIdentity{
 		RestChain: ca.RestChain,
 		CA:        ca.Cert,

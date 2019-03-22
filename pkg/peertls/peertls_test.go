@@ -202,47 +202,6 @@ func TestAddExtension(t *testing.T) {
 	assert.Equal(t, ext, cert.ExtraExtensions[0])
 }
 
-func TestAddSignedCertExt(t *testing.T) {
-	// TODO: remove?
-	keys, chain, err := testpeertls.NewCertChain(1)
-	if !assert.NoError(t, err) {
-		t.FailNow()
-	}
-
-	err = extensions.AddSignedCert(keys[0], chain[0])
-	assert.NoError(t, err)
-
-	assert.Len(t, chain[0].ExtraExtensions, 1)
-	assert.True(t, extensions.SignedCertExtID.Equal(chain[0].ExtraExtensions[0].Id))
-
-	err = pkcrypto.HashAndVerifySignature(
-		pkcrypto.PublicKeyFromPrivate(keys[0]),
-		chain[0].RawTBSCertificate,
-		chain[0].ExtraExtensions[0].Value,
-	)
-	assert.NoError(t, err)
-}
-
-func TestSignLeafExt(t *testing.T) {
-	keys, chain, err := testpeertls.NewCertChain(2)
-	if !assert.NoError(t, err) {
-		t.FailNow()
-	}
-	caKey, leafCert := keys[0], chain[0]
-
-	err = extensions.AddSignedCert(caKey, leafCert)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, len(leafCert.ExtraExtensions))
-	assert.True(t, extensions.SignedCertExtID.Equal(leafCert.ExtraExtensions[0].Id))
-
-	err = pkcrypto.HashAndVerifySignature(
-		pkcrypto.PublicKeyFromPrivate(caKey),
-		leafCert.RawTBSCertificate,
-		leafCert.ExtraExtensions[0].Value,
-	)
-	assert.NoError(t, err)
-}
-
 func TestRevocation_Sign(t *testing.T) {
 	keys, chain, err := testpeertls.NewCertChain(2)
 	assert.NoError(t, err)
