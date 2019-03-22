@@ -224,8 +224,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 				"--server.address", process.Address,
 
-				"--client.overlay-addr", satellite.Address,
-				"--client.pointer-db-addr", satellite.Address,
+				"--satellite-addr", satellite.Address,
 
 				"--rs.min-threshold", strconv.Itoa(1 * flags.StorageNodeCount / 5),
 				"--rs.repair-threshold", strconv.Itoa(2 * flags.StorageNodeCount / 5),
@@ -255,7 +254,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			// check if gateway config has an api key, if it's not
 			// create example project with key and add it to the config
 			// so that gateway can have access to the satellite
-			apiKey := vip.GetString("client.api-key")
+			apiKey := vip.GetString("api-key")
 			if apiKey == "" {
 				var consoleAddress string
 				satelliteConfigErr := readConfigString(&consoleAddress, satellite.Directory, "console.address")
@@ -275,7 +274,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 					return err
 				}
 
-				vip.Set("client.api-key", apiKey)
+				vip.Set("api-key", apiKey)
 
 				if err := vip.WriteConfig(); err != nil {
 					return err
@@ -321,6 +320,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 				"--server.extensions.revocation=false",
 				"--server.use-peer-ca-whitelist=false",
+				"--storage.satellite-id-restriction=false",
 			},
 			"run": {},
 		})
