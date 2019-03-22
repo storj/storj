@@ -217,14 +217,13 @@ func printExtensions(cert []byte, exts []pkix.Extension) error {
 	fmt.Println("Extensions:")
 	for _, e := range exts {
 		var data interface{}
-		switch e.Id.String() {
-		case extensions.RevocationExtID.String():
+		if e.Id.Equal(extensions.RevocationExtID) {
 			var rev extensions.Revocation
 			if err := rev.Unmarshal(e.Value); err != nil {
 				return err
 			}
 			data = rev
-		default:
+		} else {
 			data = e.Value
 		}
 		out, err := json.MarshalIndent(data, "", "  ")
