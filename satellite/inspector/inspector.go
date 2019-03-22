@@ -46,6 +46,14 @@ func (endpoint *Endpoint) ObjectStat(ctx context.Context, in *pb.ObjectHealthReq
 func (endpoint *Endpoint) SegmentStat(ctx context.Context, in *pb.SegmentHealthRequest) (resp *pb.SegmentHealthResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	resp = &pb.SegmentHealthResponse{
+		OnlineNodes:      0,
+		MinimumRequired:  0,
+		Total:            0,
+		SuccessThreshold: 0,
+		RepairThreshold:  0,
+	}
+
 	// get pointer info
 	pointer, err := endpoint.pointerdb.Get(string(in.GetEncryptedPath()))
 	if err != nil {
@@ -77,12 +85,12 @@ func (endpoint *Endpoint) SegmentStat(ctx context.Context, in *pb.SegmentHealthR
 		}
 	}
 
-	neededForRepair := resp.OnlineNodes - int32(redundancy.RepairThreshold())
+	neededForRepair := resp.GetOnlineNodes() - int32(redundancy.RepairThreshold())
 	if neededForRepair < 0 {
 		neededForRepair = int32(0)
 	}
 
-	neededForSuccess := resp.OnlineNodes - int32(redundancy.OptimalThreshold())
+	neededForSuccess := resp.GetOnlineNodes() - int32(redundancy.OptimalThreshold())
 	if neededForSuccess < 0 {
 		neededForSuccess = int32(0)
 	}

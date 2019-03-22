@@ -5,6 +5,8 @@ package inspector_test
 
 import (
 	"crypto/rand"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -34,7 +36,9 @@ func TestInspectorStats(t *testing.T) {
 	_, err = rand.Read(testData)
 	assert.NoError(t, err)
 
-	err = uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+	bucket := "testbucket"
+
+	err = uplink.Upload(ctx, planet.Satellites[0], bucket, "test/path", testData)
 	assert.NoError(t, err)
 
 	log := zaptest.NewLogger(t)
@@ -43,10 +47,14 @@ func TestInspectorStats(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Get path of random segment we just uploaded and check the health
-	_ = planet.Satellites[0].Metainfo.Database.Iterate(storage.IterateOptions{},
+	_ = planet.Satellites[0].Metainfo.Database.Iterate(storage.IterateOptions{Recurse: true, Reverse: false},
 		func(it storage.Iterator) error {
 			var item storage.ListItem
-			it.Next(&item)
+			for it.Next(&item) {
+				if strings.Contains(string(item.Key), fmt.Sprintf("%s/", bucket)) {
+					break
+				}
+			}
 
 			req := &pb.SegmentHealthRequest{
 				EncryptedPath: []byte(item.Key.String()),
@@ -55,7 +63,11 @@ func TestInspectorStats(t *testing.T) {
 			resp, err := health.SegmentStat(ctx, req)
 			assert.NoError(t, err)
 
-			assert.Equal(t, resp.GetOnlineNodes(), int32(10))
+			assert.Equal(t, int32(0), resp.GetSuccessThreshold())
+			assert.Equal(t, int32(1), resp.GetMinimumRequired())
+			assert.Equal(t, int32(4), resp.GetTotal())
+			assert.Equal(t, int32(0), resp.GetRepairThreshold())
+			assert.Equal(t, int32(4), resp.GetOnlineNodes())
 
 			return nil
 		},
