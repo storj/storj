@@ -91,7 +91,7 @@ type NewNodeCriteria struct {
 	Excluded []storj.NodeID
 }
 
-// Cache is used to store overlay data in Redis
+// Cache is used to store and handle node information
 type Cache struct {
 	log         *zap.Logger
 	db          DB
