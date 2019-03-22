@@ -37,36 +37,37 @@ func New(p string) (FPath, error) {
 
 	var u *url.URL
 	var err error
+	// Loops to ensure URL is formatted correctly and does not get malformed during url.Parse()
 	for {
 		u, err = url.Parse(p)
 		if err != nil {
 			return fp, fmt.Errorf("malformed URL: %v, use format sj://bucket/", err)
 		}
-
+		// no scheme means local path
 		if u.Scheme == "" {
 			fp.local = true
 			return fp, nil
 		}
-
+		// not a valid scheme (s3, sj)
 		if _, validScheme := storjScheme[u.Scheme]; !validScheme {
 			return fp, fmt.Errorf("unsupported URL scheme: %s, use format sj://bucket/", u.Scheme)
 		}
-
+		// empty url
 		if u.Host == "" && u.Path == "" {
 			return fp, errors.New("no bucket specified, use format sj://bucket/")
 		}
-
+		// u.host equals the bucket name, if existing url is valid
 		if u.Host != "" {
 			break
 		}
-
-		p = strings.Replace(p, ":///", "://", 1)
+		// remove additional / if url.Parse() corrects from sj:/bucket to sj:///bucket
+		p = strings.Replace(u.String(), ":///", "://", 1)
 	}
-
+	// port was specified but is not necessary/allowed
 	if u.Port() != "" {
 		return fp, errors.New("port in Storj URL is not supported, use format sj://bucket/")
 	}
-
+	// set path information from url
 	fp.bucket = u.Host
 	if u.Path != "" {
 		fp.path = strings.TrimLeft(path.Clean(u.Path), "/")
