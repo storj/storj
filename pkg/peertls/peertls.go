@@ -6,6 +6,7 @@ package peertls // import "storj.io/storj/pkg/peertls"
 import (
 	"bytes"
 	"crypto"
+	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
@@ -143,11 +144,17 @@ func NewCert(publicKey crypto.PublicKey, parentKey crypto.PrivateKey, template, 
 		parent = template
 	}
 
+	// TODO: how to do this better?
+	publicECKey, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, errs.New("unsupported public key type %T", publicKey)
+	}
+
 	cb, err := x509.CreateCertificate(
 		rand.Reader,
 		template,
 		parent,
-		publicKey,
+		publicECKey,
 		parentKey,
 	)
 	if err != nil {

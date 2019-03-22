@@ -35,7 +35,7 @@ func NewCertChain(length int) (keys []crypto.PrivateKey, certs []*x509.Certifica
 		if i == 0 {
 			cert, err = peertls.NewSelfSignedCert(key, template)
 		} else {
-			cert, err = peertls.NewCert(key, keys[i-1], template, certs[i-1:][0])
+			cert, err = peertls.NewCert(pkcrypto.PublicKeyFromPrivate(key), keys[i-1], template, certs[i-1:][0])
 		}
 		if err != nil {
 			return nil, nil, err
