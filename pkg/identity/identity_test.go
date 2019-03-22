@@ -40,7 +40,7 @@ func TestPeerIdentityFromCertChain(t *testing.T) {
 	leafKey, err := pkcrypto.GeneratePrivateKey()
 	assert.NoError(t, err)
 
-	leafCert, err := peertls.NewCert(leafKey, caKey, leafTemplate, caTemplate)
+	leafCert, err := peertls.NewCert(pkcrypto.PublicKeyFromPrivate(leafKey), caKey, leafTemplate, caTemplate)
 	assert.NoError(t, err)
 
 	peerIdent, err := identity.PeerIdentityFromCerts(leafCert, caCert, nil)
@@ -68,7 +68,7 @@ func TestFullIdentityFromPEM(t *testing.T) {
 	leafKey, err := pkcrypto.GeneratePrivateKey()
 	assert.NoError(t, err)
 
-	leafCert, err := peertls.NewCert(leafKey, caKey, leafTemplate, caTemplate)
+	leafCert, err := peertls.NewCert(pkcrypto.PublicKeyFromPrivate(leafKey), caKey, leafTemplate, caTemplate)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, leafCert)
 
