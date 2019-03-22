@@ -10,6 +10,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/overlay"
@@ -40,7 +42,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB, sdb statdb.D
 	_, _ = rand.Read(valid2ID[:])
 	_, _ = rand.Read(missingID[:])
 
-	cache := overlay.NewCache(store, sdb)
+	cache := overlay.NewCache(zaptest.NewLogger(t), store, sdb, overlay.NodeSelectionConfig{})
 
 	{ // Put
 		err := cache.Put(ctx, valid1ID, pb.Node{Id: valid1ID})

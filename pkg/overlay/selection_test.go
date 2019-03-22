@@ -30,7 +30,7 @@ func TestOffline(t *testing.T) {
 		require.NoError(t, err)
 		require.Empty(t, result)
 
-		result, err := service.OfflineNodes(ctx, []storj.NodeID{
+		result, err = service.OfflineNodes(ctx, []storj.NodeID{
 			planet.StorageNodes[0].ID(),
 			planet.StorageNodes[1].ID(),
 			planet.StorageNodes[2].ID(),
@@ -38,7 +38,7 @@ func TestOffline(t *testing.T) {
 		require.NoError(t, err)
 		require.Empty(t, result)
 
-		result, err := service.OfflineNodes(ctx, []storj.NodeID{
+		result, err = service.OfflineNodes(ctx, []storj.NodeID{
 			planet.StorageNodes[0].ID(),
 			storj.NodeID{1, 2, 3, 4},
 			planet.StorageNodes[2].ID(),
@@ -73,7 +73,7 @@ func TestNodeSelection(t *testing.T) {
 		type test struct {
 			Preferences    overlay.NodeSelectionConfig
 			ExcludeCount   int
-			RequestCount   int64
+			RequestCount   int
 			ExpectedCount  int
 			ShouldFailWith *errs.Class
 		}
@@ -180,14 +180,14 @@ func TestNodeSelection(t *testing.T) {
 				excludedNodes = append(excludedNodes, storageNode.ID())
 			}
 
-			response, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodeRequest{
+			response, err := service.FindStorageNodes(ctx, overlay.FindStorageNodeRequest{
 				FreeBandwidth:  0,
 				FreeDisk:       0,
 				RequestedCount: tt.RequestCount,
 				ExcludedNodes:  excludedNodes,
 			}, &tt.Preferences)
 
-			t.Log(len(response.Nodes), err)
+			t.Log(len(response), err)
 			if tt.ShouldFailWith != nil {
 				assert.Error(t, err)
 				assert.True(t, tt.ShouldFailWith.Has(err))
@@ -195,7 +195,7 @@ func TestNodeSelection(t *testing.T) {
 				assert.NoError(t, err)
 			}
 
-			assert.Equal(t, tt.ExpectedCount, len(response.Nodes))
+			assert.Equal(t, tt.ExpectedCount, len(response))
 		}
 	})
 }

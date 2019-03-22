@@ -211,7 +211,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		log.Debug("Starting overlay")
 		config := config.Overlay
 
-		nodeSelectionConfig := &overlay.NodeSelectionConfig{
+		nodeSelectionConfig := overlay.NodeSelectionConfig{
 			UptimeCount:           config.Node.UptimeCount,
 			UptimeRatio:           config.Node.UptimeRatio,
 			AuditSuccessRatio:     config.Node.AuditSuccessRatio,
@@ -220,7 +220,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			NewNodePercentage:     config.Node.NewNodePercentage,
 		}
 
-		peer.Overlay.Service = overlay.NewCache(peer.Log.Named("overlay"), peer.DB.OverlayCache(), peer.DB.StatDB(), *nodeSelectionConfig)
+		peer.Overlay.Service = overlay.NewCache(peer.Log.Named("overlay"), peer.DB.OverlayCache(), peer.DB.StatDB(), nodeSelectionConfig)
 		peer.Transport = peer.Transport.WithObservers(peer.Overlay.Service)
 
 		peer.Overlay.Inspector = overlay.NewInspector(peer.Overlay.Service)
