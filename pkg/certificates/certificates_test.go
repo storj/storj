@@ -736,7 +736,7 @@ func TestNewClient(t *testing.T) {
 
 	tlsOptions, err := tlsopts.NewOptions(ident, tlsopts.Config{})
 	require.NoError(t, err)
-	clientTransport := transport.NewClientWithTimeout(tlsOptions, 20*time.Millisecond)
+	clientTransport := transport.NewClient(tlsOptions)
 
 	t.Run("Basic", func(t *testing.T) {
 		client, err := NewClient(ctx, clientTransport, listener.Addr().String())
