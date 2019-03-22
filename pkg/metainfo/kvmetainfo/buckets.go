@@ -11,7 +11,7 @@ import (
 )
 
 // CreateBucket creates a new bucket with the specified information
-func (db *DB) CreateBucket(ctx context.Context, bucket string, info *storj.Bucket) (bucketInfo storj.Bucket, err error) {
+func (db *Project) CreateBucket(ctx context.Context, bucket string, info *storj.Bucket) (bucketInfo storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if bucket == "" {
@@ -27,7 +27,7 @@ func (db *DB) CreateBucket(ctx context.Context, bucket string, info *storj.Bucke
 }
 
 // DeleteBucket deletes bucket
-func (db *DB) DeleteBucket(ctx context.Context, bucket string) (err error) {
+func (db *Project) DeleteBucket(ctx context.Context, bucket string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if bucket == "" {
@@ -38,7 +38,7 @@ func (db *DB) DeleteBucket(ctx context.Context, bucket string) (err error) {
 }
 
 // GetBucket gets bucket information
-func (db *DB) GetBucket(ctx context.Context, bucket string) (bucketInfo storj.Bucket, err error) {
+func (db *Project) GetBucket(ctx context.Context, bucket string) (bucketInfo storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if bucket == "" {
@@ -54,7 +54,7 @@ func (db *DB) GetBucket(ctx context.Context, bucket string) (bucketInfo storj.Bu
 }
 
 // ListBuckets lists buckets
-func (db *DB) ListBuckets(ctx context.Context, options storj.BucketListOptions) (list storj.BucketList, err error) {
+func (db *Project) ListBuckets(ctx context.Context, options storj.BucketListOptions) (list storj.BucketList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var startAfter, endBefore string
