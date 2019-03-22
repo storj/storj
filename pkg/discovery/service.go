@@ -216,19 +216,6 @@ func (discovery *Discovery) searchGraveyard(ctx context.Context) error {
 	return errors.Err()
 }
 
-// Bootstrap walks the initialized network and populates the cache
-func (discovery *Discovery) bootstrap(ctx context.Context) error {
-	// o := overlay.LoadFromContext(ctx)
-	// kad := kademlia.LoadFromContext(ctx)
-	// TODO(coyle): make Bootstrap work
-	// look in our routing table
-	// get every node we know about
-	// ask every node for every node they know about
-	// for each newly known node, ask those nodes for every node they know about
-	// continue until no new nodes are found
-	return nil
-}
-
 // Discovery runs lookups for random node ID's to find new nodes in the network
 func (discovery *Discovery) discover(ctx context.Context) error {
 	r, err := randomID()
