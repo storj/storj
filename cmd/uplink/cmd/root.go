@@ -19,10 +19,7 @@ import (
 
 // UplinkFlags configuration flags
 type UplinkFlags struct {
-	Identity      identity.Config
-	APIKey        string `default:"" help:"the api key to use for the satellite" setup:"true"`
-	SatelliteAddr string `default:"localhost:7778" help:"the address to use for the satellite" setup:"true"`
-
+	Identity identity.Config
 	uplink.Config
 }
 
