@@ -49,11 +49,6 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 		return fmt.Errorf("destination must be Storj URL: %s", dst)
 	}
 
-	valid := utils.ValidateURL(dst.String())
-	if !valid {
-		return errs.New("invalid destination url format")
-	}
-
 	var expiration time.Time
 	if *expires != "" {
 		expiration, err = time.Parse(time.RFC3339, *expires)
@@ -148,11 +143,6 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 
 	if !dst.IsLocal() {
 		return fmt.Errorf("destination must be local path: %s", dst)
-	}
-
-	valid := utils.ValidateURL(src.String())
-	if !valid {
-		return errs.New("invalid url format")
 	}
 
 	metainfo, streams, err := cfg.Metainfo(ctx)
