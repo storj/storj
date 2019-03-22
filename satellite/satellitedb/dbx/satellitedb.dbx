@@ -379,15 +379,27 @@ read limitoffset (
 
 //--- used serials ---//
 
+model serial_number {
+	key    id
+	unique serial_number
+
+	field id            serial
+	field serial_number blob
+
+	field bucket_id     blob
+	field expires_at    utimestamp
+
+	index (
+		fields expires_at
+	)
+}
+
 model used_serial {
-	key    serial_number
-	unique serial_number storage_node_id
+	key    serial_number_id
+	unique serial_number_id storage_node_id 
 
-	field serial_number   blob
-	field storage_node_id blob
-
-	field bucket_id  blob
-	field expires_at utimestamp
+	field serial_number_id serial_number.id cascade
+	field storage_node_id  blob
 }
 
 // --- bucket roll up tables --- //
@@ -440,7 +452,8 @@ model storagenode_storage_rollup (
 	field storagenode_id   blob
 	field interval_start   utimestamp
 	field interval_seconds uint32
-	field remote           uint64
+
+	field total            uint64
 )
 
 //--- certRecord ---//
