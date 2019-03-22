@@ -119,26 +119,31 @@ func (cache *Cache) Inspect(ctx context.Context) (storage.Keys, error) {
 }
 
 // List returns a list of nodes from the cache DB
-func (cache *Cache) List(ctx context.Context, cursor storj.NodeID, limit int) ([]*pb.Node, error) {
+func (cache *Cache) List(ctx context.Context, cursor storj.NodeID, limit int) (_ []*pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	return cache.db.List(ctx, cursor, limit)
 }
 
 // Paginate returns a list of `limit` nodes starting from `start` offset.
-func (cache *Cache) Paginate(ctx context.Context, offset int64, limit int) ([]*pb.Node, bool, error) {
+func (cache *Cache) Paginate(ctx context.Context, offset int64, limit int) (_ []*pb.Node, _ bool, err error) {
+	defer mon.Task()(&ctx)(&err)
 	return cache.db.Paginate(ctx, offset, limit)
 }
 
 // Get looks up the provided nodeID from the overlay cache
-func (cache *Cache) Get(ctx context.Context, nodeID storj.NodeID) (*pb.Node, error) {
+func (cache *Cache) Get(ctx context.Context, nodeID storj.NodeID) (_ *pb.Node, err error) {
 	if nodeID.IsZero() {
 		return nil, ErrEmptyNode
 	}
-
+	defer mon.Task()(&ctx)(&err)
 	return cache.db.Get(ctx, nodeID)
 }
 
 // OfflineNodes returns indices of the nodes that are offline
 func (cache *Cache) OfflineNodes(ctx context.Context, nodes []storj.NodeID) (offline []int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	// TODO: optimize
 	results, err := cache.GetAll(ctx, nodes)
 	if err != nil {
@@ -156,11 +161,15 @@ func (cache *Cache) OfflineNodes(ctx context.Context, nodes []storj.NodeID) (off
 
 // FindStorageNodesDefault searches the overlay network for nodes that meet the provided requirements
 func (cache *Cache) FindStorageNodesDefault(ctx context.Context, req FindStorageNodeRequest) (_ []*pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	return cache.FindStorageNodes(ctx, req, &cache.preferences)
 }
 
 // FindStorageNodes searches the overlay network for nodes that meet the provided criteria
-func (cache *Cache) FindStorageNodes(ctx context.Context, req FindStorageNodeRequest, preferences *NodeSelectionConfig) ([]*pb.Node, error) {
+func (cache *Cache) FindStorageNodes(ctx context.Context, req FindStorageNodeRequest, preferences *NodeSelectionConfig) (_ []*pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	// TODO: verify logic
 
 	// TODO: add sanity limits to requested node count
@@ -216,7 +225,9 @@ func (cache *Cache) FindStorageNodes(ctx context.Context, req FindStorageNodeReq
 }
 
 // GetAll looks up the provided ids from the overlay cache
-func (cache *Cache) GetAll(ctx context.Context, ids storj.NodeIDList) ([]*pb.Node, error) {
+func (cache *Cache) GetAll(ctx context.Context, ids storj.NodeIDList) (_ []*pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if len(ids) == 0 {
 		return nil, OverlayError.New("no ids provided")
 	}
@@ -225,7 +236,9 @@ func (cache *Cache) GetAll(ctx context.Context, ids storj.NodeIDList) ([]*pb.Nod
 }
 
 // Put adds a nodeID to the redis cache with a binary representation of proto defined Node
-func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) error {
+func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	// If we get a Node without an ID (i.e. bootstrap node)
 	// we don't want to add to the routing tbale
 	if nodeID.IsZero() {
@@ -255,19 +268,24 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 
 // Delete will remove the node from the cache. Used when a node hard disconnects or fails
 // to pass a PING multiple times.
-func (cache *Cache) Delete(ctx context.Context, id storj.NodeID) error {
+func (cache *Cache) Delete(ctx context.Context, id storj.NodeID) (err error) {
 	if id.IsZero() {
 		return ErrEmptyNode
 	}
+	defer mon.Task()(&ctx)(&err)
+
 	return cache.db.Delete(ctx, id)
 }
 
 // ConnFailure implements the Transport Observer `ConnFailure` function
 func (cache *Cache) ConnFailure(ctx context.Context, node *pb.Node, failureError error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	// TODO: Kademlia paper specifies 5 unsuccessful PINGs before removing the node
 	// from our routing table, but this is the cache so maybe we want to treat
 	// it differently.
-	_, err := cache.statDB.UpdateUptime(ctx, node.Id, false)
+	_, err = cache.statDB.UpdateUptime(ctx, node.Id, false)
 	if err != nil {
 		zap.L().Debug("error updating uptime for node in statDB", zap.Error(err))
 	}
@@ -275,7 +293,10 @@ func (cache *Cache) ConnFailure(ctx context.Context, node *pb.Node, failureError
 
 // ConnSuccess implements the Transport Observer `ConnSuccess` function
 func (cache *Cache) ConnSuccess(ctx context.Context, node *pb.Node) {
-	err := cache.Put(ctx, node.Id, *node)
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	err = cache.Put(ctx, node.Id, *node)
 	if err != nil {
 		zap.L().Debug("error updating uptime for node in statDB", zap.Error(err))
 	}
