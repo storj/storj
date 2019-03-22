@@ -131,16 +131,14 @@ func ChainBytes(chain ...*x509.Certificate) ([]byte, error) {
 	return data.Bytes(), err
 }
 
+// NewSelfSignedCert returns a new x509 self-signed certificate using the provided // template and key,
+func NewSelfSignedCert(key crypto.PrivateKey, template *x509.Certificate) (*x509.Certificate, error) {
+	return NewCert(pkcrypto.PublicKeyFromPrivate(key), key, template, template)
+}
+
 // NewCert returns a new x509 certificate using the provided templates and key,
 // signed by the parent cert if provided; otherwise, self-signed.
-func NewCert(key, parentKey crypto.PrivateKey, template, parent *x509.Certificate) (*x509.Certificate, error) {
-	var signingKey crypto.PrivateKey
-	if parentKey != nil {
-		signingKey = parentKey
-	} else {
-		signingKey = key
-	}
-
+func NewCert(publicKey crypto.PublicKey, parentKey crypto.PrivateKey, template, parent *x509.Certificate) (*x509.Certificate, error) {
 	if parent == nil {
 		parent = template
 	}
@@ -149,8 +147,8 @@ func NewCert(key, parentKey crypto.PrivateKey, template, parent *x509.Certificat
 		rand.Reader,
 		template,
 		parent,
-		pkcrypto.PublicKeyFromPrivate(key),
-		signingKey,
+		publicKey,
+		parentKey,
 	)
 	if err != nil {
 		return nil, errs.Wrap(err)
