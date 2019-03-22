@@ -5,10 +5,13 @@ package satellite
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"net/mail"
 	"net/smtp"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -48,6 +51,7 @@ import (
 	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storage"
+	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/storelogger"
 )
 
@@ -62,9 +66,6 @@ type DB interface {
 	CreateSchema(schema string) error
 	// DropSchema drops the schema
 	DropSchema(schema string) error
-
-	// RoutingTable returns kademlia routing table
-	RoutingTable() (kdb, ndb storage.KeyValueStore)
 
 	// BandwidthAgreement returns database for storing bandwidth agreements
 	BandwidthAgreement() bwagreement.DB
@@ -252,9 +253,20 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		{ // setup routing table
 			// TODO: clean this up, should be part of database
 			log.Debug("Setting up routing table")
+			bucketIdentifier := peer.ID().String()[:5] // need a way to differentiate between nodes if running more than one simultaneously
+			dbpath := filepath.Join(config.DBPath, fmt.Sprintf("kademlia_%s.db", bucketIdentifier))
 
-			kdb, ndb := peer.DB.RoutingTable()
-			peer.Kademlia.RoutingTable, err = kademlia.NewRoutingTable(peer.Log.Named("routing"), self, kdb, ndb, &config.RoutingTableConfig)
+			if err := os.MkdirAll(config.DBPath, 0777); err != nil && !os.IsExist(err) {
+				return nil, err
+			}
+
+			dbs, err := boltdb.NewShared(dbpath, kademlia.KademliaBucket, kademlia.NodeBucket)
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+			peer.Kademlia.kdb, peer.Kademlia.ndb = dbs[0], dbs[1]
+
+			peer.Kademlia.RoutingTable, err = kademlia.NewRoutingTable(peer.Log.Named("routing"), self, peer.Kademlia.kdb, peer.Kademlia.ndb, &config.RoutingTableConfig)
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
 			}

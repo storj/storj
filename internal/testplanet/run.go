@@ -40,7 +40,7 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 			planetConfig.Reconfigure.NewBootstrapDB = nil
 			planetConfig.Reconfigure.NewSatelliteDB = func(log *zap.Logger, index int) (satellite.DB, error) {
 				schema := strings.ToLower(t.Name() + "-satellite/" + strconv.Itoa(index) + "-" + schemaSuffix)
-				db, err := satellitedb.New(log, pgutil.ConnstrWithSchema(satelliteDB.URL, schema), ":inmemory:")
+				db, err := satellitedb.New(log, pgutil.ConnstrWithSchema(satelliteDB.URL, schema))
 				if err != nil {
 					t.Fatal(err)
 				}

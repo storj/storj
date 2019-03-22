@@ -20,7 +20,7 @@ type cacheConfig struct {
 }
 
 func (c cacheConfig) open(ctx context.Context) (cache *overlay.Cache, dbClose func(), err error) {
-	database, err := satellitedb.New(zap.L().Named("db"), c.Database, ":inmemory:")
+	database, err := satellitedb.New(zap.L().Named("db"), c.Database)
 	if err != nil {
 		return nil, nil, errs.New("error connecting to database: %+v", err)
 	}

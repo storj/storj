@@ -109,7 +109,7 @@ func TestMigratePostgres(t *testing.T) {
 			connstr := pgutil.ConnstrWithSchema(*satellitedbtest.TestPostgres, schemaName)
 
 			// create a new satellitedb connection
-			db, err := satellitedb.New(log, connstr, ":inmemory:")
+			db, err := satellitedb.New(log, connstr)
 			require.NoError(t, err)
 			defer func() { require.NoError(t, db.Close()) }()
 

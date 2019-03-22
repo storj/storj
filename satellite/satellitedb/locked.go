@@ -24,7 +24,6 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/storage"
 )
 
 // locked implements a locking wrapper around satellite.DB.
@@ -642,13 +641,6 @@ func (m *lockedRepairQueue) Peekqueue(ctx context.Context, limit int) ([]pb.Inju
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Peekqueue(ctx, limit)
-}
-
-// RoutingTable returns kademlia routing table
-func (m *locked) RoutingTable() (kdb storage.KeyValueStore, ndb storage.KeyValueStore) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.RoutingTable()
 }
 
 // StatDB returns database for storing node statistics

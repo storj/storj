@@ -14,15 +14,11 @@ import (
 	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
-	"storj.io/storj/storage"
-	"storj.io/storj/storage/boltdb"
-	"storj.io/storj/storage/teststore"
 )
 
 var (
@@ -37,12 +33,10 @@ type DB struct {
 	log    *zap.Logger
 	db     *dbx.DB
 	driver string
-
-	kdb, ndb storage.KeyValueStore
 }
 
 // New creates instance of database (supports: postgres, sqlite3)
-func New(log *zap.Logger, databaseURL, kademliaPath string) (satellite.DB, error) {
+func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
 	driver, source, err := dbutil.SplitConnstr(databaseURL)
 	if err != nil {
 		return nil, err
@@ -57,18 +51,6 @@ func New(log *zap.Logger, databaseURL, kademliaPath string) (satellite.DB, error
 	}
 
 	core := &DB{log: log, db: db, driver: driver}
-
-	switch kademliaPath {
-	default:
-		dbs, err := boltdb.NewShared(kademliaPath, kademlia.KademliaBucket, kademlia.NodeBucket)
-		if err != nil {
-			return nil, errs.Combine(err, db.Close())
-		}
-		core.kdb, core.ndb = dbs[0], dbs[1]
-	case ":inmemory:":
-		core.ndb, core.kdb = teststore.New(), teststore.New()
-	}
-
 	if driver == "sqlite3" {
 		return newLocked(core), nil
 	}
@@ -77,7 +59,7 @@ func New(log *zap.Logger, databaseURL, kademliaPath string) (satellite.DB, error
 
 // NewInMemory creates instance of Sqlite in memory satellite database
 func NewInMemory(log *zap.Logger) (satellite.DB, error) {
-	return New(log, "sqlite3://file::memory:?mode=memory", ":inmemory:")
+	return New(log, "sqlite3://file::memory:?mode=memory")
 }
 
 // Close is used to close db connection
@@ -105,11 +87,6 @@ func (db *DB) DropSchema(schema string) error {
 		return pgutil.DropSchema(db.db, schema)
 	}
 	return nil
-}
-
-// RoutingTable returns kademlia routing table
-func (db *DB) RoutingTable() (kdb, ndb storage.KeyValueStore) {
-	return db.kdb, db.ndb
 }
 
 // BandwidthAgreement is a getter for bandwidth agreement repository
