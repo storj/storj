@@ -155,7 +155,7 @@ func TestManageableIdentity_AddExtension(t *testing.T) {
 	require.NoError(t, err)
 
 	ident, err := ca.NewIdentity()
-	manIdent := identity.NewManageableIdentity(ident, ca)
+	manIdent := identity.NewManageableIdentity(ident.PeerIdentity(), ca)
 
 	oldLeaf := manIdent.Leaf
 	assert.Len(t, ca.Cert.ExtraExtensions, 0)
@@ -191,7 +191,7 @@ func TestManageableIdentity_Revoke(t *testing.T) {
 	require.NoError(t, err)
 
 	ident, err := ca.NewIdentity()
-	manIdent := identity.NewManageableIdentity(ident, ca)
+	manIdent := identity.NewManageableIdentity(ident.PeerIdentity(), ca)
 
 	oldLeaf := manIdent.Leaf
 	assert.Len(t, ca.Cert.ExtraExtensions, 0)
