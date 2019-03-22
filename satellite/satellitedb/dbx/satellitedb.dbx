@@ -377,6 +377,72 @@ read limitoffset (
     orderby desc bucket_usage.rollup_end_time
 )
 
+//--- used serials ---//
+
+model used_serial {
+	key    serial_number
+	unique serial_number storage_node_id
+
+	field serial_number   blob
+	field storage_node_id blob
+
+	field bucket_id  blob
+	field expires_at utimestamp
+}
+
+// --- bucket roll up tables --- //
+
+model bucket_bandwidth_rollup {
+	key    bucket_id
+	unique bucket_id interval_start interval_seconds action
+
+	field bucket_id        blob
+	field interval_start   utimestamp
+	field interval_seconds uint32
+	field action           byte
+
+	field inline    uint64
+	field allocated uint64
+	field settled   uint64
+}
+
+model bucket_storage_rollup (
+	key    bucket_id
+	unique bucket_id interval_start interval_seconds
+
+	field bucket_id        blob
+	field interval_start   utimestamp
+	field interval_seconds uint32
+
+	field inline uint64
+	field remote uint64
+)
+
+// --- storage node roll up tables --- //
+
+model storagenode_bandwidth_rollup {
+	key    storagenode_id
+	unique storagenode_id interval_start interval_seconds action
+
+	field storagenode_id   blob
+	field interval_start   utimestamp
+	field interval_seconds uint32
+	field action           byte
+
+	field allocated uint64
+	field settled   uint64
+}
+
+model storagenode_storage_rollup (
+	key    bucket_id
+	unique bucket_id interval_start interval_seconds
+
+	field bucket_id        blob
+	field interval_start   utimestamp
+	field interval_seconds uint32
+	field remote           uint64
+)
+
 //--- certRecord ---//
 
 model certRecord (
