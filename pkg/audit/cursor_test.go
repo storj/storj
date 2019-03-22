@@ -15,12 +15,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storj"
 )
@@ -38,7 +38,7 @@ func TestAuditSegment(t *testing.T) {
 		// change limit in library to 5 in
 		// list api call, default is  0 == 1000 listing
 		//populate pointerdb with 10 non-expired pointers of test data
-		tests, cursor, pointerdb := populateTestData(t, planet, &timestamp.Timestamp{Seconds:time.Now().Unix()+3000})
+		tests, cursor, pointerdb := populateTestData(t, planet, &timestamp.Timestamp{Seconds: time.Now().Unix() + 3000})
 
 		t.Run("NextStripe", func(t *testing.T) {
 			for _, tt := range tests {
@@ -125,7 +125,7 @@ func makePutRequest(path storj.Path, expiration *timestamp.Timestamp) pb.PutRequ
 		Path: path,
 		Pointer: &pb.Pointer{
 			ExpirationDate: expiration,
-			Type: pb.Pointer_REMOTE,
+			Type:           pb.Pointer_REMOTE,
 			Remote: &pb.RemoteSegment{
 				Redundancy: &pb.RedundancyScheme{
 					Type:             pb.RedundancyScheme_RS,
@@ -171,24 +171,23 @@ func TestDeleteExpired(t *testing.T) {
 	})
 }
 
-
 type testData struct {
 	bm   string
 	path storj.Path
 }
 
-func populateTestData(t *testing.T, planet *testplanet.Planet, expiration *timestamp.Timestamp) ([]testData, *audit.Cursor, *pointerdb.Service){
+func populateTestData(t *testing.T, planet *testplanet.Planet, expiration *timestamp.Timestamp) ([]testData, *audit.Cursor, *pointerdb.Service) {
 	tests := []testData{
-		{ bm:   "success-1", path: "folder1/file1" },
-		{ bm:   "success-2", path: "foodFolder1/file1/file2" },
-		{ bm:   "success-3", path: "foodFolder1/file1/file2/foodFolder2/file3" },
-		{ bm:   "success-4", path: "projectFolder/project1.txt/" },
-		{ bm:   "success-5", path: "newProjectFolder/project2.txt" },
-		{ bm:   "success-6", path: "Pictures/image1.png" },
-		{ bm:   "success-7", path: "Pictures/Nature/mountains.png" },
-		{ bm:   "success-8", path: "Pictures/City/streets.png" },
-		{ bm:   "success-9", path: "Pictures/Animals/Dogs/dogs.png" },
-		{ bm:   "success-10", path: "Nada/ビデオ/😶" },
+		{bm: "success-1", path: "folder1/file1"},
+		{bm: "success-2", path: "foodFolder1/file1/file2"},
+		{bm: "success-3", path: "foodFolder1/file1/file2/foodFolder2/file3"},
+		{bm: "success-4", path: "projectFolder/project1.txt/"},
+		{bm: "success-5", path: "newProjectFolder/project2.txt"},
+		{bm: "success-6", path: "Pictures/image1.png"},
+		{bm: "success-7", path: "Pictures/Nature/mountains.png"},
+		{bm: "success-8", path: "Pictures/City/streets.png"},
+		{bm: "success-9", path: "Pictures/Animals/Dogs/dogs.png"},
+		{bm: "success-10", path: "Nada/ビデオ/😶"},
 	}
 	pointerdb := planet.Satellites[0].Metainfo.Service
 	allocation := planet.Satellites[0].Metainfo.Allocation
