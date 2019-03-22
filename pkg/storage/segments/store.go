@@ -7,22 +7,21 @@ import (
 	"context"
 	"io"
 	"math/rand"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
-	"github.com/vivint/infectious"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/eestream"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/piecestore/psclient"
-	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/ranger"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/uplink/metainfo"
 )
 
 var (
@@ -54,21 +53,21 @@ type Store interface {
 }
 
 type segmentStore struct {
-	oc            overlay.Client
-	ec            ecclient.Client
-	pdb           pdbclient.Client
-	rs            eestream.RedundancyStrategy
-	thresholdSize int
+	metainfo                metainfo.Client
+	ec                      ecclient.Client
+	rs                      eestream.RedundancyStrategy
+	thresholdSize           int
+	maxEncryptedSegmentSize int64
 }
 
 // NewSegmentStore creates a new instance of segmentStore
-func NewSegmentStore(oc overlay.Client, ec ecclient.Client, pdb pdbclient.Client, rs eestream.RedundancyStrategy, threshold int) Store {
+func NewSegmentStore(metainfo metainfo.Client, ec ecclient.Client, rs eestream.RedundancyStrategy, threshold int, maxEncryptedSegmentSize int64) Store {
 	return &segmentStore{
-		oc:            oc,
-		ec:            ec,
-		pdb:           pdb,
-		rs:            rs,
-		thresholdSize: threshold,
+		metainfo:                metainfo,
+		ec:                      ec,
+		rs:                      rs,
+		thresholdSize:           threshold,
+		maxEncryptedSegmentSize: maxEncryptedSegmentSize,
 	}
 }
 
@@ -76,21 +75,38 @@ func NewSegmentStore(oc overlay.Client, ec ecclient.Client, pdb pdbclient.Client
 func (s *segmentStore) Meta(ctx context.Context, path storj.Path) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pr, _, _, err := s.pdb.Get(ctx, path)
+	bucket, objectPath, segmentIndex, err := split(path)
+	if err != nil {
+		return Meta{}, err
+	}
+
+	pointer, err := s.metainfo.SegmentInfo(ctx, bucket, objectPath, segmentIndex)
 	if err != nil {
 		return Meta{}, Error.Wrap(err)
 	}
 
-	return convertMeta(pr), nil
+	return convertMeta(pointer), nil
 }
 
 // Put uploads a segment to an erasure code client
 func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.Time, segmentInfo func() (storj.Path, []byte, error)) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	exp, err := ptypes.TimestampProto(expiration)
-	if err != nil {
-		return Meta{}, Error.Wrap(err)
+	redundancy := &pb.RedundancyScheme{
+		Type:             pb.RedundancyScheme_RS,
+		MinReq:           int32(s.rs.RequiredCount()),
+		Total:            int32(s.rs.TotalCount()),
+		RepairThreshold:  int32(s.rs.RepairThreshold()),
+		SuccessThreshold: int32(s.rs.OptimalThreshold()),
+		ErasureShareSize: int32(s.rs.ErasureShareSize()),
+	}
+
+	var exp *timestamp.Timestamp
+	if !expiration.IsZero() {
+		exp, err = ptypes.TimestampProto(expiration)
+		if err != nil {
+			return Meta{}, Error.Wrap(err)
+		}
 	}
 
 	peekReader := NewPeekThresholdReader(data)
@@ -101,6 +117,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 
 	var path storj.Path
 	var pointer *pb.Pointer
+	var originalLimits []*pb.OrderLimit2
 	if !remoteSized {
 		p, metadata, err := segmentInfo()
 		if err != nil {
@@ -116,33 +133,14 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 			Metadata:       metadata,
 		}
 	} else {
+		limits, rootPieceID, err := s.metainfo.CreateSegment(ctx, "", "", -1, redundancy, s.maxEncryptedSegmentSize, expiration) // bucket, path and segment index are not known at this point
+		if err != nil {
+			return Meta{}, Error.Wrap(err)
+		}
+
 		sizedReader := SizeReader(peekReader)
 
-		// uses overlay client to request a list of nodes according to configured standards
-		nodes, err := s.oc.Choose(ctx,
-			overlay.Options{
-				Amount:    s.rs.TotalCount(),
-				Bandwidth: sizedReader.Size() / int64(s.rs.TotalCount()),
-				Space:     sizedReader.Size() / int64(s.rs.TotalCount()),
-				Excluded:  nil,
-			})
-		if err != nil {
-			return Meta{}, Error.Wrap(err)
-		}
-		for _, v := range nodes {
-			if v != nil {
-				v.Type.DPanicOnInvalid("ss put")
-			}
-		}
-
-		pieceID := psclient.NewPieceID()
-
-		pba, err := s.pdb.PayerBandwidthAllocation(ctx, pb.BandwidthAction_PUT)
-		if err != nil {
-			return Meta{}, Error.Wrap(err)
-		}
-
-		successfulNodes, successfulHashes, err := s.ec.Put(ctx, nodes, s.rs, pieceID, sizedReader, expiration, pba)
+		successfulNodes, successfulHashes, err := s.ec.Put(ctx, limits, s.rs, sizedReader, expiration)
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
@@ -153,83 +151,83 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		}
 		path = p
 
-		pointer, err = makeRemotePointer(successfulNodes, successfulHashes, s.rs, pieceID, sizedReader.Size(), exp, metadata)
+		pointer, err = makeRemotePointer(successfulNodes, successfulHashes, s.rs, rootPieceID, sizedReader.Size(), exp, metadata)
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
+
+		originalLimits = make([]*pb.OrderLimit2, len(limits))
+		for i, addressedLimit := range limits {
+			originalLimits[i] = addressedLimit.GetLimit()
+		}
 	}
 
-	// puts pointer to pointerDB
-	err = s.pdb.Put(ctx, path, pointer)
+	bucket, objectPath, segmentIndex, err := split(path)
+	if err != nil {
+		return Meta{}, err
+	}
+
+	savedPointer, err := s.metainfo.CommitSegment(ctx, bucket, objectPath, segmentIndex, pointer, originalLimits)
 	if err != nil {
 		return Meta{}, Error.Wrap(err)
 	}
 
-	// get the metadata for the newly uploaded segment
-	m, err := s.Meta(ctx, path)
-	if err != nil {
-		return Meta{}, Error.Wrap(err)
-	}
-	return m, nil
+	return convertMeta(savedPointer), nil
 }
 
-// Get retrieves a segment using erasure code, overlay, and pointerdb clients
+// Get requests the satellite to read a segment and downloaded the pieces from the storage nodes
 func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Ranger, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pr, nodes, pba, err := s.pdb.Get(ctx, path)
+	bucket, objectPath, segmentIndex, err := split(path)
+	if err != nil {
+		return nil, Meta{}, err
+	}
+
+	pointer, limits, err := s.metainfo.ReadSegment(ctx, bucket, objectPath, segmentIndex)
 	if err != nil {
 		return nil, Meta{}, Error.Wrap(err)
 	}
 
-	switch pr.GetType() {
+	switch pointer.GetType() {
 	case pb.Pointer_INLINE:
-		rr = ranger.ByteRanger(pr.InlineSegment)
+		return ranger.ByteRanger(pointer.InlineSegment), convertMeta(pointer), nil
 	case pb.Pointer_REMOTE:
-		seg := pr.GetRemote()
-		pid := psclient.PieceID(seg.GetPieceId())
+		needed := CalcNeededNodes(pointer.GetRemote().GetRedundancy())
+		selected := make([]*pb.AddressedOrderLimit, len(limits))
 
-		nodes, err = lookupAndAlignNodes(ctx, s.oc, nodes, seg)
-		if err != nil {
-			return nil, Meta{}, Error.Wrap(err)
-		}
-
-		rs, err := makeRedundancyStrategy(pr.GetRemote().GetRedundancy())
-		if err != nil {
-			return nil, Meta{}, err
-		}
-
-		needed := calcNeededNodes(pr.GetRemote().GetRedundancy())
-		selected := make([]*pb.Node, rs.TotalCount())
-
-		for _, i := range rand.Perm(len(nodes)) {
-			node := nodes[i]
-			if node == nil {
+		for _, i := range rand.Perm(len(limits)) {
+			limit := limits[i]
+			if limit == nil {
 				continue
 			}
 
-			selected[i] = node
+			selected[i] = limit
 
 			needed--
 			if needed <= 0 {
 				break
 			}
-			node.Type.DPanicOnInvalid("ss get")
 		}
 
-		rr, err = s.ec.Get(ctx, selected, rs, pid, pr.GetSegmentSize(), pba)
+		redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
+		if err != nil {
+			return nil, Meta{}, err
+		}
+
+		rr, err = s.ec.Get(ctx, selected, redundancy, pointer.GetSegmentSize())
 		if err != nil {
 			return nil, Meta{}, Error.Wrap(err)
 		}
-	default:
-		return nil, Meta{}, Error.New("unsupported pointer type: %d", pr.GetType())
-	}
 
-	return rr, convertMeta(pr), nil
+		return rr, convertMeta(pointer), nil
+	default:
+		return nil, Meta{}, Error.New("unsupported pointer type: %d", pointer.GetType())
+	}
 }
 
 // makeRemotePointer creates a pointer of type remote
-func makeRemotePointer(nodes []*pb.Node, hashes []*pb.SignedHash, rs eestream.RedundancyStrategy, pieceID psclient.PieceID, readerSize int64, exp *timestamp.Timestamp, metadata []byte) (pointer *pb.Pointer, err error) {
+func makeRemotePointer(nodes []*pb.Node, hashes []*pb.PieceHash, rs eestream.RedundancyStrategy, pieceID storj.PieceID, readerSize int64, exp *timestamp.Timestamp, metadata []byte) (pointer *pb.Pointer, err error) {
 	if len(nodes) != len(hashes) {
 		return nil, Error.New("unable to make pointer: size of nodes != size of hashes")
 	}
@@ -258,7 +256,7 @@ func makeRemotePointer(nodes []*pb.Node, hashes []*pb.SignedHash, rs eestream.Re
 				SuccessThreshold: int32(rs.OptimalThreshold()),
 				ErasureShareSize: int32(rs.ErasureShareSize()),
 			},
-			PieceId:      string(pieceID),
+			RootPieceId:  pieceID,
 			RemotePieces: remotePieces,
 		},
 		SegmentSize:    readerSize,
@@ -268,51 +266,51 @@ func makeRemotePointer(nodes []*pb.Node, hashes []*pb.SignedHash, rs eestream.Re
 	return pointer, nil
 }
 
-// Delete tells piece stores to delete a segment and deletes pointer from pointerdb
+// Delete requests the satellite to delete a segment and tells storage nodes
+// to delete the segment's pieces.
 func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pr, nodes, pba, err := s.pdb.Get(ctx, path)
+	bucket, objectPath, segmentIndex, err := split(path)
+	if err != nil {
+		return err
+	}
+
+	limits, err := s.metainfo.DeleteSegment(ctx, bucket, objectPath, segmentIndex)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	if pr.GetType() == pb.Pointer_REMOTE {
-		seg := pr.GetRemote()
-		pid := psclient.PieceID(seg.PieceId)
-
-		nodes, err = lookupAndAlignNodes(ctx, s.oc, nodes, seg)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-		for _, v := range nodes {
-			if v != nil {
-				v.Type.DPanicOnInvalid("ss delete")
-			}
-		}
-
-		// ecclient sends delete request
-		err = s.ec.Delete(ctx, nodes, pid, pba.SatelliteId)
-		if err != nil {
-			return Error.Wrap(err)
-		}
+	if len(limits) == 0 {
+		// inline segment - nothing else to do
+		return
 	}
 
-	// deletes pointer from pointerdb
-	return s.pdb.Delete(ctx, path)
+	// remote segment - delete the pieces from storage nodes
+	err = s.ec.Delete(ctx, limits)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
 }
 
 // List retrieves paths to segments and their metadata stored in the pointerdb
 func (s *segmentStore) List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pdbItems, more, err := s.pdb.List(ctx, prefix, startAfter, endBefore, recursive, limit, metaFlags)
+	bucket, strippedPrefix, _, err := split(prefix)
 	if err != nil {
-		return nil, false, err
+		return nil, false, Error.Wrap(err)
 	}
 
-	items = make([]ListItem, len(pdbItems))
-	for i, itm := range pdbItems {
+	list, more, err := s.metainfo.ListSegments(ctx, bucket, strippedPrefix, startAfter, endBefore, recursive, int32(limit), metaFlags)
+	if err != nil {
+		return nil, false, Error.Wrap(err)
+	}
+
+	items = make([]ListItem, len(list))
+	for i, itm := range list {
 		items[i] = ListItem{
 			Path:     itm.Path,
 			Meta:     convertMeta(itm.Pointer),
@@ -323,18 +321,9 @@ func (s *segmentStore) List(ctx context.Context, prefix, startAfter, endBefore s
 	return items, more, nil
 }
 
-func makeRedundancyStrategy(scheme *pb.RedundancyScheme) (eestream.RedundancyStrategy, error) {
-	fc, err := infectious.NewFEC(int(scheme.GetMinReq()), int(scheme.GetTotal()))
-	if err != nil {
-		return eestream.RedundancyStrategy{}, Error.Wrap(err)
-	}
-	es := eestream.NewRSScheme(fc, int(scheme.GetErasureShareSize()))
-	return eestream.NewRedundancyStrategy(es, int(scheme.GetRepairThreshold()), int(scheme.GetSuccessThreshold()))
-}
-
-// calcNeededNodes calculate how many minimum nodes are needed for download,
+// CalcNeededNodes calculate how many minimum nodes are needed for download,
 // based on t = k + (n-o)k/o
-func calcNeededNodes(rs *pb.RedundancyScheme) int32 {
+func CalcNeededNodes(rs *pb.RedundancyScheme) int32 {
 	extra := int32(1)
 
 	if rs.GetSuccessThreshold() > 0 {
@@ -352,49 +341,6 @@ func calcNeededNodes(rs *pb.RedundancyScheme) int32 {
 	}
 
 	return needed
-}
-
-// lookupNodes, if necessary, calls Lookup to get node addresses from the overlay.
-// It also realigns the nodes to an indexed list of nodes based on the piece number.
-// Missing pieces are represented by a nil node.
-func lookupAndAlignNodes(ctx context.Context, oc overlay.Client, nodes []*pb.Node, seg *pb.RemoteSegment) (result []*pb.Node, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if nodes == nil {
-		// Get list of all nodes IDs storing a piece from the segment
-		var nodeIds storj.NodeIDList
-		for _, p := range seg.RemotePieces {
-			nodeIds = append(nodeIds, p.NodeId)
-		}
-		// Lookup the node info from node IDs
-		nodes, err = oc.BulkLookup(ctx, nodeIds)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-	}
-	for _, v := range nodes {
-		if v != nil {
-			v.Type.DPanicOnInvalid("lookup and align nodes")
-		}
-	}
-
-	// Realign the nodes
-	result = make([]*pb.Node, seg.GetRedundancy().GetTotal())
-	for i, p := range seg.GetRemotePieces() {
-		result[p.PieceNum] = nodes[i]
-	}
-
-	return result, nil
-}
-
-// contains checks if n exists in list
-func contains(list []int32, n int) bool {
-	for i := range list {
-		if n == int(list[i]) {
-			return true
-		}
-	}
-	return false
 }
 
 // convertMeta converts pointer to segment metadata
@@ -417,4 +363,38 @@ func convertTime(ts *timestamp.Timestamp) time.Time {
 		zap.S().Warnf("Failed converting timestamp %v: %v", ts, err)
 	}
 	return t
+}
+
+func split(path storj.Path) (bucket string, objectPath storj.Path, segmentIndex int64, err error) {
+	components := storj.SplitPath(path)
+	if len(components) < 1 {
+		return "", "", -2, Error.New("empty path")
+	}
+
+	segmentIndex, err = convertSegmentIndex(components[0])
+	if err != nil {
+		return "", "", -2, err
+	}
+
+	if len(components) > 1 {
+		bucket = components[1]
+		objectPath = storj.JoinPaths(components[2:]...)
+	}
+
+	return bucket, objectPath, segmentIndex, nil
+}
+
+func convertSegmentIndex(segmentComp string) (segmentIndex int64, err error) {
+	switch {
+	case segmentComp == "l":
+		return -1, nil
+	case strings.HasPrefix(segmentComp, "s"):
+		num, err := strconv.Atoi(segmentComp[1:])
+		if err != nil {
+			return -2, Error.Wrap(err)
+		}
+		return int64(num), nil
+	default:
+		return -2, Error.New("invalid segment component: %s", segmentComp)
+	}
 }

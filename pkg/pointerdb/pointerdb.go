@@ -16,7 +16,6 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	_ "storj.io/storj/pkg/pointerdb/auth" // ensures that we add api key flag to current executable
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/storage"
@@ -105,16 +104,19 @@ func (s *Server) filterValidPieces(pointer *pb.Pointer) error {
 		var remotePieces []*pb.RemotePiece
 		remote := pointer.Remote
 		for _, piece := range remote.RemotePieces {
-			err := auth.VerifyMsg(piece.Hash, piece.NodeId)
-			if err == nil {
-				// set to nil after verification to avoid storing in DB
-				piece.Hash.SetCerts(nil)
-				piece.Hash.SetSignature(nil)
-				remotePieces = append(remotePieces, piece)
-			} else {
-				// TODO satellite should send Delete request for piece that failed
-				s.logger.Warn("unable to verify piece hash: %v", zap.Error(err))
-			}
+			// TODO enable verification
+
+			// err := auth.VerifyMsg(piece.Hash, piece.NodeId)
+			// if err == nil {
+			// 	// set to nil after verification to avoid storing in DB
+			// 	piece.Hash = nil
+			// 	remotePieces = append(remotePieces, piece)
+			// } else {
+			// 	// TODO satellite should send Delete request for piece that failed
+			// 	s.logger.Warn("unable to verify piece hash: %v", zap.Error(err))
+			// }
+
+			remotePieces = append(remotePieces, piece)
 		}
 
 		if int32(len(remotePieces)) < remote.Redundancy.SuccessThreshold {

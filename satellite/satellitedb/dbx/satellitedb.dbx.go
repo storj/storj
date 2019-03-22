@@ -383,6 +383,14 @@ CREATE TABLE projects (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE registration_tokens (
+	secret bytea NOT NULL,
+	owner_id bytea,
+	project_limit integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( secret ),
+	UNIQUE ( owner_id )
+);
 CREATE TABLE users (
 	id bytea NOT NULL,
 	first_name text NOT NULL,
@@ -582,6 +590,14 @@ CREATE TABLE projects (
 	description TEXT NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
+);
+CREATE TABLE registration_tokens (
+	secret BLOB NOT NULL,
+	owner_id BLOB,
+	project_limit INTEGER NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( secret ),
+	UNIQUE ( owner_id )
 );
 CREATE TABLE users (
 	id BLOB NOT NULL,
@@ -2306,6 +2322,112 @@ func (f Project_CreatedAt_Field) value() interface{} {
 
 func (Project_CreatedAt_Field) _Column() string { return "created_at" }
 
+type RegistrationToken struct {
+	Secret       []byte
+	OwnerId      []byte
+	ProjectLimit int
+	CreatedAt    time.Time
+}
+
+func (RegistrationToken) _Table() string { return "registration_tokens" }
+
+type RegistrationToken_Create_Fields struct {
+	OwnerId RegistrationToken_OwnerId_Field
+}
+
+type RegistrationToken_Update_Fields struct {
+	OwnerId RegistrationToken_OwnerId_Field
+}
+
+type RegistrationToken_Secret_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func RegistrationToken_Secret(v []byte) RegistrationToken_Secret_Field {
+	return RegistrationToken_Secret_Field{_set: true, _value: v}
+}
+
+func (f RegistrationToken_Secret_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (RegistrationToken_Secret_Field) _Column() string { return "secret" }
+
+type RegistrationToken_OwnerId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func RegistrationToken_OwnerId(v []byte) RegistrationToken_OwnerId_Field {
+	return RegistrationToken_OwnerId_Field{_set: true, _value: v}
+}
+
+func RegistrationToken_OwnerId_Raw(v []byte) RegistrationToken_OwnerId_Field {
+	if v == nil {
+		return RegistrationToken_OwnerId_Null()
+	}
+	return RegistrationToken_OwnerId(v)
+}
+
+func RegistrationToken_OwnerId_Null() RegistrationToken_OwnerId_Field {
+	return RegistrationToken_OwnerId_Field{_set: true, _null: true}
+}
+
+func (f RegistrationToken_OwnerId_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f RegistrationToken_OwnerId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (RegistrationToken_OwnerId_Field) _Column() string { return "owner_id" }
+
+type RegistrationToken_ProjectLimit_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func RegistrationToken_ProjectLimit(v int) RegistrationToken_ProjectLimit_Field {
+	return RegistrationToken_ProjectLimit_Field{_set: true, _value: v}
+}
+
+func (f RegistrationToken_ProjectLimit_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (RegistrationToken_ProjectLimit_Field) _Column() string { return "project_limit" }
+
+type RegistrationToken_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func RegistrationToken_CreatedAt(v time.Time) RegistrationToken_CreatedAt_Field {
+	return RegistrationToken_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f RegistrationToken_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (RegistrationToken_CreatedAt_Field) _Column() string { return "created_at" }
+
 type User struct {
 	Id           []byte
 	FirstName    string
@@ -3245,6 +3367,32 @@ func (obj *postgresImpl) Create_CertRecord(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Create_RegistrationToken(ctx context.Context,
+	registration_token_secret RegistrationToken_Secret_Field,
+	registration_token_project_limit RegistrationToken_ProjectLimit_Field,
+	optional RegistrationToken_Create_Fields) (
+	registration_token *RegistrationToken, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__secret_val := registration_token_secret.value()
+	__owner_id_val := optional.OwnerId.value()
+	__project_limit_val := registration_token_project_limit.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO registration_tokens ( secret, owner_id, project_limit, created_at ) VALUES ( ?, ?, ?, ? ) RETURNING registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __secret_val, __owner_id_val, __project_limit_val, __created_at_val)
+
+	registration_token = &RegistrationToken{}
+	err = obj.driver.QueryRow(__stmt, __secret_val, __owner_id_val, __project_limit_val, __created_at_val).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return registration_token, nil
+
+}
+
 func (obj *postgresImpl) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 	irreparabledb *Irreparabledb, err error) {
@@ -3263,6 +3411,41 @@ func (obj *postgresImpl) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return irreparabledb, nil
+
+}
+
+func (obj *postgresImpl) Limited_Irreparabledb_OrderBy_Asc_Segmentpath(ctx context.Context,
+	limit int, offset int64) (
+	rows []*Irreparabledb, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count FROM irreparabledbs ORDER BY irreparabledbs.segmentpath LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		irreparabledb := &Irreparabledb{}
+		err = __rows.Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, irreparabledb)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
 
 }
 
@@ -3444,6 +3627,30 @@ func (obj *postgresImpl) Get_Node_By_Id(ctx context.Context,
 
 	node = &Node{}
 	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return node, nil
+
+}
+
+func (obj *postgresImpl) Find_Node_By_Id(ctx context.Context,
+	node_id Node_Id_Field) (
+	node *Node, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email FROM nodes WHERE nodes.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	node = &Node{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -4021,6 +4228,55 @@ func (obj *postgresImpl) Get_CertRecord_By_Id(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Get_RegistrationToken_By_Secret(ctx context.Context,
+	registration_token_secret RegistrationToken_Secret_Field) (
+	registration_token *RegistrationToken, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at FROM registration_tokens WHERE registration_tokens.secret = ?")
+
+	var __values []interface{}
+	__values = append(__values, registration_token_secret.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	registration_token = &RegistrationToken{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return registration_token, nil
+
+}
+
+func (obj *postgresImpl) Get_RegistrationToken_By_OwnerId(ctx context.Context,
+	registration_token_owner_id RegistrationToken_OwnerId_Field) (
+	registration_token *RegistrationToken, err error) {
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "registration_tokens.owner_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at FROM registration_tokens WHERE "), __cond_0}}
+
+	var __values []interface{}
+	__values = append(__values)
+
+	if !registration_token_owner_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, registration_token_owner_id.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	registration_token = &RegistrationToken{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return registration_token, nil
+
+}
+
 func (obj *postgresImpl) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	update Irreparabledb_Update_Fields) (
@@ -4468,6 +4724,46 @@ func (obj *postgresImpl) Update_CertRecord_By_Id(ctx context.Context,
 	return certRecord, nil
 }
 
+func (obj *postgresImpl) Update_RegistrationToken_By_Secret(ctx context.Context,
+	registration_token_secret RegistrationToken_Secret_Field,
+	update RegistrationToken_Update_Fields) (
+	registration_token *RegistrationToken, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE registration_tokens SET "), __sets, __sqlbundle_Literal(" WHERE registration_tokens.secret = ? RETURNING registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.OwnerId._set {
+		__values = append(__values, update.OwnerId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("owner_id = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, registration_token_secret.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	registration_token = &RegistrationToken{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return registration_token, nil
+}
+
 func (obj *postgresImpl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 	deleted bool, err error) {
@@ -4815,6 +5111,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM users;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM registration_tokens;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -5365,6 +5671,35 @@ func (obj *sqlite3Impl) Create_CertRecord(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Create_RegistrationToken(ctx context.Context,
+	registration_token_secret RegistrationToken_Secret_Field,
+	registration_token_project_limit RegistrationToken_ProjectLimit_Field,
+	optional RegistrationToken_Create_Fields) (
+	registration_token *RegistrationToken, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__secret_val := registration_token_secret.value()
+	__owner_id_val := optional.OwnerId.value()
+	__project_limit_val := registration_token_project_limit.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO registration_tokens ( secret, owner_id, project_limit, created_at ) VALUES ( ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __secret_val, __owner_id_val, __project_limit_val, __created_at_val)
+
+	__res, err := obj.driver.Exec(__stmt, __secret_val, __owner_id_val, __project_limit_val, __created_at_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastRegistrationToken(ctx, __pk)
+
+}
+
 func (obj *sqlite3Impl) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 	irreparabledb *Irreparabledb, err error) {
@@ -5383,6 +5718,41 @@ func (obj *sqlite3Impl) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return irreparabledb, nil
+
+}
+
+func (obj *sqlite3Impl) Limited_Irreparabledb_OrderBy_Asc_Segmentpath(ctx context.Context,
+	limit int, offset int64) (
+	rows []*Irreparabledb, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count FROM irreparabledbs ORDER BY irreparabledbs.segmentpath LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		irreparabledb := &Irreparabledb{}
+		err = __rows.Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, irreparabledb)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
 
 }
 
@@ -5564,6 +5934,30 @@ func (obj *sqlite3Impl) Get_Node_By_Id(ctx context.Context,
 
 	node = &Node{}
 	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return node, nil
+
+}
+
+func (obj *sqlite3Impl) Find_Node_By_Id(ctx context.Context,
+	node_id Node_Id_Field) (
+	node *Node, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email FROM nodes WHERE nodes.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	node = &Node{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -6141,6 +6535,55 @@ func (obj *sqlite3Impl) Get_CertRecord_By_Id(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Get_RegistrationToken_By_Secret(ctx context.Context,
+	registration_token_secret RegistrationToken_Secret_Field) (
+	registration_token *RegistrationToken, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at FROM registration_tokens WHERE registration_tokens.secret = ?")
+
+	var __values []interface{}
+	__values = append(__values, registration_token_secret.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	registration_token = &RegistrationToken{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return registration_token, nil
+
+}
+
+func (obj *sqlite3Impl) Get_RegistrationToken_By_OwnerId(ctx context.Context,
+	registration_token_owner_id RegistrationToken_OwnerId_Field) (
+	registration_token *RegistrationToken, err error) {
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "registration_tokens.owner_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at FROM registration_tokens WHERE "), __cond_0}}
+
+	var __values []interface{}
+	__values = append(__values)
+
+	if !registration_token_owner_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, registration_token_owner_id.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	registration_token = &RegistrationToken{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return registration_token, nil
+
+}
+
 func (obj *sqlite3Impl) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	update Irreparabledb_Update_Fields) (
@@ -6666,6 +7109,56 @@ func (obj *sqlite3Impl) Update_CertRecord_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return certRecord, nil
+}
+
+func (obj *sqlite3Impl) Update_RegistrationToken_By_Secret(ctx context.Context,
+	registration_token_secret RegistrationToken_Secret_Field,
+	update RegistrationToken_Update_Fields) (
+	registration_token *RegistrationToken, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE registration_tokens SET "), __sets, __sqlbundle_Literal(" WHERE registration_tokens.secret = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.OwnerId._set {
+		__values = append(__values, update.OwnerId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("owner_id = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, registration_token_secret.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	registration_token = &RegistrationToken{}
+	_, err = obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at FROM registration_tokens WHERE registration_tokens.secret = ?")
+
+	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
+	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
+
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return registration_token, nil
 }
 
 func (obj *sqlite3Impl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
@@ -7215,6 +7708,24 @@ func (obj *sqlite3Impl) getLastCertRecord(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) getLastRegistrationToken(ctx context.Context,
+	pk int64) (
+	registration_token *RegistrationToken, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at FROM registration_tokens WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	registration_token = &RegistrationToken{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return registration_token, nil
+
+}
+
 func (impl sqlite3Impl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(sqlite3.Error); ok {
@@ -7254,6 +7765,16 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM users;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM registration_tokens;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -7685,6 +8206,19 @@ func (rx *Rx) Create_ProjectMember(ctx context.Context,
 
 }
 
+func (rx *Rx) Create_RegistrationToken(ctx context.Context,
+	registration_token_secret RegistrationToken_Secret_Field,
+	registration_token_project_limit RegistrationToken_ProjectLimit_Field,
+	optional RegistrationToken_Create_Fields) (
+	registration_token *RegistrationToken, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_RegistrationToken(ctx, registration_token_secret, registration_token_project_limit, optional)
+
+}
+
 func (rx *Rx) Create_User(ctx context.Context,
 	user_id User_Id_Field,
 	user_first_name User_FirstName_Field,
@@ -7831,6 +8365,16 @@ func (rx *Rx) Find_AccountingTimestamps_Value_By_Name(ctx context.Context,
 	return tx.Find_AccountingTimestamps_Value_By_Name(ctx, accounting_timestamps_name)
 }
 
+func (rx *Rx) Find_Node_By_Id(ctx context.Context,
+	node_id Node_Id_Field) (
+	node *Node, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Find_Node_By_Id(ctx, node_id)
+}
+
 func (rx *Rx) First_Injuredsegment(ctx context.Context) (
 	injuredsegment *Injuredsegment, err error) {
 	var tx *Tx
@@ -7940,6 +8484,26 @@ func (rx *Rx) Get_Project_By_Id(ctx context.Context,
 	return tx.Get_Project_By_Id(ctx, project_id)
 }
 
+func (rx *Rx) Get_RegistrationToken_By_OwnerId(ctx context.Context,
+	registration_token_owner_id RegistrationToken_OwnerId_Field) (
+	registration_token *RegistrationToken, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_RegistrationToken_By_OwnerId(ctx, registration_token_owner_id)
+}
+
+func (rx *Rx) Get_RegistrationToken_By_Secret(ctx context.Context,
+	registration_token_secret RegistrationToken_Secret_Field) (
+	registration_token *RegistrationToken, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_RegistrationToken_By_Secret(ctx, registration_token_secret)
+}
+
 func (rx *Rx) Get_User_By_Email_And_Status_Not_Number(ctx context.Context,
 	user_email User_Email_Field) (
 	user *User, err error) {
@@ -7994,6 +8558,16 @@ func (rx *Rx) Limited_Injuredsegment(ctx context.Context,
 		return
 	}
 	return tx.Limited_Injuredsegment(ctx, limit, offset)
+}
+
+func (rx *Rx) Limited_Irreparabledb_OrderBy_Asc_Segmentpath(ctx context.Context,
+	limit int, offset int64) (
+	rows []*Irreparabledb, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_Irreparabledb_OrderBy_Asc_Segmentpath(ctx, limit, offset)
 }
 
 func (rx *Rx) Limited_OverlayCacheNode_By_NodeId_GreaterOrEqual(ctx context.Context,
@@ -8093,6 +8667,17 @@ func (rx *Rx) Update_Project_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Update_Project_By_Id(ctx, project_id, update)
+}
+
+func (rx *Rx) Update_RegistrationToken_By_Secret(ctx context.Context,
+	registration_token_secret RegistrationToken_Secret_Field,
+	update RegistrationToken_Update_Fields) (
+	registration_token *RegistrationToken, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_RegistrationToken_By_Secret(ctx, registration_token_secret, update)
 }
 
 func (rx *Rx) Update_User_By_Id(ctx context.Context,
@@ -8240,6 +8825,12 @@ type Methods interface {
 		project_member_project_id ProjectMember_ProjectId_Field) (
 		project_member *ProjectMember, err error)
 
+	Create_RegistrationToken(ctx context.Context,
+		registration_token_secret RegistrationToken_Secret_Field,
+		registration_token_project_limit RegistrationToken_ProjectLimit_Field,
+		optional RegistrationToken_Create_Fields) (
+		registration_token *RegistrationToken, err error)
+
 	Create_User(ctx context.Context,
 		user_id User_Id_Field,
 		user_first_name User_FirstName_Field,
@@ -8301,6 +8892,10 @@ type Methods interface {
 		accounting_timestamps_name AccountingTimestamps_Name_Field) (
 		row *Value_Row, err error)
 
+	Find_Node_By_Id(ctx context.Context,
+		node_id Node_Id_Field) (
+		node *Node, err error)
+
 	First_Injuredsegment(ctx context.Context) (
 		injuredsegment *Injuredsegment, err error)
 
@@ -8344,6 +8939,14 @@ type Methods interface {
 		project_id Project_Id_Field) (
 		project *Project, err error)
 
+	Get_RegistrationToken_By_OwnerId(ctx context.Context,
+		registration_token_owner_id RegistrationToken_OwnerId_Field) (
+		registration_token *RegistrationToken, err error)
+
+	Get_RegistrationToken_By_Secret(ctx context.Context,
+		registration_token_secret RegistrationToken_Secret_Field) (
+		registration_token *RegistrationToken, err error)
+
 	Get_User_By_Email_And_Status_Not_Number(ctx context.Context,
 		user_email User_Email_Field) (
 		user *User, err error)
@@ -8369,6 +8972,10 @@ type Methods interface {
 	Limited_Injuredsegment(ctx context.Context,
 		limit int, offset int64) (
 		rows []*Injuredsegment, err error)
+
+	Limited_Irreparabledb_OrderBy_Asc_Segmentpath(ctx context.Context,
+		limit int, offset int64) (
+		rows []*Irreparabledb, err error)
 
 	Limited_OverlayCacheNode_By_NodeId_GreaterOrEqual(ctx context.Context,
 		overlay_cache_node_node_id_greater_or_equal OverlayCacheNode_NodeId_Field,
@@ -8414,6 +9021,11 @@ type Methods interface {
 		project_id Project_Id_Field,
 		update Project_Update_Fields) (
 		project *Project, err error)
+
+	Update_RegistrationToken_By_Secret(ctx context.Context,
+		registration_token_secret RegistrationToken_Secret_Field,
+		update RegistrationToken_Update_Fields) (
+		registration_token *RegistrationToken, err error)
 
 	Update_User_By_Id(ctx context.Context,
 		user_id User_Id_Field,

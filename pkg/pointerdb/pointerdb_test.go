@@ -26,6 +26,7 @@ import (
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/auth"
+	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/storage/meta"
@@ -108,12 +109,13 @@ func makePointer(ctx context.Context, t *testing.T, numOfValidPieces, numOfInval
 		pieces[i] = &pb.RemotePiece{
 			PieceNum: int32(i),
 			NodeId:   identity.ID,
-			Hash:     &pb.SignedHash{Hash: make([]byte, 32)},
+			Hash:     &pb.PieceHash{Hash: make([]byte, 32)},
 		}
 
 		_, err = rand.Read(pieces[i].Hash.Hash)
 		assert.NoError(t, err)
-		err = auth.SignMessage(pieces[i].Hash, *identity)
+		signer := signing.SignerFromFullIdentity(identity)
+		pieces[i].Hash, err = signing.SignPieceHash(signer, pieces[i].Hash)
 		assert.NoError(t, err)
 	}
 
@@ -124,12 +126,13 @@ func makePointer(ctx context.Context, t *testing.T, numOfValidPieces, numOfInval
 		pieces[i] = &pb.RemotePiece{
 			PieceNum: int32(i),
 			NodeId:   storj.NodeID{byte(i)},
-			Hash:     &pb.SignedHash{Hash: make([]byte, 32)},
+			Hash:     &pb.PieceHash{Hash: make([]byte, 32)},
 		}
 
 		_, err = rand.Read(pieces[i].Hash.Hash)
 		assert.NoError(t, err)
-		err = auth.SignMessage(pieces[i].Hash, *identity)
+		signer := signing.SignerFromFullIdentity(identity)
+		pieces[i].Hash, err = signing.SignPieceHash(signer, pieces[i].Hash)
 		assert.NoError(t, err)
 	}
 

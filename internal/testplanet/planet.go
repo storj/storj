@@ -172,7 +172,12 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
-	planet.StorageNodes, err = planet.newStorageNodes(config.StorageNodeCount)
+	whitelistedSatellites := make([]string, len(planet.Satellites))
+	for _, satellite := range planet.Satellites {
+		whitelistedSatellites = append(whitelistedSatellites, satellite.ID().String())
+	}
+
+	planet.StorageNodes, err = planet.newStorageNodes(config.StorageNodeCount, whitelistedSatellites)
 	if err != nil {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
@@ -427,16 +432,14 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				Interval: 30 * time.Second,
 			},
 			Repairer: repairer.Config{
-				MaxRepair:     10,
-				Interval:      time.Hour,
-				OverlayAddr:   "", // overridden in satellite.New
-				PointerDBAddr: "", // overridden in satellite.New
-				MaxBufferMem:  4 * memory.MB,
-				APIKey:        "",
+				MaxRepair:    10,
+				Interval:     time.Hour,
+				MaxBufferMem: 4 * memory.MiB,
 			},
 			Audit: audit.Config{
-				MaxRetriesStatDB: 0,
-				Interval:         30 * time.Second,
+				MaxRetriesStatDB:  0,
+				Interval:          30 * time.Second,
+				MinBytesPerSecond: 1 * memory.KB,
 			},
 			Tally: tally.Config{
 				Interval: 30 * time.Second,
@@ -481,7 +484,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 }
 
 // newStorageNodes initializes storage nodes
-func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
+func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []string) ([]*storagenode.Peer, error) {
 	// TODO: move into separate file
 	var xs []*storagenode.Peer
 	defer func() {
@@ -552,6 +555,9 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 
 				AgreementSenderCheckInterval: time.Hour,
 				CollectorInterval:            time.Hour,
+
+				SatelliteIDRestriction:  true,
+				WhitelistedSatelliteIDs: strings.Join(whitelistedSatelliteIDs, ","),
 			},
 		}
 		if planet.config.Reconfigure.StorageNode != nil {

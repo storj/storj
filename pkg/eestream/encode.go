@@ -9,11 +9,13 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/vivint/infectious"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/readcloser"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/encryption"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
 )
 
@@ -89,6 +91,17 @@ func NewRedundancyStrategy(es ErasureScheme, repairThreshold, optimalThreshold i
 		return RedundancyStrategy{}, Error.New("repair threshold greater than optimal threshold")
 	}
 	return RedundancyStrategy{ErasureScheme: es, repairThreshold: repairThreshold, optimalThreshold: optimalThreshold}, nil
+}
+
+// NewRedundancyStrategyFromProto creates new RedundancyStrategy from the given
+// RedundancyScheme protobuf.
+func NewRedundancyStrategyFromProto(scheme *pb.RedundancyScheme) (RedundancyStrategy, error) {
+	fc, err := infectious.NewFEC(int(scheme.GetMinReq()), int(scheme.GetTotal()))
+	if err != nil {
+		return RedundancyStrategy{}, Error.Wrap(err)
+	}
+	es := NewRSScheme(fc, int(scheme.GetErasureShareSize()))
+	return NewRedundancyStrategy(es, int(scheme.GetRepairThreshold()), int(scheme.GetSuccessThreshold()))
 }
 
 // RepairThreshold is the number of available erasure pieces below which
@@ -249,4 +262,16 @@ func (er *EncodedRanger) Range(ctx context.Context, offset, length int64) ([]io.
 		readers[i] = readcloser.LimitReadCloser(r, length)
 	}
 	return readers, nil
+}
+
+// CalcPieceSize calculates what would be the piece size of the encoded data
+// after erasure coding data with dataSize using the given ErasureScheme.
+func CalcPieceSize(dataSize int64, scheme ErasureScheme) int64 {
+	stripeSize := int64(scheme.StripeSize())
+	stripes := (dataSize + uint32Size + stripeSize - 1) / stripeSize
+
+	encodedSize := stripes * int64(scheme.StripeSize())
+	pieceSize := encodedSize / int64(scheme.RequiredCount())
+
+	return pieceSize
 }

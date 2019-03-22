@@ -142,6 +142,9 @@ func NewEndpoint(log *zap.Logger, config Config, storage Storage, db *psdb.DB, i
 	if config.SatelliteIDRestriction {
 		idStrings := strings.Split(config.WhitelistedSatelliteIDs, ",")
 		for _, s := range idStrings {
+			if s == "" {
+				continue
+			}
 			satID, err := storj.NodeIDFromString(s)
 			if err != nil {
 				return nil, err

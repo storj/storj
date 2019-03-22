@@ -1,0 +1,106 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "pb";
+
+package metainfo;
+
+import "gogo.proto";
+import "google/protobuf/timestamp.proto";
+import "node.proto";
+import "pointerdb.proto";
+import "orders.proto";
+
+// Metainfo it's a satellite RPC service
+service Metainfo {
+    rpc CreateSegment(SegmentWriteRequest) returns (SegmentWriteResponse);
+    rpc CommitSegment(SegmentCommitRequest) returns (SegmentCommitResponse);
+    rpc SegmentInfo(SegmentInfoRequest) returns (SegmentInfoResponse);
+    rpc DownloadSegment(SegmentDownloadRequest) returns (SegmentDownloadResponse);
+    rpc DeleteSegment(SegmentDeleteRequest) returns (SegmentDeleteResponse);
+    rpc ListSegments(ListSegmentsRequest) returns (ListSegmentsResponse);
+}
+
+message AddressedOrderLimit {
+    orders.OrderLimit2 limit = 1;
+    node.NodeAddress storage_node_address = 2;
+}
+
+message SegmentWriteRequest {
+    bytes bucket = 1;
+    bytes path = 2;
+    int64 segment = 3;
+    pointerdb.RedundancyScheme redundancy = 4;
+    int64 max_encrypted_segment_size = 5;
+    google.protobuf.Timestamp expiration = 6;
+}
+
+message SegmentWriteResponse {
+    repeated AddressedOrderLimit addressed_limits = 1;
+    bytes root_piece_id = 2 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
+}
+
+message SegmentCommitRequest {
+    bytes bucket = 1;
+    bytes path = 2;
+    int64 segment = 3;
+    pointerdb.Pointer pointer = 4;
+    repeated orders.OrderLimit2 original_limits = 5;
+}
+
+message SegmentCommitResponse {
+    pointerdb.Pointer pointer = 1;
+}
+
+message SegmentDownloadRequest {
+    bytes bucket = 1; 
+    bytes path = 2;
+    int64 segment = 3;
+}
+
+message SegmentDownloadResponse {
+    repeated AddressedOrderLimit addressed_limits = 1;
+    pointerdb.Pointer pointer = 2;
+}
+
+message SegmentInfoRequest {
+    bytes bucket = 1; 
+    bytes path = 2;
+    int64 segment = 3;
+}
+
+message SegmentInfoResponse {
+    pointerdb.Pointer pointer = 2;
+}
+
+message SegmentDeleteRequest {
+    bytes bucket = 1;
+    bytes path = 2;
+    int64 segment = 3;
+}
+
+message SegmentDeleteResponse {
+    repeated AddressedOrderLimit addressed_limits = 1;
+}
+
+message ListSegmentsRequest {
+    bytes bucket = 1;
+    bytes prefix = 2;
+    bytes start_after = 3;
+    bytes end_before = 4;
+    bool recursive = 5;
+    int32 limit = 6;
+    fixed32 meta_flags = 7;
+}
+
+message ListSegmentsResponse {
+    message Item {
+        bytes path = 1;
+        pointerdb.Pointer pointer = 2;
+        bool is_prefix = 3;
+    }
+      
+    repeated Item items = 1;
+    bool more = 2;
+}

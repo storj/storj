@@ -51,10 +51,10 @@ type lockedAccounting struct {
 }
 
 // DeleteRawBefore deletes all raw tallies prior to some time
-func (m *lockedAccounting) DeleteRawBefore(latestRollup time.Time) error {
+func (m *lockedAccounting) DeleteRawBefore(ctx context.Context, latestRollup time.Time) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.DeleteRawBefore(latestRollup)
+	return m.db.DeleteRawBefore(ctx, latestRollup)
 }
 
 // GetRaw retrieves all raw tallies
@@ -120,17 +120,17 @@ type lockedBandwidthAgreement struct {
 }
 
 // DeleteExpired deletes orders that are expired and were created before some time
-func (m *lockedBandwidthAgreement) DeleteExpired(a0 time.Time, a1 time.Time) error {
+func (m *lockedBandwidthAgreement) DeleteExpired(ctx context.Context, a1 time.Time, a2 time.Time) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.DeleteExpired(a0, a1)
+	return m.db.DeleteExpired(ctx, a1, a2)
 }
 
 // GetExpired gets orders that are expired and were created before some time
-func (m *lockedBandwidthAgreement) GetExpired(a0 time.Time, a1 time.Time) ([]bwagreement.SavedOrder, error) {
+func (m *lockedBandwidthAgreement) GetExpired(ctx context.Context, a1 time.Time, a2 time.Time) ([]bwagreement.SavedOrder, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetExpired(a0, a1)
+	return m.db.GetExpired(ctx, a1, a2)
 }
 
 // GetTotalsSince returns the sum of each bandwidth type after (exluding) a given date range
@@ -148,10 +148,10 @@ func (m *lockedBandwidthAgreement) GetUplinkStats(ctx context.Context, a1 time.T
 }
 
 // SaveOrder saves an order for accounting
-func (m *lockedBandwidthAgreement) SaveOrder(a0 *pb.RenterBandwidthAllocation) error {
+func (m *lockedBandwidthAgreement) SaveOrder(ctx context.Context, a1 *pb.RenterBandwidthAllocation) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.SaveOrder(a0)
+	return m.db.SaveOrder(ctx, a1)
 }
 
 // CertDB returns database for storing uplink's public key & ID
@@ -389,6 +389,47 @@ func (m *lockedProjects) Update(ctx context.Context, project *console.Project) e
 	return m.db.Update(ctx, project)
 }
 
+// RegistrationTokens is a getter for RegistrationTokens repository
+func (m *lockedConsole) RegistrationTokens() console.RegistrationTokens {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedRegistrationTokens{m.Locker, m.db.RegistrationTokens()}
+}
+
+// lockedRegistrationTokens implements locking wrapper for console.RegistrationTokens
+type lockedRegistrationTokens struct {
+	sync.Locker
+	db console.RegistrationTokens
+}
+
+// Create creates new registration token
+func (m *lockedRegistrationTokens) Create(ctx context.Context, projectLimit int) (*console.RegistrationToken, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Create(ctx, projectLimit)
+}
+
+// GetByOwnerID retrieves RegTokenInfo by ownerID
+func (m *lockedRegistrationTokens) GetByOwnerID(ctx context.Context, ownerID uuid.UUID) (*console.RegistrationToken, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetByOwnerID(ctx, ownerID)
+}
+
+// GetBySecret retrieves RegTokenInfo with given Secret
+func (m *lockedRegistrationTokens) GetBySecret(ctx context.Context, secret console.RegistrationSecret) (*console.RegistrationToken, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetBySecret(ctx, secret)
+}
+
+// UpdateOwner updates registration token's owner
+func (m *lockedRegistrationTokens) UpdateOwner(ctx context.Context, secret console.RegistrationSecret, ownerID uuid.UUID) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateOwner(ctx, secret, ownerID)
+}
+
 // Users is a getter for Users repository
 func (m *lockedConsole) Users() console.Users {
 	m.Lock()
@@ -479,14 +520,21 @@ func (m *lockedIrreparable) Delete(ctx context.Context, segmentPath []byte) erro
 }
 
 // Get returns irreparable segment info based on segmentPath.
-func (m *lockedIrreparable) Get(ctx context.Context, segmentPath []byte) (*irreparable.RemoteSegmentInfo, error) {
+func (m *lockedIrreparable) Get(ctx context.Context, segmentPath []byte) (*pb.IrreparableSegment, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Get(ctx, segmentPath)
 }
 
+// GetLimited number of segments from offset
+func (m *lockedIrreparable) GetLimited(ctx context.Context, limit int, offset int64) ([]*pb.IrreparableSegment, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetLimited(ctx, limit, offset)
+}
+
 // IncrementRepairAttempts increments the repair attempts.
-func (m *lockedIrreparable) IncrementRepairAttempts(ctx context.Context, segmentInfo *irreparable.RemoteSegmentInfo) error {
+func (m *lockedIrreparable) IncrementRepairAttempts(ctx context.Context, segmentInfo *pb.IrreparableSegment) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.IncrementRepairAttempts(ctx, segmentInfo)

@@ -6,13 +6,12 @@ package kademlia
 import (
 	"context"
 	"math/rand"
+	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/peer"
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
@@ -54,15 +53,19 @@ type Kademlia struct {
 
 	refreshThreshold int64
 	RefreshBuckets   sync2.Cycle
+
+	mu          sync.Mutex
+	lastPinged  time.Time
+	lastQueried time.Time
 }
 
 // NewService returns a newly configured Kademlia instance
-func NewService(log *zap.Logger, self pb.Node, bootstrapNodes []pb.Node, transport transport.Client, alpha int, rt *RoutingTable) (*Kademlia, error) {
+func NewService(log *zap.Logger, self pb.Node, transport transport.Client, rt *RoutingTable, config Config) (*Kademlia, error) {
 	k := &Kademlia{
 		log:              log,
-		alpha:            alpha,
+		alpha:            config.Alpha,
 		routingTable:     rt,
-		bootstrapNodes:   bootstrapNodes,
+		bootstrapNodes:   config.BootstrapNodes(),
 		dialer:           NewDialer(log.Named("dialer"), transport),
 		refreshThreshold: int64(time.Minute),
 	}
@@ -76,6 +79,34 @@ func (k *Kademlia) Close() error {
 	k.lookups.Close()
 	k.lookups.Wait()
 	return dialerErr
+}
+
+// LastPinged returns last time someone pinged this node.
+func (k *Kademlia) LastPinged() time.Time {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	return k.lastPinged
+}
+
+// Pinged notifies the service it has been remotely pinged.
+func (k *Kademlia) Pinged() {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	k.lastPinged = time.Now()
+}
+
+// LastQueried returns last time someone queried this node.
+func (k *Kademlia) LastQueried() time.Time {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	return k.lastQueried
+}
+
+// Queried notifies the service it has been remotely queried
+func (k *Kademlia) Queried() {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	k.lastQueried = time.Now()
 }
 
 // FindNear returns all nodes from a starting node up to a maximum limit
@@ -121,47 +152,39 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 		return nil
 	}
 
-	var errs errs.Group
+	var errGroup errs.Group
+	var foundOnlineBootstrap bool
 	for i, node := range k.bootstrapNodes {
 		if ctx.Err() != nil {
-			errs.Add(ctx.Err())
-			return errs.Err()
+			errGroup.Add(ctx.Err())
+			return errGroup.Err()
 		}
 
-		p := &peer.Peer{}
-		pCall := grpc.Peer(p)
-		_, err := k.dialer.PingAddress(ctx, node.Address.Address, pCall)
+		ident, err := k.dialer.FetchPeerIdentityUnverified(ctx, node.Address.Address)
 		if err != nil {
-			errs.Add(err)
-		}
-
-		ident, err := identity.PeerIdentityFromPeer(p)
-		if err != nil {
-			errs.Add(err)
+			errGroup.Add(err)
+			continue
 		}
 
 		k.routingTable.mutex.Lock()
 		node.Id = ident.ID
 		k.bootstrapNodes[i] = node
 		k.routingTable.mutex.Unlock()
-		if err == nil {
-			// We have pinged successfully one bootstrap node.
-			// Clear any errors and break the cycle.
-			errs = nil
-			break
-		}
-		errs.Add(err)
+		foundOnlineBootstrap = true
 	}
-	err := errs.Err()
-	if err != nil {
-		return err
+
+	if !foundOnlineBootstrap {
+		err := errGroup.Err()
+		if err != nil {
+			return err
+		}
 	}
 
 	//find nodes most similar to self
 	k.routingTable.mutex.Lock()
 	id := k.routingTable.self.Id
 	k.routingTable.mutex.Unlock()
-	_, err = k.lookup(ctx, id, true)
+	_, err := k.lookup(ctx, id, true)
 
 	// TODO(dylan): We do not currently handle this last bit of behavior.
 	// ```

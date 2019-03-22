@@ -36,13 +36,13 @@ var DefaultRS = storj.RedundancyScheme{
 	RepairShares:   30,
 	OptimalShares:  40,
 	TotalShares:    50,
-	ShareSize:      1 * memory.KB.Int32(),
+	ShareSize:      1 * memory.KiB.Int32(),
 }
 
 // DefaultES default values for EncryptionScheme
 var DefaultES = storj.EncryptionScheme{
 	Cipher:    storj.AESGCM,
-	BlockSize: 1 * memory.KB.Int32(),
+	BlockSize: 1 * memory.KiB.Int32(),
 }
 
 // GetObject returns information about an object
@@ -235,7 +235,7 @@ func (db *DB) getInfo(ctx context.Context, prefix string, bucket string, path st
 		return object{}, storj.Object{}, err
 	}
 
-	pointer, _, _, err := db.pointers.Get(ctx, prefix+encryptedPath)
+	pointer, err := db.metainfo.SegmentInfo(ctx, bucket, storj.JoinPaths(storj.SplitPath(encryptedPath)[1:]...), -1)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
 			err = storj.ErrObjectNotFound.Wrap(err)

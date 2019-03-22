@@ -12,6 +12,7 @@ import (
 	"net/smtp"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -25,6 +26,7 @@ import (
 	"storj.io/storj/pkg/accounting/tally"
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/auth/grpcauth"
+	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/datarepair/checker"
@@ -47,6 +49,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/storelogger"
@@ -147,6 +150,7 @@ type Peer struct {
 		Allocation *pointerdb.AllocationSigner
 		Service    *pointerdb.Service
 		Endpoint   *pointerdb.Server
+		Endpoint2  *metainfo.Endpoint
 	}
 
 	Agreements struct {
@@ -154,8 +158,9 @@ type Peer struct {
 	}
 
 	Repair struct {
-		Checker  *checker.Checker
-		Repairer *repairer.Service
+		Checker   *checker.Checker
+		Repairer  *repairer.Service
+		Inspector *irreparable.Inspector
 	}
 	Audit struct {
 		Service *audit.Service
@@ -269,13 +274,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			peer.Transport = peer.Transport.WithObservers(peer.Kademlia.RoutingTable)
 		}
 
-		// TODO: reduce number of arguments
-		peer.Kademlia.Service, err = kademlia.NewService(peer.Log.Named("kademlia"), self, config.BootstrapNodes(), peer.Transport, config.Alpha, peer.Kademlia.RoutingTable)
+		peer.Kademlia.Service, err = kademlia.NewService(peer.Log.Named("kademlia"), self, peer.Transport, peer.Kademlia.RoutingTable, config)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Kademlia.Endpoint = kademlia.NewEndpoint(peer.Log.Named("kademlia:endpoint"), peer.Kademlia.Service, peer.Kademlia.RoutingTable)
+		peer.Kademlia.Endpoint = kademlia.NewEndpoint(peer.Log.Named("kademlia:endpoint"), peer.Kademlia.Service, peer.Kademlia.RoutingTable, 60*time.Second)
 		pb.RegisterNodesServer(peer.Server.GRPC(), peer.Kademlia.Endpoint)
 
 		peer.Kademlia.Inspector = kademlia.NewInspector(peer.Kademlia.Service, peer.Identity)
@@ -312,7 +316,29 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			config.PointerDB,
 			peer.Identity, peer.DB.Console().APIKeys())
 
+		// TODO remove duplicated code
+		overlayConfig := config.Overlay
+		nodeSelectionConfig := &overlay.NodeSelectionConfig{
+			UptimeCount:           overlayConfig.Node.UptimeCount,
+			UptimeRatio:           overlayConfig.Node.UptimeRatio,
+			AuditSuccessRatio:     overlayConfig.Node.AuditSuccessRatio,
+			AuditCount:            overlayConfig.Node.AuditCount,
+			NewNodeAuditThreshold: overlayConfig.Node.NewNodeAuditThreshold,
+			NewNodePercentage:     overlayConfig.Node.NewNodePercentage,
+		}
+
+		peer.Metainfo.Endpoint2 = metainfo.NewEndpoint(
+			peer.Log.Named("metainfo:endpoint"),
+			peer.Metainfo.Service,
+			peer.Metainfo.Allocation,
+			peer.Overlay.Service,
+			peer.DB.Console().APIKeys(),
+			signing.SignerFromFullIdentity(peer.Identity),
+			nodeSelectionConfig)
+
 		pb.RegisterPointerDBServer(peer.Server.GRPC(), peer.Metainfo.Endpoint)
+
+		pb.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)
 	}
 
 	{ // setup agreements
@@ -332,13 +358,32 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			0, peer.Log.Named("checker"),
 			config.Checker.Interval)
 
-		if config.Repairer.OverlayAddr == "" {
-			config.Repairer.OverlayAddr = peer.Addr()
+		// TODO remove duplicated code
+		overlayConfig := config.Overlay
+		nodeSelectionConfig := &overlay.NodeSelectionConfig{
+			UptimeCount:           overlayConfig.Node.UptimeCount,
+			UptimeRatio:           overlayConfig.Node.UptimeRatio,
+			AuditSuccessRatio:     overlayConfig.Node.AuditSuccessRatio,
+			AuditCount:            overlayConfig.Node.AuditCount,
+			NewNodeAuditThreshold: overlayConfig.Node.NewNodeAuditThreshold,
+			NewNodePercentage:     overlayConfig.Node.NewNodePercentage,
 		}
-		if config.Repairer.PointerDBAddr == "" {
-			config.Repairer.PointerDBAddr = peer.Addr()
-		}
-		peer.Repair.Repairer = repairer.NewService(peer.DB.RepairQueue(), &config.Repairer, peer.Transport, config.Repairer.Interval, config.Repairer.MaxRepair)
+
+		peer.Repair.Repairer = repairer.NewService(
+			peer.DB.RepairQueue(),
+			&config.Repairer,
+			config.Repairer.Interval,
+			config.Repairer.MaxRepair,
+			peer.Transport,
+			peer.Metainfo.Service,
+			peer.Metainfo.Allocation,
+			peer.Overlay.Service,
+			signing.SignerFromFullIdentity(peer.Identity),
+			nodeSelectionConfig,
+		)
+
+		peer.Repair.Inspector = irreparable.NewInspector(peer.DB.Irreparable())
+		pb.RegisterIrreparableInspectorServer(peer.Server.PrivateGRPC(), peer.Repair.Inspector)
 	}
 
 	{ // setup audit
@@ -346,8 +391,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		config := config.Audit
 
 		peer.Audit.Service, err = audit.NewService(peer.Log.Named("audit"),
+			config,
 			peer.DB.StatDB(),
-			config.Interval, config.MaxRetriesStatDB,
 			peer.Metainfo.Service, peer.Metainfo.Allocation,
 			peer.Transport, peer.Overlay.Service,
 			peer.Identity,
@@ -494,8 +539,8 @@ func (peer *Peer) Run(ctx context.Context) error {
 		// TODO: move the message into Server instead
 		// Don't change the format of this comment, it is used to figure out the node id.
 		peer.Log.Sugar().Infof("Node %s started", peer.Identity.ID)
-		peer.Log.Sugar().Infof("Public server started on %s", peer.Identity.ID, peer.Addr())
-		peer.Log.Sugar().Infof("Private server started on %s", peer.Identity.ID, peer.PrivateAddr())
+		peer.Log.Sugar().Infof("Public server started on %s", peer.Addr())
+		peer.Log.Sugar().Infof("Private server started on %s", peer.PrivateAddr())
 		return ignoreCancel(peer.Server.Run(ctx))
 	})
 	group.Go(func() error {
