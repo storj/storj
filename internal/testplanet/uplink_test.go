@@ -25,7 +25,7 @@ func TestUploadDownload(t *testing.T) {
 
 	planet.Start(ctx)
 
-	expectedData := make([]byte, 5*memory.MiB)
+	expectedData := make([]byte, 5*memory.KiB)
 	_, err = rand.Read(expectedData)
 	assert.NoError(t, err)
 

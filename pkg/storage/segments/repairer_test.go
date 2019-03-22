@@ -30,7 +30,7 @@ func TestSegmentStoreRepair(t *testing.T) {
 		ul := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
 
-		testData := make([]byte, 5*memory.MiB)
+		testData := make([]byte, 5*memory.KiB)
 		_, err := rand.Read(testData)
 		assert.NoError(t, err)
 
@@ -91,7 +91,7 @@ func TestSegmentStoreRepair(t *testing.T) {
 		oc := satellite.Overlay.Service
 		as := satellite.Metainfo.Allocation
 		ec := ecclient.NewClient(satellite.Transport, 0)
-		repairer := segments.NewSegmentRepairer(pdb, as, oc, ec, satellite.Identity, &overlay.NodeSelectionConfig{}, time.Minute)
+		repairer := segments.NewSegmentRepairer(pdb, as, oc, ec, satellite.Identity, &overlay.NodeSelectionConfig{}, 30*time.Second)
 		assert.NotNil(t, repairer)
 
 		err = repairer.Repair(ctx, path, lostPieces)

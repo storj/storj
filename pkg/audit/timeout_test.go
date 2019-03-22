@@ -31,7 +31,7 @@ func TestGetShareTimeout(t *testing.T) {
 		assert.NoError(t, err)
 
 		uplink := planet.Uplinks[0]
-		testData := make([]byte, 5*memory.MiB)
+		testData := make([]byte, 5*memory.KiB)
 		_, err = rand.Read(testData)
 		assert.NoError(t, err)
 
