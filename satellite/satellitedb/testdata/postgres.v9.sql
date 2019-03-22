@@ -25,6 +25,42 @@ CREATE TABLE accounting_timestamps (
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
 );
+CREATE TABLE bucket_bandwidth_rollups (
+	bucket_id bytea NOT NULL,
+	interval_start timestamp NOT NULL,
+	interval_seconds integer NOT NULL,
+	action integer NOT NULL,
+	inline bigint NOT NULL,
+	allocated bigint NOT NULL,
+	settled bigint NOT NULL,
+	PRIMARY KEY ( bucket_id ),
+	UNIQUE ( bucket_id, interval_start, interval_seconds, action )
+);
+CREATE TABLE bucket_storage_rollups (
+	bucket_id bytea NOT NULL,
+	interval_start timestamp NOT NULL,
+	interval_seconds integer NOT NULL,
+	inline bigint NOT NULL,
+	remote bigint NOT NULL,
+	PRIMARY KEY ( bucket_id ),
+	UNIQUE ( bucket_id, interval_start, interval_seconds )
+);
+CREATE TABLE bucket_usages (
+	id bytea NOT NULL,
+	bucket_id bytea NOT NULL,
+	rollup_end_time timestamp with time zone NOT NULL,
+	remote_stored_data bigint NOT NULL,
+	inline_stored_data bigint NOT NULL,
+	remote_segments integer NOT NULL,
+	inline_segments integer NOT NULL,
+	objects integer NOT NULL,
+	metadata_size bigint NOT NULL,
+	repair_egress bigint NOT NULL,
+	get_egress bigint NOT NULL,
+	audit_egress bigint NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( rollup_end_time, bucket_id )
+);
 CREATE TABLE bwagreements (
 	serialnum text NOT NULL,
 	storage_node_id bytea NOT NULL,
@@ -94,6 +130,40 @@ CREATE TABLE projects (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE registration_tokens (
+	secret bytea NOT NULL,
+	owner_id bytea,
+	project_limit integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( secret ),
+	UNIQUE ( owner_id )
+);
+CREATE TABLE serial_numbers (
+	id serial NOT NULL,
+	serial_number bytea NOT NULL,
+	bucket_id bytea NOT NULL,
+	expires_at timestamp NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( serial_number )
+);
+CREATE TABLE storagenode_bandwidth_rollups (
+	storagenode_id bytea NOT NULL,
+	interval_start timestamp NOT NULL,
+	interval_seconds integer NOT NULL,
+	action integer NOT NULL,
+	allocated bigint NOT NULL,
+	settled bigint NOT NULL,
+	PRIMARY KEY ( storagenode_id ),
+	UNIQUE ( storagenode_id, interval_start, interval_seconds, action )
+);
+CREATE TABLE storagenode_storage_rollups (
+	storagenode_id bytea NOT NULL,
+	interval_start timestamp NOT NULL,
+	interval_seconds integer NOT NULL,
+	total bigint NOT NULL,
+	PRIMARY KEY ( storagenode_id ),
+	UNIQUE ( storagenode_id, interval_start, interval_seconds )
+);
 CREATE TABLE users (
 	id bytea NOT NULL,
 	first_name text NOT NULL,
@@ -120,6 +190,15 @@ CREATE TABLE project_members (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( member_id, project_id )
 );
+CREATE TABLE used_serials (
+	serial_number_id integer NOT NULL REFERENCES serial_numbers( id ) ON DELETE CASCADE,
+	storage_node_id bytea NOT NULL,
+	PRIMARY KEY ( serial_number_id ),
+	UNIQUE ( serial_number_id, storage_node_id )
+);
+CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
+
+---
 
 INSERT INTO "accounting_raws" VALUES (1, E'\\3510\\323\\225"~\\036<\\342\\330m\\0253Jhr\\246\\233K\\246#\\2303\\351\\256\\275j\\212UM\\362\\207', '2019-02-14 08:16:57.812849+00', 1000, 0, '2019-02-14 08:16:57.844849+00');
 
@@ -144,3 +223,18 @@ INSERT INTO "irreparabledbs" ("segmentpath", "segmentdetail", "pieces_lost_count
 INSERT INTO "injuredsegments" ("id", "info") VALUES (1, '\x0a0130120100');
 
 INSERT INTO "certrecords" VALUES (E'0Y0\\023\\006\\007*\\206H\\316=\\002\\001\\006\\010*\\206H\\316=\\003\\001\\007\\003B\\000\\004\\360\\267\\227\\377\\253u\\222\\337Y\\324C:GQ\\010\\277v\\010\\315D\\271\\333\\337.\\203\\023=C\\343\\014T%6\\027\\362?\\214\\326\\017U\\334\\000\\260\\224\\260J\\221\\304\\331F\\304\\221\\236zF,\\325\\326l\\215\\306\\365\\200\\022', E'L\\301|\\200\\247}F|1\\320\\232\\037n\\335\\241\\206\\244\\242\\207\\204.\\253\\357\\326\\352\\033Dt\\202`\\022\\325', '2019-02-14 08:07:31.335028+00');
+
+INSERT INTO "bucket_usages" ("id", "bucket_id", "rollup_end_time", "remote_stored_data", "inline_stored_data", "remote_segments", "inline_segments", "objects", "metadata_size", "repair_egress", "get_egress", "audit_egress") VALUES (E'\\153\\313\\233\\074\\327\\177\\136\\070\\346\\001",'::bytea, E'\\366\\146\\032\\321\\316\\161\\070\\133\\302\\271",'::bytea, '2019-03-06 08:28:24.677953+00', 10, 11, 12, 13, 14, 15, 16, 17, 18);
+
+INSERT INTO "registration_tokens" ("secret", "owner_id", "project_limit", "created_at") VALUES (E'\\070\\127\\144\\013\\332\\344\\102\\376\\306\\056\\303\\130\\106\\132\\321\\276\\321\\274\\170\\264\\054\\333\\221\\116\\154\\221\\335\\070\\220\\146\\344\\216'::bytea, null, 1, '2019-02-14 08:28:24.677953+00');
+
+-- NEW DATA --
+
+INSERT INTO "serial_numbers" ("id", "serial_number", "bucket_id", "expires_at") VALUES (1, E'0123456701234567'::bytea, E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014/testbucket'::bytea, '2019-03-06 08:28:24.677953+00');
+INSERT INTO "used_serials" ("serial_number_id", "storage_node_id") VALUES (1, E'\\006\\223\\250R\\221\\005\\365\\377v>0\\266\\365\\216\\255?\\347\\244\\371?2\\264\\262\\230\\007<\\001\\262\\263\\237\\247n');
+
+INSERT INTO "storagenode_bandwidth_rollups" ("storagenode_id", "interval_start", "interval_seconds", "action", "allocated", "settled") VALUES (E'\\006\\223\\250R\\221\\005\\365\\377v>0\\266\\365\\216\\255?\\347\\244\\371?2\\264\\262\\230\\007<\\001\\262\\263\\237\\247n', '2019-03-06 08:00:00.000000+00', 3600, 1, 1024, 2024);
+INSERT INTO "storagenode_storage_rollups" ("storagenode_id", "interval_start", "interval_seconds", "total") VALUES (E'\\006\\223\\250R\\221\\005\\365\\377v>0\\266\\365\\216\\255?\\347\\244\\371?2\\264\\262\\230\\007<\\001\\262\\263\\237\\247n', '2019-03-06 08:00:00.000000+00', 3600, 4024);
+
+INSERT INTO "bucket_bandwidth_rollups" ("bucket_id", "interval_start", "interval_seconds", "action", "inline", "allocated", "settled") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014/testbucket'::bytea, '2019-03-06 08:00:00.000000+00', 3600, 1, 1024, 2024, 3024);
+INSERT INTO "bucket_storage_rollups" ("bucket_id", "interval_start", "interval_seconds", "inline", "remote") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014/testbucket'::bytea, '2019-03-06 08:00:00.000000+00', 3600, 4024, 5024);

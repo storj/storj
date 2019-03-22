@@ -163,7 +163,7 @@ func testNode(ctx *testcontext.Context, name string, t *testing.T, bn []pb.Node)
 	k, err := newKademlia(logger, pb.NodeType_STORAGE, bn, lis.Addr().String(), nil, fid, ctx.Dir(name), defaultAlpha)
 	assert.NoError(t, err)
 
-	s := NewEndpoint(logger, k, k.routingTable, 60*time.Second)
+	s := NewEndpoint(logger, k, k.routingTable)
 	// new ident opts
 
 	serverOptions, err := tlsopts.NewOptions(fid, tlsopts.Config{})
