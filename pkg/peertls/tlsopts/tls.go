@@ -6,6 +6,7 @@ package tlsopts
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
@@ -91,13 +92,15 @@ func verifyIdentity(id storj.NodeID) peertls.PeerCertVerificationFunc {
 			return err
 		}
 
-		//fmt.Printf("peer version: %d\n", peer.ID.Version().Number)
-		//fmt.Printf("id version: %d\n", id.Version().Number)
-		//id1 := peer.ID.String()
-		//id2 := id.String()
-		//fmt.Println(id1)
-		//fmt.Println(id2)
 		if peer.ID.String() != id.String() {
+			fmt.Printf("peer version: %d\n", peer.ID.Version().Number)
+			fmt.Printf("id version: %d\n", id.Version().Number)
+			id1 := peer.ID.String()
+			id2 := id.String()
+			fmt.Printf("id1 bytes %v\n", peer.ID[:])
+			fmt.Printf("id2 bytes %v\n", id[:])
+			fmt.Println(id1)
+			fmt.Println(id2)
 			return Error.New("peer ID did not match requested ID")
 		}
 

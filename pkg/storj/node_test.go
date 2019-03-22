@@ -4,6 +4,7 @@
 package storj_test
 
 import (
+	"crypto/rand"
 	"encoding/hex"
 	"testing"
 
@@ -154,5 +155,19 @@ func TestNodeID_String_Version(t *testing.T) {
 
 		assert.Equal(t, testcase.version, idVersion.Number)
 		assert.Equal(t, nodeID[:storj.NodeIDSize-1], binID[:storj.NodeIDSize-1])
+	}
+}
+
+func TestNewVersionedID(t *testing.T) {
+	nodeID := storj.NodeID{}
+	rand.Read(nodeID[:])
+	nodeID[storj.NodeIDSize-1] = 0
+
+	assert.Equal(t, storj.V1, nodeID.Version().Number)
+
+	for versionNumber, version := range storj.IDVersions {
+		versionedNodeID := storj.NewVersionedID(nodeID, version)
+		assert.Equal(t, versionNumber, versionedNodeID.Version().Number)
+		assert.Equal(t, versionNumber, storj.IDVersionNumber(versionedNodeID[storj.NodeIDSize-1]))
 	}
 }

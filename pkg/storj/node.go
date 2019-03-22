@@ -28,16 +28,11 @@ type NodeID [NodeIDSize]byte
 type NodeIDList []NodeID
 
 func NewVersionedID(id NodeID, version IDVersion) NodeID {
-	switch version.Number {
-	case V1:
-		return id
-	default:
-		var versionedID NodeID
-		copy(versionedID[:], id[:])
+	var versionedID NodeID
+	copy(versionedID[:], id[:])
 
-		versionedID[NodeIDSize-1] = byte(version.Number)
-		return versionedID
-	}
+	versionedID[NodeIDSize-1] = byte(version.Number)
+	return versionedID
 }
 
 // NodeIDFromString decodes a base58check encoded node id string
