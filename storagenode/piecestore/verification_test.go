@@ -123,9 +123,9 @@ func TestOrderLimitPutValidation(t *testing.T) {
 		planet.Start(ctx)
 
 		// set desirable bandwidth
-		setBandwidth(t, ctx, planet, tt.availableBandwidth)
+		setBandwidth(ctx, t, planet, tt.availableBandwidth)
 		// set desirable space
-		setSpace(t, ctx, planet, tt.availableSpace)
+		setSpace(ctx, t, planet, tt.availableSpace)
 
 		client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
 		require.NoError(t, err)
@@ -299,7 +299,7 @@ func TestOrderLimitGetValidation(t *testing.T) {
 	}
 }
 
-func setBandwidth(t *testing.T, ctx context.Context, planet *testplanet.Planet, bandwidth int64) {
+func setBandwidth(ctx context.Context, t *testing.T, planet *testplanet.Planet, bandwidth int64) {
 	if bandwidth == 0 {
 		return
 	}
@@ -312,7 +312,7 @@ func setBandwidth(t *testing.T, ctx context.Context, planet *testplanet.Planet, 
 	}
 }
 
-func setSpace(t *testing.T, ctx context.Context, planet *testplanet.Planet, space int64) {
+func setSpace(ctx context.Context, t *testing.T, planet *testplanet.Planet, space int64) {
 	if space == 0 {
 		return
 	}
