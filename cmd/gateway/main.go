@@ -30,9 +30,7 @@ import (
 // GatewayFlags configuration flags
 type GatewayFlags struct {
 	Identity          identity.Config
-	APIKey            string `default:"" help:"the api key to use for the satellite" setup:"true"`
-	GenerateTestCerts bool   `default:"false" help:"generate sample TLS certs for Minio GW" setup:"true"`
-	SatelliteAddr     string `default:"localhost:7778" help:"the address to use for the satellite" setup:"true"`
+	GenerateTestCerts bool `default:"false" help:"generate sample TLS certs for Minio GW" setup:"true"`
 
 	Server miniogw.ServerConfig
 	Minio  miniogw.MinioConfig
@@ -109,12 +107,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		}
 	}
 
-	overrides := map[string]interface{}{
-		"client.api-key":         setupCfg.APIKey,
-		"client.pointer-db-addr": setupCfg.SatelliteAddr,
-		"client.overlay-addr":    setupCfg.SatelliteAddr,
-	}
-
+	overrides := map[string]interface{}{}
 	accessKeyFlag := cmd.Flag("minio.access-key")
 	if !accessKeyFlag.Changed {
 		accessKey, err := generateKey()
