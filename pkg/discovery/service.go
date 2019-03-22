@@ -218,7 +218,8 @@ func (discovery *Discovery) searchGraveyard(ctx context.Context) error {
 
 // Discovery runs lookups for random node ID's to find new nodes in the network
 func (discovery *Discovery) discover(ctx context.Context) error {
-	r, err := randomID() if err != nil {
+	r, err := randomID()
+	if err != nil {
 		return Error.Wrap(err)
 	}
 	_, err = discovery.kad.FindNode(ctx, r)
