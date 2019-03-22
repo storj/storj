@@ -5,7 +5,6 @@ package storagenode
 
 import (
 	"context"
-	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
