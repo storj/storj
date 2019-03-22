@@ -59,3 +59,8 @@ func (b *Bucket) ListObjects(ctx context.Context, cfg storj.ListOptions) (list s
 func (b *Bucket) Close() error {
 	return nil
 }
+
+// Share returns a new EncryptionAccess and APIKey restricted to the given subpath with the provided caveats added
+func (b *Bucket) Share(path storj.Path, caveats ...Caveat) (EncryptionAccess, APIKey) {
+	panic("TODO")
+}
