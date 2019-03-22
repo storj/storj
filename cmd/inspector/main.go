@@ -149,6 +149,7 @@ type Inspector struct {
 	overlayclient pb.OverlayInspectorClient
 	statdbclient  pb.StatDBInspectorClient
 	irrdbclient   pb.IrreparableInspectorClient
+	healthclient  pb.HealthInspectorClient
 }
 
 // NewInspector creates a new gRPC inspector client for access to kad,

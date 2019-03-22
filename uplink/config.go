@@ -17,7 +17,6 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/storage/buckets"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
@@ -50,11 +49,8 @@ type EncryptionConfig struct {
 // ClientConfig is a configuration struct for the uplink that controls how
 // to talk to the rest of the network.
 type ClientConfig struct {
-	// TODO(jt): these should probably be the same
-	OverlayAddr   string `help:"Address to contact overlay server through"`
-	PointerDBAddr string `help:"Address to contact pointerdb server through"`
-
-	APIKey        string      `help:"API Key (TODO: this needs to change to macaroons somehow)"`
+	APIKey        string      `default:"" help:"the api key to use for the satellite" noprefix:"true"`
+	SatelliteAddr string      `default:"localhost:7778" help:"the address to use for the satellite" noprefix:"true"`
 	MaxInlineSize memory.Size `help:"max inline segment size in bytes" default:"4KiB"`
 	SegmentSize   memory.Size `help:"the size of a segment in bytes" default:"64MiB"`
 }
@@ -84,25 +80,13 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 	}
 	tc := transport.NewClient(tlsOpts)
 
-	if c.Client.OverlayAddr == "" || c.Client.PointerDBAddr == "" {
-		var errlist errs.Group
-		if c.Client.OverlayAddr == "" {
-			errlist.Add(errors.New("overlay address not specified"))
-		}
-		if c.Client.PointerDBAddr == "" {
-			errlist.Add(errors.New("pointerdb address not specified"))
-		}
-		return nil, nil, errlist.Err()
+	if c.Client.SatelliteAddr == "" {
+		return nil, nil, errors.New("satellite address not specified")
 	}
 
-	metainfo, err := metainfo.NewClient(ctx, tc, c.Client.PointerDBAddr, c.Client.APIKey)
+	metainfo, err := metainfo.NewClient(ctx, tc, c.Client.SatelliteAddr, c.Client.APIKey)
 	if err != nil {
 		return nil, nil, Error.New("failed to connect to metainfo service: %v", err)
-	}
-
-	pdb, err := pdbclient.NewClient(tc, c.Client.PointerDBAddr, c.Client.APIKey)
-	if err != nil {
-		return nil, nil, Error.New("failed to connect to pointer DB: %v", err)
 	}
 
 	ec := ecclient.NewClient(tc, c.RS.MaxBufferMem.Int())
@@ -136,7 +120,7 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 
 	buckets := buckets.NewStore(streams)
 
-	return kvmetainfo.New(buckets, streams, segments, pdb, key), streams, nil
+	return kvmetainfo.New(metainfo, buckets, streams, segments, key), streams, nil
 }
 
 // GetRedundancyScheme returns the configured redundancy scheme for new uploads
