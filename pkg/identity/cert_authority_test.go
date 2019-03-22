@@ -1,22 +1,29 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package identity
+package identity_test
 
 import (
 	"context"
+	"crypto/x509/pkix"
+	"encoding/asn1"
 	"fmt"
+	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testidentity"
+	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/peertls/extensions"
 )
 
 func TestNewCA(t *testing.T) {
 	const expectedDifficulty = 4
 
-	ca, err := NewCA(context.Background(), NewCAOptions{
+	ca, err := identity.NewCA(context.Background(), identity.NewCAOptions{
 		Difficulty:  expectedDifficulty,
 		Concurrency: 5,
 	})
@@ -30,7 +37,7 @@ func TestNewCA(t *testing.T) {
 
 func TestFullCertificateAuthority_NewIdentity(t *testing.T) {
 	ctx := testcontext.New(t)
-	ca, err := NewCA(ctx, NewCAOptions{
+	ca, err := identity.NewCA(ctx, identity.NewCAOptions{
 		Difficulty:  12,
 		Concurrency: 4,
 	})
@@ -54,17 +61,17 @@ func TestFullCertificateAuthority_NewIdentity(t *testing.T) {
 
 func TestFullCertificateAuthority_Sign(t *testing.T) {
 	ctx := testcontext.New(t)
-	caOpts := NewCAOptions{
+	caOpts := identity.NewCAOptions{
 		Difficulty:  12,
 		Concurrency: 4,
 	}
 
-	ca, err := NewCA(ctx, caOpts)
+	ca, err := identity.NewCA(ctx, caOpts)
 	if !assert.NoError(t, err) || !assert.NotNil(t, ca) {
 		t.Fatal(err)
 	}
 
-	toSign, err := NewCA(ctx, caOpts)
+	toSign, err := identity.NewCA(ctx, caOpts)
 	if !assert.NoError(t, err) || !assert.NotNil(t, toSign) {
 		t.Fatal(err)
 	}
@@ -96,7 +103,7 @@ func BenchmarkNewCA(b *testing.B) {
 			test := fmt.Sprintf("%d/%d", difficulty, concurrency)
 			b.Run(test, func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					_, _ = NewCA(ctx, NewCAOptions{
+					_, _ = identity.NewCA(ctx, identity.NewCAOptions{
 						Difficulty:  difficulty,
 						Concurrency: concurrency,
 					})
@@ -104,4 +111,72 @@ func BenchmarkNewCA(b *testing.B) {
 			})
 		}
 	}
+}
+
+func TestFullCertificateAuthority_AddExtension(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	ca, err := testidentity.NewTestCA(ctx)
+	require.NoError(t, err)
+
+	oldCert := ca.Cert
+	assert.Len(t, ca.Cert.ExtraExtensions, 0)
+
+	randBytes := make([]byte, 10)
+	rand.Read(randBytes)
+	randExt := pkix.Extension{
+		Id:    asn1.ObjectIdentifier{2, 999, int(randBytes[0])},
+		Value: randBytes,
+	}
+
+	err = ca.AddExtension(randExt)
+	assert.NoError(t, err)
+
+	assert.Len(t, ca.Cert.ExtraExtensions, 0)
+	assert.Len(t, ca.Cert.Extensions, len(oldCert.Extensions)+1)
+
+	assert.Equal(t, oldCert.SerialNumber, ca.Cert.SerialNumber)
+	assert.Equal(t, oldCert.IsCA, ca.Cert.IsCA)
+	assert.Equal(t, oldCert.PublicKey, ca.Cert.PublicKey)
+	assert.Equal(t, randExt, ca.Cert.Extensions[len(ca.Cert.Extensions)-1])
+
+	assert.NotEqual(t, oldCert.Raw, ca.Cert.Raw)
+	assert.NotEqual(t, oldCert.RawTBSCertificate, ca.Cert.RawTBSCertificate)
+	assert.NotEqual(t, oldCert.Signature, ca.Cert.Signature)
+}
+
+func TestFullCertificateAuthority_Revoke(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	ca, err := testidentity.NewTestCA(ctx)
+	require.NoError(t, err)
+
+	oldCert := ca.Cert
+	assert.Len(t, ca.Cert.ExtraExtensions, 0)
+
+	err = ca.Revoke()
+	assert.NoError(t, err)
+
+	assert.Len(t, ca.Cert.ExtraExtensions, 0)
+	assert.Len(t, ca.Cert.Extensions, len(oldCert.Extensions)+1)
+
+	assert.Equal(t, oldCert.SerialNumber, ca.Cert.SerialNumber)
+	assert.Equal(t, oldCert.IsCA, ca.Cert.IsCA)
+	assert.Equal(t, oldCert.PublicKey, ca.Cert.PublicKey)
+
+	assert.NotEqual(t, oldCert.Raw, ca.Cert.Raw)
+	assert.NotEqual(t, oldCert.RawTBSCertificate, ca.Cert.RawTBSCertificate)
+	assert.NotEqual(t, oldCert.Signature, ca.Cert.Signature)
+
+	revocationExt := ca.Cert.Extensions[len(ca.Cert.Extensions)-1]
+	assert.True(t, extensions.RevocationExtID.Equal(revocationExt.Id))
+
+	var rev extensions.Revocation
+	err = rev.Unmarshal(revocationExt.Value)
+	require.NoError(t, err)
+
+	err = rev.Verify(ca.Cert)
+	assert.NoError(t, err)
 }

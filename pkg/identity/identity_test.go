@@ -6,15 +6,21 @@ package identity_test
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/x509/pkix"
+	"encoding/asn1"
 	"os"
 	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/pkcrypto"
 )
 
@@ -138,6 +144,80 @@ func TestVerifyPeer(t *testing.T) {
 	assert.NoError(t, err)
 
 	err = peertls.VerifyPeerFunc(peertls.VerifyPeerCertChains)([][]byte{fi.Leaf.Raw, fi.CA.Raw}, nil)
+	assert.NoError(t, err)
+}
+
+func TestManageableIdentity_AddExtension(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	ca, err := testidentity.NewTestCA(ctx)
+	require.NoError(t, err)
+
+	ident, err := ca.NewIdentity()
+	manIdent := identity.NewManageableIdentity(ident, ca)
+
+	oldLeaf := manIdent.Leaf
+	assert.Len(t, ca.Cert.ExtraExtensions, 0)
+
+	randBytes := make([]byte, 10)
+	rand.Read(randBytes)
+	randExt := pkix.Extension{
+		Id:    asn1.ObjectIdentifier{2, 999, int(randBytes[0])},
+		Value: randBytes,
+	}
+
+	err = manIdent.AddExtension(randExt)
+	assert.NoError(t, err)
+
+	assert.Len(t, manIdent.Leaf.ExtraExtensions, 0)
+	assert.Len(t, manIdent.Leaf.Extensions, len(oldLeaf.Extensions)+1)
+
+	assert.Equal(t, oldLeaf.SerialNumber, manIdent.Leaf.SerialNumber)
+	assert.Equal(t, oldLeaf.IsCA, manIdent.Leaf.IsCA)
+	assert.Equal(t, oldLeaf.PublicKey, manIdent.Leaf.PublicKey)
+	assert.Equal(t, randExt, manIdent.Leaf.Extensions[len(manIdent.Leaf.Extensions)-1])
+
+	assert.NotEqual(t, oldLeaf.Raw, manIdent.Leaf.Raw)
+	assert.NotEqual(t, oldLeaf.RawTBSCertificate, manIdent.Leaf.RawTBSCertificate)
+	assert.NotEqual(t, oldLeaf.Signature, manIdent.Leaf.Signature)
+}
+
+func TestManageableIdentity_Revoke(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	ca, err := testidentity.NewTestCA(ctx)
+	require.NoError(t, err)
+
+	ident, err := ca.NewIdentity()
+	manIdent := identity.NewManageableIdentity(ident, ca)
+
+	oldLeaf := manIdent.Leaf
+	assert.Len(t, ca.Cert.ExtraExtensions, 0)
+
+	err = manIdent.Revoke()
+	assert.NoError(t, err)
+
+	assert.Len(t, manIdent.Leaf.ExtraExtensions, 0)
+	assert.Len(t, manIdent.Leaf.Extensions, len(oldLeaf.Extensions)+1)
+
+	assert.Equal(t, oldLeaf.IsCA, manIdent.Leaf.IsCA)
+	assert.Equal(t, oldLeaf.PublicKey, manIdent.Leaf.PublicKey)
+
+	assert.NotEqual(t, oldLeaf.SerialNumber, manIdent.Leaf.SerialNumber)
+	assert.NotEqual(t, oldLeaf.Raw, manIdent.Leaf.Raw)
+	assert.NotEqual(t, oldLeaf.RawTBSCertificate, manIdent.Leaf.RawTBSCertificate)
+	assert.NotEqual(t, oldLeaf.Signature, manIdent.Leaf.Signature)
+
+	revocationExt := manIdent.Leaf.Extensions[len(manIdent.Leaf.Extensions)-1]
+	assert.True(t, extensions.RevocationExtID.Equal(revocationExt.Id))
+
+	var rev extensions.Revocation
+	err = rev.Unmarshal(revocationExt.Value)
+	require.NoError(t, err)
+
+	err = rev.Verify(ca.Cert)
 	assert.NoError(t, err)
 }
 
