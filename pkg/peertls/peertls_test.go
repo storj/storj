@@ -30,7 +30,7 @@ func TestNewCert_CA(t *testing.T) {
 	caTemplate, err := peertls.CATemplate()
 	assert.NoError(t, err)
 
-	caCert, err := peertls.NewCert(caKey, nil, caTemplate, nil)
+	caCert, err := peertls.NewSelfSignedCert(caKey, caTemplate)
 	assert.NoError(t, err)
 
 	assert.NotEmpty(t, caKey)
@@ -48,7 +48,7 @@ func TestNewCert_Leaf(t *testing.T) {
 	caTemplate, err := peertls.CATemplate()
 	assert.NoError(t, err)
 
-	caCert, err := peertls.NewCert(caKey, nil, caTemplate, nil)
+	caCert, err := peertls.NewSelfSignedCert(caKey, caTemplate)
 	assert.NoError(t, err)
 
 	leafKey, err := pkcrypto.GeneratePrivateKey()

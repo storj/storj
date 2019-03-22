@@ -442,7 +442,7 @@ func (ca *FullCertificateAuthority) AddExtension(ext ...pkix.Extension) error {
 		return err
 	}
 
-	updatedCert, err := peertls.NewCert(ca.Key, nil, ca.Cert, nil)
+	updatedCert, err := peertls.NewSelfSignedCert(ca.Key, ca.Cert)
 	if err != nil {
 		return err
 	}
