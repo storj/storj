@@ -434,10 +434,10 @@ model storagenode_bandwidth_rollup {
 }
 
 model storagenode_storage_rollup (
-	key    bucket_id
-	unique bucket_id interval_start interval_seconds
+	key    storagenode_id
+	unique storagenode_id interval_start interval_seconds
 
-	field bucket_id        blob
+	field storagenode_id   blob
 	field interval_start   utimestamp
 	field interval_seconds uint32
 	field remote           uint64
