@@ -220,9 +220,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			NewNodePercentage:     config.Node.NewNodePercentage,
 		}
 
-		peer.Overlay.Service = overlay.NewCache(peer.Log.Named("overlay", peer.DB.OverlayCache(), peer.DB.StatDB(), *nodeSelectionConfig)
+		peer.Overlay.Service = overlay.NewCache(peer.Log.Named("overlay"), peer.DB.OverlayCache(), peer.DB.StatDB(), *nodeSelectionConfig)
 		peer.Transport = peer.Transport.WithObservers(peer.Overlay.Service)
-		
+
 		peer.Overlay.Inspector = overlay.NewInspector(peer.Overlay.Service)
 		pb.RegisterOverlayInspectorServer(peer.Server.PrivateGRPC(), peer.Overlay.Inspector)
 	}
@@ -312,17 +312,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			config.PointerDB,
 			peer.Identity, peer.DB.Console().APIKeys())
 
-		// TODO remove duplicated code
-		overlayConfig := config.Overlay
-		nodeSelectionConfig := &overlay.NodeSelectionConfig{
-			UptimeCount:           overlayConfig.Node.UptimeCount,
-			UptimeRatio:           overlayConfig.Node.UptimeRatio,
-			AuditSuccessRatio:     overlayConfig.Node.AuditSuccessRatio,
-			AuditCount:            overlayConfig.Node.AuditCount,
-			NewNodeAuditThreshold: overlayConfig.Node.NewNodeAuditThreshold,
-			NewNodePercentage:     overlayConfig.Node.NewNodePercentage,
-		}
-
 		peer.Metainfo.Endpoint2 = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),
 			peer.Metainfo.Service,
@@ -330,7 +319,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			peer.Overlay.Service,
 			peer.DB.Console().APIKeys(),
 			signing.SignerFromFullIdentity(peer.Identity),
-			nodeSelectionConfig)
+		)
 
 		pb.RegisterPointerDBServer(peer.Server.GRPC(), peer.Metainfo.Endpoint)
 
@@ -350,20 +339,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		peer.Repair.Checker = checker.NewChecker(
 			peer.Metainfo.Service,
 			peer.DB.StatDB(), peer.DB.RepairQueue(),
-			peer.Overlay.Endpoint, peer.DB.Irreparable(),
+			peer.Overlay.Service, peer.DB.Irreparable(),
 			0, peer.Log.Named("checker"),
 			config.Checker.Interval)
-
-		// TODO remove duplicated code
-		overlayConfig := config.Overlay
-		nodeSelectionConfig := &overlay.NodeSelectionConfig{
-			UptimeCount:           overlayConfig.Node.UptimeCount,
-			UptimeRatio:           overlayConfig.Node.UptimeRatio,
-			AuditSuccessRatio:     overlayConfig.Node.AuditSuccessRatio,
-			AuditCount:            overlayConfig.Node.AuditCount,
-			NewNodeAuditThreshold: overlayConfig.Node.NewNodeAuditThreshold,
-			NewNodePercentage:     overlayConfig.Node.NewNodePercentage,
-		}
 
 		peer.Repair.Repairer = repairer.NewService(
 			peer.DB.RepairQueue(),
@@ -375,7 +353,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			peer.Metainfo.Allocation,
 			peer.Overlay.Service,
 			signing.SignerFromFullIdentity(peer.Identity),
-			nodeSelectionConfig,
 		)
 
 		peer.Repair.Inspector = irreparable.NewInspector(peer.DB.Irreparable())
@@ -400,7 +377,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 
 	{ // setup accounting
 		log.Debug("Setting up accounting")
-		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.Accounting(), peer.DB.BandwidthAgreement(), peer.Metainfo.Service, peer.Overlay.Endpoint, 0, config.Tally.Interval)
+		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.Accounting(), peer.DB.BandwidthAgreement(), peer.Metainfo.Service, peer.Overlay.Service, 0, config.Tally.Interval)
 		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.Accounting(), config.Rollup.Interval)
 	}
 
@@ -596,9 +573,6 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.Kademlia.RoutingTable.Close())
 	}
 
-	if peer.Overlay.Endpoint != nil {
-		errlist.Add(peer.Overlay.Endpoint.Close())
-	}
 	if peer.Overlay.Service != nil {
 		errlist.Add(peer.Overlay.Service.Close())
 	}

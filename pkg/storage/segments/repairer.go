@@ -22,27 +22,25 @@ import (
 
 // Repairer for segments
 type Repairer struct {
-	pointerdb            *pointerdb.Service
-	allocation           *pointerdb.AllocationSigner
-	cache                *overlay.Cache
-	ec                   ecclient.Client
-	selectionPreferences *overlay.NodeSelectionConfig
-	signer               signing.Signer
-	identity             *identity.FullIdentity
-	timeout              time.Duration
+	pointerdb  *pointerdb.Service
+	allocation *pointerdb.AllocationSigner
+	cache      *overlay.Cache
+	ec         ecclient.Client
+	signer     signing.Signer
+	identity   *identity.FullIdentity
+	timeout    time.Duration
 }
 
 // NewSegmentRepairer creates a new instance of SegmentRepairer
-func NewSegmentRepairer(pointerdb *pointerdb.Service, allocation *pointerdb.AllocationSigner, cache *overlay.Cache, ec ecclient.Client, identity *identity.FullIdentity, selectionPreferences *overlay.NodeSelectionConfig, timeout time.Duration) *Repairer {
+func NewSegmentRepairer(pointerdb *pointerdb.Service, allocation *pointerdb.AllocationSigner, cache *overlay.Cache, ec ecclient.Client, identity *identity.FullIdentity, timeout time.Duration) *Repairer {
 	return &Repairer{
-		pointerdb:            pointerdb,
-		allocation:           allocation,
-		cache:                cache,
-		ec:                   ec,
-		identity:             identity,
-		signer:               signing.SignerFromFullIdentity(identity),
-		selectionPreferences: selectionPreferences,
-		timeout:              timeout,
+		pointerdb:  pointerdb,
+		allocation: allocation,
+		cache:      cache,
+		ec:         ec,
+		identity:   identity,
+		signer:     signing.SignerFromFullIdentity(identity),
+		timeout:    timeout,
 	}
 }
 
@@ -106,17 +104,13 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 	}
 
 	// Request Overlay for n-h new storage nodes
-	request := &pb.FindStorageNodesRequest{
-		Opts: &pb.OverlayOptions{
-			Amount: int64(redundancy.TotalCount()) - int64(len(healthyPieces)),
-			Restrictions: &pb.NodeRestrictions{
-				FreeBandwidth: pieceSize,
-				FreeDisk:      pieceSize,
-			},
-			ExcludedNodes: excludeNodeIDs,
-		},
+	request := overlay.FindStorageNodeRequest{
+		RequestedCount: redundancy.TotalCount() - len(healthyPieces),
+		FreeBandwidth:  pieceSize,
+		FreeDisk:       pieceSize,
+		ExcludedNodes:  excludeNodeIDs,
 	}
-	newNodes, err := repairer.cache.FindStorageNodes(ctx, request, repairer.selectionPreferences)
+	newNodes, err := repairer.cache.FindStorageNodesDefault(ctx, request)
 	if err != nil {
 		return Error.Wrap(err)
 	}

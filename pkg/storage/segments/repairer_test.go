@@ -14,7 +14,6 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
@@ -93,7 +92,7 @@ func TestSegmentStoreRepair(t *testing.T) {
 		oc := satellite.Overlay.Service
 		as := satellite.Metainfo.Allocation
 		ec := ecclient.NewClient(satellite.Transport, 0)
-		repairer := segments.NewSegmentRepairer(pdb, as, oc, ec, satellite.Identity, &overlay.NodeSelectionConfig{}, time.Minute)
+		repairer := segments.NewSegmentRepairer(pdb, as, oc, ec, satellite.Identity, time.Minute)
 		assert.NotNil(t, repairer)
 
 		err = repairer.Repair(ctx, path, lostPieces)
