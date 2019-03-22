@@ -19,13 +19,13 @@ func TestUploadDownload(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.New(t, 1, 10, 1)
+	planet, err := testplanet.New(t, 1, 6, 1)
 	require.NoError(t, err)
 	defer ctx.Check(planet.Shutdown)
 
 	planet.Start(ctx)
 
-	expectedData := make([]byte, 5*memory.MiB)
+	expectedData := make([]byte, 1*memory.MiB)
 	_, err = rand.Read(expectedData)
 	assert.NoError(t, err)
 
