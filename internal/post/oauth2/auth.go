@@ -25,6 +25,10 @@ type Auth struct {
 
 // Start returns proto and auth credentials for first auth msg
 func (auth *Auth) Start(server *smtp.ServerInfo) (proto string, toServer []byte, err error) {
+	if !server.TLS {
+		return "", nil, errs.New("unencrypted connection")
+	}
+
 	token, err := auth.Storage.Token()
 	if err != nil {
 		return "", nil, err
