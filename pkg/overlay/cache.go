@@ -133,10 +133,10 @@ func (cache *Cache) Paginate(ctx context.Context, offset int64, limit int) (_ []
 
 // Get looks up the provided nodeID from the overlay cache
 func (cache *Cache) Get(ctx context.Context, nodeID storj.NodeID) (_ *pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if nodeID.IsZero() {
 		return nil, ErrEmptyNode
 	}
-	defer mon.Task()(&ctx)(&err)
 	return cache.db.Get(ctx, nodeID)
 }
 
@@ -267,10 +267,10 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 // Delete will remove the node from the cache. Used when a node hard disconnects or fails
 // to pass a PING multiple times.
 func (cache *Cache) Delete(ctx context.Context, id storj.NodeID) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	if id.IsZero() {
 		return ErrEmptyNode
 	}
-	defer mon.Task()(&ctx)(&err)
 
 	return cache.db.Delete(ctx, id)
 }
