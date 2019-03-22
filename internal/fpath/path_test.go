@@ -35,6 +35,13 @@ func TestStorjURL(t *testing.T) {
 			joint:  "suffix",
 		},
 		{
+			url:    "sj:/mybucket/myfile",
+			bucket: "mybucket",
+			path:   "myfile",
+			base:   "myfile",
+			joint:  "suffix",
+		},
+		{
 			url:    "sj://mybucket",
 			bucket: "mybucket",
 			path:   "",
