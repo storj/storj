@@ -6,7 +6,6 @@ package certificates
 import (
 	"context"
 	"os"
-	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -43,7 +42,7 @@ func (c CertClientConfig) Sign(ctx context.Context, ident *identity.FullIdentity
 	if err != nil {
 		return nil, err
 	}
-	client, err := NewClient(ctx, transport.NewClient(tlsOpts, 20*time.Second), c.Address)
+	client, err := NewClient(ctx, transport.NewClient(tlsOpts), c.Address)
 	if err != nil {
 		return nil, err
 	}

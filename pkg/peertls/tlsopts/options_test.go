@@ -143,7 +143,7 @@ func TestOptions_ServerOption_Peer_CA_Whitelist(t *testing.T) {
 			dialOption, err := opts.DialOption(target.Id)
 			require.NoError(t, err)
 
-			transportClient := transport.NewClient(opts, 20*time.Millisecond)
+			transportClient := transport.NewClientWithTimeout(opts, 20*time.Millisecond)
 
 			conn, err := transportClient.DialNode(ctx, &target, dialOption)
 			assert.NotNil(t, conn)
