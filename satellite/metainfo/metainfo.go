@@ -134,7 +134,7 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 
 	maxPieceSize := eestream.CalcPieceSize(req.GetMaxEncryptedSegmentSize(), redundancy)
 
-	request := overlay.FindStorageNodeRequest{
+	request := overlay.FindStorageNodesRequest{
 		RequestedCount: int(req.Redundancy.Total),
 		FreeBandwidth:  maxPieceSize,
 		FreeDisk:       maxPieceSize,

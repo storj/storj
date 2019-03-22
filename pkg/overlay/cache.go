@@ -57,8 +57,8 @@ type DB interface {
 	Delete(ctx context.Context, id storj.NodeID) error
 }
 
-// FindStorageNodeRequest defines easy request parameters.
-type FindStorageNodeRequest struct {
+// FindStorageNodesRequest defines easy request parameters.
+type FindStorageNodesRequest struct {
 	MinimumRequiredNodes int
 	RequestedCount       int
 
@@ -160,12 +160,12 @@ func (cache *Cache) OfflineNodes(ctx context.Context, nodes []storj.NodeID) (off
 }
 
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
-func (cache *Cache) FindStorageNodes(ctx context.Context, req FindStorageNodeRequest) ([]*pb.Node, error) {
+func (cache *Cache) FindStorageNodes(ctx context.Context, req FindStorageNodesRequest) ([]*pb.Node, error) {
 	return cache.FindStorageNodesWithPreferences(ctx, req, &cache.preferences)
 }
 
 // FindStorageNodesWithPreferences searches the overlay network for nodes that meet the provided criteria
-func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req FindStorageNodeRequest, preferences *NodeSelectionConfig) (_ []*pb.Node, err error) {
+func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req FindStorageNodesRequest, preferences *NodeSelectionConfig) (_ []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO: verify logic

@@ -104,7 +104,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 	}
 
 	// Request Overlay for n-h new storage nodes
-	request := overlay.FindStorageNodeRequest{
+	request := overlay.FindStorageNodesRequest{
 		RequestedCount: redundancy.TotalCount() - len(healthyPieces),
 		FreeBandwidth:  pieceSize,
 		FreeDisk:       pieceSize,
