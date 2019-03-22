@@ -5,6 +5,7 @@ package testplanet_test
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"testing"
 	"time"
@@ -44,6 +45,11 @@ func TestBasic(t *testing.T) {
 		// TODO: end questionable resolution
 
 		// ping a satellite
+		fmt.Println(version)
+		id1 := planet.StorageNodes[0].Local().Id
+		id2 := planet.Satellites[0].Local().Id
+		fmt.Printf("storagenode 0 ID: %v\n", id1[:])
+		fmt.Printf("satellite 0 ID: %v\n", id2[:])
 		_, err = planet.StorageNodes[0].Kademlia.Service.Ping(ctx, planet.Satellites[0].Local())
 		require.NoError(t, err)
 
@@ -62,9 +68,10 @@ func TestBasic(t *testing.T) {
 		time.Sleep(time.Second)
 	}
 
-	for _, version := range storj.IDVersions {
-		test(version)
-	}
+	//for _, version := range storj.IDVersions {
+	//	test(version)
+	//}
+	test(storj.IDVersions[storj.V2])
 
 }
 

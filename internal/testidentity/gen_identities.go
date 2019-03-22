@@ -49,7 +49,6 @@ func main() {
 		Difficulty:    12,
 		Concurrency:   4,
 	}
-	//fmt.Printf("caOpts: %+v/n", caOpts)
 
 	if *signed {
 		signer, err = identity.NewCA(context.Background(), caOpts)
@@ -82,7 +81,7 @@ func main() {
 		fmt.Fprintf(&buf, "var pregeneratedV%dIdentities = NewIdentities(", *versionFlag)
 	}
 	for k := 0; k < *count; k++ {
-		//fmt.Println("Creating", k)
+		fmt.Println("Creating", k)
 		ca, err := identity.NewCA(context.Background(), caOpts)
 		if err != nil {
 			panic(err)

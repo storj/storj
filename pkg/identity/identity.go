@@ -183,6 +183,7 @@ func PeerIdentityFromPEM(chainPEM []byte) (*PeerIdentity, error) {
 // PeerIdentityFromChain loads a PeerIdentity from an identity certificate chain.
 func PeerIdentityFromChain(chain []*x509.Certificate) (*PeerIdentity, error) {
 	nodeID, err := NodeIDFromCert(chain[peertls.CAIndex])
+	fmt.Printf("peeridentity %v\n", nodeID[:])
 	if err != nil {
 		return nil, err
 	}
