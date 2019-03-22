@@ -29,10 +29,10 @@ func TestUploadDownload(t *testing.T) {
 	_, err = rand.Read(expectedData)
 	assert.NoError(t, err)
 
-	err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "test/bucket", "test/path", expectedData)
+	err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
 	assert.NoError(t, err)
 
-	data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "test/bucket", "test/path")
+	data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path")
 	assert.NoError(t, err)
 
 	assert.Equal(t, expectedData, data)
