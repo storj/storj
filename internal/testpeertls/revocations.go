@@ -8,38 +8,54 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 
+	"github.com/zeebo/errs"
+
+	"storj.io/storj/pkg/identity"
+
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/extensions"
-	"storj.io/storj/pkg/pkcrypto"
 )
 
 // RevokeLeaf revokes the leaf certificate in the passed chain and replaces it
 // with a "revoking" certificate, which contains a revocation extension recording
 // this action.
 func RevokeLeaf(keys []crypto.PrivateKey, chain []*x509.Certificate) ([]*x509.Certificate, pkix.Extension, error) {
-	var revocation pkix.Extension
-	revokingKey, err := pkcrypto.GeneratePrivateKey()
-	if err != nil {
-		return nil, revocation, err
+	if len(chain) < 2 {
+		return nil, pkix.Extension{}, errs.New("revoking leaf implies a CA exists; chain too short")
+	}
+	ca := &identity.FullCertificateAuthority{
+		Key:       keys[0],
+		Cert:      chain[0],
+		RestChain: chain[:peertls.CAIndex+1],
 	}
 
-	revokingTemplate, err := peertls.LeafTemplate()
+	var err error
+	ca.ID, err = identity.NodeIDFromKey(ca.Cert.PublicKey)
 	if err != nil {
-		return nil, revocation, err
+		return nil, pkix.Extension{}, err
 	}
 
-	revokingCert, err := peertls.NewCert(revokingKey, keys[0], revokingTemplate, chain[peertls.CAIndex])
-	if err != nil {
-		return nil, revocation, err
+	ident := &identity.PeerIdentity{
+		Leaf:      chain[peertls.LeafIndex],
+		CA:        ca.Cert,
+		ID:        ca.ID,
+		RestChain: ca.RestChain,
 	}
 
-	err = extensions.AddRevocationExt(keys[0], chain[peertls.LeafIndex], revokingCert)
-	if err != nil {
-		return nil, revocation, err
+	manageableIdent := identity.NewManageableIdentity(ident, ca)
+	if err := manageableIdent.Revoke(); err != nil {
+		return nil, pkix.Extension{}, err
 	}
 
-	revocation = revokingCert.ExtraExtensions[0]
-	return append([]*x509.Certificate{revokingCert}, chain[peertls.CAIndex:]...), revocation, nil
+	revokingCert := manageableIdent.Leaf
+	var revocationExt pkix.Extension
+	for _, ext := range revokingCert.Extensions {
+		if extensions.RevocationExtID.Equal(ext.Id) {
+			revocationExt = ext
+			break
+		}
+	}
+	return append([]*x509.Certificate{revokingCert}, chain[peertls.CAIndex:]...), revocationExt, nil
 }
 
 // RevokeCA revokes the CA certificate in the passed chain and adds a revocation

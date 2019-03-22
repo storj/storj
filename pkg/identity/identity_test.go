@@ -151,14 +151,11 @@ func TestManageableIdentity_AddExtension(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	ca, err := testidentity.NewTestCA(ctx)
+	manageableIdentity, err := testidentity.NewTestManageablePeerIdentity(ctx)
 	require.NoError(t, err)
 
-	ident, err := ca.NewIdentity()
-	manIdent := identity.NewManageableIdentity(ident.PeerIdentity(), ca)
-
-	oldLeaf := manIdent.Leaf
-	assert.Len(t, ca.Cert.ExtraExtensions, 0)
+	oldLeaf := manageableIdentity.Leaf
+	assert.Len(t, manageableIdentity.CA.Cert.ExtraExtensions, 0)
 
 	randBytes := make([]byte, 10)
 	rand.Read(randBytes)
@@ -167,20 +164,20 @@ func TestManageableIdentity_AddExtension(t *testing.T) {
 		Value: randBytes,
 	}
 
-	err = manIdent.AddExtension(randExt)
+	err = manageableIdentity.AddExtension(randExt)
 	assert.NoError(t, err)
 
-	assert.Len(t, manIdent.Leaf.ExtraExtensions, 0)
-	assert.Len(t, manIdent.Leaf.Extensions, len(oldLeaf.Extensions)+1)
+	assert.Len(t, manageableIdentity.Leaf.ExtraExtensions, 0)
+	assert.Len(t, manageableIdentity.Leaf.Extensions, len(oldLeaf.Extensions)+1)
 
-	assert.Equal(t, oldLeaf.SerialNumber, manIdent.Leaf.SerialNumber)
-	assert.Equal(t, oldLeaf.IsCA, manIdent.Leaf.IsCA)
-	assert.Equal(t, oldLeaf.PublicKey, manIdent.Leaf.PublicKey)
-	assert.Equal(t, randExt, manIdent.Leaf.Extensions[len(manIdent.Leaf.Extensions)-1])
+	assert.Equal(t, oldLeaf.SerialNumber, manageableIdentity.Leaf.SerialNumber)
+	assert.Equal(t, oldLeaf.IsCA, manageableIdentity.Leaf.IsCA)
+	assert.Equal(t, oldLeaf.PublicKey, manageableIdentity.Leaf.PublicKey)
+	assert.Equal(t, randExt, manageableIdentity.Leaf.Extensions[len(manageableIdentity.Leaf.Extensions)-1])
 
-	assert.NotEqual(t, oldLeaf.Raw, manIdent.Leaf.Raw)
-	assert.NotEqual(t, oldLeaf.RawTBSCertificate, manIdent.Leaf.RawTBSCertificate)
-	assert.NotEqual(t, oldLeaf.Signature, manIdent.Leaf.Signature)
+	assert.NotEqual(t, oldLeaf.Raw, manageableIdentity.Leaf.Raw)
+	assert.NotEqual(t, oldLeaf.RawTBSCertificate, manageableIdentity.Leaf.RawTBSCertificate)
+	assert.NotEqual(t, oldLeaf.Signature, manageableIdentity.Leaf.Signature)
 }
 
 func TestManageableIdentity_Revoke(t *testing.T) {
@@ -203,8 +200,8 @@ func TestManageableIdentity_Revoke(t *testing.T) {
 	assert.Len(t, manIdent.Leaf.Extensions, len(oldLeaf.Extensions)+1)
 
 	assert.Equal(t, oldLeaf.IsCA, manIdent.Leaf.IsCA)
-	assert.Equal(t, oldLeaf.PublicKey, manIdent.Leaf.PublicKey)
 
+	assert.NotEqual(t, oldLeaf.PublicKey, manIdent.Leaf.PublicKey)
 	assert.NotEqual(t, oldLeaf.SerialNumber, manIdent.Leaf.SerialNumber)
 	assert.NotEqual(t, oldLeaf.Raw, manIdent.Leaf.Raw)
 	assert.NotEqual(t, oldLeaf.RawTBSCertificate, manIdent.Leaf.RawTBSCertificate)
