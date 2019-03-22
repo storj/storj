@@ -61,3 +61,24 @@ message PieceHash {
     // signature either satellite or storage node
     bytes signature = 3;
 }
+
+
+service Orders {
+    rpc Settlement(stream SettlementRequest) returns (stream SettlementResponse) {}
+}
+
+message SettlementRequest {
+    OrderLimit2 limit = 1;
+    Order2      order = 2;
+}
+
+message SettlementResponse {
+    enum Status {
+        INVALID  = 0;
+        ACCEPTED = 1;
+        REJECTED = 2;
+    }
+
+    bytes  serial_number = 1 [(gogoproto.customtype) = "SerialNumber", (gogoproto.nullable) = false];
+    Status status = 2;
+}

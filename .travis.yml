@@ -65,6 +65,7 @@ matrix:
         - go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint
         - protolock status
         - golangci-lint run
+        - ./scripts/check-dbx-version.sh
         - ./scripts/check-travis-tidy.sh
 
     ### integration tests ###
