@@ -402,6 +402,23 @@ model used_serial (
 	field storage_node_id  blob
 )
 
+// inserting a new serial number
+create serial_number ()
+
+// finding out information about the serial number
+read scalar (
+	select serial_number
+	where  serial_number.serial_number = ?
+)
+
+// deleting expired serial numbers
+delete serial_number (
+	where serial_number.expires_at <= ?
+)
+
+// for preventing duplicate serial numbers
+create used_serial ()
+
 // --- bucket roll up tables --- //
 
 model bucket_bandwidth_rollup (

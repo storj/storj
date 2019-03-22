@@ -4062,6 +4062,49 @@ func (obj *postgresImpl) Create_BucketUsage(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Create_SerialNumber(ctx context.Context,
+	serial_number_serial_number SerialNumber_SerialNumber_Field,
+	serial_number_bucket_id SerialNumber_BucketId_Field,
+	serial_number_expires_at SerialNumber_ExpiresAt_Field) (
+	serial_number *SerialNumber, err error) {
+	__serial_number_val := serial_number_serial_number.value()
+	__bucket_id_val := serial_number_bucket_id.value()
+	__expires_at_val := serial_number_expires_at.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO serial_numbers ( serial_number, bucket_id, expires_at ) VALUES ( ?, ?, ? ) RETURNING serial_numbers.id, serial_numbers.serial_number, serial_numbers.bucket_id, serial_numbers.expires_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __serial_number_val, __bucket_id_val, __expires_at_val)
+
+	serial_number = &SerialNumber{}
+	err = obj.driver.QueryRow(__stmt, __serial_number_val, __bucket_id_val, __expires_at_val).Scan(&serial_number.Id, &serial_number.SerialNumber, &serial_number.BucketId, &serial_number.ExpiresAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return serial_number, nil
+
+}
+
+func (obj *postgresImpl) Create_UsedSerial(ctx context.Context,
+	used_serial_serial_number_id UsedSerial_SerialNumberId_Field,
+	used_serial_storage_node_id UsedSerial_StorageNodeId_Field) (
+	used_serial *UsedSerial, err error) {
+	__storage_node_id_val := used_serial_storage_node_id.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO used_serials ( storage_node_id ) VALUES ( ? ) RETURNING used_serials.serial_number_id, used_serials.storage_node_id")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __storage_node_id_val)
+
+	used_serial = &UsedSerial{}
+	err = obj.driver.QueryRow(__stmt, __storage_node_id_val).Scan(&used_serial.SerialNumberId, &used_serial.StorageNodeId)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return used_serial, nil
+
+}
+
 func (obj *postgresImpl) Create_CertRecord(ctx context.Context,
 	certRecord_publickey CertRecord_Publickey_Field,
 	certRecord_id CertRecord_Id_Field) (
@@ -4926,6 +4969,30 @@ func (obj *postgresImpl) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Great
 
 }
 
+func (obj *postgresImpl) Find_SerialNumber_By_SerialNumber(ctx context.Context,
+	serial_number_serial_number SerialNumber_SerialNumber_Field) (
+	serial_number *SerialNumber, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT serial_numbers.id, serial_numbers.serial_number, serial_numbers.bucket_id, serial_numbers.expires_at FROM serial_numbers WHERE serial_numbers.serial_number = ?")
+
+	var __values []interface{}
+	__values = append(__values, serial_number_serial_number.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	serial_number = &SerialNumber{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&serial_number.Id, &serial_number.SerialNumber, &serial_number.BucketId, &serial_number.ExpiresAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return serial_number, nil
+
+}
+
 func (obj *postgresImpl) Get_CertRecord_By_Id(ctx context.Context,
 	certRecord_id CertRecord_Id_Field) (
 	certRecord *CertRecord, err error) {
@@ -5770,6 +5837,32 @@ func (obj *postgresImpl) Delete_BucketUsage_By_Id(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx context.Context,
+	serial_number_expires_at_less_or_equal SerialNumber_ExpiresAt_Field) (
+	count int64, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM serial_numbers WHERE serial_numbers.expires_at <= ?")
+
+	var __values []interface{}
+	__values = append(__values, serial_number_expires_at_less_or_equal.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *postgresImpl) Delete_CertRecord_By_Id(ctx context.Context,
 	certRecord_id CertRecord_Id_Field) (
 	deleted bool, err error) {
@@ -6420,6 +6513,55 @@ func (obj *sqlite3Impl) Create_BucketUsage(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return obj.getLastBucketUsage(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_SerialNumber(ctx context.Context,
+	serial_number_serial_number SerialNumber_SerialNumber_Field,
+	serial_number_bucket_id SerialNumber_BucketId_Field,
+	serial_number_expires_at SerialNumber_ExpiresAt_Field) (
+	serial_number *SerialNumber, err error) {
+	__serial_number_val := serial_number_serial_number.value()
+	__bucket_id_val := serial_number_bucket_id.value()
+	__expires_at_val := serial_number_expires_at.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO serial_numbers ( serial_number, bucket_id, expires_at ) VALUES ( ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __serial_number_val, __bucket_id_val, __expires_at_val)
+
+	__res, err := obj.driver.Exec(__stmt, __serial_number_val, __bucket_id_val, __expires_at_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastSerialNumber(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_UsedSerial(ctx context.Context,
+	used_serial_serial_number_id UsedSerial_SerialNumberId_Field,
+	used_serial_storage_node_id UsedSerial_StorageNodeId_Field) (
+	used_serial *UsedSerial, err error) {
+	__storage_node_id_val := used_serial_storage_node_id.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO used_serials ( storage_node_id ) VALUES ( ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __storage_node_id_val)
+
+	__res, err := obj.driver.Exec(__stmt, __storage_node_id_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastUsedSerial(ctx, __pk)
 
 }
 
@@ -7290,6 +7432,30 @@ func (obj *sqlite3Impl) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greate
 		return nil, obj.makeErr(err)
 	}
 	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) Find_SerialNumber_By_SerialNumber(ctx context.Context,
+	serial_number_serial_number SerialNumber_SerialNumber_Field) (
+	serial_number *SerialNumber, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT serial_numbers.id, serial_numbers.serial_number, serial_numbers.bucket_id, serial_numbers.expires_at FROM serial_numbers WHERE serial_numbers.serial_number = ?")
+
+	var __values []interface{}
+	__values = append(__values, serial_number_serial_number.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	serial_number = &SerialNumber{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&serial_number.Id, &serial_number.SerialNumber, &serial_number.BucketId, &serial_number.ExpiresAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return serial_number, nil
 
 }
 
@@ -8227,6 +8393,32 @@ func (obj *sqlite3Impl) Delete_BucketUsage_By_Id(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx context.Context,
+	serial_number_expires_at_less_or_equal SerialNumber_ExpiresAt_Field) (
+	count int64, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM serial_numbers WHERE serial_numbers.expires_at <= ?")
+
+	var __values []interface{}
+	__values = append(__values, serial_number_expires_at_less_or_equal.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *sqlite3Impl) Delete_CertRecord_By_Id(ctx context.Context,
 	certRecord_id CertRecord_Id_Field) (
 	deleted bool, err error) {
@@ -8466,6 +8658,42 @@ func (obj *sqlite3Impl) getLastBucketUsage(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return bucket_usage, nil
+
+}
+
+func (obj *sqlite3Impl) getLastSerialNumber(ctx context.Context,
+	pk int64) (
+	serial_number *SerialNumber, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT serial_numbers.id, serial_numbers.serial_number, serial_numbers.bucket_id, serial_numbers.expires_at FROM serial_numbers WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	serial_number = &SerialNumber{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&serial_number.Id, &serial_number.SerialNumber, &serial_number.BucketId, &serial_number.ExpiresAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return serial_number, nil
+
+}
+
+func (obj *sqlite3Impl) getLastUsedSerial(ctx context.Context,
+	pk int64) (
+	used_serial *UsedSerial, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT used_serials.serial_number_id, used_serials.storage_node_id FROM used_serials WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	used_serial = &UsedSerial{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&used_serial.SerialNumberId, &used_serial.StorageNodeId)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return used_serial, nil
 
 }
 
@@ -9058,6 +9286,31 @@ func (rx *Rx) Create_RegistrationToken(ctx context.Context,
 
 }
 
+func (rx *Rx) Create_SerialNumber(ctx context.Context,
+	serial_number_serial_number SerialNumber_SerialNumber_Field,
+	serial_number_bucket_id SerialNumber_BucketId_Field,
+	serial_number_expires_at SerialNumber_ExpiresAt_Field) (
+	serial_number *SerialNumber, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_SerialNumber(ctx, serial_number_serial_number, serial_number_bucket_id, serial_number_expires_at)
+
+}
+
+func (rx *Rx) Create_UsedSerial(ctx context.Context,
+	used_serial_serial_number_id UsedSerial_SerialNumberId_Field,
+	used_serial_storage_node_id UsedSerial_StorageNodeId_Field) (
+	used_serial *UsedSerial, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_UsedSerial(ctx, used_serial_serial_number_id, used_serial_storage_node_id)
+
+}
+
 func (rx *Rx) Create_User(ctx context.Context,
 	user_id User_Id_Field,
 	user_first_name User_FirstName_Field,
@@ -9184,6 +9437,17 @@ func (rx *Rx) Delete_Project_By_Id(ctx context.Context,
 	return tx.Delete_Project_By_Id(ctx, project_id)
 }
 
+func (rx *Rx) Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx context.Context,
+	serial_number_expires_at_less_or_equal SerialNumber_ExpiresAt_Field) (
+	count int64, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx, serial_number_expires_at_less_or_equal)
+
+}
+
 func (rx *Rx) Delete_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	deleted bool, err error) {
@@ -9212,6 +9476,16 @@ func (rx *Rx) Find_Node_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Find_Node_By_Id(ctx, node_id)
+}
+
+func (rx *Rx) Find_SerialNumber_By_SerialNumber(ctx context.Context,
+	serial_number_serial_number SerialNumber_SerialNumber_Field) (
+	serial_number *SerialNumber, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Find_SerialNumber_By_SerialNumber(ctx, serial_number_serial_number)
 }
 
 func (rx *Rx) First_Injuredsegment(ctx context.Context) (
@@ -9670,6 +9944,17 @@ type Methods interface {
 		optional RegistrationToken_Create_Fields) (
 		registration_token *RegistrationToken, err error)
 
+	Create_SerialNumber(ctx context.Context,
+		serial_number_serial_number SerialNumber_SerialNumber_Field,
+		serial_number_bucket_id SerialNumber_BucketId_Field,
+		serial_number_expires_at SerialNumber_ExpiresAt_Field) (
+		serial_number *SerialNumber, err error)
+
+	Create_UsedSerial(ctx context.Context,
+		used_serial_serial_number_id UsedSerial_SerialNumberId_Field,
+		used_serial_storage_node_id UsedSerial_StorageNodeId_Field) (
+		used_serial *UsedSerial, err error)
+
 	Create_User(ctx context.Context,
 		user_id User_Id_Field,
 		user_first_name User_FirstName_Field,
@@ -9723,6 +10008,10 @@ type Methods interface {
 		project_id Project_Id_Field) (
 		deleted bool, err error)
 
+	Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx context.Context,
+		serial_number_expires_at_less_or_equal SerialNumber_ExpiresAt_Field) (
+		count int64, err error)
+
 	Delete_User_By_Id(ctx context.Context,
 		user_id User_Id_Field) (
 		deleted bool, err error)
@@ -9734,6 +10023,10 @@ type Methods interface {
 	Find_Node_By_Id(ctx context.Context,
 		node_id Node_Id_Field) (
 		node *Node, err error)
+
+	Find_SerialNumber_By_SerialNumber(ctx context.Context,
+		serial_number_serial_number SerialNumber_SerialNumber_Field) (
+		serial_number *SerialNumber, err error)
 
 	First_Injuredsegment(ctx context.Context) (
 		injuredsegment *Injuredsegment, err error)
