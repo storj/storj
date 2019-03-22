@@ -63,6 +63,10 @@ var (
 		Use:   "statdb",
 		Short: "commands for statdb",
 	}
+	healthCmd = &cobra.Command{
+		Use:   "health",
+		Short: "commands for querying health of a stored data",
+	}
 	irreparableCmd = &cobra.Command{
 		Use:   "irreparable",
 		Short: "list segments in irreparable database",
@@ -122,12 +126,19 @@ var (
 		Args:  cobra.MinimumNArgs(1),
 		RunE:  CreateCSVStats,
 	}
-	objectStatsCmd = &cobra.Command{
+	objectHealthCmd = &cobra.Command{
 		// TODO: add args to usage
-		Use:   "objectstats <path>",
+		Use:   "object-health <encrypted-path>",
 		Short: "Get stats about an object's health",
 		Args:  cobra.MinimumNArgs(1),
-		RunE:  ObjectStats,
+		RunE:  ObjectHealth,
+	}
+	segmentHealthCmd = &cobra.Command{
+		// TODO: add args to usage
+		Use:   "segment-health <encrypted-path>",
+		Short: "Get stats about an object's health",
+		Args:  cobra.MinimumNArgs(1),
+		RunE:  SegmentHealth,
 	}
 )
 
@@ -455,8 +466,23 @@ func CreateCSVStats(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
-// CreateCSVStats creates node with stats in statdb based on a CSV
-func ObjectStats(cmd *cobra.Command, args []string) (err error) {
+// ObjectHealth gets information about the health of an object on the network
+func ObjectHealth(cmd *cobra.Command, args []string) (err error) {
+	i, err := NewInspector(*Addr, *IdentityPath)
+	if err != nil {
+		return ErrInspectorDial.Wrap(err)
+	}
+
+	dst, err := fpath.New(args[0])
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// SegmentHealth gets information about the health of a segment on the network
+func SegmentHealth(cmd *cobra.Command, args []string) (err error) {
 	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
@@ -533,6 +559,7 @@ func init() {
 	rootCmd.AddCommand(kadCmd)
 	rootCmd.AddCommand(statsCmd)
 	rootCmd.AddCommand(irreparableCmd)
+	rootCmd.AddCommand(healthCmd)
 
 	kadCmd.AddCommand(countNodeCmd)
 	kadCmd.AddCommand(pingNodeCmd)
@@ -544,6 +571,9 @@ func init() {
 	statsCmd.AddCommand(getCSVStatsCmd)
 	statsCmd.AddCommand(createStatsCmd)
 	statsCmd.AddCommand(createCSVStatsCmd)
+
+	healthCmd.AddCommand(objectHealthCmd)
+	healthCmd.AddCommand(segmentHealthCmd)
 
 	irreparableCmd.Flags().Int32Var(&irreparableLimit, "limit", 50, "max number of results per page")
 

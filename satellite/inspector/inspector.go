@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package health
+package inspector
 
 import (
 	"context"
@@ -20,30 +20,30 @@ import (
 var (
 	mon = monkit.Package()
 	// Error wraps errors returned from Server struct methods
-	Error = errs.Class("HealthEndpoint error")
+	Error = errs.Class("Endpoint error")
 )
 
-type HealthEndpoint struct {
+type Endpoint struct {
 	pointerdb *pointerdb.Service
 	cache     *overlay.Cache
 	log       *zap.Logger
 }
 
-func NewHealthEndpoint(pdb *pointerdb.Service, cache *overlay.Cache, log *zap.Logger) (*HealthEndpoint, error) {
-	return &HealthEndpoint{
+func NewEndpoint(log *zap.Logger, cache *overlay.Cache, pdb *pointerdb.Service) (*Endpoint, error) {
+	return &Endpoint{
 		log:       log,
 		cache:     cache,
 		pointerdb: pdb,
 	}, nil
 }
 
-func (endpoint *HealthEndpoint) ObjectStat(ctx context.Context, in *pb.ObjectHealthRequest) (resp *pb.ObjectHealthResponse, err error) {
+func (endpoint *Endpoint) ObjectStat(ctx context.Context, in *pb.ObjectHealthRequest) (resp *pb.ObjectHealthResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return nil, nil
 }
 
-func (endpoint *HealthEndpoint) SegmentStat(ctx context.Context, in *pb.SegmentHealthRequest) (resp *pb.SegmentInfo, err error) {
+func (endpoint *Endpoint) SegmentStat(ctx context.Context, in *pb.SegmentHealthRequest) (resp *pb.SegmentHealthResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// get pointer info
@@ -87,7 +87,7 @@ func (endpoint *HealthEndpoint) SegmentStat(ctx context.Context, in *pb.SegmentH
 		neededForSuccess = int32(0)
 	}
 
-	resp.MinReq = int32(redundancy.RequiredCount())
+	resp.MinimumRequired = int32(redundancy.RequiredCount())
 	resp.Total = int32(redundancy.TotalCount())
 	resp.RepairThreshold = neededForRepair
 	resp.SuccessThreshold = neededForSuccess

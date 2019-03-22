@@ -53,6 +53,14 @@ service IrreparableInspector {
   rpc ListIrreparableSegments(ListIrreparableSegmentsRequest) returns (ListIrreparableSegmentsResponse);
 }
 
+service HealthInspector {
+  // ObjectHealth will returns stats about the health of an object
+  rpc ObjectHealth(ObjectHealthRequest) returns (ObjectHealthResponse) {}
+  // SegmentHealth will returns stats about the health of a segment
+  rpc SegmentHealth(SegmentHealthRequest) returns (SegmentHealthResponse) {}
+}
+
+
 // ListSegments
 message ListIrreparableSegmentsRequest {
   int32 limit = 1;
@@ -198,3 +206,26 @@ message DashboardResponse {
   bool connection = 7;
   google.protobuf.Duration uptime = 8;
 }
+
+message SegmentHealthRequest {
+  bytes encrypted_path = 1;
+}
+
+message SegmentHealthResponse{
+  int32 minimum_required = 1;  // minimum required for reconstruction (k)
+  int32 total = 2;             // total amount of pieces we generated (n)
+  int32 repair_threshold = 3;  // amount of pieces we need to drop to before triggering repair (m)
+  int32 success_threshold = 4; // amount of pieces we need to store to call it a success (o)
+  int32 online_nodes = 5;      // amount of pieces with nodes that are online
+}
+
+message ObjectHealthRequest {
+  bytes encrypted_path = 1;
+  bytes bucket = 2;
+  bytes uplink_id = 3 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false]; // Uplink Identity
+}
+
+message ObjectHealthResponse {
+  pointerdb.RedundancyScheme redundancy = 1;   // expected segment info
+  repeated SegmentHealthResponse segments = 2; // actual segment info 
+} 
