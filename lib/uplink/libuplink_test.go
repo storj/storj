@@ -12,32 +12,24 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	ul "storj.io/storj/uplink"
 )
 
 func TestUplink(t *testing.T) {
-	// Planet Config for Uplink
-	testplanetConfig := testplanet.Config{
-		SatelliteCount:   1,
-		StorageNodeCount: 20,
-		UplinkCount:      1,
-	}
-
-	// Run Tests
-	testplanet.Run(t, testplanetConfig, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
-		identity, err := identity.NewFullIdentity(ctx, 12, 4)
-		assert.NoError(t, err)
+
 		satelliteAddr := satellite.Addr() // get address
 		cfg := getConfig(satellite, planet)
-		uplink := NewUplink(identity, satelliteAddr, cfg)
+
+		uplink := NewUplink(planet.Uplinks[0].Identity, satelliteAddr, cfg)
 
 		permissions := Permissions{}
 		access := uplink.Access(ctx, permissions)
-		assert.NoError(t, err)
 
 		opts := CreateBucketOptions{}
 		bucket, err := access.CreateBucket(ctx, "testbucket", opts)
@@ -56,7 +48,6 @@ func TestUplink(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, storjBucket)
 		assert.Equal(t, storjBucket.Name, "testbucket")
-		assert.IsType(t, storj.Bucket{}, storjBucket)
 
 		encOpts := &Encryption{}
 		getbucket := access.GetBucket(ctx, "testbucket", encOpts)
