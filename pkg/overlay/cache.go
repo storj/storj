@@ -233,7 +233,7 @@ func (cache *Cache) GetAll(ctx context.Context, ids storj.NodeIDList) (_ []*pb.N
 	return cache.db.GetAll(ctx, ids)
 }
 
-// Put adds a nodeID to the redis cache with a binary representation of proto defined Node
+// Put adds a node id and proto definition into the overlay cache and stat db
 func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
