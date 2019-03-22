@@ -208,7 +208,7 @@ func TestOrderLimitGetValidation(t *testing.T) {
 			satellite.ID,
 			planet.Uplinks[0].ID(),
 			planet.StorageNodes[0].ID(),
-			storj.PieceID{0},
+			storj.PieceID{1},
 			pb.PieceAction_PUT,
 			storj.SerialNumber{0},
 			oneWeek,
