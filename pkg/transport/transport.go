@@ -36,21 +36,17 @@ type Transport struct {
 	requestTimeout time.Duration
 }
 
-// InvokeTimeout enables timeouts for an overly long method call
-type InvokeTimeout struct {
-	Timeout time.Duration
+// NewClient returns a transport client with a specified timeout for requests
+func NewClient(tlsOpts *tlsopts.Options, obs ...Observer) Client {
+	return &Transport{
+		tlsOpts:        tlsOpts,
+		requestTimeout: defaultRequestTimeout,
+		observers:      obs,
+	}
 }
 
-// Intercept adds a context timeout to a method call
-func (it InvokeTimeout) Intercept(ctx context.Context, method string, req interface{}, reply interface{},
-	cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-	timedCtx, cancel := context.WithTimeout(ctx, it.Timeout)
-	defer cancel()
-	return invoker(timedCtx, method, req, reply, cc, opts...)
-}
-
-// NewClient returns a newly instantiated Transport Client
-func NewClient(tlsOpts *tlsopts.Options, requestTimeout time.Duration, obs ...Observer) Client {
+// NewClientWithTimeout returns a transport client with a specified timeout for requests
+func NewClientWithTimeout(tlsOpts *tlsopts.Options, requestTimeout time.Duration, obs ...Observer) Client {
 	return &Transport{
 		tlsOpts:        tlsOpts,
 		requestTimeout: requestTimeout,
@@ -84,7 +80,7 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 		grpc.WithUnaryInterceptor(InvokeTimeout{transport.requestTimeout}.Intercept),
 	}, opts...)
 
-	timedCtx, cancel := context.WithTimeout(ctx, transport.requestTimeout)
+	timedCtx, cancel := context.WithTimeout(ctx, defaultDialTimeout)
 	defer cancel()
 
 	conn, err = grpc.DialContext(timedCtx, node.GetAddress().Address, options...)
@@ -116,7 +112,7 @@ func (transport *Transport) DialAddress(ctx context.Context, address string, opt
 		grpc.WithUnaryInterceptor(InvokeTimeout{transport.requestTimeout}.Intercept),
 	}, opts...)
 
-	timedCtx, cancel := context.WithTimeout(ctx, transport.requestTimeout)
+	timedCtx, cancel := context.WithTimeout(ctx, defaultDialTimeout)
 	defer cancel()
 
 	conn, err = grpc.DialContext(timedCtx, address, options...)

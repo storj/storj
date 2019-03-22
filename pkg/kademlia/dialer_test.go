@@ -172,7 +172,7 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 			tlsOpts, err := tlsopts.NewOptions(self.Identity, tlsopts.Config{})
 			require.NoError(t, err)
 
-			self.Transport = transport.NewClient(tlsOpts, 20*time.Millisecond)
+			self.Transport = transport.NewClientWithTimeout(tlsOpts, 20*time.Millisecond)
 
 			network := &transport.SimulatedNetwork{
 				DialLatency:    200 * time.Second,
@@ -192,7 +192,6 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 				peer := peer
 				group.Go(func() error {
 					_, err := dialer.PingNode(ctx, peer.Local())
-					require.NotNil(t, err)
 					require.Error(t, err, context.DeadlineExceeded)
 					require.True(t, transport.Error.Has(err))
 
@@ -207,7 +206,7 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 			tlsOpts, err := tlsopts.NewOptions(self.Identity, tlsopts.Config{})
 			require.NoError(t, err)
 
-			self.Transport = transport.NewClient(tlsOpts, 20*time.Millisecond)
+			self.Transport = transport.NewClientWithTimeout(tlsOpts, 20*time.Millisecond)
 
 			network := &transport.SimulatedNetwork{
 				DialLatency:    200 * time.Second,
@@ -225,12 +224,10 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 
 			group.Go(func() error {
 				_, err := dialer.FetchPeerIdentity(ctx, planet.Satellites[0].Local())
-				require.NotNil(t, err)
 				require.Error(t, err, context.DeadlineExceeded)
 				require.True(t, transport.Error.Has(err))
 
 				_, err = dialer.FetchPeerIdentityUnverified(ctx, planet.Satellites[0].Addr())
-				require.NotNil(t, err)
 				require.Error(t, err, context.DeadlineExceeded)
 				require.True(t, transport.Error.Has(err))
 
@@ -244,7 +241,7 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 			tlsOpts, err := tlsopts.NewOptions(self.Identity, tlsopts.Config{})
 			require.NoError(t, err)
 
-			self.Transport = transport.NewClient(tlsOpts, 20*time.Millisecond)
+			self.Transport = transport.NewClientWithTimeout(tlsOpts, 20*time.Millisecond)
 
 			network := &transport.SimulatedNetwork{
 				DialLatency:    200 * time.Second,
@@ -269,7 +266,6 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 						target.Local().Type.DPanicOnInvalid("test client target")
 
 						_, err := dialer.Lookup(ctx, self.Local(), peer.Local(), target.Local())
-						require.NotNil(t, err, errTag)
 						require.Error(t, err, context.DeadlineExceeded, errTag)
 						require.True(t, transport.Error.Has(err), errTag)
 

@@ -53,46 +53,43 @@ func TestPingTimeout(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
-		{
-			self := planet.StorageNodes[0]
-			routingTable := self.Kademlia.RoutingTable
+		self := planet.StorageNodes[0]
+		routingTable := self.Kademlia.RoutingTable
 
-			tlsOpts, err := tlsopts.NewOptions(self.Identity, tlsopts.Config{})
-			require.NoError(t, err)
+		tlsOpts, err := tlsopts.NewOptions(self.Identity, tlsopts.Config{})
+		require.NoError(t, err)
 
-			self.Transport = transport.NewClient(tlsOpts, 1*time.Millisecond)
+		self.Transport = transport.NewClientWithTimeout(tlsOpts, 1*time.Millisecond)
 
-			network := &transport.SimulatedNetwork{
-				DialLatency:    300 * time.Second,
-				BytesPerSecond: 1 * memory.KB,
-			}
-
-			slowClient := network.NewClient(self.Transport)
-			require.NotNil(t, slowClient)
-
-			node := pb.Node{
-				Id: self.ID(),
-				Address: &pb.NodeAddress{
-					Transport: pb.NodeTransport_TCP_TLS_GRPC,
-				},
-			}
-
-			newService, err := kademlia.NewService(zaptest.NewLogger(t), node, slowClient, routingTable, kademlia.Config{})
-			require.NoError(t, err)
-
-			target := pb.Node{
-				Id: planet.StorageNodes[2].ID(),
-				Address: &pb.NodeAddress{
-					Transport: pb.NodeTransport_TCP_TLS_GRPC,
-					Address:   planet.StorageNodes[2].Addr(),
-				},
-			}
-
-			_, err = newService.Ping(ctx, target)
-			require.NotNil(t, err)
-			require.Error(t, err, context.DeadlineExceeded)
-			require.True(t, kademlia.NodeErr.Has(err) && transport.Error.Has(err))
+		network := &transport.SimulatedNetwork{
+			DialLatency:    300 * time.Second,
+			BytesPerSecond: 1 * memory.KB,
 		}
+
+		slowClient := network.NewClient(self.Transport)
+		require.NotNil(t, slowClient)
+
+		node := pb.Node{
+			Id: self.ID(),
+			Address: &pb.NodeAddress{
+				Transport: pb.NodeTransport_TCP_TLS_GRPC,
+			},
+		}
+
+		newService, err := kademlia.NewService(zaptest.NewLogger(t), node, slowClient, routingTable, kademlia.Config{})
+		require.NoError(t, err)
+
+		target := pb.Node{
+			Id: planet.StorageNodes[2].ID(),
+			Address: &pb.NodeAddress{
+				Transport: pb.NodeTransport_TCP_TLS_GRPC,
+				Address:   planet.StorageNodes[2].Addr(),
+			},
+		}
+
+		_, err = newService.Ping(ctx, target)
+		require.Error(t, err, context.DeadlineExceeded)
+		require.True(t, kademlia.NodeErr.Has(err) && transport.Error.Has(err))
 
 	})
 }
