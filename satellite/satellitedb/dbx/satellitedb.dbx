@@ -379,7 +379,7 @@ read limitoffset (
 
 //--- used serials ---//
 
-model serial_number {
+model serial_number (
 	key    id
 	unique serial_number
 
@@ -392,31 +392,31 @@ model serial_number {
 	index (
 		fields expires_at
 	)
-}
+)
 
-model used_serial {
+model used_serial (
 	key    serial_number_id
 	unique serial_number_id storage_node_id 
 
 	field serial_number_id serial_number.id cascade
 	field storage_node_id  blob
-}
+)
 
 // --- bucket roll up tables --- //
 
-model bucket_bandwidth_rollup {
+model bucket_bandwidth_rollup (
 	key    bucket_id
 	unique bucket_id interval_start interval_seconds action
 
 	field bucket_id        blob
 	field interval_start   utimestamp
-	field interval_seconds uint32
-	field action           byte
+	field interval_seconds uint
+	field action           uint
 
 	field inline    uint64
 	field allocated uint64
 	field settled   uint64
-}
+)
 
 model bucket_storage_rollup (
 	key    bucket_id
@@ -424,7 +424,7 @@ model bucket_storage_rollup (
 
 	field bucket_id        blob
 	field interval_start   utimestamp
-	field interval_seconds uint32
+	field interval_seconds uint
 
 	field inline uint64
 	field remote uint64
@@ -432,18 +432,18 @@ model bucket_storage_rollup (
 
 // --- storage node roll up tables --- //
 
-model storagenode_bandwidth_rollup {
+model storagenode_bandwidth_rollup (
 	key    storagenode_id
 	unique storagenode_id interval_start interval_seconds action
 
 	field storagenode_id   blob
 	field interval_start   utimestamp
-	field interval_seconds uint32
-	field action           byte
+	field interval_seconds uint
+	field action           uint
 
 	field allocated uint64
 	field settled   uint64
-}
+)
 
 model storagenode_storage_rollup (
 	key    storagenode_id
@@ -451,7 +451,7 @@ model storagenode_storage_rollup (
 
 	field storagenode_id   blob
 	field interval_start   utimestamp
-	field interval_seconds uint32
+	field interval_seconds uint
 
 	field total            uint64
 )
