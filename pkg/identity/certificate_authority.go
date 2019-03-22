@@ -9,6 +9,7 @@ import (
 	"crypto"
 	"crypto/rand"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -427,4 +428,35 @@ func (ca *FullCertificateAuthority) Sign(cert *x509.Certificate) (*x509.Certific
 	}
 
 	return signedCert, nil
+}
+
+// AddExtension adds extensions to certificate authority certificate. Extensions
+// are serialized into the certificate's raw bytes and it is re-signed by itself.
+func (ca *FullCertificateAuthority) AddExtension(ext ...pkix.Extension) error {
+	// TODO: how to properly handle this?
+	if len(ca.RestChain) > 0 {
+		return errs.New("adding extensions requires parent certificate's private key")
+	}
+
+	if err := extensions.AddExtension(ca.Cert, ext...); err != nil {
+		return err
+	}
+
+	updatedCert, err := peertls.NewCert(ca.Key, nil, ca.Cert, nil)
+	if err != nil {
+		return err
+	}
+
+	ca.Cert = updatedCert
+	return nil
+}
+
+// Revoke extends the certificate authority certificate with a certificate revocation extension.
+func (ca *FullCertificateAuthority) Revoke() error {
+	ext, err := extensions.NewRevocationExt(ca.Key, ca.Cert)
+	if err != nil {
+		return err
+	}
+
+	return ca.AddExtension(ext)
 }
