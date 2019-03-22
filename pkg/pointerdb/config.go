@@ -9,6 +9,7 @@ import (
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/postgreskv"
+	"storj.io/storj/storage/teststore"
 )
 
 const (
@@ -32,7 +33,9 @@ func NewStore(dbURLString string) (db storage.KeyValueStore, err error) {
 	if err != nil {
 		return nil, err
 	}
-	if driver == "bolt" {
+	if driver == "inmem" {
+		db = teststore.New()
+	} else if driver == "bolt" {
 		db, err = boltdb.New(source, BoltPointerBucket)
 	} else if driver == "postgresql" || driver == "postgres" {
 		db, err = postgreskv.New(source)
