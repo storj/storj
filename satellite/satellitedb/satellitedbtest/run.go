@@ -65,7 +65,7 @@ func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
 
 			schema := strings.ToLower(t.Name() + "-satellite/x-" + schemaSuffix)
 			connstr := pgutil.ConnstrWithSchema(dbInfo.URL, schema)
-			db, err := satellitedb.New(log, connstr)
+			db, err := satellitedb.New(log, connstr, ":inmemory:")
 			if err != nil {
 				t.Fatal(err)
 			}
