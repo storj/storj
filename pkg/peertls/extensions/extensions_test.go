@@ -39,7 +39,7 @@ func TestParseExtensions(t *testing.T) {
 	_, unrelatedChain, err := testpeertls.NewCertChain(1)
 	assert.NoError(t, err)
 
-	revDB, err := identity.NewRevocationDBBolt(ctx.File("revocations.db"))
+	revDB, err := identity.NewRevocationDB("bolt://" + ctx.File("revocations.db"))
 	assert.NoError(t, err)
 	defer ctx.Check(revDB.Close)
 

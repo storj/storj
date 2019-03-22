@@ -32,12 +32,12 @@ func NewRevocationDB(revocationDBURL string) (*RevocationDB, error) {
 	var db *RevocationDB
 	switch driver {
 	case "bolt":
-		db, err = NewRevocationDBBolt(source)
+		db, err = newRevocationDBBolt(source)
 		if err != nil {
 			return nil, extensions.ErrRevocationDB.Wrap(err)
 		}
 	case "redis":
-		db, err = NewRevocationDBRedis(revocationDBURL)
+		db, err = newRevocationDBRedis(revocationDBURL)
 		if err != nil {
 			return nil, extensions.ErrRevocationDB.Wrap(err)
 		}
@@ -48,8 +48,8 @@ func NewRevocationDB(revocationDBURL string) (*RevocationDB, error) {
 	return db, nil
 }
 
-// NewRevocationDBBolt creates a bolt-backed RevocationDB
-func NewRevocationDBBolt(path string) (*RevocationDB, error) {
+// newRevocationDBBolt creates a bolt-backed RevocationDB
+func newRevocationDBBolt(path string) (*RevocationDB, error) {
 	client, err := boltdb.New(path, extensions.RevocationBucket)
 	if err != nil {
 		return nil, err
@@ -59,8 +59,8 @@ func NewRevocationDBBolt(path string) (*RevocationDB, error) {
 	}, nil
 }
 
-// NewRevocationDBRedis creates a redis-backed RevocationDB.
-func NewRevocationDBRedis(address string) (*RevocationDB, error) {
+// newRevocationDBRedis creates a redis-backed RevocationDB.
+func newRevocationDBRedis(address string) (*RevocationDB, error) {
 	client, err := redis.NewClientFrom(address)
 	if err != nil {
 		return nil, err
