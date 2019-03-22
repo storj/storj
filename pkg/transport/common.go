@@ -14,6 +14,9 @@ var (
 	mon = monkit.Package()
 	//Error is the errs class of standard Transport Client errors
 	Error = errs.Class("transport error")
+)
+
+const (
 	// default time to wait for a connection to be established
 	defaultDialTimeout = 20 * time.Second
 	// default time to wait for a response

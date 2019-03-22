@@ -36,13 +36,9 @@ type Transport struct {
 	requestTimeout time.Duration
 }
 
-// NewClient returns a transport client with a specified timeout for requests
+// NewClient returns a transport client with a default timeout for requests
 func NewClient(tlsOpts *tlsopts.Options, obs ...Observer) Client {
-	return &Transport{
-		tlsOpts:        tlsOpts,
-		requestTimeout: defaultRequestTimeout,
-		observers:      obs,
-	}
+	return NewClientWithTimeout(tlsOpts, defaultRequestTimeout, obs...)
 }
 
 // NewClientWithTimeout returns a transport client with a specified timeout for requests

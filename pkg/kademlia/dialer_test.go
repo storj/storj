@@ -160,7 +160,7 @@ func TestDialer(t *testing.T) {
 
 func TestSlowDialerHasTimeout(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 3,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
 		// TODO: also use satellites
