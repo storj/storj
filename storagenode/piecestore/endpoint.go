@@ -140,14 +140,6 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 		return err // TODO: report grpc status unauthorized or bad request
 	}
 
-	if err := endpoint.VerifyAvailableSpace(ctx, limit); err != nil {
-		return err
-	}
-
-	if err := endpoint.VerifyAvailableBandwidth(ctx, limit); err != nil {
-		return err
-	}
-
 	defer func() {
 		if err != nil {
 			endpoint.log.Debug("upload failed", zap.Stringer("Piece ID", limit.PieceId), zap.Error(err))
@@ -171,6 +163,16 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 			endpoint.log.Error("error during cancelling a piece write", zap.Error(cancelErr))
 		}
 	}()
+
+	availableBandwidth, err := endpoint.monitor.AvailableBandwidth(ctx)
+	if err != nil {
+		return ErrInternal.Wrap(err)
+	}
+
+	availableSpace, err := endpoint.monitor.AvailableSpace(ctx)
+	if err != nil {
+		return ErrInternal.Wrap(err)
+	}
 
 	largestOrder := pb.Order2{}
 	defer endpoint.SaveOrder(ctx, limit, &largestOrder, peer)
@@ -201,9 +203,19 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 				return ErrProtocol.New("chunk out of order") // TODO: report grpc status bad message
 			}
 
-			if largestOrder.Amount < pieceWriter.Size()+int64(len(message.Chunk.Data)) {
+			chunkSize := int64(len(message.Chunk.Data))
+			if largestOrder.Amount < pieceWriter.Size()+chunkSize {
 				// TODO: should we write currently and give a chance for uplink to remedy the situation?
 				return ErrProtocol.New("not enough allocated, allocated=%v writing=%v", largestOrder.Amount, pieceWriter.Size()+int64(len(message.Chunk.Data))) // TODO: report grpc status ?
+			}
+
+			availableBandwidth -= chunkSize
+			if availableBandwidth < 0 {
+				return ErrProtocol.New("out of bandwidth")
+			}
+			availableSpace -= chunkSize
+			if availableSpace < 0 {
+				return ErrProtocol.New("out of space")
 			}
 
 			if _, err := pieceWriter.Write(message.Chunk.Data); err != nil {
@@ -296,10 +308,6 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 		return Error.Wrap(err) // TODO: report grpc status unauthorized or bad request
 	}
 
-	if err := endpoint.VerifyAvailableBandwidth(ctx, limit); err != nil {
-		return err
-	}
-
 	defer func() {
 		if err != nil {
 			endpoint.log.Debug("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Error(err))
@@ -328,6 +336,11 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 	// TODO: verify chunk.Size behavior logic with regards to reading all
 	if chunk.Offset+chunk.ChunkSize > pieceReader.Size() {
 		return Error.New("requested more data than available, requesting=%v available=%v", chunk.Offset+chunk.ChunkSize, pieceReader.Size())
+	}
+
+	availableBandwidth, err := endpoint.monitor.AvailableBandwidth(ctx)
+	if err != nil {
+		return ErrInternal.Wrap(err)
 	}
 
 	throttle := sync2.NewThrottle()
@@ -402,7 +415,14 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 			if err := endpoint.VerifyOrder(ctx, peer, limit, message.Order, largestOrder.Amount); err != nil {
 				return err
 			}
-			if err := throttle.Produce(message.Order.Amount - largestOrder.Amount); err != nil {
+
+			chunkSize := message.Order.Amount - largestOrder.Amount
+			availableBandwidth -= chunkSize
+			if availableBandwidth < 0 {
+				return ErrProtocol.New("out of bandwidth")
+			}
+
+			if err := throttle.Produce(chunkSize); err != nil {
 				// shouldn't happen since only receiving side is calling Fail
 				return ErrInternal.Wrap(err)
 			}
