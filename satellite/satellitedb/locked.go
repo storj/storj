@@ -57,6 +57,13 @@ func (m *lockedAccounting) DeleteRawBefore(ctx context.Context, latestRollup tim
 	return m.db.DeleteRawBefore(ctx, latestRollup)
 }
 
+// ExceedsAlphaUsage checks if the usage limits are exceeded for a given project
+func (m *lockedAccounting) ExceedsAlphaUsage(ctx context.Context, projectID uuid.UUID) (bool, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.ExceedsAlphaUsage(ctx, projectID)
+}
+
 // GetRaw retrieves all raw tallies
 func (m *lockedAccounting) GetRaw(ctx context.Context) ([]*accounting.Raw, error) {
 	m.Lock()

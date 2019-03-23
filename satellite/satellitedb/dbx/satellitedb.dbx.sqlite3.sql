@@ -27,7 +27,9 @@ CREATE TABLE accounting_timestamps (
 	PRIMARY KEY ( name )
 );
 CREATE TABLE bucket_bandwidth_rollups (
+	bucket_name BLOB NOT NULL,
 	bucket_id BLOB NOT NULL,
+	project_id BLOB NOT NULL,
 	interval_start TIMESTAMP NOT NULL,
 	interval_seconds INTEGER NOT NULL,
 	action INTEGER NOT NULL,
@@ -38,7 +40,9 @@ CREATE TABLE bucket_bandwidth_rollups (
 	UNIQUE ( bucket_id, interval_start, interval_seconds, action )
 );
 CREATE TABLE bucket_storage_rollups (
+	bucket_name BLOB NOT NULL,
 	bucket_id BLOB NOT NULL,
+	project_id BLOB NOT NULL,
 	interval_start TIMESTAMP NOT NULL,
 	interval_seconds INTEGER NOT NULL,
 	inline INTEGER NOT NULL,

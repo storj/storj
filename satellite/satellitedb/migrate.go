@@ -421,6 +421,16 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					)`,
 				},
 			},
+			{
+				Description: "Add projectID and bucket_name columns to rollups",
+				Version:     10,
+				Action: migrate.SQL{
+					`ALTER TABLE bucket_bandwidth_rollups ADD COLUMN bucket_name BYTEA;
+					ALTER TABLE bucket_bandwidth_rollups ADD COLUMN project_id BYTEA;,
+					ALTER TABLE bucket_storage_rollups ADD COLUMN bucket_name BYTEA;
+					ALTER TABLE bucket_storage_rollups ADD COLUMN project_id BYTEA;`,
+				},
+			},
 		},
 	}
 }

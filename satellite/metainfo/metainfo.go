@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/eestream"
@@ -47,10 +48,11 @@ type Endpoint struct {
 	cache      *overlay.Cache
 	apiKeys    APIKeys
 	signer     signing.Signer
+	accounting accounting.DB
 }
 
 // NewEndpoint creates new metainfo endpoint instance
-func NewEndpoint(log *zap.Logger, pointerdb *pointerdb.Service, allocation *pointerdb.AllocationSigner, cache *overlay.Cache, apiKeys APIKeys, signer signing.Signer) *Endpoint {
+func NewEndpoint(log *zap.Logger, pointerdb *pointerdb.Service, allocation *pointerdb.AllocationSigner, cache *overlay.Cache, apiKeys APIKeys, signer signing.Signer, acctDB accounting.DB) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
 		log:        log,
@@ -59,6 +61,7 @@ func NewEndpoint(log *zap.Logger, pointerdb *pointerdb.Service, allocation *poin
 		cache:      cache,
 		apiKeys:    apiKeys,
 		signer:     signer,
+		accounting: acctDB,
 	}
 }
 
@@ -122,9 +125,19 @@ func (endpoint *Endpoint) SegmentInfo(ctx context.Context, req *pb.SegmentInfoRe
 func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWriteRequest) (resp *pb.SegmentWriteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = endpoint.validateAuth(ctx)
+	keyInfo, err := endpoint.validateAuth(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	// Check if this projectID has exceeded alpha usage limits, i.e. 25GB of bandwidth or storage usage used in the past month
+	// TODO: remove this code once we no longer need usage limiting for alpha release
+	// Ref: https://storjlabs.atlassian.net/browse/V3-1274
+	projectID := keyInfo.ProjectID
+	exceeded, err := endpoint.accounting.ExceedsAlphaUsage(ctx, projectID)
+	if exceeded {
+		endpoint.log.Error("alpha usage limit exceeded: ", zap.Error(status.Errorf(codes.ResourceExhausted, "Alpha Usage Limit Exceeded")))
+		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Alpha Usage Limit")
 	}
 
 	redundancy, err := eestream.NewRedundancyStrategyFromProto(req.GetRedundancy())

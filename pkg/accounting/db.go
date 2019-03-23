@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -36,7 +37,35 @@ type Rollup struct {
 	AtRestTotal    float64
 }
 
-// DB stores information about bandwidth usage
+// BucketBWRollup mirrors dbx.BucketBandwidthRollup and holds the bucket bw rollup info
+type BucketBWRollup struct {
+	BucketName []byte
+	BucketID   []byte
+	ProjectID  []byte
+
+	IntervalStart   time.Time
+	IntervalSeconds uint
+	Action          uint
+
+	Inline    uint64
+	Allocated uint64
+	Settled   uint64
+}
+
+// BucketStorageRollup mirrors dbx.BucketStorageRollup and holds the storage rollup info
+type BucketStorageRollup struct {
+	BucketName []byte
+	BucketID   []byte
+	ProjectID  []byte
+
+	IntervalStart   time.Time
+	IntervalSeconds uint
+
+	Inline uint64
+	Remote uint64
+}
+
+// DB stores information about bandwidth and storage usage
 type DB interface {
 	// LastTimestamp records the latest last tallied time.
 	LastTimestamp(ctx context.Context, timestampType string) (time.Time, error)
@@ -54,4 +83,6 @@ type DB interface {
 	QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*CSVRow, error)
 	// DeleteRawBefore deletes all raw tallies prior to some time
 	DeleteRawBefore(ctx context.Context, latestRollup time.Time) error
+	// ExceedsAlphaUsage checks if the usage limits are exceeded for a given project
+	ExceedsAlphaUsage(ctx context.Context, projectID uuid.UUID) (bool, error)
 }
