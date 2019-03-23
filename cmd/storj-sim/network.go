@@ -55,9 +55,19 @@ func networkExec(flags *Flags, args []string, command string) error {
 }
 
 func networkEnv(flags *Flags, args []string) error {
+	flags.OnlyEnv = true
 	processes, err := newNetwork(flags)
 	if err != nil {
 		return err
+	}
+
+	// run exec before, since it will load env vars from configs
+	for _, process := range processes.List {
+		if exec := process.ExecBefore["run"]; exec != nil {
+			if err := exec(process); err != nil {
+				return err
+			}
+		}
 	}
 
 	for _, env := range processes.Env() {
@@ -268,7 +278,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			// create example project with key and add it to the config
 			// so that gateway can have access to the satellite
 			apiKey := vip.GetString("api-key")
-			if apiKey == "" {
+			if !flags.OnlyEnv && apiKey == "" {
 				var consoleAddress string
 				satelliteConfigErr := readConfigString(&consoleAddress, satellite.Directory, "console.address")
 				if satelliteConfigErr != nil {
@@ -292,6 +302,10 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				if err := vip.WriteConfig(); err != nil {
 					return err
 				}
+			}
+
+			if apiKey != "" {
+				process.Extra = append(process.Extra, "API_KEY="+apiKey)
 			}
 
 			accessKey := vip.GetString("minio.access-key")

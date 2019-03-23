@@ -21,6 +21,8 @@ type Flags struct {
 	Identities       int
 
 	IsDev bool
+
+	OnlyEnv bool // only do things necessary for loading env vars
 }
 
 var printCommands bool
