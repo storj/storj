@@ -54,6 +54,19 @@ func networkExec(flags *Flags, args []string, command string) error {
 	return errs.Combine(err, closeErr)
 }
 
+func networkEnv(flags *Flags, args []string) error {
+	processes, err := newNetwork(flags)
+	if err != nil {
+		return err
+	}
+
+	for _, env := range processes.Env() {
+		fmt.Println(env)
+	}
+
+	return nil
+}
+
 func networkTest(flags *Flags, command string, args []string) error {
 	processes, err := newNetwork(flags)
 	if err != nil {
