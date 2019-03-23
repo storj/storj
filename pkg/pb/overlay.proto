@@ -4,71 +4,15 @@
 syntax = "proto3";
 option go_package = "pb";
 
-import "google/protobuf/duration.proto";
 import "gogo.proto";
 import "node.proto";
 
 package overlay;
 
-// Overlay defines the interface for communication with the overlay network
-service Overlay {
-    // Lookup finds a nodes address from the network
-    rpc Lookup(LookupRequest) returns (LookupResponse);
-    // BulkLookup finds nodes addresses from the network
-    rpc BulkLookup(LookupRequests) returns (LookupResponses);
-    // FindStorageNodes finds a list of nodes in the network that meet the specified request parameters
-    rpc FindStorageNodes(FindStorageNodesRequest) returns (FindStorageNodesResponse);
-}
-
 service Nodes {
     rpc Query(QueryRequest) returns (QueryResponse);
     rpc Ping(PingRequest) returns (PingResponse);
     rpc RequestInfo(InfoRequest) returns (InfoResponse);
-}
-
-// LookupRequest is is request message for the lookup rpc call
-message LookupRequest {
-    bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
-}
-
-// LookupResponse is is response message for the lookup rpc call
-message LookupResponse {
-    node.Node node = 1;
-}
-
-//LookupRequests is a list of LookupRequest
-message LookupRequests {
-    repeated LookupRequest lookup_request = 1;
-}
-
-//LookupResponse is a list of LookupResponse
-message LookupResponses {
-    repeated LookupResponse lookup_response = 1;
-}
-
-
-// FindStorageNodesResponse is is response message for the FindStorageNodes rpc call
-message FindStorageNodesResponse {
-    repeated node.Node nodes = 1;
-}
-
-// FindStorageNodesRequest is is request message for the FindStorageNodes rpc call
-message FindStorageNodesRequest {
-    int64 object_size = 1;
-    google.protobuf.Duration contract_length = 2;
-    OverlayOptions opts = 3;
-    bytes start = 4 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
-    int64 min_nodes = 5;
-}
-
-// OverlayOptions is a set of criteria that a node must meet to be considered for a storage opportunity
-message OverlayOptions {
-    google.protobuf.Duration max_latency = 1;
-    node.NodeStats min_stats = 2;
-    int64 min_speed_kbps = 3;
-    int64 amount = 4;
-    node.NodeRestrictions restrictions = 5;
-    repeated bytes excluded_nodes = 6 [(gogoproto.customtype) = "NodeID"];
 }
 
 message QueryRequest {
