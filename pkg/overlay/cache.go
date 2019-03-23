@@ -57,15 +57,56 @@ type DB interface {
 	Delete(ctx context.Context, id storj.NodeID) error
 }
 
-// Cache is used to store overlay data in Redis
+// FindStorageNodesRequest defines easy request parameters.
+type FindStorageNodesRequest struct {
+	MinimumRequiredNodes int
+	RequestedCount       int
+
+	FreeBandwidth int64
+	FreeDisk      int64
+
+	ExcludedNodes []storj.NodeID
+}
+
+// NodeCriteria are the requirements for selecting nodes
+type NodeCriteria struct {
+	FreeBandwidth int64
+	FreeDisk      int64
+
+	AuditCount         int64
+	AuditSuccessRatio  float64
+	UptimeCount        int64
+	UptimeSuccessRatio float64
+
+	Excluded []storj.NodeID
+}
+
+// NewNodeCriteria are the requirement for selecting new nodes
+type NewNodeCriteria struct {
+	FreeBandwidth int64
+	FreeDisk      int64
+
+	AuditThreshold int64
+
+	Excluded []storj.NodeID
+}
+
+// Cache is used to store and handle node information
 type Cache struct {
-	db     DB
-	statDB statdb.DB
+	log         *zap.Logger
+	db          DB
+	statDB      statdb.DB
+	preferences NodeSelectionConfig
 }
 
 // NewCache returns a new Cache
-func NewCache(db DB, sdb statdb.DB) *Cache {
-	return &Cache{db: db, statDB: sdb}
+func NewCache(log *zap.Logger, db DB, sdb statdb.DB, preferences NodeSelectionConfig) *Cache {
+	return &Cache{
+		log:         log,
+		db:          db,
+		statDB:      sdb,
+		preferences: preferences,
+	}
 }
 
 // Close closes resources
@@ -78,42 +119,63 @@ func (cache *Cache) Inspect(ctx context.Context) (storage.Keys, error) {
 }
 
 // List returns a list of nodes from the cache DB
-func (cache *Cache) List(ctx context.Context, cursor storj.NodeID, limit int) ([]*pb.Node, error) {
+func (cache *Cache) List(ctx context.Context, cursor storj.NodeID, limit int) (_ []*pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	return cache.db.List(ctx, cursor, limit)
 }
 
 // Paginate returns a list of `limit` nodes starting from `start` offset.
-func (cache *Cache) Paginate(ctx context.Context, offset int64, limit int) ([]*pb.Node, bool, error) {
+func (cache *Cache) Paginate(ctx context.Context, offset int64, limit int) (_ []*pb.Node, _ bool, err error) {
+	defer mon.Task()(&ctx)(&err)
 	return cache.db.Paginate(ctx, offset, limit)
 }
 
 // Get looks up the provided nodeID from the overlay cache
-func (cache *Cache) Get(ctx context.Context, nodeID storj.NodeID) (*pb.Node, error) {
+func (cache *Cache) Get(ctx context.Context, nodeID storj.NodeID) (_ *pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if nodeID.IsZero() {
 		return nil, ErrEmptyNode
 	}
-
 	return cache.db.Get(ctx, nodeID)
 }
 
-// FindStorageNodes searches the overlay network for nodes that meet the provided criteria
-func (cache *Cache) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesRequest, preferences *NodeSelectionConfig) ([]*pb.Node, error) {
-	// TODO: use a nicer struct for input
+// OfflineNodes returns indices of the nodes that are offline
+func (cache *Cache) OfflineNodes(ctx context.Context, nodes []storj.NodeID) (offline []int, err error) {
+	defer mon.Task()(&ctx)(&err)
 
-	minimumRequiredNodes := int(req.GetMinNodes())
-	freeBandwidth := req.GetOpts().GetRestrictions().FreeBandwidth
-	freeDisk := req.GetOpts().GetRestrictions().FreeDisk
-	excludedNodes := req.GetOpts().ExcludedNodes
-	requestedCount := int(req.GetOpts().GetAmount())
+	// TODO: optimize
+	results, err := cache.GetAll(ctx, nodes)
+	if err != nil {
+		return nil, err
+	}
+
+	for i, r := range results {
+		if r == nil {
+			offline = append(offline, i)
+		}
+	}
+
+	return offline, nil
+}
+
+// FindStorageNodes searches the overlay network for nodes that meet the provided requirements
+func (cache *Cache) FindStorageNodes(ctx context.Context, req FindStorageNodesRequest) ([]*pb.Node, error) {
+	return cache.FindStorageNodesWithPreferences(ctx, req, &cache.preferences)
+}
+
+// FindStorageNodesWithPreferences searches the overlay network for nodes that meet the provided criteria
+func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req FindStorageNodesRequest, preferences *NodeSelectionConfig) (_ []*pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	// TODO: verify logic
 
 	// TODO: add sanity limits to requested node count
 	// TODO: add sanity limits to excluded nodes
 
-	reputableNodeCount := minimumRequiredNodes
+	reputableNodeCount := req.MinimumRequiredNodes
 	if reputableNodeCount <= 0 {
-		reputableNodeCount = requestedCount
+		reputableNodeCount = req.RequestedCount
 	}
 
 	auditCount := preferences.AuditCount
@@ -122,15 +184,15 @@ func (cache *Cache) FindStorageNodes(ctx context.Context, req *pb.FindStorageNod
 	}
 
 	reputableNodes, err := cache.db.SelectStorageNodes(ctx, reputableNodeCount, &NodeCriteria{
-		FreeBandwidth: freeBandwidth,
-		FreeDisk:      freeDisk,
+		FreeBandwidth: req.FreeBandwidth,
+		FreeDisk:      req.FreeDisk,
 
 		AuditCount:         auditCount,
 		AuditSuccessRatio:  preferences.AuditSuccessRatio,
 		UptimeCount:        preferences.UptimeCount,
 		UptimeSuccessRatio: preferences.UptimeRatio,
 
-		Excluded: excludedNodes,
+		Excluded: req.ExcludedNodes,
 	})
 	if err != nil {
 		return nil, err
@@ -138,12 +200,12 @@ func (cache *Cache) FindStorageNodes(ctx context.Context, req *pb.FindStorageNod
 
 	newNodeCount := int64(float64(reputableNodeCount) * preferences.NewNodePercentage)
 	newNodes, err := cache.db.SelectNewStorageNodes(ctx, int(newNodeCount), &NewNodeCriteria{
-		FreeBandwidth: freeBandwidth,
-		FreeDisk:      freeDisk,
+		FreeBandwidth: req.FreeBandwidth,
+		FreeDisk:      req.FreeDisk,
 
 		AuditThreshold: preferences.NewNodeAuditThreshold,
 
-		Excluded: excludedNodes,
+		Excluded: req.ExcludedNodes,
 	})
 	if err != nil {
 		return nil, err
@@ -161,7 +223,9 @@ func (cache *Cache) FindStorageNodes(ctx context.Context, req *pb.FindStorageNod
 }
 
 // GetAll looks up the provided ids from the overlay cache
-func (cache *Cache) GetAll(ctx context.Context, ids storj.NodeIDList) ([]*pb.Node, error) {
+func (cache *Cache) GetAll(ctx context.Context, ids storj.NodeIDList) (_ []*pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if len(ids) == 0 {
 		return nil, OverlayError.New("no ids provided")
 	}
@@ -169,8 +233,10 @@ func (cache *Cache) GetAll(ctx context.Context, ids storj.NodeIDList) ([]*pb.Nod
 	return cache.db.GetAll(ctx, ids)
 }
 
-// Put adds a nodeID to the redis cache with a binary representation of proto defined Node
-func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) error {
+// Put adds a node id and proto definition into the overlay cache and stat db
+func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	// If we get a Node without an ID (i.e. bootstrap node)
 	// we don't want to add to the routing tbale
 	if nodeID.IsZero() {
@@ -200,19 +266,24 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 
 // Delete will remove the node from the cache. Used when a node hard disconnects or fails
 // to pass a PING multiple times.
-func (cache *Cache) Delete(ctx context.Context, id storj.NodeID) error {
+func (cache *Cache) Delete(ctx context.Context, id storj.NodeID) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	if id.IsZero() {
 		return ErrEmptyNode
 	}
+
 	return cache.db.Delete(ctx, id)
 }
 
 // ConnFailure implements the Transport Observer `ConnFailure` function
 func (cache *Cache) ConnFailure(ctx context.Context, node *pb.Node, failureError error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	// TODO: Kademlia paper specifies 5 unsuccessful PINGs before removing the node
 	// from our routing table, but this is the cache so maybe we want to treat
 	// it differently.
-	_, err := cache.statDB.UpdateUptime(ctx, node.Id, false)
+	_, err = cache.statDB.UpdateUptime(ctx, node.Id, false)
 	if err != nil {
 		zap.L().Debug("error updating uptime for node in statDB", zap.Error(err))
 	}
@@ -220,7 +291,10 @@ func (cache *Cache) ConnFailure(ctx context.Context, node *pb.Node, failureError
 
 // ConnSuccess implements the Transport Observer `ConnSuccess` function
 func (cache *Cache) ConnSuccess(ctx context.Context, node *pb.Node) {
-	err := cache.Put(ctx, node.Id, *node)
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	err = cache.Put(ctx, node.Id, *node)
 	if err != nil {
 		zap.L().Debug("error updating uptime for node in statDB", zap.Error(err))
 	}
