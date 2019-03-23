@@ -9,26 +9,6 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-// NodeIDsToLookupRequests converts NodeIDs to LookupRequests
-func NodeIDsToLookupRequests(nodeIDs storj.NodeIDList) *LookupRequests {
-	var rq []*LookupRequest
-	for _, v := range nodeIDs {
-		r := &LookupRequest{NodeId: v}
-		rq = append(rq, r)
-	}
-	return &LookupRequests{LookupRequest: rq}
-}
-
-// LookupResponsesToNodes converts LookupResponses to Nodes
-func LookupResponsesToNodes(responses *LookupResponses) []*Node {
-	var nodes []*Node
-	for _, v := range responses.LookupResponse {
-		n := v.GetNode()
-		nodes = append(nodes, n)
-	}
-	return nodes
-}
-
 // NodesToIDs extracts Node-s into a list of ids
 func NodesToIDs(nodes []*Node) storj.NodeIDList {
 	ids := make(storj.NodeIDList, len(nodes))

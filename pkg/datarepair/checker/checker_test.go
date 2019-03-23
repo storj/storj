@@ -56,34 +56,6 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 	})
 }
 
-func TestOfflineNodes(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		checker := planet.Satellites[0].Repair.Checker
-		checker.Loop.Stop()
-
-		const numberOfNodes = 10
-		nodeIDs := storj.NodeIDList{}
-
-		// use online nodes
-		for _, storagenode := range planet.StorageNodes {
-			nodeIDs = append(nodeIDs, storagenode.Identity.ID)
-		}
-
-		// simulate offline nodes
-		expectedOffline := make([]int32, 0)
-		for i := len(nodeIDs); i < numberOfNodes; i++ {
-			nodeIDs = append(nodeIDs, storj.NodeID{byte(i)})
-			expectedOffline = append(expectedOffline, int32(i))
-		}
-
-		offline, err := checker.OfflineNodes(ctx, nodeIDs)
-		assert.NoError(t, err)
-		assert.Equal(t, expectedOffline, offline)
-	})
-}
-
 func TestIdentifyIrreparableSegments(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 3, UplinkCount: 0,
