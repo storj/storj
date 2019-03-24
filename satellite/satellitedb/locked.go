@@ -24,6 +24,7 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/orders"
 )
 
 // locked implements a locking wrapper around satellite.DB.
@@ -538,6 +539,26 @@ func (m *lockedIrreparable) IncrementRepairAttempts(ctx context.Context, segment
 	m.Lock()
 	defer m.Unlock()
 	return m.db.IncrementRepairAttempts(ctx, segmentInfo)
+}
+
+// Orders returns database for orders
+func (m *locked) Orders() orders.DB {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedOrders{m.Locker, m.db.Orders()}
+}
+
+// lockedOrders implements locking wrapper for orders.DB
+type lockedOrders struct {
+	sync.Locker
+	db orders.DB
+}
+
+// SaveOrder saves an order
+func (m *lockedOrders) SaveOrder(ctx context.Context, a1 *pb.OrderLimit2, a2 *pb.Order2) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SaveOrder(ctx, a1, a2)
 }
 
 // OverlayCache returns database for caching overlay information
