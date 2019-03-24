@@ -50,6 +50,8 @@ import (
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/orders"
+	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/storagenodedb"
 )
 
@@ -558,6 +560,12 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 
 				SatelliteIDRestriction:  true,
 				WhitelistedSatelliteIDs: strings.Join(whitelistedSatelliteIDs, ","),
+			},
+			Storage2: piecestore.Config{
+				Sender: orders.SenderConfig{
+					Interval: time.Hour,
+					Timeout:  time.Hour,
+				},
 			},
 		}
 		if planet.config.Reconfigure.StorageNode != nil {

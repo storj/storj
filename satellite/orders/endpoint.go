@@ -99,7 +99,7 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 
 		uplinkPubKey, err := endpoint.certdb.GetPublicKey(ctx, orderLimit.UplinkId)
 		if err != nil {
-			endpoint.log.Warn("unable to find uplink public key", zap.Error(zap.Error(err))
+			endpoint.log.Warn("unable to find uplink public key", zap.Error(err))
 			return status.Errorf(codes.Internal, "unable to find uplink public key")
 		}
 
