@@ -448,7 +448,16 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		case "plain":
 			sender = &post.SMTPSender{
 				From:          *from,
-				Auth:          smtp.PlainAuth("", mailConfig.PlainLogin, mailConfig.PlainPassword, host),
+				Auth:          smtp.PlainAuth("", mailConfig.Login, mailConfig.Password, host),
+				ServerAddress: mailConfig.SMTPServerAddress,
+			}
+		case "login":
+			sender = &post.SMTPSender{
+				From: *from,
+				Auth: post.LoginAuth{
+					Username: mailConfig.Login,
+					Password: mailConfig.Password,
+				},
 				ServerAddress: mailConfig.SMTPServerAddress,
 			}
 		default:
