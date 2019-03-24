@@ -306,8 +306,7 @@ CREATE TABLE bucket_bandwidth_rollups (
 	inline bigint NOT NULL,
 	allocated bigint NOT NULL,
 	settled bigint NOT NULL,
-	PRIMARY KEY ( bucket_id ),
-	UNIQUE ( bucket_id, interval_start, interval_seconds, action )
+	PRIMARY KEY ( bucket_id, interval_start, action )
 );
 CREATE TABLE bucket_storage_rollups (
 	bucket_id bytea NOT NULL,
@@ -315,8 +314,7 @@ CREATE TABLE bucket_storage_rollups (
 	interval_seconds integer NOT NULL,
 	inline bigint NOT NULL,
 	remote bigint NOT NULL,
-	PRIMARY KEY ( bucket_id ),
-	UNIQUE ( bucket_id, interval_start, interval_seconds )
+	PRIMARY KEY ( bucket_id, interval_start )
 );
 CREATE TABLE bucket_usages (
 	id bytea NOT NULL,
@@ -331,8 +329,7 @@ CREATE TABLE bucket_usages (
 	repair_egress bigint NOT NULL,
 	get_egress bigint NOT NULL,
 	audit_egress bigint NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( rollup_end_time, bucket_id )
+	PRIMARY KEY ( id )
 );
 CREATE TABLE bwagreements (
 	serialnum text NOT NULL,
@@ -416,8 +413,7 @@ CREATE TABLE serial_numbers (
 	serial_number bytea NOT NULL,
 	bucket_id bytea NOT NULL,
 	expires_at timestamp NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( serial_number )
+	PRIMARY KEY ( id )
 );
 CREATE TABLE storagenode_bandwidth_rollups (
 	storagenode_id bytea NOT NULL,
@@ -426,16 +422,14 @@ CREATE TABLE storagenode_bandwidth_rollups (
 	action integer NOT NULL,
 	allocated bigint NOT NULL,
 	settled bigint NOT NULL,
-	PRIMARY KEY ( storagenode_id ),
-	UNIQUE ( storagenode_id, interval_start, interval_seconds, action )
+	PRIMARY KEY ( storagenode_id, interval_start, action )
 );
 CREATE TABLE storagenode_storage_rollups (
 	storagenode_id bytea NOT NULL,
 	interval_start timestamp NOT NULL,
 	interval_seconds integer NOT NULL,
 	total bigint NOT NULL,
-	PRIMARY KEY ( storagenode_id ),
-	UNIQUE ( storagenode_id, interval_start, interval_seconds )
+	PRIMARY KEY ( storagenode_id, interval_start )
 );
 CREATE TABLE users (
 	id bytea NOT NULL,
@@ -466,10 +460,14 @@ CREATE TABLE project_members (
 CREATE TABLE used_serials (
 	serial_number_id integer NOT NULL REFERENCES serial_numbers( id ) ON DELETE CASCADE,
 	storage_node_id bytea NOT NULL,
-	PRIMARY KEY ( serial_number_id ),
-	UNIQUE ( serial_number_id, storage_node_id )
+	PRIMARY KEY ( serial_number_id, storage_node_id )
 );
-CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );`
+CREATE INDEX bucket_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_id, interval_start, interval_seconds );
+CREATE INDEX bucket_id_interval_start_interval_seconds ON bucket_storage_rollups ( bucket_id, interval_start, interval_seconds );
+CREATE INDEX bucket_id_rollup ON bucket_usages ( rollup_end_time, bucket_id );
+CREATE INDEX serial_number ON serial_numbers ( serial_number );
+CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
+CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );`
 }
 
 func (obj *postgresDB) wrapTx(tx *sql.Tx) txMethods {
@@ -567,8 +565,7 @@ CREATE TABLE bucket_bandwidth_rollups (
 	inline INTEGER NOT NULL,
 	allocated INTEGER NOT NULL,
 	settled INTEGER NOT NULL,
-	PRIMARY KEY ( bucket_id ),
-	UNIQUE ( bucket_id, interval_start, interval_seconds, action )
+	PRIMARY KEY ( bucket_id, interval_start, action )
 );
 CREATE TABLE bucket_storage_rollups (
 	bucket_id BLOB NOT NULL,
@@ -576,8 +573,7 @@ CREATE TABLE bucket_storage_rollups (
 	interval_seconds INTEGER NOT NULL,
 	inline INTEGER NOT NULL,
 	remote INTEGER NOT NULL,
-	PRIMARY KEY ( bucket_id ),
-	UNIQUE ( bucket_id, interval_start, interval_seconds )
+	PRIMARY KEY ( bucket_id, interval_start )
 );
 CREATE TABLE bucket_usages (
 	id BLOB NOT NULL,
@@ -592,8 +588,7 @@ CREATE TABLE bucket_usages (
 	repair_egress INTEGER NOT NULL,
 	get_egress INTEGER NOT NULL,
 	audit_egress INTEGER NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( rollup_end_time, bucket_id )
+	PRIMARY KEY ( id )
 );
 CREATE TABLE bwagreements (
 	serialnum TEXT NOT NULL,
@@ -677,8 +672,7 @@ CREATE TABLE serial_numbers (
 	serial_number BLOB NOT NULL,
 	bucket_id BLOB NOT NULL,
 	expires_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( serial_number )
+	PRIMARY KEY ( id )
 );
 CREATE TABLE storagenode_bandwidth_rollups (
 	storagenode_id BLOB NOT NULL,
@@ -687,16 +681,14 @@ CREATE TABLE storagenode_bandwidth_rollups (
 	action INTEGER NOT NULL,
 	allocated INTEGER NOT NULL,
 	settled INTEGER NOT NULL,
-	PRIMARY KEY ( storagenode_id ),
-	UNIQUE ( storagenode_id, interval_start, interval_seconds, action )
+	PRIMARY KEY ( storagenode_id, interval_start, action )
 );
 CREATE TABLE storagenode_storage_rollups (
 	storagenode_id BLOB NOT NULL,
 	interval_start TIMESTAMP NOT NULL,
 	interval_seconds INTEGER NOT NULL,
 	total INTEGER NOT NULL,
-	PRIMARY KEY ( storagenode_id ),
-	UNIQUE ( storagenode_id, interval_start, interval_seconds )
+	PRIMARY KEY ( storagenode_id, interval_start )
 );
 CREATE TABLE users (
 	id BLOB NOT NULL,
@@ -727,10 +719,14 @@ CREATE TABLE project_members (
 CREATE TABLE used_serials (
 	serial_number_id INTEGER NOT NULL REFERENCES serial_numbers( id ) ON DELETE CASCADE,
 	storage_node_id BLOB NOT NULL,
-	PRIMARY KEY ( serial_number_id ),
-	UNIQUE ( serial_number_id, storage_node_id )
+	PRIMARY KEY ( serial_number_id, storage_node_id )
 );
-CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );`
+CREATE INDEX bucket_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_id, interval_start, interval_seconds );
+CREATE INDEX bucket_id_interval_start_interval_seconds ON bucket_storage_rollups ( bucket_id, interval_start, interval_seconds );
+CREATE INDEX bucket_id_rollup ON bucket_usages ( rollup_end_time, bucket_id );
+CREATE INDEX serial_number ON serial_numbers ( serial_number );
+CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
+CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );`
 }
 
 func (obj *sqlite3DB) wrapTx(tx *sql.Tx) txMethods {
@@ -4089,15 +4085,16 @@ func (obj *postgresImpl) Create_UsedSerial(ctx context.Context,
 	used_serial_serial_number_id UsedSerial_SerialNumberId_Field,
 	used_serial_storage_node_id UsedSerial_StorageNodeId_Field) (
 	used_serial *UsedSerial, err error) {
+	__serial_number_id_val := used_serial_serial_number_id.value()
 	__storage_node_id_val := used_serial_storage_node_id.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO used_serials ( storage_node_id ) VALUES ( ? ) RETURNING used_serials.serial_number_id, used_serials.storage_node_id")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO used_serials ( serial_number_id, storage_node_id ) VALUES ( ?, ? ) RETURNING used_serials.serial_number_id, used_serials.storage_node_id")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __storage_node_id_val)
+	obj.logStmt(__stmt, __serial_number_id_val, __storage_node_id_val)
 
 	used_serial = &UsedSerial{}
-	err = obj.driver.QueryRow(__stmt, __storage_node_id_val).Scan(&used_serial.SerialNumberId, &used_serial.StorageNodeId)
+	err = obj.driver.QueryRow(__stmt, __serial_number_id_val, __storage_node_id_val).Scan(&used_serial.SerialNumberId, &used_serial.StorageNodeId)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -4973,7 +4970,7 @@ func (obj *postgresImpl) Find_SerialNumber_By_SerialNumber(ctx context.Context,
 	serial_number_serial_number SerialNumber_SerialNumber_Field) (
 	serial_number *SerialNumber, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT serial_numbers.id, serial_numbers.serial_number, serial_numbers.bucket_id, serial_numbers.expires_at FROM serial_numbers WHERE serial_numbers.serial_number = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT serial_numbers.id, serial_numbers.serial_number, serial_numbers.bucket_id, serial_numbers.expires_at FROM serial_numbers WHERE serial_numbers.serial_number = ? LIMIT 2")
 
 	var __values []interface{}
 	__values = append(__values, serial_number_serial_number.value())
@@ -4981,14 +4978,33 @@ func (obj *postgresImpl) Find_SerialNumber_By_SerialNumber(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	serial_number = &SerialNumber{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&serial_number.Id, &serial_number.SerialNumber, &serial_number.BucketId, &serial_number.ExpiresAt)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
+	__rows, err := obj.driver.Query(__stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
+	defer __rows.Close()
+
+	if !__rows.Next() {
+		if err := __rows.Err(); err != nil {
+			return nil, obj.makeErr(err)
+		}
+		return nil, nil
+	}
+
+	serial_number = &SerialNumber{}
+	err = __rows.Scan(&serial_number.Id, &serial_number.SerialNumber, &serial_number.BucketId, &serial_number.ExpiresAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	if __rows.Next() {
+		return nil, tooManyRows("SerialNumber_By_SerialNumber")
+	}
+
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+
 	return serial_number, nil
 
 }
@@ -6546,14 +6562,15 @@ func (obj *sqlite3Impl) Create_UsedSerial(ctx context.Context,
 	used_serial_serial_number_id UsedSerial_SerialNumberId_Field,
 	used_serial_storage_node_id UsedSerial_StorageNodeId_Field) (
 	used_serial *UsedSerial, err error) {
+	__serial_number_id_val := used_serial_serial_number_id.value()
 	__storage_node_id_val := used_serial_storage_node_id.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO used_serials ( storage_node_id ) VALUES ( ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO used_serials ( serial_number_id, storage_node_id ) VALUES ( ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __storage_node_id_val)
+	obj.logStmt(__stmt, __serial_number_id_val, __storage_node_id_val)
 
-	__res, err := obj.driver.Exec(__stmt, __storage_node_id_val)
+	__res, err := obj.driver.Exec(__stmt, __serial_number_id_val, __storage_node_id_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7439,7 +7456,7 @@ func (obj *sqlite3Impl) Find_SerialNumber_By_SerialNumber(ctx context.Context,
 	serial_number_serial_number SerialNumber_SerialNumber_Field) (
 	serial_number *SerialNumber, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT serial_numbers.id, serial_numbers.serial_number, serial_numbers.bucket_id, serial_numbers.expires_at FROM serial_numbers WHERE serial_numbers.serial_number = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT serial_numbers.id, serial_numbers.serial_number, serial_numbers.bucket_id, serial_numbers.expires_at FROM serial_numbers WHERE serial_numbers.serial_number = ? LIMIT 2")
 
 	var __values []interface{}
 	__values = append(__values, serial_number_serial_number.value())
@@ -7447,14 +7464,33 @@ func (obj *sqlite3Impl) Find_SerialNumber_By_SerialNumber(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	serial_number = &SerialNumber{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&serial_number.Id, &serial_number.SerialNumber, &serial_number.BucketId, &serial_number.ExpiresAt)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
+	__rows, err := obj.driver.Query(__stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
+	defer __rows.Close()
+
+	if !__rows.Next() {
+		if err := __rows.Err(); err != nil {
+			return nil, obj.makeErr(err)
+		}
+		return nil, nil
+	}
+
+	serial_number = &SerialNumber{}
+	err = __rows.Scan(&serial_number.Id, &serial_number.SerialNumber, &serial_number.BucketId, &serial_number.ExpiresAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	if __rows.Next() {
+		return nil, tooManyRows("SerialNumber_By_SerialNumber")
+	}
+
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+
 	return serial_number, nil
 
 }
