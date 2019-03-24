@@ -21,8 +21,8 @@ type Config struct {
 	TemplatePath      string `help:"path to email templates source" default:""`
 	From              string `help:"sender email address" default:""`
 	AuthType          string `help:"smtp authentication type" default:"simulate"`
-	PlainLogin        string `help:"plain auth user login" default:""`
-	PlainPassword     string `help:"plain auth user password" default:""`
+	Login             string `help:"plain/login auth user login" default:""`
+	Password          string `help:"plain/login auth user password" default:""`
 	RefreshToken      string `help:"refresh token used to retrieve new access token" default:""`
 	ClientID          string `help:"oauth2 app's client id" default:""`
 	ClientSecret      string `help:"oauth2 app's client secret" default:""`
