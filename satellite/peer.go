@@ -319,6 +319,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			peer.DB.Console().APIKeys(),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.DB.Accounting(),
+			config.Rollup.MaxAlphaUsage,
 		)
 
 		pb.RegisterPointerDBServer(peer.Server.GRPC(), peer.Metainfo.Endpoint)

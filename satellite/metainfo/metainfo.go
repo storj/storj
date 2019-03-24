@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"strconv"
+	"time"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -16,6 +17,7 @@ import (
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/auth/signing"
@@ -42,26 +44,28 @@ type APIKeys interface {
 
 // Endpoint metainfo endpoint
 type Endpoint struct {
-	log        *zap.Logger
-	pointerdb  *pointerdb.Service
-	allocation *pointerdb.AllocationSigner
-	cache      *overlay.Cache
-	apiKeys    APIKeys
-	signer     signing.Signer
-	accounting accounting.DB
+	log           *zap.Logger
+	pointerdb     *pointerdb.Service
+	allocation    *pointerdb.AllocationSigner
+	cache         *overlay.Cache
+	apiKeys       APIKeys
+	signer        signing.Signer
+	accountingDB  accounting.DB
+	maxAlphaUsage memory.Size
 }
 
 // NewEndpoint creates new metainfo endpoint instance
-func NewEndpoint(log *zap.Logger, pointerdb *pointerdb.Service, allocation *pointerdb.AllocationSigner, cache *overlay.Cache, apiKeys APIKeys, signer signing.Signer, acctDB accounting.DB) *Endpoint {
+func NewEndpoint(log *zap.Logger, pointerdb *pointerdb.Service, allocation *pointerdb.AllocationSigner, cache *overlay.Cache, apiKeys APIKeys, signer signing.Signer, acctDB accounting.DB, maxAlphaUsage memory.Size) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
-		log:        log,
-		pointerdb:  pointerdb,
-		allocation: allocation,
-		cache:      cache,
-		apiKeys:    apiKeys,
-		signer:     signer,
-		accounting: acctDB,
+		log:           log,
+		pointerdb:     pointerdb,
+		allocation:    allocation,
+		cache:         cache,
+		apiKeys:       apiKeys,
+		signer:        signer,
+		accountingDB:  acctDB,
+		maxAlphaUsage: maxAlphaUsage,
 	}
 }
 
@@ -134,7 +138,16 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 	// TODO: remove this code once we no longer need usage limiting for alpha release
 	// Ref: https://storjlabs.atlassian.net/browse/V3-1274
 	projectID := keyInfo.ProjectID
-	exceeded, err := endpoint.accounting.ExceedsAlphaUsage(ctx, projectID)
+	from := time.Now().AddDate(0, -30, 0) // past 30 days
+	bwTotal, err := endpoint.accountingDB.ProjectBandwidthTotal(ctx, projectID, from)
+	if err != nil {
+		endpoint.log.Error("retrieving ProjectBandwidthUsages", zap.Error(err))
+	}
+	inlineTotal, remoteTotal, err := endpoint.accountingDB.ProjectStorageTotals(ctx, projectID, from)
+	if err != nil {
+		endpoint.log.Error("retrieving ProjectStorageUsages", zap.Error(err))
+	}
+	exceeded := accounting.ExceedsAlphaUsage(bwTotal, inlineTotal, remoteTotal, endpoint.maxAlphaUsage)
 	if exceeded {
 		endpoint.log.Error("alpha usage limit exceeded: ", zap.Error(status.Errorf(codes.ResourceExhausted, "Alpha Usage Limit Exceeded")))
 		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Alpha Usage Limit")

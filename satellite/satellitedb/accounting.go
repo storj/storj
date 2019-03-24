@@ -6,15 +6,18 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
+	"github.com/lib/pq"
+	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/accounting"
-	acct "storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/storj"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/storage"
 )
 
 //database implements DB
@@ -22,131 +25,108 @@ type accountingDB struct {
 	db *dbx.DB
 }
 
-// ExceedsAlphaUsage returns true if more than 25GB of bandwidth or storage usage has been used in the past month
-// TODO: remove this code once we no longer need usage limiting for alpha release
-// Ref: https://storjlabs.atlassian.net/browse/V3-1274
-func (db *accountingDB) ExceedsAlphaUsage(ctx context.Context, projectID uuid.UUID) (bool, error) {
-
-	// check if limits have been exceeded in the past month
-	since := time.Now().AddDate(0, -30, 0)
-
-	exceeded, err := db.exceedsAlphaBandwidthUsage(ctx, projectID, since)
-	if err != nil {
-		return false, err
+// ProjectBandwidthTotal returns the sum of bandwidth usage for a projectID in the past time frame
+func (db *accountingDB) ProjectBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (uint64, error) {
+	switch t := db.db.Driver().(type) {
+	case *sqlite3.SQLiteDriver:
+		return db.sqliteProjectBandwidthTotal(ctx, projectID, from)
+	case *pq.Driver:
+		return db.postgresProjectBandwidthTotal(ctx, projectID, from)
+	default:
+		return 0, fmt.Errorf("Unsupported database %t", t)
 	}
-	if exceeded {
-		return true, nil
-	}
-
-	exceeded, err = db.exceedsAlphaStorageUsage(ctx, projectID, since)
-	if err != nil {
-		return false, err
-	}
-	if exceeded {
-		return true, nil
-	}
-
-	return false, nil
 }
 
-const (
-	// GB in bytes
-	gbBytes = (1 << (10 * 3)) // 1073741824 bytes
-	// For the alpha release, no more than 25GB of storage on disk or bandwidth usage can be exceeded
-	alphaMaxUsage = uint64(25 * gbBytes)
-)
-
-// exceedsAlphaBandwidthUsage returns true if more than 25GB of bandwidth usage has been used in the past time frame
-// TODO: remove this code once we no longer need usage limiting for alpha release
-// Ref: https://storjlabs.atlassian.net/browse/V3-1274
-func (db *accountingDB) exceedsAlphaBandwidthUsage(ctx context.Context, projectID uuid.UUID, since time.Time) (bool, error) {
-	bwRollups, err := db.GetAllBucketBWByProjectAndInterval(ctx, projectID, since)
-	if err != nil {
-		return false, err
-	}
-	var sum uint64
-	for _, rollup := range bwRollups {
-		sum += rollup.Settled
-	}
-	if sum >= alphaMaxUsage {
-		return true, nil
-	}
-	return false, nil
-}
-
-// exceedsAlphaStorageUsage returns true if more than 25GB of storage has been used in the past time frame
-// TODO: remove this code once we no longer need usage limiting for alpha release
-// Ref: https://storjlabs.atlassian.net/browse/V3-1274
-func (db *accountingDB) exceedsAlphaStorageUsage(ctx context.Context, projectID uuid.UUID, since time.Time) (bool, error) {
-	storageRollups, err := db.GetAllBucketStorageByProjectAndInterval(ctx, projectID, since)
-	if err != nil {
-		return false, err
-	}
-	var sumRemote, sumInline uint64
-	for _, rollup := range storageRollups {
-		sumRemote += rollup.Remote
-		sumInline += rollup.Inline
-	}
-	if sumRemote+sumInline >= alphaMaxUsage {
-		return true, nil
-	}
-	return false, nil
-}
-
-// GetAllBucketBWByProjectAndInterval returns all the bucket bandwidth rollup for a projectID in the past time frame
-func (db *accountingDB) GetAllBucketBWByProjectAndInterval(ctx context.Context, projectID uuid.UUID, since time.Time) ([]acct.BucketBWRollup, error) {
-	rows, err := db.db.All_BucketBandwidthRollup_By_ProjectId_And_IntervalStart_GreaterOrEqual(
-		ctx,
-		dbx.BucketBandwidthRollup_ProjectId(projectID[:]),
-		dbx.BucketBandwidthRollup_IntervalStart(since),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	var results []acct.BucketBWRollup
-	for _, row := range rows {
-		rollup := acct.BucketBWRollup{
-			BucketName:      row.BucketName,
-			BucketID:        row.BucketId,
-			ProjectID:       row.ProjectId,
-			IntervalStart:   row.IntervalStart,
-			IntervalSeconds: row.IntervalSeconds,
-			Action:          row.Action,
-			Inline:          row.Inline,
-			Allocated:       row.Allocated,
-			Settled:         row.Settled,
+func (db *accountingDB) sqliteProjectBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (uint64, error) {
+	var total uint64
+	err := db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+		err := tx.Tx.QueryRowContext(ctx, `
+			SELECT SUM (settled) AS total
+			FROM bucket_bandwidth_rollup
+			WHERE project_id = ? AND interval_start >= ?
+		`, projectID, from).Scan(&total)
+		if err != nil {
+			return err
 		}
-		results = append(results, rollup)
+		return nil
+	})
+	if err == sql.ErrNoRows {
+		err = storage.ErrEmptyQueue.New("")
 	}
-	return results, nil
+	return total, nil
 }
 
-// GetAllBucketStorageByProjectAndInterval returns all the bucket storage rollups for a projectID in the past time frame
-func (db *accountingDB) GetAllBucketStorageByProjectAndInterval(ctx context.Context, projectID uuid.UUID, since time.Time) ([]acct.BucketStorageRollup, error) {
-	rows, err := db.db.All_BucketStorageRollup_By_ProjectId_And_IntervalStart_GreaterOrEqual(
-		ctx,
-		dbx.BucketStorageRollup_ProjectId(projectID[:]),
-		dbx.BucketStorageRollup_IntervalStart(since),
-	)
-	if err != nil {
-		return nil, err
+func (db *accountingDB) postgresProjectBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (uint64, error) {
+	var total uint64
+	err := db.db.QueryRowContext(ctx, `
+		SELECT SUM (settled) AS total
+		FROM bucket_bandwidth_rollup
+		WHERE project_id = ? AND interval_start >= ?
+	`, projectID, from).Scan(&total)
+	if err == sql.ErrNoRows {
+		err = storage.ErrEmptyQueue.New("")
 	}
+	return total, nil
+}
 
-	var results []acct.BucketStorageRollup
-	for _, row := range rows {
-		rollup := acct.BucketStorageRollup{
-			BucketName:      row.BucketName,
-			BucketID:        row.BucketId,
-			ProjectID:       row.ProjectId,
-			IntervalStart:   row.IntervalStart,
-			IntervalSeconds: row.IntervalSeconds,
-			Inline:          row.Inline,
-			Remote:          row.Remote,
-		}
-		results = append(results, rollup)
+// ProjectStorageTotals returns the sum of inline and remote storage usage for a projectID in the past time frame
+func (db *accountingDB) ProjectStorageTotals(ctx context.Context, projectID uuid.UUID, from time.Time) (uint64, uint64, error) {
+	switch t := db.db.Driver().(type) {
+	case *sqlite3.SQLiteDriver:
+		return db.sqliteProjectStorageTotal(ctx, projectID, from)
+	case *pq.Driver:
+		return db.postgresProjectStorageTotal(ctx, projectID, from)
+	default:
+		return 0, 0, fmt.Errorf("Unsupported database %t", t)
 	}
-	return results, nil
+}
+
+func (db *accountingDB) sqliteProjectStorageTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (uint64, uint64, error) {
+	var sumInline, sumRemote uint64
+	err := db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+		err := tx.Tx.QueryRowContext(ctx, `
+			SELECT SUM (inline) AS total
+			FROM bucket_Storage_rollup
+			WHERE project_id = ? AND interval_start >= ?
+		`, projectID, from).Scan(&sumInline)
+		if err != nil {
+			return err
+		}
+		err = tx.Tx.QueryRowContext(ctx, `
+			SELECT SUM (remote) AS total
+			FROM bucket_Storage_rollup
+			WHERE project_id = ? AND interval_start >= ?
+		`, projectID, from).Scan(&sumRemote)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err == sql.ErrNoRows {
+		err = storage.ErrEmptyQueue.New("")
+	}
+	return sumInline, sumRemote, err
+}
+
+func (db *accountingDB) postgresProjectStorageTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (uint64, uint64, error) {
+	var sumInline, sumRemote uint64
+	err := db.db.QueryRowContext(ctx, `
+		SELECT SUM (inline) AS total
+		FROM bucket_Storage_rollup
+		WHERE project_id = ? AND interval_start >= ?
+	`, projectID, from).Scan(&sumInline)
+	if err == sql.ErrNoRows {
+		err = storage.ErrEmptyQueue.New("")
+	}
+	err = db.db.QueryRowContext(ctx, `
+		SELECT SUM (remote) AS total
+		FROM bucket_Storage_rollup
+		WHERE project_id = ? AND interval_start >= ?
+	`, projectID, from).Scan(&sumRemote)
+	if err == sql.ErrNoRows {
+		err = storage.ErrEmptyQueue.New("")
+	}
+	return sumInline, sumRemote, err
 }
 
 // LastTimestamp records the greatest last tallied time

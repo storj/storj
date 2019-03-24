@@ -57,13 +57,6 @@ func (m *lockedAccounting) DeleteRawBefore(ctx context.Context, latestRollup tim
 	return m.db.DeleteRawBefore(ctx, latestRollup)
 }
 
-// ExceedsAlphaUsage checks if the usage limits are exceeded for a given project
-func (m *lockedAccounting) ExceedsAlphaUsage(ctx context.Context, projectID uuid.UUID) (bool, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.ExceedsAlphaUsage(ctx, projectID)
-}
-
 // GetRaw retrieves all raw tallies
 func (m *lockedAccounting) GetRaw(ctx context.Context) ([]*accounting.Raw, error) {
 	m.Lock()
@@ -83,6 +76,20 @@ func (m *lockedAccounting) LastTimestamp(ctx context.Context, timestampType stri
 	m.Lock()
 	defer m.Unlock()
 	return m.db.LastTimestamp(ctx, timestampType)
+}
+
+// ProjectBandwidthTotal returns the sum of bandwidth usage for a projectID in the past time frame
+func (m *lockedAccounting) ProjectBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (uint64, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.ProjectBandwidthTotal(ctx, projectID, from)
+}
+
+// ProjectStorageTotals returns the sum of inline and remote storage usage for a projectID in the past time frame
+func (m *lockedAccounting) ProjectStorageTotals(ctx context.Context, projectID uuid.UUID, from time.Time) (uint64, uint64, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.ProjectStorageTotals(ctx, projectID, from)
 }
 
 // QueryPaymentInfo queries StatDB, Accounting Rollup on nodeID

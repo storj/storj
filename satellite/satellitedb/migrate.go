@@ -426,9 +426,11 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Version:     10,
 				Action: migrate.SQL{
 					`ALTER TABLE bucket_bandwidth_rollups ADD COLUMN bucket_name BYTEA;
-					ALTER TABLE bucket_bandwidth_rollups ADD COLUMN project_id BYTEA;,
-					ALTER TABLE bucket_storage_rollups ADD COLUMN bucket_name BYTEA;
-					ALTER TABLE bucket_storage_rollups ADD COLUMN project_id BYTEA;`,
+					 ALTER TABLE bucket_bandwidth_rollups ADD COLUMN project_id BYTEA;,
+					 ALTER TABLE bucket_bandwidth_rollups DROP COLUMN bucket_id BYTEA;,
+					 ALTER TABLE bucket_storage_rollups ADD COLUMN bucket_name BYTEA;
+					 ALTER TABLE bucket_storage_rollups DROP COLUMN bucket_id BYTEA;
+					 ALTER TABLE bucket_storage_rollups ADD COLUMN project_id BYTEA;`,
 				},
 			},
 		},

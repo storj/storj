@@ -37,34 +37,6 @@ type Rollup struct {
 	AtRestTotal    float64
 }
 
-// BucketBWRollup mirrors dbx.BucketBandwidthRollup and holds the bucket bw rollup info
-type BucketBWRollup struct {
-	BucketName []byte
-	BucketID   []byte
-	ProjectID  []byte
-
-	IntervalStart   time.Time
-	IntervalSeconds uint
-	Action          uint
-
-	Inline    uint64
-	Allocated uint64
-	Settled   uint64
-}
-
-// BucketStorageRollup mirrors dbx.BucketStorageRollup and holds the storage rollup info
-type BucketStorageRollup struct {
-	BucketName []byte
-	BucketID   []byte
-	ProjectID  []byte
-
-	IntervalStart   time.Time
-	IntervalSeconds uint
-
-	Inline uint64
-	Remote uint64
-}
-
 // DB stores information about bandwidth and storage usage
 type DB interface {
 	// LastTimestamp records the latest last tallied time.
@@ -83,6 +55,8 @@ type DB interface {
 	QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*CSVRow, error)
 	// DeleteRawBefore deletes all raw tallies prior to some time
 	DeleteRawBefore(ctx context.Context, latestRollup time.Time) error
-	// ExceedsAlphaUsage checks if the usage limits are exceeded for a given project
-	ExceedsAlphaUsage(ctx context.Context, projectID uuid.UUID) (bool, error)
+	// ProjectBandwidthTotal returns the sum of bandwidth usage for a projectID in the past time frame
+	ProjectBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (uint64, error)
+	// ProjectStorageTotals returns the sum of inline and remote storage usage for a projectID in the past time frame
+	ProjectStorageTotals(ctx context.Context, projectID uuid.UUID, from time.Time) (uint64, uint64, error)
 }
