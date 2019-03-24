@@ -445,10 +445,6 @@ model bucket_bandwidth_rollup (
 
 model bucket_storage_rollup (
 	key    bucket_id interval_start
-	index (
-	    name bucket_id_interval_start_interval_seconds
-	    fields bucket_id interval_start interval_seconds
-	)
 
 	field bucket_id        blob
 	field interval_start   utimestamp
