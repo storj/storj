@@ -437,8 +437,9 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				MaxBufferMem: 4 * memory.MiB,
 			},
 			Audit: audit.Config{
-				MaxRetriesStatDB: 0,
-				Interval:         30 * time.Second,
+				MaxRetriesStatDB:  0,
+				Interval:          30 * time.Second,
+				MinBytesPerSecond: 1 * memory.KB,
 			},
 			Tally: tally.Config{
 				Interval: 30 * time.Second,
@@ -447,8 +448,8 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				Interval: 120 * time.Second,
 			},
 			Mail: mailservice.Config{
-				SMTPServerAddress: "smtp.gmail.com:587",
-				From:              "Labs <yaroslav-satellite-test@storj.io>",
+				SMTPServerAddress: "smtp.mail.example.com:587",
+				From:              "Labs <storj@example.com>",
 				AuthType:          "simulate",
 			},
 			Console: consoleweb.Config{

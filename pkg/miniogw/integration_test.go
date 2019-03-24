@@ -63,9 +63,6 @@ func TestUploadDownload(t *testing.T) {
 	_, err = planet.Satellites[0].DB.Console().APIKeys().Create(context.Background(), apiKey, apiKeyInfo)
 	assert.NoError(t, err)
 
-	err = flag.Set("pointer-db.auth.api-key", apiKey.String())
-	assert.NoError(t, err)
-
 	// bind default values to config
 	var gwCfg config
 	cfgstruct.Bind(&pflag.FlagSet{}, &gwCfg, true)
@@ -77,8 +74,7 @@ func TestUploadDownload(t *testing.T) {
 
 	// addresses
 	gwCfg.Server.Address = "127.0.0.1:7777"
-	uplinkCfg.Client.OverlayAddr = planet.Satellites[0].Addr()
-	uplinkCfg.Client.PointerDBAddr = planet.Satellites[0].Addr()
+	uplinkCfg.Client.SatelliteAddr = planet.Satellites[0].Addr()
 
 	// keys
 	uplinkCfg.Client.APIKey = "apiKey"

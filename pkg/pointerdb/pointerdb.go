@@ -16,7 +16,6 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	_ "storj.io/storj/pkg/pointerdb/auth" // ensures that we add api key flag to current executable
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/storage"

@@ -21,6 +21,8 @@ type Flags struct {
 	Identities       int
 
 	IsDev bool
+
+	OnlyEnv bool // only do things necessary for loading env vars
 }
 
 var printCommands bool
@@ -62,6 +64,12 @@ func main() {
 			Short: "run network",
 			RunE: func(cmd *cobra.Command, args []string) (err error) {
 				return networkExec(&flags, args, "run")
+			},
+		}, &cobra.Command{
+			Use:   "env",
+			Short: "print environment variables",
+			RunE: func(cmd *cobra.Command, args []string) (err error) {
+				return networkEnv(&flags, args)
 			},
 		}, &cobra.Command{
 			Use:   "setup",

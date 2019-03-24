@@ -13,6 +13,7 @@ import (
 
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/bwagreement"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/storj"
@@ -26,22 +27,22 @@ type Config struct {
 
 // Tally is the service for accounting for data stored on each storage node
 type Tally struct { // TODO: rename Tally to Service
-	pointerdb     *pointerdb.Service
-	overlay       pb.OverlayServer // TODO: this should be *overlay.Service
-	limit         int
 	logger        *zap.Logger
+	pointerdb     *pointerdb.Service
+	overlay       *overlay.Cache
+	limit         int
 	ticker        *time.Ticker
 	accountingDB  accounting.DB
 	bwAgreementDB bwagreement.DB // bwagreements database
 }
 
 // New creates a new Tally
-func New(logger *zap.Logger, accountingDB accounting.DB, bwAgreementDB bwagreement.DB, pointerdb *pointerdb.Service, overlay pb.OverlayServer, limit int, interval time.Duration) *Tally {
+func New(logger *zap.Logger, accountingDB accounting.DB, bwAgreementDB bwagreement.DB, pointerdb *pointerdb.Service, overlay *overlay.Cache, limit int, interval time.Duration) *Tally {
 	return &Tally{
+		logger:        logger,
 		pointerdb:     pointerdb,
 		overlay:       overlay,
 		limit:         limit,
-		logger:        logger,
 		ticker:        time.NewTicker(interval),
 		accountingDB:  accountingDB,
 		bwAgreementDB: bwAgreementDB,
