@@ -191,7 +191,7 @@ CREATE TABLE used_serials (
 	PRIMARY KEY ( serial_number_id, storage_node_id )
 );
 CREATE INDEX bucket_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_id, interval_start, interval_seconds );
-CREATE INDEX bucket_id_rollup ON bucket_usages ( rollup_end_time, bucket_id );
-CREATE INDEX serial_number ON serial_numbers ( serial_number );
+CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
+CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
 CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );

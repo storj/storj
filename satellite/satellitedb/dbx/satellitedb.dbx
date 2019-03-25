@@ -337,7 +337,8 @@ model bucket_usage (
     key    id
     index (
     		name bucket_id_rollup
-    		fields rollup_end_time bucket_id
+    		fields bucket_id rollup_end_time
+    		unique
     	)
 
     field  id                 blob
@@ -387,6 +388,7 @@ model serial_number (
 	index (
 	    name serial_number
 	    fields serial_number
+	    unique
 	)
 
 	field id            serial
