@@ -41,26 +41,24 @@ type APIKeys interface {
 
 // Endpoint metainfo endpoint
 type Endpoint struct {
-	log                  *zap.Logger
-	pointerdb            *pointerdb.Service
-	allocation           *pointerdb.AllocationSigner
-	cache                *overlay.Cache
-	apiKeys              APIKeys
-	selectionPreferences *overlay.NodeSelectionConfig
-	signer               signing.Signer
+	log        *zap.Logger
+	pointerdb  *pointerdb.Service
+	allocation *pointerdb.AllocationSigner
+	cache      *overlay.Cache
+	apiKeys    APIKeys
+	signer     signing.Signer
 }
 
 // NewEndpoint creates new metainfo endpoint instance
-func NewEndpoint(log *zap.Logger, pointerdb *pointerdb.Service, allocation *pointerdb.AllocationSigner, cache *overlay.Cache, apiKeys APIKeys, signer signing.Signer, selectionPreferences *overlay.NodeSelectionConfig) *Endpoint {
+func NewEndpoint(log *zap.Logger, pointerdb *pointerdb.Service, allocation *pointerdb.AllocationSigner, cache *overlay.Cache, apiKeys APIKeys, signer signing.Signer) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
-		log:                  log,
-		pointerdb:            pointerdb,
-		allocation:           allocation,
-		cache:                cache,
-		apiKeys:              apiKeys,
-		selectionPreferences: selectionPreferences,
-		signer:               signer,
+		log:        log,
+		pointerdb:  pointerdb,
+		allocation: allocation,
+		cache:      cache,
+		apiKeys:    apiKeys,
+		signer:     signer,
 	}
 }
 
@@ -136,16 +134,12 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 
 	maxPieceSize := eestream.CalcPieceSize(req.GetMaxEncryptedSegmentSize(), redundancy)
 
-	request := &pb.FindStorageNodesRequest{
-		Opts: &pb.OverlayOptions{
-			Amount: int64(req.Redundancy.Total),
-			Restrictions: &pb.NodeRestrictions{
-				FreeBandwidth: maxPieceSize,
-				FreeDisk:      maxPieceSize,
-			},
-		},
+	request := overlay.FindStorageNodesRequest{
+		RequestedCount: int(req.Redundancy.Total),
+		FreeBandwidth:  maxPieceSize,
+		FreeDisk:       maxPieceSize,
 	}
-	nodes, err := endpoint.cache.FindStorageNodes(ctx, request, endpoint.selectionPreferences)
+	nodes, err := endpoint.cache.FindStorageNodes(ctx, request)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
