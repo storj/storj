@@ -1155,13 +1155,8 @@
                 "name": "DumpNodes",
                 "in_type": "DumpNodesRequest",
                 "out_type": "DumpNodesResponse"
-              }
-            ]
           },
           {
-            "name": "StatDBInspector",
-            "rpcs": [
-              {
                 "name": "GetStats",
                 "in_type": "GetStatsRequest",
                 "out_type": "GetStatsResponse"
