@@ -211,5 +211,5 @@ func cmdCAExtensions(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	return printExtensions(ca.Cert.Raw, ca.Cert.ExtraExtensions)
+	return printExtensions(ca.Cert.Raw, ca.Cert.Extensions)
 }

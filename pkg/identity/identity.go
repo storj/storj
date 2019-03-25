@@ -462,7 +462,7 @@ func (fi *FullIdentity) PeerIdentity() *PeerIdentity {
 // are serialized into the certificate's raw bytes and is re-signed by it's
 // certificate authority.
 func (manageableIdent *ManageablePeerIdentity) AddExtension(ext ...pkix.Extension) error {
-	if err := extensions.AddExtension(manageableIdent.Leaf, ext...); err != nil {
+	if err := extensions.AddExtraExtension(manageableIdent.Leaf, ext...); err != nil {
 		return err
 	}
 

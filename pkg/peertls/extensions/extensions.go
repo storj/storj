@@ -117,7 +117,7 @@ func AddSignedCert(key crypto.PrivateKey, cert *x509.Certificate) error {
 		return err
 	}
 
-	err = AddExtension(cert, pkix.Extension{
+	err = AddExtraExtension(cert, pkix.Extension{
 		Id:    SignedCertExtID,
 		Value: signature,
 	})
@@ -127,11 +127,11 @@ func AddSignedCert(key crypto.PrivateKey, cert *x509.Certificate) error {
 	return nil
 }
 
-// AddExtension adds one or more extensions to a certificate for serialization.
+// AddExtraExtension adds one or more extensions to a certificate for serialization.
 // NB: this *does not* serialize or persist the extension into the certificates's
 // raw bytes. To add a persistent extension use `FullCertificateAuthority.AddExtension`
 // or `ManageableIdentity.AddExtension`.
-func AddExtension(cert *x509.Certificate, exts ...pkix.Extension) (err error) {
+func AddExtraExtension(cert *x509.Certificate, exts ...pkix.Extension) (err error) {
 	if len(exts) == 0 {
 		return nil
 	}
