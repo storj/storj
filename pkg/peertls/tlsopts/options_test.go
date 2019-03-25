@@ -8,8 +8,6 @@ import (
 	"reflect"
 	"testing"
 
-	"storj.io/storj/pkg/peertls/extensions"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -17,6 +15,7 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
