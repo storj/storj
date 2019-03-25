@@ -409,7 +409,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						inline bigint NOT NULL,
 						allocated bigint NOT NULL,
 						settled bigint NOT NULL,
-						PRIMARY KEY ( bucket_id, interval_start, action ),
+						PRIMARY KEY ( bucket_id, interval_start, action )
 					)`,
 					`CREATE INDEX bucket_id_interval_start_interval_seconds_index ON bucket_bandwidth_rollups (
 						bucket_id,
