@@ -64,6 +64,7 @@ func TestGrapqhlMutation(t *testing.T) {
 		rootObject := make(map[string]interface{})
 		rootObject["origin"] = "http://doesntmatter.com/"
 		rootObject[consoleql.ActivationPath] = "?activationToken="
+		rootObject[consoleql.SignInPath] = "login"
 
 		schema, err := consoleql.CreateSchema(log, service, mailService)
 		if err != nil {
