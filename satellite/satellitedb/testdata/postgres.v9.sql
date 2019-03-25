@@ -33,7 +33,7 @@ CREATE TABLE bucket_bandwidth_rollups (
 	inline bigint NOT NULL,
 	allocated bigint NOT NULL,
 	settled bigint NOT NULL,
-	PRIMARY KEY ( bucket_id )
+	PRIMARY KEY ( bucket_id, interval_start, action )
 );
 CREATE TABLE bucket_storage_rollups (
 	bucket_id bytea NOT NULL,
