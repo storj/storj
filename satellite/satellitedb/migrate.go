@@ -424,7 +424,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						remote bigint NOT NULL,
 						PRIMARY KEY ( bucket_id, interval_start )
 					)`,
-					`ALTER TABLE bucket_usages DROP UNIQUE bucket_usages_rollup_end_time_bucket_id_key`,
+					`ALTER TABLE bucket_usages DROP CONSTRAINT bucket_usages_rollup_end_time_bucket_id_key`,
 					`CREATE UNIQUE INDEX IF NOT EXISTS bucket_id_rollup_end_time_index ON bucket_usages ( 
 						bucket_id,
 						rollup_end_time )`,
