@@ -15,12 +15,14 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 )
 
 func TestNewOptions(t *testing.T) {
+	// TODO: this is not a great test...
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -44,30 +46,30 @@ func TestNewOptions(t *testing.T) {
 		{
 			"default",
 			tlsopts.Config{},
-			0, 0,
+			1, 1,
 		}, {
 			"revocation processing",
 			tlsopts.Config{
 				RevocationDBURL: "bolt://" + ctx.File("revocation1.db"),
-				Extensions: peertls.TLSExtConfig{
+				Extensions: extensions.Config{
 					Revocation: true,
 				},
 			},
-			2, 2,
+			1, 1,
 		}, {
 			"ca whitelist verification",
 			tlsopts.Config{
 				PeerCAWhitelistPath: whitelistPath,
 				UsePeerCAWhitelist:  true,
 			},
-			1, 0,
+			2, 1,
 		}, {
 			"ca whitelist verification and whitelist signed leaf verification",
 			tlsopts.Config{
 				// NB: file doesn't actually exist
 				PeerCAWhitelistPath: whitelistPath,
 				UsePeerCAWhitelist:  true,
-				Extensions: peertls.TLSExtConfig{
+				Extensions: extensions.Config{
 					WhitelistSignedLeaf: true,
 				},
 			},
@@ -79,11 +81,11 @@ func TestNewOptions(t *testing.T) {
 				PeerCAWhitelistPath: whitelistPath,
 				UsePeerCAWhitelist:  true,
 				RevocationDBURL:     "bolt://" + ctx.File("revocation2.db"),
-				Extensions: peertls.TLSExtConfig{
+				Extensions: extensions.Config{
 					Revocation: true,
 				},
 			},
-			3, 2,
+			2, 1,
 		}, {
 			"revocation processing, whitelist, and signed leaf verification",
 			tlsopts.Config{
@@ -91,12 +93,12 @@ func TestNewOptions(t *testing.T) {
 				PeerCAWhitelistPath: whitelistPath,
 				UsePeerCAWhitelist:  true,
 				RevocationDBURL:     "bolt://" + ctx.File("revocation3.db"),
-				Extensions: peertls.TLSExtConfig{
+				Extensions: extensions.Config{
 					Revocation:          true,
 					WhitelistSignedLeaf: true,
 				},
 			},
-			3, 2,
+			2, 1,
 		},
 	}
 
