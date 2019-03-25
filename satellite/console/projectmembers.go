@@ -44,7 +44,7 @@ type Pagination struct {
 type ProjectMemberOrder int8
 
 const (
-	// Name indicates that we should order by first name
+	// Name indicates that we should order by full name
 	Name ProjectMemberOrder = 1
 	// Email indicates that we should order by email
 	Email ProjectMemberOrder = 2
