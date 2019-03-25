@@ -9,15 +9,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lib/pq"
-	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
-	"storj.io/storj/storage"
 )
 
 //database implements DB
@@ -25,108 +23,59 @@ type accountingDB struct {
 	db *dbx.DB
 }
 
-// ProjectBandwidthTotal returns the sum of bandwidth usage for a projectID in the past time frame
-func (db *accountingDB) ProjectBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (uint64, error) {
-	switch t := db.db.Driver().(type) {
-	case *sqlite3.SQLiteDriver:
-		return db.sqliteProjectBandwidthTotal(ctx, projectID, from)
-	case *pq.Driver:
-		return db.postgresProjectBandwidthTotal(ctx, projectID, from)
-	default:
-		return 0, fmt.Errorf("Unsupported database %t", t)
-	}
-}
-
-func (db *accountingDB) sqliteProjectBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (uint64, error) {
-	var total uint64
-	err := db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-		err := tx.Tx.QueryRowContext(ctx, `
-			SELECT SUM (settled) AS total
-			FROM bucket_bandwidth_rollup
-			WHERE project_id = ? AND interval_start >= ?
-		`, projectID, from).Scan(&total)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-	if err == sql.ErrNoRows {
-		err = storage.ErrEmptyQueue.New("")
-	}
-	return total, nil
-}
-
-func (db *accountingDB) postgresProjectBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (uint64, error) {
-	var total uint64
-	err := db.db.QueryRowContext(ctx, `
-		SELECT SUM (settled) AS total
+// ProjectBandwidthTotal returns the sum of put and get bandwidth usage for a projectID in the past time frame
+func (db *accountingDB) ProjectBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (uint64, uint64, error) {
+	var totalPut, totalGet uint64
+	var query = fmt.Sprintf(`
+		SELECT SUM (settled)
 		FROM bucket_bandwidth_rollup
-		WHERE project_id = ? AND interval_start >= ?
-	`, projectID, from).Scan(&total)
-	if err == sql.ErrNoRows {
-		err = storage.ErrEmptyQueue.New("")
+		WHER project_id = ? AND interval_start >= ? AND action = %d AND action = %d
+		GROUP BY action`,
+		pb.BandwidthAction_PUT, pb.BandwidthAction_GET,
+	)
+	rows, err := db.db.DB.QueryContext(ctx,
+		db.db.Rebind(query),
+		projectID, from,
+	)
+	if err != nil {
+		return 0, 0, err
 	}
-	return total, nil
+	rows.Scan(&totalPut, &totalGet)
+
+	return totalPut, totalGet, err
 }
 
 // ProjectStorageTotals returns the sum of inline and remote storage usage for a projectID in the past time frame
 func (db *accountingDB) ProjectStorageTotals(ctx context.Context, projectID uuid.UUID, from time.Time) (uint64, uint64, error) {
-	switch t := db.db.Driver().(type) {
-	case *sqlite3.SQLiteDriver:
-		return db.sqliteProjectStorageTotal(ctx, projectID, from)
-	case *pq.Driver:
-		return db.postgresProjectStorageTotal(ctx, projectID, from)
-	default:
-		return 0, 0, fmt.Errorf("Unsupported database %t", t)
-	}
-}
-
-func (db *accountingDB) sqliteProjectStorageTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (uint64, uint64, error) {
-	var sumInline, sumRemote uint64
-	err := db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-		err := tx.Tx.QueryRowContext(ctx, `
-			SELECT SUM (inline) AS total
-			FROM bucket_Storage_rollup
-			WHERE project_id = ? AND interval_start >= ?
-		`, projectID, from).Scan(&sumInline)
-		if err != nil {
-			return err
-		}
-		err = tx.Tx.QueryRowContext(ctx, `
-			SELECT SUM (remote) AS total
-			FROM bucket_Storage_rollup
-			WHERE project_id = ? AND interval_start >= ?
-		`, projectID, from).Scan(&sumRemote)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-	if err == sql.ErrNoRows {
-		err = storage.ErrEmptyQueue.New("")
-	}
-	return sumInline, sumRemote, err
-}
-
-func (db *accountingDB) postgresProjectStorageTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (uint64, uint64, error) {
-	var sumInline, sumRemote uint64
-	err := db.db.QueryRowContext(ctx, `
-		SELECT SUM (inline) AS total
-		FROM bucket_Storage_rollup
+	var totalInline, totalRemote uint64
+	var inlineQuery = fmt.Sprintf(`
+		SELECT SUM (inline)
+		FROM bucket_storage_rollup
 		WHERE project_id = ? AND interval_start >= ?
-	`, projectID, from).Scan(&sumInline)
-	if err == sql.ErrNoRows {
-		err = storage.ErrEmptyQueue.New("")
+	`)
+	row := db.db.DB.QueryRowContext(ctx,
+		db.db.Rebind(inlineQuery),
+		projectID, from,
+	)
+	err := row.Scan(&totalInline)
+	if err != nil {
+		return 0, 0, err
 	}
-	err = db.db.QueryRowContext(ctx, `
-		SELECT SUM (remote) AS total
-		FROM bucket_Storage_rollup
+
+	var remoteQuery = fmt.Sprintf(`
+		SELECT SUM (remote)
+		FROM bucket_storage_rollup
 		WHERE project_id = ? AND interval_start >= ?
-	`, projectID, from).Scan(&sumRemote)
-	if err == sql.ErrNoRows {
-		err = storage.ErrEmptyQueue.New("")
+	`)
+	row = db.db.DB.QueryRowContext(ctx,
+		db.db.Rebind(remoteQuery),
+		projectID, from,
+	)
+	err = row.Scan(&totalRemote)
+	if err != nil {
+		return 0, 0, err
 	}
-	return sumInline, sumRemote, err
+	return totalInline, totalRemote, err
 }
 
 // LastTimestamp records the greatest last tallied time

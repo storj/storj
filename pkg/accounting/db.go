@@ -55,8 +55,8 @@ type DB interface {
 	QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*CSVRow, error)
 	// DeleteRawBefore deletes all raw tallies prior to some time
 	DeleteRawBefore(ctx context.Context, latestRollup time.Time) error
-	// ProjectBandwidthTotal returns the sum of bandwidth usage for a projectID in the past time frame
-	ProjectBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (uint64, error)
+	// ProjectBandwidthTotal returns the sum of put and get bandwidth usage for a projectID in the past time frame
+	ProjectBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (uint64, uint64, error)
 	// ProjectStorageTotals returns the sum of inline and remote storage usage for a projectID in the past time frame
 	ProjectStorageTotals(ctx context.Context, projectID uuid.UUID, from time.Time) (uint64, uint64, error)
 }

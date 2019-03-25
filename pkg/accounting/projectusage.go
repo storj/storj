@@ -10,8 +10,8 @@ import (
 // ExceedsAlphaUsage returns true if more than 25GB of bandwidth or storage usage has been used in the past month
 // TODO: remove this code once we no longer need usage limiting for alpha release
 // Ref: https://storjlabs.atlassian.net/browse/V3-1274
-func ExceedsAlphaUsage(bwTotal, inlineTotal, remoteTotal uint64, alphaMaxUsage memory.Size) bool {
-	if bwTotal >= uint64(alphaMaxUsage) {
+func ExceedsAlphaUsage(bandwidthPutTotal, bandwidthGetTotal, inlineTotal, remoteTotal uint64, alphaMaxUsage memory.Size) bool {
+	if bandwidthPutTotal+bandwidthGetTotal >= uint64(alphaMaxUsage) {
 		return true
 	}
 

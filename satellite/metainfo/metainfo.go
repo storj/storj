@@ -139,7 +139,7 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 	// Ref: https://storjlabs.atlassian.net/browse/V3-1274
 	projectID := keyInfo.ProjectID
 	from := time.Now().AddDate(0, -30, 0) // past 30 days
-	bwTotal, err := endpoint.accountingDB.ProjectBandwidthTotal(ctx, projectID, from)
+	putTotal, getTotal, err := endpoint.accountingDB.ProjectBandwidthTotal(ctx, projectID, from)
 	if err != nil {
 		endpoint.log.Error("retrieving ProjectBandwidthUsages", zap.Error(err))
 	}
@@ -147,7 +147,7 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 	if err != nil {
 		endpoint.log.Error("retrieving ProjectStorageUsages", zap.Error(err))
 	}
-	exceeded := accounting.ExceedsAlphaUsage(bwTotal, inlineTotal, remoteTotal, endpoint.maxAlphaUsage)
+	exceeded := accounting.ExceedsAlphaUsage(putTotal, getTotal, inlineTotal, remoteTotal, endpoint.maxAlphaUsage)
 	if exceeded {
 		endpoint.log.Error("alpha usage limit exceeded: ", zap.Error(status.Errorf(codes.ResourceExhausted, "Alpha Usage Limit Exceeded")))
 		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Alpha Usage Limit")
