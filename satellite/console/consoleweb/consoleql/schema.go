@@ -5,6 +5,7 @@ package consoleql
 
 import (
 	"github.com/graphql-go/graphql"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/storjql"
 	"storj.io/storj/satellite/console"
@@ -12,11 +13,11 @@ import (
 )
 
 // CreateSchema creates a schema for satellites console graphql api
-func CreateSchema(service *console.Service, mailService *mailservice.Service) (schema graphql.Schema, err error) {
+func CreateSchema(log *zap.Logger, service *console.Service, mailService *mailservice.Service) (schema graphql.Schema, err error) {
 	storjql.WithLock(func() {
 		creator := TypeCreator{}
 
-		err = creator.Create(service, mailService)
+		err = creator.Create(log, service, mailService)
 		if err != nil {
 			return
 		}

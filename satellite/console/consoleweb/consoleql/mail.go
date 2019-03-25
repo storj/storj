@@ -4,12 +4,15 @@
 package consoleql
 
 const (
-	// ActivationPath is key for pass which handles account activation
+	// ActivationPath is key for path which handles account activation
 	ActivationPath = "activationPath"
+	// SignInPath is key for sign in server route
+	SignInPath = "signInPath"
 )
 
 // AccountActivationEmail is mailservice template with activation data
 type AccountActivationEmail struct {
+	Origin         string
 	ActivationLink string
 }
 
@@ -21,8 +24,10 @@ func (*AccountActivationEmail) Subject() string { return "Activate your email" }
 
 // ForgotPasswordEmail is mailservice template with reset password data
 type ForgotPasswordEmail struct {
-	UserName  string
-	ResetLink string
+	Origin        string
+	UserName      string
+	ResetLink     string
+	LetUsKnowLink string
 }
 
 // Template returns email template name
@@ -33,8 +38,10 @@ func (*ForgotPasswordEmail) Subject() string { return "" }
 
 // ProjectInvitationEmail is mailservice template for project invitation email
 type ProjectInvitationEmail struct {
+	Origin      string
 	UserName    string
 	ProjectName string
+	SignInLink  string
 }
 
 // Template returns email template name
