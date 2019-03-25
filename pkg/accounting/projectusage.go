@@ -7,15 +7,21 @@ import (
 	"storj.io/storj/internal/memory"
 )
 
-// ExceedsAlphaUsage returns true if more than 25GB of bandwidth or storage usage has been used in the past month
+// ExceedsAlphaUsage returns true if more than 25GB of storage or 25 GBh of bandwidth or has been used in the past month
 // TODO: remove this code once we no longer need usage limiting for alpha release
 // Ref: https://storjlabs.atlassian.net/browse/V3-1274
-func ExceedsAlphaUsage(bandwidthPutTotal, bandwidthGetTotal, inlineTotal, remoteTotal uint64, alphaMaxUsage memory.Size) bool {
-	if bandwidthPutTotal+bandwidthGetTotal >= uint64(alphaMaxUsage) {
+func ExceedsAlphaUsage(bandwidthGetTotal, inlineTotal, remoteTotal uint64, maxAlphaUsageGB memory.Size) bool {
+	const (
+		hoursInDay     = 24
+		avgDaysInMonth = 30
+	)
+
+	GBh := maxAlphaUsageGB * avgDaysInMonth * hoursInDay
+	if bandwidthGetTotal >= uint64(GBh) {
 		return true
 	}
 
-	if inlineTotal+remoteTotal >= uint64(alphaMaxUsage) {
+	if inlineTotal+remoteTotal >= uint64(maxAlphaUsageGB) {
 		return true
 	}
 

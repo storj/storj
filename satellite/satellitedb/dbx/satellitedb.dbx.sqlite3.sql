@@ -35,7 +35,7 @@ CREATE TABLE bucket_bandwidth_rollups (
 	inline INTEGER NOT NULL,
 	allocated INTEGER NOT NULL,
 	settled INTEGER NOT NULL,
-	PRIMARY KEY ( project_id ),
+	PRIMARY KEY ( bucket_name, project_id ),
 	UNIQUE ( interval_start, interval_seconds, action )
 );
 CREATE TABLE bucket_storage_rollups (
@@ -45,7 +45,7 @@ CREATE TABLE bucket_storage_rollups (
 	interval_seconds INTEGER NOT NULL,
 	inline INTEGER NOT NULL,
 	remote INTEGER NOT NULL,
-	PRIMARY KEY ( project_id ),
+	PRIMARY KEY ( bucket_name, project_id ),
 	UNIQUE ( interval_start, interval_seconds )
 );
 CREATE TABLE bucket_usages (

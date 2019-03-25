@@ -307,7 +307,7 @@ CREATE TABLE bucket_bandwidth_rollups (
 	inline bigint NOT NULL,
 	allocated bigint NOT NULL,
 	settled bigint NOT NULL,
-	PRIMARY KEY ( project_id ),
+	PRIMARY KEY ( bucket_name, project_id ),
 	UNIQUE ( interval_start, interval_seconds, action )
 );
 CREATE TABLE bucket_storage_rollups (
@@ -317,7 +317,7 @@ CREATE TABLE bucket_storage_rollups (
 	interval_seconds integer NOT NULL,
 	inline bigint NOT NULL,
 	remote bigint NOT NULL,
-	PRIMARY KEY ( project_id ),
+	PRIMARY KEY ( bucket_name, project_id ),
 	UNIQUE ( interval_start, interval_seconds )
 );
 CREATE TABLE bucket_usages (
@@ -570,7 +570,7 @@ CREATE TABLE bucket_bandwidth_rollups (
 	inline INTEGER NOT NULL,
 	allocated INTEGER NOT NULL,
 	settled INTEGER NOT NULL,
-	PRIMARY KEY ( project_id ),
+	PRIMARY KEY ( bucket_name, project_id ),
 	UNIQUE ( interval_start, interval_seconds, action )
 );
 CREATE TABLE bucket_storage_rollups (
@@ -580,7 +580,7 @@ CREATE TABLE bucket_storage_rollups (
 	interval_seconds INTEGER NOT NULL,
 	inline INTEGER NOT NULL,
 	remote INTEGER NOT NULL,
-	PRIMARY KEY ( project_id ),
+	PRIMARY KEY ( bucket_name, project_id ),
 	UNIQUE ( interval_start, interval_seconds )
 );
 CREATE TABLE bucket_usages (
@@ -5037,6 +5037,41 @@ func (obj *postgresImpl) Find_SerialNumber_By_SerialNumber(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) First_BucketStorageRollup_By_ProjectId_OrderBy_Desc_IntervalStart(ctx context.Context,
+	bucket_storage_rollup_project_id BucketStorageRollup_ProjectId_Field) (
+	bucket_storage_rollup *BucketStorageRollup, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_rollups.bucket_name, bucket_storage_rollups.project_id, bucket_storage_rollups.interval_start, bucket_storage_rollups.interval_seconds, bucket_storage_rollups.inline, bucket_storage_rollups.remote FROM bucket_storage_rollups WHERE bucket_storage_rollups.project_id = ? ORDER BY bucket_storage_rollups.interval_start DESC LIMIT 1 OFFSET 0")
+
+	var __values []interface{}
+	__values = append(__values, bucket_storage_rollup_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	if !__rows.Next() {
+		if err := __rows.Err(); err != nil {
+			return nil, obj.makeErr(err)
+		}
+		return nil, nil
+	}
+
+	bucket_storage_rollup = &BucketStorageRollup{}
+	err = __rows.Scan(&bucket_storage_rollup.BucketName, &bucket_storage_rollup.ProjectId, &bucket_storage_rollup.IntervalStart, &bucket_storage_rollup.IntervalSeconds, &bucket_storage_rollup.Inline, &bucket_storage_rollup.Remote)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	return bucket_storage_rollup, nil
+
+}
+
 func (obj *postgresImpl) Get_CertRecord_By_Id(ctx context.Context,
 	certRecord_id CertRecord_Id_Field) (
 	certRecord *CertRecord, err error) {
@@ -7503,6 +7538,41 @@ func (obj *sqlite3Impl) Find_SerialNumber_By_SerialNumber(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) First_BucketStorageRollup_By_ProjectId_OrderBy_Desc_IntervalStart(ctx context.Context,
+	bucket_storage_rollup_project_id BucketStorageRollup_ProjectId_Field) (
+	bucket_storage_rollup *BucketStorageRollup, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_rollups.bucket_name, bucket_storage_rollups.project_id, bucket_storage_rollups.interval_start, bucket_storage_rollups.interval_seconds, bucket_storage_rollups.inline, bucket_storage_rollups.remote FROM bucket_storage_rollups WHERE bucket_storage_rollups.project_id = ? ORDER BY bucket_storage_rollups.interval_start DESC LIMIT 1 OFFSET 0")
+
+	var __values []interface{}
+	__values = append(__values, bucket_storage_rollup_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	if !__rows.Next() {
+		if err := __rows.Err(); err != nil {
+			return nil, obj.makeErr(err)
+		}
+		return nil, nil
+	}
+
+	bucket_storage_rollup = &BucketStorageRollup{}
+	err = __rows.Scan(&bucket_storage_rollup.BucketName, &bucket_storage_rollup.ProjectId, &bucket_storage_rollup.IntervalStart, &bucket_storage_rollup.IntervalSeconds, &bucket_storage_rollup.Inline, &bucket_storage_rollup.Remote)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	return bucket_storage_rollup, nil
+
+}
+
 func (obj *sqlite3Impl) Get_CertRecord_By_Id(ctx context.Context,
 	certRecord_id CertRecord_Id_Field) (
 	certRecord *CertRecord, err error) {
@@ -9532,6 +9602,16 @@ func (rx *Rx) Find_SerialNumber_By_SerialNumber(ctx context.Context,
 	return tx.Find_SerialNumber_By_SerialNumber(ctx, serial_number_serial_number)
 }
 
+func (rx *Rx) First_BucketStorageRollup_By_ProjectId_OrderBy_Desc_IntervalStart(ctx context.Context,
+	bucket_storage_rollup_project_id BucketStorageRollup_ProjectId_Field) (
+	bucket_storage_rollup *BucketStorageRollup, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.First_BucketStorageRollup_By_ProjectId_OrderBy_Desc_IntervalStart(ctx, bucket_storage_rollup_project_id)
+}
+
 func (rx *Rx) First_Injuredsegment(ctx context.Context) (
 	injuredsegment *Injuredsegment, err error) {
 	var tx *Tx
@@ -10071,6 +10151,10 @@ type Methods interface {
 	Find_SerialNumber_By_SerialNumber(ctx context.Context,
 		serial_number_serial_number SerialNumber_SerialNumber_Field) (
 		serial_number *SerialNumber, err error)
+
+	First_BucketStorageRollup_By_ProjectId_OrderBy_Desc_IntervalStart(ctx context.Context,
+		bucket_storage_rollup_project_id BucketStorageRollup_ProjectId_Field) (
+		bucket_storage_rollup *BucketStorageRollup, err error)
 
 	First_Injuredsegment(ctx context.Context) (
 		injuredsegment *Injuredsegment, err error)

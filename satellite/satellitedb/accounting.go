@@ -23,59 +23,38 @@ type accountingDB struct {
 	db *dbx.DB
 }
 
-// ProjectBandwidthTotal returns the sum of put and get bandwidth usage for a projectID in the past time frame
-func (db *accountingDB) ProjectBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (uint64, uint64, error) {
-	var totalPut, totalGet uint64
+// ProjectBandwidthTotal returns the sum of GET bandwidth usage for a projectID for a time frame
+func (db *accountingDB) ProjectBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (uint64, error) {
+	var total uint64
 	var query = fmt.Sprintf(`
-		SELECT SUM (settled)
+		SELECT SUM (settled) as total
 		FROM bucket_bandwidth_rollup
-		WHER project_id = ? AND interval_start >= ? AND action = %d AND action = %d
-		GROUP BY action`,
-		pb.BandwidthAction_PUT, pb.BandwidthAction_GET,
+		WHERE project_id = ? AND interval_start >= ? AND action = %d
+		`, pb.BandwidthAction_GET,
 	)
 	rows, err := db.db.DB.QueryContext(ctx,
-		db.db.Rebind(query),
-		projectID, from,
+		db.db.Rebind(query), projectID, from,
 	)
 	if err != nil {
-		return 0, 0, err
+		return total, err
 	}
-	rows.Scan(&totalPut, &totalGet)
-
-	return totalPut, totalGet, err
+	err = rows.Scan(&total)
+	if err != nil {
+		return total, err
+	}
+	return total, nil
 }
 
-// ProjectStorageTotals returns the sum of inline and remote storage usage for a projectID in the past time frame
-func (db *accountingDB) ProjectStorageTotals(ctx context.Context, projectID uuid.UUID, from time.Time) (uint64, uint64, error) {
-	var totalInline, totalRemote uint64
-	var inlineQuery = fmt.Sprintf(`
-		SELECT SUM (inline)
-		FROM bucket_storage_rollup
-		WHERE project_id = ? AND interval_start >= ?
-	`)
-	row := db.db.DB.QueryRowContext(ctx,
-		db.db.Rebind(inlineQuery),
-		projectID, from,
+// ProjectStorageTotals returns the current inline and remote storage usage for a projectID
+func (db *accountingDB) ProjectStorageTotals(ctx context.Context, projectID uuid.UUID) (uint64, uint64, error) {
+	rollup, err := db.db.First_BucketStorageRollup_By_ProjectId_OrderBy_Desc_IntervalStart(
+		ctx,
+		dbx.BucketStorageRollup_ProjectId(projectID[:]),
 	)
-	err := row.Scan(&totalInline)
 	if err != nil {
 		return 0, 0, err
 	}
-
-	var remoteQuery = fmt.Sprintf(`
-		SELECT SUM (remote)
-		FROM bucket_storage_rollup
-		WHERE project_id = ? AND interval_start >= ?
-	`)
-	row = db.db.DB.QueryRowContext(ctx,
-		db.db.Rebind(remoteQuery),
-		projectID, from,
-	)
-	err = row.Scan(&totalRemote)
-	if err != nil {
-		return 0, 0, err
-	}
-	return totalInline, totalRemote, err
+	return rollup.Inline, rollup.Remote, err
 }
 
 // LastTimestamp records the greatest last tallied time

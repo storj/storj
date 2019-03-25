@@ -78,18 +78,18 @@ func (m *lockedAccounting) LastTimestamp(ctx context.Context, timestampType stri
 	return m.db.LastTimestamp(ctx, timestampType)
 }
 
-// ProjectBandwidthTotal returns the sum of bandwidth usage for a projectID in the past time frame
-func (m *lockedAccounting) ProjectBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (uint64, uint64, error) {
+// ProjectBandwidthTotal returns the sum of GET bandwidth usage for a projectID in the past time frame
+func (m *lockedAccounting) ProjectBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (uint64, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.ProjectBandwidthTotal(ctx, projectID, from)
 }
 
 // ProjectStorageTotals returns the sum of inline and remote storage usage for a projectID in the past time frame
-func (m *lockedAccounting) ProjectStorageTotals(ctx context.Context, projectID uuid.UUID, from time.Time) (uint64, uint64, error) {
+func (m *lockedAccounting) ProjectStorageTotals(ctx context.Context, projectID uuid.UUID) (uint64, uint64, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.ProjectStorageTotals(ctx, projectID, from)
+	return m.db.ProjectStorageTotals(ctx, projectID)
 }
 
 // QueryPaymentInfo queries StatDB, Accounting Rollup on nodeID

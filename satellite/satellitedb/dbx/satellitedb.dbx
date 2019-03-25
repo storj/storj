@@ -422,7 +422,7 @@ create used_serial ()
 // --- bucket roll up tables --- //
 
 model bucket_bandwidth_rollup (
-	key    project_id
+	key    bucket_name project_id
 	unique interval_start interval_seconds action
 
 	field bucket_name       blob
@@ -438,7 +438,7 @@ model bucket_bandwidth_rollup (
 )
 
 model bucket_storage_rollup (
-	key    project_id
+	key    bucket_name project_id
 	unique interval_start interval_seconds
 
 	field bucket_name       blob
@@ -450,6 +450,13 @@ model bucket_storage_rollup (
 	field inline uint64
 	field remote uint64
 )
+
+read first (
+    select bucket_storage_rollup
+    where bucket_storage_rollup.project_id = ?
+    orderby desc bucket_storage_rollup.interval_start
+)
+
 
 // --- storage node roll up tables --- //
 

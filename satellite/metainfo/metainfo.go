@@ -138,16 +138,17 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 	// TODO: remove this code once we no longer need usage limiting for alpha release
 	// Ref: https://storjlabs.atlassian.net/browse/V3-1274
 	projectID := keyInfo.ProjectID
-	from := time.Now().AddDate(0, -30, 0) // past 30 days
-	putTotal, getTotal, err := endpoint.accountingDB.ProjectBandwidthTotal(ctx, projectID, from)
+	const avgDaysInMonth = 30
+	from := time.Now().AddDate(0, -avgDaysInMonth, 0) // past 30 days
+	bandwidthTotal, err := endpoint.accountingDB.ProjectBandwidthTotal(ctx, projectID, from)
 	if err != nil {
 		endpoint.log.Error("retrieving ProjectBandwidthUsages", zap.Error(err))
 	}
-	inlineTotal, remoteTotal, err := endpoint.accountingDB.ProjectStorageTotals(ctx, projectID, from)
+	inlineTotal, remoteTotal, err := endpoint.accountingDB.ProjectStorageTotals(ctx, projectID)
 	if err != nil {
 		endpoint.log.Error("retrieving ProjectStorageUsages", zap.Error(err))
 	}
-	exceeded := accounting.ExceedsAlphaUsage(putTotal, getTotal, inlineTotal, remoteTotal, endpoint.maxAlphaUsage)
+	exceeded := accounting.ExceedsAlphaUsage(bandwidthTotal, inlineTotal, remoteTotal, endpoint.maxAlphaUsage)
 	if exceeded {
 		endpoint.log.Error("alpha usage limit exceeded: ", zap.Error(status.Errorf(codes.ResourceExhausted, "Alpha Usage Limit Exceeded")))
 		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Alpha Usage Limit")
