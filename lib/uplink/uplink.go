@@ -42,7 +42,11 @@ type Uplink struct {
 }
 
 // NewUplink creates a new Uplink
-func NewUplink(identity *identity.FullIdentity, cfg Config) (*Uplink, error) {
+func NewUplink(ctx context.Context, cfg Config) (*Uplink, error) {
+	identity, err := identity.NewFullIdentity(ctx, 0, 1)
+	if err != nil {
+		return nil, err
+	}
 	tlsOpts, err := tlsopts.NewOptions(identity, tlsopts.Config{UsePeerCAWhitelist: !cfg.Volatile.TLS.SkipPeerCAWhitelist})
 	if err != nil {
 		return nil, err
