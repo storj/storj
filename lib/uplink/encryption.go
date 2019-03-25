@@ -7,17 +7,23 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+// Cipher represents the type of encryption employed in a path or an object.
 type Cipher byte
 
 const (
+	// UnsetCipher indicates the cipher type has not been set explicitly.
 	UnsetCipher = Cipher(iota)
+	// Unencrypted indicates no encryption or decryption is to be performed.
 	Unencrypted
+	// AESGCM indicates use of AES128-GCM encryption.
 	AESGCM
+	// SecretBox indicates use of XSalsa20-Poly1305 encryption, as provided by
+	// the NaCl cryptography library under the name "Secretbox".
 	SecretBox
 )
 
 const (
-	defaultCipher = SecretBox
+	defaultCipher = AESGCM
 )
 
 // EncryptionAccess specifies the encryption details needed to encrypt/decrypt objects

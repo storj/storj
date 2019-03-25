@@ -27,6 +27,10 @@ type ObjectMeta struct {
 	Checksum []byte
 }
 
+// An Object is a sequence of bytes with associated metadata, stored in the
+// Storj network (or being prepared for such storage). It belongs to a specific
+// bucket, and has a path and a size. It is comparable to a "file" in a
+// conventional filesystem.
 type Object struct {
 	Meta ObjectMeta
 }

@@ -28,6 +28,8 @@ type Project struct {
 	project  *kvmetainfo.Project
 }
 
+// CreateBucketOptions holds possible options that can be passed to
+// CreateBucket.
 type CreateBucketOptions struct {
 	PathCipher Cipher
 }

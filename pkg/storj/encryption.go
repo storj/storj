@@ -19,8 +19,12 @@ type Cipher byte
 
 // List of supported encryption algorithms
 const (
+	// Unencrypted indicates no encryption or decryption is to be performed.
 	Unencrypted = Cipher(iota)
+	// AESGCM indicates use of AES128-GCM encryption.
 	AESGCM
+	// SecretBox indicates use of XSalsa20-Poly1305 encryption, as provided by
+	// the NaCl cryptography library under the name "Secretbox".
 	SecretBox
 )
 

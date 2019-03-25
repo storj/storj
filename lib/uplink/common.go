@@ -9,6 +9,8 @@ import (
 )
 
 var (
-	mon   = monkit.Package()
+	mon = monkit.Package()
+
+	// Error is the toplevel class of errors for the uplink library.
 	Error = errs.Class("libuplink")
 )

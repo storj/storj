@@ -29,7 +29,7 @@ func (a APIKey) Share(caveats ...Caveat) APIKey {
 	panic("TODO")
 }
 
-// A caveat restricts access
+// A Caveat restricts access.
 type Caveat struct {
 	DisallowReads  bool
 	DisallowWrites bool
