@@ -14,7 +14,6 @@ package peertls
 import (
 	"crypto/rand"
 	"crypto/x509"
-	"crypto/x509/pkix"
 	"math/big"
 
 	"github.com/zeebo/errs"
@@ -80,16 +79,4 @@ func newSerialNumber() (*big.Int, error) {
 	}
 
 	return serialNumber, nil
-}
-
-func uniqueExts(exts []pkix.Extension) bool {
-	seen := make(map[string]struct{}, len(exts))
-	for _, e := range exts {
-		s := e.Id.String()
-		if _, ok := seen[s]; ok {
-			return false
-		}
-		seen[s] = struct{}{}
-	}
-	return true
 }

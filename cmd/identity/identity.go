@@ -11,7 +11,7 @@ import (
 
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/peertls/extensions"
 )
 
 var (
@@ -120,7 +120,7 @@ func cmdRevokeLeaf(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	if err := peertls.AddRevocationExt(ca.Key, originalIdent.Leaf, updatedIdent.Leaf); err != nil {
+	if err := extensions.AddRevocationExt(ca.Key, originalIdent.Leaf, updatedIdent.Leaf); err != nil {
 		return err
 	}
 
