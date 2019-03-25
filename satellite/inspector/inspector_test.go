@@ -5,8 +5,6 @@ package inspector_test
 
 import (
 	"crypto/rand"
-	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -50,14 +48,12 @@ func TestInspectorStats(t *testing.T) {
 	_ = planet.Satellites[0].Metainfo.Database.Iterate(storage.IterateOptions{Recurse: true, Reverse: false},
 		func(it storage.Iterator) error {
 			var item storage.ListItem
-			for it.Next(&item) {
-				if strings.Contains(string(item.Key), fmt.Sprintf("%s/", bucket)) {
-					break
-				}
-			}
+			it.Next(&item)
 
 			req := &pb.SegmentHealthRequest{
 				EncryptedPath: []byte(item.Key.String()),
+				Bucket:        []byte(bucket),
+				Segment:       0,
 			}
 
 			resp, err := health.SegmentStat(ctx, req)

@@ -209,7 +209,9 @@ message DashboardResponse {
 }
 
 message SegmentHealthRequest {
-  bytes encrypted_path = 1;
+  bytes bucket = 1;
+  bytes encrypted_path = 2;
+  int64 segment = 3;
 }
 
 message SegmentHealthResponse{

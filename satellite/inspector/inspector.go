@@ -54,8 +54,14 @@ func (endpoint *Endpoint) SegmentStat(ctx context.Context, in *pb.SegmentHealthR
 		RepairThreshold:  0,
 	}
 
+	var projectID [16]byte
+	path, err := storj.CreatePath(projectID, in.GetSegment(), in.GetBucket(), in.GetEncryptedPath())
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
 	// get pointer info
-	pointer, err := endpoint.pointerdb.Get(string(in.GetEncryptedPath()))
+	pointer, err := endpoint.pointerdb.Get(path)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
