@@ -279,8 +279,8 @@ func ToChains(chains ...[]*x509.Certificate) [][]*x509.Certificate {
 	return combinedChains
 }
 
-// NewManageableIdentity returns a manageable identity given a full identity and a full certificate authority.
-func NewManageableIdentity(ident *PeerIdentity, ca *FullCertificateAuthority) *ManageablePeerIdentity {
+// NewManageablePeerIdentity returns a manageable identity given a full identity and a full certificate authority.
+func NewManageablePeerIdentity(ident *PeerIdentity, ca *FullCertificateAuthority) *ManageablePeerIdentity {
 	return &ManageablePeerIdentity{
 		PeerIdentity: ident,
 		CA:           ca,

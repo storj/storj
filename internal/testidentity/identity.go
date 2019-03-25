@@ -34,6 +34,7 @@ func NewTestCA(ctx context.Context) (*identity.FullCertificateAuthority, error) 
 	})
 }
 
+// NewTestManageablePeerIdentity returns a new manageable peer identity for use in tests.
 func NewTestManageablePeerIdentity(ctx context.Context) (*identity.ManageablePeerIdentity, error) {
 	ca, err := NewTestCA(ctx)
 	if err != nil {
@@ -44,5 +45,5 @@ func NewTestManageablePeerIdentity(ctx context.Context) (*identity.ManageablePee
 	if err != nil {
 		return nil, err
 	}
-	return identity.NewManageableIdentity(ident.PeerIdentity(), ca), nil
+	return identity.NewManageablePeerIdentity(ident.PeerIdentity(), ca), nil
 }

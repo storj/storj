@@ -158,7 +158,8 @@ func TestManageableIdentity_AddExtension(t *testing.T) {
 	assert.Len(t, manageableIdentity.CA.Cert.ExtraExtensions, 0)
 
 	randBytes := make([]byte, 10)
-	rand.Read(randBytes)
+	_, err = rand.Read(randBytes)
+	require.NoError(t, err)
 	randExt := pkix.Extension{
 		Id:    asn1.ObjectIdentifier{2, 999, int(randBytes[0])},
 		Value: randBytes,
@@ -188,7 +189,8 @@ func TestManageableIdentity_Revoke(t *testing.T) {
 	require.NoError(t, err)
 
 	ident, err := ca.NewIdentity()
-	manIdent := identity.NewManageableIdentity(ident.PeerIdentity(), ca)
+	require.NoError(t, err)
+	manIdent := identity.NewManageablePeerIdentity(ident.PeerIdentity(), ca)
 
 	oldLeaf := manIdent.Leaf
 	assert.Len(t, ca.Cert.ExtraExtensions, 0)
