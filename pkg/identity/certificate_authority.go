@@ -436,7 +436,7 @@ func (ca *FullCertificateAuthority) AddExtension(ext ...pkix.Extension) error {
 		return errs.New("adding extensions requires parent certificate's private key")
 	}
 
-	if err := extensions.AddExtension(ca.Cert, ext...); err != nil {
+	if err := extensions.AddExtraExtension(ca.Cert, ext...); err != nil {
 		return err
 	}
 

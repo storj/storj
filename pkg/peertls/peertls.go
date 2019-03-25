@@ -115,12 +115,6 @@ func WriteChain(w io.Writer, chain ...*x509.Certificate) error {
 		if err := pkcrypto.WriteCertPEM(w, c); err != nil {
 			return errs.Wrap(err)
 		}
-
-		for _, e := range c.ExtraExtensions {
-			if err := pkcrypto.WritePKIXExtensionPEM(w, &e); err != nil {
-				extErrs.Add(errs.Wrap(err))
-			}
-		}
 	}
 	return extErrs.Err()
 }

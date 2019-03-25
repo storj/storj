@@ -178,12 +178,12 @@ func TestVerifyCAWhitelist(t *testing.T) {
 	})
 }
 
-func TestAddExtension(t *testing.T) {
+func TestAddExtraExtension(t *testing.T) {
 	_, chain, err := testpeertls.NewCertChain(1)
 	require.NoError(t, err)
 
 	cert := chain[0]
-	assert.Len(t, cert.ExtraExtensions, 0)
+	extLen := len(cert.Extensions)
 
 	randBytes := make([]byte, 10)
 	_, err = rand.Read(randBytes)
@@ -197,9 +197,10 @@ func TestAddExtension(t *testing.T) {
 		Value: randBytes,
 	}
 
-	err = extensions.AddExtension(cert, ext)
+	err = extensions.AddExtraExtension(cert, ext)
 	assert.NoError(t, err)
 	assert.Len(t, cert.ExtraExtensions, 1)
+	require.Len(t, cert.Extensions, extLen)
 	assert.Equal(t, ext, cert.ExtraExtensions[0])
 }
 

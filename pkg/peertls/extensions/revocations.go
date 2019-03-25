@@ -97,7 +97,7 @@ func AddRevocationExt(key crypto.PrivateKey, revokedCert, newCert *x509.Certific
 	if err != nil {
 		return err
 	}
-	err = AddExtension(newCert, ext)
+	err = AddExtraExtension(newCert, ext)
 	if err != nil {
 		return err
 	}
