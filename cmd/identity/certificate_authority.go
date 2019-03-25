@@ -182,7 +182,7 @@ func cmdRevokePeerCA(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	ext, err := extensions.NewRevocationExt(ca.Key, peerCA.Cert)
+	ext, err := extensions.NewRevocationExt(ca.Key, peerCA.Cert, true)
 	if err != nil {
 		return err
 	}

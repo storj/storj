@@ -477,20 +477,19 @@ func (manageableIdent *ManageablePeerIdentity) AddExtension(ext ...pkix.Extensio
 
 // Revoke extends the CA certificate with a certificate revocation extension.
 func (manageableIdent *ManageablePeerIdentity) Revoke() error {
-	ext, err := extensions.NewRevocationExt(manageableIdent.CA.Key, manageableIdent.Leaf)
+	ext, err := extensions.NewRevocationExt(manageableIdent.CA.Key, manageableIdent.Leaf, false)
 	if err != nil {
 		return err
 	}
 
-	// TODO: pass `ext` to `NewIdentity`
-	revokingIdent, err := manageableIdent.CA.NewIdentity()
+	revokingIdent, err := manageableIdent.CA.NewIdentity(ext)
 	if err != nil {
 		return err
 	}
 
 	manageableIdent.Leaf = revokingIdent.Leaf
 
-	return manageableIdent.AddExtension(ext)
+	return nil
 }
 
 func backupPath(path string) string {

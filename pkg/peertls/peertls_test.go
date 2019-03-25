@@ -300,7 +300,7 @@ func TestNewRevocationExt(t *testing.T) {
 	keys, chain, err := testpeertls.NewCertChain(2)
 	assert.NoError(t, err)
 
-	ext, err := extensions.NewRevocationExt(keys[0], chain[0])
+	ext, err := extensions.NewRevocationExt(keys[0], chain[0], true)
 	assert.NoError(t, err)
 
 	var rev extensions.Revocation
