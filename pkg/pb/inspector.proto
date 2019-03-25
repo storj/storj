@@ -212,6 +212,7 @@ message SegmentHealthRequest {
   bytes bucket = 1;
   bytes encrypted_path = 2;
   int64 segment = 3;
+  bytes project_id = 4;
 }
 
 message SegmentHealthResponse{

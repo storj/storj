@@ -6,8 +6,10 @@ package inspector
 import (
 	"context"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/eestream"
@@ -54,8 +56,12 @@ func (endpoint *Endpoint) SegmentStat(ctx context.Context, in *pb.SegmentHealthR
 		RepairThreshold:  0,
 	}
 
-	var projectID [16]byte
-	path, err := storj.CreatePath(projectID, in.GetSegment(), in.GetBucket(), in.GetEncryptedPath())
+	projectID, err := uuid.Parse(string(in.GetProjectId()))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	path, err := storj.CreatePath(*projectID, in.GetSegment(), in.GetBucket(), in.GetEncryptedPath())
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -85,12 +91,6 @@ func (endpoint *Endpoint) SegmentStat(ctx context.Context, in *pb.SegmentHealthR
 		return nil, Error.Wrap(err)
 	}
 
-	for _, node := range nodes {
-		if node.GetIsUp() {
-			resp.OnlineNodes += 1
-		}
-	}
-
 	neededForRepair := resp.GetOnlineNodes() - int32(redundancy.RepairThreshold())
 	if neededForRepair < 0 {
 		neededForRepair = int32(0)
@@ -105,6 +105,7 @@ func (endpoint *Endpoint) SegmentStat(ctx context.Context, in *pb.SegmentHealthR
 	resp.Total = int32(redundancy.TotalCount())
 	resp.RepairThreshold = neededForRepair
 	resp.SuccessThreshold = neededForSuccess
+	resp.OnlineNodes = int32(len(nodes))
 
 	return resp, nil
 }

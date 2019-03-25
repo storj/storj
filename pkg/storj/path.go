@@ -6,8 +6,8 @@ package storj
 import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 
-	"strconv"
 	"errors"
+	"strconv"
 	"strings"
 )
 

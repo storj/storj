@@ -5,6 +5,8 @@ package inspector_test
 
 import (
 	"crypto/rand"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,6 +17,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/storage"
 )
@@ -48,12 +51,19 @@ func TestInspectorStats(t *testing.T) {
 	_ = planet.Satellites[0].Metainfo.Database.Iterate(storage.IterateOptions{Recurse: true, Reverse: false},
 		func(it storage.Iterator) error {
 			var item storage.ListItem
-			it.Next(&item)
+			for it.Next(&item) {
+				if strings.Contains(string(item.Key), fmt.Sprintf("%s/", bucket)) {
+					break
+				}
+			}
+
+			fullPath := storj.SplitPath(item.Key.String())
 
 			req := &pb.SegmentHealthRequest{
-				EncryptedPath: []byte(item.Key.String()),
-				Bucket:        []byte(bucket),
-				Segment:       0,
+				ProjectId:     []byte(fullPath[0]),
+				EncryptedPath: []byte(strings.Join(fullPath[3:], "/")),
+				Bucket:        []byte(fullPath[2]),
+				Segment:       -1,
 			}
 
 			resp, err := health.SegmentStat(ctx, req)
