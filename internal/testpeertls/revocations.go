@@ -55,7 +55,7 @@ func RevokeLeaf(keys []crypto.PrivateKey, chain []*x509.Certificate) ([]*x509.Ce
 		}
 	}
 	if revocationExt == nil {
-		return nil, pkix.Extension{}, errs.New("no revocation extension found")
+		return nil, pkix.Extension{}, extensions.ErrRevocation.New("no revocation extension found")
 	}
 
 	return append([]*x509.Certificate{revokingCert}, chain[peertls.CAIndex:]...), *revocationExt, nil
