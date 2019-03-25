@@ -31,7 +31,8 @@ func getEditorPath() string {
 	//look for a preference in environment variables
 	for _, eVar := range [...]string{"EDITOR", "VISUAL", "GIT_EDITOR"} {
 		path := os.Getenv(eVar)
-		if len(path) > 0 {
+		_, err := os.Stat(path)
+		if len(path) > 0 && err == nil {
 			return path
 		}
 	}
@@ -39,9 +40,12 @@ func getEditorPath() string {
 	git, err := exec.LookPath("git")
 	if err == nil {
 		out, err := exec.Command(git, "config", "core.editor").Output()
-		cmd := strings.TrimSpace(string(out))
-		if err == nil && len(cmd) > 0 {
-			return cmd
+		if err == nil {
+			cmd := strings.TrimSpace(string(out))
+			_, err := os.Stat(cmd)
+			if len(cmd) > 0 && err == nil {
+				return cmd
+			}
 		}
 	}
 	//heck, just try a bunch of options
