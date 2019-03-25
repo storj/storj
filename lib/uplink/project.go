@@ -102,7 +102,7 @@ func (c *BucketConfig) setDefaults() {
 		c.Volatile.DataCipher = defaultCipher
 	}
 	if c.Volatile.EncryptionBlockSize.Int() == 0 {
-		c.Volatile.EncryptionBlockSize.Set("1KiB")
+		c.Volatile.EncryptionBlockSize = 1 * memory.KiB
 	}
 	if c.Volatile.DefaultRS.MinThreshold == 0 {
 		c.Volatile.DefaultRS.MinThreshold = 29
@@ -117,16 +117,16 @@ func (c *BucketConfig) setDefaults() {
 		c.Volatile.DefaultRS.MaxThreshold = 95
 	}
 	if c.Volatile.MaxBufferMem.Int() == 0 {
-		c.Volatile.MaxBufferMem.Set("4MiB")
+		c.Volatile.MaxBufferMem = 4 * memory.MiB
 	}
 	if c.Volatile.ErasureShareSize.Int() == 0 {
-		c.Volatile.ErasureShareSize.Set("1KiB")
+		c.Volatile.ErasureShareSize = 1 * memory.KiB
 	}
 	if c.Volatile.SegmentSize.Int() == 0 {
-		c.Volatile.SegmentSize.Set("64MiB")
+		c.Volatile.SegmentSize = 64 * memory.MiB
 	}
 	if c.Volatile.MaxInlineSize.Int() == 0 {
-		c.Volatile.MaxInlineSize.Set("4KiB")
+		c.Volatile.MaxInlineSize = 4 * memory.KiB
 	}
 }
 
