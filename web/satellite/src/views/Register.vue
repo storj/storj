@@ -9,7 +9,7 @@
         <img class="planet" src="../../static/images/Mars.png" alt="" >
         <div class="register-container__wrapper">
             <div class="register-container__header">
-                <img class="register-container__logo" src="../../static/images/login/Logo.svg" alt="logo" v-on:click="onLogoClick">
+                <img class="register-container__logo" src="../../static/images/Logo.svg" alt="logo" v-on:click="onLogoClick">
                 <div class="register-container__register-button" v-on:click.prevent="onLoginClick">
                     <p>Login</p>
                 </div>

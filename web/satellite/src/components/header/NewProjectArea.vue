@@ -46,7 +46,6 @@ export default class NewProjectArea extends Vue {
     }
 
     .new-project-button-container {
-        margin-right: 50px;
         display: flex;
         flex-direction: row;
         align-items: center;
