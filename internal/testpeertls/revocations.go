@@ -25,7 +25,7 @@ func RevokeLeaf(keys []crypto.PrivateKey, chain []*x509.Certificate) ([]*x509.Ce
 	}
 	ca := &identity.FullCertificateAuthority{
 		Key:       keys[0],
-		Cert:      chain[0],
+		Cert:      chain[peertls.CAIndex],
 		RestChain: chain[:peertls.CAIndex+1],
 	}
 
@@ -48,14 +48,18 @@ func RevokeLeaf(keys []crypto.PrivateKey, chain []*x509.Certificate) ([]*x509.Ce
 	}
 
 	revokingCert := manageableIdent.Leaf
-	var revocationExt pkix.Extension
+	revocationExt := new(pkix.Extension)
 	for _, ext := range revokingCert.Extensions {
 		if extensions.RevocationExtID.Equal(ext.Id) {
-			revocationExt = ext
+			*revocationExt = ext
 			break
 		}
 	}
-	return append([]*x509.Certificate{revokingCert}, chain[peertls.CAIndex:]...), revocationExt, nil
+	if revocationExt == nil {
+		return nil, pkix.Extension{}, errs.New("no revocation extension found")
+	}
+
+	return append([]*x509.Certificate{revokingCert}, chain[peertls.CAIndex:]...), *revocationExt, nil
 }
 
 // RevokeCA revokes the CA certificate in the passed chain and adds a revocation
