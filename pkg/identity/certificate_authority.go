@@ -356,7 +356,7 @@ func (pc PeerCAConfig) SaveBackup(ca *PeerCertificateAuthority) error {
 // NewIdentity generates a new `FullIdentity` based on the CA. The CA
 // cert is included in the identity's cert chain and the identity's leaf cert
 // is signed by the CA.
-func (ca *FullCertificateAuthority) NewIdentity() (*FullIdentity, error) {
+func (ca *FullCertificateAuthority) NewIdentity(exts ...pkix.Extension) (*FullIdentity, error) {
 	leafTemplate, err := peertls.LeafTemplate()
 	if err != nil {
 		return nil, err
@@ -365,6 +365,11 @@ func (ca *FullCertificateAuthority) NewIdentity() (*FullIdentity, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	if err := extensions.AddExtraExtension(leafTemplate, exts...); err != nil {
+		return nil, err
+	}
+
 	leafCert, err := peertls.NewCert(pkcrypto.PublicKeyFromPrivate(leafKey), ca.Key, leafTemplate, ca.Cert)
 	if err != nil {
 		return nil, err
@@ -451,7 +456,7 @@ func (ca *FullCertificateAuthority) AddExtension(ext ...pkix.Extension) error {
 
 // Revoke extends the certificate authority certificate with a certificate revocation extension.
 func (ca *FullCertificateAuthority) Revoke() error {
-	ext, err := extensions.NewRevocationExt(ca.Key, ca.Cert)
+	ext, err := extensions.NewRevocationExt(ca.Key, ca.Cert, true)
 	if err != nil {
 		return err
 	}

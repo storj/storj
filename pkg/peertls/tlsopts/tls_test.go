@@ -92,7 +92,7 @@ func TestExtensionMap_HandleExtensions(t *testing.T) {
 				func() []*x509.Certificate {
 					rev := new(extensions.Revocation)
 					time.Sleep(1 * time.Second)
-					chain, revocationExt, err := testpeertls.RevokeLeaf(revokedLeafKeys, revokedLeafChain)
+					chain, revocationExt, err := testpeertls.RevokeLeaf(revokedLeafKeys[0], revokedLeafChain)
 					assert.NoError(t, err)
 
 					err = rev.Unmarshal(revocationExt.Value)
@@ -140,7 +140,7 @@ func TestExtensionMap_HandleExtensions_error(t *testing.T) {
 		// NB: node ID is the same, timestamp must change
 		// (see: identity.RevocationDB#Put)
 		time.Sleep(time.Second)
-		_, newRevocation, err := testpeertls.RevokeLeaf(keys, chain)
+		_, newRevocation, err := testpeertls.RevokeLeaf(keys[0], chain)
 		require.NoError(t, err)
 
 		assert.NotEqual(t, oldRevocation, newRevocation)

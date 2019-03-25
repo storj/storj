@@ -40,11 +40,12 @@ var ErrRevokedCert = ErrRevocation.New("a certificate in the chain is revoked")
 var ErrRevocationTimestamp = Error.New("revocation timestamp is older than last known revocation")
 
 // Revocation represents a certificate revocation for storage in the revocation
-// database and for use in a TLS extension
+// database and for use in a TLS extension.
 type Revocation struct {
 	Timestamp int64
 	CertHash  []byte
 	Signature []byte
+	Final     bool
 }
 
 // RevocationDB stores certificate revocation data.
@@ -64,13 +65,14 @@ func init() {
 }
 
 // NewRevocationExt generates a revocation extension for a certificate.
-func NewRevocationExt(key crypto.PrivateKey, revokedCert *x509.Certificate) (pkix.Extension, error) {
+func NewRevocationExt(key crypto.PrivateKey, revokedCert *x509.Certificate, final bool) (pkix.Extension, error) {
 	nowUnix := time.Now().Unix()
 
 	hash := pkcrypto.SHA256Hash(revokedCert.Raw)
 	rev := Revocation{
 		Timestamp: nowUnix,
 		CertHash:  hash,
+		Final:     final,
 	}
 
 	if err := rev.Sign(key); err != nil {
@@ -90,24 +92,9 @@ func NewRevocationExt(key crypto.PrivateKey, revokedCert *x509.Certificate) (pki
 	return ext, nil
 }
 
-// AddRevocationExt generates a revocation extension for a cert and attaches it
-// to the cert which will replace the revoked cert.
-func AddRevocationExt(key crypto.PrivateKey, revokedCert, newCert *x509.Certificate) error {
-	ext, err := NewRevocationExt(key, revokedCert)
-	if err != nil {
-		return err
-	}
-	err = AddExtraExtension(newCert, ext)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func revocationChecker(opts *Options) HandlerFunc {
 	return func(_ pkix.Extension, chains [][]*x509.Certificate) error {
 		leaf := chains[0][peertls.LeafIndex]
-		ca := chains[0][peertls.CAIndex]
 		lastRev, lastRevErr := opts.RevDB.Get(chains[0])
 		if lastRevErr != nil {
 			return Error.Wrap(lastRevErr)
@@ -116,14 +103,13 @@ func revocationChecker(opts *Options) HandlerFunc {
 			return nil
 		}
 
-		caHash := pkcrypto.SHA256Hash(ca.Raw)
 		leafHash := pkcrypto.SHA256Hash(leaf.Raw)
 
 		// NB: we trust that anything that made it into the revocation DB is valid
 		//		(i.e. no need for further verification)
 		switch {
-		case bytes.Equal(lastRev.CertHash, caHash):
-			return ErrRevokedCert
+		case lastRev.Final:
+			fallthrough
 		case bytes.Equal(lastRev.CertHash, leafHash):
 			return ErrRevokedCert
 		default:
