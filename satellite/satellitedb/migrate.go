@@ -337,7 +337,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
   						get_egress bigint NOT NULL,
   						audit_egress bigint NOT NULL,
   						PRIMARY KEY ( id ),
-						UNIQUE ( rollup_end_time, bucket_id )
+  						UNIQUE ( rollup_end_time, bucket_id )
 					)`,
 				},
 			},
