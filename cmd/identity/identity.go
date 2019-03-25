@@ -114,7 +114,7 @@ func cmdRevokeLeaf(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	manageableIdent := identity.NewManageableIdentity(originalIdent, ca)
+	manageableIdent := identity.NewManageablePeerIdentity(originalIdent, ca)
 	if err := manageableIdent.Revoke(); err != nil {
 		return err
 	}

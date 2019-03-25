@@ -186,7 +186,8 @@ func TestAddExtension(t *testing.T) {
 	assert.Len(t, cert.ExtraExtensions, 0)
 
 	randBytes := make([]byte, 10)
-	rand.Read(randBytes)
+	_, err = rand.Read(randBytes)
+	require.NoError(t, err)
 	if !assert.NoError(t, err) {
 		t.FailNow()
 	}

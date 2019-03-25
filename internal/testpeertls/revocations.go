@@ -11,7 +11,6 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/identity"
-
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/extensions"
 )
@@ -42,7 +41,7 @@ func RevokeLeaf(keys []crypto.PrivateKey, chain []*x509.Certificate) ([]*x509.Ce
 		RestChain: ca.RestChain,
 	}
 
-	manageableIdent := identity.NewManageableIdentity(ident, ca)
+	manageableIdent := identity.NewManageablePeerIdentity(ident, ca)
 	if err := manageableIdent.Revoke(); err != nil {
 		return nil, pkix.Extension{}, err
 	}
