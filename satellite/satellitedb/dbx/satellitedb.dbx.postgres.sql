@@ -26,6 +26,26 @@ CREATE TABLE accounting_timestamps (
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
 );
+CREATE TABLE bucket_bandwidth_rollups (
+	bucket_id bytea NOT NULL,
+	interval_start timestamp NOT NULL,
+	interval_seconds integer NOT NULL,
+	action integer NOT NULL,
+	inline bigint NOT NULL,
+	allocated bigint NOT NULL,
+	settled bigint NOT NULL,
+	PRIMARY KEY ( bucket_id ),
+	UNIQUE ( bucket_id, interval_start, interval_seconds, action )
+);
+CREATE TABLE bucket_storage_rollups (
+	bucket_id bytea NOT NULL,
+	interval_start timestamp NOT NULL,
+	interval_seconds integer NOT NULL,
+	inline bigint NOT NULL,
+	remote bigint NOT NULL,
+	PRIMARY KEY ( bucket_id ),
+	UNIQUE ( bucket_id, interval_start, interval_seconds )
+);
 CREATE TABLE bucket_usages (
 	id bytea NOT NULL,
 	bucket_id bytea NOT NULL,
@@ -119,6 +139,32 @@ CREATE TABLE registration_tokens (
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
 );
+CREATE TABLE serial_numbers (
+	id serial NOT NULL,
+	serial_number bytea NOT NULL,
+	bucket_id bytea NOT NULL,
+	expires_at timestamp NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( serial_number )
+);
+CREATE TABLE storagenode_bandwidth_rollups (
+	storagenode_id bytea NOT NULL,
+	interval_start timestamp NOT NULL,
+	interval_seconds integer NOT NULL,
+	action integer NOT NULL,
+	allocated bigint NOT NULL,
+	settled bigint NOT NULL,
+	PRIMARY KEY ( storagenode_id ),
+	UNIQUE ( storagenode_id, interval_start, interval_seconds, action )
+);
+CREATE TABLE storagenode_storage_rollups (
+	storagenode_id bytea NOT NULL,
+	interval_start timestamp NOT NULL,
+	interval_seconds integer NOT NULL,
+	total bigint NOT NULL,
+	PRIMARY KEY ( storagenode_id ),
+	UNIQUE ( storagenode_id, interval_start, interval_seconds )
+);
 CREATE TABLE users (
 	id bytea NOT NULL,
 	first_name text NOT NULL,
@@ -145,3 +191,10 @@ CREATE TABLE project_members (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( member_id, project_id )
 );
+CREATE TABLE used_serials (
+	serial_number_id integer NOT NULL REFERENCES serial_numbers( id ) ON DELETE CASCADE,
+	storage_node_id bytea NOT NULL,
+	PRIMARY KEY ( serial_number_id ),
+	UNIQUE ( serial_number_id, storage_node_id )
+);
+CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
