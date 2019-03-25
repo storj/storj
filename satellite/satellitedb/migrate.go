@@ -434,9 +434,8 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Description: "users first_name to full_name, last_name to short_name",
 				Version:     10,
 				Action: migrate.SQL{
-					`ALTER TABLE users 
-					 RENAME COLUMN first_name TO full_name,
-					 RENAME COLUMN last_name TO short_name;`,
+					`ALTER TABLE users RENAME COLUMN first_name TO full_name;
+					 ALTER TABLE users RENAME COLUMN last_name TO short_name;`,
 				},
 			},
 		},
