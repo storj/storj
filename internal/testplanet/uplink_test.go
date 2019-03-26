@@ -43,13 +43,12 @@ func TestUploadDownload(t *testing.T) {
 
 func TestDownloadWithSomeNodesOffline(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+
 		// first, upload some remote data
 		ul := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
-
-		satellite.Repair.Checker.Loop.Stop()
 
 		testData := make([]byte, 1*memory.MiB)
 		_, err := rand.Read(testData)
@@ -80,28 +79,20 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 		}
 
 		// calculate how many storagenodes to kill
-		numStorageNodes := len(planet.StorageNodes)
 		redundancy := pointer.GetRemote().GetRedundancy()
 		remotePieces := pointer.GetRemote().GetRemotePieces()
 		minReq := redundancy.GetMinReq()
 		numPieces := len(remotePieces)
 		toKill := numPieces - int(minReq)
 
-		// we should have enough storage nodes to repair on
-		assert.True(t, (numStorageNodes-toKill) >= numPieces)
-
-		// kill nodes and track lost pieces
-		var lostPieces []int32
 		nodesToKill := make(map[storj.NodeID]bool)
-		nodesToKeepAlive := make(map[storj.NodeID]bool)
 		for i, piece := range remotePieces {
 			if i >= toKill {
-				nodesToKeepAlive[piece.NodeId] = true
 				continue
 			}
 			nodesToKill[piece.NodeId] = true
-			lostPieces = append(lostPieces, piece.GetPieceNum())
 		}
+
 		for _, node := range planet.StorageNodes {
 			if nodesToKill[node.ID()] {
 				err = planet.StopPeer(node)
