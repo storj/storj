@@ -5,6 +5,7 @@ package piecestore_test
 
 import (
 	"math/rand"
+	"storj.io/storj/internal/testidentity"
 	"testing"
 	"time"
 
@@ -13,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
@@ -26,8 +26,8 @@ func TestUsedSerials(t *testing.T) {
 
 		usedSerials := db.UsedSerials()
 
-		node0 := testplanet.MustPregeneratedIdentity(0)
-		node1 := testplanet.MustPregeneratedIdentity(1)
+		node0 := testidentity.MustPregeneratedIdentity(0, storj.LatestIDVersion())
+		node1 := testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion())
 
 		serial1 := newRandomSerial()
 		serial2 := newRandomSerial()

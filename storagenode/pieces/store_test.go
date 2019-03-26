@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"io"
 	"math/rand"
+	"storj.io/storj/internal/testidentity"
 	"testing"
 
 	"storj.io/storj/internal/testplanet"
@@ -34,7 +35,7 @@ func TestPieces(t *testing.T) {
 
 	store := pieces.NewStore(zaptest.NewLogger(t), blobs)
 
-	satelliteID := testplanet.MustPregeneratedSignedIdentity(0).ID
+	satelliteID := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()).ID
 	pieceID := storj.NewPieceID()
 
 	source := make([]byte, 8000)

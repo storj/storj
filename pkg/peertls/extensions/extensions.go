@@ -4,7 +4,6 @@
 package extensions
 
 import (
-	"crypto"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
@@ -111,24 +110,6 @@ func NewHandlerFactory(id *ExtensionID, handlerFactory HandlerFactoryFunc) *Hand
 		id:      id,
 		factory: handlerFactory,
 	}
-}
-
-// AddSignedCert generates a signed certificate extension for a cert and attaches
-// it to that cert.
-func AddSignedCert(key crypto.PrivateKey, cert *x509.Certificate) error {
-	signature, err := pkcrypto.HashAndSign(key, cert.RawTBSCertificate)
-	if err != nil {
-		return err
-	}
-
-	err = AddExtraExtension(cert, pkix.Extension{
-		Id:    SignedCertExtID,
-		Value: signature,
-	})
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 // AddExtraExtension adds one or more extensions to a certificate for serialization.

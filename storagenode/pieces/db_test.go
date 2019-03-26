@@ -4,6 +4,7 @@
 package pieces_test
 
 import (
+	"storj.io/storj/internal/testidentity"
 	"testing"
 	"time"
 
@@ -11,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -27,11 +27,11 @@ func TestPieceInfo(t *testing.T) {
 
 		pieceinfos := db.PieceInfo()
 
-		satellite0 := testplanet.MustPregeneratedSignedIdentity(0)
-		satellite1 := testplanet.MustPregeneratedSignedIdentity(1)
+		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion())
+		satellite1 := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion())
 
-		uplink0 := testplanet.MustPregeneratedSignedIdentity(2)
-		uplink1 := testplanet.MustPregeneratedSignedIdentity(3)
+		uplink0 := testidentity.MustPregeneratedSignedIdentity(2, storj.LatestIDVersion())
+		uplink1 := testidentity.MustPregeneratedSignedIdentity(3, storj.LatestIDVersion())
 
 		pieceid0 := storj.NewPieceID()
 
@@ -50,7 +50,7 @@ func TestPieceInfo(t *testing.T) {
 
 			PieceID:         pieceid0,
 			PieceSize:       123,
-			PieceExpiration: &now,
+			PieceExpiration: now,
 
 			UplinkPieceHash: piecehash0,
 			Uplink:          uplink0.PeerIdentity(),
@@ -69,7 +69,7 @@ func TestPieceInfo(t *testing.T) {
 
 			PieceID:         pieceid0,
 			PieceSize:       123,
-			PieceExpiration: &now,
+			PieceExpiration: now,
 
 			UplinkPieceHash: piecehash1,
 			Uplink:          uplink1.PeerIdentity(),

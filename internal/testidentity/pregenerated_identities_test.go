@@ -12,8 +12,6 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-type void struct{}
-
 func TestPregeneratedIdentity(t *testing.T) {
 	IdentityVersionsTest(t, func(t *testing.T, version storj.IDVersion, ident *identity.FullIdentity) {
 		assert.Equal(t, version.Number, ident.ID.Version().Number)

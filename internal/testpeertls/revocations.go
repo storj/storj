@@ -7,6 +7,7 @@ import (
 	"crypto"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
@@ -28,7 +29,7 @@ func RevokeLeaf(caKey crypto.PrivateKey, chain []*x509.Certificate) ([]*x509.Cer
 	}
 
 	var err error
-	ca.ID, err = identity.NodeIDFromKey(ca.Cert.PublicKey)
+	ca.ID, err = identity.NodeIDFromKey(ca.Cert.PublicKey, storj.LatestIDVersion())
 	if err != nil {
 		return nil, pkix.Extension{}, err
 	}
@@ -64,7 +65,7 @@ func RevokeLeaf(caKey crypto.PrivateKey, chain []*x509.Certificate) ([]*x509.Cer
 // extension to that certificate, recording this action.
 func RevokeCA(caKey crypto.PrivateKey, chain []*x509.Certificate) ([]*x509.Certificate, pkix.Extension, error) {
 	caCert := chain[peertls.CAIndex]
-	nodeID, err := identity.NodeIDFromKey(caCert.PublicKey)
+	nodeID, err := identity.NodeIDFromKey(caCert.PublicKey, storj.LatestIDVersion())
 	if err != nil {
 		return nil, pkix.Extension{}, err
 	}
@@ -91,7 +92,7 @@ func RevokeCA(caKey crypto.PrivateKey, chain []*x509.Certificate) ([]*x509.Certi
 // NewRevokedLeafChain creates a certificate chain (of length 2) with a leaf
 // that contains a valid revocation extension.
 func NewRevokedLeafChain() ([]crypto.PrivateKey, []*x509.Certificate, pkix.Extension, error) {
-	keys, certs, err := NewCertChain(2)
+	keys, certs, err := NewCertChain(2, storj.LatestIDVersion().Number)
 	if err != nil {
 		return nil, nil, pkix.Extension{}, err
 	}

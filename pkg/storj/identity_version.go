@@ -73,7 +73,7 @@ func LatestIDVersion() IDVersion {
 }
 
 func IDVersionFromCert(cert *x509.Certificate) (IDVersion, error) {
-	for _, ext := range cert.ExtraExtensions {
+	for _, ext := range cert.Extensions {
 		if extensions.IdentityVersionExtID.Equal(ext.Id) {
 			return GetIDVersion(IDVersionNumber(ext.Value[0]))
 		}
@@ -130,14 +130,6 @@ func IDVersionInVersions(versionNumber IDVersionNumber, versionsStr string) erro
 		}
 	}
 	return ErrVersion.New("version %d not in versions %s", versionNumber, versionsStr)
-}
-
-// TODO: should this include signature?
-func AddVersionExt(version IDVersion, cert *x509.Certificate) error {
-	return extensions.AddExtension(cert, pkix.Extension{
-		Id:    extensions.IdentityVersionExtID,
-		Value: []byte{byte(version.Number)},
-	})
 }
 
 func idVersionHandler(opts *extensions.Options) extensions.HandlerFunc {

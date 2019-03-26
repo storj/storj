@@ -25,10 +25,10 @@ func TestLatestVersion(t *testing.T) {
 
 func TestIDVersionFromCert(t *testing.T) {
 	for versionNumber := range storj.IDVersions {
-		_, chain, err := testpeertls.NewVersionedCertChain(1, versionNumber)
+		_, chain, err := testpeertls.NewCertChain(2, versionNumber)
 		require.NoError(t, err)
 
-		cert := chain[0]
+		cert := chain[peertls.CAIndex]
 
 		version, err := storj.IDVersionFromCert(cert)
 		require.NoError(t, err)
@@ -79,10 +79,10 @@ func TestIDVersionInVersions_error(t *testing.T) {
 }
 
 func TestIDVersionExtensionHandler_success(t *testing.T) {
-	_, identityV1Chain, err := testpeertls.NewVersionedCertChain(2, storj.V1)
+	_, identityV1Chain, err := testpeertls.NewCertChain(2, storj.V1)
 	assert.NoError(t, err)
 
-	_, identityV2Chain, err := testpeertls.NewVersionedCertChain(2, storj.V2)
+	_, identityV2Chain, err := testpeertls.NewCertChain(2, storj.V2)
 	assert.NoError(t, err)
 
 	latestVersionChain := identityV2Chain
@@ -118,10 +118,10 @@ func TestIDVersionExtensionHandler_success(t *testing.T) {
 }
 
 func TestIDVersionExtensionHandler_error(t *testing.T) {
-	_, identityV1Chain, err := testpeertls.NewVersionedCertChain(2, storj.V1)
+	_, identityV1Chain, err := testpeertls.NewCertChain(2, storj.V1)
 	assert.NoError(t, err)
 
-	_, identityV2Chain, err := testpeertls.NewVersionedCertChain(2, storj.V2)
+	_, identityV2Chain, err := testpeertls.NewCertChain(2, storj.V2)
 	assert.NoError(t, err)
 
 	testcases := []struct {
@@ -147,25 +147,5 @@ func TestIDVersionExtensionHandler_error(t *testing.T) {
 
 		err = extensionMap.HandleExtensions(handlerFuncMap, identity.ToChains(testcase.chain)) // nil, identity.ToChains(testcase.chain))
 		assert.Error(t, err)
-	}
-}
-
-func TestAddVersionExt(t *testing.T) {
-	for _, version := range storj.IDVersions {
-		key, err := version.NewPrivateKey()
-		require.NoError(t, err)
-
-		template, err := peertls.CATemplate()
-		require.NoError(t, err)
-
-		cert, err := peertls.NewCert(key, nil, template, nil)
-		require.NoError(t, err)
-
-		assert.Len(t, cert.ExtraExtensions, 0)
-
-		err = storj.AddVersionExt(version, cert)
-		require.Len(t, cert.ExtraExtensions, 1)
-		assert.True(t, extensions.IdentityVersionExtID.Equal(cert.ExtraExtensions[0].Id))
-		assert.Equal(t, version.Number, storj.IDVersionNumber(cert.ExtraExtensions[0].Value[0]))
 	}
 }
