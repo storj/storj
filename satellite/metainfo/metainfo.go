@@ -315,6 +315,7 @@ func (endpoint *Endpoint) createOrderLimitsForSegment(ctx context.Context, point
 	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
 	expiration := pointer.ExpirationDate
 
+	var combinedErrs error
 	var limits []*pb.AddressedOrderLimit
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
 		derivedPieceID := rootPieceID.Derive(piece.NodeId)
@@ -325,7 +326,9 @@ func (endpoint *Endpoint) createOrderLimitsForSegment(ctx context.Context, point
 
 		node, err := endpoint.cache.Get(ctx, piece.NodeId)
 		if err != nil {
-			return nil, err
+			endpoint.log.Error("error getting node from overlay cache")
+			combinedErrs = errs.Combine(combinedErrs, err)
+			continue
 		}
 
 		if node != nil {
@@ -336,8 +339,13 @@ func (endpoint *Endpoint) createOrderLimitsForSegment(ctx context.Context, point
 			Limit:              orderLimit,
 			StorageNodeAddress: node.Address,
 		})
-
 	}
+
+	if len(limits) < redundancy.RequiredCount() {
+		err = Error.New("not enough nodes available. Available: %d, Required: %d", len(limits), redundancy.RequiredCount())
+		return nil, errs.Combine(combinedErrs, err)
+	}
+
 	return limits, nil
 }
 
