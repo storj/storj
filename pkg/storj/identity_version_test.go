@@ -105,14 +105,15 @@ func TestIDVersionExtensionHandler_success(t *testing.T) {
 		t.Log(testcase.name)
 		opts := &extensions.Options{PeerIDVersions: testcase.versions}
 
-		ext := testcase.chain[peertls.CAIndex].ExtraExtensions[0]
+		cert := testcase.chain[peertls.CAIndex]
+		ext := cert.Extensions[len(cert.Extensions)-1]
 		err := storj.IDVersionHandler.NewHandlerFunc(opts)(ext, identity.ToChains(testcase.chain))
 		assert.NoError(t, err)
 
 		extensionMap := tlsopts.NewExtensionsMap(testcase.chain...)
 		handlerFuncMap := extensions.AllHandlers.WithOptions(opts)
 
-		err = extensionMap.HandleExtensions(handlerFuncMap, identity.ToChains(testcase.chain)) // nil, identity.ToChains(testcase.chain))
+		err = extensionMap.HandleExtensions(handlerFuncMap, identity.ToChains(testcase.chain))
 		assert.NoError(t, err)
 	}
 }
@@ -138,14 +139,15 @@ func TestIDVersionExtensionHandler_error(t *testing.T) {
 		t.Log(testcase.name)
 		opts := &extensions.Options{PeerIDVersions: testcase.versions}
 
-		ext := testcase.chain[peertls.CAIndex].ExtraExtensions[0]
+		cert := testcase.chain[peertls.CAIndex]
+		ext := cert.Extensions[len(cert.Extensions)-1]
 		err := storj.IDVersionHandler.NewHandlerFunc(opts)(ext, identity.ToChains(testcase.chain))
 		assert.Error(t, err)
 
 		extensionMap := tlsopts.NewExtensionsMap(testcase.chain...)
 		handlerFuncMap := extensions.AllHandlers.WithOptions(opts)
 
-		err = extensionMap.HandleExtensions(handlerFuncMap, identity.ToChains(testcase.chain)) // nil, identity.ToChains(testcase.chain))
+		err = extensionMap.HandleExtensions(handlerFuncMap, identity.ToChains(testcase.chain))
 		assert.Error(t, err)
 	}
 }

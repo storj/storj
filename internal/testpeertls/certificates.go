@@ -6,6 +6,7 @@ package testpeertls
 import (
 	"crypto"
 	"crypto/x509"
+	"fmt"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/pkcrypto"
@@ -25,6 +26,7 @@ func NewCertChain(length int, versionNumber storj.IDVersionNumber) (keys []crypt
 		if err != nil {
 			return nil, nil, err
 		}
+		// TODO: get your head straight with the keys and certs slices
 		keys = append(keys, key)
 
 		var template *x509.Certificate
@@ -41,16 +43,21 @@ func NewCertChain(length int, versionNumber storj.IDVersionNumber) (keys []crypt
 		}
 
 		var cert *x509.Certificate
-		if i == 0 {
-			cert, err = peertls.NewSelfSignedCert(key, template)
-		} else {
+		if i == length-1 {
 			cert, err = peertls.NewCert(pkcrypto.PublicKeyFromPrivate(key), keys[i-1], template, certs[i-1:][0])
+		} else {
+			cert, err = peertls.NewSelfSignedCert(key, template)
 		}
 		if err != nil {
 			return nil, nil, err
 		}
 
-		certs = append([]*x509.Certificate{cert}, certs...)
+		fmt.Printf("i %d extensions: %+v\n", i, cert.Extensions)
+		certs = append(certs, cert)
+	}
+	for i, cert := range certs {
+		fmt.Println(i)
+		fmt.Println(cert.IsCA)
 	}
 	return keys, certs, nil
 }

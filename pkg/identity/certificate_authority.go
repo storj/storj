@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"crypto"
-	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"fmt"
@@ -441,26 +440,11 @@ func (ca *FullCertificateAuthority) PeerCA() *PeerCertificateAuthority {
 
 // Sign signs the passed certificate with ca certificate
 func (ca *FullCertificateAuthority) Sign(cert *x509.Certificate) (*x509.Certificate, error) {
-	// TODO: fix extension serialization
-	// <!-- temporary workaround
-	//extraExtensions := cert.ExtraExtensions
-	//cert.ExtraExtensions = []pkix.Extension{}
-	// -->
-
-	signedCertBytes, err := x509.CreateCertificate(rand.Reader, cert, ca.Cert, cert.PublicKey, ca.Key)
+	cert.ExtraExtensions = cert.Extensions
+	signedCert, err := peertls.NewCert(cert.PublicKey, ca.Key, cert, ca.Cert)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
-
-	signedCert, err := pkcrypto.CertFromDER(signedCertBytes)
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
-
-	// <!-- temporary workaround
-	//signedCert.ExtraExtensions = extraExtensions
-	// -->
-
 	return signedCert, nil
 }
 
