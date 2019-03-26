@@ -111,7 +111,7 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (*pb.Node, 
 
 	node, err := cache.db.Get_Node_By_Id(ctx, dbx.Node_Id(id.Bytes()))
 	if err == sql.ErrNoRows {
-		return nil, overlay.ErrNodeNotFound.New("couldn't find nodeID: %s", id.String())
+		return nil, overlay.ErrNodeNotFound.New(id.String())
 	}
 	if err != nil {
 		return nil, err
@@ -334,7 +334,7 @@ func (cache *overlaycache) GetStats(ctx context.Context, nodeID storj.NodeID) (s
 
 	dbNode, err := cache.db.Get_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()))
 	if err == sql.ErrNoRows {
-		return nil, overlay.ErrNodeNotFound
+		return nil, overlay.ErrNodeNotFound.New(nodeID.String())
 	}
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -582,7 +582,7 @@ func (cache *overlaycache) CreateEntryIfNotExists(ctx context.Context, node *pb.
 	defer mon.Task()(&ctx)(&err)
 
 	getStats, err := cache.GetStats(ctx, node.Id)
-	if err == overlay.ErrNodeNotFound {
+	if overlay.ErrNodeNotFound.Has(err) {
 		err = cache.Update(ctx, node)
 		if err != nil {
 			return nil, Error.Wrap(err)

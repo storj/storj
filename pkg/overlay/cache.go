@@ -24,16 +24,16 @@ const (
 var ErrEmptyNode = errs.New("empty node ID")
 
 // ErrNodeNotFound is returned if a node does not exist in database
-var ErrNodeNotFound = errs.Class("Node not found")
+var ErrNodeNotFound = errs.Class("node not found")
 
 // ErrBucketNotFound is returned if a bucket is unable to be found in the routing table
-var ErrBucketNotFound = errs.New("Bucket not found")
+var ErrBucketNotFound = errs.New("bucket not found")
 
 // ErrNotEnoughNodes is when selecting nodes failed with the given parameters
 var ErrNotEnoughNodes = errs.Class("not enough nodes")
 
 // OverlayError creates class of errors for stack traces
-var OverlayError = errs.Class("Overlay Error")
+var OverlayError = errs.Class("overlay error")
 
 // DB implements the database for overlay.Cache
 type DB interface {
