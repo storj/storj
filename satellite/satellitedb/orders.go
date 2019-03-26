@@ -6,9 +6,9 @@ package satellitedb
 import (
 	"context"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 
-	"github.com/golang/protobuf/ptypes"
 	"storj.io/storj/pkg/pb"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
