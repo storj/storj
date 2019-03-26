@@ -297,7 +297,7 @@ export default class Register extends Vue {
             height: 48px;
 
             p {
-                font-family: 'montserrat_bold';
+                font-family: 'font_bold';
                 font-size: 14px;
                 line-height: 19px;
                 margin-block-start: 0;
@@ -343,7 +343,7 @@ export default class Register extends Vue {
             width: 100%;
 
             h1 {
-                font-family: 'montserrat_bold';
+                font-family: 'font_bold';
                 font-size: 22px;
                 color: white;
                 line-height: 27px;
@@ -352,7 +352,7 @@ export default class Register extends Vue {
             }
 
             p {
-                font-family: 'montserrat_regular';
+                font-family: 'font_regular';
                 font-size: 16px;
                 color: white;
                 line-height: 21px;
@@ -360,7 +360,7 @@ export default class Register extends Vue {
                 margin-block-end: 0;
 
                 b {
-                    font-family: 'montserrat_bold';
+                    font-family: 'font_bold';
                     margin-left: 7px;
                 }
             }
@@ -385,7 +385,7 @@ export default class Register extends Vue {
                 }
 
                 h2 {
-                    font-family: 'montserrat_regular';
+                    font-family: 'font_regular';
                     font-size: 14px;
                     line-height: 20px;
                     margin-top: 14px;
@@ -395,7 +395,7 @@ export default class Register extends Vue {
 
                 a {
                     color: white;
-                    font-family: 'montserrat_bold';
+                    font-family: 'font_bold';
 
                     &:hover {
                         text-decoration: underline;
@@ -483,7 +483,7 @@ export default class Register extends Vue {
                 box-shadow: 0px 16px 24px #3A54DF;
 
                 p {
-                    font-family: 'montserrat_bold';
+                    font-family: 'font_bold';
                     font-size: 14px;
                     line-height: 19px;
                     margin-block-start: 0;

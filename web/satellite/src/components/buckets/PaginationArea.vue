@@ -52,7 +52,7 @@
 		&__counter {
 
 			p {
-				font-family: 'montserrat_medium';
+				font-family: 'font_medium';
 				font-size: 16px;
 				color: #AFB7C1;
 			}
@@ -79,7 +79,7 @@
 			display: flex;
 			.selected {
 				color: #2379EC;
-				font-family: 'montserrat_bold';
+				font-family: 'font_bold';
 				&:after {
 					content: '';
 					display: block;
@@ -92,7 +92,7 @@
 				}
 			}
 			span {
-				font-family: 'montserrat_medium';
+				font-family: 'font_medium';
 				font-size: 16px;
 				margin-right: 15px;
 				cursor: pointer;

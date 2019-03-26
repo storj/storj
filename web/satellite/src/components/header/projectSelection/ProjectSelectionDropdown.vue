@@ -94,11 +94,11 @@ export default class ProjectSelectionDropdown extends Vue {
             }
 
             &--selected {
-                font-family: 'montserrat_bold';
+                font-family: 'font_bold';
             }
 
             &--unselected {
-                font-family: 'montserrat_regular';
+                font-family: 'font_regular';
             }
 
             &__mark-container {

@@ -94,7 +94,7 @@
 				}
 			}
 			p {
-				font-family: 'montserrat_medium';
+				font-family: 'font_medium';
 				font-size: 16px;
 				line-height: 23px;
 				color: #AFB7C1;
