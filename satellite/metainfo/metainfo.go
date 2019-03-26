@@ -326,7 +326,7 @@ func (endpoint *Endpoint) createOrderLimitsForSegment(ctx context.Context, point
 
 		node, err := endpoint.cache.Get(ctx, piece.NodeId)
 		if err != nil {
-			endpoint.log.Error("error getting node from overlay cache")
+			endpoint.log.Error("error getting node from overlay cache", zap.Error(err))
 			combinedErrs = errs.Combine(combinedErrs, err)
 			continue
 		}
