@@ -89,7 +89,7 @@ export default class Notification extends Vue {
             align-items: center;
 
             p {
-                font-family: 'montserrat_medium';
+                font-family: 'font_medium';
                 font-size: 16px;
                 margin-left: 40px;
 

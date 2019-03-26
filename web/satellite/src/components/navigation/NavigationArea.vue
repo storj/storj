@@ -126,7 +126,7 @@ export default class NavigationArea extends Vue {
                  justify-content: flex-start;
                  align-items: center;
                 h1 {
-                    font-family: 'montserrat_medium';
+                    font-family: 'font_medium';
                     font-size: 16px;
                     line-height: 23px;
                     color: #354049;
