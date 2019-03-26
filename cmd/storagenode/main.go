@@ -128,7 +128,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	ver, err := version.QueryVersionFromControllServer()
+	ver, err := version.QueryVersionFromControlServer()
 	if err != nil {
 		log.Sugar().Error("Failed to fetch version info: ", err)
 	}
