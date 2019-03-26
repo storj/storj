@@ -22,7 +22,7 @@ import { getColor } from '@/utils/avatarColorManager';
     },
     computed: {
         userInfo: function (): object { 
-            let fullName = this.$store.getters.userName;
+            let fullName = getFullName(this.$props.projectMember.user);
 
             let email: string = this.$props.projectMember.user.email;
 
@@ -37,7 +37,9 @@ import { getColor } from '@/utils/avatarColorManager';
             return { fullName, email };
         },
         avatarData: function (): object {
-            const letter = this.$store.getters.userName.slice(0, 1).toLocaleUpperCase();
+            let fullName = getFullName(this.$props.projectMember.user);
+
+            const letter = fullName.slice(0, 1).toLocaleUpperCase();
 
             const style = {
                 background: getColor(letter)
@@ -52,6 +54,10 @@ import { getColor } from '@/utils/avatarColorManager';
 })
 
 export default class TeamMemberItem extends Vue {
+}
+
+function getFullName(user: any): string {
+    return user.shortName === '' ? user.fullName : user.shortName;
 }
 </script>
 
