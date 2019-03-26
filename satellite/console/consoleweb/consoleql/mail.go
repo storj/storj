@@ -48,4 +48,6 @@ type ProjectInvitationEmail struct {
 func (*ProjectInvitationEmail) Template() string { return "Invite" }
 
 // Subject gets email subject
-func (*ProjectInvitationEmail) Subject() string { return "" }
+func (email *ProjectInvitationEmail) Subject() string {
+	return "You were invited you to join the Project " + email.ProjectName
+}
