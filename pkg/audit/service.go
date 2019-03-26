@@ -14,7 +14,6 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb"
-	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/transport"
 )
 
@@ -37,7 +36,7 @@ type Service struct {
 }
 
 // NewService instantiates a Service with access to a Cursor and Verifier
-func NewService(log *zap.Logger, config Config, sdb statdb.DB, pointerdb *pointerdb.Service,
+func NewService(log *zap.Logger, config Config, pointerdb *pointerdb.Service,
 	allocation *pointerdb.AllocationSigner, transport transport.Client, overlay *overlay.Cache,
 	identity *identity.FullIdentity) (service *Service, err error) {
 	return &Service{
@@ -45,7 +44,7 @@ func NewService(log *zap.Logger, config Config, sdb statdb.DB, pointerdb *pointe
 
 		Cursor:   NewCursor(pointerdb, allocation, overlay, identity),
 		Verifier: NewVerifier(log.Named("audit:verifier"), transport, overlay, identity, config.MinBytesPerSecond),
-		Reporter: NewReporter(sdb, config.MaxRetriesStatDB),
+		Reporter: NewReporter(overlay, config.MaxRetriesStatDB),
 
 		Loop: *sync2.NewCycle(config.Interval),
 	}, nil
