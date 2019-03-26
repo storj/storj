@@ -6,22 +6,32 @@ package datarepair_test
 import (
 	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite"
 	"storj.io/storj/uplink"
 )
 
 func TestDataRepair(t *testing.T) {
-	// TODO configure intervals for checker and repairer
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
+		SatelliteCount:   1,
+		StorageNodeCount: 10,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Checker.Interval = 1 * time.Second
+				config.Repairer.Interval = 1 * time.Second
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// first, upload some remote data
 		ul := planet.Uplinks[0]
@@ -84,7 +94,8 @@ func TestDataRepair(t *testing.T) {
 			}
 		}
 
-		// TODO wait for checker and repairer to repair the segment
+		// TODO figure out optimal time to sleep
+		time.Sleep(5 * time.Second)
 
 		// kill nodes kept alive to ensure repair worked
 		for _, node := range planet.StorageNodes {
