@@ -5,12 +5,9 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
-	"storj.io/storj/internal/version"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -18,6 +15,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
+	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
@@ -130,21 +128,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	resp, err := http.Get("https://version.storj.io/")
+	ver, err := version.QueryVersionFromControllServer()
 	if err != nil {
-		log.Sugar().Error("Failed to fetch version info")
-		return err
-	}
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Sugar().Error("Failed to parse body from version request")
-		return err
-	}
-
-	ver, err := version.New(body)
-	if err != nil {
-		log.Sugar().Error("Failed to create version info from body")
+		log.Sugar().Error("Failed to fetch version info: ", err)
 	}
 	// TODO: Handle further comparison of version info against internal information
 	log.Sugar().Debug(ver)
