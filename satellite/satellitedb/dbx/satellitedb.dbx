@@ -457,7 +457,6 @@ read first (
     orderby desc bucket_storage_rollup.interval_start
 )
 
-
 // --- storage node roll up tables --- //
 
 model storagenode_bandwidth_rollup (

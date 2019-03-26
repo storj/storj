@@ -57,6 +57,6 @@ type DB interface {
 	DeleteRawBefore(ctx context.Context, latestRollup time.Time) error
 	// ProjectBandwidthTotal returns the sum of GET bandwidth usage for a projectID in the past time frame
 	ProjectBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (uint64, error)
-	// ProjectStorageTotals returns the sum of inline and remote storage usage for a projectID in the past time frame
+	// ProjectStorageTotals returns the current inline and remote storage usage for a projectID
 	ProjectStorageTotals(ctx context.Context, projectID uuid.UUID) (uint64, uint64, error)
 }

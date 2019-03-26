@@ -6,7 +6,6 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -26,12 +25,10 @@ type accountingDB struct {
 // ProjectBandwidthTotal returns the sum of GET bandwidth usage for a projectID for a time frame
 func (db *accountingDB) ProjectBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (uint64, error) {
 	var total uint64
-	var query = fmt.Sprintf(`
-		SELECT SUM (settled) as total
+	var query = `SELECT SUM (settled) as total
 		FROM bucket_bandwidth_rollup
 		WHERE project_id = ? AND interval_start >= ? AND action = ?
-		`,
-	)
+		`
 	rows, err := db.db.DB.QueryContext(ctx,
 		db.db.Rebind(query), projectID, from, pb.BandwidthAction_GET,
 	)
