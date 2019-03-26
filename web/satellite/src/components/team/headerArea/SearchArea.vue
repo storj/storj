@@ -100,7 +100,7 @@
                     height: 56px;
                     padding-right: 20px;
                     padding-left: 20px;
-                    font-family: 'montserrat_regular';
+                    font-family: 'font_regular';
                     font-size: 16px;
                     transition: all .2s ease-in-out;
 

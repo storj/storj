@@ -244,7 +244,7 @@ export default class AddUserPopup extends Vue {}
 
                 p {
                     margin: 0 !important;
-                    font-family: 'montserrat_medium';
+                    font-family: 'font_medium';
                     font-size: 16px;
                     margin-left: 0;
                     padding-left: 0;
@@ -291,7 +291,7 @@ export default class AddUserPopup extends Vue {}
     .text {
         margin: 0;
         margin-bottom: 0 !important;
-        font-family: 'montserrat_regular' !important;
+        font-family: 'font_regular' !important;
         font-size: 16px;
         line-height: 25px;
     }
@@ -327,14 +327,14 @@ export default class AddUserPopup extends Vue {}
             padding: 0 50px;
 
             &__text {
-                font-family: 'montserrat_regular';
+                font-family: 'font_regular';
                 font-size: 16px;
                 margin-top: 0;
                 margin-bottom: 50px;
             }
 
             &__main-label-text {
-                font-family: 'montserrat_bold';
+                font-family: 'font_bold';
                 font-size: 32px;
                 line-height: 29px;
                 color: #384B65;
@@ -380,7 +380,7 @@ export default class AddUserPopup extends Vue {}
                     align-items: center;
 
                     input {
-                        font-family: 'montserrat_regular';
+                        font-family: 'font_regular';
                         font-size: 16px;
                         line-height: 21px;
                         resize: none;
@@ -415,7 +415,7 @@ export default class AddUserPopup extends Vue {}
             p {
                 margin: 0;
                 margin-bottom: 10px;
-                font-family: 'montserrat_regular';
+                font-family: 'font_regular';
                 font-size: 16px;
                 line-height: 25px;
                 padding-left: 50px;
@@ -426,7 +426,7 @@ export default class AddUserPopup extends Vue {}
             }
 
             a {
-                font-family: 'montserrat_medium';
+                font-family: 'font_medium';
                 font-size: 16px;
                 color: #2683FF;
             }
@@ -474,7 +474,7 @@ export default class AddUserPopup extends Vue {}
             align-items: center;
 
             p {
-                font-family: 'montserrat_medium';
+                font-family: 'font_medium';
                 font-size: 16px;
                 margin-left: 40px;
 

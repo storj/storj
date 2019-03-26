@@ -162,7 +162,7 @@ export default class NewProjectPopup extends Vue {
              height: 535px;
 
             &__main-label-text {
-                 font-family: 'montserrat_bold';
+                 font-family: 'font_bold';
                  font-size: 32px;
                  line-height: 39px;
                  color: #384B65;
