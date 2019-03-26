@@ -49,7 +49,7 @@ export default class ApiKeysDropdown extends Vue {
         position: relative;
         background-color: #FFFFFF;
         cursor: pointer;
-        font-family: 'montserrat_regular';
+        font-family: 'font_regular';
         font-size: 16px;
         resize: none;
         height: 50px;
@@ -68,7 +68,7 @@ export default class ApiKeysDropdown extends Vue {
 
         &__dropdown-name {
             margin-left: 20px;
-            font-family: 'montserrat_medium';
+            font-family: 'font_medium';
             font-size: 16px;
             color: #384B65;
             opacity: 0.4;
