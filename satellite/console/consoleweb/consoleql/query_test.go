@@ -50,7 +50,7 @@ func TestGraphqlQuery(t *testing.T) {
 		rootObject[consoleql.ActivationPath] = "?activationToken="
 
 		creator := consoleql.TypeCreator{}
-		if err = creator.Create(service, mailService); err != nil {
+		if err = creator.Create(log, service, mailService); err != nil {
 			t.Fatal(err)
 		}
 

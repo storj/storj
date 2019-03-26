@@ -118,11 +118,11 @@ func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg
 	}
 
 	if err != nil {
-		service.log.Info("error from mail sender",
+		service.log.Error("fail sending email",
 			zap.String("error", err.Error()),
 			zap.Strings("recipients", recipients))
 	} else {
-		service.log.Info("successfully send message",
+		service.log.Info("email sent successfully",
 			zap.Strings("recipients", recipients))
 	}
 
