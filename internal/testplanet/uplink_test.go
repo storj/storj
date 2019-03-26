@@ -106,6 +106,9 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 			if nodesToKill[node.ID()] {
 				err = planet.StopPeer(node)
 				assert.NoError(t, err)
+
+				err = satellite.Overlay.Service.Delete(ctx, node.ID())
+				assert.NoError(t, err)
 			}
 		}
 
