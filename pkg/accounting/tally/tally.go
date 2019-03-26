@@ -70,7 +70,7 @@ func (t *Tally) Run(ctx context.Context) (err error) {
 func (t *Tally) Tally(ctx context.Context) error {
 	//data at rest
 	var errAtRest, errBWA error
-	latestTally, nodeData, err := t.calculateAtRestData(ctx)
+	latestTally, nodeData, bucketStats, err := t.calculateAtRestData(ctx)
 	if err != nil {
 		errAtRest = errs.New("Query for data-at-rest failed : %v", err)
 	} else if len(nodeData) > 0 {
@@ -109,14 +109,15 @@ func (t *Tally) Tally(ctx context.Context) error {
 
 // calculateAtRestData iterates through the pieces on pointerdb and calculates
 // the amount of at-rest data stored on each respective node
-func (t *Tally) calculateAtRestData(ctx context.Context) (latestTally time.Time, nodeData map[storj.NodeID]float64, err error) {
+func (t *Tally) calculateAtRestData(ctx context.Context) (latestTally time.Time, nodeData map[storj.NodeID]float64, bucketStats map[string]*stats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	latestTally, err = t.accountingDB.LastTimestamp(ctx, accounting.LastAtRestTally)
 	if err != nil {
-		return latestTally, nodeData, Error.Wrap(err)
+		return latestTally, nodeData, bucketStats, Error.Wrap(err)
 	}
 	nodeData = make(map[storj.NodeID]float64)
+	bucketStats = make(map[string]*stats)
 
 	var currentBucket string
 	var bucketCount int64
@@ -154,6 +155,9 @@ func (t *Tally) calculateAtRestData(ctx context.Context) (latestTally time.Time,
 							// report the previous bucket and add to the totals
 							currentBucketStats.Report("bucket")
 							totalStats.Combine(&currentBucketStats)
+
+							// add currentBucketStats to bucketStats
+							bucketStats[currentBucket] = &currentBucketStats
 							currentBucketStats = stats{}
 						}
 						currentBucket = bucketID
@@ -191,18 +195,19 @@ func (t *Tally) calculateAtRestData(ctx context.Context) (latestTally time.Time,
 		},
 	)
 	if err != nil {
-		return latestTally, nodeData, Error.Wrap(err)
+		return latestTally, nodeData, bucketStats, Error.Wrap(err)
 	}
 
 	if currentBucket != "" {
 		// wrap up the last bucket
 		totalStats.Combine(&currentBucketStats)
+		bucketStats[currentBucket] = &currentBucketStats
 	}
 	totalStats.Report("total")
 	mon.IntVal("bucket_count").Observe(bucketCount)
 
 	if len(nodeData) == 0 {
-		return latestTally, nodeData, nil
+		return latestTally, nodeData, bucketStats, nil
 	}
 
 	//store byte hours, not just bytes
@@ -214,7 +219,7 @@ func (t *Tally) calculateAtRestData(ctx context.Context) (latestTally time.Time,
 	for k := range nodeData {
 		nodeData[k] *= numHours //calculate byte hours
 	}
-	return latestTally, nodeData, err
+	return latestTally, nodeData, bucketStats, err
 }
 
 // SaveAtRestRaw records raw tallies of at-rest-data and updates the LastTimestamp
