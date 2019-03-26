@@ -116,7 +116,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 }
 
 // GenerateActivationToken - is a method for generating activation token
-func (s *Service) GenerateActivationToken(ctx context.Context, id uuid.UUID, email string) (activationToken string, err error) {
+func (s *Service) GenerateActivationToken(ctx context.Context, id uuid.UUID, email string) (token string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	//TODO: activation token should differ from auth token
