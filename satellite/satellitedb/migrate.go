@@ -430,6 +430,27 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						rollup_end_time )`,
 				},
 			},
+			{
+				Description: "Merge overlay_cache_nodes into nodes table",
+				Version:     10,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD address TEXT;
+					ALTER TABLE nodes ADD protocol INTEGER;
+					ALTER TABLE nodes ADD type INTEGER;
+					ALTER TABLE nodes ADD free_bandwidth BIGINT;
+					ALTER TABLE nodes ADD free_disk BIGINT;
+					ALTER TABLE nodes ADD latency_90 BIGINT;
+					ALTER TABLE nodes ADD last_seen_at TIMESTAMP WITH TIME ZONE;
+					ALTER TABLE nodes ALTER COLUMN address SET NOT NULL;
+					ALTER TABLE nodes ALTER COLUMN protocol SET NOT NULL;
+					ALTER TABLE nodes ALTER COLUMN type SET NOT NULL;
+					ALTER TABLE nodes ALTER COLUMN free_bandwidth SET NOT NULL;
+					ALTER TABLE nodes ALTER COLUMN free_disk SET NOT NULL;
+					ALTER TABLE nodes ALTER COLUMN latency_90 SET NOT NULL;
+					ALTER TABLE nodes ALTER COLUMN last_seen_at SET NOT NULL;`,
+					`DROP TABLE IF EXISTS overlay_cache_nodes CASCADE;`,
+				},
+			},
 		},
 	}
 }
