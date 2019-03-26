@@ -38,12 +38,6 @@ func TestBasic(t *testing.T) {
 			t.Log("UPLINK", uplink.ID(), uplink.Addr())
 		}
 
-		// TODO: questionable conflict resolution
-		// Example of using pointer db
-		_, err = planet.Uplinks[0].DialPointerDB(planet.Satellites[0], "apikey")
-		require.NoError(t, err)
-		// TODO: end questionable resolution
-
 		// ping a satellite
 		fmt.Println(version)
 		id1 := planet.StorageNodes[0].Local().Id

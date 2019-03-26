@@ -221,7 +221,7 @@ func TestConfig_Save(t *testing.T) {
 }
 
 func TestVersionedNodeIDFromKey(t *testing.T) {
-	_, chain, err := testpeertls.NewCertChain(1)
+	_, chain, err := testpeertls.NewCertChain(1, storj.LatestIDVersion().Number)
 	require.NoError(t, err)
 
 	pubKey, ok := chain[peertls.LeafIndex].PublicKey.(crypto.PublicKey)

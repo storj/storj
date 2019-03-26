@@ -7,13 +7,19 @@ import (
 	"crypto"
 	"crypto/x509"
 	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
 )
 
 // NewCertChain creates a valid peertls certificate chain (and respective keys) of the desired length.
 // NB: keys are in the reverse order compared to certs (i.e. first key belongs to last cert)!
-func NewCertChain(length int) (keys []crypto.PrivateKey, certs []*x509.Certificate, _ error) {
+func NewCertChain(length int, versionNumber storj.IDVersionNumber) (keys []crypto.PrivateKey, certs []*x509.Certificate, _ error) {
+	version, err := storj.GetIDVersion(versionNumber)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	for i := 0; i < length; i++ {
 		key, err := pkcrypto.GeneratePrivateKey()
 		if err != nil {
@@ -24,6 +30,9 @@ func NewCertChain(length int) (keys []crypto.PrivateKey, certs []*x509.Certifica
 		var template *x509.Certificate
 		if i == length-1 {
 			template, err = peertls.CATemplate()
+			if err = extensions.AddExtraExtension(template, storj.NewVersionExt(version)); err != nil {
+				return nil, nil, err
+			}
 		} else {
 			template, err = peertls.LeafTemplate()
 		}
@@ -44,28 +53,4 @@ func NewCertChain(length int) (keys []crypto.PrivateKey, certs []*x509.Certifica
 		certs = append([]*x509.Certificate{cert}, certs...)
 	}
 	return keys, certs, nil
-}
-
-func NewVersionedCertChain(length int, versionNumber storj.IDVersionNumber) ([]crypto.PrivateKey, []*x509.Certificate, error) {
-	version, err := storj.GetIDVersion(versionNumber)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	versionedCertIndex := peertls.CAIndex
-	if length < peertls.CAIndex+1 {
-		versionedCertIndex = peertls.CAIndex - 1
-	}
-
-	keys, chain, err := NewCertChain(length)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	caCert := chain[versionedCertIndex]
-	if err = storj.AddVersionExt(version, caCert); err != nil {
-		return nil, nil, err
-	}
-
-	return keys, chain, err
 }

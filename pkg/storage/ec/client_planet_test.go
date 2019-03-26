@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -153,10 +153,7 @@ func newAddressedOrderLimit(action pb.PieceAction, satellite *satellite.Peer, up
 	if err != nil {
 		return nil, err
 	}
-	orderExpiration, err := ptypes.TimestampProto(time.Now().Add(24 * time.Hour))
-	if err != nil {
-		return nil, err
-	}
+
 	limit := &pb.OrderLimit2{
 		SerialNumber:    storj.SerialNumber(*serialNumber),
 		SatelliteId:     satellite.ID(),
@@ -165,8 +162,8 @@ func newAddressedOrderLimit(action pb.PieceAction, satellite *satellite.Peer, up
 		PieceId:         pieceID,
 		Action:          action,
 		Limit:           dataSize.Int64(),
-		PieceExpiration: nil,
-		OrderExpiration: orderExpiration,
+		PieceExpiration: new(timestamp.Timestamp),
+		OrderExpiration: new(timestamp.Timestamp),
 	}
 
 	limit, err = signing.SignOrderLimit(signing.SignerFromFullIdentity(satellite.Identity), limit)

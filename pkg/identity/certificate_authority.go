@@ -176,14 +176,15 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 		opts.ParentKey = selectedKey
 	}
 
+	if err := extensions.AddExtraExtension(ct, storj.NewVersionExt(version)); err != nil {
+		return nil, err
+	}
+
 	cert, err := peertls.NewCert(pkcrypto.PublicKeyFromPrivate(selectedKey), opts.ParentKey, ct, opts.ParentCert)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := storj.AddVersionExt(version, cert); err != nil {
-		return nil, err
-	}
 
 	ca := &FullCertificateAuthority{
 		Cert: cert,

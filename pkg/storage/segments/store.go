@@ -101,12 +101,9 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		ErasureShareSize: int32(s.rs.ErasureShareSize()),
 	}
 
-	var exp *timestamp.Timestamp
-	if !expiration.IsZero() {
-		exp, err = ptypes.TimestampProto(expiration)
-		if err != nil {
-			return Meta{}, Error.Wrap(err)
-		}
+	exp, err := ptypes.TimestampProto(expiration)
+	if err != nil {
+		return Meta{}, Error.Wrap(err)
 	}
 
 	peekReader := NewPeekThresholdReader(data)

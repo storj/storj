@@ -32,7 +32,7 @@ type Info struct {
 
 	PieceID         storj.PieceID
 	PieceSize       int64
-	PieceExpiration *time.Time
+	PieceExpiration time.Time
 
 	UplinkPieceHash *pb.PieceHash
 	Uplink          *identity.PeerIdentity

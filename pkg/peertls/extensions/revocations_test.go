@@ -5,6 +5,7 @@ package extensions_test
 
 import (
 	"crypto/x509/pkix"
+	"storj.io/storj/pkg/storj"
 	"testing"
 	"time"
 
@@ -21,7 +22,7 @@ import (
 
 func TestRevocationCheckHandler(t *testing.T) {
 	testidentity.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, _ storage.KeyValueStore) {
-		keys, chain, err := testpeertls.NewCertChain(2)
+		keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 		assert.NoError(t, err)
 
 		opts := &extensions.Options{RevDB: revDB}
@@ -69,7 +70,7 @@ func TestRevocationCheckHandler(t *testing.T) {
 	})
 
 	testidentity.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, _ storage.KeyValueStore) {
-		keys, chain, err := testpeertls.NewCertChain(2)
+		keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 		assert.NoError(t, err)
 
 		opts := &extensions.Options{RevDB: revDB}
@@ -112,7 +113,7 @@ func TestRevocationCheckHandler(t *testing.T) {
 
 func TestRevocationUpdateHandler(t *testing.T) {
 	testidentity.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, _ storage.KeyValueStore) {
-		keys, chain, err := testpeertls.NewCertChain(2)
+		keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 		assert.NoError(t, err)
 
 		olderRevokedChain, olderRevocation, err := testpeertls.RevokeLeaf(keys[0], chain)

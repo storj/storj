@@ -5,8 +5,10 @@ package storj // import "storj.io/storj/pkg/storj"
 
 import (
 	"crypto/sha256"
+	"crypto/x509/pkix"
 	"database/sql/driver"
 	"math/bits"
+	"storj.io/storj/pkg/peertls/extensions"
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/zeebo/errs"
@@ -33,6 +35,13 @@ func NewVersionedID(id NodeID, version IDVersion) NodeID {
 
 	versionedID[NodeIDSize-1] = byte(version.Number)
 	return versionedID
+}
+
+func NewVersionExt(version IDVersion) pkix.Extension {
+	return pkix.Extension{
+		Id:    extensions.IdentityVersionExtID,
+		Value: []byte{byte(version.Number)},
+	}
 }
 
 // NodeIDFromString decodes a base58check encoded node id string

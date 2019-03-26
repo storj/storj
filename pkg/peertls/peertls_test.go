@@ -10,6 +10,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"encoding/gob"
+	"storj.io/storj/pkg/storj"
 	"testing"
 	"time"
 
@@ -72,7 +73,7 @@ func TestNewCert_Leaf(t *testing.T) {
 }
 
 func TestVerifyPeerFunc(t *testing.T) {
-	_, chain, err := testpeertls.NewCertChain(2)
+	_, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 	if !assert.NoError(t, err) {
 		t.FailNow()
 	}
@@ -99,7 +100,7 @@ func TestVerifyPeerFunc(t *testing.T) {
 }
 
 func TestVerifyPeerCertChains(t *testing.T) {
-	keys, chain, err := testpeertls.NewCertChain(2)
+	keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 	if !assert.NoError(t, err) {
 		t.FailNow()
 	}
@@ -122,7 +123,7 @@ func TestVerifyPeerCertChains(t *testing.T) {
 }
 
 func TestVerifyCAWhitelist(t *testing.T) {
-	_, chain2, err := testpeertls.NewCertChain(2)
+	_, chain2, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 	if !assert.NoError(t, err) {
 		t.FailNow()
 	}
@@ -138,7 +139,7 @@ func TestVerifyCAWhitelist(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	_, unrelatedChain, err := testpeertls.NewCertChain(1)
+	_, unrelatedChain, err := testpeertls.NewCertChain(1, storj.LatestIDVersion().Number)
 	if !assert.NoError(t, err) {
 		t.FailNow()
 	}
@@ -161,7 +162,7 @@ func TestVerifyCAWhitelist(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	_, chain3, err := testpeertls.NewCertChain(3)
+	_, chain3, err := testpeertls.NewCertChain(3, storj.LatestIDVersion().Number)
 	if !assert.NoError(t, err) {
 		t.FailNow()
 	}
@@ -179,7 +180,7 @@ func TestVerifyCAWhitelist(t *testing.T) {
 }
 
 func TestAddExtraExtension(t *testing.T) {
-	_, chain, err := testpeertls.NewCertChain(1)
+	_, chain, err := testpeertls.NewCertChain(1, storj.LatestIDVersion().Number)
 	require.NoError(t, err)
 
 	cert := chain[0]
@@ -205,7 +206,7 @@ func TestAddExtraExtension(t *testing.T) {
 }
 
 func TestRevocation_Sign(t *testing.T) {
-	keys, chain, err := testpeertls.NewCertChain(2)
+	keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 	assert.NoError(t, err)
 	leafCert, caKey := chain[0], keys[0]
 
@@ -223,7 +224,7 @@ func TestRevocation_Sign(t *testing.T) {
 }
 
 func TestRevocation_Verify(t *testing.T) {
-	keys, chain, err := testpeertls.NewCertChain(2)
+	keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 	assert.NoError(t, err)
 	leafCert, caCert, caKey := chain[0], chain[1], keys[0]
 
@@ -244,7 +245,7 @@ func TestRevocation_Verify(t *testing.T) {
 }
 
 func TestRevocation_Marshal(t *testing.T) {
-	keys, chain, err := testpeertls.NewCertChain(2)
+	keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 	assert.NoError(t, err)
 	leafCert, caKey := chain[0], keys[0]
 
@@ -272,7 +273,7 @@ func TestRevocation_Marshal(t *testing.T) {
 }
 
 func TestRevocation_Unmarshal(t *testing.T) {
-	keys, chain, err := testpeertls.NewCertChain(2)
+	keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 	assert.NoError(t, err)
 	leafCert, caKey := chain[0], keys[0]
 
@@ -301,7 +302,7 @@ func TestRevocation_Unmarshal(t *testing.T) {
 }
 
 func TestNewRevocationExt(t *testing.T) {
-	keys, chain, err := testpeertls.NewCertChain(2)
+	keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 	assert.NoError(t, err)
 
 	ext, err := extensions.NewRevocationExt(keys[0], chain[0])

@@ -6,6 +6,7 @@ package extensions_test
 import (
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"storj.io/storj/pkg/storj"
 	"strconv"
 	"testing"
 
@@ -32,7 +33,7 @@ func TestHandlers_Register(t *testing.T) {
 		opts = append(opts, &extensions.Options{})
 		exts = append(exts, pkix.Extension{Id: *ids[i]})
 
-		_, chain, err := testpeertls.NewCertChain(2)
+		_, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 		require.NoError(t, err)
 		chains = append(chains, identity.ToChains(chain))
 
@@ -83,7 +84,7 @@ func TestHandlers_WithOptions(t *testing.T) {
 		opts = append(opts, &extensions.Options{})
 		exts = append(exts, pkix.Extension{Id: *ids[i]})
 
-		_, chain, err := testpeertls.NewCertChain(2)
+		_, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 		require.NoError(t, err)
 		chains = append(chains, identity.ToChains(chain))
 

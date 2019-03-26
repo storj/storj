@@ -6,6 +6,7 @@ package identity_test
 import (
 	"bytes"
 	"crypto/x509/pkix"
+	"storj.io/storj/pkg/storj"
 	"testing"
 	"time"
 
@@ -27,7 +28,7 @@ func TestRevocationDB_Get(t *testing.T) {
 
 	testidentity.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
 		// NB: key indices are reversed as compared to chain indices
-		keys, chain, err := testpeertls.NewCertChain(2)
+		keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 		require.NoError(t, err)
 
 		ext, err := extensions.NewRevocationExt(keys[0], chain[peertls.LeafIndex])
@@ -66,7 +67,7 @@ func TestRevocationDB_Put_success(t *testing.T) {
 
 	testidentity.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
 		// NB: key indices are reversed as compared to chain indices
-		keys, chain, err := testpeertls.NewCertChain(2)
+		keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 		require.NoError(t, err)
 
 		firstRevocation, err := extensions.NewRevocationExt(keys[0], chain[peertls.LeafIndex])
@@ -117,7 +118,7 @@ func TestRevocationDB_Put_error(t *testing.T) {
 
 	testidentity.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
 		// NB: key indices are reversed as compared to chain indices
-		keys, chain, err := testpeertls.NewCertChain(2)
+		keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 		require.NoError(t, err)
 
 		olderRevocation, err := extensions.NewRevocationExt(keys[0], chain[peertls.LeafIndex])
