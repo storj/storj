@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	ver version.Version_Info
+	ver version.Info
 )
 
 func handleGet(w http.ResponseWriter, r *http.Request) {
@@ -42,15 +42,15 @@ func main() {
 	// Flags to specify required Version
 	addr := flag.String("listen", "0.0.0.0:8080", "Defines Listen Address of Webserver")
 	stimestamp := flag.String("timestamp", strconv.FormatInt(time.Now().UnixNano(), 10), "Sets Timestamp of Build")
-	scommit := flag.String("commit", "", "Sets CommitHash of Build")
+	scommithash := flag.String("commit", "", "Sets CommitHash of Build")
 	sversion := flag.String("version", "v0.1.0", "Sets required Version Number")
 	srelease := flag.Bool("release", false, "Sets if version is an official release")
 	flag.Parse()
 
 	if flag.Parsed() {
-		ver = version.Version_Info{
+		ver = version.Info{
 			Timestamp:  *stimestamp,
-			CommitHash: *scommit,
+			CommitHash: *scommithash,
 			Version:    *sversion,
 			Release:    *srelease,
 		}

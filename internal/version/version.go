@@ -2,7 +2,7 @@ package version
 
 import "encoding/json"
 
-type Version_Info struct {
+type Info struct {
 	Timestamp  string `json:"timestamp"`
 	CommitHash string `json:"hash"`
 	Version    string `json:"version"`
@@ -10,13 +10,13 @@ type Version_Info struct {
 }
 
 // New creates Version_Info from a json byte array
-func New(data []byte) (v Version_Info, err error) {
+func New(data []byte) (v Info, err error) {
 	err = json.Unmarshal(data, v)
 	return v, err
 }
 
 // Marshal converts the existing Version Info to any json byte array
-func (v Version_Info) Marshal() (data []byte, err error) {
+func (v Info) Marshal() (data []byte, err error) {
 	data, err = json.Marshal(v)
 	return
 }
