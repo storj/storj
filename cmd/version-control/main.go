@@ -8,8 +8,9 @@ import (
 	"flag"
 	"log"
 	"net/http"
-	"storj.io/storj/internal/version"
 	"strings"
+
+	"storj.io/storj/internal/version"
 )
 
 var (
