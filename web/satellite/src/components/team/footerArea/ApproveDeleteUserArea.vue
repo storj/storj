@@ -62,7 +62,7 @@ export default class ApproveDeleteUserArea extends Vue {
             align-items: center;
 
             p {
-                font-family: 'montserrat_medium';
+                font-family: 'font_medium';
                 font-size: 16px;
                 margin-left: 40px;
             }
@@ -78,7 +78,7 @@ export default class ApproveDeleteUserArea extends Vue {
                 align-items: center;
                 justify-content: center;
                 border-radius: 6px;
-                font-family: 'montserrat_medium';
+                font-family: 'font_medium';
                 font-size: 16px;
                 cursor: pointer;
             }

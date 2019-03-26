@@ -84,7 +84,7 @@ export default class AccountButton extends Vue {
 
         &__user-name {
             margin-left: 12px;
-            font-family: 'montserrat_medium';
+            font-family: 'font_medium';
             font-size: 16px;
             line-height: 23px;
             color: #354049;
@@ -101,7 +101,7 @@ export default class AccountButton extends Vue {
             background: #E8EAF2;
 
             h1 {
-                font-family: 'montserrat_medium';
+                font-family: 'font_medium';
                 font-size: 16px;
                 line-height: 23px;
                 color: #354049;
