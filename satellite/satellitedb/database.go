@@ -15,7 +15,6 @@ import (
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/orders"
@@ -104,11 +103,6 @@ func (db *DB) CertDB() certdb.DB {
 // func (db *DB) PointerDB() pointerdb.DB {
 // 	return &pointerDB{db: db.db}
 // }
-
-// StatDB is a getter for StatDB repository
-func (db *DB) StatDB() statdb.DB {
-	return &statDB{db: db.db}
-}
 
 // OverlayCache is a getter for overlay cache repository
 func (db *DB) OverlayCache() overlay.DB {

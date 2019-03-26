@@ -38,7 +38,7 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/pointerdb"
@@ -392,7 +392,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 					RevocationDBURL:     "bolt://" + filepath.Join(storageDir, "revocation.db"),
 					UsePeerCAWhitelist:  true,
 					PeerCAWhitelistPath: planet.whitelistPath,
-					Extensions: peertls.TLSExtConfig{
+					Extensions: extensions.Config{
 						Revocation:          false,
 						WhitelistSignedLeaf: false,
 					},
@@ -535,7 +535,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 					RevocationDBURL:     "bolt://" + filepath.Join(storageDir, "revocation.db"),
 					UsePeerCAWhitelist:  true,
 					PeerCAWhitelistPath: planet.whitelistPath,
-					Extensions: peertls.TLSExtConfig{
+					Extensions: extensions.Config{
 						Revocation:          false,
 						WhitelistSignedLeaf: false,
 					},
@@ -626,7 +626,7 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 				RevocationDBURL:     "bolt://" + filepath.Join(dbDir, "revocation.db"),
 				UsePeerCAWhitelist:  true,
 				PeerCAWhitelistPath: planet.whitelistPath,
-				Extensions: peertls.TLSExtConfig{
+				Extensions: extensions.Config{
 					Revocation:          false,
 					WhitelistSignedLeaf: false,
 				},
