@@ -23,8 +23,12 @@ import (
 
 // DB implements saving order after receiving from storage node
 type DB interface {
-	// SaveOrder saves an order
-	SaveOrder(context.Context, *pb.OrderLimit2, *pb.Order2) error
+	// SaveInlineOrder
+	SaveInlineOrder(ctx context.Context, bucketID []byte) error
+	// SaveRemoteOrder
+	SaveRemoteOrder(ctx context.Context, bucketID []byte, orderLimits []*pb.OrderLimit2) error
+	// SettleOrder
+	SettleRemoteOrder(ctx context.Context, orderLimit *pb.OrderLimit2, order *pb.Order2) error
 }
 
 var (
@@ -137,7 +141,7 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 			}
 		}
 
-		if err = endpoint.DB.SaveOrder(ctx, orderLimit, order); err != nil {
+		if err = endpoint.DB.SettleRemoteOrder(ctx, orderLimit, order); err != nil {
 			duplicateRequest := strings.Contains(err.Error(), "UNIQUE constraint failed") || strings.Contains(err.Error(), "violates unique constraint")
 			if duplicateRequest {
 				err := stream.Send(&pb.SettlementResponse{
@@ -161,5 +165,4 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 			return formatError(err)
 		}
 	}
-	return nil
 }

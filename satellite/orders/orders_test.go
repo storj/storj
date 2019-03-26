@@ -6,7 +6,6 @@ package orders_test
 import (
 	"crypto/rand"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"storj.io/storj/internal/memory"
@@ -45,6 +44,7 @@ func TestOrders(t *testing.T) {
 
 	sumUnsent := 0
 	sumArchived := 0
+
 	for _, storageNode := range planet.StorageNodes {
 		storageNode.Storage2.Sender.Loop.TriggerWait()
 
@@ -57,7 +57,6 @@ func TestOrders(t *testing.T) {
 		sumArchived += len(archivedInfos)
 	}
 
-	time.Sleep(3 * time.Second)
 	require.Zero(t, sumUnsent)
 	require.Equal(t, sumBeforeSend, sumArchived)
 }

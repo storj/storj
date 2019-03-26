@@ -23,15 +23,15 @@ import (
 // AllocationSigner structure
 type AllocationSigner struct {
 	satelliteIdentity *identity.FullIdentity
-	bwExpiration      int
+	orderExpiration   int
 	certdb            certdb.DB
 }
 
 // NewAllocationSigner creates new instance
-func NewAllocationSigner(satelliteIdentity *identity.FullIdentity, bwExpiration int, upldb certdb.DB) *AllocationSigner {
+func NewAllocationSigner(satelliteIdentity *identity.FullIdentity, orderExpiration int, upldb certdb.DB) *AllocationSigner {
 	return &AllocationSigner{
 		satelliteIdentity: satelliteIdentity,
-		bwExpiration:      bwExpiration,
+		orderExpiration:   orderExpiration,
 		certdb:            upldb,
 	}
 }
@@ -47,7 +47,7 @@ func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context
 	}
 	created := time.Now().Unix()
 	// convert ttl from days to seconds
-	ttl := allocation.bwExpiration
+	ttl := allocation.orderExpiration
 	ttl *= 86400
 
 	// store the corresponding uplink's id and public key into certDB db
@@ -74,6 +74,7 @@ func (allocation *AllocationSigner) PayerBandwidthAllocation(ctx context.Context
 
 // OrderLimitParameters parameters necessary to create OrderLimit
 type OrderLimitParameters struct {
+	SerialNumber    storj.SerialNumber
 	UplinkIdentity  *identity.PeerIdentity
 	StorageNodeID   storj.NodeID
 	PieceID         storj.PieceID
@@ -87,10 +88,6 @@ func (allocation *AllocationSigner) OrderLimit(ctx context.Context, parameters O
 	if parameters.UplinkIdentity == nil {
 		return nil, Error.New("missing uplink identity")
 	}
-	serialNum, err := uuid.New()
-	if err != nil {
-		return nil, err
-	}
 
 	// store the corresponding uplink's id and public key into certDB db
 	err = allocation.certdb.SavePublicKey(ctx, parameters.UplinkIdentity.ID, parameters.UplinkIdentity.Leaf.PublicKey)
@@ -102,14 +99,14 @@ func (allocation *AllocationSigner) OrderLimit(ctx context.Context, parameters O
 		return nil, err
 	}
 
-	// convert bwExpiration from days to seconds
-	orderExpiration, err := ptypes.TimestampProto(time.Now().Add(time.Duration(allocation.bwExpiration*24) * time.Hour))
+	// convert orderExpiration from days to timstamp
+	orderExpiration, err := ptypes.TimestampProto(time.Now().Add(time.Duration(allocation.orderExpiration*24) * time.Hour))
 	if err != nil {
 		return nil, err
 	}
 
 	pba = &pb.OrderLimit2{
-		SerialNumber:    storj.SerialNumber(*serialNum),
+		SerialNumber:    parameters.SerialNumber,
 		SatelliteId:     allocation.satelliteIdentity.ID,
 		UplinkId:        parameters.UplinkIdentity.ID,
 		StorageNodeId:   parameters.StorageNodeID,

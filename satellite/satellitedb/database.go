@@ -140,7 +140,5 @@ func (db *DB) Console() console.DB {
 
 // Orders returns database for storing orders
 func (db *DB) Orders() orders.DB {
-	return &ordersDB{
-		db: db.db,
-	}
+	return &ordersDB{db: db.db}
 }

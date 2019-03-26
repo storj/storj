@@ -325,6 +325,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			peer.Overlay.Service,
 			peer.DB.Console().APIKeys(),
 			signing.SignerFromFullIdentity(peer.Identity),
+			peer.DB.Orders(),
 		)
 
 		pb.RegisterPointerDBServer(peer.Server.GRPC(), peer.Metainfo.Endpoint)

@@ -554,11 +554,25 @@ type lockedOrders struct {
 	db orders.DB
 }
 
-// SaveOrder saves an order
-func (m *lockedOrders) SaveOrder(ctx context.Context, a1 *pb.OrderLimit2, a2 *pb.Order2) error {
+// SaveInlineOrder
+func (m *lockedOrders) SaveInlineOrder(ctx context.Context, bucketID []byte) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.SaveOrder(ctx, a1, a2)
+	return m.db.SaveInlineOrder(ctx, bucketID)
+}
+
+// SaveRemoteOrder
+func (m *lockedOrders) SaveRemoteOrder(ctx context.Context, bucketID []byte, orderLimits []*pb.OrderLimit2) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SaveRemoteOrder(ctx, bucketID, orderLimits)
+}
+
+// SettleOrder
+func (m *lockedOrders) SettleRemoteOrder(ctx context.Context, orderLimit *pb.OrderLimit2, order *pb.Order2) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SettleRemoteOrder(ctx, orderLimit, order)
 }
 
 // OverlayCache returns database for caching overlay information
