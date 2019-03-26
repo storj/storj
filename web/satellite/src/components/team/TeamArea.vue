@@ -130,7 +130,7 @@ export default class TeamArea extends Vue {
         flex-direction: column;
 
         &__text {
-            font-family: 'montserrat_bold';
+            font-family: 'font_bold';
             font-size: 32px;
             line-height: 39px;
             margin-top: 100px;

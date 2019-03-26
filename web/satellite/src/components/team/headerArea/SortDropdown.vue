@@ -86,7 +86,7 @@ export default class SortDropdown extends Vue {
         padding-right: 20px;
 
         h2 {
-            font-family: 'montserrat_regular';
+            font-family: 'font_regular';
             margin-left: 20px;
             font-size: 14px;
             line-height: 20px;

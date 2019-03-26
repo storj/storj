@@ -71,7 +71,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 
 		invalid2, err := cache.Get(ctx, missingID)
 		assert.Error(t, err)
-		assert.True(t, err == overlay.ErrNodeNotFound)
+		assert.True(t, overlay.ErrNodeNotFound.Has(err))
 		assert.Nil(t, invalid2)
 
 		// TODO: add erroring database test
@@ -130,7 +130,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		deleted, err := cache.Get(ctx, valid1ID)
 		assert.Error(t, err)
 		assert.Nil(t, deleted)
-		assert.True(t, err == overlay.ErrNodeNotFound)
+		assert.True(t, overlay.ErrNodeNotFound.Has(err))
 
 		// Test idempotent delete / non existent key delete
 		err = cache.Delete(ctx, valid1ID)

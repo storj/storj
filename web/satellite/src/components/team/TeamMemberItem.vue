@@ -77,7 +77,7 @@ export default class TeamMemberItem extends Vue {
         }
 
         &__date {
-            font-family: 'montserrat_regular';
+            font-family: 'font_regular';
             font-size: 12px;
             line-height: 16px;
             color: #AFB7C1;
@@ -86,7 +86,7 @@ export default class TeamMemberItem extends Vue {
         }
 
         &__user-email {
-            font-family: 'montserrat_regular';
+            font-family: 'font_regular';
             font-size: 14px;
             line-height: 19px;
             color: #AFB7C1;
@@ -95,7 +95,7 @@ export default class TeamMemberItem extends Vue {
         }
 
         &__user-name {
-            font-family: 'montserrat_bold';
+            font-family: 'font_bold';
             font-size: 14px;
             line-height: 19px;
             color: #354049;
@@ -113,7 +113,7 @@ export default class TeamMemberItem extends Vue {
             justify-content: center;
             background-color: #FF8658;
             h1 {
-                font-family: 'montserrat_medium';
+                font-family: 'font_medium';
                 font-size: 16px;
                 line-height: 23px;
                 color: #fff;
