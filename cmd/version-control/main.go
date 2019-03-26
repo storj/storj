@@ -1,17 +1,16 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"log"
 	"net/http"
-	"strconv"
-	"time"
-
 	"storj.io/storj/internal/version"
+	"strings"
 )
 
 var (
-	ver version.Info
+	ver []version.Info
 )
 
 func handleGet(w http.ResponseWriter, r *http.Request) {
@@ -25,7 +24,7 @@ func handleGet(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Request from: %s for %s", r.RemoteAddr, xfor)
 
 		w.Header().Set("Content-Type", "application/json")
-		response, err := ver.Marshal()
+		response, err := json.Marshal(ver)
 		if err != nil {
 			w.WriteHeader(500)
 		}
@@ -41,25 +40,25 @@ func handleGet(w http.ResponseWriter, r *http.Request) {
 func main() {
 	// Flags to specify required Version
 	addr := flag.String("listen", "0.0.0.0:8080", "Defines Listen Address of Webserver")
-	stimestamp := flag.String("timestamp", strconv.FormatInt(time.Now().UnixNano(), 10), "Sets Timestamp of Build")
-	scommithash := flag.String("commit", "", "Sets CommitHash of Build")
-	sversion := flag.String("version", "v0.1.0", "Sets required Version Number")
-	srelease := flag.Bool("release", false, "Sets if version is an official release")
+	versions := flag.String("version", "v0.1.0,v0.1.1", "Comma separated list of Versions")
 	flag.Parse()
 
 	if flag.Parsed() {
-		ver = version.Info{
-			Timestamp:  *stimestamp,
-			CommitHash: *scommithash,
-			Version:    *sversion,
-			Release:    *srelease,
+
+		subversions := strings.Split(*versions, ",")
+		for _, subversion := range subversions {
+			instance := version.Info{
+				Version: subversion,
+			}
+			ver = append(ver, instance)
 		}
+
+		log.Printf("setting version info to: %v", ver)
+		http.HandleFunc("/", handleGet)
+		log.Println("starting Webserver")
+
+		// Not pretty but works..
+		log.Fatal(http.ListenAndServe(*addr, nil))
 	}
 
-	log.Printf("setting version info to: %v", ver)
-	http.HandleFunc("/", handleGet)
-	log.Println("starting Webserver")
-
-	// Not pretty but works..
-	log.Fatal(http.ListenAndServe(*addr, nil))
 }

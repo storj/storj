@@ -133,8 +133,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		log.Sugar().Error("Failed to fetch version info: ", err)
 	}
 	// TODO: Handle further comparison of version info against internal information
-	log.Sugar().Debug(ver)
-
+	for i, sub := range ver {
+		log.Sugar().Debugf("Allowed version %d: %s", i, sub.Version)
+	}
 	ctx := process.Ctx(cmd)
 	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
 		zap.S().Error("Failed to initialize telemetry batcher: ", err)
