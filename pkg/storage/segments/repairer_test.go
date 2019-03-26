@@ -22,8 +22,6 @@ import (
 )
 
 func TestSegmentStoreRepair(t *testing.T) {
-	t.Skip("flaky")
-
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -38,10 +36,10 @@ func TestSegmentStoreRepair(t *testing.T) {
 		assert.NoError(t, err)
 
 		err = ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     1,
-			RepairThreshold:  2,
-			SuccessThreshold: 3,
-			MaxThreshold:     4,
+			MinThreshold:     2,
+			RepairThreshold:  3,
+			SuccessThreshold: 4,
+			MaxThreshold:     5,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
@@ -87,6 +85,9 @@ func TestSegmentStoreRepair(t *testing.T) {
 			if nodesToKill[node.ID()] {
 				err = planet.StopPeer(node)
 				assert.NoError(t, err)
+
+				err = satellite.Overlay.Service.Delete(ctx, node.ID())
+				assert.NoError(t, err)
 			}
 		}
 
@@ -104,6 +105,9 @@ func TestSegmentStoreRepair(t *testing.T) {
 		for _, node := range planet.StorageNodes {
 			if nodesToKeepAlive[node.ID()] {
 				err = planet.StopPeer(node)
+				assert.NoError(t, err)
+
+				err = satellite.Overlay.Service.Delete(ctx, node.ID())
 				assert.NoError(t, err)
 			}
 		}
