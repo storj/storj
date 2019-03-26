@@ -29,12 +29,13 @@ func (db *accountingDB) ProjectBandwidthTotal(ctx context.Context, projectID uui
 	var query = fmt.Sprintf(`
 		SELECT SUM (settled) as total
 		FROM bucket_bandwidth_rollup
-		WHERE project_id = ? AND interval_start >= ? AND action = %d
-		`, pb.BandwidthAction_GET,
+		WHERE project_id = ? AND interval_start >= ? AND action = ?
+		`,
 	)
 	rows, err := db.db.DB.QueryContext(ctx,
-		db.db.Rebind(query), projectID, from,
+		db.db.Rebind(query), projectID, from, pb.BandwidthAction_GET,
 	)
+	defer func() { err = errs.Combine(err, rows.Close()) }()
 	if err != nil {
 		return total, err
 	}

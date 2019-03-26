@@ -400,37 +400,27 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						UNIQUE ( storagenode_id, interval_start, interval_seconds )
 					)`,
 					`CREATE TABLE bucket_bandwidth_rollups (
-						bucket_id bytea NOT NULL,
+						bucket_name bytea NOT NULL,
+						project_id bytea NOT NULL,
 						interval_start timestamp NOT NULL,
 						interval_seconds integer NOT NULL,
 						action integer NOT NULL,
 						inline bigint NOT NULL,
 						allocated bigint NOT NULL,
 						settled bigint NOT NULL,
-						PRIMARY KEY ( bucket_id ),
-						UNIQUE ( bucket_id, interval_start, interval_seconds, action )
+						PRIMARY KEY ( bucket_name project_id ),
+						UNIQUE ( interval_start, interval_seconds, action )
 					)`,
 					`CREATE TABLE bucket_storage_rollups (
-						bucket_id bytea NOT NULL,
+						bucket_name bytea NOT NULL,
+						project_id bytea NOT NULL,
 						interval_start timestamp NOT NULL,
 						interval_seconds integer NOT NULL,
 						inline bigint NOT NULL,
 						remote bigint NOT NULL,
-						PRIMARY KEY ( bucket_id ),
-						UNIQUE ( bucket_id, interval_start, interval_seconds )
+						PRIMARY KEY ( bucket_name project_id ),
+						UNIQUE ( interval_start, interval_seconds )
 					)`,
-				},
-			},
-			{
-				Description: "Add projectID and bucket_name columns to rollups",
-				Version:     10,
-				Action: migrate.SQL{
-					`ALTER TABLE bucket_bandwidth_rollups ADD COLUMN bucket_name BYTEA;
-					 ALTER TABLE bucket_bandwidth_rollups ADD COLUMN project_id BYTEA;,
-					 ALTER TABLE bucket_bandwidth_rollups DROP COLUMN bucket_id BYTEA;,
-					 ALTER TABLE bucket_storage_rollups ADD COLUMN bucket_name BYTEA;
-					 ALTER TABLE bucket_storage_rollups DROP COLUMN bucket_id BYTEA;
-					 ALTER TABLE bucket_storage_rollups ADD COLUMN project_id BYTEA;`,
 				},
 			},
 		},

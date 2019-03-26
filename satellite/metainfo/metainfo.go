@@ -6,6 +6,7 @@ package metainfo
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -138,19 +139,21 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 	// TODO: remove this code once we no longer need usage limiting for alpha release
 	// Ref: https://storjlabs.atlassian.net/browse/V3-1274
 	projectID := keyInfo.ProjectID
-	const avgDaysInMonth = 30
-	from := time.Now().AddDate(0, -avgDaysInMonth, 0) // past 30 days
+	from := time.Now().AddDate(0, 0, -accounting.AvgDaysInMonth) // past 30 days
 	bandwidthTotal, err := endpoint.accountingDB.ProjectBandwidthTotal(ctx, projectID, from)
 	if err != nil {
-		endpoint.log.Error("retrieving ProjectBandwidthUsages", zap.Error(err))
+		endpoint.log.Error("retrieving ProjectBandwidthTotal")
 	}
 	inlineTotal, remoteTotal, err := endpoint.accountingDB.ProjectStorageTotals(ctx, projectID)
 	if err != nil {
-		endpoint.log.Error("retrieving ProjectStorageUsages", zap.Error(err))
+		endpoint.log.Error("retrieving ProjectStorageTotals")
 	}
-	exceeded := accounting.ExceedsAlphaUsage(bandwidthTotal, inlineTotal, remoteTotal, endpoint.maxAlphaUsage)
+	exceeded, resource := accounting.ExceedsAlphaUsage(bandwidthTotal, inlineTotal, remoteTotal, endpoint.maxAlphaUsage)
 	if exceeded {
-		endpoint.log.Error("alpha usage limit exceeded: ", zap.Error(status.Errorf(codes.ResourceExhausted, "Alpha Usage Limit Exceeded")))
+		endpoint.log.Error(fmt.Sprintf("monthly project limits are %dGB of storage and %dGBh of bandwidth usage.\nThis limit has been exceeded for %s for projectID %s.",
+			endpoint.maxAlphaUsage, endpoint.maxAlphaUsage,
+			resource, projectID,
+		))
 		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Alpha Usage Limit")
 	}
 
