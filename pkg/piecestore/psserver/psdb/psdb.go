@@ -209,7 +209,7 @@ func (db *DB) Migration() *migrate.Migration {
 				Description: "Initiate Network reset",
 				Version:     4,
 				Action: migrate.SQL{
-					`UPDATE ttl SET EXPIRES 28-03-2019 WHERE created_at <= 27-03-2019 `,
+					`UPDATE ttl SET EXPIRES '1553641200' WHERE created_at <= '1553641200' `,
 				},
 			},
 		},
