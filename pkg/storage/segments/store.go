@@ -115,20 +115,16 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		return Meta{}, err
 	}
 
+	var path storj.Path
 	var pointer *pb.Pointer
 	var originalLimits []*pb.OrderLimit2
-
-	path, metadata, err := segmentInfo()
-	if err != nil {
-		return Meta{}, Error.Wrap(err)
-	}
-
-	bucket, objectPath, segmentIndex, err := split(path)
-	if err != nil {
-		return Meta{}, err
-	}
-
 	if !remoteSized {
+		p, metadata, err := segmentInfo()
+		if err != nil {
+			return Meta{}, Error.Wrap(err)
+		}
+		path = p
+
 		pointer = &pb.Pointer{
 			Type:           pb.Pointer_INLINE,
 			InlineSegment:  peekReader.thresholdBuf,
@@ -137,7 +133,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 			Metadata:       metadata,
 		}
 	} else {
-		limits, rootPieceID, err := s.metainfo.CreateSegment(ctx, bucket, path, -1, redundancy, s.maxEncryptedSegmentSize, expiration) // bucket, path and segment index are not known at this point
+		limits, rootPieceID, err := s.metainfo.CreateSegment(ctx, "", "", -1, redundancy, s.maxEncryptedSegmentSize, expiration) // bucket, path and segment index are not known at this point
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
@@ -149,6 +145,12 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 			return Meta{}, Error.Wrap(err)
 		}
 
+		p, metadata, err := segmentInfo()
+		if err != nil {
+			return Meta{}, Error.Wrap(err)
+		}
+		path = p
+
 		pointer, err = makeRemotePointer(successfulNodes, successfulHashes, s.rs, rootPieceID, sizedReader.Size(), exp, metadata)
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
@@ -158,6 +160,11 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		for i, addressedLimit := range limits {
 			originalLimits[i] = addressedLimit.GetLimit()
 		}
+	}
+
+	bucket, objectPath, segmentIndex, err := split(path)
+	if err != nil {
+		return Meta{}, err
 	}
 
 	savedPointer, err := s.metainfo.CommitSegment(ctx, bucket, objectPath, segmentIndex, pointer, originalLimits)

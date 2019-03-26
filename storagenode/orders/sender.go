@@ -116,7 +116,11 @@ func (sender *Sender) Run(ctx context.Context) error {
 					return nil
 				})
 			}
-			group.Wait()
+			err = group.Wait()
+			if err != nil {
+				sender.log.Error("sending orders", zap.Error(err))
+				return nil
+			}
 		} else {
 			sender.log.Debug("no orders to send")
 		}

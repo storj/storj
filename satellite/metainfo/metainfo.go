@@ -129,11 +129,6 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	err = endpoint.validateBucket(req.Bucket)
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
-	}
-
 	redundancy, err := eestream.NewRedundancyStrategyFromProto(req.GetRedundancy())
 	if err != nil {
 		return nil, err
@@ -228,13 +223,6 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	if req.Pointer.Type == pb.Pointer_INLINE {
-		err = endpoint.saveInlineOrder(ctx, keyInfo.ProjectID, req.Bucket, pb.PieceAction_PUT)
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, err.Error())
-		}
-	}
-
 	pointer, err := endpoint.pointerdb.Get(path)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
@@ -272,11 +260,6 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	}
 
 	if pointer.Type == pb.Pointer_INLINE {
-		err = endpoint.saveInlineOrder(ctx, keyInfo.ProjectID, req.Bucket, pb.PieceAction_GET)
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, err.Error())
-		}
-
 		return &pb.SegmentDownloadResponse{Pointer: pointer}, nil
 	} else if pointer.Type == pb.Pointer_REMOTE && pointer.Remote != nil {
 		limits, err := endpoint.createOrderLimitsForSegment(ctx, pointer, pb.PieceAction_GET)
