@@ -22,7 +22,7 @@ import (
 	"storj.io/storj/storage"
 )
 
-func TestInspectorStats(t *testing.T) {
+func TestInspectorSegmentStats(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -78,5 +78,37 @@ func TestInspectorStats(t *testing.T) {
 			return nil
 		},
 	)
+
+}
+
+func TestInspectorObjectStats(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	planet, err := testplanet.New(t, 1, 6, 1)
+	require.NoError(t, err)
+	defer ctx.Check(planet.Shutdown)
+
+	planet.Start(ctx)
+
+	uplink := planet.Uplinks[0]
+	testData := make([]byte, 1*memory.MiB)
+	_, err = rand.Read(testData)
+	assert.NoError(t, err)
+
+	bucket := "testbucket"
+
+	err = uplink.Upload(ctx, planet.Satellites[0], bucket, "test/path", testData)
+	assert.NoError(t, err)
+
+	log := zaptest.NewLogger(t)
+
+	health, err := inspector.NewEndpoint(log, planet.Satellites[0].Overlay.Service, planet.Satellites[0].Metainfo.Service)
+	assert.NoError(t, err)
+
+	objectHealthReq := &pb.ObjectHealthRequest{}
+
+	_, err = health.ObjectStat(ctx, objectHealthReq)
+	assert.NotNil(t, err)
 
 }

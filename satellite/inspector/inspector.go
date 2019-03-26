@@ -42,6 +42,16 @@ func NewEndpoint(log *zap.Logger, cache *overlay.Cache, pdb *pointerdb.Service) 
 func (endpoint *Endpoint) ObjectStat(ctx context.Context, in *pb.ObjectHealthRequest) (resp *pb.ObjectHealthResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// Receive path
+	// Determine Segments
+
+	// for each segment
+	//	 endpoint.SegmentStat()
+
+	// open a stream with the client and send each segment's results to the client
+
+	// return combined results
+
 	return nil, nil
 }
 

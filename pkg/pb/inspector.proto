@@ -226,7 +226,10 @@ message SegmentHealthResponse{
 message ObjectHealthRequest {
   bytes encrypted_path = 1;
   bytes bucket = 2;
-  bytes uplink_id = 3 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false]; // Uplink Identity
+  bytes project_id = 3;
+  int64 start_after_segment = 4;
+  int64 end_before_segment = 5;
+  int32 limit = 6;
 }
 
 message ObjectHealthResponse {
