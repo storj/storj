@@ -362,13 +362,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					)`,
 				},
 			},
-			{
-				Description: "Initiate Network reset",
-				Version:     9,
-				Action: migrate.SQL{
-					`DELETE FROM PATHDATA`,
-				},
-			},
 		},
 	}
 }
