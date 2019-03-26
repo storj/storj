@@ -21,6 +21,8 @@ type stats struct {
 	Bytes       int64
 	InlineBytes int64
 	RemoteBytes int64
+
+	MetadataSize int64
 }
 
 // Combine aggregates all the stats
@@ -47,11 +49,13 @@ func (s *stats) AddSegment(pointer *pb.Pointer, last bool) {
 		s.InlineSegments++
 		s.InlineBytes += int64(len(pointer.InlineSegment))
 		s.Bytes += int64(len(pointer.InlineSegment))
+		s.MetadataSize += int64(len(pointer.Metadata))
 
 	case pb.Pointer_REMOTE:
 		s.RemoteSegments++
 		s.RemoteBytes += pointer.GetSegmentSize()
 		s.Bytes += pointer.GetSegmentSize()
+		s.MetadataSize += int64(len(pointer.Metadata))
 	default:
 		s.UnknownSegments++
 	}
