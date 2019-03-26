@@ -4,12 +4,12 @@
 <template>
     <div class="login-container" v-on:keyup.enter="onLogin">
         <div v-bind:class="loadingClassName">
-            <img class="loading-overlay__logo" src="../../static/images/login/Logo.svg" alt="loading-logo">
+            <img class="loading-overlay__logo" src="../../static/images/Logo.svg" alt="loading-logo">
         </div>
         <img class="planet" src="../../static/images/Mars.png" alt="" >
         <div class="login-container__wrapper">
             <div class="login-container__header">
-                <img class="login-container__logo" src="../../static/images/login/Logo.svg" alt="logo" v-on:click="onLogoClick">
+                <img class="login-container__logo" src="../../static/images/Logo.svg" alt="logo" v-on:click="onLogoClick">
                 <div class="login-container__register-button" v-on:click.prevent="onSignUpClick">
                     <p>Create Account</p>
                 </div>
