@@ -59,7 +59,7 @@ func TestNodeSelection(t *testing.T) {
 		// This sets a reputable audit count for a certain number of nodes.
 		for i, node := range planet.StorageNodes {
 			for k := 0; k < i; k++ {
-				_, err := satellite.DB.StatDB().UpdateAuditSuccess(ctx, node.ID(), true)
+				_, err := satellite.DB.OverlayCache().UpdateAuditSuccess(ctx, node.ID(), true)
 				assert.NoError(t, err)
 			}
 		}

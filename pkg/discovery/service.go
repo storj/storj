@@ -16,7 +16,6 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -35,12 +34,11 @@ type Config struct {
 	RefreshLimit      int           `help:"the amount of nodes refreshed at each interval" default:"100"`
 }
 
-// Discovery struct loads on cache, kad, and statdb
+// Discovery struct loads on cache, kad
 type Discovery struct {
-	log    *zap.Logger
-	cache  *overlay.Cache
-	kad    *kademlia.Kademlia
-	statdb statdb.DB
+	log   *zap.Logger
+	cache *overlay.Cache
+	kad   *kademlia.Kademlia
 
 	// refreshOffset tracks the offset of the current refresh cycle
 	refreshOffset int64
@@ -52,12 +50,11 @@ type Discovery struct {
 }
 
 // New returns a new discovery service.
-func New(logger *zap.Logger, ol *overlay.Cache, kad *kademlia.Kademlia, stat statdb.DB, config Config) *Discovery {
+func New(logger *zap.Logger, ol *overlay.Cache, kad *kademlia.Kademlia, config Config) *Discovery {
 	discovery := &Discovery{
-		log:    logger,
-		cache:  ol,
-		kad:    kad,
-		statdb: stat,
+		log:   logger,
+		cache: ol,
+		kad:   kad,
 
 		refreshOffset: 0,
 		refreshLimit:  config.RefreshLimit,
@@ -136,9 +133,9 @@ func (discovery *Discovery) refresh(ctx context.Context) error {
 		ping, err := discovery.kad.Ping(ctx, *node)
 		if err != nil {
 			discovery.log.Info("could not ping node", zap.String("ID", node.Id.String()), zap.Error(err))
-			_, err := discovery.statdb.UpdateUptime(ctx, node.Id, false)
+			_, err := discovery.cache.UpdateUptime(ctx, node.Id, false)
 			if err != nil {
-				discovery.log.Error("could not update node uptime in statdb", zap.String("ID", node.Id.String()), zap.Error(err))
+				discovery.log.Error("could not update node uptime in cache", zap.String("ID", node.Id.String()), zap.Error(err))
 			}
 			err = discovery.cache.Delete(ctx, node.Id)
 			if err != nil {
@@ -151,9 +148,9 @@ func (discovery *Discovery) refresh(ctx context.Context) error {
 			return ctx.Err()
 		}
 
-		_, err = discovery.statdb.UpdateUptime(ctx, ping.Id, true)
+		_, err = discovery.cache.UpdateUptime(ctx, ping.Id, true)
 		if err != nil {
-			discovery.log.Error("could not update node uptime in statdb", zap.String("ID", ping.Id.String()), zap.Error(err))
+			discovery.log.Error("could not update node uptime in cache", zap.String("ID", ping.Id.String()), zap.Error(err))
 		}
 		err = discovery.cache.Put(ctx, ping.Id, ping)
 		if err != nil {
@@ -167,7 +164,7 @@ func (discovery *Discovery) refresh(ctx context.Context) error {
 			continue
 		}
 
-		_, err = discovery.statdb.UpdateOperator(ctx, ping.Id, pb.NodeOperator{
+		_, err = discovery.cache.UpdateOperator(ctx, ping.Id, pb.NodeOperator{
 			Wallet: info.GetOperator().GetWallet(),
 		})
 		if err != nil {
@@ -207,7 +204,7 @@ func (discovery *Discovery) searchGraveyard(ctx context.Context) error {
 			errors.Add(err)
 		}
 
-		_, err = discovery.statdb.UpdateUptime(ctx, ping.Id, true)
+		_, err = discovery.cache.UpdateUptime(ctx, ping.Id, true)
 		if err != nil {
 			discovery.log.Warn("could not update node uptime")
 			errors.Add(err)

@@ -162,7 +162,7 @@ func (db *accountingDB) SaveRollup(ctx context.Context, latestRollup time.Time, 
 	return Error.Wrap(err)
 }
 
-// QueryPaymentInfo queries StatDB, Accounting Rollup on nodeID
+// QueryPaymentInfo queries Overlay, Accounting Rollup on nodeID
 func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*accounting.CSVRow, error) {
 	var sqlStmt = `SELECT n.id, n.created_at, n.audit_success_ratio, r.at_rest_total, r.get_repair_total,
 	    r.put_repair_total, r.get_audit_total, r.put_total, r.get_total, o.operator_wallet

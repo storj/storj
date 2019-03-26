@@ -40,7 +40,6 @@ import (
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/server"
-	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/console"
@@ -70,8 +69,6 @@ type DB interface {
 	BandwidthAgreement() bwagreement.DB
 	// CertDB returns database for storing uplink's public key & ID
 	CertDB() certdb.DB
-	// StatDB returns database for storing node statistics
-	StatDB() statdb.DB
 	// OverlayCache returns database for caching overlay information
 	OverlayCache() overlay.DB
 	// Accounting returns database for storing information about data use
@@ -137,10 +134,6 @@ type Peer struct {
 
 	Discovery struct {
 		Service *discovery.Discovery
-	}
-
-	Reputation struct {
-		Inspector *statdb.Inspector
 	}
 
 	Metainfo struct {
@@ -219,7 +212,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			NewNodePercentage:     config.Node.NewNodePercentage,
 		}
 
-		peer.Overlay.Service = overlay.NewCache(peer.Log.Named("overlay"), peer.DB.OverlayCache(), peer.DB.StatDB(), nodeSelectionConfig)
+		peer.Overlay.Service = overlay.NewCache(peer.Log.Named("overlay"), peer.DB.OverlayCache(), nodeSelectionConfig)
 		peer.Transport = peer.Transport.WithObservers(peer.Overlay.Service)
 
 		peer.Overlay.Inspector = overlay.NewInspector(peer.Overlay.Service)
@@ -281,17 +274,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		pb.RegisterKadInspectorServer(peer.Server.PrivateGRPC(), peer.Kademlia.Inspector)
 	}
 
-	{ // setup reputation
-		log.Debug("Setting up reputation")
-		// TODO: find better structure with overlay
-		peer.Reputation.Inspector = statdb.NewInspector(peer.DB.StatDB())
-		pb.RegisterStatDBInspectorServer(peer.Server.PrivateGRPC(), peer.Reputation.Inspector)
-	}
-
 	{ // setup discovery
 		log.Debug("Setting up discovery")
 		config := config.Discovery
-		peer.Discovery.Service = discovery.New(peer.Log.Named("discovery"), peer.Overlay.Service, peer.Kademlia.Service, peer.DB.StatDB(), config)
+		peer.Discovery.Service = discovery.New(peer.Log.Named("discovery"), peer.Overlay.Service, peer.Kademlia.Service, config)
 	}
 
 	{ // setup metainfo
@@ -337,7 +323,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		// TODO: simplify argument list somehow
 		peer.Repair.Checker = checker.NewChecker(
 			peer.Metainfo.Service,
-			peer.DB.StatDB(), peer.DB.RepairQueue(),
+			peer.DB.RepairQueue(),
 			peer.Overlay.Service, peer.DB.Irreparable(),
 			0, peer.Log.Named("checker"),
 			config.Checker.Interval)
@@ -364,7 +350,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 
 		peer.Audit.Service, err = audit.NewService(peer.Log.Named("audit"),
 			config,
-			peer.DB.StatDB(),
 			peer.Metainfo.Service, peer.Metainfo.Allocation,
 			peer.Transport, peer.Overlay.Service,
 			peer.Identity,
@@ -438,7 +423,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		}
 
 		peer.Mail.Service, err = mailservice.New(
-			peer.Log.Named("mailservice:service"),
+			peer.Log.Named("mail:service"),
 			sender,
 			mailConfig.TemplatePath,
 		)

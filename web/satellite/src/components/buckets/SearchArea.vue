@@ -51,7 +51,7 @@
 					height: 56px;
 					padding-right: 20px;
 					padding-left: 20px;
-					font-family: 'montserrat_regular';
+					font-family: 'font_regular';
 					font-size: 16px;
 					color: #AFB7C1;
 					outline: none;

@@ -59,7 +59,7 @@
         <EmptyState
             v-if="!isProjectSelected"
             mainTitle="Create your first project"
-            additional-text='<p>Please click the button <span style="font-family: montserrat_bold">"New Project"</span> in the right corner</p>'
+            additional-text='<p>Please click the button <span style="font-family: font_bold">"New Project"</span> in the right corner</p>'
             :imageSource="emptyImage" />
         <DeleteProjectPopup v-if="isPopupShown" />
     </div>
@@ -159,7 +159,7 @@ export default class ProjectDetailsArea extends Vue {
         overflow-x: hidden;
         height: 85vh;
         h1 {
-            font-family: 'montserrat_bold';
+            font-family: 'font_bold';
 			font-size: 24px;
 			line-height: 29px;
             color: #354049;
@@ -168,7 +168,7 @@ export default class ProjectDetailsArea extends Vue {
         }
         h2 {
             @extend h1;
-            font-family: 'montserrat_regular';
+            font-family: 'font_regular';
 			font-size: 16px;
 			line-height: 21px;
             color: rgba(56, 75, 101, 0.4);
@@ -200,7 +200,7 @@ export default class ProjectDetailsArea extends Vue {
             }
 
             h2 {
-                font-family: 'montserrat_regular';
+                font-family: 'font_regular';
                 font-size: 14px;
                 line-height: 20px;
                 margin-top: 30px;

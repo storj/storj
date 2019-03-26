@@ -15,7 +15,6 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -28,11 +27,11 @@ func TestCache_Database(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		testCache(ctx, t, db.OverlayCache(), db.StatDB())
+		testCache(ctx, t, db.OverlayCache())
 	})
 }
 
-func testCache(ctx context.Context, t *testing.T, store overlay.DB, sdb statdb.DB) {
+func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 	valid1ID := storj.NodeID{}
 	valid2ID := storj.NodeID{}
 	missingID := storj.NodeID{}
@@ -41,7 +40,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB, sdb statdb.D
 	_, _ = rand.Read(valid2ID[:])
 	_, _ = rand.Read(missingID[:])
 
-	cache := overlay.NewCache(zaptest.NewLogger(t), store, sdb, overlay.NodeSelectionConfig{})
+	cache := overlay.NewCache(zaptest.NewLogger(t), store, overlay.NodeSelectionConfig{})
 
 	{ // Put
 		err := cache.Put(ctx, valid1ID, pb.Node{Id: valid1ID})

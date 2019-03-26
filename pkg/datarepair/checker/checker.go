@@ -18,7 +18,6 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
-	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 )
@@ -36,7 +35,6 @@ type Config struct {
 
 // Checker contains the information needed to do checks for missing pieces
 type Checker struct {
-	statdb      statdb.DB
 	pointerdb   *pointerdb.Service
 	repairQueue queue.RepairQueue
 	overlay     *overlay.Cache
@@ -46,10 +44,9 @@ type Checker struct {
 }
 
 // NewChecker creates a new instance of checker
-func NewChecker(pointerdb *pointerdb.Service, sdb statdb.DB, repairQueue queue.RepairQueue, overlay *overlay.Cache, irrdb irreparable.DB, limit int, logger *zap.Logger, interval time.Duration) *Checker {
+func NewChecker(pointerdb *pointerdb.Service, repairQueue queue.RepairQueue, overlay *overlay.Cache, irrdb irreparable.DB, limit int, logger *zap.Logger, interval time.Duration) *Checker {
 	// TODO: reorder arguments
 	checker := &Checker{
-		statdb:      sdb,
 		pointerdb:   pointerdb,
 		repairQueue: repairQueue,
 		overlay:     overlay,
@@ -186,17 +183,17 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 	return nil
 }
 
-// Find invalidNodes by checking the audit results that are place in statdb
+// Find invalidNodes by checking the audit results that are place in overlay
 func (checker *Checker) invalidNodes(ctx context.Context, nodeIDs storj.NodeIDList) (invalidNodes []int, err error) {
 	// filter if nodeIDs have invalid pieces from auditing results
-	maxStats := &statdb.NodeStats{
-		AuditSuccessRatio: 0, // TODO: update when we have stats added to statdb
-		UptimeRatio:       0, // TODO: update when we have stats added to statdb
+	maxStats := &overlay.NodeStats{
+		AuditSuccessRatio: 0, // TODO: update when we have stats added to overlay
+		UptimeRatio:       0, // TODO: update when we have stats added to overlay
 	}
 
-	invalidIDs, err := checker.statdb.FindInvalidNodes(ctx, nodeIDs, maxStats)
+	invalidIDs, err := checker.overlay.FindInvalidNodes(ctx, nodeIDs, maxStats)
 	if err != nil {
-		return nil, Error.New("error getting valid nodes from statdb %s", err)
+		return nil, Error.New("error getting valid nodes from overlay %s", err)
 	}
 
 	invalidNodesMap := make(map[storj.NodeID]bool)
@@ -213,7 +210,7 @@ func (checker *Checker) invalidNodes(ctx context.Context, nodeIDs storj.NodeIDLi
 	return invalidNodes, nil
 }
 
-// combine the offline nodes with nodes marked invalid by statdb
+// combine the offline nodes with nodes marked invalid by overlay
 func combineOfflineWithInvalid(offlineNodes []int, invalidNodes []int) (missingPieces []int32) {
 	for _, offline := range offlineNodes {
 		missingPieces = append(missingPieces, int32(offline))
