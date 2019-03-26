@@ -5,9 +5,12 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
+	"storj.io/storj/internal/version"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -126,6 +129,25 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		log.Sugar().Error("Invalid configuration: ", err)
 		return err
 	}
+
+	resp, err := http.Get("https://version.storj.io/")
+	if err != nil {
+		log.Sugar().Error("Failed to fetch version info")
+		return err
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Sugar().Error("Failed to parse body from version request")
+		return err
+	}
+
+	ver, err := version.New(body)
+	if err != nil {
+		log.Sugar().Error("Failed to create version info from body")
+	}
+	// TODO: Handle further comparison of version info against internal information
+	log.Sugar().Debug(ver)
 
 	ctx := process.Ctx(cmd)
 	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
