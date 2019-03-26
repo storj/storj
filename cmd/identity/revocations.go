@@ -41,7 +41,7 @@ func cmdRevocations(cmd *cobra.Command, args []string) error {
 		revCfg.RevocationDBURL = "bolt://" + filepath.Join(configDir, args[0], "revocations.db")
 	}
 
-	revDB, err := identity.NewRevDB(revCfg.RevocationDBURL)
+	revDB, err := identity.NewRevocationDB(revCfg.RevocationDBURL)
 	if err != nil {
 		return err
 	}
