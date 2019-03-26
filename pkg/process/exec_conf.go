@@ -240,8 +240,8 @@ func cleanup(cmd *cobra.Command) {
 
 		err = internalRun(cmd, args)
 		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "%v\n", err)
-			logger.Sugar().Debugf("%+v", err)
+			_, _ = fmt.Fprintf(os.Stderr, "Fatal error: %v\n", err)
+			logger.Sugar().Debugf("Fatal error: %+v", err)
 			_ = logger.Sync()
 			os.Exit(1)
 		}
