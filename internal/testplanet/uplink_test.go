@@ -52,7 +52,7 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 
 		testData := make([]byte, 1*memory.MiB)
 		_, err := rand.Read(testData)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		err = ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
 			MinThreshold:     2,
@@ -72,7 +72,7 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 		for _, v := range listResponse {
 			path = v.GetPath()
 			pointer, err = pdb.Get(path)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			if pointer.GetType() == pb.Pointer_REMOTE {
 				break
 			}
@@ -96,16 +96,16 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 		for _, node := range planet.StorageNodes {
 			if nodesToKill[node.ID()] {
 				err = planet.StopPeer(node)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 
 				err = satellite.Overlay.Service.Delete(ctx, node.ID())
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 		}
 
 		// we should be able to download data without any of the original nodes
 		newData, err := ul.Download(ctx, satellite, "testbucket", "test/path")
-		assert.NoError(t, err)
-		assert.Equal(t, newData, testData)
+		require.NoError(t, err)
+		require.Equal(t, testData, newData)
 	})
 }

@@ -342,7 +342,7 @@ func (endpoint *Endpoint) createOrderLimitsForSegment(ctx context.Context, point
 	}
 
 	if len(limits) < redundancy.RequiredCount() {
-		err = Error.New("not enough nodes available. Available: %d, Required: %d", len(limits), redundancy.RequiredCount())
+		err = Error.New("not enough nodes available: got %d, required %d", len(limits), redundancy.RequiredCount())
 		return nil, errs.Combine(combinedErrs, err)
 	}
 

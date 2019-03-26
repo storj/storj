@@ -116,7 +116,7 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (*pb.Node, 
 		dbx.OverlayCacheNode_NodeId(id.Bytes()),
 	)
 	if err == sql.ErrNoRows {
-		return nil, overlay.ErrNodeNotFound
+		return nil, errs.Combine(overlay.ErrNodeNotFound, errs.New("couldn't find nodeID: %s", id.String()))
 	}
 	if err != nil {
 		return nil, err
