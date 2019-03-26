@@ -594,12 +594,18 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 				err = authDB.Close()
 				require.NoError(t, err)
 
-				sc := server.Config{Address: "127.0.0.1:0", PrivateAddress: "127.0.0.1:0"}
-				opts, err := tlsopts.NewOptions(serverIdent, sc.Config)
+				sc := server.Config{
+					//Config: tlsopts.Config{
+					//	PeerIDVersions: "0",
+					//},
+					Address: "127.0.0.1:0",
+					PrivateAddress: "127.0.0.1:0",
+				}
+				serverOpts, err := tlsopts.NewOptions(serverIdent, sc.Config)
 				require.NoError(t, err)
-				require.NotNil(t, opts)
+				require.NotNil(t, serverOpts)
 
-				service, err := server.New(opts, sc.Address, sc.PrivateAddress, nil, config)
+				service, err := server.New(serverOpts, sc.Address, sc.PrivateAddress, nil, config)
 				require.NoError(t, err)
 				require.NotNil(t, service)
 
@@ -610,10 +616,10 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 				})
 				defer ctx.Check(service.Close)
 
-				tlsOptions, err := tlsopts.NewOptions(clientIdent, tlsopts.Config{})
+				clientOpts, err := tlsopts.NewOptions(clientIdent, tlsopts.Config{PeerIDVersions: "0"})
 				require.NoError(t, err)
 
-				clientTransport := transport.NewClient(tlsOptions)
+				clientTransport := transport.NewClient(clientOpts)
 
 				client, err := NewClient(ctx, clientTransport, service.Addr().String())
 				require.NoError(t, err)

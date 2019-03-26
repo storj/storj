@@ -40,6 +40,7 @@ var (
 	}
 
 	keyCfg struct {
+		// TODO: where is this used and should it be conistent with "latest" alias?
 		VersionNumber uint   `default:"0" help:"version of identity (0 is latest)"`
 		MinDifficulty int    `help:"minimum difficulty to output" default:"30"`
 		Concurrency   int    `help:"worker concurrency" default:"4"`
