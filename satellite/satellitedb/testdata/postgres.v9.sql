@@ -25,7 +25,7 @@ CREATE TABLE accounting_timestamps (
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
 );
-CREATE TABLE bucket_bandwidth_tallies (
+CREATE TABLE bucket_bandwidth_rollups (
 	bucket_id bytea NOT NULL,
 	interval_start timestamp NOT NULL,
 	action integer NOT NULL,
@@ -40,9 +40,9 @@ CREATE TABLE bucket_storage_tallies (
 	inline bigint NOT NULL,
 	remote bigint NOT NULL,
 	remote_segments integer NOT NULL,
-  inline_segments integer NOT NULL,
-  objects integer NOT NULL,
-  metadata_size bigint NOT NULL,
+	inline_segments integer NOT NULL,
+	objects integer NOT NULL,
+	metadata_size bigint NOT NULL,
 	PRIMARY KEY ( bucket_id, interval_start )
 );
 CREATE TABLE bucket_usages (
@@ -144,7 +144,7 @@ CREATE TABLE serial_numbers (
 	expires_at timestamp NOT NULL,
 	PRIMARY KEY ( id )
 );
-CREATE TABLE storagenode_bandwidth_tallies (
+CREATE TABLE storagenode_bandwidth_rollups (
 	storagenode_id bytea NOT NULL,
 	interval_start timestamp NOT NULL,
 	action integer NOT NULL,
@@ -189,11 +189,11 @@ CREATE TABLE used_serials (
 	storage_node_id bytea NOT NULL,
 	PRIMARY KEY ( serial_number_id, storage_node_id )
 );
-CREATE INDEX bucket_id_interval_start ON bucket_bandwidth_tallies ( bucket_id, interval_start );
+CREATE INDEX bucket_id_interval_start ON bucket_bandwidth_rollups ( bucket_id, interval_start );
 CREATE UNIQUE INDEX bucket_id_tally ON bucket_usages ( bucket_id, tally_end_time );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
-CREATE INDEX storagenode_id_interval_start ON storagenode_bandwidth_tallies ( storagenode_id, interval_start );
+CREATE INDEX storagenode_id_interval_start ON storagenode_bandwidth_rollups ( storagenode_id, interval_start );
 
 ---
 
@@ -230,8 +230,8 @@ INSERT INTO "registration_tokens" ("secret", "owner_id", "project_limit", "creat
 INSERT INTO "serial_numbers" ("id", "serial_number", "bucket_id", "expires_at") VALUES (1, E'0123456701234567'::bytea, E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014/testbucket'::bytea, '2019-03-06 08:28:24.677953+00');
 INSERT INTO "used_serials" ("serial_number_id", "storage_node_id") VALUES (1, E'\\006\\223\\250R\\221\\005\\365\\377v>0\\266\\365\\216\\255?\\347\\244\\371?2\\264\\262\\230\\007<\\001\\262\\263\\237\\247n');
 
-INSERT INTO "storagenode_bandwidth_tallies" ("storagenode_id", "interval_start", "action", "allocated", "settled") VALUES (E'\\006\\223\\250R\\221\\005\\365\\377v>0\\266\\365\\216\\255?\\347\\244\\371?2\\264\\262\\230\\007<\\001\\262\\263\\237\\247n', '2019-03-06 08:00:00.000000+00', 1, 1024, 2024);
+INSERT INTO "storagenode_bandwidth_rollups" ("storagenode_id", "interval_start", "action", "allocated", "settled") VALUES (E'\\006\\223\\250R\\221\\005\\365\\377v>0\\266\\365\\216\\255?\\347\\244\\371?2\\264\\262\\230\\007<\\001\\262\\263\\237\\247n', '2019-03-06 08:00:00.000000+00', 1, 1024, 2024);
 INSERT INTO "storagenode_storage_tallies" ("storagenode_id", "interval_start", "total") VALUES (E'\\006\\223\\250R\\221\\005\\365\\377v>0\\266\\365\\216\\255?\\347\\244\\371?2\\264\\262\\230\\007<\\001\\262\\263\\237\\247n', '2019-03-06 08:00:00.000000+00', 4024);
 
-INSERT INTO "bucket_bandwidth_tallies" ("bucket_id", "interval_start", "action", "inline", "allocated", "settled") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014/testbucket'::bytea, '2019-03-06 08:00:00.000000+00', 1, 1024, 2024, 3024);
+INSERT INTO "bucket_bandwidth_rollups" ("bucket_id", "interval_start", "action", "inline", "allocated", "settled") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014/testbucket'::bytea, '2019-03-06 08:00:00.000000+00', 1, 1024, 2024, 3024);
 INSERT INTO "bucket_storage_tallies" ("bucket_id", "interval_start", "inline", "remote",  "remote_segments", "inline_segments", "objects", "metadata_size") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014/testbucket'::bytea, '2019-03-06 08:00:00.000000+00', 4024, 5024, 12, 13, 14, 15);

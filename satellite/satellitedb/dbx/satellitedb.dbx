@@ -426,9 +426,9 @@ delete serial_number (
 // for preventing duplicate serial numbers
 create used_serial ()
 
-// --- bucket tally tables --- //
+// --- bucket accounting tables --- //
 
-model bucket_bandwidth_tally (
+model bucket_bandwidth_rollup (
 	key    bucket_id interval_start action
 	index (
 	    name bucket_id_interval_start
@@ -459,9 +459,9 @@ model bucket_storage_tally (
   field  metadata_size      uint64
 )
 
-// --- storage node tally tables --- //
+// --- storage node accounting tables --- //
 
-model storagenode_bandwidth_tally (
+model storagenode_bandwidth_rollup (
 	key    storagenode_id interval_start action
 	index (
 	    name storagenode_id_interval_start

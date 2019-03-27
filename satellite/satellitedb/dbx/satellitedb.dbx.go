@@ -298,7 +298,7 @@ CREATE TABLE accounting_timestamps (
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
 );
-CREATE TABLE bucket_bandwidth_tallies (
+CREATE TABLE bucket_bandwidth_rollups (
 	bucket_id bytea NOT NULL,
 	interval_start timestamp NOT NULL,
 	action integer NOT NULL,
@@ -417,7 +417,7 @@ CREATE TABLE serial_numbers (
 	expires_at timestamp NOT NULL,
 	PRIMARY KEY ( id )
 );
-CREATE TABLE storagenode_bandwidth_tallies (
+CREATE TABLE storagenode_bandwidth_rollups (
 	storagenode_id bytea NOT NULL,
 	interval_start timestamp NOT NULL,
 	action integer NOT NULL,
@@ -462,11 +462,11 @@ CREATE TABLE used_serials (
 	storage_node_id bytea NOT NULL,
 	PRIMARY KEY ( serial_number_id, storage_node_id )
 );
-CREATE INDEX bucket_id_interval_start ON bucket_bandwidth_tallies ( bucket_id, interval_start );
+CREATE INDEX bucket_id_interval_start ON bucket_bandwidth_rollups ( bucket_id, interval_start );
 CREATE UNIQUE INDEX bucket_id_tally ON bucket_usages ( bucket_id, tally_end_time );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
-CREATE INDEX storagenode_id_interval_start ON storagenode_bandwidth_tallies ( storagenode_id, interval_start );`
+CREATE INDEX storagenode_id_interval_start ON storagenode_bandwidth_rollups ( storagenode_id, interval_start );`
 }
 
 func (obj *postgresDB) wrapTx(tx *sql.Tx) txMethods {
@@ -556,7 +556,7 @@ CREATE TABLE accounting_timestamps (
 	value TIMESTAMP NOT NULL,
 	PRIMARY KEY ( name )
 );
-CREATE TABLE bucket_bandwidth_tallies (
+CREATE TABLE bucket_bandwidth_rollups (
 	bucket_id BLOB NOT NULL,
 	interval_start TIMESTAMP NOT NULL,
 	action INTEGER NOT NULL,
@@ -675,7 +675,7 @@ CREATE TABLE serial_numbers (
 	expires_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
-CREATE TABLE storagenode_bandwidth_tallies (
+CREATE TABLE storagenode_bandwidth_rollups (
 	storagenode_id BLOB NOT NULL,
 	interval_start TIMESTAMP NOT NULL,
 	action INTEGER NOT NULL,
@@ -720,11 +720,11 @@ CREATE TABLE used_serials (
 	storage_node_id BLOB NOT NULL,
 	PRIMARY KEY ( serial_number_id, storage_node_id )
 );
-CREATE INDEX bucket_id_interval_start ON bucket_bandwidth_tallies ( bucket_id, interval_start );
+CREATE INDEX bucket_id_interval_start ON bucket_bandwidth_rollups ( bucket_id, interval_start );
 CREATE UNIQUE INDEX bucket_id_tally ON bucket_usages ( bucket_id, tally_end_time );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
-CREATE INDEX storagenode_id_interval_start ON storagenode_bandwidth_tallies ( storagenode_id, interval_start );`
+CREATE INDEX storagenode_id_interval_start ON storagenode_bandwidth_rollups ( storagenode_id, interval_start );`
 }
 
 func (obj *sqlite3DB) wrapTx(tx *sql.Tx) txMethods {
@@ -1152,7 +1152,7 @@ func (f AccountingTimestamps_Value_Field) value() interface{} {
 
 func (AccountingTimestamps_Value_Field) _Column() string { return "value" }
 
-type BucketBandwidthTally struct {
+type BucketBandwidthRollup struct {
 	BucketId      []byte
 	IntervalStart time.Time
 	Action        uint
@@ -1161,125 +1161,125 @@ type BucketBandwidthTally struct {
 	Settled       uint64
 }
 
-func (BucketBandwidthTally) _Table() string { return "bucket_bandwidth_tallies" }
+func (BucketBandwidthRollup) _Table() string { return "bucket_bandwidth_rollups" }
 
-type BucketBandwidthTally_Update_Fields struct {
+type BucketBandwidthRollup_Update_Fields struct {
 }
 
-type BucketBandwidthTally_BucketId_Field struct {
+type BucketBandwidthRollup_BucketId_Field struct {
 	_set   bool
 	_null  bool
 	_value []byte
 }
 
-func BucketBandwidthTally_BucketId(v []byte) BucketBandwidthTally_BucketId_Field {
-	return BucketBandwidthTally_BucketId_Field{_set: true, _value: v}
+func BucketBandwidthRollup_BucketId(v []byte) BucketBandwidthRollup_BucketId_Field {
+	return BucketBandwidthRollup_BucketId_Field{_set: true, _value: v}
 }
 
-func (f BucketBandwidthTally_BucketId_Field) value() interface{} {
+func (f BucketBandwidthRollup_BucketId_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (BucketBandwidthTally_BucketId_Field) _Column() string { return "bucket_id" }
+func (BucketBandwidthRollup_BucketId_Field) _Column() string { return "bucket_id" }
 
-type BucketBandwidthTally_IntervalStart_Field struct {
+type BucketBandwidthRollup_IntervalStart_Field struct {
 	_set   bool
 	_null  bool
 	_value time.Time
 }
 
-func BucketBandwidthTally_IntervalStart(v time.Time) BucketBandwidthTally_IntervalStart_Field {
+func BucketBandwidthRollup_IntervalStart(v time.Time) BucketBandwidthRollup_IntervalStart_Field {
 	v = toUTC(v)
-	return BucketBandwidthTally_IntervalStart_Field{_set: true, _value: v}
+	return BucketBandwidthRollup_IntervalStart_Field{_set: true, _value: v}
 }
 
-func (f BucketBandwidthTally_IntervalStart_Field) value() interface{} {
+func (f BucketBandwidthRollup_IntervalStart_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (BucketBandwidthTally_IntervalStart_Field) _Column() string { return "interval_start" }
+func (BucketBandwidthRollup_IntervalStart_Field) _Column() string { return "interval_start" }
 
-type BucketBandwidthTally_Action_Field struct {
+type BucketBandwidthRollup_Action_Field struct {
 	_set   bool
 	_null  bool
 	_value uint
 }
 
-func BucketBandwidthTally_Action(v uint) BucketBandwidthTally_Action_Field {
-	return BucketBandwidthTally_Action_Field{_set: true, _value: v}
+func BucketBandwidthRollup_Action(v uint) BucketBandwidthRollup_Action_Field {
+	return BucketBandwidthRollup_Action_Field{_set: true, _value: v}
 }
 
-func (f BucketBandwidthTally_Action_Field) value() interface{} {
+func (f BucketBandwidthRollup_Action_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (BucketBandwidthTally_Action_Field) _Column() string { return "action" }
+func (BucketBandwidthRollup_Action_Field) _Column() string { return "action" }
 
-type BucketBandwidthTally_Inline_Field struct {
+type BucketBandwidthRollup_Inline_Field struct {
 	_set   bool
 	_null  bool
 	_value uint64
 }
 
-func BucketBandwidthTally_Inline(v uint64) BucketBandwidthTally_Inline_Field {
-	return BucketBandwidthTally_Inline_Field{_set: true, _value: v}
+func BucketBandwidthRollup_Inline(v uint64) BucketBandwidthRollup_Inline_Field {
+	return BucketBandwidthRollup_Inline_Field{_set: true, _value: v}
 }
 
-func (f BucketBandwidthTally_Inline_Field) value() interface{} {
+func (f BucketBandwidthRollup_Inline_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (BucketBandwidthTally_Inline_Field) _Column() string { return "inline" }
+func (BucketBandwidthRollup_Inline_Field) _Column() string { return "inline" }
 
-type BucketBandwidthTally_Allocated_Field struct {
+type BucketBandwidthRollup_Allocated_Field struct {
 	_set   bool
 	_null  bool
 	_value uint64
 }
 
-func BucketBandwidthTally_Allocated(v uint64) BucketBandwidthTally_Allocated_Field {
-	return BucketBandwidthTally_Allocated_Field{_set: true, _value: v}
+func BucketBandwidthRollup_Allocated(v uint64) BucketBandwidthRollup_Allocated_Field {
+	return BucketBandwidthRollup_Allocated_Field{_set: true, _value: v}
 }
 
-func (f BucketBandwidthTally_Allocated_Field) value() interface{} {
+func (f BucketBandwidthRollup_Allocated_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (BucketBandwidthTally_Allocated_Field) _Column() string { return "allocated" }
+func (BucketBandwidthRollup_Allocated_Field) _Column() string { return "allocated" }
 
-type BucketBandwidthTally_Settled_Field struct {
+type BucketBandwidthRollup_Settled_Field struct {
 	_set   bool
 	_null  bool
 	_value uint64
 }
 
-func BucketBandwidthTally_Settled(v uint64) BucketBandwidthTally_Settled_Field {
-	return BucketBandwidthTally_Settled_Field{_set: true, _value: v}
+func BucketBandwidthRollup_Settled(v uint64) BucketBandwidthRollup_Settled_Field {
+	return BucketBandwidthRollup_Settled_Field{_set: true, _value: v}
 }
 
-func (f BucketBandwidthTally_Settled_Field) value() interface{} {
+func (f BucketBandwidthRollup_Settled_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (BucketBandwidthTally_Settled_Field) _Column() string { return "settled" }
+func (BucketBandwidthRollup_Settled_Field) _Column() string { return "settled" }
 
 type BucketStorageTally struct {
 	BucketId       []byte
@@ -2915,7 +2915,7 @@ func (f SerialNumber_ExpiresAt_Field) value() interface{} {
 
 func (SerialNumber_ExpiresAt_Field) _Column() string { return "expires_at" }
 
-type StoragenodeBandwidthTally struct {
+type StoragenodeBandwidthRollup struct {
 	StoragenodeId []byte
 	IntervalStart time.Time
 	Action        uint
@@ -2923,106 +2923,106 @@ type StoragenodeBandwidthTally struct {
 	Settled       uint64
 }
 
-func (StoragenodeBandwidthTally) _Table() string { return "storagenode_bandwidth_tallies" }
+func (StoragenodeBandwidthRollup) _Table() string { return "storagenode_bandwidth_rollups" }
 
-type StoragenodeBandwidthTally_Update_Fields struct {
+type StoragenodeBandwidthRollup_Update_Fields struct {
 }
 
-type StoragenodeBandwidthTally_StoragenodeId_Field struct {
+type StoragenodeBandwidthRollup_StoragenodeId_Field struct {
 	_set   bool
 	_null  bool
 	_value []byte
 }
 
-func StoragenodeBandwidthTally_StoragenodeId(v []byte) StoragenodeBandwidthTally_StoragenodeId_Field {
-	return StoragenodeBandwidthTally_StoragenodeId_Field{_set: true, _value: v}
+func StoragenodeBandwidthRollup_StoragenodeId(v []byte) StoragenodeBandwidthRollup_StoragenodeId_Field {
+	return StoragenodeBandwidthRollup_StoragenodeId_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeBandwidthTally_StoragenodeId_Field) value() interface{} {
+func (f StoragenodeBandwidthRollup_StoragenodeId_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (StoragenodeBandwidthTally_StoragenodeId_Field) _Column() string { return "storagenode_id" }
+func (StoragenodeBandwidthRollup_StoragenodeId_Field) _Column() string { return "storagenode_id" }
 
-type StoragenodeBandwidthTally_IntervalStart_Field struct {
+type StoragenodeBandwidthRollup_IntervalStart_Field struct {
 	_set   bool
 	_null  bool
 	_value time.Time
 }
 
-func StoragenodeBandwidthTally_IntervalStart(v time.Time) StoragenodeBandwidthTally_IntervalStart_Field {
+func StoragenodeBandwidthRollup_IntervalStart(v time.Time) StoragenodeBandwidthRollup_IntervalStart_Field {
 	v = toUTC(v)
-	return StoragenodeBandwidthTally_IntervalStart_Field{_set: true, _value: v}
+	return StoragenodeBandwidthRollup_IntervalStart_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeBandwidthTally_IntervalStart_Field) value() interface{} {
+func (f StoragenodeBandwidthRollup_IntervalStart_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (StoragenodeBandwidthTally_IntervalStart_Field) _Column() string { return "interval_start" }
+func (StoragenodeBandwidthRollup_IntervalStart_Field) _Column() string { return "interval_start" }
 
-type StoragenodeBandwidthTally_Action_Field struct {
+type StoragenodeBandwidthRollup_Action_Field struct {
 	_set   bool
 	_null  bool
 	_value uint
 }
 
-func StoragenodeBandwidthTally_Action(v uint) StoragenodeBandwidthTally_Action_Field {
-	return StoragenodeBandwidthTally_Action_Field{_set: true, _value: v}
+func StoragenodeBandwidthRollup_Action(v uint) StoragenodeBandwidthRollup_Action_Field {
+	return StoragenodeBandwidthRollup_Action_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeBandwidthTally_Action_Field) value() interface{} {
+func (f StoragenodeBandwidthRollup_Action_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (StoragenodeBandwidthTally_Action_Field) _Column() string { return "action" }
+func (StoragenodeBandwidthRollup_Action_Field) _Column() string { return "action" }
 
-type StoragenodeBandwidthTally_Allocated_Field struct {
+type StoragenodeBandwidthRollup_Allocated_Field struct {
 	_set   bool
 	_null  bool
 	_value uint64
 }
 
-func StoragenodeBandwidthTally_Allocated(v uint64) StoragenodeBandwidthTally_Allocated_Field {
-	return StoragenodeBandwidthTally_Allocated_Field{_set: true, _value: v}
+func StoragenodeBandwidthRollup_Allocated(v uint64) StoragenodeBandwidthRollup_Allocated_Field {
+	return StoragenodeBandwidthRollup_Allocated_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeBandwidthTally_Allocated_Field) value() interface{} {
+func (f StoragenodeBandwidthRollup_Allocated_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (StoragenodeBandwidthTally_Allocated_Field) _Column() string { return "allocated" }
+func (StoragenodeBandwidthRollup_Allocated_Field) _Column() string { return "allocated" }
 
-type StoragenodeBandwidthTally_Settled_Field struct {
+type StoragenodeBandwidthRollup_Settled_Field struct {
 	_set   bool
 	_null  bool
 	_value uint64
 }
 
-func StoragenodeBandwidthTally_Settled(v uint64) StoragenodeBandwidthTally_Settled_Field {
-	return StoragenodeBandwidthTally_Settled_Field{_set: true, _value: v}
+func StoragenodeBandwidthRollup_Settled(v uint64) StoragenodeBandwidthRollup_Settled_Field {
+	return StoragenodeBandwidthRollup_Settled_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeBandwidthTally_Settled_Field) value() interface{} {
+func (f StoragenodeBandwidthRollup_Settled_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (StoragenodeBandwidthTally_Settled_Field) _Column() string { return "settled" }
+func (StoragenodeBandwidthRollup_Settled_Field) _Column() string { return "settled" }
 
 type StoragenodeStorageTally struct {
 	StoragenodeId []byte
@@ -5966,7 +5966,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM storagenode_bandwidth_tallies;")
+	__res, err = obj.driver.Exec("DELETE FROM storagenode_bandwidth_rollups;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -6086,7 +6086,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM bucket_bandwidth_tallies;")
+	__res, err = obj.driver.Exec("DELETE FROM bucket_bandwidth_rollups;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -8835,7 +8835,7 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM storagenode_bandwidth_tallies;")
+	__res, err = obj.driver.Exec("DELETE FROM storagenode_bandwidth_rollups;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -8955,7 +8955,7 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM bucket_bandwidth_tallies;")
+	__res, err = obj.driver.Exec("DELETE FROM bucket_bandwidth_rollups;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}

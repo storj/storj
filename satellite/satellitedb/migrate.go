@@ -380,7 +380,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						storage_node_id bytea NOT NULL,
 						PRIMARY KEY ( serial_number_id, storage_node_id )
 					)`,
-					`CREATE TABLE storagenode_bandwidth_tallies (
+					`CREATE TABLE storagenode_bandwidth_rollups (
 						storagenode_id bytea NOT NULL,
 						interval_start timestamp NOT NULL,
 						action integer NOT NULL,
@@ -388,7 +388,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						settled bigint NOT NULL,
 						PRIMARY KEY ( storagenode_id, interval_start, action )
 					)`,
-					`CREATE INDEX storagenode_id_interval_start_index ON storagenode_bandwidth_tallies (
+					`CREATE INDEX storagenode_id_interval_start_index ON storagenode_bandwidth_rollups (
 						storagenode_id,
 						interval_start
 					)`,
@@ -398,7 +398,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						total bigint NOT NULL,
 						PRIMARY KEY ( storagenode_id, interval_start )
 					)`,
-					`CREATE TABLE bucket_bandwidth_tallies (
+					`CREATE TABLE bucket_bandwidth_rollups (
 						bucket_id bytea NOT NULL,
 						interval_start timestamp NOT NULL,
 						action integer NOT NULL,
@@ -407,7 +407,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						settled bigint NOT NULL,
 						PRIMARY KEY ( bucket_id, interval_start, action )
 					)`,
-					`CREATE INDEX bucket_id_interval_start_index ON bucket_bandwidth_tallies (
+					`CREATE INDEX bucket_id_interval_start_index ON bucket_bandwidth_rollups (
 						bucket_id,
 						interval_start
 					)`,
