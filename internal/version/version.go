@@ -64,7 +64,7 @@ func NewSemVer(regex *regexp.Regexp, v string) (*SemVer, error) {
 	var err error
 
 	// first entry of m is the entire version string
-	sv.Major, err = parse(m[1])
+	sv.Major, err = parseToInt64(m[1])
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +72,7 @@ func NewSemVer(regex *regexp.Regexp, v string) (*SemVer, error) {
 	if m[2] == "" {
 		sv.Minor = 0
 	} else {
-		sv.Minor, err = parse(m[2])
+		sv.Minor, err = parseToInt64(m[2])
 		if err != nil {
 			return nil, err
 		}
@@ -81,7 +81,7 @@ func NewSemVer(regex *regexp.Regexp, v string) (*SemVer, error) {
 	if m[3] == "" {
 		sv.Patch = 0
 	} else {
-		sv.Patch, err = parse(m[3])
+		sv.Patch, err = parseToInt64(m[3])
 		if err != nil {
 			return nil, err
 		}
@@ -124,7 +124,7 @@ func QueryVersionFromControlServer() (ver []V, err error) {
 }
 
 // Handler returns a json representation of the current version information for the binary
-func Handler(w http.ResponseWriter, r *http.Request) {
+func DebugHandler(w http.ResponseWriter, r *http.Request) {
 	j, err := json.Marshal(Build)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -140,8 +140,8 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// parse converts a string with schema .xxx to an int64 or returns an error
-func parse(label string) (int64, error) {
+// parseToInt64 converts a string with schema .xxx to an int64 or returns an error
+func parseToInt64(label string) (int64, error) {
 	tmp := strings.TrimPrefix(label, ".")
 	l, err := strconv.ParseInt(tmp, 10, 64)
 	if err != nil {
