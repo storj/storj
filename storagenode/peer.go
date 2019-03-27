@@ -5,6 +5,8 @@ package storagenode
 
 import (
 	"context"
+	"math"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -31,6 +33,16 @@ import (
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/trust"
+)
+
+var (
+	// Error general storagenode peer error
+	Error = errs.Class("storagenode peer error")
+)
+
+const (
+	// the base duration to wait in order to do exponential backoff
+	baseWaitDuration = 1 * time.Second
 )
 
 // DB is the master database for Storage Node
@@ -252,6 +264,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 func (peer *Peer) Run(ctx context.Context) error {
 	group, ctx := errgroup.WithContext(ctx)
 
+	var combinedErrs error
+	var attempts int
+	var maxAttempts = 5
 	group.Go(func() error {
 		return ignoreCancel(peer.Version.Run(ctx))
 	})
