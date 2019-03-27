@@ -62,6 +62,8 @@ func NewSemVer(regex *regexp.Regexp, v string) (*SemVer, error) {
 	sv := SemVer{}
 
 	var err error
+
+	// first entry of m is the entire version string
 	sv.Major, err = parse(m[1])
 	if err != nil {
 		return nil, err
