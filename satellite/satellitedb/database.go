@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/orders"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -135,4 +136,9 @@ func (db *DB) Console() console.DB {
 		db:      db.db,
 		methods: db.db,
 	}
+}
+
+// Orders returns database for storing orders
+func (db *DB) Orders() orders.DB {
+	return &ordersDB{db: db.db}
 }
