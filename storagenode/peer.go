@@ -5,7 +5,6 @@ package storagenode
 
 import (
 	"context"
-	"math"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -41,8 +40,10 @@ var (
 )
 
 const (
-	// the base duration to wait in order to do exponential backoff
-	baseWaitDuration = 1 * time.Second
+	// the base duration to wait for exponential backoff
+	baseWaitInterval = 1 * time.Second
+	// the max duration to wait for exponential backoff
+	maxWaitDuration = 30 * time.Second
 )
 
 // DB is the master database for Storage Node
@@ -264,9 +265,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 func (peer *Peer) Run(ctx context.Context) error {
 	group, ctx := errgroup.WithContext(ctx)
 
-	var combinedErrs error
-	var attempts int
-	var maxAttempts = 5
 	group.Go(func() error {
 		return ignoreCancel(peer.Version.Run(ctx))
 	})
@@ -295,6 +293,27 @@ func (peer *Peer) Run(ctx context.Context) error {
 	})
 
 	return group.Wait()
+}
+
+func (peer *Peer) exponentialBackoffBootstrap(ctx context.Context, waitInterval, maxWait time.Duration, attempts int, combined error) error {
+	if waitInterval*2 > maxWait {
+		return errs.Combine(combined, Error.New("unable to bootstrap to network after %d attempts", attempts))
+	}
+	if attempts == 1 {
+		time.Sleep(waitInterval)
+	}
+	if attempts > 1 {
+		waitInterval = waitInterval * 2
+		time.Sleep(waitInterval)
+	}
+
+	err := peer.Kademlia.Service.Bootstrap(ctx)
+	if err != nil {
+		errs.Combine(combined, err)
+		attempts++
+		peer.exponentialBackoffBootstrap(ctx, waitInterval, maxWait, attempts, combined)
+	}
+	return nil
 }
 
 func ignoreCancel(err error) error {
