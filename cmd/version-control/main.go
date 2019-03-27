@@ -11,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 
 	"storj.io/storj/internal/version"
@@ -93,10 +94,16 @@ func main() {
 		conf.Versions = *fversions
 	}
 
+	versionRegex := regexp.MustCompile("^" + version.SemVerRegex + "$")
 	subVersions := strings.Split(conf.Versions, ",")
+
 	for _, subVersion := range subVersions {
+		sVer, err := version.NewSemVer(versionRegex, subVersion)
+		if err != nil {
+			log.Fatalf("Error parsing version %s", subVersion)
+		}
 		instance := version.V{
-			Version: subVersion,
+			Version: *sVer,
 		}
 		ver = append(ver, instance)
 	}
@@ -105,7 +112,6 @@ func main() {
 	response, err = json.Marshal(ver)
 	if err != nil {
 		log.Fatalf("Error marshalling version info: %v", err)
-		return
 	}
 
 	log.Printf("setting version info to: %v", ver)
