@@ -447,7 +447,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					UPDATE nodes SET free_bandwidth = 0;
 					UPDATE nodes SET free_disk = 0;
 					UPDATE nodes SET latency_90 = 0;
-					UPDATE nodes SET last_seen_at = CURRENT_TIMESTAMP;
+					UPDATE nodes SET last_seen_at = 'epoch';
 					ALTER TABLE nodes ALTER COLUMN address SET NOT NULL;
 					ALTER TABLE nodes ALTER COLUMN protocol SET NOT NULL;
 					ALTER TABLE nodes ALTER COLUMN type SET NOT NULL;
