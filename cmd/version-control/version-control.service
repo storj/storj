@@ -1,0 +1,14 @@
+[Unit]
+Description  = Version Control service
+After        = syslog.target
+
+[Service]
+User         = storj
+Group        = storj
+ExecStart    = /usr/local/bin/version-control -syslog -config-file /etc/storj/version-control/config.json
+Restart      = always
+Type         = simple
+NotifyAccess = main
+
+[Install]
+WantedBy     = multi-user.target

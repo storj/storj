@@ -1,9 +1,13 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package version
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
+  "io/ioutil"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -134,5 +138,33 @@ func parse(label string) (int64, error) {
 		return 0, fmt.Errorf("invalid semantic version: %s", err)
 	}
 
-	return l, nil
+	return l, nil	
+
+// New creates Version_Info from a json byte array
+func New(data []byte) (v V, err error) {
+	err = json.Unmarshal(data, v)
+	return v, err
+}
+
+// Marshal converts the existing Version Info to any json byte array
+func (v V) Marshal() (data []byte, err error) {
+	data, err = json.Marshal(v)
+	return
+}
+
+// QueryVersionFromControlServer handles the HTTP request to gather the allowed and latest version information
+func QueryVersionFromControlServer() (ver []V, err error) {
+	resp, err := http.Get("https://version.alpha.storj.io")
+	if err != nil {
+		return []V{}, err
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return []V{}, err
+	}
+
+	err = json.Unmarshal(body, ver)
+	return
+
 }
