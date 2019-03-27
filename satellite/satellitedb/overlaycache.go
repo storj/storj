@@ -205,25 +205,25 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 		address = &pb.NodeAddress{}
 	}
 
-	metadata := info.Metadata
-	if metadata == nil {
-		metadata = &pb.NodeMetadata{}
-	}
-
-	restrictions := info.Restrictions
-	if restrictions == nil {
-		restrictions = &pb.NodeRestrictions{
-			FreeBandwidth: -1,
-			FreeDisk:      -1,
-		}
-	}
-
-	reputation := info.Reputation
-	if reputation == nil {
-		reputation = &pb.NodeStats{}
-	}
-
 	if err != nil {
+		metadata := info.Metadata
+		if metadata == nil {
+			metadata = &pb.NodeMetadata{}
+		}
+
+		restrictions := info.Restrictions
+		if restrictions == nil {
+			restrictions = &pb.NodeRestrictions{
+				FreeBandwidth: -1,
+				FreeDisk:      -1,
+			}
+		}
+
+		reputation := info.Reputation
+		if reputation == nil {
+			reputation = &pb.NodeStats{}
+		}
+
 		_, err = tx.Create_Node(
 			ctx,
 			dbx.Node_Id(info.Id.Bytes()),
@@ -251,14 +251,16 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 			// TODO: should we be able to update node type?
 			Address:  dbx.Node_Address(address.Address),
 			Protocol: dbx.Node_Protocol(int(address.Transport)),
+		}
 
-			Latency90:          dbx.Node_Latency90(info.Reputation.Latency_90),
-			AuditSuccessRatio:  dbx.Node_AuditSuccessRatio(info.Reputation.AuditSuccessRatio),
-			UptimeRatio:        dbx.Node_UptimeRatio(info.Reputation.UptimeRatio),
-			TotalAuditCount:    dbx.Node_TotalAuditCount(info.Reputation.AuditCount),
-			AuditSuccessCount:  dbx.Node_AuditSuccessCount(info.Reputation.AuditSuccessCount),
-			TotalUptimeCount:   dbx.Node_TotalUptimeCount(info.Reputation.UptimeCount),
-			UptimeSuccessCount: dbx.Node_UptimeSuccessCount(info.Reputation.UptimeSuccessCount),
+		if info.Reputation != nil {
+			update.Latency90 = dbx.Node_Latency90(info.Reputation.Latency_90)
+			update.AuditSuccessRatio = dbx.Node_AuditSuccessRatio(info.Reputation.AuditSuccessRatio)
+			update.UptimeRatio = dbx.Node_UptimeRatio(info.Reputation.UptimeRatio)
+			update.TotalAuditCount = dbx.Node_TotalAuditCount(info.Reputation.AuditCount)
+			update.AuditSuccessCount = dbx.Node_AuditSuccessCount(info.Reputation.AuditSuccessCount)
+			update.TotalUptimeCount = dbx.Node_TotalUptimeCount(info.Reputation.UptimeCount)
+			update.UptimeSuccessCount = dbx.Node_UptimeSuccessCount(info.Reputation.UptimeSuccessCount)
 		}
 
 		if info.Metadata != nil {
@@ -267,8 +269,8 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 		}
 
 		if info.Restrictions != nil {
-			update.FreeBandwidth = dbx.Node_FreeBandwidth(restrictions.FreeBandwidth)
-			update.FreeDisk = dbx.Node_FreeDisk(restrictions.FreeDisk)
+			update.FreeBandwidth = dbx.Node_FreeBandwidth(info.Restrictions.FreeBandwidth)
+			update.FreeDisk = dbx.Node_FreeDisk(info.Restrictions.FreeDisk)
 		}
 
 		_, err := tx.Update_Node_By_Id(ctx, dbx.Node_Id(info.Id.Bytes()), update)
