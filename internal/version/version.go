@@ -21,7 +21,7 @@ var (
 	CommitHash string
 	// Version is the semantic version set at compilation
 	// if not a valid semantic version Release should be false
-	Version string
+	Version string = "v0.0.1"
 	// Release indicates whether the binary compiled is a release candidate
 	Release bool
 	// Build is a struct containing all relevant build information associated with the binary
@@ -62,7 +62,7 @@ func NewSemVer(regex *regexp.Regexp, v string) (*SemVer, error) {
 	sv := SemVer{}
 
 	var err error
-	sv.Major, err = parse(m[0])
+	sv.Major, err = parse(m[1])
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func NewSemVer(regex *regexp.Regexp, v string) (*SemVer, error) {
 	if m[3] == "" {
 		sv.Patch = 0
 	} else {
-		sv.Minor, err = parse(m[3])
+		sv.Patch, err = parse(m[3])
 		if err != nil {
 			return nil, err
 		}
@@ -140,7 +140,8 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 
 // parse converts a string with schema .xxx to an int64 or returns an error
 func parse(label string) (int64, error) {
-	l, err := strconv.ParseInt(strings.TrimPrefix(label, "."), 10, 64)
+	tmp := strings.TrimPrefix(label, ".")
+	l, err := strconv.ParseInt(tmp, 10, 64)
 	if err != nil {
 		return 0, fmt.Errorf("invalid semantic version: %s", err)
 	}
