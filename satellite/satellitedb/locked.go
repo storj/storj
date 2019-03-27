@@ -671,13 +671,6 @@ func (m *lockedOverlayCache) Update(ctx context.Context, value *pb.Node) error {
 	return m.db.Update(ctx, value)
 }
 
-// UpdateAuditSuccess updates a single storagenode's audit stats.
-func (m *lockedOverlayCache) UpdateAuditSuccess(ctx context.Context, nodeID storj.NodeID, auditSuccess bool) (stats *overlay.NodeStats, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.UpdateAuditSuccess(ctx, nodeID, auditSuccess)
-}
-
 // UpdateBatch for updating multiple storage nodes' stats.
 func (m *lockedOverlayCache) UpdateBatch(ctx context.Context, requests []*overlay.UpdateRequest) (statslist []*overlay.NodeStats, failed []*overlay.UpdateRequest, err error) {
 	m.Lock()

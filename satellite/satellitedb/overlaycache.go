@@ -535,50 +535,6 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 	return nodeStats, Error.Wrap(tx.Commit())
 }
 
-// UpdateAuditSuccess updates a single storagenode's uptime stats in the db
-func (cache *overlaycache) UpdateAuditSuccess(ctx context.Context, nodeID storj.NodeID, auditSuccess bool) (stats *overlay.NodeStats, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	tx, err := cache.db.Open(ctx)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-	dbNode, err := tx.Get_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()))
-	if err != nil {
-		return nil, Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
-	}
-
-	auditSuccessCount := dbNode.AuditSuccessCount
-	totalAuditCount := dbNode.TotalAuditCount
-	var auditRatio float64
-
-	updateFields := dbx.Node_Update_Fields{}
-
-	auditSuccessCount, totalAuditCount, auditRatio = updateRatioVars(
-		auditSuccess,
-		auditSuccessCount,
-		totalAuditCount,
-	)
-
-	updateFields.AuditSuccessCount = dbx.Node_AuditSuccessCount(auditSuccessCount)
-	updateFields.TotalAuditCount = dbx.Node_TotalAuditCount(totalAuditCount)
-	updateFields.AuditSuccessRatio = dbx.Node_AuditSuccessRatio(auditRatio)
-
-	if auditSuccess {
-		updateFields.LastContactSuccess = dbx.Node_LastContactSuccess(time.Now())
-	} else {
-		updateFields.LastContactFailure = dbx.Node_LastContactFailure(time.Now())
-	}
-
-	dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
-	if err != nil {
-		return nil, Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
-	}
-
-	nodeStats := getNodeStats(nodeID, dbNode)
-	return nodeStats, Error.Wrap(tx.Commit())
-}
-
 // UpdateBatch for updating multiple storage nodes' stats in the db
 func (cache *overlaycache) UpdateBatch(ctx context.Context, updateReqList []*overlay.UpdateRequest) (
 	statsList []*overlay.NodeStats, failedUpdateReqs []*overlay.UpdateRequest, err error) {

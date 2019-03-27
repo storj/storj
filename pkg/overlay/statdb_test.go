@@ -231,7 +231,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		assert.EqualValues(t, newUptimeRatio, stats.UptimeRatio)
 	}
 
-	{ // TestUpdateAuditSuccessExists
+	{ // TestUpdateStatsExists
 		auditSuccessRatio := getRatio(currAuditSuccess, currAuditCount)
 		uptimeRatio := getRatio(currUptimeSuccess, currUptimeCount)
 
@@ -246,14 +246,19 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		assert.EqualValues(t, currUptimeSuccess, stats.UptimeSuccessCount)
 		assert.EqualValues(t, uptimeRatio, stats.UptimeRatio)
 
-		stats, err = cache.UpdateAuditSuccess(ctx, nodeID, false)
+		stats, err = cache.UpdateStats(ctx, &overlay.UpdateRequest{
+			NodeID:       nodeID,
+			IsUp:         true,
+			AuditSuccess: false,
+		})
 		require.NoError(t, err)
 
 		currAuditCount++
-		newAuditRatio := getRatio(currAuditSuccess, currAuditCount)
+		newAuditRatio := getRatio(stats.AuditSuccessCount, stats.AuditCount)
 		assert.EqualValues(t, newAuditRatio, stats.AuditSuccessRatio)
 		assert.EqualValues(t, currAuditCount, stats.AuditCount)
-		assert.EqualValues(t, uptimeRatio, stats.UptimeRatio)
+		newUptimeRatio := getRatio(stats.UptimeSuccessCount, stats.UptimeCount)
+		assert.EqualValues(t, newUptimeRatio, stats.UptimeRatio)
 	}
 
 	{ // TestUpdateBatchExists
