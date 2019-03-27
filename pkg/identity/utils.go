@@ -52,7 +52,7 @@ func writeFile(path string, dirmode, filemode os.FileMode, data []byte) error {
 	if err := os.MkdirAll(filepath.Dir(path), dirmode); err != nil {
 		return errs.Wrap(err)
 	}
-	if writable, err := fpath.IsWritable(path); !writable || err != nil {
+	if writable, err := fpath.IsWritable(filepath.Dir(path)); !writable || err != nil {
 		return errs.Wrap(errs.New("%s is not a writeable directory: %s\n", path, err))
 	}
 	if err := ioutil.WriteFile(path, data, filemode); err != nil {
