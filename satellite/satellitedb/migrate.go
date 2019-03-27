@@ -477,7 +477,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						   FROM overlay_cache_nodes) AS overlay
 					 WHERE nodes.id=overlay.node_id;`,
 					// Delete the overlay cache_nodes table
-					`DROP TABLE IF EXISTS overlay_cache_nodes CASCADE;`,
+					`DROP TABLE overlay_cache_nodes CASCADE;`,
 				},
 			},
 		},
