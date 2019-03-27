@@ -394,9 +394,10 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						interval_start,
 						interval_seconds
 					)`,
-					`CREATE TABLE storagenode_storage_tallies (
+					`CREATE TABLE storagenode_storage_rollups (
 						storagenode_id bytea NOT NULL,
 						interval_start timestamp NOT NULL,
+						interval_seconds integer NOT NULL,
 						total bigint NOT NULL,
 						PRIMARY KEY ( storagenode_id, interval_start )
 					)`,
@@ -415,15 +416,12 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						interval_start,
 						interval_seconds
 					)`,
-					`CREATE TABLE bucket_storage_tallies (
+					`CREATE TABLE bucket_storage_rollups (
 						bucket_id bytea NOT NULL,
 						interval_start timestamp NOT NULL,
+						interval_seconds integer NOT NULL,
 						inline bigint NOT NULL,
 						remote bigint NOT NULL,
-						remote_segments_count integer NOT NULL,
-						inline_segments_count integer NOT NULL,
-						object_count integer NOT NULL,
-						metadata_size bigint NOT NULL,
 						PRIMARY KEY ( bucket_id, interval_start )
 					)`,
 					`ALTER TABLE bucket_usages DROP CONSTRAINT bucket_usages_rollup_end_time_bucket_id_key`,
@@ -440,6 +438,24 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					 ALTER TABLE users ALTER COLUMN last_name DROP NOT NULL;
 					 ALTER TABLE users RENAME COLUMN last_name TO short_name;`,
 				},
+			},
+			{
+				Description: "drops interval seconds from storage_rollups, renames x_storage_rollups to x_storage_tallies, adds fields to bucket_storage_tallies",
+				Version:     11,
+				Action: migrate.SQL{
+					`ALTER TABLE storagenode_storage_rollups DROP COLUMN interval_seconds`,
+					`ALTER TABLE storagenode_storage_rollups
+						RENAME TO storagenode_storage_tallies`,
+					`ALTER TABLE bucket_storage_rollups DROP COLUMN interval_seconds`,
+					`ALTER TABLE bucket_storage_rollups
+						ADD COLUMN remote_segments_count integer NOT NULL, 
+							inline_segments_count integer NOT NULL,
+							object_count integer NOT NULL,
+							metadata_size bigint NOT NULL`,
+					`ALTER TABLE bucket_storage_rollups
+						RENAME TO bucket_storage_tallies`,
+            },
+
 			},
 		},
 	}
