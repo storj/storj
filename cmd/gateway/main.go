@@ -158,9 +158,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Error("Failed to initialize telemetry batcher: ", err)
 	}
 
-	if err := process.LogAndReportVersion(ctx); err != nil {
-		zap.S().Error("Failed to report version: ", err)
-	}
+	go process.LogAndReportVersion(ctx)
 
 	_, err = metainfo.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
 	if err != nil {
