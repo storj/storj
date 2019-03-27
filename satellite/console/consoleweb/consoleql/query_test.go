@@ -65,8 +65,8 @@ func TestGraphqlQuery(t *testing.T) {
 
 		createUser := console.CreateUser{
 			UserInfo: console.UserInfo{
-				FirstName: "John",
-				LastName:  "",
+				FullName:  "John",
+				ShortName: "",
 				Email:     "mtest@email.com",
 			},
 			Password: "123a123",
@@ -133,8 +133,8 @@ func TestGraphqlQuery(t *testing.T) {
 			testUser := func(t *testing.T, actual map[string]interface{}, expected *console.User) {
 				assert.Equal(t, expected.ID.String(), actual[consoleql.FieldID])
 				assert.Equal(t, expected.Email, actual[consoleql.FieldEmail])
-				assert.Equal(t, expected.FirstName, actual[consoleql.FieldFirstName])
-				assert.Equal(t, expected.LastName, actual[consoleql.FieldLastName])
+				assert.Equal(t, expected.FullName, actual[consoleql.FieldFullName])
+				assert.Equal(t, expected.ShortName, actual[consoleql.FieldShortName])
 
 				createdAt := time.Time{}
 				err := createdAt.UnmarshalText([]byte(actual[consoleql.FieldCreatedAt].(string)))
@@ -145,7 +145,7 @@ func TestGraphqlQuery(t *testing.T) {
 
 			t.Run("With ID", func(t *testing.T) {
 				query := fmt.Sprintf(
-					"query {user(id:\"%s\"){id,email,firstName,lastName,createdAt}}",
+					"query {user(id:\"%s\"){id,email,fullName,shortName,createdAt}}",
 					rootUser.ID.String(),
 				)
 
@@ -158,7 +158,7 @@ func TestGraphqlQuery(t *testing.T) {
 			})
 
 			t.Run("With AuthFallback", func(t *testing.T) {
-				query := "query {user{id,email,firstName,lastName,createdAt}}"
+				query := "query {user{id,email,fullName,shortName,createdAt}}"
 
 				result := testQuery(t, query)
 
@@ -177,7 +177,7 @@ func TestGraphqlQuery(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// "query {project(id:\"%s\"){id,name,members(offset:0, limit:50){user{firstName,lastName,email}},apiKeys{name,id,createdAt,projectID}}}"
+		// "query {project(id:\"%s\"){id,name,members(offset:0, limit:50){user{fullName,shortName,email}},apiKeys{name,id,createdAt,projectID}}}"
 		t.Run("Project query base info", func(t *testing.T) {
 			query := fmt.Sprintf(
 				"query {project(id:\"%s\"){id,name,description,createdAt}}",
@@ -207,8 +207,8 @@ func TestGraphqlQuery(t *testing.T) {
 
 		user1, err := service.CreateUser(authCtx, console.CreateUser{
 			UserInfo: console.UserInfo{
-				FirstName: "Mickey",
-				LastName:  "Last",
+				FullName:  "Mickey Last",
+				ShortName: "Last",
 				Email:     "muu1@email.com",
 			},
 			Password: "123a123",
@@ -242,8 +242,8 @@ func TestGraphqlQuery(t *testing.T) {
 
 		user2, err := service.CreateUser(authCtx, console.CreateUser{
 			UserInfo: console.UserInfo{
-				FirstName: "Dubas",
-				LastName:  "Name",
+				FullName:  "Dubas Name",
+				ShortName: "Name",
 				Email:     "muu2@email.com",
 			},
 			Password: "123a123",
@@ -280,7 +280,7 @@ func TestGraphqlQuery(t *testing.T) {
 
 		t.Run("Project query team members", func(t *testing.T) {
 			query := fmt.Sprintf(
-				"query {project(id:\"%s\"){members(offset:0, limit:50){user{id,firstName,lastName,email,createdAt}}}}",
+				"query {project(id:\"%s\"){members(offset:0, limit:50){user{id,fullName,shortName,email,createdAt}}}}",
 				createdProject.ID.String(),
 			)
 
@@ -294,8 +294,8 @@ func TestGraphqlQuery(t *testing.T) {
 
 			testUser := func(t *testing.T, actual map[string]interface{}, expected *console.User) {
 				assert.Equal(t, expected.Email, actual[consoleql.FieldEmail])
-				assert.Equal(t, expected.FirstName, actual[consoleql.FieldFirstName])
-				assert.Equal(t, expected.LastName, actual[consoleql.FieldLastName])
+				assert.Equal(t, expected.FullName, actual[consoleql.FieldFullName])
+				assert.Equal(t, expected.ShortName, actual[consoleql.FieldShortName])
 
 				createdAt := time.Time{}
 				err := createdAt.UnmarshalText([]byte(actual[consoleql.FieldCreatedAt].(string)))
@@ -436,7 +436,7 @@ func TestGraphqlQuery(t *testing.T) {
 
 		t.Run("Token query", func(t *testing.T) {
 			query := fmt.Sprintf(
-				"query {token(email: \"%s\", password: \"%s\"){token,user{id,email,firstName,lastName,createdAt}}}",
+				"query {token(email: \"%s\", password: \"%s\"){token,user{id,email,fullName,shortName,createdAt}}}",
 				createUser.Email,
 				createUser.Password,
 			)
@@ -457,8 +457,8 @@ func TestGraphqlQuery(t *testing.T) {
 			assert.Equal(t, rootUser.ID, tauth.User.ID)
 			assert.Equal(t, rootUser.ID.String(), user[consoleql.FieldID])
 			assert.Equal(t, rootUser.Email, user[consoleql.FieldEmail])
-			assert.Equal(t, rootUser.FirstName, user[consoleql.FieldFirstName])
-			assert.Equal(t, rootUser.LastName, user[consoleql.FieldLastName])
+			assert.Equal(t, rootUser.FullName, user[consoleql.FieldFullName])
+			assert.Equal(t, rootUser.ShortName, user[consoleql.FieldShortName])
 
 			createdAt := time.Time{}
 			err = createdAt.UnmarshalText([]byte(user[consoleql.FieldCreatedAt].(string)))

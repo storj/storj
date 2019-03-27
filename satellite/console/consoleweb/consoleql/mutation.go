@@ -4,8 +4,6 @@
 package consoleql
 
 import (
-	"fmt"
-
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"go.uber.org/zap"
@@ -98,12 +96,16 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					rootObject := p.Info.RootValue.(map[string]interface{})
 					origin := rootObject["origin"].(string)
 					link := origin + rootObject[ActivationPath].(string) + token
+					userName := user.ShortName
+					if user.ShortName == "" {
+						userName = user.FullName
+					}
 
 					// TODO: think of a better solution
 					go func() {
 						_ = mailService.SendRendered(
 							p.Context,
-							[]post.Address{{Address: user.Email, Name: user.FirstName}},
+							[]post.Address{{Address: user.Email, Name: userName}},
 							&AccountActivationEmail{
 								Origin:         origin,
 								ActivationLink: link,
@@ -295,12 +297,17 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					// TODO: think of a better solution
 					go func() {
 						for _, user := range users {
+							userName := user.ShortName
+							if user.ShortName == "" {
+								userName = user.FullName
+							}
+
 							_ = mailService.SendRendered(
 								p.Context,
-								[]post.Address{{Address: user.Email, Name: fmt.Sprintf("%s %s", user.FirstName, user.LastName)}},
+								[]post.Address{{Address: user.Email, Name: userName}},
 								&ProjectInvitationEmail{
 									Origin:      origin,
-									UserName:    user.FirstName,
+									UserName:    userName,
 									ProjectName: project.Name,
 									SignInLink:  signIn,
 								},

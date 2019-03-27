@@ -431,8 +431,17 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				Description: "Merge overlay_cache_nodes into nodes table",
+				Description: "users first_name to full_name, last_name to short_name",
 				Version:     10,
+				Action: migrate.SQL{
+					`ALTER TABLE users RENAME COLUMN first_name TO full_name;
+					ALTER TABLE users ALTER COLUMN last_name DROP NOT NULL;
+					ALTER TABLE users RENAME COLUMN last_name TO short_name;`,
+				},
+			},
+			{
+				Description: "Merge overlay_cache_nodes into nodes table",
+				Version:     11,
 				Action: migrate.SQL{
 					// Add the new columns to the nodes table
 					`ALTER TABLE nodes ADD address TEXT;

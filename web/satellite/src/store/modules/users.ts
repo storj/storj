@@ -12,8 +12,8 @@ import {
 export const usersModule = {
     state: {
         user: {
-            firstName: '',
-            lastName: '',
+            fullName: '',
+            shortName: '',
             email: ''
         }
     },
@@ -24,8 +24,8 @@ export const usersModule = {
         },
 
         [USER_MUTATIONS.REVERT_TO_DEFAULT_USER_INFO](state: any): void {
-            state.user.firstName = '';
-            state.user.lastName = '';
+            state.user.fullName = '';
+            state.user.shortName = '';
             state.user.email = '';
         },
 
@@ -35,8 +35,8 @@ export const usersModule = {
 
         [USER_MUTATIONS.CLEAR](state: any): void {
             state.user = {
-                firstName: '',
-                lastName: '',
+                fullName: '',
+                shortName: '',
                 email: ''
             };
         },
@@ -76,6 +76,6 @@ export const usersModule = {
         user: (state: any) => {
             return state.user;
         },
-        userName: (state: any) => `${state.user.firstName} ${state.user.lastName}`
+        userName: (state: any) => state.user.shortName == '' ? state.user.fullName : state.user.shortName
     },
 };
