@@ -369,12 +369,14 @@ func (endpoint *Endpoint) createOrderLimitsForSegment(ctx context.Context, point
 
 		node, err := endpoint.cache.Get(ctx, piece.NodeId)
 		if err != nil {
-			fmt.Println(piece.NodeId.String(), "error getting from overlay cache")
+			s := fmt.Sprintf("%s metainfodebug error getting from overlay cache", piece.NodeId.String())
+			endpoint.log.Debug(s)
 			endpoint.log.Error("error getting node from overlay cache", zap.Error(err))
 			combinedErrs = errs.Combine(combinedErrs, err)
 			continue
 		}
-		fmt.Println(piece.NodeId.String(), "no error getting from overlay cache")
+		s := fmt.Sprintf("%s metainfodebug no error getting from overlay cache", piece.NodeId.String())
+		endpoint.log.Debug(s)
 
 		if node != nil {
 			node.Type.DPanicOnInvalid("metainfo server order limits")
