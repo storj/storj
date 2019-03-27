@@ -4,11 +4,14 @@
 package identity
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 
 	"github.com/zeebo/errs"
+
+	"storj.io/storj/internal/fpath"
 )
 
 // TLSFilesStatus is the status of keys
@@ -50,7 +53,10 @@ func writeFile(path string, dirmode, filemode os.FileMode, data []byte) error {
 	if err := os.MkdirAll(filepath.Dir(path), dirmode); err != nil {
 		return errs.Wrap(err)
 	}
-
+	if writable, err := fpath.IsWritable(path); !writable || err != nil {
+		fmt.Printf("%s is not a writeable directory: %s\n", path, err)
+		return errs.Wrap(err)
+	}
 	if err := ioutil.WriteFile(path, data, filemode); err != nil {
 		return errs.Wrap(err)
 	}
