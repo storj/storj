@@ -22,13 +22,15 @@ var (
 	Release bool
 	// Build is a struct containing all relevant build information associated with the binary
 	Build V
+	// Accepted is a list of accepted Version that we got from the control server
+	Accepted []V
 )
 
 // V is the versioning information for a binary
 type V struct {
 	Timestamp  string `json:"timestamp,omitempty"`
 	CommitHash string `json:"commitHash,omitempty"`
-	Version    string `json:"version"`
+	Version    SemVer `json:"version"`
 	Release    bool   `json:"release,omitempty"`
 }
 
@@ -59,7 +61,7 @@ func init() {
 		panic(err)
 	}
 
-	Build.Version = sv.String()
+	Build.Version = *sv
 
 	if Build.Timestamp == "" || Build.CommitHash == "" {
 		Build.Release = false
