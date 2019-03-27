@@ -100,7 +100,6 @@ func TestInspectorStats(t *testing.T) {
 				assert.Equal(t, int32(0), segments[0].GetRepairThreshold())
 				assert.Equal(t, int32(4), segments[0].GetOnlineNodes())
 
-				fmt.Printf("+%v\n", resp)
 				assert.NoError(t, err)
 			}
 
