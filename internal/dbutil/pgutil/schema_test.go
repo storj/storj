@@ -22,9 +22,8 @@ func (r errorReader) Read(p []byte) (n int, err error) {
 	r.numberOfRetries++
 	if r.succeedOnRetry > 0 && r.numberOfRetries >= r.succeedOnRetry {
 		return 10, nil
-	} else {
-		return 0, fmt.Errorf("Fake rand() error")
 	}
+	return 0, fmt.Errorf("Fake rand() error")
 }
 
 // TestRandomString tests to verify that by default we get a proper
