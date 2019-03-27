@@ -22,7 +22,7 @@ import (
 	"storj.io/storj/storage"
 )
 
-func TestInspectorSegmentStats(t *testing.T) {
+func TestInspectorStats(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -58,57 +58,53 @@ func TestInspectorSegmentStats(t *testing.T) {
 			}
 
 			fullPath := storj.SplitPath(item.Key.String())
+			projectID := fullPath[0]
+			bucket := fullPath[2]
+			encryptedPath := strings.Join(fullPath[3:], "/")
 
-			req := &pb.SegmentHealthRequest{
-				ProjectId:     []byte(fullPath[0]),
-				EncryptedPath: []byte(strings.Join(fullPath[3:], "/")),
-				Bucket:        []byte(fullPath[2]),
-				Segment:       -1,
+			{ // Test Segment Health Request
+				req := &pb.SegmentHealthRequest{
+					ProjectId:     []byte(projectID),
+					EncryptedPath: []byte(encryptedPath),
+					Bucket:        []byte(bucket),
+					Segment:       -1,
+				}
+
+				resp, err := health.SegmentStat(ctx, req)
+				assert.NoError(t, err)
+
+				assert.Equal(t, int32(0), resp.GetSuccessThreshold())
+				assert.Equal(t, int32(1), resp.GetMinimumRequired())
+				assert.Equal(t, int32(4), resp.GetTotal())
+				assert.Equal(t, int32(0), resp.GetRepairThreshold())
+				assert.Equal(t, int32(4), resp.GetOnlineNodes())
 			}
 
-			resp, err := health.SegmentStat(ctx, req)
-			assert.NoError(t, err)
+			{ // Test Object Health Request
+				objectHealthReq := &pb.ObjectHealthRequest{
+					ProjectId:         []byte(projectID),
+					EncryptedPath:     []byte(encryptedPath),
+					Bucket:            []byte(bucket),
+					StartAfterSegment: 0,
+					EndBeforeSegment:  0,
+					Limit:             0,
+				}
+				resp, err := health.ObjectStat(ctx, objectHealthReq)
 
-			assert.Equal(t, int32(0), resp.GetSuccessThreshold())
-			assert.Equal(t, int32(1), resp.GetMinimumRequired())
-			assert.Equal(t, int32(4), resp.GetTotal())
-			assert.Equal(t, int32(0), resp.GetRepairThreshold())
-			assert.Equal(t, int32(4), resp.GetOnlineNodes())
+				assert.Equal(t, 1, len(resp.GetSegments()))
+
+				segments := resp.GetSegments()
+				assert.Equal(t, int32(0), segments[0].GetSuccessThreshold())
+				assert.Equal(t, int32(1), segments[0].GetMinimumRequired())
+				assert.Equal(t, int32(4), segments[0].GetTotal())
+				assert.Equal(t, int32(0), segments[0].GetRepairThreshold())
+				assert.Equal(t, int32(4), segments[0].GetOnlineNodes())
+
+				fmt.Printf("+%v\n", resp)
+				assert.NoError(t, err)
+			}
 
 			return nil
 		},
 	)
-
-}
-
-func TestInspectorObjectStats(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	planet, err := testplanet.New(t, 1, 6, 1)
-	require.NoError(t, err)
-	defer ctx.Check(planet.Shutdown)
-
-	planet.Start(ctx)
-
-	uplink := planet.Uplinks[0]
-	testData := make([]byte, 1*memory.MiB)
-	_, err = rand.Read(testData)
-	assert.NoError(t, err)
-
-	bucket := "testbucket"
-
-	err = uplink.Upload(ctx, planet.Satellites[0], bucket, "test/path", testData)
-	assert.NoError(t, err)
-
-	log := zaptest.NewLogger(t)
-
-	health, err := inspector.NewEndpoint(log, planet.Satellites[0].Overlay.Service, planet.Satellites[0].Metainfo.Service)
-	assert.NoError(t, err)
-
-	objectHealthReq := &pb.ObjectHealthRequest{}
-
-	_, err = health.ObjectStat(ctx, objectHealthReq)
-	assert.NotNil(t, err)
-
 }

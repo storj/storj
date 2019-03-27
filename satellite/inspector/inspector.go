@@ -22,7 +22,8 @@ import (
 var (
 	mon = monkit.Package()
 	// Error wraps errors returned from Server struct methods
-	Error = errs.Class("Endpoint error")
+	Error        = errs.Class("Endpoint error")
+	finalSegment = int64(-1)
 )
 
 type Endpoint struct {
@@ -42,17 +43,61 @@ func NewEndpoint(log *zap.Logger, cache *overlay.Cache, pdb *pointerdb.Service) 
 func (endpoint *Endpoint) ObjectStat(ctx context.Context, in *pb.ObjectHealthRequest) (resp *pb.ObjectHealthResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	var segmentHealthResponses []*pb.SegmentHealthResponse
+
+	limit := int64(100)
+	if in.GetLimit() > 0 {
+		limit = int64(in.GetLimit())
+	}
+
+	var start int64
+	if in.GetStartAfterSegment() > 0 {
+		start = in.GetStartAfterSegment() + 1
+	}
+
+	end := int64(limit) + start
+	if in.GetEndBeforeSegment() > 0 {
+		end = in.GetEndBeforeSegment()
+	}
+
 	// Receive path
-	// Determine Segments
+	i := start
+	for i < end {
+		if i-start >= limit {
+			break
+		}
 
-	// for each segment
-	//	 endpoint.SegmentStat()
+		segment := &pb.SegmentHealthRequest{
+			Bucket:        in.GetBucket(),
+			EncryptedPath: in.GetEncryptedPath(),
+			Segment:       i,
+			ProjectId:     in.GetProjectId(),
+		}
 
-	// open a stream with the client and send each segment's results to the client
+		segmentHealth, err := endpoint.SegmentStat(ctx, segment)
+		if err != nil {
+			if i == finalSegment {
+				return nil, Error.Wrap(err)
+			}
 
-	// return combined results
+			i = finalSegment
+			continue
+		}
 
-	return nil, nil
+		segmentHealthResponses = append(segmentHealthResponses, segmentHealth)
+
+		if i == finalSegment {
+			break
+		}
+
+		i++
+	}
+
+	resp = &pb.ObjectHealthResponse{
+		Segments: segmentHealthResponses,
+	}
+
+	return resp, nil
 }
 
 func (endpoint *Endpoint) SegmentStat(ctx context.Context, in *pb.SegmentHealthRequest) (resp *pb.SegmentHealthResponse, err error) {
