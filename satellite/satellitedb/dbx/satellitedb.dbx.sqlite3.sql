@@ -29,6 +29,7 @@ CREATE TABLE accounting_timestamps (
 CREATE TABLE bucket_bandwidth_rollups (
 	bucket_id BLOB NOT NULL,
 	interval_start TIMESTAMP NOT NULL,
+	interval_seconds INTEGER NOT NULL,
 	action INTEGER NOT NULL,
 	inline INTEGER NOT NULL,
 	allocated INTEGER NOT NULL,
@@ -40,9 +41,9 @@ CREATE TABLE bucket_storage_tallies (
 	interval_start TIMESTAMP NOT NULL,
 	inline INTEGER NOT NULL,
 	remote INTEGER NOT NULL,
-	remote_segments INTEGER NOT NULL,
-	inline_segments INTEGER NOT NULL,
-	objects INTEGER NOT NULL,
+	remote_segments_count INTEGER NOT NULL,
+	inline_segments_count INTEGER NOT NULL,
+	object_count INTEGER NOT NULL,
 	metadata_size INTEGER NOT NULL,
 	PRIMARY KEY ( bucket_id, interval_start )
 );
@@ -148,6 +149,7 @@ CREATE TABLE serial_numbers (
 CREATE TABLE storagenode_bandwidth_rollups (
 	storagenode_id BLOB NOT NULL,
 	interval_start TIMESTAMP NOT NULL,
+	interval_seconds INTEGER NOT NULL,
 	action INTEGER NOT NULL,
 	allocated INTEGER NOT NULL,
 	settled INTEGER NOT NULL,
@@ -190,8 +192,8 @@ CREATE TABLE used_serials (
 	storage_node_id BLOB NOT NULL,
 	PRIMARY KEY ( serial_number_id, storage_node_id )
 );
-CREATE INDEX bucket_id_interval_start ON bucket_bandwidth_rollups ( bucket_id, interval_start );
+CREATE INDEX bucket_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_id, interval_start, interval_seconds );
 CREATE UNIQUE INDEX bucket_id_tally ON bucket_usages ( bucket_id, tally_end_time );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
-CREATE INDEX storagenode_id_interval_start ON storagenode_bandwidth_rollups ( storagenode_id, interval_start );
+CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );

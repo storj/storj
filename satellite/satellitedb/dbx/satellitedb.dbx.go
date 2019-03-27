@@ -301,6 +301,7 @@ CREATE TABLE accounting_timestamps (
 CREATE TABLE bucket_bandwidth_rollups (
 	bucket_id bytea NOT NULL,
 	interval_start timestamp NOT NULL,
+	interval_seconds integer NOT NULL,
 	action integer NOT NULL,
 	inline bigint NOT NULL,
 	allocated bigint NOT NULL,
@@ -312,9 +313,9 @@ CREATE TABLE bucket_storage_tallies (
 	interval_start timestamp NOT NULL,
 	inline bigint NOT NULL,
 	remote bigint NOT NULL,
-	remote_segments integer NOT NULL,
-	inline_segments integer NOT NULL,
-	objects integer NOT NULL,
+	remote_segments_count integer NOT NULL,
+	inline_segments_count integer NOT NULL,
+	object_count integer NOT NULL,
 	metadata_size bigint NOT NULL,
 	PRIMARY KEY ( bucket_id, interval_start )
 );
@@ -420,6 +421,7 @@ CREATE TABLE serial_numbers (
 CREATE TABLE storagenode_bandwidth_rollups (
 	storagenode_id bytea NOT NULL,
 	interval_start timestamp NOT NULL,
+	interval_seconds integer NOT NULL,
 	action integer NOT NULL,
 	allocated bigint NOT NULL,
 	settled bigint NOT NULL,
@@ -462,11 +464,11 @@ CREATE TABLE used_serials (
 	storage_node_id bytea NOT NULL,
 	PRIMARY KEY ( serial_number_id, storage_node_id )
 );
-CREATE INDEX bucket_id_interval_start ON bucket_bandwidth_rollups ( bucket_id, interval_start );
+CREATE INDEX bucket_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_id, interval_start, interval_seconds );
 CREATE UNIQUE INDEX bucket_id_tally ON bucket_usages ( bucket_id, tally_end_time );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
-CREATE INDEX storagenode_id_interval_start ON storagenode_bandwidth_rollups ( storagenode_id, interval_start );`
+CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );`
 }
 
 func (obj *postgresDB) wrapTx(tx *sql.Tx) txMethods {
@@ -559,6 +561,7 @@ CREATE TABLE accounting_timestamps (
 CREATE TABLE bucket_bandwidth_rollups (
 	bucket_id BLOB NOT NULL,
 	interval_start TIMESTAMP NOT NULL,
+	interval_seconds INTEGER NOT NULL,
 	action INTEGER NOT NULL,
 	inline INTEGER NOT NULL,
 	allocated INTEGER NOT NULL,
@@ -570,9 +573,9 @@ CREATE TABLE bucket_storage_tallies (
 	interval_start TIMESTAMP NOT NULL,
 	inline INTEGER NOT NULL,
 	remote INTEGER NOT NULL,
-	remote_segments INTEGER NOT NULL,
-	inline_segments INTEGER NOT NULL,
-	objects INTEGER NOT NULL,
+	remote_segments_count INTEGER NOT NULL,
+	inline_segments_count INTEGER NOT NULL,
+	object_count INTEGER NOT NULL,
 	metadata_size INTEGER NOT NULL,
 	PRIMARY KEY ( bucket_id, interval_start )
 );
@@ -678,6 +681,7 @@ CREATE TABLE serial_numbers (
 CREATE TABLE storagenode_bandwidth_rollups (
 	storagenode_id BLOB NOT NULL,
 	interval_start TIMESTAMP NOT NULL,
+	interval_seconds INTEGER NOT NULL,
 	action INTEGER NOT NULL,
 	allocated INTEGER NOT NULL,
 	settled INTEGER NOT NULL,
@@ -720,11 +724,11 @@ CREATE TABLE used_serials (
 	storage_node_id BLOB NOT NULL,
 	PRIMARY KEY ( serial_number_id, storage_node_id )
 );
-CREATE INDEX bucket_id_interval_start ON bucket_bandwidth_rollups ( bucket_id, interval_start );
+CREATE INDEX bucket_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_id, interval_start, interval_seconds );
 CREATE UNIQUE INDEX bucket_id_tally ON bucket_usages ( bucket_id, tally_end_time );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
-CREATE INDEX storagenode_id_interval_start ON storagenode_bandwidth_rollups ( storagenode_id, interval_start );`
+CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );`
 }
 
 func (obj *sqlite3DB) wrapTx(tx *sql.Tx) txMethods {
@@ -1153,12 +1157,13 @@ func (f AccountingTimestamps_Value_Field) value() interface{} {
 func (AccountingTimestamps_Value_Field) _Column() string { return "value" }
 
 type BucketBandwidthRollup struct {
-	BucketId      []byte
-	IntervalStart time.Time
-	Action        uint
-	Inline        uint64
-	Allocated     uint64
-	Settled       uint64
+	BucketId        []byte
+	IntervalStart   time.Time
+	IntervalSeconds uint
+	Action          uint
+	Inline          uint64
+	Allocated       uint64
+	Settled         uint64
 }
 
 func (BucketBandwidthRollup) _Table() string { return "bucket_bandwidth_rollups" }
@@ -1204,6 +1209,25 @@ func (f BucketBandwidthRollup_IntervalStart_Field) value() interface{} {
 }
 
 func (BucketBandwidthRollup_IntervalStart_Field) _Column() string { return "interval_start" }
+
+type BucketBandwidthRollup_IntervalSeconds_Field struct {
+	_set   bool
+	_null  bool
+	_value uint
+}
+
+func BucketBandwidthRollup_IntervalSeconds(v uint) BucketBandwidthRollup_IntervalSeconds_Field {
+	return BucketBandwidthRollup_IntervalSeconds_Field{_set: true, _value: v}
+}
+
+func (f BucketBandwidthRollup_IntervalSeconds_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketBandwidthRollup_IntervalSeconds_Field) _Column() string { return "interval_seconds" }
 
 type BucketBandwidthRollup_Action_Field struct {
 	_set   bool
@@ -1282,14 +1306,14 @@ func (f BucketBandwidthRollup_Settled_Field) value() interface{} {
 func (BucketBandwidthRollup_Settled_Field) _Column() string { return "settled" }
 
 type BucketStorageTally struct {
-	BucketId       []byte
-	IntervalStart  time.Time
-	Inline         uint64
-	Remote         uint64
-	RemoteSegments uint
-	InlineSegments uint
-	Objects        uint
-	MetadataSize   uint64
+	BucketId            []byte
+	IntervalStart       time.Time
+	Inline              uint64
+	Remote              uint64
+	RemoteSegmentsCount uint
+	InlineSegmentsCount uint
+	ObjectCount         uint
+	MetadataSize        uint64
 }
 
 func (BucketStorageTally) _Table() string { return "bucket_storage_tallies" }
@@ -1374,62 +1398,62 @@ func (f BucketStorageTally_Remote_Field) value() interface{} {
 
 func (BucketStorageTally_Remote_Field) _Column() string { return "remote" }
 
-type BucketStorageTally_RemoteSegments_Field struct {
+type BucketStorageTally_RemoteSegmentsCount_Field struct {
 	_set   bool
 	_null  bool
 	_value uint
 }
 
-func BucketStorageTally_RemoteSegments(v uint) BucketStorageTally_RemoteSegments_Field {
-	return BucketStorageTally_RemoteSegments_Field{_set: true, _value: v}
+func BucketStorageTally_RemoteSegmentsCount(v uint) BucketStorageTally_RemoteSegmentsCount_Field {
+	return BucketStorageTally_RemoteSegmentsCount_Field{_set: true, _value: v}
 }
 
-func (f BucketStorageTally_RemoteSegments_Field) value() interface{} {
+func (f BucketStorageTally_RemoteSegmentsCount_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (BucketStorageTally_RemoteSegments_Field) _Column() string { return "remote_segments" }
+func (BucketStorageTally_RemoteSegmentsCount_Field) _Column() string { return "remote_segments_count" }
 
-type BucketStorageTally_InlineSegments_Field struct {
+type BucketStorageTally_InlineSegmentsCount_Field struct {
 	_set   bool
 	_null  bool
 	_value uint
 }
 
-func BucketStorageTally_InlineSegments(v uint) BucketStorageTally_InlineSegments_Field {
-	return BucketStorageTally_InlineSegments_Field{_set: true, _value: v}
+func BucketStorageTally_InlineSegmentsCount(v uint) BucketStorageTally_InlineSegmentsCount_Field {
+	return BucketStorageTally_InlineSegmentsCount_Field{_set: true, _value: v}
 }
 
-func (f BucketStorageTally_InlineSegments_Field) value() interface{} {
+func (f BucketStorageTally_InlineSegmentsCount_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (BucketStorageTally_InlineSegments_Field) _Column() string { return "inline_segments" }
+func (BucketStorageTally_InlineSegmentsCount_Field) _Column() string { return "inline_segments_count" }
 
-type BucketStorageTally_Objects_Field struct {
+type BucketStorageTally_ObjectCount_Field struct {
 	_set   bool
 	_null  bool
 	_value uint
 }
 
-func BucketStorageTally_Objects(v uint) BucketStorageTally_Objects_Field {
-	return BucketStorageTally_Objects_Field{_set: true, _value: v}
+func BucketStorageTally_ObjectCount(v uint) BucketStorageTally_ObjectCount_Field {
+	return BucketStorageTally_ObjectCount_Field{_set: true, _value: v}
 }
 
-func (f BucketStorageTally_Objects_Field) value() interface{} {
+func (f BucketStorageTally_ObjectCount_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (BucketStorageTally_Objects_Field) _Column() string { return "objects" }
+func (BucketStorageTally_ObjectCount_Field) _Column() string { return "object_count" }
 
 type BucketStorageTally_MetadataSize_Field struct {
 	_set   bool
@@ -2916,11 +2940,12 @@ func (f SerialNumber_ExpiresAt_Field) value() interface{} {
 func (SerialNumber_ExpiresAt_Field) _Column() string { return "expires_at" }
 
 type StoragenodeBandwidthRollup struct {
-	StoragenodeId []byte
-	IntervalStart time.Time
-	Action        uint
-	Allocated     uint64
-	Settled       uint64
+	StoragenodeId   []byte
+	IntervalStart   time.Time
+	IntervalSeconds uint
+	Action          uint
+	Allocated       uint64
+	Settled         uint64
 }
 
 func (StoragenodeBandwidthRollup) _Table() string { return "storagenode_bandwidth_rollups" }
@@ -2966,6 +2991,25 @@ func (f StoragenodeBandwidthRollup_IntervalStart_Field) value() interface{} {
 }
 
 func (StoragenodeBandwidthRollup_IntervalStart_Field) _Column() string { return "interval_start" }
+
+type StoragenodeBandwidthRollup_IntervalSeconds_Field struct {
+	_set   bool
+	_null  bool
+	_value uint
+}
+
+func StoragenodeBandwidthRollup_IntervalSeconds(v uint) StoragenodeBandwidthRollup_IntervalSeconds_Field {
+	return StoragenodeBandwidthRollup_IntervalSeconds_Field{_set: true, _value: v}
+}
+
+func (f StoragenodeBandwidthRollup_IntervalSeconds_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodeBandwidthRollup_IntervalSeconds_Field) _Column() string { return "interval_seconds" }
 
 type StoragenodeBandwidthRollup_Action_Field struct {
 	_set   bool
