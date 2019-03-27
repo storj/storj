@@ -5,6 +5,7 @@ package inspector
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
@@ -161,6 +162,13 @@ func (endpoint *Endpoint) SegmentStat(ctx context.Context, in *pb.SegmentHealthR
 	resp.RepairThreshold = neededForRepair
 	resp.SuccessThreshold = neededForSuccess
 	resp.OnlineNodes = int32(len(nodes))
+	resp.Redundancy = pointer.GetRemote().GetRedundancy()
+
+	if in.GetSegment() > -1 {
+		resp.Index = "s" + strconv.FormatInt(in.GetSegment(), 10)
+	} else {
+		resp.Index = "l"
+	}
 
 	return resp, nil
 }

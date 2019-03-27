@@ -213,11 +213,13 @@ message SegmentHealthRequest {
 }
 
 message SegmentHealthResponse{
-  int32 minimum_required = 1;  // minimum required for reconstruction (k)
-  int32 total = 2;             // total amount of pieces we generated (n)
-  int32 repair_threshold = 3;  // amount of pieces we need to drop to before triggering repair (m)
-  int32 success_threshold = 4; // amount of pieces we need to store to call it a success (o)
-  int32 online_nodes = 5;      // amount of pieces with nodes that are online
+  int32 minimum_required = 1;                 // minimum required for reconstruction (k)
+  int32 total = 2;                            // total amount of pieces we generated (n)
+  int32 repair_threshold = 3;                 // amount of pieces we need to drop to before triggering repair (m)
+  int32 success_threshold = 4;                // amount of pieces we need to store to call it a success (o)
+  int32 online_nodes = 5;                     // amount of pieces with nodes that are online
+  string index = 6;                           // segment index
+  pointerdb.RedundancyScheme redundancy = 7;  // expected segment info
 }
 
 message ObjectHealthRequest {
@@ -230,6 +232,5 @@ message ObjectHealthRequest {
 }
 
 message ObjectHealthResponse {
-  pointerdb.RedundancyScheme redundancy = 1;   // expected segment info
-  repeated SegmentHealthResponse segments = 2; // actual segment info 
+  repeated SegmentHealthResponse segments = 1; // actual segment info 
 } 
