@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"strings"
+	"time"
 
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
@@ -506,6 +507,10 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 	updateFields.UptimeSuccessCount = dbx.Node_UptimeSuccessCount(uptimeSuccessCount)
 	updateFields.TotalUptimeCount = dbx.Node_TotalUptimeCount(totalUptimeCount)
 	updateFields.UptimeRatio = dbx.Node_UptimeRatio(uptimeRatio)
+
+	if isUp {
+		updateFields.LastSeenAt = dbx.Node_LastSeenAt(time.Now())
+	}
 
 	dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
 	if err != nil {
