@@ -450,7 +450,8 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					 ALTER TABLE nodes ADD free_bandwidth BIGINT NOT NULL DEFAULT -1;
 					 ALTER TABLE nodes ADD free_disk BIGINT NOT NULL DEFAULT -1;
 					 ALTER TABLE nodes ADD latency_90 BIGINT NOT NULL DEFAULT 0;
-					 ALTER TABLE nodes ADD last_seen_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT 'epoch';`,
+					 ALTER TABLE nodes ADD last_contact_success TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT 'epoch';
+					 ALTER TABLE nodes ADD last_contact_failure TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT 'epoch';`,
 					// Copy data from overlay_cache_nodes to nodes
 					`UPDATE nodes
 					 SET address=overlay.address,

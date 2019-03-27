@@ -136,9 +136,10 @@ model node (
 	field total_uptime_count   int64   ( updatable )
 	field uptime_ratio         float64 ( updatable )
 
-	field created_at   timestamp ( autoinsert )
-	field updated_at   timestamp ( autoinsert, autoupdate )
-	field last_seen_at timestamp ( autoinsert, updatable )
+	field created_at           timestamp ( autoinsert )
+	field updated_at           timestamp ( autoinsert, autoupdate )
+	field last_contact_success timestamp ( autoinsert, updatable )
+	field last_contact_failure timestamp ( autoinsert, updatable )
 )
 
 create node ( )

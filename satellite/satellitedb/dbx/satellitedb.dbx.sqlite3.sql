@@ -106,7 +106,8 @@ CREATE TABLE nodes (
 	uptime_ratio REAL NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	updated_at TIMESTAMP NOT NULL,
-	last_seen_at TIMESTAMP NOT NULL,
+	last_contact_success TIMESTAMP NOT NULL,
+	last_contact_failure TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE projects (

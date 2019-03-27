@@ -447,7 +447,9 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 	}
 
 	if updateReq.IsUp {
-		updateFields.LastSeenAt = dbx.Node_LastSeenAt(time.Now())
+		updateFields.LastContactSuccess = dbx.Node_LastContactSuccess(time.Now())
+	} else {
+		updateFields.LastContactFailure = dbx.Node_LastContactFailure(time.Now())
 	}
 
 	dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
@@ -513,7 +515,9 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 	updateFields.UptimeRatio = dbx.Node_UptimeRatio(uptimeRatio)
 
 	if isUp {
-		updateFields.LastSeenAt = dbx.Node_LastSeenAt(time.Now())
+		updateFields.LastContactSuccess = dbx.Node_LastContactSuccess(time.Now())
+	} else {
+		updateFields.LastContactFailure = dbx.Node_LastContactFailure(time.Now())
 	}
 
 	dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
@@ -555,7 +559,9 @@ func (cache *overlaycache) UpdateAuditSuccess(ctx context.Context, nodeID storj.
 	updateFields.AuditSuccessRatio = dbx.Node_AuditSuccessRatio(auditRatio)
 
 	if auditSuccess {
-		updateFields.LastSeenAt = dbx.Node_LastSeenAt(time.Now())
+		updateFields.LastContactSuccess = dbx.Node_LastContactSuccess(time.Now())
+	} else {
+		updateFields.LastContactFailure = dbx.Node_LastContactFailure(time.Now())
 	}
 
 	dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
