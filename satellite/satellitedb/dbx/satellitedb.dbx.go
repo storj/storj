@@ -9,6 +9,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"math/rand"
 	"reflect"
 	"strconv"
 	"strings"
@@ -17,9 +18,7 @@ import (
 	"unicode"
 
 	"github.com/lib/pq"
-
-	"github.com/mattn/go-sqlite3"
-	"math/rand"
+	sqlite3 "github.com/mattn/go-sqlite3"
 )
 
 // Prevent conditional imports from causing build failures
@@ -298,6 +297,24 @@ CREATE TABLE accounting_timestamps (
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
 );
+CREATE TABLE bucket_bandwidth_rollups (
+	bucket_id bytea NOT NULL,
+	interval_start timestamp NOT NULL,
+	interval_seconds integer NOT NULL,
+	action integer NOT NULL,
+	inline bigint NOT NULL,
+	allocated bigint NOT NULL,
+	settled bigint NOT NULL,
+	PRIMARY KEY ( bucket_id, interval_start, action )
+);
+CREATE TABLE bucket_storage_rollups (
+	bucket_id bytea NOT NULL,
+	interval_start timestamp NOT NULL,
+	interval_seconds integer NOT NULL,
+	inline bigint NOT NULL,
+	remote bigint NOT NULL,
+	PRIMARY KEY ( bucket_id, interval_start )
+);
 CREATE TABLE bucket_usages (
 	id bytea NOT NULL,
 	bucket_id bytea NOT NULL,
@@ -311,8 +328,7 @@ CREATE TABLE bucket_usages (
 	repair_egress bigint NOT NULL,
 	get_egress bigint NOT NULL,
 	audit_egress bigint NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( rollup_end_time, bucket_id )
+	PRIMARY KEY ( id )
 );
 CREATE TABLE bwagreements (
 	serialnum text NOT NULL,
@@ -383,10 +399,41 @@ CREATE TABLE projects (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE registration_tokens (
+	secret bytea NOT NULL,
+	owner_id bytea,
+	project_limit integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( secret ),
+	UNIQUE ( owner_id )
+);
+CREATE TABLE serial_numbers (
+	id serial NOT NULL,
+	serial_number bytea NOT NULL,
+	bucket_id bytea NOT NULL,
+	expires_at timestamp NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE storagenode_bandwidth_rollups (
+	storagenode_id bytea NOT NULL,
+	interval_start timestamp NOT NULL,
+	interval_seconds integer NOT NULL,
+	action integer NOT NULL,
+	allocated bigint NOT NULL,
+	settled bigint NOT NULL,
+	PRIMARY KEY ( storagenode_id, interval_start, action )
+);
+CREATE TABLE storagenode_storage_rollups (
+	storagenode_id bytea NOT NULL,
+	interval_start timestamp NOT NULL,
+	interval_seconds integer NOT NULL,
+	total bigint NOT NULL,
+	PRIMARY KEY ( storagenode_id, interval_start )
+);
 CREATE TABLE users (
 	id bytea NOT NULL,
-	first_name text NOT NULL,
-	last_name text NOT NULL,
+	full_name text NOT NULL,
+	short_name text,
 	email text NOT NULL,
 	password_hash bytea NOT NULL,
 	status integer NOT NULL,
@@ -408,7 +455,17 @@ CREATE TABLE project_members (
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( member_id, project_id )
-);`
+);
+CREATE TABLE used_serials (
+	serial_number_id integer NOT NULL REFERENCES serial_numbers( id ) ON DELETE CASCADE,
+	storage_node_id bytea NOT NULL,
+	PRIMARY KEY ( serial_number_id, storage_node_id )
+);
+CREATE INDEX bucket_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_id, interval_start, interval_seconds );
+CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
+CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
+CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
+CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );`
 }
 
 func (obj *postgresDB) wrapTx(tx *sql.Tx) txMethods {
@@ -498,6 +555,24 @@ CREATE TABLE accounting_timestamps (
 	value TIMESTAMP NOT NULL,
 	PRIMARY KEY ( name )
 );
+CREATE TABLE bucket_bandwidth_rollups (
+	bucket_id BLOB NOT NULL,
+	interval_start TIMESTAMP NOT NULL,
+	interval_seconds INTEGER NOT NULL,
+	action INTEGER NOT NULL,
+	inline INTEGER NOT NULL,
+	allocated INTEGER NOT NULL,
+	settled INTEGER NOT NULL,
+	PRIMARY KEY ( bucket_id, interval_start, action )
+);
+CREATE TABLE bucket_storage_rollups (
+	bucket_id BLOB NOT NULL,
+	interval_start TIMESTAMP NOT NULL,
+	interval_seconds INTEGER NOT NULL,
+	inline INTEGER NOT NULL,
+	remote INTEGER NOT NULL,
+	PRIMARY KEY ( bucket_id, interval_start )
+);
 CREATE TABLE bucket_usages (
 	id BLOB NOT NULL,
 	bucket_id BLOB NOT NULL,
@@ -511,8 +586,7 @@ CREATE TABLE bucket_usages (
 	repair_egress INTEGER NOT NULL,
 	get_egress INTEGER NOT NULL,
 	audit_egress INTEGER NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( rollup_end_time, bucket_id )
+	PRIMARY KEY ( id )
 );
 CREATE TABLE bwagreements (
 	serialnum TEXT NOT NULL,
@@ -583,10 +657,41 @@ CREATE TABLE projects (
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE registration_tokens (
+	secret BLOB NOT NULL,
+	owner_id BLOB,
+	project_limit INTEGER NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( secret ),
+	UNIQUE ( owner_id )
+);
+CREATE TABLE serial_numbers (
+	id INTEGER NOT NULL,
+	serial_number BLOB NOT NULL,
+	bucket_id BLOB NOT NULL,
+	expires_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE storagenode_bandwidth_rollups (
+	storagenode_id BLOB NOT NULL,
+	interval_start TIMESTAMP NOT NULL,
+	interval_seconds INTEGER NOT NULL,
+	action INTEGER NOT NULL,
+	allocated INTEGER NOT NULL,
+	settled INTEGER NOT NULL,
+	PRIMARY KEY ( storagenode_id, interval_start, action )
+);
+CREATE TABLE storagenode_storage_rollups (
+	storagenode_id BLOB NOT NULL,
+	interval_start TIMESTAMP NOT NULL,
+	interval_seconds INTEGER NOT NULL,
+	total INTEGER NOT NULL,
+	PRIMARY KEY ( storagenode_id, interval_start )
+);
 CREATE TABLE users (
 	id BLOB NOT NULL,
-	first_name TEXT NOT NULL,
-	last_name TEXT NOT NULL,
+	full_name TEXT NOT NULL,
+	short_name TEXT,
 	email TEXT NOT NULL,
 	password_hash BLOB NOT NULL,
 	status INTEGER NOT NULL,
@@ -608,7 +713,17 @@ CREATE TABLE project_members (
 	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( member_id, project_id )
-);`
+);
+CREATE TABLE used_serials (
+	serial_number_id INTEGER NOT NULL REFERENCES serial_numbers( id ) ON DELETE CASCADE,
+	storage_node_id BLOB NOT NULL,
+	PRIMARY KEY ( serial_number_id, storage_node_id )
+);
+CREATE INDEX bucket_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_id, interval_start, interval_seconds );
+CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
+CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
+CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
+CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );`
 }
 
 func (obj *sqlite3DB) wrapTx(tx *sql.Tx) txMethods {
@@ -1035,6 +1150,264 @@ func (f AccountingTimestamps_Value_Field) value() interface{} {
 }
 
 func (AccountingTimestamps_Value_Field) _Column() string { return "value" }
+
+type BucketBandwidthRollup struct {
+	BucketId        []byte
+	IntervalStart   time.Time
+	IntervalSeconds uint
+	Action          uint
+	Inline          uint64
+	Allocated       uint64
+	Settled         uint64
+}
+
+func (BucketBandwidthRollup) _Table() string { return "bucket_bandwidth_rollups" }
+
+type BucketBandwidthRollup_Update_Fields struct {
+}
+
+type BucketBandwidthRollup_BucketId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func BucketBandwidthRollup_BucketId(v []byte) BucketBandwidthRollup_BucketId_Field {
+	return BucketBandwidthRollup_BucketId_Field{_set: true, _value: v}
+}
+
+func (f BucketBandwidthRollup_BucketId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketBandwidthRollup_BucketId_Field) _Column() string { return "bucket_id" }
+
+type BucketBandwidthRollup_IntervalStart_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func BucketBandwidthRollup_IntervalStart(v time.Time) BucketBandwidthRollup_IntervalStart_Field {
+	v = toUTC(v)
+	return BucketBandwidthRollup_IntervalStart_Field{_set: true, _value: v}
+}
+
+func (f BucketBandwidthRollup_IntervalStart_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketBandwidthRollup_IntervalStart_Field) _Column() string { return "interval_start" }
+
+type BucketBandwidthRollup_IntervalSeconds_Field struct {
+	_set   bool
+	_null  bool
+	_value uint
+}
+
+func BucketBandwidthRollup_IntervalSeconds(v uint) BucketBandwidthRollup_IntervalSeconds_Field {
+	return BucketBandwidthRollup_IntervalSeconds_Field{_set: true, _value: v}
+}
+
+func (f BucketBandwidthRollup_IntervalSeconds_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketBandwidthRollup_IntervalSeconds_Field) _Column() string { return "interval_seconds" }
+
+type BucketBandwidthRollup_Action_Field struct {
+	_set   bool
+	_null  bool
+	_value uint
+}
+
+func BucketBandwidthRollup_Action(v uint) BucketBandwidthRollup_Action_Field {
+	return BucketBandwidthRollup_Action_Field{_set: true, _value: v}
+}
+
+func (f BucketBandwidthRollup_Action_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketBandwidthRollup_Action_Field) _Column() string { return "action" }
+
+type BucketBandwidthRollup_Inline_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func BucketBandwidthRollup_Inline(v uint64) BucketBandwidthRollup_Inline_Field {
+	return BucketBandwidthRollup_Inline_Field{_set: true, _value: v}
+}
+
+func (f BucketBandwidthRollup_Inline_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketBandwidthRollup_Inline_Field) _Column() string { return "inline" }
+
+type BucketBandwidthRollup_Allocated_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func BucketBandwidthRollup_Allocated(v uint64) BucketBandwidthRollup_Allocated_Field {
+	return BucketBandwidthRollup_Allocated_Field{_set: true, _value: v}
+}
+
+func (f BucketBandwidthRollup_Allocated_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketBandwidthRollup_Allocated_Field) _Column() string { return "allocated" }
+
+type BucketBandwidthRollup_Settled_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func BucketBandwidthRollup_Settled(v uint64) BucketBandwidthRollup_Settled_Field {
+	return BucketBandwidthRollup_Settled_Field{_set: true, _value: v}
+}
+
+func (f BucketBandwidthRollup_Settled_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketBandwidthRollup_Settled_Field) _Column() string { return "settled" }
+
+type BucketStorageRollup struct {
+	BucketId        []byte
+	IntervalStart   time.Time
+	IntervalSeconds uint
+	Inline          uint64
+	Remote          uint64
+}
+
+func (BucketStorageRollup) _Table() string { return "bucket_storage_rollups" }
+
+type BucketStorageRollup_Update_Fields struct {
+}
+
+type BucketStorageRollup_BucketId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func BucketStorageRollup_BucketId(v []byte) BucketStorageRollup_BucketId_Field {
+	return BucketStorageRollup_BucketId_Field{_set: true, _value: v}
+}
+
+func (f BucketStorageRollup_BucketId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketStorageRollup_BucketId_Field) _Column() string { return "bucket_id" }
+
+type BucketStorageRollup_IntervalStart_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func BucketStorageRollup_IntervalStart(v time.Time) BucketStorageRollup_IntervalStart_Field {
+	v = toUTC(v)
+	return BucketStorageRollup_IntervalStart_Field{_set: true, _value: v}
+}
+
+func (f BucketStorageRollup_IntervalStart_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketStorageRollup_IntervalStart_Field) _Column() string { return "interval_start" }
+
+type BucketStorageRollup_IntervalSeconds_Field struct {
+	_set   bool
+	_null  bool
+	_value uint
+}
+
+func BucketStorageRollup_IntervalSeconds(v uint) BucketStorageRollup_IntervalSeconds_Field {
+	return BucketStorageRollup_IntervalSeconds_Field{_set: true, _value: v}
+}
+
+func (f BucketStorageRollup_IntervalSeconds_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketStorageRollup_IntervalSeconds_Field) _Column() string { return "interval_seconds" }
+
+type BucketStorageRollup_Inline_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func BucketStorageRollup_Inline(v uint64) BucketStorageRollup_Inline_Field {
+	return BucketStorageRollup_Inline_Field{_set: true, _value: v}
+}
+
+func (f BucketStorageRollup_Inline_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketStorageRollup_Inline_Field) _Column() string { return "inline" }
+
+type BucketStorageRollup_Remote_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func BucketStorageRollup_Remote(v uint64) BucketStorageRollup_Remote_Field {
+	return BucketStorageRollup_Remote_Field{_set: true, _value: v}
+}
+
+func (f BucketStorageRollup_Remote_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketStorageRollup_Remote_Field) _Column() string { return "remote" }
 
 type BucketUsage struct {
 	Id               []byte
@@ -2306,10 +2679,423 @@ func (f Project_CreatedAt_Field) value() interface{} {
 
 func (Project_CreatedAt_Field) _Column() string { return "created_at" }
 
+type RegistrationToken struct {
+	Secret       []byte
+	OwnerId      []byte
+	ProjectLimit int
+	CreatedAt    time.Time
+}
+
+func (RegistrationToken) _Table() string { return "registration_tokens" }
+
+type RegistrationToken_Create_Fields struct {
+	OwnerId RegistrationToken_OwnerId_Field
+}
+
+type RegistrationToken_Update_Fields struct {
+	OwnerId RegistrationToken_OwnerId_Field
+}
+
+type RegistrationToken_Secret_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func RegistrationToken_Secret(v []byte) RegistrationToken_Secret_Field {
+	return RegistrationToken_Secret_Field{_set: true, _value: v}
+}
+
+func (f RegistrationToken_Secret_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (RegistrationToken_Secret_Field) _Column() string { return "secret" }
+
+type RegistrationToken_OwnerId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func RegistrationToken_OwnerId(v []byte) RegistrationToken_OwnerId_Field {
+	return RegistrationToken_OwnerId_Field{_set: true, _value: v}
+}
+
+func RegistrationToken_OwnerId_Raw(v []byte) RegistrationToken_OwnerId_Field {
+	if v == nil {
+		return RegistrationToken_OwnerId_Null()
+	}
+	return RegistrationToken_OwnerId(v)
+}
+
+func RegistrationToken_OwnerId_Null() RegistrationToken_OwnerId_Field {
+	return RegistrationToken_OwnerId_Field{_set: true, _null: true}
+}
+
+func (f RegistrationToken_OwnerId_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f RegistrationToken_OwnerId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (RegistrationToken_OwnerId_Field) _Column() string { return "owner_id" }
+
+type RegistrationToken_ProjectLimit_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func RegistrationToken_ProjectLimit(v int) RegistrationToken_ProjectLimit_Field {
+	return RegistrationToken_ProjectLimit_Field{_set: true, _value: v}
+}
+
+func (f RegistrationToken_ProjectLimit_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (RegistrationToken_ProjectLimit_Field) _Column() string { return "project_limit" }
+
+type RegistrationToken_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func RegistrationToken_CreatedAt(v time.Time) RegistrationToken_CreatedAt_Field {
+	return RegistrationToken_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f RegistrationToken_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (RegistrationToken_CreatedAt_Field) _Column() string { return "created_at" }
+
+type SerialNumber struct {
+	Id           int
+	SerialNumber []byte
+	BucketId     []byte
+	ExpiresAt    time.Time
+}
+
+func (SerialNumber) _Table() string { return "serial_numbers" }
+
+type SerialNumber_Update_Fields struct {
+}
+
+type SerialNumber_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func SerialNumber_Id(v int) SerialNumber_Id_Field {
+	return SerialNumber_Id_Field{_set: true, _value: v}
+}
+
+func (f SerialNumber_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (SerialNumber_Id_Field) _Column() string { return "id" }
+
+type SerialNumber_SerialNumber_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func SerialNumber_SerialNumber(v []byte) SerialNumber_SerialNumber_Field {
+	return SerialNumber_SerialNumber_Field{_set: true, _value: v}
+}
+
+func (f SerialNumber_SerialNumber_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (SerialNumber_SerialNumber_Field) _Column() string { return "serial_number" }
+
+type SerialNumber_BucketId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func SerialNumber_BucketId(v []byte) SerialNumber_BucketId_Field {
+	return SerialNumber_BucketId_Field{_set: true, _value: v}
+}
+
+func (f SerialNumber_BucketId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (SerialNumber_BucketId_Field) _Column() string { return "bucket_id" }
+
+type SerialNumber_ExpiresAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func SerialNumber_ExpiresAt(v time.Time) SerialNumber_ExpiresAt_Field {
+	v = toUTC(v)
+	return SerialNumber_ExpiresAt_Field{_set: true, _value: v}
+}
+
+func (f SerialNumber_ExpiresAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (SerialNumber_ExpiresAt_Field) _Column() string { return "expires_at" }
+
+type StoragenodeBandwidthRollup struct {
+	StoragenodeId   []byte
+	IntervalStart   time.Time
+	IntervalSeconds uint
+	Action          uint
+	Allocated       uint64
+	Settled         uint64
+}
+
+func (StoragenodeBandwidthRollup) _Table() string { return "storagenode_bandwidth_rollups" }
+
+type StoragenodeBandwidthRollup_Update_Fields struct {
+}
+
+type StoragenodeBandwidthRollup_StoragenodeId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func StoragenodeBandwidthRollup_StoragenodeId(v []byte) StoragenodeBandwidthRollup_StoragenodeId_Field {
+	return StoragenodeBandwidthRollup_StoragenodeId_Field{_set: true, _value: v}
+}
+
+func (f StoragenodeBandwidthRollup_StoragenodeId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodeBandwidthRollup_StoragenodeId_Field) _Column() string { return "storagenode_id" }
+
+type StoragenodeBandwidthRollup_IntervalStart_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func StoragenodeBandwidthRollup_IntervalStart(v time.Time) StoragenodeBandwidthRollup_IntervalStart_Field {
+	v = toUTC(v)
+	return StoragenodeBandwidthRollup_IntervalStart_Field{_set: true, _value: v}
+}
+
+func (f StoragenodeBandwidthRollup_IntervalStart_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodeBandwidthRollup_IntervalStart_Field) _Column() string { return "interval_start" }
+
+type StoragenodeBandwidthRollup_IntervalSeconds_Field struct {
+	_set   bool
+	_null  bool
+	_value uint
+}
+
+func StoragenodeBandwidthRollup_IntervalSeconds(v uint) StoragenodeBandwidthRollup_IntervalSeconds_Field {
+	return StoragenodeBandwidthRollup_IntervalSeconds_Field{_set: true, _value: v}
+}
+
+func (f StoragenodeBandwidthRollup_IntervalSeconds_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodeBandwidthRollup_IntervalSeconds_Field) _Column() string { return "interval_seconds" }
+
+type StoragenodeBandwidthRollup_Action_Field struct {
+	_set   bool
+	_null  bool
+	_value uint
+}
+
+func StoragenodeBandwidthRollup_Action(v uint) StoragenodeBandwidthRollup_Action_Field {
+	return StoragenodeBandwidthRollup_Action_Field{_set: true, _value: v}
+}
+
+func (f StoragenodeBandwidthRollup_Action_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodeBandwidthRollup_Action_Field) _Column() string { return "action" }
+
+type StoragenodeBandwidthRollup_Allocated_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func StoragenodeBandwidthRollup_Allocated(v uint64) StoragenodeBandwidthRollup_Allocated_Field {
+	return StoragenodeBandwidthRollup_Allocated_Field{_set: true, _value: v}
+}
+
+func (f StoragenodeBandwidthRollup_Allocated_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodeBandwidthRollup_Allocated_Field) _Column() string { return "allocated" }
+
+type StoragenodeBandwidthRollup_Settled_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func StoragenodeBandwidthRollup_Settled(v uint64) StoragenodeBandwidthRollup_Settled_Field {
+	return StoragenodeBandwidthRollup_Settled_Field{_set: true, _value: v}
+}
+
+func (f StoragenodeBandwidthRollup_Settled_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodeBandwidthRollup_Settled_Field) _Column() string { return "settled" }
+
+type StoragenodeStorageRollup struct {
+	StoragenodeId   []byte
+	IntervalStart   time.Time
+	IntervalSeconds uint
+	Total           uint64
+}
+
+func (StoragenodeStorageRollup) _Table() string { return "storagenode_storage_rollups" }
+
+type StoragenodeStorageRollup_Update_Fields struct {
+}
+
+type StoragenodeStorageRollup_StoragenodeId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func StoragenodeStorageRollup_StoragenodeId(v []byte) StoragenodeStorageRollup_StoragenodeId_Field {
+	return StoragenodeStorageRollup_StoragenodeId_Field{_set: true, _value: v}
+}
+
+func (f StoragenodeStorageRollup_StoragenodeId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodeStorageRollup_StoragenodeId_Field) _Column() string { return "storagenode_id" }
+
+type StoragenodeStorageRollup_IntervalStart_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func StoragenodeStorageRollup_IntervalStart(v time.Time) StoragenodeStorageRollup_IntervalStart_Field {
+	v = toUTC(v)
+	return StoragenodeStorageRollup_IntervalStart_Field{_set: true, _value: v}
+}
+
+func (f StoragenodeStorageRollup_IntervalStart_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodeStorageRollup_IntervalStart_Field) _Column() string { return "interval_start" }
+
+type StoragenodeStorageRollup_IntervalSeconds_Field struct {
+	_set   bool
+	_null  bool
+	_value uint
+}
+
+func StoragenodeStorageRollup_IntervalSeconds(v uint) StoragenodeStorageRollup_IntervalSeconds_Field {
+	return StoragenodeStorageRollup_IntervalSeconds_Field{_set: true, _value: v}
+}
+
+func (f StoragenodeStorageRollup_IntervalSeconds_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodeStorageRollup_IntervalSeconds_Field) _Column() string { return "interval_seconds" }
+
+type StoragenodeStorageRollup_Total_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func StoragenodeStorageRollup_Total(v uint64) StoragenodeStorageRollup_Total_Field {
+	return StoragenodeStorageRollup_Total_Field{_set: true, _value: v}
+}
+
+func (f StoragenodeStorageRollup_Total_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodeStorageRollup_Total_Field) _Column() string { return "total" }
+
 type User struct {
 	Id           []byte
-	FirstName    string
-	LastName     string
+	FullName     string
+	ShortName    *string
 	Email        string
 	PasswordHash []byte
 	Status       int
@@ -2318,9 +3104,13 @@ type User struct {
 
 func (User) _Table() string { return "users" }
 
+type User_Create_Fields struct {
+	ShortName User_ShortName_Field
+}
+
 type User_Update_Fields struct {
-	FirstName    User_FirstName_Field
-	LastName     User_LastName_Field
+	FullName     User_FullName_Field
+	ShortName    User_ShortName_Field
 	Email        User_Email_Field
 	PasswordHash User_PasswordHash_Field
 	Status       User_Status_Field
@@ -2345,43 +3135,56 @@ func (f User_Id_Field) value() interface{} {
 
 func (User_Id_Field) _Column() string { return "id" }
 
-type User_FirstName_Field struct {
+type User_FullName_Field struct {
 	_set   bool
 	_null  bool
 	_value string
 }
 
-func User_FirstName(v string) User_FirstName_Field {
-	return User_FirstName_Field{_set: true, _value: v}
+func User_FullName(v string) User_FullName_Field {
+	return User_FullName_Field{_set: true, _value: v}
 }
 
-func (f User_FirstName_Field) value() interface{} {
+func (f User_FullName_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (User_FirstName_Field) _Column() string { return "first_name" }
+func (User_FullName_Field) _Column() string { return "full_name" }
 
-type User_LastName_Field struct {
+type User_ShortName_Field struct {
 	_set   bool
 	_null  bool
-	_value string
+	_value *string
 }
 
-func User_LastName(v string) User_LastName_Field {
-	return User_LastName_Field{_set: true, _value: v}
+func User_ShortName(v string) User_ShortName_Field {
+	return User_ShortName_Field{_set: true, _value: &v}
 }
 
-func (f User_LastName_Field) value() interface{} {
+func User_ShortName_Raw(v *string) User_ShortName_Field {
+	if v == nil {
+		return User_ShortName_Null()
+	}
+	return User_ShortName(*v)
+}
+
+func User_ShortName_Null() User_ShortName_Field {
+	return User_ShortName_Field{_set: true, _null: true}
+}
+
+func (f User_ShortName_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f User_ShortName_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (User_LastName_Field) _Column() string { return "last_name" }
+func (User_ShortName_Field) _Column() string { return "short_name" }
 
 type User_Email_Field struct {
 	_set   bool
@@ -2635,6 +3438,54 @@ func (f ProjectMember_CreatedAt_Field) value() interface{} {
 }
 
 func (ProjectMember_CreatedAt_Field) _Column() string { return "created_at" }
+
+type UsedSerial struct {
+	SerialNumberId int
+	StorageNodeId  []byte
+}
+
+func (UsedSerial) _Table() string { return "used_serials" }
+
+type UsedSerial_Update_Fields struct {
+}
+
+type UsedSerial_SerialNumberId_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func UsedSerial_SerialNumberId(v int) UsedSerial_SerialNumberId_Field {
+	return UsedSerial_SerialNumberId_Field{_set: true, _value: v}
+}
+
+func (f UsedSerial_SerialNumberId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UsedSerial_SerialNumberId_Field) _Column() string { return "serial_number_id" }
+
+type UsedSerial_StorageNodeId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func UsedSerial_StorageNodeId(v []byte) UsedSerial_StorageNodeId_Field {
+	return UsedSerial_StorageNodeId_Field{_set: true, _value: v}
+}
+
+func (f UsedSerial_StorageNodeId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UsedSerial_StorageNodeId_Field) _Column() string { return "storage_node_id" }
 
 func toUTC(t time.Time) time.Time {
 	return t.UTC()
@@ -3073,28 +3924,28 @@ func (obj *postgresImpl) Create_Injuredsegment(ctx context.Context,
 
 func (obj *postgresImpl) Create_User(ctx context.Context,
 	user_id User_Id_Field,
-	user_first_name User_FirstName_Field,
-	user_last_name User_LastName_Field,
+	user_full_name User_FullName_Field,
 	user_email User_Email_Field,
-	user_password_hash User_PasswordHash_Field) (
+	user_password_hash User_PasswordHash_Field,
+	optional User_Create_Fields) (
 	user *User, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__id_val := user_id.value()
-	__first_name_val := user_first_name.value()
-	__last_name_val := user_last_name.value()
+	__full_name_val := user_full_name.value()
+	__short_name_val := optional.ShortName.value()
 	__email_val := user_email.value()
 	__password_hash_val := user_password_hash.value()
 	__status_val := int(0)
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO users ( id, first_name, last_name, email, password_hash, status, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) RETURNING users.id, users.first_name, users.last_name, users.email, users.password_hash, users.status, users.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO users ( id, full_name, short_name, email, password_hash, status, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) RETURNING users.id, users.full_name, users.short_name, users.email, users.password_hash, users.status, users.created_at")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __first_name_val, __last_name_val, __email_val, __password_hash_val, __status_val, __created_at_val)
+	obj.logStmt(__stmt, __id_val, __full_name_val, __short_name_val, __email_val, __password_hash_val, __status_val, __created_at_val)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __first_name_val, __last_name_val, __email_val, __password_hash_val, __status_val, __created_at_val).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.Status, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __id_val, __full_name_val, __short_name_val, __email_val, __password_hash_val, __status_val, __created_at_val).Scan(&user.Id, &user.FullName, &user.ShortName, &user.Email, &user.PasswordHash, &user.Status, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -3221,6 +4072,50 @@ func (obj *postgresImpl) Create_BucketUsage(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Create_SerialNumber(ctx context.Context,
+	serial_number_serial_number SerialNumber_SerialNumber_Field,
+	serial_number_bucket_id SerialNumber_BucketId_Field,
+	serial_number_expires_at SerialNumber_ExpiresAt_Field) (
+	serial_number *SerialNumber, err error) {
+	__serial_number_val := serial_number_serial_number.value()
+	__bucket_id_val := serial_number_bucket_id.value()
+	__expires_at_val := serial_number_expires_at.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO serial_numbers ( serial_number, bucket_id, expires_at ) VALUES ( ?, ?, ? ) RETURNING serial_numbers.id, serial_numbers.serial_number, serial_numbers.bucket_id, serial_numbers.expires_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __serial_number_val, __bucket_id_val, __expires_at_val)
+
+	serial_number = &SerialNumber{}
+	err = obj.driver.QueryRow(__stmt, __serial_number_val, __bucket_id_val, __expires_at_val).Scan(&serial_number.Id, &serial_number.SerialNumber, &serial_number.BucketId, &serial_number.ExpiresAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return serial_number, nil
+
+}
+
+func (obj *postgresImpl) Create_UsedSerial(ctx context.Context,
+	used_serial_serial_number_id UsedSerial_SerialNumberId_Field,
+	used_serial_storage_node_id UsedSerial_StorageNodeId_Field) (
+	used_serial *UsedSerial, err error) {
+	__serial_number_id_val := used_serial_serial_number_id.value()
+	__storage_node_id_val := used_serial_storage_node_id.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO used_serials ( serial_number_id, storage_node_id ) VALUES ( ?, ? ) RETURNING used_serials.serial_number_id, used_serials.storage_node_id")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __serial_number_id_val, __storage_node_id_val)
+
+	used_serial = &UsedSerial{}
+	err = obj.driver.QueryRow(__stmt, __serial_number_id_val, __storage_node_id_val).Scan(&used_serial.SerialNumberId, &used_serial.StorageNodeId)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return used_serial, nil
+
+}
+
 func (obj *postgresImpl) Create_CertRecord(ctx context.Context,
 	certRecord_publickey CertRecord_Publickey_Field,
 	certRecord_id CertRecord_Id_Field) (
@@ -3245,6 +4140,32 @@ func (obj *postgresImpl) Create_CertRecord(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Create_RegistrationToken(ctx context.Context,
+	registration_token_secret RegistrationToken_Secret_Field,
+	registration_token_project_limit RegistrationToken_ProjectLimit_Field,
+	optional RegistrationToken_Create_Fields) (
+	registration_token *RegistrationToken, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__secret_val := registration_token_secret.value()
+	__owner_id_val := optional.OwnerId.value()
+	__project_limit_val := registration_token_project_limit.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO registration_tokens ( secret, owner_id, project_limit, created_at ) VALUES ( ?, ?, ?, ? ) RETURNING registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __secret_val, __owner_id_val, __project_limit_val, __created_at_val)
+
+	registration_token = &RegistrationToken{}
+	err = obj.driver.QueryRow(__stmt, __secret_val, __owner_id_val, __project_limit_val, __created_at_val).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return registration_token, nil
+
+}
+
 func (obj *postgresImpl) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 	irreparabledb *Irreparabledb, err error) {
@@ -3263,6 +4184,41 @@ func (obj *postgresImpl) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return irreparabledb, nil
+
+}
+
+func (obj *postgresImpl) Limited_Irreparabledb_OrderBy_Asc_Segmentpath(ctx context.Context,
+	limit int, offset int64) (
+	rows []*Irreparabledb, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count FROM irreparabledbs ORDER BY irreparabledbs.segmentpath LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		irreparabledb := &Irreparabledb{}
+		err = __rows.Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, irreparabledb)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
 
 }
 
@@ -3451,6 +4407,30 @@ func (obj *postgresImpl) Get_Node_By_Id(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Find_Node_By_Id(ctx context.Context,
+	node_id Node_Id_Field) (
+	node *Node, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email FROM nodes WHERE nodes.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	node = &Node{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return node, nil
+
+}
+
 func (obj *postgresImpl) All_Node_Id(ctx context.Context) (
 	rows []*Id_Row, err error) {
 
@@ -3613,7 +4593,7 @@ func (obj *postgresImpl) Get_User_By_Email_And_Status_Not_Number(ctx context.Con
 	user_email User_Email_Field) (
 	user *User, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.status, users.created_at FROM users WHERE users.email = ? AND users.status != 0 LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.full_name, users.short_name, users.email, users.password_hash, users.status, users.created_at FROM users WHERE users.email = ? AND users.status != 0 LIMIT 2")
 
 	var __values []interface{}
 	__values = append(__values, user_email.value())
@@ -3635,7 +4615,7 @@ func (obj *postgresImpl) Get_User_By_Email_And_Status_Not_Number(ctx context.Con
 	}
 
 	user = &User{}
-	err = __rows.Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.Status, &user.CreatedAt)
+	err = __rows.Scan(&user.Id, &user.FullName, &user.ShortName, &user.Email, &user.PasswordHash, &user.Status, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -3656,7 +4636,7 @@ func (obj *postgresImpl) Get_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	user *User, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.status, users.created_at FROM users WHERE users.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.full_name, users.short_name, users.email, users.password_hash, users.status, users.created_at FROM users WHERE users.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, user_id.value())
@@ -3665,7 +4645,7 @@ func (obj *postgresImpl) Get_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.Status, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.FullName, &user.ShortName, &user.Email, &user.PasswordHash, &user.Status, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -4000,6 +4980,49 @@ func (obj *postgresImpl) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Great
 
 }
 
+func (obj *postgresImpl) Find_SerialNumber_By_SerialNumber(ctx context.Context,
+	serial_number_serial_number SerialNumber_SerialNumber_Field) (
+	serial_number *SerialNumber, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT serial_numbers.id, serial_numbers.serial_number, serial_numbers.bucket_id, serial_numbers.expires_at FROM serial_numbers WHERE serial_numbers.serial_number = ? LIMIT 2")
+
+	var __values []interface{}
+	__values = append(__values, serial_number_serial_number.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	if !__rows.Next() {
+		if err := __rows.Err(); err != nil {
+			return nil, obj.makeErr(err)
+		}
+		return nil, nil
+	}
+
+	serial_number = &SerialNumber{}
+	err = __rows.Scan(&serial_number.Id, &serial_number.SerialNumber, &serial_number.BucketId, &serial_number.ExpiresAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	if __rows.Next() {
+		return nil, tooManyRows("SerialNumber_By_SerialNumber")
+	}
+
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	return serial_number, nil
+
+}
+
 func (obj *postgresImpl) Get_CertRecord_By_Id(ctx context.Context,
 	certRecord_id CertRecord_Id_Field) (
 	certRecord *CertRecord, err error) {
@@ -4018,6 +5041,55 @@ func (obj *postgresImpl) Get_CertRecord_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return certRecord, nil
+
+}
+
+func (obj *postgresImpl) Get_RegistrationToken_By_Secret(ctx context.Context,
+	registration_token_secret RegistrationToken_Secret_Field) (
+	registration_token *RegistrationToken, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at FROM registration_tokens WHERE registration_tokens.secret = ?")
+
+	var __values []interface{}
+	__values = append(__values, registration_token_secret.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	registration_token = &RegistrationToken{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return registration_token, nil
+
+}
+
+func (obj *postgresImpl) Get_RegistrationToken_By_OwnerId(ctx context.Context,
+	registration_token_owner_id RegistrationToken_OwnerId_Field) (
+	registration_token *RegistrationToken, err error) {
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "registration_tokens.owner_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at FROM registration_tokens WHERE "), __cond_0}}
+
+	var __values []interface{}
+	__values = append(__values)
+
+	if !registration_token_owner_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, registration_token_owner_id.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	registration_token = &RegistrationToken{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return registration_token, nil
 
 }
 
@@ -4298,20 +5370,20 @@ func (obj *postgresImpl) Update_User_By_Id(ctx context.Context,
 	user *User, err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ? RETURNING users.id, users.first_name, users.last_name, users.email, users.password_hash, users.status, users.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ? RETURNING users.id, users.full_name, users.short_name, users.email, users.password_hash, users.status, users.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
 	var __args []interface{}
 
-	if update.FirstName._set {
-		__values = append(__values, update.FirstName.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("first_name = ?"))
+	if update.FullName._set {
+		__values = append(__values, update.FullName.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("full_name = ?"))
 	}
 
-	if update.LastName._set {
-		__values = append(__values, update.LastName.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_name = ?"))
+	if update.ShortName._set {
+		__values = append(__values, update.ShortName.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("short_name = ?"))
 	}
 
 	if update.Email._set {
@@ -4342,7 +5414,7 @@ func (obj *postgresImpl) Update_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.Status, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.FullName, &user.ShortName, &user.Email, &user.PasswordHash, &user.Status, &user.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -4466,6 +5538,46 @@ func (obj *postgresImpl) Update_CertRecord_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return certRecord, nil
+}
+
+func (obj *postgresImpl) Update_RegistrationToken_By_Secret(ctx context.Context,
+	registration_token_secret RegistrationToken_Secret_Field,
+	update RegistrationToken_Update_Fields) (
+	registration_token *RegistrationToken, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE registration_tokens SET "), __sets, __sqlbundle_Literal(" WHERE registration_tokens.secret = ? RETURNING registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.OwnerId._set {
+		__values = append(__values, update.OwnerId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("owner_id = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, registration_token_secret.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	registration_token = &RegistrationToken{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return registration_token, nil
 }
 
 func (obj *postgresImpl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
@@ -4755,6 +5867,32 @@ func (obj *postgresImpl) Delete_BucketUsage_By_Id(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx context.Context,
+	serial_number_expires_at_less_or_equal SerialNumber_ExpiresAt_Field) (
+	count int64, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM serial_numbers WHERE serial_numbers.expires_at <= ?")
+
+	var __values []interface{}
+	__values = append(__values, serial_number_expires_at_less_or_equal.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *postgresImpl) Delete_CertRecord_By_Id(ctx context.Context,
 	certRecord_id CertRecord_Id_Field) (
 	deleted bool, err error) {
@@ -4794,6 +5932,16 @@ func (impl postgresImpl) isConstraintError(err error) (
 func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	var __res sql.Result
 	var __count int64
+	__res, err = obj.driver.Exec("DELETE FROM used_serials;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM project_members;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -4815,6 +5963,46 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM users;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM storagenode_storage_rollups;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM storagenode_bandwidth_rollups;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM serial_numbers;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM registration_tokens;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -4895,6 +6083,26 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM bucket_usages;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM bucket_storage_rollups;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM bucket_bandwidth_rollups;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -5175,27 +6383,27 @@ func (obj *sqlite3Impl) Create_Injuredsegment(ctx context.Context,
 
 func (obj *sqlite3Impl) Create_User(ctx context.Context,
 	user_id User_Id_Field,
-	user_first_name User_FirstName_Field,
-	user_last_name User_LastName_Field,
+	user_full_name User_FullName_Field,
 	user_email User_Email_Field,
-	user_password_hash User_PasswordHash_Field) (
+	user_password_hash User_PasswordHash_Field,
+	optional User_Create_Fields) (
 	user *User, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__id_val := user_id.value()
-	__first_name_val := user_first_name.value()
-	__last_name_val := user_last_name.value()
+	__full_name_val := user_full_name.value()
+	__short_name_val := optional.ShortName.value()
 	__email_val := user_email.value()
 	__password_hash_val := user_password_hash.value()
 	__status_val := int(0)
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO users ( id, first_name, last_name, email, password_hash, status, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO users ( id, full_name, short_name, email, password_hash, status, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __first_name_val, __last_name_val, __email_val, __password_hash_val, __status_val, __created_at_val)
+	obj.logStmt(__stmt, __id_val, __full_name_val, __short_name_val, __email_val, __password_hash_val, __status_val, __created_at_val)
 
-	__res, err := obj.driver.Exec(__stmt, __id_val, __first_name_val, __last_name_val, __email_val, __password_hash_val, __status_val, __created_at_val)
+	__res, err := obj.driver.Exec(__stmt, __id_val, __full_name_val, __short_name_val, __email_val, __password_hash_val, __status_val, __created_at_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -5338,6 +6546,56 @@ func (obj *sqlite3Impl) Create_BucketUsage(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Create_SerialNumber(ctx context.Context,
+	serial_number_serial_number SerialNumber_SerialNumber_Field,
+	serial_number_bucket_id SerialNumber_BucketId_Field,
+	serial_number_expires_at SerialNumber_ExpiresAt_Field) (
+	serial_number *SerialNumber, err error) {
+	__serial_number_val := serial_number_serial_number.value()
+	__bucket_id_val := serial_number_bucket_id.value()
+	__expires_at_val := serial_number_expires_at.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO serial_numbers ( serial_number, bucket_id, expires_at ) VALUES ( ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __serial_number_val, __bucket_id_val, __expires_at_val)
+
+	__res, err := obj.driver.Exec(__stmt, __serial_number_val, __bucket_id_val, __expires_at_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastSerialNumber(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_UsedSerial(ctx context.Context,
+	used_serial_serial_number_id UsedSerial_SerialNumberId_Field,
+	used_serial_storage_node_id UsedSerial_StorageNodeId_Field) (
+	used_serial *UsedSerial, err error) {
+	__serial_number_id_val := used_serial_serial_number_id.value()
+	__storage_node_id_val := used_serial_storage_node_id.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO used_serials ( serial_number_id, storage_node_id ) VALUES ( ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __serial_number_id_val, __storage_node_id_val)
+
+	__res, err := obj.driver.Exec(__stmt, __serial_number_id_val, __storage_node_id_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastUsedSerial(ctx, __pk)
+
+}
+
 func (obj *sqlite3Impl) Create_CertRecord(ctx context.Context,
 	certRecord_publickey CertRecord_Publickey_Field,
 	certRecord_id CertRecord_Id_Field) (
@@ -5365,6 +6623,35 @@ func (obj *sqlite3Impl) Create_CertRecord(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Create_RegistrationToken(ctx context.Context,
+	registration_token_secret RegistrationToken_Secret_Field,
+	registration_token_project_limit RegistrationToken_ProjectLimit_Field,
+	optional RegistrationToken_Create_Fields) (
+	registration_token *RegistrationToken, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__secret_val := registration_token_secret.value()
+	__owner_id_val := optional.OwnerId.value()
+	__project_limit_val := registration_token_project_limit.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO registration_tokens ( secret, owner_id, project_limit, created_at ) VALUES ( ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __secret_val, __owner_id_val, __project_limit_val, __created_at_val)
+
+	__res, err := obj.driver.Exec(__stmt, __secret_val, __owner_id_val, __project_limit_val, __created_at_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastRegistrationToken(ctx, __pk)
+
+}
+
 func (obj *sqlite3Impl) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 	irreparabledb *Irreparabledb, err error) {
@@ -5383,6 +6670,41 @@ func (obj *sqlite3Impl) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return irreparabledb, nil
+
+}
+
+func (obj *sqlite3Impl) Limited_Irreparabledb_OrderBy_Asc_Segmentpath(ctx context.Context,
+	limit int, offset int64) (
+	rows []*Irreparabledb, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count FROM irreparabledbs ORDER BY irreparabledbs.segmentpath LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		irreparabledb := &Irreparabledb{}
+		err = __rows.Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, irreparabledb)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
 
 }
 
@@ -5571,6 +6893,30 @@ func (obj *sqlite3Impl) Get_Node_By_Id(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Find_Node_By_Id(ctx context.Context,
+	node_id Node_Id_Field) (
+	node *Node, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email FROM nodes WHERE nodes.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	node = &Node{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return node, nil
+
+}
+
 func (obj *sqlite3Impl) All_Node_Id(ctx context.Context) (
 	rows []*Id_Row, err error) {
 
@@ -5733,7 +7079,7 @@ func (obj *sqlite3Impl) Get_User_By_Email_And_Status_Not_Number(ctx context.Cont
 	user_email User_Email_Field) (
 	user *User, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.status, users.created_at FROM users WHERE users.email = ? AND users.status != 0 LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.full_name, users.short_name, users.email, users.password_hash, users.status, users.created_at FROM users WHERE users.email = ? AND users.status != 0 LIMIT 2")
 
 	var __values []interface{}
 	__values = append(__values, user_email.value())
@@ -5755,7 +7101,7 @@ func (obj *sqlite3Impl) Get_User_By_Email_And_Status_Not_Number(ctx context.Cont
 	}
 
 	user = &User{}
-	err = __rows.Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.Status, &user.CreatedAt)
+	err = __rows.Scan(&user.Id, &user.FullName, &user.ShortName, &user.Email, &user.PasswordHash, &user.Status, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -5776,7 +7122,7 @@ func (obj *sqlite3Impl) Get_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	user *User, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.status, users.created_at FROM users WHERE users.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.full_name, users.short_name, users.email, users.password_hash, users.status, users.created_at FROM users WHERE users.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, user_id.value())
@@ -5785,7 +7131,7 @@ func (obj *sqlite3Impl) Get_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.Status, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.FullName, &user.ShortName, &user.Email, &user.PasswordHash, &user.Status, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -6120,6 +7466,49 @@ func (obj *sqlite3Impl) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greate
 
 }
 
+func (obj *sqlite3Impl) Find_SerialNumber_By_SerialNumber(ctx context.Context,
+	serial_number_serial_number SerialNumber_SerialNumber_Field) (
+	serial_number *SerialNumber, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT serial_numbers.id, serial_numbers.serial_number, serial_numbers.bucket_id, serial_numbers.expires_at FROM serial_numbers WHERE serial_numbers.serial_number = ? LIMIT 2")
+
+	var __values []interface{}
+	__values = append(__values, serial_number_serial_number.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	if !__rows.Next() {
+		if err := __rows.Err(); err != nil {
+			return nil, obj.makeErr(err)
+		}
+		return nil, nil
+	}
+
+	serial_number = &SerialNumber{}
+	err = __rows.Scan(&serial_number.Id, &serial_number.SerialNumber, &serial_number.BucketId, &serial_number.ExpiresAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	if __rows.Next() {
+		return nil, tooManyRows("SerialNumber_By_SerialNumber")
+	}
+
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	return serial_number, nil
+
+}
+
 func (obj *sqlite3Impl) Get_CertRecord_By_Id(ctx context.Context,
 	certRecord_id CertRecord_Id_Field) (
 	certRecord *CertRecord, err error) {
@@ -6138,6 +7527,55 @@ func (obj *sqlite3Impl) Get_CertRecord_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return certRecord, nil
+
+}
+
+func (obj *sqlite3Impl) Get_RegistrationToken_By_Secret(ctx context.Context,
+	registration_token_secret RegistrationToken_Secret_Field) (
+	registration_token *RegistrationToken, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at FROM registration_tokens WHERE registration_tokens.secret = ?")
+
+	var __values []interface{}
+	__values = append(__values, registration_token_secret.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	registration_token = &RegistrationToken{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return registration_token, nil
+
+}
+
+func (obj *sqlite3Impl) Get_RegistrationToken_By_OwnerId(ctx context.Context,
+	registration_token_owner_id RegistrationToken_OwnerId_Field) (
+	registration_token *RegistrationToken, err error) {
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "registration_tokens.owner_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at FROM registration_tokens WHERE "), __cond_0}}
+
+	var __values []interface{}
+	__values = append(__values)
+
+	if !registration_token_owner_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, registration_token_owner_id.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	registration_token = &RegistrationToken{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return registration_token, nil
 
 }
 
@@ -6464,14 +7902,14 @@ func (obj *sqlite3Impl) Update_User_By_Id(ctx context.Context,
 	var __values []interface{}
 	var __args []interface{}
 
-	if update.FirstName._set {
-		__values = append(__values, update.FirstName.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("first_name = ?"))
+	if update.FullName._set {
+		__values = append(__values, update.FullName.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("full_name = ?"))
 	}
 
-	if update.LastName._set {
-		__values = append(__values, update.LastName.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_name = ?"))
+	if update.ShortName._set {
+		__values = append(__values, update.ShortName.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("short_name = ?"))
 	}
 
 	if update.Email._set {
@@ -6507,12 +7945,12 @@ func (obj *sqlite3Impl) Update_User_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.status, users.created_at FROM users WHERE users.id = ?")
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT users.id, users.full_name, users.short_name, users.email, users.password_hash, users.status, users.created_at FROM users WHERE users.id = ?")
 
 	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
 	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
 
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.Status, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&user.Id, &user.FullName, &user.ShortName, &user.Email, &user.PasswordHash, &user.Status, &user.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -6666,6 +8104,56 @@ func (obj *sqlite3Impl) Update_CertRecord_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return certRecord, nil
+}
+
+func (obj *sqlite3Impl) Update_RegistrationToken_By_Secret(ctx context.Context,
+	registration_token_secret RegistrationToken_Secret_Field,
+	update RegistrationToken_Update_Fields) (
+	registration_token *RegistrationToken, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE registration_tokens SET "), __sets, __sqlbundle_Literal(" WHERE registration_tokens.secret = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.OwnerId._set {
+		__values = append(__values, update.OwnerId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("owner_id = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, registration_token_secret.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	registration_token = &RegistrationToken{}
+	_, err = obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at FROM registration_tokens WHERE registration_tokens.secret = ?")
+
+	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
+	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
+
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return registration_token, nil
 }
 
 func (obj *sqlite3Impl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
@@ -6955,6 +8443,32 @@ func (obj *sqlite3Impl) Delete_BucketUsage_By_Id(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx context.Context,
+	serial_number_expires_at_less_or_equal SerialNumber_ExpiresAt_Field) (
+	count int64, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM serial_numbers WHERE serial_numbers.expires_at <= ?")
+
+	var __values []interface{}
+	__values = append(__values, serial_number_expires_at_less_or_equal.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *sqlite3Impl) Delete_CertRecord_By_Id(ctx context.Context,
 	certRecord_id CertRecord_Id_Field) (
 	deleted bool, err error) {
@@ -7111,13 +8625,13 @@ func (obj *sqlite3Impl) getLastUser(ctx context.Context,
 	pk int64) (
 	user *User, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.first_name, users.last_name, users.email, users.password_hash, users.status, users.created_at FROM users WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.full_name, users.short_name, users.email, users.password_hash, users.status, users.created_at FROM users WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.PasswordHash, &user.Status, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&user.Id, &user.FullName, &user.ShortName, &user.Email, &user.PasswordHash, &user.Status, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7197,6 +8711,42 @@ func (obj *sqlite3Impl) getLastBucketUsage(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) getLastSerialNumber(ctx context.Context,
+	pk int64) (
+	serial_number *SerialNumber, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT serial_numbers.id, serial_numbers.serial_number, serial_numbers.bucket_id, serial_numbers.expires_at FROM serial_numbers WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	serial_number = &SerialNumber{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&serial_number.Id, &serial_number.SerialNumber, &serial_number.BucketId, &serial_number.ExpiresAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return serial_number, nil
+
+}
+
+func (obj *sqlite3Impl) getLastUsedSerial(ctx context.Context,
+	pk int64) (
+	used_serial *UsedSerial, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT used_serials.serial_number_id, used_serials.storage_node_id FROM used_serials WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	used_serial = &UsedSerial{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&used_serial.SerialNumberId, &used_serial.StorageNodeId)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return used_serial, nil
+
+}
+
 func (obj *sqlite3Impl) getLastCertRecord(ctx context.Context,
 	pk int64) (
 	certRecord *CertRecord, err error) {
@@ -7212,6 +8762,24 @@ func (obj *sqlite3Impl) getLastCertRecord(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return certRecord, nil
+
+}
+
+func (obj *sqlite3Impl) getLastRegistrationToken(ctx context.Context,
+	pk int64) (
+	registration_token *RegistrationToken, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at FROM registration_tokens WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	registration_token = &RegistrationToken{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return registration_token, nil
 
 }
 
@@ -7233,6 +8801,16 @@ func (impl sqlite3Impl) isConstraintError(err error) (
 func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) {
 	var __res sql.Result
 	var __count int64
+	__res, err = obj.driver.Exec("DELETE FROM used_serials;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM project_members;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -7254,6 +8832,46 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM users;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM storagenode_storage_rollups;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM storagenode_bandwidth_rollups;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM serial_numbers;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM registration_tokens;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -7334,6 +8952,26 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM bucket_usages;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM bucket_storage_rollups;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM bucket_bandwidth_rollups;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -7685,18 +9323,56 @@ func (rx *Rx) Create_ProjectMember(ctx context.Context,
 
 }
 
+func (rx *Rx) Create_RegistrationToken(ctx context.Context,
+	registration_token_secret RegistrationToken_Secret_Field,
+	registration_token_project_limit RegistrationToken_ProjectLimit_Field,
+	optional RegistrationToken_Create_Fields) (
+	registration_token *RegistrationToken, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_RegistrationToken(ctx, registration_token_secret, registration_token_project_limit, optional)
+
+}
+
+func (rx *Rx) Create_SerialNumber(ctx context.Context,
+	serial_number_serial_number SerialNumber_SerialNumber_Field,
+	serial_number_bucket_id SerialNumber_BucketId_Field,
+	serial_number_expires_at SerialNumber_ExpiresAt_Field) (
+	serial_number *SerialNumber, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_SerialNumber(ctx, serial_number_serial_number, serial_number_bucket_id, serial_number_expires_at)
+
+}
+
+func (rx *Rx) Create_UsedSerial(ctx context.Context,
+	used_serial_serial_number_id UsedSerial_SerialNumberId_Field,
+	used_serial_storage_node_id UsedSerial_StorageNodeId_Field) (
+	used_serial *UsedSerial, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_UsedSerial(ctx, used_serial_serial_number_id, used_serial_storage_node_id)
+
+}
+
 func (rx *Rx) Create_User(ctx context.Context,
 	user_id User_Id_Field,
-	user_first_name User_FirstName_Field,
-	user_last_name User_LastName_Field,
+	user_full_name User_FullName_Field,
 	user_email User_Email_Field,
-	user_password_hash User_PasswordHash_Field) (
+	user_password_hash User_PasswordHash_Field,
+	optional User_Create_Fields) (
 	user *User, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_User(ctx, user_id, user_first_name, user_last_name, user_email, user_password_hash)
+	return tx.Create_User(ctx, user_id, user_full_name, user_email, user_password_hash, optional)
 
 }
 
@@ -7811,6 +9487,17 @@ func (rx *Rx) Delete_Project_By_Id(ctx context.Context,
 	return tx.Delete_Project_By_Id(ctx, project_id)
 }
 
+func (rx *Rx) Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx context.Context,
+	serial_number_expires_at_less_or_equal SerialNumber_ExpiresAt_Field) (
+	count int64, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx, serial_number_expires_at_less_or_equal)
+
+}
+
 func (rx *Rx) Delete_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	deleted bool, err error) {
@@ -7829,6 +9516,26 @@ func (rx *Rx) Find_AccountingTimestamps_Value_By_Name(ctx context.Context,
 		return
 	}
 	return tx.Find_AccountingTimestamps_Value_By_Name(ctx, accounting_timestamps_name)
+}
+
+func (rx *Rx) Find_Node_By_Id(ctx context.Context,
+	node_id Node_Id_Field) (
+	node *Node, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Find_Node_By_Id(ctx, node_id)
+}
+
+func (rx *Rx) Find_SerialNumber_By_SerialNumber(ctx context.Context,
+	serial_number_serial_number SerialNumber_SerialNumber_Field) (
+	serial_number *SerialNumber, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Find_SerialNumber_By_SerialNumber(ctx, serial_number_serial_number)
 }
 
 func (rx *Rx) First_Injuredsegment(ctx context.Context) (
@@ -7940,6 +9647,26 @@ func (rx *Rx) Get_Project_By_Id(ctx context.Context,
 	return tx.Get_Project_By_Id(ctx, project_id)
 }
 
+func (rx *Rx) Get_RegistrationToken_By_OwnerId(ctx context.Context,
+	registration_token_owner_id RegistrationToken_OwnerId_Field) (
+	registration_token *RegistrationToken, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_RegistrationToken_By_OwnerId(ctx, registration_token_owner_id)
+}
+
+func (rx *Rx) Get_RegistrationToken_By_Secret(ctx context.Context,
+	registration_token_secret RegistrationToken_Secret_Field) (
+	registration_token *RegistrationToken, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_RegistrationToken_By_Secret(ctx, registration_token_secret)
+}
+
 func (rx *Rx) Get_User_By_Email_And_Status_Not_Number(ctx context.Context,
 	user_email User_Email_Field) (
 	user *User, err error) {
@@ -7994,6 +9721,16 @@ func (rx *Rx) Limited_Injuredsegment(ctx context.Context,
 		return
 	}
 	return tx.Limited_Injuredsegment(ctx, limit, offset)
+}
+
+func (rx *Rx) Limited_Irreparabledb_OrderBy_Asc_Segmentpath(ctx context.Context,
+	limit int, offset int64) (
+	rows []*Irreparabledb, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_Irreparabledb_OrderBy_Asc_Segmentpath(ctx, limit, offset)
 }
 
 func (rx *Rx) Limited_OverlayCacheNode_By_NodeId_GreaterOrEqual(ctx context.Context,
@@ -8093,6 +9830,17 @@ func (rx *Rx) Update_Project_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Update_Project_By_Id(ctx, project_id, update)
+}
+
+func (rx *Rx) Update_RegistrationToken_By_Secret(ctx context.Context,
+	registration_token_secret RegistrationToken_Secret_Field,
+	update RegistrationToken_Update_Fields) (
+	registration_token *RegistrationToken, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_RegistrationToken_By_Secret(ctx, registration_token_secret, update)
 }
 
 func (rx *Rx) Update_User_By_Id(ctx context.Context,
@@ -8240,12 +9988,29 @@ type Methods interface {
 		project_member_project_id ProjectMember_ProjectId_Field) (
 		project_member *ProjectMember, err error)
 
+	Create_RegistrationToken(ctx context.Context,
+		registration_token_secret RegistrationToken_Secret_Field,
+		registration_token_project_limit RegistrationToken_ProjectLimit_Field,
+		optional RegistrationToken_Create_Fields) (
+		registration_token *RegistrationToken, err error)
+
+	Create_SerialNumber(ctx context.Context,
+		serial_number_serial_number SerialNumber_SerialNumber_Field,
+		serial_number_bucket_id SerialNumber_BucketId_Field,
+		serial_number_expires_at SerialNumber_ExpiresAt_Field) (
+		serial_number *SerialNumber, err error)
+
+	Create_UsedSerial(ctx context.Context,
+		used_serial_serial_number_id UsedSerial_SerialNumberId_Field,
+		used_serial_storage_node_id UsedSerial_StorageNodeId_Field) (
+		used_serial *UsedSerial, err error)
+
 	Create_User(ctx context.Context,
 		user_id User_Id_Field,
-		user_first_name User_FirstName_Field,
-		user_last_name User_LastName_Field,
+		user_full_name User_FullName_Field,
 		user_email User_Email_Field,
-		user_password_hash User_PasswordHash_Field) (
+		user_password_hash User_PasswordHash_Field,
+		optional User_Create_Fields) (
 		user *User, err error)
 
 	Delete_AccountingRaw_By_Id(ctx context.Context,
@@ -8293,6 +10058,10 @@ type Methods interface {
 		project_id Project_Id_Field) (
 		deleted bool, err error)
 
+	Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx context.Context,
+		serial_number_expires_at_less_or_equal SerialNumber_ExpiresAt_Field) (
+		count int64, err error)
+
 	Delete_User_By_Id(ctx context.Context,
 		user_id User_Id_Field) (
 		deleted bool, err error)
@@ -8300,6 +10069,14 @@ type Methods interface {
 	Find_AccountingTimestamps_Value_By_Name(ctx context.Context,
 		accounting_timestamps_name AccountingTimestamps_Name_Field) (
 		row *Value_Row, err error)
+
+	Find_Node_By_Id(ctx context.Context,
+		node_id Node_Id_Field) (
+		node *Node, err error)
+
+	Find_SerialNumber_By_SerialNumber(ctx context.Context,
+		serial_number_serial_number SerialNumber_SerialNumber_Field) (
+		serial_number *SerialNumber, err error)
 
 	First_Injuredsegment(ctx context.Context) (
 		injuredsegment *Injuredsegment, err error)
@@ -8344,6 +10121,14 @@ type Methods interface {
 		project_id Project_Id_Field) (
 		project *Project, err error)
 
+	Get_RegistrationToken_By_OwnerId(ctx context.Context,
+		registration_token_owner_id RegistrationToken_OwnerId_Field) (
+		registration_token *RegistrationToken, err error)
+
+	Get_RegistrationToken_By_Secret(ctx context.Context,
+		registration_token_secret RegistrationToken_Secret_Field) (
+		registration_token *RegistrationToken, err error)
+
 	Get_User_By_Email_And_Status_Not_Number(ctx context.Context,
 		user_email User_Email_Field) (
 		user *User, err error)
@@ -8369,6 +10154,10 @@ type Methods interface {
 	Limited_Injuredsegment(ctx context.Context,
 		limit int, offset int64) (
 		rows []*Injuredsegment, err error)
+
+	Limited_Irreparabledb_OrderBy_Asc_Segmentpath(ctx context.Context,
+		limit int, offset int64) (
+		rows []*Irreparabledb, err error)
 
 	Limited_OverlayCacheNode_By_NodeId_GreaterOrEqual(ctx context.Context,
 		overlay_cache_node_node_id_greater_or_equal OverlayCacheNode_NodeId_Field,
@@ -8414,6 +10203,11 @@ type Methods interface {
 		project_id Project_Id_Field,
 		update Project_Update_Fields) (
 		project *Project, err error)
+
+	Update_RegistrationToken_By_Secret(ctx context.Context,
+		registration_token_secret RegistrationToken_Secret_Field,
+		update RegistrationToken_Update_Fields) (
+		registration_token *RegistrationToken, err error)
 
 	Update_User_By_Id(ctx context.Context,
 		user_id User_Id_Field,

@@ -21,6 +21,27 @@ func TestStorjURL(t *testing.T) {
 		joint  string
 	}{
 		{
+			url:    "sj:/mybucket",
+			bucket: "mybucket",
+			path:   "",
+			base:   "",
+			joint:  "suffix",
+		},
+		{
+			url:    "sj:/mybucket/",
+			bucket: "mybucket",
+			path:   "",
+			base:   "",
+			joint:  "suffix",
+		},
+		{
+			url:    "sj:/mybucket/myfile",
+			bucket: "mybucket",
+			path:   "myfile",
+			base:   "myfile",
+			joint:  "suffix",
+		},
+		{
 			url:    "sj://mybucket",
 			bucket: "mybucket",
 			path:   "",
@@ -95,6 +116,7 @@ func TestStorjURL(t *testing.T) {
 func TestInvalidStorjURL(t *testing.T) {
 	for i, tt := range []string{
 		"://",
+		"sj:bucket",
 		"sj://",
 		"sj:///",
 		"sj://mybucket:8080/",

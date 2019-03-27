@@ -8,12 +8,12 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
+	"storj.io/storj/uplink/metainfo"
 )
 
 var mon = monkit.Package()
@@ -26,21 +26,21 @@ var _ storj.Metainfo = (*DB)(nil)
 
 // DB implements metainfo database
 type DB struct {
+	metainfo metainfo.Client
 	buckets  buckets.Store
 	streams  streams.Store
 	segments segments.Store
-	pointers pdbclient.Client
 
 	rootKey *storj.Key
 }
 
 // New creates a new metainfo database
-func New(buckets buckets.Store, streams streams.Store, segments segments.Store, pointers pdbclient.Client, rootKey *storj.Key) *DB {
+func New(metainfo metainfo.Client, buckets buckets.Store, streams streams.Store, segments segments.Store, rootKey *storj.Key) *DB {
 	return &DB{
+		metainfo: metainfo,
 		buckets:  buckets,
 		streams:  streams,
 		segments: segments,
-		pointers: pointers,
 		rootKey:  rootKey,
 	}
 }
@@ -49,7 +49,7 @@ func New(buckets buckets.Store, streams streams.Store, segments segments.Store, 
 func (db *DB) Limits() (storj.MetainfoLimits, error) {
 	return storj.MetainfoLimits{
 		ListLimit:                storage.LookupLimit,
-		MinimumRemoteSegmentSize: int64(memory.KB), // TODO: is this needed here?
-		MaximumInlineSegmentSize: int64(memory.MB),
+		MinimumRemoteSegmentSize: memory.KiB.Int64(), // TODO: is this needed here?
+		MaximumInlineSegmentSize: memory.MiB.Int64(),
 	}, nil
 }

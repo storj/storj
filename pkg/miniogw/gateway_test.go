@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
-	"flag"
 	"fmt"
 	"strings"
 	"testing"
@@ -679,19 +678,7 @@ func initEnv(planet *testplanet.Planet) (minio.ObjectLayer, storj.Metainfo, stre
 		return nil, nil, nil, err
 	}
 
-	TestAPIKey = apiKey.String()
-
-	err = flag.Set("pointer-db.auth.api-key", TestAPIKey)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	oc, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	pdb, err := planet.Uplinks[0].DialPointerDB(planet.Satellites[0], TestAPIKey)
+	metainfo, err := planet.Uplinks[0].DialMetainfo(context.Background(), planet.Satellites[0], apiKey.String())
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -702,32 +689,32 @@ func initEnv(planet *testplanet.Planet) (minio.ObjectLayer, storj.Metainfo, stre
 		return nil, nil, nil, err
 	}
 
-	rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, 1*memory.KB.Int()), 3, 4)
+	rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, 1*memory.KiB.Int()), 3, 4)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	segments := segments.NewSegmentStore(oc, ec, pdb, rs, 8*memory.KB.Int())
+	segments := segments.NewSegmentStore(metainfo, ec, rs, 4*memory.KiB.Int(), 8*memory.MiB.Int64())
 
 	key := new(storj.Key)
 	copy(key[:], TestEncKey)
 
-	streams, err := streams.NewStreamStore(segments, 64*memory.MB.Int64(), key, 1*memory.KB.Int(), storj.AESGCM)
+	streams, err := streams.NewStreamStore(segments, 64*memory.MiB.Int64(), key, 1*memory.KiB.Int(), storj.AESGCM)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
 	buckets := buckets.NewStore(streams)
 
-	metainfo := kvmetainfo.New(buckets, streams, segments, pdb, key)
+	kvmetainfo := kvmetainfo.New(metainfo, buckets, streams, segments, key)
 
 	gateway := NewStorjGateway(
-		metainfo,
+		kvmetainfo,
 		streams,
 		storj.AESGCM,
 		storj.EncryptionScheme{
 			Cipher:    storj.AESGCM,
-			BlockSize: 1 * memory.KB.Int32(),
+			BlockSize: 1 * memory.KiB.Int32(),
 		},
 		storj.RedundancyScheme{
 			Algorithm:      storj.ReedSolomon,
@@ -741,7 +728,7 @@ func initEnv(planet *testplanet.Planet) (minio.ObjectLayer, storj.Metainfo, stre
 
 	layer, err := gateway.NewGatewayLayer(auth.Credentials{})
 
-	return layer, metainfo, streams, err
+	return layer, kvmetainfo, streams, err
 }
 
 func createFile(ctx context.Context, metainfo storj.Metainfo, streams streams.Store, bucket string, path storj.Path, createInfo *storj.CreateObject, data []byte) (storj.Object, error) {

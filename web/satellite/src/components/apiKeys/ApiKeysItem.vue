@@ -11,7 +11,7 @@
                 <path d="M10.7756 14.334C10.4108 14.334 10.1226 14.6283 10.1226 15.0007C10.1226 15.3731 10.4108 15.6673 10.7756 15.6673C11.1404 15.6673 11.4287 15.3731 11.4287 15.0007C11.4287 14.6283 11.1404 14.334 10.7756 14.334Z" fill="#2683FF"/>
             </svg>
         </div>
-        <p class="apikey-item-container__name">{{ apiKey.name }}</p>
+        <p class="apikey-item-container__name">{{ apiKeyName }}</p>
         <p class="apikey-item-container__date">{{ new Date(apiKey.createdAt).toLocaleDateString() }}</p>
     </div>
 </template>
@@ -23,6 +23,17 @@ import { Component, Vue } from 'vue-property-decorator';
     {
         props: {
             apiKey: Object,
+        },
+        computed: {
+            apiKeyName: function (): string {
+                let name = this.$props.apiKey.name;
+
+                if (name.length < 12) {
+                    return name;
+                }
+
+                return name.slice(0, 12) + '...';
+            }
         }
     }
 )
@@ -50,7 +61,7 @@ export default class ApiKeysItem extends Vue {}
         }
 
         &__date {
-            font-family: 'montserrat_regular';
+            font-family: 'font_regular';
             font-size: 12px;
             line-height: 16px;
             color: #AFB7C1;
@@ -58,7 +69,7 @@ export default class ApiKeysItem extends Vue {}
         }
 
         &__name {
-            font-family: 'montserrat_medium';
+            font-family: 'font_medium';
             font-size: 16px;
             line-height: 21px;
             color: #354049;

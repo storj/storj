@@ -13,17 +13,17 @@ import (
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/storage/buckets"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/uplink/metainfo"
 )
 
 // RSConfig is a configuration struct that keeps details about default
@@ -31,10 +31,10 @@ import (
 type RSConfig struct {
 	MaxBufferMem     memory.Size `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4MiB"`
 	ErasureShareSize memory.Size `help:"the size of each new erasure sure in bytes" default:"1KiB"`
-	MinThreshold     int         `help:"the minimum pieces required to recover a segment. k." default:"29"`
-	RepairThreshold  int         `help:"the minimum safe pieces before a repair is triggered. m." default:"35"`
-	SuccessThreshold int         `help:"the desired total pieces for a segment. o." default:"80"`
-	MaxThreshold     int         `help:"the largest amount of pieces to encode to. n." default:"95"`
+	MinThreshold     int         `help:"the minimum pieces required to recover a segment. k." default:"29" devDefault:"4"`
+	RepairThreshold  int         `help:"the minimum safe pieces before a repair is triggered. m." default:"35" devDefault:"6"`
+	SuccessThreshold int         `help:"the desired total pieces for a segment. o." default:"80" devDefault:"8"`
+	MaxThreshold     int         `help:"the largest amount of pieces to encode to. n." default:"95" devDefault:"10"`
 }
 
 // EncryptionConfig is a configuration struct that keeps details about
@@ -49,11 +49,8 @@ type EncryptionConfig struct {
 // ClientConfig is a configuration struct for the uplink that controls how
 // to talk to the rest of the network.
 type ClientConfig struct {
-	// TODO(jt): these should probably be the same
-	OverlayAddr   string `help:"Address to contact overlay server through"`
-	PointerDBAddr string `help:"Address to contact pointerdb server through"`
-
-	APIKey        string      `help:"API Key (TODO: this needs to change to macaroons somehow)"`
+	APIKey        string      `default:"" help:"the api key to use for the satellite" noprefix:"true"`
+	SatelliteAddr string      `default:"localhost:7778" devDefault:"localhost:10000" help:"the address to use for the satellite" noprefix:"true"`
 	MaxInlineSize memory.Size `help:"max inline segment size in bytes" default:"4KiB"`
 	SegmentSize   memory.Size `help:"the size of a segment in bytes" default:"64MiB"`
 }
@@ -83,25 +80,13 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 	}
 	tc := transport.NewClient(tlsOpts)
 
-	if c.Client.OverlayAddr == "" || c.Client.PointerDBAddr == "" {
-		var errlist errs.Group
-		if c.Client.OverlayAddr == "" {
-			errlist.Add(errors.New("overlay address not specified"))
-		}
-		if c.Client.PointerDBAddr == "" {
-			errlist.Add(errors.New("pointerdb address not specified"))
-		}
-		return nil, nil, errlist.Err()
+	if c.Client.SatelliteAddr == "" {
+		return nil, nil, errors.New("satellite address not specified")
 	}
 
-	oc, err := overlay.NewClient(tc, c.Client.OverlayAddr)
+	metainfo, err := metainfo.NewClient(ctx, tc, c.Client.SatelliteAddr, c.Client.APIKey)
 	if err != nil {
-		return nil, nil, Error.New("failed to connect to overlay: %v", err)
-	}
-
-	pdb, err := pdbclient.NewClient(tc, c.Client.PointerDBAddr, c.Client.APIKey)
-	if err != nil {
-		return nil, nil, Error.New("failed to connect to pointer DB: %v", err)
+		return nil, nil, Error.New("failed to connect to metainfo service: %v", err)
 	}
 
 	ec := ecclient.NewClient(tc, c.RS.MaxBufferMem.Int())
@@ -114,7 +99,11 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, Error.New("failed to create redundancy strategy: %v", err)
 	}
 
-	segments := segments.NewSegmentStore(oc, ec, pdb, rs, c.Client.MaxInlineSize.Int())
+	maxEncryptedSegmentSize, err := encryption.CalcEncryptedSize(c.Client.SegmentSize.Int64(), c.GetEncryptionScheme())
+	if err != nil {
+		return nil, nil, Error.New("failed to calculate max encrypted segment size: %v", err)
+	}
+	segments := segments.NewSegmentStore(metainfo, ec, rs, c.Client.MaxInlineSize.Int(), maxEncryptedSegmentSize)
 
 	if c.RS.ErasureShareSize.Int()*c.RS.MinThreshold%c.Enc.BlockSize.Int() != 0 {
 		err = Error.New("EncryptionBlockSize must be a multiple of ErasureShareSize * RS MinThreshold")
@@ -131,7 +120,7 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 
 	buckets := buckets.NewStore(streams)
 
-	return kvmetainfo.New(buckets, streams, segments, pdb, key), streams, nil
+	return kvmetainfo.New(metainfo, buckets, streams, segments, key), streams, nil
 }
 
 // GetRedundancyScheme returns the configured redundancy scheme for new uploads

@@ -90,8 +90,6 @@ func TestSequential(t *testing.T) {
 }
 
 func TestParallel(t *testing.T) {
-	t.Skip("logic is broken on database side")
-
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
@@ -101,7 +99,6 @@ func TestParallel(t *testing.T) {
 		errs := make(chan error, N*2)
 		entries := make(chan *pb.InjuredSegment, N*2)
 		var wg sync.WaitGroup
-
 		wg.Add(N)
 		// Add to queue concurrently
 		for i := 0; i < N; i++ {
@@ -115,7 +112,6 @@ func TestParallel(t *testing.T) {
 					errs <- err
 				}
 			}(i)
-
 		}
 		wg.Wait()
 

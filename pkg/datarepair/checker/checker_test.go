@@ -13,6 +13,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
@@ -55,34 +56,6 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 	})
 }
 
-func TestOfflineNodes(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		checker := planet.Satellites[0].Repair.Checker
-		checker.Loop.Stop()
-
-		const numberOfNodes = 10
-		nodeIDs := storj.NodeIDList{}
-
-		// use online nodes
-		for _, storagenode := range planet.StorageNodes {
-			nodeIDs = append(nodeIDs, storagenode.Identity.ID)
-		}
-
-		// simulate offline nodes
-		expectedOffline := make([]int32, 0)
-		for i := len(nodeIDs); i < numberOfNodes; i++ {
-			nodeIDs = append(nodeIDs, storj.NodeID{byte(i)})
-			expectedOffline = append(expectedOffline, int32(i))
-		}
-
-		offline, err := checker.OfflineNodes(ctx, nodeIDs)
-		assert.NoError(t, err)
-		assert.Equal(t, expectedOffline, offline)
-	})
-}
-
 func TestIdentifyIrreparableSegments(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 3, UplinkCount: 0,
@@ -115,14 +88,14 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 					MinReq:          int32(4),
 					RepairThreshold: int32(8),
 				},
-				PieceId:      "fake-piece-id",
+				RootPieceId:  teststorj.PieceIDFromString("fake-piece-id"),
 				RemotePieces: pieces,
 			},
 		}
 
 		// put test pointer to db
 		pointerdb := planet.Satellites[0].Metainfo.Service
-		err := pointerdb.Put(pointer.Remote.PieceId, pointer)
+		err := pointerdb.Put("fake-piece-id", pointer)
 		assert.NoError(t, err)
 
 		err = checker.IdentifyInjuredSegments(ctx)
@@ -138,9 +111,9 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		remoteSegmentInfo, err := irreparable.Get(ctx, []byte("fake-piece-id"))
 		assert.NoError(t, err)
 
-		assert.Equal(t, len(expectedLostPieces), int(remoteSegmentInfo.LostPiecesCount))
+		assert.Equal(t, len(expectedLostPieces), int(remoteSegmentInfo.LostPieces))
 		assert.Equal(t, 1, int(remoteSegmentInfo.RepairAttemptCount))
-		firstRepair := remoteSegmentInfo.RepairUnixSec
+		firstRepair := remoteSegmentInfo.LastRepairAttempt
 
 		// check irreparable once again but wait a second
 		time.Sleep(1 * time.Second)
@@ -150,10 +123,10 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		remoteSegmentInfo, err = irreparable.Get(ctx, []byte("fake-piece-id"))
 		assert.NoError(t, err)
 
-		assert.Equal(t, len(expectedLostPieces), int(remoteSegmentInfo.LostPiecesCount))
+		assert.Equal(t, len(expectedLostPieces), int(remoteSegmentInfo.LostPieces))
 		// check if repair attempt count was incremented
 		assert.Equal(t, 2, int(remoteSegmentInfo.RepairAttemptCount))
-		assert.True(t, firstRepair < remoteSegmentInfo.RepairUnixSec)
+		assert.True(t, firstRepair < remoteSegmentInfo.LastRepairAttempt)
 	})
 }
 
@@ -186,12 +159,12 @@ func makePointer(t *testing.T, planet *testplanet.Planet, pieceID string, create
 				MinReq:          int32(minReq),
 				RepairThreshold: int32(repairThreshold),
 			},
-			PieceId:      pieceID,
+			RootPieceId:  teststorj.PieceIDFromString(pieceID),
 			RemotePieces: pieces,
 		},
 	}
 	// put test pointer to db
 	pointerdb := planet.Satellites[0].Metainfo.Service
-	err := pointerdb.Put(pointer.Remote.PieceId, pointer)
+	err := pointerdb.Put(pieceID, pointer)
 	require.NoError(t, err)
 }

@@ -13,6 +13,7 @@ import (
 
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/bwagreement"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/storj"
@@ -26,22 +27,22 @@ type Config struct {
 
 // Tally is the service for accounting for data stored on each storage node
 type Tally struct { // TODO: rename Tally to Service
-	pointerdb     *pointerdb.Service
-	overlay       pb.OverlayServer // TODO: this should be *overlay.Service
-	limit         int
 	logger        *zap.Logger
+	pointerdb     *pointerdb.Service
+	overlay       *overlay.Cache
+	limit         int
 	ticker        *time.Ticker
 	accountingDB  accounting.DB
 	bwAgreementDB bwagreement.DB // bwagreements database
 }
 
 // New creates a new Tally
-func New(logger *zap.Logger, accountingDB accounting.DB, bwAgreementDB bwagreement.DB, pointerdb *pointerdb.Service, overlay pb.OverlayServer, limit int, interval time.Duration) *Tally {
+func New(logger *zap.Logger, accountingDB accounting.DB, bwAgreementDB bwagreement.DB, pointerdb *pointerdb.Service, overlay *overlay.Cache, limit int, interval time.Duration) *Tally {
 	return &Tally{
+		logger:        logger,
 		pointerdb:     pointerdb,
 		overlay:       overlay,
 		limit:         limit,
-		logger:        logger,
 		ticker:        time.NewTicker(interval),
 		accountingDB:  accountingDB,
 		bwAgreementDB: bwAgreementDB,
@@ -52,6 +53,7 @@ func New(logger *zap.Logger, accountingDB accounting.DB, bwAgreementDB bwagreeme
 func (t *Tally) Run(ctx context.Context) (err error) {
 	t.logger.Info("Tally service starting up")
 	defer mon.Task()(&ctx)(&err)
+
 	for {
 		if err = t.Tally(ctx); err != nil {
 			t.logger.Error("Tally failed", zap.Error(err))
@@ -88,14 +90,14 @@ func (t *Tally) Tally(ctx context.Context) error {
 		} else {
 			//remove expired records
 			now := time.Now()
-			_, err = t.bwAgreementDB.GetExpired(tallyEnd, now)
+			_, err = t.bwAgreementDB.GetExpired(ctx, tallyEnd, now)
 			if err != nil {
 				return err
 			}
 			var expiredOrdersHaveBeenSaved bool
 			//todo: write files to disk or whatever we decide to do here
 			if expiredOrdersHaveBeenSaved {
-				err = t.bwAgreementDB.DeleteExpired(tallyEnd, now)
+				err = t.bwAgreementDB.DeleteExpired(ctx, tallyEnd, now)
 				if err != nil {
 					return err
 				}

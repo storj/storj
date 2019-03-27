@@ -3,36 +3,52 @@
 
 <template>
     <div class="login-container" v-on:keyup.enter="onLogin">
+        <div v-bind:class="loadingClassName">
+            <img class="loading-overlay__logo" src="../../static/images/Logo.svg" alt="loading-logo">
+        </div>
+        <img class="planet" src="../../static/images/Mars.png" alt="" >
         <div class="login-container__wrapper">
-            <img class="login-container__logo" src="../../static/images/login/Logo.svg" alt="logo" v-on:click="onLogoClick">
-            <div class="login-area">
-                <div class="login-area__title-container">
-                    <h1>Welcome to Storj</h1>
+            <div class="login-container__header">
+                <img class="login-container__logo" src="../../static/images/Logo.svg" alt="logo" v-on:click="onLogoClick">
+                <div class="login-container__register-button" v-on:click.prevent="onSignUpClick">
+                    <p>Create Account</p>
                 </div>
-                <HeaderlessInput
-                        class="login-area__email-input"
-                        placeholder="Email"
-                        @setData="setEmail"
-                        height="46px"
-                        width="100%">
-                </HeaderlessInput>
-                <HeaderlessInput
-                        class="login-area__password-input"
-                        placeholder="Password"
-                        @setData="setPassword"
-                        width="100%"
-                        height="46px"
-                        isPassword>
-                </HeaderlessInput>
-                <Button class="login-area__login-button" label="Login" width="100%" height="48px" :onPress="onLogin"/>
-                <!-- start of navigation area -->
-                <div class="login-area__navigation-area">
-                    <router-link to="/register" class="login-area__navigation-area__nav-link bold" exact><h3>Create
-                        account</h3></router-link>
-                    <router-link to="" class="login-area__navigation-area__nav-link" exact><h3><strong>Forgot
-                        password</strong></h3></router-link>
+            </div>
+            <div class="login-area-wrapper">
+                <div class="login-area">
+                    <div class="login-area__title-container">
+                        <h1>Login to Storj</h1>
+                        <p>Satellite:<b>Mars</b></p>
+                    </div>
+                    <HeaderlessInput
+                            class="login-area__email-input"
+                            placeholder="Email"
+                            @setData="setEmail"
+                            height="46px"
+                            width="100%">
+                    </HeaderlessInput>
+                    <HeaderlessInput
+                            class="login-area__password-input"
+                            placeholder="Password"
+                            @setData="setPassword"
+                            width="100%"
+                            height="46px"
+                            isPassword>
+                    </HeaderlessInput>
+                    <div class="login-area__submit-area">
+                        <router-link to="" class="login-area__navigation-area__nav-link" exact>
+                            <h3><strong>Forgot password?</strong></h3>
+                        </router-link>
+                        <div class="login-area__submit-area__login-button" v-on:click.prevent="onLogin">
+                            <p>Login</p>
+                        </div>
+                    </div>
+                    <div class="login-area__info-area">
+                        <p class="login-area__info-area__signature">Storj Labs Inc 2019.</p>
+                        <a class="login-area__info-area__terms">Terms & Conditions</a>
+                        <a class="login-area__info-area__help">Help</a>
+                    </div>
                 </div>
-                <!-- end of navigation area -->
             </div>
         </div>
     </div>
@@ -40,13 +56,13 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 import Button from '@/components/common/Button.vue';
 import { setToken } from '@/utils/tokenManager';
 import ROUTES from '../utils/constants/routerConstants';
-import { NOTIFICATION_ACTIONS } from '../utils/constants/actionNames';
+import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { getTokenRequest } from '@/api/users';
+import { LOADING_CLASSES } from '@/utils/constants/classConstants';
 
 @Component({
     data: function () {
@@ -54,20 +70,32 @@ import { getTokenRequest } from '@/api/users';
         return {
             email: '',
             password: '',
-            token: ''
+            loadingClassName: LOADING_CLASSES.LOADING_OVERLAY,
         };
     },
     methods: {
         onLogoClick: function (): void {
             location.reload();
         },
-        setEmail: function (value: string) {
+        setEmail: function (value: string): void {
             this.$data.email = value;
         },
-        setPassword: function (value: string) {
+        setPassword: function (value: string): void {
             this.$data.password = value;
         },
-        onLogin: async function () {
+        activateLoadingOverlay: function(): void {
+            this.$data.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY_ACTIVE;
+            setTimeout(() => {
+                this.$data.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY;
+            }, 2000);
+        },
+        onLogin: async function (): Promise<any> {
+            if (!this.$data.email || !this.$data.password) {
+                return;
+            }
+
+            (this as any).activateLoadingOverlay();
+
             let loginResponse = await getTokenRequest(this.$data.email, this.$data.password);
             if (!loginResponse.isSuccess) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, loginResponse.errorMessage);
@@ -77,8 +105,10 @@ import { getTokenRequest } from '@/api/users';
 
             setToken(loginResponse.data);
             this.$router.push(ROUTES.DASHBOARD.path);
-        }
-
+        },
+        onSignUpClick: function (): void {
+            this.$router.push(ROUTES.REGISTER.path);
+        },
     },
     components: {
         HeaderlessInput,
@@ -97,49 +127,121 @@ export default class Login extends Vue {
         height: 100%;
         left: 0;
         top: 0;
-        background: rgba(51, 51, 51, 0.7);
         z-index: 10;
-        background-image: url(../../static/images/login/1920.svg);
-        background-repeat: no-repeat;
         background-size: contain;
         display: flex;
         justify-content: flex-start;
         flex-direction: column;
         align-items: flex-start;
-        padding: 60px 0px 190px 104px;
+        padding: 60px 0px 0px 104px;
+        background-image: url("../../static/images/Background.png");
+        background-repeat: no-repeat;
+        background-size: auto;
+
+        &__wrapper {
+            min-width: 50%;
+            height: 86vh;
+        }
+
+        &__header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-direction: row;
+            width: 100%;
+        }
 
         &__logo {
+            cursor: pointer;
             width: 139px;
             height: 62px;
         }
+
+        &__register-button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: transparent;
+            border-radius: 6px;
+            border: 1px solid white;
+            cursor: pointer;
+            width: 160px;
+            height: 48px;
+
+            p {
+                font-family: 'font_bold';
+                font-size: 14px;
+                line-height: 19px;
+                margin-block-start: 0;
+                margin-block-end: 0;
+                color: white;
+            }
+
+            &:hover {
+                background-color: white;
+
+                p {
+                    color: #2683FF;
+                }
+            }
+        }
+    }
+
+    .planet {
+        position: absolute;
+        top: -161px;
+        right: -257px;
+        z-index: -100;
+    }
+
+    .login-area-wrapper {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: flex-end;
+        justify-content: flex-end;
     }
 
     .login-area {
-        background-color: #fff;
-        margin-top: 50px;
-        max-width: 500px;
-        width: 100%;
-        padding: 120px;
+        background-color: transparent;
+        width: 620px;
         border-radius: 6px;
         display: flex;
         justify-content: center;
         flex-direction: column;
         align-items: flex-start;
+        padding-bottom: 50px;
 
         &__title-container {
             height: 48px;
             display: flex;
-            justify-content: flex-start;
-            align-items: flex-start;
-            margin-bottom: 32px;
+            justify-content: space-between;
+            align-items: flex-end;
+            flex-direction: row;
+            margin-bottom: 20px;
+            width: 100%;
 
             h1 {
-                font-family: 'montserrat_bold';
-                font-size: 32px;
-                color: #384B65;
-                line-height: 39px;
+                font-family: 'font_bold';
+                font-size: 22px;
+                color: white;
+                line-height: 27px;
                 margin-block-start: 0;
                 margin-block-end: 0;
+            }
+
+            p {
+                font-family: 'font_regular';
+                font-size: 16px;
+                color: white;
+                line-height: 21px;
+                margin-block-start: 0;
+                margin-block-end: 0;
+
+                b {
+                    font-family: 'font_bold';
+                    margin-left: 7px;
+                }
             }
         }
 
@@ -147,9 +249,76 @@ export default class Login extends Vue {
             margin-top: 22px;
         }
 
-        &__login-button {
+        &__submit-area {
+            display: flex;
+            justify-content: space-between;
+            flex-direction: row;
+            align-items: center;
+            width: 100%;
             margin-top: 22px;
-            align-self: center;
+
+            &__login-button {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background-color: #2683FF;
+                border-radius: 6px;
+                cursor: pointer;
+                width: 160px;
+                height: 48px;
+                box-shadow: 0px 16px 24px #3A54DF;
+
+                p {
+                    font-family: 'font_bold';
+                    font-size: 14px;
+                    line-height: 19px;
+                    margin-block-start: 0;
+                    margin-block-end: 0;
+                    color: white;
+                }
+
+                &:hover {
+                    box-shadow: none;
+                }
+            }
+        }
+
+        &__info-area {
+            width: 100%;
+            height: 42px;
+            margin-top: 300px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: flex-start;
+            flex-direction: row;
+
+            p {
+                font-family: 'font_regular';
+                font-size: 12px;
+                line-height: 18px;
+                text-align: center;
+                text-decoration: none;
+                color: white;
+                margin-block-start: 0;
+                margin-block-end: 0;
+            }
+
+            a {
+                font-family: 'font_regular';
+                font-size: 15px;
+                line-height: 22px;
+                text-align: center;
+                text-decoration: none;
+                color: white;
+            }
+
+            &__signature {
+                margin-right: 50px;
+            }
+
+            &__terms {
+                margin-right: 35px;
+            }
         }
 
         &__login-button.container {
@@ -167,74 +336,54 @@ export default class Login extends Vue {
             align-items: center;
 
             &__nav-link {
-                font-family: 'montserrat_regular';
+                font-family: 'font_regular';
                 font-size: 14px;
                 line-height: 20px;
-                color: #2683FF;
                 height: 48px;
                 text-align: center;
-                text-justify: center;
                 padding-left: 15px;
                 padding-right: 15px;
                 min-width: 140px;
-
-                &:hover {
-                    text-decoration: underline;
-                }
+                text-decoration: none;
+                color: white;
 
                 .bold {
-                    font-family: 'montserrat_medium';
+                    font-family: 'font_medium';
                 }
             }
         }
     }
 
-    @media screen and (max-width: 1440px) {
-        .login-container {
-            background-size: auto;
-            background-image: url(../../static/images/login/Background.svg);
+    .loading-overlay {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        left: 0;
+        height: 100vh;
+        width: 0;
+        z-index: 100;
+        background-color: rgba(134, 134, 148, 0.7);
+        visibility: hidden;
+        opacity: 0;
+        -webkit-transition: all 0.5s linear;
+        -moz-transition: all 0.5s linear;
+        -o-transition: all 0.5s linear;
+        transition: all 0.5s linear;
+
+        &__logo {
+            width: 240px;
+            height: 110px;
+            z-index: 200;
         }
     }
 
-    @media screen and (max-width: 1280px) {
-        .login-container {
-            background-image: url(../../static/images/login/1280.svg);
-            background-size: auto;
-        }
-        .login-area {
-            padding: 86px;
-            max-width: 444px;
-        }
-    }
-
-    @media screen and (max-width: 1024px) {
-        .login-container {
-            background-image: url(../../static/images/login/1024.svg);
-        }
-    }
-
-    @media screen and (max-width: 800px) {
-        .login-container {
-            padding: 0;
-            justify-content: flex-start;
-            display: block;
-            padding: 77px 50px 0 50px;
-            background-image: url(../../static/images/login/800.svg);
-            background-position-y: 0px;
-            width: auto;
-            height: 1450px;
-            position: relative;
-
-            &__wrapper {
-                margin: 0 auto;
-                max-width: 600px;
-            }
-        }
-        .login-area {
-            max-width: auto;
-            width: auto;
-            margin: 0 auto;
-            margin-top: 80px;
-        }
+    .loading-overlay.active {
+        width: 100vw;
+        visibility: visible;
+        opacity: 1;
     }
 </style>

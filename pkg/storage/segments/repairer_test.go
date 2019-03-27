@@ -1,121 +1,125 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package segments
+package segments_test
 
 import (
+	"math/rand"
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/teststorj"
-	mock_overlay "storj.io/storj/pkg/overlay/mocks"
+	"storj.io/storj/internal/memory"
+	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/pb"
-	mock_pointerdb "storj.io/storj/pkg/pointerdb/pdbclient/mocks"
-	"storj.io/storj/pkg/ranger"
-	mock_ecclient "storj.io/storj/pkg/storage/ec/mocks"
+	ecclient "storj.io/storj/pkg/storage/ec"
+	"storj.io/storj/pkg/storage/segments"
+	"storj.io/storj/pkg/storj"
+	"storj.io/storj/uplink"
 )
 
-func TestNewSegmentRepairer(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+func TestSegmentStoreRepair(t *testing.T) {
+	t.Skip("flaky")
 
-	mockOC := mock_overlay.NewMockClient(ctrl)
-	mockEC := mock_ecclient.NewMockClient(ctrl)
-	mockPDB := mock_pointerdb.NewMockClient(ctrl)
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// first, upload some remote data
+		ul := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
 
-	ss := NewSegmentRepairer(mockOC, mockEC, mockPDB)
-	assert.NotNil(t, ss)
-}
+		satellite.Repair.Checker.Loop.Stop()
 
-func TestSegmentStoreRepairRemote(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	ti := time.Unix(0, 0).UTC()
-	someTime, err := ptypes.TimestampProto(ti)
-	assert.NoError(t, err)
-
-	for _, tt := range []struct {
-		pathInput               string
-		thresholdSize           int
-		pointerType             pb.Pointer_DataType
-		size                    int64
-		metadata                []byte
-		lostPieces              []int32
-		newNodes                []*pb.Node
-		data                    string
-		strsize, offset, length int64
-		substr                  string
-		meta                    Meta
-	}{
-		{
-			"path/1/2/3",
-			10,
-			pb.Pointer_REMOTE,
-			int64(3),
-			[]byte("metadata"),
-			[]int32{},
-			[]*pb.Node{
-				teststorj.MockNode("1"),
-				teststorj.MockNode("2"),
-			},
-			"abcdefghijkl",
-			12,
-			1,
-			4,
-			"bcde",
-			Meta{},
-		},
-	} {
-		mockOC := mock_overlay.NewMockClient(ctrl)
-		mockEC := mock_ecclient.NewMockClient(ctrl)
-		mockPDB := mock_pointerdb.NewMockClient(ctrl)
-
-		sr := Repairer{mockOC, mockEC, mockPDB, &pb.NodeStats{}}
-		assert.NotNil(t, sr)
-
-		calls := []*gomock.Call{
-			mockPDB.EXPECT().Get(
-				gomock.Any(), gomock.Any(),
-			).Return(&pb.Pointer{
-				Type: tt.pointerType,
-				Remote: &pb.RemoteSegment{
-					Redundancy: &pb.RedundancyScheme{
-						Type:             pb.RedundancyScheme_RS,
-						MinReq:           1,
-						Total:            2,
-						RepairThreshold:  1,
-						SuccessThreshold: 2,
-					},
-					PieceId:      "here's my piece id",
-					RemotePieces: []*pb.RemotePiece{},
-				},
-				CreationDate:   someTime,
-				ExpirationDate: someTime,
-				SegmentSize:    tt.size,
-				Metadata:       tt.metadata,
-			}, nil, nil, nil),
-			mockOC.EXPECT().BulkLookup(gomock.Any(), gomock.Any()),
-			mockOC.EXPECT().Choose(gomock.Any(), gomock.Any()).Return(tt.newNodes, nil),
-			mockPDB.EXPECT().PayerBandwidthAllocation(gomock.Any(), gomock.Any()),
-			mockEC.EXPECT().Get(
-				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
-			).Return(ranger.ByteRanger([]byte(tt.data)), nil),
-			mockPDB.EXPECT().PayerBandwidthAllocation(gomock.Any(), gomock.Any()),
-			mockEC.EXPECT().Put(
-				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
-			).Return(tt.newNodes, make([]*pb.SignedHash, len(tt.newNodes)), nil),
-			mockPDB.EXPECT().Put(
-				gomock.Any(), gomock.Any(), gomock.Any(),
-			).Return(nil),
-		}
-		gomock.InOrder(calls...)
-
-		err := sr.Repair(ctx, tt.pathInput, tt.lostPieces)
+		testData := make([]byte, 1*memory.MiB)
+		_, err := rand.Read(testData)
 		assert.NoError(t, err)
-	}
+
+		err = ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
+			MinThreshold:     1,
+			RepairThreshold:  2,
+			SuccessThreshold: 3,
+			MaxThreshold:     4,
+		}, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		// get a remote segment from pointerdb
+		pdb := satellite.Metainfo.Service
+		listResponse, _, err := pdb.List("", "", "", true, 0, 0)
+		require.NoError(t, err)
+
+		var path string
+		var pointer *pb.Pointer
+		for _, v := range listResponse {
+			path = v.GetPath()
+			pointer, err = pdb.Get(path)
+			assert.NoError(t, err)
+			if pointer.GetType() == pb.Pointer_REMOTE {
+				break
+			}
+		}
+
+		// calculate how many storagenodes to kill
+		numStorageNodes := len(planet.StorageNodes)
+		redundancy := pointer.GetRemote().GetRedundancy()
+		remotePieces := pointer.GetRemote().GetRemotePieces()
+		minReq := redundancy.GetMinReq()
+		numPieces := len(remotePieces)
+		toKill := numPieces - int(minReq)
+		// we should have enough storage nodes to repair on
+		assert.True(t, (numStorageNodes-toKill) >= numPieces)
+
+		// kill nodes and track lost pieces
+		var lostPieces []int32
+		nodesToKill := make(map[storj.NodeID]bool)
+		nodesToKeepAlive := make(map[storj.NodeID]bool)
+		for i, piece := range remotePieces {
+			if i >= toKill {
+				nodesToKeepAlive[piece.NodeId] = true
+				continue
+			}
+			nodesToKill[piece.NodeId] = true
+			lostPieces = append(lostPieces, piece.GetPieceNum())
+		}
+		for _, node := range planet.StorageNodes {
+			if nodesToKill[node.ID()] {
+				err = planet.StopPeer(node)
+				assert.NoError(t, err)
+			}
+		}
+
+		// repair segment
+		oc := satellite.Overlay.Service
+		as := satellite.Metainfo.Allocation
+		ec := ecclient.NewClient(satellite.Transport, 0)
+		repairer := segments.NewSegmentRepairer(pdb, as, oc, ec, satellite.Identity, time.Minute)
+		assert.NotNil(t, repairer)
+
+		err = repairer.Repair(ctx, path, lostPieces)
+		assert.NoError(t, err)
+
+		// kill nodes kept alive to ensure repair worked
+		for _, node := range planet.StorageNodes {
+			if nodesToKeepAlive[node.ID()] {
+				err = planet.StopPeer(node)
+				assert.NoError(t, err)
+			}
+		}
+
+		// we should be able to download data without any of the original nodes
+		newData, err := ul.Download(ctx, satellite, "testbucket", "test/path")
+		assert.NoError(t, err)
+		assert.Equal(t, newData, testData)
+
+		// updated pointer should not contain any of the killed nodes
+		pointer, err = pdb.Get(path)
+		assert.NoError(t, err)
+
+		remotePieces = pointer.GetRemote().GetRemotePieces()
+		for _, piece := range remotePieces {
+			assert.False(t, nodesToKill[piece.NodeId])
+		}
+	})
 }

@@ -31,6 +31,31 @@
                 "type": "Status"
               }
             ]
+          },
+          {
+            "name": "BandwidthSettlementRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "allocation",
+                "type": "piecestoreroutes.RenterBandwidthAllocation"
+              }
+            ]
+          },
+          {
+            "name": "BandwidthSettlementResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "serial_number",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "status",
+                "type": "AgreementsSummary.Status"
+              }
+            ]
           }
         ],
         "services": [
@@ -41,6 +66,13 @@
                 "name": "BandwidthAgreements",
                 "in_type": "piecestoreroutes.RenterBandwidthAllocation",
                 "out_type": "AgreementsSummary"
+              },
+              {
+                "name": "Settlement",
+                "in_type": "BandwidthSettlementRequest",
+                "out_type": "BandwidthSettlementResponse",
+                "in_streamed": true,
+                "out_streamed": true
               }
             ]
           }
@@ -559,6 +591,62 @@
       "def": {
         "messages": [
           {
+            "name": "ListIrreparableSegmentsRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "limit",
+                "type": "int32"
+              },
+              {
+                "id": 2,
+                "name": "offset",
+                "type": "int32"
+              }
+            ]
+          },
+          {
+            "name": "IrreparableSegment",
+            "fields": [
+              {
+                "id": 1,
+                "name": "path",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "segment_detail",
+                "type": "pointerdb.Pointer"
+              },
+              {
+                "id": 3,
+                "name": "lost_pieces",
+                "type": "int32"
+              },
+              {
+                "id": 4,
+                "name": "last_repair_attempt",
+                "type": "int64"
+              },
+              {
+                "id": 5,
+                "name": "repair_attempt_count",
+                "type": "int64"
+              }
+            ]
+          },
+          {
+            "name": "ListIrreparableSegmentsResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "segments",
+                "type": "IrreparableSegment",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
             "name": "GetStatsRequest",
             "fields": [
               {
@@ -945,11 +1033,21 @@
               },
               {
                 "id": 3,
-                "name": "used_bandwidth",
+                "name": "used_ingress",
                 "type": "int64"
               },
               {
                 "id": 4,
+                "name": "used_egress",
+                "type": "int64"
+              },
+              {
+                "id": 5,
+                "name": "used_bandwidth",
+                "type": "int64"
+              },
+              {
+                "id": 6,
                 "name": "available_bandwidth",
                 "type": "int64"
               }
@@ -964,7 +1062,17 @@
               {
                 "id": 1,
                 "name": "node_id",
-                "type": "string"
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 2,
@@ -993,13 +1101,18 @@
               },
               {
                 "id": 7,
-                "name": "connection",
-                "type": "bool"
+                "name": "uptime",
+                "type": "google.protobuf.Duration"
               },
               {
                 "id": 8,
-                "name": "uptime",
-                "type": "google.protobuf.Duration"
+                "name": "last_pinged",
+                "type": "google.protobuf.Timestamp"
+              },
+              {
+                "id": 9,
+                "name": "last_queried",
+                "type": "google.protobuf.Timestamp"
               }
             ]
           }
@@ -1052,13 +1165,8 @@
                 "name": "DumpNodes",
                 "in_type": "DumpNodesRequest",
                 "out_type": "DumpNodesResponse"
-              }
-            ]
           },
           {
-            "name": "StatDBInspector",
-            "rpcs": [
-              {
                 "name": "GetStats",
                 "in_type": "GetStatsRequest",
                 "out_type": "GetStatsResponse"
@@ -1084,6 +1192,16 @@
                 "out_type": "DashboardResponse"
               }
             ]
+          },
+          {
+            "name": "IrreparableInspector",
+            "rpcs": [
+              {
+                "name": "ListIrreparableSegments",
+                "in_type": "ListIrreparableSegmentsRequest",
+                "out_type": "ListIrreparableSegmentsResponse"
+              }
+            ]
           }
         ],
         "imports": [
@@ -1094,7 +1212,13 @@
             "path": "node.proto"
           },
           {
+            "path": "pointerdb.proto"
+          },
+          {
             "path": "google/protobuf/duration.proto"
+          },
+          {
+            "path": "google/protobuf/timestamp.proto"
           }
         ],
         "package": {
@@ -1129,6 +1253,362 @@
         ],
         "package": {
           "name": "objects"
+        }
+      }
+    },
+    {
+      "protopath": "pkg:/:pb:/:metainfo.proto",
+      "def": {
+        "messages": [
+          {
+            "name": "AddressedOrderLimit",
+            "fields": [
+              {
+                "id": 1,
+                "name": "limit",
+                "type": "orders.OrderLimit2"
+              },
+              {
+                "id": 2,
+                "name": "storage_node_address",
+                "type": "node.NodeAddress"
+              }
+            ]
+          },
+          {
+            "name": "SegmentWriteRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "bucket",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "path",
+                "type": "bytes"
+              },
+              {
+                "id": 3,
+                "name": "segment",
+                "type": "int64"
+              },
+              {
+                "id": 4,
+                "name": "redundancy",
+                "type": "pointerdb.RedundancyScheme"
+              },
+              {
+                "id": 5,
+                "name": "max_encrypted_segment_size",
+                "type": "int64"
+              },
+              {
+                "id": 6,
+                "name": "expiration",
+                "type": "google.protobuf.Timestamp"
+              }
+            ]
+          },
+          {
+            "name": "SegmentWriteResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "addressed_limits",
+                "type": "AddressedOrderLimit",
+                "is_repeated": true
+              },
+              {
+                "id": 2,
+                "name": "root_piece_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "PieceID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "SegmentCommitRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "bucket",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "path",
+                "type": "bytes"
+              },
+              {
+                "id": 3,
+                "name": "segment",
+                "type": "int64"
+              },
+              {
+                "id": 4,
+                "name": "pointer",
+                "type": "pointerdb.Pointer"
+              },
+              {
+                "id": 5,
+                "name": "original_limits",
+                "type": "orders.OrderLimit2",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "SegmentCommitResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "pointer",
+                "type": "pointerdb.Pointer"
+              }
+            ]
+          },
+          {
+            "name": "SegmentDownloadRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "bucket",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "path",
+                "type": "bytes"
+              },
+              {
+                "id": 3,
+                "name": "segment",
+                "type": "int64"
+              }
+            ]
+          },
+          {
+            "name": "SegmentDownloadResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "addressed_limits",
+                "type": "AddressedOrderLimit",
+                "is_repeated": true
+              },
+              {
+                "id": 2,
+                "name": "pointer",
+                "type": "pointerdb.Pointer"
+              }
+            ]
+          },
+          {
+            "name": "SegmentInfoRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "bucket",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "path",
+                "type": "bytes"
+              },
+              {
+                "id": 3,
+                "name": "segment",
+                "type": "int64"
+              }
+            ]
+          },
+          {
+            "name": "SegmentInfoResponse",
+            "fields": [
+              {
+                "id": 2,
+                "name": "pointer",
+                "type": "pointerdb.Pointer"
+              }
+            ]
+          },
+          {
+            "name": "SegmentDeleteRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "bucket",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "path",
+                "type": "bytes"
+              },
+              {
+                "id": 3,
+                "name": "segment",
+                "type": "int64"
+              }
+            ]
+          },
+          {
+            "name": "SegmentDeleteResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "addressed_limits",
+                "type": "AddressedOrderLimit",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "ListSegmentsRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "bucket",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "prefix",
+                "type": "bytes"
+              },
+              {
+                "id": 3,
+                "name": "start_after",
+                "type": "bytes"
+              },
+              {
+                "id": 4,
+                "name": "end_before",
+                "type": "bytes"
+              },
+              {
+                "id": 5,
+                "name": "recursive",
+                "type": "bool"
+              },
+              {
+                "id": 6,
+                "name": "limit",
+                "type": "int32"
+              },
+              {
+                "id": 7,
+                "name": "meta_flags",
+                "type": "fixed32"
+              }
+            ]
+          },
+          {
+            "name": "ListSegmentsResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "items",
+                "type": "Item",
+                "is_repeated": true
+              },
+              {
+                "id": 2,
+                "name": "more",
+                "type": "bool"
+              }
+            ],
+            "messages": [
+              {
+                "name": "Item",
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "path",
+                    "type": "bytes"
+                  },
+                  {
+                    "id": 2,
+                    "name": "pointer",
+                    "type": "pointerdb.Pointer"
+                  },
+                  {
+                    "id": 3,
+                    "name": "is_prefix",
+                    "type": "bool"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "services": [
+          {
+            "name": "Metainfo",
+            "rpcs": [
+              {
+                "name": "CreateSegment",
+                "in_type": "SegmentWriteRequest",
+                "out_type": "SegmentWriteResponse"
+              },
+              {
+                "name": "CommitSegment",
+                "in_type": "SegmentCommitRequest",
+                "out_type": "SegmentCommitResponse"
+              },
+              {
+                "name": "SegmentInfo",
+                "in_type": "SegmentInfoRequest",
+                "out_type": "SegmentInfoResponse"
+              },
+              {
+                "name": "DownloadSegment",
+                "in_type": "SegmentDownloadRequest",
+                "out_type": "SegmentDownloadResponse"
+              },
+              {
+                "name": "DeleteSegment",
+                "in_type": "SegmentDeleteRequest",
+                "out_type": "SegmentDeleteResponse"
+              },
+              {
+                "name": "ListSegments",
+                "in_type": "ListSegmentsRequest",
+                "out_type": "ListSegmentsResponse"
+              }
+            ]
+          }
+        ],
+        "imports": [
+          {
+            "path": "gogo.proto"
+          },
+          {
+            "path": "google/protobuf/timestamp.proto"
+          },
+          {
+            "path": "node.proto"
+          },
+          {
+            "path": "pointerdb.proto"
+          },
+          {
+            "path": "orders.proto"
+          }
+        ],
+        "package": {
+          "name": "metainfo"
         }
       }
     },
@@ -1388,6 +1868,293 @@
       }
     },
     {
+      "protopath": "pkg:/:pb:/:orders.proto",
+      "def": {
+        "enums": [
+          {
+            "name": "PieceAction",
+            "enum_fields": [
+              {
+                "name": "INVALID"
+              },
+              {
+                "name": "PUT",
+                "integer": 1
+              },
+              {
+                "name": "GET",
+                "integer": 2
+              },
+              {
+                "name": "GET_AUDIT",
+                "integer": 3
+              },
+              {
+                "name": "GET_REPAIR",
+                "integer": 4
+              },
+              {
+                "name": "PUT_REPAIR",
+                "integer": 5
+              },
+              {
+                "name": "DELETE",
+                "integer": 6
+              }
+            ]
+          },
+          {
+            "name": "SettlementResponse.Status",
+            "enum_fields": [
+              {
+                "name": "INVALID"
+              },
+              {
+                "name": "ACCEPTED",
+                "integer": 1
+              },
+              {
+                "name": "REJECTED",
+                "integer": 2
+              }
+            ]
+          }
+        ],
+        "messages": [
+          {
+            "name": "OrderLimit2",
+            "fields": [
+              {
+                "id": 1,
+                "name": "serial_number",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "SerialNumber"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "satellite_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 3,
+                "name": "uplink_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 4,
+                "name": "storage_node_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 5,
+                "name": "piece_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "PieceID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 6,
+                "name": "limit",
+                "type": "int64"
+              },
+              {
+                "id": 7,
+                "name": "action",
+                "type": "PieceAction"
+              },
+              {
+                "id": 8,
+                "name": "piece_expiration",
+                "type": "google.protobuf.Timestamp"
+              },
+              {
+                "id": 9,
+                "name": "order_expiration",
+                "type": "google.protobuf.Timestamp"
+              },
+              {
+                "id": 10,
+                "name": "satellite_signature",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "Order2",
+            "fields": [
+              {
+                "id": 1,
+                "name": "serial_number",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "SerialNumber"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "amount",
+                "type": "int64"
+              },
+              {
+                "id": 3,
+                "name": "uplink_signature",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "PieceHash",
+            "fields": [
+              {
+                "id": 1,
+                "name": "piece_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "PieceID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "hash",
+                "type": "bytes"
+              },
+              {
+                "id": 3,
+                "name": "signature",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "SettlementRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "limit",
+                "type": "OrderLimit2"
+              },
+              {
+                "id": 2,
+                "name": "order",
+                "type": "Order2"
+              }
+            ]
+          },
+          {
+            "name": "SettlementResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "serial_number",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "SerialNumber"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "status",
+                "type": "Status"
+              }
+            ]
+          }
+        ],
+        "services": [
+          {
+            "name": "Orders",
+            "rpcs": [
+              {
+                "name": "Settlement",
+                "in_type": "SettlementRequest",
+                "out_type": "SettlementResponse",
+                "in_streamed": true,
+                "out_streamed": true
+              }
+            ]
+          }
+        ],
+        "imports": [
+          {
+            "path": "gogo.proto"
+          },
+          {
+            "path": "google/protobuf/timestamp.proto"
+          }
+        ],
+        "package": {
+          "name": "orders"
+        }
+      }
+    },
+    {
       "protopath": "pkg:/:pb:/:overlay.proto",
       "def": {
         "enums": [
@@ -1429,151 +2196,6 @@
           }
         ],
         "messages": [
-          {
-            "name": "LookupRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "node_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "name": "LookupResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "node",
-                "type": "node.Node"
-              }
-            ]
-          },
-          {
-            "name": "LookupRequests",
-            "fields": [
-              {
-                "id": 1,
-                "name": "lookup_request",
-                "type": "LookupRequest",
-                "is_repeated": true
-              }
-            ]
-          },
-          {
-            "name": "LookupResponses",
-            "fields": [
-              {
-                "id": 1,
-                "name": "lookup_response",
-                "type": "LookupResponse",
-                "is_repeated": true
-              }
-            ]
-          },
-          {
-            "name": "FindStorageNodesResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "nodes",
-                "type": "node.Node",
-                "is_repeated": true
-              }
-            ]
-          },
-          {
-            "name": "FindStorageNodesRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "object_size",
-                "type": "int64"
-              },
-              {
-                "id": 2,
-                "name": "contract_length",
-                "type": "google.protobuf.Duration"
-              },
-              {
-                "id": 3,
-                "name": "opts",
-                "type": "OverlayOptions"
-              },
-              {
-                "id": 4,
-                "name": "start",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 5,
-                "name": "min_nodes",
-                "type": "int64"
-              }
-            ]
-          },
-          {
-            "name": "OverlayOptions",
-            "fields": [
-              {
-                "id": 1,
-                "name": "max_latency",
-                "type": "google.protobuf.Duration"
-              },
-              {
-                "id": 2,
-                "name": "min_stats",
-                "type": "node.NodeStats"
-              },
-              {
-                "id": 3,
-                "name": "min_speed_kbps",
-                "type": "int64"
-              },
-              {
-                "id": 4,
-                "name": "amount",
-                "type": "int64"
-              },
-              {
-                "id": 5,
-                "name": "restrictions",
-                "type": "node.NodeRestrictions"
-              },
-              {
-                "id": 6,
-                "name": "excluded_nodes",
-                "type": "bytes",
-                "is_repeated": true,
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  }
-                ]
-              }
-            ]
-          },
           {
             "name": "QueryRequest",
             "fields": [
@@ -1667,26 +2289,6 @@
         ],
         "services": [
           {
-            "name": "Overlay",
-            "rpcs": [
-              {
-                "name": "Lookup",
-                "in_type": "LookupRequest",
-                "out_type": "LookupResponse"
-              },
-              {
-                "name": "BulkLookup",
-                "in_type": "LookupRequests",
-                "out_type": "LookupResponses"
-              },
-              {
-                "name": "FindStorageNodes",
-                "in_type": "FindStorageNodesRequest",
-                "out_type": "FindStorageNodesResponse"
-              }
-            ]
-          },
-          {
             "name": "Nodes",
             "rpcs": [
               {
@@ -1708,9 +2310,6 @@
           }
         ],
         "imports": [
-          {
-            "path": "google/protobuf/duration.proto"
-          },
           {
             "path": "gogo.proto"
           },
@@ -2195,6 +2794,178 @@
       }
     },
     {
+      "protopath": "pkg:/:pb:/:piecestore2.proto",
+      "def": {
+        "messages": [
+          {
+            "name": "PieceUploadRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "limit",
+                "type": "orders.OrderLimit2"
+              },
+              {
+                "id": 2,
+                "name": "order",
+                "type": "orders.Order2"
+              },
+              {
+                "id": 3,
+                "name": "chunk",
+                "type": "Chunk"
+              },
+              {
+                "id": 4,
+                "name": "done",
+                "type": "orders.PieceHash"
+              }
+            ],
+            "messages": [
+              {
+                "name": "Chunk",
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "offset",
+                    "type": "int64"
+                  },
+                  {
+                    "id": 2,
+                    "name": "data",
+                    "type": "bytes"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "PieceUploadResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "done",
+                "type": "orders.PieceHash"
+              }
+            ]
+          },
+          {
+            "name": "PieceDownloadRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "limit",
+                "type": "orders.OrderLimit2"
+              },
+              {
+                "id": 2,
+                "name": "order",
+                "type": "orders.Order2"
+              },
+              {
+                "id": 3,
+                "name": "chunk",
+                "type": "Chunk"
+              }
+            ],
+            "messages": [
+              {
+                "name": "Chunk",
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "offset",
+                    "type": "int64"
+                  },
+                  {
+                    "id": 2,
+                    "name": "chunk_size",
+                    "type": "int64"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "PieceDownloadResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "chunk",
+                "type": "Chunk"
+              }
+            ],
+            "messages": [
+              {
+                "name": "Chunk",
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "offset",
+                    "type": "int64"
+                  },
+                  {
+                    "id": 2,
+                    "name": "data",
+                    "type": "bytes"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "PieceDeleteRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "limit",
+                "type": "orders.OrderLimit2"
+              }
+            ]
+          },
+          {
+            "name": "PieceDeleteResponse"
+          }
+        ],
+        "services": [
+          {
+            "name": "Piecestore",
+            "rpcs": [
+              {
+                "name": "Upload",
+                "in_type": "PieceUploadRequest",
+                "out_type": "PieceUploadResponse",
+                "in_streamed": true
+              },
+              {
+                "name": "Download",
+                "in_type": "PieceDownloadRequest",
+                "out_type": "PieceDownloadResponse",
+                "in_streamed": true,
+                "out_streamed": true
+              },
+              {
+                "name": "Delete",
+                "in_type": "PieceDeleteRequest",
+                "out_type": "PieceDeleteResponse"
+              }
+            ]
+          }
+        ],
+        "imports": [
+          {
+            "path": "gogo.proto"
+          },
+          {
+            "path": "orders.proto"
+          }
+        ],
+        "package": {
+          "name": "piecestore"
+        }
+      }
+    },
+    {
       "protopath": "pkg:/:pb:/:pointerdb.proto",
       "def": {
         "enums": [
@@ -2281,7 +3052,7 @@
               {
                 "id": 3,
                 "name": "hash",
-                "type": "piecestoreroutes.SignedHash"
+                "type": "orders.PieceHash"
               }
             ]
           },
@@ -2295,8 +3066,18 @@
               },
               {
                 "id": 2,
-                "name": "piece_id",
-                "type": "string"
+                "name": "root_piece_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "PieceID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 3,
@@ -2581,6 +3362,9 @@
           },
           {
             "path": "piecestore.proto"
+          },
+          {
+            "path": "orders.proto"
           }
         ],
         "package": {

@@ -19,11 +19,12 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/transport"
 )
+
+const contactWindow = time.Minute * 10
 
 type dashboardClient struct {
 	client pb.PieceStoreInspectorClient
@@ -54,11 +55,6 @@ func cmdDashboard(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Info("Node ID: ", ident.ID)
 	}
 
-	online, err := getConnectionStatus(ctx, ident)
-	if err != nil {
-		zap.S().Error("error getting connection status %s", err.Error())
-	}
-
 	client, err := newDashboardClient(ctx, dashboardCfg.Address)
 	if err != nil {
 		return err
@@ -70,7 +66,7 @@ func cmdDashboard(cmd *cobra.Command, args []string) (err error) {
 			return err
 		}
 
-		if err := printDashboard(data, online); err != nil {
+		if err := printDashboard(data); err != nil {
 			return err
 		}
 
@@ -79,7 +75,7 @@ func cmdDashboard(cmd *cobra.Command, args []string) (err error) {
 	}
 }
 
-func printDashboard(data *pb.DashboardResponse, online bool) error {
+func printDashboard(data *pb.DashboardResponse) error {
 	clearScreen()
 	color.NoColor = !useColor
 
@@ -88,12 +84,27 @@ func printDashboard(data *pb.DashboardResponse, online bool) error {
 	_, _ = heading.Printf("\n======================\n\n")
 
 	w := tabwriter.NewWriter(color.Output, 0, 0, 1, ' ', 0)
-	fmt.Fprintf(w, "ID\t%s\n", color.YellowString(data.GetNodeId()))
+	fmt.Fprintf(w, "ID\t%s\n", color.YellowString(data.NodeId.String()))
 
-	if online {
-		fmt.Fprintf(w, "Status\t%s\n", color.GreenString("ONLINE"))
-	} else {
-		fmt.Fprintf(w, "Status\t%s\n", color.RedString("OFFLINE"))
+	lastContacted, err := ptypes.Timestamp(data.LastPinged)
+	if err != nil {
+		lastContacted = time.Time{}
+	}
+	lastQueried, err := ptypes.Timestamp(data.LastQueried)
+	if err == nil {
+		if lastQueried.After(lastContacted) {
+			lastContacted = lastQueried
+		}
+	}
+	switch {
+	case lastContacted.IsZero():
+		fmt.Fprintf(w, "Last Contact\t%s\n", color.RedString("NEVER"))
+	case time.Since(lastContacted) >= contactWindow:
+		fmt.Fprintf(w, "Last Contact\t%s\n", color.RedString(fmt.Sprintf("%s ago",
+			time.Since(lastContacted).Truncate(time.Second))))
+	default:
+		fmt.Fprintf(w, "Last Contact\t%s\n", color.GreenString(fmt.Sprintf("%s ago",
+			time.Since(lastContacted).Truncate(time.Second))))
 	}
 
 	uptime, err := ptypes.Duration(data.GetUptime())
@@ -113,10 +124,12 @@ func printDashboard(data *pb.DashboardResponse, online bool) error {
 		usedBandwidth := color.WhiteString(memory.Size(stats.GetUsedBandwidth()).Base10String())
 		availableSpace := color.WhiteString(memory.Size(stats.GetAvailableSpace()).Base10String())
 		usedSpace := color.WhiteString(memory.Size(stats.GetUsedSpace()).Base10String())
+		usedEgress := color.WhiteString(memory.Size(stats.GetUsedEgress()).Base10String())
+		usedIngress := color.WhiteString(memory.Size(stats.GetUsedIngress()).Base10String())
 
 		w = tabwriter.NewWriter(color.Output, 0, 0, 5, ' ', tabwriter.AlignRight)
-		fmt.Fprintf(w, "\n\t%s\t%s\t\n", color.GreenString("Available"), color.GreenString("Used"))
-		fmt.Fprintf(w, "Bandwidth\t%s\t%s\t\n", availableBandwidth, usedBandwidth)
+		fmt.Fprintf(w, "\n\t%s\t%s\t%s\t%s\t\n", color.GreenString("Available"), color.GreenString("Used"), color.GreenString("Egress"), color.GreenString("Ingress"))
+		fmt.Fprintf(w, "Bandwidth\t%s\t%s\t%s\t%s\t\n", availableBandwidth, usedBandwidth, usedEgress, usedIngress)
 		fmt.Fprintf(w, "Disk\t%s\t%s\t\n", availableSpace, usedSpace)
 		if err = w.Flush(); err != nil {
 			return err
@@ -157,42 +170,4 @@ func clearScreen() {
 	default:
 		fmt.Print(strings.Repeat("\n", 100))
 	}
-}
-
-type inspector struct {
-	kadclient pb.KadInspectorClient
-}
-
-func newInspectorClient(ctx context.Context, bootstrapAddress string) (*inspector, error) {
-	conn, err := transport.DialAddressInsecure(ctx, bootstrapAddress)
-	if err != nil {
-		return &inspector{}, err
-	}
-
-	return &inspector{
-		kadclient: pb.NewKadInspectorClient(conn),
-	}, nil
-}
-
-func getConnectionStatus(ctx context.Context, id *identity.FullIdentity) (bool, error) {
-	inspector, err := newInspectorClient(ctx, dashboardCfg.BootstrapAddr)
-	if err != nil {
-		return false, err
-	}
-
-	resp, err := inspector.kadclient.PingNode(ctx, &pb.PingNodeRequest{
-		Id:      id.ID,
-		Address: dashboardCfg.Address,
-	})
-
-	if err != nil {
-		zap.S().Error(err)
-		return false, err
-	}
-
-	if resp.GetOk() {
-		return true, err
-	}
-
-	return false, err
 }

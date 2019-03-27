@@ -64,22 +64,28 @@ func TestGrapqhlMutation(t *testing.T) {
 		rootObject := make(map[string]interface{})
 		rootObject["origin"] = "http://doesntmatter.com/"
 		rootObject[consoleql.ActivationPath] = "?activationToken="
+		rootObject[consoleql.SignInPath] = "login"
 
-		schema, err := consoleql.CreateSchema(service, mailService)
+		schema, err := consoleql.CreateSchema(log, service, mailService)
 		if err != nil {
 			t.Fatal(err)
 		}
 
 		createUser := console.CreateUser{
 			UserInfo: console.UserInfo{
-				FirstName: "John",
-				LastName:  "Roll",
+				FullName:  "John Roll",
+				ShortName: "Roll",
 				Email:     "test@email.com",
 			},
 			Password: "123a123",
 		}
 
-		rootUser, err := service.CreateUser(ctx, createUser)
+		regToken, err := service.CreateRegToken(ctx, 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		rootUser, err := service.CreateUser(ctx, createUser, regToken.Secret)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -109,19 +115,25 @@ func TestGrapqhlMutation(t *testing.T) {
 		t.Run("Create user mutation", func(t *testing.T) {
 			newUser := console.CreateUser{
 				UserInfo: console.UserInfo{
-					FirstName: "Mickey",
-					LastName:  "Green",
+					FullName:  "Green Mickey",
+					ShortName: "Green",
 					Email:     "u1@email.com",
 				},
 				Password: "123a123",
 			}
 
+			regTokenTest, err := service.CreateRegToken(ctx, 1)
+			if err != nil {
+				t.Fatal(err)
+			}
+
 			query := fmt.Sprintf(
-				"mutation {createUser(input:{email:\"%s\",password:\"%s\",firstName:\"%s\",lastName:\"%s\"}){id,lastName,firstName,email,createdAt}}",
+				"mutation {createUser(input:{email:\"%s\",password:\"%s\", fullName:\"%s\", shortName:\"%s\"}, secret: \"%s\"){id,shortName,fullName,email,createdAt}}",
 				newUser.Email,
 				newUser.Password,
-				newUser.FirstName,
-				newUser.LastName,
+				newUser.FullName,
+				newUser.ShortName,
+				regTokenTest.Secret,
 			)
 
 			result := graphql.Do(graphql.Params{
@@ -149,8 +161,8 @@ func TestGrapqhlMutation(t *testing.T) {
 			user, err := service.GetUser(authCtx, *uID)
 			assert.NoError(t, err)
 
-			assert.Equal(t, newUser.FirstName, user.FirstName)
-			assert.Equal(t, newUser.LastName, user.LastName)
+			assert.Equal(t, newUser.FullName, user.FullName)
+			assert.Equal(t, newUser.ShortName, user.ShortName)
 		})
 
 		testQuery := func(t *testing.T, query string) interface{} {
@@ -175,7 +187,7 @@ func TestGrapqhlMutation(t *testing.T) {
 		t.Run("Update account mutation email only", func(t *testing.T) {
 			email := "new@email.com"
 			query := fmt.Sprintf(
-				"mutation {updateAccount(input:{email:\"%s\"}){id,email,firstName,lastName,createdAt}}",
+				"mutation {updateAccount(input:{email:\"%s\"}){id,email,fullName,shortName,createdAt}}",
 				email,
 			)
 
@@ -186,15 +198,15 @@ func TestGrapqhlMutation(t *testing.T) {
 
 			assert.Equal(t, rootUser.ID.String(), user[consoleql.FieldID])
 			assert.Equal(t, email, user[consoleql.FieldEmail])
-			assert.Equal(t, rootUser.FirstName, user[consoleql.FieldFirstName])
-			assert.Equal(t, rootUser.LastName, user[consoleql.FieldLastName])
+			assert.Equal(t, rootUser.FullName, user[consoleql.FieldFullName])
+			assert.Equal(t, rootUser.ShortName, user[consoleql.FieldShortName])
 		})
 
-		t.Run("Update account mutation firstName only", func(t *testing.T) {
-			firstName := "George"
+		t.Run("Update account mutation fullName only", func(t *testing.T) {
+			fullName := "George"
 			query := fmt.Sprintf(
-				"mutation {updateAccount(input:{firstName:\"%s\"}){id,email,firstName,lastName,createdAt}}",
-				firstName,
+				"mutation {updateAccount(input:{fullName:\"%s\"}){id,email,fullName,shortName,createdAt}}",
+				fullName,
 			)
 
 			result := testQuery(t, query)
@@ -204,15 +216,15 @@ func TestGrapqhlMutation(t *testing.T) {
 
 			assert.Equal(t, rootUser.ID.String(), user[consoleql.FieldID])
 			assert.Equal(t, rootUser.Email, user[consoleql.FieldEmail])
-			assert.Equal(t, firstName, user[consoleql.FieldFirstName])
-			assert.Equal(t, rootUser.LastName, user[consoleql.FieldLastName])
+			assert.Equal(t, fullName, user[consoleql.FieldFullName])
+			assert.Equal(t, rootUser.ShortName, user[consoleql.FieldShortName])
 		})
 
-		t.Run("Update account mutation lastName only", func(t *testing.T) {
-			lastName := "Yellow"
+		t.Run("Update account mutation shortName only", func(t *testing.T) {
+			shortName := "Yellow"
 			query := fmt.Sprintf(
-				"mutation {updateAccount(input:{lastName:\"%s\"}){id,email,firstName,lastName,createdAt}}",
-				lastName,
+				"mutation {updateAccount(input:{shortName:\"%s\"}){id,email,fullName,shortName,createdAt}}",
+				shortName,
 			)
 
 			result := testQuery(t, query)
@@ -222,20 +234,20 @@ func TestGrapqhlMutation(t *testing.T) {
 
 			assert.Equal(t, rootUser.ID.String(), user[consoleql.FieldID])
 			assert.Equal(t, rootUser.Email, user[consoleql.FieldEmail])
-			assert.Equal(t, rootUser.FirstName, user[consoleql.FieldFirstName])
-			assert.Equal(t, lastName, user[consoleql.FieldLastName])
+			assert.Equal(t, rootUser.FullName, user[consoleql.FieldFullName])
+			assert.Equal(t, shortName, user[consoleql.FieldShortName])
 		})
 
 		t.Run("Update account mutation all info", func(t *testing.T) {
 			email := "test@newmail.com"
-			firstName := "Fill"
-			lastName := "Goal"
+			fullName := "Fill Goal"
+			shortName := "Goal"
 
 			query := fmt.Sprintf(
-				"mutation {updateAccount(input:{email:\"%s\",firstName:\"%s\",lastName:\"%s\"}){id,email,firstName,lastName,createdAt}}",
+				"mutation {updateAccount(input:{email:\"%s\",fullName:\"%s\",shortName:\"%s\"}){id,email,fullName,shortName,createdAt}}",
 				email,
-				firstName,
-				lastName,
+				fullName,
+				shortName,
 			)
 
 			result := testQuery(t, query)
@@ -245,8 +257,8 @@ func TestGrapqhlMutation(t *testing.T) {
 
 			assert.Equal(t, rootUser.ID.String(), user[consoleql.FieldID])
 			assert.Equal(t, email, user[consoleql.FieldEmail])
-			assert.Equal(t, firstName, user[consoleql.FieldFirstName])
-			assert.Equal(t, lastName, user[consoleql.FieldLastName])
+			assert.Equal(t, fullName, user[consoleql.FieldFullName])
+			assert.Equal(t, shortName, user[consoleql.FieldShortName])
 
 			createdAt := time.Time{}
 			err := createdAt.UnmarshalText([]byte(user[consoleql.FieldCreatedAt].(string)))
@@ -259,7 +271,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			newPassword := "145a145a"
 
 			query := fmt.Sprintf(
-				"mutation {changePassword(password:\"%s\",newPassword:\"%s\"){id,email,firstName,lastName,createdAt}}",
+				"mutation {changePassword(password:\"%s\",newPassword:\"%s\"){id,email,fullName,shortName,createdAt}}",
 				createUser.Password,
 				newPassword,
 			)
@@ -271,8 +283,8 @@ func TestGrapqhlMutation(t *testing.T) {
 
 			assert.Equal(t, rootUser.ID.String(), user[consoleql.FieldID])
 			assert.Equal(t, rootUser.Email, user[consoleql.FieldEmail])
-			assert.Equal(t, rootUser.FirstName, user[consoleql.FieldFirstName])
-			assert.Equal(t, rootUser.LastName, user[consoleql.FieldLastName])
+			assert.Equal(t, rootUser.FullName, user[consoleql.FieldFullName])
+			assert.Equal(t, rootUser.ShortName, user[consoleql.FieldShortName])
 
 			createdAt := time.Time{}
 			err := createdAt.UnmarshalText([]byte(user[consoleql.FieldCreatedAt].(string)))
@@ -355,13 +367,18 @@ func TestGrapqhlMutation(t *testing.T) {
 			assert.Equal(t, "", proj[consoleql.FieldDescription])
 		})
 
+		regTokenUser1, err := service.CreateRegToken(ctx, 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+
 		user1, err := service.CreateUser(authCtx, console.CreateUser{
 			UserInfo: console.UserInfo{
-				FirstName: "User1",
-				Email:     "u1@email.net",
+				FullName: "User1",
+				Email:    "u1@email.net",
 			},
 			Password: "123a123",
-		})
+		}, regTokenUser1.Secret)
 		if err != nil {
 			t.Fatal(err, project)
 		}
@@ -382,13 +399,18 @@ func TestGrapqhlMutation(t *testing.T) {
 			user1.Email = "u1@email.net"
 		})
 
+		regTokenUser2, err := service.CreateRegToken(ctx, 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+
 		user2, err := service.CreateUser(authCtx, console.CreateUser{
 			UserInfo: console.UserInfo{
-				FirstName: "User1",
-				Email:     "u2@email.net",
+				FullName: "User1",
+				Email:    "u2@email.net",
 			},
 			Password: "123a123",
-		})
+		}, regTokenUser2.Secret)
 
 		if err != nil {
 			t.Fatal(err, project)

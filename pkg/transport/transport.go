@@ -7,21 +7,11 @@ import (
 	"context"
 	"time"
 
-	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
-)
-
-var (
-	mon = monkit.Package()
-	//Error is the errs class of standard Transport Client errors
-	Error = errs.Class("transport error")
-	// default time to wait for a connection to be established
-	timeout = 20 * time.Second
 )
 
 // Observer implements the ConnSuccess and ConnFailure methods
@@ -41,15 +31,22 @@ type Client interface {
 
 // Transport interface structure
 type Transport struct {
-	tlsOpts   *tlsopts.Options
-	observers []Observer
+	tlsOpts        *tlsopts.Options
+	observers      []Observer
+	requestTimeout time.Duration
 }
 
-// NewClient returns a newly instantiated Transport Client
+// NewClient returns a transport client with a default timeout for requests
 func NewClient(tlsOpts *tlsopts.Options, obs ...Observer) Client {
+	return NewClientWithTimeout(tlsOpts, defaultRequestTimeout, obs...)
+}
+
+// NewClientWithTimeout returns a transport client with a specified timeout for requests
+func NewClientWithTimeout(tlsOpts *tlsopts.Options, requestTimeout time.Duration, obs ...Observer) Client {
 	return &Transport{
-		tlsOpts:   tlsOpts,
-		observers: obs,
+		tlsOpts:        tlsOpts,
+		requestTimeout: requestTimeout,
+		observers:      obs,
 	}
 }
 
@@ -76,21 +73,22 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 		dialOption,
 		grpc.WithBlock(),
 		grpc.FailOnNonTempDialError(true),
+		grpc.WithUnaryInterceptor(InvokeTimeout{transport.requestTimeout}.Intercept),
 	}, opts...)
 
-	ctx, cf := context.WithTimeout(ctx, timeout)
-	defer cf()
+	timedCtx, cancel := context.WithTimeout(ctx, defaultDialTimeout)
+	defer cancel()
 
-	conn, err = grpc.DialContext(ctx, node.GetAddress().Address, options...)
+	conn, err = grpc.DialContext(timedCtx, node.GetAddress().Address, options...)
 	if err != nil {
 		if err == context.Canceled {
 			return nil, err
 		}
-		alertFail(ctx, transport.observers, node, err)
+		alertFail(timedCtx, transport.observers, node, err)
 		return nil, Error.Wrap(err)
 	}
 
-	alertSuccess(ctx, transport.observers, node)
+	alertSuccess(timedCtx, transport.observers, node)
 
 	return conn, nil
 }
@@ -107,9 +105,13 @@ func (transport *Transport) DialAddress(ctx context.Context, address string, opt
 		transport.tlsOpts.DialUnverifiedIDOption(),
 		grpc.WithBlock(),
 		grpc.FailOnNonTempDialError(true),
+		grpc.WithUnaryInterceptor(InvokeTimeout{transport.requestTimeout}.Intercept),
 	}, opts...)
 
-	conn, err = grpc.DialContext(ctx, address, options...)
+	timedCtx, cancel := context.WithTimeout(ctx, defaultDialTimeout)
+	defer cancel()
+
+	conn, err = grpc.DialContext(timedCtx, address, options...)
 	if err == context.Canceled {
 		return nil, err
 	}
@@ -123,7 +125,7 @@ func (transport *Transport) Identity() *identity.FullIdentity {
 
 // WithObservers returns a new transport including the listed observers.
 func (transport *Transport) WithObservers(obs ...Observer) *Transport {
-	tr := &Transport{tlsOpts: transport.tlsOpts}
+	tr := &Transport{tlsOpts: transport.tlsOpts, requestTimeout: transport.requestTimeout}
 	tr.observers = append(tr.observers, transport.observers...)
 	tr.observers = append(tr.observers, obs...)
 	return tr

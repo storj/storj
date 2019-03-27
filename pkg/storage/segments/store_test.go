@@ -1,464 +1,206 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package segments
+package segments_test
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
 	"fmt"
-	"strings"
+	io "io"
+	"io/ioutil"
+	"strconv"
 	"testing"
-	"time"
+	time "time"
 
-	"github.com/golang/mock/gomock"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/vivint/infectious"
 
-	"storj.io/storj/internal/teststorj"
+	"storj.io/storj/internal/memory"
+	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/eestream"
-	mock_eestream "storj.io/storj/pkg/eestream/mocks"
-	mock_overlay "storj.io/storj/pkg/overlay/mocks"
-	mock_pointerdb "storj.io/storj/pkg/pointerdb/pdbclient/mocks"
-	mock_ecclient "storj.io/storj/pkg/storage/ec/mocks"
-
 	"storj.io/storj/pkg/pb"
-	pdb "storj.io/storj/pkg/pointerdb/pdbclient"
+	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/meta"
-	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/storage/segments"
+	storj "storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/console"
+	"storj.io/storj/storage"
 )
-
-var (
-	ctx = context.Background()
-)
-
-func TestNewSegmentStore(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockOC := mock_overlay.NewMockClient(ctrl)
-	mockEC := mock_ecclient.NewMockClient(ctrl)
-	mockPDB := mock_pointerdb.NewMockClient(ctrl)
-	rs := eestream.RedundancyStrategy{
-		ErasureScheme: mock_eestream.NewMockErasureScheme(ctrl),
-	}
-
-	ss := NewSegmentStore(mockOC, mockEC, mockPDB, rs, 10)
-	assert.NotNil(t, ss)
-}
 
 func TestSegmentStoreMeta(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockOC := mock_overlay.NewMockClient(ctrl)
-	mockEC := mock_ecclient.NewMockClient(ctrl)
-	mockPDB := mock_pointerdb.NewMockClient(ctrl)
-	rs := eestream.RedundancyStrategy{
-		ErasureScheme: mock_eestream.NewMockErasureScheme(ctrl),
-	}
-
-	ss := segmentStore{mockOC, mockEC, mockPDB, rs, 10}
-	assert.NotNil(t, ss)
-
-	var mExp time.Time
-	pExp, err := ptypes.TimestampProto(mExp)
-	assert.NoError(t, err)
-
-	for _, tt := range []struct {
-		pathInput     string
-		returnPointer *pb.Pointer
-		returnMeta    Meta
+	for i, tt := range []struct {
+		path       string
+		data       []byte
+		metadata   []byte
+		expiration time.Time
+		err        string
 	}{
-		{"path/1/2/3", &pb.Pointer{CreationDate: pExp, ExpirationDate: pExp}, Meta{Modified: mExp, Expiration: mExp}},
+		{"l/path/1/2/3", []byte("content"), []byte("metadata"), time.Now().UTC().Add(time.Hour * 12), ""},
+		{"l/not_exists_path/1/2/3", []byte{}, []byte{}, time.Now(), "key not found"},
+		{"", []byte{}, []byte{}, time.Now(), "invalid segment component"},
 	} {
-		calls := []*gomock.Call{
-			mockPDB.EXPECT().Get(
-				gomock.Any(), gomock.Any(),
-			).Return(tt.returnPointer, nil, nil, nil),
-		}
-		gomock.InOrder(calls...)
+		t.Run("#"+strconv.Itoa(i), func(t *testing.T) {
+			runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
+				expectedSize := int64(len(tt.data))
+				reader := bytes.NewReader(tt.data)
 
-		m, err := ss.Meta(ctx, tt.pathInput)
-		assert.NoError(t, err)
-		assert.Equal(t, m, tt.returnMeta)
-	}
-}
+				beforeModified := time.Now()
+				if tt.err == "" {
+					meta, err := segmentStore.Put(ctx, reader, tt.expiration, func() (storj.Path, []byte, error) {
+						return tt.path, tt.metadata, nil
+					})
+					require.NoError(t, err)
+					assert.Equal(t, expectedSize, meta.Size)
+					assert.Equal(t, tt.metadata, meta.Data)
+					assert.Equal(t, tt.expiration, meta.Expiration)
+					assert.True(t, meta.Modified.After(beforeModified))
+				}
 
-func TestSegmentStorePutRemote(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	for _, tt := range []struct {
-		name          string
-		pathInput     string
-		mdInput       []byte
-		thresholdSize int
-		expiration    time.Time
-		readerContent string
-	}{
-		{"test remote put", "path/1", []byte("abcdefghijklmnopqrstuvwxyz"), 2, time.Unix(0, 0).UTC(), "readerreaderreader"},
-	} {
-		mockOC := mock_overlay.NewMockClient(ctrl)
-		mockEC := mock_ecclient.NewMockClient(ctrl)
-		mockPDB := mock_pointerdb.NewMockClient(ctrl)
-		mockES := mock_eestream.NewMockErasureScheme(ctrl)
-		rs := eestream.RedundancyStrategy{
-			ErasureScheme: mockES,
-		}
-
-		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize}
-		assert.NotNil(t, ss)
-
-		calls := []*gomock.Call{
-			mockES.EXPECT().TotalCount().Return(1).AnyTimes(),
-			mockOC.EXPECT().Choose(
-				gomock.Any(), gomock.Any(),
-			).Return([]*pb.Node{
-				{Id: teststorj.NodeIDFromString("im-a-node"),
-					Type: pb.NodeType_STORAGE,
-				},
-			}, nil),
-			mockPDB.EXPECT().PayerBandwidthAllocation(gomock.Any(), gomock.Any()),
-			mockEC.EXPECT().Put(
-				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
-			),
-			mockES.EXPECT().RequiredCount().Return(1),
-			mockES.EXPECT().TotalCount().Return(1),
-			mockES.EXPECT().ErasureShareSize().Return(1),
-			mockPDB.EXPECT().Put(
-				gomock.Any(), gomock.Any(), gomock.Any(),
-			).Return(nil),
-			mockPDB.EXPECT().Get(
-				gomock.Any(), gomock.Any(),
-			),
-		}
-		gomock.InOrder(calls...)
-
-		_, err := ss.Put(ctx, strings.NewReader(tt.readerContent), tt.expiration, func() (storj.Path, []byte, error) {
-			return tt.pathInput, tt.mdInput, nil
+				meta, err := segmentStore.Meta(ctx, tt.path)
+				if tt.err == "" {
+					require.NoError(t, err)
+					assert.Equal(t, expectedSize, meta.Size)
+					assert.Equal(t, tt.metadata, meta.Data)
+					assert.Equal(t, tt.expiration, meta.Expiration)
+					assert.True(t, meta.Modified.After(beforeModified))
+				} else {
+					require.Contains(t, err.Error(), tt.err)
+				}
+			})
 		})
-		assert.NoError(t, err, tt.name)
 	}
 }
 
-func TestSegmentStorePutInline(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
+func TestSegmentStorePutGet(t *testing.T) {
 	for _, tt := range []struct {
-		name          string
-		pathInput     string
-		mdInput       []byte
-		thresholdSize int
-		expiration    time.Time
-		readerContent string
+		name       string
+		path       string
+		metadata   []byte
+		expiration time.Time
+		content    []byte
 	}{
-		{"test inline put", "path/1", []byte("111"), 1000, time.Unix(0, 0).UTC(), "readerreaderreader"},
+		{"test inline put/get", "l/path/1", []byte("metadata-intline"), time.Time{}, createTestData(t, 2*memory.KiB.Int64())},
+		{"test remote put/get", "s0/test_bucket/mypath/1", []byte("metadata-remote"), time.Time{}, createTestData(t, 100*memory.KiB.Int64())},
 	} {
-		mockOC := mock_overlay.NewMockClient(ctrl)
-		mockEC := mock_ecclient.NewMockClient(ctrl)
-		mockPDB := mock_pointerdb.NewMockClient(ctrl)
-		mockES := mock_eestream.NewMockErasureScheme(ctrl)
-		rs := eestream.RedundancyStrategy{
-			ErasureScheme: mockES,
-		}
+		runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
+			metadata, err := segmentStore.Put(ctx, bytes.NewReader(tt.content), tt.expiration, func() (storj.Path, []byte, error) {
+				return tt.path, tt.metadata, nil
+			})
+			require.NoError(t, err, tt.name)
+			require.Equal(t, tt.metadata, metadata.Data)
 
-		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize}
-		assert.NotNil(t, ss)
+			rr, metadata, err := segmentStore.Get(ctx, tt.path)
+			require.NoError(t, err, tt.name)
+			require.Equal(t, tt.metadata, metadata.Data)
 
-		calls := []*gomock.Call{
-			mockPDB.EXPECT().Put(
-				gomock.Any(), gomock.Any(), gomock.Any(),
-			).Return(nil),
-			mockPDB.EXPECT().Get(
-				gomock.Any(), gomock.Any(),
-			),
-		}
-		gomock.InOrder(calls...)
+			reader, err := rr.Range(ctx, 0, rr.Size())
+			require.NoError(t, err, tt.name)
+			content, err := ioutil.ReadAll(reader)
+			require.NoError(t, err, tt.name)
+			require.Equal(t, tt.content, content)
 
-		_, err := ss.Put(ctx, strings.NewReader(tt.readerContent), tt.expiration, func() (storj.Path, []byte, error) {
-			return tt.pathInput, tt.mdInput, nil
+			require.NoError(t, reader.Close(), tt.name)
 		})
-		assert.NoError(t, err, tt.name)
 	}
 }
 
-func TestSegmentStoreGetInline(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	ti := time.Unix(0, 0).UTC()
-	someTime, err := ptypes.TimestampProto(ti)
-	assert.NoError(t, err)
-
+func TestSegmentStoreDelete(t *testing.T) {
 	for _, tt := range []struct {
-		pathInput     string
-		thresholdSize int
-		pointerType   pb.Pointer_DataType
-		inlineContent []byte
-		size          int64
-		metadata      []byte
+		name       string
+		path       string
+		metadata   []byte
+		expiration time.Time
+		content    []byte
 	}{
-		{"path/1/2/3", 10, pb.Pointer_INLINE, []byte("000"), int64(3), []byte("metadata")},
+		{"test inline delete", "l/path/1", []byte("metadata"), time.Time{}, createTestData(t, 2*memory.KiB.Int64())},
+		{"test remote delete", "s0/test_bucket/mypath/1", []byte("metadata"), time.Time{}, createTestData(t, 100*memory.KiB.Int64())},
 	} {
-		mockOC := mock_overlay.NewMockClient(ctrl)
-		mockEC := mock_ecclient.NewMockClient(ctrl)
-		mockPDB := mock_pointerdb.NewMockClient(ctrl)
-		mockES := mock_eestream.NewMockErasureScheme(ctrl)
-		rs := eestream.RedundancyStrategy{
-			ErasureScheme: mockES,
-		}
+		runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
+			_, err := segmentStore.Put(ctx, bytes.NewReader(tt.content), tt.expiration, func() (storj.Path, []byte, error) {
+				return tt.path, tt.metadata, nil
+			})
+			require.NoError(t, err, tt.name)
 
-		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize}
-		assert.NotNil(t, ss)
+			_, _, err = segmentStore.Get(ctx, tt.path)
+			require.NoError(t, err, tt.name)
 
-		calls := []*gomock.Call{
-			mockPDB.EXPECT().Get(
-				gomock.Any(), gomock.Any(),
-			).Return(&pb.Pointer{
-				Type:           tt.pointerType,
-				InlineSegment:  tt.inlineContent,
-				CreationDate:   someTime,
-				ExpirationDate: someTime,
-				SegmentSize:    tt.size,
-				Metadata:       tt.metadata,
-			}, nil, nil, nil),
-		}
-		gomock.InOrder(calls...)
+			// delete existing
+			err = segmentStore.Delete(ctx, tt.path)
+			require.NoError(t, err, tt.name)
 
-		_, _, err := ss.Get(ctx, tt.pathInput)
-		assert.NoError(t, err)
-	}
-}
+			_, _, err = segmentStore.Get(ctx, tt.path)
+			require.Error(t, err, tt.name)
+			require.True(t, storage.ErrKeyNotFound.Has(err))
 
-func TestSegmentStoreGetRemote(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	ti := time.Unix(0, 0).UTC()
-	someTime, err := ptypes.TimestampProto(ti)
-	assert.NoError(t, err)
-
-	for _, tt := range []struct {
-		pathInput     string
-		thresholdSize int
-		pointerType   pb.Pointer_DataType
-		size          int64
-		metadata      []byte
-	}{
-		{"path/1/2/3", 10, pb.Pointer_REMOTE, int64(3), []byte("metadata")},
-	} {
-		mockOC := mock_overlay.NewMockClient(ctrl)
-		mockEC := mock_ecclient.NewMockClient(ctrl)
-		mockPDB := mock_pointerdb.NewMockClient(ctrl)
-		mockES := mock_eestream.NewMockErasureScheme(ctrl)
-		rs := eestream.RedundancyStrategy{
-			ErasureScheme: mockES,
-		}
-
-		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize}
-		assert.NotNil(t, ss)
-
-		calls := []*gomock.Call{
-			mockPDB.EXPECT().Get(
-				gomock.Any(), gomock.Any(),
-			).Return(&pb.Pointer{
-				Type: tt.pointerType,
-				Remote: &pb.RemoteSegment{
-					Redundancy: &pb.RedundancyScheme{
-						Type:             pb.RedundancyScheme_RS,
-						MinReq:           1,
-						Total:            2,
-						RepairThreshold:  1,
-						SuccessThreshold: 2,
-					},
-					PieceId:      "here's my piece id",
-					RemotePieces: []*pb.RemotePiece{},
-				},
-				CreationDate:   someTime,
-				ExpirationDate: someTime,
-				SegmentSize:    tt.size,
-				Metadata:       tt.metadata,
-			}, nil, nil, nil),
-			mockOC.EXPECT().BulkLookup(gomock.Any(), gomock.Any()),
-			mockEC.EXPECT().Get(
-				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
-			),
-		}
-		gomock.InOrder(calls...)
-
-		_, _, err := ss.Get(ctx, tt.pathInput)
-		assert.NoError(t, err)
-	}
-}
-
-func TestSegmentStoreDeleteInline(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	ti := time.Unix(0, 0).UTC()
-	someTime, err := ptypes.TimestampProto(ti)
-	assert.NoError(t, err)
-
-	for _, tt := range []struct {
-		pathInput     string
-		thresholdSize int
-		pointerType   pb.Pointer_DataType
-		inlineContent []byte
-		size          int64
-		metadata      []byte
-	}{
-		{"path/1/2/3", 10, pb.Pointer_INLINE, []byte("000"), int64(3), []byte("metadata")},
-	} {
-		mockOC := mock_overlay.NewMockClient(ctrl)
-		mockEC := mock_ecclient.NewMockClient(ctrl)
-		mockPDB := mock_pointerdb.NewMockClient(ctrl)
-		mockES := mock_eestream.NewMockErasureScheme(ctrl)
-		rs := eestream.RedundancyStrategy{
-			ErasureScheme: mockES,
-		}
-
-		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize}
-		assert.NotNil(t, ss)
-
-		calls := []*gomock.Call{
-			mockPDB.EXPECT().Get(
-				gomock.Any(), gomock.Any(),
-			).Return(&pb.Pointer{
-				Type:           tt.pointerType,
-				InlineSegment:  tt.inlineContent,
-				CreationDate:   someTime,
-				ExpirationDate: someTime,
-				SegmentSize:    tt.size,
-				Metadata:       tt.metadata,
-			}, nil, nil, nil),
-			mockPDB.EXPECT().Delete(
-				gomock.Any(), gomock.Any(),
-			),
-		}
-		gomock.InOrder(calls...)
-
-		err := ss.Delete(ctx, tt.pathInput)
-		assert.NoError(t, err)
-	}
-}
-
-func TestSegmentStoreDeleteRemote(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	ti := time.Unix(0, 0).UTC()
-	someTime, err := ptypes.TimestampProto(ti)
-	assert.NoError(t, err)
-
-	for _, tt := range []struct {
-		pathInput     string
-		thresholdSize int
-		pointerType   pb.Pointer_DataType
-		size          int64
-		metadata      []byte
-	}{
-		{"path/1/2/3", 10, pb.Pointer_REMOTE, int64(3), []byte("metadata")},
-	} {
-		mockOC := mock_overlay.NewMockClient(ctrl)
-		mockEC := mock_ecclient.NewMockClient(ctrl)
-		mockPDB := mock_pointerdb.NewMockClient(ctrl)
-		mockES := mock_eestream.NewMockErasureScheme(ctrl)
-		rs := eestream.RedundancyStrategy{
-			ErasureScheme: mockES,
-		}
-
-		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize}
-		assert.NotNil(t, ss)
-
-		calls := []*gomock.Call{
-			mockPDB.EXPECT().Get(
-				gomock.Any(), gomock.Any(),
-			).Return(&pb.Pointer{
-				Type: tt.pointerType,
-				Remote: &pb.RemoteSegment{
-					Redundancy: &pb.RedundancyScheme{
-						Type:             pb.RedundancyScheme_RS,
-						MinReq:           1,
-						Total:            2,
-						RepairThreshold:  1,
-						SuccessThreshold: 2,
-					},
-					PieceId:      "here's my piece id",
-					RemotePieces: []*pb.RemotePiece{},
-				},
-				CreationDate:   someTime,
-				ExpirationDate: someTime,
-				SegmentSize:    tt.size,
-				Metadata:       tt.metadata,
-			}, nil, &pb.OrderLimit{}, nil),
-			mockOC.EXPECT().BulkLookup(gomock.Any(), gomock.Any()),
-			mockEC.EXPECT().Delete(
-				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
-			),
-			mockPDB.EXPECT().Delete(
-				gomock.Any(), gomock.Any(),
-			),
-		}
-		gomock.InOrder(calls...)
-
-		err := ss.Delete(ctx, tt.pathInput)
-		assert.NoError(t, err)
+			// delete non existing
+			err = segmentStore.Delete(ctx, tt.path)
+			require.Error(t, err, tt.name)
+			require.True(t, storage.ErrKeyNotFound.Has(err))
+		})
 	}
 }
 
 func TestSegmentStoreList(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
+		expiration := time.Now().Add(24 * time.Hour * 10)
 
-	for _, tt := range []struct {
-		prefix        string
-		startAfter    string
-		thresholdSize int
-		itemPath      string
-		inlineContent []byte
-		metadata      []byte
-	}{
-		{"bucket1", "s0/path/1", 10, "s0/path/1", []byte("inline"), []byte("metadata")},
-	} {
-		mockOC := mock_overlay.NewMockClient(ctrl)
-		mockEC := mock_ecclient.NewMockClient(ctrl)
-		mockPDB := mock_pointerdb.NewMockClient(ctrl)
-		mockES := mock_eestream.NewMockErasureScheme(ctrl)
-		rs := eestream.RedundancyStrategy{
-			ErasureScheme: mockES,
+		segments := []struct {
+			path    string
+			content []byte
+		}{
+			{"l/AAAA/afile1", []byte("content")},
+			{"l/AAAA/bfile2", []byte("content")},
+			{"l/BBBB/afile1", []byte("content")},
+			{"l/BBBB/bfile2", []byte("content")},
+			{"l/BBBB/bfolder/file1", []byte("content")},
+		}
+		for _, segment := range segments {
+			_, err := segmentStore.Put(ctx, bytes.NewReader(segment.content), expiration, func() (storj.Path, []byte, error) {
+				return segment.path, []byte{}, nil
+			})
+			require.NoError(t, err)
 		}
 
-		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize}
-		assert.NotNil(t, ss)
+		// should list all
+		items, more, err := segmentStore.List(ctx, "l", "", "", true, 10, meta.None)
+		require.NoError(t, err)
+		require.False(t, more)
+		require.Equal(t, len(segments), len(items))
 
-		ti := time.Unix(0, 0).UTC()
-		someTime, err := ptypes.TimestampProto(ti)
-		assert.NoError(t, err)
+		// should list first two and more = true
+		items, more, err = segmentStore.List(ctx, "l", "", "", true, 2, meta.None)
+		require.NoError(t, err)
+		require.True(t, more)
+		require.Equal(t, 2, len(items))
 
-		calls := []*gomock.Call{
-			mockPDB.EXPECT().List(
-				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
-				gomock.Any(), gomock.Any(), gomock.Any(),
-			).Return([]pdb.ListItem{
-				{
-					Path: tt.itemPath,
-					Pointer: &pb.Pointer{
-						Type:           pb.Pointer_INLINE,
-						InlineSegment:  tt.inlineContent,
-						CreationDate:   someTime,
-						ExpirationDate: someTime,
-						SegmentSize:    int64(4),
-						Metadata:       tt.metadata,
-					},
-				},
-			}, true, nil),
-		}
-		gomock.InOrder(calls...)
+		// should list only prefixes
+		items, more, err = segmentStore.List(ctx, "l", "", "", false, 10, meta.None)
+		require.NoError(t, err)
+		require.False(t, more)
+		require.Equal(t, 2, len(items))
 
-		_, _, err = ss.List(ctx, tt.prefix, tt.startAfter, "", false, 10, meta.Modified)
-		assert.NoError(t, err)
-	}
+		// should list only BBBB bucket
+		items, more, err = segmentStore.List(ctx, "l/BBBB", "", "", false, 10, meta.None)
+		require.NoError(t, err)
+		require.False(t, more)
+		require.Equal(t, 3, len(items))
+
+		// should list only BBBB bucket after afile1
+		items, more, err = segmentStore.List(ctx, "l/BBBB", "afile1", "", false, 10, meta.None)
+		require.NoError(t, err)
+		require.False(t, more)
+		require.Equal(t, 2, len(items))
+
+		// should list nothing
+		items, more, err = segmentStore.List(ctx, "l/CCCC", "", "", true, 10, meta.None)
+		require.NoError(t, err)
+		require.False(t, more)
+		require.Equal(t, 0, len(items))
+	})
 }
 
 func TestCalcNeededNodes(t *testing.T) {
@@ -484,6 +226,51 @@ func TestCalcNeededNodes(t *testing.T) {
 			Total:            tt.n,
 		}
 
-		assert.Equal(t, tt.needed, calcNeededNodes(&rs), tag)
+		assert.Equal(t, tt.needed, segments.CalcNeededNodes(&rs), tag)
 	}
+}
+
+func createTestData(t *testing.T, size int64) []byte {
+	data, err := ioutil.ReadAll(io.LimitReader(rand.Reader, size))
+	require.NoError(t, err)
+	return data
+}
+
+func runTest(t *testing.T, test func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store)) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// TODO move apikey creation to testplanet
+		project, err := planet.Satellites[0].DB.Console().Projects().Insert(context.Background(), &console.Project{
+			Name: "testProject",
+		})
+		require.NoError(t, err)
+
+		apiKey := console.APIKey{}
+		apiKeyInfo := console.APIKeyInfo{
+			ProjectID: project.ID,
+			Name:      "testKey",
+		}
+
+		// add api key to db
+		_, err = planet.Satellites[0].DB.Console().APIKeys().Create(context.Background(), apiKey, apiKeyInfo)
+		require.NoError(t, err)
+
+		TestAPIKey := apiKey.String()
+
+		metainfo, err := planet.Uplinks[0].DialMetainfo(context.Background(), planet.Satellites[0], TestAPIKey)
+		require.NoError(t, err)
+
+		ec := ecclient.NewClient(planet.Uplinks[0].Transport, 0)
+		fc, err := infectious.NewFEC(2, 4)
+		require.NoError(t, err)
+
+		rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, 1*memory.KiB.Int()), 0, 0)
+		require.NoError(t, err)
+
+		segmentStore := segments.NewSegmentStore(metainfo, ec, rs, 4*memory.KiB.Int(), 8*memory.MiB.Int64())
+		assert.NotNil(t, segmentStore)
+
+		test(t, ctx, planet, segmentStore)
+	})
 }

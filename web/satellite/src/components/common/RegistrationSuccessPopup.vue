@@ -23,7 +23,7 @@
                     Please check your inbox and use the verification link we shared with you in last email.</p>
                 <p>Didn’t receive a verification email?</p>
                 <div class="register-success-popup__form-container__button-container">
-                    <Button label="Resend Email" width="450px" height="50px" :onPress="onCloseClick" isWhite />
+                    <Button label="Go to Login" width="450px" height="50px" :onPress="onCloseClick" isWhite />
                 </div>
             </div>
             <div class="register-success-popup__close-cross-container">
@@ -66,7 +66,7 @@ import ROUTES from '@/utils/constants/routerConstants';
 
 <style scoped lang="scss">
     p {
-        font-family: 'montserrat_medium';
+        font-family: 'font_medium';
         font-size: 16px;
         line-height: 21px;
         color: #354049;
@@ -75,7 +75,7 @@ import ROUTES from '@/utils/constants/routerConstants';
     }
 
     a {
-        font-family: 'montserrat_bold';
+        font-family: 'font_bold';
         color: #2683ff;
     }
 
@@ -118,7 +118,7 @@ import ROUTES from '@/utils/constants/routerConstants';
             margin-top: 10px;
 
             &__main-label-text {
-                font-family: 'montserrat_bold';
+                font-family: 'font_bold';
                 font-size: 32px;
                 line-height: 39px;
                 color: #384B65;

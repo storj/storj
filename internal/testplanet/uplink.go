@@ -13,14 +13,12 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 
+	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/stream"
@@ -28,6 +26,8 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/uplink"
+	"storj.io/storj/uplink/metainfo"
+	"storj.io/storj/uplink/piecestore"
 )
 
 // Uplink is a general purpose
@@ -124,27 +124,78 @@ func (uplink *Uplink) Local() pb.Node { return uplink.Info }
 // Shutdown shuts down all uplink dependencies
 func (uplink *Uplink) Shutdown() error { return nil }
 
-// DialPointerDB dials destination with apikey and returns pointerdb Client
-func (uplink *Uplink) DialPointerDB(destination Peer, apikey string) (pdbclient.Client, error) {
+// DialMetainfo dials destination with apikey and returns metainfo Client
+func (uplink *Uplink) DialMetainfo(ctx context.Context, destination Peer, apikey string) (metainfo.Client, error) {
 	// TODO: handle disconnect
-	return pdbclient.NewClient(uplink.Transport, destination.Addr(), apikey)
+	return metainfo.NewClient(ctx, uplink.Transport, destination.Addr(), apikey)
 }
 
-// DialOverlay dials destination and returns an overlay.Client
-func (uplink *Uplink) DialOverlay(destination Peer) (overlay.Client, error) {
-	info := destination.Local()
-	conn, err := uplink.Transport.DialNode(context.Background(), &info, grpc.WithBlock())
+// DialPiecestore dials destination storagenode and returns a piecestore client.
+func (uplink *Uplink) DialPiecestore(ctx context.Context, destination Peer) (*piecestore.Client, error) {
+	node := destination.Local()
+
+	conn, err := uplink.Transport.DialNode(ctx, &node)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: handle disconnect
-	return overlay.NewClientFrom(pb.NewOverlayClient(conn)), nil
+	signer := signing.SignerFromFullIdentity(uplink.Transport.Identity())
+
+	return piecestore.NewClient(uplink.Log.Named("uplink>piecestore"), signer, conn, piecestore.DefaultConfig), nil
 }
 
 // Upload data to specific satellite
 func (uplink *Uplink) Upload(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path, data []byte) error {
 	config := uplink.getConfig(satellite)
+	metainfo, streams, err := config.GetMetainfo(ctx, uplink.Identity)
+	if err != nil {
+		return err
+	}
+
+	encScheme := config.GetEncryptionScheme()
+	redScheme := config.GetRedundancyScheme()
+
+	// create bucket if not exists
+	_, err = metainfo.GetBucket(ctx, bucket)
+	if err != nil {
+		if storj.ErrBucketNotFound.Has(err) {
+			_, err := metainfo.CreateBucket(ctx, bucket, &storj.Bucket{PathCipher: encScheme.Cipher})
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+
+	createInfo := storj.CreateObject{
+		RedundancyScheme: redScheme,
+		EncryptionScheme: encScheme,
+	}
+	obj, err := metainfo.CreateObject(ctx, bucket, path, &createInfo)
+	if err != nil {
+		return err
+	}
+
+	reader := bytes.NewReader(data)
+	err = uploadStream(ctx, streams, obj, reader)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// UploadWithConfig uploads data to specific satellite with configured values
+func (uplink *Uplink) UploadWithConfig(ctx context.Context, satellite *satellite.Peer, redundancy *uplink.RSConfig, bucket string, path storj.Path, data []byte) error {
+	config := uplink.getConfig(satellite)
+	if redundancy != nil {
+		config.RS.MinThreshold = redundancy.MinThreshold
+		config.RS.RepairThreshold = redundancy.RepairThreshold
+		config.RS.SuccessThreshold = redundancy.SuccessThreshold
+		config.RS.MaxThreshold = redundancy.MaxThreshold
+	}
+
 	metainfo, streams, err := config.GetMetainfo(ctx, uplink.Identity)
 	if err != nil {
 		return err
@@ -197,20 +248,28 @@ func uploadStream(ctx context.Context, streams streams.Store, mutableObject stor
 	return errs.Combine(err, upload.Close())
 }
 
-// Download data from specific satellite
-func (uplink *Uplink) Download(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) ([]byte, error) {
+// DownloadStream returns stream for downloading data.
+func (uplink *Uplink) DownloadStream(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) (*stream.Download, error) {
 	config := uplink.getConfig(satellite)
 	metainfo, streams, err := config.GetMetainfo(ctx, uplink.Identity)
 	if err != nil {
-		return []byte{}, err
+		return nil, err
 	}
 
 	readOnlyStream, err := metainfo.GetObjectStream(ctx, bucket, path)
 	if err != nil {
-		return []byte{}, err
+		return nil, err
 	}
 
-	download := stream.NewDownload(ctx, readOnlyStream, streams)
+	return stream.NewDownload(ctx, readOnlyStream, streams), nil
+}
+
+// Download data from specific satellite
+func (uplink *Uplink) Download(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) ([]byte, error) {
+	download, err := uplink.DownloadStream(ctx, satellite, bucket, path)
+	if err != nil {
+		return []byte{}, err
+	}
 	defer func() { err = errs.Combine(err, download.Close()) }()
 
 	data, err := ioutil.ReadAll(download)
@@ -220,10 +279,19 @@ func (uplink *Uplink) Download(ctx context.Context, satellite *satellite.Peer, b
 	return data, nil
 }
 
+// Delete data to specific satellite
+func (uplink *Uplink) Delete(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) error {
+	config := uplink.getConfig(satellite)
+	metainfo, _, err := config.GetMetainfo(ctx, uplink.Identity)
+	if err != nil {
+		return err
+	}
+	return metainfo.DeleteObject(ctx, bucket, path)
+}
+
 func (uplink *Uplink) getConfig(satellite *satellite.Peer) uplink.Config {
 	config := getDefaultConfig()
-	config.Client.OverlayAddr = satellite.Addr()
-	config.Client.PointerDBAddr = satellite.Addr()
+	config.Client.SatelliteAddr = satellite.Addr()
 	config.Client.APIKey = uplink.APIKey[satellite.ID()]
 
 	config.RS.MinThreshold = 1 * uplink.StorageNodeCount / 5

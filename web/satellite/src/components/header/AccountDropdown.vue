@@ -47,7 +47,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 import { removeToken } from '@/utils/tokenManager';
 import ROUTES from '@/utils/constants/routerConstants';
-import { APP_STATE_ACTIONS, PROJETS_ACTIONS, PM_ACTIONS, USER_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_ACTIONS, PROJETS_ACTIONS, PM_ACTIONS, USER_ACTIONS, API_KEYS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component(
     {
@@ -68,6 +68,8 @@ import { APP_STATE_ACTIONS, PROJETS_ACTIONS, PM_ACTIONS, USER_ACTIONS } from '@/
                 this.$store.dispatch(PM_ACTIONS.CLEAR);
                 this.$store.dispatch(PROJETS_ACTIONS.CLEAR);
                 this.$store.dispatch(USER_ACTIONS.CLEAR);
+                this.$store.dispatch(API_KEYS_ACTIONS.CLEAR);
+                this.$store.dispatch(NOTIFICATION_ACTIONS.CLEAR);
             }
         },
     }
@@ -103,7 +105,7 @@ export default class ProjectSelectionDropdown extends Vue {
         padding-right: 20px;
 
         h2{
-            font-family: 'montserrat_regular';
+            font-family: 'font_regular';
             margin-left: 20px;
             font-size: 14px;
             line-height: 20px;

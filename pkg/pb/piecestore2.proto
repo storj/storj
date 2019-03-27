@@ -1,0 +1,82 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "pb";
+
+package piecestore;
+
+import "gogo.proto";
+import "orders.proto";
+
+service Piecestore {
+    rpc Upload(stream PieceUploadRequest) returns (PieceUploadResponse) {}
+    rpc Download(stream PieceDownloadRequest) returns (stream PieceDownloadResponse) {}
+    rpc Delete(PieceDeleteRequest) returns (PieceDeleteResponse) {}
+}
+
+// Expected order of messages from uplink:
+//   OrderLimit ->
+//   repeated
+//      Order ->
+//      Chunk ->
+//   PieceHash signed by uplink ->
+//      <- PieceHash signed by storage node
+//
+message PieceUploadRequest {
+    // first message to show that we are allowed to upload
+    orders.OrderLimit2 limit = 1;
+    // order for uploading
+    orders.Order2      order = 2;
+
+    // data message
+    message Chunk {
+        int64 offset = 1;
+        bytes data = 2;
+    }
+    Chunk      chunk = 3;
+    // final message
+    orders.PieceHash done = 4;
+}
+
+message PieceUploadResponse {
+    orders.PieceHash done = 1;
+}
+
+// Expected order of messages from uplink:
+//   {OrderLimit, Chunk} ->
+//   go repeated
+//      Order -> (async)
+//   go repeated
+//      <- PieceDownloadResponse.Chunk
+message PieceDownloadRequest {
+    // first message to show that we are allowed to upload
+    orders.OrderLimit2 limit = 1;
+    // order for downloading
+    orders.Order2      order = 2;
+
+    // Chunk that we wish to download
+    message Chunk {
+        int64 offset = 1;
+        int64 chunk_size = 2;
+    }
+    
+    // request for the chunk
+    Chunk chunk = 3;
+}
+
+message PieceDownloadResponse {
+    // Chunk response for download request
+    message Chunk {
+        int64 offset = 1;
+        bytes data = 2;
+    }
+    Chunk chunk = 1;
+}
+
+message PieceDeleteRequest {
+    orders.OrderLimit2 limit = 1;
+}
+
+message PieceDeleteResponse {
+}

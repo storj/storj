@@ -9,6 +9,8 @@ import (
 	"net"
 	"net/http"
 	"path/filepath"
+	"strconv"
+	"strings"
 
 	"github.com/graphql-go/graphql"
 	"github.com/zeebo/errs"
@@ -36,8 +38,12 @@ var Error = errs.Class("satellite console error")
 
 // Config contains configuration for console web server
 type Config struct {
-	Address   string `help:"server address of the graphql api gateway and frontend app" default:"127.0.0.1:8081"`
-	StaticDir string `help:"path to static resources" default:""`
+	Address         string `help:"server address of the graphql api gateway and frontend app" default:"127.0.0.1:8081"`
+	StaticDir       string `help:"path to static resources" default:""`
+	ExternalAddress string `help:"external endpoint of the satellite if hosted" default:""`
+
+	// TODO: remove after Vanguard release
+	AuthToken string `help:"auth token needed for access to registration token creation endpoint" default:""`
 
 	PasswordCost int `internal:"true" help:"password hashing cost (0=automatic)" default:"0"`
 }
@@ -68,6 +74,14 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 
 	logger.Debug("Starting Satellite UI...")
 
+	if server.config.ExternalAddress != "" {
+		if !strings.HasSuffix(server.config.ExternalAddress, "/") {
+			server.config.ExternalAddress = server.config.ExternalAddress + "/"
+		}
+	} else {
+		server.config.ExternalAddress = "http://" + server.listener.Addr().String() + "/"
+	}
+
 	mux := http.NewServeMux()
 	fs := http.FileServer(http.Dir(server.config.StaticDir))
 
@@ -75,6 +89,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 
 	if server.config.StaticDir != "" {
 		mux.Handle("/activation/", http.HandlerFunc(server.accountActivationHandler))
+		mux.Handle("/registrationToken/", http.HandlerFunc(server.createRegistrationTokenHandler))
 		mux.Handle("/static/", http.StripPrefix("/static", fs))
 		mux.Handle("/", http.HandlerFunc(server.appHandler))
 	}
@@ -91,7 +106,47 @@ func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
 	http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "dist", "public", "index.html"))
 }
 
-// appHandler is web app http handler function
+// accountActivationHandler is web app http handler function
+func (s *Server) createRegistrationTokenHandler(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set(contentType, applicationJSON)
+
+	var response struct {
+		Secret string `json:"secret"`
+		Error  string `json:"error,omitempty"`
+	}
+
+	defer func() {
+		err := json.NewEncoder(w).Encode(&response)
+		if err != nil {
+			s.log.Error(err.Error())
+		}
+	}()
+
+	authToken := req.Header.Get("Authorization")
+	if authToken != s.config.AuthToken {
+		w.WriteHeader(401)
+		response.Error = "unauthorized"
+		return
+	}
+
+	projectsLimitInput := req.URL.Query().Get("projectsLimit")
+
+	projectsLimit, err := strconv.Atoi(projectsLimitInput)
+	if err != nil {
+		response.Error = err.Error()
+		return
+	}
+
+	token, err := s.service.CreateRegToken(context.Background(), projectsLimit)
+	if err != nil {
+		response.Error = err.Error()
+		return
+	}
+
+	response.Secret = token.Secret.String()
+}
+
+// accountActivationHandler is web app http handler function
 func (s *Server) accountActivationHandler(w http.ResponseWriter, req *http.Request) {
 	activationToken := req.URL.Query().Get("token")
 
@@ -124,9 +179,10 @@ func (s *Server) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	rootObject := make(map[string]interface{})
-	//TODO: add public address to config for production
-	rootObject["origin"] = "http://" + s.listener.Addr().String() + "/"
+
+	rootObject["origin"] = s.config.ExternalAddress
 	rootObject[consoleql.ActivationPath] = "activation/?token="
+	rootObject[consoleql.SignInPath] = "login"
 
 	result := graphql.Do(graphql.Params{
 		Schema:         s.schema,
@@ -151,7 +207,7 @@ func (s *Server) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 func (s *Server) Run(ctx context.Context) error {
 	var err error
 
-	s.schema, err = consoleql.CreateSchema(s.service, s.mailService)
+	s.schema, err = consoleql.CreateSchema(s.log, s.service, s.mailService)
 	if err != nil {
 		return Error.Wrap(err)
 	}

@@ -70,8 +70,7 @@ var (
 	setupCfg     StorageNodeFlags
 	diagCfg      storagenode.Config
 	dashboardCfg struct {
-		Address       string `default:"127.0.0.1:7778" help:"address for dashboard service"`
-		BootstrapAddr string `default:"bootstrap.storj.io:8888" help:"address of server the storage node was bootstrapped against"`
+		Address string `default:"127.0.0.1:7778" help:"address for dashboard service"`
 	}
 	defaultDiagDir string
 	confDir        string
@@ -109,6 +108,8 @@ func databaseConfig(config storagenode.Config) storagenodedb.Config {
 	return storagenodedb.Config{
 		Storage:  config.Storage.Path,
 		Info:     filepath.Join(config.Storage.Path, "piecestore.db"),
+		Info2:    filepath.Join(config.Storage.Path, "info.db"),
+		Pieces:   config.Storage.Path,
 		Kademlia: config.Kademlia.DBPath,
 	}
 }

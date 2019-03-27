@@ -63,7 +63,6 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (segment
 		copy(segment.EncryptedKeyNonce[:], segmentMeta.KeyNonce)
 		segment.EncryptedKey = segmentMeta.EncryptedKey
 	} else {
-		segmentPath = storj.JoinPaths("l", stream.encryptedPath)
 		segment.Size = stream.info.LastSegment.Size
 		segment.EncryptedKeyNonce = stream.info.LastSegment.EncryptedKeyNonce
 		segment.EncryptedKey = stream.info.LastSegment.EncryptedKey
@@ -80,7 +79,15 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (segment
 		return segment, err
 	}
 
-	pointer, _, _, err := stream.db.pointers.Get(ctx, segmentPath)
+	pathComponents := storj.SplitPath(stream.encryptedPath)
+	bucket := pathComponents[0]
+	segmentPath = storj.JoinPaths(pathComponents[1:]...)
+
+	if isLastSegment {
+		index = -1
+	}
+
+	pointer, err := stream.db.metainfo.SegmentInfo(ctx, bucket, segmentPath, index)
 	if err != nil {
 		return segment, err
 	}
@@ -88,7 +95,7 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (segment
 	if pointer.GetType() == pb.Pointer_INLINE {
 		segment.Inline, err = encryption.Decrypt(pointer.InlineSegment, stream.info.EncryptionScheme.Cipher, contentKey, nonce)
 	} else {
-		segment.PieceID = storj.PieceID(pointer.Remote.PieceId)
+		segment.PieceID = pointer.Remote.RootPieceId
 		segment.Pieces = make([]storj.Piece, 0, len(pointer.Remote.RemotePieces))
 		for _, piece := range pointer.Remote.RemotePieces {
 			var nodeID storj.NodeID

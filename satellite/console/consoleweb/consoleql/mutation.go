@@ -4,11 +4,9 @@
 package consoleql
 
 import (
-	"fmt"
-
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
-	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/post"
 	"storj.io/storj/satellite/console"
@@ -50,10 +48,12 @@ const (
 	FieldProjectID = "projectID"
 	// FieldNewPassword is a field name for new password
 	FieldNewPassword = "newPassword"
+	// Secret is a field name for registration token for user creation during Vanguard release
+	Secret = "secret"
 )
 
 // rootMutation creates mutation for graphql populated by AccountsClient
-func rootMutation(service *console.Service, mailService *mailservice.Service, types Types) *graphql.Object {
+func rootMutation(log *zap.Logger, service *console.Service, mailService *mailservice.Service, types Types) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: Mutation,
 		Fields: graphql.Fields{
@@ -63,35 +63,55 @@ func rootMutation(service *console.Service, mailService *mailservice.Service, ty
 					InputArg: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(types.UserInput()),
 					},
+					Secret: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
 				},
 				// creates user and company from input params and returns userID if succeed
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					input, _ := p.Args[InputArg].(map[string]interface{})
+					secretInput, _ := p.Args[Secret].(string)
 					createUser := fromMapCreateUser(input)
 
-					user, err := service.CreateUser(p.Context, createUser)
+					secret, err := console.RegistrationSecretFromBase64(secretInput)
+					if err != nil {
+						return nil, err
+					}
+
+					user, err := service.CreateUser(p.Context, createUser, secret)
 					if err != nil {
 						return nil, err
 					}
 
 					token, err := service.GenerateActivationToken(p.Context, user.ID, user.Email)
 					if err != nil {
-						return user, err
+						log.Error("register: failed to generate activation token",
+							zap.String("id", user.ID.String()),
+							zap.String("email", user.Email),
+							zap.Error(err))
+
+						return user, nil
 					}
 
 					rootObject := p.Info.RootValue.(map[string]interface{})
-					link := rootObject["origin"].(string) + rootObject[ActivationPath].(string) + token
-
-					err = mailService.SendRendered(
-						p.Context,
-						[]post.Address{{Address: user.Email, Name: user.FirstName}},
-						&AccountActivationEmail{
-							ActivationLink: link,
-						},
-					)
-					if err != nil {
-						return user, err
+					origin := rootObject["origin"].(string)
+					link := origin + rootObject[ActivationPath].(string) + token
+					userName := user.ShortName
+					if user.ShortName == "" {
+						userName = user.FullName
 					}
+
+					// TODO: think of a better solution
+					go func() {
+						_ = mailService.SendRendered(
+							p.Context,
+							[]post.Address{{Address: user.Email, Name: userName}},
+							&AccountActivationEmail{
+								Origin:         origin,
+								ActivationLink: link,
+							},
+						)
+					}()
 
 					return user, nil
 				},
@@ -270,22 +290,32 @@ func rootMutation(service *console.Service, mailService *mailservice.Service, ty
 						return nil, err
 					}
 
-					var emailErr errs.Group
-					for _, user := range users {
-						err = mailService.SendRendered(
-							p.Context,
-							[]post.Address{{Address: user.Email, Name: fmt.Sprintf("%s %s", user.FirstName, user.LastName)}},
-							&ProjectInvitationEmail{
-								UserName:    user.FirstName,
-								ProjectName: user.LastName,
-							},
-						)
-						if err != nil {
-							emailErr.Add(err)
-						}
-					}
+					rootObject := p.Info.RootValue.(map[string]interface{})
+					origin := rootObject["origin"].(string)
+					signIn := origin + rootObject[SignInPath].(string)
 
-					return project, emailErr.Err()
+					// TODO: think of a better solution
+					go func() {
+						for _, user := range users {
+							userName := user.ShortName
+							if user.ShortName == "" {
+								userName = user.FullName
+							}
+
+							_ = mailService.SendRendered(
+								p.Context,
+								[]post.Address{{Address: user.Email, Name: userName}},
+								&ProjectInvitationEmail{
+									Origin:      origin,
+									UserName:    userName,
+									ProjectName: project.Name,
+									SignInLink:  signIn,
+								},
+							)
+						}
+					}()
+
+					return project, nil
 				},
 			},
 			// delete user membership for given project

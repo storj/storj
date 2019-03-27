@@ -38,7 +38,7 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/pointerdb"
@@ -50,6 +50,8 @@ import (
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/orders"
+	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/storagenodedb"
 )
 
@@ -172,7 +174,12 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
-	planet.StorageNodes, err = planet.newStorageNodes(config.StorageNodeCount)
+	whitelistedSatellites := make([]string, len(planet.Satellites))
+	for _, satellite := range planet.Satellites {
+		whitelistedSatellites = append(whitelistedSatellites, satellite.ID().String())
+	}
+
+	planet.StorageNodes, err = planet.newStorageNodes(config.StorageNodeCount, whitelistedSatellites)
 	if err != nil {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
@@ -385,7 +392,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 					RevocationDBURL:     "bolt://" + filepath.Join(storageDir, "revocation.db"),
 					UsePeerCAWhitelist:  true,
 					PeerCAWhitelistPath: planet.whitelistPath,
-					Extensions: peertls.TLSExtConfig{
+					Extensions: extensions.Config{
 						Revocation:          false,
 						WhitelistSignedLeaf: false,
 					},
@@ -427,16 +434,14 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				Interval: 30 * time.Second,
 			},
 			Repairer: repairer.Config{
-				MaxRepair:     10,
-				Interval:      time.Hour,
-				OverlayAddr:   "", // overridden in satellite.New
-				PointerDBAddr: "", // overridden in satellite.New
-				MaxBufferMem:  4 * memory.MB,
-				APIKey:        "",
+				MaxRepair:    10,
+				Interval:     time.Hour,
+				MaxBufferMem: 4 * memory.MiB,
 			},
 			Audit: audit.Config{
-				MaxRetriesStatDB: 0,
-				Interval:         30 * time.Second,
+				MaxRetriesStatDB:  0,
+				Interval:          30 * time.Second,
+				MinBytesPerSecond: 1 * memory.KB,
 			},
 			Tally: tally.Config{
 				Interval: 30 * time.Second,
@@ -445,8 +450,8 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				Interval: 120 * time.Second,
 			},
 			Mail: mailservice.Config{
-				SMTPServerAddress: "smtp.gmail.com:587",
-				From:              "Labs <yaroslav-satellite-test@storj.io>",
+				SMTPServerAddress: "smtp.mail.example.com:587",
+				From:              "Labs <storj@example.com>",
 				AuthType:          "simulate",
 			},
 			Console: consoleweb.Config{
@@ -481,7 +486,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 }
 
 // newStorageNodes initializes storage nodes
-func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
+func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []string) ([]*storagenode.Peer, error) {
 	// TODO: move into separate file
 	var xs []*storagenode.Peer
 	defer func() {
@@ -530,7 +535,7 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 					RevocationDBURL:     "bolt://" + filepath.Join(storageDir, "revocation.db"),
 					UsePeerCAWhitelist:  true,
 					PeerCAWhitelistPath: planet.whitelistPath,
-					Extensions: peertls.TLSExtConfig{
+					Extensions: extensions.Config{
 						Revocation:          false,
 						WhitelistSignedLeaf: false,
 					},
@@ -552,6 +557,15 @@ func (planet *Planet) newStorageNodes(count int) ([]*storagenode.Peer, error) {
 
 				AgreementSenderCheckInterval: time.Hour,
 				CollectorInterval:            time.Hour,
+
+				SatelliteIDRestriction:  true,
+				WhitelistedSatelliteIDs: strings.Join(whitelistedSatelliteIDs, ","),
+			},
+			Storage2: piecestore.Config{
+				Sender: orders.SenderConfig{
+					Interval: time.Hour,
+					Timeout:  time.Hour,
+				},
 			},
 		}
 		if planet.config.Reconfigure.StorageNode != nil {
@@ -612,7 +626,7 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 				RevocationDBURL:     "bolt://" + filepath.Join(dbDir, "revocation.db"),
 				UsePeerCAWhitelist:  true,
 				PeerCAWhitelistPath: planet.whitelistPath,
-				Extensions: peertls.TLSExtConfig{
+				Extensions: extensions.Config{
 					Revocation:          false,
 					WhitelistSignedLeaf: false,
 				},

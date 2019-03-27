@@ -162,7 +162,7 @@ func (db *accountingDB) SaveRollup(ctx context.Context, latestRollup time.Time, 
 	return Error.Wrap(err)
 }
 
-// QueryPaymentInfo queries StatDB, Accounting Rollup on nodeID
+// QueryPaymentInfo queries Overlay, Accounting Rollup on nodeID
 func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*accounting.CSVRow, error) {
 	var sqlStmt = `SELECT n.id, n.created_at, n.audit_success_ratio, r.at_rest_total, r.get_repair_total,
 	    r.put_repair_total, r.get_audit_total, r.put_total, r.get_total, o.operator_wallet
@@ -177,7 +177,7 @@ func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, e
 		LEFT JOIN nodes n ON n.id = r.node_id
 		LEFT JOIN overlay_cache_nodes o ON n.id = o.node_id
 	    ORDER BY n.id`
-	rows, err := db.db.DB.Query(db.db.Rebind(sqlStmt), start.UTC(), end.UTC())
+	rows, err := db.db.DB.QueryContext(ctx, db.db.Rebind(sqlStmt), start.UTC(), end.UTC())
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -206,8 +206,8 @@ func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, e
 }
 
 // DeleteRawBefore deletes all raw tallies prior to some time
-func (db *accountingDB) DeleteRawBefore(latestRollup time.Time) error {
+func (db *accountingDB) DeleteRawBefore(ctx context.Context, latestRollup time.Time) error {
 	var deleteRawSQL = `DELETE FROM accounting_raws WHERE interval_end_time < ?`
-	_, err := db.db.DB.Exec(db.db.Rebind(deleteRawSQL), latestRollup)
+	_, err := db.db.DB.ExecContext(ctx, db.db.Rebind(deleteRawSQL), latestRollup)
 	return err
 }
