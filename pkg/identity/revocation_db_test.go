@@ -27,11 +27,10 @@ func TestRevocationDB_Get(t *testing.T) {
 	defer ctx.Cleanup()
 
 	testidentity.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
-		// NB: key indices are reversed as compared to chain indices
 		keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 		require.NoError(t, err)
 
-		ext, err := extensions.NewRevocationExt(keys[0], chain[peertls.LeafIndex])
+		ext, err := extensions.NewRevocationExt(keys[peertls.CAIndex], chain[peertls.LeafIndex])
 		require.NoError(t, err)
 
 		var rev *extensions.Revocation
@@ -66,17 +65,16 @@ func TestRevocationDB_Put_success(t *testing.T) {
 	defer ctx.Cleanup()
 
 	testidentity.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
-		// NB: key indices are reversed as compared to chain indices
 		keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 		require.NoError(t, err)
 
-		firstRevocation, err := extensions.NewRevocationExt(keys[0], chain[peertls.LeafIndex])
+		firstRevocation, err := extensions.NewRevocationExt(keys[peertls.CAIndex], chain[peertls.LeafIndex])
 		require.NoError(t, err)
 
 		// NB: revocation timestamps need to be different between revocations for the same
 		// identity to be valid.
 		time.Sleep(time.Second)
-		newerRevocation, err := extensions.NewRevocationExt(keys[0], chain[peertls.LeafIndex])
+		newerRevocation, err := extensions.NewRevocationExt(keys[peertls.CAIndex], chain[peertls.LeafIndex])
 		assert.NoError(t, err)
 
 		testcases := []struct {
@@ -117,15 +115,14 @@ func TestRevocationDB_Put_error(t *testing.T) {
 	defer ctx.Cleanup()
 
 	testidentity.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
-		// NB: key indices are reversed as compared to chain indices
 		keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 		require.NoError(t, err)
 
-		olderRevocation, err := extensions.NewRevocationExt(keys[0], chain[peertls.LeafIndex])
+		olderRevocation, err := extensions.NewRevocationExt(keys[peertls.CAIndex], chain[peertls.LeafIndex])
 		assert.NoError(t, err)
 
 		time.Sleep(time.Second)
-		newerRevocation, err := extensions.NewRevocationExt(keys[0], chain[peertls.LeafIndex])
+		newerRevocation, err := extensions.NewRevocationExt(keys[peertls.CAIndex], chain[peertls.LeafIndex])
 		require.NoError(t, err)
 
 		err = revDB.Put(chain, newerRevocation)

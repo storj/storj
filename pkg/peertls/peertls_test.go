@@ -76,19 +76,19 @@ func TestVerifyPeerFunc(t *testing.T) {
 	if !assert.NoError(t, err) {
 		t.FailNow()
 	}
-	leafCert, caCert := chain[0], chain[1]
+	leafCert, caCert := chain[peertls.LeafIndex], chain[peertls.CAIndex]
 
 	testFunc := func(chain [][]byte, parsedChains [][]*x509.Certificate) error {
 		switch {
-		case !bytes.Equal(chain[1], caCert.Raw):
+		case !bytes.Equal(chain[peertls.CAIndex], caCert.Raw):
 			return errs.New("CA cert doesn't match")
-		case !bytes.Equal(chain[0], leafCert.Raw):
+		case !bytes.Equal(chain[peertls.LeafIndex], leafCert.Raw):
 			return errs.New("leaf's CA cert doesn't match")
 		case !pkcrypto.PublicKeyEqual(leafCert.PublicKey, parsedChains[0][0].PublicKey):
 			return errs.New("leaf public key doesn't match")
-		case !bytes.Equal(parsedChains[0][1].Raw, caCert.Raw):
+		case !bytes.Equal(parsedChains[0][peertls.CAIndex].Raw, caCert.Raw):
 			return errs.New("parsed CA cert doesn't match")
-		case !bytes.Equal(parsedChains[0][0].Raw, leafCert.Raw):
+		case !bytes.Equal(parsedChains[0][peertls.LeafIndex].Raw, leafCert.Raw):
 			return errs.New("parsed leaf cert doesn't match")
 		}
 		return nil
@@ -103,7 +103,7 @@ func TestVerifyPeerCertChains(t *testing.T) {
 	if !assert.NoError(t, err) {
 		t.FailNow()
 	}
-	leafKey, leafCert, caCert := keys[1], chain[0], chain[1]
+	leafKey, leafCert, caCert := keys[peertls.LeafIndex], chain[peertls.LeafIndex], chain[peertls.CAIndex]
 
 	err = peertls.VerifyPeerFunc(peertls.VerifyPeerCertChains)([][]byte{leafCert.Raw, caCert.Raw}, nil)
 	assert.NoError(t, err)
@@ -207,7 +207,7 @@ func TestAddExtraExtension(t *testing.T) {
 func TestRevocation_Sign(t *testing.T) {
 	keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 	assert.NoError(t, err)
-	leafCert, caKey := chain[0], keys[0]
+	leafCert, caKey := chain[peertls.LeafIndex], keys[peertls.CAIndex]
 
 	leafKeyHash, err := peertls.DoubleSHA256PublicKey(leafCert.PublicKey)
 	require.NoError(t, err)
@@ -225,7 +225,7 @@ func TestRevocation_Sign(t *testing.T) {
 func TestRevocation_Verify(t *testing.T) {
 	keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 	assert.NoError(t, err)
-	leafCert, caCert, caKey := chain[0], chain[1], keys[0]
+	leafCert, caCert, caKey := chain[peertls.LeafIndex], chain[peertls.CAIndex], keys[peertls.CAIndex]
 
 	leafKeyHash, err := peertls.DoubleSHA256PublicKey(leafCert.PublicKey)
 	require.NoError(t, err)
@@ -246,7 +246,7 @@ func TestRevocation_Verify(t *testing.T) {
 func TestRevocation_Marshal(t *testing.T) {
 	keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 	assert.NoError(t, err)
-	leafCert, caKey := chain[0], keys[0]
+	leafCert, caKey := chain[peertls.LeafIndex], keys[peertls.CAIndex]
 
 	leafKeyHash, err := peertls.DoubleSHA256PublicKey(leafCert.PublicKey)
 	require.NoError(t, err)
@@ -274,7 +274,7 @@ func TestRevocation_Marshal(t *testing.T) {
 func TestRevocation_Unmarshal(t *testing.T) {
 	keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 	assert.NoError(t, err)
-	leafCert, caKey := chain[0], keys[0]
+	leafCert, caKey := chain[peertls.LeafIndex], keys[peertls.CAIndex]
 
 	leafKeyHash, err := peertls.DoubleSHA256PublicKey(leafCert.PublicKey)
 	require.NoError(t, err)
@@ -304,13 +304,13 @@ func TestNewRevocationExt(t *testing.T) {
 	keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 	assert.NoError(t, err)
 
-	ext, err := extensions.NewRevocationExt(keys[0], chain[0])
+	ext, err := extensions.NewRevocationExt(keys[peertls.CAIndex], chain[peertls.LeafIndex])
 	assert.NoError(t, err)
 
 	var rev extensions.Revocation
 	err = rev.Unmarshal(ext.Value)
 	assert.NoError(t, err)
 
-	err = rev.Verify(chain[1])
+	err = rev.Verify(chain[peertls.CAIndex])
 	assert.NoError(t, err)
 }

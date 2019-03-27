@@ -26,11 +26,10 @@ func NewCertChain(length int, versionNumber storj.IDVersionNumber) (keys []crypt
 		if err != nil {
 			return nil, nil, err
 		}
-		// TODO: get your head straight with the keys and certs slices
-		keys = append(keys, key)
+		keys = append([]crypto.PrivateKey{key}, keys...)
 
 		var template *x509.Certificate
-		if i == length-1 {
+		if i == 0 {
 			template, err = peertls.CATemplate()
 			if err = extensions.AddExtraExtension(template, storj.NewVersionExt(version)); err != nil {
 				return nil, nil, err
@@ -43,21 +42,18 @@ func NewCertChain(length int, versionNumber storj.IDVersionNumber) (keys []crypt
 		}
 
 		var cert *x509.Certificate
-		if i == length-1 {
-			cert, err = peertls.CreateCertificate(pkcrypto.PublicKeyFromPrivate(key), keys[i-1], template, certs[i-1:][0])
-		} else {
+		if i == 0 {
 			cert, err = peertls.CreateSelfSignedCertificate(key, template)
+		} else {
+			// NB: 	`keys[1]`: key has already been prepended; parent key is at first index
+			// 		`certs[0]`: cert hasn't been prepended yet; parent cert is at zeroth index
+			cert, err = peertls.CreateCertificate(pkcrypto.PublicKeyFromPrivate(key), keys[1], template, certs[0])
 		}
 		if err != nil {
 			return nil, nil, err
 		}
 
-		fmt.Printf("i %d extensions: %+v\n", i, cert.Extensions)
-		certs = append(certs, cert)
-	}
-	for i, cert := range certs {
-		fmt.Println(i)
-		fmt.Println(cert.IsCA)
+		certs = append([]*x509.Certificate{cert}, certs...)
 	}
 	return keys, certs, nil
 }

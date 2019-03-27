@@ -90,7 +90,7 @@ func VerifyCAWhitelist(cas []*x509.Certificate) PeerCertVerificationFunc {
 func TLSCert(chain [][]byte, leaf *x509.Certificate, key crypto.PrivateKey) (*tls.Certificate, error) {
 	var err error
 	if leaf == nil {
-		leaf, err = pkcrypto.CertFromDER(chain[0])
+		leaf, err = pkcrypto.CertFromDER(chain[LeafIndex])
 		if err != nil {
 			return nil, err
 		}

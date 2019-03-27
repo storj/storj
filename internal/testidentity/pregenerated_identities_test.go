@@ -20,10 +20,7 @@ func TestPregeneratedIdentity(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, version.Number, caVersion.Number)
 
-		chains := [][]*x509.Certificate{
-			append([]*x509.Certificate{ident.Leaf, ident.CA}, ident.RestChain...),
-		}
-
+		chains := identity.ToChains(ident.Chain())
 		err = peertls.VerifyPeerCertChains(nil, chains)
 		assert.NoError(t, err)
 	})
@@ -38,10 +35,7 @@ func TestPregeneratedSignedIdentity(t *testing.T) {
 		assert.Equal(t, version.Number, caVersion.Number)
 
 
-		chains := [][]*x509.Certificate{
-			append([]*x509.Certificate{ident.Leaf, ident.CA}, ident.RestChain...),
-		}
-
+		chains := identity.ToChains(ident.Chain())
 		err = peertls.VerifyPeerCertChains(nil, chains)
 		assert.NoError(t, err)
 

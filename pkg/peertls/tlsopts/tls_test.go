@@ -70,54 +70,54 @@ func TestExtensionMap_HandleExtensions(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	keys, originalChain, err := testpeertls.NewCertChain(2)
-	assert.NoError(t, err)
+	testidentity.IdentityVersionsTest(t, func(t *testing.T, version storj.IDVersion, _ *identity.FullIdentity) {
+		keys, originalChain, err := testpeertls.NewCertChain(2, version.Number)
+		assert.NoError(t, err)
 
-	rev := new(extensions.Revocation)
+		rev := new(extensions.Revocation)
 
-	// TODO: `keys[peertls.CAIndex]`
-	oldRevokedLeafChain, revocationExt, err := testpeertls.RevokeLeaf(keys[0], originalChain)
-	require.NoError(t, err)
-	err = rev.Unmarshal(revocationExt.Value)
-	require.NoError(t, err)
-	err = rev.Verify(oldRevokedLeafChain[peertls.CAIndex])
-	require.NoError(t, err)
+		oldRevokedLeafChain, revocationExt, err := testpeertls.RevokeLeaf(keys[peertls.CAIndex], originalChain)
+		require.NoError(t, err)
+		err = rev.Unmarshal(revocationExt.Value)
+		require.NoError(t, err)
+		err = rev.Verify(oldRevokedLeafChain[peertls.CAIndex])
+		require.NoError(t, err)
 
-	// NB: node ID is the same, timestamp must change
-	// (see: identity.RevocationDB#Put)
-	time.Sleep(1 * time.Second)
-	// TODO: `keys[peertls.CAIndex]`
-	newRevokedLeafChain, revocationExt, err := testpeertls.RevokeLeaf(keys[0], oldRevokedLeafChain)
-	require.NoError(t, err)
-	err = rev.Unmarshal(revocationExt.Value)
-	require.NoError(t, err)
-	err = rev.Verify(newRevokedLeafChain[peertls.CAIndex])
-	require.NoError(t, err)
+		// NB: node ID is the same, timestamp must change
+		// (see: identity.RevocationDB#Put)
+		time.Sleep(1 * time.Second)
+		newRevokedLeafChain, revocationExt, err := testpeertls.RevokeLeaf(keys[peertls.CAIndex], oldRevokedLeafChain)
+		require.NoError(t, err)
+		err = rev.Unmarshal(revocationExt.Value)
+		require.NoError(t, err)
+		err = rev.Verify(newRevokedLeafChain[peertls.CAIndex])
+		require.NoError(t, err)
 
-	testidentity.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
-		opts := &extensions.Options{
-			RevDB: revDB,
-		}
-
-		testcases := []struct {
-			name  string
-			chain []*x509.Certificate
-		}{
-			{"no extensions", originalChain},
-			{"leaf revocation", oldRevokedLeafChain},
-			{"double leaf revocation", newRevokedLeafChain},
-			// TODO: more and more diverse extensions in cases
-		}
-
-		{
-			handlerFuncMap := extensions.AllHandlers.WithOptions(opts)
-			for _, testcase := range testcases {
-				t.Log(testcase.name)
-				extensionsMap := tlsopts.NewExtensionsMap(testcase.chain...)
-				err := extensionsMap.HandleExtensions(handlerFuncMap, identity.ToChains(testcase.chain))
-				assert.NoError(t, err)
+		testidentity.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
+			opts := &extensions.Options{
+				RevDB: revDB,
 			}
-		}
+
+			testcases := []struct {
+				name  string
+				chain []*x509.Certificate
+			}{
+				{"no extensions", originalChain},
+				{"leaf revocation", oldRevokedLeafChain},
+				{"double leaf revocation", newRevokedLeafChain},
+				// TODO: more and more diverse extensions in cases
+			}
+
+			{
+				handlerFuncMap := extensions.AllHandlers.WithOptions(opts)
+				for _, testcase := range testcases {
+					t.Log(testcase.name)
+					extensionsMap := tlsopts.NewExtensionsMap(testcase.chain...)
+					err := extensionsMap.HandleExtensions(handlerFuncMap, identity.ToChains(testcase.chain))
+					assert.NoError(t, err)
+				}
+			}
+		})
 	})
 }
 
@@ -132,7 +132,7 @@ func TestExtensionMap_HandleExtensions_error(t *testing.T) {
 		// NB: node ID is the same, timestamp must change
 		// (see: identity.RevocationDB#Put)
 		time.Sleep(time.Second)
-		_, newRevocation, err := testpeertls.RevokeLeaf(keys[0], chain)
+		_, newRevocation, err := testpeertls.RevokeLeaf(keys[peertls.CAIndex], chain)
 		require.NoError(t, err)
 
 		assert.NotEqual(t, oldRevocation, newRevocation)

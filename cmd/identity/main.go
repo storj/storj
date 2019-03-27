@@ -178,6 +178,7 @@ func cmdAuthorize(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// TODO: is this correct?
 	ca.Cert = signedChain[0]
 	ca.RestChain = signedChain[1:]
 	err = caConfig.Save(ca)
