@@ -9,9 +9,8 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
-	"io"
-
 	"github.com/zeebo/errs"
+	"io"
 
 	"storj.io/storj/pkg/pkcrypto"
 )
@@ -145,6 +144,9 @@ func CreateCertificate(signee crypto.PublicKey, signer crypto.PrivateKey, templa
 		// x509.CreateCertificate will panic in this case, so check here and make debugging easier
 		return nil, errs.New("can't sign certificate with signer key of type %T", signer)
 	}
+
+	// TODO: should we check for uniqueness?
+	template.ExtraExtensions = append(template.ExtraExtensions, template.Extensions...)
 	cb, err := x509.CreateCertificate(
 		rand.Reader,
 		template,

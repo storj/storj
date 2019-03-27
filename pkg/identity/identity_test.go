@@ -114,14 +114,7 @@ func TestConfig_Save_with_extension(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, version.Number, caVersion.Number)
 
-			var versionExt pkix.Extension
-			for _, ext := range ident.CA.ExtraExtensions {
-				if ext.Id.Equal(extensions.IdentityVersionExtID) {
-					versionExt = ext
-					break
-				}
-			}
-
+			versionExt := tlsopts.NewExtensionsMap(ident.CA)[extensions.IdentityVersionExtID.String()]
 			if ident.ID.Version().Number == 1 {
 				require.NotEmpty(t, versionExt)
 				assert.Equal(t, ident.ID.Version().Number, storj.IDVersionNumber(versionExt.Value[0]))
@@ -155,14 +148,7 @@ func TestConfig_Save_with_extension(t *testing.T) {
 			assert.Equal(t, ident.CA, loadedFi.CA)
 			assert.Equal(t, ident.ID, loadedFi.ID)
 
-			var versionExt pkix.Extension
-			for _, ext := range ident.CA.ExtraExtensions {
-				if ext.Id.Equal(extensions.IdentityVersionExtID) {
-					versionExt = ext
-					break
-				}
-			}
-
+			versionExt := tlsopts.NewExtensionsMap(ident.CA)[extensions.IdentityVersionExtID.String()]
 			if ident.ID.Version().Number == 1 {
 				require.NotEmpty(t, versionExt)
 				assert.Equal(t, ident.ID.Version().Number, storj.IDVersionNumber(versionExt.Value[0]))
@@ -278,6 +264,8 @@ func TestManageablePeerIdentity_AddExtension(t *testing.T) {
 	assert.Equal(t, oldLeaf.SerialNumber, manageablePeerIdentity.Leaf.SerialNumber)
 	assert.Equal(t, oldLeaf.IsCA, manageablePeerIdentity.Leaf.IsCA)
 	assert.Equal(t, oldLeaf.PublicKey, manageablePeerIdentity.Leaf.PublicKey)
+	ext := tlsopts.NewExtensionsMap(manageablePeerIdentity.Leaf)[randExt.Id.String()]
+	assert.Equal(t, randExt, ext)
 
 	assert.Equal(t, randExt, tlsopts.NewExtensionsMap(manageablePeerIdentity.Leaf)[randExt.Id.String()])
 
