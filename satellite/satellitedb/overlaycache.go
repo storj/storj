@@ -40,8 +40,11 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 		  AND audit_success_ratio >= ?
 		  AND total_uptime_count >= ?
 		  AND uptime_ratio >= ?
+		  AND last_contact_success > ?
+		  AND last_contact_success > last_contact_failure
 		`, nodeType, criteria.FreeBandwidth, criteria.FreeDisk,
 		criteria.AuditCount, criteria.AuditSuccessRatio, criteria.UptimeCount, criteria.UptimeSuccessRatio,
+		time.Now().Add(-1*time.Hour),
 	)
 }
 
@@ -50,8 +53,11 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, `
 		WHERE type = ? AND free_bandwidth >= ? AND free_disk >= ?
 		  AND total_audit_count < ?
+		  AND last_contact_success > ?
+		  AND last_contact_success > last_contact_failure
 	`, nodeType, criteria.FreeBandwidth, criteria.FreeDisk,
 		criteria.AuditThreshold,
+		time.Now().Add(-1*time.Hour),
 	)
 }
 
