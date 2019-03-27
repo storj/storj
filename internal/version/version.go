@@ -131,6 +131,9 @@ func CheckVersion(ctx *context.Context) (err error) {
 func queryVersionFromControlServer() (ver []V, err error) {
 	resp, err := http.Get("https://version.alpha.storj.io")
 	if err != nil {
+
+		//ToDo: Handle Failures properly!
+		Allowed = true
 		return []V{}, err
 	}
 

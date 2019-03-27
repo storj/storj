@@ -20,7 +20,7 @@ func LogAndReportVersion(ctx context.Context) (err error) {
 		return err
 	}
 
-	go func() {
+	go func(ctx context.Context) {
 		ticker := time.NewTicker(interval)
 
 		defer ticker.Stop()
@@ -35,5 +35,6 @@ func LogAndReportVersion(ctx context.Context) (err error) {
 				}
 			}
 		}
-	}()
+	}(ctx)
+	return
 }
