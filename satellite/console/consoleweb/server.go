@@ -107,7 +107,6 @@ func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 // accountActivationHandler is web app http handler function
-// TODO: add some auth token in request header to prevent unauthorized token creation
 func (s *Server) createRegistrationTokenHandler(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set(contentType, applicationJSON)
 
