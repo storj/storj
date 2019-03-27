@@ -127,7 +127,7 @@ func (transport *Transport) DialAddress(ctx context.Context, address string, opt
 	return conn, Error.Wrap(err)
 }
 
-// ValidVersion checks if the node is still allowed to operate on the network
+// InvalidVersion checks if the node is still allowed to operate on the network
 func (transport *Transport) InvalidVersion() bool {
 	return !version.Allowed
 }

@@ -8,12 +8,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 	"io/ioutil"
 	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
+
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
 
 var (
@@ -142,7 +143,7 @@ func queryVersionFromControlServer() (ver []V, err error) {
 	return
 }
 
-// Handler returns a json representation of the current version information for the binary
+// DebugHandler returns a json representation of the current version information for the binary
 func DebugHandler(w http.ResponseWriter, r *http.Request) {
 	j, err := Build.Marshal()
 	if err != nil {
