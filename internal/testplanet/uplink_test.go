@@ -50,6 +50,8 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 		ul := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
 
+		satellite.Discovery.Service.Discovery.Stop()
+
 		testData := make([]byte, 1*memory.MiB)
 		_, err := rand.Read(testData)
 		require.NoError(t, err)
