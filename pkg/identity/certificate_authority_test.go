@@ -9,6 +9,7 @@ import (
 	"encoding/asn1"
 	"fmt"
 	"math/rand"
+	"storj.io/storj/pkg/peertls/tlsopts"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -183,7 +184,8 @@ func TestFullCertificateAuthority_AddExtension(t *testing.T) {
 	assert.Equal(t, oldCert.SerialNumber, ca.Cert.SerialNumber)
 	assert.Equal(t, oldCert.IsCA, ca.Cert.IsCA)
 	assert.Equal(t, oldCert.PublicKey, ca.Cert.PublicKey)
-	assert.Equal(t, randExt, ca.Cert.Extensions[len(ca.Cert.Extensions)-1])
+	extMap := tlsopts.NewExtensionsMap(ca.Cert)
+	assert.Equal(t, randExt, extMap[randExt.Id.String()])
 
 	assert.NotEqual(t, oldCert.Raw, ca.Cert.Raw)
 	assert.NotEqual(t, oldCert.RawTBSCertificate, ca.Cert.RawTBSCertificate)
@@ -214,7 +216,7 @@ func TestFullCertificateAuthority_Revoke(t *testing.T) {
 	assert.NotEqual(t, oldCert.RawTBSCertificate, ca.Cert.RawTBSCertificate)
 	assert.NotEqual(t, oldCert.Signature, ca.Cert.Signature)
 
-	revocationExt := ca.Cert.Extensions[len(ca.Cert.Extensions)-1]
+	revocationExt := tlsopts.NewExtensionsMap(ca.Cert)[extensions.RevocationExtID.String()]
 	assert.True(t, extensions.RevocationExtID.Equal(revocationExt.Id))
 
 	var rev extensions.Revocation

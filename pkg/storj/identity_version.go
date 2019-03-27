@@ -90,6 +90,8 @@ func IDVersionFromCert(cert *x509.Certificate) (IDVersion, error) {
 
 func IDVersionInVersions(versionNumber IDVersionNumber, versionsStr string) error {
 	switch versionsStr {
+	case "":
+		return ErrVersion.New("no allowed peer identity versions specified")
 	case "latest":
 		if versionNumber == LatestIDVersion().Number {
 			return nil

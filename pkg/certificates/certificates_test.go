@@ -595,9 +595,9 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 				require.NoError(t, err)
 
 				sc := server.Config{
-					//Config: tlsopts.Config{
-					//	PeerIDVersions: "0",
-					//},
+					Config: tlsopts.Config{
+						PeerIDVersions: "1,2",
+					},
 					Address: "127.0.0.1:0",
 					PrivateAddress: "127.0.0.1:0",
 				}
@@ -616,7 +616,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 				})
 				defer ctx.Check(service.Close)
 
-				clientOpts, err := tlsopts.NewOptions(clientIdent, tlsopts.Config{PeerIDVersions: "0"})
+				clientOpts, err := tlsopts.NewOptions(clientIdent, tlsopts.Config{PeerIDVersions: "1,2"})
 				require.NoError(t, err)
 				clientTransport := transport.NewClient(clientOpts)
 

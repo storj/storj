@@ -65,15 +65,14 @@ func RevokeLeaf(caKey crypto.PrivateKey, chain []*x509.Certificate) ([]*x509.Cer
 // RevokeCA revokes the CA certificate in the passed chain and adds a revocation
 // extension to that certificate, recording this action.
 func RevokeCA(caKey crypto.PrivateKey, chain []*x509.Certificate) ([]*x509.Certificate, pkix.Extension, error) {
-	caCert := chain[peertls.CAIndex]
-	nodeID, err := identity.NodeIDFromKey(caCert.PublicKey, storj.LatestIDVersion())
+	nodeID, err := identity.NodeIDFromCert(chain[peertls.CAIndex])
 	if err != nil {
 		return nil, pkix.Extension{}, err
 	}
 
 	ca := &identity.FullCertificateAuthority{
 		ID:        nodeID,
-		Cert:      caCert,
+		Cert:      chain[peertls.CAIndex],
 		Key:       caKey,
 		RestChain: chain[peertls.CAIndex+1:],
 	}

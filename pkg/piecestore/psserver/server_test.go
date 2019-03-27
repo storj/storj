@@ -519,7 +519,13 @@ func NewTest(ctx context.Context, t *testing.T, snID, upID *identity.FullIdentit
 	}
 
 	//init ps server grpc
-	sc := server.Config{Address: "127.0.0.1:0", PrivateAddress: "127.0.0.1:0"}
+	sc := server.Config{
+		Address: "127.0.0.1:0",
+		PrivateAddress: "127.0.0.1:0",
+		Config: tlsopts.Config{
+			PeerIDVersions: "1,2",
+		},
+	}
 	options, err := tlsopts.NewOptions(snID, sc.Config)
 	require.NoError(t, err)
 
@@ -530,7 +536,9 @@ func NewTest(ctx context.Context, t *testing.T, snID, upID *identity.FullIdentit
 	go func() { require.NoError(t, grpcServer.Run(ctx)) }() // TODO: wait properly for server termination
 	//init client
 
-	tlsOptions, err := tlsopts.NewOptions(upID, tlsopts.Config{})
+	tlsOptions, err := tlsopts.NewOptions(upID, tlsopts.Config{
+		PeerIDVersions: "1,2",
+	})
 	require.NoError(t, err)
 
 	// TODO: why aren't we using transport client here?

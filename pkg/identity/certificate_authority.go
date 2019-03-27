@@ -440,7 +440,6 @@ func (ca *FullCertificateAuthority) PeerCA() *PeerCertificateAuthority {
 
 // Sign signs the passed certificate with ca certificate
 func (ca *FullCertificateAuthority) Sign(cert *x509.Certificate) (*x509.Certificate, error) {
-	cert.ExtraExtensions = cert.Extensions
 	signedCert, err := peertls.NewCert(cert.PublicKey, ca.Key, cert, ca.Cert)
 	if err != nil {
 		return nil, errs.Wrap(err)
@@ -455,13 +454,13 @@ func (ca *FullCertificateAuthority) Version() (storj.IDVersion, error) {
 
 // AddExtension adds extensions to certificate authority certificate. Extensions
 // are serialized into the certificate's raw bytes and it is re-signed by itself.
-func (ca *FullCertificateAuthority) AddExtension(ext ...pkix.Extension) error {
+func (ca *FullCertificateAuthority) AddExtension(exts ...pkix.Extension) error {
 	// TODO: how to properly handle this?
 	if len(ca.RestChain) > 0 {
 		return errs.New("adding extensions requires parent certificate's private key")
 	}
 
-	if err := extensions.AddExtraExtension(ca.Cert, ext...); err != nil {
+	if err := extensions.AddExtraExtension(ca.Cert, exts...); err != nil {
 		return err
 	}
 

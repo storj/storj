@@ -100,22 +100,13 @@ func TestExtensionMap_HandleExtensions(t *testing.T) {
 					return chain
 				}(),
 			},
-			{
-				"certificate revocation",
-				extensions.Config{Revocation: true, WhitelistSignedLeaf: true},
-				func() []*x509.Certificate {
-					_, chain, _, err := testpeertls.NewRevokedLeafChain()
-					assert.NoError(t, err)
-
-					return chain
-				}(),
-			},
 		}
 
 		for _, testcase := range testcases {
 			t.Run(testcase.name, func(t *testing.T) {
 				opts := &extensions.Options{
 					RevDB: revDB,
+					PeerIDVersions: "latest",
 				}
 
 				handlerFuncMap := extensions.AllHandlers.WithOptions(opts)

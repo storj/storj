@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"storj.io/storj/pkg/peertls/tlsopts"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -113,14 +114,7 @@ func TestConfig_Save_with_extension(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, version.Number, caVersion.Number)
 
-			var versionExt pkix.Extension
-			for _, ext := range ident.CA.ExtraExtensions {
-				if ext.Id.Equal(extensions.IdentityVersionExtID) {
-					versionExt = ext
-					break
-				}
-			}
-
+			versionExt := tlsopts.NewExtensionsMap(ident.CA)[extensions.IdentityVersionExtID.String()]
 			if ident.ID.Version().Number == 1 {
 				require.NotEmpty(t, versionExt)
 				assert.Equal(t, ident.ID.Version().Number, storj.IDVersionNumber(versionExt.Value[0]))
@@ -154,14 +148,7 @@ func TestConfig_Save_with_extension(t *testing.T) {
 			assert.Equal(t, ident.CA, loadedFi.CA)
 			assert.Equal(t, ident.ID, loadedFi.ID)
 
-			var versionExt pkix.Extension
-			for _, ext := range ident.CA.ExtraExtensions {
-				if ext.Id.Equal(extensions.IdentityVersionExtID) {
-					versionExt = ext
-					break
-				}
-			}
-
+			versionExt := tlsopts.NewExtensionsMap(ident.CA)[extensions.IdentityVersionExtID.String()]
 			if ident.ID.Version().Number == 1 {
 				require.NotEmpty(t, versionExt)
 				assert.Equal(t, ident.ID.Version().Number, storj.IDVersionNumber(versionExt.Value[0]))
@@ -277,7 +264,8 @@ func TestManageableIdentity_AddExtension(t *testing.T) {
 	assert.Equal(t, oldLeaf.SerialNumber, manageableIdentity.Leaf.SerialNumber)
 	assert.Equal(t, oldLeaf.IsCA, manageableIdentity.Leaf.IsCA)
 	assert.Equal(t, oldLeaf.PublicKey, manageableIdentity.Leaf.PublicKey)
-	assert.Equal(t, randExt, manageableIdentity.Leaf.Extensions[len(manageableIdentity.Leaf.Extensions)-1])
+	ext := tlsopts.NewExtensionsMap(manageableIdentity.Leaf)[randExt.Id.String()]
+	assert.Equal(t, randExt, ext)
 
 	assert.NotEqual(t, oldLeaf.Raw, manageableIdentity.Leaf.Raw)
 	assert.NotEqual(t, oldLeaf.RawTBSCertificate, manageableIdentity.Leaf.RawTBSCertificate)

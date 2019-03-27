@@ -28,12 +28,6 @@ func TestRevocationCheckHandler(t *testing.T) {
 		opts := &extensions.Options{RevDB: revDB}
 		revocationChecker := extensions.RevocationCheckHandler.NewHandlerFunc(opts)
 
-		{
-			t.Log("no revocations")
-			err := revocationChecker(pkix.Extension{}, identity.ToChains(chain))
-			assert.NoError(t, err)
-		}
-
 		revokingChain, leafRevocationExt, err := testpeertls.RevokeLeaf(keys[peertls.CAIndex], chain)
 		require.NoError(t, err)
 
@@ -70,6 +64,7 @@ func TestRevocationCheckHandler(t *testing.T) {
 	})
 
 	testidentity.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, _ storage.KeyValueStore) {
+		t.Log("new revocation DB")
 		keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 		assert.NoError(t, err)
 
@@ -79,6 +74,14 @@ func TestRevocationCheckHandler(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.NotEqual(t, chain[peertls.CAIndex].Raw, revokingChain[peertls.CAIndex].Raw)
+
+		chainID, err := identity.NodeIDFromCert(chain[peertls.CAIndex])
+		require.NoError(t, err)
+
+		revokingChainID, err := identity.NodeIDFromCert(revokingChain[peertls.CAIndex])
+		require.NoError(t, err)
+
+		assert.Equal(t, chainID, revokingChainID)
 
 		{
 			t.Log("revoked CA error (original chain)")
