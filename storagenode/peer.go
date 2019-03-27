@@ -103,6 +103,7 @@ type Peer struct {
 		Endpoint  *piecestore.Endpoint
 		Inspector *inspector.Endpoint
 		Monitor   *monitor.Service
+		Sender    *orders.Sender
 	}
 }
 
@@ -237,6 +238,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 			//TODO use config.Storage.Monitor.Interval, but for some reason is not set
 			config.Storage.KBucketRefreshInterval,
 		)
+
+		peer.Storage2.Sender = orders.NewSender(
+			log.Named("piecestore:orderssender"),
+			peer.Transport,
+			peer.Kademlia.Service,
+			peer.DB.Orders(),
+			config.Storage2.Sender,
+		)
 	}
 
 	return peer, nil
@@ -254,6 +263,9 @@ func (peer *Peer) Run(ctx context.Context) error {
 	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Agreements.Sender.Run(ctx))
+	})
+	group.Go(func() error {
+		return ignoreCancel(peer.Storage2.Sender.Run(ctx))
 	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Storage2.Monitor.Run(ctx))

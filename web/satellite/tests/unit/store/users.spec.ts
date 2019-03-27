@@ -17,8 +17,8 @@ describe('mutations', () => {
     it('Set user info', () => {
         const state = {
             user: {
-                firstName: '',
-                lastName: '',
+                fullName: '',
+                shortName: '',
                 email: '',
             }
         };
@@ -26,23 +26,23 @@ describe('mutations', () => {
         const store = new Vuex.Store({state, mutations});
 
         const user = {
-            firstName: 'firstName',
-            lastName: 'lastName',
+            fullName: 'fullName',
+            shortName: 'shortName',
             email: 'email',
         };
 
         store.commit(USER_MUTATIONS.SET_USER_INFO, user);
 
         expect(state.user.email).toBe('email');
-        expect(state.user.firstName).toBe('firstName');
-        expect(state.user.lastName).toBe('lastName');
+        expect(state.user.fullName).toBe('fullName');
+        expect(state.user.shortName).toBe('shortName');
     });
 
     it('clear user info', () => {
         const state = {
             user: {
-                firstName: 'firstName',
-                lastName: 'lastName',
+                fullName: 'fullName',
+                shortName: 'shortName',
                 email: 'email',
             }
         };
@@ -52,21 +52,21 @@ describe('mutations', () => {
         store.commit(USER_MUTATIONS.REVERT_TO_DEFAULT_USER_INFO);
 
         expect(state.user.email).toBe('');
-        expect(state.user.firstName).toBe('');
-        expect(state.user.lastName).toBe('');
+        expect(state.user.fullName).toBe('');
+        expect(state.user.shortName).toBe('');
     });
 
     it('Update user info', () => {
         const state = {
             user: {
-                firstName: '',
-                lastName: '',
+                fullName: '',
+                shortName: '',
                 email: '',
             }
         };
         const user = {
-            firstName: 'firstName',
-            lastName: 'lastName',
+            fullName: 'fullName',
+            shortName: 'shortName',
             email: 'email',
         };
 
@@ -75,8 +75,8 @@ describe('mutations', () => {
         store.commit(USER_MUTATIONS.UPDATE_USER_INFO, user);
 
         expect(state.user.email).toBe('email');
-        expect(state.user.firstName).toBe('firstName');
-        expect(state.user.lastName).toBe('lastName');
+        expect(state.user.fullName).toBe('fullName');
+        expect(state.user.shortName).toBe('shortName');
     });
 });
 
@@ -88,16 +88,16 @@ describe('actions', () => {
         jest.spyOn(api, 'updateAccountRequest').mockReturnValue(
             Promise.resolve(<RequestResponse<User>>{
                 isSuccess: true, data: {
-                    firstName: 'firstName',
-                    lastName: 'lastName',
+                    fullName: 'fullName',
+                    shortName: 'shortName',
                     email: 'email',
                 }
             })
         );
         const commit = jest.fn();
         const user = {
-            firstName: '',
-            lastName: '',
+            fullName: '',
+            shortName: '',
             email: '',
         };
 
@@ -105,8 +105,8 @@ describe('actions', () => {
 
         expect(dispatchResponse.isSuccess).toBeTruthy();
         expect(commit).toHaveBeenCalledWith(USER_MUTATIONS.UPDATE_USER_INFO, {
-            firstName: 'firstName',
-            lastName: 'lastName',
+            fullName: 'fullName',
+            shortName: 'shortName',
             email: 'email',
         });
     });
@@ -119,8 +119,8 @@ describe('actions', () => {
         );
         const commit = jest.fn();
         const user = {
-            firstName: '',
-            lastName: '',
+            fullName: '',
+            shortName: '',
             email: '',
         };
 
@@ -164,8 +164,8 @@ describe('actions', () => {
             Promise.resolve(<RequestResponse<User>>{
                 isSuccess: true,
                 data: {
-                    firstName: '',
-                    lastName: '',
+                    fullName: '',
+                    shortName: '',
                     email: '',
                 }
             })
@@ -195,24 +195,24 @@ describe('getters', () => {
     it('user model', function () {
         const state = {
             user: {
-                firstName: 'firstName',
-                lastName: 'lastName',
+                fullName: 'fullName',
+                shortName: 'shortName',
                 email: 'email',
             }
         };
 
         const retrievedUser = usersModule.getters.user(state);
 
-        expect(retrievedUser.firstName).toBe('firstName');
-        expect(retrievedUser.lastName).toBe('lastName');
+        expect(retrievedUser.fullName).toBe('fullName');
+        expect(retrievedUser.shortName).toBe('shortName');
         expect(retrievedUser.email).toBe('email');
     });
 
     it('user name', function () {
         const state = {
             user: {
-                firstName: 'John',
-                lastName: 'Doe'
+                fullName: 'John',
+                shortName: 'Doe'
             }
         };
 

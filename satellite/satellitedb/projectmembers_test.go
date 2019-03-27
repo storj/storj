@@ -16,11 +16,11 @@ func TestSanitizedOrderColumnName(t *testing.T) {
 		orderNumber int8
 		orderColumn string
 	}{
-		0: {0, "u.first_name"},
-		1: {1, "u.first_name"},
+		0: {0, "u.full_name"},
+		1: {1, "u.full_name"},
 		2: {2, "u.email"},
 		3: {3, "u.created_at"},
-		4: {4, "u.first_name"},
+		4: {4, "u.full_name"},
 	}
 
 	for _, tc := range testCases {
