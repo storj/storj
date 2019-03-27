@@ -5,10 +5,9 @@ package process // import "storj.io/storj/pkg/process"
 
 import (
 	"fmt"
+	"github.com/spf13/cobra"
 	"log"
 	"os"
-
-	"github.com/spf13/cobra"
 
 	// We use a blank import here to get the side effects from the init function in version
 	_ "storj.io/storj/internal/version"
@@ -24,6 +23,7 @@ func init() {
 		cobra.MousetrapHelpText += fmt.Sprintf(
 			"Try running \"%s help\" for more information\n", exe)
 	}
+
 }
 
 // check if file exists, handle error correctly if it doesn't

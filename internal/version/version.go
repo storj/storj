@@ -21,13 +21,13 @@ var (
 	CommitHash string
 	// Version is the semantic version set at compilation
 	// if not a valid semantic version Release should be false
-	Version = "v0.0.1"
+	Version string
 	// Release indicates whether the binary compiled is a release candidate
 	Release bool
 	// Build is a struct containing all relevant build information associated with the binary
 	Build V
-	// Accepted is a list of accepted Version that we got from the control server
-	Accepted []V
+	// Allowed ensures, the client is still on the allowed versions returned by the control server
+	Allowed bool
 )
 
 // V is the versioning information for a binary
@@ -107,8 +107,22 @@ func (v V) Marshal() (data []byte, err error) {
 	return
 }
 
+// CheckVersion ensures that the client is running latest/allowed code
+func CheckVersion() (err error) {
+	accepted, err := queryVersionFromControlServer()
+	if err != nil {
+		return
+	}
+	if containsVersion(accepted, Build.Version) {
+		Allowed = true
+	} else {
+		Allowed = false
+	}
+	return
+}
+
 // QueryVersionFromControlServer handles the HTTP request to gather the allowed and latest version information
-func QueryVersionFromControlServer() (ver []V, err error) {
+func queryVersionFromControlServer() (ver []V, err error) {
 	resp, err := http.Get("https://version.alpha.storj.io")
 	if err != nil {
 		return []V{}, err
@@ -125,7 +139,7 @@ func QueryVersionFromControlServer() (ver []V, err error) {
 
 // Handler returns a json representation of the current version information for the binary
 func DebugHandler(w http.ResponseWriter, r *http.Request) {
-	j, err := json.Marshal(Build)
+	j, err := Build.Marshal()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -151,7 +165,21 @@ func parseToInt64(label string) (int64, error) {
 	return l, nil
 }
 
+// containsVersion compares the allowed version array against the passed version
+func containsVersion(a []V, x SemVer) bool {
+	for _, n := range a {
+		if x == n.Version {
+			return true
+		}
+	}
+	return false
+}
+
 func init() {
+	if Version == "" {
+		return
+	}
+
 	Build = V{
 		Timestamp:  Timestamp,
 		CommitHash: CommitHash,

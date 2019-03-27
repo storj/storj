@@ -12,20 +12,19 @@ import (
 
 // LogAndReportVersion logs the current version information
 // and reports to monkit
-func LogAndReportVersion(ctx context.Context) error {
-	return nil
-}
-
-func checkVersion(ctx context.Context) (err error) {
+func LogAndReportVersion(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	ticker := time.NewTicker(1 * time.Hour)
+	err = version.CheckVersion()
+
+	ticker := time.NewTicker(15 * time.Minute)
 	defer ticker.Stop()
+
 	select {
 	case <-ctx.Done():
-		return ctx.Err()
+		// ToDO: Handle
 	case <-ticker.C:
-		_, err = version.QueryVersionFromControlServer()
-		return
+		err = version.CheckVersion()
 	}
+	return
 }

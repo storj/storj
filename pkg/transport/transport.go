@@ -9,6 +9,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
@@ -64,6 +65,10 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 		return nil, Error.New("no address")
 	}
 
+	if !transport.ValidVersion() {
+		return nil, Error.New("Outdated Client")
+	}
+
 	dialOption, err := transport.tlsOpts.DialOption(node.Id)
 	if err != nil {
 		return nil, err
@@ -101,6 +106,10 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 func (transport *Transport) DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if !transport.ValidVersion() {
+		return nil, Error.New("Outdated Client")
+	}
+
 	options := append([]grpc.DialOption{
 		transport.tlsOpts.DialUnverifiedIDOption(),
 		grpc.WithBlock(),
@@ -116,6 +125,11 @@ func (transport *Transport) DialAddress(ctx context.Context, address string, opt
 		return nil, err
 	}
 	return conn, Error.Wrap(err)
+}
+
+// ValidVersion checks if the node is still allowed to operate on the network
+func (transport *Transport) ValidVersion() bool {
+	return version.Allowed
 }
 
 // Identity is a getter for the transport's identity
