@@ -434,27 +434,40 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Description: "Merge overlay_cache_nodes into nodes table",
 				Version:     10,
 				Action: migrate.SQL{
+					// Add the new columns to the nodes table
 					`ALTER TABLE nodes ADD address TEXT;
-					ALTER TABLE nodes ADD protocol INTEGER;
-					ALTER TABLE nodes ADD type INTEGER;
-					ALTER TABLE nodes ADD free_bandwidth BIGINT;
-					ALTER TABLE nodes ADD free_disk BIGINT;
-					ALTER TABLE nodes ADD latency_90 BIGINT;
-					ALTER TABLE nodes ADD last_seen_at TIMESTAMP WITH TIME ZONE;
-					UPDATE nodes SET address = '';
-					UPDATE nodes SET protocol = 0;
-					UPDATE nodes SET type = 2;
-					UPDATE nodes SET free_bandwidth = 0;
-					UPDATE nodes SET free_disk = 0;
-					UPDATE nodes SET latency_90 = 0;
-					UPDATE nodes SET last_seen_at = 'epoch';
-					ALTER TABLE nodes ALTER COLUMN address SET NOT NULL;
-					ALTER TABLE nodes ALTER COLUMN protocol SET NOT NULL;
-					ALTER TABLE nodes ALTER COLUMN type SET NOT NULL;
-					ALTER TABLE nodes ALTER COLUMN free_bandwidth SET NOT NULL;
-					ALTER TABLE nodes ALTER COLUMN free_disk SET NOT NULL;
-					ALTER TABLE nodes ALTER COLUMN latency_90 SET NOT NULL;
-					ALTER TABLE nodes ALTER COLUMN last_seen_at SET NOT NULL;`,
+					 ALTER TABLE nodes ADD protocol INTEGER;
+					 ALTER TABLE nodes ADD type INTEGER;
+					 ALTER TABLE nodes ADD free_bandwidth BIGINT;
+					 ALTER TABLE nodes ADD free_disk BIGINT;
+					 ALTER TABLE nodes ADD latency_90 BIGINT;
+					 ALTER TABLE nodes ADD last_seen_at TIMESTAMP WITH TIME ZONE;
+					 UPDATE nodes SET address = '';
+					 UPDATE nodes SET protocol = 0;
+					 UPDATE nodes SET type = 2;
+					 UPDATE nodes SET free_bandwidth = 0;
+					 UPDATE nodes SET free_disk = 0;
+					 UPDATE nodes SET latency_90 = 0;
+					 UPDATE nodes SET last_seen_at = 'epoch';
+					 ALTER TABLE nodes ALTER COLUMN address SET NOT NULL;
+					 ALTER TABLE nodes ALTER COLUMN protocol SET NOT NULL;
+					 ALTER TABLE nodes ALTER COLUMN type SET NOT NULL;
+					 ALTER TABLE nodes ALTER COLUMN free_bandwidth SET NOT NULL;
+					 ALTER TABLE nodes ALTER COLUMN free_disk SET NOT NULL;
+					 ALTER TABLE nodes ALTER COLUMN latency_90 SET NOT NULL;
+					 ALTER TABLE nodes ALTER COLUMN last_seen_at SET NOT NULL;`,
+					// Copy data from overlay_cache_nodes to nodes
+					`UPDATE nodes
+					 SET address=overlay.address,
+					     protocol=overlay.protocol,
+						 type=overlay.node_type,
+						 free_bandwidth=overlay.free_bandwidth,
+						 free_disk=overlay.free_disk,
+						 latency_90=overlay.latency_90
+					 FROM (SELECT node_id, node_type, address, protocol, free_bandwidth, free_disk, latency_90
+						   FROM overlay_cache_nodes) AS overlay
+					 WHERE nodes.id=overlay.node_id;`,
+					// Delete the overlay cache_nodes table
 					`DROP TABLE IF EXISTS overlay_cache_nodes CASCADE;`,
 				},
 			},
