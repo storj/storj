@@ -380,54 +380,52 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						storage_node_id bytea NOT NULL,
 						PRIMARY KEY ( serial_number_id, storage_node_id )
 					)`,
-					`CREATE TABLE storagenode_bandwidth_rollups (
+					`CREATE TABLE storagenode_bandwidth_tallies (
 						storagenode_id bytea NOT NULL,
 						interval_start timestamp NOT NULL,
-						interval_seconds integer NOT NULL,
 						action integer NOT NULL,
 						allocated bigint NOT NULL,
 						settled bigint NOT NULL,
 						PRIMARY KEY ( storagenode_id, interval_start, action )
 					)`,
-					`CREATE INDEX storagenode_id_interval_start_interval_seconds_index ON storagenode_bandwidth_rollups (
+					`CREATE INDEX storagenode_id_interval_start_index ON storagenode_bandwidth_tallies (
 						storagenode_id,
-						interval_start,
-						interval_seconds
+						interval_start
 					)`,
-					`CREATE TABLE storagenode_storage_rollups (
+					`CREATE TABLE storagenode_storage_tallies (
 						storagenode_id bytea NOT NULL,
 						interval_start timestamp NOT NULL,
-						interval_seconds integer NOT NULL,
 						total bigint NOT NULL,
 						PRIMARY KEY ( storagenode_id, interval_start )
 					)`,
-					`CREATE TABLE bucket_bandwidth_rollups (
+					`CREATE TABLE bucket_bandwidth_tallies (
 						bucket_id bytea NOT NULL,
 						interval_start timestamp NOT NULL,
-						interval_seconds integer NOT NULL,
 						action integer NOT NULL,
 						inline bigint NOT NULL,
 						allocated bigint NOT NULL,
 						settled bigint NOT NULL,
 						PRIMARY KEY ( bucket_id, interval_start, action )
 					)`,
-					`CREATE INDEX bucket_id_interval_start_interval_seconds_index ON bucket_bandwidth_rollups (
+					`CREATE INDEX bucket_id_interval_start_index ON bucket_bandwidth_tallies (
 						bucket_id,
-						interval_start,
-						interval_seconds
+						interval_start
 					)`,
-					`CREATE TABLE bucket_storage_rollups (
+					`CREATE TABLE bucket_storage_tallies (
 						bucket_id bytea NOT NULL,
 						interval_start timestamp NOT NULL,
-						interval_seconds integer NOT NULL,
 						inline bigint NOT NULL,
 						remote bigint NOT NULL,
+						remote_segments integer NOT NULL,
+						inline_segments integer NOT NULL,
+						objects integer NOT NULL,
+						metadata_size bigint NOT NULL,
 						PRIMARY KEY ( bucket_id, interval_start )
 					)`,
-					`ALTER TABLE bucket_usages DROP CONSTRAINT bucket_usages_rollup_end_time_bucket_id_key`,
-					`CREATE UNIQUE INDEX bucket_id_rollup_end_time_index ON bucket_usages ( 
+					`ALTER TABLE bucket_usages DROP CONSTRAINT bucket_usages_tally_end_time_bucket_id_key`,
+					`CREATE UNIQUE INDEX bucket_id_tally_end_time_index ON bucket_usages ( 
 						bucket_id,
-						rollup_end_time )`,
+						tally_end_time )`,
 				},
 			},
 		},
