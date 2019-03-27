@@ -336,15 +336,15 @@ read all (
 model bucket_usage (
     key    id
     index (
-    		name bucket_id_tally
-    		fields bucket_id tally_end_time
+    		name bucket_id_rollup
+    		fields bucket_id rollup_end_time
     		unique
     	)
 
     field  id                 blob
     field  bucket_id          blob      //--TODO: add foreign key constraint--//
 
-    field  tally_end_time    timestamp
+    field  rollup_end_time    timestamp
 
     field  remote_stored_data uint64
     field  inline_stored_data uint64
@@ -368,17 +368,17 @@ read one (
 read limitoffset (
     select bucket_usage
     where bucket_usage.bucket_id = ?
-    where bucket_usage.tally_end_time > ?
-    where bucket_usage.tally_end_time <= ?
-    orderby asc bucket_usage.tally_end_time
+    where bucket_usage.rollup_end_time > ?
+    where bucket_usage.rollup_end_time <= ?
+    orderby asc bucket_usage.rollup_end_time
 )
 
 read limitoffset (
     select bucket_usage
     where bucket_usage.bucket_id = ?
-    where bucket_usage.tally_end_time > ?
-    where bucket_usage.tally_end_time <= ?
-    orderby desc bucket_usage.tally_end_time
+    where bucket_usage.rollup_end_time > ?
+    where bucket_usage.rollup_end_time <= ?
+    orderby desc bucket_usage.rollup_end_time
 )
 
 //--- tracking serial numbers ---//

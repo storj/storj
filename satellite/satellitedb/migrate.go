@@ -426,10 +426,10 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						metadata_size bigint NOT NULL,
 						PRIMARY KEY ( bucket_id, interval_start )
 					)`,
-					`ALTER TABLE bucket_usages DROP CONSTRAINT bucket_usages_tally_end_time_bucket_id_key`,
-					`CREATE UNIQUE INDEX bucket_id_tally_end_time_index ON bucket_usages ( 
+					`ALTER TABLE bucket_usages DROP CONSTRAINT bucket_usages_rollup_end_time_bucket_id_key`,
+					`CREATE UNIQUE INDEX bucket_id_rollup_end_time_index ON bucket_usages ( 
 						bucket_id,
-						tally_end_time )`,
+						rollup_end_time )`,
 				},
 			},
 			{

@@ -32,9 +32,9 @@ func TestBucketUsage(t *testing.T) {
 			t.Fail()
 		}
 
-		compareTallies := func(t *testing.T, expected *accounting.BucketTally, actual *accounting.BucketTally) {
+		compareRollups := func(t *testing.T, expected *accounting.BucketRollup, actual *accounting.BucketRollup) {
 			assert.Equal(t, expected.BucketID, actual.BucketID)
-			assert.Equal(t, expected.TallyEndTime.Unix(), actual.TallyEndTime.Unix())
+			assert.Equal(t, expected.RollupEndTime.Unix(), actual.RollupEndTime.Unix())
 			assert.Equal(t, expected.RemoteStoredData, actual.RemoteStoredData)
 			assert.Equal(t, expected.InlineStoredData, actual.InlineStoredData)
 			assert.Equal(t, expected.RemoteSegments, actual.RemoteSegments)
@@ -46,12 +46,12 @@ func TestBucketUsage(t *testing.T) {
 			assert.Equal(t, expected.AuditEgress, actual.AuditEgress)
 		}
 
-		var tally *accounting.BucketTally
-		t.Run("add tally", func(t *testing.T) {
+		var rollup *accounting.BucketRollup
+		t.Run("add rollup", func(t *testing.T) {
 			var err error
-			data := accounting.BucketTally{
+			data := accounting.BucketRollup{
 				BucketID:         *bucketID,
-				TallyEndTime:    now,
+				RollupEndTime:    now,
 				RemoteStoredData: 5,
 				InlineStoredData: 6,
 				RemoteSegments:   7,
@@ -63,29 +63,29 @@ func TestBucketUsage(t *testing.T) {
 				AuditEgress:      13,
 			}
 
-			tally, err = usageDB.Create(ctx, data)
-			assert.NotNil(t, tally)
+			rollup, err = usageDB.Create(ctx, data)
+			assert.NotNil(t, rollup)
 			assert.NoError(t, err)
-			compareTallies(t, &data, tally)
+			compareRollups(t, &data, rollup)
 		})
 
-		t.Run("get tally", func(t *testing.T) {
-			result, err := usageDB.Get(ctx, tally.ID)
+		t.Run("get rollup", func(t *testing.T) {
+			result, err := usageDB.Get(ctx, rollup.ID)
 			assert.NoError(t, err)
-			compareTallies(t, tally, result)
+			compareRollups(t, rollup, result)
 		})
 
-		t.Run("delete tally", func(t *testing.T) {
-			err := usageDB.Delete(ctx, tally.ID)
+		t.Run("delete rollup", func(t *testing.T) {
+			err := usageDB.Delete(ctx, rollup.ID)
 			assert.NoError(t, err)
 		})
 
-		var addedTallies []accounting.BucketTally
-		t.Run("add tallies", func(t *testing.T) {
+		var addedRollups []accounting.BucketRollup
+		t.Run("add rollups", func(t *testing.T) {
 			for i := 0; i < count; i++ {
-				data := accounting.BucketTally{
+				data := accounting.BucketRollup{
 					BucketID:         *bucketID,
-					TallyEndTime:    now.Add(time.Hour * time.Duration(i+1)),
+					RollupEndTime:    now.Add(time.Hour * time.Duration(i+1)),
 					RemoteStoredData: uint64(i),
 					InlineStoredData: uint64(i + 1),
 					RemoteSegments:   7,
@@ -97,31 +97,31 @@ func TestBucketUsage(t *testing.T) {
 					AuditEgress:      13,
 				}
 
-				tally, err := usageDB.Create(ctx, data)
-				assert.NotNil(t, tally)
+				rollup, err := usageDB.Create(ctx, data)
+				assert.NotNil(t, rollup)
 				assert.NoError(t, err)
 
-				addedTallies = append(addedTallies, *tally)
+				addedRollups = append(addedRollups, *rollup)
 			}
 		})
 
-		t.Run("retrieve tally", func(t *testing.T) {
+		t.Run("retrieve rollup", func(t *testing.T) {
 			t.Run("first 30 backward", func(t *testing.T) {
-				cursor := &accounting.BucketTallyCursor{
+				cursor := &accounting.BucketRollupCursor{
 					BucketID: *bucketID,
 					Before:   now.Add(time.Hour * 30),
 					Order:    accounting.Desc,
 					PageSize: 10,
 				}
 
-				var pagedTallies []accounting.BucketTally
+				var pagedRollups []accounting.BucketRollup
 				for {
-					tallies, err := usageDB.GetPaged(ctx, cursor)
+					rollups, err := usageDB.GetPaged(ctx, cursor)
 					assert.NoError(t, err)
-					assert.NotNil(t, tallies)
-					assert.True(t, len(tallies) <= 10)
+					assert.NotNil(t, rollups)
+					assert.True(t, len(rollups) <= 10)
 
-					pagedTallies = append(pagedTallies, tallies...)
+					pagedRollups = append(pagedRollups, rollups...)
 
 					if cursor.Next == nil {
 						break
@@ -129,15 +129,15 @@ func TestBucketUsage(t *testing.T) {
 					cursor = cursor.Next
 				}
 
-				testSlice := addedTallies[:30]
-				for i := range pagedTallies {
-					assert.Equal(t, testSlice[i].ID, pagedTallies[29-i].ID)
-					compareTallies(t, &testSlice[i], &pagedTallies[29-i])
+				testSlice := addedRollups[:30]
+				for i := range pagedRollups {
+					assert.Equal(t, testSlice[i].ID, pagedRollups[29-i].ID)
+					compareRollups(t, &testSlice[i], &pagedRollups[29-i])
 				}
 			})
 
 			t.Run("last 30 forward", func(t *testing.T) {
-				cursor := &accounting.BucketTallyCursor{
+				cursor := &accounting.BucketRollupCursor{
 					BucketID: *bucketID,
 					After:    now.Add(time.Hour * 20),
 					Before:   now.Add(time.Hour * time.Duration(count+1)),
@@ -145,14 +145,14 @@ func TestBucketUsage(t *testing.T) {
 					PageSize: 10,
 				}
 
-				var pagedTallies []accounting.BucketTally
+				var pagedRollups []accounting.BucketRollup
 				for {
-					tallies, err := usageDB.GetPaged(ctx, cursor)
+					rollups, err := usageDB.GetPaged(ctx, cursor)
 					assert.NoError(t, err)
-					assert.NotNil(t, tallies)
-					assert.True(t, len(tallies) <= 10)
+					assert.NotNil(t, rollups)
+					assert.True(t, len(rollups) <= 10)
 
-					pagedTallies = append(pagedTallies, tallies...)
+					pagedRollups = append(pagedRollups, rollups...)
 
 					if cursor.Next == nil {
 						break
@@ -160,10 +160,10 @@ func TestBucketUsage(t *testing.T) {
 					cursor = cursor.Next
 				}
 
-				testSlice := addedTallies[20:]
-				for i := range pagedTallies {
-					assert.Equal(t, testSlice[i].ID, pagedTallies[i].ID)
-					compareTallies(t, &testSlice[i], &pagedTallies[i])
+				testSlice := addedRollups[20:]
+				for i := range pagedRollups {
+					assert.Equal(t, testSlice[i].ID, pagedRollups[i].ID)
+					compareRollups(t, &testSlice[i], &pagedRollups[i])
 				}
 			})
 		})

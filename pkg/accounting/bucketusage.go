@@ -10,11 +10,11 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 )
 
-// BucketUsage is bucket usage tally repository
+// BucketUsage is bucket usage rollup repository
 type BucketUsage interface {
-	Get(ctx context.Context, id uuid.UUID) (*BucketTally, error)
-	GetPaged(ctx context.Context, cursor *BucketTallyCursor) ([]BucketTally, error)
-	Create(ctx context.Context, tally BucketTally) (*BucketTally, error)
+	Get(ctx context.Context, id uuid.UUID) (*BucketRollup, error)
+	GetPaged(ctx context.Context, cursor *BucketRollupCursor) ([]BucketRollup, error)
+	Create(ctx context.Context, rollup BucketRollup) (*BucketRollup, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
@@ -28,8 +28,8 @@ const (
 	Desc Order = "desc"
 )
 
-// BucketTallyCursor encapsulates cursor based page
-type BucketTallyCursor struct {
+// BucketRollupCursor encapsulates cursor based page
+type BucketRollupCursor struct {
 	BucketID uuid.UUID
 	Before   time.Time
 	After    time.Time
@@ -37,15 +37,15 @@ type BucketTallyCursor struct {
 	Order Order
 
 	PageSize int
-	Next     *BucketTallyCursor
+	Next     *BucketRollupCursor
 }
 
-// BucketTally holds usage tally info
-type BucketTally struct {
+// BucketRollup holds usage rollup info
+type BucketRollup struct {
 	ID       uuid.UUID
 	BucketID uuid.UUID
 
-	TallyEndTime time.Time
+	RollupEndTime time.Time
 
 	RemoteStoredData uint64
 	InlineStoredData uint64

@@ -322,7 +322,7 @@ CREATE TABLE bucket_storage_tallies (
 CREATE TABLE bucket_usages (
 	id bytea NOT NULL,
 	bucket_id bytea NOT NULL,
-	tally_end_time timestamp with time zone NOT NULL,
+	rollup_end_time timestamp with time zone NOT NULL,
 	remote_stored_data bigint NOT NULL,
 	inline_stored_data bigint NOT NULL,
 	remote_segments integer NOT NULL,
@@ -465,7 +465,7 @@ CREATE TABLE used_serials (
 	PRIMARY KEY ( serial_number_id, storage_node_id )
 );
 CREATE INDEX bucket_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_id, interval_start, interval_seconds );
-CREATE UNIQUE INDEX bucket_id_tally ON bucket_usages ( bucket_id, tally_end_time );
+CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
 CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );`
@@ -582,7 +582,7 @@ CREATE TABLE bucket_storage_tallies (
 CREATE TABLE bucket_usages (
 	id BLOB NOT NULL,
 	bucket_id BLOB NOT NULL,
-	tally_end_time TIMESTAMP NOT NULL,
+	rollup_end_time TIMESTAMP NOT NULL,
 	remote_stored_data INTEGER NOT NULL,
 	inline_stored_data INTEGER NOT NULL,
 	remote_segments INTEGER NOT NULL,
@@ -725,7 +725,7 @@ CREATE TABLE used_serials (
 	PRIMARY KEY ( serial_number_id, storage_node_id )
 );
 CREATE INDEX bucket_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_id, interval_start, interval_seconds );
-CREATE UNIQUE INDEX bucket_id_tally ON bucket_usages ( bucket_id, tally_end_time );
+CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
 CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );`
@@ -1477,7 +1477,7 @@ func (BucketStorageTally_MetadataSize_Field) _Column() string { return "metadata
 type BucketUsage struct {
 	Id               []byte
 	BucketId         []byte
-	TallyEndTime     time.Time
+	RollupEndTime    time.Time
 	RemoteStoredData uint64
 	InlineStoredData uint64
 	RemoteSegments   uint
@@ -1532,24 +1532,24 @@ func (f BucketUsage_BucketId_Field) value() interface{} {
 
 func (BucketUsage_BucketId_Field) _Column() string { return "bucket_id" }
 
-type BucketUsage_TallyEndTime_Field struct {
+type BucketUsage_RollupEndTime_Field struct {
 	_set   bool
 	_null  bool
 	_value time.Time
 }
 
-func BucketUsage_TallyEndTime(v time.Time) BucketUsage_TallyEndTime_Field {
-	return BucketUsage_TallyEndTime_Field{_set: true, _value: v}
+func BucketUsage_RollupEndTime(v time.Time) BucketUsage_RollupEndTime_Field {
+	return BucketUsage_RollupEndTime_Field{_set: true, _value: v}
 }
 
-func (f BucketUsage_TallyEndTime_Field) value() interface{} {
+func (f BucketUsage_RollupEndTime_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (BucketUsage_TallyEndTime_Field) _Column() string { return "tally_end_time" }
+func (BucketUsage_RollupEndTime_Field) _Column() string { return "rollup_end_time" }
 
 type BucketUsage_RemoteStoredData_Field struct {
 	_set   bool
@@ -4079,7 +4079,7 @@ func (obj *postgresImpl) Create_ApiKey(ctx context.Context,
 func (obj *postgresImpl) Create_BucketUsage(ctx context.Context,
 	bucket_usage_id BucketUsage_Id_Field,
 	bucket_usage_bucket_id BucketUsage_BucketId_Field,
-	bucket_usage_tally_end_time BucketUsage_TallyEndTime_Field,
+	bucket_usage_rollup_end_time BucketUsage_RollupEndTime_Field,
 	bucket_usage_remote_stored_data BucketUsage_RemoteStoredData_Field,
 	bucket_usage_inline_stored_data BucketUsage_InlineStoredData_Field,
 	bucket_usage_remote_segments BucketUsage_RemoteSegments_Field,
@@ -4092,7 +4092,7 @@ func (obj *postgresImpl) Create_BucketUsage(ctx context.Context,
 	bucket_usage *BucketUsage, err error) {
 	__id_val := bucket_usage_id.value()
 	__bucket_id_val := bucket_usage_bucket_id.value()
-	__tally_end_time_val := bucket_usage_tally_end_time.value()
+	__rollup_end_time_val := bucket_usage_rollup_end_time.value()
 	__remote_stored_data_val := bucket_usage_remote_stored_data.value()
 	__inline_stored_data_val := bucket_usage_inline_stored_data.value()
 	__remote_segments_val := bucket_usage_remote_segments.value()
@@ -4103,13 +4103,13 @@ func (obj *postgresImpl) Create_BucketUsage(ctx context.Context,
 	__get_egress_val := bucket_usage_get_egress.value()
 	__audit_egress_val := bucket_usage_audit_egress.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_usages ( id, bucket_id, tally_end_time, remote_stored_data, inline_stored_data, remote_segments, inline_segments, objects, metadata_size, repair_egress, get_egress, audit_egress ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING bucket_usages.id, bucket_usages.bucket_id, bucket_usages.tally_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_usages ( id, bucket_id, rollup_end_time, remote_stored_data, inline_stored_data, remote_segments, inline_segments, objects, metadata_size, repair_egress, get_egress, audit_egress ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __bucket_id_val, __tally_end_time_val, __remote_stored_data_val, __inline_stored_data_val, __remote_segments_val, __inline_segments_val, __objects_val, __metadata_size_val, __repair_egress_val, __get_egress_val, __audit_egress_val)
+	obj.logStmt(__stmt, __id_val, __bucket_id_val, __rollup_end_time_val, __remote_stored_data_val, __inline_stored_data_val, __remote_segments_val, __inline_segments_val, __objects_val, __metadata_size_val, __repair_egress_val, __get_egress_val, __audit_egress_val)
 
 	bucket_usage = &BucketUsage{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __bucket_id_val, __tally_end_time_val, __remote_stored_data_val, __inline_stored_data_val, __remote_segments_val, __inline_segments_val, __objects_val, __metadata_size_val, __repair_egress_val, __get_egress_val, __audit_egress_val).Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.TallyEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
+	err = obj.driver.QueryRow(__stmt, __id_val, __bucket_id_val, __rollup_end_time_val, __remote_stored_data_val, __inline_stored_data_val, __remote_segments_val, __inline_segments_val, __objects_val, __metadata_size_val, __repair_egress_val, __get_egress_val, __audit_egress_val).Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -4932,7 +4932,7 @@ func (obj *postgresImpl) Get_BucketUsage_By_Id(ctx context.Context,
 	bucket_usage_id BucketUsage_Id_Field) (
 	bucket_usage *BucketUsage, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.tally_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, bucket_usage_id.value())
@@ -4941,7 +4941,7 @@ func (obj *postgresImpl) Get_BucketUsage_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	bucket_usage = &BucketUsage{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.TallyEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -4949,17 +4949,17 @@ func (obj *postgresImpl) Get_BucketUsage_By_Id(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Limited_BucketUsage_By_BucketId_And_TallyEndTime_Greater_And_TallyEndTime_LessOrEqual_OrderBy_Asc_TallyEndTime(ctx context.Context,
+func (obj *postgresImpl) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Asc_RollupEndTime(ctx context.Context,
 	bucket_usage_bucket_id BucketUsage_BucketId_Field,
-	bucket_usage_tally_end_time_greater BucketUsage_TallyEndTime_Field,
-	bucket_usage_tally_end_time_less_or_equal BucketUsage_TallyEndTime_Field,
+	bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
+	bucket_usage_rollup_end_time_less_or_equal BucketUsage_RollupEndTime_Field,
 	limit int, offset int64) (
 	rows []*BucketUsage, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.tally_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.bucket_id = ? AND bucket_usages.tally_end_time > ? AND bucket_usages.tally_end_time <= ? ORDER BY bucket_usages.tally_end_time LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.bucket_id = ? AND bucket_usages.rollup_end_time > ? AND bucket_usages.rollup_end_time <= ? ORDER BY bucket_usages.rollup_end_time LIMIT ? OFFSET ?")
 
 	var __values []interface{}
-	__values = append(__values, bucket_usage_bucket_id.value(), bucket_usage_tally_end_time_greater.value(), bucket_usage_tally_end_time_less_or_equal.value())
+	__values = append(__values, bucket_usage_bucket_id.value(), bucket_usage_rollup_end_time_greater.value(), bucket_usage_rollup_end_time_less_or_equal.value())
 
 	__values = append(__values, limit, offset)
 
@@ -4974,7 +4974,7 @@ func (obj *postgresImpl) Limited_BucketUsage_By_BucketId_And_TallyEndTime_Greate
 
 	for __rows.Next() {
 		bucket_usage := &BucketUsage{}
-		err = __rows.Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.TallyEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
+		err = __rows.Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -4987,17 +4987,17 @@ func (obj *postgresImpl) Limited_BucketUsage_By_BucketId_And_TallyEndTime_Greate
 
 }
 
-func (obj *postgresImpl) Limited_BucketUsage_By_BucketId_And_TallyEndTime_Greater_And_TallyEndTime_LessOrEqual_OrderBy_Desc_TallyEndTime(ctx context.Context,
+func (obj *postgresImpl) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Desc_RollupEndTime(ctx context.Context,
 	bucket_usage_bucket_id BucketUsage_BucketId_Field,
-	bucket_usage_tally_end_time_greater BucketUsage_TallyEndTime_Field,
-	bucket_usage_tally_end_time_less_or_equal BucketUsage_TallyEndTime_Field,
+	bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
+	bucket_usage_rollup_end_time_less_or_equal BucketUsage_RollupEndTime_Field,
 	limit int, offset int64) (
 	rows []*BucketUsage, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.tally_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.bucket_id = ? AND bucket_usages.tally_end_time > ? AND bucket_usages.tally_end_time <= ? ORDER BY bucket_usages.tally_end_time DESC LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.bucket_id = ? AND bucket_usages.rollup_end_time > ? AND bucket_usages.rollup_end_time <= ? ORDER BY bucket_usages.rollup_end_time DESC LIMIT ? OFFSET ?")
 
 	var __values []interface{}
-	__values = append(__values, bucket_usage_bucket_id.value(), bucket_usage_tally_end_time_greater.value(), bucket_usage_tally_end_time_less_or_equal.value())
+	__values = append(__values, bucket_usage_bucket_id.value(), bucket_usage_rollup_end_time_greater.value(), bucket_usage_rollup_end_time_less_or_equal.value())
 
 	__values = append(__values, limit, offset)
 
@@ -5012,7 +5012,7 @@ func (obj *postgresImpl) Limited_BucketUsage_By_BucketId_And_TallyEndTime_Greate
 
 	for __rows.Next() {
 		bucket_usage := &BucketUsage{}
-		err = __rows.Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.TallyEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
+		err = __rows.Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -6550,7 +6550,7 @@ func (obj *sqlite3Impl) Create_ApiKey(ctx context.Context,
 func (obj *sqlite3Impl) Create_BucketUsage(ctx context.Context,
 	bucket_usage_id BucketUsage_Id_Field,
 	bucket_usage_bucket_id BucketUsage_BucketId_Field,
-	bucket_usage_tally_end_time BucketUsage_TallyEndTime_Field,
+	bucket_usage_rollup_end_time BucketUsage_RollupEndTime_Field,
 	bucket_usage_remote_stored_data BucketUsage_RemoteStoredData_Field,
 	bucket_usage_inline_stored_data BucketUsage_InlineStoredData_Field,
 	bucket_usage_remote_segments BucketUsage_RemoteSegments_Field,
@@ -6563,7 +6563,7 @@ func (obj *sqlite3Impl) Create_BucketUsage(ctx context.Context,
 	bucket_usage *BucketUsage, err error) {
 	__id_val := bucket_usage_id.value()
 	__bucket_id_val := bucket_usage_bucket_id.value()
-	__tally_end_time_val := bucket_usage_tally_end_time.value()
+	__rollup_end_time_val := bucket_usage_rollup_end_time.value()
 	__remote_stored_data_val := bucket_usage_remote_stored_data.value()
 	__inline_stored_data_val := bucket_usage_inline_stored_data.value()
 	__remote_segments_val := bucket_usage_remote_segments.value()
@@ -6574,12 +6574,12 @@ func (obj *sqlite3Impl) Create_BucketUsage(ctx context.Context,
 	__get_egress_val := bucket_usage_get_egress.value()
 	__audit_egress_val := bucket_usage_audit_egress.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_usages ( id, bucket_id, tally_end_time, remote_stored_data, inline_stored_data, remote_segments, inline_segments, objects, metadata_size, repair_egress, get_egress, audit_egress ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_usages ( id, bucket_id, rollup_end_time, remote_stored_data, inline_stored_data, remote_segments, inline_segments, objects, metadata_size, repair_egress, get_egress, audit_egress ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __bucket_id_val, __tally_end_time_val, __remote_stored_data_val, __inline_stored_data_val, __remote_segments_val, __inline_segments_val, __objects_val, __metadata_size_val, __repair_egress_val, __get_egress_val, __audit_egress_val)
+	obj.logStmt(__stmt, __id_val, __bucket_id_val, __rollup_end_time_val, __remote_stored_data_val, __inline_stored_data_val, __remote_segments_val, __inline_segments_val, __objects_val, __metadata_size_val, __repair_egress_val, __get_egress_val, __audit_egress_val)
 
-	__res, err := obj.driver.Exec(__stmt, __id_val, __bucket_id_val, __tally_end_time_val, __remote_stored_data_val, __inline_stored_data_val, __remote_segments_val, __inline_segments_val, __objects_val, __metadata_size_val, __repair_egress_val, __get_egress_val, __audit_egress_val)
+	__res, err := obj.driver.Exec(__stmt, __id_val, __bucket_id_val, __rollup_end_time_val, __remote_stored_data_val, __inline_stored_data_val, __remote_segments_val, __inline_segments_val, __objects_val, __metadata_size_val, __repair_egress_val, __get_egress_val, __audit_egress_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7418,7 +7418,7 @@ func (obj *sqlite3Impl) Get_BucketUsage_By_Id(ctx context.Context,
 	bucket_usage_id BucketUsage_Id_Field) (
 	bucket_usage *BucketUsage, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.tally_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, bucket_usage_id.value())
@@ -7427,7 +7427,7 @@ func (obj *sqlite3Impl) Get_BucketUsage_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	bucket_usage = &BucketUsage{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.TallyEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7435,17 +7435,17 @@ func (obj *sqlite3Impl) Get_BucketUsage_By_Id(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Limited_BucketUsage_By_BucketId_And_TallyEndTime_Greater_And_TallyEndTime_LessOrEqual_OrderBy_Asc_TallyEndTime(ctx context.Context,
+func (obj *sqlite3Impl) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Asc_RollupEndTime(ctx context.Context,
 	bucket_usage_bucket_id BucketUsage_BucketId_Field,
-	bucket_usage_tally_end_time_greater BucketUsage_TallyEndTime_Field,
-	bucket_usage_tally_end_time_less_or_equal BucketUsage_TallyEndTime_Field,
+	bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
+	bucket_usage_rollup_end_time_less_or_equal BucketUsage_RollupEndTime_Field,
 	limit int, offset int64) (
 	rows []*BucketUsage, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.tally_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.bucket_id = ? AND bucket_usages.tally_end_time > ? AND bucket_usages.tally_end_time <= ? ORDER BY bucket_usages.tally_end_time LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.bucket_id = ? AND bucket_usages.rollup_end_time > ? AND bucket_usages.rollup_end_time <= ? ORDER BY bucket_usages.rollup_end_time LIMIT ? OFFSET ?")
 
 	var __values []interface{}
-	__values = append(__values, bucket_usage_bucket_id.value(), bucket_usage_tally_end_time_greater.value(), bucket_usage_tally_end_time_less_or_equal.value())
+	__values = append(__values, bucket_usage_bucket_id.value(), bucket_usage_rollup_end_time_greater.value(), bucket_usage_rollup_end_time_less_or_equal.value())
 
 	__values = append(__values, limit, offset)
 
@@ -7460,7 +7460,7 @@ func (obj *sqlite3Impl) Limited_BucketUsage_By_BucketId_And_TallyEndTime_Greater
 
 	for __rows.Next() {
 		bucket_usage := &BucketUsage{}
-		err = __rows.Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.TallyEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
+		err = __rows.Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -7473,17 +7473,17 @@ func (obj *sqlite3Impl) Limited_BucketUsage_By_BucketId_And_TallyEndTime_Greater
 
 }
 
-func (obj *sqlite3Impl) Limited_BucketUsage_By_BucketId_And_TallyEndTime_Greater_And_TallyEndTime_LessOrEqual_OrderBy_Desc_TallyEndTime(ctx context.Context,
+func (obj *sqlite3Impl) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Desc_RollupEndTime(ctx context.Context,
 	bucket_usage_bucket_id BucketUsage_BucketId_Field,
-	bucket_usage_tally_end_time_greater BucketUsage_TallyEndTime_Field,
-	bucket_usage_tally_end_time_less_or_equal BucketUsage_TallyEndTime_Field,
+	bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
+	bucket_usage_rollup_end_time_less_or_equal BucketUsage_RollupEndTime_Field,
 	limit int, offset int64) (
 	rows []*BucketUsage, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.tally_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.bucket_id = ? AND bucket_usages.tally_end_time > ? AND bucket_usages.tally_end_time <= ? ORDER BY bucket_usages.tally_end_time DESC LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.bucket_id = ? AND bucket_usages.rollup_end_time > ? AND bucket_usages.rollup_end_time <= ? ORDER BY bucket_usages.rollup_end_time DESC LIMIT ? OFFSET ?")
 
 	var __values []interface{}
-	__values = append(__values, bucket_usage_bucket_id.value(), bucket_usage_tally_end_time_greater.value(), bucket_usage_tally_end_time_less_or_equal.value())
+	__values = append(__values, bucket_usage_bucket_id.value(), bucket_usage_rollup_end_time_greater.value(), bucket_usage_rollup_end_time_less_or_equal.value())
 
 	__values = append(__values, limit, offset)
 
@@ -7498,7 +7498,7 @@ func (obj *sqlite3Impl) Limited_BucketUsage_By_BucketId_And_TallyEndTime_Greater
 
 	for __rows.Next() {
 		bucket_usage := &BucketUsage{}
-		err = __rows.Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.TallyEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
+		err = __rows.Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -8742,13 +8742,13 @@ func (obj *sqlite3Impl) getLastBucketUsage(ctx context.Context,
 	pk int64) (
 	bucket_usage *BucketUsage, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.tally_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	bucket_usage = &BucketUsage{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.TallyEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9242,7 +9242,7 @@ func (rx *Rx) Create_ApiKey(ctx context.Context,
 func (rx *Rx) Create_BucketUsage(ctx context.Context,
 	bucket_usage_id BucketUsage_Id_Field,
 	bucket_usage_bucket_id BucketUsage_BucketId_Field,
-	bucket_usage_tally_end_time BucketUsage_TallyEndTime_Field,
+	bucket_usage_rollup_end_time BucketUsage_RollupEndTime_Field,
 	bucket_usage_remote_stored_data BucketUsage_RemoteStoredData_Field,
 	bucket_usage_inline_stored_data BucketUsage_InlineStoredData_Field,
 	bucket_usage_remote_segments BucketUsage_RemoteSegments_Field,
@@ -9257,7 +9257,7 @@ func (rx *Rx) Create_BucketUsage(ctx context.Context,
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_BucketUsage(ctx, bucket_usage_id, bucket_usage_bucket_id, bucket_usage_tally_end_time, bucket_usage_remote_stored_data, bucket_usage_inline_stored_data, bucket_usage_remote_segments, bucket_usage_inline_segments, bucket_usage_objects, bucket_usage_metadata_size, bucket_usage_repair_egress, bucket_usage_get_egress, bucket_usage_audit_egress)
+	return tx.Create_BucketUsage(ctx, bucket_usage_id, bucket_usage_bucket_id, bucket_usage_rollup_end_time, bucket_usage_remote_stored_data, bucket_usage_inline_stored_data, bucket_usage_remote_segments, bucket_usage_inline_segments, bucket_usage_objects, bucket_usage_metadata_size, bucket_usage_repair_egress, bucket_usage_get_egress, bucket_usage_audit_egress)
 
 }
 
@@ -9732,30 +9732,30 @@ func (rx *Rx) Get_User_By_Id(ctx context.Context,
 	return tx.Get_User_By_Id(ctx, user_id)
 }
 
-func (rx *Rx) Limited_BucketUsage_By_BucketId_And_TallyEndTime_Greater_And_TallyEndTime_LessOrEqual_OrderBy_Asc_TallyEndTime(ctx context.Context,
+func (rx *Rx) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Asc_RollupEndTime(ctx context.Context,
 	bucket_usage_bucket_id BucketUsage_BucketId_Field,
-	bucket_usage_tally_end_time_greater BucketUsage_TallyEndTime_Field,
-	bucket_usage_tally_end_time_less_or_equal BucketUsage_TallyEndTime_Field,
+	bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
+	bucket_usage_rollup_end_time_less_or_equal BucketUsage_RollupEndTime_Field,
 	limit int, offset int64) (
 	rows []*BucketUsage, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Limited_BucketUsage_By_BucketId_And_TallyEndTime_Greater_And_TallyEndTime_LessOrEqual_OrderBy_Asc_TallyEndTime(ctx, bucket_usage_bucket_id, bucket_usage_tally_end_time_greater, bucket_usage_tally_end_time_less_or_equal, limit, offset)
+	return tx.Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Asc_RollupEndTime(ctx, bucket_usage_bucket_id, bucket_usage_rollup_end_time_greater, bucket_usage_rollup_end_time_less_or_equal, limit, offset)
 }
 
-func (rx *Rx) Limited_BucketUsage_By_BucketId_And_TallyEndTime_Greater_And_TallyEndTime_LessOrEqual_OrderBy_Desc_TallyEndTime(ctx context.Context,
+func (rx *Rx) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Desc_RollupEndTime(ctx context.Context,
 	bucket_usage_bucket_id BucketUsage_BucketId_Field,
-	bucket_usage_tally_end_time_greater BucketUsage_TallyEndTime_Field,
-	bucket_usage_tally_end_time_less_or_equal BucketUsage_TallyEndTime_Field,
+	bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
+	bucket_usage_rollup_end_time_less_or_equal BucketUsage_RollupEndTime_Field,
 	limit int, offset int64) (
 	rows []*BucketUsage, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Limited_BucketUsage_By_BucketId_And_TallyEndTime_Greater_And_TallyEndTime_LessOrEqual_OrderBy_Desc_TallyEndTime(ctx, bucket_usage_bucket_id, bucket_usage_tally_end_time_greater, bucket_usage_tally_end_time_less_or_equal, limit, offset)
+	return tx.Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Desc_RollupEndTime(ctx, bucket_usage_bucket_id, bucket_usage_rollup_end_time_greater, bucket_usage_rollup_end_time_less_or_equal, limit, offset)
 }
 
 func (rx *Rx) Limited_Injuredsegment(ctx context.Context,
@@ -9963,7 +9963,7 @@ type Methods interface {
 	Create_BucketUsage(ctx context.Context,
 		bucket_usage_id BucketUsage_Id_Field,
 		bucket_usage_bucket_id BucketUsage_BucketId_Field,
-		bucket_usage_tally_end_time BucketUsage_TallyEndTime_Field,
+		bucket_usage_rollup_end_time BucketUsage_RollupEndTime_Field,
 		bucket_usage_remote_stored_data BucketUsage_RemoteStoredData_Field,
 		bucket_usage_inline_stored_data BucketUsage_InlineStoredData_Field,
 		bucket_usage_remote_segments BucketUsage_RemoteSegments_Field,
@@ -10182,17 +10182,17 @@ type Methods interface {
 		user_id User_Id_Field) (
 		user *User, err error)
 
-	Limited_BucketUsage_By_BucketId_And_TallyEndTime_Greater_And_TallyEndTime_LessOrEqual_OrderBy_Asc_TallyEndTime(ctx context.Context,
+	Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Asc_RollupEndTime(ctx context.Context,
 		bucket_usage_bucket_id BucketUsage_BucketId_Field,
-		bucket_usage_tally_end_time_greater BucketUsage_TallyEndTime_Field,
-		bucket_usage_tally_end_time_less_or_equal BucketUsage_TallyEndTime_Field,
+		bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
+		bucket_usage_rollup_end_time_less_or_equal BucketUsage_RollupEndTime_Field,
 		limit int, offset int64) (
 		rows []*BucketUsage, err error)
 
-	Limited_BucketUsage_By_BucketId_And_TallyEndTime_Greater_And_TallyEndTime_LessOrEqual_OrderBy_Desc_TallyEndTime(ctx context.Context,
+	Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Desc_RollupEndTime(ctx context.Context,
 		bucket_usage_bucket_id BucketUsage_BucketId_Field,
-		bucket_usage_tally_end_time_greater BucketUsage_TallyEndTime_Field,
-		bucket_usage_tally_end_time_less_or_equal BucketUsage_TallyEndTime_Field,
+		bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
+		bucket_usage_rollup_end_time_less_or_equal BucketUsage_RollupEndTime_Field,
 		limit int, offset int64) (
 		rows []*BucketUsage, err error)
 

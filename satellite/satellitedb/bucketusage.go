@@ -16,8 +16,8 @@ type bucketusage struct {
 	db dbx.Methods
 }
 
-// Get retrieves bucket usage tally info by id
-func (usage *bucketusage) Get(ctx context.Context, id uuid.UUID) (*accounting.BucketTally, error) {
+// Get retrieves bucket usage rollup info by id
+func (usage *bucketusage) Get(ctx context.Context, id uuid.UUID) (*accounting.BucketRollup, error) {
 	dbxUsage, err := usage.db.Get_BucketUsage_By_Id(ctx, dbx.BucketUsage_Id(id[:]))
 	if err != nil {
 		return nil, err
@@ -26,26 +26,26 @@ func (usage *bucketusage) Get(ctx context.Context, id uuid.UUID) (*accounting.Bu
 	return fromDBXUsage(dbxUsage)
 }
 
-// GetPaged retrieves list of bucket usage tally entries for given cursor
-func (usage bucketusage) GetPaged(ctx context.Context, cursor *accounting.BucketTallyCursor) ([]accounting.BucketTally, error) {
+// GetPaged retrieves list of bucket usage rollup entries for given cursor
+func (usage bucketusage) GetPaged(ctx context.Context, cursor *accounting.BucketRollupCursor) ([]accounting.BucketRollup, error) {
 	var getUsage func(context.Context,
 		dbx.BucketUsage_BucketId_Field,
-		dbx.BucketUsage_TallyEndTime_Field,
-		dbx.BucketUsage_TallyEndTime_Field,
+		dbx.BucketUsage_RollupEndTime_Field,
+		dbx.BucketUsage_RollupEndTime_Field,
 		int, int64) ([]*dbx.BucketUsage, error)
 
 	switch cursor.Order {
 	case accounting.Desc:
-		getUsage = usage.db.Limited_BucketUsage_By_BucketId_And_TallyEndTime_Greater_And_TallyEndTime_LessOrEqual_OrderBy_Desc_TallyEndTime
+		getUsage = usage.db.Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Desc_RollupEndTime
 	default:
-		getUsage = usage.db.Limited_BucketUsage_By_BucketId_And_TallyEndTime_Greater_And_TallyEndTime_LessOrEqual_OrderBy_Asc_TallyEndTime
+		getUsage = usage.db.Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Asc_RollupEndTime
 	}
 
 	dbxUsages, err := getUsage(
 		ctx,
 		dbx.BucketUsage_BucketId(cursor.BucketID[:]),
-		dbx.BucketUsage_TallyEndTime(cursor.After),
-		dbx.BucketUsage_TallyEndTime(cursor.Before),
+		dbx.BucketUsage_RollupEndTime(cursor.After),
+		dbx.BucketUsage_RollupEndTime(cursor.Before),
 		cursor.PageSize,
 		0,
 	)
@@ -54,14 +54,14 @@ func (usage bucketusage) GetPaged(ctx context.Context, cursor *accounting.Bucket
 		return nil, err
 	}
 
-	var tallies []accounting.BucketTally
+	var rollups []accounting.BucketRollup
 	for _, dbxUsage := range dbxUsages {
-		tally, err := fromDBXUsage(dbxUsage)
+		rollup, err := fromDBXUsage(dbxUsage)
 		if err != nil {
 			return nil, err
 		}
 
-		tallies = append(tallies, *tally)
+		rollups = append(rollups, *rollup)
 	}
 
 	switch cursor.Order {
@@ -70,8 +70,8 @@ func (usage bucketusage) GetPaged(ctx context.Context, cursor *accounting.Bucket
 		dbxUsages, err := getUsage(
 			ctx,
 			dbx.BucketUsage_BucketId(cursor.BucketID[:]),
-			dbx.BucketUsage_TallyEndTime(cursor.After),
-			dbx.BucketUsage_TallyEndTime(tallies[len(tallies)-1].TallyEndTime),
+			dbx.BucketUsage_RollupEndTime(cursor.After),
+			dbx.BucketUsage_RollupEndTime(rollups[len(rollups)-1].RollupEndTime),
 			2,
 			0,
 		)
@@ -81,10 +81,10 @@ func (usage bucketusage) GetPaged(ctx context.Context, cursor *accounting.Bucket
 		}
 
 		if len(dbxUsages) == 2 {
-			cursor.Next = &accounting.BucketTallyCursor{
+			cursor.Next = &accounting.BucketRollupCursor{
 				BucketID: cursor.BucketID,
 				After:    cursor.After,
-				Before:   dbxUsages[1].TallyEndTime,
+				Before:   dbxUsages[1].RollupEndTime,
 				Order:    cursor.Order,
 				PageSize: cursor.PageSize,
 			}
@@ -94,8 +94,8 @@ func (usage bucketusage) GetPaged(ctx context.Context, cursor *accounting.Bucket
 		dbxUsages, err := getUsage(
 			ctx,
 			dbx.BucketUsage_BucketId(cursor.BucketID[:]),
-			dbx.BucketUsage_TallyEndTime(tallies[len(tallies)-1].TallyEndTime),
-			dbx.BucketUsage_TallyEndTime(cursor.Before),
+			dbx.BucketUsage_RollupEndTime(rollups[len(rollups)-1].RollupEndTime),
+			dbx.BucketUsage_RollupEndTime(cursor.Before),
 			1,
 			0,
 		)
@@ -105,9 +105,9 @@ func (usage bucketusage) GetPaged(ctx context.Context, cursor *accounting.Bucket
 		}
 
 		if len(dbxUsages) > 0 {
-			cursor.Next = &accounting.BucketTallyCursor{
+			cursor.Next = &accounting.BucketRollupCursor{
 				BucketID: cursor.BucketID,
-				After:    tallies[len(tallies)-1].TallyEndTime,
+				After:    rollups[len(rollups)-1].RollupEndTime,
 				Before:   cursor.Before,
 				Order:    cursor.Order,
 				PageSize: cursor.PageSize,
@@ -115,11 +115,11 @@ func (usage bucketusage) GetPaged(ctx context.Context, cursor *accounting.Bucket
 		}
 	}
 
-	return tallies, nil
+	return rollups, nil
 }
 
-// Create creates new bucket usage tally
-func (usage bucketusage) Create(ctx context.Context, tally accounting.BucketTally) (*accounting.BucketTally, error) {
+// Create creates new bucket usage rollup
+func (usage bucketusage) Create(ctx context.Context, rollup accounting.BucketRollup) (*accounting.BucketRollup, error) {
 	id, err := uuid.New()
 	if err != nil {
 		return nil, err
@@ -128,17 +128,17 @@ func (usage bucketusage) Create(ctx context.Context, tally accounting.BucketTall
 	dbxUsage, err := usage.db.Create_BucketUsage(
 		ctx,
 		dbx.BucketUsage_Id(id[:]),
-		dbx.BucketUsage_BucketId(tally.BucketID[:]),
-		dbx.BucketUsage_TallyEndTime(tally.TallyEndTime),
-		dbx.BucketUsage_RemoteStoredData(tally.RemoteStoredData),
-		dbx.BucketUsage_InlineStoredData(tally.InlineStoredData),
-		dbx.BucketUsage_RemoteSegments(tally.RemoteSegments),
-		dbx.BucketUsage_InlineSegments(tally.InlineSegments),
-		dbx.BucketUsage_Objects(tally.Objects),
-		dbx.BucketUsage_MetadataSize(tally.MetadataSize),
-		dbx.BucketUsage_RepairEgress(tally.RepairEgress),
-		dbx.BucketUsage_GetEgress(tally.GetEgress),
-		dbx.BucketUsage_AuditEgress(tally.AuditEgress),
+		dbx.BucketUsage_BucketId(rollup.BucketID[:]),
+		dbx.BucketUsage_RollupEndTime(rollup.RollupEndTime),
+		dbx.BucketUsage_RemoteStoredData(rollup.RemoteStoredData),
+		dbx.BucketUsage_InlineStoredData(rollup.InlineStoredData),
+		dbx.BucketUsage_RemoteSegments(rollup.RemoteSegments),
+		dbx.BucketUsage_InlineSegments(rollup.InlineSegments),
+		dbx.BucketUsage_Objects(rollup.Objects),
+		dbx.BucketUsage_MetadataSize(rollup.MetadataSize),
+		dbx.BucketUsage_RepairEgress(rollup.RepairEgress),
+		dbx.BucketUsage_GetEgress(rollup.GetEgress),
+		dbx.BucketUsage_AuditEgress(rollup.AuditEgress),
 	)
 
 	if err != nil {
@@ -148,14 +148,14 @@ func (usage bucketusage) Create(ctx context.Context, tally accounting.BucketTall
 	return fromDBXUsage(dbxUsage)
 }
 
-// Delete deletes bucket usage tally entry by id
+// Delete deletes bucket usage rollup entry by id
 func (usage *bucketusage) Delete(ctx context.Context, id uuid.UUID) error {
 	_, err := usage.db.Delete_BucketUsage_By_Id(ctx, dbx.BucketUsage_Id(id[:]))
 	return err
 }
 
-// fromDBXUsage helper method to conert dbx.BucketUsage to accounting.BucketTally
-func fromDBXUsage(dbxUsage *dbx.BucketUsage) (*accounting.BucketTally, error) {
+// fromDBXUsage helper method to conert dbx.BucketUsage to accounting.BucketRollup
+func fromDBXUsage(dbxUsage *dbx.BucketUsage) (*accounting.BucketRollup, error) {
 	id, err := bytesToUUID(dbxUsage.Id)
 	if err != nil {
 		return nil, err
@@ -166,10 +166,10 @@ func fromDBXUsage(dbxUsage *dbx.BucketUsage) (*accounting.BucketTally, error) {
 		return nil, err
 	}
 
-	return &accounting.BucketTally{
+	return &accounting.BucketRollup{
 		ID:               id,
 		BucketID:         bucketID,
-		TallyEndTime:    dbxUsage.TallyEndTime,
+		RollupEndTime:    dbxUsage.RollupEndTime,
 		RemoteStoredData: dbxUsage.RemoteStoredData,
 		InlineStoredData: dbxUsage.InlineStoredData,
 		RemoteSegments:   dbxUsage.RemoteSegments,
