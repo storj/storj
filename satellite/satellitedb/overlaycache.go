@@ -550,6 +550,10 @@ func (cache *overlaycache) UpdateAuditSuccess(ctx context.Context, nodeID storj.
 	updateFields.TotalAuditCount = dbx.Node_TotalAuditCount(totalAuditCount)
 	updateFields.AuditSuccessRatio = dbx.Node_AuditSuccessRatio(auditRatio)
 
+	if auditSuccess {
+		updateFields.LastSeenAt = dbx.Node_LastSeenAt(time.Now())
+	}
+
 	dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
 	if err != nil {
 		return nil, Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
