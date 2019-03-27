@@ -103,6 +103,6 @@ func NewRevokedLeafChain() ([]crypto.PrivateKey, []*x509.Certificate, pkix.Exten
 		return nil, nil, pkix.Extension{}, err
 	}
 
-	newChain, revocation, err := RevokeLeaf(keys[0], certs)
+	newChain, revocation, err := RevokeLeaf(keys[peertls.CAIndex], certs)
 	return keys, newChain, revocation, err
 }

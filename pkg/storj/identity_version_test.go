@@ -25,6 +25,7 @@ func TestLatestVersion(t *testing.T) {
 
 func TestIDVersionFromCert(t *testing.T) {
 	for versionNumber := range storj.IDVersions {
+		t.Logf("id version %d", versionNumber)
 		_, chain, err := testpeertls.NewCertChain(2, versionNumber)
 		require.NoError(t, err)
 
