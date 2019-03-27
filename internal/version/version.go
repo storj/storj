@@ -4,9 +4,11 @@
 package version
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 	"io/ioutil"
 	"net/http"
 	"regexp"
@@ -15,6 +17,7 @@ import (
 )
 
 var (
+	mon = monkit.Package()
 	// Timestamp is the UTC timestamp of the compilation time
 	Timestamp string
 	// CommitHash is the git hash of the code being compiled
@@ -108,7 +111,9 @@ func (v V) Marshal() (data []byte, err error) {
 }
 
 // CheckVersion ensures that the client is running latest/allowed code
-func CheckVersion() (err error) {
+func CheckVersion(ctx *context.Context) (err error) {
+	defer mon.Task()(ctx)(&err)
+
 	accepted, err := queryVersionFromControlServer()
 	if err != nil {
 		return

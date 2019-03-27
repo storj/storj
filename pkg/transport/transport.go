@@ -65,7 +65,7 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 		return nil, Error.New("no address")
 	}
 
-	if !transport.ValidVersion() {
+	if !transport.InvalidVersion() {
 		return nil, Error.New("Outdated Client")
 	}
 
@@ -106,7 +106,7 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 func (transport *Transport) DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if !transport.ValidVersion() {
+	if transport.InvalidVersion() {
 		return nil, Error.New("Outdated Client")
 	}
 
@@ -128,8 +128,8 @@ func (transport *Transport) DialAddress(ctx context.Context, address string, opt
 }
 
 // ValidVersion checks if the node is still allowed to operate on the network
-func (transport *Transport) ValidVersion() bool {
-	return version.Allowed
+func (transport *Transport) InvalidVersion() bool {
+	return !version.Allowed
 }
 
 // Identity is a getter for the transport's identity

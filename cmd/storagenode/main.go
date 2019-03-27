@@ -15,7 +15,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
-	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
@@ -128,15 +127,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	log.Sugar().Infof("Starting Node Version %s", version.Version)
-	ver, err := version.QueryVersionFromControlServer()
-	if err != nil {
-		log.Sugar().Error("Failed to fetch version info: ", err)
-	}
-	// TODO: Handle further comparison of version info against internal information
-	for i, sub := range ver {
-		log.Sugar().Debugf("Allowed version %d: %s", i, sub.Version)
-	}
 	ctx := process.Ctx(cmd)
 	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
 		zap.S().Error("Failed to initialize telemetry batcher: ", err)

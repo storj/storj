@@ -10,21 +10,24 @@ import (
 	"storj.io/storj/internal/version"
 )
 
+const interval = 15 * time.Minute
+
 // LogAndReportVersion logs the current version information
 // and reports to monkit
 func LogAndReportVersion(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
 
-	err = version.CheckVersion()
+	err = version.CheckVersion(&ctx)
 
-	ticker := time.NewTicker(15 * time.Minute)
+	ticker := time.NewTicker(interval)
+
 	defer ticker.Stop()
-
-	select {
-	case <-ctx.Done():
-		// ToDO: Handle
-	case <-ticker.C:
-		err = version.CheckVersion()
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			err = version.CheckVersion(&ctx)
+			return err
+		}
 	}
-	return
 }
