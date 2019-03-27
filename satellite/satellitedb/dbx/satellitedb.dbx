@@ -225,8 +225,8 @@ model user (
     key id
 
     field id               blob
-    field first_name       text      ( updatable )
-    field last_name        text      ( updatable )
+    field full_name        text      ( updatable )
+    field short_name       text      ( updatable, nullable )
 
     field email            text      ( updatable )
     field password_hash    blob      ( updatable )

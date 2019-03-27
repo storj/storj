@@ -163,8 +163,8 @@ CREATE TABLE storagenode_storage_tallies (
 );
 CREATE TABLE users (
 	id bytea NOT NULL,
-	first_name text NOT NULL,
-	last_name text NOT NULL,
+	full_name text NOT NULL,
+	short_name text,
 	email text NOT NULL,
 	password_hash bytea NOT NULL,
 	status integer NOT NULL,
