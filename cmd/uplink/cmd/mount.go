@@ -54,7 +54,9 @@ func mountBucket(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Error("Failed to initialize telemetry batcher: ", err)
 	}
 
-	go process.LogAndReportVersion(ctx)
+	if err = process.LogAndReportVersion(ctx); err != nil {
+		zap.S().Error("Failed to check version: ", err)
+	}
 
 	src, err := fpath.New(args[0])
 	if err != nil {

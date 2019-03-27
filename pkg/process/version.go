@@ -15,21 +15,25 @@ const interval = 15 * time.Minute
 
 // LogAndReportVersion logs the current version information
 // and reports to monkit
-func LogAndReportVersion(ctx context.Context) {
+func LogAndReportVersion(ctx context.Context) (err error) {
 	if err := version.CheckVersion(&ctx); err != nil {
-		zap.S().Error("Failed to check version: ", err)
+		return err
 	}
 
-	ticker := time.NewTicker(interval)
+	go func() {
+		ticker := time.NewTicker(interval)
 
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			err := version.CheckVersion(&ctx)
-			zap.S().Error("Failed to check version: ", err)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				err := version.CheckVersion(&ctx)
+				if err != nil {
+					zap.S().Error("Failed to do periodic version check: ", err)
+				}
+			}
 		}
-	}
+	}()
 }
