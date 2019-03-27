@@ -128,6 +128,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
+	log.Sugar().Infof("Starting Node Version %s", version.Version)
 	ver, err := version.QueryVersionFromControlServer()
 	if err != nil {
 		log.Sugar().Error("Failed to fetch version info: ", err)
