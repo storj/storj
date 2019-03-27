@@ -101,7 +101,7 @@ func (sem *SemVer) String() (version string) {
 
 // New creates Version_Info from a json byte array
 func New(data []byte) (v V, err error) {
-	err = json.Unmarshal(data, v)
+	err = json.Unmarshal(data, &v)
 	return v, err
 }
 
@@ -142,7 +142,7 @@ func queryVersionFromControlServer() (ver []V, err error) {
 		return []V{}, err
 	}
 
-	err = json.Unmarshal(body, ver)
+	err = json.Unmarshal(body, &ver)
 	return
 }
 
