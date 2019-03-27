@@ -132,6 +132,10 @@ func (r *StripeReader) readAvailableShares(num int64) (n int) {
 
 // pendingReaders checks if there are any pending readers to get a share from.
 func (r *StripeReader) pendingReaders() bool {
+	fmt.Println("pending readers errmap len", len(r.errmap))
+	fmt.Println("readercount", r.readerCount)
+	fmt.Println("required count", r.scheme.RequiredCount())
+	fmt.Println("inmmap len", len(r.inmap))
 	goodReaders := r.readerCount - len(r.errmap)
 	return goodReaders >= r.scheme.RequiredCount() && goodReaders > len(r.inmap)
 }

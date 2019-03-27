@@ -6,6 +6,7 @@ package metainfo
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"strconv"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -368,10 +369,12 @@ func (endpoint *Endpoint) createOrderLimitsForSegment(ctx context.Context, point
 
 		node, err := endpoint.cache.Get(ctx, piece.NodeId)
 		if err != nil {
+			fmt.Println(piece.NodeId.String(), "error getting from overlay cache")
 			endpoint.log.Error("error getting node from overlay cache", zap.Error(err))
 			combinedErrs = errs.Combine(combinedErrs, err)
 			continue
 		}
+		fmt.Println(piece.NodeId.String(), "no error getting from overlay cache")
 
 		if node != nil {
 			node.Type.DPanicOnInvalid("metainfo server order limits")
