@@ -145,7 +145,7 @@ export default class DeleteProjectPopup extends Vue {
             margin-right: 55px;
 
             &__main-label-text {
-                font-family: 'montserrat_bold';
+                font-family: 'font_bold';
                 font-size: 32px;
                 line-height: 39px;
                 color: #384B65;
@@ -160,7 +160,7 @@ export default class DeleteProjectPopup extends Vue {
             height: 335px;
 
             p {
-                font-family: 'montserrat_medium';
+                font-family: 'font_medium';
                 font-size: 16px;
                 line-height: 21px;
                 margin-bottom: 30px;
@@ -183,7 +183,7 @@ export default class DeleteProjectPopup extends Vue {
             }
 
             input {
-                font-family: 'montserrat_regular';
+                font-family: 'font_regular';
                 font-size: 16px;
                 line-height: 21px;
                 margin-top: 10px;

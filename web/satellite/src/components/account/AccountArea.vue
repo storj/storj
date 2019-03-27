@@ -366,7 +366,7 @@ export default class AccountArea extends Vue {
         position: relative;
 
         h1 {
-            font-family: 'montserrat_bold';
+            font-family: 'font_bold';
 			font-size: 18px;
 			line-height: 27px;
             color: #354049;
@@ -374,7 +374,7 @@ export default class AccountArea extends Vue {
             margin-block-end: 0.2em;
         }
         h2 {
-            font-family: 'montserrat_regular';
+            font-family: 'font_regular';
 			font-size: 16px;
 			line-height: 21px;
             color: rgba(56, 75, 101, 0.4);
@@ -411,7 +411,7 @@ export default class AccountArea extends Vue {
             margin-right: 20px;
 
             h1 {
-                font-family: 'montserrat_medium';
+                font-family: 'font_medium';
                 font-size: 16px;
                 line-height: 23px;
                 color: #354049;

@@ -443,7 +443,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		}
 
 		peer.Mail.Service, err = mailservice.New(
-			peer.Log.Named("mailservice:service"),
+			peer.Log.Named("mail:service"),
 			sender,
 			mailConfig.TemplatePath,
 		)
