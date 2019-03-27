@@ -51,44 +51,6 @@ const SemVerRegex string = `v?([0-9]+)(\.[0-9]+)?(\.[0-9]+)?` +
 	`(-([0-9A-Za-z\-]+(\.[0-9A-Za-z\-]+)*))?` +
 	`(\+([0-9A-Za-z\-]+(\.[0-9A-Za-z\-]+)*))?`
 
-func init() {
-	Build = V{
-		Timestamp:  Timestamp,
-		CommitHash: CommitHash,
-		Release:    Release,
-	}
-
-	versionRegex := regexp.MustCompile("^" + SemVerRegex + "$")
-
-	sv, err := NewSemVer(versionRegex, Version)
-	if err != nil {
-		panic(err)
-	}
-
-	Build.Version = *sv
-
-	if Build.Timestamp == "" || Build.CommitHash == "" {
-		Build.Release = false
-	}
-}
-
-// Handler returns a json representation of the current version information for the binary
-func Handler(w http.ResponseWriter, r *http.Request) {
-	j, err := json.Marshal(Build)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-
-	_, err = w.Write(j)
-	if err != nil {
-		// ToDo: Handle Error
-	}
-}
-
 // NewSemVer parses a given version and returns an instance of SemVer or
 // an error if unable to parse the version.
 func NewSemVer(regex *regexp.Regexp, v string) (*SemVer, error) {
@@ -131,16 +93,6 @@ func (sem *SemVer) String() (version string) {
 	return fmt.Sprintf("v%d.%d.%d", sem.Major, sem.Minor, sem.Patch)
 }
 
-// parse converts a string with schema .xxx to an int64 or returns an error
-func parse(label string) (int64, error) {
-	l, err := strconv.ParseInt(strings.TrimPrefix(label, "."), 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("invalid semantic version: %s", err)
-	}
-
-	return l, nil
-}
-
 // New creates Version_Info from a json byte array
 func New(data []byte) (v V, err error) {
 	err = json.Unmarshal(data, v)
@@ -167,5 +119,52 @@ func QueryVersionFromControlServer() (ver []V, err error) {
 
 	err = json.Unmarshal(body, ver)
 	return
+}
 
+// Handler returns a json representation of the current version information for the binary
+func Handler(w http.ResponseWriter, r *http.Request) {
+	j, err := json.Marshal(Build)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	_, err = w.Write(j)
+	if err != nil {
+		// ToDo: Handle Error
+	}
+}
+
+// parse converts a string with schema .xxx to an int64 or returns an error
+func parse(label string) (int64, error) {
+	l, err := strconv.ParseInt(strings.TrimPrefix(label, "."), 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid semantic version: %s", err)
+	}
+
+	return l, nil
+}
+
+func init() {
+	Build = V{
+		Timestamp:  Timestamp,
+		CommitHash: CommitHash,
+		Release:    Release,
+	}
+
+	versionRegex := regexp.MustCompile("^" + SemVerRegex + "$")
+
+	sv, err := NewSemVer(versionRegex, Version)
+	if err != nil {
+		panic(err)
+	}
+
+	Build.Version = *sv
+
+	if Build.Timestamp == "" || Build.CommitHash == "" {
+		Build.Release = false
+	}
 }
