@@ -594,7 +594,7 @@ func (m *lockedOverlayCache) CreateEntryIfNotExists(ctx context.Context, value *
 	return m.db.CreateEntryIfNotExists(ctx, value)
 }
 
-// CreateStats initializes the stats for for node.
+// CreateStats initializes the stats for node.
 func (m *lockedOverlayCache) CreateStats(ctx context.Context, nodeID storj.NodeID, initial *overlay.NodeStats) (stats *overlay.NodeStats, err error) {
 	m.Lock()
 	defer m.Unlock()

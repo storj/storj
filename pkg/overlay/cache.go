@@ -55,7 +55,7 @@ type DB interface {
 	// Delete deletes node based on id
 	Delete(ctx context.Context, id storj.NodeID) error
 
-	// CreateStats initializes the stats for for node.
+	// CreateStats initializes the stats for node.
 	CreateStats(ctx context.Context, nodeID storj.NodeID, initial *NodeStats) (stats *NodeStats, err error)
 	// GetStats returns node stats.
 	GetStats(ctx context.Context, nodeID storj.NodeID) (stats *NodeStats, err error)
