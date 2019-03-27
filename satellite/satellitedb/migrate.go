@@ -441,6 +441,13 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					ALTER TABLE nodes ADD free_disk BIGINT;
 					ALTER TABLE nodes ADD latency_90 BIGINT;
 					ALTER TABLE nodes ADD last_seen_at TIMESTAMP WITH TIME ZONE;
+					UPDATE nodes SET address = '';
+					UPDATE nodes SET protocol = 0;
+					UPDATE nodes SET type = 2;
+					UPDATE nodes SET free_bandwidth = 0;
+					UPDATE nodes SET free_disk = 0;
+					UPDATE nodes SET latency_90 = 0;
+					UPDATE nodes SET last_seen_at = CURRENT_TIMESTAMP;
 					ALTER TABLE nodes ALTER COLUMN address SET NOT NULL;
 					ALTER TABLE nodes ALTER COLUMN protocol SET NOT NULL;
 					ALTER TABLE nodes ALTER COLUMN type SET NOT NULL;
