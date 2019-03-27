@@ -269,10 +269,10 @@ type lockedBucketUsage struct {
 	db accounting.BucketUsage
 }
 
-func (m *lockedBucketUsage) Create(ctx context.Context, tally accounting.BucketTally) (*accounting.BucketTally, error) {
+func (m *lockedBucketUsage) Create(ctx context.Context, rollup accounting.BucketRollup) (*accounting.BucketRollup, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Create(ctx, tally)
+	return m.db.Create(ctx, rollup)
 }
 
 func (m *lockedBucketUsage) Delete(ctx context.Context, id uuid.UUID) error {
@@ -281,13 +281,13 @@ func (m *lockedBucketUsage) Delete(ctx context.Context, id uuid.UUID) error {
 	return m.db.Delete(ctx, id)
 }
 
-func (m *lockedBucketUsage) Get(ctx context.Context, id uuid.UUID) (*accounting.BucketTally, error) {
+func (m *lockedBucketUsage) Get(ctx context.Context, id uuid.UUID) (*accounting.BucketRollup, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Get(ctx, id)
 }
 
-func (m *lockedBucketUsage) GetPaged(ctx context.Context, cursor *accounting.BucketTallyCursor) ([]accounting.BucketTally, error) {
+func (m *lockedBucketUsage) GetPaged(ctx context.Context, cursor *accounting.BucketRollupCursor) ([]accounting.BucketRollup, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetPaged(ctx, cursor)
