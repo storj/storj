@@ -67,8 +67,8 @@ func init() {
 }
 
 // Handler returns a json representation of the current version information for the binary
-func (v V) Handler(w http.ResponseWriter, r *http.Request) {
-	j, err := json.Marshal(v)
+func Handler(w http.ResponseWriter, r *http.Request) {
+	j, err := json.Marshal(Build)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	}
