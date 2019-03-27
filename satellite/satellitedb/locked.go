@@ -23,6 +23,7 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/orders"
 )
 
 // locked implements a locking wrapper around satellite.DB.
@@ -537,6 +538,40 @@ func (m *lockedIrreparable) IncrementRepairAttempts(ctx context.Context, segment
 	m.Lock()
 	defer m.Unlock()
 	return m.db.IncrementRepairAttempts(ctx, segmentInfo)
+}
+
+// Orders returns database for orders
+func (m *locked) Orders() orders.DB {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedOrders{m.Locker, m.db.Orders()}
+}
+
+// lockedOrders implements locking wrapper for orders.DB
+type lockedOrders struct {
+	sync.Locker
+	db orders.DB
+}
+
+// SaveInlineOrder
+func (m *lockedOrders) SaveInlineOrder(ctx context.Context, bucketID []byte) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SaveInlineOrder(ctx, bucketID)
+}
+
+// SaveRemoteOrder
+func (m *lockedOrders) SaveRemoteOrder(ctx context.Context, bucketID []byte, orderLimits []*pb.OrderLimit2) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SaveRemoteOrder(ctx, bucketID, orderLimits)
+}
+
+// SettleOrder
+func (m *lockedOrders) SettleRemoteOrder(ctx context.Context, orderLimit *pb.OrderLimit2, order *pb.Order2) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SettleRemoteOrder(ctx, orderLimit, order)
 }
 
 // OverlayCache returns database for caching overlay information

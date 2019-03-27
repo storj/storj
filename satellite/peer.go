@@ -48,6 +48,7 @@ import (
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/orders"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/storelogger"
@@ -79,6 +80,8 @@ type DB interface {
 	Irreparable() irreparable.DB
 	// Console returns database for satellite console
 	Console() console.DB
+	// Orders returns database for orders
+	Orders() orders.DB
 }
 
 // Config is the global config satellite
@@ -146,6 +149,10 @@ type Peer struct {
 
 	Agreements struct {
 		Endpoint *bwagreement.Server
+	}
+
+	Orders struct {
+		Endpoint *orders.Endpoint
 	}
 
 	Repair struct {
@@ -304,6 +311,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			peer.Overlay.Service,
 			peer.DB.Console().APIKeys(),
 			signing.SignerFromFullIdentity(peer.Identity),
+			peer.DB.Orders(),
 		)
 
 		pb.RegisterPointerDBServer(peer.Server.GRPC(), peer.Metainfo.Endpoint)
@@ -316,6 +324,18 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		bwServer := bwagreement.NewServer(peer.DB.BandwidthAgreement(), peer.DB.CertDB(), peer.Identity.Leaf.PublicKey, peer.Log.Named("agreements"), peer.Identity.ID)
 		peer.Agreements.Endpoint = bwServer
 		pb.RegisterBandwidthServer(peer.Server.GRPC(), peer.Agreements.Endpoint)
+	}
+
+	{ // setup orders
+		log.Debug("Setting up orders")
+		satelliteSignee := signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity())
+		peer.Orders.Endpoint = orders.NewEndpoint(
+			peer.Log.Named("orders:endpoint"),
+			satelliteSignee,
+			peer.DB.Orders(),
+			peer.DB.CertDB(),
+		)
+		pb.RegisterOrdersServer(peer.Server.GRPC(), peer.Orders.Endpoint)
 	}
 
 	{ // setup datarepair
