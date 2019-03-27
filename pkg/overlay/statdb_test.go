@@ -60,7 +60,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		assert.EqualValues(t, auditSuccessRatio, stats.AuditSuccessRatio)
 		assert.EqualValues(t, uptimeRatio, stats.UptimeRatio)
 
-		_, err = cache.GetStats(ctx, nodeID)
+		stats, err = cache.GetStats(ctx, nodeID)
 		require.NoError(t, err)
 
 		assert.EqualValues(t, nodeID, stats.NodeID)
