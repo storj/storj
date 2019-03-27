@@ -348,10 +348,10 @@ model bucket_usage (
 
     field  remote_stored_data uint64
     field  inline_stored_data uint64
-		field  remote_segments    uint
+    field  remote_segments    uint
     field  inline_segments    uint
     field  objects            uint
-		field  metadata_size      uint64
+    field  metadata_size      uint64
     field  repair_egress      uint64
     field  get_egress         uint64
     field  audit_egress       uint64
