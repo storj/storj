@@ -27,8 +27,8 @@ type Users interface {
 
 // UserInfo holds User updatable data.
 type UserInfo struct {
-	FirstName string `json:"firstName"`
-	LastName  string `json:"lastName"`
+	FullName  string `json:"fullName"`
+	ShortName string `json:"shortName"`
 	Email     string `json:"email"`
 }
 
@@ -40,9 +40,9 @@ func (user *UserInfo) IsValid() error {
 	_, err := mail.ParseAddress(user.Email)
 	errs.AddWrap(err)
 
-	// validate firstName
-	if user.FirstName == "" {
-		errs.Add("firstName can't be empty")
+	// validate fullName
+	if user.FullName == "" {
+		errs.Add("fullName can't be empty")
 	}
 
 	return errs.Combine()
@@ -80,8 +80,8 @@ const (
 type User struct {
 	ID uuid.UUID `json:"id"`
 
-	FirstName string `json:"firstName"`
-	LastName  string `json:"lastName"`
+	FullName  string `json:"fullName"`
+	ShortName string `json:"shortName"`
 
 	Email        string `json:"email"`
 	PasswordHash []byte `json:"passwordHash"`

@@ -430,6 +430,15 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						rollup_end_time )`,
 				},
 			},
+			{
+				Description: "users first_name to full_name, last_name to short_name",
+				Version:     10,
+				Action: migrate.SQL{
+					`ALTER TABLE users RENAME COLUMN first_name TO full_name;
+					 ALTER TABLE users ALTER COLUMN last_name DROP NOT NULL;
+					 ALTER TABLE users RENAME COLUMN last_name TO short_name;`,
+				},
+			},
 		},
 	}
 }

@@ -2,8 +2,8 @@
 // See LICENSE for copying information.
 
 declare type User = {
-    firstName: string,
-    lastName: string,
+    fullName: string,
+    shortName: string,
     email: string,
 };
 
