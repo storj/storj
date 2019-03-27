@@ -20,10 +20,10 @@ import (
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/orders"
 )
 
 // locked implements a locking wrapper around satellite.DB.
@@ -540,6 +540,40 @@ func (m *lockedIrreparable) IncrementRepairAttempts(ctx context.Context, segment
 	return m.db.IncrementRepairAttempts(ctx, segmentInfo)
 }
 
+// Orders returns database for orders
+func (m *locked) Orders() orders.DB {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedOrders{m.Locker, m.db.Orders()}
+}
+
+// lockedOrders implements locking wrapper for orders.DB
+type lockedOrders struct {
+	sync.Locker
+	db orders.DB
+}
+
+// SaveInlineOrder
+func (m *lockedOrders) SaveInlineOrder(ctx context.Context, bucketID []byte) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SaveInlineOrder(ctx, bucketID)
+}
+
+// SaveRemoteOrder
+func (m *lockedOrders) SaveRemoteOrder(ctx context.Context, bucketID []byte, orderLimits []*pb.OrderLimit2) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SaveRemoteOrder(ctx, bucketID, orderLimits)
+}
+
+// SettleOrder
+func (m *lockedOrders) SettleRemoteOrder(ctx context.Context, orderLimit *pb.OrderLimit2, order *pb.Order2) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SettleRemoteOrder(ctx, orderLimit, order)
+}
+
 // OverlayCache returns database for caching overlay information
 func (m *locked) OverlayCache() overlay.DB {
 	m.Lock()
@@ -553,11 +587,32 @@ type lockedOverlayCache struct {
 	db overlay.DB
 }
 
+// Create adds a new stats entry for node.
+func (m *lockedOverlayCache) Create(ctx context.Context, nodeID storj.NodeID, initial *overlay.NodeStats) (stats *overlay.NodeStats, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Create(ctx, nodeID, initial)
+}
+
+// CreateEntryIfNotExists creates a node stats entry if it didn't already exist.
+func (m *lockedOverlayCache) CreateEntryIfNotExists(ctx context.Context, nodeID storj.NodeID) (stats *overlay.NodeStats, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.CreateEntryIfNotExists(ctx, nodeID)
+}
+
 // Delete deletes node based on id
 func (m *lockedOverlayCache) Delete(ctx context.Context, id storj.NodeID) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Delete(ctx, id)
+}
+
+// FindInvalidNodes finds a subset of storagenodes that have stats below provided reputation requirements.
+func (m *lockedOverlayCache) FindInvalidNodes(ctx context.Context, nodeIDs storj.NodeIDList, maxStats *overlay.NodeStats) (invalid storj.NodeIDList, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.FindInvalidNodes(ctx, nodeIDs, maxStats)
 }
 
 // Get looks up the node by nodeID
@@ -572,6 +627,13 @@ func (m *lockedOverlayCache) GetAll(ctx context.Context, nodeIDs storj.NodeIDLis
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetAll(ctx, nodeIDs)
+}
+
+// GetStats returns node stats.
+func (m *lockedOverlayCache) GetStats(ctx context.Context, nodeID storj.NodeID) (stats *overlay.NodeStats, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetStats(ctx, nodeID)
 }
 
 // List lists nodes starting from cursor
@@ -609,6 +671,41 @@ func (m *lockedOverlayCache) Update(ctx context.Context, value *pb.Node) error {
 	return m.db.Update(ctx, value)
 }
 
+// UpdateAuditSuccess updates a single storagenode's audit stats.
+func (m *lockedOverlayCache) UpdateAuditSuccess(ctx context.Context, nodeID storj.NodeID, auditSuccess bool) (stats *overlay.NodeStats, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateAuditSuccess(ctx, nodeID, auditSuccess)
+}
+
+// UpdateBatch for updating multiple storage nodes' stats.
+func (m *lockedOverlayCache) UpdateBatch(ctx context.Context, requests []*overlay.UpdateRequest) (statslist []*overlay.NodeStats, failed []*overlay.UpdateRequest, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateBatch(ctx, requests)
+}
+
+// UpdateOperator updates the email and wallet for a given node ID for satellite payments.
+func (m *lockedOverlayCache) UpdateOperator(ctx context.Context, node storj.NodeID, updatedOperator pb.NodeOperator) (stats *overlay.NodeStats, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateOperator(ctx, node, updatedOperator)
+}
+
+// UpdateStats all parts of single storagenode's stats.
+func (m *lockedOverlayCache) UpdateStats(ctx context.Context, request *overlay.UpdateRequest) (stats *overlay.NodeStats, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateStats(ctx, request)
+}
+
+// UpdateUptime updates a single storagenode's uptime stats.
+func (m *lockedOverlayCache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *overlay.NodeStats, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateUptime(ctx, nodeID, isUp)
+}
+
 // RepairQueue returns queue for segments that need repairing
 func (m *locked) RepairQueue() queue.RepairQueue {
 	m.Lock()
@@ -641,80 +738,4 @@ func (m *lockedRepairQueue) Peekqueue(ctx context.Context, limit int) ([]pb.Inju
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Peekqueue(ctx, limit)
-}
-
-// StatDB returns database for storing node statistics
-func (m *locked) StatDB() statdb.DB {
-	m.Lock()
-	defer m.Unlock()
-	return &lockedStatDB{m.Locker, m.db.StatDB()}
-}
-
-// lockedStatDB implements locking wrapper for statdb.DB
-type lockedStatDB struct {
-	sync.Locker
-	db statdb.DB
-}
-
-// Create adds a new stats entry for node.
-func (m *lockedStatDB) Create(ctx context.Context, nodeID storj.NodeID, initial *statdb.NodeStats) (stats *statdb.NodeStats, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Create(ctx, nodeID, initial)
-}
-
-// CreateEntryIfNotExists creates a node stats entry if it didn't already exist.
-func (m *lockedStatDB) CreateEntryIfNotExists(ctx context.Context, nodeID storj.NodeID) (stats *statdb.NodeStats, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.CreateEntryIfNotExists(ctx, nodeID)
-}
-
-// FindInvalidNodes finds a subset of storagenodes that have stats below provided reputation requirements.
-func (m *lockedStatDB) FindInvalidNodes(ctx context.Context, nodeIDs storj.NodeIDList, maxStats *statdb.NodeStats) (invalid storj.NodeIDList, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.FindInvalidNodes(ctx, nodeIDs, maxStats)
-}
-
-// Get returns node stats.
-func (m *lockedStatDB) Get(ctx context.Context, nodeID storj.NodeID) (stats *statdb.NodeStats, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Get(ctx, nodeID)
-}
-
-// Update all parts of single storagenode's stats.
-func (m *lockedStatDB) Update(ctx context.Context, request *statdb.UpdateRequest) (stats *statdb.NodeStats, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Update(ctx, request)
-}
-
-// UpdateAuditSuccess updates a single storagenode's audit stats.
-func (m *lockedStatDB) UpdateAuditSuccess(ctx context.Context, nodeID storj.NodeID, auditSuccess bool) (stats *statdb.NodeStats, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.UpdateAuditSuccess(ctx, nodeID, auditSuccess)
-}
-
-// UpdateBatch for updating multiple storage nodes' stats.
-func (m *lockedStatDB) UpdateBatch(ctx context.Context, requests []*statdb.UpdateRequest) (statslist []*statdb.NodeStats, failed []*statdb.UpdateRequest, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.UpdateBatch(ctx, requests)
-}
-
-// UpdateOperator updates the email and wallet for a given node ID for satellite payments.
-func (m *lockedStatDB) UpdateOperator(ctx context.Context, node storj.NodeID, updatedOperator pb.NodeOperator) (stats *statdb.NodeStats, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.UpdateOperator(ctx, node, updatedOperator)
-}
-
-// UpdateUptime updates a single storagenode's uptime stats.
-func (m *lockedStatDB) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *statdb.NodeStats, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.UpdateUptime(ctx, nodeID, isUp)
 }

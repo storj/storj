@@ -13,46 +13,39 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
 
-func TestServer(t *testing.T) {
+func TestOffline(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
-		server := satellite.Overlay.Endpoint
+		service := satellite.Overlay.Service
 		// TODO: handle cleanup
 
-		{ // Lookup
-			result, err := server.Lookup(ctx, &pb.LookupRequest{
-				NodeId: planet.StorageNodes[0].ID(),
-			})
-			require.NoError(t, err)
-			require.NotNil(t, result)
-			assert.Equal(t, result.Node.Address.Address, planet.StorageNodes[0].Addr())
-		}
+		result, err := service.OfflineNodes(ctx, []storj.NodeID{
+			planet.StorageNodes[0].ID(),
+		})
+		require.NoError(t, err)
+		require.Empty(t, result)
 
-		{ // BulkLookup
-			result, err := server.BulkLookup(ctx, &pb.LookupRequests{
-				LookupRequest: []*pb.LookupRequest{
-					{NodeId: planet.StorageNodes[0].ID()},
-					{NodeId: planet.StorageNodes[1].ID()},
-					{NodeId: planet.StorageNodes[2].ID()},
-				},
-			})
+		result, err = service.OfflineNodes(ctx, []storj.NodeID{
+			planet.StorageNodes[0].ID(),
+			planet.StorageNodes[1].ID(),
+			planet.StorageNodes[2].ID(),
+		})
+		require.NoError(t, err)
+		require.Empty(t, result)
 
-			require.NoError(t, err)
-			require.NotNil(t, result)
-			require.Len(t, result.LookupResponse, 3)
+		result, err = service.OfflineNodes(ctx, []storj.NodeID{
+			planet.StorageNodes[0].ID(),
+			storj.NodeID{1, 2, 3, 4},
+			planet.StorageNodes[2].ID(),
+		})
+		require.NoError(t, err)
+		require.Equal(t, []int{1}, result)
 
-			for i, resp := range result.LookupResponse {
-				if assert.NotNil(t, resp.Node) {
-					assert.Equal(t, resp.Node.Address.Address, planet.StorageNodes[i].Addr())
-				}
-			}
-		}
 	})
 }
 
@@ -66,7 +59,7 @@ func TestNodeSelection(t *testing.T) {
 		// This sets a reputable audit count for a certain number of nodes.
 		for i, node := range planet.StorageNodes {
 			for k := 0; k < i; k++ {
-				_, err := satellite.DB.StatDB().UpdateAuditSuccess(ctx, node.ID(), true)
+				_, err := satellite.DB.OverlayCache().UpdateAuditSuccess(ctx, node.ID(), true)
 				assert.NoError(t, err)
 			}
 		}
@@ -80,7 +73,7 @@ func TestNodeSelection(t *testing.T) {
 		type test struct {
 			Preferences    overlay.NodeSelectionConfig
 			ExcludeCount   int
-			RequestCount   int64
+			RequestCount   int
 			ExpectedCount  int
 			ShouldFailWith *errs.Class
 		}
@@ -180,26 +173,21 @@ func TestNodeSelection(t *testing.T) {
 			},
 		} {
 			t.Logf("#%2d. %+v", i, tt)
-			endpoint := planet.Satellites[0].Overlay.Endpoint
+			service := planet.Satellites[0].Overlay.Service
 
 			var excludedNodes []storj.NodeID
 			for _, storageNode := range planet.StorageNodes[:tt.ExcludeCount] {
 				excludedNodes = append(excludedNodes, storageNode.ID())
 			}
 
-			response, err := endpoint.FindStorageNodesWithPreferences(ctx,
-				&pb.FindStorageNodesRequest{
-					Opts: &pb.OverlayOptions{
-						Restrictions: &pb.NodeRestrictions{
-							FreeBandwidth: 0,
-							FreeDisk:      0,
-						},
-						Amount:        tt.RequestCount,
-						ExcludedNodes: excludedNodes,
-					},
-				}, &tt.Preferences)
+			response, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
+				FreeBandwidth:  0,
+				FreeDisk:       0,
+				RequestedCount: tt.RequestCount,
+				ExcludedNodes:  excludedNodes,
+			}, &tt.Preferences)
 
-			t.Log(len(response.Nodes), err)
+			t.Log(len(response), err)
 			if tt.ShouldFailWith != nil {
 				assert.Error(t, err)
 				assert.True(t, tt.ShouldFailWith.Has(err))
@@ -207,7 +195,7 @@ func TestNodeSelection(t *testing.T) {
 				assert.NoError(t, err)
 			}
 
-			assert.Equal(t, tt.ExpectedCount, len(response.Nodes))
+			assert.Equal(t, tt.ExpectedCount, len(response))
 		}
 	})
 }

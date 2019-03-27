@@ -8,7 +8,9 @@ import (
 	"crypto/rand"
 	"math/big"
 	"sync"
+	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
 
 	"storj.io/storj/pkg/auth/signing"
@@ -86,6 +88,17 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 	pointer, err := cursor.pointerdb.Get(path)
 	if err != nil {
 		return nil, err
+	}
+
+	//delete expired items rather than auditing them
+	if expiration := pointer.GetExpirationDate(); expiration != nil {
+		t, err := ptypes.Timestamp(expiration)
+		if err != nil {
+			return nil, err
+		}
+		if t.Before(time.Now()) {
+			return nil, cursor.pointerdb.Delete(path)
+		}
 	}
 
 	if pointer.GetType() != pb.Pointer_REMOTE {

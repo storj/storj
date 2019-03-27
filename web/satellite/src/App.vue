@@ -70,18 +70,18 @@ export default class App extends Vue {
 <style lang="scss">
 
     @font-face {
-        font-family: "montserrat_regular";
-        src: url("../static/fonts/montserrat_regular.ttf");
+        font-family: "font_regular";
+        src: url("../static/fonts/font_regular.ttf");
     }
 
     @font-face {
-        font-family: "montserrat_medium";
-        src: url("../static/fonts/montserrat_medium.ttf");
+        font-family: "font_medium";
+        src: url("../static/fonts/font_medium.ttf");
     }
 
     @font-face {
-        font-family: "montserrat_bold";
-        src: url("../static/fonts/montserrat_bold.ttf");
+        font-family: "font_bold";
+        src: url("../static/fonts/font_bold.ttf");
     }
 
     a {

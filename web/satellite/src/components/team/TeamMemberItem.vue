@@ -22,12 +22,12 @@ import { getColor } from '@/utils/avatarColorManager';
     },
     computed: {
         userInfo: function (): object { 
-            let fullName: string = this.$props.projectMember.user.firstName + ' ' + this.$props.projectMember.user.lastName;
+            let fullName = getFullName(this.$props.projectMember.user);
+
             let email: string = this.$props.projectMember.user.email;
 
             if (fullName.length > 16) {
-                fullName = this.$props.projectMember.user.firstName.slice(0, 1).toUpperCase() + 
-                            '. ' + this.$props.projectMember.user.lastName.slice(0, 1).toUpperCase() + '.';
+                fullName = fullName.slice(0, 13) + '...';
             }
 
             if (email.length > 16) {
@@ -37,7 +37,9 @@ import { getColor } from '@/utils/avatarColorManager';
             return { fullName, email };
         },
         avatarData: function (): object {
-            const letter = this.$props.projectMember.user.firstName.slice(0, 1).toLocaleUpperCase();
+            let fullName = getFullName(this.$props.projectMember.user);
+
+            const letter = fullName.slice(0, 1).toLocaleUpperCase();
 
             const style = {
                 background: getColor(letter)
@@ -52,6 +54,10 @@ import { getColor } from '@/utils/avatarColorManager';
 })
 
 export default class TeamMemberItem extends Vue {
+}
+
+function getFullName(user: any): string {
+    return user.shortName === '' ? user.fullName : user.shortName;
 }
 </script>
 
@@ -77,7 +83,7 @@ export default class TeamMemberItem extends Vue {
         }
 
         &__date {
-            font-family: 'montserrat_regular';
+            font-family: 'font_regular';
             font-size: 12px;
             line-height: 16px;
             color: #AFB7C1;
@@ -86,7 +92,7 @@ export default class TeamMemberItem extends Vue {
         }
 
         &__user-email {
-            font-family: 'montserrat_regular';
+            font-family: 'font_regular';
             font-size: 14px;
             line-height: 19px;
             color: #AFB7C1;
@@ -95,7 +101,7 @@ export default class TeamMemberItem extends Vue {
         }
 
         &__user-name {
-            font-family: 'montserrat_bold';
+            font-family: 'font_bold';
             font-size: 14px;
             line-height: 19px;
             color: #354049;
@@ -113,7 +119,7 @@ export default class TeamMemberItem extends Vue {
             justify-content: center;
             background-color: #FF8658;
             h1 {
-                font-family: 'montserrat_medium';
+                font-family: 'font_medium';
                 font-size: 16px;
                 line-height: 23px;
                 color: #fff;

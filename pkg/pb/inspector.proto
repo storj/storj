@@ -32,9 +32,6 @@ service OverlayInspector {
   rpc CountNodes(CountNodesRequest) returns (CountNodesResponse);
   // DumpNodes returns all the nodes in the cache
   rpc DumpNodes(DumpNodesRequest) returns (DumpNodesResponse);
-}
-
-service StatDBInspector {
   // GetStats returns the stats for a particular node ID
   rpc GetStats(GetStatsRequest) returns (GetStatsResponse);
   // CreateStats creates a node with specified stats

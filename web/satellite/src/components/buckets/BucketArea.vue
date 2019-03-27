@@ -58,7 +58,7 @@
 		padding: 44px 40px 0 92px;
 
 		p {
-			font-family: 'montserrat_bold';
+			font-family: 'font_bold';
 			font-size: 24px;
 			line-height: 29px;
 			color: #384B65;

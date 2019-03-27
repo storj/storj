@@ -5,6 +5,7 @@ package transport
 
 import (
 	"context"
+	"time"
 
 	"google.golang.org/grpc"
 
@@ -30,15 +31,22 @@ type Client interface {
 
 // Transport interface structure
 type Transport struct {
-	tlsOpts   *tlsopts.Options
-	observers []Observer
+	tlsOpts        *tlsopts.Options
+	observers      []Observer
+	requestTimeout time.Duration
 }
 
-// NewClient returns a newly instantiated Transport Client
+// NewClient returns a transport client with a default timeout for requests
 func NewClient(tlsOpts *tlsopts.Options, obs ...Observer) Client {
+	return NewClientWithTimeout(tlsOpts, defaultRequestTimeout, obs...)
+}
+
+// NewClientWithTimeout returns a transport client with a specified timeout for requests
+func NewClientWithTimeout(tlsOpts *tlsopts.Options, requestTimeout time.Duration, obs ...Observer) Client {
 	return &Transport{
-		tlsOpts:   tlsOpts,
-		observers: obs,
+		tlsOpts:        tlsOpts,
+		requestTimeout: requestTimeout,
+		observers:      obs,
 	}
 }
 
@@ -65,9 +73,10 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 		dialOption,
 		grpc.WithBlock(),
 		grpc.FailOnNonTempDialError(true),
+		grpc.WithUnaryInterceptor(InvokeTimeout{transport.requestTimeout}.Intercept),
 	}, opts...)
 
-	timedCtx, cancel := context.WithTimeout(ctx, connWaitTimeout)
+	timedCtx, cancel := context.WithTimeout(ctx, defaultDialTimeout)
 	defer cancel()
 
 	conn, err = grpc.DialContext(timedCtx, node.GetAddress().Address, options...)
@@ -96,9 +105,10 @@ func (transport *Transport) DialAddress(ctx context.Context, address string, opt
 		transport.tlsOpts.DialUnverifiedIDOption(),
 		grpc.WithBlock(),
 		grpc.FailOnNonTempDialError(true),
+		grpc.WithUnaryInterceptor(InvokeTimeout{transport.requestTimeout}.Intercept),
 	}, opts...)
 
-	timedCtx, cancel := context.WithTimeout(ctx, connWaitTimeout)
+	timedCtx, cancel := context.WithTimeout(ctx, defaultDialTimeout)
 	defer cancel()
 
 	conn, err = grpc.DialContext(timedCtx, address, options...)
@@ -115,7 +125,7 @@ func (transport *Transport) Identity() *identity.FullIdentity {
 
 // WithObservers returns a new transport including the listed observers.
 func (transport *Transport) WithObservers(obs ...Observer) *Transport {
-	tr := &Transport{tlsOpts: transport.tlsOpts}
+	tr := &Transport{tlsOpts: transport.tlsOpts, requestTimeout: transport.requestTimeout}
 	tr.observers = append(tr.observers, transport.observers...)
 	tr.observers = append(tr.observers, obs...)
 	return tr

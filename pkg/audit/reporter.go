@@ -6,7 +6,7 @@ package audit
 import (
 	"context"
 
-	"storj.io/storj/pkg/statdb"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -14,9 +14,9 @@ type reporter interface {
 	RecordAudits(ctx context.Context, req *RecordAuditsInfo) (failed *RecordAuditsInfo, err error)
 }
 
-// Reporter records audit reports in statdb and implements the reporter interface
+// Reporter records audit reports in overlay and implements the reporter interface
 type Reporter struct {
-	statdb     statdb.DB
+	overlay    *overlay.Cache
 	maxRetries int
 }
 
@@ -28,11 +28,11 @@ type RecordAuditsInfo struct {
 }
 
 // NewReporter instantiates a reporter
-func NewReporter(sdb statdb.DB, maxRetries int) *Reporter {
-	return &Reporter{statdb: sdb, maxRetries: maxRetries}
+func NewReporter(overlay *overlay.Cache, maxRetries int) *Reporter {
+	return &Reporter{overlay: overlay, maxRetries: maxRetries}
 }
 
-// RecordAudits saves failed audit details to statdb
+// RecordAudits saves failed audit details to overlay
 func (reporter *Reporter) RecordAudits(ctx context.Context, req *RecordAuditsInfo) (failed *RecordAuditsInfo, err error) {
 	successNodeIDs := req.SuccessNodeIDs
 	failNodeIDs := req.FailNodeIDs
@@ -74,17 +74,17 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req *RecordAuditsInf
 			SuccessNodeIDs: successNodeIDs,
 			FailNodeIDs:    failNodeIDs,
 			OfflineNodeIDs: offlineNodeIDs,
-		}, Error.New("some nodes failed to be updated in statdb")
+		}, Error.New("some nodes failed to be updated in overlay")
 	}
 	return nil, nil
 }
 
-// recordAuditFailStatus updates nodeIDs in statdb with isup=true, auditsuccess=false
+// recordAuditFailStatus updates nodeIDs in overlay with isup=true, auditsuccess=false
 func (reporter *Reporter) recordAuditFailStatus(ctx context.Context, failedAuditNodeIDs storj.NodeIDList) (failed storj.NodeIDList, err error) {
 	failedIDs := storj.NodeIDList{}
 
 	for _, nodeID := range failedAuditNodeIDs {
-		_, err := reporter.statdb.Update(ctx, &statdb.UpdateRequest{
+		_, err := reporter.overlay.UpdateStats(ctx, &overlay.UpdateRequest{
 			NodeID:       nodeID,
 			IsUp:         true,
 			AuditSuccess: false,
@@ -94,34 +94,34 @@ func (reporter *Reporter) recordAuditFailStatus(ctx context.Context, failedAudit
 		}
 	}
 	if len(failedIDs) > 0 {
-		return failedIDs, Error.New("failed to record some audit fail statuses in statdb")
+		return failedIDs, Error.New("failed to record some audit fail statuses in overlay")
 	}
 	return nil, nil
 }
 
-// recordOfflineStatus updates nodeIDs in statdb with isup=false
+// recordOfflineStatus updates nodeIDs in overlay with isup=false
 // TODO: offline nodes should maybe be marked as failing the audit in the future
 func (reporter *Reporter) recordOfflineStatus(ctx context.Context, offlineNodeIDs storj.NodeIDList) (failed storj.NodeIDList, err error) {
 	failedIDs := storj.NodeIDList{}
 
 	for _, nodeID := range offlineNodeIDs {
-		_, err := reporter.statdb.UpdateUptime(ctx, nodeID, false)
+		_, err := reporter.overlay.UpdateUptime(ctx, nodeID, false)
 		if err != nil {
 			failedIDs = append(failedIDs, nodeID)
 		}
 	}
 	if len(failedIDs) > 0 {
-		return failedIDs, Error.New("failed to record some audit offline statuses in statdb")
+		return failedIDs, Error.New("failed to record some audit offline statuses in overlay")
 	}
 	return nil, nil
 }
 
-// recordAuditSuccessStatus updates nodeIDs in statdb with isup=true, auditsuccess=true
+// recordAuditSuccessStatus updates nodeIDs in overlay with isup=true, auditsuccess=true
 func (reporter *Reporter) recordAuditSuccessStatus(ctx context.Context, successNodeIDs storj.NodeIDList) (failed storj.NodeIDList, err error) {
 	failedIDs := storj.NodeIDList{}
 
 	for _, nodeID := range successNodeIDs {
-		_, err := reporter.statdb.Update(ctx, &statdb.UpdateRequest{
+		_, err := reporter.overlay.UpdateStats(ctx, &overlay.UpdateRequest{
 			NodeID:       nodeID,
 			IsUp:         true,
 			AuditSuccess: true,
@@ -131,7 +131,7 @@ func (reporter *Reporter) recordAuditSuccessStatus(ctx context.Context, successN
 		}
 	}
 	if len(failedIDs) > 0 {
-		return failedIDs, Error.New("failed to record some audit success statuses in statdb")
+		return failedIDs, Error.New("failed to record some audit success statuses in overlay")
 	}
 	return nil, nil
 }

@@ -142,18 +142,17 @@ var (
 	}
 )
 
-// Inspector gives access to kademlia, overlay cache, and statDB
+// Inspector gives access to kademlia, overlay cache
 type Inspector struct {
 	identity      *identity.FullIdentity
 	kadclient     pb.KadInspectorClient
 	overlayclient pb.OverlayInspectorClient
-	statdbclient  pb.StatDBInspectorClient
 	irrdbclient   pb.IrreparableInspectorClient
 	healthclient  pb.HealthInspectorClient
 }
 
 // NewInspector creates a new gRPC inspector client for access to kad,
-// overlay cache, and statDB
+// overlay cache
 func NewInspector(address, path string) (*Inspector, error) {
 	ctx := context.Background()
 
@@ -174,7 +173,6 @@ func NewInspector(address, path string) (*Inspector, error) {
 		identity:      id,
 		kadclient:     pb.NewKadInspectorClient(conn),
 		overlayclient: pb.NewOverlayInspectorClient(conn),
-		statdbclient:  pb.NewStatDBInspectorClient(conn),
 		irrdbclient:   pb.NewIrreparableInspectorClient(conn),
 	}, nil
 }
@@ -306,7 +304,7 @@ func PingNode(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
-// GetStats gets a node's stats from statdb
+// GetStats gets a node's stats from overlay
 func GetStats(cmd *cobra.Command, args []string) (err error) {
 	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
@@ -318,7 +316,7 @@ func GetStats(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	res, err := i.statdbclient.GetStats(context.Background(), &pb.GetStatsRequest{
+	res, err := i.overlayclient.GetStats(context.Background(), &pb.GetStatsRequest{
 		NodeId: nodeID,
 	})
 	if err != nil {
@@ -331,7 +329,7 @@ func GetStats(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
-// GetCSVStats gets node stats from statdb based on a csv
+// GetCSVStats gets node stats from overlay based on a csv
 func GetCSVStats(cmd *cobra.Command, args []string) (err error) {
 	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
@@ -354,7 +352,7 @@ func GetCSVStats(cmd *cobra.Command, args []string) (err error) {
 		if err != nil {
 			return err
 		}
-		res, err := i.statdbclient.GetStats(context.Background(), &pb.GetStatsRequest{
+		res, err := i.overlayclient.GetStats(context.Background(), &pb.GetStatsRequest{
 			NodeId: nodeID,
 		})
 		if err != nil {
@@ -368,7 +366,7 @@ func GetCSVStats(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
-// CreateStats creates a node with stats in statdb
+// CreateStats creates a node with stats in overlay
 func CreateStats(cmd *cobra.Command, args []string) (err error) {
 	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
@@ -396,7 +394,7 @@ func CreateStats(cmd *cobra.Command, args []string) (err error) {
 		return ErrArgs.New("uptime success count must be an int")
 	}
 
-	_, err = i.statdbclient.CreateStats(context.Background(), &pb.CreateStatsRequest{
+	_, err = i.overlayclient.CreateStats(context.Background(), &pb.CreateStatsRequest{
 		NodeId:             nodeID,
 		AuditCount:         auditCount,
 		AuditSuccessCount:  auditSuccessCount,
@@ -407,11 +405,11 @@ func CreateStats(cmd *cobra.Command, args []string) (err error) {
 		return ErrRequest.Wrap(err)
 	}
 
-	fmt.Printf("Created statdb entry for ID %s\n", nodeID)
+	fmt.Printf("Created stats entry for ID %s\n", nodeID)
 	return nil
 }
 
-// CreateCSVStats creates node with stats in statdb based on a CSV
+// CreateCSVStats creates node with stats in overlay based on a CSV
 func CreateCSVStats(cmd *cobra.Command, args []string) (err error) {
 	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
@@ -451,7 +449,7 @@ func CreateCSVStats(cmd *cobra.Command, args []string) (err error) {
 			return ErrArgs.New("uptime success count must be an int")
 		}
 
-		_, err = i.statdbclient.CreateStats(context.Background(), &pb.CreateStatsRequest{
+		_, err = i.overlayclient.CreateStats(context.Background(), &pb.CreateStatsRequest{
 			NodeId:             nodeID,
 			AuditCount:         auditCount,
 			AuditSuccessCount:  auditSuccessCount,
@@ -462,7 +460,7 @@ func CreateCSVStats(cmd *cobra.Command, args []string) (err error) {
 			return ErrRequest.Wrap(err)
 		}
 
-		fmt.Printf("Created statdb entry for ID %s\n", nodeID)
+		fmt.Printf("Created stats entry for ID %s\n", nodeID)
 	}
 	return nil
 }

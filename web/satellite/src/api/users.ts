@@ -11,8 +11,8 @@ export async function updateAccountRequest(user: User): Promise<RequestResponse<
         errorMessage: '',
         isSuccess: false,
         data: {
-            firstName: '',
-            lastName: '',
+            fullName: '',
+            shortName: '',
             email: '',
         }
     };
@@ -25,13 +25,13 @@ export async function updateAccountRequest(user: User): Promise<RequestResponse<
                         updateAccount (
                             input: {
                                 email: "${user.email}",
-                                firstName: "${user.firstName}",
-                                lastName: "${user.lastName}"
+                                fullName: "${user.fullName}",
+                                shortName: "${user.shortName}"
                             }
                         ) {
                             email,
-                            firstName,
-                            lastName
+                            fullName,
+                            shortName
                         }
                     }`
                 ),
@@ -109,8 +109,8 @@ export async function createUserRequest(user: User, password: string, secret: st
                             input:{
                                 email: "${user.email}",
                                 password: "${password}",
-                                firstName: "${user.firstName}",
-                                lastName: "${user.lastName}",
+                                fullName: "${user.fullName}",
+                                shortName: "${user.shortName}",
                             },
                             secret: "${secret}",
                         ){email}
@@ -178,8 +178,8 @@ export async function getUserRequest(): Promise<RequestResponse<User>> {
         errorMessage: '',
         isSuccess: false,
         data: {
-            firstName: '',
-            lastName: '',
+            fullName: '',
+            shortName: '',
             email: '',
         }
     };
@@ -190,8 +190,8 @@ export async function getUserRequest(): Promise<RequestResponse<User>> {
                 query: gql(`
                     query {
                         user {
-                            firstName,
-                            lastName,
+                            fullName,
+                            shortName,
                             email,
                         }
                     }`

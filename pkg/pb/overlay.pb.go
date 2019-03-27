@@ -8,7 +8,6 @@ import (
 	fmt "fmt"
 	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/gogo/protobuf/proto"
-	duration "github.com/golang/protobuf/ptypes/duration"
 	grpc "google.golang.org/grpc"
 	math "math"
 )
@@ -55,7 +54,7 @@ func (x Restriction_Operator) String() string {
 }
 
 func (Restriction_Operator) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_61fc82527fbe24ad, []int{13, 0}
+	return fileDescriptor_61fc82527fbe24ad, []int{6, 0}
 }
 
 type Restriction_Operand int32
@@ -80,331 +79,7 @@ func (x Restriction_Operand) String() string {
 }
 
 func (Restriction_Operand) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_61fc82527fbe24ad, []int{13, 1}
-}
-
-// LookupRequest is is request message for the lookup rpc call
-type LookupRequest struct {
-	NodeId               NodeID   `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3,customtype=NodeID" json:"node_id"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *LookupRequest) Reset()         { *m = LookupRequest{} }
-func (m *LookupRequest) String() string { return proto.CompactTextString(m) }
-func (*LookupRequest) ProtoMessage()    {}
-func (*LookupRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_61fc82527fbe24ad, []int{0}
-}
-func (m *LookupRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_LookupRequest.Unmarshal(m, b)
-}
-func (m *LookupRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_LookupRequest.Marshal(b, m, deterministic)
-}
-func (m *LookupRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_LookupRequest.Merge(m, src)
-}
-func (m *LookupRequest) XXX_Size() int {
-	return xxx_messageInfo_LookupRequest.Size(m)
-}
-func (m *LookupRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_LookupRequest.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_LookupRequest proto.InternalMessageInfo
-
-// LookupResponse is is response message for the lookup rpc call
-type LookupResponse struct {
-	Node                 *Node    `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *LookupResponse) Reset()         { *m = LookupResponse{} }
-func (m *LookupResponse) String() string { return proto.CompactTextString(m) }
-func (*LookupResponse) ProtoMessage()    {}
-func (*LookupResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_61fc82527fbe24ad, []int{1}
-}
-func (m *LookupResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_LookupResponse.Unmarshal(m, b)
-}
-func (m *LookupResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_LookupResponse.Marshal(b, m, deterministic)
-}
-func (m *LookupResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_LookupResponse.Merge(m, src)
-}
-func (m *LookupResponse) XXX_Size() int {
-	return xxx_messageInfo_LookupResponse.Size(m)
-}
-func (m *LookupResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_LookupResponse.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_LookupResponse proto.InternalMessageInfo
-
-func (m *LookupResponse) GetNode() *Node {
-	if m != nil {
-		return m.Node
-	}
-	return nil
-}
-
-//LookupRequests is a list of LookupRequest
-type LookupRequests struct {
-	LookupRequest        []*LookupRequest `protobuf:"bytes,1,rep,name=lookup_request,json=lookupRequest,proto3" json:"lookup_request,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
-	XXX_unrecognized     []byte           `json:"-"`
-	XXX_sizecache        int32            `json:"-"`
-}
-
-func (m *LookupRequests) Reset()         { *m = LookupRequests{} }
-func (m *LookupRequests) String() string { return proto.CompactTextString(m) }
-func (*LookupRequests) ProtoMessage()    {}
-func (*LookupRequests) Descriptor() ([]byte, []int) {
-	return fileDescriptor_61fc82527fbe24ad, []int{2}
-}
-func (m *LookupRequests) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_LookupRequests.Unmarshal(m, b)
-}
-func (m *LookupRequests) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_LookupRequests.Marshal(b, m, deterministic)
-}
-func (m *LookupRequests) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_LookupRequests.Merge(m, src)
-}
-func (m *LookupRequests) XXX_Size() int {
-	return xxx_messageInfo_LookupRequests.Size(m)
-}
-func (m *LookupRequests) XXX_DiscardUnknown() {
-	xxx_messageInfo_LookupRequests.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_LookupRequests proto.InternalMessageInfo
-
-func (m *LookupRequests) GetLookupRequest() []*LookupRequest {
-	if m != nil {
-		return m.LookupRequest
-	}
-	return nil
-}
-
-//LookupResponse is a list of LookupResponse
-type LookupResponses struct {
-	LookupResponse       []*LookupResponse `protobuf:"bytes,1,rep,name=lookup_response,json=lookupResponse,proto3" json:"lookup_response,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
-	XXX_unrecognized     []byte            `json:"-"`
-	XXX_sizecache        int32             `json:"-"`
-}
-
-func (m *LookupResponses) Reset()         { *m = LookupResponses{} }
-func (m *LookupResponses) String() string { return proto.CompactTextString(m) }
-func (*LookupResponses) ProtoMessage()    {}
-func (*LookupResponses) Descriptor() ([]byte, []int) {
-	return fileDescriptor_61fc82527fbe24ad, []int{3}
-}
-func (m *LookupResponses) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_LookupResponses.Unmarshal(m, b)
-}
-func (m *LookupResponses) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_LookupResponses.Marshal(b, m, deterministic)
-}
-func (m *LookupResponses) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_LookupResponses.Merge(m, src)
-}
-func (m *LookupResponses) XXX_Size() int {
-	return xxx_messageInfo_LookupResponses.Size(m)
-}
-func (m *LookupResponses) XXX_DiscardUnknown() {
-	xxx_messageInfo_LookupResponses.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_LookupResponses proto.InternalMessageInfo
-
-func (m *LookupResponses) GetLookupResponse() []*LookupResponse {
-	if m != nil {
-		return m.LookupResponse
-	}
-	return nil
-}
-
-// FindStorageNodesResponse is is response message for the FindStorageNodes rpc call
-type FindStorageNodesResponse struct {
-	Nodes                []*Node  `protobuf:"bytes,1,rep,name=nodes,proto3" json:"nodes,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *FindStorageNodesResponse) Reset()         { *m = FindStorageNodesResponse{} }
-func (m *FindStorageNodesResponse) String() string { return proto.CompactTextString(m) }
-func (*FindStorageNodesResponse) ProtoMessage()    {}
-func (*FindStorageNodesResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_61fc82527fbe24ad, []int{4}
-}
-func (m *FindStorageNodesResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_FindStorageNodesResponse.Unmarshal(m, b)
-}
-func (m *FindStorageNodesResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_FindStorageNodesResponse.Marshal(b, m, deterministic)
-}
-func (m *FindStorageNodesResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_FindStorageNodesResponse.Merge(m, src)
-}
-func (m *FindStorageNodesResponse) XXX_Size() int {
-	return xxx_messageInfo_FindStorageNodesResponse.Size(m)
-}
-func (m *FindStorageNodesResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_FindStorageNodesResponse.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_FindStorageNodesResponse proto.InternalMessageInfo
-
-func (m *FindStorageNodesResponse) GetNodes() []*Node {
-	if m != nil {
-		return m.Nodes
-	}
-	return nil
-}
-
-// FindStorageNodesRequest is is request message for the FindStorageNodes rpc call
-type FindStorageNodesRequest struct {
-	ObjectSize           int64              `protobuf:"varint,1,opt,name=object_size,json=objectSize,proto3" json:"object_size,omitempty"`
-	ContractLength       *duration.Duration `protobuf:"bytes,2,opt,name=contract_length,json=contractLength,proto3" json:"contract_length,omitempty"`
-	Opts                 *OverlayOptions    `protobuf:"bytes,3,opt,name=opts,proto3" json:"opts,omitempty"`
-	Start                NodeID             `protobuf:"bytes,4,opt,name=start,proto3,customtype=NodeID" json:"start"`
-	MinNodes             int64              `protobuf:"varint,5,opt,name=min_nodes,json=minNodes,proto3" json:"min_nodes,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
-	XXX_unrecognized     []byte             `json:"-"`
-	XXX_sizecache        int32              `json:"-"`
-}
-
-func (m *FindStorageNodesRequest) Reset()         { *m = FindStorageNodesRequest{} }
-func (m *FindStorageNodesRequest) String() string { return proto.CompactTextString(m) }
-func (*FindStorageNodesRequest) ProtoMessage()    {}
-func (*FindStorageNodesRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_61fc82527fbe24ad, []int{5}
-}
-func (m *FindStorageNodesRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_FindStorageNodesRequest.Unmarshal(m, b)
-}
-func (m *FindStorageNodesRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_FindStorageNodesRequest.Marshal(b, m, deterministic)
-}
-func (m *FindStorageNodesRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_FindStorageNodesRequest.Merge(m, src)
-}
-func (m *FindStorageNodesRequest) XXX_Size() int {
-	return xxx_messageInfo_FindStorageNodesRequest.Size(m)
-}
-func (m *FindStorageNodesRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_FindStorageNodesRequest.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_FindStorageNodesRequest proto.InternalMessageInfo
-
-func (m *FindStorageNodesRequest) GetObjectSize() int64 {
-	if m != nil {
-		return m.ObjectSize
-	}
-	return 0
-}
-
-func (m *FindStorageNodesRequest) GetContractLength() *duration.Duration {
-	if m != nil {
-		return m.ContractLength
-	}
-	return nil
-}
-
-func (m *FindStorageNodesRequest) GetOpts() *OverlayOptions {
-	if m != nil {
-		return m.Opts
-	}
-	return nil
-}
-
-func (m *FindStorageNodesRequest) GetMinNodes() int64 {
-	if m != nil {
-		return m.MinNodes
-	}
-	return 0
-}
-
-// OverlayOptions is a set of criteria that a node must meet to be considered for a storage opportunity
-type OverlayOptions struct {
-	MaxLatency           *duration.Duration `protobuf:"bytes,1,opt,name=max_latency,json=maxLatency,proto3" json:"max_latency,omitempty"`
-	MinStats             *NodeStats         `protobuf:"bytes,2,opt,name=min_stats,json=minStats,proto3" json:"min_stats,omitempty"`
-	MinSpeedKbps         int64              `protobuf:"varint,3,opt,name=min_speed_kbps,json=minSpeedKbps,proto3" json:"min_speed_kbps,omitempty"`
-	Amount               int64              `protobuf:"varint,4,opt,name=amount,proto3" json:"amount,omitempty"`
-	Restrictions         *NodeRestrictions  `protobuf:"bytes,5,opt,name=restrictions,proto3" json:"restrictions,omitempty"`
-	ExcludedNodes        []NodeID           `protobuf:"bytes,6,rep,name=excluded_nodes,json=excludedNodes,proto3,customtype=NodeID" json:"excluded_nodes,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
-	XXX_unrecognized     []byte             `json:"-"`
-	XXX_sizecache        int32              `json:"-"`
-}
-
-func (m *OverlayOptions) Reset()         { *m = OverlayOptions{} }
-func (m *OverlayOptions) String() string { return proto.CompactTextString(m) }
-func (*OverlayOptions) ProtoMessage()    {}
-func (*OverlayOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_61fc82527fbe24ad, []int{6}
-}
-func (m *OverlayOptions) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_OverlayOptions.Unmarshal(m, b)
-}
-func (m *OverlayOptions) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_OverlayOptions.Marshal(b, m, deterministic)
-}
-func (m *OverlayOptions) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_OverlayOptions.Merge(m, src)
-}
-func (m *OverlayOptions) XXX_Size() int {
-	return xxx_messageInfo_OverlayOptions.Size(m)
-}
-func (m *OverlayOptions) XXX_DiscardUnknown() {
-	xxx_messageInfo_OverlayOptions.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_OverlayOptions proto.InternalMessageInfo
-
-func (m *OverlayOptions) GetMaxLatency() *duration.Duration {
-	if m != nil {
-		return m.MaxLatency
-	}
-	return nil
-}
-
-func (m *OverlayOptions) GetMinStats() *NodeStats {
-	if m != nil {
-		return m.MinStats
-	}
-	return nil
-}
-
-func (m *OverlayOptions) GetMinSpeedKbps() int64 {
-	if m != nil {
-		return m.MinSpeedKbps
-	}
-	return 0
-}
-
-func (m *OverlayOptions) GetAmount() int64 {
-	if m != nil {
-		return m.Amount
-	}
-	return 0
-}
-
-func (m *OverlayOptions) GetRestrictions() *NodeRestrictions {
-	if m != nil {
-		return m.Restrictions
-	}
-	return nil
+	return fileDescriptor_61fc82527fbe24ad, []int{6, 1}
 }
 
 type QueryRequest struct {
@@ -421,7 +96,7 @@ func (m *QueryRequest) Reset()         { *m = QueryRequest{} }
 func (m *QueryRequest) String() string { return proto.CompactTextString(m) }
 func (*QueryRequest) ProtoMessage()    {}
 func (*QueryRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_61fc82527fbe24ad, []int{7}
+	return fileDescriptor_61fc82527fbe24ad, []int{0}
 }
 func (m *QueryRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_QueryRequest.Unmarshal(m, b)
@@ -481,7 +156,7 @@ func (m *QueryResponse) Reset()         { *m = QueryResponse{} }
 func (m *QueryResponse) String() string { return proto.CompactTextString(m) }
 func (*QueryResponse) ProtoMessage()    {}
 func (*QueryResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_61fc82527fbe24ad, []int{8}
+	return fileDescriptor_61fc82527fbe24ad, []int{1}
 }
 func (m *QueryResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_QueryResponse.Unmarshal(m, b)
@@ -525,7 +200,7 @@ func (m *PingRequest) Reset()         { *m = PingRequest{} }
 func (m *PingRequest) String() string { return proto.CompactTextString(m) }
 func (*PingRequest) ProtoMessage()    {}
 func (*PingRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_61fc82527fbe24ad, []int{9}
+	return fileDescriptor_61fc82527fbe24ad, []int{2}
 }
 func (m *PingRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PingRequest.Unmarshal(m, b)
@@ -555,7 +230,7 @@ func (m *PingResponse) Reset()         { *m = PingResponse{} }
 func (m *PingResponse) String() string { return proto.CompactTextString(m) }
 func (*PingResponse) ProtoMessage()    {}
 func (*PingResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_61fc82527fbe24ad, []int{10}
+	return fileDescriptor_61fc82527fbe24ad, []int{3}
 }
 func (m *PingResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PingResponse.Unmarshal(m, b)
@@ -586,7 +261,7 @@ func (m *InfoRequest) Reset()         { *m = InfoRequest{} }
 func (m *InfoRequest) String() string { return proto.CompactTextString(m) }
 func (*InfoRequest) ProtoMessage()    {}
 func (*InfoRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_61fc82527fbe24ad, []int{11}
+	return fileDescriptor_61fc82527fbe24ad, []int{4}
 }
 func (m *InfoRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_InfoRequest.Unmarshal(m, b)
@@ -619,7 +294,7 @@ func (m *InfoResponse) Reset()         { *m = InfoResponse{} }
 func (m *InfoResponse) String() string { return proto.CompactTextString(m) }
 func (*InfoResponse) ProtoMessage()    {}
 func (*InfoResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_61fc82527fbe24ad, []int{12}
+	return fileDescriptor_61fc82527fbe24ad, []int{5}
 }
 func (m *InfoResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_InfoResponse.Unmarshal(m, b)
@@ -673,7 +348,7 @@ func (m *Restriction) Reset()         { *m = Restriction{} }
 func (m *Restriction) String() string { return proto.CompactTextString(m) }
 func (*Restriction) ProtoMessage()    {}
 func (*Restriction) Descriptor() ([]byte, []int) {
-	return fileDescriptor_61fc82527fbe24ad, []int{13}
+	return fileDescriptor_61fc82527fbe24ad, []int{6}
 }
 func (m *Restriction) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Restriction.Unmarshal(m, b)
@@ -717,13 +392,6 @@ func (m *Restriction) GetValue() int64 {
 func init() {
 	proto.RegisterEnum("overlay.Restriction_Operator", Restriction_Operator_name, Restriction_Operator_value)
 	proto.RegisterEnum("overlay.Restriction_Operand", Restriction_Operand_name, Restriction_Operand_value)
-	proto.RegisterType((*LookupRequest)(nil), "overlay.LookupRequest")
-	proto.RegisterType((*LookupResponse)(nil), "overlay.LookupResponse")
-	proto.RegisterType((*LookupRequests)(nil), "overlay.LookupRequests")
-	proto.RegisterType((*LookupResponses)(nil), "overlay.LookupResponses")
-	proto.RegisterType((*FindStorageNodesResponse)(nil), "overlay.FindStorageNodesResponse")
-	proto.RegisterType((*FindStorageNodesRequest)(nil), "overlay.FindStorageNodesRequest")
-	proto.RegisterType((*OverlayOptions)(nil), "overlay.OverlayOptions")
 	proto.RegisterType((*QueryRequest)(nil), "overlay.QueryRequest")
 	proto.RegisterType((*QueryResponse)(nil), "overlay.QueryResponse")
 	proto.RegisterType((*PingRequest)(nil), "overlay.PingRequest")
@@ -736,65 +404,37 @@ func init() {
 func init() { proto.RegisterFile("overlay.proto", fileDescriptor_61fc82527fbe24ad) }
 
 var fileDescriptor_61fc82527fbe24ad = []byte{
-	// 913 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x54, 0xdd, 0x8e, 0xdb, 0x44,
-	0x14, 0x5e, 0xe7, 0xbf, 0x27, 0x89, 0x37, 0x1a, 0xb5, 0xbb, 0x21, 0x40, 0x37, 0x58, 0x15, 0xac,
-	0x44, 0x95, 0x42, 0x8a, 0x2a, 0xba, 0x02, 0x01, 0x21, 0x69, 0x89, 0x1a, 0x75, 0xe9, 0x24, 0x52,
-	0x25, 0xb8, 0xb0, 0x1c, 0x7b, 0x6a, 0xcc, 0x3a, 0x1e, 0xe3, 0x19, 0x57, 0x9b, 0x3e, 0x01, 0xd7,
-	0xbc, 0x04, 0xb7, 0x3c, 0x06, 0xcf, 0xc0, 0xc5, 0x3e, 0x02, 0x0f, 0xc0, 0x15, 0x9a, 0x1f, 0x3b,
-	0xce, 0x6e, 0x52, 0xf5, 0xca, 0x3e, 0xe7, 0xfb, 0xbe, 0x99, 0xf9, 0xce, 0x9c, 0x33, 0xd0, 0xa6,
-	0xaf, 0x49, 0x12, 0x3a, 0xeb, 0x41, 0x9c, 0x50, 0x4e, 0x51, 0x5d, 0x87, 0xbd, 0xbb, 0x3e, 0xa5,
-	0x7e, 0x48, 0x1e, 0xc8, 0xf4, 0x32, 0x7d, 0xf5, 0xc0, 0x4b, 0x13, 0x87, 0x07, 0x34, 0x52, 0xc4,
-	0x1e, 0xf8, 0xd4, 0xa7, 0xd9, 0x7f, 0x44, 0x3d, 0xa2, 0xfe, 0xad, 0x2f, 0xa1, 0x3d, 0xa3, 0xf4,
-	0x22, 0x8d, 0x31, 0xf9, 0x2d, 0x25, 0x8c, 0xa3, 0x4f, 0xa0, 0x2e, 0x60, 0x3b, 0xf0, 0xba, 0x46,
-	0xdf, 0x38, 0x6d, 0x8d, 0xcc, 0xbf, 0xaf, 0x4e, 0x0e, 0xfe, 0xb9, 0x3a, 0xa9, 0x3d, 0xa7, 0x1e,
-	0x99, 0x8e, 0x71, 0x4d, 0xc0, 0x53, 0xcf, 0xfa, 0x0c, 0xcc, 0x4c, 0xc9, 0x62, 0x1a, 0x31, 0x82,
-	0xee, 0x42, 0x45, 0x60, 0x52, 0xd7, 0x1c, 0xc2, 0x40, 0x6e, 0x23, 0x54, 0x58, 0xe6, 0xad, 0xf3,
-	0x8d, 0x42, 0xee, 0xc5, 0xd0, 0xd7, 0x60, 0x86, 0x32, 0x63, 0x27, 0x2a, 0xd5, 0x35, 0xfa, 0xe5,
-	0xd3, 0xe6, 0xf0, 0x68, 0x90, 0xd9, 0xdc, 0x12, 0xe0, 0x76, 0x58, 0x0c, 0xad, 0x39, 0x1c, 0x6e,
-	0x1f, 0x81, 0xa1, 0x6f, 0xe1, 0x30, 0x5f, 0x51, 0xe5, 0xf4, 0x92, 0xc7, 0x37, 0x96, 0x54, 0x30,
-	0x36, 0xc3, 0xad, 0xd8, 0xfa, 0x0a, 0xba, 0x4f, 0x82, 0xc8, 0x9b, 0x73, 0x9a, 0x38, 0x3e, 0x11,
-	0xc7, 0x67, 0xb9, 0xc3, 0x3e, 0x54, 0x85, 0x13, 0xa6, 0xd7, 0x2c, 0x5a, 0x54, 0x80, 0xf5, 0xaf,
-	0x01, 0xc7, 0x37, 0xe5, 0xaa, 0xb4, 0x27, 0xd0, 0xa4, 0xcb, 0x5f, 0x89, 0xcb, 0x6d, 0x16, 0xbc,
-	0x51, 0x65, 0x2a, 0x63, 0x50, 0xa9, 0x79, 0xf0, 0x86, 0xa0, 0x11, 0x1c, 0xba, 0x34, 0xe2, 0x89,
-	0xe3, 0x72, 0x3b, 0x24, 0x91, 0xcf, 0x7f, 0xe9, 0x96, 0x64, 0x2d, 0xdf, 0x1b, 0xa8, 0xeb, 0x1d,
-	0x64, 0xd7, 0x3b, 0x18, 0xeb, 0xeb, 0xc5, 0x66, 0xa6, 0x98, 0x49, 0x01, 0xfa, 0x14, 0x2a, 0x34,
-	0xe6, 0xac, 0x5b, 0x96, 0xc2, 0x8d, 0xeb, 0x73, 0xf5, 0x3d, 0x8f, 0x85, 0x8a, 0x61, 0x49, 0x42,
-	0xf7, 0xa0, 0xca, 0xb8, 0x93, 0xf0, 0x6e, 0x65, 0xe7, 0x55, 0x2b, 0x10, 0xbd, 0x0f, 0xb7, 0x56,
-	0x41, 0x64, 0x2b, 0xe7, 0x55, 0x79, 0xea, 0xc6, 0x2a, 0x88, 0xa4, 0x37, 0xeb, 0xcf, 0x12, 0x98,
-	0xdb, 0x6b, 0xa3, 0x33, 0x68, 0xae, 0x9c, 0x4b, 0x3b, 0x74, 0x38, 0x89, 0xdc, 0xb5, 0x6e, 0x87,
-	0xb7, 0x58, 0x80, 0x95, 0x73, 0x39, 0x53, 0x64, 0x74, 0x5f, 0xed, 0xc5, 0xb8, 0xc3, 0x99, 0x36,
-	0x7f, 0xb8, 0xa9, 0xf2, 0x5c, 0xa4, 0xe5, 0xe6, 0xf2, 0x0f, 0xdd, 0x03, 0x53, 0xb2, 0x63, 0x42,
-	0x3c, 0xfb, 0x62, 0x19, 0x2b, 0xdb, 0x65, 0xdc, 0x12, 0x0c, 0x91, 0x7c, 0xb6, 0x8c, 0x19, 0x3a,
-	0x82, 0x9a, 0xb3, 0xa2, 0x69, 0xa4, 0x6c, 0x96, 0xb1, 0x8e, 0xd0, 0x19, 0xb4, 0x12, 0xc2, 0x78,
-	0x12, 0xb8, 0xf2, 0xdc, 0xd2, 0x9a, 0xe8, 0xbd, 0xcd, 0xa5, 0x16, 0x50, 0xbc, 0xc5, 0x45, 0x9f,
-	0x83, 0x49, 0x2e, 0xdd, 0x30, 0xf5, 0x88, 0xa7, 0x0b, 0x53, 0xeb, 0x97, 0x4f, 0x5b, 0x23, 0x28,
-	0x94, 0xaf, 0x9d, 0x31, 0x54, 0xa5, 0x7e, 0x37, 0xa0, 0xf5, 0x22, 0x25, 0xc9, 0x3a, 0xeb, 0x07,
-	0x0b, 0x6a, 0x8c, 0x44, 0x1e, 0x49, 0x76, 0x4c, 0x8c, 0x46, 0x04, 0x87, 0x3b, 0x89, 0x4f, 0xb8,
-	0x2e, 0xc6, 0x16, 0x47, 0x21, 0xe8, 0x36, 0x54, 0xc3, 0x60, 0x15, 0x70, 0x6d, 0x5e, 0x05, 0xa8,
-	0x07, 0x8d, 0x38, 0x88, 0xfc, 0xa5, 0xe3, 0x5e, 0x48, 0xdf, 0x0d, 0x9c, 0xc7, 0xd6, 0xcf, 0xd0,
-	0xd6, 0x27, 0xd1, 0x8d, 0xfd, 0x2e, 0x47, 0xf9, 0x18, 0x1a, 0xf9, 0x4c, 0x95, 0x6e, 0xf4, 0x7f,
-	0x8e, 0x59, 0x6d, 0x68, 0xfe, 0x18, 0x44, 0x7e, 0x36, 0xa4, 0x26, 0xb4, 0x54, 0xb8, 0x81, 0xa7,
-	0xd1, 0x2b, 0x9a, 0xc1, 0x7f, 0x18, 0xd0, 0x52, 0x71, 0x7e, 0x94, 0x0a, 0x5f, 0xc7, 0x44, 0xfa,
-	0x35, 0x87, 0xe6, 0x66, 0x8b, 0xc5, 0x3a, 0x26, 0x58, 0x62, 0x68, 0x00, 0x0d, 0x1a, 0x93, 0xc4,
-	0xe1, 0x34, 0xd1, 0x8d, 0x8e, 0x36, 0xbc, 0x73, 0x8d, 0xe0, 0x9c, 0x23, 0xf8, 0xae, 0x13, 0x3b,
-	0x6e, 0xc0, 0xd7, 0xb2, 0x16, 0x5b, 0xfc, 0xef, 0x35, 0x82, 0x73, 0x8e, 0xf5, 0x9f, 0x01, 0xcd,
-	0xc2, 0xe5, 0xa3, 0xc7, 0x85, 0xfd, 0x0c, 0x79, 0xae, 0x0f, 0xf3, 0xc1, 0x2a, 0xf0, 0x06, 0x3b,
-	0xb6, 0x7e, 0x04, 0x75, 0xf9, 0x1f, 0x79, 0xda, 0xd1, 0x07, 0xfb, 0x95, 0x91, 0x87, 0x33, 0xb2,
-	0xb8, 0xd4, 0xd7, 0x4e, 0x98, 0x92, 0xec, 0x52, 0x65, 0x60, 0x7d, 0x01, 0x8d, 0x6c, 0x0f, 0x54,
-	0x83, 0xd2, 0x6c, 0xd1, 0x39, 0x10, 0xdf, 0xc9, 0x8b, 0x8e, 0x21, 0xbe, 0x4f, 0x17, 0x9d, 0x12,
-	0xaa, 0x43, 0x79, 0xb6, 0x98, 0x74, 0xca, 0xe2, 0xe7, 0xe9, 0x62, 0xd2, 0xa9, 0x58, 0xf7, 0xa1,
-	0xae, 0xd7, 0x47, 0x08, 0xcc, 0x27, 0x78, 0x32, 0xb1, 0x47, 0xdf, 0x3d, 0x1f, 0xbf, 0x9c, 0x8e,
-	0x17, 0x3f, 0x74, 0x0e, 0x50, 0x1b, 0x6e, 0xc9, 0xdc, 0x78, 0x3a, 0x7f, 0xd6, 0x31, 0x86, 0x57,
-	0x06, 0xd4, 0xf5, 0x44, 0xa3, 0xc7, 0x50, 0x53, 0xcf, 0x25, 0xda, 0xf3, 0x24, 0xf7, 0xf6, 0xbd,
-	0xab, 0xe8, 0x1b, 0x80, 0x51, 0x1a, 0x5e, 0x68, 0xf9, 0xf1, 0x6e, 0x39, 0xeb, 0x75, 0xf7, 0xe8,
-	0x19, 0x7a, 0x09, 0x9d, 0xeb, 0x2f, 0x29, 0xea, 0xe7, 0xec, 0x3d, 0x8f, 0x6c, 0xef, 0xa3, 0xb7,
-	0x30, 0xd4, 0xca, 0xc3, 0xbf, 0x0c, 0xa8, 0xaa, 0xe5, 0x1e, 0x41, 0x55, 0xce, 0x01, 0xba, 0x93,
-	0xab, 0x8a, 0x13, 0xda, 0x3b, 0xba, 0x9e, 0xd6, 0xde, 0x1e, 0x42, 0x45, 0xf4, 0x34, 0xba, 0x9d,
-	0xe3, 0x85, 0x8e, 0xef, 0xdd, 0xb9, 0x96, 0xd5, 0xa2, 0x33, 0xd1, 0x53, 0x92, 0x21, 0xfa, 0xbd,
-	0xa0, 0x2d, 0x8c, 0x43, 0x41, 0x5b, 0x1c, 0x8a, 0x51, 0xe5, 0xa7, 0x52, 0xbc, 0x5c, 0xd6, 0xe4,
-	0xdb, 0xf9, 0xf0, 0xff, 0x00, 0x00, 0x00, 0xff, 0xff, 0x69, 0x04, 0xec, 0x6f, 0x05, 0x08, 0x00,
-	0x00,
+	// 473 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x93, 0xcf, 0x8e, 0xd3, 0x3e,
+	0x10, 0xc7, 0xd7, 0x49, 0xda, 0xe6, 0x37, 0xfd, 0xa3, 0xc8, 0xda, 0xfd, 0x29, 0x8a, 0x40, 0xaa,
+	0x72, 0x40, 0x3d, 0xa0, 0x1c, 0xba, 0x68, 0x25, 0xb8, 0xb1, 0x34, 0x2c, 0x15, 0xab, 0x85, 0x35,
+	0x91, 0x90, 0xe0, 0x80, 0xd2, 0xc6, 0x44, 0x11, 0xc5, 0x0e, 0x8e, 0xbb, 0x52, 0xde, 0x80, 0x33,
+	0x4f, 0xc2, 0xf3, 0x71, 0x42, 0x76, 0x9c, 0x34, 0x14, 0x90, 0x38, 0xd9, 0x33, 0xdf, 0xcf, 0x64,
+	0x66, 0x3c, 0x13, 0x98, 0xf2, 0x3b, 0x2a, 0x76, 0x69, 0x1d, 0x95, 0x82, 0x4b, 0x8e, 0x47, 0xc6,
+	0x0c, 0x20, 0xe7, 0x39, 0x6f, 0x9c, 0x01, 0x30, 0x9e, 0xd1, 0xe6, 0x1e, 0x7e, 0x45, 0x30, 0xb9,
+	0xdd, 0x53, 0x51, 0x13, 0xfa, 0x65, 0x4f, 0x2b, 0x89, 0x43, 0x18, 0x56, 0x94, 0x65, 0x54, 0xf8,
+	0x68, 0x8e, 0x16, 0xe3, 0x25, 0x44, 0x9a, 0xbe, 0xe1, 0x19, 0x25, 0x46, 0x51, 0x8c, 0x4c, 0x45,
+	0x4e, 0xa5, 0x6f, 0xfd, 0xce, 0x34, 0x0a, 0x3e, 0x85, 0xc1, 0xae, 0xf8, 0x5c, 0x48, 0xdf, 0x9e,
+	0xa3, 0x85, 0x4d, 0x1a, 0x03, 0x07, 0xe0, 0x96, 0x05, 0xcb, 0x37, 0xe9, 0xf6, 0x93, 0xef, 0xcc,
+	0xd1, 0xc2, 0x25, 0x9d, 0x1d, 0xbe, 0x87, 0xa9, 0xa9, 0xa4, 0x2a, 0x39, 0xab, 0xe8, 0x3f, 0x95,
+	0xf2, 0x00, 0x5c, 0x61, 0x78, 0xdf, 0x9a, 0xdb, 0x47, 0x54, 0xa7, 0x85, 0x53, 0x18, 0xbf, 0x2e,
+	0x58, 0x6e, 0xba, 0x0c, 0x67, 0x30, 0x69, 0xcc, 0x83, 0xbc, 0x66, 0x1f, 0x79, 0x2b, 0x7f, 0x43,
+	0x30, 0x69, 0xec, 0xae, 0x14, 0x47, 0xd6, 0x25, 0xd5, 0xfd, 0xce, 0x96, 0xb3, 0x43, 0x8a, 0xa4,
+	0x2e, 0x29, 0xd1, 0x1a, 0x8e, 0xc0, 0xe5, 0x25, 0x15, 0xa9, 0xe4, 0x42, 0x37, 0x3d, 0x5e, 0xe2,
+	0x03, 0xf7, 0xca, 0x28, 0xa4, 0x63, 0x14, 0xbf, 0x4d, 0xcb, 0x74, 0x5b, 0xc8, 0x5a, 0xbf, 0xc5,
+	0x2f, 0xfc, 0x33, 0xa3, 0x90, 0x8e, 0x09, 0x7f, 0x20, 0x18, 0x13, 0x5a, 0x49, 0x51, 0x6c, 0x65,
+	0xc1, 0x19, 0x7e, 0xdc, 0xcb, 0x87, 0x74, 0x5d, 0xf7, 0xa3, 0x76, 0xfa, 0x3d, 0x2e, 0xfa, 0x43,
+	0xea, 0x0b, 0x18, 0xe9, 0x3b, 0xcb, 0x4c, 0x47, 0xf7, 0xfe, 0x1e, 0xc9, 0x32, 0xd2, 0xc2, 0x6a,
+	0xa8, 0x77, 0xe9, 0x6e, 0x4f, 0xdb, 0xa1, 0x6a, 0x23, 0x7c, 0x04, 0x6e, 0x9b, 0x03, 0x0f, 0xc1,
+	0xba, 0x4e, 0xbc, 0x13, 0x75, 0xc6, 0xb7, 0x1e, 0x52, 0xe7, 0x55, 0xe2, 0x59, 0x78, 0x04, 0xf6,
+	0x75, 0x12, 0x7b, 0xb6, 0xba, 0x5c, 0x25, 0xb1, 0xe7, 0x84, 0x0f, 0x61, 0x64, 0xbe, 0x8f, 0x31,
+	0xcc, 0x9e, 0x93, 0x38, 0xfe, 0x70, 0xf9, 0xf4, 0x66, 0xf5, 0x76, 0xbd, 0x4a, 0x5e, 0x78, 0x27,
+	0x78, 0x0a, 0xff, 0x69, 0xdf, 0x6a, 0xfd, 0xe6, 0xa5, 0x87, 0x96, 0xdf, 0x11, 0x0c, 0xd4, 0xbb,
+	0x54, 0xf8, 0x02, 0x06, 0x7a, 0x4d, 0xf0, 0x59, 0x57, 0x73, 0x7f, 0x81, 0x83, 0xff, 0x8f, 0xdd,
+	0x66, 0x84, 0xe7, 0xe0, 0xa8, 0x91, 0xe3, 0xd3, 0x4e, 0xef, 0x2d, 0x44, 0x70, 0x76, 0xe4, 0x35,
+	0x41, 0x4f, 0xd4, 0x93, 0x6b, 0x42, 0xad, 0x43, 0x2f, 0xb6, 0xb7, 0x2d, 0xbd, 0xd8, 0xfe, 0xce,
+	0x5c, 0x3a, 0xef, 0xac, 0x72, 0xb3, 0x19, 0xea, 0xff, 0xec, 0xfc, 0x67, 0x00, 0x00, 0x00, 0xff,
+	0xff, 0x33, 0xe5, 0x71, 0x1b, 0x99, 0x03, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -804,142 +444,6 @@ var _ grpc.ClientConn
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
-
-// OverlayClient is the client API for Overlay service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
-type OverlayClient interface {
-	// Lookup finds a nodes address from the network
-	Lookup(ctx context.Context, in *LookupRequest, opts ...grpc.CallOption) (*LookupResponse, error)
-	// BulkLookup finds nodes addresses from the network
-	BulkLookup(ctx context.Context, in *LookupRequests, opts ...grpc.CallOption) (*LookupResponses, error)
-	// FindStorageNodes finds a list of nodes in the network that meet the specified request parameters
-	FindStorageNodes(ctx context.Context, in *FindStorageNodesRequest, opts ...grpc.CallOption) (*FindStorageNodesResponse, error)
-}
-
-type overlayClient struct {
-	cc *grpc.ClientConn
-}
-
-func NewOverlayClient(cc *grpc.ClientConn) OverlayClient {
-	return &overlayClient{cc}
-}
-
-func (c *overlayClient) Lookup(ctx context.Context, in *LookupRequest, opts ...grpc.CallOption) (*LookupResponse, error) {
-	out := new(LookupResponse)
-	err := c.cc.Invoke(ctx, "/overlay.Overlay/Lookup", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *overlayClient) BulkLookup(ctx context.Context, in *LookupRequests, opts ...grpc.CallOption) (*LookupResponses, error) {
-	out := new(LookupResponses)
-	err := c.cc.Invoke(ctx, "/overlay.Overlay/BulkLookup", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *overlayClient) FindStorageNodes(ctx context.Context, in *FindStorageNodesRequest, opts ...grpc.CallOption) (*FindStorageNodesResponse, error) {
-	out := new(FindStorageNodesResponse)
-	err := c.cc.Invoke(ctx, "/overlay.Overlay/FindStorageNodes", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// OverlayServer is the server API for Overlay service.
-type OverlayServer interface {
-	// Lookup finds a nodes address from the network
-	Lookup(context.Context, *LookupRequest) (*LookupResponse, error)
-	// BulkLookup finds nodes addresses from the network
-	BulkLookup(context.Context, *LookupRequests) (*LookupResponses, error)
-	// FindStorageNodes finds a list of nodes in the network that meet the specified request parameters
-	FindStorageNodes(context.Context, *FindStorageNodesRequest) (*FindStorageNodesResponse, error)
-}
-
-func RegisterOverlayServer(s *grpc.Server, srv OverlayServer) {
-	s.RegisterService(&_Overlay_serviceDesc, srv)
-}
-
-func _Overlay_Lookup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(LookupRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(OverlayServer).Lookup(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/overlay.Overlay/Lookup",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(OverlayServer).Lookup(ctx, req.(*LookupRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Overlay_BulkLookup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(LookupRequests)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(OverlayServer).BulkLookup(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/overlay.Overlay/BulkLookup",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(OverlayServer).BulkLookup(ctx, req.(*LookupRequests))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Overlay_FindStorageNodes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(FindStorageNodesRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(OverlayServer).FindStorageNodes(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/overlay.Overlay/FindStorageNodes",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(OverlayServer).FindStorageNodes(ctx, req.(*FindStorageNodesRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-var _Overlay_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "overlay.Overlay",
-	HandlerType: (*OverlayServer)(nil),
-	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "Lookup",
-			Handler:    _Overlay_Lookup_Handler,
-		},
-		{
-			MethodName: "BulkLookup",
-			Handler:    _Overlay_BulkLookup_Handler,
-		},
-		{
-			MethodName: "FindStorageNodes",
-			Handler:    _Overlay_FindStorageNodes_Handler,
-		},
-	},
-	Streams:  []grpc.StreamDesc{},
-	Metadata: "overlay.proto",
-}
 
 // NodesClient is the client API for Nodes service.
 //
