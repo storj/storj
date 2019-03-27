@@ -446,6 +446,10 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 		UptimeRatio:        dbx.Node_UptimeRatio(uptimeRatio),
 	}
 
+	if updateReq.IsUp {
+		updateFields.LastSeenAt = dbx.Node_LastSeenAt(time.Now())
+	}
+
 	dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
 	if err != nil {
 		return nil, Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
