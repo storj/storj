@@ -26,15 +26,15 @@ var (
 
 // V is the versioning information for a binary
 type V struct {
-	Timestamp  string `json:"timestamp"`
-	CommitHash string `json:"commitHash"`
-	Version    SemVer `json:"semver"`
-	Release    bool   `json:"release"`
+	Timestamp  string `json:"timestamp,omitempty"`
+	CommitHash string `json:"commitHash,omitempty"`
+	Version    string `json:"version"`
+	Release    bool   `json:"release,omitempty"`
 }
 
 // SemVer represents a semantic version
 type SemVer struct {
-	Major int64 `json:"majpr"`
+	Major int64 `json:"major"`
 	Minor int64 `json:"minor"`
 	Patch int64 `json:"patch"`
 }
@@ -59,7 +59,7 @@ func init() {
 		panic(err)
 	}
 
-	Build.Version = *sv
+	Build.Version = sv.String()
 
 	if Build.Timestamp == "" || Build.CommitHash == "" {
 		Build.Release = false
@@ -71,12 +71,16 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	j, err := json.Marshal(Build)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
-	w.Write(j)
+	_, err = w.Write(j)
+	if err != nil {
+		// ToDo: Handle Error
+	}
 }
 
 // NewSemVer parses a given version and returns an instance of SemVer or
@@ -116,6 +120,12 @@ func NewSemVer(regex *regexp.Regexp, v string) (*SemVer, error) {
 	return &sv, nil
 }
 
+// String converts the SemVer struct to a more easy to handle string
+func (sem *SemVer) String() (version string) {
+	return fmt.Sprintf("v%d.%d.%d", sem.Major, sem.Minor, sem.Patch)
+}
+
+// parse converts a string with schema .xxx to an int64 or returns an error
 func parse(label string) (int64, error) {
 	l, err := strconv.ParseInt(strings.TrimPrefix(label, "."), 10, 64)
 	if err != nil {
