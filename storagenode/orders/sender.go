@@ -105,19 +105,7 @@ func (sender *Sender) Run(ctx context.Context) error {
 		}
 
 		if len(ordersBySatellite) > 0 {
-			var group errgroup.Group
-
-			for satelliteID, orders := range ordersBySatellite {
-				satelliteID, orders := satelliteID, orders
-				group.Go(func() error {
-					ctx, cancel := context.WithTimeout(ctx, sender.config.Timeout)
-					defer cancel()
-
-					sender.Settle(ctx, satelliteID, orders)
-					return nil
-				})
-			}
-			_ = group.Wait() // doesn't return errors
+			sender.log.Debug("order sending disabled in this release")
 		} else {
 			sender.log.Debug("no orders to send")
 		}
