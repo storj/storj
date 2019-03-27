@@ -23,7 +23,7 @@ type runConfig struct {
 
 var (
 	logfile  = "/var/log/storj/version.log"
-	ver      []version.Info
+	ver      []version.V
 	response []byte
 )
 
@@ -95,7 +95,7 @@ func main() {
 
 	subVersions := strings.Split(conf.Versions, ",")
 	for _, subVersion := range subVersions {
-		instance := version.Info{
+		instance := version.V{
 			Version: subVersion,
 		}
 		ver = append(ver, instance)
