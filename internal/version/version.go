@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-  "io/ioutil"
+	"io/ioutil"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -138,7 +138,8 @@ func parse(label string) (int64, error) {
 		return 0, fmt.Errorf("invalid semantic version: %s", err)
 	}
 
-	return l, nil	
+	return l, nil
+}
 
 // New creates Version_Info from a json byte array
 func New(data []byte) (v V, err error) {
