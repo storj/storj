@@ -348,10 +348,10 @@ model bucket_usage (
 
     field  remote_stored_data uint64
     field  inline_stored_data uint64
-    field  remote_segments    uint
+		field  remote_segments    uint
     field  inline_segments    uint
     field  objects            uint
-    field  metadata_size      uint64
+		field  metadata_size      uint64
     field  repair_egress      uint64
     field  get_egress         uint64
     field  audit_egress       uint64
@@ -431,12 +431,13 @@ create used_serial ()
 model bucket_bandwidth_rollup (
 	key    bucket_id interval_start action
 	index (
-	    name bucket_id_interval_start
-	    fields bucket_id interval_start
+	    name bucket_id_interval_start_interval_seconds
+	    fields bucket_id interval_start interval_seconds
 	)
 
 	field bucket_id        blob
 	field interval_start   utimestamp
+	field interval_seconds uint
 	field action           uint
 
 	field inline    uint64
@@ -453,10 +454,11 @@ model bucket_storage_tally (
 	field inline uint64
 	field remote uint64
 	
-  field  remote_segments    uint
-  field  inline_segments    uint
-  field  objects            uint
-  field  metadata_size      uint64
+	field  remote_segments_count    uint
+	field  inline_segments_count    uint
+	field  object_count             uint
+
+	field  metadata_size      uint64
 )
 
 // --- storage node accounting tables --- //
@@ -464,12 +466,13 @@ model bucket_storage_tally (
 model storagenode_bandwidth_rollup (
 	key    storagenode_id interval_start action
 	index (
-	    name storagenode_id_interval_start
-	    fields storagenode_id interval_start
+	    name storagenode_id_interval_start_interval_seconds
+	    fields storagenode_id interval_start interval_seconds
 	)
 
 	field storagenode_id   blob
 	field interval_start   utimestamp
+	field interval_seconds uint
 	field action           uint
 
 	field allocated uint64

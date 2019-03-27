@@ -383,14 +383,16 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`CREATE TABLE storagenode_bandwidth_rollups (
 						storagenode_id bytea NOT NULL,
 						interval_start timestamp NOT NULL,
+						interval_seconds integer NOT NULL,
 						action integer NOT NULL,
 						allocated bigint NOT NULL,
 						settled bigint NOT NULL,
 						PRIMARY KEY ( storagenode_id, interval_start, action )
 					)`,
-					`CREATE INDEX storagenode_id_interval_start_index ON storagenode_bandwidth_rollups (
+					`CREATE INDEX storagenode_id_interval_start_interval_seconds_index ON storagenode_bandwidth_rollups (
 						storagenode_id,
-						interval_start
+						interval_start,
+						interval_seconds
 					)`,
 					`CREATE TABLE storagenode_storage_tallies (
 						storagenode_id bytea NOT NULL,
@@ -401,24 +403,26 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`CREATE TABLE bucket_bandwidth_rollups (
 						bucket_id bytea NOT NULL,
 						interval_start timestamp NOT NULL,
+						interval_seconds integer NOT NULL,
 						action integer NOT NULL,
 						inline bigint NOT NULL,
 						allocated bigint NOT NULL,
 						settled bigint NOT NULL,
 						PRIMARY KEY ( bucket_id, interval_start, action )
 					)`,
-					`CREATE INDEX bucket_id_interval_start_index ON bucket_bandwidth_rollups (
+					`CREATE INDEX bucket_id_interval_start_interval_seconds_index ON bucket_bandwidth_rollups (
 						bucket_id,
-						interval_start
+						interval_start,
+						interval_seconds
 					)`,
 					`CREATE TABLE bucket_storage_tallies (
 						bucket_id bytea NOT NULL,
 						interval_start timestamp NOT NULL,
 						inline bigint NOT NULL,
 						remote bigint NOT NULL,
-						remote_segments integer NOT NULL,
-						inline_segments integer NOT NULL,
-						objects integer NOT NULL,
+						remote_segments_count integer NOT NULL,
+						inline_segments_count integer NOT NULL,
+						object_count integer NOT NULL,
 						metadata_size bigint NOT NULL,
 						PRIMARY KEY ( bucket_id, interval_start )
 					)`,
