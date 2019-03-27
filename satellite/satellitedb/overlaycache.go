@@ -670,6 +670,10 @@ func convertDBNode(info *dbx.Node) (*pb.Node, error) {
 		node.Reputation = nil
 	}
 
+	if time.Now().Sub(info.LastContactSuccess) < 1*time.Hour && info.LastContactSuccess.After(info.LastContactFailure) {
+		node.IsUp = true
+	}
+
 	return node, nil
 }
 

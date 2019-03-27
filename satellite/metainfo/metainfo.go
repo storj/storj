@@ -350,13 +350,28 @@ func (endpoint *Endpoint) createOrderLimitsForSegment(ctx context.Context, point
 	var combinedErrs error
 	var limits []*pb.AddressedOrderLimit
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
-		derivedPieceID := rootPieceID.Derive(piece.NodeId)
+		node, err := endpoint.cache.Get(ctx, piece.NodeId)
+		if err != nil {
+			endpoint.log.Debug("error getting node from overlay cache", zap.Error(err))
+			combinedErrs = errs.Combine(combinedErrs, err)
+			continue
+		}
+
+		if node != nil {
+			node.Type.DPanicOnInvalid("metainfo server order limits")
+		}
+
+		if !node.IsUp {
+			endpoint.log.Debug("node is offline", zap.String("ID", node.Id.String()))
+			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
+			continue
+		}
 
 		parameters := pointerdb.OrderLimitParameters{
 			SerialNumber:    serialNumber,
 			UplinkIdentity:  uplinkIdentity,
 			StorageNodeID:   piece.NodeId,
-			PieceID:         derivedPieceID,
+			PieceID:         rootPieceID.Derive(piece.NodeId),
 			Action:          action,
 			PieceExpiration: expiration,
 			Limit:           pieceSize,
@@ -364,17 +379,6 @@ func (endpoint *Endpoint) createOrderLimitsForSegment(ctx context.Context, point
 		orderLimit, err := endpoint.createOrderLimit(ctx, parameters)
 		if err != nil {
 			return nil, err
-		}
-
-		node, err := endpoint.cache.Get(ctx, piece.NodeId)
-		if err != nil {
-			endpoint.log.Error("error getting node from overlay cache", zap.Error(err))
-			combinedErrs = errs.Combine(combinedErrs, err)
-			continue
-		}
-
-		if node != nil {
-			node.Type.DPanicOnInvalid("metainfo server order limits")
 		}
 
 		limits = append(limits, &pb.AddressedOrderLimit{
