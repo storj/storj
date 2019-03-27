@@ -298,28 +298,30 @@ CREATE TABLE accounting_timestamps (
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
 );
-CREATE TABLE bucket_bandwidth_rollups (
+CREATE TABLE bucket_bandwidth_tallies (
 	bucket_id bytea NOT NULL,
 	interval_start timestamp NOT NULL,
-	interval_seconds integer NOT NULL,
 	action integer NOT NULL,
 	inline bigint NOT NULL,
 	allocated bigint NOT NULL,
 	settled bigint NOT NULL,
 	PRIMARY KEY ( bucket_id, interval_start, action )
 );
-CREATE TABLE bucket_storage_rollups (
+CREATE TABLE bucket_storage_tallies (
 	bucket_id bytea NOT NULL,
 	interval_start timestamp NOT NULL,
-	interval_seconds integer NOT NULL,
 	inline bigint NOT NULL,
 	remote bigint NOT NULL,
+	remote_segments integer NOT NULL,
+	inline_segments integer NOT NULL,
+	objects integer NOT NULL,
+	metadata_size bigint NOT NULL,
 	PRIMARY KEY ( bucket_id, interval_start )
 );
 CREATE TABLE bucket_usages (
 	id bytea NOT NULL,
 	bucket_id bytea NOT NULL,
-	rollup_end_time timestamp with time zone NOT NULL,
+	tally_end_time timestamp with time zone NOT NULL,
 	remote_stored_data bigint NOT NULL,
 	inline_stored_data bigint NOT NULL,
 	remote_segments integer NOT NULL,
@@ -415,19 +417,17 @@ CREATE TABLE serial_numbers (
 	expires_at timestamp NOT NULL,
 	PRIMARY KEY ( id )
 );
-CREATE TABLE storagenode_bandwidth_rollups (
+CREATE TABLE storagenode_bandwidth_tallies (
 	storagenode_id bytea NOT NULL,
 	interval_start timestamp NOT NULL,
-	interval_seconds integer NOT NULL,
 	action integer NOT NULL,
 	allocated bigint NOT NULL,
 	settled bigint NOT NULL,
 	PRIMARY KEY ( storagenode_id, interval_start, action )
 );
-CREATE TABLE storagenode_storage_rollups (
+CREATE TABLE storagenode_storage_tallies (
 	storagenode_id bytea NOT NULL,
 	interval_start timestamp NOT NULL,
-	interval_seconds integer NOT NULL,
 	total bigint NOT NULL,
 	PRIMARY KEY ( storagenode_id, interval_start )
 );
@@ -462,11 +462,11 @@ CREATE TABLE used_serials (
 	storage_node_id bytea NOT NULL,
 	PRIMARY KEY ( serial_number_id, storage_node_id )
 );
-CREATE INDEX bucket_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_id, interval_start, interval_seconds );
-CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
+CREATE INDEX bucket_id_interval_start ON bucket_bandwidth_tallies ( bucket_id, interval_start );
+CREATE UNIQUE INDEX bucket_id_tally ON bucket_usages ( bucket_id, tally_end_time );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
-CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );`
+CREATE INDEX storagenode_id_interval_start ON storagenode_bandwidth_tallies ( storagenode_id, interval_start );`
 }
 
 func (obj *postgresDB) wrapTx(tx *sql.Tx) txMethods {
@@ -556,28 +556,30 @@ CREATE TABLE accounting_timestamps (
 	value TIMESTAMP NOT NULL,
 	PRIMARY KEY ( name )
 );
-CREATE TABLE bucket_bandwidth_rollups (
+CREATE TABLE bucket_bandwidth_tallies (
 	bucket_id BLOB NOT NULL,
 	interval_start TIMESTAMP NOT NULL,
-	interval_seconds INTEGER NOT NULL,
 	action INTEGER NOT NULL,
 	inline INTEGER NOT NULL,
 	allocated INTEGER NOT NULL,
 	settled INTEGER NOT NULL,
 	PRIMARY KEY ( bucket_id, interval_start, action )
 );
-CREATE TABLE bucket_storage_rollups (
+CREATE TABLE bucket_storage_tallies (
 	bucket_id BLOB NOT NULL,
 	interval_start TIMESTAMP NOT NULL,
-	interval_seconds INTEGER NOT NULL,
 	inline INTEGER NOT NULL,
 	remote INTEGER NOT NULL,
+	remote_segments INTEGER NOT NULL,
+	inline_segments INTEGER NOT NULL,
+	objects INTEGER NOT NULL,
+	metadata_size INTEGER NOT NULL,
 	PRIMARY KEY ( bucket_id, interval_start )
 );
 CREATE TABLE bucket_usages (
 	id BLOB NOT NULL,
 	bucket_id BLOB NOT NULL,
-	rollup_end_time TIMESTAMP NOT NULL,
+	tally_end_time TIMESTAMP NOT NULL,
 	remote_stored_data INTEGER NOT NULL,
 	inline_stored_data INTEGER NOT NULL,
 	remote_segments INTEGER NOT NULL,
@@ -673,19 +675,17 @@ CREATE TABLE serial_numbers (
 	expires_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
-CREATE TABLE storagenode_bandwidth_rollups (
+CREATE TABLE storagenode_bandwidth_tallies (
 	storagenode_id BLOB NOT NULL,
 	interval_start TIMESTAMP NOT NULL,
-	interval_seconds INTEGER NOT NULL,
 	action INTEGER NOT NULL,
 	allocated INTEGER NOT NULL,
 	settled INTEGER NOT NULL,
 	PRIMARY KEY ( storagenode_id, interval_start, action )
 );
-CREATE TABLE storagenode_storage_rollups (
+CREATE TABLE storagenode_storage_tallies (
 	storagenode_id BLOB NOT NULL,
 	interval_start TIMESTAMP NOT NULL,
-	interval_seconds INTEGER NOT NULL,
 	total INTEGER NOT NULL,
 	PRIMARY KEY ( storagenode_id, interval_start )
 );
@@ -720,11 +720,11 @@ CREATE TABLE used_serials (
 	storage_node_id BLOB NOT NULL,
 	PRIMARY KEY ( serial_number_id, storage_node_id )
 );
-CREATE INDEX bucket_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_id, interval_start, interval_seconds );
-CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
+CREATE INDEX bucket_id_interval_start ON bucket_bandwidth_tallies ( bucket_id, interval_start );
+CREATE UNIQUE INDEX bucket_id_tally ON bucket_usages ( bucket_id, tally_end_time );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
-CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );`
+CREATE INDEX storagenode_id_interval_start ON storagenode_bandwidth_tallies ( storagenode_id, interval_start );`
 }
 
 func (obj *sqlite3DB) wrapTx(tx *sql.Tx) txMethods {
@@ -1152,268 +1152,308 @@ func (f AccountingTimestamps_Value_Field) value() interface{} {
 
 func (AccountingTimestamps_Value_Field) _Column() string { return "value" }
 
-type BucketBandwidthRollup struct {
-	BucketId        []byte
-	IntervalStart   time.Time
-	IntervalSeconds uint
-	Action          uint
-	Inline          uint64
-	Allocated       uint64
-	Settled         uint64
+type BucketBandwidthTally struct {
+	BucketId      []byte
+	IntervalStart time.Time
+	Action        uint
+	Inline        uint64
+	Allocated     uint64
+	Settled       uint64
 }
 
-func (BucketBandwidthRollup) _Table() string { return "bucket_bandwidth_rollups" }
+func (BucketBandwidthTally) _Table() string { return "bucket_bandwidth_tallies" }
 
-type BucketBandwidthRollup_Update_Fields struct {
+type BucketBandwidthTally_Update_Fields struct {
 }
 
-type BucketBandwidthRollup_BucketId_Field struct {
+type BucketBandwidthTally_BucketId_Field struct {
 	_set   bool
 	_null  bool
 	_value []byte
 }
 
-func BucketBandwidthRollup_BucketId(v []byte) BucketBandwidthRollup_BucketId_Field {
-	return BucketBandwidthRollup_BucketId_Field{_set: true, _value: v}
+func BucketBandwidthTally_BucketId(v []byte) BucketBandwidthTally_BucketId_Field {
+	return BucketBandwidthTally_BucketId_Field{_set: true, _value: v}
 }
 
-func (f BucketBandwidthRollup_BucketId_Field) value() interface{} {
+func (f BucketBandwidthTally_BucketId_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (BucketBandwidthRollup_BucketId_Field) _Column() string { return "bucket_id" }
+func (BucketBandwidthTally_BucketId_Field) _Column() string { return "bucket_id" }
 
-type BucketBandwidthRollup_IntervalStart_Field struct {
+type BucketBandwidthTally_IntervalStart_Field struct {
 	_set   bool
 	_null  bool
 	_value time.Time
 }
 
-func BucketBandwidthRollup_IntervalStart(v time.Time) BucketBandwidthRollup_IntervalStart_Field {
+func BucketBandwidthTally_IntervalStart(v time.Time) BucketBandwidthTally_IntervalStart_Field {
 	v = toUTC(v)
-	return BucketBandwidthRollup_IntervalStart_Field{_set: true, _value: v}
+	return BucketBandwidthTally_IntervalStart_Field{_set: true, _value: v}
 }
 
-func (f BucketBandwidthRollup_IntervalStart_Field) value() interface{} {
+func (f BucketBandwidthTally_IntervalStart_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (BucketBandwidthRollup_IntervalStart_Field) _Column() string { return "interval_start" }
+func (BucketBandwidthTally_IntervalStart_Field) _Column() string { return "interval_start" }
 
-type BucketBandwidthRollup_IntervalSeconds_Field struct {
+type BucketBandwidthTally_Action_Field struct {
 	_set   bool
 	_null  bool
 	_value uint
 }
 
-func BucketBandwidthRollup_IntervalSeconds(v uint) BucketBandwidthRollup_IntervalSeconds_Field {
-	return BucketBandwidthRollup_IntervalSeconds_Field{_set: true, _value: v}
+func BucketBandwidthTally_Action(v uint) BucketBandwidthTally_Action_Field {
+	return BucketBandwidthTally_Action_Field{_set: true, _value: v}
 }
 
-func (f BucketBandwidthRollup_IntervalSeconds_Field) value() interface{} {
+func (f BucketBandwidthTally_Action_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (BucketBandwidthRollup_IntervalSeconds_Field) _Column() string { return "interval_seconds" }
+func (BucketBandwidthTally_Action_Field) _Column() string { return "action" }
 
-type BucketBandwidthRollup_Action_Field struct {
-	_set   bool
-	_null  bool
-	_value uint
-}
-
-func BucketBandwidthRollup_Action(v uint) BucketBandwidthRollup_Action_Field {
-	return BucketBandwidthRollup_Action_Field{_set: true, _value: v}
-}
-
-func (f BucketBandwidthRollup_Action_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (BucketBandwidthRollup_Action_Field) _Column() string { return "action" }
-
-type BucketBandwidthRollup_Inline_Field struct {
+type BucketBandwidthTally_Inline_Field struct {
 	_set   bool
 	_null  bool
 	_value uint64
 }
 
-func BucketBandwidthRollup_Inline(v uint64) BucketBandwidthRollup_Inline_Field {
-	return BucketBandwidthRollup_Inline_Field{_set: true, _value: v}
+func BucketBandwidthTally_Inline(v uint64) BucketBandwidthTally_Inline_Field {
+	return BucketBandwidthTally_Inline_Field{_set: true, _value: v}
 }
 
-func (f BucketBandwidthRollup_Inline_Field) value() interface{} {
+func (f BucketBandwidthTally_Inline_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (BucketBandwidthRollup_Inline_Field) _Column() string { return "inline" }
+func (BucketBandwidthTally_Inline_Field) _Column() string { return "inline" }
 
-type BucketBandwidthRollup_Allocated_Field struct {
+type BucketBandwidthTally_Allocated_Field struct {
 	_set   bool
 	_null  bool
 	_value uint64
 }
 
-func BucketBandwidthRollup_Allocated(v uint64) BucketBandwidthRollup_Allocated_Field {
-	return BucketBandwidthRollup_Allocated_Field{_set: true, _value: v}
+func BucketBandwidthTally_Allocated(v uint64) BucketBandwidthTally_Allocated_Field {
+	return BucketBandwidthTally_Allocated_Field{_set: true, _value: v}
 }
 
-func (f BucketBandwidthRollup_Allocated_Field) value() interface{} {
+func (f BucketBandwidthTally_Allocated_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (BucketBandwidthRollup_Allocated_Field) _Column() string { return "allocated" }
+func (BucketBandwidthTally_Allocated_Field) _Column() string { return "allocated" }
 
-type BucketBandwidthRollup_Settled_Field struct {
+type BucketBandwidthTally_Settled_Field struct {
 	_set   bool
 	_null  bool
 	_value uint64
 }
 
-func BucketBandwidthRollup_Settled(v uint64) BucketBandwidthRollup_Settled_Field {
-	return BucketBandwidthRollup_Settled_Field{_set: true, _value: v}
+func BucketBandwidthTally_Settled(v uint64) BucketBandwidthTally_Settled_Field {
+	return BucketBandwidthTally_Settled_Field{_set: true, _value: v}
 }
 
-func (f BucketBandwidthRollup_Settled_Field) value() interface{} {
+func (f BucketBandwidthTally_Settled_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (BucketBandwidthRollup_Settled_Field) _Column() string { return "settled" }
+func (BucketBandwidthTally_Settled_Field) _Column() string { return "settled" }
 
-type BucketStorageRollup struct {
-	BucketId        []byte
-	IntervalStart   time.Time
-	IntervalSeconds uint
-	Inline          uint64
-	Remote          uint64
+type BucketStorageTally struct {
+	BucketId       []byte
+	IntervalStart  time.Time
+	Inline         uint64
+	Remote         uint64
+	RemoteSegments uint
+	InlineSegments uint
+	Objects        uint
+	MetadataSize   uint64
 }
 
-func (BucketStorageRollup) _Table() string { return "bucket_storage_rollups" }
+func (BucketStorageTally) _Table() string { return "bucket_storage_tallies" }
 
-type BucketStorageRollup_Update_Fields struct {
+type BucketStorageTally_Update_Fields struct {
 }
 
-type BucketStorageRollup_BucketId_Field struct {
+type BucketStorageTally_BucketId_Field struct {
 	_set   bool
 	_null  bool
 	_value []byte
 }
 
-func BucketStorageRollup_BucketId(v []byte) BucketStorageRollup_BucketId_Field {
-	return BucketStorageRollup_BucketId_Field{_set: true, _value: v}
+func BucketStorageTally_BucketId(v []byte) BucketStorageTally_BucketId_Field {
+	return BucketStorageTally_BucketId_Field{_set: true, _value: v}
 }
 
-func (f BucketStorageRollup_BucketId_Field) value() interface{} {
+func (f BucketStorageTally_BucketId_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (BucketStorageRollup_BucketId_Field) _Column() string { return "bucket_id" }
+func (BucketStorageTally_BucketId_Field) _Column() string { return "bucket_id" }
 
-type BucketStorageRollup_IntervalStart_Field struct {
+type BucketStorageTally_IntervalStart_Field struct {
 	_set   bool
 	_null  bool
 	_value time.Time
 }
 
-func BucketStorageRollup_IntervalStart(v time.Time) BucketStorageRollup_IntervalStart_Field {
+func BucketStorageTally_IntervalStart(v time.Time) BucketStorageTally_IntervalStart_Field {
 	v = toUTC(v)
-	return BucketStorageRollup_IntervalStart_Field{_set: true, _value: v}
+	return BucketStorageTally_IntervalStart_Field{_set: true, _value: v}
 }
 
-func (f BucketStorageRollup_IntervalStart_Field) value() interface{} {
+func (f BucketStorageTally_IntervalStart_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (BucketStorageRollup_IntervalStart_Field) _Column() string { return "interval_start" }
+func (BucketStorageTally_IntervalStart_Field) _Column() string { return "interval_start" }
 
-type BucketStorageRollup_IntervalSeconds_Field struct {
+type BucketStorageTally_Inline_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func BucketStorageTally_Inline(v uint64) BucketStorageTally_Inline_Field {
+	return BucketStorageTally_Inline_Field{_set: true, _value: v}
+}
+
+func (f BucketStorageTally_Inline_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketStorageTally_Inline_Field) _Column() string { return "inline" }
+
+type BucketStorageTally_Remote_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func BucketStorageTally_Remote(v uint64) BucketStorageTally_Remote_Field {
+	return BucketStorageTally_Remote_Field{_set: true, _value: v}
+}
+
+func (f BucketStorageTally_Remote_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketStorageTally_Remote_Field) _Column() string { return "remote" }
+
+type BucketStorageTally_RemoteSegments_Field struct {
 	_set   bool
 	_null  bool
 	_value uint
 }
 
-func BucketStorageRollup_IntervalSeconds(v uint) BucketStorageRollup_IntervalSeconds_Field {
-	return BucketStorageRollup_IntervalSeconds_Field{_set: true, _value: v}
+func BucketStorageTally_RemoteSegments(v uint) BucketStorageTally_RemoteSegments_Field {
+	return BucketStorageTally_RemoteSegments_Field{_set: true, _value: v}
 }
 
-func (f BucketStorageRollup_IntervalSeconds_Field) value() interface{} {
+func (f BucketStorageTally_RemoteSegments_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (BucketStorageRollup_IntervalSeconds_Field) _Column() string { return "interval_seconds" }
+func (BucketStorageTally_RemoteSegments_Field) _Column() string { return "remote_segments" }
 
-type BucketStorageRollup_Inline_Field struct {
+type BucketStorageTally_InlineSegments_Field struct {
+	_set   bool
+	_null  bool
+	_value uint
+}
+
+func BucketStorageTally_InlineSegments(v uint) BucketStorageTally_InlineSegments_Field {
+	return BucketStorageTally_InlineSegments_Field{_set: true, _value: v}
+}
+
+func (f BucketStorageTally_InlineSegments_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketStorageTally_InlineSegments_Field) _Column() string { return "inline_segments" }
+
+type BucketStorageTally_Objects_Field struct {
+	_set   bool
+	_null  bool
+	_value uint
+}
+
+func BucketStorageTally_Objects(v uint) BucketStorageTally_Objects_Field {
+	return BucketStorageTally_Objects_Field{_set: true, _value: v}
+}
+
+func (f BucketStorageTally_Objects_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketStorageTally_Objects_Field) _Column() string { return "objects" }
+
+type BucketStorageTally_MetadataSize_Field struct {
 	_set   bool
 	_null  bool
 	_value uint64
 }
 
-func BucketStorageRollup_Inline(v uint64) BucketStorageRollup_Inline_Field {
-	return BucketStorageRollup_Inline_Field{_set: true, _value: v}
+func BucketStorageTally_MetadataSize(v uint64) BucketStorageTally_MetadataSize_Field {
+	return BucketStorageTally_MetadataSize_Field{_set: true, _value: v}
 }
 
-func (f BucketStorageRollup_Inline_Field) value() interface{} {
+func (f BucketStorageTally_MetadataSize_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (BucketStorageRollup_Inline_Field) _Column() string { return "inline" }
-
-type BucketStorageRollup_Remote_Field struct {
-	_set   bool
-	_null  bool
-	_value uint64
-}
-
-func BucketStorageRollup_Remote(v uint64) BucketStorageRollup_Remote_Field {
-	return BucketStorageRollup_Remote_Field{_set: true, _value: v}
-}
-
-func (f BucketStorageRollup_Remote_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (BucketStorageRollup_Remote_Field) _Column() string { return "remote" }
+func (BucketStorageTally_MetadataSize_Field) _Column() string { return "metadata_size" }
 
 type BucketUsage struct {
 	Id               []byte
 	BucketId         []byte
-	RollupEndTime    time.Time
+	TallyEndTime     time.Time
 	RemoteStoredData uint64
 	InlineStoredData uint64
 	RemoteSegments   uint
@@ -1468,24 +1508,24 @@ func (f BucketUsage_BucketId_Field) value() interface{} {
 
 func (BucketUsage_BucketId_Field) _Column() string { return "bucket_id" }
 
-type BucketUsage_RollupEndTime_Field struct {
+type BucketUsage_TallyEndTime_Field struct {
 	_set   bool
 	_null  bool
 	_value time.Time
 }
 
-func BucketUsage_RollupEndTime(v time.Time) BucketUsage_RollupEndTime_Field {
-	return BucketUsage_RollupEndTime_Field{_set: true, _value: v}
+func BucketUsage_TallyEndTime(v time.Time) BucketUsage_TallyEndTime_Field {
+	return BucketUsage_TallyEndTime_Field{_set: true, _value: v}
 }
 
-func (f BucketUsage_RollupEndTime_Field) value() interface{} {
+func (f BucketUsage_TallyEndTime_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (BucketUsage_RollupEndTime_Field) _Column() string { return "rollup_end_time" }
+func (BucketUsage_TallyEndTime_Field) _Column() string { return "tally_end_time" }
 
 type BucketUsage_RemoteStoredData_Field struct {
 	_set   bool
@@ -2875,223 +2915,183 @@ func (f SerialNumber_ExpiresAt_Field) value() interface{} {
 
 func (SerialNumber_ExpiresAt_Field) _Column() string { return "expires_at" }
 
-type StoragenodeBandwidthRollup struct {
-	StoragenodeId   []byte
-	IntervalStart   time.Time
-	IntervalSeconds uint
-	Action          uint
-	Allocated       uint64
-	Settled         uint64
+type StoragenodeBandwidthTally struct {
+	StoragenodeId []byte
+	IntervalStart time.Time
+	Action        uint
+	Allocated     uint64
+	Settled       uint64
 }
 
-func (StoragenodeBandwidthRollup) _Table() string { return "storagenode_bandwidth_rollups" }
+func (StoragenodeBandwidthTally) _Table() string { return "storagenode_bandwidth_tallies" }
 
-type StoragenodeBandwidthRollup_Update_Fields struct {
+type StoragenodeBandwidthTally_Update_Fields struct {
 }
 
-type StoragenodeBandwidthRollup_StoragenodeId_Field struct {
+type StoragenodeBandwidthTally_StoragenodeId_Field struct {
 	_set   bool
 	_null  bool
 	_value []byte
 }
 
-func StoragenodeBandwidthRollup_StoragenodeId(v []byte) StoragenodeBandwidthRollup_StoragenodeId_Field {
-	return StoragenodeBandwidthRollup_StoragenodeId_Field{_set: true, _value: v}
+func StoragenodeBandwidthTally_StoragenodeId(v []byte) StoragenodeBandwidthTally_StoragenodeId_Field {
+	return StoragenodeBandwidthTally_StoragenodeId_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeBandwidthRollup_StoragenodeId_Field) value() interface{} {
+func (f StoragenodeBandwidthTally_StoragenodeId_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (StoragenodeBandwidthRollup_StoragenodeId_Field) _Column() string { return "storagenode_id" }
+func (StoragenodeBandwidthTally_StoragenodeId_Field) _Column() string { return "storagenode_id" }
 
-type StoragenodeBandwidthRollup_IntervalStart_Field struct {
+type StoragenodeBandwidthTally_IntervalStart_Field struct {
 	_set   bool
 	_null  bool
 	_value time.Time
 }
 
-func StoragenodeBandwidthRollup_IntervalStart(v time.Time) StoragenodeBandwidthRollup_IntervalStart_Field {
+func StoragenodeBandwidthTally_IntervalStart(v time.Time) StoragenodeBandwidthTally_IntervalStart_Field {
 	v = toUTC(v)
-	return StoragenodeBandwidthRollup_IntervalStart_Field{_set: true, _value: v}
+	return StoragenodeBandwidthTally_IntervalStart_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeBandwidthRollup_IntervalStart_Field) value() interface{} {
+func (f StoragenodeBandwidthTally_IntervalStart_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (StoragenodeBandwidthRollup_IntervalStart_Field) _Column() string { return "interval_start" }
+func (StoragenodeBandwidthTally_IntervalStart_Field) _Column() string { return "interval_start" }
 
-type StoragenodeBandwidthRollup_IntervalSeconds_Field struct {
+type StoragenodeBandwidthTally_Action_Field struct {
 	_set   bool
 	_null  bool
 	_value uint
 }
 
-func StoragenodeBandwidthRollup_IntervalSeconds(v uint) StoragenodeBandwidthRollup_IntervalSeconds_Field {
-	return StoragenodeBandwidthRollup_IntervalSeconds_Field{_set: true, _value: v}
+func StoragenodeBandwidthTally_Action(v uint) StoragenodeBandwidthTally_Action_Field {
+	return StoragenodeBandwidthTally_Action_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeBandwidthRollup_IntervalSeconds_Field) value() interface{} {
+func (f StoragenodeBandwidthTally_Action_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (StoragenodeBandwidthRollup_IntervalSeconds_Field) _Column() string { return "interval_seconds" }
+func (StoragenodeBandwidthTally_Action_Field) _Column() string { return "action" }
 
-type StoragenodeBandwidthRollup_Action_Field struct {
-	_set   bool
-	_null  bool
-	_value uint
-}
-
-func StoragenodeBandwidthRollup_Action(v uint) StoragenodeBandwidthRollup_Action_Field {
-	return StoragenodeBandwidthRollup_Action_Field{_set: true, _value: v}
-}
-
-func (f StoragenodeBandwidthRollup_Action_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (StoragenodeBandwidthRollup_Action_Field) _Column() string { return "action" }
-
-type StoragenodeBandwidthRollup_Allocated_Field struct {
+type StoragenodeBandwidthTally_Allocated_Field struct {
 	_set   bool
 	_null  bool
 	_value uint64
 }
 
-func StoragenodeBandwidthRollup_Allocated(v uint64) StoragenodeBandwidthRollup_Allocated_Field {
-	return StoragenodeBandwidthRollup_Allocated_Field{_set: true, _value: v}
+func StoragenodeBandwidthTally_Allocated(v uint64) StoragenodeBandwidthTally_Allocated_Field {
+	return StoragenodeBandwidthTally_Allocated_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeBandwidthRollup_Allocated_Field) value() interface{} {
+func (f StoragenodeBandwidthTally_Allocated_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (StoragenodeBandwidthRollup_Allocated_Field) _Column() string { return "allocated" }
+func (StoragenodeBandwidthTally_Allocated_Field) _Column() string { return "allocated" }
 
-type StoragenodeBandwidthRollup_Settled_Field struct {
+type StoragenodeBandwidthTally_Settled_Field struct {
 	_set   bool
 	_null  bool
 	_value uint64
 }
 
-func StoragenodeBandwidthRollup_Settled(v uint64) StoragenodeBandwidthRollup_Settled_Field {
-	return StoragenodeBandwidthRollup_Settled_Field{_set: true, _value: v}
+func StoragenodeBandwidthTally_Settled(v uint64) StoragenodeBandwidthTally_Settled_Field {
+	return StoragenodeBandwidthTally_Settled_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeBandwidthRollup_Settled_Field) value() interface{} {
+func (f StoragenodeBandwidthTally_Settled_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (StoragenodeBandwidthRollup_Settled_Field) _Column() string { return "settled" }
+func (StoragenodeBandwidthTally_Settled_Field) _Column() string { return "settled" }
 
-type StoragenodeStorageRollup struct {
-	StoragenodeId   []byte
-	IntervalStart   time.Time
-	IntervalSeconds uint
-	Total           uint64
+type StoragenodeStorageTally struct {
+	StoragenodeId []byte
+	IntervalStart time.Time
+	Total         uint64
 }
 
-func (StoragenodeStorageRollup) _Table() string { return "storagenode_storage_rollups" }
+func (StoragenodeStorageTally) _Table() string { return "storagenode_storage_tallies" }
 
-type StoragenodeStorageRollup_Update_Fields struct {
+type StoragenodeStorageTally_Update_Fields struct {
 }
 
-type StoragenodeStorageRollup_StoragenodeId_Field struct {
+type StoragenodeStorageTally_StoragenodeId_Field struct {
 	_set   bool
 	_null  bool
 	_value []byte
 }
 
-func StoragenodeStorageRollup_StoragenodeId(v []byte) StoragenodeStorageRollup_StoragenodeId_Field {
-	return StoragenodeStorageRollup_StoragenodeId_Field{_set: true, _value: v}
+func StoragenodeStorageTally_StoragenodeId(v []byte) StoragenodeStorageTally_StoragenodeId_Field {
+	return StoragenodeStorageTally_StoragenodeId_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeStorageRollup_StoragenodeId_Field) value() interface{} {
+func (f StoragenodeStorageTally_StoragenodeId_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (StoragenodeStorageRollup_StoragenodeId_Field) _Column() string { return "storagenode_id" }
+func (StoragenodeStorageTally_StoragenodeId_Field) _Column() string { return "storagenode_id" }
 
-type StoragenodeStorageRollup_IntervalStart_Field struct {
+type StoragenodeStorageTally_IntervalStart_Field struct {
 	_set   bool
 	_null  bool
 	_value time.Time
 }
 
-func StoragenodeStorageRollup_IntervalStart(v time.Time) StoragenodeStorageRollup_IntervalStart_Field {
+func StoragenodeStorageTally_IntervalStart(v time.Time) StoragenodeStorageTally_IntervalStart_Field {
 	v = toUTC(v)
-	return StoragenodeStorageRollup_IntervalStart_Field{_set: true, _value: v}
+	return StoragenodeStorageTally_IntervalStart_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeStorageRollup_IntervalStart_Field) value() interface{} {
+func (f StoragenodeStorageTally_IntervalStart_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (StoragenodeStorageRollup_IntervalStart_Field) _Column() string { return "interval_start" }
+func (StoragenodeStorageTally_IntervalStart_Field) _Column() string { return "interval_start" }
 
-type StoragenodeStorageRollup_IntervalSeconds_Field struct {
-	_set   bool
-	_null  bool
-	_value uint
-}
-
-func StoragenodeStorageRollup_IntervalSeconds(v uint) StoragenodeStorageRollup_IntervalSeconds_Field {
-	return StoragenodeStorageRollup_IntervalSeconds_Field{_set: true, _value: v}
-}
-
-func (f StoragenodeStorageRollup_IntervalSeconds_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (StoragenodeStorageRollup_IntervalSeconds_Field) _Column() string { return "interval_seconds" }
-
-type StoragenodeStorageRollup_Total_Field struct {
+type StoragenodeStorageTally_Total_Field struct {
 	_set   bool
 	_null  bool
 	_value uint64
 }
 
-func StoragenodeStorageRollup_Total(v uint64) StoragenodeStorageRollup_Total_Field {
-	return StoragenodeStorageRollup_Total_Field{_set: true, _value: v}
+func StoragenodeStorageTally_Total(v uint64) StoragenodeStorageTally_Total_Field {
+	return StoragenodeStorageTally_Total_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeStorageRollup_Total_Field) value() interface{} {
+func (f StoragenodeStorageTally_Total_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (StoragenodeStorageRollup_Total_Field) _Column() string { return "total" }
+func (StoragenodeStorageTally_Total_Field) _Column() string { return "total" }
 
 type User struct {
 	Id           []byte
@@ -4018,7 +4018,7 @@ func (obj *postgresImpl) Create_ApiKey(ctx context.Context,
 func (obj *postgresImpl) Create_BucketUsage(ctx context.Context,
 	bucket_usage_id BucketUsage_Id_Field,
 	bucket_usage_bucket_id BucketUsage_BucketId_Field,
-	bucket_usage_rollup_end_time BucketUsage_RollupEndTime_Field,
+	bucket_usage_tally_end_time BucketUsage_TallyEndTime_Field,
 	bucket_usage_remote_stored_data BucketUsage_RemoteStoredData_Field,
 	bucket_usage_inline_stored_data BucketUsage_InlineStoredData_Field,
 	bucket_usage_remote_segments BucketUsage_RemoteSegments_Field,
@@ -4031,7 +4031,7 @@ func (obj *postgresImpl) Create_BucketUsage(ctx context.Context,
 	bucket_usage *BucketUsage, err error) {
 	__id_val := bucket_usage_id.value()
 	__bucket_id_val := bucket_usage_bucket_id.value()
-	__rollup_end_time_val := bucket_usage_rollup_end_time.value()
+	__tally_end_time_val := bucket_usage_tally_end_time.value()
 	__remote_stored_data_val := bucket_usage_remote_stored_data.value()
 	__inline_stored_data_val := bucket_usage_inline_stored_data.value()
 	__remote_segments_val := bucket_usage_remote_segments.value()
@@ -4042,13 +4042,13 @@ func (obj *postgresImpl) Create_BucketUsage(ctx context.Context,
 	__get_egress_val := bucket_usage_get_egress.value()
 	__audit_egress_val := bucket_usage_audit_egress.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_usages ( id, bucket_id, rollup_end_time, remote_stored_data, inline_stored_data, remote_segments, inline_segments, objects, metadata_size, repair_egress, get_egress, audit_egress ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_usages ( id, bucket_id, tally_end_time, remote_stored_data, inline_stored_data, remote_segments, inline_segments, objects, metadata_size, repair_egress, get_egress, audit_egress ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING bucket_usages.id, bucket_usages.bucket_id, bucket_usages.tally_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __bucket_id_val, __rollup_end_time_val, __remote_stored_data_val, __inline_stored_data_val, __remote_segments_val, __inline_segments_val, __objects_val, __metadata_size_val, __repair_egress_val, __get_egress_val, __audit_egress_val)
+	obj.logStmt(__stmt, __id_val, __bucket_id_val, __tally_end_time_val, __remote_stored_data_val, __inline_stored_data_val, __remote_segments_val, __inline_segments_val, __objects_val, __metadata_size_val, __repair_egress_val, __get_egress_val, __audit_egress_val)
 
 	bucket_usage = &BucketUsage{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __bucket_id_val, __rollup_end_time_val, __remote_stored_data_val, __inline_stored_data_val, __remote_segments_val, __inline_segments_val, __objects_val, __metadata_size_val, __repair_egress_val, __get_egress_val, __audit_egress_val).Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
+	err = obj.driver.QueryRow(__stmt, __id_val, __bucket_id_val, __tally_end_time_val, __remote_stored_data_val, __inline_stored_data_val, __remote_segments_val, __inline_segments_val, __objects_val, __metadata_size_val, __repair_egress_val, __get_egress_val, __audit_egress_val).Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.TallyEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -4871,7 +4871,7 @@ func (obj *postgresImpl) Get_BucketUsage_By_Id(ctx context.Context,
 	bucket_usage_id BucketUsage_Id_Field) (
 	bucket_usage *BucketUsage, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.tally_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, bucket_usage_id.value())
@@ -4880,7 +4880,7 @@ func (obj *postgresImpl) Get_BucketUsage_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	bucket_usage = &BucketUsage{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.TallyEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -4888,17 +4888,17 @@ func (obj *postgresImpl) Get_BucketUsage_By_Id(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Asc_RollupEndTime(ctx context.Context,
+func (obj *postgresImpl) Limited_BucketUsage_By_BucketId_And_TallyEndTime_Greater_And_TallyEndTime_LessOrEqual_OrderBy_Asc_TallyEndTime(ctx context.Context,
 	bucket_usage_bucket_id BucketUsage_BucketId_Field,
-	bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
-	bucket_usage_rollup_end_time_less_or_equal BucketUsage_RollupEndTime_Field,
+	bucket_usage_tally_end_time_greater BucketUsage_TallyEndTime_Field,
+	bucket_usage_tally_end_time_less_or_equal BucketUsage_TallyEndTime_Field,
 	limit int, offset int64) (
 	rows []*BucketUsage, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.bucket_id = ? AND bucket_usages.rollup_end_time > ? AND bucket_usages.rollup_end_time <= ? ORDER BY bucket_usages.rollup_end_time LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.tally_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.bucket_id = ? AND bucket_usages.tally_end_time > ? AND bucket_usages.tally_end_time <= ? ORDER BY bucket_usages.tally_end_time LIMIT ? OFFSET ?")
 
 	var __values []interface{}
-	__values = append(__values, bucket_usage_bucket_id.value(), bucket_usage_rollup_end_time_greater.value(), bucket_usage_rollup_end_time_less_or_equal.value())
+	__values = append(__values, bucket_usage_bucket_id.value(), bucket_usage_tally_end_time_greater.value(), bucket_usage_tally_end_time_less_or_equal.value())
 
 	__values = append(__values, limit, offset)
 
@@ -4913,7 +4913,7 @@ func (obj *postgresImpl) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Great
 
 	for __rows.Next() {
 		bucket_usage := &BucketUsage{}
-		err = __rows.Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
+		err = __rows.Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.TallyEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -4926,17 +4926,17 @@ func (obj *postgresImpl) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Great
 
 }
 
-func (obj *postgresImpl) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Desc_RollupEndTime(ctx context.Context,
+func (obj *postgresImpl) Limited_BucketUsage_By_BucketId_And_TallyEndTime_Greater_And_TallyEndTime_LessOrEqual_OrderBy_Desc_TallyEndTime(ctx context.Context,
 	bucket_usage_bucket_id BucketUsage_BucketId_Field,
-	bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
-	bucket_usage_rollup_end_time_less_or_equal BucketUsage_RollupEndTime_Field,
+	bucket_usage_tally_end_time_greater BucketUsage_TallyEndTime_Field,
+	bucket_usage_tally_end_time_less_or_equal BucketUsage_TallyEndTime_Field,
 	limit int, offset int64) (
 	rows []*BucketUsage, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.bucket_id = ? AND bucket_usages.rollup_end_time > ? AND bucket_usages.rollup_end_time <= ? ORDER BY bucket_usages.rollup_end_time DESC LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.tally_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.bucket_id = ? AND bucket_usages.tally_end_time > ? AND bucket_usages.tally_end_time <= ? ORDER BY bucket_usages.tally_end_time DESC LIMIT ? OFFSET ?")
 
 	var __values []interface{}
-	__values = append(__values, bucket_usage_bucket_id.value(), bucket_usage_rollup_end_time_greater.value(), bucket_usage_rollup_end_time_less_or_equal.value())
+	__values = append(__values, bucket_usage_bucket_id.value(), bucket_usage_tally_end_time_greater.value(), bucket_usage_tally_end_time_less_or_equal.value())
 
 	__values = append(__values, limit, offset)
 
@@ -4951,7 +4951,7 @@ func (obj *postgresImpl) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Great
 
 	for __rows.Next() {
 		bucket_usage := &BucketUsage{}
-		err = __rows.Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
+		err = __rows.Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.TallyEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -5956,7 +5956,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM storagenode_storage_rollups;")
+	__res, err = obj.driver.Exec("DELETE FROM storagenode_storage_tallies;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -5966,7 +5966,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM storagenode_bandwidth_rollups;")
+	__res, err = obj.driver.Exec("DELETE FROM storagenode_bandwidth_tallies;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -6076,7 +6076,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM bucket_storage_rollups;")
+	__res, err = obj.driver.Exec("DELETE FROM bucket_storage_tallies;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -6086,7 +6086,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM bucket_bandwidth_rollups;")
+	__res, err = obj.driver.Exec("DELETE FROM bucket_bandwidth_tallies;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -6489,7 +6489,7 @@ func (obj *sqlite3Impl) Create_ApiKey(ctx context.Context,
 func (obj *sqlite3Impl) Create_BucketUsage(ctx context.Context,
 	bucket_usage_id BucketUsage_Id_Field,
 	bucket_usage_bucket_id BucketUsage_BucketId_Field,
-	bucket_usage_rollup_end_time BucketUsage_RollupEndTime_Field,
+	bucket_usage_tally_end_time BucketUsage_TallyEndTime_Field,
 	bucket_usage_remote_stored_data BucketUsage_RemoteStoredData_Field,
 	bucket_usage_inline_stored_data BucketUsage_InlineStoredData_Field,
 	bucket_usage_remote_segments BucketUsage_RemoteSegments_Field,
@@ -6502,7 +6502,7 @@ func (obj *sqlite3Impl) Create_BucketUsage(ctx context.Context,
 	bucket_usage *BucketUsage, err error) {
 	__id_val := bucket_usage_id.value()
 	__bucket_id_val := bucket_usage_bucket_id.value()
-	__rollup_end_time_val := bucket_usage_rollup_end_time.value()
+	__tally_end_time_val := bucket_usage_tally_end_time.value()
 	__remote_stored_data_val := bucket_usage_remote_stored_data.value()
 	__inline_stored_data_val := bucket_usage_inline_stored_data.value()
 	__remote_segments_val := bucket_usage_remote_segments.value()
@@ -6513,12 +6513,12 @@ func (obj *sqlite3Impl) Create_BucketUsage(ctx context.Context,
 	__get_egress_val := bucket_usage_get_egress.value()
 	__audit_egress_val := bucket_usage_audit_egress.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_usages ( id, bucket_id, rollup_end_time, remote_stored_data, inline_stored_data, remote_segments, inline_segments, objects, metadata_size, repair_egress, get_egress, audit_egress ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_usages ( id, bucket_id, tally_end_time, remote_stored_data, inline_stored_data, remote_segments, inline_segments, objects, metadata_size, repair_egress, get_egress, audit_egress ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __bucket_id_val, __rollup_end_time_val, __remote_stored_data_val, __inline_stored_data_val, __remote_segments_val, __inline_segments_val, __objects_val, __metadata_size_val, __repair_egress_val, __get_egress_val, __audit_egress_val)
+	obj.logStmt(__stmt, __id_val, __bucket_id_val, __tally_end_time_val, __remote_stored_data_val, __inline_stored_data_val, __remote_segments_val, __inline_segments_val, __objects_val, __metadata_size_val, __repair_egress_val, __get_egress_val, __audit_egress_val)
 
-	__res, err := obj.driver.Exec(__stmt, __id_val, __bucket_id_val, __rollup_end_time_val, __remote_stored_data_val, __inline_stored_data_val, __remote_segments_val, __inline_segments_val, __objects_val, __metadata_size_val, __repair_egress_val, __get_egress_val, __audit_egress_val)
+	__res, err := obj.driver.Exec(__stmt, __id_val, __bucket_id_val, __tally_end_time_val, __remote_stored_data_val, __inline_stored_data_val, __remote_segments_val, __inline_segments_val, __objects_val, __metadata_size_val, __repair_egress_val, __get_egress_val, __audit_egress_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7357,7 +7357,7 @@ func (obj *sqlite3Impl) Get_BucketUsage_By_Id(ctx context.Context,
 	bucket_usage_id BucketUsage_Id_Field) (
 	bucket_usage *BucketUsage, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.tally_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, bucket_usage_id.value())
@@ -7366,7 +7366,7 @@ func (obj *sqlite3Impl) Get_BucketUsage_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	bucket_usage = &BucketUsage{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.TallyEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7374,17 +7374,17 @@ func (obj *sqlite3Impl) Get_BucketUsage_By_Id(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Asc_RollupEndTime(ctx context.Context,
+func (obj *sqlite3Impl) Limited_BucketUsage_By_BucketId_And_TallyEndTime_Greater_And_TallyEndTime_LessOrEqual_OrderBy_Asc_TallyEndTime(ctx context.Context,
 	bucket_usage_bucket_id BucketUsage_BucketId_Field,
-	bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
-	bucket_usage_rollup_end_time_less_or_equal BucketUsage_RollupEndTime_Field,
+	bucket_usage_tally_end_time_greater BucketUsage_TallyEndTime_Field,
+	bucket_usage_tally_end_time_less_or_equal BucketUsage_TallyEndTime_Field,
 	limit int, offset int64) (
 	rows []*BucketUsage, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.bucket_id = ? AND bucket_usages.rollup_end_time > ? AND bucket_usages.rollup_end_time <= ? ORDER BY bucket_usages.rollup_end_time LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.tally_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.bucket_id = ? AND bucket_usages.tally_end_time > ? AND bucket_usages.tally_end_time <= ? ORDER BY bucket_usages.tally_end_time LIMIT ? OFFSET ?")
 
 	var __values []interface{}
-	__values = append(__values, bucket_usage_bucket_id.value(), bucket_usage_rollup_end_time_greater.value(), bucket_usage_rollup_end_time_less_or_equal.value())
+	__values = append(__values, bucket_usage_bucket_id.value(), bucket_usage_tally_end_time_greater.value(), bucket_usage_tally_end_time_less_or_equal.value())
 
 	__values = append(__values, limit, offset)
 
@@ -7399,7 +7399,7 @@ func (obj *sqlite3Impl) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greate
 
 	for __rows.Next() {
 		bucket_usage := &BucketUsage{}
-		err = __rows.Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
+		err = __rows.Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.TallyEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -7412,17 +7412,17 @@ func (obj *sqlite3Impl) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greate
 
 }
 
-func (obj *sqlite3Impl) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Desc_RollupEndTime(ctx context.Context,
+func (obj *sqlite3Impl) Limited_BucketUsage_By_BucketId_And_TallyEndTime_Greater_And_TallyEndTime_LessOrEqual_OrderBy_Desc_TallyEndTime(ctx context.Context,
 	bucket_usage_bucket_id BucketUsage_BucketId_Field,
-	bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
-	bucket_usage_rollup_end_time_less_or_equal BucketUsage_RollupEndTime_Field,
+	bucket_usage_tally_end_time_greater BucketUsage_TallyEndTime_Field,
+	bucket_usage_tally_end_time_less_or_equal BucketUsage_TallyEndTime_Field,
 	limit int, offset int64) (
 	rows []*BucketUsage, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.bucket_id = ? AND bucket_usages.rollup_end_time > ? AND bucket_usages.rollup_end_time <= ? ORDER BY bucket_usages.rollup_end_time DESC LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.tally_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.bucket_id = ? AND bucket_usages.tally_end_time > ? AND bucket_usages.tally_end_time <= ? ORDER BY bucket_usages.tally_end_time DESC LIMIT ? OFFSET ?")
 
 	var __values []interface{}
-	__values = append(__values, bucket_usage_bucket_id.value(), bucket_usage_rollup_end_time_greater.value(), bucket_usage_rollup_end_time_less_or_equal.value())
+	__values = append(__values, bucket_usage_bucket_id.value(), bucket_usage_tally_end_time_greater.value(), bucket_usage_tally_end_time_less_or_equal.value())
 
 	__values = append(__values, limit, offset)
 
@@ -7437,7 +7437,7 @@ func (obj *sqlite3Impl) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greate
 
 	for __rows.Next() {
 		bucket_usage := &BucketUsage{}
-		err = __rows.Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
+		err = __rows.Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.TallyEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -8681,13 +8681,13 @@ func (obj *sqlite3Impl) getLastBucketUsage(ctx context.Context,
 	pk int64) (
 	bucket_usage *BucketUsage, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.tally_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	bucket_usage = &BucketUsage{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.TallyEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -8825,7 +8825,7 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM storagenode_storage_rollups;")
+	__res, err = obj.driver.Exec("DELETE FROM storagenode_storage_tallies;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -8835,7 +8835,7 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM storagenode_bandwidth_rollups;")
+	__res, err = obj.driver.Exec("DELETE FROM storagenode_bandwidth_tallies;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -8945,7 +8945,7 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM bucket_storage_rollups;")
+	__res, err = obj.driver.Exec("DELETE FROM bucket_storage_tallies;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -8955,7 +8955,7 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM bucket_bandwidth_rollups;")
+	__res, err = obj.driver.Exec("DELETE FROM bucket_bandwidth_tallies;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -9181,7 +9181,7 @@ func (rx *Rx) Create_ApiKey(ctx context.Context,
 func (rx *Rx) Create_BucketUsage(ctx context.Context,
 	bucket_usage_id BucketUsage_Id_Field,
 	bucket_usage_bucket_id BucketUsage_BucketId_Field,
-	bucket_usage_rollup_end_time BucketUsage_RollupEndTime_Field,
+	bucket_usage_tally_end_time BucketUsage_TallyEndTime_Field,
 	bucket_usage_remote_stored_data BucketUsage_RemoteStoredData_Field,
 	bucket_usage_inline_stored_data BucketUsage_InlineStoredData_Field,
 	bucket_usage_remote_segments BucketUsage_RemoteSegments_Field,
@@ -9196,7 +9196,7 @@ func (rx *Rx) Create_BucketUsage(ctx context.Context,
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_BucketUsage(ctx, bucket_usage_id, bucket_usage_bucket_id, bucket_usage_rollup_end_time, bucket_usage_remote_stored_data, bucket_usage_inline_stored_data, bucket_usage_remote_segments, bucket_usage_inline_segments, bucket_usage_objects, bucket_usage_metadata_size, bucket_usage_repair_egress, bucket_usage_get_egress, bucket_usage_audit_egress)
+	return tx.Create_BucketUsage(ctx, bucket_usage_id, bucket_usage_bucket_id, bucket_usage_tally_end_time, bucket_usage_remote_stored_data, bucket_usage_inline_stored_data, bucket_usage_remote_segments, bucket_usage_inline_segments, bucket_usage_objects, bucket_usage_metadata_size, bucket_usage_repair_egress, bucket_usage_get_egress, bucket_usage_audit_egress)
 
 }
 
@@ -9671,30 +9671,30 @@ func (rx *Rx) Get_User_By_Id(ctx context.Context,
 	return tx.Get_User_By_Id(ctx, user_id)
 }
 
-func (rx *Rx) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Asc_RollupEndTime(ctx context.Context,
+func (rx *Rx) Limited_BucketUsage_By_BucketId_And_TallyEndTime_Greater_And_TallyEndTime_LessOrEqual_OrderBy_Asc_TallyEndTime(ctx context.Context,
 	bucket_usage_bucket_id BucketUsage_BucketId_Field,
-	bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
-	bucket_usage_rollup_end_time_less_or_equal BucketUsage_RollupEndTime_Field,
+	bucket_usage_tally_end_time_greater BucketUsage_TallyEndTime_Field,
+	bucket_usage_tally_end_time_less_or_equal BucketUsage_TallyEndTime_Field,
 	limit int, offset int64) (
 	rows []*BucketUsage, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Asc_RollupEndTime(ctx, bucket_usage_bucket_id, bucket_usage_rollup_end_time_greater, bucket_usage_rollup_end_time_less_or_equal, limit, offset)
+	return tx.Limited_BucketUsage_By_BucketId_And_TallyEndTime_Greater_And_TallyEndTime_LessOrEqual_OrderBy_Asc_TallyEndTime(ctx, bucket_usage_bucket_id, bucket_usage_tally_end_time_greater, bucket_usage_tally_end_time_less_or_equal, limit, offset)
 }
 
-func (rx *Rx) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Desc_RollupEndTime(ctx context.Context,
+func (rx *Rx) Limited_BucketUsage_By_BucketId_And_TallyEndTime_Greater_And_TallyEndTime_LessOrEqual_OrderBy_Desc_TallyEndTime(ctx context.Context,
 	bucket_usage_bucket_id BucketUsage_BucketId_Field,
-	bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
-	bucket_usage_rollup_end_time_less_or_equal BucketUsage_RollupEndTime_Field,
+	bucket_usage_tally_end_time_greater BucketUsage_TallyEndTime_Field,
+	bucket_usage_tally_end_time_less_or_equal BucketUsage_TallyEndTime_Field,
 	limit int, offset int64) (
 	rows []*BucketUsage, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Desc_RollupEndTime(ctx, bucket_usage_bucket_id, bucket_usage_rollup_end_time_greater, bucket_usage_rollup_end_time_less_or_equal, limit, offset)
+	return tx.Limited_BucketUsage_By_BucketId_And_TallyEndTime_Greater_And_TallyEndTime_LessOrEqual_OrderBy_Desc_TallyEndTime(ctx, bucket_usage_bucket_id, bucket_usage_tally_end_time_greater, bucket_usage_tally_end_time_less_or_equal, limit, offset)
 }
 
 func (rx *Rx) Limited_Injuredsegment(ctx context.Context,
@@ -9902,7 +9902,7 @@ type Methods interface {
 	Create_BucketUsage(ctx context.Context,
 		bucket_usage_id BucketUsage_Id_Field,
 		bucket_usage_bucket_id BucketUsage_BucketId_Field,
-		bucket_usage_rollup_end_time BucketUsage_RollupEndTime_Field,
+		bucket_usage_tally_end_time BucketUsage_TallyEndTime_Field,
 		bucket_usage_remote_stored_data BucketUsage_RemoteStoredData_Field,
 		bucket_usage_inline_stored_data BucketUsage_InlineStoredData_Field,
 		bucket_usage_remote_segments BucketUsage_RemoteSegments_Field,
@@ -10121,17 +10121,17 @@ type Methods interface {
 		user_id User_Id_Field) (
 		user *User, err error)
 
-	Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Asc_RollupEndTime(ctx context.Context,
+	Limited_BucketUsage_By_BucketId_And_TallyEndTime_Greater_And_TallyEndTime_LessOrEqual_OrderBy_Asc_TallyEndTime(ctx context.Context,
 		bucket_usage_bucket_id BucketUsage_BucketId_Field,
-		bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
-		bucket_usage_rollup_end_time_less_or_equal BucketUsage_RollupEndTime_Field,
+		bucket_usage_tally_end_time_greater BucketUsage_TallyEndTime_Field,
+		bucket_usage_tally_end_time_less_or_equal BucketUsage_TallyEndTime_Field,
 		limit int, offset int64) (
 		rows []*BucketUsage, err error)
 
-	Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Desc_RollupEndTime(ctx context.Context,
+	Limited_BucketUsage_By_BucketId_And_TallyEndTime_Greater_And_TallyEndTime_LessOrEqual_OrderBy_Desc_TallyEndTime(ctx context.Context,
 		bucket_usage_bucket_id BucketUsage_BucketId_Field,
-		bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
-		bucket_usage_rollup_end_time_less_or_equal BucketUsage_RollupEndTime_Field,
+		bucket_usage_tally_end_time_greater BucketUsage_TallyEndTime_Field,
+		bucket_usage_tally_end_time_less_or_equal BucketUsage_TallyEndTime_Field,
 		limit int, offset int64) (
 		rows []*BucketUsage, err error)
 
