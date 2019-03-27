@@ -444,18 +444,13 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Version:     11,
 				Action: migrate.SQL{
 					`ALTER TABLE storagenode_storage_rollups DROP COLUMN interval_seconds`,
-					`ALTER TABLE storagenode_storage_rollups
-						RENAME TO storagenode_storage_tallies`,
+					`ALTER TABLE storagenode_storage_rollups RENAME TO storagenode_storage_tallies`,
 					`ALTER TABLE bucket_storage_rollups DROP COLUMN interval_seconds`,
-					`ALTER TABLE bucket_storage_rollups
-						ADD COLUMN remote_segments_count integer NOT NULL, 
-							inline_segments_count integer NOT NULL,
-							object_count integer NOT NULL,
-							metadata_size bigint NOT NULL`,
-					`ALTER TABLE bucket_storage_rollups
-						RENAME TO bucket_storage_tallies`,
-            },
-
+					`ALTER TABLE bucket_storage_rollups ADD COLUMN remote_segments_count integer NOT NULL`,
+					`ALTER TABLE bucket_storage_rollups ADD COLUMN inline_segments_count integer NOT NULL`,
+					`ALTER TABLE bucket_storage_rollups ADD COLUMN object_count integer NOT NULL`,
+					`ALTER TABLE bucket_storage_rollups ADD COLUMN metadata_size bigint NOT NULL`,
+				},
 			},
 		},
 	}
