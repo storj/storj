@@ -6,6 +6,7 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -21,6 +22,7 @@ type runConfig struct {
 }
 
 var (
+	logfile  = "/var/log/storj/version.log"
 	ver      []version.Info
 	response []byte
 )
@@ -51,11 +53,20 @@ func main() {
 	addr := flag.String("listen", "0.0.0.0:8080", "Defines Listen Address of Webserver")
 	fconfig := flag.String("config-file", "", "Specifies a config file to read Versions from")
 	fversions := flag.String("version", "v0.1.0,v0.1.1", "Comma separated list of Versions")
+	flog := flag.Bool("syslog", false, fmt.Sprintf("Log to System Log File (%s)", logfile))
 
 	flag.Parse()
 
 	if !flag.Parsed() {
 		log.Fatal("Error while parsing flags")
+	}
+
+	if *flog {
+		writer, err := os.OpenFile(logfile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+		if err != nil {
+			log.Fatal("Error opening log file")
+		}
+		log.SetOutput(writer)
 	}
 
 	// Check for existence of Versions to use, prefer flag, fall back to config
