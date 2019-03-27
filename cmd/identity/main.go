@@ -71,11 +71,6 @@ func init() {
 }
 
 func main() {
-	if writable, err := fpath.IsWritable(identityDir); !writable || err != nil {
-		fmt.Printf("%s is not a writeable directory: %s\n", identityDir, err)
-		return
-	}
-
 	process.Exec(rootCmd)
 }
 
