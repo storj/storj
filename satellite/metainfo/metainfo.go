@@ -146,9 +146,9 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	rootPieceID, addressedLimits, err := service.Orders.CreatePutOrderLimits(ctx, uplinkIdentity, nodes, req.Expiration, maxPieceSize)
+	rootPieceID, addressedLimits, err := endpoint.orders.CreatePutOrderLimits(ctx, uplinkIdentity, nodes, req.Expiration, maxPieceSize)
 	if err != nil {
-		return nil, Errors.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	return &pb.SegmentWriteResponse{AddressedLimits: addressedLimits, RootPieceId: rootPieceID}, nil

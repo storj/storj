@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/timestamp"
 
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/certdb"
@@ -43,6 +44,49 @@ func (service *Service) createSerial(ctx context.Context, bucketPath storj.Path)
 
 func (service *Service) saveSerial(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte) error {
 	return nil
+}
+
+func (service *Service) CreatePutOrderLimits(ctx context.Context, uplink *identity.PeerIdentity, nodes []*pb.Node, expiration *timestamp.Timestamp, maxPieceSize int64) (storj.PieceID, []*pb.AddressedOrderLimit, error) {
+	bucketPath := storj.Path("TODO") // TODO:
+	serialNumber, err := service.createSerial(ctx, bucketPath)
+	if err != nil {
+		return storj.PieceID{}, nil, err
+	}
+	// defer service.saveSerial(ctx, serialNumber, ...)
+
+	// convert orderExpiration from days to timstamp
+	orderExpiration, err := ptypes.TimestampProto(time.Now().Add(service.orderExpiration))
+	if err != nil {
+		return storj.PieceID{}, nil, Error.Wrap(err)
+	}
+
+	rootPieceID := storj.NewPieceID()
+	limits := make([]*pb.AddressedOrderLimit, len(nodes))
+	var pieceNum int32
+	for _, node := range nodes {
+		orderLimit, err := signing.SignOrderLimit(service.satellite, &pb.OrderLimit2{
+			SerialNumber:    serialNumber,
+			SatelliteId:     service.satellite.ID(),
+			UplinkId:        uplink.ID,
+			StorageNodeId:   node.Id,
+			PieceId:         rootPieceID.Derive(node.Id),
+			Action:          pb.PieceAction_PUT,
+			Limit:           maxPieceSize,
+			PieceExpiration: expiration,
+			OrderExpiration: orderExpiration,
+		})
+		if err != nil {
+			return storj.PieceID{}, nil, Error.Wrap(err)
+		}
+
+		limits[pieceNum] = &pb.AddressedOrderLimit{
+			Limit:              orderLimit,
+			StorageNodeAddress: node.Address,
+		}
+		pieceNum++
+	}
+
+	return rootPieceID, limits, nil
 }
 
 func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *identity.PeerIdentity, pointer *pb.Pointer) ([]*pb.AddressedOrderLimit, error) {
