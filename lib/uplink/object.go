@@ -23,6 +23,9 @@ type ObjectMeta struct {
 	// be called a "folder" or "directory" in a typical filesystem.
 	IsPrefix bool
 
+	// ContentType, if set, gives a MIME content-type for the Object, as
+	// set when the object was created.
+	ContentType string
 	// Metadata contains the additional information about an Object that was
 	// set when the object was created. See UploadOptions.Metadata for more
 	// information.

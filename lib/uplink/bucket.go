@@ -30,6 +30,8 @@ func (b *Bucket) OpenObject(ctx context.Context, path storj.Path) (o *Object, er
 
 // UploadOptions controls options about uploading a new Object, if authorized.
 type UploadOptions struct {
+	// ContentType, if set, gives a MIME content-type for the Object.
+	ContentType string
 	// Metadata contains additional information about an Object. It can
 	// hold arbitrary textual fields and can be retrieved together with the
 	// Object. Field names can be at most 1024 bytes long. Field values are
