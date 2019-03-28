@@ -20,10 +20,13 @@ import (
 	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 )
 
 // DB implements saving order after receiving from storage node
 type DB interface {
+	// CreateSerialInfo creates serial number entry in database
+	CreateSerialInfo(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte, limitExpiration time.Time) error
 	// SaveInlineOrder
 	SaveInlineOrder(ctx context.Context, bucketID []byte) error
 	// SaveRemoteOrder

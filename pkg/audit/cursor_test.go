@@ -190,9 +190,7 @@ func populateTestData(t *testing.T, planet *testplanet.Planet, expiration *times
 		{bm: "success-10", path: "Nada/ビデオ/😶"},
 	}
 	pointerdb := planet.Satellites[0].Metainfo.Service
-	allocation := planet.Satellites[0].Metainfo.Allocation
-	cache := planet.Satellites[0].Overlay.Service
-	cursor := audit.NewCursor(pointerdb, allocation, cache, planet.Satellites[0].Identity)
+	cursor := audit.NewCursor(pointerdb)
 
 	// put 10 pointers in db with expirations
 	t.Run("putToDB", func(t *testing.T) {

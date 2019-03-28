@@ -14,6 +14,7 @@ import (
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/satellite/orders"
 )
 
 // Config contains configurable values for repairer
@@ -25,10 +26,10 @@ type Config struct {
 }
 
 // GetSegmentRepairer creates a new segment repairer from storeConfig values
-func (c Config) GetSegmentRepairer(ctx context.Context, tc transport.Client, pointerdb *pointerdb.Service, allocation *pointerdb.AllocationSigner, cache *overlay.Cache, identity *identity.FullIdentity) (ss SegmentRepairer, err error) {
+func (c Config) GetSegmentRepairer(ctx context.Context, tc transport.Client, pointerdb *pointerdb.Service, orders *orders.Service, cache *overlay.Cache, identity *identity.FullIdentity) (ss SegmentRepairer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	ec := ecclient.NewClient(tc, c.MaxBufferMem.Int())
 
-	return segments.NewSegmentRepairer(pointerdb, allocation, cache, ec, identity, c.Timeout), nil
+	return segments.NewSegmentRepairer(pointerdb, orders, cache, ec, identity, c.Timeout), nil
 }
