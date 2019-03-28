@@ -39,9 +39,8 @@ func TestGetShareTimeout(t *testing.T) {
 		assert.NoError(t, err)
 
 		pointerdb := planet.Satellites[0].Metainfo.Service
-		allocation := planet.Satellites[0].Metainfo.Allocation
 		overlay := planet.Satellites[0].Overlay.Service
-		cursor := audit.NewCursor(pointerdb, allocation, overlay, planet.Satellites[0].Identity)
+		cursor := audit.NewCursor(pointerdb)
 
 		var stripe *audit.Stripe
 		for {
@@ -65,8 +64,8 @@ func TestGetShareTimeout(t *testing.T) {
 		// data from storage nodes. This will cause context to cancel and start
 		// downloading from new nodes.
 		minBytesPerSecond := 110 * memory.KB
-
-		verifier := audit.NewVerifier(zap.L(), slowClient, overlay, planet.Satellites[0].Identity, minBytesPerSecond)
+		orders := planet.Satellites[0].Orders.Service
+		verifier := audit.NewVerifier(zap.L(), slowClient, overlay, orders, planet.Satellites[0].Identity, minBytesPerSecond)
 		require.NotNil(t, verifier)
 
 		// stop some storage nodes to ensure audit can deal with it

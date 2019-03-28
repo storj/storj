@@ -58,8 +58,8 @@ func (service *Service) createSerial(ctx context.Context) (storj.SerialNumber, e
 	return storj.SerialNumber(*uuid), nil
 }
 
-func (service *Service) saveSerial(ctx context.Context, serialNumber storj.SerialNumber, bucketPath storj.Path, expiresAt time.Time) error {
-	return service.orders.SaveSerialNumber(ctx, serialNumber, []byte(bucketPath), expiresAt)
+func (service *Service) saveSerial(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte, expiresAt time.Time) error {
+	return nil
 }
 
 // CreateGetOrderLimits creates the order limits for downloading the pieces of pointer.
@@ -132,7 +132,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 
 // CreatePutOrderLimits creates the order limits for uploading pieces to nodes.
 func (service *Service) CreatePutOrderLimits(ctx context.Context, uplink *identity.PeerIdentity, nodes []*pb.Node, expiration *timestamp.Timestamp, maxPieceSize int64) (storj.PieceID, []*pb.AddressedOrderLimit, error) {
-	bucketPath := storj.Path("TODO") // TODO:
+	bucketPath := []byte{}
 	serialNumber, err := service.createSerial(ctx)
 	if err != nil {
 		return storj.PieceID{}, nil, err
@@ -180,7 +180,7 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *ide
 	rootPieceID := pointer.GetRemote().RootPieceId
 	expiration := pointer.ExpirationDate
 
-	bucketPath := storj.Path("TODO") // TODO:
+	bucketPath := []byte{}
 	serialNumber, err := service.createSerial(ctx)
 	if err != nil {
 		return nil, err
@@ -244,7 +244,7 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 	totalPieces := pointer.GetRemote().GetRedundancy().GetTotal()
 	expiration := pointer.ExpirationDate
 
-	bucketPath := storj.Path("TODO") // TODO:
+	bucketPath := []byte{}
 	serialNumber, err := service.createSerial(ctx)
 	if err != nil {
 		return nil, err
@@ -302,7 +302,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 	totalPieces := pointer.GetRemote().GetRedundancy().GetTotal()
 	expiration := pointer.ExpirationDate
 
-	bucketPath := storj.Path("TODO") // TODO:
+	bucketPath := []byte{}
 	serialNumber, err := service.createSerial(ctx)
 	if err != nil {
 		return nil, err
@@ -360,7 +360,7 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 	totalPieces := pointer.GetRemote().GetRedundancy().GetTotal()
 	expiration := pointer.ExpirationDate
 
-	bucketPath := storj.Path("TODO") // TODO:
+	bucketPath := []byte{}
 	serialNumber, err := service.createSerial(ctx)
 	if err != nil {
 		return nil, err

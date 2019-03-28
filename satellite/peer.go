@@ -377,8 +377,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 
 		peer.Audit.Service, err = audit.NewService(peer.Log.Named("audit"),
 			config,
-			peer.Metainfo.Service, peer.Metainfo.Allocation,
-			peer.Transport, peer.Overlay.Service,
+			peer.Metainfo.Service,
+			peer.Metainfo.Allocation,
+			peer.Orders.Service,
+			peer.Transport,
+			peer.Overlay.Service,
 			peer.Identity,
 		)
 		if err != nil {

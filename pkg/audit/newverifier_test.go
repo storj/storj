@@ -34,9 +34,8 @@ func TestVerifierHappyPath(t *testing.T) {
 		assert.NoError(t, err)
 
 		pointerdb := planet.Satellites[0].Metainfo.Service
-		allocation := planet.Satellites[0].Metainfo.Allocation
 		overlay := planet.Satellites[0].Overlay.Service
-		cursor := audit.NewCursor(pointerdb, allocation, overlay, planet.Satellites[0].Identity)
+		cursor := audit.NewCursor(pointerdb)
 
 		var stripe *audit.Stripe
 		for {
@@ -49,8 +48,9 @@ func TestVerifierHappyPath(t *testing.T) {
 		require.NotNil(t, stripe)
 
 		transport := planet.Satellites[0].Transport
+		orders := planet.Satellites[0].Orders.Service
 		minBytesPerSecond := 128 * memory.B
-		verifier := audit.NewVerifier(zap.L(), transport, overlay, planet.Satellites[0].Identity, minBytesPerSecond)
+		verifier := audit.NewVerifier(zap.L(), transport, overlay, orders, planet.Satellites[0].Identity, minBytesPerSecond)
 		require.NotNil(t, verifier)
 
 		// stop some storage nodes to ensure audit can deal with it
