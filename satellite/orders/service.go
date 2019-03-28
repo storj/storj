@@ -59,7 +59,7 @@ func (service *Service) createSerial(ctx context.Context) (storj.SerialNumber, e
 }
 
 func (service *Service) saveSerial(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte, expiresAt time.Time) error {
-	return nil
+	return service.orders.CreateSerialInfo(ctx, serialNumber, bucketID, expiresAt)
 }
 
 // CreateGetOrderLimits creates the order limits for downloading the pieces of pointer.

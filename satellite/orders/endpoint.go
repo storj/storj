@@ -25,7 +25,8 @@ import (
 
 // DB implements saving order after receiving from storage node
 type DB interface {
-	SaveSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte, expiresAt time.Time) error
+	// CreateSerialInfo creates serial number entry in database
+	CreateSerialInfo(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte, limitExpiration time.Time) error
 	// SaveInlineOrder
 	SaveInlineOrder(ctx context.Context, bucketID []byte) error
 	// SaveRemoteOrder

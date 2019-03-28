@@ -19,12 +19,12 @@ type ordersDB struct {
 	db *dbx.DB
 }
 
-func (db *ordersDB) SaveSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte, expiresAt time.Time) error {
+func (db *ordersDB) CreateSerialInfo(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte, limitExpiration time.Time) error {
 	_, err := db.db.Create_SerialNumber(
 		ctx,
 		dbx.SerialNumber_SerialNumber(serialNumber.Bytes()),
 		dbx.SerialNumber_BucketId(bucketID),
-		dbx.SerialNumber_ExpiresAt(expiresAt),
+		dbx.SerialNumber_ExpiresAt(limitExpiration),
 	)
 	return err
 }
