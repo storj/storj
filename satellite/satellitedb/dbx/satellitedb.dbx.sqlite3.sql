@@ -36,12 +36,15 @@ CREATE TABLE bucket_bandwidth_rollups (
 	settled INTEGER NOT NULL,
 	PRIMARY KEY ( bucket_id, interval_start, action )
 );
-CREATE TABLE bucket_storage_rollups (
+CREATE TABLE bucket_storage_tallies (
 	bucket_id BLOB NOT NULL,
 	interval_start TIMESTAMP NOT NULL,
-	interval_seconds INTEGER NOT NULL,
 	inline INTEGER NOT NULL,
 	remote INTEGER NOT NULL,
+	remote_segments_count INTEGER NOT NULL,
+	inline_segments_count INTEGER NOT NULL,
+	object_count INTEGER NOT NULL,
+	metadata_size INTEGER NOT NULL,
 	PRIMARY KEY ( bucket_id, interval_start )
 );
 CREATE TABLE bucket_usages (
@@ -152,10 +155,9 @@ CREATE TABLE storagenode_bandwidth_rollups (
 	settled INTEGER NOT NULL,
 	PRIMARY KEY ( storagenode_id, interval_start, action )
 );
-CREATE TABLE storagenode_storage_rollups (
+CREATE TABLE storagenode_storage_tallies (
 	storagenode_id BLOB NOT NULL,
 	interval_start TIMESTAMP NOT NULL,
-	interval_seconds INTEGER NOT NULL,
 	total INTEGER NOT NULL,
 	PRIMARY KEY ( storagenode_id, interval_start )
 );
