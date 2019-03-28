@@ -48,7 +48,10 @@ type Uplink struct {
 }
 
 // NewUplink creates a new Uplink
-func NewUplink(ctx context.Context, cfg Config) (*Uplink, error) {
+func NewUplink(ctx context.Context, cfg *Config) (*Uplink, error) {
+	if cfg == nil {
+		cfg = &Config{}
+	}
 	identity, err := identity.NewFullIdentity(ctx, 0, 1)
 	if err != nil {
 		return nil, err

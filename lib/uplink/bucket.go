@@ -62,8 +62,11 @@ type UploadOptions struct {
 }
 
 // UploadObject uploads a new object, if authorized.
-func (b *Bucket) UploadObject(ctx context.Context, path storj.Path, data io.Reader, opts UploadOptions) (err error) {
+func (b *Bucket) UploadObject(ctx context.Context, path storj.Path, data io.Reader, opts *UploadOptions) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	if opts == nil {
+		opts = &UploadOptions{}
+	}
 	panic("TODO")
 }
 
@@ -74,9 +77,13 @@ func (b *Bucket) DeleteObject(ctx context.Context, path storj.Path) (err error) 
 }
 
 // ListObjects lists objects a user is authorized to see.
-func (b *Bucket) ListObjects(ctx context.Context, cfg storj.ListOptions) (list storj.ObjectList, err error) {
+// TODO(paul): should probably have a ListOptions defined in this package, for consistency's sake
+func (b *Bucket) ListObjects(ctx context.Context, cfg *storj.ListOptions) (list storj.ObjectList, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return b.metainfo.ListObjects(ctx, b.Bucket.Name, cfg)
+	if cfg == nil {
+		cfg = &storj.ListOptions{}
+	}
+	return b.metainfo.ListObjects(ctx, b.Bucket.Name, *cfg)
 }
 
 // Close closes the Bucket session.

@@ -30,6 +30,7 @@ type Project struct {
 
 // CreateBucketOptions holds possible options that can be passed to
 // CreateBucket.
+// TODO(paul): shouldn't this be like BucketOptions (see paul TODOs below)?
 type CreateBucketOptions struct {
 	// PathCipher indicates which ciphersuite is to be used for path
 	// encryption within the new Bucket. If not set, AES-GCM encryption
@@ -44,8 +45,11 @@ func (o *CreateBucketOptions) setDefaults() {
 }
 
 // CreateBucket creates a new bucket if authorized.
-func (p *Project) CreateBucket(ctx context.Context, bucket string, opts CreateBucketOptions) (b storj.Bucket, err error) {
+func (p *Project) CreateBucket(ctx context.Context, bucket string, opts *CreateBucketOptions) (b storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
+	if opts == nil {
+		opts = &CreateBucketOptions{}
+	}
 	opts.setDefaults()
 	pathCipher, err := opts.PathCipher.convert()
 	if err != nil {
@@ -62,9 +66,12 @@ func (p *Project) DeleteBucket(ctx context.Context, bucket string) (err error) {
 }
 
 // ListBuckets will list authorized buckets.
-func (p *Project) ListBuckets(ctx context.Context, opts storj.BucketListOptions) (bl storj.BucketList, err error) {
+func (p *Project) ListBuckets(ctx context.Context, opts *storj.BucketListOptions) (bl storj.BucketList, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return p.project.ListBuckets(ctx, opts)
+	if opts == nil {
+		opts = &storj.BucketListOptions{}
+	}
+	return p.project.ListBuckets(ctx, *opts)
 }
 
 // GetBucketInfo returns info about the requested bucket if authorized.
@@ -74,6 +81,8 @@ func (p *Project) GetBucketInfo(ctx context.Context, bucket string) (b storj.Buc
 }
 
 // BucketConfig represents configuration options for a specific Bucket
+// TODO(paul): doesn't this make more sense with CreateBucket? Why do we have
+//             Pointer objects for buckets if we aren't using them for this?
 type BucketConfig struct {
 	// EncryptionAccess specifies the encryption details needed to
 	// encrypt/decrypt objects within this Bucket.
@@ -162,10 +171,15 @@ func (c *BucketConfig) setDefaults() {
 
 // OpenBucket returns a Bucket handle with the given EncryptionAccess
 // information.
-func (p *Project) OpenBucket(ctx context.Context, bucket string, cfg BucketConfig) (b *Bucket, err error) {
+// TODO(paul): can't all this bucket config info come from the bucket metadata in pdb?
+//             why are we passing it in? what happens if it doesn't match?
+func (p *Project) OpenBucket(ctx context.Context, bucket string, cfg *BucketConfig) (b *Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 	cfg.setDefaults()
 
+	if cfg == nil {
+		cfg = &BucketConfig{}
+	}
 	bucketInfo, err := p.GetBucketInfo(ctx, bucket)
 	if err != nil {
 		return nil, err
