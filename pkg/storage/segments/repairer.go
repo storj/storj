@@ -10,6 +10,7 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/eestream"
@@ -19,13 +20,18 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/orders"
 )
 
 // Repairer for segments
 type Repairer struct {
+	log *zap.Logger
+
 	pointerdb  *pointerdb.Service
 	allocation *pointerdb.AllocationSigner
 	cache      *overlay.Cache
+	orders     orders.DB
 	ec         ecclient.Client
 	signer     signing.Signer
 	identity   *identity.FullIdentity
@@ -33,8 +39,10 @@ type Repairer struct {
 }
 
 // NewSegmentRepairer creates a new instance of SegmentRepairer
-func NewSegmentRepairer(pointerdb *pointerdb.Service, allocation *pointerdb.AllocationSigner, cache *overlay.Cache, ec ecclient.Client, identity *identity.FullIdentity, timeout time.Duration) *Repairer {
+func NewSegmentRepairer(log *zap.Logger, pointerdb *pointerdb.Service, allocation *pointerdb.AllocationSigner, cache *overlay.Cache, ec ecclient.Client, identity *identity.FullIdentity, timeout time.Duration, orders orders.DB) *Repairer {
 	return &Repairer{
+		log: log,
+
 		pointerdb:  pointerdb,
 		allocation: allocation,
 		cache:      cache,
@@ -42,6 +50,7 @@ func NewSegmentRepairer(pointerdb *pointerdb.Service, allocation *pointerdb.Allo
 		identity:   identity,
 		signer:     signing.SignerFromFullIdentity(identity),
 		timeout:    timeout,
+		orders:     orders,
 	}
 }
 
@@ -161,10 +170,18 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 		pieceNum++
 	}
 
-	//ToDo: Save Get Limits
-	/*if err := endpoint.saveRemoteOrder(ctx, keyInfo.ProjectID, req.Bucket, addressedLimits); err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
-	}*/
+	// Note from Nat: I added the orders DB field to the repairer struct, but a log should be added, then passed here too
+	endpoint := metainfo.NewEndpointOnSatellite(repairer.log, repairer.pointerdb, repairer.allocation, repairer.cache, signing.SignerFromFullIdentity(repairer.identity), repairer.orders)
+
+	// projectID := `somehow find the project ID in an api-keyless way, aka make or find a different query if possible`
+	// bucket := `find the bucket`
+
+	// Note from Nat: I made SaveRemoteOrder exported so it could be used here
+	// ToDo: Save Get Limits
+	// err = endpoint.SaveRemoteOrder(ctx, projectID, bucket, getLimits)
+	// if err != nil {
+	// 	return nil, status.Errorf(codes.Internal, err.Error())
+	// }
 
 	// Download the segment using just the healthy pieces
 	rr, err := repairer.ec.Get(ctx, getLimits, redundancy, pointer.GetSegmentSize())
@@ -179,7 +196,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 	defer func() { err = errs.Combine(err, r.Close()) }()
 
 	//ToDo: Save Put Limits
-	/*if err := endpoint.saveRemoteOrder(ctx, keyInfo.ProjectID, req.Bucket, addressedLimits); err != nil {
+	/*if err := endpoint.SaveRemoteOrder(ctx, keyInfo.ProjectID, req.Bucket, addressedLimits); err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}*/
 

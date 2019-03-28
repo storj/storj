@@ -13,6 +13,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/skyrings/skyring-common/tools/uuid"
+	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/eestream"
@@ -22,6 +23,8 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/orders"
 )
 
 // Stripe keeps track of a stripe's index and its parent segment
@@ -33,9 +36,12 @@ type Stripe struct {
 
 // Cursor keeps track of audit location in pointer db
 type Cursor struct {
+	log *zap.Logger
+
 	pointerdb  *pointerdb.Service
 	allocation *pointerdb.AllocationSigner
 	cache      *overlay.Cache
+	orders     orders.DB
 	identity   *identity.FullIdentity
 	signer     signing.Signer
 	lastPath   storj.Path
@@ -43,11 +49,13 @@ type Cursor struct {
 }
 
 // NewCursor creates a Cursor which iterates over pointer db
-func NewCursor(pointerdb *pointerdb.Service, allocation *pointerdb.AllocationSigner, cache *overlay.Cache, identity *identity.FullIdentity) *Cursor {
+func NewCursor(log *zap.Logger, pointerdb *pointerdb.Service, allocation *pointerdb.AllocationSigner, cache *overlay.Cache, identity *identity.FullIdentity, orders orders.DB) *Cursor {
 	return &Cursor{
+		log:        log,
 		pointerdb:  pointerdb,
 		allocation: allocation,
 		cache:      cache,
+		orders:     orders,
 		identity:   identity,
 		signer:     signing.SignerFromFullIdentity(identity),
 	}
@@ -192,8 +200,14 @@ func (cursor *Cursor) createOrderLimits(ctx context.Context, pointer *pb.Pointer
 		}
 	}
 
-	//ToDo: We have to save the orderLimit here into the satellitedb
-	/*if err := endpoint.saveRemoteOrder(ctx, keyInfo.ProjectID, req.Bucket, addressedLimits); err != nil {
+	endpoint := metainfo.NewEndpointOnSatellite(cursor.log, cursor.pointerdb, cursor.allocation, cursor.cache, signing.SignerFromFullIdentity(cursor.identity), cursor.orders)
+
+	// projectID := `find the project ID in an api-keyless way, aka make or find a different query if possible?`
+	// bucket := `find the bucket`
+
+	// ToDo: We have to save the orderLimit here into the satellitedb
+	/* err := endpoint.SaveRemoteOrder(ctx, projectID, bucket, limits)
+	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}*/
 

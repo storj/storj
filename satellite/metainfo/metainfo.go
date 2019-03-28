@@ -64,6 +64,19 @@ func NewEndpoint(log *zap.Logger, pointerdb *pointerdb.Service, allocation *poin
 	}
 }
 
+// NewEndpointOnSatellite creates new metainfo endpoint instance accessible by services on the satellite
+func NewEndpointOnSatellite(log *zap.Logger, pointerdb *pointerdb.Service, allocation *pointerdb.AllocationSigner, cache *overlay.Cache, signer signing.Signer, orders orders.DB) *Endpoint {
+	// TODO do something with too many params
+	return &Endpoint{
+		log:        log,
+		pointerdb:  pointerdb,
+		allocation: allocation,
+		cache:      cache,
+		signer:     signer,
+		orders:     orders,
+	}
+}
+
 // Close closes resources
 func (endpoint *Endpoint) Close() error { return nil }
 
@@ -182,7 +195,7 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 		}
 	}
 
-	if err := endpoint.saveRemoteOrder(ctx, keyInfo.ProjectID, req.Bucket, addressedLimits); err != nil {
+	if err := endpoint.SaveRemoteOrder(ctx, keyInfo.ProjectID, req.Bucket, addressedLimits); err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
@@ -267,7 +280,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
 
-		if err := endpoint.saveRemoteOrder(ctx, keyInfo.ProjectID, req.Bucket, limits); err != nil {
+		if err := endpoint.SaveRemoteOrder(ctx, keyInfo.ProjectID, req.Bucket, limits); err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
 
@@ -555,7 +568,8 @@ func (endpoint *Endpoint) validatePointer(pointer *pb.Pointer) error {
 	return nil
 }
 
-func (endpoint *Endpoint) saveRemoteOrder(ctx context.Context, projectID uuid.UUID, bucketName []byte, orderLimits []*pb.AddressedOrderLimit) error {
+// SaveRemoteOrder allows saving a remote order
+func (endpoint *Endpoint) SaveRemoteOrder(ctx context.Context, projectID uuid.UUID, bucketName []byte, orderLimits []*pb.AddressedOrderLimit) error {
 	bucketID := storj.JoinPaths(projectID.String(), string(bucketName))
 	limits := make([]*pb.OrderLimit2, len(orderLimits))
 	for i, limit := range orderLimits {
