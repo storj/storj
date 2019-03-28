@@ -79,36 +79,22 @@ type BucketConfig struct {
 	// encrypt/decrypt objects within this Bucket.
 	EncryptionAccess EncryptionAccess
 
+	// PathCipher specifies the ciphersuite to be used for path encryption
+	// in this Bucket.
+	PathCipher Cipher
+
 	// Volatile groups config values that are likely to change semantics
 	// or go away entirely between releases. Be careful when using them!
 	Volatile struct {
 		// DefaultRS defines the default Reed-Solomon and/or Forward
 		// Error Correction encoding parameters to be used by objects
 		// in this Bucket.
-		DefaultRS struct {
-			// MinThreshold is the minimum number of pieces required
-			// to recover a segment.
-			MinThreshold int
-			// RepairThreshold is the minimum number of safe pieces
-			// that can remain before a repair is triggered.
-			RepairThreshold int
-			// SuccessThreshold is the desired total number of pieces
-			// for a segment.
-			SuccessThreshold int
-			// MaxThreshold is the largest number of pieces to encode.
-			// If larger than SuccessThreshold, slower uploads of the
-			// excess pieces will be aborted to improve performance.
-			MaxThreshold int
-		}
-
+		DefaultRS storj.RedundancyScheme
 		// MaxBufferMem is the default maximum amount of memory to be
 		// allocated for read buffers while performing decodes of
 		// objects in this Bucket. If set to a negative value, the
 		// system will use the smallest amount of memory it can.
 		MaxBufferMem memory.Size
-		// ErasureShareSize is the default size to use for new erasure
-		// shares for objects in this Bucket.
-		ErasureShareSize memory.Size
 		// SegmentSize is the default segment size to use for new
 		// objects in this Bucket.
 		SegmentSize memory.Size
@@ -120,14 +106,13 @@ type BucketConfig struct {
 		MaxInlineSize memory.Size
 
 		// DataCipher specifies the default ciphersuite to be used for
-		// data encryption in this Bucket.
+		// data encryption of new Objects in this bucket.
 		DataCipher Cipher
-		// PathCipher specifies the ciphersuite to be used for path
-		// encryption in this Bucket.
-		PathCipher Cipher
 		// EncryptionBlockSize determines the unit size at which
-		// encryption is performed. There is some small overhead for
-		// each such block, so they should not be too small, but smaller
+		// encryption is performed. It is important to distinguish this
+		// from the block size used by the ciphersuite (probably 128
+		// bits). There is some small overhead for each encryption unit,
+		// so EncryptionBlockSize should not be too small, but smaller
 		// sizes yield shorter first-byte latency and better seek times.
 		// Note that EncryptionBlockSize itself is the size of data
 		// blocks _after_ they have been encrypted and the
@@ -138,8 +123,8 @@ type BucketConfig struct {
 }
 
 func (c *BucketConfig) setDefaults() {
-	if c.Volatile.PathCipher == UnsetCipher {
-		c.Volatile.PathCipher = defaultCipher
+	if c.PathCipher == UnsetCipher {
+		c.PathCipher = defaultCipher
 	}
 	if c.Volatile.DataCipher == UnsetCipher {
 		c.Volatile.DataCipher = defaultCipher
@@ -147,25 +132,25 @@ func (c *BucketConfig) setDefaults() {
 	if c.Volatile.EncryptionBlockSize.Int() == 0 {
 		c.Volatile.EncryptionBlockSize = 1 * memory.KiB
 	}
-	if c.Volatile.DefaultRS.MinThreshold == 0 {
-		c.Volatile.DefaultRS.MinThreshold = 29
+	if c.Volatile.DefaultRS.RequiredShares == 0 {
+		c.Volatile.DefaultRS.RequiredShares = 29
 	}
-	if c.Volatile.DefaultRS.RepairThreshold == 0 {
-		c.Volatile.DefaultRS.RepairThreshold = 35
+	if c.Volatile.DefaultRS.RepairShares == 0 {
+		c.Volatile.DefaultRS.RepairShares = 35
 	}
-	if c.Volatile.DefaultRS.SuccessThreshold == 0 {
-		c.Volatile.DefaultRS.SuccessThreshold = 80
+	if c.Volatile.DefaultRS.OptimalShares == 0 {
+		c.Volatile.DefaultRS.OptimalShares = 80
 	}
-	if c.Volatile.DefaultRS.MaxThreshold == 0 {
-		c.Volatile.DefaultRS.MaxThreshold = 95
+	if c.Volatile.DefaultRS.TotalShares == 0 {
+		c.Volatile.DefaultRS.TotalShares = 95
 	}
 	if c.Volatile.MaxBufferMem.Int() == 0 {
 		c.Volatile.MaxBufferMem = 4 * memory.MiB
 	} else if c.Volatile.MaxBufferMem.Int() < 0 {
 		c.Volatile.MaxBufferMem = 0
 	}
-	if c.Volatile.ErasureShareSize.Int() == 0 {
-		c.Volatile.ErasureShareSize = 1 * memory.KiB
+	if c.Volatile.DefaultRS.ShareSize == 0 {
+		c.Volatile.DefaultRS.ShareSize = (1 * memory.KiB).Int32()
 	}
 	if c.Volatile.SegmentSize.Int() == 0 {
 		c.Volatile.SegmentSize = 64 * memory.MiB
@@ -186,13 +171,13 @@ func (p *Project) OpenBucket(ctx context.Context, bucket string, cfg BucketConfi
 		return nil, err
 	}
 
-	if cfg.Volatile.ErasureShareSize.Int()*cfg.Volatile.DefaultRS.MinThreshold%cfg.Volatile.EncryptionBlockSize.Int() != 0 {
-		return nil, Error.New("EncryptionBlockSize must be a multiple of ErasureShareSize * RS MinThreshold")
+	if cfg.Volatile.DefaultRS.ShareSize*int32(cfg.Volatile.DefaultRS.RequiredShares)%cfg.Volatile.EncryptionBlockSize.Int32() != 0 {
+		return nil, Error.New("EncryptionBlockSize must be a multiple of RS ShareSize * RS RequiredShares")
 	}
 	if cfg.EncryptionAccess.Key == (storj.Key{}) {
 		return nil, Error.New("No encryption key chosen")
 	}
-	pathCipher, err := cfg.Volatile.PathCipher.convert()
+	pathCipher, err := cfg.PathCipher.convert()
 	if err != nil {
 		return nil, err
 	}
@@ -202,14 +187,14 @@ func (p *Project) OpenBucket(ctx context.Context, bucket string, cfg BucketConfi
 	}
 
 	ec := ecclient.NewClient(p.tc, cfg.Volatile.MaxBufferMem.Int())
-	fc, err := infectious.NewFEC(cfg.Volatile.DefaultRS.MinThreshold, cfg.Volatile.DefaultRS.MaxThreshold)
+	fc, err := infectious.NewFEC(int(cfg.Volatile.DefaultRS.RequiredShares), int(cfg.Volatile.DefaultRS.TotalShares))
 	if err != nil {
 		return nil, err
 	}
 	rs, err := eestream.NewRedundancyStrategy(
-		eestream.NewRSScheme(fc, cfg.Volatile.ErasureShareSize.Int()),
-		cfg.Volatile.DefaultRS.RepairThreshold,
-		cfg.Volatile.DefaultRS.SuccessThreshold)
+		eestream.NewRSScheme(fc, int(cfg.Volatile.DefaultRS.ShareSize)),
+		int(cfg.Volatile.DefaultRS.RepairShares),
+		int(cfg.Volatile.DefaultRS.OptimalShares))
 	if err != nil {
 		return nil, err
 	}

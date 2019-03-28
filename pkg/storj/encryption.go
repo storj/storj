@@ -5,7 +5,16 @@ package storj
 
 // EncryptionScheme is the scheme and parameters used for encryption
 type EncryptionScheme struct {
-	Cipher    Cipher
+	// Cipher specifies the ciphersuite to be used for encryption.
+	Cipher Cipher
+	// BlockSize determines the unit size at which encryption is performed.
+	// It is important to distinguish this from the block size used by the
+	// ciphersuite (probably 128 bits). There is some small overhead for
+	// each encryption unit, so BlockSize should not be too small, but
+	// smaller sizes yield shorter first-byte latency and better seek times.
+	// Note that BlockSize itself is the size of data blocks _after_ they
+	// have been encrypted and the authentication overhead has been added.
+	// It is _not_ the size of the data blocks to _be_ encrypted.
 	BlockSize int32
 }
 
