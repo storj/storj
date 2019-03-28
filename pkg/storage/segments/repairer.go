@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/auth/signing"
@@ -16,7 +17,7 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
-	ecclient "storj.io/storj/pkg/storage/ec"
+	"storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -79,11 +80,19 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 		}
 	}
 
+	// Add Serial Number for the entire pointer audit
+	// needs to be the same for all nodes in the pointer
+	uuidGet, err := uuid.New()
+	if err != nil {
+		return err
+	}
+	serialNumberGet := storj.SerialNumber(*uuidGet)
+
 	// Create the order limits for the GET_REPAIR action
 	getLimits := make([]*pb.AddressedOrderLimit, redundancy.TotalCount())
 	for _, piece := range healthyPieces {
 		derivedPieceID := rootPieceID.Derive(piece.NodeId)
-		orderLimit, err := repairer.createOrderLimit(ctx, piece.NodeId, derivedPieceID, expiration, pieceSize, pb.PieceAction_GET_REPAIR)
+		orderLimit, err := repairer.createOrderLimit(ctx, serialNumberGet, piece.NodeId, derivedPieceID, expiration, pieceSize, pb.PieceAction_GET_REPAIR)
 		if err != nil {
 			return err
 		}
@@ -115,6 +124,14 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 		return Error.Wrap(err)
 	}
 
+	// Add Serial Number for the entire pointer audit
+	// needs to be the same for all nodes in the pointer
+	uuidPut, err := uuid.New()
+	if err != nil {
+		return err
+	}
+	serialNumberPut := storj.SerialNumber(*uuidPut)
+
 	// Create the order limits for the PUT_REPAIR action
 	putLimits := make([]*pb.AddressedOrderLimit, redundancy.TotalCount())
 	pieceNum := 0
@@ -132,7 +149,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 		}
 
 		derivedPieceID := rootPieceID.Derive(node.Id)
-		orderLimit, err := repairer.createOrderLimit(ctx, node.Id, derivedPieceID, expiration, pieceSize, pb.PieceAction_PUT_REPAIR)
+		orderLimit, err := repairer.createOrderLimit(ctx, serialNumberPut, node.Id, derivedPieceID, expiration, pieceSize, pb.PieceAction_PUT_REPAIR)
 		if err != nil {
 			return err
 		}
@@ -143,6 +160,11 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 		}
 		pieceNum++
 	}
+
+	//ToDo: Save Get Limits
+	/*if err := endpoint.saveRemoteOrder(ctx, keyInfo.ProjectID, req.Bucket, addressedLimits); err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}*/
 
 	// Download the segment using just the healthy pieces
 	rr, err := repairer.ec.Get(ctx, getLimits, redundancy, pointer.GetSegmentSize())
@@ -155,6 +177,11 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 		return Error.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, r.Close()) }()
+
+	//ToDo: Save Put Limits
+	/*if err := endpoint.saveRemoteOrder(ctx, keyInfo.ProjectID, req.Bucket, addressedLimits); err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}*/
 
 	// Upload the repaired pieces
 	successfulNodes, hashes, err := repairer.ec.Repair(ctx, putLimits, redundancy, r, convertTime(expiration), repairer.timeout)
@@ -181,8 +208,9 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 	return repairer.pointerdb.Put(path, pointer)
 }
 
-func (repairer *Repairer) createOrderLimit(ctx context.Context, nodeID storj.NodeID, pieceID storj.PieceID, expiration *timestamp.Timestamp, limit int64, action pb.PieceAction) (*pb.OrderLimit2, error) {
+func (repairer *Repairer) createOrderLimit(ctx context.Context, serialnumber storj.SerialNumber, nodeID storj.NodeID, pieceID storj.PieceID, expiration *timestamp.Timestamp, limit int64, action pb.PieceAction) (*pb.OrderLimit2, error) {
 	parameters := pointerdb.OrderLimitParameters{
+		SerialNumber:    serialnumber,
 		UplinkIdentity:  repairer.identity.PeerIdentity(),
 		StorageNodeID:   nodeID,
 		PieceID:         pieceID,
