@@ -250,8 +250,9 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *ide
 // CreateAuditOrderLimits creates the order limits for auditing the pieces of pointer.
 func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *identity.PeerIdentity, bucketID []byte, pointer *pb.Pointer) (_ []*pb.AddressedOrderLimit, err error) {
 	rootPieceID := pointer.GetRemote().RootPieceId
-	shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
-	totalPieces := pointer.GetRemote().GetRedundancy().GetTotal()
+	redundancy := pointer.GetRemote().GetRedundancy()
+	shareSize := redundancy.GetErasureShareSize()
+	totalPieces := redundancy.GetTotal()
 	expiration := pointer.ExpirationDate
 
 	// convert orderExpiration from duration to timestamp
@@ -270,13 +271,16 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 		err = errs.Combine(err, errSerial)
 	}()
 
+	var combinedErrs error
+	var limitsCount int32
 	limits := make([]*pb.AddressedOrderLimit, totalPieces)
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
 		node, err := service.cache.Get(ctx, piece.NodeId)
 		if err != nil {
-			// TODO: audit should not fail if a single node cannot be retrieved from overlay cache or is offline
 			// TODO: undo serial entry
-			return nil, Error.Wrap(err)
+			service.log.Error("error getting node from the overlay cache", zap.Error(err))
+			combinedErrs = errs.Combine(combinedErrs, err)
+			continue
 		}
 
 		if node != nil {
@@ -302,6 +306,11 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 			Limit:              orderLimit,
 			StorageNodeAddress: node.Address,
 		}
+		limitsCount++
+	}
+	if limitsCount < redundancy.GetMinReq() {
+		err = Error.New("not enough nodes available: got %d, required %d", limitsCount, redundancy.GetMinReq())
+		return nil, errs.Combine(combinedErrs, err)
 	}
 
 	return limits, nil
