@@ -41,10 +41,6 @@ func NewService(log *zap.Logger, satellite signing.Signer, cache *overlay.Cache,
 	}
 }
 
-func (service *Service) CreateOrderLimits() ([]*pb.OrderLimit2, error) {
-	return nil, nil
-}
-
 // VerifyOrderLimitSignature verifies that the signature inside order limit belongs to the satellite.
 func (service *Service) VerifyOrderLimitSignature(signed *pb.OrderLimit2) error {
 	return signing.VerifyOrderLimitSignature(service.satellite, signed)
