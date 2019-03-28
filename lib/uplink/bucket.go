@@ -30,10 +30,18 @@ func (b *Bucket) OpenObject(ctx context.Context, path storj.Path) (o *Object, er
 
 // UploadOptions controls options about uploading a new Object, if authorized.
 type UploadOptions struct {
+	// Metadata contains additional information about an Object. It can
+	// hold arbitrary textual fields and can be retrieved together with the
+	// Object. Field names can be at most 1024 bytes long. Field values are
+	// not individually limited in size, but the total of all metadata
+	// (fields and values) can not exceed 4 kiB.
 	Metadata map[string]string
-	Expires  time.Time
+	// Expires is the time at which the new Object can expire (be deleted
+	// automatically from storage nodes).
+	Expires time.Time
 
-	// EncryptionScheme determines the object's encryption scheme. If not set, uses the Uplink default
+	// EncryptionScheme determines the object's encryption scheme. If not
+	// set, the Bucket's default will be used.
 	EncryptionScheme *storj.EncryptionScheme
 }
 
@@ -55,7 +63,7 @@ func (b *Bucket) ListObjects(ctx context.Context, cfg storj.ListOptions) (list s
 	return b.metainfo.ListObjects(ctx, b.Bucket.Name, cfg)
 }
 
-// Close closes the Bucket session
+// Close closes the Bucket session.
 func (b *Bucket) Close() error {
 	return nil
 }

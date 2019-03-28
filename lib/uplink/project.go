@@ -31,6 +31,9 @@ type Project struct {
 // CreateBucketOptions holds possible options that can be passed to
 // CreateBucket.
 type CreateBucketOptions struct {
+	// PathCipher indicates which ciphersuite is to be used for path
+	// encryption within the new Bucket. If not set, AES-GCM encryption
+	// will be used.
 	PathCipher Cipher
 }
 
@@ -40,7 +43,7 @@ func (o *CreateBucketOptions) setDefaults() {
 	}
 }
 
-// CreateBucket creates a new bucket if authorized
+// CreateBucket creates a new bucket if authorized.
 func (p *Project) CreateBucket(ctx context.Context, bucket string, opts CreateBucketOptions) (b storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 	opts.setDefaults()
@@ -51,19 +54,20 @@ func (p *Project) CreateBucket(ctx context.Context, bucket string, opts CreateBu
 	return p.project.CreateBucket(ctx, bucket, &storj.Bucket{PathCipher: pathCipher})
 }
 
-// DeleteBucket deletes a bucket if authorized
+// DeleteBucket deletes a bucket if authorized. If the bucket contains any
+// Objects at the time of deletion, they may be lost permanently.
 func (p *Project) DeleteBucket(ctx context.Context, bucket string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return p.project.DeleteBucket(ctx, bucket)
 }
 
-// ListBuckets will list authorized buckets
+// ListBuckets will list authorized buckets.
 func (p *Project) ListBuckets(ctx context.Context, opts storj.BucketListOptions) (bl storj.BucketList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return p.project.ListBuckets(ctx, opts)
 }
 
-// GetBucketInfo returns info about the requested bucket if authorized
+// GetBucketInfo returns info about the requested bucket if authorized.
 func (p *Project) GetBucketInfo(ctx context.Context, bucket string) (b storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return p.project.GetBucket(ctx, bucket)
@@ -71,25 +75,64 @@ func (p *Project) GetBucketInfo(ctx context.Context, bucket string) (b storj.Buc
 
 // BucketConfig represents configuration options for a specific Bucket
 type BucketConfig struct {
+	// EncryptionAccess specifies the encryption details needed to
+	// encrypt/decrypt objects within this Bucket.
 	EncryptionAccess EncryptionAccess
 
-	// These config values are likely to change semantics or go away
-	// entirely between releases. Be careful when using them!
+	// Volatile groups config values that are likely to change semantics
+	// or go away entirely between releases. Be careful when using them!
 	Volatile struct {
+		// DefaultRS defines the default Reed-Solomon and/or Forward
+		// Error Correction encoding parameters to be used by objects
+		// in this Bucket.
 		DefaultRS struct {
-			MinThreshold     int
-			RepairThreshold  int
+			// MinThreshold is the minimum number of pieces required
+			// to recover a segment.
+			MinThreshold int
+			// RepairThreshold is the minimum number of safe pieces
+			// that can remain before a repair is triggered.
+			RepairThreshold int
+			// SuccessThreshold is the desired total number of pieces
+			// for a segment.
 			SuccessThreshold int
-			MaxThreshold     int
+			// MaxThreshold is the largest number of pieces to encode.
+			// If larger than SuccessThreshold, slower uploads of the
+			// excess pieces will be aborted to improve performance.
+			MaxThreshold int
 		}
 
-		MaxBufferMem     memory.Size
+		// MaxBufferMem is the default maximum amount of memory to be
+		// allocated for read buffers while performing decodes of
+		// objects in this Bucket. If set to a negative value, the
+		// system will use the smallest amount of memory it can.
+		MaxBufferMem memory.Size
+		// ErasureShareSize is the default size to use for new erasure
+		// shares for objects in this Bucket.
 		ErasureShareSize memory.Size
-		SegmentSize      memory.Size
-		MaxInlineSize    memory.Size
+		// SegmentSize is the default segment size to use for new
+		// objects in this Bucket.
+		SegmentSize memory.Size
+		// MaxInlineSize determines whether the uplink will attempt to
+		// store a new object in the satellite's pointerDB. Objects at
+		// or below this size will be marked for inline storage, and
+		// objects above this size will not. (The satellite may reject
+		// the inline storage and require remote storage, still.)
+		MaxInlineSize memory.Size
 
-		DataCipher          Cipher
-		PathCipher          Cipher
+		// DataCipher specifies the default ciphersuite to be used for
+		// data encryption in this Bucket.
+		DataCipher Cipher
+		// PathCipher specifies the ciphersuite to be used for path
+		// encryption in this Bucket.
+		PathCipher Cipher
+		// EncryptionBlockSize determines the unit size at which
+		// encryption is performed. There is some small overhead for
+		// each such block, so they should not be too small, but smaller
+		// sizes yield shorter first-byte latency and better seek times.
+		// Note that EncryptionBlockSize itself is the size of data
+		// blocks _after_ they have been encrypted and the
+		// authentication overhead has been added. It is _not_ the size
+		// of the data blocks to _be_ encrypted.
 		EncryptionBlockSize memory.Size
 	}
 }
@@ -118,6 +161,8 @@ func (c *BucketConfig) setDefaults() {
 	}
 	if c.Volatile.MaxBufferMem.Int() == 0 {
 		c.Volatile.MaxBufferMem = 4 * memory.MiB
+	} else if c.Volatile.MaxBufferMem.Int() < 0 {
+		c.Volatile.MaxBufferMem = 0
 	}
 	if c.Volatile.ErasureShareSize.Int() == 0 {
 		c.Volatile.ErasureShareSize = 1 * memory.KiB
@@ -130,7 +175,8 @@ func (c *BucketConfig) setDefaults() {
 	}
 }
 
-// OpenBucket returns a Bucket handle with the given EncryptionAccess information
+// OpenBucket returns a Bucket handle with the given EncryptionAccess
+// information.
 func (p *Project) OpenBucket(ctx context.Context, bucket string, cfg BucketConfig) (b *Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 	cfg.setDefaults()
@@ -196,7 +242,7 @@ func (p *Project) OpenBucket(ctx context.Context, bucket string, cfg BucketConfi
 	}, nil
 }
 
-// Close closes the Project
+// Close closes the Project.
 func (p *Project) Close() error {
 	return nil
 }

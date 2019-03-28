@@ -25,10 +25,16 @@ var (
 
 // Config represents configuration options for an Uplink
 type Config struct {
-	// These config values are likely to change semantics or go away
-	// entirely between releases. Be careful when using them!
+	// Volatile groups config values that are likely to change semantics
+	// or go away entirely between releases. Be careful when using them!
 	Volatile struct {
+		// TLS defines options that affect TLS negotiation for outbound
+		// connections initiated by this uplink.
 		TLS struct {
+			// SkipPeerCAWhitelist determines whether to require all
+			// remote hosts to have identity certificates signed by
+			// Certificate Authorities in the default whitelist. If
+			// set to true, the whitelist will be ignored.
 			SkipPeerCAWhitelist bool
 		}
 	}
@@ -81,7 +87,8 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey A
 	}, nil
 }
 
-// Close closes the Uplink
+// Close closes the Uplink. This may not do anything at present, but should
+// still be called to allow forward compatibility.
 func (u *Uplink) Close() error {
 	return nil
 }

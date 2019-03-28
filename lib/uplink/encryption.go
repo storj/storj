@@ -26,9 +26,14 @@ const (
 	defaultCipher = AESGCM
 )
 
-// EncryptionAccess specifies the encryption details needed to encrypt/decrypt objects
+// EncryptionAccess specifies the encryption details needed to encrypt or
+// decrypt objects.
 type EncryptionAccess struct {
-	Key                 storj.Key
+	// Key is the base encryption key to be used for decrypting objects.
+	Key storj.Key
+	// EncryptedPathPrefix is the (possibly empty) encrypted version of the
+	// path from the top of the storage Bucket to this point. This is
+	// necessary to have in order to derive further encryption keys.
 	EncryptedPathPrefix storj.Path
 }
 
