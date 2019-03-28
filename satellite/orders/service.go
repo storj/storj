@@ -31,7 +31,8 @@ func (service *Service) CreateOrderLimits() ([]*pb.OrderLimit2, error) {
 	return nil, nil
 }
 
-func (service *Service) createSerial(ctx context.Context) (storj.SerialNumber, error) {
+func (service *Service) createSerial(ctx context.Context, bucketPath storj.Path) (storj.SerialNumber, error) {
+	// TODO
 	return storj.SerialNumber{}, nil
 }
 
@@ -42,6 +43,7 @@ func (service *Service) saveSerial(ctx context.Context, serialNumber storj.Seria
 func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *identity.PeerIdentity, pointer *pb.Pointer) ([]*pb.AddressedOrderLimit, error) {
 	rootPieceID := pointer.GetRemote().RootPieceId
 	shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
+	totalPieces := pointer.GetRemote().GetRedundancy().GetTotal()
 	expiration := pointer.ExpirationDate
 
 	bucketPath := storj.Path("TODO") // TODO:
@@ -54,15 +56,16 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 	// convert orderExpiration from days to timstamp
 	orderExpiration, err := ptypes.TimestampProto(time.Now().Add(service.orderExpiration))
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 
-	limits := make([]*pb.AddressedOrderLimit, pointer.GetRemote().GetRedundancy().GetTotal())
+	limits := make([]*pb.AddressedOrderLimit, totalPieces)
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
 		node, err := service.cache.Get(ctx, piece.NodeId)
 		if err != nil {
+			// TODO: audit should not fail if a single node cannot be retrieved from overlay cache or is offline
 			// TODO: undo serial entry
-			return nil, err
+			return nil, Error.Wrap(err)
 		}
 
 		if node != nil {
@@ -80,6 +83,9 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 			PieceExpiration: expiration,
 			OrderExpiration: orderExpiration,
 		})
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
 
 		limits[piece.GetPieceNum()] = &pb.AddressedOrderLimit{
 			Limit:              orderLimit,
@@ -93,11 +99,11 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer *identity.PeerIdentity, pointer *pb.Pointer, healthy []*pb.RemotePiece) ([]*pb.AddressedOrderLimit, error) {
 	rootPieceID := pointer.GetRemote().RootPieceId
 	shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
+	totalPieces := pointer.GetRemote().GetRedundancy().GetTotal()
 	expiration := pointer.ExpirationDate
 
 	bucketPath := storj.Path("TODO") // TODO:
-
-	serialNumber, err := service.createSerial(ctx)
+	serialNumber, err := service.createSerial(ctx, bucketPath)
 	if err != nil {
 		return nil, err
 	}
@@ -106,15 +112,16 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 	// convert orderExpiration from duration to timestamp
 	orderExpiration, err := ptypes.TimestampProto(time.Now().Add(service.orderExpiration))
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 
-	limits := make([]*pb.AddressedOrderLimit, pointer.GetRemote().GetRedundancy().GetTotal())
+	limits := make([]*pb.AddressedOrderLimit, totalPieces)
 	for _, piece := range healthy {
 		node, err := service.cache.Get(ctx, piece.NodeId)
 		if err != nil {
+			// TODO: audit should not fail if a single node cannot be retrieved from overlay cache or is offline
 			// TODO: undo serial entry
-			return nil, err
+			return nil, Error.Wrap(err)
 		}
 
 		if node != nil {
@@ -132,6 +139,9 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 			PieceExpiration: expiration,
 			OrderExpiration: orderExpiration,
 		})
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
 
 		limits[piece.GetPieceNum()] = &pb.AddressedOrderLimit{
 			Limit:              orderLimit,
@@ -148,7 +158,8 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 	totalPieces := pointer.GetRemote().GetRedundancy().GetTotal()
 	expiration := pointer.ExpirationDate
 
-	serialNumber, err := service.createSerial(ctx)
+	bucketPath := storj.Path("TODO") // TODO:
+	serialNumber, err := service.createSerial(ctx, bucketPath)
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +168,7 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 	// convert orderExpiration from days to timstamp
 	orderExpiration, err := ptypes.TimestampProto(time.Now().Add(service.orderExpiration))
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 
 	limits := make([]*pb.AddressedOrderLimit, totalPieces)
@@ -186,6 +197,9 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 			PieceExpiration: expiration,
 			OrderExpiration: orderExpiration,
 		})
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
 
 		limits[pieceNum] = &pb.AddressedOrderLimit{
 			Limit:              orderLimit,
