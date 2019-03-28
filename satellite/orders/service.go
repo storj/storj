@@ -160,6 +160,66 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, uplink *identi
 	return rootPieceID, limits, nil
 }
 
+func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *identity.PeerIdentity, pointer *pb.Pointer) ([]*pb.AddressedOrderLimit, error) {
+	rootPieceID := pointer.GetRemote().RootPieceId
+	expiration := pointer.ExpirationDate
+
+	bucketPath := storj.Path("TODO") // TODO:
+	serialNumber, err := service.createSerial(ctx, bucketPath)
+	if err != nil {
+		return nil, err
+	}
+	// defer service.saveSerial(ctx, serialNumber, ...)
+
+	// convert orderExpiration from duration to timestamp
+	orderExpiration, err := ptypes.TimestampProto(time.Now().Add(service.orderExpiration))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	var combinedErrs error
+	var limits []*pb.AddressedOrderLimit
+	for _, piece := range pointer.GetRemote().GetRemotePieces() {
+		node, err := service.cache.Get(ctx, piece.NodeId)
+		if err != nil {
+			service.log.Debug("error getting node from overlay cache", zap.Error(err))
+			combinedErrs = errs.Combine(combinedErrs, err)
+			continue
+		}
+
+		if node != nil {
+			node.Type.DPanicOnInvalid("order service delete order limits")
+		}
+
+		orderLimit, err := signing.SignOrderLimit(service.satellite, &pb.OrderLimit2{
+			SerialNumber:    serialNumber,
+			SatelliteId:     service.satellite.ID(),
+			UplinkId:        uplink.ID,
+			StorageNodeId:   piece.NodeId,
+			PieceId:         rootPieceID.Derive(piece.NodeId),
+			Action:          pb.PieceAction_DELETE,
+			Limit:           0,
+			PieceExpiration: expiration,
+			OrderExpiration: orderExpiration,
+		})
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		limits = append(limits, &pb.AddressedOrderLimit{
+			Limit:              orderLimit,
+			StorageNodeAddress: node.Address,
+		})
+	}
+
+	if len(limits) == 0 {
+		err = Error.New("failed creating order limits for all nodes")
+		return nil, errs.Combine(combinedErrs, err)
+	}
+
+	return limits, nil
+}
+
 func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *identity.PeerIdentity, pointer *pb.Pointer) ([]*pb.AddressedOrderLimit, error) {
 	rootPieceID := pointer.GetRemote().RootPieceId
 	shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()

@@ -277,7 +277,12 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 	}
 
 	if pointer.Type == pb.Pointer_REMOTE && pointer.Remote != nil {
-		limits, err := endpoint.orders.CreateDeleteLimits(ctx, pointer)
+		uplinkIdentity, err := identity.PeerIdentityFromContext(ctx)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, err.Error())
+		}
+
+		limits, err := endpoint.orders.CreateDeleteOrderLimits(ctx, uplinkIdentity, pointer)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
