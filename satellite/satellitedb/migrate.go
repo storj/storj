@@ -440,8 +440,35 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				Description: "Merge overlay_cache_nodes into nodes table",
+				Description: "drops interval seconds from storage_rollups, renames x_storage_rollups to x_storage_tallies, adds fields to bucket_storage_tallies",
 				Version:     11,
+				Action: migrate.SQL{
+					`ALTER TABLE storagenode_storage_rollups RENAME TO storagenode_storage_tallies`,
+					`ALTER TABLE bucket_storage_rollups RENAME TO bucket_storage_tallies`,
+
+					`ALTER TABLE storagenode_storage_tallies DROP COLUMN interval_seconds`,
+					`ALTER TABLE bucket_storage_tallies DROP COLUMN interval_seconds`,
+
+					`ALTER TABLE bucket_storage_tallies ADD remote_segments_count integer;
+					UPDATE bucket_storage_tallies SET remote_segments_count = 0;
+					ALTER TABLE bucket_storage_tallies ALTER COLUMN remote_segments_count SET NOT NULL;`,
+
+					`ALTER TABLE bucket_storage_tallies ADD inline_segments_count integer;
+					UPDATE bucket_storage_tallies SET inline_segments_count = 0;
+					ALTER TABLE bucket_storage_tallies ALTER COLUMN inline_segments_count SET NOT NULL;`,
+
+					`ALTER TABLE bucket_storage_tallies ADD object_count integer;
+					UPDATE bucket_storage_tallies SET object_count = 0;
+					ALTER TABLE bucket_storage_tallies ALTER COLUMN object_count SET NOT NULL;`,
+
+					`ALTER TABLE bucket_storage_tallies ADD metadata_size bigint;
+					UPDATE bucket_storage_tallies SET metadata_size = 0;
+					ALTER TABLE bucket_storage_tallies ALTER COLUMN metadata_size SET NOT NULL;`,
+				},
+			},
+			{
+				Description: "Merge overlay_cache_nodes into nodes table",
+				Version:     12,
 				Action: migrate.SQL{
 					// Add the new columns to the nodes table
 					`ALTER TABLE nodes ADD address TEXT NOT NULL DEFAULT '';
