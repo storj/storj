@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/satellite/orders"
 	"storj.io/storj/uplink/piecestore"
 )
 
@@ -37,6 +38,9 @@ type Share struct {
 
 // Verifier helps verify the correctness of a given stripe
 type Verifier struct {
+	orders  *orders.Service
+	auditor *identity.PeerIdentity
+
 	downloader downloader
 }
 
@@ -71,7 +75,12 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe) (verifiedN
 	pointer := stripe.Segment
 	shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
 
-	shares, nodes, err := verifier.downloader.DownloadShares(ctx, stripe.OrderLimits, stripe.Index, shareSize)
+	orderLimits, err := verifier.orders.CreateAuditOrderLimits(ctx, verifier.auditor, pointer)
+	if err != nil {
+		return nil, err
+	}
+
+	shares, nodes, err := verifier.downloader.DownloadShares(ctx, orderLimits, stripe.Index, shareSize)
 	if err != nil {
 		return nil, err
 	}

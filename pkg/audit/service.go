@@ -42,7 +42,7 @@ func NewService(log *zap.Logger, config Config, pointerdb *pointerdb.Service,
 	return &Service{
 		log: log,
 
-		Cursor:   NewCursor(pointerdb, allocation, overlay, identity),
+		Cursor:   NewCursor(pointerdb),
 		Verifier: NewVerifier(log.Named("audit:verifier"), transport, overlay, identity, config.MinBytesPerSecond),
 		Reporter: NewReporter(overlay, config.MaxRetriesStatDB),
 
