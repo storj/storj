@@ -41,8 +41,8 @@ func TestUserRepository(t *testing.T) {
 
 			user := &console.User{
 				ID:           *id,
-				FirstName:    name,
-				LastName:     lastName,
+				FullName:     name,
+				ShortName:    lastName,
 				Email:        email,
 				PasswordHash: []byte(passValid),
 				CreatedAt:    time.Now(),
@@ -59,18 +59,18 @@ func TestUserRepository(t *testing.T) {
 
 		t.Run("Get user success", func(t *testing.T) {
 			userByEmail, err := repository.GetByEmail(ctx, email)
-			assert.Equal(t, userByEmail.FirstName, name)
-			assert.Equal(t, userByEmail.LastName, lastName)
+			assert.Equal(t, userByEmail.FullName, name)
+			assert.Equal(t, userByEmail.ShortName, lastName)
 			assert.NoError(t, err)
 
 			userByID, err := repository.Get(ctx, userByEmail.ID)
-			assert.Equal(t, userByID.FirstName, name)
-			assert.Equal(t, userByID.LastName, lastName)
+			assert.Equal(t, userByID.FullName, name)
+			assert.Equal(t, userByID.ShortName, lastName)
 			assert.NoError(t, err)
 
 			assert.Equal(t, userByID.ID, userByEmail.ID)
-			assert.Equal(t, userByID.FirstName, userByEmail.FirstName)
-			assert.Equal(t, userByID.LastName, userByEmail.LastName)
+			assert.Equal(t, userByID.FullName, userByEmail.FullName)
+			assert.Equal(t, userByID.ShortName, userByEmail.ShortName)
 			assert.Equal(t, userByID.Email, userByEmail.Email)
 			assert.Equal(t, userByID.PasswordHash, userByEmail.PasswordHash)
 			assert.Equal(t, userByID.CreatedAt, userByEmail.CreatedAt)
@@ -82,8 +82,8 @@ func TestUserRepository(t *testing.T) {
 
 			newUser := &console.User{
 				ID:           oldUser.ID,
-				FirstName:    newName,
-				LastName:     newLastName,
+				FullName:     newName,
+				ShortName:    newLastName,
 				Email:        newEmail,
 				Status:       console.Active,
 				PasswordHash: []byte(newPass),
@@ -95,8 +95,8 @@ func TestUserRepository(t *testing.T) {
 			newUser, err = repository.Get(ctx, oldUser.ID)
 			assert.NoError(t, err)
 			assert.Equal(t, newUser.ID, oldUser.ID)
-			assert.Equal(t, newUser.FirstName, newName)
-			assert.Equal(t, newUser.LastName, newLastName)
+			assert.Equal(t, newUser.FullName, newName)
+			assert.Equal(t, newUser.ShortName, newLastName)
 			assert.Equal(t, newUser.Email, newEmail)
 			assert.Equal(t, newUser.PasswordHash, []byte(newPass))
 			assert.Equal(t, newUser.CreatedAt, oldUser.CreatedAt)

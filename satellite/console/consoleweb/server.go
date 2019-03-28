@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/graphql-go/graphql"
 	"github.com/zeebo/errs"
@@ -37,8 +38,9 @@ var Error = errs.Class("satellite console error")
 
 // Config contains configuration for console web server
 type Config struct {
-	Address   string `help:"server address of the graphql api gateway and frontend app" default:"127.0.0.1:8081"`
-	StaticDir string `help:"path to static resources" default:""`
+	Address         string `help:"server address of the graphql api gateway and frontend app" default:"127.0.0.1:8081"`
+	StaticDir       string `help:"path to static resources" default:""`
+	ExternalAddress string `help:"external endpoint of the satellite if hosted" default:""`
 
 	// TODO: remove after Vanguard release
 	AuthToken string `help:"auth token needed for access to registration token creation endpoint" default:""`
@@ -72,6 +74,14 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 
 	logger.Debug("Starting Satellite UI...")
 
+	if server.config.ExternalAddress != "" {
+		if !strings.HasSuffix(server.config.ExternalAddress, "/") {
+			server.config.ExternalAddress = server.config.ExternalAddress + "/"
+		}
+	} else {
+		server.config.ExternalAddress = "http://" + server.listener.Addr().String() + "/"
+	}
+
 	mux := http.NewServeMux()
 	fs := http.FileServer(http.Dir(server.config.StaticDir))
 
@@ -97,7 +107,6 @@ func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 // accountActivationHandler is web app http handler function
-// TODO: add some auth token in request header to prevent unauthorized token creation
 func (s *Server) createRegistrationTokenHandler(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set(contentType, applicationJSON)
 
@@ -170,9 +179,10 @@ func (s *Server) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	rootObject := make(map[string]interface{})
-	//TODO: add public address to config for production
-	rootObject["origin"] = "http://" + s.listener.Addr().String() + "/"
+
+	rootObject["origin"] = s.config.ExternalAddress
 	rootObject[consoleql.ActivationPath] = "activation/?token="
+	rootObject[consoleql.SignInPath] = "login"
 
 	result := graphql.Do(graphql.Params{
 		Schema:         s.schema,
@@ -197,7 +207,7 @@ func (s *Server) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 func (s *Server) Run(ctx context.Context) error {
 	var err error
 
-	s.schema, err = consoleql.CreateSchema(s.service, s.mailService)
+	s.schema, err = consoleql.CreateSchema(s.log, s.service, s.mailService)
 	if err != nil {
 		return Error.Wrap(err)
 	}

@@ -46,7 +46,6 @@ export default class NewProjectArea extends Vue {
     }
 
     .new-project-button-container {
-        margin-right: 50px;
         display: flex;
         flex-direction: row;
         align-items: center;
@@ -59,7 +58,7 @@ export default class NewProjectArea extends Vue {
 
 
         h1 {
-            font-family: 'montserrat_medium';
+            font-family: 'font_medium';
             font-size: 16px;
             line-height: 23px;
             color: #354049;

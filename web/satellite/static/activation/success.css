@@ -27,7 +27,7 @@ a {
 }
 
     .container__title {
-        font-family: 'Montserrat', sans-serif;
+        font-family: 'font', sans-serif;
         font-weight: bold;
         font-size: 32px;
         line-height: 39px;
@@ -36,7 +36,7 @@ a {
     .container__info {
         width: 566px;
         text-align: center;
-        font-family: 'Montserrat', sans-serif;
+        font-family: 'font', sans-serif;
         font-size: 18px;
         line-height: 26px;
     }
@@ -54,7 +54,7 @@ a {
     }
 
         .container__button p {
-            font-family: 'Montserrat', sans-serif;
+            font-family: 'font', sans-serif;
             font-weight: bold;
             font-size: 16px;
             line-height: 23px;

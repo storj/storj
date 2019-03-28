@@ -225,8 +225,8 @@ model user (
     key id
 
     field id               blob
-    field first_name       text      ( updatable )
-    field last_name        text      ( updatable )
+    field full_name        text      ( updatable )
+    field short_name       text      ( updatable, nullable )
 
     field email            text      ( updatable )
     field password_hash    blob      ( updatable )
@@ -335,7 +335,11 @@ read all (
 
 model bucket_usage (
     key    id
-    unique rollup_end_time bucket_id
+    index (
+    		name bucket_id_rollup
+    		fields bucket_id rollup_end_time
+    		unique
+    	)
 
     field  id                 blob
     field  bucket_id          blob      //--TODO: add foreign key constraint--//
@@ -381,7 +385,11 @@ read limitoffset (
 
 model serial_number (
 	key    id
-	unique serial_number
+	index (
+	    name serial_number
+	    fields serial_number
+	    unique
+	)
 
 	field id            serial
 	field serial_number blob
@@ -395,8 +403,7 @@ model serial_number (
 )
 
 model used_serial (
-	key    serial_number_id
-	unique serial_number_id storage_node_id 
+	key    serial_number_id storage_node_id
 
 	field serial_number_id serial_number.id cascade
 	field storage_node_id  blob
@@ -419,11 +426,14 @@ delete serial_number (
 // for preventing duplicate serial numbers
 create used_serial ()
 
-// --- bucket roll up tables --- //
+// --- bucket accounting tables --- //
 
 model bucket_bandwidth_rollup (
-	key    bucket_id
-	unique bucket_id interval_start interval_seconds action
+	key    bucket_id interval_start action
+	index (
+	    name bucket_id_interval_start_interval_seconds
+	    fields bucket_id interval_start interval_seconds
+	)
 
 	field bucket_id        blob
 	field interval_start   utimestamp
@@ -435,23 +445,30 @@ model bucket_bandwidth_rollup (
 	field settled   uint64
 )
 
-model bucket_storage_rollup (
-	key    bucket_id
-	unique bucket_id interval_start interval_seconds
+model bucket_storage_tally (
+	key    bucket_id interval_start
 
 	field bucket_id        blob
 	field interval_start   utimestamp
-	field interval_seconds uint
 
 	field inline uint64
 	field remote uint64
+	
+	field  remote_segments_count    uint
+	field  inline_segments_count    uint
+	field  object_count             uint
+
+	field  metadata_size      uint64
 )
 
-// --- storage node roll up tables --- //
+// --- storage node accounting tables --- //
 
 model storagenode_bandwidth_rollup (
-	key    storagenode_id
-	unique storagenode_id interval_start interval_seconds action
+	key    storagenode_id interval_start action
+	index (
+	    name storagenode_id_interval_start_interval_seconds
+	    fields storagenode_id interval_start interval_seconds
+	)
 
 	field storagenode_id   blob
 	field interval_start   utimestamp
@@ -462,13 +479,11 @@ model storagenode_bandwidth_rollup (
 	field settled   uint64
 )
 
-model storagenode_storage_rollup (
-	key    storagenode_id
-	unique storagenode_id interval_start interval_seconds
+model storagenode_storage_tally (
+	key    storagenode_id interval_start
 
 	field storagenode_id   blob
 	field interval_start   utimestamp
-	field interval_seconds uint
 
 	field total            uint64
 )

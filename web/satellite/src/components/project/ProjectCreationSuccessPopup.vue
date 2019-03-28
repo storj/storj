@@ -79,7 +79,7 @@
 
 <style scoped lang="scss">
 	p {
-		font-family: 'montserrat_medium';
+		font-family: 'font_medium';
 		font-size: 16px;
 		line-height: 21px;
 		color: #354049;
@@ -88,7 +88,7 @@
 	}
 
 	a {
-		font-family: 'montserrat_bold';
+		font-family: 'font_bold';
 		color: #2683ff;
 	}
 
@@ -131,7 +131,7 @@
 			margin-top: 10px;
 
 			&__main-label-text {
-				font-family: 'montserrat_bold';
+				font-family: 'font_bold';
 				font-size: 32px;
 				line-height: 39px;
 				color: #384B65;
