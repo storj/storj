@@ -47,10 +47,13 @@ func TestDialNode(t *testing.T) {
 	opts, err := tlsopts.NewOptions(signedIdent, tlsopts.Config{
 		UsePeerCAWhitelist:  true,
 		PeerCAWhitelistPath: whitelistPath,
+		PeerIDVersions: "1,2",
 	})
 	require.NoError(t, err)
 
-	unsignedClientOpts, err := tlsopts.NewOptions(unsignedIdent, tlsopts.Config{})
+	unsignedClientOpts, err := tlsopts.NewOptions(unsignedIdent, tlsopts.Config{
+		PeerIDVersions: "1,2",
+	})
 	require.NoError(t, err)
 
 	t.Run("DialNode with invalid targets", func(t *testing.T) {
