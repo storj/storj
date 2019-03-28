@@ -9,14 +9,15 @@ import (
 	"math/rand"
 	"testing"
 
+	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/pkg/pkcrypto"
+	"storj.io/storj/pkg/storj"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testidentity"
-	"storj.io/storj/pkg/pkcrypto"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode/pieces"
 )
@@ -33,7 +34,7 @@ func TestPieces(t *testing.T) {
 
 	store := pieces.NewStore(zaptest.NewLogger(t), blobs)
 
-	satelliteID := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()).ID
+	satelliteID := testplanet.MustPregeneratedSignedIdentity(0).ID
 	pieceID := storj.NewPieceID()
 
 	source := make([]byte, 8000)

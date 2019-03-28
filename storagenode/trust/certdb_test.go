@@ -4,13 +4,12 @@
 package trust_test
 
 import (
-	"storj.io/storj/internal/testidentity"
-	"storj.io/storj/pkg/storj"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 )
@@ -22,8 +21,8 @@ func TestCertDB(t *testing.T) {
 
 		certdb := db.CertDB()
 
-		node0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion())
-		node1 := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion())
+		node0 := testplanet.MustPregeneratedSignedIdentity(0)
+		node1 := testplanet.MustPregeneratedSignedIdentity(1)
 
 		certid0, err := certdb.Include(ctx, node0.PeerIdentity())
 		require.NoError(t, err)
