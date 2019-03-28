@@ -63,7 +63,7 @@ func (service *Service) saveSerial(ctx context.Context, serialNumber storj.Seria
 }
 
 // CreateGetOrderLimits creates the order limits for downloading the pieces of pointer.
-func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identity.PeerIdentity, bucketID []byte, pointer *pb.Pointer) ([]*pb.AddressedOrderLimit, error) {
+func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identity.PeerIdentity, bucketID []byte, pointer *pb.Pointer) (_ []*pb.AddressedOrderLimit, err error) {
 	rootPieceID := pointer.GetRemote().RootPieceId
 	expiration := pointer.ExpirationDate
 
@@ -78,8 +78,11 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 	if err != nil {
 		return nil, err
 	}
-	defer service.saveSerial(ctx, serialNumber, bucketID, orderExpirationTime)
-	defer service.certdb.SavePublicKey(ctx, uplink.ID, uplink.Leaf.PublicKey)
+	defer func() {
+		errSerial := service.saveSerial(ctx, serialNumber, bucketID, orderExpirationTime)
+		errPubKey := service.certdb.SavePublicKey(ctx, uplink.ID, uplink.Leaf.PublicKey)
+		err = errs.Combine(err, errSerial, errPubKey)
+	}()
 
 	redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
 	if err != nil {
@@ -132,7 +135,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 }
 
 // CreatePutOrderLimits creates the order limits for uploading pieces to nodes.
-func (service *Service) CreatePutOrderLimits(ctx context.Context, uplink *identity.PeerIdentity, bucketID []byte, nodes []*pb.Node, expiration *timestamp.Timestamp, maxPieceSize int64) (storj.PieceID, []*pb.AddressedOrderLimit, error) {
+func (service *Service) CreatePutOrderLimits(ctx context.Context, uplink *identity.PeerIdentity, bucketID []byte, nodes []*pb.Node, expiration *timestamp.Timestamp, maxPieceSize int64) (_ storj.PieceID, _ []*pb.AddressedOrderLimit, err error) {
 	// convert orderExpiration from duration to timestamp
 	orderExpirationTime := time.Now().Add(service.orderExpiration)
 	orderExpiration, err := ptypes.TimestampProto(orderExpirationTime)
@@ -144,8 +147,11 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, uplink *identi
 	if err != nil {
 		return storj.PieceID{}, nil, err
 	}
-	defer service.saveSerial(ctx, serialNumber, bucketID, orderExpirationTime)
-	defer service.certdb.SavePublicKey(ctx, uplink.ID, uplink.Leaf.PublicKey)
+	defer func() {
+		errSerial := service.saveSerial(ctx, serialNumber, bucketID, orderExpirationTime)
+		errPubKey := service.certdb.SavePublicKey(ctx, uplink.ID, uplink.Leaf.PublicKey)
+		err = errs.Combine(err, errSerial, errPubKey)
+	}()
 
 	rootPieceID := storj.NewPieceID()
 	limits := make([]*pb.AddressedOrderLimit, len(nodes))
@@ -177,7 +183,7 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, uplink *identi
 }
 
 // CreateDeleteOrderLimits creates the order limits for deleting the pieces of pointer.
-func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *identity.PeerIdentity, bucketID []byte, pointer *pb.Pointer) ([]*pb.AddressedOrderLimit, error) {
+func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *identity.PeerIdentity, bucketID []byte, pointer *pb.Pointer) (_ []*pb.AddressedOrderLimit, err error) {
 	rootPieceID := pointer.GetRemote().RootPieceId
 	expiration := pointer.ExpirationDate
 
@@ -192,8 +198,11 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *ide
 	if err != nil {
 		return nil, err
 	}
-	defer service.saveSerial(ctx, serialNumber, bucketID, orderExpirationTime)
-	defer service.certdb.SavePublicKey(ctx, uplink.ID, uplink.Leaf.PublicKey)
+	defer func() {
+		errSerial := service.saveSerial(ctx, serialNumber, bucketID, orderExpirationTime)
+		errPubKey := service.certdb.SavePublicKey(ctx, uplink.ID, uplink.Leaf.PublicKey)
+		err = errs.Combine(err, errSerial, errPubKey)
+	}()
 
 	var combinedErrs error
 	var limits []*pb.AddressedOrderLimit
@@ -239,7 +248,7 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *ide
 }
 
 // CreateAuditOrderLimits creates the order limits for auditing the pieces of pointer.
-func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *identity.PeerIdentity, bucketID []byte, pointer *pb.Pointer) ([]*pb.AddressedOrderLimit, error) {
+func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *identity.PeerIdentity, bucketID []byte, pointer *pb.Pointer) (_ []*pb.AddressedOrderLimit, err error) {
 	rootPieceID := pointer.GetRemote().RootPieceId
 	shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
 	totalPieces := pointer.GetRemote().GetRedundancy().GetTotal()
@@ -256,7 +265,10 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 	if err != nil {
 		return nil, err
 	}
-	defer service.saveSerial(ctx, serialNumber, bucketID, orderExpirationTime)
+	defer func() {
+		errSerial := service.saveSerial(ctx, serialNumber, bucketID, orderExpirationTime)
+		err = errs.Combine(err, errSerial)
+	}()
 
 	limits := make([]*pb.AddressedOrderLimit, totalPieces)
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
@@ -296,7 +308,7 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 }
 
 // CreateGetRepairOrderLimits creates the order limits for downloading the healthy pieces of pointer as the source for repair.
-func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer *identity.PeerIdentity, bucketID []byte, pointer *pb.Pointer, healthy []*pb.RemotePiece) ([]*pb.AddressedOrderLimit, error) {
+func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer *identity.PeerIdentity, bucketID []byte, pointer *pb.Pointer, healthy []*pb.RemotePiece) (_ []*pb.AddressedOrderLimit, err error) {
 	rootPieceID := pointer.GetRemote().RootPieceId
 	shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
 	totalPieces := pointer.GetRemote().GetRedundancy().GetTotal()
@@ -313,7 +325,10 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 	if err != nil {
 		return nil, err
 	}
-	defer service.saveSerial(ctx, serialNumber, bucketID, orderExpirationTime)
+	defer func() {
+		errSerial := service.saveSerial(ctx, serialNumber, bucketID, orderExpirationTime)
+		err = errs.Combine(err, errSerial)
+	}()
 
 	limits := make([]*pb.AddressedOrderLimit, totalPieces)
 	for _, piece := range healthy {
@@ -353,7 +368,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 }
 
 // CreatePutRepairOrderLimits creates the order limits for uploading the repaired pieces of pointer to newNodes.
-func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer *identity.PeerIdentity, bucketID []byte, pointer *pb.Pointer, getOrderLimits []*pb.AddressedOrderLimit, newNodes []*pb.Node) ([]*pb.AddressedOrderLimit, error) {
+func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer *identity.PeerIdentity, bucketID []byte, pointer *pb.Pointer, getOrderLimits []*pb.AddressedOrderLimit, newNodes []*pb.Node) (_ []*pb.AddressedOrderLimit, err error) {
 	rootPieceID := pointer.GetRemote().RootPieceId
 	shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
 	totalPieces := pointer.GetRemote().GetRedundancy().GetTotal()
@@ -370,7 +385,10 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 	if err != nil {
 		return nil, err
 	}
-	defer service.saveSerial(ctx, serialNumber, bucketID, orderExpirationTime)
+	defer func() {
+		errSerial := service.saveSerial(ctx, serialNumber, bucketID, orderExpirationTime)
+		err = errs.Combine(err, errSerial)
+	}()
 
 	limits := make([]*pb.AddressedOrderLimit, totalPieces)
 	var pieceNum int32
