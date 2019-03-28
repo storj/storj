@@ -69,14 +69,22 @@ func (t *Tally) Run(ctx context.Context) (err error) {
 //Tally calculates data-at-rest and bandwidth usage once
 func (t *Tally) Tally(ctx context.Context) error {
 	//data at rest
-	var errAtRest, errBWA error
-	latestTally, nodeData, bucketStats, err := t.calculateAtRestData(ctx)
+	var errAtRest, errBWA, errBucketInfo error
+	latestTally, nodeData, bucketData, err := t.calculateAtRestData(ctx)
 	if err != nil {
 		errAtRest = errs.New("Query for data-at-rest failed : %v", err)
-	} else if len(nodeData) > 0 {
-		err = t.SaveAtRestRaw(ctx, latestTally, time.Now().UTC(), nodeData)
-		if err != nil {
-			errAtRest = errs.New("Saving data-at-rest failed : %v", err)
+	} else {
+		if len(nodeData) > 0 {
+			err = t.SaveAtRestRaw(ctx, latestTally, time.Now().UTC(), nodeData)
+			if err != nil {
+				errAtRest = errs.New("Saving storage node data-at-rest failed : %v", err)
+			}
+		}
+		if len(bucketData) > 0 {
+			err = t.accountingDB.SaveBucketInfo(ctx, latestTally, bucketData)
+			if err != nil {
+				errBucketInfo = errs.New("Saving bucket storage data failed")
+			}
 		}
 	}
 	//bandwdith
@@ -104,12 +112,12 @@ func (t *Tally) Tally(ctx context.Context) error {
 			}
 		}
 	}
-	return errs.Combine(errAtRest, errBWA)
+	return errs.Combine(errAtRest, errBWA, errBucketInfo)
 }
 
 // calculateAtRestData iterates through the pieces on pointerdb and calculates
 // the amount of at-rest data stored on each respective node
-func (t *Tally) calculateAtRestData(ctx context.Context) (latestTally time.Time, nodeData map[storj.NodeID]float64, bucketStats map[string]*stats, err error) {
+func (t *Tally) calculateAtRestData(ctx context.Context) (latestTally time.Time, nodeData map[storj.NodeID]float64, bucketStats map[string]*accounting.BucketStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	latestTally, err = t.accountingDB.LastTimestamp(ctx, accounting.LastAtRestTally)
@@ -117,11 +125,11 @@ func (t *Tally) calculateAtRestData(ctx context.Context) (latestTally time.Time,
 		return latestTally, nodeData, bucketStats, Error.Wrap(err)
 	}
 	nodeData = make(map[storj.NodeID]float64)
-	bucketStats = make(map[string]*stats)
+	bucketStats = make(map[string]*accounting.BucketStats)
 
 	var currentBucket string
 	var bucketCount int64
-	var totalStats, currentBucketStats stats
+	var totalStats, currentBucketStats accounting.BucketStats
 
 	err = t.pointerdb.Iterate("", "", true, false,
 		func(it storage.Iterator) error {
@@ -158,7 +166,7 @@ func (t *Tally) calculateAtRestData(ctx context.Context) (latestTally time.Time,
 
 							// add currentBucketStats to bucketStats
 							bucketStats[currentBucket] = &currentBucketStats
-							currentBucketStats = stats{}
+							currentBucketStats = accounting.BucketStats{}
 						}
 						currentBucket = bucketID
 					}
