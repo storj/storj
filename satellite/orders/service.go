@@ -31,10 +31,12 @@ func (service *Service) CreateOrderLimits() ([]*pb.OrderLimit2, error) {
 	return nil, nil
 }
 
-func (service *Service) createSerial(ctx context.Context, path storj.Path) (storj.SerialNumber, error) {
-	// insert into table
-	// associate with bucket
+func (service *Service) createSerial(ctx context.Context) (storj.SerialNumber, error) {
 	return storj.SerialNumber{}, nil
+}
+
+func (service *Service) saveSerial(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte) error {
+	return nil
 }
 
 func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *identity.PeerIdentity, pointer *pb.Pointer) ([]*pb.AddressedOrderLimit, error) {
@@ -47,6 +49,7 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 	if err != nil {
 		return nil, err
 	}
+	// defer service.saveSerial(ctx, serialNumber, ...)
 
 	// convert orderExpiration from days to timstamp
 	orderExpiration, err := ptypes.TimestampProto(time.Now().Add(service.orderExpiration))
@@ -93,10 +96,12 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 	expiration := pointer.ExpirationDate
 
 	bucketPath := storj.Path("TODO") // TODO:
-	serialNumber, err := service.createSerial(ctx, bucketPath)
+
+	serialNumber, err := service.createSerial(ctx)
 	if err != nil {
 		return nil, err
 	}
+	// defer service.saveSerial(ctx, serialNumber, ...)
 
 	// convert orderExpiration from days to timstamp
 	orderExpiration, err := ptypes.TimestampProto(time.Now().Add(service.orderExpiration))
@@ -142,11 +147,11 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 	shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
 	expiration := pointer.ExpirationDate
 
-	bucketPath := storj.Path("TODO") // TODO:
-	serialNumber, err := service.createSerial(ctx, bucketPath)
+	serialNumber, err := service.createSerial(ctx)
 	if err != nil {
 		return nil, err
 	}
+	// defer service.saveSerial(ctx, serialNumber, ...)
 
 	// convert orderExpiration from days to timstamp
 	orderExpiration, err := ptypes.TimestampProto(time.Now().Add(service.orderExpiration))
