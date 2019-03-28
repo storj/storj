@@ -75,8 +75,10 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 		}
 	}
 
+	bucketID := createBucketID(path)
+
 	// Create the order limits for the GET_REPAIR action
-	getOrderLimits, err := repairer.orders.CreateGetRepairOrderLimits(ctx, repairer.identity.PeerIdentity(), pointer, healthyPieces)
+	getOrderLimits, err := repairer.orders.CreateGetRepairOrderLimits(ctx, repairer.identity.PeerIdentity(), bucketID, pointer, healthyPieces)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -94,7 +96,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 	}
 
 	// Create the order limits for the PUT_REPAIR action
-	putLimits, err := repairer.orders.CreatePutRepairOrderLimits(ctx, repairer.identity.PeerIdentity(), pointer, getOrderLimits, newNodes)
+	putLimits, err := repairer.orders.CreatePutRepairOrderLimits(ctx, repairer.identity.PeerIdentity(), bucketID, pointer, getOrderLimits, newNodes)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -143,4 +145,12 @@ func sliceToSet(slice []int32) map[int32]struct{} {
 		set[value] = struct{}{}
 	}
 	return set
+}
+
+func createBucketID(path storj.Path) []byte {
+	comps := storj.SplitPath(path)
+	if len(comps) < 2 {
+		return nil
+	}
+	return []byte(storj.JoinPaths(comps[0], comps[1]))
 }

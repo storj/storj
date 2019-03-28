@@ -119,6 +119,11 @@ func (endpoint *Endpoint) SegmentInfo(ctx context.Context, req *pb.SegmentInfoRe
 func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWriteRequest) (resp *pb.SegmentWriteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	keyInfo, err := endpoint.validateAuth(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
 	redundancy, err := eestream.NewRedundancyStrategyFromProto(req.GetRedundancy())
 	if err != nil {
 		return nil, err
@@ -141,7 +146,8 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	rootPieceID, addressedLimits, err := endpoint.orders.CreatePutOrderLimits(ctx, uplinkIdentity, nodes, req.Expiration, maxPieceSize)
+	bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
+	rootPieceID, addressedLimits, err := endpoint.orders.CreatePutOrderLimits(ctx, uplinkIdentity, bucketID, nodes, req.Expiration, maxPieceSize)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -227,7 +233,8 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
 
-		limits, err := endpoint.orders.CreateGetOrderLimits(ctx, uplinkIdentity, pointer)
+		bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
+		limits, err := endpoint.orders.CreateGetOrderLimits(ctx, uplinkIdentity, bucketID, pointer)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
@@ -277,7 +284,8 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
 
-		limits, err := endpoint.orders.CreateDeleteOrderLimits(ctx, uplinkIdentity, pointer)
+		bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
+		limits, err := endpoint.orders.CreateDeleteOrderLimits(ctx, uplinkIdentity, bucketID, pointer)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
@@ -319,7 +327,14 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.ListSegments
 	return &pb.ListSegmentsResponse{Items: segmentItems, More: more}, nil
 }
 
-func (endpoint *Endpoint) createPath(projectID uuid.UUID, segmentIndex int64, bucket, path []byte) (string, error) {
+func createBucketID(projectID uuid.UUID, bucket []byte) []byte {
+	entries := make([]string, 0)
+	entries = append(entries, projectID.String())
+	entries = append(entries, string(bucket))
+	return []byte(storj.JoinPaths(entries...))
+}
+
+func (endpoint *Endpoint) createPath(projectID uuid.UUID, segmentIndex int64, bucket, path []byte) (storj.Path, error) {
 	if segmentIndex < -1 {
 		return "", Error.New("invalid segment index")
 	}

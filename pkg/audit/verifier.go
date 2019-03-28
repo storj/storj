@@ -74,8 +74,9 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe) (verifiedN
 
 	pointer := stripe.Segment
 	shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
+	bucketID := createBucketID(stripe.SegmentPath)
 
-	orderLimits, err := verifier.orders.CreateAuditOrderLimits(ctx, verifier.auditor, pointer)
+	orderLimits, err := verifier.orders.CreateAuditOrderLimits(ctx, verifier.auditor, bucketID, pointer)
 	if err != nil {
 		return nil, err
 	}
@@ -268,4 +269,12 @@ func getSuccessNodes(ctx context.Context, nodes map[int]storj.NodeID, failedNode
 	}
 
 	return successNodes
+}
+
+func createBucketID(path storj.Path) []byte {
+	comps := storj.SplitPath(path)
+	if len(comps) < 2 {
+		return nil
+	}
+	return []byte(storj.JoinPaths(comps[0], comps[1]))
 }

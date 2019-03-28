@@ -21,8 +21,9 @@ import (
 
 // Stripe keeps track of a stripe's index and its parent segment
 type Stripe struct {
-	Index   int64
-	Segment *pb.Pointer
+	Index       int64
+	Segment     *pb.Pointer
+	SegmentPath storj.Path
 }
 
 // Cursor keeps track of audit location in pointer db
@@ -102,8 +103,9 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 	}
 
 	return &Stripe{
-		Index:   index,
-		Segment: pointer,
+		Index:       index,
+		Segment:     pointer,
+		SegmentPath: path,
 	}, nil
 }
 
