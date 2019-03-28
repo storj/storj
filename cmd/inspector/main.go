@@ -21,7 +21,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
@@ -128,14 +127,14 @@ var (
 	}
 	objectHealthCmd = &cobra.Command{
 		// TODO: add args to usage
-		Use:   "object-health <encrypted-path>",
+		Use:   "object-health <project-id> <bucket> <encrypted-path>",
 		Short: "Get stats about an object's health",
 		Args:  cobra.MinimumNArgs(1),
 		RunE:  ObjectHealth,
 	}
 	segmentHealthCmd = &cobra.Command{
 		// TODO: add args to usage
-		Use:   "segment-health <encrypted-path>",
+		Use:   "segment-health <project-id> <segment-index> <bucket> <encrypted-path>",
 		Short: "Get stats about an object's health",
 		Args:  cobra.MinimumNArgs(1),
 		RunE:  SegmentHealth,
@@ -467,30 +466,53 @@ func CreateCSVStats(cmd *cobra.Command, args []string) (err error) {
 
 // ObjectHealth gets information about the health of an object on the network
 func ObjectHealth(cmd *cobra.Command, args []string) (err error) {
+	ctx := context.Background()
+
 	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
-		return ErrInspectorDial.Wrap(err)
+		return ErrArgs.Wrap(err)
 	}
 
-	dst, err := fpath.New(args[0])
-	if err != nil {
-		return err
+	req := &pb.ObjectHealthRequest{
+		ProjectId:     []byte(args[0]),
+		Bucket:        []byte(args[1]),
+		EncryptedPath: []byte(args[2]),
 	}
+
+	resp, err := i.healthclient.ObjectHealth(ctx, req)
+	if err != nil {
+		return ErrRequest.Wrap(err)
+	}
+
+	fmt.Printf("%+v\n", resp)
 
 	return nil
 }
 
 // SegmentHealth gets information about the health of a segment on the network
 func SegmentHealth(cmd *cobra.Command, args []string) (err error) {
+	ctx := context.Background()
+
 	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
-		return ErrInspectorDial.Wrap(err)
+		return ErrArgs.Wrap(err)
 	}
 
-	dst, err := fpath.New(args[0])
-	if err != nil {
-		return err
+	segmentIndex, err := strconv.ParseInt(args[1], 10, 64)
+
+	req := &pb.SegmentHealthRequest{
+		ProjectId:     []byte(args[0]),
+		Segment:       segmentIndex,
+		Bucket:        []byte(args[2]),
+		EncryptedPath: []byte(args[3]),
 	}
+
+	resp, err := i.healthclient.SegmentHealth(ctx, req)
+	if err != nil {
+		return ErrRequest.Wrap(err)
+	}
+
+	fmt.Printf("%+v\n", resp)
 
 	return nil
 }
