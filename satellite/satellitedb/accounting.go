@@ -162,20 +162,20 @@ func (db *accountingDB) SaveRollup(ctx context.Context, latestRollup time.Time, 
 	return Error.Wrap(err)
 }
 
-// SaveBucketInfo saves the latest bucket info
-func (db *accountingDB) SaveBucketInfo(ctx context.Context, intervalStart time.Time, bucketInfo map[string]*accounting.BucketStats) error {
-	if len(bucketInfo) == 0 {
-		return Error.New("In SaveBucketInfo with empty bucketInfo")
+// SaveBucketTallies saves the latest bucket info
+func (db *accountingDB) SaveBucketTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*accounting.BucketTally) error {
+	if len(bucketTallies) == 0 {
+		return Error.New("In SaveBucketTallies with empty bucketTallies")
 	}
-	for k, v := range bucketInfo {
-		bID := dbx.BucketStorageTally_BucketId([]byte(k))
+	for bucketID, info := range bucketTallies {
+		bID := dbx.BucketStorageTally_BucketId([]byte(bucketID))
 		interval := dbx.BucketStorageTally_IntervalStart(intervalStart)
-		inlineBytes := dbx.BucketStorageTally_Inline(uint64(v.InlineBytes))
-		remoteBytes := dbx.BucketStorageTally_Remote(uint64(v.RemoteBytes))
-		rSegments := dbx.BucketStorageTally_RemoteSegmentsCount(uint(v.RemoteSegments))
-		iSegments := dbx.BucketStorageTally_InlineSegmentsCount(uint(v.InlineSegments))
-		objectCount := dbx.BucketStorageTally_ObjectCount(uint(v.Files))
-		meta := dbx.BucketStorageTally_MetadataSize(uint64(v.MetadataSize))
+		inlineBytes := dbx.BucketStorageTally_Inline(uint64(info.InlineBytes))
+		remoteBytes := dbx.BucketStorageTally_Remote(uint64(info.RemoteBytes))
+		rSegments := dbx.BucketStorageTally_RemoteSegmentsCount(uint(info.RemoteSegments))
+		iSegments := dbx.BucketStorageTally_InlineSegmentsCount(uint(info.InlineSegments))
+		objectCount := dbx.BucketStorageTally_ObjectCount(uint(info.Files))
+		meta := dbx.BucketStorageTally_MetadataSize(uint64(info.MetadataSize))
 		_, err := db.db.Create_BucketStorageTally(ctx, bID, interval, inlineBytes, remoteBytes, rSegments, iSegments, objectCount, meta)
 		if err != nil {
 			return err

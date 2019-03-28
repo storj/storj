@@ -11,8 +11,8 @@ import (
 
 var mon = monkit.Package()
 
-// BucketStats contains information about a bucket
-type BucketStats struct {
+// BucketTally contains information about aggregate data stored in a bucket
+type BucketTally struct {
 	Segments        int64
 	InlineSegments  int64
 	RemoteSegments  int64
@@ -29,8 +29,8 @@ type BucketStats struct {
 	MetadataSize int64
 }
 
-// Combine aggregates all the stats
-func (s *BucketStats) Combine(o *BucketStats) {
+// Combine aggregates all the tallies
+func (s *BucketTally) Combine(o *BucketTally) {
 	s.Segments += o.Segments
 	s.InlineSegments += o.InlineSegments
 	s.RemoteSegments += o.RemoteSegments
@@ -46,7 +46,7 @@ func (s *BucketStats) Combine(o *BucketStats) {
 }
 
 // AddSegment groups all the data based the passed pointer
-func (s *BucketStats) AddSegment(pointer *pb.Pointer, last bool) {
+func (s *BucketTally) AddSegment(pointer *pb.Pointer, last bool) {
 	s.Segments++
 	switch pointer.GetType() {
 	case pb.Pointer_INLINE:
@@ -76,7 +76,7 @@ func (s *BucketStats) AddSegment(pointer *pb.Pointer, last bool) {
 }
 
 // Report reports the stats thru monkit
-func (s *BucketStats) Report(prefix string) {
+func (s *BucketTally) Report(prefix string) {
 	mon.IntVal(prefix + ".segments").Observe(s.Segments)
 	mon.IntVal(prefix + ".inline_segments").Observe(s.InlineSegments)
 	mon.IntVal(prefix + ".remote_segments").Observe(s.RemoteSegments)

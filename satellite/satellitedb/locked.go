@@ -78,11 +78,11 @@ func (m *lockedAccounting) LastTimestamp(ctx context.Context, timestampType stri
 	return m.db.LastTimestamp(ctx, timestampType)
 }
 
-// SaveBucketInfo saves the latest bucket info
-func (m *lockedAccounting) SaveBucketInfo(ctx context.Context, intervalStart time.Time, bucketInfo map[string]*accounting.BucketStats) error {
+// SaveAllBucketsInfo saves the latest bucket info
+func (m *lockedAccounting) SaveBucketTallies(ctx context.Context, intervalStart time.Time, bucketInfo map[string]*accounting.BucketTally) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.SaveBucketInfo(ctx, intervalStart, bucketInfo)
+	return m.db.SaveBucketTallies(ctx, intervalStart, bucketInfo)
 }
 
 // QueryPaymentInfo queries Overlay, Accounting Rollup on nodeID
