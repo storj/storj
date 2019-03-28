@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/internal/fpath"
+	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/storage/streams"
@@ -19,6 +20,7 @@ import (
 
 // UplinkFlags configuration flags
 type UplinkFlags struct {
+	Uplink   libuplink.Uplink
 	Identity identity.Config
 	uplink.Config
 }
@@ -60,6 +62,8 @@ func (c *UplinkFlags) Metainfo(ctx context.Context) (storj.Metainfo, streams.Sto
 	if err != nil {
 		return nil, nil, err
 	}
+
+	// add libuplink getmetainfo here
 
 	return c.GetMetainfo(ctx, identity)
 }
