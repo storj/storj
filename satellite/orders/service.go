@@ -9,9 +9,12 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/certdb"
+	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
@@ -19,6 +22,7 @@ import (
 )
 
 type Service struct {
+	log       *zap.Logger
 	satellite signing.Signer
 	cache     *overlay.Cache
 	certdb    certdb.DB
@@ -46,6 +50,73 @@ func (service *Service) saveSerial(ctx context.Context, serialNumber storj.Seria
 	return nil
 }
 
+func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identity.PeerIdentity, pointer *pb.Pointer) ([]*pb.AddressedOrderLimit, error) {
+	rootPieceID := pointer.GetRemote().RootPieceId
+	expiration := pointer.ExpirationDate
+
+	bucketPath := storj.Path("TODO") // TODO:
+	serialNumber, err := service.createSerial(ctx, bucketPath)
+	if err != nil {
+		return nil, err
+	}
+	// defer service.saveSerial(ctx, serialNumber, ...)
+
+	redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
+	if err != nil {
+		return nil, err
+	}
+
+	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
+
+	// convert orderExpiration from duration to timestamp
+	orderExpiration, err := ptypes.TimestampProto(time.Now().Add(service.orderExpiration))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	var combinedErrs error
+	var limits []*pb.AddressedOrderLimit
+	for _, piece := range pointer.GetRemote().GetRemotePieces() {
+		node, err := service.cache.Get(ctx, piece.NodeId)
+		if err != nil {
+			service.log.Debug("error getting node from overlay cache", zap.Error(err))
+			combinedErrs = errs.Combine(combinedErrs, err)
+			continue
+		}
+
+		if node != nil {
+			node.Type.DPanicOnInvalid("order service get order limits")
+		}
+
+		orderLimit, err := signing.SignOrderLimit(service.satellite, &pb.OrderLimit2{
+			SerialNumber:    serialNumber,
+			SatelliteId:     service.satellite.ID(),
+			UplinkId:        uplink.ID,
+			StorageNodeId:   piece.NodeId,
+			PieceId:         rootPieceID.Derive(piece.NodeId),
+			Action:          pb.PieceAction_GET,
+			Limit:           pieceSize,
+			PieceExpiration: expiration,
+			OrderExpiration: orderExpiration,
+		})
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		limits = append(limits, &pb.AddressedOrderLimit{
+			Limit:              orderLimit,
+			StorageNodeAddress: node.Address,
+		})
+	}
+
+	if len(limits) < redundancy.RequiredCount() {
+		err = Error.New("not enough nodes available: got %d, required %d", len(limits), redundancy.RequiredCount())
+		return nil, errs.Combine(combinedErrs, err)
+	}
+
+	return limits, nil
+}
+
 func (service *Service) CreatePutOrderLimits(ctx context.Context, uplink *identity.PeerIdentity, nodes []*pb.Node, expiration *timestamp.Timestamp, maxPieceSize int64) (storj.PieceID, []*pb.AddressedOrderLimit, error) {
 	bucketPath := storj.Path("TODO") // TODO:
 	serialNumber, err := service.createSerial(ctx, bucketPath)
@@ -54,7 +125,7 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, uplink *identi
 	}
 	// defer service.saveSerial(ctx, serialNumber, ...)
 
-	// convert orderExpiration from days to timstamp
+	// convert orderExpiration from duration to timestamp
 	orderExpiration, err := ptypes.TimestampProto(time.Now().Add(service.orderExpiration))
 	if err != nil {
 		return storj.PieceID{}, nil, Error.Wrap(err)
@@ -102,7 +173,7 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 	}
 	// defer service.saveSerial(ctx, serialNumber, ...)
 
-	// convert orderExpiration from days to timstamp
+	// convert orderExpiration from duration to timestamp
 	orderExpiration, err := ptypes.TimestampProto(time.Now().Add(service.orderExpiration))
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -118,7 +189,7 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 		}
 
 		if node != nil {
-			node.Type.DPanicOnInvalid("auditor order limits")
+			node.Type.DPanicOnInvalid("order service audit order limits")
 		}
 
 		orderLimit, err := signing.SignOrderLimit(service.satellite, &pb.OrderLimit2{
@@ -174,7 +245,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 		}
 
 		if node != nil {
-			node.Type.DPanicOnInvalid("repairer order limits")
+			node.Type.DPanicOnInvalid("order service get repair order limits")
 		}
 
 		orderLimit, err := signing.SignOrderLimit(service.satellite, &pb.OrderLimit2{
@@ -214,7 +285,7 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 	}
 	// defer service.saveSerial(ctx, serialNumber, ...)
 
-	// convert orderExpiration from days to timstamp
+	// convert orderExpiration from duration to timestamp
 	orderExpiration, err := ptypes.TimestampProto(time.Now().Add(service.orderExpiration))
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -224,7 +295,7 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 	var pieceNum int32
 	for _, node := range newNodes {
 		if node != nil {
-			node.Type.DPanicOnInvalid("repair 2")
+			node.Type.DPanicOnInvalid("order service put repair order limits")
 		}
 
 		for pieceNum < totalPieces && getOrderLimits[pieceNum] != nil {

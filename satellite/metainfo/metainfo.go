@@ -227,7 +227,12 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	if pointer.Type == pb.Pointer_INLINE {
 		return &pb.SegmentDownloadResponse{Pointer: pointer}, nil
 	} else if pointer.Type == pb.Pointer_REMOTE && pointer.Remote != nil {
-		orderLimits, err := endpoint.orders.CreateGetOrderLimits(ctx, pointer)
+		uplinkIdentity, err := identity.PeerIdentityFromContext(ctx)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, err.Error())
+		}
+
+		limits, err := endpoint.orders.CreateGetOrderLimits(ctx, uplinkIdentity, pointer)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
@@ -272,7 +277,7 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 	}
 
 	if pointer.Type == pb.Pointer_REMOTE && pointer.Remote != nil {
-		orderLimits, err := endpoint.orders.CreateDeleteLimits(ctx, pointer)
+		limits, err := endpoint.orders.CreateDeleteLimits(ctx, pointer)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
