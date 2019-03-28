@@ -64,9 +64,10 @@ type UploadOptions struct {
 // UploadObject uploads a new object, if authorized.
 func (b *Bucket) UploadObject(ctx context.Context, path storj.Path, data io.Reader, opts *UploadOptions) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	if opts == nil {
-		opts = &UploadOptions{}
-	}
+	// SIGH thanks, lint. we should uncomment this once it's being used.
+	//if opts == nil {
+	//	opts = &UploadOptions{}
+	//}
 	panic("TODO")
 }
 
