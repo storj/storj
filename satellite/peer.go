@@ -303,6 +303,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay.Service,
 			peer.DB.CertDB(),
+			peer.DB.Orders(),
 			45*24*time.Hour, // TODO: make it configurable?
 		)
 		pb.RegisterOrdersServer(peer.Server.GRPC(), peer.Orders.Endpoint)
