@@ -30,7 +30,15 @@ type Service struct {
 	orderExpiration time.Duration
 }
 
-func NewService() *Service { return &Service{} }
+func NewService(log *zap.Logger, satellite signing.Signer, cache *overlay.Cache, certdb certdb.DB, orderExpiration time.Duration) *Service {
+	return &Service{
+		log:             log,
+		satellite:       satellite,
+		cache:           cache,
+		certdb:          certdb,
+		orderExpiration: orderExpiration,
+	}
+}
 
 func (service *Service) CreateOrderLimits() ([]*pb.OrderLimit2, error) {
 	return nil, nil

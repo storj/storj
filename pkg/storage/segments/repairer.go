@@ -61,7 +61,6 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 	}
 
 	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
-	rootPieceID := pointer.GetRemote().RootPieceId
 	expiration := pointer.GetExpirationDate()
 
 	var excludeNodeIDs storj.NodeIDList

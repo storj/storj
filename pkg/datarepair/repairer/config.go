@@ -26,10 +26,10 @@ type Config struct {
 }
 
 // GetSegmentRepairer creates a new segment repairer from storeConfig values
-func (c Config) GetSegmentRepairer(ctx context.Context, tc transport.Client, pointerdb *pointerdb.Service, allocation *pointerdb.AllocationSigner, orders *orders.Service, cache *overlay.Cache, identity *identity.FullIdentity) (ss SegmentRepairer, err error) {
+func (c Config) GetSegmentRepairer(ctx context.Context, tc transport.Client, pointerdb *pointerdb.Service, orders *orders.Service, cache *overlay.Cache, identity *identity.FullIdentity) (ss SegmentRepairer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	ec := ecclient.NewClient(tc, c.MaxBufferMem.Int())
 
-	return segments.NewSegmentRepairer(pointerdb, allocation, orders, cache, ec, identity, c.Timeout), nil
+	return segments.NewSegmentRepairer(pointerdb, orders, cache, ec, identity, c.Timeout), nil
 }
