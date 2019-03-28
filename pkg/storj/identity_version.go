@@ -15,11 +15,15 @@ import (
 )
 
 const (
+	// V1 represents identity version 1
+	// NB: identities created before identity versioning will be recogniized as V1.
 	V1 = IDVersionNumber(iota + 1)
+	// V2 represents identity version 1
 	V2
 )
 
 var (
+	// IDVersions is a map of all identity versions
 	IDVersions = map[IDVersionNumber]IDVersion{
 		/* V1 breaking change:
 		+ removed support for difficulties < 9
@@ -39,13 +43,18 @@ var (
 		},
 	}
 
+	// IDVersionHandler compares the identity version of the remote peers
+	// certificate chain to the extension options passed to the factory.
 	IDVersionHandler = extensions.NewHandlerFactory(
 		&extensions.IdentityVersionExtID, idVersionHandler,
 	)
 )
 
+// IDVersionNumber is the number of an identity version.
 type IDVersionNumber uint8
 
+// IDVersion holds fields that are used to distinguish different identity
+// versions from one another; used in identity generation.
 type IDVersion struct {
 	Number        IDVersionNumber
 	NewPrivateKey func() (crypto.PrivateKey, error)
@@ -55,6 +64,8 @@ func init() {
 	extensions.AllHandlers.Register(IDVersionHandler)
 }
 
+// GetIDVersion looks up the given version number in the map of registered
+// versions, returning an error if none is found.
 func GetIDVersion(number IDVersionNumber) (IDVersion, error) {
 	if number == 0 {
 		return LatestIDVersion(), nil
@@ -68,10 +79,12 @@ func GetIDVersion(number IDVersionNumber) (IDVersion, error) {
 	return version, nil
 }
 
+// LatestIDVersion returns the last IDVersion registered.
 func LatestIDVersion() IDVersion {
 	return IDVersions[IDVersionNumber(len(IDVersions))]
 }
 
+// IDVersionFromCert parsed the IDVersion from the passed certificate's IDVersion extension.
 func IDVersionFromCert(cert *x509.Certificate) (IDVersion, error) {
 	for _, ext := range cert.Extensions {
 		if extensions.IdentityVersionExtID.Equal(ext.Id) {
@@ -88,6 +101,7 @@ func IDVersionFromCert(cert *x509.Certificate) (IDVersion, error) {
 	return IDVersions[V1], nil
 }
 
+// IDVersionInVersions returns an error if the given version is in the given string of version(s)/range(s).
 func IDVersionInVersions(versionNumber IDVersionNumber, versionsStr string) error {
 	switch versionsStr {
 	case "":
@@ -115,7 +129,7 @@ func IDVersionInVersions(versionNumber IDVersionNumber, versionsStr string) erro
 					return ErrVersion.Wrap(err)
 				}
 
-				for i := begin; i <= end; i ++ {
+				for i := begin; i <= end; i++ {
 					if versionNumber == IDVersionNumber(i) {
 						return nil
 					}

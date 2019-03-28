@@ -5,8 +5,9 @@ package orders_test
 
 import (
 	"crypto/rand"
-	"storj.io/storj/internal/testidentity"
 	"testing"
+
+	"storj.io/storj/internal/testidentity"
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/go-cmp/cmp"

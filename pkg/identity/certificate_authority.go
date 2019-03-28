@@ -184,7 +184,6 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 		return nil, err
 	}
 
-
 	ca := &FullCertificateAuthority{
 		Cert: cert,
 		Key:  selectedKey,
@@ -380,8 +379,10 @@ func (ca *FullCertificateAuthority) NewIdentity(exts ...pkix.Extension) (*FullId
 	}
 	// TODO: add test for this!
 	version, err := ca.Version()
+	if err != nil {
+		return nil, err
+	}
 	leafKey, err := version.NewPrivateKey()
-	//leafKey, err := pkcrypto.GeneratePrivateKey()
 	if err != nil {
 		return nil, err
 	}

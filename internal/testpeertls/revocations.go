@@ -7,13 +7,13 @@ import (
 	"crypto"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"storj.io/storj/pkg/storj"
 
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/extensions"
+	"storj.io/storj/pkg/storj"
 )
 
 // RevokeLeaf revokes the leaf certificate in the passed chain and replaces it

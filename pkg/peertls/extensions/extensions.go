@@ -34,15 +34,19 @@ var (
 	// 2.999.1.X -- storj general/misc. extensions
 	// 2.999.2.X -- storj identity extensions
 
-	// SignedCertExtID is the asn1 object ID for a pkix extensionHandler holding a
+	// SignedCertExtID is the asn1 object ID for a pkix extension holding a
 	// signature of the cert it's extending, signed by some CA (e.g. the root cert chain).
 	// This extensionHandler allows for an additional signature per certificate.
 	SignedCertExtID = ExtensionID{2, 999, 1, 1}
-	// RevocationExtID is the asn1 object ID for a pkix extensionHandler containing the
+	// RevocationExtID is the asn1 object ID for a pkix extension containing the
 	// most recent certificate revocation data
 	// for the current TLS cert chain.
-	RevocationExtID         = ExtensionID{2, 999, 1, 2}
-	IdentityVersionExtID    = ExtensionID{2, 999, 2, 1}
+	RevocationExtID = ExtensionID{2, 999, 1, 2}
+	// IdentityVersionExtID is the asn1 object ID for a pkix extension that
+	// specifies the identity version of the certificate chain.
+	IdentityVersionExtID = ExtensionID{2, 999, 2, 1}
+	// IdentityPOWCounterExtID is the asn1 object ID for a pkix extension that
+	// specifies how many times to hash the CA public key to calculate the node ID.
 	IdentityPOWCounterExtID = ExtensionID{2, 999, 2, 2}
 
 	// Error is used when an error occurs while processing an extension.

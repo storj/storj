@@ -10,8 +10,9 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
-	"github.com/zeebo/errs"
 	"io"
+
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pkcrypto"
 )

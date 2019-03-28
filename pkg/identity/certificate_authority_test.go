@@ -9,7 +9,6 @@ import (
 	"encoding/asn1"
 	"fmt"
 	"math/rand"
-	"storj.io/storj/pkg/peertls/tlsopts"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -19,6 +18,7 @@ import (
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls/extensions"
+	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -117,8 +117,8 @@ func TestFullCAConfig_Load_extensions(t *testing.T) {
 	for versionNumber, version := range storj.IDVersions {
 		caCfg := identity.CASetupConfig{
 			VersionNumber: uint(versionNumber),
-			CertPath: ctx.File("ca.cert"),
-			KeyPath:  ctx.File("ca.key"),
+			CertPath:      ctx.File("ca.cert"),
+			KeyPath:       ctx.File("ca.key"),
 		}
 
 		{

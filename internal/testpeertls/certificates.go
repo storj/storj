@@ -6,6 +6,7 @@ package testpeertls
 import (
 	"crypto"
 	"crypto/x509"
+
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/pkcrypto"
@@ -29,7 +30,10 @@ func NewCertChain(length int, versionNumber storj.IDVersionNumber) (keys []crypt
 		var template *x509.Certificate
 		if i == 0 {
 			template, err = peertls.CATemplate()
-			if err = extensions.AddExtraExtension(template, storj.NewVersionExt(version)); err != nil {
+			if err != nil {
+				return nil, nil, err
+			}
+			if err := extensions.AddExtraExtension(template, storj.NewVersionExt(version)); err != nil {
 				return nil, nil, err
 			}
 		} else {

@@ -6,6 +6,7 @@ package identity
 import (
 	"crypto/x509"
 	"crypto/x509/pkix"
+
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/extensions"

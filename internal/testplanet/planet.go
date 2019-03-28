@@ -133,6 +133,7 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 	return NewWithLogger(log, satelliteCount, storageNodeCount, uplinkCount)
 }
 
+// NewWithIdentityVersion creates a new full system with the given version for node identities and the given number of nodes.
 func NewWithIdentityVersion(t zaptest.TestingT, identityVersion *storj.IDVersion, satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
 	var log *zap.Logger
 	if t == nil {
@@ -414,7 +415,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 					RevocationDBURL:     "bolt://" + filepath.Join(storageDir, "revocation.db"),
 					UsePeerCAWhitelist:  true,
 					PeerCAWhitelistPath: planet.whitelistPath,
-					PeerIDVersions: "latest",
+					PeerIDVersions:      "latest",
 					Extensions: extensions.Config{
 						Revocation:          false,
 						WhitelistSignedLeaf: false,
@@ -558,7 +559,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 					RevocationDBURL:     "bolt://" + filepath.Join(storageDir, "revocation.db"),
 					UsePeerCAWhitelist:  true,
 					PeerCAWhitelistPath: planet.whitelistPath,
-					PeerIDVersions: "1,2",
+					PeerIDVersions:      "1,2",
 					Extensions: extensions.Config{
 						Revocation:          false,
 						WhitelistSignedLeaf: false,
@@ -650,7 +651,7 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 				RevocationDBURL:     "bolt://" + filepath.Join(dbDir, "revocation.db"),
 				UsePeerCAWhitelist:  true,
 				PeerCAWhitelistPath: planet.whitelistPath,
-				PeerIDVersions: "latest",
+				PeerIDVersions:      "latest",
 				Extensions: extensions.Config{
 					Revocation:          false,
 					WhitelistSignedLeaf: false,

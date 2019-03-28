@@ -105,7 +105,7 @@ func TestExtensionMap_HandleExtensions(t *testing.T) {
 		for _, testcase := range testcases {
 			t.Run(testcase.name, func(t *testing.T) {
 				opts := &extensions.Options{
-					RevDB: revDB,
+					RevDB:          revDB,
 					PeerIDVersions: "latest",
 				}
 

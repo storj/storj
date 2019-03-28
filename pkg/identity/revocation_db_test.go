@@ -6,7 +6,6 @@ package identity_test
 import (
 	"bytes"
 	"crypto/x509/pkix"
-	"storj.io/storj/pkg/storj"
 	"testing"
 	"time"
 
@@ -19,6 +18,7 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/extensions"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 )
 

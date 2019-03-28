@@ -160,7 +160,8 @@ func TestNodeID_String_Version(t *testing.T) {
 
 func TestNewVersionedID(t *testing.T) {
 	nodeID := storj.NodeID{}
-	rand.Read(nodeID[:])
+	_, err := rand.Read(nodeID[:])
+	require.NoError(t, err)
 	nodeID[storj.NodeIDSize-1] = 0
 
 	assert.Equal(t, storj.V1, nodeID.Version().Number)

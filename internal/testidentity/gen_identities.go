@@ -14,9 +14,9 @@ import (
 	"fmt"
 	"go/format"
 	"os"
-	"storj.io/storj/pkg/peertls"
 
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
 )
@@ -39,9 +39,9 @@ func main() {
 	`)
 
 	var (
-		signer          *identity.FullCertificateAuthority
-		restChain       []*x509.Certificate
-		err             error
+		signer    *identity.FullCertificateAuthority
+		restChain []*x509.Certificate
+		err       error
 	)
 
 	caOpts := identity.NewCAOptions{
@@ -103,7 +103,6 @@ func main() {
 		var chain bytes.Buffer
 		certs := append([]*x509.Certificate{ident.Leaf, ca.Cert}, ca.RestChain...)
 		err = peertls.WriteChain(&chain, certs...)
-		//err = pkcrypto.WriteCertPEM(&chain, certs...)
 		if err != nil {
 			panic(err)
 		}
