@@ -162,6 +162,28 @@ func (db *accountingDB) SaveRollup(ctx context.Context, latestRollup time.Time, 
 	return Error.Wrap(err)
 }
 
+// SaveBucketInfo saves the latest bucket info
+func (db *accountingDB) SaveBucketInfo(ctx context.Context, intervalStart time.Time, bucketInfo map[string]*accounting.BucketStats) error {
+	if len(bucketInfo) == 0 {
+		return Error.New("In SaveBucketInfo with empty bucketInfo")
+	}
+	for k, v := range bucketInfo {
+		bID := dbx.BucketStorageTally_BucketId([]byte(k))
+		interval := dbx.BucketStorageTally_IntervalStart(intervalStart)
+		inlineBytes := dbx.BucketStorageTally_Inline(uint64(v.InlineBytes))
+		remoteBytes := dbx.BucketStorageTally_Remote(uint64(v.RemoteBytes))
+		rSegments := dbx.BucketStorageTally_RemoteSegmentsCount(uint(v.RemoteSegments))
+		iSegments := dbx.BucketStorageTally_InlineSegmentsCount(uint(v.InlineSegments))
+		objectCount := dbx.BucketStorageTally_ObjectCount(uint(v.Files))
+		meta := dbx.BucketStorageTally_MetadataSize(uint64(v.MetadataSize))
+		_, err := db.db.Create_BucketStorageTally(ctx, bID, interval, inlineBytes, remoteBytes, rSegments, iSegments, objectCount, meta)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // QueryPaymentInfo queries Overlay, Accounting Rollup on nodeID
 func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*accounting.CSVRow, error) {
 	var sqlStmt = `SELECT n.id, n.created_at, n.audit_success_ratio, r.at_rest_total, r.get_repair_total,
