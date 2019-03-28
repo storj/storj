@@ -159,6 +159,7 @@ read all (
 read limitoffset (
 	select node
 	where  node.id >= ?
+	orderby asc node.id
 )
 
 //--- repairqueue ---//

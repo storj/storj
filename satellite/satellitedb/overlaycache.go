@@ -148,7 +148,7 @@ func (cache *overlaycache) List(ctx context.Context, cursor storj.NodeID, limit 
 		limit = storage.LookupLimit
 	}
 
-	dbxInfos, err := cache.db.Limited_Node_By_Id_GreaterOrEqual(ctx, dbx.Node_Id(cursor.Bytes()), limit, 0)
+	dbxInfos, err := cache.db.Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx, dbx.Node_Id(cursor.Bytes()), limit, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +174,7 @@ func (cache *overlaycache) Paginate(ctx context.Context, offset int64, limit int
 		limit = storage.LookupLimit
 	}
 
-	dbxInfos, err := cache.db.Limited_Node_By_Id_GreaterOrEqual(ctx, dbx.Node_Id(cursor.Bytes()), limit, offset)
+	dbxInfos, err := cache.db.Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx, dbx.Node_Id(cursor.Bytes()), limit, offset)
 	if err != nil {
 		return nil, false, err
 	}
