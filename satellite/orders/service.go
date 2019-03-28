@@ -42,12 +42,6 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 	shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
 	expiration := pointer.ExpirationDate
 
-	// store the corresponding uplink's id and public key into certDB db
-	err := service.certdb.SavePublicKey(ctx, auditor.ID, auditor.Leaf.PublicKey)
-	if err != nil {
-		return nil, err
-	}
-
 	bucketPath := storj.Path("TODO") // TODO:
 	serialNumber, err := service.createSerial(ctx, bucketPath)
 	if err != nil {
@@ -88,6 +82,103 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 			Limit:              orderLimit,
 			StorageNodeAddress: node.Address,
 		}
+	}
+
+	return limits, nil
+}
+
+func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer *identity.PeerIdentity, pointer *pb.Pointer, healthy []*pb.RemotePiece) ([]*pb.AddressedOrderLimit, error) {
+	rootPieceID := pointer.GetRemote().RootPieceId
+	shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
+	expiration := pointer.ExpirationDate
+
+	bucketPath := storj.Path("TODO") // TODO:
+	serialNumber, err := service.createSerial(ctx, bucketPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// convert orderExpiration from days to timstamp
+	orderExpiration, err := ptypes.TimestampProto(time.Now().Add(service.orderExpiration))
+	if err != nil {
+		return nil, err
+	}
+
+	limits := make([]*pb.AddressedOrderLimit, pointer.GetRemote().GetRedundancy().GetTotal())
+	for _, piece := range healthy {
+		node, err := service.cache.Get(ctx, piece.NodeId)
+		if err != nil {
+			// TODO: undo serial entry
+			return nil, err
+		}
+
+		if node != nil {
+			node.Type.DPanicOnInvalid("repairer order limits")
+		}
+
+		orderLimit, err := signing.SignOrderLimit(service.satellite, &pb.OrderLimit2{
+			SerialNumber:    serialNumber,
+			SatelliteId:     service.satellite.ID(),
+			UplinkId:        repairer.ID,
+			StorageNodeId:   piece.NodeId,
+			PieceId:         rootPieceID.Derive(piece.NodeId),
+			Action:          pb.PieceAction_GET_REPAIR,
+			Limit:           int64(shareSize),
+			PieceExpiration: expiration,
+			OrderExpiration: orderExpiration,
+		})
+
+		limits[piece.GetPieceNum()] = &pb.AddressedOrderLimit{
+			Limit:              orderLimit,
+			StorageNodeAddress: node.Address,
+		}
+	}
+
+	return limits, nil
+}
+
+func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer *identity.PeerIdentity, pointer *pb.Pointer, getOrderLimits []*pb.AddressedOrderLimit, newNodes []*pb.Node) ([]*pb.AddressedOrderLimit, error) {
+	rootPieceID := pointer.GetRemote().RootPieceId
+	shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
+	expiration := pointer.ExpirationDate
+
+	bucketPath := storj.Path("TODO") // TODO:
+	serialNumber, err := service.createSerial(ctx, bucketPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// convert orderExpiration from days to timstamp
+	orderExpiration, err := ptypes.TimestampProto(time.Now().Add(service.orderExpiration))
+	if err != nil {
+		return nil, err
+	}
+
+	limits := make([]*pb.AddressedOrderLimit, pointer.GetRemote().GetRedundancy().GetTotal())
+	for _, piece := range newNodes {
+		if node != nil {
+			node.Type.DPanicOnInvalid("repair 2")
+		}
+
+		for pieceNum < redundancy.TotalCount() && getOrderLimits[pieceNum] != nil {
+			pieceNum++
+		}
+
+		if pieceNum >= redundancy.TotalCount() {
+			break // should not happen
+		}
+
+		derivedPieceID := rootPieceID.Derive(node.Id)
+		orderLimit, err := repairer.createOrderLimit(ctx, node.Id, derivedPieceID, expiration, pieceSize, pb.PieceAction_PUT_REPAIR)
+		if err != nil {
+			return err
+		}
+
+		putLimits[pieceNum] = &pb.AddressedOrderLimit{
+			Limit:              orderLimit,
+			StorageNodeAddress: node.Address,
+		}
+		pieceNum++
 	}
 
 	return limits, nil

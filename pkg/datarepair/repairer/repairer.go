@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/satellite/orders"
 	"storj.io/storj/storage"
 )
 
@@ -33,6 +34,7 @@ type Service struct {
 	transport  transport.Client
 	pointerdb  *pointerdb.Service
 	allocation *pointerdb.AllocationSigner
+	orders     *orders.Service
 	cache      *overlay.Cache
 	repairer   SegmentRepairer
 }
@@ -64,6 +66,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		service.transport,
 		service.pointerdb,
 		service.allocation,
+		service.orders,
 		service.cache,
 		service.transport.Identity(),
 	)

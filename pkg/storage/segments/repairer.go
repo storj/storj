@@ -7,10 +7,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
@@ -18,29 +16,28 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/orders"
 )
 
 // Repairer for segments
 type Repairer struct {
-	pointerdb  *pointerdb.Service
-	allocation *pointerdb.AllocationSigner
-	cache      *overlay.Cache
-	ec         ecclient.Client
-	signer     signing.Signer
-	identity   *identity.FullIdentity
-	timeout    time.Duration
+	pointerdb *pointerdb.Service
+	orders    *orders.Service
+	cache     *overlay.Cache
+	ec        ecclient.Client
+	identity  *identity.FullIdentity
+	timeout   time.Duration
 }
 
 // NewSegmentRepairer creates a new instance of SegmentRepairer
-func NewSegmentRepairer(pointerdb *pointerdb.Service, allocation *pointerdb.AllocationSigner, cache *overlay.Cache, ec ecclient.Client, identity *identity.FullIdentity, timeout time.Duration) *Repairer {
+func NewSegmentRepairer(pointerdb *pointerdb.Service, orders *orders.Service, cache *overlay.Cache, ec ecclient.Client, identity *identity.FullIdentity, timeout time.Duration) *Repairer {
 	return &Repairer{
-		pointerdb:  pointerdb,
-		allocation: allocation,
-		cache:      cache,
-		ec:         ec,
-		identity:   identity,
-		signer:     signing.SignerFromFullIdentity(identity),
-		timeout:    timeout,
+		pointerdb: pointerdb,
+		orders:    orders,
+		cache:     cache,
+		ec:        ec,
+		identity:  identity,
+		timeout:   timeout,
 	}
 }
 
@@ -80,27 +77,9 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 	}
 
 	// Create the order limits for the GET_REPAIR action
-	getLimits := make([]*pb.AddressedOrderLimit, redundancy.TotalCount())
-	for _, piece := range healthyPieces {
-		derivedPieceID := rootPieceID.Derive(piece.NodeId)
-		orderLimit, err := repairer.createOrderLimit(ctx, piece.NodeId, derivedPieceID, expiration, pieceSize, pb.PieceAction_GET_REPAIR)
-		if err != nil {
-			return err
-		}
-
-		node, err := repairer.cache.Get(ctx, piece.NodeId)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-
-		if node != nil {
-			node.Type.DPanicOnInvalid("repair")
-		}
-
-		getLimits[piece.GetPieceNum()] = &pb.AddressedOrderLimit{
-			Limit:              orderLimit,
-			StorageNodeAddress: node.Address,
-		}
+	getOrderLimits, err := repairer.orders.CreateGetRepairOrderLimits(ctx, repairer.identity.PeerIdentity(), pointer, healthyPieces)
+	if err != nil {
+		return Error.Wrap(err)
 	}
 
 	// Request Overlay for n-h new storage nodes
@@ -116,36 +95,13 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 	}
 
 	// Create the order limits for the PUT_REPAIR action
-	putLimits := make([]*pb.AddressedOrderLimit, redundancy.TotalCount())
-	pieceNum := 0
-	for _, node := range newNodes {
-		if node != nil {
-			node.Type.DPanicOnInvalid("repair 2")
-		}
-
-		for pieceNum < redundancy.TotalCount() && getLimits[pieceNum] != nil {
-			pieceNum++
-		}
-
-		if pieceNum >= redundancy.TotalCount() {
-			break // should not happen
-		}
-
-		derivedPieceID := rootPieceID.Derive(node.Id)
-		orderLimit, err := repairer.createOrderLimit(ctx, node.Id, derivedPieceID, expiration, pieceSize, pb.PieceAction_PUT_REPAIR)
-		if err != nil {
-			return err
-		}
-
-		putLimits[pieceNum] = &pb.AddressedOrderLimit{
-			Limit:              orderLimit,
-			StorageNodeAddress: node.Address,
-		}
-		pieceNum++
+	putLimits, err := repairer.orders.CreatePutRepairOrderLimits(ctx, repairer.identity.PeerIdentity(), pointer, getOrderLimits, newNodes)
+	if err != nil {
+		return Error.Wrap(err)
 	}
 
 	// Download the segment using just the healthy pieces
-	rr, err := repairer.ec.Get(ctx, getLimits, redundancy, pointer.GetSegmentSize())
+	rr, err := repairer.ec.Get(ctx, getOrderLimits, redundancy, pointer.GetSegmentSize())
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -179,25 +135,6 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 
 	// Update the segment pointer in the PointerDB
 	return repairer.pointerdb.Put(path, pointer)
-}
-
-func (repairer *Repairer) createOrderLimit(ctx context.Context, nodeID storj.NodeID, pieceID storj.PieceID, expiration *timestamp.Timestamp, limit int64, action pb.PieceAction) (*pb.OrderLimit2, error) {
-	parameters := pointerdb.OrderLimitParameters{
-		UplinkIdentity:  repairer.identity.PeerIdentity(),
-		StorageNodeID:   nodeID,
-		PieceID:         pieceID,
-		Action:          action,
-		PieceExpiration: expiration,
-		Limit:           limit,
-	}
-
-	orderLimit, err := repairer.allocation.OrderLimit(ctx, parameters)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	orderLimit, err = signing.SignOrderLimit(repairer.signer, orderLimit)
-	return orderLimit, Error.Wrap(err)
 }
 
 // sliceToSet converts the given slice to a set
