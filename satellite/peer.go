@@ -45,6 +45,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/satellite/metainfo"
@@ -145,6 +146,10 @@ type Peer struct {
 		Service    *pointerdb.Service
 		Endpoint   *pointerdb.Server
 		Endpoint2  *metainfo.Endpoint
+	}
+
+	Inspector struct {
+		Endpoint *inspector.Endpoint
 	}
 
 	Agreements struct {
@@ -383,6 +388,21 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		log.Debug("Setting up accounting")
 		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.Accounting(), peer.DB.BandwidthAgreement(), peer.Metainfo.Service, peer.Overlay.Service, 0, config.Tally.Interval)
 		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.Accounting(), config.Rollup.Interval)
+	}
+
+	{ // setup inspector
+		log.Debug("Setting up inspector")
+		endpoint, err := inspector.NewEndpoint(
+			peer.Log.Named("inspector"),
+			peer.Overlay.Service,
+			peer.Metainfo.Service,
+		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Inspector.Endpoint = endpoint
+		pb.RegisterHealthInspectorServer(peer.Server.PrivateGRPC(), peer.Inspector.Endpoint)
 	}
 
 	{ // setup mailservice

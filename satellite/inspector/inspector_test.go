@@ -70,7 +70,7 @@ func TestInspectorStats(t *testing.T) {
 					Segment:       -1,
 				}
 
-				resp, err := health.SegmentStat(ctx, req)
+				resp, err := health.SegmentHealth(ctx, req)
 				assert.NoError(t, err)
 
 				assert.Equal(t, int32(0), resp.GetSuccessThreshold())
@@ -89,7 +89,7 @@ func TestInspectorStats(t *testing.T) {
 					EndBeforeSegment:  0,
 					Limit:             0,
 				}
-				resp, err := health.ObjectStat(ctx, objectHealthReq)
+				resp, err := health.ObjectHealth(ctx, objectHealthReq)
 
 				assert.Equal(t, 1, len(resp.GetSegments()))
 

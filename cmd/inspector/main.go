@@ -126,16 +126,14 @@ var (
 		RunE:  CreateCSVStats,
 	}
 	objectHealthCmd = &cobra.Command{
-		// TODO: add args to usage
-		Use:   "object-health <project-id> <bucket> <encrypted-path>",
+		Use:   "object <project-id> <bucket> <encrypted-path>",
 		Short: "Get stats about an object's health",
 		Args:  cobra.MinimumNArgs(1),
 		RunE:  ObjectHealth,
 	}
 	segmentHealthCmd = &cobra.Command{
-		// TODO: add args to usage
-		Use:   "segment-health <project-id> <segment-index> <bucket> <encrypted-path>",
-		Short: "Get stats about an object's health",
+		Use:   "segment <project-id> <segment-index> <bucket> <encrypted-path>",
+		Short: "Get stats about a segment's health",
 		Args:  cobra.MinimumNArgs(1),
 		RunE:  SegmentHealth,
 	}
@@ -173,6 +171,7 @@ func NewInspector(address, path string) (*Inspector, error) {
 		kadclient:     pb.NewKadInspectorClient(conn),
 		overlayclient: pb.NewOverlayInspectorClient(conn),
 		irrdbclient:   pb.NewIrreparableInspectorClient(conn),
+		healthclient:  pb.NewHealthInspectorClient(conn),
 	}, nil
 }
 
@@ -474,9 +473,12 @@ func ObjectHealth(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	req := &pb.ObjectHealthRequest{
-		ProjectId:     []byte(args[0]),
-		Bucket:        []byte(args[1]),
-		EncryptedPath: []byte(args[2]),
+		ProjectId:         []byte(args[0]),
+		Bucket:            []byte(args[1]),
+		EncryptedPath:     []byte(args[2]),
+		StartAfterSegment: 0,
+		EndBeforeSegment:  0,
+		Limit:             0,
 	}
 
 	resp, err := i.healthclient.ObjectHealth(ctx, req)

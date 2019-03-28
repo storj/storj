@@ -41,7 +41,7 @@ func NewEndpoint(log *zap.Logger, cache *overlay.Cache, pdb *pointerdb.Service) 
 	}, nil
 }
 
-func (endpoint *Endpoint) ObjectStat(ctx context.Context, in *pb.ObjectHealthRequest) (resp *pb.ObjectHealthResponse, err error) {
+func (endpoint *Endpoint) ObjectHealth(ctx context.Context, in *pb.ObjectHealthRequest) (resp *pb.ObjectHealthResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var segmentHealthResponses []*pb.SegmentHealthResponse
@@ -75,7 +75,7 @@ func (endpoint *Endpoint) ObjectStat(ctx context.Context, in *pb.ObjectHealthReq
 			ProjectId:     in.GetProjectId(),
 		}
 
-		segmentHealth, err := endpoint.SegmentStat(ctx, segment)
+		segmentHealth, err := endpoint.SegmentHealth(ctx, segment)
 		if err != nil {
 			if i == finalSegment {
 				return nil, Error.Wrap(err)
@@ -101,7 +101,7 @@ func (endpoint *Endpoint) ObjectStat(ctx context.Context, in *pb.ObjectHealthReq
 	return resp, nil
 }
 
-func (endpoint *Endpoint) SegmentStat(ctx context.Context, in *pb.SegmentHealthRequest) (resp *pb.SegmentHealthResponse, err error) {
+func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *pb.SegmentHealthRequest) (resp *pb.SegmentHealthResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	resp = &pb.SegmentHealthResponse{
