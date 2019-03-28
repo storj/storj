@@ -28,17 +28,19 @@ type Service struct {
 	satellite signing.Signer
 	cache     *overlay.Cache
 	certdb    certdb.DB
+	orders    DB
 
 	orderExpiration time.Duration
 }
 
 // NewService creates new service for creating order limits.
-func NewService(log *zap.Logger, satellite signing.Signer, cache *overlay.Cache, certdb certdb.DB, orderExpiration time.Duration) *Service {
+func NewService(log *zap.Logger, satellite signing.Signer, cache *overlay.Cache, certdb certdb.DB, orders DB, orderExpiration time.Duration) *Service {
 	return &Service{
 		log:             log,
 		satellite:       satellite,
 		cache:           cache,
 		certdb:          certdb,
+		orders:          orders,
 		orderExpiration: orderExpiration,
 	}
 }
@@ -48,7 +50,7 @@ func (service *Service) VerifyOrderLimitSignature(signed *pb.OrderLimit2) error 
 	return signing.VerifyOrderLimitSignature(service.satellite, signed)
 }
 
-func (service *Service) createSerial(ctx context.Context, bucketPath storj.Path) (storj.SerialNumber, error) {
+func (service *Service) createSerial(ctx context.Context) (storj.SerialNumber, error) {
 	uuid, err := uuid.New()
 	if err != nil {
 		return storj.SerialNumber{}, Error.Wrap(err)
@@ -56,8 +58,8 @@ func (service *Service) createSerial(ctx context.Context, bucketPath storj.Path)
 	return storj.SerialNumber(*uuid), nil
 }
 
-func (service *Service) saveSerial(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte) error {
-	return nil
+func (service *Service) saveSerial(ctx context.Context, serialNumber storj.SerialNumber, bucketPath storj.Path, expiresAt time.Time) error {
+	return service.orders.SaveSerialNumber(ctx, serialNumber, []byte(bucketPath), expiresAt)
 }
 
 // CreateGetOrderLimits creates the order limits for downloading the pieces of pointer.
@@ -65,8 +67,8 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 	rootPieceID := pointer.GetRemote().RootPieceId
 	expiration := pointer.ExpirationDate
 
-	bucketPath := storj.Path("TODO") // TODO: how should we use bucketPath?
-	serialNumber, err := service.createSerial(ctx, bucketPath)
+	//bucketPath := storj.Path("TODO") // TODO: how should we use bucketPath?
+	serialNumber, err := service.createSerial(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -131,14 +133,15 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 // CreatePutOrderLimits creates the order limits for uploading pieces to nodes.
 func (service *Service) CreatePutOrderLimits(ctx context.Context, uplink *identity.PeerIdentity, nodes []*pb.Node, expiration *timestamp.Timestamp, maxPieceSize int64) (storj.PieceID, []*pb.AddressedOrderLimit, error) {
 	bucketPath := storj.Path("TODO") // TODO:
-	serialNumber, err := service.createSerial(ctx, bucketPath)
+	serialNumber, err := service.createSerial(ctx)
 	if err != nil {
 		return storj.PieceID{}, nil, err
 	}
-	// defer service.saveSerial(ctx, serialNumber, ...)
+	orderExpirationTime := time.Now().Add(service.orderExpiration)
+	defer service.saveSerial(ctx, serialNumber, bucketPath, orderExpirationTime)
 
 	// convert orderExpiration from duration to timestamp
-	orderExpiration, err := ptypes.TimestampProto(time.Now().Add(service.orderExpiration))
+	orderExpiration, err := ptypes.TimestampProto(orderExpirationTime)
 	if err != nil {
 		return storj.PieceID{}, nil, Error.Wrap(err)
 	}
@@ -178,14 +181,15 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *ide
 	expiration := pointer.ExpirationDate
 
 	bucketPath := storj.Path("TODO") // TODO:
-	serialNumber, err := service.createSerial(ctx, bucketPath)
+	serialNumber, err := service.createSerial(ctx)
 	if err != nil {
 		return nil, err
 	}
-	// defer service.saveSerial(ctx, serialNumber, ...)
+	orderExpirationTime := time.Now().Add(service.orderExpiration)
+	defer service.saveSerial(ctx, serialNumber, bucketPath, orderExpirationTime)
 
 	// convert orderExpiration from duration to timestamp
-	orderExpiration, err := ptypes.TimestampProto(time.Now().Add(service.orderExpiration))
+	orderExpiration, err := ptypes.TimestampProto(orderExpirationTime)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -241,14 +245,15 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 	expiration := pointer.ExpirationDate
 
 	bucketPath := storj.Path("TODO") // TODO:
-	serialNumber, err := service.createSerial(ctx, bucketPath)
+	serialNumber, err := service.createSerial(ctx)
 	if err != nil {
 		return nil, err
 	}
-	// defer service.saveSerial(ctx, serialNumber, ...)
+	orderExpirationTime := time.Now().Add(service.orderExpiration)
+	defer service.saveSerial(ctx, serialNumber, bucketPath, orderExpirationTime)
 
 	// convert orderExpiration from duration to timestamp
-	orderExpiration, err := ptypes.TimestampProto(time.Now().Add(service.orderExpiration))
+	orderExpiration, err := ptypes.TimestampProto(orderExpirationTime)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -298,14 +303,15 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 	expiration := pointer.ExpirationDate
 
 	bucketPath := storj.Path("TODO") // TODO:
-	serialNumber, err := service.createSerial(ctx, bucketPath)
+	serialNumber, err := service.createSerial(ctx)
 	if err != nil {
 		return nil, err
 	}
-	// defer service.saveSerial(ctx, serialNumber, ...)
+	orderExpirationTime := time.Now().Add(service.orderExpiration)
+	defer service.saveSerial(ctx, serialNumber, bucketPath, orderExpirationTime)
 
 	// convert orderExpiration from duration to timestamp
-	orderExpiration, err := ptypes.TimestampProto(time.Now().Add(service.orderExpiration))
+	orderExpiration, err := ptypes.TimestampProto(orderExpirationTime)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -355,14 +361,15 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 	expiration := pointer.ExpirationDate
 
 	bucketPath := storj.Path("TODO") // TODO:
-	serialNumber, err := service.createSerial(ctx, bucketPath)
+	serialNumber, err := service.createSerial(ctx)
 	if err != nil {
 		return nil, err
 	}
-	// defer service.saveSerial(ctx, serialNumber, ...)
+	orderExpirationTime := time.Now().Add(service.orderExpiration)
+	defer service.saveSerial(ctx, serialNumber, bucketPath, orderExpirationTime)
 
 	// convert orderExpiration from duration to timestamp
-	orderExpiration, err := ptypes.TimestampProto(time.Now().Add(service.orderExpiration))
+	orderExpiration, err := ptypes.TimestampProto(orderExpirationTime)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

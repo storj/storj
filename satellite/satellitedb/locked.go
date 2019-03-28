@@ -567,6 +567,12 @@ func (m *lockedOrders) SaveRemoteOrder(ctx context.Context, bucketID []byte, ord
 	return m.db.SaveRemoteOrder(ctx, bucketID, orderLimits)
 }
 
+func (m *lockedOrders) SaveSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte, expiresAt time.Time) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SaveSerialNumber(ctx, serialNumber, bucketID, expiresAt)
+}
+
 // SettleOrder
 func (m *lockedOrders) SettleRemoteOrder(ctx context.Context, orderLimit *pb.OrderLimit2, order *pb.Order2) error {
 	m.Lock()
