@@ -12,6 +12,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/skyrings/skyring-common/tools/uuid"
 
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/eestream"
@@ -160,10 +161,18 @@ func (cursor *Cursor) createOrderLimits(ctx context.Context, pointer *pb.Pointer
 	shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
 	expiration := pointer.ExpirationDate
 
+	// Add Serial Number for the entire pointer audit
+	// needs to be the same for all nodes in the pointer
+	uuid, err := uuid.New()
+	if err != nil {
+		return nil, err
+	}
+	serialNumber := storj.SerialNumber(*uuid)
+
 	limits := make([]*pb.AddressedOrderLimit, pointer.GetRemote().GetRedundancy().GetTotal())
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
 		derivedPieceID := rootPieceID.Derive(piece.NodeId)
-		orderLimit, err := cursor.createOrderLimit(ctx, auditorIdentity, piece.NodeId, derivedPieceID, expiration, int64(shareSize), pb.PieceAction_GET_AUDIT)
+		orderLimit, err := cursor.createOrderLimit(ctx, serialNumber, auditorIdentity, piece.NodeId, derivedPieceID, expiration, int64(shareSize), pb.PieceAction_GET_AUDIT)
 		if err != nil {
 			return nil, err
 		}
@@ -183,11 +192,18 @@ func (cursor *Cursor) createOrderLimits(ctx context.Context, pointer *pb.Pointer
 		}
 	}
 
+	//ToDo: We have to save the orderLimit here into the satellitedb
+	/*if err := endpoint.saveRemoteOrder(ctx, keyInfo.ProjectID, req.Bucket, addressedLimits); err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}*/
+
 	return limits, nil
 }
 
-func (cursor *Cursor) createOrderLimit(ctx context.Context, uplinkIdentity *identity.PeerIdentity, nodeID storj.NodeID, pieceID storj.PieceID, expiration *timestamp.Timestamp, limit int64, action pb.PieceAction) (*pb.OrderLimit2, error) {
+func (cursor *Cursor) createOrderLimit(ctx context.Context, serialnumber storj.SerialNumber, uplinkIdentity *identity.PeerIdentity, nodeID storj.NodeID, pieceID storj.PieceID, expiration *timestamp.Timestamp, limit int64, action pb.PieceAction) (*pb.OrderLimit2, error) {
+
 	parameters := pointerdb.OrderLimitParameters{
+		SerialNumber:    serialnumber,
 		UplinkIdentity:  uplinkIdentity,
 		StorageNodeID:   nodeID,
 		PieceID:         pieceID,
