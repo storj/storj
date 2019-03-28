@@ -149,6 +149,10 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	fmt.Printf("Secret key: %s\n", runCfg.Minio.SecretKey)
 
 	ctx := process.Ctx(cmd)
+	if err = process.LogAndReportVersion(ctx); err != nil {
+		zap.S().Error("Failed to check version: ", err)
+	}
+
 	metainfo, _, err := runCfg.GetMetainfo(ctx, identity)
 	if err != nil {
 		return err
@@ -156,10 +160,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
 		zap.S().Error("Failed to initialize telemetry batcher: ", err)
-	}
-
-	if err = process.LogAndReportVersion(ctx); err != nil {
-		zap.S().Error("Failed to check version: ", err)
 	}
 
 	_, err = metainfo.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})

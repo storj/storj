@@ -114,12 +114,12 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	ctx := process.Ctx(cmd)
-	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
-		zap.S().Error("Failed to initialize telemetry batcher: ", err)
-	}
-
 	if err = process.LogAndReportVersion(ctx); err != nil {
 		zap.S().Error("Failed to check version: ", err)
+	}
+
+	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
+		zap.S().Error("Failed to initialize telemetry batcher: ", err)
 	}
 
 	db, err := satellitedb.New(log.Named("db"), runCfg.Database)

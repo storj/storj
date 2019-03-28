@@ -24,7 +24,6 @@ func init() {
 		cobra.MousetrapHelpText += fmt.Sprintf(
 			"Try running \"%s help\" for more information\n", exe)
 	}
-
 }
 
 // check if file exists, handle error correctly if it doesn't

@@ -45,6 +45,10 @@ func mountBucket(cmd *cobra.Command, args []string) (err error) {
 
 	ctx := process.Ctx(cmd)
 
+	if err = process.LogAndReportVersion(ctx); err != nil {
+		zap.S().Error("Failed to check version: ", err)
+	}
+
 	metainfo, streams, err := cfg.Metainfo(ctx)
 	if err != nil {
 		return err
@@ -52,10 +56,6 @@ func mountBucket(cmd *cobra.Command, args []string) (err error) {
 
 	if err := process.InitMetricsWithCertPath(ctx, nil, cfg.Identity.CertPath); err != nil {
 		zap.S().Error("Failed to initialize telemetry batcher: ", err)
-	}
-
-	if err = process.LogAndReportVersion(ctx); err != nil {
-		zap.S().Error("Failed to check version: ", err)
 	}
 
 	src, err := fpath.New(args[0])
