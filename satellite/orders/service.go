@@ -103,7 +103,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 	}
 	// defer service.saveSerial(ctx, serialNumber, ...)
 
-	// convert orderExpiration from days to timstamp
+	// convert orderExpiration from duration to timestamp
 	orderExpiration, err := ptypes.TimestampProto(time.Now().Add(service.orderExpiration))
 	if err != nil {
 		return nil, err
@@ -145,6 +145,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer *identity.PeerIdentity, pointer *pb.Pointer, getOrderLimits []*pb.AddressedOrderLimit, newNodes []*pb.Node) ([]*pb.AddressedOrderLimit, error) {
 	rootPieceID := pointer.GetRemote().RootPieceId
 	shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
+	totalPieces := pointer.GetRemote().GetRedundancy().GetTotal()
 	expiration := pointer.ExpirationDate
 
 	serialNumber, err := service.createSerial(ctx)
@@ -159,27 +160,34 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 		return nil, err
 	}
 
-	limits := make([]*pb.AddressedOrderLimit, pointer.GetRemote().GetRedundancy().GetTotal())
-	for _, piece := range newNodes {
+	limits := make([]*pb.AddressedOrderLimit, totalPieces)
+	var pieceNum int32
+	for _, node := range newNodes {
 		if node != nil {
 			node.Type.DPanicOnInvalid("repair 2")
 		}
 
-		for pieceNum < redundancy.TotalCount() && getOrderLimits[pieceNum] != nil {
+		for pieceNum < totalPieces && getOrderLimits[pieceNum] != nil {
 			pieceNum++
 		}
 
-		if pieceNum >= redundancy.TotalCount() {
-			break // should not happen
+		if pieceNum >= totalPieces { // should not happen
+			return nil, Error.New("piece num greater than total pieces: %d >= %d", pieceNum, totalPieces)
 		}
 
-		derivedPieceID := rootPieceID.Derive(node.Id)
-		orderLimit, err := repairer.createOrderLimit(ctx, node.Id, derivedPieceID, expiration, pieceSize, pb.PieceAction_PUT_REPAIR)
-		if err != nil {
-			return err
-		}
+		orderLimit, err := signing.SignOrderLimit(service.satellite, &pb.OrderLimit2{
+			SerialNumber:    serialNumber,
+			SatelliteId:     service.satellite.ID(),
+			UplinkId:        repairer.ID,
+			StorageNodeId:   node.Id,
+			PieceId:         rootPieceID.Derive(node.Id),
+			Action:          pb.PieceAction_PUT_REPAIR,
+			Limit:           int64(shareSize),
+			PieceExpiration: expiration,
+			OrderExpiration: orderExpiration,
+		})
 
-		putLimits[pieceNum] = &pb.AddressedOrderLimit{
+		limits[pieceNum] = &pb.AddressedOrderLimit{
 			Limit:              orderLimit,
 			StorageNodeAddress: node.Address,
 		}
