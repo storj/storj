@@ -311,12 +311,12 @@ func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID,
 	if startingStats != nil {
 		auditSuccessRatio, err := checkRatioVars(startingStats.AuditSuccessCount, startingStats.AuditCount)
 		if err != nil {
-			return nil, errAuditSuccess.Wrap(err)
+			return nil, errAuditSuccess.Wrap(utils.CombineErrors(err, tx.Rollback()))
 		}
 
 		uptimeRatio, err := checkRatioVars(startingStats.UptimeSuccessCount, startingStats.UptimeCount)
 		if err != nil {
-			return nil, errUptime.Wrap(err)
+			return nil, errUptime.Wrap(utils.CombineErrors(err, tx.Rollback()))
 		}
 
 		updateFields := dbx.Node_Update_Fields{
