@@ -21,8 +21,8 @@ type Config struct {
 	TemplatePath      string `help:"path to email templates source" default:""`
 	From              string `help:"sender email address" default:""`
 	AuthType          string `help:"smtp authentication type" default:"simulate"`
-	PlainLogin        string `help:"plain auth user login" default:""`
-	PlainPassword     string `help:"plain auth user password" default:""`
+	Login             string `help:"plain/login auth user login" default:""`
+	Password          string `help:"plain/login auth user password" default:""`
 	RefreshToken      string `help:"refresh token used to retrieve new access token" default:""`
 	ClientID          string `help:"oauth2 app's client id" default:""`
 	ClientSecret      string `help:"oauth2 app's client secret" default:""`
@@ -118,11 +118,11 @@ func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg
 	}
 
 	if err != nil {
-		service.log.Info("error from mail sender",
+		service.log.Error("fail sending email",
 			zap.String("error", err.Error()),
 			zap.Strings("recipients", recipients))
 	} else {
-		service.log.Info("successfully send message",
+		service.log.Info("email sent successfully",
 			zap.Strings("recipients", recipients))
 	}
 
