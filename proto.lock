@@ -1033,11 +1033,21 @@
               },
               {
                 "id": 3,
-                "name": "used_bandwidth",
+                "name": "used_ingress",
                 "type": "int64"
               },
               {
                 "id": 4,
+                "name": "used_egress",
+                "type": "int64"
+              },
+              {
+                "id": 5,
+                "name": "used_bandwidth",
+                "type": "int64"
+              },
+              {
+                "id": 6,
                 "name": "available_bandwidth",
                 "type": "int64"
               }
@@ -1892,6 +1902,22 @@
                 "integer": 6
               }
             ]
+          },
+          {
+            "name": "SettlementResponse.Status",
+            "enum_fields": [
+              {
+                "name": "INVALID"
+              },
+              {
+                "name": "ACCEPTED",
+                "integer": 1
+              },
+              {
+                "name": "REJECTED",
+                "integer": 2
+              }
+            ]
           }
         ],
         "messages": [
@@ -2057,6 +2083,60 @@
                 "id": 3,
                 "name": "signature",
                 "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "SettlementRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "limit",
+                "type": "OrderLimit2"
+              },
+              {
+                "id": 2,
+                "name": "order",
+                "type": "Order2"
+              }
+            ]
+          },
+          {
+            "name": "SettlementResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "serial_number",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "SerialNumber"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "status",
+                "type": "Status"
+              }
+            ]
+          }
+        ],
+        "services": [
+          {
+            "name": "Orders",
+            "rpcs": [
+              {
+                "name": "Settlement",
+                "in_type": "SettlementRequest",
+                "out_type": "SettlementResponse",
+                "in_streamed": true,
+                "out_streamed": true
               }
             ]
           }
@@ -2230,9 +2310,6 @@
           }
         ],
         "imports": [
-          {
-            "path": "google/protobuf/duration.proto"
-          },
           {
             "path": "gogo.proto"
           },
