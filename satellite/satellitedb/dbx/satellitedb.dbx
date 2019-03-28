@@ -426,7 +426,7 @@ delete serial_number (
 // for preventing duplicate serial numbers
 create used_serial ()
 
-// --- bucket roll up tables --- //
+// --- bucket accounting tables --- //
 
 model bucket_bandwidth_rollup (
 	key    bucket_id interval_start action
@@ -445,18 +445,23 @@ model bucket_bandwidth_rollup (
 	field settled   uint64
 )
 
-model bucket_storage_rollup (
+model bucket_storage_tally (
 	key    bucket_id interval_start
 
 	field bucket_id        blob
 	field interval_start   utimestamp
-	field interval_seconds uint
 
 	field inline uint64
 	field remote uint64
+	
+	field  remote_segments_count    uint
+	field  inline_segments_count    uint
+	field  object_count             uint
+
+	field  metadata_size      uint64
 )
 
-// --- storage node roll up tables --- //
+// --- storage node accounting tables --- //
 
 model storagenode_bandwidth_rollup (
 	key    storagenode_id interval_start action
@@ -474,12 +479,11 @@ model storagenode_bandwidth_rollup (
 	field settled   uint64
 )
 
-model storagenode_storage_rollup (
+model storagenode_storage_tally (
 	key    storagenode_id interval_start
 
 	field storagenode_id   blob
 	field interval_start   utimestamp
-	field interval_seconds uint
 
 	field total            uint64
 )
