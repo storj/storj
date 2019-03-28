@@ -38,7 +38,7 @@ type Service struct {
 }
 
 // NewService instantiates a Service with access to a Cursor and Verifier
-func NewService(log *zap.Logger, config Config, pointerdb *pointerdb.Service,
+func NewService(log *zap.Logger, config Config, sdb statdb.DB, pointerdb *pointerdb.Service,
 	allocation *pointerdb.AllocationSigner, orders *orders.Service, transport transport.Client, overlay *overlay.Cache,
 	identity *identity.FullIdentity) (service *Service, err error) {
 	return &Service{
@@ -46,7 +46,7 @@ func NewService(log *zap.Logger, config Config, pointerdb *pointerdb.Service,
 
 		Cursor:   NewCursor(pointerdb),
 		Verifier: NewVerifier(log.Named("audit:verifier"), transport, overlay, orders, identity, config.MinBytesPerSecond),
-		Reporter: NewReporter(overlay, config.MaxRetriesStatDB),
+		Reporter: NewReporter(sdb, config.MaxRetriesStatDB),
 
 		Loop: *sync2.NewCycle(config.Interval),
 	}, nil
