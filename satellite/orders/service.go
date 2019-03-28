@@ -9,6 +9,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -50,8 +51,11 @@ func (service *Service) VerifyOrderLimitSignature(signed *pb.OrderLimit2) error 
 }
 
 func (service *Service) createSerial(ctx context.Context, bucketPath storj.Path) (storj.SerialNumber, error) {
-	// TODO
-	return storj.SerialNumber{}, nil
+	uuid, err := uuid.New()
+	if err != nil {
+		return storj.SerialNumber{}, Error.Wrap(err)
+	}
+	return storj.SerialNumber(*uuid), nil
 }
 
 func (service *Service) saveSerial(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte) error {
@@ -62,7 +66,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 	rootPieceID := pointer.GetRemote().RootPieceId
 	expiration := pointer.ExpirationDate
 
-	bucketPath := storj.Path("TODO") // TODO:
+	bucketPath := storj.Path("TODO") // TODO: how should we use bucketPath?
 	serialNumber, err := service.createSerial(ctx, bucketPath)
 	if err != nil {
 		return nil, err
