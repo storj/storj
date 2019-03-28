@@ -424,6 +424,13 @@ model bucket_storage_tally (
 	field  metadata_size      uint64
 )
 
+create bucket_storage_tally ( )
+
+read first (
+	select bucket_storage_tally
+	where bucket_storage_tally.bucket_id = ?
+)
+
 // --- storage node accounting tables --- //
 
 model storagenode_bandwidth_rollup (
