@@ -28,8 +28,8 @@ func TestDataRepair(t *testing.T) {
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Checker.Interval = 1 * time.Second
-				config.Repairer.Interval = 1 * time.Second
+				config.Checker.Interval = 100 * time.Millisecond
+				config.Repairer.Interval = 100 * time.Millisecond
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
