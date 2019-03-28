@@ -1,14 +1,18 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package tally
+package accounting
 
 import (
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+
 	"storj.io/storj/pkg/pb"
 )
 
-// stats all stats fields
-type stats struct {
+var mon = monkit.Package()
+
+// BucketStats contains information about a bucket
+type BucketStats struct {
 	Segments        int64
 	InlineSegments  int64
 	RemoteSegments  int64
@@ -26,7 +30,7 @@ type stats struct {
 }
 
 // Combine aggregates all the stats
-func (s *stats) Combine(o *stats) {
+func (s *BucketStats) Combine(o *BucketStats) {
 	s.Segments += o.Segments
 	s.InlineSegments += o.InlineSegments
 	s.RemoteSegments += o.RemoteSegments
@@ -42,7 +46,7 @@ func (s *stats) Combine(o *stats) {
 }
 
 // AddSegment groups all the data based the passed pointer
-func (s *stats) AddSegment(pointer *pb.Pointer, last bool) {
+func (s *BucketStats) AddSegment(pointer *pb.Pointer, last bool) {
 	s.Segments++
 	switch pointer.GetType() {
 	case pb.Pointer_INLINE:
@@ -72,7 +76,7 @@ func (s *stats) AddSegment(pointer *pb.Pointer, last bool) {
 }
 
 // Report reports the stats thru monkit
-func (s *stats) Report(prefix string) {
+func (s *BucketStats) Report(prefix string) {
 	mon.IntVal(prefix + ".segments").Observe(s.Segments)
 	mon.IntVal(prefix + ".inline_segments").Observe(s.InlineSegments)
 	mon.IntVal(prefix + ".remote_segments").Observe(s.RemoteSegments)
