@@ -31,6 +31,11 @@ func (service *Service) CreateOrderLimits() ([]*pb.OrderLimit2, error) {
 	return nil, nil
 }
 
+// VerifyOrderLimitSignature verifies that the signature inside order limit belongs to the satellite.
+func (service *Service) VerifyOrderLimitSignature(signed *pb.OrderLimit2) error {
+	return signing.VerifyOrderLimitSignature(service.satellite, signed)
+}
+
 func (service *Service) createSerial(ctx context.Context, bucketPath storj.Path) (storj.SerialNumber, error) {
 	// TODO
 	return storj.SerialNumber{}, nil
