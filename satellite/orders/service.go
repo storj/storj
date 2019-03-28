@@ -73,6 +73,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 		return nil, err
 	}
 	// defer service.saveSerial(ctx, serialNumber, ...)
+	defer service.certdb.SavePublicKey(ctx, uplink.ID, uplink.Leaf.PublicKey)
 
 	redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
 	if err != nil {
@@ -139,6 +140,7 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, uplink *identi
 	}
 	orderExpirationTime := time.Now().Add(service.orderExpiration)
 	defer service.saveSerial(ctx, serialNumber, bucketPath, orderExpirationTime)
+	defer service.certdb.SavePublicKey(ctx, uplink.ID, uplink.Leaf.PublicKey)
 
 	// convert orderExpiration from duration to timestamp
 	orderExpiration, err := ptypes.TimestampProto(orderExpirationTime)
@@ -187,6 +189,7 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *ide
 	}
 	orderExpirationTime := time.Now().Add(service.orderExpiration)
 	defer service.saveSerial(ctx, serialNumber, bucketPath, orderExpirationTime)
+	defer service.certdb.SavePublicKey(ctx, uplink.ID, uplink.Leaf.PublicKey)
 
 	// convert orderExpiration from duration to timestamp
 	orderExpiration, err := ptypes.TimestampProto(orderExpirationTime)
