@@ -25,7 +25,8 @@ type RepairQueue interface {
 
 // Queue implements the RepairQueue interface
 type Queue struct {
-	db storage.Queue
+	db             storage.Queue
+	queuedSegments map[string]bool
 }
 
 // NewQueue returns a pointer to a new Queue instance with an initialized connection to Redis
@@ -36,6 +37,10 @@ func NewQueue(client storage.Queue) *Queue {
 
 // Enqueue adds a repair segment to the queue
 func (q *Queue) Enqueue(ctx context.Context, qi *pb.InjuredSegment) error {
+	if q.queuedSegments[qi.Path] {
+		return nil
+	}
+
 	val, err := proto.Marshal(qi)
 	if err != nil {
 		return Error.New("error marshalling injured seg %s", err)
@@ -45,6 +50,8 @@ func (q *Queue) Enqueue(ctx context.Context, qi *pb.InjuredSegment) error {
 	if err != nil {
 		return Error.New("error adding injured seg to queue %s", err)
 	}
+
+	q.queuedSegments[qi.Path] = true
 	return nil
 }
 
@@ -62,6 +69,7 @@ func (q *Queue) Dequeue(ctx context.Context) (pb.InjuredSegment, error) {
 	if err != nil {
 		return pb.InjuredSegment{}, Error.New("error unmarshalling segment %s", err)
 	}
+	q.queuedSegments[seg.Path] = false
 	return *seg, nil
 }
 
