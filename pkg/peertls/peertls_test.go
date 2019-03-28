@@ -10,7 +10,6 @@ import (
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"encoding/gob"
-	"storj.io/storj/pkg/storj"
 	"testing"
 	"time"
 
@@ -22,6 +21,7 @@ import (
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/pkcrypto"
+	"storj.io/storj/pkg/storj"
 )
 
 func TestNewCert_CA(t *testing.T) {

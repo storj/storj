@@ -117,8 +117,8 @@ func TestFullCAConfig_Load_extensions(t *testing.T) {
 	for versionNumber, version := range storj.IDVersions {
 		caCfg := identity.CASetupConfig{
 			VersionNumber: uint(versionNumber),
-			CertPath: ctx.File("ca.cert"),
-			KeyPath:  ctx.File("ca.key"),
+			CertPath:      ctx.File("ca.cert"),
+			KeyPath:       ctx.File("ca.key"),
 		}
 
 		{

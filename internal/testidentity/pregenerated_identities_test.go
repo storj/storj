@@ -1,11 +1,14 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package testidentity
 
 import (
 	"crypto/x509"
-	"github.com/stretchr/testify/require"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
@@ -33,7 +36,6 @@ func TestPregeneratedSignedIdentity(t *testing.T) {
 		caVersion, err := storj.IDVersionFromCert(ident.CA)
 		require.NoError(t, err)
 		assert.Equal(t, version.Number, caVersion.Number)
-
 
 		chains := identity.ToChains(ident.Chain())
 		err = peertls.VerifyPeerCertChains(nil, chains)

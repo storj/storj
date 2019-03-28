@@ -47,7 +47,7 @@ func TestDialNode(t *testing.T) {
 	opts, err := tlsopts.NewOptions(signedIdent, tlsopts.Config{
 		UsePeerCAWhitelist:  true,
 		PeerCAWhitelistPath: whitelistPath,
-		PeerIDVersions: "1,2",
+		PeerIDVersions:      "1,2",
 	})
 	require.NoError(t, err)
 

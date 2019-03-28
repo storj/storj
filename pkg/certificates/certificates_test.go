@@ -598,7 +598,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 					Config: tlsopts.Config{
 						PeerIDVersions: "1,2",
 					},
-					Address: "127.0.0.1:0",
+					Address:        "127.0.0.1:0",
 					PrivateAddress: "127.0.0.1:0",
 				}
 				serverOpts, err := tlsopts.NewOptions(serverIdent, sc.Config)
@@ -673,8 +673,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 	})
 }
 
-func
-TestNewClient(t *testing.T) {
+func TestNewClient(t *testing.T) {
 	t.Skip("needs proper grpc listener to work")
 
 	ctx := testcontext.New(t)
@@ -732,8 +731,7 @@ TestNewClient(t *testing.T) {
 	})
 }
 
-func
-TestCertificateSigner_Sign(t *testing.T) {
+func TestCertificateSigner_Sign(t *testing.T) {
 	testidentity.SignerVersionsTest(t, func(t *testing.T, _ storj.IDVersion, signer *identity.FullCertificateAuthority) {
 		testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, _ storj.IDVersion, ident *identity.FullIdentity) {
 			ctx := testcontext.New(t)
@@ -806,8 +804,7 @@ TestCertificateSigner_Sign(t *testing.T) {
 	})
 }
 
-func
-newTestAuthDB(ctx *testcontext.Context) (*AuthorizationDB, error) {
+func newTestAuthDB(ctx *testcontext.Context) (*AuthorizationDB, error) {
 	dbPath := "bolt://" + ctx.File("authorizations.db")
 	config := CertServerConfig{
 		AuthorizationDBURL: dbPath,

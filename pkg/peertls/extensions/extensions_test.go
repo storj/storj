@@ -6,7 +6,6 @@ package extensions_test
 import (
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"storj.io/storj/pkg/storj"
 	"strconv"
 	"testing"
 
@@ -17,6 +16,7 @@ import (
 	"storj.io/storj/internal/testpeertls"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls/extensions"
+	"storj.io/storj/pkg/storj"
 )
 
 func TestHandlers_Register(t *testing.T) {

@@ -14,25 +14,22 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+// IdentityTest is a function that takes a testing struct, an identity version
+// and a full identity.
 type IdentityTest func(*testing.T, storj.IDVersion, *identity.FullIdentity)
+
+// SignerTest is a function that takes a testing struct, an identity version
+// and a full certificate authority.
 type SignerTest func(*testing.T, storj.IDVersion, *identity.FullCertificateAuthority)
 
 // NewTestIdentity is a helper function to generate new node identities with
 // correct difficulty and concurrency
 func NewTestIdentity(ctx context.Context) (*identity.FullIdentity, error) {
-	ca, err := identity.NewCA(ctx, identity.NewCAOptions{
-		//VersionNumber: storj.V1,
-		Difficulty:  10,
-		Concurrency: 4,
-	})
+	ca, err := NewTestCA(ctx)
 	if err != nil {
 		return nil, err
 	}
-	identity, err := ca.NewIdentity()
-	if err != nil {
-		return nil, err
-	}
-	return identity, err
+	return ca.NewIdentity()
 }
 
 // NewTestCA returns a ca with a default difficulty and concurrency for use in tests
@@ -43,6 +40,8 @@ func NewTestCA(ctx context.Context) (*identity.FullCertificateAuthority, error) 
 	})
 }
 
+// IdentityVersionsTest runs the `IdentityTest` for each identity
+// version, with an unsigned identity.
 func IdentityVersionsTest(t *testing.T, test IdentityTest) {
 	for versionNumber, version := range storj.IDVersions {
 		t.Run(fmt.Sprintf("identity version %d", versionNumber), func(t *testing.T) {
@@ -54,6 +53,8 @@ func IdentityVersionsTest(t *testing.T, test IdentityTest) {
 	}
 }
 
+// SignedIdentityVersionsTest runs the `IdentityTest` for each identity
+// version, with an signed identity.
 func SignedIdentityVersionsTest(t *testing.T, test IdentityTest) {
 	for versionNumber, version := range storj.IDVersions {
 		t.Run(fmt.Sprintf("identity version %d", versionNumber), func(t *testing.T) {
@@ -65,6 +66,8 @@ func SignedIdentityVersionsTest(t *testing.T, test IdentityTest) {
 	}
 }
 
+// CompleteIdentityVersionsTest runs the `IdentityTest` for each identity
+// version, with both signed dn unsigned identities.
 func CompleteIdentityVersionsTest(t *testing.T, test IdentityTest) {
 	t.Run("unsigned identity", func(t *testing.T) {
 		IdentityVersionsTest(t, test)

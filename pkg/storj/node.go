@@ -8,15 +8,17 @@ import (
 	"crypto/x509/pkix"
 	"database/sql/driver"
 	"math/bits"
-	"storj.io/storj/pkg/peertls/extensions"
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/zeebo/errs"
+
+	"storj.io/storj/pkg/peertls/extensions"
 )
 
 var (
-	// ErrNodeID is used when something goes wrong with a node id
-	ErrNodeID  = errs.Class("node ID error")
+	// ErrNodeID is used when something goes wrong with a node id.
+	ErrNodeID = errs.Class("node ID error")
+	// ErrVersion is used for identity version related errors.
 	ErrVersion = errs.Class("node ID version error")
 )
 
@@ -29,6 +31,7 @@ type NodeID [NodeIDSize]byte
 // NodeIDList is a slice of NodeIDs (implements sort)
 type NodeIDList []NodeID
 
+// NewVersionedID adds an identity version to a node ID.
 func NewVersionedID(id NodeID, version IDVersion) NodeID {
 	var versionedID NodeID
 	copy(versionedID[:], id[:])
@@ -37,6 +40,8 @@ func NewVersionedID(id NodeID, version IDVersion) NodeID {
 	return versionedID
 }
 
+// NewVersionExt creates a new identity version certificate extension for the
+// given identity version,
 func NewVersionExt(version IDVersion) pkix.Extension {
 	return pkix.Extension{
 		Id:    extensions.IdentityVersionExtID,
@@ -230,6 +235,9 @@ func (id NodeID) versionByte() byte {
 	return id[NodeIDSize-1]
 }
 
+// unversioned returns the node ID with the version byte replaced with `0`.
+// NB: Legacy node IDs (i.e. pre-identity-versions) with a difficulty less
+// than `8` are unsupported.
 func (id NodeID) unversioned() NodeID {
 	unversionedID := NodeID{}
 	copy(unversionedID[:], id[:NodeIDSize-1])
