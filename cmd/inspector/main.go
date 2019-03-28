@@ -128,13 +128,13 @@ var (
 	objectHealthCmd = &cobra.Command{
 		Use:   "object <project-id> <bucket> <encrypted-path>",
 		Short: "Get stats about an object's health",
-		Args:  cobra.MinimumNArgs(1),
+		Args:  cobra.MinimumNArgs(3),
 		RunE:  ObjectHealth,
 	}
 	segmentHealthCmd = &cobra.Command{
 		Use:   "segment <project-id> <segment-index> <bucket> <encrypted-path>",
 		Short: "Get stats about a segment's health",
-		Args:  cobra.MinimumNArgs(1),
+		Args:  cobra.MinimumNArgs(4),
 		RunE:  SegmentHealth,
 	}
 )
