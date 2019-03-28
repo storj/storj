@@ -9,7 +9,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"math/rand"
 	"reflect"
 	"strconv"
 	"strings"
@@ -18,7 +17,9 @@ import (
 	"unicode"
 
 	"github.com/lib/pq"
-	sqlite3 "github.com/mattn/go-sqlite3"
+
+	"github.com/mattn/go-sqlite3"
+	"math/rand"
 )
 
 // Prevent conditional imports from causing build failures
@@ -307,12 +308,15 @@ CREATE TABLE bucket_bandwidth_rollups (
 	settled bigint NOT NULL,
 	PRIMARY KEY ( bucket_id, interval_start, action )
 );
-CREATE TABLE bucket_storage_rollups (
+CREATE TABLE bucket_storage_tallies (
 	bucket_id bytea NOT NULL,
 	interval_start timestamp NOT NULL,
-	interval_seconds integer NOT NULL,
 	inline bigint NOT NULL,
 	remote bigint NOT NULL,
+	remote_segments_count integer NOT NULL,
+	inline_segments_count integer NOT NULL,
+	object_count integer NOT NULL,
+	metadata_size bigint NOT NULL,
 	PRIMARY KEY ( bucket_id, interval_start )
 );
 CREATE TABLE bucket_usages (
@@ -423,10 +427,9 @@ CREATE TABLE storagenode_bandwidth_rollups (
 	settled bigint NOT NULL,
 	PRIMARY KEY ( storagenode_id, interval_start, action )
 );
-CREATE TABLE storagenode_storage_rollups (
+CREATE TABLE storagenode_storage_tallies (
 	storagenode_id bytea NOT NULL,
 	interval_start timestamp NOT NULL,
-	interval_seconds integer NOT NULL,
 	total bigint NOT NULL,
 	PRIMARY KEY ( storagenode_id, interval_start )
 );
@@ -565,12 +568,15 @@ CREATE TABLE bucket_bandwidth_rollups (
 	settled INTEGER NOT NULL,
 	PRIMARY KEY ( bucket_id, interval_start, action )
 );
-CREATE TABLE bucket_storage_rollups (
+CREATE TABLE bucket_storage_tallies (
 	bucket_id BLOB NOT NULL,
 	interval_start TIMESTAMP NOT NULL,
-	interval_seconds INTEGER NOT NULL,
 	inline INTEGER NOT NULL,
 	remote INTEGER NOT NULL,
+	remote_segments_count INTEGER NOT NULL,
+	inline_segments_count INTEGER NOT NULL,
+	object_count INTEGER NOT NULL,
+	metadata_size INTEGER NOT NULL,
 	PRIMARY KEY ( bucket_id, interval_start )
 );
 CREATE TABLE bucket_usages (
@@ -681,10 +687,9 @@ CREATE TABLE storagenode_bandwidth_rollups (
 	settled INTEGER NOT NULL,
 	PRIMARY KEY ( storagenode_id, interval_start, action )
 );
-CREATE TABLE storagenode_storage_rollups (
+CREATE TABLE storagenode_storage_tallies (
 	storagenode_id BLOB NOT NULL,
 	interval_start TIMESTAMP NOT NULL,
-	interval_seconds INTEGER NOT NULL,
 	total INTEGER NOT NULL,
 	PRIMARY KEY ( storagenode_id, interval_start )
 );
@@ -1300,114 +1305,174 @@ func (f BucketBandwidthRollup_Settled_Field) value() interface{} {
 
 func (BucketBandwidthRollup_Settled_Field) _Column() string { return "settled" }
 
-type BucketStorageRollup struct {
-	BucketId        []byte
-	IntervalStart   time.Time
-	IntervalSeconds uint
-	Inline          uint64
-	Remote          uint64
+type BucketStorageTally struct {
+	BucketId            []byte
+	IntervalStart       time.Time
+	Inline              uint64
+	Remote              uint64
+	RemoteSegmentsCount uint
+	InlineSegmentsCount uint
+	ObjectCount         uint
+	MetadataSize        uint64
 }
 
-func (BucketStorageRollup) _Table() string { return "bucket_storage_rollups" }
+func (BucketStorageTally) _Table() string { return "bucket_storage_tallies" }
 
-type BucketStorageRollup_Update_Fields struct {
+type BucketStorageTally_Update_Fields struct {
 }
 
-type BucketStorageRollup_BucketId_Field struct {
+type BucketStorageTally_BucketId_Field struct {
 	_set   bool
 	_null  bool
 	_value []byte
 }
 
-func BucketStorageRollup_BucketId(v []byte) BucketStorageRollup_BucketId_Field {
-	return BucketStorageRollup_BucketId_Field{_set: true, _value: v}
+func BucketStorageTally_BucketId(v []byte) BucketStorageTally_BucketId_Field {
+	return BucketStorageTally_BucketId_Field{_set: true, _value: v}
 }
 
-func (f BucketStorageRollup_BucketId_Field) value() interface{} {
+func (f BucketStorageTally_BucketId_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (BucketStorageRollup_BucketId_Field) _Column() string { return "bucket_id" }
+func (BucketStorageTally_BucketId_Field) _Column() string { return "bucket_id" }
 
-type BucketStorageRollup_IntervalStart_Field struct {
+type BucketStorageTally_IntervalStart_Field struct {
 	_set   bool
 	_null  bool
 	_value time.Time
 }
 
-func BucketStorageRollup_IntervalStart(v time.Time) BucketStorageRollup_IntervalStart_Field {
+func BucketStorageTally_IntervalStart(v time.Time) BucketStorageTally_IntervalStart_Field {
 	v = toUTC(v)
-	return BucketStorageRollup_IntervalStart_Field{_set: true, _value: v}
+	return BucketStorageTally_IntervalStart_Field{_set: true, _value: v}
 }
 
-func (f BucketStorageRollup_IntervalStart_Field) value() interface{} {
+func (f BucketStorageTally_IntervalStart_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (BucketStorageRollup_IntervalStart_Field) _Column() string { return "interval_start" }
+func (BucketStorageTally_IntervalStart_Field) _Column() string { return "interval_start" }
 
-type BucketStorageRollup_IntervalSeconds_Field struct {
+type BucketStorageTally_Inline_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func BucketStorageTally_Inline(v uint64) BucketStorageTally_Inline_Field {
+	return BucketStorageTally_Inline_Field{_set: true, _value: v}
+}
+
+func (f BucketStorageTally_Inline_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketStorageTally_Inline_Field) _Column() string { return "inline" }
+
+type BucketStorageTally_Remote_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func BucketStorageTally_Remote(v uint64) BucketStorageTally_Remote_Field {
+	return BucketStorageTally_Remote_Field{_set: true, _value: v}
+}
+
+func (f BucketStorageTally_Remote_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketStorageTally_Remote_Field) _Column() string { return "remote" }
+
+type BucketStorageTally_RemoteSegmentsCount_Field struct {
 	_set   bool
 	_null  bool
 	_value uint
 }
 
-func BucketStorageRollup_IntervalSeconds(v uint) BucketStorageRollup_IntervalSeconds_Field {
-	return BucketStorageRollup_IntervalSeconds_Field{_set: true, _value: v}
+func BucketStorageTally_RemoteSegmentsCount(v uint) BucketStorageTally_RemoteSegmentsCount_Field {
+	return BucketStorageTally_RemoteSegmentsCount_Field{_set: true, _value: v}
 }
 
-func (f BucketStorageRollup_IntervalSeconds_Field) value() interface{} {
+func (f BucketStorageTally_RemoteSegmentsCount_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (BucketStorageRollup_IntervalSeconds_Field) _Column() string { return "interval_seconds" }
+func (BucketStorageTally_RemoteSegmentsCount_Field) _Column() string { return "remote_segments_count" }
 
-type BucketStorageRollup_Inline_Field struct {
+type BucketStorageTally_InlineSegmentsCount_Field struct {
+	_set   bool
+	_null  bool
+	_value uint
+}
+
+func BucketStorageTally_InlineSegmentsCount(v uint) BucketStorageTally_InlineSegmentsCount_Field {
+	return BucketStorageTally_InlineSegmentsCount_Field{_set: true, _value: v}
+}
+
+func (f BucketStorageTally_InlineSegmentsCount_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketStorageTally_InlineSegmentsCount_Field) _Column() string { return "inline_segments_count" }
+
+type BucketStorageTally_ObjectCount_Field struct {
+	_set   bool
+	_null  bool
+	_value uint
+}
+
+func BucketStorageTally_ObjectCount(v uint) BucketStorageTally_ObjectCount_Field {
+	return BucketStorageTally_ObjectCount_Field{_set: true, _value: v}
+}
+
+func (f BucketStorageTally_ObjectCount_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketStorageTally_ObjectCount_Field) _Column() string { return "object_count" }
+
+type BucketStorageTally_MetadataSize_Field struct {
 	_set   bool
 	_null  bool
 	_value uint64
 }
 
-func BucketStorageRollup_Inline(v uint64) BucketStorageRollup_Inline_Field {
-	return BucketStorageRollup_Inline_Field{_set: true, _value: v}
+func BucketStorageTally_MetadataSize(v uint64) BucketStorageTally_MetadataSize_Field {
+	return BucketStorageTally_MetadataSize_Field{_set: true, _value: v}
 }
 
-func (f BucketStorageRollup_Inline_Field) value() interface{} {
+func (f BucketStorageTally_MetadataSize_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (BucketStorageRollup_Inline_Field) _Column() string { return "inline" }
-
-type BucketStorageRollup_Remote_Field struct {
-	_set   bool
-	_null  bool
-	_value uint64
-}
-
-func BucketStorageRollup_Remote(v uint64) BucketStorageRollup_Remote_Field {
-	return BucketStorageRollup_Remote_Field{_set: true, _value: v}
-}
-
-func (f BucketStorageRollup_Remote_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (BucketStorageRollup_Remote_Field) _Column() string { return "remote" }
+func (BucketStorageTally_MetadataSize_Field) _Column() string { return "metadata_size" }
 
 type BucketUsage struct {
 	Id               []byte
@@ -3003,94 +3068,74 @@ func (f StoragenodeBandwidthRollup_Settled_Field) value() interface{} {
 
 func (StoragenodeBandwidthRollup_Settled_Field) _Column() string { return "settled" }
 
-type StoragenodeStorageRollup struct {
-	StoragenodeId   []byte
-	IntervalStart   time.Time
-	IntervalSeconds uint
-	Total           uint64
+type StoragenodeStorageTally struct {
+	StoragenodeId []byte
+	IntervalStart time.Time
+	Total         uint64
 }
 
-func (StoragenodeStorageRollup) _Table() string { return "storagenode_storage_rollups" }
+func (StoragenodeStorageTally) _Table() string { return "storagenode_storage_tallies" }
 
-type StoragenodeStorageRollup_Update_Fields struct {
+type StoragenodeStorageTally_Update_Fields struct {
 }
 
-type StoragenodeStorageRollup_StoragenodeId_Field struct {
+type StoragenodeStorageTally_StoragenodeId_Field struct {
 	_set   bool
 	_null  bool
 	_value []byte
 }
 
-func StoragenodeStorageRollup_StoragenodeId(v []byte) StoragenodeStorageRollup_StoragenodeId_Field {
-	return StoragenodeStorageRollup_StoragenodeId_Field{_set: true, _value: v}
+func StoragenodeStorageTally_StoragenodeId(v []byte) StoragenodeStorageTally_StoragenodeId_Field {
+	return StoragenodeStorageTally_StoragenodeId_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeStorageRollup_StoragenodeId_Field) value() interface{} {
+func (f StoragenodeStorageTally_StoragenodeId_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (StoragenodeStorageRollup_StoragenodeId_Field) _Column() string { return "storagenode_id" }
+func (StoragenodeStorageTally_StoragenodeId_Field) _Column() string { return "storagenode_id" }
 
-type StoragenodeStorageRollup_IntervalStart_Field struct {
+type StoragenodeStorageTally_IntervalStart_Field struct {
 	_set   bool
 	_null  bool
 	_value time.Time
 }
 
-func StoragenodeStorageRollup_IntervalStart(v time.Time) StoragenodeStorageRollup_IntervalStart_Field {
+func StoragenodeStorageTally_IntervalStart(v time.Time) StoragenodeStorageTally_IntervalStart_Field {
 	v = toUTC(v)
-	return StoragenodeStorageRollup_IntervalStart_Field{_set: true, _value: v}
+	return StoragenodeStorageTally_IntervalStart_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeStorageRollup_IntervalStart_Field) value() interface{} {
+func (f StoragenodeStorageTally_IntervalStart_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (StoragenodeStorageRollup_IntervalStart_Field) _Column() string { return "interval_start" }
+func (StoragenodeStorageTally_IntervalStart_Field) _Column() string { return "interval_start" }
 
-type StoragenodeStorageRollup_IntervalSeconds_Field struct {
-	_set   bool
-	_null  bool
-	_value uint
-}
-
-func StoragenodeStorageRollup_IntervalSeconds(v uint) StoragenodeStorageRollup_IntervalSeconds_Field {
-	return StoragenodeStorageRollup_IntervalSeconds_Field{_set: true, _value: v}
-}
-
-func (f StoragenodeStorageRollup_IntervalSeconds_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (StoragenodeStorageRollup_IntervalSeconds_Field) _Column() string { return "interval_seconds" }
-
-type StoragenodeStorageRollup_Total_Field struct {
+type StoragenodeStorageTally_Total_Field struct {
 	_set   bool
 	_null  bool
 	_value uint64
 }
 
-func StoragenodeStorageRollup_Total(v uint64) StoragenodeStorageRollup_Total_Field {
-	return StoragenodeStorageRollup_Total_Field{_set: true, _value: v}
+func StoragenodeStorageTally_Total(v uint64) StoragenodeStorageTally_Total_Field {
+	return StoragenodeStorageTally_Total_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeStorageRollup_Total_Field) value() interface{} {
+func (f StoragenodeStorageTally_Total_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (StoragenodeStorageRollup_Total_Field) _Column() string { return "total" }
+func (StoragenodeStorageTally_Total_Field) _Column() string { return "total" }
 
 type User struct {
 	Id           []byte
@@ -5972,7 +6017,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM storagenode_storage_rollups;")
+	__res, err = obj.driver.Exec("DELETE FROM storagenode_storage_tallies;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -6092,7 +6137,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM bucket_storage_rollups;")
+	__res, err = obj.driver.Exec("DELETE FROM bucket_storage_tallies;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -8841,7 +8886,7 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM storagenode_storage_rollups;")
+	__res, err = obj.driver.Exec("DELETE FROM storagenode_storage_tallies;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -8961,7 +9006,7 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM bucket_storage_rollups;")
+	__res, err = obj.driver.Exec("DELETE FROM bucket_storage_tallies;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
