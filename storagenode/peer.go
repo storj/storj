@@ -5,7 +5,6 @@ package storagenode
 
 import (
 	"context"
-	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -104,6 +103,7 @@ type Peer struct {
 		Endpoint  *piecestore.Endpoint
 		Inspector *inspector.Endpoint
 		Monitor   *monitor.Service
+		Sender    *orders.Sender
 	}
 }
 
@@ -164,7 +164,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Kademlia.Endpoint = kademlia.NewEndpoint(peer.Log.Named("kademlia:endpoint"), peer.Kademlia.Service, peer.Kademlia.RoutingTable, 60*time.Second)
+		peer.Kademlia.Endpoint = kademlia.NewEndpoint(peer.Log.Named("kademlia:endpoint"), peer.Kademlia.Service, peer.Kademlia.RoutingTable)
 		pb.RegisterNodesServer(peer.Server.GRPC(), peer.Kademlia.Endpoint)
 
 		peer.Kademlia.Inspector = kademlia.NewInspector(peer.Kademlia.Service, peer.Identity)
@@ -238,6 +238,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 			//TODO use config.Storage.Monitor.Interval, but for some reason is not set
 			config.Storage.KBucketRefreshInterval,
 		)
+
+		peer.Storage2.Sender = orders.NewSender(
+			log.Named("piecestore:orderssender"),
+			peer.Transport,
+			peer.Kademlia.Service,
+			peer.DB.Orders(),
+			config.Storage2.Sender,
+		)
 	}
 
 	return peer, nil
@@ -255,6 +263,9 @@ func (peer *Peer) Run(ctx context.Context) error {
 	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Agreements.Sender.Run(ctx))
+	})
+	group.Go(func() error {
+		return ignoreCancel(peer.Storage2.Sender.Run(ctx))
 	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Storage2.Monitor.Run(ctx))

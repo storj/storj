@@ -26,6 +26,27 @@ CREATE TABLE accounting_timestamps (
 	value TIMESTAMP NOT NULL,
 	PRIMARY KEY ( name )
 );
+CREATE TABLE bucket_bandwidth_rollups (
+	bucket_id BLOB NOT NULL,
+	interval_start TIMESTAMP NOT NULL,
+	interval_seconds INTEGER NOT NULL,
+	action INTEGER NOT NULL,
+	inline INTEGER NOT NULL,
+	allocated INTEGER NOT NULL,
+	settled INTEGER NOT NULL,
+	PRIMARY KEY ( bucket_id, interval_start, action )
+);
+CREATE TABLE bucket_storage_tallies (
+	bucket_id BLOB NOT NULL,
+	interval_start TIMESTAMP NOT NULL,
+	inline INTEGER NOT NULL,
+	remote INTEGER NOT NULL,
+	remote_segments_count INTEGER NOT NULL,
+	inline_segments_count INTEGER NOT NULL,
+	object_count INTEGER NOT NULL,
+	metadata_size INTEGER NOT NULL,
+	PRIMARY KEY ( bucket_id, interval_start )
+);
 CREATE TABLE bucket_usages (
 	id BLOB NOT NULL,
 	bucket_id BLOB NOT NULL,
@@ -39,8 +60,7 @@ CREATE TABLE bucket_usages (
 	repair_egress INTEGER NOT NULL,
 	get_egress INTEGER NOT NULL,
 	audit_egress INTEGER NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( rollup_end_time, bucket_id )
+	PRIMARY KEY ( id )
 );
 CREATE TABLE bwagreements (
 	serialnum TEXT NOT NULL,
@@ -119,10 +139,32 @@ CREATE TABLE registration_tokens (
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
 );
+CREATE TABLE serial_numbers (
+	id INTEGER NOT NULL,
+	serial_number BLOB NOT NULL,
+	bucket_id BLOB NOT NULL,
+	expires_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE storagenode_bandwidth_rollups (
+	storagenode_id BLOB NOT NULL,
+	interval_start TIMESTAMP NOT NULL,
+	interval_seconds INTEGER NOT NULL,
+	action INTEGER NOT NULL,
+	allocated INTEGER NOT NULL,
+	settled INTEGER NOT NULL,
+	PRIMARY KEY ( storagenode_id, interval_start, action )
+);
+CREATE TABLE storagenode_storage_tallies (
+	storagenode_id BLOB NOT NULL,
+	interval_start TIMESTAMP NOT NULL,
+	total INTEGER NOT NULL,
+	PRIMARY KEY ( storagenode_id, interval_start )
+);
 CREATE TABLE users (
 	id BLOB NOT NULL,
-	first_name TEXT NOT NULL,
-	last_name TEXT NOT NULL,
+	full_name TEXT NOT NULL,
+	short_name TEXT,
 	email TEXT NOT NULL,
 	password_hash BLOB NOT NULL,
 	status INTEGER NOT NULL,
@@ -145,3 +187,13 @@ CREATE TABLE project_members (
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( member_id, project_id )
 );
+CREATE TABLE used_serials (
+	serial_number_id INTEGER NOT NULL REFERENCES serial_numbers( id ) ON DELETE CASCADE,
+	storage_node_id BLOB NOT NULL,
+	PRIMARY KEY ( serial_number_id, storage_node_id )
+);
+CREATE INDEX bucket_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_id, interval_start, interval_seconds );
+CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
+CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
+CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
+CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );

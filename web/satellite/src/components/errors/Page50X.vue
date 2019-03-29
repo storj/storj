@@ -58,7 +58,7 @@ export default class Page50X extends Vue {
         user-select: none; 
 
         h1 {
-            font-family: 'montserrat_regular';
+            font-family: 'font_regular';
             margin-bottom: 60px;
             font-size: 32px;
         }

@@ -63,6 +63,9 @@ func (inspector *Endpoint) retrieveStats(ctx context.Context) (*pb.StatSummaryRe
 	if err != nil {
 		return nil, err
 	}
+	ingress := usage.Put + usage.PutRepair
+	egress := usage.Get + usage.GetAudit + usage.GetRepair
+
 	totalUsedBandwidth := int64(0)
 	oldUsage, err := inspector.psdbDB.SumTTLSizes()
 	if err != nil {
@@ -76,6 +79,8 @@ func (inspector *Endpoint) retrieveStats(ctx context.Context) (*pb.StatSummaryRe
 	return &pb.StatSummaryResponse{
 		UsedSpace:          totalUsedSpace,
 		AvailableSpace:     (inspector.config.AllocatedDiskSpace.Int64() - totalUsedSpace),
+		UsedIngress:        ingress,
+		UsedEgress:         egress,
 		UsedBandwidth:      totalUsedBandwidth,
 		AvailableBandwidth: (inspector.config.AllocatedBandwidth.Int64() - totalUsedBandwidth),
 	}, nil
@@ -115,13 +120,25 @@ func (inspector *Endpoint) getDashboardData(ctx context.Context) (*pb.DashboardR
 		bsNodes[i] = node.Address.Address
 	}
 
+	pinged, err := ptypes.TimestampProto(inspector.kademlia.LastPinged())
+	if err != nil {
+		inspector.log.Warn("last ping time bad", zap.Error(err))
+		pinged = nil
+	}
+	queried, err := ptypes.TimestampProto(inspector.kademlia.LastQueried())
+	if err != nil {
+		inspector.log.Warn("last query time bad", zap.Error(err))
+		queried = nil
+	}
+
 	return &pb.DashboardResponse{
 		NodeId:           inspector.kademlia.Local().Id,
 		NodeConnections:  int64(len(nodes)),
 		BootstrapAddress: strings.Join(bsNodes[:], ", "),
 		InternalAddress:  "",
 		ExternalAddress:  inspector.kademlia.Local().Address.Address,
-		Connection:       true,
+		LastPinged:       pinged,
+		LastQueried:      queried,
 		Uptime:           ptypes.DurationProto(time.Since(inspector.startTime)),
 		Stats:            statsSummary,
 	}, nil

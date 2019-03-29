@@ -22,7 +22,7 @@ func DialAddressInsecure(ctx context.Context, address string, opts ...grpc.DialO
 		grpc.FailOnNonTempDialError(true),
 	}, opts...)
 
-	timedCtx, cf := context.WithTimeout(ctx, connWaitTimeout)
+	timedCtx, cf := context.WithTimeout(ctx, defaultDialTimeout)
 	defer cf()
 
 	conn, err = grpc.DialContext(timedCtx, address, options...)

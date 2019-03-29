@@ -362,6 +362,110 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					)`,
 				},
 			},
+			{
+				Description: "Add new tables for tracking used serials, bandwidth and storage",
+				Version:     9,
+				Action: migrate.SQL{
+					`CREATE TABLE serial_numbers (
+						id serial NOT NULL,
+						serial_number bytea NOT NULL,
+						bucket_id bytea NOT NULL,
+						expires_at timestamp NOT NULL,
+						PRIMARY KEY ( id )
+					)`,
+					`CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at )`,
+					`CREATE UNIQUE INDEX serial_number_index ON serial_numbers ( serial_number )`,
+					`CREATE TABLE used_serials (
+						serial_number_id integer NOT NULL REFERENCES serial_numbers( id ) ON DELETE CASCADE,
+						storage_node_id bytea NOT NULL,
+						PRIMARY KEY ( serial_number_id, storage_node_id )
+					)`,
+					`CREATE TABLE storagenode_bandwidth_rollups (
+						storagenode_id bytea NOT NULL,
+						interval_start timestamp NOT NULL,
+						interval_seconds integer NOT NULL,
+						action integer NOT NULL,
+						allocated bigint NOT NULL,
+						settled bigint NOT NULL,
+						PRIMARY KEY ( storagenode_id, interval_start, action )
+					)`,
+					`CREATE INDEX storagenode_id_interval_start_interval_seconds_index ON storagenode_bandwidth_rollups (
+						storagenode_id,
+						interval_start,
+						interval_seconds
+					)`,
+					`CREATE TABLE storagenode_storage_rollups (
+						storagenode_id bytea NOT NULL,
+						interval_start timestamp NOT NULL,
+						interval_seconds integer NOT NULL,
+						total bigint NOT NULL,
+						PRIMARY KEY ( storagenode_id, interval_start )
+					)`,
+					`CREATE TABLE bucket_bandwidth_rollups (
+						bucket_id bytea NOT NULL,
+						interval_start timestamp NOT NULL,
+						interval_seconds integer NOT NULL,
+						action integer NOT NULL,
+						inline bigint NOT NULL,
+						allocated bigint NOT NULL,
+						settled bigint NOT NULL,
+						PRIMARY KEY ( bucket_id, interval_start, action )
+					)`,
+					`CREATE INDEX bucket_id_interval_start_interval_seconds_index ON bucket_bandwidth_rollups (
+						bucket_id,
+						interval_start,
+						interval_seconds
+					)`,
+					`CREATE TABLE bucket_storage_rollups (
+						bucket_id bytea NOT NULL,
+						interval_start timestamp NOT NULL,
+						interval_seconds integer NOT NULL,
+						inline bigint NOT NULL,
+						remote bigint NOT NULL,
+						PRIMARY KEY ( bucket_id, interval_start )
+					)`,
+					`ALTER TABLE bucket_usages DROP CONSTRAINT bucket_usages_rollup_end_time_bucket_id_key`,
+					`CREATE UNIQUE INDEX bucket_id_rollup_end_time_index ON bucket_usages ( 
+						bucket_id,
+						rollup_end_time )`,
+				},
+			},
+			{
+				Description: "users first_name to full_name, last_name to short_name",
+				Version:     10,
+				Action: migrate.SQL{
+					`ALTER TABLE users RENAME COLUMN first_name TO full_name;
+					 ALTER TABLE users ALTER COLUMN last_name DROP NOT NULL;
+					 ALTER TABLE users RENAME COLUMN last_name TO short_name;`,
+				},
+			},
+			{
+				Description: "drops interval seconds from storage_rollups, renames x_storage_rollups to x_storage_tallies, adds fields to bucket_storage_tallies",
+				Version:     11,
+				Action: migrate.SQL{
+					`ALTER TABLE storagenode_storage_rollups RENAME TO storagenode_storage_tallies`,
+					`ALTER TABLE bucket_storage_rollups RENAME TO bucket_storage_tallies`,
+
+					`ALTER TABLE storagenode_storage_tallies DROP COLUMN interval_seconds`,
+					`ALTER TABLE bucket_storage_tallies DROP COLUMN interval_seconds`,
+
+					`ALTER TABLE bucket_storage_tallies ADD remote_segments_count integer;
+					UPDATE bucket_storage_tallies SET remote_segments_count = 0;
+					ALTER TABLE bucket_storage_tallies ALTER COLUMN remote_segments_count SET NOT NULL;`,
+
+					`ALTER TABLE bucket_storage_tallies ADD inline_segments_count integer;
+					UPDATE bucket_storage_tallies SET inline_segments_count = 0;
+					ALTER TABLE bucket_storage_tallies ALTER COLUMN inline_segments_count SET NOT NULL;`,
+
+					`ALTER TABLE bucket_storage_tallies ADD object_count integer;
+					UPDATE bucket_storage_tallies SET object_count = 0;
+					ALTER TABLE bucket_storage_tallies ALTER COLUMN object_count SET NOT NULL;`,
+
+					`ALTER TABLE bucket_storage_tallies ADD metadata_size bigint;
+					UPDATE bucket_storage_tallies SET metadata_size = 0;
+					ALTER TABLE bucket_storage_tallies ALTER COLUMN metadata_size SET NOT NULL;`,
+				},
+			},
 		},
 	}
 }

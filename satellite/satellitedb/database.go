@@ -16,9 +16,9 @@ import (
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/orders"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
@@ -127,11 +127,6 @@ func (db *DB) CertDB() certdb.DB {
 // 	return &pointerDB{db: db.db}
 // }
 
-// StatDB is a getter for StatDB repository
-func (db *DB) StatDB() statdb.DB {
-	return &statDB{db: db.db}
-}
-
 // OverlayCache is a getter for overlay cache repository
 func (db *DB) OverlayCache() overlay.DB {
 	return &overlaycache{db: db.db}
@@ -158,4 +153,9 @@ func (db *DB) Console() console.DB {
 		db:      db.db,
 		methods: db.db,
 	}
+}
+
+// Orders returns database for storing orders
+func (db *DB) Orders() orders.DB {
+	return &ordersDB{db: db.db}
 }

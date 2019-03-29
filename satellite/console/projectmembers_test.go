@@ -158,33 +158,33 @@ func prepareUsersAndProjects(ctx context.Context, t *testing.T, users console.Us
 	usersList := []*console.User{{
 		Email:        "2email2@ukr.net",
 		PasswordHash: []byte("some_readable_hash"),
-		LastName:     "Liam",
-		FirstName:    "Jameson",
+		ShortName:    "Liam",
+		FullName:     "Liam Jameson",
 	}, {
 		Email:        "1email1@ukr.net",
 		PasswordHash: []byte("some_readable_hash"),
-		LastName:     "William",
-		FirstName:    "Noahson",
+		ShortName:    "William",
+		FullName:     "Noahson William",
 	}, {
 		Email:        "email3@ukr.net",
 		PasswordHash: []byte("some_readable_hash"),
-		LastName:     "Mason",
-		FirstName:    "Elijahson",
+		ShortName:    "Mason",
+		FullName:     "Mason Elijahson",
 	}, {
 		Email:        "email4@ukr.net",
 		PasswordHash: []byte("some_readable_hash"),
-		LastName:     "Oliver",
-		FirstName:    "Jacobson",
+		ShortName:    "Oliver",
+		FullName:     "Oliver Jacobson",
 	}, {
 		Email:        "email5@ukr.net",
 		PasswordHash: []byte("some_readable_hash"),
-		LastName:     "Lucas",
-		FirstName:    "Michaelson",
+		ShortName:    "Lucas",
+		FullName:     "Michaelson Lucas",
 	}, {
 		Email:        "email6@ukr.net",
 		PasswordHash: []byte("some_readable_hash"),
-		LastName:     "Alexander",
-		FirstName:    "Ethanson",
+		ShortName:    "Alexander",
+		FullName:     "Alexander Ethanson",
 	},
 	}
 

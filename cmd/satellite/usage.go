@@ -54,7 +54,7 @@ func generateCSV(ctx context.Context, start time.Time, end time.Time, output io.
 	for _, row := range rows {
 		nid := row.NodeID
 
-		stats, err := db.StatDB().Get(ctx, nid)
+		stats, err := db.OverlayCache().GetStats(ctx, nid)
 		if err != nil {
 			return err
 		}

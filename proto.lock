@@ -31,6 +31,31 @@
                 "type": "Status"
               }
             ]
+          },
+          {
+            "name": "BandwidthSettlementRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "allocation",
+                "type": "piecestoreroutes.RenterBandwidthAllocation"
+              }
+            ]
+          },
+          {
+            "name": "BandwidthSettlementResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "serial_number",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "status",
+                "type": "AgreementsSummary.Status"
+              }
+            ]
           }
         ],
         "services": [
@@ -41,6 +66,13 @@
                 "name": "BandwidthAgreements",
                 "in_type": "piecestoreroutes.RenterBandwidthAllocation",
                 "out_type": "AgreementsSummary"
+              },
+              {
+                "name": "Settlement",
+                "in_type": "BandwidthSettlementRequest",
+                "out_type": "BandwidthSettlementResponse",
+                "in_streamed": true,
+                "out_streamed": true
               }
             ]
           }
@@ -1001,11 +1033,21 @@
               },
               {
                 "id": 3,
-                "name": "used_bandwidth",
+                "name": "used_ingress",
                 "type": "int64"
               },
               {
                 "id": 4,
+                "name": "used_egress",
+                "type": "int64"
+              },
+              {
+                "id": 5,
+                "name": "used_bandwidth",
+                "type": "int64"
+              },
+              {
+                "id": 6,
                 "name": "available_bandwidth",
                 "type": "int64"
               }
@@ -1059,13 +1101,18 @@
               },
               {
                 "id": 7,
-                "name": "connection",
-                "type": "bool"
+                "name": "uptime",
+                "type": "google.protobuf.Duration"
               },
               {
                 "id": 8,
-                "name": "uptime",
-                "type": "google.protobuf.Duration"
+                "name": "last_pinged",
+                "type": "google.protobuf.Timestamp"
+              },
+              {
+                "id": 9,
+                "name": "last_queried",
+                "type": "google.protobuf.Timestamp"
               }
             ]
           }
@@ -1118,13 +1165,8 @@
                 "name": "DumpNodes",
                 "in_type": "DumpNodesRequest",
                 "out_type": "DumpNodesResponse"
-              }
-            ]
           },
           {
-            "name": "StatDBInspector",
-            "rpcs": [
-              {
                 "name": "GetStats",
                 "in_type": "GetStatsRequest",
                 "out_type": "GetStatsResponse"
@@ -1174,6 +1216,9 @@
           },
           {
             "path": "google/protobuf/duration.proto"
+          },
+          {
+            "path": "google/protobuf/timestamp.proto"
           }
         ],
         "package": {
@@ -1857,6 +1902,22 @@
                 "integer": 6
               }
             ]
+          },
+          {
+            "name": "SettlementResponse.Status",
+            "enum_fields": [
+              {
+                "name": "INVALID"
+              },
+              {
+                "name": "ACCEPTED",
+                "integer": 1
+              },
+              {
+                "name": "REJECTED",
+                "integer": 2
+              }
+            ]
           }
         ],
         "messages": [
@@ -1866,7 +1927,17 @@
               {
                 "id": 1,
                 "name": "serial_number",
-                "type": "bytes"
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "SerialNumber"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 2,
@@ -1961,7 +2032,17 @@
               {
                 "id": 1,
                 "name": "serial_number",
-                "type": "bytes"
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "SerialNumber"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 2,
@@ -2002,6 +2083,60 @@
                 "id": 3,
                 "name": "signature",
                 "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "SettlementRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "limit",
+                "type": "OrderLimit2"
+              },
+              {
+                "id": 2,
+                "name": "order",
+                "type": "Order2"
+              }
+            ]
+          },
+          {
+            "name": "SettlementResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "serial_number",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "SerialNumber"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "status",
+                "type": "Status"
+              }
+            ]
+          }
+        ],
+        "services": [
+          {
+            "name": "Orders",
+            "rpcs": [
+              {
+                "name": "Settlement",
+                "in_type": "SettlementRequest",
+                "out_type": "SettlementResponse",
+                "in_streamed": true,
+                "out_streamed": true
               }
             ]
           }
@@ -2061,151 +2196,6 @@
           }
         ],
         "messages": [
-          {
-            "name": "LookupRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "node_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "name": "LookupResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "node",
-                "type": "node.Node"
-              }
-            ]
-          },
-          {
-            "name": "LookupRequests",
-            "fields": [
-              {
-                "id": 1,
-                "name": "lookup_request",
-                "type": "LookupRequest",
-                "is_repeated": true
-              }
-            ]
-          },
-          {
-            "name": "LookupResponses",
-            "fields": [
-              {
-                "id": 1,
-                "name": "lookup_response",
-                "type": "LookupResponse",
-                "is_repeated": true
-              }
-            ]
-          },
-          {
-            "name": "FindStorageNodesResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "nodes",
-                "type": "node.Node",
-                "is_repeated": true
-              }
-            ]
-          },
-          {
-            "name": "FindStorageNodesRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "object_size",
-                "type": "int64"
-              },
-              {
-                "id": 2,
-                "name": "contract_length",
-                "type": "google.protobuf.Duration"
-              },
-              {
-                "id": 3,
-                "name": "opts",
-                "type": "OverlayOptions"
-              },
-              {
-                "id": 4,
-                "name": "start",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 5,
-                "name": "min_nodes",
-                "type": "int64"
-              }
-            ]
-          },
-          {
-            "name": "OverlayOptions",
-            "fields": [
-              {
-                "id": 1,
-                "name": "max_latency",
-                "type": "google.protobuf.Duration"
-              },
-              {
-                "id": 2,
-                "name": "min_stats",
-                "type": "node.NodeStats"
-              },
-              {
-                "id": 3,
-                "name": "min_speed_kbps",
-                "type": "int64"
-              },
-              {
-                "id": 4,
-                "name": "amount",
-                "type": "int64"
-              },
-              {
-                "id": 5,
-                "name": "restrictions",
-                "type": "node.NodeRestrictions"
-              },
-              {
-                "id": 6,
-                "name": "excluded_nodes",
-                "type": "bytes",
-                "is_repeated": true,
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  }
-                ]
-              }
-            ]
-          },
           {
             "name": "QueryRequest",
             "fields": [
@@ -2299,26 +2289,6 @@
         ],
         "services": [
           {
-            "name": "Overlay",
-            "rpcs": [
-              {
-                "name": "Lookup",
-                "in_type": "LookupRequest",
-                "out_type": "LookupResponse"
-              },
-              {
-                "name": "BulkLookup",
-                "in_type": "LookupRequests",
-                "out_type": "LookupResponses"
-              },
-              {
-                "name": "FindStorageNodes",
-                "in_type": "FindStorageNodesRequest",
-                "out_type": "FindStorageNodesResponse"
-              }
-            ]
-          },
-          {
             "name": "Nodes",
             "rpcs": [
               {
@@ -2340,9 +2310,6 @@
           }
         ],
         "imports": [
-          {
-            "path": "google/protobuf/duration.proto"
-          },
           {
             "path": "gogo.proto"
           },

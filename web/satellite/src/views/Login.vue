@@ -4,12 +4,12 @@
 <template>
     <div class="login-container" v-on:keyup.enter="onLogin">
         <div v-bind:class="loadingClassName">
-            <img class="loading-overlay__logo" src="../../static/images/login/Logo.svg" alt="loading-logo">
+            <img class="loading-overlay__logo" src="../../static/images/Logo.svg" alt="loading-logo">
         </div>
         <img class="planet" src="../../static/images/Mars.png" alt="" >
         <div class="login-container__wrapper">
             <div class="login-container__header">
-                <img class="login-container__logo" src="../../static/images/login/Logo.svg" alt="logo" v-on:click="onLogoClick">
+                <img class="login-container__logo" src="../../static/images/Logo.svg" alt="logo" v-on:click="onLogoClick">
                 <div class="login-container__register-button" v-on:click.prevent="onSignUpClick">
                     <p>Create Account</p>
                 </div>
@@ -169,7 +169,7 @@ export default class Login extends Vue {
             height: 48px;
 
             p {
-                font-family: 'montserrat_bold';
+                font-family: 'font_bold';
                 font-size: 14px;
                 line-height: 19px;
                 margin-block-start: 0;
@@ -222,7 +222,7 @@ export default class Login extends Vue {
             width: 100%;
 
             h1 {
-                font-family: 'montserrat_bold';
+                font-family: 'font_bold';
                 font-size: 22px;
                 color: white;
                 line-height: 27px;
@@ -231,7 +231,7 @@ export default class Login extends Vue {
             }
 
             p {
-                font-family: 'montserrat_regular';
+                font-family: 'font_regular';
                 font-size: 16px;
                 color: white;
                 line-height: 21px;
@@ -239,7 +239,7 @@ export default class Login extends Vue {
                 margin-block-end: 0;
 
                 b {
-                    font-family: 'montserrat_bold';
+                    font-family: 'font_bold';
                     margin-left: 7px;
                 }
             }
@@ -269,7 +269,7 @@ export default class Login extends Vue {
                 box-shadow: 0px 16px 24px #3A54DF;
 
                 p {
-                    font-family: 'montserrat_bold';
+                    font-family: 'font_bold';
                     font-size: 14px;
                     line-height: 19px;
                     margin-block-start: 0;
@@ -293,7 +293,7 @@ export default class Login extends Vue {
             flex-direction: row;
 
             p {
-                font-family: 'montserrat_regular';
+                font-family: 'font_regular';
                 font-size: 12px;
                 line-height: 18px;
                 text-align: center;
@@ -304,7 +304,7 @@ export default class Login extends Vue {
             }
 
             a {
-                font-family: 'montserrat_regular';
+                font-family: 'font_regular';
                 font-size: 15px;
                 line-height: 22px;
                 text-align: center;
@@ -336,7 +336,7 @@ export default class Login extends Vue {
             align-items: center;
 
             &__nav-link {
-                font-family: 'montserrat_regular';
+                font-family: 'font_regular';
                 font-size: 14px;
                 line-height: 20px;
                 height: 48px;
@@ -348,7 +348,7 @@ export default class Login extends Vue {
                 color: white;
 
                 .bold {
-                    font-family: 'montserrat_medium';
+                    font-family: 'font_medium';
                 }
             }
         }

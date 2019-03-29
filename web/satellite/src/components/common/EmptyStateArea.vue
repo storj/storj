@@ -57,13 +57,13 @@ export default class EmptyStateProjectArea extends Vue {
             align-items: center;
 
             &__additional-text {
-                font-family: 'montserrat_regular';
+                font-family: 'font_regular';
                 font-size: 16px;
                 width: 60%;
                 margin-bottom: 10px;
 
                 b {
-                    font-family: 'montserrat_bold' !important;
+                    font-family: 'font_bold' !important;
                     font-size: 16px;
                 }
             }
@@ -73,7 +73,7 @@ export default class EmptyStateProjectArea extends Vue {
              }
 
             h1 {
-                font-family: 'montserrat_bold';
+                font-family: 'font_bold';
                 font-size: 32px;
                 line-height: 35px;
                 margin-bottom: 30px;
@@ -81,7 +81,7 @@ export default class EmptyStateProjectArea extends Vue {
             }
 
             p {
-                font-family: 'montserrat_regular';
+                font-family: 'font_regular';
                 font-size: 16px;
                 line-height: 21px;
             }
