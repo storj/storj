@@ -289,6 +289,7 @@ func (uplink *Uplink) Delete(ctx context.Context, satellite *satellite.Peer, buc
 	return metainfo.DeleteObject(ctx, bucket, path)
 }
 
+// GetConfig returns a default config for a given satellite.
 func (uplink *Uplink) GetConfig(satellite *satellite.Peer) uplink.Config {
 	config := getDefaultConfig()
 	config.Client.SatelliteAddr = satellite.Addr()
