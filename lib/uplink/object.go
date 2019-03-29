@@ -8,6 +8,8 @@ import (
 	"io"
 	"time"
 
+	"storj.io/storj/internal/readcloser"
+
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/storage/streams"
@@ -85,7 +87,17 @@ func (o *Object) DownloadRange(ctx context.Context, offset, length int64) (io.Re
 		return nil, err
 	}
 
-	return stream.NewDownload(ctx, readOnlyStream, o.streams), nil
+	download := stream.NewDownload(ctx, readOnlyStream, o.streams)
+	_, err = download.Seek(offset, io.SeekStart)
+	if err != nil {
+		return nil, err
+	}
+
+	if length == -1 {
+		return download, nil
+	} else {
+		return readcloser.LimitReadCloser(download, length), nil
+	}
 }
 
 // Close closes the Object.
