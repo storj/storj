@@ -18,7 +18,6 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/certificates"
-	"storj.io/storj/pkg/utils"
 )
 
 var (
@@ -86,13 +85,13 @@ func cmdCreateAuth(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	var incErrs utils.ErrorGroup
+	var incErrs errs.Group
 	for _, email := range emails {
 		if _, err := authDB.Create(email, count); err != nil {
 			incErrs.Add(err)
 		}
 	}
-	return incErrs.Finish()
+	return incErrs.Err()
 }
 
 func cmdInfoAuth(cmd *cobra.Command, args []string) error {
@@ -121,7 +120,7 @@ func cmdInfoAuth(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	var emailErrs, printErrs utils.ErrorGroup
+	var emailErrs, printErrs errs.Group
 	w := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
 	if _, err := fmt.Fprintln(w, "Email\tClaimed\tAvail.\t"); err != nil {
 		return err
@@ -137,7 +136,7 @@ func cmdInfoAuth(cmd *cobra.Command, args []string) error {
 	if err := w.Flush(); err != nil {
 		return errs.Wrap(err)
 	}
-	return utils.CombineErrors(emailErrs.Finish(), printErrs.Finish())
+	return errs.Combine(emailErrs.Err(), printErrs.Err())
 }
 
 func writeAuthInfo(authDB *certificates.AuthorizationDB, email string, w io.Writer) error {
@@ -216,7 +215,7 @@ func cmdExportAuth(cmd *cobra.Command, args []string) error {
 	}
 
 	var (
-		emailErrs, csvErrs utils.ErrorGroup
+		emailErrs, csvErrs errs.Group
 		output             io.Writer
 	)
 	switch config.Out {
@@ -240,7 +239,7 @@ func cmdExportAuth(cmd *cobra.Command, args []string) error {
 	}
 
 	csvWriter.Flush()
-	return utils.CombineErrors(emailErrs.Finish(), csvErrs.Finish())
+	return errs.Combine(emailErrs.Err(), csvErrs.Err())
 }
 
 func writeAuthExport(authDB *certificates.AuthorizationDB, email string, w *csv.Writer) error {
@@ -252,11 +251,11 @@ func writeAuthExport(authDB *certificates.AuthorizationDB, email string, w *csv.
 		return nil
 	}
 
-	var authErrs utils.ErrorGroup
+	var authErrs errs.Group
 	for _, auth := range auths {
 		if err := w.Write([]string{email, auth.Token.String()}); err != nil {
 			authErrs.Add(err)
 		}
 	}
-	return authErrs.Finish()
+	return authErrs.Err()
 }
