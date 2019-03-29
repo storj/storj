@@ -61,7 +61,7 @@ func (inspector *Endpoint) retrieveStats(ctx context.Context) (*pb.StatSummaryRe
 	if err != nil {
 		return nil, err
 	}
-	totalUsedSpaceOld, err := inspector.pieceInfo.SpaceUsed(ctx)
+	totalUsedSpaceOld, err := inspector.psdbDB.SumTTLSizes()
 	if err != nil {
 		return nil, err
 	}
