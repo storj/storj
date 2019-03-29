@@ -2865,31 +2865,6 @@
             ]
           },
           {
-            "name": "PutRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "path",
-                "type": "string"
-              },
-              {
-                "id": 2,
-                "name": "pointer",
-                "type": "Pointer"
-              }
-            ]
-          },
-          {
-            "name": "GetRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "path",
-                "type": "string"
-              }
-            ]
-          },
-          {
             "name": "ListRequest",
             "fields": [
               {
@@ -2921,35 +2896,6 @@
                 "id": 6,
                 "name": "meta_flags",
                 "type": "fixed32"
-              }
-            ]
-          },
-          {
-            "name": "PutResponse"
-          },
-          {
-            "name": "GetResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "pointer",
-                "type": "Pointer"
-              },
-              {
-                "id": 2,
-                "name": "nodes",
-                "type": "node.Node",
-                "is_repeated": true
-              },
-              {
-                "id": 3,
-                "name": "pba",
-                "type": "piecestoreroutes.PayerBandwidthAllocation"
-              },
-              {
-                "id": 4,
-                "name": "authorization",
-                "type": "piecestoreroutes.SignedMessage"
               }
             ]
           },
@@ -2990,64 +2936,6 @@
                 ]
               }
             ]
-          },
-          {
-            "name": "DeleteRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "path",
-                "type": "string"
-              }
-            ]
-          },
-          {
-            "name": "DeleteResponse"
-          },
-          {
-            "name": "IterateRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "prefix",
-                "type": "string"
-              },
-              {
-                "id": 2,
-                "name": "first",
-                "type": "string"
-              },
-              {
-                "id": 3,
-                "name": "recurse",
-                "type": "bool"
-              },
-              {
-                "id": 4,
-                "name": "reverse",
-                "type": "bool"
-              }
-            ]
-          },
-          {
-            "name": "PayerBandwidthAllocationRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "action",
-                "type": "piecestoreroutes.BandwidthAction"
-              }
-            ]
-          },
-          {
-            "name": "PayerBandwidthAllocationResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "pba",
-                "type": "piecestoreroutes.PayerBandwidthAllocation"
-              }
-            ]
           }
         ],
         "services": [
@@ -3055,29 +2943,9 @@
             "name": "PointerDB",
             "rpcs": [
               {
-                "name": "Put",
-                "in_type": "PutRequest",
-                "out_type": "PutResponse"
-              },
-              {
-                "name": "Get",
-                "in_type": "GetRequest",
-                "out_type": "GetResponse"
-              },
-              {
                 "name": "List",
                 "in_type": "ListRequest",
                 "out_type": "ListResponse"
-              },
-              {
-                "name": "Delete",
-                "in_type": "DeleteRequest",
-                "out_type": "DeleteResponse"
-              },
-              {
-                "name": "PayerBandwidthAllocation",
-                "in_type": "PayerBandwidthAllocationRequest",
-                "out_type": "PayerBandwidthAllocationResponse"
               }
             ]
           }
