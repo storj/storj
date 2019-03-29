@@ -52,8 +52,6 @@ type DB interface {
 	SaveRollup(ctx context.Context, latestTally time.Time, stats RollupStats) error
 	// SaveAllBucketsInfo saves the latest bucket info
 	SaveBucketTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*BucketTally) error
-	// LatestTallyForBucket returns the latest tally for a bucket
-	LatestTallyForBucket(ctx context.Context, bucketID string) (*BucketTally, time.Time, error)
 	// QueryPaymentInfo queries Overlay, Accounting Rollup on nodeID
 	QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*CSVRow, error)
 	// DeleteRawBefore deletes all raw tallies prior to some time

@@ -184,35 +184,6 @@ func (db *accountingDB) SaveBucketTallies(ctx context.Context, intervalStart tim
 	return nil
 }
 
-// LatestTallyForBucket returns the latest tally for a bucket
-func (db *accountingDB) LatestTallyForBucket(ctx context.Context, bucketID string) (*accounting.BucketTally, time.Time, error) {
-	var sqlStmt = `SELECT interval_start, inline, remote, remote_segments_count,
-		inline_segments_count, object_count, metadata_size
-		FROM bucket_storage_tallies t
-		INNER JOIN (
-			SELECT bucket_id, MAX(interval_start) max_interval
-			FROM bucket_storage_tallies
-			WHERE bucket_id = ?
-			GROUP BY bucket_id
-		) tm ON t.bucket_id = tm.bucket_id AND t.interval_start = tm.max_interval`
-	row := db.db.DB.QueryRowContext(ctx, db.db.Rebind(sqlStmt), []byte(bucketID))
-
-	var intervalStart time.Time
-	t := &accounting.BucketTally{}
-
-	err := row.Scan(&intervalStart, &t.InlineBytes, &t.RemoteBytes, &t.RemoteSegments, &t.InlineSegments, &t.Files, &t.MetadataSize)
-	if err != nil {
-		return nil, time.Time{}, err
-	}
-
-	t.Segments = t.InlineSegments + t.RemoteSegments
-	t.InlineFiles = t.InlineSegments
-	t.RemoteFiles = t.Files - t.InlineFiles
-	t.Bytes = t.InlineBytes + t.RemoteBytes
-
-	return t, intervalStart, nil
-}
-
 // QueryPaymentInfo queries Overlay, Accounting Rollup on nodeID
 func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*accounting.CSVRow, error) {
 	var sqlStmt = `SELECT n.id, n.created_at, n.audit_success_ratio, r.at_rest_total, r.get_repair_total,
