@@ -5,6 +5,7 @@ package tally_test
 
 import (
 	"context"
+	"strconv"
 	"testing"
 	"time"
 
@@ -13,12 +14,67 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/bwagreement/testbwagreement"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/satellite"
 )
 
+func TestLatestTallyForBucket(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		bucketTallies := generateBucketTallies(5, 10)
+		before := time.Now()
+		err := planet.Satellites[0].DB.Accounting().SaveBucketTallies(ctx, before, bucketTallies)
+		require.NoError(t, err)
+
+		for i := 0; i < 5; i++ {
+			id := strconv.Itoa(i)
+			latestTally, interval, err := planet.Satellites[0].DB.Accounting().LatestTallyForBucket(ctx, id)
+			require.NoError(t, err)
+			assert.Equal(t, before.UTC(), interval.UTC())
+			assert.Equal(t, bucketTallies[id], latestTally)
+		}
+
+		// generate new bucket tallies with same ids but different data
+		newBucketTallies := generateBucketTallies(5, 50)
+		later := before.Add(time.Hour * 1)
+		err = planet.Satellites[0].DB.Accounting().SaveBucketTallies(ctx, later, newBucketTallies)
+		require.NoError(t, err)
+
+		// assert LatestTallyForBucket gets latest tally data
+		for i := 0; i < 5; i++ {
+			id := strconv.Itoa(i)
+			latestTally, interval, err := planet.Satellites[0].DB.Accounting().LatestTallyForBucket(ctx, id)
+			require.NoError(t, err)
+			assert.Equal(t, later.UTC(), interval.UTC())
+			assert.Equal(t, newBucketTallies[id], latestTally)
+		}
+	})
+}
+
+func generateBucketTallies(n int, data int64) map[string]*accounting.BucketTally {
+	bucketTallies := make(map[string]*accounting.BucketTally)
+	for i := 0; i < n; i++ {
+		bt := &accounting.BucketTally{
+			Segments:        data * 2,
+			InlineSegments:  data,
+			RemoteSegments:  data,
+			UnknownSegments: 0,
+			Files:           data * 2,
+			InlineFiles:     data,
+			RemoteFiles:     data,
+			Bytes:           data * 2,
+			InlineBytes:     data,
+			RemoteBytes:     data,
+			MetadataSize:    data,
+		}
+		bucketTallies[strconv.Itoa(i)] = bt
+	}
+	return bucketTallies
+}
 func TestQueryNoAgreements(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
