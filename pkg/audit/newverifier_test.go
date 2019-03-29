@@ -38,14 +38,15 @@ func TestVerifierHappyPath(t *testing.T) {
 		cursor := audit.NewCursor(pointerdb)
 
 		var stripe *audit.Stripe
-		for {
+		maxRetries := 3
+		for i := 0; i < maxRetries; i++ {
 			stripe, err = cursor.NextStripe(ctx)
 			if stripe != nil || err != nil {
 				break
 			}
 		}
 		require.NoError(t, err)
-		require.NotNil(t, stripe)
+		require.NotNil(t, stripe, "unable to get stripe; likely no pointers in pointerdb")
 
 		transport := planet.Satellites[0].Transport
 		orders := planet.Satellites[0].Orders.Service
