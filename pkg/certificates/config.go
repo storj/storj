@@ -14,7 +14,7 @@ import (
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/transport"
@@ -55,7 +55,7 @@ func (c CertServerConfig) NewAuthDB() (*AuthorizationDB, error) {
 	// TODO: refactor db selection logic?
 	driver, source, err := dbutil.SplitConnstr(c.AuthorizationDBURL)
 	if err != nil {
-		return nil, peertls.ErrRevocationDB.Wrap(err)
+		return nil, extensions.ErrRevocationDB.Wrap(err)
 	}
 
 	authDB := new(AuthorizationDB)

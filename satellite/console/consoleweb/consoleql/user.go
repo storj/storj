@@ -20,10 +20,10 @@ const (
 	FieldEmail = "email"
 	// FieldPassword is a field name for password
 	FieldPassword = "password"
-	// FieldFirstName is a field name for "first name"
-	FieldFirstName = "firstName"
-	// FieldLastName is a field name for "last name"
-	FieldLastName = "lastName"
+	// FieldFullName is a field name for "first name"
+	FieldFullName = "fullName"
+	// FieldShortName is a field name for "last name"
+	FieldShortName = "shortName"
 	// FieldCreatedAt is a field name for created at timestamp
 	FieldCreatedAt = "createdAt"
 )
@@ -39,10 +39,10 @@ func baseUserConfig() graphql.ObjectConfig {
 			FieldEmail: &graphql.Field{
 				Type: graphql.String,
 			},
-			FieldFirstName: &graphql.Field{
+			FieldFullName: &graphql.Field{
 				Type: graphql.String,
 			},
-			FieldLastName: &graphql.Field{
+			FieldShortName: &graphql.Field{
 				Type: graphql.String,
 			},
 			FieldCreatedAt: &graphql.Field{
@@ -66,10 +66,10 @@ func graphqlUserInput(types Types) *graphql.InputObject {
 			FieldEmail: &graphql.InputObjectFieldConfig{
 				Type: graphql.String,
 			},
-			FieldFirstName: &graphql.InputObjectFieldConfig{
+			FieldFullName: &graphql.InputObjectFieldConfig{
 				Type: graphql.String,
 			},
-			FieldLastName: &graphql.InputObjectFieldConfig{
+			FieldShortName: &graphql.InputObjectFieldConfig{
 				Type: graphql.String,
 			},
 			FieldPassword: &graphql.InputObjectFieldConfig{
@@ -82,8 +82,8 @@ func graphqlUserInput(types Types) *graphql.InputObject {
 // fromMapUserInfo creates UserInput from input args
 func fromMapUserInfo(args map[string]interface{}) (user console.UserInfo) {
 	user.Email, _ = args[FieldEmail].(string)
-	user.FirstName, _ = args[FieldFirstName].(string)
-	user.LastName, _ = args[FieldLastName].(string)
+	user.FullName, _ = args[FieldFullName].(string)
+	user.ShortName, _ = args[FieldShortName].(string)
 	return
 }
 
@@ -97,8 +97,8 @@ func fromMapCreateUser(args map[string]interface{}) (user console.CreateUser) {
 func fillUserInfo(user *console.User, args map[string]interface{}) console.UserInfo {
 	info := console.UserInfo{
 		Email:     user.Email,
-		FirstName: user.FirstName,
-		LastName:  user.LastName,
+		FullName:  user.FullName,
+		ShortName: user.ShortName,
 	}
 
 	for fieldName, fieldValue := range args {
@@ -111,12 +111,12 @@ func fillUserInfo(user *console.User, args map[string]interface{}) console.UserI
 		case FieldEmail:
 			info.Email = value
 			user.Email = value
-		case FieldFirstName:
-			info.FirstName = value
-			user.FirstName = value
-		case FieldLastName:
-			info.LastName = value
-			user.LastName = value
+		case FieldFullName:
+			info.FullName = value
+			user.FullName = value
+		case FieldShortName:
+			info.ShortName = value
+			user.ShortName = value
 		}
 	}
 

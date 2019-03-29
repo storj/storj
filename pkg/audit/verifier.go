@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/satellite/orders"
 	"storj.io/storj/uplink/piecestore"
 )
 
@@ -37,6 +38,9 @@ type Share struct {
 
 // Verifier helps verify the correctness of a given stripe
 type Verifier struct {
+	orders  *orders.Service
+	auditor *identity.PeerIdentity
+
 	downloader downloader
 }
 
@@ -60,8 +64,8 @@ func newDefaultDownloader(log *zap.Logger, transport transport.Client, overlay *
 }
 
 // NewVerifier creates a Verifier
-func NewVerifier(log *zap.Logger, transport transport.Client, overlay *overlay.Cache, id *identity.FullIdentity, minBytesPerSecond memory.Size) *Verifier {
-	return &Verifier{downloader: newDefaultDownloader(log, transport, overlay, id, minBytesPerSecond)}
+func NewVerifier(log *zap.Logger, transport transport.Client, overlay *overlay.Cache, orders *orders.Service, id *identity.FullIdentity, minBytesPerSecond memory.Size) *Verifier {
+	return &Verifier{downloader: newDefaultDownloader(log, transport, overlay, id, minBytesPerSecond), orders: orders, auditor: id.PeerIdentity()}
 }
 
 // Verify downloads shares then verifies the data correctness at the given stripe
@@ -70,8 +74,14 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe) (verifiedN
 
 	pointer := stripe.Segment
 	shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
+	bucketID := createBucketID(stripe.SegmentPath)
 
-	shares, nodes, err := verifier.downloader.DownloadShares(ctx, stripe.OrderLimits, stripe.Index, shareSize)
+	orderLimits, err := verifier.orders.CreateAuditOrderLimits(ctx, verifier.auditor, bucketID, pointer)
+	if err != nil {
+		return nil, err
+	}
+
+	shares, nodes, err := verifier.downloader.DownloadShares(ctx, orderLimits, stripe.Index, shareSize)
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +169,7 @@ func (d *defaultDownloader) getShare(ctx context.Context, limit *pb.AddressedOrd
 	// determines number of seconds allotted for receiving data from a storage node
 	timedCtx := ctx
 	if d.minBytesPerSecond > 0 {
-		maxTransferTime := time.Duration(int32(time.Second) * bandwidthMsgSize / d.minBytesPerSecond.Int32())
+		maxTransferTime := time.Duration(int64(time.Second) * int64(bandwidthMsgSize) / d.minBytesPerSecond.Int64())
 		var cancel func()
 		timedCtx, cancel = context.WithTimeout(ctx, maxTransferTime)
 		defer cancel()
@@ -259,4 +269,12 @@ func getSuccessNodes(ctx context.Context, nodes map[int]storj.NodeID, failedNode
 	}
 
 	return successNodes
+}
+
+func createBucketID(path storj.Path) []byte {
+	comps := storj.SplitPath(path)
+	if len(comps) < 2 {
+		return nil
+	}
+	return []byte(storj.JoinPaths(comps[0], comps[1]))
 }

@@ -10,12 +10,12 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/sync2"
-	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/satellite/orders"
 	"storj.io/storj/storage"
 )
 
@@ -26,28 +26,28 @@ type SegmentRepairer interface {
 
 // Service contains the information needed to run the repair service
 type Service struct {
-	queue      queue.RepairQueue
-	config     *Config
-	limiter    *sync2.Limiter
-	ticker     *time.Ticker
-	transport  transport.Client
-	pointerdb  *pointerdb.Service
-	allocation *pointerdb.AllocationSigner
-	cache      *overlay.Cache
-	repairer   SegmentRepairer
+	queue     queue.RepairQueue
+	config    *Config
+	limiter   *sync2.Limiter
+	ticker    *time.Ticker
+	transport transport.Client
+	pointerdb *pointerdb.Service
+	orders    *orders.Service
+	cache     *overlay.Cache
+	repairer  SegmentRepairer
 }
 
 // NewService creates repairing service
-func NewService(queue queue.RepairQueue, config *Config, interval time.Duration, concurrency int, transport transport.Client, pointerdb *pointerdb.Service, allocation *pointerdb.AllocationSigner, cache *overlay.Cache, signer signing.Signer) *Service {
+func NewService(queue queue.RepairQueue, config *Config, interval time.Duration, concurrency int, transport transport.Client, pointerdb *pointerdb.Service, orders *orders.Service, cache *overlay.Cache) *Service {
 	return &Service{
-		queue:      queue,
-		config:     config,
-		limiter:    sync2.NewLimiter(concurrency),
-		ticker:     time.NewTicker(interval),
-		transport:  transport,
-		pointerdb:  pointerdb,
-		allocation: allocation,
-		cache:      cache,
+		queue:     queue,
+		config:    config,
+		limiter:   sync2.NewLimiter(concurrency),
+		ticker:    time.NewTicker(interval),
+		transport: transport,
+		pointerdb: pointerdb,
+		orders:    orders,
+		cache:     cache,
 	}
 }
 
@@ -63,7 +63,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		ctx,
 		service.transport,
 		service.pointerdb,
-		service.allocation,
+		service.orders,
 		service.cache,
 		service.transport.Identity(),
 	)

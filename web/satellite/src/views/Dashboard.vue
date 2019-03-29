@@ -3,11 +3,13 @@
 
 <template>
     <div class="dashboard-container">
-        <DashboardHeader />
         <div class="dashboard-container__wrap">
             <NavigationArea />
-            <div class="dashboard-container__main-area">
-                <router-view />
+            <div class="dashboard-container__wrap__column">
+                <DashboardHeader />
+                <div class="dashboard-container__main-area">
+                    <router-view />
+                </div>
             </div>
         </div>
         <ProjectCreationSuccessPopup/>
@@ -88,6 +90,12 @@ export default class Dashboard extends Vue {
 
         &__wrap {
             display: flex;
+
+            &__column {
+                display: flex;
+                flex-direction: column;
+                width: 100%;
+            }
         }
 
         &__main-area {

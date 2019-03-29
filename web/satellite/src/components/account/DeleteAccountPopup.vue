@@ -9,7 +9,7 @@
                 <div v-html='imageSource'></div>
             </div>
             <div class='delete-account__form-container'>
-                <p>Are you sure you want to delete your account? If you do so, all your information, projects and API Keys will be deleted from the Satellite forever.</p>
+                <p>Are you sure you want to delete your account? If you do so, all your account information will be deleted from the Satellite forever.</p>
                 <HeaderedInput 
                     label='Enter your password' 
                     placeholder='Your Password'
@@ -103,7 +103,7 @@ export default class DeleteAccountPopup extends Vue {}
     .text {
         margin: 0;
         margin-bottom: 0 !important;
-        font-family: 'montserrat_regular' !important;
+        font-family: 'font_regular' !important;
         font-size: 16px;
         line-height: 25px;
     }
@@ -127,7 +127,7 @@ export default class DeleteAccountPopup extends Vue {}
             margin-right: 100px;
 
             &__main-label-text {
-                font-family: 'montserrat_bold';
+                font-family: 'font_bold';
                 font-size: 32px;
                 line-height: 39px;
                 color: #384B65;
@@ -143,7 +143,7 @@ export default class DeleteAccountPopup extends Vue {}
             p {
                 margin: 0;
                 margin-bottom: 25px;
-                font-family: 'montserrat_medium';
+                font-family: 'font_medium';
                 font-size: 16px;
                 line-height: 25px;
 
@@ -153,7 +153,7 @@ export default class DeleteAccountPopup extends Vue {}
             }
 
             a {
-                font-family: 'montserrat_medium';
+                font-family: 'font_medium';
                 font-size: 16px;
                 color: #2683FF;
             }
