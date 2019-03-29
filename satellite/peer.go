@@ -12,6 +12,7 @@ import (
 	"net/smtp"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -153,6 +154,7 @@ type Peer struct {
 
 	Orders struct {
 		Endpoint *orders.Endpoint
+		Service  *orders.Service
 	}
 
 	Repair struct {
@@ -287,6 +289,26 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		peer.Discovery.Service = discovery.New(peer.Log.Named("discovery"), peer.Overlay.Service, peer.Kademlia.Service, config)
 	}
 
+	{ // setup orders
+		log.Debug("Setting up orders")
+		satelliteSignee := signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity())
+		peer.Orders.Endpoint = orders.NewEndpoint(
+			peer.Log.Named("orders:endpoint"),
+			satelliteSignee,
+			peer.DB.Orders(),
+			peer.DB.CertDB(),
+		)
+		peer.Orders.Service = orders.NewService(
+			peer.Log.Named("orders:service"),
+			signing.SignerFromFullIdentity(peer.Identity),
+			peer.Overlay.Service,
+			peer.DB.CertDB(),
+			peer.DB.Orders(),
+			45*24*time.Hour, // TODO: make it configurable?
+		)
+		pb.RegisterOrdersServer(peer.Server.GRPC(), peer.Orders.Endpoint)
+	}
+
 	{ // setup metainfo
 		log.Debug("Setting up metainfo")
 		db, err := pointerdb.NewStore(config.PointerDB.DatabaseURL)
@@ -307,11 +329,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		peer.Metainfo.Endpoint2 = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),
 			peer.Metainfo.Service,
-			peer.Metainfo.Allocation,
+			peer.Orders.Service,
 			peer.Overlay.Service,
 			peer.DB.Console().APIKeys(),
-			signing.SignerFromFullIdentity(peer.Identity),
-			peer.DB.Orders(),
 		)
 
 		pb.RegisterPointerDBServer(peer.Server.GRPC(), peer.Metainfo.Endpoint)
@@ -324,18 +344,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		bwServer := bwagreement.NewServer(peer.DB.BandwidthAgreement(), peer.DB.CertDB(), peer.Identity.Leaf.PublicKey, peer.Log.Named("agreements"), peer.Identity.ID)
 		peer.Agreements.Endpoint = bwServer
 		pb.RegisterBandwidthServer(peer.Server.GRPC(), peer.Agreements.Endpoint)
-	}
-
-	{ // setup orders
-		log.Debug("Setting up orders")
-		satelliteSignee := signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity())
-		peer.Orders.Endpoint = orders.NewEndpoint(
-			peer.Log.Named("orders:endpoint"),
-			satelliteSignee,
-			peer.DB.Orders(),
-			peer.DB.CertDB(),
-		)
-		pb.RegisterOrdersServer(peer.Server.GRPC(), peer.Orders.Endpoint)
 	}
 
 	{ // setup datarepair
@@ -355,9 +363,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			config.Repairer.MaxRepair,
 			peer.Transport,
 			peer.Metainfo.Service,
-			peer.Metainfo.Allocation,
+			peer.Orders.Service,
 			peer.Overlay.Service,
-			signing.SignerFromFullIdentity(peer.Identity),
 		)
 
 		peer.Repair.Inspector = irreparable.NewInspector(peer.DB.Irreparable())
@@ -370,8 +377,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 
 		peer.Audit.Service, err = audit.NewService(peer.Log.Named("audit"),
 			config,
-			peer.Metainfo.Service, peer.Metainfo.Allocation,
-			peer.Transport, peer.Overlay.Service,
+			peer.Metainfo.Service,
+			peer.Metainfo.Allocation,
+			peer.Orders.Service,
+			peer.Transport,
+			peer.Overlay.Service,
 			peer.Identity,
 		)
 		if err != nil {

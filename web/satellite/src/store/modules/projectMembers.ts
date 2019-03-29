@@ -94,7 +94,7 @@ export const projectMembersModule = {
         },
         fetchProjectMembers: async function ({commit, state, rootGetters}: any): Promise<RequestResponse<TeamMemberModel[]>> {
             const projectId = rootGetters.selectedProject.id;
-            const response = await fetchProjectMembersRequest(projectId, state.pagination.limit, state.pagination.offset,
+            const response: RequestResponse<TeamMemberModel[]> = await fetchProjectMembersRequest(projectId, state.pagination.limit, state.pagination.offset,
                 state.searchParameters.sortBy, state.searchParameters.searchQuery);
 
             if (response.isSuccess) {
