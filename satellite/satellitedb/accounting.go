@@ -165,7 +165,7 @@ func (db *accountingDB) SaveRollup(ctx context.Context, latestRollup time.Time, 
 // QueryPaymentInfo queries Overlay, Accounting Rollup on nodeID
 func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*accounting.CSVRow, error) {
 	var sqlStmt = `SELECT n.id, n.created_at, n.audit_success_ratio, r.at_rest_total, r.get_repair_total,
-	    r.put_repair_total, r.get_audit_total, r.put_total, r.get_total, o.operator_wallet
+	    r.put_repair_total, r.get_audit_total, r.put_total, r.get_total, n.wallet
 	    FROM (
 			SELECT node_id, SUM(at_rest_total) AS at_rest_total, SUM(get_repair_total) AS get_repair_total,
 			SUM(put_repair_total) AS put_repair_total, SUM(get_audit_total) AS get_audit_total,
@@ -175,7 +175,6 @@ func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, e
 			GROUP BY node_id
 		) r
 		LEFT JOIN nodes n ON n.id = r.node_id
-		LEFT JOIN overlay_cache_nodes o ON n.id = o.node_id
 	    ORDER BY n.id`
 	rows, err := db.db.DB.QueryContext(ctx, db.db.Rebind(sqlStmt), start.UTC(), end.UTC())
 	if err != nil {

@@ -105,6 +105,12 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 			node.Type.DPanicOnInvalid("order service get order limits")
 		}
 
+		if !node.IsUp {
+			service.log.Debug("node is offline", zap.String("ID", node.Id.String()))
+			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
+			continue
+		}
+
 		orderLimit, err := signing.SignOrderLimit(service.satellite, &pb.OrderLimit2{
 			SerialNumber:    serialNumber,
 			SatelliteId:     service.satellite.ID(),
@@ -127,8 +133,9 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 	}
 
 	if len(limits) < redundancy.RequiredCount() {
+		// TODO: undo serial entry
 		err = Error.New("not enough nodes available: got %d, required %d", len(limits), redundancy.RequiredCount())
-		return nil, errs.Combine(combinedErrs, err)
+		return nil, errs.Combine(err, combinedErrs)
 	}
 
 	return limits, nil
@@ -218,6 +225,12 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *ide
 			node.Type.DPanicOnInvalid("order service delete order limits")
 		}
 
+		if !node.IsUp {
+			service.log.Debug("node is offline", zap.String("ID", node.Id.String()))
+			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
+			continue
+		}
+
 		orderLimit, err := signing.SignOrderLimit(service.satellite, &pb.OrderLimit2{
 			SerialNumber:    serialNumber,
 			SatelliteId:     service.satellite.ID(),
@@ -240,8 +253,9 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *ide
 	}
 
 	if len(limits) == 0 {
+		// TODO: undo serial entry
 		err = Error.New("failed creating order limits for all nodes")
-		return nil, errs.Combine(combinedErrs, err)
+		return nil, errs.Combine(err, combinedErrs)
 	}
 
 	return limits, nil
@@ -277,7 +291,6 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
 		node, err := service.cache.Get(ctx, piece.NodeId)
 		if err != nil {
-			// TODO: undo serial entry
 			service.log.Error("error getting node from the overlay cache", zap.Error(err))
 			combinedErrs = errs.Combine(combinedErrs, err)
 			continue
@@ -285,6 +298,12 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 
 		if node != nil {
 			node.Type.DPanicOnInvalid("order service audit order limits")
+		}
+
+		if !node.IsUp {
+			service.log.Debug("node is offline", zap.String("ID", node.Id.String()))
+			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
+			continue
 		}
 
 		orderLimit, err := signing.SignOrderLimit(service.satellite, &pb.OrderLimit2{
@@ -308,9 +327,11 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 		}
 		limitsCount++
 	}
+
 	if limitsCount < redundancy.GetMinReq() {
+		// TODO: undo serial entry
 		err = Error.New("not enough nodes available: got %d, required %d", limitsCount, redundancy.GetMinReq())
-		return nil, errs.Combine(combinedErrs, err)
+		return nil, errs.Combine(err, combinedErrs)
 	}
 
 	return limits, nil
@@ -319,8 +340,9 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 // CreateGetRepairOrderLimits creates the order limits for downloading the healthy pieces of pointer as the source for repair.
 func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer *identity.PeerIdentity, bucketID []byte, pointer *pb.Pointer, healthy []*pb.RemotePiece) (_ []*pb.AddressedOrderLimit, err error) {
 	rootPieceID := pointer.GetRemote().RootPieceId
-	shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
-	totalPieces := pointer.GetRemote().GetRedundancy().GetTotal()
+	redundancy := pointer.GetRemote().GetRedundancy()
+	shareSize := redundancy.GetErasureShareSize()
+	totalPieces := redundancy.GetTotal()
 	expiration := pointer.ExpirationDate
 
 	// convert orderExpiration from duration to timestamp
@@ -339,17 +361,25 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 		err = errs.Combine(err, errSerial)
 	}()
 
+	var combinedErrs error
+	var limitsCount int32
 	limits := make([]*pb.AddressedOrderLimit, totalPieces)
 	for _, piece := range healthy {
 		node, err := service.cache.Get(ctx, piece.NodeId)
 		if err != nil {
-			// TODO: audit should not fail if a single node cannot be retrieved from overlay cache or is offline
-			// TODO: undo serial entry
-			return nil, Error.Wrap(err)
+			service.log.Error("error getting node from the overlay cache", zap.Error(err))
+			combinedErrs = errs.Combine(combinedErrs, err)
+			continue
 		}
 
 		if node != nil {
 			node.Type.DPanicOnInvalid("order service get repair order limits")
+		}
+
+		if !node.IsUp {
+			service.log.Debug("node is offline", zap.String("ID", node.Id.String()))
+			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
+			continue
 		}
 
 		orderLimit, err := signing.SignOrderLimit(service.satellite, &pb.OrderLimit2{
@@ -371,6 +401,12 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 			Limit:              orderLimit,
 			StorageNodeAddress: node.Address,
 		}
+	}
+
+	if limitsCount < redundancy.GetMinReq() {
+		// TODO: undo serial entry
+		err = Error.New("not enough nodes available: got %d, required %d", limitsCount, redundancy.GetMinReq())
+		return nil, errs.Combine(err, combinedErrs)
 	}
 
 	return limits, nil
