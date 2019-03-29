@@ -12,7 +12,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/accounting"
-	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
@@ -20,37 +19,35 @@ import (
 	"storj.io/storj/storage"
 )
 
-// Config contains configurable values for tally
+// Config contains configurable values for the tally service
 type Config struct {
-	Interval time.Duration `help:"how frequently tally should run" default:"1h" devDefault:"30s"`
+	Interval time.Duration `help:"how frequently the tally service should run" default:"1h" devDefault:"30s"`
 }
 
-// Tally is the service for accounting for data stored on each storage node
-type Tally struct { // TODO: rename Tally to Service
-	logger        *zap.Logger
-	pointerdb     *pointerdb.Service
-	overlay       *overlay.Cache
-	limit         int
-	ticker        *time.Ticker
-	accountingDB  accounting.DB
-	bwAgreementDB bwagreement.DB // bwagreements database
+// Service is the tally service for data stored on each storage node
+type Service struct {
+	logger       *zap.Logger
+	pointerdb    *pointerdb.Service
+	overlay      *overlay.Cache
+	limit        int
+	ticker       *time.Ticker
+	accountingDB accounting.DB
 }
 
-// New creates a new Tally
-func New(logger *zap.Logger, accountingDB accounting.DB, bwAgreementDB bwagreement.DB, pointerdb *pointerdb.Service, overlay *overlay.Cache, limit int, interval time.Duration) *Tally {
-	return &Tally{
-		logger:        logger,
-		pointerdb:     pointerdb,
-		overlay:       overlay,
-		limit:         limit,
-		ticker:        time.NewTicker(interval),
-		accountingDB:  accountingDB,
-		bwAgreementDB: bwAgreementDB,
+// New creates a new tally Service
+func New(logger *zap.Logger, accountingDB accounting.DB, pointerdb *pointerdb.Service, overlay *overlay.Cache, limit int, interval time.Duration) *Service {
+	return &Service{
+		logger:       logger,
+		pointerdb:    pointerdb,
+		overlay:      overlay,
+		limit:        limit,
+		ticker:       time.NewTicker(interval),
+		accountingDB: accountingDB,
 	}
 }
 
-// Run the Tally loop
-func (t *Tally) Run(ctx context.Context) (err error) {
+// Run the tally service loop
+func (t *Service) Run(ctx context.Context) (err error) {
 	t.logger.Info("Tally service starting up")
 	defer mon.Task()(&ctx)(&err)
 
@@ -66,11 +63,10 @@ func (t *Tally) Run(ctx context.Context) (err error) {
 	}
 }
 
-//Tally calculates data-at-rest and bandwidth usage once
-func (t *Tally) Tally(ctx context.Context) error {
-	// data at rest
-	var errAtRest, errBWA, errBucketInfo error
-	latestTally, nodeData, bucketData, err := t.calculateAtRestData(ctx)
+//Tally calculates data-at-rest once
+func (t *Service) Tally(ctx context.Context) error {
+	var errAtRest error
+	latestTally, nodeData, err := t.calculateAtRestData(ctx)
 	if err != nil {
 		errAtRest = errs.New("Query for data-at-rest failed : %v", err)
 	} else {
@@ -87,37 +83,12 @@ func (t *Tally) Tally(ctx context.Context) error {
 			}
 		}
 	}
-	//bandwdith
-	tallyEnd, bwTotals, err := t.QueryBW(ctx)
-	if err != nil {
-		errBWA = errs.New("Query for bandwidth failed: %v", err)
-	} else if len(bwTotals) > 0 {
-		err = t.SaveBWRaw(ctx, tallyEnd, time.Now().UTC(), bwTotals)
-		if err != nil {
-			errBWA = errs.New("Saving for bandwidth failed : %v", err)
-		} else {
-			//remove expired records
-			now := time.Now()
-			_, err = t.bwAgreementDB.GetExpired(ctx, tallyEnd, now)
-			if err != nil {
-				return err
-			}
-			var expiredOrdersHaveBeenSaved bool
-			//todo: write files to disk or whatever we decide to do here
-			if expiredOrdersHaveBeenSaved {
-				err = t.bwAgreementDB.DeleteExpired(ctx, tallyEnd, now)
-				if err != nil {
-					return err
-				}
-			}
-		}
-	}
-	return errs.Combine(errAtRest, errBWA, errBucketInfo)
+	return errAtRest
 }
 
 // calculateAtRestData iterates through the pieces on pointerdb and calculates
-// the amount of at-rest data stored in each bucket and on each respective node
-func (t *Tally) calculateAtRestData(ctx context.Context) (latestTally time.Time, nodeData map[storj.NodeID]float64, bucketTallies map[string]*accounting.BucketTally, err error) {
+// the amount of at-rest data stored on each respective node
+func (t *Service) calculateAtRestData(ctx context.Context) (latestTally time.Time, nodeData map[storj.NodeID]float64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	latestTally, err = t.accountingDB.LastTimestamp(ctx, accounting.LastAtRestTally)
@@ -231,31 +202,6 @@ func (t *Tally) calculateAtRestData(ctx context.Context) (latestTally time.Time,
 }
 
 // SaveAtRestRaw records raw tallies of at-rest-data and updates the LastTimestamp
-func (t *Tally) SaveAtRestRaw(ctx context.Context, latestTally time.Time, created time.Time, nodeData map[storj.NodeID]float64) error {
+func (t *Service) SaveAtRestRaw(ctx context.Context, latestTally time.Time, created time.Time, nodeData map[storj.NodeID]float64) error {
 	return t.accountingDB.SaveAtRestRaw(ctx, latestTally, created, nodeData)
-}
-
-// QueryBW queries bandwidth allocation database, selecting all new contracts since the last collection run time.
-// Grouping by action type, storage node ID and adding total of bandwidth to granular data table.
-func (t *Tally) QueryBW(ctx context.Context) (time.Time, map[storj.NodeID][]int64, error) {
-	var bwTotals map[storj.NodeID][]int64
-	now := time.Now()
-	lastBwTally, err := t.accountingDB.LastTimestamp(ctx, accounting.LastBandwidthTally)
-	if err != nil {
-		return now, bwTotals, Error.Wrap(err)
-	}
-	bwTotals, err = t.bwAgreementDB.GetTotals(ctx, lastBwTally, now)
-	if err != nil {
-		return now, bwTotals, Error.Wrap(err)
-	}
-	if len(bwTotals) == 0 {
-		t.logger.Info("Tally found no new bandwidth allocations")
-		return now, bwTotals, nil
-	}
-	return now, bwTotals, nil
-}
-
-// SaveBWRaw records granular tallies (sums of bw agreement values) to the database and updates the LastTimestamp
-func (t *Tally) SaveBWRaw(ctx context.Context, tallyEnd time.Time, created time.Time, bwTotals map[storj.NodeID][]int64) error {
-	return t.accountingDB.SaveBWRaw(ctx, tallyEnd, created, bwTotals)
 }
