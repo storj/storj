@@ -6,6 +6,8 @@ package metainfo
 import (
 	"bytes"
 	"context"
+	"errors"
+	"strconv"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
@@ -97,7 +99,7 @@ func (endpoint *Endpoint) SegmentInfo(ctx context.Context, req *pb.SegmentInfoRe
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	path, err := storj.CreatePath(keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
+	path, err := CreatePath(keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
@@ -178,7 +180,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	// 	return nil, status.Errorf(codes.Internal, err.Error())
 	// }
 
-	path, err := storj.CreatePath(keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
+	path, err := CreatePath(keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
@@ -210,7 +212,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	path, err := storj.CreatePath(keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
+	path, err := CreatePath(keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
@@ -258,7 +260,7 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	path, err := storj.CreatePath(keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
+	path, err := CreatePath(keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
@@ -304,7 +306,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.ListSegments
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	prefix, err := storj.CreatePath(keyInfo.ProjectID, -1, req.Bucket, req.Prefix)
+	prefix, err := CreatePath(keyInfo.ProjectID, -1, req.Bucket, req.Prefix)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
@@ -429,4 +431,26 @@ func (endpoint *Endpoint) validatePointer(pointer *pb.Pointer) error {
 		}
 	}
 	return nil
+}
+
+// CreatePath will create a Segment path
+func CreatePath(projectID uuid.UUID, segmentIndex int64, bucket, path []byte) (storj.Path, error) {
+	if segmentIndex < -1 {
+		return "", errors.New("invalid segment index")
+	}
+	segment := "l"
+	if segmentIndex > -1 {
+		segment = "s" + strconv.FormatInt(segmentIndex, 10)
+	}
+
+	entries := make([]string, 0)
+	entries = append(entries, projectID.String())
+	entries = append(entries, segment)
+	if len(bucket) != 0 {
+		entries = append(entries, string(bucket))
+	}
+	if len(path) != 0 {
+		entries = append(entries, string(path))
+	}
+	return storj.JoinPaths(entries...), nil
 }
