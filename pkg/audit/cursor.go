@@ -19,6 +19,11 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+const (
+	maxListAttempts = 4
+	maxGetAttempts  = 4
+)
+
 // Stripe keeps track of a stripe's index and its parent segment
 type Stripe struct {
 	Index       int64
@@ -49,52 +54,26 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 	var path storj.Path
 	var more bool
 
-	pointerItems, more, err = cursor.pointerdb.List("", cursor.lastPath, "", true, 0, meta.None)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(pointerItems) == 0 {
-		return nil, nil
-	}
-
-	pointerItem, err := getRandomPointer(pointerItems)
-	if err != nil {
-		return nil, err
-	}
-
-	path = pointerItem.Path
-
-	// keep track of last path listed
-	if !more {
-		cursor.lastPath = ""
-	} else {
-		cursor.lastPath = pointerItems[len(pointerItems)-1].Path
-	}
-
-	// get pointer info
-	pointer, err := cursor.pointerdb.Get(path)
-	if err != nil {
-		return nil, err
-	}
-
-	//delete expired items rather than auditing them
-	if expiration := pointer.GetExpirationDate(); expiration != nil {
-		t, err := ptypes.Timestamp(expiration)
+	var attempts = 0
+	for attempts < maxListAttempts {
+		pointerItems, more, err = cursor.pointerdb.List("", cursor.lastPath, "", true, 0, meta.None)
 		if err != nil {
 			return nil, err
 		}
-		if t.Before(time.Now()) {
-			return nil, cursor.pointerdb.Delete(path)
+		if len(pointerItems) == 0 {
+			attempts++
+		} else {
+			break
 		}
 	}
 
-	if pointer.GetType() != pb.Pointer_REMOTE {
-		return nil, nil
+	if len(pointerItems) == 0 {
+		return nil, Error.New("unable to find pointers after %d attempts", maxListAttempts)
 	}
 
-	if pointer.GetSegmentSize() == 0 {
-		return nil, nil
+	pointer, err := cursor.getRandomValidPointer(pointerItems, more, maxGetAttempts)
+	if err != nil {
+		return nil, err
 	}
 
 	index, err := getRandomStripe(pointer)
@@ -107,6 +86,46 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 		Segment:     pointer,
 		SegmentPath: path,
 	}, nil
+}
+
+func (cursor *Cursor) getRandomValidPointer(pointerItems []*pb.ListResponse_Item, more bool, retryAttempts int) (pointer *pb.Pointer, err error) {
+	for i := 0; i < retryAttempts; i++ {
+		pointerItem, err := getRandomPointer(pointerItems)
+		if err != nil {
+			return nil, err
+		}
+
+		// keep track of last path listed
+		if !more {
+			cursor.lastPath = ""
+		} else {
+			cursor.lastPath = pointerItems[len(pointerItems)-1].Path
+		}
+
+		pointer, err = cursor.pointerdb.Get(pointerItem.Path)
+		if err != nil {
+			return nil, err
+		}
+
+		//delete expired items rather than auditing them
+		if expiration := pointer.GetExpirationDate(); expiration != nil {
+			t, err := ptypes.Timestamp(expiration)
+			if err != nil {
+				return nil, err
+			}
+			if t.Before(time.Now()) {
+				return nil, cursor.pointerdb.Delete(pointerItem.Path)
+			}
+		}
+
+		if pointer.GetType() != pb.Pointer_REMOTE || pointer.GetSegmentSize() == 0 {
+			continue
+		}
+
+		return pointer, nil
+	}
+
+	return nil, Error.New("could not find valid pointer after %d attempts", retryAttempts)
 }
 
 func getRandomStripe(pointer *pb.Pointer) (index int64, err error) {
