@@ -78,15 +78,10 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		errSerial := service.saveSerial(ctx, serialNumber, bucketID, orderExpirationTime)
-		errPubKey := service.certdb.SavePublicKey(ctx, uplink.ID, uplink.Leaf.PublicKey)
-		err = errs.Combine(err, errSerial, errPubKey)
-	}()
 
 	redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 
 	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
@@ -133,9 +128,18 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 	}
 
 	if len(limits) < redundancy.RequiredCount() {
-		// TODO: undo serial entry
 		err = Error.New("not enough nodes available: got %d, required %d", len(limits), redundancy.RequiredCount())
 		return nil, errs.Combine(err, combinedErrs)
+	}
+
+	err = service.certdb.SavePublicKey(ctx, uplink.ID, uplink.Leaf.PublicKey)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	err = service.saveSerial(ctx, serialNumber, bucketID, orderExpirationTime)
+	if err != nil {
+		return nil, Error.Wrap(err)
 	}
 
 	return limits, nil
@@ -154,11 +158,6 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, uplink *identi
 	if err != nil {
 		return storj.PieceID{}, nil, err
 	}
-	defer func() {
-		errSerial := service.saveSerial(ctx, serialNumber, bucketID, orderExpirationTime)
-		errPubKey := service.certdb.SavePublicKey(ctx, uplink.ID, uplink.Leaf.PublicKey)
-		err = errs.Combine(err, errSerial, errPubKey)
-	}()
 
 	rootPieceID := storj.NewPieceID()
 	limits := make([]*pb.AddressedOrderLimit, len(nodes))
@@ -186,6 +185,16 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, uplink *identi
 		pieceNum++
 	}
 
+	err = service.certdb.SavePublicKey(ctx, uplink.ID, uplink.Leaf.PublicKey)
+	if err != nil {
+		return storj.PieceID{}, nil, Error.Wrap(err)
+	}
+
+	err = service.saveSerial(ctx, serialNumber, bucketID, orderExpirationTime)
+	if err != nil {
+		return storj.PieceID{}, nil, Error.Wrap(err)
+	}
+
 	return rootPieceID, limits, nil
 }
 
@@ -205,11 +214,6 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *ide
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		errSerial := service.saveSerial(ctx, serialNumber, bucketID, orderExpirationTime)
-		errPubKey := service.certdb.SavePublicKey(ctx, uplink.ID, uplink.Leaf.PublicKey)
-		err = errs.Combine(err, errSerial, errPubKey)
-	}()
 
 	var combinedErrs error
 	var limits []*pb.AddressedOrderLimit
@@ -253,9 +257,18 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *ide
 	}
 
 	if len(limits) == 0 {
-		// TODO: undo serial entry
 		err = Error.New("failed creating order limits for all nodes")
 		return nil, errs.Combine(err, combinedErrs)
+	}
+
+	err = service.certdb.SavePublicKey(ctx, uplink.ID, uplink.Leaf.PublicKey)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	err = service.saveSerial(ctx, serialNumber, bucketID, orderExpirationTime)
+	if err != nil {
+		return nil, Error.Wrap(err)
 	}
 
 	return limits, nil
@@ -280,10 +293,6 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		errSerial := service.saveSerial(ctx, serialNumber, bucketID, orderExpirationTime)
-		err = errs.Combine(err, errSerial)
-	}()
 
 	var combinedErrs error
 	var limitsCount int32
@@ -329,9 +338,13 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 	}
 
 	if limitsCount < redundancy.GetMinReq() {
-		// TODO: undo serial entry
 		err = Error.New("not enough nodes available: got %d, required %d", limitsCount, redundancy.GetMinReq())
 		return nil, errs.Combine(err, combinedErrs)
+	}
+
+	err = service.saveSerial(ctx, serialNumber, bucketID, orderExpirationTime)
+	if err != nil {
+		return nil, Error.Wrap(err)
 	}
 
 	return limits, nil
@@ -356,10 +369,6 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		errSerial := service.saveSerial(ctx, serialNumber, bucketID, orderExpirationTime)
-		err = errs.Combine(err, errSerial)
-	}()
 
 	var combinedErrs error
 	var limitsCount int32
@@ -404,9 +413,13 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 	}
 
 	if limitsCount < redundancy.GetMinReq() {
-		// TODO: undo serial entry
 		err = Error.New("not enough nodes available: got %d, required %d", limitsCount, redundancy.GetMinReq())
 		return nil, errs.Combine(err, combinedErrs)
+	}
+
+	err = service.saveSerial(ctx, serialNumber, bucketID, orderExpirationTime)
+	if err != nil {
+		return nil, Error.Wrap(err)
 	}
 
 	return limits, nil
@@ -430,10 +443,6 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		errSerial := service.saveSerial(ctx, serialNumber, bucketID, orderExpirationTime)
-		err = errs.Combine(err, errSerial)
-	}()
 
 	limits := make([]*pb.AddressedOrderLimit, totalPieces)
 	var pieceNum int32
@@ -470,6 +479,11 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 			StorageNodeAddress: node.Address,
 		}
 		pieceNum++
+	}
+
+	err = service.saveSerial(ctx, serialNumber, bucketID, orderExpirationTime)
+	if err != nil {
+		return nil, Error.Wrap(err)
 	}
 
 	return limits, nil
