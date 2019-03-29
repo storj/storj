@@ -126,7 +126,7 @@ func CheckVersion(ctx *context.Context) (err error) {
 		zap.S().Infof("Running on Version %s", Build.Version.String())
 		Allowed = true
 	} else {
-		zap.S().Errorf("Running on outdated Version %s", Build.Version.String())
+		zap.S().Errorf("Running on not allowed Version %s", Build.Version.String())
 		Allowed = false
 	}
 	return
