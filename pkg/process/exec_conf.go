@@ -243,7 +243,7 @@ func cleanup(cmd *cobra.Command) {
 		}()
 
 		if err = LogAndReportVersion(ctx); err != nil {
-			logger.Sugar().Errorf("Errors checking Software Version", err)
+			logger.Sugar().Errorf("Error checking Software Version", err)
 		}
 
 		//If Allowed is false, the version is on an not version that should not start

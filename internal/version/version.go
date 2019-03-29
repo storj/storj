@@ -27,7 +27,7 @@ var (
 	CommitHash string
 	// Version is the semantic version set at compilation
 	// if not a valid semantic version Release should be false
-	Version = "0.1.0"
+	Version = "v0.1.0"
 	// Release indicates whether the binary compiled is a release candidate
 	Release bool
 	// Build is a struct containing all relevant build information associated with the binary
@@ -131,13 +131,13 @@ func CheckVersion(ctx *context.Context) (allowed bool, err error) {
 		return
 	}
 
-	zap.S().Debugf("Allowed Version from Control Server: %v", accepted)
+	zap.S().Debugf("allowed versions from Control Server: %v", accepted)
 
 	if containsVersion(accepted, Build.Version) {
-		zap.S().Infof("Running on Version %s", Build.Version.String())
+		zap.S().Infof("running on version %s", Build.Version.String())
 		allowed = true
 	} else {
-		zap.S().Errorf("Running on not allowed/outdated Version %s", Build.Version.String())
+		zap.S().Errorf("running on not allowed/outdated version %s", Build.Version.String())
 		allowed = false
 	}
 	return
@@ -147,8 +147,7 @@ func CheckVersion(ctx *context.Context) (allowed bool, err error) {
 func queryVersionFromControlServer() (ver []V, err error) {
 	resp, err := http.Get("https://satellite.stefan-benten.de/version")
 	if err != nil {
-
-		//ToDo: Handle Failures properly!
+		// ToDo: Make sure Control Server is always reachable and refuse startup
 		Allowed = true
 		return []V{}, err
 	}
@@ -175,7 +174,7 @@ func DebugHandler(w http.ResponseWriter, r *http.Request) {
 
 	_, err = w.Write(j)
 	if err != nil {
-		// ToDo: Handle Error
+		zap.S().Errorf("error writing data to client %v", err)
 	}
 }
 
