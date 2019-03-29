@@ -49,5 +49,5 @@ func (*ProjectInvitationEmail) Template() string { return "Invite" }
 
 // Subject gets email subject
 func (email *ProjectInvitationEmail) Subject() string {
-	return "You were invited you to join the Project " + email.ProjectName
+	return "You were invited to join the Project " + email.ProjectName
 }

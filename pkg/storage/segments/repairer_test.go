@@ -91,10 +91,10 @@ func TestSegmentStoreRepair(t *testing.T) {
 		}
 
 		// repair segment
+		os := satellite.Orders.Service
 		oc := satellite.Overlay.Service
-		as := satellite.Metainfo.Allocation
 		ec := ecclient.NewClient(satellite.Transport, 0)
-		repairer := segments.NewSegmentRepairer(pdb, as, oc, ec, satellite.Identity, time.Minute)
+		repairer := segments.NewSegmentRepairer(pdb, os, oc, ec, satellite.Identity, time.Minute)
 		assert.NotNil(t, repairer)
 
 		err = repairer.Repair(ctx, path, lostPieces)

@@ -12,7 +12,7 @@ import (
 	"runtime"
 	"strings"
 
-	"storj.io/storj/pkg/utils"
+	"github.com/zeebo/errs"
 )
 
 // IsRoot returns whether path is the root directory
@@ -77,7 +77,7 @@ func IsValidSetupDir(name string) (ok bool, err error) {
 		return false, err
 	}
 	defer func() {
-		err = utils.CombineErrors(err, f.Close())
+		err = errs.Combine(err, f.Close())
 	}()
 
 	for {
