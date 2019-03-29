@@ -5,47 +5,21 @@
 package pgutil
 
 import (
-	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
-	"io"
+	"math/rand"
 	"net/url"
 	"strconv"
 	"strings"
 )
 
-const (
-	randRetries = 2
-)
-
-// RandomStringFromReader creates a random safe string sourced from the specified reader.
-func RandomStringFromReader(n int, r io.Reader) string {
-	failed := false
+// CreateRandomTestingSchemaName creates a random schema name string.
+func CreateRandomTestingSchemaName(n int) string {
 	data := make([]byte, n)
-	for i := 0; i < randRetries; i++ {
-		num, err := r.Read(data)
 
-		// crypto/rand.Read() can fail under different OS versions and OS platforms.
-		// We retry the max number of times defined in randRetries.
-		if num < n || err != nil {
-			failed = true
-		} else {
-			failed = false
-		}
-	}
-
-	if failed {
-		// If we failed the max number of retries defined in randRetries panic
-		// because we can't successfully get a randomized string.
-		panic("failed to generate random string")
-	}
-
+	// We don't handle the error because math/rand.Read() always returns a nil error.
+	_, _ = rand.Read(data)
 	return hex.EncodeToString(data)
-}
-
-// RandomString creates a random safe string
-func RandomString(n int) string {
-	return RandomStringFromReader(n, rand.Reader)
 }
 
 // ConnstrWithSchema adds schema to a  connection string
