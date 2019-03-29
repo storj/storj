@@ -12,14 +12,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/storage"
 )
 
@@ -43,10 +41,7 @@ func TestInspectorStats(t *testing.T) {
 	err = uplink.Upload(ctx, planet.Satellites[0], bucket, "test/path", testData)
 	assert.NoError(t, err)
 
-	log := zaptest.NewLogger(t)
-
-	health, err := inspector.NewEndpoint(log, planet.Satellites[0].Overlay.Service, planet.Satellites[0].Metainfo.Service)
-	assert.NoError(t, err)
+	healthEndpoint := planet.Satellites[0].Inspector.Endpoint
 
 	// Get path of random segment we just uploaded and check the health
 	_ = planet.Satellites[0].Metainfo.Database.Iterate(storage.IterateOptions{Recurse: true},
@@ -71,7 +66,7 @@ func TestInspectorStats(t *testing.T) {
 					SegmentIndex:  -1,
 				}
 
-				resp, err := health.SegmentHealth(ctx, req)
+				resp, err := healthEndpoint.SegmentHealth(ctx, req)
 				assert.NoError(t, err)
 
 				assert.Equal(t, int32(0), resp.GetHealth().GetSuccessThreshold())
@@ -90,7 +85,7 @@ func TestInspectorStats(t *testing.T) {
 					EndBeforeSegment:  0,
 					Limit:             0,
 				}
-				resp, err := health.ObjectHealth(ctx, objectHealthReq)
+				resp, err := healthEndpoint.ObjectHealth(ctx, objectHealthReq)
 
 				assert.Equal(t, 1, len(resp.GetSegments()))
 
