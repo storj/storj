@@ -27,12 +27,26 @@ import (
 type DB interface {
 	// CreateSerialInfo creates serial number entry in database
 	CreateSerialInfo(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte, limitExpiration time.Time) error
-	// SaveInlineOrder
-	SaveInlineOrder(ctx context.Context, bucketID []byte) error
-	// SaveRemoteOrder
-	SaveRemoteOrder(ctx context.Context, bucketID []byte, orderLimits []*pb.OrderLimit2) error
-	// SettleOrder
-	SettleRemoteOrder(ctx context.Context, orderLimit *pb.OrderLimit2, order *pb.Order2) error
+	// UseSerialNumber creates serial number entry in database
+	UseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) ([]byte, error)
+
+	// UpdateBucketBandwidthAllocation
+	UpdateBucketBandwidthAllocation(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64) error
+	// UpdateBucketBandwidthSettle
+	UpdateBucketBandwidthSettle(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64) error
+	// UpdateBucketBandwidthInline
+	UpdateBucketBandwidthInline(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64) error
+
+	// UpdateStoragenodeBandwidthAllocation
+	UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64) error
+	// UpdateStoragenodeBandwidthSettle
+	UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64) error
+
+	// TODO move/reorganize/delete those methods (most probably accounting)
+	// GetBucketBandwidth
+	GetBucketBandwidth(ctx context.Context, bucketID []byte, from, to time.Time) (int64, error)
+	// GetStorageNodeBandwidth
+	GetStorageNodeBandwidth(ctx context.Context, nodeID storj.NodeID, from, to time.Time) (int64, error)
 }
 
 var (
@@ -145,8 +159,9 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 			}
 		}
 
-		if err = endpoint.DB.SettleRemoteOrder(ctx, orderLimit, order); err != nil {
-			duplicateRequest := strings.Contains(err.Error(), "UNIQUE constraint failed") || strings.Contains(err.Error(), "violates unique constraint")
+		bucketID, err := endpoint.DB.UseSerialNumber(ctx, orderLimit.SerialNumber, orderLimit.StorageNodeId)
+		if err != nil {
+			duplicateRequest := strings.Contains(err.Error(), "violates constraint")
 			if duplicateRequest {
 				err := stream.Send(&pb.SettlementResponse{
 					SerialNumber: orderLimit.SerialNumber,
@@ -159,6 +174,30 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 				// send error if order was not saved to DB to avoid removing on storage node
 				return err
 			}
+		}
+
+		if err := endpoint.DB.UpdateBucketBandwidthSettle(ctx, bucketID, orderLimit.Action, order.Amount); err != nil {
+			err := stream.Send(&pb.SettlementResponse{
+				SerialNumber: orderLimit.SerialNumber,
+				// TODO should we reject or accept such error
+				Status: pb.SettlementResponse_REJECTED,
+			})
+			if err != nil {
+				return formatError(err)
+			}
+			return nil
+		}
+
+		if err := endpoint.DB.UpdateStoragenodeBandwidthSettle(ctx, orderLimit.StorageNodeId, orderLimit.Action, order.Amount); err != nil {
+			err := stream.Send(&pb.SettlementResponse{
+				SerialNumber: orderLimit.SerialNumber,
+				// TODO should we reject or accept such error
+				Status: pb.SettlementResponse_REJECTED,
+			})
+			if err != nil {
+				return formatError(err)
+			}
+			return nil
 		}
 
 		err = stream.Send(&pb.SettlementResponse{

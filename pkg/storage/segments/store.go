@@ -133,7 +133,17 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 			Metadata:       metadata,
 		}
 	} else {
-		limits, rootPieceID, err := s.metainfo.CreateSegment(ctx, "", "", -1, redundancy, s.maxEncryptedSegmentSize, expiration) // bucket, path and segment index are not known at this point
+		// TODO replace bucket extracting with real solution
+		p, _, err := segmentInfo()
+		if err != nil {
+			return Meta{}, Error.Wrap(err)
+		}
+		bucket, _, _, err := split(p)
+		if err != nil {
+			return Meta{}, err
+		}
+
+		limits, rootPieceID, err := s.metainfo.CreateSegment(ctx, bucket, "", -1, redundancy, s.maxEncryptedSegmentSize, expiration) // bucket, path and segment index are not known at this point
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}

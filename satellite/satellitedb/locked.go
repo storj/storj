@@ -553,31 +553,67 @@ type lockedOrders struct {
 	db orders.DB
 }
 
+// CreateSerialInfo creates serial number entry in database
 func (m *lockedOrders) CreateSerialInfo(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte, limitExpiration time.Time) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.CreateSerialInfo(ctx, serialNumber, bucketID, limitExpiration)
 }
 
-// SaveInlineOrder
-func (m *lockedOrders) SaveInlineOrder(ctx context.Context, bucketID []byte) error {
+// GetBucketBandwidth
+func (m *lockedOrders) GetBucketBandwidth(ctx context.Context, bucketID []byte, from time.Time, to time.Time) (int64, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.SaveInlineOrder(ctx, bucketID)
+	return m.db.GetBucketBandwidth(ctx, bucketID, from, to)
 }
 
-// SaveRemoteOrder
-func (m *lockedOrders) SaveRemoteOrder(ctx context.Context, bucketID []byte, orderLimits []*pb.OrderLimit2) error {
+// GetStorageNodeBandwidth
+func (m *lockedOrders) GetStorageNodeBandwidth(ctx context.Context, nodeID storj.NodeID, from time.Time, to time.Time) (int64, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.SaveRemoteOrder(ctx, bucketID, orderLimits)
+	return m.db.GetStorageNodeBandwidth(ctx, nodeID, from, to)
 }
 
-// SettleOrder
-func (m *lockedOrders) SettleRemoteOrder(ctx context.Context, orderLimit *pb.OrderLimit2, order *pb.Order2) error {
+// UpdateBucketBandwidthAllocation
+func (m *lockedOrders) UpdateBucketBandwidthAllocation(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.SettleRemoteOrder(ctx, orderLimit, order)
+	return m.db.UpdateBucketBandwidthAllocation(ctx, bucketID, action, amount)
+}
+
+// UpdateBucketBandwidthInline
+func (m *lockedOrders) UpdateBucketBandwidthInline(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateBucketBandwidthInline(ctx, bucketID, action, amount)
+}
+
+// UpdateBucketBandwidthSettle
+func (m *lockedOrders) UpdateBucketBandwidthSettle(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateBucketBandwidthSettle(ctx, bucketID, action, amount)
+}
+
+// UpdateStoragenodeBandwidthAllocation
+func (m *lockedOrders) UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateStoragenodeBandwidthAllocation(ctx, storageNode, action, amount)
+}
+
+// UpdateStoragenodeBandwidthSettle
+func (m *lockedOrders) UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateStoragenodeBandwidthSettle(ctx, storageNode, action, amount)
+}
+
+// UseSerialNumber creates serial number entry in database
+func (m *lockedOrders) UseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) ([]byte, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UseSerialNumber(ctx, serialNumber, storageNodeID)
 }
 
 // OverlayCache returns database for caching overlay information
