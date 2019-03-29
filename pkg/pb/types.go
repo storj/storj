@@ -19,3 +19,12 @@ type PieceID = storj.PieceID
 
 // SerialNumber is an alias to storj.SerialNumber for use in generated protobuf code
 type SerialNumber = storj.SerialNumber
+
+// NodeDossier is the complete info that the satellite tracks for a storage node
+type NodeDossier struct {
+	Node
+	Type       NodeType
+	Operator   NodeOperator
+	Capacity   NodeCapacity
+	Reputation NodeStats
+}
