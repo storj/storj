@@ -55,16 +55,24 @@ func NewEndpoint(log *zap.Logger, pieceInfo pieces.DB, kademlia *kademlia.Kademl
 }
 
 func (inspector *Endpoint) retrieveStats(ctx context.Context) (*pb.StatSummaryResponse, error) {
+
+	// Used Space
 	totalUsedSpace, err := inspector.pieceInfo.SpaceUsed(ctx)
 	if err != nil {
 		return nil, err
 	}
+	oldtotalUsedSpace, err := inspector.psdbDB.SumTTLSizes()
+	if err != nil {
+		return nil, err
+	}
+	totalUsedSpace += oldtotalUsedSpace
+
 	usage, err := inspector.usageDB.Summary(ctx, getBeginningOfMonth(), time.Now())
 	if err != nil {
 		return nil, err
 	}
 	totalUsedBandwidth := int64(0)
-	oldUsage, err := inspector.psdbDB.SumTTLSizes()
+	oldUsage, err := inspector.psdbDB.GetTotalBandwidthBetween(getBeginningOfMonth(), time.Now())
 	if err != nil {
 		inspector.log.Warn("unable to calculate old bandwidth usage")
 	} else {
@@ -75,9 +83,9 @@ func (inspector *Endpoint) retrieveStats(ctx context.Context) (*pb.StatSummaryRe
 
 	return &pb.StatSummaryResponse{
 		UsedSpace:          totalUsedSpace,
-		AvailableSpace:     (inspector.config.AllocatedDiskSpace.Int64() - totalUsedSpace),
+		AvailableSpace:     inspector.config.AllocatedDiskSpace.Int64() - totalUsedSpace,
 		UsedBandwidth:      totalUsedBandwidth,
-		AvailableBandwidth: (inspector.config.AllocatedBandwidth.Int64() - totalUsedBandwidth),
+		AvailableBandwidth: inspector.config.AllocatedBandwidth.Int64() - totalUsedBandwidth,
 	}, nil
 }
 
