@@ -23,6 +23,7 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/orders"
 )
 
 // locked implements a locking wrapper around satellite.DB.
@@ -77,7 +78,7 @@ func (m *lockedAccounting) LastTimestamp(ctx context.Context, timestampType stri
 	return m.db.LastTimestamp(ctx, timestampType)
 }
 
-// QueryPaymentInfo queries StatDB, Accounting Rollup on nodeID
+// QueryPaymentInfo queries Overlay, Accounting Rollup on nodeID
 func (m *lockedAccounting) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*accounting.CSVRow, error) {
 	m.Lock()
 	defer m.Unlock()
@@ -539,6 +540,46 @@ func (m *lockedIrreparable) IncrementRepairAttempts(ctx context.Context, segment
 	return m.db.IncrementRepairAttempts(ctx, segmentInfo)
 }
 
+// Orders returns database for orders
+func (m *locked) Orders() orders.DB {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedOrders{m.Locker, m.db.Orders()}
+}
+
+// lockedOrders implements locking wrapper for orders.DB
+type lockedOrders struct {
+	sync.Locker
+	db orders.DB
+}
+
+func (m *lockedOrders) CreateSerialInfo(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte, limitExpiration time.Time) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.CreateSerialInfo(ctx, serialNumber, bucketID, limitExpiration)
+}
+
+// SaveInlineOrder
+func (m *lockedOrders) SaveInlineOrder(ctx context.Context, bucketID []byte) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SaveInlineOrder(ctx, bucketID)
+}
+
+// SaveRemoteOrder
+func (m *lockedOrders) SaveRemoteOrder(ctx context.Context, bucketID []byte, orderLimits []*pb.OrderLimit2) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SaveRemoteOrder(ctx, bucketID, orderLimits)
+}
+
+// SettleOrder
+func (m *lockedOrders) SettleRemoteOrder(ctx context.Context, orderLimit *pb.OrderLimit2, order *pb.Order2) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SettleRemoteOrder(ctx, orderLimit, order)
+}
+
 // OverlayCache returns database for caching overlay information
 func (m *locked) OverlayCache() overlay.DB {
 	m.Lock()
@@ -552,18 +593,18 @@ type lockedOverlayCache struct {
 	db overlay.DB
 }
 
-// Create adds a new stats entry for node.
-func (m *lockedOverlayCache) Create(ctx context.Context, nodeID storj.NodeID, initial *overlay.NodeStats) (stats *overlay.NodeStats, err error) {
+// CreateEntryIfNotExists creates a node stats entry if it didn't already exist.
+func (m *lockedOverlayCache) CreateEntryIfNotExists(ctx context.Context, value *pb.Node) (stats *overlay.NodeStats, err error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Create(ctx, nodeID, initial)
+	return m.db.CreateEntryIfNotExists(ctx, value)
 }
 
-// CreateEntryIfNotExists creates a node stats entry if it didn't already exist.
-func (m *lockedOverlayCache) CreateEntryIfNotExists(ctx context.Context, nodeID storj.NodeID) (stats *overlay.NodeStats, err error) {
+// CreateStats initializes the stats for node.
+func (m *lockedOverlayCache) CreateStats(ctx context.Context, nodeID storj.NodeID, initial *overlay.NodeStats) (stats *overlay.NodeStats, err error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.CreateEntryIfNotExists(ctx, nodeID)
+	return m.db.CreateStats(ctx, nodeID, initial)
 }
 
 // Delete deletes node based on id
@@ -634,13 +675,6 @@ func (m *lockedOverlayCache) Update(ctx context.Context, value *pb.Node) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Update(ctx, value)
-}
-
-// UpdateAuditSuccess updates a single storagenode's audit stats.
-func (m *lockedOverlayCache) UpdateAuditSuccess(ctx context.Context, nodeID storj.NodeID, auditSuccess bool) (stats *overlay.NodeStats, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.UpdateAuditSuccess(ctx, nodeID, auditSuccess)
 }
 
 // UpdateBatch for updating multiple storage nodes' stats.

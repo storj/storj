@@ -178,8 +178,10 @@ message StatsRequest {
 message StatSummaryResponse {
   int64 used_space = 1;
   int64 available_space = 2;
-  int64 used_bandwidth = 3;
-  int64 available_bandwidth = 4;
+  int64 used_ingress = 3;
+  int64 used_egress = 4;
+  int64 used_bandwidth = 5;
+  int64 available_bandwidth = 6;
 }
 
 message DashboardRequest {

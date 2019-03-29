@@ -36,12 +36,15 @@ CREATE TABLE bucket_bandwidth_rollups (
 	settled bigint NOT NULL,
 	PRIMARY KEY ( bucket_id, interval_start, action )
 );
-CREATE TABLE bucket_storage_rollups (
+CREATE TABLE bucket_storage_tallies (
 	bucket_id bytea NOT NULL,
 	interval_start timestamp NOT NULL,
-	interval_seconds integer NOT NULL,
 	inline bigint NOT NULL,
 	remote bigint NOT NULL,
+	remote_segments_count integer NOT NULL,
+	inline_segments_count integer NOT NULL,
+	object_count integer NOT NULL,
+	metadata_size bigint NOT NULL,
 	PRIMARY KEY ( bucket_id, interval_start )
 );
 CREATE TABLE bucket_usages (
@@ -90,6 +93,14 @@ CREATE TABLE irreparabledbs (
 );
 CREATE TABLE nodes (
 	id bytea NOT NULL,
+	address text NOT NULL,
+	protocol integer NOT NULL,
+	type integer NOT NULL,
+	email text NOT NULL,
+	wallet text NOT NULL,
+	free_bandwidth bigint NOT NULL,
+	free_disk bigint NOT NULL,
+	latency_90 bigint NOT NULL,
 	audit_success_count bigint NOT NULL,
 	total_audit_count bigint NOT NULL,
 	audit_success_ratio double precision NOT NULL,
@@ -98,28 +109,9 @@ CREATE TABLE nodes (
 	uptime_ratio double precision NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
-	wallet text NOT NULL,
-	email text NOT NULL,
+	last_contact_success timestamp with time zone NOT NULL,
+	last_contact_failure timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
-);
-CREATE TABLE overlay_cache_nodes (
-	node_id bytea NOT NULL,
-	node_type integer NOT NULL,
-	address text NOT NULL,
-	protocol integer NOT NULL,
-	operator_email text NOT NULL,
-	operator_wallet text NOT NULL,
-	free_bandwidth bigint NOT NULL,
-	free_disk bigint NOT NULL,
-	latency_90 bigint NOT NULL,
-	audit_success_ratio double precision NOT NULL,
-	audit_uptime_ratio double precision NOT NULL,
-	audit_count bigint NOT NULL,
-	audit_success_count bigint NOT NULL,
-	uptime_count bigint NOT NULL,
-	uptime_success_count bigint NOT NULL,
-	PRIMARY KEY ( node_id ),
-	UNIQUE ( node_id )
 );
 CREATE TABLE projects (
 	id bytea NOT NULL,
@@ -152,17 +144,16 @@ CREATE TABLE storagenode_bandwidth_rollups (
 	settled bigint NOT NULL,
 	PRIMARY KEY ( storagenode_id, interval_start, action )
 );
-CREATE TABLE storagenode_storage_rollups (
+CREATE TABLE storagenode_storage_tallies (
 	storagenode_id bytea NOT NULL,
 	interval_start timestamp NOT NULL,
-	interval_seconds integer NOT NULL,
 	total bigint NOT NULL,
 	PRIMARY KEY ( storagenode_id, interval_start )
 );
 CREATE TABLE users (
 	id bytea NOT NULL,
-	first_name text NOT NULL,
-	last_name text NOT NULL,
+	full_name text NOT NULL,
+	short_name text,
 	email text NOT NULL,
 	password_hash bytea NOT NULL,
 	status integer NOT NULL,
