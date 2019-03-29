@@ -167,7 +167,7 @@ func populateTestData(t *testing.T, planet *testplanet.Planet, expiration *times
 	t.Run("putToDB", func(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.bm, func(t *testing.T) {
-				pointer := makePutRequest(tt.path, expiration)
+				pointer := makePointer(tt.path, expiration)
 				require.NoError(t, pointerdb.Put(tt.path, pointer))
 			})
 		}
@@ -175,7 +175,7 @@ func populateTestData(t *testing.T, planet *testplanet.Planet, expiration *times
 	return tests, cursor, pointerdb
 }
 
-func makePutRequest(path storj.Path, expiration *timestamp.Timestamp) *pb.Pointer {
+func makePointer(path storj.Path, expiration *timestamp.Timestamp) *pb.Pointer {
 	var rps []*pb.RemotePiece
 	rps = append(rps, &pb.RemotePiece{
 		PieceNum: 1,
