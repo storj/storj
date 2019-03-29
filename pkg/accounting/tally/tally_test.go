@@ -34,7 +34,7 @@ func TestLatestTallyForBucket(t *testing.T) {
 			id := strconv.Itoa(i)
 			latestTally, interval, err := planet.Satellites[0].DB.Accounting().LatestTallyForBucket(ctx, id)
 			require.NoError(t, err)
-			assert.Equal(t, before.UTC(), interval.UTC())
+			assert.Equal(t, before.Truncate(time.Second).UTC(), interval.Truncate(time.Second).UTC())
 			assert.Equal(t, bucketTallies[id], latestTally)
 		}
 
@@ -49,7 +49,7 @@ func TestLatestTallyForBucket(t *testing.T) {
 			id := strconv.Itoa(i)
 			latestTally, interval, err := planet.Satellites[0].DB.Accounting().LatestTallyForBucket(ctx, id)
 			require.NoError(t, err)
-			assert.Equal(t, later.UTC(), interval.UTC())
+			assert.Equal(t, later.Truncate(time.Second).UTC(), interval.Truncate(time.Second).UTC())
 			assert.Equal(t, newBucketTallies[id], latestTally)
 		}
 	})
