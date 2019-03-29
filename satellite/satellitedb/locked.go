@@ -85,6 +85,13 @@ func (m *lockedAccounting) SaveBucketTallies(ctx context.Context, intervalStart 
 	return m.db.SaveBucketTallies(ctx, intervalStart, bucketInfo)
 }
 
+// LatestTallyForBucket returns the latest tally for a bucket
+func (m *lockedAccounting) LatestTallyForBucket(ctx context.Context, bucketID string) (*accounting.BucketTally, time.Time, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.LatestTallyForBucket(ctx, bucketID)
+}
+
 // QueryPaymentInfo queries Overlay, Accounting Rollup on nodeID
 func (m *lockedAccounting) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*accounting.CSVRow, error) {
 	m.Lock()
