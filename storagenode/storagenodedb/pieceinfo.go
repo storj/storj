@@ -6,6 +6,7 @@ package storagenodedb
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 
@@ -101,4 +102,13 @@ func (db *pieceinfo) SpaceUsed(ctx context.Context) (int64, error) {
 		return 0, nil
 	}
 	return *sum, err
+}
+
+// Delete deletes piece information.
+func (db *pieceinfo) DeleteExpired(ctx context.Context, expiredAt time.Time) error {
+	defer db.locked()()
+
+	_, err := db.db.Exec(`DELETE FROM pieceinfo WHERE piece_expiration < ?`, expiredAt)
+
+	return ErrInfo.Wrap(err)
 }

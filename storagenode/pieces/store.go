@@ -48,6 +48,8 @@ type DB interface {
 	Delete(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) error
 	// SpaceUsed calculates disk space used by all pieces
 	SpaceUsed(ctx context.Context) (int64, error)
+	//DeleteExpired deletes pieces that are expired
+	DeleteExpired(context.Context, time.Time) error
 }
 
 // Store implements storing pieces onto a blob storage implementation.
