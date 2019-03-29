@@ -71,20 +71,17 @@ func (pm *projectMembers) GetByProjectID(ctx context.Context, projectID uuid.UUI
 
 		scanErr := rows.Scan(&memberIDBytes, &projectIDBytes, &pm.CreatedAt)
 		if err != nil {
-			err = errs.Combine(err, scanErr)
-			continue
+			return nil, scanErr
 		}
 
 		memberID, convertErr := bytesToUUID(memberIDBytes)
 		if convertErr != nil {
-			err = errs.Combine(err, convertErr)
-			continue
+			return nil, convertErr
 		}
 
 		projectID, convertErr = bytesToUUID(projectIDBytes)
 		if convertErr != nil {
-			err = errs.Combine(err, convertErr)
-			continue
+			return nil, convertErr
 		}
 
 		pm.ProjectID = projectID
