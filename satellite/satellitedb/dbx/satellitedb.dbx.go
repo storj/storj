@@ -4848,14 +4848,15 @@ func (obj *postgresImpl) Find_SerialNumber_By_SerialNumber(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) First_BucketStorageTally_By_BucketId(ctx context.Context,
-	bucket_storage_tally_bucket_id BucketStorageTally_BucketId_Field) (
-	bucket_storage_tally *BucketStorageTally, err error) {
+func (obj *postgresImpl) All_BucketStorageTally_By_IntervalStart_GreaterOrEqual_And_IntervalStart_Less(ctx context.Context,
+	bucket_storage_tally_interval_start_greater_or_equal BucketStorageTally_IntervalStart_Field,
+	bucket_storage_tally_interval_start_less BucketStorageTally_IntervalStart_Field) (
+	rows []*BucketStorageTally, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies WHERE bucket_storage_tallies.bucket_id = ? LIMIT 1 OFFSET 0")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies WHERE bucket_storage_tallies.interval_start >= ? AND bucket_storage_tallies.interval_start < ?")
 
 	var __values []interface{}
-	__values = append(__values, bucket_storage_tally_bucket_id.value())
+	__values = append(__values, bucket_storage_tally_interval_start_greater_or_equal.value(), bucket_storage_tally_interval_start_less.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -4866,20 +4867,18 @@ func (obj *postgresImpl) First_BucketStorageTally_By_BucketId(ctx context.Contex
 	}
 	defer __rows.Close()
 
-	if !__rows.Next() {
-		if err := __rows.Err(); err != nil {
+	for __rows.Next() {
+		bucket_storage_tally := &BucketStorageTally{}
+		err = __rows.Scan(&bucket_storage_tally.BucketId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
+		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		return nil, nil
+		rows = append(rows, bucket_storage_tally)
 	}
-
-	bucket_storage_tally = &BucketStorageTally{}
-	err = __rows.Scan(&bucket_storage_tally.BucketId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
-	if err != nil {
+	if err := __rows.Err(); err != nil {
 		return nil, obj.makeErr(err)
 	}
-
-	return bucket_storage_tally, nil
+	return rows, nil
 
 }
 
@@ -5649,6 +5648,33 @@ func (obj *postgresImpl) Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx contex
 
 	var __values []interface{}
 	__values = append(__values, serial_number_expires_at_less_or_equal.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *postgresImpl) Delete_BucketStorageTally_By_IntervalStart_GreaterOrEqual_And_IntervalStart_Less(ctx context.Context,
+	bucket_storage_tally_interval_start_greater_or_equal BucketStorageTally_IntervalStart_Field,
+	bucket_storage_tally_interval_start_less BucketStorageTally_IntervalStart_Field) (
+	count int64, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bucket_storage_tallies WHERE bucket_storage_tallies.interval_start >= ? AND bucket_storage_tallies.interval_start < ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_storage_tally_interval_start_greater_or_equal.value(), bucket_storage_tally_interval_start_less.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -7228,14 +7254,15 @@ func (obj *sqlite3Impl) Find_SerialNumber_By_SerialNumber(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) First_BucketStorageTally_By_BucketId(ctx context.Context,
-	bucket_storage_tally_bucket_id BucketStorageTally_BucketId_Field) (
-	bucket_storage_tally *BucketStorageTally, err error) {
+func (obj *sqlite3Impl) All_BucketStorageTally_By_IntervalStart_GreaterOrEqual_And_IntervalStart_Less(ctx context.Context,
+	bucket_storage_tally_interval_start_greater_or_equal BucketStorageTally_IntervalStart_Field,
+	bucket_storage_tally_interval_start_less BucketStorageTally_IntervalStart_Field) (
+	rows []*BucketStorageTally, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies WHERE bucket_storage_tallies.bucket_id = ? LIMIT 1 OFFSET 0")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies WHERE bucket_storage_tallies.interval_start >= ? AND bucket_storage_tallies.interval_start < ?")
 
 	var __values []interface{}
-	__values = append(__values, bucket_storage_tally_bucket_id.value())
+	__values = append(__values, bucket_storage_tally_interval_start_greater_or_equal.value(), bucket_storage_tally_interval_start_less.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -7246,20 +7273,18 @@ func (obj *sqlite3Impl) First_BucketStorageTally_By_BucketId(ctx context.Context
 	}
 	defer __rows.Close()
 
-	if !__rows.Next() {
-		if err := __rows.Err(); err != nil {
+	for __rows.Next() {
+		bucket_storage_tally := &BucketStorageTally{}
+		err = __rows.Scan(&bucket_storage_tally.BucketId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
+		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		return nil, nil
+		rows = append(rows, bucket_storage_tally)
 	}
-
-	bucket_storage_tally = &BucketStorageTally{}
-	err = __rows.Scan(&bucket_storage_tally.BucketId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
-	if err != nil {
+	if err := __rows.Err(); err != nil {
 		return nil, obj.makeErr(err)
 	}
-
-	return bucket_storage_tally, nil
+	return rows, nil
 
 }
 
@@ -8127,6 +8152,33 @@ func (obj *sqlite3Impl) Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx context
 
 }
 
+func (obj *sqlite3Impl) Delete_BucketStorageTally_By_IntervalStart_GreaterOrEqual_And_IntervalStart_Less(ctx context.Context,
+	bucket_storage_tally_interval_start_greater_or_equal BucketStorageTally_IntervalStart_Field,
+	bucket_storage_tally_interval_start_less BucketStorageTally_IntervalStart_Field) (
+	count int64, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bucket_storage_tallies WHERE bucket_storage_tallies.interval_start >= ? AND bucket_storage_tallies.interval_start < ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_storage_tally_interval_start_greater_or_equal.value(), bucket_storage_tally_interval_start_less.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *sqlite3Impl) Delete_CertRecord_By_Id(ctx context.Context,
 	certRecord_id CertRecord_Id_Field) (
 	deleted bool, err error) {
@@ -8745,6 +8797,17 @@ func (rx *Rx) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Context,
 	return tx.All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx, api_key_project_id)
 }
 
+func (rx *Rx) All_BucketStorageTally_By_IntervalStart_GreaterOrEqual_And_IntervalStart_Less(ctx context.Context,
+	bucket_storage_tally_interval_start_greater_or_equal BucketStorageTally_IntervalStart_Field,
+	bucket_storage_tally_interval_start_less BucketStorageTally_IntervalStart_Field) (
+	rows []*BucketStorageTally, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_BucketStorageTally_By_IntervalStart_GreaterOrEqual_And_IntervalStart_Less(ctx, bucket_storage_tally_interval_start_greater_or_equal, bucket_storage_tally_interval_start_less)
+}
+
 func (rx *Rx) All_Node_Id(ctx context.Context) (
 	rows []*Id_Row, err error) {
 	var tx *Tx
@@ -9053,6 +9116,18 @@ func (rx *Rx) Delete_ApiKey_By_Id(ctx context.Context,
 	return tx.Delete_ApiKey_By_Id(ctx, api_key_id)
 }
 
+func (rx *Rx) Delete_BucketStorageTally_By_IntervalStart_GreaterOrEqual_And_IntervalStart_Less(ctx context.Context,
+	bucket_storage_tally_interval_start_greater_or_equal BucketStorageTally_IntervalStart_Field,
+	bucket_storage_tally_interval_start_less BucketStorageTally_IntervalStart_Field) (
+	count int64, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_BucketStorageTally_By_IntervalStart_GreaterOrEqual_And_IntervalStart_Less(ctx, bucket_storage_tally_interval_start_greater_or_equal, bucket_storage_tally_interval_start_less)
+
+}
+
 func (rx *Rx) Delete_BucketUsage_By_Id(ctx context.Context,
 	bucket_usage_id BucketUsage_Id_Field) (
 	deleted bool, err error) {
@@ -9163,16 +9238,6 @@ func (rx *Rx) Find_SerialNumber_By_SerialNumber(ctx context.Context,
 		return
 	}
 	return tx.Find_SerialNumber_By_SerialNumber(ctx, serial_number_serial_number)
-}
-
-func (rx *Rx) First_BucketStorageTally_By_BucketId(ctx context.Context,
-	bucket_storage_tally_bucket_id BucketStorageTally_BucketId_Field) (
-	bucket_storage_tally *BucketStorageTally, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.First_BucketStorageTally_By_BucketId(ctx, bucket_storage_tally_bucket_id)
 }
 
 func (rx *Rx) First_Injuredsegment(ctx context.Context) (
@@ -9486,6 +9551,11 @@ type Methods interface {
 		api_key_project_id ApiKey_ProjectId_Field) (
 		rows []*ApiKey, err error)
 
+	All_BucketStorageTally_By_IntervalStart_GreaterOrEqual_And_IntervalStart_Less(ctx context.Context,
+		bucket_storage_tally_interval_start_greater_or_equal BucketStorageTally_IntervalStart_Field,
+		bucket_storage_tally_interval_start_less BucketStorageTally_IntervalStart_Field) (
+		rows []*BucketStorageTally, err error)
+
 	All_Node_Id(ctx context.Context) (
 		rows []*Id_Row, err error)
 
@@ -9640,6 +9710,11 @@ type Methods interface {
 		api_key_id ApiKey_Id_Field) (
 		deleted bool, err error)
 
+	Delete_BucketStorageTally_By_IntervalStart_GreaterOrEqual_And_IntervalStart_Less(ctx context.Context,
+		bucket_storage_tally_interval_start_greater_or_equal BucketStorageTally_IntervalStart_Field,
+		bucket_storage_tally_interval_start_less BucketStorageTally_IntervalStart_Field) (
+		count int64, err error)
+
 	Delete_BucketUsage_By_Id(ctx context.Context,
 		bucket_usage_id BucketUsage_Id_Field) (
 		deleted bool, err error)
@@ -9684,10 +9759,6 @@ type Methods interface {
 	Find_SerialNumber_By_SerialNumber(ctx context.Context,
 		serial_number_serial_number SerialNumber_SerialNumber_Field) (
 		serial_number *SerialNumber, err error)
-
-	First_BucketStorageTally_By_BucketId(ctx context.Context,
-		bucket_storage_tally_bucket_id BucketStorageTally_BucketId_Field) (
-		bucket_storage_tally *BucketStorageTally, err error)
 
 	First_Injuredsegment(ctx context.Context) (
 		injuredsegment *Injuredsegment, err error)

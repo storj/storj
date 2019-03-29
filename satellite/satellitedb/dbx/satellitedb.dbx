@@ -426,11 +426,18 @@ model bucket_storage_tally (
 
 create bucket_storage_tally ( )
 
-read first (
+// for rolling up a period
+read all (
 	select bucket_storage_tally
-	where bucket_storage_tally.bucket_id = ?
+	where bucket_storage_tally.interval_start >= ?
+	where bucket_storage_tally.interval_start < ?
 )
 
+// for deleting after rollup
+delete bucket_storage_tally (
+	where bucket_storage_tally.interval_start >= ?
+	where bucket_storage_tally.interval_start < ?
+)
 // --- storage node accounting tables --- //
 
 model storagenode_bandwidth_rollup (
