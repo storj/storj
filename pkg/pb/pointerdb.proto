@@ -12,12 +12,6 @@ import "node.proto";
 import "piecestore.proto";
 import "orders.proto";
 
-// PointerDB defines the interface for interacting with the network state persistence layer
-service PointerDB {
-  // List calls the bolt client's List function and returns all file paths
-  rpc List(ListRequest) returns (ListResponse);
-}
-
 message RedundancyScheme {
   enum SchemeType {
     RS = 0;

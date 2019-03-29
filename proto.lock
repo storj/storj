@@ -2938,18 +2938,6 @@
             ]
           }
         ],
-        "services": [
-          {
-            "name": "PointerDB",
-            "rpcs": [
-              {
-                "name": "List",
-                "in_type": "ListRequest",
-                "out_type": "ListResponse"
-              }
-            ]
-          }
-        ],
         "imports": [
           {
             "path": "google/protobuf/timestamp.proto"
