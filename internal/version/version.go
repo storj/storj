@@ -113,21 +113,32 @@ func (v V) Marshal() (data []byte, err error) {
 	return
 }
 
-// CheckVersion ensures that the client is running latest/allowed code
-func CheckVersion(ctx *context.Context) (err error) {
+// CheckVersion_Startup ensures that client is running latest/allowed code, else refusing further operation
+func CheckVersionStartup(ctx *context.Context) (err error) {
+	allow, err := CheckVersion(ctx)
+	if err == nil {
+		Allowed = allow
+	}
+	return
+}
+
+// CheckVersion checks if the client is running latest/allowed code
+func CheckVersion(ctx *context.Context) (allowed bool, err error) {
 	defer mon.Task()(ctx)(&err)
 
 	accepted, err := queryVersionFromControlServer()
 	if err != nil {
 		return
 	}
+
 	zap.S().Debugf("Allowed Version from Control Server: %v", accepted)
+
 	if containsVersion(accepted, Build.Version) {
 		zap.S().Infof("Running on Version %s", Build.Version.String())
-		Allowed = true
+		allowed = true
 	} else {
-		zap.S().Errorf("Running on not allowed Version %s", Build.Version.String())
-		Allowed = false
+		zap.S().Errorf("Running on not allowed/outdated Version %s", Build.Version.String())
+		allowed = false
 	}
 	return
 }

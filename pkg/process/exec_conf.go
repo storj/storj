@@ -265,7 +265,8 @@ func cleanup(cmd *cobra.Command) {
 // LogAndReportVersion logs the current version information
 // and reports to monkit
 func LogAndReportVersion(ctx context.Context) (err error) {
-	if err := version.CheckVersion(&ctx); err != nil {
+	err = version.CheckVersionStartup(&ctx)
+	if err != nil {
 		return err
 	}
 
@@ -279,7 +280,8 @@ func LogAndReportVersion(ctx context.Context) (err error) {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				err := version.CheckVersion(&ctx)
+				//Check Version, but dont care if outdated for now
+				_, err := version.CheckVersion(&ctx)
 				if err != nil {
 					zap.S().Errorf("Failed to do periodic version check: ", err)
 				}
