@@ -6,13 +6,7 @@ package psserver
 import (
 	"time"
 
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
-
 	"storj.io/storj/internal/memory"
-)
-
-var (
-	mon = monkit.Package()
 )
 
 // Config contains everything necessary for a server

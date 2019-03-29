@@ -10,7 +10,6 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/satellite/console"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -69,22 +68,19 @@ func (pm *projectMembers) GetByProjectID(ctx context.Context, projectID uuid.UUI
 		var memberIDBytes, projectIDBytes []uint8
 		var memberID, projectID uuid.UUID
 
-		scanErr := rows.Scan(&memberIDBytes, &projectIDBytes, &pm.CreatedAt)
+		err = rows.Scan(&memberIDBytes, &projectIDBytes, &pm.CreatedAt)
 		if err != nil {
-			err = errs.Combine(err, scanErr)
-			continue
+			return nil, err
 		}
 
-		memberID, convertErr := bytesToUUID(memberIDBytes)
-		if convertErr != nil {
-			err = errs.Combine(err, convertErr)
-			continue
+		memberID, err := bytesToUUID(memberIDBytes)
+		if err != nil {
+			return nil, err
 		}
 
-		projectID, convertErr = bytesToUUID(projectIDBytes)
-		if convertErr != nil {
-			err = errs.Combine(err, convertErr)
-			continue
+		projectID, err = bytesToUUID(projectIDBytes)
+		if err != nil {
+			return nil, err
 		}
 
 		pm.ProjectID = projectID
@@ -170,5 +166,5 @@ func projectMembersFromDbxSlice(projectMembersDbx []*dbx.ProjectMember) ([]conso
 		projectMembers = append(projectMembers, *projectMember)
 	}
 
-	return projectMembers, utils.CombineErrors(errors...)
+	return projectMembers, errs.Combine(errors...)
 }
