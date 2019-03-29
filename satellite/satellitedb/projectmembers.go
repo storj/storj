@@ -10,7 +10,6 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/satellite/console"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -170,5 +169,5 @@ func projectMembersFromDbxSlice(projectMembersDbx []*dbx.ProjectMember) ([]conso
 		projectMembers = append(projectMembers, *projectMember)
 	}
 
-	return projectMembers, utils.CombineErrors(errors...)
+	return projectMembers, errs.Combine(errors...)
 }

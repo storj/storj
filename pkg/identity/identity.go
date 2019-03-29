@@ -23,7 +23,6 @@ import (
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/utils"
 )
 
 // PeerIdentity represents another peer on the network.
@@ -335,12 +334,12 @@ func (ic Config) Save(fi *FullIdentity) error {
 		writeKeyDataErr = writeKeyData(ic.KeyPath, keyData.Bytes())
 	}
 
-	writeErr := utils.CombineErrors(writeChainErr, writeKeyErr)
+	writeErr := errs.Combine(writeChainErr, writeKeyErr)
 	if writeErr != nil {
 		return writeErr
 	}
 
-	return utils.CombineErrors(
+	return errs.Combine(
 		writeChainDataErr,
 		writeKeyDataErr,
 	)
@@ -390,12 +389,12 @@ func (ic PeerConfig) Save(fi *PeerIdentity) error {
 		writeChainDataErr = writeChainData(ic.CertPath, certData.Bytes())
 	}
 
-	writeErr := utils.CombineErrors(writeChainErr)
+	writeErr := errs.Combine(writeChainErr)
 	if writeErr != nil {
 		return writeErr
 	}
 
-	return utils.CombineErrors(
+	return errs.Combine(
 		writeChainDataErr,
 	)
 }

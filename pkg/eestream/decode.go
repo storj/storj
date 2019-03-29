@@ -12,7 +12,6 @@ import (
 	"storj.io/storj/internal/readcloser"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/ranger"
-	"storj.io/storj/pkg/utils"
 )
 
 type decodedReader struct {
@@ -111,7 +110,7 @@ func (dr *decodedReader) Close() error {
 		if err != nil {
 			errs = append(errs, err)
 		}
-		dr.closeErr = utils.CombineErrors(errs...)
+		dr.closeErr = errs.Combine(errs...)
 	})
 	return dr.closeErr
 }
