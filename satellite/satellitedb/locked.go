@@ -553,6 +553,12 @@ type lockedOrders struct {
 	db orders.DB
 }
 
+func (m *lockedOrders) CreateSerialInfo(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte, limitExpiration time.Time) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.CreateSerialInfo(ctx, serialNumber, bucketID, limitExpiration)
+}
+
 // SaveInlineOrder
 func (m *lockedOrders) SaveInlineOrder(ctx context.Context, bucketID []byte) error {
 	m.Lock()
