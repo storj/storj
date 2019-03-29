@@ -63,7 +63,7 @@
                         </HeaderlessInput>
                         <span
                             v-html="infoImage"
-                            title="Use 6 or more characters with a mix of letters and numbers"></span>
+                            title="Use 6 or more characters"></span>
                     </div>
                     <div class="register-input">
                         <HeaderlessInput
