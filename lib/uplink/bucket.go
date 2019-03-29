@@ -12,6 +12,8 @@ import (
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/stream"
+	"storj.io/storj/pkg/utils"
 )
 
 // Bucket represents operations you can perform on a bucket
@@ -26,7 +28,37 @@ type Bucket struct {
 // OpenObject returns an Object handle, if authorized.
 func (b *Bucket) OpenObject(ctx context.Context, path storj.Path) (o *Object, err error) {
 	defer mon.Task()(&ctx)(&err)
-	panic("TODO")
+
+	info, err := b.metainfo.GetObject(ctx, b.Name, path)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Object{
+		Meta: ObjectMeta{
+			Bucket:      info.Bucket.Name,
+			Path:        info.Path,
+			IsPrefix:    info.IsPrefix,
+			ContentType: info.ContentType,
+			Metadata:    info.Metadata,
+			Created:     info.Created,
+			Modified:    info.Modified,
+			Expires:     info.Expires,
+			Size:        info.Size,
+			Checksum:    info.Checksum,
+			Volatile: struct {
+				DataCipher          Cipher
+				EncryptionBlockSize memory.Size
+				RSParameters        storj.RedundancyScheme
+			}{
+				DataCipher:          Cipher(info.EncryptionScheme.Cipher + 1), // TODO: better conversion
+				EncryptionBlockSize: memory.Size(info.EncryptionScheme.BlockSize),
+				RSParameters:        info.RedundancyScheme,
+			},
+		},
+		metainfo: b.metainfo,
+		streams:  b.streams,
+	}, nil
 }
 
 // UploadOptions controls options about uploading a new Object, if authorized.
@@ -64,11 +96,42 @@ type UploadOptions struct {
 // UploadObject uploads a new object, if authorized.
 func (b *Bucket) UploadObject(ctx context.Context, path storj.Path, data io.Reader, opts *UploadOptions) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	// SIGH thanks, lint. we should uncomment this once it's being used.
-	//if opts == nil {
-	//	opts = &UploadOptions{}
-	//}
-	panic("TODO")
+
+	if opts == nil {
+		opts = &UploadOptions{}
+	}
+
+	cipher, err := opts.Volatile.DataCipher.convert()
+	if err != nil {
+		return err
+	}
+
+	createInfo := storj.CreateObject{
+		ContentType:      opts.ContentType,
+		Metadata:         opts.Metadata,
+		Expires:          opts.Expires,
+		RedundancyScheme: opts.Volatile.RSParameters,
+		EncryptionScheme: storj.EncryptionScheme{
+			Cipher:    cipher,
+			BlockSize: opts.Volatile.EncryptionBlockSize.Int32(),
+		},
+	}
+
+	obj, err := b.metainfo.CreateObject(ctx, b.Name, path, &createInfo)
+	if err != nil {
+		return err
+	}
+
+	mutableStream, err := obj.CreateStream(ctx)
+	if err != nil {
+		return err
+	}
+
+	upload := stream.NewUpload(ctx, mutableStream, b.streams)
+
+	_, err = io.Copy(upload, data)
+
+	return utils.CombineErrors(err, upload.Close())
 }
 
 // DeleteObject removes an object, if authorized.

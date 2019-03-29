@@ -9,7 +9,10 @@ import (
 	"time"
 
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/pkg/metainfo/kvmetainfo"
+	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/stream"
 )
 
 // ObjectMeta contains metadata about a specific Object
@@ -69,12 +72,20 @@ type ObjectMeta struct {
 type Object struct {
 	// Meta holds the metainfo associated with the Object.
 	Meta ObjectMeta
+
+	metainfo *kvmetainfo.DB
+	streams  streams.Store
 }
 
 // DownloadRange returns an Object's data. A length of -1 will mean
 // (Object.Size - offset).
 func (o *Object) DownloadRange(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
-	panic("TODO")
+	readOnlyStream, err := o.metainfo.GetObjectStream(ctx, o.Meta.Bucket, o.Meta.Path)
+	if err != nil {
+		return nil, err
+	}
+
+	return stream.NewDownload(ctx, readOnlyStream, o.streams), nil
 }
 
 // Close closes the Object.
