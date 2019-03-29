@@ -5,16 +5,28 @@ package satellitedb
 
 import (
 	"context"
+	"time"
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
 type ordersDB struct {
 	db *dbx.DB
+}
+
+func (db *ordersDB) CreateSerialInfo(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte, limitExpiration time.Time) error {
+	_, err := db.db.Create_SerialNumber(
+		ctx,
+		dbx.SerialNumber_SerialNumber(serialNumber.Bytes()),
+		dbx.SerialNumber_BucketId(bucketID),
+		dbx.SerialNumber_ExpiresAt(limitExpiration),
+	)
+	return err
 }
 
 // SaveInlineOrder saves inline order

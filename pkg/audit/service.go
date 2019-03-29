@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/satellite/orders"
 )
 
 // Config contains configurable values for audit service
@@ -37,13 +38,13 @@ type Service struct {
 
 // NewService instantiates a Service with access to a Cursor and Verifier
 func NewService(log *zap.Logger, config Config, pointerdb *pointerdb.Service,
-	allocation *pointerdb.AllocationSigner, transport transport.Client, overlay *overlay.Cache,
+	allocation *pointerdb.AllocationSigner, orders *orders.Service, transport transport.Client, overlay *overlay.Cache,
 	identity *identity.FullIdentity) (service *Service, err error) {
 	return &Service{
 		log: log,
 
-		Cursor:   NewCursor(pointerdb, allocation, overlay, identity),
-		Verifier: NewVerifier(log.Named("audit:verifier"), transport, overlay, identity, config.MinBytesPerSecond),
+		Cursor:   NewCursor(pointerdb),
+		Verifier: NewVerifier(log.Named("audit:verifier"), transport, overlay, orders, identity, config.MinBytesPerSecond),
 		Reporter: NewReporter(overlay, config.MaxRetriesStatDB),
 
 		Loop: *sync2.NewCycle(config.Interval),

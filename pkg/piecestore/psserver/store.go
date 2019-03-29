@@ -14,7 +14,6 @@ import (
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/utils"
 )
 
 // OK - Success!
@@ -68,7 +67,7 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 
 	if err = s.DB.AddTTL(id, pd.GetExpirationUnixSec(), total); err != nil {
 		deleteErr := s.deleteByID(id)
-		return StoreError.New("failed to write piece meta data to database: %v", utils.CombineErrors(err, deleteErr))
+		return StoreError.New("failed to write piece meta data to database: %v", errs.Combine(err, deleteErr))
 	}
 
 	signedHash := &pb.SignedHash{Hash: hash}
