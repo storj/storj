@@ -11,7 +11,6 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 )
 
@@ -55,10 +54,10 @@ func queryPOST(req *http.Request) (query graphqlJSON, err error) {
 	case applicationGraphql:
 		body, err := ioutil.ReadAll(req.Body)
 		query.Query = string(body)
-		return query, utils.CombineErrors(err, req.Body.Close())
+		return query, errs.Combine(err, req.Body.Close())
 	case applicationJSON:
 		err := json.NewDecoder(req.Body).Decode(&query)
-		return query, utils.CombineErrors(err, req.Body.Close())
+		return query, errs.Combine(err, req.Body.Close())
 	default:
 		return query, errs.New("can't parse request body of type %s", typ)
 	}
