@@ -10,9 +10,10 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/stream"
-	"storj.io/storj/pkg/utils"
 )
 
 // Encryption holds the cipher, path, key, and enc. scheme for each bucket since they
@@ -94,7 +95,7 @@ func (b *Bucket) Upload(ctx context.Context, path storj.Path, data []byte, opts 
 		return Error.Wrap(err)
 	}
 
-	return utils.CombineErrors(err, upload.Close())
+	return errs.Combine(err, upload.Close())
 }
 
 // Download downloads an object from a bucket
@@ -111,7 +112,7 @@ func (b *Bucket) Download(ctx context.Context, path storj.Path) ([]byte, error) 
 
 	stream := stream.NewDownload(ctx, readStream, streams)
 
-	defer func() { err = utils.CombineErrors(err, stream.Close()) }()
+	defer func() { err = errs.Combine(err, stream.Close()) }()
 
 	data, err := ioutil.ReadAll(stream)
 	if err != nil {

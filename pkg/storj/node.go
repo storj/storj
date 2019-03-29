@@ -10,8 +10,6 @@ import (
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/zeebo/errs"
-
-	"storj.io/storj/pkg/utils"
 )
 
 // IDVersion is the default version used in the base58check node ID encoding
@@ -51,7 +49,7 @@ func NodeIDsFromBytes(b [][]byte) (ids NodeIDList, err error) {
 		ids = append(ids, id)
 	}
 
-	if err = utils.CombineErrors(idErrs...); err != nil {
+	if err = errs.Combine(idErrs...); err != nil {
 		return nil, err
 	}
 	return ids, nil

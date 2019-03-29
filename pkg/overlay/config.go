@@ -10,7 +10,6 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/utils"
 )
 
 var (
@@ -55,7 +54,7 @@ func (c LookupConfig) ParseIDs() (ids storj.NodeIDList, err error) {
 		}
 		ids = append(ids, id)
 	}
-	if err := utils.CombineErrors(idErrs...); err != nil {
+	if err := errs.Combine(idErrs...); err != nil {
 		return nil, err
 	}
 	return ids, nil
