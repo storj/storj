@@ -15,7 +15,6 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/utils"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/storage"
 )
@@ -305,18 +304,18 @@ func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID,
 	}
 	dbNode, err := tx.Get_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()))
 	if err != nil {
-		return nil, Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
+		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 
 	if startingStats != nil {
 		auditSuccessRatio, err := checkRatioVars(startingStats.AuditSuccessCount, startingStats.AuditCount)
 		if err != nil {
-			return nil, errAuditSuccess.Wrap(utils.CombineErrors(err, tx.Rollback()))
+			return nil, errAuditSuccess.Wrap(errs.Combine(err, tx.Rollback()))
 		}
 
 		uptimeRatio, err := checkRatioVars(startingStats.UptimeSuccessCount, startingStats.UptimeCount)
 		if err != nil {
-			return nil, errUptime.Wrap(utils.CombineErrors(err, tx.Rollback()))
+			return nil, errUptime.Wrap(errs.Combine(err, tx.Rollback()))
 		}
 
 		updateFields := dbx.Node_Update_Fields{
@@ -330,7 +329,7 @@ func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID,
 
 		dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
 		if err != nil {
-			return nil, Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
+			return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
 		}
 	}
 
@@ -368,7 +367,7 @@ func (cache *overlaycache) FindInvalidNodes(ctx context.Context, nodeIDs storj.N
 		return nil, err
 	}
 	defer func() {
-		err = utils.CombineErrors(err, rows.Close())
+		err = errs.Combine(err, rows.Close())
 	}()
 
 	for rows.Next() {
@@ -421,7 +420,7 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 	}
 	dbNode, err := tx.Get_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()))
 	if err != nil {
-		return nil, Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
+		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 
 	auditSuccessCount := dbNode.AuditSuccessCount
@@ -460,7 +459,7 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 
 	dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
 	if err != nil {
-		return nil, Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
+		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 
 	nodeStats := getNodeStats(nodeID, dbNode)
@@ -488,7 +487,7 @@ func (cache *overlaycache) UpdateOperator(ctx context.Context, nodeID storj.Node
 
 	updated := getNodeStats(nodeID, updatedDBNode)
 
-	return updated, utils.CombineErrors(err, tx.Commit())
+	return updated, errs.Combine(err, tx.Commit())
 }
 
 // UpdateUptime updates a single storagenode's uptime stats in the db
@@ -501,7 +500,7 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 	}
 	dbNode, err := tx.Get_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()))
 	if err != nil {
-		return nil, Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
+		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 
 	uptimeSuccessCount := dbNode.UptimeSuccessCount
@@ -528,7 +527,7 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 
 	dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
 	if err != nil {
-		return nil, Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
+		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 
 	nodeStats := getNodeStats(nodeID, dbNode)
@@ -555,7 +554,7 @@ func (cache *overlaycache) UpdateBatch(ctx context.Context, updateReqList []*ove
 	}
 
 	if len(allErrors) > 0 {
-		return nodeStatsList, failedUpdateReqs, Error.Wrap(utils.CombineErrors(allErrors...))
+		return nodeStatsList, failedUpdateReqs, Error.Wrap(errs.Combine(allErrors...))
 	}
 	return nodeStatsList, nil, nil
 }

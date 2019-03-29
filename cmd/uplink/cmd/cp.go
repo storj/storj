@@ -21,7 +21,6 @@ import (
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/stream"
-	"storj.io/storj/pkg/utils"
 )
 
 var (
@@ -132,7 +131,7 @@ func uploadStream(ctx context.Context, streams streams.Store, mutableObject stor
 
 	_, err = io.Copy(upload, reader)
 
-	return utils.CombineErrors(err, upload.Close())
+	return errs.Combine(err, upload.Close())
 }
 
 // download transfers s3 compatible object src to dst on local machine
