@@ -67,14 +67,15 @@ func (service *Service) updateBandwidth(ctx context.Context, bucketID []byte, li
 		return nil
 	}
 	var bucketAllocation int64
+	var action pb.PieceAction
 	nodesAllocation := make(map[storj.NodeID]int64)
 	for _, limit := range limits {
 		if limit != nil {
 			bucketAllocation += limit.Limit.Limit
 			nodesAllocation[limit.Limit.StorageNodeId] = limit.Limit.Limit
+			action = limits[0].Limit.Action
 		}
 	}
-	action := limits[0].Limit.Action
 
 	if err := service.orders.UpdateBucketBandwidthAllocation(ctx, bucketID, action, bucketAllocation); err != nil {
 		return err
