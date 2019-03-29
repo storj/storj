@@ -185,12 +185,11 @@ func CertsFromPEM(pemBytes []byte) ([]*x509.Certificate, error) {
 		case BlockLabelCertificate:
 			encChain.AddCert(pemBlock.Bytes)
 		case BlockLabelExtension:
-			if err := encChain.AddExtension(pemBlock.Bytes); err != nil {
-				blockErrs.Add(err)
-			}
+			err := encChain.AddExtension(pemBlock.Bytes)
+			blockErrs.Add(err)
 		}
 	}
-	if err := blockErrs.Finish(); err != nil {
+	if err := blockErrs.Err(); err != nil {
 		return nil, err
 	}
 
@@ -228,13 +227,11 @@ func (e *encodedChain) Parse() ([]*x509.Certificate, error) {
 	for i, cert := range chain {
 		for _, ee := range e.extensions[i] {
 			ext, err := PKIXExtensionFromASN1(ee)
-			if err != nil {
-				extErrs.Add(err)
-			}
+			extErrs.Add(err) // TODO: is this correct?
 			cert.ExtraExtensions = append(cert.ExtraExtensions, *ext)
 		}
 	}
-	if err := extErrs.Finish(); err != nil {
+	if err := extErrs.Err(); err != nil {
 		return nil, err
 	}
 
