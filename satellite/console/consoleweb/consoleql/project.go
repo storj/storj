@@ -34,7 +34,7 @@ const (
 )
 
 // graphqlProject creates *graphql.Object type representation of satellite.ProjectInfo
-func graphqlProject(service *console.Service, types Types) *graphql.Object {
+func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: ProjectType,
 		Fields: graphql.Fields{
@@ -51,7 +51,7 @@ func graphqlProject(service *console.Service, types Types) *graphql.Object {
 				Type: graphql.DateTime,
 			},
 			FieldMembers: &graphql.Field{
-				Type: graphql.NewList(types.ProjectMember()),
+				Type: graphql.NewList(types.projectMember),
 				Args: graphql.FieldConfigArgument{
 					OffsetArg: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.Int),
@@ -103,7 +103,7 @@ func graphqlProject(service *console.Service, types Types) *graphql.Object {
 				},
 			},
 			FieldAPIKeys: &graphql.Field{
-				Type: graphql.NewList(types.APIKeyInfo()),
+				Type: graphql.NewList(types.apiKeyInfo),
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					project, _ := p.Source.(*console.Project)
 

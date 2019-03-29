@@ -59,7 +59,7 @@ func graphqlUser() *graphql.Object {
 }
 
 // graphqlUserInput creates graphql.InputObject type needed to register/update satellite.User
-func graphqlUserInput(types Types) *graphql.InputObject {
+func graphqlUserInput() *graphql.InputObject {
 	return graphql.NewInputObject(graphql.InputObjectConfig{
 		Name: UserInputType,
 		Fields: graphql.InputObjectConfigFieldMap{
