@@ -94,10 +94,10 @@ func (endpoint *Endpoint) RequestInfo(ctx context.Context, req *pb.InfoRequest) 
 			FreeDisk:      self.GetRestrictions().GetFreeDisk(),
 		},
 		// TODO (dylan) Get these values from actual node
-		Version : &pb.NodeVersion{
-			Major: 0, 
+		Version: &pb.NodeVersion{
+			Major: 0,
 			Minor: 0,
 			Patch: 1,
-		}
+		},
 	}, nil
 }

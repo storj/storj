@@ -67,6 +67,8 @@ type DB interface {
 	UpdateOperator(ctx context.Context, node storj.NodeID, updatedOperator pb.NodeOperator) (stats *NodeStats, err error)
 	// UpdateUptime updates a single storagenode's uptime stats.
 	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error)
+	// UpdateUptime updates a single storagenode's version info.
+	UpdateVersion(ctx context.Context, nodeID storj.NodeID, version pb.NodeVersion) (stats *NodeStats, err error)
 	// UpdateAuditSuccess updates a single storagenode's audit stats.
 	UpdateAuditSuccess(ctx context.Context, nodeID storj.NodeID, auditSuccess bool) (stats *NodeStats, err error)
 	// UpdateBatch for updating multiple storage nodes' stats.
@@ -126,6 +128,7 @@ type NodeStats struct {
 	UptimeSuccessCount int64
 	UptimeCount        int64
 	Operator           pb.NodeOperator
+	Version            pb.NodeVersion
 }
 
 // Cache is used to store and handle node information
@@ -344,6 +347,12 @@ func (cache *Cache) UpdateOperator(ctx context.Context, node storj.NodeID, updat
 func (cache *Cache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return cache.db.UpdateUptime(ctx, nodeID, isUp)
+}
+
+// UpdateUptime updates a single storagenode's uptime stats.
+func (cache *Cache) UpdateVersion(ctx context.Context, nodeID storj.NodeID, version pb.NodeVersion) (stats *NodeStats, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return cache.db.UpdateUptime(ctx, nodeID, pb.NodeVersion)
 }
 
 // ConnFailure implements the Transport Observer `ConnFailure` function

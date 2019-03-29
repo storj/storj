@@ -82,8 +82,12 @@ message NodeRestrictions {
     int64 free_disk = 2;
 }
 
+// NodeVersion contains
 message NodeVersion {
     int64 major = 1;
     int64 minor = 2;
     int64 patch = 3;
+    string hash = 4;
+    int64 timestamp = 5;
+    bool release = 6;
 }
