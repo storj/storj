@@ -94,8 +94,7 @@ func TestDataRepair(t *testing.T) {
 			}
 		}
 
-		// TODO figure out optimal time to sleep
-		time.Sleep(5 * time.Second)
+		time.Sleep(2 * time.Second)
 
 		// kill nodes kept alive to ensure repair worked
 		for _, node := range planet.StorageNodes {

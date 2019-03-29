@@ -5,6 +5,7 @@ package segments
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
@@ -29,6 +30,8 @@ type Repairer struct {
 	signer     signing.Signer
 	identity   *identity.FullIdentity
 	timeout    time.Duration
+	inProgress map[storj.Path]bool
+	mutex      *sync.Mutex
 }
 
 // NewSegmentRepairer creates a new instance of SegmentRepairer
@@ -41,12 +44,26 @@ func NewSegmentRepairer(pointerdb *pointerdb.Service, allocation *pointerdb.Allo
 		identity:   identity,
 		signer:     signing.SignerFromFullIdentity(identity),
 		timeout:    timeout,
+		inProgress: make(map[storj.Path]bool),
+		mutex:      &sync.Mutex{},
 	}
 }
 
 // Repair retrieves an at-risk segment and repairs and stores lost pieces on new nodes
 func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int32) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if repairer.inProgress[path] {
+		return nil
+	}
+	repairer.mutex.Lock()
+	repairer.inProgress[path] = true
+	repairer.mutex.Unlock()
+	defer func() {
+		repairer.mutex.Lock()
+		repairer.inProgress[path] = false
+		repairer.mutex.Unlock()
+	}()
 
 	// Read the segment pointer from the PointerDB
 	pointer, err := repairer.pointerdb.Get(path)
@@ -75,7 +92,9 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
 		excludeNodeIDs = append(excludeNodeIDs, piece.NodeId)
 		if _, ok := lostPiecesSet[piece.GetPieceNum()]; !ok {
-			healthyPieces = append(healthyPieces, piece)
+			if _, err := repairer.cache.Get(ctx, piece.NodeId); err == nil {
+				healthyPieces = append(healthyPieces, piece)
+			}
 		}
 	}
 
