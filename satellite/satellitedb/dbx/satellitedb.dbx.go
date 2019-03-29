@@ -365,6 +365,14 @@ CREATE TABLE irreparabledbs (
 );
 CREATE TABLE nodes (
 	id bytea NOT NULL,
+	address text NOT NULL,
+	protocol integer NOT NULL,
+	type integer NOT NULL,
+	email text NOT NULL,
+	wallet text NOT NULL,
+	free_bandwidth bigint NOT NULL,
+	free_disk bigint NOT NULL,
+	latency_90 bigint NOT NULL,
 	audit_success_count bigint NOT NULL,
 	total_audit_count bigint NOT NULL,
 	audit_success_ratio double precision NOT NULL,
@@ -373,28 +381,9 @@ CREATE TABLE nodes (
 	uptime_ratio double precision NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
-	wallet text NOT NULL,
-	email text NOT NULL,
+	last_contact_success timestamp with time zone NOT NULL,
+	last_contact_failure timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
-);
-CREATE TABLE overlay_cache_nodes (
-	node_id bytea NOT NULL,
-	node_type integer NOT NULL,
-	address text NOT NULL,
-	protocol integer NOT NULL,
-	operator_email text NOT NULL,
-	operator_wallet text NOT NULL,
-	free_bandwidth bigint NOT NULL,
-	free_disk bigint NOT NULL,
-	latency_90 bigint NOT NULL,
-	audit_success_ratio double precision NOT NULL,
-	audit_uptime_ratio double precision NOT NULL,
-	audit_count bigint NOT NULL,
-	audit_success_count bigint NOT NULL,
-	uptime_count bigint NOT NULL,
-	uptime_success_count bigint NOT NULL,
-	PRIMARY KEY ( node_id ),
-	UNIQUE ( node_id )
 );
 CREATE TABLE projects (
 	id bytea NOT NULL,
@@ -625,6 +614,14 @@ CREATE TABLE irreparabledbs (
 );
 CREATE TABLE nodes (
 	id BLOB NOT NULL,
+	address TEXT NOT NULL,
+	protocol INTEGER NOT NULL,
+	type INTEGER NOT NULL,
+	email TEXT NOT NULL,
+	wallet TEXT NOT NULL,
+	free_bandwidth INTEGER NOT NULL,
+	free_disk INTEGER NOT NULL,
+	latency_90 INTEGER NOT NULL,
 	audit_success_count INTEGER NOT NULL,
 	total_audit_count INTEGER NOT NULL,
 	audit_success_ratio REAL NOT NULL,
@@ -633,28 +630,9 @@ CREATE TABLE nodes (
 	uptime_ratio REAL NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	updated_at TIMESTAMP NOT NULL,
-	wallet TEXT NOT NULL,
-	email TEXT NOT NULL,
+	last_contact_success TIMESTAMP NOT NULL,
+	last_contact_failure TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
-);
-CREATE TABLE overlay_cache_nodes (
-	node_id BLOB NOT NULL,
-	node_type INTEGER NOT NULL,
-	address TEXT NOT NULL,
-	protocol INTEGER NOT NULL,
-	operator_email TEXT NOT NULL,
-	operator_wallet TEXT NOT NULL,
-	free_bandwidth INTEGER NOT NULL,
-	free_disk INTEGER NOT NULL,
-	latency_90 INTEGER NOT NULL,
-	audit_success_ratio REAL NOT NULL,
-	audit_uptime_ratio REAL NOT NULL,
-	audit_count INTEGER NOT NULL,
-	audit_success_count INTEGER NOT NULL,
-	uptime_count INTEGER NOT NULL,
-	uptime_success_count INTEGER NOT NULL,
-	PRIMARY KEY ( node_id ),
-	UNIQUE ( node_id )
 );
 CREATE TABLE projects (
 	id BLOB NOT NULL,
@@ -2100,6 +2078,14 @@ func (Irreparabledb_RepairAttemptCount_Field) _Column() string { return "repair_
 
 type Node struct {
 	Id                 []byte
+	Address            string
+	Protocol           int
+	Type               int
+	Email              string
+	Wallet             string
+	FreeBandwidth      int64
+	FreeDisk           int64
+	Latency90          int64
 	AuditSuccessCount  int64
 	TotalAuditCount    int64
 	AuditSuccessRatio  float64
@@ -2108,21 +2094,29 @@ type Node struct {
 	UptimeRatio        float64
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
-	Wallet             string
-	Email              string
+	LastContactSuccess time.Time
+	LastContactFailure time.Time
 }
 
 func (Node) _Table() string { return "nodes" }
 
 type Node_Update_Fields struct {
+	Address            Node_Address_Field
+	Protocol           Node_Protocol_Field
+	Type               Node_Type_Field
+	Email              Node_Email_Field
+	Wallet             Node_Wallet_Field
+	FreeBandwidth      Node_FreeBandwidth_Field
+	FreeDisk           Node_FreeDisk_Field
+	Latency90          Node_Latency90_Field
 	AuditSuccessCount  Node_AuditSuccessCount_Field
 	TotalAuditCount    Node_TotalAuditCount_Field
 	AuditSuccessRatio  Node_AuditSuccessRatio_Field
 	UptimeSuccessCount Node_UptimeSuccessCount_Field
 	TotalUptimeCount   Node_TotalUptimeCount_Field
 	UptimeRatio        Node_UptimeRatio_Field
-	Wallet             Node_Wallet_Field
-	Email              Node_Email_Field
+	LastContactSuccess Node_LastContactSuccess_Field
+	LastContactFailure Node_LastContactFailure_Field
 }
 
 type Node_Id_Field struct {
@@ -2143,6 +2137,158 @@ func (f Node_Id_Field) value() interface{} {
 }
 
 func (Node_Id_Field) _Column() string { return "id" }
+
+type Node_Address_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Node_Address(v string) Node_Address_Field {
+	return Node_Address_Field{_set: true, _value: v}
+}
+
+func (f Node_Address_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Node_Address_Field) _Column() string { return "address" }
+
+type Node_Protocol_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Node_Protocol(v int) Node_Protocol_Field {
+	return Node_Protocol_Field{_set: true, _value: v}
+}
+
+func (f Node_Protocol_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Node_Protocol_Field) _Column() string { return "protocol" }
+
+type Node_Type_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Node_Type(v int) Node_Type_Field {
+	return Node_Type_Field{_set: true, _value: v}
+}
+
+func (f Node_Type_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Node_Type_Field) _Column() string { return "type" }
+
+type Node_Email_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Node_Email(v string) Node_Email_Field {
+	return Node_Email_Field{_set: true, _value: v}
+}
+
+func (f Node_Email_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Node_Email_Field) _Column() string { return "email" }
+
+type Node_Wallet_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Node_Wallet(v string) Node_Wallet_Field {
+	return Node_Wallet_Field{_set: true, _value: v}
+}
+
+func (f Node_Wallet_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Node_Wallet_Field) _Column() string { return "wallet" }
+
+type Node_FreeBandwidth_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func Node_FreeBandwidth(v int64) Node_FreeBandwidth_Field {
+	return Node_FreeBandwidth_Field{_set: true, _value: v}
+}
+
+func (f Node_FreeBandwidth_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Node_FreeBandwidth_Field) _Column() string { return "free_bandwidth" }
+
+type Node_FreeDisk_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func Node_FreeDisk(v int64) Node_FreeDisk_Field {
+	return Node_FreeDisk_Field{_set: true, _value: v}
+}
+
+func (f Node_FreeDisk_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Node_FreeDisk_Field) _Column() string { return "free_disk" }
+
+type Node_Latency90_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func Node_Latency90(v int64) Node_Latency90_Field {
+	return Node_Latency90_Field{_set: true, _value: v}
+}
+
+func (f Node_Latency90_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Node_Latency90_Field) _Column() string { return "latency_90" }
 
 type Node_AuditSuccessCount_Field struct {
 	_set   bool
@@ -2296,364 +2442,43 @@ func (f Node_UpdatedAt_Field) value() interface{} {
 
 func (Node_UpdatedAt_Field) _Column() string { return "updated_at" }
 
-type Node_Wallet_Field struct {
+type Node_LastContactSuccess_Field struct {
 	_set   bool
 	_null  bool
-	_value string
+	_value time.Time
 }
 
-func Node_Wallet(v string) Node_Wallet_Field {
-	return Node_Wallet_Field{_set: true, _value: v}
+func Node_LastContactSuccess(v time.Time) Node_LastContactSuccess_Field {
+	return Node_LastContactSuccess_Field{_set: true, _value: v}
 }
 
-func (f Node_Wallet_Field) value() interface{} {
+func (f Node_LastContactSuccess_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (Node_Wallet_Field) _Column() string { return "wallet" }
+func (Node_LastContactSuccess_Field) _Column() string { return "last_contact_success" }
 
-type Node_Email_Field struct {
+type Node_LastContactFailure_Field struct {
 	_set   bool
 	_null  bool
-	_value string
+	_value time.Time
 }
 
-func Node_Email(v string) Node_Email_Field {
-	return Node_Email_Field{_set: true, _value: v}
+func Node_LastContactFailure(v time.Time) Node_LastContactFailure_Field {
+	return Node_LastContactFailure_Field{_set: true, _value: v}
 }
 
-func (f Node_Email_Field) value() interface{} {
+func (f Node_LastContactFailure_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (Node_Email_Field) _Column() string { return "email" }
-
-type OverlayCacheNode struct {
-	NodeId             []byte
-	NodeType           int
-	Address            string
-	Protocol           int
-	OperatorEmail      string
-	OperatorWallet     string
-	FreeBandwidth      int64
-	FreeDisk           int64
-	Latency90          int64
-	AuditSuccessRatio  float64
-	AuditUptimeRatio   float64
-	AuditCount         int64
-	AuditSuccessCount  int64
-	UptimeCount        int64
-	UptimeSuccessCount int64
-}
-
-func (OverlayCacheNode) _Table() string { return "overlay_cache_nodes" }
-
-type OverlayCacheNode_Update_Fields struct {
-	Address            OverlayCacheNode_Address_Field
-	Protocol           OverlayCacheNode_Protocol_Field
-	OperatorEmail      OverlayCacheNode_OperatorEmail_Field
-	OperatorWallet     OverlayCacheNode_OperatorWallet_Field
-	FreeBandwidth      OverlayCacheNode_FreeBandwidth_Field
-	FreeDisk           OverlayCacheNode_FreeDisk_Field
-	Latency90          OverlayCacheNode_Latency90_Field
-	AuditSuccessRatio  OverlayCacheNode_AuditSuccessRatio_Field
-	AuditUptimeRatio   OverlayCacheNode_AuditUptimeRatio_Field
-	AuditCount         OverlayCacheNode_AuditCount_Field
-	AuditSuccessCount  OverlayCacheNode_AuditSuccessCount_Field
-	UptimeCount        OverlayCacheNode_UptimeCount_Field
-	UptimeSuccessCount OverlayCacheNode_UptimeSuccessCount_Field
-}
-
-type OverlayCacheNode_NodeId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func OverlayCacheNode_NodeId(v []byte) OverlayCacheNode_NodeId_Field {
-	return OverlayCacheNode_NodeId_Field{_set: true, _value: v}
-}
-
-func (f OverlayCacheNode_NodeId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (OverlayCacheNode_NodeId_Field) _Column() string { return "node_id" }
-
-type OverlayCacheNode_NodeType_Field struct {
-	_set   bool
-	_null  bool
-	_value int
-}
-
-func OverlayCacheNode_NodeType(v int) OverlayCacheNode_NodeType_Field {
-	return OverlayCacheNode_NodeType_Field{_set: true, _value: v}
-}
-
-func (f OverlayCacheNode_NodeType_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (OverlayCacheNode_NodeType_Field) _Column() string { return "node_type" }
-
-type OverlayCacheNode_Address_Field struct {
-	_set   bool
-	_null  bool
-	_value string
-}
-
-func OverlayCacheNode_Address(v string) OverlayCacheNode_Address_Field {
-	return OverlayCacheNode_Address_Field{_set: true, _value: v}
-}
-
-func (f OverlayCacheNode_Address_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (OverlayCacheNode_Address_Field) _Column() string { return "address" }
-
-type OverlayCacheNode_Protocol_Field struct {
-	_set   bool
-	_null  bool
-	_value int
-}
-
-func OverlayCacheNode_Protocol(v int) OverlayCacheNode_Protocol_Field {
-	return OverlayCacheNode_Protocol_Field{_set: true, _value: v}
-}
-
-func (f OverlayCacheNode_Protocol_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (OverlayCacheNode_Protocol_Field) _Column() string { return "protocol" }
-
-type OverlayCacheNode_OperatorEmail_Field struct {
-	_set   bool
-	_null  bool
-	_value string
-}
-
-func OverlayCacheNode_OperatorEmail(v string) OverlayCacheNode_OperatorEmail_Field {
-	return OverlayCacheNode_OperatorEmail_Field{_set: true, _value: v}
-}
-
-func (f OverlayCacheNode_OperatorEmail_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (OverlayCacheNode_OperatorEmail_Field) _Column() string { return "operator_email" }
-
-type OverlayCacheNode_OperatorWallet_Field struct {
-	_set   bool
-	_null  bool
-	_value string
-}
-
-func OverlayCacheNode_OperatorWallet(v string) OverlayCacheNode_OperatorWallet_Field {
-	return OverlayCacheNode_OperatorWallet_Field{_set: true, _value: v}
-}
-
-func (f OverlayCacheNode_OperatorWallet_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (OverlayCacheNode_OperatorWallet_Field) _Column() string { return "operator_wallet" }
-
-type OverlayCacheNode_FreeBandwidth_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func OverlayCacheNode_FreeBandwidth(v int64) OverlayCacheNode_FreeBandwidth_Field {
-	return OverlayCacheNode_FreeBandwidth_Field{_set: true, _value: v}
-}
-
-func (f OverlayCacheNode_FreeBandwidth_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (OverlayCacheNode_FreeBandwidth_Field) _Column() string { return "free_bandwidth" }
-
-type OverlayCacheNode_FreeDisk_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func OverlayCacheNode_FreeDisk(v int64) OverlayCacheNode_FreeDisk_Field {
-	return OverlayCacheNode_FreeDisk_Field{_set: true, _value: v}
-}
-
-func (f OverlayCacheNode_FreeDisk_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (OverlayCacheNode_FreeDisk_Field) _Column() string { return "free_disk" }
-
-type OverlayCacheNode_Latency90_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func OverlayCacheNode_Latency90(v int64) OverlayCacheNode_Latency90_Field {
-	return OverlayCacheNode_Latency90_Field{_set: true, _value: v}
-}
-
-func (f OverlayCacheNode_Latency90_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (OverlayCacheNode_Latency90_Field) _Column() string { return "latency_90" }
-
-type OverlayCacheNode_AuditSuccessRatio_Field struct {
-	_set   bool
-	_null  bool
-	_value float64
-}
-
-func OverlayCacheNode_AuditSuccessRatio(v float64) OverlayCacheNode_AuditSuccessRatio_Field {
-	return OverlayCacheNode_AuditSuccessRatio_Field{_set: true, _value: v}
-}
-
-func (f OverlayCacheNode_AuditSuccessRatio_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (OverlayCacheNode_AuditSuccessRatio_Field) _Column() string { return "audit_success_ratio" }
-
-type OverlayCacheNode_AuditUptimeRatio_Field struct {
-	_set   bool
-	_null  bool
-	_value float64
-}
-
-func OverlayCacheNode_AuditUptimeRatio(v float64) OverlayCacheNode_AuditUptimeRatio_Field {
-	return OverlayCacheNode_AuditUptimeRatio_Field{_set: true, _value: v}
-}
-
-func (f OverlayCacheNode_AuditUptimeRatio_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (OverlayCacheNode_AuditUptimeRatio_Field) _Column() string { return "audit_uptime_ratio" }
-
-type OverlayCacheNode_AuditCount_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func OverlayCacheNode_AuditCount(v int64) OverlayCacheNode_AuditCount_Field {
-	return OverlayCacheNode_AuditCount_Field{_set: true, _value: v}
-}
-
-func (f OverlayCacheNode_AuditCount_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (OverlayCacheNode_AuditCount_Field) _Column() string { return "audit_count" }
-
-type OverlayCacheNode_AuditSuccessCount_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func OverlayCacheNode_AuditSuccessCount(v int64) OverlayCacheNode_AuditSuccessCount_Field {
-	return OverlayCacheNode_AuditSuccessCount_Field{_set: true, _value: v}
-}
-
-func (f OverlayCacheNode_AuditSuccessCount_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (OverlayCacheNode_AuditSuccessCount_Field) _Column() string { return "audit_success_count" }
-
-type OverlayCacheNode_UptimeCount_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func OverlayCacheNode_UptimeCount(v int64) OverlayCacheNode_UptimeCount_Field {
-	return OverlayCacheNode_UptimeCount_Field{_set: true, _value: v}
-}
-
-func (f OverlayCacheNode_UptimeCount_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (OverlayCacheNode_UptimeCount_Field) _Column() string { return "uptime_count" }
-
-type OverlayCacheNode_UptimeSuccessCount_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func OverlayCacheNode_UptimeSuccessCount(v int64) OverlayCacheNode_UptimeSuccessCount_Field {
-	return OverlayCacheNode_UptimeSuccessCount_Field{_set: true, _value: v}
-}
-
-func (f OverlayCacheNode_UptimeSuccessCount_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (OverlayCacheNode_UptimeSuccessCount_Field) _Column() string { return "uptime_success_count" }
+func (Node_LastContactFailure_Field) _Column() string { return "last_contact_failure" }
 
 type Project struct {
 	Id          []byte
@@ -3864,18 +3689,32 @@ func (obj *postgresImpl) Create_AccountingRaw(ctx context.Context,
 
 func (obj *postgresImpl) Create_Node(ctx context.Context,
 	node_id Node_Id_Field,
+	node_address Node_Address_Field,
+	node_protocol Node_Protocol_Field,
+	node_type Node_Type_Field,
+	node_email Node_Email_Field,
+	node_wallet Node_Wallet_Field,
+	node_free_bandwidth Node_FreeBandwidth_Field,
+	node_free_disk Node_FreeDisk_Field,
+	node_latency_90 Node_Latency90_Field,
 	node_audit_success_count Node_AuditSuccessCount_Field,
 	node_total_audit_count Node_TotalAuditCount_Field,
 	node_audit_success_ratio Node_AuditSuccessRatio_Field,
 	node_uptime_success_count Node_UptimeSuccessCount_Field,
 	node_total_uptime_count Node_TotalUptimeCount_Field,
-	node_uptime_ratio Node_UptimeRatio_Field,
-	node_wallet Node_Wallet_Field,
-	node_email Node_Email_Field) (
+	node_uptime_ratio Node_UptimeRatio_Field) (
 	node *Node, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__id_val := node_id.value()
+	__address_val := node_address.value()
+	__protocol_val := node_protocol.value()
+	__type_val := node_type.value()
+	__email_val := node_email.value()
+	__wallet_val := node_wallet.value()
+	__free_bandwidth_val := node_free_bandwidth.value()
+	__free_disk_val := node_free_disk.value()
+	__latency_90_val := node_latency_90.value()
 	__audit_success_count_val := node_audit_success_count.value()
 	__total_audit_count_val := node_total_audit_count.value()
 	__audit_success_ratio_val := node_audit_success_ratio.value()
@@ -3884,67 +3723,20 @@ func (obj *postgresImpl) Create_Node(ctx context.Context,
 	__uptime_ratio_val := node_uptime_ratio.value()
 	__created_at_val := __now
 	__updated_at_val := __now
-	__wallet_val := node_wallet.value()
-	__email_val := node_email.value()
+	__last_contact_success_val := __now
+	__last_contact_failure_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, audit_success_count, total_audit_count, audit_success_ratio, uptime_success_count, total_uptime_count, uptime_ratio, created_at, updated_at, wallet, email ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, address, protocol, type, email, wallet, free_bandwidth, free_disk, latency_90, audit_success_count, total_audit_count, audit_success_ratio, uptime_success_count, total_uptime_count, uptime_ratio, created_at, updated_at, last_contact_success, last_contact_failure ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING nodes.id, nodes.address, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val, __wallet_val, __email_val)
+	obj.logStmt(__stmt, __id_val, __address_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val, __wallet_val, __email_val).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email)
+	err = obj.driver.QueryRow(__stmt, __id_val, __address_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val).Scan(&node.Id, &node.Address, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
 	return node, nil
-
-}
-
-func (obj *postgresImpl) Create_OverlayCacheNode(ctx context.Context,
-	overlay_cache_node_node_id OverlayCacheNode_NodeId_Field,
-	overlay_cache_node_node_type OverlayCacheNode_NodeType_Field,
-	overlay_cache_node_address OverlayCacheNode_Address_Field,
-	overlay_cache_node_protocol OverlayCacheNode_Protocol_Field,
-	overlay_cache_node_operator_email OverlayCacheNode_OperatorEmail_Field,
-	overlay_cache_node_operator_wallet OverlayCacheNode_OperatorWallet_Field,
-	overlay_cache_node_free_bandwidth OverlayCacheNode_FreeBandwidth_Field,
-	overlay_cache_node_free_disk OverlayCacheNode_FreeDisk_Field,
-	overlay_cache_node_latency_90 OverlayCacheNode_Latency90_Field,
-	overlay_cache_node_audit_success_ratio OverlayCacheNode_AuditSuccessRatio_Field,
-	overlay_cache_node_audit_uptime_ratio OverlayCacheNode_AuditUptimeRatio_Field,
-	overlay_cache_node_audit_count OverlayCacheNode_AuditCount_Field,
-	overlay_cache_node_audit_success_count OverlayCacheNode_AuditSuccessCount_Field,
-	overlay_cache_node_uptime_count OverlayCacheNode_UptimeCount_Field,
-	overlay_cache_node_uptime_success_count OverlayCacheNode_UptimeSuccessCount_Field) (
-	overlay_cache_node *OverlayCacheNode, err error) {
-	__node_id_val := overlay_cache_node_node_id.value()
-	__node_type_val := overlay_cache_node_node_type.value()
-	__address_val := overlay_cache_node_address.value()
-	__protocol_val := overlay_cache_node_protocol.value()
-	__operator_email_val := overlay_cache_node_operator_email.value()
-	__operator_wallet_val := overlay_cache_node_operator_wallet.value()
-	__free_bandwidth_val := overlay_cache_node_free_bandwidth.value()
-	__free_disk_val := overlay_cache_node_free_disk.value()
-	__latency_90_val := overlay_cache_node_latency_90.value()
-	__audit_success_ratio_val := overlay_cache_node_audit_success_ratio.value()
-	__audit_uptime_ratio_val := overlay_cache_node_audit_uptime_ratio.value()
-	__audit_count_val := overlay_cache_node_audit_count.value()
-	__audit_success_count_val := overlay_cache_node_audit_success_count.value()
-	__uptime_count_val := overlay_cache_node_uptime_count.value()
-	__uptime_success_count_val := overlay_cache_node_uptime_success_count.value()
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO overlay_cache_nodes ( node_id, node_type, address, protocol, operator_email, operator_wallet, free_bandwidth, free_disk, latency_90, audit_success_ratio, audit_uptime_ratio, audit_count, audit_success_count, uptime_count, uptime_success_count ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING overlay_cache_nodes.node_id, overlay_cache_nodes.node_type, overlay_cache_nodes.address, overlay_cache_nodes.protocol, overlay_cache_nodes.operator_email, overlay_cache_nodes.operator_wallet, overlay_cache_nodes.free_bandwidth, overlay_cache_nodes.free_disk, overlay_cache_nodes.latency_90, overlay_cache_nodes.audit_success_ratio, overlay_cache_nodes.audit_uptime_ratio, overlay_cache_nodes.audit_count, overlay_cache_nodes.audit_success_count, overlay_cache_nodes.uptime_count, overlay_cache_nodes.uptime_success_count")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __node_id_val, __node_type_val, __address_val, __protocol_val, __operator_email_val, __operator_wallet_val, __free_bandwidth_val, __free_disk_val, __latency_90_val, __audit_success_ratio_val, __audit_uptime_ratio_val, __audit_count_val, __audit_success_count_val, __uptime_count_val, __uptime_success_count_val)
-
-	overlay_cache_node = &OverlayCacheNode{}
-	err = obj.driver.QueryRow(__stmt, __node_id_val, __node_type_val, __address_val, __protocol_val, __operator_email_val, __operator_wallet_val, __free_bandwidth_val, __free_disk_val, __latency_90_val, __audit_success_ratio_val, __audit_uptime_ratio_val, __audit_count_val, __audit_success_count_val, __uptime_count_val, __uptime_success_count_val).Scan(&overlay_cache_node.NodeId, &overlay_cache_node.NodeType, &overlay_cache_node.Address, &overlay_cache_node.Protocol, &overlay_cache_node.OperatorEmail, &overlay_cache_node.OperatorWallet, &overlay_cache_node.FreeBandwidth, &overlay_cache_node.FreeDisk, &overlay_cache_node.Latency90, &overlay_cache_node.AuditSuccessRatio, &overlay_cache_node.AuditUptimeRatio, &overlay_cache_node.AuditCount, &overlay_cache_node.AuditSuccessCount, &overlay_cache_node.UptimeCount, &overlay_cache_node.UptimeSuccessCount)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return overlay_cache_node, nil
 
 }
 
@@ -4435,7 +4227,7 @@ func (obj *postgresImpl) Get_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field) (
 	node *Node, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email FROM nodes WHERE nodes.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure FROM nodes WHERE nodes.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, node_id.value())
@@ -4444,31 +4236,7 @@ func (obj *postgresImpl) Get_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return node, nil
-
-}
-
-func (obj *postgresImpl) Find_Node_By_Id(ctx context.Context,
-	node_id Node_Id_Field) (
-	node *Node, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email FROM nodes WHERE nodes.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.Address, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -4508,36 +4276,15 @@ func (obj *postgresImpl) All_Node_Id(ctx context.Context) (
 
 }
 
-func (obj *postgresImpl) Get_OverlayCacheNode_By_NodeId(ctx context.Context,
-	overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
-	overlay_cache_node *OverlayCacheNode, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT overlay_cache_nodes.node_id, overlay_cache_nodes.node_type, overlay_cache_nodes.address, overlay_cache_nodes.protocol, overlay_cache_nodes.operator_email, overlay_cache_nodes.operator_wallet, overlay_cache_nodes.free_bandwidth, overlay_cache_nodes.free_disk, overlay_cache_nodes.latency_90, overlay_cache_nodes.audit_success_ratio, overlay_cache_nodes.audit_uptime_ratio, overlay_cache_nodes.audit_count, overlay_cache_nodes.audit_success_count, overlay_cache_nodes.uptime_count, overlay_cache_nodes.uptime_success_count FROM overlay_cache_nodes WHERE overlay_cache_nodes.node_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, overlay_cache_node_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	overlay_cache_node = &OverlayCacheNode{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&overlay_cache_node.NodeId, &overlay_cache_node.NodeType, &overlay_cache_node.Address, &overlay_cache_node.Protocol, &overlay_cache_node.OperatorEmail, &overlay_cache_node.OperatorWallet, &overlay_cache_node.FreeBandwidth, &overlay_cache_node.FreeDisk, &overlay_cache_node.Latency90, &overlay_cache_node.AuditSuccessRatio, &overlay_cache_node.AuditUptimeRatio, &overlay_cache_node.AuditCount, &overlay_cache_node.AuditSuccessCount, &overlay_cache_node.UptimeCount, &overlay_cache_node.UptimeSuccessCount)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return overlay_cache_node, nil
-
-}
-
-func (obj *postgresImpl) Limited_OverlayCacheNode_By_NodeId_GreaterOrEqual(ctx context.Context,
-	overlay_cache_node_node_id_greater_or_equal OverlayCacheNode_NodeId_Field,
+func (obj *postgresImpl) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx context.Context,
+	node_id_greater_or_equal Node_Id_Field,
 	limit int, offset int64) (
-	rows []*OverlayCacheNode, err error) {
+	rows []*Node, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT overlay_cache_nodes.node_id, overlay_cache_nodes.node_type, overlay_cache_nodes.address, overlay_cache_nodes.protocol, overlay_cache_nodes.operator_email, overlay_cache_nodes.operator_wallet, overlay_cache_nodes.free_bandwidth, overlay_cache_nodes.free_disk, overlay_cache_nodes.latency_90, overlay_cache_nodes.audit_success_ratio, overlay_cache_nodes.audit_uptime_ratio, overlay_cache_nodes.audit_count, overlay_cache_nodes.audit_success_count, overlay_cache_nodes.uptime_count, overlay_cache_nodes.uptime_success_count FROM overlay_cache_nodes WHERE overlay_cache_nodes.node_id >= ? LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure FROM nodes WHERE nodes.id >= ? ORDER BY nodes.id LIMIT ? OFFSET ?")
 
 	var __values []interface{}
-	__values = append(__values, overlay_cache_node_node_id_greater_or_equal.value())
+	__values = append(__values, node_id_greater_or_equal.value())
 
 	__values = append(__values, limit, offset)
 
@@ -4551,12 +4298,12 @@ func (obj *postgresImpl) Limited_OverlayCacheNode_By_NodeId_GreaterOrEqual(ctx c
 	defer __rows.Close()
 
 	for __rows.Next() {
-		overlay_cache_node := &OverlayCacheNode{}
-		err = __rows.Scan(&overlay_cache_node.NodeId, &overlay_cache_node.NodeType, &overlay_cache_node.Address, &overlay_cache_node.Protocol, &overlay_cache_node.OperatorEmail, &overlay_cache_node.OperatorWallet, &overlay_cache_node.FreeBandwidth, &overlay_cache_node.FreeDisk, &overlay_cache_node.Latency90, &overlay_cache_node.AuditSuccessRatio, &overlay_cache_node.AuditUptimeRatio, &overlay_cache_node.AuditCount, &overlay_cache_node.AuditSuccessCount, &overlay_cache_node.UptimeCount, &overlay_cache_node.UptimeSuccessCount)
+		node := &Node{}
+		err = __rows.Scan(&node.Id, &node.Address, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		rows = append(rows, overlay_cache_node)
+		rows = append(rows, node)
 	}
 	if err := __rows.Err(); err != nil {
 		return nil, obj.makeErr(err)
@@ -5239,11 +4986,51 @@ func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
 	node *Node, err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.address, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
 	var __args []interface{}
+
+	if update.Address._set {
+		__values = append(__values, update.Address.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("address = ?"))
+	}
+
+	if update.Protocol._set {
+		__values = append(__values, update.Protocol.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("protocol = ?"))
+	}
+
+	if update.Type._set {
+		__values = append(__values, update.Type.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("type = ?"))
+	}
+
+	if update.Email._set {
+		__values = append(__values, update.Email.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
+	}
+
+	if update.Wallet._set {
+		__values = append(__values, update.Wallet.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet = ?"))
+	}
+
+	if update.FreeBandwidth._set {
+		__values = append(__values, update.FreeBandwidth.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("free_bandwidth = ?"))
+	}
+
+	if update.FreeDisk._set {
+		__values = append(__values, update.FreeDisk.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("free_disk = ?"))
+	}
+
+	if update.Latency90._set {
+		__values = append(__values, update.Latency90.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("latency_90 = ?"))
+	}
 
 	if update.AuditSuccessCount._set {
 		__values = append(__values, update.AuditSuccessCount.value())
@@ -5275,14 +5062,14 @@ func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("uptime_ratio = ?"))
 	}
 
-	if update.Wallet._set {
-		__values = append(__values, update.Wallet.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet = ?"))
+	if update.LastContactSuccess._set {
+		__values = append(__values, update.LastContactSuccess.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_contact_success = ?"))
 	}
 
-	if update.Email._set {
-		__values = append(__values, update.Email.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
+	if update.LastContactFailure._set {
+		__values = append(__values, update.LastContactFailure.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_contact_failure = ?"))
 	}
 
 	__now := obj.db.Hooks.Now().UTC()
@@ -5299,7 +5086,7 @@ func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.Address, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -5307,106 +5094,6 @@ func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return node, nil
-}
-
-func (obj *postgresImpl) Update_OverlayCacheNode_By_NodeId(ctx context.Context,
-	overlay_cache_node_node_id OverlayCacheNode_NodeId_Field,
-	update OverlayCacheNode_Update_Fields) (
-	overlay_cache_node *OverlayCacheNode, err error) {
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE overlay_cache_nodes SET "), __sets, __sqlbundle_Literal(" WHERE overlay_cache_nodes.node_id = ? RETURNING overlay_cache_nodes.node_id, overlay_cache_nodes.node_type, overlay_cache_nodes.address, overlay_cache_nodes.protocol, overlay_cache_nodes.operator_email, overlay_cache_nodes.operator_wallet, overlay_cache_nodes.free_bandwidth, overlay_cache_nodes.free_disk, overlay_cache_nodes.latency_90, overlay_cache_nodes.audit_success_ratio, overlay_cache_nodes.audit_uptime_ratio, overlay_cache_nodes.audit_count, overlay_cache_nodes.audit_success_count, overlay_cache_nodes.uptime_count, overlay_cache_nodes.uptime_success_count")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	if update.Address._set {
-		__values = append(__values, update.Address.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("address = ?"))
-	}
-
-	if update.Protocol._set {
-		__values = append(__values, update.Protocol.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("protocol = ?"))
-	}
-
-	if update.OperatorEmail._set {
-		__values = append(__values, update.OperatorEmail.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("operator_email = ?"))
-	}
-
-	if update.OperatorWallet._set {
-		__values = append(__values, update.OperatorWallet.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("operator_wallet = ?"))
-	}
-
-	if update.FreeBandwidth._set {
-		__values = append(__values, update.FreeBandwidth.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("free_bandwidth = ?"))
-	}
-
-	if update.FreeDisk._set {
-		__values = append(__values, update.FreeDisk.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("free_disk = ?"))
-	}
-
-	if update.Latency90._set {
-		__values = append(__values, update.Latency90.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("latency_90 = ?"))
-	}
-
-	if update.AuditSuccessRatio._set {
-		__values = append(__values, update.AuditSuccessRatio.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_success_ratio = ?"))
-	}
-
-	if update.AuditUptimeRatio._set {
-		__values = append(__values, update.AuditUptimeRatio.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_uptime_ratio = ?"))
-	}
-
-	if update.AuditCount._set {
-		__values = append(__values, update.AuditCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_count = ?"))
-	}
-
-	if update.AuditSuccessCount._set {
-		__values = append(__values, update.AuditSuccessCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_success_count = ?"))
-	}
-
-	if update.UptimeCount._set {
-		__values = append(__values, update.UptimeCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("uptime_count = ?"))
-	}
-
-	if update.UptimeSuccessCount._set {
-		__values = append(__values, update.UptimeSuccessCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("uptime_success_count = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
-	}
-
-	__args = append(__args, overlay_cache_node_node_id.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	overlay_cache_node = &OverlayCacheNode{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&overlay_cache_node.NodeId, &overlay_cache_node.NodeType, &overlay_cache_node.Address, &overlay_cache_node.Protocol, &overlay_cache_node.OperatorEmail, &overlay_cache_node.OperatorWallet, &overlay_cache_node.FreeBandwidth, &overlay_cache_node.FreeDisk, &overlay_cache_node.Latency90, &overlay_cache_node.AuditSuccessRatio, &overlay_cache_node.AuditUptimeRatio, &overlay_cache_node.AuditCount, &overlay_cache_node.AuditSuccessCount, &overlay_cache_node.UptimeCount, &overlay_cache_node.UptimeSuccessCount)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return overlay_cache_node, nil
 }
 
 func (obj *postgresImpl) Update_User_By_Id(ctx context.Context,
@@ -5711,32 +5398,6 @@ func (obj *postgresImpl) Delete_Node_By_Id(ctx context.Context,
 
 	var __values []interface{}
 	__values = append(__values, node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
-func (obj *postgresImpl) Delete_OverlayCacheNode_By_NodeId(ctx context.Context,
-	overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
-	deleted bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM overlay_cache_nodes WHERE overlay_cache_nodes.node_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, overlay_cache_node_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -6067,16 +5728,6 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM overlay_cache_nodes;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM nodes;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -6314,18 +5965,32 @@ func (obj *sqlite3Impl) Create_AccountingRaw(ctx context.Context,
 
 func (obj *sqlite3Impl) Create_Node(ctx context.Context,
 	node_id Node_Id_Field,
+	node_address Node_Address_Field,
+	node_protocol Node_Protocol_Field,
+	node_type Node_Type_Field,
+	node_email Node_Email_Field,
+	node_wallet Node_Wallet_Field,
+	node_free_bandwidth Node_FreeBandwidth_Field,
+	node_free_disk Node_FreeDisk_Field,
+	node_latency_90 Node_Latency90_Field,
 	node_audit_success_count Node_AuditSuccessCount_Field,
 	node_total_audit_count Node_TotalAuditCount_Field,
 	node_audit_success_ratio Node_AuditSuccessRatio_Field,
 	node_uptime_success_count Node_UptimeSuccessCount_Field,
 	node_total_uptime_count Node_TotalUptimeCount_Field,
-	node_uptime_ratio Node_UptimeRatio_Field,
-	node_wallet Node_Wallet_Field,
-	node_email Node_Email_Field) (
+	node_uptime_ratio Node_UptimeRatio_Field) (
 	node *Node, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__id_val := node_id.value()
+	__address_val := node_address.value()
+	__protocol_val := node_protocol.value()
+	__type_val := node_type.value()
+	__email_val := node_email.value()
+	__wallet_val := node_wallet.value()
+	__free_bandwidth_val := node_free_bandwidth.value()
+	__free_disk_val := node_free_disk.value()
+	__latency_90_val := node_latency_90.value()
 	__audit_success_count_val := node_audit_success_count.value()
 	__total_audit_count_val := node_total_audit_count.value()
 	__audit_success_ratio_val := node_audit_success_ratio.value()
@@ -6334,15 +5999,15 @@ func (obj *sqlite3Impl) Create_Node(ctx context.Context,
 	__uptime_ratio_val := node_uptime_ratio.value()
 	__created_at_val := __now
 	__updated_at_val := __now
-	__wallet_val := node_wallet.value()
-	__email_val := node_email.value()
+	__last_contact_success_val := __now
+	__last_contact_failure_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, audit_success_count, total_audit_count, audit_success_ratio, uptime_success_count, total_uptime_count, uptime_ratio, created_at, updated_at, wallet, email ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, address, protocol, type, email, wallet, free_bandwidth, free_disk, latency_90, audit_success_count, total_audit_count, audit_success_ratio, uptime_success_count, total_uptime_count, uptime_ratio, created_at, updated_at, last_contact_success, last_contact_failure ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val, __wallet_val, __email_val)
+	obj.logStmt(__stmt, __id_val, __address_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val)
 
-	__res, err := obj.driver.Exec(__stmt, __id_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val, __wallet_val, __email_val)
+	__res, err := obj.driver.Exec(__stmt, __id_val, __address_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -6351,56 +6016,6 @@ func (obj *sqlite3Impl) Create_Node(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return obj.getLastNode(ctx, __pk)
-
-}
-
-func (obj *sqlite3Impl) Create_OverlayCacheNode(ctx context.Context,
-	overlay_cache_node_node_id OverlayCacheNode_NodeId_Field,
-	overlay_cache_node_node_type OverlayCacheNode_NodeType_Field,
-	overlay_cache_node_address OverlayCacheNode_Address_Field,
-	overlay_cache_node_protocol OverlayCacheNode_Protocol_Field,
-	overlay_cache_node_operator_email OverlayCacheNode_OperatorEmail_Field,
-	overlay_cache_node_operator_wallet OverlayCacheNode_OperatorWallet_Field,
-	overlay_cache_node_free_bandwidth OverlayCacheNode_FreeBandwidth_Field,
-	overlay_cache_node_free_disk OverlayCacheNode_FreeDisk_Field,
-	overlay_cache_node_latency_90 OverlayCacheNode_Latency90_Field,
-	overlay_cache_node_audit_success_ratio OverlayCacheNode_AuditSuccessRatio_Field,
-	overlay_cache_node_audit_uptime_ratio OverlayCacheNode_AuditUptimeRatio_Field,
-	overlay_cache_node_audit_count OverlayCacheNode_AuditCount_Field,
-	overlay_cache_node_audit_success_count OverlayCacheNode_AuditSuccessCount_Field,
-	overlay_cache_node_uptime_count OverlayCacheNode_UptimeCount_Field,
-	overlay_cache_node_uptime_success_count OverlayCacheNode_UptimeSuccessCount_Field) (
-	overlay_cache_node *OverlayCacheNode, err error) {
-	__node_id_val := overlay_cache_node_node_id.value()
-	__node_type_val := overlay_cache_node_node_type.value()
-	__address_val := overlay_cache_node_address.value()
-	__protocol_val := overlay_cache_node_protocol.value()
-	__operator_email_val := overlay_cache_node_operator_email.value()
-	__operator_wallet_val := overlay_cache_node_operator_wallet.value()
-	__free_bandwidth_val := overlay_cache_node_free_bandwidth.value()
-	__free_disk_val := overlay_cache_node_free_disk.value()
-	__latency_90_val := overlay_cache_node_latency_90.value()
-	__audit_success_ratio_val := overlay_cache_node_audit_success_ratio.value()
-	__audit_uptime_ratio_val := overlay_cache_node_audit_uptime_ratio.value()
-	__audit_count_val := overlay_cache_node_audit_count.value()
-	__audit_success_count_val := overlay_cache_node_audit_success_count.value()
-	__uptime_count_val := overlay_cache_node_uptime_count.value()
-	__uptime_success_count_val := overlay_cache_node_uptime_success_count.value()
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO overlay_cache_nodes ( node_id, node_type, address, protocol, operator_email, operator_wallet, free_bandwidth, free_disk, latency_90, audit_success_ratio, audit_uptime_ratio, audit_count, audit_success_count, uptime_count, uptime_success_count ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __node_id_val, __node_type_val, __address_val, __protocol_val, __operator_email_val, __operator_wallet_val, __free_bandwidth_val, __free_disk_val, __latency_90_val, __audit_success_ratio_val, __audit_uptime_ratio_val, __audit_count_val, __audit_success_count_val, __uptime_count_val, __uptime_success_count_val)
-
-	__res, err := obj.driver.Exec(__stmt, __node_id_val, __node_type_val, __address_val, __protocol_val, __operator_email_val, __operator_wallet_val, __free_bandwidth_val, __free_disk_val, __latency_90_val, __audit_success_ratio_val, __audit_uptime_ratio_val, __audit_count_val, __audit_success_count_val, __uptime_count_val, __uptime_success_count_val)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastOverlayCacheNode(ctx, __pk)
 
 }
 
@@ -6921,7 +6536,7 @@ func (obj *sqlite3Impl) Get_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field) (
 	node *Node, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email FROM nodes WHERE nodes.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure FROM nodes WHERE nodes.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, node_id.value())
@@ -6930,31 +6545,7 @@ func (obj *sqlite3Impl) Get_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return node, nil
-
-}
-
-func (obj *sqlite3Impl) Find_Node_By_Id(ctx context.Context,
-	node_id Node_Id_Field) (
-	node *Node, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email FROM nodes WHERE nodes.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.Address, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -6994,36 +6585,15 @@ func (obj *sqlite3Impl) All_Node_Id(ctx context.Context) (
 
 }
 
-func (obj *sqlite3Impl) Get_OverlayCacheNode_By_NodeId(ctx context.Context,
-	overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
-	overlay_cache_node *OverlayCacheNode, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT overlay_cache_nodes.node_id, overlay_cache_nodes.node_type, overlay_cache_nodes.address, overlay_cache_nodes.protocol, overlay_cache_nodes.operator_email, overlay_cache_nodes.operator_wallet, overlay_cache_nodes.free_bandwidth, overlay_cache_nodes.free_disk, overlay_cache_nodes.latency_90, overlay_cache_nodes.audit_success_ratio, overlay_cache_nodes.audit_uptime_ratio, overlay_cache_nodes.audit_count, overlay_cache_nodes.audit_success_count, overlay_cache_nodes.uptime_count, overlay_cache_nodes.uptime_success_count FROM overlay_cache_nodes WHERE overlay_cache_nodes.node_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, overlay_cache_node_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	overlay_cache_node = &OverlayCacheNode{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&overlay_cache_node.NodeId, &overlay_cache_node.NodeType, &overlay_cache_node.Address, &overlay_cache_node.Protocol, &overlay_cache_node.OperatorEmail, &overlay_cache_node.OperatorWallet, &overlay_cache_node.FreeBandwidth, &overlay_cache_node.FreeDisk, &overlay_cache_node.Latency90, &overlay_cache_node.AuditSuccessRatio, &overlay_cache_node.AuditUptimeRatio, &overlay_cache_node.AuditCount, &overlay_cache_node.AuditSuccessCount, &overlay_cache_node.UptimeCount, &overlay_cache_node.UptimeSuccessCount)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return overlay_cache_node, nil
-
-}
-
-func (obj *sqlite3Impl) Limited_OverlayCacheNode_By_NodeId_GreaterOrEqual(ctx context.Context,
-	overlay_cache_node_node_id_greater_or_equal OverlayCacheNode_NodeId_Field,
+func (obj *sqlite3Impl) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx context.Context,
+	node_id_greater_or_equal Node_Id_Field,
 	limit int, offset int64) (
-	rows []*OverlayCacheNode, err error) {
+	rows []*Node, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT overlay_cache_nodes.node_id, overlay_cache_nodes.node_type, overlay_cache_nodes.address, overlay_cache_nodes.protocol, overlay_cache_nodes.operator_email, overlay_cache_nodes.operator_wallet, overlay_cache_nodes.free_bandwidth, overlay_cache_nodes.free_disk, overlay_cache_nodes.latency_90, overlay_cache_nodes.audit_success_ratio, overlay_cache_nodes.audit_uptime_ratio, overlay_cache_nodes.audit_count, overlay_cache_nodes.audit_success_count, overlay_cache_nodes.uptime_count, overlay_cache_nodes.uptime_success_count FROM overlay_cache_nodes WHERE overlay_cache_nodes.node_id >= ? LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure FROM nodes WHERE nodes.id >= ? ORDER BY nodes.id LIMIT ? OFFSET ?")
 
 	var __values []interface{}
-	__values = append(__values, overlay_cache_node_node_id_greater_or_equal.value())
+	__values = append(__values, node_id_greater_or_equal.value())
 
 	__values = append(__values, limit, offset)
 
@@ -7037,12 +6607,12 @@ func (obj *sqlite3Impl) Limited_OverlayCacheNode_By_NodeId_GreaterOrEqual(ctx co
 	defer __rows.Close()
 
 	for __rows.Next() {
-		overlay_cache_node := &OverlayCacheNode{}
-		err = __rows.Scan(&overlay_cache_node.NodeId, &overlay_cache_node.NodeType, &overlay_cache_node.Address, &overlay_cache_node.Protocol, &overlay_cache_node.OperatorEmail, &overlay_cache_node.OperatorWallet, &overlay_cache_node.FreeBandwidth, &overlay_cache_node.FreeDisk, &overlay_cache_node.Latency90, &overlay_cache_node.AuditSuccessRatio, &overlay_cache_node.AuditUptimeRatio, &overlay_cache_node.AuditCount, &overlay_cache_node.AuditSuccessCount, &overlay_cache_node.UptimeCount, &overlay_cache_node.UptimeSuccessCount)
+		node := &Node{}
+		err = __rows.Scan(&node.Id, &node.Address, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		rows = append(rows, overlay_cache_node)
+		rows = append(rows, node)
 	}
 	if err := __rows.Err(); err != nil {
 		return nil, obj.makeErr(err)
@@ -7751,6 +7321,46 @@ func (obj *sqlite3Impl) Update_Node_By_Id(ctx context.Context,
 	var __values []interface{}
 	var __args []interface{}
 
+	if update.Address._set {
+		__values = append(__values, update.Address.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("address = ?"))
+	}
+
+	if update.Protocol._set {
+		__values = append(__values, update.Protocol.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("protocol = ?"))
+	}
+
+	if update.Type._set {
+		__values = append(__values, update.Type.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("type = ?"))
+	}
+
+	if update.Email._set {
+		__values = append(__values, update.Email.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
+	}
+
+	if update.Wallet._set {
+		__values = append(__values, update.Wallet.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet = ?"))
+	}
+
+	if update.FreeBandwidth._set {
+		__values = append(__values, update.FreeBandwidth.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("free_bandwidth = ?"))
+	}
+
+	if update.FreeDisk._set {
+		__values = append(__values, update.FreeDisk.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("free_disk = ?"))
+	}
+
+	if update.Latency90._set {
+		__values = append(__values, update.Latency90.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("latency_90 = ?"))
+	}
+
 	if update.AuditSuccessCount._set {
 		__values = append(__values, update.AuditSuccessCount.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_success_count = ?"))
@@ -7781,14 +7391,14 @@ func (obj *sqlite3Impl) Update_Node_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("uptime_ratio = ?"))
 	}
 
-	if update.Wallet._set {
-		__values = append(__values, update.Wallet.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet = ?"))
+	if update.LastContactSuccess._set {
+		__values = append(__values, update.LastContactSuccess.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_contact_success = ?"))
 	}
 
-	if update.Email._set {
-		__values = append(__values, update.Email.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
+	if update.LastContactFailure._set {
+		__values = append(__values, update.LastContactFailure.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_contact_failure = ?"))
 	}
 
 	__now := obj.db.Hooks.Now().UTC()
@@ -7810,12 +7420,12 @@ func (obj *sqlite3Impl) Update_Node_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email FROM nodes WHERE nodes.id = ?")
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure FROM nodes WHERE nodes.id = ?")
 
 	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
 	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
 
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email)
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&node.Id, &node.Address, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -7823,116 +7433,6 @@ func (obj *sqlite3Impl) Update_Node_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return node, nil
-}
-
-func (obj *sqlite3Impl) Update_OverlayCacheNode_By_NodeId(ctx context.Context,
-	overlay_cache_node_node_id OverlayCacheNode_NodeId_Field,
-	update OverlayCacheNode_Update_Fields) (
-	overlay_cache_node *OverlayCacheNode, err error) {
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE overlay_cache_nodes SET "), __sets, __sqlbundle_Literal(" WHERE overlay_cache_nodes.node_id = ?")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	if update.Address._set {
-		__values = append(__values, update.Address.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("address = ?"))
-	}
-
-	if update.Protocol._set {
-		__values = append(__values, update.Protocol.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("protocol = ?"))
-	}
-
-	if update.OperatorEmail._set {
-		__values = append(__values, update.OperatorEmail.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("operator_email = ?"))
-	}
-
-	if update.OperatorWallet._set {
-		__values = append(__values, update.OperatorWallet.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("operator_wallet = ?"))
-	}
-
-	if update.FreeBandwidth._set {
-		__values = append(__values, update.FreeBandwidth.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("free_bandwidth = ?"))
-	}
-
-	if update.FreeDisk._set {
-		__values = append(__values, update.FreeDisk.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("free_disk = ?"))
-	}
-
-	if update.Latency90._set {
-		__values = append(__values, update.Latency90.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("latency_90 = ?"))
-	}
-
-	if update.AuditSuccessRatio._set {
-		__values = append(__values, update.AuditSuccessRatio.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_success_ratio = ?"))
-	}
-
-	if update.AuditUptimeRatio._set {
-		__values = append(__values, update.AuditUptimeRatio.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_uptime_ratio = ?"))
-	}
-
-	if update.AuditCount._set {
-		__values = append(__values, update.AuditCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_count = ?"))
-	}
-
-	if update.AuditSuccessCount._set {
-		__values = append(__values, update.AuditSuccessCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_success_count = ?"))
-	}
-
-	if update.UptimeCount._set {
-		__values = append(__values, update.UptimeCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("uptime_count = ?"))
-	}
-
-	if update.UptimeSuccessCount._set {
-		__values = append(__values, update.UptimeSuccessCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("uptime_success_count = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
-	}
-
-	__args = append(__args, overlay_cache_node_node_id.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	overlay_cache_node = &OverlayCacheNode{}
-	_, err = obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT overlay_cache_nodes.node_id, overlay_cache_nodes.node_type, overlay_cache_nodes.address, overlay_cache_nodes.protocol, overlay_cache_nodes.operator_email, overlay_cache_nodes.operator_wallet, overlay_cache_nodes.free_bandwidth, overlay_cache_nodes.free_disk, overlay_cache_nodes.latency_90, overlay_cache_nodes.audit_success_ratio, overlay_cache_nodes.audit_uptime_ratio, overlay_cache_nodes.audit_count, overlay_cache_nodes.audit_success_count, overlay_cache_nodes.uptime_count, overlay_cache_nodes.uptime_success_count FROM overlay_cache_nodes WHERE overlay_cache_nodes.node_id = ?")
-
-	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
-	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
-
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&overlay_cache_node.NodeId, &overlay_cache_node.NodeType, &overlay_cache_node.Address, &overlay_cache_node.Protocol, &overlay_cache_node.OperatorEmail, &overlay_cache_node.OperatorWallet, &overlay_cache_node.FreeBandwidth, &overlay_cache_node.FreeDisk, &overlay_cache_node.Latency90, &overlay_cache_node.AuditSuccessRatio, &overlay_cache_node.AuditUptimeRatio, &overlay_cache_node.AuditCount, &overlay_cache_node.AuditSuccessCount, &overlay_cache_node.UptimeCount, &overlay_cache_node.UptimeSuccessCount)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return overlay_cache_node, nil
 }
 
 func (obj *sqlite3Impl) Update_User_By_Id(ctx context.Context,
@@ -8305,32 +7805,6 @@ func (obj *sqlite3Impl) Delete_Node_By_Id(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Delete_OverlayCacheNode_By_NodeId(ctx context.Context,
-	overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
-	deleted bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM overlay_cache_nodes WHERE overlay_cache_nodes.node_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, overlay_cache_node_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
 func (obj *sqlite3Impl) Delete_Injuredsegment_By_Id(ctx context.Context,
 	injuredsegment_id Injuredsegment_Id_Field) (
 	deleted bool, err error) {
@@ -8616,35 +8090,17 @@ func (obj *sqlite3Impl) getLastNode(ctx context.Context,
 	pk int64) (
 	node *Node, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email FROM nodes WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure FROM nodes WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&node.Id, &node.Address, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
 	return node, nil
-
-}
-
-func (obj *sqlite3Impl) getLastOverlayCacheNode(ctx context.Context,
-	pk int64) (
-	overlay_cache_node *OverlayCacheNode, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT overlay_cache_nodes.node_id, overlay_cache_nodes.node_type, overlay_cache_nodes.address, overlay_cache_nodes.protocol, overlay_cache_nodes.operator_email, overlay_cache_nodes.operator_wallet, overlay_cache_nodes.free_bandwidth, overlay_cache_nodes.free_disk, overlay_cache_nodes.latency_90, overlay_cache_nodes.audit_success_ratio, overlay_cache_nodes.audit_uptime_ratio, overlay_cache_nodes.audit_count, overlay_cache_nodes.audit_success_count, overlay_cache_nodes.uptime_count, overlay_cache_nodes.uptime_success_count FROM overlay_cache_nodes WHERE _rowid_ = ?")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, pk)
-
-	overlay_cache_node = &OverlayCacheNode{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&overlay_cache_node.NodeId, &overlay_cache_node.NodeType, &overlay_cache_node.Address, &overlay_cache_node.Protocol, &overlay_cache_node.OperatorEmail, &overlay_cache_node.OperatorWallet, &overlay_cache_node.FreeBandwidth, &overlay_cache_node.FreeDisk, &overlay_cache_node.Latency90, &overlay_cache_node.AuditSuccessRatio, &overlay_cache_node.AuditUptimeRatio, &overlay_cache_node.AuditCount, &overlay_cache_node.AuditSuccessCount, &overlay_cache_node.UptimeCount, &overlay_cache_node.UptimeSuccessCount)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return overlay_cache_node, nil
 
 }
 
@@ -8927,16 +8383,6 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM projects;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM overlay_cache_nodes;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -9301,45 +8747,26 @@ func (rx *Rx) Create_Irreparabledb(ctx context.Context,
 
 func (rx *Rx) Create_Node(ctx context.Context,
 	node_id Node_Id_Field,
+	node_address Node_Address_Field,
+	node_protocol Node_Protocol_Field,
+	node_type Node_Type_Field,
+	node_email Node_Email_Field,
+	node_wallet Node_Wallet_Field,
+	node_free_bandwidth Node_FreeBandwidth_Field,
+	node_free_disk Node_FreeDisk_Field,
+	node_latency_90 Node_Latency90_Field,
 	node_audit_success_count Node_AuditSuccessCount_Field,
 	node_total_audit_count Node_TotalAuditCount_Field,
 	node_audit_success_ratio Node_AuditSuccessRatio_Field,
 	node_uptime_success_count Node_UptimeSuccessCount_Field,
 	node_total_uptime_count Node_TotalUptimeCount_Field,
-	node_uptime_ratio Node_UptimeRatio_Field,
-	node_wallet Node_Wallet_Field,
-	node_email Node_Email_Field) (
+	node_uptime_ratio Node_UptimeRatio_Field) (
 	node *Node, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_Node(ctx, node_id, node_audit_success_count, node_total_audit_count, node_audit_success_ratio, node_uptime_success_count, node_total_uptime_count, node_uptime_ratio, node_wallet, node_email)
-
-}
-
-func (rx *Rx) Create_OverlayCacheNode(ctx context.Context,
-	overlay_cache_node_node_id OverlayCacheNode_NodeId_Field,
-	overlay_cache_node_node_type OverlayCacheNode_NodeType_Field,
-	overlay_cache_node_address OverlayCacheNode_Address_Field,
-	overlay_cache_node_protocol OverlayCacheNode_Protocol_Field,
-	overlay_cache_node_operator_email OverlayCacheNode_OperatorEmail_Field,
-	overlay_cache_node_operator_wallet OverlayCacheNode_OperatorWallet_Field,
-	overlay_cache_node_free_bandwidth OverlayCacheNode_FreeBandwidth_Field,
-	overlay_cache_node_free_disk OverlayCacheNode_FreeDisk_Field,
-	overlay_cache_node_latency_90 OverlayCacheNode_Latency90_Field,
-	overlay_cache_node_audit_success_ratio OverlayCacheNode_AuditSuccessRatio_Field,
-	overlay_cache_node_audit_uptime_ratio OverlayCacheNode_AuditUptimeRatio_Field,
-	overlay_cache_node_audit_count OverlayCacheNode_AuditCount_Field,
-	overlay_cache_node_audit_success_count OverlayCacheNode_AuditSuccessCount_Field,
-	overlay_cache_node_uptime_count OverlayCacheNode_UptimeCount_Field,
-	overlay_cache_node_uptime_success_count OverlayCacheNode_UptimeSuccessCount_Field) (
-	overlay_cache_node *OverlayCacheNode, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Create_OverlayCacheNode(ctx, overlay_cache_node_node_id, overlay_cache_node_node_type, overlay_cache_node_address, overlay_cache_node_protocol, overlay_cache_node_operator_email, overlay_cache_node_operator_wallet, overlay_cache_node_free_bandwidth, overlay_cache_node_free_disk, overlay_cache_node_latency_90, overlay_cache_node_audit_success_ratio, overlay_cache_node_audit_uptime_ratio, overlay_cache_node_audit_count, overlay_cache_node_audit_success_count, overlay_cache_node_uptime_count, overlay_cache_node_uptime_success_count)
+	return tx.Create_Node(ctx, node_id, node_address, node_protocol, node_type, node_email, node_wallet, node_free_bandwidth, node_free_disk, node_latency_90, node_audit_success_count, node_total_audit_count, node_audit_success_ratio, node_uptime_success_count, node_total_uptime_count, node_uptime_ratio)
 
 }
 
@@ -9501,16 +8928,6 @@ func (rx *Rx) Delete_Node_By_Id(ctx context.Context,
 	return tx.Delete_Node_By_Id(ctx, node_id)
 }
 
-func (rx *Rx) Delete_OverlayCacheNode_By_NodeId(ctx context.Context,
-	overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
-	deleted bool, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Delete_OverlayCacheNode_By_NodeId(ctx, overlay_cache_node_node_id)
-}
-
 func (rx *Rx) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
 	project_member_member_id ProjectMember_MemberId_Field,
 	project_member_project_id ProjectMember_ProjectId_Field) (
@@ -9561,16 +8978,6 @@ func (rx *Rx) Find_AccountingTimestamps_Value_By_Name(ctx context.Context,
 		return
 	}
 	return tx.Find_AccountingTimestamps_Value_By_Name(ctx, accounting_timestamps_name)
-}
-
-func (rx *Rx) Find_Node_By_Id(ctx context.Context,
-	node_id Node_Id_Field) (
-	node *Node, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Find_Node_By_Id(ctx, node_id)
 }
 
 func (rx *Rx) Find_SerialNumber_By_SerialNumber(ctx context.Context,
@@ -9672,16 +9079,6 @@ func (rx *Rx) Get_Node_By_Id(ctx context.Context,
 	return tx.Get_Node_By_Id(ctx, node_id)
 }
 
-func (rx *Rx) Get_OverlayCacheNode_By_NodeId(ctx context.Context,
-	overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
-	overlay_cache_node *OverlayCacheNode, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_OverlayCacheNode_By_NodeId(ctx, overlay_cache_node_node_id)
-}
-
 func (rx *Rx) Get_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	project *Project, err error) {
@@ -9778,15 +9175,15 @@ func (rx *Rx) Limited_Irreparabledb_OrderBy_Asc_Segmentpath(ctx context.Context,
 	return tx.Limited_Irreparabledb_OrderBy_Asc_Segmentpath(ctx, limit, offset)
 }
 
-func (rx *Rx) Limited_OverlayCacheNode_By_NodeId_GreaterOrEqual(ctx context.Context,
-	overlay_cache_node_node_id_greater_or_equal OverlayCacheNode_NodeId_Field,
+func (rx *Rx) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx context.Context,
+	node_id_greater_or_equal Node_Id_Field,
 	limit int, offset int64) (
-	rows []*OverlayCacheNode, err error) {
+	rows []*Node, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Limited_OverlayCacheNode_By_NodeId_GreaterOrEqual(ctx, overlay_cache_node_node_id_greater_or_equal, limit, offset)
+	return tx.Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx, node_id_greater_or_equal, limit, offset)
 }
 
 func (rx *Rx) Limited_ProjectMember_By_ProjectId(ctx context.Context,
@@ -9853,17 +9250,6 @@ func (rx *Rx) Update_Node_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Update_Node_By_Id(ctx, node_id, update)
-}
-
-func (rx *Rx) Update_OverlayCacheNode_By_NodeId(ctx context.Context,
-	overlay_cache_node_node_id OverlayCacheNode_NodeId_Field,
-	update OverlayCacheNode_Update_Fields) (
-	overlay_cache_node *OverlayCacheNode, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Update_OverlayCacheNode_By_NodeId(ctx, overlay_cache_node_node_id, update)
 }
 
 func (rx *Rx) Update_Project_By_Id(ctx context.Context,
@@ -9994,33 +9380,21 @@ type Methods interface {
 
 	Create_Node(ctx context.Context,
 		node_id Node_Id_Field,
+		node_address Node_Address_Field,
+		node_protocol Node_Protocol_Field,
+		node_type Node_Type_Field,
+		node_email Node_Email_Field,
+		node_wallet Node_Wallet_Field,
+		node_free_bandwidth Node_FreeBandwidth_Field,
+		node_free_disk Node_FreeDisk_Field,
+		node_latency_90 Node_Latency90_Field,
 		node_audit_success_count Node_AuditSuccessCount_Field,
 		node_total_audit_count Node_TotalAuditCount_Field,
 		node_audit_success_ratio Node_AuditSuccessRatio_Field,
 		node_uptime_success_count Node_UptimeSuccessCount_Field,
 		node_total_uptime_count Node_TotalUptimeCount_Field,
-		node_uptime_ratio Node_UptimeRatio_Field,
-		node_wallet Node_Wallet_Field,
-		node_email Node_Email_Field) (
+		node_uptime_ratio Node_UptimeRatio_Field) (
 		node *Node, err error)
-
-	Create_OverlayCacheNode(ctx context.Context,
-		overlay_cache_node_node_id OverlayCacheNode_NodeId_Field,
-		overlay_cache_node_node_type OverlayCacheNode_NodeType_Field,
-		overlay_cache_node_address OverlayCacheNode_Address_Field,
-		overlay_cache_node_protocol OverlayCacheNode_Protocol_Field,
-		overlay_cache_node_operator_email OverlayCacheNode_OperatorEmail_Field,
-		overlay_cache_node_operator_wallet OverlayCacheNode_OperatorWallet_Field,
-		overlay_cache_node_free_bandwidth OverlayCacheNode_FreeBandwidth_Field,
-		overlay_cache_node_free_disk OverlayCacheNode_FreeDisk_Field,
-		overlay_cache_node_latency_90 OverlayCacheNode_Latency90_Field,
-		overlay_cache_node_audit_success_ratio OverlayCacheNode_AuditSuccessRatio_Field,
-		overlay_cache_node_audit_uptime_ratio OverlayCacheNode_AuditUptimeRatio_Field,
-		overlay_cache_node_audit_count OverlayCacheNode_AuditCount_Field,
-		overlay_cache_node_audit_success_count OverlayCacheNode_AuditSuccessCount_Field,
-		overlay_cache_node_uptime_count OverlayCacheNode_UptimeCount_Field,
-		overlay_cache_node_uptime_success_count OverlayCacheNode_UptimeSuccessCount_Field) (
-		overlay_cache_node *OverlayCacheNode, err error)
 
 	Create_Project(ctx context.Context,
 		project_id Project_Id_Field,
@@ -10090,10 +9464,6 @@ type Methods interface {
 		node_id Node_Id_Field) (
 		deleted bool, err error)
 
-	Delete_OverlayCacheNode_By_NodeId(ctx context.Context,
-		overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
-		deleted bool, err error)
-
 	Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
 		project_member_member_id ProjectMember_MemberId_Field,
 		project_member_project_id ProjectMember_ProjectId_Field) (
@@ -10114,10 +9484,6 @@ type Methods interface {
 	Find_AccountingTimestamps_Value_By_Name(ctx context.Context,
 		accounting_timestamps_name AccountingTimestamps_Name_Field) (
 		row *Value_Row, err error)
-
-	Find_Node_By_Id(ctx context.Context,
-		node_id Node_Id_Field) (
-		node *Node, err error)
 
 	Find_SerialNumber_By_SerialNumber(ctx context.Context,
 		serial_number_serial_number SerialNumber_SerialNumber_Field) (
@@ -10157,10 +9523,6 @@ type Methods interface {
 	Get_Node_By_Id(ctx context.Context,
 		node_id Node_Id_Field) (
 		node *Node, err error)
-
-	Get_OverlayCacheNode_By_NodeId(ctx context.Context,
-		overlay_cache_node_node_id OverlayCacheNode_NodeId_Field) (
-		overlay_cache_node *OverlayCacheNode, err error)
 
 	Get_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
@@ -10204,10 +9566,10 @@ type Methods interface {
 		limit int, offset int64) (
 		rows []*Irreparabledb, err error)
 
-	Limited_OverlayCacheNode_By_NodeId_GreaterOrEqual(ctx context.Context,
-		overlay_cache_node_node_id_greater_or_equal OverlayCacheNode_NodeId_Field,
+	Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx context.Context,
+		node_id_greater_or_equal Node_Id_Field,
 		limit int, offset int64) (
-		rows []*OverlayCacheNode, err error)
+		rows []*Node, err error)
 
 	Limited_ProjectMember_By_ProjectId(ctx context.Context,
 		project_member_project_id ProjectMember_ProjectId_Field,
@@ -10238,11 +9600,6 @@ type Methods interface {
 		node_id Node_Id_Field,
 		update Node_Update_Fields) (
 		node *Node, err error)
-
-	Update_OverlayCacheNode_By_NodeId(ctx context.Context,
-		overlay_cache_node_node_id OverlayCacheNode_NodeId_Field,
-		update OverlayCacheNode_Update_Fields) (
-		overlay_cache_node *OverlayCacheNode, err error)
 
 	Update_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field,

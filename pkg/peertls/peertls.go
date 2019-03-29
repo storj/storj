@@ -14,7 +14,6 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pkcrypto"
-	"storj.io/storj/pkg/utils"
 )
 
 const (
@@ -110,7 +109,7 @@ func WriteChain(w io.Writer, chain ...*x509.Certificate) error {
 		return errs.New("expected at least one certificate for writing")
 	}
 
-	var extErrs utils.ErrorGroup
+	var extErrs errs.Group
 	for _, c := range chain {
 		if err := pkcrypto.WriteCertPEM(w, c); err != nil {
 			return errs.Wrap(err)
@@ -122,7 +121,7 @@ func WriteChain(w io.Writer, chain ...*x509.Certificate) error {
 			}
 		}
 	}
-	return extErrs.Finish()
+	return extErrs.Err()
 }
 
 // ChainBytes returns bytes of the certificate chain (leaf-first) to the writer, PEM-encoded.
