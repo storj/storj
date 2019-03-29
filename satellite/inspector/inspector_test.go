@@ -67,7 +67,7 @@ func TestInspectorStats(t *testing.T) {
 					ProjectId:     []byte(projectID),
 					EncryptedPath: []byte(encryptedPath),
 					Bucket:        []byte(bucket),
-					Segment:       -1,
+					SegmentIndex:  -1,
 				}
 
 				resp, err := health.SegmentHealth(ctx, req)

@@ -27,12 +27,14 @@ var (
 	finalSegment = int64(-1)
 )
 
+// Endpoint for checking object and segment health
 type Endpoint struct {
 	pointerdb *pointerdb.Service
 	cache     *overlay.Cache
 	log       *zap.Logger
 }
 
+// NewEndpoint will initialize an Endpoint struct
 func NewEndpoint(log *zap.Logger, cache *overlay.Cache, pdb *pointerdb.Service) (*Endpoint, error) {
 	return &Endpoint{
 		log:       log,
@@ -41,6 +43,7 @@ func NewEndpoint(log *zap.Logger, cache *overlay.Cache, pdb *pointerdb.Service) 
 	}, nil
 }
 
+// ObjectHealth will check the health of an object
 func (endpoint *Endpoint) ObjectHealth(ctx context.Context, in *pb.ObjectHealthRequest) (resp *pb.ObjectHealthResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -56,12 +59,11 @@ func (endpoint *Endpoint) ObjectHealth(ctx context.Context, in *pb.ObjectHealthR
 		start = in.GetStartAfterSegment() + 1
 	}
 
-	end := int64(limit) + start
+	end := limit + start
 	if in.GetEndBeforeSegment() > 0 {
 		end = in.GetEndBeforeSegment()
 	}
 
-	// Receive path
 	i := start
 	for i < end {
 		if i-start >= limit {
@@ -71,7 +73,7 @@ func (endpoint *Endpoint) ObjectHealth(ctx context.Context, in *pb.ObjectHealthR
 		segment := &pb.SegmentHealthRequest{
 			Bucket:        in.GetBucket(),
 			EncryptedPath: in.GetEncryptedPath(),
-			Segment:       i,
+			SegmentIndex:  i,
 			ProjectId:     in.GetProjectId(),
 		}
 
@@ -101,6 +103,7 @@ func (endpoint *Endpoint) ObjectHealth(ctx context.Context, in *pb.ObjectHealthR
 	return resp, nil
 }
 
+// SegmentHealth will check the health of a segment
 func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *pb.SegmentHealthRequest) (resp *pb.SegmentHealthResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -117,12 +120,11 @@ func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *pb.SegmentHealt
 		return nil, Error.Wrap(err)
 	}
 
-	path, err := storj.CreatePath(*projectID, in.GetSegment(), in.GetBucket(), in.GetEncryptedPath())
+	path, err := storj.CreatePath(*projectID, in.GetSegmentIndex(), in.GetBucket(), in.GetEncryptedPath())
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	// get pointer info
 	pointer, err := endpoint.pointerdb.Get(path)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -164,10 +166,10 @@ func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *pb.SegmentHealt
 	resp.OnlineNodes = int32(len(nodes))
 	resp.Redundancy = pointer.GetRemote().GetRedundancy()
 
-	if in.GetSegment() > -1 {
-		resp.Index = "s" + strconv.FormatInt(in.GetSegment(), 10)
+	if in.GetSegmentIndex() > -1 {
+		resp.Segment = "s" + strconv.FormatInt(in.GetSegmentIndex(), 10)
 	} else {
-		resp.Index = "l"
+		resp.Segment = "l"
 	}
 
 	return resp, nil

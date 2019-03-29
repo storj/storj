@@ -208,10 +208,10 @@ message DashboardResponse {
 }
 
 message SegmentHealthRequest {
-  bytes bucket = 1;
-  bytes encrypted_path = 2;
-  int64 segment = 3;
-  bytes project_id = 4;
+  bytes bucket = 1;         // segment bucket
+  bytes encrypted_path = 2; // segment encrypted path
+  int64 segment_index = 3;  // segment index
+  bytes project_id = 4;     // segment project id
 }
 
 message SegmentHealthResponse{
@@ -220,17 +220,17 @@ message SegmentHealthResponse{
   int32 repair_threshold = 3;                 // amount of pieces we need to drop to before triggering repair (m)
   int32 success_threshold = 4;                // amount of pieces we need to store to call it a success (o)
   int32 online_nodes = 5;                     // amount of pieces with nodes that are online
-  string index = 6;                           // segment index
+  string segment = 6;                         // path formatted segment index
   pointerdb.RedundancyScheme redundancy = 7;  // expected segment info
 }
 
 message ObjectHealthRequest {
-  bytes encrypted_path = 1;
-  bytes bucket = 2;
-  bytes project_id = 3;
-  int64 start_after_segment = 4;
-  int64 end_before_segment = 5;
-  int32 limit = 6;
+  bytes encrypted_path = 1;      // object encrypted path
+  bytes bucket = 2;              // object bucket id
+  bytes project_id = 3;          // object project id
+  int64 start_after_segment = 4; // Get all segments after specified segment index 
+  int64 end_before_segment = 5;  // Stop at segment before specified segment index 
+  int32 limit = 6;               // Max number of segments that are checked
 }
 
 message ObjectHealthResponse {

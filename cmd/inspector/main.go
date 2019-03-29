@@ -504,7 +504,7 @@ func SegmentHealth(cmd *cobra.Command, args []string) (err error) {
 
 	req := &pb.SegmentHealthRequest{
 		ProjectId:     []byte(args[0]),
-		Segment:       segmentIndex,
+		SegmentIndex:  segmentIndex,
 		Bucket:        []byte(args[2]),
 		EncryptedPath: []byte(args[3]),
 	}

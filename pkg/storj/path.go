@@ -24,6 +24,7 @@ func JoinPaths(paths ...Path) Path {
 	return strings.Join(paths, "/")
 }
 
+// CreatePath will create a Segment path
 func CreatePath(projectID uuid.UUID, segmentIndex int64, bucket, path []byte) (Path, error) {
 	if segmentIndex < -1 {
 		return "", errors.New("invalid segment index")
