@@ -119,20 +119,27 @@ read all (
 model node (
 	key id
 
-	field id                  blob
-	field audit_success_count int64   ( updatable )
-	field total_audit_count   int64   ( updatable )
-	field audit_success_ratio float64 ( updatable )
+	field id             blob
+	field address        text  ( updatable ) // TODO: use compressed format
+	field protocol       int   ( updatable )
+	field type           int   ( updatable )
+	field email          text  ( updatable )
+	field wallet         text  ( updatable ) // TODO: use compressed format
+	field free_bandwidth int64 ( updatable )
+	field free_disk      int64 ( updatable )
 
+	field latency_90           int64   ( updatable )
+	field audit_success_count  int64   ( updatable )
+	field total_audit_count    int64   ( updatable )
+	field audit_success_ratio  float64 ( updatable )
 	field uptime_success_count int64   ( updatable )
 	field total_uptime_count   int64   ( updatable )
 	field uptime_ratio         float64 ( updatable )
 
-	field created_at timestamp ( autoinsert )
-	field updated_at timestamp ( autoinsert, autoupdate )
-
-	field wallet 			text ( updatable )
-	field email 			text ( updatable )
+	field created_at           timestamp ( autoinsert )
+	field updated_at           timestamp ( autoinsert, autoupdate )
+	field last_contact_success timestamp ( autoinsert, updatable )
+	field last_contact_failure timestamp ( autoinsert, updatable )
 )
 
 create node ( )
@@ -145,59 +152,15 @@ read one (
 	where  node.id = ?
 )
 
-// "Find" query; returns nil if node not found
-read scalar (
-	select node
-	where  node.id = ?
-)
-
 read all (
 	select node.id
 )
 
-//--- overlaycache ---//
-
-model overlay_cache_node (
-	key    node_id
-	unique node_id
-
-	field node_id   blob
-	field node_type int
-
-	field address   text (updatable) // TODO: use compressed format
-	field protocol  int  (updatable)
-	
-	field operator_email  text (updatable)
-	field operator_wallet text (updatable) //TODO: use compressed format
-	
-	field free_bandwidth int64 (updatable)
-	field free_disk      int64 (updatable)
-
-	field latency_90           int64  (updatable)
-	
-	field audit_success_ratio  float64 (updatable)
-	field audit_uptime_ratio   float64 (updatable)
-	field audit_count          int64   (updatable)
-	field audit_success_count  int64   (updatable)
-
-	field uptime_count         int64 (updatable)
-	field uptime_success_count int64 (updatable)
-)
-
-create overlay_cache_node ( )
-
-read one (
-	select overlay_cache_node
-	where  overlay_cache_node.node_id = ?
-)
-
 read limitoffset (
-	select overlay_cache_node
-	where  overlay_cache_node.node_id >= ?
+	select node
+	where  node.id >= ?
+	orderby asc node.id
 )
-
-update overlay_cache_node ( where overlay_cache_node.node_id = ? )
-delete overlay_cache_node ( where overlay_cache_node.node_id = ? )
 
 //--- repairqueue ---//
 

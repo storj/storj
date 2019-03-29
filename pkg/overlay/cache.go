@@ -24,16 +24,16 @@ const (
 var ErrEmptyNode = errs.New("empty node ID")
 
 // ErrNodeNotFound is returned if a node does not exist in database
-var ErrNodeNotFound = errs.Class("Node not found")
+var ErrNodeNotFound = errs.Class("node not found")
 
 // ErrBucketNotFound is returned if a bucket is unable to be found in the routing table
-var ErrBucketNotFound = errs.New("Bucket not found")
+var ErrBucketNotFound = errs.New("bucket not found")
 
 // ErrNotEnoughNodes is when selecting nodes failed with the given parameters
 var ErrNotEnoughNodes = errs.Class("not enough nodes")
 
 // OverlayError creates class of errors for stack traces
-var OverlayError = errs.Class("Overlay Error")
+var OverlayError = errs.Class("overlay error")
 
 // DB implements the database for overlay.Cache
 type DB interface {
@@ -55,8 +55,8 @@ type DB interface {
 	// Delete deletes node based on id
 	Delete(ctx context.Context, id storj.NodeID) error
 
-	// Create adds a new stats entry for node.
-	Create(ctx context.Context, nodeID storj.NodeID, initial *NodeStats) (stats *NodeStats, err error)
+	// CreateStats initializes the stats for node.
+	CreateStats(ctx context.Context, nodeID storj.NodeID, initial *NodeStats) (stats *NodeStats, err error)
 	// GetStats returns node stats.
 	GetStats(ctx context.Context, nodeID storj.NodeID) (stats *NodeStats, err error)
 	// FindInvalidNodes finds a subset of storagenodes that have stats below provided reputation requirements.
@@ -67,12 +67,10 @@ type DB interface {
 	UpdateOperator(ctx context.Context, node storj.NodeID, updatedOperator pb.NodeOperator) (stats *NodeStats, err error)
 	// UpdateUptime updates a single storagenode's uptime stats.
 	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error)
-	// UpdateAuditSuccess updates a single storagenode's audit stats.
-	UpdateAuditSuccess(ctx context.Context, nodeID storj.NodeID, auditSuccess bool) (stats *NodeStats, err error)
 	// UpdateBatch for updating multiple storage nodes' stats.
 	UpdateBatch(ctx context.Context, requests []*UpdateRequest) (statslist []*NodeStats, failed []*UpdateRequest, err error)
 	// CreateEntryIfNotExists creates a node stats entry if it didn't already exist.
-	CreateEntryIfNotExists(ctx context.Context, nodeID storj.NodeID) (stats *NodeStats, err error)
+	CreateEntryIfNotExists(ctx context.Context, value *pb.Node) (stats *NodeStats, err error)
 }
 
 // FindStorageNodesRequest defines easy request parameters.
@@ -116,7 +114,7 @@ type UpdateRequest struct {
 	IsUp         bool
 }
 
-// NodeStats contains statistics abot a node.
+// NodeStats contains statistics about a node.
 type NodeStats struct {
 	NodeID             storj.NodeID
 	AuditSuccessRatio  float64
@@ -282,7 +280,7 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 	}
 
 	// get existing node rep, or create a new overlay node with 0 rep
-	stats, err := cache.db.CreateEntryIfNotExists(ctx, nodeID)
+	stats, err := cache.db.CreateEntryIfNotExists(ctx, &value)
 	if err != nil {
 		return err
 	}
@@ -313,7 +311,7 @@ func (cache *Cache) Delete(ctx context.Context, id storj.NodeID) (err error) {
 // Create adds a new stats entry for node.
 func (cache *Cache) Create(ctx context.Context, nodeID storj.NodeID, initial *NodeStats) (stats *NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return cache.db.Create(ctx, nodeID, initial)
+	return cache.db.CreateStats(ctx, nodeID, initial)
 }
 
 // GetStats returns node stats.
