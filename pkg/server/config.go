@@ -6,12 +6,12 @@ package server
 import (
 	"context"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/utils"
 )
 
 // Config holds server specific configuration parameters
@@ -29,7 +29,7 @@ func (sc Config) Run(ctx context.Context, identity *identity.FullIdentity, inter
 	if err != nil {
 		return err
 	}
-	defer func() { err = utils.CombineErrors(err, opts.RevDB.Close()) }()
+	defer func() { err = errs.Combine(err, opts.RevDB.Close()) }()
 
 	server, err := New(opts, sc.Address, sc.PrivateAddress, interceptor, services...)
 	if err != nil {

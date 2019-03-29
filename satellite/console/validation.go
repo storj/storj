@@ -8,8 +8,6 @@ import (
 	"unicode"
 
 	"github.com/zeebo/errs"
-
-	"storj.io/storj/pkg/utils"
 )
 
 const (
@@ -36,7 +34,7 @@ func (validation *validationErrors) AddWrap(err error) {
 
 // Combine returns combined validation errors
 func (validation *validationErrors) Combine() error {
-	return utils.CombineErrors(*validation...)
+	return errs.Combine(*validation...)
 }
 
 // countNumerics returns total number of digits in string
