@@ -19,6 +19,7 @@ type ordersDB struct {
 	db *dbx.DB
 }
 
+// CreateSerialInfo creates serial number entry in database
 func (db *ordersDB) CreateSerialInfo(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte, limitExpiration time.Time) error {
 	_, err := db.db.Create_SerialNumber(
 		ctx,
@@ -29,6 +30,7 @@ func (db *ordersDB) CreateSerialInfo(ctx context.Context, serialNumber storj.Ser
 	return err
 }
 
+// UseSerialNumber creates serial number entry in database
 func (db *ordersDB) UseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) ([]byte, error) {
 	statement := db.db.Rebind(
 		`INSERT INTO used_serials (serial_number_id, storage_node_id)
@@ -49,7 +51,7 @@ func (db *ordersDB) UseSerialNumber(ctx context.Context, serialNumber storj.Seri
 	return dbxSerialNumber.BucketId, nil
 }
 
-// UpdateBucketBandwidthAllocation
+// UpdateBucketBandwidthAllocation updates 'allocated' bandwidth for given bucket
 func (db *ordersDB) UpdateBucketBandwidthAllocation(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64) error {
 	now := time.Now()
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
@@ -67,7 +69,7 @@ func (db *ordersDB) UpdateBucketBandwidthAllocation(ctx context.Context, bucketI
 	return nil
 }
 
-// UpdateBucketBandwidthSettle
+// UpdateBucketBandwidthSettle updates 'settled' bandwidth for given bucket
 func (db *ordersDB) UpdateBucketBandwidthSettle(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64) error {
 	now := time.Now()
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
@@ -84,7 +86,7 @@ func (db *ordersDB) UpdateBucketBandwidthSettle(ctx context.Context, bucketID []
 	return nil
 }
 
-// UpdateBucketBandwidthInline
+// UpdateBucketBandwidthInline updates 'inline' bandwidth for given bucket
 func (db *ordersDB) UpdateBucketBandwidthInline(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64) error {
 	now := time.Now()
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
@@ -101,7 +103,7 @@ func (db *ordersDB) UpdateBucketBandwidthInline(ctx context.Context, bucketID []
 	return nil
 }
 
-// UpdateStoragenodeBandwidthAllocation
+// UpdateStoragenodeBandwidthAllocation updates 'allocated' bandwidth for given storage node
 func (db *ordersDB) UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64) error {
 	now := time.Now()
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
@@ -118,7 +120,7 @@ func (db *ordersDB) UpdateStoragenodeBandwidthAllocation(ctx context.Context, st
 	return nil
 }
 
-// UpdateStoragenodeBandwidthSettle
+// UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node
 func (db *ordersDB) UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64) error {
 	now := time.Now()
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
@@ -135,7 +137,7 @@ func (db *ordersDB) UpdateStoragenodeBandwidthSettle(ctx context.Context, storag
 	return nil
 }
 
-// GetBucketBandwidth
+// GetBucketBandwidth gets total bucket bandwidth from period of time
 func (db *ordersDB) GetBucketBandwidth(ctx context.Context, bucketID []byte, from, to time.Time) (int64, error) {
 	var sum *int64
 	query := `SELECT SUM(settled) FROM bucket_bandwidth_rollups WHERE bucket_id = ? AND interval_start > ? AND interval_start <= ?`
@@ -146,7 +148,7 @@ func (db *ordersDB) GetBucketBandwidth(ctx context.Context, bucketID []byte, fro
 	return *sum, err
 }
 
-// GetStorageNodeBandwidth
+// GetStorageNodeBandwidth gets total storage node bandwidth from period of time
 func (db *ordersDB) GetStorageNodeBandwidth(ctx context.Context, nodeID storj.NodeID, from, to time.Time) (int64, error) {
 	var sum *int64
 	query := `SELECT SUM(settled) FROM storagenode_bandwidth_rollups WHERE storagenode_id = ? AND interval_start > ? AND interval_start <= ?`

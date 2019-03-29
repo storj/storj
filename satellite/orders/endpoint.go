@@ -30,22 +30,22 @@ type DB interface {
 	// UseSerialNumber creates serial number entry in database
 	UseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) ([]byte, error)
 
-	// UpdateBucketBandwidthAllocation
+	// UpdateBucketBandwidthAllocation updates 'allocated' bandwidth for given bucket
 	UpdateBucketBandwidthAllocation(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64) error
-	// UpdateBucketBandwidthSettle
+	// UpdateBucketBandwidthSettle updates 'settled' bandwidth for given bucket
 	UpdateBucketBandwidthSettle(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64) error
-	// UpdateBucketBandwidthInline
+	// UpdateBucketBandwidthInline updates 'inline' bandwidth for given bucket
 	UpdateBucketBandwidthInline(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64) error
 
-	// UpdateStoragenodeBandwidthAllocation
+	// UpdateStoragenodeBandwidthAllocation updates 'allocated' bandwidth for given storage node
 	UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64) error
-	// UpdateStoragenodeBandwidthSettle
+	// UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node
 	UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64) error
 
 	// TODO move/reorganize/delete those methods (most probably accounting)
-	// GetBucketBandwidth
+	// GetBucketBandwidth gets total bucket bandwidth from period of time
 	GetBucketBandwidth(ctx context.Context, bucketID []byte, from, to time.Time) (int64, error)
-	// GetStorageNodeBandwidth
+	// GetStorageNodeBandwidth gets total storage node bandwidth from period of time
 	GetStorageNodeBandwidth(ctx context.Context, nodeID storj.NodeID, from, to time.Time) (int64, error)
 }
 

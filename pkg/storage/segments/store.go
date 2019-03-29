@@ -133,7 +133,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 			Metadata:       metadata,
 		}
 	} else {
-		// TODO replace bucket extracting with real solution
+		// early call to get bucket name, rest of the path cannot be determine yet
 		p, _, err := segmentInfo()
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
