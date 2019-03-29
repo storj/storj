@@ -8,14 +8,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"go.uber.org/zap"
 	"io/ioutil"
 	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
 
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"go.uber.org/zap"
+
+	"gopkg.in/spacemonkeygo/monkit.v2"
 )
 
 var (
@@ -26,7 +27,7 @@ var (
 	CommitHash string
 	// Version is the semantic version set at compilation
 	// if not a valid semantic version Release should be false
-	Version string = "0.1.0"
+	Version = "0.1.0"
 	// Release indicates whether the binary compiled is a release candidate
 	Release bool
 	// Build is a struct containing all relevant build information associated with the binary
