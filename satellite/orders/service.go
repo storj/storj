@@ -62,18 +62,19 @@ func (service *Service) saveSerial(ctx context.Context, serialNumber storj.Seria
 	return service.orders.CreateSerialInfo(ctx, serialNumber, bucketID, expiresAt)
 }
 
-func (service *Service) updateBandwidth(ctx context.Context, bucketID []byte, limits []*pb.AddressedOrderLimit) error {
-	if len(limits) == 0 {
+func (service *Service) updateBandwidth(ctx context.Context, bucketID []byte, addressedOrderLimits []*pb.AddressedOrderLimit) error {
+	if len(addressedOrderLimits) == 0 {
 		return nil
 	}
 	var bucketAllocation int64
 	var action pb.PieceAction
 	nodesAllocation := make(map[storj.NodeID]int64)
-	for _, limit := range limits {
-		if limit != nil {
-			bucketAllocation += limit.Limit.Limit
-			nodesAllocation[limit.Limit.StorageNodeId] = limit.Limit.Limit
-			action = limits[0].Limit.Action
+	for _, addressedOrderLimit := range addressedOrderLimits {
+		if addressedOrderLimit != nil {
+			orderLimit := addressedOrderLimit.Limit
+			bucketAllocation += orderLimit.Limit
+			nodesAllocation[orderLimit.StorageNodeId] = orderLimit.Limit
+			action = orderLimit.Action
 		}
 	}
 
