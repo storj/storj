@@ -24,6 +24,7 @@ message Node {
     bool update_latency = 10;
     bool update_audit_success = 11;
     bool update_uptime = 12;
+    NodeVersion version = 13;
 }
 
 // NodeType is an enum of possible node types
@@ -79,4 +80,10 @@ message NodeMetadata {
 message NodeRestrictions {
     int64 free_bandwidth = 1;
     int64 free_disk = 2;
+}
+
+message NodeVersion {
+    int64 major = 1;
+    int64 minor = 2;
+    int64 patch = 3;
 }
