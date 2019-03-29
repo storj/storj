@@ -97,8 +97,8 @@ export async function fetchProjectMembersRequest(projectID: string, limit: strin
 							members(limit: ${limit}, offset: ${offset}, order: ${sortBy}, search: "${searchQuery}") {
 								user {
 									id,
-									fullName,
-									shortName,
+									firstName,
+									lastName,
 									email
 								},
 								joinedAt

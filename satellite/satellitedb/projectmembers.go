@@ -48,8 +48,8 @@ func (pm *projectMembers) GetByProjectID(ctx context.Context, projectID uuid.UUI
 				INNER JOIN users u ON pm.member_id = u.id
 					WHERE pm.project_id = ?
 					AND ( u.email LIKE ? OR 
-						  u.full_name LIKE ? OR
-						  u.short_name LIKE ? )
+						  u.first_name || u.last_name LIKE ? OR
+						  u.last_name || u.first_name LIKE ? )
 						ORDER BY ` + sanitizedOrderColumnName(pagination.Order) + ` ASC
 						LIMIT ? OFFSET ?
 					`)
@@ -150,7 +150,7 @@ func sanitizedOrderColumnName(pmo console.ProjectMemberOrder) string {
 	case 3:
 		return "u.created_at"
 	default:
-		return "u.full_name"
+		return "u.first_name"
 	}
 }
 

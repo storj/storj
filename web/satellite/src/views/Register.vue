@@ -22,19 +22,19 @@
                     </div>
                     <HeaderlessInput
                         class="full-input"
-                        label="Full name"
-                        placeholder="Enter Full Name"
-                        :error="fullNameError"
-                        @setData="setFullName"
+                        label="First name"
+                        placeholder="Enter First Name"
+                        :error="firstNameError"
+                        @setData="setFirstName"
                         width="100%"
                         height="46px"
                         isWhite>
                     </HeaderlessInput>
                     <HeaderlessInput
                         class="full-input"
-                        label="Short Name"
+                        label="Last Name"
                         placeholder="Enter Short Name"
-                        @setData="setShortName"
+                        @setData="setLastName"
                         width="100%"
                         height="46px"
                         isWhite>
@@ -113,9 +113,9 @@ import { createUserRequest } from '@/api/users';
     {
         data: function () {
             return {
-                fullName: '',
-                fullNameError: '',
-                shortName: '',
+                firstName: '',
+                firstNameError: '',
+                lastName: '',
                 email: '',
                 emailError: '',
                 password: '',
@@ -133,12 +133,12 @@ import { createUserRequest } from '@/api/users';
                 this.$data.email = value;
                 this.$data.emailError = '';
             },
-            setFullName: function (value: string): void {
-                this.$data.fullName = value;
-                this.$data.fullNameError = '';
+            setFirstName: function (value: string): void {
+                this.$data.firstName = value;
+                this.$data.firstNameError = '';
             },
-            setShortName: function (value: string): void {
-                this.$data.shortName = value;
+            setLastName: function (value: string): void {
+                this.$data.lastName = value;
             },
             setPassword: function (value: string): void {
                 this.$data.password = value;
@@ -150,8 +150,8 @@ import { createUserRequest } from '@/api/users';
             },
             validateFields: function (): boolean {
                 let isNoErrors = true;
-                if (!this.$data.fullName.trim()) {
-                    this.$data.fullNameError = 'Invalid Name';
+                if (!this.$data.firstName.trim()) {
+                    this.$data.firstNameError = 'Invalid First Name';
                     isNoErrors = false;
                 }
 
@@ -180,8 +180,8 @@ import { createUserRequest } from '@/api/users';
             createUser: async function(): Promise<any> {
                 let user = {
                     email: this.$data.email.trim(),
-                    fullName: this.$data.fullName.trim(),
-                    shortName: this.$data.shortName.trim(),
+                    firstName: this.$data.firstName.trim(),
+                    lastName: this.$data.lastName.trim(),
                 };
 
                 let response = await createUserRequest(user, this.$data.password, this.$data.secret);

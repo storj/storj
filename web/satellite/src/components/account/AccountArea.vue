@@ -17,21 +17,21 @@
                 </div>
                 <HeaderedInput
                     class="full-input"
-                    label="Full name"
-                    placeholder="Enter Full Name"
+                    label="First name"
+                    placeholder ="Enter First Name"
                     width="100%"
-                    ref="fullNameInput"
-                    :error="fullNameError"
-                    :initValue="user.fullName"
-                    @setData="setFullName" />
+                    ref="firstNameInput"
+                    :error="firstNameError"
+                    :initValue="user.firstName"
+                    @setData="setFirstName" />
                 <HeaderedInput
                     class="full-input"
-                    label="Short Name"
-                    placeholder="Enter Short Name"
+                    label="Last Name"
+                    placeholder="Enter Last Name"
                     width="100%"
-                    ref="shortNameInput"
-                    :initValue="user.shortName"
-                    @setData="setShortName"/>
+                    ref="lastNameInput"
+                    :initValue="user.lastName"
+                    @setData="setLastName"/>
                 <HeaderedInput
                     class="full-input"
                     label="Email"
@@ -134,15 +134,15 @@ import { validateEmail, validatePassword } from '@/utils/validation';
     {
         data: function () {
             return {
-                originalFullName: this.$store.getters.user.fullName,
-                originalShortName: this.$store.getters.user.shortName,
+                originalFirstName: this.$store.getters.user.firstName,
+                originalLastName: this.$store.getters.user.lastName,
                 originalEmail: this.$store.getters.user.email,
 
-                fullName: this.$store.getters.user.fullName,
-                shortName: this.$store.getters.user.shortName,
+                firstName: this.$store.getters.user.firstName,
+                lastName: this.$store.getters.user.lastName,
                 email: this.$store.getters.user.email,
 
-                fullNameError: '',
+                firstNameError: '',
                 emailError: '',
 
                 isAccountSettingsEditing: false,
@@ -158,13 +158,13 @@ import { validateEmail, validatePassword } from '@/utils/validation';
             };
         },
         methods: {
-            setFullName: function (value: string) {
-                this.$data.fullName = value;
-                this.$data.fullNameError = '';
+            setFirstName: function (value: string) {
+                this.$data.firstName = value;
+                this.$data.firstNameError = '';
                 this.$data.isAccountSettingsEditing = true;
             },
-            setShortName: function (value: string) {
-                this.$data.shortName = value;
+            setLastName: function (value: string) {
+                this.$data.lastName = value;
                 this.$data.isAccountSettingsEditing = true;
             },
             setEmail: function (value: string) {
@@ -173,17 +173,17 @@ import { validateEmail, validatePassword } from '@/utils/validation';
                 this.$data.isAccountSettingsEditing = true;
             },
             cancelAccountSettings: function () {
-                this.$data.fullName = this.$data.originalFullName;
-                this.$data.fullNameError = '';
-                this.$data.shortName = this.$data.originalShortName;
+                this.$data.firstName = this.$data.originalFirstName;
+                this.$data.firstNameError = '';
+                this.$data.lastName = this.$data.originalLastName;
                 this.$data.email = this.$data.originalEmail;
                 this.$data.emailError = '';
 
-                let fullNameInput: any = this.$refs['fullNameInput'];
-                fullNameInput.setValue(this.$data.originalFullName);
+                let firstNameInput: any = this.$refs['firstNameInput'];
+                firstNameInput.setValue(this.$data.originalFirstName);
 
-                let shortNameInput: any = this.$refs['shortNameInput'];
-                shortNameInput.setValue(this.$data.originalShortName);
+                let lastNameInput: any = this.$refs['lastNameInput'];
+                lastNameInput.setValue(this.$data.originalLastName);
 
                 let emailInput: any = this.$refs['emailInput'];
                 emailInput.setValue(this.$data.originalEmail);
@@ -193,8 +193,8 @@ import { validateEmail, validatePassword } from '@/utils/validation';
             onSaveAccountSettingsButtonClick: async function () {
                 let hasError = false;
 
-                if (!this.$data.fullName) {
-                    this.$data.fullNameError = 'Full name expected';
+                if (!this.$data.firstName) {
+                    this.$data.firstNameError = 'First name expected';
                     hasError = true;
                 }
 
@@ -209,8 +209,8 @@ import { validateEmail, validatePassword } from '@/utils/validation';
 
                 let user = {
                     email: this.$data.email,
-                    fullName: this.$data.fullName,
-                    shortName: this.$data.shortName,
+                    firstName: this.$data.firstName,
+                    lastName: this.$data.lastName,
                 };
 
                 let response = await this.$store.dispatch(USER_ACTIONS.UPDATE, user);
@@ -222,8 +222,8 @@ import { validateEmail, validatePassword } from '@/utils/validation';
 
                 this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Account info successfully updated!');
 
-                this.$data.originalFullName = this.$store.getters.user.fullName;
-                this.$data.originalShortName = this.$store.getters.user.shortName;
+                this.$data.originalFirstName = this.$store.getters.user.firstName;
+                this.$data.originalLastName = this.$store.getters.user.lastName;
                 this.$data.originalEmail = this.$store.getters.user.email;
 
                 this.$data.isAccountSettingsEditing = false;
@@ -331,8 +331,8 @@ import { validateEmail, validatePassword } from '@/utils/validation';
         computed: {
             user: function() {
                 return {
-                    fullName: this.$store.getters.user.fullName,
-                    shortName: this.$store.getters.user.shortName,
+                    firstName: this.$store.getters.user.firstName,
+                    lastName: this.$store.getters.user.lastName,
                     email: this.$store.getters.user.email,
                 };
             },
@@ -341,6 +341,7 @@ import { validateEmail, validatePassword } from '@/utils/validation';
                 return this.$store.getters.userName.slice(0, 1).toUpperCase();
             },
             isPopupShown: function (): boolean {
+
                 return this.$store.state.appStateModule.appState.isDeleteAccountPopupShown;
             }
         },

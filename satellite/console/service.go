@@ -102,8 +102,8 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 
 	u, err = s.store.Users().Insert(ctx, &User{
 		Email:        user.Email,
-		FullName:     user.FullName,
-		ShortName:    user.ShortName,
+		FirstName:    user.FirstName,
+		LastName:     user.LastName,
 		PasswordHash: hash,
 	})
 
@@ -222,8 +222,8 @@ func (s *Service) UpdateAccount(ctx context.Context, info UserInfo) (err error) 
 
 	return s.store.Users().Update(ctx, &User{
 		ID:           auth.User.ID,
-		FullName:     info.FullName,
-		ShortName:    info.ShortName,
+		FirstName:    info.FirstName,
+		LastName:     info.LastName,
 		Email:        email,
 		PasswordHash: nil,
 	})

@@ -18,10 +18,10 @@ func TestProjectsRepository(t *testing.T) {
 	//testing constants
 	const (
 		// for user
-		shortName    = "lastName"
-		email        = "email@ukr.net"
-		pass         = "123456"
-		userFullName = "name"
+		lastName = "lastName"
+		email    = "email@ukr.net"
+		pass     = "123456"
+		userName = "name"
 
 		// for project
 		name        = "Project"
@@ -44,8 +44,8 @@ func TestProjectsRepository(t *testing.T) {
 		t.Run("Insert project successfully", func(t *testing.T) {
 			var err error
 			owner, err = users.Insert(ctx, &console.User{
-				FullName:     userFullName,
-				ShortName:    shortName,
+				FirstName:    userName,
+				LastName:     lastName,
 				Email:        email,
 				PasswordHash: []byte(pass),
 			})

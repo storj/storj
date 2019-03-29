@@ -22,8 +22,8 @@ func TestUserFromDbx(t *testing.T) {
 	t.Run("can't create dbo from dbx model with invalid ID", func(t *testing.T) {
 		dbxUser := dbx.User{
 			Id:           []byte("qweqwe"),
-			FullName:     "Very long full name",
-			ShortName:    nil,
+			FirstName:    "FirstName",
+			LastName:     "LastName",
 			Email:        "some@email.com",
 			PasswordHash: []byte("ihqerfgnu238723huagsd"),
 			CreatedAt:    time.Now(),

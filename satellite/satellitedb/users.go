@@ -48,12 +48,10 @@ func (users *users) Insert(ctx context.Context, user *console.User) (*console.Us
 
 	createdUser, err := users.db.Create_User(ctx,
 		dbx.User_Id(userID[:]),
-		dbx.User_FullName(user.FullName),
+		dbx.User_FirstName(user.FirstName),
+		dbx.User_LastName(user.LastName),
 		dbx.User_Email(user.Email),
 		dbx.User_PasswordHash(user.PasswordHash),
-		dbx.User_Create_Fields{
-			ShortName: dbx.User_ShortName(user.ShortName),
-		},
 	)
 
 	if err != nil {
@@ -84,8 +82,8 @@ func (users *users) Update(ctx context.Context, user *console.User) error {
 // toUpdateUser creates dbx.User_Update_Fields with only non-empty fields as updatable
 func toUpdateUser(user *console.User) dbx.User_Update_Fields {
 	update := dbx.User_Update_Fields{
-		FullName:  dbx.User_FullName(user.FullName),
-		ShortName: dbx.User_ShortName(user.ShortName),
+		FirstName: dbx.User_FirstName(user.FirstName),
+		LastName:  dbx.User_LastName(user.LastName),
 		Email:     dbx.User_Email(user.Email),
 		Status:    dbx.User_Status(int(user.Status)),
 	}
@@ -111,15 +109,12 @@ func userFromDBX(user *dbx.User) (*console.User, error) {
 
 	result := console.User{
 		ID:           id,
-		FullName:     user.FullName,
+		FirstName:    user.FirstName,
+		LastName:     user.LastName,
 		Email:        user.Email,
 		PasswordHash: user.PasswordHash,
 		Status:       console.UserStatus(user.Status),
 		CreatedAt:    user.CreatedAt,
-	}
-
-	if user.ShortName != nil {
-		result.ShortName = *user.ShortName
 	}
 
 	return &result, nil
