@@ -13,8 +13,6 @@ import (
 	"math/big"
 
 	"github.com/zeebo/errs"
-
-	"storj.io/storj/pkg/utils"
 )
 
 // WritePublicKeyPEM writes the public key, in a PEM-enveloped
@@ -175,7 +173,7 @@ func CertsFromDER(rawCerts [][]byte) ([]*x509.Certificate, error) {
 func CertsFromPEM(pemBytes []byte) ([]*x509.Certificate, error) {
 	var (
 		encChain  encodedChain
-		blockErrs utils.ErrorGroup
+		blockErrs errs.Group
 	)
 	for {
 		var pemBlock *pem.Block
@@ -226,7 +224,7 @@ func (e *encodedChain) Parse() ([]*x509.Certificate, error) {
 		return nil, err
 	}
 
-	var extErrs utils.ErrorGroup
+	var extErrs errs.Group
 	for i, cert := range chain {
 		for _, ee := range e.extensions[i] {
 			ext, err := PKIXExtensionFromASN1(ee)
