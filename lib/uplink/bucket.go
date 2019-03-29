@@ -55,9 +55,10 @@ type UploadOptions struct {
 		// for more information.
 		EncryptionBlockSize memory.Size
 
-		// RSParameters determines the Reed-Solomon and/or Forward Error
-		// Correction encoding parameters to be used for this Object.
-		RSParameters storj.RedundancyScheme
+		// RedundancyScheme determines the Reed-Solomon and/or Forward
+		// Error Correction encoding parameters to be used for this
+		// Object.
+		RedundancyScheme storj.RedundancyScheme
 	}
 }
 
