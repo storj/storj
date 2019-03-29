@@ -2865,41 +2865,6 @@
             ]
           },
           {
-            "name": "ListRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "prefix",
-                "type": "string"
-              },
-              {
-                "id": 2,
-                "name": "start_after",
-                "type": "string"
-              },
-              {
-                "id": 3,
-                "name": "end_before",
-                "type": "string"
-              },
-              {
-                "id": 4,
-                "name": "recursive",
-                "type": "bool"
-              },
-              {
-                "id": 5,
-                "name": "limit",
-                "type": "int32"
-              },
-              {
-                "id": 6,
-                "name": "meta_flags",
-                "type": "fixed32"
-              }
-            ]
-          },
-          {
             "name": "ListResponse",
             "fields": [
               {

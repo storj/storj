@@ -58,16 +58,6 @@ message Pointer {
   bytes metadata = 8;
 }
 
-// ListRequest is a request message for the List rpc call
-message ListRequest {
-  string prefix = 1;
-  string start_after = 2;
-  string end_before = 3;
-  bool recursive = 4;
-  int32 limit = 5;
-  fixed32 meta_flags = 6;
-}
-
 // ListResponse is a response message for the List rpc call
 message ListResponse {
   message Item {
