@@ -64,36 +64,36 @@ func (endpoint *Endpoint) ObjectHealth(ctx context.Context, in *pb.ObjectHealthR
 		end = in.GetEndBeforeSegment()
 	}
 
-	i := start
-	for i < end {
-		if i-start >= limit {
+	segmentIndex := start
+	for segmentIndex < end {
+		if segmentIndex-start >= limit {
 			break
 		}
 
 		segment := &pb.SegmentHealthRequest{
 			Bucket:        in.GetBucket(),
 			EncryptedPath: in.GetEncryptedPath(),
-			SegmentIndex:  i,
+			SegmentIndex:  segmentIndex,
 			ProjectId:     in.GetProjectId(),
 		}
 
 		segmentHealth, err := endpoint.SegmentHealth(ctx, segment)
 		if err != nil {
-			if i == finalSegment {
+			if segmentIndex == finalSegment {
 				return nil, Error.Wrap(err)
 			}
 
-			i = finalSegment
+			segmentIndex = finalSegment
 			continue
 		}
 
 		segmentHealthResponses = append(segmentHealthResponses, segmentHealth)
 
-		if i == finalSegment {
+		if segmentIndex == finalSegment {
 			break
 		}
 
-		i++
+		segmentIndex++
 	}
 
 	resp = &pb.ObjectHealthResponse{
@@ -167,9 +167,9 @@ func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *pb.SegmentHealt
 	resp.Redundancy = pointer.GetRemote().GetRedundancy()
 
 	if in.GetSegmentIndex() > -1 {
-		resp.Segment = "s" + strconv.FormatInt(in.GetSegmentIndex(), 10)
+		resp.Segment = []byte("s" + strconv.FormatInt(in.GetSegmentIndex(), 10))
 	} else {
-		resp.Segment = "l"
+		resp.Segment = []byte("l")
 	}
 
 	return resp, nil

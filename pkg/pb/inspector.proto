@@ -220,7 +220,7 @@ message SegmentHealthResponse{
   int32 repair_threshold = 3;                 // amount of pieces we need to drop to before triggering repair (m)
   int32 success_threshold = 4;                // amount of pieces we need to store to call it a success (o)
   int32 online_nodes = 5;                     // amount of pieces with nodes that are online
-  string segment = 6;                         // path formatted segment index
+  bytes segment = 6;                          // path formatted segment index
   pointerdb.RedundancyScheme redundancy = 7;  // expected segment info
 }
 
