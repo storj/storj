@@ -47,7 +47,8 @@ func NewEndpoint(log *zap.Logger, cache *overlay.Cache, pdb *pointerdb.Service) 
 func (endpoint *Endpoint) ObjectHealth(ctx context.Context, in *pb.ObjectHealthRequest) (resp *pb.ObjectHealthResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var segmentHealthResponses []*pb.SegmentHealthResponse
+	var segmentHealthResponses []*pb.SegmentHealth
+	var redundancy *pb.RedundancyScheme
 
 	limit := int64(100)
 	if in.GetLimit() > 0 {
@@ -87,7 +88,8 @@ func (endpoint *Endpoint) ObjectHealth(ctx context.Context, in *pb.ObjectHealthR
 			continue
 		}
 
-		segmentHealthResponses = append(segmentHealthResponses, segmentHealth)
+		segmentHealthResponses = append(segmentHealthResponses, segmentHealth.GetHealth())
+		redundancy = segmentHealth.GetRedundancy()
 
 		if segmentIndex == finalSegment {
 			break
@@ -97,7 +99,8 @@ func (endpoint *Endpoint) ObjectHealth(ctx context.Context, in *pb.ObjectHealthR
 	}
 
 	resp = &pb.ObjectHealthResponse{
-		Segments: segmentHealthResponses,
+		Segments:   segmentHealthResponses,
+		Redundancy: redundancy,
 	}
 
 	return resp, nil
@@ -107,7 +110,7 @@ func (endpoint *Endpoint) ObjectHealth(ctx context.Context, in *pb.ObjectHealthR
 func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *pb.SegmentHealthRequest) (resp *pb.SegmentHealthResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	resp = &pb.SegmentHealthResponse{
+	health := &pb.SegmentHealth{
 		OnlineNodes:      0,
 		MinimumRequired:  0,
 		Total:            0,
@@ -149,27 +152,31 @@ func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *pb.SegmentHealt
 		return nil, Error.Wrap(err)
 	}
 
-	neededForRepair := resp.GetOnlineNodes() - int32(redundancy.RepairThreshold())
+	neededForRepair := health.GetOnlineNodes() - int32(redundancy.RepairThreshold())
 	if neededForRepair < 0 {
 		neededForRepair = int32(0)
 	}
 
-	neededForSuccess := resp.GetOnlineNodes() - int32(redundancy.OptimalThreshold())
+	neededForSuccess := health.GetOnlineNodes() - int32(redundancy.OptimalThreshold())
 	if neededForSuccess < 0 {
 		neededForSuccess = int32(0)
 	}
 
-	resp.MinimumRequired = int32(redundancy.RequiredCount())
-	resp.Total = int32(redundancy.TotalCount())
-	resp.RepairThreshold = neededForRepair
-	resp.SuccessThreshold = neededForSuccess
-	resp.OnlineNodes = int32(len(nodes))
-	resp.Redundancy = pointer.GetRemote().GetRedundancy()
+	health.MinimumRequired = int32(redundancy.RequiredCount())
+	health.Total = int32(redundancy.TotalCount())
+	health.RepairThreshold = neededForRepair
+	health.SuccessThreshold = neededForSuccess
+	health.OnlineNodes = int32(len(nodes))
 
 	if in.GetSegmentIndex() > -1 {
-		resp.Segment = []byte("s" + strconv.FormatInt(in.GetSegmentIndex(), 10))
+		health.Segment = []byte("s" + strconv.FormatInt(in.GetSegmentIndex(), 10))
 	} else {
-		resp.Segment = []byte("l")
+		health.Segment = []byte("l")
+	}
+
+	resp = &pb.SegmentHealthResponse{
+		Health:     health,
+		Redundancy: pointer.GetRemote().GetRedundancy(),
 	}
 
 	return resp, nil

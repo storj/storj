@@ -74,11 +74,11 @@ func TestInspectorStats(t *testing.T) {
 				resp, err := health.SegmentHealth(ctx, req)
 				assert.NoError(t, err)
 
-				assert.Equal(t, int32(0), resp.GetSuccessThreshold())
-				assert.Equal(t, int32(1), resp.GetMinimumRequired())
-				assert.Equal(t, int32(4), resp.GetTotal())
-				assert.Equal(t, int32(0), resp.GetRepairThreshold())
-				assert.Equal(t, int32(4), resp.GetOnlineNodes())
+				assert.Equal(t, int32(0), resp.GetHealth().GetSuccessThreshold())
+				assert.Equal(t, int32(1), resp.GetHealth().GetMinimumRequired())
+				assert.Equal(t, int32(4), resp.GetHealth().GetTotal())
+				assert.Equal(t, int32(0), resp.GetHealth().GetRepairThreshold())
+				assert.Equal(t, int32(4), resp.GetHealth().GetOnlineNodes())
 			}
 
 			{ // Test Object Health Request
