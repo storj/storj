@@ -6,7 +6,7 @@ package readcloser
 import (
 	"io"
 
-	"storj.io/storj/pkg/utils"
+	"github.com/zeebo/errs"
 )
 
 type eofReadCloser struct{}
@@ -63,9 +63,9 @@ func (mr *multiReadCloser) Read(p []byte) (n int, err error) {
 }
 
 func (mr *multiReadCloser) Close() error {
-	errs := make([]error, len(mr.readers))
+	errlist := make([]error, len(mr.readers))
 	for i, r := range mr.readers {
-		errs[i] = r.Close()
+		errlist[i] = r.Close()
 	}
-	return utils.CombineErrors(errs...)
+	return errs.Combine(errlist...)
 }

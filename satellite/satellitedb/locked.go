@@ -593,18 +593,18 @@ type lockedOverlayCache struct {
 	db overlay.DB
 }
 
-// Create adds a new stats entry for node.
-func (m *lockedOverlayCache) Create(ctx context.Context, nodeID storj.NodeID, initial *overlay.NodeStats) (stats *overlay.NodeStats, err error) {
+// CreateEntryIfNotExists creates a node stats entry if it didn't already exist.
+func (m *lockedOverlayCache) CreateEntryIfNotExists(ctx context.Context, value *pb.Node) (stats *overlay.NodeStats, err error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Create(ctx, nodeID, initial)
+	return m.db.CreateEntryIfNotExists(ctx, value)
 }
 
-// CreateEntryIfNotExists creates a node stats entry if it didn't already exist.
-func (m *lockedOverlayCache) CreateEntryIfNotExists(ctx context.Context, nodeID storj.NodeID) (stats *overlay.NodeStats, err error) {
+// CreateStats initializes the stats for node.
+func (m *lockedOverlayCache) CreateStats(ctx context.Context, nodeID storj.NodeID, initial *overlay.NodeStats) (stats *overlay.NodeStats, err error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.CreateEntryIfNotExists(ctx, nodeID)
+	return m.db.CreateStats(ctx, nodeID, initial)
 }
 
 // Delete deletes node based on id
@@ -675,13 +675,6 @@ func (m *lockedOverlayCache) Update(ctx context.Context, value *pb.Node) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Update(ctx, value)
-}
-
-// UpdateAuditSuccess updates a single storagenode's audit stats.
-func (m *lockedOverlayCache) UpdateAuditSuccess(ctx context.Context, nodeID storj.NodeID, auditSuccess bool) (stats *overlay.NodeStats, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.UpdateAuditSuccess(ctx, nodeID, auditSuccess)
 }
 
 // UpdateBatch for updating multiple storage nodes' stats.
