@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"go.uber.org/zap"
 	"io/ioutil"
 	"net/http"
 	"regexp"
@@ -25,7 +26,7 @@ var (
 	CommitHash string
 	// Version is the semantic version set at compilation
 	// if not a valid semantic version Release should be false
-	Version string
+	Version string = "0.1.0"
 	// Release indicates whether the binary compiled is a release candidate
 	Release bool
 	// Build is a struct containing all relevant build information associated with the binary
@@ -119,9 +120,12 @@ func CheckVersion(ctx *context.Context) (err error) {
 	if err != nil {
 		return
 	}
+	zap.S().Debugf("Allowed Version from Control Server: %v", accepted)
 	if containsVersion(accepted, Build.Version) {
+		zap.S().Infof("Running on Version %s", Build.Version.String())
 		Allowed = true
 	} else {
+		zap.S().Errorf("Running on outdated Version %s", Build.Version.String())
 		Allowed = false
 	}
 	return
@@ -129,7 +133,7 @@ func CheckVersion(ctx *context.Context) (err error) {
 
 // QueryVersionFromControlServer handles the HTTP request to gather the allowed and latest version information
 func queryVersionFromControlServer() (ver []V, err error) {
-	resp, err := http.Get("https://version.alpha.storj.io")
+	resp, err := http.Get("https://satellite.stefan-benten.de/version")
 	if err != nil {
 
 		//ToDo: Handle Failures properly!

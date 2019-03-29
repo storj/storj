@@ -13,9 +13,11 @@ import (
 	"os/signal"
 	"path/filepath"
 	"sort"
+	"storj.io/storj/internal/version"
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -23,6 +25,8 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
+
+const interval = 15 * time.Minute
 
 // ExecuteWithConfig runs a Cobra command with the provided default config
 func ExecuteWithConfig(cmd *cobra.Command, defaultConfig string) {
@@ -238,6 +242,10 @@ func cleanup(cmd *cobra.Command) {
 			contextMtx.Unlock()
 		}()
 
+		if err = LogAndReportVersion(ctx); err != nil {
+			logger.Sugar().Errorf("Software Version outdated, please update")
+		}
+
 		err = internalRun(cmd, args)
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "Fatal error: %v\n", err)
@@ -247,4 +255,31 @@ func cleanup(cmd *cobra.Command) {
 		}
 		return err
 	}
+}
+
+// LogAndReportVersion logs the current version information
+// and reports to monkit
+func LogAndReportVersion(ctx context.Context) (err error) {
+	if err := version.CheckVersion(&ctx); err != nil {
+		return err
+	}
+
+	//Start up periodic checks
+	go func(ctx context.Context) {
+		ticker := time.NewTicker(interval)
+
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				err := version.CheckVersion(&ctx)
+				if err != nil {
+					zap.S().Errorf("Failed to do periodic version check: ", err)
+				}
+			}
+		}
+	}(ctx)
+	return
 }

@@ -44,11 +44,6 @@ func mountBucket(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	ctx := process.Ctx(cmd)
-
-	if err = process.LogAndReportVersion(ctx); err != nil {
-		zap.S().Error("Failed to check version: ", err)
-	}
-
 	metainfo, streams, err := cfg.Metainfo(ctx)
 	if err != nil {
 		return err

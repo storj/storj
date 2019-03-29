@@ -149,10 +149,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	fmt.Printf("Secret key: %s\n", runCfg.Minio.SecretKey)
 
 	ctx := process.Ctx(cmd)
-	if err = process.LogAndReportVersion(ctx); err != nil {
-		zap.S().Error("Failed to check version: ", err)
-	}
-
 	metainfo, _, err := runCfg.GetMetainfo(ctx, identity)
 	if err != nil {
 		return err
