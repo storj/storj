@@ -246,8 +246,8 @@ func cleanup(cmd *cobra.Command) {
 			logger.Sugar().Errorf("Error checking Software Version", err)
 		}
 
-		//If Allowed is false, the version is on an not version that should not start
-		if version.Allowed == false {
+		//If not in dev environment and Allowed is false, the software is on a version that should not start
+		if cmd.Flags().Lookup("dev").Changed == false && version.Allowed == false {
 			logger.Sugar().Fatal("Software Version outdated, please update")
 		}
 
