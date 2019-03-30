@@ -12,6 +12,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/identity"
@@ -78,7 +79,10 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 	if err != nil {
 		return nil, nil, err
 	}
-	tc := transport.NewClient(tlsOpts)
+
+	verClient := version.NewClient()
+
+	tc := transport.NewClient(tlsOpts, verClient)
 
 	if c.Client.SatelliteAddr == "" {
 		return nil, nil, errors.New("satellite address not specified")

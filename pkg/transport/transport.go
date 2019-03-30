@@ -9,6 +9,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
@@ -33,19 +34,21 @@ type Client interface {
 type Transport struct {
 	tlsOpts        *tlsopts.Options
 	observers      []Observer
+	version        *version.Client
 	requestTimeout time.Duration
 }
 
 // NewClient returns a transport client with a default timeout for requests
-func NewClient(tlsOpts *tlsopts.Options, obs ...Observer) Client {
-	return NewClientWithTimeout(tlsOpts, defaultRequestTimeout, obs...)
+func NewClient(tlsOpts *tlsopts.Options, version *version.Client, obs ...Observer) Client {
+	return NewClientWithTimeout(tlsOpts, version, defaultRequestTimeout, obs...)
 }
 
 // NewClientWithTimeout returns a transport client with a specified timeout for requests
-func NewClientWithTimeout(tlsOpts *tlsopts.Options, requestTimeout time.Duration, obs ...Observer) Client {
+func NewClientWithTimeout(tlsOpts *tlsopts.Options, version *version.Client, requestTimeout time.Duration, obs ...Observer) Client {
 	return &Transport{
 		tlsOpts:        tlsOpts,
 		requestTimeout: requestTimeout,
+		version:        version,
 		observers:      obs,
 	}
 }
@@ -62,6 +65,10 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 	}
 	if node.Address == nil || node.Address.Address == "" {
 		return nil, Error.New("no address")
+	}
+
+	if !transport.version.Allowed {
+		return nil, Error.New("outdated/not allowed Client, please update your software")
 	}
 
 	dialOption, err := transport.tlsOpts.DialOption(node.Id)
@@ -100,6 +107,10 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 // DialAddress.
 func (transport *Transport) DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if !transport.version.Allowed {
+		return nil, Error.New("outdated/not allowed Client, please update your software")
+	}
 
 	options := append([]grpc.DialOption{
 		transport.tlsOpts.DialUnverifiedIDOption(),

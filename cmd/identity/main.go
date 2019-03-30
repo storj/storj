@@ -14,6 +14,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/fpath"
+	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/certificates"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
@@ -168,7 +169,9 @@ func cmdAuthorize(cmd *cobra.Command, args []string) error {
 		config.Signer.Address = defaultSignerAddress
 	}
 
-	signedChainBytes, err := config.Signer.Sign(ctx, ident, authToken)
+	verClient := version.NewClient()
+
+	signedChainBytes, err := config.Signer.Sign(ctx, ident, verClient, authToken)
 	if err != nil {
 		return errs.New("error occurred while signing certificate: %s\n(identity files were still generated and saved, if you try again existing files will be loaded)", err)
 	}

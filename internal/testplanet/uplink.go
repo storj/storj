@@ -60,7 +60,9 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 
 	uplink.Log.Debug("id=" + identity.ID.String())
 
-	uplink.Transport = transport.NewClient(tlsOpts)
+	verClient := planet.NewVersionClient()
+
+	uplink.Transport = transport.NewClient(tlsOpts, verClient)
 
 	uplink.Info = pb.Node{
 		Id:   uplink.Identity.ID,
