@@ -31,7 +31,7 @@ var (
 	Allowed bool
 )
 
-// V is the versioning information for a binary
+// Info is the versioning information for a binary
 type Info struct {
 	Timestamp  string `json:"timestamp,omitempty"`
 	CommitHash string `json:"commitHash,omitempty"`

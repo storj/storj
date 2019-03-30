@@ -12,6 +12,8 @@ import (
 	"net/smtp"
 	"os"
 	"path/filepath"
+	"storj.io/storj/internal/version"
+	"storj.io/storj/versioncontrol"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -117,6 +119,8 @@ type Peer struct {
 
 	Server *server.Server
 
+	VersionControl *versioncontrol.Peer
+
 	// services and endpoints
 	Kademlia struct {
 		kdb, ndb storage.KeyValueStore // TODO: move these into DB
@@ -174,11 +178,12 @@ type Peer struct {
 }
 
 // New creates a new satellite
-func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*Peer, error) {
+func New(log *zap.Logger, full *identity.FullIdentity, vrsCntrl *versioncontrol.Peer, db DB, config *Config) (*Peer, error) {
 	peer := &Peer{
-		Log:      log,
-		Identity: full,
-		DB:       db,
+		Log:            log,
+		Identity:       full,
+		DB:             db,
+		VersionControl: vrsCntrl,
 	}
 
 	var err error
@@ -477,6 +482,9 @@ func ignoreCancel(err error) error {
 func (peer *Peer) Run(ctx context.Context) error {
 	group, ctx := errgroup.WithContext(ctx)
 
+	group.Go(func() error {
+		return ignoreCancel(version.LogAndReportVersion(ctx, peer.VersionControl.Addr()))
+	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Kademlia.Service.Bootstrap(ctx))
 	})

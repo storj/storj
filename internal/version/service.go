@@ -6,18 +6,20 @@ package version
 import (
 	"context"
 	"encoding/json"
-	"github.com/zeebo/errs"
 	"io/ioutil"
 	"net/http"
 	"regexp"
 	"time"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 )
 
-// CheckVersion_Startup ensures that client is running latest/allowed code, else refusing further operation
-func CheckVersionStartup(ctx *context.Context) (err error) {
-	allow, err := CheckVersion(ctx)
+const interval = 15 * time.Minute
+
+// CheckVersionStartup ensures that client is running latest/allowed code, else refusing further operation
+func CheckVersionStartup(ctx *context.Context, server string) (err error) {
+	allow, err := CheckVersion(ctx, server)
 	if err == nil {
 		Allowed = allow
 	}
@@ -25,9 +27,9 @@ func CheckVersionStartup(ctx *context.Context) (err error) {
 }
 
 // CheckVersion checks if the client is running latest/allowed code
-func CheckVersion(ctx *context.Context) (allowed bool, err error) {
+func CheckVersion(ctx *context.Context, server string) (allowed bool, err error) {
 	defer mon.Task()(ctx)(&err)
-	accepted, err := queryVersionFromControlServer("https://satellite.stefan-benten.de/version")
+	accepted, err := queryVersionFromControlServer(server)
 	if err != nil {
 		return false, err
 	}
@@ -52,7 +54,7 @@ func CheckVersion(ctx *context.Context) (allowed bool, err error) {
 // QueryVersionFromControlServer handles the HTTP request to gather the allowed and latest version information
 func queryVersionFromControlServer(server string) (ver Versions, err error) {
 	client := http.Client{
-		Timeout: time.Duration(time.Second * 5),
+		Timeout: time.Second * 5,
 	}
 	resp, err := client.Get(server)
 	if err != nil {
@@ -84,6 +86,35 @@ func DebugHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		zap.S().Errorf("error writing data to client %v", err)
 	}
+}
+
+// LogAndReportVersion logs the current version information
+// and reports to monkit
+func LogAndReportVersion(ctx context.Context, server string) (err error) {
+	err = CheckVersionStartup(&ctx, server)
+	if err != nil {
+		return err
+	}
+
+	//Start up periodic checks
+	go func(ctx context.Context) {
+		ticker := time.NewTicker(interval)
+
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				//Check Version, but dont care if outdated for now
+				_, err := CheckVersion(&ctx, server)
+				if err != nil {
+					zap.S().Errorf("Failed to do periodic version check: ", err)
+				}
+			}
+		}
+	}(ctx)
+	return
 }
 
 // containsVersion compares the allowed version array against the passed version
