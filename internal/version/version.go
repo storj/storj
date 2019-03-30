@@ -128,6 +128,31 @@ func parseToInt64(label string) (int64, error) {
 	return l, nil
 }
 
+// containsVersion compares the allowed version array against the passed version
+func containsVersion(all []SemVer, x SemVer) bool {
+	for _, n := range all {
+		if x == n {
+			return true
+		}
+	}
+	return false
+}
+
+// StrListToSemVerList converts a list of versions to a list of SemVer
+func StrListToSemVerList(serviceVersions []string) (versions []SemVer, err error) {
+
+	versionRegex := regexp.MustCompile("^" + SemVerRegex + "$")
+
+	for _, subversion := range serviceVersions {
+		sVer, err := NewSemVer(versionRegex, subversion)
+		if err != nil {
+			return nil, err
+		}
+		versions = append(versions, *sVer)
+	}
+	return versions, err
+}
+
 func init() {
 	if Version == "" {
 		return

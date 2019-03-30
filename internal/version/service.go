@@ -8,18 +8,22 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
-	"regexp"
 	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 )
 
-const interval = 15 * time.Minute
+// VersionClient contains the necessary Information to check the Software Version
+type VersionClient struct {
+	ServerAddress  string
+	RequestTimeout time.Duration
+	CheckInterval  time.Duration
+}
 
 // CheckVersionStartup ensures that client is running latest/allowed code, else refusing further operation
-func CheckVersionStartup(ctx *context.Context, server string) (err error) {
-	allow, err := CheckVersion(ctx, server)
+func (Client *VersionClient) checkVersionStartup(ctx *context.Context) (err error) {
+	allow, err := Client.checkVersion(ctx)
 	if err == nil {
 		Allowed = allow
 	}
@@ -27,9 +31,9 @@ func CheckVersionStartup(ctx *context.Context, server string) (err error) {
 }
 
 // CheckVersion checks if the client is running latest/allowed code
-func CheckVersion(ctx *context.Context, server string) (allowed bool, err error) {
+func (Client *VersionClient) checkVersion(ctx *context.Context) (allowed bool, err error) {
 	defer mon.Task()(ctx)(&err)
-	accepted, err := queryVersionFromControlServer(server)
+	accepted, err := Client.queryVersionFromControlServer()
 	if err != nil {
 		return false, err
 	}
@@ -52,11 +56,11 @@ func CheckVersion(ctx *context.Context, server string) (allowed bool, err error)
 }
 
 // QueryVersionFromControlServer handles the HTTP request to gather the allowed and latest version information
-func queryVersionFromControlServer(server string) (ver Versions, err error) {
+func (Client *VersionClient) queryVersionFromControlServer() (ver Versions, err error) {
 	client := http.Client{
-		Timeout: time.Second * 5,
+		Timeout: Client.RequestTimeout,
 	}
-	resp, err := client.Get(server)
+	resp, err := client.Get(Client.ServerAddress)
 	if err != nil {
 		// ToDo: Make sure Control Server is always reachable and refuse startup
 		Allowed = true
@@ -72,7 +76,7 @@ func queryVersionFromControlServer(server string) (ver Versions, err error) {
 }
 
 // DebugHandler returns a json representation of the current version information for the binary
-func DebugHandler(w http.ResponseWriter, r *http.Request) {
+func (Client *VersionClient) DebugHandler(w http.ResponseWriter, r *http.Request) {
 	j, err := Build.Marshal()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -90,15 +94,15 @@ func DebugHandler(w http.ResponseWriter, r *http.Request) {
 
 // LogAndReportVersion logs the current version information
 // and reports to monkit
-func LogAndReportVersion(ctx context.Context, server string) (err error) {
-	err = CheckVersionStartup(&ctx, server)
+func (Client *VersionClient) LogAndReportVersion(ctx context.Context) (err error) {
+	err = Client.checkVersionStartup(&ctx)
 	if err != nil {
 		return err
 	}
 
 	//Start up periodic checks
 	go func(ctx context.Context) {
-		ticker := time.NewTicker(interval)
+		ticker := time.NewTicker(Client.CheckInterval)
 
 		defer ticker.Stop()
 		for {
@@ -107,7 +111,7 @@ func LogAndReportVersion(ctx context.Context, server string) (err error) {
 				return
 			case <-ticker.C:
 				//Check Version, but dont care if outdated for now
-				_, err := CheckVersion(&ctx, server)
+				_, err := Client.checkVersion(&ctx)
 				if err != nil {
 					zap.S().Errorf("Failed to do periodic version check: ", err)
 				}
@@ -115,29 +119,4 @@ func LogAndReportVersion(ctx context.Context, server string) (err error) {
 		}
 	}(ctx)
 	return
-}
-
-// containsVersion compares the allowed version array against the passed version
-func containsVersion(all []SemVer, x SemVer) bool {
-	for _, n := range all {
-		if x == n {
-			return true
-		}
-	}
-	return false
-}
-
-// StrListToSemVerList converts a list of versions to a list of SemVer
-func StrListToSemVerList(serviceverisons []string) (versions []SemVer, err error) {
-
-	versionRegex := regexp.MustCompile("^" + SemVerRegex + "$")
-
-	for _, subversion := range serviceverisons {
-		sVer, err := NewSemVer(versionRegex, subversion)
-		if err != nil {
-			return nil, err
-		}
-		versions = append(versions, *sVer)
-	}
-	return versions, err
 }

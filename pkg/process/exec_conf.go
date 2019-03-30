@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -50,6 +51,8 @@ var (
 
 	contextMtx sync.Mutex
 	contexts   = map[*cobra.Command]context.Context{}
+
+	verClient *version.VersionClient
 )
 
 // SaveConfig will save only the user-specific flags with default values to
@@ -240,7 +243,14 @@ func cleanup(cmd *cobra.Command) {
 			contextMtx.Unlock()
 		}()
 		//ToDo: Make Server Address a config value
-		if err = version.LogAndReportVersion(ctx, "https://satellite.stefan-benten.de/version"); err != nil {
+
+		verClient = &version.VersionClient{
+			ServerAddress:  "https://satellite.stefan-benten.de/version",
+			RequestTimeout: time.Second * 10,
+			CheckInterval:  time.Minute * 15,
+		}
+
+		if err = verClient.LogAndReportVersion(ctx); err != nil {
 			logger.Sugar().Errorf("Error occurred checking Software Version %v", err)
 		}
 
