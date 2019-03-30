@@ -44,7 +44,7 @@ type Peer struct {
 }
 
 var (
-	logfile  = "/var/log/storj/version.log"
+	// response contains the byte version of current allowed versions
 	response []byte
 )
 
