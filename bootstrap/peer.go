@@ -15,6 +15,7 @@ import (
 
 	"storj.io/storj/bootstrap/bootstrapweb"
 	"storj.io/storj/bootstrap/bootstrapweb/bootstrapserver"
+	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
@@ -62,6 +63,8 @@ type Peer struct {
 
 	Server *server.Server
 
+	Version *version.Client
+
 	// services and endpoints
 	Kademlia struct {
 		RoutingTable *kademlia.RoutingTable
@@ -79,11 +82,12 @@ type Peer struct {
 }
 
 // New creates a new Bootstrap Node.
-func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*Peer, error) {
+func New(log *zap.Logger, full *identity.FullIdentity, verClnt *version.Client, db DB, config Config) (*Peer, error) {
 	peer := &Peer{
 		Log:      log,
 		Identity: full,
 		DB:       db,
+		Version:  verClnt,
 	}
 
 	var err error
@@ -174,6 +178,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 func (peer *Peer) Run(ctx context.Context) error {
 	group, ctx := errgroup.WithContext(ctx)
 
+	group.Go(func() error {
+		return ignoreCancel(peer.Version.LogAndReportVersion(ctx))
+	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Kademlia.Service.Bootstrap(ctx))
 	})

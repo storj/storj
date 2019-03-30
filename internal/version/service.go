@@ -21,6 +21,14 @@ type Client struct {
 	CheckInterval  time.Duration
 }
 
+func NewClient() (client *Client) {
+	return &Client{
+		ServerAddress:  "https://satellite.stefan-benten.de/version",
+		RequestTimeout: time.Second * 30,
+		CheckInterval:  time.Minute * 15,
+	}
+}
+
 // CheckVersionStartup ensures that client is running latest/allowed code, else refusing further operation
 func (cl *Client) checkVersionStartup(ctx *context.Context) (err error) {
 	allow, err := cl.checkVersion(ctx)

@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/bootstrap/bootstrapdb"
 	"storj.io/storj/bootstrap/bootstrapweb/bootstrapserver"
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/accounting/rollup"
 	"storj.io/storj/pkg/accounting/tally"
 	"storj.io/storj/pkg/audit"
@@ -163,6 +164,11 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 		return nil, err
 	}
 	planet.whitelistPath = whitelistPath
+
+	planet.VersionControl, err = planet.newVersionControlServer()
+	if err != nil {
+		return nil, errs.Combine(err, planet.Shutdown())
+	}
 
 	planet.Bootstrap, err = planet.newBootstrap()
 	if err != nil {
@@ -474,7 +480,9 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 		config.Console.StaticDir = filepath.Join(storjRoot, "web/satellite")
 		config.Mail.TemplatePath = filepath.Join(storjRoot, "web/satellite/static/emails")
 
-		peer, err := satellite.New(log, identity, db, &config)
+		verClient := planet.NewVersionClient()
+
+		peer, err := satellite.New(log, identity, verClient, db, &config)
 		if err != nil {
 			return xs, err
 		}
@@ -566,7 +574,9 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 			planet.config.Reconfigure.StorageNode(i, &config)
 		}
 
-		peer, err := storagenode.New(log, identity, db, config)
+		verClient := planet.NewVersionClient()
+
+		peer, err := storagenode.New(log, identity, verClient, db, config)
 		if err != nil {
 			return xs, err
 		}
@@ -643,7 +653,9 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 		planet.config.Reconfigure.Bootstrap(0, &config)
 	}
 
-	peer, err = bootstrap.New(log, identity, db, config)
+	verClient := planet.NewVersionClient()
+
+	peer, err = bootstrap.New(log, identity, verClient, db, config)
 	if err != nil {
 		return nil, err
 	}
@@ -654,7 +666,7 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 }
 
 // newBootstrap initializes the bootstrap node
-func (planet *Planet) newVersionControl() (peer *versioncontrol.Peer, err error) {
+func (planet *Planet) newVersionControlServer() (peer *versioncontrol.Peer, err error) {
 	// TODO: move into separate file
 	/*defer func() {
 		planet.peers = append(planet.peers, closablePeer{peer: peer})
@@ -671,11 +683,11 @@ func (planet *Planet) newVersionControl() (peer *versioncontrol.Peer, err error)
 	config := versioncontrol.Config{
 		Address: "127.0.0.1:0",
 		Versions: versioncontrol.ServiceVersions{
-			Bootstrap:   "v1.0.0",
-			Satellite:   "v1.0.0",
+			Bootstrap:   "v0.1.0,v1.0.0",
+			Satellite:   "v0.1.0,v1.0.0",
 			Storagenode: "v0.1.0,v1.0.0",
-			Uplink:      "v1.0.0",
-			Gateway:     "v1.0.0",
+			Uplink:      "v0.1.0,v1.0.0",
+			Gateway:     "v0.1.0,v1.0.0",
 		},
 	}
 	/*
@@ -691,6 +703,15 @@ func (planet *Planet) newVersionControl() (peer *versioncontrol.Peer, err error)
 	log.Debug(" addr= " + peer.Addr())
 
 	return peer, nil
+}
+
+// Identities returns the identity provider for this planet.
+func (planet *Planet) NewVersionClient() *version.Client {
+	return &version.Client{
+		ServerAddress:  planet.VersionControl.Addr(),
+		RequestTimeout: time.Second * 60,
+		CheckInterval:  time.Minute * 5,
+	}
 }
 
 // Identities returns the identity provider for this planet.

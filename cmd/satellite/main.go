@@ -16,6 +16,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
+	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/satellite"
@@ -133,7 +134,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Error creating tables for master database on satellite: %+v", err)
 	}
 
-	peer, err := satellite.New(log, identity, db, &runCfg.Config)
+	verClient := version.NewClient()
+
+	peer, err := satellite.New(log, identity, verClient, db, &runCfg.Config)
 	if err != nil {
 		return err
 	}

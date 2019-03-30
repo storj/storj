@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/bootstrap"
 	"storj.io/storj/bootstrap/bootstrapdb"
 	"storj.io/storj/internal/fpath"
+	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
 )
@@ -94,7 +95,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Error creating tables for master database on bootstrap: %+v", err)
 	}
 
-	peer, err := bootstrap.New(log, identity, db, runCfg)
+	verClient := version.NewClient()
+
+	peer, err := bootstrap.New(log, identity, verClient, db, runCfg)
 	if err != nil {
 		return err
 	}

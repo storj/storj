@@ -20,6 +20,7 @@ import (
 
 	"storj.io/storj/internal/post"
 	"storj.io/storj/internal/post/oauth2"
+	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/accounting/rollup"
 	"storj.io/storj/pkg/accounting/tally"
@@ -117,6 +118,8 @@ type Peer struct {
 
 	Server *server.Server
 
+	Version *version.Client
+
 	// services and endpoints
 	Kademlia struct {
 		kdb, ndb storage.KeyValueStore // TODO: move these into DB
@@ -174,11 +177,12 @@ type Peer struct {
 }
 
 // New creates a new satellite
-func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*Peer, error) {
+func New(log *zap.Logger, full *identity.FullIdentity, verClnt *version.Client, db DB, config *Config) (*Peer, error) {
 	peer := &Peer{
 		Log:      log,
 		Identity: full,
 		DB:       db,
+		Version:  verClnt,
 	}
 
 	var err error
@@ -476,6 +480,10 @@ func ignoreCancel(err error) error {
 // Run runs storage node until it's either closed or it errors.
 func (peer *Peer) Run(ctx context.Context) error {
 	group, ctx := errgroup.WithContext(ctx)
+
+	group.Go(func() error {
+		return ignoreCancel(peer.Version.LogAndReportVersion(ctx))
+	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Kademlia.Service.Bootstrap(ctx))
 	})

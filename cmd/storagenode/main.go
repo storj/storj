@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
+	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
@@ -147,7 +148,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Error creating tables for master database on storagenode: %+v", err)
 	}
 
-	peer, err := storagenode.New(log, identity, db, runCfg.Config)
+	verClient := version.NewClient()
+
+	peer, err := storagenode.New(log, identity, verClient, db, runCfg.Config)
 	if err != nil {
 		return err
 	}

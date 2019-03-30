@@ -11,6 +11,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
@@ -80,6 +81,8 @@ type Peer struct {
 
 	Server *server.Server
 
+	Version *version.Client
+
 	// services and endpoints
 	// TODO: similar grouping to satellite.Peer
 	Kademlia struct {
@@ -107,11 +110,12 @@ type Peer struct {
 }
 
 // New creates a new Storage Node.
-func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*Peer, error) {
+func New(log *zap.Logger, full *identity.FullIdentity, verClnt *version.Client, db DB, config Config) (*Peer, error) {
 	peer := &Peer{
 		Log:      log,
 		Identity: full,
 		DB:       db,
+		Version:  verClnt,
 	}
 
 	var err error
@@ -246,6 +250,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 func (peer *Peer) Run(ctx context.Context) error {
 	group, ctx := errgroup.WithContext(ctx)
 
+	group.Go(func() error {
+		return ignoreCancel(peer.Version.LogAndReportVersion(ctx))
+	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Kademlia.Service.Bootstrap(ctx))
 	})
