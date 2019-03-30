@@ -712,7 +712,7 @@ func (planet *Planet) NewVersionClient() *version.Client {
 		ServerAddress:  fmt.Sprintf("http://%s/", planet.VersionControl.Addr()),
 		RequestTimeout: time.Second * 60,
 		CheckInterval:  time.Minute * 5,
-		Allowed:        false,
+		Allowed:        true,
 	}
 }
 

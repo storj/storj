@@ -66,13 +66,9 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 	if node.Address == nil || node.Address.Address == "" {
 		return nil, Error.New("no address")
 	}
-	if err = transport.version.CheckVersionStartup(&ctx); err != nil {
-		return nil, Error.New("error checking software version")
-	}
 	if !transport.version.Allowed {
 		return nil, Error.New("outdated/not allowed Client, please update your software")
 	}
-
 	dialOption, err := transport.tlsOpts.DialOption(node.Id)
 	if err != nil {
 		return nil, err
@@ -109,9 +105,6 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 // DialAddress.
 func (transport *Transport) DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
-	if err = transport.version.CheckVersionStartup(&ctx); err != nil {
-		return nil, Error.New("error checking software version")
-	}
 	if !transport.version.Allowed {
 		return nil, Error.New("outdated/not allowed Client, please update your software")
 	}

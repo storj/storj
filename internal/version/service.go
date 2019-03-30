@@ -28,7 +28,7 @@ func NewClient() (client *Client) {
 		ServerAddress:  "https://satellite.stefan-benten.de/version",
 		RequestTimeout: time.Second * 30,
 		CheckInterval:  time.Minute * 15,
-		Allowed:        false,
+		Allowed:        true,
 	}
 	return
 }
@@ -39,6 +39,7 @@ func (cl *Client) CheckVersionStartup(ctx *context.Context) (err error) {
 	if err == nil {
 		cl.Allowed = allow
 	}
+	zap.S().Debugf("CheckVersionStartup %v", err)
 	return
 }
 
