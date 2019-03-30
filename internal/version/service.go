@@ -14,16 +14,16 @@ import (
 	"go.uber.org/zap"
 )
 
-// VersionClient contains the necessary Information to check the Software Version
-type VersionClient struct {
+// Client contains the necessary Information to check the Software Version
+type Client struct {
 	ServerAddress  string
 	RequestTimeout time.Duration
 	CheckInterval  time.Duration
 }
 
 // CheckVersionStartup ensures that client is running latest/allowed code, else refusing further operation
-func (Client *VersionClient) checkVersionStartup(ctx *context.Context) (err error) {
-	allow, err := Client.checkVersion(ctx)
+func (cl *Client) checkVersionStartup(ctx *context.Context) (err error) {
+	allow, err := cl.checkVersion(ctx)
 	if err == nil {
 		Allowed = allow
 	}
@@ -31,9 +31,9 @@ func (Client *VersionClient) checkVersionStartup(ctx *context.Context) (err erro
 }
 
 // CheckVersion checks if the client is running latest/allowed code
-func (Client *VersionClient) checkVersion(ctx *context.Context) (allowed bool, err error) {
+func (cl *Client) checkVersion(ctx *context.Context) (allowed bool, err error) {
 	defer mon.Task()(ctx)(&err)
-	accepted, err := Client.queryVersionFromControlServer()
+	accepted, err := cl.queryVersionFromControlServer()
 	if err != nil {
 		return false, err
 	}
@@ -56,11 +56,11 @@ func (Client *VersionClient) checkVersion(ctx *context.Context) (allowed bool, e
 }
 
 // QueryVersionFromControlServer handles the HTTP request to gather the allowed and latest version information
-func (Client *VersionClient) queryVersionFromControlServer() (ver Versions, err error) {
+func (cl *Client) queryVersionFromControlServer() (ver Versions, err error) {
 	client := http.Client{
-		Timeout: Client.RequestTimeout,
+		Timeout: cl.RequestTimeout,
 	}
-	resp, err := client.Get(Client.ServerAddress)
+	resp, err := client.Get(cl.ServerAddress)
 	if err != nil {
 		// ToDo: Make sure Control Server is always reachable and refuse startup
 		Allowed = true
@@ -76,7 +76,7 @@ func (Client *VersionClient) queryVersionFromControlServer() (ver Versions, err 
 }
 
 // DebugHandler returns a json representation of the current version information for the binary
-func (Client *VersionClient) DebugHandler(w http.ResponseWriter, r *http.Request) {
+func (cl *Client) DebugHandler(w http.ResponseWriter, r *http.Request) {
 	j, err := Build.Marshal()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -94,15 +94,15 @@ func (Client *VersionClient) DebugHandler(w http.ResponseWriter, r *http.Request
 
 // LogAndReportVersion logs the current version information
 // and reports to monkit
-func (Client *VersionClient) LogAndReportVersion(ctx context.Context) (err error) {
-	err = Client.checkVersionStartup(&ctx)
+func (cl *Client) LogAndReportVersion(ctx context.Context) (err error) {
+	err = cl.checkVersionStartup(&ctx)
 	if err != nil {
 		return err
 	}
 
 	//Start up periodic checks
 	go func(ctx context.Context) {
-		ticker := time.NewTicker(Client.CheckInterval)
+		ticker := time.NewTicker(cl.CheckInterval)
 
 		defer ticker.Stop()
 		for {
@@ -111,7 +111,7 @@ func (Client *VersionClient) LogAndReportVersion(ctx context.Context) (err error
 				return
 			case <-ticker.C:
 				//Check Version, but dont care if outdated for now
-				_, err := Client.checkVersion(&ctx)
+				_, err := cl.checkVersion(&ctx)
 				if err != nil {
 					zap.S().Errorf("Failed to do periodic version check: ", err)
 				}

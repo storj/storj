@@ -52,7 +52,7 @@ var (
 	contextMtx sync.Mutex
 	contexts   = map[*cobra.Command]context.Context{}
 
-	verClient *version.VersionClient
+	verClient *version.Client
 )
 
 // SaveConfig will save only the user-specific flags with default values to
@@ -244,7 +244,7 @@ func cleanup(cmd *cobra.Command) {
 		}()
 		//ToDo: Make Server Address a config value
 
-		verClient = &version.VersionClient{
+		verClient = &version.Client{
 			ServerAddress:  "https://satellite.stefan-benten.de/version",
 			RequestTimeout: time.Second * 10,
 			CheckInterval:  time.Minute * 15,
