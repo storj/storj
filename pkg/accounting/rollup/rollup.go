@@ -5,7 +5,6 @@ package rollup
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"go.uber.org/zap"
@@ -42,7 +41,7 @@ func (r *Service) Run(ctx context.Context) (err error) {
 	r.logger.Info("Rollup service starting up")
 	defer mon.Task()(&ctx)(&err)
 	for {
-		err = r.RollupRaws(ctx)
+		err = r.Rollup(ctx)
 		if err != nil {
 			r.logger.Error("Query failed", zap.Error(err))
 		}
@@ -54,30 +53,47 @@ func (r *Service) Run(ctx context.Context) (err error) {
 	}
 }
 
-// RollupRaws rolls up raw tally
-func (r *Service) RollupRaws(ctx context.Context) error {
+// Rollup aggregates storage and bandwidth amounts for the time interval
+func (r *Service) Rollup(ctx context.Context) error {
 	// only Rollup new things - get LastRollup
-	var latestTally time.Time
 	lastRollup, err := r.db.LastTimestamp(ctx, accounting.LastRollup)
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	tallies, err := r.db.GetRawSince(ctx, lastRollup)
+	rollupStats := make(accounting.RollupStats)
+	latestTally, err := r.rollupStorage(ctx, lastRollup, rollupStats)
 	if err != nil {
 		return Error.Wrap(err)
 	}
+	err = r.rollupBW(ctx, lastRollup, rollupStats)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	err = r.db.SaveRollup(ctx, latestTally, rollupStats)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	return nil
+}
+
+// rollupStorage rolls up storage tally
+func (r *Service) rollupStorage(ctx context.Context, lastRollup time.Time, rollupStats accounting.RollupStats) (time.Time, error) {
+	var latestTally time.Time
+	tallies, err := r.db.GetRawSince(ctx, lastRollup)
+	if err != nil {
+		return time.Now(), Error.Wrap(err)
+	}
 	if len(tallies) == 0 {
 		r.logger.Info("Rollup found no new tallies")
-		return nil
+		return time.Now(), nil
 	}
 	//loop through tallies and build Rollup
-	rollupStats := make(accounting.RollupStats)
 	for _, tallyRow := range tallies {
 		node := tallyRow.NodeID
 		if tallyRow.CreatedAt.After(latestTally) {
 			latestTally = tallyRow.CreatedAt
 		}
-		//create or get AccoutingRollup
+		//create or get AccoutingRollup day entry
 		iDay := tallyRow.IntervalEndTime
 		iDay = time.Date(iDay.Year(), iDay.Month(), iDay.Day(), 0, 0, 0, 0, iDay.Location())
 		if rollupStats[iDay] == nil {
@@ -86,22 +102,12 @@ func (r *Service) RollupRaws(ctx context.Context) error {
 		if rollupStats[iDay][node] == nil {
 			rollupStats[iDay][node] = &accounting.Rollup{NodeID: node, StartTime: iDay}
 		}
-		//increment Rollups
+		//increment data at rest sum
 		switch tallyRow.DataType {
-		case accounting.BandwidthPut:
-			rollupStats[iDay][node].PutTotal += int64(tallyRow.DataTotal)
-		case accounting.BandwidthGet:
-			rollupStats[iDay][node].GetTotal += int64(tallyRow.DataTotal)
-		case accounting.BandwidthGetAudit:
-			rollupStats[iDay][node].GetAuditTotal += int64(tallyRow.DataTotal)
-		case accounting.BandwidthGetRepair:
-			rollupStats[iDay][node].GetRepairTotal += int64(tallyRow.DataTotal)
-		case accounting.BandwidthPutRepair:
-			rollupStats[iDay][node].PutRepairTotal += int64(tallyRow.DataTotal)
 		case accounting.AtRest:
 			rollupStats[iDay][node].AtRestTotal += tallyRow.DataTotal
 		default:
-			return Error.Wrap(fmt.Errorf("Bad tally datatype in Rollup : %d", tallyRow.DataType))
+			r.logger.Info("rollupStorage no longer supports non-accounting.AtRest datatypes")
 		}
 	}
 	//remove the latest day (which we cannot know is complete), then push to DB
@@ -109,17 +115,47 @@ func (r *Service) RollupRaws(ctx context.Context) error {
 	delete(rollupStats, latestTally)
 	if len(rollupStats) == 0 {
 		r.logger.Info("Rollup only found tallies for today")
-		return nil
-	}
-	err = r.db.SaveRollup(ctx, latestTally, rollupStats)
-	if err != nil {
-		return Error.Wrap(err)
+		return time.Now(), nil
 	}
 
 	return Error.Wrap(r.db.DeleteRawBefore(ctx, latestTally))
 }
 
-func (r *Service) rollupBW(ctx context.Context) error {
+// rollupBW aggregates the bandwidth rollups
+func (r *Service) rollupBW(ctx context.Context, lastRollup time.Time, rollupStats accounting.RollupStats) error {
 	//TODO
 	return nil
 }
+
+// model storagenode_bandwidth_rollup (
+// 	key    storagenode_id interval_start action
+// 	index (
+// 	    name storagenode_id_interval_start_interval_seconds
+// 	    fields storagenode_id interval_start interval_seconds
+// 	)
+
+// 	field storagenode_id   blob
+// 	field interval_start   utimestamp
+// 	field interval_seconds uint
+// 	field action           uint
+
+// 	field allocated uint64
+// 	field settled   uint64
+// )
+
+// switch tallyRow.DataType {
+// // case accounting.BandwidthPut:
+// // 	rollupStats[iDay][node].PutTotal += int64(tallyRow.DataTotal)
+// // case accounting.BandwidthGet:
+// // 	rollupStats[iDay][node].GetTotal += int64(tallyRow.DataTotal)
+// // case accounting.BandwidthGetAudit:
+// // 	rollupStats[iDay][node].GetAuditTotal += int64(tallyRow.DataTotal)
+// // case accounting.BandwidthGetRepair:
+// // 	rollupStats[iDay][node].GetRepairTotal += int64(tallyRow.DataTotal)
+// // case accounting.BandwidthPutRepair:
+// // 	rollupStats[iDay][node].PutRepairTotal += int64(tallyRow.DataTotal)
+// case accounting.AtRest:
+// 	rollupStats[iDay][node].AtRestTotal += tallyRow.DataTotal
+// default:
+// 	r.logger.Info("rollupStorage no longer supports non-accounting.AtRest datatypes")
+// }
