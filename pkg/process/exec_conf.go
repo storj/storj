@@ -243,12 +243,14 @@ func cleanup(cmd *cobra.Command) {
 		}()
 
 		if err = LogAndReportVersion(ctx); err != nil {
-			logger.Sugar().Errorf("Error checking Software Version", err)
+			logger.Sugar().Errorf("Error occurred checking Software Version %v", err)
 		}
 
 		//If not in dev environment and Allowed is false, the software is on a version that should not start
 		if cmd.Flags().Lookup("dev").Changed == false && version.Allowed == false {
 			logger.Sugar().Fatal("Software Version outdated, please update")
+			_ = logger.Sync()
+			os.Exit(1)
 		}
 
 		err = internalRun(cmd, args)

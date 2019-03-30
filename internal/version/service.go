@@ -27,10 +27,9 @@ func CheckVersionStartup(ctx *context.Context) (err error) {
 // CheckVersion checks if the client is running latest/allowed code
 func CheckVersion(ctx *context.Context) (allowed bool, err error) {
 	defer mon.Task()(ctx)(&err)
-	zap.S().Debug("Checking Versions")
 	accepted, err := queryVersionFromControlServer("https://satellite.stefan-benten.de/version")
 	if err != nil {
-		return
+		return false, err
 	}
 
 	zap.S().Debugf("allowed versions from Control Server: %v", accepted)
