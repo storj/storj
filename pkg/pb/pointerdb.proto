@@ -12,20 +12,6 @@ import "node.proto";
 import "piecestore.proto";
 import "orders.proto";
 
-// PointerDB defines the interface for interacting with the network state persistence layer
-service PointerDB {
-  // Put formats and hands off a file path to be saved to boltdb
-  rpc Put(PutRequest) returns (PutResponse);
-  // Get formats and hands off a file path to get a small value from boltdb
-  rpc Get(GetRequest) returns (GetResponse);
-  // List calls the bolt client's List function and returns all file paths
-  rpc List(ListRequest) returns (ListResponse);
-  // Delete formats and hands off a file path to delete from boltdb
-  rpc Delete(DeleteRequest) returns (DeleteResponse);
-  // PayerBandwidthAllocation returns signed payer bandwidth allocation struct
-  rpc PayerBandwidthAllocation(PayerBandwidthAllocationRequest) returns (PayerBandwidthAllocationResponse);
-}
-
 message RedundancyScheme {
   enum SchemeType {
     RS = 0;
@@ -72,39 +58,6 @@ message Pointer {
   bytes metadata = 8;
 }
 
-// PutRequest is a request message for the Put rpc call
-message PutRequest {
-  string path = 1;
-  Pointer pointer = 2;
-}
-
-// GetRequest is a request message for the Get rpc call
-message GetRequest {
-  string path = 1;
-}
-
-// ListRequest is a request message for the List rpc call
-message ListRequest {
-  string prefix = 1;
-  string start_after = 2;
-  string end_before = 3;
-  bool recursive = 4;
-  int32 limit = 5;
-  fixed32 meta_flags = 6;
-}
-
-// PutResponse is a response message for the Put rpc call
-message PutResponse {
-}
-
-// GetResponse is a response message for the Get rpc call
-message GetResponse {
-  Pointer pointer = 1;
-  repeated node.Node nodes = 2;
-  piecestoreroutes.PayerBandwidthAllocation pba = 3;
-  piecestoreroutes.SignedMessage authorization = 4;
-}
-
 // ListResponse is a response message for the List rpc call
 message ListResponse {
   message Item {
@@ -115,28 +68,4 @@ message ListResponse {
   
   repeated Item items = 1;
   bool more = 2;
-}
-
-message DeleteRequest {
-  string path = 1;
-}
-
-// DeleteResponse is a response message for the Delete rpc call
-message DeleteResponse {
-}
-
-// IterateRequest is a request message for the Iterate rpc call
-message IterateRequest {
-  string prefix = 1;
-  string first = 2;
-  bool recurse = 3;
-  bool reverse = 4;
-}
-
-message PayerBandwidthAllocationRequest {
-  piecestoreroutes.BandwidthAction action = 1;
-}
-
-message PayerBandwidthAllocationResponse {
-  piecestoreroutes.PayerBandwidthAllocation pba = 1;
 }
