@@ -115,35 +115,6 @@ func TestAuditSegment(t *testing.T) {
 	})
 }
 
-func makePutRequest(path storj.Path, expiration *timestamp.Timestamp) pb.PutRequest {
-	var rps []*pb.RemotePiece
-	rps = append(rps, &pb.RemotePiece{
-		PieceNum: 1,
-		NodeId:   teststorj.NodeIDFromString("testId"),
-	})
-	pr := pb.PutRequest{
-		Path: path,
-		Pointer: &pb.Pointer{
-			ExpirationDate: expiration,
-			Type:           pb.Pointer_REMOTE,
-			Remote: &pb.RemoteSegment{
-				Redundancy: &pb.RedundancyScheme{
-					Type:             pb.RedundancyScheme_RS,
-					MinReq:           1,
-					Total:            3,
-					RepairThreshold:  2,
-					SuccessThreshold: 3,
-					ErasureShareSize: 2,
-				},
-				RootPieceId:  teststorj.PieceIDFromString("testId"),
-				RemotePieces: rps,
-			},
-			SegmentSize: int64(10),
-		},
-	}
-	return pr
-}
-
 func TestDeleteExpired(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
@@ -196,10 +167,35 @@ func populateTestData(t *testing.T, planet *testplanet.Planet, expiration *times
 	t.Run("putToDB", func(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.bm, func(t *testing.T) {
-				putRequest := makePutRequest(tt.path, expiration)
-				require.NoError(t, pointerdb.Put(tt.path, putRequest.Pointer))
+				pointer := makePointer(tt.path, expiration)
+				require.NoError(t, pointerdb.Put(tt.path, pointer))
 			})
 		}
 	})
 	return tests, cursor, pointerdb
+}
+
+func makePointer(path storj.Path, expiration *timestamp.Timestamp) *pb.Pointer {
+	var rps []*pb.RemotePiece
+	rps = append(rps, &pb.RemotePiece{
+		PieceNum: 1,
+		NodeId:   teststorj.NodeIDFromString("testId"),
+	})
+	return &pb.Pointer{
+		ExpirationDate: expiration,
+		Type:           pb.Pointer_REMOTE,
+		Remote: &pb.RemoteSegment{
+			Redundancy: &pb.RedundancyScheme{
+				Type:             pb.RedundancyScheme_RS,
+				MinReq:           1,
+				Total:            3,
+				RepairThreshold:  2,
+				SuccessThreshold: 3,
+				ErasureShareSize: 2,
+			},
+			RootPieceId:  teststorj.PieceIDFromString("testId"),
+			RemotePieces: rps,
+		},
+		SegmentSize: int64(10),
+	}
 }
