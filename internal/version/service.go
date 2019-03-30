@@ -19,6 +19,7 @@ type Client struct {
 	ServerAddress  string
 	RequestTimeout time.Duration
 	CheckInterval  time.Duration
+	Allowed        bool
 }
 
 // NewClient creates a Version Check Client with default configuration
@@ -34,7 +35,7 @@ func NewClient() (client *Client) {
 func (cl *Client) checkVersionStartup(ctx *context.Context) (err error) {
 	allow, err := cl.checkVersion(ctx)
 	if err == nil {
-		Allowed = allow
+		cl.Allowed = allow
 	}
 	return
 }
@@ -72,7 +73,7 @@ func (cl *Client) queryVersionFromControlServer() (ver Versions, err error) {
 	resp, err := client.Get(cl.ServerAddress)
 	if err != nil {
 		// ToDo: Make sure Control Server is always reachable and refuse startup
-		Allowed = true
+		cl.Allowed = true
 		return Versions{}, err
 	}
 
