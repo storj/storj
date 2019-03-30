@@ -51,6 +51,7 @@ import (
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/storagenodedb"
+	"storj.io/storj/versioncontrol"
 )
 
 // Peer represents one of StorageNode or Satellite
@@ -86,10 +87,11 @@ type Planet struct {
 	databases []io.Closer
 	uplinks   []*Uplink
 
-	Bootstrap    *bootstrap.Peer
-	Satellites   []*satellite.Peer
-	StorageNodes []*storagenode.Peer
-	Uplinks      []*Uplink
+	Bootstrap      *bootstrap.Peer
+	VersionControl *versioncontrol.Peer
+	Satellites     []*satellite.Peer
+	StorageNodes   []*storagenode.Peer
+	Uplinks        []*Uplink
 
 	identities    *Identities
 	whitelistPath string // TODO: in-memory
@@ -647,6 +649,40 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 	}
 
 	log.Debug("id=" + peer.ID().String() + " addr=" + peer.Addr())
+
+	return peer, nil
+}
+
+// newBootstrap initializes the bootstrap node
+func (planet *Planet) newVersionControl() (peer *versioncontrol.Peer, err error) {
+	// TODO: move into separate file
+	/*defer func() {
+		planet.peers = append(planet.peers, closablePeer{peer: peer})
+	}()*/
+
+	prefix := "versioncontrol"
+	log := planet.log.Named(prefix)
+	dbDir := filepath.Join(planet.directory, prefix)
+
+	if err := os.MkdirAll(dbDir, 0700); err != nil {
+		return nil, err
+	}
+
+	config := versioncontrol.Config{
+		Address:        "0.0.0.0:8080",
+		AllowedVersion: []string{"v0.1.0", "v0.1.1", "v0.1.2"},
+	}
+	/*
+		if planet.config.Reconfigure.Bootstrap != nil {
+			planet.config.Reconfigure.Bootstrap(0, &config)
+		}
+	*/
+	peer, err = versioncontrol.New(log, config)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Debug(" addr= " + peer.Addr())
 
 	return peer, nil
 }

@@ -4,17 +4,12 @@
 package version
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
-
-	"go.uber.org/zap"
 
 	"gopkg.in/spacemonkeygo/monkit.v2"
 )
@@ -31,13 +26,13 @@ var (
 	// Release indicates whether the binary compiled is a release candidate
 	Release bool
 	// Build is a struct containing all relevant build information associated with the binary
-	Build V
+	Build Info
 	// Allowed ensures, the client is still on the allowed versions returned by the control server
 	Allowed bool
 )
 
 // V is the versioning information for a binary
-type V struct {
+type Info struct {
 	Timestamp  string `json:"timestamp,omitempty"`
 	CommitHash string `json:"commitHash,omitempty"`
 	Version    SemVer `json:"version"`
@@ -102,80 +97,15 @@ func (sem *SemVer) String() (version string) {
 }
 
 // New creates Version_Info from a json byte array
-func New(data []byte) (v V, err error) {
+func New(data []byte) (v Info, err error) {
 	err = json.Unmarshal(data, &v)
 	return v, err
 }
 
 // Marshal converts the existing Version Info to any json byte array
-func (v V) Marshal() (data []byte, err error) {
+func (v Info) Marshal() (data []byte, err error) {
 	data, err = json.Marshal(v)
 	return
-}
-
-// CheckVersion_Startup ensures that client is running latest/allowed code, else refusing further operation
-func CheckVersionStartup(ctx *context.Context) (err error) {
-	allow, err := CheckVersion(ctx)
-	if err == nil {
-		Allowed = allow
-	}
-	return
-}
-
-// CheckVersion checks if the client is running latest/allowed code
-func CheckVersion(ctx *context.Context) (allowed bool, err error) {
-	defer mon.Task()(ctx)(&err)
-
-	accepted, err := queryVersionFromControlServer()
-	if err != nil {
-		return
-	}
-
-	zap.S().Debugf("allowed versions from Control Server: %v", accepted)
-
-	if containsVersion(accepted, Build.Version) {
-		zap.S().Infof("running on version %s", Build.Version.String())
-		allowed = true
-	} else {
-		zap.S().Errorf("running on not allowed/outdated version %s", Build.Version.String())
-		allowed = false
-	}
-	return
-}
-
-// QueryVersionFromControlServer handles the HTTP request to gather the allowed and latest version information
-func queryVersionFromControlServer() (ver []V, err error) {
-	resp, err := http.Get("https://satellite.stefan-benten.de/version")
-	if err != nil {
-		// ToDo: Make sure Control Server is always reachable and refuse startup
-		Allowed = true
-		return []V{}, err
-	}
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return []V{}, err
-	}
-
-	err = json.Unmarshal(body, &ver)
-	return
-}
-
-// DebugHandler returns a json representation of the current version information for the binary
-func DebugHandler(w http.ResponseWriter, r *http.Request) {
-	j, err := Build.Marshal()
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-
-	_, err = w.Write(j)
-	if err != nil {
-		zap.S().Errorf("error writing data to client %v", err)
-	}
 }
 
 // parseToInt64 converts a string with schema .xxx to an int64 or returns an error
@@ -189,22 +119,12 @@ func parseToInt64(label string) (int64, error) {
 	return l, nil
 }
 
-// containsVersion compares the allowed version array against the passed version
-func containsVersion(a []V, x SemVer) bool {
-	for _, n := range a {
-		if x == n.Version {
-			return true
-		}
-	}
-	return false
-}
-
 func init() {
 	if Version == "" {
 		return
 	}
 
-	Build = V{
+	Build = Info{
 		Timestamp:  Timestamp,
 		CommitHash: CommitHash,
 		Release:    Release,
