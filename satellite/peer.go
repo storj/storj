@@ -12,8 +12,6 @@ import (
 	"net/smtp"
 	"os"
 	"path/filepath"
-	"storj.io/storj/internal/version"
-	"storj.io/storj/versioncontrol"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -118,8 +116,6 @@ type Peer struct {
 	Transport transport.Client
 
 	Server *server.Server
-
-	VersionControl *versioncontrol.Peer
 
 	// services and endpoints
 	Kademlia struct {
@@ -480,10 +476,6 @@ func ignoreCancel(err error) error {
 // Run runs storage node until it's either closed or it errors.
 func (peer *Peer) Run(ctx context.Context) error {
 	group, ctx := errgroup.WithContext(ctx)
-
-	group.Go(func() error {
-		return ignoreCancel(version.LogAndReportVersion(ctx, peer.VersionControl.Addr()))
-	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Kademlia.Service.Bootstrap(ctx))
 	})
