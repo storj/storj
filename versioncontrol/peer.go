@@ -5,10 +5,9 @@ package versioncontrol
 
 import (
 	"encoding/json"
-	"log"
 	"net"
 	"net/http"
-	"regexp"
+	"strings"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -18,8 +17,17 @@ import (
 
 // Config is all the configuration parameters for a Version Control Server
 type Config struct {
-	Address        string `user:"true" help:"public address to listen on" default:":7777"`
-	AllowedVersion []string
+	Address  string `user:"true" help:"public address to listen on" default:":8080"`
+	Versions ServiceVersions
+}
+
+// ServiceVersions provides a list of allowed Versions per Service
+type ServiceVersions struct {
+	Bootstrap   string `user:"true" help:"Allowed Bootstrap Versions" default:"v0.1.0,v0.1.1"`
+	Satellite   string `user:"true" help:"Allowed Satellite Versions" default:"v0.1.0,v0.1.1"`
+	Storagenode string `user:"true" help:"Allowed Storagenode Versions" default:"v0.1.0,v0.1.1"`
+	Uplink      string `user:"true" help:"Allowed Uplink Versions" default:"v0.1.0,v0.1.1"`
+	Gateway     string `user:"true" help:"Allowed Gateway Versions" default:"v0.1.0,v0.1.1"`
 }
 
 // Peer is the representation of a VersionControl Server.
@@ -32,11 +40,11 @@ type Peer struct {
 		Listener net.Listener
 		Handler  http.HandlerFunc
 	}
+	Versions version.Versions
 }
 
 var (
 	logfile  = "/var/log/storj/version.log"
-	ver      []version.Info
 	response []byte
 )
 
@@ -48,13 +56,13 @@ func handleGet(w http.ResponseWriter, r *http.Request) {
 		if xfor = r.Header.Get("X-Forwarded-For"); xfor == "" {
 			xfor = r.RemoteAddr
 		}
-		log.Printf("Request from: %s for %s", r.RemoteAddr, xfor)
+		zap.S().Debugf("Request from: %s for %s", r.RemoteAddr, xfor)
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
 		_, err := w.Write(response)
 		if err != nil {
-			log.Printf("error writing response to client: %v", err)
+			zap.S().Errorf("error writing response to client: %v", err)
 		}
 	}
 }
@@ -65,25 +73,25 @@ func New(log *zap.Logger, config Config) (peer *Peer, err error) {
 		Log: log,
 	}
 
-	versionRegex := regexp.MustCompile("^" + version.SemVerRegex + "$")
+	// Convert each Service's Version String to List of SemVer
+	bootstrapVersions := strings.Split(config.Versions.Bootstrap, ",")
+	peer.Versions.Bootstrap, err = version.StrListToSemVerList(bootstrapVersions)
+	satelliteVersions := strings.Split(config.Versions.Satellite, ",")
+	peer.Versions.Satellite, err = version.StrListToSemVerList(satelliteVersions)
+	storagenodeVersions := strings.Split(config.Versions.Storagenode, ",")
+	peer.Versions.Storagenode, err = version.StrListToSemVerList(storagenodeVersions)
+	uplinkVersions := strings.Split(config.Versions.Uplink, ",")
+	peer.Versions.Uplink, err = version.StrListToSemVerList(uplinkVersions)
+	gatewayVersions := strings.Split(config.Versions.Gateway, ",")
+	peer.Versions.Gateway, err = version.StrListToSemVerList(gatewayVersions)
 
-	for _, subVersion := range config.AllowedVersion {
-		sVer, err := version.NewSemVer(versionRegex, subVersion)
-		if err != nil {
-			log.Sugar().Fatalf("Error parsing version %s", subVersion)
-		}
-		instance := version.Info{
-			Version: *sVer,
-		}
-		ver = append(ver, instance)
-	}
+	response, err = json.Marshal(peer.Versions)
 
-	response, err = json.Marshal(ver)
 	if err != nil {
-		log.Sugar().Fatalf("Error marshalling version info: %v", err)
+		peer.Log.Sugar().Fatalf("Error marshalling version info: %v", err)
 	}
 
-	log.Sugar().Debugf("setting version info to: %v", ver)
+	peer.Log.Sugar().Debugf("setting version info to: %v", peer.Versions)
 
 	peer.Server.Listener, err = net.Listen("tcp", config.Address)
 	if err != nil {

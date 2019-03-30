@@ -46,6 +46,15 @@ type SemVer struct {
 	Patch int64 `json:"patch"`
 }
 
+// Versions provides a list of SemVer per Service
+type Versions struct {
+	Bootstrap   []SemVer
+	Satellite   []SemVer
+	Storagenode []SemVer
+	Uplink      []SemVer
+	Gateway     []SemVer
+}
+
 // SemVerRegex is the regular expression used to parse a semantic version.
 // https://github.com/Masterminds/semver/blob/master/LICENSE.txt
 const SemVerRegex string = `v?([0-9]+)(\.[0-9]+)?(\.[0-9]+)?` +

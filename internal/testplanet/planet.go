@@ -669,8 +669,14 @@ func (planet *Planet) newVersionControl() (peer *versioncontrol.Peer, err error)
 	}
 
 	config := versioncontrol.Config{
-		Address:        "0.0.0.0:8080",
-		AllowedVersion: []string{"v0.1.0", "v0.1.1", "v0.1.2"},
+		Address: "0.0.0.0:8080",
+		Versions: versioncontrol.ServiceVersions{
+			Bootstrap:   "v1.0.0",
+			Satellite:   "v1.0.0",
+			Storagenode: "v0.1.0,v1.0.0",
+			Uplink:      "v1.0.0",
+			Gateway:     "v1.0.0",
+		},
 	}
 	/*
 		if planet.config.Reconfigure.Bootstrap != nil {

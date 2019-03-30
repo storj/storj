@@ -57,13 +57,11 @@ func init() {
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	log := zap.L()
-
 	controlserver, err := versioncontrol.New(log, runCfg)
 	if err != nil {
 		return
 	}
 	err = controlserver.Run()
-
 	return
 }
 
@@ -85,7 +83,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 
 	overrides := map[string]interface{}{}
 
-	serverAddress := cmd.Flag("server.address")
+	serverAddress := cmd.Flag("address")
 	if !serverAddress.Changed {
 		overrides[serverAddress.Name] = defaultServerAddr
 	}
