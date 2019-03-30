@@ -5,10 +5,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
-	"go.uber.org/zap"
 	"os"
 	"path/filepath"
+
+	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
