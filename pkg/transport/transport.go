@@ -136,7 +136,7 @@ func (transport *Transport) Identity() *identity.FullIdentity {
 
 // WithObservers returns a new transport including the listed observers.
 func (transport *Transport) WithObservers(obs ...Observer) *Transport {
-	tr := &Transport{tlsOpts: transport.tlsOpts, requestTimeout: transport.requestTimeout}
+	tr := &Transport{tlsOpts: transport.tlsOpts, version: transport.version, requestTimeout: transport.requestTimeout}
 	tr.observers = append(tr.observers, transport.observers...)
 	tr.observers = append(tr.observers, obs...)
 	return tr

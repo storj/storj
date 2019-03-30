@@ -7,6 +7,7 @@ package testplanet
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
@@ -708,7 +709,7 @@ func (planet *Planet) newVersionControlServer() (peer *versioncontrol.Peer, err 
 // NewVersionClient returns the Version Check client for this planet with tuned metrics.
 func (planet *Planet) NewVersionClient() *version.Client {
 	return &version.Client{
-		ServerAddress:  planet.VersionControl.Addr(),
+		ServerAddress:  fmt.Sprintf("http://%s/", planet.VersionControl.Addr()),
 		RequestTimeout: time.Second * 60,
 		CheckInterval:  time.Minute * 5,
 		Allowed:        false,
