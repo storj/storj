@@ -22,8 +22,6 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
-
-	"storj.io/storj/internal/version"
 )
 
 // ExecuteWithConfig runs a Cobra command with the provided default config
