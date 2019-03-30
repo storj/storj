@@ -27,8 +27,6 @@ var (
 	Release bool
 	// Build is a struct containing all relevant build information associated with the binary
 	Build Info
-	// Allowed ensures, the client is still on the allowed versions returned by the control server
-	Allowed bool
 )
 
 // Info is the versioning information for a binary
