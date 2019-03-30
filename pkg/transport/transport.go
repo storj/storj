@@ -64,10 +64,6 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 		return nil, Error.New("no address")
 	}
 
-	if !transport.InvalidVersion() {
-		return nil, Error.New("Outdated Client")
-	}
-
 	dialOption, err := transport.tlsOpts.DialOption(node.Id)
 	if err != nil {
 		return nil, err
