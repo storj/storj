@@ -7,11 +7,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
-	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 	"io/ioutil"
 	"log"
 	"os"
@@ -21,6 +16,12 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
+	"go.uber.org/zap"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/version"
 )

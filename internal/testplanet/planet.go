@@ -705,7 +705,7 @@ func (planet *Planet) newVersionControlServer() (peer *versioncontrol.Peer, err 
 	return peer, nil
 }
 
-// Identities returns the identity provider for this planet.
+// NewVersionClient returns the Version Check client for this planet with tuned metrics.
 func (planet *Planet) NewVersionClient() *version.Client {
 	return &version.Client{
 		ServerAddress:  planet.VersionControl.Addr(),

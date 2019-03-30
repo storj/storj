@@ -139,7 +139,7 @@ func containsVersion(all []SemVer, x SemVer) bool {
 }
 
 // StrListToSemVerList converts a list of versions to a list of SemVer
-func StrListToSemVerList(serviceVersions []string) (versions []SemVer, err error) {
+func StrToSemVerList(serviceVersions []string) (versions []SemVer, err error) {
 
 	versionRegex := regexp.MustCompile("^" + SemVerRegex + "$")
 

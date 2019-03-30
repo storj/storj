@@ -21,6 +21,7 @@ type Client struct {
 	CheckInterval  time.Duration
 }
 
+// NewClient creates a Version Check Client with default configuration
 func NewClient() (client *Client) {
 	return &Client{
 		ServerAddress:  "https://satellite.stefan-benten.de/version",

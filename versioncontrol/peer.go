@@ -75,15 +75,15 @@ func New(log *zap.Logger, config Config) (peer *Peer, err error) {
 
 	// Convert each Service's Version String to List of SemVer
 	bootstrapVersions := strings.Split(config.Versions.Bootstrap, ",")
-	peer.Versions.Bootstrap, err = version.StrListToSemVerList(bootstrapVersions)
+	peer.Versions.Bootstrap, err = version.StrToSemVerList(bootstrapVersions)
 	satelliteVersions := strings.Split(config.Versions.Satellite, ",")
-	peer.Versions.Satellite, err = version.StrListToSemVerList(satelliteVersions)
+	peer.Versions.Satellite, err = version.StrToSemVerList(satelliteVersions)
 	storagenodeVersions := strings.Split(config.Versions.Storagenode, ",")
-	peer.Versions.Storagenode, err = version.StrListToSemVerList(storagenodeVersions)
+	peer.Versions.Storagenode, err = version.StrToSemVerList(storagenodeVersions)
 	uplinkVersions := strings.Split(config.Versions.Uplink, ",")
-	peer.Versions.Uplink, err = version.StrListToSemVerList(uplinkVersions)
+	peer.Versions.Uplink, err = version.StrToSemVerList(uplinkVersions)
 	gatewayVersions := strings.Split(config.Versions.Gateway, ",")
-	peer.Versions.Gateway, err = version.StrListToSemVerList(gatewayVersions)
+	peer.Versions.Gateway, err = version.StrToSemVerList(gatewayVersions)
 
 	response, err = json.Marshal(peer.Versions)
 
