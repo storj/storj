@@ -24,7 +24,7 @@ var (
 	}
 	runCmd = &cobra.Command{
 		Use:   "run",
-		Short: "Run the bootstrap server",
+		Short: "Run the versioncontrol server",
 		RunE:  cmdRun,
 	}
 	setupCmd = &cobra.Command{
@@ -75,7 +75,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 
 	valid, _ := fpath.IsValidSetupDir(setupDir)
 	if !valid {
-		return fmt.Errorf("bootstrap configuration already exists (%v)", setupDir)
+		return fmt.Errorf("versioncontrol configuration already exists (%v)", setupDir)
 	}
 
 	err = os.MkdirAll(setupDir, 0700)
