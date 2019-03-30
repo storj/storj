@@ -24,15 +24,17 @@ type Client struct {
 
 // NewClient creates a Version Check Client with default configuration
 func NewClient() (client *Client) {
-	return &Client{
+	client = &Client{
 		ServerAddress:  "https://satellite.stefan-benten.de/version",
 		RequestTimeout: time.Second * 30,
 		CheckInterval:  time.Minute * 15,
+		Allowed:        false,
 	}
+	return
 }
 
 // CheckVersionStartup ensures that client is running latest/allowed code, else refusing further operation
-func (cl *Client) checkVersionStartup(ctx *context.Context) (err error) {
+func (cl *Client) CheckVersionStartup(ctx *context.Context) (err error) {
 	allow, err := cl.checkVersion(ctx)
 	if err == nil {
 		cl.Allowed = allow
@@ -105,11 +107,10 @@ func (cl *Client) DebugHandler(w http.ResponseWriter, r *http.Request) {
 // LogAndReportVersion logs the current version information
 // and reports to monkit
 func (cl *Client) LogAndReportVersion(ctx context.Context) (err error) {
-	err = cl.checkVersionStartup(&ctx)
+	err = cl.CheckVersionStartup(&ctx)
 	if err != nil {
 		return err
 	}
-
 	//Start up periodic checks
 	go func(ctx context.Context) {
 		ticker := time.NewTicker(cl.CheckInterval)

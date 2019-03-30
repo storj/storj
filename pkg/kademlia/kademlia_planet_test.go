@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
@@ -59,7 +60,9 @@ func TestPingTimeout(t *testing.T) {
 		tlsOpts, err := tlsopts.NewOptions(self.Identity, tlsopts.Config{})
 		require.NoError(t, err)
 
-		self.Transport = transport.NewClientWithTimeout(tlsOpts, 1*time.Millisecond)
+		verClient := version.NewClient()
+
+		self.Transport = transport.NewClientWithTimeout(tlsOpts, verClient, 1*time.Millisecond)
 
 		network := &transport.SimulatedNetwork{
 			DialLatency:    300 * time.Second,

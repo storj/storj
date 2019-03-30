@@ -711,6 +711,7 @@ func (planet *Planet) NewVersionClient() *version.Client {
 		ServerAddress:  planet.VersionControl.Addr(),
 		RequestTimeout: time.Second * 60,
 		CheckInterval:  time.Minute * 5,
+		Allowed:        false,
 	}
 }
 
