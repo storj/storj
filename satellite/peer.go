@@ -178,12 +178,11 @@ type Peer struct {
 }
 
 // New creates a new satellite
-func New(log *zap.Logger, full *identity.FullIdentity, vrsCntrl *versioncontrol.Peer, db DB, config *Config) (*Peer, error) {
+func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*Peer, error) {
 	peer := &Peer{
-		Log:            log,
-		Identity:       full,
-		DB:             db,
-		VersionControl: vrsCntrl,
+		Log:      log,
+		Identity: full,
+		DB:       db,
 	}
 
 	var err error
