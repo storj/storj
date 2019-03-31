@@ -8,8 +8,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/kademlia"
-	pstore "storj.io/storj/pkg/piecestore"
-	"storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
@@ -33,9 +31,8 @@ type Config struct {
 
 // DB contains access to different database tables
 type DB struct {
-	log     *zap.Logger
-	storage psserver.Storage
-	psdb    *psdb.DB
+	log  *zap.Logger
+	psdb *psdb.DB
 
 	pieces interface {
 		storage.Blobs
@@ -49,8 +46,6 @@ type DB struct {
 
 // New creates a new master database for storage node
 func New(log *zap.Logger, config Config) (*DB, error) {
-	storage := pstore.NewStorage(config.Storage)
-
 	piecesDir, err := filestore.NewDir(config.Pieces)
 	if err != nil {
 		return nil, err
@@ -73,9 +68,8 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 	}
 
 	return &DB{
-		log:     log,
-		storage: storage,
-		psdb:    psdb,
+		log:  log,
+		psdb: psdb,
 
 		pieces: pieces,
 
@@ -89,8 +83,6 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 // NewInMemory creates new inmemory master database for storage node
 // TODO: still stores data on disk
 func NewInMemory(log *zap.Logger, storageDir string) (*DB, error) {
-	storage := pstore.NewStorage(storageDir)
-
 	piecesDir, err := filestore.NewDir(storageDir)
 	if err != nil {
 		return nil, err
@@ -108,9 +100,8 @@ func NewInMemory(log *zap.Logger, storageDir string) (*DB, error) {
 	}
 
 	return &DB{
-		log:     log,
-		storage: storage,
-		psdb:    psdb,
+		log:  log,
+		psdb: psdb,
 
 		pieces: pieces,
 
@@ -139,14 +130,7 @@ func (db *DB) Close() error {
 
 		db.pieces.Close(),
 		db.info.Close(),
-
-		db.storage.Close(),
 	)
-}
-
-// Storage returns piecestore location
-func (db *DB) Storage() psserver.Storage {
-	return db.storage
 }
 
 // Pieces returns blob storage for pieces

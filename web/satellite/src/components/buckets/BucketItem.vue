@@ -40,7 +40,7 @@
 			width: 20%;
 			height: 80px;
 			padding-left: 30px;
-			font-family: 'montserrat_medium';
+			font-family: 'font_medium';
 			font-size: 16px;
 			margin: 0;
 		}

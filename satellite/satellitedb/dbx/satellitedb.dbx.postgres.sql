@@ -35,18 +35,19 @@ CREATE TABLE bucket_bandwidth_rollups (
 	inline bigint NOT NULL,
 	allocated bigint NOT NULL,
 	settled bigint NOT NULL,
-	PRIMARY KEY ( bucket_name, project_id ),
-	UNIQUE ( interval_start, interval_seconds, action )
+	PRIMARY KEY ( bucket_name, project_id, interval_start, action )
 );
-CREATE TABLE bucket_storage_rollups (
+CREATE TABLE bucket_storage_tallies (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
 	interval_start timestamp NOT NULL,
-	interval_seconds integer NOT NULL,
 	inline bigint NOT NULL,
 	remote bigint NOT NULL,
-	PRIMARY KEY ( bucket_name, project_id ),
-	UNIQUE ( interval_start, interval_seconds )
+	remote_segments_count integer NOT NULL,
+	inline_segments_count integer NOT NULL,
+	object_count integer NOT NULL,
+	metadata_size bigint NOT NULL,
+	PRIMARY KEY ( bucket_name, project_id, interval_start )
 );
 CREATE TABLE bucket_usages (
 	id bytea NOT NULL,
@@ -61,8 +62,7 @@ CREATE TABLE bucket_usages (
 	repair_egress bigint NOT NULL,
 	get_egress bigint NOT NULL,
 	audit_egress bigint NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( rollup_end_time, bucket_id )
+	PRIMARY KEY ( id )
 );
 CREATE TABLE bwagreements (
 	serialnum text NOT NULL,
@@ -95,6 +95,14 @@ CREATE TABLE irreparabledbs (
 );
 CREATE TABLE nodes (
 	id bytea NOT NULL,
+	address text NOT NULL,
+	protocol integer NOT NULL,
+	type integer NOT NULL,
+	email text NOT NULL,
+	wallet text NOT NULL,
+	free_bandwidth bigint NOT NULL,
+	free_disk bigint NOT NULL,
+	latency_90 bigint NOT NULL,
 	audit_success_count bigint NOT NULL,
 	total_audit_count bigint NOT NULL,
 	audit_success_ratio double precision NOT NULL,
@@ -103,28 +111,9 @@ CREATE TABLE nodes (
 	uptime_ratio double precision NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
-	wallet text NOT NULL,
-	email text NOT NULL,
+	last_contact_success timestamp with time zone NOT NULL,
+	last_contact_failure timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
-);
-CREATE TABLE overlay_cache_nodes (
-	node_id bytea NOT NULL,
-	node_type integer NOT NULL,
-	address text NOT NULL,
-	protocol integer NOT NULL,
-	operator_email text NOT NULL,
-	operator_wallet text NOT NULL,
-	free_bandwidth bigint NOT NULL,
-	free_disk bigint NOT NULL,
-	latency_90 bigint NOT NULL,
-	audit_success_ratio double precision NOT NULL,
-	audit_uptime_ratio double precision NOT NULL,
-	audit_count bigint NOT NULL,
-	audit_success_count bigint NOT NULL,
-	uptime_count bigint NOT NULL,
-	uptime_success_count bigint NOT NULL,
-	PRIMARY KEY ( node_id ),
-	UNIQUE ( node_id )
 );
 CREATE TABLE projects (
 	id bytea NOT NULL,
@@ -146,8 +135,7 @@ CREATE TABLE serial_numbers (
 	serial_number bytea NOT NULL,
 	bucket_id bytea NOT NULL,
 	expires_at timestamp NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( serial_number )
+	PRIMARY KEY ( id )
 );
 CREATE TABLE storagenode_bandwidth_rollups (
 	storagenode_id bytea NOT NULL,
@@ -156,21 +144,18 @@ CREATE TABLE storagenode_bandwidth_rollups (
 	action integer NOT NULL,
 	allocated bigint NOT NULL,
 	settled bigint NOT NULL,
-	PRIMARY KEY ( storagenode_id ),
-	UNIQUE ( storagenode_id, interval_start, interval_seconds, action )
+	PRIMARY KEY ( storagenode_id, interval_start, action )
 );
-CREATE TABLE storagenode_storage_rollups (
+CREATE TABLE storagenode_storage_tallies (
 	storagenode_id bytea NOT NULL,
 	interval_start timestamp NOT NULL,
-	interval_seconds integer NOT NULL,
 	total bigint NOT NULL,
-	PRIMARY KEY ( storagenode_id ),
-	UNIQUE ( storagenode_id, interval_start, interval_seconds )
+	PRIMARY KEY ( storagenode_id, interval_start )
 );
 CREATE TABLE users (
 	id bytea NOT NULL,
-	first_name text NOT NULL,
-	last_name text NOT NULL,
+	full_name text NOT NULL,
+	short_name text,
 	email text NOT NULL,
 	password_hash bytea NOT NULL,
 	status integer NOT NULL,
@@ -196,7 +181,10 @@ CREATE TABLE project_members (
 CREATE TABLE used_serials (
 	serial_number_id integer NOT NULL REFERENCES serial_numbers( id ) ON DELETE CASCADE,
 	storage_node_id bytea NOT NULL,
-	PRIMARY KEY ( serial_number_id ),
-	UNIQUE ( serial_number_id, storage_node_id )
+	PRIMARY KEY ( serial_number_id, storage_node_id )
 );
+CREATE INDEX bucket_id_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
+CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
+CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
+CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );

@@ -14,7 +14,13 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pkcrypto"
-	"storj.io/storj/pkg/utils"
+)
+
+const (
+	// LeafIndex is the index of the leaf certificate in a cert chain (0)
+	LeafIndex = iota
+	// CAIndex is the index of the CA certificate in a cert chain (1)
+	CAIndex
 )
 
 var (
@@ -97,13 +103,13 @@ func TLSCert(chain [][]byte, leaf *x509.Certificate, key crypto.PrivateKey) (*tl
 	}, nil
 }
 
-// WriteChain writes the certificate chain (leaf-first) to the writer, PEM-encoded.
+// WriteChain writes the certificate chain (leaf-first) and extensions to the writer, PEM-encoded.
 func WriteChain(w io.Writer, chain ...*x509.Certificate) error {
 	if len(chain) < 1 {
 		return errs.New("expected at least one certificate for writing")
 	}
 
-	var extErrs utils.ErrorGroup
+	var extErrs errs.Group
 	for _, c := range chain {
 		if err := pkcrypto.WriteCertPEM(w, c); err != nil {
 			return errs.Wrap(err)
@@ -115,7 +121,7 @@ func WriteChain(w io.Writer, chain ...*x509.Certificate) error {
 			}
 		}
 	}
-	return extErrs.Finish()
+	return extErrs.Err()
 }
 
 // ChainBytes returns bytes of the certificate chain (leaf-first) to the writer, PEM-encoded.

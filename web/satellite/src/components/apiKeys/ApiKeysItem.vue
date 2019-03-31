@@ -32,7 +32,7 @@ import { Component, Vue } from 'vue-property-decorator';
                     return name;
                 }
 
-                return name.slice(0,12) + '...';
+                return name.slice(0, 12) + '...';
             }
         }
     }
@@ -61,7 +61,7 @@ export default class ApiKeysItem extends Vue {}
         }
 
         &__date {
-            font-family: 'montserrat_regular';
+            font-family: 'font_regular';
             font-size: 12px;
             line-height: 16px;
             color: #AFB7C1;
@@ -69,7 +69,7 @@ export default class ApiKeysItem extends Vue {}
         }
 
         &__name {
-            font-family: 'montserrat_medium';
+            font-family: 'font_medium';
             font-size: 16px;
             line-height: 21px;
             color: #354049;

@@ -73,7 +73,7 @@ export default class AddApiKeyPopup extends Vue {
 
 <style scoped lang="scss">
     p {
-        font-family: 'montserrat_medium';
+        font-family: 'font_medium';
         font-size: 16px;
         line-height: 21px;
         color: #354049;
@@ -107,7 +107,7 @@ export default class AddApiKeyPopup extends Vue {
             width: 90%;
 
             &__name {
-                font-family: 'montserrat_medium';
+                font-family: 'font_medium';
                 font-size: 16px;
                 color: #AFB7C1;
                 display: flex;
@@ -121,7 +121,7 @@ export default class AddApiKeyPopup extends Vue {
             }
 
             &__title {
-                font-family: 'montserrat_bold';
+                font-family: 'font_bold';
                 font-size: 32px;
                 margin-top: 50px;
             }
@@ -163,7 +163,7 @@ export default class AddApiKeyPopup extends Vue {
             align-items: center;
 
             p {
-                font-family: 'montserrat_medium';
+                font-family: 'font_medium';
                 font-size: 16px;
                 margin-left: 40px;
 

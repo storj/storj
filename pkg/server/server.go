@@ -17,7 +17,7 @@ import (
 
 // Service represents a specific gRPC method collection to be registered
 // on a shared gRPC server. PointerDB, OverlayCache, PieceStore, Kademlia,
-// StatDB, etc. are all examples of services.
+// etc. are all examples of services.
 type Service interface {
 	Run(ctx context.Context, server *Server) error
 }

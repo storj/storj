@@ -5,6 +5,8 @@ package tlsopts
 
 import (
 	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"io/ioutil"
 
 	"github.com/zeebo/errs"
@@ -12,6 +14,7 @@ import (
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/pkcrypto"
 )
 
@@ -26,6 +29,7 @@ type Options struct {
 	Config            Config
 	Ident             *identity.FullIdentity
 	RevDB             *identity.RevocationDB
+	PeerCAWhitelist   []*x509.Certificate
 	VerificationFuncs *VerificationFuncs
 	Cert              *tls.Certificate
 }
@@ -37,7 +41,10 @@ type VerificationFuncs struct {
 	server []peertls.PeerCertVerificationFunc
 }
 
-// NewOptions is a constructor for `tls options` given an identity and config
+// ExtensionMap maps `pkix.Extension`s to their respective asn1 object ID string.
+type ExtensionMap map[string]pkix.Extension
+
+// NewOptions is a constructor for `tls options` given an identity and config.
 func NewOptions(i *identity.FullIdentity, c Config) (*Options, error) {
 	opts := &Options{
 		Config:            c,
@@ -45,7 +52,7 @@ func NewOptions(i *identity.FullIdentity, c Config) (*Options, error) {
 		VerificationFuncs: new(VerificationFuncs),
 	}
 
-	err := opts.configure(c)
+	err := opts.configure()
 	if err != nil {
 		return nil, err
 	}
@@ -53,40 +60,88 @@ func NewOptions(i *identity.FullIdentity, c Config) (*Options, error) {
 	return opts, nil
 }
 
+// NewExtensionsMap builds an `ExtensionsMap` from the extensions in the passed certificate(s).
+func NewExtensionsMap(chain ...*x509.Certificate) ExtensionMap {
+	extensionMap := make(ExtensionMap)
+	for _, cert := range chain {
+		for _, ext := range cert.ExtraExtensions {
+			extensionMap[ext.Id.String()] = ext
+		}
+	}
+	return extensionMap
+}
+
+// ExtensionOptions converts options for use in extension handling.
+func (opts *Options) ExtensionOptions() *extensions.Options {
+	return &extensions.Options{
+		PeerCAWhitelist: opts.PeerCAWhitelist,
+		RevDB:           opts.RevDB,
+	}
+}
+
 // configure adds peer certificate verification functions and revocation
 // database to the config.
-func (opts *Options) configure(c Config) (err error) {
-	parseOpts := peertls.ParseExtOptions{}
-
-	if c.UsePeerCAWhitelist {
+func (opts *Options) configure() (err error) {
+	if opts.Config.UsePeerCAWhitelist {
 		whitelist := []byte(DefaultPeerCAWhitelist)
-		if c.PeerCAWhitelistPath != "" {
-			whitelist, err = ioutil.ReadFile(c.PeerCAWhitelistPath)
+		if opts.Config.PeerCAWhitelistPath != "" {
+			whitelist, err = ioutil.ReadFile(opts.Config.PeerCAWhitelistPath)
 			if err != nil {
-				return Error.New("unable to find whitelist file %v: %v", c.PeerCAWhitelistPath, err)
+				return Error.New("unable to find whitelist file %v: %v", opts.Config.PeerCAWhitelistPath, err)
 			}
 		}
-		parsed, err := pkcrypto.CertsFromPEM(whitelist)
+		opts.PeerCAWhitelist, err = pkcrypto.CertsFromPEM(whitelist)
 		if err != nil {
 			return Error.Wrap(err)
 		}
-		parseOpts.CAWhitelist = parsed
-		opts.VerificationFuncs.ClientAdd(peertls.VerifyCAWhitelist(parsed))
+		opts.VerificationFuncs.ClientAdd(peertls.VerifyCAWhitelist(opts.PeerCAWhitelist))
 	}
 
-	if c.Extensions.Revocation {
-		opts.RevDB, err = identity.NewRevDB(c.RevocationDBURL)
+	if opts.Config.Extensions.Revocation {
+		opts.RevDB, err = identity.NewRevocationDB(opts.Config.RevocationDBURL)
 		if err != nil {
 			return err
 		}
-		opts.VerificationFuncs.Add(identity.VerifyUnrevokedChainFunc(opts.RevDB))
 	}
 
-	exts := peertls.ParseExtensions(c.Extensions, parseOpts)
-	opts.VerificationFuncs.Add(exts.VerifyFunc())
+	opts.handleExtensions(extensions.AllHandlers)
 
 	opts.Cert, err = peertls.TLSCert(opts.Ident.RawChain(), opts.Ident.Leaf, opts.Ident.Key)
 	return err
+}
+
+// handleExtensions combines and wraps all extension handler functions into a peer
+// certificate verification function. This allows extension handling via the
+// `VerifyPeerCertificate` field in a `tls.Config` during a TLS handshake.
+func (opts *Options) handleExtensions(handlers extensions.HandlerFactories) {
+	if len(handlers) == 0 {
+		return
+	}
+
+	handlerFuncMap := handlers.WithOptions(opts.ExtensionOptions())
+
+	combinedHandlerFunc := func(_ [][]byte, parsedChains [][]*x509.Certificate) error {
+		extensionMap := NewExtensionsMap(parsedChains[0]...)
+		return extensionMap.HandleExtensions(handlerFuncMap, parsedChains)
+	}
+
+	opts.VerificationFuncs.Add(combinedHandlerFunc)
+}
+
+// HandleExtensions calls each `extensions.HandlerFunc` with its respective extension
+// and the certificate chain where its object ID string matches the extension's.
+func (extensionMap ExtensionMap) HandleExtensions(handlerFuncMap extensions.HandlerFuncMap, chain [][]*x509.Certificate) error {
+	for idStr, extension := range extensionMap {
+		for id, handlerFunc := range handlerFuncMap {
+			if idStr == id.String() {
+				err := handlerFunc(extension, chain)
+				if err != nil {
+					return Error.Wrap(err)
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // Client returns the client verification functions.

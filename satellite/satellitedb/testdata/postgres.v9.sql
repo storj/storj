@@ -33,8 +33,7 @@ CREATE TABLE bucket_bandwidth_rollups (
 	inline bigint NOT NULL,
 	allocated bigint NOT NULL,
 	settled bigint NOT NULL,
-	PRIMARY KEY ( bucket_id ),
-	UNIQUE ( bucket_id, interval_start, interval_seconds, action )
+	PRIMARY KEY ( bucket_id, interval_start, action )
 );
 CREATE TABLE bucket_storage_rollups (
 	bucket_id bytea NOT NULL,
@@ -42,8 +41,7 @@ CREATE TABLE bucket_storage_rollups (
 	interval_seconds integer NOT NULL,
 	inline bigint NOT NULL,
 	remote bigint NOT NULL,
-	PRIMARY KEY ( bucket_id ),
-	UNIQUE ( bucket_id, interval_start, interval_seconds )
+	PRIMARY KEY ( bucket_id, interval_start )
 );
 CREATE TABLE bucket_usages (
 	id bytea NOT NULL,
@@ -58,8 +56,7 @@ CREATE TABLE bucket_usages (
 	repair_egress bigint NOT NULL,
 	get_egress bigint NOT NULL,
 	audit_egress bigint NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( rollup_end_time, bucket_id )
+	PRIMARY KEY ( id )
 );
 CREATE TABLE bwagreements (
 	serialnum text NOT NULL,
@@ -143,8 +140,7 @@ CREATE TABLE serial_numbers (
 	serial_number bytea NOT NULL,
 	bucket_id bytea NOT NULL,
 	expires_at timestamp NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( serial_number )
+	PRIMARY KEY ( id )
 );
 CREATE TABLE storagenode_bandwidth_rollups (
 	storagenode_id bytea NOT NULL,
@@ -153,16 +149,14 @@ CREATE TABLE storagenode_bandwidth_rollups (
 	action integer NOT NULL,
 	allocated bigint NOT NULL,
 	settled bigint NOT NULL,
-	PRIMARY KEY ( storagenode_id ),
-	UNIQUE ( storagenode_id, interval_start, interval_seconds, action )
+	PRIMARY KEY ( storagenode_id, interval_start, action )
 );
 CREATE TABLE storagenode_storage_rollups (
 	storagenode_id bytea NOT NULL,
 	interval_start timestamp NOT NULL,
 	interval_seconds integer NOT NULL,
 	total bigint NOT NULL,
-	PRIMARY KEY ( storagenode_id ),
-	UNIQUE ( storagenode_id, interval_start, interval_seconds )
+	PRIMARY KEY ( storagenode_id, interval_start )
 );
 CREATE TABLE users (
 	id bytea NOT NULL,
@@ -193,10 +187,13 @@ CREATE TABLE project_members (
 CREATE TABLE used_serials (
 	serial_number_id integer NOT NULL REFERENCES serial_numbers( id ) ON DELETE CASCADE,
 	storage_node_id bytea NOT NULL,
-	PRIMARY KEY ( serial_number_id ),
-	UNIQUE ( serial_number_id, storage_node_id )
+	PRIMARY KEY ( serial_number_id, storage_node_id )
 );
+CREATE INDEX bucket_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_id, interval_start, interval_seconds );
+CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
+CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
+CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );
 
 ---
 

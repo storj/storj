@@ -11,7 +11,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 )
@@ -25,16 +24,16 @@ const (
 var ErrEmptyNode = errs.New("empty node ID")
 
 // ErrNodeNotFound is returned if a node does not exist in database
-var ErrNodeNotFound = errs.New("Node not found")
+var ErrNodeNotFound = errs.Class("node not found")
 
 // ErrBucketNotFound is returned if a bucket is unable to be found in the routing table
-var ErrBucketNotFound = errs.New("Bucket not found")
+var ErrBucketNotFound = errs.New("bucket not found")
 
 // ErrNotEnoughNodes is when selecting nodes failed with the given parameters
 var ErrNotEnoughNodes = errs.Class("not enough nodes")
 
 // OverlayError creates class of errors for stack traces
-var OverlayError = errs.Class("Overlay Error")
+var OverlayError = errs.Class("overlay error")
 
 // DB implements the database for overlay.Cache
 type DB interface {
@@ -55,6 +54,23 @@ type DB interface {
 	Update(ctx context.Context, value *pb.Node) error
 	// Delete deletes node based on id
 	Delete(ctx context.Context, id storj.NodeID) error
+
+	// CreateStats initializes the stats for node.
+	CreateStats(ctx context.Context, nodeID storj.NodeID, initial *NodeStats) (stats *NodeStats, err error)
+	// GetStats returns node stats.
+	GetStats(ctx context.Context, nodeID storj.NodeID) (stats *NodeStats, err error)
+	// FindInvalidNodes finds a subset of storagenodes that have stats below provided reputation requirements.
+	FindInvalidNodes(ctx context.Context, nodeIDs storj.NodeIDList, maxStats *NodeStats) (invalid storj.NodeIDList, err error)
+	// UpdateStats all parts of single storagenode's stats.
+	UpdateStats(ctx context.Context, request *UpdateRequest) (stats *NodeStats, err error)
+	// UpdateOperator updates the email and wallet for a given node ID for satellite payments.
+	UpdateOperator(ctx context.Context, node storj.NodeID, updatedOperator pb.NodeOperator) (stats *NodeStats, err error)
+	// UpdateUptime updates a single storagenode's uptime stats.
+	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error)
+	// UpdateBatch for updating multiple storage nodes' stats.
+	UpdateBatch(ctx context.Context, requests []*UpdateRequest) (statslist []*NodeStats, failed []*UpdateRequest, err error)
+	// CreateEntryIfNotExists creates a node stats entry if it didn't already exist.
+	CreateEntryIfNotExists(ctx context.Context, value *pb.Node) (stats *NodeStats, err error)
 }
 
 // FindStorageNodesRequest defines easy request parameters.
@@ -91,20 +107,37 @@ type NewNodeCriteria struct {
 	Excluded []storj.NodeID
 }
 
+// UpdateRequest is used to update a node status.
+type UpdateRequest struct {
+	NodeID       storj.NodeID
+	AuditSuccess bool
+	IsUp         bool
+}
+
+// NodeStats contains statistics about a node.
+type NodeStats struct {
+	NodeID             storj.NodeID
+	AuditSuccessRatio  float64
+	AuditSuccessCount  int64
+	AuditCount         int64
+	UptimeRatio        float64
+	UptimeSuccessCount int64
+	UptimeCount        int64
+	Operator           pb.NodeOperator
+}
+
 // Cache is used to store and handle node information
 type Cache struct {
 	log         *zap.Logger
 	db          DB
-	statDB      statdb.DB
 	preferences NodeSelectionConfig
 }
 
 // NewCache returns a new Cache
-func NewCache(log *zap.Logger, db DB, sdb statdb.DB, preferences NodeSelectionConfig) *Cache {
+func NewCache(log *zap.Logger, db DB, preferences NodeSelectionConfig) *Cache {
 	return &Cache{
 		log:         log,
 		db:          db,
-		statDB:      sdb,
 		preferences: preferences,
 	}
 }
@@ -246,8 +279,8 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 		return errors.New("invalid request")
 	}
 
-	// get existing node rep, or create a new statdb node with 0 rep
-	stats, err := cache.statDB.CreateEntryIfNotExists(ctx, nodeID)
+	// get existing node rep, or create a new overlay node with 0 rep
+	stats, err := cache.db.CreateEntryIfNotExists(ctx, &value)
 	if err != nil {
 		return err
 	}
@@ -275,6 +308,42 @@ func (cache *Cache) Delete(ctx context.Context, id storj.NodeID) (err error) {
 	return cache.db.Delete(ctx, id)
 }
 
+// Create adds a new stats entry for node.
+func (cache *Cache) Create(ctx context.Context, nodeID storj.NodeID, initial *NodeStats) (stats *NodeStats, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return cache.db.CreateStats(ctx, nodeID, initial)
+}
+
+// GetStats returns node stats.
+func (cache *Cache) GetStats(ctx context.Context, nodeID storj.NodeID) (stats *NodeStats, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return cache.db.GetStats(ctx, nodeID)
+}
+
+// FindInvalidNodes finds a subset of storagenodes that have stats below provided reputation requirements.
+func (cache *Cache) FindInvalidNodes(ctx context.Context, nodeIDs storj.NodeIDList, maxStats *NodeStats) (invalid storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return cache.db.FindInvalidNodes(ctx, nodeIDs, maxStats)
+}
+
+// UpdateStats all parts of single storagenode's stats.
+func (cache *Cache) UpdateStats(ctx context.Context, request *UpdateRequest) (stats *NodeStats, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return cache.db.UpdateStats(ctx, request)
+}
+
+// UpdateOperator updates the email and wallet for a given node ID for satellite payments.
+func (cache *Cache) UpdateOperator(ctx context.Context, node storj.NodeID, updatedOperator pb.NodeOperator) (stats *NodeStats, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return cache.db.UpdateOperator(ctx, node, updatedOperator)
+}
+
+// UpdateUptime updates a single storagenode's uptime stats.
+func (cache *Cache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return cache.db.UpdateUptime(ctx, nodeID, isUp)
+}
+
 // ConnFailure implements the Transport Observer `ConnFailure` function
 func (cache *Cache) ConnFailure(ctx context.Context, node *pb.Node, failureError error) {
 	var err error
@@ -283,9 +352,9 @@ func (cache *Cache) ConnFailure(ctx context.Context, node *pb.Node, failureError
 	// TODO: Kademlia paper specifies 5 unsuccessful PINGs before removing the node
 	// from our routing table, but this is the cache so maybe we want to treat
 	// it differently.
-	_, err = cache.statDB.UpdateUptime(ctx, node.Id, false)
+	_, err = cache.db.UpdateUptime(ctx, node.Id, false)
 	if err != nil {
-		zap.L().Debug("error updating uptime for node in statDB", zap.Error(err))
+		zap.L().Debug("error updating uptime for node", zap.Error(err))
 	}
 }
 
@@ -296,10 +365,10 @@ func (cache *Cache) ConnSuccess(ctx context.Context, node *pb.Node) {
 
 	err = cache.Put(ctx, node.Id, *node)
 	if err != nil {
-		zap.L().Debug("error updating uptime for node in statDB", zap.Error(err))
+		zap.L().Debug("error updating uptime for node", zap.Error(err))
 	}
-	_, err = cache.statDB.UpdateUptime(ctx, node.Id, true)
+	_, err = cache.db.UpdateUptime(ctx, node.Id, true)
 	if err != nil {
-		zap.L().Debug("error updating statdDB with node connection info", zap.Error(err))
+		zap.L().Debug("error updating node connection info", zap.Error(err))
 	}
 }
