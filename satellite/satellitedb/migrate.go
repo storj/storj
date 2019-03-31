@@ -505,7 +505,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					// Modify columns: bucket_id --> bucket_name + project_id
 					`ALTER TABLE bucket_bandwidth_rollups RENAME COLUMN bucket_id TO bucket_name;`,
 					`ALTER TABLE bucket_bandwidth_rollups ADD project_id bytea;`,
-					`DROP INDEX bucket_id_interval_start_interval_seconds;`,
 					`CREATE INDEX bucket_id_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups (
 						bucket_name,
 						project_id,
