@@ -61,7 +61,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		if err != nil {
 			service.log.Error("process", zap.Error(err))
 		}
-		return err
+		return nil
 	})
 }
 
