@@ -68,10 +68,13 @@ func NewVersionedClient(transport transport.Client, service *Service) transport.
 // Run logs the current version information
 func (srv *Service) Run(ctx context.Context) error {
 	return srv.Loop.Run(ctx, func(ctx context.Context) error {
-		srv.mu.Lock()
-		defer srv.mu.Unlock()
 		var err error
-		srv.allowed, err = srv.checkVersion(&ctx)
+		allowed, err := srv.checkVersion(&ctx)
+
+		srv.mu.Lock()
+		srv.allowed = allowed
+		srv.mu.Unlock()
+
 		if err != nil {
 			zap.S().Errorf("Failed to do periodic version check: ", err)
 		}
@@ -89,7 +92,7 @@ func (srv *Service) IsUpToDate() bool {
 // CheckVersion checks if the client is running latest/allowed code
 func (srv *Service) checkVersion(ctx *context.Context) (allowed bool, err error) {
 	defer mon.Task()(ctx)(&err)
-	accepted, err := srv.queryVersionFromControlServer()
+	accepted, err := srv.queryVersionFromControlServer(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -112,7 +115,7 @@ func (srv *Service) checkVersion(ctx *context.Context) (allowed bool, err error)
 }
 
 // QueryVersionFromControlServer handles the HTTP request to gather the allowed and latest version information
-func (srv *Service) queryVersionFromControlServer() (ver AllowedVersions, err error) {
+func (srv *Service) queryVersionFromControlServer(ctx *context.Context) (ver AllowedVersions, err error) {
 	client := http.Client{
 		Timeout: srv.config.RequestTimeout,
 	}
