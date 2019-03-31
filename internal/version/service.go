@@ -58,7 +58,7 @@ func NewInfo() (info Info) {
 }
 
 // NewVersionedClient returns a transport client which ensures, that the software is up to date
-func NewVersionedClient(transport transport.Client, service Service) transport.Client {
+func NewVersionedClient(transport transport.Client, service *Service) transport.Client {
 	/*if !service.IsUpToDate() {
 		zap.S().Fatal("Software Version outdated, please update")
 	}*/

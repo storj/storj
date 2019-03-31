@@ -200,7 +200,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Transport = version.NewVersionedClient(transport.NewClient(options), *peer.Version)
+		peer.Transport = version.NewVersionedClient(transport.NewClient(options), peer.Version)
 
 		peer.Server, err = server.New(options, sc.Address, sc.PrivateAddress, grpcauth.NewAPIKeyInterceptor())
 		if err != nil {
