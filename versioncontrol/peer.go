@@ -110,10 +110,12 @@ func (peer *Peer) Run() (err error) {
 	peer.Log.Sugar().Infof("Public server started on %s", peer.Addr())
 
 	http.HandleFunc("/", handleGet)
-	err = http.Serve(peer.Server.Listener, nil)
-	if err != nil {
-		peer.Log.Sugar().Error("error occurred starting web server")
-	}
+	go func() {
+		err = http.Serve(peer.Server.Listener, nil)
+		if err != nil {
+			peer.Log.Sugar().Fatal("error occurred starting web server")
+		}
+	}()
 	return
 }
 
