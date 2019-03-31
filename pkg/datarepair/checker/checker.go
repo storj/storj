@@ -69,7 +69,7 @@ func (checker *Checker) Run(ctx context.Context) (err error) {
 		if err != nil {
 			checker.logger.Error("error with injured segments identification: ", zap.Error(err))
 		}
-		return err
+		return nil
 	})
 }
 
