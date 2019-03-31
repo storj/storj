@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
+
 	"storj.io/storj/pkg/storj"
 )
 
