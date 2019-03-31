@@ -148,9 +148,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Error creating tables for master database on storagenode: %+v", err)
 	}
 
-	verClient := version.NewClient()
+	verClient := version.NewInfo()
 
-	peer, err := storagenode.New(log, identity, verClient, db, runCfg.Config)
+	peer, err := storagenode.New(log, identity, db, runCfg.Config, verClient)
 	if err != nil {
 		return err
 	}

@@ -22,7 +22,6 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/teststorj"
-	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
@@ -529,9 +528,7 @@ func newKademlia(log *zap.Logger, nodeType pb.NodeType, bootstrapNodes []pb.Node
 		return nil, err
 	}
 
-	verClient := version.NewClient()
-
-	transportClient := transport.NewClient(tlsOptions, verClient, rt)
+	transportClient := transport.NewClient(tlsOptions, rt)
 
 	kadConfig := Config{
 		Alpha: alpha,

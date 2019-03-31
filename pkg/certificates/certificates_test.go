@@ -24,7 +24,6 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
@@ -657,9 +656,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 	tlsOptions, err := tlsopts.NewOptions(clientIdent, tlsopts.Config{})
 	require.NoError(t, err)
 
-	verClient := version.NewClient()
-
-	clientTransport := transport.NewClient(tlsOptions, verClient)
+	clientTransport := transport.NewClient(tlsOptions)
 
 	client, err := NewClient(ctx, clientTransport, service.Addr().String())
 	require.NoError(t, err)
@@ -741,9 +738,7 @@ func TestNewClient(t *testing.T) {
 	tlsOptions, err := tlsopts.NewOptions(ident, tlsopts.Config{})
 	require.NoError(t, err)
 
-	verClient := version.NewClient()
-
-	clientTransport := transport.NewClient(tlsOptions, verClient)
+	clientTransport := transport.NewClient(tlsOptions)
 
 	t.Run("Basic", func(t *testing.T) {
 		client, err := NewClient(ctx, clientTransport, listener.Addr().String())

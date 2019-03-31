@@ -57,7 +57,7 @@ func init() {
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	log := zap.L()
-	controlserver, err := versioncontrol.New(log, runCfg)
+	controlserver, err := versioncontrol.New(log, &runCfg)
 	if err != nil {
 		return
 	}

@@ -12,7 +12,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/internal/dbutil"
-	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/extensions"
@@ -38,12 +37,12 @@ type CertServerConfig struct {
 }
 
 // Sign submits a certificate signing request given the config
-func (c CertClientConfig) Sign(ctx context.Context, ident *identity.FullIdentity, verClnt *version.Client, authToken string) ([][]byte, error) {
+func (c CertClientConfig) Sign(ctx context.Context, ident *identity.FullIdentity, authToken string) ([][]byte, error) {
 	tlsOpts, err := tlsopts.NewOptions(ident, c.TLS)
 	if err != nil {
 		return nil, err
 	}
-	client, err := NewClient(ctx, transport.NewClient(tlsOpts, verClnt), c.Address)
+	client, err := NewClient(ctx, transport.NewClient(tlsOpts), c.Address)
 	if err != nil {
 		return nil, err
 	}

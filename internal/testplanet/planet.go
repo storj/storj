@@ -7,7 +7,6 @@ package testplanet
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
@@ -217,6 +216,11 @@ func (planet *Planet) Start(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	planet.cancel = cancel
 
+	err := planet.VersionControl.Run()
+	if err != nil {
+		return
+	}
+
 	for i := range planet.peers {
 		peer := &planet.peers[i]
 		peer.ctx, peer.cancel = context.WithCancel(ctx)
@@ -310,7 +314,7 @@ func (planet *Planet) Shutdown() error {
 		defer timer.Stop()
 		select {
 		case <-timer.C:
-			panic("planet took too long to shutdown")
+			panic("planet took too long to shutdown" + errlist.Err().Error())
 		case <-ctx.Done():
 		}
 	}()
@@ -330,6 +334,7 @@ func (planet *Planet) Shutdown() error {
 	for _, db := range planet.databases {
 		errlist.Add(db.Close())
 	}
+	errlist.Add(planet.VersionControl.Close())
 
 	errlist.Add(os.RemoveAll(planet.directory))
 	return errlist.Err()
@@ -481,9 +486,9 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 		config.Console.StaticDir = filepath.Join(storjRoot, "web/satellite")
 		config.Mail.TemplatePath = filepath.Join(storjRoot, "web/satellite/static/emails")
 
-		verClient := planet.NewVersionClient()
+		verInfo := planet.NewVersionInfo()
 
-		peer, err := satellite.New(log, identity, verClient, db, &config)
+		peer, err := satellite.New(log, identity, db, &config, *verInfo)
 		if err != nil {
 			return xs, err
 		}
@@ -575,9 +580,9 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 			planet.config.Reconfigure.StorageNode(i, &config)
 		}
 
-		verClient := planet.NewVersionClient()
+		verInfo := planet.NewVersionInfo()
 
-		peer, err := storagenode.New(log, identity, verClient, db, config)
+		peer, err := storagenode.New(log, identity, db, config, *verInfo)
 		if err != nil {
 			return xs, err
 		}
@@ -654,9 +659,9 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 		planet.config.Reconfigure.Bootstrap(0, &config)
 	}
 
-	verClient := planet.NewVersionClient()
+	verInfo := planet.NewVersionInfo()
 
-	peer, err = bootstrap.New(log, identity, verClient, db, config)
+	peer, err = bootstrap.New(log, identity, db, config, *verInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -681,7 +686,7 @@ func (planet *Planet) newVersionControlServer() (peer *versioncontrol.Peer, err 
 		return nil, err
 	}
 
-	config := versioncontrol.Config{
+	config := &versioncontrol.Config{
 		Address: "127.0.0.1:0",
 		Versions: versioncontrol.ServiceVersions{
 			Bootstrap:   "v0.1.0,v1.0.0",
@@ -707,12 +712,15 @@ func (planet *Planet) newVersionControlServer() (peer *versioncontrol.Peer, err 
 }
 
 // NewVersionClient returns the Version Check client for this planet with tuned metrics.
-func (planet *Planet) NewVersionClient() *version.Client {
-	return &version.Client{
-		ServerAddress:  fmt.Sprintf("http://%s/", planet.VersionControl.Addr()),
-		RequestTimeout: time.Second * 60,
-		CheckInterval:  time.Minute * 5,
-		Allowed:        true,
+func (planet *Planet) NewVersionInfo() *version.Info {
+	return &version.Info{
+		Timestamp:  "",
+		CommitHash: "",
+		Version: version.SemVer{
+			Major: 0,
+			Minor: 1,
+			Patch: 0},
+		Release: false,
 	}
 }
 

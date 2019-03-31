@@ -134,9 +134,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Error creating tables for master database on satellite: %+v", err)
 	}
 
-	verClient := version.NewClient()
+	verInfo := version.NewInfo()
 
-	peer, err := satellite.New(log, identity, verClient, db, &runCfg.Config)
+	peer, err := satellite.New(log, identity, db, &runCfg.Config, verInfo)
 	if err != nil {
 		return err
 	}

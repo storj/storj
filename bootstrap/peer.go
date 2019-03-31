@@ -45,6 +45,8 @@ type Config struct {
 	Kademlia kademlia.Config
 
 	Web bootstrapserver.Config
+
+	Version version.Config
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
@@ -63,7 +65,7 @@ type Peer struct {
 
 	Server *server.Server
 
-	Version *version.Client
+	Version *version.Service
 
 	// services and endpoints
 	Kademlia struct {
@@ -82,15 +84,18 @@ type Peer struct {
 }
 
 // New creates a new Bootstrap Node.
-func New(log *zap.Logger, full *identity.FullIdentity, verClnt *version.Client, db DB, config Config) (*Peer, error) {
+func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, versionInfo version.Info) (*Peer, error) {
 	peer := &Peer{
 		Log:      log,
 		Identity: full,
 		DB:       db,
-		Version:  verClnt,
 	}
 
 	var err error
+
+	{
+		peer.Version = version.NewService(&config.Version, &versionInfo)
+	}
 
 	{ // setup listener and server
 		sc := config.Server
@@ -99,7 +104,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, verClnt *version.Client, 
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Transport = transport.NewClient(options, verClnt)
+		peer.Transport = version.NewVersionedClient(transport.NewClient(options), *peer.Version)
 
 		peer.Server, err = server.New(options, sc.Address, sc.PrivateAddress, nil)
 		if err != nil {
@@ -179,7 +184,7 @@ func (peer *Peer) Run(ctx context.Context) error {
 	group, ctx := errgroup.WithContext(ctx)
 
 	group.Go(func() error {
-		return ignoreCancel(peer.Version.LogAndReportVersion(ctx))
+		return ignoreCancel(peer.Version.Run(ctx))
 	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Kademlia.Service.Bootstrap(ctx))

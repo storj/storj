@@ -68,7 +68,7 @@ func handleGet(w http.ResponseWriter, r *http.Request) {
 }
 
 // New creates a new VersionControl Server.
-func New(log *zap.Logger, config Config) (peer *Peer, err error) {
+func New(log *zap.Logger, config *Config) (peer *Peer, err error) {
 	peer = &Peer{
 		Log: log,
 	}
@@ -101,10 +101,10 @@ func New(log *zap.Logger, config Config) (peer *Peer, err error) {
 	if err != nil {
 		return nil, errs.Combine(err, peer.Close())
 	}
-	return
+	return peer, nil
 }
 
-// Run runs bootstrap node until it's either closed or it errors.
+// Run runs versioncontrol server until it's either closed or it errors.
 func (peer *Peer) Run() (err error) {
 
 	peer.Log.Sugar().Infof("Public server started on %s", peer.Addr())
