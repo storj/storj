@@ -217,7 +217,7 @@ func (planet *Planet) Start(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	planet.cancel = cancel
 
-	err := planet.VersionControl.Run()
+	err := planet.VersionControl.Run(ctx)
 	if err != nil {
 		return
 	}

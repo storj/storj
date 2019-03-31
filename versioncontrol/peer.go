@@ -4,6 +4,7 @@
 package versioncontrol
 
 import (
+	"context"
 	"encoding/json"
 	"net"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/internal/version"
 )
@@ -105,18 +107,19 @@ func New(log *zap.Logger, config *Config) (peer *Peer, err error) {
 }
 
 // Run runs versioncontrol server until it's either closed or it errors.
-func (peer *Peer) Run() (err error) {
+func (peer *Peer) Run(ctx context.Context) (err error) {
+	group, ctx := errgroup.WithContext(ctx)
 
-	peer.Log.Sugar().Infof("Public server started on %s", peer.Addr())
-
-	http.HandleFunc("/", handleGet)
-	go func() {
+	group.Go(func() error {
+		peer.Log.Sugar().Infof("Versioning server started on %s", peer.Addr())
+		http.HandleFunc("/", handleGet)
 		err = http.Serve(peer.Server.Listener, nil)
 		if err != nil {
-			peer.Log.Sugar().Fatal("error occurred starting web server")
+			peer.Log.Sugar().Error("error occurred starting web server")
 		}
-	}()
-	return
+		return err
+	})
+	return group.Wait()
 }
 
 // Close closes all the resources.
