@@ -337,7 +337,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
   						get_egress bigint NOT NULL,
   						audit_egress bigint NOT NULL,
   						PRIMARY KEY ( id ),
-  						UNIQUE ( rollup_end_time, bucket_id )
+						UNIQUE ( rollup_end_time, bucket_id )
 					)`,
 				},
 			},
@@ -402,8 +402,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						PRIMARY KEY ( storagenode_id, interval_start )
 					)`,
 					`CREATE TABLE bucket_bandwidth_rollups (
-						bucket_name bytea NOT NULL,
-						project_id bytea NOT NULL,
+						bucket_id bytea NOT NULL,
 						interval_start timestamp NOT NULL,
 						interval_seconds integer NOT NULL,
 						action integer NOT NULL,
@@ -418,8 +417,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						interval_seconds
 					)`,
 					`CREATE TABLE bucket_storage_rollups (
-						bucket_name bytea NOT NULL,
-						project_id bytea NOT NULL,
+						bucket_id bytea NOT NULL,
 						interval_start timestamp NOT NULL,
 						interval_seconds integer NOT NULL,
 						inline bigint NOT NULL,
@@ -494,6 +492,26 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					 WHERE nodes.id=overlay.node_id;`,
 					// Delete the overlay cache_nodes table
 					`DROP TABLE overlay_cache_nodes CASCADE;`,
+				},
+			},
+			{
+				Description: "Change bucket_id to bucket_name and project_id",
+				Version:     13,
+				Action: migrate.SQL{
+					// Modify columns: bucket_id --> bucket_name + project_id
+					`ALTER TABLE bucket_storage_tallies RENAME COLUMN bucket_id TO bucket_name;`,
+					`ALTER TABLE bucket_storage_tallies ADD project_id bytea;`,
+
+					// Modify columns: bucket_id --> bucket_name + project_id
+					`ALTER TABLE bucket_bandwidth_rollups RENAME COLUMN bucket_id TO bucket_name;`,
+					`ALTER TABLE bucket_bandwidth_rollups ADD project_id bytea;`,
+					`DROP INDEX bucket_id_interval_start_interval_seconds_index;`,
+					`CREATE INDEX bucket_name_project_id_interval_start_interval_seconds_index ON bucket_bandwidth_rollups (
+						bucket_name,
+						project_id,
+						interval_start,
+						interval_seconds
+					);`,
 				},
 			},
 		},

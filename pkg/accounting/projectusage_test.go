@@ -35,47 +35,52 @@ func TestProjectUsage(t *testing.T) {
 		saDB := planet.Satellites[0].DB
 		acctDB := saDB.Accounting()
 		projectsDB := saDB.Console().Projects()
-		from := time.Now().AddDate(0, 0, -accounting.AvgDaysInMonth) // past 30 days
+
+		// Setup: This date represents the past 30 days so that we can check
+		// if the alpha max usage has been exceeded in the past month
+		from := time.Now().AddDate(0, 0, -accounting.AvgDaysInMonth)
 
 		for _, tt := range cases {
 			t.Run(tt.name, func(t *testing.T) {
+
+				// Setup: create a new project to use the projectID
 				pID, err := uuid.New()
 				require.NoError(t, err)
 				project, err := projectsDB.Insert(ctx, &console.Project{ID: *pID})
 				require.NoError(t, err)
 
-				// Setup to test exceeding storage project limit
+				// Setup: create a BucketStorageTally record to test exceeding storage project limit
 				if tt.expectedResource == "storage" {
-					// seed DB with over 25GB of storage
 					tally := accounting.BucketStorageTally{
 						BucketName:    "testbucket",
 						ProjectID:     project.ID,
 						IntervalStart: time.Now(),
-						RemoteBytes:   26000000000, // 26GB
+						RemoteBytes:   int64(26 * memory.GB),
 					}
-					acctDB.CreateBucketStorageTally(ctx, tally)
+					err := acctDB.CreateBucketStorageTally(ctx, tally)
+					require.NoError(t, err)
 				}
 
-				// Setup to test exceeding bandwidth project limit
+				// Setup: create a BucketBandwidthRollup record to test exceeding bandwidth project limit
 				if tt.expectedResource == "bandwidth" {
-					// seed DB with over 25GBh of bandwidth usage
 					rollup := accounting.BucketBandwidthRollup{
 						BucketName:    "testbucket",
 						ProjectID:     project.ID,
-						Settled:       28e13, // 28TB
+						Settled:       uint64(28 * memory.TB),
 						IntervalStart: time.Now(),
 						Action:        uint(pb.BandwidthAction_GET),
 					}
-					acctDB.CreateBucketBandwidthRollup(ctx, rollup)
+					err := acctDB.CreateBucketBandwidthRollup(ctx, rollup)
+					require.NoError(t, err)
 				}
 
-				// Execute test: get Project Storage and Bandwidth totals, then check if that exceeds the max usage limit
+				// Execute test: get storage and bandwidth totals for a project, then check if that exceeds the max usage limit
 				inlineTotal, remoteTotal, err := acctDB.ProjectStorageTotals(ctx, project.ID)
 				require.NoError(t, err)
 				bandwidthTotal, err := acctDB.ProjectBandwidthTotal(ctx, project.ID, from)
 				require.NoError(t, err)
-				maxAlphaUsage := memory.Size(25 * memory.GB)
-				actualExceeded, actualResource := accounting.ExceedsAlphaUsage(bandwidthTotal, inlineTotal, remoteTotal, maxAlphaUsage)
+				maxAlphaUsage := 25 * memory.GB
+				actualExceeded, actualResource := accounting.ExceedsAlphaUsage(bandwidthTotal, inlineTotal, remoteTotal, maxAlphaUsage.Int64())
 
 				if tt.expectedExceeded != actualExceeded {
 					t.Fatalf("expect exceeded: %v, actual exceeded: %v", tt.expectedExceeded, actualExceeded)

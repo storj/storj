@@ -6,7 +6,6 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -27,14 +26,11 @@ type accountingDB struct {
 func (db *accountingDB) ProjectBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (uint64, error) {
 	var query = `SELECT SUM (settled)
 		FROM bucket_bandwidth_rollups
-		WHERE action = ? AND interval_start >= ? AND project_id >= ?
+		WHERE project_id = ? AND action = ? AND interval_start >= ?;
 	`
 	var sum *uint64
-	err := db.db.QueryRow(query,
-		pb.BandwidthAction_GET, from, projectID[:],
-	).Scan(&sum)
+	err := db.db.QueryRow(db.db.Rebind(query), projectID[:], pb.BandwidthAction_GET, from).Scan(&sum)
 	if err == sql.ErrNoRows || sum == nil {
-		fmt.Println("nil")
 		return 0, nil
 	}
 	return *sum, err

@@ -17,7 +17,6 @@ import (
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/eestream"
@@ -50,11 +49,11 @@ type Endpoint struct {
 	cache         *overlay.Cache
 	apiKeys       APIKeys
 	accountingDB  accounting.DB
-	maxAlphaUsage memory.Size
+	maxAlphaUsage int64
 }
 
 // NewEndpoint creates new metainfo endpoint instance
-func NewEndpoint(log *zap.Logger, pointerdb *pointerdb.Service, orders *orders.Service, cache *overlay.Cache, apiKeys APIKeys, acctDB accounting.DB, maxAlphaUsage memory.Size) *Endpoint {
+func NewEndpoint(log *zap.Logger, pointerdb *pointerdb.Service, orders *orders.Service, cache *overlay.Cache, apiKeys APIKeys, acctDB accounting.DB, maxAlphaUsage int64) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
 		log:           log,
