@@ -5,6 +5,8 @@ package transport
 
 import (
 	"context"
+	"net"
+	"runtime/debug"
 	"time"
 
 	"google.golang.org/grpc"
@@ -72,6 +74,7 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 	options := append([]grpc.DialOption{
 		dialOption,
 		grpc.WithBlock(),
+		grpc.WithContextDialer(dialLeakCheck),
 		grpc.FailOnNonTempDialError(true),
 		grpc.WithUnaryInterceptor(InvokeTimeout{transport.requestTimeout}.Intercept),
 	}, opts...)
@@ -104,6 +107,7 @@ func (transport *Transport) DialAddress(ctx context.Context, address string, opt
 	options := append([]grpc.DialOption{
 		transport.tlsOpts.DialUnverifiedIDOption(),
 		grpc.WithBlock(),
+		grpc.WithContextDialer(dialLeakCheck),
 		grpc.FailOnNonTempDialError(true),
 		grpc.WithUnaryInterceptor(InvokeTimeout{transport.requestTimeout}.Intercept),
 	}, opts...)
@@ -141,4 +145,46 @@ func alertSuccess(ctx context.Context, obs []Observer, node *pb.Node) {
 	for _, o := range obs {
 		o.ConnSuccess(ctx, node)
 	}
+}
+
+type leakCheck struct {
+	net.Conn
+	cancel func()
+}
+
+func dialLeakCheck(ctx context.Context, address string) (net.Conn, error) {
+	dialer := net.Dialer{}
+	conn, err := dialer.DialContext(ctx, "tcp", address)
+	if err != nil {
+		return conn, err
+	}
+	return newLeakCheck(conn, time.Minute), err
+}
+
+func newLeakCheck(conn net.Conn, timeout time.Duration) net.Conn {
+	leak := &leakCheck{Conn: conn}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	leak.cancel = cancel
+
+	stack := string(debug.Stack())
+
+	go func() {
+		defer leak.cancel()
+		timer := time.NewTimer(timeout)
+		defer timer.Stop()
+
+		select {
+		case <-ctx.Done():
+		case <-timer.C:
+			panic(stack)
+		}
+	}()
+
+	return leak
+}
+
+func (leak *leakCheck) Close() error {
+	leak.cancel()
+	return leak.Conn.Close()
 }
