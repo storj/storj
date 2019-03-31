@@ -107,7 +107,7 @@ func New(log *zap.Logger, config *Config) (peer *Peer, err error) {
 
 // Run runs versioncontrol server until it's either closed or it errors.
 func (peer *Peer) Run(ctx context.Context) (err error) {
-	group, ctx := errgroup.WithContext(ctx)
+	group, _ := errgroup.WithContext(ctx)
 
 	group.Go(func() error {
 		peer.Log.Sugar().Infof("Versioning server started on %s", peer.Addr())
