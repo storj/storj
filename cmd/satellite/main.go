@@ -16,6 +16,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
+	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/satellite"
@@ -114,10 +115,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	ctx := process.Ctx(cmd)
-	if err = process.LogAndReportVersion(ctx); err != nil {
-		zap.S().Error("Failed to check version: ", err)
-	}
-
 	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
 		zap.S().Error("Failed to initialize telemetry batcher: ", err)
 	}
@@ -137,7 +134,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Error creating tables for master database on satellite: %+v", err)
 	}
 
-	peer, err := satellite.New(log, identity, db, &runCfg.Config)
+	verInfo := version.NewInfo()
+
+	peer, err := satellite.New(log, identity, db, &runCfg.Config, verInfo)
 	if err != nil {
 		return err
 	}

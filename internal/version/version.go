@@ -4,19 +4,14 @@
 package version
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
 
-	"go.uber.org/zap"
-
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
 
 var (
@@ -27,17 +22,15 @@ var (
 	CommitHash string
 	// Version is the semantic version set at compilation
 	// if not a valid semantic version Release should be false
-	Version = "0.1.0"
+	Version = "v0.1.0"
 	// Release indicates whether the binary compiled is a release candidate
 	Release bool
 	// Build is a struct containing all relevant build information associated with the binary
-	Build V
-	// Allowed ensures, the client is still on the allowed versions returned by the control server
-	Allowed bool
+	Build Info
 )
 
-// V is the versioning information for a binary
-type V struct {
+// Info is the versioning information for a binary
+type Info struct {
 	Timestamp  string `json:"timestamp,omitempty"`
 	CommitHash string `json:"commitHash,omitempty"`
 	Version    SemVer `json:"version"`
@@ -49,6 +42,15 @@ type SemVer struct {
 	Major int64 `json:"major"`
 	Minor int64 `json:"minor"`
 	Patch int64 `json:"patch"`
+}
+
+// AllowedVersions provides a list of SemVer per Service
+type AllowedVersions struct {
+	Bootstrap   []SemVer
+	Satellite   []SemVer
+	Storagenode []SemVer
+	Uplink      []SemVer
+	Gateway     []SemVer
 }
 
 // SemVerRegex is the regular expression used to parse a semantic version.
@@ -102,70 +104,15 @@ func (sem *SemVer) String() (version string) {
 }
 
 // New creates Version_Info from a json byte array
-func New(data []byte) (v V, err error) {
+func New(data []byte) (v Info, err error) {
 	err = json.Unmarshal(data, &v)
 	return v, err
 }
 
 // Marshal converts the existing Version Info to any json byte array
-func (v V) Marshal() (data []byte, err error) {
+func (v Info) Marshal() (data []byte, err error) {
 	data, err = json.Marshal(v)
 	return
-}
-
-// CheckVersion ensures that the client is running latest/allowed code
-func CheckVersion(ctx *context.Context) (err error) {
-	defer mon.Task()(ctx)(&err)
-
-	accepted, err := queryVersionFromControlServer()
-	if err != nil {
-		return
-	}
-	zap.S().Debugf("Allowed Version from Control Server: %v", accepted)
-	if containsVersion(accepted, Build.Version) {
-		zap.S().Infof("Running on Version %s", Build.Version.String())
-		Allowed = true
-	} else {
-		zap.S().Errorf("Running on not allowed Version %s", Build.Version.String())
-		Allowed = false
-	}
-	return
-}
-
-// QueryVersionFromControlServer handles the HTTP request to gather the allowed and latest version information
-func queryVersionFromControlServer() (ver []V, err error) {
-	resp, err := http.Get("https://satellite.stefan-benten.de/version")
-	if err != nil {
-
-		//ToDo: Handle Failures properly!
-		Allowed = true
-		return []V{}, err
-	}
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return []V{}, err
-	}
-
-	err = json.Unmarshal(body, &ver)
-	return
-}
-
-// DebugHandler returns a json representation of the current version information for the binary
-func DebugHandler(w http.ResponseWriter, r *http.Request) {
-	j, err := Build.Marshal()
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-
-	_, err = w.Write(j)
-	if err != nil {
-		// ToDo: Handle Error
-	}
 }
 
 // parseToInt64 converts a string with schema .xxx to an int64 or returns an error
@@ -180,13 +127,28 @@ func parseToInt64(label string) (int64, error) {
 }
 
 // containsVersion compares the allowed version array against the passed version
-func containsVersion(a []V, x SemVer) bool {
-	for _, n := range a {
-		if x == n.Version {
+func containsVersion(all []SemVer, x SemVer) bool {
+	for _, n := range all {
+		if x == n {
 			return true
 		}
 	}
 	return false
+}
+
+// StrToSemVerList converts a list of versions to a list of SemVer
+func StrToSemVerList(serviceVersions []string) (versions []SemVer, err error) {
+
+	versionRegex := regexp.MustCompile("^" + SemVerRegex + "$")
+
+	for _, subversion := range serviceVersions {
+		sVer, err := NewSemVer(versionRegex, subversion)
+		if err != nil {
+			return nil, err
+		}
+		versions = append(versions, *sVer)
+	}
+	return versions, err
 }
 
 func init() {
@@ -194,7 +156,7 @@ func init() {
 		return
 	}
 
-	Build = V{
+	Build = Info{
 		Timestamp:  Timestamp,
 		CommitHash: CommitHash,
 		Release:    Release,
