@@ -80,9 +80,11 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, err
 	}
 
-	verClient := version.NewClient()
+	//ToDo Handle Properly
+	info := version.NewInfo()
+	verClient := version.NewService(nil, &info)
 
-	tc := transport.NewClient(tlsOpts, verClient)
+	tc := version.NewVersionedClient(transport.NewClient(tlsOpts), *verClient)
 
 	if c.Client.SatelliteAddr == "" {
 		return nil, nil, errors.New("satellite address not specified")
