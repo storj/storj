@@ -25,6 +25,7 @@ type Config struct {
 	CheckInterval  time.Duration
 }
 
+// Service contains the information and variables to ensure the Software is up to date
 type Service struct {
 	config *Config
 	info   *Info
@@ -45,6 +46,7 @@ func NewService(config *Config, info *Info) (client *Service) {
 }
 
 // NewInfo creates a default information configuration
+// ToDo: temporary for testing
 func NewInfo() (info Info) {
 	return Info{
 		Version: SemVer{
@@ -55,7 +57,7 @@ func NewInfo() (info Info) {
 	}
 }
 
-// NewClient returns a transport client with a default timeout for requests
+// NewVersionedClient returns a transport client which ensures, that the software is up to date
 func NewVersionedClient(transport transport.Client, service Service) transport.Client {
 	/*if !service.IsUpToDate() {
 		zap.S().Fatal("Software Version outdated, please update")
@@ -110,7 +112,7 @@ func (srv *Service) checkVersion(ctx *context.Context) (allowed bool, err error)
 }
 
 // QueryVersionFromControlServer handles the HTTP request to gather the allowed and latest version information
-func (srv *Service) queryVersionFromControlServer() (ver Versions, err error) {
+func (srv *Service) queryVersionFromControlServer() (ver AllowedVersions, err error) {
 	client := http.Client{
 		Timeout: srv.config.RequestTimeout,
 	}
@@ -118,12 +120,12 @@ func (srv *Service) queryVersionFromControlServer() (ver Versions, err error) {
 	if err != nil {
 		// ToDo: Make sure Control Server is always reachable and refuse startup
 		srv.allowed = true
-		return Versions{}, err
+		return AllowedVersions{}, err
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return Versions{}, err
+		return AllowedVersions{}, err
 	}
 	err = json.Unmarshal(body, &ver)
 	return

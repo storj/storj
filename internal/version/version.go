@@ -44,8 +44,8 @@ type SemVer struct {
 	Patch int64 `json:"patch"`
 }
 
-// Versions provides a list of SemVer per Service
-type Versions struct {
+// AllowedVersions provides a list of SemVer per Service
+type AllowedVersions struct {
 	Bootstrap   []SemVer
 	Satellite   []SemVer
 	Storagenode []SemVer

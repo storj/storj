@@ -676,7 +676,7 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 	return peer, nil
 }
 
-// newBootstrap initializes the bootstrap node
+// newVersionControlServer initializes the Versioning Server
 func (planet *Planet) newVersionControlServer() (peer *versioncontrol.Peer, err error) {
 	// TODO: move into separate file
 	/*defer func() {
@@ -730,7 +730,7 @@ func (planet *Planet) NewVersionInfo() version.Info {
 	return info
 }
 
-// NewVersionInfo returns the Version Info for this planet with tuned metrics.
+// NewVersionConfig returns the Version Config for this planet with tuned metrics.
 func (planet *Planet) NewVersionConfig() version.Config {
 	return version.Config{
 		ServerAddress:  fmt.Sprintf("http://%s/", planet.VersionControl.Addr()),
