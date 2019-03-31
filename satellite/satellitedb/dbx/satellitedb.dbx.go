@@ -3997,6 +3997,74 @@ func (obj *postgresImpl) Create_UsedSerial(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Create_BucketBandwidthRollup(ctx context.Context,
+	bucket_bandwidth_rollup_bucket_name BucketBandwidthRollup_BucketName_Field,
+	bucket_bandwidth_rollup_project_id BucketBandwidthRollup_ProjectId_Field,
+	bucket_bandwidth_rollup_interval_start BucketBandwidthRollup_IntervalStart_Field,
+	bucket_bandwidth_rollup_interval_seconds BucketBandwidthRollup_IntervalSeconds_Field,
+	bucket_bandwidth_rollup_action BucketBandwidthRollup_Action_Field,
+	bucket_bandwidth_rollup_inline BucketBandwidthRollup_Inline_Field,
+	bucket_bandwidth_rollup_allocated BucketBandwidthRollup_Allocated_Field,
+	bucket_bandwidth_rollup_settled BucketBandwidthRollup_Settled_Field) (
+	bucket_bandwidth_rollup *BucketBandwidthRollup, err error) {
+	__bucket_name_val := bucket_bandwidth_rollup_bucket_name.value()
+	__project_id_val := bucket_bandwidth_rollup_project_id.value()
+	__interval_start_val := bucket_bandwidth_rollup_interval_start.value()
+	__interval_seconds_val := bucket_bandwidth_rollup_interval_seconds.value()
+	__action_val := bucket_bandwidth_rollup_action.value()
+	__inline_val := bucket_bandwidth_rollup_inline.value()
+	__allocated_val := bucket_bandwidth_rollup_allocated.value()
+	__settled_val := bucket_bandwidth_rollup_settled.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __bucket_name_val, __project_id_val, __interval_start_val, __interval_seconds_val, __action_val, __inline_val, __allocated_val, __settled_val)
+
+	bucket_bandwidth_rollup = &BucketBandwidthRollup{}
+	err = obj.driver.QueryRow(__stmt, __bucket_name_val, __project_id_val, __interval_start_val, __interval_seconds_val, __action_val, __inline_val, __allocated_val, __settled_val).Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket_bandwidth_rollup, nil
+
+}
+
+func (obj *postgresImpl) Create_BucketStorageTally(ctx context.Context,
+	bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
+	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
+	bucket_storage_tally_interval_start BucketStorageTally_IntervalStart_Field,
+	bucket_storage_tally_inline BucketStorageTally_Inline_Field,
+	bucket_storage_tally_remote BucketStorageTally_Remote_Field,
+	bucket_storage_tally_remote_segments_count BucketStorageTally_RemoteSegmentsCount_Field,
+	bucket_storage_tally_inline_segments_count BucketStorageTally_InlineSegmentsCount_Field,
+	bucket_storage_tally_object_count BucketStorageTally_ObjectCount_Field,
+	bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
+	bucket_storage_tally *BucketStorageTally, err error) {
+	__bucket_name_val := bucket_storage_tally_bucket_name.value()
+	__project_id_val := bucket_storage_tally_project_id.value()
+	__interval_start_val := bucket_storage_tally_interval_start.value()
+	__inline_val := bucket_storage_tally_inline.value()
+	__remote_val := bucket_storage_tally_remote.value()
+	__remote_segments_count_val := bucket_storage_tally_remote_segments_count.value()
+	__inline_segments_count_val := bucket_storage_tally_inline_segments_count.value()
+	__object_count_val := bucket_storage_tally_object_count.value()
+	__metadata_size_val := bucket_storage_tally_metadata_size.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_storage_tallies ( bucket_name, project_id, interval_start, inline, remote, remote_segments_count, inline_segments_count, object_count, metadata_size ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __bucket_name_val, __project_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val)
+
+	bucket_storage_tally = &BucketStorageTally{}
+	err = obj.driver.QueryRow(__stmt, __bucket_name_val, __project_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val).Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket_storage_tally, nil
+
+}
+
 func (obj *postgresImpl) Create_CertRecord(ctx context.Context,
 	certRecord_publickey CertRecord_Publickey_Field,
 	certRecord_id CertRecord_Id_Field) (
@@ -6335,6 +6403,80 @@ func (obj *sqlite3Impl) Create_UsedSerial(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Create_BucketBandwidthRollup(ctx context.Context,
+	bucket_bandwidth_rollup_bucket_name BucketBandwidthRollup_BucketName_Field,
+	bucket_bandwidth_rollup_project_id BucketBandwidthRollup_ProjectId_Field,
+	bucket_bandwidth_rollup_interval_start BucketBandwidthRollup_IntervalStart_Field,
+	bucket_bandwidth_rollup_interval_seconds BucketBandwidthRollup_IntervalSeconds_Field,
+	bucket_bandwidth_rollup_action BucketBandwidthRollup_Action_Field,
+	bucket_bandwidth_rollup_inline BucketBandwidthRollup_Inline_Field,
+	bucket_bandwidth_rollup_allocated BucketBandwidthRollup_Allocated_Field,
+	bucket_bandwidth_rollup_settled BucketBandwidthRollup_Settled_Field) (
+	bucket_bandwidth_rollup *BucketBandwidthRollup, err error) {
+	__bucket_name_val := bucket_bandwidth_rollup_bucket_name.value()
+	__project_id_val := bucket_bandwidth_rollup_project_id.value()
+	__interval_start_val := bucket_bandwidth_rollup_interval_start.value()
+	__interval_seconds_val := bucket_bandwidth_rollup_interval_seconds.value()
+	__action_val := bucket_bandwidth_rollup_action.value()
+	__inline_val := bucket_bandwidth_rollup_inline.value()
+	__allocated_val := bucket_bandwidth_rollup_allocated.value()
+	__settled_val := bucket_bandwidth_rollup_settled.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __bucket_name_val, __project_id_val, __interval_start_val, __interval_seconds_val, __action_val, __inline_val, __allocated_val, __settled_val)
+
+	__res, err := obj.driver.Exec(__stmt, __bucket_name_val, __project_id_val, __interval_start_val, __interval_seconds_val, __action_val, __inline_val, __allocated_val, __settled_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastBucketBandwidthRollup(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_BucketStorageTally(ctx context.Context,
+	bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
+	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
+	bucket_storage_tally_interval_start BucketStorageTally_IntervalStart_Field,
+	bucket_storage_tally_inline BucketStorageTally_Inline_Field,
+	bucket_storage_tally_remote BucketStorageTally_Remote_Field,
+	bucket_storage_tally_remote_segments_count BucketStorageTally_RemoteSegmentsCount_Field,
+	bucket_storage_tally_inline_segments_count BucketStorageTally_InlineSegmentsCount_Field,
+	bucket_storage_tally_object_count BucketStorageTally_ObjectCount_Field,
+	bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
+	bucket_storage_tally *BucketStorageTally, err error) {
+	__bucket_name_val := bucket_storage_tally_bucket_name.value()
+	__project_id_val := bucket_storage_tally_project_id.value()
+	__interval_start_val := bucket_storage_tally_interval_start.value()
+	__inline_val := bucket_storage_tally_inline.value()
+	__remote_val := bucket_storage_tally_remote.value()
+	__remote_segments_count_val := bucket_storage_tally_remote_segments_count.value()
+	__inline_segments_count_val := bucket_storage_tally_inline_segments_count.value()
+	__object_count_val := bucket_storage_tally_object_count.value()
+	__metadata_size_val := bucket_storage_tally_metadata_size.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_storage_tallies ( bucket_name, project_id, interval_start, inline, remote, remote_segments_count, inline_segments_count, object_count, metadata_size ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __bucket_name_val, __project_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val)
+
+	__res, err := obj.driver.Exec(__stmt, __bucket_name_val, __project_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastBucketStorageTally(ctx, __pk)
+
+}
+
 func (obj *sqlite3Impl) Create_CertRecord(ctx context.Context,
 	certRecord_publickey CertRecord_Publickey_Field,
 	certRecord_id CertRecord_Id_Field) (
@@ -8362,6 +8504,42 @@ func (obj *sqlite3Impl) getLastUsedSerial(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) getLastBucketBandwidthRollup(ctx context.Context,
+	pk int64) (
+	bucket_bandwidth_rollup *BucketBandwidthRollup, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled FROM bucket_bandwidth_rollups WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	bucket_bandwidth_rollup = &BucketBandwidthRollup{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket_bandwidth_rollup, nil
+
+}
+
+func (obj *sqlite3Impl) getLastBucketStorageTally(ctx context.Context,
+	pk int64) (
+	bucket_storage_tally *BucketStorageTally, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	bucket_storage_tally = &BucketStorageTally{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket_storage_tally, nil
+
+}
+
 func (obj *sqlite3Impl) getLastCertRecord(ctx context.Context,
 	pk int64) (
 	certRecord *CertRecord, err error) {
@@ -8796,6 +8974,43 @@ func (rx *Rx) Create_ApiKey(ctx context.Context,
 		return
 	}
 	return tx.Create_ApiKey(ctx, api_key_id, api_key_project_id, api_key_key, api_key_name)
+
+}
+
+func (rx *Rx) Create_BucketBandwidthRollup(ctx context.Context,
+	bucket_bandwidth_rollup_bucket_name BucketBandwidthRollup_BucketName_Field,
+	bucket_bandwidth_rollup_project_id BucketBandwidthRollup_ProjectId_Field,
+	bucket_bandwidth_rollup_interval_start BucketBandwidthRollup_IntervalStart_Field,
+	bucket_bandwidth_rollup_interval_seconds BucketBandwidthRollup_IntervalSeconds_Field,
+	bucket_bandwidth_rollup_action BucketBandwidthRollup_Action_Field,
+	bucket_bandwidth_rollup_inline BucketBandwidthRollup_Inline_Field,
+	bucket_bandwidth_rollup_allocated BucketBandwidthRollup_Allocated_Field,
+	bucket_bandwidth_rollup_settled BucketBandwidthRollup_Settled_Field) (
+	bucket_bandwidth_rollup *BucketBandwidthRollup, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_BucketBandwidthRollup(ctx, bucket_bandwidth_rollup_bucket_name, bucket_bandwidth_rollup_project_id, bucket_bandwidth_rollup_interval_start, bucket_bandwidth_rollup_interval_seconds, bucket_bandwidth_rollup_action, bucket_bandwidth_rollup_inline, bucket_bandwidth_rollup_allocated, bucket_bandwidth_rollup_settled)
+
+}
+
+func (rx *Rx) Create_BucketStorageTally(ctx context.Context,
+	bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
+	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
+	bucket_storage_tally_interval_start BucketStorageTally_IntervalStart_Field,
+	bucket_storage_tally_inline BucketStorageTally_Inline_Field,
+	bucket_storage_tally_remote BucketStorageTally_Remote_Field,
+	bucket_storage_tally_remote_segments_count BucketStorageTally_RemoteSegmentsCount_Field,
+	bucket_storage_tally_inline_segments_count BucketStorageTally_InlineSegmentsCount_Field,
+	bucket_storage_tally_object_count BucketStorageTally_ObjectCount_Field,
+	bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
+	bucket_storage_tally *BucketStorageTally, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_BucketStorageTally(ctx, bucket_storage_tally_bucket_name, bucket_storage_tally_project_id, bucket_storage_tally_interval_start, bucket_storage_tally_inline, bucket_storage_tally_remote, bucket_storage_tally_remote_segments_count, bucket_storage_tally_inline_segments_count, bucket_storage_tally_object_count, bucket_storage_tally_metadata_size)
 
 }
 
@@ -9469,6 +9684,29 @@ type Methods interface {
 		api_key_key ApiKey_Key_Field,
 		api_key_name ApiKey_Name_Field) (
 		api_key *ApiKey, err error)
+
+	Create_BucketBandwidthRollup(ctx context.Context,
+		bucket_bandwidth_rollup_bucket_name BucketBandwidthRollup_BucketName_Field,
+		bucket_bandwidth_rollup_project_id BucketBandwidthRollup_ProjectId_Field,
+		bucket_bandwidth_rollup_interval_start BucketBandwidthRollup_IntervalStart_Field,
+		bucket_bandwidth_rollup_interval_seconds BucketBandwidthRollup_IntervalSeconds_Field,
+		bucket_bandwidth_rollup_action BucketBandwidthRollup_Action_Field,
+		bucket_bandwidth_rollup_inline BucketBandwidthRollup_Inline_Field,
+		bucket_bandwidth_rollup_allocated BucketBandwidthRollup_Allocated_Field,
+		bucket_bandwidth_rollup_settled BucketBandwidthRollup_Settled_Field) (
+		bucket_bandwidth_rollup *BucketBandwidthRollup, err error)
+
+	Create_BucketStorageTally(ctx context.Context,
+		bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
+		bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
+		bucket_storage_tally_interval_start BucketStorageTally_IntervalStart_Field,
+		bucket_storage_tally_inline BucketStorageTally_Inline_Field,
+		bucket_storage_tally_remote BucketStorageTally_Remote_Field,
+		bucket_storage_tally_remote_segments_count BucketStorageTally_RemoteSegmentsCount_Field,
+		bucket_storage_tally_inline_segments_count BucketStorageTally_InlineSegmentsCount_Field,
+		bucket_storage_tally_object_count BucketStorageTally_ObjectCount_Field,
+		bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
+		bucket_storage_tally *BucketStorageTally, err error)
 
 	Create_BucketUsage(ctx context.Context,
 		bucket_usage_id BucketUsage_Id_Field,

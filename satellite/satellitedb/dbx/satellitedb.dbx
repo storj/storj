@@ -410,6 +410,8 @@ model bucket_bandwidth_rollup (
 	field settled   uint64
 )
 
+create bucket_bandwidth_rollup ()
+
 model bucket_storage_tally (
 	key    bucket_name project_id interval_start
 
@@ -427,6 +429,8 @@ model bucket_storage_tally (
 
 	field  metadata_size      uint64
 )
+
+create bucket_storage_tally ()
 
 read first (
     select bucket_storage_tally

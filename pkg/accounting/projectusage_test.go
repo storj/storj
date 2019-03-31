@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite/console"
 )
 
@@ -43,17 +44,35 @@ func TestProjectUsage(t *testing.T) {
 				project, err := projectsDB.Insert(ctx, &console.Project{ID: *pID})
 				require.NoError(t, err)
 
+				// Setup to test exceeding storage project limit
 				if tt.expectedResource == "storage" {
-					// if tt.setup then create a bucket_storage_rollup where settled is > alphamaxusage
+					// seed DB with over 25GB of storage
+					tally := accounting.BucketStorageTally{
+						BucketName:    "testbucket",
+						ProjectID:     project.ID,
+						IntervalStart: time.Now(),
+						RemoteBytes:   26000000000, // 26GB
+					}
+					acctDB.CreateBucketStorageTally(ctx, tally)
 				}
 
+				// Setup to test exceeding bandwidth project limit
 				if tt.expectedResource == "bandwidth" {
-					// if tt.setip2 then create bucket_bandwidth_rollup where rollup.Inline, rollup.Remote > alphamaxusage
+					// seed DB with over 25GBh of bandwidth usage
+					rollup := accounting.BucketBandwidthRollup{
+						BucketName:    "testbucket",
+						ProjectID:     project.ID,
+						Settled:       28e13, // 28TB
+						IntervalStart: time.Now(),
+						Action:        uint(pb.BandwidthAction_GET),
+					}
+					acctDB.CreateBucketBandwidthRollup(ctx, rollup)
 				}
 
-				bandwidthTotal, err := acctDB.ProjectBandwidthTotal(ctx, project.ID, from)
-				require.NoError(t, err)
+				// Execute test: get Project Storage and Bandwidth totals, then check if that exceeds the max usage limit
 				inlineTotal, remoteTotal, err := acctDB.ProjectStorageTotals(ctx, project.ID)
+				require.NoError(t, err)
+				bandwidthTotal, err := acctDB.ProjectBandwidthTotal(ctx, project.ID, from)
 				require.NoError(t, err)
 				maxAlphaUsage := memory.Size(25 * memory.GB)
 				actualExceeded, actualResource := accounting.ExceedsAlphaUsage(bandwidthTotal, inlineTotal, remoteTotal, maxAlphaUsage)

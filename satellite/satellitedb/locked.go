@@ -50,6 +50,20 @@ type lockedAccounting struct {
 	db accounting.DB
 }
 
+// CreateBucketStorageTally queries Overlay, Accounting Rollup on nodeID
+func (m *lockedAccounting) CreateBucketBandwidthRollup(ctx context.Context, rollup accounting.BucketBandwidthRollup) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.CreateBucketBandwidthRollup(ctx, rollup)
+}
+
+// CreateBucketStorageTally queries Overlay, Accounting Rollup on nodeID
+func (m *lockedAccounting) CreateBucketStorageTally(ctx context.Context, tally accounting.BucketStorageTally) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.CreateBucketStorageTally(ctx, tally)
+}
+
 // DeleteRawBefore deletes all raw tallies prior to some time
 func (m *lockedAccounting) DeleteRawBefore(ctx context.Context, latestRollup time.Time) error {
 	m.Lock()

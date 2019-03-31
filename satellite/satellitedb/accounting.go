@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -24,23 +25,19 @@ type accountingDB struct {
 
 // ProjectBandwidthTotal returns the sum of GET bandwidth usage for a projectID for a time frame
 func (db *accountingDB) ProjectBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (uint64, error) {
-	var total uint64
-	var query = `SELECT SUM (settled) as total
-		FROM bucket_bandwidth_rollup
-		WHERE project_id = ? AND interval_start >= ? AND action = ?
-		`
-	rows, err := db.db.DB.QueryContext(ctx,
-		db.db.Rebind(query), projectID, from, pb.BandwidthAction_GET,
-	)
-	defer func() { err = errs.Combine(err, rows.Close()) }()
-	if err != nil {
-		return total, err
+	var query = `SELECT SUM (settled)
+		FROM bucket_bandwidth_rollups
+		WHERE action = ? AND interval_start >= ? AND project_id >= ?
+	`
+	var sum *uint64
+	err := db.db.QueryRow(query,
+		pb.BandwidthAction_GET, from, projectID[:],
+	).Scan(&sum)
+	if err == sql.ErrNoRows || sum == nil {
+		fmt.Println("nil")
+		return 0, nil
 	}
-	err = rows.Scan(&total)
-	if err != nil {
-		return total, err
-	}
-	return total, nil
+	return *sum, err
 }
 
 // ProjectStorageTotals returns the current inline and remote storage usage for a projectID
@@ -49,10 +46,49 @@ func (db *accountingDB) ProjectStorageTotals(ctx context.Context, projectID uuid
 		ctx,
 		dbx.BucketStorageTally_ProjectId(projectID[:]),
 	)
-	if err != nil {
+	if err != nil || rollup == nil {
 		return 0, 0, err
 	}
 	return rollup.Inline, rollup.Remote, err
+}
+
+// CreateBucketStorageTally creates a record in the bucket_storage_tallies accounting table
+func (db *accountingDB) CreateBucketStorageTally(ctx context.Context, tally accounting.BucketStorageTally) error {
+	_, err := db.db.Create_BucketStorageTally(
+		ctx,
+		dbx.BucketStorageTally_BucketName([]byte(tally.BucketName)),
+		dbx.BucketStorageTally_ProjectId(tally.ProjectID[:]),
+		dbx.BucketStorageTally_IntervalStart(tally.IntervalStart),
+		dbx.BucketStorageTally_Inline(uint64(tally.InlineBytes)),
+		dbx.BucketStorageTally_Remote(uint64(tally.RemoteBytes)),
+		dbx.BucketStorageTally_RemoteSegmentsCount(uint(tally.RemoteSegments)),
+		dbx.BucketStorageTally_InlineSegmentsCount(uint(tally.InlineSegments)),
+		dbx.BucketStorageTally_ObjectCount(uint(tally.Files)),
+		dbx.BucketStorageTally_MetadataSize(uint64(tally.MetadataSize)),
+	)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// CreateBucketBandwidthRollup creates a record in the bucket_bandwidth_rollups accounting table
+func (db *accountingDB) CreateBucketBandwidthRollup(ctx context.Context, rollup accounting.BucketBandwidthRollup) error {
+	_, err := db.db.Create_BucketBandwidthRollup(
+		ctx,
+		dbx.BucketBandwidthRollup_BucketName([]byte(rollup.BucketName)),
+		dbx.BucketBandwidthRollup_ProjectId(rollup.ProjectID[:]),
+		dbx.BucketBandwidthRollup_IntervalStart(rollup.IntervalStart),
+		dbx.BucketBandwidthRollup_IntervalSeconds(rollup.IntervalSeconds),
+		dbx.BucketBandwidthRollup_Action(rollup.Action),
+		dbx.BucketBandwidthRollup_Inline(rollup.Inline),
+		dbx.BucketBandwidthRollup_Allocated(rollup.Allocated),
+		dbx.BucketBandwidthRollup_Settled(rollup.Settled),
+	)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // LastTimestamp records the greatest last tallied time
