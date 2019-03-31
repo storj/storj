@@ -39,6 +39,7 @@ type Peer struct {
 
 	// Web server
 	Server struct {
+		Endpoint http.Server
 		Listener net.Listener
 	}
 	Versions version.AllowedVersions
@@ -48,6 +49,13 @@ var (
 	// response contains the byte version of current allowed versions
 	response []byte
 )
+
+func ignoreCancel(err error) error {
+	if err == context.Canceled || err == http.ErrServerClosed {
+		return nil
+	}
+	return err
+}
 
 func handleGet(w http.ResponseWriter, r *http.Request) {
 	var xfor string
@@ -98,6 +106,12 @@ func New(log *zap.Logger, config *Config) (peer *Peer, err error) {
 
 	peer.Log.Sugar().Debugf("setting version info to: %v", string(response))
 
+	mux := http.NewServeMux()
+	mux.Handle("/", http.HandlerFunc(handleGet))
+	peer.Server.Endpoint = http.Server{
+		Handler: mux,
+	}
+
 	peer.Server.Listener, err = net.Listen("tcp", config.Address)
 	if err != nil {
 		return nil, errs.Combine(err, peer.Close())
@@ -107,26 +121,25 @@ func New(log *zap.Logger, config *Config) (peer *Peer, err error) {
 
 // Run runs versioncontrol server until it's either closed or it errors.
 func (peer *Peer) Run(ctx context.Context) (err error) {
-	group, _ := errgroup.WithContext(ctx)
+
+	ctx, cancel := context.WithCancel(ctx)
+	var group errgroup.Group
 
 	group.Go(func() error {
+		<-ctx.Done()
+		return ignoreCancel(peer.Server.Endpoint.Shutdown(ctx))
+	})
+	group.Go(func() error {
+		defer cancel()
 		peer.Log.Sugar().Infof("Versioning server started on %s", peer.Addr())
-		http.HandleFunc("/", handleGet)
-		err = http.Serve(peer.Server.Listener, nil)
-		if err != nil {
-			peer.Log.Sugar().Error("error occurred starting web server")
-		}
-		return err
+		return ignoreCancel(peer.Server.Endpoint.Serve(peer.Server.Listener))
 	})
 	return group.Wait()
 }
 
 // Close closes all the resources.
 func (peer *Peer) Close() (err error) {
-	if peer.Server.Listener != nil {
-		err = peer.Server.Listener.Close()
-	}
-	return
+	return peer.Server.Endpoint.Close()
 }
 
 // Addr returns the public address.
