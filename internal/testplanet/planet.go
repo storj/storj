@@ -7,6 +7,7 @@ package testplanet
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
@@ -470,6 +471,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				Address:      "127.0.0.1:0",
 				PasswordCost: console.TestPasswordCost,
 			},
+			Version: planet.NewVersionConfig(),
 		}
 		if planet.config.Reconfigure.Satellite != nil {
 			planet.config.Reconfigure.Satellite(log, i, &config)
@@ -488,7 +490,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 
 		verInfo := planet.NewVersionInfo()
 
-		peer, err := satellite.New(log, identity, db, &config, *verInfo)
+		peer, err := satellite.New(log, identity, db, &config, verInfo)
 		if err != nil {
 			return xs, err
 		}
@@ -575,6 +577,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 				SatelliteIDRestriction:  true,
 				WhitelistedSatelliteIDs: strings.Join(whitelistedSatelliteIDs, ","),
 			},
+			Version: planet.NewVersionConfig(),
 		}
 		if planet.config.Reconfigure.StorageNode != nil {
 			planet.config.Reconfigure.StorageNode(i, &config)
@@ -582,7 +585,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 
 		verInfo := planet.NewVersionInfo()
 
-		peer, err := storagenode.New(log, identity, db, config, *verInfo)
+		peer, err := storagenode.New(log, identity, db, config, verInfo)
 		if err != nil {
 			return xs, err
 		}
@@ -654,14 +657,16 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 			Address:   "127.0.0.1:0",
 			StaticDir: "./web/bootstrap", // TODO: for development only
 		},
+		Version: planet.NewVersionConfig(),
 	}
 	if planet.config.Reconfigure.Bootstrap != nil {
 		planet.config.Reconfigure.Bootstrap(0, &config)
 	}
 
-	verInfo := planet.NewVersionInfo()
+	var verInfo version.Info
+	verInfo = planet.NewVersionInfo()
 
-	peer, err = bootstrap.New(log, identity, db, config, *verInfo)
+	peer, err = bootstrap.New(log, identity, db, config, verInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -711,9 +716,9 @@ func (planet *Planet) newVersionControlServer() (peer *versioncontrol.Peer, err 
 	return peer, nil
 }
 
-// NewVersionClient returns the Version Check client for this planet with tuned metrics.
-func (planet *Planet) NewVersionInfo() *version.Info {
-	return &version.Info{
+// NewVersionInfo returns the Version Info for this planet with tuned metrics.
+func (planet *Planet) NewVersionInfo() version.Info {
+	info := version.Info{
 		Timestamp:  "",
 		CommitHash: "",
 		Version: version.SemVer{
@@ -721,6 +726,16 @@ func (planet *Planet) NewVersionInfo() *version.Info {
 			Minor: 1,
 			Patch: 0},
 		Release: false,
+	}
+	return info
+}
+
+// NewVersionInfo returns the Version Info for this planet with tuned metrics.
+func (planet *Planet) NewVersionConfig() version.Config {
+	return version.Config{
+		ServerAddress:  fmt.Sprintf("http://%s/", planet.VersionControl.Addr()),
+		RequestTimeout: time.Second * 15,
+		CheckInterval:  time.Minute * 5,
 	}
 }
 
