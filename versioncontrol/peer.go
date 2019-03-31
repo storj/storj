@@ -40,7 +40,6 @@ type Peer struct {
 	// Web server
 	Server struct {
 		Listener net.Listener
-		handler  http.HandlerFunc
 	}
 	Versions version.AllowedVersions
 }

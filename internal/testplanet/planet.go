@@ -217,10 +217,9 @@ func (planet *Planet) Start(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	planet.cancel = cancel
 
-	err := planet.VersionControl.Run(ctx)
-	if err != nil {
-		return
-	}
+	planet.run.Go(func() error {
+		return planet.VersionControl.Run(ctx)
+	})
 
 	for i := range planet.peers {
 		peer := &planet.peers[i]
@@ -315,11 +314,10 @@ func (planet *Planet) Shutdown() error {
 		defer timer.Stop()
 		select {
 		case <-timer.C:
-			panic("planet took too long to shutdown" + errlist.Err().Error())
+			panic("planet took too long to shutdown")
 		case <-ctx.Done():
 		}
 	}()
-
 	errlist.Add(planet.run.Wait())
 	cancel()
 
