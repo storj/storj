@@ -560,49 +560,56 @@ func (m *lockedOrders) CreateSerialInfo(ctx context.Context, serialNumber storj.
 	return m.db.CreateSerialInfo(ctx, serialNumber, bucketID, limitExpiration)
 }
 
-// GetBucketBandwidth
+// GetBucketBandwidth gets total bucket bandwidth from period of time
 func (m *lockedOrders) GetBucketBandwidth(ctx context.Context, bucketID []byte, from time.Time, to time.Time) (int64, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetBucketBandwidth(ctx, bucketID, from, to)
 }
 
-// GetStorageNodeBandwidth
+// GetStorageNodeBandwidth gets total storage node bandwidth from period of time
 func (m *lockedOrders) GetStorageNodeBandwidth(ctx context.Context, nodeID storj.NodeID, from time.Time, to time.Time) (int64, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetStorageNodeBandwidth(ctx, nodeID, from, to)
 }
 
-// UpdateBucketBandwidthAllocation
+// UnuseSerialNumber
+func (m *lockedOrders) UnuseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UnuseSerialNumber(ctx, serialNumber, storageNodeID)
+}
+
+// UpdateBucketBandwidthAllocation updates 'allocated' bandwidth for given bucket
 func (m *lockedOrders) UpdateBucketBandwidthAllocation(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UpdateBucketBandwidthAllocation(ctx, bucketID, action, amount)
 }
 
-// UpdateBucketBandwidthInline
+// UpdateBucketBandwidthInline updates 'inline' bandwidth for given bucket
 func (m *lockedOrders) UpdateBucketBandwidthInline(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UpdateBucketBandwidthInline(ctx, bucketID, action, amount)
 }
 
-// UpdateBucketBandwidthSettle
+// UpdateBucketBandwidthSettle updates 'settled' bandwidth for given bucket
 func (m *lockedOrders) UpdateBucketBandwidthSettle(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UpdateBucketBandwidthSettle(ctx, bucketID, action, amount)
 }
 
-// UpdateStoragenodeBandwidthAllocation
+// UpdateStoragenodeBandwidthAllocation updates 'allocated' bandwidth for given storage node
 func (m *lockedOrders) UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UpdateStoragenodeBandwidthAllocation(ctx, storageNode, action, amount)
 }
 
-// UpdateStoragenodeBandwidthSettle
+// UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node
 func (m *lockedOrders) UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64) error {
 	m.Lock()
 	defer m.Unlock()

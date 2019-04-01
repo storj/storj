@@ -29,6 +29,8 @@ type DB interface {
 	CreateSerialInfo(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte, limitExpiration time.Time) error
 	// UseSerialNumber creates serial number entry in database
 	UseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) ([]byte, error)
+	// UnuseSerialNumber removes pair serial number -> storage node id from database
+	UnuseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) error
 
 	// UpdateBucketBandwidthAllocation updates 'allocated' bandwidth for given bucket
 	UpdateBucketBandwidthAllocation(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64) error
@@ -129,7 +131,7 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 				return status.Errorf(codes.Internal, "unable to find uplink public key")
 			}
 			uplinkSignee = &signing.PublicKey{
-				Self: orderLimit.UplinkId, // TODO should this be taken from public key ??
+				Self: orderLimit.UplinkId,
 				Key:  uplinkPubKey,
 			}
 		}
@@ -166,6 +168,7 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 
 		bucketID, err := endpoint.DB.UseSerialNumber(ctx, orderLimit.SerialNumber, orderLimit.StorageNodeId)
 		if err != nil {
+			endpoint.log.Warn("unable to use serial number", zap.Error(err))
 			duplicateRequest := strings.Contains(err.Error(), "violates constraint")
 			if duplicateRequest {
 				err := stream.Send(&pb.SettlementResponse{
@@ -175,34 +178,25 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 				if err != nil {
 					return formatError(err)
 				}
-			} else {
-				// send error if order was not saved to DB to avoid removing on storage node
-				return err
 			}
+			continue
 		}
 
 		if err := endpoint.DB.UpdateBucketBandwidthSettle(ctx, bucketID, orderLimit.Action, order.Amount); err != nil {
-			err := stream.Send(&pb.SettlementResponse{
-				SerialNumber: orderLimit.SerialNumber,
-				// TODO should we reject or accept such error
-				Status: pb.SettlementResponse_REJECTED,
-			})
-			if err != nil {
-				return formatError(err)
+			if err := endpoint.DB.UnuseSerialNumber(ctx, orderLimit.SerialNumber, orderLimit.StorageNodeId); err != nil {
+				endpoint.log.Error("unable to unuse serial number", zap.Error(err))
 			}
-			return nil
+			return err
 		}
 
 		if err := endpoint.DB.UpdateStoragenodeBandwidthSettle(ctx, orderLimit.StorageNodeId, orderLimit.Action, order.Amount); err != nil {
-			err := stream.Send(&pb.SettlementResponse{
-				SerialNumber: orderLimit.SerialNumber,
-				// TODO should we reject or accept such error
-				Status: pb.SettlementResponse_REJECTED,
-			})
-			if err != nil {
-				return formatError(err)
+			if err := endpoint.DB.UnuseSerialNumber(ctx, orderLimit.SerialNumber, orderLimit.StorageNodeId); err != nil {
+				endpoint.log.Error("unable to unuse serial number", zap.Error(err))
 			}
-			return nil
+			if err := endpoint.DB.UpdateBucketBandwidthSettle(ctx, bucketID, orderLimit.Action, -order.Amount); err != nil {
+				endpoint.log.Error("unable to rollback bucket bandwidth", zap.Error(err))
+			}
+			return err
 		}
 
 		err = stream.Send(&pb.SettlementResponse{

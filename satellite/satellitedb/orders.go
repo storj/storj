@@ -158,3 +158,11 @@ func (db *ordersDB) GetStorageNodeBandwidth(ctx context.Context, nodeID storj.No
 	}
 	return *sum, err
 }
+
+// UnuseSerialNumber removes pair serial number -> storage node id from database
+func (db *ordersDB) UnuseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) error {
+	statement := `DELETE FROM used_serials WHERE storage_node_id = ? AND
+				  serial_number_id IN (SELECT id FROM serial_numbers WHERE serial_number = ?)`
+	_, err := db.db.ExecContext(ctx, db.db.Rebind(statement), storageNodeID.Bytes(), serialNumber.Bytes())
+	return err
+}

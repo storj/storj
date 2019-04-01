@@ -75,7 +75,7 @@ func NewSegmentStore(metainfo metainfo.Client, ec ecclient.Client, rs eestream.R
 func (s *segmentStore) Meta(ctx context.Context, path storj.Path) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	bucket, objectPath, segmentIndex, err := split(path)
+	bucket, objectPath, segmentIndex, err := splitPathFragments(path)
 	if err != nil {
 		return Meta{}, err
 	}
@@ -138,7 +138,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
-		bucket, _, _, err := split(p)
+		bucket, _, _, err := splitPathFragments(p)
 		if err != nil {
 			return Meta{}, err
 		}
@@ -172,7 +172,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		}
 	}
 
-	bucket, objectPath, segmentIndex, err := split(path)
+	bucket, objectPath, segmentIndex, err := splitPathFragments(path)
 	if err != nil {
 		return Meta{}, err
 	}
@@ -189,7 +189,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Ranger, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	bucket, objectPath, segmentIndex, err := split(path)
+	bucket, objectPath, segmentIndex, err := splitPathFragments(path)
 	if err != nil {
 		return nil, Meta{}, err
 	}
@@ -281,7 +281,7 @@ func makeRemotePointer(nodes []*pb.Node, hashes []*pb.PieceHash, rs eestream.Red
 func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	bucket, objectPath, segmentIndex, err := split(path)
+	bucket, objectPath, segmentIndex, err := splitPathFragments(path)
 	if err != nil {
 		return err
 	}
@@ -309,7 +309,7 @@ func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) 
 func (s *segmentStore) List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	bucket, strippedPrefix, _, err := split(prefix)
+	bucket, strippedPrefix, _, err := splitPathFragments(prefix)
 	if err != nil {
 		return nil, false, Error.Wrap(err)
 	}
@@ -375,7 +375,7 @@ func convertTime(ts *timestamp.Timestamp) time.Time {
 	return t
 }
 
-func split(path storj.Path) (bucket string, objectPath storj.Path, segmentIndex int64, err error) {
+func splitPathFragments(path storj.Path) (bucket string, objectPath storj.Path, segmentIndex int64, err error) {
 	components := storj.SplitPath(path)
 	if len(components) < 1 {
 		return "", "", -2, Error.New("empty path")

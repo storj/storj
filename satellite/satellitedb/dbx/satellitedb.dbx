@@ -408,16 +408,8 @@ model bucket_bandwidth_rollup (
 	field settled   uint64 ( updatable )
 )
 
-create bucket_bandwidth_rollup ()
-
 read scalar (
 	select bucket_bandwidth_rollup
-	where  bucket_bandwidth_rollup.bucket_id = ?
-	where  bucket_bandwidth_rollup.interval_start = ?
-	where  bucket_bandwidth_rollup.action = ?
-)
-
-update bucket_bandwidth_rollup (
 	where  bucket_bandwidth_rollup.bucket_id = ?
 	where  bucket_bandwidth_rollup.interval_start = ?
 	where  bucket_bandwidth_rollup.action = ?
@@ -457,16 +449,8 @@ model storagenode_bandwidth_rollup (
 	field settled   uint64 ( updatable )
 )
 
-create storagenode_bandwidth_rollup ()
-
 read scalar (
 	select storagenode_bandwidth_rollup
-	where  storagenode_bandwidth_rollup.storagenode_id = ?
-	where  storagenode_bandwidth_rollup.interval_start = ?
-	where  storagenode_bandwidth_rollup.action = ?
-)
-
-update storagenode_bandwidth_rollup (
 	where  storagenode_bandwidth_rollup.storagenode_id = ?
 	where  storagenode_bandwidth_rollup.interval_start = ?
 	where  storagenode_bandwidth_rollup.action = ?
