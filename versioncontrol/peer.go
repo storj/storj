@@ -57,21 +57,22 @@ func ignoreCancel(err error) error {
 
 // HandleGet contains the request handler for the version control web server
 func (peer *Peer) HandleGet(w http.ResponseWriter, r *http.Request) {
-	var xfor string
-
 	// Only handle GET Requests
-	if r.Method == "GET" {
-		if xfor = r.Header.Get("X-Forwarded-For"); xfor == "" {
-			xfor = r.RemoteAddr
-		}
-		zap.S().Debugf("Request from: %s for %s", r.RemoteAddr, xfor)
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(200)
-		_, err := w.Write(peer.response)
-		if err != nil {
-			zap.S().Errorf("error writing response to client: %v", err)
-		}
+	var xfor string
+	if xfor = r.Header.Get("X-Forwarded-For"); xfor == "" {
+		xfor = r.RemoteAddr
+	}
+	zap.S().Debugf("Request from: %s for %s", r.RemoteAddr, xfor)
+
+	w.Header().Set("Content-Type", "application/json")
+	_, err := w.Write(peer.response)
+	if err != nil {
+		zap.S().Errorf("error writing response to client: %v", err)
 	}
 }
 

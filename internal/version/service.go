@@ -6,7 +6,6 @@ package version
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
 	"net/http"
 	"sync"
 	"time"
@@ -112,7 +111,8 @@ func (srv *Service) Run(ctx context.Context) error {
 		if err != nil {
 			zap.S().Errorf("Failed to do periodic version check: ", err)
 		}
-		return err
+
+		return nil
 	})
 }
 
@@ -154,6 +154,7 @@ func (srv *Service) queryVersionFromControlServer(ctx context.Context) (ver Allo
 	client := http.Client{
 		Timeout: srv.config.RequestTimeout,
 	}
+
 	// New Request that used the passed in context
 	req, err := http.NewRequest("GET", srv.config.ServerAddress, nil)
 	if err != nil {
@@ -166,11 +167,9 @@ func (srv *Service) queryVersionFromControlServer(ctx context.Context) (ver Allo
 		return AllowedVersions{}, err
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return AllowedVersions{}, err
-	}
-	err = json.Unmarshal(body, &ver)
+	defer func() { _ = resp.Body.Close() }()
+
+	err = json.NewDecoder(resp.Body).Decode(&ver)
 	return
 }
 
