@@ -122,6 +122,8 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 		}
 
 		var uplinkSignee signing.Signee
+
+		// who asked for this order: uplink (get/put/del) or satellite (get_repair/put_repair/audit)
 		if endpoint.satelliteSignee.ID() == orderLimit.UplinkId {
 			uplinkSignee = endpoint.satelliteSignee
 		} else {
