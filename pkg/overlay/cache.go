@@ -120,6 +120,15 @@ type NodeDossier struct {
 	Reputation NodeStats
 }
 
+// Online checks if a node is online based on the collected statistics.
+//
+// A node is considered online if the last attempt for contact was successful
+// and it was within the last hour.
+func (node *NodeDossier) Online() bool {
+	return time.Now().Sub(node.Reputation.LastContactSuccess) < 1*time.Hour &&
+		node.Reputation.LastContactSuccess.After(node.Reputation.LastContactFailure)
+}
+
 // NodeStats contains statistics about a node.
 type NodeStats struct {
 	Latency90          int64
@@ -191,7 +200,7 @@ func (cache *Cache) OfflineNodes(ctx context.Context, nodes []storj.NodeID) (off
 	}
 
 	for i, r := range results {
-		if r == nil {
+		if r == nil || !r.Online() {
 			offline = append(offline, i)
 		}
 	}
