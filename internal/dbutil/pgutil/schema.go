@@ -17,7 +17,7 @@ import (
 func CreateRandomTestingSchemaName(n int) string {
 	data := make([]byte, n)
 
-	// We don't handle the error because math/rand.Read() always returns a nil error.
+	// math/rand.Read() always returns a nil error so there's no need to handle the error.
 	_, _ = rand.Read(data)
 	return hex.EncodeToString(data)
 }
