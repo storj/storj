@@ -62,6 +62,33 @@ func (service *Service) saveSerial(ctx context.Context, serialNumber storj.Seria
 	return service.orders.CreateSerialInfo(ctx, serialNumber, bucketID, expiresAt)
 }
 
+func (service *Service) updateBandwidth(ctx context.Context, bucketID []byte, addressedOrderLimits []*pb.AddressedOrderLimit) error {
+	if len(addressedOrderLimits) == 0 {
+		return nil
+	}
+	var bucketAllocation int64
+	var action pb.PieceAction
+	nodesAllocation := make(map[storj.NodeID]int64)
+	for _, addressedOrderLimit := range addressedOrderLimits {
+		if addressedOrderLimit != nil {
+			orderLimit := addressedOrderLimit.Limit
+			bucketAllocation += orderLimit.Limit
+			nodesAllocation[orderLimit.StorageNodeId] = orderLimit.Limit
+			action = orderLimit.Action
+		}
+	}
+
+	if err := service.orders.UpdateBucketBandwidthAllocation(ctx, bucketID, action, bucketAllocation); err != nil {
+		return err
+	}
+	for nodeID, allocation := range nodesAllocation {
+		if err := service.orders.UpdateStoragenodeBandwidthAllocation(ctx, nodeID, action, allocation); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // CreateGetOrderLimits creates the order limits for downloading the pieces of pointer.
 func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identity.PeerIdentity, bucketID []byte, pointer *pb.Pointer) (_ []*pb.AddressedOrderLimit, err error) {
 	rootPieceID := pointer.GetRemote().RootPieceId
@@ -142,6 +169,10 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 		return nil, Error.Wrap(err)
 	}
 
+	if err := service.updateBandwidth(ctx, bucketID, limits); err != nil {
+		return nil, Error.Wrap(err)
+	}
+
 	return limits, nil
 }
 
@@ -192,6 +223,10 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, uplink *identi
 
 	err = service.saveSerial(ctx, serialNumber, bucketID, orderExpirationTime)
 	if err != nil {
+		return storj.PieceID{}, nil, Error.Wrap(err)
+	}
+
+	if err := service.updateBandwidth(ctx, bucketID, limits); err != nil {
 		return storj.PieceID{}, nil, Error.Wrap(err)
 	}
 
@@ -347,6 +382,10 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 		return nil, Error.Wrap(err)
 	}
 
+	if err := service.updateBandwidth(ctx, bucketID, limits); err != nil {
+		return nil, Error.Wrap(err)
+	}
+
 	return limits, nil
 }
 
@@ -422,6 +461,10 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 		return nil, Error.Wrap(err)
 	}
 
+	if err := service.updateBandwidth(ctx, bucketID, limits); err != nil {
+		return nil, Error.Wrap(err)
+	}
+
 	return limits, nil
 }
 
@@ -483,6 +526,10 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 
 	err = service.saveSerial(ctx, serialNumber, bucketID, orderExpirationTime)
 	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	if err := service.updateBandwidth(ctx, bucketID, limits); err != nil {
 		return nil, Error.Wrap(err)
 	}
 
