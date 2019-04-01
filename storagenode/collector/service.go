@@ -5,7 +5,6 @@ package collector
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -38,7 +37,6 @@ type Service struct {
 
 // NewService creates a new collector service.
 func NewService(log *zap.Logger, pieces *pieces.Store, pieceinfos pieces.DB, interval time.Duration) *Service {
-	fmt.Println("KISHORE -->", interval)
 	return &Service{
 		log:        log,
 		pieces:     pieces,
@@ -63,7 +61,6 @@ func (service *Service) Run(ctx context.Context) (err error) {
 
 // Collect collects expired pieces att this moment.
 func (service *Service) Collect(ctx context.Context) error {
-	fmt.Println("KISHORE--> HELLO COLLECTOR")
 	err := service.pieceinfos.DeleteExpired(ctx, time.Now())
 	if err != nil {
 		service.log.Error("collect", zap.Error(err))

@@ -45,8 +45,9 @@ const (
 
 // DB is a piece store database
 type DB struct {
-	mu sync.Mutex
-	db *sql.DB
+	mu     sync.Mutex
+	db     *sql.DB
+	dbPath string
 }
 
 // Agreement is a struct that contains a bandwidth agreement and the associated signature
@@ -66,7 +67,8 @@ func Open(DBPath string) (db *DB, err error) {
 		return nil, Error.Wrap(err)
 	}
 	db = &DB{
-		db: sqlite,
+		db:     sqlite,
+		dbPath: DBPath,
 	}
 
 	return db, nil

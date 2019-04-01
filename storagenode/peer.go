@@ -6,8 +6,6 @@ package storagenode
 import (
 	"context"
 
-	"storj.io/storj/storagenode/collector"
-
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -27,6 +25,7 @@ import (
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode/bandwidth"
+	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/inspector"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/orders"
