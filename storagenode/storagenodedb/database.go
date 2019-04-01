@@ -39,7 +39,7 @@ type DB struct {
 		Close() error
 	}
 
-	info *infodb
+	info *InfoDB
 
 	kdb, ndb storage.KeyValueStore
 }
