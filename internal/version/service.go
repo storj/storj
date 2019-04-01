@@ -13,8 +13,11 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 
 	"storj.io/storj/internal/sync2"
+	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/transport"
 )
 
@@ -36,6 +39,15 @@ type Service struct {
 	allowed bool
 }
 
+type VersionedClient struct {
+	transport transport.Client
+	version   *Service
+}
+
+const (
+	ErrOldVersion = "Outdated Software Version, please update!"
+)
+
 // NewService creates a Version Check Client with default configuration
 func NewService(config *Config, info *Info) (client *Service) {
 	return &Service{
@@ -45,31 +57,53 @@ func NewService(config *Config, info *Info) (client *Service) {
 	}
 }
 
-// NewInfo creates a default information configuration
-// ToDo: temporary for testing
-func NewInfo() (info Info) {
-	return Info{
-		Version: SemVer{
-			Major: 0,
-			Minor: 1,
-			Patch: 0,
-		},
+// NewVersionedClient returns a transport client which ensures, that the software is up to date
+func NewVersionedClient(transport transport.Client, service *Service) *VersionedClient {
+	return &VersionedClient{
+		transport: transport,
+		version:   service,
 	}
 }
 
-// NewVersionedClient returns a transport client which ensures, that the software is up to date
-func NewVersionedClient(transport transport.Client, service *Service) transport.Client {
-	/*if !service.IsUpToDate() {
-		zap.S().Fatal("Software Version outdated, please update")
-	}*/
-	return transport
+// DialNode returns a grpc connection with tls to a node.
+//
+// Use this method for communicating with nodes as it is more secure than
+// DialAddress. The connection will be established successfully only if the
+// target node has the private key for the requested node ID.
+func (client *VersionedClient) DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+	if !client.version.IsUpToDate() {
+		return nil, errs.New(ErrOldVersion)
+	}
+	return client.transport.DialNode(ctx, node, opts...)
+}
+
+// DialAddress returns a grpc connection with tls to an IP address.
+//
+// Do not use this method unless having a good reason. In most cases DialNode
+// should be used for communicating with nodes as it is more secure than
+// DialAddress.
+func (client *VersionedClient) DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+	if !client.version.IsUpToDate() {
+		return nil, errs.New(ErrOldVersion)
+	}
+	return client.transport.DialAddress(ctx, address, opts...)
+}
+
+// Identity is a getter for the transport's identity
+func (client *VersionedClient) Identity() *identity.FullIdentity {
+	return client.transport.Identity()
+}
+
+// WithObservers returns a new transport including the listed observers.
+func (client *VersionedClient) WithObservers(obs ...transport.Observer) transport.Client {
+	return &VersionedClient{client.transport.WithObservers(obs...), client.version}
 }
 
 // Run logs the current version information
 func (srv *Service) Run(ctx context.Context) error {
 	return srv.Loop.Run(ctx, func(ctx context.Context) error {
 		var err error
-		allowed, err := srv.checkVersion(&ctx)
+		allowed, err := srv.checkVersion(ctx)
 
 		srv.mu.Lock()
 		srv.allowed = allowed
@@ -90,11 +124,11 @@ func (srv *Service) IsUpToDate() bool {
 }
 
 // CheckVersion checks if the client is running latest/allowed code
-func (srv *Service) checkVersion(ctx *context.Context) (allowed bool, err error) {
-	defer mon.Task()(ctx)(&err)
+func (srv *Service) checkVersion(ctx context.Context) (allowed bool, err error) {
+	defer mon.Task()(&ctx)(&err)
 	accepted, err := srv.queryVersionFromControlServer(ctx)
 	if err != nil {
-		return false, err
+		return true, err
 	}
 
 	zap.S().Debugf("allowed versions from Control Server: %v", accepted)
@@ -104,25 +138,31 @@ func (srv *Service) checkVersion(ctx *context.Context) (allowed bool, err error)
 	if list == nil {
 		return true, errs.New("Empty List from Versioning Server")
 	}
-	if containsVersion(list, Build.Version) {
-		zap.S().Infof("running on version %s", Build.Version.String())
+	if containsVersion(list, srv.info.Version) {
+		zap.S().Infof("running on version %s", srv.info.Version.String())
 		allowed = true
 	} else {
-		zap.S().Errorf("running on not allowed/outdated version %s", Build.Version.String())
+		zap.S().Errorf("running on not allowed/outdated version %s", srv.info.Version.String())
 		allowed = false
 	}
 	return
 }
 
 // QueryVersionFromControlServer handles the HTTP request to gather the allowed and latest version information
-func (srv *Service) queryVersionFromControlServer(ctx *context.Context) (ver AllowedVersions, err error) {
+func (srv *Service) queryVersionFromControlServer(ctx context.Context) (ver AllowedVersions, err error) {
+	// Tune Client to have a custom Timeout (reduces hanging software)
 	client := http.Client{
 		Timeout: srv.config.RequestTimeout,
 	}
-	resp, err := client.Get(srv.config.ServerAddress)
+	// New Request that used the passed in context
+	req, err := http.NewRequest("GET", srv.config.ServerAddress, nil)
 	if err != nil {
-		// ToDo: Make sure Control Server is always reachable and refuse startup
-		srv.allowed = true
+		return AllowedVersions{}, err
+	}
+	req = req.WithContext(ctx)
+
+	resp, err := client.Do(req)
+	if err != nil {
 		return AllowedVersions{}, err
 	}
 
