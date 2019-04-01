@@ -5,7 +5,7 @@ After        = syslog.target
 [Service]
 User         = storj
 Group        = storj
-ExecStart    = /usr/local/bin/version-control -syslog -config-file /etc/storj/version-control/config.json
+ExecStart    = /usr/local/bin/versioncontrol run -config-dir /etc/storj/versioncontrol/
 Restart      = always
 Type         = simple
 NotifyAccess = main
