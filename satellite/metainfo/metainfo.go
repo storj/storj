@@ -124,6 +124,11 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
+	err = endpoint.validateBucket(req.Bucket)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
 	redundancy, err := eestream.NewRedundancyStrategyFromProto(req.GetRedundancy())
 	if err != nil {
 		return nil, err
