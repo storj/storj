@@ -272,16 +272,16 @@ func (peer *Peer) Run(ctx context.Context) error {
 		return ignoreCancel(peer.Kademlia.Service.Bootstrap(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Kademlia.Service.Run(ctx))
+		return peer.backoffRestart(ctx, baseWaitInterval, maxWaitDuration, "kademlia", peer.Kademlia.Service.Run)
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Agreements.Sender.Run(ctx))
+		return peer.backoffRestart(ctx, baseWaitInterval, maxWaitDuration, "agreements.sender", peer.Agreements.Sender.Run)
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Storage2.Sender.Run(ctx))
+		return peer.backoffRestart(ctx, baseWaitInterval, maxWaitDuration, "storage2.sender", peer.Storage2.Sender.Run)
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Storage2.Monitor.Run(ctx))
+		return peer.backoffRestart(ctx, baseWaitInterval, maxWaitDuration, "storage2.monitor", peer.Storage2.Monitor.Run)
 	})
 	group.Go(func() error {
 		// TODO: move the message into Server instead
@@ -289,38 +289,40 @@ func (peer *Peer) Run(ctx context.Context) error {
 		peer.Log.Sugar().Infof("Node %s started", peer.Identity.ID)
 		peer.Log.Sugar().Infof("Public server started on %s", peer.Addr())
 		peer.Log.Sugar().Infof("Private server started on %s", peer.PrivateAddr())
-		return ignoreCancel(peer.Server.Run(ctx))
+		return peer.backoffRestart(ctx, baseWaitInterval, maxWaitDuration, "peer.server", peer.Server.Run)
 	})
 
 	return group.Wait()
 }
 
-func exponentialBackoff(ctx context.Context, waitInterval, maxWait time.Duration, toExec func(context.Context) error) error {
-
+func (peer *Peer) backoffRestart(ctx context.Context, waitInterval, maxWait time.Duration, name string, service func(context.Context) error) error {
 	var errList errs.Group
-	err := toExec(ctx)
-	if err != nil {
-		errList.Add(err)
-	}
-	// if waitInterval*2 > maxWait {
-	// 	return errs.Combine(combined, Error.New("unable to bootstrap to network after %d attempts", attempts))
-	// }
-	// if attempts == 1 {
-	// 	time.Sleep(waitInterval)
-	// }
-	// if attempts > 1 {
-	// 	waitInterval = waitInterval * 2
-	// 	time.Sleep(waitInterval)
-	// }
 
-	// err := peer.Kademlia.Service.Bootstrap(ctx)
-	// if err != nil {
-	// 	errs.Combine(combined, err)
-	// 	attempts++
-	// 	peer.exponentialBackoffBootstrap(ctx, waitInterval, maxWait, attempts, combined)
-	// }
-	// return nil
-	return nil
+	for i := 0; waitInterval < maxWait; i++ {
+		err := func() (err error) {
+			defer func() {
+				rec := recover()
+				if rec != nil {
+					errList.Add(errs.New("caught panic in service %s: %+v", name, rec))
+				}
+			}()
+			return ignoreCancel(service(ctx))
+		}()
+		peer.Log.Sugar().Errorf("Service %s failure: %+v", name, err)
+		if i == 0 {
+			time.Sleep(waitInterval)
+		}
+		if waitInterval*2 > maxWait {
+			errList.Add(Error.New("unable start %s after final wait time of %d", name, waitInterval))
+			return errList.Err()
+		}
+		if i > 0 {
+			waitInterval = waitInterval * 2
+			time.Sleep(waitInterval)
+		}
+	}
+	errList.Add(Error.New("unable to start %s after final wait time of %d", name, waitInterval))
+	return errList.Err()
 }
 
 func ignoreCancel(err error) error {
