@@ -410,6 +410,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 			Limit:              orderLimit,
 			StorageNodeAddress: node.Address,
 		}
+		limitsCount++
 	}
 
 	if limitsCount < redundancy.GetMinReq() {
