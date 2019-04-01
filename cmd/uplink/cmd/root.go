@@ -20,7 +20,7 @@ import (
 
 // UplinkFlags configuration flags
 type UplinkFlags struct {
-	Uplink   libuplink.Uplink
+	Uplink   *libuplink.Uplink
 	Identity identity.Config
 	uplink.Config
 }
@@ -63,7 +63,7 @@ func (c *UplinkFlags) Metainfo(ctx context.Context) (storj.Metainfo, streams.Sto
 		return nil, nil, err
 	}
 
-	// add libuplink getmetainfo here
+	c.Uplink = libuplink.NewUplink(identity, cfg.Config.Client.SatelliteAddr, cfg)
 
 	return c.GetMetainfo(ctx, identity)
 }
