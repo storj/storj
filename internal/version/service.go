@@ -34,6 +34,7 @@ type Service struct {
 
 	Loop *sync2.Cycle
 
+	checked chan struct{}
 	mu      sync.Mutex
 	allowed bool
 }
@@ -50,9 +51,11 @@ const (
 // NewService creates a Version Check Client with default configuration
 func NewService(config *Config, info *Info) (client *Service) {
 	return &Service{
-		config: config,
-		info:   info,
-		Loop:   sync2.NewCycle(config.CheckInterval),
+		config:  config,
+		info:    info,
+		Loop:    sync2.NewCycle(config.CheckInterval),
+		checked: make(chan struct{}, 0),
+		allowed: false,
 	}
 }
 
@@ -100,6 +103,7 @@ func (client *VersionedClient) WithObservers(obs ...transport.Observer) transpor
 
 // Run logs the current version information
 func (srv *Service) Run(ctx context.Context) error {
+	firstCheck := false
 	return srv.Loop.Run(ctx, func(ctx context.Context) error {
 		var err error
 		allowed, err := srv.checkVersion(ctx)
@@ -107,6 +111,11 @@ func (srv *Service) Run(ctx context.Context) error {
 		srv.mu.Lock()
 		srv.allowed = allowed
 		srv.mu.Unlock()
+
+		if firstCheck {
+			close(srv.checked)
+			firstCheck = false
+		}
 
 		if err != nil {
 			zap.S().Errorf("Failed to do periodic version check: ", err)
@@ -118,8 +127,11 @@ func (srv *Service) Run(ctx context.Context) error {
 
 // IsUpToDate returns whether if the Service is allowed to operate or not
 func (srv *Service) IsUpToDate() bool {
+	<-srv.checked
+
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
+
 	return srv.allowed
 }
 
