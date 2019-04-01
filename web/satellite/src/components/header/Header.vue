@@ -21,11 +21,6 @@ import AccountButton from './AccountButton.vue';
 
 @Component(
     {
-        methods: {
-            onLogoClick: function (): void {
-                location.reload();
-            }
-        },
         components: {
             ProjectSelectionArea,
             NewProjectArea,

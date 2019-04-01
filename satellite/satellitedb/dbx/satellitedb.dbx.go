@@ -3702,7 +3702,9 @@ func (obj *postgresImpl) Create_Node(ctx context.Context,
 	node_audit_success_ratio Node_AuditSuccessRatio_Field,
 	node_uptime_success_count Node_UptimeSuccessCount_Field,
 	node_total_uptime_count Node_TotalUptimeCount_Field,
-	node_uptime_ratio Node_UptimeRatio_Field) (
+	node_uptime_ratio Node_UptimeRatio_Field,
+	node_last_contact_success Node_LastContactSuccess_Field,
+	node_last_contact_failure Node_LastContactFailure_Field) (
 	node *Node, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
@@ -3723,8 +3725,8 @@ func (obj *postgresImpl) Create_Node(ctx context.Context,
 	__uptime_ratio_val := node_uptime_ratio.value()
 	__created_at_val := __now
 	__updated_at_val := __now
-	__last_contact_success_val := __now
-	__last_contact_failure_val := __now
+	__last_contact_success_val := node_last_contact_success.value()
+	__last_contact_failure_val := node_last_contact_failure.value()
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, address, protocol, type, email, wallet, free_bandwidth, free_disk, latency_90, audit_success_count, total_audit_count, audit_success_ratio, uptime_success_count, total_uptime_count, uptime_ratio, created_at, updated_at, last_contact_success, last_contact_failure ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING nodes.id, nodes.address, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure")
 
@@ -3950,6 +3952,39 @@ func (obj *postgresImpl) Create_UsedSerial(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return used_serial, nil
+
+}
+
+func (obj *postgresImpl) Create_BucketStorageTally(ctx context.Context,
+	bucket_storage_tally_bucket_id BucketStorageTally_BucketId_Field,
+	bucket_storage_tally_interval_start BucketStorageTally_IntervalStart_Field,
+	bucket_storage_tally_inline BucketStorageTally_Inline_Field,
+	bucket_storage_tally_remote BucketStorageTally_Remote_Field,
+	bucket_storage_tally_remote_segments_count BucketStorageTally_RemoteSegmentsCount_Field,
+	bucket_storage_tally_inline_segments_count BucketStorageTally_InlineSegmentsCount_Field,
+	bucket_storage_tally_object_count BucketStorageTally_ObjectCount_Field,
+	bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
+	bucket_storage_tally *BucketStorageTally, err error) {
+	__bucket_id_val := bucket_storage_tally_bucket_id.value()
+	__interval_start_val := bucket_storage_tally_interval_start.value()
+	__inline_val := bucket_storage_tally_inline.value()
+	__remote_val := bucket_storage_tally_remote.value()
+	__remote_segments_count_val := bucket_storage_tally_remote_segments_count.value()
+	__inline_segments_count_val := bucket_storage_tally_inline_segments_count.value()
+	__object_count_val := bucket_storage_tally_object_count.value()
+	__metadata_size_val := bucket_storage_tally_metadata_size.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_storage_tallies ( bucket_id, interval_start, inline, remote, remote_segments_count, inline_segments_count, object_count, metadata_size ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING bucket_storage_tallies.bucket_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __bucket_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val)
+
+	bucket_storage_tally = &BucketStorageTally{}
+	err = obj.driver.QueryRow(__stmt, __bucket_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val).Scan(&bucket_storage_tally.BucketId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket_storage_tally, nil
 
 }
 
@@ -5978,7 +6013,9 @@ func (obj *sqlite3Impl) Create_Node(ctx context.Context,
 	node_audit_success_ratio Node_AuditSuccessRatio_Field,
 	node_uptime_success_count Node_UptimeSuccessCount_Field,
 	node_total_uptime_count Node_TotalUptimeCount_Field,
-	node_uptime_ratio Node_UptimeRatio_Field) (
+	node_uptime_ratio Node_UptimeRatio_Field,
+	node_last_contact_success Node_LastContactSuccess_Field,
+	node_last_contact_failure Node_LastContactFailure_Field) (
 	node *Node, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
@@ -5999,8 +6036,8 @@ func (obj *sqlite3Impl) Create_Node(ctx context.Context,
 	__uptime_ratio_val := node_uptime_ratio.value()
 	__created_at_val := __now
 	__updated_at_val := __now
-	__last_contact_success_val := __now
-	__last_contact_failure_val := __now
+	__last_contact_success_val := node_last_contact_success.value()
+	__last_contact_failure_val := node_last_contact_failure.value()
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, address, protocol, type, email, wallet, free_bandwidth, free_disk, latency_90, audit_success_count, total_audit_count, audit_success_ratio, uptime_success_count, total_uptime_count, uptime_ratio, created_at, updated_at, last_contact_success, last_contact_failure ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
 
@@ -6253,6 +6290,42 @@ func (obj *sqlite3Impl) Create_UsedSerial(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return obj.getLastUsedSerial(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_BucketStorageTally(ctx context.Context,
+	bucket_storage_tally_bucket_id BucketStorageTally_BucketId_Field,
+	bucket_storage_tally_interval_start BucketStorageTally_IntervalStart_Field,
+	bucket_storage_tally_inline BucketStorageTally_Inline_Field,
+	bucket_storage_tally_remote BucketStorageTally_Remote_Field,
+	bucket_storage_tally_remote_segments_count BucketStorageTally_RemoteSegmentsCount_Field,
+	bucket_storage_tally_inline_segments_count BucketStorageTally_InlineSegmentsCount_Field,
+	bucket_storage_tally_object_count BucketStorageTally_ObjectCount_Field,
+	bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
+	bucket_storage_tally *BucketStorageTally, err error) {
+	__bucket_id_val := bucket_storage_tally_bucket_id.value()
+	__interval_start_val := bucket_storage_tally_interval_start.value()
+	__inline_val := bucket_storage_tally_inline.value()
+	__remote_val := bucket_storage_tally_remote.value()
+	__remote_segments_count_val := bucket_storage_tally_remote_segments_count.value()
+	__inline_segments_count_val := bucket_storage_tally_inline_segments_count.value()
+	__object_count_val := bucket_storage_tally_object_count.value()
+	__metadata_size_val := bucket_storage_tally_metadata_size.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_storage_tallies ( bucket_id, interval_start, inline, remote, remote_segments_count, inline_segments_count, object_count, metadata_size ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __bucket_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val)
+
+	__res, err := obj.driver.Exec(__stmt, __bucket_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastBucketStorageTally(ctx, __pk)
 
 }
 
@@ -8248,6 +8321,24 @@ func (obj *sqlite3Impl) getLastUsedSerial(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) getLastBucketStorageTally(ctx context.Context,
+	pk int64) (
+	bucket_storage_tally *BucketStorageTally, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	bucket_storage_tally = &BucketStorageTally{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&bucket_storage_tally.BucketId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket_storage_tally, nil
+
+}
+
 func (obj *sqlite3Impl) getLastCertRecord(ctx context.Context,
 	pk int64) (
 	certRecord *CertRecord, err error) {
@@ -8685,6 +8776,24 @@ func (rx *Rx) Create_ApiKey(ctx context.Context,
 
 }
 
+func (rx *Rx) Create_BucketStorageTally(ctx context.Context,
+	bucket_storage_tally_bucket_id BucketStorageTally_BucketId_Field,
+	bucket_storage_tally_interval_start BucketStorageTally_IntervalStart_Field,
+	bucket_storage_tally_inline BucketStorageTally_Inline_Field,
+	bucket_storage_tally_remote BucketStorageTally_Remote_Field,
+	bucket_storage_tally_remote_segments_count BucketStorageTally_RemoteSegmentsCount_Field,
+	bucket_storage_tally_inline_segments_count BucketStorageTally_InlineSegmentsCount_Field,
+	bucket_storage_tally_object_count BucketStorageTally_ObjectCount_Field,
+	bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
+	bucket_storage_tally *BucketStorageTally, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_BucketStorageTally(ctx, bucket_storage_tally_bucket_id, bucket_storage_tally_interval_start, bucket_storage_tally_inline, bucket_storage_tally_remote, bucket_storage_tally_remote_segments_count, bucket_storage_tally_inline_segments_count, bucket_storage_tally_object_count, bucket_storage_tally_metadata_size)
+
+}
+
 func (rx *Rx) Create_BucketUsage(ctx context.Context,
 	bucket_usage_id BucketUsage_Id_Field,
 	bucket_usage_bucket_id BucketUsage_BucketId_Field,
@@ -8760,13 +8869,15 @@ func (rx *Rx) Create_Node(ctx context.Context,
 	node_audit_success_ratio Node_AuditSuccessRatio_Field,
 	node_uptime_success_count Node_UptimeSuccessCount_Field,
 	node_total_uptime_count Node_TotalUptimeCount_Field,
-	node_uptime_ratio Node_UptimeRatio_Field) (
+	node_uptime_ratio Node_UptimeRatio_Field,
+	node_last_contact_success Node_LastContactSuccess_Field,
+	node_last_contact_failure Node_LastContactFailure_Field) (
 	node *Node, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_Node(ctx, node_id, node_address, node_protocol, node_type, node_email, node_wallet, node_free_bandwidth, node_free_disk, node_latency_90, node_audit_success_count, node_total_audit_count, node_audit_success_ratio, node_uptime_success_count, node_total_uptime_count, node_uptime_ratio)
+	return tx.Create_Node(ctx, node_id, node_address, node_protocol, node_type, node_email, node_wallet, node_free_bandwidth, node_free_disk, node_latency_90, node_audit_success_count, node_total_audit_count, node_audit_success_ratio, node_uptime_success_count, node_total_uptime_count, node_uptime_ratio, node_last_contact_success, node_last_contact_failure)
 
 }
 
@@ -9346,6 +9457,17 @@ type Methods interface {
 		api_key_name ApiKey_Name_Field) (
 		api_key *ApiKey, err error)
 
+	Create_BucketStorageTally(ctx context.Context,
+		bucket_storage_tally_bucket_id BucketStorageTally_BucketId_Field,
+		bucket_storage_tally_interval_start BucketStorageTally_IntervalStart_Field,
+		bucket_storage_tally_inline BucketStorageTally_Inline_Field,
+		bucket_storage_tally_remote BucketStorageTally_Remote_Field,
+		bucket_storage_tally_remote_segments_count BucketStorageTally_RemoteSegmentsCount_Field,
+		bucket_storage_tally_inline_segments_count BucketStorageTally_InlineSegmentsCount_Field,
+		bucket_storage_tally_object_count BucketStorageTally_ObjectCount_Field,
+		bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
+		bucket_storage_tally *BucketStorageTally, err error)
+
 	Create_BucketUsage(ctx context.Context,
 		bucket_usage_id BucketUsage_Id_Field,
 		bucket_usage_bucket_id BucketUsage_BucketId_Field,
@@ -9393,7 +9515,9 @@ type Methods interface {
 		node_audit_success_ratio Node_AuditSuccessRatio_Field,
 		node_uptime_success_count Node_UptimeSuccessCount_Field,
 		node_total_uptime_count Node_TotalUptimeCount_Field,
-		node_uptime_ratio Node_UptimeRatio_Field) (
+		node_uptime_ratio Node_UptimeRatio_Field,
+		node_last_contact_success Node_LastContactSuccess_Field,
+		node_last_contact_failure Node_LastContactFailure_Field) (
 		node *Node, err error)
 
 	Create_Project(ctx context.Context,
