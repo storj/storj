@@ -36,6 +36,8 @@ func TestDataRepair(t *testing.T) {
 		// first, upload some remote data
 		ul := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
+		satellite.Repair.Checker.Loop.Pause()
+		satellite.Repair.Repairer.Loop.Pause()
 
 		testData := make([]byte, 1*memory.MiB)
 		_, err := rand.Read(testData)
@@ -94,7 +96,10 @@ func TestDataRepair(t *testing.T) {
 			}
 		}
 
-		time.Sleep(2 * time.Second)
+		satellite.Repair.Checker.Loop.Restart()
+		satellite.Repair.Checker.Loop.TriggerWait()
+		satellite.Repair.Repairer.Loop.Restart()
+		satellite.Repair.Repairer.Loop.TriggerWait()
 
 		// kill nodes kept alive to ensure repair worked
 		for _, node := range planet.StorageNodes {
