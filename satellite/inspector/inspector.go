@@ -67,7 +67,7 @@ func (endpoint *Endpoint) ObjectHealth(ctx context.Context, in *pb.ObjectHealthR
 
 	bucket := in.GetBucket()
 	encryptedPath := in.GetEncryptedPath()
-	projectId := in.GetProjectId()
+	projectID := in.GetProjectId()
 
 	segmentIndex := start
 	for segmentIndex < end {
@@ -79,7 +79,7 @@ func (endpoint *Endpoint) ObjectHealth(ctx context.Context, in *pb.ObjectHealthR
 			Bucket:        bucket,
 			EncryptedPath: encryptedPath,
 			SegmentIndex:  segmentIndex,
-			ProjectId:     projectId,
+			ProjectId:     projectID,
 		}
 
 		segmentHealth, err := endpoint.SegmentHealth(ctx, segment)
