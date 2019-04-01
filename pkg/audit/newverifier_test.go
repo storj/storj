@@ -59,6 +59,12 @@ func TestVerifierHappyPath(t *testing.T) {
 		err = planet.StopPeer(planet.StorageNodes[1])
 		assert.NoError(t, err)
 
+		// mark stopped nodes as offline in overlay cache
+		_, err = planet.Satellites[0].Overlay.Service.UpdateUptime(ctx, planet.StorageNodes[0].ID(), false)
+		require.NoError(t, err)
+		_, err = planet.Satellites[0].Overlay.Service.UpdateUptime(ctx, planet.StorageNodes[1].ID(), false)
+		require.NoError(t, err)
+
 		_, err = verifier.Verify(ctx, stripe)
 		assert.NoError(t, err)
 	})
