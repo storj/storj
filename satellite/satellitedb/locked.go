@@ -64,6 +64,13 @@ func (m *lockedAccounting) DeleteRawBefore(ctx context.Context, latestRollup tim
 	return m.db.DeleteRawBefore(ctx, latestRollup)
 }
 
+// GetBWSince retrieves all bandwidth_rollup entires since latestRollup
+func (m *lockedAccounting) GetBWSince(ctx context.Context, latestRollup time.Time) ([]*accounting.BW, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetBWSince(ctx, latestRollup)
+}
+
 // GetRaw retrieves all raw tallies
 func (m *lockedAccounting) GetRaw(ctx context.Context) ([]*accounting.Raw, error) {
 	m.Lock()
@@ -71,7 +78,7 @@ func (m *lockedAccounting) GetRaw(ctx context.Context) ([]*accounting.Raw, error
 	return m.db.GetRaw(ctx)
 }
 
-// GetRawSince r retrieves all raw tallies sinces
+// GetRawSince retrieves all raw tallies since latestRollup
 func (m *lockedAccounting) GetRawSince(ctx context.Context, latestRollup time.Time) ([]*accounting.Raw, error) {
 	m.Lock()
 	defer m.Unlock()

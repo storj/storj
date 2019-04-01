@@ -127,22 +127,6 @@ func (r *Service) rollupBW(ctx context.Context, lastRollup time.Time, rollupStat
 	return nil
 }
 
-// model storagenode_bandwidth_rollup (
-// 	key    storagenode_id interval_start action
-// 	index (
-// 	    name storagenode_id_interval_start_interval_seconds
-// 	    fields storagenode_id interval_start interval_seconds
-// 	)
-
-// 	field storagenode_id   blob
-// 	field interval_start   utimestamp
-// 	field interval_seconds uint
-// 	field action           uint
-
-// 	field allocated uint64
-// 	field settled   uint64
-// )
-
 // switch tallyRow.DataType {
 // // case accounting.BandwidthPut:
 // // 	rollupStats[iDay][node].PutTotal += int64(tallyRow.DataTotal)

@@ -12,10 +12,10 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-//RollupStats is a convenience alias
+// RollupStats is a convenience alias
 type RollupStats map[time.Time]map[storj.NodeID]*Rollup
 
-//Raw mirrors dbx.AccountingRaw, allowing us to use that struct without leaking dbx
+// Raw mirrors dbx.AccountingRaw, allowing us to use that struct without leaking dbx
 type Raw struct {
 	ID              int64
 	NodeID          storj.NodeID
@@ -25,7 +25,15 @@ type Raw struct {
 	CreatedAt       time.Time
 }
 
-//Rollup mirrors dbx.AccountingRollup, allowing us to use that struct without leaking dbx
+// BW mirrors dbx.StoragenodeBandwidthRollup, allowing us to use the struct without leaking dbx
+type BW struct {
+	NodeID          storj.NodeID
+	IntervalStart   time.Time
+	Action          uint
+	Settled         uint64
+}
+
+// Rollup mirrors dbx.AccountingRollup, allowing us to use that struct without leaking dbx
 type Rollup struct {
 	ID             int64
 	NodeID         storj.NodeID
@@ -48,8 +56,10 @@ type DB interface {
 	SaveAtRestRaw(ctx context.Context, latestTally time.Time, created time.Time, nodeData map[storj.NodeID]float64) error
 	// GetRaw retrieves all raw tallies
 	GetRaw(ctx context.Context) ([]*Raw, error)
-	// GetRawSince r retrieves all raw tallies sinces
+	// GetRawSince retrieves all raw tallies since latestRollup
 	GetRawSince(ctx context.Context, latestRollup time.Time) ([]*Raw, error)
+	// GetBWSince retrieves all bandwidth_rollup entires since latestRollup
+	GetBWSince(ctx context.Context, latestRollup time.Time) ([]*BW, error)
 	// SaveRollup records raw tallies of at rest data to the database
 	SaveRollup(ctx context.Context, latestTally time.Time, stats RollupStats) error
 	// SaveBucketTallies saves the latest bucket info
