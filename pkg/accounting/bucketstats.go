@@ -1,14 +1,18 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package tally
+package accounting
 
 import (
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+
 	"storj.io/storj/pkg/pb"
 )
 
-// stats all stats fields
-type stats struct {
+var mon = monkit.Package()
+
+// BucketTally contains information about aggregate data stored in a bucket
+type BucketTally struct {
 	Segments        int64
 	InlineSegments  int64
 	RemoteSegments  int64
@@ -21,10 +25,12 @@ type stats struct {
 	Bytes       int64
 	InlineBytes int64
 	RemoteBytes int64
+
+	MetadataSize int64
 }
 
-// Combine aggregates all the stats
-func (s *stats) Combine(o *stats) {
+// Combine aggregates all the tallies
+func (s *BucketTally) Combine(o *BucketTally) {
 	s.Segments += o.Segments
 	s.InlineSegments += o.InlineSegments
 	s.RemoteSegments += o.RemoteSegments
@@ -40,18 +46,20 @@ func (s *stats) Combine(o *stats) {
 }
 
 // AddSegment groups all the data based the passed pointer
-func (s *stats) AddSegment(pointer *pb.Pointer, last bool) {
+func (s *BucketTally) AddSegment(pointer *pb.Pointer, last bool) {
 	s.Segments++
 	switch pointer.GetType() {
 	case pb.Pointer_INLINE:
 		s.InlineSegments++
 		s.InlineBytes += int64(len(pointer.InlineSegment))
 		s.Bytes += int64(len(pointer.InlineSegment))
+		s.MetadataSize += int64(len(pointer.Metadata))
 
 	case pb.Pointer_REMOTE:
 		s.RemoteSegments++
 		s.RemoteBytes += pointer.GetSegmentSize()
 		s.Bytes += pointer.GetSegmentSize()
+		s.MetadataSize += int64(len(pointer.Metadata))
 	default:
 		s.UnknownSegments++
 	}
@@ -68,7 +76,7 @@ func (s *stats) AddSegment(pointer *pb.Pointer, last bool) {
 }
 
 // Report reports the stats thru monkit
-func (s *stats) Report(prefix string) {
+func (s *BucketTally) Report(prefix string) {
 	mon.IntVal(prefix + ".segments").Observe(s.Segments)
 	mon.IntVal(prefix + ".inline_segments").Observe(s.InlineSegments)
 	mon.IntVal(prefix + ".remote_segments").Observe(s.RemoteSegments)

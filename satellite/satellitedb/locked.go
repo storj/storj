@@ -50,14 +50,14 @@ type lockedAccounting struct {
 	db accounting.DB
 }
 
-// CreateBucketStorageTally queries Overlay, Accounting Rollup on nodeID
+// CreateBucketBandwidthRollup creates a record for BucketBandwidthRollup in the accounting DB table
 func (m *lockedAccounting) CreateBucketBandwidthRollup(ctx context.Context, rollup accounting.BucketBandwidthRollup) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.CreateBucketBandwidthRollup(ctx, rollup)
 }
 
-// CreateBucketStorageTally queries Overlay, Accounting Rollup on nodeID
+// CreateBucketStorageTally creates a record for BucketStorageTally in the accounting DB table
 func (m *lockedAccounting) CreateBucketStorageTally(ctx context.Context, tally accounting.BucketStorageTally) error {
 	m.Lock()
 	defer m.Unlock()
@@ -125,6 +125,13 @@ func (m *lockedAccounting) SaveBWRaw(ctx context.Context, tallyEnd time.Time, cr
 	m.Lock()
 	defer m.Unlock()
 	return m.db.SaveBWRaw(ctx, tallyEnd, created, bwTotals)
+}
+
+// SaveBucketTallies saves the latest bucket info
+func (m *lockedAccounting) SaveBucketTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*accounting.BucketTally) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SaveBucketTallies(ctx, intervalStart, bucketTallies)
 }
 
 // SaveRollup records raw tallies of at rest data to the database

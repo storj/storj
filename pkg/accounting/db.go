@@ -52,6 +52,8 @@ type DB interface {
 	GetRawSince(ctx context.Context, latestRollup time.Time) ([]*Raw, error)
 	// SaveRollup records raw tallies of at rest data to the database
 	SaveRollup(ctx context.Context, latestTally time.Time, stats RollupStats) error
+	// SaveBucketTallies saves the latest bucket info
+	SaveBucketTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*BucketTally) error
 	// QueryPaymentInfo queries Overlay, Accounting Rollup on nodeID
 	QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*CSVRow, error)
 	// DeleteRawBefore deletes all raw tallies prior to some time
