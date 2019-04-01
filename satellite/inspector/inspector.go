@@ -102,12 +102,10 @@ func (endpoint *Endpoint) ObjectHealth(ctx context.Context, in *pb.ObjectHealthR
 		segmentIndex++
 	}
 
-	resp = &pb.ObjectHealthResponse{
+	return &pb.ObjectHealthResponse{
 		Segments:   segmentHealthResponses,
 		Redundancy: redundancy,
-	}
-
-	return resp, nil
+	}, nil
 }
 
 // SegmentHealth will check the health of a segment
@@ -172,10 +170,8 @@ func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *pb.SegmentHealt
 		health.Segment = []byte("l")
 	}
 
-	resp = &pb.SegmentHealthResponse{
+	return &pb.SegmentHealthResponse{
 		Health:     health,
 		Redundancy: pointer.GetRemote().GetRedundancy(),
-	}
-
-	return resp, nil
+	}, nil
 }
