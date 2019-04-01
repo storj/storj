@@ -424,6 +424,8 @@ model bucket_storage_tally (
 	field  metadata_size      uint64
 )
 
+create bucket_storage_tally ( )
+
 // --- storage node accounting tables --- //
 
 model storagenode_bandwidth_rollup (
