@@ -59,7 +59,7 @@ type BucketRollup struct {
 	AuditEgress  uint64
 }
 
-// BucketBandwidthRollup contains aggregate rollup info
+// BucketBandwidthRollup contains data about bandwidth rollup
 type BucketBandwidthRollup struct {
 	BucketName string
 	ProjectID  uuid.UUID
@@ -79,16 +79,11 @@ type BucketStorageTally struct {
 	ProjectID     uuid.UUID
 	IntervalStart time.Time
 
-	Segments        int64
-	InlineSegments  int64
-	RemoteSegments  int64
-	UnknownSegments int64
+	InlineSegmentCount int64
+	RemoteSegmentCount int64
 
-	Files       int64
-	InlineFiles int64
-	RemoteFiles int64
+	ObjectCount int64
 
-	Bytes        int64
 	InlineBytes  int64
 	RemoteBytes  int64
 	MetadataSize int64

@@ -13,8 +13,7 @@ const (
 // TODO: remove this code once we no longer need usage limiting for alpha release
 // Ref: https://storjlabs.atlassian.net/browse/V3-1274
 func ExceedsAlphaUsage(bandwidthGetTotal, inlineTotal, remoteTotal uint64, maxAlphaUsageGB int64) (bool, string) {
-	GBh := maxAlphaUsageGB * AvgDaysInMonth * hoursInDay
-	if bandwidthGetTotal >= uint64(GBh) {
+	if bandwidthGetTotal >= uint64(maxAlphaUsageGB) {
 		return true, "bandwidth"
 	}
 

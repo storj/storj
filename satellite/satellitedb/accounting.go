@@ -29,7 +29,9 @@ func (db *accountingDB) ProjectBandwidthTotal(ctx context.Context, projectID uui
 		WHERE project_id = ? AND action = ? AND interval_start >= ?;
 	`
 	var sum *uint64
-	err := db.db.QueryRow(db.db.Rebind(query), projectID[:], pb.BandwidthAction_GET, from).Scan(&sum)
+	err := db.db.QueryRow(db.db.Rebind(query),
+		projectID[:], pb.BandwidthAction_GET, from,
+	).Scan(&sum)
 	if err == sql.ErrNoRows || sum == nil {
 		return 0, nil
 	}
@@ -57,9 +59,9 @@ func (db *accountingDB) CreateBucketStorageTally(ctx context.Context, tally acco
 		dbx.BucketStorageTally_IntervalStart(tally.IntervalStart),
 		dbx.BucketStorageTally_Inline(uint64(tally.InlineBytes)),
 		dbx.BucketStorageTally_Remote(uint64(tally.RemoteBytes)),
-		dbx.BucketStorageTally_RemoteSegmentsCount(uint(tally.RemoteSegments)),
-		dbx.BucketStorageTally_InlineSegmentsCount(uint(tally.InlineSegments)),
-		dbx.BucketStorageTally_ObjectCount(uint(tally.Files)),
+		dbx.BucketStorageTally_RemoteSegmentsCount(uint(tally.RemoteSegmentCount)),
+		dbx.BucketStorageTally_InlineSegmentsCount(uint(tally.InlineSegmentCount)),
+		dbx.BucketStorageTally_ObjectCount(uint(tally.ObjectCount)),
 		dbx.BucketStorageTally_MetadataSize(uint64(tally.MetadataSize)),
 	)
 	if err != nil {

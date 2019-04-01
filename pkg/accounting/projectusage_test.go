@@ -66,7 +66,7 @@ func TestProjectUsage(t *testing.T) {
 					rollup := accounting.BucketBandwidthRollup{
 						BucketName:    "testbucket",
 						ProjectID:     project.ID,
-						Settled:       uint64(28 * memory.TB),
+						Settled:       uint64(26 * memory.GB),
 						IntervalStart: time.Now(),
 						Action:        uint(pb.BandwidthAction_GET),
 					}

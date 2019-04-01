@@ -394,7 +394,7 @@ create used_serial ()
 model bucket_bandwidth_rollup (
 	key    bucket_name project_id interval_start action
 	index (
-	    name bucket_id_project_id_interval_start_interval_seconds
+	    name bucket_name_project_id_interval_start_interval_seconds
 	    fields bucket_name project_id interval_start interval_seconds
 	)
 
