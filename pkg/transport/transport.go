@@ -26,7 +26,7 @@ type Client interface {
 	DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (*grpc.ClientConn, error)
 	DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (*grpc.ClientConn, error)
 	Identity() *identity.FullIdentity
-	WithObservers(obs ...Observer) *Transport
+	WithObservers(obs ...Observer) Client
 }
 
 // Transport interface structure
@@ -124,7 +124,7 @@ func (transport *Transport) Identity() *identity.FullIdentity {
 }
 
 // WithObservers returns a new transport including the listed observers.
-func (transport *Transport) WithObservers(obs ...Observer) *Transport {
+func (transport *Transport) WithObservers(obs ...Observer) Client {
 	tr := &Transport{tlsOpts: transport.tlsOpts, requestTimeout: transport.requestTimeout}
 	tr.observers = append(tr.observers, transport.observers...)
 	tr.observers = append(tr.observers, obs...)

@@ -6,8 +6,8 @@ package version
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
 	"net/http"
+	"reflect"
 	"sync"
 	"time"
 
@@ -15,7 +15,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/sync2"
-	"storj.io/storj/pkg/transport"
 )
 
 // Config contains the necessary Information to check the Software Version
@@ -27,110 +26,112 @@ type Config struct {
 
 // Service contains the information and variables to ensure the Software is up to date
 type Service struct {
-	config *Config
-	info   *Info
+	config  *Config
+	info    *Info
+	service string
 
 	Loop *sync2.Cycle
 
+	checked chan struct{}
 	mu      sync.Mutex
 	allowed bool
 }
 
 // NewService creates a Version Check Client with default configuration
-func NewService(config *Config, info *Info) (client *Service) {
+func NewService(config *Config, info *Info, service string) (client *Service) {
 	return &Service{
-		config: config,
-		info:   info,
-		Loop:   sync2.NewCycle(config.CheckInterval),
+		config:  config,
+		info:    info,
+		service: service,
+		Loop:    sync2.NewCycle(config.CheckInterval),
+		checked: make(chan struct{}, 0),
+		allowed: false,
 	}
-}
-
-// NewInfo creates a default information configuration
-// ToDo: temporary for testing
-func NewInfo() (info Info) {
-	return Info{
-		Version: SemVer{
-			Major: 0,
-			Minor: 1,
-			Patch: 0,
-		},
-	}
-}
-
-// NewVersionedClient returns a transport client which ensures, that the software is up to date
-func NewVersionedClient(transport transport.Client, service *Service) transport.Client {
-	/*if !service.IsUpToDate() {
-		zap.S().Fatal("Software Version outdated, please update")
-	}*/
-	return transport
 }
 
 // Run logs the current version information
 func (srv *Service) Run(ctx context.Context) error {
+	firstCheck := true
 	return srv.Loop.Run(ctx, func(ctx context.Context) error {
 		var err error
-		allowed, err := srv.checkVersion(&ctx)
+		allowed, err := srv.checkVersion(ctx)
 
 		srv.mu.Lock()
 		srv.allowed = allowed
 		srv.mu.Unlock()
 
+		if firstCheck {
+			close(srv.checked)
+			firstCheck = false
+			if !allowed {
+				zap.S().Fatal(errOldVersion)
+			}
+		}
+
 		if err != nil {
 			zap.S().Errorf("Failed to do periodic version check: ", err)
 		}
-		return err
+
+		return nil
 	})
 }
 
 // IsUpToDate returns whether if the Service is allowed to operate or not
 func (srv *Service) IsUpToDate() bool {
+	<-srv.checked
+
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
+
 	return srv.allowed
 }
 
 // CheckVersion checks if the client is running latest/allowed code
-func (srv *Service) checkVersion(ctx *context.Context) (allowed bool, err error) {
-	defer mon.Task()(ctx)(&err)
+func (srv *Service) checkVersion(ctx context.Context) (allowed bool, err error) {
+	defer mon.Task()(&ctx)(&err)
 	accepted, err := srv.queryVersionFromControlServer(ctx)
 	if err != nil {
-		return false, err
+		return true, err
 	}
 
 	zap.S().Debugf("allowed versions from Control Server: %v", accepted)
 
-	// ToDo: Fetch own Service Tag to compare correctly!
-	list := accepted.Storagenode
+	list := getFieldString(&accepted, srv.service)
 	if list == nil {
 		return true, errs.New("Empty List from Versioning Server")
 	}
-	if containsVersion(list, Build.Version) {
-		zap.S().Infof("running on version %s", Build.Version.String())
+	if containsVersion(list, srv.info.Version) {
+		zap.S().Infof("running on version %s", srv.info.Version.String())
 		allowed = true
 	} else {
-		zap.S().Errorf("running on not allowed/outdated version %s", Build.Version.String())
+		zap.S().Errorf("running on not allowed/outdated version %s", srv.info.Version.String())
 		allowed = false
 	}
 	return
 }
 
 // QueryVersionFromControlServer handles the HTTP request to gather the allowed and latest version information
-func (srv *Service) queryVersionFromControlServer(ctx *context.Context) (ver AllowedVersions, err error) {
+func (srv *Service) queryVersionFromControlServer(ctx context.Context) (ver AllowedVersions, err error) {
+	// Tune Client to have a custom Timeout (reduces hanging software)
 	client := http.Client{
 		Timeout: srv.config.RequestTimeout,
 	}
-	resp, err := client.Get(srv.config.ServerAddress)
+
+	// New Request that used the passed in context
+	req, err := http.NewRequest("GET", srv.config.ServerAddress, nil)
 	if err != nil {
-		// ToDo: Make sure Control Server is always reachable and refuse startup
-		srv.allowed = true
+		return AllowedVersions{}, err
+	}
+	req = req.WithContext(ctx)
+
+	resp, err := client.Do(req)
+	if err != nil {
 		return AllowedVersions{}, err
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return AllowedVersions{}, err
-	}
-	err = json.Unmarshal(body, &ver)
+	defer func() { _ = resp.Body.Close() }()
+
+	err = json.NewDecoder(resp.Body).Decode(&ver)
 	return
 }
 
@@ -149,4 +150,14 @@ func (srv *Service) DebugHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		zap.S().Errorf("error writing data to client %v", err)
 	}
+}
+
+func getFieldString(array *AllowedVersions, field string) []SemVer {
+	r := reflect.ValueOf(array)
+	f := reflect.Indirect(r).FieldByName(field).Interface()
+	result, ok := f.([]SemVer)
+	if ok {
+		return result
+	}
+	return nil
 }

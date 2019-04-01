@@ -95,9 +95,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Error creating tables for master database on bootstrap: %+v", err)
 	}
 
-	verInfo := version.NewInfo()
-
-	peer, err := bootstrap.New(log, identity, db, runCfg, verInfo)
+	peer, err := bootstrap.New(log, identity, db, runCfg, version.Build)
 	if err != nil {
 		return err
 	}

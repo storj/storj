@@ -43,12 +43,10 @@ type Peer struct {
 		Listener net.Listener
 	}
 	Versions version.AllowedVersions
-}
 
-var (
 	// response contains the byte version of current allowed versions
 	response []byte
-)
+}
 
 func ignoreCancel(err error) error {
 	if err == context.Canceled || err == http.ErrServerClosed {
@@ -57,22 +55,24 @@ func ignoreCancel(err error) error {
 	return err
 }
 
-func handleGet(w http.ResponseWriter, r *http.Request) {
-	var xfor string
-
+// HandleGet contains the request handler for the version control web server
+func (peer *Peer) HandleGet(w http.ResponseWriter, r *http.Request) {
 	// Only handle GET Requests
-	if r.Method == "GET" {
-		if xfor = r.Header.Get("X-Forwarded-For"); xfor == "" {
-			xfor = r.RemoteAddr
-		}
-		zap.S().Debugf("Request from: %s for %s", r.RemoteAddr, xfor)
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(200)
-		_, err := w.Write(response)
-		if err != nil {
-			zap.S().Errorf("error writing response to client: %v", err)
-		}
+	var xfor string
+	if xfor = r.Header.Get("X-Forwarded-For"); xfor == "" {
+		xfor = r.RemoteAddr
+	}
+	zap.S().Debugf("Request from: %s for %s", r.RemoteAddr, xfor)
+
+	w.Header().Set("Content-Type", "application/json")
+	_, err := w.Write(peer.response)
+	if err != nil {
+		zap.S().Errorf("error writing response to client: %v", err)
 	}
 }
 
@@ -98,16 +98,16 @@ func New(log *zap.Logger, config *Config) (peer *Peer, err error) {
 	gatewayVersions := strings.Split(config.Versions.Gateway, ",")
 	peer.Versions.Gateway, err = version.StrToSemVerList(gatewayVersions)
 
-	response, err = json.Marshal(peer.Versions)
+	peer.response, err = json.Marshal(peer.Versions)
 
 	if err != nil {
 		peer.Log.Sugar().Fatalf("Error marshalling version info: %v", err)
 	}
 
-	peer.Log.Sugar().Debugf("setting version info to: %v", string(response))
+	peer.Log.Sugar().Debugf("setting version info to: %v", string(peer.response))
 
 	mux := http.NewServeMux()
-	mux.Handle("/", http.HandlerFunc(handleGet))
+	mux.HandleFunc("/", peer.HandleGet)
 	peer.Server.Endpoint = http.Server{
 		Handler: mux,
 	}
