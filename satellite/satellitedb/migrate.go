@@ -440,7 +440,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					ALTER TABLE nodes ADD hash TEXT;
 					ALTER TABLE nodes ADD timestamp bigint;
 					ALTER TABLE nodes ADD release bool;
-					UPDATE nodes SET major, minor, patch = 0,1,0;
+					UPDATE nodes SET major = 0, minor = 1, patch = 0;
 					UPDATE nodes SET hash = '';
 					UPDATE nodes SET timestamp = 0;
 					UPDATE nodes SET release = true;
