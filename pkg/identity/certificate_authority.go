@@ -456,7 +456,7 @@ func (ca *FullCertificateAuthority) AddExtension(ext ...pkix.Extension) error {
 
 // Revoke extends the certificate authority certificate with a certificate revocation extension.
 func (ca *FullCertificateAuthority) Revoke() error {
-	ext, err := extensions.NewRevocationExt(ca.Key, ca.Cert, true)
+	ext, err := extensions.NewRevocationExt(ca.Key, ca.Cert)
 	if err != nil {
 		return err
 	}

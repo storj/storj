@@ -209,13 +209,14 @@ func TestRevocation_Sign(t *testing.T) {
 	assert.NoError(t, err)
 	leafCert, caKey := chain[0], keys[0]
 
-	leafHash := pkcrypto.SHA256Hash(leafCert.Raw)
+	leafKeyHash, err := peertls.DoubleSHA256PublicKey(leafCert.PublicKey)
+	require.NoError(t, err)
 
 	rev := extensions.Revocation{
 		Timestamp: time.Now().Unix(),
-		CertHash:  make([]byte, len(leafHash)),
+		KeyHash:   make([]byte, len(leafKeyHash)),
 	}
-	copy(rev.CertHash, leafHash)
+	copy(rev.KeyHash, leafKeyHash[:])
 	err = rev.Sign(caKey)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, rev.Signature)
@@ -226,13 +227,14 @@ func TestRevocation_Verify(t *testing.T) {
 	assert.NoError(t, err)
 	leafCert, caCert, caKey := chain[0], chain[1], keys[0]
 
-	leafHash := pkcrypto.SHA256Hash(leafCert.Raw)
+	leafKeyHash, err := peertls.DoubleSHA256PublicKey(leafCert.PublicKey)
+	require.NoError(t, err)
 
 	rev := extensions.Revocation{
 		Timestamp: time.Now().Unix(),
-		CertHash:  make([]byte, len(leafHash)),
+		KeyHash:   make([]byte, len(leafKeyHash)),
 	}
-	copy(rev.CertHash, leafHash)
+	copy(rev.KeyHash, leafKeyHash[:])
 	err = rev.Sign(caKey)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, rev.Signature)
@@ -246,13 +248,14 @@ func TestRevocation_Marshal(t *testing.T) {
 	assert.NoError(t, err)
 	leafCert, caKey := chain[0], keys[0]
 
-	leafHash := pkcrypto.SHA256Hash(leafCert.Raw)
+	leafKeyHash, err := peertls.DoubleSHA256PublicKey(leafCert.PublicKey)
+	require.NoError(t, err)
 
 	rev := extensions.Revocation{
 		Timestamp: time.Now().Unix(),
-		CertHash:  make([]byte, len(leafHash)),
+		KeyHash:   make([]byte, len(leafKeyHash)),
 	}
-	copy(rev.CertHash, leafHash)
+	copy(rev.KeyHash, leafKeyHash[:])
 	err = rev.Sign(caKey)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, rev.Signature)
@@ -273,13 +276,14 @@ func TestRevocation_Unmarshal(t *testing.T) {
 	assert.NoError(t, err)
 	leafCert, caKey := chain[0], keys[0]
 
-	leafHash := pkcrypto.SHA256Hash(leafCert.Raw)
+	leafKeyHash, err := peertls.DoubleSHA256PublicKey(leafCert.PublicKey)
+	require.NoError(t, err)
 
 	rev := extensions.Revocation{
 		Timestamp: time.Now().Unix(),
-		CertHash:  make([]byte, len(leafHash)),
+		KeyHash:   make([]byte, len(leafKeyHash)),
 	}
-	copy(rev.CertHash, leafHash)
+	copy(rev.KeyHash, leafKeyHash[:])
 	err = rev.Sign(caKey)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, rev.Signature)
@@ -300,7 +304,7 @@ func TestNewRevocationExt(t *testing.T) {
 	keys, chain, err := testpeertls.NewCertChain(2)
 	assert.NoError(t, err)
 
-	ext, err := extensions.NewRevocationExt(keys[0], chain[0], true)
+	ext, err := extensions.NewRevocationExt(keys[0], chain[0])
 	assert.NoError(t, err)
 
 	var rev extensions.Revocation
