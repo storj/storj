@@ -93,18 +93,26 @@ func TestDataRepair(t *testing.T) {
 			if nodesToKill[node.ID()] {
 				err = planet.StopPeer(node)
 				assert.NoError(t, err)
+
+				err = satellite.Overlay.Service.Delete(ctx, node.ID())
+				assert.NoError(t, err)
 			}
 		}
 
 		satellite.Repair.Checker.Loop.Restart()
 		satellite.Repair.Checker.Loop.TriggerWait()
+		satellite.Repair.Checker.Loop.Pause()
 		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
+		time.Sleep(2 * time.Second)
 
 		// kill nodes kept alive to ensure repair worked
 		for _, node := range planet.StorageNodes {
 			if nodesToKeepAlive[node.ID()] {
 				err = planet.StopPeer(node)
+				assert.NoError(t, err)
+
+				err = satellite.Overlay.Service.Delete(ctx, node.ID())
 				assert.NoError(t, err)
 			}
 		}
