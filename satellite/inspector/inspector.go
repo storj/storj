@@ -65,6 +65,10 @@ func (endpoint *Endpoint) ObjectHealth(ctx context.Context, in *pb.ObjectHealthR
 		end = in.GetEndBeforeSegment()
 	}
 
+	bucket := in.GetBucket()
+	encryptedPath := in.GetEncryptedPath()
+	projectId := in.GetProjectId()
+
 	segmentIndex := start
 	for segmentIndex < end {
 		if segmentIndex-start >= limit {
@@ -72,10 +76,10 @@ func (endpoint *Endpoint) ObjectHealth(ctx context.Context, in *pb.ObjectHealthR
 		}
 
 		segment := &pb.SegmentHealthRequest{
-			Bucket:        in.GetBucket(),
-			EncryptedPath: in.GetEncryptedPath(),
+			Bucket:        bucket,
+			EncryptedPath: encryptedPath,
 			SegmentIndex:  segmentIndex,
-			ProjectId:     in.GetProjectId(),
+			ProjectId:     projectId,
 		}
 
 		segmentHealth, err := endpoint.SegmentHealth(ctx, segment)
