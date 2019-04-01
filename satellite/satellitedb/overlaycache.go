@@ -328,12 +328,13 @@ func (cache *overlaycache) Create(ctx context.Context, nodeID storj.NodeID, star
 		uptimeRatio        float64
 		wallet             string
 		email              string
-		major              int64
-		minor              int64
-		patch              int64
-		hash               string
-		timestamp          int64
-		release            bool
+
+		major     int64
+		minor     int64
+		patch     int64
+		hash      string
+		timestamp int64
+		release   bool
 	)
 
 	if startingStats != nil {
@@ -352,6 +353,7 @@ func (cache *overlaycache) Create(ctx context.Context, nodeID storj.NodeID, star
 		}
 		wallet = startingStats.Operator.Wallet
 		email = startingStats.Operator.Email
+
 		major = startingStats.Version.Major
 		minor = startingStats.Version.Minor
 		patch = startingStats.Version.Patch

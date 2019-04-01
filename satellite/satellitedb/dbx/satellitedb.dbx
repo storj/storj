@@ -133,6 +133,7 @@ model node (
 
 	field wallet 			text ( updatable )
 	field email 			text ( updatable )
+
 	field major             int64 ( updatable )
 	field minor             int64 ( updatable )
 	field patch             int64 ( updatable )
