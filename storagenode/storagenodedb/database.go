@@ -89,7 +89,7 @@ func NewInMemory(log *zap.Logger, storageDir string) (*DB, error) {
 	}
 	pieces := filestore.New(piecesDir)
 
-	infodb, err := newInfoInMemory()
+	infodb, err := NewInfoInMemory()
 	if err != nil {
 		return nil, err
 	}

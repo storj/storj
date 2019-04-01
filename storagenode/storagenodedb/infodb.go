@@ -38,8 +38,8 @@ func newInfo(path string) (*infodb, error) {
 	return &infodb{db: db}, nil
 }
 
-// newInfoInMemory creates a new inmemory infodb.
-func newInfoInMemory() (*infodb, error) {
+// NewInfoInMemory creates a new inmemory infodb.
+func NewInfoInMemory() (*infodb, error) {
 	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
 		return nil, ErrInfo.Wrap(err)
