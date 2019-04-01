@@ -54,6 +54,10 @@ func TestInspectorStats(t *testing.T) {
 			}
 
 			fullPath := storj.SplitPath(item.Key.String())
+			if len(fullPath) < 4 {
+				assert.FailNowf(t, "Could not retrieve full path from pointerdb ", strings.Join(fullPath[:], "/"))
+			}
+
 			projectID := fullPath[0]
 			bucket := fullPath[2]
 			encryptedPath := strings.Join(fullPath[3:], "/")
@@ -73,7 +77,6 @@ func TestInspectorStats(t *testing.T) {
 				assert.Equal(t, int32(1), resp.GetHealth().GetMinimumRequired())
 				assert.Equal(t, int32(4), resp.GetHealth().GetTotal())
 				assert.Equal(t, int32(0), resp.GetHealth().GetRepairThreshold())
-				assert.Equal(t, int32(4), resp.GetHealth().GetOnlineNodes())
 			}
 
 			{ // Test Object Health Request
@@ -94,7 +97,6 @@ func TestInspectorStats(t *testing.T) {
 				assert.Equal(t, int32(1), segments[0].GetMinimumRequired())
 				assert.Equal(t, int32(4), segments[0].GetTotal())
 				assert.Equal(t, int32(0), segments[0].GetRepairThreshold())
-				assert.Equal(t, int32(4), segments[0].GetOnlineNodes())
 
 				assert.NoError(t, err)
 			}
