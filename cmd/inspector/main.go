@@ -476,9 +476,9 @@ func ObjectHealth(cmd *cobra.Command, args []string) (err error) {
 		ProjectId:         []byte(args[0]),
 		Bucket:            []byte(args[1]),
 		EncryptedPath:     []byte(args[2]),
-		StartAfterSegment: 0,
-		EndBeforeSegment:  0,
-		Limit:             0,
+		StartAfterSegment: 0, // start from first segment
+		EndBeforeSegment:  0, // No end, so we stop when we've hit limit or arrived at the last segment
+		Limit:             0, // No limit, so we stop when we've arrived at the last segment
 	}
 
 	_, err = i.healthclient.ObjectHealth(ctx, req)
