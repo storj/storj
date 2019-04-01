@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"crypto"
-	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"fmt"
@@ -244,14 +243,11 @@ func NodeIDFromPEM(pemBytes []byte) (storj.NodeID, error) {
 
 // NodeIDFromKey hashes a public key and creates a node ID from it
 func NodeIDFromKey(k crypto.PublicKey) (storj.NodeID, error) {
-	// id = sha256(sha256(pkix(k)))
-	kb, err := x509.MarshalPKIXPublicKey(k)
+	idBytes, err := peertls.DoubleSHA256PublicKey(k)
 	if err != nil {
 		return storj.NodeID{}, storj.ErrNodeID.Wrap(err)
 	}
-	mid := sha256.Sum256(kb)
-	end := sha256.Sum256(mid[:])
-	return storj.NodeID(end), nil
+	return storj.NodeID(idBytes), nil
 }
 
 // NewFullIdentity creates a new ID for nodes with difficulty and concurrency params
@@ -477,7 +473,7 @@ func (manageableIdent *ManageablePeerIdentity) AddExtension(ext ...pkix.Extensio
 
 // Revoke extends the CA certificate with a certificate revocation extension.
 func (manageableIdent *ManageablePeerIdentity) Revoke() error {
-	ext, err := extensions.NewRevocationExt(manageableIdent.CA.Key, manageableIdent.Leaf, false)
+	ext, err := extensions.NewRevocationExt(manageableIdent.CA.Key, manageableIdent.Leaf)
 	if err != nil {
 		return err
 	}

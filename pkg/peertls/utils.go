@@ -12,7 +12,9 @@ package peertls
 // (see https://en.wikipedia.org/wiki/Privacy-enhanced_Electronic_Mail)
 
 import (
+	"crypto"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/x509"
 	"math/big"
 
@@ -33,6 +35,16 @@ func NewNonTemporaryError(err error) NonTemporaryError {
 	return NonTemporaryError{
 		error: errs.Wrap(err),
 	}
+}
+
+func DoubleSHA256PublicKey(k crypto.PublicKey) ([sha256.Size]byte, error) {
+	kb, err := x509.MarshalPKIXPublicKey(k)
+	if err != nil {
+		return [sha256.Size]byte{}, err
+	}
+	mid := sha256.Sum256(kb)
+	end := sha256.Sum256(mid[:])
+	return end, nil
 }
 
 // Temporary returns false to indicate that is is a non-temporary error
