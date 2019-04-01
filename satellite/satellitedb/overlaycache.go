@@ -512,31 +512,6 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 	return nodeStats, Error.Wrap(tx.Commit())
 }
 
-// UpdateBatch for updating multiple storage nodes' stats in the db
-func (cache *overlaycache) UpdateBatch(ctx context.Context, updateReqList []*overlay.UpdateRequest) (
-	statsList []*overlay.NodeStats, failedUpdateReqs []*overlay.UpdateRequest, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var nodeStatsList []*overlay.NodeStats
-	var allErrors []error
-	failedUpdateReqs = []*overlay.UpdateRequest{}
-	for _, updateReq := range updateReqList {
-
-		nodeStats, err := cache.UpdateStats(ctx, updateReq)
-		if err != nil {
-			allErrors = append(allErrors, err)
-			failedUpdateReqs = append(failedUpdateReqs, updateReq)
-		} else {
-			nodeStatsList = append(nodeStatsList, nodeStats)
-		}
-	}
-
-	if len(allErrors) > 0 {
-		return nodeStatsList, failedUpdateReqs, Error.Wrap(errs.Combine(allErrors...))
-	}
-	return nodeStatsList, nil, nil
-}
-
 func convertDBNode(info *dbx.Node) (*overlay.NodeDossier, error) {
 	if info == nil {
 		return nil, Error.New("missing info")

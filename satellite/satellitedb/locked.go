@@ -657,13 +657,6 @@ func (m *lockedOverlayCache) Update(ctx context.Context, value *pb.Node) error {
 	return m.db.Update(ctx, value)
 }
 
-// UpdateBatch for updating multiple storage nodes' stats.
-func (m *lockedOverlayCache) UpdateBatch(ctx context.Context, requests []*overlay.UpdateRequest) (statslist []*overlay.NodeStats, failed []*overlay.UpdateRequest, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.UpdateBatch(ctx, requests)
-}
-
 // UpdateOperator updates the email and wallet for a given node ID for satellite payments.
 func (m *lockedOverlayCache) UpdateOperator(ctx context.Context, node storj.NodeID, updatedOperator pb.NodeOperator) (stats *overlay.NodeDossier, err error) {
 	m.Lock()
