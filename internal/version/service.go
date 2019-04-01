@@ -64,7 +64,7 @@ func (srv *Service) Run(ctx context.Context) error {
 			close(srv.checked)
 			firstCheck = false
 			if !allowed {
-				zap.S().Fatal(ErrOldVersion)
+				zap.S().Fatal(errOldVersion)
 			}
 		}
 

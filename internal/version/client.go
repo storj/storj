@@ -20,7 +20,7 @@ type VersionedClient struct {
 }
 
 const (
-	ErrOldVersion = "Outdated Software Version, please update!"
+	errOldVersion = "Outdated Software Version, please update!"
 )
 
 // NewVersionedClient returns a transport client which ensures, that the software is up to date
@@ -38,7 +38,7 @@ func NewVersionedClient(transport transport.Client, service *Service) *Versioned
 // target node has the private key for the requested node ID.
 func (client *VersionedClient) DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
 	if !client.version.IsUpToDate() {
-		return nil, errs.New(ErrOldVersion)
+		return nil, errs.New(errOldVersion)
 	}
 	return client.transport.DialNode(ctx, node, opts...)
 }
@@ -50,7 +50,7 @@ func (client *VersionedClient) DialNode(ctx context.Context, node *pb.Node, opts
 // DialAddress.
 func (client *VersionedClient) DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
 	if !client.version.IsUpToDate() {
-		return nil, errs.New(ErrOldVersion)
+		return nil, errs.New(errOldVersion)
 	}
 	return client.transport.DialAddress(ctx, address, opts...)
 }
