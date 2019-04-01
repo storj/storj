@@ -288,12 +288,6 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 	return Error.Wrap(tx.Commit())
 }
 
-// Delete deletes node based on id
-func (cache *overlaycache) Delete(ctx context.Context, id storj.NodeID) error {
-	_, err := cache.db.Delete_Node_By_Id(ctx, dbx.Node_Id(id.Bytes()))
-	return err
-}
-
 // CreateStats initializes the stats the provided storagenode
 func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID, startingStats *overlay.NodeStats) (stats *overlay.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)

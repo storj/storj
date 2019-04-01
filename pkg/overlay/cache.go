@@ -53,8 +53,6 @@ type DB interface {
 	Paginate(ctx context.Context, offset int64, limit int) ([]*NodeDossier, bool, error)
 	// Update updates node information
 	Update(ctx context.Context, value *pb.Node) error
-	// Delete deletes node based on id
-	Delete(ctx context.Context, id storj.NodeID) error
 
 	// CreateStats initializes the stats for node.
 	CreateStats(ctx context.Context, nodeID storj.NodeID, initial *NodeStats) (stats *NodeStats, err error)
@@ -296,17 +294,6 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 	}
 
 	return cache.db.Update(ctx, &value)
-}
-
-// Delete will remove the node from the cache. Used when a node hard disconnects or fails
-// to pass a PING multiple times.
-func (cache *Cache) Delete(ctx context.Context, id storj.NodeID) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	if id.IsZero() {
-		return ErrEmptyNode
-	}
-
-	return cache.db.Delete(ctx, id)
 }
 
 // Create adds a new stats entry for node.

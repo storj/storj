@@ -76,9 +76,6 @@ func TestGetShareTimeout(t *testing.T) {
 			id := pieces[i].NodeId
 			err = stopStorageNode(planet, id)
 			require.NoError(t, err)
-			// remove stopped node from overlay cache
-			err = planet.Satellites[0].Overlay.Service.Delete(ctx, id)
-			require.NoError(t, err)
 		}
 
 		_, err = verifier.Verify(ctx, stripe)

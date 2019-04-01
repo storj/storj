@@ -36,10 +36,8 @@ func TestCache_Graveyard(t *testing.T) {
 
 		satellite.Discovery.Service.Graveyard.Pause()
 
-		err := satellite.Overlay.Service.Delete(ctx, offlineID)
+		_, err := satellite.Overlay.Service.Get(ctx, offlineID)
 		assert.NoError(t, err)
-		_, err = satellite.Overlay.Service.Get(ctx, offlineID)
-		assert.NotNil(t, err)
 
 		satellite.Discovery.Service.Graveyard.TriggerWait()
 

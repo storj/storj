@@ -601,13 +601,6 @@ func (m *lockedOverlayCache) CreateStats(ctx context.Context, nodeID storj.NodeI
 	return m.db.CreateStats(ctx, nodeID, initial)
 }
 
-// Delete deletes node based on id
-func (m *lockedOverlayCache) Delete(ctx context.Context, id storj.NodeID) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Delete(ctx, id)
-}
-
 // FindInvalidNodes finds a subset of storagenodes that have stats below provided reputation requirements.
 func (m *lockedOverlayCache) FindInvalidNodes(ctx context.Context, nodeIDs storj.NodeIDList, maxStats *overlay.NodeStats) (invalid storj.NodeIDList, err error) {
 	m.Lock()
