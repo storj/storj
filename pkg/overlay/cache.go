@@ -6,11 +6,12 @@ package overlay
 import (
 	"context"
 	"errors"
+	"regexp"
+	"storj.io/storj/internal/version"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
@@ -68,8 +69,6 @@ type DB interface {
 	UpdateOperator(ctx context.Context, node storj.NodeID, updatedOperator pb.NodeOperator) (stats *NodeStats, err error)
 	// UpdateUptime updates a single storagenode's uptime stats.
 	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error)
-	// UpdateUptime updates a single storagenode's version info.
-	UpdateVersion(ctx context.Context, nodeID storj.NodeID, version pb.NodeVersion) (stats *NodeStats, err error)
 	// UpdateAuditSuccess updates a single storagenode's audit stats.
 	UpdateAuditSuccess(ctx context.Context, nodeID storj.NodeID, auditSuccess bool) (stats *NodeStats, err error)
 	// UpdateBatch for updating multiple storage nodes' stats.
@@ -83,9 +82,9 @@ type FindStorageNodesRequest struct {
 	MinimumRequiredNodes int
 	RequestedCount       int
 
-	Version       []version.SemVer
 	FreeBandwidth int64
 	FreeDisk      int64
+	Version       *pb.NodeVersion
 
 	ExcludedNodes []storj.NodeID
 }
@@ -94,6 +93,7 @@ type FindStorageNodesRequest struct {
 type NodeCriteria struct {
 	FreeBandwidth int64
 	FreeDisk      int64
+	Version       *pb.NodeVersion
 
 	AuditCount         int64
 	AuditSuccessRatio  float64
@@ -107,6 +107,7 @@ type NodeCriteria struct {
 type NewNodeCriteria struct {
 	FreeBandwidth int64
 	FreeDisk      int64
+	Version       *pb.NodeVersion
 
 	AuditThreshold int64
 
@@ -223,9 +224,22 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 		auditCount = preferences.NewNodeAuditThreshold
 	}
 
+	versionRegex := regexp.MustCompile("^" + version.SemVerRegex + "$")
+	ver, err := version.NewSemVer(versionRegex, preferences.Version)
+	if err != nil {
+		// TODO: (STEFAN) Proper Handling
+		return nil, nil
+	}
+	version := &pb.NodeVersion{
+		Major: ver.Major,
+		Minor: ver.Minor,
+		Patch: ver.Patch,
+	}
+
 	reputableNodes, err := cache.db.SelectStorageNodes(ctx, reputableNodeCount, &NodeCriteria{
 		FreeBandwidth: req.FreeBandwidth,
 		FreeDisk:      req.FreeDisk,
+		Version:       version,
 
 		AuditCount:         auditCount,
 		AuditSuccessRatio:  preferences.AuditSuccessRatio,
@@ -349,12 +363,6 @@ func (cache *Cache) UpdateOperator(ctx context.Context, node storj.NodeID, updat
 func (cache *Cache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return cache.db.UpdateUptime(ctx, nodeID, isUp)
-}
-
-// UpdateUptime updates a single storagenode's uptime stats.
-func (cache *Cache) UpdateVersion(ctx context.Context, nodeID storj.NodeID, version pb.NodeVersion) (stats *NodeStats, err error) {
-	defer mon.Task()(&ctx)(&err)
-	return cache.db.UpdateUptime(ctx, nodeID, pb.NodeVersion)
 }
 
 // ConnFailure implements the Transport Observer `ConnFailure` function

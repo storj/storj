@@ -95,9 +95,12 @@ func (endpoint *Endpoint) RequestInfo(ctx context.Context, req *pb.InfoRequest) 
 		},
 		// TODO (dylan) Get these values from actual node
 		Version: &pb.NodeVersion{
-			Major: 0,
-			Minor: 0,
-			Patch: 1,
+			Major:     self.GetVersion().Major,
+			Minor:     self.GetVersion().Minor,
+			Patch:     self.GetVersion().Patch,
+			Hash:      self.GetVersion().Hash,
+			Timestamp: self.GetVersion().Timestamp,
+			Release:   self.GetVersion().Release,
 		},
 	}, nil
 }

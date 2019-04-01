@@ -42,8 +42,11 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 		  AND audit_success_ratio >= ?
 		  AND uptime_count >= ?
 		  AND audit_uptime_ratio >= ?
+          AND major >= ?
+          AND minor >= ?
+          AND patch >= ?
 		`, nodeType, criteria.FreeBandwidth, criteria.FreeDisk,
-		criteria.AuditCount, criteria.AuditSuccessRatio, criteria.UptimeCount, criteria.UptimeSuccessRatio,
+		criteria.AuditCount, criteria.AuditSuccessRatio, criteria.UptimeCount, criteria.UptimeSuccessRatio, criteria.Version.Major, criteria.Version.Minor, criteria.Version.Patch,
 	)
 }
 
@@ -52,8 +55,11 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, `
 		WHERE node_type = ? AND free_bandwidth >= ? AND free_disk >= ?
 		  AND audit_count < ?
+          AND major >= ?
+          AND minor >= ?
+          AND patch >= ?
 	`, nodeType, criteria.FreeBandwidth, criteria.FreeDisk,
-		criteria.AuditThreshold,
+		criteria.AuditThreshold, criteria.Version.Major, criteria.Version.Minor, criteria.Version.Patch,
 	)
 }
 
@@ -322,6 +328,12 @@ func (cache *overlaycache) Create(ctx context.Context, nodeID storj.NodeID, star
 		uptimeRatio        float64
 		wallet             string
 		email              string
+		major              int64
+		minor              int64
+		patch              int64
+		hash               string
+		timestamp          int64
+		release            bool
 	)
 
 	if startingStats != nil {
@@ -340,6 +352,12 @@ func (cache *overlaycache) Create(ctx context.Context, nodeID storj.NodeID, star
 		}
 		wallet = startingStats.Operator.Wallet
 		email = startingStats.Operator.Email
+		major = startingStats.Version.Major
+		minor = startingStats.Version.Minor
+		patch = startingStats.Version.Patch
+		hash = startingStats.Version.Hash
+		timestamp = startingStats.Version.Timestamp
+		release = startingStats.Version.Release
 	}
 
 	dbNode, err := cache.db.Create_Node(
@@ -353,6 +371,12 @@ func (cache *overlaycache) Create(ctx context.Context, nodeID storj.NodeID, star
 		dbx.Node_UptimeRatio(uptimeRatio),
 		dbx.Node_Wallet(wallet),
 		dbx.Node_Email(email),
+		dbx.Node_Major(major),
+		dbx.Node_Minor(minor),
+		dbx.Node_Patch(patch),
+		dbx.Node_Hash(hash),
+		dbx.Node_Timestamp(timestamp),
+		dbx.Node_Release(release),
 	)
 	if err != nil {
 		return nil, Error.Wrap(err)

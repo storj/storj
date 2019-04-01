@@ -133,6 +133,12 @@ model node (
 
 	field wallet 			text ( updatable )
 	field email 			text ( updatable )
+	field major             int64 ( updatable )
+	field minor             int64 ( updatable )
+	field patch             int64 ( updatable )
+	field hash              text ( updatable )
+	field timestamp         int64 ( updatable )
+	field release           bool ( updatable )
 )
 
 create node ( )

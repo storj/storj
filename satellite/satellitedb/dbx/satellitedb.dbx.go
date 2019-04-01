@@ -372,6 +372,12 @@ CREATE TABLE nodes (
 	updated_at timestamp with time zone NOT NULL,
 	wallet text NOT NULL,
 	email text NOT NULL,
+	major bigint NOT NULL,
+	minor bigint NOT NULL,
+	patch bigint NOT NULL,
+	hash text NOT NULL,
+	timestamp bigint NOT NULL,
+	release boolean NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE overlay_cache_nodes (
@@ -630,6 +636,12 @@ CREATE TABLE nodes (
 	updated_at TIMESTAMP NOT NULL,
 	wallet TEXT NOT NULL,
 	email TEXT NOT NULL,
+	major INTEGER NOT NULL,
+	minor INTEGER NOT NULL,
+	patch INTEGER NOT NULL,
+	hash TEXT NOT NULL,
+	timestamp INTEGER NOT NULL,
+	release INTEGER NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE overlay_cache_nodes (
@@ -2046,6 +2058,12 @@ type Node struct {
 	UpdatedAt          time.Time
 	Wallet             string
 	Email              string
+	Major              int64
+	Minor              int64
+	Patch              int64
+	Hash               string
+	Timestamp          int64
+	Release            bool
 }
 
 func (Node) _Table() string { return "nodes" }
@@ -2059,6 +2077,12 @@ type Node_Update_Fields struct {
 	UptimeRatio        Node_UptimeRatio_Field
 	Wallet             Node_Wallet_Field
 	Email              Node_Email_Field
+	Major              Node_Major_Field
+	Minor              Node_Minor_Field
+	Patch              Node_Patch_Field
+	Hash               Node_Hash_Field
+	Timestamp          Node_Timestamp_Field
+	Release            Node_Release_Field
 }
 
 type Node_Id_Field struct {
@@ -2269,6 +2293,120 @@ func (f Node_Email_Field) value() interface{} {
 }
 
 func (Node_Email_Field) _Column() string { return "email" }
+
+type Node_Major_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func Node_Major(v int64) Node_Major_Field {
+	return Node_Major_Field{_set: true, _value: v}
+}
+
+func (f Node_Major_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Node_Major_Field) _Column() string { return "major" }
+
+type Node_Minor_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func Node_Minor(v int64) Node_Minor_Field {
+	return Node_Minor_Field{_set: true, _value: v}
+}
+
+func (f Node_Minor_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Node_Minor_Field) _Column() string { return "minor" }
+
+type Node_Patch_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func Node_Patch(v int64) Node_Patch_Field {
+	return Node_Patch_Field{_set: true, _value: v}
+}
+
+func (f Node_Patch_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Node_Patch_Field) _Column() string { return "patch" }
+
+type Node_Hash_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Node_Hash(v string) Node_Hash_Field {
+	return Node_Hash_Field{_set: true, _value: v}
+}
+
+func (f Node_Hash_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Node_Hash_Field) _Column() string { return "hash" }
+
+type Node_Timestamp_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func Node_Timestamp(v int64) Node_Timestamp_Field {
+	return Node_Timestamp_Field{_set: true, _value: v}
+}
+
+func (f Node_Timestamp_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Node_Timestamp_Field) _Column() string { return "timestamp" }
+
+type Node_Release_Field struct {
+	_set   bool
+	_null  bool
+	_value bool
+}
+
+func Node_Release(v bool) Node_Release_Field {
+	return Node_Release_Field{_set: true, _value: v}
+}
+
+func (f Node_Release_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Node_Release_Field) _Column() string { return "release" }
 
 type OverlayCacheNode struct {
 	NodeId             []byte
@@ -3810,7 +3948,13 @@ func (obj *postgresImpl) Create_Node(ctx context.Context,
 	node_total_uptime_count Node_TotalUptimeCount_Field,
 	node_uptime_ratio Node_UptimeRatio_Field,
 	node_wallet Node_Wallet_Field,
-	node_email Node_Email_Field) (
+	node_email Node_Email_Field,
+	node_major Node_Major_Field,
+	node_minor Node_Minor_Field,
+	node_patch Node_Patch_Field,
+	node_hash Node_Hash_Field,
+	node_timestamp Node_Timestamp_Field,
+	node_release Node_Release_Field) (
 	node *Node, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
@@ -3825,14 +3969,20 @@ func (obj *postgresImpl) Create_Node(ctx context.Context,
 	__updated_at_val := __now
 	__wallet_val := node_wallet.value()
 	__email_val := node_email.value()
+	__major_val := node_major.value()
+	__minor_val := node_minor.value()
+	__patch_val := node_patch.value()
+	__hash_val := node_hash.value()
+	__timestamp_val := node_timestamp.value()
+	__release_val := node_release.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, audit_success_count, total_audit_count, audit_success_ratio, uptime_success_count, total_uptime_count, uptime_ratio, created_at, updated_at, wallet, email ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, audit_success_count, total_audit_count, audit_success_ratio, uptime_success_count, total_uptime_count, uptime_ratio, created_at, updated_at, wallet, email, major, minor, patch, hash, timestamp, release ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val, __wallet_val, __email_val)
+	obj.logStmt(__stmt, __id_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val, __wallet_val, __email_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val, __wallet_val, __email_val).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email)
+	err = obj.driver.QueryRow(__stmt, __id_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val, __wallet_val, __email_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -4374,7 +4524,7 @@ func (obj *postgresImpl) Get_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field) (
 	node *Node, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email FROM nodes WHERE nodes.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release FROM nodes WHERE nodes.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, node_id.value())
@@ -4383,7 +4533,7 @@ func (obj *postgresImpl) Get_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -4395,7 +4545,7 @@ func (obj *postgresImpl) Find_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field) (
 	node *Node, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email FROM nodes WHERE nodes.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release FROM nodes WHERE nodes.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, node_id.value())
@@ -4404,7 +4554,7 @@ func (obj *postgresImpl) Find_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -5178,7 +5328,7 @@ func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
 	node *Node, err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -5224,6 +5374,36 @@ func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
 	}
 
+	if update.Major._set {
+		__values = append(__values, update.Major.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("major = ?"))
+	}
+
+	if update.Minor._set {
+		__values = append(__values, update.Minor.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("minor = ?"))
+	}
+
+	if update.Patch._set {
+		__values = append(__values, update.Patch.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("patch = ?"))
+	}
+
+	if update.Hash._set {
+		__values = append(__values, update.Hash.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("hash = ?"))
+	}
+
+	if update.Timestamp._set {
+		__values = append(__values, update.Timestamp.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("timestamp = ?"))
+	}
+
+	if update.Release._set {
+		__values = append(__values, update.Release.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("release = ?"))
+	}
+
 	__now := obj.db.Hooks.Now().UTC()
 
 	__values = append(__values, __now)
@@ -5238,7 +5418,7 @@ func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -6260,7 +6440,13 @@ func (obj *sqlite3Impl) Create_Node(ctx context.Context,
 	node_total_uptime_count Node_TotalUptimeCount_Field,
 	node_uptime_ratio Node_UptimeRatio_Field,
 	node_wallet Node_Wallet_Field,
-	node_email Node_Email_Field) (
+	node_email Node_Email_Field,
+	node_major Node_Major_Field,
+	node_minor Node_Minor_Field,
+	node_patch Node_Patch_Field,
+	node_hash Node_Hash_Field,
+	node_timestamp Node_Timestamp_Field,
+	node_release Node_Release_Field) (
 	node *Node, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
@@ -6275,13 +6461,19 @@ func (obj *sqlite3Impl) Create_Node(ctx context.Context,
 	__updated_at_val := __now
 	__wallet_val := node_wallet.value()
 	__email_val := node_email.value()
+	__major_val := node_major.value()
+	__minor_val := node_minor.value()
+	__patch_val := node_patch.value()
+	__hash_val := node_hash.value()
+	__timestamp_val := node_timestamp.value()
+	__release_val := node_release.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, audit_success_count, total_audit_count, audit_success_ratio, uptime_success_count, total_uptime_count, uptime_ratio, created_at, updated_at, wallet, email ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, audit_success_count, total_audit_count, audit_success_ratio, uptime_success_count, total_uptime_count, uptime_ratio, created_at, updated_at, wallet, email, major, minor, patch, hash, timestamp, release ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val, __wallet_val, __email_val)
+	obj.logStmt(__stmt, __id_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val, __wallet_val, __email_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val)
 
-	__res, err := obj.driver.Exec(__stmt, __id_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val, __wallet_val, __email_val)
+	__res, err := obj.driver.Exec(__stmt, __id_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val, __wallet_val, __email_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -6860,7 +7052,7 @@ func (obj *sqlite3Impl) Get_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field) (
 	node *Node, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email FROM nodes WHERE nodes.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release FROM nodes WHERE nodes.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, node_id.value())
@@ -6869,7 +7061,7 @@ func (obj *sqlite3Impl) Get_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -6881,7 +7073,7 @@ func (obj *sqlite3Impl) Find_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field) (
 	node *Node, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email FROM nodes WHERE nodes.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release FROM nodes WHERE nodes.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, node_id.value())
@@ -6890,7 +7082,7 @@ func (obj *sqlite3Impl) Find_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -7730,6 +7922,36 @@ func (obj *sqlite3Impl) Update_Node_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
 	}
 
+	if update.Major._set {
+		__values = append(__values, update.Major.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("major = ?"))
+	}
+
+	if update.Minor._set {
+		__values = append(__values, update.Minor.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("minor = ?"))
+	}
+
+	if update.Patch._set {
+		__values = append(__values, update.Patch.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("patch = ?"))
+	}
+
+	if update.Hash._set {
+		__values = append(__values, update.Hash.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("hash = ?"))
+	}
+
+	if update.Timestamp._set {
+		__values = append(__values, update.Timestamp.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("timestamp = ?"))
+	}
+
+	if update.Release._set {
+		__values = append(__values, update.Release.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("release = ?"))
+	}
+
 	__now := obj.db.Hooks.Now().UTC()
 
 	__values = append(__values, __now)
@@ -7749,12 +7971,12 @@ func (obj *sqlite3Impl) Update_Node_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email FROM nodes WHERE nodes.id = ?")
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release FROM nodes WHERE nodes.id = ?")
 
 	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
 	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
 
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email)
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -8555,13 +8777,13 @@ func (obj *sqlite3Impl) getLastNode(ctx context.Context,
 	pk int64) (
 	node *Node, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email FROM nodes WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.wallet, nodes.email, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release FROM nodes WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.Wallet, &node.Email, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9247,13 +9469,19 @@ func (rx *Rx) Create_Node(ctx context.Context,
 	node_total_uptime_count Node_TotalUptimeCount_Field,
 	node_uptime_ratio Node_UptimeRatio_Field,
 	node_wallet Node_Wallet_Field,
-	node_email Node_Email_Field) (
+	node_email Node_Email_Field,
+	node_major Node_Major_Field,
+	node_minor Node_Minor_Field,
+	node_patch Node_Patch_Field,
+	node_hash Node_Hash_Field,
+	node_timestamp Node_Timestamp_Field,
+	node_release Node_Release_Field) (
 	node *Node, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_Node(ctx, node_id, node_audit_success_count, node_total_audit_count, node_audit_success_ratio, node_uptime_success_count, node_total_uptime_count, node_uptime_ratio, node_wallet, node_email)
+	return tx.Create_Node(ctx, node_id, node_audit_success_count, node_total_audit_count, node_audit_success_ratio, node_uptime_success_count, node_total_uptime_count, node_uptime_ratio, node_wallet, node_email, node_major, node_minor, node_patch, node_hash, node_timestamp, node_release)
 
 }
 
@@ -9940,7 +10168,13 @@ type Methods interface {
 		node_total_uptime_count Node_TotalUptimeCount_Field,
 		node_uptime_ratio Node_UptimeRatio_Field,
 		node_wallet Node_Wallet_Field,
-		node_email Node_Email_Field) (
+		node_email Node_Email_Field,
+		node_major Node_Major_Field,
+		node_minor Node_Minor_Field,
+		node_patch Node_Patch_Field,
+		node_hash Node_Hash_Field,
+		node_timestamp Node_Timestamp_Field,
+		node_release Node_Release_Field) (
 		node *Node, err error)
 
 	Create_OverlayCacheNode(ctx context.Context,

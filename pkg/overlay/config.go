@@ -9,7 +9,6 @@ import (
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 )
@@ -35,11 +34,11 @@ type LookupConfig struct {
 // NodeSelectionConfig is a configuration struct to determine the minimum
 // values for nodes to select
 type NodeSelectionConfig struct {
-	Version           []version.SemVer `help:"list of allowed versions to be nodes chosen from"`
-	UptimeRatio       float64          `help:"a node's ratio of being up/online vs. down/offline" default:"0"`
-	UptimeCount       int64            `help:"the number of times a node's uptime has been checked" default:"0"`
-	AuditSuccessRatio float64          `help:"a node's ratio of successful audits" default:"0"`
-	AuditCount        int64            `help:"the number of times a node has been audited" default:"0"`
+	Version           string  `help:"set to minimum node software version" default:"v0.1.0"`
+	UptimeRatio       float64 `help:"a node's ratio of being up/online vs. down/offline" default:"0"`
+	UptimeCount       int64   `help:"the number of times a node's uptime has been checked" default:"0"`
+	AuditSuccessRatio float64 `help:"a node's ratio of successful audits" default:"0"`
+	AuditCount        int64   `help:"the number of times a node has been audited" default:"0"`
 
 	NewNodeAuditThreshold int64   `help:"the number of audits a node must have to not be considered a New Node" default:"0"`
 	NewNodePercentage     float64 `help:"the percentage of new nodes allowed per request" default:"0.05"` // TODO: fix, this is not percentage, it's ratio

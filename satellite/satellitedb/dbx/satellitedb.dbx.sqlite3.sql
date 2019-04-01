@@ -100,6 +100,12 @@ CREATE TABLE nodes (
 	updated_at TIMESTAMP NOT NULL,
 	wallet TEXT NOT NULL,
 	email TEXT NOT NULL,
+	major INTEGER NOT NULL,
+	minor INTEGER NOT NULL,
+	patch INTEGER NOT NULL,
+	hash TEXT NOT NULL,
+	timestamp INTEGER NOT NULL,
+	release INTEGER NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE overlay_cache_nodes (
