@@ -68,7 +68,7 @@ func (t *Tally) Run(ctx context.Context) (err error) {
 
 //Tally calculates data-at-rest and bandwidth usage once
 func (t *Tally) Tally(ctx context.Context) error {
-	//data at rest
+	// data at rest
 	var errAtRest, errBWA, errBucketInfo error
 	latestTally, nodeData, bucketData, err := t.calculateAtRestData(ctx)
 	if err != nil {
@@ -164,7 +164,7 @@ func (t *Tally) calculateAtRestData(ctx context.Context) (latestTally time.Time,
 							currentBucketTally.Report("bucket")
 							totalTallies.Combine(&currentBucketTally)
 
-							// add currentBucketStats to bucketStats
+							// add currentBucketTally to bucketTallies
 							bucketTallies[currentBucket] = &currentBucketTally
 							currentBucketTally = accounting.BucketTally{}
 						}
