@@ -60,6 +60,14 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 		if err != nil {
 			return nil, err
 		}
+
+		// keep track of last path listed
+		if !more {
+			cursor.lastPath = ""
+		} else {
+			cursor.lastPath = pointerItems[len(pointerItems)-1].Path
+		}
+
 		if len(pointerItems) == 0 {
 			attempts++
 		} else {
@@ -93,13 +101,6 @@ func (cursor *Cursor) getRandomValidPointer(pointerItems []*pb.ListResponse_Item
 		pointerItem, err := getRandomPointer(pointerItems)
 		if err != nil {
 			return nil, err
-		}
-
-		// keep track of last path listed
-		if !more {
-			cursor.lastPath = ""
-		} else {
-			cursor.lastPath = pointerItems[len(pointerItems)-1].Path
 		}
 
 		pointer, err = cursor.pointerdb.Get(pointerItem.Path)
