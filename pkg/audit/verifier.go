@@ -191,12 +191,11 @@ func (d *defaultDownloader) getShare(ctx context.Context, limit *pb.AddressedOrd
 		conn,
 		piecestore.DefaultConfig,
 	)
-	defer func() (Share, error) {
+	defer func() {
 		err := ps.Close()
 		if err != nil {
-			return Share{}, err
+			d.log.Error("audit verifier failed to close conn to node: %+v", zap.Error(err))
 		}
-		return Share{}, nil
 	}()
 
 	offset := int64(shareSize) * stripeIndex
