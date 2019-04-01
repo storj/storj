@@ -230,7 +230,7 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 		// TODO: (STEFAN) Proper Handling
 		return nil, nil
 	}
-	version := &pb.NodeVersion{
+	nodeVersion := &pb.NodeVersion{
 		Major: ver.Major,
 		Minor: ver.Minor,
 		Patch: ver.Patch,
@@ -239,7 +239,7 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 	reputableNodes, err := cache.db.SelectStorageNodes(ctx, reputableNodeCount, &NodeCriteria{
 		FreeBandwidth: req.FreeBandwidth,
 		FreeDisk:      req.FreeDisk,
-		Version:       version,
+		Version:       nodeVersion,
 
 		AuditCount:         auditCount,
 		AuditSuccessRatio:  preferences.AuditSuccessRatio,

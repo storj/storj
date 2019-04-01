@@ -17,7 +17,7 @@ import (
 var (
 	mon = monkit.Package()
 	// Timestamp is the UTC timestamp of the compilation time
-	Timestamp string
+	Timestamp int64
 	// CommitHash is the git hash of the code being compiled
 	CommitHash string
 	// Version is the semantic version set at compilation
@@ -31,7 +31,7 @@ var (
 
 // Info is the versioning information for a binary
 type Info struct {
-	Timestamp  string `json:"timestamp,omitempty"`
+	Timestamp  int64  `json:"timestamp,omitempty"`
 	CommitHash string `json:"commitHash,omitempty"`
 	Version    SemVer `json:"version"`
 	Release    bool   `json:"release,omitempty"`
@@ -171,7 +171,7 @@ func init() {
 
 	Build.Version = *sv
 
-	if Build.Timestamp == "" || Build.CommitHash == "" {
+	if Build.Timestamp == 0 || Build.CommitHash == "" {
 		Build.Release = false
 	}
 }
