@@ -130,7 +130,7 @@ func (discovery *Discovery) refresh(ctx context.Context) error {
 			return ctx.Err()
 		}
 
-		ping, err := discovery.kad.Ping(ctx, *node)
+		ping, err := discovery.kad.Ping(ctx, node.Node)
 		if err != nil {
 			discovery.log.Info("could not ping node", zap.String("ID", node.Id.String()), zap.Error(err))
 			_, err := discovery.cache.UpdateUptime(ctx, node.Id, false)
@@ -154,7 +154,7 @@ func (discovery *Discovery) refresh(ctx context.Context) error {
 		}
 
 		// update wallet with correct info
-		info, err := discovery.kad.FetchInfo(ctx, *node)
+		info, err := discovery.kad.FetchInfo(ctx, node.Node)
 		if err != nil {
 			discovery.log.Warn("could not fetch node info", zap.String("ID", ping.GetAddress().String()))
 			continue

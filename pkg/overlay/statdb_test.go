@@ -64,7 +64,6 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		stats, err = cache.GetStats(ctx, nodeID)
 		require.NoError(t, err)
 
-		assert.EqualValues(t, nodeID, stats.NodeID)
 		assert.EqualValues(t, currAuditCount, stats.AuditCount)
 		assert.EqualValues(t, currAuditSuccess, stats.AuditSuccessCount)
 		assert.EqualValues(t, auditSuccessRatio, stats.AuditSuccessRatio)
@@ -135,12 +134,12 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 
 	{ // TestUpdateOperator
 		nodeID := storj.NodeID{10}
-		stats, err := cache.CreateEntryIfNotExists(ctx, &pb.Node{Id: nodeID})
+		node, err := cache.CreateEntryIfNotExists(ctx, &pb.Node{Id: nodeID})
 
 		require.NoError(t, err)
 
-		assert.Equal(t, stats.Operator.Wallet, "")
-		assert.Equal(t, stats.Operator.Email, "")
+		assert.Equal(t, node.Operator.Wallet, "")
+		assert.Equal(t, node.Operator.Email, "")
 
 		update, err := cache.UpdateOperator(ctx, nodeID, pb.NodeOperator{
 			Wallet: "0x1111111111111111111111111111111111111111",
@@ -154,8 +153,8 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		assert.NotNil(t, found)
 		require.NoError(t, err)
 
-		assert.Equal(t, "0x1111111111111111111111111111111111111111", found.Operator.Wallet)
-		assert.Equal(t, "abc123@gmail.com", found.Operator.Email)
+		assert.Equal(t, "0x1111111111111111111111111111111111111111", update.Operator.Wallet)
+		assert.Equal(t, "abc123@gmail.com", update.Operator.Email)
 
 		updateEmail, err := cache.UpdateOperator(ctx, nodeID, pb.NodeOperator{
 			Email: "def456@gmail.com",
@@ -181,7 +180,6 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		stats, err := cache.GetStats(ctx, nodeID)
 		require.NoError(t, err)
 
-		assert.EqualValues(t, nodeID, stats.NodeID)
 		assert.EqualValues(t, currAuditCount, stats.AuditCount)
 		assert.EqualValues(t, currAuditSuccess, stats.AuditSuccessCount)
 		assert.EqualValues(t, auditSuccessRatio, stats.AuditSuccessRatio)
@@ -214,7 +212,6 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		stats, err := cache.GetStats(ctx, nodeID)
 		require.NoError(t, err)
 
-		assert.EqualValues(t, nodeID, stats.NodeID)
 		assert.EqualValues(t, currAuditCount, stats.AuditCount)
 		assert.EqualValues(t, currAuditSuccess, stats.AuditSuccessCount)
 		assert.EqualValues(t, auditSuccessRatio, stats.AuditSuccessRatio)
@@ -239,7 +236,6 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		stats, err := cache.GetStats(ctx, nodeID)
 		require.NoError(t, err)
 
-		assert.EqualValues(t, nodeID, stats.NodeID)
 		assert.EqualValues(t, currAuditCount, stats.AuditCount)
 		assert.EqualValues(t, currAuditSuccess, stats.AuditSuccessCount)
 		assert.EqualValues(t, auditSuccessRatio, stats.AuditSuccessRatio)

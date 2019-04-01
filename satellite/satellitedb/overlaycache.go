@@ -99,18 +99,18 @@ func (cache *overlaycache) queryFilteredNodes(ctx context.Context, excluded []st
 			return nil, err
 		}
 
-		node, err := convertDBNode(dbNode)
+		dossier, err := convertDBNode(dbNode)
 		if err != nil {
 			return nil, err
 		}
-		nodes = append(nodes, node)
+		nodes = append(nodes, &dossier.Node)
 	}
 
 	return nodes, rows.Err()
 }
 
 // Get looks up the node by nodeID
-func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (*pb.Node, error) {
+func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (*overlay.NodeDossier, error) {
 	if id.IsZero() {
 		return nil, overlay.ErrEmptyNode
 	}
@@ -127,8 +127,8 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (*pb.Node, 
 }
 
 // GetAll looks up nodes based on the ids from the overlay cache
-func (cache *overlaycache) GetAll(ctx context.Context, ids storj.NodeIDList) ([]*pb.Node, error) {
-	infos := make([]*pb.Node, len(ids))
+func (cache *overlaycache) GetAll(ctx context.Context, ids storj.NodeIDList) ([]*overlay.NodeDossier, error) {
+	infos := make([]*overlay.NodeDossier, len(ids))
 	for i, id := range ids {
 		// TODO: abort on canceled context
 		info, err := cache.Get(ctx, id)
@@ -141,7 +141,7 @@ func (cache *overlaycache) GetAll(ctx context.Context, ids storj.NodeIDList) ([]
 }
 
 // List lists nodes starting from cursor
-func (cache *overlaycache) List(ctx context.Context, cursor storj.NodeID, limit int) ([]*pb.Node, error) {
+func (cache *overlaycache) List(ctx context.Context, cursor storj.NodeID, limit int) ([]*overlay.NodeDossier, error) {
 	// TODO: handle this nicer
 	if limit <= 0 || limit > storage.LookupLimit {
 		limit = storage.LookupLimit
@@ -152,7 +152,7 @@ func (cache *overlaycache) List(ctx context.Context, cursor storj.NodeID, limit 
 		return nil, err
 	}
 
-	infos := make([]*pb.Node, len(dbxInfos))
+	infos := make([]*overlay.NodeDossier, len(dbxInfos))
 	for i, dbxInfo := range dbxInfos {
 		infos[i], err = convertDBNode(dbxInfo)
 		if err != nil {
@@ -163,7 +163,7 @@ func (cache *overlaycache) List(ctx context.Context, cursor storj.NodeID, limit 
 }
 
 // Paginate will run through
-func (cache *overlaycache) Paginate(ctx context.Context, offset int64, limit int) ([]*pb.Node, bool, error) {
+func (cache *overlaycache) Paginate(ctx context.Context, offset int64, limit int) ([]*overlay.NodeDossier, bool, error) {
 	cursor := storj.NodeID{}
 
 	// more represents end of table. If there are more rows in the database, more will be true.
@@ -182,7 +182,7 @@ func (cache *overlaycache) Paginate(ctx context.Context, offset int64, limit int
 		more = false
 	}
 
-	infos := make([]*pb.Node, len(dbxInfos))
+	infos := make([]*overlay.NodeDossier, len(dbxInfos))
 	for i, dbxInfo := range dbxInfos {
 		infos[i], err = convertDBNode(dbxInfo)
 		if err != nil {
@@ -467,7 +467,7 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 }
 
 // UpdateOperator updates the email and wallet for a given node ID for satellite payments.
-func (cache *overlaycache) UpdateOperator(ctx context.Context, nodeID storj.NodeID, operator pb.NodeOperator) (stats *overlay.NodeStats, err error) {
+func (cache *overlaycache) UpdateOperator(ctx context.Context, nodeID storj.NodeID, operator pb.NodeOperator) (stats *overlay.NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	tx, err := cache.db.Open(ctx)
@@ -485,7 +485,7 @@ func (cache *overlaycache) UpdateOperator(ctx context.Context, nodeID storj.Node
 		return nil, Error.Wrap(tx.Rollback())
 	}
 
-	updated := getNodeStats(nodeID, updatedDBNode)
+	updated, err := convertDBNode(updatedDBNode)
 
 	return updated, errs.Combine(err, tx.Commit())
 }
@@ -560,7 +560,7 @@ func (cache *overlaycache) UpdateBatch(ctx context.Context, updateReqList []*ove
 }
 
 // CreateEntryIfNotExists creates a overlay node entry and saves to overlay if it didn't already exist
-func (cache *overlaycache) CreateEntryIfNotExists(ctx context.Context, node *pb.Node) (stats *overlay.NodeStats, err error) {
+func (cache *overlaycache) CreateEntryIfNotExists(ctx context.Context, node *pb.Node) (stats *overlay.NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// Update already does a non-racy create-or-update, so we don't need a
@@ -574,10 +574,10 @@ func (cache *overlaycache) CreateEntryIfNotExists(ctx context.Context, node *pb.
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	return getNodeStats(node.Id, dbNode), nil
+	return convertDBNode(dbNode)
 }
 
-func convertDBNode(info *dbx.Node) (*pb.Node, error) {
+func convertDBNode(info *dbx.Node) (*overlay.NodeDossier, error) {
 	if info == nil {
 		return nil, Error.New("missing info")
 	}
@@ -587,44 +587,34 @@ func convertDBNode(info *dbx.Node) (*pb.Node, error) {
 		return nil, err
 	}
 
-	node := &pb.Node{
-		Id:   id,
-		Type: pb.NodeType(info.Type),
-		Address: &pb.NodeAddress{
-			Address:   info.Address,
-			Transport: pb.NodeTransport(info.Protocol),
+	node := &overlay.NodeDossier{
+		Node: pb.Node{
+			Id: id,
+			Address: &pb.NodeAddress{
+				Address:   info.Address,
+				Transport: pb.NodeTransport(info.Protocol),
+			},
 		},
-		Metadata: &pb.NodeMetadata{
+		Type: pb.NodeType(info.Type),
+		Operator: pb.NodeOperator{
 			Email:  info.Email,
 			Wallet: info.Wallet,
 		},
-		Restrictions: &pb.NodeRestrictions{
+		Capacity: pb.NodeCapacity{
 			FreeBandwidth: info.FreeBandwidth,
 			FreeDisk:      info.FreeDisk,
 		},
-		Reputation: &pb.NodeStats{
-			NodeId:             id,
-			Latency_90:         info.Latency90,
+		Reputation: overlay.NodeStats{
+			Latency90:          info.Latency90,
 			AuditSuccessRatio:  info.AuditSuccessRatio,
 			UptimeRatio:        info.UptimeRatio,
 			AuditCount:         info.TotalAuditCount,
 			AuditSuccessCount:  info.AuditSuccessCount,
 			UptimeCount:        info.TotalUptimeCount,
 			UptimeSuccessCount: info.UptimeSuccessCount,
+			LastContactSuccess: info.LastContactSuccess,
+			LastContactFailure: info.LastContactFailure,
 		},
-	}
-
-	if node.Address.Address == "" {
-		node.Address = nil
-	}
-	if node.Metadata.Email == "" && node.Metadata.Wallet == "" {
-		node.Metadata = nil
-	}
-	if node.Restrictions.FreeBandwidth < 0 && node.Restrictions.FreeDisk < 0 {
-		node.Restrictions = nil
-	}
-	if node.Reputation.Latency_90 < 0 {
-		node.Reputation = nil
 	}
 
 	if time.Now().Sub(info.LastContactSuccess) < 1*time.Hour && info.LastContactSuccess.After(info.LastContactFailure) {
@@ -636,17 +626,15 @@ func convertDBNode(info *dbx.Node) (*pb.Node, error) {
 
 func getNodeStats(nodeID storj.NodeID, dbNode *dbx.Node) *overlay.NodeStats {
 	nodeStats := &overlay.NodeStats{
-		NodeID:             nodeID,
+		Latency90:          dbNode.Latency90,
 		AuditSuccessRatio:  dbNode.AuditSuccessRatio,
 		AuditSuccessCount:  dbNode.AuditSuccessCount,
 		AuditCount:         dbNode.TotalAuditCount,
 		UptimeRatio:        dbNode.UptimeRatio,
 		UptimeSuccessCount: dbNode.UptimeSuccessCount,
 		UptimeCount:        dbNode.TotalUptimeCount,
-		Operator: pb.NodeOperator{
-			Email:  dbNode.Email,
-			Wallet: dbNode.Wallet,
-		},
+		LastContactSuccess: dbNode.LastContactSuccess,
+		LastContactFailure: dbNode.LastContactFailure,
 	}
 	return nodeStats
 }

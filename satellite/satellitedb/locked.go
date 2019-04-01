@@ -553,6 +553,7 @@ type lockedOrders struct {
 	db orders.DB
 }
 
+// CreateSerialInfo creates serial number entry in database
 func (m *lockedOrders) CreateSerialInfo(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte, limitExpiration time.Time) error {
 	m.Lock()
 	defer m.Unlock()
@@ -594,7 +595,7 @@ type lockedOverlayCache struct {
 }
 
 // CreateEntryIfNotExists creates a node stats entry if it didn't already exist.
-func (m *lockedOverlayCache) CreateEntryIfNotExists(ctx context.Context, value *pb.Node) (stats *overlay.NodeStats, err error) {
+func (m *lockedOverlayCache) CreateEntryIfNotExists(ctx context.Context, value *pb.Node) (stats *overlay.NodeDossier, err error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.CreateEntryIfNotExists(ctx, value)
@@ -622,14 +623,14 @@ func (m *lockedOverlayCache) FindInvalidNodes(ctx context.Context, nodeIDs storj
 }
 
 // Get looks up the node by nodeID
-func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*pb.Node, error) {
+func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*overlay.NodeDossier, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Get(ctx, nodeID)
 }
 
 // GetAll looks up nodes based on the ids from the overlay cache
-func (m *lockedOverlayCache) GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*pb.Node, error) {
+func (m *lockedOverlayCache) GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*overlay.NodeDossier, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetAll(ctx, nodeIDs)
@@ -643,14 +644,14 @@ func (m *lockedOverlayCache) GetStats(ctx context.Context, nodeID storj.NodeID) 
 }
 
 // List lists nodes starting from cursor
-func (m *lockedOverlayCache) List(ctx context.Context, cursor storj.NodeID, limit int) ([]*pb.Node, error) {
+func (m *lockedOverlayCache) List(ctx context.Context, cursor storj.NodeID, limit int) ([]*overlay.NodeDossier, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.List(ctx, cursor, limit)
 }
 
 // Paginate will page through the database nodes
-func (m *lockedOverlayCache) Paginate(ctx context.Context, offset int64, limit int) ([]*pb.Node, bool, error) {
+func (m *lockedOverlayCache) Paginate(ctx context.Context, offset int64, limit int) ([]*overlay.NodeDossier, bool, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Paginate(ctx, offset, limit)
@@ -685,7 +686,7 @@ func (m *lockedOverlayCache) UpdateBatch(ctx context.Context, requests []*overla
 }
 
 // UpdateOperator updates the email and wallet for a given node ID for satellite payments.
-func (m *lockedOverlayCache) UpdateOperator(ctx context.Context, node storj.NodeID, updatedOperator pb.NodeOperator) (stats *overlay.NodeStats, err error) {
+func (m *lockedOverlayCache) UpdateOperator(ctx context.Context, node storj.NodeID, updatedOperator pb.NodeOperator) (stats *overlay.NodeDossier, err error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UpdateOperator(ctx, node, updatedOperator)

@@ -6,6 +6,7 @@ package overlay
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -43,13 +44,13 @@ type DB interface {
 	SelectNewStorageNodes(ctx context.Context, count int, criteria *NewNodeCriteria) ([]*pb.Node, error)
 
 	// Get looks up the node by nodeID
-	Get(ctx context.Context, nodeID storj.NodeID) (*pb.Node, error)
+	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
 	// GetAll looks up nodes based on the ids from the overlay cache
-	GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*pb.Node, error)
+	GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*NodeDossier, error)
 	// List lists nodes starting from cursor
-	List(ctx context.Context, cursor storj.NodeID, limit int) ([]*pb.Node, error)
+	List(ctx context.Context, cursor storj.NodeID, limit int) ([]*NodeDossier, error)
 	// Paginate will page through the database nodes
-	Paginate(ctx context.Context, offset int64, limit int) ([]*pb.Node, bool, error)
+	Paginate(ctx context.Context, offset int64, limit int) ([]*NodeDossier, bool, error)
 	// Update updates node information
 	Update(ctx context.Context, value *pb.Node) error
 	// Delete deletes node based on id
@@ -64,13 +65,13 @@ type DB interface {
 	// UpdateStats all parts of single storagenode's stats.
 	UpdateStats(ctx context.Context, request *UpdateRequest) (stats *NodeStats, err error)
 	// UpdateOperator updates the email and wallet for a given node ID for satellite payments.
-	UpdateOperator(ctx context.Context, node storj.NodeID, updatedOperator pb.NodeOperator) (stats *NodeStats, err error)
+	UpdateOperator(ctx context.Context, node storj.NodeID, updatedOperator pb.NodeOperator) (stats *NodeDossier, err error)
 	// UpdateUptime updates a single storagenode's uptime stats.
 	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error)
 	// UpdateBatch for updating multiple storage nodes' stats.
 	UpdateBatch(ctx context.Context, requests []*UpdateRequest) (statslist []*NodeStats, failed []*UpdateRequest, err error)
 	// CreateEntryIfNotExists creates a node stats entry if it didn't already exist.
-	CreateEntryIfNotExists(ctx context.Context, value *pb.Node) (stats *NodeStats, err error)
+	CreateEntryIfNotExists(ctx context.Context, value *pb.Node) (stats *NodeDossier, err error)
 }
 
 // FindStorageNodesRequest defines easy request parameters.
@@ -114,16 +115,26 @@ type UpdateRequest struct {
 	IsUp         bool
 }
 
+// NodeDossier is the complete info that the satellite tracks for a storage node
+type NodeDossier struct {
+	pb.Node
+	Type       pb.NodeType
+	Operator   pb.NodeOperator
+	Capacity   pb.NodeCapacity
+	Reputation NodeStats
+}
+
 // NodeStats contains statistics about a node.
 type NodeStats struct {
-	NodeID             storj.NodeID
+	Latency90          int64
 	AuditSuccessRatio  float64
 	AuditSuccessCount  int64
 	AuditCount         int64
 	UptimeRatio        float64
 	UptimeSuccessCount int64
 	UptimeCount        int64
-	Operator           pb.NodeOperator
+	LastContactSuccess time.Time
+	LastContactFailure time.Time
 }
 
 // Cache is used to store and handle node information
@@ -152,20 +163,20 @@ func (cache *Cache) Inspect(ctx context.Context) (storage.Keys, error) {
 }
 
 // List returns a list of nodes from the cache DB
-func (cache *Cache) List(ctx context.Context, cursor storj.NodeID, limit int) (_ []*pb.Node, err error) {
+func (cache *Cache) List(ctx context.Context, cursor storj.NodeID, limit int) (_ []*NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return cache.db.List(ctx, cursor, limit)
 }
 
 // Paginate returns a list of `limit` nodes starting from `start` offset.
-func (cache *Cache) Paginate(ctx context.Context, offset int64, limit int) (_ []*pb.Node, _ bool, err error) {
+func (cache *Cache) Paginate(ctx context.Context, offset int64, limit int) (_ []*NodeDossier, _ bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return cache.db.Paginate(ctx, offset, limit)
 }
 
 // Get looks up the provided nodeID from the overlay cache
-func (cache *Cache) Get(ctx context.Context, nodeID storj.NodeID) (_ *pb.Node, err error) {
+func (cache *Cache) Get(ctx context.Context, nodeID storj.NodeID) (_ *NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if nodeID.IsZero() {
 		return nil, ErrEmptyNode
@@ -256,7 +267,7 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 }
 
 // GetAll looks up the provided ids from the overlay cache
-func (cache *Cache) GetAll(ctx context.Context, ids storj.NodeIDList) (_ []*pb.Node, err error) {
+func (cache *Cache) GetAll(ctx context.Context, ids storj.NodeIDList) (_ []*NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(ids) == 0 {
@@ -277,21 +288,6 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 	}
 	if nodeID != value.Id {
 		return errors.New("invalid request")
-	}
-
-	// get existing node rep, or create a new overlay node with 0 rep
-	stats, err := cache.db.CreateEntryIfNotExists(ctx, &value)
-	if err != nil {
-		return err
-	}
-
-	value.Reputation = &pb.NodeStats{
-		AuditSuccessRatio:  stats.AuditSuccessRatio,
-		AuditSuccessCount:  stats.AuditSuccessCount,
-		AuditCount:         stats.AuditCount,
-		UptimeRatio:        stats.UptimeRatio,
-		UptimeSuccessCount: stats.UptimeSuccessCount,
-		UptimeCount:        stats.UptimeCount,
 	}
 
 	return cache.db.Update(ctx, &value)
@@ -333,7 +329,7 @@ func (cache *Cache) UpdateStats(ctx context.Context, request *UpdateRequest) (st
 }
 
 // UpdateOperator updates the email and wallet for a given node ID for satellite payments.
-func (cache *Cache) UpdateOperator(ctx context.Context, node storj.NodeID, updatedOperator pb.NodeOperator) (stats *NodeStats, err error) {
+func (cache *Cache) UpdateOperator(ctx context.Context, node storj.NodeID, updatedOperator pb.NodeOperator) (stats *NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return cache.db.UpdateOperator(ctx, node, updatedOperator)
 }
