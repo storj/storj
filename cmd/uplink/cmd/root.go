@@ -49,7 +49,16 @@ func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
 		defaultIdentityDir = identityDirParam
 	}
 
+	config := &libuplink.Config{}
+	cfgstruct.Bind(cmd.Flags(), &config, false)
+	uplink, err := libuplink.NewUplink(context.Background(), config)
+	if err != nil {
+		fmt.Printf("error configuring libuplink client %s", err.Error())
+	}
+	cfg.Uplink = uplink
+
 	cfgstruct.Bind(cmd.Flags(), &cfg, isDev, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+
 	return cmd
 }
 
@@ -63,9 +72,16 @@ func (c *UplinkFlags) Metainfo(ctx context.Context) (storj.Metainfo, streams.Sto
 		return nil, nil, err
 	}
 
-	c.Uplink = libuplink.NewUplink(identity, cfg.Config.Client.SatelliteAddr, cfg)
-
 	return c.GetMetainfo(ctx, identity)
+}
+
+// GetProject returns a *libuplink.Project for interacting with a specific project
+func (c *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, error) {
+	apiKey, err := libuplink.ParseAPIKey(c.Client.APIKey)
+	if err != nil {
+		return nil, err
+	}
+	return c.Uplink.OpenProject(ctx, c.Client.SatelliteAddr, apiKey)
 }
 
 func convertError(err error, path fpath.FPath) error {
