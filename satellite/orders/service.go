@@ -354,7 +354,11 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer *identity.PeerIdentity, bucketID []byte, pointer *pb.Pointer, healthy []*pb.RemotePiece) (_ []*pb.AddressedOrderLimit, err error) {
 	rootPieceID := pointer.GetRemote().RootPieceId
 	redundancy := pointer.GetRemote().GetRedundancy()
-	shareSize := redundancy.GetErasureShareSize()
+	eeRedundancy, err := eestream.NewRedundancyStrategyFromProto(redundancy)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), eeRedundancy)
 	totalPieces := redundancy.GetTotal()
 	expiration := pointer.ExpirationDate
 
@@ -398,7 +402,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 			StorageNodeId:   piece.NodeId,
 			PieceId:         rootPieceID.Derive(piece.NodeId),
 			Action:          pb.PieceAction_GET_REPAIR,
-			Limit:           int64(shareSize),
+			Limit:           pieceSize,
 			PieceExpiration: expiration,
 			OrderExpiration: orderExpiration,
 		})
