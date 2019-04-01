@@ -43,12 +43,10 @@ type Peer struct {
 		Listener net.Listener
 	}
 	Versions version.AllowedVersions
-}
 
-var (
 	// response contains the byte version of current allowed versions
 	response []byte
-)
+}
 
 func ignoreCancel(err error) error {
 	if err == context.Canceled || err == http.ErrServerClosed {
@@ -57,7 +55,7 @@ func ignoreCancel(err error) error {
 	return err
 }
 
-func handleGet(w http.ResponseWriter, r *http.Request) {
+func (peer *Peer) HandleGet(w http.ResponseWriter, r *http.Request) {
 	var xfor string
 
 	// Only handle GET Requests
@@ -69,7 +67,7 @@ func handleGet(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		_, err := w.Write(response)
+		_, err := w.Write(peer.response)
 		if err != nil {
 			zap.S().Errorf("error writing response to client: %v", err)
 		}
@@ -98,16 +96,16 @@ func New(log *zap.Logger, config *Config) (peer *Peer, err error) {
 	gatewayVersions := strings.Split(config.Versions.Gateway, ",")
 	peer.Versions.Gateway, err = version.StrToSemVerList(gatewayVersions)
 
-	response, err = json.Marshal(peer.Versions)
+	peer.response, err = json.Marshal(peer.Versions)
 
 	if err != nil {
 		peer.Log.Sugar().Fatalf("Error marshalling version info: %v", err)
 	}
 
-	peer.Log.Sugar().Debugf("setting version info to: %v", string(response))
+	peer.Log.Sugar().Debugf("setting version info to: %v", string(peer.response))
 
 	mux := http.NewServeMux()
-	mux.Handle("/", http.HandlerFunc(handleGet))
+	mux.HandleFunc("/", peer.HandleGet)
 	peer.Server.Endpoint = http.Server{
 		Handler: mux,
 	}
