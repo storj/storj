@@ -38,12 +38,12 @@ func TestVerifierHappyPath(t *testing.T) {
 		cursor := audit.NewCursor(pointerdb)
 
 		var stripe *audit.Stripe
-		// for {
-		stripe, err = cursor.NextStripe(ctx)
-		// if stripe != nil || err != nil {
-		// 	break
-		// }
-		// }
+		for {
+			stripe, err = cursor.NextStripe(ctx)
+			if stripe != nil || err != nil {
+				break
+			}
+		}
 		require.NoError(t, err)
 		require.NotNil(t, stripe)
 
