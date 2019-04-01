@@ -3702,7 +3702,9 @@ func (obj *postgresImpl) Create_Node(ctx context.Context,
 	node_audit_success_ratio Node_AuditSuccessRatio_Field,
 	node_uptime_success_count Node_UptimeSuccessCount_Field,
 	node_total_uptime_count Node_TotalUptimeCount_Field,
-	node_uptime_ratio Node_UptimeRatio_Field) (
+	node_uptime_ratio Node_UptimeRatio_Field,
+	node_last_contact_success Node_LastContactSuccess_Field,
+	node_last_contact_failure Node_LastContactFailure_Field) (
 	node *Node, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
@@ -3723,8 +3725,8 @@ func (obj *postgresImpl) Create_Node(ctx context.Context,
 	__uptime_ratio_val := node_uptime_ratio.value()
 	__created_at_val := __now
 	__updated_at_val := __now
-	__last_contact_success_val := __now
-	__last_contact_failure_val := __now
+	__last_contact_success_val := node_last_contact_success.value()
+	__last_contact_failure_val := node_last_contact_failure.value()
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, address, protocol, type, email, wallet, free_bandwidth, free_disk, latency_90, audit_success_count, total_audit_count, audit_success_ratio, uptime_success_count, total_uptime_count, uptime_ratio, created_at, updated_at, last_contact_success, last_contact_failure ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING nodes.id, nodes.address, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure")
 
@@ -6011,7 +6013,9 @@ func (obj *sqlite3Impl) Create_Node(ctx context.Context,
 	node_audit_success_ratio Node_AuditSuccessRatio_Field,
 	node_uptime_success_count Node_UptimeSuccessCount_Field,
 	node_total_uptime_count Node_TotalUptimeCount_Field,
-	node_uptime_ratio Node_UptimeRatio_Field) (
+	node_uptime_ratio Node_UptimeRatio_Field,
+	node_last_contact_success Node_LastContactSuccess_Field,
+	node_last_contact_failure Node_LastContactFailure_Field) (
 	node *Node, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
@@ -6032,8 +6036,8 @@ func (obj *sqlite3Impl) Create_Node(ctx context.Context,
 	__uptime_ratio_val := node_uptime_ratio.value()
 	__created_at_val := __now
 	__updated_at_val := __now
-	__last_contact_success_val := __now
-	__last_contact_failure_val := __now
+	__last_contact_success_val := node_last_contact_success.value()
+	__last_contact_failure_val := node_last_contact_failure.value()
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, address, protocol, type, email, wallet, free_bandwidth, free_disk, latency_90, audit_success_count, total_audit_count, audit_success_ratio, uptime_success_count, total_uptime_count, uptime_ratio, created_at, updated_at, last_contact_success, last_contact_failure ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
 
@@ -8865,13 +8869,15 @@ func (rx *Rx) Create_Node(ctx context.Context,
 	node_audit_success_ratio Node_AuditSuccessRatio_Field,
 	node_uptime_success_count Node_UptimeSuccessCount_Field,
 	node_total_uptime_count Node_TotalUptimeCount_Field,
-	node_uptime_ratio Node_UptimeRatio_Field) (
+	node_uptime_ratio Node_UptimeRatio_Field,
+	node_last_contact_success Node_LastContactSuccess_Field,
+	node_last_contact_failure Node_LastContactFailure_Field) (
 	node *Node, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_Node(ctx, node_id, node_address, node_protocol, node_type, node_email, node_wallet, node_free_bandwidth, node_free_disk, node_latency_90, node_audit_success_count, node_total_audit_count, node_audit_success_ratio, node_uptime_success_count, node_total_uptime_count, node_uptime_ratio)
+	return tx.Create_Node(ctx, node_id, node_address, node_protocol, node_type, node_email, node_wallet, node_free_bandwidth, node_free_disk, node_latency_90, node_audit_success_count, node_total_audit_count, node_audit_success_ratio, node_uptime_success_count, node_total_uptime_count, node_uptime_ratio, node_last_contact_success, node_last_contact_failure)
 
 }
 
@@ -9509,7 +9515,9 @@ type Methods interface {
 		node_audit_success_ratio Node_AuditSuccessRatio_Field,
 		node_uptime_success_count Node_UptimeSuccessCount_Field,
 		node_total_uptime_count Node_TotalUptimeCount_Field,
-		node_uptime_ratio Node_UptimeRatio_Field) (
+		node_uptime_ratio Node_UptimeRatio_Field,
+		node_last_contact_success Node_LastContactSuccess_Field,
+		node_last_contact_failure Node_LastContactFailure_Field) (
 		node *Node, err error)
 
 	Create_Project(ctx context.Context,
