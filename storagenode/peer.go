@@ -122,7 +122,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 	var err error
 
 	{
-		peer.Version = version.NewService(&config.Version, &versionInfo)
+		peer.Version = version.NewService(&config.Version, &versionInfo, "Storagenode")
 	}
 
 	{ // setup listener and server

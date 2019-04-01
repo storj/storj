@@ -189,7 +189,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 	var err error
 
 	{
-		peer.Version = version.NewService(&config.Version, &versionInfo)
+		peer.Version = version.NewService(&config.Version, &versionInfo, "Satellite")
 	}
 
 	{ // setup listener and server
