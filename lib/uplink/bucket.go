@@ -8,7 +8,6 @@ import (
 	"io"
 	"time"
 
-	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
@@ -46,14 +45,10 @@ type UploadOptions struct {
 	// Volatile groups config values that are likely to change semantics
 	// or go away entirely between releases. Be careful when using them!
 	Volatile struct {
-		// DataCipher determines the ciphersuite to use for the Object's
-		// data encryption. If not set, the Bucket's default will be
-		// used.
-		DataCipher Cipher
-		// EncryptionBlockSize determines the unit size at which
-		// encryption is performed. See BucketConfig.EncryptionBlockSize
-		// for more information.
-		EncryptionBlockSize memory.Size
+		// EncryptionParameters determines the ciphersuite to use for
+		// the Object's data encryption. If not set, the Bucket's
+		// defaults will be used.
+		EncryptionParameters storj.EncryptionParameters
 
 		// RedundancyScheme determines the Reed-Solomon and/or Forward
 		// Error Correction encoding parameters to be used for this

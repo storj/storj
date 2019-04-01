@@ -36,7 +36,11 @@ type Config struct {
 			// Certificate Authorities in the default whitelist. If
 			// set to true, the whitelist will be ignored.
 			SkipPeerCAWhitelist bool
+
+			PeerCAWhitelistPath string
 		}
+
+		UseIdentity *identity.FullIdentity
 	}
 }
 
@@ -44,7 +48,8 @@ type Config struct {
 // a specific Satellite and caches connections and resources, allowing one to
 // create sessions delineated by specific access controls.
 type Uplink struct {
-	tc transport.Client
+	tc  transport.Client
+	cfg *Config
 }
 
 // NewUplink creates a new Uplink
@@ -52,18 +57,27 @@ func NewUplink(ctx context.Context, cfg *Config) (*Uplink, error) {
 	if cfg == nil {
 		cfg = &Config{}
 	}
-	identity, err := identity.NewFullIdentity(ctx, 0, 1)
-	if err != nil {
-		return nil, err
+	id := cfg.Volatile.UseIdentity
+	if id == nil {
+		var err error
+		id, err = identity.NewFullIdentity(ctx, 0, 1)
+		if err != nil {
+			return nil, err
+		}
 	}
-	tlsOpts, err := tlsopts.NewOptions(identity, tlsopts.Config{UsePeerCAWhitelist: !cfg.Volatile.TLS.SkipPeerCAWhitelist})
+	tlsConfig := tlsopts.Config{
+		UsePeerCAWhitelist:  !cfg.Volatile.TLS.SkipPeerCAWhitelist,
+		PeerCAWhitelistPath: cfg.Volatile.TLS.PeerCAWhitelistPath,
+	}
+	tlsOpts, err := tlsopts.NewOptions(id, tlsConfig)
 	if err != nil {
 		return nil, err
 	}
 	tc := transport.NewClient(tlsOpts)
 
 	return &Uplink{
-		tc: tc,
+		tc:  tc,
+		cfg: cfg,
 	}, nil
 }
 

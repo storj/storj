@@ -35,11 +35,11 @@ type CreateBucketOptions struct {
 	// PathCipher indicates which ciphersuite is to be used for path
 	// encryption within the new Bucket. If not set, AES-GCM encryption
 	// will be used.
-	PathCipher Cipher
+	PathCipher storj.CipherSuite
 }
 
 func (o *CreateBucketOptions) setDefaults() {
-	if o.PathCipher == UnsetCipher {
+	if o.PathCipher == storj.EncUnspecified {
 		o.PathCipher = defaultCipher
 	}
 }
@@ -51,10 +51,7 @@ func (p *Project) CreateBucket(ctx context.Context, bucket string, opts *CreateB
 		opts = &CreateBucketOptions{}
 	}
 	opts.setDefaults()
-	pathCipher, err := opts.PathCipher.convert()
-	if err != nil {
-		return storj.Bucket{}, err
-	}
+	pathCipher := opts.PathCipher.ToCipher()
 	return p.project.CreateBucket(ctx, bucket, &storj.Bucket{PathCipher: pathCipher})
 }
 
@@ -90,7 +87,7 @@ type BucketConfig struct {
 
 	// PathCipher specifies the ciphersuite to be used for path encryption
 	// in this Bucket.
-	PathCipher Cipher
+	PathCipher storj.CipherSuite
 
 	// Volatile groups config values that are likely to change semantics
 	// or go away entirely between releases. Be careful when using them!
@@ -114,32 +111,22 @@ type BucketConfig struct {
 		// the inline storage and require remote storage, still.)
 		MaxInlineSize memory.Size
 
-		// DataCipher specifies the default ciphersuite to be used for
-		// data encryption of new Objects in this bucket.
-		DataCipher Cipher
-		// EncryptionBlockSize determines the unit size at which
-		// encryption is performed. It is important to distinguish this
-		// from the block size used by the ciphersuite (probably 128
-		// bits). There is some small overhead for each encryption unit,
-		// so EncryptionBlockSize should not be too small, but smaller
-		// sizes yield shorter first-byte latency and better seek times.
-		// Note that EncryptionBlockSize itself is the size of data
-		// blocks _after_ they have been encrypted and the
-		// authentication overhead has been added. It is _not_ the size
-		// of the data blocks to _be_ encrypted.
-		EncryptionBlockSize memory.Size
+		// EncryptionParameters specifies the default encryption
+		// parameters to be used for data encryption of new Objects in
+		// this bucket.
+		EncryptionParameters storj.EncryptionParameters
 	}
 }
 
 func (c *BucketConfig) setDefaults() {
-	if c.PathCipher == UnsetCipher {
+	if c.PathCipher == storj.EncUnspecified {
 		c.PathCipher = defaultCipher
 	}
-	if c.Volatile.DataCipher == UnsetCipher {
-		c.Volatile.DataCipher = defaultCipher
+	if c.Volatile.EncryptionParameters.CipherSuite == storj.EncUnspecified {
+		c.Volatile.EncryptionParameters.CipherSuite = defaultCipher
 	}
-	if c.Volatile.EncryptionBlockSize.Int() == 0 {
-		c.Volatile.EncryptionBlockSize = 1 * memory.KiB
+	if c.Volatile.EncryptionParameters.BlockSize == 0 {
+		c.Volatile.EncryptionParameters.BlockSize = (1 * memory.KiB).Int32()
 	}
 	if c.Volatile.DefaultRS.RequiredShares == 0 {
 		c.Volatile.DefaultRS.RequiredShares = 29
@@ -185,20 +172,17 @@ func (p *Project) OpenBucket(ctx context.Context, bucket string, cfg *BucketConf
 		return nil, err
 	}
 
-	if cfg.Volatile.DefaultRS.ShareSize*int32(cfg.Volatile.DefaultRS.RequiredShares)%cfg.Volatile.EncryptionBlockSize.Int32() != 0 {
-		return nil, Error.New("EncryptionBlockSize must be a multiple of RS ShareSize * RS RequiredShares")
+	if cfg.Volatile.DefaultRS.ShareSize*int32(cfg.Volatile.DefaultRS.RequiredShares)%cfg.Volatile.EncryptionParameters.BlockSize != 0 {
+		return nil, Error.New("EncryptionParameters.BlockSize must be a multiple of RS ShareSize * RS RequiredShares")
 	}
 	if cfg.EncryptionAccess.Key == (storj.Key{}) {
 		return nil, Error.New("No encryption key chosen")
 	}
-	pathCipher, err := cfg.PathCipher.convert()
+	pathCipher := cfg.PathCipher.ToCipher()
 	if err != nil {
 		return nil, err
 	}
-	dataCipher, err := cfg.Volatile.DataCipher.convert()
-	if err != nil {
-		return nil, err
-	}
+	encryptionScheme := cfg.Volatile.EncryptionParameters.ToEncryptionScheme()
 
 	ec := ecclient.NewClient(p.tc, cfg.Volatile.MaxBufferMem.Int())
 	fc, err := infectious.NewFEC(int(cfg.Volatile.DefaultRS.RequiredShares), int(cfg.Volatile.DefaultRS.TotalShares))
@@ -214,10 +198,7 @@ func (p *Project) OpenBucket(ctx context.Context, bucket string, cfg *BucketConf
 	}
 
 	maxEncryptedSegmentSize, err := encryption.CalcEncryptedSize(cfg.Volatile.SegmentSize.Int64(),
-		storj.EncryptionScheme{
-			Cipher:    dataCipher,
-			BlockSize: int32(cfg.Volatile.EncryptionBlockSize.Int()),
-		})
+		cfg.Volatile.EncryptionParameters.ToEncryptionScheme())
 	if err != nil {
 		return nil, err
 	}
@@ -226,7 +207,7 @@ func (p *Project) OpenBucket(ctx context.Context, bucket string, cfg *BucketConf
 	key := new(storj.Key)
 	copy(key[:], cfg.EncryptionAccess.Key[:])
 
-	streams, err := streams.NewStreamStore(segments, cfg.Volatile.SegmentSize.Int64(), key, cfg.Volatile.EncryptionBlockSize.Int(), dataCipher)
+	streams, err := streams.NewStreamStore(segments, cfg.Volatile.SegmentSize.Int64(), key, int(encryptionScheme.BlockSize), encryptionScheme.Cipher)
 	if err != nil {
 		return nil, err
 	}
