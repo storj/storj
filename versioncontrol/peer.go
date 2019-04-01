@@ -55,6 +55,7 @@ func ignoreCancel(err error) error {
 	return err
 }
 
+// HandleGet contains the request handler for the version control web server
 func (peer *Peer) HandleGet(w http.ResponseWriter, r *http.Request) {
 	var xfor string
 
