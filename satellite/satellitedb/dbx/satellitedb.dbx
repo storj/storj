@@ -138,8 +138,8 @@ model node (
 
 	field created_at           timestamp ( autoinsert )
 	field updated_at           timestamp ( autoinsert, autoupdate )
-	field last_contact_success timestamp ( autoinsert, updatable )
-	field last_contact_failure timestamp ( autoinsert, updatable )
+	field last_contact_success timestamp ( updatable )
+	field last_contact_failure timestamp ( updatable )
 )
 
 create node ( )
