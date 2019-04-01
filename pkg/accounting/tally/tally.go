@@ -63,10 +63,12 @@ func (t *Service) Run(ctx context.Context) (err error) {
 	}
 }
 
+
 //Tally calculates data-at-rest once
 func (t *Service) Tally(ctx context.Context) error {
-	var errAtRest error
-	latestTally, nodeData, err := t.calculateAtRestData(ctx)
+	var errAtRest, errBWA, errBucketInfo error
+	latestTally, nodeData, bucketData, err := t.calculateAtRestData(ctx)
+
 	if err != nil {
 		errAtRest = errs.New("Query for data-at-rest failed : %v", err)
 	} else {
@@ -87,8 +89,8 @@ func (t *Service) Tally(ctx context.Context) error {
 }
 
 // calculateAtRestData iterates through the pieces on pointerdb and calculates
-// the amount of at-rest data stored on each respective node
-func (t *Service) calculateAtRestData(ctx context.Context) (latestTally time.Time, nodeData map[storj.NodeID]float64, err error) {
+// the amount of at-rest data stored in each bucket and on each respective node
+func (t *Service) calculateAtRestData(ctx context.Context) (latestTally time.Time, nodeData map[storj.NodeID]float64, bucketTallies map[string]*accounting.BucketTally, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	latestTally, err = t.accountingDB.LastTimestamp(ctx, accounting.LastAtRestTally)
