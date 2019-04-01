@@ -37,6 +37,8 @@ func NewNonTemporaryError(err error) NonTemporaryError {
 	}
 }
 
+// DoubleSHA256PublicKey returns the hash of the hash of (double-hash, SHA226)
+// the binary format of the given public key.
 func DoubleSHA256PublicKey(k crypto.PublicKey) ([sha256.Size]byte, error) {
 	kb, err := x509.MarshalPKIXPublicKey(k)
 	if err != nil {

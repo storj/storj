@@ -53,7 +53,7 @@ type FullIdentity struct {
 	Key crypto.PrivateKey
 }
 
-// ManageablePeerIdentity is a `PeerIdentity` and it's corresponding `FullCertificateAuthority`
+// ManageablePeerIdentity is a `PeerIdentity` and its corresponding `FullCertificateAuthority`
 // in a single struct. It is used for making changes to the identity that require CA
 // authorization; e.g. adding extensions.
 type ManageablePeerIdentity struct {
