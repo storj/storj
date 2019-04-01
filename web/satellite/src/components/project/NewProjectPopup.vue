@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="new-project-popup-container" v-on:keyup.enter="createProject" v-on:keyup.esc="onCloseClick">
+    <div class="new-project-popup-container" v-on:keyup.enter="createProjectClick" v-on:keyup.esc="onCloseClick">
         <div class="new-project-popup" id="newProjectPopup" >
             <div class="new-project-popup__info-panel-container">
                 <h2 class="new-project-popup__info-panel-container__main-label-text">Create New Project</h2>
@@ -30,7 +30,7 @@
                 </HeaderedInput>
                 <div class="new-project-popup__form-container__button-container">
                     <Button label="Cancel" width="205px" height="48px" :onPress="onCloseClick" isWhite/>
-                    <Button label="Create Project" width="205px" height="48px" :onPress="createProject"/>
+                    <Button label="Create Project" width="205px" height="48px" :onPress="createProjectClick"/>
                 </div>
             </div>
             <div class="new-project-popup__close-cross-container">
@@ -43,85 +43,124 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import HeaderedInput from '@/components/common/HeaderedInput.vue';
-import Checkbox from '@/components/common/Checkbox.vue';
-import Button from '@/components/common/Button.vue';
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PROJETS_ACTIONS } from '@/utils/constants/actionNames';
-import { validateProjectName } from '@/utils/validation';
+    import { Component, Vue } from 'vue-property-decorator';
+    import HeaderedInput from '@/components/common/HeaderedInput.vue';
+    import Checkbox from '@/components/common/Checkbox.vue';
+    import Button from '@/components/common/Button.vue';
+    import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PROJETS_ACTIONS } from '@/utils/constants/actionNames';
+    import { PM_ACTIONS } from '../../utils/constants/actionNames';
 
-@Component(
-    {
-        data: function () {
-            return {
-                projectName: '',
-                description: '',
-                nameError: '',
-            };
-        },
-        methods: {
-            setProjectName: function (value: string): void {
-                this.$data.projectName = value;
-                this.$data.nameError = '';
+    @Component(
+        {
+            beforeMount() {
+                this.$data.self = this as any;
             },
-            setProjectDescription: function (value: string): void {
-                this.$data.description = value;
+            data: function () {
+                return {
+                    projectName: '',
+                    description: '',
+                    nameError: '',
+                    createdProjectId: '',
+                    self: null,
+                };
             },
-            onCloseClick: function (): void {
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
+            methods: {
+                setProjectName: function (value: string): void {
+                    this.$data.projectName = value;
+                    this.$data.nameError = '';
+                },
+                setProjectDescription: function (value: string): void {
+                    this.$data.description = value;
+                },
+                onCloseClick: function (): void {
+                    this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
+                },
+                createProjectClick: async function (): Promise<any> {
+                    if (!this.$data.self.validateProjectName(this.$data.projectName)) {
+                        return;
+                    }
+
+                    if (!await this.$data.self.createProject()) {
+                        return;
+                    }
+
+                    this.$data.self.selectCreatedProject();
+
+                    this.$data.self.fetchProjectMembers();
+
+                    this.$data.self.checkIfsFirstProject();
+                },
+                validateProjectName: function(): boolean {
+                    this.$data.projectName = this.$data.projectName.trim();
+
+                    const rgx = /^[^/]+$/;
+                    if (!rgx.test(this.$data.projectName)) {
+                        this.$data.nameError = 'Name for project is invalid!';
+
+                        return false;
+                    }
+
+                    if (this.$data.projectName.length > 20) {
+                        this.$data.nameError = 'Name should be less than 21 character!';
+
+                        return false;
+                    }
+
+                    return true;
+                },
+                createProject: async function(): Promise<boolean> {
+                    let response: RequestResponse<Project> = await this.$store.dispatch(PROJETS_ACTIONS.CREATE, {
+                        name: this.$data.projectName,
+                        description: this.$data.description,
+                        isTermsAccepted: this.$data.isTermsAccepted
+                    });
+                    if (!response.isSuccess) {
+                        this.$data.self.notifyError(response.errorMessage);
+
+                        return false;
+                    }
+
+                    this.$data.createdProjectId = response.data.id;
+
+                    return true;
+                },
+                selectCreatedProject: function () {
+                    this.$store.dispatch(PROJETS_ACTIONS.SELECT, this.$data.createdProjectId);
+
+                    this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
+                },
+                checkIfsFirstProject: function() {
+                    let isFirstProject = this.$store.state.projectsModule.projects.length === 1;
+
+                    isFirstProject
+                        ? this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP)
+                        : this.$data.self.notifySuccess('Project created successfully!');
+                },
+                fetchProjectMembers: async function(): Promise<any> {
+                    this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
+
+                    const response: RequestResponse<TeamMemberModel[]> = await this.$store.dispatch(PM_ACTIONS.FETCH);
+                    if (!response.isSuccess) {
+                        this.$data.self.notifyError(response.errorMessage);
+                    }
+                },
+                notifyError(message: string) {
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, message);
+                },
+                notifySuccess(message: string) {
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, message);
+                }
             },
-            createProject: async function (): Promise<any> {
-                let projectName = this.$data.projectName.trim();
-
-                if (!validateProjectName(projectName)) {
-                    this.$data.nameError = 'Name for project is invalid!';
-                }
-
-                if (projectName.length > 20) {
-                    this.$data.nameError = 'Name should be less than 21 character!';
-                }
-
-                if (this.$data.nameError) {
-                    return;
-                }
-
-                let response = await this.$store.dispatch(PROJETS_ACTIONS.CREATE, {
-                    name: projectName,
-                    description: this.$data.description,
-                    isTermsAccepted: this.$data.isTermsAccepted
-                });
-
-                if (!response.isSuccess) {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
-
-                    return;
-                }
-
-                // Select newly created project
-                this.$store.dispatch(PROJETS_ACTIONS.SELECT, response.data.id);
-
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
-
-                if (this.$store.state.projectsModule.projects.length === 1) {
-                    // Start successful project creation sequence
-                    this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP);
-
-                    return;
-                }
-
-                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Project created successfully!');
+            components: {
+                HeaderedInput,
+                Checkbox,
+                Button
             }
-        },
-        components: {
-            HeaderedInput,
-            Checkbox,
-            Button
         }
-    }
-)
+    )
 
-export default class NewProjectPopup extends Vue {
-}
+    export default class NewProjectPopup extends Vue {
+    }
 </script>
 
 <style scoped lang="scss">
@@ -186,18 +225,18 @@ export default class NewProjectPopup extends Vue {
         }
 
         &__close-cross-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            position: absolute;
-            right: 30px;
-            top: 40px;
-            height: 24px;
-            width: 24px;
-            cursor: pointer;
+             display: flex;
+             justify-content: center;
+             align-items: center;
+             position: absolute;
+             right: 30px;
+             top: 40px;
+             height: 24px;
+             width: 24px;
+             cursor: pointer;
 
             &:hover svg path {
-                fill: #2683FF;
+                 fill: #2683FF;
             }
         }
     }

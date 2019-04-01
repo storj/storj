@@ -12,6 +12,7 @@ import (
 	"net/smtp"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -48,6 +49,7 @@ import (
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/orders"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/storelogger"
@@ -79,6 +81,8 @@ type DB interface {
 	Irreparable() irreparable.DB
 	// Console returns database for satellite console
 	Console() console.DB
+	// Orders returns database for orders
+	Orders() orders.DB
 }
 
 // Config is the global config satellite
@@ -137,15 +141,18 @@ type Peer struct {
 	}
 
 	Metainfo struct {
-		Database   storage.KeyValueStore // TODO: move into pointerDB
-		Allocation *pointerdb.AllocationSigner
-		Service    *pointerdb.Service
-		Endpoint   *pointerdb.Server
-		Endpoint2  *metainfo.Endpoint
+		Database  storage.KeyValueStore // TODO: move into pointerDB
+		Service   *pointerdb.Service
+		Endpoint2 *metainfo.Endpoint
 	}
 
 	Agreements struct {
 		Endpoint *bwagreement.Server
+	}
+
+	Orders struct {
+		Endpoint *orders.Endpoint
+		Service  *orders.Service
 	}
 
 	Repair struct {
@@ -280,6 +287,26 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		peer.Discovery.Service = discovery.New(peer.Log.Named("discovery"), peer.Overlay.Service, peer.Kademlia.Service, config)
 	}
 
+	{ // setup orders
+		log.Debug("Setting up orders")
+		satelliteSignee := signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity())
+		peer.Orders.Endpoint = orders.NewEndpoint(
+			peer.Log.Named("orders:endpoint"),
+			satelliteSignee,
+			peer.DB.Orders(),
+			peer.DB.CertDB(),
+		)
+		peer.Orders.Service = orders.NewService(
+			peer.Log.Named("orders:service"),
+			signing.SignerFromFullIdentity(peer.Identity),
+			peer.Overlay.Service,
+			peer.DB.CertDB(),
+			peer.DB.Orders(),
+			45*24*time.Hour, // TODO: make it configurable?
+		)
+		pb.RegisterOrdersServer(peer.Server.GRPC(), peer.Orders.Endpoint)
+	}
+
 	{ // setup metainfo
 		log.Debug("Setting up metainfo")
 		db, err := pointerdb.NewStore(config.PointerDB.DatabaseURL)
@@ -289,24 +316,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 
 		peer.Metainfo.Database = storelogger.New(peer.Log.Named("pdb"), db)
 		peer.Metainfo.Service = pointerdb.NewService(peer.Log.Named("pointerdb"), peer.Metainfo.Database)
-		peer.Metainfo.Allocation = pointerdb.NewAllocationSigner(peer.Identity, config.PointerDB.BwExpiration, peer.DB.CertDB())
-		peer.Metainfo.Endpoint = pointerdb.NewServer(peer.Log.Named("pointerdb:endpoint"),
-			peer.Metainfo.Service,
-			peer.Metainfo.Allocation,
-			peer.Overlay.Service,
-			config.PointerDB,
-			peer.Identity, peer.DB.Console().APIKeys())
 
 		peer.Metainfo.Endpoint2 = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),
 			peer.Metainfo.Service,
-			peer.Metainfo.Allocation,
+			peer.Orders.Service,
 			peer.Overlay.Service,
 			peer.DB.Console().APIKeys(),
-			signing.SignerFromFullIdentity(peer.Identity),
 		)
-
-		pb.RegisterPointerDBServer(peer.Server.GRPC(), peer.Metainfo.Endpoint)
 
 		pb.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)
 	}
@@ -335,9 +352,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			config.Repairer.MaxRepair,
 			peer.Transport,
 			peer.Metainfo.Service,
-			peer.Metainfo.Allocation,
+			peer.Orders.Service,
 			peer.Overlay.Service,
-			signing.SignerFromFullIdentity(peer.Identity),
 		)
 
 		peer.Repair.Inspector = irreparable.NewInspector(peer.DB.Irreparable())
@@ -350,8 +366,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 
 		peer.Audit.Service, err = audit.NewService(peer.Log.Named("audit"),
 			config,
-			peer.Metainfo.Service, peer.Metainfo.Allocation,
-			peer.Transport, peer.Overlay.Service,
+			peer.Metainfo.Service,
+			peer.Orders.Service,
+			peer.Transport,
+			peer.Overlay.Service,
 			peer.Identity,
 		)
 		if err != nil {
@@ -547,9 +565,6 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.Agreements.Endpoint.Close())
 	}
 
-	if peer.Metainfo.Endpoint != nil {
-		errlist.Add(peer.Metainfo.Endpoint.Close())
-	}
 	if peer.Metainfo.Database != nil {
 		errlist.Add(peer.Metainfo.Database.Close())
 	}

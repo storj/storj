@@ -430,6 +430,70 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						rollup_end_time )`,
 				},
 			},
+			{
+				Description: "users first_name to full_name, last_name to short_name",
+				Version:     10,
+				Action: migrate.SQL{
+					`ALTER TABLE users RENAME COLUMN first_name TO full_name;
+					ALTER TABLE users ALTER COLUMN last_name DROP NOT NULL;
+					ALTER TABLE users RENAME COLUMN last_name TO short_name;`,
+				},
+			},
+			{
+				Description: "drops interval seconds from storage_rollups, renames x_storage_rollups to x_storage_tallies, adds fields to bucket_storage_tallies",
+				Version:     11,
+				Action: migrate.SQL{
+					`ALTER TABLE storagenode_storage_rollups RENAME TO storagenode_storage_tallies`,
+					`ALTER TABLE bucket_storage_rollups RENAME TO bucket_storage_tallies`,
+
+					`ALTER TABLE storagenode_storage_tallies DROP COLUMN interval_seconds`,
+					`ALTER TABLE bucket_storage_tallies DROP COLUMN interval_seconds`,
+
+					`ALTER TABLE bucket_storage_tallies ADD remote_segments_count integer;
+					UPDATE bucket_storage_tallies SET remote_segments_count = 0;
+					ALTER TABLE bucket_storage_tallies ALTER COLUMN remote_segments_count SET NOT NULL;`,
+
+					`ALTER TABLE bucket_storage_tallies ADD inline_segments_count integer;
+					UPDATE bucket_storage_tallies SET inline_segments_count = 0;
+					ALTER TABLE bucket_storage_tallies ALTER COLUMN inline_segments_count SET NOT NULL;`,
+
+					`ALTER TABLE bucket_storage_tallies ADD object_count integer;
+					UPDATE bucket_storage_tallies SET object_count = 0;
+					ALTER TABLE bucket_storage_tallies ALTER COLUMN object_count SET NOT NULL;`,
+
+					`ALTER TABLE bucket_storage_tallies ADD metadata_size bigint;
+					UPDATE bucket_storage_tallies SET metadata_size = 0;
+					ALTER TABLE bucket_storage_tallies ALTER COLUMN metadata_size SET NOT NULL;`,
+				},
+			},
+			{
+				Description: "Merge overlay_cache_nodes into nodes table",
+				Version:     12,
+				Action: migrate.SQL{
+					// Add the new columns to the nodes table
+					`ALTER TABLE nodes ADD address TEXT NOT NULL DEFAULT '';
+					 ALTER TABLE nodes ADD protocol INTEGER NOT NULL DEFAULT 0;
+					 ALTER TABLE nodes ADD type INTEGER NOT NULL DEFAULT 2;
+					 ALTER TABLE nodes ADD free_bandwidth BIGINT NOT NULL DEFAULT -1;
+					 ALTER TABLE nodes ADD free_disk BIGINT NOT NULL DEFAULT -1;
+					 ALTER TABLE nodes ADD latency_90 BIGINT NOT NULL DEFAULT 0;
+					 ALTER TABLE nodes ADD last_contact_success TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT 'epoch';
+					 ALTER TABLE nodes ADD last_contact_failure TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT 'epoch';`,
+					// Copy data from overlay_cache_nodes to nodes
+					`UPDATE nodes
+					 SET address=overlay.address,
+					     protocol=overlay.protocol,
+						 type=overlay.node_type,
+						 free_bandwidth=overlay.free_bandwidth,
+						 free_disk=overlay.free_disk,
+						 latency_90=overlay.latency_90
+					 FROM (SELECT node_id, node_type, address, protocol, free_bandwidth, free_disk, latency_90
+						   FROM overlay_cache_nodes) AS overlay
+					 WHERE nodes.id=overlay.node_id;`,
+					// Delete the overlay cache_nodes table
+					`DROP TABLE overlay_cache_nodes CASCADE;`,
+				},
+			},
 		},
 	}
 }
