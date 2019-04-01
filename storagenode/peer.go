@@ -311,7 +311,7 @@ func backoffRestart(ctx context.Context, waitInterval, maxWait time.Duration, na
 		return nil
 	}
 
-	errList.Add(Error.New("unable to start %s after final wait time of %d", name, waitInterval))
+	errList.Add(Error.New("unable to start %s after final wait time of %ds", name, waitInterval/time.Second))
 	return errList.Err()
 }
 
