@@ -481,12 +481,10 @@ func ObjectHealth(cmd *cobra.Command, args []string) (err error) {
 		Limit:             0,
 	}
 
-	resp, err := i.healthclient.ObjectHealth(ctx, req)
+	_, err = i.healthclient.ObjectHealth(ctx, req)
 	if err != nil {
 		return ErrRequest.Wrap(err)
 	}
-
-	fmt.Printf("%+v\n", resp)
 
 	return nil
 }
@@ -501,6 +499,9 @@ func SegmentHealth(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	segmentIndex, err := strconv.ParseInt(args[1], 10, 64)
+	if err != nil {
+		return ErrRequest.Wrap(err)
+	}
 
 	req := &pb.SegmentHealthRequest{
 		ProjectId:     []byte(args[0]),
@@ -509,12 +510,10 @@ func SegmentHealth(cmd *cobra.Command, args []string) (err error) {
 		EncryptedPath: []byte(args[3]),
 	}
 
-	resp, err := i.healthclient.SegmentHealth(ctx, req)
+	_, err = i.healthclient.SegmentHealth(ctx, req)
 	if err != nil {
 		return ErrRequest.Wrap(err)
 	}
-
-	fmt.Printf("%+v\n", resp)
 
 	return nil
 }

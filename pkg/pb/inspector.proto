@@ -51,9 +51,9 @@ service IrreparableInspector {
 }
 
 service HealthInspector {
-  // ObjectHealth will returns stats about the health of an object
+  // ObjectHealth will return stats about the health of an object
   rpc ObjectHealth(ObjectHealthRequest) returns (ObjectHealthResponse) {}
-  // SegmentHealth will returns stats about the health of a segment
+  // SegmentHealth will return stats about the health of a segment
   rpc SegmentHealth(SegmentHealthRequest) returns (SegmentHealthResponse) {}
 }
 
