@@ -178,6 +178,8 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 				if err != nil {
 					return formatError(err)
 				}
+			} else {
+				return err
 			}
 			continue
 		}
