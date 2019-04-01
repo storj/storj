@@ -403,9 +403,16 @@ model bucket_bandwidth_rollup (
 	field interval_seconds uint
 	field action           uint
 
-	field inline    uint64
-	field allocated uint64
-	field settled   uint64
+	field inline    uint64 ( updatable )
+	field allocated uint64 ( updatable )
+	field settled   uint64 ( updatable )
+)
+
+read scalar (
+	select bucket_bandwidth_rollup
+	where  bucket_bandwidth_rollup.bucket_id = ?
+	where  bucket_bandwidth_rollup.interval_start = ?
+	where  bucket_bandwidth_rollup.action = ?
 )
 
 model bucket_storage_tally (
@@ -440,8 +447,15 @@ model storagenode_bandwidth_rollup (
 	field interval_seconds uint
 	field action           uint
 
-	field allocated uint64
-	field settled   uint64
+	field allocated uint64 ( updatable )
+	field settled   uint64 ( updatable )
+)
+
+read scalar (
+	select storagenode_bandwidth_rollup
+	where  storagenode_bandwidth_rollup.storagenode_id = ?
+	where  storagenode_bandwidth_rollup.interval_start = ?
+	where  storagenode_bandwidth_rollup.action = ?
 )
 
 model storagenode_storage_tally (
