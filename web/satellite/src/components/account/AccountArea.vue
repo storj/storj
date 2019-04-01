@@ -69,7 +69,7 @@
                     </svg>
                     <div>
                         <h1>Change Password</h1>
-                        <h2>6 or more characters, at least 1 letter and number.</h2>
+                        <h2>6 or more characters.</h2>
                     </div>
                 </div>
                 <HeaderlessInput
@@ -273,7 +273,7 @@ import { validateEmail, validatePassword } from '@/utils/validation';
                 }
 
                 if (!validatePassword(this.$data.newPassword)) {
-                    this.$data.newPasswordError = 'Invalid password';
+                    this.$data.newPasswordError = 'Invalid password. Use 6 or more characters';
                     hasError = true;
                 }
 

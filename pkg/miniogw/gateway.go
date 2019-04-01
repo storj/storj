@@ -18,7 +18,6 @@ import (
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/stream"
-	"storj.io/storj/pkg/utils"
 )
 
 var (
@@ -402,7 +401,7 @@ func upload(ctx context.Context, streams streams.Store, mutableObject storj.Muta
 
 	_, err = io.Copy(upload, reader)
 
-	return utils.CombineErrors(err, upload.Close())
+	return errs.Combine(err, upload.Close())
 }
 
 func (layer *gatewayLayer) PutObject(ctx context.Context, bucket, object string, data *hash.Reader, metadata map[string]string) (objInfo minio.ObjectInfo, err error) {

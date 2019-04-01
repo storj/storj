@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/utils"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -41,7 +41,7 @@ func (db *irreparableDB) IncrementRepairAttempts(ctx context.Context, segmentInf
 			dbx.Irreparabledb_RepairAttemptCount(segmentInfo.RepairAttemptCount),
 		)
 		if err != nil {
-			return Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
+			return Error.Wrap(errs.Combine(err, tx.Rollback()))
 		}
 	} else {
 		// row exits increment the attempt counter
@@ -55,7 +55,7 @@ func (db *irreparableDB) IncrementRepairAttempts(ctx context.Context, segmentInf
 			updateFields,
 		)
 		if err != nil {
-			return Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
+			return Error.Wrap(errs.Combine(err, tx.Rollback()))
 		}
 	}
 

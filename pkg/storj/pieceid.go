@@ -38,7 +38,7 @@ func NewPieceID() PieceID {
 func PieceIDFromString(s string) (PieceID, error) {
 	idBytes, err := pieceIDEncoding.DecodeString(s)
 	if err != nil {
-		return PieceID{}, ErrNodeID.Wrap(err)
+		return PieceID{}, ErrPieceID.Wrap(err)
 	}
 	return PieceIDFromBytes(idBytes)
 }
@@ -46,7 +46,7 @@ func PieceIDFromString(s string) (PieceID, error) {
 // PieceIDFromBytes converts a byte slice into a piece ID
 func PieceIDFromBytes(b []byte) (PieceID, error) {
 	if len(b) != len(PieceID{}) {
-		return PieceID{}, ErrPieceID.New("not enough bytes to make a piece ID; have %d, need %d", len(b), len(NodeID{}))
+		return PieceID{}, ErrPieceID.New("not enough bytes to make a piece ID; have %d, need %d", len(b), len(PieceID{}))
 	}
 
 	var id PieceID
@@ -122,7 +122,7 @@ func (id PieceID) Value() (driver.Value, error) {
 func (id *PieceID) Scan(src interface{}) (err error) {
 	b, ok := src.([]byte)
 	if !ok {
-		return ErrNodeID.New("PieceID Scan expects []byte")
+		return ErrPieceID.New("PieceID Scan expects []byte")
 	}
 	n, err := PieceIDFromBytes(b)
 	*id = n
