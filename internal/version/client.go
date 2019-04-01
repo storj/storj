@@ -14,6 +14,8 @@ import (
 	"storj.io/storj/pkg/transport"
 )
 
+// VersionClient creates a transport client, that internally checks if the software version is still up to date
+// and refuses outgoing connections in case it is outdated
 type VersionedClient struct {
 	transport transport.Client
 	version   *Service
