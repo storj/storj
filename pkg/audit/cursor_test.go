@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
@@ -43,14 +42,13 @@ func TestAuditSegment(t *testing.T) {
 		t.Run("NextStripe", func(t *testing.T) {
 			for _, tt := range tests {
 				t.Run(tt.bm, func(t *testing.T) {
-					assert1 := assert.New(t)
 					stripe, err := cursor.NextStripe(ctx)
 					if err != nil {
-						assert1.Error(err)
-						assert1.Nil(stripe)
+						require.Error(t, err)
+						require.Nil(t, stripe)
 					}
 					if stripe != nil {
-						assert1.Nil(err)
+						require.Nil(t, err)
 					}
 				})
 			}
