@@ -38,7 +38,7 @@ type Service struct {
 
 // NewService instantiates a Service with access to a Cursor and Verifier
 func NewService(log *zap.Logger, config Config, pointerdb *pointerdb.Service,
-	allocation *pointerdb.AllocationSigner, orders *orders.Service, transport transport.Client, overlay *overlay.Cache,
+	orders *orders.Service, transport transport.Client, overlay *overlay.Cache,
 	identity *identity.FullIdentity) (service *Service, err error) {
 	return &Service{
 		log: log,
@@ -61,7 +61,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		if err != nil {
 			service.log.Error("process", zap.Error(err))
 		}
-		return err
+		return nil
 	})
 }
 
