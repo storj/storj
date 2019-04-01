@@ -79,7 +79,7 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 		return nil, Error.New("unable to find pointers after %d attempts", maxListAttempts)
 	}
 
-	pointer, err := cursor.getRandomValidPointer(pointerItems, more, maxGetAttempts)
+	pointer, err := cursor.getRandomValidPointer(pointerItems, maxGetAttempts)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +96,7 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 	}, nil
 }
 
-func (cursor *Cursor) getRandomValidPointer(pointerItems []*pb.ListResponse_Item, more bool, retryAttempts int) (pointer *pb.Pointer, err error) {
+func (cursor *Cursor) getRandomValidPointer(pointerItems []*pb.ListResponse_Item, retryAttempts int) (pointer *pb.Pointer, err error) {
 	for i := 0; i < retryAttempts; i++ {
 		pointerItem, err := getRandomPointer(pointerItems)
 		if err != nil {
@@ -108,14 +108,18 @@ func (cursor *Cursor) getRandomValidPointer(pointerItems []*pb.ListResponse_Item
 			return nil, err
 		}
 
-		//delete expired items rather than auditing them
+		// delete expired items rather than auditing them
 		if expiration := pointer.GetExpirationDate(); expiration != nil {
 			t, err := ptypes.Timestamp(expiration)
 			if err != nil {
 				return nil, err
 			}
 			if t.Before(time.Now()) {
-				return nil, cursor.pointerdb.Delete(pointerItem.Path)
+				err := cursor.pointerdb.Delete(pointerItem.Path)
+				if err != nil {
+					return nil, err
+				}
+				continue
 			}
 		}
 
