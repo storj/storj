@@ -4,13 +4,13 @@
 package bandwidth_test
 
 import (
-	"storj.io/storj/internal/testidentity"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode"

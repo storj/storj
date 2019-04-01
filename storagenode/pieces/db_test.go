@@ -4,7 +4,6 @@
 package pieces_test
 
 import (
-	"storj.io/storj/internal/testidentity"
 	"testing"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
