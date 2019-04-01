@@ -191,6 +191,7 @@ func (d *defaultDownloader) getShare(ctx context.Context, limit *pb.AddressedOrd
 		conn,
 		piecestore.DefaultConfig,
 	)
+	defer ps.Close()
 
 	offset := int64(shareSize) * stripeIndex
 
