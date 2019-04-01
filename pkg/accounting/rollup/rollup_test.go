@@ -113,3 +113,16 @@ func createData(planet *testplanet.Planet, days int) []testData {
 	}
 	return data
 }
+
+
+func TestRollup(t *testing.T) {
+
+}
+
+func TestRollupStorage(t *testing.T){
+
+}
+
+func TestRollupBW(t *testing.T) {
+	
+}

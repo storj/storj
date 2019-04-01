@@ -11,6 +11,7 @@ import (
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -123,23 +124,50 @@ func (r *Service) rollupStorage(ctx context.Context, lastRollup time.Time, rollu
 
 // rollupBW aggregates the bandwidth rollups
 func (r *Service) rollupBW(ctx context.Context, lastRollup time.Time, rollupStats accounting.RollupStats) error {
-	//TODO
+	var latestTally time.Time
+	bws, err := r.db.GetBWSince(ctx, lastRollup)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	if len(bws) == 0 {
+		r.logger.Info("Rollup found no new bw rollups")
+		return nil
+	}
+	for _, row := range bws {
+		nodeID := row.NodeID
+		if row.IntervalStart.After(latestTally) {
+			latestTally = row.IntervalStart
+		}
+		day := row.IntervalStart
+		day = time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, day.Location())
+		if rollupStats[day] == nil {
+			rollupStats[day] = make(map[storj.NodeID]*accounting.Rollup)
+		}
+		if rollupStats[day][nodeID] == nil {
+			rollupStats[day][nodeID] = &accounting.Rollup{NodeID: nodeID, StartTime: day}
+		}
+		switch row.Action {
+		case uint(pb.PieceAction_INVALID):
+			r.logger.Info("invalid order action type")
+		case uint(pb.PieceAction_PUT):
+			rollupStats[day][nodeID].PutTotal += int64(row.Settled)
+		case uint(pb.PieceAction_GET):
+			rollupStats[day][nodeID].GetTotal += int64(row.Settled)
+		case uint(pb.PieceAction_GET_AUDIT):
+			rollupStats[day][nodeID].GetAuditTotal += int64(row.Settled)
+		case uint(pb.PieceAction_GET_REPAIR):
+			rollupStats[day][nodeID].GetRepairTotal += int64(row.Settled)
+		case uint(pb.PieceAction_PUT_REPAIR):
+			rollupStats[day][nodeID].PutRepairTotal += int64(row.Settled)
+		default:
+			r.logger.Info("delete order type")
+		}
+	}
+	//remove the latest day (which we cannot know is complete), then push to DB
+	latestTally = time.Date(latestTally.Year(), latestTally.Month(), latestTally.Day(), 0, 0, 0, 0, latestTally.Location())
+	delete(rollupStats, latestTally)
+	if len(rollupStats) == 0 {
+		r.logger.Info("Rollup only found bw rollups for today")
+	}
 	return nil
 }
-
-// switch tallyRow.DataType {
-// // case accounting.BandwidthPut:
-// // 	rollupStats[iDay][node].PutTotal += int64(tallyRow.DataTotal)
-// // case accounting.BandwidthGet:
-// // 	rollupStats[iDay][node].GetTotal += int64(tallyRow.DataTotal)
-// // case accounting.BandwidthGetAudit:
-// // 	rollupStats[iDay][node].GetAuditTotal += int64(tallyRow.DataTotal)
-// // case accounting.BandwidthGetRepair:
-// // 	rollupStats[iDay][node].GetRepairTotal += int64(tallyRow.DataTotal)
-// // case accounting.BandwidthPutRepair:
-// // 	rollupStats[iDay][node].PutRepairTotal += int64(tallyRow.DataTotal)
-// case accounting.AtRest:
-// 	rollupStats[iDay][node].AtRestTotal += tallyRow.DataTotal
-// default:
-// 	r.logger.Info("rollupStorage no longer supports non-accounting.AtRest datatypes")
-// }
