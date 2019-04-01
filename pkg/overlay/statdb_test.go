@@ -5,7 +5,6 @@ package overlay_test
 
 import (
 	"context"
-	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -53,7 +52,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 			UptimeSuccessCount: currUptimeSuccess,
 		}
 
-		_, err := cache.CreateEntryIfNotExists(ctx, &pb.Node{Id: nodeID})
+		err := cache.Update(ctx, &pb.Node{Id: nodeID})
 		require.NoError(t, err)
 
 		stats, err := cache.CreateStats(ctx, nodeID, nodeStats)
@@ -106,7 +105,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 				UptimeSuccessCount: tt.uptimeSuccessCount,
 			}
 
-			_, err := cache.CreateEntryIfNotExists(ctx, &pb.Node{Id: tt.nodeID})
+			err := cache.Update(ctx, &pb.Node{Id: tt.nodeID})
 			require.NoError(t, err)
 
 			_, err = cache.CreateStats(ctx, tt.nodeID, nodeStats)
@@ -134,12 +133,8 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 
 	{ // TestUpdateOperator
 		nodeID := storj.NodeID{10}
-		node, err := cache.CreateEntryIfNotExists(ctx, &pb.Node{Id: nodeID})
-
+		err := cache.Update(ctx, &pb.Node{Id: nodeID})
 		require.NoError(t, err)
-
-		assert.Equal(t, node.Operator.Wallet, "")
-		assert.Equal(t, node.Operator.Email, "")
 
 		update, err := cache.UpdateOperator(ctx, nodeID, pb.NodeOperator{
 			Wallet: "0x1111111111111111111111111111111111111111",
@@ -261,8 +256,6 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 	{ // TestUpdateBatchExists
 		nodeID1 := storj.NodeID{255, 1}
 		nodeID2 := storj.NodeID{255, 2}
-		nodeID3 := storj.NodeID{255, 3}
-		nodeID4 := storj.NodeID{255, 4}
 
 		auditSuccessCount1 := int64(4)
 		auditCount1 := int64(10)
@@ -281,7 +274,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 			UptimeRatio:        uptimeRatio1,
 		}
 
-		_, err := cache.CreateEntryIfNotExists(ctx, &pb.Node{Id: nodeID1})
+		err := cache.Update(ctx, &pb.Node{Id: nodeID1})
 		require.NoError(t, err)
 
 		stats, err := cache.CreateStats(ctx, nodeID1, nodeStats)
@@ -306,7 +299,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 			UptimeRatio:        uptimeRatio2,
 		}
 
-		_, err = cache.CreateEntryIfNotExists(ctx, &pb.Node{Id: nodeID2})
+		err = cache.Update(ctx, &pb.Node{Id: nodeID2})
 		require.NoError(t, err)
 
 		stats, err = cache.CreateStats(ctx, nodeID2, nodeStats)
@@ -339,19 +332,5 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		assert.EqualValues(t, newUptimeRatio1, stats1.UptimeRatio)
 		assert.EqualValues(t, newAuditRatio2, stats2.AuditSuccessRatio)
 		assert.EqualValues(t, newUptimeRatio2, stats2.UptimeRatio)
-
-		concurrency := 100
-		t.Run("CreateEntryIfNotExists", func(t *testing.T) {
-			nodes := []*pb.Node{&pb.Node{Id: nodeID1}, &pb.Node{Id: nodeID2}, &pb.Node{Id: nodeID3}, &pb.Node{Id: nodeID4}}
-			for P := 0; P < concurrency; P++ {
-				t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
-					t.Parallel()
-					for _, node := range nodes {
-						_, err := cache.CreateEntryIfNotExists(ctx, node)
-						assert.NoError(t, err)
-					}
-				})
-			}
-		})
 	}
 }

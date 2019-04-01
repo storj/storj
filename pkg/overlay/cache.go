@@ -70,8 +70,6 @@ type DB interface {
 	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error)
 	// UpdateBatch for updating multiple storage nodes' stats.
 	UpdateBatch(ctx context.Context, requests []*UpdateRequest) (statslist []*NodeStats, failed []*UpdateRequest, err error)
-	// CreateEntryIfNotExists creates a node stats entry if it didn't already exist.
-	CreateEntryIfNotExists(ctx context.Context, value *pb.Node) (stats *NodeDossier, err error)
 }
 
 // FindStorageNodesRequest defines easy request parameters.

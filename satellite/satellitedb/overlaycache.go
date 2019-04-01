@@ -559,24 +559,6 @@ func (cache *overlaycache) UpdateBatch(ctx context.Context, updateReqList []*ove
 	return nodeStatsList, nil, nil
 }
 
-// CreateEntryIfNotExists creates a overlay node entry and saves to overlay if it didn't already exist
-func (cache *overlaycache) CreateEntryIfNotExists(ctx context.Context, node *pb.Node) (stats *overlay.NodeDossier, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	// Update already does a non-racy create-or-update, so we don't need a
-	// transaction here. Changes may occur between Update and Get_Node_By_Id,
-	// but that doesn't break any semantics here.
-	err = cache.Update(ctx, node)
-	if err != nil {
-		return nil, err
-	}
-	dbNode, err := cache.db.Get_Node_By_Id(ctx, dbx.Node_Id(node.Id.Bytes()))
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-	return convertDBNode(dbNode)
-}
-
 func convertDBNode(info *dbx.Node) (*overlay.NodeDossier, error) {
 	if info == nil {
 		return nil, Error.New("missing info")

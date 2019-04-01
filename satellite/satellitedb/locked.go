@@ -594,13 +594,6 @@ type lockedOverlayCache struct {
 	db overlay.DB
 }
 
-// CreateEntryIfNotExists creates a node stats entry if it didn't already exist.
-func (m *lockedOverlayCache) CreateEntryIfNotExists(ctx context.Context, value *pb.Node) (stats *overlay.NodeDossier, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.CreateEntryIfNotExists(ctx, value)
-}
-
 // CreateStats initializes the stats for node.
 func (m *lockedOverlayCache) CreateStats(ctx context.Context, nodeID storj.NodeID, initial *overlay.NodeStats) (stats *overlay.NodeStats, err error) {
 	m.Lock()
