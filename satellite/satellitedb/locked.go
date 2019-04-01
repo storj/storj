@@ -78,7 +78,7 @@ func (m *lockedAccounting) LastTimestamp(ctx context.Context, timestampType stri
 	return m.db.LastTimestamp(ctx, timestampType)
 }
 
-// SaveAllBucketsInfo saves the latest bucket info
+// SaveBucketTallies saves the latest bucket info
 func (m *lockedAccounting) SaveBucketTallies(ctx context.Context, intervalStart time.Time, bucketInfo map[string]*accounting.BucketTally) error {
 	m.Lock()
 	defer m.Unlock()
