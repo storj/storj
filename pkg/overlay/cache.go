@@ -58,8 +58,6 @@ type DB interface {
 
 	// CreateStats initializes the stats for node.
 	CreateStats(ctx context.Context, nodeID storj.NodeID, initial *NodeStats) (stats *NodeStats, err error)
-	// GetStats returns node stats.
-	GetStats(ctx context.Context, nodeID storj.NodeID) (stats *NodeStats, err error)
 	// FindInvalidNodes finds a subset of storagenodes that have stats below provided reputation requirements.
 	FindInvalidNodes(ctx context.Context, nodeIDs storj.NodeIDList, maxStats *NodeStats) (invalid storj.NodeIDList, err error)
 	// UpdateStats all parts of single storagenode's stats.
@@ -306,12 +304,6 @@ func (cache *Cache) Delete(ctx context.Context, id storj.NodeID) (err error) {
 func (cache *Cache) Create(ctx context.Context, nodeID storj.NodeID, initial *NodeStats) (stats *NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return cache.db.CreateStats(ctx, nodeID, initial)
-}
-
-// GetStats returns node stats.
-func (cache *Cache) GetStats(ctx context.Context, nodeID storj.NodeID) (stats *NodeStats, err error) {
-	defer mon.Task()(&ctx)(&err)
-	return cache.db.GetStats(ctx, nodeID)
 }
 
 // FindInvalidNodes finds a subset of storagenodes that have stats below provided reputation requirements.

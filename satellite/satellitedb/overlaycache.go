@@ -336,22 +336,6 @@ func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID,
 	return getNodeStats(nodeID, dbNode), Error.Wrap(tx.Commit())
 }
 
-// GetStats a storagenode's stats from the db
-func (cache *overlaycache) GetStats(ctx context.Context, nodeID storj.NodeID) (stats *overlay.NodeStats, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	dbNode, err := cache.db.Get_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()))
-	if err == sql.ErrNoRows {
-		return nil, overlay.ErrNodeNotFound.New(nodeID.String())
-	}
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	nodeStats := getNodeStats(nodeID, dbNode)
-	return nodeStats, nil
-}
-
 // FindInvalidNodes finds a subset of storagenodes that fail to meet minimum reputation requirements
 func (cache *overlaycache) FindInvalidNodes(ctx context.Context, nodeIDs storj.NodeIDList, maxStats *overlay.NodeStats) (invalidIDs storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
