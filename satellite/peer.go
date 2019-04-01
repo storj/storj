@@ -523,6 +523,21 @@ func ignoreCancel(err error) error {
 	return err
 }
 
+func (peer *Peer) restartLoop(ctx context.Context, name string, service func(context.Context) error) error {
+	for {
+		err := func() (err error) {
+			defer func() {
+				if rec := recover(); rec != nil {
+					err = errs.New("caught panic in service %s: %+v", name, rec)
+				}
+			}()
+			return service(ctx)
+		}()
+		peer.Log.Sugar().Errorf("Service %s failure: %+v", name, err)
+		time.Sleep(time.Second)
+	}
+}
+
 // Run runs storage node until it's either closed or it errors.
 func (peer *Peer) Run(ctx context.Context) error {
 	group, ctx := errgroup.WithContext(ctx)
@@ -534,25 +549,25 @@ func (peer *Peer) Run(ctx context.Context) error {
 		return ignoreCancel(peer.Kademlia.Service.Bootstrap(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Kademlia.Service.Run(ctx))
+		return ignoreCancel(peer.restartLoop(ctx, "kademlia", peer.Kademlia.Service.Run))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Discovery.Service.Run(ctx))
+		return ignoreCancel(peer.restartLoop(ctx, "discovery", peer.Discovery.Service.Run))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Repair.Checker.Run(ctx))
+		return ignoreCancel(peer.restartLoop(ctx, "repair.checker", peer.Repair.Checker.Run))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Repair.Repairer.Run(ctx))
+		return ignoreCancel(peer.restartLoop(ctx, "repair.repairer", peer.Repair.Repairer.Run))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Accounting.Tally.Run(ctx))
+		return ignoreCancel(peer.restartLoop(ctx, "accounting.tally", peer.Accounting.Tally.Run))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Accounting.Rollup.Run(ctx))
+		return ignoreCancel(peer.restartLoop(ctx, "accounting.rollup", peer.Accounting.Rollup.Run))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Audit.Service.Run(ctx))
+		return ignoreCancel(peer.restartLoop(ctx, "audit", peer.Audit.Service.Run))
 	})
 	group.Go(func() error {
 		// TODO: move the message into Server instead
