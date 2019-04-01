@@ -390,16 +390,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 
 	{ // setup inspector
 		log.Debug("Setting up inspector")
-		endpoint, err := inspector.NewEndpoint(
+		peer.Inspector.Endpoint = inspector.NewEndpoint(
 			peer.Log.Named("inspector"),
 			peer.Overlay.Service,
 			peer.Metainfo.Service,
 		)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
 
-		peer.Inspector.Endpoint = endpoint
 		pb.RegisterHealthInspectorServer(peer.Server.PrivateGRPC(), peer.Inspector.Endpoint)
 	}
 

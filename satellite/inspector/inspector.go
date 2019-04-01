@@ -10,7 +10,6 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/eestream"
@@ -36,12 +35,12 @@ type Endpoint struct {
 }
 
 // NewEndpoint will initialize an Endpoint struct
-func NewEndpoint(log *zap.Logger, cache *overlay.Cache, pdb *pointerdb.Service) (*Endpoint, error) {
+func NewEndpoint(log *zap.Logger, cache *overlay.Cache, pdb *pointerdb.Service) *Endpoint {
 	return &Endpoint{
 		log:       log,
 		cache:     cache,
 		pointerdb: pdb,
-	}, nil
+	}
 }
 
 // ObjectHealth will check the health of an object
@@ -111,13 +110,7 @@ func (endpoint *Endpoint) ObjectHealth(ctx context.Context, in *pb.ObjectHealthR
 func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *pb.SegmentHealthRequest) (resp *pb.SegmentHealthResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	health := &pb.SegmentHealth{
-		OnlineNodes:      0,
-		MinimumRequired:  0,
-		Total:            0,
-		SuccessThreshold: 0,
-		RepairThreshold:  0,
-	}
+	health := &pb.SegmentHealth{}
 
 	projectID, err := uuid.Parse(string(in.GetProjectId()))
 	if err != nil {
