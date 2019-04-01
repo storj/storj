@@ -5,9 +5,10 @@ package piecestore_test
 
 import (
 	"math/rand"
-	"storj.io/storj/internal/testidentity"
 	"testing"
 	"time"
+
+	"storj.io/storj/internal/testidentity"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
