@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -1147,6 +1148,9 @@ type BucketBandwidthRollup struct {
 func (BucketBandwidthRollup) _Table() string { return "bucket_bandwidth_rollups" }
 
 type BucketBandwidthRollup_Update_Fields struct {
+	Inline    BucketBandwidthRollup_Inline_Field
+	Allocated BucketBandwidthRollup_Allocated_Field
+	Settled   BucketBandwidthRollup_Settled_Field
 }
 
 type BucketBandwidthRollup_BucketId_Field struct {
@@ -2776,6 +2780,8 @@ type StoragenodeBandwidthRollup struct {
 func (StoragenodeBandwidthRollup) _Table() string { return "storagenode_bandwidth_rollups" }
 
 type StoragenodeBandwidthRollup_Update_Fields struct {
+	Allocated StoragenodeBandwidthRollup_Allocated_Field
+	Settled   StoragenodeBandwidthRollup_Settled_Field
 }
 
 type StoragenodeBandwidthRollup_StoragenodeId_Field struct {
@@ -3412,54 +3418,10 @@ func __sqlbundle_Render(dialect __sqlbundle_Dialect, sql __sqlbundle_SQL, ops ..
 	return dialect.Rebind(out)
 }
 
-func __sqlbundle_flattenSQL(x string) string {
-	// trim whitespace from beginning and end
-	s, e := 0, len(x)-1
-	for s < len(x) && (x[s] == ' ' || x[s] == '\t' || x[s] == '\n') {
-		s++
-	}
-	for s <= e && (x[e] == ' ' || x[e] == '\t' || x[e] == '\n') {
-		e--
-	}
-	if s > e {
-		return ""
-	}
-	x = x[s : e+1]
+var __sqlbundle_reSpace = regexp.MustCompile(`\s+`)
 
-	// check for whitespace that needs fixing
-	wasSpace := false
-	for i := 0; i < len(x); i++ {
-		r := x[i]
-		justSpace := r == ' '
-		if (wasSpace && justSpace) || r == '\t' || r == '\n' {
-			// whitespace detected, start writing a new string
-			var result strings.Builder
-			result.Grow(len(x))
-			if wasSpace {
-				result.WriteString(x[:i-1])
-			} else {
-				result.WriteString(x[:i])
-			}
-			for p := i; p < len(x); p++ {
-				for p < len(x) && (x[p] == ' ' || x[p] == '\t' || x[p] == '\n') {
-					p++
-				}
-				result.WriteByte(' ')
-
-				start := p
-				for p < len(x) && !(x[p] == ' ' || x[p] == '\t' || x[p] == '\n') {
-					p++
-				}
-				result.WriteString(x[start:p])
-			}
-
-			return result.String()
-		}
-		wasSpace = justSpace
-	}
-
-	// no problematic whitespace found
-	return x
+func __sqlbundle_flattenSQL(s string) string {
+	return strings.TrimSpace(__sqlbundle_reSpace.ReplaceAllString(s, " "))
 }
 
 // this type is specially named to match up with the name returned by the
@@ -3538,8 +3500,6 @@ type __sqlbundle_Condition struct {
 func (*__sqlbundle_Condition) private() {}
 
 func (c *__sqlbundle_Condition) Render() string {
-	// TODO(jeff): maybe check if we can use placeholders instead of the
-	// literal null: this would make the templates easier.
 
 	switch {
 	case c.Equal && c.Null:
@@ -3702,7 +3662,9 @@ func (obj *postgresImpl) Create_Node(ctx context.Context,
 	node_audit_success_ratio Node_AuditSuccessRatio_Field,
 	node_uptime_success_count Node_UptimeSuccessCount_Field,
 	node_total_uptime_count Node_TotalUptimeCount_Field,
-	node_uptime_ratio Node_UptimeRatio_Field) (
+	node_uptime_ratio Node_UptimeRatio_Field,
+	node_last_contact_success Node_LastContactSuccess_Field,
+	node_last_contact_failure Node_LastContactFailure_Field) (
 	node *Node, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
@@ -3723,8 +3685,8 @@ func (obj *postgresImpl) Create_Node(ctx context.Context,
 	__uptime_ratio_val := node_uptime_ratio.value()
 	__created_at_val := __now
 	__updated_at_val := __now
-	__last_contact_success_val := __now
-	__last_contact_failure_val := __now
+	__last_contact_success_val := node_last_contact_success.value()
+	__last_contact_failure_val := node_last_contact_failure.value()
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, address, protocol, type, email, wallet, free_bandwidth, free_disk, latency_90, audit_success_count, total_audit_count, audit_success_ratio, uptime_success_count, total_uptime_count, uptime_ratio, created_at, updated_at, last_contact_success, last_contact_failure ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING nodes.id, nodes.address, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure")
 
@@ -4848,6 +4810,58 @@ func (obj *postgresImpl) Find_SerialNumber_By_SerialNumber(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Find_BucketBandwidthRollup_By_BucketId_And_IntervalStart_And_Action(ctx context.Context,
+	bucket_bandwidth_rollup_bucket_id BucketBandwidthRollup_BucketId_Field,
+	bucket_bandwidth_rollup_interval_start BucketBandwidthRollup_IntervalStart_Field,
+	bucket_bandwidth_rollup_action BucketBandwidthRollup_Action_Field) (
+	bucket_bandwidth_rollup *BucketBandwidthRollup, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.bucket_id = ? AND bucket_bandwidth_rollups.interval_start = ? AND bucket_bandwidth_rollups.action = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_bandwidth_rollup_bucket_id.value(), bucket_bandwidth_rollup_interval_start.value(), bucket_bandwidth_rollup_action.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket_bandwidth_rollup = &BucketBandwidthRollup{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_bandwidth_rollup.BucketId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket_bandwidth_rollup, nil
+
+}
+
+func (obj *postgresImpl) Find_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_And_Action(ctx context.Context,
+	storagenode_bandwidth_rollup_storagenode_id StoragenodeBandwidthRollup_StoragenodeId_Field,
+	storagenode_bandwidth_rollup_interval_start StoragenodeBandwidthRollup_IntervalStart_Field,
+	storagenode_bandwidth_rollup_action StoragenodeBandwidthRollup_Action_Field) (
+	storagenode_bandwidth_rollup *StoragenodeBandwidthRollup, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.storagenode_id = ? AND storagenode_bandwidth_rollups.interval_start = ? AND storagenode_bandwidth_rollups.action = ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_bandwidth_rollup_storagenode_id.value(), storagenode_bandwidth_rollup_interval_start.value(), storagenode_bandwidth_rollup_action.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	storagenode_bandwidth_rollup = &StoragenodeBandwidthRollup{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return storagenode_bandwidth_rollup, nil
+
+}
+
 func (obj *postgresImpl) Get_CertRecord_By_Id(ctx context.Context,
 	certRecord_id CertRecord_Id_Field) (
 	certRecord *CertRecord, err error) {
@@ -5632,6 +5646,33 @@ func (obj *postgresImpl) Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx contex
 
 }
 
+func (obj *postgresImpl) Delete_UsedSerial_By_SerialNumberId_And_StorageNodeId(ctx context.Context,
+	used_serial_serial_number_id UsedSerial_SerialNumberId_Field,
+	used_serial_storage_node_id UsedSerial_StorageNodeId_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM used_serials WHERE used_serials.serial_number_id = ? AND used_serials.storage_node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, used_serial_serial_number_id.value(), used_serial_storage_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *postgresImpl) Delete_CertRecord_By_Id(ctx context.Context,
 	certRecord_id CertRecord_Id_Field) (
 	deleted bool, err error) {
@@ -6011,7 +6052,9 @@ func (obj *sqlite3Impl) Create_Node(ctx context.Context,
 	node_audit_success_ratio Node_AuditSuccessRatio_Field,
 	node_uptime_success_count Node_UptimeSuccessCount_Field,
 	node_total_uptime_count Node_TotalUptimeCount_Field,
-	node_uptime_ratio Node_UptimeRatio_Field) (
+	node_uptime_ratio Node_UptimeRatio_Field,
+	node_last_contact_success Node_LastContactSuccess_Field,
+	node_last_contact_failure Node_LastContactFailure_Field) (
 	node *Node, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
@@ -6032,8 +6075,8 @@ func (obj *sqlite3Impl) Create_Node(ctx context.Context,
 	__uptime_ratio_val := node_uptime_ratio.value()
 	__created_at_val := __now
 	__updated_at_val := __now
-	__last_contact_success_val := __now
-	__last_contact_failure_val := __now
+	__last_contact_success_val := node_last_contact_success.value()
+	__last_contact_failure_val := node_last_contact_failure.value()
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, address, protocol, type, email, wallet, free_bandwidth, free_disk, latency_90, audit_success_count, total_audit_count, audit_success_ratio, uptime_success_count, total_uptime_count, uptime_ratio, created_at, updated_at, last_contact_success, last_contact_failure ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
 
@@ -7193,6 +7236,58 @@ func (obj *sqlite3Impl) Find_SerialNumber_By_SerialNumber(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Find_BucketBandwidthRollup_By_BucketId_And_IntervalStart_And_Action(ctx context.Context,
+	bucket_bandwidth_rollup_bucket_id BucketBandwidthRollup_BucketId_Field,
+	bucket_bandwidth_rollup_interval_start BucketBandwidthRollup_IntervalStart_Field,
+	bucket_bandwidth_rollup_action BucketBandwidthRollup_Action_Field) (
+	bucket_bandwidth_rollup *BucketBandwidthRollup, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.bucket_id = ? AND bucket_bandwidth_rollups.interval_start = ? AND bucket_bandwidth_rollups.action = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_bandwidth_rollup_bucket_id.value(), bucket_bandwidth_rollup_interval_start.value(), bucket_bandwidth_rollup_action.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket_bandwidth_rollup = &BucketBandwidthRollup{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_bandwidth_rollup.BucketId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket_bandwidth_rollup, nil
+
+}
+
+func (obj *sqlite3Impl) Find_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_And_Action(ctx context.Context,
+	storagenode_bandwidth_rollup_storagenode_id StoragenodeBandwidthRollup_StoragenodeId_Field,
+	storagenode_bandwidth_rollup_interval_start StoragenodeBandwidthRollup_IntervalStart_Field,
+	storagenode_bandwidth_rollup_action StoragenodeBandwidthRollup_Action_Field) (
+	storagenode_bandwidth_rollup *StoragenodeBandwidthRollup, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.storagenode_id = ? AND storagenode_bandwidth_rollups.interval_start = ? AND storagenode_bandwidth_rollups.action = ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_bandwidth_rollup_storagenode_id.value(), storagenode_bandwidth_rollup_interval_start.value(), storagenode_bandwidth_rollup_action.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	storagenode_bandwidth_rollup = &StoragenodeBandwidthRollup{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return storagenode_bandwidth_rollup, nil
+
+}
+
 func (obj *sqlite3Impl) Get_CertRecord_By_Id(ctx context.Context,
 	certRecord_id CertRecord_Id_Field) (
 	certRecord *CertRecord, err error) {
@@ -8057,6 +8152,33 @@ func (obj *sqlite3Impl) Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx context
 
 }
 
+func (obj *sqlite3Impl) Delete_UsedSerial_By_SerialNumberId_And_StorageNodeId(ctx context.Context,
+	used_serial_serial_number_id UsedSerial_SerialNumberId_Field,
+	used_serial_storage_node_id UsedSerial_StorageNodeId_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM used_serials WHERE used_serials.serial_number_id = ? AND used_serials.storage_node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, used_serial_serial_number_id.value(), used_serial_storage_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *sqlite3Impl) Delete_CertRecord_By_Id(ctx context.Context,
 	certRecord_id CertRecord_Id_Field) (
 	deleted bool, err error) {
@@ -8865,13 +8987,15 @@ func (rx *Rx) Create_Node(ctx context.Context,
 	node_audit_success_ratio Node_AuditSuccessRatio_Field,
 	node_uptime_success_count Node_UptimeSuccessCount_Field,
 	node_total_uptime_count Node_TotalUptimeCount_Field,
-	node_uptime_ratio Node_UptimeRatio_Field) (
+	node_uptime_ratio Node_UptimeRatio_Field,
+	node_last_contact_success Node_LastContactSuccess_Field,
+	node_last_contact_failure Node_LastContactFailure_Field) (
 	node *Node, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_Node(ctx, node_id, node_address, node_protocol, node_type, node_email, node_wallet, node_free_bandwidth, node_free_disk, node_latency_90, node_audit_success_count, node_total_audit_count, node_audit_success_ratio, node_uptime_success_count, node_total_uptime_count, node_uptime_ratio)
+	return tx.Create_Node(ctx, node_id, node_address, node_protocol, node_type, node_email, node_wallet, node_free_bandwidth, node_free_disk, node_latency_90, node_audit_success_count, node_total_audit_count, node_audit_success_ratio, node_uptime_success_count, node_total_uptime_count, node_uptime_ratio, node_last_contact_success, node_last_contact_failure)
 
 }
 
@@ -9065,6 +9189,17 @@ func (rx *Rx) Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx context.Context,
 
 }
 
+func (rx *Rx) Delete_UsedSerial_By_SerialNumberId_And_StorageNodeId(ctx context.Context,
+	used_serial_serial_number_id UsedSerial_SerialNumberId_Field,
+	used_serial_storage_node_id UsedSerial_StorageNodeId_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_UsedSerial_By_SerialNumberId_And_StorageNodeId(ctx, used_serial_serial_number_id, used_serial_storage_node_id)
+}
+
 func (rx *Rx) Delete_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	deleted bool, err error) {
@@ -9085,6 +9220,18 @@ func (rx *Rx) Find_AccountingTimestamps_Value_By_Name(ctx context.Context,
 	return tx.Find_AccountingTimestamps_Value_By_Name(ctx, accounting_timestamps_name)
 }
 
+func (rx *Rx) Find_BucketBandwidthRollup_By_BucketId_And_IntervalStart_And_Action(ctx context.Context,
+	bucket_bandwidth_rollup_bucket_id BucketBandwidthRollup_BucketId_Field,
+	bucket_bandwidth_rollup_interval_start BucketBandwidthRollup_IntervalStart_Field,
+	bucket_bandwidth_rollup_action BucketBandwidthRollup_Action_Field) (
+	bucket_bandwidth_rollup *BucketBandwidthRollup, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Find_BucketBandwidthRollup_By_BucketId_And_IntervalStart_And_Action(ctx, bucket_bandwidth_rollup_bucket_id, bucket_bandwidth_rollup_interval_start, bucket_bandwidth_rollup_action)
+}
+
 func (rx *Rx) Find_SerialNumber_By_SerialNumber(ctx context.Context,
 	serial_number_serial_number SerialNumber_SerialNumber_Field) (
 	serial_number *SerialNumber, err error) {
@@ -9093,6 +9240,18 @@ func (rx *Rx) Find_SerialNumber_By_SerialNumber(ctx context.Context,
 		return
 	}
 	return tx.Find_SerialNumber_By_SerialNumber(ctx, serial_number_serial_number)
+}
+
+func (rx *Rx) Find_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_And_Action(ctx context.Context,
+	storagenode_bandwidth_rollup_storagenode_id StoragenodeBandwidthRollup_StoragenodeId_Field,
+	storagenode_bandwidth_rollup_interval_start StoragenodeBandwidthRollup_IntervalStart_Field,
+	storagenode_bandwidth_rollup_action StoragenodeBandwidthRollup_Action_Field) (
+	storagenode_bandwidth_rollup *StoragenodeBandwidthRollup, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Find_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_And_Action(ctx, storagenode_bandwidth_rollup_storagenode_id, storagenode_bandwidth_rollup_interval_start, storagenode_bandwidth_rollup_action)
 }
 
 func (rx *Rx) First_Injuredsegment(ctx context.Context) (
@@ -9509,7 +9668,9 @@ type Methods interface {
 		node_audit_success_ratio Node_AuditSuccessRatio_Field,
 		node_uptime_success_count Node_UptimeSuccessCount_Field,
 		node_total_uptime_count Node_TotalUptimeCount_Field,
-		node_uptime_ratio Node_UptimeRatio_Field) (
+		node_uptime_ratio Node_UptimeRatio_Field,
+		node_last_contact_success Node_LastContactSuccess_Field,
+		node_last_contact_failure Node_LastContactFailure_Field) (
 		node *Node, err error)
 
 	Create_Project(ctx context.Context,
@@ -9593,6 +9754,11 @@ type Methods interface {
 		serial_number_expires_at_less_or_equal SerialNumber_ExpiresAt_Field) (
 		count int64, err error)
 
+	Delete_UsedSerial_By_SerialNumberId_And_StorageNodeId(ctx context.Context,
+		used_serial_serial_number_id UsedSerial_SerialNumberId_Field,
+		used_serial_storage_node_id UsedSerial_StorageNodeId_Field) (
+		deleted bool, err error)
+
 	Delete_User_By_Id(ctx context.Context,
 		user_id User_Id_Field) (
 		deleted bool, err error)
@@ -9601,9 +9767,21 @@ type Methods interface {
 		accounting_timestamps_name AccountingTimestamps_Name_Field) (
 		row *Value_Row, err error)
 
+	Find_BucketBandwidthRollup_By_BucketId_And_IntervalStart_And_Action(ctx context.Context,
+		bucket_bandwidth_rollup_bucket_id BucketBandwidthRollup_BucketId_Field,
+		bucket_bandwidth_rollup_interval_start BucketBandwidthRollup_IntervalStart_Field,
+		bucket_bandwidth_rollup_action BucketBandwidthRollup_Action_Field) (
+		bucket_bandwidth_rollup *BucketBandwidthRollup, err error)
+
 	Find_SerialNumber_By_SerialNumber(ctx context.Context,
 		serial_number_serial_number SerialNumber_SerialNumber_Field) (
 		serial_number *SerialNumber, err error)
+
+	Find_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_And_Action(ctx context.Context,
+		storagenode_bandwidth_rollup_storagenode_id StoragenodeBandwidthRollup_StoragenodeId_Field,
+		storagenode_bandwidth_rollup_interval_start StoragenodeBandwidthRollup_IntervalStart_Field,
+		storagenode_bandwidth_rollup_action StoragenodeBandwidthRollup_Action_Field) (
+		storagenode_bandwidth_rollup *StoragenodeBandwidthRollup, err error)
 
 	First_Injuredsegment(ctx context.Context) (
 		injuredsegment *Injuredsegment, err error)
