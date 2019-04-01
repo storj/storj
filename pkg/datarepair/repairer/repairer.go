@@ -29,7 +29,7 @@ type Service struct {
 	queue     queue.RepairQueue
 	config    *Config
 	limiter   *sync2.Limiter
-	ticker    *time.Ticker
+	Loop      sync2.Cycle
 	transport transport.Client
 	pointerdb *pointerdb.Service
 	orders    *orders.Service
@@ -43,7 +43,7 @@ func NewService(queue queue.RepairQueue, config *Config, interval time.Duration,
 		queue:     queue,
 		config:    config,
 		limiter:   sync2.NewLimiter(concurrency),
-		ticker:    time.NewTicker(interval),
+		Loop:      *sync2.NewCycle(interval),
 		transport: transport,
 		pointerdb: pointerdb,
 		orders:    orders,
@@ -74,18 +74,13 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	// wait for all repairs to complete
 	defer service.limiter.Wait()
 
-	for {
+	return service.Loop.Run(ctx, func(ctx context.Context) error {
 		err := service.process(ctx)
 		if err != nil {
 			zap.L().Error("process", zap.Error(err))
 		}
-
-		select {
-		case <-service.ticker.C: // wait for the next interval to happen
-		case <-ctx.Done(): // or the repairer service is canceled via context
-			return ctx.Err()
-		}
-	}
+		return nil
+	})
 }
 
 // process picks an item from repair queue and spawns a repair worker
