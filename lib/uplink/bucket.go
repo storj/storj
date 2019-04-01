@@ -16,6 +16,7 @@ import (
 // Bucket represents operations you can perform on a bucket
 type Bucket struct {
 	storj.Bucket
+	Config BucketConfig
 
 	metainfo   *kvmetainfo.DB
 	streams    streams.Store
@@ -73,9 +74,12 @@ func (b *Bucket) DeleteObject(ctx context.Context, path storj.Path) (err error) 
 	return b.metainfo.DeleteObject(ctx, b.Bucket.Name, path)
 }
 
+// ListOptions controls options for the ListObjects() call.
+type ListOptions = storj.ListOptions
+
 // ListObjects lists objects a user is authorized to see.
 // TODO(paul): should probably have a ListOptions defined in this package, for consistency's sake
-func (b *Bucket) ListObjects(ctx context.Context, cfg *storj.ListOptions) (list storj.ObjectList, err error) {
+func (b *Bucket) ListObjects(ctx context.Context, cfg *ListOptions) (list storj.ObjectList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if cfg == nil {
 		cfg = &storj.ListOptions{}
