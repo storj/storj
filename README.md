@@ -4,6 +4,7 @@
 [![Go Doc](https://img.shields.io/badge/godoc-reference-blue.svg?style=flat-square)](http://godoc.org/github.com/storj/storj)
 [![Coverage Status](https://coveralls.io/repos/github/storj/storj/badge.svg?branch=master)](https://coveralls.io/github/storj/storj?branch=master)
 ![Alpha](https://img.shields.io/badge/version-alpha-green.svg)
+[![Build Status](https://travis-ci.com/storj/storj.svg?branch=master)](https://travis-ci.com/storj/storj)
 
 <img src="https://github.com/storj/storj/raw/master/resources/logo.png" width="100">
 
