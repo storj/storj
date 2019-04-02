@@ -36,7 +36,7 @@ type Part struct {
 }
 
 // Bytes builds message and returns result as bytes
-func (msg *Message) Bytes() []byte {
+func (msg *Message) Bytes() ([]byte, error) {
 	// always returns nil error on read and write, so most of the errors can be ignored
 	var body bytes.Buffer
 
@@ -70,14 +70,24 @@ func (msg *Message) Bytes() []byte {
 		var sub io.Writer
 
 		if len(msg.PlainText) > 0 {
-			sub, _ = wr.CreatePart(textproto.MIMEHeader{
+			sub, err := wr.CreatePart(textproto.MIMEHeader{
 				"Content-Type":              []string{"text/plain; charset=UTF-8; format=flowed"},
 				"Content-Transfer-Encoding": []string{"quoted-printable"},
 			})
+			if err != nil {
+				return nil, err
+			}
 
 			enc := quotedprintable.NewWriter(sub)
-			_, _ = enc.Write([]byte(msg.PlainText))
-			_ = enc.Close()
+			_, err = enc.Write([]byte(msg.PlainText))
+			if err != nil {
+				return nil, err
+			}
+
+			err = enc.Close()
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		for _, part := range msg.Parts {
@@ -93,18 +103,26 @@ func (msg *Message) Bytes() []byte {
 			fmt.Fprint(sub, part.Content)
 		}
 
-		_ = wr.Close()
+		err := wr.Close()
+		if err != nil {
+			return nil, err
+		}
 	// fallback if there are no parts, write PlainText with appropriate Content-Type
 	default:
 		fmt.Fprintf(&body, "Content-Type: text/plain; charset=UTF-8; format=flowed\r\n")
 		fmt.Fprintf(&body, "Content-Transfer-Encoding: quoted-printable\r\n\r\n")
 
 		enc := quotedprintable.NewWriter(&body)
-		_, _ = enc.Write([]byte(msg.PlainText))
-		_ = enc.Close()
+		if _, err := enc.Write([]byte(msg.PlainText)); err != nil {
+			return nil, err
+		}
+
+		if err := enc.Close(); err != nil {
+			return nil, err
+		}
 	}
 
-	return tocrlf(body.Bytes())
+	return tocrlf(body.Bytes()), nil
 }
 
 func tocrlf(data []byte) []byte {
