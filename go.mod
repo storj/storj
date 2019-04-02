@@ -47,7 +47,7 @@ require (
 	github.com/gorilla/mux v1.7.0 // indirect
 	github.com/gorilla/rpc v1.1.0 // indirect
 	github.com/hashicorp/go-immutable-radix v1.0.0 // indirect
-	github.com/hashicorp/go-msgpack v0.0.0-20150518234257-fa3f63826f7c // indirect
+	github.com/hashicorp/go-msgpack v0.5.3 // indirect
 	github.com/hashicorp/raft v1.0.0 // indirect
 	github.com/howeyc/gopass v0.0.0-20170109162249-bf9dde6d0d2c // indirect
 	github.com/inconshreveable/go-update v0.0.0-20160112193335-8152e7eb6ccf // indirect
@@ -73,9 +73,9 @@ require (
 	github.com/mitchellh/go-homedir v0.0.0-20180801233206-58046073cbff // indirect
 	github.com/nats-io/gnatsd v1.3.0 // indirect
 	github.com/nats-io/go-nats v1.6.0 // indirect
-	github.com/nats-io/go-nats-streaming v0.4.0 // indirect
+	github.com/nats-io/go-nats-streaming v0.4.2 // indirect
 	github.com/nats-io/nats v1.6.0 // indirect
-	github.com/nats-io/nats-streaming-server v0.11.0 // indirect
+	github.com/nats-io/nats-streaming-server v0.12.2 // indirect
 	github.com/nats-io/nuid v1.0.0 // indirect
 	github.com/nsf/jsondiff v0.0.0-20160203110537-7de28ed2b6e3
 	github.com/nsf/termbox-go v0.0.0-20190121233118-02980233997d
@@ -103,16 +103,16 @@ require (
 	github.com/zeebo/errs v1.1.0
 	github.com/zeebo/float16 v0.1.0 // indirect
 	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect
+	go.etcd.io/bbolt v1.3.2 // indirect
 	go.uber.org/atomic v1.3.2 // indirect
 	go.uber.org/multierr v1.1.0 // indirect
 	go.uber.org/zap v1.9.1
-	golang.org/x/crypto v0.0.0-20190320223903-b7391e95e576
-	golang.org/x/net v0.0.0-20190320064053-1272bf9dcd53
-	golang.org/x/sync v0.0.0-20181221193216-37e7f081c4d4
-	golang.org/x/sys v0.0.0-20190321052220-f7bb7a8bee54
-	golang.org/x/text v0.3.1-0.20180807135948-17ff2d5776d2 // indirect
-	golang.org/x/time v0.0.0-20181108054448-85acf8d2951c // indirect
-	golang.org/x/tools v0.0.0-20190321154406-ae772f11d294
+	golang.org/x/crypto v0.0.0-20190325154230-a5d413f7728c
+	golang.org/x/net v0.0.0-20190328230028-74de082e2cca
+	golang.org/x/sync v0.0.0-20190227155943-e225da77a7e6
+	golang.org/x/sys v0.0.0-20190402142545-baf5eb976a8c
+	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
+	golang.org/x/tools v0.0.0-20190402153018-b7e8f894e31a
 	google.golang.org/appengine v1.4.0 // indirect
 	google.golang.org/genproto v0.0.0-20190219182410-082222b4a5c5 // indirect
 	google.golang.org/grpc v1.19.0
@@ -120,8 +120,5 @@ require (
 	gopkg.in/cheggaaa/pb.v1 v1.0.25 // indirect
 	gopkg.in/olivere/elastic.v5 v5.0.76 // indirect
 	gopkg.in/spacemonkeygo/monkit.v2 v2.0.0-20180827161543-6ebf5a752f9b
-	gopkg.in/vmihailenco/msgpack.v2 v2.9.1 // indirect
 	gopkg.in/yaml.v2 v2.2.2 // indirect
-	labix.org/v2/mgo v0.0.0-20140701140051-000000000287 // indirect
-	launchpad.net/gocheck v0.0.0-20140225173054-000000000087 // indirect
 )
