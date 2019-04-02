@@ -534,9 +534,9 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Description: "Add new tables for tracking used serials, bandwidth and storage",
 				Version:     14,
 				Action: migrate.SQL{
-					`ALTER TABLE nodes ADD major integer;
-					ALTER TABLE nodes ADD minor integer;
-					ALTER TABLE nodes ADD patch integer;
+					`ALTER TABLE nodes ADD major bigint;
+					ALTER TABLE nodes ADD minor bigint;
+					ALTER TABLE nodes ADD patch bigint;
 					ALTER TABLE nodes ADD hash TEXT;
 					ALTER TABLE nodes ADD timestamp bigint;
 					ALTER TABLE nodes ADD release bool;
