@@ -31,6 +31,7 @@ var (
 
 func init() {
 	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
+	// TODO (dylan): Identity can be removed since libuplink will not need it.
 	defaultIdentityDir := fpath.ApplicationDir("storj", "identity", "uplink")
 	cfgstruct.SetupFlag(zap.L(), RootCmd, &confDir, "config-dir", defaultConfDir, "main directory for uplink configuration")
 	cfgstruct.SetupFlag(zap.L(), RootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for uplink identity credentials")

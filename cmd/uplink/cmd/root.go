@@ -86,8 +86,8 @@ func (c *Client) GetProject(ctx context.Context, flags cfgstruct.FlagSet) (*libu
 	return c.Uplink.OpenProject(ctx, satelliteAddr, apiKey)
 }
 
-// NewClient returns a pointer to a new Client with a Config and Uplink pointer on it and an error.
-func GetUplink(ctx context.Context, flags cfgstruct.FlagSet) (*libuplink.Uplink, error) {
+// NewUplink returns a pointer to a new Client with a Config and Uplink pointer on it and an error.
+func NewUplink(ctx context.Context, flags cfgstruct.FlagSet) (*libuplink.Uplink, error) {
 	var config libuplink.Config
 	cfgstruct.Bind(flags, config, false)
 	return libuplink.NewUplink(ctx, config)
