@@ -56,11 +56,9 @@ func TestBasic(t *testing.T) {
 		time.Sleep(time.Second)
 	}
 
-	//for _, version := range storj.IDVersions {
-	//	test(version)
-	//}
-	test(storj.IDVersions[storj.V2])
-
+	for _, version := range storj.IDVersions {
+		test(version)
+	}
 }
 
 func BenchmarkCreate(b *testing.B) {
