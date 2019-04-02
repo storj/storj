@@ -482,7 +482,7 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 		return nil, Error.Wrap(err)
 	}
 	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), eeRedundancy)
-	totalPieces := pointer.GetRemote().GetRedundancy().GetTotal()
+	totalPieces := redundancy.GetTotal()
 	expiration := pointer.ExpirationDate
 
 	// convert orderExpiration from duration to timestamp
