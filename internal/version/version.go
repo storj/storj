@@ -17,14 +17,14 @@ import (
 var (
 	mon = monkit.Package()
 	// Timestamp is the UTC timestamp of the compilation time
-	Timestamp string
+	buildTimestamp string
 	// CommitHash is the git hash of the code being compiled
-	CommitHash string
+	buildCommitHash string
 	// Version is the semantic version set at compilation
 	// if not a valid semantic version Release should be false
-	Version = "v0.1.0"
+	buildVersion = "v0.0.1"
 	// Release indicates whether the binary compiled is a release candidate
-	Release bool
+	buildRelease bool
 	// Build is a struct containing all relevant build information associated with the binary
 	Build Info
 )
@@ -152,19 +152,19 @@ func StrToSemVerList(serviceVersions []string) (versions []SemVer, err error) {
 }
 
 func init() {
-	if Version == "" {
+	if buildTimestamp == "" || buildCommitHash == "" {
 		return
 	}
 
 	Build = Info{
-		Timestamp:  Timestamp,
-		CommitHash: CommitHash,
-		Release:    Release,
+		Timestamp:  buildTimestamp,
+		CommitHash: buildCommitHash,
+		Release:    buildRelease,
 	}
 
 	versionRegex := regexp.MustCompile("^" + SemVerRegex + "$")
 
-	sv, err := NewSemVer(versionRegex, Version)
+	sv, err := NewSemVer(versionRegex, buildVersion)
 	if err != nil {
 		panic(err)
 	}

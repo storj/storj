@@ -701,18 +701,13 @@ func (planet *Planet) newVersionControlServer() (peer *versioncontrol.Peer, err 
 	config := &versioncontrol.Config{
 		Address: "127.0.0.1:0",
 		Versions: versioncontrol.ServiceVersions{
-			Bootstrap:   "v0.1.0,v1.0.0",
-			Satellite:   "v0.1.0,v1.0.0",
-			Storagenode: "v0.1.0,v1.0.0",
-			Uplink:      "v0.1.0,v1.0.0",
-			Gateway:     "v0.1.0,v1.0.0",
+			Bootstrap:   "v0.0.1",
+			Satellite:   "v0.0.1",
+			Storagenode: "v0.0.1",
+			Uplink:      "v0.0.1",
+			Gateway:     "v0.0.1",
 		},
 	}
-	/*
-		if planet.config.Reconfigure.Bootstrap != nil {
-			planet.config.Reconfigure.Bootstrap(0, &config)
-		}
-	*/
 	peer, err = versioncontrol.New(log, config)
 	if err != nil {
 		return nil, err
@@ -730,8 +725,8 @@ func (planet *Planet) NewVersionInfo() version.Info {
 		CommitHash: "",
 		Version: version.SemVer{
 			Major: 0,
-			Minor: 1,
-			Patch: 0},
+			Minor: 0,
+			Patch: 1},
 		Release: false,
 	}
 	return info

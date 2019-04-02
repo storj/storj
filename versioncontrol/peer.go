@@ -25,11 +25,11 @@ type Config struct {
 
 // ServiceVersions provides a list of allowed Versions per Service
 type ServiceVersions struct {
-	Bootstrap   string `user:"true" help:"Allowed Bootstrap Versions" default:"v0.1.0,v0.1.1"`
-	Satellite   string `user:"true" help:"Allowed Satellite Versions" default:"v0.1.0,v0.1.1"`
-	Storagenode string `user:"true" help:"Allowed Storagenode Versions" default:"v0.1.0,v0.1.1"`
-	Uplink      string `user:"true" help:"Allowed Uplink Versions" default:"v0.1.0,v0.1.1"`
-	Gateway     string `user:"true" help:"Allowed Gateway Versions" default:"v0.1.0,v0.1.1"`
+	Bootstrap   string `user:"true" help:"Allowed Bootstrap Versions" default:"v0.0.1"`
+	Satellite   string `user:"true" help:"Allowed Satellite Versions" default:"v0.0.1"`
+	Storagenode string `user:"true" help:"Allowed Storagenode Versions" default:"v0.0.1"`
+	Uplink      string `user:"true" help:"Allowed Uplink Versions" default:"v0.0.1"`
+	Gateway     string `user:"true" help:"Allowed Gateway Versions" default:"v0.0.1"`
 }
 
 // Peer is the representation of a VersionControl Server.

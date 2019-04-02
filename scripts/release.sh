@@ -23,7 +23,7 @@ echo $VERSION
 
  echo Running "go $@"
 exec go "$1" -ldflags \
-	"-X storj.io/storj/internal/version.Timestamp=$TIMESTAMP
-         -X storj.io/storj/internal/version.CommitHash=$COMMIT
-         -X storj.io/storj/internal/version.Version=$VERSION
-         -X storj.io/storj/internal/version.Release=$RELEASE" "${@:2}"
+	"-X storj.io/storj/internal/version.buildTimestamp=$TIMESTAMP
+         -X storj.io/storj/internal/version.buildCommitHash=$COMMIT
+         -X storj.io/storj/internal/version.buildVersion=$VERSION
+         -X storj.io/storj/internal/version.buildRelease=$RELEASE" "${@:2}"
