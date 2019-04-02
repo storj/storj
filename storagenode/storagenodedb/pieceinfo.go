@@ -14,13 +14,13 @@ import (
 	"storj.io/storj/storagenode/pieces"
 )
 
-type pieceinfo struct{ *infodb }
+type pieceinfo struct{ *InfoDB }
 
 // PieceInfo returns database for storing piece information
 func (db *DB) PieceInfo() pieces.DB { return db.info.PieceInfo() }
 
 // PieceInfo returns database for storing piece information
-func (db *infodb) PieceInfo() pieces.DB { return &pieceinfo{db} }
+func (db *InfoDB) PieceInfo() pieces.DB { return &pieceinfo{db} }
 
 // Add inserts piece information into the database.
 func (db *pieceinfo) Add(ctx context.Context, info *pieces.Info) error {
