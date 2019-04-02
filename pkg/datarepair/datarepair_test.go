@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
@@ -90,13 +91,18 @@ func TestDataRepair(t *testing.T) {
 			}
 		}
 
+		zap.L().Debug("before Checker.Loop.Restart()")
 		satellite.Repair.Checker.Loop.Restart()
 		satellite.Repair.Checker.Loop.TriggerWait()
+		zap.L().Debug("after Checker.Loop.Triggerwait()")
 		satellite.Repair.Checker.Loop.Pause()
+		zap.L().Debug("before Repairer.Loop.Restart()")
 		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
+		zap.L().Debug("after Repairer.Loop.TriggerWait()")
 		satellite.Repair.Repairer.Loop.Pause()
 		satellite.Repair.Repairer.Limiter.Wait()
+		zap.L().Debug("after Repairer.Limiter.Wait()")
 
 		// kill nodes kept alive to ensure repair worked
 		for _, node := range planet.StorageNodes {

@@ -5,10 +5,12 @@ package segments
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
@@ -49,6 +51,8 @@ func NewSegmentRepairer(pointerdb *pointerdb.Service, orders *orders.Service, ca
 // Repair retrieves an at-risk segment and repairs and stores lost pieces on new nodes
 func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int32) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	zap.L().Debug("repair started")
+	zap.L().Debug(fmt.Sprintf("missing pieces %v", lostPieces))
 
 	if repairer.inProgress[path] {
 		return nil
@@ -153,6 +157,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 	// Update the remote pieces in the pointer
 	pointer.GetRemote().RemotePieces = healthyPieces
 
+	zap.L().Debug("repair success")
 	// Update the segment pointer in the PointerDB
 	return repairer.pointerdb.Put(path, pointer)
 }
