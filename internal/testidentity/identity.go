@@ -78,6 +78,8 @@ func CompleteIdentityVersionsTest(t *testing.T, test IdentityTest) {
 	})
 }
 
+// SignerVersionsTest runs the `SignerTest` for each identity version, with the
+// respective signer used to sign pregenerated, signed  identities.
 func SignerVersionsTest(t *testing.T, test SignerTest) {
 	for versionNumber, version := range storj.IDVersions {
 		t.Run(fmt.Sprintf("identity version %d", versionNumber), func(t *testing.T) {
