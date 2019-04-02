@@ -5,6 +5,7 @@ package psdb_test
 
 import (
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -23,7 +24,7 @@ import (
 
 const concurrency = 10
 
-func newDB(t testing.TB, id string) (*psdb.DB, func()) {
+func newDB(t testing.TB, id string) (*psdb.DB, string, func()) {
 	tmpdir, err := ioutil.TempDir("", "storj-psdb-"+id)
 	require.NoError(t, err)
 
@@ -35,7 +36,7 @@ func newDB(t testing.TB, id string) (*psdb.DB, func()) {
 	err = db.Migration().Run(zaptest.NewLogger(t), db)
 	require.NoError(t, err)
 
-	return db, func() {
+	return db, dbpath, func() {
 		err := db.Close()
 		require.NoError(t, err)
 		err = os.RemoveAll(tmpdir)
@@ -54,7 +55,7 @@ func TestNewInmemory(t *testing.T) {
 }
 
 func TestHappyPath(t *testing.T) {
-	db, cleanup := newDB(t, "1")
+	db, dbPath, cleanup := newDB(t, "1")
 	defer cleanup()
 
 	type TTL struct {
@@ -310,10 +311,37 @@ func TestHappyPath(t *testing.T) {
 		}
 	})
 
+	t.Run("DeleteObsolete", func(t *testing.T) {
+		for i := 0; i < 100; i++ {
+			subdir := filepath.Join(filepath.Dir(dbPath), stringWithCharset(2))
+			subsubdir := filepath.Join(subdir, stringWithCharset(2))
+			err := os.MkdirAll(subsubdir, os.ModePerm)
+			require.NoError(t, err)
+			message := []byte("Hello, Gophers!")
+			tmpfile := filepath.Join(subsubdir, stringWithCharset(20))
+			err = ioutil.WriteFile(tmpfile, message, 0644)
+			require.NoError(t, err)
+		}
+		err := db.DeleteObsolete(dbPath)
+		assert.NoError(t, err)
+	})
+
+}
+
+func stringWithCharset(length int) string {
+	const charset = "abcdefghijklmnopqrstuvwxyz" +
+		"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+	var seededRand = rand.New(rand.NewSource(time.Now().UnixNano()))
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = charset[seededRand.Intn(len(charset))]
+	}
+	return string(b)
 }
 
 func BenchmarkWriteBandwidthAllocation(b *testing.B) {
-	db, cleanup := newDB(b, "3")
+	db, _, cleanup := newDB(b, "3")
 	defer cleanup()
 	const WritesPerLoop = 10
 	b.RunParallel(func(b *testing.PB) {

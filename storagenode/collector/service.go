@@ -24,7 +24,7 @@ var (
 
 // Config defines parameters for storage node Collector.
 type Config struct {
-	Interval time.Duration `help:"how frequently the expired pieces are cleaned" default:"0h0m5s"`
+	Interval time.Duration `help:"how frequently the expired pieces are cleaned" default:"1h0m0s"`
 }
 
 // Service implements collecting expired pieces on the storage node.
@@ -57,7 +57,8 @@ func (service *Service) Run(ctx context.Context) (err error) {
 
 // Collect collects expired pieces at this moment.
 func (service *Service) Collect(ctx context.Context) error {
-	info, err := service.pieceinfos.GetExpired(ctx, time.Now())
+	now := time.Now()
+	info, err := service.pieceinfos.GetExpired(ctx, now)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -67,7 +68,7 @@ func (service *Service) Collect(ctx context.Context) error {
 			service.log.Error("unable to delete the piece from storage", zap.Error(err))
 			continue
 		}
-		err = service.pieceinfos.DeleteExpired(ctx, time.Now())
+		err = service.pieceinfos.DeleteExpired(ctx, now, i.SatelliteID, i.PieceID)
 		if err != nil {
 			service.log.Error("unable to delete the piece info from db", zap.Error(err))
 		}

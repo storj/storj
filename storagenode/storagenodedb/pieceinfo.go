@@ -8,9 +8,8 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/zeebo/errs"
-
 	"github.com/gogo/protobuf/proto"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -108,29 +107,45 @@ func (db *pieceinfo) SpaceUsed(ctx context.Context) (int64, error) {
 
 // GetExpired gets orders that are expired and were created before some time
 func (db *pieceinfo) GetExpired(ctx context.Context, expiredAt time.Time) (info []pieces.Info, err error) {
-	var getExpiredSQL = `SELECT satellite_id, piece_id, piece_size, piece_expiration, uplink_piece_hash, uplink_cert_id 
-		FROM pieceinfo WHERE piece_expiration < ?`
+	var getExpiredSQL = `SELECT satellite_id, piece_id, piece_size, piece_expiration, uplink_piece_hash, certificate.peer_identity
+		FROM pieceinfo
+		INNER JOIN certificate ON pieceinfo.uplink_cert_id = certificate.cert_id
+		WHERE piece_expiration < ? ORDER BY satellite_id `
+
 	rows, err := db.db.QueryContext(ctx, db.Rebind(getExpiredSQL), expiredAt)
 	if err != nil {
-		return nil, err
+		return nil, ErrInfo.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
-	for i := 0; rows.Next(); i++ {
+	for rows.Next() {
 		pi := pieces.Info{}
-		err = rows.Scan(&pi.SatelliteID, &pi.PieceID, &pi.PieceSize, &pi.PieceExpiration, &pi.UplinkPieceHash, &pi.Uplink)
+		var uplinkPieceHash []byte
+		var uplinkIdentity []byte
+		err = rows.Scan(&pi.SatelliteID, &pi.PieceID, &pi.PieceSize, &pi.PieceExpiration, &uplinkPieceHash, &uplinkIdentity)
 		if err != nil {
-			break
+			return info, ErrInfo.Wrap(err)
+		}
+
+		pi.UplinkPieceHash = &pb.PieceHash{}
+		err = proto.Unmarshal(uplinkPieceHash, pi.UplinkPieceHash)
+		if err != nil {
+			return nil, ErrInfo.Wrap(err)
+		}
+
+		pi.Uplink, err = decodePeerIdentity(uplinkIdentity)
+		if err != nil {
+			return nil, ErrInfo.Wrap(err)
 		}
 		info = append(info, pi)
 	}
-	return info, err
+	return info, nil
 }
 
 // DeleteExpired deletes expired piece information.
-func (db *pieceinfo) DeleteExpired(ctx context.Context, expiredAt time.Time) error {
+func (db *pieceinfo) DeleteExpired(ctx context.Context, expiredAt time.Time, satelliteID storj.NodeID, pieceID storj.PieceID) error {
 	defer db.locked()()
 
-	_, err := db.db.Exec(`DELETE FROM pieceinfo WHERE piece_expiration < ?`, expiredAt)
+	_, err := db.db.Exec(`DELETE FROM pieceinfo WHERE piece_expiration < ? AND satellite_id = ? AND piece_id = ?`, expiredAt, satelliteID, pieceID)
 
 	return ErrInfo.Wrap(err)
 }

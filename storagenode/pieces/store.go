@@ -51,7 +51,7 @@ type DB interface {
 	// GetExpired gets orders that are expired and were created before some time
 	GetExpired(ctx context.Context, expiredAt time.Time) ([]Info, error)
 	// DeleteExpired deletes pieces that are expired
-	DeleteExpired(context.Context, time.Time) error
+	DeleteExpired(ctx context.Context, expiredAt time.Time, satelliteID storj.NodeID, pieceID storj.PieceID) error
 }
 
 // Store implements storing pieces onto a blob storage implementation.
