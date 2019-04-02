@@ -61,6 +61,14 @@ type ManageablePeerIdentity struct {
 	CA *FullCertificateAuthority
 }
 
+// ManageableFullIdentity is a `FullIdentity` and its corresponding `FullCertificateAuthority`
+// in a single struct. It is used for making changes to the identity that require CA
+// authorization and the leaf private key; e.g. revoking a leaf cert (private key changes).
+type ManageableFullIdentity struct {
+	*FullIdentity
+	CA *FullCertificateAuthority
+}
+
 // SetupConfig allows you to run a set of Responsibilities with the given
 // identity. You can also just load an Identity from disk.
 type SetupConfig struct {
@@ -283,6 +291,14 @@ func NewManageablePeerIdentity(ident *PeerIdentity, ca *FullCertificateAuthority
 	}
 }
 
+// NewManageableFullIdentity returns a manageable identity given a full identity and a full certificate authority.
+func NewManageableFullIdentity(ident *FullIdentity, ca *FullCertificateAuthority) *ManageableFullIdentity {
+	return &ManageableFullIdentity{
+		FullIdentity: ident,
+		CA:           ca,
+	}
+}
+
 // Status returns the status of the identity cert/key files for the config
 func (is SetupConfig) Status() (TLSFilesStatus, error) {
 	return statTLSFiles(is.CertPath, is.KeyPath)
@@ -472,7 +488,7 @@ func (manageableIdent *ManageablePeerIdentity) AddExtension(ext ...pkix.Extensio
 }
 
 // Revoke extends the CA certificate with a certificate revocation extension.
-func (manageableIdent *ManageablePeerIdentity) Revoke() error {
+func (manageableIdent *ManageableFullIdentity) Revoke() error {
 	ext, err := extensions.NewRevocationExt(manageableIdent.CA.Key, manageableIdent.Leaf)
 	if err != nil {
 		return err

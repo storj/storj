@@ -185,38 +185,34 @@ func TestManageableIdentity_Revoke(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	ca, err := testidentity.NewTestCA(ctx)
+	manageableFullIdent, err := testidentity.NewTestManageableFullIdentity(ctx)
 	require.NoError(t, err)
 
-	ident, err := ca.NewIdentity()
-	require.NoError(t, err)
-	manIdent := identity.NewManageablePeerIdentity(ident.PeerIdentity(), ca)
+	oldLeaf := manageableFullIdent.Leaf
+	assert.Len(t, manageableFullIdent.CA.Cert.ExtraExtensions, 0)
 
-	oldLeaf := manIdent.Leaf
-	assert.Len(t, ca.Cert.ExtraExtensions, 0)
-
-	err = manIdent.Revoke()
+	err = manageableFullIdent.Revoke()
 	assert.NoError(t, err)
 
-	assert.Len(t, manIdent.Leaf.ExtraExtensions, 0)
-	assert.Len(t, manIdent.Leaf.Extensions, len(oldLeaf.Extensions)+1)
+	assert.Len(t, manageableFullIdent.Leaf.ExtraExtensions, 0)
+	assert.Len(t, manageableFullIdent.Leaf.Extensions, len(oldLeaf.Extensions)+1)
 
-	assert.Equal(t, oldLeaf.IsCA, manIdent.Leaf.IsCA)
+	assert.Equal(t, oldLeaf.IsCA, manageableFullIdent.Leaf.IsCA)
 
-	assert.NotEqual(t, oldLeaf.PublicKey, manIdent.Leaf.PublicKey)
-	assert.NotEqual(t, oldLeaf.SerialNumber, manIdent.Leaf.SerialNumber)
-	assert.NotEqual(t, oldLeaf.Raw, manIdent.Leaf.Raw)
-	assert.NotEqual(t, oldLeaf.RawTBSCertificate, manIdent.Leaf.RawTBSCertificate)
-	assert.NotEqual(t, oldLeaf.Signature, manIdent.Leaf.Signature)
+	assert.NotEqual(t, oldLeaf.PublicKey, manageableFullIdent.Leaf.PublicKey)
+	assert.NotEqual(t, oldLeaf.SerialNumber, manageableFullIdent.Leaf.SerialNumber)
+	assert.NotEqual(t, oldLeaf.Raw, manageableFullIdent.Leaf.Raw)
+	assert.NotEqual(t, oldLeaf.RawTBSCertificate, manageableFullIdent.Leaf.RawTBSCertificate)
+	assert.NotEqual(t, oldLeaf.Signature, manageableFullIdent.Leaf.Signature)
 
-	revocationExt := manIdent.Leaf.Extensions[len(manIdent.Leaf.Extensions)-1]
+	revocationExt := manageableFullIdent.Leaf.Extensions[len(manageableFullIdent.Leaf.Extensions)-1]
 	assert.True(t, extensions.RevocationExtID.Equal(revocationExt.Id))
 
 	var rev extensions.Revocation
 	err = rev.Unmarshal(revocationExt.Value)
 	require.NoError(t, err)
 
-	err = rev.Verify(ca.Cert)
+	err = rev.Verify(manageableFullIdent.CA.Cert)
 	assert.NoError(t, err)
 }
 
