@@ -17,6 +17,10 @@ import (
 	"storj.io/storj/internal/sync2"
 )
 
+const (
+	errOldVersion = "Outdated Software Version, please update!"
+)
+
 // Config contains the necessary Information to check the Software Version
 type Config struct {
 	ServerAddress  string        `help:"server address to check its version against" default:"https://satellite.stefan-benten.de/version"`
