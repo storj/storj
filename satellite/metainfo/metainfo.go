@@ -151,8 +151,8 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 	}
 	exceeded, resource := accounting.ExceedsAlphaUsage(bandwidthTotal, inlineTotal, remoteTotal, endpoint.maxAlphaUsage)
 	if exceeded {
-		endpoint.log.Sugar().Errorf("monthly project limits are %dGB of storage and %dGBh of bandwidth usage.\nThis limit has been exceeded for %s for projectID %s.",
-			endpoint.maxAlphaUsage, endpoint.maxAlphaUsage,
+		endpoint.log.Sugar().Errorf("monthly project limits are %s of storage and bandwidth usage. This limit has been exceeded for %s for projectID %s.",
+			endpoint.maxAlphaUsage.String(),
 			resource, keyInfo.ProjectID,
 		)
 		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Alpha Usage Limit")
