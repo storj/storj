@@ -36,6 +36,9 @@ var (
 	// IdentityPath is the path to the identity the inspector should use for network communication
 	IdentityPath = flag.String("identity-path", "", "path to the identity certificate for use on the network")
 
+	// CSVPath is the csv path where command output is written
+	CSVPath = flag.String("csv-path", "stdout", "csv path where command output is written")
+
 	// ErrInspectorDial throws when there are errors dialing the inspector server
 	ErrInspectorDial = errs.Class("error dialing inspector server:")
 
@@ -513,7 +516,13 @@ func ObjectHealth(cmd *cobra.Command, args []string) (err error) {
 		return ErrRequest.Wrap(err)
 	}
 
-	w := csv.NewWriter(os.Stdout)
+	f, err := csvOutput()
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	w := csv.NewWriter(f)
 	defer w.Flush()
 
 	redundancy, err := eestream.NewRedundancyStrategyFromProto(resp.GetRedundancy())
@@ -558,7 +567,13 @@ func SegmentHealth(cmd *cobra.Command, args []string) (err error) {
 		return ErrRequest.Wrap(err)
 	}
 
-	w := csv.NewWriter(os.Stdout)
+	f, err := csvOutput()
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	w := csv.NewWriter(f)
 	defer w.Flush()
 
 	redundancy, err := eestream.NewRedundancyStrategyFromProto(resp.GetRedundancy())
@@ -575,6 +590,14 @@ func SegmentHealth(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	return nil
+}
+
+func csvOutput() (*os.File, error) {
+	if *CSVPath == "stdout" {
+		return os.Stdout, nil
+	}
+
+	return os.Create(*CSVPath)
 }
 
 func printSegmentHealthTable(w *csv.Writer, redundancy eestream.RedundancyStrategy, segments []*pb.SegmentHealth) error {
