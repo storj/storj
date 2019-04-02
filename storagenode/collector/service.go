@@ -18,7 +18,7 @@ import (
 var (
 	mon = monkit.Package()
 
-	// Error is the default error class for piecestore monitor errors
+	// Error is the default error class for piecestore collector errors
 	Error = errs.Class("piecestore collector")
 )
 
@@ -50,20 +50,27 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return service.Loop.Run(ctx, func(ctx context.Context) error {
-
 		err = service.Collect(ctx)
-		if err != nil {
-			service.log.Error("collect", zap.Error(err))
-		}
 		return err
 	})
 }
 
-// Collect collects expired pieces att this moment.
+// Collect collects expired pieces at this moment.
 func (service *Service) Collect(ctx context.Context) error {
-	err := service.pieceinfos.DeleteExpired(ctx, time.Now())
+	info, err := service.pieceinfos.GetExpired(ctx, time.Now())
 	if err != nil {
-		service.log.Error("collect", zap.Error(err))
+		return Error.Wrap(err)
+	}
+	for _, i := range info {
+		err := service.pieces.Delete(ctx, i.SatelliteID, i.PieceID)
+		if err != nil {
+			service.log.Error("unable to delete the piece from storage", zap.Error(err))
+			continue
+		}
+		err = service.pieceinfos.DeleteExpired(ctx, time.Now())
+		if err != nil {
+			service.log.Error("unable to delete the piece info from db", zap.Error(err))
+		}
 	}
 	return err
 }
