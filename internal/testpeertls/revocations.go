@@ -34,23 +34,23 @@ func RevokeLeaf(caKey crypto.PrivateKey, chain []*x509.Certificate) ([]*x509.Cer
 		return nil, pkix.Extension{}, err
 	}
 
-	ident := &identity.PeerIdentity{
+	ident := &identity.FullIdentity{
 		Leaf:      chain[peertls.LeafIndex],
 		CA:        ca.Cert,
 		ID:        ca.ID,
 		RestChain: ca.RestChain,
 	}
 
-	manageableIdent := identity.NewManageablePeerIdentity(ident, ca)
+	manageableIdent := identity.NewManageableFullIdentity(ident, ca)
 	if err := manageableIdent.Revoke(); err != nil {
 		return nil, pkix.Extension{}, err
 	}
 
 	revokingCert := manageableIdent.Leaf
-	revocationExt := new(pkix.Extension)
+	var revocationExt *pkix.Extension
 	for _, ext := range revokingCert.Extensions {
 		if extensions.RevocationExtID.Equal(ext.Id) {
-			*revocationExt = ext
+			revocationExt = &ext
 			break
 		}
 	}
@@ -81,10 +81,10 @@ func RevokeCA(caKey crypto.PrivateKey, chain []*x509.Certificate) ([]*x509.Certi
 		return nil, pkix.Extension{}, err
 	}
 
-	revocationExt := new(pkix.Extension)
+	var revocationExt *pkix.Extension
 	for _, ext := range ca.Cert.Extensions {
 		if extensions.RevocationExtID.Equal(ext.Id) {
-			*revocationExt = ext
+			revocationExt = &ext
 			break
 		}
 	}

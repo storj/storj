@@ -56,7 +56,7 @@ var (
 
 	revokeLeafCfg struct {
 		CA       identity.FullCAConfig
-		Identity identity.PeerConfig
+		Identity identity.Config
 		// TODO: add "broadcast" option to send revocation to network nodes
 	}
 )
@@ -114,20 +114,17 @@ func cmdRevokeLeaf(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	manageableIdent := identity.NewManageablePeerIdentity(originalIdent, ca)
+	manageableIdent := identity.NewManageableFullIdentity(originalIdent, ca)
 	if err := manageableIdent.Revoke(); err != nil {
 		return err
 	}
 
-	// NB: backup original cert
+	// NB: backup original cert and key.
 	if err := revokeLeafCfg.Identity.SaveBackup(originalIdent); err != nil {
 		return err
 	}
 
-	updateCfg := identity.PeerConfig{
-		CertPath: revokeLeafCfg.Identity.CertPath,
-	}
-	if err := updateCfg.Save(manageableIdent.PeerIdentity); err != nil {
+	if err := revokeLeafCfg.Identity.Save(manageableIdent.FullIdentity); err != nil {
 		return err
 	}
 	return nil
