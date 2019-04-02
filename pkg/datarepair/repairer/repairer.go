@@ -94,7 +94,7 @@ func (service *Service) process(ctx context.Context) error {
 	}
 
 	service.Limiter.Go(ctx, func() {
-		err = service.repairer.Repair(ctx, seg.GetPath(), seg.GetLostPieces())
+		err := service.repairer.Repair(ctx, seg.GetPath(), seg.GetLostPieces())
 		if err != nil {
 			zap.L().Error("Repair failed", zap.Error(err))
 		}

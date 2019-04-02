@@ -58,7 +58,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 	repairer.mutex.Unlock()
 	defer func() {
 		repairer.mutex.Lock()
-		repairer.inProgress[path] = false
+		delete(repairer.inProgress, path)
 		repairer.mutex.Unlock()
 	}()
 
