@@ -78,6 +78,13 @@ func (m *lockedAccounting) LastTimestamp(ctx context.Context, timestampType stri
 	return m.db.LastTimestamp(ctx, timestampType)
 }
 
+// SaveBucketTallies saves the latest bucket info
+func (m *lockedAccounting) SaveBucketTallies(ctx context.Context, intervalStart time.Time, bucketInfo map[string]*accounting.BucketTally) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SaveBucketTallies(ctx, intervalStart, bucketInfo)
+}
+
 // QueryPaymentInfo queries Overlay, Accounting Rollup on nodeID
 func (m *lockedAccounting) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*accounting.CSVRow, error) {
 	m.Lock()
@@ -553,31 +560,74 @@ type lockedOrders struct {
 	db orders.DB
 }
 
+// CreateSerialInfo creates serial number entry in database
 func (m *lockedOrders) CreateSerialInfo(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte, limitExpiration time.Time) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.CreateSerialInfo(ctx, serialNumber, bucketID, limitExpiration)
 }
 
-// SaveInlineOrder
-func (m *lockedOrders) SaveInlineOrder(ctx context.Context, bucketID []byte) error {
+// GetBucketBandwidth gets total bucket bandwidth from period of time
+func (m *lockedOrders) GetBucketBandwidth(ctx context.Context, bucketID []byte, from time.Time, to time.Time) (int64, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.SaveInlineOrder(ctx, bucketID)
+	return m.db.GetBucketBandwidth(ctx, bucketID, from, to)
 }
 
-// SaveRemoteOrder
-func (m *lockedOrders) SaveRemoteOrder(ctx context.Context, bucketID []byte, orderLimits []*pb.OrderLimit2) error {
+// GetStorageNodeBandwidth gets total storage node bandwidth from period of time
+func (m *lockedOrders) GetStorageNodeBandwidth(ctx context.Context, nodeID storj.NodeID, from time.Time, to time.Time) (int64, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.SaveRemoteOrder(ctx, bucketID, orderLimits)
+	return m.db.GetStorageNodeBandwidth(ctx, nodeID, from, to)
 }
 
-// SettleOrder
-func (m *lockedOrders) SettleRemoteOrder(ctx context.Context, orderLimit *pb.OrderLimit2, order *pb.Order2) error {
+// UnuseSerialNumber
+func (m *lockedOrders) UnuseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.SettleRemoteOrder(ctx, orderLimit, order)
+	return m.db.UnuseSerialNumber(ctx, serialNumber, storageNodeID)
+}
+
+// UpdateBucketBandwidthAllocation updates 'allocated' bandwidth for given bucket
+func (m *lockedOrders) UpdateBucketBandwidthAllocation(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateBucketBandwidthAllocation(ctx, bucketID, action, amount)
+}
+
+// UpdateBucketBandwidthInline updates 'inline' bandwidth for given bucket
+func (m *lockedOrders) UpdateBucketBandwidthInline(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateBucketBandwidthInline(ctx, bucketID, action, amount)
+}
+
+// UpdateBucketBandwidthSettle updates 'settled' bandwidth for given bucket
+func (m *lockedOrders) UpdateBucketBandwidthSettle(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateBucketBandwidthSettle(ctx, bucketID, action, amount)
+}
+
+// UpdateStoragenodeBandwidthAllocation updates 'allocated' bandwidth for given storage node
+func (m *lockedOrders) UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateStoragenodeBandwidthAllocation(ctx, storageNode, action, amount)
+}
+
+// UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node
+func (m *lockedOrders) UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateStoragenodeBandwidthSettle(ctx, storageNode, action, amount)
+}
+
+// UseSerialNumber creates serial number entry in database
+func (m *lockedOrders) UseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) ([]byte, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UseSerialNumber(ctx, serialNumber, storageNodeID)
 }
 
 // OverlayCache returns database for caching overlay information
