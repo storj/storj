@@ -89,7 +89,7 @@
 
         &__title {
             width: 278px;
-            font-family: 'montserrat_bold';
+            font-family: 'font_bold';
             font-size: 48px;
             font-style: normal;
             font-stretch: normal;
@@ -104,7 +104,7 @@
         &__info {
             margin-top: 24px;
             width: 446px;
-            font-family: 'montserrat_regular';
+            font-family: 'font_regular';
             font-size: 16px;
             font-style: normal;
             font-stretch: normal;

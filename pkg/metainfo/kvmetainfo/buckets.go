@@ -106,8 +106,11 @@ func getPathCipher(info *storj.Bucket) storj.Cipher {
 
 func bucketFromMeta(bucket string, meta buckets.Meta) storj.Bucket {
 	return storj.Bucket{
-		Name:       bucket,
-		Created:    meta.Created,
-		PathCipher: meta.PathEncryptionType,
+		Name:             bucket,
+		Created:          meta.Created,
+		PathCipher:       meta.PathEncryptionType,
+		SegmentsSize:     meta.SegmentsSize,
+		RedundancyScheme: meta.RedundancyScheme,
+		EncryptionScheme: meta.EncryptionScheme,
 	}
 }
