@@ -141,11 +141,9 @@ type Peer struct {
 	}
 
 	Metainfo struct {
-		Database   storage.KeyValueStore // TODO: move into pointerDB
-		Allocation *pointerdb.AllocationSigner
-		Service    *pointerdb.Service
-		Endpoint   *pointerdb.Server
-		Endpoint2  *metainfo.Endpoint
+		Database  storage.KeyValueStore // TODO: move into pointerDB
+		Service   *pointerdb.Service
+		Endpoint2 *metainfo.Endpoint
 	}
 
 	Agreements struct {
@@ -318,13 +316,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 
 		peer.Metainfo.Database = storelogger.New(peer.Log.Named("pdb"), db)
 		peer.Metainfo.Service = pointerdb.NewService(peer.Log.Named("pointerdb"), peer.Metainfo.Database)
-		peer.Metainfo.Allocation = pointerdb.NewAllocationSigner(peer.Identity, config.PointerDB.BwExpiration, peer.DB.CertDB())
-		peer.Metainfo.Endpoint = pointerdb.NewServer(peer.Log.Named("pointerdb:endpoint"),
-			peer.Metainfo.Service,
-			peer.Metainfo.Allocation,
-			peer.Overlay.Service,
-			config.PointerDB,
-			peer.Identity, peer.DB.Console().APIKeys())
 
 		peer.Metainfo.Endpoint2 = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),
@@ -333,8 +324,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			peer.Overlay.Service,
 			peer.DB.Console().APIKeys(),
 		)
-
-		pb.RegisterPointerDBServer(peer.Server.GRPC(), peer.Metainfo.Endpoint)
 
 		pb.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)
 	}
@@ -378,7 +367,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		peer.Audit.Service, err = audit.NewService(peer.Log.Named("audit"),
 			config,
 			peer.Metainfo.Service,
-			peer.Metainfo.Allocation,
 			peer.Orders.Service,
 			peer.Transport,
 			peer.Overlay.Service,
@@ -577,9 +565,6 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.Agreements.Endpoint.Close())
 	}
 
-	if peer.Metainfo.Endpoint != nil {
-		errlist.Add(peer.Metainfo.Endpoint.Close())
-	}
 	if peer.Metainfo.Database != nil {
 		errlist.Add(peer.Metainfo.Database.Close())
 	}

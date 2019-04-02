@@ -248,6 +248,8 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 			dbx.Node_UptimeSuccessCount(reputation.UptimeSuccessCount),
 			dbx.Node_TotalUptimeCount(reputation.UptimeCount),
 			dbx.Node_UptimeRatio(reputation.UptimeRatio),
+			dbx.Node_LastContactSuccess(time.Now()),
+			dbx.Node_LastContactFailure(time.Time{}),
 		)
 		if err != nil {
 			return Error.Wrap(errs.Combine(err, tx.Rollback()))
@@ -563,16 +565,18 @@ func (cache *overlaycache) UpdateBatch(ctx context.Context, updateReqList []*ove
 func (cache *overlaycache) CreateEntryIfNotExists(ctx context.Context, node *pb.Node) (stats *overlay.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	getStats, err := cache.GetStats(ctx, node.Id)
-	if overlay.ErrNodeNotFound.Has(err) {
-		err = cache.Update(ctx, node)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-
-		return cache.GetStats(ctx, node.Id)
+	// Update already does a non-racy create-or-update, so we don't need a
+	// transaction here. Changes may occur between Update and Get_Node_By_Id,
+	// but that doesn't break any semantics here.
+	err = cache.Update(ctx, node)
+	if err != nil {
+		return nil, err
 	}
-	return getStats, err
+	dbNode, err := cache.db.Get_Node_By_Id(ctx, dbx.Node_Id(node.Id.Bytes()))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return getNodeStats(node.Id, dbNode), nil
 }
 
 func convertDBNode(info *dbx.Node) (*pb.Node, error) {
