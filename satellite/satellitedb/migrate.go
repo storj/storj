@@ -543,7 +543,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					UPDATE nodes SET major = 0, minor = 1, patch = 0;
 					UPDATE nodes SET hash = '';
 					UPDATE nodes SET timestamp = 0;
-					UPDATE nodes SET release = true;
+					UPDATE nodes SET release = false;
 					ALTER TABLE nodes ALTER COLUMN major SET NOT NULL;
 					ALTER TABLE nodes ALTER COLUMN minor SET NOT NULL;
 					ALTER TABLE nodes ALTER COLUMN patch SET NOT NULL;
