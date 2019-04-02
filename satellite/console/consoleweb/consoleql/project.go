@@ -14,6 +14,8 @@ const (
 	ProjectType = "project"
 	// ProjectInputType is a graphql type name for project input
 	ProjectInputType = "projectInput"
+	// ProjectUsageType is a graphql type name for project usage
+	ProjectUsageType = "projectUsage"
 	// FieldName is a field name for "name"
 	FieldName = "name"
 	// FieldDescription is a field name for description
@@ -22,7 +24,14 @@ const (
 	FieldMembers = "members"
 	// FieldAPIKeys is a field name for api keys
 	FieldAPIKeys = "apiKeys"
-
+	// FieldUsage is a field name for usage rollup
+	FieldUsage = "usage"
+	// FieldStorage is a field name for storage total
+	FieldStorage = "storage"
+	// FieldEgress is a field name for egress total
+	FieldEgress = "egress"
+	// FieldObjectsCount is a field name for objects count
+	FieldObjectsCount = "objectsCount"
 	// LimitArg is argument name for limit
 	LimitArg = "limit"
 	// OffsetArg is argument name for offset
@@ -110,6 +119,13 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 					return service.GetAPIKeysInfoByProjectID(p.Context, project.ID)
 				},
 			},
+			FieldUsage: &graphql.Field{
+				Type: types.projectUsage,
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					_, _ = p.Source.(*console.Project)
+					return nil, nil
+				},
+			},
 		},
 	})
 }
@@ -124,6 +140,30 @@ func graphqlProjectInput() *graphql.InputObject {
 			},
 			FieldDescription: &graphql.InputObjectFieldConfig{
 				Type: graphql.String,
+			},
+		},
+	})
+}
+
+// graphqlProjectUsage creates project usage graphql type
+func graphqlProjectUsage() *graphql.Object {
+	return graphql.NewObject(graphql.ObjectConfig{
+		Name: ProjectUsageType,
+		Fields: graphql.Fields{
+			FieldStorage: &graphql.Field{
+				Type: graphql.Int,
+			},
+			FieldEgress: &graphql.Field{
+				Type: graphql.Int,
+			},
+			FieldObjectsCount: &graphql.Field{
+				Type: graphql.Int,
+			},
+			"since": &graphql.Field{
+				Type: graphql.DateTime,
+			},
+			"before": &graphql.Field{
+				Type: graphql.DateTime,
 			},
 		},
 	})
