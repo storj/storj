@@ -170,9 +170,9 @@ func (d *defaultDownloader) getShare(ctx context.Context, limit *pb.AddressedOrd
 	timedCtx := ctx
 	if d.minBytesPerSecond > 0 {
 		maxTransferTime := time.Duration(int64(time.Second) * int64(bandwidthMsgSize) / d.minBytesPerSecond.Int64())
-    if maxTranferTime < (5 * time.Second) {
-      maxTranferTime = 5 * time.Second
-    }
+		if maxTransferTime < (5 * time.Second) {
+			maxTransferTime = 5 * time.Second
+		}
 		var cancel func()
 		timedCtx, cancel = context.WithTimeout(ctx, maxTransferTime)
 		defer cancel()
