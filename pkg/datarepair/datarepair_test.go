@@ -10,14 +10,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/satellite"
 	"storj.io/storj/uplink"
 )
 
@@ -26,12 +24,6 @@ func TestDataRepair(t *testing.T) {
 		SatelliteCount:   1,
 		StorageNodeCount: 10,
 		UplinkCount:      1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Checker.Interval = 100 * time.Millisecond
-				config.Repairer.Interval = 100 * time.Millisecond
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// first, upload some remote data
 		ul := planet.Uplinks[0]
@@ -104,6 +96,7 @@ func TestDataRepair(t *testing.T) {
 		satellite.Repair.Checker.Loop.Pause()
 		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
+		satellite.Repair.Repairer.Loop.Pause()
 		time.Sleep(2 * time.Second)
 
 		// kill nodes kept alive to ensure repair worked
