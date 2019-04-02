@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"storj.io/storj/internal/readcloser"
-
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
