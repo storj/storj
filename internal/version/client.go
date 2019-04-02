@@ -39,9 +39,9 @@ func NewVersionedClient(transport transport.Client, service *Service) *Versioned
 // DialAddress. The connection will be established successfully only if the
 // target node has the private key for the requested node ID.
 func (client *VersionedClient) DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
-	if !client.version.IsUpToDate() {
+	/*if !client.version.IsUpToDate() {
 		return nil, errs.New(errOldVersion)
-	}
+	}*/
 	return client.transport.DialNode(ctx, node, opts...)
 }
 
@@ -51,9 +51,9 @@ func (client *VersionedClient) DialNode(ctx context.Context, node *pb.Node, opts
 // should be used for communicating with nodes as it is more secure than
 // DialAddress.
 func (client *VersionedClient) DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
-	if !client.version.IsUpToDate() {
+	/*if !client.version.IsUpToDate() {
 		return nil, errs.New(errOldVersion)
-	}
+	}*/
 	return client.transport.DialAddress(ctx, address, opts...)
 }
 
