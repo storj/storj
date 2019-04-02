@@ -21,7 +21,7 @@ import (
 
 // Run runs testplanet in multiple configurations.
 func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.Context, planet *Planet)) {
-	schemaSuffix := pgutil.RandomString(8)
+	schemaSuffix := pgutil.CreateRandomTestingSchemaName(8)
 	t.Log("schema-suffix ", schemaSuffix)
 
 	for _, satelliteDB := range satellitedbtest.Databases() {

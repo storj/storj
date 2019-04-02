@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"strconv"
+	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
@@ -16,6 +17,8 @@ import (
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/memory"
+	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
@@ -41,22 +44,26 @@ type APIKeys interface {
 
 // Endpoint metainfo endpoint
 type Endpoint struct {
-	log       *zap.Logger
-	pointerdb *pointerdb.Service
-	orders    *orders.Service
-	cache     *overlay.Cache
-	apiKeys   APIKeys
+	log           *zap.Logger
+	pointerdb     *pointerdb.Service
+	orders        *orders.Service
+	cache         *overlay.Cache
+	apiKeys       APIKeys
+	accountingDB  accounting.DB
+	maxAlphaUsage memory.Size
 }
 
 // NewEndpoint creates new metainfo endpoint instance
-func NewEndpoint(log *zap.Logger, pointerdb *pointerdb.Service, orders *orders.Service, cache *overlay.Cache, apiKeys APIKeys) *Endpoint {
+func NewEndpoint(log *zap.Logger, pointerdb *pointerdb.Service, orders *orders.Service, cache *overlay.Cache, apiKeys APIKeys, acctDB accounting.DB, maxAlphaUsage memory.Size) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
-		log:       log,
-		pointerdb: pointerdb,
-		orders:    orders,
-		cache:     cache,
-		apiKeys:   apiKeys,
+		log:           log,
+		pointerdb:     pointerdb,
+		orders:        orders,
+		cache:         cache,
+		apiKeys:       apiKeys,
+		accountingDB:  acctDB,
+		maxAlphaUsage: maxAlphaUsage,
 	}
 }
 
@@ -130,6 +137,23 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
+	// Check if this projectID has exceeded alpha usage limits, i.e. 25GB of bandwidth or storage used in the past month
+	// TODO: remove this code once we no longer need usage limiting for alpha release
+	// Ref: https://storjlabs.atlassian.net/browse/V3-1274
+	bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
+	inlineTotal, remoteTotal, err := endpoint.accountingDB.ProjectStorageTotals(ctx, keyInfo.ProjectID)
+	if err != nil {
+		endpoint.log.Error("retrieving ProjectStorageTotals", zap.Error(err))
+	}
+	exceeded, resource := accounting.ExceedsAlphaUsage(0, inlineTotal, remoteTotal, endpoint.maxAlphaUsage)
+	if exceeded {
+		endpoint.log.Sugar().Errorf("monthly project limits are %s of storage and bandwidth usage. This limit has been exceeded for %s for projectID %s.",
+			endpoint.maxAlphaUsage.String(),
+			resource, keyInfo.ProjectID,
+		)
+		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Alpha Usage Limit")
+	}
+
 	redundancy, err := eestream.NewRedundancyStrategyFromProto(req.GetRedundancy())
 	if err != nil {
 		return nil, err
@@ -152,7 +176,6 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
 	rootPieceID, addressedLimits, err := endpoint.orders.CreatePutOrderLimits(ctx, uplinkIdentity, bucketID, nodes, req.Expiration, maxPieceSize)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -215,6 +238,24 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	err = endpoint.validateBucket(req.Bucket)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	// Check if this projectID has exceeded alpha usage limits, i.e. 25GB of bandwidth or storage used in the past month
+	// TODO: remove this code once we no longer need usage limiting for alpha release
+	// Ref: https://storjlabs.atlassian.net/browse/V3-1274
+	bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
+	from := time.Now().AddDate(0, 0, -accounting.AverageDaysInMonth) // past 30 days
+	bandwidthTotal, err := endpoint.accountingDB.ProjectBandwidthTotal(ctx, bucketID, from)
+	if err != nil {
+		endpoint.log.Error("retrieving ProjectBandwidthTotal", zap.Error(err))
+	}
+	exceeded, resource := accounting.ExceedsAlphaUsage(bandwidthTotal, 0, 0, endpoint.maxAlphaUsage)
+	if exceeded {
+		endpoint.log.Sugar().Errorf("monthly project limits are %s of storage and bandwidth usage. This limit has been exceeded for %s for projectID %s.",
+			endpoint.maxAlphaUsage.String(),
+			resource, keyInfo.ProjectID,
+		)
+		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Alpha Usage Limit")
 	}
 
 	path, err := CreatePath(keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)

@@ -392,13 +392,15 @@ create used_serial ()
 // --- bucket accounting tables --- //
 
 model bucket_bandwidth_rollup (
-	key    bucket_id interval_start action
+	key    bucket_name project_id interval_start action
 	index (
-	    name bucket_id_interval_start_interval_seconds
-	    fields bucket_id interval_start interval_seconds
+	    name bucket_name_project_id_interval_start_interval_seconds
+	    fields bucket_name project_id interval_start interval_seconds
 	)
 
-	field bucket_id        blob
+	field bucket_name       blob
+	field project_id        blob
+
 	field interval_start   utimestamp
 	field interval_seconds uint
 	field action           uint
@@ -410,15 +412,18 @@ model bucket_bandwidth_rollup (
 
 read scalar (
 	select bucket_bandwidth_rollup
-	where  bucket_bandwidth_rollup.bucket_id = ?
+	where  bucket_bandwidth_rollup.bucket_name = ?
+	where  bucket_bandwidth_rollup.project_id = ?
 	where  bucket_bandwidth_rollup.interval_start = ?
 	where  bucket_bandwidth_rollup.action = ?
 )
 
 model bucket_storage_tally (
-	key    bucket_id interval_start
+	key    bucket_name project_id interval_start
 
-	field bucket_id        blob
+	field bucket_name       blob
+	field project_id        blob
+
 	field interval_start   utimestamp
 
 	field inline uint64
@@ -431,7 +436,13 @@ model bucket_storage_tally (
 	field  metadata_size      uint64
 )
 
-create bucket_storage_tally ( )
+create bucket_storage_tally ()
+
+read first (
+    select bucket_storage_tally
+    where bucket_storage_tally.project_id = ?
+    orderby desc bucket_storage_tally.interval_start
+)
 
 // --- storage node accounting tables --- //
 
