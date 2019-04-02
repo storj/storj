@@ -6,7 +6,6 @@ package version
 import (
 	"context"
 
-	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/identity"
