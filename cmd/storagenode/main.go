@@ -128,14 +128,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	ver, err := version.QueryVersionFromControlServer()
-	if err != nil {
-		log.Sugar().Error("Failed to fetch version info: ", err)
-	}
-	// TODO: Handle further comparison of version info against internal information
-	for i, sub := range ver {
-		log.Sugar().Debugf("Allowed version %d: %s", i, sub.Version)
-	}
 	ctx := process.Ctx(cmd)
 	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
 		zap.S().Error("Failed to initialize telemetry batcher: ", err)
@@ -156,7 +148,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Error creating tables for master database on storagenode: %+v", err)
 	}
 
-	peer, err := storagenode.New(log, identity, db, runCfg.Config)
+	peer, err := storagenode.New(log, identity, db, runCfg.Config, version.Build)
 	if err != nil {
 		return err
 	}

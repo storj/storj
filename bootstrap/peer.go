@@ -15,6 +15,7 @@ import (
 
 	"storj.io/storj/bootstrap/bootstrapweb"
 	"storj.io/storj/bootstrap/bootstrapweb/bootstrapserver"
+	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
@@ -44,6 +45,8 @@ type Config struct {
 	Kademlia kademlia.Config
 
 	Web bootstrapserver.Config
+
+	Version version.Config
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
@@ -62,6 +65,8 @@ type Peer struct {
 
 	Server *server.Server
 
+	Version *version.Service
+
 	// services and endpoints
 	Kademlia struct {
 		RoutingTable *kademlia.RoutingTable
@@ -79,7 +84,7 @@ type Peer struct {
 }
 
 // New creates a new Bootstrap Node.
-func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*Peer, error) {
+func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, versionInfo version.Info) (*Peer, error) {
 	peer := &Peer{
 		Log:      log,
 		Identity: full,
@@ -88,6 +93,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 
 	var err error
 
+	{
+		peer.Version = version.NewService(&config.Version, &versionInfo, "Bootstrap")
+	}
+
 	{ // setup listener and server
 		sc := config.Server
 		options, err := tlsopts.NewOptions(peer.Identity, sc.Config)
@@ -95,7 +104,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Transport = transport.NewClient(options)
+		peer.Transport = version.NewVersionedClient(transport.NewClient(options), peer.Version)
 
 		peer.Server, err = server.New(options, sc.Address, sc.PrivateAddress, nil)
 		if err != nil {
@@ -174,6 +183,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 func (peer *Peer) Run(ctx context.Context) error {
 	group, ctx := errgroup.WithContext(ctx)
 
+	group.Go(func() error {
+		return ignoreCancel(peer.Version.Run(ctx))
+	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Kademlia.Service.Bootstrap(ctx))
 	})

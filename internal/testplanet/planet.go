@@ -7,6 +7,7 @@ package testplanet
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
@@ -27,6 +28,7 @@ import (
 	"storj.io/storj/bootstrap/bootstrapdb"
 	"storj.io/storj/bootstrap/bootstrapweb/bootstrapserver"
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/accounting/rollup"
 	"storj.io/storj/pkg/accounting/tally"
 	"storj.io/storj/pkg/audit"
@@ -51,6 +53,7 @@ import (
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/storagenodedb"
+	"storj.io/storj/versioncontrol"
 )
 
 // Peer represents one of StorageNode or Satellite
@@ -86,10 +89,11 @@ type Planet struct {
 	databases []io.Closer
 	uplinks   []*Uplink
 
-	Bootstrap    *bootstrap.Peer
-	Satellites   []*satellite.Peer
-	StorageNodes []*storagenode.Peer
-	Uplinks      []*Uplink
+	Bootstrap      *bootstrap.Peer
+	VersionControl *versioncontrol.Peer
+	Satellites     []*satellite.Peer
+	StorageNodes   []*storagenode.Peer
+	Uplinks        []*Uplink
 
 	identities    *Identities
 	whitelistPath string // TODO: in-memory
@@ -162,6 +166,11 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 	}
 	planet.whitelistPath = whitelistPath
 
+	planet.VersionControl, err = planet.newVersionControlServer()
+	if err != nil {
+		return nil, errs.Combine(err, planet.Shutdown())
+	}
+
 	planet.Bootstrap, err = planet.newBootstrap()
 	if err != nil {
 		return nil, errs.Combine(err, planet.Shutdown())
@@ -207,6 +216,10 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 func (planet *Planet) Start(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	planet.cancel = cancel
+
+	planet.run.Go(func() error {
+		return planet.VersionControl.Run(ctx)
+	})
 
 	for i := range planet.peers {
 		peer := &planet.peers[i]
@@ -305,7 +318,6 @@ func (planet *Planet) Shutdown() error {
 		case <-ctx.Done():
 		}
 	}()
-
 	errlist.Add(planet.run.Wait())
 	cancel()
 
@@ -321,6 +333,7 @@ func (planet *Planet) Shutdown() error {
 	for _, db := range planet.databases {
 		errlist.Add(db.Close())
 	}
+	errlist.Add(planet.VersionControl.Close())
 
 	errlist.Add(os.RemoveAll(planet.directory))
 	return errlist.Err()
@@ -456,6 +469,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				Address:      "127.0.0.1:0",
 				PasswordCost: console.TestPasswordCost,
 			},
+			Version: planet.NewVersionConfig(),
 		}
 		if planet.config.Reconfigure.Satellite != nil {
 			planet.config.Reconfigure.Satellite(log, i, &config)
@@ -472,7 +486,9 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 		config.Console.StaticDir = filepath.Join(storjRoot, "web/satellite")
 		config.Mail.TemplatePath = filepath.Join(storjRoot, "web/satellite/static/emails")
 
-		peer, err := satellite.New(log, identity, db, &config)
+		verInfo := planet.NewVersionInfo()
+
+		peer, err := satellite.New(log, identity, db, &config, verInfo)
 		if err != nil {
 			return xs, err
 		}
@@ -559,12 +575,15 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 				SatelliteIDRestriction:  true,
 				WhitelistedSatelliteIDs: strings.Join(whitelistedSatelliteIDs, ","),
 			},
+			Version: planet.NewVersionConfig(),
 		}
 		if planet.config.Reconfigure.StorageNode != nil {
 			planet.config.Reconfigure.StorageNode(i, &config)
 		}
 
-		peer, err := storagenode.New(log, identity, db, config)
+		verInfo := planet.NewVersionInfo()
+
+		peer, err := storagenode.New(log, identity, db, config, verInfo)
 		if err != nil {
 			return xs, err
 		}
@@ -636,12 +655,16 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 			Address:   "127.0.0.1:0",
 			StaticDir: "./web/bootstrap", // TODO: for development only
 		},
+		Version: planet.NewVersionConfig(),
 	}
 	if planet.config.Reconfigure.Bootstrap != nil {
 		planet.config.Reconfigure.Bootstrap(0, &config)
 	}
 
-	peer, err = bootstrap.New(log, identity, db, config)
+	var verInfo version.Info
+	verInfo = planet.NewVersionInfo()
+
+	peer, err = bootstrap.New(log, identity, db, config, verInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -649,6 +672,69 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 	log.Debug("id=" + peer.ID().String() + " addr=" + peer.Addr())
 
 	return peer, nil
+}
+
+// newVersionControlServer initializes the Versioning Server
+func (planet *Planet) newVersionControlServer() (peer *versioncontrol.Peer, err error) {
+	// TODO: move into separate file
+	/*defer func() {
+		planet.peers = append(planet.peers, closablePeer{peer: peer})
+	}()*/
+
+	prefix := "versioncontrol"
+	log := planet.log.Named(prefix)
+	dbDir := filepath.Join(planet.directory, prefix)
+
+	if err := os.MkdirAll(dbDir, 0700); err != nil {
+		return nil, err
+	}
+
+	config := &versioncontrol.Config{
+		Address: "127.0.0.1:0",
+		Versions: versioncontrol.ServiceVersions{
+			Bootstrap:   "v0.1.0,v1.0.0",
+			Satellite:   "v0.1.0,v1.0.0",
+			Storagenode: "v0.1.0,v1.0.0",
+			Uplink:      "v0.1.0,v1.0.0",
+			Gateway:     "v0.1.0,v1.0.0",
+		},
+	}
+	/*
+		if planet.config.Reconfigure.Bootstrap != nil {
+			planet.config.Reconfigure.Bootstrap(0, &config)
+		}
+	*/
+	peer, err = versioncontrol.New(log, config)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Debug(" addr= " + peer.Addr())
+
+	return peer, nil
+}
+
+// NewVersionInfo returns the Version Info for this planet with tuned metrics.
+func (planet *Planet) NewVersionInfo() version.Info {
+	info := version.Info{
+		Timestamp:  "",
+		CommitHash: "",
+		Version: version.SemVer{
+			Major: 0,
+			Minor: 1,
+			Patch: 0},
+		Release: false,
+	}
+	return info
+}
+
+// NewVersionConfig returns the Version Config for this planet with tuned metrics.
+func (planet *Planet) NewVersionConfig() version.Config {
+	return version.Config{
+		ServerAddress:  fmt.Sprintf("http://%s/", planet.VersionControl.Addr()),
+		RequestTimeout: time.Second * 15,
+		CheckInterval:  time.Minute * 5,
+	}
 }
 
 // Identities returns the identity provider for this planet.

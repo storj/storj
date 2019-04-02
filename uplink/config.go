@@ -78,6 +78,9 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 	if err != nil {
 		return nil, nil, err
 	}
+
+	// ToDo: Handle Versioning for Uplinks here
+
 	tc := transport.NewClient(tlsOpts)
 
 	if c.Client.SatelliteAddr == "" {

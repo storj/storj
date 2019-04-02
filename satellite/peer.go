@@ -20,6 +20,7 @@ import (
 
 	"storj.io/storj/internal/post"
 	"storj.io/storj/internal/post/oauth2"
+	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/accounting/rollup"
 	"storj.io/storj/pkg/accounting/tally"
@@ -104,6 +105,8 @@ type Config struct {
 
 	Mail    mailservice.Config
 	Console consoleweb.Config
+
+	Version version.Config
 }
 
 // Peer is the satellite
@@ -116,6 +119,8 @@ type Peer struct {
 	Transport transport.Client
 
 	Server *server.Server
+
+	Version *version.Service
 
 	// services and endpoints
 	Kademlia struct {
@@ -174,7 +179,7 @@ type Peer struct {
 }
 
 // New creates a new satellite
-func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*Peer, error) {
+func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, versionInfo version.Info) (*Peer, error) {
 	peer := &Peer{
 		Log:      log,
 		Identity: full,
@@ -182,6 +187,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 	}
 
 	var err error
+
+	{
+		peer.Version = version.NewService(&config.Version, &versionInfo, "Satellite")
+	}
 
 	{ // setup listener and server
 		log.Debug("Starting listener and server")
@@ -191,7 +200,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Transport = transport.NewClient(options)
+		peer.Transport = version.NewVersionedClient(transport.NewClient(options), peer.Version)
 
 		peer.Server, err = server.New(options, sc.Address, sc.PrivateAddress, grpcauth.NewAPIKeyInterceptor())
 		if err != nil {
@@ -477,6 +486,9 @@ func ignoreCancel(err error) error {
 func (peer *Peer) Run(ctx context.Context) error {
 	group, ctx := errgroup.WithContext(ctx)
 
+	group.Go(func() error {
+		return ignoreCancel(peer.Version.Run(ctx))
+	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Kademlia.Service.Bootstrap(ctx))
 	})

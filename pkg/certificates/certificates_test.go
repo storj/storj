@@ -655,6 +655,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 
 	tlsOptions, err := tlsopts.NewOptions(clientIdent, tlsopts.Config{})
 	require.NoError(t, err)
+
 	clientTransport := transport.NewClient(tlsOptions)
 
 	client, err := NewClient(ctx, clientTransport, service.Addr().String())
@@ -736,6 +737,7 @@ func TestNewClient(t *testing.T) {
 
 	tlsOptions, err := tlsopts.NewOptions(ident, tlsopts.Config{})
 	require.NoError(t, err)
+
 	clientTransport := transport.NewClient(tlsOptions)
 
 	t.Run("Basic", func(t *testing.T) {
