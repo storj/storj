@@ -40,7 +40,6 @@ type DB interface {
 	// Close closes the database
 	Close() error
 
-	Storage() psserver.Storage
 	Pieces() storage.Blobs
 
 	Orders() orders.DB
@@ -94,10 +93,6 @@ type Peer struct {
 		Inspector    *kademlia.Inspector
 	}
 
-	Storage struct {
-		Endpoint *psserver.Server // TODO: separate into endpoint and service
-	}
-
 	Agreements struct {
 		Sender *agreementsender.AgreementSender
 	}
@@ -108,6 +103,7 @@ type Peer struct {
 		Endpoint  *piecestore.Endpoint
 		Inspector *inspector.Endpoint
 		Monitor   *monitor.Service
+		Sender    *orders.Sender
 	}
 }
 
@@ -179,18 +175,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		pb.RegisterKadInspectorServer(peer.Server.PrivateGRPC(), peer.Kademlia.Inspector)
 	}
 
-	{ // setup piecestore
-		// TODO: move this setup logic into psstore package
-		config := config.Storage
-
-		// TODO: psserver shouldn't need the private key
-		peer.Storage.Endpoint, err = psserver.NewEndpoint(peer.Log.Named("piecestore"), config, peer.DB.Storage(), peer.DB.PSDB(), peer.Identity, peer.Kademlia.Service)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-		pb.RegisterPieceStoreRoutesServer(peer.Server.GRPC(), peer.Storage.Endpoint)
-	}
-
 	{ // agreements
 		config := config.Storage // TODO: separate config
 		peer.Agreements.Sender = agreementsender.New(
@@ -246,6 +230,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			//TODO use config.Storage.Monitor.Interval, but for some reason is not set
 			config.Storage.KBucketRefreshInterval,
 		)
+
+		peer.Storage2.Sender = orders.NewSender(
+			log.Named("piecestore:orderssender"),
+			peer.Transport,
+			peer.Kademlia.Service,
+			peer.DB.Orders(),
+			config.Storage2.Sender,
+		)
 	}
 
 	return peer, nil
@@ -266,6 +258,9 @@ func (peer *Peer) Run(ctx context.Context) error {
 	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Agreements.Sender.Run(ctx))
+	})
+	group.Go(func() error {
+		return ignoreCancel(peer.Storage2.Sender.Run(ctx))
 	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Storage2.Monitor.Run(ctx))
@@ -301,9 +296,6 @@ func (peer *Peer) Close() error {
 	}
 
 	// close services in reverse initialization order
-	if peer.Storage.Endpoint != nil {
-		errlist.Add(peer.Storage.Endpoint.Close())
-	}
 	if peer.Kademlia.Service != nil {
 		errlist.Add(peer.Kademlia.Service.Close())
 	}

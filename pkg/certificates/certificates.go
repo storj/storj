@@ -26,7 +26,6 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/transport"
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 )
 
@@ -259,7 +258,7 @@ func (authDB *AuthorizationDB) Create(userID string, count int) (Authorizations,
 
 	var (
 		newAuths Authorizations
-		authErrs utils.ErrorGroup
+		authErrs errs.Group
 	)
 	for i := 0; i < count; i++ {
 		auth, err := NewAuthorization(userID)
@@ -269,7 +268,7 @@ func (authDB *AuthorizationDB) Create(userID string, count int) (Authorizations,
 		}
 		newAuths = append(newAuths, auth)
 	}
-	if err := authErrs.Finish(); err != nil {
+	if err := authErrs.Err(); err != nil {
 		return nil, ErrAuthorizationDB.Wrap(err)
 	}
 
