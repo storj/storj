@@ -7,7 +7,6 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
@@ -23,29 +22,30 @@ func TestVerifierHappyPath(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
 		err := planet.Satellites[0].Audit.Service.Close()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		uplink := planet.Uplinks[0]
 		testData := make([]byte, 1*memory.MiB)
 		_, err = rand.Read(testData)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		err = uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		pointerdb := planet.Satellites[0].Metainfo.Service
 		overlay := planet.Satellites[0].Overlay.Service
 		cursor := audit.NewCursor(pointerdb)
 
 		var stripe *audit.Stripe
-		for {
+		maxRetries := 3
+		for i := 0; i < maxRetries; i++ {
 			stripe, err = cursor.NextStripe(ctx)
 			if stripe != nil || err != nil {
 				break
 			}
 		}
 		require.NoError(t, err)
-		require.NotNil(t, stripe)
+		require.NotNil(t, stripe, "unable to get stripe; likely no pointers in pointerdb")
 
 		transport := planet.Satellites[0].Transport
 		orders := planet.Satellites[0].Orders.Service
@@ -55,9 +55,9 @@ func TestVerifierHappyPath(t *testing.T) {
 
 		// stop some storage nodes to ensure audit can deal with it
 		err = planet.StopPeer(planet.StorageNodes[0])
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		err = planet.StopPeer(planet.StorageNodes[1])
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// mark stopped nodes as offline in overlay cache
 		_, err = planet.Satellites[0].Overlay.Service.UpdateUptime(ctx, planet.StorageNodes[0].ID(), false)
@@ -66,6 +66,6 @@ func TestVerifierHappyPath(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = verifier.Verify(ctx, stripe)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }

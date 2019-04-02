@@ -16,9 +16,13 @@ func init() {
 	// catch dbx errors
 	c := errs.Class("satellitedb")
 	WrapErr = func(e *Error) error {
-		if e.Code == ErrorCode_NoRows {
+		switch e.Code {
+		case ErrorCode_NoRows:
 			return e.Err
+		case ErrorCode_ConstraintViolation:
+			return errs.New("violates constraint")
 		}
+
 		return c.Wrap(e)
 	}
 }
