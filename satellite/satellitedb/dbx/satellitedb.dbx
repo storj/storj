@@ -128,6 +128,13 @@ model node (
 	field free_bandwidth int64 ( updatable )
 	field free_disk      int64 ( updatable )
 
+ 	field major             int64 ( updatable )
+	field minor             int64 ( updatable )
+	field patch             int64 ( updatable )
+	field hash              text ( updatable )
+	field timestamp         int64 ( updatable )
+	field release           bool ( updatable )
+
 	field latency_90           int64   ( updatable )
 	field audit_success_count  int64   ( updatable )
 	field total_audit_count    int64   ( updatable )

@@ -530,6 +530,28 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE bucket_bandwidth_rollups ADD CONSTRAINT bucket_bandwidth_rollups_pk PRIMARY KEY (bucket_name, project_id, interval_start, action);`,
 				},
 			},
+			{
+				Description: "Add new tables for tracking used serials, bandwidth and storage",
+				Version:     14,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD major integer;
+					ALTER TABLE nodes ADD minor integer;
+					ALTER TABLE nodes ADD patch integer;
+					ALTER TABLE nodes ADD hash TEXT;
+					ALTER TABLE nodes ADD timestamp bigint;
+					ALTER TABLE nodes ADD release bool;
+					UPDATE nodes SET major = 0, minor = 1, patch = 0;
+					UPDATE nodes SET hash = '';
+					UPDATE nodes SET timestamp = 0;
+					UPDATE nodes SET release = true;
+					ALTER TABLE nodes ALTER COLUMN major SET NOT NULL;
+					ALTER TABLE nodes ALTER COLUMN minor SET NOT NULL;
+					ALTER TABLE nodes ALTER COLUMN patch SET NOT NULL;
+					ALTER TABLE nodes ALTER COLUMN hash SET NOT NULL;
+					ALTER TABLE nodes ALTER COLUMN timestamp SET NOT NULL;
+					ALTER TABLE nodes ALTER COLUMN release SET NOT NULL;`,
+				},
+			},
 		},
 	}
 }

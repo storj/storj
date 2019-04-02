@@ -153,6 +153,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			Metadata: &pb.NodeMetadata{
 				Wallet: config.Operator.Wallet,
 			},
+			Version: &pb.NodeVersion{
+				Major:     version.Build.Version.Major,
+				Minor:     version.Build.Version.Minor,
+				Patch:     version.Build.Version.Patch,
+				Hash:      version.Build.CommitHash,
+				Timestamp: version.Build.Timestamp,
+				Release:   version.Build.Release,
+			},
 		}
 
 		kdb, ndb := peer.DB.RoutingTable()
