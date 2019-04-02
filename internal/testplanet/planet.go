@@ -583,7 +583,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 					Timeout:  time.Hour,
 				},
 			},
-      Version: planet.NewVersionConfig(),
+			Version: planet.NewVersionConfig(),
 		}
 		if planet.config.Reconfigure.StorageNode != nil {
 			planet.config.Reconfigure.StorageNode(i, &config)
