@@ -58,3 +58,33 @@ type BucketRollup struct {
 	GetEgress    uint64
 	AuditEgress  uint64
 }
+
+// BucketBandwidthRollup contains data about bandwidth rollup
+type BucketBandwidthRollup struct {
+	BucketName string
+	ProjectID  uuid.UUID
+
+	IntervalStart   time.Time
+	IntervalSeconds uint
+	Action          uint
+
+	Inline    uint64
+	Allocated uint64
+	Settled   uint64
+}
+
+// BucketStorageTally holds data about a bucket tally
+type BucketStorageTally struct {
+	BucketName    string
+	ProjectID     uuid.UUID
+	IntervalStart time.Time
+
+	InlineSegmentCount int64
+	RemoteSegmentCount int64
+
+	ObjectCount int64
+
+	InlineBytes  int64
+	RemoteBytes  int64
+	MetadataSize int64
+}
