@@ -137,10 +137,6 @@ func (discovery *Discovery) refresh(ctx context.Context) error {
 			if err != nil {
 				discovery.log.Error("could not update node uptime in cache", zap.String("ID", node.Id.String()), zap.Error(err))
 			}
-			err = discovery.cache.Delete(ctx, node.Id)
-			if err != nil {
-				discovery.log.Error("deleting unresponsive node from cache", zap.String("ID", node.Id.String()), zap.Error(err))
-			}
 			continue
 		}
 

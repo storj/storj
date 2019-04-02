@@ -32,7 +32,7 @@ import { Component, Vue } from 'vue-property-decorator';
                     return name;
                 }
 
-                return name.slice(0,12) + '...';
+                return name.slice(0, 12) + '...';
             }
         }
     }

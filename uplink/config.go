@@ -31,10 +31,10 @@ import (
 type RSConfig struct {
 	MaxBufferMem     memory.Size `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4MiB"`
 	ErasureShareSize memory.Size `help:"the size of each new erasure sure in bytes" default:"1KiB"`
-	MinThreshold     int         `help:"the minimum pieces required to recover a segment. k." default:"29"`
-	RepairThreshold  int         `help:"the minimum safe pieces before a repair is triggered. m." default:"35"`
-	SuccessThreshold int         `help:"the desired total pieces for a segment. o." default:"80"`
-	MaxThreshold     int         `help:"the largest amount of pieces to encode to. n." default:"95"`
+	MinThreshold     int         `help:"the minimum pieces required to recover a segment. k." default:"29" devDefault:"4"`
+	RepairThreshold  int         `help:"the minimum safe pieces before a repair is triggered. m." default:"35" devDefault:"6"`
+	SuccessThreshold int         `help:"the desired total pieces for a segment. o." default:"80" devDefault:"8"`
+	MaxThreshold     int         `help:"the largest amount of pieces to encode to. n." default:"95" devDefault:"10"`
 }
 
 // EncryptionConfig is a configuration struct that keeps details about
@@ -50,7 +50,7 @@ type EncryptionConfig struct {
 // to talk to the rest of the network.
 type ClientConfig struct {
 	APIKey        string      `default:"" help:"the api key to use for the satellite" noprefix:"true"`
-	SatelliteAddr string      `default:"localhost:7778" help:"the address to use for the satellite" noprefix:"true"`
+	SatelliteAddr string      `default:"localhost:7778" devDefault:"localhost:10000" help:"the address to use for the satellite" noprefix:"true"`
 	MaxInlineSize memory.Size `help:"max inline segment size in bytes" default:"4KiB"`
 	SegmentSize   memory.Size `help:"the size of a segment in bytes" default:"64MiB"`
 }

@@ -102,8 +102,8 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 
 	u, err = s.store.Users().Insert(ctx, &User{
 		Email:        user.Email,
-		FirstName:    user.FirstName,
-		LastName:     user.LastName,
+		FullName:     user.FullName,
+		ShortName:    user.ShortName,
 		PasswordHash: hash,
 	})
 
@@ -222,8 +222,8 @@ func (s *Service) UpdateAccount(ctx context.Context, info UserInfo) (err error) 
 
 	return s.store.Users().Update(ctx, &User{
 		ID:           auth.User.ID,
-		FirstName:    info.FirstName,
-		LastName:     info.LastName,
+		FullName:     info.FullName,
+		ShortName:    info.ShortName,
 		Email:        email,
 		PasswordHash: nil,
 	})
@@ -342,28 +342,32 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 // DeleteProject is a method for deleting project by id
 func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = GetAuth(ctx)
+	auth, err := GetAuth(ctx)
 	if err != nil {
 		return err
 	}
 
-	// TODO: before deletion we should check if user is a project member
+	if _, err = s.isProjectMember(ctx, auth.User.ID, projectID); err != nil {
+		return ErrUnauthorized.Wrap(err)
+	}
+
 	return s.store.Projects().Delete(ctx, projectID)
 }
 
 // UpdateProject is a method for updating project description by id
 func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, description string) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = GetAuth(ctx)
+	auth, err := GetAuth(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	project, err := s.store.Projects().Get(ctx, projectID)
+	isMember, err := s.isProjectMember(ctx, auth.User.ID, projectID)
 	if err != nil {
-		return nil, errs.New("Project doesn't exist!")
+		return nil, ErrUnauthorized.Wrap(err)
 	}
 
+	project := isMember.project
 	project.Description = description
 
 	err = s.store.Projects().Update(ctx, project)

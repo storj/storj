@@ -87,6 +87,7 @@ func NewSender(log *zap.Logger, transport transport.Client, kademlia *kademlia.K
 		transport: transport,
 		kademlia:  kademlia,
 		orders:    orders,
+		config:    config,
 
 		Loop: *sync2.NewCycle(config.Interval),
 	}
@@ -111,10 +112,12 @@ func (sender *Sender) Run(ctx context.Context) error {
 			for satelliteID, orders := range ordersBySatellite {
 				satelliteID, orders := satelliteID, orders
 				group.Go(func() error {
+
 					sender.Settle(ctx, satelliteID, orders)
 					return nil
 				})
 			}
+			_ = group.Wait() // doesn't return errors
 		} else {
 			sender.log.Debug("no orders to send")
 		}
@@ -123,7 +126,7 @@ func (sender *Sender) Run(ctx context.Context) error {
 	})
 }
 
-// Settle uploads agreements to the satellite.
+// Settle uploads orders to the satellite.
 func (sender *Sender) Settle(ctx context.Context, satelliteID storj.NodeID, orders []*Info) {
 	log := sender.log.Named(satelliteID.String())
 

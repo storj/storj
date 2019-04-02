@@ -10,7 +10,6 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/satellite/console"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -48,8 +47,8 @@ func (pm *projectMembers) GetByProjectID(ctx context.Context, projectID uuid.UUI
 				INNER JOIN users u ON pm.member_id = u.id
 					WHERE pm.project_id = ?
 					AND ( u.email LIKE ? OR 
-						  u.first_name || u.last_name LIKE ? OR
-						  u.last_name || u.first_name LIKE ? )
+						  u.full_name LIKE ? OR
+						  u.short_name LIKE ? )
 						ORDER BY ` + sanitizedOrderColumnName(pagination.Order) + ` ASC
 						LIMIT ? OFFSET ?
 					`)
@@ -69,22 +68,19 @@ func (pm *projectMembers) GetByProjectID(ctx context.Context, projectID uuid.UUI
 		var memberIDBytes, projectIDBytes []uint8
 		var memberID, projectID uuid.UUID
 
-		scanErr := rows.Scan(&memberIDBytes, &projectIDBytes, &pm.CreatedAt)
+		err = rows.Scan(&memberIDBytes, &projectIDBytes, &pm.CreatedAt)
 		if err != nil {
-			err = errs.Combine(err, scanErr)
-			continue
+			return nil, err
 		}
 
-		memberID, convertErr := bytesToUUID(memberIDBytes)
-		if convertErr != nil {
-			err = errs.Combine(err, convertErr)
-			continue
+		memberID, err := bytesToUUID(memberIDBytes)
+		if err != nil {
+			return nil, err
 		}
 
-		projectID, convertErr = bytesToUUID(projectIDBytes)
-		if convertErr != nil {
-			err = errs.Combine(err, convertErr)
-			continue
+		projectID, err = bytesToUUID(projectIDBytes)
+		if err != nil {
+			return nil, err
 		}
 
 		pm.ProjectID = projectID
@@ -150,7 +146,7 @@ func sanitizedOrderColumnName(pmo console.ProjectMemberOrder) string {
 	case 3:
 		return "u.created_at"
 	default:
-		return "u.first_name"
+		return "u.full_name"
 	}
 }
 
@@ -170,5 +166,5 @@ func projectMembersFromDbxSlice(projectMembersDbx []*dbx.ProjectMember) ([]conso
 		projectMembers = append(projectMembers, *projectMember)
 	}
 
-	return projectMembers, utils.CombineErrors(errors...)
+	return projectMembers, errs.Combine(errors...)
 }

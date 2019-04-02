@@ -162,10 +162,32 @@ func (db *accountingDB) SaveRollup(ctx context.Context, latestRollup time.Time, 
 	return Error.Wrap(err)
 }
 
+// SaveBucketTallies saves the latest bucket info
+func (db *accountingDB) SaveBucketTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*accounting.BucketTally) error {
+	if len(bucketTallies) == 0 {
+		return Error.New("In SaveBucketTallies with empty bucketTallies")
+	}
+	for bucketID, info := range bucketTallies {
+		bID := dbx.BucketStorageTally_BucketId([]byte(bucketID))
+		interval := dbx.BucketStorageTally_IntervalStart(intervalStart)
+		inlineBytes := dbx.BucketStorageTally_Inline(uint64(info.InlineBytes))
+		remoteBytes := dbx.BucketStorageTally_Remote(uint64(info.RemoteBytes))
+		rSegments := dbx.BucketStorageTally_RemoteSegmentsCount(uint(info.RemoteSegments))
+		iSegments := dbx.BucketStorageTally_InlineSegmentsCount(uint(info.InlineSegments))
+		objectCount := dbx.BucketStorageTally_ObjectCount(uint(info.Files))
+		meta := dbx.BucketStorageTally_MetadataSize(uint64(info.MetadataSize))
+		_, err := db.db.Create_BucketStorageTally(ctx, bID, interval, inlineBytes, remoteBytes, rSegments, iSegments, objectCount, meta)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // QueryPaymentInfo queries Overlay, Accounting Rollup on nodeID
 func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*accounting.CSVRow, error) {
 	var sqlStmt = `SELECT n.id, n.created_at, n.audit_success_ratio, r.at_rest_total, r.get_repair_total,
-	    r.put_repair_total, r.get_audit_total, r.put_total, r.get_total, o.operator_wallet
+	    r.put_repair_total, r.get_audit_total, r.put_total, r.get_total, n.wallet
 	    FROM (
 			SELECT node_id, SUM(at_rest_total) AS at_rest_total, SUM(get_repair_total) AS get_repair_total,
 			SUM(put_repair_total) AS put_repair_total, SUM(get_audit_total) AS get_audit_total,
@@ -175,7 +197,6 @@ func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, e
 			GROUP BY node_id
 		) r
 		LEFT JOIN nodes n ON n.id = r.node_id
-		LEFT JOIN overlay_cache_nodes o ON n.id = o.node_id
 	    ORDER BY n.id`
 	rows, err := db.db.DB.QueryContext(ctx, db.db.Rebind(sqlStmt), start.UTC(), end.UTC())
 	if err != nil {

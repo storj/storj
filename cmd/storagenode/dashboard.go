@@ -125,10 +125,12 @@ func printDashboard(data *pb.DashboardResponse) error {
 		usedBandwidth := color.WhiteString(memory.Size(stats.GetUsedBandwidth()).Base10String())
 		availableSpace := color.WhiteString(memory.Size(stats.GetAvailableSpace()).Base10String())
 		usedSpace := color.WhiteString(memory.Size(stats.GetUsedSpace()).Base10String())
+		usedEgress := color.WhiteString(memory.Size(stats.GetUsedEgress()).Base10String())
+		usedIngress := color.WhiteString(memory.Size(stats.GetUsedIngress()).Base10String())
 
 		w = tabwriter.NewWriter(color.Output, 0, 0, 5, ' ', tabwriter.AlignRight)
-		fmt.Fprintf(w, "\n\t%s\t%s\t\n", color.GreenString("Available"), color.GreenString("Used"))
-		fmt.Fprintf(w, "Bandwidth\t%s\t%s\t\n", availableBandwidth, usedBandwidth)
+		fmt.Fprintf(w, "\n\t%s\t%s\t%s\t%s\t\n", color.GreenString("Available"), color.GreenString("Used"), color.GreenString("Egress"), color.GreenString("Ingress"))
+		fmt.Fprintf(w, "Bandwidth\t%s\t%s\t%s\t%s\t\n", availableBandwidth, usedBandwidth, usedEgress, usedIngress)
 		fmt.Fprintf(w, "Disk\t%s\t%s\t\n", availableSpace, usedSpace)
 		if err = w.Flush(); err != nil {
 			return err
