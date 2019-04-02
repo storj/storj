@@ -447,7 +447,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				Interval: 30 * time.Second,
 			},
 			Rollup: rollup.Config{
-				Interval:      120 * time.Second,
+				Interval:      2 * time.Minute,
 				MaxAlphaUsage: 25 * memory.GB,
 			},
 			Mail: mailservice.Config{

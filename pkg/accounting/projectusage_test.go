@@ -40,7 +40,7 @@ func TestProjectUsage(t *testing.T) {
 
 		// Setup: This date represents the past 30 days so that we can check
 		// if the alpha max usage has been exceeded in the past month
-		from := time.Now().AddDate(0, 0, -accounting.AvgDaysInMonth)
+		from := time.Now().AddDate(0, 0, -accounting.AverageDaysInMonth)
 
 		for _, tt := range cases {
 			t.Run(tt.name, func(t *testing.T) {
@@ -58,7 +58,7 @@ func TestProjectUsage(t *testing.T) {
 						BucketName:    "testbucket",
 						ProjectID:     project.ID,
 						IntervalStart: time.Now(),
-						RemoteBytes:   int64(26 * memory.GB),
+						RemoteBytes:   26 * memory.GB.Int64(),
 					}
 					err := acctDB.CreateBucketStorageTally(ctx, tally)
 					require.NoError(t, err)
@@ -78,14 +78,10 @@ func TestProjectUsage(t *testing.T) {
 				bandwidthTotal, err := acctDB.ProjectBandwidthTotal(ctx, bucketID, from)
 				require.NoError(t, err)
 				maxAlphaUsage := 25 * memory.GB
-				actualExceeded, actualResource := accounting.ExceedsAlphaUsage(bandwidthTotal, inlineTotal, remoteTotal, maxAlphaUsage.Int64())
+				actualExceeded, actualResource := accounting.ExceedsAlphaUsage(bandwidthTotal, inlineTotal, remoteTotal, maxAlphaUsage)
 
-				if tt.expectedExceeded != actualExceeded {
-					t.Fatalf("expect exceeded: %v, actual exceeded: %v", tt.expectedExceeded, actualExceeded)
-				}
-				if tt.expectedResource != actualResource {
-					t.Fatalf("expect resrouce: %s, actual resource: %s", tt.expectedResource, actualResource)
-				}
+				require.Equal(t, tt.expectedExceeded, actualExceeded)
+				require.Equal(t, tt.expectedResource, actualResource)
 			})
 		}
 	})

@@ -6,7 +6,6 @@ package metainfo
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"strconv"
 	"time"
 
@@ -17,6 +16,7 @@ import (
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/eestream"
@@ -49,11 +49,11 @@ type Endpoint struct {
 	cache         *overlay.Cache
 	apiKeys       APIKeys
 	accountingDB  accounting.DB
-	maxAlphaUsage int64
+	maxAlphaUsage memory.Size
 }
 
 // NewEndpoint creates new metainfo endpoint instance
-func NewEndpoint(log *zap.Logger, pointerdb *pointerdb.Service, orders *orders.Service, cache *overlay.Cache, apiKeys APIKeys, acctDB accounting.DB, maxAlphaUsage int64) *Endpoint {
+func NewEndpoint(log *zap.Logger, pointerdb *pointerdb.Service, orders *orders.Service, cache *overlay.Cache, apiKeys APIKeys, acctDB accounting.DB, maxAlphaUsage memory.Size) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
 		log:           log,
@@ -140,7 +140,7 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 	// TODO: remove this code once we no longer need usage limiting for alpha release
 	// Ref: https://storjlabs.atlassian.net/browse/V3-1274
 	bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
-	from := time.Now().AddDate(0, 0, -accounting.AvgDaysInMonth) // past 30 days
+	from := time.Now().AddDate(0, 0, -accounting.AverageDaysInMonth) // past 30 days
 	bandwidthTotal, err := endpoint.accountingDB.ProjectBandwidthTotal(ctx, bucketID, from)
 	if err != nil {
 		endpoint.log.Error("retrieving ProjectBandwidthTotal")
@@ -151,10 +151,10 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 	}
 	exceeded, resource := accounting.ExceedsAlphaUsage(bandwidthTotal, inlineTotal, remoteTotal, endpoint.maxAlphaUsage)
 	if exceeded {
-		endpoint.log.Error(fmt.Sprintf("monthly project limits are %dGB of storage and %dGBh of bandwidth usage.\nThis limit has been exceeded for %s for projectID %s.",
+		endpoint.log.Sugar().Errorf("monthly project limits are %dGB of storage and %dGBh of bandwidth usage.\nThis limit has been exceeded for %s for projectID %s.",
 			endpoint.maxAlphaUsage, endpoint.maxAlphaUsage,
 			resource, keyInfo.ProjectID,
-		))
+		)
 		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Alpha Usage Limit")
 	}
 
