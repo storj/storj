@@ -22,6 +22,9 @@ const (
 	OverlayBucket = "overlay"
 )
 
+// ErrIncorrectVersion is returned when the version is empty or not properly formatted
+var ErrIncorrectVersion = errs.New("incorrect version")
+
 // ErrEmptyNode is returned when the nodeID is empty
 var ErrEmptyNode = errs.New("empty node ID")
 
@@ -211,7 +214,6 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 
 	// TODO: add sanity limits to requested node count
 	// TODO: add sanity limits to excluded nodes
-
 	reputableNodeCount := req.MinimumRequiredNodes
 	if reputableNodeCount <= 0 {
 		reputableNodeCount = req.RequestedCount
@@ -225,15 +227,13 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 	versionRegex := regexp.MustCompile("^" + version.SemVerRegex + "$")
 	ver, err := version.NewSemVer(versionRegex, preferences.Version)
 	if err != nil {
-		// TODO: (STEFAN) Proper Handling
-		return nil, nil
+		return nil, ErrIncorrectVersion
 	}
 	nodeVersion := pb.NodeVersion{
 		Major: ver.Major,
 		Minor: ver.Minor,
 		Patch: ver.Patch,
 	}
-
 	reputableNodes, err := cache.db.SelectStorageNodes(ctx, reputableNodeCount, &NodeCriteria{
 		FreeBandwidth: req.FreeBandwidth,
 		FreeDisk:      req.FreeDisk,
@@ -254,6 +254,7 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 	newNodes, err := cache.db.SelectNewStorageNodes(ctx, int(newNodeCount), &NewNodeCriteria{
 		FreeBandwidth: req.FreeBandwidth,
 		FreeDisk:      req.FreeDisk,
+		Version:       nodeVersion,
 
 		AuditThreshold: preferences.NewNodeAuditThreshold,
 
@@ -297,7 +298,6 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 	if nodeID != value.Id {
 		return errors.New("invalid request")
 	}
-
 	// get existing node rep, or create a new overlay node with 0 rep
 	stats, err := cache.db.CreateEntryIfNotExists(ctx, &value)
 	if err != nil {

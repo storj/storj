@@ -231,6 +231,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			AuditCount:            config.Node.AuditCount,
 			NewNodeAuditThreshold: config.Node.NewNodeAuditThreshold,
 			NewNodePercentage:     config.Node.NewNodePercentage,
+			//ToDo: Add Custom Version for Node Selection instead of the same as the satellite runs on
+			Version: versionInfo.Version.String(),
 		}
 
 		peer.Overlay.Service = overlay.NewCache(peer.Log.Named("overlay"), peer.DB.OverlayCache(), nodeSelectionConfig)

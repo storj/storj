@@ -208,7 +208,6 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 	if err != nil {
 		return Error.Wrap(err)
 	}
-
 	// TODO: use upsert
 	_, err = tx.Get_Node_By_Id(ctx, dbx.Node_Id(info.Id.Bytes()))
 
@@ -236,6 +235,11 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 			reputation = &pb.NodeStats{}
 		}
 
+		ver := info.Version
+		if ver == nil {
+			ver = &pb.NodeVersion{}
+		}
+
 		_, err = tx.Create_Node(
 			ctx,
 			dbx.Node_Id(info.Id.Bytes()),
@@ -247,12 +251,12 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 			dbx.Node_FreeBandwidth(restrictions.FreeBandwidth),
 			dbx.Node_FreeDisk(restrictions.FreeDisk),
 			// ToDo (Stefan): Add correct values here
-			dbx.Node_Major(0),
-			dbx.Node_Minor(1),
-			dbx.Node_Patch(0),
-			dbx.Node_Hash(""),
-			dbx.Node_Timestamp(0),
-			dbx.Node_Release(false),
+			dbx.Node_Major(ver.Major),
+			dbx.Node_Minor(ver.Minor),
+			dbx.Node_Patch(ver.Patch),
+			dbx.Node_Hash(ver.Hash),
+			dbx.Node_Timestamp(ver.Timestamp),
+			dbx.Node_Release(ver.Release),
 
 			dbx.Node_Latency90(reputation.Latency_90),
 			dbx.Node_AuditSuccessCount(reputation.AuditSuccessCount),
