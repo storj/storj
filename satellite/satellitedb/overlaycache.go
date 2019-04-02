@@ -246,6 +246,13 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 			dbx.Node_Wallet(metadata.Wallet),
 			dbx.Node_FreeBandwidth(restrictions.FreeBandwidth),
 			dbx.Node_FreeDisk(restrictions.FreeDisk),
+			// ToDo (Stefan): Add correct values here
+			dbx.Node_Major(0),
+			dbx.Node_Minor(1),
+			dbx.Node_Patch(0),
+			dbx.Node_Hash(""),
+			dbx.Node_Timestamp(0),
+			dbx.Node_Release(false),
 
 			dbx.Node_Latency90(reputation.Latency_90),
 			dbx.Node_AuditSuccessCount(reputation.AuditSuccessCount),
@@ -333,6 +340,12 @@ func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID,
 			UptimeSuccessCount: dbx.Node_UptimeSuccessCount(startingStats.UptimeSuccessCount),
 			TotalUptimeCount:   dbx.Node_TotalUptimeCount(startingStats.UptimeCount),
 			UptimeRatio:        dbx.Node_UptimeRatio(uptimeRatio),
+			Major:              dbx.Node_Major(startingStats.Version.Major),
+			Minor:              dbx.Node_Minor(startingStats.Version.Minor),
+			Patch:              dbx.Node_Patch(startingStats.Version.Patch),
+			Hash:               dbx.Node_Hash(startingStats.Version.Hash),
+			Timestamp:          dbx.Node_Timestamp(startingStats.Version.Timestamp),
+			Release:            dbx.Node_Release(startingStats.Version.Release),
 		}
 
 		dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)

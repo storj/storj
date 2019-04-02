@@ -55,11 +55,21 @@ func (srv *Inspector) GetStats(ctx context.Context, req *pb.GetStatsRequest) (*p
 
 // CreateStats creates a node with specified stats
 func (srv *Inspector) CreateStats(ctx context.Context, req *pb.CreateStatsRequest) (*pb.CreateStatsResponse, error) {
+	ver := pb.NodeVersion{
+		Major:     0,
+		Minor:     1,
+		Patch:     0,
+		Hash:      "",
+		Timestamp: 0,
+		Release:   false,
+	}
+
 	stats := &NodeStats{
 		AuditCount:         req.AuditCount,
 		AuditSuccessCount:  req.AuditSuccessCount,
 		UptimeCount:        req.UptimeCount,
 		UptimeSuccessCount: req.UptimeSuccessCount,
+		Version:            ver,
 	}
 
 	_, err := srv.cache.Create(ctx, req.NodeId, stats)
