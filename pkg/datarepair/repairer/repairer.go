@@ -28,7 +28,7 @@ type SegmentRepairer interface {
 type Service struct {
 	queue     queue.RepairQueue
 	config    *Config
-	limiter   *sync2.Limiter
+	Limiter   *sync2.Limiter
 	Loop      sync2.Cycle
 	transport transport.Client
 	pointerdb *pointerdb.Service
@@ -42,7 +42,7 @@ func NewService(queue queue.RepairQueue, config *Config, interval time.Duration,
 	return &Service{
 		queue:     queue,
 		config:    config,
-		limiter:   sync2.NewLimiter(concurrency),
+		Limiter:   sync2.NewLimiter(concurrency),
 		Loop:      *sync2.NewCycle(interval),
 		transport: transport,
 		pointerdb: pointerdb,
@@ -72,7 +72,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	}
 
 	// wait for all repairs to complete
-	defer service.limiter.Wait()
+	defer service.Limiter.Wait()
 
 	return service.Loop.Run(ctx, func(ctx context.Context) error {
 		err := service.process(ctx)
@@ -93,8 +93,8 @@ func (service *Service) process(ctx context.Context) error {
 		return err
 	}
 
-	service.limiter.Go(ctx, func() {
-		err := service.repairer.Repair(ctx, seg.GetPath(), seg.GetLostPieces())
+	service.Limiter.Go(ctx, func() {
+		err = service.repairer.Repair(ctx, seg.GetPath(), seg.GetLostPieces())
 		if err != nil {
 			zap.L().Error("Repair failed", zap.Error(err))
 		}

@@ -6,7 +6,6 @@ package datarepair_test
 import (
 	"math/rand"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -97,7 +96,7 @@ func TestDataRepair(t *testing.T) {
 		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
 		satellite.Repair.Repairer.Loop.Pause()
-		time.Sleep(2 * time.Second)
+		satellite.Repair.Repairer.Limiter.Wait()
 
 		// kill nodes kept alive to ensure repair worked
 		for _, node := range planet.StorageNodes {
