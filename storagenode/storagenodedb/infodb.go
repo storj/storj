@@ -15,17 +15,17 @@ import (
 	"storj.io/storj/internal/migrate"
 )
 
-// ErrInfo is the default error class for infodb
+// ErrInfo is the default error class for InfoDB
 var ErrInfo = errs.Class("infodb")
 
-// infodb implements information database for piecestore.
-type infodb struct {
+// InfoDB implements information database for piecestore.
+type InfoDB struct {
 	mu sync.Mutex
 	db *sql.DB
 }
 
-// newInfo creates or opens infodb at the specified path.
-func newInfo(path string) (*infodb, error) {
+// newInfo creates or opens InfoDB at the specified path.
+func newInfo(path string) (*InfoDB, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return nil, err
 	}
@@ -35,50 +35,50 @@ func newInfo(path string) (*infodb, error) {
 		return nil, ErrInfo.Wrap(err)
 	}
 
-	return &infodb{db: db}, nil
+	return &InfoDB{db: db}, nil
 }
 
-// newInfoInMemory creates a new inmemory infodb.
-func newInfoInMemory() (*infodb, error) {
+// NewInfoInMemory creates a new inmemory InfoDB.
+func NewInfoInMemory() (*InfoDB, error) {
 	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
 		return nil, ErrInfo.Wrap(err)
 	}
 
-	return &infodb{db: db}, nil
+	return &InfoDB{db: db}, nil
 }
 
 // Close closes any resources.
-func (db *infodb) Close() error {
+func (db *InfoDB) Close() error {
 	return db.db.Close()
 }
 
 // locked allows easy locking the database.
-func (db *infodb) locked() func() {
+func (db *InfoDB) locked() func() {
 	db.mu.Lock()
 	return db.mu.Unlock
 }
 
 // CreateTables creates any necessary tables.
-func (db *infodb) CreateTables(log *zap.Logger) error {
+func (db *InfoDB) CreateTables(log *zap.Logger) error {
 	migration := db.Migration()
 	return migration.Run(log.Named("migration"), db)
 }
 
 // RawDB returns access to the raw database, only for migration tests.
-func (db *infodb) RawDB() *sql.DB { return db.db }
+func (db *InfoDB) RawDB() *sql.DB { return db.db }
 
 // Begin begins transaction
-func (db *infodb) Begin() (*sql.Tx, error) { return db.db.Begin() }
+func (db *InfoDB) Begin() (*sql.Tx, error) { return db.db.Begin() }
 
 // Rebind rebind parameters
-func (db *infodb) Rebind(s string) string { return s }
+func (db *InfoDB) Rebind(s string) string { return s }
 
 // Schema returns schema
-func (db *infodb) Schema() string { return "" }
+func (db *InfoDB) Schema() string { return "" }
 
 // Migration returns table migrations.
-func (db *infodb) Migration() *migrate.Migration {
+func (db *InfoDB) Migration() *migrate.Migration {
 	return &migrate.Migration{
 		Table: "versions",
 		Steps: []*migrate.Step{
