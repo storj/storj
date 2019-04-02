@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -300,17 +299,19 @@ CREATE TABLE accounting_timestamps (
 	PRIMARY KEY ( name )
 );
 CREATE TABLE bucket_bandwidth_rollups (
-	bucket_id bytea NOT NULL,
+	bucket_name bytea NOT NULL,
+	project_id bytea NOT NULL,
 	interval_start timestamp NOT NULL,
 	interval_seconds integer NOT NULL,
 	action integer NOT NULL,
 	inline bigint NOT NULL,
 	allocated bigint NOT NULL,
 	settled bigint NOT NULL,
-	PRIMARY KEY ( bucket_id, interval_start, action )
+	PRIMARY KEY ( bucket_name, project_id, interval_start, action )
 );
 CREATE TABLE bucket_storage_tallies (
-	bucket_id bytea NOT NULL,
+	bucket_name bytea NOT NULL,
+	project_id bytea NOT NULL,
 	interval_start timestamp NOT NULL,
 	inline bigint NOT NULL,
 	remote bigint NOT NULL,
@@ -318,7 +319,7 @@ CREATE TABLE bucket_storage_tallies (
 	inline_segments_count integer NOT NULL,
 	object_count integer NOT NULL,
 	metadata_size bigint NOT NULL,
-	PRIMARY KEY ( bucket_id, interval_start )
+	PRIMARY KEY ( bucket_name, project_id, interval_start )
 );
 CREATE TABLE bucket_usages (
 	id bytea NOT NULL,
@@ -454,7 +455,7 @@ CREATE TABLE used_serials (
 	storage_node_id bytea NOT NULL,
 	PRIMARY KEY ( serial_number_id, storage_node_id )
 );
-CREATE INDEX bucket_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_id, interval_start, interval_seconds );
+CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
 CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
@@ -549,17 +550,19 @@ CREATE TABLE accounting_timestamps (
 	PRIMARY KEY ( name )
 );
 CREATE TABLE bucket_bandwidth_rollups (
-	bucket_id BLOB NOT NULL,
+	bucket_name BLOB NOT NULL,
+	project_id BLOB NOT NULL,
 	interval_start TIMESTAMP NOT NULL,
 	interval_seconds INTEGER NOT NULL,
 	action INTEGER NOT NULL,
 	inline INTEGER NOT NULL,
 	allocated INTEGER NOT NULL,
 	settled INTEGER NOT NULL,
-	PRIMARY KEY ( bucket_id, interval_start, action )
+	PRIMARY KEY ( bucket_name, project_id, interval_start, action )
 );
 CREATE TABLE bucket_storage_tallies (
-	bucket_id BLOB NOT NULL,
+	bucket_name BLOB NOT NULL,
+	project_id BLOB NOT NULL,
 	interval_start TIMESTAMP NOT NULL,
 	inline INTEGER NOT NULL,
 	remote INTEGER NOT NULL,
@@ -567,7 +570,7 @@ CREATE TABLE bucket_storage_tallies (
 	inline_segments_count INTEGER NOT NULL,
 	object_count INTEGER NOT NULL,
 	metadata_size INTEGER NOT NULL,
-	PRIMARY KEY ( bucket_id, interval_start )
+	PRIMARY KEY ( bucket_name, project_id, interval_start )
 );
 CREATE TABLE bucket_usages (
 	id BLOB NOT NULL,
@@ -703,7 +706,7 @@ CREATE TABLE used_serials (
 	storage_node_id BLOB NOT NULL,
 	PRIMARY KEY ( serial_number_id, storage_node_id )
 );
-CREATE INDEX bucket_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_id, interval_start, interval_seconds );
+CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
 CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
@@ -1136,7 +1139,8 @@ func (f AccountingTimestamps_Value_Field) value() interface{} {
 func (AccountingTimestamps_Value_Field) _Column() string { return "value" }
 
 type BucketBandwidthRollup struct {
-	BucketId        []byte
+	BucketName      []byte
+	ProjectId       []byte
 	IntervalStart   time.Time
 	IntervalSeconds uint
 	Action          uint
@@ -1153,24 +1157,43 @@ type BucketBandwidthRollup_Update_Fields struct {
 	Settled   BucketBandwidthRollup_Settled_Field
 }
 
-type BucketBandwidthRollup_BucketId_Field struct {
+type BucketBandwidthRollup_BucketName_Field struct {
 	_set   bool
 	_null  bool
 	_value []byte
 }
 
-func BucketBandwidthRollup_BucketId(v []byte) BucketBandwidthRollup_BucketId_Field {
-	return BucketBandwidthRollup_BucketId_Field{_set: true, _value: v}
+func BucketBandwidthRollup_BucketName(v []byte) BucketBandwidthRollup_BucketName_Field {
+	return BucketBandwidthRollup_BucketName_Field{_set: true, _value: v}
 }
 
-func (f BucketBandwidthRollup_BucketId_Field) value() interface{} {
+func (f BucketBandwidthRollup_BucketName_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (BucketBandwidthRollup_BucketId_Field) _Column() string { return "bucket_id" }
+func (BucketBandwidthRollup_BucketName_Field) _Column() string { return "bucket_name" }
+
+type BucketBandwidthRollup_ProjectId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func BucketBandwidthRollup_ProjectId(v []byte) BucketBandwidthRollup_ProjectId_Field {
+	return BucketBandwidthRollup_ProjectId_Field{_set: true, _value: v}
+}
+
+func (f BucketBandwidthRollup_ProjectId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketBandwidthRollup_ProjectId_Field) _Column() string { return "project_id" }
 
 type BucketBandwidthRollup_IntervalStart_Field struct {
 	_set   bool
@@ -1288,7 +1311,8 @@ func (f BucketBandwidthRollup_Settled_Field) value() interface{} {
 func (BucketBandwidthRollup_Settled_Field) _Column() string { return "settled" }
 
 type BucketStorageTally struct {
-	BucketId            []byte
+	BucketName          []byte
+	ProjectId           []byte
 	IntervalStart       time.Time
 	Inline              uint64
 	Remote              uint64
@@ -1303,24 +1327,43 @@ func (BucketStorageTally) _Table() string { return "bucket_storage_tallies" }
 type BucketStorageTally_Update_Fields struct {
 }
 
-type BucketStorageTally_BucketId_Field struct {
+type BucketStorageTally_BucketName_Field struct {
 	_set   bool
 	_null  bool
 	_value []byte
 }
 
-func BucketStorageTally_BucketId(v []byte) BucketStorageTally_BucketId_Field {
-	return BucketStorageTally_BucketId_Field{_set: true, _value: v}
+func BucketStorageTally_BucketName(v []byte) BucketStorageTally_BucketName_Field {
+	return BucketStorageTally_BucketName_Field{_set: true, _value: v}
 }
 
-func (f BucketStorageTally_BucketId_Field) value() interface{} {
+func (f BucketStorageTally_BucketName_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (BucketStorageTally_BucketId_Field) _Column() string { return "bucket_id" }
+func (BucketStorageTally_BucketName_Field) _Column() string { return "bucket_name" }
+
+type BucketStorageTally_ProjectId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func BucketStorageTally_ProjectId(v []byte) BucketStorageTally_ProjectId_Field {
+	return BucketStorageTally_ProjectId_Field{_set: true, _value: v}
+}
+
+func (f BucketStorageTally_ProjectId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketStorageTally_ProjectId_Field) _Column() string { return "project_id" }
 
 type BucketStorageTally_IntervalStart_Field struct {
 	_set   bool
@@ -3418,10 +3461,54 @@ func __sqlbundle_Render(dialect __sqlbundle_Dialect, sql __sqlbundle_SQL, ops ..
 	return dialect.Rebind(out)
 }
 
-var __sqlbundle_reSpace = regexp.MustCompile(`\s+`)
+func __sqlbundle_flattenSQL(x string) string {
+	// trim whitespace from beginning and end
+	s, e := 0, len(x)-1
+	for s < len(x) && (x[s] == ' ' || x[s] == '\t' || x[s] == '\n') {
+		s++
+	}
+	for s <= e && (x[e] == ' ' || x[e] == '\t' || x[e] == '\n') {
+		e--
+	}
+	if s > e {
+		return ""
+	}
+	x = x[s : e+1]
 
-func __sqlbundle_flattenSQL(s string) string {
-	return strings.TrimSpace(__sqlbundle_reSpace.ReplaceAllString(s, " "))
+	// check for whitespace that needs fixing
+	wasSpace := false
+	for i := 0; i < len(x); i++ {
+		r := x[i]
+		justSpace := r == ' '
+		if (wasSpace && justSpace) || r == '\t' || r == '\n' {
+			// whitespace detected, start writing a new string
+			var result strings.Builder
+			result.Grow(len(x))
+			if wasSpace {
+				result.WriteString(x[:i-1])
+			} else {
+				result.WriteString(x[:i])
+			}
+			for p := i; p < len(x); p++ {
+				for p < len(x) && (x[p] == ' ' || x[p] == '\t' || x[p] == '\n') {
+					p++
+				}
+				result.WriteByte(' ')
+
+				start := p
+				for p < len(x) && !(x[p] == ' ' || x[p] == '\t' || x[p] == '\n') {
+					p++
+				}
+				result.WriteString(x[start:p])
+			}
+
+			return result.String()
+		}
+		wasSpace = justSpace
+	}
+
+	// no problematic whitespace found
+	return x
 }
 
 // this type is specially named to match up with the name returned by the
@@ -3500,6 +3587,8 @@ type __sqlbundle_Condition struct {
 func (*__sqlbundle_Condition) private() {}
 
 func (c *__sqlbundle_Condition) Render() string {
+	// TODO(jeff): maybe check if we can use placeholders instead of the
+	// literal null: this would make the templates easier.
 
 	switch {
 	case c.Equal && c.Null:
@@ -3916,7 +4005,8 @@ func (obj *postgresImpl) Create_UsedSerial(ctx context.Context,
 }
 
 func (obj *postgresImpl) Create_BucketStorageTally(ctx context.Context,
-	bucket_storage_tally_bucket_id BucketStorageTally_BucketId_Field,
+	bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
+	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
 	bucket_storage_tally_interval_start BucketStorageTally_IntervalStart_Field,
 	bucket_storage_tally_inline BucketStorageTally_Inline_Field,
 	bucket_storage_tally_remote BucketStorageTally_Remote_Field,
@@ -3925,7 +4015,8 @@ func (obj *postgresImpl) Create_BucketStorageTally(ctx context.Context,
 	bucket_storage_tally_object_count BucketStorageTally_ObjectCount_Field,
 	bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
 	bucket_storage_tally *BucketStorageTally, err error) {
-	__bucket_id_val := bucket_storage_tally_bucket_id.value()
+	__bucket_name_val := bucket_storage_tally_bucket_name.value()
+	__project_id_val := bucket_storage_tally_project_id.value()
 	__interval_start_val := bucket_storage_tally_interval_start.value()
 	__inline_val := bucket_storage_tally_inline.value()
 	__remote_val := bucket_storage_tally_remote.value()
@@ -3934,13 +4025,13 @@ func (obj *postgresImpl) Create_BucketStorageTally(ctx context.Context,
 	__object_count_val := bucket_storage_tally_object_count.value()
 	__metadata_size_val := bucket_storage_tally_metadata_size.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_storage_tallies ( bucket_id, interval_start, inline, remote, remote_segments_count, inline_segments_count, object_count, metadata_size ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING bucket_storage_tallies.bucket_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_storage_tallies ( bucket_name, project_id, interval_start, inline, remote, remote_segments_count, inline_segments_count, object_count, metadata_size ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __bucket_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val)
+	obj.logStmt(__stmt, __bucket_name_val, __project_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val)
 
 	bucket_storage_tally = &BucketStorageTally{}
-	err = obj.driver.QueryRow(__stmt, __bucket_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val).Scan(&bucket_storage_tally.BucketId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
+	err = obj.driver.QueryRow(__stmt, __bucket_name_val, __project_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val).Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -4810,22 +4901,23 @@ func (obj *postgresImpl) Find_SerialNumber_By_SerialNumber(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Find_BucketBandwidthRollup_By_BucketId_And_IntervalStart_And_Action(ctx context.Context,
-	bucket_bandwidth_rollup_bucket_id BucketBandwidthRollup_BucketId_Field,
+func (obj *postgresImpl) Find_BucketBandwidthRollup_By_BucketName_And_ProjectId_And_IntervalStart_And_Action(ctx context.Context,
+	bucket_bandwidth_rollup_bucket_name BucketBandwidthRollup_BucketName_Field,
+	bucket_bandwidth_rollup_project_id BucketBandwidthRollup_ProjectId_Field,
 	bucket_bandwidth_rollup_interval_start BucketBandwidthRollup_IntervalStart_Field,
 	bucket_bandwidth_rollup_action BucketBandwidthRollup_Action_Field) (
 	bucket_bandwidth_rollup *BucketBandwidthRollup, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.bucket_id = ? AND bucket_bandwidth_rollups.interval_start = ? AND bucket_bandwidth_rollups.action = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.bucket_name = ? AND bucket_bandwidth_rollups.project_id = ? AND bucket_bandwidth_rollups.interval_start = ? AND bucket_bandwidth_rollups.action = ?")
 
 	var __values []interface{}
-	__values = append(__values, bucket_bandwidth_rollup_bucket_id.value(), bucket_bandwidth_rollup_interval_start.value(), bucket_bandwidth_rollup_action.value())
+	__values = append(__values, bucket_bandwidth_rollup_bucket_name.value(), bucket_bandwidth_rollup_project_id.value(), bucket_bandwidth_rollup_interval_start.value(), bucket_bandwidth_rollup_action.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	bucket_bandwidth_rollup = &BucketBandwidthRollup{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_bandwidth_rollup.BucketId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -4833,6 +4925,41 @@ func (obj *postgresImpl) Find_BucketBandwidthRollup_By_BucketId_And_IntervalStar
 		return nil, obj.makeErr(err)
 	}
 	return bucket_bandwidth_rollup, nil
+
+}
+
+func (obj *postgresImpl) First_BucketStorageTally_By_ProjectId_OrderBy_Desc_IntervalStart(ctx context.Context,
+	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field) (
+	bucket_storage_tally *BucketStorageTally, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies WHERE bucket_storage_tallies.project_id = ? ORDER BY bucket_storage_tallies.interval_start DESC LIMIT 1 OFFSET 0")
+
+	var __values []interface{}
+	__values = append(__values, bucket_storage_tally_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	if !__rows.Next() {
+		if err := __rows.Err(); err != nil {
+			return nil, obj.makeErr(err)
+		}
+		return nil, nil
+	}
+
+	bucket_storage_tally = &BucketStorageTally{}
+	err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	return bucket_storage_tally, nil
 
 }
 
@@ -5646,33 +5773,6 @@ func (obj *postgresImpl) Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx contex
 
 }
 
-func (obj *postgresImpl) Delete_UsedSerial_By_SerialNumberId_And_StorageNodeId(ctx context.Context,
-	used_serial_serial_number_id UsedSerial_SerialNumberId_Field,
-	used_serial_storage_node_id UsedSerial_StorageNodeId_Field) (
-	deleted bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM used_serials WHERE used_serials.serial_number_id = ? AND used_serials.storage_node_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, used_serial_serial_number_id.value(), used_serial_storage_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
 func (obj *postgresImpl) Delete_CertRecord_By_Id(ctx context.Context,
 	certRecord_id CertRecord_Id_Field) (
 	deleted bool, err error) {
@@ -6333,7 +6433,8 @@ func (obj *sqlite3Impl) Create_UsedSerial(ctx context.Context,
 }
 
 func (obj *sqlite3Impl) Create_BucketStorageTally(ctx context.Context,
-	bucket_storage_tally_bucket_id BucketStorageTally_BucketId_Field,
+	bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
+	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
 	bucket_storage_tally_interval_start BucketStorageTally_IntervalStart_Field,
 	bucket_storage_tally_inline BucketStorageTally_Inline_Field,
 	bucket_storage_tally_remote BucketStorageTally_Remote_Field,
@@ -6342,7 +6443,8 @@ func (obj *sqlite3Impl) Create_BucketStorageTally(ctx context.Context,
 	bucket_storage_tally_object_count BucketStorageTally_ObjectCount_Field,
 	bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
 	bucket_storage_tally *BucketStorageTally, err error) {
-	__bucket_id_val := bucket_storage_tally_bucket_id.value()
+	__bucket_name_val := bucket_storage_tally_bucket_name.value()
+	__project_id_val := bucket_storage_tally_project_id.value()
 	__interval_start_val := bucket_storage_tally_interval_start.value()
 	__inline_val := bucket_storage_tally_inline.value()
 	__remote_val := bucket_storage_tally_remote.value()
@@ -6351,12 +6453,12 @@ func (obj *sqlite3Impl) Create_BucketStorageTally(ctx context.Context,
 	__object_count_val := bucket_storage_tally_object_count.value()
 	__metadata_size_val := bucket_storage_tally_metadata_size.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_storage_tallies ( bucket_id, interval_start, inline, remote, remote_segments_count, inline_segments_count, object_count, metadata_size ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_storage_tallies ( bucket_name, project_id, interval_start, inline, remote, remote_segments_count, inline_segments_count, object_count, metadata_size ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __bucket_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val)
+	obj.logStmt(__stmt, __bucket_name_val, __project_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val)
 
-	__res, err := obj.driver.Exec(__stmt, __bucket_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val)
+	__res, err := obj.driver.Exec(__stmt, __bucket_name_val, __project_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7236,22 +7338,23 @@ func (obj *sqlite3Impl) Find_SerialNumber_By_SerialNumber(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Find_BucketBandwidthRollup_By_BucketId_And_IntervalStart_And_Action(ctx context.Context,
-	bucket_bandwidth_rollup_bucket_id BucketBandwidthRollup_BucketId_Field,
+func (obj *sqlite3Impl) Find_BucketBandwidthRollup_By_BucketName_And_ProjectId_And_IntervalStart_And_Action(ctx context.Context,
+	bucket_bandwidth_rollup_bucket_name BucketBandwidthRollup_BucketName_Field,
+	bucket_bandwidth_rollup_project_id BucketBandwidthRollup_ProjectId_Field,
 	bucket_bandwidth_rollup_interval_start BucketBandwidthRollup_IntervalStart_Field,
 	bucket_bandwidth_rollup_action BucketBandwidthRollup_Action_Field) (
 	bucket_bandwidth_rollup *BucketBandwidthRollup, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.bucket_id = ? AND bucket_bandwidth_rollups.interval_start = ? AND bucket_bandwidth_rollups.action = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.bucket_name = ? AND bucket_bandwidth_rollups.project_id = ? AND bucket_bandwidth_rollups.interval_start = ? AND bucket_bandwidth_rollups.action = ?")
 
 	var __values []interface{}
-	__values = append(__values, bucket_bandwidth_rollup_bucket_id.value(), bucket_bandwidth_rollup_interval_start.value(), bucket_bandwidth_rollup_action.value())
+	__values = append(__values, bucket_bandwidth_rollup_bucket_name.value(), bucket_bandwidth_rollup_project_id.value(), bucket_bandwidth_rollup_interval_start.value(), bucket_bandwidth_rollup_action.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	bucket_bandwidth_rollup = &BucketBandwidthRollup{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_bandwidth_rollup.BucketId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -7259,6 +7362,41 @@ func (obj *sqlite3Impl) Find_BucketBandwidthRollup_By_BucketId_And_IntervalStart
 		return nil, obj.makeErr(err)
 	}
 	return bucket_bandwidth_rollup, nil
+
+}
+
+func (obj *sqlite3Impl) First_BucketStorageTally_By_ProjectId_OrderBy_Desc_IntervalStart(ctx context.Context,
+	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field) (
+	bucket_storage_tally *BucketStorageTally, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies WHERE bucket_storage_tallies.project_id = ? ORDER BY bucket_storage_tallies.interval_start DESC LIMIT 1 OFFSET 0")
+
+	var __values []interface{}
+	__values = append(__values, bucket_storage_tally_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	if !__rows.Next() {
+		if err := __rows.Err(); err != nil {
+			return nil, obj.makeErr(err)
+		}
+		return nil, nil
+	}
+
+	bucket_storage_tally = &BucketStorageTally{}
+	err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	return bucket_storage_tally, nil
 
 }
 
@@ -8152,33 +8290,6 @@ func (obj *sqlite3Impl) Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx context
 
 }
 
-func (obj *sqlite3Impl) Delete_UsedSerial_By_SerialNumberId_And_StorageNodeId(ctx context.Context,
-	used_serial_serial_number_id UsedSerial_SerialNumberId_Field,
-	used_serial_storage_node_id UsedSerial_StorageNodeId_Field) (
-	deleted bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM used_serials WHERE used_serials.serial_number_id = ? AND used_serials.storage_node_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, used_serial_serial_number_id.value(), used_serial_storage_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
 func (obj *sqlite3Impl) Delete_CertRecord_By_Id(ctx context.Context,
 	certRecord_id CertRecord_Id_Field) (
 	deleted bool, err error) {
@@ -8443,13 +8554,13 @@ func (obj *sqlite3Impl) getLastBucketStorageTally(ctx context.Context,
 	pk int64) (
 	bucket_storage_tally *BucketStorageTally, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	bucket_storage_tally = &BucketStorageTally{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&bucket_storage_tally.BucketId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -8895,7 +9006,8 @@ func (rx *Rx) Create_ApiKey(ctx context.Context,
 }
 
 func (rx *Rx) Create_BucketStorageTally(ctx context.Context,
-	bucket_storage_tally_bucket_id BucketStorageTally_BucketId_Field,
+	bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
+	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
 	bucket_storage_tally_interval_start BucketStorageTally_IntervalStart_Field,
 	bucket_storage_tally_inline BucketStorageTally_Inline_Field,
 	bucket_storage_tally_remote BucketStorageTally_Remote_Field,
@@ -8908,7 +9020,7 @@ func (rx *Rx) Create_BucketStorageTally(ctx context.Context,
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_BucketStorageTally(ctx, bucket_storage_tally_bucket_id, bucket_storage_tally_interval_start, bucket_storage_tally_inline, bucket_storage_tally_remote, bucket_storage_tally_remote_segments_count, bucket_storage_tally_inline_segments_count, bucket_storage_tally_object_count, bucket_storage_tally_metadata_size)
+	return tx.Create_BucketStorageTally(ctx, bucket_storage_tally_bucket_name, bucket_storage_tally_project_id, bucket_storage_tally_interval_start, bucket_storage_tally_inline, bucket_storage_tally_remote, bucket_storage_tally_remote_segments_count, bucket_storage_tally_inline_segments_count, bucket_storage_tally_object_count, bucket_storage_tally_metadata_size)
 
 }
 
@@ -9189,17 +9301,6 @@ func (rx *Rx) Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx context.Context,
 
 }
 
-func (rx *Rx) Delete_UsedSerial_By_SerialNumberId_And_StorageNodeId(ctx context.Context,
-	used_serial_serial_number_id UsedSerial_SerialNumberId_Field,
-	used_serial_storage_node_id UsedSerial_StorageNodeId_Field) (
-	deleted bool, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Delete_UsedSerial_By_SerialNumberId_And_StorageNodeId(ctx, used_serial_serial_number_id, used_serial_storage_node_id)
-}
-
 func (rx *Rx) Delete_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	deleted bool, err error) {
@@ -9220,8 +9321,9 @@ func (rx *Rx) Find_AccountingTimestamps_Value_By_Name(ctx context.Context,
 	return tx.Find_AccountingTimestamps_Value_By_Name(ctx, accounting_timestamps_name)
 }
 
-func (rx *Rx) Find_BucketBandwidthRollup_By_BucketId_And_IntervalStart_And_Action(ctx context.Context,
-	bucket_bandwidth_rollup_bucket_id BucketBandwidthRollup_BucketId_Field,
+func (rx *Rx) Find_BucketBandwidthRollup_By_BucketName_And_ProjectId_And_IntervalStart_And_Action(ctx context.Context,
+	bucket_bandwidth_rollup_bucket_name BucketBandwidthRollup_BucketName_Field,
+	bucket_bandwidth_rollup_project_id BucketBandwidthRollup_ProjectId_Field,
 	bucket_bandwidth_rollup_interval_start BucketBandwidthRollup_IntervalStart_Field,
 	bucket_bandwidth_rollup_action BucketBandwidthRollup_Action_Field) (
 	bucket_bandwidth_rollup *BucketBandwidthRollup, err error) {
@@ -9229,7 +9331,7 @@ func (rx *Rx) Find_BucketBandwidthRollup_By_BucketId_And_IntervalStart_And_Actio
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Find_BucketBandwidthRollup_By_BucketId_And_IntervalStart_And_Action(ctx, bucket_bandwidth_rollup_bucket_id, bucket_bandwidth_rollup_interval_start, bucket_bandwidth_rollup_action)
+	return tx.Find_BucketBandwidthRollup_By_BucketName_And_ProjectId_And_IntervalStart_And_Action(ctx, bucket_bandwidth_rollup_bucket_name, bucket_bandwidth_rollup_project_id, bucket_bandwidth_rollup_interval_start, bucket_bandwidth_rollup_action)
 }
 
 func (rx *Rx) Find_SerialNumber_By_SerialNumber(ctx context.Context,
@@ -9252,6 +9354,16 @@ func (rx *Rx) Find_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart
 		return
 	}
 	return tx.Find_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_And_Action(ctx, storagenode_bandwidth_rollup_storagenode_id, storagenode_bandwidth_rollup_interval_start, storagenode_bandwidth_rollup_action)
+}
+
+func (rx *Rx) First_BucketStorageTally_By_ProjectId_OrderBy_Desc_IntervalStart(ctx context.Context,
+	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field) (
+	bucket_storage_tally *BucketStorageTally, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.First_BucketStorageTally_By_ProjectId_OrderBy_Desc_IntervalStart(ctx, bucket_storage_tally_project_id)
 }
 
 func (rx *Rx) First_Injuredsegment(ctx context.Context) (
@@ -9611,7 +9723,8 @@ type Methods interface {
 		api_key *ApiKey, err error)
 
 	Create_BucketStorageTally(ctx context.Context,
-		bucket_storage_tally_bucket_id BucketStorageTally_BucketId_Field,
+		bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
+		bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
 		bucket_storage_tally_interval_start BucketStorageTally_IntervalStart_Field,
 		bucket_storage_tally_inline BucketStorageTally_Inline_Field,
 		bucket_storage_tally_remote BucketStorageTally_Remote_Field,
@@ -9754,11 +9867,6 @@ type Methods interface {
 		serial_number_expires_at_less_or_equal SerialNumber_ExpiresAt_Field) (
 		count int64, err error)
 
-	Delete_UsedSerial_By_SerialNumberId_And_StorageNodeId(ctx context.Context,
-		used_serial_serial_number_id UsedSerial_SerialNumberId_Field,
-		used_serial_storage_node_id UsedSerial_StorageNodeId_Field) (
-		deleted bool, err error)
-
 	Delete_User_By_Id(ctx context.Context,
 		user_id User_Id_Field) (
 		deleted bool, err error)
@@ -9767,8 +9875,9 @@ type Methods interface {
 		accounting_timestamps_name AccountingTimestamps_Name_Field) (
 		row *Value_Row, err error)
 
-	Find_BucketBandwidthRollup_By_BucketId_And_IntervalStart_And_Action(ctx context.Context,
-		bucket_bandwidth_rollup_bucket_id BucketBandwidthRollup_BucketId_Field,
+	Find_BucketBandwidthRollup_By_BucketName_And_ProjectId_And_IntervalStart_And_Action(ctx context.Context,
+		bucket_bandwidth_rollup_bucket_name BucketBandwidthRollup_BucketName_Field,
+		bucket_bandwidth_rollup_project_id BucketBandwidthRollup_ProjectId_Field,
 		bucket_bandwidth_rollup_interval_start BucketBandwidthRollup_IntervalStart_Field,
 		bucket_bandwidth_rollup_action BucketBandwidthRollup_Action_Field) (
 		bucket_bandwidth_rollup *BucketBandwidthRollup, err error)
@@ -9782,6 +9891,10 @@ type Methods interface {
 		storagenode_bandwidth_rollup_interval_start StoragenodeBandwidthRollup_IntervalStart_Field,
 		storagenode_bandwidth_rollup_action StoragenodeBandwidthRollup_Action_Field) (
 		storagenode_bandwidth_rollup *StoragenodeBandwidthRollup, err error)
+
+	First_BucketStorageTally_By_ProjectId_OrderBy_Desc_IntervalStart(ctx context.Context,
+		bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field) (
+		bucket_storage_tally *BucketStorageTally, err error)
 
 	First_Injuredsegment(ctx context.Context) (
 		injuredsegment *Injuredsegment, err error)

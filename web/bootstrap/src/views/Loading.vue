@@ -131,7 +131,7 @@ export default class Loading extends Vue {}
 				margin-top: 46px;
 
 				&__text {
-					font-family: 'montserrat_bold';
+					font-family: 'font_bold';
 					font-size: 16px;
 					font-style: normal;
 					font-stretch: normal;
@@ -149,7 +149,7 @@ export default class Loading extends Vue {}
 
 			&__support {
 				margin-top: 128px;
-				font-family: 'montserrat_regular';
+				font-family: 'font_regular';
 				font-size: 12px;
 				font-style: normal;
 				font-stretch: normal;
@@ -159,7 +159,7 @@ export default class Loading extends Vue {}
 				color: #696c77;
 
 				a {
-					font-family: 'montserrat_medium';
+					font-family: 'font_medium';
 					font-size: 12px;
 					color: #1494ff;
 					text-decoration: none;
