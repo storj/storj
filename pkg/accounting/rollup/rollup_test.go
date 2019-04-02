@@ -86,9 +86,10 @@ func TestRollupRaws(t *testing.T) {
 	})
 }
 
-func expectedTotals(data []testData, id storj.NodeID, day int) []float64 {
+// expectedTotals sums test data up to, but not including the current day's
+func expectedTotals(data []testData, id storj.NodeID, currentDay int) []float64 {
 	totals := make([]float64, 5)
-	for i := 0; i < day; i++ {
+	for i := 0; i < currentDay; i++ {
 		totals[0] += float64(data[i].bwTotals[id][0])
 		totals[1] += float64(data[i].bwTotals[id][1])
 		totals[2] += float64(data[i].bwTotals[id][2])
