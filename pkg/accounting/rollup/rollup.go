@@ -10,13 +10,15 @@ import (
 
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/storj"
 )
 
 // Config contains configurable values for rollup
 type Config struct {
-	Interval time.Duration `help:"how frequently rollup should run" devDefault:"120s" default:"6h"`
+	Interval      time.Duration `help:"how frequently rollup should run" devDefault:"120s" default:"6h"`
+	MaxAlphaUsage memory.Size   `help:"the bandwidth and storage usage limit for the alpha release" default:"25GB"`
 }
 
 // Rollup is the service for totalling data on storage nodes on daily intervals
