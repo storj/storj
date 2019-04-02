@@ -6,7 +6,7 @@
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
     import HeaderlessInput from '../../components/common/HeaderlessInput.vue';
-    import { LOADING_CLASSES } from "@/utils/constants/classConstants";
+    import { LOADING_CLASSES } from '@/utils/constants/classConstants';
 
     @Component(
         {
