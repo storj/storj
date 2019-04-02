@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/console"
 )
 
@@ -33,6 +34,7 @@ func TestProjectUsage(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		saDB := planet.Satellites[0].DB
+		orderDB := saDB.Orders()
 		acctDB := saDB.Accounting()
 		projectsDB := saDB.Console().Projects()
 
@@ -48,6 +50,7 @@ func TestProjectUsage(t *testing.T) {
 				require.NoError(t, err)
 				project, err := projectsDB.Insert(ctx, &console.Project{ID: *pID})
 				require.NoError(t, err)
+				bucketID := createBucketID(project.ID, []byte("testbucket"))
 
 				// Setup: create a BucketStorageTally record to test exceeding storage project limit
 				if tt.expectedResource == "storage" {
@@ -63,21 +66,16 @@ func TestProjectUsage(t *testing.T) {
 
 				// Setup: create a BucketBandwidthRollup record to test exceeding bandwidth project limit
 				if tt.expectedResource == "bandwidth" {
-					rollup := accounting.BucketBandwidthRollup{
-						BucketName:    "testbucket",
-						ProjectID:     project.ID,
-						Settled:       uint64(26 * memory.GB),
-						IntervalStart: time.Now(),
-						Action:        uint(pb.BandwidthAction_GET),
-					}
-					err := acctDB.CreateBucketBandwidthRollup(ctx, rollup)
+					amount := 26 * memory.GB.Int64()
+					action := pb.PieceAction_GET
+					err := orderDB.UpdateBucketBandwidthSettle(ctx, bucketID, action, amount)
 					require.NoError(t, err)
 				}
 
 				// Execute test: get storage and bandwidth totals for a project, then check if that exceeds the max usage limit
 				inlineTotal, remoteTotal, err := acctDB.ProjectStorageTotals(ctx, project.ID)
 				require.NoError(t, err)
-				bandwidthTotal, err := acctDB.ProjectBandwidthTotal(ctx, project.ID, from)
+				bandwidthTotal, err := acctDB.ProjectBandwidthTotal(ctx, bucketID, from)
 				require.NoError(t, err)
 				maxAlphaUsage := 25 * memory.GB
 				actualExceeded, actualResource := accounting.ExceedsAlphaUsage(bandwidthTotal, inlineTotal, remoteTotal, maxAlphaUsage.Int64())
@@ -91,4 +89,11 @@ func TestProjectUsage(t *testing.T) {
 			})
 		}
 	})
+}
+
+func createBucketID(projectID uuid.UUID, bucket []byte) []byte {
+	entries := make([]string, 0)
+	entries = append(entries, projectID.String())
+	entries = append(entries, string(bucket))
+	return []byte(storj.JoinPaths(entries...))
 }

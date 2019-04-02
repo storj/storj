@@ -63,7 +63,7 @@ type DB interface {
 	// CreateBucketBandwidthRollup creates a record for BucketBandwidthRollup in the accounting DB table
 	CreateBucketBandwidthRollup(ctx context.Context, rollup BucketBandwidthRollup) error
 	// ProjectBandwidthTotal returns the sum of GET bandwidth usage for a projectID in the past time frame
-	ProjectBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (uint64, error)
+	ProjectBandwidthTotal(ctx context.Context, bucketID []byte, from time.Time) (int64, error)
 	// ProjectStorageTotals returns the current inline and remote storage usage for a projectID
-	ProjectStorageTotals(ctx context.Context, projectID uuid.UUID) (uint64, uint64, error)
+	ProjectStorageTotals(ctx context.Context, projectID uuid.UUID) (int64, int64, error)
 }

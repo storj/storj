@@ -93,14 +93,14 @@ func (m *lockedAccounting) LastTimestamp(ctx context.Context, timestampType stri
 }
 
 // ProjectBandwidthTotal returns the sum of GET bandwidth usage for a projectID in the past time frame
-func (m *lockedAccounting) ProjectBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (uint64, error) {
+func (m *lockedAccounting) ProjectBandwidthTotal(ctx context.Context, projectID []byte, from time.Time) (int64, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.ProjectBandwidthTotal(ctx, projectID, from)
 }
 
 // ProjectStorageTotals returns the current inline and remote storage usage for a projectID
-func (m *lockedAccounting) ProjectStorageTotals(ctx context.Context, projectID uuid.UUID) (uint64, uint64, error) {
+func (m *lockedAccounting) ProjectStorageTotals(ctx context.Context, projectID uuid.UUID) (int64, int64, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.ProjectStorageTotals(ctx, projectID)
@@ -609,7 +609,7 @@ func (m *lockedOrders) GetStorageNodeBandwidth(ctx context.Context, nodeID storj
 	return m.db.GetStorageNodeBandwidth(ctx, nodeID, from, to)
 }
 
-// UnuseSerialNumber
+// UnuseSerialNumber removes pair serial number -> storage node id from database
 func (m *lockedOrders) UnuseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) error {
 	m.Lock()
 	defer m.Unlock()

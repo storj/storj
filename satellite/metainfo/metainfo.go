@@ -139,13 +139,13 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 	// Check if this projectID has exceeded alpha usage limits, i.e. 25GB of bandwidth or storage used in the past month
 	// TODO: remove this code once we no longer need usage limiting for alpha release
 	// Ref: https://storjlabs.atlassian.net/browse/V3-1274
-	projectID := keyInfo.ProjectID
+	bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
 	from := time.Now().AddDate(0, 0, -accounting.AvgDaysInMonth) // past 30 days
-	bandwidthTotal, err := endpoint.accountingDB.ProjectBandwidthTotal(ctx, projectID, from)
+	bandwidthTotal, err := endpoint.accountingDB.ProjectBandwidthTotal(ctx, bucketID, from)
 	if err != nil {
 		endpoint.log.Error("retrieving ProjectBandwidthTotal")
 	}
-	inlineTotal, remoteTotal, err := endpoint.accountingDB.ProjectStorageTotals(ctx, projectID)
+	inlineTotal, remoteTotal, err := endpoint.accountingDB.ProjectStorageTotals(ctx, keyInfo.ProjectID)
 	if err != nil {
 		endpoint.log.Error("retrieving ProjectStorageTotals")
 	}
@@ -153,7 +153,7 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 	if exceeded {
 		endpoint.log.Error(fmt.Sprintf("monthly project limits are %dGB of storage and %dGBh of bandwidth usage.\nThis limit has been exceeded for %s for projectID %s.",
 			endpoint.maxAlphaUsage, endpoint.maxAlphaUsage,
-			resource, projectID,
+			resource, keyInfo.ProjectID,
 		))
 		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Alpha Usage Limit")
 	}
@@ -180,7 +180,6 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
 	rootPieceID, addressedLimits, err := endpoint.orders.CreatePutOrderLimits(ctx, uplinkIdentity, bucketID, nodes, req.Expiration, maxPieceSize)
 	if err != nil {
 		return nil, Error.Wrap(err)

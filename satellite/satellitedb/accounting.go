@@ -4,6 +4,7 @@
 package satellitedb
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"time"
@@ -23,23 +24,21 @@ type accountingDB struct {
 }
 
 // ProjectBandwidthTotal returns the sum of GET bandwidth usage for a projectID for a time frame
-func (db *accountingDB) ProjectBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (uint64, error) {
-	var query = `SELECT SUM (settled)
-		FROM bucket_bandwidth_rollups
-		WHERE project_id = ? AND action = ? AND interval_start >= ?;
-	`
-	var sum *uint64
-	err := db.db.QueryRow(db.db.Rebind(query),
-		projectID[:], pb.BandwidthAction_GET, from,
-	).Scan(&sum)
+func (db *accountingDB) ProjectBandwidthTotal(ctx context.Context, bucketID []byte, from time.Time) (int64, error) {
+	pathEl := bytes.Split(bucketID, []byte("/"))
+	_, projectID := pathEl[1], pathEl[0]
+	var sum *int64
+	query := `SELECT SUM(settled) FROM bucket_bandwidth_rollups WHERE project_id = ? AND action = ? AND interval_start > ?;`
+	err := db.db.QueryRow(db.db.Rebind(query), projectID, pb.PieceAction_GET, from).Scan(&sum)
 	if err == sql.ErrNoRows || sum == nil {
 		return 0, nil
 	}
+
 	return *sum, err
 }
 
 // ProjectStorageTotals returns the current inline and remote storage usage for a projectID
-func (db *accountingDB) ProjectStorageTotals(ctx context.Context, projectID uuid.UUID) (uint64, uint64, error) {
+func (db *accountingDB) ProjectStorageTotals(ctx context.Context, projectID uuid.UUID) (int64, int64, error) {
 	rollup, err := db.db.First_BucketStorageTally_By_ProjectId_OrderBy_Desc_IntervalStart(
 		ctx,
 		dbx.BucketStorageTally_ProjectId(projectID[:]),
@@ -47,7 +46,7 @@ func (db *accountingDB) ProjectStorageTotals(ctx context.Context, projectID uuid
 	if err != nil || rollup == nil {
 		return 0, 0, err
 	}
-	return rollup.Inline, rollup.Remote, err
+	return int64(rollup.Inline), int64(rollup.Remote), err
 }
 
 // CreateBucketStorageTally creates a record in the bucket_storage_tallies accounting table
