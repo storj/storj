@@ -19,19 +19,19 @@ const ROUTES = {
         name: 'Dashboard'
     },
     ACCOUNT_SETTINGS: {
-        path: '/account-settings',
+        path: 'account-settings',
         name: 'AccountSettings'
     },
     PROJECT_DETAILS: {
-        path: '/project-details',
+        path: 'project-details',
         name: 'ProjectDetails'
     },
     TEAM: {
-        path: '/team',
+        path: 'team',
         name: 'Team'
     },
     API_KEYS: {
-        path: '/api-keys',
+        path: 'api-keys',
         name: 'ApiKeys'
     },
     USAGE_REPORT: {
@@ -43,7 +43,7 @@ const ROUTES = {
         name: 'ReportTable'
     },
     BUCKETS: {
-        path: '/buckets',
+        path: 'buckets',
         name: 'Buckets'
     },
 };

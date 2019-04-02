@@ -13,6 +13,7 @@ export const APP_STATE_ACTIONS = {
     TOGGLE_SUCCESSFUL_REGISTRATION_POPUP: 'toggleSuccessfulRegistrationPopup',
     TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP: 'toggleSuccessfulProjectCreationPopup',
     CLOSE_POPUPS: 'closePopups',
+    CHANGE_STATE: 'changeFetchState',
 };
 
 export const NOTIFICATION_ACTIONS = {
