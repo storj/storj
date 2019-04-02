@@ -10,6 +10,10 @@ const ROUTES = {
         path: '/register',
         name: 'Register'
     },
+    FORGOT_PASSWORD: {
+        path: '/forgot-password',
+        name: 'ForgotPassword'
+    },
     DASHBOARD: {
         path: '/',
         name: 'Dashboard'
