@@ -35,7 +35,7 @@ func TestStreamStoreMeta(t *testing.T) {
 		NumberOfSegments: 2,
 		SegmentsSize:     10,
 		LastSegmentSize:  0,
-		Metadata:         []byte{},
+		Metadata:         nil,
 	}
 	stream, err := proto.Marshal(&streamInfo)
 	if err != nil {
@@ -216,7 +216,7 @@ func TestStreamStoreGet(t *testing.T) {
 	const (
 		segSize      = 10
 		encBlockSize = 10
-		dataCipher   = storj.SecretBox
+		dataCipher   = storj.Unencrypted
 		pathCipher   = storj.AESGCM
 	)
 
@@ -240,6 +240,8 @@ func TestStreamStoreGet(t *testing.T) {
 
 	lastSegmentMeta, err := proto.Marshal(&pb.StreamMeta{
 		EncryptedStreamInfo: stream,
+		EncryptionType:      int32(dataCipher),
+		EncryptionBlockSize: encBlockSize,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -255,10 +257,11 @@ func TestStreamStoreGet(t *testing.T) {
 	streamRanger := ranger.ByteRanger(nil)
 
 	streamMeta := Meta{
-		Modified:   staticTime,
-		Expiration: staticTime,
-		Size:       0,
-		Data:       nil,
+		Modified:     staticTime,
+		Expiration:   staticTime,
+		Size:         0,
+		Data:         nil,
+		SegmentsSize: segSize,
 		EncryptionScheme: storj.EncryptionScheme{
 			Cipher:    dataCipher,
 			BlockSize: encBlockSize,
