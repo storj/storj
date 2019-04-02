@@ -10,7 +10,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/memory"
@@ -34,12 +33,12 @@ func TestInspectorStats(t *testing.T) {
 	uplink := planet.Uplinks[0]
 	testData := make([]byte, 1*memory.MiB)
 	_, err = rand.Read(testData)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	bucket := "testbucket"
 
 	err = uplink.Upload(ctx, planet.Satellites[0], bucket, "test/path", testData)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	healthEndpoint := planet.Satellites[0].Inspector.Endpoint
 
@@ -54,9 +53,7 @@ func TestInspectorStats(t *testing.T) {
 			}
 
 			fullPath := storj.SplitPath(item.Key.String())
-			if len(fullPath) < 4 {
-				assert.FailNowf(t, "Could not retrieve full path from pointerdb ", strings.Join(fullPath[:], "/"))
-			}
+			require.Falsef(t, len(fullPath) < 4, "Could not retrieve a full path from pointerdb")
 
 			projectID := fullPath[0]
 			bucket := fullPath[2]
@@ -71,12 +68,12 @@ func TestInspectorStats(t *testing.T) {
 				}
 
 				resp, err := healthEndpoint.SegmentHealth(ctx, req)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 
-				assert.Equal(t, int32(0), resp.GetHealth().GetSuccessThreshold())
-				assert.Equal(t, int32(1), resp.GetHealth().GetMinimumRequired())
-				assert.Equal(t, int32(4), resp.GetHealth().GetTotal())
-				assert.Equal(t, int32(0), resp.GetHealth().GetRepairThreshold())
+				require.Equal(t, int32(0), resp.GetHealth().GetSuccessThreshold())
+				require.Equal(t, int32(1), resp.GetHealth().GetMinimumRequired())
+				require.Equal(t, int32(4), resp.GetHealth().GetTotal())
+				require.Equal(t, int32(0), resp.GetHealth().GetRepairThreshold())
 			}
 
 			{ // Test Object Health Request
@@ -90,15 +87,15 @@ func TestInspectorStats(t *testing.T) {
 				}
 				resp, err := healthEndpoint.ObjectHealth(ctx, objectHealthReq)
 
-				assert.Equal(t, 1, len(resp.GetSegments()))
+				require.Len(t, resp.GetSegments(), 1)
 
 				segments := resp.GetSegments()
-				assert.Equal(t, int32(0), segments[0].GetSuccessThreshold())
-				assert.Equal(t, int32(1), segments[0].GetMinimumRequired())
-				assert.Equal(t, int32(4), segments[0].GetTotal())
-				assert.Equal(t, int32(0), segments[0].GetRepairThreshold())
+				require.Equal(t, int32(0), segments[0].GetSuccessThreshold())
+				require.Equal(t, int32(1), segments[0].GetMinimumRequired())
+				require.Equal(t, int32(4), segments[0].GetTotal())
+				require.Equal(t, int32(0), segments[0].GetRepairThreshold())
 
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 
 			return nil

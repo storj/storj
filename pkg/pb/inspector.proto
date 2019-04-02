@@ -208,7 +208,7 @@ message DashboardResponse {
 }
 
 message SegmentHealthRequest {
-  bytes bucket = 1;         // segment bucket
+  bytes bucket = 1;         // segment bucket name
   bytes encrypted_path = 2; // segment encrypted path
   int64 segment_index = 3;  // segment index
   bytes project_id = 4;     // segment project id
@@ -230,7 +230,7 @@ message SegmentHealthResponse {
 
 message ObjectHealthRequest {
   bytes encrypted_path = 1;                  // object encrypted path
-  bytes bucket = 2;                          // object bucket id
+  bytes bucket = 2;                          // object bucket name
   bytes project_id = 3;                      // object project id
   int64 start_after_segment = 4;             // Get all segments after specified segment index 
   int64 end_before_segment = 5;              // Stop at segment before specified segment index 

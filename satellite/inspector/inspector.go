@@ -23,15 +23,16 @@ import (
 var (
 	mon = monkit.Package()
 	// Error wraps errors returned from Server struct methods
-	Error        = errs.Class("Endpoint error")
-	finalSegment = int64(-1)
+	Error = errs.Class("Endpoint error")
 )
+
+const lastSegmentIndex = int64(-1)
 
 // Endpoint for checking object and segment health
 type Endpoint struct {
-	pointerdb *pointerdb.Service
-	cache     *overlay.Cache
 	log       *zap.Logger
+	cache     *overlay.Cache
+	pointerdb *pointerdb.Service
 }
 
 // NewEndpoint will initialize an Endpoint struct
@@ -84,18 +85,18 @@ func (endpoint *Endpoint) ObjectHealth(ctx context.Context, in *pb.ObjectHealthR
 
 		segmentHealth, err := endpoint.SegmentHealth(ctx, segment)
 		if err != nil {
-			if segmentIndex == finalSegment {
+			if segmentIndex == lastSegmentIndex {
 				return nil, Error.Wrap(err)
 			}
 
-			segmentIndex = finalSegment
+			segmentIndex = lastSegmentIndex
 			continue
 		}
 
 		segmentHealthResponses = append(segmentHealthResponses, segmentHealth.GetHealth())
 		redundancy = segmentHealth.GetRedundancy()
 
-		if segmentIndex == finalSegment {
+		if segmentIndex == lastSegmentIndex {
 			break
 		}
 
