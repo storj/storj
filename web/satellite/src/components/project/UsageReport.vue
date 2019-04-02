@@ -173,7 +173,7 @@
 				cursor: pointer;
 
 				p {
-					font-family: 'montserrat_medium';
+					font-family: 'font_medium';
 					font-size: 18px;
 					line-height: 24px;
 					color: #354049;
@@ -191,7 +191,7 @@
 			margin-top: 17px;
 
 			p {
-				font-family: 'montserrat_bold';
+				font-family: 'font_bold';
 				font-size: 32px;
 				line-height: 39px;
 				color: #354049;
@@ -218,7 +218,7 @@
 					margin-left: 20px;
 
 					p {
-						font-family: 'montserrat_medium';
+						font-family: 'font_medium';
 						font-size: 16px;
 						line-height: 23px;
 						color: #354049;
@@ -275,7 +275,7 @@
 					}
 
 					h1 {
-						font-family: 'montserrat_regular';
+						font-family: 'font_regular';
 						font-size: 18px;
 						line-height: 24px;
 						color: #AFB7C1;
@@ -285,7 +285,7 @@
 
 					h2 {
 						margin-top: 22px;
-						font-family: 'montserrat_medium';
+						font-family: 'font_medium';
 						font-size: 44px;
 						line-height: 67px;
 						color: #354049;
@@ -307,13 +307,13 @@
 				justify-content: space-between;
 
 				p {
-					font-family: 'montserrat_regular';
+					font-family: 'font_regular';
 					font-size: 20px;
 					line-height: 27px;
 					color: #AFB7C1;
 
 					b {
-						font-family: 'montserrat_medium';
+						font-family: 'font_medium';
 						color: #354049;
 					}
 				}
@@ -325,7 +325,7 @@
 					justify-content: space-between;
 
 					p {
-						font-family: 'montserrat_medium';
+						font-family: 'font_medium';
 						font-weight: bold;
 						font-size: 20px;
 						line-height: 29px;

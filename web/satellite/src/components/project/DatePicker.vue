@@ -84,7 +84,7 @@
 		-ms-transform: translate(-50%, -50%);
 		transform: translate(-50%, -50%);
 		box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.2);
-		font-family: 'montserrat-medium';
+		font-family: 'font-medium';
 	}
 	.cov-picker-box {
 		background: #fff;
@@ -180,7 +180,7 @@
 		padding: 10px 0!important;
 		box-sizing: border-box;
 		font-size: 18px;
-		font-family: 'montserrat_medium';
+		font-family: 'font_medium';
 		line-height: 30px;
 		display: flex;
 		flex-direction: column;
@@ -320,7 +320,7 @@
 		border-radius: 2px;
 	}
 	.cov-date-box {
-		font-family: 'montserrat_medium';
+		font-family: 'font_medium';
 	}
 </style>
 <template>
