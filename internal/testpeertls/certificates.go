@@ -28,7 +28,7 @@ func NewCertChain(length int, versionNumber storj.IDVersionNumber) (keys []crypt
 		keys = append([]crypto.PrivateKey{key}, keys...)
 
 		var template *x509.Certificate
-		if i == 0 {
+		if i != length-1 {
 			template, err = peertls.CATemplate()
 			if err != nil {
 				return nil, nil, err

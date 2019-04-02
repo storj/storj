@@ -11,28 +11,23 @@ import (
 )
 
 //go:generate go run gen_identities.go -version 1 -count 150 -out V1_identities_table.go
-//go:generate go run gen_identities.go -version 2 -count 150 -out V2_identities_table.go
 //go:generate go run gen_identities.go -signed -version 1 -count 150 -out V1_signed_identities_table.go
-//go:generate go run gen_identities.go -signed -version 2 -count 150 -out V2_signed_identities_table.go
 
 var (
 	// IdentityVersions holds pregenerated identities for each/ identity version.
 	IdentityVersions = VersionedIdentitiesMap{
 		storj.V1: pregeneratedV1Identities,
-		storj.V2: pregeneratedV2Identities,
 	}
 
 	// SignedIdentityVersions holds pregenerated, signed identities for each.
 	// identity version
 	SignedIdentityVersions = VersionedIdentitiesMap{
 		storj.V1: pregeneratedV1SignedIdentities,
-		storj.V2: pregeneratedV2SignedIdentities,
 	}
 
 	// SignerVersions holds certificate authorities for each identity version.
 	SignerVersions = VersionedCertificateAuthorityMap{
 		storj.V1: pregeneratedV1Signer,
-		storj.V2: pregeneratedV2Signer,
 	}
 )
 

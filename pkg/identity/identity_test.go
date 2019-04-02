@@ -97,11 +97,6 @@ func TestConfig_Save_with_extension(t *testing.T) {
 	defer ctx.Cleanup()
 
 	testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, version storj.IDVersion, ident *identity.FullIdentity) {
-		// TODO: fix extension serialization
-		if version.Number == storj.V2 {
-			t.Skipf("certificate extension serialization fix required")
-		}
-
 		identCfg := &identity.Config{
 			CertPath: ctx.File("chain.pem"),
 			KeyPath:  ctx.File("key.pem"),

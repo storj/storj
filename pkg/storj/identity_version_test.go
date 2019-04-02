@@ -21,7 +21,7 @@ import (
 
 func TestLatestVersion(t *testing.T) {
 	version := storj.LatestIDVersion()
-	assert.Equal(t, storj.V2, version.Number)
+	assert.Equal(t, storj.V1, version.Number)
 }
 
 func TestIDVersionFromCert(t *testing.T) {
@@ -46,10 +46,7 @@ func TestIDVersionInVersions_match(t *testing.T) {
 		versionsStr   string
 	}{
 		{"single version", storj.V1, "1"},
-		{"multiple versions", storj.V2, "1,2"},
-		{"end of version range", storj.V2, "1-2"},
 		{"beginning of version range", storj.V1, "1-2"},
-		{"middle of version range", storj.V2, "1-3"},
 		{"latest alias", storj.LatestIDVersion().Number, "latest"},
 	}
 
@@ -66,10 +63,7 @@ func TestIDVersionInVersions_error(t *testing.T) {
 		versionNumber storj.IDVersionNumber
 		versionsStr   string
 	}{
-		{"single version", storj.V2, "1"},
-		{"multiple versions", storj.V2, "1,3"},
 		{"version range", storj.V1, "2-3"},
-		{"latest alias", storj.V1, "latest"},
 		{"malformed PeerIDVersions", storj.V1, "1-"},
 	}
 
@@ -84,11 +78,7 @@ func TestIDVersionExtensionHandler_success(t *testing.T) {
 	_, identityV1Chain, err := testpeertls.NewCertChain(2, storj.V1)
 	assert.NoError(t, err)
 
-	_, identityV2Chain, err := testpeertls.NewCertChain(2, storj.V2)
-	assert.NoError(t, err)
-
-	latestVersionChain := identityV2Chain
-	//alphaVersionChain := identityV2Chain
+	latestVersionChain := identityV1Chain
 
 	testcases := []struct {
 		name     string
@@ -96,11 +86,8 @@ func TestIDVersionExtensionHandler_success(t *testing.T) {
 		chain    []*x509.Certificate
 	}{
 		{"V1", "1", identityV1Chain},
-		{"V2", "2", identityV2Chain},
-		{"V1 & V2 with V2 chain", "1,2", identityV2Chain},
 		{"V1 & V2 with V1 chain", "1,2", identityV1Chain},
 		{"latest version", "latest", latestVersionChain},
-		//{"alpha version", "alpha", alphaVersionChain},
 	}
 
 	for _, testcase := range testcases {
@@ -117,39 +104,5 @@ func TestIDVersionExtensionHandler_success(t *testing.T) {
 
 		err = extensionMap.HandleExtensions(handlerFuncMap, identity.ToChains(testcase.chain))
 		assert.NoError(t, err)
-	}
-}
-
-func TestIDVersionExtensionHandler_error(t *testing.T) {
-	_, identityV1Chain, err := testpeertls.NewCertChain(2, storj.V1)
-	assert.NoError(t, err)
-
-	_, identityV2Chain, err := testpeertls.NewCertChain(2, storj.V2)
-	assert.NoError(t, err)
-
-	testcases := []struct {
-		name     string
-		versions string
-		chain    []*x509.Certificate
-	}{
-		{"single version mismatch", "1", identityV2Chain},
-		{"multiple versions mismatch", "1,3", identityV2Chain},
-		{"latest version", "latest", identityV1Chain},
-	}
-
-	for _, testcase := range testcases {
-		t.Log(testcase.name)
-		opts := &extensions.Options{PeerIDVersions: testcase.versions}
-
-		cert := testcase.chain[peertls.CAIndex]
-		ext := cert.Extensions[len(cert.Extensions)-1]
-		err := storj.IDVersionHandler.NewHandlerFunc(opts)(ext, identity.ToChains(testcase.chain))
-		assert.Error(t, err)
-
-		extensionMap := tlsopts.NewExtensionsMap(testcase.chain...)
-		handlerFuncMap := extensions.AllHandlers.WithOptions(opts)
-
-		err = extensionMap.HandleExtensions(handlerFuncMap, identity.ToChains(testcase.chain))
-		assert.Error(t, err)
 	}
 }
