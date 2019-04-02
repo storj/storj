@@ -19,13 +19,26 @@ const (
 	// NB: identities created before identity versioning (i.e. which don't have a
 	// version extension; "legacy") will be recognized as V0.
 	V0 = IDVersionNumber(iota)
+	// V1 represents identity version 1
+	V1
 )
 
 var (
 	// IDVersions is a map of all identity versions
 	IDVersions = map[IDVersionNumber]IDVersion{
+		/* V1 breaking change:
+		+ removed support for difficulties < 9
+		*/
 		V0: {
 			Number:        V0,
+			NewPrivateKey: pkcrypto.GeneratePrivateKey,
+		},
+		/* V1 changes:
+		+ add version support
+		+ change elliptic curve to non-NIST
+		*/
+		V1: {
+			Number:        V1,
 			NewPrivateKey: pkcrypto.GeneratePrivateKey,
 		},
 	}

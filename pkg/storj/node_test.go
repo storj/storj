@@ -83,6 +83,9 @@ func TestNodeID_Version(t *testing.T) {
 		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113de500", 8, storj.V0},
 		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113dee00", 9, storj.V0},
 		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113dec00", 10, storj.V0},
+		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113de502", 8, storj.V1},
+		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113dee02", 9, storj.V1},
+		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113dec02", 10, storj.V1},
 	} {
 		decoded, err := hex.DecodeString(testcase.id)
 		require.NoError(t, err)
@@ -119,6 +122,21 @@ func TestNodeID_String_Version(t *testing.T) {
 			"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113dec00",
 			"12vha9oTFnerxYRgeQ2BZqoFrLrnmmf5UWTCY2jA77dF3YvWew7",
 			storj.V0,
+		},
+		{
+			"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113de502",
+			"6pBvchWxe1KEBb6TZGBUUzoga6E5BLq3nbR2L6x6RdxYeH2Adm",
+			storj.V1,
+		},
+		{
+			"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113dee02",
+			"6pBvchWxe1KEBb6TZGBUUzoga6E5BLq3nbR2L6x6Re32bKJBBk",
+			storj.V1,
+		},
+		{
+			"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113dec02",
+			"6pBvchWxe1KEBb6TZGBUUzoga6E5BLq3nbR2L6x6Re22qchU4f",
+			storj.V1,
 		},
 	} {
 		decoded, err := hex.DecodeString(testcase.hexID)
