@@ -472,19 +472,44 @@ func ObjectHealth(cmd *cobra.Command, args []string) (err error) {
 		return ErrArgs.Wrap(err)
 	}
 
+	startAfterSegment := int64(0) // start from first segment
+	endBeforeSegment := int64(0)  // No end, so we stop when we've hit limit or arrived at the last segment
+	limit := int64(0)             // No limit, so we stop when we've arrived at the last segment
+
+	switch len(args) {
+	case 6:
+		limit, err = strconv.ParseInt(args[5], 10, 64)
+		if err != nil {
+			return ErrRequest.Wrap(err)
+		}
+	case 5:
+		endBeforeSegment, err = strconv.ParseInt(args[4], 10, 64)
+		if err != nil {
+			return ErrRequest.Wrap(err)
+		}
+	case 4:
+		startAfterSegment, err = strconv.ParseInt(args[3], 10, 64)
+		if err != nil {
+			return ErrRequest.Wrap(err)
+		}
+	default:
+	}
+
 	req := &pb.ObjectHealthRequest{
 		ProjectId:         []byte(args[0]),
 		Bucket:            []byte(args[1]),
 		EncryptedPath:     []byte(args[2]),
-		StartAfterSegment: 0, // start from first segment
-		EndBeforeSegment:  0, // No end, so we stop when we've hit limit or arrived at the last segment
-		Limit:             0, // No limit, so we stop when we've arrived at the last segment
+		StartAfterSegment: startAfterSegment,
+		EndBeforeSegment:  endBeforeSegment,
+		Limit:             int32(limit),
 	}
 
-	_, err = i.healthclient.ObjectHealth(ctx, req)
+	resp, err := i.healthclient.ObjectHealth(ctx, req)
 	if err != nil {
 		return ErrRequest.Wrap(err)
 	}
+
+	fmt.Println(resp)
 
 	return nil
 }
@@ -510,10 +535,12 @@ func SegmentHealth(cmd *cobra.Command, args []string) (err error) {
 		EncryptedPath: []byte(args[3]),
 	}
 
-	_, err = i.healthclient.SegmentHealth(ctx, req)
+	resp, err := i.healthclient.SegmentHealth(ctx, req)
 	if err != nil {
 		return ErrRequest.Wrap(err)
 	}
+
+	fmt.Println(resp)
 
 	return nil
 }
