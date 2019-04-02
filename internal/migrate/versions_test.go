@@ -34,7 +34,7 @@ func TestBasicMigrationPostgres(t *testing.T) {
 		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", defaultPostgresConn)
 	}
 
-	schema := "create-" + pgutil.RandomString(8)
+	schema := "create-" + pgutil.CreateRandomTestingSchemaName(8)
 
 	db, err := sql.Open("postgres", pgutil.ConnstrWithSchema(*testPostgres, schema))
 	if err != nil {
