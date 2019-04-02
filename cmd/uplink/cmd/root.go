@@ -20,12 +20,18 @@ import (
 
 // UplinkFlags configuration flags
 type UplinkFlags struct {
-	Uplink   *libuplink.Uplink
 	Identity identity.Config
 	uplink.Config
 }
 
 var cfg UplinkFlags
+
+// Client holds the libuplink Uplink and Config information
+type Client struct {
+	Uplink *libuplink.Uplink
+	Config *libuplink.Config
+	Flags  *UplinkFlags
+}
 
 //RootCmd represents the base CLI command when called without any subcommands
 var RootCmd = &cobra.Command{
@@ -44,18 +50,11 @@ func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
 	if confDirParam != "" {
 		defaultConfDir = confDirParam
 	}
+	// TODO (dylan): CLI won't need identity after libuplink changes, so this can be removed.
 	identityDirParam := cfgstruct.FindIdentityDirParam()
 	if identityDirParam != "" {
 		defaultIdentityDir = identityDirParam
 	}
-
-	config := &libuplink.Config{}
-	cfgstruct.Bind(cmd.Flags(), &config, false)
-	uplink, err := libuplink.NewUplink(context.Background(), config)
-	if err != nil {
-		fmt.Printf("error configuring libuplink client %s", err.Error())
-	}
-	cfg.Uplink = uplink
 
 	cfgstruct.Bind(cmd.Flags(), &cfg, isDev, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 
@@ -76,12 +75,22 @@ func (c *UplinkFlags) Metainfo(ctx context.Context) (storj.Metainfo, streams.Sto
 }
 
 // GetProject returns a *libuplink.Project for interacting with a specific project
-func (c *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, error) {
-	apiKey, err := libuplink.ParseAPIKey(c.Client.APIKey)
+func (c *Client) GetProject(ctx context.Context, flags cfgstruct.FlagSet) (*libuplink.Project, error) {
+	apiKey, err := libuplink.ParseAPIKey(c.Flags.Client.APIKey)
 	if err != nil {
 		return nil, err
 	}
-	return c.Uplink.OpenProject(ctx, c.Client.SatelliteAddr, apiKey)
+
+	satelliteAddr := c.Flags.Config.Client.SatelliteAddr
+
+	return c.Uplink.OpenProject(ctx, satelliteAddr, apiKey)
+}
+
+// NewClient returns a pointer to a new Client with a Config and Uplink pointer on it and an error.
+func GetUplink(ctx context.Context, flags cfgstruct.FlagSet) (*libuplink.Uplink, error) {
+	var config libuplink.Config
+	cfgstruct.Bind(flags, config, false)
+	return libuplink.NewUplink(ctx, config)
 }
 
 func convertError(err error, path fpath.FPath) error {
