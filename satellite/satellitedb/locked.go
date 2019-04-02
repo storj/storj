@@ -50,13 +50,6 @@ type lockedAccounting struct {
 	db accounting.DB
 }
 
-// CreateBucketBandwidthRollup creates a record for BucketBandwidthRollup in the accounting DB table
-func (m *lockedAccounting) CreateBucketBandwidthRollup(ctx context.Context, rollup accounting.BucketBandwidthRollup) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.CreateBucketBandwidthRollup(ctx, rollup)
-}
-
 // CreateBucketStorageTally creates a record for BucketStorageTally in the accounting DB table
 func (m *lockedAccounting) CreateBucketStorageTally(ctx context.Context, tally accounting.BucketStorageTally) error {
 	m.Lock()
@@ -93,10 +86,10 @@ func (m *lockedAccounting) LastTimestamp(ctx context.Context, timestampType stri
 }
 
 // ProjectBandwidthTotal returns the sum of GET bandwidth usage for a projectID in the past time frame
-func (m *lockedAccounting) ProjectBandwidthTotal(ctx context.Context, projectID []byte, from time.Time) (int64, error) {
+func (m *lockedAccounting) ProjectBandwidthTotal(ctx context.Context, bucketID []byte, from time.Time) (int64, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.ProjectBandwidthTotal(ctx, projectID, from)
+	return m.db.ProjectBandwidthTotal(ctx, bucketID, from)
 }
 
 // ProjectStorageTotals returns the current inline and remote storage usage for a projectID

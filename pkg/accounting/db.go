@@ -60,8 +60,6 @@ type DB interface {
 	DeleteRawBefore(ctx context.Context, latestRollup time.Time) error
 	// CreateBucketStorageTally creates a record for BucketStorageTally in the accounting DB table
 	CreateBucketStorageTally(ctx context.Context, tally BucketStorageTally) error
-	// CreateBucketBandwidthRollup creates a record for BucketBandwidthRollup in the accounting DB table
-	CreateBucketBandwidthRollup(ctx context.Context, rollup BucketBandwidthRollup) error
 	// ProjectBandwidthTotal returns the sum of GET bandwidth usage for a projectID in the past time frame
 	ProjectBandwidthTotal(ctx context.Context, bucketID []byte, from time.Time) (int64, error)
 	// ProjectStorageTotals returns the current inline and remote storage usage for a projectID

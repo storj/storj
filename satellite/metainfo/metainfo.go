@@ -143,11 +143,11 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 	from := time.Now().AddDate(0, 0, -accounting.AverageDaysInMonth) // past 30 days
 	bandwidthTotal, err := endpoint.accountingDB.ProjectBandwidthTotal(ctx, bucketID, from)
 	if err != nil {
-		endpoint.log.Error("retrieving ProjectBandwidthTotal")
+		endpoint.log.Error("retrieving ProjectBandwidthTotal", zap.Error(err))
 	}
 	inlineTotal, remoteTotal, err := endpoint.accountingDB.ProjectStorageTotals(ctx, keyInfo.ProjectID)
 	if err != nil {
-		endpoint.log.Error("retrieving ProjectStorageTotals")
+		endpoint.log.Error("retrieving ProjectStorageTotals", zap.Error(err))
 	}
 	exceeded, resource := accounting.ExceedsAlphaUsage(bandwidthTotal, inlineTotal, remoteTotal, endpoint.maxAlphaUsage)
 	if exceeded {

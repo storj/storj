@@ -57,8 +57,8 @@ func (db *ordersDB) UpdateBucketBandwidthAllocation(ctx context.Context, bucketI
 	now := time.Now()
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
-	pathEl := bytes.Split(bucketID, []byte("/"))
-	bucketName, projectID := pathEl[1], pathEl[0]
+	pathElements := bytes.Split(bucketID, []byte("/"))
+	bucketName, projectID := pathElements[1], pathElements[0]
 	statement := db.db.Rebind(
 		`INSERT INTO bucket_bandwidth_rollups (bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -80,8 +80,8 @@ func (db *ordersDB) UpdateBucketBandwidthSettle(ctx context.Context, bucketID []
 	now := time.Now()
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
-	pathEl := bytes.Split(bucketID, []byte("/"))
-	bucketName, projectID := pathEl[1], pathEl[0]
+	pathElements := bytes.Split(bucketID, []byte("/"))
+	bucketName, projectID := pathElements[1], pathElements[0]
 	statement := db.db.Rebind(
 		`INSERT INTO bucket_bandwidth_rollups (bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -102,8 +102,8 @@ func (db *ordersDB) UpdateBucketBandwidthInline(ctx context.Context, bucketID []
 	now := time.Now()
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
-	pathEl := bytes.Split(bucketID, []byte("/"))
-	bucketName, projectID := pathEl[1], pathEl[0]
+	pathElements := bytes.Split(bucketID, []byte("/"))
+	bucketName, projectID := pathElements[1], pathElements[0]
 	statement := db.db.Rebind(
 		`INSERT INTO bucket_bandwidth_rollups (bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -161,8 +161,8 @@ func (db *ordersDB) UpdateStoragenodeBandwidthSettle(ctx context.Context, storag
 
 // GetBucketBandwidth gets total bucket bandwidth from period of time
 func (db *ordersDB) GetBucketBandwidth(ctx context.Context, bucketID []byte, from, to time.Time) (int64, error) {
-	pathEl := bytes.Split(bucketID, []byte("/"))
-	bucketName, projectID := pathEl[1], pathEl[0]
+	pathElements := bytes.Split(bucketID, []byte("/"))
+	bucketName, projectID := pathElements[1], pathElements[0]
 	var sum *int64
 	query := `SELECT SUM(settled) FROM bucket_bandwidth_rollups WHERE bucket_name = ? AND project_id = ? AND interval_start > ? AND interval_start <= ?`
 	err := db.db.QueryRow(db.db.Rebind(query), bucketName, projectID, from, to).Scan(&sum)

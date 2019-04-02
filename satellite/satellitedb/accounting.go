@@ -69,25 +69,6 @@ func (db *accountingDB) CreateBucketStorageTally(ctx context.Context, tally acco
 	return nil
 }
 
-// CreateBucketBandwidthRollup creates a record in the bucket_bandwidth_rollups accounting table
-func (db *accountingDB) CreateBucketBandwidthRollup(ctx context.Context, rollup accounting.BucketBandwidthRollup) error {
-	_, err := db.db.Create_BucketBandwidthRollup(
-		ctx,
-		dbx.BucketBandwidthRollup_BucketName([]byte(rollup.BucketName)),
-		dbx.BucketBandwidthRollup_ProjectId(rollup.ProjectID[:]),
-		dbx.BucketBandwidthRollup_IntervalStart(rollup.IntervalStart),
-		dbx.BucketBandwidthRollup_IntervalSeconds(rollup.IntervalSeconds),
-		dbx.BucketBandwidthRollup_Action(rollup.Action),
-		dbx.BucketBandwidthRollup_Inline(rollup.Inline),
-		dbx.BucketBandwidthRollup_Allocated(rollup.Allocated),
-		dbx.BucketBandwidthRollup_Settled(rollup.Settled),
-	)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 // LastTimestamp records the greatest last tallied time
 func (db *accountingDB) LastTimestamp(ctx context.Context, timestampType string) (time.Time, error) {
 	lastTally := time.Time{}
@@ -238,8 +219,8 @@ func (db *accountingDB) SaveBucketTallies(ctx context.Context, intervalStart tim
 
 	for bucketID, info := range bucketTallies {
 		bucketIDComponents := storj.SplitPath(bucketID)
-		bName := dbx.BucketStorageTally_BucketName([]byte(bucketIDComponents[0]))
-		pID := dbx.BucketStorageTally_ProjectId([]byte(bucketIDComponents[1]))
+		bucketName := dbx.BucketStorageTally_BucketName([]byte(bucketIDComponents[0]))
+		projectID := dbx.BucketStorageTally_ProjectId([]byte(bucketIDComponents[1]))
 		interval := dbx.BucketStorageTally_IntervalStart(intervalStart)
 		inlineBytes := dbx.BucketStorageTally_Inline(uint64(info.InlineBytes))
 		remoteBytes := dbx.BucketStorageTally_Remote(uint64(info.RemoteBytes))
@@ -247,7 +228,7 @@ func (db *accountingDB) SaveBucketTallies(ctx context.Context, intervalStart tim
 		iSegments := dbx.BucketStorageTally_InlineSegmentsCount(uint(info.InlineSegments))
 		objectCount := dbx.BucketStorageTally_ObjectCount(uint(info.Files))
 		meta := dbx.BucketStorageTally_MetadataSize(uint64(info.MetadataSize))
-		_, err := db.db.Create_BucketStorageTally(ctx, bName, pID, interval, inlineBytes, remoteBytes, rSegments, iSegments, objectCount, meta)
+		_, err := db.db.Create_BucketStorageTally(ctx, bucketName, projectID, interval, inlineBytes, remoteBytes, rSegments, iSegments, objectCount, meta)
 		if err != nil {
 			return err
 		}

@@ -418,8 +418,6 @@ read scalar (
 	where  bucket_bandwidth_rollup.action = ?
 )
 
-create bucket_bandwidth_rollup ()
-
 model bucket_storage_tally (
 	key    bucket_name project_id interval_start
 
