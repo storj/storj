@@ -46,7 +46,7 @@ type UploadOptions struct {
 	// Volatile groups config values that are likely to change semantics
 	// or go away entirely between releases. Be careful when using them!
 	Volatile struct {
-		// EncryptionParameters determines the ciphersuite to use for
+		// EncryptionParameters determines the cipher suite to use for
 		// the Object's data encryption. If not set, the Bucket's
 		// defaults will be used.
 		EncryptionParameters storj.EncryptionParameters

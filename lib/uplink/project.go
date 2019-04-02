@@ -33,7 +33,7 @@ type Project struct {
 // filled in by the caller for use with CreateBucket(), or filled in by the
 // library as Bucket.Config when a bucket is returned from OpenBucket().
 type BucketConfig struct {
-	// PathCipher indicates which ciphersuite is to be used for path
+	// PathCipher indicates which cipher suite is to be used for path
 	// encryption within the new Bucket. If not set, AES-GCM encryption
 	// will be used.
 	PathCipher storj.CipherSuite

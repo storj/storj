@@ -6,11 +6,11 @@ package storj
 // EncryptionScheme is the scheme and parameters used for encryption.
 // Use the similar EncryptionParameters struct instead, if possible.
 type EncryptionScheme struct {
-	// Cipher specifies the ciphersuite to be used for encryption.
+	// Cipher specifies the cipher suite to be used for encryption.
 	Cipher Cipher
 	// BlockSize determines the unit size at which encryption is performed.
 	// It is important to distinguish this from the block size used by the
-	// ciphersuite (probably 128 bits). There is some small overhead for
+	// cipher suite (probably 128 bits). There is some small overhead for
 	// each encryption unit, so BlockSize should not be too small, but
 	// smaller sizes yield shorter first-byte latency and better seek times.
 	// Note that BlockSize itself is the size of data blocks _after_ they
@@ -33,15 +33,15 @@ func (scheme EncryptionScheme) ToEncryptionParameters() EncryptionParameters {
 	}
 }
 
-// EncryptionParameters is the ciphersuite and parameters used for encryption
+// EncryptionParameters is the cipher suite and parameters used for encryption
 // It is like EncryptionScheme, but uses the CipherSuite type instead of Cipher.
 // EncryptionParameters is preferred for new uses.
 type EncryptionParameters struct {
-	// CipherSuite specifies the ciphersuite to be used for encryption.
+	// CipherSuite specifies the cipher suite to be used for encryption.
 	CipherSuite CipherSuite
 	// BlockSize determines the unit size at which encryption is performed.
 	// It is important to distinguish this from the block size used by the
-	// ciphersuite (probably 128 bits). There is some small overhead for
+	// cipher suite (probably 128 bits). There is some small overhead for
 	// each encryption unit, so BlockSize should not be too small, but
 	// smaller sizes yield shorter first-byte latency and better seek times.
 	// Note that BlockSize itself is the size of data blocks _after_ they
