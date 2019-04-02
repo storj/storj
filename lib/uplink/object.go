@@ -91,9 +91,9 @@ func (o *Object) DownloadRange(ctx context.Context, offset, length int64) (io.Re
 
 	if length == -1 {
 		return download, nil
-	} else {
-		return readcloser.LimitReadCloser(download, length), nil
 	}
+
+	return readcloser.LimitReadCloser(download, length), nil
 }
 
 // Close closes the Object.
