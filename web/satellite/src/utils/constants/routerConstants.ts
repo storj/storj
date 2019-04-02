@@ -10,6 +10,10 @@ const ROUTES = {
         path: '/register',
         name: 'Register'
     },
+    FORGOT_PASSWORD: {
+        path: '/forgot-password',
+        name: 'ForgotPassword'
+    },
     DASHBOARD: {
         path: '/',
         name: 'Dashboard'
@@ -29,6 +33,14 @@ const ROUTES = {
     API_KEYS: {
         path: '/api-keys',
         name: 'ApiKeys'
+    },
+    USAGE_REPORT: {
+        path: '/project-details/usage-report',
+        name: 'UsageReport'
+    },
+    REPORT_TABLE: {
+        path: '/project-details/usage-report/detailed-report',
+        name: 'ReportTable'
     },
     BUCKETS: {
         path: '/buckets',

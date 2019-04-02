@@ -6,12 +6,15 @@ import Router from 'vue-router';
 import ROUTES from '@/utils/constants/routerConstants';
 import Login from '@/views/login/Login.vue';
 import Register from '@/views/register/Register.vue';
+import ForgotPassword from '@/views/forgotPassword/ForgotPassword.vue';
 import Dashboard from '@/views/Dashboard.vue';
 import AccountArea from '@/components/account/AccountArea.vue';
 import ProjectDetails from '@/components/project/ProjectDetailsArea.vue';
 import TeamArea from '@/components/team/TeamArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
 import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
+import UsageReport from '@/components/project/UsageReport.vue';
+import ReportTable from '@/components/project/ReportTable.vue';
 import BucketArea from '@/components/buckets/BucketArea.vue';
 import { getToken } from '@/utils/tokenManager';
 
@@ -31,6 +34,11 @@ let router = new Router({
             component: Register
         },
         {
+            path: ROUTES.FORGOT_PASSWORD.path,
+            name: ROUTES.FORGOT_PASSWORD.name,
+            component: ForgotPassword
+        },
+        {
             path: ROUTES.DASHBOARD.path,
             name: ROUTES.DASHBOARD.name,
             meta: {
@@ -46,7 +54,7 @@ let router = new Router({
                 {
                     path: ROUTES.PROJECT_DETAILS.path,
                     name: ROUTES.PROJECT_DETAILS.name,
-                    component: ProjectDetails
+                    component: ProjectDetails,
                 },
                 {
                     path: ROUTES.TEAM.path,
@@ -59,6 +67,11 @@ let router = new Router({
                     component: ApiKeysArea
                 },
                 {
+                    path: ROUTES.USAGE_REPORT.path,
+                    name: ROUTES.USAGE_REPORT.name,
+                    component: UsageReport,
+                },
+                {
                     path: ROUTES.BUCKETS.path,
                     name: ROUTES.BUCKETS.name,
                     component: BucketArea
@@ -69,6 +82,11 @@ let router = new Router({
                 //     component: DashboardArea
                 // },
             ]
+        },
+        {
+          path: ROUTES.REPORT_TABLE.path,
+          name: ROUTES.REPORT_TABLE.name,
+          component: ReportTable,
         },
         {
             path: '*',
