@@ -76,7 +76,12 @@ func (sender *SMTPSender) SendEmail(msg *Message) error {
 		err = errs.Combine(err, data.Close())
 	}()
 
-	_, err = data.Write(msg.Bytes())
+	mess, err := msg.Bytes()
+	if err != nil {
+		return err
+	}
+
+	_, err = data.Write(mess)
 	if err != nil {
 		return err
 	}
