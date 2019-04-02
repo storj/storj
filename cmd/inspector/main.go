@@ -579,15 +579,24 @@ func SegmentHealth(cmd *cobra.Command, args []string) (err error) {
 
 func printSegmentHealthTable(w *csv.Writer, redundancy eestream.RedundancyStrategy, segments []*pb.SegmentHealth) error {
 	segmentTable := [][]string{
-		{"Segment Index", "Online Nodes"},
+		{"Segment Index", "Online Nodes", "Offline Nodes"},
 	}
+
+	total := redundancy.TotalCount() // total amount of pieces we generated (n)
 
 	// Add each segment to the segmentTable
 	for _, segment := range segments {
 		onlineNodes := segment.GetOnlineNodes()          // amount of nodes with pieces currently online
 		segmentIndexPath := string(segment.GetSegment()) // path formatted Segment Index
+		offlineNodes := int32(total) - onlineNodes
 
-		segmentTable = append(segmentTable, []string{segmentIndexPath, strconv.FormatInt(int64(onlineNodes), 10)})
+		row := []string{
+			segmentIndexPath,
+			strconv.FormatInt(int64(onlineNodes), 10),
+			strconv.FormatInt(int64(offlineNodes), 10),
+		}
+
+		segmentTable = append(segmentTable, row)
 	}
 
 	for _, row := range segmentTable {
