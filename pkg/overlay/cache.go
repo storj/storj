@@ -6,6 +6,8 @@ package overlay
 import (
 	"context"
 	"errors"
+	"regexp"
+	"storj.io/storj/internal/version"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -80,6 +82,7 @@ type FindStorageNodesRequest struct {
 
 	FreeBandwidth int64
 	FreeDisk      int64
+	Version       pb.NodeVersion
 
 	ExcludedNodes []storj.NodeID
 }
@@ -88,6 +91,7 @@ type FindStorageNodesRequest struct {
 type NodeCriteria struct {
 	FreeBandwidth int64
 	FreeDisk      int64
+	Version       pb.NodeVersion
 
 	AuditCount         int64
 	AuditSuccessRatio  float64
@@ -101,6 +105,7 @@ type NodeCriteria struct {
 type NewNodeCriteria struct {
 	FreeBandwidth int64
 	FreeDisk      int64
+	Version       pb.NodeVersion
 
 	AuditThreshold int64
 
@@ -124,6 +129,7 @@ type NodeStats struct {
 	UptimeSuccessCount int64
 	UptimeCount        int64
 	Operator           pb.NodeOperator
+	Version            pb.NodeVersion
 }
 
 // Cache is used to store and handle node information
@@ -216,9 +222,22 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 		auditCount = preferences.NewNodeAuditThreshold
 	}
 
+	versionRegex := regexp.MustCompile("^" + version.SemVerRegex + "$")
+	ver, err := version.NewSemVer(versionRegex, preferences.Version)
+	if err != nil {
+		// TODO: (STEFAN) Proper Handling
+		return nil, nil
+	}
+	nodeVersion := pb.NodeVersion{
+		Major: ver.Major,
+		Minor: ver.Minor,
+		Patch: ver.Patch,
+	}
+
 	reputableNodes, err := cache.db.SelectStorageNodes(ctx, reputableNodeCount, &NodeCriteria{
 		FreeBandwidth: req.FreeBandwidth,
 		FreeDisk:      req.FreeDisk,
+		Version:       nodeVersion,
 
 		AuditCount:         auditCount,
 		AuditSuccessRatio:  preferences.AuditSuccessRatio,

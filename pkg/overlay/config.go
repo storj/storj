@@ -33,6 +33,7 @@ type LookupConfig struct {
 // NodeSelectionConfig is a configuration struct to determine the minimum
 // values for nodes to select
 type NodeSelectionConfig struct {
+	Version           string  `help:"set to minimum node software version" default:"v0.1.0"`
 	UptimeRatio       float64 `help:"a node's ratio of being up/online vs. down/offline" default:"0"`
 	UptimeCount       int64   `help:"the number of times a node's uptime has been checked" default:"0"`
 	AuditSuccessRatio float64 `help:"a node's ratio of successful audits" default:"0"`
