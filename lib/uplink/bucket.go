@@ -8,7 +8,6 @@ import (
 	"io"
 	"time"
 
-	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
@@ -17,6 +16,7 @@ import (
 // Bucket represents operations you can perform on a bucket
 type Bucket struct {
 	storj.Bucket
+	Config BucketConfig
 
 	metainfo   *kvmetainfo.DB
 	streams    streams.Store
@@ -46,14 +46,10 @@ type UploadOptions struct {
 	// Volatile groups config values that are likely to change semantics
 	// or go away entirely between releases. Be careful when using them!
 	Volatile struct {
-		// DataCipher determines the ciphersuite to use for the Object's
-		// data encryption. If not set, the Bucket's default will be
-		// used.
-		DataCipher Cipher
-		// EncryptionBlockSize determines the unit size at which
-		// encryption is performed. See BucketConfig.EncryptionBlockSize
-		// for more information.
-		EncryptionBlockSize memory.Size
+		// EncryptionParameters determines the cipher suite to use for
+		// the Object's data encryption. If not set, the Bucket's
+		// defaults will be used.
+		EncryptionParameters storj.EncryptionParameters
 
 		// RedundancyScheme determines the Reed-Solomon and/or Forward
 		// Error Correction encoding parameters to be used for this
@@ -78,9 +74,12 @@ func (b *Bucket) DeleteObject(ctx context.Context, path storj.Path) (err error) 
 	return b.metainfo.DeleteObject(ctx, b.Bucket.Name, path)
 }
 
+// ListOptions controls options for the ListObjects() call.
+type ListOptions = storj.ListOptions
+
 // ListObjects lists objects a user is authorized to see.
 // TODO(paul): should probably have a ListOptions defined in this package, for consistency's sake
-func (b *Bucket) ListObjects(ctx context.Context, cfg *storj.ListOptions) (list storj.ObjectList, err error) {
+func (b *Bucket) ListObjects(ctx context.Context, cfg *ListOptions) (list storj.ObjectList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if cfg == nil {
 		cfg = &storj.ListOptions{}
