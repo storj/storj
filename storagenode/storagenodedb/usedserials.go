@@ -14,14 +14,14 @@ import (
 )
 
 type usedSerials struct {
-	*infodb
+	*InfoDB
 }
 
 // UsedSerials returns certificate database.
 func (db *DB) UsedSerials() piecestore.UsedSerials { return db.info.UsedSerials() }
 
 // UsedSerials returns certificate database.
-func (db *infodb) UsedSerials() piecestore.UsedSerials { return &usedSerials{db} }
+func (db *InfoDB) UsedSerials() piecestore.UsedSerials { return &usedSerials{db} }
 
 // Add adds a serial to the database.
 func (db *usedSerials) Add(ctx context.Context, satelliteID storj.NodeID, serialNumber storj.SerialNumber, expiration time.Time) error {
