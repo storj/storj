@@ -52,6 +52,20 @@
                     <!--</div>-->
                 <!--</div>-->
             <!--</div>-->
+            <div class="project-details-info-container" >
+                <div class="project-details-info-container__usage-report-container">
+                    <div class="project-details-info-container__usage-report-container__info">
+                        <img src="../../../static/images/projectDetails/UsageReport.svg" alt="">
+                        <div class="project-details-info-container__usage-report-container__info__text">
+                            <h4>Usage Report</h4>
+                            <h2>Storj Satellite Usage reports provide access to detailed data, enabling you to better analyze and understand your Storj Network resources consumption</h2>
+                        </div>
+                    </div>
+                    <div class="project-details-info-container__usage-report-container__buttons-area">
+                        <Button label="More" width="140px" height="48px" :onPress="onMoreClick"/>
+                    </div>
+                </div>
+            </div>
             <div class="project-details__button-area" id="deleteProjectPopupButton">
                 <Button class="delete-project" label="Delete project" width="180px" height="48px" :onPress="toggleDeleteDialog" isDeletion/>
             </div>
@@ -73,6 +87,7 @@ import Checkbox from '@/components/common/Checkbox.vue';
 import EmptyState from '@/components/common/EmptyStateArea.vue';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 import { PROJETS_ACTIONS, APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import ROUTES from '@/utils/constants/routerConstants';
 import DeleteProjectPopup from '@/components/project/DeleteProjectPopup.vue';
 
 @Component(
@@ -113,7 +128,10 @@ import DeleteProjectPopup from '@/components/project/DeleteProjectPopup.vue';
             },
             toggleDeleteDialog: function (): void {
                 this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_PROJ);
-            }
+            },
+            onMoreClick: function (): void {
+                this.$router.push(ROUTES.USAGE_REPORT);
+            },
         },
         computed: {
             name: function (): string {
@@ -297,6 +315,31 @@ export default class ProjectDetailsArea extends Vue {
                 @extend .project-details-info-container__portability-container__info;
                 width: 380px;
                 justify-content: space-between;
+            }
+
+            img {
+                width: 6vw;
+                height: 10vh;
+            }
+        }
+
+        &__usage-report-container {
+            @extend .project-details-info-container__description-container;
+
+            &__info {
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+
+                &__text {
+                    margin-left: 2vw;
+                }
+            }
+
+            &__buttons-area {
+                @extend .project-details-info-container__usage-report-container__info;
+                width: 380px;
+                justify-content: flex-end;
             }
 
             img {
