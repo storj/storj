@@ -16,7 +16,6 @@ import (
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 )
 
@@ -153,23 +152,23 @@ func (rt *RoutingTable) GetBucketIds() (storage.Keys, error) {
 // DumpNodes iterates through all nodes in the nodeBucketDB and marshals them to &pb.Nodes, then returns them
 func (rt *RoutingTable) DumpNodes() ([]*pb.Node, error) {
 	var nodes []*pb.Node
-	var errors utils.ErrorGroup
+	var nodeErrors errs.Group
 
 	err := rt.iterateNodes(storj.NodeID{}, func(newID storj.NodeID, protoNode []byte) error {
 		newNode := pb.Node{}
 		err := proto.Unmarshal(protoNode, &newNode)
 		if err != nil {
-			errors.Add(err)
+			nodeErrors.Add(err)
 		}
 		nodes = append(nodes, &newNode)
 		return nil
 	}, false)
 
 	if err != nil {
-		errors.Add(err)
+		nodeErrors.Add(err)
 	}
 
-	return nodes, errors.Finish()
+	return nodes, nodeErrors.Err()
 }
 
 // FindNear returns the node corresponding to the provided nodeID

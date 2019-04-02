@@ -39,7 +39,6 @@ type DB interface {
 	// Close closes the database
 	Close() error
 
-	Storage() psserver.Storage
 	Pieces() storage.Blobs
 
 	Orders() orders.DB
@@ -87,10 +86,6 @@ type Peer struct {
 		Service      *kademlia.Kademlia
 		Endpoint     *kademlia.Endpoint
 		Inspector    *kademlia.Inspector
-	}
-
-	Storage struct {
-		Endpoint *psserver.Server // TODO: separate into endpoint and service
 	}
 
 	Agreements struct {
@@ -169,18 +164,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 
 		peer.Kademlia.Inspector = kademlia.NewInspector(peer.Kademlia.Service, peer.Identity)
 		pb.RegisterKadInspectorServer(peer.Server.PrivateGRPC(), peer.Kademlia.Inspector)
-	}
-
-	{ // setup piecestore
-		// TODO: move this setup logic into psstore package
-		config := config.Storage
-
-		// TODO: psserver shouldn't need the private key
-		peer.Storage.Endpoint, err = psserver.NewEndpoint(peer.Log.Named("piecestore"), config, peer.DB.Storage(), peer.DB.PSDB(), peer.Identity, peer.Kademlia.Service)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-		pb.RegisterPieceStoreRoutesServer(peer.Server.GRPC(), peer.Storage.Endpoint)
 	}
 
 	{ // agreements
@@ -301,9 +284,6 @@ func (peer *Peer) Close() error {
 	}
 
 	// close services in reverse initialization order
-	if peer.Storage.Endpoint != nil {
-		errlist.Add(peer.Storage.Endpoint.Close())
-	}
 	if peer.Kademlia.Service != nil {
 		errlist.Add(peer.Kademlia.Service.Close())
 	}

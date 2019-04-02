@@ -174,6 +174,8 @@ func testRandomizedSelection(t *testing.T, reputable bool) {
 				Reputation:   &pb.NodeStats{},
 			})
 			require.NoError(t, err)
+			_, err = cache.UpdateUptime(ctx, newID, true)
+			require.NoError(t, err)
 			allIDs[i] = newID
 			nodeCounts[newID] = 0
 		}

@@ -4,11 +4,11 @@
 package audit_test
 
 import (
+	"fmt"
 	"math/rand"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/audit"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 )
 
@@ -28,15 +29,15 @@ func TestGetShareTimeout(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
 		err := planet.Satellites[0].Audit.Service.Close()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		uplink := planet.Uplinks[0]
 		testData := make([]byte, 1*memory.MiB)
 		_, err = rand.Read(testData)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		err = uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		pointerdb := planet.Satellites[0].Metainfo.Service
 		overlay := planet.Satellites[0].Overlay.Service
@@ -69,26 +70,27 @@ func TestGetShareTimeout(t *testing.T) {
 		require.NotNil(t, verifier)
 
 		// stop some storage nodes to ensure audit can deal with it
-		err = planet.StopPeer(planet.StorageNodes[0])
-		assert.NoError(t, err)
-		err = planet.StopPeer(planet.StorageNodes[1])
-		assert.NoError(t, err)
-		err = planet.StopPeer(planet.StorageNodes[2])
-		assert.NoError(t, err)
-		err = planet.StopPeer(planet.StorageNodes[3])
-		assert.NoError(t, err)
-
-		// remove stopped nodes from overlay cache
-		err = planet.Satellites[0].Overlay.Service.Delete(ctx, planet.StorageNodes[0].ID())
-		require.NoError(t, err)
-		err = planet.Satellites[0].Overlay.Service.Delete(ctx, planet.StorageNodes[1].ID())
-		require.NoError(t, err)
-		err = planet.Satellites[0].Overlay.Service.Delete(ctx, planet.StorageNodes[2].ID())
-		require.NoError(t, err)
-		err = planet.Satellites[0].Overlay.Service.Delete(ctx, planet.StorageNodes[3].ID())
-		require.NoError(t, err)
+		pieces := stripe.Segment.GetRemote().GetRemotePieces()
+		k := int(stripe.Segment.GetRemote().GetRedundancy().GetMinReq())
+		for i := k; i < len(pieces); i++ {
+			id := pieces[i].NodeId
+			err = stopStorageNode(planet, id)
+			require.NoError(t, err)
+			// remove stopped node from overlay cache
+			err = planet.Satellites[0].Overlay.Service.Delete(ctx, id)
+			require.NoError(t, err)
+		}
 
 		_, err = verifier.Verify(ctx, stripe)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
+}
+
+func stopStorageNode(planet *testplanet.Planet, nodeID storj.NodeID) error {
+	for _, node := range planet.StorageNodes {
+		if node.ID() == nodeID {
+			return planet.StopPeer(node)
+		}
+	}
+	return fmt.Errorf("no such node: %s", nodeID.String())
 }

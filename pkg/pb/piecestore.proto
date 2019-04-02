@@ -9,13 +9,6 @@ package piecestoreroutes;
 import "gogo.proto";
 import "google/protobuf/duration.proto";
 
-service PieceStoreRoutes {
-  rpc Piece(PieceId) returns (PieceSummary) {}
-  rpc Retrieve(stream PieceRetrieval) returns (stream PieceRetrievalStream) {}
-  rpc Store(stream PieceStore) returns (PieceStoreSummary) {}
-  rpc Delete(PieceDelete) returns (PieceDeleteSummary) {}
-}
-
 enum BandwidthAction {
   PUT = 0;
   GET = 1;
@@ -44,69 +37,6 @@ message RenterBandwidthAllocation { // Renter refers to uplink
 
   repeated bytes certs = 4;   // Uplink certificate chain
   bytes signature = 5;        // Proof that the data was signed by the Uplink
-}
-
-message PieceStore {
-  message PieceData {
-    // TODO: may want to use customtype and fixed-length byte slice
-    string id = 1;
-    int64 expiration_unix_sec = 2;
-    bytes content = 3;
-  }
-
-  RenterBandwidthAllocation bandwidth_allocation = 1;
-  PieceData piece_data = 2;
-  SignedMessage authorization = 3 [deprecated=true]; 
-  SignedHash signed_hash = 4;
-}
-
-message PieceId {
-  // TODO: may want to use customtype and fixed-length byte slice
-  string id = 1;
-
-  SignedMessage authorization = 2 [deprecated=true];
-  bytes satellite_id = 3 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
-}
-
-message PieceSummary {
-  string id = 1;
-  int64 piece_size = 2;
-  int64 expiration_unix_sec = 3;
-}
-
-message PieceRetrieval {
-  message PieceData {
-    // TODO: may want to use customtype and fixed-length byte slice
-    string id = 1;
-    int64 piece_size = 2;
-    int64 offset = 3;
-  }
-
-  RenterBandwidthAllocation bandwidth_allocation = 1;
-  PieceData piece_data = 2;
-  SignedMessage authorization = 3 [deprecated=true];
-}
-
-message PieceRetrievalStream {
-  int64 piece_size = 1;
-  bytes content = 2;
-}
-
-message PieceDelete {
-  // TODO: may want to use customtype and fixed-length byte slice
-  string id = 1;
-  SignedMessage authorization = 3 [deprecated=true];
-  bytes satellite_id = 4 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
-}
-
-message PieceDeleteSummary {
-  string message = 1;
-}
-
-message PieceStoreSummary {
-  string message = 1;
-  int64 total_received = 2;
-  SignedHash signed_hash = 3;
 }
 
 message SignedMessage {

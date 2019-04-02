@@ -9,10 +9,11 @@ import (
 	"io/ioutil"
 	"sync"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/internal/readcloser"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/ranger"
-	"storj.io/storj/pkg/utils"
 )
 
 type decodedReader struct {
@@ -98,20 +99,14 @@ func (dr *decodedReader) Close() error {
 	dr.cancel()
 	// avoid double close of readers
 	dr.close.Do(func() {
-		var errs []error
+		var errlist errs.Group
 		// close the readers
 		for _, r := range dr.readers {
-			err := r.Close()
-			if err != nil {
-				errs = append(errs, err)
-			}
+			errlist.Add(r.Close())
 		}
 		// close the stripe reader
-		err := dr.stripeReader.Close()
-		if err != nil {
-			errs = append(errs, err)
-		}
-		dr.closeErr = utils.CombineErrors(errs...)
+		errlist.Add(dr.stripeReader.Close())
+		dr.closeErr = errlist.Err()
 	})
 	return dr.closeErr
 }

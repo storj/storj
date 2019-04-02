@@ -36,15 +36,47 @@ type Config struct {
 			// Certificate Authorities in the default whitelist. If
 			// set to true, the whitelist will be ignored.
 			SkipPeerCAWhitelist bool
+
+			// PeerCAWhitelistPath gives the path to a CA cert
+			// whitelist file. It is ignored if SkipPeerCAWhitelist
+			// is set. If empty, the internal default peer whitelist
+			// is used.
+			PeerCAWhitelistPath string
+		}
+
+		// UseIdentity specifies the identity to be used by the uplink.
+		// If nil, a new identity will be generated.
+		UseIdentity *identity.FullIdentity
+
+		// MaxInlineSize determines whether the uplink will attempt to
+		// store a new object in the satellite's pointerDB. Objects at
+		// or below this size will be marked for inline storage, and
+		// objects above this size will not. (The satellite may reject
+		// the inline storage and require remote storage, still.)
+		MaxInlineSize memory.Size
+	}
+}
+
+func (c *Config) setDefaults(ctx context.Context) error {
+	if c.Volatile.UseIdentity == nil {
+		var err error
+		c.Volatile.UseIdentity, err = identity.NewFullIdentity(ctx, 0, 1)
+		if err != nil {
+			return err
 		}
 	}
+	if c.Volatile.MaxInlineSize.Int() == 0 {
+		c.Volatile.MaxInlineSize = 4 * memory.KiB
+	}
+	return nil
 }
 
 // Uplink represents the main entrypoint to Storj V3. An Uplink connects to
 // a specific Satellite and caches connections and resources, allowing one to
 // create sessions delineated by specific access controls.
 type Uplink struct {
-	tc transport.Client
+	tc  transport.Client
+	cfg *Config
 }
 
 // NewUplink creates a new Uplink
@@ -52,18 +84,22 @@ func NewUplink(ctx context.Context, cfg *Config) (*Uplink, error) {
 	if cfg == nil {
 		cfg = &Config{}
 	}
-	identity, err := identity.NewFullIdentity(ctx, 0, 1)
-	if err != nil {
+	if err := cfg.setDefaults(ctx); err != nil {
 		return nil, err
 	}
-	tlsOpts, err := tlsopts.NewOptions(identity, tlsopts.Config{UsePeerCAWhitelist: !cfg.Volatile.TLS.SkipPeerCAWhitelist})
+	tlsConfig := tlsopts.Config{
+		UsePeerCAWhitelist:  !cfg.Volatile.TLS.SkipPeerCAWhitelist,
+		PeerCAWhitelistPath: cfg.Volatile.TLS.PeerCAWhitelistPath,
+	}
+	tlsOpts, err := tlsopts.NewOptions(cfg.Volatile.UseIdentity, tlsConfig)
 	if err != nil {
 		return nil, err
 	}
 	tc := transport.NewClient(tlsOpts)
 
 	return &Uplink{
-		tc: tc,
+		tc:  tc,
+		cfg: cfg,
 	}, nil
 }
 
@@ -84,9 +120,10 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey A
 	}
 
 	return &Project{
-		tc:       u.tc,
-		metainfo: metainfo,
-		project:  kvmetainfo.NewProject(buckets.NewStore(streams)),
+		tc:            u.tc,
+		metainfo:      metainfo,
+		project:       kvmetainfo.NewProject(buckets.NewStore(streams)),
+		maxInlineSize: u.cfg.Volatile.MaxInlineSize,
 	}, nil
 }
 

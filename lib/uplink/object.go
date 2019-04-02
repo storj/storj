@@ -10,7 +10,6 @@ import (
 
 	"storj.io/storj/internal/readcloser"
 
-	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
@@ -53,17 +52,14 @@ type ObjectMeta struct {
 	// Volatile groups config values that are likely to change semantics
 	// or go away entirely between releases. Be careful when using them!
 	Volatile struct {
-		// DataCipher gives the ciphersuite being used for the Object's
-		// data encryption.
-		DataCipher Cipher
-		// EncryptionBlockSize determines the unit size at which
-		// encryption is performed. See BucketConfig.EncryptionBlockSize
-		// for more information.
-		EncryptionBlockSize memory.Size
+		// EncryptionParameters gives the encryption parameters being
+		// used for the Object's data encryption.
+		EncryptionParameters storj.EncryptionParameters
 
-		// RSParameters determines the Reed-Solomon and/or Forward Error
-		// Correction encoding parameters to be used for this Object.
-		RSParameters storj.RedundancyScheme
+		// RedundancyScheme determines the Reed-Solomon and/or Forward
+		// Error Correction encoding parameters to be used for this
+		// Object.
+		RedundancyScheme storj.RedundancyScheme
 	}
 }
 

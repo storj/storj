@@ -7,9 +7,10 @@ import (
 	"context"
 	"crypto"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/utils"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -28,18 +29,18 @@ func (b *certDB) SavePublicKey(ctx context.Context, nodeID storj.NodeID, publicK
 		// no rows err, so create/insert an entry
 		pubbytes, err := pkcrypto.PublicKeyToPKIX(publicKey)
 		if err != nil {
-			return Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
+			return Error.Wrap(errs.Combine(err, tx.Rollback()))
 		}
 
 		if err != nil {
-			return Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
+			return Error.Wrap(errs.Combine(err, tx.Rollback()))
 		}
 		_, err = tx.Create_CertRecord(ctx,
 			dbx.CertRecord_Publickey(pubbytes),
 			dbx.CertRecord_Id(nodeID.Bytes()),
 		)
 		if err != nil {
-			return Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
+			return Error.Wrap(errs.Combine(err, tx.Rollback()))
 		}
 	} else {
 		// nodeID entry already exists, just return

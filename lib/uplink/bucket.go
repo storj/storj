@@ -8,17 +8,18 @@ import (
 	"io"
 	"time"
 
-	"storj.io/storj/internal/memory"
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/stream"
-	"storj.io/storj/pkg/utils"
 )
 
 // Bucket represents operations you can perform on a bucket
 type Bucket struct {
 	storj.Bucket
+	Config BucketConfig
 
 	metainfo   *kvmetainfo.DB
 	streams    streams.Store
@@ -47,13 +48,11 @@ func (b *Bucket) OpenObject(ctx context.Context, path storj.Path) (o *Object, er
 			Size:        info.Size,
 			Checksum:    info.Checksum,
 			Volatile: struct {
-				DataCipher          Cipher
-				EncryptionBlockSize memory.Size
-				RSParameters        storj.RedundancyScheme
+				EncryptionParameters storj.EncryptionParameters
+				RedundancyScheme     storj.RedundancyScheme
 			}{
-				DataCipher:          Cipher(info.EncryptionScheme.Cipher + 1), // TODO: better conversion
-				EncryptionBlockSize: memory.Size(info.EncryptionScheme.BlockSize),
-				RSParameters:        info.RedundancyScheme,
+				EncryptionParameters: info.ToEncryptionParameters(),
+				RedundancyScheme:     info.RedundancyScheme,
 			},
 		},
 		metainfo: b.metainfo,
@@ -78,18 +77,15 @@ type UploadOptions struct {
 	// Volatile groups config values that are likely to change semantics
 	// or go away entirely between releases. Be careful when using them!
 	Volatile struct {
-		// DataCipher determines the ciphersuite to use for the Object's
-		// data encryption. If not set, the Bucket's default will be
-		// used.
-		DataCipher Cipher
-		// EncryptionBlockSize determines the unit size at which
-		// encryption is performed. See BucketConfig.EncryptionBlockSize
-		// for more information.
-		EncryptionBlockSize memory.Size
+		// EncryptionParameters determines the ciphersuite to use for
+		// the Object's data encryption. If not set, the Bucket's
+		// defaults will be used.
+		EncryptionParameters storj.EncryptionParameters
 
-		// RSParameters determines the Reed-Solomon and/or Forward Error
-		// Correction encoding parameters to be used for this Object.
-		RSParameters storj.RedundancyScheme
+		// RedundancyScheme determines the Reed-Solomon and/or Forward
+		// Error Correction encoding parameters to be used for this
+		// Object.
+		RedundancyScheme storj.RedundancyScheme
 	}
 }
 
@@ -101,20 +97,12 @@ func (b *Bucket) UploadObject(ctx context.Context, path storj.Path, data io.Read
 		opts = &UploadOptions{}
 	}
 
-	cipher, err := opts.Volatile.DataCipher.convert()
-	if err != nil {
-		return err
-	}
-
 	createInfo := storj.CreateObject{
 		ContentType:      opts.ContentType,
 		Metadata:         opts.Metadata,
 		Expires:          opts.Expires,
-		RedundancyScheme: opts.Volatile.RSParameters,
-		EncryptionScheme: storj.EncryptionScheme{
-			Cipher:    cipher,
-			BlockSize: opts.Volatile.EncryptionBlockSize.Int32(),
-		},
+		RedundancyScheme: opts.Volatile.RedundancyScheme,
+		EncryptionScheme: opts.Volatile.EncryptionParameters.ToEncryptionScheme(),
 	}
 
 	obj, err := b.metainfo.CreateObject(ctx, b.Name, path, &createInfo)
@@ -131,7 +119,7 @@ func (b *Bucket) UploadObject(ctx context.Context, path storj.Path, data io.Read
 
 	_, err = io.Copy(upload, data)
 
-	return utils.CombineErrors(err, upload.Close())
+	return errs.Combine(err, upload.Close())
 }
 
 // DeleteObject removes an object, if authorized.
@@ -140,9 +128,12 @@ func (b *Bucket) DeleteObject(ctx context.Context, path storj.Path) (err error) 
 	return b.metainfo.DeleteObject(ctx, b.Bucket.Name, path)
 }
 
+// ListOptions controls options for the ListObjects() call.
+type ListOptions = storj.ListOptions
+
 // ListObjects lists objects a user is authorized to see.
 // TODO(paul): should probably have a ListOptions defined in this package, for consistency's sake
-func (b *Bucket) ListObjects(ctx context.Context, cfg *storj.ListOptions) (list storj.ObjectList, err error) {
+func (b *Bucket) ListObjects(ctx context.Context, cfg *ListOptions) (list storj.ObjectList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if cfg == nil {
 		cfg = &storj.ListOptions{}
