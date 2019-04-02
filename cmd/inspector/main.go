@@ -62,6 +62,10 @@ var (
 		Use:   "statdb",
 		Short: "commands for statdb",
 	}
+	healthCmd = &cobra.Command{
+		Use:   "health",
+		Short: "commands for querying health of a stored data",
+	}
 	irreparableCmd = &cobra.Command{
 		Use:   "irreparable",
 		Short: "list segments in irreparable database",
@@ -121,6 +125,18 @@ var (
 		Args:  cobra.MinimumNArgs(1),
 		RunE:  CreateCSVStats,
 	}
+	objectHealthCmd = &cobra.Command{
+		Use:   "object <project-id> <bucket> <encrypted-path>",
+		Short: "Get stats about an object's health",
+		Args:  cobra.MinimumNArgs(3),
+		RunE:  ObjectHealth,
+	}
+	segmentHealthCmd = &cobra.Command{
+		Use:   "segment <project-id> <segment-index> <bucket> <encrypted-path>",
+		Short: "Get stats about a segment's health",
+		Args:  cobra.MinimumNArgs(4),
+		RunE:  SegmentHealth,
+	}
 )
 
 // Inspector gives access to kademlia, overlay cache
@@ -129,6 +145,7 @@ type Inspector struct {
 	kadclient     pb.KadInspectorClient
 	overlayclient pb.OverlayInspectorClient
 	irrdbclient   pb.IrreparableInspectorClient
+	healthclient  pb.HealthInspectorClient
 }
 
 // NewInspector creates a new gRPC inspector client for access to kad,
@@ -154,6 +171,7 @@ func NewInspector(address, path string) (*Inspector, error) {
 		kadclient:     pb.NewKadInspectorClient(conn),
 		overlayclient: pb.NewOverlayInspectorClient(conn),
 		irrdbclient:   pb.NewIrreparableInspectorClient(conn),
+		healthclient:  pb.NewHealthInspectorClient(conn),
 	}, nil
 }
 
@@ -445,6 +463,61 @@ func CreateCSVStats(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
+// ObjectHealth gets information about the health of an object on the network
+func ObjectHealth(cmd *cobra.Command, args []string) (err error) {
+	ctx := context.Background()
+
+	i, err := NewInspector(*Addr, *IdentityPath)
+	if err != nil {
+		return ErrArgs.Wrap(err)
+	}
+
+	req := &pb.ObjectHealthRequest{
+		ProjectId:         []byte(args[0]),
+		Bucket:            []byte(args[1]),
+		EncryptedPath:     []byte(args[2]),
+		StartAfterSegment: 0, // start from first segment
+		EndBeforeSegment:  0, // No end, so we stop when we've hit limit or arrived at the last segment
+		Limit:             0, // No limit, so we stop when we've arrived at the last segment
+	}
+
+	_, err = i.healthclient.ObjectHealth(ctx, req)
+	if err != nil {
+		return ErrRequest.Wrap(err)
+	}
+
+	return nil
+}
+
+// SegmentHealth gets information about the health of a segment on the network
+func SegmentHealth(cmd *cobra.Command, args []string) (err error) {
+	ctx := context.Background()
+
+	i, err := NewInspector(*Addr, *IdentityPath)
+	if err != nil {
+		return ErrArgs.Wrap(err)
+	}
+
+	segmentIndex, err := strconv.ParseInt(args[1], 10, 64)
+	if err != nil {
+		return ErrRequest.Wrap(err)
+	}
+
+	req := &pb.SegmentHealthRequest{
+		ProjectId:     []byte(args[0]),
+		SegmentIndex:  segmentIndex,
+		Bucket:        []byte(args[2]),
+		EncryptedPath: []byte(args[3]),
+	}
+
+	_, err = i.healthclient.SegmentHealth(ctx, req)
+	if err != nil {
+		return ErrRequest.Wrap(err)
+	}
+
+	return nil
+}
+
 func getSegments(cmd *cobra.Command, args []string) error {
 	if irreparableLimit <= int32(0) {
 		return ErrArgs.New("limit must be greater than 0")
@@ -508,6 +581,7 @@ func init() {
 	rootCmd.AddCommand(kadCmd)
 	rootCmd.AddCommand(statsCmd)
 	rootCmd.AddCommand(irreparableCmd)
+	rootCmd.AddCommand(healthCmd)
 
 	kadCmd.AddCommand(countNodeCmd)
 	kadCmd.AddCommand(pingNodeCmd)
@@ -519,6 +593,9 @@ func init() {
 	statsCmd.AddCommand(getCSVStatsCmd)
 	statsCmd.AddCommand(createStatsCmd)
 	statsCmd.AddCommand(createCSVStatsCmd)
+
+	healthCmd.AddCommand(objectHealthCmd)
+	healthCmd.AddCommand(segmentHealthCmd)
 
 	irreparableCmd.Flags().Int32Var(&irreparableLimit, "limit", 50, "max number of results per page")
 
