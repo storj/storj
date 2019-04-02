@@ -513,49 +513,20 @@ func ObjectHealth(cmd *cobra.Command, args []string) (err error) {
 		return ErrRequest.Wrap(err)
 	}
 
+	w := csv.NewWriter(os.Stdout)
+	defer w.Flush()
+
 	redundancy, err := eestream.NewRedundancyStrategyFromProto(resp.GetRedundancy())
 	if err != nil {
 		return ErrRequest.Wrap(err)
 	}
 
-	w := csv.NewWriter(os.Stdout)
-	defer w.Flush()
-
-	// Write Redundancy Table
-	total := redundancy.TotalCount()                  // total amount of pieces we generated (n)
-	required := redundancy.RequiredCount()            // minimum required stripes for reconstruction (k)
-	optimalThreshold := redundancy.OptimalThreshold() // amount of pieces we need to store to call it a success (o)
-	repairThreshold := redundancy.RepairThreshold()   // amount of pieces we need to drop to before triggering repair (m)
-
-	redundancyTable := [][]string{
-		{"Total Pieces (n)", "Minimum Required (k)", "Optimal Threshold (o)", "Repair Threshold (m)"},
-		{strconv.Itoa(total), strconv.Itoa(required), strconv.Itoa(optimalThreshold), strconv.Itoa(repairThreshold)},
-		{},
+	if err := printRedundancyTable(w, redundancy); err != nil {
+		return err
 	}
 
-	for _, row := range redundancyTable {
-		if err := w.Write(row); err != nil {
-			return fmt.Errorf("error writing record to csv: %s", err)
-		}
-	}
-
-	// Write Segment Table
-	segmentTable := [][]string{
-		{"Segment Index", "Online Nodes"},
-	}
-
-	// Add each segment to the segmentTable
-	for _, segment := range resp.GetSegments() {
-		onlineNodes := segment.GetOnlineNodes()          // amount of nodes with pieces currently online
-		segmentIndexPath := string(segment.GetSegment()) // path formatted Segment Index
-
-		segmentTable = append(segmentTable, []string{segmentIndexPath, strconv.FormatInt(int64(onlineNodes), 10)})
-	}
-
-	for _, row := range segmentTable {
-		if err := w.Write(row); err != nil {
-			return fmt.Errorf("error writing record to csv: %s", err)
-		}
+	if err := printSegmentHealthTable(w, redundancy, resp.GetSegments()); err != nil {
+		return err
 	}
 
 	return nil
@@ -587,15 +558,48 @@ func SegmentHealth(cmd *cobra.Command, args []string) (err error) {
 		return ErrRequest.Wrap(err)
 	}
 
+	w := csv.NewWriter(os.Stdout)
+	defer w.Flush()
+
 	redundancy, err := eestream.NewRedundancyStrategyFromProto(resp.GetRedundancy())
 	if err != nil {
 		return ErrRequest.Wrap(err)
 	}
 
-	w := csv.NewWriter(os.Stdout)
-	defer w.Flush()
+	if err := printRedundancyTable(w, redundancy); err != nil {
+		return err
+	}
 
-	// Write Redundancy Table
+	if err := printSegmentHealthTable(w, redundancy, []*pb.SegmentHealth{resp.GetHealth()}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func printSegmentHealthTable(w *csv.Writer, redundancy eestream.RedundancyStrategy, segments []*pb.SegmentHealth) error {
+	segmentTable := [][]string{
+		{"Segment Index", "Online Nodes"},
+	}
+
+	// Add each segment to the segmentTable
+	for _, segment := range segments {
+		onlineNodes := segment.GetOnlineNodes()          // amount of nodes with pieces currently online
+		segmentIndexPath := string(segment.GetSegment()) // path formatted Segment Index
+
+		segmentTable = append(segmentTable, []string{segmentIndexPath, strconv.FormatInt(int64(onlineNodes), 10)})
+	}
+
+	for _, row := range segmentTable {
+		if err := w.Write(row); err != nil {
+			return fmt.Errorf("error writing record to csv: %s", err)
+		}
+	}
+
+	return nil
+}
+
+func printRedundancyTable(w *csv.Writer, redundancy eestream.RedundancyStrategy) error {
 	total := redundancy.TotalCount()                  // total amount of pieces we generated (n)
 	required := redundancy.RequiredCount()            // minimum required stripes for reconstruction (k)
 	optimalThreshold := redundancy.OptimalThreshold() // amount of pieces we need to store to call it a success (o)
@@ -608,23 +612,6 @@ func SegmentHealth(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	for _, row := range redundancyTable {
-		if err := w.Write(row); err != nil {
-			return fmt.Errorf("error writing record to csv: %s", err)
-		}
-	}
-
-	// Write Segment Table
-	health := resp.GetHealth()
-	onlineNodes := health.GetOnlineNodes()          // amount of nodes with pieces currently online
-	segmentIndexPath := string(health.GetSegment()) // path formatted Segment Index
-
-	segmentTable := [][]string{
-		{"Segment Index", "Online Nodes"},
-		{segmentIndexPath, strconv.FormatInt(int64(onlineNodes), 10)},
-		{},
-	}
-
-	for _, row := range segmentTable {
 		if err := w.Write(row); err != nil {
 			return fmt.Errorf("error writing record to csv: %s", err)
 		}

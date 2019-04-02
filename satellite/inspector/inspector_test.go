@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
@@ -69,7 +70,12 @@ func TestInspectorStats(t *testing.T) {
 
 				resp, err := healthEndpoint.SegmentHealth(ctx, req)
 				require.NoError(t, err)
-				require.NotNil(t, resp)
+
+				redundancy, err := eestream.NewRedundancyStrategyFromProto(resp.GetRedundancy())
+				require.NoError(t, err)
+
+				require.Equal(t, 4, redundancy.TotalCount())
+				require.Equal(t, int32(4), resp.GetHealth().GetOnlineNodes())
 			}
 
 			{ // Test Object Health Request
@@ -82,13 +88,16 @@ func TestInspectorStats(t *testing.T) {
 					Limit:             0,
 				}
 				resp, err := healthEndpoint.ObjectHealth(ctx, objectHealthReq)
-
-				require.Len(t, resp.GetSegments(), 1)
-
-				segments := resp.GetSegments()
 				require.NoError(t, err)
 
-				require.NotNil(t, segments)
+				segments := resp.GetSegments()
+				require.Len(t, segments, 1)
+
+				redundancy, err := eestream.NewRedundancyStrategyFromProto(resp.GetRedundancy())
+				require.NoError(t, err)
+
+				require.Equal(t, 4, redundancy.TotalCount())
+				require.Equal(t, int32(4), segments[0].GetOnlineNodes())
 			}
 
 			return nil
