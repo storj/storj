@@ -81,8 +81,8 @@ install-sim: ## install storj-sim
 ##@ Test
 
 .PHONY: test
-test: ## Run tests on source code (travis)
-	go test -race -v -cover -coverprofile=.coverprofile ./...
+test: ## Run tests on source code (travis) with failfast and race
+	go test -race -v -cover -failfast -coverprofile=.coverprofile ./...
 	@echo done
 
 .PHONY: test-sim
@@ -111,6 +111,10 @@ test-all-in-one: ## Test docker images locally
 	export VERSION="${TAG}${CUSTOMTAG}" \
 	&& $(MAKE) satellite-image storagenode-image gateway-image \
 	&& ./scripts/test-aio.sh
+
+.PHONY: test-sequential
+test-sequential: ## Run tests five times with caching turned off  and failfast
+	seq 1 5 | xargs -I{} sh -c 'go test -v ./... -count=1 -race -failfast'
 
 ##@ Build
 
