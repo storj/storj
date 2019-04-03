@@ -55,14 +55,14 @@ func (db *accountingDB) ProjectStorageTotals(ctx context.Context, projectID uuid
 	var inlineSum *int64
 	query := `SELECT SUM(inline) FROM bucket_storage_tallies WHERE project_id = ? AND interval_start = ?;`
 	err = db.db.QueryRow(db.db.Rebind(query), projectID, latestRollup.IntervalStart).Scan(&inlineSum)
-	if err == sql.ErrNoRows || inlineSum == nil {
+	if err != nil || inlineSum == nil {
 		return 0, 0, nil
 	}
 
 	var remoteSum *int64
 	query = `SELECT SUM(remote) FROM bucket_storage_tallies WHERE project_id = ? AND interval_start = ?;`
 	err = db.db.QueryRow(db.db.Rebind(query), projectID, latestRollup.IntervalStart).Scan(&remoteSum)
-	if err == sql.ErrNoRows || inlineSum == nil {
+	if err != nil || remoteSum == nil {
 		return 0, 0, nil
 	}
 
