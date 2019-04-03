@@ -6,6 +6,8 @@ package uplink
 import (
 	"context"
 
+	"github.com/vivint/infectious"
+
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
@@ -113,8 +115,18 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey A
 	}
 
 	// TODO: we shouldn't need segment or stream stores to manage buckets
-	segments := segments.NewSegmentStore(metainfo, nil, eestream.RedundancyStrategy{}, maxBucketMetaSize.Int(), maxBucketMetaSize.Int64())
-	streams, err := streams.NewStreamStore(segments, maxBucketMetaSize.Int64(), nil, 0, storj.Unencrypted)
+	fc, err := infectious.NewFEC(1, 1)
+	if err != nil {
+		return nil, err
+	}
+
+	rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, 1*memory.KiB.Int()), 1, 1)
+	if err != nil {
+		return nil, err
+	}
+
+	segments := segments.NewSegmentStore(metainfo, nil, rs, maxBucketMetaSize.Int(), maxBucketMetaSize.Int64())
+	streams, err := streams.NewStreamStore(segments, maxBucketMetaSize.Int64(), new(storj.Key), 1*memory.KiB.Int(), storj.Unencrypted)
 	if err != nil {
 		return nil, err
 	}
