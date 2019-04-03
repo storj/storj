@@ -73,7 +73,7 @@
 
 <style lang="scss">
     h1 {
-        font-family: 'montserrat_bold';
+        font-family: 'font_bold';
         font-size: 48px;
         font-style: normal;
         font-stretch: normal;
@@ -85,7 +85,7 @@
     }
 
     h3 {
-        font-family: 'montserrat_regular';
+        font-family: 'font_regular';
         font-size: 16px;
         font-style: normal;
         font-stretch: normal;
@@ -123,7 +123,7 @@
 
                 h2 {
                     opacity: 0.4;
-                    font-family: 'montserrat_bold';
+                    font-family: 'font_bold';
                     font-size: 32px;
                     font-style: normal;
                     font-stretch: normal;
@@ -147,7 +147,7 @@
                 &__input {
                      width: calc(100% - 32px);
                      background-color: #e4e4e6;
-                     font-family: 'montserrat_regular';
+                     font-family: 'font_regular';
                      border-radius: 12px;
                      border: solid 1px #e4e4e6;
                      font-size: 16px;
@@ -167,7 +167,7 @@
                      top: 12px;
 
                     &__text {
-                        font-family: 'montserrat_bold';
+                        font-family: 'font_bold';
                         font-size: 16px;
                         font-style: normal;
                         font-stretch: normal;
@@ -194,7 +194,7 @@
             margin-top: 300px;
 
             p {
-                font-family: 'montserrat_regular';
+                font-family: 'font_regular';
                 font-size: 16px;
                 font-weight: normal;
                 font-style: normal;
