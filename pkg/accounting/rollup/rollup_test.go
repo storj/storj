@@ -21,7 +21,7 @@ type testData struct {
 	bwTotals map[storj.NodeID][]int64
 }
 
-func TestRollupRaws(t *testing.T) {
+func TestRollup(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -39,7 +39,7 @@ func TestRollupRaws(t *testing.T) {
 			err = planet.Satellites[0].DB.Accounting().SaveBWRaw(ctx, timestamp, timestamp, testData[i].bwTotals)
 			require.NoError(t, err)
 
-			err = planet.Satellites[0].Accounting.Rollup.RollupRaws(ctx)
+			err = planet.Satellites[0].Accounting.Rollup.Rollup(ctx)
 			require.NoError(t, err)
 
 			// Assert that RollupRaws deleted all raws except for today's
@@ -112,17 +112,4 @@ func createData(planet *testplanet.Planet, days int) []testData {
 		}
 	}
 	return data
-}
-
-
-func TestRollup(t *testing.T) {
-
-}
-
-func TestRollupStorage(t *testing.T){
-
-}
-
-func TestRollupBW(t *testing.T) {
-	
 }
