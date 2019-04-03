@@ -31,6 +31,8 @@ func TestSegmentStoreRepair(t *testing.T) {
 		satellite := planet.Satellites[0]
 
 		satellite.Repair.Checker.Loop.Stop()
+		// stop discovery service so that we do not get a race condition when we delete nodes from overlay cache
+		satellite.Discovery.Service.Discovery.Stop()
 
 		testData := make([]byte, 1*memory.MiB)
 		_, err := rand.Read(testData)
@@ -85,9 +87,6 @@ func TestSegmentStoreRepair(t *testing.T) {
 		for _, node := range planet.StorageNodes {
 			if nodesToKill[node.ID()] {
 				err = planet.StopPeer(node)
-				require.NoError(t, err)
-
-				err = satellite.Overlay.Service.Delete(ctx, node.ID())
 				require.NoError(t, err)
 			}
 		}
