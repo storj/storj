@@ -685,10 +685,6 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 
 // newVersionControlServer initializes the Versioning Server
 func (planet *Planet) newVersionControlServer() (peer *versioncontrol.Peer, err error) {
-	// TODO: move into separate file
-	/*defer func() {
-		planet.peers = append(planet.peers, closablePeer{peer: peer})
-	}()*/
 
 	prefix := "versioncontrol"
 	log := planet.log.Named(prefix)
