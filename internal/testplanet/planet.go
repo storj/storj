@@ -737,15 +737,6 @@ func (planet *Planet) NewVersionConfig() version.Config {
 	}
 }
 
-// NewVersionConfig returns the Version Config for this planet with tuned metrics.
-func (planet *Planet) NewVersionConfig() version.Config {
-	return version.Config{
-		ServerAddress:  fmt.Sprintf("http://%s/", planet.VersionControl.Addr()),
-		RequestTimeout: time.Second * 15,
-		CheckInterval:  time.Minute * 5,
-	}
-}
-
 // Identities returns the identity provider for this planet.
 func (planet *Planet) Identities() *Identities {
 	return planet.identities

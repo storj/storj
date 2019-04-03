@@ -6,8 +6,6 @@ package overlay
 import (
 	"context"
 	"errors"
-	"regexp"
-
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -224,8 +222,7 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 		auditCount = preferences.NewNodeAuditThreshold
 	}
 
-	versionRegex := regexp.MustCompile("^" + version.SemVerRegex + "$")
-	ver, err := version.NewSemVer(versionRegex, preferences.Version)
+	ver, err := version.NewSemVer(preferences.Version)
 	if err != nil {
 		return nil, ErrIncorrectVersion
 	}

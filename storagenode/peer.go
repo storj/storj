@@ -133,7 +133,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Transport = version.NewVersionedClient(transport.NewClient(options), peer.Version)
+		peer.Transport = transport.NewClient(options)
 
 		peer.Server, err = server.New(options, sc.Address, sc.PrivateAddress, nil)
 		if err != nil {
@@ -163,7 +163,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 				Minor:     version.Build.Version.Minor,
 				Patch:     version.Build.Version.Patch,
 				Hash:      version.Build.CommitHash,
-				Timestamp: version.Build.Timestamp,
+				Timestamp: version.Build.Timestamp.Unix(),
 				Release:   version.Build.Release,
 			},
 		}
