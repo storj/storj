@@ -47,6 +47,9 @@ type BucketStore struct {
 type Meta struct {
 	Created            time.Time
 	PathEncryptionType storj.Cipher
+	SegmentsSize       int64
+	RedundancyScheme   storj.RedundancyScheme
+	EncryptionScheme   storj.EncryptionScheme
 }
 
 // NewStore instantiates BucketStore
@@ -182,5 +185,8 @@ func convertMeta(m objects.Meta) (Meta, error) {
 	return Meta{
 		Created:            m.Modified,
 		PathEncryptionType: cipher,
+		RedundancyScheme:   m.RedundancyScheme,
+		EncryptionScheme:   m.EncryptionScheme,
+		SegmentsSize:       m.SegmentsSize,
 	}, nil
 }

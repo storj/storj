@@ -6,7 +6,6 @@ package pkcrypto
 import (
 	"crypto"
 	"crypto/x509"
-	"crypto/x509/pkix"
 	"encoding/asn1"
 	"encoding/pem"
 	"io"
@@ -184,9 +183,6 @@ func CertsFromPEM(pemBytes []byte) ([]*x509.Certificate, error) {
 		switch pemBlock.Type {
 		case BlockLabelCertificate:
 			encChain.AddCert(pemBlock.Bytes)
-		case BlockLabelExtension:
-			err := encChain.AddExtension(pemBlock.Bytes)
-			blockErrs.Add(err)
 		}
 	}
 	if err := blockErrs.Err(); err != nil {
@@ -197,24 +193,11 @@ func CertsFromPEM(pemBytes []byte) ([]*x509.Certificate, error) {
 }
 
 type encodedChain struct {
-	chain      [][]byte
-	extensions [][][]byte
+	chain [][]byte
 }
 
 func (e *encodedChain) AddCert(b []byte) {
 	e.chain = append(e.chain, b)
-	e.extensions = append(e.extensions, [][]byte{})
-}
-
-func (e *encodedChain) AddExtension(b []byte) error {
-	chainLen := len(e.chain)
-	if chainLen < 1 {
-		return ErrChainLength.New("expected: >= 1; actual: %d", chainLen)
-	}
-
-	i := chainLen - 1
-	e.extensions[i] = append(e.extensions[i], b)
-	return nil
 }
 
 func (e *encodedChain) Parse() ([]*x509.Certificate, error) {
@@ -223,70 +206,7 @@ func (e *encodedChain) Parse() ([]*x509.Certificate, error) {
 		return nil, err
 	}
 
-	var extErrs errs.Group
-	for i, cert := range chain {
-		for _, ee := range e.extensions[i] {
-			ext, err := PKIXExtensionFromASN1(ee)
-			extErrs.Add(err) // TODO: is this correct?
-			cert.ExtraExtensions = append(cert.ExtraExtensions, *ext)
-		}
-	}
-	if err := extErrs.Err(); err != nil {
-		return nil, err
-	}
-
 	return chain, nil
-}
-
-// WritePKIXExtensionPEM writes the certificate extension to the writer, in a PEM-
-// enveloped PKIX form.
-func WritePKIXExtensionPEM(w io.Writer, extension *pkix.Extension) error {
-	extBytes, err := PKIXExtensionToASN1(extension)
-	if err != nil {
-		return errs.Wrap(err)
-	}
-	err = pem.Encode(w, &pem.Block{Type: BlockLabelExtension, Bytes: extBytes})
-	return errs.Wrap(err)
-}
-
-// PKIXExtensionToPEM serializes a PKIX certificate extension to PEM-
-// enveloped ASN.1 bytes.
-func PKIXExtensionToPEM(extension *pkix.Extension) ([]byte, error) {
-	asn, err := PKIXExtensionToASN1(extension)
-	if err != nil {
-		return nil, err
-	}
-	return pem.EncodeToMemory(&pem.Block{Type: BlockLabelExtension, Bytes: asn}), nil
-}
-
-// PKIXExtensionToASN1 serializes a PKIX certificate extension to the
-// appropriate ASN.1 structure for such things. See RFC 5280, section 4.1.1.2.
-func PKIXExtensionToASN1(extension *pkix.Extension) ([]byte, error) {
-	extBytes, err := asn1.Marshal(extension)
-	return extBytes, errs.Wrap(err)
-}
-
-// PKIXExtensionFromASN1 deserializes a PKIX certificate extension from
-// the appropriate ASN.1 structure for such things.
-func PKIXExtensionFromASN1(extData []byte) (*pkix.Extension, error) {
-	var extension pkix.Extension
-	if _, err := asn1.Unmarshal(extData, &extension); err != nil {
-		return nil, ErrParse.New("unable to unmarshal PKIX extension: %v", err)
-	}
-	return &extension, nil
-}
-
-// PKIXExtensionFromPEM parses a PKIX certificate extension from
-// PEM-enveloped ASN.1 bytes.
-func PKIXExtensionFromPEM(pemBytes []byte) (*pkix.Extension, error) {
-	pb, _ := pem.Decode(pemBytes)
-	if pb == nil {
-		return nil, ErrParse.New("unable to parse PEM block")
-	}
-	if pb.Type != BlockLabelExtension {
-		return nil, ErrParse.New("can not parse PKIX cert extension from PEM block labeled %q", pb.Type)
-	}
-	return PKIXExtensionFromASN1(pb.Bytes)
 }
 
 type ecdsaSignature struct {
