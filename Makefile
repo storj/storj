@@ -82,7 +82,7 @@ install-sim: ## install storj-sim
 
 .PHONY: test
 test: ## Run tests on source code (travis) with failfast and race
-	go test -race -v -cover -failfast -coverprofile=.coverprofile ./...
+	go test -race -v -cover -coverprofile=.coverprofile ./...
 	@echo done
 
 .PHONY: test-sim
