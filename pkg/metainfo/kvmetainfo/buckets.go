@@ -104,7 +104,7 @@ func getPathCipher(info *storj.Bucket) storj.Cipher {
 	return info.PathCipher
 }
 
-func bucketFromMeta(bucketName string, meta buckets.Meta) storj.Bucket {
+func bucketFromMeta(bucket string, meta buckets.Meta) storj.Bucket {
 	return storj.Bucket{
 		Name:             bucket,
 		Created:          meta.Created,

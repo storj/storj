@@ -41,22 +41,29 @@ func makeBucket(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Nested buckets not supported, use format sj://bucket/")
 	}
 
-	metainfo, _, err := cfg.Metainfo(ctx)
+	lc, err := Client.GetBucket(ctx, dst.Bucket())
 	if err != nil {
 		return err
 	}
 
-	_, err = metainfo.GetBucket(ctx, dst.Bucket())
-	if err == nil {
-		return fmt.Errorf("Bucket already exists")
-	}
+	// metainfo, _, err := cfg.Metainfo(ctx)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// _, err = metainfo.GetBucket(ctx, dst.Bucket())
+	// if err == nil {
+	// 	return fmt.Errorf("Bucket already exists")
+	// }
 	if !storj.ErrBucketNotFound.Has(err) {
 		return err
 	}
-	_, err = metainfo.CreateBucket(ctx, dst.Bucket(), &storj.Bucket{PathCipher: storj.Cipher(cfg.Enc.PathType)})
-	if err != nil {
-		return err
-	}
+	// _, err = metainfo.CreateBucket(ctx, dst.Bucket(), &storj.Bucket{PathCipher: storj.Cipher(cfg.Enc.PathType)})
+	// if err != nil {
+	// 	return err
+	// }
+
+	bucket, err := Client.CreateBucket(ctx, dst.Bucket())
 
 	fmt.Printf("Bucket %s created\n", dst.Bucket())
 
