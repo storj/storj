@@ -14,6 +14,7 @@ RUN npm run build
 
 # final stage
 FROM alpine
+RUN apk -U add ca-certificates
 ENV API_KEY= \
     CONF_PATH=/root/.local/share/storj/satellite \
     BOOTSTRAP_ADDR=bootstrap.storj.io:8080 \

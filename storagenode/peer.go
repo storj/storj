@@ -11,6 +11,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
@@ -61,6 +62,8 @@ type Config struct {
 	Storage  psserver.Config
 
 	Storage2 piecestore.Config
+
+	Version version.Config
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
@@ -78,6 +81,8 @@ type Peer struct {
 	Transport transport.Client
 
 	Server *server.Server
+
+	Version *version.Service
 
 	// services and endpoints
 	// TODO: similar grouping to satellite.Peer
@@ -103,7 +108,7 @@ type Peer struct {
 }
 
 // New creates a new Storage Node.
-func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*Peer, error) {
+func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, versionInfo version.Info) (*Peer, error) {
 	peer := &Peer{
 		Log:      log,
 		Identity: full,
@@ -111,6 +116,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 	}
 
 	var err error
+
+	{
+		test := version.Info{}
+		if test != versionInfo {
+			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
+				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
+			peer.Version = version.NewService(config.Version, versionInfo, "Storagenode")
+		}
+	}
 
 	{ // setup listener and server
 		sc := config.Server
@@ -238,6 +252,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 func (peer *Peer) Run(ctx context.Context) error {
 	group, ctx := errgroup.WithContext(ctx)
 
+	group.Go(func() error {
+		if peer.Version != nil {
+			return ignoreCancel(peer.Version.Run(ctx))
+		}
+		return nil
+	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Kademlia.Service.Bootstrap(ctx))
 	})

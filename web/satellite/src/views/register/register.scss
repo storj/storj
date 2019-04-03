@@ -19,9 +19,7 @@ body {
   flex-direction: column;
   align-items: flex-start;
   padding: 60px 0px 0px 104px;
-  background-image: url("../../../static/images/Background.png");
-  background-repeat: no-repeat;
-  background-size: auto;
+  background-color: #F5F6FA;
 
   .register-input {
     position: relative;
@@ -59,7 +57,7 @@ body {
     justify-content: center;
     background-color: transparent;
     border-radius: 6px;
-    border: 1px solid white;
+    border: 1px solid #AFB7C1;
     cursor: pointer;
     width: 160px;
     height: 48px;
@@ -70,14 +68,15 @@ body {
       line-height: 19px;
       margin-block-start: 0;
       margin-block-end: 0;
-      color: white;
+      color: #354049;
     }
 
     &:hover {
-      background-color: white;
+      background-color: #2683FF;
+      border: 1px solid #2683FF;
 
       p {
-        color: #2683FF;
+        color: white;
       }
     }
   }
@@ -113,7 +112,7 @@ body {
     h1 {
       font-family: 'font_bold';
       font-size: 22px;
-      color: white;
+      color: #384B65;
       line-height: 27px;
       margin-block-start: 0;
       margin-block-end: 0;
@@ -122,7 +121,7 @@ body {
     p {
       font-family: 'font_regular';
       font-size: 16px;
-      color: white;
+      color: #384B65;
       line-height: 21px;
       margin-block-start: 0;
       margin-block-end: 0;
@@ -158,11 +157,11 @@ body {
         line-height: 20px;
         margin-top: 14px;
         margin-left: 10px;
-        color: white;
+        color: #384B65;
       }
 
       a {
-        color: white;
+        color: #384B65;
         font-family: 'font_bold';
 
         &:hover {
@@ -199,7 +198,7 @@ body {
         left: 0;
         height: 25px;
         width: 25px;
-        border: 2px solid white;
+        border: 2px solid #384B65;
         border-radius: 4px;
       }
 
@@ -208,7 +207,7 @@ body {
       }
 
       .container input:checked ~ .checkmark {
-        border: 2px solid white;
+        border: 2px solid #384B65;
         background-color: transparent;
       }
 
@@ -231,7 +230,7 @@ body {
         top: 5px;
         width: 5px;
         height: 10px;
-        border: solid white;
+        border: solid #384B65;
         border-width: 0 3px 3px 0;
         -webkit-transform: rotate(45deg);
         -ms-transform: rotate(45deg);
@@ -248,7 +247,7 @@ body {
       cursor: pointer;
       width: 160px;
       height: 48px;
-      box-shadow: 0px 16px 24px #3A54DF;
+      box-shadow: none;
 
       p {
         font-family: 'font_bold';
@@ -260,7 +259,7 @@ body {
       }
 
       &:hover {
-        box-shadow: none;
+        box-shadow: 0px 16px 24px #3A54DF;
       }
     }
   }
@@ -268,13 +267,6 @@ body {
 
 .input-wrap.full-input {
   width: 100%;
-}
-
-.planet {
-  position: absolute;
-  bottom: -61px;
-  right: -257px;
-  z-index: -100;
 }
 
 .loading-overlay {
@@ -305,6 +297,32 @@ body {
   visibility: visible;
   opacity: 1;
 }
+
+.image {
+  position: fixed;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  height: 100vh;
+}
+
+@media screen and (max-width: 1500px) {
+  .register-container {
+    &__wrapper {
+      min-width: 45%;
+    }
+  }
+}
+@media screen and (max-width: 1300px) {
+  .register-container {
+    &__wrapper {
+      min-width: 75%;
+    }
+  }
+  .image {
+    display: none;
+  }
+}
 @media screen and (max-height: 840px) {
   .register-container {
     overflow: hidden;
@@ -334,19 +352,11 @@ body {
     margin-bottom: 25px;
   }
 }
-@media screen and (max-width: 840px) {
-  .planet {
-    display: none;
-  }
-}
 @media screen and (max-width: 800px) {
   .register-container {
     padding: 0;
     align-items: center;
     justify-content: center;
-  }
-  .planet {
-    display: none;
   }
 }
 @media screen and (max-width: 650px) {
