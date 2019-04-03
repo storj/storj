@@ -41,10 +41,17 @@ func makeBucket(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Nested buckets not supported, use format sj://bucket/")
 	}
 
-	lc, err := Client.GetBucket(ctx, dst.Bucket())
+	uplink, err := cfg.NewUplink(ctx, nil)
 	if err != nil {
+		fmt.Printf("Error setting up Uplink: %+v\n", err)
 		return err
 	}
+
+	uplink.OpenProject(
+	// lc, err := Client.GetBucket(ctx, dst.Bucket())
+	// if err != nil {
+	// 	return err
+	// }
 
 	// metainfo, _, err := cfg.Metainfo(ctx)
 	// if err != nil {
@@ -63,7 +70,7 @@ func makeBucket(cmd *cobra.Command, args []string) error {
 	// 	return err
 	// }
 
-	bucket, err := Client.CreateBucket(ctx, dst.Bucket())
+	// bucket, err := Client.CreateBucket(ctx, dst.Bucket())
 
 	fmt.Printf("Bucket %s created\n", dst.Bucket())
 

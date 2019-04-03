@@ -26,9 +26,6 @@ type UplinkFlags struct {
 
 var cfg UplinkFlags
 
-// LibClient stores a reference to the Uplink client for interaction with the network.
-var LibClient *libuplink.Uplink
-
 // Client holds the libuplink Uplink and Config information
 type Client struct {
 	Uplink *libuplink.Uplink
@@ -47,28 +44,13 @@ func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
 	root.AddCommand(cmd)
 
 	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
-	// defaultIdentityDir := fpath.ApplicationDir("storj", "identity", "uplink")
 
 	confDirParam := cfgstruct.FindConfigDirParam()
 	if confDirParam != "" {
 		defaultConfDir = confDirParam
 	}
 
-	// TODO (dylan): CLI won't need identity after libuplink changes, so this can be removed.
-	// identityDirParam := cfgstruct.FindIdentityDirParam()
-	// if identityDirParam != "" {
-	// 	defaultIdentityDir = identityDirParam
-	// }
-
 	cfgstruct.Bind(cmd.Flags(), &cfg, isDev, cfgstruct.ConfDir(defaultConfDir))
-
-	uplink, err := cfg.NewUplink(context.Background())
-	if err != nil {
-		fmt.Printf("error setting up uplink %+v\n", err)
-		return cmd
-	}
-
-	LibClient = uplink
 
 	return cmd
 }
@@ -124,11 +106,6 @@ func (c *Client) CreateBucket(ctx context.Context, name string) (storj.Bucket, e
 
 	// TODO (dylan) Make this allow for configs
 	return project.CreateBucket(ctx, name, nil)
-}
-
-// GetBucket returns a bucket or an error if no bucket with that name exists.
-func (c *Client) GetBucket(ctx context.Context, name string) (storj.Bucket, error) {
-	panic("TODO")
 }
 
 func convertError(err error, path fpath.FPath) error {
