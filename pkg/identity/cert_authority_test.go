@@ -9,7 +9,6 @@ import (
 	"encoding/asn1"
 	"fmt"
 	"math/rand"
-	"storj.io/storj/pkg/peertls/tlsopts"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -19,6 +18,7 @@ import (
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls/extensions"
+	"storj.io/storj/pkg/peertls/tlsopts"
 )
 
 func TestNewCA(t *testing.T) {
