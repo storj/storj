@@ -5,26 +5,44 @@ package testplanet_test
 
 import (
 	"testing"
+	"time"
 
-	"storj.io/storj/bootstrap"
+	"github.com/stretchr/testify/require"
+
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	// "storj.io/storj/pkg/pb"
+	"storj.io/storj/storagenode"
 )
 
 func TestStorageNodeServiceRetry(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			Bootstrap: func(index int, config *bootstrap.Config) {
-				config.Kademlia.BootstrapAddr = ":9990"
+			StorageNode: func(index int, config *storagenode.Config) {
+				config.Retry.BaseWait = 1 * time.Millisecond
+				config.Retry.MaxWait = 3 * time.Millisecond
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
-		// have all storage nodes start up (without a bootstrap node)
-		// confirm that storagenodes can't find anybody
-		// after they've all started, start the bootstrap node,
-		// then wait for the back off time, then make sure nodes find out about everybody.
+		err := planet.StopPeer(planet.StorageNodes[0])
+		require.NoError(t, err)
+
+		err = planet.StopPeer(planet.Bootstrap)
+		require.NoError(t, err)
+
+		err = planet.StorageNodes[0].Kademlia.Service.Close()
+		require.NoError(t, err)
+
+		err = planet.StorageNodes[0].Storage2.Sender.Close()
+		require.NoError(t, err)
+
+		err = planet.StorageNodes[0].Server.Close()
+		require.NoError(t, err)
+
+		err = planet.StopPeer(planet.Satellites[0])
+		require.NoError(t, err)
 
 	})
 }

@@ -39,13 +39,6 @@ var (
 	Error = errs.Class("storagenode peer error")
 )
 
-const (
-	// the base duration to wait for exponential backoff
-	baseWaitInterval = 1 * time.Second
-	// the max duration to wait for exponential backoff
-	maxWaitDuration = 30 * time.Second
-)
-
 // DB is the master database for Storage Node
 type DB interface {
 	// CreateTables initializes the database
@@ -66,6 +59,12 @@ type DB interface {
 	RoutingTable() (kdb, ndb storage.KeyValueStore)
 }
 
+// RetryConfig specifies the base and max durations to use when doing exponential backoff retries for service calls
+type RetryConfig struct {
+	BaseWait time.Duration `help:"the base duration to wait for exponential backoff" default:"1s"`
+	MaxWait  time.Duration `help:"the max duration to wait for exponential backoff" default:"30s"`
+}
+
 // Config is all the configuration parameters for a Storage Node
 type Config struct {
 	Identity identity.Config
@@ -77,6 +76,8 @@ type Config struct {
 	Storage2 piecestore.Config
 
 	Version version.Config
+
+	Retry RetryConfig
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
@@ -118,6 +119,9 @@ type Peer struct {
 		Monitor   *monitor.Service
 		Sender    *orders.Sender
 	}
+
+	// Retry is added here so that intervals can be accessed from backoffRestart func
+	Retry RetryConfig
 }
 
 // New creates a new Storage Node.
@@ -126,6 +130,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		Log:      log,
 		Identity: full,
 		DB:       db,
+		Retry:    config.Retry,
 	}
 
 	var err error
@@ -266,22 +271,22 @@ func (peer *Peer) Run(ctx context.Context) error {
 	group, ctx := errgroup.WithContext(ctx)
 
 	group.Go(func() error {
-		return ignoreCancel(peer.Version.Run(ctx))
+		return peer.backoffRestart(ctx, "peer.version", peer.Version.Run)
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Kademlia.Service.Bootstrap(ctx))
+		return peer.backoffRestart(ctx, "bootstrap", peer.Kademlia.Service.Bootstrap)
 	})
 	group.Go(func() error {
-		return backoffRestart(ctx, baseWaitInterval, maxWaitDuration, "kademlia", peer.Kademlia.Service.Run)
+		return peer.backoffRestart(ctx, "kademlia", peer.Kademlia.Service.Run)
 	})
 	group.Go(func() error {
-		return backoffRestart(ctx, baseWaitInterval, maxWaitDuration, "agreements.sender", peer.Agreements.Sender.Run)
+		return peer.backoffRestart(ctx, "agreements.sender", peer.Agreements.Sender.Run)
 	})
 	group.Go(func() error {
-		return backoffRestart(ctx, baseWaitInterval, maxWaitDuration, "storage2.sender", peer.Storage2.Sender.Run)
+		return peer.backoffRestart(ctx, "storage2.sender", peer.Storage2.Sender.Run)
 	})
 	group.Go(func() error {
-		return backoffRestart(ctx, baseWaitInterval, maxWaitDuration, "storage2.monitor", peer.Storage2.Monitor.Run)
+		return peer.backoffRestart(ctx, "storage2.monitor", peer.Storage2.Monitor.Run)
 	})
 	group.Go(func() error {
 		// TODO: move the message into Server instead
@@ -289,16 +294,18 @@ func (peer *Peer) Run(ctx context.Context) error {
 		peer.Log.Sugar().Infof("Node %s started", peer.Identity.ID)
 		peer.Log.Sugar().Infof("Public server started on %s", peer.Addr())
 		peer.Log.Sugar().Infof("Private server started on %s", peer.PrivateAddr())
-		return backoffRestart(ctx, baseWaitInterval, maxWaitDuration, "peer.Server", peer.Server.Run)
+		return peer.backoffRestart(ctx, "peer.Server", peer.Server.Run)
 	})
 
 	return group.Wait()
 }
 
-func backoffRestart(ctx context.Context, waitInterval, maxWait time.Duration, name string, service func(context.Context) error) error {
+func (peer *Peer) backoffRestart(ctx context.Context, name string, service func(context.Context) error) error {
 	var errList errs.Group
 
-	for i := 0; waitInterval < maxWait; i++ {
+	waitInterval := peer.Retry.BaseWait
+
+	for i := 0; waitInterval < peer.Retry.MaxWait; i++ {
 		if i > 0 {
 			time.Sleep(waitInterval)
 			waitInterval = waitInterval * 2
