@@ -41,11 +41,8 @@ type DB interface {
 
 	// UpdateStoragenodeBandwidthAllocation updates 'allocated' bandwidth for given storage node
 	UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64) error
-	// UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node
-	UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64) error
-
 	// UpdateStoragenodeBandwidthSettleWithCustomDate updates 'settled' bandwidth for given storage node for the given intervalStart time
-	UpdateStoragenodeBandwidthSettleWithCustomDate(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error
+	UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error
 
 	// GetBucketBandwidth gets total bucket bandwidth from period of time
 	GetBucketBandwidth(ctx context.Context, bucketID []byte, from, to time.Time) (int64, error)
@@ -195,7 +192,9 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 			return err
 		}
 
-		if err := endpoint.DB.UpdateStoragenodeBandwidthSettle(ctx, orderLimit.StorageNodeId, orderLimit.Action, order.Amount); err != nil {
+		now := time.Now()
+		intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
+		if err := endpoint.DB.UpdateStoragenodeBandwidthSettle(ctx, orderLimit.StorageNodeId, orderLimit.Action, order.Amount, intervalStart); err != nil {
 			if err := endpoint.DB.UnuseSerialNumber(ctx, orderLimit.SerialNumber, orderLimit.StorageNodeId); err != nil {
 				endpoint.log.Error("unable to unuse serial number", zap.Error(err))
 			}

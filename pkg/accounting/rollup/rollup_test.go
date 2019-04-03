@@ -119,7 +119,7 @@ func saveBW(ctx context.Context, planet *testplanet.Planet, bwTotals map[storj.N
 	pieceActions := []pb.PieceAction{pb.PieceAction_PUT, pb.PieceAction_GET, pb.PieceAction_GET_AUDIT, pb.PieceAction_GET_REPAIR}
 	for nodeID, actions := range bwTotals {
 		for actionType, amount := range actions {
-			err := planet.Satellites[0].DB.Orders().UpdateStoragenodeBandwidthSettleWithCustomDate(ctx, nodeID, pieceActions[actionType], amount, intervalStart)
+			err := planet.Satellites[0].DB.Orders().UpdateStoragenodeBandwidthSettle(ctx, nodeID, pieceActions[actionType], amount, intervalStart)
 			if err != nil {
 				return err
 			}

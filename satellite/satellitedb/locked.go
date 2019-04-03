@@ -637,18 +637,11 @@ func (m *lockedOrders) UpdateStoragenodeBandwidthAllocation(ctx context.Context,
 	return m.db.UpdateStoragenodeBandwidthAllocation(ctx, storageNode, action, amount)
 }
 
-// UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node
-func (m *lockedOrders) UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.UpdateStoragenodeBandwidthSettle(ctx, storageNode, action, amount)
-}
-
 // UpdateStoragenodeBandwidthSettleWithCustomDate updates 'settled' bandwidth for given storage node for the given intervalStart time
-func (m *lockedOrders) UpdateStoragenodeBandwidthSettleWithCustomDate(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error {
+func (m *lockedOrders) UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.UpdateStoragenodeBandwidthSettleWithCustomDate(ctx, storageNode, action, amount, intervalStart)
+	return m.db.UpdateStoragenodeBandwidthSettle(ctx, storageNode, action, amount, intervalStart)
 }
 
 // UseSerialNumber creates serial number entry in database

@@ -63,7 +63,7 @@ func (t *Service) Run(ctx context.Context) (err error) {
 	}
 }
 
-//Tally calculates data-at-rest once
+// Tally calculates data-at-rest once
 func (t *Service) Tally(ctx context.Context) error {
 	var errAtRest, errBucketInfo error
 	latestTally, nodeData, bucketData, err := t.calculateAtRestData(ctx)

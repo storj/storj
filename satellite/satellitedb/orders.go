@@ -139,28 +139,8 @@ func (db *ordersDB) UpdateStoragenodeBandwidthAllocation(ctx context.Context, st
 	return nil
 }
 
-// UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node
-func (db *ordersDB) UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64) error {
-	now := time.Now()
-	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
-
-	statement := db.db.Rebind(
-		`INSERT INTO storagenode_bandwidth_rollups (storagenode_id, interval_start, interval_seconds, action, allocated, settled)
-		VALUES (?, ?, ?, ?, ?, ?)
-		ON CONFLICT(storagenode_id, interval_start, action)
-		DO UPDATE SET settled = storagenode_bandwidth_rollups.settled + ?`,
-	)
-	_, err := db.db.ExecContext(ctx, statement,
-		storageNode.Bytes(), intervalStart, defaultIntervalSeconds, action, 0, uint64(amount), uint64(amount),
-	)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// UpdateStoragenodeBandwidthSettleWithCustomDate updates 'settled' bandwidth for given storage node for the given intervalStart time
-func (db *ordersDB) UpdateStoragenodeBandwidthSettleWithCustomDate(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error {
+// UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node for the given intervalStart time
+func (db *ordersDB) UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error {
 	statement := db.db.Rebind(
 		`INSERT INTO storagenode_bandwidth_rollups (storagenode_id, interval_start, interval_seconds, action, allocated, settled)
 		VALUES (?, ?, ?, ?, ?, ?)
