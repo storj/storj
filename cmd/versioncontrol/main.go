@@ -63,7 +63,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 	ctx := process.Ctx(cmd)
 	err = controlserver.Run(ctx)
-	return nil
+	return err
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
