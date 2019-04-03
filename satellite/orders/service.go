@@ -77,12 +77,14 @@ func (service *Service) updateBandwidth(ctx context.Context, bucketID []byte, ad
 			action = orderLimit.Action
 		}
 	}
+	now := time.Now()
+	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
-	if err := service.orders.UpdateBucketBandwidthAllocation(ctx, bucketID, action, bucketAllocation); err != nil {
+	if err := service.orders.UpdateBucketBandwidthAllocation(ctx, bucketID, action, bucketAllocation, intervalStart); err != nil {
 		return err
 	}
 	for nodeID, allocation := range nodesAllocation {
-		if err := service.orders.UpdateStoragenodeBandwidthAllocation(ctx, nodeID, action, allocation); err != nil {
+		if err := service.orders.UpdateStoragenodeBandwidthAllocation(ctx, nodeID, action, allocation, intervalStart); err != nil {
 			return err
 		}
 	}

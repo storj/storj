@@ -53,9 +53,9 @@ func (db *ordersDB) UseSerialNumber(ctx context.Context, serialNumber storj.Seri
 }
 
 // UpdateBucketBandwidthAllocation updates 'allocated' bandwidth for given bucket
-func (db *ordersDB) UpdateBucketBandwidthAllocation(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64) error {
-	now := time.Now()
-	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
+func (db *ordersDB) UpdateBucketBandwidthAllocation(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error {
+	// now := time.Now()
+	// intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
 	pathElements := bytes.Split(bucketID, []byte("/"))
 	bucketName, projectID := pathElements[1], pathElements[0]
@@ -76,9 +76,9 @@ func (db *ordersDB) UpdateBucketBandwidthAllocation(ctx context.Context, bucketI
 }
 
 // UpdateBucketBandwidthSettle updates 'settled' bandwidth for given bucket
-func (db *ordersDB) UpdateBucketBandwidthSettle(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64) error {
-	now := time.Now()
-	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
+func (db *ordersDB) UpdateBucketBandwidthSettle(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error {
+	// now := time.Now()
+	// intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
 	pathElements := bytes.Split(bucketID, []byte("/"))
 	bucketName, projectID := pathElements[1], pathElements[0]
@@ -98,9 +98,9 @@ func (db *ordersDB) UpdateBucketBandwidthSettle(ctx context.Context, bucketID []
 }
 
 // UpdateBucketBandwidthInline updates 'inline' bandwidth for given bucket
-func (db *ordersDB) UpdateBucketBandwidthInline(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64) error {
-	now := time.Now()
-	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
+func (db *ordersDB) UpdateBucketBandwidthInline(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error {
+	// now := time.Now()
+	// intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
 	pathElements := bytes.Split(bucketID, []byte("/"))
 	bucketName, projectID := pathElements[1], pathElements[0]
@@ -120,9 +120,9 @@ func (db *ordersDB) UpdateBucketBandwidthInline(ctx context.Context, bucketID []
 }
 
 // UpdateStoragenodeBandwidthAllocation updates 'allocated' bandwidth for given storage node
-func (db *ordersDB) UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64) error {
-	now := time.Now()
-	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
+func (db *ordersDB) UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error {
+	// now := time.Now()
+	// intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
 	statement := db.db.Rebind(
 		`INSERT INTO storagenode_bandwidth_rollups (storagenode_id, interval_start, interval_seconds, action, allocated, settled)

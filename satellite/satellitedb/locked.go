@@ -610,34 +610,34 @@ func (m *lockedOrders) UnuseSerialNumber(ctx context.Context, serialNumber storj
 }
 
 // UpdateBucketBandwidthAllocation updates 'allocated' bandwidth for given bucket
-func (m *lockedOrders) UpdateBucketBandwidthAllocation(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64) error {
+func (m *lockedOrders) UpdateBucketBandwidthAllocation(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.UpdateBucketBandwidthAllocation(ctx, bucketID, action, amount)
+	return m.db.UpdateBucketBandwidthAllocation(ctx, bucketID, action, amount, intervalStart)
 }
 
 // UpdateBucketBandwidthInline updates 'inline' bandwidth for given bucket
-func (m *lockedOrders) UpdateBucketBandwidthInline(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64) error {
+func (m *lockedOrders) UpdateBucketBandwidthInline(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.UpdateBucketBandwidthInline(ctx, bucketID, action, amount)
+	return m.db.UpdateBucketBandwidthInline(ctx, bucketID, action, amount, intervalStart)
 }
 
 // UpdateBucketBandwidthSettle updates 'settled' bandwidth for given bucket
-func (m *lockedOrders) UpdateBucketBandwidthSettle(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64) error {
+func (m *lockedOrders) UpdateBucketBandwidthSettle(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.UpdateBucketBandwidthSettle(ctx, bucketID, action, amount)
+	return m.db.UpdateBucketBandwidthSettle(ctx, bucketID, action, amount, intervalStart)
 }
 
 // UpdateStoragenodeBandwidthAllocation updates 'allocated' bandwidth for given storage node
-func (m *lockedOrders) UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64) error {
+func (m *lockedOrders) UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.UpdateStoragenodeBandwidthAllocation(ctx, storageNode, action, amount)
+	return m.db.UpdateStoragenodeBandwidthAllocation(ctx, storageNode, action, amount, intervalStart)
 }
 
-// UpdateStoragenodeBandwidthSettleWithCustomDate updates 'settled' bandwidth for given storage node for the given intervalStart time
+// UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node for the given intervalStart time
 func (m *lockedOrders) UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error {
 	m.Lock()
 	defer m.Unlock()
