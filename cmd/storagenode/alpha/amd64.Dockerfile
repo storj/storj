@@ -9,7 +9,7 @@ WORKDIR /go/src/storj.io/storj/cmd/storagenode
 # dependencies + binary
 RUN apk add git gcc musl-dev
 #RUN unset GOPATH && go mod vendor
-RUN go build -a -installsuffix cgo -o storagenode .
+RUN ../../scripts/release.sh build -a -installsuffix cgo -o storagenode .
 RUN mkdir config identity
 
 # final stage
