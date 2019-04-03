@@ -33,3 +33,31 @@ func NewTestCA(ctx context.Context) (*identity.FullCertificateAuthority, error) 
 		Concurrency: 1,
 	})
 }
+
+// NewTestManageablePeerIdentity returns a new manageable peer identity for use in tests.
+func NewTestManageablePeerIdentity(ctx context.Context) (*identity.ManageablePeerIdentity, error) {
+	ca, err := NewTestCA(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	ident, err := ca.NewIdentity()
+	if err != nil {
+		return nil, err
+	}
+	return identity.NewManageablePeerIdentity(ident.PeerIdentity(), ca), nil
+}
+
+// NewTestManageableFullIdentity returns a new manageable full identity for use in tests.
+func NewTestManageableFullIdentity(ctx context.Context) (*identity.ManageableFullIdentity, error) {
+	ca, err := NewTestCA(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	ident, err := ca.NewIdentity()
+	if err != nil {
+		return nil, err
+	}
+	return identity.NewManageableFullIdentity(ident, ca), nil
+}

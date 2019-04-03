@@ -50,6 +50,13 @@ type lockedAccounting struct {
 	db accounting.DB
 }
 
+// CreateBucketStorageTally creates a record for BucketStorageTally in the accounting DB table
+func (m *lockedAccounting) CreateBucketStorageTally(ctx context.Context, tally accounting.BucketStorageTally) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.CreateBucketStorageTally(ctx, tally)
+}
+
 // DeleteRawBefore deletes all raw tallies prior to some time
 func (m *lockedAccounting) DeleteRawBefore(ctx context.Context, latestRollup time.Time) error {
 	m.Lock()
@@ -78,11 +85,18 @@ func (m *lockedAccounting) LastTimestamp(ctx context.Context, timestampType stri
 	return m.db.LastTimestamp(ctx, timestampType)
 }
 
-// SaveBucketTallies saves the latest bucket info
-func (m *lockedAccounting) SaveBucketTallies(ctx context.Context, intervalStart time.Time, bucketInfo map[string]*accounting.BucketTally) error {
+// ProjectBandwidthTotal returns the sum of GET bandwidth usage for a projectID in the past time frame
+func (m *lockedAccounting) ProjectBandwidthTotal(ctx context.Context, bucketID []byte, from time.Time) (int64, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.SaveBucketTallies(ctx, intervalStart, bucketInfo)
+	return m.db.ProjectBandwidthTotal(ctx, bucketID, from)
+}
+
+// ProjectStorageTotals returns the current inline and remote storage usage for a projectID
+func (m *lockedAccounting) ProjectStorageTotals(ctx context.Context, projectID uuid.UUID) (int64, int64, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.ProjectStorageTotals(ctx, projectID)
 }
 
 // QueryPaymentInfo queries Overlay, Accounting Rollup on nodeID
@@ -104,6 +118,13 @@ func (m *lockedAccounting) SaveBWRaw(ctx context.Context, tallyEnd time.Time, cr
 	m.Lock()
 	defer m.Unlock()
 	return m.db.SaveBWRaw(ctx, tallyEnd, created, bwTotals)
+}
+
+// SaveBucketTallies saves the latest bucket info
+func (m *lockedAccounting) SaveBucketTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*accounting.BucketTally) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SaveBucketTallies(ctx, intervalStart, bucketTallies)
 }
 
 // SaveRollup records raw tallies of at rest data to the database
@@ -581,7 +602,7 @@ func (m *lockedOrders) GetStorageNodeBandwidth(ctx context.Context, nodeID storj
 	return m.db.GetStorageNodeBandwidth(ctx, nodeID, from, to)
 }
 
-// UnuseSerialNumber
+// UnuseSerialNumber removes pair serial number -> storage node id from database
 func (m *lockedOrders) UnuseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) error {
 	m.Lock()
 	defer m.Unlock()

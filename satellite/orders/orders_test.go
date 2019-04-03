@@ -110,7 +110,7 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		hourBeforeTest := time.Now().UTC().Add(-time.Hour)
+		hourBeforeTest := time.Now().Add(-time.Hour)
 
 		for _, storageNode := range planet.StorageNodes {
 			storageNode.Storage2.Sender.Loop.Pause()

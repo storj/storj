@@ -46,6 +46,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/satellite/metainfo"
@@ -144,6 +145,10 @@ type Peer struct {
 		Database  storage.KeyValueStore // TODO: move into pointerDB
 		Service   *pointerdb.Service
 		Endpoint2 *metainfo.Endpoint
+	}
+
+	Inspector struct {
+		Endpoint *inspector.Endpoint
 	}
 
 	Agreements struct {
@@ -323,6 +328,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			peer.Orders.Service,
 			peer.Overlay.Service,
 			peer.DB.Console().APIKeys(),
+			peer.DB.Accounting(),
+			config.Rollup.MaxAlphaUsage,
 		)
 
 		pb.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)
@@ -381,6 +388,17 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		log.Debug("Setting up accounting")
 		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.Accounting(), peer.DB.BandwidthAgreement(), peer.Metainfo.Service, peer.Overlay.Service, 0, config.Tally.Interval)
 		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.Accounting(), config.Rollup.Interval)
+	}
+
+	{ // setup inspector
+		log.Debug("Setting up inspector")
+		peer.Inspector.Endpoint = inspector.NewEndpoint(
+			peer.Log.Named("inspector"),
+			peer.Overlay.Service,
+			peer.Metainfo.Service,
+		)
+
+		pb.RegisterHealthInspectorServer(peer.Server.PrivateGRPC(), peer.Inspector.Endpoint)
 	}
 
 	{ // setup mailservice
