@@ -4,7 +4,6 @@
 package rollup_test
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -13,6 +12,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -33,7 +33,6 @@ func TestRollupRaws(t *testing.T) {
 		start := timestamp
 
 		for i := 0; i < days; i++ {
-			fmt.Println(i)
 			err := planet.Satellites[0].DB.Accounting().SaveAtRestRaw(ctx, timestamp, timestamp, testData[i].nodeData)
 			require.NoError(t, err)
 
@@ -48,7 +47,7 @@ func TestRollupRaws(t *testing.T) {
 			require.NoError(t, err)
 			for _, r := range raw {
 				assert.Equal(t, r.IntervalEndTime.UTC(), timestamp)
-				if r.DataType == 5 {
+				if r.DataType == accounting.AtRest {
 					assert.Equal(t, testData[i].nodeData[r.NodeID], r.DataTotal)
 				} else {
 					assert.Equal(t, testData[i].bwTotals[r.NodeID][r.DataType], int64(r.DataTotal))
