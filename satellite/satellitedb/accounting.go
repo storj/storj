@@ -85,37 +85,6 @@ func (db *accountingDB) LastTimestamp(ctx context.Context, timestampType string)
 	return lastTally, err
 }
 
-// SaveBWRaw records granular tallies (sums of bw agreement values) to the database and updates the LastTimestamp
-func (db *accountingDB) SaveBWRaw(ctx context.Context, tallyEnd time.Time, created time.Time, bwTotals map[storj.NodeID][]int64) (err error) {
-	// We use the latest bandwidth agreement value of a batch of records as the start of the next batch
-	// todo:  consider finding the sum of bwagreements using SQL sum() direct against the bwa table
-	if len(bwTotals) == 0 {
-		return Error.New("In SaveBWRaw with empty bwtotals")
-	}
-	//insert all records in a transaction so if we fail, we don't have partial info stored
-	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-		//create a granular record per node id
-		for nodeID, totals := range bwTotals {
-			for actionType, total := range totals {
-				nID := dbx.AccountingRaw_NodeId(nodeID.Bytes())
-				end := dbx.AccountingRaw_IntervalEndTime(tallyEnd)
-				total := dbx.AccountingRaw_DataTotal(float64(total))
-				dataType := dbx.AccountingRaw_DataType(actionType)
-				timestamp := dbx.AccountingRaw_CreatedAt(created)
-				_, err = tx.Create_AccountingRaw(ctx, nID, end, total, dataType, timestamp)
-				if err != nil {
-					return Error.Wrap(err)
-				}
-			}
-		}
-		//save this batch's greatest time
-		update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(tallyEnd)}
-		_, err := tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastBandwidthTally), update)
-		return err
-	})
-	return Error.Wrap(err)
-}
-
 // SaveAtRestRaw records raw tallies of at rest data to the database
 func (db *accountingDB) SaveAtRestRaw(ctx context.Context, latestTally time.Time, created time.Time, nodeData map[storj.NodeID]float64) error {
 	if len(nodeData) == 0 {

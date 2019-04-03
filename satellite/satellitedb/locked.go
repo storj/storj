@@ -120,13 +120,6 @@ func (m *lockedAccounting) SaveAtRestRaw(ctx context.Context, latestTally time.T
 	return m.db.SaveAtRestRaw(ctx, latestTally, created, nodeData)
 }
 
-// SaveBWRaw records raw sums of agreement values to the database and updates the LastTimestamp.
-func (m *lockedAccounting) SaveBWRaw(ctx context.Context, tallyEnd time.Time, created time.Time, bwTotals map[storj.NodeID][]int64) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.SaveBWRaw(ctx, tallyEnd, created, bwTotals)
-}
-
 // SaveBucketTallies saves the latest bucket info
 func (m *lockedAccounting) SaveBucketTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*accounting.BucketTally) error {
 	m.Lock()

@@ -36,8 +36,8 @@ func TestRollup(t *testing.T) {
 			err := planet.Satellites[0].DB.Accounting().SaveAtRestRaw(ctx, timestamp, timestamp, testData[i].nodeData)
 			require.NoError(t, err)
 
-			err = planet.Satellites[0].DB.Accounting().SaveBWRaw(ctx, timestamp, timestamp, testData[i].bwTotals)
-			require.NoError(t, err)
+			// err = planet.Satellites[0].DB.Accounting().SaveBWRaw(ctx, timestamp, timestamp, testData[i].bwTotals)
+			// require.NoError(t, err)
 
 			err = planet.Satellites[0].Accounting.Rollup.Rollup(ctx)
 			require.NoError(t, err)
