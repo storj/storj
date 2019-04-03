@@ -138,8 +138,8 @@ func StrToSemVerList(serviceVersions []string) (versions []SemVer, err error) {
 }
 
 func init() {
-	if buildTimestamp == "" || buildCommitHash == "" {
-		return
+	if buildVersion == "" || buildTimestamp == "" || buildCommitHash == "" {
+		buildVersion = "v0.0.1"
 	}
 
 	Build = Info{
