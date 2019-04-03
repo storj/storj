@@ -394,9 +394,12 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 // CreateGetRepairOrderLimits creates the order limits for downloading the healthy pieces of pointer as the source for repair.
 func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer *identity.PeerIdentity, bucketID []byte, pointer *pb.Pointer, healthy []*pb.RemotePiece) (_ []*pb.AddressedOrderLimit, err error) {
 	rootPieceID := pointer.GetRemote().RootPieceId
-	redundancy := pointer.GetRemote().GetRedundancy()
-	shareSize := redundancy.GetErasureShareSize()
-	totalPieces := redundancy.GetTotal()
+	redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
+	totalPieces := redundancy.TotalCount()
 	expiration := pointer.ExpirationDate
 
 	// convert orderExpiration from duration to timestamp
@@ -412,7 +415,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 	}
 
 	var combinedErrs error
-	var limitsCount int32
+	var limitsCount int
 	limits := make([]*pb.AddressedOrderLimit, totalPieces)
 	for _, piece := range healthy {
 		node, err := service.cache.Get(ctx, piece.NodeId)
@@ -439,7 +442,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 			StorageNodeId:   piece.NodeId,
 			PieceId:         rootPieceID.Derive(piece.NodeId),
 			Action:          pb.PieceAction_GET_REPAIR,
-			Limit:           int64(shareSize),
+			Limit:           pieceSize,
 			PieceExpiration: expiration,
 			OrderExpiration: orderExpiration,
 		})
@@ -451,10 +454,11 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 			Limit:              orderLimit,
 			StorageNodeAddress: node.Address,
 		}
+		limitsCount++
 	}
 
-	if limitsCount < redundancy.GetMinReq() {
-		err = Error.New("not enough nodes available: got %d, required %d", limitsCount, redundancy.GetMinReq())
+	if limitsCount < redundancy.RequiredCount() {
+		err = Error.New("not enough nodes available: got %d, required %d", limitsCount, redundancy.RequiredCount())
 		return nil, errs.Combine(err, combinedErrs)
 	}
 
@@ -473,8 +477,12 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 // CreatePutRepairOrderLimits creates the order limits for uploading the repaired pieces of pointer to newNodes.
 func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer *identity.PeerIdentity, bucketID []byte, pointer *pb.Pointer, getOrderLimits []*pb.AddressedOrderLimit, newNodes []*pb.Node) (_ []*pb.AddressedOrderLimit, err error) {
 	rootPieceID := pointer.GetRemote().RootPieceId
-	shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
-	totalPieces := pointer.GetRemote().GetRedundancy().GetTotal()
+	redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
+	totalPieces := redundancy.TotalCount()
 	expiration := pointer.ExpirationDate
 
 	// convert orderExpiration from duration to timestamp
@@ -490,7 +498,7 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 	}
 
 	limits := make([]*pb.AddressedOrderLimit, totalPieces)
-	var pieceNum int32
+	var pieceNum int
 	for _, node := range newNodes {
 		if node != nil {
 			node.Type.DPanicOnInvalid("order service put repair order limits")
@@ -511,7 +519,7 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 			StorageNodeId:   node.Id,
 			PieceId:         rootPieceID.Derive(node.Id),
 			Action:          pb.PieceAction_PUT_REPAIR,
-			Limit:           int64(shareSize),
+			Limit:           pieceSize,
 			PieceExpiration: expiration,
 			OrderExpiration: orderExpiration,
 		})
