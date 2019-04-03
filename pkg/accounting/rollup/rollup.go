@@ -69,7 +69,7 @@ func (r *Service) Rollup(ctx context.Context) error {
 		return Error.Wrap(err)
 	}
 	if len(rollupStats) == 0 {
-		r.logger.Info("RollupStats is empty I")
+		r.logger.Info("RollupStats is empty")
 	}
 	err = r.RollupBW(ctx, lastRollup, rollupStats)
 	if err != nil {
