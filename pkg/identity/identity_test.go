@@ -37,7 +37,7 @@ func TestPeerIdentityFromCertChain(t *testing.T) {
 	caTemplate, err := peertls.CATemplate()
 	require.NoError(t, err)
 
-	caCert, err := peertls.CreateSelfSignedCertificate(caKey, caTemplate)
+	caCert, err := peertls.NewSelfSignedCert(caKey, caTemplate)
 	require.NoError(t, err)
 
 	leafTemplate, err := peertls.LeafTemplate()
@@ -46,7 +46,7 @@ func TestPeerIdentityFromCertChain(t *testing.T) {
 	leafKey, err := pkcrypto.GeneratePrivateKey()
 	require.NoError(t, err)
 
-	leafCert, err := peertls.CreateCertificate(pkcrypto.PublicKeyFromPrivate(leafKey), caKey, leafTemplate, caTemplate)
+	leafCert, err := peertls.NewCert(pkcrypto.PublicKeyFromPrivate(leafKey), caKey, leafTemplate, caTemplate)
 	require.NoError(t, err)
 
 	peerIdent, err := identity.PeerIdentityFromChain([]*x509.Certificate{leafCert, caCert})
@@ -63,7 +63,7 @@ func TestFullIdentityFromPEM(t *testing.T) {
 	caTemplate, err := peertls.CATemplate()
 	require.NoError(t, err)
 
-	caCert, err := peertls.CreateSelfSignedCertificate(caKey, caTemplate)
+	caCert, err := peertls.NewSelfSignedCert(caKey, caTemplate)
 	require.NoError(t, err)
 	require.NoError(t, err)
 	require.NotEmpty(t, caCert)
@@ -74,7 +74,7 @@ func TestFullIdentityFromPEM(t *testing.T) {
 	leafKey, err := pkcrypto.GeneratePrivateKey()
 	require.NoError(t, err)
 
-	leafCert, err := peertls.CreateCertificate(pkcrypto.PublicKeyFromPrivate(leafKey), caKey, leafTemplate, caTemplate)
+	leafCert, err := peertls.NewCert(pkcrypto.PublicKeyFromPrivate(leafKey), caKey, leafTemplate, caTemplate)
 	require.NoError(t, err)
 	require.NotEmpty(t, leafCert)
 
@@ -110,12 +110,8 @@ func TestConfig_Save_with_extension(t *testing.T) {
 			assert.Equal(t, version.Number, caVersion.Number)
 
 			versionExt := tlsopts.NewExtensionsMap(ident.CA)[extensions.IdentityVersionExtID.String()]
-			if ident.ID.Version().Number == 0 {
-				require.NotEmpty(t, versionExt)
-				assert.Equal(t, ident.ID.Version().Number, storj.IDVersionNumber(versionExt.Value[0]))
-			} else {
-				assert.Empty(t, versionExt)
-			}
+			require.NotEmpty(t, versionExt)
+			assert.Equal(t, ident.ID.Version().Number, storj.IDVersionNumber(versionExt.Value[0]))
 		}
 
 		{ // test saving
@@ -144,12 +140,8 @@ func TestConfig_Save_with_extension(t *testing.T) {
 			assert.Equal(t, ident.ID, loadedFi.ID)
 
 			versionExt := tlsopts.NewExtensionsMap(ident.CA)[extensions.IdentityVersionExtID.String()]
-			if ident.ID.Version().Number == 0 {
-				require.NotEmpty(t, versionExt)
-				assert.Equal(t, ident.ID.Version().Number, storj.IDVersionNumber(versionExt.Value[0]))
-			} else {
-				assert.Empty(t, versionExt)
-			}
+			require.NotEmpty(t, versionExt)
+			assert.Equal(t, ident.ID.Version().Number, storj.IDVersionNumber(versionExt.Value[0]))
 		}
 	})
 }
