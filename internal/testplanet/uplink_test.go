@@ -42,75 +42,77 @@ func TestUploadDownload(t *testing.T) {
 }
 
 func TestDownloadWithSomeNodesOffline(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	for i := 0; i < 10; i++ {
+		testplanet.Run(t, testplanet.Config{
+			SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
+		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
-		// first, upload some remote data
-		ul := planet.Uplinks[0]
-		satellite := planet.Satellites[0]
+			// first, upload some remote data
+			ul := planet.Uplinks[0]
+			satellite := planet.Satellites[0]
 
-		// stop discovery service so that we do not get a race condition when we delete nodes from overlay cache
-		satellite.Discovery.Service.Discovery.Stop()
+			// stop discovery service so that we do not get a race condition when we delete nodes from overlay cache
+			satellite.Discovery.Service.Discovery.Stop()
 
-		testData := make([]byte, 1*memory.MiB)
-		_, err := rand.Read(testData)
-		require.NoError(t, err)
-
-		err = ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     2,
-			RepairThreshold:  3,
-			SuccessThreshold: 4,
-			MaxThreshold:     5,
-		}, "testbucket", "test/path", testData)
-		require.NoError(t, err)
-
-		// get a remote segment from pointerdb
-		pdb := satellite.Metainfo.Service
-		listResponse, _, err := pdb.List("", "", "", true, 0, 0)
-		require.NoError(t, err)
-
-		var path string
-		var pointer *pb.Pointer
-		for _, v := range listResponse {
-			path = v.GetPath()
-			pointer, err = pdb.Get(path)
+			testData := make([]byte, 1*memory.MiB)
+			_, err := rand.Read(testData)
 			require.NoError(t, err)
-			if pointer.GetType() == pb.Pointer_REMOTE {
-				break
-			}
-		}
 
-		// calculate how many storagenodes to kill
-		redundancy := pointer.GetRemote().GetRedundancy()
-		remotePieces := pointer.GetRemote().GetRemotePieces()
-		minReq := redundancy.GetMinReq()
-		numPieces := len(remotePieces)
-		toKill := numPieces - int(minReq)
+			err = ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
+				MinThreshold:     2,
+				RepairThreshold:  3,
+				SuccessThreshold: 4,
+				MaxThreshold:     5,
+			}, "testbucket", "test/path", testData)
+			require.NoError(t, err)
 
-		nodesToKill := make(map[storj.NodeID]bool)
-		for i, piece := range remotePieces {
-			if i >= toKill {
-				continue
-			}
-			nodesToKill[piece.NodeId] = true
-		}
+			// get a remote segment from pointerdb
+			pdb := satellite.Metainfo.Service
+			listResponse, _, err := pdb.List("", "", "", true, 0, 0)
+			require.NoError(t, err)
 
-		for _, node := range planet.StorageNodes {
-			if nodesToKill[node.ID()] {
-				t.Logf("%s %s uplink test killing node", node.ID().String(), node.Addr())
-				err = planet.StopPeer(node)
+			var path string
+			var pointer *pb.Pointer
+			for _, v := range listResponse {
+				path = v.GetPath()
+				pointer, err = pdb.Get(path)
 				require.NoError(t, err)
-
-				t.Logf("%s %s uplink test deleting node from overlay", node.ID().String(), node.Addr())
-				err = satellite.Overlay.Service.Delete(ctx, node.ID())
-				require.NoError(t, err)
+				if pointer.GetType() == pb.Pointer_REMOTE {
+					break
+				}
 			}
-		}
 
-		// we should be able to download data without any of the original nodes
-		newData, err := ul.Download(ctx, satellite, "testbucket", "test/path")
-		require.NoError(t, err)
-		require.Equal(t, testData, newData)
-	})
+			// calculate how many storagenodes to kill
+			redundancy := pointer.GetRemote().GetRedundancy()
+			remotePieces := pointer.GetRemote().GetRemotePieces()
+			minReq := redundancy.GetMinReq()
+			numPieces := len(remotePieces)
+			toKill := numPieces - int(minReq)
+
+			nodesToKill := make(map[storj.NodeID]bool)
+			for i, piece := range remotePieces {
+				if i >= toKill {
+					continue
+				}
+				nodesToKill[piece.NodeId] = true
+			}
+
+			for _, node := range planet.StorageNodes {
+				if nodesToKill[node.ID()] {
+					t.Logf("%s %s uplink test killing node", node.ID().String(), node.Addr())
+					err = planet.StopPeer(node)
+					require.NoError(t, err)
+
+					t.Logf("%s %s uplink test deleting node from overlay", node.ID().String(), node.Addr())
+					err = satellite.Overlay.Service.Delete(ctx, node.ID())
+					require.NoError(t, err)
+				}
+			}
+
+			// we should be able to download data without any of the original nodes
+			newData, err := ul.Download(ctx, satellite, "testbucket", "test/path")
+			require.NoError(t, err)
+			require.Equal(t, testData, newData)
+		})
+	}
 }
