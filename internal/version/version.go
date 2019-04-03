@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"time"
 
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
@@ -30,10 +31,10 @@ var (
 
 // Info is the versioning information for a binary
 type Info struct {
-	Timestamp  string `json:"timestamp,omitempty"`
-	CommitHash string `json:"commitHash,omitempty"`
-	Version    SemVer `json:"version"`
-	Release    bool   `json:"release,omitempty"`
+	Timestamp  time.Time `json:"timestamp,omitempty"`
+	CommitHash string    `json:"commitHash,omitempty"`
+	Version    SemVer    `json:"version"`
+	Release    bool      `json:"release,omitempty"`
 }
 
 // SemVer represents a semantic version
@@ -139,11 +140,14 @@ func StrToSemVerList(serviceVersions []string) (versions []SemVer, err error) {
 
 func init() {
 	if buildVersion == "" || buildTimestamp == "" || buildCommitHash == "" {
-		buildVersion = "v0.0.1"
+		return
 	}
-
+	timestamp, err := strconv.ParseInt(buildTimestamp, 10, 64)
+	if err != nil {
+		return
+	}
 	Build = Info{
-		Timestamp:  buildTimestamp,
+		Timestamp:  time.Unix(timestamp, 0),
 		CommitHash: buildCommitHash,
 		Release:    buildRelease,
 	}
@@ -157,7 +161,7 @@ func init() {
 
 	Build.Version = *sv
 
-	if Build.Timestamp == "" || Build.CommitHash == "" {
+	if Build.Timestamp.Unix() == 0 || Build.CommitHash == "" {
 		Build.Release = false
 	}
 }

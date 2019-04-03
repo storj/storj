@@ -94,7 +94,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 	var err error
 
 	{
-		peer.Version = version.NewService(&config.Version, &versionInfo, "Bootstrap")
+		test := version.Info{}
+		if test != versionInfo {
+			peer.Version = version.NewService(&config.Version, &versionInfo, "Bootstrap")
+		}
 	}
 
 	{ // setup listener and server
@@ -184,7 +187,10 @@ func (peer *Peer) Run(ctx context.Context) error {
 	group, ctx := errgroup.WithContext(ctx)
 
 	group.Go(func() error {
-		return ignoreCancel(peer.Version.Run(ctx))
+		if peer.Version != nil {
+			return ignoreCancel(peer.Version.Run(ctx))
+		}
+		return nil
 	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Kademlia.Service.Bootstrap(ctx))

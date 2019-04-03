@@ -717,7 +717,7 @@ func (planet *Planet) newVersionControlServer() (peer *versioncontrol.Peer, err 
 // NewVersionInfo returns the Version Info for this planet with tuned metrics.
 func (planet *Planet) NewVersionInfo() version.Info {
 	info := version.Info{
-		Timestamp:  "",
+		Timestamp:  time.Now(),
 		CommitHash: "",
 		Version: version.SemVer{
 			Major: 0,
