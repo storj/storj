@@ -159,12 +159,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 				Wallet: config.Operator.Wallet,
 			},
 			Version: &pb.NodeVersion{
-				Major:     version.Build.Version.Major,
-				Minor:     version.Build.Version.Minor,
-				Patch:     version.Build.Version.Patch,
-				Hash:      version.Build.CommitHash,
-				Timestamp: version.Build.Timestamp.Unix(),
-				Release:   version.Build.Release,
+				Major:     versionInfo.Version.Major,
+				Minor:     versionInfo.Version.Minor,
+				Patch:     versionInfo.Version.Patch,
+				Hash:      versionInfo.CommitHash,
+				Timestamp: versionInfo.Timestamp.Unix(),
+				Release:   versionInfo.Release,
 			},
 		}
 
