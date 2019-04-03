@@ -6,6 +6,7 @@ package storagenode
 import (
 	"context"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -148,6 +149,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			config.ExternalAddress = peer.Addr()
 		}
 
+		pbts, err := ptypes.TimestampProto(versionInfo.Timestamp)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		self := pb.Node{
 			Id:   peer.ID(),
 			Type: pb.NodeType_STORAGE,
@@ -159,12 +165,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 				Wallet: config.Operator.Wallet,
 			},
 			Version: &pb.NodeVersion{
-				Major:     versionInfo.Version.Major,
-				Minor:     versionInfo.Version.Minor,
-				Patch:     versionInfo.Version.Patch,
-				Hash:      versionInfo.CommitHash,
-				Timestamp: versionInfo.Timestamp.Unix(),
-				Release:   versionInfo.Release,
+				Version:    versionInfo.Version.String(),
+				CommitHash: versionInfo.CommitHash,
+				Timestamp:  pbts,
+				Release:    versionInfo.Release,
 			},
 		}
 

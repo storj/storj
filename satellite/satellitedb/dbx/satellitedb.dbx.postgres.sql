@@ -106,7 +106,7 @@ CREATE TABLE nodes (
 	minor bigint NOT NULL,
 	patch bigint NOT NULL,
 	hash text NOT NULL,
-	timestamp bigint NOT NULL,
+	timestamp timestamp with time zone NOT NULL,
 	release boolean NOT NULL,
 	latency_90 bigint NOT NULL,
 	audit_success_count bigint NOT NULL,

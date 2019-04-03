@@ -7,6 +7,7 @@ option go_package = "pb";
 package node;
 
 import "gogo.proto";
+import "google/protobuf/timestamp.proto";
 
 // TODO move statdb.Update() stuff out of here
 // Node represents a node in the overlay network
@@ -84,10 +85,8 @@ message NodeRestrictions {
 
 // NodeVersion contains
 message NodeVersion {
-    int64 major = 1;
-    int64 minor = 2;
-    int64 patch = 3;
-    string hash = 4;
-    int64 timestamp = 5;
-    bool release = 6;
+    string version = 1; // must be semver formatted
+    string commit_hash = 2;
+    google.protobuf.Timestamp timestamp = 3;
+    bool release = 4;
 }

@@ -425,7 +425,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						PRIMARY KEY ( bucket_id, interval_start )
 					)`,
 					`ALTER TABLE bucket_usages DROP CONSTRAINT bucket_usages_rollup_end_time_bucket_id_key`,
-					`CREATE UNIQUE INDEX bucket_id_rollup_end_time_index ON bucket_usages ( 
+					`CREATE UNIQUE INDEX bucket_id_rollup_end_time_index ON bucket_usages (
 						bucket_id,
 						rollup_end_time )`,
 				},
@@ -538,11 +538,11 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					ALTER TABLE nodes ADD minor bigint;
 					ALTER TABLE nodes ADD patch bigint;
 					ALTER TABLE nodes ADD hash TEXT;
-					ALTER TABLE nodes ADD timestamp bigint;
+					ALTER TABLE nodes ADD timestamp timestamp with time zone;
 					ALTER TABLE nodes ADD release bool;
 					UPDATE nodes SET major = 0, minor = 1, patch = 0;
 					UPDATE nodes SET hash = '';
-					UPDATE nodes SET timestamp = 0;
+					UPDATE nodes SET timestamp = epoch;
 					UPDATE nodes SET release = false;
 					ALTER TABLE nodes ALTER COLUMN major SET NOT NULL;
 					ALTER TABLE nodes ALTER COLUMN minor SET NOT NULL;
@@ -559,7 +559,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 func postgresHasColumn(tx *sql.Tx, table, column string) (bool, error) {
 	var columnName string
 	err := tx.QueryRow(`
-		SELECT column_name FROM information_schema.COLUMNS 
+		SELECT column_name FROM information_schema.COLUMNS
 			WHERE table_schema = CURRENT_SCHEMA
 				AND table_name = $1
 				AND column_name = $2
@@ -577,7 +577,7 @@ func postgresHasColumn(tx *sql.Tx, table, column string) (bool, error) {
 func postgresColumnNullability(tx *sql.Tx, table, column string) (bool, error) {
 	var nullability string
 	err := tx.QueryRow(`
-		SELECT is_nullable FROM information_schema.COLUMNS 
+		SELECT is_nullable FROM information_schema.COLUMNS
 			WHERE table_schema = CURRENT_SCHEMA
 				AND table_name = $1
 				AND column_name = $2

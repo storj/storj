@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -378,7 +379,7 @@ CREATE TABLE nodes (
 	minor bigint NOT NULL,
 	patch bigint NOT NULL,
 	hash text NOT NULL,
-	timestamp bigint NOT NULL,
+	timestamp timestamp with time zone NOT NULL,
 	release boolean NOT NULL,
 	latency_90 bigint NOT NULL,
 	audit_success_count bigint NOT NULL,
@@ -635,7 +636,7 @@ CREATE TABLE nodes (
 	minor INTEGER NOT NULL,
 	patch INTEGER NOT NULL,
 	hash TEXT NOT NULL,
-	timestamp INTEGER NOT NULL,
+	timestamp TIMESTAMP NOT NULL,
 	release INTEGER NOT NULL,
 	latency_90 INTEGER NOT NULL,
 	audit_success_count INTEGER NOT NULL,
@@ -2148,7 +2149,7 @@ type Node struct {
 	Minor              int64
 	Patch              int64
 	Hash               string
-	Timestamp          int64
+	Timestamp          time.Time
 	Release            bool
 	Latency90          int64
 	AuditSuccessCount  int64
@@ -2421,10 +2422,10 @@ func (Node_Hash_Field) _Column() string { return "hash" }
 type Node_Timestamp_Field struct {
 	_set   bool
 	_null  bool
-	_value int64
+	_value time.Time
 }
 
-func Node_Timestamp(v int64) Node_Timestamp_Field {
+func Node_Timestamp(v time.Time) Node_Timestamp_Field {
 	return Node_Timestamp_Field{_set: true, _value: v}
 }
 
@@ -3599,54 +3600,10 @@ func __sqlbundle_Render(dialect __sqlbundle_Dialect, sql __sqlbundle_SQL, ops ..
 	return dialect.Rebind(out)
 }
 
-func __sqlbundle_flattenSQL(x string) string {
-	// trim whitespace from beginning and end
-	s, e := 0, len(x)-1
-	for s < len(x) && (x[s] == ' ' || x[s] == '\t' || x[s] == '\n') {
-		s++
-	}
-	for s <= e && (x[e] == ' ' || x[e] == '\t' || x[e] == '\n') {
-		e--
-	}
-	if s > e {
-		return ""
-	}
-	x = x[s : e+1]
+var __sqlbundle_reSpace = regexp.MustCompile(`\s+`)
 
-	// check for whitespace that needs fixing
-	wasSpace := false
-	for i := 0; i < len(x); i++ {
-		r := x[i]
-		justSpace := r == ' '
-		if (wasSpace && justSpace) || r == '\t' || r == '\n' {
-			// whitespace detected, start writing a new string
-			var result strings.Builder
-			result.Grow(len(x))
-			if wasSpace {
-				result.WriteString(x[:i-1])
-			} else {
-				result.WriteString(x[:i])
-			}
-			for p := i; p < len(x); p++ {
-				for p < len(x) && (x[p] == ' ' || x[p] == '\t' || x[p] == '\n') {
-					p++
-				}
-				result.WriteByte(' ')
-
-				start := p
-				for p < len(x) && !(x[p] == ' ' || x[p] == '\t' || x[p] == '\n') {
-					p++
-				}
-				result.WriteString(x[start:p])
-			}
-
-			return result.String()
-		}
-		wasSpace = justSpace
-	}
-
-	// no problematic whitespace found
-	return x
+func __sqlbundle_flattenSQL(s string) string {
+	return strings.TrimSpace(__sqlbundle_reSpace.ReplaceAllString(s, " "))
 }
 
 // this type is specially named to match up with the name returned by the
@@ -3725,8 +3682,6 @@ type __sqlbundle_Condition struct {
 func (*__sqlbundle_Condition) private() {}
 
 func (c *__sqlbundle_Condition) Render() string {
-	// TODO(jeff): maybe check if we can use placeholders instead of the
-	// literal null: this would make the templates easier.
 
 	switch {
 	case c.Equal && c.Null:

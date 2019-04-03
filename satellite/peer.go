@@ -229,18 +229,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		log.Debug("Starting overlay")
 		config := config.Overlay
 
-		nodeSelectionConfig := overlay.NodeSelectionConfig{
-			UptimeCount:           config.Node.UptimeCount,
-			UptimeRatio:           config.Node.UptimeRatio,
-			AuditSuccessRatio:     config.Node.AuditSuccessRatio,
-			AuditCount:            config.Node.AuditCount,
-			NewNodeAuditThreshold: config.Node.NewNodeAuditThreshold,
-			NewNodePercentage:     config.Node.NewNodePercentage,
-			//ToDo: Add Custom Version for Node Selection instead of the same as the satellite runs on
-			Version: versionInfo.Version.String(),
-		}
-
-		peer.Overlay.Service = overlay.NewCache(peer.Log.Named("overlay"), peer.DB.OverlayCache(), nodeSelectionConfig)
+		peer.Overlay.Service = overlay.NewCache(peer.Log.Named("overlay"), peer.DB.OverlayCache(), config.Node)
 		peer.Transport = peer.Transport.WithObservers(peer.Overlay.Service)
 
 		peer.Overlay.Inspector = overlay.NewInspector(peer.Overlay.Service)

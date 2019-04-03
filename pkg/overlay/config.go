@@ -33,7 +33,6 @@ type LookupConfig struct {
 // NodeSelectionConfig is a configuration struct to determine the minimum
 // values for nodes to select
 type NodeSelectionConfig struct {
-	Version           string  `help:"set to minimum node software version" default:"v0.1.0"`
 	UptimeRatio       float64 `help:"a node's ratio of being up/online vs. down/offline" default:"0"`
 	UptimeCount       int64   `help:"the number of times a node's uptime has been checked" default:"0"`
 	AuditSuccessRatio float64 `help:"a node's ratio of successful audits" default:"0"`
@@ -41,6 +40,8 @@ type NodeSelectionConfig struct {
 
 	NewNodeAuditThreshold int64   `help:"the number of audits a node must have to not be considered a New Node" default:"0"`
 	NewNodePercentage     float64 `help:"the percentage of new nodes allowed per request" default:"0.05"` // TODO: fix, this is not percentage, it's ratio
+
+	MinimumVersion string `help:"set to minimum node software version" default:""`
 }
 
 // ParseIDs converts the base58check encoded node ID strings from the config into node IDs

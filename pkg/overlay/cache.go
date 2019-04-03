@@ -10,7 +10,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
@@ -84,16 +83,16 @@ type FindStorageNodesRequest struct {
 
 	FreeBandwidth int64
 	FreeDisk      int64
-	Version       pb.NodeVersion
 
 	ExcludedNodes []storj.NodeID
+
+	MinimumVersion string // semver or empty
 }
 
 // NodeCriteria are the requirements for selecting nodes
 type NodeCriteria struct {
 	FreeBandwidth int64
 	FreeDisk      int64
-	Version       pb.NodeVersion
 
 	AuditCount         int64
 	AuditSuccessRatio  float64
@@ -101,17 +100,20 @@ type NodeCriteria struct {
 	UptimeSuccessRatio float64
 
 	Excluded []storj.NodeID
+
+	MinimumVersion string // semver or empty
 }
 
 // NewNodeCriteria are the requirement for selecting new nodes
 type NewNodeCriteria struct {
 	FreeBandwidth int64
 	FreeDisk      int64
-	Version       pb.NodeVersion
 
 	AuditThreshold int64
 
 	Excluded []storj.NodeID
+
+	MinimumVersion string // semver or empty
 }
 
 // UpdateRequest is used to update a node status.
@@ -223,19 +225,9 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 		auditCount = preferences.NewNodeAuditThreshold
 	}
 
-	ver, err := version.NewSemVer(preferences.Version)
-	if err != nil {
-		return nil, ErrIncorrectVersion
-	}
-	nodeVersion := pb.NodeVersion{
-		Major: ver.Major,
-		Minor: ver.Minor,
-		Patch: ver.Patch,
-	}
 	reputableNodes, err := cache.db.SelectStorageNodes(ctx, reputableNodeCount, &NodeCriteria{
 		FreeBandwidth: req.FreeBandwidth,
 		FreeDisk:      req.FreeDisk,
-		Version:       nodeVersion,
 
 		AuditCount:         auditCount,
 		AuditSuccessRatio:  preferences.AuditSuccessRatio,
@@ -243,6 +235,8 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 		UptimeSuccessRatio: preferences.UptimeRatio,
 
 		Excluded: req.ExcludedNodes,
+
+		MinimumVersion: preferences.MinimumVersion,
 	})
 	if err != nil {
 		return nil, err
@@ -252,11 +246,12 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 	newNodes, err := cache.db.SelectNewStorageNodes(ctx, int(newNodeCount), &NewNodeCriteria{
 		FreeBandwidth: req.FreeBandwidth,
 		FreeDisk:      req.FreeDisk,
-		Version:       nodeVersion,
 
 		AuditThreshold: preferences.NewNodeAuditThreshold,
 
 		Excluded: req.ExcludedNodes,
+
+		MinimumVersion: preferences.MinimumVersion,
 	})
 	if err != nil {
 		return nil, err

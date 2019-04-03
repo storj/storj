@@ -36,9 +36,9 @@ read one (
 	where  irreparabledb.segmentpath = ?
 )
 
-read limitoffset ( 
-	select irreparabledb 
-	orderby asc irreparabledb.segmentpath 
+read limitoffset (
+	select irreparabledb
+	orderby asc irreparabledb.segmentpath
 )
 
 //--- accounting ---//
@@ -68,7 +68,7 @@ model accounting_rollup (
 	field put_total        int64
 	field get_total        int64
 	field get_audit_total  int64
-	field get_repair_total int64 
+	field get_repair_total int64
 	field put_repair_total int64
 	field at_rest_total    float64
 )
@@ -132,7 +132,7 @@ model node (
 	field minor             int64 ( updatable )
 	field patch             int64 ( updatable )
 	field hash              text ( updatable )
-	field timestamp         int64 ( updatable )
+	field timestamp         timestamp ( updatable )
 	field release           bool ( updatable )
 
 	field latency_90           int64   ( updatable )
@@ -435,7 +435,7 @@ model bucket_storage_tally (
 
 	field inline uint64
 	field remote uint64
-	
+
 	field  remote_segments_count    uint
 	field  inline_segments_count    uint
 	field  object_count             uint
@@ -488,7 +488,7 @@ model storagenode_storage_tally (
 //--- certRecord ---//
 
 model certRecord (
-	key id 
+	key id
 
 	field publickey  blob		//--uplink public key--//
 	field id         blob		//--uplink node id  --//

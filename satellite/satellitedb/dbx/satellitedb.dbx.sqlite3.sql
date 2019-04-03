@@ -106,7 +106,7 @@ CREATE TABLE nodes (
 	minor INTEGER NOT NULL,
 	patch INTEGER NOT NULL,
 	hash TEXT NOT NULL,
-	timestamp INTEGER NOT NULL,
+	timestamp TIMESTAMP NOT NULL,
 	release INTEGER NOT NULL,
 	latency_90 INTEGER NOT NULL,
 	audit_success_count INTEGER NOT NULL,
