@@ -41,36 +41,29 @@ func makeBucket(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Nested buckets not supported, use format sj://bucket/")
 	}
 
-	uplink, err := cfg.NewUplink(ctx, nil)
+	p, err := cfg.GetProject(ctx)
 	if err != nil {
-		fmt.Printf("Error setting up Uplink: %+v\n", err)
+		fmt.Printf("Error setting up project uplink: %+v\n", err)
 		return err
 	}
 
-	uplink.OpenProject(
-	// lc, err := Client.GetBucket(ctx, dst.Bucket())
-	// if err != nil {
-	// 	return err
-	// }
+	_, _, err = p.GetBucketInfo(ctx, dst.Bucket())
+	if err != nil {
+		return err
+	}
 
-	// metainfo, _, err := cfg.Metainfo(ctx)
-	// if err != nil {
-	// 	return err
-	// }
+	if err == nil {
+		return fmt.Errorf("Bucket already exists")
+	}
 
-	// _, err = metainfo.GetBucket(ctx, dst.Bucket())
-	// if err == nil {
-	// 	return fmt.Errorf("Bucket already exists")
-	// }
 	if !storj.ErrBucketNotFound.Has(err) {
 		return err
 	}
-	// _, err = metainfo.CreateBucket(ctx, dst.Bucket(), &storj.Bucket{PathCipher: storj.Cipher(cfg.Enc.PathType)})
-	// if err != nil {
-	// 	return err
-	// }
 
-	// bucket, err := Client.CreateBucket(ctx, dst.Bucket())
+	_, err = p.CreateBucket(ctx, dst.Bucket(), nil)
+	if err != nil {
+		return err
+	}
 
 	fmt.Printf("Bucket %s created\n", dst.Bucket())
 

@@ -56,7 +56,7 @@ func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
 }
 
 // Metainfo loads the storj.Metainfo
-//
+// Deprecated: Use Libuplink methods instead.
 // Temporarily it also returns an instance of streams.Store until we improve
 // the metainfo and streas implementations.
 func (c *UplinkFlags) Metainfo(ctx context.Context) (storj.Metainfo, streams.Store, error) {
@@ -80,15 +80,20 @@ func NewUplinkWithConfigs(ctx context.Context, config cfgstruct.FlagSet) (*libup
 }
 
 // GetProject returns a *libuplink.Project for interacting with a specific project
-func (c *Client) GetProject(ctx context.Context) (*libuplink.Project, error) {
-	apiKey, err := libuplink.ParseAPIKey(c.Flags.Client.APIKey)
+func (c *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, error) {
+	apiKey, err := libuplink.ParseAPIKey(c.Client.APIKey)
 	if err != nil {
 		return nil, err
 	}
 
-	satelliteAddr := c.Flags.Config.Client.SatelliteAddr
+	satelliteAddr := c.Client.SatelliteAddr
 
-	return c.Uplink.OpenProject(ctx, satelliteAddr, apiKey)
+	uplink, err := c.NewUplink(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return uplink.OpenProject(ctx, satelliteAddr, apiKey)
 }
 
 // CreateBucket will create a bucket and return an error if it wasn't created

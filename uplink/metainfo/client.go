@@ -68,6 +68,7 @@ func NewClient(ctx context.Context, tc transport.Client, address string, APIKey 
 		grpc.WithUnaryInterceptor(apiKeyInjector),
 	)
 	if err != nil {
+		fmt.Printf("Error with API Key setup: %+v\n", err)
 		return nil, Error.Wrap(err)
 	}
 
