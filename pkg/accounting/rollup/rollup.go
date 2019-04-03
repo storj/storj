@@ -70,6 +70,10 @@ func (r *Service) Rollup(ctx context.Context) error {
 	if err != nil {
 		return Error.Wrap(err)
 	}
+	if len(rollupStats) == 0 {
+		r.logger.Info("RollupStats is empty")
+		return nil
+	}
 	err = r.db.SaveRollup(ctx, latestTally, rollupStats)
 	if err != nil {
 		return Error.Wrap(err)

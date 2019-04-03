@@ -4,6 +4,7 @@
 package rollup_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -35,9 +37,8 @@ func TestRollup(t *testing.T) {
 		for i := 0; i < days; i++ {
 			err := planet.Satellites[0].DB.Accounting().SaveAtRestRaw(ctx, timestamp, timestamp, testData[i].nodeData)
 			require.NoError(t, err)
-
-			// err = planet.Satellites[0].DB.Accounting().SaveBWRaw(ctx, timestamp, timestamp, testData[i].bwTotals)
-			// require.NoError(t, err)
+			err = saveBW(ctx, planet, testData[i].bwTotals)
+			require.NoError(t, err)
 
 			err = planet.Satellites[0].Accounting.Rollup.Rollup(ctx)
 			require.NoError(t, err)
@@ -112,4 +113,23 @@ func createData(planet *testplanet.Planet, days int) []testData {
 		}
 	}
 	return data
+}
+
+func saveBW(ctx context.Context, planet *testplanet.Planet, bwTotals map[storj.NodeID][]int64) error {
+	pieceActions := []pb.PieceAction{pb.PieceAction_PUT, pb.PieceAction_GET, pb.PieceAction_GET_AUDIT, pb.PieceAction_GET_REPAIR}
+	// loop through node ids
+	for i, days := range bwTotals {
+		// loop through days
+		for j, bw := range days {
+			err := planet.Satellites[0].DB.Orders().UpdateStoragenodeBandwidthAllocation(ctx, i, pieceActions[j], bw)
+			if err != nil {
+				return err
+			}
+			err = planet.Satellites[0].DB.Orders().UpdateStoragenodeBandwidthSettle(ctx, i, pieceActions[j], bw)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
