@@ -13,6 +13,8 @@ import ProjectDetails from '@/components/project/ProjectDetailsArea.vue';
 import TeamArea from '@/components/team/TeamArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
 import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
+import UsageReport from '@/components/project/UsageReport.vue';
+import ReportTable from '@/components/project/ReportTable.vue';
 import BucketArea from '@/components/buckets/BucketArea.vue';
 import { getToken } from '@/utils/tokenManager';
 
@@ -52,7 +54,7 @@ let router = new Router({
                 {
                     path: ROUTES.PROJECT_DETAILS.path,
                     name: ROUTES.PROJECT_DETAILS.name,
-                    component: ProjectDetails
+                    component: ProjectDetails,
                 },
                 {
                     path: ROUTES.TEAM.path,
@@ -65,6 +67,11 @@ let router = new Router({
                     component: ApiKeysArea
                 },
                 {
+                    path: ROUTES.USAGE_REPORT.path,
+                    name: ROUTES.USAGE_REPORT.name,
+                    component: UsageReport,
+                },
+                {
                     path: ROUTES.BUCKETS.path,
                     name: ROUTES.BUCKETS.name,
                     component: BucketArea
@@ -75,6 +82,11 @@ let router = new Router({
                 //     component: DashboardArea
                 // },
             ]
+        },
+        {
+          path: ROUTES.REPORT_TABLE.path,
+          name: ROUTES.REPORT_TABLE.name,
+          component: ReportTable,
         },
         {
             path: '*',

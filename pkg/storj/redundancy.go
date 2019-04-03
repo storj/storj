@@ -5,14 +5,24 @@ package storj
 
 // RedundancyScheme specifies the parameters and the algorithm for redundancy
 type RedundancyScheme struct {
+	// Algorithm determines the algorithm to be used for redundancy.
 	Algorithm RedundancyAlgorithm
 
+	// ShareSize is the size to use for new redundancy shares.
 	ShareSize int32
 
+	// RequiredShares is the minimum number of shares required to recover a
+	// segment.
 	RequiredShares int16
-	RepairShares   int16
-	OptimalShares  int16
-	TotalShares    int16
+	// RepairShares is the minimum number of safe shares that can remain
+	// before a repair is triggered.
+	RepairShares int16
+	// OptimalShares is the desired total number of shares for a segment.
+	OptimalShares int16
+	// TotalShares is the number of shares to encode. If it is larger than
+	// OptimalShares, slower uploads of the excess shares will be aborted in
+	// order to improve performance.
+	TotalShares int16
 }
 
 // IsZero returns true if no field in the struct is set to non-zero value

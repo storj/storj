@@ -337,7 +337,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
   						get_egress bigint NOT NULL,
   						audit_egress bigint NOT NULL,
   						PRIMARY KEY ( id ),
-  						UNIQUE ( rollup_end_time, bucket_id )
+						UNIQUE ( rollup_end_time, bucket_id )
 					)`,
 				},
 			},
@@ -492,6 +492,42 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					 WHERE nodes.id=overlay.node_id;`,
 					// Delete the overlay cache_nodes table
 					`DROP TABLE overlay_cache_nodes CASCADE;`,
+				},
+			},
+			{
+				Description: "Change bucket_id to bucket_name and project_id",
+				Version:     13,
+				Action: migrate.SQL{
+					// Modify columns: bucket_id --> bucket_name + project_id for table bucket_storage_tallies
+					`ALTER TABLE bucket_storage_tallies ADD project_id bytea;`,
+					`UPDATE bucket_storage_tallies SET project_id=SUBSTRING(bucket_id FROM 1 FOR 16);`,
+					`ALTER TABLE bucket_storage_tallies ALTER COLUMN project_id SET NOT NULL;`,
+					`ALTER TABLE bucket_storage_tallies RENAME COLUMN bucket_id TO bucket_name;`,
+					`UPDATE bucket_storage_tallies SET bucket_name=SUBSTRING(bucket_name from 18);`,
+
+					// Update the primary key for bucket_storage_tallies
+					`ALTER TABLE bucket_storage_tallies DROP CONSTRAINT bucket_storage_rollups_pkey;`,
+					`ALTER TABLE bucket_storage_tallies ADD CONSTRAINT bucket_storage_tallies_pk PRIMARY KEY (bucket_name, project_id, interval_start);`,
+
+					// Modify columns: bucket_id --> bucket_name + project_id for table bucket_bandwidth_rollups
+					`ALTER TABLE bucket_bandwidth_rollups ADD project_id bytea;`,
+					`UPDATE bucket_bandwidth_rollups SET project_id=SUBSTRING(bucket_id FROM 1 FOR 16);`,
+					`ALTER TABLE bucket_bandwidth_rollups ALTER COLUMN project_id SET NOT NULL;`,
+					`ALTER TABLE bucket_bandwidth_rollups RENAME COLUMN bucket_id TO bucket_name;`,
+					`UPDATE bucket_bandwidth_rollups SET bucket_name=SUBSTRING(bucket_name from 18);`,
+
+					// Update index for bucket_bandwidth_rollups
+					`DROP INDEX IF EXISTS bucket_id_interval_start_interval_seconds_index;`,
+					`CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups (
+						bucket_name,
+						project_id,
+						interval_start,
+						interval_seconds
+					);`,
+
+					// Update the primary key for bucket_bandwidth_rollups
+					`ALTER TABLE bucket_bandwidth_rollups DROP CONSTRAINT bucket_bandwidth_rollups_pkey;`,
+					`ALTER TABLE bucket_bandwidth_rollups ADD CONSTRAINT bucket_bandwidth_rollups_pk PRIMARY KEY (bucket_name, project_id, interval_start, action);`,
 				},
 			},
 		},
