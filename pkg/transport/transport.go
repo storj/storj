@@ -26,7 +26,7 @@ type Client interface {
 	DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (*grpc.ClientConn, error)
 	DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (*grpc.ClientConn, error)
 	Identity() *identity.FullIdentity
-	WithObservers(obs ...Observer) *Transport
+	WithObservers(obs ...Observer) Client
 }
 
 // Transport interface structure
@@ -57,13 +57,13 @@ func NewClientWithTimeout(tlsOpts *tlsopts.Options, requestTimeout time.Duration
 // target node has the private key for the requested node ID.
 func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	if node != nil {
 		node.Type.DPanicOnInvalid("transport dial node")
 	}
 	if node.Address == nil || node.Address.Address == "" {
 		return nil, Error.New("no address")
 	}
-
 	dialOption, err := transport.tlsOpts.DialOption(node.Id)
 	if err != nil {
 		return nil, err
@@ -124,7 +124,7 @@ func (transport *Transport) Identity() *identity.FullIdentity {
 }
 
 // WithObservers returns a new transport including the listed observers.
-func (transport *Transport) WithObservers(obs ...Observer) *Transport {
+func (transport *Transport) WithObservers(obs ...Observer) Client {
 	tr := &Transport{tlsOpts: transport.tlsOpts, requestTimeout: transport.requestTimeout}
 	tr.observers = append(tr.observers, transport.observers...)
 	tr.observers = append(tr.observers, obs...)
