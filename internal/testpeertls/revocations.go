@@ -11,6 +11,7 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/extensions"
+	"storj.io/storj/pkg/peertls/tlsopts"
 )
 
 // RevokeLeaf revokes the leaf certificate in the passed chain and replaces it
@@ -79,17 +80,12 @@ func RevokeCA(caKey crypto.PrivateKey, chain []*x509.Certificate) ([]*x509.Certi
 		return nil, pkix.Extension{}, err
 	}
 
-	var revocationExt *pkix.Extension
-	for _, ext := range ca.Cert.Extensions {
-		if extensions.RevocationExtID.Equal(ext.Id) {
-			revocationExt = &ext
-			break
-		}
-	}
-	if revocationExt == nil {
+	extMap := tlsopts.NewExtensionsMap(ca.Cert)
+	revocationExt, ok := extMap[extensions.RevocationExtID.String()]
+	if !ok {
 		return nil, pkix.Extension{}, extensions.ErrRevocation.New("no revocation extension found")
 	}
-	return append([]*x509.Certificate{chain[peertls.LeafIndex], ca.Cert}, ca.RestChain...), *revocationExt, nil
+	return append([]*x509.Certificate{chain[peertls.LeafIndex], ca.Cert}, ca.RestChain...), revocationExt, nil
 }
 
 // NewRevokedLeafChain creates a certificate chain (of length 2) with a leaf
