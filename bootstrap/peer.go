@@ -96,6 +96,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 	{
 		test := version.Info{}
 		if test != versionInfo {
+			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
+				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 			peer.Version = version.NewService(config.Version, versionInfo, "Bootstrap")
 		}
 	}
