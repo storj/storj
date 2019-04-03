@@ -11,6 +11,7 @@ import (
 	"encoding/asn1"
 	"os"
 	"runtime"
+	"storj.io/storj/pkg/peertls/tlsopts"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -147,15 +148,15 @@ func TestVerifyPeer(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestManageableIdentity_AddExtension(t *testing.T) {
+func TestManageablePeerIdentity_AddExtension(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	manageableIdentity, err := testidentity.NewTestManageablePeerIdentity(ctx)
+	manageablePeerIdentity, err := testidentity.NewTestManageablePeerIdentity(ctx)
 	require.NoError(t, err)
 
-	oldLeaf := manageableIdentity.Leaf
-	assert.Len(t, manageableIdentity.CA.Cert.ExtraExtensions, 0)
+	oldLeaf := manageablePeerIdentity.Leaf
+	assert.Len(t, manageablePeerIdentity.CA.Cert.ExtraExtensions, 0)
 
 	randBytes := make([]byte, 10)
 	_, err = rand.Read(randBytes)
@@ -165,54 +166,55 @@ func TestManageableIdentity_AddExtension(t *testing.T) {
 		Value: randBytes,
 	}
 
-	err = manageableIdentity.AddExtension(randExt)
+	err = manageablePeerIdentity.AddExtension(randExt)
 	assert.NoError(t, err)
 
-	assert.Len(t, manageableIdentity.Leaf.ExtraExtensions, 0)
-	assert.Len(t, manageableIdentity.Leaf.Extensions, len(oldLeaf.Extensions)+1)
+	assert.Len(t, manageablePeerIdentity.Leaf.ExtraExtensions, 0)
+	assert.Len(t, manageablePeerIdentity.Leaf.Extensions, len(oldLeaf.Extensions)+1)
 
-	assert.Equal(t, oldLeaf.SerialNumber, manageableIdentity.Leaf.SerialNumber)
-	assert.Equal(t, oldLeaf.IsCA, manageableIdentity.Leaf.IsCA)
-	assert.Equal(t, oldLeaf.PublicKey, manageableIdentity.Leaf.PublicKey)
-	assert.Equal(t, randExt, manageableIdentity.Leaf.Extensions[len(manageableIdentity.Leaf.Extensions)-1])
+	assert.Equal(t, oldLeaf.SerialNumber, manageablePeerIdentity.Leaf.SerialNumber)
+	assert.Equal(t, oldLeaf.IsCA, manageablePeerIdentity.Leaf.IsCA)
+	assert.Equal(t, oldLeaf.PublicKey, manageablePeerIdentity.Leaf.PublicKey)
 
-	assert.NotEqual(t, oldLeaf.Raw, manageableIdentity.Leaf.Raw)
-	assert.NotEqual(t, oldLeaf.RawTBSCertificate, manageableIdentity.Leaf.RawTBSCertificate)
-	assert.NotEqual(t, oldLeaf.Signature, manageableIdentity.Leaf.Signature)
+	assert.Equal(t, randExt, tlsopts.NewExtensionsMap(manageablePeerIdentity.Leaf)[randExt.Id.String()])
+
+	assert.NotEqual(t, oldLeaf.Raw, manageablePeerIdentity.Leaf.Raw)
+	assert.NotEqual(t, oldLeaf.RawTBSCertificate, manageablePeerIdentity.Leaf.RawTBSCertificate)
+	assert.NotEqual(t, oldLeaf.Signature, manageablePeerIdentity.Leaf.Signature)
 }
 
-func TestManageableIdentity_Revoke(t *testing.T) {
+func TestManageableFullIdentity_Revoke(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	manageableFullIdent, err := testidentity.NewTestManageableFullIdentity(ctx)
+	manageableFullIdentity, err := testidentity.NewTestManageableFullIdentity(ctx)
 	require.NoError(t, err)
 
-	oldLeaf := manageableFullIdent.Leaf
-	assert.Len(t, manageableFullIdent.CA.Cert.ExtraExtensions, 0)
+	oldLeaf := manageableFullIdentity.Leaf
+	assert.Len(t, manageableFullIdentity.CA.Cert.ExtraExtensions, 0)
 
-	err = manageableFullIdent.Revoke()
+	err = manageableFullIdentity.Revoke()
 	assert.NoError(t, err)
 
-	assert.Len(t, manageableFullIdent.Leaf.ExtraExtensions, 0)
-	assert.Len(t, manageableFullIdent.Leaf.Extensions, len(oldLeaf.Extensions)+1)
+	assert.Len(t, manageableFullIdentity.Leaf.ExtraExtensions, 0)
+	assert.Len(t, manageableFullIdentity.Leaf.Extensions, len(oldLeaf.Extensions)+1)
 
-	assert.Equal(t, oldLeaf.IsCA, manageableFullIdent.Leaf.IsCA)
+	assert.Equal(t, oldLeaf.IsCA, manageableFullIdentity.Leaf.IsCA)
 
-	assert.NotEqual(t, oldLeaf.PublicKey, manageableFullIdent.Leaf.PublicKey)
-	assert.NotEqual(t, oldLeaf.SerialNumber, manageableFullIdent.Leaf.SerialNumber)
-	assert.NotEqual(t, oldLeaf.Raw, manageableFullIdent.Leaf.Raw)
-	assert.NotEqual(t, oldLeaf.RawTBSCertificate, manageableFullIdent.Leaf.RawTBSCertificate)
-	assert.NotEqual(t, oldLeaf.Signature, manageableFullIdent.Leaf.Signature)
+	assert.NotEqual(t, oldLeaf.PublicKey, manageableFullIdentity.Leaf.PublicKey)
+	assert.NotEqual(t, oldLeaf.SerialNumber, manageableFullIdentity.Leaf.SerialNumber)
+	assert.NotEqual(t, oldLeaf.Raw, manageableFullIdentity.Leaf.Raw)
+	assert.NotEqual(t, oldLeaf.RawTBSCertificate, manageableFullIdentity.Leaf.RawTBSCertificate)
+	assert.NotEqual(t, oldLeaf.Signature, manageableFullIdentity.Leaf.Signature)
 
-	revocationExt := manageableFullIdent.Leaf.Extensions[len(manageableFullIdent.Leaf.Extensions)-1]
+	revocationExt := tlsopts.NewExtensionsMap(manageableFullIdentity.Leaf)[extensions.RevocationExtID.String()]
 	assert.True(t, extensions.RevocationExtID.Equal(revocationExt.Id))
 
 	var rev extensions.Revocation
 	err = rev.Unmarshal(revocationExt.Value)
 	require.NoError(t, err)
 
-	err = rev.Verify(manageableFullIdent.CA.Cert)
+	err = rev.Verify(manageableFullIdentity.CA.Cert)
 	assert.NoError(t, err)
 }
 
