@@ -18,10 +18,12 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/s3client"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testplanet"
+	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/miniogw"
@@ -141,7 +143,7 @@ func TestUploadDownload(t *testing.T) {
 }
 
 // runGateway creates and starts a gateway
-func runGateway(ctx context.Context, gwCfg config, uplinkCfg uplink.Config, log *zap.Logger, identity *identity.FullIdentity) (err error) {
+func runGateway(ctx context.Context, gwCfg config, uplinkCfg uplink.Config, log *zap.Logger, ident *identity.FullIdentity) (err error) {
 
 	// set gateway flags
 	flags := flag.NewFlagSet("gateway", flag.ExitOnError)
@@ -168,17 +170,50 @@ func runGateway(ctx context.Context, gwCfg config, uplinkCfg uplink.Config, log 
 		return err
 	}
 
-	metainfo, streams, err := uplinkCfg.GetMetainfo(ctx, identity)
+	uplink, err := libuplink.NewUplink(ctx, &libuplink.Config{
+		Volatile: struct {
+			TLS struct {
+				SkipPeerCAWhitelist bool
+				PeerCAWhitelistPath string
+			}
+			UseIdentity   *identity.FullIdentity
+			MaxInlineSize memory.Size
+		}{
+			TLS: struct {
+				SkipPeerCAWhitelist bool
+				PeerCAWhitelistPath string
+			}{
+				SkipPeerCAWhitelist: !uplinkCfg.TLS.UsePeerCAWhitelist,
+				PeerCAWhitelistPath: uplinkCfg.TLS.PeerCAWhitelistPath,
+			},
+			UseIdentity:   ident,
+			MaxInlineSize: uplinkCfg.Client.MaxInlineSize,
+		},
+	})
 	if err != nil {
 		return err
 	}
 
+	apiKey, err := libuplink.ParseAPIKey(uplinkCfg.Client.APIKey)
+	if err != nil {
+		return err
+	}
+
+	project, err := uplink.OpenProject(ctx, uplinkCfg.Client.SatelliteAddr, apiKey)
+	if err != nil {
+		return err
+	}
+
+	key := new(storj.Key)
+	copy(key[:], uplinkCfg.Enc.Key)
+
 	gw := miniogw.NewStorjGateway(
-		metainfo,
-		streams,
-		storj.Cipher(uplinkCfg.Enc.PathType),
-		uplinkCfg.GetEncryptionScheme(),
+		project,
+		key,
+		storj.Cipher(uplinkCfg.Enc.PathType).ToCipherSuite(),
+		uplinkCfg.GetEncryptionScheme().ToEncryptionParameters(),
 		uplinkCfg.GetRedundancyScheme(),
+		uplinkCfg.Client.SegmentSize,
 	)
 
 	minio.StartGateway(cliCtx, miniogw.Logging(gw, log))

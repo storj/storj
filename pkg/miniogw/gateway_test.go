@@ -21,7 +21,9 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storage/buckets"
@@ -647,7 +649,7 @@ func runTest(t *testing.T, test func(context.Context, minio.ObjectLayer, storj.M
 
 	planet.Start(ctx)
 
-	layer, metainfo, streams, err := initEnv(planet)
+	layer, metainfo, streams, err := initEnv(ctx, planet)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -655,10 +657,10 @@ func runTest(t *testing.T, test func(context.Context, minio.ObjectLayer, storj.M
 	test(ctx, layer, metainfo, streams)
 }
 
-func initEnv(planet *testplanet.Planet) (minio.ObjectLayer, storj.Metainfo, streams.Store, error) {
+func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer, storj.Metainfo, streams.Store, error) {
 	// TODO(kaloyan): We should have a better way for configuring the Satellite's API Key
 	// add project to satisfy constraint
-	project, err := planet.Satellites[0].DB.Console().Projects().Insert(context.Background(), &console.Project{
+	project, err := planet.Satellites[0].DB.Console().Projects().Insert(ctx, &console.Project{
 		Name: "testProject",
 	})
 
@@ -673,12 +675,12 @@ func initEnv(planet *testplanet.Planet) (minio.ObjectLayer, storj.Metainfo, stre
 	}
 
 	// add api key to db
-	_, err = planet.Satellites[0].DB.Console().APIKeys().Create(context.Background(), apiKey, apiKeyInfo)
+	_, err = planet.Satellites[0].DB.Console().APIKeys().Create(ctx, apiKey, apiKeyInfo)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	metainfo, err := planet.Uplinks[0].DialMetainfo(context.Background(), planet.Satellites[0], apiKey.String())
+	metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey.String())
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -708,13 +710,47 @@ func initEnv(planet *testplanet.Planet) (minio.ObjectLayer, storj.Metainfo, stre
 
 	kvmetainfo := kvmetainfo.New(metainfo, buckets, streams, segments, key)
 
+	uplink, err := libuplink.NewUplink(ctx, &libuplink.Config{
+		Volatile: struct {
+			TLS struct {
+				SkipPeerCAWhitelist bool
+				PeerCAWhitelistPath string
+			}
+			UseIdentity   *identity.FullIdentity
+			MaxInlineSize memory.Size
+		}{
+			TLS: struct {
+				SkipPeerCAWhitelist bool
+				PeerCAWhitelistPath string
+			}{
+				SkipPeerCAWhitelist: true,
+				// PeerCAWhitelistPath: flags.TLS.PeerCAWhitelistPath,
+			},
+			UseIdentity: planet.Uplinks[0].Identity,
+			// MaxInlineSize: flags.Client.MaxInlineSize,
+		},
+	})
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	parsedAPIKey, err := libuplink.ParseAPIKey(apiKey.String())
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	proj, err := uplink.OpenProject(ctx, planet.Satellites[0].Addr(), parsedAPIKey)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
 	gateway := NewStorjGateway(
-		kvmetainfo,
-		streams,
-		storj.AESGCM,
-		storj.EncryptionScheme{
-			Cipher:    storj.AESGCM,
-			BlockSize: 1 * memory.KiB.Int32(),
+		proj,
+		key,
+		storj.EncAESGCM,
+		storj.EncryptionParameters{
+			CipherSuite: storj.EncAESGCM,
+			BlockSize:   1 * memory.KiB.Int32(),
 		},
 		storj.RedundancyScheme{
 			Algorithm:      storj.ReedSolomon,
@@ -724,6 +760,7 @@ func initEnv(planet *testplanet.Planet) (minio.ObjectLayer, storj.Metainfo, stre
 			TotalShares:    int16(rs.TotalCount()),
 			ShareSize:      int32(rs.ErasureShareSize()),
 		},
+		8*memory.MiB,
 	)
 
 	layer, err := gateway.NewGatewayLayer(auth.Credentials{})

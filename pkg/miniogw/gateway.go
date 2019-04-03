@@ -15,6 +15,8 @@ import (
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/memory"
+	"storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/stream"
@@ -28,25 +30,27 @@ var (
 )
 
 // NewStorjGateway creates a *Storj object from an existing ObjectStore
-func NewStorjGateway(metainfo storj.Metainfo, streams streams.Store, pathCipher storj.Cipher, encryption storj.EncryptionScheme, redundancy storj.RedundancyScheme) *Gateway {
+func NewStorjGateway(project *uplink.Project, rootEncKey *storj.Key, pathCipher storj.CipherSuite, encryption storj.EncryptionParameters, redundancy storj.RedundancyScheme, segmentSize memory.Size) *Gateway {
 	return &Gateway{
-		metainfo:   metainfo,
-		streams:    streams,
-		pathCipher: pathCipher,
-		encryption: encryption,
-		redundancy: redundancy,
-		multipart:  NewMultipartUploads(),
+		project:     project,
+		rootEncKey:  rootEncKey,
+		pathCipher:  pathCipher,
+		encryption:  encryption,
+		redundancy:  redundancy,
+		segmentSize: segmentSize,
+		multipart:   NewMultipartUploads(),
 	}
 }
 
 // Gateway is the implementation of a minio cmd.Gateway
 type Gateway struct {
-	metainfo   storj.Metainfo
-	streams    streams.Store
-	pathCipher storj.Cipher
-	encryption storj.EncryptionScheme
-	redundancy storj.RedundancyScheme
-	multipart  *MultipartUploads
+	project     *uplink.Project
+	rootEncKey  *storj.Key
+	pathCipher  storj.CipherSuite
+	encryption  storj.EncryptionParameters
+	redundancy  storj.RedundancyScheme
+	segmentSize memory.Size
+	multipart   *MultipartUploads
 }
 
 // Name implements cmd.Gateway
@@ -69,92 +73,126 @@ type gatewayLayer struct {
 	gateway *Gateway
 }
 
-func (layer *gatewayLayer) DeleteBucket(ctx context.Context, bucket string) (err error) {
+func (layer *gatewayLayer) DeleteBucket(ctx context.Context, bucketName string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	list, err := layer.gateway.metainfo.ListObjects(ctx, bucket, storj.ListOptions{Direction: storj.After, Recursive: true, Limit: 1})
+	empty, err := layer.bucketEmpty(ctx, bucketName)
 	if err != nil {
-		return convertError(err, bucket, "")
+		return convertError(err, bucketName, "")
 	}
 
-	if len(list.Items) > 0 {
-		return minio.BucketNotEmpty{Bucket: bucket}
+	if !empty {
+		return minio.BucketNotEmpty{Bucket: bucketName}
 	}
 
-	err = layer.gateway.metainfo.DeleteBucket(ctx, bucket)
+	err = layer.gateway.project.DeleteBucket(ctx, bucketName)
 
-	return convertError(err, bucket, "")
+	return convertError(err, bucketName, "")
 }
 
-func (layer *gatewayLayer) DeleteObject(ctx context.Context, bucket, object string) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	err = layer.gateway.metainfo.DeleteObject(ctx, bucket, object)
-
-	return convertError(err, bucket, object)
-}
-
-func (layer *gatewayLayer) GetBucketInfo(ctx context.Context, bucket string) (bucketInfo minio.BucketInfo, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	info, err := layer.gateway.metainfo.GetBucket(ctx, bucket)
-
+func (layer *gatewayLayer) bucketEmpty(ctx context.Context, bucketName string) (empty bool, err error) {
+	// TODO: should we derive a bucket key from the root key?
+	// TODO: should EncryptionAccess.Key be a pointer instead of value?
+	// TODO: maxMem should be an uplink config, not a bucket config. Setting to -1 for now.
+	bucket, err := layer.gateway.project.OpenBucket(ctx, bucketName, &uplink.EncryptionAccess{Key: *layer.gateway.rootEncKey}, -1)
 	if err != nil {
-		return minio.BucketInfo{}, convertError(err, bucket, "")
+		return false, convertError(err, bucketName, "")
+	}
+	defer func() { err = errs.Combine(err, bucket.Close()) }()
+
+	list, err := bucket.ListObjects(ctx, &storj.ListOptions{Direction: storj.After, Recursive: true, Limit: 1})
+	if err != nil {
+		return false, convertError(err, bucketName, "")
 	}
 
-	return minio.BucketInfo{Name: info.Name, Created: info.Created}, nil
+	return len(list.Items) == 0, nil
 }
 
-func (layer *gatewayLayer) GetObject(ctx context.Context, bucket, object string, startOffset int64, length int64, writer io.Writer, etag string) (err error) {
+func (layer *gatewayLayer) DeleteObject(ctx context.Context, bucketName, objectPath string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	readOnlyStream, err := layer.gateway.metainfo.GetObjectStream(ctx, bucket, object)
+	bucket, err := layer.gateway.project.OpenBucket(ctx, bucketName, &uplink.EncryptionAccess{Key: *layer.gateway.rootEncKey}, -1)
 	if err != nil {
-		return convertError(err, bucket, object)
+		return convertError(err, bucketName, "")
+	}
+	defer func() { err = errs.Combine(err, bucket.Close()) }()
+
+	err = bucket.DeleteObject(ctx, objectPath)
+
+	return convertError(err, bucketName, objectPath)
+}
+
+func (layer *gatewayLayer) GetBucketInfo(ctx context.Context, bucketName string) (bucketInfo minio.BucketInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// TODO: Do we really need project.GetBucketInfo to return BucketConfig?
+	// All that info seems to be already in the storj.Bucket type
+	bucket, _, err := layer.gateway.project.GetBucketInfo(ctx, bucketName)
+
+	if err != nil {
+		return minio.BucketInfo{}, convertError(err, bucketName, "")
 	}
 
-	if startOffset < 0 || length < -1 || startOffset+length > readOnlyStream.Info().Size {
+	return minio.BucketInfo{Name: bucket.Name, Created: bucket.Created}, nil
+}
+
+func (layer *gatewayLayer) GetObject(ctx context.Context, bucketName, objectPath string, startOffset int64, length int64, writer io.Writer, etag string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	bucket, err := layer.gateway.project.OpenBucket(ctx, bucketName, &uplink.EncryptionAccess{Key: *layer.gateway.rootEncKey}, -1)
+	if err != nil {
+		return convertError(err, bucketName, "")
+	}
+	defer func() { err = errs.Combine(err, bucket.Close()) }()
+
+	object, err := bucket.OpenObject(ctx, objectPath)
+	if err != nil {
+		return convertError(err, bucketName, objectPath)
+	}
+	defer func() { err = errs.Combine(err, object.Close()) }()
+
+	if startOffset < 0 || length < -1 || startOffset+length > object.Meta.Size {
 		return minio.InvalidRange{
 			OffsetBegin:  startOffset,
 			OffsetEnd:    startOffset + length,
-			ResourceSize: readOnlyStream.Info().Size,
+			ResourceSize: object.Meta.Size,
 		}
 	}
 
-	download := stream.NewDownload(ctx, readOnlyStream, layer.gateway.streams)
-	defer func() { err = errs.Combine(err, download.Close()) }()
-
-	_, err = download.Seek(startOffset, io.SeekStart)
+	reader, err := object.DownloadRange(ctx, startOffset, length)
 	if err != nil {
-		return err
+		return convertError(err, bucketName, objectPath)
 	}
+	defer func() { err = errs.Combine(err, reader.Close()) }()
 
-	if length == -1 {
-		_, err = io.Copy(writer, download)
-	} else {
-		_, err = io.CopyN(writer, download, length)
-	}
+	_, err = io.Copy(writer, reader)
 
 	return err
 }
 
-func (layer *gatewayLayer) GetObjectInfo(ctx context.Context, bucket, object string) (objInfo minio.ObjectInfo, err error) {
+func (layer *gatewayLayer) GetObjectInfo(ctx context.Context, bucketName, objectPath string) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	obj, err := layer.gateway.metainfo.GetObject(ctx, bucket, object)
+	bucket, err := layer.gateway.project.OpenBucket(ctx, bucketName, &uplink.EncryptionAccess{Key: *layer.gateway.rootEncKey}, -1)
 	if err != nil {
-		return minio.ObjectInfo{}, convertError(err, bucket, object)
+		return minio.ObjectInfo{}, convertError(err, bucketName, "")
 	}
+	defer func() { err = errs.Combine(err, bucket.Close()) }()
+
+	object, err := bucket.OpenObject(ctx, objectPath)
+	if err != nil {
+		return minio.ObjectInfo{}, convertError(err, bucketName, objectPath)
+	}
+	defer func() { err = errs.Combine(err, object.Close()) }()
 
 	return minio.ObjectInfo{
-		Name:        object,
-		Bucket:      bucket,
-		ModTime:     obj.Modified,
-		Size:        obj.Size,
-		ETag:        hex.EncodeToString(obj.Checksum),
-		ContentType: obj.ContentType,
-		UserDefined: obj.Metadata,
+		Name:        object.Meta.Path,
+		Bucket:      object.Meta.Bucket,
+		ModTime:     object.Meta.Modified,
+		Size:        object.Meta.Size,
+		ETag:        hex.EncodeToString(object.Meta.Checksum),
+		ContentType: object.Meta.ContentType,
+		UserDefined: object.Meta.Metadata,
 	}, err
 }
 
@@ -164,7 +202,7 @@ func (layer *gatewayLayer) ListBuckets(ctx context.Context) (bucketItems []minio
 	startAfter := ""
 
 	for {
-		list, err := layer.gateway.metainfo.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After, Cursor: startAfter})
+		list, err := layer.gateway.project.ListBuckets(ctx, &storj.BucketListOptions{Direction: storj.After, Cursor: startAfter})
 		if err != nil {
 			return nil, err
 		}
@@ -183,12 +221,18 @@ func (layer *gatewayLayer) ListBuckets(ctx context.Context) (bucketItems []minio
 	return bucketItems, err
 }
 
-func (layer *gatewayLayer) ListObjects(ctx context.Context, bucket, prefix, marker, delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
+func (layer *gatewayLayer) ListObjects(ctx context.Context, bucketName, prefix, marker, delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if delimiter != "" && delimiter != "/" {
 		return minio.ListObjectsInfo{}, minio.UnsupportedDelimiter{Delimiter: delimiter}
 	}
+
+	bucket, err := layer.gateway.project.OpenBucket(ctx, bucketName, &uplink.EncryptionAccess{Key: *layer.gateway.rootEncKey}, -1)
+	if err != nil {
+		return minio.ListObjectsInfo{}, convertError(err, bucketName, "")
+	}
+	defer func() { err = errs.Combine(err, bucket.Close()) }()
 
 	startAfter := marker
 	recursive := delimiter == ""
@@ -196,7 +240,7 @@ func (layer *gatewayLayer) ListObjects(ctx context.Context, bucket, prefix, mark
 	var objects []minio.ObjectInfo
 	var prefixes []string
 
-	list, err := layer.gateway.metainfo.ListObjects(ctx, bucket, storj.ListOptions{
+	list, err := bucket.ListObjects(ctx, &storj.ListOptions{
 		Direction: storj.After,
 		Cursor:    startAfter,
 		Prefix:    prefix,
@@ -204,7 +248,7 @@ func (layer *gatewayLayer) ListObjects(ctx context.Context, bucket, prefix, mark
 		Limit:     maxKeys,
 	})
 	if err != nil {
-		return result, convertError(err, bucket, "")
+		return result, convertError(err, bucketName, "")
 	}
 
 	if len(list.Items) > 0 {
@@ -218,9 +262,8 @@ func (layer *gatewayLayer) ListObjects(ctx context.Context, bucket, prefix, mark
 				continue
 			}
 			objects = append(objects, minio.ObjectInfo{
-				Bucket:      bucket,
-				IsDir:       false,
 				Name:        path,
+				Bucket:      item.Bucket.Name,
 				ModTime:     item.Modified,
 				Size:        item.Size,
 				ETag:        hex.EncodeToString(item.Checksum),
@@ -244,12 +287,18 @@ func (layer *gatewayLayer) ListObjects(ctx context.Context, bucket, prefix, mark
 }
 
 // ListObjectsV2 - Not implemented stub
-func (layer *gatewayLayer) ListObjectsV2(ctx context.Context, bucket, prefix, continuationToken, delimiter string, maxKeys int, fetchOwner bool, startAfter string) (result minio.ListObjectsV2Info, err error) {
+func (layer *gatewayLayer) ListObjectsV2(ctx context.Context, bucketName, prefix, continuationToken, delimiter string, maxKeys int, fetchOwner bool, startAfter string) (result minio.ListObjectsV2Info, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if delimiter != "" && delimiter != "/" {
 		return minio.ListObjectsV2Info{ContinuationToken: continuationToken}, minio.UnsupportedDelimiter{Delimiter: delimiter}
 	}
+
+	bucket, err := layer.gateway.project.OpenBucket(ctx, bucketName, &uplink.EncryptionAccess{Key: *layer.gateway.rootEncKey}, -1)
+	if err != nil {
+		return minio.ListObjectsV2Info{}, convertError(err, bucketName, "")
+	}
+	defer func() { err = errs.Combine(err, bucket.Close()) }()
 
 	recursive := delimiter == ""
 	var nextContinuationToken string
@@ -265,7 +314,7 @@ func (layer *gatewayLayer) ListObjectsV2(ctx context.Context, bucket, prefix, co
 	var objects []minio.ObjectInfo
 	var prefixes []string
 
-	list, err := layer.gateway.metainfo.ListObjects(ctx, bucket, storj.ListOptions{
+	list, err := bucket.ListObjects(ctx, &storj.ListOptions{
 		Direction: storj.After,
 		Cursor:    startAfterPath,
 		Prefix:    prefix,
@@ -273,7 +322,7 @@ func (layer *gatewayLayer) ListObjectsV2(ctx context.Context, bucket, prefix, co
 		Limit:     maxKeys,
 	})
 	if err != nil {
-		return minio.ListObjectsV2Info{ContinuationToken: continuationToken}, convertError(err, bucket, "")
+		return minio.ListObjectsV2Info{ContinuationToken: continuationToken}, convertError(err, bucketName, "")
 	}
 
 	if len(list.Items) > 0 {
@@ -287,9 +336,8 @@ func (layer *gatewayLayer) ListObjectsV2(ctx context.Context, bucket, prefix, co
 				continue
 			}
 			objects = append(objects, minio.ObjectInfo{
-				Bucket:      bucket,
-				IsDir:       false,
 				Name:        path,
+				Bucket:      item.Bucket.Name,
 				ModTime:     item.Modified,
 				Size:        item.Size,
 				ETag:        hex.EncodeToString(item.Checksum),
@@ -314,7 +362,7 @@ func (layer *gatewayLayer) ListObjectsV2(ctx context.Context, bucket, prefix, co
 	return result, err
 }
 
-func (layer *gatewayLayer) MakeBucketWithLocation(ctx context.Context, bucket string, location string) (err error) {
+func (layer *gatewayLayer) MakeBucketWithLocation(ctx context.Context, bucketName string, location string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	// TODO: This current strategy of calling bs.Get
 	// to check if a bucket exists, then calling bs.Put
@@ -323,16 +371,27 @@ func (layer *gatewayLayer) MakeBucketWithLocation(ctx context.Context, bucket st
 	// therefore try to Put a bucket at the same time.
 	// The reason for the Get call to check if the
 	// bucket already exists is to match S3 CLI behavior.
-	_, err = layer.gateway.metainfo.GetBucket(ctx, bucket)
+	_, _, err = layer.gateway.project.GetBucketInfo(ctx, bucketName)
 	if err == nil {
-		return minio.BucketAlreadyExists{Bucket: bucket}
+		return minio.BucketAlreadyExists{Bucket: bucketName}
 	}
 
 	if !storj.ErrBucketNotFound.Has(err) {
-		return convertError(err, bucket, "")
+		return convertError(err, bucketName, "")
 	}
 
-	_, err = layer.gateway.metainfo.CreateBucket(ctx, bucket, &storj.Bucket{PathCipher: layer.gateway.pathCipher})
+	_, err = layer.gateway.project.CreateBucket(ctx, bucketName, &uplink.BucketConfig{
+		PathCipher:           layer.gateway.pathCipher,
+		EncryptionParameters: layer.gateway.encryption,
+		Volatile: struct {
+			RedundancyScheme storj.RedundancyScheme
+			SegmentSize      memory.Size
+		}{
+			RedundancyScheme: layer.gateway.redundancy,
+			// TODO: SegmentSize should be an uplink config, not a bucket config.
+			SegmentSize: layer.gateway.segmentSize,
+		},
+	})
 
 	return err
 }
@@ -340,54 +399,64 @@ func (layer *gatewayLayer) MakeBucketWithLocation(ctx context.Context, bucket st
 func (layer *gatewayLayer) CopyObject(ctx context.Context, srcBucket, srcObject, destBucket, destObject string, srcInfo minio.ObjectInfo) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	readOnlyStream, err := layer.gateway.metainfo.GetObjectStream(ctx, srcBucket, srcObject)
+	bucket, err := layer.gateway.project.OpenBucket(ctx, srcBucket, &uplink.EncryptionAccess{Key: *layer.gateway.rootEncKey}, -1)
+	if err != nil {
+		return minio.ObjectInfo{}, convertError(err, srcBucket, "")
+	}
+	defer func() { err = errs.Combine(err, bucket.Close()) }()
+
+	object, err := bucket.OpenObject(ctx, srcObject)
 	if err != nil {
 		return minio.ObjectInfo{}, convertError(err, srcBucket, srcObject)
 	}
+	defer func() { err = errs.Combine(err, object.Close()) }()
 
-	download := stream.NewDownload(ctx, readOnlyStream, layer.gateway.streams)
-	defer func() { err = errs.Combine(err, download.Close()) }()
+	reader, err := object.DownloadRange(ctx, 0, -1)
+	if err != nil {
+		return minio.ObjectInfo{}, convertError(err, srcBucket, srcObject)
+	}
+	defer func() { err = errs.Combine(err, reader.Close()) }()
 
-	info := readOnlyStream.Info()
-	createInfo := storj.CreateObject{
-		ContentType:      info.ContentType,
-		Expires:          info.Expires,
-		Metadata:         info.Metadata,
-		RedundancyScheme: info.RedundancyScheme,
-		EncryptionScheme: info.EncryptionScheme,
+	opts := uplink.UploadOptions{
+		ContentType: object.Meta.ContentType,
+		Metadata:    object.Meta.Metadata,
+		Expires:     object.Meta.Expires,
+		Volatile:    object.Meta.Volatile,
 	}
 
-	return layer.putObject(ctx, destBucket, destObject, download, &createInfo)
+	return layer.putObject(ctx, destBucket, destObject, reader, &opts)
 }
 
-func (layer *gatewayLayer) putObject(ctx context.Context, bucket, object string, reader io.Reader, createInfo *storj.CreateObject) (objInfo minio.ObjectInfo, err error) {
+func (layer *gatewayLayer) putObject(ctx context.Context, bucketName, objectPath string, reader io.Reader, opts *uplink.UploadOptions) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	mutableObject, err := layer.gateway.metainfo.CreateObject(ctx, bucket, object, createInfo)
+	bucket, err := layer.gateway.project.OpenBucket(ctx, bucketName, &uplink.EncryptionAccess{Key: *layer.gateway.rootEncKey}, -1)
 	if err != nil {
-		return minio.ObjectInfo{}, convertError(err, bucket, object)
+		return minio.ObjectInfo{}, convertError(err, bucketName, "")
+	}
+	defer func() { err = errs.Combine(err, bucket.Close()) }()
+
+	// TODO: should we have UploadObject returning the uploaded Object, so we avoid the additional GetObject call?
+	// The cons of returning the uploaded Object would be the requirement for the caller to close it.
+	err = bucket.UploadObject(ctx, objectPath, reader, opts)
+	if err != nil {
+		return minio.ObjectInfo{}, convertError(err, bucketName, "")
 	}
 
-	err = upload(ctx, layer.gateway.streams, mutableObject, reader)
+	object, err := bucket.OpenObject(ctx, objectPath)
 	if err != nil {
-		return minio.ObjectInfo{}, err
+		return minio.ObjectInfo{}, convertError(err, bucketName, objectPath)
 	}
-
-	err = mutableObject.Commit(ctx)
-	if err != nil {
-		return minio.ObjectInfo{}, err
-	}
-
-	info := mutableObject.Info()
+	defer func() { err = errs.Combine(err, object.Close()) }()
 
 	return minio.ObjectInfo{
-		Name:        object,
-		Bucket:      bucket,
-		ModTime:     info.Modified,
-		Size:        info.Size,
-		ETag:        hex.EncodeToString(info.Checksum),
-		ContentType: info.ContentType,
-		UserDefined: info.Metadata,
+		Name:        object.Meta.Path,
+		Bucket:      object.Meta.Bucket,
+		ModTime:     object.Meta.Modified,
+		Size:        object.Meta.Size,
+		ETag:        hex.EncodeToString(object.Meta.Checksum),
+		ContentType: object.Meta.ContentType,
+		UserDefined: object.Meta.Metadata,
 	}, nil
 }
 
@@ -404,20 +473,18 @@ func upload(ctx context.Context, streams streams.Store, mutableObject storj.Muta
 	return errs.Combine(err, upload.Close())
 }
 
-func (layer *gatewayLayer) PutObject(ctx context.Context, bucket, object string, data *hash.Reader, metadata map[string]string) (objInfo minio.ObjectInfo, err error) {
+func (layer *gatewayLayer) PutObject(ctx context.Context, bucketName, objectPath string, data *hash.Reader, metadata map[string]string) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	contentType := metadata["content-type"]
 	delete(metadata, "content-type")
 
-	createInfo := storj.CreateObject{
-		ContentType:      contentType,
-		Metadata:         metadata,
-		RedundancyScheme: layer.gateway.redundancy,
-		EncryptionScheme: layer.gateway.encryption,
+	opts := uplink.UploadOptions{
+		ContentType: contentType,
+		Metadata:    metadata,
 	}
 
-	return layer.putObject(ctx, bucket, object, data, &createInfo)
+	return layer.putObject(ctx, bucketName, objectPath, data, &opts)
 }
 
 func (layer *gatewayLayer) Shutdown(ctx context.Context) (err error) {
