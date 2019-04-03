@@ -111,7 +111,7 @@ func saveIdentityTar(path string, key crypto.PrivateKey, id storj.NodeID) error 
 		return err
 	}
 
-	caCert, err := peertls.NewCert(key, nil, ct, nil)
+	caCert, err := peertls.NewSelfSignedCert(key, ct)
 	if err != nil {
 		return err
 	}

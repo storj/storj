@@ -64,7 +64,7 @@ func NewOptions(i *identity.FullIdentity, c Config) (*Options, error) {
 func NewExtensionsMap(chain ...*x509.Certificate) ExtensionMap {
 	extensionMap := make(ExtensionMap)
 	for _, cert := range chain {
-		for _, ext := range cert.ExtraExtensions {
+		for _, ext := range cert.Extensions {
 			extensionMap[ext.Id.String()] = ext
 		}
 	}
