@@ -6,7 +6,7 @@ package pkcrypto
 import (
 	"hash"
 
-	"github.com/minio/sha256-simd"
+	sha256 "github.com/minio/sha256-simd"
 )
 
 // NewHash returns default hash in storj.
