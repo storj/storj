@@ -163,11 +163,12 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 		return nil, err
 	}
 
+	var c *x509.Certificate
 	if opts.ParentKey == nil {
-		opts.ParentKey = selectedKey
+		c, err = peertls.CreateSelfSignedCertificate(selectedKey, ct)
+	} else {
+		c, err = peertls.CreateCertificate(pkcrypto.PublicKeyFromPrivate(selectedKey), opts.ParentKey, ct, opts.ParentCert)
 	}
-
-	c, err := peertls.CreateCertificate(pkcrypto.PublicKeyFromPrivate(selectedKey), opts.ParentKey, ct, opts.ParentCert)
 	if err != nil {
 		return nil, err
 	}
