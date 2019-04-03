@@ -30,10 +30,11 @@ var (
 
 // Meta info about a segment
 type Meta struct {
-	Modified   time.Time
-	Expiration time.Time
-	Size       int64
-	Data       []byte
+	Modified         time.Time
+	Expiration       time.Time
+	Size             int64
+	Data             []byte
+	RedundancyScheme storj.RedundancyScheme
 }
 
 // ListItem is a single item in a listing
@@ -354,13 +355,26 @@ func CalcNeededNodes(rs *pb.RedundancyScheme) int32 {
 	return needed
 }
 
+// RedundancySchemeFromProto translates a pb.RedundancyScheme to a storj.RedundancyScheme.
+func RedundancySchemeFromProto(redundancyScheme *pb.RedundancyScheme) storj.RedundancyScheme {
+	return storj.RedundancyScheme{
+		Algorithm:      storj.ReedSolomon,
+		ShareSize:      redundancyScheme.GetErasureShareSize(),
+		RequiredShares: int16(redundancyScheme.GetMinReq()),
+		RepairShares:   int16(redundancyScheme.GetRepairThreshold()),
+		OptimalShares:  int16(redundancyScheme.GetSuccessThreshold()),
+		TotalShares:    int16(redundancyScheme.GetTotal()),
+	}
+}
+
 // convertMeta converts pointer to segment metadata
 func convertMeta(pr *pb.Pointer) Meta {
 	return Meta{
-		Modified:   convertTime(pr.GetCreationDate()),
-		Expiration: convertTime(pr.GetExpirationDate()),
-		Size:       pr.GetSegmentSize(),
-		Data:       pr.GetMetadata(),
+		Modified:         convertTime(pr.GetCreationDate()),
+		Expiration:       convertTime(pr.GetExpirationDate()),
+		Size:             pr.GetSegmentSize(),
+		Data:             pr.GetMetadata(),
+		RedundancyScheme: RedundancySchemeFromProto(pr.GetRemote().GetRedundancy()),
 	}
 }
 
