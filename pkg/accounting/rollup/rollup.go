@@ -58,8 +58,6 @@ func (r *Service) Run(ctx context.Context) (err error) {
 func (r *Service) Rollup(ctx context.Context) error {
 	// only Rollup new things - get LastRollup
 	lastRollup, err := r.db.LastTimestamp(ctx, accounting.LastRollup)
-	r.logger.Info("last Rollup: " + lastRollup.String())
-
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -69,17 +67,22 @@ func (r *Service) Rollup(ctx context.Context) error {
 		return Error.Wrap(err)
 	}
 	if len(rollupStats) == 0 {
-		r.logger.Info("RollupStats is empty")
+		r.logger.Info("RollupStats is empty after RollupStorage")
 	}
 	err = r.RollupBW(ctx, lastRollup, rollupStats)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 	if len(rollupStats) == 0 {
-		r.logger.Info("RollupStats is empty")
+		r.logger.Info("RollupStats is empty after RollupBW")
 		return nil
 	}
 	err = r.db.SaveRollup(ctx, latestTally, rollupStats)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	// Delete already rolled up tallies
+	err = r.db.DeleteRawBefore(ctx, latestTally)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -127,7 +130,7 @@ func (r *Service) RollupStorage(ctx context.Context, lastRollup time.Time, rollu
 		return time.Now(), nil
 	}
 
-	return latestTally, Error.Wrap(r.db.DeleteRawBefore(ctx, latestTally))
+	return latestTally, nil
 }
 
 // RollupBW aggregates the bandwidth rollups, modifies rollupStats map
