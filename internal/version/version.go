@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
@@ -24,7 +25,7 @@ var (
 	// if not a valid semantic version Release should be false
 	buildVersion = "v0.0.1"
 	// Release indicates whether the binary compiled is a release candidate
-	buildRelease bool
+	buildRelease string
 	// Build is a struct containing all relevant build information associated with the binary
 	Build Info
 )
@@ -139,7 +140,7 @@ func StrToSemVerList(serviceVersions []string) (versions []SemVer, err error) {
 }
 
 func init() {
-	if buildVersion == "" || buildTimestamp == "" || buildCommitHash == "" {
+	if buildVersion == "" || buildTimestamp == "" || buildCommitHash == "" || buildRelease == "" {
 		return
 	}
 	timestamp, err := strconv.ParseInt(buildTimestamp, 10, 64)
@@ -149,7 +150,7 @@ func init() {
 	Build = Info{
 		Timestamp:  time.Unix(timestamp, 0),
 		CommitHash: buildCommitHash,
-		Release:    buildRelease,
+		Release:    strings.ToLower(buildRelease) == "true",
 	}
 
 	versionRegex := regexp.MustCompile("^" + SemVerRegex + "$")
