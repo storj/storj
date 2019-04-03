@@ -62,11 +62,11 @@ func (r *Service) Rollup(ctx context.Context) error {
 		return Error.Wrap(err)
 	}
 	rollupStats := make(accounting.RollupStats)
-	latestTally, err := r.rollupStorage(ctx, lastRollup, rollupStats)
+	latestTally, err := r.RollupStorage(ctx, lastRollup, rollupStats)
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	err = r.rollupBW(ctx, lastRollup, rollupStats)
+	err = r.RollupBW(ctx, lastRollup, rollupStats)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -77,8 +77,8 @@ func (r *Service) Rollup(ctx context.Context) error {
 	return nil
 }
 
-// rollupStorage rolls up storage tally, modifies rollupStats map
-func (r *Service) rollupStorage(ctx context.Context, lastRollup time.Time, rollupStats accounting.RollupStats) (time.Time, error) {
+// RollupStorage rolls up storage tally, modifies rollupStats map
+func (r *Service) RollupStorage(ctx context.Context, lastRollup time.Time, rollupStats accounting.RollupStats) (time.Time, error) {
 	var latestTally time.Time
 	tallies, err := r.db.GetRawSince(ctx, lastRollup)
 	if err != nil {
@@ -122,8 +122,8 @@ func (r *Service) rollupStorage(ctx context.Context, lastRollup time.Time, rollu
 	return Error.Wrap(r.db.DeleteRawBefore(ctx, latestTally))
 }
 
-// rollupBW aggregates the bandwidth rollups, modifies rollupStats map
-func (r *Service) rollupBW(ctx context.Context, lastRollup time.Time, rollupStats accounting.RollupStats) error {
+// RollupBW aggregates the bandwidth rollups, modifies rollupStats map
+func (r *Service) RollupBW(ctx context.Context, lastRollup time.Time, rollupStats accounting.RollupStats) error {
 	var latestTally time.Time
 	bws, err := r.db.GetBWSince(ctx, lastRollup)
 	if err != nil {

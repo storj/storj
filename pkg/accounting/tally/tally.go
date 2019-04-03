@@ -63,10 +63,9 @@ func (t *Service) Run(ctx context.Context) (err error) {
 	}
 }
 
-
 //Tally calculates data-at-rest once
 func (t *Service) Tally(ctx context.Context) error {
-	var errAtRest, errBWA, errBucketInfo error
+	var errAtRest, errBucketInfo error
 	latestTally, nodeData, bucketData, err := t.calculateAtRestData(ctx)
 
 	if err != nil {
@@ -85,7 +84,7 @@ func (t *Service) Tally(ctx context.Context) error {
 			}
 		}
 	}
-	return errAtRest
+	return errs.Combine(errAtRest, errBucketInfo)
 }
 
 // calculateAtRestData iterates through the pieces on pointerdb and calculates
