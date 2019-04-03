@@ -8,8 +8,6 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 
-	"github.com/zeebo/errs"
-
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/extensions"
@@ -20,7 +18,7 @@ import (
 // this action.
 func RevokeLeaf(caKey crypto.PrivateKey, chain []*x509.Certificate) ([]*x509.Certificate, pkix.Extension, error) {
 	if len(chain) < 2 {
-		return nil, pkix.Extension{}, errs.New("revoking leaf implies a CA exists; chain too short")
+		return nil, pkix.Extension{}, extensions.Error.New("revoking leaf implies a CA exists; chain too short")
 	}
 	ca := &identity.FullCertificateAuthority{
 		Key:       caKey,

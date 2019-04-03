@@ -68,68 +68,61 @@ func TestVerifyIdentity_error(t *testing.T) {
 }
 
 func TestExtensionMap_HandleExtensions(t *testing.T) {
-	// TODO: rename and/or move test
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	revokedLeafKeys, revokedLeafChain, _, err := testpeertls.NewRevokedLeafChain()
+	keys, originalChain, err := testpeertls.NewCertChain(2)
 	assert.NoError(t, err)
 
+	rev := new(extensions.Revocation)
+
+	// TODO: `keys[peertls.CAIndex]`
+	oldRevokedLeafChain, revocationExt, err := testpeertls.RevokeLeaf(keys[0], originalChain)
+	require.NoError(t, err)
+	err = rev.Unmarshal(revocationExt.Value)
+	require.NoError(t, err)
+	err = rev.Verify(oldRevokedLeafChain[peertls.CAIndex])
+	require.NoError(t, err)
+
+	// NB: node ID is the same, timestamp must change
+	// (see: identity.RevocationDB#Put)
+	time.Sleep(1 * time.Second)
+	// TODO: `keys[peertls.CAIndex]`
+	newRevokedLeafChain, revocationExt, err := testpeertls.RevokeLeaf(keys[0], oldRevokedLeafChain)
+	require.NoError(t, err)
+	err = rev.Unmarshal(revocationExt.Value)
+	require.NoError(t, err)
+	err = rev.Verify(newRevokedLeafChain[peertls.CAIndex])
+	require.NoError(t, err)
+
 	testidentity.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
-		testcases := []struct {
-			name      string
-			config    extensions.Config
-			certChain []*x509.Certificate
-		}{
-			{
-				"certificate revocation - single revocation ",
-				extensions.Config{Revocation: true},
-				revokedLeafChain,
-			},
-			{
-				"certificate revocation - serial revocations",
-				extensions.Config{Revocation: true},
-				func() []*x509.Certificate {
-					rev := new(extensions.Revocation)
-					time.Sleep(1 * time.Second)
-					chain, revocationExt, err := testpeertls.RevokeLeaf(revokedLeafKeys[0], revokedLeafChain)
-					assert.NoError(t, err)
-
-					err = rev.Unmarshal(revocationExt.Value)
-					assert.NoError(t, err)
-
-					return chain
-				}(),
-			},
-			{
-				"certificate revocation",
-				extensions.Config{Revocation: true, WhitelistSignedLeaf: true},
-				func() []*x509.Certificate {
-					_, chain, _, err := testpeertls.NewRevokedLeafChain()
-					assert.NoError(t, err)
-
-					return chain
-				}(),
-			},
+		opts := &extensions.Options{
+			RevDB: revDB,
 		}
 
-		for _, testcase := range testcases {
-			t.Run(testcase.name, func(t *testing.T) {
-				opts := &extensions.Options{
-					RevDB: revDB,
-				}
+		testcases := []struct {
+			name  string
+			chain []*x509.Certificate
+		}{
+			{"no extensions", originalChain},
+			{"leaf revocation", oldRevokedLeafChain},
+			{"double leaf revocation", newRevokedLeafChain},
+			// TODO: more and more diverse extensions in cases
+		}
 
-				handlerFuncMap := extensions.AllHandlers.WithOptions(opts)
-				extensionsMap := tlsopts.NewExtensionsMap(testcase.certChain...)
-				err := extensionsMap.HandleExtensions(handlerFuncMap, identity.ToChains(testcase.certChain))
+		{
+			handlerFuncMap := extensions.AllHandlers.WithOptions(opts)
+			for _, testcase := range testcases {
+				t.Log(testcase.name)
+				extensionsMap := tlsopts.NewExtensionsMap(testcase.chain...)
+				err := extensionsMap.HandleExtensions(handlerFuncMap, identity.ToChains(testcase.chain))
 				assert.NoError(t, err)
-			})
+			}
 		}
 	})
 }
 
 func TestExtensionMap_HandleExtensions_error(t *testing.T) {
-	// TODO: rename and/or move test
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -148,15 +141,15 @@ func TestExtensionMap_HandleExtensions_error(t *testing.T) {
 		err = revDB.Put(chain, newRevocation)
 		assert.NoError(t, err)
 
-		extOpts := &extensions.Options{RevDB: revDB}
-		handlerMap := extensions.HandlerFactories{
+		opts := &extensions.Options{RevDB: revDB}
+		handlerFuncMap := extensions.HandlerFactories{
 			extensions.RevocationUpdateHandler,
-		}.WithOptions(extOpts)
+		}.WithOptions(opts)
 		extensionsMap := tlsopts.NewExtensionsMap(chain[peertls.LeafIndex])
 
 		assert.Equal(t, oldRevocation, extensionsMap[extensions.RevocationExtID.String()])
 
-		err = extensionsMap.HandleExtensions(handlerMap, identity.ToChains(chain))
+		err = extensionsMap.HandleExtensions(handlerFuncMap, identity.ToChains(chain))
 		assert.Errorf(t, err, extensions.ErrRevocationTimestamp.Error())
 	})
 }

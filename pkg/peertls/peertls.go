@@ -138,7 +138,6 @@ func NewCert(publicKey crypto.PublicKey, parentKey crypto.PrivateKey, template, 
 		parent = template
 	}
 
-	// TODO: how to do this better?
 	publicECKey, ok := publicKey.(*ecdsa.PublicKey)
 	if !ok {
 		return nil, errs.New("unsupported public key type %T", publicKey)
