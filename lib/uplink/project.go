@@ -49,9 +49,9 @@ type BucketConfig struct {
 		// Forward Error Correction encoding parameters to be used by
 		// objects in this Bucket.
 		RedundancyScheme storj.RedundancyScheme
-		// SegmentSize is the default segment size to use for new
+		// SegmentsSize is the default segment size to use for new
 		// objects in this Bucket.
-		SegmentSize memory.Size
+		SegmentsSize memory.Size
 	}
 }
 
@@ -80,8 +80,8 @@ func (c *BucketConfig) setDefaults() {
 	if c.Volatile.RedundancyScheme.ShareSize == 0 {
 		c.Volatile.RedundancyScheme.ShareSize = (1 * memory.KiB).Int32()
 	}
-	if c.Volatile.SegmentSize.Int() == 0 {
-		c.Volatile.SegmentSize = 64 * memory.MiB
+	if c.Volatile.SegmentsSize.Int() == 0 {
+		c.Volatile.SegmentsSize = 64 * memory.MiB
 	}
 }
 
@@ -125,8 +125,12 @@ func (p *Project) GetBucketInfo(ctx context.Context, bucket string) (b storj.Buc
 	if err != nil {
 		return b, nil, err
 	}
-	// TODO(paul): fill in once info is plumbed
-	cfg := &BucketConfig{}
+	cfg := &BucketConfig{
+		PathCipher:           b.PathCipher.ToCipherSuite(),
+		EncryptionParameters: b.EncryptionScheme.ToEncryptionParameters(),
+	}
+	cfg.Volatile.RedundancyScheme = b.RedundancyScheme
+	cfg.Volatile.SegmentsSize = memory.Size(b.SegmentsSize)
 	return b, cfg, nil
 }
 
@@ -148,7 +152,6 @@ func (p *Project) OpenBucket(ctx context.Context, bucket string, access *Encrypt
 	if access == nil || access.Key == (storj.Key{}) {
 		return nil, Error.New("No encryption key chosen")
 	}
-	pathCipher := cfg.PathCipher.ToCipher()
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +175,7 @@ func (p *Project) OpenBucket(ctx context.Context, bucket string, access *Encrypt
 		return nil, err
 	}
 
-	maxEncryptedSegmentSize, err := encryption.CalcEncryptedSize(cfg.Volatile.SegmentSize.Int64(),
+	maxEncryptedSegmentSize, err := encryption.CalcEncryptedSize(cfg.Volatile.SegmentsSize.Int64(),
 		cfg.EncryptionParameters.ToEncryptionScheme())
 	if err != nil {
 		return nil, err
@@ -182,7 +185,7 @@ func (p *Project) OpenBucket(ctx context.Context, bucket string, access *Encrypt
 	key := new(storj.Key)
 	copy(key[:], access.Key[:])
 
-	streams, err := streams.NewStreamStore(segments, cfg.Volatile.SegmentSize.Int64(), key, int(encryptionScheme.BlockSize), encryptionScheme.Cipher)
+	streams, err := streams.NewStreamStore(segments, cfg.Volatile.SegmentsSize.Int64(), key, int(encryptionScheme.BlockSize), encryptionScheme.Cipher)
 	if err != nil {
 		return nil, err
 	}
@@ -190,11 +193,10 @@ func (p *Project) OpenBucket(ctx context.Context, bucket string, access *Encrypt
 	buckets := buckets.NewStore(streams)
 
 	return &Bucket{
-		Bucket:     bucketInfo,
-		Config:     *cfg,
-		metainfo:   kvmetainfo.New(p.metainfo, buckets, streams, segments, key),
-		streams:    streams,
-		pathCipher: pathCipher,
+		BucketConfig: *cfg,
+		bucket:       bucketInfo,
+		metainfo:     kvmetainfo.New(p.metainfo, buckets, streams, segments, key),
+		streams:      streams,
 	}, nil
 }
 
