@@ -466,8 +466,11 @@ func (cache *overlaycache) UpdateOperator(ctx context.Context, nodeID storj.Node
 	}
 
 	updated, err := convertDBNode(updatedDBNode)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 
-	return updated, errs.Combine(err, tx.Commit())
+	return updated, tx.Commit()
 }
 
 // UpdateUptime updates a single storagenode's uptime stats in the db
