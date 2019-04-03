@@ -18,7 +18,7 @@ fi
 echo $COMMIT
 
  echo -n "Tagged version: "
-VERSION=$(git describe --tags --match "v[0-9]*.[0-9]*.[0-9]*")
+VERSION=$(git describe --tags --exact-match --match "v[0-9]*.[0-9]*.[0-9]*")
 echo $VERSION
 
  echo Running "go $@"

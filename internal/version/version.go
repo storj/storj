@@ -17,15 +17,14 @@ import (
 
 var (
 	mon = monkit.Package()
-	// Timestamp is the UTC timestamp of the compilation time
-	buildTimestamp string
-	// CommitHash is the git hash of the code being compiled
+
+	// the following fields are set by linker flags. if any of them
+	// are set and fail to parse, the program will fail to start
+	buildTimestamp  string // unix seconds since epoch
 	buildCommitHash string
-	// Version is the semantic version set at compilation
-	// if not a valid semantic version Release should be false
-	buildVersion = "v0.0.1"
-	// Release indicates whether the binary compiled is a release candidate
-	buildRelease string
+	buildVersion    string // semantic version format
+	buildRelease    string // true/false
+
 	// Build is a struct containing all relevant build information associated with the binary
 	Build Info
 )
@@ -58,10 +57,12 @@ type AllowedVersions struct {
 // https://github.com/Masterminds/semver/blob/master/LICENSE.txt
 const SemVerRegex string = `v?([0-9]+)\.([0-9]+)\.([0-9]+)`
 
+var versionRegex = regexp.MustCompile("^" + SemVerRegex + "$")
+
 // NewSemVer parses a given version and returns an instance of SemVer or
 // an error if unable to parse the version.
-func NewSemVer(regex *regexp.Regexp, v string) (*SemVer, error) {
-	m := regex.FindStringSubmatch(v)
+func NewSemVer(v string) (*SemVer, error) {
+	m := versionRegex.FindStringSubmatch(v)
 	if m == nil {
 		return nil, errors.New("invalid semantic version for build")
 	}
@@ -76,22 +77,14 @@ func NewSemVer(regex *regexp.Regexp, v string) (*SemVer, error) {
 		return nil, err
 	}
 
-	if m[2] == "" {
-		sv.Minor = 0
-	} else {
-		sv.Minor, err = strconv.ParseInt(m[2], 10, 64)
-		if err != nil {
-			return nil, err
-		}
+	sv.Minor, err = strconv.ParseInt(m[2], 10, 64)
+	if err != nil {
+		return nil, err
 	}
 
-	if m[3] == "" {
-		sv.Patch = 0
-	} else {
-		sv.Patch, err = strconv.ParseInt(m[3], 10, 64)
-		if err != nil {
-			return nil, err
-		}
+	sv.Patch, err = strconv.ParseInt(m[3], 10, 64)
+	if err != nil {
+		return nil, err
 	}
 
 	return &sv, nil
@@ -126,11 +119,8 @@ func containsVersion(all []SemVer, x SemVer) bool {
 
 // StrToSemVerList converts a list of versions to a list of SemVer
 func StrToSemVerList(serviceVersions []string) (versions []SemVer, err error) {
-
-	versionRegex := regexp.MustCompile("^" + SemVerRegex + "$")
-
 	for _, subversion := range serviceVersions {
-		sVer, err := NewSemVer(versionRegex, subversion)
+		sVer, err := NewSemVer(subversion)
 		if err != nil {
 			return nil, err
 		}
@@ -140,12 +130,12 @@ func StrToSemVerList(serviceVersions []string) (versions []SemVer, err error) {
 }
 
 func init() {
-	if buildVersion == "" || buildTimestamp == "" || buildCommitHash == "" || buildRelease == "" {
+	if buildVersion == "" && buildTimestamp == "" && buildCommitHash == "" && buildRelease == "" {
 		return
 	}
 	timestamp, err := strconv.ParseInt(buildTimestamp, 10, 64)
 	if err != nil {
-		return
+		panic(fmt.Sprintf("invalid timestamp: %v", err))
 	}
 	Build = Info{
 		Timestamp:  time.Unix(timestamp, 0),
@@ -153,9 +143,7 @@ func init() {
 		Release:    strings.ToLower(buildRelease) == "true",
 	}
 
-	versionRegex := regexp.MustCompile("^" + SemVerRegex + "$")
-
-	sv, err := NewSemVer(versionRegex, buildVersion)
+	sv, err := NewSemVer(buildVersion)
 	if err != nil {
 		panic(err)
 	}
