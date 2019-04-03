@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testpeertls"
 	"storj.io/storj/pkg/identity"
@@ -21,9 +20,6 @@ import (
 )
 
 func TestRevocationCheckHandler(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
 	testidentity.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, _ storage.KeyValueStore) {
 		keys, chain, err := testpeertls.NewCertChain(2)
 		assert.NoError(t, err)
@@ -37,68 +33,97 @@ func TestRevocationCheckHandler(t *testing.T) {
 			assert.NoError(t, err)
 		}
 
-		revokedLeafChain, leafRevocationExt, err := testpeertls.RevokeLeaf(keys, chain)
+		revokingChain, leafRevocationExt, err := testpeertls.RevokeLeaf(keys[0], chain)
 		require.NoError(t, err)
 
-		assert.Equal(t, chain[peertls.CAIndex].Raw, revokedLeafChain[peertls.CAIndex].Raw)
+		assert.Equal(t, chain[peertls.CAIndex].Raw, revokingChain[peertls.CAIndex].Raw)
 
 		{
-			t.Log("revoked leaf success")
-			err := revocationChecker(pkix.Extension{}, identity.ToChains(revokedLeafChain))
+			t.Log("revoked leaf success (original chain)")
+			err := revocationChecker(pkix.Extension{}, identity.ToChains(chain))
+			assert.NoError(t, err)
+		}
+
+		{
+			t.Log("revoked leaf success (revoking chain)")
+			err := revocationChecker(pkix.Extension{}, identity.ToChains(revokingChain))
 			assert.NoError(t, err)
 		}
 
 		// NB: add leaf revocation to revocation DB
-		err = revDB.Put(revokedLeafChain, leafRevocationExt)
+		t.Log("revocation DB put leaf revocation")
+		err = revDB.Put(revokingChain, leafRevocationExt)
 		require.NoError(t, err)
 
 		{
-			t.Log("revoked leaf error")
+			t.Log("revoked leaf success (revoking chain)")
+			err := revocationChecker(pkix.Extension{}, identity.ToChains(revokingChain))
+			assert.NoError(t, err)
+		}
+
+		{
+			t.Log("revoked leaf error (original chain)")
 			err := revocationChecker(pkix.Extension{}, identity.ToChains(chain))
 			assert.Error(t, err)
 		}
+	})
 
-		// NB: timestamp must be different because the NodeID is the same
-		time.Sleep(time.Second)
+	testidentity.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, _ storage.KeyValueStore) {
+		keys, chain, err := testpeertls.NewCertChain(2)
+		assert.NoError(t, err)
 
-		revokedCAChain, caRevocationExt, err := testpeertls.RevokeCA(keys, chain)
+		opts := &extensions.Options{RevDB: revDB}
+		revocationChecker := extensions.RevocationCheckHandler.NewHandlerFunc(opts)
+		revokingChain, caRevocationExt, err := testpeertls.RevokeCA(keys[0], chain)
 		require.NoError(t, err)
 
+		assert.NotEqual(t, chain[peertls.CAIndex].Raw, revokingChain[peertls.CAIndex].Raw)
+
 		{
-			t.Log("revoked CA success")
-			err := revocationChecker(pkix.Extension{}, identity.ToChains(revokedCAChain))
+			t.Log("revoked CA error (original chain)")
+			err := revocationChecker(pkix.Extension{}, identity.ToChains(chain))
+			assert.NoError(t, err)
+		}
+
+		{
+			t.Log("revoked CA success (revokingChain)")
+			err := revocationChecker(pkix.Extension{}, identity.ToChains(revokingChain))
 			assert.NoError(t, err)
 		}
 
 		// NB: add CA revocation to revocation DB
-		err = revDB.Put(revokedCAChain, caRevocationExt)
+		t.Log("revocation DB put CA revocation")
+		err = revDB.Put(revokingChain, caRevocationExt)
 		require.NoError(t, err)
 
 		{
-			t.Log("revoked CA error")
-			err := revocationChecker(pkix.Extension{}, identity.ToChains(revokedCAChain))
+			t.Log("revoked CA error (revoking CA chain)")
+			err := revocationChecker(pkix.Extension{}, identity.ToChains(revokingChain))
+			assert.Error(t, err)
+		}
+
+		{
+			t.Log("revoked CA error (original chain)")
+			err := revocationChecker(pkix.Extension{}, identity.ToChains(chain))
 			assert.Error(t, err)
 		}
 	})
 }
 
 func TestRevocationUpdateHandler(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
 	testidentity.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, _ storage.KeyValueStore) {
 		keys, chain, err := testpeertls.NewCertChain(2)
 		assert.NoError(t, err)
 
-		olderRevokedChain, olderRevocation, err := testpeertls.RevokeLeaf(keys, chain)
+		olderRevokedChain, olderRevocation, err := testpeertls.RevokeLeaf(keys[0], chain)
 		require.NoError(t, err)
 
 		time.Sleep(time.Second)
-		revokedLeafChain, newerRevocation, err := testpeertls.RevokeLeaf(keys, chain)
+		revokedLeafChain, newerRevocation, err := testpeertls.RevokeLeaf(keys[0], chain)
 		require.NoError(t, err)
 
 		time.Sleep(time.Second)
-		newestRevokedChain, newestRevocation, err := testpeertls.RevokeLeaf(keys, revokedLeafChain)
+		newestRevokedChain, newestRevocation, err := testpeertls.RevokeLeaf(keys[0], revokedLeafChain)
 		require.NoError(t, err)
 
 		opts := &extensions.Options{RevDB: revDB}

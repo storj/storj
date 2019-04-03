@@ -6,15 +6,22 @@ package identity_test
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/x509/pkix"
+	"encoding/asn1"
 	"os"
 	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/peertls/extensions"
+	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/pkcrypto"
 )
 
@@ -138,6 +145,76 @@ func TestVerifyPeer(t *testing.T) {
 	assert.NoError(t, err)
 
 	err = peertls.VerifyPeerFunc(peertls.VerifyPeerCertChains)([][]byte{fi.Leaf.Raw, fi.CA.Raw}, nil)
+	assert.NoError(t, err)
+}
+
+func TestManageablePeerIdentity_AddExtension(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	manageablePeerIdentity, err := testidentity.NewTestManageablePeerIdentity(ctx)
+	require.NoError(t, err)
+
+	oldLeaf := manageablePeerIdentity.Leaf
+	assert.Len(t, manageablePeerIdentity.CA.Cert.ExtraExtensions, 0)
+
+	randBytes := make([]byte, 10)
+	_, err = rand.Read(randBytes)
+	require.NoError(t, err)
+	randExt := pkix.Extension{
+		Id:    asn1.ObjectIdentifier{2, 999, int(randBytes[0])},
+		Value: randBytes,
+	}
+
+	err = manageablePeerIdentity.AddExtension(randExt)
+	assert.NoError(t, err)
+
+	assert.Len(t, manageablePeerIdentity.Leaf.ExtraExtensions, 0)
+	assert.Len(t, manageablePeerIdentity.Leaf.Extensions, len(oldLeaf.Extensions)+1)
+
+	assert.Equal(t, oldLeaf.SerialNumber, manageablePeerIdentity.Leaf.SerialNumber)
+	assert.Equal(t, oldLeaf.IsCA, manageablePeerIdentity.Leaf.IsCA)
+	assert.Equal(t, oldLeaf.PublicKey, manageablePeerIdentity.Leaf.PublicKey)
+
+	assert.Equal(t, randExt, tlsopts.NewExtensionsMap(manageablePeerIdentity.Leaf)[randExt.Id.String()])
+
+	assert.NotEqual(t, oldLeaf.Raw, manageablePeerIdentity.Leaf.Raw)
+	assert.NotEqual(t, oldLeaf.RawTBSCertificate, manageablePeerIdentity.Leaf.RawTBSCertificate)
+	assert.NotEqual(t, oldLeaf.Signature, manageablePeerIdentity.Leaf.Signature)
+}
+
+func TestManageableFullIdentity_Revoke(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	manageableFullIdentity, err := testidentity.NewTestManageableFullIdentity(ctx)
+	require.NoError(t, err)
+
+	oldLeaf := manageableFullIdentity.Leaf
+	assert.Len(t, manageableFullIdentity.CA.Cert.ExtraExtensions, 0)
+
+	err = manageableFullIdentity.Revoke()
+	assert.NoError(t, err)
+
+	assert.Len(t, manageableFullIdentity.Leaf.ExtraExtensions, 0)
+	assert.Len(t, manageableFullIdentity.Leaf.Extensions, len(oldLeaf.Extensions)+1)
+
+	assert.Equal(t, oldLeaf.IsCA, manageableFullIdentity.Leaf.IsCA)
+
+	assert.NotEqual(t, oldLeaf.PublicKey, manageableFullIdentity.Leaf.PublicKey)
+	assert.NotEqual(t, oldLeaf.SerialNumber, manageableFullIdentity.Leaf.SerialNumber)
+	assert.NotEqual(t, oldLeaf.Raw, manageableFullIdentity.Leaf.Raw)
+	assert.NotEqual(t, oldLeaf.RawTBSCertificate, manageableFullIdentity.Leaf.RawTBSCertificate)
+	assert.NotEqual(t, oldLeaf.Signature, manageableFullIdentity.Leaf.Signature)
+
+	revocationExt := tlsopts.NewExtensionsMap(manageableFullIdentity.Leaf)[extensions.RevocationExtID.String()]
+	assert.True(t, extensions.RevocationExtID.Equal(revocationExt.Id))
+
+	var rev extensions.Revocation
+	err = rev.Unmarshal(revocationExt.Value)
+	require.NoError(t, err)
+
+	err = rev.Verify(manageableFullIdentity.CA.Cert)
 	assert.NoError(t, err)
 }
 

@@ -9,6 +9,7 @@ import (
 	"crypto"
 	"crypto/rand"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -161,13 +162,12 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 	if err != nil {
 		return nil, err
 	}
-	var c *x509.Certificate
-	if opts.ParentKey == nil && opts.ParentCert == nil {
-		c, err = peertls.CreateSelfSignedCertificate(selectedKey, ct)
-	} else {
-		selectedPubKey := pkcrypto.PublicKeyFromPrivate(selectedKey)
-		c, err = peertls.CreateCertificate(selectedPubKey, opts.ParentKey, ct, opts.ParentCert)
+
+	if opts.ParentKey == nil {
+		opts.ParentKey = selectedKey
 	}
+
+	c, err := peertls.CreateCertificate(pkcrypto.PublicKeyFromPrivate(selectedKey), opts.ParentKey, ct, opts.ParentCert)
 	if err != nil {
 		return nil, err
 	}
@@ -356,7 +356,7 @@ func (pc PeerCAConfig) SaveBackup(ca *PeerCertificateAuthority) error {
 // NewIdentity generates a new `FullIdentity` based on the CA. The CA
 // cert is included in the identity's cert chain and the identity's leaf cert
 // is signed by the CA.
-func (ca *FullCertificateAuthority) NewIdentity() (*FullIdentity, error) {
+func (ca *FullCertificateAuthority) NewIdentity(exts ...pkix.Extension) (*FullIdentity, error) {
 	leafTemplate, err := peertls.LeafTemplate()
 	if err != nil {
 		return nil, err
@@ -365,17 +365,14 @@ func (ca *FullCertificateAuthority) NewIdentity() (*FullIdentity, error) {
 	if err != nil {
 		return nil, err
 	}
-	leafPubKey := pkcrypto.PublicKeyFromPrivate(leafKey)
-	leafCert, err := peertls.CreateCertificate(leafPubKey, ca.Key, leafTemplate, ca.Cert)
-	if err != nil {
+
+	if err := extensions.AddExtraExtension(leafTemplate, exts...); err != nil {
 		return nil, err
 	}
 
-	if ca.RestChain != nil && len(ca.RestChain) > 0 {
-		err := extensions.AddSignedCert(ca.Key, leafCert)
-		if err != nil {
-			return nil, err
-		}
+	leafCert, err := peertls.CreateCertificate(pkcrypto.PublicKeyFromPrivate(leafKey), ca.Key, leafTemplate, ca.Cert)
+	if err != nil {
+		return nil, err
 	}
 
 	return &FullIdentity{
@@ -434,4 +431,35 @@ func (ca *FullCertificateAuthority) Sign(cert *x509.Certificate) (*x509.Certific
 	}
 
 	return signedCert, nil
+}
+
+// AddExtension adds extensions to certificate authority certificate. Extensions
+// are serialized into the certificate's raw bytes and it is re-signed by itself.
+func (ca *FullCertificateAuthority) AddExtension(ext ...pkix.Extension) error {
+	// TODO: how to properly handle this?
+	if len(ca.RestChain) > 0 {
+		return errs.New("adding extensions requires parent certificate's private key")
+	}
+
+	if err := extensions.AddExtraExtension(ca.Cert, ext...); err != nil {
+		return err
+	}
+
+	updatedCert, err := peertls.CreateSelfSignedCertificate(ca.Key, ca.Cert)
+	if err != nil {
+		return err
+	}
+
+	ca.Cert = updatedCert
+	return nil
+}
+
+// Revoke extends the certificate authority certificate with a certificate revocation extension.
+func (ca *FullCertificateAuthority) Revoke() error {
+	ext, err := extensions.NewRevocationExt(ca.Key, ca.Cert)
+	if err != nil {
+		return err
+	}
+
+	return ca.AddExtension(ext)
 }

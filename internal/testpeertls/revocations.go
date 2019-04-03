@@ -8,51 +8,84 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/extensions"
-	"storj.io/storj/pkg/pkcrypto"
+	"storj.io/storj/pkg/peertls/tlsopts"
 )
 
 // RevokeLeaf revokes the leaf certificate in the passed chain and replaces it
 // with a "revoking" certificate, which contains a revocation extension recording
 // this action.
-func RevokeLeaf(keys []crypto.PrivateKey, chain []*x509.Certificate) ([]*x509.Certificate, pkix.Extension, error) {
-	var revocation pkix.Extension
-	revokingKey, err := pkcrypto.GeneratePrivateKey()
-	if err != nil {
-		return nil, revocation, err
+func RevokeLeaf(caKey crypto.PrivateKey, chain []*x509.Certificate) ([]*x509.Certificate, pkix.Extension, error) {
+	if len(chain) < 2 {
+		return nil, pkix.Extension{}, extensions.Error.New("revoking leaf implies a CA exists; chain too short")
+	}
+	ca := &identity.FullCertificateAuthority{
+		Key:       caKey,
+		Cert:      chain[peertls.CAIndex],
+		RestChain: chain[:peertls.CAIndex+1],
 	}
 
-	revokingTemplate, err := peertls.LeafTemplate()
-	if err != nil {
-		return nil, revocation, err
-	}
-
-	revokingPubKey := pkcrypto.PublicKeyFromPrivate(revokingKey)
-	revokingCert, err := peertls.CreateCertificate(revokingPubKey, keys[0], revokingTemplate, chain[peertls.CAIndex])
-	if err != nil {
-		return nil, revocation, err
-	}
-
-	err = extensions.AddRevocationExt(keys[0], chain[peertls.LeafIndex], revokingCert)
-	if err != nil {
-		return nil, revocation, err
-	}
-
-	revocation = revokingCert.ExtraExtensions[0]
-	return append([]*x509.Certificate{revokingCert}, chain[peertls.CAIndex:]...), revocation, nil
-}
-
-// RevokeCA revokes the CA certificate in the passed chain and adds a revocation
-// extension to that certificate, recording this action.
-func RevokeCA(keys []crypto.PrivateKey, chain []*x509.Certificate) ([]*x509.Certificate, pkix.Extension, error) {
-	caCert := chain[peertls.CAIndex]
-	err := extensions.AddRevocationExt(keys[0], caCert, caCert)
+	var err error
+	ca.ID, err = identity.NodeIDFromKey(ca.Cert.PublicKey)
 	if err != nil {
 		return nil, pkix.Extension{}, err
 	}
 
-	return append([]*x509.Certificate{caCert}, chain[peertls.CAIndex:]...), caCert.ExtraExtensions[0], nil
+	ident := &identity.FullIdentity{
+		Leaf:      chain[peertls.LeafIndex],
+		CA:        ca.Cert,
+		ID:        ca.ID,
+		RestChain: ca.RestChain,
+	}
+
+	manageableIdent := identity.NewManageableFullIdentity(ident, ca)
+	if err := manageableIdent.Revoke(); err != nil {
+		return nil, pkix.Extension{}, err
+	}
+
+	revokingCert := manageableIdent.Leaf
+	var revocationExt *pkix.Extension
+	for _, ext := range revokingCert.Extensions {
+		if extensions.RevocationExtID.Equal(ext.Id) {
+			revocationExt = &ext
+			break
+		}
+	}
+	if revocationExt == nil {
+		return nil, pkix.Extension{}, extensions.ErrRevocation.New("no revocation extension found")
+	}
+
+	return append([]*x509.Certificate{revokingCert}, chain[peertls.CAIndex:]...), *revocationExt, nil
+}
+
+// RevokeCA revokes the CA certificate in the passed chain and adds a revocation
+// extension to that certificate, recording this action.
+func RevokeCA(caKey crypto.PrivateKey, chain []*x509.Certificate) ([]*x509.Certificate, pkix.Extension, error) {
+	caCert := chain[peertls.CAIndex]
+	nodeID, err := identity.NodeIDFromKey(caCert.PublicKey)
+	if err != nil {
+		return nil, pkix.Extension{}, err
+	}
+
+	ca := &identity.FullCertificateAuthority{
+		ID:        nodeID,
+		Cert:      caCert,
+		Key:       caKey,
+		RestChain: chain[peertls.CAIndex+1:],
+	}
+
+	if err = ca.Revoke(); err != nil {
+		return nil, pkix.Extension{}, err
+	}
+
+	extMap := tlsopts.NewExtensionsMap(ca.Cert)
+	revocationExt, ok := extMap[extensions.RevocationExtID.String()]
+	if !ok {
+		return nil, pkix.Extension{}, extensions.ErrRevocation.New("no revocation extension found")
+	}
+	return append([]*x509.Certificate{chain[peertls.LeafIndex], ca.Cert}, ca.RestChain...), revocationExt, nil
 }
 
 // NewRevokedLeafChain creates a certificate chain (of length 2) with a leaf
@@ -63,6 +96,6 @@ func NewRevokedLeafChain() ([]crypto.PrivateKey, []*x509.Certificate, pkix.Exten
 		return nil, nil, pkix.Extension{}, err
 	}
 
-	newChain, revocation, err := RevokeLeaf(keys, certs)
+	newChain, revocation, err := RevokeLeaf(keys[0], certs)
 	return keys, newChain, revocation, err
 }

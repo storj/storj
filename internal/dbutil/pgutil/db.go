@@ -20,7 +20,7 @@ type DB struct {
 
 // Open opens a postgres database with a schema
 func Open(connstr string, schemaPrefix string) (*DB, error) {
-	schemaName := schemaPrefix + "-" + RandomString(8)
+	schemaName := schemaPrefix + "-" + CreateRandomTestingSchemaName(8)
 
 	db, err := sql.Open("postgres", ConnstrWithSchema(connstr, schemaName))
 	if err != nil {
