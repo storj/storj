@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
-	"strings"
 
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
@@ -55,9 +54,7 @@ type AllowedVersions struct {
 
 // SemVerRegex is the regular expression used to parse a semantic version.
 // https://github.com/Masterminds/semver/blob/master/LICENSE.txt
-const SemVerRegex string = `v?([0-9]+)(\.[0-9]+)?(\.[0-9]+)?` +
-	`(-([0-9A-Za-z\-]+(\.[0-9A-Za-z\-]+)*))?` +
-	`(\+([0-9A-Za-z\-]+(\.[0-9A-Za-z\-]+)*))?`
+const SemVerRegex string = `v?([0-9]+)\.([0-9]+)\.([0-9]+)`
 
 // NewSemVer parses a given version and returns an instance of SemVer or
 // an error if unable to parse the version.
@@ -72,7 +69,7 @@ func NewSemVer(regex *regexp.Regexp, v string) (*SemVer, error) {
 	var err error
 
 	// first entry of m is the entire version string
-	sv.Major, err = parseToInt64(m[1])
+	sv.Major, err = strconv.ParseInt(m[1], 10, 64)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +77,7 @@ func NewSemVer(regex *regexp.Regexp, v string) (*SemVer, error) {
 	if m[2] == "" {
 		sv.Minor = 0
 	} else {
-		sv.Minor, err = parseToInt64(m[2])
+		sv.Minor, err = strconv.ParseInt(m[2], 10, 64)
 		if err != nil {
 			return nil, err
 		}
@@ -89,7 +86,7 @@ func NewSemVer(regex *regexp.Regexp, v string) (*SemVer, error) {
 	if m[3] == "" {
 		sv.Patch = 0
 	} else {
-		sv.Patch, err = parseToInt64(m[3])
+		sv.Patch, err = strconv.ParseInt(m[3], 10, 64)
 		if err != nil {
 			return nil, err
 		}
@@ -113,17 +110,6 @@ func New(data []byte) (v Info, err error) {
 func (v Info) Marshal() (data []byte, err error) {
 	data, err = json.Marshal(v)
 	return
-}
-
-// parseToInt64 converts a string with schema .xxx to an int64 or returns an error
-func parseToInt64(label string) (int64, error) {
-	tmp := strings.TrimPrefix(label, ".")
-	l, err := strconv.ParseInt(tmp, 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("invalid semantic version: %s", err)
-	}
-
-	return l, nil
 }
 
 // containsVersion compares the allowed version array against the passed version
