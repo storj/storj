@@ -11,7 +11,6 @@ import (
 	"sync"
 
 	"github.com/vivint/infectious"
-	"go.uber.org/zap"
 )
 
 // StripeReader can read and decodes stripes from a set of readers
@@ -106,16 +105,6 @@ func (r *StripeReader) ReadStripe(num int64, p []byte) ([]byte, error) {
 			return out, nil
 		}
 	}
-	s := fmt.Sprintf("stripedebug pending readers errmap len %d", len(r.errmap))
-	zap.L().Debug(s)
-	s = fmt.Sprintf("stripedebug pending readers errmap len %d", len(r.errmap))
-	zap.L().Debug(s)
-	s = fmt.Sprintf("stripedebug readercount %d", r.readerCount)
-	zap.L().Debug(s)
-	s = fmt.Sprintf("stripedebug required count %d", r.scheme.RequiredCount())
-	zap.L().Debug(s)
-	s = fmt.Sprintf("stripedebug inmmap len %d", len(r.inmap))
-	zap.L().Debug(s)
 	// could not read enough shares to attempt a decode
 	return nil, r.combineErrs(num)
 }
