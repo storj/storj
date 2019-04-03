@@ -75,7 +75,7 @@ func TestInspectorStats(t *testing.T) {
 				require.NoError(t, err)
 
 				require.Equal(t, 4, redundancy.TotalCount())
-				require.Equal(t, int32(4), resp.GetHealth().GetOnlineNodes())
+				require.True(t, bytes.Equal([]byte("l"), resp.GetHealth().GetSegment()))
 			}
 
 			{ // Test Object Health Request
@@ -97,7 +97,7 @@ func TestInspectorStats(t *testing.T) {
 				require.NoError(t, err)
 
 				require.Equal(t, 4, redundancy.TotalCount())
-				require.Equal(t, int32(4), segments[0].GetOnlineNodes())
+				require.True(t, bytes.Equal([]byte("l"), segments[0].GetSegment()))
 			}
 
 			return nil
