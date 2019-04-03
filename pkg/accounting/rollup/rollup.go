@@ -58,6 +58,8 @@ func (r *Service) Run(ctx context.Context) (err error) {
 func (r *Service) Rollup(ctx context.Context) error {
 	// only Rollup new things - get LastRollup
 	lastRollup, err := r.db.LastTimestamp(ctx, accounting.LastRollup)
+	r.logger.Info("last Rollup: "+ lastRollup.String())
+
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -65,6 +67,9 @@ func (r *Service) Rollup(ctx context.Context) error {
 	latestTally, err := r.RollupStorage(ctx, lastRollup, rollupStats)
 	if err != nil {
 		return Error.Wrap(err)
+	}
+	if len(rollupStats) == 0 {
+		r.logger.Info("RollupStats is empty I")
 	}
 	err = r.RollupBW(ctx, lastRollup, rollupStats)
 	if err != nil {
@@ -170,7 +175,7 @@ func (r *Service) RollupBW(ctx context.Context, lastRollup time.Time, rollupStat
 	latestTally = time.Date(latestTally.Year(), latestTally.Month(), latestTally.Day(), 0, 0, 0, 0, latestTally.Location())
 	delete(rollupStats, latestTally)
 	if len(rollupStats) == 0 {
-		r.logger.Info("Rollup only found bw rollups for today")
+		r.logger.Info("Rollup only found data for today")
 	}
 	return nil
 }

@@ -159,6 +159,23 @@ func (db *ordersDB) UpdateStoragenodeBandwidthSettle(ctx context.Context, storag
 	return nil
 }
 
+// UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node
+func (db *ordersDB) UpdateStoragenodeBandwidthSettleWithCustomDate(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error {
+	statement := db.db.Rebind(
+		`INSERT INTO storagenode_bandwidth_rollups (storagenode_id, interval_start, interval_seconds, action, allocated, settled)
+		VALUES (?, ?, ?, ?, ?, ?)
+		ON CONFLICT(storagenode_id, interval_start, action)
+		DO UPDATE SET settled = storagenode_bandwidth_rollups.settled + ?`,
+	)
+	_, err := db.db.ExecContext(ctx, statement,
+		storageNode.Bytes(), intervalStart, defaultIntervalSeconds, action, 0, uint64(amount), uint64(amount),
+	)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // GetBucketBandwidth gets total bucket bandwidth from period of time
 func (db *ordersDB) GetBucketBandwidth(ctx context.Context, bucketID []byte, from, to time.Time) (int64, error) {
 	pathElements := bytes.Split(bucketID, []byte("/"))

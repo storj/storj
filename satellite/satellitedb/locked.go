@@ -644,6 +644,13 @@ func (m *lockedOrders) UpdateStoragenodeBandwidthSettle(ctx context.Context, sto
 	return m.db.UpdateStoragenodeBandwidthSettle(ctx, storageNode, action, amount)
 }
 
+// UpdateStoragenodeBandwidthSettleWithCustomDate updates 'settled' bandwidth for given storage node for the given intervalStart time
+func (m *lockedOrders) UpdateStoragenodeBandwidthSettleWithCustomDate(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateStoragenodeBandwidthSettleWithCustomDate(ctx, storageNode, action, amount, intervalStart)
+}
+
 // UseSerialNumber creates serial number entry in database
 func (m *lockedOrders) UseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) ([]byte, error) {
 	m.Lock()

@@ -37,13 +37,13 @@ func TestRollup(t *testing.T) {
 		for i := 0; i < days; i++ {
 			err := planet.Satellites[0].DB.Accounting().SaveAtRestRaw(ctx, timestamp, timestamp, testData[i].nodeData)
 			require.NoError(t, err)
-			err = saveBW(ctx, planet, testData[i].bwTotals)
+			err = saveBW(ctx, planet, testData[i].bwTotals, timestamp)
 			require.NoError(t, err)
 
 			err = planet.Satellites[0].Accounting.Rollup.Rollup(ctx)
 			require.NoError(t, err)
 
-			// Assert that RollupRaws deleted all raws except for today's
+			// Assert that RollupStorage deleted all raws except for today's
 			raw, err := planet.Satellites[0].DB.Accounting().GetRaw(ctx)
 			require.NoError(t, err)
 			for _, r := range raw {
@@ -115,17 +115,11 @@ func createData(planet *testplanet.Planet, days int) []testData {
 	return data
 }
 
-func saveBW(ctx context.Context, planet *testplanet.Planet, bwTotals map[storj.NodeID][]int64) error {
+func saveBW(ctx context.Context, planet *testplanet.Planet, bwTotals map[storj.NodeID][]int64, intervalStart time.Time) error {
 	pieceActions := []pb.PieceAction{pb.PieceAction_PUT, pb.PieceAction_GET, pb.PieceAction_GET_AUDIT, pb.PieceAction_GET_REPAIR}
-	// loop through node ids
-	for i, days := range bwTotals {
-		// loop through days
-		for j, bw := range days {
-			err := planet.Satellites[0].DB.Orders().UpdateStoragenodeBandwidthAllocation(ctx, i, pieceActions[j], bw)
-			if err != nil {
-				return err
-			}
-			err = planet.Satellites[0].DB.Orders().UpdateStoragenodeBandwidthSettle(ctx, i, pieceActions[j], bw)
+	for nodeID, actions := range bwTotals {
+		for actionType, amount := range actions {
+			err := planet.Satellites[0].DB.Orders().UpdateStoragenodeBandwidthSettleWithCustomDate(ctx, nodeID, pieceActions[actionType], amount, intervalStart)
 			if err != nil {
 				return err
 			}
