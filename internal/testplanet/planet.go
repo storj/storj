@@ -685,10 +685,6 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 
 // newVersionControlServer initializes the Versioning Server
 func (planet *Planet) newVersionControlServer() (peer *versioncontrol.Peer, err error) {
-	// TODO: move into separate file
-	/*defer func() {
-		planet.peers = append(planet.peers, closablePeer{peer: peer})
-	}()*/
 
 	prefix := "versioncontrol"
 	log := planet.log.Named(prefix)
@@ -701,18 +697,13 @@ func (planet *Planet) newVersionControlServer() (peer *versioncontrol.Peer, err 
 	config := &versioncontrol.Config{
 		Address: "127.0.0.1:0",
 		Versions: versioncontrol.ServiceVersions{
-			Bootstrap:   "v0.1.0,v1.0.0",
-			Satellite:   "v0.1.0,v1.0.0",
-			Storagenode: "v0.1.0,v1.0.0",
-			Uplink:      "v0.1.0,v1.0.0",
-			Gateway:     "v0.1.0,v1.0.0",
+			Bootstrap:   "v0.0.1",
+			Satellite:   "v0.0.1",
+			Storagenode: "v0.0.1",
+			Uplink:      "v0.0.1",
+			Gateway:     "v0.0.1",
 		},
 	}
-	/*
-		if planet.config.Reconfigure.Bootstrap != nil {
-			planet.config.Reconfigure.Bootstrap(0, &config)
-		}
-	*/
 	peer, err = versioncontrol.New(log, config)
 	if err != nil {
 		return nil, err
@@ -726,15 +717,24 @@ func (planet *Planet) newVersionControlServer() (peer *versioncontrol.Peer, err 
 // NewVersionInfo returns the Version Info for this planet with tuned metrics.
 func (planet *Planet) NewVersionInfo() version.Info {
 	info := version.Info{
-		Timestamp:  time.Now().Unix(),
-		CommitHash: "testplanethash",
+		Timestamp:  time.Now(),
+		CommitHash: "",
 		Version: version.SemVer{
 			Major: 0,
-			Minor: 1,
-			Patch: 0},
+			Minor: 0,
+			Patch: 1},
 		Release: false,
 	}
 	return info
+}
+
+// NewVersionConfig returns the Version Config for this planet with tuned metrics.
+func (planet *Planet) NewVersionConfig() version.Config {
+	return version.Config{
+		ServerAddress:  fmt.Sprintf("http://%s/", planet.VersionControl.Addr()),
+		RequestTimeout: time.Second * 15,
+		CheckInterval:  time.Minute * 5,
+	}
 }
 
 // NewVersionConfig returns the Version Config for this planet with tuned metrics.

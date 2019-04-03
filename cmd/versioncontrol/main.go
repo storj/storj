@@ -59,11 +59,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	log := zap.L()
 	controlserver, err := versioncontrol.New(log, &runCfg)
 	if err != nil {
-		return
+		return err
 	}
 	ctx := process.Ctx(cmd)
 	err = controlserver.Run(ctx)
-	return
+	return err
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {

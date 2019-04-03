@@ -201,7 +201,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 	var err error
 
 	{
-		peer.Version = version.NewService(&config.Version, &versionInfo, "Satellite")
+		test := version.Info{}
+		if test != versionInfo {
+			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
+				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
+			peer.Version = version.NewService(config.Version, versionInfo, "Satellite")
+		}
 	}
 
 	{ // setup listener and server
@@ -525,7 +530,10 @@ func (peer *Peer) Run(ctx context.Context) error {
 	group, ctx := errgroup.WithContext(ctx)
 
 	group.Go(func() error {
-		return ignoreCancel(peer.Version.Run(ctx))
+		if peer.Version != nil {
+			return ignoreCancel(peer.Version.Run(ctx))
+		}
+		return nil
 	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Kademlia.Service.Bootstrap(ctx))

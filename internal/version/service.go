@@ -17,17 +17,21 @@ import (
 	"storj.io/storj/internal/sync2"
 )
 
+const (
+	errOldVersion = "Outdated Software Version, please update!"
+)
+
 // Config contains the necessary Information to check the Software Version
 type Config struct {
-	ServerAddress  string        `help:"server address to check its version against" default:"https://satellite.stefan-benten.de/version"`
+	ServerAddress  string        `help:"server address to check its version against" default:"https://version.alpha.storj.io"`
 	RequestTimeout time.Duration `help:"Request timeout for version checks" default:"0h1m0s"`
 	CheckInterval  time.Duration `help:"Interval to check the version" default:"0h15m0s"`
 }
 
 // Service contains the information and variables to ensure the Software is up to date
 type Service struct {
-	config  *Config
-	info    *Info
+	config  Config
+	info    Info
 	service string
 
 	Loop *sync2.Cycle
@@ -38,7 +42,7 @@ type Service struct {
 }
 
 // NewService creates a Version Check Client with default configuration
-func NewService(config *Config, info *Info, service string) (client *Service) {
+func NewService(config Config, info Info, service string) (client *Service) {
 	return &Service{
 		config:  config,
 		info:    info,
@@ -55,6 +59,11 @@ func (srv *Service) Run(ctx context.Context) error {
 	return srv.Loop.Run(ctx, func(ctx context.Context) error {
 		var err error
 		allowed, err := srv.checkVersion(ctx)
+		if err != nil {
+			// Log about the error, but dont crash the service and allow further operation
+			zap.S().Errorf("Failed to do periodic version check: ", err)
+			allowed = true
+		}
 
 		srv.mu.Lock()
 		srv.allowed = allowed
@@ -66,10 +75,6 @@ func (srv *Service) Run(ctx context.Context) error {
 			if !allowed {
 				zap.S().Fatal(errOldVersion)
 			}
-		}
-
-		if err != nil {
-			zap.S().Errorf("Failed to do periodic version check: ", err)
 		}
 
 		return nil
@@ -91,12 +96,12 @@ func (srv *Service) checkVersion(ctx context.Context) (allowed bool, err error) 
 	defer mon.Task()(&ctx)(&err)
 	accepted, err := srv.queryVersionFromControlServer(ctx)
 	if err != nil {
-		return true, err
+		return false, err
 	}
 
-	zap.S().Debugf("allowed versions from Control Server: %v", accepted)
-
 	list := getFieldString(&accepted, srv.service)
+	zap.S().Debugf("allowed versions from Control Server: %v", list)
+
 	if list == nil {
 		return true, errs.New("Empty List from Versioning Server")
 	}
@@ -107,7 +112,7 @@ func (srv *Service) checkVersion(ctx context.Context) (allowed bool, err error) 
 		zap.S().Errorf("running on not allowed/outdated version %s", srv.info.Version.String())
 		allowed = false
 	}
-	return
+	return allowed, err
 }
 
 // QueryVersionFromControlServer handles the HTTP request to gather the allowed and latest version information
@@ -132,7 +137,7 @@ func (srv *Service) queryVersionFromControlServer(ctx context.Context) (ver Allo
 	defer func() { _ = resp.Body.Close() }()
 
 	err = json.NewDecoder(resp.Body).Decode(&ver)
-	return
+	return ver, err
 }
 
 // DebugHandler returns a json representation of the current version information for the binary
