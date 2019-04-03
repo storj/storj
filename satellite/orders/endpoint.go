@@ -41,7 +41,7 @@ type DB interface {
 
 	// UpdateStoragenodeBandwidthAllocation updates 'allocated' bandwidth for given storage node
 	UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error
-	// UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node for the given intervalStart time
+	// UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node
 	UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error
 
 	// GetBucketBandwidth gets total bucket bandwidth from period of time
