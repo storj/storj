@@ -31,7 +31,7 @@ func TestNewCA(t *testing.T) {
 			Difficulty:    expectedDifficulty,
 			Concurrency:   4,
 		})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		require.NotEmpty(t, ca)
 
 		assert.Equal(t, version.Number, ca.ID.Version().Number)
@@ -41,7 +41,7 @@ func TestNewCA(t *testing.T) {
 		assert.Equal(t, version.Number, caVersion.Number)
 
 		actualDifficulty, err := ca.ID.Difficulty()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, actualDifficulty >= expectedDifficulty)
 	}
 }
@@ -52,14 +52,12 @@ func TestFullCertificateAuthority_NewIdentity(t *testing.T) {
 		Difficulty:  12,
 		Concurrency: 4,
 	})
-	if !assert.NoError(t, err) || !assert.NotNil(t, ca) {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	require.NotNil(t, ca)
 
 	fi, err := ca.NewIdentity()
-	if !assert.NoError(t, err) || !assert.NotNil(t, fi) {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	require.NotNil(t, fi)
 
 	assert.Equal(t, ca.Cert, fi.CA)
 	assert.Equal(t, ca.ID, fi.ID)
@@ -71,9 +69,6 @@ func TestFullCertificateAuthority_NewIdentity(t *testing.T) {
 }
 
 func TestFullCertificateAuthority_Sign(t *testing.T) {
-	// TODO: fix extension serialization
-	t.Skipf("certificate extension serialization fix required")
-
 	ctx := testcontext.New(t)
 	caOpts := identity.NewCAOptions{
 		Difficulty:  12,
@@ -81,19 +76,16 @@ func TestFullCertificateAuthority_Sign(t *testing.T) {
 	}
 
 	ca, err := identity.NewCA(ctx, caOpts)
-	if !assert.NoError(t, err) || !assert.NotNil(t, ca) {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	require.NotNil(t, ca)
 
 	toSign, err := identity.NewCA(ctx, caOpts)
-	if !assert.NoError(t, err) || !assert.NotNil(t, toSign) {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	require.NotNil(t, toSign)
 
 	signed, err := ca.Sign(toSign.Cert)
-	if !assert.NoError(t, err) || !assert.NotNil(t, signed) {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	require.NotNil(t, signed)
 
 	assert.Equal(t, toSign.Cert.RawTBSCertificate, signed.RawTBSCertificate)
 	assert.NotEqual(t, toSign.Cert.Signature, signed.Signature)
@@ -176,7 +168,7 @@ func TestFullCertificateAuthority_AddExtension(t *testing.T) {
 	}
 
 	err = ca.AddExtension(randExt)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Len(t, ca.Cert.ExtraExtensions, 0)
 	assert.Len(t, ca.Cert.Extensions, len(oldCert.Extensions)+1)
@@ -202,7 +194,7 @@ func TestFullCertificateAuthority_Revoke(t *testing.T) {
 	assert.Len(t, ca.Cert.ExtraExtensions, 0)
 
 	err = ca.Revoke()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Len(t, ca.Cert.ExtraExtensions, 0)
 	assert.Len(t, ca.Cert.Extensions, len(oldCert.Extensions)+1)

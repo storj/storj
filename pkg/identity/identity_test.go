@@ -32,25 +32,25 @@ import (
 
 func TestPeerIdentityFromCertChain(t *testing.T) {
 	caKey, err := pkcrypto.GeneratePrivateKey()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	caTemplate, err := peertls.CATemplate()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	caCert, err := peertls.CreateSelfSignedCertificate(caKey, caTemplate)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	leafTemplate, err := peertls.LeafTemplate()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	leafKey, err := pkcrypto.GeneratePrivateKey()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	leafCert, err := peertls.CreateCertificate(pkcrypto.PublicKeyFromPrivate(leafKey), caKey, leafTemplate, caTemplate)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	peerIdent, err := identity.PeerIdentityFromChain([]*x509.Certificate{leafCert, caCert})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, caCert, peerIdent.CA)
 	assert.Equal(t, leafCert, peerIdent.Leaf)
 	assert.NotEmpty(t, peerIdent.ID)
@@ -58,32 +58,32 @@ func TestPeerIdentityFromCertChain(t *testing.T) {
 
 func TestFullIdentityFromPEM(t *testing.T) {
 	caKey, err := pkcrypto.GeneratePrivateKey()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	caTemplate, err := peertls.CATemplate()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	caCert, err := peertls.CreateSelfSignedCertificate(caKey, caTemplate)
-	assert.NoError(t, err)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, caCert)
+	require.NoError(t, err)
+	require.NoError(t, err)
+	require.NotEmpty(t, caCert)
 
 	leafTemplate, err := peertls.LeafTemplate()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	leafKey, err := pkcrypto.GeneratePrivateKey()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	leafCert, err := peertls.CreateCertificate(pkcrypto.PublicKeyFromPrivate(leafKey), caKey, leafTemplate, caTemplate)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, leafCert)
+	require.NoError(t, err)
+	require.NotEmpty(t, leafCert)
 
 	chainPEM := bytes.NewBuffer([]byte{})
-	assert.NoError(t, pkcrypto.WriteCertPEM(chainPEM, leafCert))
-	assert.NoError(t, pkcrypto.WriteCertPEM(chainPEM, caCert))
+	require.NoError(t, pkcrypto.WriteCertPEM(chainPEM, leafCert))
+	require.NoError(t, pkcrypto.WriteCertPEM(chainPEM, caCert))
 
 	keyPEM := bytes.NewBuffer([]byte{})
-	assert.NoError(t, pkcrypto.WritePrivateKeyPEM(keyPEM, leafKey))
+	require.NoError(t, pkcrypto.WritePrivateKeyPEM(keyPEM, leafKey))
 
 	fullIdent, err := identity.FullIdentityFromPEM(chainPEM.Bytes(), keyPEM.Bytes())
 	assert.NoError(t, err)
@@ -137,7 +137,7 @@ func TestConfig_Save_with_extension(t *testing.T) {
 
 		{ // test loading
 			loadedFi, err := identCfg.Load()
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.Equal(t, ident.Key, loadedFi.Key)
 			assert.Equal(t, ident.Leaf, loadedFi.Leaf)
 			assert.Equal(t, ident.CA, loadedFi.CA)
@@ -165,14 +165,14 @@ func TestConfig_Save(t *testing.T) {
 		}
 
 		chainPEM := bytes.NewBuffer([]byte{})
-		assert.NoError(t, pkcrypto.WriteCertPEM(chainPEM, ident.Leaf))
-		assert.NoError(t, pkcrypto.WriteCertPEM(chainPEM, ident.CA))
+		require.NoError(t, pkcrypto.WriteCertPEM(chainPEM, ident.Leaf))
+		require.NoError(t, pkcrypto.WriteCertPEM(chainPEM, ident.CA))
 
 		privateKey := ident.Key
-		assert.NotEmpty(t, privateKey)
+		require.NotEmpty(t, privateKey)
 
 		keyPEM := bytes.NewBuffer([]byte{})
-		assert.NoError(t, pkcrypto.WritePrivateKeyPEM(keyPEM, privateKey))
+		require.NoError(t, pkcrypto.WritePrivateKeyPEM(keyPEM, privateKey))
 
 		{ // test saving
 			err := identCfg.Save(ident)
@@ -223,10 +223,12 @@ func TestVerifyPeer(t *testing.T) {
 		Difficulty:  12,
 		Concurrency: 4,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
+	require.NotNil(t, ca)
 
 	fi, err := ca.NewIdentity()
-	assert.NoError(t, err)
+	require.NoError(t, err)
+	require.NotNil(t, fi)
 
 	err = peertls.VerifyPeerFunc(peertls.VerifyPeerCertChains)([][]byte{fi.Leaf.Raw, fi.CA.Raw}, nil)
 	assert.NoError(t, err)
@@ -251,7 +253,7 @@ func TestManageablePeerIdentity_AddExtension(t *testing.T) {
 	}
 
 	err = manageablePeerIdentity.AddExtension(randExt)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Len(t, manageablePeerIdentity.Leaf.ExtraExtensions, 0)
 	assert.Len(t, manageablePeerIdentity.Leaf.Extensions, len(oldLeaf.Extensions)+1)
@@ -280,7 +282,7 @@ func TestManageableFullIdentity_Revoke(t *testing.T) {
 	assert.Len(t, manageableFullIdentity.CA.Cert.ExtraExtensions, 0)
 
 	err = manageableFullIdentity.Revoke()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Len(t, manageableFullIdentity.Leaf.ExtraExtensions, 0)
 	assert.Len(t, manageableFullIdentity.Leaf.Extensions, len(oldLeaf.Extensions)+1)
@@ -301,5 +303,5 @@ func TestManageableFullIdentity_Revoke(t *testing.T) {
 	require.NoError(t, err)
 
 	err = rev.Verify(manageableFullIdentity.CA.Cert)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }

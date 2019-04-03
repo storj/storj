@@ -110,12 +110,12 @@ func TestAuthorizationDB_Create(t *testing.T) {
 				assert.Error(t, err)
 			} else {
 				v, err := authDB.DB.Get(emailKey)
-				assert.NoError(t, err)
-				assert.NotEmpty(t, v)
+				require.NoError(t, err)
+				require.NotEmpty(t, v)
 
 				var existingAuths Authorizations
 				err = existingAuths.Unmarshal(v)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				require.Len(t, existingAuths, c.startCount)
 			}
 
@@ -184,7 +184,7 @@ func TestAuthorizationDB_Get(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.testID, func(t *testing.T) {
 			auths, err := authDB.Get(c.email)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			if c.result != nil {
 				assert.NotEmpty(t, auths)
 				assert.Len(t, auths, len(c.result))
@@ -410,8 +410,8 @@ func TestAuthorizations_Marshal(t *testing.T) {
 	}
 
 	authsBytes, err := expectedAuths.Marshal()
-	assert.NoError(t, err)
-	assert.NotEmpty(t, authsBytes)
+	require.NoError(t, err)
+	require.NotEmpty(t, authsBytes)
 
 	var actualAuths Authorizations
 	decoder := gob.NewDecoder(bytes.NewBuffer(authsBytes))
@@ -428,8 +428,8 @@ func TestAuthorizations_Unmarshal(t *testing.T) {
 	}
 
 	authsBytes, err := expectedAuths.Marshal()
-	assert.NoError(t, err)
-	assert.NotEmpty(t, authsBytes)
+	require.NoError(t, err)
+	require.NotEmpty(t, authsBytes)
 
 	var actualAuths Authorizations
 	err = actualAuths.Unmarshal(authsBytes)
@@ -638,7 +638,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 				//assert.Equal(t, signingCA.RawRestChain(), signedChainBytes[1:])
 
 				err = signedChain[0].CheckSignatureFrom(signer.Cert)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 
 				err = service.Close()
 				assert.NoError(t, err)
@@ -785,7 +785,7 @@ func TestCertificateSigner_Sign(t *testing.T) {
 			//assert.Equal(t, signingCA.RawRestChain(), res.Chain[1:])
 
 			err = signedChain[0].CheckSignatureFrom(signer.Cert)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			updatedAuths, err := authDB.Get(userID)
 			require.NoError(t, err)
