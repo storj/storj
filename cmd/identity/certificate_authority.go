@@ -139,7 +139,7 @@ func cmdRevokeCA(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	if err := extensions.AddRevocationExt(ca.Key, ca.Cert, ca.Cert); err != nil {
+	if err := ca.Revoke(); err != nil {
 		return err
 	}
 
@@ -211,5 +211,5 @@ func cmdCAExtensions(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	return printExtensions(ca.Cert.Raw, ca.Cert.ExtraExtensions)
+	return printExtensions(ca.Cert.Raw, ca.Cert.Extensions)
 }
