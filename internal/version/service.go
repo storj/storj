@@ -99,9 +99,9 @@ func (srv *Service) checkVersion(ctx context.Context) (allowed bool, err error) 
 		return false, err
 	}
 
-	zap.S().Debugf("allowed versions from Control Server: %v", accepted)
-
 	list := getFieldString(&accepted, srv.service)
+	zap.S().Debugf("allowed versions from Control Server: %v", list)
+
 	if list == nil {
 		return true, errs.New("Empty List from Versioning Server")
 	}
