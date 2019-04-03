@@ -203,7 +203,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 	{
 		test := version.Info{}
 		if test != versionInfo {
-			peer.Version = version.NewService(&config.Version, &versionInfo, "Satellite")
+			peer.Version = version.NewService(config.Version, versionInfo, "Satellite")
 		}
 	}
 

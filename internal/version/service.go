@@ -30,8 +30,8 @@ type Config struct {
 
 // Service contains the information and variables to ensure the Software is up to date
 type Service struct {
-	config  *Config
-	info    *Info
+	config  Config
+	info    Info
 	service string
 
 	Loop *sync2.Cycle
@@ -42,7 +42,7 @@ type Service struct {
 }
 
 // NewService creates a Version Check Client with default configuration
-func NewService(config *Config, info *Info, service string) (client *Service) {
+func NewService(config Config, info Info, service string) (client *Service) {
 	return &Service{
 		config:  config,
 		info:    info,
