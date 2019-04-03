@@ -23,7 +23,7 @@ const (
 
 // Config contains the necessary Information to check the Software Version
 type Config struct {
-	ServerAddress  string        `help:"server address to check its version against" default:"https://satellite.stefan-benten.de/version"`
+	ServerAddress  string        `help:"server address to check its version against" default:"https://version.alpha.storj.io"`
 	RequestTimeout time.Duration `help:"Request timeout for version checks" default:"0h1m0s"`
 	CheckInterval  time.Duration `help:"Interval to check the version" default:"0h15m0s"`
 }
