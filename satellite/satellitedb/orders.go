@@ -159,7 +159,7 @@ func (db *ordersDB) UpdateStoragenodeBandwidthSettle(ctx context.Context, storag
 	return nil
 }
 
-// UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node
+// UpdateStoragenodeBandwidthSettleWithCustomDate updates 'settled' bandwidth for given storage node for the given intervalStart time
 func (db *ordersDB) UpdateStoragenodeBandwidthSettleWithCustomDate(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error {
 	statement := db.db.Rebind(
 		`INSERT INTO storagenode_bandwidth_rollups (storagenode_id, interval_start, interval_seconds, action, allocated, settled)

@@ -58,7 +58,7 @@ func (r *Service) Run(ctx context.Context) (err error) {
 func (r *Service) Rollup(ctx context.Context) error {
 	// only Rollup new things - get LastRollup
 	lastRollup, err := r.db.LastTimestamp(ctx, accounting.LastRollup)
-	r.logger.Info("last Rollup: "+ lastRollup.String())
+	r.logger.Info("last Rollup: " + lastRollup.String())
 
 	if err != nil {
 		return Error.Wrap(err)

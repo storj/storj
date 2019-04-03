@@ -27,10 +27,10 @@ type Raw struct {
 
 // BW mirrors dbx.StoragenodeBandwidthRollup, allowing us to use the struct without leaking dbx
 type BW struct {
-	NodeID          storj.NodeID
-	IntervalStart   time.Time
-	Action          uint
-	Settled         uint64
+	NodeID        storj.NodeID
+	IntervalStart time.Time
+	Action        uint
+	Settled       uint64
 }
 
 // Rollup mirrors dbx.AccountingRollup, allowing us to use that struct without leaking dbx
