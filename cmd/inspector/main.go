@@ -520,7 +520,12 @@ func ObjectHealth(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		err := f.Close()
+		if err != nil {
+			fmt.Printf("error closing file: %+v\n", err)
+		}
+	}()
 
 	w := csv.NewWriter(f)
 	defer w.Flush()
@@ -571,7 +576,12 @@ func SegmentHealth(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		err := f.Close()
+		if err != nil {
+			fmt.Printf("error closing file: %+v\n", err)
+		}
+	}()
 
 	w := csv.NewWriter(f)
 	defer w.Flush()
