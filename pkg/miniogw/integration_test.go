@@ -170,6 +170,9 @@ func runGateway(ctx context.Context, gwCfg config, uplinkCfg uplink.Config, log 
 		return err
 	}
 
+	key := new(storj.Key)
+	copy(key[:], uplinkCfg.Enc.Key)
+
 	uplink, err := libuplink.NewUplink(ctx, &libuplink.Config{
 		Volatile: struct {
 			TLS struct {
@@ -178,6 +181,7 @@ func runGateway(ctx context.Context, gwCfg config, uplinkCfg uplink.Config, log 
 			}
 			UseIdentity   *identity.FullIdentity
 			MaxInlineSize memory.Size
+			EncKey        *storj.Key
 		}{
 			TLS: struct {
 				SkipPeerCAWhitelist bool
@@ -188,6 +192,7 @@ func runGateway(ctx context.Context, gwCfg config, uplinkCfg uplink.Config, log 
 			},
 			UseIdentity:   ident,
 			MaxInlineSize: uplinkCfg.Client.MaxInlineSize,
+			EncKey:        key,
 		},
 	})
 	if err != nil {
@@ -203,9 +208,6 @@ func runGateway(ctx context.Context, gwCfg config, uplinkCfg uplink.Config, log 
 	if err != nil {
 		return err
 	}
-
-	key := new(storj.Key)
-	copy(key[:], uplinkCfg.Enc.Key)
 
 	gw := miniogw.NewStorjGateway(
 		project,

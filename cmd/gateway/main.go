@@ -218,6 +218,9 @@ func (flags GatewayFlags) action(ctx context.Context, cliCtx *cli.Context, ident
 
 // NewGateway creates a new minio Gateway
 func (flags GatewayFlags) NewGateway(ctx context.Context, ident *identity.FullIdentity) (gw minio.Gateway, err error) {
+	key := new(storj.Key)
+	copy(key[:], flags.Enc.Key)
+
 	uplink, err := libuplink.NewUplink(ctx, &libuplink.Config{
 		Volatile: struct {
 			TLS struct {
@@ -226,6 +229,7 @@ func (flags GatewayFlags) NewGateway(ctx context.Context, ident *identity.FullId
 			}
 			UseIdentity   *identity.FullIdentity
 			MaxInlineSize memory.Size
+			EncKey        *storj.Key
 		}{
 			TLS: struct {
 				SkipPeerCAWhitelist bool
@@ -236,6 +240,7 @@ func (flags GatewayFlags) NewGateway(ctx context.Context, ident *identity.FullId
 			},
 			UseIdentity:   ident,
 			MaxInlineSize: flags.Client.MaxInlineSize,
+			EncKey:        key,
 		},
 	})
 	if err != nil {
@@ -251,9 +256,6 @@ func (flags GatewayFlags) NewGateway(ctx context.Context, ident *identity.FullId
 	if err != nil {
 		return nil, err
 	}
-
-	key := new(storj.Key)
-	copy(key[:], flags.Enc.Key)
 
 	return miniogw.NewStorjGateway(
 		project,

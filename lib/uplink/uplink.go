@@ -56,6 +56,9 @@ type Config struct {
 		// objects above this size will not. (The satellite may reject
 		// the inline storage and require remote storage, still.)
 		MaxInlineSize memory.Size
+
+		// EncKey is the root encryption key of the user account.
+		EncKey *storj.Key
 	}
 }
 
@@ -126,7 +129,7 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey A
 	}
 
 	segments := segments.NewSegmentStore(metainfo, nil, rs, maxBucketMetaSize.Int(), maxBucketMetaSize.Int64())
-	streams, err := streams.NewStreamStore(segments, maxBucketMetaSize.Int64(), new(storj.Key), 1*memory.KiB.Int(), storj.Unencrypted)
+	streams, err := streams.NewStreamStore(segments, maxBucketMetaSize.Int64(), u.cfg.Volatile.EncKey, 1*memory.KiB.Int(), storj.Unencrypted)
 	if err != nil {
 		return nil, err
 	}

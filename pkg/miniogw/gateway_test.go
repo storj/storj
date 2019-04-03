@@ -718,16 +718,16 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 			}
 			UseIdentity   *identity.FullIdentity
 			MaxInlineSize memory.Size
+			EncKey        *storj.Key
 		}{
 			TLS: struct {
 				SkipPeerCAWhitelist bool
 				PeerCAWhitelistPath string
 			}{
 				SkipPeerCAWhitelist: true,
-				// PeerCAWhitelistPath: flags.TLS.PeerCAWhitelistPath,
 			},
 			UseIdentity: planet.Uplinks[0].Identity,
-			// MaxInlineSize: flags.Client.MaxInlineSize,
+			EncKey:      key,
 		},
 	})
 	if err != nil {
