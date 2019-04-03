@@ -46,7 +46,7 @@ func TestRollupRaws(t *testing.T) {
 			raw, err := planet.Satellites[0].DB.Accounting().GetRaw(ctx)
 			require.NoError(t, err)
 			for _, r := range raw {
-				assert.Equal(t, r.IntervalEndTime.UTC(), timestamp)
+				assert.Equal(t, r.IntervalEndTime.UTC().Truncate(time.Second), timestamp.Truncate(time.Second))
 				if r.DataType == accounting.AtRest {
 					assert.Equal(t, testData[i].nodeData[r.NodeID], r.DataTotal)
 				} else {
@@ -69,6 +69,7 @@ func TestRollupRaws(t *testing.T) {
 				continue
 			}
 			// the number of rows should be number of nodes
+
 			assert.Equal(t, len(planet.StorageNodes), len(rows))
 
 			// verify data is correct
