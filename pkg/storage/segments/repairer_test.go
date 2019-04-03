@@ -102,14 +102,12 @@ func TestSegmentStoreRepair(t *testing.T) {
 		err = repairer.Repair(ctx, path, lostPieces)
 		assert.NoError(t, err)
 
-		// kill nodes kept alive to ensure repair worked
+		// kill one of the nodes kept alive to ensure repair worked
 		for _, node := range planet.StorageNodes {
 			if nodesToKeepAlive[node.ID()] {
 				err = planet.StopPeer(node)
 				require.NoError(t, err)
-
-				err = satellite.Overlay.Service.Delete(ctx, node.ID())
-				require.NoError(t, err)
+				break
 			}
 		}
 
