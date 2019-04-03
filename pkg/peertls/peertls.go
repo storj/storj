@@ -6,6 +6,7 @@ package peertls // import "storj.io/storj/pkg/peertls"
 import (
 	"bytes"
 	"crypto"
+	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
@@ -14,7 +15,13 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pkcrypto"
-	"storj.io/storj/pkg/utils"
+)
+
+const (
+	// LeafIndex is the index of the leaf certificate in a cert chain (0)
+	LeafIndex = iota
+	// CAIndex is the index of the CA certificate in a cert chain (1)
+	CAIndex
 )
 
 var (
@@ -97,25 +104,19 @@ func TLSCert(chain [][]byte, leaf *x509.Certificate, key crypto.PrivateKey) (*tl
 	}, nil
 }
 
-// WriteChain writes the certificate chain (leaf-first) to the writer, PEM-encoded.
+// WriteChain writes the certificate chain (leaf-first) and extensions to the writer, PEM-encoded.
 func WriteChain(w io.Writer, chain ...*x509.Certificate) error {
 	if len(chain) < 1 {
 		return errs.New("expected at least one certificate for writing")
 	}
 
-	var extErrs utils.ErrorGroup
+	var extErrs errs.Group
 	for _, c := range chain {
 		if err := pkcrypto.WriteCertPEM(w, c); err != nil {
 			return errs.Wrap(err)
 		}
-
-		for _, e := range c.ExtraExtensions {
-			if err := pkcrypto.WritePKIXExtensionPEM(w, &e); err != nil {
-				extErrs.Add(errs.Wrap(err))
-			}
-		}
 	}
-	return extErrs.Finish()
+	return extErrs.Err()
 }
 
 // ChainBytes returns bytes of the certificate chain (leaf-first) to the writer, PEM-encoded.
@@ -125,26 +126,29 @@ func ChainBytes(chain ...*x509.Certificate) ([]byte, error) {
 	return data.Bytes(), err
 }
 
+// NewSelfSignedCert returns a new x509 self-signed certificate using the provided // template and key,
+func NewSelfSignedCert(key crypto.PrivateKey, template *x509.Certificate) (*x509.Certificate, error) {
+	return NewCert(pkcrypto.PublicKeyFromPrivate(key), key, template, template)
+}
+
 // NewCert returns a new x509 certificate using the provided templates and key,
 // signed by the parent cert if provided; otherwise, self-signed.
-func NewCert(key, parentKey crypto.PrivateKey, template, parent *x509.Certificate) (*x509.Certificate, error) {
-	var signingKey crypto.PrivateKey
-	if parentKey != nil {
-		signingKey = parentKey
-	} else {
-		signingKey = key
-	}
-
+func NewCert(publicKey crypto.PublicKey, parentKey crypto.PrivateKey, template, parent *x509.Certificate) (*x509.Certificate, error) {
 	if parent == nil {
 		parent = template
+	}
+
+	publicECKey, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, errs.New("unsupported public key type %T", publicKey)
 	}
 
 	cb, err := x509.CreateCertificate(
 		rand.Reader,
 		template,
 		parent,
-		pkcrypto.PublicKeyFromPrivate(key),
-		signingKey,
+		publicECKey,
+		parentKey,
 	)
 	if err != nil {
 		return nil, errs.Wrap(err)

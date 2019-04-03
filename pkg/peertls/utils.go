@@ -12,9 +12,10 @@ package peertls
 // (see https://en.wikipedia.org/wiki/Privacy-enhanced_Electronic_Mail)
 
 import (
+	"crypto"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/x509"
-	"crypto/x509/pkix"
 	"math/big"
 
 	"github.com/zeebo/errs"
@@ -34,6 +35,18 @@ func NewNonTemporaryError(err error) NonTemporaryError {
 	return NonTemporaryError{
 		error: errs.Wrap(err),
 	}
+}
+
+// DoubleSHA256PublicKey returns the hash of the hash of (double-hash, SHA226)
+// the binary format of the given public key.
+func DoubleSHA256PublicKey(k crypto.PublicKey) ([sha256.Size]byte, error) {
+	kb, err := x509.MarshalPKIXPublicKey(k)
+	if err != nil {
+		return [sha256.Size]byte{}, err
+	}
+	mid := sha256.Sum256(kb)
+	end := sha256.Sum256(mid[:])
+	return end, nil
 }
 
 // Temporary returns false to indicate that is is a non-temporary error
@@ -80,16 +93,4 @@ func newSerialNumber() (*big.Int, error) {
 	}
 
 	return serialNumber, nil
-}
-
-func uniqueExts(exts []pkix.Extension) bool {
-	seen := make(map[string]struct{}, len(exts))
-	for _, e := range exts {
-		s := e.Id.String()
-		if _, ok := seen[s]; ok {
-			return false
-		}
-		seen[s] = struct{}{}
-	}
-	return true
 }

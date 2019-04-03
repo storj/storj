@@ -235,7 +235,7 @@ func (db *DB) getInfo(ctx context.Context, prefix string, bucket string, path st
 		return object{}, storj.Object{}, err
 	}
 
-	pointer, _, _, err := db.pointers.Get(ctx, prefix+encryptedPath)
+	pointer, err := db.metainfo.SegmentInfo(ctx, bucket, storj.JoinPaths(storj.SplitPath(encryptedPath)[1:]...), -1)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
 			err = storj.ErrObjectNotFound.Wrap(err)
@@ -265,7 +265,7 @@ func (db *DB) getInfo(ctx context.Context, prefix string, bucket string, path st
 		Data:       pointer.GetMetadata(),
 	}
 
-	streamInfoData, err := streams.DecryptStreamInfo(ctx, lastSegmentMeta, fullpath, db.rootKey)
+	streamInfoData, streamMeta, err := streams.DecryptStreamInfo(ctx, lastSegmentMeta.Data, fullpath, db.rootKey)
 	if err != nil {
 		return object{}, storj.Object{}, err
 	}
@@ -276,16 +276,11 @@ func (db *DB) getInfo(ctx context.Context, prefix string, bucket string, path st
 		return object{}, storj.Object{}, err
 	}
 
-	streamMeta := pb.StreamMeta{}
-	err = proto.Unmarshal(lastSegmentMeta.Data, &streamMeta)
-	if err != nil {
-		return object{}, storj.Object{}, err
-	}
-
 	info, err = objectStreamFromMeta(bucketInfo, path, lastSegmentMeta, streamInfo, streamMeta, redundancyScheme)
 	if err != nil {
 		return object{}, storj.Object{}, err
 	}
+	lastSegmentMeta.RedundancyScheme = info.Stream.RedundancyScheme
 
 	return object{
 		fullpath:        fullpath,
@@ -347,14 +342,7 @@ func objectStreamFromMeta(bucket storj.Bucket, path storj.Path, lastSegment segm
 			SegmentCount:     stream.NumberOfSegments,
 			FixedSegmentSize: stream.SegmentsSize,
 
-			RedundancyScheme: storj.RedundancyScheme{
-				Algorithm:      storj.ReedSolomon,
-				ShareSize:      redundancyScheme.GetErasureShareSize(),
-				RequiredShares: int16(redundancyScheme.GetMinReq()),
-				RepairShares:   int16(redundancyScheme.GetRepairThreshold()),
-				OptimalShares:  int16(redundancyScheme.GetSuccessThreshold()),
-				TotalShares:    int16(redundancyScheme.GetTotal()),
-			},
+			RedundancyScheme: segments.RedundancySchemeFromProto(redundancyScheme),
 			EncryptionScheme: storj.EncryptionScheme{
 				Cipher:    storj.Cipher(streamMeta.EncryptionType),
 				BlockSize: streamMeta.EncryptionBlockSize,

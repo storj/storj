@@ -76,7 +76,7 @@ proto: ## Rebuild protobuf files
 .PHONY: install-sim
 install-sim: ## install storj-sim
 	@echo "Running ${@}"
-	@go install -race -v storj.io/storj/cmd/storj-sim storj.io/storj/cmd/bootstrap storj.io/storj/cmd/satellite storj.io/storj/cmd/storagenode storj.io/storj/cmd/uplink storj.io/storj/cmd/gateway storj.io/storj/cmd/identity storj.io/storj/cmd/certificates
+	@go install -race -v storj.io/storj/cmd/storj-sim storj.io/storj/cmd/versioncontrol storj.io/storj/cmd/bootstrap storj.io/storj/cmd/satellite storj.io/storj/cmd/storagenode storj.io/storj/cmd/uplink storj.io/storj/cmd/gateway storj.io/storj/cmd/identity storj.io/storj/cmd/certificates
 
 ##@ Test
 
@@ -205,11 +205,11 @@ push-images: ## Push Docker images to Docker Hub (jenkins)
 ifeq (${TRACKED_BRANCH},true)
 	docker tag storjlabs/satellite:${TAG}${CUSTOMTAG} storjlabs/satellite:${LATEST_TAG}
 	docker push storjlabs/satellite:${LATEST_TAG}
-	docker tag storjlabs/satellite:${TAG}${CUSTOMTAG} storjlabs/storagenode:${LATEST_TAG}
+	docker tag storjlabs/storagenode:${TAG}${CUSTOMTAG} storjlabs/storagenode:${LATEST_TAG}
 	docker push storjlabs/storagenode:${LATEST_TAG}
-	docker tag storjlabs/satellite:${TAG}${CUSTOMTAG} storjlabs/uplink:${LATEST_TAG}
+	docker tag storjlabs/uplink:${TAG}${CUSTOMTAG} storjlabs/uplink:${LATEST_TAG}
 	docker push storjlabs/uplink:${LATEST_TAG}
-	docker tag storjlabs/satellite:${TAG}${CUSTOMTAG} storjlabs/gateway:${LATEST_TAG}
+	docker tag storjlabs/gateway:${TAG}${CUSTOMTAG} storjlabs/gateway:${LATEST_TAG}
 	docker push storjlabs/gateway:${LATEST_TAG}
 endif
 

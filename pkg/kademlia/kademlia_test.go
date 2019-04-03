@@ -93,7 +93,7 @@ func TestPeerDiscovery(t *testing.T) {
 		Wallet: "OperatorWallet",
 	}
 	k, err := newKademlia(zaptest.NewLogger(t), pb.NodeType_STORAGE, bootstrapNodes, testAddress, metadata, testID, ctx.Dir("test"), defaultAlpha)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	rt := k.routingTable
 	assert.Equal(t, rt.Local().Metadata.Wallet, "OperatorWallet")
 
@@ -135,35 +135,35 @@ func TestBootstrap(t *testing.T) {
 	defer s1.GracefulStop()
 
 	err := n1.Bootstrap(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	n2, s2, clean2 := testNode(ctx, "3", t, []pb.Node{bn.routingTable.self})
 	defer clean2()
 	defer s2.GracefulStop()
 
 	err = n2.Bootstrap(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	nodeIDs, err := n2.routingTable.nodeBucketDB.List(nil, 0)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, nodeIDs, 3)
 }
 
 func testNode(ctx *testcontext.Context, name string, t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
 	// new address
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	// new config
 	// new identity
 	fid, err := testidentity.NewTestIdentity(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	// new kademlia
 
 	logger := zaptest.NewLogger(t)
 	k, err := newKademlia(logger, pb.NodeType_STORAGE, bn, lis.Addr().String(), nil, fid, ctx.Dir(name), defaultAlpha)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
-	s := NewEndpoint(logger, k, k.routingTable, 60*time.Second)
+	s := NewEndpoint(logger, k, k.routingTable)
 	// new ident opts
 
 	serverOptions, err := tlsopts.NewOptions(fid, tlsopts.Config{})
@@ -198,18 +198,18 @@ func TestRefresh(t *testing.T) {
 	now := time.Now().UTC()
 	bID := firstBucketID //always exists
 	err := rt.SetBucketTimestamp(bID[:], now.Add(-2*time.Hour))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	//refresh should  call FindNode, updating the time
 	err = k.refresh(ctx, time.Minute)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	ts1, err := rt.GetBucketTimestamp(bID[:])
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, now.Add(-5*time.Minute).Before(ts1))
 	//refresh should not call FindNode, leaving the previous time
 	err = k.refresh(ctx, time.Minute)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	ts2, err := rt.GetBucketTimestamp(bID[:])
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, ts1.Equal(ts2))
 	s.GracefulStop()
 }
@@ -220,14 +220,14 @@ func TestFindNear(t *testing.T) {
 
 	// make new identity
 	fid, err := testidentity.NewTestIdentity(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	fid2, err := testidentity.NewTestIdentity(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotEqual(t, fid.ID, fid2.ID)
 
 	//start kademlia
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	srv, _ := newTestServer(ctx, []*pb.Node{{Id: teststorj.NodeIDFromString("foo")}})
 
 	defer srv.Stop()
@@ -242,7 +242,7 @@ func TestFindNear(t *testing.T) {
 	bootstrap := []pb.Node{{Id: fid2.ID, Address: &pb.NodeAddress{Address: lis.Addr().String()}}}
 	k, err := newKademlia(zaptest.NewLogger(t), pb.NodeType_STORAGE, bootstrap,
 		lis.Addr().String(), nil, fid, ctx.Dir("kademlia"), defaultAlpha)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer ctx.Check(k.Close)
 
 	// add nodes
@@ -286,7 +286,7 @@ func TestFindNear(t *testing.T) {
 		t.Run(c.testID, func(t *testing.T) {
 
 			ns, err := k.FindNear(ctx, c.target, c.limit, c.restrictions...)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.Equal(t, len(c.expected), len(ns))
 			for _, e := range c.expected {
 				found := false
@@ -465,7 +465,7 @@ func TestRandomIds(t *testing.T) {
 			start, end = end, start
 		}
 		id, err := randomIDInRange(start, end)
-		assert.NoError(t, err, "Unexpected err in randomIDInRange")
+		require.NoError(t, err, "Unexpected err in randomIDInRange")
 		assert.True(t, bytes.Compare(id[:], start[:]) > 0, "Random id was less than starting id")
 		assert.True(t, bytes.Compare(id[:], end[:]) <= 0, "Random id was greater than end id")
 		//invalid range
@@ -482,7 +482,7 @@ func TestRandomIds(t *testing.T) {
 			end[31] = start[31] + 1
 		}
 		id, err = randomIDInRange(start, end)
-		assert.NoError(t, err, "Unexpected err in randomIDInRange")
+		require.NoError(t, err, "Unexpected err in randomIDInRange")
 		assert.True(t, bytes.Equal(id[:], end[:]), "Not-so-random id was incorrect")
 	}
 }
@@ -527,6 +527,7 @@ func newKademlia(log *zap.Logger, nodeType pb.NodeType, bootstrapNodes []pb.Node
 	if err != nil {
 		return nil, err
 	}
+
 	transportClient := transport.NewClient(tlsOptions, rt)
 
 	kadConfig := Config{

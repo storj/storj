@@ -1,0 +1,476 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+.login-container {
+  position: fixed;
+  width: 100%;
+  height: 100%;
+  left: 0;
+  top: 0;
+  z-index: 10;
+  background-size: contain;
+  display: flex;
+  justify-content: flex-start;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 60px 0px 0px 104px;
+  background-color: #F5F6FA;
+
+  &__wrapper {
+    min-width: 50%;
+    height: 86vh;
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-direction: row;
+    width: 100%;
+  }
+
+  &__logo {
+    cursor: pointer;
+    width: 139px;
+    height: 62px;
+  }
+
+  &__register-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: transparent;
+    border-radius: 6px;
+    border: 1px solid #AFB7C1;
+    cursor: pointer;
+    width: 160px;
+    height: 48px;
+
+    p {
+      font-family: 'font_bold';
+      font-size: 14px;
+      line-height: 19px;
+      margin-block-start: 0;
+      margin-block-end: 0;
+      color: #354049;
+    }
+
+    &:hover {
+      background-color: #2683FF;
+      border: 1px solid #2683FF;
+
+      p {
+        color: white;
+      }
+    }
+  }
+}
+
+.login-area-wrapper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+}
+
+.login-area {
+  background-color: transparent;
+  width: 620px;
+  border-radius: 6px;
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  align-items: flex-start;
+  padding-bottom: 50px;
+
+  &__title-container {
+    height: 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-direction: row;
+    margin-bottom: 20px;
+    width: 100%;
+
+    h1 {
+      font-family: 'font_bold';
+      font-size: 22px;
+      color: #384B65;
+      line-height: 27px;
+      margin-block-start: 0;
+      margin-block-end: 0;
+    }
+
+    p {
+      font-family: 'font_regular';
+      font-size: 16px;
+      color: #384B65;
+      line-height: 21px;
+      margin-block-start: 0;
+      margin-block-end: 0;
+
+      b {
+        font-family: 'font_bold';
+        margin-left: 7px;
+      }
+    }
+  }
+
+  &__password-input {
+    margin-top: 22px;
+  }
+
+  &__submit-area {
+    display: flex;
+    justify-content: space-between;
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
+    margin-top: 22px;
+
+    &__login-button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #2683FF;
+      border-radius: 6px;
+      cursor: pointer;
+      width: 160px;
+      height: 48px;
+      box-shadow: none;
+
+      p {
+        font-family: 'font_bold';
+        font-size: 14px;
+        line-height: 19px;
+        margin-block-start: 0;
+        margin-block-end: 0;
+        color: white;
+      }
+
+      &:hover {
+        box-shadow: 0px 16px 24px #3A54DF;
+      }
+    }
+  }
+
+  &__info-area {
+    width: 100%;
+    height: 42px;
+    margin-top: 300px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-start;
+    flex-direction: row;
+
+    p {
+      font-family: 'font_regular';
+      font-size: 12px;
+      line-height: 18px;
+      text-align: center;
+      text-decoration: none;
+      color: #AFB7C1;
+      margin-block-start: 0;
+      margin-block-end: 0;
+    }
+
+    a {
+      font-family: 'font_medium';
+      font-size: 15px;
+      line-height: 18px;
+      text-align: center;
+      text-decoration: none;
+      color: #66686C;
+      margin-block-start: 0;
+      margin-block-end: 0;
+    }
+
+    &__signature {
+      margin-right: 50px;
+    }
+
+    &__terms {
+      margin-right: 35px;
+    }
+  }
+
+  &__login-button.container {
+    display: block;
+    text-align: center;
+  }
+
+  &__navigation-area {
+    margin-top: 24px;
+    width: 100%;
+    height: 48px;
+    display: flex;
+    justify-content: center;
+    flex-direction: row;
+    align-items: center;
+
+    &__nav-link {
+      font-family: 'font_regular';
+      font-size: 14px;
+      line-height: 20px;
+      height: 48px;
+      text-align: center;
+      padding-left: 15px;
+      padding-right: 15px;
+      min-width: 140px;
+      text-decoration: none;
+      color: #66686C;
+
+      .bold {
+        font-family: 'font_medium';
+      }
+    }
+  }
+}
+
+.image {
+  position: fixed;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  height: 100vh;
+}
+
+.loading-overlay {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  left: 0;
+  height: 100vh;
+  width: 0;
+  z-index: 100;
+  background-color: rgba(134, 134, 148, 0.7);
+  visibility: hidden;
+  opacity: 0;
+  -webkit-transition: all 0.5s linear;
+  -moz-transition: all 0.5s linear;
+  -o-transition: all 0.5s linear;
+  transition: all 0.5s linear;
+
+  &__logo {
+    width: 240px;
+    height: 110px;
+    z-index: 200;
+  }
+}
+
+.loading-overlay.active {
+  width: 100vw;
+  visibility: visible;
+  opacity: 1;
+}
+
+@media screen and (max-width: 1500px) {
+  .login-container {
+    &__wrapper {
+      min-width: 45%;
+    }
+  }
+}
+
+@media screen and (max-width: 1300px) {
+  .login-container {
+    &__wrapper {
+      min-width: 75%;
+    }
+  }
+  .image {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 750px) {
+  .login-container {
+    padding: 60px 20px 20px 20px;
+
+    &__wrapper {
+      min-width: 95%;
+    }
+  }
+  .login-area {
+    width: 100%;
+
+    &__info-area {
+      &__signature {
+        margin-right: 15px;
+      }
+
+      &__terms {
+        margin-right: 10px;
+      }
+    }
+  }
+}
+
+@media only screen and (max-width: 420px) {
+  .login-container {
+    padding: 40px 15px 50px 15px;
+
+    &__wrapper {
+      width: 315px;
+    }
+
+    &__header {
+      width: 95%;
+    }
+
+    &__register-button {
+      width: 130px;
+      height: 40px;
+
+      p {
+        font-size: 12px;
+        line-height: 16px;
+      }
+    }
+  }
+  .login-area-wrapper {
+    justify-content: flex-start;
+    padding-top: 20px;
+  }
+  .login-area {
+    width: 96%;
+
+    &__title-container {
+
+      h1 {
+        font-size: 18px;
+        line-height: 21px;
+      }
+
+      p {
+        font-size: 13px;
+        line-height: 21px;
+      }
+    }
+
+    &__submit-area {
+      h3 {
+        font-size: 14px;
+        line-height: 21px;
+      }
+    }
+
+    &__info-area {
+      margin-top: 200px;
+      font-size: 10px;
+
+      &__signature {
+        margin-right: 30px;
+        font-size: 10px !important;
+      }
+
+      &__terms {
+        margin-right: 10px;
+        font-size: 10px !important;
+      }
+
+      &__help {
+        font-size: 10px !important;
+      }
+    }
+  }
+}
+
+@media only screen and (max-width: 340px) {
+  .login-container {
+    padding: 40px 15px 50px 15px;
+
+    &__wrapper {
+      width: 250px;
+    }
+
+    &__header {
+      width: 95%;
+    }
+
+    &__register-button {
+      width: 100px;
+      height: 35px;
+
+      p {
+        font-size: 10px;
+        line-height: 13px;
+      }
+    }
+  }
+  .login-area-wrapper {
+    padding-top: 20px;
+    justify-content: flex-start;
+  }
+  .login-area {
+    width: 92%;
+
+    &__title-container {
+
+      h1 {
+        font-size: 18px;
+        line-height: 21px;
+      }
+
+      p {
+        font-size: 13px;
+        line-height: 21px;
+      }
+    }
+
+    &__submit-area {
+      h3 {
+        font-size: 14px;
+        line-height: 21px;
+      }
+    }
+
+    &__info-area {
+      margin-top: 100px;
+      font-size: 10px;
+
+      &__signature {
+        margin-right: 30px;
+        font-size: 10px !important;
+      }
+
+      &__terms {
+        margin-right: 10px;
+        font-size: 10px !important;
+      }
+
+      &__help {
+        font-size: 10px !important;
+      }
+    }
+  }
+}
+
+@media screen and (max-height: 850px) {
+  .login-area {
+    &__info-area {
+      margin-top: 200px;
+    }
+  }
+}
+
+@media screen and (max-height: 700px) {
+  .login-area {
+    &__info-area {
+      margin-top: 150px;
+    }
+  }
+}
+
+@media screen and (max-height: 610px) {
+  .login-area {
+    &__info-area {
+      margin-top: 100px;
+    }
+  }
+}

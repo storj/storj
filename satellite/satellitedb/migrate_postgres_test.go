@@ -105,7 +105,7 @@ func TestMigratePostgres(t *testing.T) {
 
 		t.Run(strconv.Itoa(base.Version), func(t *testing.T) {
 			log := zaptest.NewLogger(t)
-			schemaName := "migrate/satellite/" + strconv.Itoa(base.Version) + pgutil.RandomString(8)
+			schemaName := "migrate/satellite/" + strconv.Itoa(base.Version) + pgutil.CreateRandomTestingSchemaName(8)
 			connstr := pgutil.ConnstrWithSchema(*satellitedbtest.TestPostgres, schemaName)
 
 			// create a new satellitedb connection

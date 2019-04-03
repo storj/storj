@@ -10,11 +10,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -27,11 +27,11 @@ func TestCache_Database(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		testCache(ctx, t, db.OverlayCache(), db.StatDB())
+		testCache(ctx, t, db.OverlayCache())
 	})
 }
 
-func testCache(ctx context.Context, t *testing.T, store overlay.DB, sdb statdb.DB) {
+func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 	valid1ID := storj.NodeID{}
 	valid2ID := storj.NodeID{}
 	missingID := storj.NodeID{}
@@ -40,7 +40,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB, sdb statdb.D
 	_, _ = rand.Read(valid2ID[:])
 	_, _ = rand.Read(missingID[:])
 
-	cache := overlay.NewCache(store, sdb)
+	cache := overlay.NewCache(zaptest.NewLogger(t), store, overlay.NodeSelectionConfig{})
 
 	{ // Put
 		err := cache.Put(ctx, valid1ID, pb.Node{Id: valid1ID})
@@ -71,7 +71,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB, sdb statdb.D
 
 		invalid2, err := cache.Get(ctx, missingID)
 		assert.Error(t, err)
-		assert.True(t, err == overlay.ErrNodeNotFound)
+		assert.True(t, overlay.ErrNodeNotFound.Has(err))
 		assert.Nil(t, invalid2)
 
 		// TODO: add erroring database test
@@ -130,7 +130,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB, sdb statdb.D
 		deleted, err := cache.Get(ctx, valid1ID)
 		assert.Error(t, err)
 		assert.Nil(t, deleted)
-		assert.True(t, err == overlay.ErrNodeNotFound)
+		assert.True(t, overlay.ErrNodeNotFound.Has(err))
 
 		// Test idempotent delete / non existent key delete
 		err = cache.Delete(ctx, valid1ID)
@@ -173,6 +173,8 @@ func testRandomizedSelection(t *testing.T, reputable bool) {
 				Restrictions: &pb.NodeRestrictions{},
 				Reputation:   &pb.NodeStats{},
 			})
+			require.NoError(t, err)
+			_, err = cache.UpdateUptime(ctx, newID, true)
 			require.NoError(t, err)
 			allIDs[i] = newID
 			nodeCounts[newID] = 0

@@ -30,7 +30,6 @@ import (
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/transport"
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 )
 
@@ -473,15 +472,14 @@ func TestAuthorizationDB_Emails(t *testing.T) {
 	require.NoError(t, err)
 	defer ctx.Check(authDB.Close)
 
-	var authErrs utils.ErrorGroup
+	var authErrs errs.Group
 	for i := 0; i < 5; i++ {
 		_, err := authDB.Create(fmt.Sprintf("user%d@example.com", i), 1)
 		if err != nil {
 			authErrs.Add(err)
 		}
 	}
-	err = authErrs.Finish()
-	require.NoError(t, err)
+	require.NoError(t, authErrs.Err())
 
 	userIDs, err := authDB.UserIDs()
 	assert.NoError(t, err)
@@ -655,6 +653,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 
 	tlsOptions, err := tlsopts.NewOptions(clientIdent, tlsopts.Config{})
 	require.NoError(t, err)
+
 	clientTransport := transport.NewClient(tlsOptions)
 
 	client, err := NewClient(ctx, clientTransport, service.Addr().String())
@@ -736,6 +735,7 @@ func TestNewClient(t *testing.T) {
 
 	tlsOptions, err := tlsopts.NewOptions(ident, tlsopts.Config{})
 	require.NoError(t, err)
+
 	clientTransport := transport.NewClient(tlsOptions)
 
 	t.Run("Basic", func(t *testing.T) {

@@ -7,8 +7,6 @@ import (
 	"database/sql"
 
 	"github.com/zeebo/errs"
-
-	"storj.io/storj/pkg/utils"
 )
 
 // DB is the minimal implementation that is needed by migration.
@@ -32,7 +30,7 @@ func Create(identifier string, db DB) error {
 
 	_, err = tx.Exec(db.Rebind(`CREATE TABLE IF NOT EXISTS table_schemas (id text, schemaText text);`))
 	if err != nil {
-		return Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
+		return Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 
 	row := tx.QueryRow(db.Rebind(`SELECT schemaText FROM table_schemas WHERE id = ?;`), identifier)
@@ -44,23 +42,23 @@ func Create(identifier string, db DB) error {
 	if err == sql.ErrNoRows {
 		_, err := tx.Exec(schema)
 		if err != nil {
-			return Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
+			return Error.Wrap(errs.Combine(err, tx.Rollback()))
 		}
 
 		_, err = tx.Exec(db.Rebind(`INSERT INTO table_schemas(id, schemaText) VALUES (?, ?);`), identifier, schema)
 		if err != nil {
-			return Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
+			return Error.Wrap(errs.Combine(err, tx.Rollback()))
 		}
 
 		return Error.Wrap(tx.Commit())
 	}
 	if err != nil {
-		return Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
+		return Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 
 	if schema != previousSchema {
 		err := Error.New("schema mismatch:\nold %v\nnew %v", previousSchema, schema)
-		return Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
+		return Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 
 	return Error.Wrap(tx.Rollback())

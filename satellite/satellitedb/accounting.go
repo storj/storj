@@ -4,13 +4,16 @@
 package satellitedb
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"time"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -18,6 +21,52 @@ import (
 //database implements DB
 type accountingDB struct {
 	db *dbx.DB
+}
+
+// ProjectBandwidthTotal returns the sum of GET bandwidth usage for a projectID for a time frame
+func (db *accountingDB) ProjectBandwidthTotal(ctx context.Context, bucketID []byte, from time.Time) (int64, error) {
+	pathEl := bytes.Split(bucketID, []byte("/"))
+	_, projectID := pathEl[1], pathEl[0]
+	var sum *int64
+	query := `SELECT SUM(settled) FROM bucket_bandwidth_rollups WHERE project_id = ? AND action = ? AND interval_start > ?;`
+	err := db.db.QueryRow(db.db.Rebind(query), projectID, pb.PieceAction_GET, from).Scan(&sum)
+	if err == sql.ErrNoRows || sum == nil {
+		return 0, nil
+	}
+
+	return *sum, err
+}
+
+// ProjectStorageTotals returns the current inline and remote storage usage for a projectID
+func (db *accountingDB) ProjectStorageTotals(ctx context.Context, projectID uuid.UUID) (int64, int64, error) {
+	rollup, err := db.db.First_BucketStorageTally_By_ProjectId_OrderBy_Desc_IntervalStart(
+		ctx,
+		dbx.BucketStorageTally_ProjectId(projectID[:]),
+	)
+	if err != nil || rollup == nil {
+		return 0, 0, err
+	}
+	return int64(rollup.Inline), int64(rollup.Remote), err
+}
+
+// CreateBucketStorageTally creates a record in the bucket_storage_tallies accounting table
+func (db *accountingDB) CreateBucketStorageTally(ctx context.Context, tally accounting.BucketStorageTally) error {
+	_, err := db.db.Create_BucketStorageTally(
+		ctx,
+		dbx.BucketStorageTally_BucketName([]byte(tally.BucketName)),
+		dbx.BucketStorageTally_ProjectId(tally.ProjectID[:]),
+		dbx.BucketStorageTally_IntervalStart(tally.IntervalStart),
+		dbx.BucketStorageTally_Inline(uint64(tally.InlineBytes)),
+		dbx.BucketStorageTally_Remote(uint64(tally.RemoteBytes)),
+		dbx.BucketStorageTally_RemoteSegmentsCount(uint(tally.RemoteSegmentCount)),
+		dbx.BucketStorageTally_InlineSegmentsCount(uint(tally.InlineSegmentCount)),
+		dbx.BucketStorageTally_ObjectCount(uint(tally.ObjectCount)),
+		dbx.BucketStorageTally_MetadataSize(uint64(tally.MetadataSize)),
+	)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // LastTimestamp records the greatest last tallied time
@@ -162,10 +211,35 @@ func (db *accountingDB) SaveRollup(ctx context.Context, latestRollup time.Time, 
 	return Error.Wrap(err)
 }
 
-// QueryPaymentInfo queries StatDB, Accounting Rollup on nodeID
+// SaveBucketTallies saves the latest bucket info
+func (db *accountingDB) SaveBucketTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*accounting.BucketTally) error {
+	if len(bucketTallies) == 0 {
+		return Error.New("In SaveBucketTallies with empty bucketTallies")
+	}
+
+	for bucketID, info := range bucketTallies {
+		bucketIDComponents := storj.SplitPath(bucketID)
+		bucketName := dbx.BucketStorageTally_BucketName([]byte(bucketIDComponents[0]))
+		projectID := dbx.BucketStorageTally_ProjectId([]byte(bucketIDComponents[1]))
+		interval := dbx.BucketStorageTally_IntervalStart(intervalStart)
+		inlineBytes := dbx.BucketStorageTally_Inline(uint64(info.InlineBytes))
+		remoteBytes := dbx.BucketStorageTally_Remote(uint64(info.RemoteBytes))
+		rSegments := dbx.BucketStorageTally_RemoteSegmentsCount(uint(info.RemoteSegments))
+		iSegments := dbx.BucketStorageTally_InlineSegmentsCount(uint(info.InlineSegments))
+		objectCount := dbx.BucketStorageTally_ObjectCount(uint(info.Files))
+		meta := dbx.BucketStorageTally_MetadataSize(uint64(info.MetadataSize))
+		_, err := db.db.Create_BucketStorageTally(ctx, bucketName, projectID, interval, inlineBytes, remoteBytes, rSegments, iSegments, objectCount, meta)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// QueryPaymentInfo queries Overlay, Accounting Rollup on nodeID
 func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*accounting.CSVRow, error) {
 	var sqlStmt = `SELECT n.id, n.created_at, n.audit_success_ratio, r.at_rest_total, r.get_repair_total,
-	    r.put_repair_total, r.get_audit_total, r.put_total, r.get_total, o.operator_wallet
+	    r.put_repair_total, r.get_audit_total, r.put_total, r.get_total, n.wallet
 	    FROM (
 			SELECT node_id, SUM(at_rest_total) AS at_rest_total, SUM(get_repair_total) AS get_repair_total,
 			SUM(put_repair_total) AS put_repair_total, SUM(get_audit_total) AS get_audit_total,
@@ -175,7 +249,6 @@ func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, e
 			GROUP BY node_id
 		) r
 		LEFT JOIN nodes n ON n.id = r.node_id
-		LEFT JOIN overlay_cache_nodes o ON n.id = o.node_id
 	    ORDER BY n.id`
 	rows, err := db.db.DB.QueryContext(ctx, db.db.Rebind(sqlStmt), start.UTC(), end.UTC())
 	if err != nil {

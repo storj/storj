@@ -1,0 +1,92 @@
+<!--Copyright (C) 2019 Storj Labs, Inc.-->
+<!--See LICENSE for copying information.-->
+
+<div class="register-container" v-on:keyup.enter="onCreateClick">
+	<div v-bind:class="loadingClassName">
+		<img src="../../../static/images/register/Loading.gif">
+	</div>
+	<img class="image" src="../../../static/images/AuthImage.svg" alt="" >
+	<div class="register-container__wrapper">
+		<div class="register-container__header">
+			<img class="register-container__logo" src="../../../static/images/Logo.svg" alt="logo" v-on:click="onLogoClick">
+			<div class="register-container__register-button" v-on:click.prevent="onLoginClick">
+				<p>Login</p>
+			</div>
+		</div>
+		<div class="register-area-wrapper">
+			<div class="register-area">
+				<div class="register-area__title-container">
+					<h1>Sign Up to Storj</h1>
+				</div>
+				<HeaderlessInput
+						class="full-input"
+						label="Full name"
+						placeholder="Enter Full Name"
+						:error="fullNameError"
+						@setData="setFullName"
+						width="100%"
+						height="46px">
+				</HeaderlessInput>
+				<HeaderlessInput
+						class="full-input"
+						label="Short Name"
+						placeholder="Enter Short Name"
+						@setData="setShortName"
+						width="100%"
+						height="46px">
+				</HeaderlessInput>
+				<HeaderlessInput
+						class="full-input"
+						label="Email"
+						placeholder="Enter Email"
+						:error="emailError"
+						@setData="setEmail"
+						width="100%"
+						height="46px">
+				</HeaderlessInput>
+				<div class="register-input">
+					<HeaderlessInput
+							class="full-input"
+							label="Password"
+							placeholder="Enter Password"
+							:error="passwordError"
+							@setData="setPassword"
+							width="100%"
+							height="46px"
+							isPassword>
+					</HeaderlessInput>
+					<span
+							v-html="infoImage"
+							title="Use 6 or more characters"></span>
+				</div>
+				<div class="register-input">
+					<HeaderlessInput
+							class="full-input"
+							label="Repeat Password"
+							placeholder="Repeat Password"
+							:error="repeatedPasswordError"
+							@setData="setRepeatedPassword"
+							width="100%"
+							height="46px"
+							isPassword>
+					</HeaderlessInput>
+					<span v-html="infoImage"
+					      title="Use 6 or more characters"></span>
+				</div>
+				<div class="register-area__submit-container">
+					<div class="register-area__submit-container__terms-area">
+						<label class="container">
+							<input type="checkbox" v-model="isTermsAccepted">
+							<span v-bind:class="[isTermsAcceptedError ? 'checkmark error': 'checkmark']"></span>
+						</label>
+						<h2>I agree to the <a>Terms & Conditions</a></h2>
+					</div>
+					<div id="createAccountButton" class="register-area__submit-container__create-button" v-on:click.prevent="onCreateClick">
+						<p>Create Account</p>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	<RegistrationSuccessPopup />
+</div>

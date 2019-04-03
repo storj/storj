@@ -54,6 +54,29 @@ func networkExec(flags *Flags, args []string, command string) error {
 	return errs.Combine(err, closeErr)
 }
 
+func networkEnv(flags *Flags, args []string) error {
+	flags.OnlyEnv = true
+	processes, err := newNetwork(flags)
+	if err != nil {
+		return err
+	}
+
+	// run exec before, since it will load env vars from configs
+	for _, process := range processes.List {
+		if exec := process.ExecBefore["run"]; exec != nil {
+			if err := exec(process); err != nil {
+				return err
+			}
+		}
+	}
+
+	for _, env := range processes.Env() {
+		fmt.Println(env)
+	}
+
+	return nil
+}
+
 func networkTest(flags *Flags, command string, args []string) error {
 	processes, err := newNetwork(flags)
 	if err != nil {
@@ -122,7 +145,26 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		storageNodePrivatePort = 13000
 		consolePort            = 10100
 		bootstrapWebPort       = 10010
+		versioncontrolPort     = 10011
 	)
+
+	versioncontrol := processes.New(Info{
+		Name:       "versioncontrol/0",
+		Executable: "versioncontrol",
+		Directory:  filepath.Join(processes.Directory, "versioncontrol", "0"),
+		Address:    net.JoinHostPort(host, strconv.Itoa(versioncontrolPort)),
+	})
+
+	versioncontrol.Arguments = withCommon(versioncontrol.Directory, Arguments{
+		"setup": {
+			"--address", versioncontrol.Address,
+		},
+		"run": {},
+	})
+
+	versioncontrol.ExecBefore["run"] = func(process *Process) error {
+		return readConfigString(&versioncontrol.Address, versioncontrol.Directory, "address")
+	}
 
 	bootstrap := processes.New(Info{
 		Name:       "bootstrap/0",
@@ -130,6 +172,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		Directory:  filepath.Join(processes.Directory, "bootstrap", "0"),
 		Address:    net.JoinHostPort(host, strconv.Itoa(bootstrapPort)),
 	})
+
+	// gateway must wait for the versioncontrol to start up
+	bootstrap.WaitForStart(versioncontrol)
 
 	bootstrap.Arguments = withCommon(bootstrap.Directory, Arguments{
 		"setup": {
@@ -146,6 +191,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 			"--server.extensions.revocation=false",
 			"--server.use-peer-ca-whitelist=false",
+
+			"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
 		},
 		"run": {},
 	})
@@ -194,6 +241,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--mail.smtp-server-address", "smtp.gmail.com:587",
 				"--mail.from", "Storj <yaroslav-satellite-test@storj.io>",
 				"--mail.template-path", filepath.Join(storjRoot, "web/satellite/static/emails"),
+
+				"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
 			},
 			"run": {},
 		})
@@ -224,8 +273,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 				"--server.address", process.Address,
 
-				"--client.overlay-addr", satellite.Address,
-				"--client.pointer-db-addr", satellite.Address,
+				"--satellite-addr", satellite.Address,
 
 				"--rs.min-threshold", strconv.Itoa(1 * flags.StorageNodeCount / 5),
 				"--rs.repair-threshold", strconv.Itoa(2 * flags.StorageNodeCount / 5),
@@ -255,8 +303,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			// check if gateway config has an api key, if it's not
 			// create example project with key and add it to the config
 			// so that gateway can have access to the satellite
-			apiKey := vip.GetString("client.api-key")
-			if apiKey == "" {
+			apiKey := vip.GetString("api-key")
+			if !flags.OnlyEnv && apiKey == "" {
 				var consoleAddress string
 				satelliteConfigErr := readConfigString(&consoleAddress, satellite.Directory, "console.address")
 				if satelliteConfigErr != nil {
@@ -275,11 +323,15 @@ func newNetwork(flags *Flags) (*Processes, error) {
 					return err
 				}
 
-				vip.Set("client.api-key", apiKey)
+				vip.Set("api-key", apiKey)
 
 				if err := vip.WriteConfig(); err != nil {
 					return err
 				}
+			}
+
+			if apiKey != "" {
+				process.Extra = append(process.Extra, "API_KEY="+apiKey)
 			}
 
 			accessKey := vip.GetString("minio.access-key")
@@ -321,6 +373,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 				"--server.extensions.revocation=false",
 				"--server.use-peer-ca-whitelist=false",
+				"--storage.satellite-id-restriction=false",
+
+				"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
 			},
 			"run": {},
 		})

@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
+	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
@@ -70,8 +71,7 @@ var (
 	setupCfg     StorageNodeFlags
 	diagCfg      storagenode.Config
 	dashboardCfg struct {
-		Address       string `default:"127.0.0.1:7778" help:"address for dashboard service"`
-		BootstrapAddr string `default:"bootstrap.storj.io:8888" help:"address of server the storage node was bootstrapped against"`
+		Address string `default:"127.0.0.1:7778" help:"address for dashboard service"`
 	}
 	defaultDiagDir string
 	confDir        string
@@ -148,7 +148,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Error creating tables for master database on storagenode: %+v", err)
 	}
 
-	peer, err := storagenode.New(log, identity, db, runCfg.Config)
+	peer, err := storagenode.New(log, identity, db, runCfg.Config, version.Build)
 	if err != nil {
 		return err
 	}

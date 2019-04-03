@@ -8,12 +8,12 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
+	"storj.io/storj/uplink/metainfo"
 )
 
 var mon = monkit.Package()
@@ -26,21 +26,23 @@ var _ storj.Metainfo = (*DB)(nil)
 
 // DB implements metainfo database
 type DB struct {
-	buckets  buckets.Store
+	*Project
+
+	metainfo metainfo.Client
+
 	streams  streams.Store
 	segments segments.Store
-	pointers pdbclient.Client
 
 	rootKey *storj.Key
 }
 
 // New creates a new metainfo database
-func New(buckets buckets.Store, streams streams.Store, segments segments.Store, pointers pdbclient.Client, rootKey *storj.Key) *DB {
+func New(metainfo metainfo.Client, buckets buckets.Store, streams streams.Store, segments segments.Store, rootKey *storj.Key) *DB {
 	return &DB{
-		buckets:  buckets,
+		Project:  NewProject(buckets),
+		metainfo: metainfo,
 		streams:  streams,
 		segments: segments,
-		pointers: pointers,
 		rootKey:  rootKey,
 	}
 }

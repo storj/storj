@@ -62,6 +62,10 @@ var (
 		Use:   "statdb",
 		Short: "commands for statdb",
 	}
+	healthCmd = &cobra.Command{
+		Use:   "health",
+		Short: "commands for querying health of a stored data",
+	}
 	irreparableCmd = &cobra.Command{
 		Use:   "irreparable",
 		Short: "list segments in irreparable database",
@@ -121,19 +125,31 @@ var (
 		Args:  cobra.MinimumNArgs(1),
 		RunE:  CreateCSVStats,
 	}
+	objectHealthCmd = &cobra.Command{
+		Use:   "object <project-id> <bucket> <encrypted-path>",
+		Short: "Get stats about an object's health",
+		Args:  cobra.MinimumNArgs(3),
+		RunE:  ObjectHealth,
+	}
+	segmentHealthCmd = &cobra.Command{
+		Use:   "segment <project-id> <segment-index> <bucket> <encrypted-path>",
+		Short: "Get stats about a segment's health",
+		Args:  cobra.MinimumNArgs(4),
+		RunE:  SegmentHealth,
+	}
 )
 
-// Inspector gives access to kademlia, overlay cache, and statDB
+// Inspector gives access to kademlia, overlay cache
 type Inspector struct {
 	identity      *identity.FullIdentity
 	kadclient     pb.KadInspectorClient
 	overlayclient pb.OverlayInspectorClient
-	statdbclient  pb.StatDBInspectorClient
 	irrdbclient   pb.IrreparableInspectorClient
+	healthclient  pb.HealthInspectorClient
 }
 
 // NewInspector creates a new gRPC inspector client for access to kad,
-// overlay cache, and statDB
+// overlay cache
 func NewInspector(address, path string) (*Inspector, error) {
 	ctx := context.Background()
 
@@ -154,8 +170,8 @@ func NewInspector(address, path string) (*Inspector, error) {
 		identity:      id,
 		kadclient:     pb.NewKadInspectorClient(conn),
 		overlayclient: pb.NewOverlayInspectorClient(conn),
-		statdbclient:  pb.NewStatDBInspectorClient(conn),
 		irrdbclient:   pb.NewIrreparableInspectorClient(conn),
+		healthclient:  pb.NewHealthInspectorClient(conn),
 	}, nil
 }
 
@@ -286,7 +302,7 @@ func PingNode(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
-// GetStats gets a node's stats from statdb
+// GetStats gets a node's stats from overlay
 func GetStats(cmd *cobra.Command, args []string) (err error) {
 	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
@@ -298,7 +314,7 @@ func GetStats(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	res, err := i.statdbclient.GetStats(context.Background(), &pb.GetStatsRequest{
+	res, err := i.overlayclient.GetStats(context.Background(), &pb.GetStatsRequest{
 		NodeId: nodeID,
 	})
 	if err != nil {
@@ -311,7 +327,7 @@ func GetStats(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
-// GetCSVStats gets node stats from statdb based on a csv
+// GetCSVStats gets node stats from overlay based on a csv
 func GetCSVStats(cmd *cobra.Command, args []string) (err error) {
 	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
@@ -334,7 +350,7 @@ func GetCSVStats(cmd *cobra.Command, args []string) (err error) {
 		if err != nil {
 			return err
 		}
-		res, err := i.statdbclient.GetStats(context.Background(), &pb.GetStatsRequest{
+		res, err := i.overlayclient.GetStats(context.Background(), &pb.GetStatsRequest{
 			NodeId: nodeID,
 		})
 		if err != nil {
@@ -348,7 +364,7 @@ func GetCSVStats(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
-// CreateStats creates a node with stats in statdb
+// CreateStats creates a node with stats in overlay
 func CreateStats(cmd *cobra.Command, args []string) (err error) {
 	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
@@ -376,7 +392,7 @@ func CreateStats(cmd *cobra.Command, args []string) (err error) {
 		return ErrArgs.New("uptime success count must be an int")
 	}
 
-	_, err = i.statdbclient.CreateStats(context.Background(), &pb.CreateStatsRequest{
+	_, err = i.overlayclient.CreateStats(context.Background(), &pb.CreateStatsRequest{
 		NodeId:             nodeID,
 		AuditCount:         auditCount,
 		AuditSuccessCount:  auditSuccessCount,
@@ -387,11 +403,11 @@ func CreateStats(cmd *cobra.Command, args []string) (err error) {
 		return ErrRequest.Wrap(err)
 	}
 
-	fmt.Printf("Created statdb entry for ID %s\n", nodeID)
+	fmt.Printf("Created stats entry for ID %s\n", nodeID)
 	return nil
 }
 
-// CreateCSVStats creates node with stats in statdb based on a CSV
+// CreateCSVStats creates node with stats in overlay based on a CSV
 func CreateCSVStats(cmd *cobra.Command, args []string) (err error) {
 	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
@@ -431,7 +447,7 @@ func CreateCSVStats(cmd *cobra.Command, args []string) (err error) {
 			return ErrArgs.New("uptime success count must be an int")
 		}
 
-		_, err = i.statdbclient.CreateStats(context.Background(), &pb.CreateStatsRequest{
+		_, err = i.overlayclient.CreateStats(context.Background(), &pb.CreateStatsRequest{
 			NodeId:             nodeID,
 			AuditCount:         auditCount,
 			AuditSuccessCount:  auditSuccessCount,
@@ -442,8 +458,63 @@ func CreateCSVStats(cmd *cobra.Command, args []string) (err error) {
 			return ErrRequest.Wrap(err)
 		}
 
-		fmt.Printf("Created statdb entry for ID %s\n", nodeID)
+		fmt.Printf("Created stats entry for ID %s\n", nodeID)
 	}
+	return nil
+}
+
+// ObjectHealth gets information about the health of an object on the network
+func ObjectHealth(cmd *cobra.Command, args []string) (err error) {
+	ctx := context.Background()
+
+	i, err := NewInspector(*Addr, *IdentityPath)
+	if err != nil {
+		return ErrArgs.Wrap(err)
+	}
+
+	req := &pb.ObjectHealthRequest{
+		ProjectId:         []byte(args[0]),
+		Bucket:            []byte(args[1]),
+		EncryptedPath:     []byte(args[2]),
+		StartAfterSegment: 0, // start from first segment
+		EndBeforeSegment:  0, // No end, so we stop when we've hit limit or arrived at the last segment
+		Limit:             0, // No limit, so we stop when we've arrived at the last segment
+	}
+
+	_, err = i.healthclient.ObjectHealth(ctx, req)
+	if err != nil {
+		return ErrRequest.Wrap(err)
+	}
+
+	return nil
+}
+
+// SegmentHealth gets information about the health of a segment on the network
+func SegmentHealth(cmd *cobra.Command, args []string) (err error) {
+	ctx := context.Background()
+
+	i, err := NewInspector(*Addr, *IdentityPath)
+	if err != nil {
+		return ErrArgs.Wrap(err)
+	}
+
+	segmentIndex, err := strconv.ParseInt(args[1], 10, 64)
+	if err != nil {
+		return ErrRequest.Wrap(err)
+	}
+
+	req := &pb.SegmentHealthRequest{
+		ProjectId:     []byte(args[0]),
+		SegmentIndex:  segmentIndex,
+		Bucket:        []byte(args[2]),
+		EncryptedPath: []byte(args[3]),
+	}
+
+	_, err = i.healthclient.SegmentHealth(ctx, req)
+	if err != nil {
+		return ErrRequest.Wrap(err)
+	}
+
 	return nil
 }
 
@@ -510,6 +581,7 @@ func init() {
 	rootCmd.AddCommand(kadCmd)
 	rootCmd.AddCommand(statsCmd)
 	rootCmd.AddCommand(irreparableCmd)
+	rootCmd.AddCommand(healthCmd)
 
 	kadCmd.AddCommand(countNodeCmd)
 	kadCmd.AddCommand(pingNodeCmd)
@@ -521,6 +593,9 @@ func init() {
 	statsCmd.AddCommand(getCSVStatsCmd)
 	statsCmd.AddCommand(createStatsCmd)
 	statsCmd.AddCommand(createCSVStatsCmd)
+
+	healthCmd.AddCommand(objectHealthCmd)
+	healthCmd.AddCommand(segmentHealthCmd)
 
 	irreparableCmd.Flags().Int32Var(&irreparableLimit, "limit", 50, "max number of results per page")
 

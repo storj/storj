@@ -15,13 +15,13 @@ import (
 	"storj.io/storj/storagenode/bandwidth"
 )
 
-type bandwidthdb struct{ *infodb }
+type bandwidthdb struct{ *InfoDB }
 
 // Bandwidth returns table for storing bandwidth usage.
 func (db *DB) Bandwidth() bandwidth.DB { return db.info.Bandwidth() }
 
 // Bandwidth returns table for storing bandwidth usage.
-func (db *infodb) Bandwidth() bandwidth.DB { return &bandwidthdb{db} }
+func (db *InfoDB) Bandwidth() bandwidth.DB { return &bandwidthdb{db} }
 
 // Add adds bandwidth usage to the table
 func (db *bandwidthdb) Add(ctx context.Context, satelliteID storj.NodeID, action pb.PieceAction, amount int64, created time.Time) error {

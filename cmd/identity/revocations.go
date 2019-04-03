@@ -41,7 +41,7 @@ func cmdRevocations(cmd *cobra.Command, args []string) error {
 		revCfg.RevocationDBURL = "bolt://" + filepath.Join(configDir, args[0], "revocations.db")
 	}
 
-	revDB, err := identity.NewRevDB(revCfg.RevocationDBURL)
+	revDB, err := identity.NewRevocationDB(revCfg.RevocationDBURL)
 	if err != nil {
 		return err
 	}
@@ -53,12 +53,7 @@ func cmdRevocations(cmd *cobra.Command, args []string) error {
 
 	revErrs := new(errs.Group)
 	for _, rev := range revs {
-		// TODO: figure out why this doesn't base64 encode []byte fields!
-		//revJSON, err := json.MarshalIndent(rev.CertHash, "", "\t")
-		//if err != nil {
-		//	revErrs.Add(err)
-		//}
-		fmt.Printf("certificate hash: %s\n", base64.StdEncoding.EncodeToString(rev.CertHash))
+		fmt.Printf("certificate public key hash: %s\n", base64.StdEncoding.EncodeToString(rev.KeyHash))
 		fmt.Printf("\timestamp: %s\n", time.Unix(rev.Timestamp, 0).String())
 		fmt.Printf("\tsignature: %s\n", base64.StdEncoding.EncodeToString(rev.Signature))
 	}

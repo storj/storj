@@ -113,7 +113,7 @@ export default class HeaderlessInput extends Vue {
 
 
 input {
-	font-family: 'montserrat_regular';
+	font-family: 'font_regular';
 	font-size: 16px;
 	line-height: 21px;
 	resize: none;
@@ -133,7 +133,7 @@ input::placeholder {
     opacity: 0.4;
 }
 h3 {
-	font-family: 'montserrat_regular';
+	font-family: 'font_regular';
 	font-size: 16px;
 	line-height: 21px;
 	color: #354049;
@@ -145,7 +145,7 @@ h3 {
 
     &__add-label {
         margin-left: 5px;
-        font-family: 'montserrat_regular';
+        font-family: 'font_regular';
         font-size: 16px;
         line-height: 21px;
         color: rgba(56, 75, 101, 0.4);
