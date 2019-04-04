@@ -217,6 +217,10 @@ func (db *DB) Migration() *migrate.Migration {
 				Version:     5,
 				Action: migrate.Func(func(log *zap.Logger, mdb migrate.DB, tx *sql.Tx) error {
 					path := db.dbPath
+					if path == "" {
+						log.Warn("Empty path")
+						return nil
+					}
 					return db.DeleteObsolete(path)
 				}),
 			},
@@ -237,23 +241,18 @@ func (db *DB) locked() func() {
 
 // DeleteObsolete deletes obsolete pieces
 func (db *DB) DeleteObsolete(path string) (err error) {
-	if path == "" {
-		zap.S().Warnf("Empty path: %+v", path)
+	path = filepath.Dir(path)
+	files, err := ioutil.ReadDir(path)
+	if err != nil {
+		return err
 	}
-	if path != "" {
-		path = filepath.Dir(path)
-		files, err := ioutil.ReadDir(path)
-		if err != nil {
-			return err
-		}
 
-		// iterate thru files list
-		for _, f := range files {
-			if info, err := os.Stat(filepath.Join(path, f.Name())); err == nil && info.IsDir() && len(f.Name()) == 2 {
-				err = os.RemoveAll(filepath.Join(path, f.Name()))
-				if err != nil {
-					zap.S().Errorf("unable to delete: %+v %+v", filepath.Join(path, f.Name()), err)
-				}
+	// iterate thru files list
+	for _, f := range files {
+		if info, err := os.Stat(filepath.Join(path, f.Name())); err == nil && info.IsDir() && len(f.Name()) == 2 {
+			err = os.RemoveAll(filepath.Join(path, f.Name()))
+			if err != nil {
+				return err
 			}
 		}
 	}

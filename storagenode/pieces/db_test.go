@@ -123,7 +123,7 @@ func TestPieceInfo(t *testing.T) {
 		require.Empty(t, cmp.Diff(info1, info1loaded, cmp.Comparer(pb.Equal)))
 
 		// getting expired pieces
-		exp := time.Now().Add(time.Hour * 24 * 1)
+		exp := time.Now().Add(time.Hour * 24)
 		infoexp, err := pieceinfos.GetExpired(ctx, exp)
 		assert.NoError(t, err)
 		assert.NotEmpty(t, infoexp)

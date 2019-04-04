@@ -4,6 +4,7 @@
 package psdb_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -311,21 +312,52 @@ func TestHappyPath(t *testing.T) {
 		}
 	})
 
+	// mocked of storage directory, add here new files/directory ...
+	// to create a directory prefix with 'D' and for file 'F'
+	storagenodeDir := []string{"Dblob", "Finfo.db", "Finfo.db-shm", "Finfo.db-wal", "Fpiecestore.db", "Fpiecestore.db-shm", "Fpiecestore.db-wal", "Dtmp", "Dtrash"}
 	t.Run("DeleteObsolete", func(t *testing.T) {
-		for i := 0; i < 100; i++ {
-			subdir1 := filepath.Join(filepath.Dir(dbPath), strconv.Itoa(i)+"_"+stringWithCharset(5))
-			err := os.MkdirAll(subdir1, os.ModePerm)
+		//mock the storagenode's storage directory creation
+		for _, d := range storagenodeDir {
+			switch d[0] {
+			// create a mock directory
+			case 'D':
+				dir := filepath.Join(filepath.Dir(dbPath), d[1:])
+				err := os.MkdirAll(dir, os.ModePerm)
+				require.NoError(t, err)
+			// create a mock file
+			case 'F':
+				file := filepath.Join(filepath.Dir(dbPath))
+				fmt.Println("file=", file)
+				message := []byte("Hello, Gophers!")
+				tmpfile := filepath.Join(file, d[1:])
+				err := ioutil.WriteFile(tmpfile, message, 0644)
+				require.NoError(t, err)
+			default:
+				t.Fatalf("shouldnt ever come here")
+			}
+		}
+		for i := 0; i < 10; i++ {
 			subdir := filepath.Join(filepath.Dir(dbPath), stringWithCharset(2))
 			subsubdir := filepath.Join(subdir, stringWithCharset(2))
-			err = os.MkdirAll(subsubdir, os.ModePerm)
+			err := os.MkdirAll(subsubdir, os.ModePerm)
 			require.NoError(t, err)
-			message := []byte("Hello, Gophers!")
+			message := []byte("Undisputedly secure Storj's piece data !")
 			tmpfile := filepath.Join(subsubdir, stringWithCharset(20))
 			err = ioutil.WriteFile(tmpfile, message, 0644)
 			require.NoError(t, err)
 		}
 		err := db.DeleteObsolete(dbPath)
 		assert.NoError(t, err)
+
+		// verify all the 2letter directories are removed
+		path := filepath.Dir(dbPath)
+		files, err := ioutil.ReadDir(path)
+		require.NoError(t, err)
+		for _, f := range files {
+			if info, err := os.Stat(filepath.Join(path, f.Name())); err == nil && info.IsDir() && len(f.Name()) == 2 {
+				t.Fatalf("obsolete files not cleaneup")
+			}
+		}
 	})
 
 }
