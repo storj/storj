@@ -159,8 +159,8 @@ export const appStateModule = {
         [APP_STATE_ACTIONS.CLOSE_POPUPS]: function ({commit}: any): void {
             commit(APP_STATE_MUTATIONS.CLOSE_ALL);
         },
-        [APP_STATE_ACTIONS.CHANGE_STATE]: function ({commit}: any): void {
-            commit(APP_STATE_MUTATIONS.CHANGE_STATE);
+        [APP_STATE_ACTIONS.CHANGE_STATE]: function ({commit}: any, newFetchState: AppState): void {
+            commit(APP_STATE_MUTATIONS.CHANGE_STATE, newFetchState);
         },
     },
 };

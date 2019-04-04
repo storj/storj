@@ -1,3 +1,4 @@
+import {AppState} from "../utils/constants/appStateEnum";
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
@@ -11,7 +12,9 @@
             <div class="dashboard-container__wrap__column">
                 <DashboardHeader />
                 <div class="dashboard-container__main-area">
-                    <router-view />
+                    <keep-alive>
+                        <router-view />
+                    </keep-alive>
                 </div>
             </div>
         </div>
@@ -39,47 +42,48 @@
 
     @Component({
     mounted: async function() {
-        let response: RequestResponse<User> = await this.$store.dispatch(USER_ACTIONS.GET);
+        setTimeout(async () => {
+            let response: RequestResponse<User> = await this.$store.dispatch(USER_ACTIONS.GET);
+            if (!response.isSuccess) {
+                this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
+                this.$router.push(ROUTES.LOGIN);
+                removeToken();
 
-        if (!response.isSuccess) {
-            this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
-            this.$router.push(ROUTES.LOGIN);
-            removeToken();
+                return;
+            }
 
-            return;
-        }
+            let getProjectsResponse: RequestResponse<Project[]> = await this.$store.dispatch(PROJETS_ACTIONS.FETCH);
 
-        let getProjectsResponse: RequestResponse<Project[]> = await this.$store.dispatch(PROJETS_ACTIONS.FETCH);
+            if (!getProjectsResponse.isSuccess || getProjectsResponse.data.length < 1) {
+                this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
 
-        if (!getProjectsResponse.isSuccess || getProjectsResponse.data.length < 1) {
-            this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
+                return;
+            }
 
-            return;
-        }
+            this.$store.dispatch(PROJETS_ACTIONS.SELECT, getProjectsResponse.data[0].id);
 
-        this.$store.dispatch(PROJETS_ACTIONS.SELECT, getProjectsResponse.data[0].id);
+            const projectMembersResponse = await this.$store.dispatch(PM_ACTIONS.FETCH);
+            if (!projectMembersResponse.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+            }
 
-        const projectMembersResponse = await this.$store.dispatch(PM_ACTIONS.FETCH);
-        if (!projectMembersResponse.isSuccess) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
-        }
+            const keysResponse = await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
+            if (!keysResponse.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch api keys');
+            }
 
-        const keysResponse = await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
-        if (!keysResponse.isSuccess) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch api keys');
-        }
+            const currentDate = new Date();
+            const previousDate = new Date();
+            previousDate.setMonth(currentDate.getMonth() - 1);
 
-        const currentDate = new Date();
-        const previousDate = new Date();
-        previousDate.setMonth(currentDate.getMonth() - 1);
+            const usageResponse = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, {startDate: previousDate, endDate: currentDate});
+            if (!usageResponse.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
+            }
 
-        const usageResponse = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, {startDate: previousDate, endDate: currentDate});
-        if (!usageResponse.isSuccess) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
-        }
-
-        this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
+            this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
+        }, 800);
     },
     computed: {
         isLoading: function() {
