@@ -26,7 +26,8 @@ import {
     PROJETS_ACTIONS,
     PM_ACTIONS,
     USER_ACTIONS,
-    API_KEYS_ACTIONS
+    API_KEYS_ACTIONS,
+    PROJECT_USAGE_ACTIONS
 } from '@/utils/constants/actionNames';
 import ROUTES from '@/utils/constants/routerConstants';
 import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuccessPopup.vue';
@@ -65,6 +66,15 @@ import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuc
         const keysResponse = await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
         if (!keysResponse.isSuccess) {
             this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch api keys');
+        }
+
+        const currentDate = new Date();
+        const previousDate = new Date();
+        previousDate.setMonth(currentDate.getMonth() - 1);
+
+        const usageResponse = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, {startDate: previousDate, endDate: currentDate});
+        if (!usageResponse.isSuccess) {
+            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
         }
     },
     components: {

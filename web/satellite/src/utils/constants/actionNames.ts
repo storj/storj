@@ -63,3 +63,8 @@ export const API_KEYS_ACTIONS = {
     TOGGLE_SELECTION: 'toggleAPIKeySelection',
     CLEAR_SELECTION: 'clearAPIKeySelection'
 };
+
+export const PROJECT_USAGE_ACTIONS = {
+    FETCH: 'fetchProjectUsage',
+    CLEAR: 'clearProjectUsage',
+};
