@@ -221,6 +221,8 @@ github.com/minio/minio-go v6.0.3+incompatible h1:yTq5mJOcWg6ot6STkEMnrNN896L0aDD
 github.com/minio/minio-go v6.0.3+incompatible/go.mod h1:7guKYtitv8dktvNUGrhzmNlA5wrAABTQXCoesZdFQO8=
 github.com/minio/sha256-simd v0.0.0-20171213220625-ad98a36ba0da h1:tazA5y1hWYJO8VSYbU36yBhXeIvruLXMUKu6WBtcJck=
 github.com/minio/sha256-simd v0.0.0-20171213220625-ad98a36ba0da/go.mod h1:2FMWW+8GMoPweT6+pI63m9YE3Lmw4J71hV56Chs1E/U=
+github.com/minio/sha256-simd v0.0.0-20190328051042-05b4dd3047e5 h1:l16XLUUJ34wIz+RIvLhSwGvLvKyy+W598b135bJN6mg=
+github.com/minio/sha256-simd v0.0.0-20190328051042-05b4dd3047e5/go.mod h1:2FMWW+8GMoPweT6+pI63m9YE3Lmw4J71hV56Chs1E/U=
 github.com/minio/sio v0.0.0-20180327104954-6a41828a60f0 h1:ys4bbOlPvaUBlA0byjm6TqydsXZu614ZIUTfF+4MRY0=
 github.com/minio/sio v0.0.0-20180327104954-6a41828a60f0/go.mod h1:PDJGYr8GXjiOTIst0hQMOSK5FdXLwObr2cGbiMddDPc=
 github.com/mitchellh/go-homedir v0.0.0-20180801233206-58046073cbff h1:jM4Eo4qMmmcqePS3u6X2lcEELtVuXWkWJIS/pRI3oSk=
