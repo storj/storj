@@ -418,15 +418,6 @@ read scalar (
 	where  bucket_bandwidth_rollup.action = ?
 )
 
-read all (
-    select bucket_bandwidth_rollup
-    where  bucket_bandwidth_rollup.project_id = ?
-    where  bucket_bandwidth_rollup.action = ?
-    where  bucket_bandwidth_rollup.interval_start >= ?
-    where  bucket_bandwidth_rollup.interval_start <= ?
-    orderby desc bucket_bandwidth_rollup.interval_start
-)
-
 model bucket_storage_tally (
 	key    bucket_name project_id interval_start
 

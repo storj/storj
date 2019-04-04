@@ -23,37 +23,33 @@ type usagerollups struct {
 
 // GetProjectTotal retrieves project usage for a given period
 func (db *usagerollups) GetProjectTotal(ctx context.Context, projectID uuid.UUID, since, before time.Time) (usage *console.ProjectUsage, err error) {
-	bandwidthQuery := db.db.All_BucketBandwidthRollup_By_ProjectId_And_Action_And_IntervalStart_GreaterOrEqual_And_IntervalStart_LessOrEqual_OrderBy_Desc_IntervalStart
 	storageQuery := db.db.All_BucketStorageTally_By_ProjectId_And_BucketName_And_IntervalStart_GreaterOrEqual_And_IntervalStart_LessOrEqual_OrderBy_Desc_IntervalStart
 
-	getRollups, err := bandwidthQuery(ctx,
-		dbx.BucketBandwidthRollup_ProjectId([]byte(projectID.String())),
-		dbx.BucketBandwidthRollup_Action(uint(pb.PieceAction_GET)),
-		dbx.BucketBandwidthRollup_IntervalStart(since),
-		dbx.BucketBandwidthRollup_IntervalStart(before))
+	roullupsQuery := `SELECT SUM(settled), SUM(inline), action
+			FROM bucket_bandwidth_rollups 
+			WHERE project_id = ? AND interval_start >= ? AND interval_start <= ?
+			GROUP BY action`
 
+	rollupsRows, err := db.db.QueryContext(ctx, db.db.Rebind(roullupsQuery), []byte(projectID.String()), since, before)
 	if err != nil {
 		return nil, err
 	}
+	defer func() { err = errs.Combine(err, rollupsRows.Close()) }()
 
-	auditRollups, err := bandwidthQuery(ctx,
-		dbx.BucketBandwidthRollup_ProjectId([]byte(projectID.String())),
-		dbx.BucketBandwidthRollup_Action(uint(pb.PieceAction_GET_AUDIT)),
-		dbx.BucketBandwidthRollup_IntervalStart(since),
-		dbx.BucketBandwidthRollup_IntervalStart(before))
+	var totalEgress int64
+	for rollupsRows.Next() {
+		var action pb.PieceAction
+		var settled, inline int64
 
-	if err != nil {
-		return nil, err
-	}
+		err = rollupsRows.Scan(&settled, &inline, &action)
+		if err != nil {
+			return nil, err
+		}
 
-	repairRollups, err := bandwidthQuery(ctx,
-		dbx.BucketBandwidthRollup_ProjectId([]byte(projectID.String())),
-		dbx.BucketBandwidthRollup_Action(uint(pb.PieceAction_GET_REPAIR)),
-		dbx.BucketBandwidthRollup_IntervalStart(since),
-		dbx.BucketBandwidthRollup_IntervalStart(before))
-
-	if err != nil {
-		return nil, err
+		// add values for egress
+		if action == pb.PieceAction_GET || action == pb.PieceAction_GET_AUDIT || action == pb.PieceAction_GET_REPAIR {
+			totalEgress += settled + inline
+		}
 	}
 
 	bucketsQuery := "SELECT DISTINCT bucket_name FROM bucket_bandwidth_rollups where project_id = ? and interval_start >= ? and interval_start <= ?"
@@ -90,24 +86,7 @@ func (db *usagerollups) GetProjectTotal(ctx context.Context, projectID uuid.UUID
 	}
 
 	usage = new(console.ProjectUsage)
-
-	// sum up getEgress
-	for _, rollup := range getRollups {
-		usage.Egress += memory.Size(rollup.Settled).GB()
-		usage.Egress += memory.Size(rollup.Inline).GB()
-	}
-
-	// sum up auditEgress
-	for _, rollup := range auditRollups {
-		usage.Egress += memory.Size(rollup.Settled).GB()
-		usage.Egress += memory.Size(rollup.Inline).GB()
-	}
-
-	// sum up repairEgress
-	for _, rollup := range repairRollups {
-		usage.Egress += memory.Size(rollup.Settled).GB()
-		usage.Egress += memory.Size(rollup.Inline).GB()
-	}
+	usage.Egress = memory.Size(totalEgress).GB()
 
 	// sum up storage and objects
 	for _, tallies := range bucketsTallies {

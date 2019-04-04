@@ -4928,42 +4928,6 @@ func (obj *postgresImpl) Find_BucketBandwidthRollup_By_BucketName_And_ProjectId_
 
 }
 
-func (obj *postgresImpl) All_BucketBandwidthRollup_By_ProjectId_And_Action_And_IntervalStart_GreaterOrEqual_And_IntervalStart_LessOrEqual_OrderBy_Desc_IntervalStart(ctx context.Context,
-	bucket_bandwidth_rollup_project_id BucketBandwidthRollup_ProjectId_Field,
-	bucket_bandwidth_rollup_action BucketBandwidthRollup_Action_Field,
-	bucket_bandwidth_rollup_interval_start_greater_or_equal BucketBandwidthRollup_IntervalStart_Field,
-	bucket_bandwidth_rollup_interval_start_less_or_equal BucketBandwidthRollup_IntervalStart_Field) (
-	rows []*BucketBandwidthRollup, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.project_id = ? AND bucket_bandwidth_rollups.action = ? AND bucket_bandwidth_rollups.interval_start >= ? AND bucket_bandwidth_rollups.interval_start <= ? ORDER BY bucket_bandwidth_rollups.interval_start DESC")
-
-	var __values []interface{}
-	__values = append(__values, bucket_bandwidth_rollup_project_id.value(), bucket_bandwidth_rollup_action.value(), bucket_bandwidth_rollup_interval_start_greater_or_equal.value(), bucket_bandwidth_rollup_interval_start_less_or_equal.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		bucket_bandwidth_rollup := &BucketBandwidthRollup{}
-		err = __rows.Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, bucket_bandwidth_rollup)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
 func (obj *postgresImpl) First_BucketStorageTally_By_ProjectId_OrderBy_Desc_IntervalStart(ctx context.Context,
 	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field) (
 	bucket_storage_tally *BucketStorageTally, err error) {
@@ -7437,42 +7401,6 @@ func (obj *sqlite3Impl) Find_BucketBandwidthRollup_By_BucketName_And_ProjectId_A
 
 }
 
-func (obj *sqlite3Impl) All_BucketBandwidthRollup_By_ProjectId_And_Action_And_IntervalStart_GreaterOrEqual_And_IntervalStart_LessOrEqual_OrderBy_Desc_IntervalStart(ctx context.Context,
-	bucket_bandwidth_rollup_project_id BucketBandwidthRollup_ProjectId_Field,
-	bucket_bandwidth_rollup_action BucketBandwidthRollup_Action_Field,
-	bucket_bandwidth_rollup_interval_start_greater_or_equal BucketBandwidthRollup_IntervalStart_Field,
-	bucket_bandwidth_rollup_interval_start_less_or_equal BucketBandwidthRollup_IntervalStart_Field) (
-	rows []*BucketBandwidthRollup, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.project_id = ? AND bucket_bandwidth_rollups.action = ? AND bucket_bandwidth_rollups.interval_start >= ? AND bucket_bandwidth_rollups.interval_start <= ? ORDER BY bucket_bandwidth_rollups.interval_start DESC")
-
-	var __values []interface{}
-	__values = append(__values, bucket_bandwidth_rollup_project_id.value(), bucket_bandwidth_rollup_action.value(), bucket_bandwidth_rollup_interval_start_greater_or_equal.value(), bucket_bandwidth_rollup_interval_start_less_or_equal.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		bucket_bandwidth_rollup := &BucketBandwidthRollup{}
-		err = __rows.Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, bucket_bandwidth_rollup)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
 func (obj *sqlite3Impl) First_BucketStorageTally_By_ProjectId_OrderBy_Desc_IntervalStart(ctx context.Context,
 	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field) (
 	bucket_storage_tally *BucketStorageTally, err error) {
@@ -9052,19 +8980,6 @@ func (rx *Rx) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Context,
 	return tx.All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx, api_key_project_id)
 }
 
-func (rx *Rx) All_BucketBandwidthRollup_By_ProjectId_And_Action_And_IntervalStart_GreaterOrEqual_And_IntervalStart_LessOrEqual_OrderBy_Desc_IntervalStart(ctx context.Context,
-	bucket_bandwidth_rollup_project_id BucketBandwidthRollup_ProjectId_Field,
-	bucket_bandwidth_rollup_action BucketBandwidthRollup_Action_Field,
-	bucket_bandwidth_rollup_interval_start_greater_or_equal BucketBandwidthRollup_IntervalStart_Field,
-	bucket_bandwidth_rollup_interval_start_less_or_equal BucketBandwidthRollup_IntervalStart_Field) (
-	rows []*BucketBandwidthRollup, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.All_BucketBandwidthRollup_By_ProjectId_And_Action_And_IntervalStart_GreaterOrEqual_And_IntervalStart_LessOrEqual_OrderBy_Desc_IntervalStart(ctx, bucket_bandwidth_rollup_project_id, bucket_bandwidth_rollup_action, bucket_bandwidth_rollup_interval_start_greater_or_equal, bucket_bandwidth_rollup_interval_start_less_or_equal)
-}
-
 func (rx *Rx) All_BucketStorageTally_By_ProjectId_And_BucketName_And_IntervalStart_GreaterOrEqual_And_IntervalStart_LessOrEqual_OrderBy_Desc_IntervalStart(ctx context.Context,
 	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
 	bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
@@ -9846,13 +9761,6 @@ type Methods interface {
 	All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Context,
 		api_key_project_id ApiKey_ProjectId_Field) (
 		rows []*ApiKey, err error)
-
-	All_BucketBandwidthRollup_By_ProjectId_And_Action_And_IntervalStart_GreaterOrEqual_And_IntervalStart_LessOrEqual_OrderBy_Desc_IntervalStart(ctx context.Context,
-		bucket_bandwidth_rollup_project_id BucketBandwidthRollup_ProjectId_Field,
-		bucket_bandwidth_rollup_action BucketBandwidthRollup_Action_Field,
-		bucket_bandwidth_rollup_interval_start_greater_or_equal BucketBandwidthRollup_IntervalStart_Field,
-		bucket_bandwidth_rollup_interval_start_less_or_equal BucketBandwidthRollup_IntervalStart_Field) (
-		rows []*BucketBandwidthRollup, err error)
 
 	All_BucketStorageTally_By_ProjectId_And_BucketName_And_IntervalStart_GreaterOrEqual_And_IntervalStart_LessOrEqual_OrderBy_Desc_IntervalStart(ctx context.Context,
 		bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
