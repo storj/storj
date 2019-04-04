@@ -531,25 +531,25 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				Description: "Add new tables for tracking used serials, bandwidth and storage",
+				Description: "Add new Columns to store version information",
 				Version:     14,
 				Action: migrate.SQL{
 					`ALTER TABLE nodes ADD major bigint;
 					ALTER TABLE nodes ADD minor bigint;
 					ALTER TABLE nodes ADD patch bigint;
 					ALTER TABLE nodes ADD hash TEXT;
-					ALTER TABLE nodes ADD timestamp timestamp with time zone;
+					ALTER TABLE nodes ADD timestamp TIMESTAMP WITH TIME ZONE;
 					ALTER TABLE nodes ADD release bool;
 					UPDATE nodes SET major = 0, minor = 1, patch = 0;
 					UPDATE nodes SET hash = '';
-					UPDATE nodes SET timestamp = to_timestamp(1);
+					UPDATE nodes SET timestamp = 'epoch';
 					UPDATE nodes SET release = false;
-					ALTER TABLE nodes ALTER COLUMN major;
-					ALTER TABLE nodes ALTER COLUMN minor;
-					ALTER TABLE nodes ALTER COLUMN patch;
-					ALTER TABLE nodes ALTER COLUMN hash;
-					ALTER TABLE nodes ALTER COLUMN timestamp;
-					ALTER TABLE nodes ALTER COLUMN release;`,
+					ALTER TABLE nodes ALTER COLUMN major SET NOT NULL;
+					ALTER TABLE nodes ALTER COLUMN minor SET NOT NULL;
+					ALTER TABLE nodes ALTER COLUMN patch SET NOT NULL;
+					ALTER TABLE nodes ALTER COLUMN hash SET NOT NULL;
+					ALTER TABLE nodes ALTER COLUMN timestamp SET NOT NULL;
+					ALTER TABLE nodes ALTER COLUMN release SET NOT NULL;`,
 				},
 			},
 		},
