@@ -5,10 +5,12 @@ package testplanet_test
 
 import (
 	"crypto/rand"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
@@ -109,4 +111,85 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, testData, newData)
 	})
+}
+
+func TestUploadDownloadOneUplinksInParallel(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	planet, err := testplanet.New(t, 1, 6, 1)
+	require.NoError(t, err)
+	defer ctx.Check(planet.Shutdown)
+
+	planet.Start(ctx)
+
+	dataToUpload := make([][]byte, 5)
+	for i := 0; i < len(dataToUpload); i++ {
+		dataToUpload[i] = make([]byte, 100*memory.KiB.Int()+(i*100*memory.KiB.Int()))
+		_, err := rand.Read(dataToUpload[i])
+		require.NoError(t, err)
+	}
+
+	var group errgroup.Group
+	for i, data := range dataToUpload {
+		group.Go(func() error {
+			index := strconv.Itoa(i)
+			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket"+index, "test/path"+index, data)
+			return err
+		})
+	}
+	err = group.Wait()
+	require.NoError(t, err)
+
+	for i, expectedData := range dataToUpload {
+		group.Go(func() error {
+			index := strconv.Itoa(i)
+			data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket"+index, "test/path"+index)
+			require.Equal(t, expectedData, data)
+			return err
+		})
+	}
+	err = group.Wait()
+	require.NoError(t, err)
+}
+
+func TestUploadDownloadMultipleUplinksInParallel(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	numberOfUplinks := 5
+	planet, err := testplanet.New(t, 1, 6, numberOfUplinks)
+	require.NoError(t, err)
+	defer ctx.Check(planet.Shutdown)
+
+	planet.Start(ctx)
+
+	dataToUpload := make([][]byte, numberOfUplinks)
+	for i := 0; i < len(dataToUpload); i++ {
+		dataToUpload[i] = make([]byte, 100*memory.KiB.Int()+(i*100*memory.KiB.Int()))
+		_, err := rand.Read(dataToUpload[i])
+		require.NoError(t, err)
+	}
+
+	var group errgroup.Group
+	for i, data := range dataToUpload {
+		group.Go(func() error {
+			index := strconv.Itoa(i)
+			err = planet.Uplinks[i].Upload(ctx, planet.Satellites[0], "testbucket"+index, "test/path"+index, data)
+			return err
+		})
+	}
+	err = group.Wait()
+	require.NoError(t, err)
+
+	for i, expectedData := range dataToUpload {
+		group.Go(func() error {
+			index := strconv.Itoa(i)
+			data, err := planet.Uplinks[i].Download(ctx, planet.Satellites[0], "testbucket"+index, "test/path"+index)
+			require.Equal(t, expectedData, data)
+			return err
+		})
+	}
+	err = group.Wait()
+	require.NoError(t, err)
 }
