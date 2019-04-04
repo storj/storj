@@ -99,6 +99,12 @@ var (
 		Short: "dump all nodes in the routing table",
 		RunE:  DumpNodes,
 	}
+	drawTableCmd = &cobra.Command{
+		Use: "draw-table <node_id>",
+		Short: "draw the node's routing table as a graph",
+		Args:  cobra.MinimumNArgs(1),
+		RunE: DrawTableAsGraph,
+	}
 	getStatsCmd = &cobra.Command{
 		Use:   "getstats <node_id>",
 		Short: "Get node stats",
@@ -238,6 +244,17 @@ func NodeInfo(cmd *cobra.Command, args []string) (err error) {
 	fmt.Println(prettyPrint(info))
 
 	return nil
+}
+
+// DrawTableAsGraph outputs the table routing as a graph
+func DrawTableAsGraph(cmd *cobra.Command, args []string) (err error) {
+	/*i, err := NewInspector(*Addr, *IdentityPath)
+	if err != nil {
+		return ErrRequest.Wrap(err)
+	}*/
+	fmt.Println("Draw Table as graph")
+
+	return nil;
 }
 
 // DumpNodes outputs a json list of every node in every bucket in the satellite
@@ -588,7 +605,8 @@ func init() {
 	kadCmd.AddCommand(lookupNodeCmd)
 	kadCmd.AddCommand(nodeInfoCmd)
 	kadCmd.AddCommand(dumpNodesCmd)
-
+	kadCmd.AddCommand(drawTableCmd)
+	
 	statsCmd.AddCommand(getStatsCmd)
 	statsCmd.AddCommand(getCSVStatsCmd)
 	statsCmd.AddCommand(createStatsCmd)
