@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"strconv"
 
+	"github.com/mattn/go-sqlite3"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/dbutil/dbschema"
@@ -75,4 +76,14 @@ func QueryData(db dbschema.Queryer, schema *dbschema.Schema) (*dbschema.Data, er
 		quoted := strconv.Quote(columnName)
 		return `quote(` + quoted + `) as ` + quoted
 	})
+}
+
+// IsConstraintError checks if given error is about constraint violation
+func IsConstraintError(err error) bool {
+	if e, ok := err.(sqlite3.Error); ok {
+		if e.Code == sqlite3.ErrConstraint {
+			return true
+		}
+	}
+	return false
 }

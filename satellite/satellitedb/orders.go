@@ -9,9 +9,8 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/lib/pq"
-	"github.com/mattn/go-sqlite3"
-
+	"storj.io/storj/internal/dbutil/pgutil"
+	"storj.io/storj/internal/dbutil/sqliteutil"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/orders"
@@ -43,15 +42,8 @@ func (db *ordersDB) UseSerialNumber(ctx context.Context, serialNumber storj.Seri
 	)
 	_, err := db.db.ExecContext(ctx, statement, storageNodeID.Bytes(), serialNumber.Bytes())
 	if err != nil {
-		// TODO maybe move to dbutil
-		if e, ok := err.(*pq.Error); ok {
-			if e.Code.Class() == "23" {
-				return nil, orders.ErrUsingSerialNumber.New("serial number already used")
-			}
-		} else if e, ok := err.(sqlite3.Error); ok {
-			if e.Code == sqlite3.ErrConstraint {
-				return nil, orders.ErrUsingSerialNumber.New("serial number already used")
-			}
+		if pgutil.IsConstraintError(err) || sqliteutil.IsConstraintError(err) {
+			return nil, orders.ErrUsingSerialNumber.New("serial number already used")
 		}
 		return nil, err
 	}
