@@ -116,6 +116,9 @@ func databaseConfig(config storagenode.Config) storagenodedb.Config {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
+	// inert constructors only ====
+
+	ctx := process.Ctx(cmd)
 	log := zap.L()
 
 	identity, err := runCfg.Identity.Load()
@@ -128,13 +131,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	ctx := process.Ctx(cmd)
-	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
-		zap.S().Error("Failed to initialize telemetry batcher: ", err)
-	}
-
 	db, err := storagenodedb.New(log.Named("db"), databaseConfig(runCfg.Config))
-
 	if err != nil {
 		return errs.New("Error starting master database on storagenode: %+v", err)
 	}
@@ -143,14 +140,25 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	err = db.CreateTables()
-	if err != nil {
-		return errs.New("Error creating tables for master database on storagenode: %+v", err)
-	}
-
 	peer, err := storagenode.New(log, identity, db, runCfg.Config, version.Build)
 	if err != nil {
 		return err
+	}
+
+	// okay, start doing stuff ====
+
+	err = peer.Version.CheckVersion(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
+		zap.S().Error("Failed to initialize telemetry batcher: ", err)
+	}
+
+	err = db.CreateTables()
+	if err != nil {
+		return errs.New("Error creating tables for master database on storagenode: %+v", err)
 	}
 
 	runError := peer.Run(ctx)
