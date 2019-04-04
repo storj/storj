@@ -105,11 +105,11 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
 				require.NoError(t, err)
 			}
-
-			// we should be able to download data without any of the original nodes
-			newData, err := ul.Download(ctx, satellite, "testbucket", "test/path")
-			require.NoError(t, err)
-			require.Equal(t, testData, newData)
 		}
+
+		// we should be able to download data without any of the original nodes
+		newData, err := ul.Download(ctx, satellite, "testbucket", "test/path")
+		require.NoError(t, err)
+		require.Equal(t, testData, newData)
 	})
 }
