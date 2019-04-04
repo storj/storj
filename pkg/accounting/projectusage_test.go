@@ -5,6 +5,7 @@ package accounting_test
 
 import (
 	"crypto/rand"
+	"fmt"
 	"testing"
 	"time"
 
@@ -53,15 +54,10 @@ func TestProjectUsage(t *testing.T) {
 				bucketName := "testbucket"
 				bucketID := createBucketID(projectID, []byte(bucketName))
 
-				// Setup: create a BucketStorageTally record to test exceeding storage project limit
+				// Setup: create BucketStorageTally records to test exceeding storage project limit
 				if tt.expectedResource == "storage" {
-					tally := accounting.BucketStorageTally{
-						BucketName:    bucketName,
-						ProjectID:     projectID,
-						IntervalStart: time.Now(),
-						RemoteBytes:   26 * memory.GB.Int64(),
-					}
-					err := acctDB.CreateBucketStorageTally(ctx, tally)
+					now := time.Now()
+					err := setUpCreateTallies(ctx, projectID, acctDB, now)
 					require.NoError(t, err)
 				}
 
@@ -107,4 +103,23 @@ func createBucketID(projectID uuid.UUID, bucket []byte) []byte {
 	entries = append(entries, projectID.String())
 	entries = append(entries, string(bucket))
 	return []byte(storj.JoinPaths(entries...))
+}
+
+func setUpCreateTallies(ctx *testcontext.Context, projectID uuid.UUID, acctDB accounting.DB, time time.Time) error {
+
+	// Create many records that sum greater than project usage limit of 25GB
+	for i := 0; i < 4; i++ {
+		bucketName := fmt.Sprintf("%s%d", "testbucket", i)
+		tally := accounting.BucketStorageTally{
+			BucketName:    bucketName,
+			ProjectID:     projectID,
+			IntervalStart: time,
+			RemoteBytes:   10 * memory.GB.Int64(),
+		}
+		err := acctDB.CreateBucketStorageTally(ctx, tally)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
