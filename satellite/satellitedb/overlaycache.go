@@ -9,14 +9,21 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/storage"
+)
+
+const (
+	// OverlayCacheWindow defines the time which the Node selection uses for recent seen nodes
+	OverlayCacheWindow = 1 * time.Hour
 )
 
 var (
@@ -33,31 +40,57 @@ type overlaycache struct {
 
 func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) ([]*pb.Node, error) {
 	nodeType := int(pb.NodeType_STORAGE)
-	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, `
+
+	safeQuery := `
 		WHERE type = ? AND free_bandwidth >= ? AND free_disk >= ?
 		  AND total_audit_count >= ?
 		  AND audit_success_ratio >= ?
 		  AND total_uptime_count >= ?
 		  AND uptime_ratio >= ?
 		  AND last_contact_success > ?
-		  AND last_contact_success > last_contact_failure
-		`, nodeType, criteria.FreeBandwidth, criteria.FreeDisk,
+		  AND last_contact_success > last_contact_failure`
+	args := append(make([]interface{}, 0, 13),
+		nodeType, criteria.FreeBandwidth, criteria.FreeDisk,
 		criteria.AuditCount, criteria.AuditSuccessRatio, criteria.UptimeCount, criteria.UptimeSuccessRatio,
-		time.Now().Add(-1*time.Hour),
-	)
+		time.Now().Add(-OverlayCacheWindow))
+
+	if criteria.MinimumVersion != "" {
+		v, err := version.NewSemVer(criteria.MinimumVersion)
+		if err != nil {
+			return nil, Error.New("invalid node selection criteria version: %v", err)
+		}
+		safeQuery += `
+			AND major > ? OR (major = ? AND (minor > ? OR (minor = ? AND patch >= ?)))
+			AND release`
+		args = append(args, v.Major, v.Major, v.Minor, v.Minor, v.Patch)
+	}
+
+	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, safeQuery, args...)
 }
 
 func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int, criteria *overlay.NewNodeCriteria) ([]*pb.Node, error) {
 	nodeType := int(pb.NodeType_STORAGE)
-	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, `
+
+	safeQuery := `
 		WHERE type = ? AND free_bandwidth >= ? AND free_disk >= ?
 		  AND total_audit_count < ?
 		  AND last_contact_success > ?
-		  AND last_contact_success > last_contact_failure
-	`, nodeType, criteria.FreeBandwidth, criteria.FreeDisk,
-		criteria.AuditThreshold,
-		time.Now().Add(-1*time.Hour),
-	)
+		  AND last_contact_success > last_contact_failure`
+	args := append(make([]interface{}, 0, 10),
+		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditThreshold, time.Now().Add(-OverlayCacheWindow))
+
+	if criteria.MinimumVersion != "" {
+		v, err := version.NewSemVer(criteria.MinimumVersion)
+		if err != nil {
+			return nil, Error.New("invalid node selection criteria version: %v", err)
+		}
+		safeQuery += `
+			AND major > ? OR (major = ? AND (minor > ? OR (minor = ? AND patch >= ?)))
+			AND release`
+		args = append(args, v.Major, v.Major, v.Minor, v.Minor, v.Patch)
+	}
+
+	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, safeQuery, args...)
 }
 
 func (cache *overlaycache) queryFilteredNodes(ctx context.Context, excluded []storj.NodeID, count int, safeQuery string, args ...interface{}) (_ []*pb.Node, err error) {
@@ -202,7 +235,6 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 	if err != nil {
 		return Error.Wrap(err)
 	}
-
 	// TODO: use upsert
 	_, err = tx.Get_Node_By_Id(ctx, dbx.Node_Id(info.Id.Bytes()))
 
@@ -230,6 +262,22 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 			reputation = &pb.NodeStats{}
 		}
 
+		ver := info.Version
+		var semver version.SemVer
+		var verTime time.Time
+		if ver == nil {
+			ver = &pb.NodeVersion{}
+		} else {
+			parsed, err := version.NewSemVer(ver.Version)
+			if err == nil {
+				semver = *parsed
+			}
+			verTime, err = ptypes.Timestamp(ver.Timestamp)
+			if err != nil {
+				verTime = time.Time{}
+			}
+		}
+
 		_, err = tx.Create_Node(
 			ctx,
 			dbx.Node_Id(info.Id.Bytes()),
@@ -240,6 +288,12 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 			dbx.Node_Wallet(metadata.Wallet),
 			dbx.Node_FreeBandwidth(restrictions.FreeBandwidth),
 			dbx.Node_FreeDisk(restrictions.FreeDisk),
+			dbx.Node_Major(semver.Major),
+			dbx.Node_Minor(semver.Minor),
+			dbx.Node_Patch(semver.Patch),
+			dbx.Node_Hash(ver.CommitHash),
+			dbx.Node_Timestamp(verTime),
+			dbx.Node_Release(ver.Release),
 
 			dbx.Node_Latency90(reputation.Latency_90),
 			dbx.Node_AuditSuccessCount(reputation.AuditSuccessCount),
@@ -320,6 +374,20 @@ func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID,
 			return nil, errUptime.Wrap(errs.Combine(err, tx.Rollback()))
 		}
 
+		var semver version.SemVer
+		var verTime time.Time
+		if startingStats.Version.Version != "" {
+			parsed, err := version.NewSemVer(startingStats.Version.Version)
+			if err != nil {
+				return nil, errs.Combine(Error.New("failed to parse semver: %v", err), tx.Rollback())
+			}
+			semver = *parsed
+			verTime, err = ptypes.Timestamp(startingStats.Version.Timestamp)
+			if err != nil {
+				return nil, errs.Combine(Error.New("failed to parse timestamp: %v", err), tx.Rollback())
+			}
+		}
+
 		updateFields := dbx.Node_Update_Fields{
 			AuditSuccessCount:  dbx.Node_AuditSuccessCount(startingStats.AuditSuccessCount),
 			TotalAuditCount:    dbx.Node_TotalAuditCount(startingStats.AuditCount),
@@ -327,6 +395,12 @@ func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID,
 			UptimeSuccessCount: dbx.Node_UptimeSuccessCount(startingStats.UptimeSuccessCount),
 			TotalUptimeCount:   dbx.Node_TotalUptimeCount(startingStats.UptimeCount),
 			UptimeRatio:        dbx.Node_UptimeRatio(uptimeRatio),
+			Major:              dbx.Node_Major(semver.Major),
+			Minor:              dbx.Node_Minor(semver.Minor),
+			Patch:              dbx.Node_Patch(semver.Patch),
+			Hash:               dbx.Node_Hash(startingStats.Version.CommitHash),
+			Timestamp:          dbx.Node_Timestamp(verTime),
+			Release:            dbx.Node_Release(startingStats.Version.Release),
 		}
 
 		dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)

@@ -20,6 +20,9 @@ const (
 	OverlayBucket = "overlay"
 )
 
+// ErrIncorrectVersion is returned when the version is empty or not properly formatted
+var ErrIncorrectVersion = errs.New("incorrect version")
+
 // ErrEmptyNode is returned when the nodeID is empty
 var ErrEmptyNode = errs.New("empty node ID")
 
@@ -82,6 +85,8 @@ type FindStorageNodesRequest struct {
 	FreeDisk      int64
 
 	ExcludedNodes []storj.NodeID
+
+	MinimumVersion string // semver or empty
 }
 
 // NodeCriteria are the requirements for selecting nodes
@@ -95,6 +100,8 @@ type NodeCriteria struct {
 	UptimeSuccessRatio float64
 
 	Excluded []storj.NodeID
+
+	MinimumVersion string // semver or empty
 }
 
 // NewNodeCriteria are the requirement for selecting new nodes
@@ -105,6 +112,8 @@ type NewNodeCriteria struct {
 	AuditThreshold int64
 
 	Excluded []storj.NodeID
+
+	MinimumVersion string // semver or empty
 }
 
 // UpdateRequest is used to update a node status.
@@ -124,6 +133,7 @@ type NodeStats struct {
 	UptimeSuccessCount int64
 	UptimeCount        int64
 	Operator           pb.NodeOperator
+	Version            pb.NodeVersion
 }
 
 // Cache is used to store and handle node information
@@ -205,7 +215,6 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 
 	// TODO: add sanity limits to requested node count
 	// TODO: add sanity limits to excluded nodes
-
 	reputableNodeCount := req.MinimumRequiredNodes
 	if reputableNodeCount <= 0 {
 		reputableNodeCount = req.RequestedCount
@@ -226,6 +235,8 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 		UptimeSuccessRatio: preferences.UptimeRatio,
 
 		Excluded: req.ExcludedNodes,
+
+		MinimumVersion: preferences.MinimumVersion,
 	})
 	if err != nil {
 		return nil, err
@@ -239,6 +250,8 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 		AuditThreshold: preferences.NewNodeAuditThreshold,
 
 		Excluded: req.ExcludedNodes,
+
+		MinimumVersion: preferences.MinimumVersion,
 	})
 	if err != nil {
 		return nil, err
@@ -278,7 +291,6 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 	if nodeID != value.Id {
 		return errors.New("invalid request")
 	}
-
 	// get existing node rep, or create a new overlay node with 0 rep
 	stats, err := cache.db.CreateEntryIfNotExists(ctx, &value)
 	if err != nil {
