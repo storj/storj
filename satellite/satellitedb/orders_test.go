@@ -42,7 +42,8 @@ func TestSerialNumbers(t *testing.T) {
 
 		// not existing serial number
 		bucketID, err = orders.UseSerialNumber(ctx, storj.SerialNumber{99}, storj.NodeID{1})
-		require.NoError(t, err)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "serial number not found")
 		require.Empty(t, bucketID)
 	})
 }

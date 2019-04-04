@@ -171,7 +171,8 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 		if err != nil {
 			endpoint.log.Warn("unable to use serial number", zap.Error(err))
 			duplicateRequest := strings.Contains(err.Error(), "violates constraint")
-			if duplicateRequest {
+			serialNumberNotFound := strings.Contains(err.Error(), "serial number not found")
+			if duplicateRequest || serialNumberNotFound {
 				err := stream.Send(&pb.SettlementResponse{
 					SerialNumber: orderLimit.SerialNumber,
 					Status:       pb.SettlementResponse_REJECTED,
@@ -181,17 +182,6 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 				}
 			} else {
 				return err
-			}
-			continue
-		}
-		if len(bucketID) == 0 {
-			endpoint.log.Warn("received serial number doesn't exist in DB", zap.String("serial number", orderLimit.SerialNumber.String()))
-			err := stream.Send(&pb.SettlementResponse{
-				SerialNumber: orderLimit.SerialNumber,
-				Status:       pb.SettlementResponse_REJECTED,
-			})
-			if err != nil {
-				return formatError(err)
 			}
 			continue
 		}

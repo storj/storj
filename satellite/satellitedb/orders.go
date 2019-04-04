@@ -9,6 +9,7 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/zeebo/errs"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
@@ -50,7 +51,7 @@ func (db *ordersDB) UseSerialNumber(ctx context.Context, serialNumber storj.Seri
 		return nil, err
 	}
 	if dbxSerialNumber == nil {
-		return nil, nil
+		return nil, errs.New("serial number not found")
 	}
 	return dbxSerialNumber.BucketId, nil
 }
