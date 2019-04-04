@@ -71,114 +71,114 @@ import Datepicker from '@/components/project/DatePicker.vue';
 import { NOTIFICATION_ACTIONS, PROJECT_USAGE_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component(
-        {
-            data: function () {
+    {
+        data: function () {
+            const currentDate = new Date();
+            const previousDate = new Date();
+            previousDate.setMonth(currentDate.getMonth() - 1);
+
+            return {
+                startTime: {
+                    time: '',
+                },
+                dateRange: {
+                    startDate: previousDate,
+                    endDate: currentDate,
+                },
+            };
+        },
+        components: {
+            Datepicker,
+        },
+        methods: {
+            getDates: async function(datesArray: string[]) {
+                const firstDate = new Date(datesArray[0]);
+                const secondDate = new Date(datesArray[1]);
+                const isInverted = firstDate > secondDate;
+                this.$data.dateRange.startDate = isInverted ? secondDate : firstDate;
+                this.$data.dateRange.endDate = isInverted ? firstDate : secondDate;
+
+                const response = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, this.$data.dateRange);
+                if (!response.isSuccess) {
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
+                }
+            },
+            onBackClick: function (): void {
+                this.$router.push(ROUTES.PROJECT_DETAILS);
+            },
+            onCurrentRollupClick: async function (event: any) {
+               const currentDate = new Date();
+               const previousDate = new Date();
+               previousDate.setMonth(currentDate.getMonth() - 1);
+
+               this.$data.dateRange.startDate = previousDate;
+               this.$data.dateRange.endDate = currentDate;
+               (this as any).onButtonClickAction(event);
+
+               const response = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, this.$data.dateRange);
+               if (!response.isSuccess) {
+                   this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
+               }
+            },
+            onPreviousRollupClick: async function (event: any) {
                 const currentDate = new Date();
                 const previousDate = new Date();
+                currentDate.setMonth(currentDate.getMonth() - 1);
                 previousDate.setMonth(currentDate.getMonth() - 1);
 
-                return {
-                    startTime: {
-                        time: '',
-                    },
-                    dateRange: {
-                        startDate: previousDate,
-                        endDate: currentDate,
-                    },
-                };
-            },
-            components: {
-                Datepicker,
-            },
-            methods: {
-                getDates: async function(datesArray: string[]) {
-                    const firstDate = new Date(datesArray[0]);
-                    const secondDate = new Date(datesArray[1]);
-                    const isInverted = firstDate > secondDate;
-                    this.$data.dateRange.startDate = isInverted ? secondDate : firstDate;
-                    this.$data.dateRange.endDate = isInverted ? firstDate : secondDate;
+                this.$data.dateRange.startDate = previousDate;
+                this.$data.dateRange.endDate = currentDate;
+                (this as any).onButtonClickAction(event);
 
-                    const response = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, this.$data.dateRange);
-                    if (!response.isSuccess) {
-                        this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
-                    }
-                },
-                onBackClick: function (): void {
-                    this.$router.push(ROUTES.PROJECT_DETAILS);
-                },
-                onCurrentRollupClick: async function (event: any) {
-                   const currentDate = new Date();
-                   const previousDate = new Date();
-                   previousDate.setMonth(currentDate.getMonth() - 1);
-
-                   this.$data.dateRange.startDate = previousDate;
-                   this.$data.dateRange.endDate = currentDate;
-                   (this as any).onButtonClickAction(event);
-
-                   const response = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, this.$data.dateRange);
-                   if (!response.isSuccess) {
-                       this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
-                   }
-                },
-                onPreviousRollupClick: async function (event: any) {
-                    const currentDate = new Date();
-                    const previousDate = new Date();
-                    currentDate.setMonth(currentDate.getMonth() - 1);
-                    previousDate.setMonth(currentDate.getMonth() - 1);
-
-                    this.$data.dateRange.startDate = previousDate;
-                    this.$data.dateRange.endDate = currentDate;
-                    (this as any).onButtonClickAction(event);
-
-                    const response = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, this.$data.dateRange);
-                    if (!response.isSuccess) {
-                        this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
-                    }
-                },
-                onCustomDateClick: function (event: any) {
-                    (this as any).$refs.datePicker.showCheck();
-                    (this as any).onButtonClickAction(event);
-                },
-                onButtonClickAction: function (event: any) {
-                    let eventTarget = event.target;
-
-                    if (eventTarget.children.length === 0) {
-                        eventTarget = eventTarget.parentNode;
-                    }
-
-                    if (eventTarget.classList.contains('active')) {
-                        return;
-                    }
-
-                    (this as any).changeActiveClass(eventTarget);
-                },
-                changeActiveClass: function (target: any): void {
-                    [...document.querySelectorAll('.usage-report-container__header__options-area__option')].forEach(option => {
-                        option.classList.remove('active');
-                    });
-
-                    target.classList.add('active');
-                },
-                onReportClick: function (): void {
-                    let route = this.$router.resolve(ROUTES.REPORT_TABLE);
-                    window.open(route.href, '_blank');
-                },
-            },
-            computed: {
-                storage: function () {
-                    return this.$store.state.usageModule.projectUsage.storage;
-                },
-                egress: function () {
-                    return this.$store.state.usageModule.projectUsage.egress;
-                },
-                objectsCount: function () {
-                    return this.$store.state.usageModule.projectUsage.objectsCount;
+                const response = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, this.$data.dateRange);
+                if (!response.isSuccess) {
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
                 }
+            },
+            onCustomDateClick: function (event: any) {
+                (this as any).$refs.datePicker.showCheck();
+                (this as any).onButtonClickAction(event);
+            },
+            onButtonClickAction: function (event: any) {
+                let eventTarget = event.target;
+
+                if (eventTarget.children.length === 0) {
+                    eventTarget = eventTarget.parentNode;
+                }
+
+                if (eventTarget.classList.contains('active')) {
+                    return;
+                }
+
+                (this as any).changeActiveClass(eventTarget);
+            },
+            changeActiveClass: function (target: any): void {
+                [...document.querySelectorAll('.usage-report-container__header__options-area__option')].forEach(option => {
+                    option.classList.remove('active');
+                });
+
+                target.classList.add('active');
+            },
+            onReportClick: function (): void {
+                let route = this.$router.resolve(ROUTES.REPORT_TABLE);
+                window.open(route.href, '_blank');
+            },
+        },
+        computed: {
+            storage: function () {
+                return this.$store.state.usageModule.projectUsage.storage;
+            },
+            egress: function () {
+                return this.$store.state.usageModule.projectUsage.egress;
+            },
+            objectsCount: function () {
+                return this.$store.state.usageModule.projectUsage.objectsCount;
             }
         }
-    )
+    }
+)
 
-    export default class UsageReport extends Vue {}
+export default class UsageReport extends Vue {}
 </script>
 
 <style scoped lang="scss">
