@@ -49,6 +49,9 @@ func (db *ordersDB) UseSerialNumber(ctx context.Context, serialNumber storj.Seri
 	if err != nil {
 		return nil, err
 	}
+	if dbxSerialNumber == nil {
+		return nil, nil
+	}
 	return dbxSerialNumber.BucketId, nil
 }
 
