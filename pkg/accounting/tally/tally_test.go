@@ -4,7 +4,6 @@
 package tally_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -14,47 +13,8 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/teststorj"
-	"storj.io/storj/pkg/bwagreement/testbwagreement"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/satellite"
 )
-
-func TestQueryNoAgreements(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		tally := planet.Satellites[0].Accounting.Tally
-		_, bwTotals, err := tally.QueryBW(ctx)
-		require.NoError(t, err)
-		require.Len(t, bwTotals, 0)
-	})
-}
-
-func TestQueryWithBw(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		db := planet.Satellites[0].DB
-		sendGeneratedAgreements(ctx, t, db, planet)
-
-		tally := planet.Satellites[0].Accounting.Tally
-		tallyEnd, bwTotals, err := tally.QueryBW(ctx)
-		require.NoError(t, err)
-		require.Len(t, bwTotals, 1)
-
-		for id, nodeTotals := range bwTotals {
-			require.Len(t, nodeTotals, 5)
-			for _, total := range nodeTotals {
-				require.Equal(t, planet.StorageNodes[0].Identity.ID, id)
-				require.Equal(t, int64(1000), total)
-			}
-		}
-		err = tally.SaveBWRaw(ctx, tallyEnd, time.Now().UTC(), bwTotals)
-		require.NoError(t, err)
-	})
-}
 
 func TestDeleteRawBefore(t *testing.T) {
 	tests := []struct {
@@ -93,31 +53,4 @@ func TestDeleteRawBefore(t *testing.T) {
 			assert.Len(t, raws, tt.expectedRaws)
 		})
 	}
-}
-
-func sendGeneratedAgreements(ctx context.Context, t *testing.T, db satellite.DB, planet *testplanet.Planet) {
-	satID := planet.Satellites[0].Identity
-	upID := planet.Uplinks[0].Identity
-	snID := planet.StorageNodes[0].Identity
-	sender := planet.StorageNodes[0].Agreements.Sender
-	actions := []pb.BandwidthAction{
-		pb.BandwidthAction_PUT,
-		pb.BandwidthAction_GET,
-		pb.BandwidthAction_GET_AUDIT,
-		pb.BandwidthAction_GET_REPAIR,
-		pb.BandwidthAction_PUT_REPAIR,
-	}
-
-	agreements := make([]*psdb.Agreement, len(actions))
-	for i, action := range actions {
-		pba, err := testbwagreement.GenerateOrderLimit(action, satID, upID, time.Hour)
-		require.NoError(t, err)
-		err = db.CertDB().SavePublicKey(ctx, pba.UplinkId, upID.Leaf.PublicKey)
-		assert.NoError(t, err)
-		rba, err := testbwagreement.GenerateOrder(pba, snID.ID, upID, 1000)
-		require.NoError(t, err)
-		agreements[i] = &psdb.Agreement{Agreement: *rba}
-	}
-
-	sender.SettleAgreements(ctx, satID.ID, agreements)
 }

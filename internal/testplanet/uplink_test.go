@@ -103,10 +103,9 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 					err = planet.StopPeer(node)
 					require.NoError(t, err)
 
-					t.Logf("%s %s uplink test deleting node from overlay", node.ID().String(), node.Addr())
-					err = satellite.Overlay.Service.Delete(ctx, node.ID())
-					require.NoError(t, err)
-				}
+				// mark node as offline in overlay cache
+				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
+				require.NoError(t, err)
 			}
 
 			// we should be able to download data without any of the original nodes
