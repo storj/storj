@@ -113,8 +113,9 @@ test-all-in-one: ## Test docker images locally
 	&& ./scripts/test-aio.sh
 
 .PHONY: test-sequential
-test-sequential: ## Run tests five times with caching turned off  and failfast
-	seq 1 5 | xargs -I{} sh -c 'go test -v ./... -count=1 -race -failfast'
+test-sequential: ## Run tests five times with caching off and failfast on.
+	go test -v -count=5 -race -cover -failfast -coverprofile=.coverprofile ./...
+	@echo done
 
 ##@ Build
 
