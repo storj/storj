@@ -64,7 +64,7 @@ func (db *accountingDB) ProjectStorageTotals(ctx context.Context, projectID uuid
 
 // CreateBucketStorageTally creates a record in the bucket_storage_tallies accounting table
 func (db *accountingDB) CreateBucketStorageTally(ctx context.Context, tally accounting.BucketStorageTally) error {
-	t, err := db.db.Create_BucketStorageTally(
+	_, err := db.db.Create_BucketStorageTally(
 		ctx,
 		dbx.BucketStorageTally_BucketName([]byte(tally.BucketName)),
 		dbx.BucketStorageTally_ProjectId(tally.ProjectID[:]),

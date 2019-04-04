@@ -105,7 +105,7 @@ func createBucketID(projectID uuid.UUID, bucket []byte) []byte {
 
 func setUpCreateTallies(ctx *testcontext.Context, projectID uuid.UUID, acctDB accounting.DB, time time.Time) error {
 
-	// Create many records that sum greater than project usage limit of 25GBq
+	// Create many records that sum greater than project usage limit of 25GB
 	for i := 0; i < 4; i++ {
 		bucketName := fmt.Sprintf("%s%d", "testbucket", i)
 		tally := accounting.BucketStorageTally{
