@@ -5,7 +5,6 @@ package satellitedb
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -115,9 +114,7 @@ func (db *usagerollups) GetProjectTotal(ctx context.Context, projectID uuid.UUID
 		for i := len(*tallies) - 1; i > 0; i-- {
 			current := (*tallies)[i]
 
-			fmt.Println(current.IntervalStart.String())
 			hours := (*tallies)[i-1].IntervalStart.Sub(current.IntervalStart).Hours()
-			fmt.Println(hours)
 
 			usage.Storage += memory.Size(current.Inline).GB() * hours
 			usage.Storage += memory.Size(current.Remote).GB() * hours
