@@ -4,7 +4,7 @@ module storj.io/storj
 require (
 	github.com/btcsuite/btcutil v0.0.0-20180706230648-ab6388e0c60a
 	github.com/garyburd/redigo v1.0.1-0.20170216214944-0d253a66e6e1 // indirect
-	github.com/graphql-go/graphql v0.7.6
+	github.com/graphql-go/graphql v0.7.9-0.20190403165646-199d20bbfed7
 	github.com/hanwen/go-fuse v0.0.0-20181027161220-c029b69a13a7
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/mattn/go-colorable v0.0.9 // indirect
@@ -68,7 +68,7 @@ require (
 	github.com/minio/lsync v0.0.0-20180328070428-f332c3883f63 // indirect
 	github.com/minio/mc v0.0.0-20180926130011-a215fbb71884 // indirect
 	github.com/minio/minio-go v6.0.3+incompatible
-	github.com/minio/sha256-simd v0.0.0-20171213220625-ad98a36ba0da // indirect
+	github.com/minio/sha256-simd v0.0.0-20190328051042-05b4dd3047e5
 	github.com/minio/sio v0.0.0-20180327104954-6a41828a60f0 // indirect
 	github.com/mitchellh/go-homedir v0.0.0-20180801233206-58046073cbff // indirect
 	github.com/nats-io/gnatsd v1.3.0 // indirect
