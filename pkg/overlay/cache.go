@@ -19,8 +19,8 @@ import (
 const (
 	// OverlayBucket is the string representing the bucket used for a bolt-backed overlay dht cache
 	OverlayBucket = "overlay"
-	// IsOnlineWindow is the maximum amount of time that can pass without seeing a node before that node is considered offline
-	IsOnlineWindow = 1 * time.Hour
+	// OnlineWindow is the maximum amount of time that can pass without seeing a node before that node is considered offline
+	OnlineWindow = 1 * time.Hour
 )
 
 // ErrEmptyNode is returned when the nodeID is empty
@@ -123,7 +123,7 @@ type NodeDossier struct {
 // A node is considered online if the last attempt for contact was successful
 // and it was within the last hour.
 func (node *NodeDossier) Online() bool {
-	return time.Now().Sub(node.Reputation.LastContactSuccess) < IsOnlineWindow &&
+	return time.Now().Sub(node.Reputation.LastContactSuccess) < OnlineWindow &&
 		node.Reputation.LastContactSuccess.After(node.Reputation.LastContactFailure)
 }
 
