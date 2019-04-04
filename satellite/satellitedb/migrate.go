@@ -542,7 +542,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					ALTER TABLE nodes ADD release bool;
 					UPDATE nodes SET major = 0, minor = 1, patch = 0;
 					UPDATE nodes SET hash = '';
-					UPDATE nodes SET timestamp = epoch();
+					UPDATE nodes SET timestamp = to_timestamp(1);
 					UPDATE nodes SET release = false;
 					ALTER TABLE nodes ALTER COLUMN major;
 					ALTER TABLE nodes ALTER COLUMN minor;
