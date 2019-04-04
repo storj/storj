@@ -6,6 +6,8 @@ package consoleql
 const (
 	// ActivationPath is key for path which handles account activation
 	ActivationPath = "activationPath"
+	// PasswordRecoveryPath is key for path which handles password recovery
+	PasswordRecoveryPath = "passwordRecoveryPath"
 	// SignInPath is key for sign in server route
 	SignInPath = "signInPath"
 )

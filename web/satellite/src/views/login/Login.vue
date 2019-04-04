@@ -20,6 +20,7 @@ import { LOADING_CLASSES } from '../../utils/constants/classConstants';
             email: '',
             password: '',
             loadingClassName: LOADING_CLASSES.LOADING_OVERLAY,
+            forgotPasswordRouterPath: ROUTES.FORGOT_PASSWORD.path,
         };
     },
     methods: {

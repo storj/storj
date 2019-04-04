@@ -129,6 +129,20 @@ func (s *Service) GenerateActivationToken(ctx context.Context, id uuid.UUID, ema
 	return s.createToken(claims)
 }
 
+// GeneratePasswordRecoveryToken - is a method for generating password recovery token
+func (s *Service) GeneratePasswordRecoveryToken(ctx context.Context, id uuid.UUID, email string) (token string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	//TODO: activation token should differ from auth token
+	claims := &consoleauth.Claims{
+		ID:         id,
+		Email:      email,
+		Expiration: time.Now().Add(time.Hour * 24),
+	}
+
+	return s.createToken(claims)
+}
+
 // ActivateAccount - is a method for activating user account after registration
 func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -161,6 +175,49 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 	user.Status = Active
 
 	return s.store.Users().Update(ctx, user)
+}
+
+// ResetPassword - is a method for reseting user password
+func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, password string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	token, err := consoleauth.FromBase64URLString(resetPasswordToken)
+	if err != nil {
+		return
+	}
+
+	claims, err := s.authenticate(token)
+	if err != nil {
+		return
+	}
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return err
+	}
+
+	user, err := s.store.Users().Get(ctx, claims.ID)
+	if err != nil {
+		return
+	}
+
+	if err := validatePassword(password); err != nil {
+		return err
+	}
+
+	now := time.Now()
+
+	if now.After(user.CreatedAt.Add(tokenExpirationTime)) {
+		return errs.New("activation token has expired")
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), s.passwordCost)
+	if err != nil {
+		return err
+	}
+
+	auth.User.PasswordHash = hash
+	return s.store.Users().Update(ctx, &auth.User)
 }
 
 // Token authenticates User by credentials and returns auth token
@@ -201,6 +258,13 @@ func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (u *User, err error
 	}
 
 	return s.store.Users().Get(ctx, id)
+}
+
+// GetUserByEmail returns User by email
+func (s *Service) GetUserByEmail(ctx context.Context, email string) (u *User, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return s.store.Users().GetByEmail(ctx, email)
 }
 
 // UpdateAccount updates User
