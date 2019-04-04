@@ -110,6 +110,9 @@ func (v Info) Marshal() (data []byte, err error) {
 	return
 }
 
+// Proto converts an Info struct to a pb.NodeVersion
+// TODO: shouldn't we just use pb.NodeVersion everywhere? gogoproto will let
+// us make it match Info.
 func (v Info) Proto() (*pb.NodeVersion, error) {
 	pbts, err := ptypes.TimestampProto(v.Timestamp)
 	if err != nil {
