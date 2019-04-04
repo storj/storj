@@ -378,7 +378,7 @@ func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID,
 		if startingStats.Version.Version != "" {
 			parsed, err := version.NewSemVer(startingStats.Version.Version)
 			if err != nil {
-				return nil, errs.Combine(Error.New("failed to parse semver: %v", err, tx.Rollback()))
+				return nil, errs.Combine(Error.New("failed to parse semver: %v", err), tx.Rollback())
 			}
 			semver = *parsed
 			verTime, err = ptypes.Timestamp(startingStats.Version.Timestamp)
