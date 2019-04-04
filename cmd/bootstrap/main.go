@@ -62,6 +62,9 @@ func init() {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
+	// inert constructors only ====
+
+	ctx := process.Ctx(cmd)
 	log := zap.L()
 
 	identity, err := runCfg.Identity.Load()
@@ -72,11 +75,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	if err := runCfg.Verify(log); err != nil {
 		log.Sugar().Error("Invalid configuration: ", err)
 		return err
-	}
-
-	ctx := process.Ctx(cmd)
-	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
-		zap.S().Error("Failed to initialize telemetry batcher: ", err)
 	}
 
 	db, err := bootstrapdb.New(bootstrapdb.Config{
@@ -90,14 +88,25 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	err = db.CreateTables()
-	if err != nil {
-		return errs.New("Error creating tables for master database on bootstrap: %+v", err)
-	}
-
 	peer, err := bootstrap.New(log, identity, db, runCfg, version.Build)
 	if err != nil {
 		return err
+	}
+
+	// okay, start doing stuff ====
+
+	err = peer.Version.CheckVersion(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
+		zap.S().Error("Failed to initialize telemetry batcher: ", err)
+	}
+
+	err = db.CreateTables()
+	if err != nil {
+		return errs.New("Error creating tables for master database on bootstrap: %+v", err)
 	}
 
 	runError := peer.Run(ctx)

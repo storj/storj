@@ -6,19 +6,15 @@ package version
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"reflect"
 	"sync"
 	"time"
 
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/sync2"
-)
-
-const (
-	errOldVersion = "Outdated Software Version, please update!"
 )
 
 // Config contains the necessary Information to check the Software Version
@@ -36,7 +32,7 @@ type Service struct {
 
 	Loop *sync2.Cycle
 
-	checked chan struct{}
+	checked sync2.Fence
 	mu      sync.Mutex
 	allowed bool
 }
@@ -48,75 +44,87 @@ func NewService(config Config, info Info, service string) (client *Service) {
 		info:    info,
 		service: service,
 		Loop:    sync2.NewCycle(config.CheckInterval),
-		checked: make(chan struct{}, 0),
-		allowed: false,
+		allowed: true,
 	}
+}
+
+// CheckVersion checks to make sure the version is still okay, returning an error if not
+func (srv *Service) CheckVersion(ctx context.Context) error {
+	if !srv.checkVersion(ctx) {
+		return fmt.Errorf("outdated software version (%v), please update", srv.info.Version.String())
+	}
+	return nil
+}
+
+// CheckProcessVersion is not meant to be used for peers but is meant to be
+// used for other utilities
+func CheckProcessVersion(ctx context.Context, config Config, info Info, service string) error {
+	return NewService(config, info, service).CheckVersion(ctx)
 }
 
 // Run logs the current version information
 func (srv *Service) Run(ctx context.Context) error {
-	firstCheck := true
-	return srv.Loop.Run(ctx, func(ctx context.Context) error {
-		var err error
-		allowed, err := srv.checkVersion(ctx)
+	if !srv.checked.Released() {
+		err := srv.CheckVersion(ctx)
 		if err != nil {
-			// Log about the error, but dont crash the service and allow further operation
-			zap.S().Errorf("Failed to do periodic version check: ", err)
-			allowed = true
+			return err
 		}
-
-		srv.mu.Lock()
-		srv.allowed = allowed
-		srv.mu.Unlock()
-
-		if firstCheck {
-			close(srv.checked)
-			firstCheck = false
-			if !allowed {
-				zap.S().Fatal(errOldVersion)
-			}
-		}
-
+	}
+	return srv.Loop.Run(ctx, func(ctx context.Context) error {
+		srv.checkVersion(ctx)
 		return nil
 	})
 }
 
-// IsUpToDate returns whether if the Service is allowed to operate or not
-func (srv *Service) IsUpToDate() bool {
-	<-srv.checked
-
+// IsAllowed returns whether if the Service is allowed to operate or not
+func (srv *Service) IsAllowed() bool {
+	srv.checked.Wait()
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
-
 	return srv.allowed
 }
 
 // CheckVersion checks if the client is running latest/allowed code
-func (srv *Service) checkVersion(ctx context.Context) (allowed bool, err error) {
-	defer mon.Task()(&ctx)(&err)
+func (srv *Service) checkVersion(ctx context.Context) (allowed bool) {
+	defer mon.Task()(&ctx)(nil)
+
+	defer func() {
+		srv.mu.Lock()
+		srv.allowed = allowed
+		srv.mu.Unlock()
+		srv.checked.Release()
+	}()
+
+	if !srv.info.Release {
+		return true
+	}
+
 	accepted, err := srv.queryVersionFromControlServer(ctx)
 	if err != nil {
-		return false, err
+		// Log about the error, but dont crash the service and allow further operation
+		zap.S().Errorf("Failed to do periodic version check: ", err)
+		return true
 	}
 
 	list := getFieldString(&accepted, srv.service)
 	zap.S().Debugf("allowed versions from Control Server: %v", list)
 
 	if list == nil {
-		return true, errs.New("Empty List from Versioning Server")
+		zap.S().Errorf("Empty List from Versioning Server")
+		return true
 	}
 	if containsVersion(list, srv.info.Version) {
 		zap.S().Infof("running on version %s", srv.info.Version.String())
-		allowed = true
-	} else {
-		zap.S().Errorf("running on not allowed/outdated version %s", srv.info.Version.String())
-		allowed = false
+		return true
 	}
-	return allowed, err
+	zap.S().Errorf("running on not allowed/outdated version %s", srv.info.Version.String())
+	return false
 }
 
 // QueryVersionFromControlServer handles the HTTP request to gather the allowed and latest version information
 func (srv *Service) queryVersionFromControlServer(ctx context.Context) (ver AllowedVersions, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	// Tune Client to have a custom Timeout (reduces hanging software)
 	client := http.Client{
 		Timeout: srv.config.RequestTimeout,
