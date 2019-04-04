@@ -4,7 +4,7 @@ module storj.io/storj
 require (
 	github.com/btcsuite/btcutil v0.0.0-20180706230648-ab6388e0c60a
 	github.com/garyburd/redigo v1.0.1-0.20170216214944-0d253a66e6e1 // indirect
-	github.com/graphql-go/graphql v0.7.6
+	github.com/graphql-go/graphql v0.7.9-0.20190403165646-199d20bbfed7
 	github.com/hanwen/go-fuse v0.0.0-20181027161220-c029b69a13a7
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/mattn/go-colorable v0.0.9 // indirect

@@ -19,12 +19,12 @@ const (
 )
 
 // graphqlProjectMember creates projectMember type
-func graphqlProjectMember(service *console.Service, types Types) *graphql.Object {
+func graphqlProjectMember(service *console.Service, types *TypeCreator) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: ProjectMemberType,
 		Fields: graphql.Fields{
 			UserType: &graphql.Field{
-				Type: types.User(),
+				Type: types.user,
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					member, _ := p.Source.(projectMember)
 					// company sub query expects pointer
