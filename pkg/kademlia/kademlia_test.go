@@ -527,6 +527,7 @@ func newKademlia(log *zap.Logger, nodeType pb.NodeType, bootstrapNodes []pb.Node
 	if err != nil {
 		return nil, err
 	}
+
 	transportClient := transport.NewClient(tlsOptions, rt)
 
 	kadConfig := Config{
