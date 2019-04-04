@@ -177,13 +177,13 @@ func (s *Server) passwordRecoveryHandler(w http.ResponseWriter, req *http.Reques
 
 		password := req.FormValue("password")
 		passwordRepeat := req.FormValue("passwordRepeat")
-		if password != passwordRepeat {
+		if strings.Compare(password, passwordRepeat) != 0 {
 			s.serveError(w, req)
 			return
 		}
 
 		err = s.service.ResetPassword(context.Background(), recoveryToken, password)
-		if err != nil{
+		if err != nil {
 			s.serveError(w, req)
 		}
 	default:
@@ -191,6 +191,7 @@ func (s *Server) passwordRecoveryHandler(w http.ResponseWriter, req *http.Reques
 		if err != nil {
 			s.serveError(w, req)
 		}
+
 		err = t.Execute(w, nil)
 		if err != nil {
 			s.serveError(w, req)

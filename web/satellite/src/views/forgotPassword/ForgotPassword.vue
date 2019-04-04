@@ -8,6 +8,7 @@
     import HeaderlessInput from '../../components/common/HeaderlessInput.vue';
     import { LOADING_CLASSES } from '@/utils/constants/classConstants';
     import { forgotPasswordRequest } from '@/api/users';
+    import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
     @Component(
         {
@@ -30,8 +31,10 @@
                     }
 
                     let passwordRecoveryResponse = await forgotPasswordRequest(this.$data.email);
-                    if(!passwordRecoveryResponse.isSuccess) {
-
+                    if (passwordRecoveryResponse.isSuccess) {
+                        this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Please look for instructions at your email');
+                    } else {
+                        this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, passwordRecoveryResponse.errorMessage);
                     }
                 },
             }

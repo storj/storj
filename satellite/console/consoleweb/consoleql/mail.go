@@ -36,7 +36,7 @@ type ForgotPasswordEmail struct {
 func (*ForgotPasswordEmail) Template() string { return "Forgot" }
 
 // Subject gets email subject
-func (*ForgotPasswordEmail) Subject() string { return "" }
+func (*ForgotPasswordEmail) Subject() string { return "Password recovery request" }
 
 // ProjectInvitationEmail is mailservice template for project invitation email
 type ProjectInvitationEmail struct {

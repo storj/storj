@@ -13,7 +13,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console/consoleauth"
@@ -191,11 +191,6 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 		return
 	}
 
-	auth, err := GetAuth(ctx)
-	if err != nil {
-		return err
-	}
-
 	user, err := s.store.Users().Get(ctx, claims.ID)
 	if err != nil {
 		return
@@ -216,8 +211,8 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 		return err
 	}
 
-	auth.User.PasswordHash = hash
-	return s.store.Users().Update(ctx, &auth.User)
+	user.PasswordHash = hash
+	return s.store.Users().Update(ctx, user)
 }
 
 // Token authenticates User by credentials and returns auth token
