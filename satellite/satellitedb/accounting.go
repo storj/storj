@@ -151,16 +151,16 @@ func (db *accountingDB) GetRawSince(ctx context.Context, latestRollup time.Time)
 	return out, Error.Wrap(err)
 }
 
-// GetBWSince retrieves all bandwidth_rollup entires since latestRollup
-func (db *accountingDB) GetBWSince(ctx context.Context, latestRollup time.Time) ([]*accounting.BW, error) {
+// GetStoragenodeBandwidthSince retrieves all storagenode_bandwidth_rollup entires since latestRollup
+func (db *accountingDB) GetStoragenodeBandwidthSince(ctx context.Context, latestRollup time.Time) ([]*accounting.StoragenodeBandwidthRollup, error) {
 	rollups, err := db.db.All_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx, dbx.StoragenodeBandwidthRollup_IntervalStart(latestRollup))
-	out := make([]*accounting.BW, len(rollups))
+	out := make([]*accounting.StoragenodeBandwidthRollup, len(rollups))
 	for i, r := range rollups {
 		nodeID, err := storj.NodeIDFromBytes(r.StoragenodeId)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
-		out[i] = &accounting.BW{
+		out[i] = &accounting.StoragenodeBandwidthRollup{
 			NodeID:        nodeID,
 			IntervalStart: r.IntervalStart,
 			Action:        r.Action,

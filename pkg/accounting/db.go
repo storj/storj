@@ -25,8 +25,8 @@ type Raw struct {
 	CreatedAt       time.Time
 }
 
-// BW mirrors dbx.StoragenodeBandwidthRollup, allowing us to use the struct without leaking dbx
-type BW struct {
+// StoragenodeBandwidthRollup mirrors dbx.StoragenodeBandwidthRollup, allowing us to use the struct without leaking dbx
+type StoragenodeBandwidthRollup struct {
 	NodeID        storj.NodeID
 	IntervalStart time.Time
 	Action        uint
@@ -56,8 +56,8 @@ type DB interface {
 	GetRaw(ctx context.Context) ([]*Raw, error)
 	// GetRawSince retrieves all raw tallies since latestRollup
 	GetRawSince(ctx context.Context, latestRollup time.Time) ([]*Raw, error)
-	// GetBWSince retrieves all bandwidth_rollup entires since latestRollup
-	GetBWSince(ctx context.Context, latestRollup time.Time) ([]*BW, error)
+	// GetStoragenodeBandwidthSince retrieves all storagenode_bandwidth_rollup entires since latestRollup
+	GetStoragenodeBandwidthSince(ctx context.Context, latestRollup time.Time) ([]*StoragenodeBandwidthRollup, error)
 	// SaveRollup records raw tallies of at rest data to the database
 	SaveRollup(ctx context.Context, latestTally time.Time, stats RollupStats) error
 	// SaveBucketTallies saves the latest bucket info

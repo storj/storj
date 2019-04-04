@@ -64,13 +64,6 @@ func (m *lockedAccounting) DeleteRawBefore(ctx context.Context, latestRollup tim
 	return m.db.DeleteRawBefore(ctx, latestRollup)
 }
 
-// GetBWSince retrieves all bandwidth_rollup entires since latestRollup
-func (m *lockedAccounting) GetBWSince(ctx context.Context, latestRollup time.Time) ([]*accounting.BW, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetBWSince(ctx, latestRollup)
-}
-
 // GetRaw retrieves all raw tallies
 func (m *lockedAccounting) GetRaw(ctx context.Context) ([]*accounting.Raw, error) {
 	m.Lock()
@@ -83,6 +76,13 @@ func (m *lockedAccounting) GetRawSince(ctx context.Context, latestRollup time.Ti
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetRawSince(ctx, latestRollup)
+}
+
+// GetStoragenodeBandwidthSince retrieves all storagenode_bandwidth_rollup entires since latestRollup
+func (m *lockedAccounting) GetStoragenodeBandwidthSince(ctx context.Context, latestRollup time.Time) ([]*accounting.StoragenodeBandwidthRollup, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetStoragenodeBandwidthSince(ctx, latestRollup)
 }
 
 // LastTimestamp records the latest last tallied time.
@@ -637,7 +637,7 @@ func (m *lockedOrders) UpdateStoragenodeBandwidthAllocation(ctx context.Context,
 	return m.db.UpdateStoragenodeBandwidthAllocation(ctx, storageNode, action, amount, intervalStart)
 }
 
-// UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node for the given intervalStart time
+// UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node
 func (m *lockedOrders) UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error {
 	m.Lock()
 	defer m.Unlock()
