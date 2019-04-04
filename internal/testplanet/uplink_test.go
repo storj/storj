@@ -132,19 +132,28 @@ func TestUploadDownloadOneUplinksInParallel(t *testing.T) {
 
 	var group errgroup.Group
 	for i, data := range dataToUpload {
+		index := strconv.Itoa(i)
+		uplink := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+
+		dataCopy := make([]byte, len(data))
+		copy(data, dataCopy)
 		group.Go(func() error {
-			index := strconv.Itoa(i)
-			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket"+index, "test/path"+index, data)
-			return err
+			return uplink.Upload(ctx, satellite, "testbucket"+index, "test/path"+index, dataCopy)
 		})
 	}
 	err = group.Wait()
 	require.NoError(t, err)
 
-	for i, expectedData := range dataToUpload {
+	for i, data := range dataToUpload {
+		index := strconv.Itoa(i)
+		uplink := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+
+		expectedData := make([]byte, len(data))
+		copy(data, expectedData)
 		group.Go(func() error {
-			index := strconv.Itoa(i)
-			data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket"+index, "test/path"+index)
+			data, err := uplink.Download(ctx, satellite, "testbucket"+index, "test/path"+index)
 			require.Equal(t, expectedData, data)
 			return err
 		})
@@ -173,19 +182,28 @@ func TestUploadDownloadMultipleUplinksInParallel(t *testing.T) {
 
 	var group errgroup.Group
 	for i, data := range dataToUpload {
+		index := strconv.Itoa(i)
+		uplink := planet.Uplinks[i]
+		satellite := planet.Satellites[0]
+
+		dataCopy := make([]byte, len(data))
+		copy(data, dataCopy)
 		group.Go(func() error {
-			index := strconv.Itoa(i)
-			err = planet.Uplinks[i].Upload(ctx, planet.Satellites[0], "testbucket"+index, "test/path"+index, data)
-			return err
+			return uplink.Upload(ctx, satellite, "testbucket"+index, "test/path"+index, dataCopy)
 		})
 	}
 	err = group.Wait()
 	require.NoError(t, err)
 
-	for i, expectedData := range dataToUpload {
+	for i, data := range dataToUpload {
+		index := strconv.Itoa(i)
+		uplink := planet.Uplinks[i]
+		satellite := planet.Satellites[0]
+
+		expectedData := make([]byte, len(data))
+		copy(data, expectedData)
 		group.Go(func() error {
-			index := strconv.Itoa(i)
-			data, err := planet.Uplinks[i].Download(ctx, planet.Satellites[0], "testbucket"+index, "test/path"+index)
+			data, err := uplink.Download(ctx, satellite, "testbucket"+index, "test/path"+index)
 			require.Equal(t, expectedData, data)
 			return err
 		})
