@@ -442,7 +442,7 @@ func (ca *FullCertificateAuthority) PeerCA() *PeerCertificateAuthority {
 
 // Sign signs the passed certificate with ca certificate
 func (ca *FullCertificateAuthority) Sign(cert *x509.Certificate) (*x509.Certificate, error) {
-	signedCert, err := peertls.NewCert(cert.PublicKey, ca.Key, cert, ca.Cert)
+	signedCert, err := peertls.CreateCertificate(cert.PublicKey, ca.Key, cert, ca.Cert)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
