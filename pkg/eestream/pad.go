@@ -18,7 +18,8 @@ const (
 	uint32Size = 4
 )
 
-func makePadding(dataLen int64, blockSize int) []byte {
+// MakePadding creates padding
+func MakePadding(dataLen int64, blockSize int) []byte {
 	amount := dataLen + uint32Size
 	r := amount % int64(blockSize)
 	padding := uint32Size
@@ -35,7 +36,7 @@ func makePadding(dataLen int64, blockSize int) []byte {
 // much padding was added.
 func Pad(data ranger.Ranger, blockSize int) (
 	rr ranger.Ranger, padding int) {
-	paddingBytes := makePadding(data.Size(), blockSize)
+	paddingBytes := MakePadding(data.Size(), blockSize)
 	return ranger.Concat(data, ranger.ByteRanger(paddingBytes)), len(paddingBytes)
 }
 
@@ -66,7 +67,7 @@ func PadReader(data io.ReadCloser, blockSize int) io.ReadCloser {
 	cr := newCountingReader(data)
 	return readcloser.MultiReadCloser(cr,
 		readcloser.LazyReadCloser(func() (io.ReadCloser, error) {
-			return ioutil.NopCloser(bytes.NewReader(makePadding(cr.N, blockSize))), nil
+			return ioutil.NopCloser(bytes.NewReader(MakePadding(cr.N, blockSize))), nil
 		}))
 }
 
