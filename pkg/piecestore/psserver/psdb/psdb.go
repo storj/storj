@@ -249,7 +249,7 @@ func (db *DB) DeleteObsolete(path string) (err error) {
 
 		// iterate thru files list
 		for _, f := range files {
-			if info, err := os.Stat(filepath.Join(path, f.Name())); err == nil && info.IsDir() {
+			if info, err := os.Stat(filepath.Join(path, f.Name())); err == nil && info.IsDir() && len(f.Name()) == 2 {
 				err = os.RemoveAll(filepath.Join(path, f.Name()))
 				if err != nil {
 					zap.S().Errorf("unable to delete: %+v %+v", filepath.Join(path, f.Name()), err)

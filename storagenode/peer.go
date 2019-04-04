@@ -25,7 +25,6 @@ import (
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode/bandwidth"
-	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/inspector"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/orders"
@@ -105,7 +104,6 @@ type Peer struct {
 		Inspector *inspector.Endpoint
 		Monitor   *monitor.Service
 		Sender    *orders.Sender
-		Collector *collector.Service
 	}
 }
 
@@ -245,13 +243,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			peer.DB.Orders(),
 			config.Storage2.Sender,
 		)
-
-		peer.Storage2.Collector = collector.NewService(
-			log.Named("piecestore:collector"),
-			peer.Storage2.Store,
-			peer.DB.PieceInfo(),
-			config.Storage.CollectorInterval,
-		)
 	}
 
 	return peer, nil
@@ -280,9 +271,6 @@ func (peer *Peer) Run(ctx context.Context) error {
 		return ignoreCancel(peer.Storage2.Monitor.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Storage2.Collector.Run(ctx))
-	})
-	group.Go(func() error {
 		// TODO: move the message into Server instead
 		// Don't change the format of this comment, it is used to figure out the node id.
 		peer.Log.Sugar().Infof("Node %s started", peer.Identity.ID)
@@ -290,6 +278,7 @@ func (peer *Peer) Run(ctx context.Context) error {
 		peer.Log.Sugar().Infof("Private server started on %s", peer.PrivateAddr())
 		return ignoreCancel(peer.Server.Run(ctx))
 	})
+
 	return group.Wait()
 }
 

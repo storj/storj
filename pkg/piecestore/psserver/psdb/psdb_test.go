@@ -313,9 +313,11 @@ func TestHappyPath(t *testing.T) {
 
 	t.Run("DeleteObsolete", func(t *testing.T) {
 		for i := 0; i < 100; i++ {
+			subdir1 := filepath.Join(filepath.Dir(dbPath), strconv.Itoa(i)+"_"+stringWithCharset(5))
+			err := os.MkdirAll(subdir1, os.ModePerm)
 			subdir := filepath.Join(filepath.Dir(dbPath), stringWithCharset(2))
 			subsubdir := filepath.Join(subdir, stringWithCharset(2))
-			err := os.MkdirAll(subsubdir, os.ModePerm)
+			err = os.MkdirAll(subsubdir, os.ModePerm)
 			require.NoError(t, err)
 			message := []byte("Hello, Gophers!")
 			tmpfile := filepath.Join(subsubdir, stringWithCharset(20))
