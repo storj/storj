@@ -5,6 +5,7 @@ package metainfo
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"

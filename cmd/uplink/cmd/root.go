@@ -70,6 +70,7 @@ func (c *UplinkFlags) Metainfo(ctx context.Context) (storj.Metainfo, streams.Sto
 
 // NewUplink returns a pointer to a new Client with a Config and Uplink pointer on it and an error.
 func (c *UplinkFlags) NewUplink(ctx context.Context) (*libuplink.Uplink, error) {
+	fmt.Println("got to NewUplink")
 	return libuplink.NewUplink(ctx, nil)
 }
 
@@ -93,24 +94,8 @@ func (c *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, error
 		return nil, err
 	}
 
+	fmt.Println("Got to OpenProject")
 	return uplink.OpenProject(ctx, satelliteAddr, apiKey)
-}
-
-// CreateBucket will create a bucket and return an error if it wasn't created
-func (c *Client) CreateBucket(ctx context.Context, name string) (storj.Bucket, error) {
-	apiKey, err := c.getAPIKey()
-	if err != nil {
-		return storj.Bucket{}, err
-	}
-
-	satelliteAddr := c.getSatelliteAddr()
-	project, err := c.Uplink.OpenProject(ctx, satelliteAddr, apiKey)
-	if err != nil {
-		return storj.Bucket{}, err
-	}
-
-	// TODO (dylan) Make this allow for configs
-	return project.CreateBucket(ctx, name, nil)
 }
 
 func convertError(err error, path fpath.FPath) error {
