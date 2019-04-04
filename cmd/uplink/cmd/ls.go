@@ -51,13 +51,10 @@ func list(cmd *cobra.Command, args []string) error {
 			return err
 		}
 
-		key, err := cfg.GetKey(ctx)
-		if err != nil {
-			return err
-		}
+		enc := cfg.GetEncryptionScheme()
 
 		bucket, err := project.OpenBucket(ctx, src.String(), &libuplink.EncryptionAccess{
-			Key: key,
+			Key: enc.Cipher,
 		}, 0)
 
 		if err != nil {
