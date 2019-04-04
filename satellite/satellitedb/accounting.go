@@ -39,14 +39,23 @@ func (db *accountingDB) ProjectBandwidthTotal(ctx context.Context, bucketID []by
 
 // ProjectStorageTotals returns the current inline and remote storage usage for a projectID
 func (db *accountingDB) ProjectStorageTotals(ctx context.Context, projectID uuid.UUID) (int64, int64, error) {
-	rollup, err := db.db.First_BucketStorageTally_By_ProjectId_OrderBy_Desc_IntervalStart(
-		ctx,
-		dbx.BucketStorageTally_ProjectId(projectID[:]),
-	)
-	if err != nil || rollup == nil {
-		return 0, 0, err
+	var inlineSum, remoteSum sql.NullInt64
+	var intervalStart time.Time
+
+	// Sum all the inline and remote values for a project that all share the same interval_start.
+	// All records for a project that have the same interval start are part of the same tally run.
+	// This should represent the most recent calculation of a project's total at rest storage.
+	query := `SELECT interval_start, SUM(inline), SUM(remote)
+		FROM bucket_storage_tallies
+		WHERE project_id = ?
+		GROUP BY interval_start
+		ORDER BY interval_start DESC LIMIT 1;`
+
+	err := db.db.QueryRow(db.db.Rebind(query), projectID[:]).Scan(&intervalStart, &inlineSum, &remoteSum)
+	if err != nil || !inlineSum.Valid || !remoteSum.Valid {
+		return 0, 0, nil
 	}
-	return int64(rollup.Inline), int64(rollup.Remote), err
+	return inlineSum.Int64, remoteSum.Int64, err
 }
 
 // CreateBucketStorageTally creates a record in the bucket_storage_tallies accounting table
