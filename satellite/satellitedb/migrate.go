@@ -542,14 +542,14 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					ALTER TABLE nodes ADD release bool;
 					UPDATE nodes SET major = 0, minor = 1, patch = 0;
 					UPDATE nodes SET hash = '';
-					UPDATE nodes SET timestamp = epoch;
+					UPDATE nodes SET timestamp = epoch();
 					UPDATE nodes SET release = false;
-					ALTER TABLE nodes ALTER COLUMN major SET NOT NULL;
-					ALTER TABLE nodes ALTER COLUMN minor SET NOT NULL;
-					ALTER TABLE nodes ALTER COLUMN patch SET NOT NULL;
-					ALTER TABLE nodes ALTER COLUMN hash SET NOT NULL;
-					ALTER TABLE nodes ALTER COLUMN timestamp SET NOT NULL;
-					ALTER TABLE nodes ALTER COLUMN release SET NOT NULL;`,
+					ALTER TABLE nodes ALTER COLUMN major;
+					ALTER TABLE nodes ALTER COLUMN minor;
+					ALTER TABLE nodes ALTER COLUMN patch;
+					ALTER TABLE nodes ALTER COLUMN hash;
+					ALTER TABLE nodes ALTER COLUMN timestamp;
+					ALTER TABLE nodes ALTER COLUMN release;`,
 				},
 			},
 		},
