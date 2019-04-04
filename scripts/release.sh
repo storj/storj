@@ -1,14 +1,14 @@
-#!/usr/bin/env bash
+#!/bin/sh
 
- set -eu
+set -eu
 set -o pipefail
 
- echo -n "Build timestamp: "
+echo -n "Build timestamp: "
 TIMESTAMP=$(date +%s)
 echo $TIMESTAMP
 
- echo -n "Git commit: "
-if [[ "$(git diff --stat)" != '' ]] || [[ -n "$(git status -s)" ]]; then
+echo -n "Git commit: "
+if [ "x$(git diff --stat)" != "x" ] || [ "x$(git status -s)" != "x" ]; then
   COMMIT=$(git rev-parse HEAD)-dirty
   RELEASE=false
 else
@@ -17,11 +17,11 @@ else
 fi
 echo $COMMIT
 
- echo -n "Tagged version: "
+echo -n "Tagged version: "
 VERSION=$(git describe --tags --exact-match --match "v[0-9]*.[0-9]*.[0-9]*")
 echo $VERSION
 
- echo Running "go $@"
+echo Running "go $@"
 exec go "$1" -ldflags \
 	"-X storj.io/storj/internal/version.buildTimestamp=$TIMESTAMP
          -X storj.io/storj/internal/version.buildCommitHash=$COMMIT

@@ -1,5 +1,5 @@
 # build
-FROM golang:1.11-alpine as build-env
+FROM golang:1.12-alpine as build-env
 
 ENV CGO_ENABLED=1
 
