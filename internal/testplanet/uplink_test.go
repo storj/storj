@@ -99,7 +99,8 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 				err = planet.StopPeer(node)
 				require.NoError(t, err)
 
-				err = satellite.Overlay.Service.Delete(ctx, node.ID())
+				// mark node as offline in overlay cache
+				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
 				require.NoError(t, err)
 			}
 		}

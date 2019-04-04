@@ -14,6 +14,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/fpath"
+	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/certificates"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
@@ -79,6 +80,13 @@ func serviceDirectory(serviceName string) string {
 }
 
 func cmdNewService(cmd *cobra.Command, args []string) error {
+	ctx := process.Ctx(cmd)
+
+	err := version.CheckProcessVersion(ctx, version.Config{}, version.Build, "Identity")
+	if err != nil {
+		return err
+	}
+
 	serviceDir := serviceDirectory(args[0])
 
 	caCertPath := filepath.Join(serviceDir, "ca.cert")
@@ -116,7 +124,7 @@ func cmdNewService(cmd *cobra.Command, args []string) error {
 		return errs.New("Identity certificate and/or key already exists, NOT overwriting!")
 	}
 
-	ca, caerr := caConfig.Create(process.Ctx(cmd), os.Stdout)
+	ca, caerr := caConfig.Create(ctx, os.Stdout)
 	if caerr != nil {
 		return caerr
 	}
@@ -134,6 +142,11 @@ func cmdNewService(cmd *cobra.Command, args []string) error {
 
 func cmdAuthorize(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
+
+	err := version.CheckProcessVersion(ctx, version.Config{}, version.Build, "Identity")
+	if err != nil {
+		return err
+	}
 
 	serviceDir := serviceDirectory(args[0])
 

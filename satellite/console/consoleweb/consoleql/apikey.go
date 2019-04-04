@@ -41,7 +41,7 @@ func graphqlAPIKeyInfo() *graphql.Object {
 }
 
 // graphqlCreateAPIKey creates createAPIKey graphql object
-func graphqlCreateAPIKey(types Types) *graphql.Object {
+func graphqlCreateAPIKey(types *TypeCreator) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: CreateAPIKeyType,
 		Fields: graphql.Fields{
@@ -49,7 +49,7 @@ func graphqlCreateAPIKey(types Types) *graphql.Object {
 				Type: graphql.String,
 			},
 			APIKeyInfoType: &graphql.Field{
-				Type: types.APIKeyInfo(),
+				Type: types.apiKeyInfo,
 			},
 		},
 	})
