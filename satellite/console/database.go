@@ -23,6 +23,8 @@ type DB interface {
 	BucketUsage() accounting.BucketUsage
 	// RegistrationTokens is a getter for RegistrationTokens repository
 	RegistrationTokens() RegistrationTokens
+	// UsageRollups is a getter for UsageRollups repository
+	UsageRollups() UsageRollups
 
 	// BeginTransaction is a method for opening transaction
 	BeginTx(ctx context.Context) (DBTx, error)
