@@ -129,7 +129,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	versionService, err := version.NewService(ctx, log, runCfg.Config.Version, version.Build, "Storagenode")
+	versionService, err := version.NewServiceWithVersionCheck(ctx, log, runCfg.Config.Version, version.Build, "Storagenode")
 	if err != nil {
 		return err
 	}

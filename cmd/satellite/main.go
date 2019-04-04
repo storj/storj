@@ -115,7 +115,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Fatal(err)
 	}
 
-	versionService, err := version.NewService(ctx, log, runCfg.Config.Version, version.Build, "Satellite")
+	versionService, err := version.NewServiceWithVersionCheck(ctx, log, runCfg.Config.Version, version.Build, "Satellite")
 	if err != nil {
 		return err
 	}

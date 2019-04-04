@@ -489,10 +489,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 		config.Console.StaticDir = filepath.Join(storjRoot, "web/satellite")
 		config.Mail.TemplatePath = filepath.Join(storjRoot, "web/satellite/static/emails")
 
-		versionService, err := version.NewService(context.TODO(), log, config.Version, planet.NewVersionInfo(), "Satellite")
-		if err != nil {
-			return xs, err
-		}
+		versionService := version.NewService(log, config.Version, planet.NewVersionInfo(), "Satellite")
 
 		peer, err := satellite.New(log, identity, db, &config, versionService)
 		if err != nil {
@@ -593,10 +590,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 			planet.config.Reconfigure.StorageNode(i, &config)
 		}
 
-		versionService, err := version.NewService(context.TODO(), log, config.Version, planet.NewVersionInfo(), "Storagenode")
-		if err != nil {
-			return xs, err
-		}
+		versionService := version.NewService(log, config.Version, planet.NewVersionInfo(), "Storagenode")
 
 		peer, err := storagenode.New(log, identity, db, config, versionService)
 		if err != nil {
@@ -676,10 +670,7 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 		planet.config.Reconfigure.Bootstrap(0, &config)
 	}
 
-	versionService, err := version.NewService(context.TODO(), log, config.Version, planet.NewVersionInfo(), "Bootstrap")
-	if err != nil {
-		return nil, err
-	}
+	versionService := version.NewService(log, config.Version, planet.NewVersionInfo(), "Bootstrap")
 
 	peer, err = bootstrap.New(log, identity, db, config, versionService)
 	if err != nil {

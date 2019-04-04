@@ -39,11 +39,11 @@ type Service struct {
 	allowed bool
 }
 
-// NewService creates a Version Check Client with provided configuration and runs one check, returning an error if the version is out of date.
-func NewService(ctx context.Context, log *zap.Logger, config Config, info Info, service string) (*Service, error) {
+// NewService creates a Version Check Client with provided configuration
+func NewService(log *zap.Logger, config Config, info Info, service string) *Service {
 	log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
 		info.Version.String(), info.CommitHash, info.Timestamp.String(), info.Release)
-	srv := &Service{
+	return &Service{
 		log:     log,
 		config:  config,
 		service: service,
@@ -51,22 +51,16 @@ func NewService(ctx context.Context, log *zap.Logger, config Config, info Info, 
 		Loop:    sync2.NewCycle(config.CheckInterval),
 		allowed: true,
 	}
-	err := srv.runOnce(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if !srv.IsAllowed() {
-		return nil, fmt.Errorf("Outdated software version (%v), please update!", info.Version.String())
-	}
-	return srv, nil
 }
 
-// Run logs the current version information
-func (srv *Service) Run(ctx context.Context) error {
-	return srv.Loop.Run(ctx, srv.runOnce)
+// NewServiceWithVersionCheck creates the service and runs a version check, returning an error if the version is not okay
+func NewServiceWithVersionCheck(ctx context.Context, log *zap.Logger, config Config, info Info, service string) (*Service, error) {
+	srv := NewService(log, config, info, service)
+	return srv, srv.CheckVersion(ctx)
 }
 
-func (srv *Service) runOnce(ctx context.Context) (err error) {
+// CheckVersion checks to make sure the version is still okay, returning an error if it is not
+func (srv *Service) CheckVersion(ctx context.Context) (err error) {
 	allowed, err := srv.checkVersion(ctx)
 	if err != nil {
 		// Log about the error, but dont crash the service and allow further operation
@@ -78,7 +72,18 @@ func (srv *Service) runOnce(ctx context.Context) (err error) {
 	srv.allowed = allowed
 	srv.mu.Unlock()
 
+	if !allowed {
+		return fmt.Errorf("outdated software version (%v), please update!", srv.Info.Version.String())
+	}
 	return nil
+}
+
+// Run logs the current version information
+func (srv *Service) Run(ctx context.Context) error {
+	return srv.Loop.Run(ctx, func(ctx context.Context) error {
+		srv.CheckVersion(ctx)
+		return nil
+	})
 }
 
 // IsAllowed returns whether if the Service is allowed to operate or not

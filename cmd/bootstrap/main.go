@@ -75,7 +75,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	versionService, err := version.NewService(ctx, log, runCfg.Version, version.Build, "Bootstrap")
+	versionService, err := version.NewServiceWithVersionCheck(ctx, log, runCfg.Version, version.Build, "Bootstrap")
 	if err != nil {
 		return err
 	}
