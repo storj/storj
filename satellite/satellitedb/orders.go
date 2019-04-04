@@ -9,9 +9,12 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/zeebo/errs"
+	"github.com/lib/pq"
+	"github.com/mattn/go-sqlite3"
+
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/orders"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -40,6 +43,16 @@ func (db *ordersDB) UseSerialNumber(ctx context.Context, serialNumber storj.Seri
 	)
 	_, err := db.db.ExecContext(ctx, statement, storageNodeID.Bytes(), serialNumber.Bytes())
 	if err != nil {
+		// TODO maybe move to dbutil
+		if e, ok := err.(*pq.Error); ok {
+			if e.Code.Class() == "23" {
+				return nil, orders.ErrUsingSerialNumber.New("serial number already used")
+			}
+		} else if e, ok := err.(sqlite3.Error); ok {
+			if e.Code == sqlite3.ErrConstraint {
+				return nil, orders.ErrUsingSerialNumber.New("serial number already used")
+			}
+		}
 		return nil, err
 	}
 
@@ -51,7 +64,7 @@ func (db *ordersDB) UseSerialNumber(ctx context.Context, serialNumber storj.Seri
 		return nil, err
 	}
 	if dbxSerialNumber == nil {
-		return nil, errs.New("serial number not found")
+		return nil, orders.ErrUsingSerialNumber.New("serial number not found")
 	}
 	return dbxSerialNumber.BucketId, nil
 }

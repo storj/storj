@@ -12,6 +12,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -20,30 +21,32 @@ func TestSerialNumbers(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		orders := db.Orders()
+		ordersDB := db.Orders()
 
 		expectedBucket := []byte("bucketID")
-		err := orders.CreateSerialInfo(ctx, storj.SerialNumber{1}, expectedBucket, time.Now())
+		err := ordersDB.CreateSerialInfo(ctx, storj.SerialNumber{1}, expectedBucket, time.Now())
 		require.NoError(t, err)
 
-		bucketID, err := orders.UseSerialNumber(ctx, storj.SerialNumber{1}, storj.NodeID{1})
+		bucketID, err := ordersDB.UseSerialNumber(ctx, storj.SerialNumber{1}, storj.NodeID{1})
 		require.NoError(t, err)
 		require.Equal(t, expectedBucket, bucketID)
 
-		_, err = orders.UseSerialNumber(ctx, storj.SerialNumber{1}, storj.NodeID{1})
+		// try to use used serial number
+		_, err = ordersDB.UseSerialNumber(ctx, storj.SerialNumber{1}, storj.NodeID{1})
 		require.Error(t, err)
+		require.True(t, orders.ErrUsingSerialNumber.Has(err))
 
-		err = orders.UnuseSerialNumber(ctx, storj.SerialNumber{1}, storj.NodeID{1})
+		err = ordersDB.UnuseSerialNumber(ctx, storj.SerialNumber{1}, storj.NodeID{1})
 		require.NoError(t, err)
 
-		bucketID, err = orders.UseSerialNumber(ctx, storj.SerialNumber{1}, storj.NodeID{1})
+		bucketID, err = ordersDB.UseSerialNumber(ctx, storj.SerialNumber{1}, storj.NodeID{1})
 		require.NoError(t, err)
 		require.Equal(t, expectedBucket, bucketID)
 
 		// not existing serial number
-		bucketID, err = orders.UseSerialNumber(ctx, storj.SerialNumber{99}, storj.NodeID{1})
+		bucketID, err = ordersDB.UseSerialNumber(ctx, storj.SerialNumber{99}, storj.NodeID{1})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "serial number not found")
+		require.True(t, orders.ErrUsingSerialNumber.Has(err))
 		require.Empty(t, bucketID)
 	})
 }
