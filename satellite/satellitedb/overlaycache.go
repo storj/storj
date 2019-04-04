@@ -462,12 +462,12 @@ func (cache *overlaycache) UpdateOperator(ctx context.Context, nodeID storj.Node
 
 	updatedDBNode, err := tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
 	if err != nil {
-		return nil, Error.Wrap(tx.Rollback())
+		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 
 	updated, err := convertDBNode(updatedDBNode)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 
 	return updated, tx.Commit()
