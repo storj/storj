@@ -51,7 +51,7 @@ func NewService(config Config, info Info, service string) (client *Service) {
 // CheckVersion checks to make sure the version is still okay, returning an error if not
 func (srv *Service) CheckVersion(ctx context.Context) error {
 	if !srv.checkVersion(ctx) {
-		return fmt.Errorf("outdated software version (%v), please update!", srv.info.Version.String())
+		return fmt.Errorf("outdated software version (%v), please update", srv.info.Version.String())
 	}
 	return nil
 }
