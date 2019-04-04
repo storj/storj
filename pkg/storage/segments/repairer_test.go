@@ -87,6 +87,8 @@ func TestSegmentStoreRepair(t *testing.T) {
 			if nodesToKill[node.ID()] {
 				err = planet.StopPeer(node)
 				assert.NoError(t, err)
+				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
+				assert.NoError(t, err)
 			}
 		}
 
@@ -104,6 +106,8 @@ func TestSegmentStoreRepair(t *testing.T) {
 		for _, node := range planet.StorageNodes {
 			if nodesToKeepAlive[node.ID()] {
 				err = planet.StopPeer(node)
+				assert.NoError(t, err)
+				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
 				assert.NoError(t, err)
 			}
 		}
