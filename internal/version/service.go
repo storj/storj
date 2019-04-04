@@ -39,7 +39,7 @@ type Service struct {
 	allowed bool
 }
 
-// NewService creates a Version Check Client with default configuration, or returns (nil, nil) if version checking is disabled
+// NewService creates a Version Check Client with provided configuration and runs one check, returning an error if the version is out of date.
 func NewService(ctx context.Context, log *zap.Logger, config Config, info Info, service string) (*Service, error) {
 	log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
 		info.Version.String(), info.CommitHash, info.Timestamp.String(), info.Release)
