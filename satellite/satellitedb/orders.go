@@ -4,12 +4,16 @@
 package satellitedb
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"time"
 
+	"storj.io/storj/internal/dbutil/pgutil"
+	"storj.io/storj/internal/dbutil/sqliteutil"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/orders"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -38,6 +42,9 @@ func (db *ordersDB) UseSerialNumber(ctx context.Context, serialNumber storj.Seri
 	)
 	_, err := db.db.ExecContext(ctx, statement, storageNodeID.Bytes(), serialNumber.Bytes())
 	if err != nil {
+		if pgutil.IsConstraintError(err) || sqliteutil.IsConstraintError(err) {
+			return nil, orders.ErrUsingSerialNumber.New("serial number already used")
+		}
 		return nil, err
 	}
 
@@ -48,6 +55,9 @@ func (db *ordersDB) UseSerialNumber(ctx context.Context, serialNumber storj.Seri
 	if err != nil {
 		return nil, err
 	}
+	if dbxSerialNumber == nil {
+		return nil, orders.ErrUsingSerialNumber.New("serial number not found")
+	}
 	return dbxSerialNumber.BucketId, nil
 }
 
@@ -56,12 +66,17 @@ func (db *ordersDB) UpdateBucketBandwidthAllocation(ctx context.Context, bucketI
 	now := time.Now()
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
+	pathElements := bytes.Split(bucketID, []byte("/"))
+	bucketName, projectID := pathElements[1], pathElements[0]
 	statement := db.db.Rebind(
-		`INSERT INTO bucket_bandwidth_rollups VALUES (?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(bucket_id, interval_start, action)
+		`INSERT INTO bucket_bandwidth_rollups (bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(bucket_name, project_id, interval_start, action)
 		DO UPDATE SET allocated = bucket_bandwidth_rollups.allocated + ?`,
 	)
-	_, err := db.db.ExecContext(ctx, statement, bucketID, intervalStart, defaultIntervalSeconds, action, 0, uint64(amount), 0, uint64(amount))
+	_, err := db.db.ExecContext(ctx, statement,
+		bucketName, projectID, intervalStart, defaultIntervalSeconds, action, 0, uint64(amount), 0, uint64(amount),
+	)
 	if err != nil {
 		return err
 	}
@@ -74,12 +89,17 @@ func (db *ordersDB) UpdateBucketBandwidthSettle(ctx context.Context, bucketID []
 	now := time.Now()
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
+	pathElements := bytes.Split(bucketID, []byte("/"))
+	bucketName, projectID := pathElements[1], pathElements[0]
 	statement := db.db.Rebind(
-		`INSERT INTO bucket_bandwidth_rollups VALUES (?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(bucket_id, interval_start, action)
+		`INSERT INTO bucket_bandwidth_rollups (bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(bucket_name, project_id, interval_start, action)
 		DO UPDATE SET settled = bucket_bandwidth_rollups.settled + ?`,
 	)
-	_, err := db.db.ExecContext(ctx, statement, bucketID, intervalStart, defaultIntervalSeconds, action, 0, 0, uint64(amount), uint64(amount))
+	_, err := db.db.ExecContext(ctx, statement,
+		bucketName, projectID, intervalStart, defaultIntervalSeconds, action, 0, 0, uint64(amount), uint64(amount),
+	)
 	if err != nil {
 		return err
 	}
@@ -91,12 +111,17 @@ func (db *ordersDB) UpdateBucketBandwidthInline(ctx context.Context, bucketID []
 	now := time.Now()
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
+	pathElements := bytes.Split(bucketID, []byte("/"))
+	bucketName, projectID := pathElements[1], pathElements[0]
 	statement := db.db.Rebind(
-		`INSERT INTO bucket_bandwidth_rollups VALUES (?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(bucket_id, interval_start, action)
+		`INSERT INTO bucket_bandwidth_rollups (bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(bucket_name, project_id, interval_start, action)
 		DO UPDATE SET inline = bucket_bandwidth_rollups.inline + ?`,
 	)
-	_, err := db.db.ExecContext(ctx, statement, bucketID, intervalStart, defaultIntervalSeconds, action, uint64(amount), 0, 0, uint64(amount))
+	_, err := db.db.ExecContext(ctx, statement,
+		bucketName, projectID, intervalStart, defaultIntervalSeconds, action, uint64(amount), 0, 0, uint64(amount),
+	)
 	if err != nil {
 		return err
 	}
@@ -109,11 +134,14 @@ func (db *ordersDB) UpdateStoragenodeBandwidthAllocation(ctx context.Context, st
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
 	statement := db.db.Rebind(
-		`INSERT INTO storagenode_bandwidth_rollups VALUES (?, ?, ?, ?, ?, ?)
+		`INSERT INTO storagenode_bandwidth_rollups (storagenode_id, interval_start, interval_seconds, action, allocated, settled)
+		VALUES (?, ?, ?, ?, ?, ?)
 		ON CONFLICT(storagenode_id, interval_start, action)
 		DO UPDATE SET allocated = storagenode_bandwidth_rollups.allocated + ?`,
 	)
-	_, err := db.db.ExecContext(ctx, statement, storageNode.Bytes(), intervalStart, defaultIntervalSeconds, action, uint64(amount), 0, uint64(amount))
+	_, err := db.db.ExecContext(ctx, statement,
+		storageNode.Bytes(), intervalStart, defaultIntervalSeconds, action, uint64(amount), 0, uint64(amount),
+	)
 	if err != nil {
 		return err
 	}
@@ -126,11 +154,14 @@ func (db *ordersDB) UpdateStoragenodeBandwidthSettle(ctx context.Context, storag
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
 	statement := db.db.Rebind(
-		`INSERT INTO storagenode_bandwidth_rollups VALUES (?, ?, ?, ?, ?, ?)
+		`INSERT INTO storagenode_bandwidth_rollups (storagenode_id, interval_start, interval_seconds, action, allocated, settled)
+		VALUES (?, ?, ?, ?, ?, ?)
 		ON CONFLICT(storagenode_id, interval_start, action)
 		DO UPDATE SET settled = storagenode_bandwidth_rollups.settled + ?`,
 	)
-	_, err := db.db.ExecContext(ctx, statement, storageNode.Bytes(), intervalStart, defaultIntervalSeconds, action, 0, uint64(amount), uint64(amount))
+	_, err := db.db.ExecContext(ctx, statement,
+		storageNode.Bytes(), intervalStart, defaultIntervalSeconds, action, 0, uint64(amount), uint64(amount),
+	)
 	if err != nil {
 		return err
 	}
@@ -139,9 +170,11 @@ func (db *ordersDB) UpdateStoragenodeBandwidthSettle(ctx context.Context, storag
 
 // GetBucketBandwidth gets total bucket bandwidth from period of time
 func (db *ordersDB) GetBucketBandwidth(ctx context.Context, bucketID []byte, from, to time.Time) (int64, error) {
+	pathElements := bytes.Split(bucketID, []byte("/"))
+	bucketName, projectID := pathElements[1], pathElements[0]
 	var sum *int64
-	query := `SELECT SUM(settled) FROM bucket_bandwidth_rollups WHERE bucket_id = ? AND interval_start > ? AND interval_start <= ?`
-	err := db.db.QueryRow(db.db.Rebind(query), bucketID, from, to).Scan(&sum)
+	query := `SELECT SUM(settled) FROM bucket_bandwidth_rollups WHERE bucket_name = ? AND project_id = ? AND interval_start > ? AND interval_start <= ?`
+	err := db.db.QueryRow(db.db.Rebind(query), bucketName, projectID, from, to).Scan(&sum)
 	if err == sql.ErrNoRows || sum == nil {
 		return 0, nil
 	}

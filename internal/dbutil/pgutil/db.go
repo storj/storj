@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"strings"
 
+	"github.com/lib/pq"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/dbutil/dbschema"
@@ -112,4 +113,14 @@ func CheckApplicationName(s string) (r string) {
 	}
 	//return source as is if application_name is set
 	return s
+}
+
+// IsConstraintError checks if given error is about constraint violation
+func IsConstraintError(err error) bool {
+	if e, ok := err.(*pq.Error); ok {
+		if e.Code.Class() == "23" {
+			return true
+		}
+	}
+	return false
 }
