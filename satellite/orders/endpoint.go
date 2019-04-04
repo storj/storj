@@ -184,6 +184,17 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 			}
 			continue
 		}
+		if len(bucketID) == 0 {
+			endpoint.log.Warn("received serial number doesn't exist in DB", zap.String("serial number", orderLimit.SerialNumber.String()))
+			err := stream.Send(&pb.SettlementResponse{
+				SerialNumber: orderLimit.SerialNumber,
+				Status:       pb.SettlementResponse_REJECTED,
+			})
+			if err != nil {
+				return formatError(err)
+			}
+			continue
+		}
 
 		if err := endpoint.DB.UpdateBucketBandwidthSettle(ctx, bucketID, orderLimit.Action, order.Amount); err != nil {
 			if err := endpoint.DB.UnuseSerialNumber(ctx, orderLimit.SerialNumber, orderLimit.StorageNodeId); err != nil {
