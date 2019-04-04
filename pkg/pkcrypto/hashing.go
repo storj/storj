@@ -4,12 +4,15 @@
 package pkcrypto
 
 import (
-	"crypto/sha256"
 	"hash"
+
+	sha256 "github.com/minio/sha256-simd"
 )
 
 // NewHash returns default hash in storj.
-func NewHash() hash.Hash { return sha256.New() }
+func NewHash() hash.Hash {
+	return sha256.New()
+}
 
 // SHA256Hash calculates the SHA256 hash of the input data
 func SHA256Hash(data []byte) []byte {
