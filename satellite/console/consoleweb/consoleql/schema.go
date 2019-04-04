@@ -20,10 +20,8 @@ func CreateSchema(log *zap.Logger, service *console.Service, mailService *mailse
 		return
 	}
 
-	schema, err = graphql.NewSchema(graphql.SchemaConfig{
+	return graphql.NewSchema(graphql.SchemaConfig{
 		Query:    creator.RootQuery(),
 		Mutation: creator.RootMutation(),
 	})
-
-	return schema, err
 }
