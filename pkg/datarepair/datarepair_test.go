@@ -84,13 +84,16 @@ func TestDataRepair(t *testing.T) {
 			nodesToKill[piece.NodeId] = true
 			lostPieces = append(lostPieces, piece.GetPieceNum())
 		}
+		t.Logf("Killing %d nodes of %d", toKill, len(planet.StorageNodes))
 		for _, node := range planet.StorageNodes {
 			if nodesToKill[node.ID()] {
 				err = planet.StopPeer(node)
 				assert.NoError(t, err)
-
+				t.Logf("Killing %s = %s", node.ID(), node.Addr())
 				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
 				assert.NoError(t, err)
+			} else {
+				t.Logf("Keeping %s = %s", node.ID(), node.Addr())
 			}
 		}
 

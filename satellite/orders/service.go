@@ -117,6 +117,8 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 
 	var combinedErrs error
 	var limits []*pb.AddressedOrderLimit
+	nilCount := 0
+	offlineCount := 0
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
 		node, err := service.cache.Get(ctx, piece.NodeId)
 		if err != nil {
@@ -127,10 +129,14 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 
 		if node != nil {
 			node.Type.DPanicOnInvalid("order service get order limits")
+		} else {
+			nilCount++
+			continue
 		}
 
-		if !node.IsUp {
-			service.log.Debug("node is offline", zap.String("ID", node.Id.String()))
+		if !node.Online() {
+			offlineCount++
+			service.log.Debug("node is offline", zap.String("ID", node.Id.String()), zap.Time("LastContactSuccess", node.Reputation.LastContactSuccess), zap.Time("LastContactFailure", node.Reputation.LastContactFailure))
 			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
 			continue
 		}
@@ -157,7 +163,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 	}
 
 	if len(limits) < redundancy.RequiredCount() {
-		err = Error.New("not enough nodes available: got %d, required %d", len(limits), redundancy.RequiredCount())
+		err = Error.New("XXX not enough nodes available: got %d, required %d, nil %d, off %d, len %d", len(limits), redundancy.RequiredCount(), nilCount, offlineCount, len(pointer.GetRemote().GetRemotePieces()))
 		return nil, errs.Combine(err, combinedErrs)
 	}
 
@@ -266,7 +272,7 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *ide
 			node.Type.DPanicOnInvalid("order service delete order limits")
 		}
 
-		if !node.IsUp {
+		if !node.Online() {
 			service.log.Debug("node is offline", zap.String("ID", node.Id.String()))
 			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
 			continue
@@ -346,7 +352,7 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 			node.Type.DPanicOnInvalid("order service audit order limits")
 		}
 
-		if !node.IsUp {
+		if !node.Online() {
 			service.log.Debug("node is offline", zap.String("ID", node.Id.String()))
 			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
 			continue
@@ -375,7 +381,7 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 	}
 
 	if limitsCount < redundancy.GetMinReq() {
-		err = Error.New("not enough nodes available: got %d, required %d", limitsCount, redundancy.GetMinReq())
+		err = Error.New("YYY not enough nodes available: got %d, required %d", limitsCount, redundancy.GetMinReq())
 		return nil, errs.Combine(err, combinedErrs)
 	}
 
@@ -429,7 +435,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 			node.Type.DPanicOnInvalid("order service get repair order limits")
 		}
 
-		if !node.IsUp {
+		if !node.Online() {
 			service.log.Debug("node is offline", zap.String("ID", node.Id.String()))
 			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
 			continue
@@ -458,7 +464,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 	}
 
 	if limitsCount < redundancy.RequiredCount() {
-		err = Error.New("not enough nodes available: got %d, required %d", limitsCount, redundancy.RequiredCount())
+		err = Error.New("ZZZ not enough nodes available: got %d, required %d", limitsCount, redundancy.RequiredCount())
 		return nil, errs.Combine(err, combinedErrs)
 	}
 
