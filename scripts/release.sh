@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 set -eu
 set -o pipefail
@@ -8,7 +8,7 @@ TIMESTAMP=$(date +%s)
 echo $TIMESTAMP
 
 echo -n "Git commit: "
-if [ "x$(git diff --stat)" != "x" ] || [ "x$(git status -s)" != "x" ]; then
+if [[ "$(git diff --stat)" != '' ]] || [[ -n "$(git status -s)" ]]; then
   COMMIT=$(git rev-parse HEAD)-dirty
   RELEASE=false
 else
