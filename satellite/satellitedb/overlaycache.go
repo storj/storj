@@ -524,6 +524,7 @@ func convertDBNode(info *dbx.Node) (*overlay.NodeDossier, error) {
 				Address:   info.Address,
 				Transport: pb.NodeTransport(info.Protocol),
 			},
+			Type: pb.NodeType(info.Type),
 		},
 		Type: pb.NodeType(info.Type),
 		Operator: pb.NodeOperator{
