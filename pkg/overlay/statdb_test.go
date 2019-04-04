@@ -152,20 +152,24 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		assert.Equal(t, "abc123@gmail.com", update.Operator.Email)
 
 		updateEmail, err := cache.UpdateOperator(ctx, nodeID, pb.NodeOperator{
-			Email: "def456@gmail.com",
+			Wallet: update.Operator.Wallet,
+			Email:  "def456@gmail.com",
 		})
 
 		require.NoError(t, err)
 		assert.NotNil(t, updateEmail)
-		assert.Equal(t, updateEmail.Operator.Email, "def456@gmail.com")
+		assert.Equal(t, "0x1111111111111111111111111111111111111111", updateEmail.Operator.Wallet)
+		assert.Equal(t, "def456@gmail.com", updateEmail.Operator.Email)
 
 		updateWallet, err := cache.UpdateOperator(ctx, nodeID, pb.NodeOperator{
 			Wallet: "0x2222222222222222222222222222222222222222",
+			Email:  updateEmail.Operator.Email,
 		})
 
 		require.NoError(t, err)
 		assert.NotNil(t, updateWallet)
-		assert.Equal(t, updateWallet.Operator.Wallet, "0x2222222222222222222222222222222222222222")
+		assert.Equal(t, "0x2222222222222222222222222222222222222222", updateWallet.Operator.Wallet)
+		assert.Equal(t, "def456@gmail.com", updateWallet.Operator.Email)
 	}
 
 	{ // TestUpdateExists

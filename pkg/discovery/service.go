@@ -15,7 +15,6 @@ import (
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -160,9 +159,7 @@ func (discovery *Discovery) refresh(ctx context.Context) error {
 			continue
 		}
 
-		_, err = discovery.cache.UpdateOperator(ctx, ping.Id, pb.NodeOperator{
-			Wallet: info.GetOperator().GetWallet(),
-		})
+		_, err = discovery.cache.UpdateOperator(ctx, ping.Id, *info.GetOperator())
 		if err != nil {
 			discovery.log.Warn("could not update node operator", zap.String("ID", ping.GetAddress().String()))
 		}
