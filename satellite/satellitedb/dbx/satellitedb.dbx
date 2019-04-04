@@ -418,6 +418,15 @@ read scalar (
 	where  bucket_bandwidth_rollup.action = ?
 )
 
+read all (
+    select bucket_bandwidth_rollup
+    where  bucket_bandwidth_rollup.project_id = ?
+    where  bucket_bandwidth_rollup.action = ?
+    where  bucket_bandwidth_rollup.interval_start >= ?
+    where  bucket_bandwidth_rollup.interval_start <= ?
+    orderby desc bucket_bandwidth_rollup.interval_start
+)
+
 model bucket_storage_tally (
 	key    bucket_name project_id interval_start
 
@@ -441,6 +450,15 @@ create bucket_storage_tally ()
 read first (
     select bucket_storage_tally
     where bucket_storage_tally.project_id = ?
+    orderby desc bucket_storage_tally.interval_start
+)
+
+read all (
+    select bucket_storage_tally
+    where bucket_storage_tally.project_id = ?
+    where bucket_storage_tally.bucket_name = ?
+    where bucket_storage_tally.interval_start >= ?
+    where bucket_storage_tally.interval_start <= ?
     orderby desc bucket_storage_tally.interval_start
 )
 

@@ -53,7 +53,7 @@ func (db *ConsoleDB) RegistrationTokens() console.RegistrationTokens {
 
 // UsageRollups is a getter for console.UsageRollups repository
 func (db *ConsoleDB) UsageRollups() console.UsageRollups {
-	return &usagerollups{db.methods}
+	return &usagerollups{db.db}
 }
 
 // BeginTx is a method for opening transaction

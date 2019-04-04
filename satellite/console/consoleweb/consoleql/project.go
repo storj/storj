@@ -4,6 +4,8 @@
 package consoleql
 
 import (
+	"time"
+
 	"github.com/graphql-go/graphql"
 
 	"storj.io/storj/satellite/console"
@@ -40,6 +42,10 @@ const (
 	SearchArg = "search"
 	// OrderArg is argument name for order
 	OrderArg = "order"
+	// SinceArg marks start of the period
+	SinceArg = "since"
+	// BeforeArg marks end of the period
+	BeforeArg = "before"
 )
 
 // graphqlProject creates *graphql.Object type representation of satellite.ProjectInfo
@@ -121,9 +127,21 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 			},
 			FieldUsage: &graphql.Field{
 				Type: types.projectUsage,
+				Args: graphql.FieldConfigArgument{
+					SinceArg: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.DateTime),
+					},
+					BeforeArg: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.DateTime),
+					},
+				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					_, _ = p.Source.(*console.Project)
-					return nil, nil
+					project, _ := p.Source.(*console.Project)
+
+					since := p.Args[SinceArg].(time.Time)
+					before := p.Args[BeforeArg].(time.Time)
+
+					return service.GetProjectUsage(p.Context, project.ID, since, before)
 				},
 			},
 		},
@@ -159,10 +177,10 @@ func graphqlProjectUsage() *graphql.Object {
 			FieldObjectsCount: &graphql.Field{
 				Type: graphql.Int,
 			},
-			"since": &graphql.Field{
+			SinceArg: &graphql.Field{
 				Type: graphql.DateTime,
 			},
-			"before": &graphql.Field{
+			BeforeArg: &graphql.Field{
 				Type: graphql.DateTime,
 			},
 		},
