@@ -244,6 +244,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			config.ExternalAddress = peer.Addr()
 		}
 
+		pbVersion, err := versionInfo.Proto()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		self := pb.Node{
 			Id:   peer.ID(),
 			Type: pb.NodeType_SATELLITE,
@@ -253,6 +258,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			Metadata: &pb.NodeMetadata{
 				Wallet: config.Operator.Wallet,
 			},
+			Version: pbVersion,
 		}
 
 		{ // setup routing table
