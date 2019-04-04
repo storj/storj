@@ -205,6 +205,13 @@ func (db *DB) Migration() *migrate.Migration {
 					`CREATE INDEX IF NOT EXISTS idx_bwa_serial ON bandwidth_agreements (serial_num)`,
 				},
 			},
+			{
+				Description: "Initiate Network reset",
+				Version:     4,
+				Action: migrate.SQL{
+					`UPDATE ttl SET expires = 1553727600 WHERE created <= 1553727600 `,
+				},
+			},
 		},
 	}
 	return migration

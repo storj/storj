@@ -5,17 +5,19 @@
 package pgutil
 
 import (
-	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
+	"math/rand"
 	"net/url"
 	"strconv"
 	"strings"
 )
 
-// RandomString creates a random safe string
-func RandomString(n int) string {
+// CreateRandomTestingSchemaName creates a random schema name string.
+func CreateRandomTestingSchemaName(n int) string {
 	data := make([]byte, n)
+
+	// math/rand.Read() always returns a nil error so there's no need to handle the error.
 	_, _ = rand.Read(data)
 	return hex.EncodeToString(data)
 }

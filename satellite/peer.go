@@ -21,6 +21,7 @@ import (
 
 	"storj.io/storj/internal/post"
 	"storj.io/storj/internal/post/oauth2"
+	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/accounting/rollup"
 	"storj.io/storj/pkg/accounting/tally"
@@ -46,6 +47,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/satellite/metainfo"
@@ -108,6 +110,8 @@ type Config struct {
 
 	Mail    mailservice.Config
 	Console consoleweb.Config
+
+	Version version.Config
 }
 
 // Peer is the satellite
@@ -120,6 +124,8 @@ type Peer struct {
 	Transport transport.Client
 
 	Server *server.Server
+
+	Version *version.Service
 
 	// services and endpoints
 	Kademlia struct {
@@ -144,6 +150,10 @@ type Peer struct {
 		Database  storage.KeyValueStore // TODO: move into pointerDB
 		Service   *pointerdb.Service
 		Endpoint2 *metainfo.Endpoint
+	}
+
+	Inspector struct {
+		Endpoint *inspector.Endpoint
 	}
 
 	Agreements struct {
@@ -181,7 +191,7 @@ type Peer struct {
 }
 
 // New creates a new satellite
-func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*Peer, error) {
+func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, versionInfo version.Info) (*Peer, error) {
 	peer := &Peer{
 		Log:      log,
 		Identity: full,
@@ -189,6 +199,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 	}
 
 	var err error
+
+	{
+		test := version.Info{}
+		if test != versionInfo {
+			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
+				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
+			peer.Version = version.NewService(config.Version, versionInfo, "Satellite")
+		}
+	}
 
 	{ // setup listener and server
 		log.Debug("Starting listener and server")
@@ -323,6 +342,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 			peer.Orders.Service,
 			peer.Overlay.Service,
 			peer.DB.Console().APIKeys(),
+			peer.DB.Accounting(),
+			config.Rollup.MaxAlphaUsage,
 		)
 
 		pb.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)
@@ -381,6 +402,17 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 		log.Debug("Setting up accounting")
 		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.Accounting(), peer.DB.BandwidthAgreement(), peer.Metainfo.Service, peer.Overlay.Service, 0, config.Tally.Interval)
 		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.Accounting(), config.Rollup.Interval)
+	}
+
+	{ // setup inspector
+		log.Debug("Setting up inspector")
+		peer.Inspector.Endpoint = inspector.NewEndpoint(
+			peer.Log.Named("inspector"),
+			peer.Overlay.Service,
+			peer.Metainfo.Service,
+		)
+
+		pb.RegisterHealthInspectorServer(peer.Server.PrivateGRPC(), peer.Inspector.Endpoint)
 	}
 
 	{ // setup mailservice
@@ -495,6 +527,12 @@ func ignoreCancel(err error) error {
 func (peer *Peer) Run(ctx context.Context) error {
 	group, ctx := errgroup.WithContext(ctx)
 
+	group.Go(func() error {
+		if peer.Version != nil {
+			return ignoreCancel(peer.Version.Run(ctx))
+		}
+		return nil
+	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Kademlia.Service.Bootstrap(ctx))
 	})

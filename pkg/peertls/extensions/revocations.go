@@ -40,10 +40,10 @@ var ErrRevokedCert = ErrRevocation.New("a certificate in the chain is revoked")
 var ErrRevocationTimestamp = Error.New("revocation timestamp is older than last known revocation")
 
 // Revocation represents a certificate revocation for storage in the revocation
-// database and for use in a TLS extension
+// database and for use in a TLS extension.
 type Revocation struct {
 	Timestamp int64
-	CertHash  []byte
+	KeyHash   []byte
 	Signature []byte
 }
 
@@ -67,10 +67,13 @@ func init() {
 func NewRevocationExt(key crypto.PrivateKey, revokedCert *x509.Certificate) (pkix.Extension, error) {
 	nowUnix := time.Now().Unix()
 
-	hash := pkcrypto.SHA256Hash(revokedCert.Raw)
+	keyHash, err := peertls.DoubleSHA256PublicKey(revokedCert.PublicKey)
+	if err != nil {
+		return pkix.Extension{}, err
+	}
 	rev := Revocation{
 		Timestamp: nowUnix,
-		CertHash:  hash,
+		KeyHash:   keyHash[:],
 	}
 
 	if err := rev.Sign(key); err != nil {
@@ -90,24 +93,9 @@ func NewRevocationExt(key crypto.PrivateKey, revokedCert *x509.Certificate) (pki
 	return ext, nil
 }
 
-// AddRevocationExt generates a revocation extension for a cert and attaches it
-// to the cert which will replace the revoked cert.
-func AddRevocationExt(key crypto.PrivateKey, revokedCert, newCert *x509.Certificate) error {
-	ext, err := NewRevocationExt(key, revokedCert)
-	if err != nil {
-		return err
-	}
-	err = AddExtension(newCert, ext)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func revocationChecker(opts *Options) HandlerFunc {
 	return func(_ pkix.Extension, chains [][]*x509.Certificate) error {
-		leaf := chains[0][peertls.LeafIndex]
-		ca := chains[0][peertls.CAIndex]
+		ca, leaf := chains[0][peertls.CAIndex], chains[0][peertls.LeafIndex]
 		lastRev, lastRevErr := opts.RevDB.Get(chains[0])
 		if lastRevErr != nil {
 			return Error.Wrap(lastRevErr)
@@ -116,15 +104,21 @@ func revocationChecker(opts *Options) HandlerFunc {
 			return nil
 		}
 
-		caHash := pkcrypto.SHA256Hash(ca.Raw)
-		leafHash := pkcrypto.SHA256Hash(leaf.Raw)
+		nodeID, err := peertls.DoubleSHA256PublicKey(ca.PublicKey)
+		if err != nil {
+			return err
+		}
+		leafKeyHash, err := peertls.DoubleSHA256PublicKey(leaf.PublicKey)
+		if err != nil {
+			return err
+		}
 
 		// NB: we trust that anything that made it into the revocation DB is valid
 		//		(i.e. no need for further verification)
 		switch {
-		case bytes.Equal(lastRev.CertHash, caHash):
-			return ErrRevokedCert
-		case bytes.Equal(lastRev.CertHash, leafHash):
+		case bytes.Equal(lastRev.KeyHash, nodeID[:]):
+			fallthrough
+		case bytes.Equal(lastRev.KeyHash, leafKeyHash[:]):
 			return ErrRevokedCert
 		default:
 			return nil
@@ -155,12 +149,12 @@ func (r Revocation) Verify(signingCert *x509.Certificate) error {
 	return nil
 }
 
-// TBSBytes (ToBeSigned) returns the hash of the revoked certificate hash and
-// the timestamp (i.e. hash(hash(cert bytes) + timestamp)).
+// TBSBytes (ToBeSigned) returns the hash of the revoked certificate key hash
+// and the timestamp (i.e. hash(hash(cert bytes) + timestamp)).
 func (r *Revocation) TBSBytes() []byte {
 	var tsBytes [binary.MaxVarintLen64]byte
 	binary.PutVarint(tsBytes[:], r.Timestamp)
-	toHash := append(append([]byte{}, r.CertHash...), tsBytes[:]...)
+	toHash := append(append([]byte{}, r.KeyHash...), tsBytes[:]...)
 
 	return pkcrypto.SHA256Hash(toHash)
 }

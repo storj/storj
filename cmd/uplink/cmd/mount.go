@@ -44,7 +44,6 @@ func mountBucket(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	ctx := process.Ctx(cmd)
-
 	metainfo, streams, err := cfg.Metainfo(ctx)
 	if err != nil {
 		return err
