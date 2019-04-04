@@ -169,13 +169,13 @@ func graphqlProjectUsage() *graphql.Object {
 		Name: ProjectUsageType,
 		Fields: graphql.Fields{
 			FieldStorage: &graphql.Field{
-				Type: graphql.Int,
+				Type: graphql.Float,
 			},
 			FieldEgress: &graphql.Field{
-				Type: graphql.Int,
+				Type: graphql.Float,
 			},
 			FieldObjectsCount: &graphql.Field{
-				Type: graphql.Int,
+				Type: graphql.Float,
 			},
 			SinceArg: &graphql.Field{
 				Type: graphql.DateTime,
