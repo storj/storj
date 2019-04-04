@@ -16,6 +16,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/x509"
+	"encoding/binary"
 	"math/big"
 
 	"github.com/zeebo/errs"
@@ -29,6 +30,9 @@ import (
 // (see https://godoc.org/google.golang.org/grpc#WithDialer
 // and https://godoc.org/google.golang.org/grpc#FailOnNonTempDialError).
 type NonTemporaryError struct{ error }
+
+// POWCounter is a proof-of-work counter that is used to seed a POW hash.
+type POWCounter uint64
 
 // NewNonTemporaryError returns a new temporary error for use with grpc.
 func NewNonTemporaryError(err error) NonTemporaryError {
@@ -49,6 +53,18 @@ func DoubleSHA256PublicKey(k crypto.PublicKey) ([sha256.Size]byte, error) {
 	return end, nil
 }
 
+// DoubleSHA256PublicKeyWithCounter returns the hash of the hash of (double-hash, SHA226)
+// the binary format of the given public key with the counter value appended.
+func DoubleSHA256PublicKeyWithCounter(k crypto.PublicKey, counter POWCounter) ([sha256.Size]byte, error) {
+	kb, err := x509.MarshalPKIXPublicKey(k)
+	if err != nil {
+		return [sha256.Size]byte{}, err
+	}
+	mid := sha256.Sum256(append(kb, counter.Bytes()...))
+	end := sha256.Sum256(mid[:])
+	return end, nil
+}
+
 // Temporary returns false to indicate that is is a non-temporary error
 func (nte NonTemporaryError) Temporary() bool {
 	return false
@@ -57,6 +73,13 @@ func (nte NonTemporaryError) Temporary() bool {
 // Err returns the underlying error
 func (nte NonTemporaryError) Err() error {
 	return nte.error
+}
+
+// Bytes converts the counter to a byte-slice.
+func (counter POWCounter) Bytes() []byte {
+	var counterBytes = make([]byte, binary.Size(counter))
+	binary.PutUvarint(counterBytes, uint64(counter))
+	return counterBytes
 }
 
 func verifyChainSignatures(certs []*x509.Certificate) error {

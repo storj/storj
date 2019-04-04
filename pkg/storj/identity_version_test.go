@@ -7,15 +7,14 @@ import (
 	"crypto/x509"
 	"testing"
 
-	"storj.io/storj/pkg/peertls/extensions"
-	"storj.io/storj/pkg/peertls/tlsopts"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testpeertls"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/peertls/extensions"
+	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/storj"
 )
 

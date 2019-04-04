@@ -269,6 +269,15 @@ func NodeIDFromKey(k crypto.PublicKey, version storj.IDVersion) (storj.NodeID, e
 	return storj.NewVersionedID(idBytes, version), nil
 }
 
+// NodeIDFromKeyWithCounter calculates the node ID for a given public key and counter with the passed version.
+func NodeIDFromKeyWithCounter(k crypto.PublicKey, counter peertls.POWCounter, version storj.IDVersion) (storj.NodeID, error) {
+	idBytes, err := peertls.DoubleSHA256PublicKeyWithCounter(k, counter)
+	if err != nil {
+		return storj.NodeID{}, storj.ErrNodeID.Wrap(err)
+	}
+	return storj.NewVersionedID(idBytes, version), nil
+}
+
 // NewFullIdentity creates a new ID for nodes with difficulty and concurrency params.
 func NewFullIdentity(ctx context.Context, opts NewCAOptions) (*FullIdentity, error) {
 	ca, err := NewCA(ctx, opts)

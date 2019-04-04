@@ -31,6 +31,7 @@ func TestNewCA(t *testing.T) {
 			Difficulty:    expectedDifficulty,
 			Concurrency:   4,
 		})
+
 		require.NoError(t, err)
 		require.NotEmpty(t, ca)
 
@@ -43,6 +44,20 @@ func TestNewCA(t *testing.T) {
 		actualDifficulty, err := ca.ID.Difficulty()
 		require.NoError(t, err)
 		assert.True(t, actualDifficulty >= expectedDifficulty)
+
+		if version.Number == storj.V2 {
+			extMap := tlsopts.NewExtensionsMap(ca.Cert)
+			powCounterExt := extMap[extensions.IdentityPOWCounterExtID.String()]
+			require.NotNil(t, powCounterExt)
+
+			value := powCounterExt.Value
+			require.NotNil(t, value)
+
+			assert.Condition(t, func() bool {
+				// NB: 0 technically possible but extremely unlikely.
+				return int(value[0]) > 0
+			})
+		}
 	}
 }
 

@@ -13,7 +13,6 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"sync"
 	"sync/atomic"
 
 	"github.com/zeebo/errs"
@@ -89,14 +88,6 @@ type FullCAConfig struct {
 // NewCA creates a new full identity with the given difficulty
 func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority, err error) {
 	defer mon.Task()(&ctx)(&err)
-	var (
-		highscore = new(uint32)
-		i         = new(uint32)
-
-		mu          sync.Mutex
-		selectedKey crypto.PrivateKey
-		selectedID  storj.NodeID
-	)
 
 	if opts.Concurrency < 1 {
 		opts.Concurrency = 1
@@ -111,89 +102,12 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 		return nil, err
 	}
 
-	updateStatus := func() {
-		if opts.Logger != nil {
-			count := atomic.LoadUint32(i)
-			hs := atomic.LoadUint32(highscore)
-			_, err := fmt.Fprintf(opts.Logger, "\rGenerated %d keys; best difficulty so far: %d", count, hs)
-			if err != nil {
-				log.Print(errs.Wrap(err))
-			}
-		}
+	switch version.Number {
+	case storj.V1:
+		return newV1CA(ctx, opts)
+	default:
+		return newV2CA(ctx, opts)
 	}
-	err = GenerateKeys(ctx, minimumLoggableDifficulty, int(opts.Concurrency), version,
-		func(k crypto.PrivateKey, id storj.NodeID) (done bool, err error) {
-			if opts.Logger != nil {
-				if atomic.AddUint32(i, 1)%100 == 0 {
-					updateStatus()
-				}
-			}
-
-			difficulty, err := id.Difficulty()
-			if err != nil {
-				return false, err
-			}
-			if difficulty >= opts.Difficulty {
-				mu.Lock()
-				if selectedKey == nil {
-					updateStatus()
-					selectedKey = k
-					selectedID = id
-				}
-				mu.Unlock()
-				if opts.Logger != nil {
-					atomic.SwapUint32(highscore, uint32(difficulty))
-					updateStatus()
-					_, err := fmt.Fprintf(opts.Logger, "\nFound a key with difficulty %d!\n", difficulty)
-					if err != nil {
-						log.Print(errs.Wrap(err))
-					}
-				}
-				return true, nil
-			}
-			for {
-				hs := atomic.LoadUint32(highscore)
-				if uint32(difficulty) <= hs {
-					return false, nil
-				}
-				if atomic.CompareAndSwapUint32(highscore, hs, uint32(difficulty)) {
-					updateStatus()
-					return false, nil
-				}
-			}
-		})
-	if err != nil {
-		return nil, err
-	}
-
-	ct, err := peertls.CATemplate()
-	if err != nil {
-		return nil, err
-	}
-
-	if err := extensions.AddExtraExtension(ct, storj.NewVersionExt(version)); err != nil {
-		return nil, err
-	}
-
-	var cert *x509.Certificate
-	if opts.ParentKey == nil {
-		cert, err = peertls.CreateSelfSignedCertificate(selectedKey, ct)
-	} else {
-		cert, err = peertls.CreateCertificate(pkcrypto.PublicKeyFromPrivate(selectedKey), opts.ParentKey, ct, opts.ParentCert)
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	ca := &FullCertificateAuthority{
-		Cert: cert,
-		Key:  selectedKey,
-		ID:   selectedID,
-	}
-	if opts.ParentCert != nil {
-		ca.RestChain = []*x509.Certificate{opts.ParentCert}
-	}
-	return ca, nil
 }
 
 // Status returns the status of the CA cert/key files for the config
@@ -383,7 +297,7 @@ func (ca *FullCertificateAuthority) NewIdentity(exts ...pkix.Extension) (*FullId
 	if err != nil {
 		return nil, err
 	}
-	leafKey, err := version.NewPrivateKey()
+	leafKey, err := version.GeneratePrivateKey()
 	if err != nil {
 		return nil, err
 	}
@@ -483,4 +397,47 @@ func (ca *FullCertificateAuthority) Revoke() error {
 	}
 
 	return ca.AddExtension(ext)
+}
+
+func statusLogger(logger io.Writer, i *uint32, highscore *uint32) func() {
+	return func() {
+		if logger != nil {
+			count := atomic.LoadUint32(i)
+			hs := atomic.LoadUint32(highscore)
+			_, err := fmt.Fprintf(logger, "\rGenerated %d keys; best difficulty so far: %d", count, hs)
+			if err != nil {
+				log.Print(errs.Wrap(err))
+			}
+		}
+	}
+}
+
+func buildCA(opts NewCAOptions, privateKey crypto.PrivateKey, nodeID storj.NodeID, extraExtensions []pkix.Extension) (*FullCertificateAuthority, error) {
+	ct, err := peertls.CATemplate()
+	if err != nil {
+		return nil, err
+	}
+
+	if opts.ParentKey == nil {
+		opts.ParentKey = privateKey
+	}
+
+	if err := extensions.AddExtraExtension(ct, extraExtensions...); err != nil {
+		return nil, err
+	}
+
+	cert, err := peertls.CreateCertificate(pkcrypto.PublicKeyFromPrivate(privateKey), opts.ParentKey, ct, opts.ParentCert)
+	if err != nil {
+		return nil, err
+	}
+
+	ca := &FullCertificateAuthority{
+		Cert: cert,
+		Key:  privateKey,
+		ID:   nodeID,
+	}
+	if opts.ParentCert != nil {
+		ca.RestChain = []*x509.Certificate{opts.ParentCert}
+	}
+	return ca, nil
 }

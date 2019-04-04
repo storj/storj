@@ -7,6 +7,9 @@ import (
 	"context"
 	"crypto"
 
+	"go.uber.org/atomic"
+
+	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
 )
@@ -21,7 +24,7 @@ func GenerateKey(ctx context.Context, minDifficulty uint16, version storj.IDVers
 		if err != nil {
 			break
 		}
-		k, err = version.NewPrivateKey()
+		k, err = pkcrypto.GeneratePrivateKey()
 		if err != nil {
 			break
 		}
@@ -44,7 +47,11 @@ func GenerateKey(ctx context.Context, minDifficulty uint16, version storj.IDVers
 // if err != nil key generation will stop with that error
 type GenerateCallback func(crypto.PrivateKey, storj.NodeID) (done bool, err error)
 
-// GenerateKeys continues to generate keys until found returns done == false,
+// GenerateKeyWithCounterCallback indicates that key generation is done when done is true.
+// if err != nil key generation will stop with that error
+type GenerateKeyWithCounterCallback func(crypto.PrivateKey, peertls.POWCounter, storj.NodeID) (done bool, err error)
+
+// GenerateKeys continues to generate keys until found returns done == true,
 // or the ctx is canceled.
 func GenerateKeys(ctx context.Context, minDifficulty uint16, concurrency int, version storj.IDVersion, found GenerateCallback) error {
 	ctx, cancel := context.WithCancel(ctx)
@@ -71,6 +78,47 @@ func GenerateKeys(ctx context.Context, minDifficulty uint16, concurrency int, ve
 				}
 			}
 		}()
+	}
+
+	// we only care about the first error. the rest of the errors will be
+	// context cancellation errors
+	return <-errchan
+}
+
+// GenerateKeyWithCounter generates a key and continues to increment the counter
+// until found returns done == true or the ctx is canceled.
+func GenerateKeyKeyWithCounter(ctx context.Context, minDifficulty uint16, concurrency int, version storj.IDVersion, found GenerateKeyWithCounterCallback) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	errchan := make(chan error, concurrency)
+
+	k, id, err := GenerateKey(ctx, minDifficulty, version)
+	if err != nil {
+		return err
+	}
+
+	count := atomic.NewUint64(0)
+	for i := 0; i < concurrency; i++ {
+		go func(i int) {
+			for {
+				counter := peertls.POWCounter(count.Inc())
+				id, err = NodeIDFromKeyWithCounter(pkcrypto.PublicKeyFromPrivate(k), counter, version)
+				if err != nil {
+					errchan <- err
+					return
+				}
+
+				done, err := found(k, counter, id)
+				if err != nil {
+					errchan <- err
+					return
+				}
+				if done {
+					errchan <- nil
+					return
+				}
+			}
+		}(i)
 	}
 
 	// we only care about the first error. the rest of the errors will be

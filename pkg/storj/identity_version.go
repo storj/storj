@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/pkcrypto"
 )
@@ -27,19 +29,19 @@ var (
 	// IDVersions is a map of all identity versions
 	IDVersions = map[IDVersionNumber]IDVersion{
 		/* V1 breaking change:
-		+ removed support for difficulties < 9
+		+ removed support for difficulties < 8
 		*/
 		V0: {
-			Number:        V0,
-			NewPrivateKey: pkcrypto.GeneratePrivateKey,
+			Number:             V0,
+			GeneratePrivateKey: pkcrypto.GeneratePrivateKey,
 		},
 		/* V1 changes:
 		+ add version support
-		+ change elliptic curve to non-NIST
+		+ change POW to use single key with counter
 		*/
 		V1: {
-			Number:        V1,
-			NewPrivateKey: pkcrypto.GeneratePrivateKey,
+			Number:             V1,
+			GeneratePrivateKey: pkcrypto.GeneratePrivateKey,
 		},
 	}
 
@@ -48,16 +50,25 @@ var (
 	IDVersionHandler = extensions.NewHandlerFactory(
 		&extensions.IdentityVersionExtID, idVersionHandler,
 	)
+
+	// ErrDeprecatedVersion is used when a version is no longer supported.
+	ErrDeprecatedVersion = errs.Class("identity version is deprecated")
 )
 
 // IDVersionNumber is the number of an identity version.
 type IDVersionNumber uint8
 
+type ValidKey struct {
+	PrivateKey crypto.PrivateKey
+	NodeID     NodeID
+	POWCount   uint64
+}
+
 // IDVersion holds fields that are used to distinguish different identity
 // versions from one another; used in identity generation.
 type IDVersion struct {
-	Number        IDVersionNumber
-	NewPrivateKey func() (crypto.PrivateKey, error)
+	Number             IDVersionNumber
+	GeneratePrivateKey func() (crypto.PrivateKey, error)
 }
 
 func init() {
