@@ -68,7 +68,7 @@ require (
 	github.com/minio/lsync v0.0.0-20180328070428-f332c3883f63 // indirect
 	github.com/minio/mc v0.0.0-20180926130011-a215fbb71884 // indirect
 	github.com/minio/minio-go v6.0.3+incompatible
-	github.com/minio/sha256-simd v0.0.0-20171213220625-ad98a36ba0da // indirect
+	github.com/minio/sha256-simd v0.0.0-20190328051042-05b4dd3047e5
 	github.com/minio/sio v0.0.0-20180327104954-6a41828a60f0 // indirect
 	github.com/mitchellh/go-homedir v0.0.0-20180801233206-58046073cbff // indirect
 	github.com/nats-io/gnatsd v1.3.0 // indirect
