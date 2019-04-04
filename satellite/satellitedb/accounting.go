@@ -52,26 +52,19 @@ func (db *accountingDB) ProjectStorageTotals(ctx context.Context, projectID uuid
 	// Sum all the inline and remote values for the project that all share the same interval_start.
 	// All records for a project that have the same interval start are part of the same tally run.
 	// This should represent the most recent calculation of a project's total at rest storage.
-	var inlineSum *int64
-	query := `SELECT SUM(inline) FROM bucket_storage_tallies WHERE project_id = ? AND interval_start = ?;`
-	err = db.db.QueryRow(db.db.Rebind(query), projectID, latestRollup.IntervalStart).Scan(&inlineSum)
-	if err != nil || inlineSum == nil {
+	var inlineSum, remoteSum sql.NullInt64
+	query := `SELECT SUM(inline), SUM(remote) FROM bucket_storage_tallies WHERE project_id = ? AND interval_start = ?;`
+	err = db.db.QueryRow(db.db.Rebind(query), projectID[:], latestRollup.IntervalStart).Scan(&inlineSum, &remoteSum)
+	if err != nil || !inlineSum.Valid || !remoteSum.Valid {
 		return 0, 0, nil
 	}
 
-	var remoteSum *int64
-	query = `SELECT SUM(remote) FROM bucket_storage_tallies WHERE project_id = ? AND interval_start = ?;`
-	err = db.db.QueryRow(db.db.Rebind(query), projectID, latestRollup.IntervalStart).Scan(&remoteSum)
-	if err != nil || remoteSum == nil {
-		return 0, 0, nil
-	}
-
-	return *inlineSum, *remoteSum, err
+	return inlineSum.Int64, remoteSum.Int64, err
 }
 
 // CreateBucketStorageTally creates a record in the bucket_storage_tallies accounting table
 func (db *accountingDB) CreateBucketStorageTally(ctx context.Context, tally accounting.BucketStorageTally) error {
-	_, err := db.db.Create_BucketStorageTally(
+	t, err := db.db.Create_BucketStorageTally(
 		ctx,
 		dbx.BucketStorageTally_BucketName([]byte(tally.BucketName)),
 		dbx.BucketStorageTally_ProjectId(tally.ProjectID[:]),
