@@ -89,7 +89,7 @@ func TestDataRepair(t *testing.T) {
 				err = planet.StopPeer(node)
 				assert.NoError(t, err)
 
-				err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
+				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
 				assert.NoError(t, err)
 			}
 		}
