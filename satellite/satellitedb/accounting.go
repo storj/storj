@@ -85,37 +85,6 @@ func (db *accountingDB) LastTimestamp(ctx context.Context, timestampType string)
 	return lastTally, err
 }
 
-// SaveBWRaw records granular tallies (sums of bw agreement values) to the database and updates the LastTimestamp
-func (db *accountingDB) SaveBWRaw(ctx context.Context, tallyEnd time.Time, created time.Time, bwTotals map[storj.NodeID][]int64) (err error) {
-	// We use the latest bandwidth agreement value of a batch of records as the start of the next batch
-	// todo:  consider finding the sum of bwagreements using SQL sum() direct against the bwa table
-	if len(bwTotals) == 0 {
-		return Error.New("In SaveBWRaw with empty bwtotals")
-	}
-	//insert all records in a transaction so if we fail, we don't have partial info stored
-	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-		//create a granular record per node id
-		for nodeID, totals := range bwTotals {
-			for actionType, total := range totals {
-				nID := dbx.AccountingRaw_NodeId(nodeID.Bytes())
-				end := dbx.AccountingRaw_IntervalEndTime(tallyEnd)
-				total := dbx.AccountingRaw_DataTotal(float64(total))
-				dataType := dbx.AccountingRaw_DataType(actionType)
-				timestamp := dbx.AccountingRaw_CreatedAt(created)
-				_, err = tx.Create_AccountingRaw(ctx, nID, end, total, dataType, timestamp)
-				if err != nil {
-					return Error.Wrap(err)
-				}
-			}
-		}
-		//save this batch's greatest time
-		update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(tallyEnd)}
-		_, err := tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastBandwidthTally), update)
-		return err
-	})
-	return Error.Wrap(err)
-}
-
 // SaveAtRestRaw records raw tallies of at rest data to the database
 func (db *accountingDB) SaveAtRestRaw(ctx context.Context, latestTally time.Time, created time.Time, nodeData map[storj.NodeID]float64) error {
 	if len(nodeData) == 0 {
@@ -161,7 +130,7 @@ func (db *accountingDB) GetRaw(ctx context.Context) ([]*accounting.Raw, error) {
 	return out, Error.Wrap(err)
 }
 
-// GetRawSince r retrieves all raw tallies sinces
+// GetRawSince retrieves all raw tallies since latestRollup
 func (db *accountingDB) GetRawSince(ctx context.Context, latestRollup time.Time) ([]*accounting.Raw, error) {
 	raws, err := db.db.All_AccountingRaw_By_IntervalEndTime_GreaterOrEqual(ctx, dbx.AccountingRaw_IntervalEndTime(latestRollup))
 	out := make([]*accounting.Raw, len(raws))
@@ -177,6 +146,25 @@ func (db *accountingDB) GetRawSince(ctx context.Context, latestRollup time.Time)
 			DataTotal:       r.DataTotal,
 			DataType:        r.DataType,
 			CreatedAt:       r.CreatedAt,
+		}
+	}
+	return out, Error.Wrap(err)
+}
+
+// GetStoragenodeBandwidthSince retrieves all storagenode_bandwidth_rollup entires since latestRollup
+func (db *accountingDB) GetStoragenodeBandwidthSince(ctx context.Context, latestRollup time.Time) ([]*accounting.StoragenodeBandwidthRollup, error) {
+	rollups, err := db.db.All_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx, dbx.StoragenodeBandwidthRollup_IntervalStart(latestRollup))
+	out := make([]*accounting.StoragenodeBandwidthRollup, len(rollups))
+	for i, r := range rollups {
+		nodeID, err := storj.NodeIDFromBytes(r.StoragenodeId)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		out[i] = &accounting.StoragenodeBandwidthRollup{
+			NodeID:        nodeID,
+			IntervalStart: r.IntervalStart,
+			Action:        r.Action,
+			Settled:       r.Settled,
 		}
 	}
 	return out, Error.Wrap(err)
