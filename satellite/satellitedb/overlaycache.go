@@ -335,6 +335,23 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 			update.FreeDisk = dbx.Node_FreeDisk(info.Restrictions.FreeDisk)
 		}
 
+		if info.Version != nil {
+			semVer, err := version.NewSemVer(info.Version.Version)
+			if err != nil {
+				semVer = &version.SemVer{}
+			}
+			timestamp, err := ptypes.Timestamp(info.Version.Timestamp)
+			if err != nil {
+				timestamp = time.Time{}
+			}
+			update.Major = dbx.Node_Major(semVer.Major)
+			update.Minor = dbx.Node_Minor(semVer.Minor)
+			update.Patch = dbx.Node_Patch(semVer.Patch)
+			update.Hash = dbx.Node_Hash(info.Version.CommitHash)
+			update.Release = dbx.Node_Release(info.Version.Release)
+			update.Timestamp = dbx.Node_Timestamp(timestamp)
+		}
+
 		_, err := tx.Update_Node_By_Id(ctx, dbx.Node_Id(info.Id.Bytes()), update)
 		if err != nil {
 			return Error.Wrap(errs.Combine(err, tx.Rollback()))
@@ -711,6 +728,19 @@ func convertDBNode(info *dbx.Node) (*pb.Node, error) {
 }
 
 func getNodeStats(nodeID storj.NodeID, dbNode *dbx.Node) *overlay.NodeStats {
+	pbVersion, err := version.Info{
+		Version: version.SemVer{
+			Major: dbNode.Major,
+			Minor: dbNode.Minor,
+			Patch: dbNode.Patch,
+		},
+		CommitHash: dbNode.Hash,
+		Timestamp:  dbNode.Timestamp,
+		Release:    dbNode.Release,
+	}.Proto()
+	if err != nil {
+		pbVersion = &pb.NodeVersion{}
+	}
 	nodeStats := &overlay.NodeStats{
 		NodeID:             nodeID,
 		AuditSuccessRatio:  dbNode.AuditSuccessRatio,
@@ -723,6 +753,7 @@ func getNodeStats(nodeID storj.NodeID, dbNode *dbx.Node) *overlay.NodeStats {
 			Email:  dbNode.Email,
 			Wallet: dbNode.Wallet,
 		},
+		Version: *pbVersion,
 	}
 	return nodeStats
 }
