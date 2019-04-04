@@ -98,7 +98,6 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 
 		for _, node := range planet.StorageNodes {
 			if nodesToKill[node.ID()] {
-				t.Logf("%s %s uplink test killing node", node.ID().String(), node.Addr())
 				err = planet.StopPeer(node)
 				require.NoError(t, err)
 
