@@ -22,6 +22,7 @@ import (
 )
 
 const (
+	// OverlayCacheWindow defines the time which the Node selection uses for recent seen nodes
 	OverlayCacheWindow = 1 * time.Hour
 )
 
