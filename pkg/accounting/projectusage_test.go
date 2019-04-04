@@ -69,7 +69,9 @@ func TestProjectUsage(t *testing.T) {
 				if tt.expectedResource == "bandwidth" {
 					amount := 26 * memory.GB.Int64()
 					action := pb.PieceAction_GET
-					err := orderDB.UpdateBucketBandwidthSettle(ctx, bucketID, action, amount)
+					now := time.Now()
+					intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
+					err := orderDB.UpdateBucketBandwidthSettle(ctx, bucketID, action, amount, intervalStart)
 					require.NoError(t, err)
 				}
 
