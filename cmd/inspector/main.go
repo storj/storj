@@ -37,7 +37,7 @@ var (
 	IdentityPath = flag.String("identity-path", "", "path to the identity certificate for use on the network")
 
 	// CSVPath is the csv path where command output is written
-	CSVPath = flag.String("csv-path", "stdout", "csv path where command output is written")
+	CSVPath string
 
 	// ErrInspectorDial throws when there are errors dialing the inspector server
 	ErrInspectorDial = errs.Class("error dialing inspector server:")
@@ -603,16 +603,20 @@ func SegmentHealth(cmd *cobra.Command, args []string) (err error) {
 }
 
 func csvOutput() (*os.File, error) {
-	if *CSVPath == "stdout" {
+	if CSVPath == "stdout" {
 		return os.Stdout, nil
 	}
 
-	return os.Create(*CSVPath)
+	return os.Create(CSVPath)
 }
 
 func printSegmentHealthTable(w *csv.Writer, redundancy eestream.RedundancyStrategy, segments []*pb.SegmentHealth) error {
-	segmentTable := [][]string{
-		{"Segment Index", "Online Nodes", "Offline Nodes"},
+	segmentTableHeader := []string{
+		"Segment Index", "Online Nodes", "Offline Nodes",
+	}
+
+	if err := w.Write(segmentTableHeader); err != nil {
+		return fmt.Errorf("error writing record to csv: %s", err)
 	}
 
 	total := redundancy.TotalCount() // total amount of pieces we generated (n)
@@ -629,10 +633,6 @@ func printSegmentHealthTable(w *csv.Writer, redundancy eestream.RedundancyStrate
 			strconv.FormatInt(int64(offlineNodes), 10),
 		}
 
-		segmentTable = append(segmentTable, row)
-	}
-
-	for _, row := range segmentTable {
 		if err := w.Write(row); err != nil {
 			return fmt.Errorf("error writing record to csv: %s", err)
 		}
@@ -740,6 +740,8 @@ func init() {
 
 	healthCmd.AddCommand(objectHealthCmd)
 	healthCmd.AddCommand(segmentHealthCmd)
+
+	objectHealthCmd.Flags().StringVar(&CSVPath, "csv-path", "stdout", "csv path where command output is written")
 
 	irreparableCmd.Flags().Int32Var(&irreparableLimit, "limit", 50, "max number of results per page")
 
