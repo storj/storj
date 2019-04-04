@@ -24,12 +24,12 @@ const (
 )
 
 // rootQuery creates query for graphql populated by AccountsClient
-func rootQuery(service *console.Service, types Types) *graphql.Object {
+func rootQuery(service *console.Service, types *TypeCreator) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: Query,
 		Fields: graphql.Fields{
 			UserQuery: &graphql.Field{
-				Type: types.User(),
+				Type: types.user,
 				Args: graphql.FieldConfigArgument{
 					FieldID: &graphql.ArgumentConfig{
 						Type: graphql.String,
@@ -45,7 +45,7 @@ func rootQuery(service *console.Service, types Types) *graphql.Object {
 				},
 			},
 			ProjectQuery: &graphql.Field{
-				Type: types.Project(),
+				Type: types.project,
 				Args: graphql.FieldConfigArgument{
 					FieldID: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
@@ -63,13 +63,13 @@ func rootQuery(service *console.Service, types Types) *graphql.Object {
 				},
 			},
 			MyProjectsQuery: &graphql.Field{
-				Type: graphql.NewList(types.Project()),
+				Type: graphql.NewList(types.project),
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					return service.GetUsersProjects(p.Context)
 				},
 			},
 			TokenQuery: &graphql.Field{
-				Type: types.Token(),
+				Type: types.token,
 				Args: graphql.FieldConfigArgument{
 					FieldEmail: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
