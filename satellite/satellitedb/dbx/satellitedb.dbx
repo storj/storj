@@ -444,6 +444,15 @@ read first (
     orderby desc bucket_storage_tally.interval_start
 )
 
+read all (
+    select bucket_storage_tally
+    where bucket_storage_tally.project_id = ?
+    where bucket_storage_tally.bucket_name = ?
+    where bucket_storage_tally.interval_start >= ?
+    where bucket_storage_tally.interval_start <= ?
+    orderby desc bucket_storage_tally.interval_start
+)
+
 // --- storage node accounting tables --- //
 
 model storagenode_bandwidth_rollup (

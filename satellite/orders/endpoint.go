@@ -6,7 +6,6 @@ package orders
 import (
 	"context"
 	"io"
-	"strings"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
@@ -53,7 +52,10 @@ type DB interface {
 var (
 	// Error the default orders errs class
 	Error = errs.Class("orders error")
-	mon   = monkit.Package()
+	// ErrUsingSerialNumber error class for serial number
+	ErrUsingSerialNumber = errs.Class("serial number")
+
+	mon = monkit.Package()
 )
 
 // Endpoint for orders receiving
@@ -170,8 +172,7 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 		bucketID, err := endpoint.DB.UseSerialNumber(ctx, orderLimit.SerialNumber, orderLimit.StorageNodeId)
 		if err != nil {
 			endpoint.log.Warn("unable to use serial number", zap.Error(err))
-			duplicateRequest := strings.Contains(err.Error(), "violates constraint")
-			if duplicateRequest {
+			if ErrUsingSerialNumber.Has(err) {
 				err := stream.Send(&pb.SettlementResponse{
 					SerialNumber: orderLimit.SerialNumber,
 					Status:       pb.SettlementResponse_REJECTED,

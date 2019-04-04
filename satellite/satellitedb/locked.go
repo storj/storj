@@ -458,6 +458,25 @@ func (m *lockedRegistrationTokens) UpdateOwner(ctx context.Context, secret conso
 	return m.db.UpdateOwner(ctx, secret, ownerID)
 }
 
+// UsageRollups is a getter for UsageRollups repository
+func (m *lockedConsole) UsageRollups() console.UsageRollups {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedUsageRollups{m.Locker, m.db.UsageRollups()}
+}
+
+// lockedUsageRollups implements locking wrapper for console.UsageRollups
+type lockedUsageRollups struct {
+	sync.Locker
+	db console.UsageRollups
+}
+
+func (m *lockedUsageRollups) GetProjectTotal(ctx context.Context, projectID uuid.UUID, since time.Time, before time.Time) (*console.ProjectUsage, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetProjectTotal(ctx, projectID, since, before)
+}
+
 // Users is a getter for Users repository
 func (m *lockedConsole) Users() console.Users {
 	m.Lock()

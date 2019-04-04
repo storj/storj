@@ -207,8 +207,8 @@ func (db *accountingDB) SaveBucketTallies(ctx context.Context, intervalStart tim
 
 	for bucketID, info := range bucketTallies {
 		bucketIDComponents := storj.SplitPath(bucketID)
-		bucketName := dbx.BucketStorageTally_BucketName([]byte(bucketIDComponents[0]))
-		projectID := dbx.BucketStorageTally_ProjectId([]byte(bucketIDComponents[1]))
+		bucketName := dbx.BucketStorageTally_BucketName([]byte(bucketIDComponents[1]))
+		projectID := dbx.BucketStorageTally_ProjectId([]byte(bucketIDComponents[0]))
 		interval := dbx.BucketStorageTally_IntervalStart(intervalStart)
 		inlineBytes := dbx.BucketStorageTally_Inline(uint64(info.InlineBytes))
 		remoteBytes := dbx.BucketStorageTally_Remote(uint64(info.RemoteBytes))

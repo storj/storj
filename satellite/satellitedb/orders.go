@@ -9,8 +9,11 @@ import (
 	"database/sql"
 	"time"
 
+	"storj.io/storj/internal/dbutil/pgutil"
+	"storj.io/storj/internal/dbutil/sqliteutil"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/orders"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -39,6 +42,9 @@ func (db *ordersDB) UseSerialNumber(ctx context.Context, serialNumber storj.Seri
 	)
 	_, err := db.db.ExecContext(ctx, statement, storageNodeID.Bytes(), serialNumber.Bytes())
 	if err != nil {
+		if pgutil.IsConstraintError(err) || sqliteutil.IsConstraintError(err) {
+			return nil, orders.ErrUsingSerialNumber.New("serial number already used")
+		}
 		return nil, err
 	}
 
@@ -48,6 +54,9 @@ func (db *ordersDB) UseSerialNumber(ctx context.Context, serialNumber storj.Seri
 	)
 	if err != nil {
 		return nil, err
+	}
+	if dbxSerialNumber == nil {
+		return nil, orders.ErrUsingSerialNumber.New("serial number not found")
 	}
 	return dbxSerialNumber.BucketId, nil
 }
