@@ -12,7 +12,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+
+	"storj.io/storj/pkg/pb"
 )
 
 var (
@@ -105,6 +108,19 @@ func New(data []byte) (v Info, err error) {
 func (v Info) Marshal() (data []byte, err error) {
 	data, err = json.Marshal(v)
 	return
+}
+
+func (v Info) Proto() (*pb.NodeVersion, error) {
+	pbts, err := ptypes.TimestampProto(v.Timestamp)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.NodeVersion{
+		Version:    v.Version.String(),
+		CommitHash: v.CommitHash,
+		Timestamp:  pbts,
+		Release:    v.Release,
+	}, nil
 }
 
 // containsVersion compares the allowed version array against the passed version

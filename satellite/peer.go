@@ -191,22 +191,12 @@ type Peer struct {
 }
 
 // New creates a new satellite
-func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, versionInfo version.Info) (*Peer, error) {
-	peer := &Peer{
+func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, versionService *version.Service) (peer *Peer, err error) {
+	peer = &Peer{
 		Log:      log,
 		Identity: full,
 		DB:       db,
-	}
-
-	var err error
-
-	{
-		test := version.Info{}
-		if test != versionInfo {
-			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
-				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
-			peer.Version = version.NewService(config.Version, versionInfo, "Satellite")
-		}
+		Version:  versionService,
 	}
 
 	{ // setup listener and server
@@ -253,6 +243,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			config.ExternalAddress = peer.Addr()
 		}
 
+		pbVersion, err := versionService.Info.Proto()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		self := pb.Node{
 			Id:   peer.ID(),
 			Type: pb.NodeType_SATELLITE,
@@ -262,6 +257,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			Metadata: &pb.NodeMetadata{
 				Wallet: config.Operator.Wallet,
 			},
+			Version: pbVersion,
 		}
 
 		{ // setup routing table
@@ -271,7 +267,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			dbpath := filepath.Join(config.DBPath, fmt.Sprintf("kademlia_%s.db", bucketIdentifier))
 
 			if err := os.MkdirAll(config.DBPath, 0777); err != nil && !os.IsExist(err) {
-				return nil, err
+				return nil, errs.Combine(err, peer.Close())
 			}
 
 			dbs, err := boltdb.NewShared(dbpath, kademlia.KademliaBucket, kademlia.NodeBucket)

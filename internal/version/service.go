@@ -6,6 +6,7 @@ package version
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"reflect"
 	"sync"
@@ -17,10 +18,6 @@ import (
 	"storj.io/storj/internal/sync2"
 )
 
-const (
-	errOldVersion = "Outdated Software Version, please update!"
-)
-
 // Config contains the necessary Information to check the Software Version
 type Config struct {
 	ServerAddress  string        `help:"server address to check its version against" default:"https://version.alpha.storj.io"`
@@ -30,61 +27,62 @@ type Config struct {
 
 // Service contains the information and variables to ensure the Software is up to date
 type Service struct {
+	log     *zap.Logger
 	config  Config
-	info    Info
 	service string
+
+	Info Info
 
 	Loop *sync2.Cycle
 
-	checked chan struct{}
 	mu      sync.Mutex
 	allowed bool
 }
 
-// NewService creates a Version Check Client with default configuration
-func NewService(config Config, info Info, service string) (client *Service) {
-	return &Service{
+// NewService creates a Version Check Client with default configuration, or returns (nil, nil) if version checking is disabled
+func NewService(ctx context.Context, log *zap.Logger, config Config, info Info, service string) (*Service, error) {
+	log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
+		info.Version.String(), info.CommitHash, info.Timestamp.String(), info.Release)
+	srv := &Service{
+		log:     log,
 		config:  config,
-		info:    info,
 		service: service,
+		Info:    info,
 		Loop:    sync2.NewCycle(config.CheckInterval),
-		checked: make(chan struct{}, 0),
-		allowed: false,
+		allowed: true,
 	}
+	err := srv.runOnce(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !srv.IsAllowed() {
+		return nil, fmt.Errorf("Outdated software version (%v), please update!", info.Version.String())
+	}
+	return srv, nil
 }
 
 // Run logs the current version information
 func (srv *Service) Run(ctx context.Context) error {
-	firstCheck := true
-	return srv.Loop.Run(ctx, func(ctx context.Context) error {
-		var err error
-		allowed, err := srv.checkVersion(ctx)
-		if err != nil {
-			// Log about the error, but dont crash the service and allow further operation
-			zap.S().Errorf("Failed to do periodic version check: ", err)
-			allowed = true
-		}
-
-		srv.mu.Lock()
-		srv.allowed = allowed
-		srv.mu.Unlock()
-
-		if firstCheck {
-			close(srv.checked)
-			firstCheck = false
-			if !allowed {
-				zap.S().Fatal(errOldVersion)
-			}
-		}
-
-		return nil
-	})
+	return srv.Loop.Run(ctx, srv.runOnce)
 }
 
-// IsUpToDate returns whether if the Service is allowed to operate or not
-func (srv *Service) IsUpToDate() bool {
-	<-srv.checked
+func (srv *Service) runOnce(ctx context.Context) (err error) {
+	allowed, err := srv.checkVersion(ctx)
+	if err != nil {
+		// Log about the error, but dont crash the service and allow further operation
+		zap.S().Errorf("Failed to do periodic version check: ", err)
+		allowed = true
+	}
 
+	srv.mu.Lock()
+	srv.allowed = allowed
+	srv.mu.Unlock()
+
+	return nil
+}
+
+// IsAllowed returns whether if the Service is allowed to operate or not
+func (srv *Service) IsAllowed() bool {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
 
@@ -94,6 +92,11 @@ func (srv *Service) IsUpToDate() bool {
 // CheckVersion checks if the client is running latest/allowed code
 func (srv *Service) checkVersion(ctx context.Context) (allowed bool, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if !srv.Info.Release {
+		return true, nil
+	}
+
 	accepted, err := srv.queryVersionFromControlServer(ctx)
 	if err != nil {
 		return false, err
@@ -105,11 +108,11 @@ func (srv *Service) checkVersion(ctx context.Context) (allowed bool, err error) 
 	if list == nil {
 		return true, errs.New("Empty List from Versioning Server")
 	}
-	if containsVersion(list, srv.info.Version) {
-		zap.S().Infof("running on version %s", srv.info.Version.String())
+	if containsVersion(list, srv.Info.Version) {
+		zap.S().Infof("running on version %s", srv.Info.Version.String())
 		allowed = true
 	} else {
-		zap.S().Errorf("running on not allowed/outdated version %s", srv.info.Version.String())
+		zap.S().Errorf("running on not allowed/outdated version %s", srv.Info.Version.String())
 		allowed = false
 	}
 	return allowed, err

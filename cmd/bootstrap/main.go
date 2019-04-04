@@ -62,6 +62,7 @@ func init() {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
+	ctx := process.Ctx(cmd)
 	log := zap.L()
 
 	identity, err := runCfg.Identity.Load()
@@ -74,7 +75,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	ctx := process.Ctx(cmd)
+	versionService, err := version.NewService(ctx, log, runCfg.Version, version.Build, "Bootstrap")
+	if err != nil {
+		return err
+	}
+
 	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
 		zap.S().Error("Failed to initialize telemetry batcher: ", err)
 	}
@@ -95,7 +100,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Error creating tables for master database on bootstrap: %+v", err)
 	}
 
-	peer, err := bootstrap.New(log, identity, db, runCfg, version.Build)
+	peer, err := bootstrap.New(log, identity, db, runCfg, versionService)
 	if err != nil {
 		return err
 	}

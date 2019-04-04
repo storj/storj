@@ -108,22 +108,12 @@ type Peer struct {
 }
 
 // New creates a new Storage Node.
-func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, versionInfo version.Info) (*Peer, error) {
-	peer := &Peer{
+func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, versionService *version.Service) (peer *Peer, err error) {
+	peer = &Peer{
 		Log:      log,
 		Identity: full,
 		DB:       db,
-	}
-
-	var err error
-
-	{
-		test := version.Info{}
-		if test != versionInfo {
-			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
-				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
-			peer.Version = version.NewService(config.Version, versionInfo, "Storagenode")
-		}
+		Version:  versionService,
 	}
 
 	{ // setup listener and server
@@ -148,6 +138,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			config.ExternalAddress = peer.Addr()
 		}
 
+		pbVersion, err := versionService.Info.Proto()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		self := pb.Node{
 			Id:   peer.ID(),
 			Type: pb.NodeType_STORAGE,
@@ -158,6 +153,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			Metadata: &pb.NodeMetadata{
 				Wallet: config.Operator.Wallet,
 			},
+			Version: pbVersion,
 		}
 
 		kdb, ndb := peer.DB.RoutingTable()
@@ -253,10 +249,7 @@ func (peer *Peer) Run(ctx context.Context) error {
 	group, ctx := errgroup.WithContext(ctx)
 
 	group.Go(func() error {
-		if peer.Version != nil {
-			return ignoreCancel(peer.Version.Run(ctx))
-		}
-		return nil
+		return ignoreCancel(peer.Version.Run(ctx))
 	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Kademlia.Service.Bootstrap(ctx))
