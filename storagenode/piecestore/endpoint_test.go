@@ -228,12 +228,11 @@ func TestDownload(t *testing.T) {
 		{ // should successfully download data
 			pieceID: orderLimit.PieceId,
 			action:  pb.PieceAction_GET,
-			errs:    []string{""},
 		},
 		{ // should err with piece ID not specified
 			pieceID: storj.PieceID{2},
 			action:  pb.PieceAction_GET,
-			errs:    []string{"no such file or directory", "The system cannot find the path specified"}, // TODO fix returned error
+			errs:    []string{"no such file or directory", "The system cannot find the path specified"},
 		},
 		{ // should successfully download data
 			pieceID: orderLimit.PieceId,
@@ -266,14 +265,14 @@ func TestDownload(t *testing.T) {
 		buffer := make([]byte, len(expectedData))
 		n, err := downloader.Read(buffer)
 
-		if tt.errs[0] != "" {
+		if len(tt.errs) > 0 {
 		} else {
 			require.NoError(t, err)
 			require.Equal(t, expectedData, buffer[:n])
 		}
 
 		err = downloader.Close()
-		if tt.errs[0] != "" {
+		if len(tt.errs) > 0 {
 			require.Error(t, err)
 			require.True(t, strings.Contains(err.Error(), tt.errs[0]) || strings.Contains(err.Error(), tt.errs[1]), err.Error())
 		} else {
