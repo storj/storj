@@ -450,27 +450,17 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 func (cache *overlaycache) UpdateOperator(ctx context.Context, nodeID storj.NodeID, operator pb.NodeOperator) (stats *overlay.NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	tx, err := cache.db.Open(ctx)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
 	updateFields := dbx.Node_Update_Fields{
 		Wallet: dbx.Node_Wallet(operator.GetWallet()),
 		Email:  dbx.Node_Email(operator.GetEmail()),
 	}
 
-	updatedDBNode, err := tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
+	updatedDBNode, err := cache.db.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
 	if err != nil {
-		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
+		return nil, Error.Wrap(err)
 	}
 
-	updated, err := convertDBNode(updatedDBNode)
-	if err != nil {
-		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
-	}
-
-	return updated, tx.Commit()
+	return convertDBNode(updatedDBNode)
 }
 
 // UpdateUptime updates a single storagenode's uptime stats in the db
