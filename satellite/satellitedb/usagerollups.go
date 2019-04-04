@@ -8,14 +8,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/memory"
-
 	"storj.io/storj/pkg/pb"
-
-	"github.com/skyrings/skyring-common/tools/uuid"
-
 	"storj.io/storj/satellite/console"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
