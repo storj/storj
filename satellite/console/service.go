@@ -625,6 +625,24 @@ func (s *Service) GetAPIKeysInfoByProjectID(ctx context.Context, projectID uuid.
 	return s.store.APIKeys().GetByProjectID(ctx, projectID)
 }
 
+// GetProjectUsage retrieves project usage for a given period
+func (s *Service) GetProjectUsage(ctx context.Context, projectID uuid.UUID, since, before time.Time) (*ProjectUsage, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = s.isProjectMember(ctx, auth.User.ID, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.store.UsageRollups().GetProjectTotal(ctx, projectID, since, before)
+}
+
 // Authorize validates token from context and returns authorized Authorization
 func (s *Service) Authorize(ctx context.Context) (a Authorization, err error) {
 	defer mon.Task()(&ctx)(&err)
