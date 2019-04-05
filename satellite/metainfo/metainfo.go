@@ -218,6 +218,15 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
+	if req.Pointer.Type == pb.Pointer_INLINE {
+		bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
+		// TODO or maybe use pointer.SegmentSize ??
+		err = endpoint.orders.UpdatePutInlineOrder(ctx, bucketID, int64(len(req.Pointer.InlineSegment)))
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, err.Error())
+		}
+	}
+
 	pointer, err := endpoint.pointerdb.Get(path)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
@@ -273,14 +282,17 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	}
 
 	if pointer.Type == pb.Pointer_INLINE {
+		// TODO or maybe use pointer.SegmentSize ??
+		err := endpoint.orders.UpdateGetInlineOrder(ctx, bucketID, int64(len(pointer.InlineSegment)))
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, err.Error())
+		}
 		return &pb.SegmentDownloadResponse{Pointer: pointer}, nil
 	} else if pointer.Type == pb.Pointer_REMOTE && pointer.Remote != nil {
 		uplinkIdentity, err := identity.PeerIdentityFromContext(ctx)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
-
-		bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
 		limits, err := endpoint.orders.CreateGetOrderLimits(ctx, uplinkIdentity, bucketID, pointer)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
@@ -401,10 +413,10 @@ func (endpoint *Endpoint) filterValidPieces(pointer *pb.Pointer) error {
 			remotePieces = append(remotePieces, piece)
 		}
 
-		if int32(len(remotePieces)) < remote.Redundancy.SuccessThreshold {
-			return Error.New("Number of valid pieces is lower then success threshold: %v < %v",
+		if int32(len(remotePieces)) < remote.Redundancy.RepairThreshold {
+			return Error.New("Number of valid pieces is lower then repair threshold: %v < %v",
 				len(remotePieces),
-				remote.Redundancy.SuccessThreshold,
+				remote.Redundancy.RepairThreshold,
 			)
 		}
 

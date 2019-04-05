@@ -1,14 +1,20 @@
+import {AppState} from "../utils/constants/appStateEnum";
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
     <div class="dashboard-container">
+        <div v-if="isLoading" class="loading-overlay active">
+            <img src="../../static/images/register/Loading.gif">
+        </div>
         <div class="dashboard-container__wrap">
             <NavigationArea />
             <div class="dashboard-container__wrap__column">
                 <DashboardHeader />
                 <div class="dashboard-container__main-area">
-                    <router-view />
+                    <keep-alive>
+                        <router-view />
+                    </keep-alive>
                 </div>
             </div>
         </div>
@@ -17,54 +23,71 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import DashboardHeader from '@/components/header/Header.vue';
-import NavigationArea from '@/components/navigation/NavigationArea.vue';
-import { removeToken, setToken } from '@/utils/tokenManager';
-import {
-    NOTIFICATION_ACTIONS,
-    PROJETS_ACTIONS,
-    PM_ACTIONS,
-    USER_ACTIONS,
-    API_KEYS_ACTIONS
-} from '@/utils/constants/actionNames';
-import ROUTES from '@/utils/constants/routerConstants';
-import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuccessPopup.vue';
+    import { Component, Vue } from 'vue-property-decorator';
+    import DashboardHeader from '@/components/header/Header.vue';
+    import NavigationArea from '@/components/navigation/NavigationArea.vue';
+    import { removeToken } from '@/utils/tokenManager';
+    import {
+        API_KEYS_ACTIONS,
+        APP_STATE_ACTIONS,
+        NOTIFICATION_ACTIONS,
+        PM_ACTIONS,
+        PROJETS_ACTIONS,
+        USER_ACTIONS,
+        PROJECT_USAGE_ACTIONS,
+    } from '@/utils/constants/actionNames';
+    import ROUTES from '@/utils/constants/routerConstants';
+    import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuccessPopup.vue';
+    import { AppState } from '../utils/constants/appStateEnum';
 
-@Component({
-    beforeMount: async function() {
-        // TODO: should place here some animation while all needed data is fetching
-        let response: RequestResponse<User> = await this.$store.dispatch(USER_ACTIONS.GET);
+    @Component({
+    mounted: async function() {
+        setTimeout(async () => {
+            let response: RequestResponse<User> = await this.$store.dispatch(USER_ACTIONS.GET);
+            if (!response.isSuccess) {
+                this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
+                this.$router.push(ROUTES.LOGIN);
+                removeToken();
 
-        if (!response.isSuccess) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
-            this.$router.push(ROUTES.LOGIN);
-            removeToken();
+                return;
+            }
 
-            return;
-        }
+            let getProjectsResponse: RequestResponse<Project[]> = await this.$store.dispatch(PROJETS_ACTIONS.FETCH);
 
-        let getProjectsResponse: RequestResponse<Project[]> = await this.$store.dispatch(PROJETS_ACTIONS.FETCH);
+            if (!getProjectsResponse.isSuccess || getProjectsResponse.data.length < 1) {
+                this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
 
-        if (!getProjectsResponse.isSuccess || getProjectsResponse.data.length < 1) {
+                return;
+            }
 
-            return;
-        }
+            this.$store.dispatch(PROJETS_ACTIONS.SELECT, getProjectsResponse.data[0].id);
 
-        this.$store.dispatch(PROJETS_ACTIONS.SELECT, getProjectsResponse.data[0].id);
+            const projectMembersResponse = await this.$store.dispatch(PM_ACTIONS.FETCH);
+            if (!projectMembersResponse.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+            }
 
-        if (!this.$store.getters.selectedProject.id) return;
+            const keysResponse = await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
+            if (!keysResponse.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch api keys');
+            }
 
-        this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
+            const currentDate = new Date();
+            const previousDate = new Date();
+            previousDate.setMonth(currentDate.getMonth() - 1);
 
-        const projectMembersResponse = await this.$store.dispatch(PM_ACTIONS.FETCH);
-        if (!projectMembersResponse.isSuccess) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
-        }
+            const usageResponse = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, {startDate: previousDate, endDate: currentDate});
+            if (!usageResponse.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
+            }
 
-        const keysResponse = await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
-        if (!keysResponse.isSuccess) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch api keys');
+            this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
+        }, 800);
+    },
+    computed: {
+        isLoading: function() {
+            return this.$store.state.appStateModule.appState.fetchState === AppState.LOADING;
         }
     },
     components: {
@@ -110,5 +133,33 @@ export default class Dashboard extends Vue {
                 left: 60px;
             }
         }
+    }
+    .loading-overlay {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        left: 0;
+        height: 100vh;
+        z-index: 100;
+        background-color: rgba(134, 134, 148, 1);
+        visibility: hidden;
+        opacity: 0;
+        -webkit-transition: all 0.5s linear;
+        -moz-transition: all 0.5s linear;
+        -o-transition: all 0.5s linear;
+        transition: all 0.5s linear;
+
+        img {
+            z-index: 200;
+        }
+    }
+
+    .loading-overlay.active {
+        visibility: visible;
+        opacity: 1;
     }
 </style>
