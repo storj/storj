@@ -72,6 +72,7 @@ func TestCalculateAtRestData(t *testing.T) {
 		// Setup: create 50KiB of data for the uplink to upload
 		expectedData := make([]byte, 50*memory.KiB)
 		_, err := rand.Read(expectedData)
+		require.NoError(t, err)
 
 		// Setup: when the uploaded data gets encrypted, this much padding is added to the size
 		padSize := eestream.MakePadding(int64(len(expectedData)), blockSize)
@@ -105,7 +106,7 @@ func TestCalculateAtRestData(t *testing.T) {
 			assert.Equal(t, int(actualTotalBytes), expectedTotalBytes)
 		}
 
-		// Confirm the correct bucket stroage tally was created
+		// Confirm the correct bucket storage tally was created
 		assert.Equal(t, len(actualBucketData), 1)
 		for bucketID, actualTally := range actualBucketData {
 			assert.Contains(t, bucketID, expectedBucketName)

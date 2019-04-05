@@ -49,8 +49,8 @@ func TestProjectUsage(t *testing.T) {
 
 				// Setup: create a new project to use the projectID
 				projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
-				projectID := projects[0].ID
 				require.NoError(t, err)
+				projectID := projects[0].ID
 				bucketName := "testbucket"
 				bucketID := createBucketID(projectID, []byte(bucketName))
 
@@ -86,7 +86,6 @@ func TestProjectUsage(t *testing.T) {
 				expectedData := make([]byte, 50*memory.KiB)
 				_, err = rand.Read(expectedData)
 				require.NoError(t, err)
-
 				actualErr := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, "test/path", expectedData)
 				if tt.expectedResource == "bandwidth" || tt.expectedResource == "storage" {
 					assert.EqualError(t, actualErr, tt.expectedErrMsg)
