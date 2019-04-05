@@ -198,8 +198,8 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 	return nil
 }
 
-// copy copies s3 compatible object src to s3 compatible object dst
-func copy(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err error) {
+// objectCopy copies s3 compatible object src to s3 compatible object dst
+func objectCopy(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err error) {
 	if src.IsLocal() {
 		return fmt.Errorf("source must be Storj URL: %s", src)
 	}
@@ -296,5 +296,5 @@ func copyMain(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// if copying from one remote location to another
-	return copy(ctx, src, dst)
+	return objectCopy(ctx, src, dst)
 }

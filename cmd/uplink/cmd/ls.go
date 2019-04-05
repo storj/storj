@@ -37,6 +37,9 @@ func list(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	var access libuplink.EncryptionAccess
+	copy(access.Key[:], []byte(cfg.Enc.Key))
+
 	if len(args) > 0 {
 		src, err := fpath.New(args[0])
 		if err != nil {
@@ -51,11 +54,7 @@ func list(cmd *cobra.Command, args []string) error {
 			return err
 		}
 
-		enc := cfg.GetEncryptionScheme()
-
-		bucket, err := project.OpenBucket(ctx, src.String(), &libuplink.EncryptionAccess{
-			Key: enc.Cipher,
-		}, 0)
+		bucket, err := project.OpenBucket(ctx, src.String(), &access)
 
 		if err != nil {
 			return err
@@ -82,7 +81,12 @@ func list(cmd *cobra.Command, args []string) error {
 					if err != nil {
 						return err
 					}
-					err = listFiles(ctx, project, prefix, true)
+					libub, err := project.OpenBucket(ctx, bucket.Name, &access)
+					if err != nil {
+						return err
+					}
+					err = listFiles(ctx, libub, prefix, true)
+					libub.Close()
 					if err != nil {
 						return err
 					}
@@ -106,8 +110,7 @@ func listFiles(ctx context.Context, bucket *libuplink.Bucket, prefix fpath.FPath
 	startAfter := ""
 
 	for {
-		bucket.ListOb
-		list, err := bucket.ListObjects(ctx, storj.ListOptions{
+		list, err := bucket.ListObjects(ctx, &storj.ListOptions{
 			Direction: storj.After,
 			Cursor:    startAfter,
 			Prefix:    prefix.Path(),
