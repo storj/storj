@@ -18,7 +18,7 @@ const IDVersion = 0
 // ErrNodeID is used when something goes wrong with a node id
 var ErrNodeID = errs.Class("node ID error")
 
-//NodeIDSize is the byte length of a NodeID
+// NodeIDSize is the byte length of a NodeID
 const NodeIDSize = sha256.Size
 
 // NodeID is a unique node identifier

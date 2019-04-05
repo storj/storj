@@ -32,6 +32,7 @@ func initDebug(logger *zap.Logger, r *monkit.Registry) (err error) {
 	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
 	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+
 	mux.Handle("/mon/", http.StripPrefix("/mon", present.HTTP(r)))
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "OK")
@@ -41,6 +42,7 @@ func initDebug(logger *zap.Logger, r *monkit.Registry) (err error) {
 		return err
 	}
 	go func() {
+		logger.Debug(fmt.Sprintf("debug server listening on %s", ln.Addr().String()))
 		err := (&http.Server{Handler: &mux}).Serve(ln)
 		if err != nil {
 			logger.Error("debug server died", zap.Error(err))

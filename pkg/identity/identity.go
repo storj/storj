@@ -478,7 +478,7 @@ func (manageableIdent *ManageablePeerIdentity) AddExtension(ext ...pkix.Extensio
 		return err
 	}
 
-	updatedCert, err := peertls.NewCert(manageableIdent.Leaf.PublicKey, manageableIdent.CA.Key, manageableIdent.Leaf, manageableIdent.CA.Cert)
+	updatedCert, err := peertls.CreateCertificate(manageableIdent.Leaf.PublicKey, manageableIdent.CA.Key, manageableIdent.Leaf, manageableIdent.CA.Cert)
 	if err != nil {
 		return err
 	}
