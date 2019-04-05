@@ -77,12 +77,14 @@ func (service *Service) updateBandwidth(ctx context.Context, bucketID []byte, ad
 			action = orderLimit.Action
 		}
 	}
+	now := time.Now()
+	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
-	if err := service.orders.UpdateBucketBandwidthAllocation(ctx, bucketID, action, bucketAllocation); err != nil {
+	if err := service.orders.UpdateBucketBandwidthAllocation(ctx, bucketID, action, bucketAllocation, intervalStart); err != nil {
 		return err
 	}
 	for nodeID, allocation := range nodesAllocation {
-		if err := service.orders.UpdateStoragenodeBandwidthAllocation(ctx, nodeID, action, allocation); err != nil {
+		if err := service.orders.UpdateStoragenodeBandwidthAllocation(ctx, nodeID, action, allocation, intervalStart); err != nil {
 			return err
 		}
 	}
@@ -542,4 +544,20 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 	}
 
 	return limits, nil
+}
+
+// UpdateGetInlineOrder updates amount of inline GET bandwidth for given bucket
+func (service *Service) UpdateGetInlineOrder(ctx context.Context, bucketID []byte, amount int64) (err error) {
+	now := time.Now()
+	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
+
+	return service.orders.UpdateBucketBandwidthInline(ctx, bucketID, pb.PieceAction_GET, amount, intervalStart)
+}
+
+// UpdatePutInlineOrder updates amount of inline PUT bandwidth for given bucket
+func (service *Service) UpdatePutInlineOrder(ctx context.Context, bucketID []byte, amount int64) (err error) {
+	now := time.Now()
+	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
+
+	return service.orders.UpdateBucketBandwidthInline(ctx, bucketID, pb.PieceAction_PUT, amount, intervalStart)
 }

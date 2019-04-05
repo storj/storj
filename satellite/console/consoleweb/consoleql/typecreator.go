@@ -11,23 +11,6 @@ import (
 	"storj.io/storj/satellite/mailservice"
 )
 
-// Types return graphql type objects
-type Types interface {
-	RootQuery() *graphql.Object
-	RootMutation() *graphql.Object
-
-	Token() *graphql.Object
-
-	User() *graphql.Object
-	Project() *graphql.Object
-	ProjectMember() *graphql.Object
-	APIKeyInfo() *graphql.Object
-	CreateAPIKey() *graphql.Object
-
-	UserInput() *graphql.InputObject
-	ProjectInput() *graphql.InputObject
-}
-
 // TypeCreator handles graphql type creation and error checking
 type TypeCreator struct {
 	query    *graphql.Object
@@ -37,6 +20,7 @@ type TypeCreator struct {
 
 	user          *graphql.Object
 	project       *graphql.Object
+	projectUsage  *graphql.Object
 	projectMember *graphql.Object
 	apiKeyInfo    *graphql.Object
 	createAPIKey  *graphql.Object
@@ -48,7 +32,7 @@ type TypeCreator struct {
 // Create create types and check for error
 func (c *TypeCreator) Create(log *zap.Logger, service *console.Service, mailService *mailservice.Service) error {
 	// inputs
-	c.userInput = graphqlUserInput(c)
+	c.userInput = graphqlUserInput()
 	if err := c.userInput.Error(); err != nil {
 		return err
 	}
@@ -61,6 +45,11 @@ func (c *TypeCreator) Create(log *zap.Logger, service *console.Service, mailServ
 	// entities
 	c.user = graphqlUser()
 	if err := c.user.Error(); err != nil {
+		return err
+	}
+
+	c.projectUsage = graphqlProjectUsage()
+	if err := c.projectUsage.Error(); err != nil {
 		return err
 	}
 
@@ -111,45 +100,4 @@ func (c *TypeCreator) RootQuery() *graphql.Object {
 // RootMutation returns instance of mutation *graphql.Object
 func (c *TypeCreator) RootMutation() *graphql.Object {
 	return c.mutation
-}
-
-// Token returns *graphql.Object which encapsulates User and token string
-func (c *TypeCreator) Token() *graphql.Object {
-	return c.token
-}
-
-// User returns instance of satellite.User *graphql.Object
-func (c *TypeCreator) User() *graphql.Object {
-	return c.user
-}
-
-// APIKeyInfo returns instance of satellite.APIKeyInfo *graphql.Object
-func (c *TypeCreator) APIKeyInfo() *graphql.Object {
-	return c.apiKeyInfo
-}
-
-// CreateAPIKey encapsulates api key and key info
-// returns *graphql.Object
-func (c *TypeCreator) CreateAPIKey() *graphql.Object {
-	return c.createAPIKey
-}
-
-// Project returns instance of satellite.Project *graphql.Object
-func (c *TypeCreator) Project() *graphql.Object {
-	return c.project
-}
-
-// ProjectMember returns instance of projectMember *graphql.Object
-func (c *TypeCreator) ProjectMember() *graphql.Object {
-	return c.projectMember
-}
-
-// UserInput returns instance of UserInput *graphql.Object
-func (c *TypeCreator) UserInput() *graphql.InputObject {
-	return c.userInput
-}
-
-// ProjectInput returns instance of ProjectInfo *graphql.Object
-func (c *TypeCreator) ProjectInput() *graphql.InputObject {
-	return c.projectInput
 }
