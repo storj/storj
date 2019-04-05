@@ -137,6 +137,11 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
+	err = endpoint.validatRedundancy(req.Redundancy)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
 	// Check if this projectID has exceeded alpha usage limits, i.e. 25GB of bandwidth or storage used in the past month
 	// TODO: remove this code once we no longer need usage limiting for alpha release
 	// Ref: https://storjlabs.atlassian.net/browse/V3-1274
@@ -444,6 +449,9 @@ func (endpoint *Endpoint) validateCommit(req *pb.SegmentCommitRequest) error {
 	if req.Pointer.Type == pb.Pointer_REMOTE {
 		remote := req.Pointer.Remote
 
+		if len(req.OriginalLimits) == 0 {
+			return Error.New("no order limits")
+		}
 		if int32(len(req.OriginalLimits)) != remote.Redundancy.Total {
 			return Error.New("invalid no order limit for piece")
 		}
@@ -511,4 +519,12 @@ func CreatePath(projectID uuid.UUID, segmentIndex int64, bucket, path []byte) (s
 		entries = append(entries, string(path))
 	}
 	return storj.JoinPaths(entries...), nil
+}
+
+func (endpoint *Endpoint) validatRedundancy(redundancy *pb.RedundancyScheme) error {
+	// TODO more validation, use validation from eestream.NewRedundancyStrategy
+	if redundancy.ErasureShareSize <= 0 {
+		return Error.New("erasure share size cannot be less than 0")
+	}
+	return nil
 }
