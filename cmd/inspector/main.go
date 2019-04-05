@@ -252,13 +252,32 @@ func NodeInfo(cmd *cobra.Command, args []string) (err error) {
 
 // DrawTableAsGraph outputs the table routing as a graph
 func DrawTableAsGraph(cmd *cobra.Command, args []string) (err error) {
-	/*i, err := NewInspector(*Addr, *IdentityPath)
+	fmt.Println("Draw Table as graph")
+	i, err := NewInspector(*Addr, *IdentityPath)
+	if err != nil {
+		return ErrInspectorDial.Wrap(err)
+	}
+
+	// first lookup the node to get its address
+	n, err := i.kadclient.LookupNode(context.Background(), &pb.LookupNodeRequest{
+		Id: args[0],
+	})
 	if err != nil {
 		return ErrRequest.Wrap(err)
-	}*/
-	fmt.Println("Draw Table as graph")
+	}
 
-	return nil;
+	// now send a draw table request to the node
+	info, err := i.kadclient.DrawTable(context.Background(), &pb.DrawTableRequest{
+		Id:      n.GetNode().Id,
+		Address: n.GetNode().GetAddress(),
+	})
+	if err != nil {
+		return ErrRequest.Wrap(err)
+	}
+
+	fmt.Println(prettyPrint(info))
+
+	return nil
 }
 
 // DumpNodes outputs a json list of every node in every bucket in the satellite

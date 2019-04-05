@@ -894,6 +894,8 @@ func (m *NodeInfoResponse) XXX_DiscardUnknown() {
 	xxx_messageInfo_NodeInfoResponse.DiscardUnknown(m)
 }
 
+
+
 var xxx_messageInfo_NodeInfoResponse proto.InternalMessageInfo
 
 func (m *NodeInfoResponse) GetType() NodeType {
@@ -911,6 +913,102 @@ func (m *NodeInfoResponse) GetOperator() *NodeOperator {
 }
 
 func (m *NodeInfoResponse) GetCapacity() *NodeCapacity {
+	if m != nil {
+		return m.Capacity
+	}
+	return nil
+}
+
+type DrawTableRequest struct {
+	Id                   NodeID       `protobuf:"bytes,1,opt,name=id,proto3,customtype=NodeID" json:"id"`
+	Address              *NodeAddress `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
+	XXX_unrecognized     []byte       `json:"-"`
+	XXX_sizecache        int32        `json:"-"`
+}
+
+func (m *DrawTableRequest) Reset()         { *m = DrawTableRequest{} }
+func (m *DrawTableRequest) String() string { return proto.CompactTextString(m) }
+func (*DrawTableRequest) ProtoMessage()    {}
+func (*DrawTableRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a07d9034b2dd9d26, []int{19}
+}
+func (m *DrawTableRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_DrawTableRequest.Unmarshal(m, b)
+}
+func (m *DrawTableRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_DrawTableRequest.Marshal(b, m, deterministic)
+}
+func (m *DrawTableRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DrawTableRequest.Merge(m, src)
+}
+func (m *DrawTableRequest) XXX_Size() int {
+	return xxx_messageInfo_DrawTableRequest.Size(m)
+}
+func (m *DrawTableRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_DrawTableRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DrawTableRequest proto.InternalMessageInfo
+
+func (m *DrawTableRequest) GetAddress() *NodeAddress {
+	if m != nil {
+		return m.Address
+	}
+	return nil
+}
+
+type DrawTableResponse struct {
+	Type                 NodeType      `protobuf:"varint,1,opt,name=type,proto3,enum=node.NodeType" json:"type,omitempty"`
+	Operator             *NodeOperator `protobuf:"bytes,2,opt,name=operator,proto3" json:"operator,omitempty"`
+	Capacity             *NodeCapacity `protobuf:"bytes,3,opt,name=capacity,proto3" json:"capacity,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
+	XXX_unrecognized     []byte        `json:"-"`
+	XXX_sizecache        int32         `json:"-"`
+}
+
+func (m *DrawTableResponse) Reset()         { *m = DrawTableResponse{} }
+func (m *DrawTableResponse) String() string { return proto.CompactTextString(m) }
+func (*DrawTableResponse) ProtoMessage()    {}
+func (*DrawTableResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a07d9034b2dd9d26, []int{20}
+}
+func (m *DrawTableResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_DrawTableResponse.Unmarshal(m, b)
+}
+
+func (m *DrawTableResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_DrawTableResponse.Marshal(b, m, deterministic)
+}
+func (m *DrawTableResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DrawTableResponse.Merge(m, src)
+}
+func (m *DrawTableResponse) XXX_Size() int {
+	return xxx_messageInfo_DrawTableResponse.Size(m)
+}
+func (m *DrawTableResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_DrawTableResponse.DiscardUnknown(m)
+}
+
+
+
+var xxx_messageInfo_DrawTableResponse proto.InternalMessageInfo
+
+func (m *DrawTableResponse) GetType() NodeType {
+	if m != nil {
+		return m.Type
+	}
+	return NodeType_INVALID
+}
+
+func (m *DrawTableResponse) GetOperator() *NodeOperator {
+	if m != nil {
+		return m.Operator
+	}
+	return nil
+}
+
+func (m *DrawTableResponse) GetCapacity() *NodeCapacity {
 	if m != nil {
 		return m.Capacity
 	}
@@ -1596,6 +1694,8 @@ func init() {
 	proto.RegisterType((*LookupNodeResponse)(nil), "inspector.LookupNodeResponse")
 	proto.RegisterType((*NodeInfoRequest)(nil), "inspector.NodeInfoRequest")
 	proto.RegisterType((*NodeInfoResponse)(nil), "inspector.NodeInfoResponse")
+	proto.RegisterType((*DrawTableRequest)(nil), "inspector.DrawTableRequest")
+	proto.RegisterType((*DrawTableResponse)(nil), "inspector.DrawTableResponse")
 	proto.RegisterType((*FindNearRequest)(nil), "inspector.FindNearRequest")
 	proto.RegisterType((*FindNearResponse)(nil), "inspector.FindNearResponse")
 	proto.RegisterType((*DumpNodesRequest)(nil), "inspector.DumpNodesRequest")
@@ -1742,6 +1842,8 @@ type KadInspectorClient interface {
 	LookupNode(ctx context.Context, in *LookupNodeRequest, opts ...grpc.CallOption) (*LookupNodeResponse, error)
 	// NodeInfo sends a PING RPC to a node and returns its local info
 	NodeInfo(ctx context.Context, in *NodeInfoRequest, opts ...grpc.CallOption) (*NodeInfoResponse, error)
+	// DrawTable sends a PING RPC to a node and draw a graph of its routing table
+	DrawTable(ctx context.Context, in *DrawTableRequest, opts ...grpc.CallOption) (*DrawTableResponse, error)
 	// FindNear returns limit number of IDs "near" the Start ID
 	FindNear(ctx context.Context, in *FindNearRequest, opts ...grpc.CallOption) (*FindNearResponse, error)
 	// DumpNodes returns all the nodes in the node database
@@ -1792,6 +1894,15 @@ func (c *kadInspectorClient) NodeInfo(ctx context.Context, in *NodeInfoRequest, 
 	return out, nil
 }
 
+func (c *kadInspectorClient) DrawTable(ctx context.Context, in *DrawTableRequest, opts ...grpc.CallOption) (*DrawTableResponse, error) {
+	out := new(DrawTableResponse)
+	err := c.cc.Invoke(ctx, "/inspector.KadInspector/DrawTable", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *kadInspectorClient) FindNear(ctx context.Context, in *FindNearRequest, opts ...grpc.CallOption) (*FindNearResponse, error) {
 	out := new(FindNearResponse)
 	err := c.cc.Invoke(ctx, "/inspector.KadInspector/FindNear", in, out, opts...)
@@ -1820,6 +1931,8 @@ type KadInspectorServer interface {
 	LookupNode(context.Context, *LookupNodeRequest) (*LookupNodeResponse, error)
 	// NodeInfo sends a PING RPC to a node and returns its local info
 	NodeInfo(context.Context, *NodeInfoRequest) (*NodeInfoResponse, error)
+	// DrawTable sends a PING RPC to a node and draw a graph of its routing table
+	DrawTable(context.Context, *DrawTableRequest) (*DrawTableResponse, error)
 	// FindNear returns limit number of IDs "near" the Start ID
 	FindNear(context.Context, *FindNearRequest) (*FindNearResponse, error)
 	// DumpNodes returns all the nodes in the node database
@@ -1902,6 +2015,24 @@ func _KadInspector_NodeInfo_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _KadInspector_DrawTable_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DrawTableRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KadInspectorServer).DrawTable(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/inspector.KadInspector/DrawTable",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KadInspectorServer).DrawTable(ctx, req.(*DrawTableRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _KadInspector_FindNear_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(FindNearRequest)
 	if err := dec(in); err != nil {
@@ -1957,6 +2088,10 @@ var _KadInspector_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "NodeInfo",
 			Handler:    _KadInspector_NodeInfo_Handler,
+		},
+		{
+			MethodName: "DrawTable",
+			Handler:    _KadInspector_DrawTable_Handler,
 		},
 		{
 			MethodName: "FindNear",
