@@ -6,6 +6,7 @@ package consoleweb
 import (
 	"context"
 	"encoding/json"
+	"html/template"
 	"net"
 	"net/http"
 	"path/filepath"
@@ -186,16 +187,15 @@ func (s *Server) passwordRecoveryHandler(w http.ResponseWriter, req *http.Reques
 			s.serveError(w, req)
 		}
 	default:
-		http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "resetPassword", "resetPassword.html"))
-		//t, err := template.ParseFiles(filepath.Join(s.config.StaticDir, "static", "resetPassword", "resetPassword.html"))
-		//if err != nil {
-		//	s.serveError(w, req)
-		//}
-		//
-		//err = t.Execute(w, nil)
-		//if err != nil {
-		//	s.serveError(w, req)
-		//}
+		t, err := template.ParseFiles(filepath.Join(s.config.StaticDir, "static", "resetPassword", "resetPassword.html"))
+		if err != nil {
+			s.serveError(w, req)
+		}
+
+		err = t.Execute(w, nil)
+		if err != nil {
+			s.serveError(w, req)
+		}
 	}
 }
 
