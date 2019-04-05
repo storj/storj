@@ -4,6 +4,8 @@
 package consoleql
 
 import (
+	"time"
+
 	"github.com/graphql-go/graphql"
 
 	"storj.io/storj/satellite/console"
@@ -14,6 +16,8 @@ const (
 	ProjectType = "project"
 	// ProjectInputType is a graphql type name for project input
 	ProjectInputType = "projectInput"
+	// ProjectUsageType is a graphql type name for project usage
+	ProjectUsageType = "projectUsage"
 	// FieldName is a field name for "name"
 	FieldName = "name"
 	// FieldDescription is a field name for description
@@ -22,7 +26,14 @@ const (
 	FieldMembers = "members"
 	// FieldAPIKeys is a field name for api keys
 	FieldAPIKeys = "apiKeys"
-
+	// FieldUsage is a field name for usage rollup
+	FieldUsage = "usage"
+	// FieldStorage is a field name for storage total
+	FieldStorage = "storage"
+	// FieldEgress is a field name for egress total
+	FieldEgress = "egress"
+	// FieldObjectsCount is a field name for objects count
+	FieldObjectsCount = "objectsCount"
 	// LimitArg is argument name for limit
 	LimitArg = "limit"
 	// OffsetArg is argument name for offset
@@ -31,10 +42,14 @@ const (
 	SearchArg = "search"
 	// OrderArg is argument name for order
 	OrderArg = "order"
+	// SinceArg marks start of the period
+	SinceArg = "since"
+	// BeforeArg marks end of the period
+	BeforeArg = "before"
 )
 
 // graphqlProject creates *graphql.Object type representation of satellite.ProjectInfo
-func graphqlProject(service *console.Service, types Types) *graphql.Object {
+func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: ProjectType,
 		Fields: graphql.Fields{
@@ -51,7 +66,7 @@ func graphqlProject(service *console.Service, types Types) *graphql.Object {
 				Type: graphql.DateTime,
 			},
 			FieldMembers: &graphql.Field{
-				Type: graphql.NewList(types.ProjectMember()),
+				Type: graphql.NewList(types.projectMember),
 				Args: graphql.FieldConfigArgument{
 					OffsetArg: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.Int),
@@ -103,11 +118,30 @@ func graphqlProject(service *console.Service, types Types) *graphql.Object {
 				},
 			},
 			FieldAPIKeys: &graphql.Field{
-				Type: graphql.NewList(types.APIKeyInfo()),
+				Type: graphql.NewList(types.apiKeyInfo),
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					project, _ := p.Source.(*console.Project)
 
 					return service.GetAPIKeysInfoByProjectID(p.Context, project.ID)
+				},
+			},
+			FieldUsage: &graphql.Field{
+				Type: types.projectUsage,
+				Args: graphql.FieldConfigArgument{
+					SinceArg: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.DateTime),
+					},
+					BeforeArg: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.DateTime),
+					},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					project, _ := p.Source.(*console.Project)
+
+					since := p.Args[SinceArg].(time.Time)
+					before := p.Args[BeforeArg].(time.Time)
+
+					return service.GetProjectUsage(p.Context, project.ID, since, before)
 				},
 			},
 		},
@@ -124,6 +158,30 @@ func graphqlProjectInput() *graphql.InputObject {
 			},
 			FieldDescription: &graphql.InputObjectFieldConfig{
 				Type: graphql.String,
+			},
+		},
+	})
+}
+
+// graphqlProjectUsage creates project usage graphql type
+func graphqlProjectUsage() *graphql.Object {
+	return graphql.NewObject(graphql.ObjectConfig{
+		Name: ProjectUsageType,
+		Fields: graphql.Fields{
+			FieldStorage: &graphql.Field{
+				Type: graphql.Float,
+			},
+			FieldEgress: &graphql.Field{
+				Type: graphql.Float,
+			},
+			FieldObjectsCount: &graphql.Field{
+				Type: graphql.Float,
+			},
+			SinceArg: &graphql.Field{
+				Type: graphql.DateTime,
+			},
+			BeforeArg: &graphql.Field{
+				Type: graphql.DateTime,
 			},
 		},
 	})

@@ -32,28 +32,19 @@ var mon = monkit.Package()
 
 // Meta info about a stream
 type Meta struct {
-	Modified         time.Time
-	Expiration       time.Time
-	Size             int64
-	Data             []byte
-	SegmentsSize     int64
-	EncryptionScheme storj.EncryptionScheme
-	RedundancyScheme storj.RedundancyScheme
+	Modified   time.Time
+	Expiration time.Time
+	Size       int64
+	Data       []byte
 }
 
 // convertMeta converts segment metadata to stream metadata
 func convertMeta(lastSegmentMeta segments.Meta, stream pb.StreamInfo, streamMeta pb.StreamMeta) Meta {
 	return Meta{
-		Modified:         lastSegmentMeta.Modified,
-		Expiration:       lastSegmentMeta.Expiration,
-		Size:             ((stream.NumberOfSegments - 1) * stream.SegmentsSize) + stream.LastSegmentSize,
-		Data:             stream.Metadata,
-		SegmentsSize:     stream.SegmentsSize,
-		RedundancyScheme: lastSegmentMeta.RedundancyScheme,
-		EncryptionScheme: storj.EncryptionScheme{
-			Cipher:    storj.Cipher(streamMeta.EncryptionType),
-			BlockSize: streamMeta.EncryptionBlockSize,
-		},
+		Modified:   lastSegmentMeta.Modified,
+		Expiration: lastSegmentMeta.Expiration,
+		Size:       ((stream.NumberOfSegments - 1) * stream.SegmentsSize) + stream.LastSegmentSize,
+		Data:       stream.Metadata,
 	}
 }
 
@@ -272,15 +263,10 @@ func (s *streamStore) upload(ctx context.Context, path storj.Path, pathCipher st
 	}
 
 	resultMeta := Meta{
-		Modified:     putMeta.Modified,
-		Expiration:   expiration,
-		Size:         streamSize,
-		Data:         metadata,
-		SegmentsSize: s.segmentSize,
-		EncryptionScheme: storj.EncryptionScheme{
-			Cipher:    s.cipher,
-			BlockSize: int32(s.encBlockSize),
-		},
+		Modified:   putMeta.Modified,
+		Expiration: expiration,
+		Size:       streamSize,
+		Data:       metadata,
 	}
 
 	return resultMeta, currentSegment, nil

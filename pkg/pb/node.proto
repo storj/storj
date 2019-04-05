@@ -7,6 +7,7 @@ option go_package = "pb";
 package node;
 
 import "gogo.proto";
+import "google/protobuf/timestamp.proto";
 
 // TODO move statdb.Update() stuff out of here
 // Node represents a node in the overlay network
@@ -47,7 +48,7 @@ enum NodeTransport {
 }
 // NodeStats is the reputation characteristics of a node
 message NodeStats {
-    bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false]; // TODO: remove
     int64 latency_90 = 2; // 90th percentile measure of storagenode latency
     double audit_success_ratio = 3; // (auditSuccessCount / totalAuditCount)
     double uptime_ratio = 4; // (uptimeCount / totalUptimeCheckCount)
@@ -55,6 +56,8 @@ message NodeStats {
     int64 audit_success_count = 6;
     int64 uptime_count = 7;
     int64 uptime_success_count = 8;
+    google.protobuf.Timestamp last_contact_success = 9;
+    google.protobuf.Timestamp last_contact_failure = 10;
 }
 
 // NodeOperator contains info about the storage node operator

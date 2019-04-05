@@ -17,8 +17,19 @@ func (db *Project) CreateBucket(ctx context.Context, bucketName string, info *st
 	if bucketName == "" {
 		return storj.Bucket{}, storj.ErrNoBucket.New("")
 	}
+	if info == nil {
+		info = &storj.Bucket{PathCipher: storj.AESGCM}
+	}
+	if info.EncryptionParameters.CipherSuite == storj.EncUnspecified {
+		info.EncryptionParameters.CipherSuite = storj.EncAESGCM
+	}
 
-	meta, err := db.buckets.Put(ctx, bucketName, getPathCipher(info))
+	meta, err := db.buckets.Put(ctx, bucketName, buckets.Meta{
+		PathEncryptionType: info.PathCipher,
+		SegmentsSize:       info.SegmentsSize,
+		RedundancyScheme:   info.RedundancyScheme,
+		EncryptionScheme:   info.EncryptionParameters.ToEncryptionScheme(),
+	})
 	if err != nil {
 		return storj.Bucket{}, err
 	}
@@ -97,20 +108,13 @@ func (db *Project) ListBuckets(ctx context.Context, options storj.BucketListOpti
 	return list, nil
 }
 
-func getPathCipher(info *storj.Bucket) storj.Cipher {
-	if info == nil {
-		return storj.AESGCM
-	}
-	return info.PathCipher
-}
-
 func bucketFromMeta(bucketName string, meta buckets.Meta) storj.Bucket {
 	return storj.Bucket{
-		Name:             bucketName,
-		Created:          meta.Created,
-		PathCipher:       meta.PathEncryptionType,
-		SegmentsSize:     meta.SegmentsSize,
-		RedundancyScheme: meta.RedundancyScheme,
-		EncryptionScheme: meta.EncryptionScheme,
+		Name:                 bucketName,
+		Created:              meta.Created,
+		PathCipher:           meta.PathEncryptionType,
+		SegmentsSize:         meta.SegmentsSize,
+		RedundancyScheme:     meta.RedundancyScheme,
+		EncryptionParameters: meta.EncryptionScheme.ToEncryptionParameters(),
 	}
 }
