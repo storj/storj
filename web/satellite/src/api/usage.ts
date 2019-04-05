@@ -12,34 +12,31 @@ export async function fetchProjectUsage(projectID: string, since: Date, before: 
         data: {} as ProjectUsage
     };
 
-    try {
-        let response: any = await apollo.query(
-            {
-                query: gql(`
-					query {
-						project(id: "${projectID}") {
-						    usage(since: "${since.toISOString()}", before: "${before.toISOString()}") {
-						        storage,
-						        egress,
-						        objectsCount,
-						        since,
-						        before
-						    }
-						}
-					}`
-                ),
-                fetchPolicy: 'no-cache',
-            }
-        );
-
-        if (response.errors) {
-            result.errorMessage = response.errors[0].message;
-        } else {
-            result.isSuccess = true;
-            result.data = response.data.project.usage;
+    let response: any = await apollo.query(
+        {
+            query: gql(`
+                query {
+                    project(id: "${projectID}") {
+                        usage(since: "${since.toISOString()}", before: "${before.toISOString()}") {
+                            storage,
+                            egress,
+                            objectsCount,
+                            since,
+                            before
+                        }
+                    }
+                }`
+            ),
+            fetchPolicy: 'no-cache',
+            errorPolicy: 'all'
         }
-    } catch (e) {
-        result.errorMessage = e.message;
+    );
+
+    if (response.errors) {
+        result.errorMessage = response.errors[0].message;
+    } else {
+        result.isSuccess = true;
+        result.data = response.data.project.usage;
     }
 
     return result;
