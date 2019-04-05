@@ -260,7 +260,7 @@ func cmdVersion(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	if version.Build.Version != (version.SemVer{}) {
-		fmt.Println("Version:", version.Build.Version)
+		fmt.Println("Version:", version.Build.Version.String())
 	}
 	if !version.Build.Timestamp.IsZero() {
 		fmt.Println("Build timestamp:", version.Build.Timestamp.Format(time.RFC822))

@@ -159,7 +159,7 @@ func DebugHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
-	_, err = w.Write(j)
+	_, err = w.Write(append(j, '\n'))
 	if err != nil {
 		zap.S().Errorf("error writing data to client %v", err)
 	}

@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
@@ -35,6 +36,9 @@ type Info struct {
 	CommitHash string    `json:"commitHash,omitempty"`
 	Version    SemVer    `json:"version"`
 	Release    bool      `json:"release,omitempty"`
+
+	crcOnce       sync.Once
+	commitHashCRC uint32
 }
 
 // SemVer represents a semantic version
@@ -153,4 +157,5 @@ func init() {
 	if Build.Timestamp.Unix() == 0 || Build.CommitHash == "" {
 		Build.Release = false
 	}
+
 }
