@@ -4,11 +4,14 @@
 package uplink
 
 import (
+	"bytes"
+	"io/ioutil"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
@@ -16,41 +19,61 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+type testConfig struct {
+	planetCfg *testplanet.Config
+	uplinkCfg Config
+}
+
+func testPlanetWithLibUplink(t *testing.T, cfg testConfig,
+	testFunc func(*testing.T, *testcontext.Context, *testplanet.Planet, *Project)) {
+	if cfg.planetCfg == nil {
+		cfg.planetCfg = &testplanet.Config{SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1}
+	}
+
+	planet, err := testplanet.NewCustom(zaptest.NewLogger(t), *cfg.planetCfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := testcontext.New(t)
+	defer ctx.Check(planet.Shutdown)
+	defer ctx.Cleanup() // warning: this must be deferred after planet.Shutdown so it runs before
+	planet.Start(ctx)
+
+	// we only use testUplink for the free API key, until such time
+	// as testplanet makes it easy to get another way :D
+	testUplink := planet.Uplinks[0]
+	satellite := planet.Satellites[0]
+	cfg.uplinkCfg.Volatile.TLS.SkipPeerCAWhitelist = true
+
+	apiKey, err := ParseAPIKey(testUplink.APIKey[satellite.ID()])
+	if err != nil {
+		t.Fatalf("could not parse API key from testplanet: %v", err)
+	}
+	uplink, err := NewUplink(ctx, &cfg.uplinkCfg)
+	if err != nil {
+		t.Fatalf("could not create new Uplink object: %v", err)
+	}
+	defer ctx.Check(uplink.Close)
+	proj, err := uplink.OpenProject(ctx, satellite.Addr(), apiKey)
+	if err != nil {
+		t.Fatalf("could not open project from libuplink under testplanet: %v", err)
+	}
+	defer ctx.Check(proj.Close)
+
+	testFunc(t, ctx, planet, proj)
+}
+
+func simpleEncryptionAccess(encKey string) (access EncryptionAccess) {
+	copy(access.Key[:], encKey)
+	return access
+}
+
+// check that bucket attributes are stored and retrieved correctly.
 func TestBucketAttrs(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		satellite := planet.Satellites[0]
-
-		var (
-			encryptionKey              = "voxmachina"
-			bucketName                 = "mightynein"
-			segmentsSize   memory.Size = 688894
-			shareSize                  = 1 * memory.KiB
-			requiredShares int16       = 2
-			repairShares   int16       = 3
-			optimalShares  int16       = 4
-			totalShares    int16       = 5
-
-			access EncryptionAccess
-		)
-		copy(access.Key[:], encryptionKey)
-
-		// we only use testUplink for the free API key, until such time
-		// as testplanet knows how to provide libuplink handles :D
-		testUplink := planet.Uplinks[0]
-		apiKey, err := ParseAPIKey(testUplink.APIKey[satellite.ID()])
-		require.NoError(t, err)
-
-		var cfg Config
-		cfg.Volatile.TLS.SkipPeerCAWhitelist = true
-		u, err := NewUplink(ctx, &cfg)
-		require.NoError(t, err)
-
-		proj, err := u.OpenProject(ctx, satellite.Addr(), apiKey)
-		require.NoError(t, err)
-
-		inBucketConfig := BucketConfig{
+	var (
+		access         = simpleEncryptionAccess("voxmachina")
+		bucketName     = "mightynein"
+		inBucketConfig = BucketConfig{
 			PathCipher: storj.EncSecretBox,
 			EncryptionParameters: storj.EncryptionParameters{
 				CipherSuite: storj.EncAESGCM,
@@ -62,32 +85,105 @@ func TestBucketAttrs(t *testing.T) {
 			}{
 				RedundancyScheme: storj.RedundancyScheme{
 					Algorithm:      storj.ReedSolomon,
-					ShareSize:      shareSize.Int32(),
-					RequiredShares: requiredShares,
-					RepairShares:   repairShares,
-					OptimalShares:  optimalShares,
-					TotalShares:    totalShares,
+					ShareSize:      memory.KiB.Int32(),
+					RequiredShares: 2,
+					RepairShares:   3,
+					OptimalShares:  4,
+					TotalShares:    5,
 				},
-				SegmentsSize: segmentsSize,
+				SegmentsSize: 688894,
 			},
 		}
-		before := time.Now()
-		bucket, err := proj.CreateBucket(ctx, bucketName, &inBucketConfig)
-		require.NoError(t, err)
+	)
 
-		assert.Equal(t, bucketName, bucket.Name)
-		assert.Falsef(t, bucket.Created.Before(before), "impossible creation time %v", bucket.Created)
+	testPlanetWithLibUplink(t, testConfig{},
+		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, proj *Project) {
+			before := time.Now()
+			bucket, err := proj.CreateBucket(ctx, bucketName, &inBucketConfig)
+			require.NoError(t, err)
 
-		got, err := proj.OpenBucket(ctx, bucketName, &access, 0)
-		require.NoError(t, err)
+			assert.Equal(t, bucketName, bucket.Name)
+			assert.Falsef(t, bucket.Created.Before(before), "impossible creation time %v", bucket.Created)
 
-		assert.Equal(t, bucketName, got.Name)
-		assert.Equal(t, inBucketConfig.PathCipher, got.PathCipher)
-		assert.Equal(t, inBucketConfig.EncryptionParameters, got.EncryptionParameters)
-		assert.Equal(t, inBucketConfig.Volatile.RedundancyScheme, got.Volatile.RedundancyScheme)
-		assert.Equal(t, inBucketConfig.Volatile.SegmentsSize, got.Volatile.SegmentsSize)
+			got, err := proj.OpenBucket(ctx, bucketName, &access, 0)
+			require.NoError(t, err)
+			defer ctx.Check(got.Close)
 
-		err = proj.DeleteBucket(ctx, bucketName)
-		require.NoError(t, err)
-	})
+			assert.Equal(t, bucketName, got.Name)
+			assert.Equal(t, inBucketConfig.PathCipher, got.PathCipher)
+			assert.Equal(t, inBucketConfig.EncryptionParameters, got.EncryptionParameters)
+			assert.Equal(t, inBucketConfig.Volatile.RedundancyScheme, got.Volatile.RedundancyScheme)
+			assert.Equal(t, inBucketConfig.Volatile.SegmentsSize, got.Volatile.SegmentsSize)
+
+			err = proj.DeleteBucket(ctx, bucketName)
+			require.NoError(t, err)
+		})
+}
+
+// check that when uploading objects without any specific RS or encryption
+// config, the bucket attributes apply. also when uploading objects _with_ more
+// specific config, the specific config applies and not the bucket attrs.
+func TestBucketAttrsApply(t *testing.T) {
+	var (
+		access         = simpleEncryptionAccess("howdoyouwanttodothis")
+		bucketName     = "dodecahedron"
+		objectPath1    = "vax/vex/vox"
+		objectContents = "Willingham,Ray,Jaffe,Johnson,Riegel,O'Brien,Bailey,Mercer"
+		inBucketConfig = BucketConfig{
+			PathCipher: storj.EncSecretBox,
+			EncryptionParameters: storj.EncryptionParameters{
+				CipherSuite: storj.EncSecretBox,
+				BlockSize:   768,
+			},
+			Volatile: struct {
+				RedundancyScheme storj.RedundancyScheme
+				SegmentsSize     memory.Size
+			}{
+				RedundancyScheme: storj.RedundancyScheme{
+					Algorithm:      storj.ReedSolomon,
+					ShareSize:      (3 * memory.KiB).Int32(),
+					RequiredShares: 3,
+					RepairShares:   4,
+					OptimalShares:  5,
+					TotalShares:    5,
+				},
+				SegmentsSize: 1536,
+			},
+		}
+		testConfig testConfig
+	)
+	// so our test object will not be inlined (otherwise it will lose its RS params)
+	testConfig.uplinkCfg.Volatile.MaxInlineSize = 1
+
+	testPlanetWithLibUplink(t, testConfig,
+		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, proj *Project) {
+			_, err := proj.CreateBucket(ctx, bucketName, &inBucketConfig)
+			require.NoError(t, err)
+
+			bucket, err := proj.OpenBucket(ctx, bucketName, &access, 0)
+			require.NoError(t, err)
+			defer ctx.Check(bucket.Close)
+
+			{
+				buf := bytes.NewBufferString(objectContents)
+				err := bucket.UploadObject(ctx, objectPath1, buf, nil)
+				require.NoError(t, err)
+			}
+
+			readBack, err := bucket.OpenObject(ctx, objectPath1)
+			require.NoError(t, err)
+			defer ctx.Check(readBack.Close)
+
+			assert.Equal(t, inBucketConfig.EncryptionParameters, readBack.Meta.Volatile.EncryptionParameters)
+			assert.Equal(t, inBucketConfig.Volatile.RedundancyScheme, readBack.Meta.Volatile.RedundancyScheme)
+			assert.Equal(t, inBucketConfig.Volatile.SegmentsSize.Int64(), readBack.Meta.Volatile.SegmentsSize)
+
+			strm, err := readBack.DownloadRange(ctx, 0, -1)
+			require.NoError(t, err)
+			defer ctx.Check(strm.Close)
+
+			contents, err := ioutil.ReadAll(strm)
+			require.NoError(t, err)
+			assert.Equal(t, string(contents), objectContents)
+		})
 }

@@ -51,13 +51,15 @@ func (b *Bucket) OpenObject(ctx context.Context, path storj.Path) (o *Object, er
 			Volatile: struct {
 				EncryptionParameters storj.EncryptionParameters
 				RedundancyScheme     storj.RedundancyScheme
+				SegmentsSize         int64
 			}{
 				EncryptionParameters: info.ToEncryptionParameters(),
 				RedundancyScheme:     info.RedundancyScheme,
+				SegmentsSize:         info.FixedSegmentSize,
 			},
 		},
-		metainfo: b.metainfo,
-		streams:  b.streams,
+		metainfoDB: b.metainfo,
+		streams:    b.streams,
 	}, nil
 }
 
@@ -98,6 +100,30 @@ func (b *Bucket) UploadObject(ctx context.Context, path storj.Path, data io.Read
 		opts = &UploadOptions{}
 	}
 
+	if opts.Volatile.RedundancyScheme.Algorithm == 0 {
+		opts.Volatile.RedundancyScheme.Algorithm = b.Volatile.RedundancyScheme.Algorithm
+	}
+	if opts.Volatile.RedundancyScheme.OptimalShares == 0 {
+		opts.Volatile.RedundancyScheme.OptimalShares = b.Volatile.RedundancyScheme.OptimalShares
+	}
+	if opts.Volatile.RedundancyScheme.RepairShares == 0 {
+		opts.Volatile.RedundancyScheme.RepairShares = b.Volatile.RedundancyScheme.RepairShares
+	}
+	if opts.Volatile.RedundancyScheme.RequiredShares == 0 {
+		opts.Volatile.RedundancyScheme.RequiredShares = b.Volatile.RedundancyScheme.RequiredShares
+	}
+	if opts.Volatile.RedundancyScheme.ShareSize == 0 {
+		opts.Volatile.RedundancyScheme.ShareSize = b.Volatile.RedundancyScheme.ShareSize
+	}
+	if opts.Volatile.RedundancyScheme.TotalShares == 0 {
+		opts.Volatile.RedundancyScheme.TotalShares = b.Volatile.RedundancyScheme.TotalShares
+	}
+	if opts.Volatile.EncryptionParameters.CipherSuite == storj.EncUnspecified {
+		opts.Volatile.EncryptionParameters.CipherSuite = b.EncryptionParameters.CipherSuite
+	}
+	if opts.Volatile.EncryptionParameters.BlockSize == 0 {
+		opts.Volatile.EncryptionParameters.BlockSize = b.EncryptionParameters.BlockSize
+	}
 	createInfo := storj.CreateObject{
 		ContentType:      opts.ContentType,
 		Metadata:         opts.Metadata,
