@@ -6,6 +6,7 @@ package consoleql
 import (
 	"errors"
 	"fmt"
+
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"storj.io/storj/internal/post"
@@ -108,7 +109,7 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 
 					user, err := service.GetUserByEmail(p.Context, email)
 					if err != nil {
-						return false, errors.New(fmt.Sprintf("%s is not found", email))
+						return false, fmt.Errorf("%s is not found", email)
 					}
 
 					recoveryToken, err := service.GeneratePasswordRecoveryToken(p.Context, user.ID, user.Email)
