@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
@@ -30,6 +29,8 @@ func TestDataRepair(t *testing.T) {
 		satellite := planet.Satellites[0]
 		// stop discovery service so that we do not get a race condition when we delete nodes from overlay cache
 		satellite.Discovery.Service.Discovery.Stop()
+		satellite.Discovery.Service.Refresh.Stop()
+		satellite.Discovery.Service.Graveyard.Stop()
 
 		satellite.Repair.Checker.Loop.Pause()
 		satellite.Repair.Repairer.Loop.Pause()
@@ -76,6 +77,7 @@ func TestDataRepair(t *testing.T) {
 		var lostPieces []int32
 		nodesToKill := make(map[storj.NodeID]bool)
 		nodesToKeepAlive := make(map[storj.NodeID]bool)
+
 		for i, piece := range remotePieces {
 			if i >= toKill {
 				nodesToKeepAlive[piece.NodeId] = true
@@ -84,31 +86,23 @@ func TestDataRepair(t *testing.T) {
 			nodesToKill[piece.NodeId] = true
 			lostPieces = append(lostPieces, piece.GetPieceNum())
 		}
-		t.Logf("Killing %d nodes of %d", toKill, len(planet.StorageNodes))
+
 		for _, node := range planet.StorageNodes {
 			if nodesToKill[node.ID()] {
 				err = planet.StopPeer(node)
 				assert.NoError(t, err)
-				t.Logf("Killing %s = %s", node.ID(), node.Addr())
 				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
 				assert.NoError(t, err)
-			} else {
-				t.Logf("Keeping %s = %s", node.ID(), node.Addr())
 			}
 		}
 
-		zap.L().Debug("before Checker.Loop.Restart()")
 		satellite.Repair.Checker.Loop.Restart()
 		satellite.Repair.Checker.Loop.TriggerWait()
-		zap.L().Debug("after Checker.Loop.Triggerwait()")
 		satellite.Repair.Checker.Loop.Pause()
-		zap.L().Debug("before Repairer.Loop.Restart()")
 		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
-		zap.L().Debug("after Repairer.Loop.TriggerWait()")
 		satellite.Repair.Repairer.Loop.Pause()
 		satellite.Repair.Repairer.Limiter.Wait()
-		zap.L().Debug("after Repairer.Limiter.Wait()")
 
 		// kill nodes kept alive to ensure repair worked
 		for _, node := range planet.StorageNodes {

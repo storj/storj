@@ -163,7 +163,6 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 	}
 
 	if len(limits) < redundancy.RequiredCount() {
-		err = Error.New("XXX not enough nodes available: got %d, required %d, nil %d, off %d, len %d", len(limits), redundancy.RequiredCount(), nilCount, offlineCount, len(pointer.GetRemote().GetRemotePieces()))
 		return nil, errs.Combine(err, combinedErrs)
 	}
 
