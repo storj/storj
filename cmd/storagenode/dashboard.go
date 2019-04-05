@@ -130,7 +130,7 @@ func printDashboard(data *pb.DashboardResponse) error {
 
 		w = tabwriter.NewWriter(color.Output, 0, 0, 5, ' ', tabwriter.AlignRight)
 		fmt.Fprintf(w, "\n\t%s\t%s\t%s\t%s\t\n", color.GreenString("Available"), color.GreenString("Used"), color.GreenString("Egress"), color.GreenString("Ingress"))
-		fmt.Fprintf(w, "Bandwidth\t%s\t%s\t%s\t%s\t\n", availableBandwidth, usedBandwidth, usedEgress, usedIngress)
+		fmt.Fprintf(w, "Bandwidth\t%s\t%s\t%s\t%s\t (since %s 1)\n", availableBandwidth, usedBandwidth, usedEgress, usedIngress, time.Now().Format("Jan"))
 		fmt.Fprintf(w, "Disk\t%s\t%s\t\n", availableSpace, usedSpace)
 		if err = w.Flush(); err != nil {
 			return err
