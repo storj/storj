@@ -225,12 +225,25 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 		reputableNodeCount = req.RequestedCount
 	}
 
+	newNodeCount := int(float64(reputableNodeCount) * preferences.NewNodePercentage)
+	newNodes, err := cache.db.SelectNewStorageNodes(ctx, newNodeCount, &NewNodeCriteria{
+		FreeBandwidth: req.FreeBandwidth,
+		FreeDisk:      req.FreeDisk,
+
+		AuditThreshold: preferences.NewNodeAuditThreshold,
+
+		Excluded: req.ExcludedNodes,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	auditCount := preferences.AuditCount
 	if auditCount < preferences.NewNodeAuditThreshold {
 		auditCount = preferences.NewNodeAuditThreshold
 	}
 
-	reputableNodes, err := cache.db.SelectStorageNodes(ctx, reputableNodeCount, &NodeCriteria{
+	reputableNodes, err := cache.db.SelectStorageNodes(ctx, reputableNodeCount-len(newNodes), &NodeCriteria{
 		FreeBandwidth: req.FreeBandwidth,
 		FreeDisk:      req.FreeDisk,
 
@@ -245,25 +258,12 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 		return nil, err
 	}
 
-	newNodeCount := int64(float64(reputableNodeCount) * preferences.NewNodePercentage)
-	newNodes, err := cache.db.SelectNewStorageNodes(ctx, int(newNodeCount), &NewNodeCriteria{
-		FreeBandwidth: req.FreeBandwidth,
-		FreeDisk:      req.FreeDisk,
-
-		AuditThreshold: preferences.NewNodeAuditThreshold,
-
-		Excluded: req.ExcludedNodes,
-	})
-	if err != nil {
-		return nil, err
-	}
-
 	nodes := []*pb.Node{}
 	nodes = append(nodes, newNodes...)
 	nodes = append(nodes, reputableNodes...)
 
-	if len(reputableNodes) < reputableNodeCount {
-		return nodes, ErrNotEnoughNodes.New("requested %d found %d", reputableNodeCount, len(reputableNodes))
+	if len(nodes) < reputableNodeCount {
+		return nodes, ErrNotEnoughNodes.New("requested %d found %d", reputableNodeCount, len(nodes))
 	}
 
 	return nodes, nil
