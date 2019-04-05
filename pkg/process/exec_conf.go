@@ -16,23 +16,33 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+
+	"storj.io/storj/internal/version"
 )
 
-// ExecuteWithConfig runs a Cobra command with the provided default config
-func ExecuteWithConfig(cmd *cobra.Command, defaultConfig string) {
-	flag.String("config", os.ExpandEnv(defaultConfig), "config file")
-	Exec(cmd)
-}
+var (
+	mon = monkit.Package()
+
+	contextMtx sync.Mutex
+	contexts   = map[*cobra.Command]context.Context{}
+)
 
 // Exec runs a Cobra command. If a "config" flag is defined it will be parsed
 // and loaded using viper.
 func Exec(cmd *cobra.Command) {
+	cmd.AddCommand(&cobra.Command{
+		Use:         "version",
+		Short:       "output the version's build information, if any",
+		RunE:        cmdVersion,
+		Annotations: map[string]string{"type": "setup"}})
+
 	exe, err := os.Executable()
 	if err == nil {
 		cmd.Use = exe
@@ -42,13 +52,6 @@ func Exec(cmd *cobra.Command) {
 	cleanup(cmd)
 	_ = cmd.Execute()
 }
-
-var (
-	mon = monkit.Package()
-
-	contextMtx sync.Mutex
-	contexts   = map[*cobra.Command]context.Context{}
-)
 
 // SaveConfig will save only the user-specific flags with default values to
 // outfile with specific values specified in 'overrides' overridden.
@@ -247,4 +250,23 @@ func cleanup(cmd *cobra.Command) {
 		}
 		return err
 	}
+}
+
+func cmdVersion(cmd *cobra.Command, args []string) (err error) {
+	if version.Build.Release {
+		fmt.Println("Release build")
+	} else {
+		fmt.Println("Development build")
+	}
+
+	if version.Build.Version != (version.SemVer{}) {
+		fmt.Println("Version:", version.Build.Version)
+	}
+	if !version.Build.Timestamp.IsZero() {
+		fmt.Println("Build timestamp:", version.Build.Timestamp.Format(time.RFC822))
+	}
+	if version.Build.CommitHash != "" {
+		fmt.Println("Git commit:", version.Build.CommitHash)
+	}
+	return err
 }
