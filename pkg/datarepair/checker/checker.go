@@ -5,7 +5,6 @@ package checker
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -88,7 +87,6 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 
 	err = checker.pointerdb.Iterate("", "", true, false,
 		func(it storage.Iterator) error {
-			zap.L().Debug("checker iteration")
 			var item storage.ListItem
 			for it.Next(&item) {
 				pointer := &pb.Pointer{}
@@ -131,8 +129,6 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 				numHealthy := len(nodeIDs) - len(missingPieces)
 				if (int32(numHealthy) >= pointer.Remote.Redundancy.MinReq) && (int32(numHealthy) < pointer.Remote.Redundancy.RepairThreshold) {
 					remoteSegmentsNeedingRepair++
-					zap.L().Debug("checker adding to repair queue")
-					zap.L().Debug(fmt.Sprintf("missing pieces %v", missingPieces))
 					err = checker.repairQueue.Enqueue(ctx, &pb.InjuredSegment{
 						Path:       string(item.Key),
 						LostPieces: missingPieces,
