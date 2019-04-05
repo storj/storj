@@ -82,10 +82,17 @@ import { validateEmail } from '@/utils/validation';
                 formError: '',
                 imageSource: EMPTY_STATE_IMAGES.ADD_USER,
                 imageDeleteUser: EMPTY_STATE_IMAGES.DELETE_USER,
+                isLoading: false,
             };
         },
         methods: {
             onAddUsersClick: async function() {
+                if (this.$data.isLoading) {
+                    return;
+                }
+
+                this.$data.isLoading = true;
+
                 let length = this.$data.inputs.length;
                 let newInputsArray: any[] = [];
                 let areAllEmailsValid = true;
@@ -124,12 +131,17 @@ import { validateEmail } from '@/utils/validation';
                     }
                 }
 
-                if (!areAllEmailsValid) return;
+                if (!areAllEmailsValid) {
+                    this.$data.isLoading = false;
+
+                    return;
+                }
 
                 let result = await this.$store.dispatch(PM_ACTIONS.ADD, emailArray);
 
                 if (!result.isSuccess) {
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Error during adding team members!');
+                    this.$data.isLoading = false;
 
                     return;
                 }
@@ -138,6 +150,7 @@ import { validateEmail } from '@/utils/validation';
 
                 if (!response.isSuccess) {
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+                    this.$data.isLoading = false;
 
                     return;
                 }
@@ -151,6 +164,8 @@ import { validateEmail } from '@/utils/validation';
                 }
 
                 this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
+
+                this.$data.isLoading = false;
             },
             addInput: function(): void {
                 let inputsLength = this.$data.inputs.length;

@@ -45,11 +45,13 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		t.Skip("flaky")
 
 		// first, upload some remote data
 		ul := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
+
+		// stop discovery service so that we do not get a race condition when we delete nodes from overlay cache
+		satellite.Discovery.Service.Discovery.Stop()
 
 		testData := make([]byte, 1*memory.MiB)
 		_, err := rand.Read(testData)

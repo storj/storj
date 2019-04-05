@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	debugAddr = flag.String("debug.addr", "localhost:0", "address to listen on for debug endpoints")
+	debugAddr = flag.String("debug.addr", "127.0.0.1:0", "address to listen on for debug endpoints")
 )
 
 func init() {
@@ -42,6 +42,7 @@ func initDebug(logger *zap.Logger, r *monkit.Registry) (err error) {
 		return err
 	}
 	go func() {
+		logger.Debug(fmt.Sprintf("debug server listening on %s", ln.Addr().String()))
 		err := (&http.Server{Handler: &mux}).Serve(ln)
 		if err != nil {
 			logger.Error("debug server died", zap.Error(err))
