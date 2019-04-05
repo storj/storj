@@ -142,12 +142,7 @@ func (p *Project) GetBucketInfo(ctx context.Context, bucket string) (b storj.Buc
 
 // OpenBucket returns a Bucket handle with the given EncryptionAccess
 // information.
-//
-// maxMem is the default maximum amount of memory to be allocated for read
-// buffers while performing decodes of objects in this Bucket. If set to 0,
-// the Uplink's default value will be used. If set to a negative value, the
-// system will use the smallest amount of memory it can.
-func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *EncryptionAccess, maxMem memory.Size) (b *Bucket, err error) {
+func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *EncryptionAccess) (b *Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	bucketInfo, cfg, err := p.GetBucketInfo(ctx, bucketName)
@@ -163,12 +158,7 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 	}
 	encryptionScheme := cfg.EncryptionParameters.ToEncryptionScheme()
 
-	if maxMem.Int() == 0 {
-		maxMem = p.uplinkCfg.Volatile.MaxMem
-	} else if maxMem.Int() < 0 {
-		maxMem = 0
-	}
-	ec := ecclient.NewClient(p.tc, maxMem.Int())
+	ec := ecclient.NewClient(p.tc, p.uplinkCfg.Volatile.MaxMem.Int())
 	fc, err := infectious.NewFEC(int(cfg.Volatile.RedundancyScheme.RequiredShares), int(cfg.Volatile.RedundancyScheme.TotalShares))
 	if err != nil {
 		return nil, err

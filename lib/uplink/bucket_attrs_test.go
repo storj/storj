@@ -105,7 +105,7 @@ func TestBucketAttrs(t *testing.T) {
 			assert.Equal(t, bucketName, bucket.Name)
 			assert.Falsef(t, bucket.Created.Before(before), "impossible creation time %v", bucket.Created)
 
-			got, err := proj.OpenBucket(ctx, bucketName, &access, 0)
+			got, err := proj.OpenBucket(ctx, bucketName, &access)
 			require.NoError(t, err)
 			defer ctx.Check(got.Close)
 
@@ -160,7 +160,7 @@ func TestBucketAttrsApply(t *testing.T) {
 			_, err := proj.CreateBucket(ctx, bucketName, &inBucketConfig)
 			require.NoError(t, err)
 
-			bucket, err := proj.OpenBucket(ctx, bucketName, &access, 0)
+			bucket, err := proj.OpenBucket(ctx, bucketName, &access)
 			require.NoError(t, err)
 			defer ctx.Check(bucket.Close)
 
