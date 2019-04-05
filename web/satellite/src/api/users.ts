@@ -91,24 +91,21 @@ export async function forgotPasswordRequest(email: string): Promise<RequestRespo
         data: null
     };
 
-    try {
-        let response: any = await apolloManager.query(
-            {
-                query: gql(`
+    let response: any = await apolloManager.query(
+        {
+            query: gql(`
                     query {
                         forgotPassword(email: "${email}")
                     }`),
-                fetchPolicy: 'no-cache',
-            },
-        );
+            fetchPolicy: 'no-cache',
+            errorPolicy: 'all',
+        },
+    );
 
-        if (response.errors) {
-            result.errorMessage = response.errors[0].message;
-        } else {
-            result.isSuccess = true;
-        }
-    } catch (e) {
-        result.errorMessage = e.message;
+    if (response.errors) {
+        result.errorMessage = response.errors[0].message;
+    } else {
+        result.isSuccess = true;
     }
 
     return result;
