@@ -464,13 +464,12 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				MaxAlphaUsage: 25 * memory.GB,
 			},
 			Mail: mailservice.Config{
-				SMTPServerAddress: "smtp.gmail.com:587",
-				From:              "Labs <andrewm@storj.io>",
-				AuthType:          "qeryeyqryqer",
+				SMTPServerAddress: "smtp.mail.example.com:587",
+				From:              "Labs <storj@example.com>",
+				AuthType:          "simulate",
 			},
 			Console: consoleweb.Config{
-				Address:      "127.0.0.1:8081",
-				AuthToken:    "1",
+				Address:      "127.0.0.1:0",
 				PasswordCost: console.TestPasswordCost,
 			},
 			Version: planet.NewVersionConfig(),
