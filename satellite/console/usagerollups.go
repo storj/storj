@@ -38,7 +38,7 @@ type BucketUsageRollup struct {
 
 	RemoteSegments float64
 	InlineSegments float64
-	Obects         float64
+	Objects        float64
 	MetadataSize   float64
 
 	RepairEgress float64

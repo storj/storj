@@ -181,7 +181,7 @@ func (db *usagerollups) GetBucketsUsageRollups(ctx context.Context, projectID uu
 			bucketRollup.MetadataSize += memory.Size(current.MetadataSize).GB()
 			bucketRollup.RemoteSegments += float64(current.RemoteSegmentsCount) * hours
 			bucketRollup.InlineSegments += float64(current.InlineSegmentsCount) * hours
-			bucketRollup.Obects += float64(current.ObjectCount) * hours
+			bucketRollup.Objects += float64(current.ObjectCount) * hours
 		}
 	}
 
