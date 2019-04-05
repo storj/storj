@@ -26,7 +26,6 @@ export const projectsModule = {
         },
         [PROJECTS_MUTATIONS.SELECT](state: any, projectID: string): void {
             const selected = state.projects.find((project: any) => project.id === projectID);
-
             if (!selected) {
                 return;
             }
@@ -40,10 +39,6 @@ export const projectsModule = {
             }
 
             selected.description = updateProjectModel.description;
-
-            if (state.selectedProject.id === updateProjectModel.id) {
-                state.selectedProject.description = updateProjectModel.description;
-            }
         },
         [PROJECTS_MUTATIONS.DELETE](state: any, projectID: string): void {
             state.projects = state.projects.filter(proj => proj.id !== projectID);

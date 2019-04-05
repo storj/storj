@@ -33,7 +33,7 @@ import AddUserPopup from '@/components/team/AddUserPopup.vue';
         },
         computed: mapState({
             isAddTeamMembersPopupShown: (state: any) => state.appStateModule.appState.isAddTeamMembersPopupShown,
-            isProjectSelected: (state: any) => state.projectsModule.selectedProject.id === '',
+            isProjectNotSelected: (state: any) => state.projectsModule.selectedProject.id === '',
         }),
     }
 )
