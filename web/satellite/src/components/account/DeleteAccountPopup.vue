@@ -9,7 +9,7 @@
                 <div v-html='imageSource'></div>
             </div>
             <div class='delete-account__form-container'>
-                <p>Are you sure you want to delete your account? If you do so, all your account information will be deleted from the Satellite forever.</p>
+                <p>Are you sure you want to delete your account? If you do so, all your information, projects and API Keys will be deleted forever.(drop from the satellite)</p>
                 <HeaderedInput 
                     label='Enter your password' 
                     placeholder='Your Password'

@@ -57,12 +57,12 @@
                     <div class="project-details-info-container__usage-report-container__info">
                         <img src="../../../static/images/projectDetails/UsageReport.svg" alt="">
                         <div class="project-details-info-container__usage-report-container__info__text">
-                            <h4>Usage Report</h4>
-                            <h2>Storj Satellite Usage reports provide access to detailed data, enabling you to better analyze and understand your Storj Network resources consumption</h2>
+                            <h4>Usage</h4>
+                            <h2>Analyze and understand your storage, egress and object usage amounts</h2>
                         </div>
                     </div>
                     <div class="project-details-info-container__usage-report-container__buttons-area">
-                        <Button label="More" width="140px" height="48px" :onPress="onMoreClick"/>
+                        <Button label="View" width="140px" height="48px" :onPress="onMoreClick"/>
                     </div>
                 </div>
             </div>
@@ -249,10 +249,6 @@ export default class ProjectDetailsArea extends Vue {
             align-items: flex-start;
             padding: 28px;
             background-color: #fff;
-
-            &:hover {
-                box-shadow: 0px 12px 24px rgba(175, 183, 193, 0.4);
-            }
         }
 
         &__description-container {
@@ -295,6 +291,15 @@ export default class ProjectDetailsArea extends Vue {
 
             svg {
                 cursor: pointer;
+
+                &:hover {
+                    rect {
+                        fill: #2683FF !important;
+                    }
+                    path {
+                        fill: white !important;
+                    }
+                }
             }
         }
 

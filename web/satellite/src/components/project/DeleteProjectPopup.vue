@@ -11,7 +11,7 @@
             <div class="delete-project-popup__form-container">
                 <p>Are you sure that you want to delete your project? You will lose all your buckets and files that linked to this project.</p>
                 <div>
-                    <p class="text" v-if="!nameError">To proceed with deletion, enter full project name</p>
+                    <p class="text" v-if="!nameError">To confirm, enter the project name</p>
                     <div v-if="nameError" class="delete-project-popup__form-container__label">
                         <img src="../../../static/images/register/ErrorInfo.svg"/>
                         <p class="text">{{nameError}}</p>

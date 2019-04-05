@@ -8,7 +8,7 @@
                 <div v-html="imageSource"></div>
             </div>
             <div class="add-api-key-popup__form-container">
-                <h2 class="add-api-key-popup__form-container__main-label-text">New API Key</h2>
+                <h2 class="add-api-key-popup__form-container__main-label-text">Create an API Key</h2>
                 <HeaderedInput
                     @setData="onChangeName"
                     label="Name"

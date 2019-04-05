@@ -6,8 +6,8 @@
         <div class="save-api-popup">
            <div class="save-api-popup__main">
                <div class="save-api-popup__content">
-                   <h1 class="save-api-popup__content__title">Save your API Key</h1>
-                   <p class="save-api-popup__content__name">You will need this to share access to the project with your team members.</p>
+                   <h1 class="save-api-popup__content__title">Success! Your API key has been created. It will only appear here once.</h1>
+                   <p class="save-api-popup__content__name">This API key allow users or applications to interact with the project.</p>
                    <div class="save-api-popup__content__copy-area">
                        <p class="save-api-popup__content__copy-area__save-api">{{apiKey}}</p>
                        <Button class="save-api-popup__content__copy-area__save-btn" v-clipboard="apiKey" label="Copy" width="140px" height="48px" :onPress="onCopyClick" />
@@ -151,8 +151,9 @@ export default class AddApiKeyPopup extends Vue {
     .notification-wrap {
         background-color: rgba(194, 214, 241, 1);
         height: 98px;
+        width: calc(100% - 100px);
         display: flex;
-        justify-content: space-between;
+        justify-content: flex-start;
         padding: 0 50px;
         align-items: center;
         border-bottom-left-radius: 6px;
