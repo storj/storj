@@ -188,76 +188,34 @@ func convertMeta(m objects.Meta) (out Meta, err error) {
 	out.PathEncryptionType = storj.AESGCM
 	out.EncryptionScheme.Cipher = storj.Invalid
 
-	if pathEncType := m.UserDefined["path-enc-type"]; pathEncType != "" {
-		pet, err := strconv.Atoi(pathEncType)
+	applySetting := func(nameInMap string, bits int, storeFunc func(val int64)) {
 		if err != nil {
-			return Meta{}, errs.New("invalid metadata field for path-enc-type: %v", err)
+			return
 		}
-		out.PathEncryptionType = storj.Cipher(pet)
-	}
-	if defaultSegSize := m.UserDefined["default-seg-size"]; defaultSegSize != "" {
-		dss, err := strconv.ParseInt(defaultSegSize, 10, 64)
-		if err != nil {
-			return Meta{}, errs.New("invalid metadata field for path-enc-type: %v", err)
+		if stringVal := m.UserDefined[nameInMap]; stringVal != "" {
+			var intVal int64
+			intVal, err = strconv.ParseInt(stringVal, 10, bits)
+			if err != nil {
+				err = errs.New("invalid metadata field for %s: %v", nameInMap, err)
+				return
+			}
+			storeFunc(intVal)
 		}
-		out.SegmentsSize = dss
-	}
-	if defaultEncType := m.UserDefined["default-enc-type"]; defaultEncType != "" {
-		det, err := strconv.Atoi(defaultEncType)
-		if err != nil {
-			return Meta{}, errs.New("invalid metadata field for default-enc-type: %v", err)
-		}
-		out.EncryptionScheme.Cipher = storj.Cipher(det)
-	}
-	if defaultEncBlockSize := m.UserDefined["default-enc-blksz"]; defaultEncBlockSize != "" {
-		deb, err := strconv.ParseInt(defaultEncBlockSize, 10, 32)
-		if err != nil {
-			return Meta{}, errs.New("invalid metadata field for default-enc-blksz: %v", err)
-		}
-		out.EncryptionScheme.BlockSize = int32(deb)
-	}
-	if defaultRSAlgo := m.UserDefined["default-rs-algo"]; defaultRSAlgo != "" {
-		dra, err := strconv.Atoi(defaultRSAlgo)
-		if err != nil {
-			return Meta{}, errs.New("invalid metadata field for default-rs-algo: %v", err)
-		}
-		out.RedundancyScheme.Algorithm = storj.RedundancyAlgorithm(dra)
-	}
-	if defaultRSShareSize := m.UserDefined["default-rs-sharsz"]; defaultRSShareSize != "" {
-		drs, err := strconv.ParseInt(defaultRSShareSize, 10, 32)
-		if err != nil {
-			return Meta{}, errs.New("invalid metadata field for default-rs-sharsz: %v", err)
-		}
-		out.RedundancyScheme.ShareSize = int32(drs)
-	}
-	if defaultRSRequired := m.UserDefined["default-rs-reqd"]; defaultRSRequired != "" {
-		drr, err := strconv.ParseInt(defaultRSRequired, 10, 16)
-		if err != nil {
-			return Meta{}, errs.New("invalid metadata field for default-rs-reqd: %v", err)
-		}
-		out.RedundancyScheme.RepairShares = int16(drr)
-	}
-	if defaultRSRepairThresh := m.UserDefined["default-rs-repair"]; defaultRSRepairThresh != "" {
-		drr, err := strconv.ParseInt(defaultRSRepairThresh, 10, 16)
-		if err != nil {
-			return Meta{}, errs.New("invalid metadata field for default-rs-repair: %v", err)
-		}
-		out.RedundancyScheme.RepairShares = int16(drr)
-	}
-	if defaultRSOptimal := m.UserDefined["default-rs-optim"]; defaultRSOptimal != "" {
-		drr, err := strconv.ParseInt(defaultRSOptimal, 10, 16)
-		if err != nil {
-			return Meta{}, errs.New("invalid metadata field for default-rs-optim: %v", err)
-		}
-		out.RedundancyScheme.RepairShares = int16(drr)
-	}
-	if defaultRSTotal := m.UserDefined["default-rs-total"]; defaultRSTotal != "" {
-		drr, err := strconv.ParseInt(defaultRSTotal, 10, 16)
-		if err != nil {
-			return Meta{}, errs.New("invalid metadata field for default-rs-total: %v", err)
-		}
-		out.RedundancyScheme.RepairShares = int16(drr)
 	}
 
-	return out, nil
+	es := &out.EncryptionScheme
+	rs := &out.RedundancyScheme
+
+	applySetting("path-enc-type", 16, func(v int64) { out.PathEncryptionType = storj.Cipher(v) })
+	applySetting("default-seg-size", 64, func(v int64) { out.SegmentsSize = v })
+	applySetting("default-enc-type", 32, func(v int64) { es.Cipher = storj.Cipher(v) })
+	applySetting("default-enc-blksz", 32, func(v int64) { es.BlockSize = int32(v) })
+	applySetting("default-rs-algo", 32, func(v int64) { rs.Algorithm = storj.RedundancyAlgorithm(v) })
+	applySetting("default-rs-sharsz", 32, func(v int64) { rs.ShareSize = int32(v) })
+	applySetting("default-rs-reqd", 16, func(v int64) { rs.RequiredShares = int16(v) })
+	applySetting("default-rs-repair", 16, func(v int64) { rs.RepairShares = int16(v) })
+	applySetting("default-rs-optim", 16, func(v int64) { rs.OptimalShares = int16(v) })
+	applySetting("default-rs-total", 16, func(v int64) { rs.TotalShares = int16(v) })
+
+	return out, err
 }

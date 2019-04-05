@@ -6,6 +6,8 @@ package uplink
 import (
 	"context"
 
+	"github.com/vivint/infectious"
+
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
@@ -54,6 +56,14 @@ type Config struct {
 		// objects above this size will not. (The satellite may reject
 		// the inline storage and require remote storage, still.)
 		MaxInlineSize memory.Size
+
+		// MaxMem is the default maximum amount of memory to be
+		// allocated for read buffers while performing decodes of
+		// objects. (This option is overrideable per Bucket if the user
+		// so desires.) If set to zero, the library default (4 MiB) will
+		// be used. If set to a negative value, the system will use the
+		// smallest amount of memory it can.
+		MaxMem memory.Size
 	}
 }
 
@@ -67,6 +77,11 @@ func (c *Config) setDefaults(ctx context.Context) error {
 	}
 	if c.Volatile.MaxInlineSize.Int() == 0 {
 		c.Volatile.MaxInlineSize = 4 * memory.KiB
+	}
+	if c.Volatile.MaxMem.Int() == 0 {
+		c.Volatile.MaxMem = 4 * memory.MiB
+	} else if c.Volatile.MaxMem.Int() < 0 {
+		c.Volatile.MaxMem = 0
 	}
 	return nil
 }
@@ -112,14 +127,28 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey A
 		return nil, err
 	}
 
-	// TODO: we shouldn't need segment or stream stores to manage buckets
-	segments := segments.NewSegmentStore(metainfo, nil, eestream.RedundancyStrategy{}, maxBucketMetaSize.Int(), maxBucketMetaSize.Int64())
-	streams, err := streams.NewStreamStore(segments, maxBucketMetaSize.Int64(), nil, 0, storj.Unencrypted)
+	// TODO: we shouldn't need segment or stream stores to manage buckets.
+	// We won't make any use of them. But you can't skimp on any of this
+	// setup, or things will break as they stand now.
+	encryptionKeyThatWeWontEvenUse := &storj.Key{}
+	whoCares := 1
+	fc, err := infectious.NewFEC(whoCares, whoCares)
 	if err != nil {
-		return nil, err
+		return nil, Error.New("failed to create erasure coding client: %v", err)
+	}
+	rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, whoCares), whoCares, whoCares)
+	if err != nil {
+		return nil, Error.New("failed to create redundancy strategy: %v", err)
+	}
+	segments := segments.NewSegmentStore(metainfo, nil, rs, maxBucketMetaSize.Int(), maxBucketMetaSize.Int64())
+	streams, err := streams.NewStreamStore(segments, maxBucketMetaSize.Int64(),
+		encryptionKeyThatWeWontEvenUse, whoCares, storj.Unencrypted)
+	if err != nil {
+		return nil, Error.New("failed to create stream store: %v", err)
 	}
 
 	return &Project{
+		uplinkCfg:     u.cfg,
 		tc:            u.tc,
 		metainfo:      metainfo,
 		project:       kvmetainfo.NewProject(buckets.NewStore(streams)),
@@ -128,7 +157,8 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey A
 }
 
 // Close closes the Uplink. This may not do anything at present, but should
-// still be called to allow forward compatibility.
+// still be called to allow forward compatibility. No Project or Bucket
+// objects using this Uplink should be used after calling Close.
 func (u *Uplink) Close() error {
 	return nil
 }

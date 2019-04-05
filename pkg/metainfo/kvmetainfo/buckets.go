@@ -17,11 +17,16 @@ func (db *Project) CreateBucket(ctx context.Context, bucketName string, info *st
 	if bucketName == "" {
 		return storj.Bucket{}, storj.ErrNoBucket.New("")
 	}
-
-	newBucketMeta := buckets.Meta{
-		PathEncryptionType: getPathCipher(info),
+	if info == nil {
+		info = &storj.Bucket{}
 	}
-	meta, err := db.buckets.Put(ctx, bucketName, newBucketMeta)
+
+	meta, err := db.buckets.Put(ctx, bucketName, buckets.Meta{
+		PathEncryptionType: getPathCipher(info),
+		SegmentsSize:       info.SegmentsSize,
+		RedundancyScheme:   info.RedundancyScheme,
+		EncryptionScheme:   info.EncryptionParameters.ToEncryptionScheme(),
+	})
 	if err != nil {
 		return storj.Bucket{}, err
 	}
@@ -109,8 +114,11 @@ func getPathCipher(info *storj.Bucket) storj.Cipher {
 
 func bucketFromMeta(bucketName string, meta buckets.Meta) storj.Bucket {
 	return storj.Bucket{
-		Name:       bucketName,
-		Created:    meta.Created,
-		PathCipher: meta.PathEncryptionType,
+		Name:                 bucketName,
+		Created:              meta.Created,
+		PathCipher:           meta.PathEncryptionType,
+		SegmentsSize:         meta.SegmentsSize,
+		RedundancyScheme:     meta.RedundancyScheme,
+		EncryptionParameters: meta.EncryptionScheme.ToEncryptionParameters(),
 	}
 }
