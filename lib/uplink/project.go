@@ -178,10 +178,7 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 	}
 	segmentStore := segments.NewSegmentStore(p.metainfo, ec, rs, p.maxInlineSize.Int(), maxEncryptedSegmentSize)
 
-	key := new(storj.Key)
-	copy(key[:], access.Key[:])
-
-	streamStore, err := streams.NewStreamStore(segmentStore, cfg.Volatile.SegmentsSize.Int64(), key, int(encryptionScheme.BlockSize), encryptionScheme.Cipher)
+	streamStore, err := streams.NewStreamStore(segmentStore, cfg.Volatile.SegmentsSize.Int64(), &access.Key, int(encryptionScheme.BlockSize), encryptionScheme.Cipher)
 	if err != nil {
 		return nil, err
 	}
@@ -193,7 +190,7 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 		Name:         bucketInfo.Name,
 		Created:      bucketInfo.Created,
 		bucket:       bucketInfo,
-		metainfo:     kvmetainfo.New(p.metainfo, bucketStore, streamStore, segmentStore, key),
+		metainfo:     kvmetainfo.New(p.metainfo, bucketStore, streamStore, segmentStore, &access.Key),
 		streams:      streamStore,
 	}, nil
 }
