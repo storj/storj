@@ -241,14 +241,6 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 
 		Excluded: req.ExcludedNodes,
 	})
-
-	for _, r := range reputableNodes {
-		for _, e := range req.ExcludedNodes {
-			if r.Id == e {
-				panic("exluded")
-			}
-		}
-	}
 	if err != nil {
 		return nil, err
 	}
@@ -264,22 +256,6 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 	})
 	if err != nil {
 		return nil, err
-	}
-
-	for _, r := range reputableNodes {
-		for _, e := range req.ExcludedNodes {
-			if r.Id == e {
-				panic("exluded")
-			}
-		}
-	}
-
-	for _, r := range reputableNodes {
-		for _, n := range newNodes {
-			if r.Id == n.Id {
-				panic("exluded")
-			}
-		}
 	}
 
 	nodes := []*pb.Node{}
