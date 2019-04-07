@@ -6,6 +6,7 @@ package piecestore_test
 import (
 	"io"
 	"math/rand"
+	"strings"
 	"testing"
 	"time"
 
@@ -222,22 +223,21 @@ func TestDownload(t *testing.T) {
 	for _, tt := range []struct {
 		pieceID storj.PieceID
 		action  pb.PieceAction
-		err     string
+		errs    []string
 	}{
 		{ // should successfully download data
 			pieceID: orderLimit.PieceId,
 			action:  pb.PieceAction_GET,
-			err:     "",
 		},
 		{ // should err with piece ID not specified
 			pieceID: storj.PieceID{2},
 			action:  pb.PieceAction_GET,
-			err:     "no such file or directory", // TODO fix returned error
+			errs:    []string{"no such file or directory", "The system cannot find the path specified"},
 		},
 		{ // should successfully download data
 			pieceID: orderLimit.PieceId,
 			action:  pb.PieceAction_PUT,
-			err:     "expected get or get repair or audit action got PUT",
+			errs:    []string{"expected get or get repair or audit action got PUT"},
 		},
 	} {
 		var serialNumber storj.SerialNumber
@@ -265,16 +265,16 @@ func TestDownload(t *testing.T) {
 		buffer := make([]byte, len(expectedData))
 		n, err := downloader.Read(buffer)
 
-		if tt.err != "" {
+		if len(tt.errs) > 0 {
 		} else {
 			require.NoError(t, err)
 			require.Equal(t, expectedData, buffer[:n])
 		}
 
 		err = downloader.Close()
-		if tt.err != "" {
+		if len(tt.errs) > 0 {
 			require.Error(t, err)
-			require.Contains(t, err.Error(), tt.err)
+			require.True(t, strings.Contains(err.Error(), tt.errs[0]) || strings.Contains(err.Error(), tt.errs[1]), err.Error())
 		} else {
 			require.NoError(t, err)
 		}

@@ -140,7 +140,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 
 	kademliaBootstrapAddr := cmd.Flag("kademlia.bootstrap-addr")
 	if !kademliaBootstrapAddr.Changed {
-		overrides[kademliaBootstrapAddr.Name] = "localhost" + defaultServerAddr
+		overrides[kademliaBootstrapAddr.Name] = "127.0.0.1" + defaultServerAddr
 	}
 
 	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
