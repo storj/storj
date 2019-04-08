@@ -5,7 +5,6 @@ package segments
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -22,45 +21,29 @@ import (
 
 // Repairer for segments
 type Repairer struct {
-	pointerdb  *pointerdb.Service
-	orders     *orders.Service
-	cache      *overlay.Cache
-	ec         ecclient.Client
-	identity   *identity.FullIdentity
-	timeout    time.Duration
-	inProgress map[storj.Path]bool
-	mutex      *sync.Mutex
+	pointerdb *pointerdb.Service
+	orders    *orders.Service
+	cache     *overlay.Cache
+	ec        ecclient.Client
+	identity  *identity.FullIdentity
+	timeout   time.Duration
 }
 
 // NewSegmentRepairer creates a new instance of SegmentRepairer
 func NewSegmentRepairer(pointerdb *pointerdb.Service, orders *orders.Service, cache *overlay.Cache, ec ecclient.Client, identity *identity.FullIdentity, timeout time.Duration) *Repairer {
 	return &Repairer{
-		pointerdb:  pointerdb,
-		orders:     orders,
-		cache:      cache,
-		ec:         ec,
-		identity:   identity,
-		timeout:    timeout,
-		inProgress: make(map[storj.Path]bool),
-		mutex:      &sync.Mutex{},
+		pointerdb: pointerdb,
+		orders:    orders,
+		cache:     cache,
+		ec:        ec,
+		identity:  identity,
+		timeout:   timeout,
 	}
 }
 
 // Repair retrieves an at-risk segment and repairs and stores lost pieces on new nodes
 func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int32) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	if repairer.inProgress[path] {
-		return nil
-	}
-	repairer.mutex.Lock()
-	repairer.inProgress[path] = true
-	repairer.mutex.Unlock()
-	defer func() {
-		repairer.mutex.Lock()
-		delete(repairer.inProgress, path)
-		repairer.mutex.Unlock()
-	}()
 
 	// Read the segment pointer from the PointerDB
 	pointer, err := repairer.pointerdb.Get(path)
