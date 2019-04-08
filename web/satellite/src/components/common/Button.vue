@@ -103,6 +103,11 @@ export default class Button extends Vue {
 
             &.disabled {
                 box-shadow: none;
+                background-color: #DADDE5 !important;
+
+                .label {
+                    color: #ACB0BC !important;
+                }
             }
         }
 
@@ -124,7 +129,8 @@ export default class Button extends Vue {
     }
     .container.disabled {
         background-color: #DADDE5;
-        .label.white {
+        border-color: #DADDE5;
+        .label {
             color: #ACB0BC;
         }
     }
