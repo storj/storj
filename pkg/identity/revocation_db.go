@@ -73,7 +73,7 @@ func newRevocationDBRedis(address string) (*RevocationDB, error) {
 // Get attempts to retrieve the most recent revocation for the given cert chain
 // (the  key used in the underlying database is the nodeID of the certificate chain).
 func (r RevocationDB) Get(chain []*x509.Certificate) (*extensions.Revocation, error) {
-	nodeID, err := NodeIDFromKey(chain[peertls.CAIndex].PublicKey)
+	nodeID, err := NodeIDFromCert(chain[peertls.CAIndex])
 	if err != nil {
 		return nil, extensions.ErrRevocation.Wrap(err)
 	}
@@ -117,7 +117,7 @@ func (r RevocationDB) Put(chain []*x509.Certificate, revExt pkix.Extension) erro
 		return extensions.ErrRevocationTimestamp
 	}
 
-	nodeID, err := NodeIDFromKey(ca.PublicKey)
+	nodeID, err := NodeIDFromCert(ca)
 	if err != nil {
 		return extensions.ErrRevocationDB.Wrap(err)
 	}
