@@ -52,22 +52,9 @@ func (db *usagerollups) GetProjectTotal(ctx context.Context, projectID uuid.UUID
 		}
 	}
 
-	bucketsQuery := "SELECT DISTINCT bucket_name FROM bucket_bandwidth_rollups where project_id = ? and interval_start >= ? and interval_start <= ?"
-	bucketRows, err := db.db.QueryContext(ctx, db.db.Rebind(bucketsQuery), []byte(projectID.String()), since, before)
+	buckets, err := db.getBuckets(ctx, projectID, since, before)
 	if err != nil {
 		return nil, err
-	}
-	defer func() { err = errs.Combine(err, bucketRows.Close()) }()
-
-	var buckets []string
-	for bucketRows.Next() {
-		var bucket string
-		err = bucketRows.Scan(&bucket)
-		if err != nil {
-			return nil, err
-		}
-
-		buckets = append(buckets, bucket)
 	}
 
 	bucketsTallies := make(map[string]*[]*dbx.BucketStorageTally)
