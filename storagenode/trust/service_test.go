@@ -21,7 +21,7 @@ func TestGetSignee(t *testing.T) {
 		canceledContext, cancel := context.WithCancel(ctx)
 		cancel()
 
-		// GetSignee should succeed even on cancelled context to avoid miscaching
+		// GetSignee should succeed even on canceled context to avoid miscaching
 		cert, err := trust.GetSignee(canceledContext, planet.Satellites[0].ID())
 		assert.NoError(t, err)
 		assert.NotNil(t, cert)
