@@ -103,7 +103,7 @@ func (c DebugCert) Cmp(c2 DebugCert, label string) error {
 	}
 
 	diffType, diff := jsondiff.Compare(cJSON, c2JSON, &diffOpts)
-	fmt.Printf("Difference type: %s\n======\n%s", diffType, diff)
+	fmt.Printf("Difference type: %s\n======\n%s\n", diffType, diff)
 	return nil
 }
 
