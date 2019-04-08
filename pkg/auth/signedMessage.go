@@ -93,16 +93,16 @@ func VerifyMsg(msg SignableMessage, signer storj.NodeID) error {
 	if err != nil {
 		return ErrVerify.Wrap(err)
 	}
-	leaf, err := pkcrypto.CertFromDER(certs[0])
+	leaf, err := pkcrypto.CertFromDER(certs[peertls.LeafIndex])
 	if err != nil {
 		return err
 	}
-	ca, err := pkcrypto.CertFromDER(certs[1])
+	ca, err := pkcrypto.CertFromDER(certs[peertls.CAIndex])
 	if err != nil {
 		return err
 	}
 	// verify signature
-	if id, err := identity.NodeIDFromKey(ca.PublicKey); err != nil || id != signer {
+	if id, err := identity.NodeIDFromCert(ca); err != nil || id != signer {
 		return ErrSigner.New("%+v vs %+v", id, signer)
 	}
 	if err := pkcrypto.HashAndVerifySignature(leaf.PublicKey, msgBytes, signature); err != nil {

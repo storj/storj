@@ -23,6 +23,30 @@ func (db *Project) CreateBucket(ctx context.Context, bucketName string, info *st
 	if info.EncryptionParameters.CipherSuite == storj.EncUnspecified {
 		info.EncryptionParameters.CipherSuite = storj.EncAESGCM
 	}
+	if info.EncryptionParameters.BlockSize == 0 {
+		info.EncryptionParameters.BlockSize = db.encryptedBlockSize
+	}
+	if info.RedundancyScheme.Algorithm == storj.InvalidRedundancyAlgorithm {
+		info.RedundancyScheme.Algorithm = storj.ReedSolomon
+	}
+	if info.RedundancyScheme.RequiredShares == 0 {
+		info.RedundancyScheme.RequiredShares = int16(db.redundancy.RequiredCount())
+	}
+	if info.RedundancyScheme.RepairShares == 0 {
+		info.RedundancyScheme.RepairShares = int16(db.redundancy.RepairThreshold())
+	}
+	if info.RedundancyScheme.OptimalShares == 0 {
+		info.RedundancyScheme.OptimalShares = int16(db.redundancy.OptimalThreshold())
+	}
+	if info.RedundancyScheme.TotalShares == 0 {
+		info.RedundancyScheme.TotalShares = int16(db.redundancy.TotalCount())
+	}
+	if info.RedundancyScheme.ShareSize == 0 {
+		info.RedundancyScheme.ShareSize = int32(db.redundancy.ErasureShareSize())
+	}
+	if info.SegmentsSize == 0 {
+		info.SegmentsSize = db.segmentsSize
+	}
 
 	meta, err := db.buckets.Put(ctx, bucketName, buckets.Meta{
 		PathEncryptionType: info.PathCipher,
