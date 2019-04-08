@@ -19,21 +19,31 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/storj"
 )
 
 func TestNewCA(t *testing.T) {
 	const expectedDifficulty = 4
 
-	ca, err := identity.NewCA(context.Background(), identity.NewCAOptions{
-		Difficulty:  expectedDifficulty,
-		Concurrency: 5,
-	})
-	assert.NoError(t, err)
-	assert.NotEmpty(t, ca)
+	for _, version := range storj.IDVersions {
+		ca, err := identity.NewCA(context.Background(), identity.NewCAOptions{
+			VersionNumber: version.Number,
+			Difficulty:    expectedDifficulty,
+			Concurrency:   4,
+		})
+		require.NoError(t, err)
+		require.NotEmpty(t, ca)
 
-	actualDifficulty, err := ca.ID.Difficulty()
-	assert.NoError(t, err)
-	assert.True(t, actualDifficulty >= expectedDifficulty)
+		assert.Equal(t, version.Number, ca.ID.Version().Number)
+
+		caVersion, err := ca.Version()
+		require.NoError(t, err)
+		assert.Equal(t, version.Number, caVersion.Number)
+
+		actualDifficulty, err := ca.ID.Difficulty()
+		require.NoError(t, err)
+		assert.True(t, actualDifficulty >= expectedDifficulty)
+	}
 }
 
 func TestFullCertificateAuthority_NewIdentity(t *testing.T) {
@@ -42,14 +52,12 @@ func TestFullCertificateAuthority_NewIdentity(t *testing.T) {
 		Difficulty:  12,
 		Concurrency: 4,
 	})
-	if !assert.NoError(t, err) || !assert.NotNil(t, ca) {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	require.NotNil(t, ca)
 
 	fi, err := ca.NewIdentity()
-	if !assert.NoError(t, err) || !assert.NotNil(t, fi) {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	require.NotNil(t, fi)
 
 	assert.Equal(t, ca.Cert, fi.CA)
 	assert.Equal(t, ca.ID, fi.ID)
@@ -68,19 +76,16 @@ func TestFullCertificateAuthority_Sign(t *testing.T) {
 	}
 
 	ca, err := identity.NewCA(ctx, caOpts)
-	if !assert.NoError(t, err) || !assert.NotNil(t, ca) {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	require.NotNil(t, ca)
 
 	toSign, err := identity.NewCA(ctx, caOpts)
-	if !assert.NoError(t, err) || !assert.NotNil(t, toSign) {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	require.NotNil(t, toSign)
 
 	signed, err := ca.Sign(toSign.Cert)
-	if !assert.NoError(t, err) || !assert.NotNil(t, signed) {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	require.NotNil(t, signed)
 
 	assert.Equal(t, toSign.Cert.RawTBSCertificate, signed.RawTBSCertificate)
 	assert.NotEqual(t, toSign.Cert.Signature, signed.Signature)
@@ -95,6 +100,37 @@ func TestFullCAConfig_Save(t *testing.T) {
 	// TODO(bryanchriswhite): test with only cert path
 	// TODO(bryanchriswhite): test with only key path
 	t.SkipNow()
+}
+
+func TestFullCAConfig_Load_extensions(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	for versionNumber, version := range storj.IDVersions {
+		caCfg := identity.CASetupConfig{
+			VersionNumber: uint(versionNumber),
+			CertPath:      ctx.File("ca.cert"),
+			KeyPath:       ctx.File("ca.key"),
+		}
+
+		{
+			ca, err := caCfg.Create(ctx, nil)
+			require.NoError(t, err)
+
+			caVersion, err := ca.Version()
+			require.NoError(t, err)
+			require.Equal(t, version.Number, caVersion.Number)
+		}
+
+		{
+			ca, err := caCfg.FullConfig().Load()
+			require.NoError(t, err)
+			caVersion, err := ca.Version()
+			require.NoError(t, err)
+			assert.Equal(t, version.Number, caVersion.Number)
+		}
+
+	}
 }
 
 func BenchmarkNewCA(b *testing.B) {
@@ -132,7 +168,7 @@ func TestFullCertificateAuthority_AddExtension(t *testing.T) {
 	}
 
 	err = ca.AddExtension(randExt)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Len(t, ca.Cert.ExtraExtensions, 0)
 	assert.Len(t, ca.Cert.Extensions, len(oldCert.Extensions)+1)
@@ -158,7 +194,7 @@ func TestFullCertificateAuthority_Revoke(t *testing.T) {
 	assert.Len(t, ca.Cert.ExtraExtensions, 0)
 
 	err = ca.Revoke()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Len(t, ca.Cert.ExtraExtensions, 0)
 	assert.Len(t, ca.Cert.Extensions, len(oldCert.Extensions)+1)

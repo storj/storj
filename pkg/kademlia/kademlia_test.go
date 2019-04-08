@@ -166,7 +166,9 @@ func testNode(ctx *testcontext.Context, name string, t *testing.T, bn []pb.Node)
 	s := NewEndpoint(logger, k, k.routingTable)
 	// new ident opts
 
-	serverOptions, err := tlsopts.NewOptions(fid, tlsopts.Config{})
+	serverOptions, err := tlsopts.NewOptions(fid, tlsopts.Config{
+		PeerIDVersions: "1,2",
+	})
 	require.NoError(t, err)
 	identOpt := serverOptions.ServerOption()
 
@@ -523,7 +525,9 @@ func newKademlia(log *zap.Logger, nodeType pb.NodeType, bootstrapNodes []pb.Node
 		return nil, err
 	}
 
-	tlsOptions, err := tlsopts.NewOptions(identity, tlsopts.Config{})
+	tlsOptions, err := tlsopts.NewOptions(identity, tlsopts.Config{
+		PeerIDVersions: "1,2",
+	})
 	if err != nil {
 		return nil, err
 	}
