@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -28,13 +28,13 @@ func TestPieceInfo(t *testing.T) {
 
 		pieceinfos := db.PieceInfo()
 
-		satellite0 := testplanet.MustPregeneratedSignedIdentity(0)
-		satellite1 := testplanet.MustPregeneratedSignedIdentity(1)
-		satellite2 := testplanet.MustPregeneratedSignedIdentity(2)
+		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion())
+		satellite1 := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion())
+		satellite2 := testidentity.MustPregeneratedSignedIdentity(2, storj.LatestIDVersion())
 
-		uplink0 := testplanet.MustPregeneratedSignedIdentity(3)
-		uplink1 := testplanet.MustPregeneratedSignedIdentity(4)
-		uplink2 := testplanet.MustPregeneratedSignedIdentity(5)
+		uplink0 := testidentity.MustPregeneratedSignedIdentity(3, storj.LatestIDVersion())
+		uplink1 := testidentity.MustPregeneratedSignedIdentity(4, storj.LatestIDVersion())
+		uplink2 := testidentity.MustPregeneratedSignedIdentity(5, storj.LatestIDVersion())
 
 		pieceid0 := storj.NewPieceID()
 
