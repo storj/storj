@@ -12,6 +12,7 @@ ENV CONF_PATH=/root/.local/share/storj/storagenode \
 EXPOSE 28967
 WORKDIR /app
 VOLUME /root/.local/share/storj/storagenode
+COPY resources/certs.pem /etc/ssl/certs/ca-certificates.crt
 COPY --from=storagenode-build-env /app /app/storagenode
 COPY cmd/storagenode/entrypoint /entrypoint
 ENTRYPOINT ["/entrypoint"]
