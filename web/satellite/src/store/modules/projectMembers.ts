@@ -71,9 +71,7 @@ export const projectMembersModule = {
         addProjectMembers: async function ({rootGetters}: any, emails: string[]): Promise<RequestResponse<null>> {
             const projectId = rootGetters.selectedProject.id;
 
-            const response = await addProjectMembersRequest(projectId, emails);
-
-            return response;
+            return await addProjectMembersRequest(projectId, emails);
         },
         deleteProjectMembers: async function ({commit, rootGetters}: any, projectMemberEmails: string[]): Promise<RequestResponse<null>> {
             const projectId = rootGetters.selectedProject.id;

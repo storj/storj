@@ -6,7 +6,6 @@ import gql from 'graphql-tag';
 import { ProjectMemberSortByEnum } from '@/utils/constants/ProjectMemberSortEnum';
 
 // Performs graqhQL request.
-// Throws an exception if error occurs
 export async function addProjectMembersRequest(projectID: string, emails: string[]): Promise<RequestResponse<null>> {
     let result: RequestResponse<null> = {
         errorMessage: '',
@@ -14,35 +13,31 @@ export async function addProjectMembersRequest(projectID: string, emails: string
         data: null
     };
 
-    try {
-        let response: any = await apollo.mutate(
-            {
-                mutation: gql(`
-                mutation {
-                    addProjectMembers(
-                        projectID: "${projectID}",
-                        email: [${prepareEmailList(emails)}]
-                    ) {id}
-                }`,
-                ),
-                fetchPolicy: 'no-cache',
-            }
-        );
-
-        if (response.errors) {
-            result.errorMessage = response.errors[0].message;
-        } else {
-            result.isSuccess = true;
+    let response: any = await apollo.mutate(
+        {
+            mutation: gql(`
+            mutation {
+                addProjectMembers(
+                    projectID: "${projectID}",
+                    email: [${prepareEmailList(emails)}]
+                ) {id}
+            }`,
+            ),
+            fetchPolicy: 'no-cache',
+            errorPolicy: 'all',
         }
-    } catch (e) {
-        result.errorMessage = e.message;
+    );
+
+    if (response.errors) {
+        result.errorMessage = response.errors[0].message;
+    } else {
+        result.isSuccess = true;
     }
 
     return result;
 }
 
 // Performs graqhQL request.
-// Throws an exception if error occurs
 export async function deleteProjectMembersRequest(projectID: string, emails: string[]): Promise<RequestResponse<null>> {
     let result: RequestResponse<null> = {
         errorMessage: '',
@@ -50,35 +45,31 @@ export async function deleteProjectMembersRequest(projectID: string, emails: str
         data: null
     };
 
-    try {
-        let response: any = await apollo.mutate(
-            {
-                mutation: gql(`
-                mutation {
-                    deleteProjectMembers(
-                        projectID: "${projectID}",
-                        email: [${prepareEmailList(emails)}]
-                    ) {id}
-                }`
-                ),
-                fetchPolicy: 'no-cache',
-            }
-        );
-
-        if (response.errors) {
-            result.errorMessage = response.errors[0].message;
-        } else {
-            result.isSuccess = true;
+    let response: any = await apollo.mutate(
+        {
+            mutation: gql(`
+            mutation {
+                deleteProjectMembers(
+                    projectID: "${projectID}",
+                    email: [${prepareEmailList(emails)}]
+                ) {id}
+            }`
+            ),
+            fetchPolicy: 'no-cache',
+            errorPolicy: 'all',
         }
-    } catch (e) {
-        result.errorMessage = e.message;
+    );
+
+    if (response.errors) {
+        result.errorMessage = response.errors[0].message;
+    } else {
+        result.isSuccess = true;
     }
 
     return result;
 }
 
 // Performs graqhQL request.
-// Throws an exception if error occurs
 export async function fetchProjectMembersRequest(projectID: string, limit: string, offset: string, sortBy: ProjectMemberSortByEnum, searchQuery: string): Promise<RequestResponse<TeamMemberModel[]>> {
     let result: RequestResponse<TeamMemberModel[]> = {
         errorMessage: '',
@@ -86,38 +77,35 @@ export async function fetchProjectMembersRequest(projectID: string, limit: strin
         data: []
     };
 
-    try {
-        let response: any = await apollo.query(
-            {
-                query: gql(`
-					query {
-						project(
-							id: "${projectID}",
-						) {
-							members(limit: ${limit}, offset: ${offset}, order: ${sortBy}, search: "${searchQuery}") {
-								user {
-									id,
-									fullName,
-									shortName,
-									email
-								},
-								joinedAt
-							}
-						}
-					}`
-                ),
-                fetchPolicy: 'no-cache',
-            }
-        );
-
-        if (response.errors) {
-            result.errorMessage = response.errors[0].message;
-        } else {
-            result.isSuccess = true;
-            result.data = response.data.project.members;
+    let response: any = await apollo.query(
+        {
+            query: gql(`
+            query {
+                project(
+                    id: "${projectID}",
+                ) {
+                    members(limit: ${limit}, offset: ${offset}, order: ${sortBy}, search: "${searchQuery}") {
+                        user {
+                            id,
+                            fullName,
+                            shortName,
+                            email
+                        },
+                        joinedAt
+                    }
+                }
+            }`
+            ),
+            fetchPolicy: 'no-cache',
+            errorPolicy: 'all',
         }
-    } catch (e) {
-        result.errorMessage = e.message;
+    );
+
+    if (response.errors) {
+        result.errorMessage = response.errors[0].message;
+    } else {
+        result.isSuccess = true;
+        result.data = response.data.project.members;
     }
 
     return result;
