@@ -390,6 +390,12 @@ func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID,
 		}
 	}
 
+	// TODO: Allegedly tx.Get_Node_By_Id and tx.Update_Node_By_Id should never return a nil value for dbNode,
+	// however we've seen from some crashes that it does. We need to track down the cause of these crashes
+	// but for now we're adding a nil check to prevent a panic.
+	if dbNode == nil {
+		return nil, Error.Wrap(errs.New("unable to get node by ID: %s", nodeID.String()))
+	}
 	return getNodeStats(dbNode), Error.Wrap(tx.Commit())
 }
 
@@ -503,8 +509,14 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 
-	nodeStats := getNodeStats(dbNode)
-	return nodeStats, Error.Wrap(tx.Commit())
+	// TODO: Allegedly tx.Get_Node_By_Id and tx.Update_Node_By_Id should never return a nil value for dbNode,
+	// however we've seen from some crashes that it does. We need to track down the cause of these crashes
+	// but for now we're adding a nil check to prevent a panic.
+	if dbNode == nil {
+		return nil, Error.Wrap(errs.New("unable to get node by ID: %s", nodeID.String()))
+	}
+
+	return getNodeStats(dbNode), Error.Wrap(tx.Commit())
 }
 
 // UpdateNodeInfo updates the email and wallet for a given node ID for satellite payments.
@@ -586,9 +598,14 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 	if err != nil {
 		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
+	// TODO: Allegedly tx.Get_Node_By_Id and tx.Update_Node_By_Id should never return a nil value for dbNode,
+	// however we've seen from some crashes that it does. We need to track down the cause of these crashes
+	// but for now we're adding a nil check to prevent a panic.
+	if dbNode == nil {
+		return nil, Error.Wrap(errs.New("unable to get node by ID: %s", nodeID.String()))
+	}
 
-	nodeStats := getNodeStats(dbNode)
-	return nodeStats, Error.Wrap(tx.Commit())
+	return getNodeStats(dbNode), Error.Wrap(tx.Commit())
 }
 
 func convertDBNode(info *dbx.Node) (*overlay.NodeDossier, error) {
