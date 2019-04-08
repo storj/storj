@@ -21,7 +21,7 @@ import (
 func TestDataRepair(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
-		StorageNodeCount: 10,
+		StorageNodeCount: 6,
 		UplinkCount:      1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// first, upload some remote data
@@ -43,7 +43,7 @@ func TestDataRepair(t *testing.T) {
 			MinThreshold:     2,
 			RepairThreshold:  3,
 			SuccessThreshold: 4,
-			MaxThreshold:     5,
+			MaxThreshold:     4,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 

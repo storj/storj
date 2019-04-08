@@ -336,7 +336,17 @@ func (s *segmentStore) List(ctx context.Context, prefix, startAfter, endBefore s
 // CalcNeededNodes calculate how many minimum nodes are needed for download,
 // based on t = k + (n-o)k/o
 func CalcNeededNodes(rs *pb.RedundancyScheme) int32 {
-	needed := rs.GetMinReq()
+	extra := int32(1)
+
+	if rs.GetSuccessThreshold() > 0 {
+		extra = ((rs.GetTotal() - rs.GetSuccessThreshold()) * rs.GetMinReq()) / rs.GetSuccessThreshold()
+		if extra == 0 {
+			// ensure there is at least one extra node, so we can have error detection/correction
+			extra = 1
+		}
+	}
+
+	needed := rs.GetMinReq() + extra
 
 	if needed > rs.GetTotal() {
 		needed = rs.GetTotal()
