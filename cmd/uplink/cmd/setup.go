@@ -4,8 +4,8 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 
@@ -61,71 +61,49 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 
 	var override map[string]interface{}
 	if setupCfg.Interactive {
-		wizard := func() error {
-			if !terminal.IsTerminal(0) || !terminal.IsTerminal(1) {
-				return fmt.Errorf("stdin/stdout should be terminal")
-			}
+		fmt.Print("Enter your Satellite address: ")
+		var satelliteAddress string
+		fmt.Scanln(&satelliteAddress)
 
-			// TODO handle signals
-			oldState, err := terminal.MakeRaw(0)
-			if err != nil {
-				return err
-			}
-			defer terminal.Restore(0, oldState)
-
-			screen := struct {
-				io.Reader
-				io.Writer
-			}{os.Stdin, os.Stdout}
-			terminalIn := terminal.NewTerminal(screen, "")
-
-			terminalIn.SetPrompt("Enter your Satellite address: ")
-			satelliteAddress, err := terminalIn.ReadLine()
-			if err != nil {
-				return err
-			}
-
-			// TODO add better validation
-			if satelliteAddress == "" {
-				return errs.New("API key cannot be empty")
-			}
-
-			terminalIn.SetPrompt("Enter your API key: ")
-			apiKey, err := terminalIn.ReadLine()
-			if err != nil {
-				return err
-			}
-
-			if apiKey == "" {
-				return errs.New("API key cannot be empty")
-			}
-
-			encKey, err := terminalIn.ReadPassword("Enter your encryption passphrase: ")
-			if err != nil {
-				return err
-			}
-			repeatedEncKey, err := terminalIn.ReadPassword("Enter your encryption passphrase again: ")
-			if err != nil {
-				return err
-			}
-
-			if encKey != repeatedEncKey {
-				return errs.New("encryption passphrases doesn't match")
-			}
-
-			if encKey == "" {
-				fmt.Println("Encryption passphare is empty!")
-			}
-
-			override = map[string]interface{}{
-				"satellite-addr": satelliteAddress,
-				"api-key":        apiKey,
-				"enc.key":        encKey,
-			}
-			return nil
+		// TODO add better validation
+		if satelliteAddress == "" {
+			return errs.New("Satellite address cannot be empty")
 		}
-		if err := wizard(); err != nil {
+
+		fmt.Print("Enter your API key: ")
+		var apiKey string
+		fmt.Scanln(&apiKey)
+
+		if apiKey == "" {
+			return errs.New("API key cannot be empty")
+		}
+
+		fmt.Print("Enter your encryption passphrase: ")
+		encKey, err := terminal.ReadPassword(int(os.Stdin.Fd()))
+		if err != nil {
 			return err
+		}
+		fmt.Println()
+
+		fmt.Print("Enter your encryption passphrase again: ")
+		repeatedEncKey, err := terminal.ReadPassword(int(os.Stdin.Fd()))
+		if err != nil {
+			return err
+		}
+		fmt.Println()
+
+		if !bytes.Equal(encKey, repeatedEncKey) {
+			return errs.New("encryption passphrases doesn't match")
+		}
+
+		if len(encKey) == 0 {
+			fmt.Println("Warning: Encryption passphare is empty!")
+		}
+
+		override = map[string]interface{}{
+			"satellite-addr": satelliteAddress,
+			"api-key":        apiKey,
+			"enc.key":        string(encKey),
 		}
 	}
 
