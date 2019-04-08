@@ -1,12 +1,11 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package segments_test
+package datarepair_test
 
 import (
 	"math/rand"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -15,28 +14,30 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/pb"
-	ecclient "storj.io/storj/pkg/storage/ec"
-	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink"
 )
 
-func TestSegmentStoreRepair(t *testing.T) {
-
+func TestDataRepair(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount:   1,
+		StorageNodeCount: 6,
+		UplinkCount:      1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// first, upload some remote data
 		ul := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
-
-		satellite.Repair.Checker.Loop.Stop()
 		// stop discovery service so that we do not get a race condition when we delete nodes from overlay cache
 		satellite.Discovery.Service.Discovery.Stop()
+		satellite.Discovery.Service.Refresh.Stop()
+		satellite.Discovery.Service.Graveyard.Stop()
+
+		satellite.Repair.Checker.Loop.Pause()
+		satellite.Repair.Repairer.Loop.Pause()
 
 		testData := make([]byte, 1*memory.MiB)
 		_, err := rand.Read(testData)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		err = ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
 			MinThreshold:     2,
@@ -56,7 +57,7 @@ func TestSegmentStoreRepair(t *testing.T) {
 		for _, v := range listResponse {
 			path = v.GetPath()
 			pointer, err = pdb.Get(path)
-			require.NoError(t, err)
+			assert.NoError(t, err)
 			if pointer.GetType() == pb.Pointer_REMOTE {
 				break
 			}
@@ -76,6 +77,7 @@ func TestSegmentStoreRepair(t *testing.T) {
 		var lostPieces []int32
 		nodesToKill := make(map[storj.NodeID]bool)
 		nodesToKeepAlive := make(map[storj.NodeID]bool)
+
 		for i, piece := range remotePieces {
 			if i >= toKill {
 				nodesToKeepAlive[piece.NodeId] = true
@@ -84,33 +86,32 @@ func TestSegmentStoreRepair(t *testing.T) {
 			nodesToKill[piece.NodeId] = true
 			lostPieces = append(lostPieces, piece.GetPieceNum())
 		}
+
 		for _, node := range planet.StorageNodes {
 			if nodesToKill[node.ID()] {
 				err = planet.StopPeer(node)
-				require.NoError(t, err)
+				assert.NoError(t, err)
 				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			}
 		}
 
-		// repair segment
-		os := satellite.Orders.Service
-		oc := satellite.Overlay.Service
-		ec := ecclient.NewClient(satellite.Transport, 0)
-		repairer := segments.NewSegmentRepairer(pdb, os, oc, ec, satellite.Identity, time.Minute)
-		assert.NotNil(t, repairer)
+		satellite.Repair.Checker.Loop.Restart()
+		satellite.Repair.Checker.Loop.TriggerWait()
+		satellite.Repair.Checker.Loop.Pause()
+		satellite.Repair.Repairer.Loop.Restart()
+		satellite.Repair.Repairer.Loop.TriggerWait()
+		satellite.Repair.Repairer.Loop.Pause()
+		satellite.Repair.Repairer.Limiter.Wait()
 
-		err = repairer.Repair(ctx, path, lostPieces)
-		assert.NoError(t, err)
-
-		// kill one of the nodes kept alive to ensure repair worked
+		// kill nodes kept alive to ensure repair worked
 		for _, node := range planet.StorageNodes {
 			if nodesToKeepAlive[node.ID()] {
 				err = planet.StopPeer(node)
-				require.NoError(t, err)
+				assert.NoError(t, err)
+
 				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
-				require.NoError(t, err)
-				break
+				assert.NoError(t, err)
 			}
 		}
 
