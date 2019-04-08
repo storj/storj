@@ -331,7 +331,7 @@ func (cache *Cache) UpdateStats(ctx context.Context, request *UpdateRequest) (st
 	return cache.db.UpdateStats(ctx, request)
 }
 
-// UpdateOperator updates the email and wallet for a given node ID for satellite payments.
+// UpdateNodeInfo updates the email and wallet for a given node ID for satellite payments.
 func (cache *Cache) UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return cache.db.UpdateNodeInfo(ctx, node, nodeInfo)
