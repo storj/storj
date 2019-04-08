@@ -17,14 +17,9 @@ import (
 )
 
 const (
-	// OverlayBucket is the string representing the bucket used for a bolt-backed overlay dht cache
-	OverlayBucket = "overlay"
 	// OnlineWindow is the maximum amount of time that can pass without seeing a node before that node is considered offline
 	OnlineWindow = 1 * time.Hour
 )
-
-// ErrIncorrectVersion is returned when the version is empty or not properly formatted
-var ErrIncorrectVersion = errs.New("incorrect version")
 
 // ErrEmptyNode is returned when the nodeID is empty
 var ErrEmptyNode = errs.New("empty node ID")
@@ -125,6 +120,7 @@ type NodeDossier struct {
 	Operator   pb.NodeOperator
 	Capacity   pb.NodeCapacity
 	Reputation NodeStats
+	Version    NodeVersion
 }
 
 // Online checks if a node is online based on the collected statistics.
@@ -147,6 +143,16 @@ type NodeStats struct {
 	UptimeCount        int64
 	LastContactSuccess time.Time
 	LastContactFailure time.Time
+}
+
+// NodeVersion contains the version information about a node.
+type NodeVersion struct {
+	Major     int64
+	Minor     int64
+	Patch     int64
+	Hash      string
+	Timestamp time.Time
+	Release   bool
 }
 
 // Cache is used to store and handle node information

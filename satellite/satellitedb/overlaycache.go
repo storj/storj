@@ -368,20 +368,7 @@ func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID,
 			return nil, errUptime.Wrap(errs.Combine(err, tx.Rollback()))
 		}
 
-		var semver version.SemVer
-		var verTime time.Time
-		if startingStats.Version.Version != "" {
-			parsed, err := version.NewSemVer(startingStats.Version.Version)
-			if err != nil {
-				return nil, errs.Combine(Error.New("failed to parse semver: %v", err), tx.Rollback())
-			}
-			semver = *parsed
-			verTime, err = ptypes.Timestamp(startingStats.Version.Timestamp)
-			if err != nil {
-				return nil, errs.Combine(Error.New("failed to parse timestamp: %v", err), tx.Rollback())
-			}
-		}
-
+		ver := &overlay.NodeVersion{}
 		updateFields := dbx.Node_Update_Fields{
 			AuditSuccessCount:  dbx.Node_AuditSuccessCount(startingStats.AuditSuccessCount),
 			TotalAuditCount:    dbx.Node_TotalAuditCount(startingStats.AuditCount),
@@ -389,12 +376,12 @@ func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID,
 			UptimeSuccessCount: dbx.Node_UptimeSuccessCount(startingStats.UptimeSuccessCount),
 			TotalUptimeCount:   dbx.Node_TotalUptimeCount(startingStats.UptimeCount),
 			UptimeRatio:        dbx.Node_UptimeRatio(uptimeRatio),
-			Major:              dbx.Node_Major(semver.Major),
-			Minor:              dbx.Node_Minor(semver.Minor),
-			Patch:              dbx.Node_Patch(semver.Patch),
-			Hash:               dbx.Node_Hash(startingStats.Version.CommitHash),
-			Timestamp:          dbx.Node_Timestamp(verTime),
-			Release:            dbx.Node_Release(startingStats.Version.Release),
+			Major:              dbx.Node_Major(ver.Major),
+			Minor:              dbx.Node_Minor(ver.Minor),
+			Patch:              dbx.Node_Patch(ver.Patch),
+			Hash:               dbx.Node_Hash(ver.Hash),
+			Timestamp:          dbx.Node_Timestamp(ver.Timestamp),
+			Release:            dbx.Node_Release(ver.Release),
 		}
 
 		dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
@@ -403,7 +390,7 @@ func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID,
 		}
 	}
 
-	return getNodeStats(nodeID, dbNode), Error.Wrap(tx.Commit())
+	return getNodeStats(dbNode), Error.Wrap(tx.Commit())
 }
 
 // FindInvalidNodes finds a subset of storagenodes that fail to meet minimum reputation requirements
@@ -516,7 +503,7 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 
-	nodeStats := getNodeStats(nodeID, dbNode)
+	nodeStats := getNodeStats(dbNode)
 	return nodeStats, Error.Wrap(tx.Commit())
 }
 
@@ -577,7 +564,7 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 
-	nodeStats := getNodeStats(nodeID, dbNode)
+	nodeStats := getNodeStats(dbNode)
 	return nodeStats, Error.Wrap(tx.Commit())
 }
 
@@ -590,7 +577,6 @@ func convertDBNode(info *dbx.Node) (*overlay.NodeDossier, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	node := &overlay.NodeDossier{
 		Node: pb.Node{
 			Id: id,
@@ -620,6 +606,14 @@ func convertDBNode(info *dbx.Node) (*overlay.NodeDossier, error) {
 			LastContactSuccess: info.LastContactSuccess,
 			LastContactFailure: info.LastContactFailure,
 		},
+		Version: overlay.NodeVersion{
+			Major:     info.Major,
+			Minor:     info.Minor,
+			Patch:     info.Patch,
+			Hash:      info.Hash,
+			Timestamp: info.Timestamp,
+			Release:   info.Release,
+		},
 	}
 
 	if time.Now().Sub(info.LastContactSuccess) < 1*time.Hour && info.LastContactSuccess.After(info.LastContactFailure) {
@@ -629,7 +623,7 @@ func convertDBNode(info *dbx.Node) (*overlay.NodeDossier, error) {
 	return node, nil
 }
 
-func getNodeStats(nodeID storj.NodeID, dbNode *dbx.Node) *overlay.NodeStats {
+func getNodeStats(dbNode *dbx.Node) *overlay.NodeStats {
 	nodeStats := &overlay.NodeStats{
 		Latency90:          dbNode.Latency90,
 		AuditSuccessRatio:  dbNode.AuditSuccessRatio,
