@@ -28,6 +28,7 @@ type Project struct {
 	metainfo      metainfo.Client
 	project       *kvmetainfo.Project
 	maxInlineSize memory.Size
+	encryptionKey *storj.Key
 }
 
 // BucketConfig holds information about a bucket's configuration. This is

@@ -119,7 +119,7 @@ func NewUplink(ctx context.Context, cfg *Config) (*Uplink, error) {
 }
 
 // OpenProject returns a Project handle with the given APIKey
-func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey APIKey) (p *Project, err error) {
+func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, encryptionKey *storj.Key, apiKey APIKey) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	metainfo, err := metainfo.NewClient(ctx, u.tc, satelliteAddr, apiKey.key)
@@ -127,10 +127,7 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey A
 		return nil, err
 	}
 
-	// TODO: we shouldn't need segment or stream stores to manage buckets.
-	// We won't make any use of them. But you can't skimp on any of this
-	// setup, or things will break as they stand now.
-	encryptionKeyThatWeWontEvenUse := &storj.Key{}
+	// TODO: we shouldn't really need encoding parameters to manage buckets.
 	whoCares := 1
 	fc, err := infectious.NewFEC(whoCares, whoCares)
 	if err != nil {
@@ -142,7 +139,7 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey A
 	}
 	segments := segments.NewSegmentStore(metainfo, nil, rs, maxBucketMetaSize.Int(), maxBucketMetaSize.Int64())
 	streams, err := streams.NewStreamStore(segments, maxBucketMetaSize.Int64(),
-		encryptionKeyThatWeWontEvenUse, whoCares, storj.Unencrypted)
+		encryptionKey, memory.KiB.Int(), storj.AESGCM)
 	if err != nil {
 		return nil, Error.New("failed to create stream store: %v", err)
 	}
@@ -153,6 +150,7 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey A
 		metainfo:      metainfo,
 		project:       kvmetainfo.NewProject(buckets.NewStore(streams)),
 		maxInlineSize: u.cfg.Volatile.MaxInlineSize,
+		encryptionKey: encryptionKey,
 	}, nil
 }
 

@@ -24,7 +24,7 @@ type testConfig struct {
 	uplinkCfg Config
 }
 
-func testPlanetWithLibUplink(t *testing.T, cfg testConfig,
+func testPlanetWithLibUplink(t *testing.T, cfg testConfig, encKey *storj.Key,
 	testFunc func(*testing.T, *testcontext.Context, *testplanet.Planet, *Project)) {
 	if cfg.planetCfg == nil {
 		cfg.planetCfg = &testplanet.Config{SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1}
@@ -54,7 +54,7 @@ func testPlanetWithLibUplink(t *testing.T, cfg testConfig,
 		t.Fatalf("could not create new Uplink object: %v", err)
 	}
 	defer ctx.Check(uplink.Close)
-	proj, err := uplink.OpenProject(ctx, satellite.Addr(), apiKey)
+	proj, err := uplink.OpenProject(ctx, satellite.Addr(), encKey, apiKey)
 	if err != nil {
 		t.Fatalf("could not open project from libuplink under testplanet: %v", err)
 	}
@@ -96,7 +96,7 @@ func TestBucketAttrs(t *testing.T) {
 		}
 	)
 
-	testPlanetWithLibUplink(t, testConfig{},
+	testPlanetWithLibUplink(t, testConfig{}, &access.Key,
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, proj *Project) {
 			before := time.Now()
 			bucket, err := proj.CreateBucket(ctx, bucketName, &inBucketConfig)
@@ -155,7 +155,7 @@ func TestBucketAttrsApply(t *testing.T) {
 	// so our test object will not be inlined (otherwise it will lose its RS params)
 	testConfig.uplinkCfg.Volatile.MaxInlineSize = 1
 
-	testPlanetWithLibUplink(t, testConfig,
+	testPlanetWithLibUplink(t, testConfig, &access.Key,
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, proj *Project) {
 			_, err := proj.CreateBucket(ctx, bucketName, &inBucketConfig)
 			require.NoError(t, err)
