@@ -17,10 +17,8 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/fpath"
+	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/storage/streams"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/stream"
 )
 
 var (
@@ -84,20 +82,30 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 		return fmt.Errorf("source cannot be a directory: %s", src)
 	}
 
-	metainfo, streams, err := cfg.Metainfo(ctx)
+	project, err := cfg.GetProject(ctx)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		err = project.Close()
+		if err != nil {
+			fmt.Printf("Error closing project uplink: %+v\n", err)
+		}
+	}()
 
-	createInfo := storj.CreateObject{
-		RedundancyScheme: cfg.GetRedundancyScheme(),
-		EncryptionScheme: cfg.GetEncryptionScheme(),
-		Expires:          expiration.UTC(),
-	}
-	obj, err := metainfo.CreateObject(ctx, dst.Bucket(), dst.Path(), &createInfo)
+	var access libuplink.EncryptionAccess
+	copy(access.Key[:], []byte(cfg.Enc.Key))
+
+	bucket, err := project.OpenBucket(ctx, dst.Bucket(), &access, 0)
 	if err != nil {
-		return convertError(err, dst)
+		return err
 	}
+	defer func() {
+		err := bucket.Close()
+		if err != nil {
+			fmt.Printf("Error closing bucket: %+v\n", err)
+		}
+	}()
 
 	reader := io.Reader(file)
 	var bar *progressbar.ProgressBar
@@ -107,8 +115,13 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 		reader = bar.NewProxyReader(reader)
 	}
 
-	err = uploadStream(ctx, streams, obj, reader)
-	if err != nil {
+	opts := &libuplink.UploadOptions{
+		Expires: expiration.UTC(),
+	}
+	opts.Volatile.RedundancyScheme = cfg.GetRedundancyScheme()
+	opts.Volatile.EncryptionParameters = cfg.GetEncryptionScheme().ToEncryptionParameters()
+
+	if err := bucket.UploadObject(ctx, dst.Path(), reader, opts); err != nil {
 		return err
 	}
 
@@ -121,19 +134,6 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 	return nil
 }
 
-func uploadStream(ctx context.Context, streams streams.Store, mutableObject storj.MutableObject, reader io.Reader) error {
-	mutableStream, err := mutableObject.CreateStream(ctx)
-	if err != nil {
-		return err
-	}
-
-	upload := stream.NewUpload(ctx, mutableStream, streams)
-
-	_, err = io.Copy(upload, reader)
-
-	return errs.Combine(err, upload.Close())
-}
-
 // download transfers s3 compatible object src to dst on local machine
 func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress bool) (err error) {
 	if src.IsLocal() {
@@ -144,27 +144,50 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 		return fmt.Errorf("destination must be local path: %s", dst)
 	}
 
-	metainfo, streams, err := cfg.Metainfo(ctx)
+	project, err := cfg.GetProject(ctx)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		err = project.Close()
+		if err != nil {
+			fmt.Printf("Error closing project uplink: %+v\n", err)
+		}
+	}()
 
-	readOnlyStream, err := metainfo.GetObjectStream(ctx, src.Bucket(), src.Path())
+	var access libuplink.EncryptionAccess
+	copy(access.Key[:], []byte(cfg.Enc.Key))
+
+	bucket, err := project.OpenBucket(ctx, dst.Bucket(), &access, 0)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err := bucket.Close()
+		if err != nil {
+			fmt.Printf("Error closing bucket: %+v\n", err)
+		}
+	}()
+
+	object, err := bucket.OpenObject(ctx, src.Path())
 	if err != nil {
 		return convertError(err, src)
 	}
 
-	download := stream.NewDownload(ctx, readOnlyStream, streams)
-	defer func() { err = errs.Combine(err, download.Close()) }()
+	rc, err := object.DownloadRange(ctx, 0, object.Meta.Size)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errs.Combine(err, rc.Close()) }()
 
 	var bar *progressbar.ProgressBar
-	var reader io.Reader
+	var reader io.ReadCloser
 	if showProgress {
-		bar = progressbar.New(int(readOnlyStream.Info().Size)).SetUnits(progressbar.U_BYTES)
+		bar = progressbar.New(int(object.Meta.Size)).SetUnits(progressbar.U_BYTES)
 		bar.Start()
-		reader = bar.NewProxyReader(download)
+		reader = bar.NewProxyReader(rc)
 	} else {
-		reader = download
+		reader = rc
 	}
 
 	if fileInfo, err := os.Stat(dst.Path()); err == nil && fileInfo.IsDir() {
@@ -199,7 +222,7 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 }
 
 // copy copies s3 compatible object src to s3 compatible object dst
-func copy(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err error) {
+func copyObject(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err error) {
 	if src.IsLocal() {
 		return fmt.Errorf("source must be Storj URL: %s", src)
 	}
@@ -208,27 +231,50 @@ func copy(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err error) {
 		return fmt.Errorf("destination must be Storj URL: %s", dst)
 	}
 
-	metainfo, streams, err := cfg.Metainfo(ctx)
+	project, err := cfg.GetProject(ctx)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		err = project.Close()
+		if err != nil {
+			fmt.Printf("Error closing project uplink: %+v\n", err)
+		}
+	}()
 
-	readOnlyStream, err := metainfo.GetObjectStream(ctx, src.Bucket(), src.Path())
+	var access libuplink.EncryptionAccess
+	copy(access.Key[:], []byte(cfg.Enc.Key))
+
+	bucket, err := project.OpenBucket(ctx, dst.Bucket(), &access, 0)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err := bucket.Close()
+		if err != nil {
+			fmt.Printf("Error closing bucket: %+v\n", err)
+		}
+	}()
+
+	object, err := bucket.OpenObject(ctx, src.Path())
 	if err != nil {
 		return convertError(err, src)
 	}
 
-	download := stream.NewDownload(ctx, readOnlyStream, streams)
-	defer func() { err = errs.Combine(err, download.Close()) }()
+	rc, err := object.DownloadRange(ctx, 0, object.Meta.Size)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errs.Combine(err, rc.Close()) }()
 
 	var bar *progressbar.ProgressBar
 	var reader io.Reader
 	if *progress {
-		bar = progressbar.New(int(readOnlyStream.Info().Size)).SetUnits(progressbar.U_BYTES)
+		bar = progressbar.New(int(object.Meta.Size)).SetUnits(progressbar.U_BYTES)
 		bar.Start()
-		reader = bar.NewProxyReader(download)
+		reader = bar.NewProxyReader(rc)
 	} else {
-		reader = download
+		reader = rc
 	}
 
 	// if destination object name not specified, default to source object name
@@ -236,16 +282,14 @@ func copy(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err error) {
 		dst = dst.Join(src.Base())
 	}
 
-	createInfo := storj.CreateObject{
-		RedundancyScheme: cfg.GetRedundancyScheme(),
-		EncryptionScheme: cfg.GetEncryptionScheme(),
+	opts := &libuplink.UploadOptions{
+		Expires:     object.Meta.Expires,
+		ContentType: object.Meta.ContentType,
+		Metadata:    object.Meta.Metadata,
 	}
-	obj, err := metainfo.CreateObject(ctx, dst.Bucket(), dst.Path(), &createInfo)
-	if err != nil {
-		return convertError(err, dst)
-	}
-
-	err = uploadStream(ctx, streams, obj, reader)
+	opts.Volatile.RedundancyScheme = cfg.GetRedundancyScheme()
+	opts.Volatile.EncryptionParameters = cfg.GetEncryptionScheme().ToEncryptionParameters()
+	err = bucket.UploadObject(ctx, dst.Path(), reader, opts)
 	if err != nil {
 		return err
 	}
@@ -296,5 +340,5 @@ func copyMain(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// if copying from one remote location to another
-	return copy(ctx, src, dst)
+	return copyObject(ctx, src, dst)
 }

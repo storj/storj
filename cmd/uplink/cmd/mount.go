@@ -6,6 +6,7 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -21,10 +22,9 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
+	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/stream"
 )
 
 func init() {
@@ -44,7 +44,7 @@ func mountBucket(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	ctx := process.Ctx(cmd)
-	metainfo, streams, err := cfg.Metainfo(ctx)
+	project, err := cfg.GetProject(ctx)
 	if err != nil {
 		return err
 	}
@@ -61,12 +61,15 @@ func mountBucket(cmd *cobra.Command, args []string) (err error) {
 		return fmt.Errorf("No bucket specified. Use format sj://bucket/")
 	}
 
-	bucket, err := metainfo.GetBucket(ctx, src.Bucket())
+	var access libuplink.EncryptionAccess
+	copy(access.Key[:], []byte(cfg.Enc.Key))
+
+	bucket, err := project.OpenBucket(ctx, src.Bucket(), &access, 0)
 	if err != nil {
 		return convertError(err, src)
 	}
 
-	nfs := pathfs.NewPathNodeFs(newStorjFS(ctx, metainfo, streams, bucket), nil)
+	nfs := pathfs.NewPathNodeFs(newStorjFS(ctx, bucket), nil)
 	conn := nodefs.NewFileSystemConnector(nfs.Root(), nil)
 
 	// workaround to avoid async (unordered) reading
@@ -93,19 +96,15 @@ func mountBucket(cmd *cobra.Command, args []string) (err error) {
 
 type storjFS struct {
 	ctx          context.Context
-	metainfo     storj.Metainfo
-	streams      streams.Store
-	bucket       storj.Bucket
+	bucket       *libuplink.Bucket
 	createdFiles map[string]*storjFile
 	nodeFS       *pathfs.PathNodeFs
 	pathfs.FileSystem
 }
 
-func newStorjFS(ctx context.Context, metainfo storj.Metainfo, streams streams.Store, bucket storj.Bucket) *storjFS {
+func newStorjFS(ctx context.Context, bucket *libuplink.Bucket) *storjFS {
 	return &storjFS{
 		ctx:          ctx,
-		metainfo:     metainfo,
-		streams:      streams,
 		bucket:       bucket,
 		createdFiles: make(map[string]*storjFile),
 		FileSystem:   pathfs.NewDefaultFileSystem(),
@@ -136,14 +135,14 @@ func (sf *storjFS) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse
 		return &fuse.Attr{Mode: fuse.S_IFDIR | 0755}, fuse.OK
 	}
 
-	object, err := sf.metainfo.GetObject(sf.ctx, sf.bucket.Name, name)
+	object, err := sf.bucket.OpenObject(sf.ctx, sf.bucket.Name)
 	if err != nil && !storj.ErrObjectNotFound.Has(err) {
 		return nil, fuse.EIO
 	}
 
 	// file not found so maybe it's a prefix/directory
 	if err != nil {
-		list, err := sf.metainfo.ListObjects(sf.ctx, sf.bucket.Name, storj.ListOptions{Direction: storj.After, Prefix: name, Limit: 1})
+		list, err := sf.bucket.ListObjects(sf.ctx, &storj.ListOptions{Direction: storj.After, Prefix: name, Limit: 1})
 		if err != nil {
 			return nil, fuse.EIO
 		}
@@ -159,8 +158,8 @@ func (sf *storjFS) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse
 	return &fuse.Attr{
 		Owner: *fuse.CurrentOwner(),
 		Mode:  fuse.S_IFREG | 0644,
-		Size:  uint64(object.Size),
-		Mtime: uint64(object.Modified.Unix()),
+		Size:  uint64(object.Meta.Size),
+		Mtime: uint64(object.Meta.Created.Unix()),
 	}, fuse.OK
 }
 
@@ -192,31 +191,9 @@ func (sf *storjFS) OpenDir(name string, context *fuse.Context) (c []fuse.DirEntr
 func (sf *storjFS) Mkdir(name string, mode uint32, context *fuse.Context) fuse.Status {
 	zap.S().Debug("Mkdir: ", name)
 
-	createInfo := storj.CreateObject{
-		ContentType:      "application/directory",
-		RedundancyScheme: cfg.GetRedundancyScheme(),
-		EncryptionScheme: cfg.GetEncryptionScheme(),
-	}
-	object, err := sf.metainfo.CreateObject(sf.ctx, sf.bucket.Name, name+"/", &createInfo)
-	if err != nil {
-		return fuse.EIO
-	}
+	buf := bytes.NewBuffer([]byte(""))
 
-	// TODO: Perhaps we should not create a stream for an empty object.
-	// This would be possible after we replace the streams.Store.
-	mutableStream, err := object.CreateStream(sf.ctx)
-	if err != nil {
-		return fuse.EIO
-	}
-
-	upload := stream.NewUpload(sf.ctx, mutableStream, sf.streams)
-	defer func() {
-		if err := upload.Close(); err != nil {
-			zap.S().Errorf("Failed to close file: %s", err)
-		}
-	}()
-
-	_, err = upload.Write(nil)
+	err := sf.bucket.UploadObject(sf.ctx, name+"/", buf, nil)
 	if err != nil {
 		return fuse.EIO
 	}
@@ -229,7 +206,7 @@ func (sf *storjFS) Rmdir(name string, context *fuse.Context) (code fuse.Status) 
 
 	err := sf.listObjects(sf.ctx, name, true, func(items []storj.Object) error {
 		for _, item := range items {
-			err := sf.metainfo.DeleteObject(sf.ctx, sf.bucket.Name, storj.JoinPaths(name, item.Path))
+			err := sf.bucket.DeleteObject(sf.ctx, storj.JoinPaths(name, item.Path))
 			if err != nil {
 				return err
 			}
@@ -246,13 +223,13 @@ func (sf *storjFS) Rmdir(name string, context *fuse.Context) (code fuse.Status) 
 
 func (sf *storjFS) Open(name string, flags uint32, context *fuse.Context) (file nodefs.File, code fuse.Status) {
 	zap.S().Debug("Open: ", name)
-	return newStorjFile(sf.ctx, name, sf.metainfo, sf.streams, sf.bucket, false, sf), fuse.OK
+	return newStorjFile(sf.ctx, name, sf.bucket, false, sf), fuse.OK
 }
 
 func (sf *storjFS) Create(name string, flags uint32, mode uint32, context *fuse.Context) (file nodefs.File, code fuse.Status) {
 	zap.S().Debug("Create: ", name)
 
-	return sf.addCreatedFile(name, newStorjFile(sf.ctx, name, sf.metainfo, sf.streams, sf.bucket, true, sf)), fuse.OK
+	return sf.addCreatedFile(name, newStorjFile(sf.ctx, name, sf.bucket, true, sf)), fuse.OK
 }
 
 func (sf *storjFS) addCreatedFile(name string, file *storjFile) *storjFile {
@@ -268,7 +245,7 @@ func (sf *storjFS) listObjects(ctx context.Context, name string, recursive bool,
 	startAfter := ""
 
 	for {
-		list, err := sf.metainfo.ListObjects(sf.ctx, sf.bucket.Name, storj.ListOptions{
+		list, err := sf.bucket.ListObjects(sf.ctx, &storj.ListOptions{
 			Direction: storj.After,
 			Cursor:    startAfter,
 			Prefix:    name,
@@ -296,7 +273,7 @@ func (sf *storjFS) listObjects(ctx context.Context, name string, recursive bool,
 func (sf *storjFS) Unlink(name string, context *fuse.Context) (code fuse.Status) {
 	zap.S().Debug("Unlink: ", name)
 
-	err := sf.metainfo.DeleteObject(sf.ctx, sf.bucket.Name, name)
+	err := sf.bucket.DeleteObject(sf.ctx, name)
 	if err != nil {
 		if storj.ErrObjectNotFound.Has(err) {
 			return fuse.ENOENT
@@ -309,9 +286,7 @@ func (sf *storjFS) Unlink(name string, context *fuse.Context) (code fuse.Status)
 
 type storjFile struct {
 	ctx             context.Context
-	metainfo        storj.Metainfo
-	streams         streams.Store
-	bucket          storj.Bucket
+	bucket          *libuplink.Bucket
 	created         bool
 	name            string
 	size            uint64
@@ -325,17 +300,15 @@ type storjFile struct {
 	nodefs.File
 }
 
-func newStorjFile(ctx context.Context, name string, metainfo storj.Metainfo, streams streams.Store, bucket storj.Bucket, created bool, FS *storjFS) *storjFile {
+func newStorjFile(ctx context.Context, name string, bucket *libuplink.Bucket, created bool, FS *storjFS) *storjFile {
 	return &storjFile{
-		name:     name,
-		ctx:      ctx,
-		metainfo: metainfo,
-		streams:  streams,
-		bucket:   bucket,
-		mtime:    uint64(time.Now().Unix()),
-		created:  created,
-		FS:       FS,
-		File:     nodefs.NewDefaultFile(),
+		name:    name,
+		ctx:     ctx,
+		bucket:  bucket,
+		mtime:   uint64(time.Now().Unix()),
+		created: created,
+		FS:      FS,
+		File:    nodefs.NewDefaultFile(),
 	}
 }
 
@@ -399,13 +372,12 @@ func (f *storjFile) Write(data []byte, off int64) (uint32, fuse.Status) {
 
 func (f *storjFile) getReader(off int64) (io.ReadCloser, error) {
 	if f.reader == nil {
-		readOnlyStream, err := f.metainfo.GetObjectStream(f.ctx, f.bucket.Name, f.name)
+		object, err := f.bucket.OpenObject(f.ctx, f.name)
 		if err != nil {
 			return nil, err
 		}
 
-		download := stream.NewDownload(f.ctx, readOnlyStream, f.streams)
-		_, err = download.Seek(off, io.SeekStart)
+		download, err := object.DownloadRange(f.ctx, off, object.Meta.Size-off)
 		if err != nil {
 			return nil, err
 		}
@@ -420,24 +392,10 @@ func (f *storjFile) getWriter(off int64) (io.Writer, error) {
 		f.size = 0
 		f.closeWriter()
 
-		createInfo := storj.CreateObject{
-			RedundancyScheme: cfg.GetRedundancyScheme(),
-			EncryptionScheme: cfg.GetEncryptionScheme(),
-		}
-		var err error
-		f.mutableObject, err = f.metainfo.CreateObject(f.ctx, f.bucket.Name, f.name, &createInfo)
-		if err != nil {
-			return nil, err
-		}
-
-		mutableStream, err := f.mutableObject.CreateStream(f.ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		f.writer = stream.NewUpload(f.ctx, mutableStream, f.streams)
 	}
-	return f.writer, nil
+
+	return f.bucket.StreamObject(f.ctx, f.name, nil)
+
 }
 
 func (f *storjFile) Flush() fuse.Status {

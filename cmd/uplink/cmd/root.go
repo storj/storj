@@ -10,9 +10,9 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/internal/fpath"
+	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink"
 )
@@ -25,6 +25,13 @@ type UplinkFlags struct {
 
 var cfg UplinkFlags
 
+// Client holds the libuplink Uplink and Config information
+type Client struct {
+	Uplink *libuplink.Uplink
+	Config *libuplink.Config
+	Flags  *UplinkFlags
+}
+
 //RootCmd represents the base CLI command when called without any subcommands
 var RootCmd = &cobra.Command{
 	Use:   "uplink",
@@ -36,32 +43,50 @@ func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
 	root.AddCommand(cmd)
 
 	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
-	defaultIdentityDir := fpath.ApplicationDir("storj", "identity", "uplink")
 
 	confDirParam := cfgstruct.FindConfigDirParam()
 	if confDirParam != "" {
 		defaultConfDir = confDirParam
 	}
-	identityDirParam := cfgstruct.FindIdentityDirParam()
-	if identityDirParam != "" {
-		defaultIdentityDir = identityDirParam
-	}
 
-	cfgstruct.Bind(cmd.Flags(), &cfg, isDev, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(cmd.Flags(), &cfg, isDev, cfgstruct.ConfDir(defaultConfDir))
 	return cmd
 }
 
-// Metainfo loads the storj.Metainfo
-//
-// Temporarily it also returns an instance of streams.Store until we improve
-// the metainfo and streas implementations.
-func (c *UplinkFlags) Metainfo(ctx context.Context) (storj.Metainfo, streams.Store, error) {
-	identity, err := c.Identity.Load()
+// NewUplink returns a pointer to a new Client with a Config and Uplink pointer on it and an error.
+func (c *UplinkFlags) NewUplink(ctx context.Context) (*libuplink.Uplink, error) {
+	return libuplink.NewUplink(ctx, nil)
+}
+
+// NewUplinkWithConfigs allows configs to be passed through to libuplink from the command line flags
+func NewUplinkWithConfigs(ctx context.Context, config cfgstruct.FlagSet) (*libuplink.Uplink, error) {
+	// TODO (dylan): Add a function to allow passing a FlagSet to a NewUplink.
+	panic("TODO")
+}
+
+// GetProject returns a *libuplink.Project for interacting with a specific project
+func (c *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, error) {
+	apiKey, err := libuplink.ParseAPIKey(c.Client.APIKey)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return c.GetMetainfo(ctx, identity)
+	satelliteAddr := c.Client.SatelliteAddr
+
+	uplink, err := c.NewUplink(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return uplink.OpenProject(ctx, satelliteAddr, apiKey)
+}
+
+func (c *Client) getAPIKey() (libuplink.APIKey, error) {
+	return libuplink.ParseAPIKey(c.Flags.Client.APIKey)
+}
+
+func (c *Client) getSatelliteAddr() string {
+	return c.Flags.Client.SatelliteAddr
 }
 
 func convertError(err error, path fpath.FPath) error {

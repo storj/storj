@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/internal/fpath"
+	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
 )
@@ -31,10 +32,19 @@ func init() {
 func list(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
-	metainfo, _, err := cfg.Metainfo(ctx)
+	project, err := cfg.GetProject(ctx)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		err = project.Close()
+		if err != nil {
+			fmt.Printf("Error closing project uplink: %+v\n", err)
+		}
+	}()
+
+	var access libuplink.EncryptionAccess
+	copy(access.Key[:], []byte(cfg.Enc.Key))
 
 	if len(args) > 0 {
 		src, err := fpath.New(args[0])
@@ -46,7 +56,12 @@ func list(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("No bucket specified, use format sj://bucket/")
 		}
 
-		err = listFiles(ctx, metainfo, src, false)
+		bucket, err := project.OpenBucket(ctx, src.String(), &access, 0)
+		if err != nil {
+			return err
+		}
+
+		err = listFiles(ctx, bucket, src, false)
 
 		return convertError(err, src)
 	}
@@ -55,7 +70,7 @@ func list(cmd *cobra.Command, args []string) error {
 	noBuckets := true
 
 	for {
-		list, err := metainfo.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After, Cursor: startAfter})
+		list, err := project.ListBuckets(ctx, &storj.BucketListOptions{Direction: storj.After, Cursor: startAfter})
 		if err != nil {
 			return err
 		}
@@ -68,7 +83,18 @@ func list(cmd *cobra.Command, args []string) error {
 					if err != nil {
 						return err
 					}
-					err = listFiles(ctx, metainfo, prefix, true)
+
+					bucket, err := project.OpenBucket(ctx, bucket.Name, &access, 0)
+					if err != nil {
+						return err
+					}
+
+					err = listFiles(ctx, bucket, prefix, true)
+					if err != nil {
+						return err
+					}
+
+					err = bucket.Close()
 					if err != nil {
 						return err
 					}
@@ -88,11 +114,11 @@ func list(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func listFiles(ctx context.Context, metainfo storj.Metainfo, prefix fpath.FPath, prependBucket bool) error {
+func listFiles(ctx context.Context, bucket *libuplink.Bucket, prefix fpath.FPath, prependBucket bool) error {
 	startAfter := ""
 
 	for {
-		list, err := metainfo.ListObjects(ctx, prefix.Bucket(), storj.ListOptions{
+		list, err := bucket.ListObjects(ctx, &storj.ListOptions{
 			Direction: storj.After,
 			Cursor:    startAfter,
 			Prefix:    prefix.Path(),

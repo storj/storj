@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/internal/fpath"
+	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
 )
@@ -41,12 +42,26 @@ func deleteBucket(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Nested buckets not supported, use format sj://bucket/")
 	}
 
-	metainfo, _, err := cfg.Metainfo(ctx)
+	project, err := cfg.GetProject(ctx)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		err = project.Close()
+		if err != nil {
+			fmt.Printf("Error closing project uplink: %+v\n", err)
+		}
+	}()
 
-	list, err := metainfo.ListObjects(ctx, dst.Bucket(), storj.ListOptions{Direction: storj.After, Recursive: true, Limit: 1})
+	var access libuplink.EncryptionAccess
+	copy(access.Key[:], []byte(cfg.Enc.Key))
+
+	bucket, err := project.OpenBucket(ctx, dst.Bucket(), &access, 0)
+	if err != nil {
+		return convertError(err, dst)
+	}
+
+	list, err := bucket.ListObjects(ctx, &storj.ListOptions{Direction: storj.After, Recursive: true, Limit: 1})
 	if err != nil {
 		return convertError(err, dst)
 	}
@@ -55,7 +70,7 @@ func deleteBucket(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Bucket not empty: %s", dst.Bucket())
 	}
 
-	err = metainfo.DeleteBucket(ctx, dst.Bucket())
+	err = project.DeleteBucket(ctx, dst.Bucket())
 	if err != nil {
 		return convertError(err, dst)
 	}

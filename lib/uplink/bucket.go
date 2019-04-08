@@ -122,6 +122,36 @@ func (b *Bucket) UploadObject(ctx context.Context, path storj.Path, data io.Read
 	return errs.Combine(err, upload.Close())
 }
 
+// StreamObject streams a new object, if authorized.
+func (b *Bucket) StreamObject(ctx context.Context, path storj.Path, opts *UploadOptions) (w io.Writer, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if opts == nil {
+		opts = &UploadOptions{}
+	}
+
+	createInfo := storj.CreateObject{
+		ContentType:      opts.ContentType,
+		Metadata:         opts.Metadata,
+		Expires:          opts.Expires,
+		RedundancyScheme: opts.Volatile.RedundancyScheme,
+		EncryptionScheme: opts.Volatile.EncryptionParameters.ToEncryptionScheme(),
+	}
+
+	obj, err := b.metainfo.CreateObject(ctx, b.Name, path, &createInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	mutableStream, err := obj.CreateStream(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return stream.NewUpload(ctx, mutableStream, b.streams), nil
+
+}
+
 // DeleteObject removes an object, if authorized.
 func (b *Bucket) DeleteObject(ctx context.Context, path storj.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
