@@ -16,7 +16,7 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/accounting"
-	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -65,18 +65,16 @@ func TestCalculateAtRestData(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		tallySvc := planet.Satellites[0].Accounting.Tally
 		uplink := planet.Uplinks[0]
-		uplinkConfig := uplink.GetConfig(planet.Satellites[0])
-		blockSize := uplinkConfig.Enc.BlockSize.Int()
-		uplinkRS := uplinkConfig.GetRedundancyScheme()
 
 		// Setup: create 50KiB of data for the uplink to upload
 		expectedData := make([]byte, 50*memory.KiB)
 		_, err := rand.Read(expectedData)
 		require.NoError(t, err)
 
-		// Setup: when the uploaded data gets encrypted, this much padding is added to the size
-		padSize := eestream.MakePadding(int64(len(expectedData)), blockSize)
-		expectedTotalBytes := len(expectedData) + len(padSize)
+		// Setup: get the expected size of the data that will be stored in pointer
+		uplinkConfig := uplink.GetConfig(planet.Satellites[0])
+		expectedTotalBytes, err := encryption.CalcEncryptedSize(int64(len(expectedData)), uplinkConfig.GetEncryptionScheme())
+		require.NoError(t, err)
 
 		// Setup: The data in this tally should match the pointer that the uplink.upload created
 		expectedTally := accounting.BucketTally{
@@ -84,9 +82,9 @@ func TestCalculateAtRestData(t *testing.T) {
 			RemoteSegments: 1,
 			Files:          1,
 			RemoteFiles:    1,
-			Bytes:          int64(expectedTotalBytes),
-			RemoteBytes:    int64(expectedTotalBytes),
-			MetadataSize:   112,
+			Bytes:          expectedTotalBytes,
+			RemoteBytes:    expectedTotalBytes,
+			MetadataSize:   112, // brittle, this is hardcoded since its too difficult to get this value progamatically
 		}
 
 		// Execute test: upload a file, then calculate at rest data
@@ -97,13 +95,14 @@ func TestCalculateAtRestData(t *testing.T) {
 		require.NoError(t, err)
 
 		// Confirm the correct number of shares were stored
+		uplinkRS := uplinkConfig.GetRedundancyScheme()
 		if !correctRedundencyScheme(len(actualNodeData), uplinkRS) {
 			t.Fatalf("expected between: %d and %d, actual: %d", uplinkRS.RepairShares, uplinkRS.TotalShares, len(actualNodeData))
 		}
 
 		// Confirm the correct number of bytes were stored on each node
 		for _, actualTotalBytes := range actualNodeData {
-			assert.Equal(t, int(actualTotalBytes), expectedTotalBytes)
+			assert.Equal(t, int64(actualTotalBytes), expectedTotalBytes)
 		}
 
 		// Confirm the correct bucket storage tally was created
@@ -115,11 +114,12 @@ func TestCalculateAtRestData(t *testing.T) {
 	})
 }
 
-func correctRedundencyScheme(count int, uplinkRS storj.RedundancyScheme) bool {
+func correctRedundencyScheme(shareCount int, uplinkRS storj.RedundancyScheme) bool {
 
-	// RequiredShares are the min number of shares required to recover a segment
+	// The shareCount should be a value between RequiredShares and TotalShares where
+	// RequiredShares is the min number of shares required to recover a segment and
 	// TotalShares is the number of shares to encode
-	if int(uplinkRS.RequiredShares) <= count && count <= int(uplinkRS.TotalShares) {
+	if int(uplinkRS.RepairShares) <= shareCount && shareCount <= int(uplinkRS.TotalShares) {
 		return true
 	}
 
