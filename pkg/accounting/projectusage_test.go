@@ -108,7 +108,7 @@ func TestProjectUsageBandwidth(t *testing.T) {
 
 				// Setup: create a BucketBandwidthRollup record to test exceeding bandwidth project limit
 				if tt.expectedResource == "bandwidth" {
-					amount := 26 * memory.GB.Int64()
+					amount := 26 * memory.GB.Int64() * accounting.ExpansionFactor
 					action := pb.PieceAction_GET
 					now := time.Now()
 					intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
@@ -163,7 +163,7 @@ func setUpCreateTallies(ctx *testcontext.Context, projectID uuid.UUID, acctDB ac
 			BucketName:    bucketName,
 			ProjectID:     projectID,
 			IntervalStart: time,
-			RemoteBytes:   10 * memory.GB.Int64(),
+			RemoteBytes:   10 * memory.GB.Int64() * accounting.ExpansionFactor,
 		}
 		err := acctDB.CreateBucketStorageTally(ctx, tally)
 		if err != nil {
