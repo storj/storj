@@ -508,12 +508,35 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 }
 
 // UpdateOperator updates the email and wallet for a given node ID for satellite payments.
-func (cache *overlaycache) UpdateOperator(ctx context.Context, nodeID storj.NodeID, operator pb.NodeOperator) (stats *overlay.NodeDossier, err error) {
+func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.NodeID, nodeInfo *pb.InfoResponse) (stats *overlay.NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	updateFields := dbx.Node_Update_Fields{
-		Wallet: dbx.Node_Wallet(operator.GetWallet()),
-		Email:  dbx.Node_Email(operator.GetEmail()),
+	var updateFields dbx.Node_Update_Fields
+	if nodeInfo != nil {
+		if nodeInfo.GetOperator() != nil {
+			updateFields.Wallet = dbx.Node_Wallet(nodeInfo.GetOperator().GetWallet())
+			updateFields.Email = dbx.Node_Email(nodeInfo.GetOperator().GetEmail())
+		}
+		if nodeInfo.GetCapacity() != nil {
+			updateFields.FreeDisk = dbx.Node_FreeDisk(nodeInfo.GetCapacity().GetFreeDisk())
+			updateFields.FreeBandwidth = dbx.Node_FreeBandwidth(nodeInfo.GetCapacity().GetFreeBandwidth())
+		}
+		if nodeInfo.GetVersion() != nil {
+			semVer, err := version.NewSemVer(nodeInfo.GetVersion().GetVersion())
+			if err != nil {
+				semVer = &version.SemVer{}
+			}
+			pbts, err := ptypes.Timestamp(nodeInfo.GetVersion().GetTimestamp())
+			if err != nil {
+				pbts = time.Time{}
+			}
+			updateFields.Major = dbx.Node_Major(semVer.Major)
+			updateFields.Minor = dbx.Node_Minor(semVer.Minor)
+			updateFields.Patch = dbx.Node_Patch(semVer.Patch)
+			updateFields.Hash = dbx.Node_Hash(nodeInfo.GetVersion().GetCommitHash())
+			updateFields.Timestamp = dbx.Node_Timestamp(pbts)
+			updateFields.Release = dbx.Node_Release(nodeInfo.GetVersion().GetRelease())
+		}
 	}
 
 	updatedDBNode, err := cache.db.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)

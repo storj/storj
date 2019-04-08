@@ -61,7 +61,7 @@ type DB interface {
 	// UpdateStats all parts of single storagenode's stats.
 	UpdateStats(ctx context.Context, request *UpdateRequest) (stats *NodeStats, err error)
 	// UpdateOperator updates the email and wallet for a given node ID for satellite payments.
-	UpdateOperator(ctx context.Context, node storj.NodeID, updatedOperator pb.NodeOperator) (stats *NodeDossier, err error)
+	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *NodeDossier, err error)
 	// UpdateUptime updates a single storagenode's uptime stats.
 	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error)
 }
@@ -332,9 +332,9 @@ func (cache *Cache) UpdateStats(ctx context.Context, request *UpdateRequest) (st
 }
 
 // UpdateOperator updates the email and wallet for a given node ID for satellite payments.
-func (cache *Cache) UpdateOperator(ctx context.Context, node storj.NodeID, updatedOperator pb.NodeOperator) (stats *NodeDossier, err error) {
+func (cache *Cache) UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return cache.db.UpdateOperator(ctx, node, updatedOperator)
+	return cache.db.UpdateNodeInfo(ctx, node, nodeInfo)
 }
 
 // UpdateUptime updates a single storagenode's uptime stats.
