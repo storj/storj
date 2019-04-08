@@ -92,6 +92,9 @@ func (pool *Pool) VerifyUplinkID(ctx context.Context, id storj.NodeID) error {
 
 // GetSignee gets the corresponding signee for verifying signatures.
 func (pool *Pool) GetSignee(ctx context.Context, id storj.NodeID) (signing.Signee, error) {
+	// creating a new context here to avoid request context cancelling fetching peer identity
+	nestedContext := context.Background()
+
 	// lookup peer identity with id
 	pool.mu.RLock()
 	info, ok := pool.trustedSatellites[id]
@@ -116,7 +119,7 @@ func (pool *Pool) GetSignee(ctx context.Context, id storj.NodeID) (signing.Signe
 	}
 
 	info.once.Do(func() {
-		info.identity, info.err = pool.kademlia.FetchPeerIdentity(ctx, id)
+		info.identity, info.err = pool.kademlia.FetchPeerIdentity(nestedContext, id)
 	})
 
 	if info.err != nil {
