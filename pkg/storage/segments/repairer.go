@@ -87,15 +87,8 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 	// Populate healthyPieces with all pieces from the pointer except those correlating to indices in lostPieces
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
 		excludeNodeIDs = append(excludeNodeIDs, piece.NodeId)
-		_, ok := lostPiecesSet[piece.GetPieceNum()]
-		if !ok {
-			node, err := repairer.cache.Get(ctx, piece.NodeId)
-			if err != nil {
-				return Error.Wrap(err)
-			}
-			if node.Online() {
-				healthyPieces = append(healthyPieces, piece)
-			}
+		if _, ok := lostPiecesSet[piece.GetPieceNum()]; !ok {
+			healthyPieces = append(healthyPieces, piece)
 		}
 	}
 
