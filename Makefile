@@ -22,7 +22,7 @@ FILEEXT := .exe
 endif
 
 DOCKER_BUILD := docker build \
-	--build-arg GO_VERSION=${GO_VERSION}
+	--build-arg TAG=${TAG}
 
 .DEFAULT_GOAL := help
 .PHONY: help
@@ -119,20 +119,36 @@ images: satellite-image storagenode-image uplink-image gateway-image ## Build ga
 	echo Built version: ${TAG}
 
 .PHONY: gateway-image
-gateway-image: ## Build gateway Docker image
-	${DOCKER_BUILD} --pull=true -t storjlabs/gateway:${TAG}${CUSTOMTAG} -f cmd/gateway/Dockerfile .
+gateway-image: gateway_linux_arm gateway_linux_amd64 ## Build gateway Docker image
+	${DOCKER_BUILD} --pull=true -t storjlabs/gateway:${TAG}${CUSTOMTAG}-amd64 \
+		-f cmd/gateway/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/gateway:${TAG}${CUSTOMTAG}-arm32v6 \
+		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
+		-f cmd/gateway/Dockerfile .
 .PHONY: satellite-image
-satellite-image: ## Build satellite Docker image
-	${DOCKER_BUILD} --pull=true -t storjlabs/satellite:${TAG}${CUSTOMTAG} -f cmd/satellite/Dockerfile .
+satellite-image: satellite_linux_arm satellite_linux_amd64 ## Build satellite Docker image
+	${DOCKER_BUILD} --pull=true -t storjlabs/satellite:${TAG}${CUSTOMTAG}-amd64 \
+		-f cmd/satellite/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/satellite:${TAG}${CUSTOMTAG}-arm32v6 \
+		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
+		-f cmd/satellite/Dockerfile .
 .PHONY: satellite-ui-image
 satellite-ui-image: ## Build satellite-ui Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/satellite-ui:${TAG}${CUSTOMTAG} -f web/satellite/Dockerfile .
 .PHONY: storagenode-image
-storagenode-image: ## Build storagenode Docker image
-	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG} -f cmd/storagenode/Dockerfile .
+storagenode-image: storagenode_linux_arm storagenode_linux_amd64 ## Build storagenode Docker image
+	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG}-amd64 \
+		-f cmd/storagenode/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm32v6 \
+		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
+		-f cmd/storagenode/Dockerfile .
 .PHONY: uplink-image
-uplink-image: ## Build uplink Docker image
-	${DOCKER_BUILD} --pull=true -t storjlabs/uplink:${TAG}${CUSTOMTAG} -f cmd/uplink/Dockerfile .
+uplink-image: uplink_linux_arm uplink_linux_amd64 ## Build uplink Docker image
+	${DOCKER_BUILD} --pull=true -t storjlabs/uplink:${TAG}${CUSTOMTAG}-amd64 \
+		-f cmd/uplink/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/uplink:${TAG}${CUSTOMTAG}-arm32v6 \
+		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
+		-f cmd/uplink/Dockerfile .
 
 .PHONY: binary
 binary: CUSTOMTAG = -${GOOS}-${GOARCH}
@@ -156,24 +172,28 @@ binary:
 	chmod 755 release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT}
 	[ "${FILEEXT}" = ".exe" ] && storj-sign release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT} || echo "Skipping signing"
 	rm -f release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH}.zip
-	cd release/${TAG}; zip ${COMPONENT}_${GOOS}_${GOARCH}.zip ${COMPONENT}_${GOOS}_${GOARCH}${FILEEXT}
-	rm -f release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH}${FILEEXT}
 
 .PHONY: gateway_%
 gateway_%:
 	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=gateway $(MAKE) binary
+	$(MAKE) binary-check COMPONENT=gateway GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: satellite_%
 satellite_%:
 	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=satellite $(MAKE) binary
+	$(MAKE) binary-check COMPONENT=satellite GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: storagenode_%
 storagenode_%:
-	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=storagenode $(MAKE) binary
+	$(MAKE) binary-check COMPONENT=storagenode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
+.PHONY: binary-check
+binary-check:
+	@if [ -f release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH} ]; then echo "release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH} exists"; else $(MAKE) binary; fi
 .PHONY: uplink_%
 uplink_%:
 	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=uplink $(MAKE) binary
+	$(MAKE) binary-check COMPONENT=uplink GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: identity_%
 identity_%:
-	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=identity $(MAKE) binary
+	$(MAKE) binary-check COMPONENT=identity GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: certificates_%
 certificates_%:
 	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=certificates $(MAKE) binary
@@ -198,10 +218,35 @@ deploy: ## Update Kubernetes deployments in staging (jenkins)
 
 .PHONY: push-images
 push-images: ## Push Docker images to Docker Hub (jenkins)
-	docker push storjlabs/satellite:${TAG}${CUSTOMTAG}
-	docker push storjlabs/storagenode:${TAG}${CUSTOMTAG}
-	docker push storjlabs/uplink:${TAG}${CUSTOMTAG}
-	docker push storjlabs/gateway:${TAG}${CUSTOMTAG}
+	# images have to be pushed before a manifest can be created
+	# satellite
+	docker push storjlabs/satellite:${TAG}${CUSTOMTAG}-amd64
+	docker push storjlabs/satellite:${TAG}${CUSTOMTAG}-arm32v6
+	docker manifest create storjlabs/satellite:${TAG}${CUSTOMTAG} storjlabs/satellite:${TAG}${CUSTOMTAG}-amd64 storjlabs/satellite:${TAG}${CUSTOMTAG}-arm32v6
+	docker manifest annotate storjlabs/satellite:${TAG}${CUSTOMTAG} storjlabs/satellite:${TAG}${CUSTOMTAG}-amd64 --os linux --arch amd64
+	docker manifest annotate storjlabs/satellite:${TAG}${CUSTOMTAG} storjlabs/satellite:${TAG}${CUSTOMTAG}-arm32v6 --os linux --arch arm --variant arm32v6
+	docker manifest push storjlabs/satellite:${TAG}${CUSTOMTAG}
+	# storagenode
+	docker push storjlabs/storagenode:${TAG}${CUSTOMTAG}-amd64
+	docker push storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm32v6
+	docker manifest create storjlabs/storagenode:${TAG}${CUSTOMTAG} storjlabs/storagenode:${TAG}${CUSTOMTAG}-amd64 storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm32v6
+	docker manifest annotate storjlabs/storagenode:${TAG}${CUSTOMTAG} storjlabs/storagenode:${TAG}${CUSTOMTAG}-amd64 --os linux --arch amd64
+	docker manifest annotate storjlabs/storagenode:${TAG}${CUSTOMTAG} storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm32v6 --os linux --arch arm --variant arm32v6
+	docker manifest push storjlabs/storagenode:${TAG}${CUSTOMTAG}
+	# uplink
+	docker push storjlabs/uplink:${TAG}${CUSTOMTAG}-amd64
+	docker push storjlabs/uplink:${TAG}${CUSTOMTAG}-arm32v6
+	docker manifest create storjlabs/uplink:${TAG}${CUSTOMTAG} storjlabs/uplink:${TAG}${CUSTOMTAG}-amd64 storjlabs/uplink:${TAG}${CUSTOMTAG}-arm32v6
+	docker manifest annotate storjlabs/uplink:${TAG}${CUSTOMTAG} storjlabs/uplink:${TAG}${CUSTOMTAG}-amd64 --os linux --arch amd64
+	docker manifest annotate storjlabs/uplink:${TAG}${CUSTOMTAG} storjlabs/uplink:${TAG}${CUSTOMTAG}-arm32v6 --os linux --arch arm --variant arm32v6
+	docker manifest push storjlabs/uplink:${TAG}${CUSTOMTAG}
+	# gateway
+	docker push storjlabs/gateway:${TAG}${CUSTOMTAG}-amd64
+	docker push storjlabs/gateway:${TAG}${CUSTOMTAG}-arm32v6
+	docker manifest create storjlabs/gateway:${TAG}${CUSTOMTAG} storjlabs/gateway:${TAG}${CUSTOMTAG}-amd64 storjlabs/gateway:${TAG}${CUSTOMTAG}-arm32v6
+	docker manifest annotate storjlabs/gateway:${TAG}${CUSTOMTAG} storjlabs/gateway:${TAG}${CUSTOMTAG}-amd64 --os linux --arch amd64
+	docker manifest annotate storjlabs/gateway:${TAG}${CUSTOMTAG} storjlabs/gateway:${TAG}${CUSTOMTAG}-arm32v6 --os linux --arch arm --variant arm32v6
+	docker manifest push storjlabs/gateway:${TAG}${CUSTOMTAG}
 ifeq (${TRACKED_BRANCH},true)
 	docker tag storjlabs/satellite:${TAG}${CUSTOMTAG} storjlabs/satellite:${LATEST_TAG}
 	docker push storjlabs/satellite:${LATEST_TAG}
@@ -215,7 +260,8 @@ endif
 
 .PHONY: binaries-upload
 binaries-upload: ## Upload binaries to Google Storage (jenkins)
-	cd release; gsutil -m cp -r . gs://storj-v3-alpha-builds
+	cd "release/${TAG}"; for f in "*"; do zip "$f".zip "$f"; done
+	cd "release/${TAG}"; gsutil -m cp -r *.zip "gs://storj-v3-alpha-builds/${TAG}/"
 
 ##@ Clean
 

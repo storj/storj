@@ -191,6 +191,7 @@ func cmdAuthorize(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// NB: signedChain is this identity's CA + signer chain.
 	ca.Cert = signedChain[0]
 	ca.RestChain = signedChain[1:]
 	err = caConfig.Save(ca)
