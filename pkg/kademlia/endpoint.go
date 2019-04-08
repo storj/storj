@@ -95,3 +95,12 @@ func (endpoint *Endpoint) RequestInfo(ctx context.Context, req *pb.InfoRequest) 
 		},
 	}, nil
 }
+
+// RequestGraph returns the routing table as a graph
+func (endpoint *Endpoint) RequestGraph(ctx context.Context, req *pb.GraphRequest) (*pb.GraphResponse, error) {
+	//self := endpoint.service.Local()
+
+	return &pb.GraphResponse{
+		Graph: nil,
+	}, nil
+}

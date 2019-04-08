@@ -25,6 +25,9 @@ service KadInspector {
   rpc FindNear(FindNearRequest) returns (FindNearResponse);
   // DumpNodes returns all the nodes in the node database
   rpc DumpNodes(DumpNodesRequest) returns (DumpNodesResponse);
+  // DrawTable sends a PING RPC to a node and returns its routing table graph
+  rpc DrawTable(DrawTableRequest) returns (DrawTableResponse);
+
 }
 
 service OverlayInspector {
@@ -163,6 +166,15 @@ message NodeInfoResponse {
   node.NodeType type = 1;
   node.NodeOperator operator = 2;
   node.NodeCapacity capacity = 3;
+}
+
+message DrawTableRequest {
+  bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  node.NodeAddress address = 2;
+}
+
+message DrawTableResponse {
+  repeated bytes graph = 1;
 }
 
 message FindNearRequest {

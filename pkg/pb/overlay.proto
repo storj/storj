@@ -13,6 +13,7 @@ service Nodes {
     rpc Query(QueryRequest) returns (QueryResponse);
     rpc Ping(PingRequest) returns (PingResponse);
     rpc RequestInfo(InfoRequest) returns (InfoResponse);
+    rpc RequestGraph(GraphRequest) returns (GraphResponse);
 }
 
 message QueryRequest {
@@ -37,6 +38,11 @@ message InfoResponse {
     node.NodeType type = 2;
     node.NodeOperator operator = 3;
     node.NodeCapacity capacity = 4;
+}
+
+message GraphRequest {};
+message GraphResponse {
+    repeated bytes graph = 1;
 }
 
 message Restriction {
