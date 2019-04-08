@@ -7,12 +7,13 @@ import (
 	"crypto/rand"
 	"testing"
 
+	"storj.io/storj/internal/testidentity"
+
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -28,11 +29,11 @@ func TestOrders(t *testing.T) {
 
 		ordersdb := db.Orders()
 
-		storagenode := testplanet.MustPregeneratedSignedIdentity(0)
+		storagenode := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion())
 
-		satellite0 := testplanet.MustPregeneratedSignedIdentity(1)
+		satellite0 := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion())
 
-		uplink := testplanet.MustPregeneratedSignedIdentity(3)
+		uplink := testidentity.MustPregeneratedSignedIdentity(3, storj.LatestIDVersion())
 		piece := storj.NewPieceID()
 
 		serialNumber := newRandomSerial()

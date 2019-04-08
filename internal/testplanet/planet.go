@@ -28,6 +28,7 @@ import (
 	"storj.io/storj/bootstrap/bootstrapdb"
 	"storj.io/storj/bootstrap/bootstrapweb/bootstrapserver"
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/accounting/rollup"
 	"storj.io/storj/pkg/accounting/tally"
@@ -74,8 +75,9 @@ type Config struct {
 	StorageNodeCount int
 	UplinkCount      int
 
-	Identities  *Identities
-	Reconfigure Reconfigure
+	Identities      *testidentity.Identities
+	IdentityVersion *storj.IDVersion
+	Reconfigure     Reconfigure
 }
 
 // Planet is a full storj system setup.
@@ -97,7 +99,7 @@ type Planet struct {
 	StorageNodes   []*storagenode.Peer
 	Uplinks        []*Uplink
 
-	identities    *Identities
+	identities    *testidentity.Identities
 	whitelistPath string // TODO: in-memory
 
 	run    errgroup.Group
@@ -135,6 +137,23 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 	return NewWithLogger(log, satelliteCount, storageNodeCount, uplinkCount)
 }
 
+// NewWithIdentityVersion creates a new full system with the given version for node identities and the given number of nodes.
+func NewWithIdentityVersion(t zaptest.TestingT, identityVersion *storj.IDVersion, satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
+	var log *zap.Logger
+	if t == nil {
+		log = zap.NewNop()
+	} else {
+		log = zaptest.NewLogger(t)
+	}
+
+	return NewCustom(log, Config{
+		SatelliteCount:   satelliteCount,
+		StorageNodeCount: storageNodeCount,
+		UplinkCount:      uplinkCount,
+		IdentityVersion:  identityVersion,
+	})
+}
+
 // NewWithLogger creates a new full system with the given number of nodes.
 func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
 	return NewCustom(log, Config{
@@ -146,8 +165,12 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 
 // NewCustom creates a new full system with the specified configuration.
 func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
+	if config.IdentityVersion == nil {
+		version := storj.LatestIDVersion()
+		config.IdentityVersion = &version
+	}
 	if config.Identities == nil {
-		config.Identities = pregeneratedSignedIdentities.Clone()
+		config.Identities = testidentity.NewPregeneratedSignedIdentities(*config.IdentityVersion)
 	}
 
 	planet := &Planet{
@@ -162,7 +185,7 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 		return nil, err
 	}
 
-	whitelistPath, err := planet.WriteWhitelist()
+	whitelistPath, err := planet.WriteWhitelist(*config.IdentityVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -405,6 +428,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 					RevocationDBURL:     "bolt://" + filepath.Join(storageDir, "revocation.db"),
 					UsePeerCAWhitelist:  true,
 					PeerCAWhitelistPath: planet.whitelistPath,
+					PeerIDVersions:      "latest",
 					Extensions: extensions.Config{
 						Revocation:          false,
 						WhitelistSignedLeaf: false,
@@ -553,6 +577,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 					RevocationDBURL:     "bolt://" + filepath.Join(storageDir, "revocation.db"),
 					UsePeerCAWhitelist:  true,
 					PeerCAWhitelistPath: planet.whitelistPath,
+					PeerIDVersions:      "1,2",
 					Extensions: extensions.Config{
 						Revocation:          false,
 						WhitelistSignedLeaf: false,
@@ -647,6 +672,7 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 				RevocationDBURL:     "bolt://" + filepath.Join(dbDir, "revocation.db"),
 				UsePeerCAWhitelist:  true,
 				PeerCAWhitelistPath: planet.whitelistPath,
+				PeerIDVersions:      "latest",
 				Extensions: extensions.Config{
 					Revocation:          false,
 					WhitelistSignedLeaf: false,
@@ -739,7 +765,7 @@ func (planet *Planet) NewVersionConfig() version.Config {
 }
 
 // Identities returns the identity provider for this planet.
-func (planet *Planet) Identities() *Identities {
+func (planet *Planet) Identities() *testidentity.Identities {
 	return planet.identities
 }
 
@@ -754,9 +780,9 @@ func (planet *Planet) NewListener() (net.Listener, error) {
 }
 
 // WriteWhitelist writes the pregenerated signer's CA cert to a "CA whitelist", PEM-encoded.
-func (planet *Planet) WriteWhitelist() (string, error) {
+func (planet *Planet) WriteWhitelist(version storj.IDVersion) (string, error) {
 	whitelistPath := filepath.Join(planet.directory, "whitelist.pem")
-	signer := NewPregeneratedSigner()
+	signer := testidentity.NewPregeneratedSigner(version)
 	err := identity.PeerCAConfig{
 		CertPath: whitelistPath,
 	}.Save(signer.PeerCA())
