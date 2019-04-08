@@ -136,23 +136,3 @@ func (srv *Inspector) NodeInfo(ctx context.Context, req *pb.NodeInfoRequest) (*p
 		Capacity: info.GetCapacity(),
 	}, nil
 }
-
-// DrawTable sends a PING RPC to a node and draw a graph of its routing table
-func (srv *Inspector) DrawTable(ctx context.Context, req *pb.DrawTableRequest) (*pb.DrawTableResponse, error) {
-	self := srv.dht.Local()
-
-	info, err := srv.dht.FetchInfo(ctx, pb.Node{
-		Id:      req.Id,
-		Address: req.Address,
-		Type:    self.Type,
-	})
-	if err != nil {
-		return &pb.DrawTableResponse{}, err
-	}
-
-	return &pb.DrawTableResponse{
-		Type:     info.GetType(),
-		Operator: info.GetOperator(),
-		Capacity: info.GetCapacity(),
-	}, nil
-}
