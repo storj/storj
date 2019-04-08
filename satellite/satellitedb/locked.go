@@ -747,10 +747,10 @@ func (m *lockedOverlayCache) Update(ctx context.Context, value *pb.Node) error {
 }
 
 // UpdateOperator updates the email and wallet for a given node ID for satellite payments.
-func (m *lockedOverlayCache) UpdateOperator(ctx context.Context, node storj.NodeID, updatedOperator pb.NodeOperator) (stats *overlay.NodeDossier, err error) {
+func (m *lockedOverlayCache) UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *overlay.NodeDossier, err error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.UpdateOperator(ctx, node, updatedOperator)
+	return m.db.UpdateNodeInfo(ctx, node, nodeInfo)
 }
 
 // UpdateStats all parts of single storagenode's stats.
