@@ -298,29 +298,54 @@ func (authDB *AuthorizationDB) Get(userID string) (Authorizations, error) {
 }
 
 // UserIDs returns a list of all userIDs present in the authorization database.
-func (authDB *AuthorizationDB) UserIDs() ([]string, error) {
-	keys, err := authDB.DB.List([]byte{}, 0)
-	if err != nil {
-		return nil, ErrAuthorizationDB.Wrap(err)
-	}
-	return keys.Strings(), nil
+func (authDB *AuthorizationDB) UserIDs() (userIDs []string, err error) {
+	err = authDB.DB.Iterate(storage.IterateOptions{
+		First:   []byte{},
+		Recurse: true,
+		Prefix:  storage.Key(""),
+	}, func(iterator storage.Iterator) error {
+		listItem := new(storage.ListItem)
+		for {
+			more := iterator.Next(listItem)
+			// TODO: does a listItem get populated when more returns false?
+			if listItem != nil {
+				userIDs = append(userIDs, listItem.Key.String())
+			}
+			if !more {
+				break
+			}
+		}
+		return nil
+	})
+	return userIDs, err
 }
 
 // List returns all authorizations in the database.
-func (authDB *AuthorizationDB) List() (auths Authorizations, _ error) {
-	uids, err := authDB.UserIDs()
-	if err != nil {
-		return nil, err
-	}
-
-	for _, uid := range uids {
-		idAuths, err := authDB.Get(uid)
-		if err != nil {
-			return nil, err
+func (authDB *AuthorizationDB) List() (auths Authorizations, err error) {
+	err = authDB.DB.Iterate(storage.IterateOptions{
+		First:   []byte{},
+		Recurse: true,
+		Prefix:  storage.Key(""),
+	}, func(iterator storage.Iterator) error {
+		var listErrs errs.Group
+		listItem := new(storage.ListItem)
+		for {
+			more := iterator.Next(listItem)
+			// TODO: does a listItem get populated when more returns false?
+			if listItem != nil {
+				var nextAuths Authorizations
+				if err := nextAuths.Unmarshal(listItem.Value); err != nil {
+					listErrs.Add(err)
+				}
+				auths = append(auths, nextAuths...)
+			}
+			if !more {
+				break
+			}
 		}
-		auths = append(auths, idAuths...)
-	}
-	return auths, nil
+		return listErrs.Err()
+	})
+	return auths, err
 }
 
 // Claim marks an authorization as claimed and records claim information.
