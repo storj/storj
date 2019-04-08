@@ -5,10 +5,14 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
+	"golang.org/x/crypto/ssh/terminal"
+
 	"github.com/spf13/cobra"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
@@ -23,10 +27,11 @@ var (
 		RunE:        cmdSetup,
 		Annotations: map[string]string{"type": "setup"},
 	}
-	setupCfg    UplinkFlags
-	confDir     string
-	identityDir string
-	isDev       bool
+	setupCfg      UplinkFlags
+	confDir       string
+	identityDir   string
+	isDev         bool
+	isInteractive bool
 )
 
 func init() {
@@ -55,5 +60,60 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), nil)
+	isInteractive = true
+	var override map[string]interface{}
+	if isInteractive {
+		wizard := func() error {
+			if !terminal.IsTerminal(0) || !terminal.IsTerminal(1) {
+				return fmt.Errorf("stdin/stdout should be terminal")
+			}
+			oldState, err := terminal.MakeRaw(0)
+			if err != nil {
+				return err
+			}
+			defer terminal.Restore(0, oldState)
+
+			screen := struct {
+				io.Reader
+				io.Writer
+			}{os.Stdin, os.Stdout}
+			terminalIn := terminal.NewTerminal(screen, "")
+
+			terminalIn.SetPrompt("Enter your Satellite address: ")
+			terminalIn.SetPrompt("Enter your Satellite address: ")
+			satelliteAddress, err := terminalIn.ReadLine()
+			if err != nil {
+				return err
+			}
+			terminalIn.SetPrompt("Enter your API key: ")
+			apiKey, err := terminalIn.ReadLine()
+			if err != nil {
+				return err
+			}
+			encKey, err := terminalIn.ReadPassword("Enter your encryption passphrase: ")
+			if err != nil {
+				return err
+			}
+			repeatedEncKey, err := terminalIn.ReadPassword("Enter your encryption passphrase again: ")
+			if err != nil {
+				return err
+			}
+
+			if encKey != repeatedEncKey {
+				return errs.New("encryption passphrases doesn't match")
+			}
+
+			override = map[string]interface{}{
+				"satellite-addr": satelliteAddress,
+				"api-key":        apiKey,
+				"enc.key":        encKey,
+			}
+			return nil
+		}
+		if err := wizard(); err != nil {
+			return err
+		}
+	}
+
+	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), override)
 }
