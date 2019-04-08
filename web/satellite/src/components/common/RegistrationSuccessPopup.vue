@@ -18,10 +18,9 @@
 
             </div>
             <div class="register-success-popup__form-container">
-                <h2 class="register-success-popup__form-container__main-label-text">Congratulation!</h2>
-                <p>You almost registered on the Satellite, only one step left.
-                    Please check your inbox and use the verification link we shared with you in last email.</p>
-                <p>Didn’t receive a verification email?</p>
+                <h2 class="register-success-popup__form-container__main-label-text">Verify Your Account</h2>
+                <p>You have almost finished registering your account on the Tardigrade Satellite. Only one step left. Please check your inbox for a verification email.</p>
+                <!--<p>Didn’t receive a verification email?</p>-->
                 <div class="register-success-popup__form-container__button-container">
                     <Button label="Go to Login" width="450px" height="50px" :onPress="onCloseClick" isWhite />
                 </div>
