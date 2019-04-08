@@ -211,7 +211,9 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 		address = &pb.NodeAddress{}
 	}
 
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
+		return Error.Wrap(errs.Combine(err, tx.Rollback()))
+	} else if err != nil && err == sql.ErrNoRows {
 		metadata := info.Metadata
 		if metadata == nil {
 			metadata = &pb.NodeMetadata{}
@@ -248,6 +250,7 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 			dbx.Node_UptimeSuccessCount(reputation.UptimeSuccessCount),
 			dbx.Node_TotalUptimeCount(reputation.UptimeCount),
 			dbx.Node_UptimeRatio(reputation.UptimeRatio),
+
 			dbx.Node_LastContactSuccess(time.Now()),
 			dbx.Node_LastContactFailure(time.Time{}),
 		)
