@@ -54,6 +54,7 @@ Vue.use(VueClipboards);
                 imageSource: EMPTY_STATE_IMAGES.ADD_API_KEY,
                 name: '',
                 key: '',
+                isLoading: false,
             };
         },
         methods: {
@@ -61,16 +62,25 @@ Vue.use(VueClipboards);
                 this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
             },
             onCreateClick: async function (): Promise<any> {
+                if (this.$data.isLoading) {
+                    return;
+                }
+
+                this.$data.isLoading = true;
+
                 let result: any = await this.$store.dispatch(API_KEYS_ACTIONS.CREATE, this.$data.name);
 
                 if (!result.isSuccess) {
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, result.errorMessage);
+                    this.$data.isLoading = false;
 
                     return;
                 }
 
                 this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Successfully created new api key');
                 this.$data.key = result.data.key;
+
+                this.$data.isLoading = false;
             },
             onChangeName: function (value: string): void {
                 this.$data.name = value;

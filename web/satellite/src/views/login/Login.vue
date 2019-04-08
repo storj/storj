@@ -1,17 +1,18 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+ // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template src="./login.html"></template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import HeaderlessInput from '../../components/common/HeaderlessInput.vue';
-import Button from '../../components/common/Button.vue';
+import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+import Button from '@/components/common/Button.vue';
 import { setToken } from '@/utils/tokenManager';
-import ROUTES from '../../utils/constants/routerConstants';
-import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import ROUTES from '@/utils/constants/routerConstants';
+import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { getTokenRequest } from '@/api/users';
 import { LOADING_CLASSES } from '@/utils/constants/classConstants';
+import { AppState } from '@/utils/constants/appStateEnum';
 
 @Component({
     data: function () {
@@ -52,8 +53,9 @@ import { LOADING_CLASSES } from '@/utils/constants/classConstants';
             (this as any).activateLoadingOverlay();
 
             setTimeout(() => {
-                // setToken(loginResponse.data);
-                // this.$router.push(ROUTES.DASHBOARD.path);
+                setToken(loginResponse.data);
+                this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADING);
+                this.$router.push(ROUTES.PROJECT_DETAILS.path);
             }, 2000);
         },
         onSignUpClick: function (): void {

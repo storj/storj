@@ -48,6 +48,7 @@ import { APP_STATE_ACTIONS, USER_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/c
                 password: '',
                 passwordError: '',
                 imageSource: EMPTY_STATE_IMAGES.DELETE_ACCOUNT,
+                isLoading: false,
             };
         },
         methods: {
@@ -55,16 +56,25 @@ import { APP_STATE_ACTIONS, USER_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/c
                 this.$data.password = value;
             },
             onDeleteAccountClick: async function() {
+                if (this.$data.isLoading) {
+                    return;
+                }
+
+                this.$data.isLoading = true;
+
                 let response = await this.$store.dispatch(USER_ACTIONS.DELETE, this.$data.password);
 
                 if (!response.isSuccess) {
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
+                    this.$data.isLoading = false;
 
                     return;
                 }
 
                 this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Account was successfully deleted');
                 removeToken();
+
+                this.$data.isLoading = false;
                 this.$router.push('/login');
             },
             onCloseClick: function (): void {

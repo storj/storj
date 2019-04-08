@@ -62,6 +62,7 @@
                     nameError: '',
                     createdProjectId: '',
                     self: null,
+                    isLoading: false,
                 };
             },
             methods: {
@@ -76,11 +77,21 @@
                     this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
                 },
                 createProjectClick: async function (): Promise<any> {
+                    if (this.$data.isLoading) {
+                        return;
+                    }
+
+                    this.$data.isLoading = true;
+
                     if (!this.$data.self.validateProjectName(this.$data.projectName)) {
+                        this.$data.isLoading = false;
+
                         return;
                     }
 
                     if (!await this.$data.self.createProject()) {
+                        this.$data.isLoading = false;
+
                         return;
                     }
 
@@ -89,6 +100,8 @@
                     this.$data.self.fetchProjectMembers();
 
                     this.$data.self.checkIfsFirstProject();
+
+                    this.$data.isLoading = false;
                 },
                 validateProjectName: function(): boolean {
                     this.$data.projectName = this.$data.projectName.trim();

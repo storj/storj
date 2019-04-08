@@ -23,6 +23,10 @@ export const notificationsModule = {
         },
         // Mutaion for deleting notification to queue
         [NOTIFICATION_MUTATIONS.DELETE](state: any): void {
+            if (state.notificationQueue.length < 1) {
+                return;
+            }
+
             state.notificationQueue[0].pause();
             state.notificationQueue.shift();
 
