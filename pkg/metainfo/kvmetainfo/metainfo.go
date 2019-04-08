@@ -7,9 +7,8 @@ import (
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/eestream"
-
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
