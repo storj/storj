@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/orders"
 )
 
 func TestProjectUsageStorage(t *testing.T) {
@@ -49,7 +50,7 @@ func TestProjectUsageStorage(t *testing.T) {
 				// Setup: create BucketStorageTally records to test exceeding storage project limit
 				if tt.expectedResource == "storage" {
 					now := time.Now()
-					err := setUpCreateTallies(ctx, projectID, acctDB, now)
+					err := setUpStorageTallies(ctx, projectID, acctDB, now)
 					require.NoError(t, err)
 				}
 
@@ -108,11 +109,8 @@ func TestProjectUsageBandwidth(t *testing.T) {
 
 				// Setup: create a BucketBandwidthRollup record to test exceeding bandwidth project limit
 				if tt.expectedResource == "bandwidth" {
-					amount := 26 * memory.GB.Int64() * accounting.ExpansionFactor
-					action := pb.PieceAction_GET
 					now := time.Now()
-					intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
-					err := orderDB.UpdateBucketBandwidthAllocation(ctx, bucketID, action, amount, intervalStart)
+					err := setUpBucketBandwidthAllocations(ctx, projectID, orderDB, now)
 					require.NoError(t, err)
 				}
 
@@ -120,14 +118,15 @@ func TestProjectUsageBandwidth(t *testing.T) {
 				expectedData := make([]byte, 50*memory.KiB)
 				_, err = rand.Read(expectedData)
 				require.NoError(t, err)
-				actualErr := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, "test/path", expectedData)
+				err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, "test/path", expectedData)
+				require.NoError(t, err)
 
 				// Setup: This date represents the past 30 days so that we can check
 				// if the alpha max usage has been exceeded in the past month
 				from := time.Now().AddDate(0, 0, -accounting.AverageDaysInMonth)
 
 				// Execute test: get bandwidth totals for a project, then check if that exceeds the max usage limit
-				bandwidthTotal, err := acctDB.ProjectBandwidthTotal(ctx, bucketID, from)
+				bandwidthTotal, err := acctDB.ProjectAllocatedBandwidthTotal(ctx, bucketID, from)
 				require.NoError(t, err)
 				maxAlphaUsage := 25 * memory.GB
 				actualExceeded, actualResource := accounting.ExceedsAlphaUsage(bandwidthTotal, 0, 0, maxAlphaUsage)
@@ -135,7 +134,7 @@ func TestProjectUsageBandwidth(t *testing.T) {
 				require.Equal(t, tt.expectedResource, actualResource)
 
 				// Execute test: check that the uplink gets an error when they have exceeded bandwidth limits and try to download a file
-				_, actualErr = planet.Uplinks[0].Download(ctx, planet.Satellites[0], bucketName, "test/path")
+				_, actualErr := planet.Uplinks[0].Download(ctx, planet.Satellites[0], bucketName, "test/path")
 				if tt.expectedResource == "bandwidth" {
 					assert.EqualError(t, actualErr, tt.expectedErrMsg)
 				} else {
@@ -154,7 +153,7 @@ func createBucketID(projectID uuid.UUID, bucket []byte) []byte {
 	return []byte(storj.JoinPaths(entries...))
 }
 
-func setUpCreateTallies(ctx *testcontext.Context, projectID uuid.UUID, acctDB accounting.DB, time time.Time) error {
+func setUpStorageTallies(ctx *testcontext.Context, projectID uuid.UUID, acctDB accounting.DB, time time.Time) error {
 
 	// Create many records that sum greater than project usage limit of 25GB
 	for i := 0; i < 4; i++ {
@@ -163,9 +162,32 @@ func setUpCreateTallies(ctx *testcontext.Context, projectID uuid.UUID, acctDB ac
 			BucketName:    bucketName,
 			ProjectID:     projectID,
 			IntervalStart: time,
-			RemoteBytes:   10 * memory.GB.Int64() * accounting.ExpansionFactor,
+
+			// In order to exceed the project limits, create storage tally records
+			// that sum greater than the maxAlphaUsage * expansionFactor
+			RemoteBytes: 10 * memory.GB.Int64() * accounting.ExpansionFactor,
 		}
 		err := acctDB.CreateBucketStorageTally(ctx, tally)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func setUpBucketBandwidthAllocations(ctx *testcontext.Context, projectID uuid.UUID, orderDB orders.DB, now time.Time) error {
+
+	// Create many records that sum greater than project usage limit of 25GB
+	for i := 0; i < 4; i++ {
+		bucketName := fmt.Sprintf("%s%d", "testbucket", i)
+		bucketID := createBucketID(projectID, []byte(bucketName))
+
+		// In order to exceed the project limits, create bandwidth allocation records
+		// that sum greater than the maxAlphaUsage * expansionFactor
+		amount := 10 * memory.GB.Int64() * accounting.ExpansionFactor
+		action := pb.PieceAction_GET
+		intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
+		err := orderDB.UpdateBucketBandwidthAllocation(ctx, bucketID, action, amount, intervalStart)
 		if err != nil {
 			return err
 		}

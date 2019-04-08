@@ -23,8 +23,8 @@ type accountingDB struct {
 	db *dbx.DB
 }
 
-// ProjectBandwidthTotal returns the sum of GET bandwidth usage for a projectID for a time frame
-func (db *accountingDB) ProjectBandwidthTotal(ctx context.Context, bucketID []byte, from time.Time) (int64, error) {
+// ProjectAllocatedBandwidthTotal returns the sum of GET bandwidth usage allocated for a projectID for a time frame
+func (db *accountingDB) ProjectAllocatedBandwidthTotal(ctx context.Context, bucketID []byte, from time.Time) (int64, error) {
 	pathEl := bytes.Split(bucketID, []byte("/"))
 	_, projectID := pathEl[1], pathEl[0]
 	var sum *int64
