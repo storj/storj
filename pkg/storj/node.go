@@ -22,7 +22,7 @@ var (
 	ErrVersion = errs.Class("node ID version error")
 )
 
-//NodeIDSize is the byte length of a NodeID
+// NodeIDSize is the byte length of a NodeID
 const NodeIDSize = sha256.Size
 
 // NodeID is a unique node identifier

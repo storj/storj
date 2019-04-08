@@ -3,7 +3,7 @@
 
 <template>
     <div class="new-project-container">
-        <div class="new-project-button-container" v-on:click="toggleSelection" id="newProjectButton">
+        <div class="new-project-button-container" :class="{ active: !hasProjects }" v-on:click="toggleSelection" id="newProjectButton">
             <h1>New Project +</h1>
         </div>
         <NewProjectPopup v-if="isPopupShown"/>
@@ -28,7 +28,12 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
             NewProjectPopup
         },
         computed: mapState({
-            isPopupShown: (state: any) => state.appStateModule.appState.isNewProjectPopupShown,
+            isPopupShown: function (state: any): boolean {
+                return state.appStateModule.appState.isNewProjectPopupShown;
+            },
+            hasProjects: function (state: any): boolean {
+                return state.projectsModule.projects.length;
+            }
         }),
     }
 )
@@ -72,6 +77,19 @@ export default class NewProjectArea extends Vue {
             h1 {
                 color: white;
             }
+        }
+    }
+    .new-project-button-container.active {
+        background-color: #2683FF;
+        border: 1px solid #2683FF;
+        box-shadow: 0px 4px 20px rgba(35, 121, 236, 0.4);
+
+        h1 {
+            color: white;
+        }
+
+        &:hover {
+            box-shadow: none;
         }
     }
 </style>

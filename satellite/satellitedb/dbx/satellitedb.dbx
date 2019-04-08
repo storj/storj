@@ -478,6 +478,11 @@ read scalar (
 	where  storagenode_bandwidth_rollup.action = ?
 )
 
+read all (
+	select storagenode_bandwidth_rollup
+	where storagenode_bandwidth_rollup.interval_start >= ?
+)
+
 model storagenode_storage_tally (
 	key    storagenode_id interval_start
 

@@ -77,12 +77,14 @@ func (service *Service) updateBandwidth(ctx context.Context, bucketID []byte, ad
 			action = orderLimit.Action
 		}
 	}
+	now := time.Now()
+	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
-	if err := service.orders.UpdateBucketBandwidthAllocation(ctx, bucketID, action, bucketAllocation); err != nil {
+	if err := service.orders.UpdateBucketBandwidthAllocation(ctx, bucketID, action, bucketAllocation, intervalStart); err != nil {
 		return err
 	}
 	for nodeID, allocation := range nodesAllocation {
-		if err := service.orders.UpdateStoragenodeBandwidthAllocation(ctx, nodeID, action, allocation); err != nil {
+		if err := service.orders.UpdateStoragenodeBandwidthAllocation(ctx, nodeID, action, allocation, intervalStart); err != nil {
 			return err
 		}
 	}
@@ -127,7 +129,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 			node.Type.DPanicOnInvalid("order service get order limits")
 		}
 
-		if !node.IsUp {
+		if !node.Online() {
 			service.log.Debug("node is offline", zap.String("ID", node.Id.String()))
 			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
 			continue
@@ -264,7 +266,7 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *ide
 			node.Type.DPanicOnInvalid("order service delete order limits")
 		}
 
-		if !node.IsUp {
+		if !node.Online() {
 			service.log.Debug("node is offline", zap.String("ID", node.Id.String()))
 			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
 			continue
@@ -344,7 +346,7 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 			node.Type.DPanicOnInvalid("order service audit order limits")
 		}
 
-		if !node.IsUp {
+		if !node.Online() {
 			service.log.Debug("node is offline", zap.String("ID", node.Id.String()))
 			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
 			continue
@@ -427,7 +429,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 			node.Type.DPanicOnInvalid("order service get repair order limits")
 		}
 
-		if !node.IsUp {
+		if !node.Online() {
 			service.log.Debug("node is offline", zap.String("ID", node.Id.String()))
 			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
 			continue
@@ -542,4 +544,20 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 	}
 
 	return limits, nil
+}
+
+// UpdateGetInlineOrder updates amount of inline GET bandwidth for given bucket
+func (service *Service) UpdateGetInlineOrder(ctx context.Context, bucketID []byte, amount int64) (err error) {
+	now := time.Now()
+	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
+
+	return service.orders.UpdateBucketBandwidthInline(ctx, bucketID, pb.PieceAction_GET, amount, intervalStart)
+}
+
+// UpdatePutInlineOrder updates amount of inline PUT bandwidth for given bucket
+func (service *Service) UpdatePutInlineOrder(ctx context.Context, bucketID []byte, amount int64) (err error) {
+	now := time.Now()
+	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
+
+	return service.orders.UpdateBucketBandwidthInline(ctx, bucketID, pb.PieceAction_PUT, amount, intervalStart)
 }

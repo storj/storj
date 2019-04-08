@@ -24,7 +24,7 @@ import (
 func TestSegmentStoreRepair(t *testing.T) {
 
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// first, upload some remote data
 		ul := planet.Uplinks[0]
@@ -42,7 +42,7 @@ func TestSegmentStoreRepair(t *testing.T) {
 			MinThreshold:     2,
 			RepairThreshold:  3,
 			SuccessThreshold: 4,
-			MaxThreshold:     5,
+			MaxThreshold:     4,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
@@ -88,6 +88,8 @@ func TestSegmentStoreRepair(t *testing.T) {
 			if nodesToKill[node.ID()] {
 				err = planet.StopPeer(node)
 				require.NoError(t, err)
+				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
+				require.NoError(t, err)
 			}
 		}
 
@@ -105,6 +107,8 @@ func TestSegmentStoreRepair(t *testing.T) {
 		for _, node := range planet.StorageNodes {
 			if nodesToKeepAlive[node.ID()] {
 				err = planet.StopPeer(node)
+				require.NoError(t, err)
+				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
 				require.NoError(t, err)
 				break
 			}

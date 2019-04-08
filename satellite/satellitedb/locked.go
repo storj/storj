@@ -71,11 +71,18 @@ func (m *lockedAccounting) GetRaw(ctx context.Context) ([]*accounting.Raw, error
 	return m.db.GetRaw(ctx)
 }
 
-// GetRawSince r retrieves all raw tallies sinces
+// GetRawSince retrieves all raw tallies since latestRollup
 func (m *lockedAccounting) GetRawSince(ctx context.Context, latestRollup time.Time) ([]*accounting.Raw, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetRawSince(ctx, latestRollup)
+}
+
+// GetStoragenodeBandwidthSince retrieves all storagenode_bandwidth_rollup entires since latestRollup
+func (m *lockedAccounting) GetStoragenodeBandwidthSince(ctx context.Context, latestRollup time.Time) ([]*accounting.StoragenodeBandwidthRollup, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetStoragenodeBandwidthSince(ctx, latestRollup)
 }
 
 // LastTimestamp records the latest last tallied time.
@@ -111,13 +118,6 @@ func (m *lockedAccounting) SaveAtRestRaw(ctx context.Context, latestTally time.T
 	m.Lock()
 	defer m.Unlock()
 	return m.db.SaveAtRestRaw(ctx, latestTally, created, nodeData)
-}
-
-// SaveBWRaw records raw sums of agreement values to the database and updates the LastTimestamp.
-func (m *lockedAccounting) SaveBWRaw(ctx context.Context, tallyEnd time.Time, created time.Time, bwTotals map[storj.NodeID][]int64) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.SaveBWRaw(ctx, tallyEnd, created, bwTotals)
 }
 
 // SaveBucketTallies saves the latest bucket info
@@ -629,38 +629,38 @@ func (m *lockedOrders) UnuseSerialNumber(ctx context.Context, serialNumber storj
 }
 
 // UpdateBucketBandwidthAllocation updates 'allocated' bandwidth for given bucket
-func (m *lockedOrders) UpdateBucketBandwidthAllocation(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64) error {
+func (m *lockedOrders) UpdateBucketBandwidthAllocation(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.UpdateBucketBandwidthAllocation(ctx, bucketID, action, amount)
+	return m.db.UpdateBucketBandwidthAllocation(ctx, bucketID, action, amount, intervalStart)
 }
 
 // UpdateBucketBandwidthInline updates 'inline' bandwidth for given bucket
-func (m *lockedOrders) UpdateBucketBandwidthInline(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64) error {
+func (m *lockedOrders) UpdateBucketBandwidthInline(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.UpdateBucketBandwidthInline(ctx, bucketID, action, amount)
+	return m.db.UpdateBucketBandwidthInline(ctx, bucketID, action, amount, intervalStart)
 }
 
 // UpdateBucketBandwidthSettle updates 'settled' bandwidth for given bucket
-func (m *lockedOrders) UpdateBucketBandwidthSettle(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64) error {
+func (m *lockedOrders) UpdateBucketBandwidthSettle(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.UpdateBucketBandwidthSettle(ctx, bucketID, action, amount)
+	return m.db.UpdateBucketBandwidthSettle(ctx, bucketID, action, amount, intervalStart)
 }
 
 // UpdateStoragenodeBandwidthAllocation updates 'allocated' bandwidth for given storage node
-func (m *lockedOrders) UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64) error {
+func (m *lockedOrders) UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.UpdateStoragenodeBandwidthAllocation(ctx, storageNode, action, amount)
+	return m.db.UpdateStoragenodeBandwidthAllocation(ctx, storageNode, action, amount, intervalStart)
 }
 
 // UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node
-func (m *lockedOrders) UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64) error {
+func (m *lockedOrders) UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.UpdateStoragenodeBandwidthSettle(ctx, storageNode, action, amount)
+	return m.db.UpdateStoragenodeBandwidthSettle(ctx, storageNode, action, amount, intervalStart)
 }
 
 // UseSerialNumber creates serial number entry in database
@@ -683,25 +683,11 @@ type lockedOverlayCache struct {
 	db overlay.DB
 }
 
-// CreateEntryIfNotExists creates a node stats entry if it didn't already exist.
-func (m *lockedOverlayCache) CreateEntryIfNotExists(ctx context.Context, value *pb.Node) (stats *overlay.NodeStats, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.CreateEntryIfNotExists(ctx, value)
-}
-
 // CreateStats initializes the stats for node.
 func (m *lockedOverlayCache) CreateStats(ctx context.Context, nodeID storj.NodeID, initial *overlay.NodeStats) (stats *overlay.NodeStats, err error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.CreateStats(ctx, nodeID, initial)
-}
-
-// Delete deletes node based on id
-func (m *lockedOverlayCache) Delete(ctx context.Context, id storj.NodeID) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Delete(ctx, id)
 }
 
 // FindInvalidNodes finds a subset of storagenodes that have stats below provided reputation requirements.
@@ -712,35 +698,28 @@ func (m *lockedOverlayCache) FindInvalidNodes(ctx context.Context, nodeIDs storj
 }
 
 // Get looks up the node by nodeID
-func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*pb.Node, error) {
+func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*overlay.NodeDossier, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Get(ctx, nodeID)
 }
 
 // GetAll looks up nodes based on the ids from the overlay cache
-func (m *lockedOverlayCache) GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*pb.Node, error) {
+func (m *lockedOverlayCache) GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*overlay.NodeDossier, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetAll(ctx, nodeIDs)
 }
 
-// GetStats returns node stats.
-func (m *lockedOverlayCache) GetStats(ctx context.Context, nodeID storj.NodeID) (stats *overlay.NodeStats, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetStats(ctx, nodeID)
-}
-
 // List lists nodes starting from cursor
-func (m *lockedOverlayCache) List(ctx context.Context, cursor storj.NodeID, limit int) ([]*pb.Node, error) {
+func (m *lockedOverlayCache) List(ctx context.Context, cursor storj.NodeID, limit int) ([]*overlay.NodeDossier, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.List(ctx, cursor, limit)
 }
 
 // Paginate will page through the database nodes
-func (m *lockedOverlayCache) Paginate(ctx context.Context, offset int64, limit int) ([]*pb.Node, bool, error) {
+func (m *lockedOverlayCache) Paginate(ctx context.Context, offset int64, limit int) ([]*overlay.NodeDossier, bool, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Paginate(ctx, offset, limit)
@@ -767,15 +746,8 @@ func (m *lockedOverlayCache) Update(ctx context.Context, value *pb.Node) error {
 	return m.db.Update(ctx, value)
 }
 
-// UpdateBatch for updating multiple storage nodes' stats.
-func (m *lockedOverlayCache) UpdateBatch(ctx context.Context, requests []*overlay.UpdateRequest) (statslist []*overlay.NodeStats, failed []*overlay.UpdateRequest, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.UpdateBatch(ctx, requests)
-}
-
 // UpdateOperator updates the email and wallet for a given node ID for satellite payments.
-func (m *lockedOverlayCache) UpdateOperator(ctx context.Context, node storj.NodeID, updatedOperator pb.NodeOperator) (stats *overlay.NodeStats, err error) {
+func (m *lockedOverlayCache) UpdateOperator(ctx context.Context, node storj.NodeID, updatedOperator pb.NodeOperator) (stats *overlay.NodeDossier, err error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UpdateOperator(ctx, node, updatedOperator)

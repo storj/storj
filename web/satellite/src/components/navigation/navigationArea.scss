@@ -102,6 +102,11 @@ a {
   outline: none;
 }
 
+.disabled {
+  pointer-events:none;
+  opacity:0.6;
+}
+
 @media screen and (max-width: 1024px) {
   .navigation-area {
     width: 80px;
