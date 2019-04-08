@@ -6,7 +6,6 @@ package overlay
 import (
 	"context"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
@@ -56,17 +55,11 @@ func (srv *Inspector) GetStats(ctx context.Context, req *pb.GetStatsRequest) (*p
 
 // CreateStats creates a node with specified stats
 func (srv *Inspector) CreateStats(ctx context.Context, req *pb.CreateStatsRequest) (*pb.CreateStatsResponse, error) {
-	ver := pb.NodeVersion{
-		Version:   "v0.1.0",
-		Timestamp: ptypes.TimestampNow(),
-	}
-
 	stats := &NodeStats{
 		AuditCount:         req.AuditCount,
 		AuditSuccessCount:  req.AuditSuccessCount,
 		UptimeCount:        req.UptimeCount,
 		UptimeSuccessCount: req.UptimeSuccessCount,
-		Version:            ver,
 	}
 
 	_, err := srv.cache.Create(ctx, req.NodeId, stats)
