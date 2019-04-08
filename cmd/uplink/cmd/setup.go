@@ -27,11 +27,10 @@ var (
 		RunE:        cmdSetup,
 		Annotations: map[string]string{"type": "setup"},
 	}
-	setupCfg      UplinkFlags
-	confDir       string
-	identityDir   string
-	isDev         bool
-	isInteractive bool
+	setupCfg    UplinkFlags
+	confDir     string
+	identityDir string
+	isDev       bool
 )
 
 func init() {
@@ -60,13 +59,14 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	isInteractive = true
 	var override map[string]interface{}
-	if isInteractive {
+	if setupCfg.Interactive {
 		wizard := func() error {
 			if !terminal.IsTerminal(0) || !terminal.IsTerminal(1) {
 				return fmt.Errorf("stdin/stdout should be terminal")
 			}
+
+			// TODO handle signals
 			oldState, err := terminal.MakeRaw(0)
 			if err != nil {
 				return err
@@ -80,16 +80,26 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 			terminalIn := terminal.NewTerminal(screen, "")
 
 			terminalIn.SetPrompt("Enter your Satellite address: ")
-			terminalIn.SetPrompt("Enter your Satellite address: ")
 			satelliteAddress, err := terminalIn.ReadLine()
 			if err != nil {
 				return err
 			}
+
+			// TODO add better validation
+			if satelliteAddress == "" {
+				return errs.New("API key cannot be empty")
+			}
+
 			terminalIn.SetPrompt("Enter your API key: ")
 			apiKey, err := terminalIn.ReadLine()
 			if err != nil {
 				return err
 			}
+
+			if apiKey == "" {
+				return errs.New("API key cannot be empty")
+			}
+
 			encKey, err := terminalIn.ReadPassword("Enter your encryption passphrase: ")
 			if err != nil {
 				return err
@@ -101,6 +111,10 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 
 			if encKey != repeatedEncKey {
 				return errs.New("encryption passphrases doesn't match")
+			}
+
+			if encKey == "" {
+				fmt.Println("Encryption passphare is empty!")
 			}
 
 			override = map[string]interface{}{
