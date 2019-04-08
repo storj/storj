@@ -207,8 +207,7 @@ func (c *Client) Sign(ctx context.Context, tokenStr string) ([][]byte, error) {
 	return res.Chain, nil
 }
 
-// Sign signs the CA certificate of the remote peer's identity with the signer's certificate.
-// Returns a certificate chain consisting of the remote peer's CA followed by the signer's chain.
+// Sign signs a valid certificate signing request's cert.
 func (c CertificateSigner) Sign(ctx context.Context, req *pb.SigningRequest) (*pb.SigningResponse, error) {
 	grpcPeer, ok := peer.FromContext(ctx)
 	if !ok {

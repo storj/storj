@@ -14,7 +14,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
@@ -31,29 +30,26 @@ func TestDialNode(t *testing.T) {
 	}
 	defer ctx.Check(planet.Shutdown)
 
-	whitelistPath, err := planet.WriteWhitelist(storj.LatestIDVersion())
+	whitelistPath, err := planet.WriteWhitelist()
 	require.NoError(t, err)
 
 	planet.Start(ctx)
 
 	client := planet.StorageNodes[0].Transport
 
-	unsignedIdent, err := testidentity.PregeneratedIdentity(0, storj.LatestIDVersion())
+	unsignedIdent, err := testplanet.PregeneratedIdentity(0)
 	require.NoError(t, err)
 
-	signedIdent, err := testidentity.PregeneratedSignedIdentity(0, storj.LatestIDVersion())
+	signedIdent, err := testplanet.PregeneratedSignedIdentity(0)
 	require.NoError(t, err)
 
 	opts, err := tlsopts.NewOptions(signedIdent, tlsopts.Config{
 		UsePeerCAWhitelist:  true,
 		PeerCAWhitelistPath: whitelistPath,
-		PeerIDVersions:      "1,2",
 	})
 	require.NoError(t, err)
 
-	unsignedClientOpts, err := tlsopts.NewOptions(unsignedIdent, tlsopts.Config{
-		PeerIDVersions: "1,2",
-	})
+	unsignedClientOpts, err := tlsopts.NewOptions(unsignedIdent, tlsopts.Config{})
 	require.NoError(t, err)
 
 	t.Run("DialNode with invalid targets", func(t *testing.T) {
@@ -201,7 +197,7 @@ func TestDialNode_BadServerCertificate(t *testing.T) {
 			StorageNodeCount: 2,
 			UplinkCount:      0,
 			Reconfigure:      testplanet.DisablePeerCAWhitelist,
-			Identities:       testidentity.NewPregeneratedIdentities(storj.LatestIDVersion()),
+			Identities:       testplanet.NewPregeneratedIdentities(),
 		},
 	)
 	if err != nil {
@@ -209,13 +205,13 @@ func TestDialNode_BadServerCertificate(t *testing.T) {
 	}
 	defer ctx.Check(planet.Shutdown)
 
-	whitelistPath, err := planet.WriteWhitelist(storj.LatestIDVersion())
+	whitelistPath, err := planet.WriteWhitelist()
 	require.NoError(t, err)
 
 	planet.Start(ctx)
 
 	client := planet.StorageNodes[0].Transport
-	ident, err := testidentity.PregeneratedSignedIdentity(0, storj.LatestIDVersion())
+	ident, err := testplanet.PregeneratedSignedIdentity(0)
 	require.NoError(t, err)
 
 	opts, err := tlsopts.NewOptions(ident, tlsopts.Config{

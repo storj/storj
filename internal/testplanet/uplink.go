@@ -47,9 +47,7 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 		return nil, err
 	}
 
-	tlsOpts, err := tlsopts.NewOptions(identity, tlsopts.Config{
-		PeerIDVersions: "1,2",
-	})
+	tlsOpts, err := tlsopts.NewOptions(identity, tlsopts.Config{})
 	if err != nil {
 		return nil, err
 	}

@@ -143,14 +143,7 @@ func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *pb.SegmentHealt
 		return nil, Error.Wrap(err)
 	}
 
-	onlineNodeCount := int32(0)
-	for _, n := range nodes {
-		if n.Online() {
-			onlineNodeCount++
-		}
-	}
-
-	health.OnlineNodes = onlineNodeCount
+	health.OnlineNodes = int32(len(nodes))
 
 	if in.GetSegmentIndex() > -1 {
 		health.Segment = []byte("s" + strconv.FormatInt(in.GetSegmentIndex(), 10))

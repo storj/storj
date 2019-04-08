@@ -76,12 +76,11 @@ func (opts *Options) ExtensionOptions() *extensions.Options {
 	return &extensions.Options{
 		PeerCAWhitelist: opts.PeerCAWhitelist,
 		RevDB:           opts.RevDB,
-		PeerIDVersions:  opts.Config.PeerIDVersions,
 	}
 }
 
-// configure adds peer certificate verification functions and data structures
-// required for completing TLS handshakes to the options.
+// configure adds peer certificate verification functions and revocation
+// database to the config.
 func (opts *Options) configure() (err error) {
 	if opts.Config.UsePeerCAWhitelist {
 		whitelist := []byte(DefaultPeerCAWhitelist)

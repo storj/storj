@@ -28,8 +28,8 @@ type SegmentRepairer interface {
 type Service struct {
 	queue     queue.RepairQueue
 	config    *Config
-	Limiter   *sync2.Limiter
-	Loop      sync2.Cycle
+	limiter   *sync2.Limiter
+	ticker    *time.Ticker
 	transport transport.Client
 	pointerdb *pointerdb.Service
 	orders    *orders.Service
@@ -42,8 +42,8 @@ func NewService(queue queue.RepairQueue, config *Config, interval time.Duration,
 	return &Service{
 		queue:     queue,
 		config:    config,
-		Limiter:   sync2.NewLimiter(concurrency),
-		Loop:      *sync2.NewCycle(interval),
+		limiter:   sync2.NewLimiter(concurrency),
+		ticker:    time.NewTicker(interval),
 		transport: transport,
 		pointerdb: pointerdb,
 		orders:    orders,
@@ -72,15 +72,20 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	}
 
 	// wait for all repairs to complete
-	defer service.Limiter.Wait()
+	defer service.limiter.Wait()
 
-	return service.Loop.Run(ctx, func(ctx context.Context) error {
+	for {
 		err := service.process(ctx)
 		if err != nil {
 			zap.L().Error("process", zap.Error(err))
 		}
-		return nil
-	})
+
+		select {
+		case <-service.ticker.C: // wait for the next interval to happen
+		case <-ctx.Done(): // or the repairer service is canceled via context
+			return ctx.Err()
+		}
+	}
 }
 
 // process picks an item from repair queue and spawns a repair worker
@@ -93,7 +98,7 @@ func (service *Service) process(ctx context.Context) error {
 		return err
 	}
 
-	service.Limiter.Go(ctx, func() {
+	service.limiter.Go(ctx, func() {
 		err := service.repairer.Repair(ctx, seg.GetPath(), seg.GetLostPieces())
 		if err != nil {
 			zap.L().Error("Repair failed", zap.Error(err))

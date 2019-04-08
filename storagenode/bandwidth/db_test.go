@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testidentity"
+	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode"
@@ -25,8 +25,8 @@ func TestDB(t *testing.T) {
 
 		bandwidthdb := db.Bandwidth()
 
-		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()).ID
-		satellite1 := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion()).ID
+		satellite0 := testplanet.MustPregeneratedSignedIdentity(0).ID
+		satellite1 := testplanet.MustPregeneratedSignedIdentity(1).ID
 
 		now := time.Now()
 

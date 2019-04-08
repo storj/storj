@@ -141,7 +141,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 
 	defer func() {
 		if err != nil {
-			endpoint.log.Debug("upload failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Node ID", limit.StorageNodeId), zap.Error(err))
+			endpoint.log.Debug("upload failed", zap.Stringer("Piece ID", limit.PieceId), zap.Error(err))
 		} else {
 			endpoint.log.Debug("uploaded", zap.Stringer("Piece ID", limit.PieceId))
 		}

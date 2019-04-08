@@ -1,8 +1,10 @@
-ARG DOCKER_ARCH
-FROM ${DOCKER_ARCH:-amd64}/alpine
-ARG TAG
-ARG GOARCH
-ENV GOARCH ${GOARCH}
+ARG CGO_ENABLED=1
+ARG REPOSITORY=../storj.io/storj
+ARG PACKAGE=storj.io/storj/cmd/storagenode
+FROM storjlabs/golang as storagenode-build-env
+
+# final stage
+FROM alpine
 ENV CONF_PATH=/root/.local/share/storj/storagenode \
     IDENT_PATH=/root/.local/share/storj/identity/storagenode \
     CERT_DIFFICULTY=30 \
@@ -10,7 +12,6 @@ ENV CONF_PATH=/root/.local/share/storj/storagenode \
 EXPOSE 28967
 WORKDIR /app
 VOLUME /root/.local/share/storj/storagenode
-COPY resources/certs.pem /etc/ssl/certs/ca-certificates.crt
-COPY release/${TAG}/storagenode_linux_${GOARCH:-amd64} /app/storagenode
+COPY --from=storagenode-build-env /app /app/storagenode
 COPY cmd/storagenode/entrypoint /entrypoint
 ENTRYPOINT ["/entrypoint"]

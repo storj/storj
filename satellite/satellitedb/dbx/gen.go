@@ -20,7 +20,7 @@ func init() {
 		case ErrorCode_NoRows:
 			return e.Err
 		case ErrorCode_ConstraintViolation:
-			return errs.New("violates constraint: %s: %s", e.Constraint, e.Error())
+			return errs.New("violates constraint")
 		}
 
 		return c.Wrap(e)

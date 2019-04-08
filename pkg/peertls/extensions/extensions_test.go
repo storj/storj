@@ -16,7 +16,6 @@ import (
 	"storj.io/storj/internal/testpeertls"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls/extensions"
-	"storj.io/storj/pkg/storj"
 )
 
 func TestHandlers_Register(t *testing.T) {
@@ -33,7 +32,7 @@ func TestHandlers_Register(t *testing.T) {
 		opts = append(opts, &extensions.Options{})
 		exts = append(exts, pkix.Extension{Id: *ids[i]})
 
-		_, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
+		_, chain, err := testpeertls.NewCertChain(2)
 		require.NoError(t, err)
 		chains = append(chains, identity.ToChains(chain))
 
@@ -84,7 +83,7 @@ func TestHandlers_WithOptions(t *testing.T) {
 		opts = append(opts, &extensions.Options{})
 		exts = append(exts, pkix.Extension{Id: *ids[i]})
 
-		_, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
+		_, chain, err := testpeertls.NewCertChain(2)
 		require.NoError(t, err)
 		chains = append(chains, identity.ToChains(chain))
 

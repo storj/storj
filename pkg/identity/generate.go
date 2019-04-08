@@ -13,7 +13,7 @@ import (
 
 // GenerateKey generates a private key with a node id with difficulty at least
 // minDifficulty. No parallelism is used.
-func GenerateKey(ctx context.Context, minDifficulty uint16, version storj.IDVersion) (
+func GenerateKey(ctx context.Context, minDifficulty uint16) (
 	k crypto.PrivateKey, id storj.NodeID, err error) {
 	var d uint16
 	for {
@@ -21,11 +21,11 @@ func GenerateKey(ctx context.Context, minDifficulty uint16, version storj.IDVers
 		if err != nil {
 			break
 		}
-		k, err = version.NewPrivateKey()
+		k, err = pkcrypto.GeneratePrivateKey()
 		if err != nil {
 			break
 		}
-		id, err = NodeIDFromKey(pkcrypto.PublicKeyFromPrivate(k), version)
+		id, err = NodeIDFromKey(pkcrypto.PublicKeyFromPrivate(k))
 		if err != nil {
 			break
 		}
@@ -46,7 +46,7 @@ type GenerateCallback func(crypto.PrivateKey, storj.NodeID) (done bool, err erro
 
 // GenerateKeys continues to generate keys until found returns done == false,
 // or the ctx is canceled.
-func GenerateKeys(ctx context.Context, minDifficulty uint16, concurrency int, version storj.IDVersion, found GenerateCallback) error {
+func GenerateKeys(ctx context.Context, minDifficulty uint16, concurrency int, found GenerateCallback) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	errchan := make(chan error, concurrency)
@@ -54,7 +54,7 @@ func GenerateKeys(ctx context.Context, minDifficulty uint16, concurrency int, ve
 	for i := 0; i < concurrency; i++ {
 		go func() {
 			for {
-				k, id, err := GenerateKey(ctx, minDifficulty, version)
+				k, id, err := GenerateKey(ctx, minDifficulty)
 				if err != nil {
 					errchan <- err
 					return

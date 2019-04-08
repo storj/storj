@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
@@ -27,7 +26,7 @@ func TestNewOptions(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	fi, err := testidentity.PregeneratedIdentity(0, storj.LatestIDVersion())
+	fi, err := testplanet.PregeneratedIdentity(0)
 	require.NoError(t, err)
 
 	whitelistPath := ctx.File("whitelist.pem")
@@ -114,6 +113,8 @@ func TestNewOptions(t *testing.T) {
 	}
 }
 
+type identFunc func(int) (*identity.FullIdentity, error)
+
 func TestOptions_ServerOption_Peer_CA_Whitelist(t *testing.T) {
 	ctx := testcontext.New(t)
 
@@ -125,44 +126,52 @@ func TestOptions_ServerOption_Peer_CA_Whitelist(t *testing.T) {
 
 	target := planet.StorageNodes[1].Local()
 
-	testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, version storj.IDVersion, ident *identity.FullIdentity) {
-		opts, err := tlsopts.NewOptions(ident, tlsopts.Config{
-			PeerIDVersions: "1,2",
+	testCases := []struct {
+		name   string
+		identF identFunc
+	}{
+		{"unsigned client identity", testplanet.PregeneratedIdentity},
+		{"signed client identity", testplanet.PregeneratedSignedIdentity},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			ident, err := testCase.identF(0)
+			require.NoError(t, err)
+
+			opts, err := tlsopts.NewOptions(ident, tlsopts.Config{})
+			require.NoError(t, err)
+
+			dialOption, err := opts.DialOption(target.Id)
+			require.NoError(t, err)
+
+			transportClient := transport.NewClient(opts)
+
+			conn, err := transportClient.DialNode(ctx, &target, dialOption)
+			assert.NotNil(t, conn)
+			assert.NoError(t, err)
 		})
-		require.NoError(t, err)
-
-		dialOption, err := opts.DialOption(target.Id)
-		require.NoError(t, err)
-
-		transportClient := transport.NewClient(opts)
-
-		conn, err := transportClient.DialNode(ctx, &target, dialOption)
-		assert.NotNil(t, conn)
-		assert.NoError(t, err)
-	})
+	}
 }
 
 func TestOptions_DialOption_error_on_empty_ID(t *testing.T) {
-	testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, version storj.IDVersion, ident *identity.FullIdentity) {
-		opts, err := tlsopts.NewOptions(ident, tlsopts.Config{
-			PeerIDVersions: "1,2",
-		})
-		require.NoError(t, err)
+	ident, err := testplanet.PregeneratedIdentity(0)
+	require.NoError(t, err)
 
-		dialOption, err := opts.DialOption(storj.NodeID{})
-		assert.Nil(t, dialOption)
-		assert.Error(t, err)
-	})
+	opts, err := tlsopts.NewOptions(ident, tlsopts.Config{})
+	require.NoError(t, err)
+
+	dialOption, err := opts.DialOption(storj.NodeID{})
+	assert.Nil(t, dialOption)
+	assert.Error(t, err)
 }
 
 func TestOptions_DialUnverifiedIDOption(t *testing.T) {
-	testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, version storj.IDVersion, ident *identity.FullIdentity) {
-		opts, err := tlsopts.NewOptions(ident, tlsopts.Config{
-			PeerIDVersions: "1,2",
-		})
-		require.NoError(t, err)
+	ident, err := testplanet.PregeneratedIdentity(0)
+	require.NoError(t, err)
 
-		dialOption := opts.DialUnverifiedIDOption()
-		assert.NotNil(t, dialOption)
-	})
+	opts, err := tlsopts.NewOptions(ident, tlsopts.Config{})
+	require.NoError(t, err)
+
+	dialOption := opts.DialUnverifiedIDOption()
+	assert.NotNil(t, dialOption)
 }

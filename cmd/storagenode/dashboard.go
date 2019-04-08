@@ -99,7 +99,7 @@ func printDashboard(data *pb.DashboardResponse) error {
 	}
 	switch {
 	case lastContacted.IsZero():
-		fmt.Fprintf(w, "Last Contact\t%s\n", color.RedString("OFFLINE"))
+		fmt.Fprintf(w, "Last Contact\t%s\n", color.RedString("NEVER"))
 	case time.Since(lastContacted) >= contactWindow:
 		fmt.Fprintf(w, "Last Contact\t%s\n", color.RedString(fmt.Sprintf("%s ago",
 			time.Since(lastContacted).Truncate(time.Second))))

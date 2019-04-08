@@ -54,7 +54,7 @@ func getPeerContext(ctx context.Context, t *testing.T) (context.Context, storj.N
 			},
 		},
 	}
-	nodeID, err := identity.NodeIDFromCert(ident.CA)
+	nodeID, err := identity.NodeIDFromKey(ident.CA.PublicKey)
 	assert.NoError(t, err)
 	return peer.NewContext(ctx, grpcPeer), nodeID
 }

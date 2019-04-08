@@ -148,7 +148,7 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, encrypti
 		uplinkCfg:     u.cfg,
 		tc:            u.tc,
 		metainfo:      metainfo,
-		project:       kvmetainfo.NewProject(buckets.NewStore(streams), memory.KiB.Int32(), rs, 64*memory.MiB.Int64()),
+		project:       kvmetainfo.NewProject(buckets.NewStore(streams)),
 		maxInlineSize: u.cfg.Volatile.MaxInlineSize,
 		encryptionKey: encryptionKey,
 	}, nil

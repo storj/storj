@@ -4,10 +4,10 @@
 package psdb
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
@@ -17,6 +17,7 @@ import (
 	_ "github.com/mattn/go-sqlite3" // register sqlite to sql
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/pb"
@@ -24,6 +25,7 @@ import (
 )
 
 var (
+	mon = monkit.Package()
 	// Error is the default psdb errs class
 	Error = errs.Class("psdb")
 )
@@ -43,9 +45,8 @@ const (
 
 // DB is a piece store database
 type DB struct {
-	mu     sync.Mutex
-	db     *sql.DB
-	dbPath string
+	mu sync.Mutex
+	db *sql.DB
 }
 
 // Agreement is a struct that contains a bandwidth agreement and the associated signature
@@ -65,8 +66,7 @@ func Open(DBPath string) (db *DB, err error) {
 		return nil, Error.Wrap(err)
 	}
 	db = &DB{
-		db:     sqlite,
-		dbPath: DBPath,
+		db: sqlite,
 	}
 
 	return db, nil
@@ -212,18 +212,6 @@ func (db *DB) Migration() *migrate.Migration {
 					`UPDATE ttl SET expires = 1553727600 WHERE created <= 1553727600 `,
 				},
 			},
-			{
-				Description: "delete obsolete pieces",
-				Version:     5,
-				Action: migrate.Func(func(log *zap.Logger, mdb migrate.DB, tx *sql.Tx) error {
-					path := db.dbPath
-					if path == "" {
-						log.Warn("Empty path")
-						return nil
-					}
-					return db.DeleteObsolete(path)
-				}),
-			},
 		},
 	}
 	return migration
@@ -239,24 +227,43 @@ func (db *DB) locked() func() {
 	return db.mu.Unlock
 }
 
-// DeleteObsolete deletes obsolete pieces
-func (db *DB) DeleteObsolete(path string) (err error) {
-	path = filepath.Dir(path)
-	files, err := ioutil.ReadDir(path)
+// DeleteExpired deletes expired pieces
+func (db *DB) DeleteExpired(ctx context.Context) (expired []string, err error) {
+	defer mon.Task()(&ctx)(&err)
+	defer db.locked()()
+
+	// TODO: add limit
+
+	tx, err := db.db.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	now := time.Now().Unix()
+
+	rows, err := tx.Query("SELECT id FROM ttl WHERE expires > 0 AND expires < ?", now)
+	if err != nil {
+		return nil, err
 	}
 
-	// iterate thru files list
-	for _, f := range files {
-		if info, err := os.Stat(filepath.Join(path, f.Name())); err == nil && info.IsDir() && len(f.Name()) == 2 {
-			err = os.RemoveAll(filepath.Join(path, f.Name()))
-			if err != nil {
-				return err
-			}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
 		}
+		expired = append(expired, id)
 	}
-	return nil
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+
+	_, err = tx.Exec(`DELETE FROM ttl WHERE expires > 0 AND expires < ?`, now)
+	if err != nil {
+		return nil, err
+	}
+
+	return expired, tx.Commit()
 }
 
 // WriteBandwidthAllocToDB inserts bandwidth agreement into DB

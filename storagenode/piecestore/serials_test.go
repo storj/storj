@@ -8,13 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"storj.io/storj/internal/testidentity"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
@@ -27,8 +26,8 @@ func TestUsedSerials(t *testing.T) {
 
 		usedSerials := db.UsedSerials()
 
-		node0 := testidentity.MustPregeneratedIdentity(0, storj.LatestIDVersion())
-		node1 := testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion())
+		node0 := testplanet.MustPregeneratedIdentity(0)
+		node1 := testplanet.MustPregeneratedIdentity(1)
 
 		serial1 := newRandomSerial()
 		serial2 := newRandomSerial()

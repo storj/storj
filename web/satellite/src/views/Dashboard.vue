@@ -61,9 +61,8 @@ import {AppState} from "../utils/constants/appStateEnum";
                 return;
             }
 
-            await this.$store.dispatch(PROJETS_ACTIONS.SELECT, getProjectsResponse.data[0].id);
+            this.$store.dispatch(PROJETS_ACTIONS.SELECT, getProjectsResponse.data[0].id);
 
-            await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, "");
             const projectMembersResponse = await this.$store.dispatch(PM_ACTIONS.FETCH);
             if (!projectMembersResponse.isSuccess) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');

@@ -24,7 +24,7 @@ import (
 func TestSegmentStoreRepair(t *testing.T) {
 
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// first, upload some remote data
 		ul := planet.Uplinks[0]
@@ -42,7 +42,7 @@ func TestSegmentStoreRepair(t *testing.T) {
 			MinThreshold:     2,
 			RepairThreshold:  3,
 			SuccessThreshold: 4,
-			MaxThreshold:     4,
+			MaxThreshold:     5,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 

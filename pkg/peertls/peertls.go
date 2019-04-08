@@ -90,7 +90,7 @@ func VerifyCAWhitelist(cas []*x509.Certificate) PeerCertVerificationFunc {
 func TLSCert(chain [][]byte, leaf *x509.Certificate, key crypto.PrivateKey) (*tls.Certificate, error) {
 	var err error
 	if leaf == nil {
-		leaf, err = pkcrypto.CertFromDER(chain[LeafIndex])
+		leaf, err = pkcrypto.CertFromDER(chain[0])
 		if err != nil {
 			return nil, err
 		}
@@ -145,9 +145,6 @@ func CreateCertificate(signee crypto.PublicKey, signer crypto.PrivateKey, templa
 		// x509.CreateCertificate will panic in this case, so check here and make debugging easier
 		return nil, errs.New("can't sign certificate with signer key of type %T", signer)
 	}
-
-	// TODO: should we check for uniqueness?
-	template.ExtraExtensions = append(template.ExtraExtensions, template.Extensions...)
 	cb, err := x509.CreateCertificate(
 		rand.Reader,
 		template,
