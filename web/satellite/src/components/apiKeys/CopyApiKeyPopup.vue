@@ -6,8 +6,8 @@
         <div class="save-api-popup">
            <div class="save-api-popup__main">
                <div class="save-api-popup__content">
-                   <h1 class="save-api-popup__content__title">Save your API Key</h1>
-                   <p class="save-api-popup__content__name">You will need this to share access to the project with your team members.</p>
+                   <h1 class="save-api-popup__content__title">Success! Your API key has been created. It will only appear here once.</h1>
+                   <p class="save-api-popup__content__name">This API key allow users or applications to interact with the project.</p>
                    <div class="save-api-popup__content__copy-area">
                        <p class="save-api-popup__content__copy-area__save-api">{{apiKey}}</p>
                        <Button class="save-api-popup__content__copy-area__save-btn" v-clipboard="apiKey" label="Copy" width="140px" height="48px" :onPress="onCopyClick" />
@@ -25,7 +25,7 @@
                     <path d="M18.1489 17.043H21.9149V28H18.1489V17.043ZM20 12C20.5816 12 21.0567 12.1823 21.4255 12.5468C21.8085 12.8979 22 13.357 22 13.9241C22 14.4776 21.8085 14.9367 21.4255 15.3013C21.0567 15.6658 20.5816 15.8481 20 15.8481C19.4184 15.8481 18.9362 15.6658 18.5532 15.3013C18.1844 14.9367 18 14.4776 18 13.9241C18 13.357 18.1844 12.8979 18.5532 12.5468C18.9362 12.1823 19.4184 12 20 12Z" fill="#F5F6FA"/>
                 </svg>
                 <div class="notification-wrap__text">
-                    <p>Warning! You must save it anyway, otherwise you will lose a further access to this API Key for ever.</a></p>
+                    <p>Warning! Please save this key now as this key will not be available again.</p>
                 </div>
             </div>
         </div>
@@ -151,8 +151,9 @@ export default class AddApiKeyPopup extends Vue {
     .notification-wrap {
         background-color: rgba(194, 214, 241, 1);
         height: 98px;
+        width: calc(100% - 100px);
         display: flex;
-        justify-content: space-between;
+        justify-content: flex-start;
         padding: 0 50px;
         align-items: center;
         border-bottom-left-radius: 6px;
