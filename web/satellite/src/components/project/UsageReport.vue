@@ -160,8 +160,16 @@ import { NOTIFICATION_ACTIONS, PROJECT_USAGE_ACTIONS } from '@/utils/constants/a
                     target.classList.add('active');
                 },
                 onReportClick: function (): void {
-                    let route = this.$router.resolve(ROUTES.REPORT_TABLE);
-                    window.open(route.href, '_blank');
+                    let projectID = this.$store.getters.selectedProject.id;
+
+                   	let url = new URL(location.origin);
+                   	url.pathname = "usageReport";
+                   	url.searchParams.append('projectID', projectID);
+					url.searchParams.append('since', this.$data.dateRange.startDate.toISOString());
+					url.searchParams.append('before', this.$data.dateRange.endDate.toISOString());
+
+					console.log(url.href)
+                    window.open(url.href, '_blank');
                 },
             },
             computed: {

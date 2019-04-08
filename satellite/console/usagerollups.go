@@ -38,13 +38,13 @@ type BucketUsageRollup struct {
 
 	RemoteSegments float64
 	InlineSegments float64
-	Obects         float64
+	Objects        float64
 	MetadataSize   float64
 
 	RepairEgress float64
 	GetEgress    float64
 	AuditEgress  float64
 
-	Since time.Time
+	Since  time.Time
 	Before time.Time
 }

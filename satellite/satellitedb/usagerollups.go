@@ -123,14 +123,14 @@ func (db *usagerollups) GetBucketsUsageRollups(ctx context.Context, projectID uu
 	var bucketUsageRollups []console.BucketUsageRollup
 	for _, bucket := range buckets {
 		bucketRollup := console.BucketUsageRollup{
-			ProjectID: projectID,
+			ProjectID:  projectID,
 			BucketName: []byte(bucket),
-			Since: since,
-			Before: before,
+			Since:      since,
+			Before:     before,
 		}
 
 		// get bucket_bandwidth_rollups
-		rollupsRows, err := db.db.QueryContext(ctx, db.db.Rebind(roullupsQuery), []byte(projectID.String()), bucket, since, before)
+		rollupsRows, err := db.db.QueryContext(ctx, db.db.Rebind(roullupsQuery), []byte(projectID.String()), []byte(bucket), since, before)
 		if err != nil {
 			return nil, err
 		}
@@ -178,11 +178,13 @@ func (db *usagerollups) GetBucketsUsageRollups(ctx context.Context, projectID uu
 
 			bucketRollup.RemoteStoredData += memory.Size(current.Remote).GB() * hours
 			bucketRollup.InlineStoredData += memory.Size(current.Inline).GB() * hours
-			bucketRollup.MetadataSize += memory.Size(current.MetadataSize).GB()
+			bucketRollup.MetadataSize += memory.Size(current.MetadataSize).GB() * hours
 			bucketRollup.RemoteSegments += float64(current.RemoteSegmentsCount) * hours
 			bucketRollup.InlineSegments += float64(current.InlineSegmentsCount) * hours
-			bucketRollup.Obects += float64(current.ObjectCount) * hours
+			bucketRollup.Objects += float64(current.ObjectCount) * hours
 		}
+
+		bucketUsageRollups = append(bucketUsageRollups, bucketRollup)
 	}
 
 	return bucketUsageRollups, nil
