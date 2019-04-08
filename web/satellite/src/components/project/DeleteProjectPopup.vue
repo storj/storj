@@ -48,6 +48,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import Button from '@/components/common/Button.vue';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 import { PROJETS_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component(
     {
@@ -56,6 +57,7 @@ import { PROJETS_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS, APP_STATE_ACTIONS } 
                 projectName: '',
                 nameError: '',
                 imageSource: EMPTY_STATE_IMAGES.DELETE_PROJECT,
+                isLoading: false,
             };
         },
         methods: {
@@ -63,8 +65,15 @@ import { PROJETS_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS, APP_STATE_ACTIONS } 
                 this.$data.nameError = '';
             },
             onDeleteProjectClick: async function (): Promise<any> {
+                if (this.$data.isLoading) {
+                    return;
+                }
+
+                this.$data.isLoading = true;
+
                 if (this.$data.projectName !== this.$store.getters.selectedProject.name) {
                     this.$data.nameError = 'Name doesn\'t match with current project name';
+                    this.$data.isLoading = false;
 
                     return;
                 }
@@ -76,22 +85,43 @@ import { PROJETS_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS, APP_STATE_ACTIONS } 
 
                 if (!response.isSuccess) {
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Error during project deletion');
+                    this.$data.isLoading = false;
 
                     return;
                 }
 
                 this.$store.dispatch(PM_ACTIONS.CLEAR);
+
                 this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Project was successfully deleted');
-                this.$store.dispatch(PROJETS_ACTIONS.FETCH);
-                this.$router.push('/');
+
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_PROJ);
+
+                if (this.$store.state.projectsModule.projects.length > 0) {
+                    this.$store.dispatch(
+                        PROJETS_ACTIONS.SELECT,
+                        this.$store.state.projectsModule.projects[0].id,
+                    );
+
+                    const pmResponse = await this.$store.dispatch(PM_ACTIONS.FETCH);
+                    const keysResponse = await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
+
+                    if (!pmResponse.isSuccess) {
+                        this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+                    }
+
+                    if (!keysResponse.isSuccess) {
+                        this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch api keys');
+                    }
+                }
+
+                this.$data.isLoading = false;
             },
             onCloseClick: function (): void {
                 this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_PROJ);
-            }
+            },
         },
         computed: {
             isDeleteButtonDisabled: function (): boolean {
-                
                 return (this.$data.projectName === '' || this.$data.nameError !== '');
             },
         },

@@ -31,9 +31,9 @@
                 this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, this.$data.searchQuery);
                 const response = await this.$store.dispatch(PM_ACTIONS.FETCH);
 
-                if (response.isSuccess) return;
-
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+                if (!response.isSuccess) {
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+                }
             },
             clearSearch: function () {
                 this.$data.searchQuery = '';
