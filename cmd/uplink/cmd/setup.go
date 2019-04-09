@@ -70,6 +70,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), nil)
 }
 
+// ApplyDefaultHostAndPortToAddrFlag applies the default host and/or port if either is missing in the specified flag name.
 func ApplyDefaultHostAndPortToAddrFlag(cmd *cobra.Command, flagName string) error {
 	defaultHost, defaultPort, err := net.SplitHostPort(cmd.Flags().Lookup(flagName).DefValue)
 	if err != nil {
