@@ -48,6 +48,14 @@ type Config struct {
 		// If nil, a new identity will be generated.
 		UseIdentity *identity.FullIdentity
 
+		// IdentityVersion is the identity version expected in a loaded
+		// identity or used when creating an identity.
+		IdentityVersion storj.IDVersion
+
+		// PeerIDVersion is the identity versions remote peers to this node
+		// will be supported by this node.
+		PeerIDVersion string
+
 		// MaxInlineSize determines whether the uplink will attempt to
 		// store a new object in the satellite's pointerDB. Objects at
 		// or below this size will be marked for inline storage, and
@@ -60,10 +68,21 @@ type Config struct {
 func (c *Config) setDefaults(ctx context.Context) error {
 	if c.Volatile.UseIdentity == nil {
 		var err error
-		c.Volatile.UseIdentity, err = identity.NewFullIdentity(ctx, 0, 1)
+		c.Volatile.UseIdentity, err = identity.NewFullIdentity(ctx, identity.NewCAOptions{
+			VersionNumber: c.Volatile.IdentityVersion.Number,
+			Difficulty:    0,
+			Concurrency:   1,
+		})
 		if err != nil {
 			return err
 		}
+	}
+	idVersion, err := c.Volatile.UseIdentity.Version()
+	if err != nil {
+		return err
+	}
+	if idVersion.Number != c.Volatile.IdentityVersion.Number {
+		return storj.ErrVersion.New("`UseIdentity` version (%d) didn't match version in config (%d)", idVersion.Number, c.Volatile.IdentityVersion.Number)
 	}
 	if c.Volatile.MaxInlineSize.Int() == 0 {
 		c.Volatile.MaxInlineSize = 4 * memory.KiB
@@ -90,6 +109,7 @@ func NewUplink(ctx context.Context, cfg *Config) (*Uplink, error) {
 	tlsConfig := tlsopts.Config{
 		UsePeerCAWhitelist:  !cfg.Volatile.TLS.SkipPeerCAWhitelist,
 		PeerCAWhitelistPath: cfg.Volatile.TLS.PeerCAWhitelistPath,
+		PeerIDVersions:      cfg.Volatile.PeerIDVersion,
 	}
 	tlsOpts, err := tlsopts.NewOptions(cfg.Volatile.UseIdentity, tlsConfig)
 	if err != nil {
