@@ -2,10 +2,9 @@
 <!--See LICENSE for copying information.-->
 
 <div class="login-container" v-on:keyup.enter="onLogin">
-	<div v-bind:class="loadingClassName">
-		<img class="loading-overlay__logo" src="../../../static/images/Logo.svg" alt="loading-logo">
-	</div>
-	<img class="planet" src="../../../static/images/Mars.png" alt="" >
+	<div v-bind:class="loadingClassName"></div>
+	<img v-bind:class="loadingLogoClassName" src="../../../static/images/LogoWhite.svg" alt="loading-logo">
+	<img class="image" src="../../../static/images/AuthImage.svg" alt="" >
 	<div class="login-container__wrapper">
 		<div class="login-container__header">
 			<img class="login-container__logo" src="../../../static/images/Logo.svg" alt="logo" v-on:click="onLogoClick">
@@ -17,7 +16,6 @@
 			<div class="login-area">
 				<div class="login-area__title-container">
 					<h1>Login to Storj</h1>
-					<p>Satellite:<b>Mars</b></p>
 				</div>
 				<HeaderlessInput
 						class="login-area__email-input"
@@ -39,7 +37,7 @@
 						<h3><strong>Forgot password?</strong></h3>
 					</router-link>
 					<div class="login-area__submit-area__login-button" v-on:click.prevent="onLogin">
-						<p>Login</p>
+						<p>Log In</p>
 					</div>
 				</div>
 				<div class="login-area__info-area">

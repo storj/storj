@@ -12,13 +12,13 @@
 			</div>
 		</div>
 		<div class="usage-report-container__header">
-			<p>Usage Report</p>
+			<p>Usage</p>
 			<div class="usage-report-container__header__options-area">
 				<div class="usage-report-container__header__options-area__option active" @click.prevent="onCurrentRollupClick">
-					<p>Current roll up period</p>
+					<p>Current Billing Period</p>
 				</div>
 				<div class="usage-report-container__header__options-area__option" @click.prevent="onPreviousRollupClick">
-					<p>Previous Roll Up Period</p>
+					<p>Previous Billing Period</p>
 				</div>
 				<div class="usage-report-container__header__options-area__option" @click.prevent.self="onCustomDateClick">
 					<p @click.prevent.self="onCustomDateClick">Custom Date Range</p>
@@ -32,16 +32,16 @@
 		<div class="usage-report-container__main-area">
 			<div class="usage-report-container__main-area__info-area">
 				<div class="usage-report-container__main-area__info-area__item">
-					<h1>Storage GB/H</h1>
-					<h2>200.23</h2>
+					<h1>Storage GBh</h1>
+					<h2>{{storage}}</h2>
 				</div>
 				<div class="usage-report-container__main-area__info-area__item">
-					<h1>Egress GB/H</h1>
-					<h2>944.23</h2>
+					<h1>Egress GBh</h1>
+					<h2>{{egress}}</h2>
 				</div>
 				<div class="usage-report-container__main-area__info-area__item">
-					<h1>Objects Count/H</h1>
-					<h2>30 223</h2>
+					<h1>Objects per Hour</h1>
+					<h2>{{objectsCount}}</h2>
 				</div>
 			</div>
 			<div class="usage-report-container__main-area__footer">
@@ -65,51 +65,62 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import ROUTES from '@/utils/constants/routerConstants';
-    import Datepicker from '@/components/project/DatePicker.vue';
+import { Component, Vue } from 'vue-property-decorator';
+import ROUTES from '@/utils/constants/routerConstants';
+import Datepicker from '@/components/project/DatePicker.vue';
+import { NOTIFICATION_ACTIONS, PROJECT_USAGE_ACTIONS } from '@/utils/constants/actionNames';
 
-    @Component(
+@Component(
         {
-	        data: function () {
-	            const currentDate = new Date();
-	            const previousDate = new Date();
-	            previousDate.setMonth(currentDate.getMonth() - 1);
+            data: function () {
+                const currentDate = new Date();
+                const previousDate = new Date();
+                previousDate.setMonth(currentDate.getMonth() - 1);
 
-	            return {
+                return {
                     startTime: {
                         time: '',
                     },
                     dateRange: {
                         startDate: previousDate,
-	                    endDate: currentDate,
-                    }
-	            };
-	        },
+                        endDate: currentDate,
+                    },
+                };
+            },
             components: {
                 Datepicker,
             },
             methods: {
-                getDates: function(datesArray: string[]): void {
+                getDates: async function(datesArray: string[]) {
                     const firstDate = new Date(datesArray[0]);
                     const secondDate = new Date(datesArray[1]);
                     const isInverted = firstDate > secondDate;
-					this.$data.dateRange.startDate = isInverted ? secondDate : firstDate;
+                    this.$data.dateRange.startDate = isInverted ? secondDate : firstDate;
                     this.$data.dateRange.endDate = isInverted ? firstDate : secondDate;
+
+                    const response = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, this.$data.dateRange);
+                    if (!response.isSuccess) {
+                        this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
+                    }
                 },
                 onBackClick: function (): void {
                     this.$router.push(ROUTES.PROJECT_DETAILS);
                 },
-	            onCurrentRollupClick: function (event: any) {
-                    const currentDate = new Date();
-                    const previousDate = new Date();
-                    previousDate.setMonth(currentDate.getMonth() - 1);
+                onCurrentRollupClick: async function (event: any) {
+                   const currentDate = new Date();
+                   const previousDate = new Date();
+                   previousDate.setMonth(currentDate.getMonth() - 1);
 
-                    this.$data.dateRange.startDate = previousDate;
-                    this.$data.dateRange.endDate = currentDate;
-	                (this as any).onButtonClickAction(event);
-	            },
-                onPreviousRollupClick: function (event: any) {
+                   this.$data.dateRange.startDate = previousDate;
+                   this.$data.dateRange.endDate = currentDate;
+                   (this as any).onButtonClickAction(event);
+
+                   const response = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, this.$data.dateRange);
+                   if (!response.isSuccess) {
+                       this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
+                   }
+                },
+                onPreviousRollupClick: async function (event: any) {
                     const currentDate = new Date();
                     const previousDate = new Date();
                     currentDate.setMonth(currentDate.getMonth() - 1);
@@ -118,10 +129,15 @@
                     this.$data.dateRange.startDate = previousDate;
                     this.$data.dateRange.endDate = currentDate;
                     (this as any).onButtonClickAction(event);
+
+                    const response = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, this.$data.dateRange);
+                    if (!response.isSuccess) {
+                        this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
+                    }
                 },
                 onCustomDateClick: function (event: any) {
-	                (this as any).$refs.datePicker.showCheck();
-	                (this as any).onButtonClickAction(event);
+                    (this as any).$refs.datePicker.showCheck();
+                    (this as any).onButtonClickAction(event);
                 },
                 onButtonClickAction: function (event: any) {
                     let eventTarget = event.target;
@@ -148,6 +164,17 @@
                     window.open(route.href, '_blank');
                 },
             },
+            computed: {
+                storage: function () {
+                    return this.$store.state.usageModule.projectUsage.storage.toPrecision(5);
+                },
+                egress: function () {
+                    return this.$store.state.usageModule.projectUsage.egress.toPrecision(5);
+                },
+                objectsCount: function () {
+                    return this.$store.state.usageModule.projectUsage.objectsCount.toPrecision(5);
+                }
+            }
         }
     )
 
@@ -308,8 +335,8 @@
 
 				p {
 					font-family: 'font_regular';
-					font-size: 20px;
-					line-height: 27px;
+					font-size: 16px;
+					line-height: 21px;
 					color: #AFB7C1;
 
 					b {
@@ -327,8 +354,8 @@
 					p {
 						font-family: 'font_medium';
 						font-weight: bold;
-						font-size: 20px;
-						line-height: 29px;
+						font-size: 16px;
+						line-height: 21px;
 						color: #354049;
 						margin-right: 30px;
 					}

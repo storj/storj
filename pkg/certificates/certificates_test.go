@@ -23,18 +23,18 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
-	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/server"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storage"
 )
 
 var (
-	idents = testplanet.NewPregeneratedIdentities()
+	idents = testidentity.NewPregeneratedIdentities(storj.LatestIDVersion())
 	t1     = Token{
 		UserID: "user@example.com",
 		Data:   [tokenDataLength]byte{1, 2, 3},
@@ -110,12 +110,12 @@ func TestAuthorizationDB_Create(t *testing.T) {
 				assert.Error(t, err)
 			} else {
 				v, err := authDB.DB.Get(emailKey)
-				assert.NoError(t, err)
-				assert.NotEmpty(t, v)
+				require.NoError(t, err)
+				require.NotEmpty(t, v)
 
 				var existingAuths Authorizations
 				err = existingAuths.Unmarshal(v)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				require.Len(t, existingAuths, c.startCount)
 			}
 
@@ -184,7 +184,7 @@ func TestAuthorizationDB_Get(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.testID, func(t *testing.T) {
 			auths, err := authDB.Get(c.email)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			if c.result != nil {
 				assert.NotEmpty(t, auths)
 				assert.Len(t, auths, len(c.result))
@@ -410,8 +410,8 @@ func TestAuthorizations_Marshal(t *testing.T) {
 	}
 
 	authsBytes, err := expectedAuths.Marshal()
-	assert.NoError(t, err)
-	assert.NotEmpty(t, authsBytes)
+	require.NoError(t, err)
+	require.NotEmpty(t, authsBytes)
 
 	var actualAuths Authorizations
 	decoder := gob.NewDecoder(bytes.NewBuffer(authsBytes))
@@ -428,8 +428,8 @@ func TestAuthorizations_Unmarshal(t *testing.T) {
 	}
 
 	authsBytes, err := expectedAuths.Marshal()
-	assert.NoError(t, err)
-	assert.NotEmpty(t, authsBytes)
+	require.NoError(t, err)
+	require.NotEmpty(t, authsBytes)
 
 	var actualAuths Authorizations
 	err = actualAuths.Unmarshal(authsBytes)
@@ -564,144 +564,112 @@ func TestToken_Equal(t *testing.T) {
 
 // TODO: test sad path
 func TestCertificateSigner_Sign_E2E(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	testidentity.SignerVersionsTest(t, func(t *testing.T, _ storj.IDVersion, signer *identity.FullCertificateAuthority) {
+		testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, _ storj.IDVersion, serverIdent *identity.FullIdentity) {
+			testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, _ storj.IDVersion, clientIdent *identity.FullIdentity) {
+				ctx := testcontext.New(t)
+				defer ctx.Cleanup()
 
-	caCert := ctx.File("ca.cert")
-	caKey := ctx.File("ca.key")
-	userID := "user@example.com"
-	caSetupConfig := identity.CASetupConfig{
-		CertPath: caCert,
-		KeyPath:  caKey,
-	}
-	caConfig := identity.FullCAConfig{
-		CertPath: caCert,
-		KeyPath:  caKey,
-	}
-	config := CertServerConfig{
-		AuthorizationDBURL: "bolt://" + ctx.File("authorizations.db"),
-		CA:                 caConfig,
-	}
-	signingCA, err := caSetupConfig.Create(ctx, nil)
-	require.NoError(t, err)
+				caCert := ctx.File("ca.cert")
+				caKey := ctx.File("ca.key")
+				userID := "user@example.com"
+				signerCAConfig := identity.FullCAConfig{
+					CertPath: caCert,
+					KeyPath:  caKey,
+				}
+				err := signerCAConfig.Save(signer)
+				require.NoError(t, err)
+				config := CertServerConfig{
+					AuthorizationDBURL: "bolt://" + ctx.File("authorizations.db"),
+					CA:                 signerCAConfig,
+				}
 
-	authDB, err := config.NewAuthDB()
-	require.NoError(t, err)
+				authDB, err := config.NewAuthDB()
+				require.NoError(t, err)
 
-	auths, err := authDB.Create("user@example.com", 1)
-	require.NoError(t, err)
-	require.NotEmpty(t, auths)
+				auths, err := authDB.Create("user@example.com", 1)
+				require.NoError(t, err)
+				require.NotEmpty(t, auths)
 
-	err = authDB.Close()
-	require.NoError(t, err)
+				err = authDB.Close()
+				require.NoError(t, err)
 
-	// TODO(bryanchriswhite): figure out why pregenerated
-	//  identities change issuers when signed
-	//
-	//   Issuer: {
-	//     Names: null => [],
-	//     Organization: null => [],
-	//   RawIssue": "MAA=" => "MBAxDjAMBgNVBAoTBVN0b3Jq",
-	//------
-	//serverIdent, err := idents.NewIdentity()
-	//------
-	serverCA, err := testidentity.NewTestCA(ctx)
-	require.NoError(t, err)
-	require.NotNil(t, serverCA)
+				sc := server.Config{
+					Config: tlsopts.Config{
+						PeerIDVersions: "1,2",
+					},
+					Address:        "127.0.0.1:0",
+					PrivateAddress: "127.0.0.1:0",
+				}
+				serverOpts, err := tlsopts.NewOptions(serverIdent, sc.Config)
+				require.NoError(t, err)
+				require.NotNil(t, serverOpts)
 
-	serverIdent, err := serverCA.NewIdentity()
-	//------
-	require.NoError(t, err)
-	require.NotNil(t, serverIdent)
+				service, err := server.New(serverOpts, sc.Address, sc.PrivateAddress, nil, config)
+				require.NoError(t, err)
+				require.NotNil(t, service)
 
-	sc := server.Config{Address: "127.0.0.1:0", PrivateAddress: "127.0.0.1:0"}
-	opts, err := tlsopts.NewOptions(serverIdent, sc.Config)
-	require.NoError(t, err)
-	require.NotNil(t, opts)
+				ctx.Go(func() error {
+					err := service.Run(ctx)
+					assert.NoError(t, err)
+					return err
+				})
+				defer ctx.Check(service.Close)
 
-	service, err := server.New(opts, sc.Address, sc.PrivateAddress, nil, config)
-	require.NoError(t, err)
-	require.NotNil(t, service)
+				clientOpts, err := tlsopts.NewOptions(clientIdent, tlsopts.Config{PeerIDVersions: "1,2"})
+				require.NoError(t, err)
 
-	ctx.Go(func() error {
-		err := service.Run(ctx)
-		assert.NoError(t, err)
-		return err
-	})
-	defer func() {
-		err := service.Close()
-		assert.NoError(t, err)
-	}()
+				clientTransport := transport.NewClient(clientOpts)
 
-	// TODO(bryanchriswhite): figure out why pregenerated
-	//  identities change issuers when signed
-	//
-	//   Issuer: {
-	//     Names: null => [],
-	//     Organization: null => [],
-	//   RawIssue": "MAA=" => "MBAxDjAMBgNVBAoTBVN0b3Jq",
-	//------
-	//clientIdent, err := idents.NewIdentity()
-	//------
-	clientCA, err := testidentity.NewTestCA(ctx)
-	require.NoError(t, err)
-	require.NotNil(t, clientCA)
-	clientIdent, err := clientCA.NewIdentity()
-	//------
-	require.NoError(t, err)
-	require.NotNil(t, clientIdent)
+				client, err := NewClient(ctx, clientTransport, service.Addr().String())
+				require.NoError(t, err)
+				require.NotNil(t, client)
 
-	tlsOptions, err := tlsopts.NewOptions(clientIdent, tlsopts.Config{})
-	require.NoError(t, err)
-	clientTransport := transport.NewClient(tlsOptions)
+				signedChainBytes, err := client.Sign(ctx, auths[0].Token.String())
+				require.NoError(t, err)
+				require.NotEmpty(t, signedChainBytes)
 
-	client, err := NewClient(ctx, clientTransport, service.Addr().String())
-	require.NoError(t, err)
-	require.NotNil(t, client)
+				signedChain, err := pkcrypto.CertsFromDER(signedChainBytes)
+				require.NoError(t, err)
 
-	signedChainBytes, err := client.Sign(ctx, auths[0].Token.String())
-	require.NoError(t, err)
-	require.NotEmpty(t, signedChainBytes)
+				assert.Equal(t, clientIdent.CA.RawTBSCertificate, signedChain[0].RawTBSCertificate)
+				assert.Equal(t, signer.Cert.Raw, signedChainBytes[1])
+				// TODO: test scenario with rest chain
+				//assert.Equal(t, signingCA.RawRestChain(), signedChainBytes[1:])
 
-	signedChain, err := pkcrypto.CertsFromDER(signedChainBytes)
-	require.NoError(t, err)
+				err = signedChain[0].CheckSignatureFrom(signer.Cert)
+				require.NoError(t, err)
 
-	assert.Equal(t, clientIdent.CA.RawTBSCertificate, signedChain[0].RawTBSCertificate)
-	assert.Equal(t, signingCA.Cert.Raw, signedChainBytes[1])
-	// TODO: test scenario with rest chain
-	//assert.Equal(t, signingCA.RawRestChain(), signedChainBytes[1:])
+				err = service.Close()
+				assert.NoError(t, err)
 
-	err = signedChain[0].CheckSignatureFrom(signingCA.Cert)
-	assert.NoError(t, err)
+				// NB: re-open after closing for server
+				authDB, err = config.NewAuthDB()
+				require.NoError(t, err)
+				defer ctx.Check(authDB.Close)
+				require.NotNil(t, authDB)
 
-	err = service.Close()
-	assert.NoError(t, err)
+				updatedAuths, err := authDB.Get(userID)
+				require.NoError(t, err)
+				require.NotEmpty(t, updatedAuths)
+				require.NotNil(t, updatedAuths[0].Claim)
 
-	// NB: re-open after closing for server
-	authDB, err = config.NewAuthDB()
-	require.NoError(t, err)
-	require.NotNil(t, authDB)
+				now := time.Now().Unix()
+				claim := updatedAuths[0].Claim
 
-	defer ctx.Check(authDB.Close)
+				listenerHost, _, err := net.SplitHostPort(service.Addr().String())
+				require.NoError(t, err)
+				claimHost, _, err := net.SplitHostPort(claim.Addr)
+				require.NoError(t, err)
 
-	updatedAuths, err := authDB.Get(userID)
-	require.NoError(t, err)
-	require.NotEmpty(t, updatedAuths)
-	require.NotNil(t, updatedAuths[0].Claim)
-
-	now := time.Now().Unix()
-	claim := updatedAuths[0].Claim
-
-	listenerHost, _, err := net.SplitHostPort(service.Addr().String())
-	require.NoError(t, err)
-	claimHost, _, err := net.SplitHostPort(claim.Addr)
-	require.NoError(t, err)
-
-	assert.Equal(t, listenerHost, claimHost)
-	assert.Equal(t, signedChainBytes, claim.SignedChainBytes)
-	assert.Condition(t, func() bool {
-		return now-10 < claim.Timestamp &&
-			claim.Timestamp < now+10
+				assert.Equal(t, listenerHost, claimHost)
+				assert.Equal(t, signedChainBytes, claim.SignedChainBytes)
+				assert.Condition(t, func() bool {
+					return now-10 < claim.Timestamp &&
+						claim.Timestamp < now+10
+				})
+			})
+		})
 	})
 }
 
@@ -734,6 +702,7 @@ func TestNewClient(t *testing.T) {
 
 	tlsOptions, err := tlsopts.NewOptions(ident, tlsopts.Config{})
 	require.NoError(t, err)
+
 	clientTransport := transport.NewClient(tlsOptions)
 
 	t.Run("Basic", func(t *testing.T) {
@@ -763,98 +732,75 @@ func TestNewClient(t *testing.T) {
 }
 
 func TestCertificateSigner_Sign(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	testidentity.SignerVersionsTest(t, func(t *testing.T, _ storj.IDVersion, signer *identity.FullCertificateAuthority) {
+		testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, _ storj.IDVersion, ident *identity.FullIdentity) {
+			ctx := testcontext.New(t)
+			defer ctx.Cleanup()
 
-	caCert := ctx.File("ca.cert")
-	caKey := ctx.File("ca.key")
-	userID := "user@example.com"
-	caSetupConfig := identity.CASetupConfig{
-		CertPath: caCert,
-		KeyPath:  caKey,
-	}
-	config := CertServerConfig{
-		AuthorizationDBURL: "bolt://" + ctx.File("authorizations.db"),
-	}
-	signingCA, err := caSetupConfig.Create(ctx, nil)
-	require.NoError(t, err)
+			userID := "user@example.com"
+			// TODO: test with all types of authorization DBs (bolt, redis, etc.)
+			config := CertServerConfig{
+				AuthorizationDBURL: "bolt://" + ctx.File("authorizations.db"),
+			}
 
-	authDB, err := config.NewAuthDB()
-	require.NoError(t, err)
-	require.NotNil(t, authDB)
+			authDB, err := config.NewAuthDB()
+			require.NoError(t, err)
+			defer ctx.Check(authDB.Close)
+			require.NotNil(t, authDB)
 
-	defer ctx.Check(authDB.Close)
+			auths, err := authDB.Create(userID, 1)
+			require.NoError(t, err)
+			require.NotEmpty(t, auths)
 
-	auths, err := authDB.Create(userID, 1)
-	require.NoError(t, err)
-	require.NotEmpty(t, auths)
+			expectedAddr := &net.TCPAddr{
+				IP:   net.ParseIP("1.2.3.4"),
+				Port: 5,
+			}
+			grpcPeer := &peer.Peer{
+				Addr: expectedAddr,
+				AuthInfo: credentials.TLSInfo{
+					State: tls.ConnectionState{
+						PeerCertificates: []*x509.Certificate{ident.Leaf, ident.CA},
+					},
+				},
+			}
+			peerCtx := peer.NewContext(ctx, grpcPeer)
 
-	// TODO(bryanchriswhite): figure out why pregenerated
-	//  identities change issuers when signed
-	//
-	//   Issuer: {
-	//     Names: null => [],
-	//     Organization: null => [],
-	//   RawIssue": "MAA=" => "MBAxDjAMBgNVBAoTBVN0b3Jq",
-	//------
-	//clientIdent, err := idents.NewIdentity()
-	//------
-	clientCA, err := testidentity.NewTestCA(ctx)
-	require.NoError(t, err)
-	require.NotNil(t, clientCA)
+			certSigner := NewServer(zap.L(), signer, authDB, 0)
+			req := pb.SigningRequest{
+				Timestamp: time.Now().Unix(),
+				AuthToken: auths[0].Token.String(),
+			}
+			res, err := certSigner.Sign(peerCtx, &req)
+			require.NoError(t, err)
+			require.NotNil(t, res)
+			require.NotEmpty(t, res.Chain)
 
-	clientIdent, err := clientCA.NewIdentity()
-	require.NoError(t, err)
-	require.NotNil(t, clientIdent)
-	//------
+			signedChain, err := pkcrypto.CertsFromDER(res.Chain)
+			require.NoError(t, err)
 
-	expectedAddr := &net.TCPAddr{
-		IP:   net.ParseIP("1.2.3.4"),
-		Port: 5,
-	}
-	grpcPeer := &peer.Peer{
-		Addr: expectedAddr,
-		AuthInfo: credentials.TLSInfo{
-			State: tls.ConnectionState{
-				PeerCertificates: []*x509.Certificate{clientIdent.Leaf, clientIdent.CA},
-			},
-		},
-	}
-	peerCtx := peer.NewContext(ctx, grpcPeer)
+			assert.Equal(t, ident.CA.RawTBSCertificate, signedChain[0].RawTBSCertificate)
+			assert.Equal(t, signer.Cert.Raw, signedChain[1].Raw)
+			// TODO: test scenario with rest chain
+			//assert.Equal(t, signingCA.RawRestChain(), res.Chain[1:])
 
-	certSigner := NewServer(zap.L(), signingCA, authDB, 0)
-	req := pb.SigningRequest{
-		Timestamp: time.Now().Unix(),
-		AuthToken: auths[0].Token.String(),
-	}
-	res, err := certSigner.Sign(peerCtx, &req)
-	require.NoError(t, err)
-	require.NotNil(t, res)
-	require.NotEmpty(t, res.Chain)
+			err = signedChain[0].CheckSignatureFrom(signer.Cert)
+			require.NoError(t, err)
 
-	signedChain, err := pkcrypto.CertsFromDER(res.Chain)
-	require.NoError(t, err)
+			updatedAuths, err := authDB.Get(userID)
+			require.NoError(t, err)
+			require.NotEmpty(t, updatedAuths)
+			require.NotNil(t, updatedAuths[0].Claim)
 
-	assert.Equal(t, clientIdent.CA.RawTBSCertificate, signedChain[0].RawTBSCertificate)
-	assert.Equal(t, signingCA.Cert.Raw, signedChain[1].Raw)
-	// TODO: test scenario with rest chain
-	//assert.Equal(t, signingCA.RawRestChain(), res.Chain[1:])
-
-	err = signedChain[0].CheckSignatureFrom(signingCA.Cert)
-	assert.NoError(t, err)
-
-	updatedAuths, err := authDB.Get(userID)
-	require.NoError(t, err)
-	require.NotEmpty(t, updatedAuths)
-	require.NotNil(t, updatedAuths[0].Claim)
-
-	now := time.Now().Unix()
-	claim := updatedAuths[0].Claim
-	assert.Equal(t, expectedAddr.String(), claim.Addr)
-	assert.Equal(t, res.Chain, claim.SignedChainBytes)
-	assert.Condition(t, func() bool {
-		return now-MaxClaimDelaySeconds < claim.Timestamp &&
-			claim.Timestamp < now+MaxClaimDelaySeconds
+			now := time.Now().Unix()
+			claim := updatedAuths[0].Claim
+			assert.Equal(t, expectedAddr.String(), claim.Addr)
+			assert.Equal(t, res.Chain, claim.SignedChainBytes)
+			assert.Condition(t, func() bool {
+				return now-MaxClaimDelaySeconds < claim.Timestamp &&
+					claim.Timestamp < now+MaxClaimDelaySeconds
+			})
+		})
 	})
 }
 
