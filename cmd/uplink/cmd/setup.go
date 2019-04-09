@@ -9,11 +9,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"golang.org/x/crypto/ssh/terminal"
-
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/crypto/ssh/terminal"
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
