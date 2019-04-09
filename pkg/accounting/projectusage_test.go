@@ -111,7 +111,7 @@ func TestProjectUsageBandwidth(t *testing.T) {
 
 				// Setup: create a BucketBandwidthRollup record to test exceeding bandwidth project limit
 				if tt.expectedResource == "bandwidth" {
-					now := time.Now()
+					now := time.Now().UTC()
 					err := setUpBucketBandwidthAllocations(ctx, projectID, orderDB, now)
 					require.NoError(t, err)
 				}
