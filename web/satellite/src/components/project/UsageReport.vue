@@ -163,12 +163,11 @@ import { NOTIFICATION_ACTIONS, PROJECT_USAGE_ACTIONS } from '@/utils/constants/a
                     let projectID = this.$store.getters.selectedProject.id;
 
                    	let url = new URL(location.origin);
-                   	url.pathname = "usageReport";
+                   	url.pathname = "usage-report";
                    	url.searchParams.append('projectID', projectID);
 					url.searchParams.append('since', this.$data.dateRange.startDate.toISOString());
 					url.searchParams.append('before', this.$data.dateRange.endDate.toISOString());
 
-					console.log(url.href)
                     window.open(url.href, '_blank');
                 },
             },
@@ -180,7 +179,7 @@ import { NOTIFICATION_ACTIONS, PROJECT_USAGE_ACTIONS } from '@/utils/constants/a
                     return this.$store.state.usageModule.projectUsage.egress.toPrecision(5);
                 },
                 objectsCount: function () {
-                    return this.$store.state.usageModule.projectUsage.objectsCount.toPrecision(5);
+                    return this.$store.state.usageModule.projectUsage.objectCount.toPrecision(5);
                 }
             }
         }

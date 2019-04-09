@@ -13,15 +13,15 @@ import (
 // UsageRollups defines how console works with usage rollups
 type UsageRollups interface {
 	GetProjectTotal(ctx context.Context, projectID uuid.UUID, since, before time.Time) (*ProjectUsage, error)
-	GetBucketsUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) ([]BucketUsageRollup, error)
+	GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) ([]BucketUsageRollup, error)
 }
 
 // ProjectUsage consist of period total storage, egress
 // and objects count per hour for certain Project
 type ProjectUsage struct {
-	Storage      float64
-	Egress       float64
-	ObjectsCount float64
+	Storage     float64
+	Egress      float64
+	ObjectCount float64
 
 	Since  time.Time
 	Before time.Time
@@ -38,7 +38,7 @@ type BucketUsageRollup struct {
 
 	RemoteSegments float64
 	InlineSegments float64
-	Objects        float64
+	ObjectCount    float64
 	MetadataSize   float64
 
 	RepairEgress float64

@@ -6,7 +6,6 @@ package consoleweb
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"html/template"
 	"net"
 	"net/http"
@@ -95,7 +94,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	if server.config.StaticDir != "" {
 		mux.Handle("/activation/", http.HandlerFunc(server.accountActivationHandler))
 		mux.Handle("/registrationToken/", http.HandlerFunc(server.createRegistrationTokenHandler))
-		mux.Handle("/usageReport/", http.HandlerFunc(server.bucketUsageReportHandler))
+		mux.Handle("/usage-report/", http.HandlerFunc(server.bucketUsageReportHandler))
 		mux.Handle("/static/", http.StripPrefix("/static", fs))
 		mux.Handle("/", http.HandlerFunc(server.appHandler))
 	}
@@ -110,26 +109,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 // appHandler is web app http handler function
 func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
 	http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "dist", "public", "index.html"))
-}
-
-// displayBucketRollup consist of bucket usage rollup
-// data that is shown is bucket usage reports
-type displayBucketRollup struct {
-	BucketName string
-
-	RemoteStoredData string
-	InlineStoredData string
-	RemoteSegments   string
-	InlineSegments   string
-	Objects          string
-	MetadataSize     string
-
-	RepairEgress string
-	GetEgress    string
-	AuditEgress  string
-
-	Since  string
-	Before string
 }
 
 // bucketUsageReportHandler generate bucket usage report page for project
@@ -182,7 +161,7 @@ func (s *Server) bucketUsageReportHandler(w http.ResponseWriter, req *http.Reque
 		zap.String("before", before.String()))
 
 	ctx := console.WithAuth(context.Background(), auth)
-	bucketRollups, err := s.service.GetBucketsUsageRollups(ctx, *projectID, since, before)
+	bucketRollups, err := s.service.GetBucketUsageRollups(ctx, *projectID, since, before)
 	if err != nil {
 		return
 	}
@@ -192,34 +171,7 @@ func (s *Server) bucketUsageReportHandler(w http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	precise := func(n float64) string {
-		return fmt.Sprintf("%.6f", n)
-	}
-
-	var displayRollups []displayBucketRollup
-	for _, bucketRollup := range bucketRollups {
-		displayRollup := displayBucketRollup{
-			BucketName: string(bucketRollup.BucketName),
-
-			RemoteStoredData: precise(bucketRollup.RemoteStoredData),
-			InlineStoredData: precise(bucketRollup.InlineStoredData),
-			RemoteSegments:   precise(bucketRollup.RemoteSegments),
-			InlineSegments:   precise(bucketRollup.InlineSegments),
-			Objects:          precise(bucketRollup.Objects),
-			MetadataSize:     precise(bucketRollup.MetadataSize),
-
-			RepairEgress: precise(bucketRollup.RepairEgress),
-			GetEgress:    precise(bucketRollup.GetEgress),
-			AuditEgress:  precise(bucketRollup.AuditEgress),
-
-			Since:  bucketRollup.Since.Format(time.RFC822),
-			Before: bucketRollup.Before.Format(time.RFC822),
-		}
-
-		displayRollups = append(displayRollups, displayRollup)
-	}
-
-	err = report.Execute(w, displayRollups)
+	err = report.Execute(w, bucketRollups)
 }
 
 // accountActivationHandler is web app http handler function

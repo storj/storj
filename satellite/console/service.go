@@ -653,8 +653,8 @@ func (s *Service) GetProjectUsage(ctx context.Context, projectID uuid.UUID, sinc
 	return s.store.UsageRollups().GetProjectTotal(ctx, projectID, since, before)
 }
 
-// GetBucketsUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period
-func (s *Service) GetBucketsUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) ([]BucketUsageRollup, error) {
+// GetBucketUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period
+func (s *Service) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) ([]BucketUsageRollup, error) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
@@ -668,7 +668,7 @@ func (s *Service) GetBucketsUsageRollups(ctx context.Context, projectID uuid.UUI
 		return nil, err
 	}
 
-	return s.store.UsageRollups().GetBucketsUsageRollups(ctx, projectID, since, before)
+	return s.store.UsageRollups().GetBucketUsageRollups(ctx, projectID, since, before)
 }
 
 // Authorize validates token from context and returns authorized Authorization

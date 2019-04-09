@@ -76,18 +76,18 @@
                 <tbody>
                     {{ range $i, $value := . }}
                         <tr>
-                            <td class="tg-0lax">{{ $value.BucketName }}</td>
-                            <td class="tg-0lax">{{ $value.Since }}</td>
-                            <td class="tg-0lax">{{ $value.Before }}</td>
-                            <td class="tg-0lax">{{ $value.InlineStoredData }}</td>
-                            <td class="tg-0lax">{{ $value.RemoteStoredData }}</td>
-                            <td class="tg-0lax">{{ $value.RepairEgress }}</td>
-                            <td class="tg-0lax">{{ $value.GetEgress }}</td>
-                            <td class="tg-0lax">{{ $value.AuditEgress }}</td>
-                            <td class="tg-0lax">{{ $value.InlineSegments }}</td>
-                            <td class="tg-0lax">{{ $value.RemoteSegments }}</td>
-                            <td class="tg-0lax">{{ $value.Objects }}</td>
-                            <td class="tg-0lax">{{ $value.MetadataSize }}</td>
+                            <td class="tg-0lax">{{ printf "%s" $value.BucketName }}</td>
+                            <td class="tg-0lax">{{ printf "%s" $value.Since }}</td>
+                            <td class="tg-0lax">{{ printf "%s" $value.Before }}</td>
+                            <td class="tg-0lax">{{ printf "%.6f" $value.InlineStoredData }}</td>
+                            <td class="tg-0lax">{{ printf "%.6f" $value.RemoteStoredData }}</td>
+                            <td class="tg-0lax">{{ printf "%.6f" $value.RepairEgress }}</td>
+                            <td class="tg-0lax">{{ printf "%.6f" $value.GetEgress }}</td>
+                            <td class="tg-0lax">{{ printf "%.6f" $value.AuditEgress }}</td>
+                            <td class="tg-0lax">{{ printf "%.6f" $value.InlineSegments }}</td>
+                            <td class="tg-0lax">{{ printf "%.6f" $value.RemoteSegments }}</td>
+                            <td class="tg-0lax">{{ printf "%.6f" $value.ObjectCount }}</td>
+                            <td class="tg-0lax">{{ printf "%.6f" $value.MetadataSize }}</td>
                         </tr>
                     {{ end }}
                 </tbody>
