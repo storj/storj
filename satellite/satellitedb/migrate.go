@@ -537,13 +537,14 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					_, err := tx.Exec(`
 						ALTER TABLE injuredsegments ADD path text;
 						ALTER TABLE injuredsegments RENAME COLUMN info TO data;
-						ALTER TABLE injuredsegments ADD attempted timestamp;`)
+						ALTER TABLE injuredsegments ADD attempted timestamp;
+						ALTER TABLE injuredsegments DROP CONSTRAINT IF EXISTS id_pkey;`)
 					if err != nil {
 						return ErrMigrate.Wrap(err)
 					}
 					// add 'path' using a cursor
 					err = func() error {
-						_, err = tx.Exec(`DECLARE injured_cursor CURSOR FOR SELECT data FROM injuredsegment FOR UPDATE`)
+						_, err = tx.Exec(`DECLARE injured_cursor CURSOR FOR SELECT data FROM injuredsegments FOR UPDATE`)
 						if err != nil {
 							return ErrMigrate.Wrap(err)
 						}
@@ -560,7 +561,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 								}
 								return ErrMigrate.Wrap(err)
 							}
-							_, err = tx.Exec(`UPDATE injuredsegment SET path = $1 WHERE CURRENT OF injured_cursor`, seg.Path)
+							_, err = tx.Exec(`UPDATE injuredsegments SET path = $1 WHERE CURRENT OF injured_cursor`, seg.Path)
 							if err != nil {
 								return ErrMigrate.Wrap(err)
 							}
@@ -572,10 +573,9 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					}
 					//keep changing
 					_, err = tx.Exec(`
-						ALTER TABLE injuredsegments DROP CONSTRAINT IF EXISTS id_key;
+						ALTER TABLE injuredsegments DROP COLUMN id;
 						ALTER TABLE injuredsegments ALTER COLUMN path SET NOT NULL;
-						ALTER TABLE injuredsegments ADD PRIMARY KEY (path);
-						ALTER TABLE injuredsegments DROP COLUMN id;`)
+						ALTER TABLE injuredsegments ADD PRIMARY KEY (path);`)
 					if err != nil {
 						return ErrMigrate.Wrap(err)
 					}

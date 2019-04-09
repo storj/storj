@@ -21,7 +21,7 @@ import (
 	"storj.io/storj/storage/testqueue"
 )
 
-func TestEnqueueDequeue(t *testing.T) {
+func TestInsertDequeue(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
@@ -32,12 +32,13 @@ func TestEnqueueDequeue(t *testing.T) {
 			Path:       "abc",
 			LostPieces: []int32{int32(1), int32(3)},
 		}
-		err := q.Enqueue(ctx, seg)
+		err := q.Insert(ctx, seg)
 		assert.NoError(t, err)
-
-		s, err := q.Dequeue(ctx)
+		s, err := q.Select(ctx)
 		assert.NoError(t, err)
-		assert.True(t, pb.Equal(&s, seg))
+		err = q.Delete(ctx, s)
+		assert.NoError(t, err)
+		assert.True(t, pb.Equal(s, seg))
 	})
 }
 
@@ -48,8 +49,10 @@ func TestDequeueEmptyQueue(t *testing.T) {
 
 		q := db.RepairQueue()
 
-		s, err := q.Dequeue(ctx)
-		assert.Error(t, err)
+		s, err := q.Select(ctx)
+		assert.NoError(t, err)
+		err = q.Delete(ctx, s)
+		assert.NoError(t, err)
 		assert.Equal(t, pb.InjuredSegment{}, s)
 	})
 }
@@ -68,12 +71,12 @@ func TestSequential(t *testing.T) {
 				Path:       strconv.Itoa(i),
 				LostPieces: []int32{int32(i)},
 			}
-			err := q.Enqueue(ctx, seg)
+			err := q.Insert(ctx, seg)
 			assert.NoError(t, err)
 			addSegs = append(addSegs, seg)
 		}
 
-		list, err := q.Peekqueue(ctx, 100)
+		list, err := q.SelectN(ctx, 100)
 		assert.NoError(t, err)
 		for i := 0; i < N; i++ {
 			assert.True(t, pb.Equal(addSegs[i], &list[i]))
@@ -81,10 +84,12 @@ func TestSequential(t *testing.T) {
 
 		// TODO: fix out of order issue
 		for i := 0; i < N; i++ {
-			dequeued, err := q.Dequeue(ctx)
+			s, err := q.Select(ctx)
 			assert.NoError(t, err)
-			expected := dequeued.LostPieces[0]
-			assert.True(t, pb.Equal(addSegs[expected], &dequeued))
+			err = q.Delete(ctx, s)
+			assert.NoError(t, err)
+			expected := s.LostPieces[0]
+			assert.True(t, pb.Equal(addSegs[expected], s))
 		}
 	})
 }
@@ -104,7 +109,7 @@ func TestParallel(t *testing.T) {
 		for i := 0; i < N; i++ {
 			go func(i int) {
 				defer wg.Done()
-				err := q.Enqueue(ctx, &pb.InjuredSegment{
+				err := q.Insert(ctx, &pb.InjuredSegment{
 					Path:       strconv.Itoa(i),
 					LostPieces: []int32{int32(i)},
 				})
@@ -120,11 +125,14 @@ func TestParallel(t *testing.T) {
 		for i := 0; i < N; i++ {
 			go func(i int) {
 				defer wg.Done()
-				segment, err := q.Dequeue(ctx)
+				s, err := q.Select(ctx)
+				assert.NoError(t, err)
+				err = q.Delete(ctx, s)
+				assert.NoError(t, err)
 				if err != nil {
 					errs <- err
 				}
-				entries <- &segment
+				entries <- s
 			}(i)
 		}
 		wg.Wait()
@@ -179,14 +187,16 @@ func benchmarkSequential(b *testing.B, q queue.RepairQueue) {
 				Path:       strconv.Itoa(i),
 				LostPieces: []int32{int32(i)},
 			}
-			err := q.Enqueue(ctx, seg)
+			err := q.Insert(ctx, seg)
 			assert.NoError(b, err)
 			addSegs = append(addSegs, seg)
 		}
 		for i := 0; i < N; i++ {
-			dqSeg, err := q.Dequeue(ctx)
+			s, err := q.Select(ctx)
 			assert.NoError(b, err)
-			assert.True(b, pb.Equal(addSegs[i], &dqSeg))
+			err = q.Delete(ctx, s)
+			assert.NoError(b, err)
+			assert.True(b, pb.Equal(addSegs[i], s))
 		}
 	}
 }
@@ -222,7 +232,7 @@ func benchmarkParallel(b *testing.B, q queue.RepairQueue) {
 		for i := 0; i < N; i++ {
 			go func(i int) {
 				defer wg.Done()
-				err := q.Enqueue(ctx, &pb.InjuredSegment{
+				err := q.Insert(ctx, &pb.InjuredSegment{
 					Path:       strconv.Itoa(i),
 					LostPieces: []int32{int32(i)},
 				})
@@ -238,11 +248,14 @@ func benchmarkParallel(b *testing.B, q queue.RepairQueue) {
 		for i := 0; i < N; i++ {
 			go func(i int) {
 				defer wg.Done()
-				segment, err := q.Dequeue(ctx)
+				s, err := q.Select(ctx)
+				assert.NoError(b, err)
+				err = q.Delete(ctx, s)
+				assert.NoError(b, err)
 				if err != nil {
 					errs <- err
 				}
-				entries <- &segment
+				entries <- s
 			}(i)
 		}
 		wg.Wait()
@@ -259,7 +272,7 @@ func benchmarkParallel(b *testing.B, q queue.RepairQueue) {
 		}
 
 		sort.Slice(items, func(i, k int) bool { return items[i].LostPieces[0] < items[k].LostPieces[0] })
-		// check if the enqueued and dequeued elements match
+		// check if the Insert and dequeued elements match
 		for i := 0; i < N; i++ {
 			assert.Equal(b, items[i].LostPieces[0], int32(i))
 		}
