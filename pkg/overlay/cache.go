@@ -120,7 +120,7 @@ type NodeDossier struct {
 	Operator   pb.NodeOperator
 	Capacity   pb.NodeCapacity
 	Reputation NodeStats
-	Version    NodeVersion
+	Version    pb.NodeVersion
 }
 
 // Online checks if a node is online based on the collected statistics.
@@ -143,16 +143,6 @@ type NodeStats struct {
 	UptimeCount        int64
 	LastContactSuccess time.Time
 	LastContactFailure time.Time
-}
-
-// NodeVersion contains the version information about a node.
-type NodeVersion struct {
-	Major     int64
-	Minor     int64
-	Patch     int64
-	Hash      string
-	Timestamp time.Time
-	Release   bool
 }
 
 // Cache is used to store and handle node information

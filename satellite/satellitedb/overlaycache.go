@@ -605,6 +605,17 @@ func convertDBNode(info *dbx.Node) (*overlay.NodeDossier, error) {
 	if err != nil {
 		return nil, err
 	}
+	ver := &version.SemVer{
+		Major: info.Major,
+		Minor: info.Minor,
+		Patch: info.Patch,
+	}
+
+	pbts, err := ptypes.TimestampProto(info.Timestamp)
+	if err != nil {
+		return nil, err
+	}
+
 	node := &overlay.NodeDossier{
 		Node: pb.Node{
 			Id: id,
@@ -634,13 +645,11 @@ func convertDBNode(info *dbx.Node) (*overlay.NodeDossier, error) {
 			LastContactSuccess: info.LastContactSuccess,
 			LastContactFailure: info.LastContactFailure,
 		},
-		Version: overlay.NodeVersion{
-			Major:     info.Major,
-			Minor:     info.Minor,
-			Patch:     info.Patch,
-			Hash:      info.Hash,
-			Timestamp: info.Timestamp,
-			Release:   info.Release,
+		Version: pb.NodeVersion{
+			Version:    ver.String(),
+			CommitHash: info.Hash,
+			Timestamp:  pbts,
+			Release:    info.Release,
 		},
 	}
 
