@@ -13,5 +13,5 @@ type MinioConfig struct {
 
 // ServerConfig determines how minio listens for requests
 type ServerConfig struct {
-	Address string `help:"address to serve S3 api over" default:"localhost:7777"`
+	Address string `help:"address to serve S3 api over" default:"127.0.0.1:7777"`
 }

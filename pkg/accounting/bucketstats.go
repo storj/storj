@@ -13,6 +13,9 @@ var mon = monkit.Package()
 
 // BucketTally contains information about aggregate data stored in a bucket
 type BucketTally struct {
+	BucketName []byte
+	ProjectID  []byte
+
 	Segments        int64
 	InlineSegments  int64
 	RemoteSegments  int64

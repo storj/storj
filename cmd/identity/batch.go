@@ -40,6 +40,8 @@ var (
 	}
 
 	keyCfg struct {
+		// TODO: where is this used and should it be conistent with "latest" alias?
+		VersionNumber uint   `default:"0" help:"version of identity (0 is latest)"`
 		MinDifficulty int    `help:"minimum difficulty to output" default:"30"`
 		Concurrency   int    `help:"worker concurrency" default:"4"`
 		OutputDir     string `help:"output directory to place keys" default:"."`
@@ -58,6 +60,11 @@ func cmdKeyGenerate(cmd *cobra.Command, args []string) (err error) {
 	defer cancel()
 
 	err = os.MkdirAll(keyCfg.OutputDir, 0700)
+	if err != nil {
+		return err
+	}
+
+	version, err := storj.GetIDVersion(storj.IDVersionNumber(keyCfg.VersionNumber))
 	if err != nil {
 		return err
 	}
@@ -82,7 +89,7 @@ func cmdKeyGenerate(cmd *cobra.Command, args []string) (err error) {
 	if err := renderStats(screen, diffCounts[:]); err != nil {
 		return err
 	}
-	return identity.GenerateKeys(ctx, uint16(keyCfg.MinDifficulty), keyCfg.Concurrency,
+	return identity.GenerateKeys(ctx, uint16(keyCfg.MinDifficulty), keyCfg.Concurrency, version,
 		func(k crypto.PrivateKey, id storj.NodeID) (done bool, err error) {
 			difficulty, err := id.Difficulty()
 			if err != nil {
@@ -111,7 +118,7 @@ func saveIdentityTar(path string, key crypto.PrivateKey, id storj.NodeID) error 
 		return err
 	}
 
-	caCert, err := peertls.NewSelfSignedCert(key, ct)
+	caCert, err := peertls.CreateSelfSignedCertificate(key, ct)
 	if err != nil {
 		return err
 	}
