@@ -534,21 +534,16 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Description: "Add hash to injuredsegment to prevent duplicates",
 				Version:     14,
 				Action: migrate.Func(func(log *zap.Logger, db migrate.DB, tx *sql.Tx) error {
-					_, err := tx.Exec(`ALTER TABLE injuredsegments ADD path text;`)
-					if err != nil {
-						return ErrMigrate.Wrap(err)
-					}
-					_, err = tx.Exec(`ALTER TABLE injuredsegments RENAME COLUMN info TO data;`)
-					if err != nil {
-						return ErrMigrate.Wrap(err)
-					}
-					_, err = tx.Exec(`ALTER TABLE injuredsegments ADD attempted timestamp;`)
+					_, err := tx.Exec(`
+						ALTER TABLE injuredsegments ADD path text;
+						ALTER TABLE injuredsegments RENAME COLUMN info TO data;
+						ALTER TABLE injuredsegments ADD attempted timestamp;`)
 					if err != nil {
 						return ErrMigrate.Wrap(err)
 					}
 					// add 'path' using a cursor
 					err = func() error {
-						_, err = tx.Exec(`DECLARE injured_cursor CURSOR FOR SELECT info FROM injuredsegment FOR UPDATE`)
+						_, err = tx.Exec(`DECLARE injured_cursor CURSOR FOR SELECT data FROM injuredsegment FOR UPDATE`)
 						if err != nil {
 							return ErrMigrate.Wrap(err)
 						}
@@ -576,19 +571,11 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						return err
 					}
 					//keep changing
-					_, err = tx.Exec(`ALTER TABLE injuredsegments DROP CONSTRAINT IF EXISTS id_key;`)
-					if err != nil {
-						return ErrMigrate.Wrap(err)
-					}
-					_, err = tx.Exec(`ALTER TABLE injuredsegments ALTER COLUMN path SET NOT NULL;`)
-					if err != nil {
-						return ErrMigrate.Wrap(err)
-					}
-					_, err = tx.Exec(`ALTER TABLE injuredsegments ADD PRIMARY KEY (path);`)
-					if err != nil {
-						return ErrMigrate.Wrap(err)
-					}
-					_, err = tx.Exec(`ALTER TABLE injuredsegments DROP COLUMN id;`)
+					_, err = tx.Exec(`
+						ALTER TABLE injuredsegments DROP CONSTRAINT IF EXISTS id_key;
+						ALTER TABLE injuredsegments ALTER COLUMN path SET NOT NULL;
+						ALTER TABLE injuredsegments ADD PRIMARY KEY (path);
+						ALTER TABLE injuredsegments DROP COLUMN id;`)
 					if err != nil {
 						return ErrMigrate.Wrap(err)
 					}

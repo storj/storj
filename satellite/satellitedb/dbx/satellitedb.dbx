@@ -172,23 +172,6 @@ model injuredsegment (
 	field attempted utimestamp (updatable, nullable)
 )
 
-create injuredsegment ( )
-
-read first (
-	select injuredsegment
-)
-
-read first (
-    select injuredsegment
-    where injuredsegment.path = ?
-)
-
-
-read limitoffset (
-	select injuredsegment
-)
-delete injuredsegment ( where injuredsegment.path = ? )
-
 //--- satellite console ---//
 
 model user (
