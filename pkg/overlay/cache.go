@@ -60,7 +60,7 @@ type DB interface {
 	FindInvalidNodes(ctx context.Context, nodeIDs storj.NodeIDList, maxStats *NodeStats) (invalid storj.NodeIDList, err error)
 	// UpdateStats all parts of single storagenode's stats.
 	UpdateStats(ctx context.Context, request *UpdateRequest) (stats *NodeStats, err error)
-	// UpdateOperator updates the email and wallet for a given node ID for satellite payments.
+	// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
 	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *NodeDossier, err error)
 	// UpdateUptime updates a single storagenode's uptime stats.
 	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error)
@@ -331,7 +331,7 @@ func (cache *Cache) UpdateStats(ctx context.Context, request *UpdateRequest) (st
 	return cache.db.UpdateStats(ctx, request)
 }
 
-// UpdateNodeInfo updates the email and wallet for a given node ID for satellite payments.
+// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
 func (cache *Cache) UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return cache.db.UpdateNodeInfo(ctx, node, nodeInfo)
