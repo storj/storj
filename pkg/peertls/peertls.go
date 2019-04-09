@@ -6,7 +6,6 @@ package peertls // import "storj.io/storj/pkg/peertls"
 import (
 	"bytes"
 	"crypto"
-	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
@@ -91,7 +90,7 @@ func VerifyCAWhitelist(cas []*x509.Certificate) PeerCertVerificationFunc {
 func TLSCert(chain [][]byte, leaf *x509.Certificate, key crypto.PrivateKey) (*tls.Certificate, error) {
 	var err error
 	if leaf == nil {
-		leaf, err = pkcrypto.CertFromDER(chain[0])
+		leaf, err = pkcrypto.CertFromDER(chain[LeafIndex])
 		if err != nil {
 			return nil, err
 		}
@@ -126,37 +125,38 @@ func ChainBytes(chain ...*x509.Certificate) ([]byte, error) {
 	return data.Bytes(), err
 }
 
-// NewSelfSignedCert returns a new x509 self-signed certificate using the provided // template and key,
-func NewSelfSignedCert(key crypto.PrivateKey, template *x509.Certificate) (*x509.Certificate, error) {
-	return NewCert(pkcrypto.PublicKeyFromPrivate(key), key, template, template)
+// CreateSelfSignedCertificate creates a new self-signed X.509v3 certificate
+// using fields from the given template.
+func CreateSelfSignedCertificate(key crypto.PrivateKey, template *x509.Certificate) (*x509.Certificate, error) {
+	return CreateCertificate(pkcrypto.PublicKeyFromPrivate(key), key, template, template)
 }
 
-// NewCert returns a new x509 certificate using the provided templates and key,
-// signed by the parent cert if provided; otherwise, self-signed.
-func NewCert(publicKey crypto.PublicKey, parentKey crypto.PrivateKey, template, parent *x509.Certificate) (*x509.Certificate, error) {
-	if parent == nil {
-		parent = template
+// CreateCertificate creates a new X.509v3 certificate based on a template.
+// The new certificate:
+//
+//  * will have the public key given as 'signee'
+//  * will be signed by 'signer' (which should be the private key of 'issuer')
+//  * will be issued by 'issuer'
+//  * will have metadata fields copied from 'template'
+//
+// Returns the new Certificate object.
+func CreateCertificate(signee crypto.PublicKey, signer crypto.PrivateKey, template, issuer *x509.Certificate) (*x509.Certificate, error) {
+	if _, ok := signer.(crypto.Signer); !ok {
+		// x509.CreateCertificate will panic in this case, so check here and make debugging easier
+		return nil, errs.New("can't sign certificate with signer key of type %T", signer)
 	}
 
-	publicECKey, ok := publicKey.(*ecdsa.PublicKey)
-	if !ok {
-		return nil, errs.New("unsupported public key type %T", publicKey)
-	}
-
+	// TODO: should we check for uniqueness?
+	template.ExtraExtensions = append(template.ExtraExtensions, template.Extensions...)
 	cb, err := x509.CreateCertificate(
 		rand.Reader,
 		template,
-		parent,
-		publicECKey,
-		parentKey,
+		issuer,
+		signee,
+		signer,
 	)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
-
-	cert, err := pkcrypto.CertFromDER(cb)
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
-	return cert, nil
+	return pkcrypto.CertFromDER(cb)
 }

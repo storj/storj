@@ -143,6 +143,11 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 		return
 	}
 
+	_, err = s.store.Users().GetByEmail(ctx, normalizeEmail(claims.Email))
+	if err == nil {
+		return errs.New(fmt.Sprintf("%s is already in use", claims.Email))
+	}
+
 	user, err := s.store.Users().Get(ctx, claims.ID)
 	if err != nil {
 		return
@@ -495,9 +500,14 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 // GetProjectMembers returns ProjectMembers for given Project
 func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, pagination Pagination) (pm []ProjectMember, err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = GetAuth(ctx)
+	auth, err := GetAuth(ctx)
 	if err != nil {
 		return nil, err
+	}
+
+	_, err = s.isProjectMember(ctx, auth.User.ID, projectID)
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
 	}
 
 	if pagination.Limit > maxLimit {
@@ -623,6 +633,24 @@ func (s *Service) GetAPIKeysInfoByProjectID(ctx context.Context, projectID uuid.
 	}
 
 	return s.store.APIKeys().GetByProjectID(ctx, projectID)
+}
+
+// GetProjectUsage retrieves project usage for a given period
+func (s *Service) GetProjectUsage(ctx context.Context, projectID uuid.UUID, since, before time.Time) (*ProjectUsage, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = s.isProjectMember(ctx, auth.User.ID, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.store.UsageRollups().GetProjectTotal(ctx, projectID, since, before)
 }
 
 // Authorize validates token from context and returns authorized Authorization

@@ -40,16 +40,16 @@ func (srv *Inspector) DumpNodes(ctx context.Context, req *pb.DumpNodesRequest) (
 
 // GetStats returns the stats for a particular node ID
 func (srv *Inspector) GetStats(ctx context.Context, req *pb.GetStatsRequest) (*pb.GetStatsResponse, error) {
-	stats, err := srv.cache.GetStats(ctx, req.NodeId)
+	node, err := srv.cache.Get(ctx, req.NodeId)
 	if err != nil {
 		return nil, err
 	}
 
 	return &pb.GetStatsResponse{
-		AuditCount:  stats.AuditCount,
-		AuditRatio:  stats.AuditSuccessRatio,
-		UptimeCount: stats.UptimeCount,
-		UptimeRatio: stats.UptimeRatio,
+		AuditCount:  node.GetReputation().GetAuditCount(),
+		AuditRatio:  node.GetReputation().GetAuditSuccessRatio(),
+		UptimeCount: node.GetReputation().GetUptimeCount(),
+		UptimeRatio: node.GetReputation().GetUptimeRatio(),
 	}, nil
 }
 

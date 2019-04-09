@@ -123,11 +123,15 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 					return Error.New("error getting invalid nodes %s", err)
 				}
 
-				missingPieces := combineOfflineWithInvalid(offlineNodes, invalidNodes)
+				missingIndices := combineOfflineWithInvalid(offlineNodes, invalidNodes)
+				var missingPieces []int32
+				for _, i := range missingIndices {
+					missingPieces = append(missingPieces, pieces[i].GetPieceNum())
+				}
 
 				remoteSegmentsChecked++
 				numHealthy := len(nodeIDs) - len(missingPieces)
-				if (int32(numHealthy) >= pointer.Remote.Redundancy.MinReq) && (int32(numHealthy) < pointer.Remote.Redundancy.RepairThreshold) {
+				if (int32(numHealthy) >= pointer.Remote.Redundancy.MinReq) && (int32(numHealthy) <= pointer.Remote.Redundancy.RepairThreshold) {
 					remoteSegmentsNeedingRepair++
 					err = checker.repairQueue.Enqueue(ctx, &pb.InjuredSegment{
 						Path:       string(item.Key),

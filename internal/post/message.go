@@ -88,10 +88,7 @@ func (msg *Message) Bytes() ([]byte, error) {
 				return nil, Error.Wrap(err)
 			}
 
-			err = enc.Close()
-			if err != nil {
-				return nil, Error.Wrap(err)
-			}
+			defer func() { err = errs.Combine(err, enc.Close()) }()
 		}
 
 		for _, part := range msg.Parts {
@@ -109,7 +106,7 @@ func (msg *Message) Bytes() ([]byte, error) {
 
 		err := wr.Close()
 		if err != nil {
-			return nil, err
+			return nil, Error.Wrap(err)
 		}
 	// fallback if there are no parts, write PlainText with appropriate Content-Type
 	default:
@@ -118,11 +115,11 @@ func (msg *Message) Bytes() ([]byte, error) {
 
 		enc := quotedprintable.NewWriter(&body)
 		if _, err := enc.Write([]byte(msg.PlainText)); err != nil {
-			return nil, err
+			return nil, Error.Wrap(err)
 		}
 
 		if err := enc.Close(); err != nil {
-			return nil, err
+			return nil, Error.Wrap(err)
 		}
 	}
 

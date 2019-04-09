@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
@@ -70,10 +71,11 @@ func TestInspectorStats(t *testing.T) {
 				resp, err := healthEndpoint.SegmentHealth(ctx, req)
 				require.NoError(t, err)
 
-				require.Equal(t, int32(0), resp.GetHealth().GetSuccessThreshold())
-				require.Equal(t, int32(1), resp.GetHealth().GetMinimumRequired())
-				require.Equal(t, int32(4), resp.GetHealth().GetTotal())
-				require.Equal(t, int32(0), resp.GetHealth().GetRepairThreshold())
+				redundancy, err := eestream.NewRedundancyStrategyFromProto(resp.GetRedundancy())
+				require.NoError(t, err)
+
+				require.Equal(t, 4, redundancy.TotalCount())
+				require.True(t, bytes.Equal([]byte("l"), resp.GetHealth().GetSegment()))
 			}
 
 			{ // Test Object Health Request
@@ -86,16 +88,16 @@ func TestInspectorStats(t *testing.T) {
 					Limit:             0,
 				}
 				resp, err := healthEndpoint.ObjectHealth(ctx, objectHealthReq)
-
-				require.Len(t, resp.GetSegments(), 1)
+				require.NoError(t, err)
 
 				segments := resp.GetSegments()
-				require.Equal(t, int32(0), segments[0].GetSuccessThreshold())
-				require.Equal(t, int32(1), segments[0].GetMinimumRequired())
-				require.Equal(t, int32(4), segments[0].GetTotal())
-				require.Equal(t, int32(0), segments[0].GetRepairThreshold())
+				require.Len(t, segments, 1)
 
+				redundancy, err := eestream.NewRedundancyStrategyFromProto(resp.GetRedundancy())
 				require.NoError(t, err)
+
+				require.Equal(t, 4, redundancy.TotalCount())
+				require.True(t, bytes.Equal([]byte("l"), segments[0].GetSegment()))
 			}
 
 			return nil

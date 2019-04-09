@@ -51,8 +51,8 @@ func (client *slowTransport) Identity() *identity.FullIdentity {
 }
 
 // WithObservers calls WithObservers for slowTransport
-func (client *slowTransport) WithObservers(obs ...Observer) *Transport {
-	return client.client.WithObservers(obs...)
+func (client *slowTransport) WithObservers(obs ...Observer) Client {
+	return &slowTransport{client.client.WithObservers(obs...), client.network}
 }
 
 // DialOptions returns options such that it will use simulated network parameters

@@ -144,7 +144,8 @@ func TestGetObjectStream(t *testing.T) {
 		perm := mathrand.Perm(len(planet.StorageNodes))
 		for _, i := range perm[:(len(perm) / 2)] {
 			assert.NoError(t, planet.StopPeer(planet.StorageNodes[i]))
-			assert.NoError(t, planet.Satellites[0].Overlay.Service.Delete(ctx, planet.StorageNodes[i].ID()))
+			_, err := planet.Satellites[0].Overlay.Service.UpdateUptime(ctx, planet.StorageNodes[i].ID(), false)
+			assert.NoError(t, err)
 		}
 
 		// try downloading the large file again

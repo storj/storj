@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
@@ -36,16 +37,19 @@ func TestCache_Graveyard(t *testing.T) {
 
 		satellite.Discovery.Service.Graveyard.Pause()
 
-		err := satellite.Overlay.Service.Delete(ctx, offlineID)
+		// mark node as offline in overlay cache
+		_, err := satellite.Overlay.Service.UpdateUptime(ctx, offlineID, false)
+		require.NoError(t, err)
+
+		node, err := satellite.Overlay.Service.Get(ctx, offlineID)
 		assert.NoError(t, err)
-		_, err = satellite.Overlay.Service.Get(ctx, offlineID)
-		assert.NotNil(t, err)
+		assert.False(t, node.Online())
 
 		satellite.Discovery.Service.Graveyard.TriggerWait()
 
 		found, err := satellite.Overlay.Service.Get(ctx, offlineID)
 		assert.NoError(t, err)
-		assert.NotNil(t, found)
 		assert.Equal(t, offlineID, found.Id)
+		assert.True(t, found.Online())
 	})
 }
