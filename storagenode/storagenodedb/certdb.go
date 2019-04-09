@@ -93,5 +93,5 @@ func decodePeerIdentity(chain []byte) (*identity.PeerIdentity, error) {
 	if len(certs) < 2 {
 		return nil, ErrInfo.New("not enough certificates")
 	}
-	return identity.PeerIdentityFromCerts(certs[0], certs[1], certs[2:])
+	return identity.PeerIdentityFromChain(certs)
 }

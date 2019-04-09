@@ -215,12 +215,8 @@ message SegmentHealthRequest {
 }
 
 message SegmentHealth {
-  int32 minimum_required = 1;  // minimum required stripes for reconstruction (k)
-  int32 total = 2;             // total amount of pieces we generated (n)
-  int32 repair_threshold = 3;  // amount of pieces we need to drop to before triggering repair (m)
-  int32 success_threshold = 4; // amount of pieces we need to store to call it a success (o)
-  int32 online_nodes = 5;      // amount of pieces with nodes that are online
-  bytes segment = 6;           // path formatted segment index
+  int32 online_nodes = 1; // amount of pieces with nodes that are online
+  bytes segment = 2;      // path formatted segment index
 }
 
 message SegmentHealthResponse {
