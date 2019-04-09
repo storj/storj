@@ -57,13 +57,13 @@ type Config struct {
 		// the inline storage and require remote storage, still.)
 		MaxInlineSize memory.Size
 
-		// MaxMem is the default maximum amount of memory to be
+		// MaxMemory is the default maximum amount of memory to be
 		// allocated for read buffers while performing decodes of
 		// objects. (This option is overrideable per Bucket if the user
 		// so desires.) If set to zero, the library default (4 MiB) will
 		// be used. If set to a negative value, the system will use the
 		// smallest amount of memory it can.
-		MaxMem memory.Size
+		MaxMemory memory.Size
 	}
 }
 
@@ -78,10 +78,10 @@ func (c *Config) setDefaults(ctx context.Context) error {
 	if c.Volatile.MaxInlineSize.Int() == 0 {
 		c.Volatile.MaxInlineSize = 4 * memory.KiB
 	}
-	if c.Volatile.MaxMem.Int() == 0 {
-		c.Volatile.MaxMem = 4 * memory.MiB
-	} else if c.Volatile.MaxMem.Int() < 0 {
-		c.Volatile.MaxMem = 0
+	if c.Volatile.MaxMemory.Int() == 0 {
+		c.Volatile.MaxMemory = 4 * memory.MiB
+	} else if c.Volatile.MaxMemory.Int() < 0 {
+		c.Volatile.MaxMemory = 0
 	}
 	return nil
 }
