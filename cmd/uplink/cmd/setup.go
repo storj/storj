@@ -5,10 +5,13 @@ package cmd
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
@@ -27,6 +30,8 @@ var (
 	confDir     string
 	identityDir string
 	isDev       bool
+
+	Error = errs.Class("uplink setup error")
 )
 
 func init() {
@@ -40,6 +45,9 @@ func init() {
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
+	// Ensure use the default port if the user only specifies a host.
+	ApplyDefaultHostAndPortToAddrFlag(cmd, "satellite-addr")
+
 	setupDir, err := filepath.Abs(confDir)
 	if err != nil {
 		return err
@@ -56,4 +64,49 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), nil)
+}
+
+func ApplyDefaultHostAndPortToAddrFlag(cmd *cobra.Command, flagName string) error {
+	defaultHost, defaultPort, err := net.SplitHostPort(cmd.Flags().Lookup(flagName).DefValue)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	flag := cmd.Flags().Lookup(flagName)
+	if flag == nil {
+		// No flag found for us to handle.
+		return nil
+	}
+	address := flag.Value.String()
+
+	addressParts := strings.Split(address, ":")
+	numberOfParts := len(addressParts)
+
+	if numberOfParts > 1 && len(addressParts[0]) > 0 {
+		// address is host:port so skip applying any defaults.
+		return nil
+	}
+
+	// We are missing a host:port part. Figure out which part we are missing.
+	indexOfPortSeparator := strings.Index(address, ":")
+	lengthOfFirstPart := len(addressParts[0])
+
+	if indexOfPortSeparator == -1 {
+		if lengthOfFirstPart == 0 {
+			// address is blank.
+			address = net.JoinHostPort(defaultHost, defaultPort)
+		} else {
+			// address is host
+			address = net.JoinHostPort(addressParts[0], defaultPort)
+		}
+	} else if indexOfPortSeparator == 0 {
+		// address is :1234
+		address = net.JoinHostPort(defaultHost, addressParts[1])
+	} else if indexOfPortSeparator > 0 {
+		// address is host:
+		address = net.JoinHostPort(defaultPort, addressParts[0])
+	}
+
+	flag.Value.Set(address)
+	return nil
 }
