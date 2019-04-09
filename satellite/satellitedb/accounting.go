@@ -23,12 +23,12 @@ type accountingDB struct {
 	db *dbx.DB
 }
 
-// ProjectBandwidthTotal returns the sum of GET bandwidth usage for a projectID for a time frame
-func (db *accountingDB) ProjectBandwidthTotal(ctx context.Context, bucketID []byte, from time.Time) (int64, error) {
+// ProjectAllocatedBandwidthTotal returns the sum of GET bandwidth usage allocated for a projectID for a time frame
+func (db *accountingDB) ProjectAllocatedBandwidthTotal(ctx context.Context, bucketID []byte, from time.Time) (int64, error) {
 	pathEl := bytes.Split(bucketID, []byte("/"))
 	_, projectID := pathEl[1], pathEl[0]
 	var sum *int64
-	query := `SELECT SUM(settled) FROM bucket_bandwidth_rollups WHERE project_id = ? AND action = ? AND interval_start > ?;`
+	query := `SELECT SUM(allocated) FROM bucket_bandwidth_rollups WHERE project_id = ? AND action = ? AND interval_start > ?;`
 	err := db.db.QueryRow(db.db.Rebind(query), projectID, pb.PieceAction_GET, from).Scan(&sum)
 	if err == sql.ErrNoRows || sum == nil {
 		return 0, nil

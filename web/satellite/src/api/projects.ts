@@ -12,31 +12,28 @@ export async function createProjectRequest(project: Project): Promise<RequestRes
         data: project
     };
 
-    try {
-        let response: any = await apollo.mutate(
-            {
-                mutation: gql(`
-					mutation {
-						createProject(
-							input: {
-								name: "${project.name}",
-								description: "${project.description}",
-							}
-						) {id}
-					}`
-                ),
-                fetchPolicy: 'no-cache',
-            }
-        );
-
-        if (response.errors) {
-            result.errorMessage = response.errors[0].message;
-        } else {
-            result.isSuccess = true;
-            result.data.id = response.data.createProject.id;
+    let response: any = await apollo.mutate(
+        {
+            mutation: gql(`
+            mutation {
+                createProject(
+                    input: {
+                        name: "${project.name}",
+                        description: "${project.description}",
+                    }
+                ) {id}
+            }`
+            ),
+            fetchPolicy: 'no-cache',
+            errorPolicy: 'all',
         }
-    } catch (e) {
-        result.errorMessage = e.message;
+    );
+
+    if (response.errors) {
+        result.errorMessage = response.errors[0].message;
+    } else {
+        result.isSuccess = true;
+        result.data.id = response.data.createProject.id;
     }
 
     return result;
@@ -50,31 +47,28 @@ export async function fetchProjectsRequest(): Promise<RequestResponse<Project[]>
         data: []
     };
 
-    try {
-        let response: any = await apollo.query(
-            {
-                query: gql(`
-					query {
-						myProjects{
-							name
-							id
-							description
-							createdAt
-						}
-					}`
-                ),
-                fetchPolicy: 'no-cache',
-            }
-        );
-
-        if (response.errors) {
-            result.errorMessage = response.errors[0].message;
-        } else {
-            result.isSuccess = true;
-            result.data = response.data.myProjects;
+    let response: any = await apollo.query(
+        {
+            query: gql(`
+            query {
+                myProjects{
+                    name
+                    id
+                    description
+                    createdAt
+                }
+            }`
+            ),
+            fetchPolicy: 'no-cache',
+            errorPolicy: 'all',
         }
-    } catch (e) {
-        result.errorMessage = e.message;
+    );
+
+    if (response.errors) {
+        result.errorMessage = response.errors[0].message;
+    } else {
+        result.isSuccess = true;
+        result.data = response.data.myProjects;
     }
 
     return result;
@@ -88,28 +82,25 @@ export async function updateProjectRequest(projectID: string, description: strin
         data: null
     };
 
-    try {
-        let response: any = await apollo.mutate(
-            {
-                mutation: gql(`
-					mutation {
-						updateProjectDescription(
-							id: "${projectID}",
-							description: "${description}"
-						) {name}
-					}`
-                ),
-                fetchPolicy: 'no-cache',
-            }
-        );
-
-        if (response.errors) {
-            result.errorMessage = response.errors[0].message;
-        } else {
-            result.isSuccess = true;
+    let response: any = await apollo.mutate(
+        {
+            mutation: gql(`
+            mutation {
+                updateProjectDescription(
+                    id: "${projectID}",
+                    description: "${description}"
+                ) {name}
+            }`
+            ),
+            fetchPolicy: 'no-cache',
+            errorPolicy: 'all',
         }
-    } catch (e) {
-        result.errorMessage = e.message;
+    );
+
+    if (response.errors) {
+        result.errorMessage = response.errors[0].message;
+    } else {
+        result.isSuccess = true;
     }
 
     return result;
@@ -123,27 +114,24 @@ export async function deleteProjectRequest(projectID: string): Promise<RequestRe
         data: null
     };
 
-    try {
-        let response = await apollo.mutate(
-            {
-                mutation: gql(`
-					mutation {
-						deleteProject(
-							id: "${projectID}"
-						) {name}
-					}`
-                ),
-                fetchPolicy: 'no-cache',
-            }
-        );
-
-        if (response.errors) {
-            result.errorMessage = response.errors[0].message;
-        } else {
-            result.isSuccess = true;
+    let response = await apollo.mutate(
+        {
+            mutation: gql(`
+            mutation {
+                deleteProject(
+                    id: "${projectID}"
+                ) {name}
+            }`
+            ),
+            fetchPolicy: 'no-cache',
+            errorPolicy: 'all',
         }
-    } catch (e) {
-        result.errorMessage = e.message;
+    );
+
+    if (response.errors) {
+        result.errorMessage = response.errors[0].message;
+    } else {
+        result.isSuccess = true;
     }
 
     return result;

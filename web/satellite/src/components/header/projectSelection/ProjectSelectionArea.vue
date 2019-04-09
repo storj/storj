@@ -3,7 +3,8 @@
 
 <template>
     <div class="project-selection-container" id="projectDropdownButton">
-        <div class="project-selection-toggle-container" v-on:click="toggleSelection">
+        <p class="project-selection-container__no-projects-text" v-if="!hasProjects">You have no projects</p>
+        <div class="project-selection-toggle-container" v-on:click="toggleSelection" v-if="hasProjects">
             <h1>{{name}}</h1>
             <div class="project-selection-toggle-container__expander-area">
                 <img v-if="!isDropdownShown" src="../../../../static/images/register/BlueExpand.svg"/>
@@ -40,7 +41,10 @@ import { APP_STATE_ACTIONS, PROJETS_ACTIONS, NOTIFICATION_ACTIONS } from '@/util
 
                 return selectedProject.id ? selectedProject.name : 'Choose project';
             },
-            isDropdownShown: (state: any) => state.appStateModule.appState.isProjectsDropdownShown
+            isDropdownShown: (state: any) => state.appStateModule.appState.isProjectsDropdownShown,
+            hasProjects: function (state: any): boolean {
+                return state.projectsModule.projects.length;
+            }
         }),
         components: {
             ProjectSelectionDropdown
@@ -59,6 +63,15 @@ export default class ProjectSelectionArea extends Vue {
         padding-right: 10px;
         background-color: #FFFFFF;
         cursor: pointer;
+
+        &__no-projects-text {
+            font-family: 'font_medium';
+            font-size: 16px;
+            line-height: 23px;
+            color: #354049;
+            opacity: 0.7;
+            cursor: default !important;
+        }
 
         h1 {
             font-family: 'font_medium';
