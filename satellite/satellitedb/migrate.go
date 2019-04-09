@@ -534,22 +534,12 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Description: "Add new Columns to store version information",
 				Version:     14,
 				Action: migrate.SQL{
-					`ALTER TABLE nodes ADD major bigint;
-					ALTER TABLE nodes ADD minor bigint;
-					ALTER TABLE nodes ADD patch bigint;
-					ALTER TABLE nodes ADD hash TEXT;
-					ALTER TABLE nodes ADD timestamp TIMESTAMP WITH TIME ZONE;
-					ALTER TABLE nodes ADD release bool;
-					UPDATE nodes SET major = 0, minor = 1, patch = 0;
-					UPDATE nodes SET hash = '';
-					UPDATE nodes SET timestamp = 'epoch';
-					UPDATE nodes SET release = false;
-					ALTER TABLE nodes ALTER COLUMN major SET NOT NULL;
-					ALTER TABLE nodes ALTER COLUMN minor SET NOT NULL;
-					ALTER TABLE nodes ALTER COLUMN patch SET NOT NULL;
-					ALTER TABLE nodes ALTER COLUMN hash SET NOT NULL;
-					ALTER TABLE nodes ALTER COLUMN timestamp SET NOT NULL;
-					ALTER TABLE nodes ALTER COLUMN release SET NOT NULL;`,
+					`ALTER TABLE nodes ADD major bigint NOT NULL DEFAULT 0;
+					ALTER TABLE nodes ADD minor bigint NOT NULL DEFAULT 1;
+					ALTER TABLE nodes ADD patch bigint NOT NULL DEFAULT 0;
+					ALTER TABLE nodes ADD hash TEXT NOT NULL;
+					ALTER TABLE nodes ADD timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT 'epoch';
+					ALTER TABLE nodes ADD release bool NOT NULL DEFAULT FALSE;`,
 				},
 			},
 		},
