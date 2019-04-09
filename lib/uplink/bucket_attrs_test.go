@@ -30,13 +30,15 @@ func testPlanetWithLibUplink(t *testing.T, cfg testConfig, encKey *storj.Key,
 		cfg.planetCfg = &testplanet.Config{SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1}
 	}
 
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	planet, err := testplanet.NewCustom(zaptest.NewLogger(t), *cfg.planetCfg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx := testcontext.New(t)
 	defer ctx.Check(planet.Shutdown)
-	defer ctx.Cleanup() // warning: this must be deferred after planet.Shutdown so it runs before
+
 	planet.Start(ctx)
 
 	// we only use testUplink for the free API key, until such time
