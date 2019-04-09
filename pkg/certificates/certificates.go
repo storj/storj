@@ -21,7 +21,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
@@ -300,19 +300,13 @@ func (authDB *AuthorizationDB) Get(userID string) (Authorizations, error) {
 // UserIDs returns a list of all userIDs present in the authorization database.
 func (authDB *AuthorizationDB) UserIDs() (userIDs []string, err error) {
 	err = authDB.DB.Iterate(storage.IterateOptions{
-		First:   []byte{},
 		Recurse: true,
-		Prefix:  storage.Key(""),
 	}, func(iterator storage.Iterator) error {
 		listItem := new(storage.ListItem)
-		for {
-			more := iterator.Next(listItem)
-			// TODO: does a listItem get populated when more returns false?
+		for more := true; more; {
+			more = iterator.Next(listItem)
 			if listItem != nil {
 				userIDs = append(userIDs, listItem.Key.String())
-			}
-			if !more {
-				break
 			}
 		}
 		return nil
@@ -323,15 +317,12 @@ func (authDB *AuthorizationDB) UserIDs() (userIDs []string, err error) {
 // List returns all authorizations in the database.
 func (authDB *AuthorizationDB) List() (auths Authorizations, err error) {
 	err = authDB.DB.Iterate(storage.IterateOptions{
-		First:   []byte{},
 		Recurse: true,
-		Prefix:  storage.Key(""),
 	}, func(iterator storage.Iterator) error {
 		var listErrs errs.Group
 		listItem := new(storage.ListItem)
-		for {
-			more := iterator.Next(listItem)
-			// TODO: does a listItem get populated when more returns false?
+		for more := true; more; {
+			more = iterator.Next(listItem)
 			if listItem != nil {
 				var nextAuths Authorizations
 				if err := nextAuths.Unmarshal(listItem.Value); err != nil {
