@@ -37,6 +37,7 @@ type Part struct {
 	Content     string
 }
 
+// Error is the default message errs class
 var Error = errs.Class("Email message error")
 
 // Bytes builds message and returns result as bytes
