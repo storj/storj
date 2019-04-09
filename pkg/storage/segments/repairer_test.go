@@ -22,25 +22,26 @@ import (
 )
 
 func TestSegmentStoreRepair(t *testing.T) {
-	t.Skip("flaky")
 
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// first, upload some remote data
 		ul := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
 
 		satellite.Repair.Checker.Loop.Stop()
+		// stop discovery service so that we do not get a race condition when we delete nodes from overlay cache
+		satellite.Discovery.Service.Discovery.Stop()
 
 		testData := make([]byte, 1*memory.MiB)
 		_, err := rand.Read(testData)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		err = ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     1,
-			RepairThreshold:  2,
-			SuccessThreshold: 3,
+			MinThreshold:     2,
+			RepairThreshold:  3,
+			SuccessThreshold: 4,
 			MaxThreshold:     4,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
@@ -55,7 +56,7 @@ func TestSegmentStoreRepair(t *testing.T) {
 		for _, v := range listResponse {
 			path = v.GetPath()
 			pointer, err = pdb.Get(path)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			if pointer.GetType() == pb.Pointer_REMOTE {
 				break
 			}
@@ -86,7 +87,9 @@ func TestSegmentStoreRepair(t *testing.T) {
 		for _, node := range planet.StorageNodes {
 			if nodesToKill[node.ID()] {
 				err = planet.StopPeer(node)
-				assert.NoError(t, err)
+				require.NoError(t, err)
+				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
+				require.NoError(t, err)
 			}
 		}
 
@@ -100,11 +103,14 @@ func TestSegmentStoreRepair(t *testing.T) {
 		err = repairer.Repair(ctx, path, lostPieces)
 		assert.NoError(t, err)
 
-		// kill nodes kept alive to ensure repair worked
+		// kill one of the nodes kept alive to ensure repair worked
 		for _, node := range planet.StorageNodes {
 			if nodesToKeepAlive[node.ID()] {
 				err = planet.StopPeer(node)
-				assert.NoError(t, err)
+				require.NoError(t, err)
+				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
+				require.NoError(t, err)
+				break
 			}
 		}
 

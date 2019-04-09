@@ -21,6 +21,7 @@ import (
 
 	"storj.io/storj/internal/post"
 	"storj.io/storj/internal/post/oauth2"
+	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/accounting/rollup"
 	"storj.io/storj/pkg/accounting/tally"
@@ -109,6 +110,8 @@ type Config struct {
 
 	Mail    mailservice.Config
 	Console consoleweb.Config
+
+	Version version.Config
 }
 
 // Peer is the satellite
@@ -121,6 +124,8 @@ type Peer struct {
 	Transport transport.Client
 
 	Server *server.Server
+
+	Version *version.Service
 
 	// services and endpoints
 	Kademlia struct {
@@ -170,8 +175,8 @@ type Peer struct {
 	}
 
 	Accounting struct {
-		Tally  *tally.Tally
-		Rollup *rollup.Rollup
+		Tally  *tally.Service
+		Rollup *rollup.Service
 	}
 
 	Mail struct {
@@ -186,7 +191,7 @@ type Peer struct {
 }
 
 // New creates a new satellite
-func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*Peer, error) {
+func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, versionInfo version.Info) (*Peer, error) {
 	peer := &Peer{
 		Log:      log,
 		Identity: full,
@@ -194,6 +199,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 	}
 
 	var err error
+
+	{
+		test := version.Info{}
+		if test != versionInfo {
+			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
+				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
+		}
+		peer.Version = version.NewService(config.Version, versionInfo, "Satellite")
+	}
 
 	{ // setup listener and server
 		log.Debug("Starting listener and server")
@@ -386,7 +400,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config) (*
 
 	{ // setup accounting
 		log.Debug("Setting up accounting")
-		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.Accounting(), peer.DB.BandwidthAgreement(), peer.Metainfo.Service, peer.Overlay.Service, 0, config.Tally.Interval)
+		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.Accounting(), peer.Metainfo.Service, peer.Overlay.Service, 0, config.Tally.Interval)
 		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.Accounting(), config.Rollup.Interval)
 	}
 
@@ -513,6 +527,9 @@ func ignoreCancel(err error) error {
 func (peer *Peer) Run(ctx context.Context) error {
 	group, ctx := errgroup.WithContext(ctx)
 
+	group.Go(func() error {
+		return ignoreCancel(peer.Version.Run(ctx))
+	})
 	group.Go(func() error {
 		return ignoreCancel(peer.Kademlia.Service.Bootstrap(ctx))
 	})

@@ -152,6 +152,10 @@ func (s *Server) accountActivationHandler(w http.ResponseWriter, req *http.Reque
 
 	err := s.service.ActivateAccount(context.Background(), activationToken)
 	if err != nil {
+		s.log.Error("activation: failed to activate account",
+			zap.String("token", activationToken),
+			zap.Error(err))
+
 		http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "errors", "404.html"))
 		return
 	}
