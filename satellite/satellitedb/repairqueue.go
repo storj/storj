@@ -13,6 +13,7 @@ import (
 	sqlite3 "github.com/mattn/go-sqlite3"
 
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/pkcrypto"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/storage"
 )
@@ -26,11 +27,19 @@ func (r *repairQueue) Enqueue(ctx context.Context, seg *pb.InjuredSegment) error
 	if err != nil {
 		return err
 	}
+	hash := pkcrypto.SHA256Hash(val)
 
-	_, err = r.db.Create_Injuredsegment(
-		ctx,
-		dbx.Injuredsegment_Info(val),
-	)
+	err = r.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+		f, err := tx.First_Injuredsegment_By_Hash(ctx, dbx.Injuredsegment_Hash(hash))
+		if f != nil {
+			return nil // quietly fail on reinsert
+		}
+		if err != nil {
+			return err
+		}
+		_, err = tx.Create_Injuredsegment(ctx, dbx.Injuredsegment_Info(val), dbx.Injuredsegment_Hash(hash))
+		return err
+	})
 	return err
 }
 

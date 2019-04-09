@@ -353,9 +353,10 @@ CREATE TABLE certRecords (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE injuredsegments (
-	id bigserial NOT NULL,
-	info bytea NOT NULL,
-	PRIMARY KEY ( id )
+	path text NOT NULL,
+	data bytea NOT NULL,
+	attempted timestamp,
+	PRIMARY KEY ( path )
 );
 CREATE TABLE irreparabledbs (
 	segmentpath bytea NOT NULL,
@@ -604,9 +605,10 @@ CREATE TABLE certRecords (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE injuredsegments (
-	id INTEGER NOT NULL,
-	info BLOB NOT NULL,
-	PRIMARY KEY ( id )
+	path TEXT NOT NULL,
+	data BLOB NOT NULL,
+	attempted TIMESTAMP,
+	PRIMARY KEY ( path )
 );
 CREATE TABLE irreparabledbs (
 	segmentpath BLOB NOT NULL,
@@ -1964,52 +1966,91 @@ func (f CertRecord_UpdateAt_Field) value() interface{} {
 func (CertRecord_UpdateAt_Field) _Column() string { return "update_at" }
 
 type Injuredsegment struct {
-	Id   int64
-	Info []byte
+	Path      string
+	Data      []byte
+	Attempted *time.Time
 }
 
 func (Injuredsegment) _Table() string { return "injuredsegments" }
 
-type Injuredsegment_Update_Fields struct {
+type Injuredsegment_Create_Fields struct {
+	Attempted Injuredsegment_Attempted_Field
 }
 
-type Injuredsegment_Id_Field struct {
+type Injuredsegment_Update_Fields struct {
+	Attempted Injuredsegment_Attempted_Field
+}
+
+type Injuredsegment_Path_Field struct {
 	_set   bool
 	_null  bool
-	_value int64
+	_value string
 }
 
-func Injuredsegment_Id(v int64) Injuredsegment_Id_Field {
-	return Injuredsegment_Id_Field{_set: true, _value: v}
+func Injuredsegment_Path(v string) Injuredsegment_Path_Field {
+	return Injuredsegment_Path_Field{_set: true, _value: v}
 }
 
-func (f Injuredsegment_Id_Field) value() interface{} {
+func (f Injuredsegment_Path_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (Injuredsegment_Id_Field) _Column() string { return "id" }
+func (Injuredsegment_Path_Field) _Column() string { return "path" }
 
-type Injuredsegment_Info_Field struct {
+type Injuredsegment_Data_Field struct {
 	_set   bool
 	_null  bool
 	_value []byte
 }
 
-func Injuredsegment_Info(v []byte) Injuredsegment_Info_Field {
-	return Injuredsegment_Info_Field{_set: true, _value: v}
+func Injuredsegment_Data(v []byte) Injuredsegment_Data_Field {
+	return Injuredsegment_Data_Field{_set: true, _value: v}
 }
 
-func (f Injuredsegment_Info_Field) value() interface{} {
+func (f Injuredsegment_Data_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (Injuredsegment_Info_Field) _Column() string { return "info" }
+func (Injuredsegment_Data_Field) _Column() string { return "data" }
+
+type Injuredsegment_Attempted_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func Injuredsegment_Attempted(v time.Time) Injuredsegment_Attempted_Field {
+	v = toUTC(v)
+	return Injuredsegment_Attempted_Field{_set: true, _value: &v}
+}
+
+func Injuredsegment_Attempted_Raw(v *time.Time) Injuredsegment_Attempted_Field {
+	if v == nil {
+		return Injuredsegment_Attempted_Null()
+	}
+	return Injuredsegment_Attempted(*v)
+}
+
+func Injuredsegment_Attempted_Null() Injuredsegment_Attempted_Field {
+	return Injuredsegment_Attempted_Field{_set: true, _null: true}
+}
+
+func (f Injuredsegment_Attempted_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Injuredsegment_Attempted_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Injuredsegment_Attempted_Field) _Column() string { return "attempted" }
 
 type Irreparabledb struct {
 	Segmentpath        []byte
@@ -3792,17 +3833,21 @@ func (obj *postgresImpl) Create_Node(ctx context.Context,
 }
 
 func (obj *postgresImpl) Create_Injuredsegment(ctx context.Context,
-	injuredsegment_info Injuredsegment_Info_Field) (
+	injuredsegment_path Injuredsegment_Path_Field,
+	injuredsegment_data Injuredsegment_Data_Field,
+	optional Injuredsegment_Create_Fields) (
 	injuredsegment *Injuredsegment, err error) {
-	__info_val := injuredsegment_info.value()
+	__path_val := injuredsegment_path.value()
+	__data_val := injuredsegment_data.value()
+	__attempted_val := optional.Attempted.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO injuredsegments ( info ) VALUES ( ? ) RETURNING injuredsegments.id, injuredsegments.info")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO injuredsegments ( path, data, attempted ) VALUES ( ?, ?, ? ) RETURNING injuredsegments.path, injuredsegments.data, injuredsegments.attempted")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __info_val)
+	obj.logStmt(__stmt, __path_val, __data_val, __attempted_val)
 
 	injuredsegment = &Injuredsegment{}
-	err = obj.driver.QueryRow(__stmt, __info_val).Scan(&injuredsegment.Id, &injuredsegment.Info)
+	err = obj.driver.QueryRow(__stmt, __path_val, __data_val, __attempted_val).Scan(&injuredsegment.Path, &injuredsegment.Data, &injuredsegment.Attempted)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -4401,7 +4446,7 @@ func (obj *postgresImpl) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx co
 func (obj *postgresImpl) First_Injuredsegment(ctx context.Context) (
 	injuredsegment *Injuredsegment, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT injuredsegments.id, injuredsegments.info FROM injuredsegments LIMIT 1 OFFSET 0")
+	var __embed_stmt = __sqlbundle_Literal("SELECT injuredsegments.path, injuredsegments.data, injuredsegments.attempted FROM injuredsegments LIMIT 1 OFFSET 0")
 
 	var __values []interface{}
 	__values = append(__values)
@@ -4423,7 +4468,42 @@ func (obj *postgresImpl) First_Injuredsegment(ctx context.Context) (
 	}
 
 	injuredsegment = &Injuredsegment{}
-	err = __rows.Scan(&injuredsegment.Id, &injuredsegment.Info)
+	err = __rows.Scan(&injuredsegment.Path, &injuredsegment.Data, &injuredsegment.Attempted)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	return injuredsegment, nil
+
+}
+
+func (obj *postgresImpl) First_Injuredsegment_By_Path(ctx context.Context,
+	injuredsegment_path Injuredsegment_Path_Field) (
+	injuredsegment *Injuredsegment, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT injuredsegments.path, injuredsegments.data, injuredsegments.attempted FROM injuredsegments WHERE injuredsegments.path = ? LIMIT 1 OFFSET 0")
+
+	var __values []interface{}
+	__values = append(__values, injuredsegment_path.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	if !__rows.Next() {
+		if err := __rows.Err(); err != nil {
+			return nil, obj.makeErr(err)
+		}
+		return nil, nil
+	}
+
+	injuredsegment = &Injuredsegment{}
+	err = __rows.Scan(&injuredsegment.Path, &injuredsegment.Data, &injuredsegment.Attempted)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -4436,7 +4516,7 @@ func (obj *postgresImpl) Limited_Injuredsegment(ctx context.Context,
 	limit int, offset int64) (
 	rows []*Injuredsegment, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT injuredsegments.id, injuredsegments.info FROM injuredsegments LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT injuredsegments.path, injuredsegments.data, injuredsegments.attempted FROM injuredsegments LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values)
@@ -4454,7 +4534,7 @@ func (obj *postgresImpl) Limited_Injuredsegment(ctx context.Context,
 
 	for __rows.Next() {
 		injuredsegment := &Injuredsegment{}
-		err = __rows.Scan(&injuredsegment.Id, &injuredsegment.Info)
+		err = __rows.Scan(&injuredsegment.Path, &injuredsegment.Data, &injuredsegment.Attempted)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -5659,14 +5739,14 @@ func (obj *postgresImpl) Delete_Node_By_Id(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Delete_Injuredsegment_By_Id(ctx context.Context,
-	injuredsegment_id Injuredsegment_Id_Field) (
+func (obj *postgresImpl) Delete_Injuredsegment_By_Path(ctx context.Context,
+	injuredsegment_path Injuredsegment_Path_Field) (
 	deleted bool, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM injuredsegments WHERE injuredsegments.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM injuredsegments WHERE injuredsegments.path = ?")
 
 	var __values []interface{}
-	__values = append(__values, injuredsegment_id.value())
+	__values = append(__values, injuredsegment_path.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -6265,16 +6345,20 @@ func (obj *sqlite3Impl) Create_Node(ctx context.Context,
 }
 
 func (obj *sqlite3Impl) Create_Injuredsegment(ctx context.Context,
-	injuredsegment_info Injuredsegment_Info_Field) (
+	injuredsegment_path Injuredsegment_Path_Field,
+	injuredsegment_data Injuredsegment_Data_Field,
+	optional Injuredsegment_Create_Fields) (
 	injuredsegment *Injuredsegment, err error) {
-	__info_val := injuredsegment_info.value()
+	__path_val := injuredsegment_path.value()
+	__data_val := injuredsegment_data.value()
+	__attempted_val := optional.Attempted.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO injuredsegments ( info ) VALUES ( ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO injuredsegments ( path, data, attempted ) VALUES ( ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __info_val)
+	obj.logStmt(__stmt, __path_val, __data_val, __attempted_val)
 
-	__res, err := obj.driver.Exec(__stmt, __info_val)
+	__res, err := obj.driver.Exec(__stmt, __path_val, __data_val, __attempted_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -6907,7 +6991,7 @@ func (obj *sqlite3Impl) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx con
 func (obj *sqlite3Impl) First_Injuredsegment(ctx context.Context) (
 	injuredsegment *Injuredsegment, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT injuredsegments.id, injuredsegments.info FROM injuredsegments LIMIT 1 OFFSET 0")
+	var __embed_stmt = __sqlbundle_Literal("SELECT injuredsegments.path, injuredsegments.data, injuredsegments.attempted FROM injuredsegments LIMIT 1 OFFSET 0")
 
 	var __values []interface{}
 	__values = append(__values)
@@ -6929,7 +7013,42 @@ func (obj *sqlite3Impl) First_Injuredsegment(ctx context.Context) (
 	}
 
 	injuredsegment = &Injuredsegment{}
-	err = __rows.Scan(&injuredsegment.Id, &injuredsegment.Info)
+	err = __rows.Scan(&injuredsegment.Path, &injuredsegment.Data, &injuredsegment.Attempted)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	return injuredsegment, nil
+
+}
+
+func (obj *sqlite3Impl) First_Injuredsegment_By_Path(ctx context.Context,
+	injuredsegment_path Injuredsegment_Path_Field) (
+	injuredsegment *Injuredsegment, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT injuredsegments.path, injuredsegments.data, injuredsegments.attempted FROM injuredsegments WHERE injuredsegments.path = ? LIMIT 1 OFFSET 0")
+
+	var __values []interface{}
+	__values = append(__values, injuredsegment_path.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	if !__rows.Next() {
+		if err := __rows.Err(); err != nil {
+			return nil, obj.makeErr(err)
+		}
+		return nil, nil
+	}
+
+	injuredsegment = &Injuredsegment{}
+	err = __rows.Scan(&injuredsegment.Path, &injuredsegment.Data, &injuredsegment.Attempted)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -6942,7 +7061,7 @@ func (obj *sqlite3Impl) Limited_Injuredsegment(ctx context.Context,
 	limit int, offset int64) (
 	rows []*Injuredsegment, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT injuredsegments.id, injuredsegments.info FROM injuredsegments LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT injuredsegments.path, injuredsegments.data, injuredsegments.attempted FROM injuredsegments LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values)
@@ -6960,7 +7079,7 @@ func (obj *sqlite3Impl) Limited_Injuredsegment(ctx context.Context,
 
 	for __rows.Next() {
 		injuredsegment := &Injuredsegment{}
-		err = __rows.Scan(&injuredsegment.Id, &injuredsegment.Info)
+		err = __rows.Scan(&injuredsegment.Path, &injuredsegment.Data, &injuredsegment.Attempted)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -8245,14 +8364,14 @@ func (obj *sqlite3Impl) Delete_Node_By_Id(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Delete_Injuredsegment_By_Id(ctx context.Context,
-	injuredsegment_id Injuredsegment_Id_Field) (
+func (obj *sqlite3Impl) Delete_Injuredsegment_By_Path(ctx context.Context,
+	injuredsegment_path Injuredsegment_Path_Field) (
 	deleted bool, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM injuredsegments WHERE injuredsegments.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM injuredsegments WHERE injuredsegments.path = ?")
 
 	var __values []interface{}
-	__values = append(__values, injuredsegment_id.value())
+	__values = append(__values, injuredsegment_path.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -8548,13 +8667,13 @@ func (obj *sqlite3Impl) getLastInjuredsegment(ctx context.Context,
 	pk int64) (
 	injuredsegment *Injuredsegment, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT injuredsegments.id, injuredsegments.info FROM injuredsegments WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT injuredsegments.path, injuredsegments.data, injuredsegments.attempted FROM injuredsegments WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	injuredsegment = &Injuredsegment{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&injuredsegment.Id, &injuredsegment.Info)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&injuredsegment.Path, &injuredsegment.Data, &injuredsegment.Attempted)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9220,13 +9339,15 @@ func (rx *Rx) Create_CertRecord(ctx context.Context,
 }
 
 func (rx *Rx) Create_Injuredsegment(ctx context.Context,
-	injuredsegment_info Injuredsegment_Info_Field) (
+	injuredsegment_path Injuredsegment_Path_Field,
+	injuredsegment_data Injuredsegment_Data_Field,
+	optional Injuredsegment_Create_Fields) (
 	injuredsegment *Injuredsegment, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_Injuredsegment(ctx, injuredsegment_info)
+	return tx.Create_Injuredsegment(ctx, injuredsegment_path, injuredsegment_data, optional)
 
 }
 
@@ -9400,14 +9521,14 @@ func (rx *Rx) Delete_CertRecord_By_Id(ctx context.Context,
 	return tx.Delete_CertRecord_By_Id(ctx, certRecord_id)
 }
 
-func (rx *Rx) Delete_Injuredsegment_By_Id(ctx context.Context,
-	injuredsegment_id Injuredsegment_Id_Field) (
+func (rx *Rx) Delete_Injuredsegment_By_Path(ctx context.Context,
+	injuredsegment_path Injuredsegment_Path_Field) (
 	deleted bool, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Delete_Injuredsegment_By_Id(ctx, injuredsegment_id)
+	return tx.Delete_Injuredsegment_By_Path(ctx, injuredsegment_path)
 }
 
 func (rx *Rx) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
@@ -9534,6 +9655,16 @@ func (rx *Rx) First_Injuredsegment(ctx context.Context) (
 		return
 	}
 	return tx.First_Injuredsegment(ctx)
+}
+
+func (rx *Rx) First_Injuredsegment_By_Path(ctx context.Context,
+	injuredsegment_path Injuredsegment_Path_Field) (
+	injuredsegment *Injuredsegment, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.First_Injuredsegment_By_Path(ctx, injuredsegment_path)
 }
 
 func (rx *Rx) Get_AccountingRaw_By_Id(ctx context.Context,
@@ -9927,7 +10058,9 @@ type Methods interface {
 		certRecord *CertRecord, err error)
 
 	Create_Injuredsegment(ctx context.Context,
-		injuredsegment_info Injuredsegment_Info_Field) (
+		injuredsegment_path Injuredsegment_Path_Field,
+		injuredsegment_data Injuredsegment_Data_Field,
+		optional Injuredsegment_Create_Fields) (
 		injuredsegment *Injuredsegment, err error)
 
 	Create_Irreparabledb(ctx context.Context,
@@ -10014,8 +10147,8 @@ type Methods interface {
 		certRecord_id CertRecord_Id_Field) (
 		deleted bool, err error)
 
-	Delete_Injuredsegment_By_Id(ctx context.Context,
-		injuredsegment_id Injuredsegment_Id_Field) (
+	Delete_Injuredsegment_By_Path(ctx context.Context,
+		injuredsegment_path Injuredsegment_Path_Field) (
 		deleted bool, err error)
 
 	Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
@@ -10069,6 +10202,10 @@ type Methods interface {
 		bucket_storage_tally *BucketStorageTally, err error)
 
 	First_Injuredsegment(ctx context.Context) (
+		injuredsegment *Injuredsegment, err error)
+
+	First_Injuredsegment_By_Path(ctx context.Context,
+		injuredsegment_path Injuredsegment_Path_Field) (
 		injuredsegment *Injuredsegment, err error)
 
 	Get_AccountingRaw_By_Id(ctx context.Context,

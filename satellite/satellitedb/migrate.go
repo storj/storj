@@ -530,6 +530,71 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE bucket_bandwidth_rollups ADD CONSTRAINT bucket_bandwidth_rollups_pk PRIMARY KEY (bucket_name, project_id, interval_start, action);`,
 				},
 			},
+			{
+				Description: "Add hash to injuredsegment to prevent duplicates",
+				Version:     14,
+				Action: migrate.Func(func(log *zap.Logger, db migrate.DB, tx *sql.Tx) error {
+					_, err := tx.Exec(`ALTER TABLE injuredsegments ADD path text;`)
+					if err != nil {
+						return ErrMigrate.Wrap(err)
+					}
+					_, err = tx.Exec(`ALTER TABLE injuredsegments RENAME COLUMN info TO data;`)
+					if err != nil {
+						return ErrMigrate.Wrap(err)
+					}
+					_, err = tx.Exec(`ALTER TABLE injuredsegments ADD attempted timestamp;`)
+					if err != nil {
+						return ErrMigrate.Wrap(err)
+					}
+					// add 'path' using a cursor
+					err = func() error {
+						_, err = tx.Exec(`DECLARE injured_cursor CURSOR FOR SELECT info FROM injuredsegment FOR UPDATE`)
+						if err != nil {
+							return ErrMigrate.Wrap(err)
+						}
+						defer func() {
+							_, closeErr := tx.Exec(`CLOSE injured_cursor`)
+							err = errs.Combine(err, closeErr)
+						}()
+						for {
+							var seg pb.InjuredSegment
+							err := tx.QueryRow(`FETCH NEXT FROM injured_cursor`).Scan(&seg)
+							if err != nil {
+								if err == sql.ErrNoRows {
+									break
+								}
+								return ErrMigrate.Wrap(err)
+							}
+							_, err = tx.Exec(`UPDATE injuredsegment SET path = $1 WHERE CURRENT OF injured_cursor`, seg.Path)
+							if err != nil {
+								return ErrMigrate.Wrap(err)
+							}
+						}
+						return nil
+					}()
+					if err != nil {
+						return err
+					}
+					//keep changing
+					_, err = tx.Exec(`ALTER TABLE injuredsegments DROP CONSTRAINT IF EXISTS id_key;`)
+					if err != nil {
+						return ErrMigrate.Wrap(err)
+					}
+					_, err = tx.Exec(`ALTER TABLE injuredsegments ALTER COLUMN path SET NOT NULL;`)
+					if err != nil {
+						return ErrMigrate.Wrap(err)
+					}
+					_, err = tx.Exec(`ALTER TABLE injuredsegments ADD PRIMARY KEY (path);`)
+					if err != nil {
+						return ErrMigrate.Wrap(err)
+					}
+					_, err = tx.Exec(`ALTER TABLE injuredsegments DROP COLUMN id;`)
+					if err != nil {
+						return ErrMigrate.Wrap(err)
+					}
+					return nil
+				}),
+			},
 		},
 	}
 }
