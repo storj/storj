@@ -7,13 +7,13 @@
         <div class="sort-dropdown-overflow-container">
             <!-- TODO: add selection logic onclick -->
             <div class="sort-dropdown-item-container" v-on:click="onSortUsersClick(sortByEnum.EMAIL)">
-                <h2>Sort by email</h2>
+                <h2>Sort by Email</h2>
             </div>
             <div class="sort-dropdown-item-container" v-on:click="onSortUsersClick(sortByEnum.CREATED_AT)">
-                <h2>Sort by date</h2>
+                <h2>Sort by Date</h2>
             </div>
             <div class="sort-dropdown-item-container" v-on:click="onSortUsersClick(sortByEnum.NAME)">
-                <h2>Sort by name</h2>
+                <h2>Sort by Name</h2>
             </div>
         </div>
     </div>
