@@ -19,8 +19,8 @@ import (
 
 // UplinkFlags configuration flags
 type UplinkFlags struct {
-	Interactive bool `help:"enable interavtive more" default:"true" setup:"true"`
-	Identity    identity.Config
+	NonInteractive bool `help:"disable interactive mode" default:"false" setup:"true"`
+	Identity       identity.Config
 	uplink.Config
 }
 

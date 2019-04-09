@@ -59,7 +59,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	var override map[string]interface{}
-	if setupCfg.Interactive {
+	if !setupCfg.NonInteractive {
 		fmt.Print("Enter your Satellite address: ")
 		var satelliteAddress string
 		fmt.Scanln(&satelliteAddress)
@@ -96,7 +96,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		}
 
 		if len(encKey) == 0 {
-			fmt.Println("Warning: Encryption passphare is empty!")
+			fmt.Println("Warning: Encryption passphrase is empty!")
 		}
 
 		override = map[string]interface{}{
