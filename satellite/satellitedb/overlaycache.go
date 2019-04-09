@@ -21,11 +21,6 @@ import (
 	"storj.io/storj/storage"
 )
 
-const (
-	// OverlayCacheWindow defines the time which the Node selection uses for recent seen nodes
-	OverlayCacheWindow = 1 * time.Hour
-)
-
 var (
 	mon             = monkit.Package()
 	errAuditSuccess = errs.Class("overlay audit success error")
@@ -52,7 +47,7 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 	args := append(make([]interface{}, 0, 13),
 		nodeType, criteria.FreeBandwidth, criteria.FreeDisk,
 		criteria.AuditCount, criteria.AuditSuccessRatio, criteria.UptimeCount, criteria.UptimeSuccessRatio,
-		time.Now().Add(-OverlayCacheWindow))
+		time.Now().Add(-overlay.OnlineWindow))
 
 	if criteria.MinimumVersion != "" {
 		v, err := version.NewSemVer(criteria.MinimumVersion)
@@ -77,7 +72,7 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 		  AND last_contact_success > ?
 		  AND last_contact_success > last_contact_failure`
 	args := append(make([]interface{}, 0, 10),
-		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditThreshold, time.Now().Add(-OverlayCacheWindow))
+		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditThreshold, time.Now().Add(-overlay.OnlineWindow))
 
 	if criteria.MinimumVersion != "" {
 		v, err := version.NewSemVer(criteria.MinimumVersion)
