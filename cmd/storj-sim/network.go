@@ -70,6 +70,19 @@ func networkEnv(flags *Flags, args []string) error {
 		}
 	}
 
+	if len(args) == 1 {
+		envprefix := strings.ToUpper(args[0] + "=")
+
+		for _, env := range processes.Env() {
+			if strings.HasPrefix(strings.ToUpper(env), envprefix) {
+				fmt.Println(env[len(envprefix):])
+				return nil
+			}
+		}
+
+		return nil
+	}
+
 	for _, env := range processes.Env() {
 		fmt.Println(env)
 	}
