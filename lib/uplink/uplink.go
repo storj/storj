@@ -105,6 +105,7 @@ func NewUplink(ctx context.Context, cfg *Config) (*Uplink, error) {
 	tlsConfig := tlsopts.Config{
 		UsePeerCAWhitelist:  !cfg.Volatile.TLS.SkipPeerCAWhitelist,
 		PeerCAWhitelistPath: cfg.Volatile.TLS.PeerCAWhitelistPath,
+		PeerIDVersions:      "1,2",
 	}
 	tlsOpts, err := tlsopts.NewOptions(cfg.Volatile.UseIdentity, tlsConfig)
 	if err != nil {
