@@ -65,7 +65,7 @@ func (c *Config) setDefaults(ctx context.Context) error {
 			return err
 		}
 	}
-	if c.Volatile.MaxInlineSize.Int() == 0 {
+	if c.Volatile.MaxInlineSize == 0 {
 		c.Volatile.MaxInlineSize = 4 * memory.KiB
 	}
 	return nil
