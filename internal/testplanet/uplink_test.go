@@ -139,10 +139,9 @@ func TestUploadDownloadOneUplinksInParallel(t *testing.T) {
 		uplink := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
 
-		dataCopy := make([]byte, len(data))
-		copy(data, dataCopy)
+		data := data
 		group.Go(func() error {
-			return uplink.Upload(ctx, satellite, "testbucket"+index, "test/path"+index, dataCopy)
+			return uplink.Upload(ctx, satellite, "testbucket"+index, "test/path"+index, data)
 		})
 	}
 	err = group.Wait()
@@ -153,8 +152,7 @@ func TestUploadDownloadOneUplinksInParallel(t *testing.T) {
 		uplink := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
 
-		expectedData := make([]byte, len(data))
-		copy(data, expectedData)
+		expectedData := data
 		group.Go(func() error {
 			data, err := uplink.Download(ctx, satellite, "testbucket"+index, "test/path"+index)
 			require.Equal(t, expectedData, data)
