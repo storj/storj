@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// This component needs to be improved in future
+// TODO: temporary file
 <style scoped lang="scss">
 	.datepicker-overlay {
 		position: fixed;

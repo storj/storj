@@ -4,7 +4,6 @@
 package extensions
 
 import (
-	"crypto"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
@@ -33,15 +32,22 @@ var (
 	// NB: 2.999.X is reserved for "example" OIDs
 	// (see http://oid-info.com/get/2.999)
 	// 2.999.1.X -- storj general/misc. extensions
+	// 2.999.2.X -- storj identity extensions
 
-	// SignedCertExtID is the asn1 object ID for a pkix extensionHandler holding a
+	// SignedCertExtID is the asn1 object ID for a pkix extension holding a
 	// signature of the cert it's extending, signed by some CA (e.g. the root cert chain).
 	// This extensionHandler allows for an additional signature per certificate.
 	SignedCertExtID = ExtensionID{2, 999, 1, 1}
-	// RevocationExtID is the asn1 object ID for a pkix extensionHandler containing the
+	// RevocationExtID is the asn1 object ID for a pkix extension containing the
 	// most recent certificate revocation data
 	// for the current TLS cert chain.
 	RevocationExtID = ExtensionID{2, 999, 1, 2}
+	// IdentityVersionExtID is the asn1 object ID for a pkix extension that
+	// specifies the identity version of the certificate chain.
+	IdentityVersionExtID = ExtensionID{2, 999, 2, 1}
+	// IdentityPOWCounterExtID is the asn1 object ID for a pkix extension that
+	// specifies how many times to hash the CA public key to calculate the node ID.
+	IdentityPOWCounterExtID = ExtensionID{2, 999, 2, 2}
 
 	// Error is used when an error occurs while processing an extension.
 	Error = errs.Class("extension error")
@@ -67,6 +73,7 @@ type Config struct {
 type Options struct {
 	PeerCAWhitelist []*x509.Certificate
 	RevDB           RevocationDB
+	PeerIDVersions  string
 }
 
 // HandlerFactories is a collection of `HandlerFactory`s for convenience.
@@ -101,30 +108,12 @@ func init() {
 	)
 }
 
-// NewHandlerFactory builds a `HandlerFactory` pointer from an `ExtensionID` and a `handlerFactoryFunc`.
+// NewHandlerFactory builds a `HandlerFactory` pointer from an `ExtensionID` and a `HandlerFactoryFunc`.
 func NewHandlerFactory(id *ExtensionID, handlerFactory HandlerFactoryFunc) *HandlerFactory {
 	return &HandlerFactory{
 		id:      id,
 		factory: handlerFactory,
 	}
-}
-
-// AddSignedCert generates a signed certificate extension for a cert and attaches
-// it to that cert.
-func AddSignedCert(key crypto.PrivateKey, cert *x509.Certificate) error {
-	signature, err := pkcrypto.HashAndSign(key, cert.RawTBSCertificate)
-	if err != nil {
-		return err
-	}
-
-	err = AddExtraExtension(cert, pkix.Extension{
-		Id:    SignedCertExtID,
-		Value: signature,
-	})
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 // AddExtraExtension adds one or more extensions to a certificate for serialization.

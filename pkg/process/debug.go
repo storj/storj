@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	debugAddr = flag.String("debug.addr", "localhost:0", "address to listen on for debug endpoints")
+	debugAddr = flag.String("debug.addr", "127.0.0.1:0", "address to listen on for debug endpoints")
 )
 
 func init() {

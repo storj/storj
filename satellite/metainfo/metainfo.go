@@ -249,19 +249,18 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	// Check if this projectID has exceeded alpha usage limits, i.e. 25GB of bandwidth or storage used in the past month
+	// Check if this projectID has exceeded alpha usage limits for bandwidth or storage used in the past month
 	// TODO: remove this code once we no longer need usage limiting for alpha release
 	// Ref: https://storjlabs.atlassian.net/browse/V3-1274
 	bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
 	from := time.Now().AddDate(0, 0, -accounting.AverageDaysInMonth) // past 30 days
-	bandwidthTotal, err := endpoint.accountingDB.ProjectBandwidthTotal(ctx, bucketID, from)
+	bandwidthTotal, err := endpoint.accountingDB.ProjectAllocatedBandwidthTotal(ctx, bucketID, from)
 	if err != nil {
 		endpoint.log.Error("retrieving ProjectBandwidthTotal", zap.Error(err))
 	}
 	exceeded, resource := accounting.ExceedsAlphaUsage(bandwidthTotal, 0, 0, endpoint.maxAlphaUsage)
 	if exceeded {
-		endpoint.log.Sugar().Errorf("monthly project limits are %s of storage and bandwidth usage. This limit has been exceeded for %s for projectID %s.",
-			endpoint.maxAlphaUsage.String(),
+		endpoint.log.Sugar().Errorf("monthly project usage limit has been exceeded for resource: %s, for project: %d. Contact customer support to increase the limit.",
 			resource, keyInfo.ProjectID,
 		)
 		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Alpha Usage Limit")
@@ -413,10 +412,10 @@ func (endpoint *Endpoint) filterValidPieces(pointer *pb.Pointer) error {
 			remotePieces = append(remotePieces, piece)
 		}
 
-		if int32(len(remotePieces)) < remote.Redundancy.SuccessThreshold {
-			return Error.New("Number of valid pieces is lower then success threshold: %v < %v",
+		if int32(len(remotePieces)) < remote.Redundancy.RepairThreshold {
+			return Error.New("Number of valid pieces is lower then repair threshold: %v < %v",
 				len(remotePieces),
-				remote.Redundancy.SuccessThreshold,
+				remote.Redundancy.RepairThreshold,
 			)
 		}
 
