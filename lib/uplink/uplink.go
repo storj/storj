@@ -54,7 +54,7 @@ type Config struct {
 
 		// PeerIDVersion is the identity versions remote peers to this node
 		// will be supported by this node.
-		PeerIDVersion storj.IDVersion
+		PeerIDVersion string
 
 		// MaxInlineSize determines whether the uplink will attempt to
 		// store a new object in the satellite's pointerDB. Objects at
@@ -109,6 +109,7 @@ func NewUplink(ctx context.Context, cfg *Config) (*Uplink, error) {
 	tlsConfig := tlsopts.Config{
 		UsePeerCAWhitelist:  !cfg.Volatile.TLS.SkipPeerCAWhitelist,
 		PeerCAWhitelistPath: cfg.Volatile.TLS.PeerCAWhitelistPath,
+		PeerIDVersions:      cfg.Volatile.PeerIDVersion,
 	}
 	tlsOpts, err := tlsopts.NewOptions(cfg.Volatile.UseIdentity, tlsConfig)
 	if err != nil {
