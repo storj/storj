@@ -162,11 +162,11 @@ import { NOTIFICATION_ACTIONS, PROJECT_USAGE_ACTIONS } from '@/utils/constants/a
                 onReportClick: function (): void {
                     let projectID = this.$store.getters.selectedProject.id;
 
-                   	let url = new URL(location.origin);
-                   	url.pathname = "usage-report";
-                   	url.searchParams.append('projectID', projectID);
-					url.searchParams.append('since', this.$data.dateRange.startDate.toISOString());
-					url.searchParams.append('before', this.$data.dateRange.endDate.toISOString());
+                    let url = new URL(location.origin);
+                    url.pathname = "usage-report";
+                    url.searchParams.append('projectID', projectID);
+                    url.searchParams.append('since', this.$data.dateRange.startDate.toISOString());
+                    url.searchParams.append('before', this.$data.dateRange.endDate.toISOString());
 
                     window.open(url.href, '_blank');
                 },
