@@ -63,9 +63,8 @@ func (t *Service) Run(ctx context.Context) (err error) {
 	}
 }
 
-// Tally calculates data-at-rest and bandwidth usage once
+// Tally calculates data-at-rest usage once
 func (t *Service) Tally(ctx context.Context) error {
-	// data at rest
 	var errAtRest, errBucketInfo error
 	latestTally, nodeData, bucketData, err := t.CalculateAtRestData(ctx)
 	if err != nil {
