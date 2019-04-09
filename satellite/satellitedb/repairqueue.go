@@ -18,7 +18,7 @@ type repairQueue struct {
 
 func (r *repairQueue) Insert(ctx context.Context, seg *pb.InjuredSegment) error {
 	_, err := r.db.ExecContext(ctx, r.db.Rebind(`INSERT INTO injuredsegments ( path, data ) VALUES ( ?, ? )`), seg.Path, seg)
-	if strings.Contains(err.Error(), "UNIQUE constraint failed") || strings.Contains(err.Error(), "violates unique constraint") {
+	if err != nil && (strings.Contains(err.Error(), "UNIQUE constraint failed") || strings.Contains(err.Error(), "violates unique constraint")) {
 		return nil // quietly fail on reinsert
 	}
 	return err
