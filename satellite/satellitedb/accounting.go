@@ -209,10 +209,12 @@ func (db *accountingDB) SaveRollup(ctx context.Context, latestRollup time.Time, 
 }
 
 // SaveBucketTallies saves the latest bucket info
-func (db *accountingDB) SaveBucketTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*accounting.BucketTally) error {
+func (db *accountingDB) SaveBucketTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*accounting.BucketTally) ([]accounting.BucketTally, error) {
 	if len(bucketTallies) == 0 {
-		return Error.New("In SaveBucketTallies with empty bucketTallies")
+		return nil, Error.New("In SaveBucketTallies with empty bucketTallies")
 	}
+
+	var result []accounting.BucketTally
 
 	for bucketID, info := range bucketTallies {
 		bucketIDComponents := storj.SplitPath(bucketID)
@@ -225,12 +227,23 @@ func (db *accountingDB) SaveBucketTallies(ctx context.Context, intervalStart tim
 		iSegments := dbx.BucketStorageTally_InlineSegmentsCount(uint(info.InlineSegments))
 		objectCount := dbx.BucketStorageTally_ObjectCount(uint(info.Files))
 		meta := dbx.BucketStorageTally_MetadataSize(uint64(info.MetadataSize))
-		_, err := db.db.Create_BucketStorageTally(ctx, bucketName, projectID, interval, inlineBytes, remoteBytes, rSegments, iSegments, objectCount, meta)
+		dbxTally, err := db.db.Create_BucketStorageTally(ctx, bucketName, projectID, interval, inlineBytes, remoteBytes, rSegments, iSegments, objectCount, meta)
 		if err != nil {
-			return err
+			return nil, err
 		}
+		tally := accounting.BucketTally{
+			BucketName:     dbxTally.BucketName,
+			ProjectID:      dbxTally.ProjectId,
+			InlineSegments: int64(dbxTally.InlineSegmentsCount),
+			RemoteSegments: int64(dbxTally.RemoteSegmentsCount),
+			Files:          int64(dbxTally.ObjectCount),
+			InlineBytes:    int64(dbxTally.Inline),
+			RemoteBytes:    int64(dbxTally.Remote),
+			MetadataSize:   int64(dbxTally.MetadataSize),
+		}
+		result = append(result, tally)
 	}
-	return nil
+	return result, nil
 }
 
 // QueryPaymentInfo queries Overlay, Accounting Rollup on nodeID

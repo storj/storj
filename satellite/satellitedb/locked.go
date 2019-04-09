@@ -121,7 +121,7 @@ func (m *lockedAccounting) SaveAtRestRaw(ctx context.Context, latestTally time.T
 }
 
 // SaveBucketTallies saves the latest bucket info
-func (m *lockedAccounting) SaveBucketTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*accounting.BucketTally) error {
+func (m *lockedAccounting) SaveBucketTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*accounting.BucketTally) ([]accounting.BucketTally, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.SaveBucketTallies(ctx, intervalStart, bucketTallies)
