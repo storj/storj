@@ -111,6 +111,9 @@ func ApplyDefaultHostAndPortToAddrFlag(cmd *cobra.Command, flagName string) erro
 		address = net.JoinHostPort(defaultPort, addressParts[0])
 	}
 
-	flag.Value.Set(address)
+	err = flag.Value.Set(address)
+	if err != nil {
+		return Error.Wrap(err)
+	}
 	return nil
 }
