@@ -137,7 +137,7 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	err = endpoint.validatRedundancy(req.Redundancy)
+	err = endpoint.validateRedundancy(req.Redundancy)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
@@ -521,7 +521,7 @@ func CreatePath(projectID uuid.UUID, segmentIndex int64, bucket, path []byte) (s
 	return storj.JoinPaths(entries...), nil
 }
 
-func (endpoint *Endpoint) validatRedundancy(redundancy *pb.RedundancyScheme) error {
+func (endpoint *Endpoint) validateRedundancy(redundancy *pb.RedundancyScheme) error {
 	// TODO more validation, use validation from eestream.NewRedundancyStrategy
 	if redundancy.ErasureShareSize <= 0 {
 		return Error.New("erasure share size cannot be less than 0")
