@@ -15,19 +15,17 @@ import (
 )
 
 const (
-	// V1 represents identity version 1
-	// NB: identities created before identity versioning will be recognized as V1.
-	V1 = IDVersionNumber(iota + 1)
+	// V0 represents identity version 0
+	// NB: identities created before identity versioning (i.e. which don't have a
+	// version extension; "legacy") will be recognized as V0.
+	V0 = IDVersionNumber(iota)
 )
 
 var (
 	// IDVersions is a map of all identity versions
 	IDVersions = map[IDVersionNumber]IDVersion{
-		/* V1 breaking change:
-		+ removed support for difficulties < 9
-		*/
-		V1: {
-			Number:        V1,
+		V0: {
+			Number:        V0,
 			NewPrivateKey: pkcrypto.GeneratePrivateKey,
 		},
 	}
@@ -56,10 +54,6 @@ func init() {
 // GetIDVersion looks up the given version number in the map of registered
 // versions, returning an error if none is found.
 func GetIDVersion(number IDVersionNumber) (IDVersion, error) {
-	if number == 0 {
-		return LatestIDVersion(), nil
-	}
-
 	version, ok := IDVersions[number]
 	if !ok {
 		return IDVersion{}, ErrVersion.New("unknown version")
@@ -70,7 +64,7 @@ func GetIDVersion(number IDVersionNumber) (IDVersion, error) {
 
 // LatestIDVersion returns the last IDVersion registered.
 func LatestIDVersion() IDVersion {
-	return IDVersions[IDVersionNumber(len(IDVersions))]
+	return IDVersions[IDVersionNumber(len(IDVersions)-1)]
 }
 
 // IDVersionFromCert parsed the IDVersion from the passed certificate's IDVersion extension.
@@ -81,13 +75,13 @@ func IDVersionFromCert(cert *x509.Certificate) (IDVersion, error) {
 		}
 	}
 
-	// NB: for backward-compatibility with V1 certificate generation, V1 is used
+	// NB: for backward-compatibility with V0 certificate generation, V0 is used
 	// when no version extension exists.
 	// TODO(beta maybe?): Error here instead; we should drop support for
 	//  certificates without a version extension.
 	//
 	// return IDVersion{}, ErrVersion.New("certificate doesn't contain an identity version extension")
-	return IDVersions[V1], nil
+	return IDVersions[V0], nil
 }
 
 // IDVersionInVersions returns an error if the given version is in the given string of version(s)/range(s).
@@ -95,6 +89,8 @@ func IDVersionInVersions(versionNumber IDVersionNumber, versionsStr string) erro
 	switch versionsStr {
 	case "":
 		return ErrVersion.New("no allowed peer identity versions specified")
+	case "*":
+		return nil
 	case "latest":
 		if versionNumber == LatestIDVersion().Number {
 			return nil
