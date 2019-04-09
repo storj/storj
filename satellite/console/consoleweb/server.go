@@ -122,21 +122,21 @@ func (s *Server) bucketUsageReportHandler(w http.ResponseWriter, req *http.Reque
 	if err != nil {
 		s.log.Error("bucket usage report error", zap.Error(err))
 
-		w.WriteHeader(401)
+		w.WriteHeader(http.StatusUnauthorized)
 		http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "errors", "404.html"))
 		return
 	}
 
-	auth, err := s.service.Authorize(auth.WithAPIKey(context.Background(), []byte(tokenCookie.Value)))
+	auth, err := s.service.Authorize(auth.WithAPIKey(req.Context(), []byte(tokenCookie.Value)))
 	if err != nil {
-		w.WriteHeader(401)
+		w.WriteHeader(http.StatusUnauthorized)
 		http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "errors", "404.html"))
 		return
 	}
 
 	defer func() {
 		if err != nil {
-			w.WriteHeader(404)
+			w.WriteHeader(http.StatusNotFound)
 			http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "errors", "404.html"))
 		}
 	}()
