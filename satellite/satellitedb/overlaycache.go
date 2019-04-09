@@ -363,7 +363,6 @@ func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID,
 			return nil, errUptime.Wrap(errs.Combine(err, tx.Rollback()))
 		}
 
-		ver := &overlay.NodeVersion{}
 		updateFields := dbx.Node_Update_Fields{
 			AuditSuccessCount:  dbx.Node_AuditSuccessCount(startingStats.AuditSuccessCount),
 			TotalAuditCount:    dbx.Node_TotalAuditCount(startingStats.AuditCount),
@@ -371,12 +370,6 @@ func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID,
 			UptimeSuccessCount: dbx.Node_UptimeSuccessCount(startingStats.UptimeSuccessCount),
 			TotalUptimeCount:   dbx.Node_TotalUptimeCount(startingStats.UptimeCount),
 			UptimeRatio:        dbx.Node_UptimeRatio(uptimeRatio),
-			Major:              dbx.Node_Major(ver.Major),
-			Minor:              dbx.Node_Minor(ver.Minor),
-			Patch:              dbx.Node_Patch(ver.Patch),
-			Hash:               dbx.Node_Hash(ver.Hash),
-			Timestamp:          dbx.Node_Timestamp(ver.Timestamp),
-			Release:            dbx.Node_Release(ver.Release),
 		}
 
 		dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
