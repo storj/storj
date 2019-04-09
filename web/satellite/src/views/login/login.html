@@ -2,9 +2,8 @@
 <!--See LICENSE for copying information.-->
 
 <div class="login-container" v-on:keyup.enter="onLogin">
-	<div v-bind:class="loadingClassName">
-		<img class="loading-overlay__logo" src="../../../static/images/Logo.svg" alt="loading-logo">
-	</div>
+	<div v-bind:class="loadingClassName"></div>
+	<img v-bind:class="loadingLogoClassName" src="../../../static/images/LogoWhite.svg" alt="loading-logo">
 	<img class="image" src="../../../static/images/AuthImage.svg" alt="" >
 	<div class="login-container__wrapper">
 		<div class="login-container__header">
@@ -38,7 +37,7 @@
 						<h3><strong>Forgot password?</strong></h3>
 					</router-link>
 					<div class="login-area__submit-area__login-button" v-on:click.prevent="onLogin">
-						<p>Login</p>
+						<p>Log In</p>
 					</div>
 				</div>
 				<div class="login-area__info-area">

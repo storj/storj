@@ -6,8 +6,7 @@
         <div class='add-user' id="addTeamMemberPopup">
             <div class="add-user__main">
                 <div class='add-user__info-panel-container'>
-                    <h2 class='add-user__info-panel-container__main-label-text'>Add New User</h2>
-                    <p class="add-user__info-panel-container__text">You can only add users who are already registered on Storj Satellite</p>
+                    <h2 class='add-user__info-panel-container__main-label-text'>Add Team Member</h2>
                     <div v-html='imageSource'></div>
                 </div>
                 <div class='add-user__form-container'>
@@ -38,13 +37,10 @@
                             </div>
                             <p v-bind:class="[isMaxInputsCount ? 'inactive-label' : '']">Add Another</p>
                         </div>
-                        <div class="add-user-row__item">
-                            <p class="add-user__attention-text">Be careful! All new team members will have full admin rights. Otherwise use API Keys to share limited access.</p>
-                        </div>
                     </div>
                     <div class='add-user__form-container__button-container'>
                         <Button label='Cancel' width='205px' height='48px' :onPress="onClose" isWhite/>
-                        <Button label='Add Users' width='205px' height='48px' :onPress="isButtonActive ? onAddUsersClick : () => {}" :isDisabled="!isButtonActive"/>
+                        <Button label='Add Team Members' width='205px' height='48px' :onPress="isButtonActive ? onAddUsersClick : () => {}" :isDisabled="!isButtonActive"/>
                     </div>
                 </div>
                 <div class='add-user__close-cross-container'>
@@ -246,10 +242,8 @@ export default class AddUserPopup extends Vue {}
             display: flex;
             align-items: center;
             justify-content: space-between;
-            width: 50%;
 
             &:first-child {
-                width: 36%;
                 cursor: pointer;
                 -webkit-user-select: none;
                 -khtml-user-select: none;
@@ -257,21 +251,17 @@ export default class AddUserPopup extends Vue {}
                 -ms-user-select: none;
                 user-select: none;
 
+                svg {
+                    margin-right: 20px;
+                }
+
                 p {
-                    margin: 0 !important;
                     font-family: 'font_medium';
                     font-size: 16px;
                     margin-left: 0;
                     padding-left: 0;
-                }
-            }
-
-            &:last-child {
-                p {
-                    font-size: 12px;
-                    margin: 0 !important;
-                    text-align: left;
-                    padding-left: 30px;
+                    margin-block-start: 0em;
+                    margin-block-end: 0em;
                 }
             }
         }
@@ -331,6 +321,7 @@ export default class AddUserPopup extends Vue {}
             justify-content: center;
             background-color: #FFFFFF;
             padding: 80px 20px 80px 60px;
+            width: calc(100% - 80px);
         }
 
         &__info-panel-container {
@@ -354,7 +345,7 @@ export default class AddUserPopup extends Vue {}
                 line-height: 29px;
                 color: #384B65;
                 margin-top: 0;
-                width: 100%;
+                width: 107%;
             }
         }
 
@@ -434,10 +425,6 @@ export default class AddUserPopup extends Vue {}
                 font-size: 16px;
                 line-height: 25px;
                 padding-left: 50px;
-
-                &:nth-child(2) {
-                    margin-top: 20px;
-                }
             }
 
             a {
@@ -477,8 +464,9 @@ export default class AddUserPopup extends Vue {}
     .notification-wrap {
         background-color: rgba(194, 214, 241, 1);
         height: 98px;
+        width: calc(100% - 100px);
         display: flex;
-        justify-content: space-between;
+        justify-content: flex-start;
         padding: 0 50px;
         align-items: center;
         border-bottom-left-radius: 6px;

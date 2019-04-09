@@ -6,6 +6,7 @@ package tlsopts
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -87,12 +88,20 @@ func (opts *Options) tlsConfig(isServer bool, verificationFuncs ...peertls.PeerC
 func verifyIdentity(id storj.NodeID) peertls.PeerCertVerificationFunc {
 	return func(_ [][]byte, parsedChains [][]*x509.Certificate) (err error) {
 		defer mon.TaskNamed("verifyIdentity")(nil)(&err)
-		peer, err := identity.PeerIdentityFromCerts(parsedChains[0][0], parsedChains[0][1], parsedChains[0][2:])
+		peer, err := identity.PeerIdentityFromChain(parsedChains[0])
 		if err != nil {
 			return err
 		}
 
 		if peer.ID.String() != id.String() {
+			fmt.Printf("peer version: %d\n", peer.ID.Version().Number)
+			fmt.Printf("id version: %d\n", id.Version().Number)
+			id1 := peer.ID.String()
+			id2 := id.String()
+			fmt.Printf("id1 bytes %v\n", peer.ID[:])
+			fmt.Printf("id2 bytes %v\n", id[:])
+			fmt.Println(id1)
+			fmt.Println(id2)
 			return Error.New("peer ID did not match requested ID")
 		}
 

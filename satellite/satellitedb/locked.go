@@ -92,11 +92,11 @@ func (m *lockedAccounting) LastTimestamp(ctx context.Context, timestampType stri
 	return m.db.LastTimestamp(ctx, timestampType)
 }
 
-// ProjectBandwidthTotal returns the sum of GET bandwidth usage for a projectID in the past time frame
-func (m *lockedAccounting) ProjectBandwidthTotal(ctx context.Context, bucketID []byte, from time.Time) (int64, error) {
+// ProjectAllocatedBandwidthTotal returns the sum of GET bandwidth usage allocated for a projectID in the past time frame
+func (m *lockedAccounting) ProjectAllocatedBandwidthTotal(ctx context.Context, bucketID []byte, from time.Time) (int64, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.ProjectBandwidthTotal(ctx, bucketID, from)
+	return m.db.ProjectAllocatedBandwidthTotal(ctx, bucketID, from)
 }
 
 // ProjectStorageTotals returns the current inline and remote storage usage for a projectID
@@ -121,7 +121,7 @@ func (m *lockedAccounting) SaveAtRestRaw(ctx context.Context, latestTally time.T
 }
 
 // SaveBucketTallies saves the latest bucket info
-func (m *lockedAccounting) SaveBucketTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*accounting.BucketTally) error {
+func (m *lockedAccounting) SaveBucketTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*accounting.BucketTally) ([]accounting.BucketTally, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.SaveBucketTallies(ctx, intervalStart, bucketTallies)

@@ -144,6 +144,12 @@ export default class TeamArea extends Vue {
         }
     }
 
+    @media screen and (max-width: 1600px) {
+        .team-header {
+            max-width: 76%;
+        }
+    }
+
    @media screen and (max-width: 1600px) {
        .team-container {
 
