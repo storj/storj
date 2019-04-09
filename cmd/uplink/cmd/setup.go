@@ -31,6 +31,7 @@ var (
 	identityDir string
 	isDev       bool
 
+	// Error is the default uplink setup errs class
 	Error = errs.Class("uplink setup error")
 )
 
