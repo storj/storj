@@ -39,9 +39,9 @@ var pipelines = Pipelines(
 			Run("make", "install-sim"),
 		),
 		Parallel("Verification",
-			Stage("Test",
-				Run("go", "test", "-vet=off", "-race", "-cover", "-coverprofile=.coverprofile", "-timeout=9m", "./..."),
-			),
+			// Stage("Test",
+			// 	Run("go", "test", "-vet=off", "-race", "-cover", "-coverprofile=.coverprofile", "-timeout=9m", "./..."),
+			// ),
 			Stage("Lint",
 				TempGopath(
 					Copy("$SOURCE/*", "$GOPATH/src/github.com/storj/storj.io"),
