@@ -136,9 +136,11 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		err := cache.Update(ctx, &pb.Node{Id: nodeID})
 		require.NoError(t, err)
 
-		update, err := cache.UpdateOperator(ctx, nodeID, pb.NodeOperator{
-			Wallet: "0x1111111111111111111111111111111111111111",
-			Email:  "abc123@gmail.com",
+		update, err := cache.UpdateNodeInfo(ctx, nodeID, &pb.InfoResponse{
+			Operator: &pb.NodeOperator{
+				Wallet: "0x1111111111111111111111111111111111111111",
+				Email:  "abc123@gmail.com",
+			},
 		})
 
 		require.NoError(t, err)
@@ -151,9 +153,11 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		assert.Equal(t, "0x1111111111111111111111111111111111111111", update.Operator.Wallet)
 		assert.Equal(t, "abc123@gmail.com", update.Operator.Email)
 
-		updateEmail, err := cache.UpdateOperator(ctx, nodeID, pb.NodeOperator{
-			Wallet: update.Operator.Wallet,
-			Email:  "def456@gmail.com",
+		updateEmail, err := cache.UpdateNodeInfo(ctx, nodeID, &pb.InfoResponse{
+			Operator: &pb.NodeOperator{
+				Wallet: update.Operator.Wallet,
+				Email:  "def456@gmail.com",
+			},
 		})
 
 		require.NoError(t, err)
@@ -161,9 +165,11 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		assert.Equal(t, "0x1111111111111111111111111111111111111111", updateEmail.Operator.Wallet)
 		assert.Equal(t, "def456@gmail.com", updateEmail.Operator.Email)
 
-		updateWallet, err := cache.UpdateOperator(ctx, nodeID, pb.NodeOperator{
-			Wallet: "0x2222222222222222222222222222222222222222",
-			Email:  updateEmail.Operator.Email,
+		updateWallet, err := cache.UpdateNodeInfo(ctx, nodeID, &pb.InfoResponse{
+			Operator: &pb.NodeOperator{
+				Wallet: "0x2222222222222222222222222222222222222222",
+				Email:  updateEmail.Operator.Email,
+			},
 		})
 
 		require.NoError(t, err)
