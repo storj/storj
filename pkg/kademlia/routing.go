@@ -344,53 +344,58 @@ func splitBucket(bIDs []bucketID, bitDepth int) ([]bucketID,[]bucketID) {
 }
 
 func (rt *RoutingTable) BufferedGraph(buf *bytes.Buffer) {
-	ownBucketId,_ := rt.getKBucketID(rt.self.Id)
-	fmt.Fprintf(buf, "Own bucket id: %s\n", hex.EncodeToString(ownBucketId[:]))
+	buf.Write([]byte("digraph{\nnode [shape=box];\n"))
 
 	ids, _ := rt.GetBucketIds()
 	var bucketids []bucketID
 	for _,n := range ids {
-		//rt.addToGraph(keyToBucketID(n), buf)
 		bucketids = append(bucketids, keyToBucketID(n))
 	}
 
-	
-	/*b0, b1 := splitBucket(bucketids, 0)
-	for _,b := range b0 {
-		fmt.Fprintf(buf, "b0: %s\n", hex.EncodeToString(b[:]))
-	}
-	for _,b := range b1 {
-		fmt.Fprintf(buf, "b1: %s\n", hex.EncodeToString(b[:]))
-	}*/
-	rt.addBucketsToGraph(bucketids, 0, buf)
+	rt.addBucketsToGraph(bucketids, 0, buf, "")
+
+	buf.Write([]byte("}\n"))
+
 }
 
-func (rt *RoutingTable) addBucketsToGraph(b []bucketID, depth int, buf *bytes.Buffer) {
-	fmt.Fprintf(buf, "level: %d\n", depth)	
+func extendPrefix(prefix string, bit bool) string {
+	if bit {
+		return prefix + "1"
+	}
+	return prefix + "0"
+}
+
+func (rt *RoutingTable) addBucketsToGraph(b []bucketID, depth int, buf *bytes.Buffer, in_prefix string) {
 	b0, b1 := splitBucket(b, 0)
+
+	fmt.Fprintf(buf, "b%s [label=%q];", in_prefix, in_prefix)
+
 	if len(b0) == 1 {
-		rt.addToGraph(b0[0], buf)
+		rt.addToGraph(b0[0], buf, in_prefix, extendPrefix(in_prefix, false))
 	} else {
-		rt.addBucketsToGraph(b0, depth+1, buf)
+		rt.addBucketsToGraph(b0, depth+1, buf, extendPrefix(in_prefix, false))
 	}
 	if len(b1) == 1 {
-		rt.addToGraph(b1[0], buf)
+		rt.addToGraph(b1[0], buf, in_prefix, extendPrefix(in_prefix, true))
 	} else {
-		rt.addBucketsToGraph(b1, depth+1, buf)
+		rt.addBucketsToGraph(b1, depth+1, buf, extendPrefix(in_prefix, false))
 	}
 
 }
-func (rt *RoutingTable) addToGraph(b bucketID, buf *bytes.Buffer) {
-	fmt.Fprintf(buf, "bucket id: %s\n", hex.EncodeToString(b[:]))
+func (rt *RoutingTable) addToGraph(b bucketID, buf *bytes.Buffer, in_prefix string, out_prefix string) {
+	fmt.Fprintf(buf, "b%s [label=\"%s\nrouting:\\l", out_prefix, out_prefix)
 
 	nodes, _ := rt.getNodeIDsWithinKBucket(b)
 	for _, n := range nodes {
-		fmt.Fprintf(buf, "node: %s\n", hex.EncodeToString(n[:]))
+		fmt.Fprintf(buf, "  %s\\l", hex.EncodeToString(n[:]))
 	}
+	fmt.Fprintf(buf, "cache:\\l")
 	cached_nodes,_ := rt.replacementCache[b]
 	for _, c := range cached_nodes {
-		fmt.Fprintf(buf, "cache: %s\n", hex.EncodeToString(c.Id[:]))
+		fmt.Fprintf(buf, "  %s\\l", hex.EncodeToString(c.Id[:]))
 	}
+	fmt.Fprintf(buf, "\"];")
+	fmt.Fprintf(buf, "b%s -> b%s;", in_prefix, out_prefix)
 
 }
 
