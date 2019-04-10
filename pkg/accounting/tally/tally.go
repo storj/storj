@@ -194,7 +194,7 @@ func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Tim
 	if latestTally.IsZero() {
 		numHours = 1.0 //todo: something more considered?
 	}
-	latestTally = time.Now()
+	latestTally = time.Now().UTC()
 	for k := range nodeData {
 		nodeData[k] *= numHours //calculate byte hours
 	}

@@ -35,8 +35,9 @@ func NewTestIdentity(ctx context.Context) (*identity.FullIdentity, error) {
 // NewTestCA returns a ca with a default difficulty and concurrency for use in tests
 func NewTestCA(ctx context.Context) (*identity.FullCertificateAuthority, error) {
 	return identity.NewCA(ctx, identity.NewCAOptions{
-		Difficulty:  8,
-		Concurrency: 4,
+		VersionNumber: storj.LatestIDVersion().Number,
+		Difficulty:    8,
+		Concurrency:   4,
 	})
 }
 
