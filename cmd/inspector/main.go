@@ -14,7 +14,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
-
+	"bytes"
+	
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	prompt "github.com/segmentio/go-prompt"
@@ -273,7 +274,18 @@ func DrawTableAsGraph(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return ErrRequest.Wrap(err)
 	}
-
+	fh, err := os.Create(fmt.Sprintf("routing-graph-%003d.dot", 123))//atomic.AddInt64(graphCounter, 1)))
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		err := fh.Close()
+		if err != nil {
+			panic(err)
+		}
+	}()
+	buf := bytes.NewBuffer(info.Graph[0])
+	_, err = buf.WriteTo(fh)
 	fmt.Println(prettyPrint(info))
 
 	return nil;
