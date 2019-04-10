@@ -33,7 +33,7 @@ var pipelines = Pipelines(
 		),
 		Parallel("Verification",
 			Stage("Test",
-			 	Run("go", "test", "-vet=off", "-race", "-cover", "-coverprofile=.coverprofile", "-timeout=9m", "./storagenode/..."),
+			 	Run("go", "test", "-vet=off", "-race", "-cover", "-coverprofile=.coverprofile", "-timeout=9m", "./..."),
 			),
 			Stage("Lint",
 				TempGopath(
@@ -48,7 +48,7 @@ var pipelines = Pipelines(
 				),
 			),
 			Stage("Integration",
-				Run("make", "test-sim"),
+				Run("bash", "scripts/test-sim.sh"),
 			),
 		),
 	),
