@@ -37,7 +37,6 @@ var pipelines = Pipelines(
 			Stage("Test cmd", Run("go", "test", "-vet=off", "-race", "-cover", "-coverprofile=.coverprofile", "-timeout=9m", "./cmd/...")),
 			Stage("Test internal", Run("go", "test", "-vet=off", "-race", "-cover", "-coverprofile=.coverprofile", "-timeout=9m", "./internal/...")),
 			Stage("Test lib", Run("go", "test", "-vet=off", "-race", "-cover", "-coverprofile=.coverprofile", "-timeout=9m", "./lib/...")),
-			Stage("Test pkg", Run("go", "test", "-vet=off", "-race", "-cover", "-coverprofile=.coverprofile", "-timeout=9m", "./pkg/...")),
 			Stage("Test satellite", Run("go", "test", "-vet=off", "-race", "-cover", "-coverprofile=.coverprofile", "-timeout=9m", "./satellite/...")),
 			Stage("Test scripts", Run("go", "test", "-vet=off", "-race", "-cover", "-coverprofile=.coverprofile", "-timeout=9m", "./scripts/...")),
 			Stage("Test storage", Run("go", "test", "-vet=off", "-race", "-cover", "-coverprofile=.coverprofile", "-timeout=9m", "./storage/...")),
