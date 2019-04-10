@@ -168,7 +168,7 @@ func (d *defaultDownloader) getShare(ctx context.Context, limit *pb.AddressedOrd
 
 	start := time.Now()
 	defer func() {
-		d.log.Debug("share download", zap.Stringer("time", time.Since(start)))
+		d.log.Debug("getShare start", zap.Stringer("time", time.Since(start)))
 	}()
 
 	// determines number of seconds allotted for receiving data from a storage node
@@ -179,7 +179,8 @@ func (d *defaultDownloader) getShare(ctx context.Context, limit *pb.AddressedOrd
 			maxTransferTime = 5 * time.Second
 		}
 		var cancel func()
-		timedCtx, cancel = context.WithTimeout(ctx, maxTransferTime)
+		d.log.Debug("new max transfer time", zap.Stringer("time", maxTransferTime*10))
+		timedCtx, cancel = context.WithTimeout(ctx, maxTransferTime*10)
 		defer cancel()
 	}
 
@@ -207,6 +208,11 @@ func (d *defaultDownloader) getShare(ctx context.Context, limit *pb.AddressedOrd
 	}()
 
 	offset := int64(shareSize) * stripeIndex
+
+	downloadStart := time.Now()
+	defer func() {
+		d.log.Debug("share download start", zap.Stringer("time", time.Since(downloadStart)))
+	}()
 
 	downloader, err := ps.Download(timedCtx, limit.GetLimit(), offset, int64(shareSize))
 	if err != nil {
