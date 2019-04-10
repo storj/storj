@@ -28,6 +28,7 @@ matrix:
         - postgresql
       install:
         - curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.13
+        - source scripts/install-awscli.sh
       script:
         - go run scripts/use-ports.go -from 1024 -to 10000 &
         - GOMOD=ci.mod go run ci.go
