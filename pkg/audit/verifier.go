@@ -166,6 +166,11 @@ func (d *defaultDownloader) getShare(ctx context.Context, limit *pb.AddressedOrd
 
 	bandwidthMsgSize := shareSize
 
+	start := time.Now()
+	defer func() {
+		d.log.Debug("share download", zap.Stringer("time", time.Since(start)))
+	}()
+
 	// determines number of seconds allotted for receiving data from a storage node
 	timedCtx := ctx
 	if d.minBytesPerSecond > 0 {
