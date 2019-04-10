@@ -121,7 +121,7 @@ func (m *lockedAccounting) SaveAtRestRaw(ctx context.Context, latestTally time.T
 }
 
 // SaveBucketTallies saves the latest bucket info
-func (m *lockedAccounting) SaveBucketTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*accounting.BucketTally) error {
+func (m *lockedAccounting) SaveBucketTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*accounting.BucketTally) ([]accounting.BucketTally, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.SaveBucketTallies(ctx, intervalStart, bucketTallies)
@@ -471,6 +471,12 @@ type lockedUsageRollups struct {
 	db console.UsageRollups
 }
 
+func (m *lockedUsageRollups) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since time.Time, before time.Time) ([]console.BucketUsageRollup, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetBucketUsageRollups(ctx, projectID, since, before)
+}
+
 func (m *lockedUsageRollups) GetProjectTotal(ctx context.Context, projectID uuid.UUID, since time.Time, before time.Time) (*console.ProjectUsage, error) {
 	m.Lock()
 	defer m.Unlock()
@@ -747,10 +753,10 @@ func (m *lockedOverlayCache) Update(ctx context.Context, value *pb.Node) error {
 }
 
 // UpdateOperator updates the email and wallet for a given node ID for satellite payments.
-func (m *lockedOverlayCache) UpdateOperator(ctx context.Context, node storj.NodeID, updatedOperator pb.NodeOperator) (stats *overlay.NodeDossier, err error) {
+func (m *lockedOverlayCache) UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *overlay.NodeDossier, err error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.UpdateOperator(ctx, node, updatedOperator)
+	return m.db.UpdateNodeInfo(ctx, node, nodeInfo)
 }
 
 // UpdateStats all parts of single storagenode's stats.

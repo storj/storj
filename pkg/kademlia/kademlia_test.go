@@ -167,7 +167,7 @@ func testNode(ctx *testcontext.Context, name string, t *testing.T, bn []pb.Node)
 	// new ident opts
 
 	serverOptions, err := tlsopts.NewOptions(fid, tlsopts.Config{
-		PeerIDVersions: "1,2",
+		PeerIDVersions: "*",
 	})
 	require.NoError(t, err)
 	identOpt := serverOptions.ServerOption()
@@ -526,7 +526,7 @@ func newKademlia(log *zap.Logger, nodeType pb.NodeType, bootstrapNodes []pb.Node
 	}
 
 	tlsOptions, err := tlsopts.NewOptions(identity, tlsopts.Config{
-		PeerIDVersions: "1,2",
+		PeerIDVersions: "*",
 	})
 	if err != nil {
 		return nil, err

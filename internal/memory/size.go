@@ -120,7 +120,7 @@ func (size Size) Base2String() string {
 		return fmt.Sprintf("%.1f KiB", size.KiB())
 	}
 
-	return strconv.Itoa(size.Int()) + " B"
+	return strconv.FormatInt(size.Int64(), 10) + " B"
 }
 
 // Base10String converts size to a string using base-10 prefixes
@@ -144,7 +144,7 @@ func (size Size) Base10String() string {
 		return fmt.Sprintf("%.1f KB", size.KB())
 	}
 
-	return strconv.Itoa(size.Int()) + " B"
+	return strconv.FormatInt(size.Int64(), 10) + " B"
 }
 
 func isLetter(b byte) bool {
