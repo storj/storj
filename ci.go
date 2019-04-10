@@ -24,7 +24,7 @@ var pipelines = Pipelines(
 		Stage("Download",
 			Run("go", "version"),
 			Run("go", "mod", "download"),
-			SetGlobalEnv("SOURCE", "PWD"),
+			SetGlobalEnv("SOURCE", "$SCRIPTDIR"),
 		),
 		Stage("Build",
 			// Run("go", "get", "github.com/mattn/goveralls"),
