@@ -30,7 +30,7 @@ func TestDialer(t *testing.T) {
 
 	planet, err := testplanet.New(t, 1, 4, 3)
 	require.NoError(t, err)
-	defer planet.Shutdown()
+	defer ctx.Check(planet.Shutdown)
 
 	planet.Start(ctx)
 
@@ -169,7 +169,7 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 
 	planet, err := testplanet.New(t, 1, 4, 3)
 	require.NoError(t, err)
-	defer planet.Shutdown()
+	defer ctx.Check(planet.Shutdown)
 
 	planet.Start(ctx)
 
