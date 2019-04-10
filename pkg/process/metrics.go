@@ -15,6 +15,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 	"gopkg.in/spacemonkeygo/monkit.v2/environment"
 
+	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/telemetry"
 )
@@ -50,6 +51,7 @@ func InitMetrics(ctx context.Context, r *monkit.Registry, instanceID string) (er
 	}
 	environment.Register(r)
 	hw.Register(r)
+	r.ScopeNamed("env").Chain("version", monkit.StatSourceFunc(version.Build.Stats))
 	go c.Run(ctx)
 	return nil
 }

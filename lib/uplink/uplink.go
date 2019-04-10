@@ -84,7 +84,7 @@ func (c *Config) setDefaults(ctx context.Context) error {
 	if idVersion.Number != c.Volatile.IdentityVersion.Number {
 		return storj.ErrVersion.New("`UseIdentity` version (%d) didn't match version in config (%d)", idVersion.Number, c.Volatile.IdentityVersion.Number)
 	}
-	if c.Volatile.MaxInlineSize.Int() == 0 {
+	if c.Volatile.MaxInlineSize == 0 {
 		c.Volatile.MaxInlineSize = 4 * memory.KiB
 	}
 	return nil
