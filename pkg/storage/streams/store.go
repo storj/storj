@@ -558,6 +558,7 @@ func decryptRanger(ctx context.Context, rr ranger.Ranger, decryptedSize int64, c
 		if err != nil {
 			return nil, err
 		}
+		defer func() { err = errs.Combine(err, reader.Close()) }()
 		cipherData, err := ioutil.ReadAll(reader)
 		if err != nil {
 			return nil, err
