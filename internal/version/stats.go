@@ -5,13 +5,13 @@ package version
 
 import "hash/crc32"
 
-func (v *Info) Stats(cb func(name string, val float64)) {
+func (v *Info) Stats(reportValue func(name string, val float64)) {
 	if v.Release {
-		cb("release", 1)
+		reportValue("release", 1)
 	} else {
-		cb("release", 0)
+		reportValue("release", 0)
 	}
-	cb("timestamp", float64(v.Timestamp.Unix()))
+	reportValue("timestamp", float64(v.Timestamp.Unix()))
 
 	v.crcOnce.Do(func() {
 		c := crc32.NewIEEE()
@@ -22,8 +22,8 @@ func (v *Info) Stats(cb func(name string, val float64)) {
 		v.commitHashCRC = c.Sum32()
 	})
 
-	cb("commit", float64(v.commitHashCRC))
-	cb("major", float64(v.Version.Major))
-	cb("minor", float64(v.Version.Minor))
-	cb("patch", float64(v.Version.Patch))
+	reportValue("commit", float64(v.commitHashCRC))
+	reportValue("major", float64(v.Version.Major))
+	reportValue("minor", float64(v.Version.Minor))
+	reportValue("patch", float64(v.Version.Patch))
 }
