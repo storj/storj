@@ -191,6 +191,8 @@ github.com/loov/ci v0.0.0-20190410191916-84d2ebf2b46e h1:SZ1lY8bfzx5cWZur72NACVu
 github.com/loov/ci v0.0.0-20190410191916-84d2ebf2b46e/go.mod h1:brlsEXjBIvnI5KfHCDYIPWye12C+LNoZq9tK6RBgb+o=
 github.com/loov/ci v0.0.0-20190410201850-66baf20a035a h1:kHvoRYnVsk0DTGcqzJkgbUoymqsIACbtACokvKJFHYQ=
 github.com/loov/ci v0.0.0-20190410201850-66baf20a035a/go.mod h1:brlsEXjBIvnI5KfHCDYIPWye12C+LNoZq9tK6RBgb+o=
+github.com/loov/ci v0.0.0-20190410223452-066df03e1b5c h1:aFzSNGnZc5fZuh5er7RxYp2dO/0XjUr/ipQfpysgWEM=
+github.com/loov/ci v0.0.0-20190410223452-066df03e1b5c/go.mod h1:brlsEXjBIvnI5KfHCDYIPWye12C+LNoZq9tK6RBgb+o=
 github.com/loov/hrtime v0.0.0-20181214195526-37a208e8344e h1:UC+nLCm+w3WL+ibAW/wsWbQC3KAz7LLawR2hgX0eR9s=
 github.com/loov/hrtime v0.0.0-20181214195526-37a208e8344e/go.mod h1:2871C3urfEJnq/bpTYjFdMOdgxVd8otLLEL6vMNy/Iw=
 github.com/loov/plot v0.0.0-20180510142208-e59891ae1271 h1:51ToN6N0TDtCruf681gufYuEhO9qFHQzM3RFTS/n6XE=
