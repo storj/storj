@@ -537,7 +537,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE nodes ADD major bigint NOT NULL DEFAULT 0;
 					ALTER TABLE nodes ADD minor bigint NOT NULL DEFAULT 1;
 					ALTER TABLE nodes ADD patch bigint NOT NULL DEFAULT 0;
-					ALTER TABLE nodes ADD hash TEXT NOT NULL;
+					ALTER TABLE nodes ADD hash TEXT NOT NULL DEFAULT "";
 					ALTER TABLE nodes ADD timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT 'epoch';
 					ALTER TABLE nodes ADD release bool NOT NULL DEFAULT FALSE;`,
 				},
