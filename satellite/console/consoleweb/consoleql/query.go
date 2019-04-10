@@ -9,6 +9,7 @@ import (
 
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
+
 	"storj.io/storj/internal/post"
 	"storj.io/storj/satellite/mailservice"
 
