@@ -57,7 +57,7 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 	satellite.Discovery.Service.Discovery.Stop()
 
 	testData := make([]byte, 1*memory.MiB)
-	_, err := rand.Read(testData)
+	_, err = rand.Read(testData)
 	require.NoError(t, err)
 
 	err = ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
