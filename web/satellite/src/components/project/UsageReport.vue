@@ -73,22 +73,42 @@ import { NOTIFICATION_ACTIONS, PROJECT_USAGE_ACTIONS } from '@/utils/constants/a
 @Component(
         {
             data: function () {
-                const currentDate = new Date();
-                const previousDate = new Date();
-                previousDate.setMonth(currentDate.getMonth() - 1);
-
                 return {
                     startTime: {
                         time: '',
                     },
                     dateRange: {
-                        startDate: previousDate,
-                        endDate: currentDate,
+                        startDate: '',
+                        endDate: '',
                     },
                 };
             },
             components: {
                 Datepicker,
+            },
+	        beforeMount: function() {
+                const currentDate = new Date();
+                const previousDate = new Date();
+                previousDate.setDate(1);
+
+                this.$data.dateRange.startDate = previousDate;
+                this.$data.dateRange.endDate = currentDate;
+	        },
+            beforeRouteLeave: function(to, from, next) {
+                const currentDate = new Date();
+                const previousDate = new Date();
+                previousDate.setDate(1);
+
+                this.$data.dateRange.startDate = previousDate;
+                this.$data.dateRange.endDate = currentDate;
+
+                const buttons = [...(document as any).querySelectorAll('.usage-report-container__header__options-area__option')];
+                buttons.forEach(option => {
+                    option.classList.remove('active');
+                });
+                buttons[0].classList.add('active');
+
+                next();
             },
             methods: {
                 getDates: async function(datesArray: string[]) {
@@ -107,9 +127,9 @@ import { NOTIFICATION_ACTIONS, PROJECT_USAGE_ACTIONS } from '@/utils/constants/a
                     this.$router.push(ROUTES.PROJECT_DETAILS);
                 },
                 onCurrentRollupClick: async function (event: any) {
-                   const currentDate = new Date();
-                   const previousDate = new Date();
-                   previousDate.setMonth(currentDate.getMonth() - 1);
+                    const currentDate = new Date();
+                    const previousDate = new Date();
+                    previousDate.setDate(1);
 
                    this.$data.dateRange.startDate = previousDate;
                    this.$data.dateRange.endDate = currentDate;
@@ -121,10 +141,9 @@ import { NOTIFICATION_ACTIONS, PROJECT_USAGE_ACTIONS } from '@/utils/constants/a
                    }
                 },
                 onPreviousRollupClick: async function (event: any) {
-                    const currentDate = new Date();
-                    const previousDate = new Date();
-                    currentDate.setMonth(currentDate.getMonth() - 1);
-                    previousDate.setMonth(currentDate.getMonth() - 1);
+                    const date = new Date();
+                    const previousDate = new Date(date.getFullYear(), date.getMonth() - 1, 1);
+                    const currentDate = new Date(date.getFullYear(), date.getMonth(), 0);
 
                     this.$data.dateRange.startDate = previousDate;
                     this.$data.dateRange.endDate = currentDate;
@@ -153,12 +172,16 @@ import { NOTIFICATION_ACTIONS, PROJECT_USAGE_ACTIONS } from '@/utils/constants/a
                     (this as any).changeActiveClass(eventTarget);
                 },
                 changeActiveClass: function (target: any): void {
-                    [...document.querySelectorAll('.usage-report-container__header__options-area__option')].forEach(option => {
-                        option.classList.remove('active');
-                    });
+	                (this as any).removeActiveClass();
 
                     target.classList.add('active');
                 },
+	            removeActiveClass: function(): void {
+                    const buttons = [...(document as any).querySelectorAll('.usage-report-container__header__options-area__option')];
+                    buttons.forEach(option => {
+                        option.classList.remove('active');
+                    });
+	            },
                 onReportClick: function (): void {
                     let projectID = this.$store.getters.selectedProject.id;
 
