@@ -12,7 +12,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+
+	"storj.io/storj/pkg/pb"
 )
 
 var (
@@ -31,6 +34,9 @@ var (
 
 // Info is the versioning information for a binary
 type Info struct {
+	// sync/atomic cache
+	commitHashCRC uint32
+
 	Timestamp  time.Time `json:"timestamp,omitempty"`
 	CommitHash string    `json:"commitHash,omitempty"`
 	Version    SemVer    `json:"version"`
@@ -107,6 +113,22 @@ func (v Info) Marshal() (data []byte, err error) {
 	return
 }
 
+// Proto converts an Info struct to a pb.NodeVersion
+// TODO: shouldn't we just use pb.NodeVersion everywhere? gogoproto will let
+// us make it match Info.
+func (v Info) Proto() (*pb.NodeVersion, error) {
+	pbts, err := ptypes.TimestampProto(v.Timestamp)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.NodeVersion{
+		Version:    v.Version.String(),
+		CommitHash: v.CommitHash,
+		Timestamp:  pbts,
+		Release:    v.Release,
+	}, nil
+}
+
 // containsVersion compares the allowed version array against the passed version
 func containsVersion(all []SemVer, x SemVer) bool {
 	for _, n := range all {
@@ -153,4 +175,5 @@ func init() {
 	if Build.Timestamp.Unix() == 0 || Build.CommitHash == "" {
 		Build.Release = false
 	}
+
 }

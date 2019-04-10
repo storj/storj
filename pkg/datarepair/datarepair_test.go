@@ -19,6 +19,7 @@ import (
 )
 
 func TestDataRepair(t *testing.T) {
+	t.Skip()
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 12,
