@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/graphql-go/graphql"
+	"github.com/kgolding/zipfs"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -43,7 +44,7 @@ var Error = errs.Class("satellite console error")
 // Config contains configuration for console web server
 type Config struct {
 	Address         string `help:"server address of the graphql api gateway and frontend app" default:"127.0.0.1:8081"`
-	StaticDir       string `help:"path to static resources" default:""`
+	StaticArchive   string `help:"path to static resources" default:"assets.zip"`
 	ExternalAddress string `help:"external endpoint of the satellite if hosted" default:""`
 
 	// TODO: remove after Vanguard release
@@ -62,6 +63,7 @@ type Server struct {
 
 	listener net.Listener
 	server   http.Server
+	assets   *zipfs.FileSystem
 
 	schema graphql.Schema
 }
@@ -87,11 +89,16 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	}
 
 	mux := http.NewServeMux()
-	fs := http.FileServer(http.Dir(server.config.StaticDir))
+	zipfile, err := zipfs.New(server.config.StaticArchive)
+	if err != nil {
+		logger.Fatal(err.Error())
+	}
+	server.assets = zipfile
+	fs := http.FileServer(zipfile)
 
 	mux.Handle("/api/graphql/v0", http.HandlerFunc(server.grapqlHandler))
 
-	if server.config.StaticDir != "" {
+	if server.config.StaticArchive != "" {
 		mux.Handle("/activation/", http.HandlerFunc(server.accountActivationHandler))
 		mux.Handle("/password-recovery/", http.HandlerFunc(server.passwordRecoveryHandler))
 		mux.Handle("/registrationToken/", http.HandlerFunc(server.createRegistrationTokenHandler))
@@ -107,9 +114,22 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	return &server
 }
 
+// ServeFile serves a single file from the assets archive to the requester
+func (s *Server) ServeFile(w http.ResponseWriter, req *http.Request, path ...string) {
+	f, err := s.assets.Open(filepath.Join(path...))
+	if err != nil {
+		panic(err)
+	}
+	stat, err := f.Stat()
+	if err != nil {
+		panic(err)
+	}
+	http.ServeContent(w, req, path[len(path)-1], stat.ModTime(), f)
+}
+
 // appHandler is web app http handler function
 func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
-	http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "dist", "public", "index.html"))
+	s.ServeFile(w, req, "dist", "public", "index.html")
 }
 
 // bucketUsageReportHandler generate bucket usage report page for project
@@ -124,21 +144,21 @@ func (s *Server) bucketUsageReportHandler(w http.ResponseWriter, req *http.Reque
 		s.log.Error("bucket usage report error", zap.Error(err))
 
 		w.WriteHeader(http.StatusUnauthorized)
-		http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "errors", "404.html"))
+		s.ServeFile(w, req, "static", "errors", "404.html")
 		return
 	}
 
 	auth, err := s.service.Authorize(auth.WithAPIKey(req.Context(), []byte(tokenCookie.Value)))
 	if err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
-		http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "errors", "404.html"))
+		s.ServeFile(w, req, "static", "errors", "404.html")
 		return
 	}
 
 	defer func() {
 		if err != nil {
 			w.WriteHeader(http.StatusNotFound)
-			http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "errors", "404.html"))
+			s.ServeFile(w, req, "static", "errors", "404.html")
 		}
 	}()
 
@@ -229,7 +249,7 @@ func (s *Server) accountActivationHandler(w http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "activation", "success.html"))
+	s.ServeFile(w, req, "static", "activation", "success.html")
 }
 
 func (s *Server) passwordRecoveryHandler(w http.ResponseWriter, req *http.Request) {
