@@ -114,7 +114,7 @@ func saveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]int
 	if err != nil {
 		return err
 	}
-	fmt.Println("Configuration saved to:", outfile)
+	fmt.Println("Your configuration is saved to:", outfile)
 	return nil
 }
 

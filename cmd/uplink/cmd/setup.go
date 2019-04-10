@@ -104,7 +104,25 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 			"api-key":        apiKey,
 			"enc.key":        string(encKey),
 		}
+
+		fmt.Println()
+		fmt.Println("Your Uplink CLI is configured and ready to use!")
+		fmt.Println()
+
+		err = process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), override)
+		if err != nil {
+			return nil
+		}
+
+		fmt.Println()
+		fmt.Println("Some things to try next:")
+		fmt.Println()
+		fmt.Println("* Run `uplink --help` to see the operations that can be performed")
+		fmt.Println()
+		fmt.Println("* See https://github.com/storj/docs/blob/master/Uplink-CLI.md#usage for some example commands")
+
+		return nil
 	}
 
-	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), override)
+	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), nil)
 }
