@@ -577,7 +577,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 					RevocationDBURL:     "bolt://" + filepath.Join(storageDir, "revocation.db"),
 					UsePeerCAWhitelist:  true,
 					PeerCAWhitelistPath: planet.whitelistPath,
-					PeerIDVersions:      "1,2",
+					PeerIDVersions:      "*",
 					Extensions: extensions.Config{
 						Revocation:          false,
 						WhitelistSignedLeaf: false,
@@ -745,7 +745,7 @@ func (planet *Planet) newVersionControlServer() (peer *versioncontrol.Peer, err 
 func (planet *Planet) NewVersionInfo() version.Info {
 	info := version.Info{
 		Timestamp:  time.Now(),
-		CommitHash: "",
+		CommitHash: "testplanet",
 		Version: version.SemVer{
 			Major: 0,
 			Minor: 0,

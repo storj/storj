@@ -9,9 +9,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -33,31 +35,57 @@ type overlaycache struct {
 
 func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) ([]*pb.Node, error) {
 	nodeType := int(pb.NodeType_STORAGE)
-	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, `
+
+	safeQuery := `
 		WHERE type = ? AND free_bandwidth >= ? AND free_disk >= ?
 		  AND total_audit_count >= ?
 		  AND audit_success_ratio >= ?
 		  AND total_uptime_count >= ?
 		  AND uptime_ratio >= ?
 		  AND last_contact_success > ?
-		  AND last_contact_success > last_contact_failure
-		`, nodeType, criteria.FreeBandwidth, criteria.FreeDisk,
+		  AND last_contact_success > last_contact_failure`
+	args := append(make([]interface{}, 0, 13),
+		nodeType, criteria.FreeBandwidth, criteria.FreeDisk,
 		criteria.AuditCount, criteria.AuditSuccessRatio, criteria.UptimeCount, criteria.UptimeSuccessRatio,
-		time.Now().Add(-1*time.Hour),
-	)
+		time.Now().Add(-overlay.OnlineWindow))
+
+	if criteria.MinimumVersion != "" {
+		v, err := version.NewSemVer(criteria.MinimumVersion)
+		if err != nil {
+			return nil, Error.New("invalid node selection criteria version: %v", err)
+		}
+		safeQuery += `
+			AND major > ? OR (major = ? AND (minor > ? OR (minor = ? AND patch >= ?)))
+			AND release`
+		args = append(args, v.Major, v.Major, v.Minor, v.Minor, v.Patch)
+	}
+
+	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, safeQuery, args...)
 }
 
 func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int, criteria *overlay.NewNodeCriteria) ([]*pb.Node, error) {
 	nodeType := int(pb.NodeType_STORAGE)
-	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, `
+
+	safeQuery := `
 		WHERE type = ? AND free_bandwidth >= ? AND free_disk >= ?
 		  AND total_audit_count < ?
 		  AND last_contact_success > ?
-		  AND last_contact_success > last_contact_failure
-	`, nodeType, criteria.FreeBandwidth, criteria.FreeDisk,
-		criteria.AuditThreshold,
-		time.Now().Add(-1*time.Hour),
-	)
+		  AND last_contact_success > last_contact_failure`
+	args := append(make([]interface{}, 0, 10),
+		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditThreshold, time.Now().Add(-overlay.OnlineWindow))
+
+	if criteria.MinimumVersion != "" {
+		v, err := version.NewSemVer(criteria.MinimumVersion)
+		if err != nil {
+			return nil, Error.New("invalid node selection criteria version: %v", err)
+		}
+		safeQuery += `
+			AND major > ? OR (major = ? AND (minor > ? OR (minor = ? AND patch >= ?)))
+			AND release`
+		args = append(args, v.Major, v.Major, v.Minor, v.Minor, v.Patch)
+	}
+
+	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, safeQuery, args...)
 }
 
 func (cache *overlaycache) queryFilteredNodes(ctx context.Context, excluded []storj.NodeID, count int, safeQuery string, args ...interface{}) (_ []*pb.Node, err error) {
@@ -202,7 +230,6 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 	if err != nil {
 		return Error.Wrap(err)
 	}
-
 	// TODO: use upsert
 	_, err = tx.Get_Node_By_Id(ctx, dbx.Node_Id(info.Id.Bytes()))
 
@@ -232,6 +259,22 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 			reputation = &pb.NodeStats{}
 		}
 
+		ver := info.Version
+		var semver version.SemVer
+		var verTime time.Time
+		if ver == nil {
+			ver = &pb.NodeVersion{}
+		} else {
+			parsed, err := version.NewSemVer(ver.Version)
+			if err == nil {
+				semver = *parsed
+			}
+			verTime, err = ptypes.Timestamp(ver.Timestamp)
+			if err != nil {
+				verTime = time.Time{}
+			}
+		}
+
 		_, err = tx.Create_Node(
 			ctx,
 			dbx.Node_Id(info.Id.Bytes()),
@@ -242,6 +285,12 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 			dbx.Node_Wallet(metadata.Wallet),
 			dbx.Node_FreeBandwidth(restrictions.FreeBandwidth),
 			dbx.Node_FreeDisk(restrictions.FreeDisk),
+			dbx.Node_Major(semver.Major),
+			dbx.Node_Minor(semver.Minor),
+			dbx.Node_Patch(semver.Patch),
+			dbx.Node_Hash(ver.CommitHash),
+			dbx.Node_Timestamp(verTime),
+			dbx.Node_Release(ver.Release),
 
 			dbx.Node_Latency90(reputation.Latency_90),
 			dbx.Node_AuditSuccessCount(reputation.AuditSuccessCount),
@@ -338,7 +387,6 @@ func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID,
 	if dbNode == nil {
 		return nil, Error.Wrap(errs.New("unable to get node by ID: %s", nodeID.String()))
 	}
-
 	return getNodeStats(dbNode), Error.Wrap(tx.Commit())
 }
 
@@ -462,13 +510,36 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 	return getNodeStats(dbNode), Error.Wrap(tx.Commit())
 }
 
-// UpdateOperator updates the email and wallet for a given node ID for satellite payments.
-func (cache *overlaycache) UpdateOperator(ctx context.Context, nodeID storj.NodeID, operator pb.NodeOperator) (stats *overlay.NodeDossier, err error) {
+// UpdateNodeInfo updates the email and wallet for a given node ID for satellite payments.
+func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.NodeID, nodeInfo *pb.InfoResponse) (stats *overlay.NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	updateFields := dbx.Node_Update_Fields{
-		Wallet: dbx.Node_Wallet(operator.GetWallet()),
-		Email:  dbx.Node_Email(operator.GetEmail()),
+	var updateFields dbx.Node_Update_Fields
+	if nodeInfo != nil {
+		if nodeInfo.GetOperator() != nil {
+			updateFields.Wallet = dbx.Node_Wallet(nodeInfo.GetOperator().GetWallet())
+			updateFields.Email = dbx.Node_Email(nodeInfo.GetOperator().GetEmail())
+		}
+		if nodeInfo.GetCapacity() != nil {
+			updateFields.FreeDisk = dbx.Node_FreeDisk(nodeInfo.GetCapacity().GetFreeDisk())
+			updateFields.FreeBandwidth = dbx.Node_FreeBandwidth(nodeInfo.GetCapacity().GetFreeBandwidth())
+		}
+		if nodeInfo.GetVersion() != nil {
+			semVer, err := version.NewSemVer(nodeInfo.GetVersion().GetVersion())
+			if err != nil {
+				return &overlay.NodeDossier{}, errs.New("unable to convert version to semVer")
+			}
+			pbts, err := ptypes.Timestamp(nodeInfo.GetVersion().GetTimestamp())
+			if err != nil {
+				return &overlay.NodeDossier{}, errs.New("unable to convert version timestamp")
+			}
+			updateFields.Major = dbx.Node_Major(semVer.Major)
+			updateFields.Minor = dbx.Node_Minor(semVer.Minor)
+			updateFields.Patch = dbx.Node_Patch(semVer.Patch)
+			updateFields.Hash = dbx.Node_Hash(nodeInfo.GetVersion().GetCommitHash())
+			updateFields.Timestamp = dbx.Node_Timestamp(pbts)
+			updateFields.Release = dbx.Node_Release(nodeInfo.GetVersion().GetRelease())
+		}
 	}
 
 	updatedDBNode, err := cache.db.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
@@ -537,6 +608,16 @@ func convertDBNode(info *dbx.Node) (*overlay.NodeDossier, error) {
 	if err != nil {
 		return nil, err
 	}
+	ver := &version.SemVer{
+		Major: info.Major,
+		Minor: info.Minor,
+		Patch: info.Patch,
+	}
+
+	pbts, err := ptypes.TimestampProto(info.Timestamp)
+	if err != nil {
+		return nil, err
+	}
 
 	node := &overlay.NodeDossier{
 		Node: pb.Node{
@@ -566,6 +647,12 @@ func convertDBNode(info *dbx.Node) (*overlay.NodeDossier, error) {
 			UptimeSuccessCount: info.UptimeSuccessCount,
 			LastContactSuccess: info.LastContactSuccess,
 			LastContactFailure: info.LastContactFailure,
+		},
+		Version: pb.NodeVersion{
+			Version:    ver.String(),
+			CommitHash: info.Hash,
+			Timestamp:  pbts,
+			Release:    info.Release,
 		},
 	}
 

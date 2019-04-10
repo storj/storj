@@ -4,12 +4,15 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/crypto/ssh/terminal"
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
@@ -55,5 +58,53 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), nil)
+	var override map[string]interface{}
+	if !setupCfg.NonInteractive {
+		fmt.Print("Enter your Satellite address: ")
+		var satelliteAddress string
+		fmt.Scanln(&satelliteAddress)
+
+		// TODO add better validation
+		if satelliteAddress == "" {
+			return errs.New("Satellite address cannot be empty")
+		}
+
+		fmt.Print("Enter your API key: ")
+		var apiKey string
+		fmt.Scanln(&apiKey)
+
+		if apiKey == "" {
+			return errs.New("API key cannot be empty")
+		}
+
+		fmt.Print("Enter your encryption passphrase: ")
+		encKey, err := terminal.ReadPassword(int(os.Stdin.Fd()))
+		if err != nil {
+			return err
+		}
+		fmt.Println()
+
+		fmt.Print("Enter your encryption passphrase again: ")
+		repeatedEncKey, err := terminal.ReadPassword(int(os.Stdin.Fd()))
+		if err != nil {
+			return err
+		}
+		fmt.Println()
+
+		if !bytes.Equal(encKey, repeatedEncKey) {
+			return errs.New("encryption passphrases doesn't match")
+		}
+
+		if len(encKey) == 0 {
+			fmt.Println("Warning: Encryption passphrase is empty!")
+		}
+
+		override = map[string]interface{}{
+			"satellite-addr": satelliteAddress,
+			"api-key":        apiKey,
+			"enc.key":        string(encKey),
+		}
+	}
+
+	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), override)
 }

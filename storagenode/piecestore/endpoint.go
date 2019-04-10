@@ -102,7 +102,7 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 		// TODO: report internal server internal or missing error using grpc status,
 		// e.g. missing might happen when we get a deletion request after garbage collection has deleted it
 	} else {
-		endpoint.log.Debug("deleted", zap.Stringer("Piece ID", delete.Limit.PieceId))
+		endpoint.log.Info("deleted", zap.Stringer("Piece ID", delete.Limit.PieceId))
 	}
 
 	return &pb.PieceDeleteResponse{}, nil
@@ -141,9 +141,9 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 
 	defer func() {
 		if err != nil {
-			endpoint.log.Debug("upload failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Node ID", limit.StorageNodeId), zap.Error(err))
+			endpoint.log.Info("upload failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Node ID", limit.StorageNodeId), zap.Error(err))
 		} else {
-			endpoint.log.Debug("uploaded", zap.Stringer("Piece ID", limit.PieceId))
+			endpoint.log.Info("uploaded", zap.Stringer("Piece ID", limit.PieceId))
 		}
 	}()
 
@@ -289,9 +289,9 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 
 	defer func() {
 		if err != nil {
-			endpoint.log.Debug("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Error(err))
+			endpoint.log.Info("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Error(err))
 		} else {
-			endpoint.log.Debug("downloaded", zap.Stringer("Piece ID", limit.PieceId))
+			endpoint.log.Info("downloaded", zap.Stringer("Piece ID", limit.PieceId))
 		}
 	}()
 
