@@ -80,10 +80,9 @@ CREATE TABLE certRecords (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE injuredsegments (
-	path text NOT NULL,
-	data bytea NOT NULL,
-	attempted timestamp,
-	PRIMARY KEY ( path )
+	id bigserial NOT NULL,
+	info bytea NOT NULL,
+	PRIMARY KEY ( id )
 );
 CREATE TABLE irreparabledbs (
 	segmentpath bytea NOT NULL,
