@@ -544,7 +544,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 			},
 			{
 				Description: "Add path to injuredsegment to prevent duplicates",
-				Version:     14,
+				Version:     15,
 				Action: migrate.Func(func(log *zap.Logger, db migrate.DB, tx *sql.Tx) error {
 					_, err := tx.Exec(`
 						ALTER TABLE injuredsegments ADD path text;
