@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"bytes"
+	"encoding/hex"
 	
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
@@ -105,8 +106,8 @@ var (
 		RunE:  DumpNodes,
 	}
 	drawTableCmd = &cobra.Command{
-		Use: "draw-table <node_id>",
-		Short: "draw the node's routing table as a graph",
+		Use: "routing-graph <node_id>",
+		Short: "Save the routing table graph as a dot file with name routing-graph-<node-id>",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: DrawTableAsGraph,
 	}
@@ -274,7 +275,7 @@ func DrawTableAsGraph(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return ErrRequest.Wrap(err)
 	}
-	fh, err := os.Create(fmt.Sprintf("routing-graph-%003d.dot", 123))//atomic.AddInt64(graphCounter, 1)))
+	fh, err := os.Create(fmt.Sprintf("routing-graph-%s.dot", hex.EncodeToString(n.GetNode().Id[:])))
 	if err != nil {
 		panic(err)
 	}
