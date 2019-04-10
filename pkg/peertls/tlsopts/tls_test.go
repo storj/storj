@@ -96,7 +96,7 @@ func TestExtensionMap_HandleExtensions(t *testing.T) {
 		testidentity.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
 			opts := &extensions.Options{
 				RevDB:          revDB,
-				PeerIDVersions: "1",
+				PeerIDVersions: "*",
 			}
 
 			testcases := []struct {
