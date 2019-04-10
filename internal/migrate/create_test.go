@@ -47,7 +47,7 @@ func TestCreate_Sqlite(t *testing.T) {
 // this connstring is expected to work under the storj-test docker-compose instance
 const defaultPostgresConn = "postgres://storj:storj-pass@test-postgres/teststorj?sslmode=disable"
 
-var testPostgres = flag.String("postgres-test-db", os.Getenv("STORJ_POSTGRES_TEST"), "PostgreSQL test database connection string")
+var testPostgres = flag.String("postgres-test-db2", os.Getenv("STORJ_POSTGRES_TEST"), "PostgreSQL test database connection string")
 
 func TestCreate_Postgres(t *testing.T) {
 	if *testPostgres == "" {

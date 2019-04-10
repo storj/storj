@@ -24,7 +24,7 @@ const (
 
 var (
 	// TestPostgres is flag for the postgres test database
-	TestPostgres = flag.String("postgres-test-db", os.Getenv("STORJ_POSTGRES_TEST"), "PostgreSQL test database connection string")
+	TestPostgres = flag.String("postgres-test-db3", os.Getenv("STORJ_POSTGRES_TEST"), "PostgreSQL test database connection string")
 )
 
 func TestQuery(t *testing.T) {
