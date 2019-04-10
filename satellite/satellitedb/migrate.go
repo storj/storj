@@ -425,7 +425,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						PRIMARY KEY ( bucket_id, interval_start )
 					)`,
 					`ALTER TABLE bucket_usages DROP CONSTRAINT bucket_usages_rollup_end_time_bucket_id_key`,
-					`CREATE UNIQUE INDEX bucket_id_rollup_end_time_index ON bucket_usages ( 
+					`CREATE UNIQUE INDEX bucket_id_rollup_end_time_index ON bucket_usages (
 						bucket_id,
 						rollup_end_time )`,
 				},
@@ -530,6 +530,18 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE bucket_bandwidth_rollups ADD CONSTRAINT bucket_bandwidth_rollups_pk PRIMARY KEY (bucket_name, project_id, interval_start, action);`,
 				},
 			},
+			{
+				Description: "Add new Columns to store version information",
+				Version:     14,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD major bigint NOT NULL DEFAULT 0;
+					ALTER TABLE nodes ADD minor bigint NOT NULL DEFAULT 1;
+					ALTER TABLE nodes ADD patch bigint NOT NULL DEFAULT 0;
+					ALTER TABLE nodes ADD hash TEXT NOT NULL DEFAULT '';
+					ALTER TABLE nodes ADD timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT 'epoch';
+					ALTER TABLE nodes ADD release bool NOT NULL DEFAULT FALSE;`,
+				},
+			},
 		},
 	}
 }
@@ -537,7 +549,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 func postgresHasColumn(tx *sql.Tx, table, column string) (bool, error) {
 	var columnName string
 	err := tx.QueryRow(`
-		SELECT column_name FROM information_schema.COLUMNS 
+		SELECT column_name FROM information_schema.COLUMNS
 			WHERE table_schema = CURRENT_SCHEMA
 				AND table_name = $1
 				AND column_name = $2
@@ -555,7 +567,7 @@ func postgresHasColumn(tx *sql.Tx, table, column string) (bool, error) {
 func postgresColumnNullability(tx *sql.Tx, table, column string) (bool, error) {
 	var nullability string
 	err := tx.QueryRow(`
-		SELECT is_nullable FROM information_schema.COLUMNS 
+		SELECT is_nullable FROM information_schema.COLUMNS
 			WHERE table_schema = CURRENT_SCHEMA
 				AND table_name = $1
 				AND column_name = $2

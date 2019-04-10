@@ -37,6 +37,7 @@ message InfoResponse {
     node.NodeType type = 2;
     node.NodeOperator operator = 3;
     node.NodeCapacity capacity = 4;
+    node.NodeVersion version = 5;
 }
 
 message Restriction {
