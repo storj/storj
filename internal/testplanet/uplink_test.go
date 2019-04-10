@@ -49,6 +49,8 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 	require.NoError(t, err)
 	defer ctx.Check(planet.Shutdown)
 
+	planet.Start(ctx)
+
 	// first, upload some remote data
 	ul := planet.Uplinks[0]
 	satellite := planet.Satellites[0]
