@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/lib/pq"
-	"github.com/mattn/go-sqlite3"
+	sqlite3 "github.com/mattn/go-sqlite3"
 
 	"storj.io/storj/pkg/pb"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
