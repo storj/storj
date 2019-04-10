@@ -5,6 +5,7 @@ package bootstrap
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 
@@ -195,15 +196,19 @@ func (peer *Peer) Run(ctx context.Context) error {
 	group, ctx := errgroup.WithContext(ctx)
 
 	group.Go(func() error {
+		fmt.Println("about to version.run")
 		return ignoreCancel(peer.Version.Run(ctx))
 	})
 	group.Go(func() error {
+		fmt.Println("about to service.bootstrap")
 		return ignoreCancel(peer.Kademlia.Service.Bootstrap(ctx))
 	})
 	group.Go(func() error {
+		fmt.Println("about to kad.service.run")
 		return ignoreCancel(peer.Kademlia.Service.Run(ctx))
 	})
 	group.Go(func() error {
+		fmt.Println("about to peer.server.run")
 		// TODO: move the message into Server instead
 		// Don't change the format of this comment, it is used to figure out the node id.
 		peer.Log.Sugar().Infof("Node %s started", peer.Identity.ID)

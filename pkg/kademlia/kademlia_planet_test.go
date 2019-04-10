@@ -5,18 +5,30 @@ package kademlia_test
 
 import (
 	"context"
+	"fmt"
+	"io"
+	"log"
+	"net"
+	"path/filepath"
+	"storj.io/storj/pkg/storj"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/storj/bootstrap"
+	"storj.io/storj/bootstrap/bootstrapdb"
+	"storj.io/storj/bootstrap/bootstrapweb/bootstrapserver"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/transport"
 )
 
@@ -92,4 +104,108 @@ func TestPingTimeout(t *testing.T) {
 		require.True(t, kademlia.NodeErr.Has(err) && transport.Error.Has(err))
 
 	})
+}
+
+func TestBootstrapBackoff(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	planet, err := testplanet.New(t, 1, 6, 1)
+	require.NoError(t, err)
+	defer ctx.Check(planet.Shutdown)
+
+	planet.Start(ctx)
+
+	whitelistPath, err := planet.WriteWhitelist(storj.LatestIDVersion())
+	require.NoError(t, err)
+
+	config := bootstrap.Config{
+		Server: server.Config{
+			Address:        "127.0.0.1:0",
+			PrivateAddress: "127.0.0.1:0",
+
+			Config: tlsopts.Config{
+				RevocationDBURL:     "bolt://" + filepath.Join("/temp/", "revocation.db"),
+				UsePeerCAWhitelist:  true,
+				PeerCAWhitelistPath: whitelistPath,
+				PeerIDVersions:      "latest",
+				Extensions: extensions.Config{
+					Revocation:          false,
+					WhitelistSignedLeaf: false,
+				},
+			},
+		},
+		Kademlia: kademlia.Config{
+			Alpha:    5,
+			DBPath:   "/temp/kaddb", // TODO: replace with master db
+			Operator: kademlia.OperatorConfig{
+				// Email:  prefix + "@example.com",
+				// Wallet: "0x" + strings.Repeat("00", 20),
+			},
+		},
+		Web: bootstrapserver.Config{
+			Address:   "127.0.0.1:0",
+			StaticDir: "./web/bootstrap", // TODO: for development only
+		},
+		Version: planet.NewVersionConfig(),
+	}
+	// if planet.config.Reconfigure.Bootstrap != nil {
+	// 	planet.config.Reconfigure.Bootstrap(0, &config)
+	// }
+
+	var verInfo version.Info
+	verInfo = planet.NewVersionInfo()
+	id, err := planet.NewIdentity()
+	require.NoError(t, err)
+
+	db, err := bootstrapdb.NewInMemory("/temp/")
+	require.NoError(t, err)
+
+	peer, err := bootstrap.New(zaptest.NewLogger(t), id, db, config, verInfo)
+	require.NoError(t, err)
+
+	err = peer.Run(ctx)
+	require.NoError(t, err)
+
+}
+
+func badBootstrapProxy(done chan bool) (err error) {
+	fmt.Println("into bad proxy")
+	l, err := net.Listen("tcp", ":9999")
+	if err != nil {
+		return err
+	}
+	connCount := 0
+
+	defer func() {
+		done <- true
+		l.Close()
+	}()
+
+	for {
+		fmt.Println("about to accept")
+		c, err := l.Accept()
+		if err != nil {
+			return err
+		}
+		fmt.Println("accepted conn")
+		connCount++
+
+		go func() {
+			if connCount < 3 {
+				log.Println("Not a winner")
+				c.Close()
+				return
+			}
+			c2, err := net.Dial("tcp", "127.0.0.1:9990")
+			if err != nil {
+				log.Println("Can't connect!")
+				c.Close()
+				return
+			}
+			connCount++
+			go io.Copy(c, c2)
+			io.Copy(c2, c)
+		}()
+	}
 }
