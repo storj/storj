@@ -164,12 +164,12 @@ func (d *defaultDownloader) DownloadShares(ctx context.Context, limits []*pb.Add
 func (d *defaultDownloader) getShare(ctx context.Context, limit *pb.AddressedOrderLimit, stripeIndex int64, shareSize int32, pieceNum int) (share Share, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	bandwidthMsgSize := shareSize
-
 	start := time.Now()
 	defer func() {
-		d.log.Debug("getShare start", zap.Stringer("time", time.Since(start)))
+		d.log.Debug("enter getShare func", zap.Stringer("time", time.Since(start)))
 	}()
+
+	bandwidthMsgSize := shareSize
 
 	// determines number of seconds allotted for receiving data from a storage node
 	timedCtx := ctx
