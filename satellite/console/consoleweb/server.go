@@ -6,13 +6,17 @@ package consoleweb
 import (
 	"context"
 	"encoding/json"
+	"html/template"
 	"net"
 	"net/http"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/graphql-go/graphql"
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -90,6 +94,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	if server.config.StaticDir != "" {
 		mux.Handle("/activation/", http.HandlerFunc(server.accountActivationHandler))
 		mux.Handle("/registrationToken/", http.HandlerFunc(server.createRegistrationTokenHandler))
+		mux.Handle("/usage-report/", http.HandlerFunc(server.bucketUsageReportHandler))
 		mux.Handle("/static/", http.StripPrefix("/static", fs))
 		mux.Handle("/", http.HandlerFunc(server.appHandler))
 	}
@@ -104,6 +109,69 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 // appHandler is web app http handler function
 func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
 	http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "dist", "public", "index.html"))
+}
+
+// bucketUsageReportHandler generate bucket usage report page for project
+func (s *Server) bucketUsageReportHandler(w http.ResponseWriter, req *http.Request) {
+	var err error
+
+	var projectID *uuid.UUID
+	var since, before time.Time
+
+	tokenCookie, err := req.Cookie("tokenKey")
+	if err != nil {
+		s.log.Error("bucket usage report error", zap.Error(err))
+
+		w.WriteHeader(http.StatusUnauthorized)
+		http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "errors", "404.html"))
+		return
+	}
+
+	auth, err := s.service.Authorize(auth.WithAPIKey(req.Context(), []byte(tokenCookie.Value)))
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "errors", "404.html"))
+		return
+	}
+
+	defer func() {
+		if err != nil {
+			w.WriteHeader(http.StatusNotFound)
+			http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "errors", "404.html"))
+		}
+	}()
+
+	// parse query params
+	projectID, err = uuid.Parse(req.URL.Query().Get("projectID"))
+	if err != nil {
+		return
+	}
+	since, err = time.Parse(time.RFC3339, req.URL.Query().Get("since"))
+	if err != nil {
+		return
+	}
+	before, err = time.Parse(time.RFC3339, req.URL.Query().Get("before"))
+	if err != nil {
+		return
+	}
+
+	s.log.Debug("querying bucket usage report",
+		zap.String("projectID", projectID.String()),
+		zap.String("since", since.String()),
+		zap.String("before", before.String()))
+
+	ctx := console.WithAuth(context.Background(), auth)
+	bucketRollups, err := s.service.GetBucketUsageRollups(ctx, *projectID, since, before)
+	if err != nil {
+		return
+	}
+
+	report, err := template.ParseFiles(path.Join(s.config.StaticDir, "static", "reports", "UsageReport.html"))
+	if err != nil {
+		return
+	}
+
+	err = report.Execute(w, bucketRollups)
 }
 
 // accountActivationHandler is web app http handler function

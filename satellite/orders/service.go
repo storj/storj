@@ -77,7 +77,7 @@ func (service *Service) updateBandwidth(ctx context.Context, bucketID []byte, ad
 			action = orderLimit.Action
 		}
 	}
-	now := time.Now()
+	now := time.Now().UTC()
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
 	if err := service.orders.UpdateBucketBandwidthAllocation(ctx, bucketID, action, bucketAllocation, intervalStart); err != nil {
@@ -97,7 +97,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 	expiration := pointer.ExpirationDate
 
 	// convert orderExpiration from duration to timestamp
-	orderExpirationTime := time.Now().Add(service.orderExpiration)
+	orderExpirationTime := time.Now().UTC().Add(service.orderExpiration)
 	orderExpiration, err := ptypes.TimestampProto(orderExpirationTime)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -181,7 +181,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 // CreatePutOrderLimits creates the order limits for uploading pieces to nodes.
 func (service *Service) CreatePutOrderLimits(ctx context.Context, uplink *identity.PeerIdentity, bucketID []byte, nodes []*pb.Node, expiration *timestamp.Timestamp, maxPieceSize int64) (_ storj.PieceID, _ []*pb.AddressedOrderLimit, err error) {
 	// convert orderExpiration from duration to timestamp
-	orderExpirationTime := time.Now().Add(service.orderExpiration)
+	orderExpirationTime := time.Now().UTC().Add(service.orderExpiration)
 	orderExpiration, err := ptypes.TimestampProto(orderExpirationTime)
 	if err != nil {
 		return storj.PieceID{}, nil, Error.Wrap(err)
@@ -241,7 +241,7 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *ide
 	expiration := pointer.ExpirationDate
 
 	// convert orderExpiration from duration to timestamp
-	orderExpirationTime := time.Now().Add(service.orderExpiration)
+	orderExpirationTime := time.Now().UTC().Add(service.orderExpiration)
 	orderExpiration, err := ptypes.TimestampProto(orderExpirationTime)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -320,7 +320,7 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 	expiration := pointer.ExpirationDate
 
 	// convert orderExpiration from duration to timestamp
-	orderExpirationTime := time.Now().Add(service.orderExpiration)
+	orderExpirationTime := time.Now().UTC().Add(service.orderExpiration)
 	orderExpiration, err := ptypes.TimestampProto(orderExpirationTime)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -403,7 +403,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 	expiration := pointer.ExpirationDate
 
 	// convert orderExpiration from duration to timestamp
-	orderExpirationTime := time.Now().Add(service.orderExpiration)
+	orderExpirationTime := time.Now().UTC().Add(service.orderExpiration)
 	orderExpiration, err := ptypes.TimestampProto(orderExpirationTime)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -486,7 +486,7 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 	expiration := pointer.ExpirationDate
 
 	// convert orderExpiration from duration to timestamp
-	orderExpirationTime := time.Now().Add(service.orderExpiration)
+	orderExpirationTime := time.Now().UTC().Add(service.orderExpiration)
 	orderExpiration, err := ptypes.TimestampProto(orderExpirationTime)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -548,7 +548,7 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 
 // UpdateGetInlineOrder updates amount of inline GET bandwidth for given bucket
 func (service *Service) UpdateGetInlineOrder(ctx context.Context, bucketID []byte, amount int64) (err error) {
-	now := time.Now()
+	now := time.Now().UTC()
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
 	return service.orders.UpdateBucketBandwidthInline(ctx, bucketID, pb.PieceAction_GET, amount, intervalStart)
@@ -556,7 +556,7 @@ func (service *Service) UpdateGetInlineOrder(ctx context.Context, bucketID []byt
 
 // UpdatePutInlineOrder updates amount of inline PUT bandwidth for given bucket
 func (service *Service) UpdatePutInlineOrder(ctx context.Context, bucketID []byte, amount int64) (err error) {
-	now := time.Now()
+	now := time.Now().UTC()
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
 	return service.orders.UpdateBucketBandwidthInline(ctx, bucketID, pb.PieceAction_PUT, amount, intervalStart)

@@ -24,7 +24,7 @@ func TestSerialNumbers(t *testing.T) {
 		ordersDB := db.Orders()
 
 		expectedBucket := []byte("bucketID")
-		err := ordersDB.CreateSerialInfo(ctx, storj.SerialNumber{1}, expectedBucket, time.Now())
+		err := ordersDB.CreateSerialInfo(ctx, storj.SerialNumber{1}, expectedBucket, time.Now().UTC())
 		require.NoError(t, err)
 
 		bucketID, err := ordersDB.UseSerialNumber(ctx, storj.SerialNumber{1}, storj.NodeID{1})

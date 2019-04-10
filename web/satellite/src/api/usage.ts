@@ -20,7 +20,7 @@ export async function fetchProjectUsage(projectID: string, since: Date, before: 
                         usage(since: "${since.toISOString()}", before: "${before.toISOString()}") {
                             storage,
                             egress,
-                            objectsCount,
+                            objectCount,
                             since,
                             before
                         }

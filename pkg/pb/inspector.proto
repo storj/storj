@@ -163,6 +163,7 @@ message NodeInfoResponse {
   node.NodeType type = 1;
   node.NodeOperator operator = 2;
   node.NodeCapacity capacity = 3;
+  node.NodeVersion version = 4;
 }
 
 message FindNearRequest {
