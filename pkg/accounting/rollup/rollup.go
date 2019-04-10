@@ -136,7 +136,7 @@ func (r *Service) RollupStorage(ctx context.Context, lastRollup time.Time, rollu
 // RollupBW aggregates the bandwidth rollups, modifies rollupStats map
 func (r *Service) RollupBW(ctx context.Context, lastRollup time.Time, rollupStats accounting.RollupStats) error {
 	var latestTally time.Time
-	bws, err := r.db.GetStoragenodeBandwidthSince(ctx, lastRollup)
+	bws, err := r.db.GetStoragenodeBandwidthSince(ctx, lastRollup.UTC())
 	if err != nil {
 		return Error.Wrap(err)
 	}

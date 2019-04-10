@@ -471,6 +471,12 @@ type lockedUsageRollups struct {
 	db console.UsageRollups
 }
 
+func (m *lockedUsageRollups) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since time.Time, before time.Time) ([]console.BucketUsageRollup, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetBucketUsageRollups(ctx, projectID, since, before)
+}
+
 func (m *lockedUsageRollups) GetProjectTotal(ctx context.Context, projectID uuid.UUID, since time.Time, before time.Time) (*console.ProjectUsage, error) {
 	m.Lock()
 	defer m.Unlock()

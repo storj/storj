@@ -33,7 +33,7 @@ declare type TeamMemberModel = {
 declare type ProjectUsage = {
     storage: number,
     egress: number,
-    objectsCount: number,
+    objectCount: number,
     since: Date,
     before: Date
 };
