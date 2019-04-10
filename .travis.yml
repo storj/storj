@@ -19,8 +19,6 @@ before_script:
       psql -c 'create database teststorj' -U postgres;
     fi;
 
-before_install:
-  - source scripts/setup-gopath.sh
 matrix:
   allow_failures:
     - os: windows # allow failures on windows because it's slow
