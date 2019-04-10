@@ -352,6 +352,11 @@ func (rt *RoutingTable) BufferedGraph(buf *bytes.Buffer) {
 		bucketids = append(bucketids, keyToBucketID(n))
 	}
 
+	if len(bucketids) == 1 {
+		rt.addToGraph(bucketids[0], buf, "", "")
+		buf.Write([]byte("}\n"))
+		return
+	}
 	rt.addBucketsToGraph(bucketids, 0, buf, "")
 
 	buf.Write([]byte("}\n"))
@@ -378,7 +383,7 @@ func (rt *RoutingTable) addBucketsToGraph(b []bucketID, depth int, buf *bytes.Bu
 	if len(b1) == 1 {
 		rt.addToGraph(b1[0], buf, in_prefix, extendPrefix(in_prefix, true))
 	} else {
-		rt.addBucketsToGraph(b1, depth+1, buf, extendPrefix(in_prefix, false))
+		rt.addBucketsToGraph(b1, depth+1, buf, extendPrefix(in_prefix, true))
 	}
 
 }
@@ -395,7 +400,9 @@ func (rt *RoutingTable) addToGraph(b bucketID, buf *bytes.Buffer, in_prefix stri
 		fmt.Fprintf(buf, "  %s\\l", hex.EncodeToString(c.Id[:]))
 	}
 	fmt.Fprintf(buf, "\"];")
-	fmt.Fprintf(buf, "b%s -> b%s;", in_prefix, out_prefix)
+	if in_prefix != out_prefix {
+		fmt.Fprintf(buf, "b%s -> b%s;", in_prefix, out_prefix)
+	}
 
 }
 
