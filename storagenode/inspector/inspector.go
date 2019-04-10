@@ -61,11 +61,6 @@ func (inspector *Endpoint) retrieveStats(ctx context.Context) (*pb.StatSummaryRe
 	if err != nil {
 		return nil, err
 	}
-	totalUsedSpaceOld, err := inspector.psdbDB.SumTTLSizes()
-	if err != nil {
-		return nil, err
-	}
-	totalUsedSpace += totalUsedSpaceOld
 
 	// Bandwidth Usage
 	usage, err := inspector.usageDB.Summary(ctx, getBeginningOfMonth(), time.Now())
