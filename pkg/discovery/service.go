@@ -159,7 +159,7 @@ func (discovery *Discovery) refresh(ctx context.Context) error {
 			continue
 		}
 
-		_, err = discovery.cache.UpdateOperator(ctx, ping.Id, *info.GetOperator())
+		_, err = discovery.cache.UpdateNodeInfo(ctx, ping.Id, info)
 		if err != nil {
 			discovery.log.Warn("could not update node operator", zap.String("ID", ping.GetAddress().String()))
 		}

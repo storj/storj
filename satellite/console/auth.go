@@ -65,9 +65,9 @@ func GetAuth(ctx context.Context) (Authorization, error) {
 		return auth, nil
 	}
 
-	if err, ok := value.(error); ok {
-		return Authorization{}, err
+	if _, ok := value.(error); ok {
+		return Authorization{}, errs.New(internalErrMsg)
 	}
 
-	return Authorization{}, ErrUnauthorized.New("unauthorized")
+	return Authorization{}, errs.New(unauthorizedErrMsg)
 }

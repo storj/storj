@@ -745,7 +745,7 @@ func (planet *Planet) newVersionControlServer() (peer *versioncontrol.Peer, err 
 func (planet *Planet) NewVersionInfo() version.Info {
 	info := version.Info{
 		Timestamp:  time.Now(),
-		CommitHash: "",
+		CommitHash: "testplanet",
 		Version: version.SemVer{
 			Major: 0,
 			Minor: 0,
