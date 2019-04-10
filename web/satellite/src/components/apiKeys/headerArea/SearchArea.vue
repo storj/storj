@@ -88,7 +88,7 @@ export default class SearchArea extends Vue {
                     border-radius: 6px;
                     width: 100%;
                     height: 56px;
-                    padding-right: 20px;
+                    padding-right: 100px;
                     padding-left: 20px;
                     font-family: 'font_regular';
                     font-size: 16px;

@@ -94,6 +94,12 @@ func (endpoint *Endpoint) RequestInfo(ctx context.Context, req *pb.InfoRequest) 
 			FreeBandwidth: self.GetRestrictions().GetFreeBandwidth(),
 			FreeDisk:      self.GetRestrictions().GetFreeDisk(),
 		},
+		Version: &pb.NodeVersion{
+			Version:    self.GetVersion().GetVersion(),
+			CommitHash: self.GetVersion().GetCommitHash(),
+			Timestamp:  self.GetVersion().GetTimestamp(),
+			Release:    self.GetVersion().GetRelease(),
+		},
 	}, nil
 }
 

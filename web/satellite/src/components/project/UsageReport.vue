@@ -12,13 +12,13 @@
 			</div>
 		</div>
 		<div class="usage-report-container__header">
-			<p>Usage Report</p>
+			<p>Usage</p>
 			<div class="usage-report-container__header__options-area">
 				<div class="usage-report-container__header__options-area__option active" @click.prevent="onCurrentRollupClick">
-					<p>Current roll up period</p>
+					<p>Current Billing Period</p>
 				</div>
 				<div class="usage-report-container__header__options-area__option" @click.prevent="onPreviousRollupClick">
-					<p>Previous Roll Up Period</p>
+					<p>Previous Billing Period</p>
 				</div>
 				<div class="usage-report-container__header__options-area__option" @click.prevent.self="onCustomDateClick">
 					<p @click.prevent.self="onCustomDateClick">Custom Date Range</p>
@@ -32,15 +32,15 @@
 		<div class="usage-report-container__main-area">
 			<div class="usage-report-container__main-area__info-area">
 				<div class="usage-report-container__main-area__info-area__item">
-					<h1>Storage GB*H</h1>
+					<h1>Storage GBh</h1>
 					<h2>{{storage}}</h2>
 				</div>
 				<div class="usage-report-container__main-area__info-area__item">
-					<h1>Egress GB</h1>
+					<h1>Egress GBh</h1>
 					<h2>{{egress}}</h2>
 				</div>
 				<div class="usage-report-container__main-area__info-area__item">
-					<h1>Objects Count*H</h1>
+					<h1>Objects per Hour</h1>
 					<h2>{{objectsCount}}</h2>
 				</div>
 			</div>
@@ -160,8 +160,15 @@ import { NOTIFICATION_ACTIONS, PROJECT_USAGE_ACTIONS } from '@/utils/constants/a
                     target.classList.add('active');
                 },
                 onReportClick: function (): void {
-                    let route = this.$router.resolve(ROUTES.REPORT_TABLE);
-                    window.open(route.href, '_blank');
+                    let projectID = this.$store.getters.selectedProject.id;
+
+                    let url = new URL(location.origin);
+                    url.pathname = "usage-report";
+                    url.searchParams.append('projectID', projectID);
+                    url.searchParams.append('since', this.$data.dateRange.startDate.toISOString());
+                    url.searchParams.append('before', this.$data.dateRange.endDate.toISOString());
+
+                    window.open(url.href, '_blank');
                 },
             },
             computed: {
@@ -172,7 +179,7 @@ import { NOTIFICATION_ACTIONS, PROJECT_USAGE_ACTIONS } from '@/utils/constants/a
                     return this.$store.state.usageModule.projectUsage.egress.toPrecision(5);
                 },
                 objectsCount: function () {
-                    return this.$store.state.usageModule.projectUsage.objectsCount.toPrecision(5);
+                    return this.$store.state.usageModule.projectUsage.objectCount.toPrecision(5);
                 }
             }
         }
@@ -335,8 +342,8 @@ import { NOTIFICATION_ACTIONS, PROJECT_USAGE_ACTIONS } from '@/utils/constants/a
 
 				p {
 					font-family: 'font_regular';
-					font-size: 20px;
-					line-height: 27px;
+					font-size: 16px;
+					line-height: 21px;
 					color: #AFB7C1;
 
 					b {
@@ -354,8 +361,8 @@ import { NOTIFICATION_ACTIONS, PROJECT_USAGE_ACTIONS } from '@/utils/constants/a
 					p {
 						font-family: 'font_medium';
 						font-weight: bold;
-						font-size: 20px;
-						line-height: 29px;
+						font-size: 16px;
+						line-height: 21px;
 						color: #354049;
 						margin-right: 30px;
 					}

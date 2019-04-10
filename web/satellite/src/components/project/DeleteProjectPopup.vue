@@ -11,7 +11,7 @@
             <div class="delete-project-popup__form-container">
                 <p>Are you sure that you want to delete your project? You will lose all your buckets and files that linked to this project.</p>
                 <div>
-                    <p class="text" v-if="!nameError">To proceed with deletion, enter full project name</p>
+                    <p class="text" v-if="!nameError">To confirm, enter the project name</p>
                     <div v-if="nameError" class="delete-project-popup__form-container__label">
                         <img src="../../../static/images/register/ErrorInfo.svg"/>
                         <p class="text">{{nameError}}</p>
@@ -84,7 +84,7 @@ import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
                 );
 
                 if (!response.isSuccess) {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Error during project deletion');
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
                     this.$data.isLoading = false;
 
                     return;
@@ -102,16 +102,8 @@ import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
                         this.$store.state.projectsModule.projects[0].id,
                     );
 
-                    const pmResponse = await this.$store.dispatch(PM_ACTIONS.FETCH);
-                    const keysResponse = await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
-
-                    if (!pmResponse.isSuccess) {
-                        this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
-                    }
-
-                    if (!keysResponse.isSuccess) {
-                        this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch api keys');
-                    }
+                    this.$store.dispatch(PM_ACTIONS.FETCH);
+                    this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
                 }
 
                 this.$data.isLoading = false;
