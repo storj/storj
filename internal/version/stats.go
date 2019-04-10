@@ -3,7 +3,10 @@
 
 package version
 
-import "hash/crc32"
+import (
+	"hash/crc32"
+	"sync/atomic"
+)
 
 func (v *Info) Stats(reportValue func(name string, val float64)) {
 	if v.Release {
@@ -13,16 +16,18 @@ func (v *Info) Stats(reportValue func(name string, val float64)) {
 	}
 	reportValue("timestamp", float64(v.Timestamp.Unix()))
 
-	v.crcOnce.Do(func() {
+	crc := atomic.LoadUint32(&v.commitHashCRC)
+
+	if crc == 0 {
 		c := crc32.NewIEEE()
 		_, err := c.Write([]byte(buildCommitHash))
 		if err != nil {
 			panic(err)
 		}
-		v.commitHashCRC = c.Sum32()
-	})
+		atomic.StoreUint32(&v.commitHashCRC, c.Sum32())
+	}
 
-	reportValue("commit", float64(v.commitHashCRC))
+	reportValue("commit", float64(crc))
 	reportValue("major", float64(v.Version.Major))
 	reportValue("minor", float64(v.Version.Minor))
 	reportValue("patch", float64(v.Version.Patch))

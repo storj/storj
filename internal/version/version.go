@@ -10,7 +10,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
@@ -32,13 +31,13 @@ var (
 
 // Info is the versioning information for a binary
 type Info struct {
+	// sync/atomic cache
+	commitHashCRC uint32
+
 	Timestamp  time.Time `json:"timestamp,omitempty"`
 	CommitHash string    `json:"commitHash,omitempty"`
 	Version    SemVer    `json:"version"`
 	Release    bool      `json:"release,omitempty"`
-
-	crcOnce       sync.Once
-	commitHashCRC uint32
 }
 
 // SemVer represents a semantic version
