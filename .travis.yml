@@ -35,12 +35,12 @@ matrix:
       install:
         - pushd ~
         - GOBIN=${GOPATH}/bin GOPATH=~/gotools go get github.com/mattn/goveralls
-        - GOBIN=${GOPATH}/bin GOPATH=~/gotools go get github.com/mfridman/tparse
+        - GOBIN=${GOPATH}/bin GOPATH=~/gotools go get github.com/egonelbre/tparse
         - popd
         - go install -race ./...
       script:
         - go run scripts/use-ports.go -from 1024 -to 10000 &
-        - go test -vet=off -race -cover -coverprofile=.coverprofile -json -timeout 9m ./... | tparse -all -top
+        - go test -vet=off -race -cover -coverprofile=.coverprofile -json -timeout 9m ./... | tparse -all -top -slow 100 -pulse 5s
         - goveralls -coverprofile=.coverprofile -service=travis-ci
         - rm .coverprofile
         - go run scripts/check-clean-directory.go
