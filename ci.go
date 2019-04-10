@@ -28,6 +28,7 @@ var pipelines = Pipelines(
 		),
 		Stage("Build",
 			Run("go", "get", "-mod=readonly", "github.com/mattn/goveralls"),
+			SetEnv("GOGC", "400"),
 			Run("go", "install", "-a", "-race", "./..."),
 			Run("make", "install-sim"),
 		),
