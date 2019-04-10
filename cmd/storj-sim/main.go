@@ -66,7 +66,7 @@ func main() {
 				return networkExec(&flags, args, "run")
 			},
 		}, &cobra.Command{
-			Use:   "env",
+			Use:   "env [name]",
 			Short: "print environment variables",
 			RunE: func(cmd *cobra.Command, args []string) (err error) {
 				return networkEnv(&flags, args)

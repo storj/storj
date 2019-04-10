@@ -174,11 +174,11 @@ func (vf *VerificationFuncs) ServerAdd(verificationFuncs ...peertls.PeerCertVeri
 }
 
 func removeNils(verificationFuncs []peertls.PeerCertVerificationFunc) []peertls.PeerCertVerificationFunc {
-	for i, f := range verificationFuncs {
-		if f == nil {
-			copy(verificationFuncs[i:], verificationFuncs[i+1:])
-			verificationFuncs = verificationFuncs[:len(verificationFuncs)-1]
+	result := verificationFuncs[:0]
+	for _, f := range verificationFuncs {
+		if f != nil {
+			result = append(result, f)
 		}
 	}
-	return verificationFuncs
+	return result
 }

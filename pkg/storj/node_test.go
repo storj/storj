@@ -80,9 +80,9 @@ func TestNodeID_Version(t *testing.T) {
 		difficulty uint16
 		version    storj.IDVersionNumber
 	}{
-		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113de500", 8, storj.V1},
-		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113dee00", 9, storj.V1},
-		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113dec00", 10, storj.V1},
+		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113de500", 8, storj.V0},
+		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113dee00", 9, storj.V0},
+		{"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113dec00", 10, storj.V0},
 	} {
 		decoded, err := hex.DecodeString(testcase.id)
 		require.NoError(t, err)
@@ -108,17 +108,17 @@ func TestNodeID_String_Version(t *testing.T) {
 		{
 			"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113de500",
 			"12vha9oTFnerxYRgeQ2BZqoFrLrnmmf5UWTCY2jA77dBZN6Lg2T",
-			storj.V1,
+			storj.V0,
 		},
 		{
 			"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113dee00",
 			"12vha9oTFnerxYRgeQ2BZqoFrLrnmmf5UWTCY2jA77dG3JN2sdZ",
-			storj.V1,
+			storj.V0,
 		},
 		{
 			"fda09d6bed970d7a38fe7389cd2b1b9620cf0ea1fcda2404d353c3fa113dec00",
 			"12vha9oTFnerxYRgeQ2BZqoFrLrnmmf5UWTCY2jA77dF3YvWew7",
-			storj.V1,
+			storj.V0,
 		},
 	} {
 		decoded, err := hex.DecodeString(testcase.hexID)
@@ -146,7 +146,7 @@ func TestNewVersionedID(t *testing.T) {
 	require.NoError(t, err)
 	nodeID[storj.NodeIDSize-1] = 0
 
-	assert.Equal(t, storj.V1, nodeID.Version().Number)
+	assert.Equal(t, storj.V0, nodeID.Version().Number)
 
 	for versionNumber, version := range storj.IDVersions {
 		versionedNodeID := storj.NewVersionedID(nodeID, version)
