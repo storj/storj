@@ -74,7 +74,7 @@ func CreateAPIKey() (*APIKey, error) {
 
 	n, err := io.ReadFull(rand.Reader, key[:])
 	if err != nil || n != 24 {
-		return nil, errs.New("error creating api key")
+		return nil, errs.New(internalErrMsg)
 	}
 
 	return key, nil
