@@ -35,15 +35,16 @@ const (
 
 // Error messages
 const (
-	internalErrMsg                 = "It looks like we had a problem on our end. Please try again"
-	unauthorizedErrMsg             = "You are not authorized to perform this action"
-	vanguardRegTokenErrMsg         = "We are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation"
-	emailUsedErrMsg                = "This email is already in use, try another"
-	activationTokenIsExpiredErrMsg = "Your account activation link has expired, please sign up again"
-	credentialsErrMsg              = "Your email or password was incorrect, please try again"
-	oldPassIncorrectErrMsg         = "Old password is incorrect, please try again"
-	passwordIncorrectErrMsg        = "Your password needs at least %d characters long"
-	teamMemberDoesNotExistErrMsg   = `There is no account on this Satellite for the user(s) you have entered. 
+	internalErrMsg                       = "It looks like we had a problem on our end. Please try again"
+	unauthorizedErrMsg                   = "You are not authorized to perform this action"
+	vanguardRegTokenErrMsg               = "We are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation"
+	emailUsedErrMsg                      = "This email is already in use, try another"
+	activationTokenIsExpiredErrMsg       = "Your account activation link has expired, please sign up again"
+	passwordRecoveryTokenIsExpiredErrMsg = "Your password recovery link has expired, please request another one"
+	credentialsErrMsg                    = "Your email or password was incorrect, please try again"
+	oldPassIncorrectErrMsg               = "Old password is incorrect, please try again"
+	passwordIncorrectErrMsg              = "Your password needs at least %d characters long"
+	teamMemberDoesNotExistErrMsg         = `There is no account on this Satellite for the user(s) you have entered. 
 									     Please add team members with active accounts`
 
 	// TODO: remove after vanguard release
@@ -156,7 +157,7 @@ func (s *Service) GeneratePasswordRecoveryToken(ctx context.Context, id uuid.UUI
 	claims := &consoleauth.Claims{
 		ID:         id,
 		Email:      email,
-		Expiration: time.Now().Add(tokenExpirationTime),
+		Expiration: time.Now().Add(time.Hour),
 	}
 
 	return s.createToken(claims)
@@ -230,7 +231,7 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 	}
 
 	if time.Since(claims.Expiration) > 0 {
-		return errs.New("password reset token has expired")
+		return errs.New(passwordRecoveryTokenIsExpiredErrMsg)
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), s.passwordCost)
