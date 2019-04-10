@@ -89,6 +89,7 @@ func main() {
 		return task.Run(&globalContext.Context)
 	})
 	group.Go(func() error {
+		return nil
 		return monitor(ctx, task)
 	})
 
