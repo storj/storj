@@ -15,14 +15,14 @@ import (
 )
 
 type certdb struct {
-	*infodb
+	*InfoDB
 }
 
 // CertDB returns certificate database.
 func (db *DB) CertDB() trust.CertDB { return db.info.CertDB() }
 
 // CertDB returns certificate database.
-func (db *infodb) CertDB() trust.CertDB { return &certdb{db} }
+func (db *InfoDB) CertDB() trust.CertDB { return &certdb{db} }
 
 // Include includes the certificate in the table and returns an unique id.
 func (db *certdb) Include(ctx context.Context, pi *identity.PeerIdentity) (certid int64, err error) {
@@ -93,5 +93,5 @@ func decodePeerIdentity(chain []byte) (*identity.PeerIdentity, error) {
 	if len(certs) < 2 {
 		return nil, ErrInfo.New("not enough certificates")
 	}
-	return identity.PeerIdentityFromCerts(certs[0], certs[1], certs[2:])
+	return identity.PeerIdentityFromChain(certs)
 }

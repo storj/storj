@@ -99,18 +99,18 @@ func (cache *overlaycache) queryFilteredNodes(ctx context.Context, excluded []st
 			return nil, err
 		}
 
-		node, err := convertDBNode(dbNode)
+		dossier, err := convertDBNode(dbNode)
 		if err != nil {
 			return nil, err
 		}
-		nodes = append(nodes, node)
+		nodes = append(nodes, &dossier.Node)
 	}
 
 	return nodes, rows.Err()
 }
 
 // Get looks up the node by nodeID
-func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (*pb.Node, error) {
+func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (*overlay.NodeDossier, error) {
 	if id.IsZero() {
 		return nil, overlay.ErrEmptyNode
 	}
@@ -127,8 +127,8 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (*pb.Node, 
 }
 
 // GetAll looks up nodes based on the ids from the overlay cache
-func (cache *overlaycache) GetAll(ctx context.Context, ids storj.NodeIDList) ([]*pb.Node, error) {
-	infos := make([]*pb.Node, len(ids))
+func (cache *overlaycache) GetAll(ctx context.Context, ids storj.NodeIDList) ([]*overlay.NodeDossier, error) {
+	infos := make([]*overlay.NodeDossier, len(ids))
 	for i, id := range ids {
 		// TODO: abort on canceled context
 		info, err := cache.Get(ctx, id)
@@ -141,7 +141,7 @@ func (cache *overlaycache) GetAll(ctx context.Context, ids storj.NodeIDList) ([]
 }
 
 // List lists nodes starting from cursor
-func (cache *overlaycache) List(ctx context.Context, cursor storj.NodeID, limit int) ([]*pb.Node, error) {
+func (cache *overlaycache) List(ctx context.Context, cursor storj.NodeID, limit int) ([]*overlay.NodeDossier, error) {
 	// TODO: handle this nicer
 	if limit <= 0 || limit > storage.LookupLimit {
 		limit = storage.LookupLimit
@@ -152,7 +152,7 @@ func (cache *overlaycache) List(ctx context.Context, cursor storj.NodeID, limit 
 		return nil, err
 	}
 
-	infos := make([]*pb.Node, len(dbxInfos))
+	infos := make([]*overlay.NodeDossier, len(dbxInfos))
 	for i, dbxInfo := range dbxInfos {
 		infos[i], err = convertDBNode(dbxInfo)
 		if err != nil {
@@ -163,7 +163,7 @@ func (cache *overlaycache) List(ctx context.Context, cursor storj.NodeID, limit 
 }
 
 // Paginate will run through
-func (cache *overlaycache) Paginate(ctx context.Context, offset int64, limit int) ([]*pb.Node, bool, error) {
+func (cache *overlaycache) Paginate(ctx context.Context, offset int64, limit int) ([]*overlay.NodeDossier, bool, error) {
 	cursor := storj.NodeID{}
 
 	// more represents end of table. If there are more rows in the database, more will be true.
@@ -182,7 +182,7 @@ func (cache *overlaycache) Paginate(ctx context.Context, offset int64, limit int
 		more = false
 	}
 
-	infos := make([]*pb.Node, len(dbxInfos))
+	infos := make([]*overlay.NodeDossier, len(dbxInfos))
 	for i, dbxInfo := range dbxInfos {
 		infos[i], err = convertDBNode(dbxInfo)
 		if err != nil {
@@ -248,6 +248,8 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 			dbx.Node_UptimeSuccessCount(reputation.UptimeSuccessCount),
 			dbx.Node_TotalUptimeCount(reputation.UptimeCount),
 			dbx.Node_UptimeRatio(reputation.UptimeRatio),
+			dbx.Node_LastContactSuccess(time.Now()),
+			dbx.Node_LastContactFailure(time.Time{}),
 		)
 		if err != nil {
 			return Error.Wrap(errs.Combine(err, tx.Rollback()))
@@ -286,12 +288,6 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 	}
 
 	return Error.Wrap(tx.Commit())
-}
-
-// Delete deletes node based on id
-func (cache *overlaycache) Delete(ctx context.Context, id storj.NodeID) error {
-	_, err := cache.db.Delete_Node_By_Id(ctx, dbx.Node_Id(id.Bytes()))
-	return err
 }
 
 // CreateStats initializes the stats the provided storagenode
@@ -333,23 +329,14 @@ func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID,
 		}
 	}
 
-	return getNodeStats(nodeID, dbNode), Error.Wrap(tx.Commit())
-}
-
-// GetStats a storagenode's stats from the db
-func (cache *overlaycache) GetStats(ctx context.Context, nodeID storj.NodeID) (stats *overlay.NodeStats, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	dbNode, err := cache.db.Get_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()))
-	if err == sql.ErrNoRows {
-		return nil, overlay.ErrNodeNotFound.New(nodeID.String())
-	}
-	if err != nil {
-		return nil, Error.Wrap(err)
+	// TODO: Allegedly tx.Get_Node_By_Id and tx.Update_Node_By_Id should never return a nil value for dbNode,
+	// however we've seen from some crashes that it does. We need to track down the cause of these crashes
+	// but for now we're adding a nil check to prevent a panic.
+	if dbNode == nil {
+		return nil, Error.Wrap(errs.New("unable to get node by ID: %s", nodeID.String()))
 	}
 
-	nodeStats := getNodeStats(nodeID, dbNode)
-	return nodeStats, nil
+	return getNodeStats(dbNode), Error.Wrap(tx.Commit())
 }
 
 // FindInvalidNodes finds a subset of storagenodes that fail to meet minimum reputation requirements
@@ -462,32 +449,31 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 
-	nodeStats := getNodeStats(nodeID, dbNode)
-	return nodeStats, Error.Wrap(tx.Commit())
+	// TODO: Allegedly tx.Get_Node_By_Id and tx.Update_Node_By_Id should never return a nil value for dbNode,
+	// however we've seen from some crashes that it does. We need to track down the cause of these crashes
+	// but for now we're adding a nil check to prevent a panic.
+	if dbNode == nil {
+		return nil, Error.Wrap(errs.New("unable to get node by ID: %s", nodeID.String()))
+	}
+
+	return getNodeStats(dbNode), Error.Wrap(tx.Commit())
 }
 
 // UpdateOperator updates the email and wallet for a given node ID for satellite payments.
-func (cache *overlaycache) UpdateOperator(ctx context.Context, nodeID storj.NodeID, operator pb.NodeOperator) (stats *overlay.NodeStats, err error) {
+func (cache *overlaycache) UpdateOperator(ctx context.Context, nodeID storj.NodeID, operator pb.NodeOperator) (stats *overlay.NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	tx, err := cache.db.Open(ctx)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
 
 	updateFields := dbx.Node_Update_Fields{
 		Wallet: dbx.Node_Wallet(operator.GetWallet()),
 		Email:  dbx.Node_Email(operator.GetEmail()),
 	}
 
-	updatedDBNode, err := tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
+	updatedDBNode, err := cache.db.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
 	if err != nil {
-		return nil, Error.Wrap(tx.Rollback())
+		return nil, Error.Wrap(err)
 	}
 
-	updated := getNodeStats(nodeID, updatedDBNode)
-
-	return updated, errs.Combine(err, tx.Commit())
+	return convertDBNode(updatedDBNode)
 }
 
 // UpdateUptime updates a single storagenode's uptime stats in the db
@@ -529,55 +515,17 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 	if err != nil {
 		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
+	// TODO: Allegedly tx.Get_Node_By_Id and tx.Update_Node_By_Id should never return a nil value for dbNode,
+	// however we've seen from some crashes that it does. We need to track down the cause of these crashes
+	// but for now we're adding a nil check to prevent a panic.
+	if dbNode == nil {
+		return nil, Error.Wrap(errs.New("unable to get node by ID: %s", nodeID.String()))
+	}
 
-	nodeStats := getNodeStats(nodeID, dbNode)
-	return nodeStats, Error.Wrap(tx.Commit())
+	return getNodeStats(dbNode), Error.Wrap(tx.Commit())
 }
 
-// UpdateBatch for updating multiple storage nodes' stats in the db
-func (cache *overlaycache) UpdateBatch(ctx context.Context, updateReqList []*overlay.UpdateRequest) (
-	statsList []*overlay.NodeStats, failedUpdateReqs []*overlay.UpdateRequest, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var nodeStatsList []*overlay.NodeStats
-	var allErrors []error
-	failedUpdateReqs = []*overlay.UpdateRequest{}
-	for _, updateReq := range updateReqList {
-
-		nodeStats, err := cache.UpdateStats(ctx, updateReq)
-		if err != nil {
-			allErrors = append(allErrors, err)
-			failedUpdateReqs = append(failedUpdateReqs, updateReq)
-		} else {
-			nodeStatsList = append(nodeStatsList, nodeStats)
-		}
-	}
-
-	if len(allErrors) > 0 {
-		return nodeStatsList, failedUpdateReqs, Error.Wrap(errs.Combine(allErrors...))
-	}
-	return nodeStatsList, nil, nil
-}
-
-// CreateEntryIfNotExists creates a overlay node entry and saves to overlay if it didn't already exist
-func (cache *overlaycache) CreateEntryIfNotExists(ctx context.Context, node *pb.Node) (stats *overlay.NodeStats, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	// Update already does a non-racy create-or-update, so we don't need a
-	// transaction here. Changes may occur between Update and Get_Node_By_Id,
-	// but that doesn't break any semantics here.
-	err = cache.Update(ctx, node)
-	if err != nil {
-		return nil, err
-	}
-	dbNode, err := cache.db.Get_Node_By_Id(ctx, dbx.Node_Id(node.Id.Bytes()))
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-	return getNodeStats(node.Id, dbNode), nil
-}
-
-func convertDBNode(info *dbx.Node) (*pb.Node, error) {
+func convertDBNode(info *dbx.Node) (*overlay.NodeDossier, error) {
 	if info == nil {
 		return nil, Error.New("missing info")
 	}
@@ -587,44 +535,35 @@ func convertDBNode(info *dbx.Node) (*pb.Node, error) {
 		return nil, err
 	}
 
-	node := &pb.Node{
-		Id:   id,
-		Type: pb.NodeType(info.Type),
-		Address: &pb.NodeAddress{
-			Address:   info.Address,
-			Transport: pb.NodeTransport(info.Protocol),
+	node := &overlay.NodeDossier{
+		Node: pb.Node{
+			Id: id,
+			Address: &pb.NodeAddress{
+				Address:   info.Address,
+				Transport: pb.NodeTransport(info.Protocol),
+			},
+			Type: pb.NodeType(info.Type),
 		},
-		Metadata: &pb.NodeMetadata{
+		Type: pb.NodeType(info.Type),
+		Operator: pb.NodeOperator{
 			Email:  info.Email,
 			Wallet: info.Wallet,
 		},
-		Restrictions: &pb.NodeRestrictions{
+		Capacity: pb.NodeCapacity{
 			FreeBandwidth: info.FreeBandwidth,
 			FreeDisk:      info.FreeDisk,
 		},
-		Reputation: &pb.NodeStats{
-			NodeId:             id,
-			Latency_90:         info.Latency90,
+		Reputation: overlay.NodeStats{
+			Latency90:          info.Latency90,
 			AuditSuccessRatio:  info.AuditSuccessRatio,
 			UptimeRatio:        info.UptimeRatio,
 			AuditCount:         info.TotalAuditCount,
 			AuditSuccessCount:  info.AuditSuccessCount,
 			UptimeCount:        info.TotalUptimeCount,
 			UptimeSuccessCount: info.UptimeSuccessCount,
+			LastContactSuccess: info.LastContactSuccess,
+			LastContactFailure: info.LastContactFailure,
 		},
-	}
-
-	if node.Address.Address == "" {
-		node.Address = nil
-	}
-	if node.Metadata.Email == "" && node.Metadata.Wallet == "" {
-		node.Metadata = nil
-	}
-	if node.Restrictions.FreeBandwidth < 0 && node.Restrictions.FreeDisk < 0 {
-		node.Restrictions = nil
-	}
-	if node.Reputation.Latency_90 < 0 {
-		node.Reputation = nil
 	}
 
 	if time.Now().Sub(info.LastContactSuccess) < 1*time.Hour && info.LastContactSuccess.After(info.LastContactFailure) {
@@ -634,19 +573,17 @@ func convertDBNode(info *dbx.Node) (*pb.Node, error) {
 	return node, nil
 }
 
-func getNodeStats(nodeID storj.NodeID, dbNode *dbx.Node) *overlay.NodeStats {
+func getNodeStats(dbNode *dbx.Node) *overlay.NodeStats {
 	nodeStats := &overlay.NodeStats{
-		NodeID:             nodeID,
+		Latency90:          dbNode.Latency90,
 		AuditSuccessRatio:  dbNode.AuditSuccessRatio,
 		AuditSuccessCount:  dbNode.AuditSuccessCount,
 		AuditCount:         dbNode.TotalAuditCount,
 		UptimeRatio:        dbNode.UptimeRatio,
 		UptimeSuccessCount: dbNode.UptimeSuccessCount,
 		UptimeCount:        dbNode.TotalUptimeCount,
-		Operator: pb.NodeOperator{
-			Email:  dbNode.Email,
-			Wallet: dbNode.Wallet,
-		},
+		LastContactSuccess: dbNode.LastContactSuccess,
+		LastContactFailure: dbNode.LastContactFailure,
 	}
 	return nodeStats
 }

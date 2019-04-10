@@ -140,7 +140,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 	if host == "" {
-		address = net.JoinHostPort("localhost", port)
+		address = net.JoinHostPort("127.0.0.1", port)
 	}
 
 	fmt.Printf("Starting Storj S3-compatible gateway!\n\n")
@@ -157,6 +157,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
 		zap.S().Error("Failed to initialize telemetry batcher: ", err)
 	}
+
 	_, err = metainfo.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
 	if err != nil {
 		return fmt.Errorf("Failed to contact Satellite.\n"+

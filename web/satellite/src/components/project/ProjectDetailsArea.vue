@@ -36,22 +36,20 @@
                     </div>
                 </div>
             </div>
-            <!--Commented out section for future purpose-->
-            <!--<div class="project-details-info-container" >-->
-                <!--<div class="project-details-info-container__portability-container">-->
-                    <!--<div class="project-details-info-container__portability-container__info">-->
-                        <!--<img src="../../../static/images/projectDetails/Portability.png" alt="">-->
-                        <!--<div class="project-details-info-container__portability-container__info__text">-->
-                            <!--<h4>Data Portability</h4>-->
-                            <!--<h2>Backup project data to recover or move between Satellites</h2>-->
-                        <!--</div>-->
-                    <!--</div>-->
-                    <!--<div class="project-details-info-container__portability-container__buttons-area">-->
-                        <!--<Button label="Export" width="170px" height="48px" :onPress="onExportClick" isWhite/>-->
-                        <!--<Button label="Import" width="170px" height="48px" :onPress="onImportClick"/>-->
-                    <!--</div>-->
-                <!--</div>-->
-            <!--</div>-->
+            <div class="project-details-info-container" >
+                <div class="project-details-info-container__usage-report-container">
+                    <div class="project-details-info-container__usage-report-container__info">
+                        <img src="../../../static/images/projectDetails/UsageReport.svg" alt="">
+                        <div class="project-details-info-container__usage-report-container__info__text">
+                            <h4>Usage</h4>
+                            <h2>Analyze and understand your storage, egress and object usage amounts</h2>
+                        </div>
+                    </div>
+                    <div class="project-details-info-container__usage-report-container__buttons-area">
+                        <Button label="View" width="140px" height="48px" :onPress="onMoreClick"/>
+                    </div>
+                </div>
+            </div>
             <div class="project-details__button-area" id="deleteProjectPopupButton">
                 <Button class="delete-project" label="Delete project" width="180px" height="48px" :onPress="toggleDeleteDialog" isDeletion/>
             </div>
@@ -73,6 +71,7 @@ import Checkbox from '@/components/common/Checkbox.vue';
 import EmptyState from '@/components/common/EmptyStateArea.vue';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 import { PROJETS_ACTIONS, APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import ROUTES from '@/utils/constants/routerConstants';
 import DeleteProjectPopup from '@/components/project/DeleteProjectPopup.vue';
 
 @Component(
@@ -82,7 +81,6 @@ import DeleteProjectPopup from '@/components/project/DeleteProjectPopup.vue';
                 isEditing: false,
                 newDescription: '',
                 emptyImage: EMPTY_STATE_IMAGES.PROJECT,
-                additionalEmptyText:'Please click the button {{<b>New Project</b>}} in the right corner'
             };
         },
         methods: {
@@ -113,15 +111,16 @@ import DeleteProjectPopup from '@/components/project/DeleteProjectPopup.vue';
             },
             toggleDeleteDialog: function (): void {
                 this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_PROJ);
-            }
+            },
+            onMoreClick: function (): void {
+                this.$router.push(ROUTES.USAGE_REPORT);
+            },
         },
         computed: {
             name: function (): string {
-
                 return this.$store.getters.selectedProject.name;
             },
             description: function (): string {
-
                 return this.$store.getters.selectedProject.description ?
                     this.$store.getters.selectedProject.description :
                     'No description yet. Please enter some information about the project if any.';
@@ -129,11 +128,9 @@ import DeleteProjectPopup from '@/components/project/DeleteProjectPopup.vue';
             // this computed is used to indicate if project is selected.
             // if false - we should change UI
             isProjectSelected: function (): boolean {
-
                 return this.$store.getters.selectedProject.id !== '';
             },
             isPopupShown: function (): boolean {
-
                 return this.$store.state.appStateModule.appState.isDeleteProjectPopupShown;
             }
         },
@@ -231,10 +228,6 @@ export default class ProjectDetailsArea extends Vue {
             align-items: flex-start;
             padding: 28px;
             background-color: #fff;
-
-            &:hover {
-                box-shadow: 0px 12px 24px rgba(175, 183, 193, 0.4);
-            }
         }
 
         &__description-container {
@@ -277,6 +270,15 @@ export default class ProjectDetailsArea extends Vue {
 
             svg {
                 cursor: pointer;
+
+                &:hover {
+                    rect {
+                        fill: #2683FF !important;
+                    }
+                    path {
+                        fill: white !important;
+                    }
+                }
             }
         }
 
@@ -297,6 +299,31 @@ export default class ProjectDetailsArea extends Vue {
                 @extend .project-details-info-container__portability-container__info;
                 width: 380px;
                 justify-content: space-between;
+            }
+
+            img {
+                width: 6vw;
+                height: 10vh;
+            }
+        }
+
+        &__usage-report-container {
+            @extend .project-details-info-container__description-container;
+
+            &__info {
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+
+                &__text {
+                    margin-left: 2vw;
+                }
+            }
+
+            &__buttons-area {
+                @extend .project-details-info-container__usage-report-container__info;
+                width: 380px;
+                justify-content: flex-end;
             }
 
             img {

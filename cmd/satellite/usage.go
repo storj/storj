@@ -54,12 +54,12 @@ func generateCSV(ctx context.Context, start time.Time, end time.Time, output io.
 	for _, row := range rows {
 		nid := row.NodeID
 
-		stats, err := db.OverlayCache().GetStats(ctx, nid)
+		node, err := db.OverlayCache().Get(ctx, nid)
 		if err != nil {
 			return err
 		}
 
-		row.Wallet = stats.Operator.Wallet
+		row.Wallet = node.Operator.Wallet
 		record := structToStringSlice(row)
 		if err := w.Write(record); err != nil {
 			return err

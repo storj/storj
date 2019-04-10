@@ -4,13 +4,16 @@
 package satellitedb
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"time"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -18,6 +21,61 @@ import (
 //database implements DB
 type accountingDB struct {
 	db *dbx.DB
+}
+
+// ProjectAllocatedBandwidthTotal returns the sum of GET bandwidth usage allocated for a projectID for a time frame
+func (db *accountingDB) ProjectAllocatedBandwidthTotal(ctx context.Context, bucketID []byte, from time.Time) (int64, error) {
+	pathEl := bytes.Split(bucketID, []byte("/"))
+	_, projectID := pathEl[1], pathEl[0]
+	var sum *int64
+	query := `SELECT SUM(allocated) FROM bucket_bandwidth_rollups WHERE project_id = ? AND action = ? AND interval_start > ?;`
+	err := db.db.QueryRow(db.db.Rebind(query), projectID, pb.PieceAction_GET, from).Scan(&sum)
+	if err == sql.ErrNoRows || sum == nil {
+		return 0, nil
+	}
+
+	return *sum, err
+}
+
+// ProjectStorageTotals returns the current inline and remote storage usage for a projectID
+func (db *accountingDB) ProjectStorageTotals(ctx context.Context, projectID uuid.UUID) (int64, int64, error) {
+	var inlineSum, remoteSum sql.NullInt64
+	var intervalStart time.Time
+
+	// Sum all the inline and remote values for a project that all share the same interval_start.
+	// All records for a project that have the same interval start are part of the same tally run.
+	// This should represent the most recent calculation of a project's total at rest storage.
+	query := `SELECT interval_start, SUM(inline), SUM(remote)
+		FROM bucket_storage_tallies
+		WHERE project_id = ?
+		GROUP BY interval_start
+		ORDER BY interval_start DESC LIMIT 1;`
+
+	err := db.db.QueryRow(db.db.Rebind(query), projectID[:]).Scan(&intervalStart, &inlineSum, &remoteSum)
+	if err != nil || !inlineSum.Valid || !remoteSum.Valid {
+		return 0, 0, nil
+	}
+	return inlineSum.Int64, remoteSum.Int64, err
+}
+
+// CreateBucketStorageTally creates a record in the bucket_storage_tallies accounting table
+func (db *accountingDB) CreateBucketStorageTally(ctx context.Context, tally accounting.BucketStorageTally) error {
+	_, err := db.db.Create_BucketStorageTally(
+		ctx,
+		dbx.BucketStorageTally_BucketName([]byte(tally.BucketName)),
+		dbx.BucketStorageTally_ProjectId(tally.ProjectID[:]),
+		dbx.BucketStorageTally_IntervalStart(tally.IntervalStart),
+		dbx.BucketStorageTally_Inline(uint64(tally.InlineBytes)),
+		dbx.BucketStorageTally_Remote(uint64(tally.RemoteBytes)),
+		dbx.BucketStorageTally_RemoteSegmentsCount(uint(tally.RemoteSegmentCount)),
+		dbx.BucketStorageTally_InlineSegmentsCount(uint(tally.InlineSegmentCount)),
+		dbx.BucketStorageTally_ObjectCount(uint(tally.ObjectCount)),
+		dbx.BucketStorageTally_MetadataSize(uint64(tally.MetadataSize)),
+	)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // LastTimestamp records the greatest last tallied time
@@ -34,37 +92,6 @@ func (db *accountingDB) LastTimestamp(ctx context.Context, timestampType string)
 		return err
 	})
 	return lastTally, err
-}
-
-// SaveBWRaw records granular tallies (sums of bw agreement values) to the database and updates the LastTimestamp
-func (db *accountingDB) SaveBWRaw(ctx context.Context, tallyEnd time.Time, created time.Time, bwTotals map[storj.NodeID][]int64) (err error) {
-	// We use the latest bandwidth agreement value of a batch of records as the start of the next batch
-	// todo:  consider finding the sum of bwagreements using SQL sum() direct against the bwa table
-	if len(bwTotals) == 0 {
-		return Error.New("In SaveBWRaw with empty bwtotals")
-	}
-	//insert all records in a transaction so if we fail, we don't have partial info stored
-	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-		//create a granular record per node id
-		for nodeID, totals := range bwTotals {
-			for actionType, total := range totals {
-				nID := dbx.AccountingRaw_NodeId(nodeID.Bytes())
-				end := dbx.AccountingRaw_IntervalEndTime(tallyEnd)
-				total := dbx.AccountingRaw_DataTotal(float64(total))
-				dataType := dbx.AccountingRaw_DataType(actionType)
-				timestamp := dbx.AccountingRaw_CreatedAt(created)
-				_, err = tx.Create_AccountingRaw(ctx, nID, end, total, dataType, timestamp)
-				if err != nil {
-					return Error.Wrap(err)
-				}
-			}
-		}
-		//save this batch's greatest time
-		update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(tallyEnd)}
-		_, err := tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastBandwidthTally), update)
-		return err
-	})
-	return Error.Wrap(err)
 }
 
 // SaveAtRestRaw records raw tallies of at rest data to the database
@@ -112,7 +139,7 @@ func (db *accountingDB) GetRaw(ctx context.Context) ([]*accounting.Raw, error) {
 	return out, Error.Wrap(err)
 }
 
-// GetRawSince r retrieves all raw tallies sinces
+// GetRawSince retrieves all raw tallies since latestRollup
 func (db *accountingDB) GetRawSince(ctx context.Context, latestRollup time.Time) ([]*accounting.Raw, error) {
 	raws, err := db.db.All_AccountingRaw_By_IntervalEndTime_GreaterOrEqual(ctx, dbx.AccountingRaw_IntervalEndTime(latestRollup))
 	out := make([]*accounting.Raw, len(raws))
@@ -128,6 +155,25 @@ func (db *accountingDB) GetRawSince(ctx context.Context, latestRollup time.Time)
 			DataTotal:       r.DataTotal,
 			DataType:        r.DataType,
 			CreatedAt:       r.CreatedAt,
+		}
+	}
+	return out, Error.Wrap(err)
+}
+
+// GetStoragenodeBandwidthSince retrieves all storagenode_bandwidth_rollup entires since latestRollup
+func (db *accountingDB) GetStoragenodeBandwidthSince(ctx context.Context, latestRollup time.Time) ([]*accounting.StoragenodeBandwidthRollup, error) {
+	rollups, err := db.db.All_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx, dbx.StoragenodeBandwidthRollup_IntervalStart(latestRollup))
+	out := make([]*accounting.StoragenodeBandwidthRollup, len(rollups))
+	for i, r := range rollups {
+		nodeID, err := storj.NodeIDFromBytes(r.StoragenodeId)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		out[i] = &accounting.StoragenodeBandwidthRollup{
+			NodeID:        nodeID,
+			IntervalStart: r.IntervalStart,
+			Action:        r.Action,
+			Settled:       r.Settled,
 		}
 	}
 	return out, Error.Wrap(err)
@@ -160,6 +206,44 @@ func (db *accountingDB) SaveRollup(ctx context.Context, latestRollup time.Time, 
 		return err
 	})
 	return Error.Wrap(err)
+}
+
+// SaveBucketTallies saves the latest bucket info
+func (db *accountingDB) SaveBucketTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*accounting.BucketTally) ([]accounting.BucketTally, error) {
+	if len(bucketTallies) == 0 {
+		return nil, Error.New("In SaveBucketTallies with empty bucketTallies")
+	}
+
+	var result []accounting.BucketTally
+
+	for bucketID, info := range bucketTallies {
+		bucketIDComponents := storj.SplitPath(bucketID)
+		bucketName := dbx.BucketStorageTally_BucketName([]byte(bucketIDComponents[1]))
+		projectID := dbx.BucketStorageTally_ProjectId([]byte(bucketIDComponents[0]))
+		interval := dbx.BucketStorageTally_IntervalStart(intervalStart)
+		inlineBytes := dbx.BucketStorageTally_Inline(uint64(info.InlineBytes))
+		remoteBytes := dbx.BucketStorageTally_Remote(uint64(info.RemoteBytes))
+		rSegments := dbx.BucketStorageTally_RemoteSegmentsCount(uint(info.RemoteSegments))
+		iSegments := dbx.BucketStorageTally_InlineSegmentsCount(uint(info.InlineSegments))
+		objectCount := dbx.BucketStorageTally_ObjectCount(uint(info.Files))
+		meta := dbx.BucketStorageTally_MetadataSize(uint64(info.MetadataSize))
+		dbxTally, err := db.db.Create_BucketStorageTally(ctx, bucketName, projectID, interval, inlineBytes, remoteBytes, rSegments, iSegments, objectCount, meta)
+		if err != nil {
+			return nil, err
+		}
+		tally := accounting.BucketTally{
+			BucketName:     dbxTally.BucketName,
+			ProjectID:      dbxTally.ProjectId,
+			InlineSegments: int64(dbxTally.InlineSegmentsCount),
+			RemoteSegments: int64(dbxTally.RemoteSegmentsCount),
+			Files:          int64(dbxTally.ObjectCount),
+			InlineBytes:    int64(dbxTally.Inline),
+			RemoteBytes:    int64(dbxTally.Remote),
+			MetadataSize:   int64(dbxTally.MetadataSize),
+		}
+		result = append(result, tally)
+	}
+	return result, nil
 }
 
 // QueryPaymentInfo queries Overlay, Accounting Rollup on nodeID

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"strconv"
 
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
@@ -47,7 +48,9 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 		return nil, err
 	}
 
-	tlsOpts, err := tlsopts.NewOptions(identity, tlsopts.Config{})
+	tlsOpts, err := tlsopts.NewOptions(identity, tlsopts.Config{
+		PeerIDVersions: strconv.Itoa(int(planet.config.IdentityVersion.Number)),
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +149,7 @@ func (uplink *Uplink) DialPiecestore(ctx context.Context, destination Peer) (*pi
 
 // Upload data to specific satellite
 func (uplink *Uplink) Upload(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path, data []byte) error {
-	config := uplink.getConfig(satellite)
+	config := uplink.GetConfig(satellite)
 	metainfo, streams, err := config.GetMetainfo(ctx, uplink.Identity)
 	if err != nil {
 		return err
@@ -188,7 +191,7 @@ func (uplink *Uplink) Upload(ctx context.Context, satellite *satellite.Peer, buc
 
 // UploadWithConfig uploads data to specific satellite with configured values
 func (uplink *Uplink) UploadWithConfig(ctx context.Context, satellite *satellite.Peer, redundancy *uplink.RSConfig, bucket string, path storj.Path, data []byte) error {
-	config := uplink.getConfig(satellite)
+	config := uplink.GetConfig(satellite)
 	if redundancy != nil {
 		config.RS.MinThreshold = redundancy.MinThreshold
 		config.RS.RepairThreshold = redundancy.RepairThreshold
@@ -250,7 +253,7 @@ func uploadStream(ctx context.Context, streams streams.Store, mutableObject stor
 
 // DownloadStream returns stream for downloading data.
 func (uplink *Uplink) DownloadStream(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) (*stream.Download, error) {
-	config := uplink.getConfig(satellite)
+	config := uplink.GetConfig(satellite)
 	metainfo, streams, err := config.GetMetainfo(ctx, uplink.Identity)
 	if err != nil {
 		return nil, err
@@ -281,7 +284,7 @@ func (uplink *Uplink) Download(ctx context.Context, satellite *satellite.Peer, b
 
 // Delete data to specific satellite
 func (uplink *Uplink) Delete(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) error {
-	config := uplink.getConfig(satellite)
+	config := uplink.GetConfig(satellite)
 	metainfo, _, err := config.GetMetainfo(ctx, uplink.Identity)
 	if err != nil {
 		return err
@@ -289,7 +292,8 @@ func (uplink *Uplink) Delete(ctx context.Context, satellite *satellite.Peer, buc
 	return metainfo.DeleteObject(ctx, bucket, path)
 }
 
-func (uplink *Uplink) getConfig(satellite *satellite.Peer) uplink.Config {
+// GetConfig returns a default config for a given satellite.
+func (uplink *Uplink) GetConfig(satellite *satellite.Peer) uplink.Config {
 	config := getDefaultConfig()
 	config.Client.SatelliteAddr = satellite.Addr()
 	config.Client.APIKey = uplink.APIKey[satellite.ID()]
