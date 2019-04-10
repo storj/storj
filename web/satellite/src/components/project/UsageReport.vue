@@ -312,7 +312,7 @@ import { NOTIFICATION_ACTIONS, PROJECT_USAGE_ACTIONS } from '@/utils/constants/a
 						font-family: 'font_regular';
 						font-size: 18px;
 						line-height: 24px;
-						color: #AFB7C1;
+						color: #354049;
 						margin-block-start: 0em;
 						margin-block-end: 0em;
 					}
