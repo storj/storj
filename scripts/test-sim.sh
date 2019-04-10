@@ -24,7 +24,7 @@ storj-sim -x --host $HOST network setup
 # run aws-cli tests
 storj-sim -x --host $HOST network test bash "$SCRIPTDIR"/test-sim-aws.sh
 storj-sim -x --host $HOST network test bash "$SCRIPTDIR"/test-uplink.sh
-storj-sim -x --host network destroy
+storj-sim -x network destroy
 
 # setup the network with ipv6
 storj-sim -x --host $HOST6 network setup
