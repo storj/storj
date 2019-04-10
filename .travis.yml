@@ -23,9 +23,14 @@ matrix:
         - GO111MODULE=on
         - CI=travis
         - STORJ_POSTGRES_TEST=postgres://postgres@localhost/teststorj?sslmode=disable
+      services:	
+        - redis	
+        - postgresql
+      install:
+        - curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.13
       script:
         - go run scripts/use-ports.go -from 1024 -to 10000 &
-        - go run ci.go
+        - GOMOD=ci.mod go run ci.go
 
 addons:
   postgresql: "9.5"
