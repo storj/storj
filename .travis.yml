@@ -1,8 +1,6 @@
 language: go
 go: 1.12.1
 
-go_import_path: "storj.io/storj"
-
 git:
   depth: 1
 
@@ -20,12 +18,8 @@ before_script:
     fi;
 
 matrix:
-  allow_failures:
-    - os: windows # allow failures on windows because it's slow
   include:
-    ### tests ###
     - env:
-        - MODE=tests
         - STORJ_POSTGRES_TEST=postgres://postgres@localhost/teststorj?sslmode=disable
       script:
         - go run scripts/use-ports.go -from 1024 -to 10000 &
