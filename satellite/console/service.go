@@ -6,7 +6,6 @@ package console
 import (
 	"context"
 	"crypto/subtle"
-	"fmt"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -32,6 +31,24 @@ const (
 	DefaultPasswordCost = bcrypt.DefaultCost
 	// TestPasswordCost is the hashing complexity to use for testing
 	TestPasswordCost = bcrypt.MinCost
+)
+
+// Error messages
+const (
+	internalErrMsg                 = "It looks like we had a problem on our end. Please try again"
+	unauthorizedErrMsg             = "You are not authorized to perform this action"
+	vanguardRegTokenErrMsg         = "We are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation"
+	emailUsedErrMsg                = "This email is already in use, try another"
+	activationTokenIsExpiredErrMsg = "Your account activation link has expired, please sign up again"
+	credentialsErrMsg              = "Your email or password was incorrect, please try again"
+	oldPassIncorrectErrMsg         = "Old password is incorrect, please try again"
+	passwordIncorrectErrMsg        = "Your password needs at least %d characters long"
+	teamMemberDoesNotExistErrMsg   = `There is no account on this Satellite for the user(s) you have entered. 
+									     Please add team members with active accounts`
+
+	// TODO: remove after vanguard release
+	usedRegTokenVanguardErrMsg = "This registration token has already been used"
+	projLimitVanguardErrMsg    = "Sorry, during the Vanguard release you have a limited number of projects"
 )
 
 // Service is handling accounts related logic
@@ -80,10 +97,10 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	// TODO: remove after vanguard release
 	registrationToken, err := s.store.RegistrationTokens().GetBySecret(ctx, tokenSecret)
 	if err != nil {
-		return nil, err
+		return nil, errs.New(vanguardRegTokenErrMsg)
 	}
 	if registrationToken.OwnerID != nil {
-		return nil, errs.New("token is already used")
+		return nil, errs.New(usedRegTokenVanguardErrMsg)
 	}
 
 	// TODO: store original email input in the db,
@@ -92,12 +109,12 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 
 	u, err = s.store.Users().GetByEmail(ctx, email)
 	if err == nil {
-		return nil, errs.New(fmt.Sprintf("%s is already in use", email))
+		return nil, errs.New(emailUsedErrMsg)
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), s.passwordCost)
 	if err != nil {
-		return nil, err
+		return nil, errs.New(internalErrMsg)
 	}
 
 	u, err = s.store.Users().Insert(ctx, &User{
@@ -106,13 +123,16 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		ShortName:    user.ShortName,
 		PasswordHash: hash,
 	})
+	if err != nil {
+		return nil, errs.New(internalErrMsg)
+	}
 
 	err = s.store.RegistrationTokens().UpdateOwner(ctx, registrationToken.Secret, u.ID)
 	if err != nil {
-		return nil, err
+		return nil, errs.New(internalErrMsg)
 	}
 
-	return u, err
+	return u, nil
 }
 
 // GenerateActivationToken - is a method for generating activation token
@@ -135,7 +155,7 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 
 	token, err := consoleauth.FromBase64URLString(activationToken)
 	if err != nil {
-		return
+		return errs.New(internalErrMsg)
 	}
 
 	claims, err := s.authenticate(token)
@@ -145,12 +165,12 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 
 	_, err = s.store.Users().GetByEmail(ctx, normalizeEmail(claims.Email))
 	if err == nil {
-		return errs.New(fmt.Sprintf("%s is already in use", claims.Email))
+		return errs.New(emailUsedErrMsg)
 	}
 
 	user, err := s.store.Users().Get(ctx, claims.ID)
 	if err != nil {
-		return
+		return errs.New(internalErrMsg)
 	}
 
 	now := time.Now()
@@ -160,12 +180,17 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 	}
 
 	if now.After(user.CreatedAt.Add(tokenExpirationTime)) {
-		return errs.New("activation token has expired")
+		return errs.New(activationTokenIsExpiredErrMsg)
 	}
 
 	user.Status = Active
 
-	return s.store.Users().Update(ctx, user)
+	err = s.store.Users().Update(ctx, user)
+	if err != nil {
+		return errs.New(internalErrMsg)
+	}
+
+	return nil
 }
 
 // Token authenticates User by credentials and returns auth token
@@ -176,12 +201,12 @@ func (s *Service) Token(ctx context.Context, email, password string) (token stri
 
 	user, err := s.store.Users().GetByEmail(ctx, email)
 	if err != nil {
-		return "", err
+		return "", errs.New(credentialsErrMsg)
 	}
 
 	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(password))
 	if err != nil {
-		return "", ErrUnauthorized.New("password is incorrect: %s", err.Error())
+		return "", ErrUnauthorized.New(credentialsErrMsg)
 	}
 
 	claims := consoleauth.Claims{
@@ -205,13 +230,17 @@ func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (u *User, err error
 		return nil, err
 	}
 
-	return s.store.Users().Get(ctx, id)
+	user, err := s.store.Users().Get(ctx, id)
+	if err != nil {
+		return nil, errs.New(internalErrMsg)
+	}
+
+	return user, nil
 }
 
 // UpdateAccount updates User
 func (s *Service) UpdateAccount(ctx context.Context, info UserInfo) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = GetAuth(ctx)
 	auth, err := GetAuth(ctx)
 	if err != nil {
 		return err
@@ -225,13 +254,18 @@ func (s *Service) UpdateAccount(ctx context.Context, info UserInfo) (err error) 
 	// add normalization
 	email := normalizeEmail(info.Email)
 
-	return s.store.Users().Update(ctx, &User{
+	err = s.store.Users().Update(ctx, &User{
 		ID:           auth.User.ID,
 		FullName:     info.FullName,
 		ShortName:    info.ShortName,
 		Email:        email,
 		PasswordHash: nil,
 	})
+	if err != nil {
+		return errs.New(internalErrMsg)
+	}
+
+	return nil
 }
 
 // ChangePassword updates password for a given user
@@ -244,7 +278,7 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err
 
 	err = bcrypt.CompareHashAndPassword(auth.User.PasswordHash, []byte(pass))
 	if err != nil {
-		return ErrUnauthorized.New("origin password is incorrect: %s", err.Error())
+		return errs.New(oldPassIncorrectErrMsg)
 	}
 
 	if err := validatePassword(newPass); err != nil {
@@ -253,11 +287,16 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(newPass), s.passwordCost)
 	if err != nil {
-		return err
+		return errs.New(internalErrMsg)
 	}
 
 	auth.User.PasswordHash = hash
-	return s.store.Users().Update(ctx, &auth.User)
+	err = s.store.Users().Update(ctx, &auth.User)
+	if err != nil {
+		return errs.New(internalErrMsg)
+	}
+
+	return nil
 }
 
 // DeleteAccount deletes User
@@ -270,10 +309,15 @@ func (s *Service) DeleteAccount(ctx context.Context, password string) (err error
 
 	err = bcrypt.CompareHashAndPassword(auth.User.PasswordHash, []byte(password))
 	if err != nil {
-		return ErrUnauthorized.New("origin password is incorrect")
+		return ErrUnauthorized.New(oldPassIncorrectErrMsg)
 	}
 
-	return s.store.Users().Delete(ctx, auth.User.ID)
+	err = s.store.Users().Delete(ctx, auth.User.ID)
+	if err != nil {
+		return errs.New(internalErrMsg)
+	}
+
+	return nil
 }
 
 // GetProject is a method for querying project by id
@@ -284,7 +328,12 @@ func (s *Service) GetProject(ctx context.Context, projectID uuid.UUID) (p *Proje
 		return nil, err
 	}
 
-	return s.store.Projects().Get(ctx, projectID)
+	p, err = s.store.Projects().Get(ctx, projectID)
+	if err != nil {
+		return nil, errs.New(internalErrMsg)
+	}
+
+	return
 }
 
 // GetUsersProjects is a method for querying all projects
@@ -295,7 +344,12 @@ func (s *Service) GetUsersProjects(ctx context.Context) (ps []Project, err error
 		return nil, err
 	}
 
-	return s.store.Projects().GetByUserID(ctx, auth.User.ID)
+	ps, err = s.store.Projects().GetByUserID(ctx, auth.User.ID)
+	if err != nil {
+		return nil, errs.New(internalErrMsg)
+	}
+
+	return
 }
 
 // CreateProject is a method for creating new project
@@ -319,7 +373,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 
 	transaction, err := s.store.BeginTx(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errs.New(internalErrMsg)
 	}
 
 	defer func() {
@@ -329,16 +383,19 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		}
 
 		err = transaction.Commit()
+		if err != nil {
+			err = errs.New(internalErrMsg)
+		}
 	}()
 
 	prj, err := transaction.Projects().Insert(ctx, project)
 	if err != nil {
-		return nil, err
+		return nil, errs.New(internalErrMsg)
 	}
 
 	_, err = transaction.ProjectMembers().Insert(ctx, auth.User.ID, prj.ID)
 	if err != nil {
-		return nil, err
+		return nil, errs.New(internalErrMsg)
 	}
 
 	return prj, nil
@@ -356,7 +413,12 @@ func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) (err e
 		return ErrUnauthorized.Wrap(err)
 	}
 
-	return s.store.Projects().Delete(ctx, projectID)
+	err = s.store.Projects().Delete(ctx, projectID)
+	if err != nil {
+		return errs.New(internalErrMsg)
+	}
+
+	return nil
 }
 
 // UpdateProject is a method for updating project description by id
@@ -377,7 +439,7 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, descri
 
 	err = s.store.Projects().Update(ctx, project)
 	if err != nil {
-		return nil, err
+		return nil, errs.New(internalErrMsg)
 	}
 
 	return project, nil
@@ -395,7 +457,6 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 		return nil, ErrUnauthorized.Wrap(err)
 	}
 
-	//var userIDs []uuid.UUID
 	var userErr errs.Group
 
 	// collect user querying errors
@@ -407,17 +468,16 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 		}
 
 		users = append(users, user)
-		//userIDs = append(userIDs, user.ID)
 	}
 
 	if err = userErr.Err(); err != nil {
-		return nil, err
+		return nil, errs.New(teamMemberDoesNotExistErrMsg)
 	}
 
 	// add project members in transaction scope
 	tx, err := s.store.BeginTx(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errs.New(internalErrMsg)
 	}
 
 	defer func() {
@@ -433,7 +493,7 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 		_, err = tx.ProjectMembers().Insert(ctx, user.ID, projectID)
 
 		if err != nil {
-			return nil, err
+			return nil, errs.New(internalErrMsg)
 		}
 	}
 
@@ -468,7 +528,7 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 	}
 
 	if err = userErr.Err(); err != nil {
-		return err
+		return errs.New(teamMemberDoesNotExistErrMsg)
 	}
 
 	// delete project members in transaction scope
@@ -490,7 +550,7 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 		err = tx.ProjectMembers().Delete(ctx, uID, projectID)
 
 		if err != nil {
-			return err
+			return errs.New(internalErrMsg)
 		}
 	}
 
@@ -514,7 +574,12 @@ func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, pa
 		pagination.Limit = maxLimit
 	}
 
-	return s.store.ProjectMembers().GetByProjectID(ctx, projectID, pagination)
+	pm, err = s.store.ProjectMembers().GetByProjectID(ctx, projectID, pagination)
+	if err != nil {
+		return nil, errs.New(internalErrMsg)
+	}
+
+	return
 }
 
 // CreateAPIKey creates new api key
@@ -541,7 +606,11 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 		Name:      name,
 		ProjectID: projectID,
 	})
-	return info, key, err
+	if err != nil {
+		return nil, nil, errs.New(internalErrMsg)
+	}
+
+	return info, key, nil
 }
 
 // GetAPIKeyInfo retrieves api key by id
@@ -556,7 +625,7 @@ func (s *Service) GetAPIKeyInfo(ctx context.Context, id uuid.UUID) (*APIKeyInfo,
 
 	key, err := s.store.APIKeys().Get(ctx, id)
 	if err != nil {
-		return nil, err
+		return nil, errs.New(internalErrMsg)
 	}
 
 	_, err = s.isProjectMember(ctx, auth.User.ID, key.ProjectID)
@@ -592,12 +661,12 @@ func (s *Service) DeleteAPIKeys(ctx context.Context, ids []uuid.UUID) (err error
 	}
 
 	if err = keysErr.Err(); err != nil {
-		return err
+		return errs.New(internalErrMsg)
 	}
 
 	tx, err := s.store.BeginTx(ctx)
 	if err != nil {
-		return err
+		return errs.New(internalErrMsg)
 	}
 
 	defer func() {
@@ -612,7 +681,7 @@ func (s *Service) DeleteAPIKeys(ctx context.Context, ids []uuid.UUID) (err error
 	for _, keyToDeleteID := range ids {
 		err = tx.APIKeys().Delete(ctx, keyToDeleteID)
 		if err != nil {
-			return err
+			return errs.New(internalErrMsg)
 		}
 	}
 
@@ -632,7 +701,12 @@ func (s *Service) GetAPIKeysInfoByProjectID(ctx context.Context, projectID uuid.
 		return nil, ErrUnauthorized.Wrap(err)
 	}
 
-	return s.store.APIKeys().GetByProjectID(ctx, projectID)
+	info, err = s.store.APIKeys().GetByProjectID(ctx, projectID)
+	if err != nil {
+		return nil, errs.New(internalErrMsg)
+	}
+
+	return info, nil
 }
 
 // GetProjectUsage retrieves project usage for a given period
@@ -650,7 +724,30 @@ func (s *Service) GetProjectUsage(ctx context.Context, projectID uuid.UUID, sinc
 		return nil, err
 	}
 
-	return s.store.UsageRollups().GetProjectTotal(ctx, projectID, since, before)
+	projectUsage, err := s.store.UsageRollups().GetProjectTotal(ctx, projectID, since, before)
+	if err != nil {
+		return nil, errs.New(internalErrMsg)
+	}
+
+	return projectUsage, nil
+}
+
+// GetBucketUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period
+func (s *Service) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) ([]BucketUsageRollup, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = s.isProjectMember(ctx, auth.User.ID, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.store.UsageRollups().GetBucketUsageRollups(ctx, projectID, since, before)
 }
 
 // Authorize validates token from context and returns authorized Authorization
@@ -692,10 +789,10 @@ func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) error
 
 	projects, err := s.GetUsersProjects(ctx)
 	if err != nil {
-		return err
+		return errs.New(internalErrMsg)
 	}
 	if len(projects) >= registrationToken.ProjectLimit {
-		return errs.New("max project count is %d", registrationToken.ProjectLimit)
+		return errs.New(projLimitVanguardErrMsg)
 	}
 
 	return nil
@@ -711,13 +808,13 @@ func (s *Service) CreateRegToken(ctx context.Context, projLimit int) (*Registrat
 func (s *Service) createToken(claims *consoleauth.Claims) (string, error) {
 	json, err := claims.JSON()
 	if err != nil {
-		return "", err
+		return "", errs.New(internalErrMsg)
 	}
 
 	token := consoleauth.Token{Payload: json}
 	err = signToken(&token, s.Signer)
 	if err != nil {
-		return "", err
+		return "", errs.New(internalErrMsg)
 	}
 
 	return token.String(), nil
@@ -729,7 +826,7 @@ func (s *Service) authenticate(token consoleauth.Token) (*consoleauth.Claims, er
 
 	err := signToken(&token, s.Signer)
 	if err != nil {
-		return nil, err
+		return nil, errs.New(internalErrMsg)
 	}
 
 	if subtle.ConstantTimeCompare(signature, token.Signature) != 1 {
@@ -738,7 +835,7 @@ func (s *Service) authenticate(token consoleauth.Token) (*consoleauth.Claims, er
 
 	claims, err := consoleauth.FromJSON(token.Payload)
 	if err != nil {
-		return nil, err
+		return nil, errs.New(internalErrMsg)
 	}
 
 	return claims, nil
@@ -771,12 +868,12 @@ var ErrNoMembership = errs.Class("no membership error")
 func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, projectID uuid.UUID) (result isProjectMember, err error) {
 	project, err := s.store.Projects().Get(ctx, projectID)
 	if err != nil {
-		return
+		return result, errs.New(internalErrMsg)
 	}
 
 	memberships, err := s.store.ProjectMembers().GetByMemberID(ctx, userID)
 	if err != nil {
-		return
+		return result, errs.New(internalErrMsg)
 	}
 
 	for _, membership := range memberships {
@@ -787,5 +884,5 @@ func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, project
 		}
 	}
 
-	return isProjectMember{}, ErrNoMembership.New("user %s is not a member of project %s", userID, project.ID)
+	return isProjectMember{}, ErrNoMembership.New(unauthorizedErrMsg)
 }

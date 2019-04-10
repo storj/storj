@@ -129,10 +129,10 @@ func (srv *Inspector) NodeInfo(ctx context.Context, req *pb.NodeInfoRequest) (*p
 	if err != nil {
 		return &pb.NodeInfoResponse{}, err
 	}
-
 	return &pb.NodeInfoResponse{
 		Type:     info.GetType(),
 		Operator: info.GetOperator(),
 		Capacity: info.GetCapacity(),
+		Version:  info.GetVersion(),
 	}, nil
 }
