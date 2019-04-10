@@ -21,6 +21,7 @@ type TypeCreator struct {
 	user          *graphql.Object
 	project       *graphql.Object
 	projectUsage  *graphql.Object
+	bucketUsage   *graphql.Object
 	projectMember *graphql.Object
 	apiKeyInfo    *graphql.Object
 	createAPIKey  *graphql.Object
@@ -50,6 +51,11 @@ func (c *TypeCreator) Create(log *zap.Logger, service *console.Service, mailServ
 
 	c.projectUsage = graphqlProjectUsage()
 	if err := c.projectUsage.Error(); err != nil {
+		return err
+	}
+
+	c.bucketUsage = graphqlBucketUsage()
+	if err := c.bucketUsage.Error(); err != nil {
 		return err
 	}
 

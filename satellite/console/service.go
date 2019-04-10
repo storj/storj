@@ -806,6 +806,24 @@ func (s *Service) GetProjectUsage(ctx context.Context, projectID uuid.UUID, sinc
 	return projectUsage, nil
 }
 
+// GetBucketUsages retrieves paged bucket total usages since project creation
+func (s *Service) GetBucketUsages(ctx context.Context, projectID uuid.UUID, cursor BucketUsageCursor, before time.Time) (*BucketUsagePage, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	isMember, err := s.isProjectMember(ctx, auth.User.ID, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.store.UsageRollups().GetBucketTotals(ctx, projectID, cursor, isMember.project.CreatedAt, before)
+}
+
 // GetBucketUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period
 func (s *Service) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) ([]BucketUsageRollup, error) {
 	var err error

@@ -177,6 +177,118 @@ func (db *usagerollups) GetBucketUsageRollups(ctx context.Context, projectID uui
 	return bucketUsageRollups, nil
 }
 
+// GetBucketTotals retrieves bucket usage totals for period of time
+func (db *usagerollups) GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor console.BucketUsageCursor, since, before time.Time) (*console.BucketUsagePage, error) {
+	bucketsQuery := db.db.Rebind(`SELECT DISTINCT bucket_name 
+			FROM bucket_bandwidth_rollups 
+			WHERE project_id = ? AND interval_start >= ? AND interval_start <= ?
+			AND bucket_name > ?
+			ORDER BY bucket_name ASC
+			LIMIT ?`)
+
+	if cursor.Limit > 50 {
+		cursor.Limit = 50
+	}
+
+	bucketRows, err := db.db.QueryContext(ctx,
+		bucketsQuery,
+		[]byte(projectID.String()),
+		since, before,
+		cursor.AfterBucket,
+		cursor.Limit+1)
+
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, bucketRows.Close()) }()
+
+	var buckets []string
+	for bucketRows.Next() {
+		var bucket string
+		err = bucketRows.Scan(&bucket)
+		if err != nil {
+			return nil, err
+		}
+
+		buckets = append(buckets, bucket)
+	}
+
+	roullupsQuery := db.db.Rebind(`SELECT SUM(settled), SUM(inline), action
+			FROM bucket_bandwidth_rollups 
+			WHERE project_id = ? AND bucket_name = ? AND interval_start >= ? AND interval_start <= ?
+			GROUP BY action`)
+
+	storageQuery := db.db.All_BucketStorageTally_By_ProjectId_And_BucketName_And_IntervalStart_GreaterOrEqual_And_IntervalStart_LessOrEqual_OrderBy_Desc_IntervalStart
+
+	var bucketUsages []console.BucketUsage
+	for _, bucket := range buckets {
+		bucketUsage := console.BucketUsage{
+			ProjectID:  projectID,
+			BucketName: bucket,
+			Since:      since,
+			Before:     before,
+		}
+
+		// get bucket_bandwidth_rollups
+		rollupsRows, err := db.db.QueryContext(ctx, roullupsQuery, []byte(projectID.String()), []byte(bucket), since, before)
+		if err != nil {
+			return nil, err
+		}
+		defer func() { err = errs.Combine(err, rollupsRows.Close()) }()
+
+		var totalEgress int64
+		for rollupsRows.Next() {
+			var action pb.PieceAction
+			var settled, inline int64
+
+			err = rollupsRows.Scan(&settled, &inline, &action)
+			if err != nil {
+				return nil, err
+			}
+
+			// add values for egress
+			if action == pb.PieceAction_GET || action == pb.PieceAction_GET_AUDIT || action == pb.PieceAction_GET_REPAIR {
+				totalEgress += settled + inline
+			}
+		}
+
+		bucketUsage.Egress = memory.Size(totalEgress).GB()
+
+		bucketStorageTallies, err := storageQuery(ctx,
+			dbx.BucketStorageTally_ProjectId([]byte(projectID.String())),
+			dbx.BucketStorageTally_BucketName([]byte(bucket)),
+			dbx.BucketStorageTally_IntervalStart(since),
+			dbx.BucketStorageTally_IntervalStart(before))
+
+		if err != nil {
+			return nil, err
+		}
+
+		// fill metadata, objects and stored data
+		// hours calculated from previous tallies,
+		// so we skip the most recent one
+		for i := len(bucketStorageTallies) - 1; i > 0; i-- {
+			current := bucketStorageTallies[i]
+
+			hours := bucketStorageTallies[i-1].IntervalStart.Sub(current.IntervalStart).Hours()
+
+			bucketUsage.Storage += memory.Size(current.Remote).GB() * hours
+			bucketUsage.Storage += memory.Size(current.Inline).GB() * hours
+			bucketUsage.ObjectCount += float64(current.ObjectCount) * hours
+		}
+
+		bucketUsages = append(bucketUsages, bucketUsage)
+	}
+
+	page := new(console.BucketUsagePage)
+	page.BucketUsages = bucketUsages
+	if uint(len(buckets)) > cursor.Limit {
+		page.HasMore = true
+	}
+
+	return page, nil
+}
+
 // getBuckets list all bucket of certain project for given period
 func (db *usagerollups) getBuckets(ctx context.Context, projectID uuid.UUID, since, before time.Time) ([]string, error) {
 	bucketsQuery := db.db.Rebind(`SELECT DISTINCT bucket_name 

@@ -18,8 +18,12 @@ const (
 	ProjectInputType = "projectInput"
 	// ProjectUsageType is a graphql type name for project usage
 	ProjectUsageType = "projectUsage"
+	// BucketUsageType is a graphql type name for bucket usage
+	BucketUsageType = "bucketUsage"
 	// FieldName is a field name for "name"
 	FieldName = "name"
+	// FieldBucketName is a field name for "bucket name"
+	FieldBucketName = "bucketName"
 	// FieldDescription is a field name for description
 	FieldDescription = "description"
 	// FieldMembers is field name for members
@@ -28,6 +32,8 @@ const (
 	FieldAPIKeys = "apiKeys"
 	// FieldUsage is a field name for usage rollup
 	FieldUsage = "usage"
+	// FieldBucketUsages is a field name for bucket usages
+	FieldBucketUsages = "bucketUsages"
 	// FieldStorage is a field name for storage total
 	FieldStorage = "storage"
 	// FieldEgress is a field name for egress total
@@ -149,6 +155,27 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 					return service.GetProjectUsage(p.Context, project.ID, since, before)
 				},
 			},
+			FieldBucketUsages: &graphql.Field{
+				Type: graphql.NewList(types.bucketUsage),
+				Args: graphql.FieldConfigArgument{
+					BeforeArg: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					project, _ := p.Source.(*console.Project)
+
+					before := p.Args[BeforeArg].(time.Time)
+
+					cursor := console.BucketUsageCursor{}
+					page, err := service.GetBucketUsages(p.Context, project.ID, cursor, before)
+					if err != nil {
+						return nil, err
+					}
+
+					return nil, nil
+				},
+			},
 		},
 	})
 }
@@ -163,6 +190,33 @@ func graphqlProjectInput() *graphql.InputObject {
 			},
 			FieldDescription: &graphql.InputObjectFieldConfig{
 				Type: graphql.String,
+			},
+		},
+	})
+}
+
+// graphqlBucketUsage creates bucket usage grapqhl type
+func graphqlBucketUsage() *graphql.Object {
+	return graphql.NewObject(graphql.ObjectConfig{
+		Name: BucketUsageType,
+		Fields: graphql.Fields{
+			FieldBucketName: &graphql.Field{
+				Type: graphql.String,
+			},
+			FieldStorage: &graphql.Field{
+				Type: graphql.Float,
+			},
+			FieldEgress: &graphql.Field{
+				Type: graphql.Float,
+			},
+			FieldObjectCount: &graphql.Field{
+				Type: graphql.Float,
+			},
+			SinceArg: &graphql.Field{
+				Type: graphql.DateTime,
+			},
+			BeforeArg: &graphql.Field{
+				Type: graphql.DateTime,
 			},
 		},
 	})
