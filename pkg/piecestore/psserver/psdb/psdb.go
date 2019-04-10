@@ -221,7 +221,11 @@ func (db *DB) Migration() *migrate.Migration {
 						log.Warn("Empty path")
 						return nil
 					}
-					return db.DeleteObsolete(path)
+					err := db.DeleteObsolete(path)
+					if err != nil {
+						log.Warn("err deleting obsolete paths: ", zap.Error(err))
+					}
+					return nil
 				}),
 			},
 		},
@@ -247,16 +251,14 @@ func (db *DB) DeleteObsolete(path string) (err error) {
 		return err
 	}
 
+	var errList errs.Group
 	// iterate thru files list
 	for _, f := range files {
-		if info, err := os.Stat(filepath.Join(path, f.Name())); err == nil && info.IsDir() && len(f.Name()) == 2 {
-			err = os.RemoveAll(filepath.Join(path, f.Name()))
-			if err != nil {
-				return err
-			}
+		if len(f.Name()) == 2 {
+			errList.Add(os.RemoveAll(filepath.Join(path, f.Name())))
 		}
 	}
-	return nil
+	return errList.Err()
 }
 
 // WriteBandwidthAllocToDB inserts bandwidth agreement into DB
