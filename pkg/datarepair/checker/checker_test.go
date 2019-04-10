@@ -105,10 +105,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 
 		// check if nothing was added to repair queue
 		repairQueue := planet.Satellites[0].DB.RepairQueue()
-		injuredSegment, err := repairQueue.Select(ctx)
-		assert.NoError(t, err)
-		err = repairQueue.Delete(ctx, injuredSegment)
-		assert.NoError(t, err)
+		_, err = repairQueue.Select(ctx)
 		assert.True(t, storage.ErrEmptyQueue.Has(err))
 
 		//check if the expected segments were added to the irreparable DB

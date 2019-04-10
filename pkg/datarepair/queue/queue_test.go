@@ -9,16 +9,13 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storj/storage/redis"
-	"storj.io/storj/storage/redis/redisserver"
-	"storj.io/storj/storage/testqueue"
 )
 
 func TestInsertDequeue(t *testing.T) {
@@ -33,12 +30,12 @@ func TestInsertDequeue(t *testing.T) {
 			LostPieces: []int32{int32(1), int32(3)},
 		}
 		err := q.Insert(ctx, seg)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		s, err := q.Select(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		err = q.Delete(ctx, s)
-		assert.NoError(t, err)
-		assert.True(t, pb.Equal(s, seg))
+		require.NoError(t, err)
+		require.True(t, pb.Equal(s, seg))
 	})
 }
 
@@ -50,10 +47,10 @@ func TestDequeueEmptyQueue(t *testing.T) {
 		q := db.RepairQueue()
 
 		s, err := q.Select(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		err = q.Delete(ctx, s)
-		assert.NoError(t, err)
-		assert.Equal(t, pb.InjuredSegment{}, s)
+		require.NoError(t, err)
+		require.Equal(t, pb.InjuredSegment{}, s)
 	})
 }
 
@@ -72,24 +69,24 @@ func TestSequential(t *testing.T) {
 				LostPieces: []int32{int32(i)},
 			}
 			err := q.Insert(ctx, seg)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			addSegs = append(addSegs, seg)
 		}
 
 		list, err := q.SelectN(ctx, 100)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		for i := 0; i < N; i++ {
-			assert.True(t, pb.Equal(addSegs[i], &list[i]))
+			require.True(t, pb.Equal(addSegs[i], &list[i]))
 		}
 
 		// TODO: fix out of order issue
 		for i := 0; i < N; i++ {
 			s, err := q.Select(ctx)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			err = q.Delete(ctx, s)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			expected := s.LostPieces[0]
-			assert.True(t, pb.Equal(addSegs[expected], s))
+			require.True(t, pb.Equal(addSegs[expected], s))
 		}
 	})
 }
@@ -126,9 +123,9 @@ func TestParallel(t *testing.T) {
 			go func(i int) {
 				defer wg.Done()
 				s, err := q.Select(ctx)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				err = q.Delete(ctx, s)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				if err != nil {
 					errs <- err
 				}
@@ -154,25 +151,25 @@ func TestParallel(t *testing.T) {
 
 		// check if the enqueued and dequeued elements match
 		for i := 0; i < N; i++ {
-			assert.Equal(t, items[i].LostPieces[0], int32(i))
+			require.Equal(t, items[i].LostPieces[0], int32(i))
 		}
 	})
 }
 
-func BenchmarkRedisSequential(b *testing.B) {
-	addr, cleanup, err := redisserver.Start()
-	defer cleanup()
-	assert.NoError(b, err)
-	client, err := redis.NewQueue(addr, "", 1)
-	assert.NoError(b, err)
-	q := queue.NewQueue(client)
-	benchmarkSequential(b, q)
-}
+// func BenchmarkRedisSequential(b *testing.B) {
+// 	addr, cleanup, err := redisserver.Start()
+// 	defer cleanup()
+// 	require.NoError(b, err)
+// 	client, err := redis.NewQueue(addr, "", 1)
+// 	require.NoError(b, err)
+// 	q := queue.NewQueue(client)
+// 	benchmarkSequential(b, q)
+// }
 
-func BenchmarkTeststoreSequential(b *testing.B) {
-	q := queue.NewQueue(testqueue.New())
-	benchmarkSequential(b, q)
-}
+// func BenchmarkTeststoreSequential(b *testing.B) {
+// 	q := queue.NewQueue(testqueue.New())
+// 	benchmarkSequential(b, q)
+// }
 
 func benchmarkSequential(b *testing.B, q queue.RepairQueue) {
 	ctx := testcontext.New(b)
@@ -188,33 +185,33 @@ func benchmarkSequential(b *testing.B, q queue.RepairQueue) {
 				LostPieces: []int32{int32(i)},
 			}
 			err := q.Insert(ctx, seg)
-			assert.NoError(b, err)
+			require.NoError(b, err)
 			addSegs = append(addSegs, seg)
 		}
 		for i := 0; i < N; i++ {
 			s, err := q.Select(ctx)
-			assert.NoError(b, err)
+			require.NoError(b, err)
 			err = q.Delete(ctx, s)
-			assert.NoError(b, err)
-			assert.True(b, pb.Equal(addSegs[i], s))
+			require.NoError(b, err)
+			require.True(b, pb.Equal(addSegs[i], s))
 		}
 	}
 }
 
-func BenchmarkRedisParallel(b *testing.B) {
-	addr, cleanup, err := redisserver.Start()
-	defer cleanup()
-	assert.NoError(b, err)
-	client, err := redis.NewQueue(addr, "", 1)
-	assert.NoError(b, err)
-	q := queue.NewQueue(client)
-	benchmarkParallel(b, q)
-}
+// func BenchmarkRedisParallel(b *testing.B) {
+// 	addr, cleanup, err := redisserver.Start()
+// 	defer cleanup()
+// 	require.NoError(b, err)
+// 	client, err := redis.NewQueue(addr, "", 1)
+// 	require.NoError(b, err)
+// 	q := queue.NewQueue(client)
+// 	benchmarkParallel(b, q)
+// }
 
-func BenchmarkTeststoreParallel(b *testing.B) {
-	q := queue.NewQueue(testqueue.New())
-	benchmarkParallel(b, q)
-}
+// func BenchmarkTeststoreParallel(b *testing.B) {
+// 	q := queue.NewQueue(testqueue.New())
+// 	benchmarkParallel(b, q)
+// }
 
 func benchmarkParallel(b *testing.B, q queue.RepairQueue) {
 	ctx := testcontext.New(b)
@@ -249,9 +246,9 @@ func benchmarkParallel(b *testing.B, q queue.RepairQueue) {
 			go func(i int) {
 				defer wg.Done()
 				s, err := q.Select(ctx)
-				assert.NoError(b, err)
+				require.NoError(b, err)
 				err = q.Delete(ctx, s)
-				assert.NoError(b, err)
+				require.NoError(b, err)
 				if err != nil {
 					errs <- err
 				}
@@ -274,7 +271,7 @@ func benchmarkParallel(b *testing.B, q queue.RepairQueue) {
 		sort.Slice(items, func(i, k int) bool { return items[i].LostPieces[0] < items[k].LostPieces[0] })
 		// check if the Insert and dequeued elements match
 		for i := 0; i < N; i++ {
-			assert.Equal(b, items[i].LostPieces[0], int32(i))
+			require.Equal(b, items[i].LostPieces[0], int32(i))
 		}
 	}
 }
