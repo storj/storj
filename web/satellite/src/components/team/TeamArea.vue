@@ -8,7 +8,7 @@
         </div>
         <div id="scrollable_team_container" v-if="projectMembers.length > 0 || projectMembersCount > 0" v-on:scroll="handleScroll" class="team-container">
             <div class="team-container__content">
-                <div v-for="(member, index) in projectMembers" v-on:click="onMemberClick(member)" v-bind:key="index">
+                <div v-for="member in projectMembers" v-on:click="onMemberClick(member)" v-bind:key="member.id">
                     <TeamMemberItem
                         :projectMember = "member"
                         v-bind:class = "[member.isSelected ? 'selected' : '']"

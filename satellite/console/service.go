@@ -153,11 +153,10 @@ func (s *Service) GenerateActivationToken(ctx context.Context, id uuid.UUID, ema
 func (s *Service) GeneratePasswordRecoveryToken(ctx context.Context, id uuid.UUID, email string) (token string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	//TODO: activation token should differ from auth token
 	claims := &consoleauth.Claims{
 		ID:         id,
 		Email:      email,
-		Expiration: time.Now().Add(time.Hour * 24),
+		Expiration: time.Now().Add(tokenExpirationTime),
 	}
 
 	return s.createToken(claims)
@@ -230,10 +229,8 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 		return err
 	}
 
-	now := time.Now()
-
-	if now.After(user.CreatedAt.Add(tokenExpirationTime)) {
-		return errs.New("activation token has expired")
+	if time.Since(claims.Expiration) > 0 {
+		return errs.New("password reset token has expired")
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), s.passwordCost)
