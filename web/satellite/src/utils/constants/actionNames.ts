@@ -13,6 +13,7 @@ export const APP_STATE_ACTIONS = {
     TOGGLE_SUCCESSFUL_REGISTRATION_POPUP: 'toggleSuccessfulRegistrationPopup',
     TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP: 'toggleSuccessfulProjectCreationPopup',
     CLOSE_POPUPS: 'closePopups',
+    CHANGE_STATE: 'changeFetchState',
 };
 
 export const NOTIFICATION_ACTIONS = {
@@ -62,4 +63,9 @@ export const API_KEYS_ACTIONS = {
     CLEAR: 'clearAPIKeys',
     TOGGLE_SELECTION: 'toggleAPIKeySelection',
     CLEAR_SELECTION: 'clearAPIKeySelection'
+};
+
+export const PROJECT_USAGE_ACTIONS = {
+    FETCH: 'fetchProjectUsage',
+    CLEAR: 'clearProjectUsage',
 };
