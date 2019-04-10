@@ -98,11 +98,17 @@ func (dr *decodedReader) Close() error {
 	// cancel the context to terminate reader goroutines
 	dr.cancel()
 	// avoid double close of readers
+	errorThreshold := len(dr.readers) - dr.scheme.RequiredCount()
 	dr.close.Do(func() {
 		var errlist errs.Group
 		// close the readers
 		for _, r := range dr.readers {
-			errlist.Add(r.Close())
+			err := r.Close()
+			if errorThreshold <= 0 {
+				errlist.Add(err)
+			} else {
+				// TODO log error
+			}
 		}
 		// close the stripe reader
 		errlist.Add(dr.stripeReader.Close())
