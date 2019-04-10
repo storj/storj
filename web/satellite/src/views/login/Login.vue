@@ -22,6 +22,7 @@ import { AppState } from '@/utils/constants/appStateEnum';
             password: '',
             loadingClassName: LOADING_CLASSES.LOADING_OVERLAY,
 	        loadingLogoClassName: LOADING_CLASSES.LOADING_LOGO,
+            forgotPasswordRouterPath: ROUTES.FORGOT_PASSWORD.path,
         };
     },
     methods: {

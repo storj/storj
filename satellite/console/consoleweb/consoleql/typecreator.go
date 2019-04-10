@@ -79,7 +79,7 @@ func (c *TypeCreator) Create(log *zap.Logger, service *console.Service, mailServ
 	}
 
 	// root objects
-	c.query = rootQuery(service, c)
+	c.query = rootQuery(service, mailService, c)
 	if err := c.query.Error(); err != nil {
 		return err
 	}
