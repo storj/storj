@@ -38,10 +38,6 @@ const ROUTES = {
         path: '/project-details/usage-report',
         name: 'UsageReport'
     },
-    REPORT_TABLE: {
-        path: '/project-details/usage-report/detailed-report',
-        name: 'ReportTable'
-    },
     BUCKETS: {
         path: '/buckets',
         name: 'Buckets'

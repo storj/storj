@@ -125,13 +125,13 @@ func (id NodeID) Less(b NodeID) bool {
 func (id NodeID) Version() IDVersion {
 	versionNumber := id.versionByte()
 	if versionNumber == 0 {
-		return IDVersions[V1]
+		return IDVersions[V0]
 	}
 
 	version, err := GetIDVersion(IDVersionNumber(versionNumber))
-	// NB: when in doubt, use V1
+	// NB: when in doubt, use V0
 	if err != nil {
-		return IDVersions[V1]
+		return IDVersions[V0]
 	}
 
 	return version
@@ -142,7 +142,7 @@ func (id NodeID) Difficulty() (uint16, error) {
 	idLen := len(id)
 	var b byte
 	var zeroBits int
-	// NB: last difficulty byte is used for version as of V2
+	// NB: last difficulty byte is used for version
 	for i := 2; i <= idLen; i++ {
 		b = id[idLen-i]
 

@@ -270,11 +270,8 @@ func NodeIDFromKey(k crypto.PublicKey, version storj.IDVersion) (storj.NodeID, e
 }
 
 // NewFullIdentity creates a new ID for nodes with difficulty and concurrency params.
-func NewFullIdentity(ctx context.Context, difficulty uint16, concurrency uint) (*FullIdentity, error) {
-	ca, err := NewCA(ctx, NewCAOptions{
-		Difficulty:  difficulty,
-		Concurrency: concurrency,
-	})
+func NewFullIdentity(ctx context.Context, opts NewCAOptions) (*FullIdentity, error) {
+	ca, err := NewCA(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -479,6 +476,11 @@ func (fi *FullIdentity) PeerIdentity() *PeerIdentity {
 		ID:        fi.ID,
 		RestChain: fi.RestChain,
 	}
+}
+
+// Version looks up the version based on the certificate's ID version extension.
+func (fi *FullIdentity) Version() (storj.IDVersion, error) {
+	return storj.IDVersionFromCert(fi.CA)
 }
 
 // AddExtension adds extensions to the leaf cert of an identity. Extensions
