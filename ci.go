@@ -28,7 +28,7 @@ var pipelines = Pipelines(
 		),
 		Stage("Build",
 			Run("go", "get", "-mod=readonly", "github.com/mattn/goveralls"),
-			Run("go", "install", "-race", "./..."),
+			Run("go", "install", "-a", "-race", "./..."),
 			Run("make", "install-sim"),
 		),
 
