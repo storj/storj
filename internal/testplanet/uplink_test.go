@@ -45,7 +45,7 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.New(t, 1, 4, 3)
+	planet, err := testplanet.New(t, 1, 5, 1)
 	require.NoError(t, err)
 	defer ctx.Check(planet.Shutdown)
 
