@@ -387,5 +387,10 @@ func (rt *RoutingTable) addToGraph(b bucketID, buf *bytes.Buffer) {
 	for _, n := range nodes {
 		fmt.Fprintf(buf, "node: %s\n", hex.EncodeToString(n[:]))
 	}
+	cached_nodes,_ := rt.replacementCache[b]
+	for _, c := range cached_nodes {
+		fmt.Fprintf(buf, "cache: %s\n", hex.EncodeToString(c.Id[:]))
+	}
+
 }
 
