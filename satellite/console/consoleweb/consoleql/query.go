@@ -12,7 +12,6 @@ import (
 
 	"storj.io/storj/internal/post"
 	"storj.io/storj/satellite/mailservice"
-
 	"storj.io/storj/satellite/console"
 )
 
