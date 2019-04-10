@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 )
 
+// Stats implements the monkit.StatSource interface
 func (v *Info) Stats(reportValue func(name string, val float64)) {
 	if v.Release {
 		reportValue("release", 1)
