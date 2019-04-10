@@ -104,10 +104,13 @@ func (dr *decodedReader) Close() error {
 		// close the readers
 		for _, r := range dr.readers {
 			err := r.Close()
-			if errorThreshold <= 0 {
-				errlist.Add(err)
-			} else {
-				// TODO log error
+			if err != nil {
+				if errorThreshold <= 0 {
+					errlist.Add(err)
+				} else {
+					// TODO log error
+				}
+				errorThreshold--
 			}
 		}
 		// close the stripe reader
