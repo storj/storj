@@ -47,10 +47,8 @@ func TestDequeueEmptyQueue(t *testing.T) {
 		q := db.RepairQueue()
 
 		s, err := q.Select(ctx)
-		require.NoError(t, err)
-		err = q.Delete(ctx, s)
-		require.NoError(t, err)
-		require.Equal(t, pb.InjuredSegment{}, s)
+		require.Error(t, err)
+		require.Nil(t, s)
 	})
 }
 

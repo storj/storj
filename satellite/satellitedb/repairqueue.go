@@ -90,14 +90,15 @@ func (r *repairQueue) SelectN(ctx context.Context, limit int) (segs []pb.Injured
 	if limit <= 0 || limit > storage.LookupLimit {
 		limit = storage.LookupLimit
 	}
-	rows, err := r.db.QueryContext(ctx, r.db.Rebind(`SELECT data FROM injuredsegments ORDER BY path LIMIT ?`), limit)
+	//todo: strictly enforce order-by or change tests
+	rows, err := r.db.QueryContext(ctx, r.db.Rebind(`SELECT data FROM injuredsegments LIMIT ?`), limit)
 	for rows.Next() {
-		var seg *pb.InjuredSegment
-		err = rows.Scan(seg)
+		var seg pb.InjuredSegment
+		err = rows.Scan(&seg)
 		if err != nil {
 			return
 		}
-		segs = append(segs, *seg)
+		segs = append(segs, seg)
 	}
 	return
 }
