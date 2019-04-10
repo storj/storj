@@ -7,14 +7,14 @@ import { fetchProjectUsage } from '@/api/usage';
 
 export const usageModule = {
     state: {
-        projectUsage: {storage: 0, egress: 0, objectsCount: 0} as ProjectUsage
+        projectUsage: {storage: 0, egress: 0, objectCount: 0} as ProjectUsage
     },
     mutations: {
         [PROJECT_USAGE_MUTATIONS.FETCH](state: any, projectUsage: ProjectUsage) {
            state.projectUsage = projectUsage;
         },
         [PROJECT_USAGE_MUTATIONS.CLEAR](state:any) {
-            state.projectUsage = {storage: 0, egress: 0, objectsCount: 0} as ProjectUsage;
+            state.projectUsage = {storage: 0, egress: 0, objectCount: 0} as ProjectUsage;
         }
     },
     actions: {
