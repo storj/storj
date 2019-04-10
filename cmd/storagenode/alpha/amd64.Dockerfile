@@ -1,15 +1,17 @@
 # build
-FROM golang:1.11-alpine as build-env
+FROM golang:1.12-alpine as build-env
 
 ENV CGO_ENABLED=1
+ENV GO111MODULE=on
 
 ADD . /go/src/storj.io/storj
 WORKDIR /go/src/storj.io/storj/cmd/storagenode
 
 # dependencies + binary
-RUN apk add git gcc musl-dev
-#RUN unset GOPATH && go mod vendor
-RUN go build -a -installsuffix cgo -o storagenode .
+RUN apk add git gcc musl-dev bash
+RUN git reset --hard
+RUN git clean -dffx
+RUN ../../scripts/release.sh build -a -installsuffix cgo -o storagenode .
 RUN mkdir config identity
 
 # final stage
