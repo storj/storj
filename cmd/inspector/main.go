@@ -15,7 +15,6 @@ import (
 	"strconv"
 	"strings"
 	"bytes"
-	"encoding/hex"
 	
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
@@ -275,7 +274,7 @@ func DrawTableAsGraph(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return ErrRequest.Wrap(err)
 	}
-	fh, err := os.Create(fmt.Sprintf("routing-graph-%s.dot", hex.EncodeToString(n.GetNode().Id[:])))
+	fh, err := os.Create(fmt.Sprintf("routing-graph-%s.dot", args[0]))
 	if err != nil {
 		panic(err)
 	}
