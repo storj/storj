@@ -32,8 +32,8 @@ const (
 	FieldStorage = "storage"
 	// FieldEgress is a field name for egress total
 	FieldEgress = "egress"
-	// FieldObjectsCount is a field name for objects count
-	FieldObjectsCount = "objectsCount"
+	// FieldObjectCount is a field name for objects count
+	FieldObjectCount = "objectCount"
 	// LimitArg is argument name for limit
 	LimitArg = "limit"
 	// OffsetArg is argument name for offset
@@ -174,7 +174,7 @@ func graphqlProjectUsage() *graphql.Object {
 			FieldEgress: &graphql.Field{
 				Type: graphql.Float,
 			},
-			FieldObjectsCount: &graphql.Field{
+			FieldObjectCount: &graphql.Field{
 				Type: graphql.Float,
 			},
 			SinceArg: &graphql.Field{
