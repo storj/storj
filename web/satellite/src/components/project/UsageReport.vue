@@ -86,14 +86,14 @@ import { NOTIFICATION_ACTIONS, PROJECT_USAGE_ACTIONS } from '@/utils/constants/a
             components: {
                 Datepicker,
             },
-	        beforeMount: function() {
+            beforeMount: function() {
                 const currentDate = new Date();
                 const previousDate = new Date();
                 previousDate.setDate(1);
 
                 this.$data.dateRange.startDate = previousDate;
                 this.$data.dateRange.endDate = currentDate;
-	        },
+            },
             beforeRouteLeave: function(to, from, next) {
                 const currentDate = new Date();
                 const previousDate = new Date();
@@ -131,14 +131,14 @@ import { NOTIFICATION_ACTIONS, PROJECT_USAGE_ACTIONS } from '@/utils/constants/a
                     const previousDate = new Date();
                     previousDate.setDate(1);
 
-                   this.$data.dateRange.startDate = previousDate;
-                   this.$data.dateRange.endDate = currentDate;
-                   (this as any).onButtonClickAction(event);
+                    this.$data.dateRange.startDate = previousDate;
+                    this.$data.dateRange.endDate = currentDate;
+                    (this as any).onButtonClickAction(event);
 
-                   const response = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, this.$data.dateRange);
-                   if (!response.isSuccess) {
-                       this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
-                   }
+                    const response = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, this.$data.dateRange);
+                    if (!response.isSuccess) {
+                        this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
+                    }
                 },
                 onPreviousRollupClick: async function (event: any) {
                     const date = new Date();
@@ -172,21 +172,21 @@ import { NOTIFICATION_ACTIONS, PROJECT_USAGE_ACTIONS } from '@/utils/constants/a
                     (this as any).changeActiveClass(eventTarget);
                 },
                 changeActiveClass: function (target: any): void {
-	                (this as any).removeActiveClass();
+                    (this as any).removeActiveClass();
 
                     target.classList.add('active');
                 },
-	            removeActiveClass: function(): void {
+                removeActiveClass: function(): void {
                     const buttons = [...(document as any).querySelectorAll('.usage-report-container__header__options-area__option')];
                     buttons.forEach(option => {
                         option.classList.remove('active');
                     });
-	            },
+                },
                 onReportClick: function (): void {
                     let projectID = this.$store.getters.selectedProject.id;
 
                     let url = new URL(location.origin);
-                    url.pathname = "usage-report";
+                    url.pathname = 'usage-report';
                     url.searchParams.append('projectID', projectID);
                     url.searchParams.append('since', this.$data.dateRange.startDate.toISOString());
                     url.searchParams.append('before', this.$data.dateRange.endDate.toISOString());
