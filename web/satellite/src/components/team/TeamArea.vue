@@ -6,9 +6,9 @@
         <div class="team-header">
             <HeaderArea/>
         </div>
-        <div id="scrollable_team_container" v-if="projectMembers.length > 0" v-on:scroll="handleScroll" class="team-container">
+        <div id="scrollable_team_container" v-if="projectMembers.length > 0 || projectMembersCount > 0" v-on:scroll="handleScroll" class="team-container">
             <div class="team-container__content">
-                <div v-for="(member, index) in projectMembers" v-on:click="onMemberClick(member)" v-bind:key="index">
+                <div v-for="member in projectMembers" v-on:click="onMemberClick(member)" v-bind:key="member.id">
                     <TeamMemberItem
                         :projectMember = "member"
                         v-bind:class = "[member.isSelected ? 'selected' : '']"
@@ -20,7 +20,7 @@
                 <Footer/>
             </div>
         </div>
-        <div class="empty-search-result-area" v-if="projectMembers.length === 0">
+        <div class="empty-search-result-area" v-if="(projectMembers.length === 0 && projectMembersCount === 0)">
             <h1 class="empty-search-result-area__text">No results found</h1>
             <div class="empty-search-result-area__image" v-html="emptyImage"></div>
         </div>
@@ -70,6 +70,9 @@ import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames'
     computed: {
         projectMembers: function () {
             return this.$store.getters.projectMembers;
+        },
+        projectMembersCount: function () {
+            return this.$store.getters.projectMembersCountGetter;
         },
         selectedProjectMembers: function () {
             return this.$store.getters.selectedProjectMembers;

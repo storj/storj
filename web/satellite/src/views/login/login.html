@@ -33,7 +33,7 @@
 						isPassword>
 				</HeaderlessInput>
 				<div class="login-area__submit-area">
-					<router-link to="" class="login-area__navigation-area__nav-link" exact>
+					<router-link v-bind:to="forgotPasswordRouterPath" class="login-area__navigation-area__nav-link" exact>
 						<h3><strong>Forgot password?</strong></h3>
 					</router-link>
 					<div class="login-area__submit-area__login-button" v-on:click.prevent="onLogin">
