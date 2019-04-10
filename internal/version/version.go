@@ -34,6 +34,9 @@ var (
 
 // Info is the versioning information for a binary
 type Info struct {
+	// sync/atomic cache
+	commitHashCRC uint32
+
 	Timestamp  time.Time `json:"timestamp,omitempty"`
 	CommitHash string    `json:"commitHash,omitempty"`
 	Version    SemVer    `json:"version"`
@@ -172,4 +175,5 @@ func init() {
 	if Build.Timestamp.Unix() == 0 || Build.CommitHash == "" {
 		Build.Release = false
 	}
+
 }
