@@ -149,7 +149,7 @@ func (srv *Service) queryVersionFromControlServer(ctx context.Context) (ver Allo
 }
 
 // DebugHandler returns a json representation of the current version information for the binary
-func (srv *Service) DebugHandler(w http.ResponseWriter, r *http.Request) {
+func DebugHandler(w http.ResponseWriter, r *http.Request) {
 	j, err := Build.Marshal()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -159,7 +159,7 @@ func (srv *Service) DebugHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
-	_, err = w.Write(j)
+	_, err = w.Write(append(j, '\n'))
 	if err != nil {
 		zap.S().Errorf("error writing data to client %v", err)
 	}
