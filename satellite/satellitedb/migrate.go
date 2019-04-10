@@ -561,6 +561,9 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 								}
 								return ErrMigrate.Wrap(err)
 							}
+							if seg.Path == "0" {
+								seg.Path = "666"
+							}
 							_, err = tx.Exec(`UPDATE injuredsegments SET path = $1 WHERE CURRENT OF injured_cursor`, seg.Path)
 							if err != nil {
 								return ErrMigrate.Wrap(err)

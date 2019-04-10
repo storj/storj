@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -169,32 +168,32 @@ func TestParallel(t *testing.T) {
 // 	benchmarkSequential(b, q)
 // }
 
-func benchmarkSequential(b *testing.B, q queue.RepairQueue) {
-	ctx := testcontext.New(b)
-	defer ctx.Cleanup()
+// func benchmarkSequential(b *testing.B, q queue.RepairQueue) {
+// 	ctx := testcontext.New(b)
+// 	defer ctx.Cleanup()
 
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
-		const N = 100
-		var addSegs []*pb.InjuredSegment
-		for i := 0; i < N; i++ {
-			seg := &pb.InjuredSegment{
-				Path:       strconv.Itoa(i),
-				LostPieces: []int32{int32(i)},
-			}
-			err := q.Insert(ctx, seg)
-			require.NoError(b, err)
-			addSegs = append(addSegs, seg)
-		}
-		for i := 0; i < N; i++ {
-			s, err := q.Select(ctx)
-			require.NoError(b, err)
-			err = q.Delete(ctx, s)
-			require.NoError(b, err)
-			require.True(b, pb.Equal(addSegs[i], s))
-		}
-	}
-}
+// 	b.ResetTimer()
+// 	for n := 0; n < b.N; n++ {
+// 		const N = 100
+// 		var addSegs []*pb.InjuredSegment
+// 		for i := 0; i < N; i++ {
+// 			seg := &pb.InjuredSegment{
+// 				Path:       strconv.Itoa(i),
+// 				LostPieces: []int32{int32(i)},
+// 			}
+// 			err := q.Insert(ctx, seg)
+// 			require.NoError(b, err)
+// 			addSegs = append(addSegs, seg)
+// 		}
+// 		for i := 0; i < N; i++ {
+// 			s, err := q.Select(ctx)
+// 			require.NoError(b, err)
+// 			err = q.Delete(ctx, s)
+// 			require.NoError(b, err)
+// 			require.True(b, pb.Equal(addSegs[i], s))
+// 		}
+// 	}
+// }
 
 // func BenchmarkRedisParallel(b *testing.B) {
 // 	addr, cleanup, err := redisserver.Start()
@@ -211,65 +210,65 @@ func benchmarkSequential(b *testing.B, q queue.RepairQueue) {
 // 	benchmarkParallel(b, q)
 // }
 
-func benchmarkParallel(b *testing.B, q queue.RepairQueue) {
-	ctx := testcontext.New(b)
-	defer ctx.Cleanup()
+// func benchmarkParallel(b *testing.B, q queue.RepairQueue) {
+// 	ctx := testcontext.New(b)
+// 	defer ctx.Cleanup()
 
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
-		const N = 100
-		errs := make(chan error, N*2)
-		entries := make(chan *pb.InjuredSegment, N*2)
-		var wg sync.WaitGroup
+// 	b.ResetTimer()
+// 	for n := 0; n < b.N; n++ {
+// 		const N = 100
+// 		errs := make(chan error, N*2)
+// 		entries := make(chan *pb.InjuredSegment, N*2)
+// 		var wg sync.WaitGroup
 
-		wg.Add(N)
-		// Add to queue concurrently
-		for i := 0; i < N; i++ {
-			go func(i int) {
-				defer wg.Done()
-				err := q.Insert(ctx, &pb.InjuredSegment{
-					Path:       strconv.Itoa(i),
-					LostPieces: []int32{int32(i)},
-				})
-				if err != nil {
-					errs <- err
-				}
-			}(i)
+// 		wg.Add(N)
+// 		// Add to queue concurrently
+// 		for i := 0; i < N; i++ {
+// 			go func(i int) {
+// 				defer wg.Done()
+// 				err := q.Insert(ctx, &pb.InjuredSegment{
+// 					Path:       strconv.Itoa(i),
+// 					LostPieces: []int32{int32(i)},
+// 				})
+// 				if err != nil {
+// 					errs <- err
+// 				}
+// 			}(i)
 
-		}
-		wg.Wait()
-		wg.Add(N)
-		// Remove from queue concurrently
-		for i := 0; i < N; i++ {
-			go func(i int) {
-				defer wg.Done()
-				s, err := q.Select(ctx)
-				require.NoError(b, err)
-				err = q.Delete(ctx, s)
-				require.NoError(b, err)
-				if err != nil {
-					errs <- err
-				}
-				entries <- s
-			}(i)
-		}
-		wg.Wait()
-		close(errs)
-		close(entries)
+// 		}
+// 		wg.Wait()
+// 		wg.Add(N)
+// 		// Remove from queue concurrently
+// 		for i := 0; i < N; i++ {
+// 			go func(i int) {
+// 				defer wg.Done()
+// 				s, err := q.Select(ctx)
+// 				require.NoError(b, err)
+// 				err = q.Delete(ctx, s)
+// 				require.NoError(b, err)
+// 				if err != nil {
+// 					errs <- err
+// 				}
+// 				entries <- s
+// 			}(i)
+// 		}
+// 		wg.Wait()
+// 		close(errs)
+// 		close(entries)
 
-		for err := range errs {
-			b.Error(err)
-		}
+// 		for err := range errs {
+// 			b.Error(err)
+// 		}
 
-		var items []*pb.InjuredSegment
-		for segment := range entries {
-			items = append(items, segment)
-		}
+// 		var items []*pb.InjuredSegment
+// 		for segment := range entries {
+// 			items = append(items, segment)
+// 		}
 
-		sort.Slice(items, func(i, k int) bool { return items[i].LostPieces[0] < items[k].LostPieces[0] })
-		// check if the Insert and dequeued elements match
-		for i := 0; i < N; i++ {
-			require.Equal(b, items[i].LostPieces[0], int32(i))
-		}
-	}
-}
+// 		sort.Slice(items, func(i, k int) bool { return items[i].LostPieces[0] < items[k].LostPieces[0] })
+// 		// check if the Insert and dequeued elements match
+// 		for i := 0; i < N; i++ {
+// 			require.Equal(b, items[i].LostPieces[0], int32(i))
+// 		}
+// 	}
+// }

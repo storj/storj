@@ -227,3 +227,6 @@ INSERT INTO "bucket_bandwidth_rollups" ("bucket_name", "project_id", "interval_s
 INSERT INTO "bucket_storage_tallies" ("bucket_name", "project_id", "interval_start", "inline", "remote", "remote_segments_count", "inline_segments_count", "object_count", "metadata_size") VALUES (E'testbucket'::bytea, E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea,'2019-03-06 08:00:00.000000+00', 4024, 5024, 0, 0, 0, 0);
 
 -- NEW DATA --
+INSERT INTO "injuredsegments" ("id", "info") VALUES (2, '\x0a136865726527732f612f67726561742f70617468120a0102030405060708090a');
+INSERT INTO "injuredsegments" ("id", "info") VALUES (3, '\x0a157965742f616e6f746865722f636f6f6c2f70617468120a0102030405060708090a');
+INSERT INTO "injuredsegments" ("id", "info") VALUES (4, '\x0a23736f2f6d616e792f69636f6e69632f70617468732f746f2f63686f6f73652f66726f6d120a0102030405060708090a');
