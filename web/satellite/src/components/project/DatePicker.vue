@@ -499,8 +499,6 @@
                 let currentMoment = (0, _moment2.default)(this.checked.currentMoment);
                 if (type === 'next') {
                     if (currentMoment.format('MM') === (0, _moment2.default)(new Date()).format('MM')) {
-                        console.log("NEXT ", currentMoment.format('MM'));
-                        console.log("NEXT new Date", (0, _moment2.default)(new Date()).format('MM'));
                         return;
                     }
                     next = (0, _moment2.default)(this.checked.currentMoment).add(1, 'M');
