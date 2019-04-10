@@ -6,6 +6,7 @@ package satellite
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/mail"
@@ -525,7 +526,11 @@ func ignoreCancel(err error) error {
 
 func (peer *Peer) restartLoop(ctx context.Context, name string, service func(context.Context) error) error {
 	for {
-		err := func() (err error) {
+		err := ctx.Err()
+		if err != nil {
+			return err
+		}
+		err = func() (err error) {
 			defer func() {
 				if rec := recover(); rec != nil {
 					err = errs.New("caught panic in service %s: %+v", name, rec)
@@ -534,7 +539,9 @@ func (peer *Peer) restartLoop(ctx context.Context, name string, service func(con
 			return service(ctx)
 		}()
 		peer.Log.Sugar().Errorf("Service %s failure: %+v", name, err)
-		time.Sleep(time.Second)
+
+		// light attempt to avoid stampeding herds
+		time.Sleep(time.Duration(rand.Intn(10)) * time.Second)
 	}
 }
 
