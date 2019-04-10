@@ -37,8 +37,8 @@ var pipelines = Pipelines(
 			),
 			Stage("Lint",
 				TempGopath(
-					Copy("$SOURCE/*", "$GOPATH/src/github.com/storj/storj"),
-					CD("$GOPATH/src/github.com/storj/storj"),
+					Copy("$SOURCE/*", "$GOPATH/src/storj.io/storj"),
+					CD("$GOPATH/src/storj.io/storj"),
 					SetEnv("GO111MODULE", "on"),
 					Run("go", "mod", "vendor"),
 					Copy("./vendor/*", "$GOPATH/src"),
