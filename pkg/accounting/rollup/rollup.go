@@ -66,21 +66,25 @@ func (r *Service) Rollup(ctx context.Context) error {
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	if len(rollupStats) == 0 {
-		r.logger.Info("RollupStats is empty after RollupStorage")
-	}
+
 	err = r.RollupBW(ctx, lastRollup, rollupStats)
 	if err != nil {
 		return Error.Wrap(err)
 	}
+
+	//remove the latest day (which we cannot know is complete), then push to DB
+	latestTally = time.Date(latestTally.Year(), latestTally.Month(), latestTally.Day(), 0, 0, 0, 0, latestTally.Location())
+	delete(rollupStats, latestTally)
 	if len(rollupStats) == 0 {
-		r.logger.Info("RollupStats is empty after RollupBW")
+		r.logger.Info("RollupStats is empty")
 		return nil
 	}
+
 	err = r.db.SaveRollup(ctx, latestTally, rollupStats)
 	if err != nil {
 		return Error.Wrap(err)
 	}
+
 	// Delete already rolled up tallies
 	err = r.db.DeleteRawBefore(ctx, latestTally)
 	if err != nil {
@@ -103,10 +107,10 @@ func (r *Service) RollupStorage(ctx context.Context, lastRollup time.Time, rollu
 	for _, tallyRow := range tallies {
 		node := tallyRow.NodeID
 		if tallyRow.CreatedAt.After(latestTally) {
-			latestTally = tallyRow.CreatedAt
+			latestTally = tallyRow.CreatedAt.UTC()
 		}
 		//create or get AccoutingRollup day entry
-		iDay := tallyRow.IntervalEndTime
+		iDay := tallyRow.IntervalEndTime.UTC()
 		iDay = time.Date(iDay.Year(), iDay.Month(), iDay.Day(), 0, 0, 0, 0, iDay.Location())
 		if rollupStats[iDay] == nil {
 			rollupStats[iDay] = make(map[storj.NodeID]*accounting.Rollup)
@@ -121,13 +125,6 @@ func (r *Service) RollupStorage(ctx context.Context, lastRollup time.Time, rollu
 		default:
 			r.logger.Info("rollupStorage no longer supports non-accounting.AtRest datatypes")
 		}
-	}
-	//remove the latest day (which we cannot know is complete), then push to DB
-	latestTally = time.Date(latestTally.Year(), latestTally.Month(), latestTally.Day(), 0, 0, 0, 0, latestTally.Location())
-	delete(rollupStats, latestTally)
-	if len(rollupStats) == 0 {
-		r.logger.Info("Rollup only found tallies for today")
-		return time.Now(), nil
 	}
 
 	return latestTally, nil
@@ -147,9 +144,9 @@ func (r *Service) RollupBW(ctx context.Context, lastRollup time.Time, rollupStat
 	for _, row := range bws {
 		nodeID := row.NodeID
 		if row.IntervalStart.After(latestTally) {
-			latestTally = row.IntervalStart
+			latestTally = row.IntervalStart.UTC()
 		}
-		day := row.IntervalStart
+		day := row.IntervalStart.UTC()
 		day = time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, day.Location())
 		if rollupStats[day] == nil {
 			rollupStats[day] = make(map[storj.NodeID]*accounting.Rollup)
@@ -174,11 +171,6 @@ func (r *Service) RollupBW(ctx context.Context, lastRollup time.Time, rollupStat
 			r.logger.Info("delete order type")
 		}
 	}
-	//remove the latest day (which we cannot know is complete), then push to DB
-	latestTally = time.Date(latestTally.Year(), latestTally.Month(), latestTally.Day(), 0, 0, 0, 0, latestTally.Location())
-	delete(rollupStats, latestTally)
-	if len(rollupStats) == 0 {
-		r.logger.Info("Rollup only found data for today")
-	}
+
 	return nil
 }
