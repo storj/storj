@@ -112,10 +112,6 @@ func QuerySchema(db dbschema.Queryer) (*dbschema.Schema, error) {
 			default:
 				return fmt.Errorf("unhandled constraint type %q", constraintType)
 			}
-
-			if err != nil {
-				return err
-			}
 		}
 		return rows.Err()
 	}()
