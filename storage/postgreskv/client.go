@@ -7,7 +7,6 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/lib/pq"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/storage"
@@ -142,7 +141,7 @@ func (client *Client) GetAllPath(bucket storage.Key, keys storage.Keys) (storage
 			ON (pd.fullpath = pk.request AND pd.bucket = $1::BYTEA)
 		ORDER BY pk.ord
 	`
-	rows, err := client.pgConn.Query(q, []byte(bucket), pq.ByteaArray(keys.ByteSlices()))
+	rows, err := client.pgConn.Query(q, []byte(bucket), keys.ByteSlices())
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}

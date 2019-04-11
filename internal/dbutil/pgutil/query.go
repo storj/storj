@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/lib/pq"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/dbutil/dbschema"
@@ -73,7 +72,7 @@ func QuerySchema(db dbschema.Queryer) (*dbschema.Schema, error) {
 
 		for rows.Next() {
 			var tableName, constraintName, constraintType string
-			var columns pq.StringArray
+			var columns []string
 			var definition string
 
 			err := rows.Scan(&tableName, &constraintName, &constraintType, &columns, &definition)

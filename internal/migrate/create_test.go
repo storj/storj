@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/internal/migrate"
 
+	_ "github.com/jackc/pgx/stdlib"
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -56,7 +57,7 @@ func TestCreate_Postgres(t *testing.T) {
 
 	schema := "create-" + pgutil.CreateRandomTestingSchemaName(8)
 
-	db, err := sql.Open("postgres", pgutil.ConnstrWithSchema(*testPostgres, schema))
+	db, err := sql.Open("pgx", pgutil.ConnstrWithSchema(*testPostgres, schema))
 	if err != nil {
 		t.Fatal(err)
 	}

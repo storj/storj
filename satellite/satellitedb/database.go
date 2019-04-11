@@ -70,7 +70,7 @@ func (db *DB) Close() error {
 // CreateSchema creates a schema if it doesn't exist.
 func (db *DB) CreateSchema(schema string) error {
 	switch db.driver {
-	case "postgres":
+	case "postgres", "pgx":
 		return pgutil.CreateSchema(db.db, schema)
 	}
 	return nil
@@ -83,7 +83,7 @@ func (db *DB) TestDBAccess() *dbx.DB { return db.db }
 // DropSchema drops the named schema
 func (db *DB) DropSchema(schema string) error {
 	switch db.driver {
-	case "postgres":
+	case "postgres", "pgx":
 		return pgutil.DropSchema(db.db, schema)
 	}
 	return nil

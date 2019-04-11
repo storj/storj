@@ -7,6 +7,8 @@ import (
 	"database/sql"
 	"strings"
 
+	"github.com/jackc/pgx"
+	_ "github.com/jackc/pgx/stdlib"
 	"github.com/lib/pq"
 	"github.com/zeebo/errs"
 
@@ -23,7 +25,7 @@ type DB struct {
 func Open(connstr string, schemaPrefix string) (*DB, error) {
 	schemaName := schemaPrefix + "-" + CreateRandomTestingSchemaName(8)
 
-	db, err := sql.Open("postgres", ConnstrWithSchema(connstr, schemaName))
+	db, err := sql.Open("pgx", ConnstrWithSchema(connstr, schemaName))
 	if err != nil {
 		return nil, err
 	}
@@ -122,5 +124,12 @@ func IsConstraintError(err error) bool {
 			return true
 		}
 	}
+
+	if e, ok := err.(*pgx.PgError); ok {
+		if e.Code == "23" {
+			return true
+		}
+	}
+
 	return false
 }

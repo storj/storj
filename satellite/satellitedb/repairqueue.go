@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
+	pgxstd "github.com/jackc/pgx/stdlib"
 	"github.com/lib/pq"
 	sqlite3 "github.com/mattn/go-sqlite3"
 
@@ -77,6 +78,8 @@ func (r *repairQueue) Dequeue(ctx context.Context) (seg pb.InjuredSegment, err e
 	case *sqlite3.SQLiteDriver:
 		return r.sqliteDequeue(ctx)
 	case *pq.Driver:
+		return r.postgresDequeue(ctx)
+	case *pgxstd.Driver:
 		return r.postgresDequeue(ctx)
 	default:
 		return seg, fmt.Errorf("Unsupported database %t", t)

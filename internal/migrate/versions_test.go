@@ -36,7 +36,7 @@ func TestBasicMigrationPostgres(t *testing.T) {
 
 	schema := "create-" + pgutil.CreateRandomTestingSchemaName(8)
 
-	db, err := sql.Open("postgres", pgutil.ConnstrWithSchema(*testPostgres, schema))
+	db, err := sql.Open("pgx", pgutil.ConnstrWithSchema(*testPostgres, schema))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,7 +116,7 @@ func TestMultipleMigrationPostgres(t *testing.T) {
 		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", defaultPostgresConn)
 	}
 
-	db, err := sql.Open("postgres", *testPostgres)
+	db, err := sql.Open("pgx", *testPostgres)
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
@@ -189,7 +189,7 @@ func TestFailedMigrationPostgres(t *testing.T) {
 		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", defaultPostgresConn)
 	}
 
-	db, err := sql.Open("postgres", *testPostgres)
+	db, err := sql.Open("pgx", *testPostgres)
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 

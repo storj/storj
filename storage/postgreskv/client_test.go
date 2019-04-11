@@ -9,7 +9,9 @@ import (
 	"os"
 	"testing"
 
+	_ "github.com/jackc/pgx/stdlib"
 	"github.com/lib/pq"
+
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 

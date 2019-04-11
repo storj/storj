@@ -17,10 +17,13 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/jackc/pgx"
+	_ "github.com/jackc/pgx/stdlib" // import driver
 	"github.com/lib/pq"
 
-	"github.com/mattn/go-sqlite3"
 	"math/rand"
+
+	"github.com/mattn/go-sqlite3"
 )
 
 // Prevent conditional imports from causing build failures
@@ -6010,6 +6013,12 @@ func (impl postgresImpl) isConstraintError(err error) (
 			return e.Constraint, true
 		}
 	}
+
+	if e, ok := err.(*pgx.PgError); ok {
+		if e.Code == "23" {
+			return e.ConstraintName, true
+		}
+	}
 	return "", false
 }
 
@@ -10415,7 +10424,7 @@ type dbMethods interface {
 }
 
 func openpostgres(source string) (*sql.DB, error) {
-	return sql.Open("postgres", source)
+	return sql.Open("pgx", source)
 }
 
 var sqlite3DriverName = func() string {
