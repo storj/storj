@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/jackc/pgx/pgtype"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/dbutil/dbschema"
@@ -72,7 +73,8 @@ func QuerySchema(db dbschema.Queryer) (*dbschema.Schema, error) {
 
 		for rows.Next() {
 			var tableName, constraintName, constraintType string
-			var columns []string
+
+			var columns pgtype.TextArray
 			var definition string
 
 			err := rows.Scan(&tableName, &constraintName, &constraintType, &columns, &definition)
@@ -83,16 +85,19 @@ func QuerySchema(db dbschema.Queryer) (*dbschema.Schema, error) {
 			switch constraintType {
 			case "p": // primary key
 				table := schema.EnsureTable(tableName)
-				table.PrimaryKey = ([]string)(columns)
+				if err := columns.AssignTo(&table.PrimaryKey); err != nil {
+					return err
+				}
 			case "f": // foreign key
-				if len(columns) != 1 {
+				if len(columns.Elements) != 1 {
 					return fmt.Errorf("expected one column, got: %q", columns)
 				}
+				columnName := columns.Elements[0].String
 
 				table := schema.EnsureTable(tableName)
-				column, ok := table.FindColumn(columns[0])
+				column, ok := table.FindColumn(columnName)
 				if !ok {
-					return fmt.Errorf("did not find column %q", columns[0])
+					return fmt.Errorf("did not find column %q", columnName)
 				}
 
 				matches := rxPostgresForeignKey.FindStringSubmatch(definition)
@@ -108,7 +113,12 @@ func QuerySchema(db dbschema.Queryer) (*dbschema.Schema, error) {
 				}
 			case "u": // unique
 				table := schema.EnsureTable(tableName)
-				table.Unique = append(table.Unique, columns)
+				var unique []string
+				if err := columns.AssignTo(&unique); err != nil {
+					return err
+				}
+
+				table.Unique = append(table.Unique, unique)
 			default:
 				return fmt.Errorf("unhandled constraint type %q", constraintType)
 			}
