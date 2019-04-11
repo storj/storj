@@ -35,14 +35,16 @@ var pipelines = Pipelines(
 
 		Parallel("Verification",
 			Stage("Test",
-				Run("go", "test", 
-					"-vet=off", 
+				Run("go", "test",
+					"-vet=off",
 					"-p=40", "-parallel=8",
 					"-race",
 					"-cover", "-coverprofile=.coverprofile",
 					"-timeout=9m", "./...")),
-
-			Stage("Lint",
+			Stage("Lint (modules)",
+				Run("golanci-lint", "-j=4", "run"),
+			),
+			Stage("Lint (gopath)",
 				TempGopath(
 					Copy("$SOURCE/*", "$GOPATH/src/storj.io/storj"),
 					CD("$GOPATH/src/storj.io/storj"),
