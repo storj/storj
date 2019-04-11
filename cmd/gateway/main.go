@@ -19,7 +19,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
-	"storj.io/storj/internal/memory"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
@@ -219,31 +218,19 @@ func (flags GatewayFlags) action(ctx context.Context, cliCtx *cli.Context, ident
 
 // NewGateway creates a new minio Gateway
 func (flags GatewayFlags) NewGateway(ctx context.Context, ident *identity.FullIdentity) (gw minio.Gateway, err error) {
-	key := new(storj.Key)
-	copy(key[:], flags.Enc.Key)
+	cfg := libuplink.Config{}
+	cfg.Volatile.TLS = struct {
+		SkipPeerCAWhitelist bool
+		PeerCAWhitelistPath string
+	}{
+		SkipPeerCAWhitelist: !flags.TLS.UsePeerCAWhitelist,
+		PeerCAWhitelistPath: flags.TLS.PeerCAWhitelistPath,
+	}
+	cfg.Volatile.UseIdentity = ident
+	cfg.Volatile.MaxInlineSize = flags.Client.MaxInlineSize
+	cfg.Volatile.MaxMemory = flags.RS.MaxBufferMem
 
-	uplink, err := libuplink.NewUplink(ctx, &libuplink.Config{
-		Volatile: struct {
-			TLS struct {
-				SkipPeerCAWhitelist bool
-				PeerCAWhitelistPath string
-			}
-			UseIdentity   *identity.FullIdentity
-			MaxInlineSize memory.Size
-			EncKey        *storj.Key
-		}{
-			TLS: struct {
-				SkipPeerCAWhitelist bool
-				PeerCAWhitelistPath string
-			}{
-				SkipPeerCAWhitelist: !flags.TLS.UsePeerCAWhitelist,
-				PeerCAWhitelistPath: flags.TLS.PeerCAWhitelistPath,
-			},
-			UseIdentity:   ident,
-			MaxInlineSize: flags.Client.MaxInlineSize,
-			EncKey:        key,
-		},
-	})
+	uplink, err := libuplink.NewUplink(ctx, &cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -253,14 +240,17 @@ func (flags GatewayFlags) NewGateway(ctx context.Context, ident *identity.FullId
 		return nil, err
 	}
 
-	project, err := uplink.OpenProject(ctx, flags.Client.SatelliteAddr, apiKey)
+	encKey := new(storj.Key)
+	copy(encKey[:], flags.Enc.Key)
+
+	project, err := uplink.OpenProject(ctx, flags.Client.SatelliteAddr, encKey, apiKey)
 	if err != nil {
 		return nil, err
 	}
 
 	return miniogw.NewStorjGateway(
 		project,
-		key,
+		encKey,
 		storj.Cipher(flags.Enc.PathType).ToCipherSuite(),
 		flags.GetEncryptionScheme().ToEncryptionParameters(),
 		flags.GetRedundancyScheme(),

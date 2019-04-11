@@ -18,7 +18,6 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/s3client"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
@@ -170,31 +169,19 @@ func runGateway(ctx context.Context, gwCfg config, uplinkCfg uplink.Config, log 
 		return err
 	}
 
-	key := new(storj.Key)
-	copy(key[:], uplinkCfg.Enc.Key)
+	cfg := libuplink.Config{}
+	cfg.Volatile.TLS = struct {
+		SkipPeerCAWhitelist bool
+		PeerCAWhitelistPath string
+	}{
+		SkipPeerCAWhitelist: !uplinkCfg.TLS.UsePeerCAWhitelist,
+		PeerCAWhitelistPath: uplinkCfg.TLS.PeerCAWhitelistPath,
+	}
+	cfg.Volatile.UseIdentity = ident
+	cfg.Volatile.MaxInlineSize = uplinkCfg.Client.MaxInlineSize
+	cfg.Volatile.MaxMemory = uplinkCfg.RS.MaxBufferMem
 
-	uplink, err := libuplink.NewUplink(ctx, &libuplink.Config{
-		Volatile: struct {
-			TLS struct {
-				SkipPeerCAWhitelist bool
-				PeerCAWhitelistPath string
-			}
-			UseIdentity   *identity.FullIdentity
-			MaxInlineSize memory.Size
-			EncKey        *storj.Key
-		}{
-			TLS: struct {
-				SkipPeerCAWhitelist bool
-				PeerCAWhitelistPath string
-			}{
-				SkipPeerCAWhitelist: !uplinkCfg.TLS.UsePeerCAWhitelist,
-				PeerCAWhitelistPath: uplinkCfg.TLS.PeerCAWhitelistPath,
-			},
-			UseIdentity:   ident,
-			MaxInlineSize: uplinkCfg.Client.MaxInlineSize,
-			EncKey:        key,
-		},
-	})
+	uplink, err := libuplink.NewUplink(ctx, &cfg)
 	if err != nil {
 		return err
 	}
@@ -204,14 +191,17 @@ func runGateway(ctx context.Context, gwCfg config, uplinkCfg uplink.Config, log 
 		return err
 	}
 
-	project, err := uplink.OpenProject(ctx, uplinkCfg.Client.SatelliteAddr, apiKey)
+	encKey := new(storj.Key)
+	copy(encKey[:], uplinkCfg.Enc.Key)
+
+	project, err := uplink.OpenProject(ctx, uplinkCfg.Client.SatelliteAddr, encKey, apiKey)
 	if err != nil {
 		return err
 	}
 
 	gw := miniogw.NewStorjGateway(
 		project,
-		key,
+		encKey,
 		storj.Cipher(uplinkCfg.Enc.PathType).ToCipherSuite(),
 		uplinkCfg.GetEncryptionScheme().ToEncryptionParameters(),
 		uplinkCfg.GetRedundancyScheme(),

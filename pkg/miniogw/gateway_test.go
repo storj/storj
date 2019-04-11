@@ -23,7 +23,6 @@ import (
 	"storj.io/storj/internal/testplanet"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/eestream"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storage/buckets"
@@ -698,38 +697,28 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 
 	segments := segments.NewSegmentStore(metainfo, ec, rs, 4*memory.KiB.Int(), 8*memory.MiB.Int64())
 
-	key := new(storj.Key)
-	copy(key[:], TestEncKey)
+	encKey := new(storj.Key)
+	copy(encKey[:], TestEncKey)
 
-	streams, err := streams.NewStreamStore(segments, 64*memory.MiB.Int64(), key, 1*memory.KiB.Int(), storj.AESGCM)
+	streams, err := streams.NewStreamStore(segments, 64*memory.MiB.Int64(), encKey, 1*memory.KiB.Int(), storj.AESGCM)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
 	buckets := buckets.NewStore(streams)
 
-	kvmetainfo := kvmetainfo.New(metainfo, buckets, streams, segments, key, 1*memory.KiB.Int32(), rs, 64*memory.MiB.Int64())
+	kvmetainfo := kvmetainfo.New(metainfo, buckets, streams, segments, encKey, 1*memory.KiB.Int32(), rs, 64*memory.MiB.Int64())
 
-	uplink, err := libuplink.NewUplink(ctx, &libuplink.Config{
-		Volatile: struct {
-			TLS struct {
-				SkipPeerCAWhitelist bool
-				PeerCAWhitelistPath string
-			}
-			UseIdentity   *identity.FullIdentity
-			MaxInlineSize memory.Size
-			EncKey        *storj.Key
-		}{
-			TLS: struct {
-				SkipPeerCAWhitelist bool
-				PeerCAWhitelistPath string
-			}{
-				SkipPeerCAWhitelist: true,
-			},
-			UseIdentity: planet.Uplinks[0].Identity,
-			EncKey:      key,
-		},
-	})
+	cfg := libuplink.Config{}
+	cfg.Volatile.TLS = struct {
+		SkipPeerCAWhitelist bool
+		PeerCAWhitelistPath string
+	}{
+		SkipPeerCAWhitelist: true,
+	}
+	cfg.Volatile.UseIdentity = planet.Uplinks[0].Identity
+
+	uplink, err := libuplink.NewUplink(ctx, &cfg)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -739,14 +728,14 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 		return nil, nil, nil, err
 	}
 
-	proj, err := uplink.OpenProject(ctx, planet.Satellites[0].Addr(), parsedAPIKey)
+	proj, err := uplink.OpenProject(ctx, planet.Satellites[0].Addr(), encKey, parsedAPIKey)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
 	gateway := NewStorjGateway(
 		proj,
-		key,
+		encKey,
 		storj.EncAESGCM,
 		storj.EncryptionParameters{
 			CipherSuite: storj.EncAESGCM,
