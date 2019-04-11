@@ -41,7 +41,7 @@ func TestQuery(t *testing.T) {
 	defer ctx.Check(db.Close)
 
 	emptySchema, err := pgutil.QuerySchema(db)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, &dbschema.Schema{}, emptySchema)
 
 	_, err = db.Exec(`
@@ -65,7 +65,7 @@ func TestQuery(t *testing.T) {
 	require.NoError(t, err)
 
 	schema, err := pgutil.QuerySchema(db)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	expected := &dbschema.Schema{
 		Tables: []*dbschema.Table{
