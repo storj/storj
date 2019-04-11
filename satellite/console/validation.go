@@ -39,7 +39,7 @@ func validatePassword(pass string) error {
 	var errs validationErrors
 
 	if len(pass) < passMinLength {
-		errs.Add("password can't be less than %d characters", passMinLength)
+		errs.Add(passwordIncorrectErrMsg, passMinLength)
 	}
 
 	return errs.Combine()

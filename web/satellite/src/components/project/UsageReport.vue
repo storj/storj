@@ -73,22 +73,42 @@ import { NOTIFICATION_ACTIONS, PROJECT_USAGE_ACTIONS } from '@/utils/constants/a
 @Component(
         {
             data: function () {
-                const currentDate = new Date();
-                const previousDate = new Date();
-                previousDate.setMonth(currentDate.getMonth() - 1);
-
                 return {
                     startTime: {
                         time: '',
                     },
                     dateRange: {
-                        startDate: previousDate,
-                        endDate: currentDate,
+                        startDate: '',
+                        endDate: '',
                     },
                 };
             },
             components: {
                 Datepicker,
+            },
+            beforeMount: function() {
+                const currentDate = new Date();
+                const previousDate = new Date();
+                previousDate.setDate(1);
+
+                this.$data.dateRange.startDate = previousDate;
+                this.$data.dateRange.endDate = currentDate;
+            },
+            beforeRouteLeave: function(to, from, next) {
+                const currentDate = new Date();
+                const previousDate = new Date();
+                previousDate.setDate(1);
+
+                this.$data.dateRange.startDate = previousDate;
+                this.$data.dateRange.endDate = currentDate;
+
+                const buttons = [...(document as any).querySelectorAll('.usage-report-container__header__options-area__option')];
+                buttons.forEach(option => {
+                    option.classList.remove('active');
+                });
+                buttons[0].classList.add('active');
+
+                next();
             },
             methods: {
                 getDates: async function(datesArray: string[]) {
@@ -107,24 +127,23 @@ import { NOTIFICATION_ACTIONS, PROJECT_USAGE_ACTIONS } from '@/utils/constants/a
                     this.$router.push(ROUTES.PROJECT_DETAILS);
                 },
                 onCurrentRollupClick: async function (event: any) {
-                   const currentDate = new Date();
-                   const previousDate = new Date();
-                   previousDate.setMonth(currentDate.getMonth() - 1);
-
-                   this.$data.dateRange.startDate = previousDate;
-                   this.$data.dateRange.endDate = currentDate;
-                   (this as any).onButtonClickAction(event);
-
-                   const response = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, this.$data.dateRange);
-                   if (!response.isSuccess) {
-                       this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
-                   }
-                },
-                onPreviousRollupClick: async function (event: any) {
                     const currentDate = new Date();
                     const previousDate = new Date();
-                    currentDate.setMonth(currentDate.getMonth() - 1);
-                    previousDate.setMonth(currentDate.getMonth() - 1);
+                    previousDate.setDate(1);
+
+                    this.$data.dateRange.startDate = previousDate;
+                    this.$data.dateRange.endDate = currentDate;
+                    (this as any).onButtonClickAction(event);
+
+                    const response = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, this.$data.dateRange);
+                    if (!response.isSuccess) {
+                        this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
+                    }
+                },
+                onPreviousRollupClick: async function (event: any) {
+                    const date = new Date();
+                    const previousDate = new Date(date.getFullYear(), date.getMonth() - 1, 1);
+                    const currentDate = new Date(date.getFullYear(), date.getMonth(), 0);
 
                     this.$data.dateRange.startDate = previousDate;
                     this.$data.dateRange.endDate = currentDate;
@@ -153,15 +172,26 @@ import { NOTIFICATION_ACTIONS, PROJECT_USAGE_ACTIONS } from '@/utils/constants/a
                     (this as any).changeActiveClass(eventTarget);
                 },
                 changeActiveClass: function (target: any): void {
-                    [...document.querySelectorAll('.usage-report-container__header__options-area__option')].forEach(option => {
-                        option.classList.remove('active');
-                    });
+                    (this as any).removeActiveClass();
 
                     target.classList.add('active');
                 },
+                removeActiveClass: function(): void {
+                    const buttons = [...(document as any).querySelectorAll('.usage-report-container__header__options-area__option')];
+                    buttons.forEach(option => {
+                        option.classList.remove('active');
+                    });
+                },
                 onReportClick: function (): void {
-                    let route = this.$router.resolve(ROUTES.REPORT_TABLE);
-                    window.open(route.href, '_blank');
+                    let projectID = this.$store.getters.selectedProject.id;
+
+                    let url = new URL(location.origin);
+                    url.pathname = 'usage-report';
+                    url.searchParams.append('projectID', projectID);
+                    url.searchParams.append('since', this.$data.dateRange.startDate.toISOString());
+                    url.searchParams.append('before', this.$data.dateRange.endDate.toISOString());
+
+                    window.open(url.href, '_blank');
                 },
             },
             computed: {
@@ -172,7 +202,7 @@ import { NOTIFICATION_ACTIONS, PROJECT_USAGE_ACTIONS } from '@/utils/constants/a
                     return this.$store.state.usageModule.projectUsage.egress.toPrecision(5);
                 },
                 objectsCount: function () {
-                    return this.$store.state.usageModule.projectUsage.objectsCount.toPrecision(5);
+                    return this.$store.state.usageModule.projectUsage.objectCount.toPrecision(5);
                 }
             }
         }
@@ -305,7 +335,7 @@ import { NOTIFICATION_ACTIONS, PROJECT_USAGE_ACTIONS } from '@/utils/constants/a
 						font-family: 'font_regular';
 						font-size: 18px;
 						line-height: 24px;
-						color: #AFB7C1;
+						color: #354049;
 						margin-block-start: 0em;
 						margin-block-end: 0em;
 					}
