@@ -12,6 +12,9 @@ COPY web/satellite/ /app
 RUN npm install
 RUN npm run build
 
+FROM alpine as ca-cert
+RUN apk -U add ca-certificates
+
 # final stage
 FROM alpine
 ENV API_KEY= \
@@ -23,7 +26,7 @@ EXPOSE 7777
 EXPOSE 10100
 WORKDIR /app
 VOLUME /root/.local/share/storj/satellite
-COPY resources/certs.pem /etc/ssl/certs/ca-certificates.crt
+COPY --from=ca-cert /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=satellite-ui /app/ /app
 COPY --from=build-env /app /app/satellite
 COPY /cmd/satellite/entrypoint /entrypoint
