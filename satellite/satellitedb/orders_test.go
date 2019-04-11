@@ -34,7 +34,7 @@ func TestSerialNumbers(t *testing.T) {
 		// try to use used serial number
 		_, err = ordersDB.UseSerialNumber(ctx, storj.SerialNumber{1}, storj.NodeID{1})
 		require.Error(t, err)
-		require.True(t, orders.ErrUsingSerialNumber.Has(err))
+		require.True(t, orders.ErrUsingSerialNumber.Has(err), err.Error())
 
 		err = ordersDB.UnuseSerialNumber(ctx, storj.SerialNumber{1}, storj.NodeID{1})
 		require.NoError(t, err)

@@ -125,8 +125,8 @@ func IsConstraintError(err error) bool {
 		}
 	}
 
-	if e, ok := err.(*pgx.PgError); ok {
-		if e.Code == "23" {
+	if e, ok := err.(pgx.PgError); ok {
+		if strings.HasPrefix(e.Code, "23") {
 			return true
 		}
 	}
