@@ -9,6 +9,7 @@
     import { LOADING_CLASSES } from '@/utils/constants/classConstants';
     import { forgotPasswordRequest } from '@/api/users';
     import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+    import ROUTES from '@/utils/constants/routerConstants';
 
     @Component(
         {
@@ -37,6 +38,12 @@
                         this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, passwordRecoveryResponse.errorMessage);
                     }
                 },
+                onBackToLoginClick: function() {
+                    this.$router.push(ROUTES.LOGIN.path);
+                },
+                onLogoClick: function () {
+                   location.reload()
+                }
             }
         })
 
