@@ -302,12 +302,9 @@ func (authDB *AuthorizationDB) UserIDs() (userIDs []string, err error) {
 	err = authDB.DB.Iterate(storage.IterateOptions{
 		Recurse: true,
 	}, func(iterator storage.Iterator) error {
-		listItem := new(storage.ListItem)
-		for more := true; more; {
-			more = iterator.Next(listItem)
-			if listItem != nil {
-				userIDs = append(userIDs, listItem.Key.String())
-			}
+		var listItem storage.ListItem
+		for iterator.Next(&listItem) {
+			userIDs = append(userIDs, listItem.Key.String())
 		}
 		return nil
 	})
@@ -320,19 +317,13 @@ func (authDB *AuthorizationDB) List() (auths Authorizations, err error) {
 		Recurse: true,
 	}, func(iterator storage.Iterator) error {
 		var listErrs errs.Group
-		listItem := new(storage.ListItem)
-		for more := true; more; {
-			more = iterator.Next(listItem)
-			if listItem != nil {
-				var nextAuths Authorizations
-				if err := nextAuths.Unmarshal(listItem.Value); err != nil {
-					listErrs.Add(err)
-				}
-				auths = append(auths, nextAuths...)
+		var listItem storage.ListItem
+		for iterator.Next(&listItem) {
+			var nextAuths Authorizations
+			if err := nextAuths.Unmarshal(listItem.Value); err != nil {
+				listErrs.Add(err)
 			}
-			if !more {
-				break
-			}
+			auths = append(auths, nextAuths...)
 		}
 		return listErrs.Err()
 	})
