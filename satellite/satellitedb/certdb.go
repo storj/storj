@@ -32,9 +32,6 @@ func (b *certDB) SavePublicKey(ctx context.Context, nodeID storj.NodeID, publicK
 			return Error.Wrap(errs.Combine(err, tx.Rollback()))
 		}
 
-		if err != nil {
-			return Error.Wrap(errs.Combine(err, tx.Rollback()))
-		}
 		_, err = tx.Create_CertRecord(ctx,
 			dbx.CertRecord_Publickey(pubbytes),
 			dbx.CertRecord_Id(nodeID.Bytes()),

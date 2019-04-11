@@ -33,7 +33,7 @@
 						isPassword>
 				</HeaderlessInput>
 				<div class="login-area__submit-area">
-					<router-link to="" class="login-area__navigation-area__nav-link" exact>
+					<router-link v-bind:to="forgotPasswordRouterPath" class="login-area__navigation-area__nav-link" exact>
 						<h3><strong>Forgot password?</strong></h3>
 					</router-link>
 					<div class="login-area__submit-area__login-button" v-on:click.prevent="onLogin">
@@ -42,8 +42,8 @@
 				</div>
 				<div class="login-area__info-area">
 					<p class="login-area__info-area__signature">Storj Labs Inc 2019.</p>
-					<a class="login-area__info-area__terms">Terms & Conditions</a>
-					<a class="login-area__info-area__help">Help</a>
+					<a class="login-area__info-area__terms" href="https://tardigrade.io/terms-of-use/" target="_blank">Terms & Conditions</a>
+					<a class="login-area__info-area__help" href="mailto:support@storj.io" target="_blank">Support</a>
 				</div>
 			</div>
 		</div>
