@@ -22,7 +22,7 @@
             mainTitle="Let's create your first API Key"
             additional-text="<p>API keys give access to the project allowing you to create buckets, upload files, and read them. Once you’ve created an API key, you’re ready to interact with the network through our Uplink CLI.</p>"
             :imageSource="emptyImage"
-            buttonLabel="Create an Api Key"
+            buttonLabel="Create an API Key"
             isButtonShown />
         <AddAPIKeyPopup v-if="isPopupShown"/>
     </div>
