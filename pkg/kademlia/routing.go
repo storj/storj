@@ -352,57 +352,40 @@ func (rt *RoutingTable) BufferedGraph(buf *bytes.Buffer) {
 		bucketids = append(bucketids, keyToBucketID(n))
 	}
 
-	if len(bucketids) == 1 {
-		rt.addToGraph(bucketids[0], buf, "", "")
-		buf.Write([]byte("}\n"))
-		return
-	}
 	rt.addBucketsToGraph(bucketids, 0, buf, "")
 
 	buf.Write([]byte("}\n"))
 
 }
 
-func extendPrefix(prefix string, bit bool) string {
-	if bit {
-		return prefix + "1"
-	}
-	return prefix + "0"
-}
-
 func (rt *RoutingTable) addBucketsToGraph(b []bucketID, depth int, buf *bytes.Buffer, in_prefix string) {
-	b0, b1 := splitBucket(b, 0)
+	if len(b) == 1 {
+		fmt.Fprintf(buf, "b%s [label=\"%s\nrouting:\\l", in_prefix, in_prefix)
+		
+		nodes, _ := rt.getNodeIDsWithinKBucket(b[0])
+		for _, n := range nodes {
+			fmt.Fprintf(buf, "  %s\\l", hex.EncodeToString(n[:]))
+		}
+		fmt.Fprintf(buf, "cache:\\l")
+		cached_nodes,_ := rt.replacementCache[b[0]]
+		for _, c := range cached_nodes {
+			fmt.Fprintf(buf, "  %s\\l", hex.EncodeToString(c.Id[:]))
+		}
+		fmt.Fprintf(buf, "\"];")
+		return
+	}
+	
+	b0, b1 := splitBucket(b, depth)
 
+	out_prefix := extendPrefix(in_prefix, false)
 	fmt.Fprintf(buf, "b%s [label=%q];", in_prefix, in_prefix)
 
-	if len(b0) == 1 {
-		rt.addToGraph(b0[0], buf, in_prefix, extendPrefix(in_prefix, false))
-	} else {
-		rt.addBucketsToGraph(b0, depth+1, buf, extendPrefix(in_prefix, false))
-	}
-	if len(b1) == 1 {
-		rt.addToGraph(b1[0], buf, in_prefix, extendPrefix(in_prefix, true))
-	} else {
-		rt.addBucketsToGraph(b1, depth+1, buf, extendPrefix(in_prefix, true))
-	}
-
-}
-func (rt *RoutingTable) addToGraph(b bucketID, buf *bytes.Buffer, in_prefix string, out_prefix string) {
-	fmt.Fprintf(buf, "b%s [label=\"%s\nrouting:\\l", out_prefix, out_prefix)
-
-	nodes, _ := rt.getNodeIDsWithinKBucket(b)
-	for _, n := range nodes {
-		fmt.Fprintf(buf, "  %s\\l", hex.EncodeToString(n[:]))
-	}
-	fmt.Fprintf(buf, "cache:\\l")
-	cached_nodes,_ := rt.replacementCache[b]
-	for _, c := range cached_nodes {
-		fmt.Fprintf(buf, "  %s\\l", hex.EncodeToString(c.Id[:]))
-	}
-	fmt.Fprintf(buf, "\"];")
-	if in_prefix != out_prefix {
-		fmt.Fprintf(buf, "b%s -> b%s;", in_prefix, out_prefix)
-	}
-
+	rt.addBucketsToGraph(b0, depth+1, buf, out_prefix)
+	fmt.Fprintf(buf, "b%s -> b%s [label=\"0\"];", in_prefix, out_prefix)
+	
+	out_prefix = extendPrefix(in_prefix, true)
+	rt.addBucketsToGraph(b1, depth+1, buf, out_prefix)
+	fmt.Fprintf(buf, "b%s -> b%s [label=\"1\"];", in_prefix, out_prefix)
+	
 }
 
