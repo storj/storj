@@ -12,13 +12,13 @@
 			</div>
 		</div>
 		<div class="usage-report-container__header">
-			<p>Usage Report</p>
+			<p>Usage</p>
 			<div class="usage-report-container__header__options-area">
 				<div class="usage-report-container__header__options-area__option active" @click.prevent="onCurrentRollupClick">
-					<p>Current roll up period</p>
+					<p>Current Billing Period</p>
 				</div>
 				<div class="usage-report-container__header__options-area__option" @click.prevent="onPreviousRollupClick">
-					<p>Previous Roll Up Period</p>
+					<p>Previous Billing Period</p>
 				</div>
 				<div class="usage-report-container__header__options-area__option" @click.prevent.self="onCustomDateClick">
 					<p @click.prevent.self="onCustomDateClick">Custom Date Range</p>
@@ -32,16 +32,16 @@
 		<div class="usage-report-container__main-area">
 			<div class="usage-report-container__main-area__info-area">
 				<div class="usage-report-container__main-area__info-area__item">
-					<h1>Storage GB/H</h1>
-					<h2>200.23</h2>
+					<h1>Storage GBh</h1>
+					<h2>{{storage}}</h2>
 				</div>
 				<div class="usage-report-container__main-area__info-area__item">
-					<h1>Egress GB/H</h1>
-					<h2>944.23</h2>
+					<h1>Egress GBh</h1>
+					<h2>{{egress}}</h2>
 				</div>
 				<div class="usage-report-container__main-area__info-area__item">
-					<h1>Objects Count/H</h1>
-					<h2>30 223</h2>
+					<h1>Objects per Hour</h1>
+					<h2>{{objectsCount}}</h2>
 				</div>
 			</div>
 			<div class="usage-report-container__main-area__footer">
@@ -65,63 +65,98 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import ROUTES from '@/utils/constants/routerConstants';
-    import Datepicker from '@/components/project/DatePicker.vue';
+import { Component, Vue } from 'vue-property-decorator';
+import ROUTES from '@/utils/constants/routerConstants';
+import Datepicker from '@/components/project/DatePicker.vue';
+import { NOTIFICATION_ACTIONS, PROJECT_USAGE_ACTIONS } from '@/utils/constants/actionNames';
 
-    @Component(
+@Component(
         {
-	        data: function () {
-	            const currentDate = new Date();
-	            const previousDate = new Date();
-	            previousDate.setMonth(currentDate.getMonth() - 1);
-
-	            return {
+            data: function () {
+                return {
                     startTime: {
                         time: '',
                     },
                     dateRange: {
-                        startDate: previousDate,
-	                    endDate: currentDate,
-                    }
-	            };
-	        },
+                        startDate: '',
+                        endDate: '',
+                    },
+                };
+            },
             components: {
                 Datepicker,
             },
+            beforeMount: function() {
+                const currentDate = new Date();
+                const previousDate = new Date();
+                previousDate.setDate(1);
+
+                this.$data.dateRange.startDate = previousDate;
+                this.$data.dateRange.endDate = currentDate;
+            },
+            beforeRouteLeave: function(to, from, next) {
+                const currentDate = new Date();
+                const previousDate = new Date();
+                previousDate.setDate(1);
+
+                this.$data.dateRange.startDate = previousDate;
+                this.$data.dateRange.endDate = currentDate;
+
+                const buttons = [...(document as any).querySelectorAll('.usage-report-container__header__options-area__option')];
+                buttons.forEach(option => {
+                    option.classList.remove('active');
+                });
+                buttons[0].classList.add('active');
+
+                next();
+            },
             methods: {
-                getDates: function(datesArray: string[]): void {
+                getDates: async function(datesArray: string[]) {
                     const firstDate = new Date(datesArray[0]);
                     const secondDate = new Date(datesArray[1]);
                     const isInverted = firstDate > secondDate;
-					this.$data.dateRange.startDate = isInverted ? secondDate : firstDate;
+                    this.$data.dateRange.startDate = isInverted ? secondDate : firstDate;
                     this.$data.dateRange.endDate = isInverted ? firstDate : secondDate;
+
+                    const response = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, this.$data.dateRange);
+                    if (!response.isSuccess) {
+                        this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
+                    }
                 },
                 onBackClick: function (): void {
                     this.$router.push(ROUTES.PROJECT_DETAILS);
                 },
-	            onCurrentRollupClick: function (event: any) {
+                onCurrentRollupClick: async function (event: any) {
                     const currentDate = new Date();
                     const previousDate = new Date();
-                    previousDate.setMonth(currentDate.getMonth() - 1);
-
-                    this.$data.dateRange.startDate = previousDate;
-                    this.$data.dateRange.endDate = currentDate;
-	                (this as any).onButtonClickAction(event);
-	            },
-                onPreviousRollupClick: function (event: any) {
-                    const currentDate = new Date();
-                    const previousDate = new Date();
-                    currentDate.setMonth(currentDate.getMonth() - 1);
-                    previousDate.setMonth(currentDate.getMonth() - 1);
+                    previousDate.setDate(1);
 
                     this.$data.dateRange.startDate = previousDate;
                     this.$data.dateRange.endDate = currentDate;
                     (this as any).onButtonClickAction(event);
+
+                    const response = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, this.$data.dateRange);
+                    if (!response.isSuccess) {
+                        this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
+                    }
+                },
+                onPreviousRollupClick: async function (event: any) {
+                    const date = new Date();
+                    const previousDate = new Date(date.getFullYear(), date.getMonth() - 1, 1);
+                    const currentDate = new Date(date.getFullYear(), date.getMonth(), 0);
+
+                    this.$data.dateRange.startDate = previousDate;
+                    this.$data.dateRange.endDate = currentDate;
+                    (this as any).onButtonClickAction(event);
+
+                    const response = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, this.$data.dateRange);
+                    if (!response.isSuccess) {
+                        this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
+                    }
                 },
                 onCustomDateClick: function (event: any) {
-	                (this as any).$refs.datePicker.showCheck();
-	                (this as any).onButtonClickAction(event);
+                    (this as any).$refs.datePicker.showCheck();
+                    (this as any).onButtonClickAction(event);
                 },
                 onButtonClickAction: function (event: any) {
                     let eventTarget = event.target;
@@ -137,17 +172,39 @@
                     (this as any).changeActiveClass(eventTarget);
                 },
                 changeActiveClass: function (target: any): void {
-                    [...document.querySelectorAll('.usage-report-container__header__options-area__option')].forEach(option => {
-                        option.classList.remove('active');
-                    });
+                    (this as any).removeActiveClass();
 
                     target.classList.add('active');
                 },
+                removeActiveClass: function(): void {
+                    const buttons = [...(document as any).querySelectorAll('.usage-report-container__header__options-area__option')];
+                    buttons.forEach(option => {
+                        option.classList.remove('active');
+                    });
+                },
                 onReportClick: function (): void {
-                    let route = this.$router.resolve(ROUTES.REPORT_TABLE);
-                    window.open(route.href, '_blank');
+                    let projectID = this.$store.getters.selectedProject.id;
+
+                    let url = new URL(location.origin);
+                    url.pathname = 'usage-report';
+                    url.searchParams.append('projectID', projectID);
+                    url.searchParams.append('since', this.$data.dateRange.startDate.toISOString());
+                    url.searchParams.append('before', this.$data.dateRange.endDate.toISOString());
+
+                    window.open(url.href, '_blank');
                 },
             },
+            computed: {
+                storage: function () {
+                    return this.$store.state.usageModule.projectUsage.storage.toPrecision(5);
+                },
+                egress: function () {
+                    return this.$store.state.usageModule.projectUsage.egress.toPrecision(5);
+                },
+                objectsCount: function () {
+                    return this.$store.state.usageModule.projectUsage.objectCount.toPrecision(5);
+                }
+            }
         }
     )
 
@@ -278,7 +335,7 @@
 						font-family: 'font_regular';
 						font-size: 18px;
 						line-height: 24px;
-						color: #AFB7C1;
+						color: #354049;
 						margin-block-start: 0em;
 						margin-block-end: 0em;
 					}
@@ -308,8 +365,8 @@
 
 				p {
 					font-family: 'font_regular';
-					font-size: 20px;
-					line-height: 27px;
+					font-size: 16px;
+					line-height: 21px;
 					color: #AFB7C1;
 
 					b {
@@ -327,8 +384,8 @@
 					p {
 						font-family: 'font_medium';
 						font-weight: bold;
-						font-size: 20px;
-						line-height: 29px;
+						font-size: 16px;
+						line-height: 21px;
 						color: #354049;
 						margin-right: 30px;
 					}

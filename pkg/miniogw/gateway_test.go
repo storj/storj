@@ -708,7 +708,7 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 
 	buckets := buckets.NewStore(streams)
 
-	kvmetainfo := kvmetainfo.New(metainfo, buckets, streams, segments, key)
+	kvmetainfo := kvmetainfo.New(metainfo, buckets, streams, segments, key, 1*memory.KiB.Int32(), rs, 64*memory.MiB.Int64())
 
 	uplink, err := libuplink.NewUplink(ctx, &libuplink.Config{
 		Volatile: struct {

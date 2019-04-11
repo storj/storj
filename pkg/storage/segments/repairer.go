@@ -75,7 +75,10 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 		}
 	}
 
-	bucketID := createBucketID(path)
+	bucketID, err := createBucketID(path)
+	if err != nil {
+		return Error.Wrap(err)
+	}
 
 	// Create the order limits for the GET_REPAIR action
 	getOrderLimits, err := repairer.orders.CreateGetRepairOrderLimits(ctx, repairer.identity.PeerIdentity(), bucketID, pointer, healthyPieces)
@@ -147,10 +150,10 @@ func sliceToSet(slice []int32) map[int32]struct{} {
 	return set
 }
 
-func createBucketID(path storj.Path) []byte {
+func createBucketID(path storj.Path) ([]byte, error) {
 	comps := storj.SplitPath(path)
-	if len(comps) < 2 {
-		return nil
+	if len(comps) < 3 {
+		return nil, Error.New("no bucket component in path: %s", path)
 	}
-	return []byte(storj.JoinPaths(comps[0], comps[1]))
+	return []byte(storj.JoinPaths(comps[0], comps[2])), nil
 }

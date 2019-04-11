@@ -5,7 +5,6 @@ package overlay_test
 
 import (
 	"context"
-	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -53,7 +52,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 			UptimeSuccessCount: currUptimeSuccess,
 		}
 
-		_, err := cache.CreateEntryIfNotExists(ctx, &pb.Node{Id: nodeID})
+		err := cache.Update(ctx, &pb.Node{Id: nodeID})
 		require.NoError(t, err)
 
 		stats, err := cache.CreateStats(ctx, nodeID, nodeStats)
@@ -61,16 +60,15 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		assert.EqualValues(t, auditSuccessRatio, stats.AuditSuccessRatio)
 		assert.EqualValues(t, uptimeRatio, stats.UptimeRatio)
 
-		stats, err = cache.GetStats(ctx, nodeID)
+		node, err := cache.Get(ctx, nodeID)
 		require.NoError(t, err)
 
-		assert.EqualValues(t, nodeID, stats.NodeID)
-		assert.EqualValues(t, currAuditCount, stats.AuditCount)
-		assert.EqualValues(t, currAuditSuccess, stats.AuditSuccessCount)
-		assert.EqualValues(t, auditSuccessRatio, stats.AuditSuccessRatio)
-		assert.EqualValues(t, currUptimeCount, stats.UptimeCount)
-		assert.EqualValues(t, currUptimeSuccess, stats.UptimeSuccessCount)
-		assert.EqualValues(t, uptimeRatio, stats.UptimeRatio)
+		assert.EqualValues(t, currAuditCount, node.Reputation.AuditCount)
+		assert.EqualValues(t, currAuditSuccess, node.Reputation.AuditSuccessCount)
+		assert.EqualValues(t, auditSuccessRatio, node.Reputation.AuditSuccessRatio)
+		assert.EqualValues(t, currUptimeCount, node.Reputation.UptimeCount)
+		assert.EqualValues(t, currUptimeSuccess, node.Reputation.UptimeSuccessCount)
+		assert.EqualValues(t, uptimeRatio, node.Reputation.UptimeRatio)
 	}
 
 	{ // TestGetDoesNotExist
@@ -107,7 +105,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 				UptimeSuccessCount: tt.uptimeSuccessCount,
 			}
 
-			_, err := cache.CreateEntryIfNotExists(ctx, &pb.Node{Id: tt.nodeID})
+			err := cache.Update(ctx, &pb.Node{Id: tt.nodeID})
 			require.NoError(t, err)
 
 			_, err = cache.CreateStats(ctx, tt.nodeID, nodeStats)
@@ -135,66 +133,71 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 
 	{ // TestUpdateOperator
 		nodeID := storj.NodeID{10}
-		stats, err := cache.CreateEntryIfNotExists(ctx, &pb.Node{Id: nodeID})
-
+		err := cache.Update(ctx, &pb.Node{Id: nodeID})
 		require.NoError(t, err)
 
-		assert.Equal(t, stats.Operator.Wallet, "")
-		assert.Equal(t, stats.Operator.Email, "")
-
-		update, err := cache.UpdateOperator(ctx, nodeID, pb.NodeOperator{
-			Wallet: "0x1111111111111111111111111111111111111111",
-			Email:  "abc123@gmail.com",
+		update, err := cache.UpdateNodeInfo(ctx, nodeID, &pb.InfoResponse{
+			Operator: &pb.NodeOperator{
+				Wallet: "0x1111111111111111111111111111111111111111",
+				Email:  "abc123@gmail.com",
+			},
 		})
 
 		require.NoError(t, err)
 		assert.NotNil(t, update)
 
-		found, err := cache.GetStats(ctx, nodeID)
+		found, err := cache.Get(ctx, nodeID)
 		assert.NotNil(t, found)
 		require.NoError(t, err)
 
-		assert.Equal(t, "0x1111111111111111111111111111111111111111", found.Operator.Wallet)
-		assert.Equal(t, "abc123@gmail.com", found.Operator.Email)
+		assert.Equal(t, "0x1111111111111111111111111111111111111111", update.Operator.Wallet)
+		assert.Equal(t, "abc123@gmail.com", update.Operator.Email)
 
-		updateEmail, err := cache.UpdateOperator(ctx, nodeID, pb.NodeOperator{
-			Email: "def456@gmail.com",
+		updateEmail, err := cache.UpdateNodeInfo(ctx, nodeID, &pb.InfoResponse{
+			Operator: &pb.NodeOperator{
+				Wallet: update.Operator.Wallet,
+				Email:  "def456@gmail.com",
+			},
 		})
 
 		require.NoError(t, err)
 		assert.NotNil(t, updateEmail)
-		assert.Equal(t, updateEmail.Operator.Email, "def456@gmail.com")
+		assert.Equal(t, "0x1111111111111111111111111111111111111111", updateEmail.Operator.Wallet)
+		assert.Equal(t, "def456@gmail.com", updateEmail.Operator.Email)
 
-		updateWallet, err := cache.UpdateOperator(ctx, nodeID, pb.NodeOperator{
-			Wallet: "0x2222222222222222222222222222222222222222",
+		updateWallet, err := cache.UpdateNodeInfo(ctx, nodeID, &pb.InfoResponse{
+			Operator: &pb.NodeOperator{
+				Wallet: "0x2222222222222222222222222222222222222222",
+				Email:  updateEmail.Operator.Email,
+			},
 		})
 
 		require.NoError(t, err)
 		assert.NotNil(t, updateWallet)
-		assert.Equal(t, updateWallet.Operator.Wallet, "0x2222222222222222222222222222222222222222")
+		assert.Equal(t, "0x2222222222222222222222222222222222222222", updateWallet.Operator.Wallet)
+		assert.Equal(t, "def456@gmail.com", updateWallet.Operator.Email)
 	}
 
 	{ // TestUpdateExists
 		auditSuccessRatio := getRatio(currAuditSuccess, currAuditCount)
 		uptimeRatio := getRatio(currUptimeSuccess, currUptimeCount)
 
-		stats, err := cache.GetStats(ctx, nodeID)
+		node, err := cache.Get(ctx, nodeID)
 		require.NoError(t, err)
 
-		assert.EqualValues(t, nodeID, stats.NodeID)
-		assert.EqualValues(t, currAuditCount, stats.AuditCount)
-		assert.EqualValues(t, currAuditSuccess, stats.AuditSuccessCount)
-		assert.EqualValues(t, auditSuccessRatio, stats.AuditSuccessRatio)
-		assert.EqualValues(t, currUptimeCount, stats.UptimeCount)
-		assert.EqualValues(t, currUptimeSuccess, stats.UptimeSuccessCount)
-		assert.EqualValues(t, uptimeRatio, stats.UptimeRatio)
+		assert.EqualValues(t, currAuditCount, node.Reputation.AuditCount)
+		assert.EqualValues(t, currAuditSuccess, node.Reputation.AuditSuccessCount)
+		assert.EqualValues(t, auditSuccessRatio, node.Reputation.AuditSuccessRatio)
+		assert.EqualValues(t, currUptimeCount, node.Reputation.UptimeCount)
+		assert.EqualValues(t, currUptimeSuccess, node.Reputation.UptimeSuccessCount)
+		assert.EqualValues(t, uptimeRatio, node.Reputation.UptimeRatio)
 
 		updateReq := &overlay.UpdateRequest{
 			NodeID:       nodeID,
 			AuditSuccess: true,
 			IsUp:         false,
 		}
-		stats, err = cache.UpdateStats(ctx, updateReq)
+		stats, err := cache.UpdateStats(ctx, updateReq)
 		require.NoError(t, err)
 
 		currAuditSuccess++
@@ -211,18 +214,17 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		auditSuccessRatio := getRatio(currAuditSuccess, currAuditCount)
 		uptimeRatio := getRatio(currUptimeSuccess, currUptimeCount)
 
-		stats, err := cache.GetStats(ctx, nodeID)
+		node, err := cache.Get(ctx, nodeID)
 		require.NoError(t, err)
 
-		assert.EqualValues(t, nodeID, stats.NodeID)
-		assert.EqualValues(t, currAuditCount, stats.AuditCount)
-		assert.EqualValues(t, currAuditSuccess, stats.AuditSuccessCount)
-		assert.EqualValues(t, auditSuccessRatio, stats.AuditSuccessRatio)
-		assert.EqualValues(t, currUptimeCount, stats.UptimeCount)
-		assert.EqualValues(t, currUptimeSuccess, stats.UptimeSuccessCount)
-		assert.EqualValues(t, uptimeRatio, stats.UptimeRatio)
+		assert.EqualValues(t, currAuditCount, node.Reputation.AuditCount)
+		assert.EqualValues(t, currAuditSuccess, node.Reputation.AuditSuccessCount)
+		assert.EqualValues(t, auditSuccessRatio, node.Reputation.AuditSuccessRatio)
+		assert.EqualValues(t, currUptimeCount, node.Reputation.UptimeCount)
+		assert.EqualValues(t, currUptimeSuccess, node.Reputation.UptimeSuccessCount)
+		assert.EqualValues(t, uptimeRatio, node.Reputation.UptimeRatio)
 
-		stats, err = cache.UpdateUptime(ctx, nodeID, false)
+		stats, err := cache.UpdateUptime(ctx, nodeID, false)
 		require.NoError(t, err)
 
 		currUptimeCount++
@@ -236,18 +238,17 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		auditSuccessRatio := getRatio(currAuditSuccess, currAuditCount)
 		uptimeRatio := getRatio(currUptimeSuccess, currUptimeCount)
 
-		stats, err := cache.GetStats(ctx, nodeID)
+		node, err := cache.Get(ctx, nodeID)
 		require.NoError(t, err)
 
-		assert.EqualValues(t, nodeID, stats.NodeID)
-		assert.EqualValues(t, currAuditCount, stats.AuditCount)
-		assert.EqualValues(t, currAuditSuccess, stats.AuditSuccessCount)
-		assert.EqualValues(t, auditSuccessRatio, stats.AuditSuccessRatio)
-		assert.EqualValues(t, currUptimeCount, stats.UptimeCount)
-		assert.EqualValues(t, currUptimeSuccess, stats.UptimeSuccessCount)
-		assert.EqualValues(t, uptimeRatio, stats.UptimeRatio)
+		assert.EqualValues(t, currAuditCount, node.Reputation.AuditCount)
+		assert.EqualValues(t, currAuditSuccess, node.Reputation.AuditSuccessCount)
+		assert.EqualValues(t, auditSuccessRatio, node.Reputation.AuditSuccessRatio)
+		assert.EqualValues(t, currUptimeCount, node.Reputation.UptimeCount)
+		assert.EqualValues(t, currUptimeSuccess, node.Reputation.UptimeSuccessCount)
+		assert.EqualValues(t, uptimeRatio, node.Reputation.UptimeRatio)
 
-		stats, err = cache.UpdateStats(ctx, &overlay.UpdateRequest{
+		stats, err := cache.UpdateStats(ctx, &overlay.UpdateRequest{
 			NodeID:       nodeID,
 			IsUp:         true,
 			AuditSuccess: false,
@@ -260,102 +261,5 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		assert.EqualValues(t, currAuditCount, stats.AuditCount)
 		newUptimeRatio := getRatio(stats.UptimeSuccessCount, stats.UptimeCount)
 		assert.EqualValues(t, newUptimeRatio, stats.UptimeRatio)
-	}
-
-	{ // TestUpdateBatchExists
-		nodeID1 := storj.NodeID{255, 1}
-		nodeID2 := storj.NodeID{255, 2}
-		nodeID3 := storj.NodeID{255, 3}
-		nodeID4 := storj.NodeID{255, 4}
-
-		auditSuccessCount1 := int64(4)
-		auditCount1 := int64(10)
-		auditRatio1 := getRatio(auditSuccessCount1, auditCount1)
-
-		uptimeSuccessCount1 := int64(8)
-		uptimeCount1 := int64(25)
-		uptimeRatio1 := getRatio(uptimeSuccessCount1, uptimeCount1)
-
-		nodeStats := &overlay.NodeStats{
-			AuditSuccessCount:  auditSuccessCount1,
-			AuditCount:         auditCount1,
-			AuditSuccessRatio:  auditRatio1,
-			UptimeSuccessCount: uptimeSuccessCount1,
-			UptimeCount:        uptimeCount1,
-			UptimeRatio:        uptimeRatio1,
-		}
-
-		_, err := cache.CreateEntryIfNotExists(ctx, &pb.Node{Id: nodeID1})
-		require.NoError(t, err)
-
-		stats, err := cache.CreateStats(ctx, nodeID1, nodeStats)
-		require.NoError(t, err)
-		assert.EqualValues(t, auditRatio1, stats.AuditSuccessRatio)
-		assert.EqualValues(t, uptimeRatio1, stats.UptimeRatio)
-
-		auditSuccessCount2 := int64(7)
-		auditCount2 := int64(10)
-		auditRatio2 := getRatio(auditSuccessCount2, auditCount2)
-
-		uptimeSuccessCount2 := int64(8)
-		uptimeCount2 := int64(20)
-		uptimeRatio2 := getRatio(uptimeSuccessCount2, uptimeCount2)
-
-		nodeStats = &overlay.NodeStats{
-			AuditSuccessCount:  auditSuccessCount2,
-			AuditCount:         auditCount2,
-			AuditSuccessRatio:  auditRatio2,
-			UptimeSuccessCount: uptimeSuccessCount2,
-			UptimeCount:        uptimeCount2,
-			UptimeRatio:        uptimeRatio2,
-		}
-
-		_, err = cache.CreateEntryIfNotExists(ctx, &pb.Node{Id: nodeID2})
-		require.NoError(t, err)
-
-		stats, err = cache.CreateStats(ctx, nodeID2, nodeStats)
-		require.NoError(t, err)
-		assert.EqualValues(t, auditRatio2, stats.AuditSuccessRatio)
-		assert.EqualValues(t, uptimeRatio2, stats.UptimeRatio)
-
-		updateReqList := []*overlay.UpdateRequest{
-			&overlay.UpdateRequest{
-				NodeID:       nodeID1,
-				AuditSuccess: true,
-				IsUp:         false,
-			},
-			&overlay.UpdateRequest{
-				NodeID:       nodeID2,
-				AuditSuccess: true,
-				IsUp:         true,
-			},
-		}
-		statsList, _, err := cache.UpdateBatch(ctx, updateReqList)
-		require.NoError(t, err)
-
-		newAuditRatio1 := getRatio(auditSuccessCount1+1, auditCount1+1)
-		newUptimeRatio1 := getRatio(uptimeSuccessCount1, uptimeCount1+1)
-		newAuditRatio2 := getRatio(auditSuccessCount2+1, auditCount2+1)
-		newUptimeRatio2 := getRatio(uptimeSuccessCount2+1, uptimeCount2+1)
-		stats1 := statsList[0]
-		stats2 := statsList[1]
-		assert.EqualValues(t, newAuditRatio1, stats1.AuditSuccessRatio)
-		assert.EqualValues(t, newUptimeRatio1, stats1.UptimeRatio)
-		assert.EqualValues(t, newAuditRatio2, stats2.AuditSuccessRatio)
-		assert.EqualValues(t, newUptimeRatio2, stats2.UptimeRatio)
-
-		concurrency := 100
-		t.Run("CreateEntryIfNotExists", func(t *testing.T) {
-			nodes := []*pb.Node{&pb.Node{Id: nodeID1}, &pb.Node{Id: nodeID2}, &pb.Node{Id: nodeID3}, &pb.Node{Id: nodeID4}}
-			for P := 0; P < concurrency; P++ {
-				t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
-					t.Parallel()
-					for _, node := range nodes {
-						_, err := cache.CreateEntryIfNotExists(ctx, node)
-						assert.NoError(t, err)
-					}
-				})
-			}
-		})
 	}
 }

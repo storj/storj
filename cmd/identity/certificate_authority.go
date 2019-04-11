@@ -124,7 +124,15 @@ func cmdGetID(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	fmt.Println(p.ID.String())
+	fmt.Printf("base58-check node ID:\t%s\n", p.ID)
+	fmt.Printf("hex node ID:\t\t%x\n", p.ID)
+	fmt.Printf("node ID bytes:\t\t%v\n", p.ID[:])
+
+	difficulty, err := p.ID.Difficulty()
+	if err != nil {
+		return nil
+	}
+	fmt.Printf("difficulty:\t\t%d\n", difficulty)
 	return nil
 }
 
@@ -139,7 +147,7 @@ func cmdRevokeCA(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	if err := extensions.AddRevocationExt(ca.Key, ca.Cert, ca.Cert); err != nil {
+	if err := ca.Revoke(); err != nil {
 		return err
 	}
 
@@ -211,5 +219,5 @@ func cmdCAExtensions(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	return printExtensions(ca.Cert.Raw, ca.Cert.ExtraExtensions)
+	return printExtensions(ca.Cert.Raw, ca.Cert.Extensions)
 }

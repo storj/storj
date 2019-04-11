@@ -36,9 +36,9 @@ read one (
 	where  irreparabledb.segmentpath = ?
 )
 
-read limitoffset ( 
-	select irreparabledb 
-	orderby asc irreparabledb.segmentpath 
+read limitoffset (
+	select irreparabledb
+	orderby asc irreparabledb.segmentpath
 )
 
 //--- accounting ---//
@@ -68,7 +68,7 @@ model accounting_rollup (
 	field put_total        int64
 	field get_total        int64
 	field get_audit_total  int64
-	field get_repair_total int64 
+	field get_repair_total int64
 	field put_repair_total int64
 	field at_rest_total    float64
 )
@@ -127,6 +127,13 @@ model node (
 	field wallet         text  ( updatable ) // TODO: use compressed format
 	field free_bandwidth int64 ( updatable )
 	field free_disk      int64 ( updatable )
+
+ 	field major             int64 ( updatable )
+	field minor             int64 ( updatable )
+	field patch             int64 ( updatable )
+	field hash              text ( updatable )
+	field timestamp         timestamp ( updatable )
+	field release           bool ( updatable )
 
 	field latency_90           int64   ( updatable )
 	field audit_success_count  int64   ( updatable )
@@ -428,7 +435,7 @@ model bucket_storage_tally (
 
 	field inline uint64
 	field remote uint64
-	
+
 	field  remote_segments_count    uint
 	field  inline_segments_count    uint
 	field  object_count             uint
@@ -441,6 +448,15 @@ create bucket_storage_tally ()
 read first (
     select bucket_storage_tally
     where bucket_storage_tally.project_id = ?
+    orderby desc bucket_storage_tally.interval_start
+)
+
+read all (
+    select bucket_storage_tally
+    where bucket_storage_tally.project_id = ?
+    where bucket_storage_tally.bucket_name = ?
+    where bucket_storage_tally.interval_start >= ?
+    where bucket_storage_tally.interval_start <= ?
     orderby desc bucket_storage_tally.interval_start
 )
 
@@ -469,6 +485,11 @@ read scalar (
 	where  storagenode_bandwidth_rollup.action = ?
 )
 
+read all (
+	select storagenode_bandwidth_rollup
+	where storagenode_bandwidth_rollup.interval_start >= ?
+)
+
 model storagenode_storage_tally (
 	key    storagenode_id interval_start
 
@@ -481,7 +502,7 @@ model storagenode_storage_tally (
 //--- certRecord ---//
 
 model certRecord (
-	key id 
+	key id
 
 	field publickey  blob		//--uplink public key--//
 	field id         blob		//--uplink node id  --//

@@ -6,7 +6,6 @@ package orders
 import (
 	"context"
 	"io"
-	"strings"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
@@ -33,16 +32,16 @@ type DB interface {
 	UnuseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) error
 
 	// UpdateBucketBandwidthAllocation updates 'allocated' bandwidth for given bucket
-	UpdateBucketBandwidthAllocation(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64) error
+	UpdateBucketBandwidthAllocation(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error
 	// UpdateBucketBandwidthSettle updates 'settled' bandwidth for given bucket
-	UpdateBucketBandwidthSettle(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64) error
+	UpdateBucketBandwidthSettle(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error
 	// UpdateBucketBandwidthInline updates 'inline' bandwidth for given bucket
-	UpdateBucketBandwidthInline(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64) error
+	UpdateBucketBandwidthInline(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error
 
 	// UpdateStoragenodeBandwidthAllocation updates 'allocated' bandwidth for given storage node
-	UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64) error
+	UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error
 	// UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node
-	UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64) error
+	UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error
 
 	// GetBucketBandwidth gets total bucket bandwidth from period of time
 	GetBucketBandwidth(ctx context.Context, bucketID []byte, from, to time.Time) (int64, error)
@@ -53,7 +52,10 @@ type DB interface {
 var (
 	// Error the default orders errs class
 	Error = errs.Class("orders error")
-	mon   = monkit.Package()
+	// ErrUsingSerialNumber error class for serial number
+	ErrUsingSerialNumber = errs.Class("serial number")
+
+	mon = monkit.Package()
 )
 
 // Endpoint for orders receiving
@@ -170,8 +172,7 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 		bucketID, err := endpoint.DB.UseSerialNumber(ctx, orderLimit.SerialNumber, orderLimit.StorageNodeId)
 		if err != nil {
 			endpoint.log.Warn("unable to use serial number", zap.Error(err))
-			duplicateRequest := strings.Contains(err.Error(), "violates constraint")
-			if duplicateRequest {
+			if ErrUsingSerialNumber.Has(err) {
 				err := stream.Send(&pb.SettlementResponse{
 					SerialNumber: orderLimit.SerialNumber,
 					Status:       pb.SettlementResponse_REJECTED,
@@ -184,19 +185,21 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 			}
 			continue
 		}
+		now := time.Now().UTC()
+		intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
-		if err := endpoint.DB.UpdateBucketBandwidthSettle(ctx, bucketID, orderLimit.Action, order.Amount); err != nil {
+		if err := endpoint.DB.UpdateBucketBandwidthSettle(ctx, bucketID, orderLimit.Action, order.Amount, intervalStart); err != nil {
 			if err := endpoint.DB.UnuseSerialNumber(ctx, orderLimit.SerialNumber, orderLimit.StorageNodeId); err != nil {
 				endpoint.log.Error("unable to unuse serial number", zap.Error(err))
 			}
 			return err
 		}
 
-		if err := endpoint.DB.UpdateStoragenodeBandwidthSettle(ctx, orderLimit.StorageNodeId, orderLimit.Action, order.Amount); err != nil {
+		if err := endpoint.DB.UpdateStoragenodeBandwidthSettle(ctx, orderLimit.StorageNodeId, orderLimit.Action, order.Amount, intervalStart); err != nil {
 			if err := endpoint.DB.UnuseSerialNumber(ctx, orderLimit.SerialNumber, orderLimit.StorageNodeId); err != nil {
 				endpoint.log.Error("unable to unuse serial number", zap.Error(err))
 			}
-			if err := endpoint.DB.UpdateBucketBandwidthSettle(ctx, bucketID, orderLimit.Action, -order.Amount); err != nil {
+			if err := endpoint.DB.UpdateBucketBandwidthSettle(ctx, bucketID, orderLimit.Action, -order.Amount, intervalStart); err != nil {
 				endpoint.log.Error("unable to rollback bucket bandwidth", zap.Error(err))
 			}
 			return err

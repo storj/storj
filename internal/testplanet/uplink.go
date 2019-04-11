@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"strconv"
 
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
@@ -47,7 +48,9 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 		return nil, err
 	}
 
-	tlsOpts, err := tlsopts.NewOptions(identity, tlsopts.Config{})
+	tlsOpts, err := tlsopts.NewOptions(identity, tlsopts.Config{
+		PeerIDVersions: strconv.Itoa(int(planet.config.IdentityVersion.Number)),
+	})
 	if err != nil {
 		return nil, err
 	}

@@ -4,10 +4,15 @@
 package consoleql
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
 
+	"storj.io/storj/internal/post"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/mailservice"
 )
 
 const (
@@ -21,15 +26,17 @@ const (
 	MyProjectsQuery = "myProjects"
 	// TokenQuery is a query name for token
 	TokenQuery = "token"
+	// ForgotPasswordQuery is a query name for password recovery request
+	ForgotPasswordQuery = "forgotPassword"
 )
 
 // rootQuery creates query for graphql populated by AccountsClient
-func rootQuery(service *console.Service, types Types) *graphql.Object {
+func rootQuery(service *console.Service, mailService *mailservice.Service, types *TypeCreator) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: Query,
 		Fields: graphql.Fields{
 			UserQuery: &graphql.Field{
-				Type: types.User(),
+				Type: types.user,
 				Args: graphql.FieldConfigArgument{
 					FieldID: &graphql.ArgumentConfig{
 						Type: graphql.String,
@@ -45,7 +52,7 @@ func rootQuery(service *console.Service, types Types) *graphql.Object {
 				},
 			},
 			ProjectQuery: &graphql.Field{
-				Type: types.Project(),
+				Type: types.project,
 				Args: graphql.FieldConfigArgument{
 					FieldID: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
@@ -63,13 +70,13 @@ func rootQuery(service *console.Service, types Types) *graphql.Object {
 				},
 			},
 			MyProjectsQuery: &graphql.Field{
-				Type: graphql.NewList(types.Project()),
+				Type: graphql.NewList(types.project),
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					return service.GetUsersProjects(p.Context)
 				},
 			},
 			TokenQuery: &graphql.Field{
-				Type: types.Token(),
+				Type: types.token,
 				Args: graphql.FieldConfigArgument{
 					FieldEmail: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
@@ -88,6 +95,50 @@ func rootQuery(service *console.Service, types Types) *graphql.Object {
 					}
 
 					return tokenWrapper{Token: token}, nil
+				},
+			},
+			ForgotPasswordQuery: &graphql.Field{
+				Type: graphql.Boolean,
+				Args: graphql.FieldConfigArgument{
+					FieldEmail: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					email, _ := p.Args[FieldEmail].(string)
+
+					user, err := service.GetUserByEmail(p.Context, email)
+					if err != nil {
+						return false, fmt.Errorf("%s is not found", email)
+					}
+
+					recoveryToken, err := service.GeneratePasswordRecoveryToken(p.Context, user.ID, user.Email)
+					if err != nil {
+						return false, errors.New("failed to generate password recovery token")
+					}
+
+					rootObject := p.Info.RootValue.(map[string]interface{})
+					origin := rootObject["origin"].(string)
+					link := origin + rootObject[PasswordRecoveryPath].(string) + recoveryToken
+					userName := user.ShortName
+					if user.ShortName == "" {
+						userName = user.FullName
+					}
+
+					// TODO: think of a better solution
+					go func() {
+						_ = mailService.SendRendered(
+							p.Context,
+							[]post.Address{{Address: user.Email, Name: userName}},
+							&ForgotPasswordEmail{
+								Origin:    origin,
+								ResetLink: link,
+								UserName:  userName,
+							},
+						)
+					}()
+
+					return true, nil
 				},
 			},
 		},

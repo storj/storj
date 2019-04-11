@@ -270,6 +270,10 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 		}
 	}()
 
+	if successfulCount < int32(optimalCount) {
+		return nil, nil, Error.New("successful nodes count (%d) does not match optimal count (%d) of erasure scheme", successfulCount, optimalCount)
+	}
+
 	return successfulNodes, successfulHashes, nil
 }
 
@@ -468,7 +472,24 @@ func (lr *lazyPieceRanger) Range(ctx context.Context, offset, length int64) (io.
 	if err != nil {
 		return nil, err
 	}
-	return ps.Download(ctx, lr.limit.GetLimit(), offset, length)
+
+	download, err := ps.Download(ctx, lr.limit.GetLimit(), offset, length)
+	if err != nil {
+		return nil, errs.Combine(err, ps.Close())
+	}
+	return &clientCloser{download, ps}, nil
+}
+
+type clientCloser struct {
+	piecestore.Downloader
+	client *piecestore.Client
+}
+
+func (client *clientCloser) Close() error {
+	return errs.Combine(
+		client.Downloader.Close(),
+		client.client.Close(),
+	)
 }
 
 func nonNilCount(limits []*pb.AddressedOrderLimit) int {

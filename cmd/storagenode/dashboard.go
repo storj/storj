@@ -19,6 +19,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/transport"
@@ -80,7 +81,7 @@ func printDashboard(data *pb.DashboardResponse) error {
 	color.NoColor = !useColor
 
 	heading := color.New(color.FgGreen, color.Bold)
-	_, _ = heading.Printf("\nStorage Node Dashboard\n")
+	_, _ = heading.Printf("\nStorage Node Dashboard ( Node Version: %s )\n", version.Build.Version.String())
 	_, _ = heading.Printf("\n======================\n\n")
 
 	w := tabwriter.NewWriter(color.Output, 0, 0, 1, ' ', 0)
@@ -98,7 +99,7 @@ func printDashboard(data *pb.DashboardResponse) error {
 	}
 	switch {
 	case lastContacted.IsZero():
-		fmt.Fprintf(w, "Last Contact\t%s\n", color.RedString("NEVER"))
+		fmt.Fprintf(w, "Last Contact\t%s\n", color.RedString("OFFLINE"))
 	case time.Since(lastContacted) >= contactWindow:
 		fmt.Fprintf(w, "Last Contact\t%s\n", color.RedString(fmt.Sprintf("%s ago",
 			time.Since(lastContacted).Truncate(time.Second))))
@@ -129,7 +130,7 @@ func printDashboard(data *pb.DashboardResponse) error {
 
 		w = tabwriter.NewWriter(color.Output, 0, 0, 5, ' ', tabwriter.AlignRight)
 		fmt.Fprintf(w, "\n\t%s\t%s\t%s\t%s\t\n", color.GreenString("Available"), color.GreenString("Used"), color.GreenString("Egress"), color.GreenString("Ingress"))
-		fmt.Fprintf(w, "Bandwidth\t%s\t%s\t%s\t%s\t\n", availableBandwidth, usedBandwidth, usedEgress, usedIngress)
+		fmt.Fprintf(w, "Bandwidth\t%s\t%s\t%s\t%s\t (since %s 1)\n", availableBandwidth, usedBandwidth, usedEgress, usedIngress, time.Now().Format("Jan"))
 		fmt.Fprintf(w, "Disk\t%s\t%s\t\n", availableSpace, usedSpace)
 		if err = w.Flush(); err != nil {
 			return err
