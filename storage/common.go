@@ -95,7 +95,7 @@ type IterateOptions struct {
 // Iterator iterates over a sequence of ListItems
 type Iterator interface {
 	// Next prepares the next list item
-	// returns false when you reach final item
+	// returns false when there are no more items
 	Next(item *ListItem) bool
 }
 
