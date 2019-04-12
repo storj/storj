@@ -114,7 +114,7 @@ func (dr *decodedReader) Close() error {
 		errlist.Add(dr.stripeReader.Close())
 		dr.closeErr = errlist.Err()
 	})
-	// TODO reorganize to return multiple errors or divide into fatal, non fatal
+	// TODO this is workaround, we need reorganize to return multiple errors or divide into fatal, non fatal
 	if errorThreshold <= 0 {
 		return dr.closeErr
 	}
