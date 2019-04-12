@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.11
+GO_VERSION ?= 1.12.1
 GOOS ?= linux
 GOARCH ?= amd64
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
@@ -161,14 +161,14 @@ binary:
 	[ "${GOARCH}" = "amd64" ] && goversioninfo $$sixtyfour -o cmd/${COMPONENT}/resource.syso \
 	-original-name ${COMPONENT}_${GOOS}_${GOARCH}${FILEEXT} \
 	-description "${COMPONENT} program for Storj" \
-	-product-ver-build 2 -ver-build 2 \
-	-product-version "alpha2" \
+	-product-ver-build 9 -ver-build 9 \
+	-product-version "alpha9" \
 	resources/versioninfo.json || echo "goversioninfo is not installed, metadata will not be created"
-	tar -c . | docker run --rm -i -e TAR=1 -e GO111MODULE=on \
+	docker run --rm -i -v "${PWD}":/go/src/storj.io/storj -e GO111MODULE=on \
 	-e GOOS=${GOOS} -e GOARCH=${GOARCH} -e GOARM=6 -e CGO_ENABLED=1 \
-	-w /go/src/storj.io/storj -e GOPROXY storjlabs/golang \
-	-o app storj.io/storj/cmd/${COMPONENT} \
-	| tar -O -x ./app > release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT}
+	-w /go/src/storj.io/storj -e GOPROXY -u $(shell id -u):$(shell id -g) storjlabs/golang:${GO_VERSION} \
+	scripts/release.sh build -o release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT} \
+	storj.io/storj/cmd/${COMPONENT}
 	chmod 755 release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT}
 	[ "${FILEEXT}" = ".exe" ] && storj-sign release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT} || echo "Skipping signing"
 	rm -f release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH}.zip
