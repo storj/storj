@@ -48,13 +48,6 @@ type Peer struct {
 	response []byte
 }
 
-func ignoreCancel(err error) error {
-	if err == context.Canceled || err == http.ErrServerClosed {
-		return nil
-	}
-	return err
-}
-
 // HandleGet contains the request handler for the version control web server
 func (peer *Peer) HandleGet(w http.ResponseWriter, r *http.Request) {
 	// Only handle GET Requests
@@ -127,12 +120,12 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 
 	group.Go(func() error {
 		<-ctx.Done()
-		return ignoreCancel(peer.Server.Endpoint.Shutdown(ctx))
+		return errs2.IgnoreCanceled(peer.Server.Endpoint.Shutdown(ctx))
 	})
 	group.Go(func() error {
 		defer cancel()
 		peer.Log.Sugar().Infof("Versioning server started on %s", peer.Addr())
-		return ignoreCancel(peer.Server.Endpoint.Serve(peer.Server.Listener))
+		return errs2.IgnoreCanceled(peer.Server.Endpoint.Serve(peer.Server.Listener))
 	})
 	return group.Wait()
 }
