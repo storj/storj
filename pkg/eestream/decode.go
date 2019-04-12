@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/readcloser"
 	"storj.io/storj/pkg/encryption"
@@ -105,11 +106,7 @@ func (dr *decodedReader) Close() error {
 		for _, r := range dr.readers {
 			err := r.Close()
 			if err != nil {
-				if errorThreshold <= 0 {
-					errlist.Add(err)
-				} else {
-					// TODO log error
-				}
+				errlist.Add(err)
 				errorThreshold--
 			}
 		}
@@ -117,7 +114,12 @@ func (dr *decodedReader) Close() error {
 		errlist.Add(dr.stripeReader.Close())
 		dr.closeErr = errlist.Err()
 	})
-	return dr.closeErr
+	// TODO reorganize to return multiple errors or divide into fatal, non fatal
+	if errorThreshold <= 0 {
+		return dr.closeErr
+	}
+	zap.L().Debug("decode close non fatal error: ", zap.Error(dr.closeErr))
+	return nil
 }
 
 type decodedRanger struct {
