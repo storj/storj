@@ -260,7 +260,7 @@ endif
 
 .PHONY: binaries-upload
 binaries-upload: ## Upload binaries to Google Storage (jenkins)
-	cd "release/${TAG}"; for f in "*"; do zip "$f".zip "$f"; done
+	cd "release/${TAG}"; for f in *; do zip $${f}.zip $${f}; done
 	cd "release/${TAG}"; gsutil -m cp -r *.zip "gs://storj-v3-alpha-builds/${TAG}/"
 
 ##@ Clean
