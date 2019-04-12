@@ -57,7 +57,7 @@ func TestMakeBucketWithLocation(t *testing.T) {
 		bucket, err := metainfo.GetBucket(ctx, TestBucket)
 		assert.NoError(t, err)
 		assert.Equal(t, TestBucket, bucket.Name)
-		assert.True(t, time.Since(bucket.Created) < 1*time.Second)
+		assert.True(t, time.Since(bucket.Created) < 1*time.Minute)
 		assert.Equal(t, storj.AESGCM, bucket.PathCipher)
 
 		// Check the error when trying to create an existing bucket
@@ -198,7 +198,7 @@ func TestPutObject(t *testing.T) {
 			assert.Equal(t, TestFile, info.Name)
 			assert.Equal(t, TestBucket, info.Bucket)
 			assert.False(t, info.IsDir)
-			assert.True(t, time.Since(info.ModTime) < 1*time.Second)
+			assert.True(t, time.Since(info.ModTime) < 1*time.Minute)
 			assert.Equal(t, data.Size(), info.Size)
 			// assert.Equal(t, data.SHA256HexString(), info.ETag) TODO: when we start calculating checksums
 			assert.Equal(t, serMetaInfo.ContentType, info.ContentType)
@@ -376,7 +376,7 @@ func TestCopyObject(t *testing.T) {
 			assert.Equal(t, DestFile, info.Name)
 			assert.Equal(t, DestBucket, info.Bucket)
 			assert.False(t, info.IsDir)
-			assert.True(t, info.ModTime.Sub(obj.Modified) < 1*time.Second)
+			assert.True(t, info.ModTime.Sub(obj.Modified) < 1*time.Minute)
 			assert.Equal(t, obj.Size, info.Size)
 			assert.Equal(t, hex.EncodeToString(obj.Checksum), info.ETag)
 			assert.Equal(t, createInfo.ContentType, info.ContentType)
