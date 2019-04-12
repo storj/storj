@@ -10,13 +10,14 @@ import (
 	"sync"
 
 	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/storj"
 )
 
-// Error is the defualt error class
+// Error is the default error class
 var Error = errs.Class("trust:")
 
 // Pool implements different peer verifications.
@@ -33,7 +34,6 @@ type Pool struct {
 type satelliteInfoCache struct {
 	once     sync.Once
 	identity *identity.PeerIdentity
-	err      error
 }
 
 // NewPool creates a new trust pool using kademlia to find certificates and with the specified list of trusted satellites.
