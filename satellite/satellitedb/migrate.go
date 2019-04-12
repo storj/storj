@@ -542,6 +542,13 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					ALTER TABLE nodes ADD release bool NOT NULL DEFAULT FALSE;`,
 				},
 			},
+			{
+				Description: "Default Node Type should be invalid",
+				Version:     15,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ALTER COLUMN type SET DEFAULT 0;`,
+				},
+			},
 		},
 	}
 }
