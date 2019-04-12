@@ -24,13 +24,10 @@ var mon = monkit.Package()
 // Meta is the full object metadata
 type Meta struct {
 	pb.SerializableMeta
-	Modified         time.Time
-	Expiration       time.Time
-	Size             int64
-	Checksum         string
-	SegmentsSize     int64
-	RedundancyScheme storj.RedundancyScheme
-	EncryptionScheme storj.EncryptionScheme
+	Modified   time.Time
+	Expiration time.Time
+	Size       int64
+	Checksum   string
 }
 
 // ListItem is a single item in a listing
@@ -159,8 +156,5 @@ func convertMeta(m streams.Meta) Meta {
 		Expiration:       m.Expiration,
 		Size:             m.Size,
 		SerializableMeta: ser,
-		SegmentsSize:     m.SegmentsSize,
-		RedundancyScheme: m.RedundancyScheme,
-		EncryptionScheme: m.EncryptionScheme,
 	}
 }

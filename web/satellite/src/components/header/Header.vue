@@ -41,7 +41,7 @@ export default class DashboardHeader extends Vue {
         display: flex;
         flex-direction: row;
         align-items: center;
-        justify-content: space-between;
+        justify-content: flex-start;
         padding-left: 60px;
         padding-right: 60px;
 
@@ -56,13 +56,12 @@ export default class DashboardHeader extends Vue {
         &__right-area {
             @extend .header-container__left-area;
             justify-content: flex-end;
+            position: absolute;
+            right: 60px;
+            width: 30%;
 
             &__new-project {
                 margin-right: 24px;
-            }
-
-            &__account-button {
-                margin-right: 100px;
             }
         }
     }
