@@ -7,17 +7,17 @@ import (
 	"context"
 	"encoding/json"
 	"html/template"
+	"io/ioutil"
 	"net"
 	"net/http"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/graphql-go/graphql"
-	"github.com/kgolding/zipfs"
 	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/spkg/zipfs"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -114,8 +114,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	return &server
 }
 
-// ServeFile serves a single file from the assets archive to the requester
-func (s *Server) ServeFile(w http.ResponseWriter, req *http.Request, path ...string) {
+// serveFile serves a single file from the assets archive to the requester
+func (s *Server) serveFile(w http.ResponseWriter, req *http.Request, path ...string) {
 	f, err := s.assets.Open(filepath.Join(path...))
 	if err != nil {
 		panic(err)
@@ -129,7 +129,7 @@ func (s *Server) ServeFile(w http.ResponseWriter, req *http.Request, path ...str
 
 // appHandler is web app http handler function
 func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
-	s.ServeFile(w, req, "dist", "public", "index.html")
+	s.serveFile(w, req, "dist", "public", "index.html")
 }
 
 // bucketUsageReportHandler generate bucket usage report page for project
@@ -144,21 +144,21 @@ func (s *Server) bucketUsageReportHandler(w http.ResponseWriter, req *http.Reque
 		s.log.Error("bucket usage report error", zap.Error(err))
 
 		w.WriteHeader(http.StatusUnauthorized)
-		s.ServeFile(w, req, "static", "errors", "404.html")
+		s.serveFile(w, req, "static", "errors", "404.html")
 		return
 	}
 
 	auth, err := s.service.Authorize(auth.WithAPIKey(req.Context(), []byte(tokenCookie.Value)))
 	if err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
-		s.ServeFile(w, req, "static", "errors", "404.html")
+		s.serveFile(w, req, "static", "errors", "404.html")
 		return
 	}
 
 	defer func() {
 		if err != nil {
 			w.WriteHeader(http.StatusNotFound)
-			s.ServeFile(w, req, "static", "errors", "404.html")
+			s.serveFile(w, req, "static", "errors", "404.html")
 		}
 	}()
 
@@ -187,7 +187,7 @@ func (s *Server) bucketUsageReportHandler(w http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	report, err := template.ParseFiles(path.Join(s.config.StaticDir, "static", "reports", "UsageReport.html"))
+	report, err := template.New("UsageReport.html").Parse(s.getFromArchive("static/reports/UsageReport.html"))
 	if err != nil {
 		return
 	}
@@ -249,7 +249,7 @@ func (s *Server) accountActivationHandler(w http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	s.ServeFile(w, req, "static", "activation", "success.html")
+	s.serveFile(w, req, "static", "activation", "success.html")
 }
 
 func (s *Server) passwordRecoveryHandler(w http.ResponseWriter, req *http.Request) {
@@ -278,7 +278,7 @@ func (s *Server) passwordRecoveryHandler(w http.ResponseWriter, req *http.Reques
 			s.serveError(w, req)
 		}
 	default:
-		t, err := template.ParseFiles(filepath.Join(s.config.StaticDir, "static", "resetPassword", "resetPassword.html"))
+		t, err := template.New("resetPassword.html").Parse(s.getFromArchive("static/reports/resetPassword.html"))
 		if err != nil {
 			s.serveError(w, req)
 		}
@@ -290,8 +290,21 @@ func (s *Server) passwordRecoveryHandler(w http.ResponseWriter, req *http.Reques
 	}
 }
 
+func (s *Server) getFromArchive(path string) string {
+	f, err := s.assets.Open(filepath.Join(path))
+	if err != nil {
+		panic(err)
+	}
+	contents, err := ioutil.ReadAll(f)
+	if err != nil {
+		panic(err)
+	}
+	return string(contents)
+
+}
+
 func (s *Server) serveError(w http.ResponseWriter, req *http.Request) {
-	http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "errors", "404.html"))
+	s.serveFile(w, req, "static", "errors", "404.html")
 }
 
 // grapqlHandler is graphql endpoint http handler function

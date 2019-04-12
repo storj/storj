@@ -4,10 +4,13 @@
 package mailservice
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	htmltemplate "html/template"
+	"io/ioutil"
 	"path/filepath"
+	"strings"
 
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
@@ -66,9 +69,38 @@ func New(log *zap.Logger, sender Sender, templatePath string) (*Service, error) 
 	//	return nil, err
 	//}
 
-	service.html, err = htmltemplate.ParseGlob(filepath.Join(templatePath, "*.html"))
+	//service.html, err = htmltemplate.ParseGlob(filepath.Join(templatePath, "*.html"))
+	r, err := zip.OpenReader("/tmp/app/assets.zip")
 	if err != nil {
 		return nil, err
+	}
+	for _, f := range r.File {
+		if !strings.HasPrefix(f.Name, "static/emails") {
+			continue
+		}
+		if !strings.HasSuffix(f.Name, ".html") {
+			continue
+		}
+		baseName := filepath.Base(f.Name)
+		fh, err := f.Open()
+		if err != nil {
+			return nil, err
+		}
+		contents, err := ioutil.ReadAll(fh)
+		if err != nil {
+			return nil, err
+		}
+		if service.html == nil {
+			service.html, err = htmltemplate.New(baseName).Parse(string(contents))
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			service.html, err = service.html.New(baseName).Parse(string(contents))
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	return service, nil
