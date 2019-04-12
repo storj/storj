@@ -14,6 +14,16 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+const (
+	myAPIKey = "change-me-to-the-api-key-created-in-satellite-gui"
+
+	satellite       = "mars.tardigrade.io:7777"
+	myBucket        = "my-first-bucket"
+	myUploadPath    = "foo/bar/baz"
+	myData          = "one fish two fish red fish blue fish"
+	myEncryptionKey = "you'll never guess this"
+)
+
 // WorkWithLibUplink uploads the specified data to the specified path in the
 // specified bucket, using the specified Satellite, encryption key, and API key.
 func WorkWithLibUplink(satelliteAddress string, encryptionKey *storj.Key, apiKey uplink.APIKey,
@@ -79,16 +89,6 @@ func WorkWithLibUplink(satelliteAddress string, encryptionKey *storj.Key, apiKey
 	}
 	return nil
 }
-
-const (
-	myAPIKey = "change-me-to-the-api-key-created-in-satellite-gui"
-
-	satellite       = "mars.tardigrade.io:7777"
-	myBucket        = "my-first-bucket"
-	myUploadPath    = "foo/bar/baz"
-	myData          = "one fish two fish red fish blue fish"
-	myEncryptionKey = "you'll never guess this"
-)
 
 func main() {
 	var encryptionKey storj.Key
