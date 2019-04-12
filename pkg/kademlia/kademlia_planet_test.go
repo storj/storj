@@ -15,7 +15,9 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	// "go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/bootstrap"
 	"storj.io/storj/bootstrap/bootstrapdb"
@@ -30,6 +32,8 @@ import (
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/transport"
+	// "storj.io/storj/satellite"
+	"storj.io/storj/storagenode"
 )
 
 func TestFetchPeerIdentity(t *testing.T) {
@@ -110,7 +114,19 @@ func TestBootstrapBackoff(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.New(t, 1, 6, 1)
+	planet, err := testplanet.NewCustom(zaptest.NewLogger(t), testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			// Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+			// 	config.Kademlia.BootstrapAddr = "127.0.0.1:9999"
+			// },
+			StorageNode: func(index int, config *storagenode.Config) {
+				config.Kademlia.BootstrapAddr = "127.0.0.1:9999"
+			},
+		},
+	})
+	// planet, err := testplanet.New(t, 1, 5, 1)
 	require.NoError(t, err)
 	defer ctx.Check(planet.Shutdown)
 
@@ -121,7 +137,7 @@ func TestBootstrapBackoff(t *testing.T) {
 
 	config := bootstrap.Config{
 		Server: server.Config{
-			Address:        "127.0.0.1:0",
+			Address:        "127.0.0.1:9999",
 			PrivateAddress: "127.0.0.1:0",
 
 			Config: tlsopts.Config{
@@ -164,8 +180,15 @@ func TestBootstrapBackoff(t *testing.T) {
 	peer, err := bootstrap.New(zaptest.NewLogger(t), id, db, config, verInfo)
 	require.NoError(t, err)
 
-	err = peer.Run(ctx)
+	var group errgroup.Group
+	group.Go(func() error {
+		return peer.Run(ctx)
+	})
+	defer peer.Close()
 	require.NoError(t, err)
+
+	// err = peer.Run(ctx)
+	// require.NoError(t, err)
 
 }
 

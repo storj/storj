@@ -139,63 +139,6 @@ func (k *Kademlia) DumpNodes(ctx context.Context) ([]*pb.Node, error) {
 
 // Bootstrap contacts one of a set of pre defined trusted nodes on the network and
 // begins populating the local Kademlia node
-func (k *Kademlia) Bootstrap(ctx context.Context) error {
-	defer k.bootstrapFinished.Release()
-
-	if !k.lookups.Start() {
-		return context.Canceled
-	}
-	defer k.lookups.Done()
-
-	if len(k.bootstrapNodes) == 0 {
-		k.log.Warn("No bootstrap address specified.")
-		return nil
-	}
-
-	var errGroup errs.Group
-	var foundOnlineBootstrap bool
-	for i, node := range k.bootstrapNodes {
-		if ctx.Err() != nil {
-			errGroup.Add(ctx.Err())
-			return errGroup.Err()
-		}
-
-		ident, err := k.dialer.FetchPeerIdentityUnverified(ctx, node.Address.Address)
-		if err != nil {
-			errGroup.Add(err)
-			continue
-		}
-
-		k.routingTable.mutex.Lock()
-		node.Id = ident.ID
-		k.bootstrapNodes[i] = node
-		k.routingTable.mutex.Unlock()
-		foundOnlineBootstrap = true
-	}
-
-	if !foundOnlineBootstrap {
-		err := errGroup.Err()
-		if err != nil {
-			return err
-		}
-	}
-
-	//find nodes most similar to self
-	k.routingTable.mutex.Lock()
-	id := k.routingTable.self.Id
-	k.routingTable.mutex.Unlock()
-	_, err := k.lookup(ctx, id, true)
-
-	// TODO(dylan): We do not currently handle this last bit of behavior.
-	// ```
-	// Finally, u refreshes all k-buckets further away than its closest neighbor.
-	// During the refreshes, u both populates its own k-buckets and inserts
-	// itself into other nodes' k-buckets as necessary.
-	// ``
-
-	return err
-}
-
 // func (k *Kademlia) Bootstrap(ctx context.Context) error {
 // 	defer k.bootstrapFinished.Release()
 
@@ -210,61 +153,120 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 // 	}
 
 // 	var errGroup errs.Group
-// 	waitInterval := 1 * time.Second
-// 	maxWait := 30 * time.Second
-
-// 	for i := 0; waitInterval < maxWait; i++ {
-// 		if i > 0 {
-// 			time.Sleep(waitInterval)
-// 			waitInterval = waitInterval * 2
+// 	var foundOnlineBootstrap bool
+// 	for i, node := range k.bootstrapNodes {
+// 		if ctx.Err() != nil {
+// 			errGroup.Add(ctx.Err())
+// 			return errGroup.Err()
 // 		}
 
-// 		var foundOnlineBootstrap bool
-// 		for i, node := range k.bootstrapNodes {
-// 			if ctx.Err() != nil {
-// 				errGroup.Add(ctx.Err())
-// 				return errGroup.Err()
-// 			}
-
-// 			ident, err := k.dialer.FetchPeerIdentityUnverified(ctx, node.Address.Address)
-// 			if err != nil {
-// 				errGroup.Add(err)
-// 				continue
-// 			}
-
-// 			k.routingTable.mutex.Lock()
-// 			node.Id = ident.ID
-// 			k.bootstrapNodes[i] = node
-// 			k.routingTable.mutex.Unlock()
-// 			foundOnlineBootstrap = true
-// 		}
-
-// 		if !foundOnlineBootstrap {
-// 			errGroup.Add(Error.New("no bootstrap node found online"))
-// 			continue
-// 		}
-
-// 		//find nodes most similar to self
-// 		k.routingTable.mutex.Lock()
-// 		id := k.routingTable.self.Id
-// 		k.routingTable.mutex.Unlock()
-// 		_, err := k.lookup(ctx, id, true)
+// 		ident, err := k.dialer.FetchPeerIdentityUnverified(ctx, node.Address.Address)
 // 		if err != nil {
 // 			errGroup.Add(err)
 // 			continue
 // 		}
-// 		return nil
-// 		// TODO(dylan): We do not currently handle this last bit of behavior.
-// 		// ```
-// 		// Finally, u refreshes all k-buckets further away than its closest neighbor.
-// 		// During the refreshes, u both populates its own k-buckets and inserts
-// 		// itself into other nodes' k-buckets as necessary.
-// 		// ```
+
+// 		k.routingTable.mutex.Lock()
+// 		node.Id = ident.ID
+// 		k.bootstrapNodes[i] = node
+// 		k.routingTable.mutex.Unlock()
+// 		foundOnlineBootstrap = true
 // 	}
 
-// 	errGroup.Add(Error.New("unable to start bootstrap after final wait time of %ds", waitInterval/time.Second))
-// 	return errGroup.Err()
+// 	if !foundOnlineBootstrap {
+// 		err := errGroup.Err()
+// 		if err != nil {
+// 			return err
+// 		}
+// 	}
+
+// 	//find nodes most similar to self
+// 	k.routingTable.mutex.Lock()
+// 	id := k.routingTable.self.Id
+// 	k.routingTable.mutex.Unlock()
+// 	_, err := k.lookup(ctx, id, true)
+
+// 	// TODO(dylan): We do not currently handle this last bit of behavior.
+// 	// ```
+// 	// Finally, u refreshes all k-buckets further away than its closest neighbor.
+// 	// During the refreshes, u both populates its own k-buckets and inserts
+// 	// itself into other nodes' k-buckets as necessary.
+// 	// ``
+
+// 	return err
 // }
+
+// Bootstrap contacts one of a set of pre defined trusted nodes on the network and
+// begins populating the local Kademlia node
+func (k *Kademlia) Bootstrap(ctx context.Context) error {
+	defer k.bootstrapFinished.Release()
+
+	if !k.lookups.Start() {
+		return context.Canceled
+	}
+	defer k.lookups.Done()
+
+	if len(k.bootstrapNodes) == 0 {
+		k.log.Warn("No bootstrap address specified.")
+		return nil
+	}
+
+	var errGroup errs.Group
+	waitInterval := 1 * time.Second
+	maxWait := 30 * time.Second
+
+	for i := 0; waitInterval < maxWait; i++ {
+		if i > 0 {
+			time.Sleep(waitInterval)
+			waitInterval = waitInterval * 2
+		}
+
+		var foundOnlineBootstrap bool
+		for i, node := range k.bootstrapNodes {
+			if ctx.Err() != nil {
+				errGroup.Add(ctx.Err())
+				return errGroup.Err()
+			}
+
+			ident, err := k.dialer.FetchPeerIdentityUnverified(ctx, node.Address.Address)
+			if err != nil {
+				errGroup.Add(err)
+				continue
+			}
+
+			k.routingTable.mutex.Lock()
+			node.Id = ident.ID
+			k.bootstrapNodes[i] = node
+			k.routingTable.mutex.Unlock()
+			foundOnlineBootstrap = true
+		}
+
+		if !foundOnlineBootstrap {
+			errGroup.Add(Error.New("no bootstrap node found online"))
+			continue
+		}
+
+		//find nodes most similar to self
+		k.routingTable.mutex.Lock()
+		id := k.routingTable.self.Id
+		k.routingTable.mutex.Unlock()
+		_, err := k.lookup(ctx, id, true)
+		if err != nil {
+			errGroup.Add(err)
+			continue
+		}
+		return nil
+		// TODO(dylan): We do not currently handle this last bit of behavior.
+		// ```
+		// Finally, u refreshes all k-buckets further away than its closest neighbor.
+		// During the refreshes, u both populates its own k-buckets and inserts
+		// itself into other nodes' k-buckets as necessary.
+		// ```
+	}
+
+	errGroup.Add(Error.New("unable to start bootstrap after final wait time of %ds", waitInterval/time.Second))
+	return errGroup.Err()
+}
 
 // WaitForBootstrap waits for bootstrap pinging has been completed.
 func (k *Kademlia) WaitForBootstrap() {
