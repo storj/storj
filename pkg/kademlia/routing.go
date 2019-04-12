@@ -344,7 +344,7 @@ func splitBucket(bIDs []bucketID, bitDepth int) ([]bucketID,[]bucketID) {
 }
 
 func (rt *RoutingTable) BufferedGraph(buf *bytes.Buffer) {
-	buf.Write([]byte("digraph{\nnode [shape=box];\n"))
+	buf.Write([]byte("digraph{\nnode [shape=box];edge [dir=none];\n"))
 
 	ids, _ := rt.GetBucketIds()
 	var bucketids []bucketID
@@ -358,34 +358,38 @@ func (rt *RoutingTable) BufferedGraph(buf *bytes.Buffer) {
 
 }
 
+func (rt *RoutingTable) addLeafBucketToGraph(b bucketID, buf *bytes.Buffer, prefix string) {
+	fmt.Fprintf(buf, "b%s [label=<<b><font point-size=\"18\">%s</font></b><br />\n<i>routing:</i><br align=\"left\"/>", prefix, prefix)
+		
+	nodes, _ := rt.getNodeIDsWithinKBucket(b)
+	for _, n := range nodes {
+		fmt.Fprintf(buf, "  %s<br align=\"left\" />", hex.EncodeToString(n[:]))
+	}
+	fmt.Fprintf(buf, "<i>cache:</i><br align=\"left\" />")
+	cached_nodes,_ := rt.replacementCache[b]
+	for _, c := range cached_nodes {
+		fmt.Fprintf(buf, "  %s<br align=\"left\" />", hex.EncodeToString(c.Id[:]))
+	}
+	fmt.Fprintf(buf, ">];")
+}
+
 func (rt *RoutingTable) addBucketsToGraph(b []bucketID, depth int, buf *bytes.Buffer, in_prefix string) {
 	if len(b) == 1 {
-		fmt.Fprintf(buf, "b%s [label=\"%s\nrouting:\\l", in_prefix, in_prefix)
-		
-		nodes, _ := rt.getNodeIDsWithinKBucket(b[0])
-		for _, n := range nodes {
-			fmt.Fprintf(buf, "  %s\\l", hex.EncodeToString(n[:]))
-		}
-		fmt.Fprintf(buf, "cache:\\l")
-		cached_nodes,_ := rt.replacementCache[b[0]]
-		for _, c := range cached_nodes {
-			fmt.Fprintf(buf, "  %s\\l", hex.EncodeToString(c.Id[:]))
-		}
-		fmt.Fprintf(buf, "\"];")
+		rt.addLeafBucketToGraph(b[0], buf, in_prefix)
 		return
 	}
 	
 	b0, b1 := splitBucket(b, depth)
 
 	out_prefix := extendPrefix(in_prefix, false)
-	fmt.Fprintf(buf, "b%s [label=%q];", in_prefix, in_prefix)
+	fmt.Fprintf(buf, "b%s [shape=point];", in_prefix)
 
 	rt.addBucketsToGraph(b0, depth+1, buf, out_prefix)
-	fmt.Fprintf(buf, "b%s -> b%s [label=\"0\"];", in_prefix, out_prefix)
+	fmt.Fprintf(buf, "b%s -> b%s [label=<<b>0</b>>];", in_prefix, out_prefix)
 	
 	out_prefix = extendPrefix(in_prefix, true)
 	rt.addBucketsToGraph(b1, depth+1, buf, out_prefix)
-	fmt.Fprintf(buf, "b%s -> b%s [label=\"1\"];", in_prefix, out_prefix)
+	fmt.Fprintf(buf, "b%s -> b%s [label=<<b>1</b>>];", in_prefix, out_prefix)
 	
 }
 

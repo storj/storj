@@ -274,7 +274,8 @@ func DrawTableAsGraph(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return ErrRequest.Wrap(err)
 	}
-	fh, err := os.Create(fmt.Sprintf("routing-graph-%s.dot", args[0]))
+	filename := fmt.Sprintf("routing-graph-%s.dot", args[0])
+	fh, err := os.Create(filename)
 	if err != nil {
 		panic(err)
 	}
@@ -286,7 +287,7 @@ func DrawTableAsGraph(cmd *cobra.Command, args []string) (err error) {
 	}()
 	buf := bytes.NewBuffer(info.Graph[0])
 	_, err = buf.WriteTo(fh)
-	fmt.Println(prettyPrint(info))
+	fmt.Println("Routing table graph saved under:", filename)
 
 	return nil;
 }
