@@ -118,7 +118,9 @@ func (dr *decodedReader) Close() error {
 	if errorThreshold <= 0 {
 		return dr.closeErr
 	}
-	zap.L().Debug("decode close non fatal error: ", zap.Error(dr.closeErr))
+	if dr.closeErr != nil {
+		zap.L().Debug("decode close non fatal error: ", zap.Error(dr.closeErr))
+	}
 	return nil
 }
 
