@@ -9,11 +9,16 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/storj"
 )
+
+// Error is the default error class
+var Error = errs.Class("trust:")
 
 // Pool implements different peer verifications.
 type Pool struct {
@@ -29,7 +34,6 @@ type Pool struct {
 type satelliteInfoCache struct {
 	once     sync.Once
 	identity *identity.PeerIdentity
-	err      error
 }
 
 // NewPool creates a new trust pool using kademlia to find certificates and with the specified list of trusted satellites.
@@ -119,12 +123,17 @@ func (pool *Pool) GetSignee(ctx context.Context, id storj.NodeID) (signing.Signe
 		}
 	}
 
+	identity, err := pool.kademlia.FetchPeerIdentity(nestedContext, id)
+	if err != nil {
+		if err == context.Canceled {
+			return nil, err
+		}
+		return nil, Error.Wrap(err)
+	}
+
 	info.once.Do(func() {
-		info.identity, info.err = pool.kademlia.FetchPeerIdentity(nestedContext, id)
+		info.identity = identity
 	})
 
-	if info.err != nil {
-		return nil, info.err
-	}
 	return signing.SigneeFromPeerIdentity(info.identity), nil
 }
