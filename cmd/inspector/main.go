@@ -40,6 +40,9 @@ var (
 	// CSVPath is the csv path where command output is written
 	CSVPath string
 
+	//DotPath is the output of command routing-graph
+	DotPath string
+	
 	// ErrInspectorDial throws when there are errors dialing the inspector server
 	ErrInspectorDial = errs.Class("error dialing inspector server:")
 
@@ -191,7 +194,7 @@ func CountNodes(cmd *cobra.Command, args []string) (err error) {
 	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
-	}
+}
 
 	kadcount, err := i.kadclient.CountNodes(context.Background(), &pb.CountNodesRequest{})
 	if err != nil {
@@ -251,6 +254,17 @@ func NodeInfo(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
+func dotOutput(nodeid string) (*os.File, error) {
+	if DotPath == "stdout" {
+		return os.Stdout, nil
+	}
+	if DotPath == "" {
+		DotPath = fmt.Sprintf("routing-graph-%s.dot", nodeid)
+	}
+
+	return os.Create(DotPath)
+}
+
 // DrawTableAsGraph outputs the table routing as a graph
 func DrawTableAsGraph(cmd *cobra.Command, args []string) (err error) {
 	i, err := NewInspector(*Addr, *IdentityPath)
@@ -274,8 +288,7 @@ func DrawTableAsGraph(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return ErrRequest.Wrap(err)
 	}
-	filename := fmt.Sprintf("routing-graph-%s.dot", args[0])
-	fh, err := os.Create(filename)
+	fh, err := dotOutput(args[0])
 	if err != nil {
 		panic(err)
 	}
@@ -287,7 +300,9 @@ func DrawTableAsGraph(cmd *cobra.Command, args []string) (err error) {
 	}()
 	buf := bytes.NewBuffer(info.Graph[0])
 	_, err = buf.WriteTo(fh)
-	fmt.Println("Routing table graph saved under:", filename)
+	if DotPath != "stdout" {
+		fmt.Println("Routing table graph saved under:", DotPath)
+	}
 
 	return nil;
 }
@@ -781,6 +796,8 @@ func init() {
 	kadCmd.AddCommand(nodeInfoCmd)
 	kadCmd.AddCommand(dumpNodesCmd)
 	kadCmd.AddCommand(drawTableCmd)
+	drawTableCmd.Flags().StringVar(&DotPath, "dot-path", "", "dot path where command output is written (default is routing-graph-<node-id>.dot)")
+
 	
 	statsCmd.AddCommand(getStatsCmd)
 	statsCmd.AddCommand(getCSVStatsCmd)
