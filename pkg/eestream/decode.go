@@ -5,12 +5,13 @@ package eestream
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"sync"
 
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/internal/readcloser"
 	"storj.io/storj/pkg/encryption"
@@ -100,19 +101,26 @@ func (dr *decodedReader) Close() error {
 	dr.cancel()
 	// avoid double close of readers
 	errorThreshold := len(dr.readers) - dr.scheme.RequiredCount()
+	fmt.Println("closing readers: ", len(dr.readers))
 	dr.close.Do(func() {
-		var errlist errs.Group
-		// close the readers
+		var errlist errgroup.Group
+		// close the readers in parallel
 		for _, r := range dr.readers {
-			err := r.Close()
-			if err != nil {
-				errlist.Add(err)
-				errorThreshold--
-			}
+			r := r
+			errlist.Go(func() error {
+				err := r.Close()
+				if err != nil {
+					errorThreshold--
+				}
+				return err
+			})
 		}
+
 		// close the stripe reader
-		errlist.Add(dr.stripeReader.Close())
-		dr.closeErr = errlist.Err()
+		errlist.Go(func() error {
+			return dr.stripeReader.Close()
+		})
+		dr.closeErr = errlist.Wait()
 	})
 	// TODO this is workaround, we need reorganize to return multiple errors or divide into fatal, non fatal
 	if errorThreshold <= 0 {
