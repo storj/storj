@@ -360,7 +360,7 @@ func (rt *RoutingTable) BufferedGraph(buf *bytes.Buffer) {
 }
 
 func (rt *RoutingTable) addLeafBucketToGraph(b bucketID, buf *bytes.Buffer, prefix string) {
-	fmt.Fprintf(buf, "b%s [label=<<b><font point-size=\"18\">%s</font></b><br />\n<i>routing:</i><br align=\"left\"/>", prefix, prefix)
+	fmt.Fprintf(buf, "b%s [label=<<b><font point-size=\"18\">%s </font></b><br />\n<i>routing:</i><br align=\"left\"/>", prefix, prefix)
 
 	nodes, _ := rt.getNodeIDsWithinKBucket(b)
 	for _, n := range nodes {
