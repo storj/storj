@@ -155,27 +155,3 @@ func (endpoint *Endpoint) IsExpired(expiration *timestamp.Timestamp) bool {
 	// TODO: return specific error about either exceeding the expiration completely or just the grace period
 	return expirationTime.Before(time.Now().Add(-endpoint.config.ExpirationGracePeriod))
 }
-
-// VerifyAvailableSpace verifies whether there is available disk space
-func (endpoint *Endpoint) VerifyAvailableSpace(ctx context.Context, limit *pb.OrderLimit2) error {
-	availableSpace, err := endpoint.monitor.AvailableSpace(ctx)
-	if err != nil {
-		return ErrInternal.Wrap(err)
-	}
-	if availableSpace < limit.Limit {
-		return ErrProtocol.New("out of space")
-	}
-	return nil
-}
-
-// VerifyAvailableBandwidth verifies whether there is available bandwidth
-func (endpoint *Endpoint) VerifyAvailableBandwidth(ctx context.Context, limit *pb.OrderLimit2) error {
-	availableBandwidth, err := endpoint.monitor.AvailableBandwidth(ctx)
-	if err != nil {
-		return ErrInternal.Wrap(err)
-	}
-	if availableBandwidth < limit.Limit {
-		return ErrProtocol.New("out of bandwidth")
-	}
-	return nil
-}
