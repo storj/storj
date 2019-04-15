@@ -4,13 +4,13 @@
 package kademlia
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"sync"
 	"time"
-	"bytes"
-	"encoding/hex"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
@@ -324,7 +324,7 @@ func (rt *RoutingTable) ConnSuccess(ctx context.Context, node *pb.Node) {
 	}
 }
 
-func splitBucket(bIDs []bucketID, bitDepth int) ([]bucketID,[]bucketID) {
+func splitBucket(bIDs []bucketID, bitDepth int) ([]bucketID, []bucketID) {
 	var b0 []bucketID
 	var b1 []bucketID
 
@@ -335,20 +335,21 @@ func splitBucket(bIDs []bucketID, bitDepth int) ([]bucketID,[]bucketID) {
 		bitMask := byte(1 << power)
 		b := bID[byteDepth]
 		if b&bitMask > 0 {
-			b1 = append(b1,bID)
+			b1 = append(b1, bID)
 		} else {
-			b0 = append(b0,bID)
+			b0 = append(b0, bID)
 		}
 	}
-	return b0,b1
+	return b0, b1
 }
 
+// Prints the routing table graph as a dot graph in specified buffer
 func (rt *RoutingTable) BufferedGraph(buf *bytes.Buffer) {
 	buf.Write([]byte("digraph{\nnode [shape=box];edge [dir=none];\n"))
 
 	ids, _ := rt.GetBucketIds()
 	var bucketids []bucketID
-	for _,n := range ids {
+	for _, n := range ids {
 		bucketids = append(bucketids, keyToBucketID(n))
 	}
 
@@ -360,36 +361,35 @@ func (rt *RoutingTable) BufferedGraph(buf *bytes.Buffer) {
 
 func (rt *RoutingTable) addLeafBucketToGraph(b bucketID, buf *bytes.Buffer, prefix string) {
 	fmt.Fprintf(buf, "b%s [label=<<b><font point-size=\"18\">%s</font></b><br />\n<i>routing:</i><br align=\"left\"/>", prefix, prefix)
-		
+
 	nodes, _ := rt.getNodeIDsWithinKBucket(b)
 	for _, n := range nodes {
 		fmt.Fprintf(buf, "  %s<br align=\"left\" />", hex.EncodeToString(n[:]))
 	}
 	fmt.Fprintf(buf, "<i>cache:</i><br align=\"left\" />")
-	cached_nodes,_ := rt.replacementCache[b]
-	for _, c := range cached_nodes {
+	cachedNodes, _ := rt.replacementCache[b]
+	for _, c := range cachedNodes {
 		fmt.Fprintf(buf, "  %s<br align=\"left\" />", hex.EncodeToString(c.Id[:]))
 	}
 	fmt.Fprintf(buf, ">];")
 }
 
-func (rt *RoutingTable) addBucketsToGraph(b []bucketID, depth int, buf *bytes.Buffer, in_prefix string) {
+func (rt *RoutingTable) addBucketsToGraph(b []bucketID, depth int, buf *bytes.Buffer, inPrefix string) {
 	if len(b) == 1 {
-		rt.addLeafBucketToGraph(b[0], buf, in_prefix)
+		rt.addLeafBucketToGraph(b[0], buf, inPrefix)
 		return
 	}
-	
+
 	b0, b1 := splitBucket(b, depth)
 
-	out_prefix := extendPrefix(in_prefix, false)
-	fmt.Fprintf(buf, "b%s [shape=point];", in_prefix)
+	outPrefix := extendPrefix(inPrefix, false)
+	fmt.Fprintf(buf, "b%s [shape=point];", inPrefix)
 
-	rt.addBucketsToGraph(b0, depth+1, buf, out_prefix)
-	fmt.Fprintf(buf, "b%s -> b%s [label=<<b>0</b>>];", in_prefix, out_prefix)
-	
-	out_prefix = extendPrefix(in_prefix, true)
-	rt.addBucketsToGraph(b1, depth+1, buf, out_prefix)
-	fmt.Fprintf(buf, "b%s -> b%s [label=<<b>1</b>>];", in_prefix, out_prefix)
-	
+	rt.addBucketsToGraph(b0, depth+1, buf, outPrefix)
+	fmt.Fprintf(buf, "b%s -> b%s [label=<<b>0</b>>];", inPrefix, outPrefix)
+
+	outPrefix = extendPrefix(inPrefix, true)
+	rt.addBucketsToGraph(b1, depth+1, buf, outPrefix)
+	fmt.Fprintf(buf, "b%s -> b%s [label=<<b>1</b>>];", inPrefix, outPrefix)
+
 }
-

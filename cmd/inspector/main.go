@@ -5,6 +5,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/csv"
 	"encoding/json"
@@ -14,8 +15,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"bytes"
-	
+
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	prompt "github.com/segmentio/go-prompt"
@@ -42,7 +42,7 @@ var (
 
 	//DotPath is the output of command routing-graph
 	DotPath string
-	
+
 	// ErrInspectorDial throws when there are errors dialing the inspector server
 	ErrInspectorDial = errs.Class("error dialing inspector server:")
 
@@ -108,10 +108,10 @@ var (
 		RunE:  DumpNodes,
 	}
 	drawTableCmd = &cobra.Command{
-		Use: "routing-graph <node_id>",
+		Use:   "routing-graph <node_id>",
 		Short: "Save the routing table graph as a dot file with name routing-graph-<node-id>",
 		Args:  cobra.MinimumNArgs(1),
-		RunE: DrawTableAsGraph,
+		RunE:  DrawTableAsGraph,
 	}
 	getStatsCmd = &cobra.Command{
 		Use:   "getstats <node_id>",
@@ -194,7 +194,7 @@ func CountNodes(cmd *cobra.Command, args []string) (err error) {
 	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
-}
+	}
 
 	kadcount, err := i.kadclient.CountNodes(context.Background(), &pb.CountNodesRequest{})
 	if err != nil {
@@ -304,7 +304,7 @@ func DrawTableAsGraph(cmd *cobra.Command, args []string) (err error) {
 		fmt.Println("Routing table graph saved under:", DotPath)
 	}
 
-	return nil;
+	return nil
 }
 
 // DumpNodes outputs a json list of every node in every bucket in the satellite
@@ -798,7 +798,6 @@ func init() {
 	kadCmd.AddCommand(drawTableCmd)
 	drawTableCmd.Flags().StringVar(&DotPath, "dot-path", "", "dot path where command output is written (default is routing-graph-<node-id>.dot)")
 
-	
 	statsCmd.AddCommand(getStatsCmd)
 	statsCmd.AddCommand(getCSVStatsCmd)
 	statsCmd.AddCommand(createStatsCmd)
