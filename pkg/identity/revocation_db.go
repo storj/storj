@@ -6,8 +6,6 @@ package identity
 import (
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"github.com/zeebo/errs"
-	"storj.io/storj/storage/sqlitekv"
 
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/pkg/peertls"
@@ -15,6 +13,7 @@ import (
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/redis"
+	"storj.io/storj/storage/sqlitekv"
 )
 
 // RevocationDB stores the most recently seen revocation for each nodeID
@@ -23,10 +22,6 @@ import (
 type RevocationDB struct {
 	DB storage.KeyValueStore
 }
-
-//func init() {
-//	sql.Register("sqlite3", &)
-//}
 
 // NewRevocationDB returns a new revocation database given the URL
 func NewRevocationDB(revocationDBURL string) (*RevocationDB, error) {

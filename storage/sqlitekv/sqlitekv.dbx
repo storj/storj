@@ -1,0 +1,30 @@
+model item (
+	key    pk
+	unique key
+
+	index (
+	    fields key
+	    unique
+	)
+
+	field pk         serial64
+	field created_at timestamp ( autoinsert )
+	field updated_at timestamp ( autoinsert, autoupdate )
+	field key        blob
+	field value      blob ( nullable, updatable )
+)
+
+create item ()
+
+read scalar (
+    select item.value
+    where item.key = ?
+)
+
+update item (
+    where item.key = ?
+)
+
+delete item (
+    where item.key = ?
+)
