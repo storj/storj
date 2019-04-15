@@ -6,6 +6,8 @@ package identity
 import (
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"github.com/zeebo/errs"
+	"storj.io/storj/storage/sqlitekv"
 
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/pkg/peertls"
@@ -22,6 +24,10 @@ type RevocationDB struct {
 	DB storage.KeyValueStore
 }
 
+//func init() {
+//	sql.Register("sqlite3", &)
+//}
+
 // NewRevocationDB returns a new revocation database given the URL
 func NewRevocationDB(revocationDBURL string) (*RevocationDB, error) {
 	driver, source, err := dbutil.SplitConnstr(revocationDBURL)
@@ -31,6 +37,11 @@ func NewRevocationDB(revocationDBURL string) (*RevocationDB, error) {
 
 	var db *RevocationDB
 	switch driver {
+	case "sqlite":
+		db, err = newRevocationDBSqlite(source)
+		if err != nil {
+			return nil, extensions.ErrRevocationDB.Wrap(err)
+		}
 	case "bolt":
 		db, err = newRevocationDBBolt(source)
 		if err != nil {
@@ -46,6 +57,17 @@ func NewRevocationDB(revocationDBURL string) (*RevocationDB, error) {
 	}
 
 	return db, nil
+}
+
+// newRevocationDBSqlite creates a bolt-backed RevocationDB
+func newRevocationDBSqlite(path string) (*RevocationDB, error) {
+	client, err := sqlitekv.New(path)
+	if err != nil {
+		return nil, err
+	}
+	return &RevocationDB{
+		DB: client,
+	}, nil
 }
 
 // newRevocationDBBolt creates a bolt-backed RevocationDB

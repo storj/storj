@@ -151,3 +151,12 @@ func TestRevocationDB_Put_error(t *testing.T) {
 		}
 	})
 }
+
+func TestNewRevocationDBSqlite(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	revDB, err := identity.NewRevocationDBSqlite(ctx.File("sqlite.db"))
+	require.NoError(t, err)
+	require.NotNil(t, revDB)
+}
