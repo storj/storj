@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-// IgnoreCanceled returns nil, when the operation was about cancelling
+// IgnoreCanceled returns nil, when the operation was about canceling.
 func IgnoreCanceled(originalError error) error {
 	err := originalError
 	for err != nil {
