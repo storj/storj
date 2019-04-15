@@ -43,13 +43,13 @@ func TestDefaultPortAppliedToSatelliteAddrWithNoPort(t *testing.T) {
 	defaultValue := "localhost:7777"
 	setupCmd.Flags().String(flagName, defaultValue, "")
 
-	err := setupCmd.Flags().Set(flagName, "localhost")
+	err := setupCmd.Flags().Set(flagName, "ahost")
 	assert.NoError(t, err)
 
 	err = cmd.ApplyDefaultHostAndPortToAddrFlag(setupCmd, flagName)
 	assert.NoError(t, err)
 
-	assert.Equal(t, "localhost:7777", setupCmd.Flags().Lookup("satellite-addr").Value.String(),
+	assert.Equal(t, "ahost:7777", setupCmd.Flags().Lookup("satellite-addr").Value.String(),
 		"satellite-addr should contain default port when no port specified")
 }
 
@@ -64,13 +64,13 @@ func TestNoDefaultPortAppliedToSatelliteAddrWithPort(t *testing.T) {
 	defaultValue := "localhost:7777"
 	setupCmd.Flags().String(flagName, defaultValue, "")
 
-	err := setupCmd.Flags().Set(flagName, "localhost:7778")
+	err := setupCmd.Flags().Set(flagName, "ahost:7778")
 	assert.NoError(t, err)
 
 	err = cmd.ApplyDefaultHostAndPortToAddrFlag(setupCmd, flagName)
 	assert.NoError(t, err)
 
-	assert.Equal(t, "localhost:7778", setupCmd.Flags().Lookup(flagName).Value.String(),
+	assert.Equal(t, "ahost:7778", setupCmd.Flags().Lookup(flagName).Value.String(),
 		"satellite-addr should contain default port when no port specified")
 }
 
@@ -92,5 +92,26 @@ func TestDefaultHostAppliedToSatelliteAddrWithNoHost(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, "localhost:7778", setupCmd.Flags().Lookup("satellite-addr").Value.String(),
+		"satellite-addr should contain default port when no port specified")
+}
+
+func TestDefaultPortAppliedToSatelliteAddrWithPortColonButNoPort(t *testing.T) {
+	setupCmd := &cobra.Command{
+		Use:         "setup",
+		Short:       "Create an uplink config file",
+		RunE:        nil,
+		Annotations: map[string]string{"type": "setup"},
+	}
+	flagName := "satellite-addr"
+	defaultValue := "localhost:7777"
+	setupCmd.Flags().String(flagName, defaultValue, "")
+
+	err := setupCmd.Flags().Set(flagName, "ahost:")
+	assert.NoError(t, err)
+
+	err = cmd.ApplyDefaultHostAndPortToAddrFlag(setupCmd, flagName)
+	assert.NoError(t, err)
+
+	assert.Equal(t, "ahost:7777", setupCmd.Flags().Lookup("satellite-addr").Value.String(),
 		"satellite-addr should contain default port when no port specified")
 }
