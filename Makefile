@@ -221,8 +221,8 @@ push-images: ## Push Docker images to Docker Hub (jenkins)
 	# images have to be pushed before a manifest can be created
 	# satellite
 	for c in satellite storagenode uplink gateway; do \
-		docker push storjlabs/satellite:${TAG}${CUSTOMTAG}-amd64 \
-		&& docker push storjlabs/satellite:${TAG}${CUSTOMTAG}-arm32v6 \
+		docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-amd64 \
+		&& docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v6 \
 		&& for t in ${TAG}${CUSTOMTAG} ${LATEST_TAG}; do \
 			docker manifest create storjlabs/$$c:$$t storjlabs/$$c:${TAG}${CUSTOMTAG}-amd64 storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v6 \
 			&& docker manifest annotate storjlabs/$$c:$$t storjlabs/$$c:${TAG}${CUSTOMTAG}-amd64 --os linux --arch amd64 \
