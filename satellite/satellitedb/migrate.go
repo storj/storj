@@ -543,8 +543,15 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				Description: "Add path to injuredsegment to prevent duplicates",
+				Description: "Default Node Type should be invalid",
 				Version:     15,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ALTER COLUMN type SET DEFAULT 0;`,
+				},
+			},
+			{
+				Description: "Add path to injuredsegment to prevent duplicates",
+				Version:     16,
 				Action: migrate.Func(func(log *zap.Logger, db migrate.DB, tx *sql.Tx) error {
 					_, err := tx.Exec(`
 						ALTER TABLE injuredsegments ADD path text;
@@ -583,7 +590,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					if err != nil {
 						return err
 					}
-					//keep changing
+					// keep changing
 					_, err = tx.Exec(`
 						ALTER TABLE injuredsegments DROP COLUMN id;
 						ALTER TABLE injuredsegments ALTER COLUMN path SET NOT NULL;
