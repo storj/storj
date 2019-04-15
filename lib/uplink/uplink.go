@@ -138,8 +138,15 @@ func NewUplink(ctx context.Context, cfg *Config) (*Uplink, error) {
 	}, nil
 }
 
+// ProjectOptions allows configuration of various project options during opening
+type ProjectOptions struct {
+	Volatile struct {
+		EncryptionKey storj.Key
+	}
+}
+
 // OpenProject returns a Project handle with the given APIKey
-func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, encryptionKey *storj.Key, apiKey APIKey) (p *Project, err error) {
+func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey APIKey, opts *ProjectOptions) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	metainfo, err := metainfo.NewClient(ctx, u.tc, satelliteAddr, apiKey.key)
@@ -158,8 +165,12 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, encrypti
 		return nil, Error.New("failed to create redundancy strategy: %v", err)
 	}
 	segments := segments.NewSegmentStore(metainfo, nil, rs, maxBucketMetaSize.Int(), maxBucketMetaSize.Int64())
+	var encryptionKey storj.Key
+	if opts != nil {
+		encryptionKey = opts.Volatile.EncryptionKey
+	}
 	streams, err := streams.NewStreamStore(segments, maxBucketMetaSize.Int64(),
-		encryptionKey, memory.KiB.Int(), storj.AESGCM)
+		&encryptionKey, memory.KiB.Int(), storj.AESGCM)
 	if err != nil {
 		return nil, Error.New("failed to create stream store: %v", err)
 	}
@@ -170,7 +181,7 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, encrypti
 		metainfo:      metainfo,
 		project:       kvmetainfo.NewProject(buckets.NewStore(streams), memory.KiB.Int32(), rs, 64*memory.MiB.Int64()),
 		maxInlineSize: u.cfg.Volatile.MaxInlineSize,
-		encryptionKey: encryptionKey,
+		encryptionKey: &encryptionKey,
 	}, nil
 }
 

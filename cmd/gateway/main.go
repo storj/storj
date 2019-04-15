@@ -240,17 +240,20 @@ func (flags GatewayFlags) NewGateway(ctx context.Context, ident *identity.FullId
 		return nil, err
 	}
 
-	encKey := new(storj.Key)
+	var encKey storj.Key
 	copy(encKey[:], flags.Enc.Key)
 
-	project, err := uplink.OpenProject(ctx, flags.Client.SatelliteAddr, encKey, apiKey)
+	var opts libuplink.ProjectOptions
+	opts.Volatile.EncryptionKey = encKey
+
+	project, err := uplink.OpenProject(ctx, flags.Client.SatelliteAddr, apiKey, &opts)
 	if err != nil {
 		return nil, err
 	}
 
 	return miniogw.NewStorjGateway(
 		project,
-		encKey,
+		&encKey,
 		storj.Cipher(flags.Enc.PathType).ToCipherSuite(),
 		flags.GetEncryptionScheme().ToEncryptionParameters(),
 		flags.GetRedundancyScheme(),

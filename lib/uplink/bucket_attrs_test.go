@@ -56,7 +56,9 @@ func testPlanetWithLibUplink(t *testing.T, cfg testConfig, encKey *storj.Key,
 		t.Fatalf("could not create new Uplink object: %v", err)
 	}
 	defer ctx.Check(uplink.Close)
-	proj, err := uplink.OpenProject(ctx, satellite.Addr(), encKey, apiKey)
+	var projectOptions ProjectOptions
+	projectOptions.Volatile.EncryptionKey = *encKey
+	proj, err := uplink.OpenProject(ctx, satellite.Addr(), apiKey, &projectOptions)
 	if err != nil {
 		t.Fatalf("could not open project from libuplink under testplanet: %v", err)
 	}
