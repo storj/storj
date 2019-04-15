@@ -204,10 +204,23 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 
 		peer.Storage2.Store = pieces.NewStore(peer.Log.Named("pieces"), peer.DB.Pieces())
 
+		peer.Storage2.Monitor = monitor.NewService(
+			log.Named("piecestore:monitor"),
+			peer.Kademlia.RoutingTable,
+			peer.Storage2.Store,
+			peer.DB.PieceInfo(),
+			peer.DB.Bandwidth(),
+			config.Storage.AllocatedDiskSpace.Int64(),
+			config.Storage.AllocatedBandwidth.Int64(),
+			//TODO use config.Storage.Monitor.Interval, but for some reason is not set
+			config.Storage.KBucketRefreshInterval,
+		)
+
 		peer.Storage2.Endpoint, err = piecestore.NewEndpoint(
 			peer.Log.Named("piecestore"),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Storage2.Trust,
+			peer.Storage2.Monitor,
 			peer.Storage2.Store,
 			peer.DB.PieceInfo(),
 			peer.DB.Orders(),
@@ -229,18 +242,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			config.Storage,
 		)
 		pb.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage2.Inspector)
-
-		peer.Storage2.Monitor = monitor.NewService(
-			log.Named("piecestore:monitor"),
-			peer.Kademlia.RoutingTable,
-			peer.Storage2.Store,
-			peer.DB.PieceInfo(),
-			peer.DB.Bandwidth(),
-			config.Storage.AllocatedDiskSpace.Int64(),
-			config.Storage.AllocatedBandwidth.Int64(),
-			//TODO use config.Storage.Monitor.Interval, but for some reason is not set
-			config.Storage.KBucketRefreshInterval,
-		)
 
 		peer.Storage2.Sender = orders.NewSender(
 			log.Named("piecestore:orderssender"),
