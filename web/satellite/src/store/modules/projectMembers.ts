@@ -12,6 +12,7 @@ import { ProjectMemberSortByEnum } from '@/utils/constants/ProjectMemberSortEnum
 export const projectMembersModule = {
     state: {
         projectMembers: [],
+        projectMembersCount: 0,
         searchParameters: {
             sortBy: ProjectMemberSortByEnum.NAME,
             searchQuery: ''
@@ -48,7 +49,11 @@ export const projectMembersModule = {
             });
         },
         [PROJECT_MEMBER_MUTATIONS.FETCH](state: any, teamMembers: any[]) {
-            state.projectMembers = state.projectMembers.concat(teamMembers);
+            teamMembers.forEach(value => {
+                state.projectMembers.push(value);
+
+            });
+            state.projectMembersCount = state.projectMembers.length;
         },
         [PROJECT_MEMBER_MUTATIONS.CLEAR](state: any) {
             state.projectMembers = [];
@@ -71,9 +76,7 @@ export const projectMembersModule = {
         addProjectMembers: async function ({rootGetters}: any, emails: string[]): Promise<RequestResponse<null>> {
             const projectId = rootGetters.selectedProject.id;
 
-            const response = await addProjectMembersRequest(projectId, emails);
-
-            return response;
+            return await addProjectMembersRequest(projectId, emails);
         },
         deleteProjectMembers: async function ({commit, rootGetters}: any, projectMemberEmails: string[]): Promise<RequestResponse<null>> {
             const projectId = rootGetters.selectedProject.id;
@@ -94,7 +97,7 @@ export const projectMembersModule = {
         },
         fetchProjectMembers: async function ({commit, state, rootGetters}: any): Promise<RequestResponse<TeamMemberModel[]>> {
             const projectId = rootGetters.selectedProject.id;
-            const response = await fetchProjectMembersRequest(projectId, state.pagination.limit, state.pagination.offset,
+            const response: RequestResponse<TeamMemberModel[]> = await fetchProjectMembersRequest(projectId, state.pagination.limit, state.pagination.offset,
                 state.searchParameters.sortBy, state.searchParameters.searchQuery);
 
             if (response.isSuccess) {
@@ -126,6 +129,7 @@ export const projectMembersModule = {
     },
     getters: {
         projectMembers: (state: any) => state.projectMembers,
+        projectMembersCountGetter: (state: any) => state.projectMembersCount,
         selectedProjectMembers: (state: any) => state.projectMembers.filter((member: any) => member.isSelected),
     },
 };

@@ -7,8 +7,8 @@ import (
 	"bytes"
 	"context"
 	"crypto"
-	"crypto/sha256"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -21,20 +21,20 @@ import (
 	"google.golang.org/grpc/peer"
 
 	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/utils"
 )
 
 // PeerIdentity represents another peer on the network.
 type PeerIdentity struct {
 	RestChain []*x509.Certificate
-	// CA represents the peer's self-signed CA
+	// CA represents the peer's self-signed CA.
 	CA *x509.Certificate
 	// Leaf represents the leaf they're currently using. The leaf should be
 	// signed by the CA. The leaf is what is used for communication.
 	Leaf *x509.Certificate
-	// The ID taken from the CA public key
+	// The ID taken from the CA public key.
 	ID storj.NodeID
 }
 
@@ -47,10 +47,26 @@ type FullIdentity struct {
 	// Leaf represents the leaf they're currently using. The leaf should be
 	// signed by the CA. The leaf is what is used for communication.
 	Leaf *x509.Certificate
-	// The ID taken from the CA public key
+	// The ID taken from the CA public key.
 	ID storj.NodeID
 	// Key is the key this identity uses with the leaf for communication.
 	Key crypto.PrivateKey
+}
+
+// ManageablePeerIdentity is a `PeerIdentity` and its corresponding `FullCertificateAuthority`
+// in a single struct. It is used for making changes to the identity that require CA
+// authorization; e.g. adding extensions.
+type ManageablePeerIdentity struct {
+	*PeerIdentity
+	CA *FullCertificateAuthority
+}
+
+// ManageableFullIdentity is a `FullIdentity` and its corresponding `FullCertificateAuthority`
+// in a single struct. It is used for making changes to the identity that require CA
+// authorization and the leaf private key; e.g. revoking a leaf cert (private key changes).
+type ManageableFullIdentity struct {
+	*FullIdentity
+	CA *FullCertificateAuthority
 }
 
 // SetupConfig allows you to run a set of Responsibilities with the given
@@ -75,7 +91,7 @@ type PeerConfig struct {
 }
 
 // FullCertificateAuthorityFromPEM loads a FullIdentity from a certificate chain and
-// private key PEM-encoded bytes
+// private key PEM-encoded bytes.
 func FullCertificateAuthorityFromPEM(chainPEM, keyPEM []byte) (*FullCertificateAuthority, error) {
 	peerCA, err := PeerCertificateAuthorityFromPEM(chainPEM)
 	if err != nil {
@@ -98,14 +114,14 @@ func FullCertificateAuthorityFromPEM(chainPEM, keyPEM []byte) (*FullCertificateA
 }
 
 // PeerCertificateAuthorityFromPEM loads a FullIdentity from a certificate chain and
-// private key PEM-encoded bytes
+// private key PEM-encoded bytes.
 func PeerCertificateAuthorityFromPEM(chainPEM []byte) (*PeerCertificateAuthority, error) {
 	chain, err := pkcrypto.CertsFromPEM(chainPEM)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 	// NB: the "leaf" cert in a CA chain is the "CA" cert in an identity chain
-	nodeID, err := NodeIDFromKey(chain[peertls.LeafIndex].PublicKey)
+	nodeID, err := NodeIDFromCert(chain[peertls.LeafIndex])
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +134,7 @@ func PeerCertificateAuthorityFromPEM(chainPEM []byte) (*PeerCertificateAuthority
 }
 
 // FullIdentityFromPEM loads a FullIdentity from a certificate chain and
-// private key PEM-encoded bytes
+// private key PEM-encoded bytes.
 func FullIdentityFromPEM(chainPEM, keyPEM []byte) (*FullIdentity, error) {
 	peerIdent, err := PeerIdentityFromPEM(chainPEM)
 	if err != nil {
@@ -142,7 +158,7 @@ func FullIdentityFromPEM(chainPEM, keyPEM []byte) (*FullIdentity, error) {
 }
 
 // PeerIdentityFromPEM loads a PeerIdentity from a certificate chain and
-// private key PEM-encoded bytes
+// private key PEM-encoded bytes.
 func PeerIdentityFromPEM(chainPEM []byte) (*PeerIdentity, error) {
 	chain, err := pkcrypto.CertsFromPEM(chainPEM)
 	if err != nil {
@@ -151,7 +167,7 @@ func PeerIdentityFromPEM(chainPEM []byte) (*PeerIdentity, error) {
 	if len(chain) < peertls.CAIndex+1 {
 		return nil, pkcrypto.ErrChainLength.New("identity chain does not contain a CA certificate")
 	}
-	nodeID, err := NodeIDFromKey(chain[peertls.CAIndex].PublicKey)
+	nodeID, err := NodeIDFromCert(chain[peertls.CAIndex])
 	if err != nil {
 		return nil, err
 	}
@@ -164,22 +180,22 @@ func PeerIdentityFromPEM(chainPEM []byte) (*PeerIdentity, error) {
 	}, nil
 }
 
-// PeerIdentityFromCerts loads a PeerIdentity from a pair of leaf and ca x509 certificates
-func PeerIdentityFromCerts(leaf, ca *x509.Certificate, rest []*x509.Certificate) (*PeerIdentity, error) {
-	i, err := NodeIDFromKey(ca.PublicKey)
+// PeerIdentityFromChain loads a PeerIdentity from an identity certificate chain.
+func PeerIdentityFromChain(chain []*x509.Certificate) (*PeerIdentity, error) {
+	nodeID, err := NodeIDFromCert(chain[peertls.CAIndex])
 	if err != nil {
 		return nil, err
 	}
 
 	return &PeerIdentity{
-		RestChain: rest,
-		CA:        ca,
-		ID:        i,
-		Leaf:      leaf,
+		RestChain: chain[peertls.CAIndex+1:],
+		CA:        chain[peertls.CAIndex],
+		ID:        nodeID,
+		Leaf:      chain[peertls.LeafIndex],
 	}, nil
 }
 
-// PeerIdentityFromPeer loads a PeerIdentity from a peer connection
+// PeerIdentityFromPeer loads a PeerIdentity from a peer connection.
 func PeerIdentityFromPeer(peer *peer.Peer) (*PeerIdentity, error) {
 	if peer.AuthInfo == nil {
 		return nil, Error.New("peer AuthInfo is nil")
@@ -190,11 +206,11 @@ func PeerIdentityFromPeer(peer *peer.Peer) (*PeerIdentity, error) {
 		return nil, Error.New("peer AuthInfo is not credentials.TLSInfo")
 	}
 
-	c := tlsInfo.State.PeerCertificates
-	if len(c) < 2 {
+	chain := tlsInfo.State.PeerCertificates
+	if len(chain)-1 < peertls.CAIndex {
 		return nil, Error.New("invalid certificate chain")
 	}
-	pi, err := PeerIdentityFromCerts(c[peertls.LeafIndex], c[peertls.CAIndex], c[2:])
+	pi, err := PeerIdentityFromChain(chain)
 	if err != nil {
 		return nil, err
 	}
@@ -202,7 +218,7 @@ func PeerIdentityFromPeer(peer *peer.Peer) (*PeerIdentity, error) {
 	return pi, nil
 }
 
-// PeerIdentityFromContext loads a PeerIdentity from a ctx TLS credentials
+// PeerIdentityFromContext loads a PeerIdentity from a ctx TLS credentials.
 func PeerIdentityFromContext(ctx context.Context) (*PeerIdentity, error) {
 	p, ok := peer.FromContext(ctx)
 	if !ok {
@@ -212,7 +228,7 @@ func PeerIdentityFromContext(ctx context.Context) (*PeerIdentity, error) {
 	return PeerIdentityFromPeer(p)
 }
 
-// NodeIDFromCertPath loads a node ID from a certificate file path
+// NodeIDFromCertPath loads a node ID from a certificate file path.
 func NodeIDFromCertPath(certPath string) (storj.NodeID, error) {
 	certBytes, err := ioutil.ReadFile(certPath)
 	if err != nil {
@@ -221,36 +237,41 @@ func NodeIDFromCertPath(certPath string) (storj.NodeID, error) {
 	return NodeIDFromPEM(certBytes)
 }
 
-// NodeIDFromPEM loads a node ID from certificate bytes
+// NodeIDFromPEM loads a node ID from certificate bytes.
 func NodeIDFromPEM(pemBytes []byte) (storj.NodeID, error) {
 	chain, err := pkcrypto.CertsFromPEM(pemBytes)
 	if err != nil {
 		return storj.NodeID{}, Error.New("invalid identity certificate")
 	}
-	if len(chain) < peertls.CAIndex+1 {
+	if len(chain)-1 < peertls.CAIndex {
 		return storj.NodeID{}, Error.New("no CA in identity certificate")
 	}
-	return NodeIDFromKey(chain[peertls.CAIndex].PublicKey)
+	return NodeIDFromCert(chain[peertls.CAIndex])
 }
 
-// NodeIDFromKey hashes a public key and creates a node ID from it
-func NodeIDFromKey(k crypto.PublicKey) (storj.NodeID, error) {
-	// id = sha256(sha256(pkix(k)))
-	kb, err := x509.MarshalPKIXPublicKey(k)
+// NodeIDFromCert looks for a version in an ID version extension in the passed
+// cert and then calculates a versioned node ID using the certificate public key.
+// NB: `cert` would typically be an identity's certificate authority certificate.
+func NodeIDFromCert(cert *x509.Certificate) (id storj.NodeID, err error) {
+	version, err := storj.IDVersionFromCert(cert)
+	if err != nil {
+		return id, err
+	}
+	return NodeIDFromKey(cert.PublicKey, version)
+}
+
+// NodeIDFromKey calculates the node ID for a given public key with the passed version.
+func NodeIDFromKey(k crypto.PublicKey, version storj.IDVersion) (storj.NodeID, error) {
+	idBytes, err := peertls.DoubleSHA256PublicKey(k)
 	if err != nil {
 		return storj.NodeID{}, storj.ErrNodeID.Wrap(err)
 	}
-	mid := sha256.Sum256(kb)
-	end := sha256.Sum256(mid[:])
-	return storj.NodeID(end), nil
+	return storj.NewVersionedID(idBytes, version), nil
 }
 
-// NewFullIdentity creates a new ID for nodes with difficulty and concurrency params
-func NewFullIdentity(ctx context.Context, difficulty uint16, concurrency uint) (*FullIdentity, error) {
-	ca, err := NewCA(ctx, NewCAOptions{
-		Difficulty:  difficulty,
-		Concurrency: concurrency,
-	})
+// NewFullIdentity creates a new ID for nodes with difficulty and concurrency params.
+func NewFullIdentity(ctx context.Context, opts NewCAOptions) (*FullIdentity, error) {
+	ca, err := NewCA(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -268,6 +289,22 @@ func ToChains(chains ...[]*x509.Certificate) [][]*x509.Certificate {
 		combinedChains[i] = chain
 	}
 	return combinedChains
+}
+
+// NewManageablePeerIdentity returns a manageable identity given a full identity and a full certificate authority.
+func NewManageablePeerIdentity(ident *PeerIdentity, ca *FullCertificateAuthority) *ManageablePeerIdentity {
+	return &ManageablePeerIdentity{
+		PeerIdentity: ident,
+		CA:           ca,
+	}
+}
+
+// NewManageableFullIdentity returns a manageable identity given a full identity and a full certificate authority.
+func NewManageableFullIdentity(ident *FullIdentity, ca *FullCertificateAuthority) *ManageableFullIdentity {
+	return &ManageableFullIdentity{
+		FullIdentity: ident,
+		CA:           ca,
+	}
 }
 
 // Status returns the status of the identity cert/key files for the config
@@ -335,12 +372,12 @@ func (ic Config) Save(fi *FullIdentity) error {
 		writeKeyDataErr = writeKeyData(ic.KeyPath, keyData.Bytes())
 	}
 
-	writeErr := utils.CombineErrors(writeChainErr, writeKeyErr)
+	writeErr := errs.Combine(writeChainErr, writeKeyErr)
 	if writeErr != nil {
 		return writeErr
 	}
 
-	return utils.CombineErrors(
+	return errs.Combine(
 		writeChainDataErr,
 		writeKeyDataErr,
 	)
@@ -376,26 +413,26 @@ func (ic PeerConfig) Load() (*PeerIdentity, error) {
 }
 
 // Save saves a PeerIdentity according to the config
-func (ic PeerConfig) Save(fi *PeerIdentity) error {
+func (ic PeerConfig) Save(peerIdent *PeerIdentity) error {
 	var (
 		certData                         bytes.Buffer
 		writeChainErr, writeChainDataErr error
 	)
 
-	chain := []*x509.Certificate{fi.Leaf, fi.CA}
-	chain = append(chain, fi.RestChain...)
+	chain := []*x509.Certificate{peerIdent.Leaf, peerIdent.CA}
+	chain = append(chain, peerIdent.RestChain...)
 
 	if ic.CertPath != "" {
 		writeChainErr = peertls.WriteChain(&certData, chain...)
 		writeChainDataErr = writeChainData(ic.CertPath, certData.Bytes())
 	}
 
-	writeErr := utils.CombineErrors(writeChainErr)
+	writeErr := errs.Combine(writeChainErr)
 	if writeErr != nil {
 		return writeErr
 	}
 
-	return utils.CombineErrors(
+	return errs.Combine(
 		writeChainDataErr,
 	)
 }
@@ -439,6 +476,45 @@ func (fi *FullIdentity) PeerIdentity() *PeerIdentity {
 		ID:        fi.ID,
 		RestChain: fi.RestChain,
 	}
+}
+
+// Version looks up the version based on the certificate's ID version extension.
+func (fi *FullIdentity) Version() (storj.IDVersion, error) {
+	return storj.IDVersionFromCert(fi.CA)
+}
+
+// AddExtension adds extensions to the leaf cert of an identity. Extensions
+// are serialized into the certificate's raw bytes and is re-signed by it's
+// certificate authority.
+func (manageableIdent *ManageablePeerIdentity) AddExtension(ext ...pkix.Extension) error {
+	if err := extensions.AddExtraExtension(manageableIdent.Leaf, ext...); err != nil {
+		return err
+	}
+
+	updatedCert, err := peertls.CreateCertificate(manageableIdent.Leaf.PublicKey, manageableIdent.CA.Key, manageableIdent.Leaf, manageableIdent.CA.Cert)
+	if err != nil {
+		return err
+	}
+
+	manageableIdent.Leaf = updatedCert
+	return nil
+}
+
+// Revoke extends the CA certificate with a certificate revocation extension.
+func (manageableIdent *ManageableFullIdentity) Revoke() error {
+	ext, err := extensions.NewRevocationExt(manageableIdent.CA.Key, manageableIdent.Leaf)
+	if err != nil {
+		return err
+	}
+
+	revokingIdent, err := manageableIdent.CA.NewIdentity(ext)
+	if err != nil {
+		return err
+	}
+
+	manageableIdent.Leaf = revokingIdent.Leaf
+
+	return nil
 }
 
 func backupPath(path string) string {

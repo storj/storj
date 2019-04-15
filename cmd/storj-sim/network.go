@@ -70,6 +70,19 @@ func networkEnv(flags *Flags, args []string) error {
 		}
 	}
 
+	if len(args) == 1 {
+		envprefix := strings.ToUpper(args[0] + "=")
+		// find the environment value that the environment variable is set to
+		for _, env := range processes.Env() {
+			if strings.HasPrefix(strings.ToUpper(env), envprefix) {
+				fmt.Println(env[len(envprefix):])
+				return nil
+			}
+		}
+
+		return nil
+	}
+
 	for _, env := range processes.Env() {
 		fmt.Println(env)
 	}
@@ -145,7 +158,26 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		storageNodePrivatePort = 13000
 		consolePort            = 10100
 		bootstrapWebPort       = 10010
+		versioncontrolPort     = 10011
 	)
+
+	versioncontrol := processes.New(Info{
+		Name:       "versioncontrol/0",
+		Executable: "versioncontrol",
+		Directory:  filepath.Join(processes.Directory, "versioncontrol", "0"),
+		Address:    net.JoinHostPort(host, strconv.Itoa(versioncontrolPort)),
+	})
+
+	versioncontrol.Arguments = withCommon(versioncontrol.Directory, Arguments{
+		"setup": {
+			"--address", versioncontrol.Address,
+		},
+		"run": {},
+	})
+
+	versioncontrol.ExecBefore["run"] = func(process *Process) error {
+		return readConfigString(&versioncontrol.Address, versioncontrol.Directory, "address")
+	}
 
 	bootstrap := processes.New(Info{
 		Name:       "bootstrap/0",
@@ -153,6 +185,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		Directory:  filepath.Join(processes.Directory, "bootstrap", "0"),
 		Address:    net.JoinHostPort(host, strconv.Itoa(bootstrapPort)),
 	})
+
+	// gateway must wait for the versioncontrol to start up
+	bootstrap.WaitForStart(versioncontrol)
 
 	bootstrap.Arguments = withCommon(bootstrap.Directory, Arguments{
 		"setup": {
@@ -169,6 +204,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 			"--server.extensions.revocation=false",
 			"--server.use-peer-ca-whitelist=false",
+
+			"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
 		},
 		"run": {},
 	})
@@ -217,6 +254,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--mail.smtp-server-address", "smtp.gmail.com:587",
 				"--mail.from", "Storj <yaroslav-satellite-test@storj.io>",
 				"--mail.template-path", filepath.Join(storjRoot, "web/satellite/static/emails"),
+
+				"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
 			},
 			"run": {},
 		})
@@ -348,6 +387,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--server.extensions.revocation=false",
 				"--server.use-peer-ca-whitelist=false",
 				"--storage.satellite-id-restriction=false",
+
+				"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
 			},
 			"run": {},
 		})

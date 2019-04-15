@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"strings"
 
+	"github.com/lib/pq"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/dbutil/dbschema"
@@ -20,7 +21,7 @@ type DB struct {
 
 // Open opens a postgres database with a schema
 func Open(connstr string, schemaPrefix string) (*DB, error) {
-	schemaName := schemaPrefix + "-" + RandomString(8)
+	schemaName := schemaPrefix + "-" + CreateRandomTestingSchemaName(8)
 
 	db, err := sql.Open("postgres", ConnstrWithSchema(connstr, schemaName))
 	if err != nil {
@@ -112,4 +113,14 @@ func CheckApplicationName(s string) (r string) {
 	}
 	//return source as is if application_name is set
 	return s
+}
+
+// IsConstraintError checks if given error is about constraint violation
+func IsConstraintError(err error) bool {
+	if e, ok := err.(*pq.Error); ok {
+		if e.Code.Class() == "23" {
+			return true
+		}
+	}
+	return false
 }

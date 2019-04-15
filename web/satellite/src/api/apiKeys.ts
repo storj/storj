@@ -11,32 +11,29 @@ export async function fetchAPIKeys(projectID: string) {
         data: []
     };
 
-    try {
-        let response: any = await apollo.query({
-            query: gql(
-                `query {
-                    project(
-                        id: "${projectID}",
-                    ) {
-                        apiKeys {
-                            id,
-                            name,
-                            createdAt
-                        }
+    let response: any = await apollo.query({
+        query: gql(
+            `query {
+                project(
+                    id: "${projectID}",
+                ) {
+                    apiKeys {
+                        id,
+                        name,
+                        createdAt
                     }
-                }`
-            ),
-            fetchPolicy: 'no-cache'
-        });
+                }
+            }`
+        ),
+        fetchPolicy: 'no-cache',
+        errorPolicy: 'all',
+    });
 
-        if (response.errors) {
-            result.errorMessage = response.errors[0].message;
-        } else {
-            result.isSuccess = true;
-            result.data = response.data.project.apiKeys;
-        }
-    } catch (e) {
-        result.errorMessage = e.message;
+    if (response.errors) {
+        result.errorMessage = response.errors[0].message;
+    } else {
+        result.isSuccess = true;
+        result.data = response.data.project.apiKeys;
     }
 
     return result;
@@ -49,37 +46,34 @@ export async function createAPIKey(projectID: string, name: string) {
         data: null
     };
 
-    try {
-        let response: any = await apollo.mutate({
-            mutation: gql(
-                `mutation {
-                    createAPIKey(
-                        projectID: "${projectID}",
-                        name: "${name}"
-                    ) {
-                        key,
-                        keyInfo {
-                            id,
-                            name,
-                            createdAt
-                        }
+    let response: any = await apollo.mutate({
+        mutation: gql(
+            `mutation {
+                createAPIKey(
+                    projectID: "${projectID}",
+                    name: "${name}"
+                ) {
+                    key,
+                    keyInfo {
+                        id,
+                        name,
+                        createdAt
                     }
-                }`
-            ),
-            fetchPolicy: 'no-cache'
-        });
+                }
+            }`
+        ),
+        fetchPolicy: 'no-cache',
+        errorPolicy: 'all',
+    });
 
-        if (response.errors) {
-            result.errorMessage = response.errors[0].message;
-        } else {
-            result.isSuccess = true;
-            result.data = {
-                key: response.data.createAPIKey.key,
-                keyInfo: response.data.createAPIKey.keyInfo
-            };
-        }
-    } catch (e) {
-        result.errorMessage = e.message;
+    if (response.errors) {
+        result.errorMessage = response.errors[0].message;
+    } else {
+        result.isSuccess = true;
+        result.data = {
+            key: response.data.createAPIKey.key,
+            keyInfo: response.data.createAPIKey.keyInfo
+        };
     }
 
     return result;
@@ -92,26 +86,23 @@ export async function deleteAPIKeys(ids: string[]) {
         data: null
     };
 
-    try {
-        let response: any = await apollo.mutate({
-            mutation: gql(
-                `mutation {
-                    deleteAPIKeys(id: [${prepareIdList(ids)}]) {
-                        id
-                    }
-                }`
-            ),
-            fetchPolicy: 'no-cache'
-        });
+    let response: any = await apollo.mutate({
+        mutation: gql(
+            `mutation {
+                deleteAPIKeys(id: [${prepareIdList(ids)}]) {
+                    id
+                }
+            }`
+        ),
+        fetchPolicy: 'no-cache',
+        errorPolicy: 'all',
+    });
 
-        if (response.errors) {
-            result.errorMessage = response.errors[0].message;
-        } else {
-            result.isSuccess = true;
-            result.data = response.data.deleteAPIKeys;
-        }
-    } catch (e) {
-        result.errorMessage = e.message;
+    if (response.errors) {
+        result.errorMessage = response.errors[0].message;
+    } else {
+        result.isSuccess = true;
+        result.data = response.data.deleteAPIKeys;
     }
 
     return result;

@@ -6,7 +6,6 @@ package orders
 import (
 	"context"
 	"io"
-	"strings"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
@@ -20,22 +19,43 @@ import (
 	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 )
 
 // DB implements saving order after receiving from storage node
 type DB interface {
-	// SaveInlineOrder
-	SaveInlineOrder(ctx context.Context, bucketID []byte) error
-	// SaveRemoteOrder
-	SaveRemoteOrder(ctx context.Context, bucketID []byte, orderLimits []*pb.OrderLimit2) error
-	// SettleOrder
-	SettleRemoteOrder(ctx context.Context, orderLimit *pb.OrderLimit2, order *pb.Order2) error
+	// CreateSerialInfo creates serial number entry in database
+	CreateSerialInfo(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte, limitExpiration time.Time) error
+	// UseSerialNumber creates serial number entry in database
+	UseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) ([]byte, error)
+	// UnuseSerialNumber removes pair serial number -> storage node id from database
+	UnuseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) error
+
+	// UpdateBucketBandwidthAllocation updates 'allocated' bandwidth for given bucket
+	UpdateBucketBandwidthAllocation(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error
+	// UpdateBucketBandwidthSettle updates 'settled' bandwidth for given bucket
+	UpdateBucketBandwidthSettle(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error
+	// UpdateBucketBandwidthInline updates 'inline' bandwidth for given bucket
+	UpdateBucketBandwidthInline(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error
+
+	// UpdateStoragenodeBandwidthAllocation updates 'allocated' bandwidth for given storage node
+	UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error
+	// UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node
+	UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error
+
+	// GetBucketBandwidth gets total bucket bandwidth from period of time
+	GetBucketBandwidth(ctx context.Context, bucketID []byte, from, to time.Time) (int64, error)
+	// GetStorageNodeBandwidth gets total storage node bandwidth from period of time
+	GetStorageNodeBandwidth(ctx context.Context, nodeID storj.NodeID, from, to time.Time) (int64, error)
 }
 
 var (
 	// Error the default orders errs class
 	Error = errs.Class("orders error")
-	mon   = monkit.Package()
+	// ErrUsingSerialNumber error class for serial number
+	ErrUsingSerialNumber = errs.Class("serial number")
+
+	mon = monkit.Package()
 )
 
 // Endpoint for orders receiving
@@ -102,10 +122,21 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 			return status.Errorf(codes.InvalidArgument, err.Error())
 		}
 
-		uplinkPubKey, err := endpoint.certdb.GetPublicKey(ctx, orderLimit.UplinkId)
-		if err != nil {
-			endpoint.log.Warn("unable to find uplink public key", zap.Error(err))
-			return status.Errorf(codes.Internal, "unable to find uplink public key")
+		var uplinkSignee signing.Signee
+
+		// who asked for this order: uplink (get/put/del) or satellite (get_repair/put_repair/audit)
+		if endpoint.satelliteSignee.ID() == orderLimit.UplinkId {
+			uplinkSignee = endpoint.satelliteSignee
+		} else {
+			uplinkPubKey, err := endpoint.certdb.GetPublicKey(ctx, orderLimit.UplinkId)
+			if err != nil {
+				endpoint.log.Warn("unable to find uplink public key", zap.Error(err))
+				return status.Errorf(codes.Internal, "unable to find uplink public key")
+			}
+			uplinkSignee = &signing.PublicKey{
+				Self: orderLimit.UplinkId,
+				Key:  uplinkPubKey,
+			}
 		}
 
 		rejectErr := func() error {
@@ -113,10 +144,6 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 				return Error.New("unable to verify order limit")
 			}
 
-			uplinkSignee := &signing.PublicKey{
-				Self: orderLimit.UplinkId, // TODO should this be taken from public key ??
-				Key:  uplinkPubKey,
-			}
 			if err := signing.VerifyOrderSignature(uplinkSignee, order); err != nil {
 				return Error.New("unable to verify order")
 			}
@@ -142,9 +169,10 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 			}
 		}
 
-		if err = endpoint.DB.SettleRemoteOrder(ctx, orderLimit, order); err != nil {
-			duplicateRequest := strings.Contains(err.Error(), "UNIQUE constraint failed") || strings.Contains(err.Error(), "violates unique constraint")
-			if duplicateRequest {
+		bucketID, err := endpoint.DB.UseSerialNumber(ctx, orderLimit.SerialNumber, orderLimit.StorageNodeId)
+		if err != nil {
+			endpoint.log.Warn("unable to use serial number", zap.Error(err))
+			if ErrUsingSerialNumber.Has(err) {
 				err := stream.Send(&pb.SettlementResponse{
 					SerialNumber: orderLimit.SerialNumber,
 					Status:       pb.SettlementResponse_REJECTED,
@@ -153,9 +181,28 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 					return formatError(err)
 				}
 			} else {
-				// send error if order was not saved to DB to avoid removing on storage node
 				return err
 			}
+			continue
+		}
+		now := time.Now().UTC()
+		intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
+
+		if err := endpoint.DB.UpdateBucketBandwidthSettle(ctx, bucketID, orderLimit.Action, order.Amount, intervalStart); err != nil {
+			if err := endpoint.DB.UnuseSerialNumber(ctx, orderLimit.SerialNumber, orderLimit.StorageNodeId); err != nil {
+				endpoint.log.Error("unable to unuse serial number", zap.Error(err))
+			}
+			return err
+		}
+
+		if err := endpoint.DB.UpdateStoragenodeBandwidthSettle(ctx, orderLimit.StorageNodeId, orderLimit.Action, order.Amount, intervalStart); err != nil {
+			if err := endpoint.DB.UnuseSerialNumber(ctx, orderLimit.SerialNumber, orderLimit.StorageNodeId); err != nil {
+				endpoint.log.Error("unable to unuse serial number", zap.Error(err))
+			}
+			if err := endpoint.DB.UpdateBucketBandwidthSettle(ctx, bucketID, orderLimit.Action, -order.Amount, intervalStart); err != nil {
+				endpoint.log.Error("unable to rollback bucket bandwidth", zap.Error(err))
+			}
+			return err
 		}
 
 		err = stream.Send(&pb.SettlementResponse{

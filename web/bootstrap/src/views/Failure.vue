@@ -97,7 +97,7 @@ export default class Failure extends Vue {}
 
         &__title {
             width: 558px;
-            font-family: 'montserrat_bold';
+            font-family: 'font_bold';
             font-size: 48px;
             font-style: normal;
             font-stretch: normal;
@@ -112,7 +112,7 @@ export default class Failure extends Vue {}
         &__info {
             margin-top: 24px;
             width: 446px;
-            font-family: 'montserrat_regular';
+            font-family: 'font_regular';
             font-size: 16px;
             font-style: normal;
             font-stretch: normal;

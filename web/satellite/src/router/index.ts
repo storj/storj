@@ -4,16 +4,19 @@
 import Vue from 'vue';
 import Router from 'vue-router';
 import ROUTES from '@/utils/constants/routerConstants';
-import Login from '@/views/Login.vue';
-import Register from '@/views/Register.vue';
+import Login from '@/views/login/Login.vue';
+import Register from '@/views/register/Register.vue';
+import ForgotPassword from '@/views/forgotPassword/ForgotPassword.vue';
 import Dashboard from '@/views/Dashboard.vue';
 import AccountArea from '@/components/account/AccountArea.vue';
-import ProjectDetails from '@/components/project/ProjectDetailsArea.vue';
+import ProjectDetailsArea from '@/components/project/ProjectDetailsArea.vue';
 import TeamArea from '@/components/team/TeamArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
 import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
+import UsageReport from '@/components/project/UsageReport.vue';
 import BucketArea from '@/components/buckets/BucketArea.vue';
 import { getToken } from '@/utils/tokenManager';
+import store from '@/store';
 
 Vue.use(Router);
 
@@ -31,8 +34,12 @@ let router = new Router({
             component: Register
         },
         {
+            path: ROUTES.FORGOT_PASSWORD.path,
+            name: ROUTES.FORGOT_PASSWORD.name,
+            component: ForgotPassword
+        },
+        {
             path: ROUTES.DASHBOARD.path,
-            name: ROUTES.DASHBOARD.name,
             meta: {
                 requiresAuth: true
             },
@@ -46,7 +53,13 @@ let router = new Router({
                 {
                     path: ROUTES.PROJECT_DETAILS.path,
                     name: ROUTES.PROJECT_DETAILS.name,
-                    component: ProjectDetails
+                    component: ProjectDetailsArea
+                },
+                // Remove when dashboard will be created
+                {
+                    path: '/',
+                    name: 'default',
+                    component: ProjectDetailsArea
                 },
                 {
                     path: ROUTES.TEAM.path,
@@ -59,10 +72,15 @@ let router = new Router({
                     component: ApiKeysArea
                 },
                 {
-                    path: ROUTES.BUCKETS.path,
-                    name: ROUTES.BUCKETS.name,
-                    component: BucketArea
+                    path: ROUTES.USAGE_REPORT.path,
+                    name: ROUTES.USAGE_REPORT.name,
+                    component: UsageReport,
                 },
+                // {
+                //     path: ROUTES.BUCKETS.path,
+                //     name: ROUTES.BUCKETS.name,
+                //     component: BucketArea
+                // },
                 // {
                 //     path: '/',
                 //     name: 'dashboardArea',
@@ -79,7 +97,14 @@ let router = new Router({
 });
 
 // Makes check that Token exist at session storage before any route except Login and Register
+// and if we are able to navigate to page without existing project
 router.beforeEach((to, from, next) => {
+    if (isUnavailablePageWithoutProject(to.name as string)) {
+        next(ROUTES.PROJECT_DETAILS);
+
+        return;
+    }
+
     if (to.matched.some(route => route.meta.requiresAuth)) {
         if (!getToken()) {
             next(ROUTES.LOGIN);
@@ -90,5 +115,15 @@ router.beforeEach((to, from, next) => {
 
     next();
 });
+
+// isUnavailablePageWithoutProject checks if we are able to navigate to page without existing project
+function isUnavailablePageWithoutProject(pageName: string): boolean {
+    let unavailablePages: string[] = [ROUTES.TEAM.name, ROUTES.API_KEYS.name];
+    const state = store.state as any;
+
+    let isProjectSelected = state.projectsModule.selectedProject.id !== '';
+
+    return unavailablePages.includes(pageName) && !isProjectSelected;
+}
 
 export default router;

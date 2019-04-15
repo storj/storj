@@ -11,12 +11,8 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/timestamp"
 
-	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/eestream"
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/storage/meta"
@@ -27,28 +23,20 @@ import (
 type Stripe struct {
 	Index       int64
 	Segment     *pb.Pointer
-	OrderLimits []*pb.AddressedOrderLimit
+	SegmentPath storj.Path
 }
 
 // Cursor keeps track of audit location in pointer db
 type Cursor struct {
-	pointerdb  *pointerdb.Service
-	allocation *pointerdb.AllocationSigner
-	cache      *overlay.Cache
-	identity   *identity.FullIdentity
-	signer     signing.Signer
-	lastPath   storj.Path
-	mutex      sync.Mutex
+	pointerdb *pointerdb.Service
+	lastPath  storj.Path
+	mutex     sync.Mutex
 }
 
 // NewCursor creates a Cursor which iterates over pointer db
-func NewCursor(pointerdb *pointerdb.Service, allocation *pointerdb.AllocationSigner, cache *overlay.Cache, identity *identity.FullIdentity) *Cursor {
+func NewCursor(pointerdb *pointerdb.Service) *Cursor {
 	return &Cursor{
-		pointerdb:  pointerdb,
-		allocation: allocation,
-		cache:      cache,
-		identity:   identity,
-		signer:     signing.SignerFromFullIdentity(identity),
+		pointerdb: pointerdb,
 	}
 }
 
@@ -114,15 +102,10 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 		return nil, err
 	}
 
-	limits, err := cursor.createOrderLimits(ctx, pointer)
-	if err != nil {
-		return nil, err
-	}
-
 	return &Stripe{
 		Index:       index,
 		Segment:     pointer,
-		OrderLimits: limits,
+		SegmentPath: path,
 	}, nil
 }
 
@@ -152,59 +135,4 @@ func getRandomPointer(pointerItems []*pb.ListResponse_Item) (pointer *pb.ListRes
 	}
 
 	return pointerItems[randomNum.Int64()], nil
-}
-
-func (cursor *Cursor) createOrderLimits(ctx context.Context, pointer *pb.Pointer) ([]*pb.AddressedOrderLimit, error) {
-	auditorIdentity := cursor.identity.PeerIdentity()
-	rootPieceID := pointer.GetRemote().RootPieceId
-	shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
-	expiration := pointer.ExpirationDate
-
-	limits := make([]*pb.AddressedOrderLimit, pointer.GetRemote().GetRedundancy().GetTotal())
-	for _, piece := range pointer.GetRemote().GetRemotePieces() {
-		derivedPieceID := rootPieceID.Derive(piece.NodeId)
-		orderLimit, err := cursor.createOrderLimit(ctx, auditorIdentity, piece.NodeId, derivedPieceID, expiration, int64(shareSize), pb.PieceAction_GET_AUDIT)
-		if err != nil {
-			return nil, err
-		}
-
-		node, err := cursor.cache.Get(ctx, piece.NodeId)
-		if err != nil {
-			return nil, err
-		}
-
-		if node != nil {
-			node.Type.DPanicOnInvalid("auditor order limits")
-		}
-
-		limits[piece.GetPieceNum()] = &pb.AddressedOrderLimit{
-			Limit:              orderLimit,
-			StorageNodeAddress: node.Address,
-		}
-	}
-
-	return limits, nil
-}
-
-func (cursor *Cursor) createOrderLimit(ctx context.Context, uplinkIdentity *identity.PeerIdentity, nodeID storj.NodeID, pieceID storj.PieceID, expiration *timestamp.Timestamp, limit int64, action pb.PieceAction) (*pb.OrderLimit2, error) {
-	parameters := pointerdb.OrderLimitParameters{
-		UplinkIdentity:  uplinkIdentity,
-		StorageNodeID:   nodeID,
-		PieceID:         pieceID,
-		Action:          action,
-		PieceExpiration: expiration,
-		Limit:           limit,
-	}
-
-	orderLimit, err := cursor.allocation.OrderLimit(ctx, parameters)
-	if err != nil {
-		return nil, err
-	}
-
-	orderLimit, err = signing.SignOrderLimit(cursor.signer, orderLimit)
-	if err != nil {
-		return nil, err
-	}
-
-	return orderLimit, nil
 }

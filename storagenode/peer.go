@@ -11,6 +11,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
@@ -39,7 +40,6 @@ type DB interface {
 	// Close closes the database
 	Close() error
 
-	Storage() psserver.Storage
 	Pieces() storage.Blobs
 
 	Orders() orders.DB
@@ -62,6 +62,8 @@ type Config struct {
 	Storage  psserver.Config
 
 	Storage2 piecestore.Config
+
+	Version version.Config
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
@@ -80,6 +82,8 @@ type Peer struct {
 
 	Server *server.Server
 
+	Version *version.Service
+
 	// services and endpoints
 	// TODO: similar grouping to satellite.Peer
 	Kademlia struct {
@@ -87,10 +91,6 @@ type Peer struct {
 		Service      *kademlia.Kademlia
 		Endpoint     *kademlia.Endpoint
 		Inspector    *kademlia.Inspector
-	}
-
-	Storage struct {
-		Endpoint *psserver.Server // TODO: separate into endpoint and service
 	}
 
 	Agreements struct {
@@ -108,7 +108,7 @@ type Peer struct {
 }
 
 // New creates a new Storage Node.
-func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*Peer, error) {
+func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, versionInfo version.Info) (*Peer, error) {
 	peer := &Peer{
 		Log:      log,
 		Identity: full,
@@ -116,6 +116,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 	}
 
 	var err error
+
+	{
+		test := version.Info{}
+		if test != versionInfo {
+			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
+				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
+		}
+		peer.Version = version.NewService(config.Version, versionInfo, "Storagenode")
+	}
 
 	{ // setup listener and server
 		sc := config.Server
@@ -139,6 +148,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 			config.ExternalAddress = peer.Addr()
 		}
 
+		pbVersion, err := versionInfo.Proto()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		self := pb.Node{
 			Id:   peer.ID(),
 			Type: pb.NodeType_STORAGE,
@@ -149,6 +163,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 			Metadata: &pb.NodeMetadata{
 				Wallet: config.Operator.Wallet,
 			},
+			Version: pbVersion,
 		}
 
 		kdb, ndb := peer.DB.RoutingTable()
@@ -169,18 +184,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 
 		peer.Kademlia.Inspector = kademlia.NewInspector(peer.Kademlia.Service, peer.Identity)
 		pb.RegisterKadInspectorServer(peer.Server.PrivateGRPC(), peer.Kademlia.Inspector)
-	}
-
-	{ // setup piecestore
-		// TODO: move this setup logic into psstore package
-		config := config.Storage
-
-		// TODO: psserver shouldn't need the private key
-		peer.Storage.Endpoint, err = psserver.NewEndpoint(peer.Log.Named("piecestore"), config, peer.DB.Storage(), peer.DB.PSDB(), peer.Identity, peer.Kademlia.Service)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-		pb.RegisterPieceStoreRoutesServer(peer.Server.GRPC(), peer.Storage.Endpoint)
 	}
 
 	{ // agreements
@@ -257,6 +260,9 @@ func (peer *Peer) Run(ctx context.Context) error {
 	group, ctx := errgroup.WithContext(ctx)
 
 	group.Go(func() error {
+		return ignoreCancel(peer.Version.Run(ctx))
+	})
+	group.Go(func() error {
 		return ignoreCancel(peer.Kademlia.Service.Bootstrap(ctx))
 	})
 	group.Go(func() error {
@@ -302,9 +308,6 @@ func (peer *Peer) Close() error {
 	}
 
 	// close services in reverse initialization order
-	if peer.Storage.Endpoint != nil {
-		errlist.Add(peer.Storage.Endpoint.Close())
-	}
 	if peer.Kademlia.Service != nil {
 		errlist.Add(peer.Kademlia.Service.Close())
 	}

@@ -50,7 +50,7 @@ type EncryptionConfig struct {
 // to talk to the rest of the network.
 type ClientConfig struct {
 	APIKey        string      `default:"" help:"the api key to use for the satellite" noprefix:"true"`
-	SatelliteAddr string      `default:"localhost:7778" devDefault:"localhost:10000" help:"the address to use for the satellite" noprefix:"true"`
+	SatelliteAddr string      `default:"127.0.0.1:7777" devDefault:"127.0.0.1:10000" help:"the address to use for the satellite" noprefix:"true"`
 	MaxInlineSize memory.Size `help:"max inline segment size in bytes" default:"4KiB"`
 	SegmentSize   memory.Size `help:"the size of a segment in bytes" default:"64MiB"`
 }
@@ -78,6 +78,9 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 	if err != nil {
 		return nil, nil, err
 	}
+
+	// ToDo: Handle Versioning for Uplinks here
+
 	tc := transport.NewClient(tlsOpts)
 
 	if c.Client.SatelliteAddr == "" {
@@ -120,7 +123,7 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 
 	buckets := buckets.NewStore(streams)
 
-	return kvmetainfo.New(metainfo, buckets, streams, segments, key), streams, nil
+	return kvmetainfo.New(metainfo, buckets, streams, segments, key, c.Enc.BlockSize.Int32(), rs, c.Client.SegmentSize.Int64()), streams, nil
 }
 
 // GetRedundancyScheme returns the configured redundancy scheme for new uploads

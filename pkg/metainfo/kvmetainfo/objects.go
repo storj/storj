@@ -265,19 +265,13 @@ func (db *DB) getInfo(ctx context.Context, prefix string, bucket string, path st
 		Data:       pointer.GetMetadata(),
 	}
 
-	streamInfoData, err := streams.DecryptStreamInfo(ctx, lastSegmentMeta, fullpath, db.rootKey)
+	streamInfoData, streamMeta, err := streams.DecryptStreamInfo(ctx, lastSegmentMeta.Data, fullpath, db.rootKey)
 	if err != nil {
 		return object{}, storj.Object{}, err
 	}
 
 	streamInfo := pb.StreamInfo{}
 	err = proto.Unmarshal(streamInfoData, &streamInfo)
-	if err != nil {
-		return object{}, storj.Object{}, err
-	}
-
-	streamMeta := pb.StreamMeta{}
-	err = proto.Unmarshal(lastSegmentMeta.Data, &streamMeta)
 	if err != nil {
 		return object{}, storj.Object{}, err
 	}

@@ -6,7 +6,9 @@ package metainfo
 import (
 	"bytes"
 	"context"
+	"errors"
 	"strconv"
+	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
@@ -15,8 +17,9 @@ import (
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/memory"
+	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/auth"
-	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
@@ -41,26 +44,26 @@ type APIKeys interface {
 
 // Endpoint metainfo endpoint
 type Endpoint struct {
-	log        *zap.Logger
-	pointerdb  *pointerdb.Service
-	allocation *pointerdb.AllocationSigner
-	cache      *overlay.Cache
-	apiKeys    APIKeys
-	signer     signing.Signer
-	orders     orders.DB
+	log           *zap.Logger
+	pointerdb     *pointerdb.Service
+	orders        *orders.Service
+	cache         *overlay.Cache
+	apiKeys       APIKeys
+	accountingDB  accounting.DB
+	maxAlphaUsage memory.Size
 }
 
 // NewEndpoint creates new metainfo endpoint instance
-func NewEndpoint(log *zap.Logger, pointerdb *pointerdb.Service, allocation *pointerdb.AllocationSigner, cache *overlay.Cache, apiKeys APIKeys, signer signing.Signer, orders orders.DB) *Endpoint {
+func NewEndpoint(log *zap.Logger, pointerdb *pointerdb.Service, orders *orders.Service, cache *overlay.Cache, apiKeys APIKeys, acctDB accounting.DB, maxAlphaUsage memory.Size) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
-		log:        log,
-		pointerdb:  pointerdb,
-		allocation: allocation,
-		cache:      cache,
-		apiKeys:    apiKeys,
-		signer:     signer,
-		orders:     orders,
+		log:           log,
+		pointerdb:     pointerdb,
+		orders:        orders,
+		cache:         cache,
+		apiKeys:       apiKeys,
+		accountingDB:  acctDB,
+		maxAlphaUsage: maxAlphaUsage,
 	}
 }
 
@@ -103,7 +106,7 @@ func (endpoint *Endpoint) SegmentInfo(ctx context.Context, req *pb.SegmentInfoRe
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	path, err := endpoint.createPath(keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
+	path, err := CreatePath(keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
@@ -129,6 +132,33 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
+	err = endpoint.validateBucket(req.Bucket)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	err = endpoint.validateRedundancy(req.Redundancy)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	// Check if this projectID has exceeded alpha usage limits, i.e. 25GB of bandwidth or storage used in the past month
+	// TODO: remove this code once we no longer need usage limiting for alpha release
+	// Ref: https://storjlabs.atlassian.net/browse/V3-1274
+	bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
+	inlineTotal, remoteTotal, err := endpoint.accountingDB.ProjectStorageTotals(ctx, keyInfo.ProjectID)
+	if err != nil {
+		endpoint.log.Error("retrieving ProjectStorageTotals", zap.Error(err))
+	}
+	exceeded, resource := accounting.ExceedsAlphaUsage(0, inlineTotal, remoteTotal, endpoint.maxAlphaUsage)
+	if exceeded {
+		endpoint.log.Sugar().Errorf("monthly project limits are %s of storage and bandwidth usage. This limit has been exceeded for %s for projectID %s.",
+			endpoint.maxAlphaUsage.String(),
+			resource, keyInfo.ProjectID,
+		)
+		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Alpha Usage Limit")
+	}
+
 	redundancy, err := eestream.NewRedundancyStrategyFromProto(req.GetRedundancy())
 	if err != nil {
 		return nil, err
@@ -151,39 +181,9 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	uuid, err := uuid.New()
+	rootPieceID, addressedLimits, err := endpoint.orders.CreatePutOrderLimits(ctx, uplinkIdentity, bucketID, nodes, req.Expiration, maxPieceSize)
 	if err != nil {
-		return nil, err
-	}
-	serialNumber := storj.SerialNumber(*uuid)
-
-	rootPieceID := storj.NewPieceID()
-	addressedLimits := make([]*pb.AddressedOrderLimit, len(nodes))
-	for i, node := range nodes {
-		derivedPieceID := rootPieceID.Derive(node.Id)
-
-		parameters := pointerdb.OrderLimitParameters{
-			SerialNumber:    serialNumber,
-			UplinkIdentity:  uplinkIdentity,
-			StorageNodeID:   node.Id,
-			PieceID:         derivedPieceID,
-			Action:          pb.PieceAction_PUT,
-			PieceExpiration: req.Expiration,
-			Limit:           maxPieceSize,
-		}
-		orderLimit, err := endpoint.createOrderLimit(ctx, parameters)
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, err.Error())
-		}
-
-		addressedLimits[i] = &pb.AddressedOrderLimit{
-			Limit:              orderLimit,
-			StorageNodeAddress: node.Address,
-		}
-	}
-
-	if err := endpoint.saveRemoteOrder(ctx, keyInfo.ProjectID, req.Bucket, addressedLimits); err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, Error.Wrap(err)
 	}
 
 	return &pb.SegmentWriteResponse{AddressedLimits: addressedLimits, RootPieceId: rootPieceID}, nil
@@ -208,12 +208,12 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	// err = endpoint.filterValidPieces(req.Pointer)
-	// if err != nil {
-	// 	return nil, status.Errorf(codes.Internal, err.Error())
-	// }
+	err = endpoint.filterValidPieces(req.Pointer)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
 
-	path, err := endpoint.createPath(keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
+	path, err := CreatePath(keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
@@ -221,6 +221,15 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	err = endpoint.pointerdb.Put(path, req.Pointer)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	if req.Pointer.Type == pb.Pointer_INLINE {
+		bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
+		// TODO or maybe use pointer.SegmentSize ??
+		err = endpoint.orders.UpdatePutInlineOrder(ctx, bucketID, int64(len(req.Pointer.InlineSegment)))
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, err.Error())
+		}
 	}
 
 	pointer, err := endpoint.pointerdb.Get(path)
@@ -245,7 +254,24 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	path, err := endpoint.createPath(keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
+	// Check if this projectID has exceeded alpha usage limits for bandwidth or storage used in the past month
+	// TODO: remove this code once we no longer need usage limiting for alpha release
+	// Ref: https://storjlabs.atlassian.net/browse/V3-1274
+	bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
+	from := time.Now().AddDate(0, 0, -accounting.AverageDaysInMonth) // past 30 days
+	bandwidthTotal, err := endpoint.accountingDB.ProjectAllocatedBandwidthTotal(ctx, bucketID, from)
+	if err != nil {
+		endpoint.log.Error("retrieving ProjectBandwidthTotal", zap.Error(err))
+	}
+	exceeded, resource := accounting.ExceedsAlphaUsage(bandwidthTotal, 0, 0, endpoint.maxAlphaUsage)
+	if exceeded {
+		endpoint.log.Sugar().Errorf("monthly project usage limit has been exceeded for resource: %s, for project: %d. Contact customer support to increase the limit.",
+			resource, keyInfo.ProjectID,
+		)
+		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Alpha Usage Limit")
+	}
+
+	path, err := CreatePath(keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
@@ -260,14 +286,19 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	}
 
 	if pointer.Type == pb.Pointer_INLINE {
-		return &pb.SegmentDownloadResponse{Pointer: pointer}, nil
-	} else if pointer.Type == pb.Pointer_REMOTE && pointer.Remote != nil {
-		limits, err := endpoint.createOrderLimitsForSegment(ctx, pointer, pb.PieceAction_GET)
+		// TODO or maybe use pointer.SegmentSize ??
+		err := endpoint.orders.UpdateGetInlineOrder(ctx, bucketID, int64(len(pointer.InlineSegment)))
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
-
-		if err := endpoint.saveRemoteOrder(ctx, keyInfo.ProjectID, req.Bucket, limits); err != nil {
+		return &pb.SegmentDownloadResponse{Pointer: pointer}, nil
+	} else if pointer.Type == pb.Pointer_REMOTE && pointer.Remote != nil {
+		uplinkIdentity, err := identity.PeerIdentityFromContext(ctx)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, err.Error())
+		}
+		limits, err := endpoint.orders.CreateGetOrderLimits(ctx, uplinkIdentity, bucketID, pointer)
+		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
 
@@ -291,7 +322,7 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	path, err := endpoint.createPath(keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
+	path, err := CreatePath(keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
@@ -311,98 +342,21 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 	}
 
 	if pointer.Type == pb.Pointer_REMOTE && pointer.Remote != nil {
-		limits, err := endpoint.createOrderLimitsForSegment(ctx, pointer, pb.PieceAction_DELETE)
+		uplinkIdentity, err := identity.PeerIdentityFromContext(ctx)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
+
+		bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
+		limits, err := endpoint.orders.CreateDeleteOrderLimits(ctx, uplinkIdentity, bucketID, pointer)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, err.Error())
+		}
+
 		return &pb.SegmentDeleteResponse{AddressedLimits: limits}, nil
 	}
 
 	return &pb.SegmentDeleteResponse{}, nil
-}
-
-func (endpoint *Endpoint) createOrderLimitsForSegment(ctx context.Context, pointer *pb.Pointer, action pb.PieceAction) ([]*pb.AddressedOrderLimit, error) {
-	if pointer.GetRemote() == nil {
-		return nil, nil
-	}
-
-	uplinkIdentity, err := identity.PeerIdentityFromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	rootPieceID := pointer.GetRemote().RootPieceId
-
-	redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
-	if err != nil {
-		return nil, err
-	}
-
-	uuid, err := uuid.New()
-	if err != nil {
-		return nil, err
-	}
-	serialNumber := storj.SerialNumber(*uuid)
-
-	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
-	expiration := pointer.ExpirationDate
-
-	var combinedErrs error
-	var limits []*pb.AddressedOrderLimit
-	for _, piece := range pointer.GetRemote().GetRemotePieces() {
-		derivedPieceID := rootPieceID.Derive(piece.NodeId)
-
-		parameters := pointerdb.OrderLimitParameters{
-			SerialNumber:    serialNumber,
-			UplinkIdentity:  uplinkIdentity,
-			StorageNodeID:   piece.NodeId,
-			PieceID:         derivedPieceID,
-			Action:          action,
-			PieceExpiration: expiration,
-			Limit:           pieceSize,
-		}
-		orderLimit, err := endpoint.createOrderLimit(ctx, parameters)
-		if err != nil {
-			return nil, err
-		}
-
-		node, err := endpoint.cache.Get(ctx, piece.NodeId)
-		if err != nil {
-			endpoint.log.Error("error getting node from overlay cache", zap.Error(err))
-			combinedErrs = errs.Combine(combinedErrs, err)
-			continue
-		}
-
-		if node != nil {
-			node.Type.DPanicOnInvalid("metainfo server order limits")
-		}
-
-		limits = append(limits, &pb.AddressedOrderLimit{
-			Limit:              orderLimit,
-			StorageNodeAddress: node.Address,
-		})
-	}
-
-	if len(limits) < redundancy.RequiredCount() {
-		err = Error.New("not enough nodes available: got %d, required %d", len(limits), redundancy.RequiredCount())
-		return nil, errs.Combine(combinedErrs, err)
-	}
-
-	return limits, nil
-}
-
-func (endpoint *Endpoint) createOrderLimit(ctx context.Context, parameters pointerdb.OrderLimitParameters) (*pb.OrderLimit2, error) {
-	orderLimit, err := endpoint.allocation.OrderLimit(ctx, parameters)
-	if err != nil {
-		return nil, err
-	}
-
-	orderLimit, err = signing.SignOrderLimit(endpoint.signer, orderLimit)
-	if err != nil {
-		return nil, err
-	}
-
-	return orderLimit, nil
 }
 
 // ListSegments returns all Path keys in the Pointers bucket
@@ -414,7 +368,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.ListSegments
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	prefix, err := endpoint.createPath(keyInfo.ProjectID, -1, req.Bucket, req.Prefix)
+	prefix, err := CreatePath(keyInfo.ProjectID, -1, req.Bucket, req.Prefix)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
@@ -436,25 +390,11 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.ListSegments
 	return &pb.ListSegmentsResponse{Items: segmentItems, More: more}, nil
 }
 
-func (endpoint *Endpoint) createPath(projectID uuid.UUID, segmentIndex int64, bucket, path []byte) (string, error) {
-	if segmentIndex < -1 {
-		return "", Error.New("invalid segment index")
-	}
-	segment := "l"
-	if segmentIndex > -1 {
-		segment = "s" + strconv.FormatInt(segmentIndex, 10)
-	}
-
+func createBucketID(projectID uuid.UUID, bucket []byte) []byte {
 	entries := make([]string, 0)
 	entries = append(entries, projectID.String())
-	entries = append(entries, segment)
-	if len(bucket) != 0 {
-		entries = append(entries, string(bucket))
-	}
-	if len(path) != 0 {
-		entries = append(entries, string(path))
-	}
-	return storj.JoinPaths(entries...), nil
+	entries = append(entries, string(bucket))
+	return []byte(storj.JoinPaths(entries...))
 }
 
 func (endpoint *Endpoint) filterValidPieces(pointer *pb.Pointer) error {
@@ -477,10 +417,10 @@ func (endpoint *Endpoint) filterValidPieces(pointer *pb.Pointer) error {
 			remotePieces = append(remotePieces, piece)
 		}
 
-		if int32(len(remotePieces)) < remote.Redundancy.SuccessThreshold {
-			return Error.New("Number of valid pieces is lower then success threshold: %v < %v",
+		if int32(len(remotePieces)) < remote.Redundancy.RepairThreshold {
+			return Error.New("Number of valid pieces is lower then repair threshold: %v < %v",
 				len(remotePieces),
-				remote.Redundancy.SuccessThreshold,
+				remote.Redundancy.RepairThreshold,
 			)
 		}
 
@@ -508,6 +448,9 @@ func (endpoint *Endpoint) validateCommit(req *pb.SegmentCommitRequest) error {
 	if req.Pointer.Type == pb.Pointer_REMOTE {
 		remote := req.Pointer.Remote
 
+		if len(req.OriginalLimits) == 0 {
+			return Error.New("no order limits")
+		}
 		if int32(len(req.OriginalLimits)) != remote.Redundancy.Total {
 			return Error.New("invalid no order limit for piece")
 		}
@@ -515,7 +458,7 @@ func (endpoint *Endpoint) validateCommit(req *pb.SegmentCommitRequest) error {
 		for _, piece := range remote.RemotePieces {
 			limit := req.OriginalLimits[piece.PieceNum]
 
-			err := signing.VerifyOrderLimitSignature(endpoint.signer, limit)
+			err := endpoint.orders.VerifyOrderLimitSignature(limit)
 			if err != nil {
 				return err
 			}
@@ -555,22 +498,32 @@ func (endpoint *Endpoint) validatePointer(pointer *pb.Pointer) error {
 	return nil
 }
 
-func (endpoint *Endpoint) saveRemoteOrder(ctx context.Context, projectID uuid.UUID, bucketName []byte, orderLimits []*pb.AddressedOrderLimit) error {
-	bucketID := storj.JoinPaths(projectID.String(), string(bucketName))
-	limits := make([]*pb.OrderLimit2, len(orderLimits))
-	for i, limit := range orderLimits {
-		limits[i] = limit.Limit
+// CreatePath will create a Segment path
+func CreatePath(projectID uuid.UUID, segmentIndex int64, bucket, path []byte) (storj.Path, error) {
+	if segmentIndex < -1 {
+		return "", errors.New("invalid segment index")
 	}
-	if err := endpoint.orders.SaveRemoteOrder(ctx, []byte(bucketID), limits); err != nil {
-		return err
+	segment := "l"
+	if segmentIndex > -1 {
+		segment = "s" + strconv.FormatInt(segmentIndex, 10)
 	}
-	return nil
+
+	entries := make([]string, 0)
+	entries = append(entries, projectID.String())
+	entries = append(entries, segment)
+	if len(bucket) != 0 {
+		entries = append(entries, string(bucket))
+	}
+	if len(path) != 0 {
+		entries = append(entries, string(path))
+	}
+	return storj.JoinPaths(entries...), nil
 }
 
-func (endpoint *Endpoint) saveInlineOrder(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction) error {
-	bucketID := storj.JoinPaths(projectID.String(), string(bucketName))
-	if err := endpoint.orders.SaveInlineOrder(ctx, []byte(bucketID)); err != nil {
-		return err
+func (endpoint *Endpoint) validateRedundancy(redundancy *pb.RedundancyScheme) error {
+	// TODO more validation, use validation from eestream.NewRedundancyStrategy
+	if redundancy.ErasureShareSize <= 0 {
+		return Error.New("erasure share size cannot be less than 0")
 	}
 	return nil
 }

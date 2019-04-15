@@ -31,12 +31,13 @@ func TestStreamStoreMeta(t *testing.T) {
 
 	mockSegmentStore := segments.NewMockStore(ctrl)
 
-	stream, err := proto.Marshal(&pb.StreamInfo{
+	streamInfo := pb.StreamInfo{
 		NumberOfSegments: 2,
 		SegmentsSize:     10,
 		LastSegmentSize:  0,
-		Metadata:         []byte{},
-	})
+		Metadata:         nil,
+	}
+	stream, err := proto.Marshal(&streamInfo)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,10 +69,7 @@ func TestStreamStoreMeta(t *testing.T) {
 		Data:       streamMetaUnmarshaled.EncryptedStreamInfo,
 	}
 
-	streamMeta, err := convertMeta(segmentMetaStreamInfo)
-	if err != nil {
-		t.Fatal(err)
-	}
+	streamMeta := convertMeta(segmentMetaStreamInfo, streamInfo, streamMetaUnmarshaled)
 
 	for i, test := range []struct {
 		// input for test function
@@ -111,11 +109,18 @@ func TestStreamStorePut(t *testing.T) {
 
 	mockSegmentStore := segments.NewMockStore(ctrl)
 
+	const (
+		encBlockSize = 10
+		segSize      = 10
+		pathCipher   = storj.AESGCM
+		dataCipher   = storj.Unencrypted
+	)
+
 	staticTime := time.Now()
 	segmentMeta := segments.Meta{
 		Modified:   staticTime,
 		Expiration: staticTime,
-		Size:       10,
+		Size:       segSize,
 		Data:       []byte{},
 	}
 
@@ -163,12 +168,12 @@ func TestStreamStorePut(t *testing.T) {
 			Delete(gomock.Any(), gomock.Any()).
 			Return(test.segmentError)
 
-		streamStore, err := NewStreamStore(mockSegmentStore, 10, new(storj.Key), 10, 0)
+		streamStore, err := NewStreamStore(mockSegmentStore, segSize, new(storj.Key), encBlockSize, dataCipher)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		meta, err := streamStore.Put(ctx, test.path, storj.AESGCM, test.data, test.metadata, test.expiration)
+		meta, err := streamStore.Put(ctx, test.path, pathCipher, test.data, test.metadata, test.expiration)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -198,6 +203,13 @@ func TestStreamStoreGet(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	const (
+		segSize      = 10
+		encBlockSize = 10
+		dataCipher   = storj.Unencrypted
+		pathCipher   = storj.AESGCM
+	)
+
 	mockSegmentStore := segments.NewMockStore(ctrl)
 
 	staticTime := time.Now()
@@ -209,7 +221,7 @@ func TestStreamStoreGet(t *testing.T) {
 
 	stream, err := proto.Marshal(&pb.StreamInfo{
 		NumberOfSegments: 1,
-		SegmentsSize:     10,
+		SegmentsSize:     segSize,
 		LastSegmentSize:  0,
 	})
 	if err != nil {
@@ -218,6 +230,8 @@ func TestStreamStoreGet(t *testing.T) {
 
 	lastSegmentMeta, err := proto.Marshal(&pb.StreamMeta{
 		EncryptedStreamInfo: stream,
+		EncryptionType:      int32(dataCipher),
+		EncryptionBlockSize: encBlockSize,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -226,7 +240,7 @@ func TestStreamStoreGet(t *testing.T) {
 	segmentMeta := segments.Meta{
 		Modified:   staticTime,
 		Expiration: staticTime,
-		Size:       10,
+		Size:       segSize,
 		Data:       lastSegmentMeta,
 	}
 
@@ -263,12 +277,12 @@ func TestStreamStoreGet(t *testing.T) {
 
 		gomock.InOrder(calls...)
 
-		streamStore, err := NewStreamStore(mockSegmentStore, 10, new(storj.Key), 10, 0)
+		streamStore, err := NewStreamStore(mockSegmentStore, segSize, new(storj.Key), encBlockSize, dataCipher)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		ranger, meta, err := streamStore.Get(ctx, test.path, storj.AESGCM)
+		ranger, meta, err := streamStore.Get(ctx, test.path, pathCipher)
 		if err != nil {
 			t.Fatal(err)
 		}

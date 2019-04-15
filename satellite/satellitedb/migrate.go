@@ -337,7 +337,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
   						get_egress bigint NOT NULL,
   						audit_egress bigint NOT NULL,
   						PRIMARY KEY ( id ),
-  						UNIQUE ( rollup_end_time, bucket_id )
+						UNIQUE ( rollup_end_time, bucket_id )
 					)`,
 				},
 			},
@@ -425,7 +425,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						PRIMARY KEY ( bucket_id, interval_start )
 					)`,
 					`ALTER TABLE bucket_usages DROP CONSTRAINT bucket_usages_rollup_end_time_bucket_id_key`,
-					`CREATE UNIQUE INDEX bucket_id_rollup_end_time_index ON bucket_usages ( 
+					`CREATE UNIQUE INDEX bucket_id_rollup_end_time_index ON bucket_usages (
 						bucket_id,
 						rollup_end_time )`,
 				},
@@ -435,8 +435,8 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Version:     10,
 				Action: migrate.SQL{
 					`ALTER TABLE users RENAME COLUMN first_name TO full_name;
-					 ALTER TABLE users ALTER COLUMN last_name DROP NOT NULL;
-					 ALTER TABLE users RENAME COLUMN last_name TO short_name;`,
+					ALTER TABLE users ALTER COLUMN last_name DROP NOT NULL;
+					ALTER TABLE users RENAME COLUMN last_name TO short_name;`,
 				},
 			},
 			{
@@ -466,6 +466,89 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					ALTER TABLE bucket_storage_tallies ALTER COLUMN metadata_size SET NOT NULL;`,
 				},
 			},
+			{
+				Description: "Merge overlay_cache_nodes into nodes table",
+				Version:     12,
+				Action: migrate.SQL{
+					// Add the new columns to the nodes table
+					`ALTER TABLE nodes ADD address TEXT NOT NULL DEFAULT '';
+					 ALTER TABLE nodes ADD protocol INTEGER NOT NULL DEFAULT 0;
+					 ALTER TABLE nodes ADD type INTEGER NOT NULL DEFAULT 2;
+					 ALTER TABLE nodes ADD free_bandwidth BIGINT NOT NULL DEFAULT -1;
+					 ALTER TABLE nodes ADD free_disk BIGINT NOT NULL DEFAULT -1;
+					 ALTER TABLE nodes ADD latency_90 BIGINT NOT NULL DEFAULT 0;
+					 ALTER TABLE nodes ADD last_contact_success TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT 'epoch';
+					 ALTER TABLE nodes ADD last_contact_failure TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT 'epoch';`,
+					// Copy data from overlay_cache_nodes to nodes
+					`UPDATE nodes
+					 SET address=overlay.address,
+					     protocol=overlay.protocol,
+						 type=overlay.node_type,
+						 free_bandwidth=overlay.free_bandwidth,
+						 free_disk=overlay.free_disk,
+						 latency_90=overlay.latency_90
+					 FROM (SELECT node_id, node_type, address, protocol, free_bandwidth, free_disk, latency_90
+						   FROM overlay_cache_nodes) AS overlay
+					 WHERE nodes.id=overlay.node_id;`,
+					// Delete the overlay cache_nodes table
+					`DROP TABLE overlay_cache_nodes CASCADE;`,
+				},
+			},
+			{
+				Description: "Change bucket_id to bucket_name and project_id",
+				Version:     13,
+				Action: migrate.SQL{
+					// Modify columns: bucket_id --> bucket_name + project_id for table bucket_storage_tallies
+					`ALTER TABLE bucket_storage_tallies ADD project_id bytea;`,
+					`UPDATE bucket_storage_tallies SET project_id=SUBSTRING(bucket_id FROM 1 FOR 16);`,
+					`ALTER TABLE bucket_storage_tallies ALTER COLUMN project_id SET NOT NULL;`,
+					`ALTER TABLE bucket_storage_tallies RENAME COLUMN bucket_id TO bucket_name;`,
+					`UPDATE bucket_storage_tallies SET bucket_name=SUBSTRING(bucket_name from 18);`,
+
+					// Update the primary key for bucket_storage_tallies
+					`ALTER TABLE bucket_storage_tallies DROP CONSTRAINT bucket_storage_rollups_pkey;`,
+					`ALTER TABLE bucket_storage_tallies ADD CONSTRAINT bucket_storage_tallies_pk PRIMARY KEY (bucket_name, project_id, interval_start);`,
+
+					// Modify columns: bucket_id --> bucket_name + project_id for table bucket_bandwidth_rollups
+					`ALTER TABLE bucket_bandwidth_rollups ADD project_id bytea;`,
+					`UPDATE bucket_bandwidth_rollups SET project_id=SUBSTRING(bucket_id FROM 1 FOR 16);`,
+					`ALTER TABLE bucket_bandwidth_rollups ALTER COLUMN project_id SET NOT NULL;`,
+					`ALTER TABLE bucket_bandwidth_rollups RENAME COLUMN bucket_id TO bucket_name;`,
+					`UPDATE bucket_bandwidth_rollups SET bucket_name=SUBSTRING(bucket_name from 18);`,
+
+					// Update index for bucket_bandwidth_rollups
+					`DROP INDEX IF EXISTS bucket_id_interval_start_interval_seconds_index;`,
+					`CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups (
+						bucket_name,
+						project_id,
+						interval_start,
+						interval_seconds
+					);`,
+
+					// Update the primary key for bucket_bandwidth_rollups
+					`ALTER TABLE bucket_bandwidth_rollups DROP CONSTRAINT bucket_bandwidth_rollups_pkey;`,
+					`ALTER TABLE bucket_bandwidth_rollups ADD CONSTRAINT bucket_bandwidth_rollups_pk PRIMARY KEY (bucket_name, project_id, interval_start, action);`,
+				},
+			},
+			{
+				Description: "Add new Columns to store version information",
+				Version:     14,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD major bigint NOT NULL DEFAULT 0;
+					ALTER TABLE nodes ADD minor bigint NOT NULL DEFAULT 1;
+					ALTER TABLE nodes ADD patch bigint NOT NULL DEFAULT 0;
+					ALTER TABLE nodes ADD hash TEXT NOT NULL DEFAULT '';
+					ALTER TABLE nodes ADD timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT 'epoch';
+					ALTER TABLE nodes ADD release bool NOT NULL DEFAULT FALSE;`,
+				},
+			},
+			{
+				Description: "Default Node Type should be invalid",
+				Version:     15,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ALTER COLUMN type SET DEFAULT 0;`,
+				},
+			},
 		},
 	}
 }
@@ -473,7 +556,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 func postgresHasColumn(tx *sql.Tx, table, column string) (bool, error) {
 	var columnName string
 	err := tx.QueryRow(`
-		SELECT column_name FROM information_schema.COLUMNS 
+		SELECT column_name FROM information_schema.COLUMNS
 			WHERE table_schema = CURRENT_SCHEMA
 				AND table_name = $1
 				AND column_name = $2
@@ -491,7 +574,7 @@ func postgresHasColumn(tx *sql.Tx, table, column string) (bool, error) {
 func postgresColumnNullability(tx *sql.Tx, table, column string) (bool, error) {
 	var nullability string
 	err := tx.QueryRow(`
-		SELECT is_nullable FROM information_schema.COLUMNS 
+		SELECT is_nullable FROM information_schema.COLUMNS
 			WHERE table_schema = CURRENT_SCHEMA
 				AND table_name = $1
 				AND column_name = $2
