@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"encoding/hex"
 	"fmt"
 	"sync"
 	"time"
@@ -362,16 +361,20 @@ func (rt *RoutingTable) BufferedGraph(buf *bytes.Buffer) {
 func (rt *RoutingTable) addLeafBucketToGraph(b bucketID, buf *bytes.Buffer, prefix string) {
 	fmt.Fprintf(buf, "b%s [label=<<b><font point-size=\"18\">%s </font></b><br />\n<i>routing:</i><br align=\"left\"/>", prefix, prefix)
 
-	nodes, _ := rt.getNodeIDsWithinKBucket(b)
+	nodes, _ := rt.getUnmarshaledNodesFromBucket(b)
 	for _, n := range nodes {
-		fmt.Fprintf(buf, "  %s<br align=\"left\" />", hex.EncodeToString(n[:]))
+		printNodeInBuffer(n,buf)
 	}
 	fmt.Fprintf(buf, "<i>cache:</i><br align=\"left\" />")
 	cachedNodes, _ := rt.replacementCache[b]
 	for _, c := range cachedNodes {
-		fmt.Fprintf(buf, "  %s<br align=\"left\" />", hex.EncodeToString(c.Id[:]))
+		printNodeInBuffer(c,buf)
 	}
 	fmt.Fprintf(buf, ">];")
+}
+
+func printNodeInBuffer(n *pb.Node, buf *bytes.Buffer) {
+		fmt.Fprintf(buf, "  %s <i>(%s)</i><br align=\"left\" />", n.Id.String(), n.Address.Address)	
 }
 
 func (rt *RoutingTable) addBucketsToGraph(b []bucketID, depth int, buf *bytes.Buffer, inPrefix string) {
