@@ -363,18 +363,18 @@ func (rt *RoutingTable) addLeafBucketToGraph(b bucketID, buf *bytes.Buffer, pref
 
 	nodes, _ := rt.getUnmarshaledNodesFromBucket(b)
 	for _, n := range nodes {
-		printNodeInBuffer(n,buf)
+		printNodeInBuffer(n, buf)
 	}
 	fmt.Fprintf(buf, "<i>cache:</i><br align=\"left\" />")
 	cachedNodes, _ := rt.replacementCache[b]
 	for _, c := range cachedNodes {
-		printNodeInBuffer(c,buf)
+		printNodeInBuffer(c, buf)
 	}
 	fmt.Fprintf(buf, ">];")
 }
 
 func printNodeInBuffer(n *pb.Node, buf *bytes.Buffer) {
-		fmt.Fprintf(buf, "  %s <i>(%s)</i><br align=\"left\" />", n.Id.String(), n.Address.Address)	
+	fmt.Fprintf(buf, "  %s <i>(%s)</i><br align=\"left\" />", n.Id.String(), n.Address.Address)
 }
 
 func (rt *RoutingTable) addBucketsToGraph(b []bucketID, depth int, buf *bytes.Buffer, inPrefix string) {
