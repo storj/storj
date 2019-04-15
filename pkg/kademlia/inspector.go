@@ -141,6 +141,14 @@ func (srv *Inspector) NodeInfo(ctx context.Context, req *pb.NodeInfoRequest) (*p
 func (srv *Inspector) DrawTable(ctx context.Context, req *pb.DrawTableRequest) (*pb.DrawTableResponse, error) {
 	self := srv.dht.Local()
 
+	if req.Address == nil {
+		x := make([][]byte, 1)
+ 		x[0] = srv.dht.FetchLocalGraph()
+
+		return &pb.DrawTableResponse{
+			Graph : x,
+		}, nil
+	}
 	graph, err := srv.dht.FetchGraph(ctx, pb.Node{
 		Id:      req.Id,
 		Address: req.Address,

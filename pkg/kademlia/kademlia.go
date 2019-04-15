@@ -9,7 +9,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-
+	"bytes"
+	
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -259,6 +260,13 @@ func (k *Kademlia) FetchGraph(ctx context.Context, node pb.Node) (*pb.GraphRespo
 	return info, nil
 }
 
+// FetchLocalGraph returns the routing table as a dot graph
+func (k *Kademlia) FetchLocalGraph() []byte {
+	var buf bytes.Buffer
+	k.routingTable.BufferedGraph(&buf)
+	return buf.Bytes()
+
+}
 // FindNode looks up the provided NodeID first in the local Node, and if it is not found
 // begins searching the network for the NodeID. Returns and error if node was not found
 func (k *Kademlia) FindNode(ctx context.Context, ID storj.NodeID) (pb.Node, error) {

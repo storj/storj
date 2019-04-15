@@ -108,9 +108,8 @@ var (
 		RunE:  DumpNodes,
 	}
 	drawTableCmd = &cobra.Command{
-		Use:   "routing-graph <node_id>",
-		Short: "Save the routing table graph as a dot file with name routing-graph-<node-id>",
-		Args:  cobra.MinimumNArgs(1),
+		Use:   "routing-graph (<node_id>)",
+		Short: "Create a dot graph of the routing table of the specified node (current node if not specified) as a dot file with name routing-graph-<node-id>.dot or routing-graph.dot if no node id is specified",
 		RunE:  DrawTableAsGraph,
 	}
 	getStatsCmd = &cobra.Command{
@@ -254,12 +253,16 @@ func NodeInfo(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
-func dotOutput(nodeid string) (*os.File, error) {
+func dotOutput(args []string) (*os.File, error) {
 	if DotPath == "stdout" {
 		return os.Stdout, nil
 	}
 	if DotPath == "" {
-		DotPath = fmt.Sprintf("routing-graph-%s.dot", nodeid)
+		if len(args) == 0 {
+			DotPath = "routing-graph.dot"
+		} else {
+			DotPath = fmt.Sprintf("routing-graph-%s.dot", args[0])
+		}
 	}
 
 	return os.Create(DotPath)
@@ -272,31 +275,39 @@ func DrawTableAsGraph(cmd *cobra.Command, args []string) (err error) {
 		return ErrInspectorDial.Wrap(err)
 	}
 
-	// first lookup the node to get its address
-	n, err := i.kadclient.LookupNode(context.Background(), &pb.LookupNodeRequest{
-		Id: args[0],
-	})
-	if err != nil {
-		return ErrRequest.Wrap(err)
+	nodeID := storj.NodeID{}
+	var nodeAddress *pb.NodeAddress 
+	if len(args) != 0 {
+		// first lookup the node to get its address
+		n, err := i.kadclient.LookupNode(context.Background(), &pb.LookupNodeRequest{
+			Id: args[0],
+		})
+		if err != nil {
+			return ErrRequest.Wrap(err)
+		}
+		nodeID = n.GetNode().Id
+		nodeAddress = n.GetNode().GetAddress()
 	}
-
 	// now ask the node directly for its node info
 	info, err := i.kadclient.DrawTable(context.Background(), &pb.DrawTableRequest{
-		Id:      n.GetNode().Id,
-		Address: n.GetNode().GetAddress(),
+		Id:      nodeID,
+		Address: nodeAddress,
 	})
 	if err != nil {
 		return ErrRequest.Wrap(err)
 	}
-	fh, err := dotOutput(args[0])
+	fh, err := dotOutput(args)
 	if err != nil {
-		panic(err)
+		return ErrRequest.Wrap(err)
 	}
 	defer func() {
 		err = errs.Combine(err, fh.Close())
 	}()
 	buf := bytes.NewBuffer(info.Graph[0])
 	_, err = buf.WriteTo(fh)
+	if err != nil {
+		return ErrRequest.Wrap(err)
+	}
 	if DotPath != "stdout" {
 		fmt.Println("Routing table graph saved under:", DotPath)
 	}
