@@ -4,13 +4,13 @@
 package kademlia
 
 import (
+	"bytes"
 	"context"
 	"math/rand"
 	"sync"
 	"sync/atomic"
 	"time"
-	"bytes"
-	
+
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -267,6 +267,7 @@ func (k *Kademlia) FetchLocalGraph() []byte {
 	return buf.Bytes()
 
 }
+
 // FindNode looks up the provided NodeID first in the local Node, and if it is not found
 // begins searching the network for the NodeID. Returns and error if node was not found
 func (k *Kademlia) FindNode(ctx context.Context, ID storj.NodeID) (pb.Node, error) {

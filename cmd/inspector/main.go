@@ -276,7 +276,7 @@ func DrawTableAsGraph(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	nodeID := storj.NodeID{}
-	var nodeAddress *pb.NodeAddress 
+	var nodeAddress *pb.NodeAddress
 	if len(args) != 0 {
 		// first lookup the node to get its address
 		n, err := i.kadclient.LookupNode(context.Background(), &pb.LookupNodeRequest{
