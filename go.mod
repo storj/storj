@@ -87,6 +87,7 @@ require (
 	github.com/pkg/profile v1.2.1 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a // indirect
 	github.com/rs/cors v1.5.0 // indirect
+	github.com/sirupsen/logrus v1.3.0 // indirect
 	github.com/skyrings/skyring-common v0.0.0-20160929130248-d1c0bb1cbd5e
 	github.com/spacemonkeygo/errors v0.0.0-20171212215202-9064522e9fd1 // indirect
 	github.com/spf13/cobra v0.0.3

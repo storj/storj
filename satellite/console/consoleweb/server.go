@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -41,10 +42,13 @@ const (
 // Error is satellite console error type
 var Error = errs.Class("satellite console error")
 
+const landingPage = "dist/public/index.html"
+
 // Config contains configuration for console web server
 type Config struct {
 	Address         string `help:"server address of the graphql api gateway and frontend app" default:"127.0.0.1:8081"`
-	StaticArchive   string `help:"path to static resources" default:"assets.zip"`
+	StaticArchive   string `help:"path to static resources zip" default:"assets.zip"`
+	StaticDir       string `help:"path to static resources folder" default:""`
 	ExternalAddress string `help:"external endpoint of the satellite if hosted" default:""`
 
 	// TODO: remove after Vanguard release
@@ -63,7 +67,7 @@ type Server struct {
 
 	listener net.Listener
 	server   http.Server
-	assets   *zipfs.FileSystem
+	assets   http.FileSystem
 
 	schema graphql.Schema
 }
@@ -88,22 +92,28 @@ func OpenServer(logger *zap.Logger, config Config, service *console.Service, mai
 		server.config.ExternalAddress = "http://" + server.listener.Addr().String() + "/"
 	}
 
-	mux := http.NewServeMux()
-	zipfile, err := zipfs.New(server.config.StaticArchive)
-	if err != nil {
-		return nil, err
+	_, err := os.Stat(filepath.Join(config.StaticDir, landingPage))
+	switch {
+	case err == nil:
+		server.assets = http.Dir(config.StaticDir)
+	case os.IsNotExist(err):
+		zipfile, err := zipfs.New(server.config.StaticArchive)
+		if err != nil {
+			return nil, Error.New("failed to find static assets in either static-dir or static-archive: %v", err)
+		}
+		server.assets = zipfile
+	case err != nil:
+		return nil, Error.New("failed looking for static assets: %v", err)
 	}
-	server.assets = zipfile
-	fs := http.FileServer(zipfile)
 
+	mux := http.NewServeMux()
 	mux.Handle("/api/graphql/v0", http.HandlerFunc(server.grapqlHandler))
-
 	if server.config.StaticArchive != "" {
 		mux.Handle("/activation/", http.HandlerFunc(server.accountActivationHandler))
 		mux.Handle("/password-recovery/", http.HandlerFunc(server.passwordRecoveryHandler))
 		mux.Handle("/registrationToken/", http.HandlerFunc(server.createRegistrationTokenHandler))
 		mux.Handle("/usage-report/", http.HandlerFunc(server.bucketUsageReportHandler))
-		mux.Handle("/static/", http.StripPrefix("/static", fs))
+		mux.Handle("/static/", http.StripPrefix("/static", http.FileServer(server.assets)))
 		mux.Handle("/", http.HandlerFunc(server.appHandler))
 	}
 
@@ -118,18 +128,24 @@ func OpenServer(logger *zap.Logger, config Config, service *console.Service, mai
 func (s *Server) serveFile(w http.ResponseWriter, req *http.Request, path ...string) {
 	f, err := s.assets.Open(filepath.Join(path...))
 	if err != nil {
-		panic(err)
+		if os.IsNotExist(err) {
+			s.serveErr(w, req, http.StatusNotFound, err)
+			return
+		}
+		s.serveErr(w, req, http.StatusInternalServerError, err)
+		return
 	}
 	stat, err := f.Stat()
 	if err != nil {
-		panic(err)
+		s.serveErr(w, req, http.StatusInternalServerError, err)
+		return
 	}
 	http.ServeContent(w, req, path[len(path)-1], stat.ModTime(), f)
 }
 
 // appHandler is web app http handler function
 func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
-	s.serveFile(w, req, "dist", "public", "index.html")
+	s.serveFile(w, req, landingPage)
 }
 
 // bucketUsageReportHandler generate bucket usage report page for project
@@ -142,23 +158,19 @@ func (s *Server) bucketUsageReportHandler(w http.ResponseWriter, req *http.Reque
 	tokenCookie, err := req.Cookie("tokenKey")
 	if err != nil {
 		s.log.Error("bucket usage report error", zap.Error(err))
-
-		w.WriteHeader(http.StatusUnauthorized)
-		s.serveFile(w, req, "static", "errors", "404.html")
+		s.serveErr(w, req, http.StatusUnauthorized, err)
 		return
 	}
 
 	auth, err := s.service.Authorize(auth.WithAPIKey(req.Context(), []byte(tokenCookie.Value)))
 	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		s.serveFile(w, req, "static", "errors", "404.html")
+		s.serveErr(w, req, http.StatusUnauthorized, err)
 		return
 	}
 
 	defer func() {
 		if err != nil {
-			w.WriteHeader(http.StatusNotFound)
-			s.serveFile(w, req, "static", "errors", "404.html")
+			s.serveErr(w, req, http.StatusNotFound, err)
 		}
 	}()
 
@@ -187,7 +199,7 @@ func (s *Server) bucketUsageReportHandler(w http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	report, err := template.New("UsageReport.html").Parse(s.getFromArchive("static/reports/UsageReport.html"))
+	report, err := s.getParsedTemplate("static/reports/UsageReport.html")
 	if err != nil {
 		return
 	}
@@ -244,8 +256,7 @@ func (s *Server) accountActivationHandler(w http.ResponseWriter, req *http.Reque
 		s.log.Error("activation: failed to activate account",
 			zap.String("token", activationToken),
 			zap.Error(err))
-
-		s.serveError(w, req)
+		s.serveErr(w, req, http.StatusUnauthorized, err)
 		return
 	}
 
@@ -255,7 +266,7 @@ func (s *Server) accountActivationHandler(w http.ResponseWriter, req *http.Reque
 func (s *Server) passwordRecoveryHandler(w http.ResponseWriter, req *http.Request) {
 	recoveryToken := req.URL.Query().Get("token")
 	if len(recoveryToken) == 0 {
-		s.serveError(w, req)
+		s.serveErr(w, req, http.StatusUnauthorized, nil)
 		return
 	}
 
@@ -263,47 +274,62 @@ func (s *Server) passwordRecoveryHandler(w http.ResponseWriter, req *http.Reques
 	case "POST":
 		err := req.ParseForm()
 		if err != nil {
-			s.serveError(w, req)
+			s.serveErr(w, req, http.StatusBadRequest, err)
+			return
 		}
 
 		password := req.FormValue("password")
 		passwordRepeat := req.FormValue("passwordRepeat")
 		if strings.Compare(password, passwordRepeat) != 0 {
-			s.serveError(w, req)
+			s.serveErr(w, req, http.StatusBadRequest, err)
 			return
 		}
 
 		err = s.service.ResetPassword(context.Background(), recoveryToken, password)
 		if err != nil {
-			s.serveError(w, req)
+			s.serveErr(w, req, http.StatusBadRequest, err)
+			return
 		}
 	default:
-		t, err := template.New("resetPassword.html").Parse(s.getFromArchive("static/reports/resetPassword.html"))
+		t, err := s.getParsedTemplate("static/reports/resetPassword.html")
 		if err != nil {
-			s.serveError(w, req)
+			s.serveErr(w, req, http.StatusInternalServerError, err)
+			return
 		}
 
 		err = t.Execute(w, nil)
 		if err != nil {
-			s.serveError(w, req)
+			s.serveErr(w, req, http.StatusBadRequest, err)
+			return
 		}
 	}
 }
 
-func (s *Server) getFromArchive(path string) string {
+func (s *Server) getParsedTemplate(path string) (*template.Template, error) {
+	// TODO: cache these?
+	content, err := s.getFromArchive(path)
+	if err != nil {
+		return nil, err
+	}
+	return template.New("tmpl").Parse(string(content))
+}
+
+func (s *Server) getFromArchive(path string) ([]byte, error) {
 	f, err := s.assets.Open(filepath.Join(path))
 	if err != nil {
-		panic(err)
+		return nil, Error.Wrap(err)
 	}
 	contents, err := ioutil.ReadAll(f)
-	if err != nil {
-		panic(err)
-	}
-	return string(contents)
+	return contents, Error.Wrap(err)
 
 }
 
-func (s *Server) serveError(w http.ResponseWriter, req *http.Request) {
+func (s *Server) serveErr(w http.ResponseWriter, req *http.Request, statusCode int, err error) {
+	if statusCode != http.StatusNotFound {
+		s.log.Error("error", zap.Error(err))
+	}
+	w.WriteHeader(statusCode)
+	// TODO: choose a template based on status code
 	s.serveFile(w, req, "static", "errors", "404.html")
 }
 
