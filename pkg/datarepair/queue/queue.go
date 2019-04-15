@@ -36,32 +36,6 @@ func NewQueue(client storage.Queue) *Queue {
 	return &Queue{db: client}
 }
 
-// // NewQueue returns a pointer to a new Queue instance with an initialized connection to Redis
-// func NewQueue(client storage.Queue) *Queue {
-// 	zap.L().Info("Initializing new data repair queue")
-// 	return &Queue{db: client}
-// }
-
-// // Insert adds an injured segment.
-// func (q *Queue) Insert(ctx context.Context, s *pb.InjuredSegment) error {
-// 	return q.db.Insert(ctx, s)
-// }
-
-// // Select gets an injured segment.
-// func (q *Queue) Select(ctx context.Context) (*pb.InjuredSegment, error) {
-// 	return q.db.Select(ctx)
-// }
-
-// // Delete removes an injured segment.
-// func (q *Queue) Delete(ctx context.Context, s *pb.InjuredSegment) error {
-// 	return q.db.Delete(ctx, s)
-// }
-
-// // SelectN lists limit amount of injured segments.
-// func (q *Queue) SelectN(ctx context.Context, limit int) ([]pb.InjuredSegment, error) {
-// 	return q.db.SelectN(ctx, limit)
-// }
-
 // Enqueue adds a repair segment to the queue
 func (q *Queue) Enqueue(ctx context.Context, qi *pb.InjuredSegment) error {
 	val, err := proto.Marshal(qi)
