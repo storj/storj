@@ -86,12 +86,10 @@ func (dr *decodedReader) Read(p []byte) (n int, err error) {
 		dr.currentStripe++
 	}
 
-	// copy what data we have to the output
+	// copy what data we have to the output, and shrink the remaining buffer
 	n = copy(p, dr.outbuf)
-	// slide the remaining bytes to the beginning
-	copy(dr.outbuf, dr.outbuf[n:])
-	// shrink the remaining buffer
-	dr.outbuf = dr.outbuf[:len(dr.outbuf)-n]
+	dr.outbuf = dr.outbuf[n:]
+
 	return n, nil
 }
 
