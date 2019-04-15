@@ -88,24 +88,23 @@ func (service *Service) Run(ctx context.Context) (err error) {
 
 	// check your hard drive is big enough
 	// first time setup as a piece node server
-	allocatedDiskSpace := service.allocatedDiskSpace
 	if totalUsed == 0 && freeDiskSpace < service.allocatedDiskSpace {
-		allocatedDiskSpace = freeDiskSpace
-		service.log.Warn("Disk space is less than requested. Allocating space", zap.Int64("bytes", allocatedDiskSpace))
+		service.allocatedDiskSpace = freeDiskSpace
+		service.log.Warn("Disk space is less than requested. Allocating space", zap.Int64("bytes", service.allocatedDiskSpace))
 	}
 
 	// on restarting the Piece node server, assuming already been working as a node
 	// used above the alloacated space, user changed the allocation space setting
 	// before restarting
-	if totalUsed >= allocatedDiskSpace {
-		service.log.Warn("Used more space than allocated. Allocating space", zap.Int64("bytes", allocatedDiskSpace))
+	if totalUsed >= service.allocatedDiskSpace {
+		service.log.Warn("Used more space than allocated. Allocating space", zap.Int64("bytes", service.allocatedDiskSpace))
 	}
 
 	// the available disk space is less than remaining allocated space,
 	// due to change of setting before restarting
 	if freeDiskSpace < service.allocatedDiskSpace-totalUsed {
-		allocatedDiskSpace = freeDiskSpace
-		service.log.Warn("Disk space is less than requested. Allocating space", zap.Int64("bytes", allocatedDiskSpace))
+		service.allocatedDiskSpace = freeDiskSpace
+		service.log.Warn("Disk space is less than requested. Allocating space", zap.Int64("bytes", service.allocatedDiskSpace))
 	}
 
 	return service.Loop.Run(ctx, func(ctx context.Context) error {
