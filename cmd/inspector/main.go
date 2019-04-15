@@ -293,10 +293,7 @@ func DrawTableAsGraph(cmd *cobra.Command, args []string) (err error) {
 		panic(err)
 	}
 	defer func() {
-		err := fh.Close()
-		if err != nil {
-			panic(err)
-		}
+		err = errs.Combine(err, fh.Close())
 	}()
 	buf := bytes.NewBuffer(info.Graph[0])
 	_, err = buf.WriteTo(fh)

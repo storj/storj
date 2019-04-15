@@ -343,7 +343,7 @@ func splitBucket(bIDs []bucketID, bitDepth int) ([]bucketID, []bucketID) {
 	return b0, b1
 }
 
-// Prints the routing table graph as a dot graph in specified buffer
+// BufferedGraph prints the routing table graph as a dot graph in the specified buffer
 func (rt *RoutingTable) BufferedGraph(buf *bytes.Buffer) {
 	buf.Write([]byte("digraph{\nnode [shape=box];edge [dir=none];\n"))
 
