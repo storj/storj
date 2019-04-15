@@ -472,7 +472,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		peer.Mail.Service, err = mailservice.New(
 			peer.Log.Named("mail:service"),
 			sender,
-			mailConfig.TemplatePath,
+			mailConfig.TemplateArchive,
 		)
 
 		if err != nil {
