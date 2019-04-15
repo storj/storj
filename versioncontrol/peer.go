@@ -47,7 +47,7 @@ type Peer struct {
 	// response contains the byte version of current allowed versions
 	response []byte
 }
-
+	
 // HandleGet contains the request handler for the version control web server
 func (peer *Peer) HandleGet(w http.ResponseWriter, r *http.Request) {
 	// Only handle GET Requests
