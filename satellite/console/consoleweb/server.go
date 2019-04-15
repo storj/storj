@@ -68,8 +68,8 @@ type Server struct {
 	schema graphql.Schema
 }
 
-// NewServer creates new instance of console server
-func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, listener net.Listener) *Server {
+// OpenServer creates new instance of console server
+func OpenServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, listener net.Listener) (*Server, error) {
 	server := Server{
 		log:         logger,
 		config:      config,
@@ -91,7 +91,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	mux := http.NewServeMux()
 	zipfile, err := zipfs.New(server.config.StaticArchive)
 	if err != nil {
-		logger.Fatal(err.Error())
+		return nil, err
 	}
 	server.assets = zipfile
 	fs := http.FileServer(zipfile)
@@ -111,7 +111,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		Handler: mux,
 	}
 
-	return &server
+	return &server, nil
 }
 
 // serveFile serves a single file from the assets archive to the requester
