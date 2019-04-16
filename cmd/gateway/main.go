@@ -240,8 +240,8 @@ func (flags GatewayFlags) NewGateway(ctx context.Context, ident *identity.FullId
 		return nil, err
 	}
 
-	var encKey storj.Key
-	copy(encKey[:], flags.Enc.Key)
+	encKey := new(storj.Key)
+	copy((*encKey)[:], flags.Enc.Key)
 
 	var opts libuplink.ProjectOptions
 	opts.Volatile.EncryptionKey = encKey
@@ -253,7 +253,7 @@ func (flags GatewayFlags) NewGateway(ctx context.Context, ident *identity.FullId
 
 	return miniogw.NewStorjGateway(
 		project,
-		&encKey,
+		encKey,
 		storj.Cipher(flags.Enc.PathType).ToCipherSuite(),
 		flags.GetEncryptionScheme().ToEncryptionParameters(),
 		flags.GetRedundancyScheme(),

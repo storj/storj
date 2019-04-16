@@ -141,7 +141,7 @@ func NewUplink(ctx context.Context, cfg *Config) (*Uplink, error) {
 // ProjectOptions allows configuration of various project options during opening
 type ProjectOptions struct {
 	Volatile struct {
-		EncryptionKey storj.Key
+		EncryptionKey *storj.Key
 	}
 }
 
@@ -165,12 +165,17 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey A
 		return nil, Error.New("failed to create redundancy strategy: %v", err)
 	}
 	segments := segments.NewSegmentStore(metainfo, nil, rs, maxBucketMetaSize.Int(), maxBucketMetaSize.Int64())
-	var encryptionKey storj.Key
+	var encryptionKey *storj.Key
 	if opts != nil {
 		encryptionKey = opts.Volatile.EncryptionKey
 	}
+	if encryptionKey == nil {
+		// volatile warning: we're setting an encryption key of all zeros when one isn't provided.
+		// TODO: fix before the final alpha network wipe
+		encryptionKey = new(storj.Key)
+	}
 	streams, err := streams.NewStreamStore(segments, maxBucketMetaSize.Int64(),
-		&encryptionKey, memory.KiB.Int(), storj.AESGCM)
+		encryptionKey, memory.KiB.Int(), storj.AESGCM)
 	if err != nil {
 		return nil, Error.New("failed to create stream store: %v", err)
 	}
@@ -181,7 +186,7 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey A
 		metainfo:      metainfo,
 		project:       kvmetainfo.NewProject(buckets.NewStore(streams), memory.KiB.Int32(), rs, 64*memory.MiB.Int64()),
 		maxInlineSize: u.cfg.Volatile.MaxInlineSize,
-		encryptionKey: &encryptionKey,
+		encryptionKey: encryptionKey,
 	}, nil
 }
 
