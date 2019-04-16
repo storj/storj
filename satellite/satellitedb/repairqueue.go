@@ -36,6 +36,7 @@ func (r *repairQueue) postgresSelect(ctx context.Context) (seg *pb.InjuredSegmen
 	UPDATE injuredsegments SET attempted = ? WHERE path = (
 		SELECT path FROM injuredsegments
 		WHERE attempted IS NULL
+		OR attempted < now() - interval '1 hour'
 		ORDER BY path FOR UPDATE SKIP LOCKED LIMIT 1
 	) RETURNING data`), time.Now().UTC()).Scan(&seg)
 	if err == sql.ErrNoRows {
@@ -47,7 +48,11 @@ func (r *repairQueue) postgresSelect(ctx context.Context) (seg *pb.InjuredSegmen
 func (r *repairQueue) sqliteSelect(ctx context.Context) (seg *pb.InjuredSegment, err error) {
 	err = r.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
 		var path string
-		err = tx.Tx.QueryRowContext(ctx, r.db.Rebind(`SELECT path, data FROM injuredsegments WHERE attempted IS NULL ORDER BY path LIMIT 1`)).Scan(&path, &seg)
+		err = tx.Tx.QueryRowContext(ctx, r.db.Rebind(`
+			SELECT path, data FROM injuredsegments 
+			WHERE attempted IS NULL 
+			OR attempted < datetime('now','-1 hours') 
+			ORDER BY path LIMIT 1`)).Scan(&path, &seg)
 		if err != nil {
 			return err
 		}

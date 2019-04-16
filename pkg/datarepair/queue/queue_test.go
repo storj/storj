@@ -71,8 +71,9 @@ func TestSequential(t *testing.T) {
 			addSegs = append(addSegs, seg)
 		}
 
-		list, err := q.SelectN(ctx, 100)
+		list, err := q.SelectN(ctx, N)
 		require.NoError(t, err)
+		require.Len(t, list, N)
 		for i := 0; i < N; i++ {
 			require.True(t, pb.Equal(addSegs[i], &list[i]))
 		}
