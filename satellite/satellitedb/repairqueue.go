@@ -100,5 +100,5 @@ func (r *repairQueue) SelectN(ctx context.Context, limit int) (segs []pb.Injured
 		}
 		segs = append(segs, seg)
 	}
-	return
+	return segs, rows.Err()
 }
