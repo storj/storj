@@ -143,7 +143,7 @@ func (srv *Inspector) DrawTable(ctx context.Context, req *pb.DrawTableRequest) (
 	x[0] = srv.dht.FetchLocalGraph()
 
 	return &pb.DrawTableResponse{
-		Graph : x,
+		Graph: x,
 	}, nil
 
 }

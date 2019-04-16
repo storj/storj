@@ -101,4 +101,3 @@ func (endpoint *Endpoint) RequestInfo(ctx context.Context, req *pb.InfoRequest) 
 		},
 	}, nil
 }
-
