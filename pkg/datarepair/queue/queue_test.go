@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/storage"
 )
 
 func TestInsertDequeue(t *testing.T) {
@@ -45,9 +46,9 @@ func TestDequeueEmptyQueue(t *testing.T) {
 
 		q := db.RepairQueue()
 
-		s, err := q.Select(ctx)
+		_, err := q.Select(ctx)
 		require.Error(t, err)
-		require.Nil(t, s)
+		require.True(t, storage.ErrEmptyQueue.Has(err), "error should of class EmptyQueue")
 	})
 }
 
