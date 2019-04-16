@@ -678,6 +678,15 @@ func (h *__sqlbundle_Hole) Render() string { return h.SQL.Render() }
 // end runtime support for building sql statements
 //
 
+type Key_Row struct {
+	Key []byte
+}
+
+type Key_Value_Row struct {
+	Key   []byte
+	Value []byte
+}
+
 type Value_Row struct {
 	Value []byte
 }
@@ -731,6 +740,78 @@ func (obj *sqlite3Impl) Find_Item_Value_By_Key(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return row, nil
+
+}
+
+func (obj *sqlite3Impl) Limited_Item_Key_By_Key_GreaterOrEqual(ctx context.Context,
+	item_key_greater_or_equal Item_Key_Field,
+	limit int, offset int64) (
+	rows []*Key_Row, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT items.key FROM items WHERE items.key >= ? LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, item_key_greater_or_equal.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		row := &Key_Row{}
+		err = __rows.Scan(&row.Key)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, row)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) Limited_Item_Key_Item_Value_By_Key_GreaterOrEqual(ctx context.Context,
+	item_key_greater_or_equal Item_Key_Field,
+	limit int, offset int64) (
+	rows []*Key_Value_Row, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT items.key, items.value FROM items WHERE items.key >= ? LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, item_key_greater_or_equal.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		row := &Key_Value_Row{}
+		err = __rows.Scan(&row.Key, &row.Value)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, row)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
 
 }
 
@@ -936,6 +1017,28 @@ func (rx *Rx) Find_Item_Value_By_Key(ctx context.Context,
 	return tx.Find_Item_Value_By_Key(ctx, item_key)
 }
 
+func (rx *Rx) Limited_Item_Key_By_Key_GreaterOrEqual(ctx context.Context,
+	item_key_greater_or_equal Item_Key_Field,
+	limit int, offset int64) (
+	rows []*Key_Row, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_Item_Key_By_Key_GreaterOrEqual(ctx, item_key_greater_or_equal, limit, offset)
+}
+
+func (rx *Rx) Limited_Item_Key_Item_Value_By_Key_GreaterOrEqual(ctx context.Context,
+	item_key_greater_or_equal Item_Key_Field,
+	limit int, offset int64) (
+	rows []*Key_Value_Row, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_Item_Key_Item_Value_By_Key_GreaterOrEqual(ctx, item_key_greater_or_equal, limit, offset)
+}
+
 func (rx *Rx) Update_Item_By_Key(ctx context.Context,
 	item_key Item_Key_Field,
 	update Item_Update_Fields) (
@@ -960,6 +1063,16 @@ type Methods interface {
 	Find_Item_Value_By_Key(ctx context.Context,
 		item_key Item_Key_Field) (
 		row *Value_Row, err error)
+
+	Limited_Item_Key_By_Key_GreaterOrEqual(ctx context.Context,
+		item_key_greater_or_equal Item_Key_Field,
+		limit int, offset int64) (
+		rows []*Key_Row, err error)
+
+	Limited_Item_Key_Item_Value_By_Key_GreaterOrEqual(ctx context.Context,
+		item_key_greater_or_equal Item_Key_Field,
+		limit int, offset int64) (
+		rows []*Key_Value_Row, err error)
 
 	Update_Item_By_Key(ctx context.Context,
 		item_key Item_Key_Field,

@@ -54,4 +54,21 @@ func RevocationDBsTest(t *testing.T, test func(*testing.T, extensions.Revocation
 			test(t, boltRevDB, boltRevDB.DB)
 		}
 	})
+
+	t.Run("Sqlite-backed revocation DB", func(t *testing.T) {
+		{
+			ctx := testcontext.New(t)
+			defer ctx.Cleanup()
+
+			// Test using bolt-backed revocation DB
+			revocationDBPath := ctx.File("revocations.db")
+
+			dbURL := "sqlite://" + revocationDBPath
+			boltRevDB, err := identity.NewRevocationDB(dbURL)
+			require.NoError(t, err)
+			defer ctx.Check(boltRevDB.Close)
+
+			test(t, boltRevDB, boltRevDB.DB)
+		}
+	})
 }

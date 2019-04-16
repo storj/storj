@@ -21,6 +21,16 @@ read scalar (
     where item.key = ?
 )
 
+read limitoffset (
+    select item.key
+    where item.key >= ?
+)
+
+read limitoffset (
+    select item.key item.value
+    where item.key >= ?
+)
+
 update item (
     where item.key = ?
 )

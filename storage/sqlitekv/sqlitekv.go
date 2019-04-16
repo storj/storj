@@ -7,12 +7,14 @@ package sqlitekv
 
 import (
 	"context"
-	"github.com/zeebo/errs"
 
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/storage"
 )
+
+var ErrSqlitekv = errs.Class("sqlitekv error")
 
 type SqliteKV struct {
 	DB *DB
@@ -22,7 +24,7 @@ type SqliteKV struct {
 func New(path string) (storage.KeyValueStore, error) {
 	db, err := Open("sqlite3", path)
 	if err != nil {
-		return nil, errs.Wrap(err)
+		return nil, ErrSqlitekv.Wrap(err)
 	}
 	sqliteDB := &SqliteKV{
 		DB: db,
@@ -30,17 +32,24 @@ func New(path string) (storage.KeyValueStore, error) {
 	return sqliteDB, nil
 }
 
+// Get gets a value to store
 func (db SqliteKV) Get(key storage.Key) (storage.Value, error) {
 	// TODO: should we add contexts to the key-value store interface?
+	row, err := db.DB.Find_Item_Value_By_Key(context.Background(), Item_Key(key))
+	if err != nil {
+		return nil, ErrSqlitekv.Wrap(err)
+	}
+	return row.Value, nil
 }
 
+// Put adds a value to store
 func (db SqliteKV) Put(key storage.Key, value storage.Value) error {
 	// TODO: should we add contexts to the key-value store interface?
-	// TODO: protobuf (de)serialization?
 	_, err := db.DB.Update_Item_By_Key(context.Background(), Item_Key(key), Item_Update_Fields{Item_Value(value)})
-	return err
+	return ErrSqlitekv.Wrap(err)
 }
 
+// GetAll gets all values from the store
 func (db SqliteKV) GetAll(keys storage.Keys) (values storage.Values, _ error) {
 	// TODO: should we add contexts to the key-value store interface?
 	ctx := context.Background()
@@ -53,21 +62,58 @@ func (db SqliteKV) GetAll(keys storage.Keys) (values storage.Values, _ error) {
 		}
 		values = append(values, row.Value)
 	}
-	return values, findErrs.Err()
+	return values, ErrSqlitekv.Wrap(findErrs.Err())
 }
 
+// Delete deletes key and the value
 func (db SqliteKV) Delete(key storage.Key) error {
 	// TODO: should we add contexts to the key-value store interface?
+	_, err := db.DB.Delete_Item_By_Key(context.Background(), Item_Key(key))
+	return err
 }
 
-func (db SqliteKV) List(start storage.Key, limit int) (storage.Keys, error) {
+// List lists all keys starting from start and upto limit items
+func (db SqliteKV) List(start storage.Key, limit int) (keys storage.Keys, _ error) {
 	// TODO: should we add contexts to the key-value store interface?
+	rows, err := db.DB.Limited_Item_Key_By_Key_GreaterOrEqual(
+		context.Background(),
+		Item_Key(start),
+		limit,
+		0,
+	)
+	if err != nil {
+		return nil, ErrSqlitekv.Wrap(err)
+	}
+	for _, row := range rows {
+		keys = append(keys, row.Key)
+	}
+	return keys, nil
 }
 
+// Iterate iterates over items based on opts
 func (db SqliteKV) Iterate(opts storage.IterateOptions, fn func(storage.Iterator) error) error {
-	// TODO: should we add contexts to the key-value store interface?
+	limit, offset := 1000, int64(0)
+
+	for i := 1; ; i++ {
+		// TODO: should we add contexts to the key-value store interface?
+		rows, err := db.DB.Limited_Item_Key_Item_Value_By_Key_GreaterOrEqual(
+			context.Background(),
+			Item_Key(opts.First),
+			limit,
+			offset,
+		)
+		if err != nil {
+			return ErrSqlitekv.Wrap(err)
+		}
+
+		for i, row := range rows {
+			fn()
+		}
+		offset += int64(limit)
+	}
 }
 
+// Close closes the store
 func (db SqliteKV) Close() error {
 	return db.Close()
 }
