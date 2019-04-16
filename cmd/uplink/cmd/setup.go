@@ -71,13 +71,34 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 
 	var override map[string]interface{}
 	if !setupCfg.NonInteractive {
-		fmt.Print("Enter your Satellite address: ")
+		_, err = fmt.Print(`
+Pick satellite to use:
+  [1] mars.tardigrade.io
+  [2] jupiter.tardigrade.io
+  [3] saturn.tardigrade.io
+Please enter numeric choice or enter satellite address manually [1]: `)
+		if err != nil {
+			return err
+		}
+		satellites := []string{"mars.tardigrade.io", "jupiter.tardigrade.io", "saturn.tardigrade.io"}
+		// fmt.Print("Enter your Satellite address: ")
 		var satelliteAddress string
 		fmt.Scanln(&satelliteAddress)
 
 		// TODO add better validation
 		if satelliteAddress == "" {
-			return errs.New("Satellite address cannot be empty")
+			satelliteAddress = satellites[0]
+		} else if len(satelliteAddress) == 1 {
+			switch satelliteAddress {
+			case "1":
+				satelliteAddress = satellites[0]
+			case "2":
+				satelliteAddress = satellites[1]
+			case "3":
+				satelliteAddress = satellites[2]
+			default:
+				return errs.New("Satellite address cannot be one character")
+			}
 		}
 
 		fmt.Print("Enter your API key: ")
