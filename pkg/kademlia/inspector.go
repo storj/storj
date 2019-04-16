@@ -140,8 +140,11 @@ func (srv *Inspector) NodeInfo(ctx context.Context, req *pb.NodeInfoRequest) (*p
 // DrawTable sends a PING RPC to a node and draw a graph of its routing table
 func (srv *Inspector) DrawTable(ctx context.Context, req *pb.DrawTableRequest) (*pb.DrawTableResponse, error) {
 	x := make([][]byte, 1)
-	x[0] = srv.dht.FetchLocalGraph()
 
+	rt := srv.dht.RoutingTable()
+
+	x[0] = rt.BuildDotGraph()
+	
 	return &pb.DrawTableResponse{
 		Graph: x,
 	}, nil

@@ -4,7 +4,6 @@
 package kademlia
 
 import (
-	"bytes"
 	"context"
 	"math/rand"
 	"sync"
@@ -246,14 +245,6 @@ func (k *Kademlia) FetchInfo(ctx context.Context, node pb.Node) (*pb.InfoRespons
 	return info, nil
 }
 
-// FetchLocalGraph returns the routing table as a dot graph
-func (k *Kademlia) FetchLocalGraph() []byte {
-	var buf bytes.Buffer
-	k.routingTable.BufferedGraph(&buf)
-	return buf.Bytes()
-
-}
-
 // FindNode looks up the provided NodeID first in the local Node, and if it is not found
 // begins searching the network for the NodeID. Returns and error if node was not found
 func (k *Kademlia) FindNode(ctx context.Context, ID storj.NodeID) (pb.Node, error) {
@@ -319,6 +310,11 @@ func (k *Kademlia) Seen() []*pb.Node {
 	}
 	k.routingTable.mutex.Unlock()
 	return nodes
+}
+
+// RoutingTable returns the routing table
+func (k *Kademlia) RoutingTable() *RoutingTable {
+	return k.routingTable
 }
 
 // SetBucketRefreshThreshold changes the threshold when buckets are considered stale and need refreshing.

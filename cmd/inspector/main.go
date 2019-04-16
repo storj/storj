@@ -109,7 +109,7 @@ var (
 	}
 	drawTableCmd = &cobra.Command{
 		Use:   "routing-graph (<node_id>)",
-		Short: "Create a dot graph of the routing table saved by default as routing-graph.dot",
+		Short: "Create a graph of the routing table in the dot format",
 		RunE:  DrawTableAsGraph,
 	}
 	getStatsCmd = &cobra.Command{
