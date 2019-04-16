@@ -6,6 +6,7 @@ package piecestore
 import (
 	"context"
 	"io"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -26,6 +27,8 @@ type Config struct {
 
 	InitialStep int64
 	MaximumStep int64
+
+	Timeout time.Duration
 }
 
 // DefaultConfig are the default params used for upload and download.
@@ -35,6 +38,8 @@ var DefaultConfig = Config{
 
 	InitialStep: 64 * memory.KiB.Int64(),
 	MaximumStep: 1 * memory.MiB.Int64(),
+
+	Timeout: 1 * time.Minute,
 }
 
 // Client implements uploading, downloading and deleting content from a piecestore.
@@ -43,6 +48,7 @@ type Client struct {
 	signer signing.Signer
 	conn   *grpc.ClientConn
 	client pb.PiecestoreClient
+	cancel func()
 	config Config
 }
 
@@ -59,6 +65,8 @@ func NewClient(log *zap.Logger, signer signing.Signer, conn *grpc.ClientConn, co
 
 // Delete uses delete order limit to delete a piece on piece store.
 func (client *Client) Delete(ctx context.Context, limit *pb.OrderLimit2) error {
+	ctx, client.cancel = context.WithTimeout(ctx, client.config.Timeout)
+
 	_, err := client.client.Delete(ctx, &pb.PieceDeleteRequest{
 		Limit: limit,
 	})
@@ -67,6 +75,7 @@ func (client *Client) Delete(ctx context.Context, limit *pb.OrderLimit2) error {
 
 // Close closes the underlying connection.
 func (client *Client) Close() error {
+	client.cancel()
 	return client.conn.Close()
 }
 
