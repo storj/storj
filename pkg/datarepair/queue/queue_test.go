@@ -96,7 +96,7 @@ func TestParallel(t *testing.T) {
 		q := db.RepairQueue()
 		const N = 100
 		errs := make(chan error, N*2)
-		entries := make(chan *pb.InjuredSegment, N*2)
+		entries := make(chan *pb.InjuredSegment, N)
 		var wg sync.WaitGroup
 		wg.Add(N)
 		// Add to queue concurrently
@@ -114,18 +114,29 @@ func TestParallel(t *testing.T) {
 		}
 		wg.Wait()
 
+		if len(errs) > 0 {
+			for err := range errs {
+				t.Error(err)
+			}
+
+			t.Fatal("unexpected queue.Insert errors")
+		}
+
 		wg.Add(N)
 		// Remove from queue concurrently
 		for i := 0; i < N; i++ {
 			go func(i int) {
 				defer wg.Done()
 				s, err := q.Select(ctx)
-				require.NoError(t, err)
-				err = q.Delete(ctx, s)
-				require.NoError(t, err)
 				if err != nil {
 					errs <- err
 				}
+
+				err = q.Delete(ctx, s)
+				if err != nil {
+					errs <- err
+				}
+
 				entries <- s
 			}(i)
 		}
@@ -133,8 +144,12 @@ func TestParallel(t *testing.T) {
 		close(errs)
 		close(entries)
 
-		for err := range errs {
-			t.Error(err)
+		if len(errs) > 0 {
+			for err := range errs {
+				t.Error(err)
+			}
+
+			t.Fatal("unexpected queue.Select/Delete errors")
 		}
 
 		var items []*pb.InjuredSegment
