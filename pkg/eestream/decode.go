@@ -5,7 +5,6 @@ package eestream
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"sync"
@@ -101,7 +100,6 @@ func (dr *decodedReader) Close() error {
 	dr.cancel()
 	// avoid double close of readers
 	errorThreshold := len(dr.readers) - dr.scheme.RequiredCount()
-	fmt.Println("closing readers: ", len(dr.readers))
 	dr.close.Do(func() {
 		var errlist errgroup.Group
 		// close the readers in parallel
