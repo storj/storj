@@ -241,7 +241,7 @@ func (flags GatewayFlags) NewGateway(ctx context.Context, ident *identity.FullId
 	}
 
 	encKey := new(storj.Key)
-	copy((*encKey)[:], flags.Enc.Key)
+	copy(encKey[:], flags.Enc.Key)
 
 	var opts libuplink.ProjectOptions
 	opts.Volatile.EncryptionKey = encKey
