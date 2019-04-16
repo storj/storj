@@ -100,12 +100,12 @@ func (dr *decodedReader) Close() error {
 	dr.cancel()
 	// avoid double close of readers
 	errorThreshold := len(dr.readers) - dr.scheme.RequiredCount()
-	waitGroup := &sync.WaitGroup{}
-	waitGroup.Add(len(dr.readers))
-
-	mutex := sync.Mutex{}
 	dr.close.Do(func() {
 		var errlist errs.Group
+		waitGroup := &sync.WaitGroup{}
+		waitGroup.Add(len(dr.readers))
+
+		mutex := sync.Mutex{}
 		// close the readers in parallel
 		for _, r := range dr.readers {
 			r := r
