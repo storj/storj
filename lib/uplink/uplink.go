@@ -138,8 +138,15 @@ func NewUplink(ctx context.Context, cfg *Config) (*Uplink, error) {
 	}, nil
 }
 
+// ProjectOptions allows configuration of various project options during opening
+type ProjectOptions struct {
+	Volatile struct {
+		EncryptionKey *storj.Key
+	}
+}
+
 // OpenProject returns a Project handle with the given APIKey
-func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, encryptionKey *storj.Key, apiKey APIKey) (p *Project, err error) {
+func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey APIKey, opts *ProjectOptions) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	metainfo, err := metainfo.NewClient(ctx, u.tc, satelliteAddr, apiKey.key)
@@ -158,6 +165,15 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, encrypti
 		return nil, Error.New("failed to create redundancy strategy: %v", err)
 	}
 	segments := segments.NewSegmentStore(metainfo, nil, rs, maxBucketMetaSize.Int(), maxBucketMetaSize.Int64())
+	var encryptionKey *storj.Key
+	if opts != nil {
+		encryptionKey = opts.Volatile.EncryptionKey
+	}
+	if encryptionKey == nil {
+		// volatile warning: we're setting an encryption key of all zeros when one isn't provided.
+		// TODO: fix before the final alpha network wipe
+		encryptionKey = new(storj.Key)
+	}
 	streams, err := streams.NewStreamStore(segments, maxBucketMetaSize.Int64(),
 		encryptionKey, memory.KiB.Int(), storj.AESGCM)
 	if err != nil {
