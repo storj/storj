@@ -35,15 +35,16 @@ const (
 
 // Error messages
 const (
-	internalErrMsg                 = "It looks like we had a problem on our end. Please try again"
-	unauthorizedErrMsg             = "You are not authorized to perform this action"
-	vanguardRegTokenErrMsg         = "We are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation"
-	emailUsedErrMsg                = "This email is already in use, try another"
-	activationTokenIsExpiredErrMsg = "Your account activation link has expired, please sign up again"
-	credentialsErrMsg              = "Your email or password was incorrect, please try again"
-	oldPassIncorrectErrMsg         = "Old password is incorrect, please try again"
-	passwordIncorrectErrMsg        = "Your password needs at least %d characters long"
-	teamMemberDoesNotExistErrMsg   = `There is no account on this Satellite for the user(s) you have entered. 
+	internalErrMsg                       = "It looks like we had a problem on our end. Please try again"
+	unauthorizedErrMsg                   = "You are not authorized to perform this action"
+	vanguardRegTokenErrMsg               = "We are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation"
+	emailUsedErrMsg                      = "This email is already in use, try another"
+	activationTokenIsExpiredErrMsg       = "Your account activation link has expired, please sign up again"
+	passwordRecoveryTokenIsExpiredErrMsg = "Your password recovery link has expired, please request another one"
+	credentialsErrMsg                    = "Your email or password was incorrect, please try again"
+	oldPassIncorrectErrMsg               = "Old password is incorrect, please try again"
+	passwordIncorrectErrMsg              = "Your password needs at least %d characters long"
+	teamMemberDoesNotExistErrMsg         = `There is no account on this Satellite for the user(s) you have entered. 
 									     Please add team members with active accounts`
 
 	// TODO: remove after vanguard release
@@ -149,6 +150,19 @@ func (s *Service) GenerateActivationToken(ctx context.Context, id uuid.UUID, ema
 	return s.createToken(claims)
 }
 
+// GeneratePasswordRecoveryToken - is a method for generating password recovery token
+func (s *Service) GeneratePasswordRecoveryToken(ctx context.Context, id uuid.UUID, email string) (token string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	claims := &consoleauth.Claims{
+		ID:         id,
+		Email:      email,
+		Expiration: time.Now().Add(time.Hour),
+	}
+
+	return s.createToken(claims)
+}
+
 // ActivateAccount - is a method for activating user account after registration
 func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -191,6 +205,42 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 	}
 
 	return nil
+}
+
+// ResetPassword - is a method for reseting user password
+func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, password string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	token, err := consoleauth.FromBase64URLString(resetPasswordToken)
+	if err != nil {
+		return
+	}
+
+	claims, err := s.authenticate(token)
+	if err != nil {
+		return
+	}
+
+	user, err := s.store.Users().Get(ctx, claims.ID)
+	if err != nil {
+		return
+	}
+
+	if err := validatePassword(password); err != nil {
+		return err
+	}
+
+	if time.Since(claims.Expiration) > 0 {
+		return errs.New(passwordRecoveryTokenIsExpiredErrMsg)
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), s.passwordCost)
+	if err != nil {
+		return err
+	}
+
+	user.PasswordHash = hash
+	return s.store.Users().Update(ctx, user)
 }
 
 // Token authenticates User by credentials and returns auth token
@@ -236,6 +286,13 @@ func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (u *User, err error
 	}
 
 	return user, nil
+}
+
+// GetUserByEmail returns User by email
+func (s *Service) GetUserByEmail(ctx context.Context, email string) (u *User, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return s.store.Users().GetByEmail(ctx, email)
 }
 
 // UpdateAccount updates User
