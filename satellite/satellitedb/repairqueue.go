@@ -31,7 +31,6 @@ func (r *repairQueue) Insert(ctx context.Context, seg *pb.InjuredSegment) error 
 }
 
 func (r *repairQueue) postgresSelect(ctx context.Context) (seg *pb.InjuredSegment, err error) {
-	//todo :  add or age > some time (1 hour?)
 	err = r.db.QueryRowContext(ctx, r.db.Rebind(`
 	UPDATE injuredsegments SET attempted = ? WHERE path = (
 		SELECT path FROM injuredsegments
