@@ -8,7 +8,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"os"
+	"log"
 
 	"storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/storj"
@@ -96,15 +96,13 @@ func main() {
 
 	apiKey, err := uplink.ParseAPIKey(myAPIKey)
 	if err != nil {
-		fmt.Printf("could not parse api key: %v", err)
-		os.Exit(1)
+		log.Fatalln("could not parse api key:", err)
 	}
 
 	err = WorkWithLibUplink(satellite, &encryptionKey, apiKey, myBucket, myUploadPath, []byte(myData))
 	if err != nil {
-		fmt.Printf("error: %v\n", err)
-		os.Exit(1)
+		log.Fatalln("error:", err)
 	}
 
-	fmt.Printf("success!\n")
+	fmt.Println("success!")
 }
