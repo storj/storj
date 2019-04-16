@@ -37,7 +37,7 @@ func (r *repairQueue) postgresSelect(ctx context.Context) (seg *pb.InjuredSegmen
 		WHERE attempted IS NULL
 		OR attempted < now() - interval '1 hour'
 		ORDER BY path FOR UPDATE SKIP LOCKED LIMIT 1
-	) RETURNING data`), time.Now().UTC()).Scan(seg)
+	) RETURNING data`), time.Now().UTC()).Scan(&seg)
 	if err == sql.ErrNoRows {
 		err = storage.ErrEmptyQueue.New("")
 	}
