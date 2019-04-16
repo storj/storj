@@ -109,7 +109,7 @@ var (
 	}
 	drawTableCmd = &cobra.Command{
 		Use:   "routing-graph (<node_id>)",
-		Short: "Create a dot graph of the routing table of the specified node (current node if not specified) as a dot file with name routing-graph-<node-id>.dot or routing-graph.dot if no node id is specified",
+		Short: "Create a dot graph of the routing table saved by default as routing-graph.dot",
 		RunE:  DrawTableAsGraph,
 	}
 	getStatsCmd = &cobra.Command{
@@ -253,16 +253,12 @@ func NodeInfo(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
-func dotOutput(args []string) (*os.File, error) {
+func dotOutput() (*os.File, error) {
 	if DotPath == "stdout" {
 		return os.Stdout, nil
 	}
 	if DotPath == "" {
-		if len(args) == 0 {
-			DotPath = "routing-graph.dot"
-		} else {
-			DotPath = fmt.Sprintf("routing-graph-%s.dot", args[0])
-		}
+		DotPath = "routing-graph.dot"
 	}
 
 	return os.Create(DotPath)
@@ -275,28 +271,11 @@ func DrawTableAsGraph(cmd *cobra.Command, args []string) (err error) {
 		return ErrInspectorDial.Wrap(err)
 	}
 
-	nodeID := storj.NodeID{}
-	var nodeAddress *pb.NodeAddress
-	if len(args) != 0 {
-		// first lookup the node to get its address
-		n, err := i.kadclient.LookupNode(context.Background(), &pb.LookupNodeRequest{
-			Id: args[0],
-		})
-		if err != nil {
-			return ErrRequest.Wrap(err)
-		}
-		nodeID = n.GetNode().Id
-		nodeAddress = n.GetNode().GetAddress()
-	}
-	// now ask the node directly for its node info
-	info, err := i.kadclient.DrawTable(context.Background(), &pb.DrawTableRequest{
-		Id:      nodeID,
-		Address: nodeAddress,
-	})
+	info, err := i.kadclient.DrawTable(context.Background(), &pb.DrawTableRequest{})
 	if err != nil {
 		return ErrRequest.Wrap(err)
 	}
-	fh, err := dotOutput(args)
+	fh, err := dotOutput()
 	if err != nil {
 		return ErrRequest.Wrap(err)
 	}
@@ -804,7 +783,7 @@ func init() {
 	kadCmd.AddCommand(nodeInfoCmd)
 	kadCmd.AddCommand(dumpNodesCmd)
 	kadCmd.AddCommand(drawTableCmd)
-	drawTableCmd.Flags().StringVar(&DotPath, "dot-path", "", "dot path where command output is written (default is routing-graph-<node-id>.dot)")
+	drawTableCmd.Flags().StringVar(&DotPath, "dot-path", "", "path where command output is written (default is routing-graph.dot)")
 
 	statsCmd.AddCommand(getStatsCmd)
 	statsCmd.AddCommand(getCSVStatsCmd)

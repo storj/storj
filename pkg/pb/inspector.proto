@@ -25,7 +25,7 @@ service KadInspector {
   rpc FindNear(FindNearRequest) returns (FindNearResponse);
   // DumpNodes returns all the nodes in the node database
   rpc DumpNodes(DumpNodesRequest) returns (DumpNodesResponse);
-  // DrawTable sends a PING RPC to a node and returns its routing table graph
+  // DrawTable returns the routing table graph in dot format
   rpc DrawTable(DrawTableRequest) returns (DrawTableResponse);
 
 }
@@ -170,8 +170,6 @@ message NodeInfoResponse {
 }
 
 message DrawTableRequest {
-  bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
-  node.NodeAddress address = 2;
 }
 
 message DrawTableResponse {

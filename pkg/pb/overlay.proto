@@ -13,7 +13,6 @@ service Nodes {
     rpc Query(QueryRequest) returns (QueryResponse);
     rpc Ping(PingRequest) returns (PingResponse);
     rpc RequestInfo(InfoRequest) returns (InfoResponse);
-    rpc RequestGraph(GraphRequest) returns (GraphResponse);
 }
 
 message QueryRequest {

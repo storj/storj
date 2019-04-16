@@ -246,20 +246,6 @@ func (k *Kademlia) FetchInfo(ctx context.Context, node pb.Node) (*pb.InfoRespons
 	return info, nil
 }
 
-// FetchGraph connects to a node address and returns its routing table as a graph
-func (k *Kademlia) FetchGraph(ctx context.Context, node pb.Node) (*pb.GraphResponse, error) {
-	if !k.lookups.Start() {
-		return nil, context.Canceled
-	}
-	defer k.lookups.Done()
-
-	info, err := k.dialer.FetchGraph(ctx, node)
-	if err != nil {
-		return nil, NodeErr.Wrap(err)
-	}
-	return info, nil
-}
-
 // FetchLocalGraph returns the routing table as a dot graph
 func (k *Kademlia) FetchLocalGraph() []byte {
 	var buf bytes.Buffer

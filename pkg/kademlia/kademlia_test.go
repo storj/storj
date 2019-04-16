@@ -493,7 +493,6 @@ type mockNodesServer struct {
 	queryCalled int32
 	pingCalled  int32
 	infoCalled  int32
-	graphCalled int32
 	returnValue []*pb.Node
 }
 
@@ -510,11 +509,6 @@ func (mn *mockNodesServer) Ping(ctx context.Context, req *pb.PingRequest) (*pb.P
 func (mn *mockNodesServer) RequestInfo(ctx context.Context, req *pb.InfoRequest) (*pb.InfoResponse, error) {
 	atomic.AddInt32(&mn.infoCalled, 1)
 	return &pb.InfoResponse{}, nil
-}
-
-func (mn *mockNodesServer) RequestGraph(ctx context.Context, req *pb.GraphRequest) (*pb.GraphResponse, error) {
-	atomic.AddInt32(&mn.graphCalled, 1)
-	return &pb.GraphResponse{}, nil
 }
 
 // newKademlia returns a newly configured Kademlia instance

@@ -147,23 +147,6 @@ func (dialer *Dialer) FetchInfo(ctx context.Context, target pb.Node) (*pb.InfoRe
 	return resp, errs.Combine(err, conn.disconnect())
 }
 
-// FetchGraph connects to a node and returns the graph of its routing table.
-func (dialer *Dialer) FetchGraph(ctx context.Context, target pb.Node) (*pb.GraphResponse, error) {
-	if !dialer.limit.Lock() {
-		return nil, context.Canceled
-	}
-	defer dialer.limit.Unlock()
-
-	conn, err := dialer.dialNode(ctx, target)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := conn.client.RequestGraph(ctx, &pb.GraphRequest{})
-
-	return resp, errs.Combine(err, conn.disconnect())
-}
-
 // dialNode dials the specified node.
 func (dialer *Dialer) dialNode(ctx context.Context, target pb.Node) (*Conn, error) {
 	grpcconn, err := dialer.transport.DialNode(ctx, &target)
