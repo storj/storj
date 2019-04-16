@@ -83,7 +83,10 @@ Please enter numeric choice or enter satellite address manually [1]: `)
 		satellites := []string{"mars.tardigrade.io", "jupiter.tardigrade.io", "saturn.tardigrade.io"}
 		// fmt.Print("Enter your Satellite address: ")
 		var satelliteAddress string
-		fmt.Scanln(&satelliteAddress)
+		_, err = fmt.Scanln(&satelliteAddress)
+		if err != nil {
+			return err
+		}
 
 		// TODO add better validation
 		if satelliteAddress == "" {
@@ -101,34 +104,60 @@ Please enter numeric choice or enter satellite address manually [1]: `)
 			}
 		}
 
-		fmt.Print("Enter your API key: ")
+		satelliteAddress, err = ApplyDefaultHostAndPortToAddr(satelliteAddress, cmd.Flags().Lookup("satellite-addr").Value.String())
+		if err != nil {
+			return err
+		}
+
+		_, err = fmt.Print("Enter your API key: ")
+		if err != nil {
+			return err
+		}
 		var apiKey string
-		fmt.Scanln(&apiKey)
+		_, err = fmt.Scanln(&apiKey)
+		if err != nil {
+			return err
+		}
 
 		if apiKey == "" {
 			return errs.New("API key cannot be empty")
 		}
 
-		fmt.Print("Enter your encryption passphrase: ")
+		_, err = fmt.Print("Enter your encryption passphrase: ")
+		if err != nil {
+			return err
+		}
 		encKey, err := terminal.ReadPassword(int(os.Stdin.Fd()))
 		if err != nil {
 			return err
 		}
-		fmt.Println()
+		_, err = fmt.Println()
+		if err != nil {
+			return err
+		}
 
-		fmt.Print("Enter your encryption passphrase again: ")
+		_, err = fmt.Print("Enter your encryption passphrase again: ")
+		if err != nil {
+			return err
+		}
 		repeatedEncKey, err := terminal.ReadPassword(int(os.Stdin.Fd()))
 		if err != nil {
 			return err
 		}
-		fmt.Println()
+		_, err = fmt.Println()
+		if err != nil {
+			return err
+		}
 
 		if !bytes.Equal(encKey, repeatedEncKey) {
 			return errs.New("encryption passphrases doesn't match")
 		}
 
 		if len(encKey) == 0 {
-			fmt.Println("Warning: Encryption passphrase is empty!")
+			_, err = fmt.Println("Warning: Encryption passphrase is empty!")
+			if err != nil {
+				return err
+			}
 		}
 
 		override = map[string]interface{}{
@@ -163,49 +192,58 @@ Some things to try next:
 
 // ApplyDefaultHostAndPortToAddrFlag applies the default host and/or port if either is missing in the specified flag name.
 func ApplyDefaultHostAndPortToAddrFlag(cmd *cobra.Command, flagName string) error {
-	defaultHost, defaultPort, err := net.SplitHostPort(cmd.Flags().Lookup(flagName).DefValue)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
 	flag := cmd.Flags().Lookup(flagName)
 	if flag == nil {
 		// No flag found for us to handle.
 		return nil
 	}
-	address := flag.Value.String()
+
+	address, err := ApplyDefaultHostAndPortToAddr(flag.Value.String(), flag.DefValue)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if flag.Value.String() == address {
+		// Don't trip the flag set bit
+		return nil
+	}
+
+	return Error.Wrap(flag.Value.Set(address))
+}
+
+// ApplyDefaultHostAndPortToAddr applies the default host and/or port if either is missing in the specified address.
+func ApplyDefaultHostAndPortToAddr(address, defaultAddress string) (string, error) {
+	defaultHost, defaultPort, err := net.SplitHostPort(defaultAddress)
+	if err != nil {
+		return "", Error.Wrap(err)
+	}
 
 	addressParts := strings.Split(address, ":")
 	numberOfParts := len(addressParts)
 
-	if numberOfParts > 1 && len(addressParts[0]) > 0 {
+	if numberOfParts > 1 && len(addressParts[0]) > 0 && len(addressParts[1]) > 0 {
 		// address is host:port so skip applying any defaults.
-		return nil
+		return address, nil
 	}
 
 	// We are missing a host:port part. Figure out which part we are missing.
 	indexOfPortSeparator := strings.Index(address, ":")
 	lengthOfFirstPart := len(addressParts[0])
 
-	if indexOfPortSeparator == -1 {
+	if indexOfPortSeparator < 0 {
 		if lengthOfFirstPart == 0 {
 			// address is blank.
-			address = net.JoinHostPort(defaultHost, defaultPort)
-		} else {
-			// address is host
-			address = net.JoinHostPort(addressParts[0], defaultPort)
+			return defaultAddress, nil
 		}
-	} else if indexOfPortSeparator == 0 {
-		// address is :1234
-		address = net.JoinHostPort(defaultHost, addressParts[1])
-	} else if indexOfPortSeparator > 0 {
-		// address is host:
-		address = net.JoinHostPort(defaultPort, addressParts[0])
+		// address is host
+		return net.JoinHostPort(addressParts[0], defaultPort), nil
 	}
 
-	err = flag.Value.Set(address)
-	if err != nil {
-		return Error.Wrap(err)
+	if indexOfPortSeparator == 0 {
+		// address is :1234
+		return net.JoinHostPort(defaultHost, addressParts[1]), nil
 	}
-	return nil
+
+	// address is host:
+	return net.JoinHostPort(addressParts[0], defaultPort), nil
 }
