@@ -91,6 +91,8 @@ func (db SqliteKV) List(start storage.Key, limit int) (keys storage.Keys, _ erro
 }
 
 // Iterate iterates over items based on opts
+// NB: *Does not* implement reverse option is *always* recursive.
+//		Prefix option does nothing.
 func (db SqliteKV) Iterate(opts storage.IterateOptions, fn func(storage.Iterator) error) error {
 	limit, offset := 1000, int64(0)
 
@@ -106,11 +108,29 @@ func (db SqliteKV) Iterate(opts storage.IterateOptions, fn func(storage.Iterator
 			return ErrSqlitekv.Wrap(err)
 		}
 
-		for i, row := range rows {
-			fn()
+		var items storage.Items
+		for _, row := range rows {
+			items = append(items, storage.ListItem{
+				Key:   row.Key,
+				Value: row.Value,
+				//IsPrefix:
+			})
+		}
+
+		err = fn(&storage.StaticIterator{
+			Items: items,
+			Index: 0,
+		})
+		if err != nil {
+			return ErrSqlitekv.Wrap(err)
+		}
+
+		if len(rows) < limit {
+			break
 		}
 		offset += int64(limit)
 	}
+	return nil
 }
 
 // Close closes the store
