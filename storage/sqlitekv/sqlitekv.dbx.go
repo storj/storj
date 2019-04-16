@@ -267,15 +267,17 @@ func newsqlite3(db *DB) *sqlite3DB {
 
 func (obj *sqlite3DB) Schema() string {
 	return `CREATE TABLE items (
-	pk INTEGER NOT NULL,
+	id BLOB NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	updated_at TIMESTAMP NOT NULL,
 	key BLOB NOT NULL,
 	value BLOB,
-	PRIMARY KEY ( pk ),
+	PRIMARY KEY ( id ),
+	UNIQUE ( id ),
 	UNIQUE ( key )
 );
-CREATE UNIQUE INDEX items_key_unique_index ON items ( key );`
+CREATE UNIQUE INDEX key ON items ( key );
+CREATE UNIQUE INDEX id ON items ( id );`
 }
 
 func (obj *sqlite3DB) wrapTx(tx *sql.Tx) txMethods {
@@ -339,7 +341,7 @@ nextval:
 }
 
 type Item struct {
-	Pk        int64
+	Id        []byte
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	Key       []byte
@@ -356,24 +358,24 @@ type Item_Update_Fields struct {
 	Value Item_Value_Field
 }
 
-type Item_Pk_Field struct {
+type Item_Id_Field struct {
 	_set   bool
 	_null  bool
-	_value int64
+	_value []byte
 }
 
-func Item_Pk(v int64) Item_Pk_Field {
-	return Item_Pk_Field{_set: true, _value: v}
+func Item_Id(v []byte) Item_Id_Field {
+	return Item_Id_Field{_set: true, _value: v}
 }
 
-func (f Item_Pk_Field) value() interface{} {
+func (f Item_Id_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (Item_Pk_Field) _Column() string { return "pk" }
+func (Item_Id_Field) _Column() string { return "id" }
 
 type Item_CreatedAt_Field struct {
 	_set   bool
@@ -692,22 +694,24 @@ type Value_Row struct {
 }
 
 func (obj *sqlite3Impl) Create_Item(ctx context.Context,
+	item_id Item_Id_Field,
 	item_key Item_Key_Field,
 	optional Item_Create_Fields) (
 	item *Item, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
+	__id_val := item_id.value()
 	__created_at_val := __now
 	__updated_at_val := __now
 	__key_val := item_key.value()
 	__value_val := optional.Value.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO items ( created_at, updated_at, key, value ) VALUES ( ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO items ( id, created_at, updated_at, key, value ) VALUES ( ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __created_at_val, __updated_at_val, __key_val, __value_val)
+	obj.logStmt(__stmt, __id_val, __created_at_val, __updated_at_val, __key_val, __value_val)
 
-	__res, err := obj.driver.Exec(__stmt, __created_at_val, __updated_at_val, __key_val, __value_val)
+	__res, err := obj.driver.Exec(__stmt, __id_val, __created_at_val, __updated_at_val, __key_val, __value_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -851,12 +855,12 @@ func (obj *sqlite3Impl) Update_Item_By_Key(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT items.pk, items.created_at, items.updated_at, items.key, items.value FROM items WHERE items.key = ?")
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT items.id, items.created_at, items.updated_at, items.key, items.value FROM items WHERE items.key = ?")
 
 	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
 	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
 
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&item.Pk, &item.CreatedAt, &item.UpdatedAt, &item.Key, &item.Value)
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&item.Id, &item.CreatedAt, &item.UpdatedAt, &item.Key, &item.Value)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -896,13 +900,13 @@ func (obj *sqlite3Impl) getLastItem(ctx context.Context,
 	pk int64) (
 	item *Item, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT items.pk, items.created_at, items.updated_at, items.key, items.value FROM items WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT items.id, items.created_at, items.updated_at, items.key, items.value FROM items WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	item = &Item{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&item.Pk, &item.CreatedAt, &item.UpdatedAt, &item.Key, &item.Value)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&item.Id, &item.CreatedAt, &item.UpdatedAt, &item.Key, &item.Value)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -986,6 +990,7 @@ func (rx *Rx) Rollback() (err error) {
 }
 
 func (rx *Rx) Create_Item(ctx context.Context,
+	item_id Item_Id_Field,
 	item_key Item_Key_Field,
 	optional Item_Create_Fields) (
 	item *Item, err error) {
@@ -993,7 +998,7 @@ func (rx *Rx) Create_Item(ctx context.Context,
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_Item(ctx, item_key, optional)
+	return tx.Create_Item(ctx, item_id, item_key, optional)
 
 }
 
@@ -1052,6 +1057,7 @@ func (rx *Rx) Update_Item_By_Key(ctx context.Context,
 
 type Methods interface {
 	Create_Item(ctx context.Context,
+		item_id Item_Id_Field,
 		item_key Item_Key_Field,
 		optional Item_Create_Fields) (
 		item *Item, err error)

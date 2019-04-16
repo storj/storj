@@ -47,6 +47,7 @@ type DB interface {
 	CertDB() trust.CertDB
 	Bandwidth() bandwidth.DB
 	UsedSerials() piecestore.UsedSerials
+	Revocations()
 
 	// TODO: use better interfaces
 	PSDB() *psdb.DB

@@ -1,13 +1,20 @@
 model item (
-	key    pk
+	key    id
+	unique id
 	unique key
 
 	index (
+        name key
 	    fields key
 	    unique
 	)
+	index (
+        name id
+	    fields id
+	    unique
+	)
 
-	field pk         serial64
+	field id         blob
 	field created_at timestamp ( autoinsert )
 	field updated_at timestamp ( autoinsert, autoupdate )
 	field key        blob

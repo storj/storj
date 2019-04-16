@@ -7,9 +7,9 @@ package sqlitekv
 
 import (
 	"context"
-
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/zeebo/errs"
+	"storj.io/storj/internal/migrate"
 
 	"storj.io/storj/storage"
 )
@@ -135,5 +135,33 @@ func (db SqliteKV) Iterate(opts storage.IterateOptions, fn func(storage.Iterator
 
 // Close closes the store
 func (db SqliteKV) Close() error {
-	return db.Close()
+	return db.DB.Close()
+}
+
+// Migration define piecestore DB migration
+func (db SqliteKV) Migration() *migrate.Migration {
+	migration := &migrate.Migration{
+		Table: "versions",
+		Steps: []*migrate.Step{
+			{
+				Description: "Initial setup",
+				Version:     0,
+				Action: migrate.SQL{
+					`CREATE TABLE IF NOT EXISTS items (
+						id BLOB NOT NULL,
+						created_at TIMESTAMP NOT NULL,
+						updated_at TIMESTAMP NOT NULL,
+						key BLOB NOT NULL,
+						value BLOB,
+						PRIMARY KEY ( id ),
+						UNIQUE ( id ),
+						UNIQUE ( key )
+					)`,
+					`CREATE UNIQUE INDEX key ON items ( key );`,
+					`CREATE UNIQUE INDEX id ON items ( id );`,
+				},
+			},
+		},
+	}
+	return migration
 }

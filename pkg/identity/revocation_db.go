@@ -6,6 +6,7 @@ package identity
 import (
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"fmt"
 
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/pkg/peertls"
@@ -33,16 +34,19 @@ func NewRevocationDB(revocationDBURL string) (*RevocationDB, error) {
 	var db *RevocationDB
 	switch driver {
 	case "sqlite":
+		fmt.Println("sqlite")
 		db, err = newRevocationDBSqlite(source)
 		if err != nil {
 			return nil, extensions.ErrRevocationDB.Wrap(err)
 		}
 	case "bolt":
+		fmt.Println("bolt")
 		db, err = newRevocationDBBolt(source)
 		if err != nil {
 			return nil, extensions.ErrRevocationDB.Wrap(err)
 		}
 	case "redis":
+		fmt.Println("redis")
 		db, err = newRevocationDBRedis(revocationDBURL)
 		if err != nil {
 			return nil, extensions.ErrRevocationDB.Wrap(err)
