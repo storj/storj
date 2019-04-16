@@ -64,11 +64,11 @@ func (service *Service) Run(ctx context.Context) (err error) {
 
 	// get the disk space details
 	// The returned path ends in a slash only if it represents a root directory, such as "/" on Unix or `C:\` on Windows.
-	info, err := service.store.StorageStatus()
+	storageStatus, err := service.store.StorageStatus()
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	freeDiskSpace := info.DiskFree
+	freeDiskSpace := storageStatus.DiskFree
 
 	totalUsed, err := service.usedSpace(ctx)
 	if err != nil {
@@ -100,7 +100,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		service.log.Warn("Used more space than allocated. Allocating space", zap.Int64("bytes", service.allocatedDiskSpace))
 	}
 
-	// the available diskspace is less than remaining allocated space,
+	// the available disk space is less than remaining allocated space,
 	// due to change of setting before restarting
 	if freeDiskSpace < service.allocatedDiskSpace-totalUsed {
 		service.allocatedDiskSpace = freeDiskSpace
@@ -151,15 +151,29 @@ func (service *Service) usedSpace(ctx context.Context) (int64, error) {
 }
 
 func (service *Service) usedBandwidth(ctx context.Context) (int64, error) {
-	usage, err := service.usageDB.Summary(ctx, getBeginningOfMonth(), time.Now())
+	usage, err := bandwidth.TotalMonthlySummary(ctx, service.usageDB)
 	if err != nil {
 		return 0, err
 	}
 	return usage.Total(), nil
 }
 
-func getBeginningOfMonth() time.Time {
-	t := time.Now()
-	y, m, _ := t.Date()
-	return time.Date(y, m, 1, 0, 0, 0, 0, time.Now().Location())
+// AvailableSpace returns available disk space for upload
+func (service *Service) AvailableSpace(ctx context.Context) (int64, error) {
+	usedSpace, err := service.pieceInfo.SpaceUsed(ctx)
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+	allocatedSpace := service.allocatedDiskSpace
+	return allocatedSpace - usedSpace, nil
+}
+
+// AvailableBandwidth returns available bandwidth for upload/download
+func (service *Service) AvailableBandwidth(ctx context.Context) (int64, error) {
+	usage, err := bandwidth.TotalMonthlySummary(ctx, service.usageDB)
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+	allocatedBandwidth := service.allocatedBandwidth
+	return allocatedBandwidth - usage.Total(), nil
 }
