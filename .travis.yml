@@ -35,7 +35,7 @@ matrix:
       install:
         - pushd ~
         - GOBIN=${GOPATH}/bin GOPATH=~/gotools go get github.com/mattn/goveralls
-        - GOBIN=${GOPATH}/bin GOPATH=~/gotools go get github.com/egonelbre/tparse
+        - GOBIN=${GOPATH}/bin GOPATH=~/gotools go get github.com/mfridman/tparse
         - popd
         - go install -race ./...
       script:
