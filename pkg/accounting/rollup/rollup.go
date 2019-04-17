@@ -91,7 +91,7 @@ func (r *Service) Rollup(ctx context.Context) error {
 
 // RollupStorage rolls up storage tally, modifies rollupStats map
 func (r *Service) RollupStorage(ctx context.Context, lastRollup time.Time, rollupStats accounting.RollupStats) (latestTally time.Time, err error) {
-	tallies, err := r.db.GetRawSince(ctx, lastRollup)
+	tallies, err := r.db.GetStoragenodeStorageSince(ctx, lastRollup)
 	if err != nil {
 		return time.Now(), Error.Wrap(err)
 	}

@@ -15,14 +15,11 @@ import (
 // RollupStats is a convenience alias
 type RollupStats map[time.Time]map[storj.NodeID]*Rollup
 
-// Raw mirrors dbx.AccountingRaw, allowing us to use that struct without leaking dbx
-type Raw struct {
-	ID              int64
-	NodeID          storj.NodeID
-	IntervalEndTime time.Time
-	DataTotal       float64
-	DataType        int
-	CreatedAt       time.Time
+// StoragenodeStorageTally mirrors dbx.StoragenodeStorageTally allowing us to use that struct without leaking dbx
+type StoragenodeStorageTally struct {
+	NodeID        storj.NodeID
+	IntervalStart time.Time
+	Total         float64
 }
 
 // StoragenodeBandwidthRollup mirrors dbx.StoragenodeBandwidthRollup, allowing us to use the struct without leaking dbx
@@ -52,14 +49,10 @@ type DB interface {
 	LastTimestamp(ctx context.Context, timestampType string) (time.Time, error)
 	// SaveStoragenodeStorageTallies records the storagenode at rest data and updates LastTimestamp
 	SaveStoragenodeStorageTallies(ctx context.Context, latestTally time.Time, created time.Time, nodeData map[storj.NodeID]float64) error
-	// GetStoragenodeStorage retrieves all the storagenode at rest storage tallies
-	// GetStoragenodeStorageSince retrieves all the storagenode at rest storage tallies since latestRollup
-	
-	
-	// GetRaw retrieves all raw tallies
-	GetRaw(ctx context.Context) ([]*Raw, error)
-	// GetRawSince retrieves all raw tallies since latestRollup
-	GetRawSince(ctx context.Context, latestRollup time.Time) ([]*Raw, error)
+	// GetStoragenodeStorage retrieves all the storagenode at rest data tallies
+	GetStoragenodeStorage(ctx context.Context) ([]*StoragenodeStorageTally, error)
+	// GetStoragenodeStorageSince retrieves all the storagenode at rest data tallies since latestRollup
+	GetStoragenodeStorageSince(ctx context.Context, latestRollup time.Time) ([]*StoragenodeStorageTally, error)
 	// GetStoragenodeBandwidthSince retrieves all storagenode_bandwidth_rollup entires since latestRollup
 	GetStoragenodeBandwidthSince(ctx context.Context, latestRollup time.Time) ([]*StoragenodeBandwidthRollup, error)
 	// SaveRollup records raw tallies of at rest data to the database
