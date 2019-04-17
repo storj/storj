@@ -81,16 +81,16 @@ Please enter numeric choice or enter satellite address manually [1]: `)
 			return err
 		}
 		satellites := []string{"mars.tardigrade.io", "jupiter.tardigrade.io", "saturn.tardigrade.io"}
-		// fmt.Print("Enter your Satellite address: ")
 		var satelliteAddress string
 		_, err = fmt.Scanln(&satelliteAddress)
 		if err != nil {
-			return err
+			// fmt.Scanln cannot handle empty input
+			satelliteAddress = satellites[0]
 		}
 
 		// TODO add better validation
 		if satelliteAddress == "" {
-			satelliteAddress = satellites[0]
+			return errs.New("satellite address cannot be empty")
 		} else if len(satelliteAddress) == 1 {
 			switch satelliteAddress {
 			case "1":
