@@ -786,23 +786,30 @@ type lockedRepairQueue struct {
 	db queue.RepairQueue
 }
 
-// Dequeue removes an injured segment.
-func (m *lockedRepairQueue) Dequeue(ctx context.Context) (pb.InjuredSegment, error) {
+// Delete removes an injured segment.
+func (m *lockedRepairQueue) Delete(ctx context.Context, s *pb.InjuredSegment) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Dequeue(ctx)
+	return m.db.Delete(ctx, s)
 }
 
-// Enqueue adds an injured segment.
-func (m *lockedRepairQueue) Enqueue(ctx context.Context, qi *pb.InjuredSegment) error {
+// Insert adds an injured segment.
+func (m *lockedRepairQueue) Insert(ctx context.Context, s *pb.InjuredSegment) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Enqueue(ctx, qi)
+	return m.db.Insert(ctx, s)
 }
 
-// Peekqueue lists limit amount of injured segments.
-func (m *lockedRepairQueue) Peekqueue(ctx context.Context, limit int) ([]pb.InjuredSegment, error) {
+// Select gets an injured segment.
+func (m *lockedRepairQueue) Select(ctx context.Context) (*pb.InjuredSegment, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Peekqueue(ctx, limit)
+	return m.db.Select(ctx)
+}
+
+// SelectN lists limit amount of injured segments.
+func (m *lockedRepairQueue) SelectN(ctx context.Context, limit int) ([]pb.InjuredSegment, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SelectN(ctx, limit)
 }

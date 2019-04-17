@@ -45,7 +45,7 @@ func loadSnapshots(connstr string) (*dbschema.Snapshots, error) {
 
 		snapshot, err := pgutil.LoadSnapshotFromSQL(connstr, string(scriptData))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("Version %d error: %+v", version, err)
 		}
 		snapshot.Version = version
 

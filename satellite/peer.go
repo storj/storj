@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"net/http"
 	"net/mail"
 	"net/smtp"
 	"os"
@@ -17,8 +16,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/post"
 	"storj.io/storj/internal/post/oauth2"
 	"storj.io/storj/internal/version"
@@ -513,43 +512,36 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 	return peer, nil
 }
 
-func ignoreCancel(err error) error {
-	if err == context.Canceled || err == grpc.ErrServerStopped || err == http.ErrServerClosed {
-		return nil
-	}
-	return err
-}
-
 // Run runs storage node until it's either closed or it errors.
 func (peer *Peer) Run(ctx context.Context) error {
 	group, ctx := errgroup.WithContext(ctx)
 
 	group.Go(func() error {
-		return ignoreCancel(peer.Version.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Version.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Kademlia.Service.Bootstrap(ctx))
+		return errs2.IgnoreCanceled(peer.Kademlia.Service.Bootstrap(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Kademlia.Service.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Kademlia.Service.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Discovery.Service.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Discovery.Service.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Repair.Checker.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Repair.Checker.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Repair.Repairer.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Repair.Repairer.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Accounting.Tally.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Accounting.Tally.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Accounting.Rollup.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Accounting.Rollup.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Audit.Service.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Audit.Service.Run(ctx))
 	})
 	group.Go(func() error {
 		// TODO: move the message into Server instead
@@ -557,10 +549,10 @@ func (peer *Peer) Run(ctx context.Context) error {
 		peer.Log.Sugar().Infof("Node %s started", peer.Identity.ID)
 		peer.Log.Sugar().Infof("Public server started on %s", peer.Addr())
 		peer.Log.Sugar().Infof("Private server started on %s", peer.PrivateAddr())
-		return ignoreCancel(peer.Server.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Server.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Console.Endpoint.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
 	})
 
 	return group.Wait()

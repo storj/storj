@@ -15,12 +15,14 @@ import (
 
 // RepairQueue implements queueing for segments that need repairing.
 type RepairQueue interface {
-	// Enqueue adds an injured segment.
-	Enqueue(ctx context.Context, qi *pb.InjuredSegment) error
-	// Dequeue removes an injured segment.
-	Dequeue(ctx context.Context) (pb.InjuredSegment, error)
-	// Peekqueue lists limit amount of injured segments.
-	Peekqueue(ctx context.Context, limit int) ([]pb.InjuredSegment, error)
+	// Insert adds an injured segment.
+	Insert(ctx context.Context, s *pb.InjuredSegment) error
+	// Select gets an injured segment.
+	Select(ctx context.Context) (*pb.InjuredSegment, error)
+	// Delete removes an injured segment.
+	Delete(ctx context.Context, s *pb.InjuredSegment) error
+	// SelectN lists limit amount of injured segments.
+	SelectN(ctx context.Context, limit int) ([]pb.InjuredSegment, error)
 }
 
 // Queue implements the RepairQueue interface
