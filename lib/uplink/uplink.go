@@ -54,8 +54,8 @@ type Config struct {
 		// identity or used when creating an identity.
 		IdentityVersion storj.IDVersion
 
-		// PeerIDVersion is the identity versions remote peers to this node
-		// will be supported by this node.
+		// PeerIDVersion is the identity versions of remote peers to this node
+		// which will be supported by this node.
 		PeerIDVersion string
 
 		// MaxInlineSize determines whether the uplink will attempt to

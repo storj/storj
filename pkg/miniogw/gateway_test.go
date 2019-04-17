@@ -639,7 +639,10 @@ func runTest(t *testing.T, test func(context.Context, minio.ObjectLayer, storj.M
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.New(t, 1, 4, 1)
+	// TODO(@thepaul): Undo this I think. Why is uplink hard-coded to identity version `"0"`?
+	// (see https://github.com/storj/storj/pull/1658/files#diff-23f3da9beee4401f662ac539c8f7faefR127)
+	idVersion := storj.IDVersions[storj.V0]
+	planet, err := testplanet.NewWithIdentityVersion(t, &idVersion, 1, 4, 1)
 	if !assert.NoError(t, err) {
 		return
 	}

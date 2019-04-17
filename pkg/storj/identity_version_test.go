@@ -47,10 +47,12 @@ func TestIDVersionInVersions_match(t *testing.T) {
 		{"single version", storj.V0, "0"},
 		{"first versions", storj.V0, "0,1"},
 		{"middle versions", storj.V1, "0,1,2"},
-		{"last versions", storj.V1, "k,1"},
+		{"last versions", storj.V1, "0,1"},
 		{"end of version range", storj.V1, "0-1"},
 		{"beginning of version range", storj.V0, "0-1"},
 		{"middle of version range", storj.V1, "0-2"},
+		{"range and second version (range)", storj.V0, "0-1,2"},
+		{"range and second version (second version)", storj.V0, "1-2,0"},
 		{"latest alias", storj.LatestIDVersion().Number, "latest"},
 	}
 
@@ -68,11 +70,11 @@ func TestIDVersionInVersions_error(t *testing.T) {
 		versionsStr   string
 	}{
 		{"single version", storj.V1, "0"},
-		{"first versions", storj.V1, "0,2"},
-		{"middle versions", storj.V1, "0,1,2"},
-		{"last versions", storj.V1, "k,1"},
-		{"version range", storj.V0, "0-1"},
-		{"latest alias", storj.V1, "latest"},
+		{"two versions", storj.V1, "0,2"},
+		{"three versions", storj.V1, "0,2,3"},
+		{"version range", storj.V0, "1-2"},
+		{"range and second version", storj.V0, "1-2,3"},
+		{"latest alias", storj.V0, "latest"},
 		{"malformed PeerIDVersions", storj.V0, "0-"},
 	}
 
@@ -122,10 +124,7 @@ func TestIDVersionExtensionHandler_success(t *testing.T) {
 }
 
 func TestIDVersionExtensionHandler_error(t *testing.T) {
-	_, identityV1Chain, err := testpeertls.NewCertChain(2, storj.V1)
-	assert.NoError(t, err)
-
-	_, identityV2Chain, err := testpeertls.NewCertChain(2, storj.V2)
+	_, identityV0Chain, err := testpeertls.NewCertChain(2, storj.V0)
 	assert.NoError(t, err)
 
 	testcases := []struct {
@@ -133,9 +132,9 @@ func TestIDVersionExtensionHandler_error(t *testing.T) {
 		versions string
 		chain    []*x509.Certificate
 	}{
-		{"single version mismatch", "1", identityV2Chain},
-		{"multiple versions mismatch", "1,3", identityV2Chain},
-		{"latest version", "latest", identityV1Chain},
+		{"single version mismatch", "1", identityV0Chain},
+		{"multiple versions mismatch", "1,2", identityV0Chain},
+		{"latest version", "latest", identityV0Chain},
 	}
 
 	for _, testcase := range testcases {

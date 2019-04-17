@@ -18,7 +18,7 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-func newV1CA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority, err error) {
+func newV0CA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority, err error) {
 	// NB: `i` and `highscore` are only used for logging.
 	var (
 		highscore    = new(uint32)
@@ -28,10 +28,10 @@ func newV1CA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthorit
 		mu          sync.Mutex
 		selectedKey crypto.PrivateKey
 		selectedID  storj.NodeID
-		extraExtensions = []pkix.Extension{NewVersionExt(storj.IDVersions[storj.V1])}
+		extraExtensions = []pkix.Extension{NewVersionExt(storj.IDVersions[storj.V0])}
 	)
 
-	err = GenerateKeys(ctx, minimumLoggableDifficulty, int(opts.Concurrency), storj.IDVersions[storj.V1],
+	err = GenerateKeys(ctx, minimumLoggableDifficulty, int(opts.Concurrency), storj.IDVersions[storj.V0],
 		func(k crypto.PrivateKey, id storj.NodeID) (done bool, err error) {
 			if opts.Logger != nil {
 				if atomic.AddUint32(i, 1)%100 == 0 {
@@ -78,7 +78,7 @@ func newV1CA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthorit
 	return buildCA(opts, selectedKey, selectedID, extraExtensions)
 }
 
-func newV2CA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority, err error) {
+func newV1CA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority, err error) {
 	// NB: `i` and `highscore` are only used for logging.
 	var (
 		highscore    = new(uint32)
@@ -89,10 +89,10 @@ func newV2CA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthorit
 		selectedKey   crypto.PrivateKey
 		selectedID    storj.NodeID
 		selectedCount peertls.POWCounter
-		extraExtensions = []pkix.Extension{NewVersionExt(storj.IDVersions[storj.V2])}
+		extraExtensions = []pkix.Extension{NewVersionExt(storj.IDVersions[storj.V1])}
 	)
 
-	err = GenerateKeyKeyWithCounter(ctx, minimumLoggableDifficulty, int(opts.Concurrency), storj.IDVersions[storj.V2],
+	err = GenerateKeyKeyWithCounter(ctx, minimumLoggableDifficulty, int(opts.Concurrency), storj.IDVersions[storj.V1],
 		func(k crypto.PrivateKey, counter peertls.POWCounter, id storj.NodeID) (done bool, err error) {
 			if opts.Logger != nil {
 				if atomic.AddUint32(i, 1)%100 == 0 {

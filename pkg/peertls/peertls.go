@@ -145,6 +145,14 @@ func CreateCertificate(signee crypto.PublicKey, signer crypto.PrivateKey, templa
 		// x509.CreateCertificate will panic in this case, so check here and make debugging easier
 		return nil, errs.New("can't sign certificate with signer key of type %T", signer)
 	}
+	switch {
+	case template == nil && issuer == nil:
+		return nil, errs.New("missing at least one template and/or issuer")
+	case template == nil:
+		template = issuer
+	case issuer == nil:
+		issuer = template
+	}
 
 	// TODO: should we check for uniqueness?
 	template.ExtraExtensions = append(template.ExtraExtensions, template.Extensions...)

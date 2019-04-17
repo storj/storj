@@ -27,7 +27,10 @@ type testConfig struct {
 func testPlanetWithLibUplink(t *testing.T, cfg testConfig, encKey *storj.Key,
 	testFunc func(*testing.T, *testcontext.Context, *testplanet.Planet, *Project)) {
 	if cfg.planetCfg == nil {
-		cfg.planetCfg = &testplanet.Config{SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1}
+		// TODO(@thepaul): Undo this I think. Why is uplink hard-coded to identity version `"0"`?
+		// (see https://github.com/storj/storj/pull/1658/files#diff-23f3da9beee4401f662ac539c8f7faefR127)
+		idVersion := storj.IDVersions[storj.V0]
+		cfg.planetCfg = &testplanet.Config{SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1, IdentityVersion: &idVersion}
 	}
 
 	ctx := testcontext.New(t)

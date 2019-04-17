@@ -45,7 +45,7 @@ func TestNewCA(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, actualDifficulty >= expectedDifficulty)
 
-		if version.Number == storj.V2 {
+		if version.Number == storj.V1 {
 			extMap := tlsopts.NewExtensionsMap(ca.Cert)
 			powCounterExt := extMap[extensions.IdentityPOWCounterExtID.String()]
 			require.NotNil(t, powCounterExt)

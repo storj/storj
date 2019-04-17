@@ -10,9 +10,7 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-//go:generate go run gen_identities.go -version 0 -count 150 -out V0_identities_table.go
 //go:generate go run gen_identities.go -version 1 -count 150 -out V1_identities_table.go
-//go:generate go run gen_identities.go -signed -version 0 -count 150 -out V0_signed_identities_table.go
 //go:generate go run gen_identities.go -signed -version 1 -count 150 -out V1_signed_identities_table.go
 
 var (

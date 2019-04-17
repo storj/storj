@@ -348,8 +348,9 @@ func (authDB *AuthorizationDB) Claim(opts *ClaimOpts) error {
 		return err
 	}
 
+	fmt.Printf("peerDifficulty: %d\n", peerDifficulty)
 	if peerDifficulty < opts.MinDifficulty {
-		return ErrAuthorization.New("difficulty must be greater than: %d", opts.MinDifficulty)
+		return ErrAuthorization.New("difficulty must be greater than or equal to: %d", opts.MinDifficulty)
 	}
 
 	token, err := ParseToken(opts.Req.AuthToken)

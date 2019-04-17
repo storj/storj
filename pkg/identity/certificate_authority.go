@@ -103,10 +103,10 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 	}
 
 	switch version.Number {
-	case storj.V1:
-		return newV1CA(ctx, opts)
+	case storj.V0:
+		return newV0CA(ctx, opts)
 	default:
-		return newV2CA(ctx, opts)
+		return newV1CA(ctx, opts)
 	}
 }
 

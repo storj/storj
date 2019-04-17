@@ -234,6 +234,7 @@ func TestAuthorizationDB_Claim_Valid(t *testing.T) {
 	difficulty, err := ident.ID.Difficulty()
 	require.NoError(t, err)
 
+	fmt.Printf("difficulty: %d\n", difficulty)
 	err = authDB.Claim(&ClaimOpts{
 		Req:           req,
 		Peer:          grpcPeer,
