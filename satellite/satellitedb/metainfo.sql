@@ -34,7 +34,7 @@ CREATE TABLE buckets (
     PRIMARY KEY (bucket_id, project_id);
 )
 
-CREATE TYPE object_status AS ENUM ('partial', 'committed', 'deleting');
+CREATE TYPE object_status AS ENUM ('partial', 'committing', 'committed', 'deleting');
 
 CREATE TABLE objects (
     bucket_id      UUID  NOT NULL REFERENCES buckets(bucket_id); -- 16 bytes (or 8 bytes when serial)
@@ -60,6 +60,7 @@ CREATE TABLE objects (
 )
 
 CREATE TABLE segments (
+    -- total ~3350 bytes or ~950 bytes (ignoring inline data)
     stream_id            UUID   NOT NULL; -- 16 bytes (or should this be a serial of 8 bytes)
 
     segment_index        INT4   DEFAULT NULL;  -- 4 bytes
@@ -81,6 +82,7 @@ CREATE TABLE segments (
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 CREATE TABLE committed_segments (
+    -- total ~3350 bytes or ~950 bytes (ignoring inline data)
     stream_id            UUID   NOT NULL; -- 16 bytes (or should this be a serial of 8 bytes)
 
     segment_index        INT4   NOT NULL; -- 4 bytes
@@ -97,6 +99,7 @@ CREATE TABLE committed_segments (
 )
 
 CREATE TABLE partial_segments (
+    -- total ~3350 bytes or ~950 bytes (ignoring inline data)
     stream_id            UUID   NOT NULL; -- 16 bytes (or should this be a serial of 8 bytes)
 
     segment_upload_index INT8   NOT NULL; -- 8 bytes
