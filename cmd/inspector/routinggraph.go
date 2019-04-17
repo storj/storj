@@ -22,11 +22,10 @@ type bucketID = storj.NodeID
 
 func bufferedGraph(buf *bytes.Buffer, info *pb.GetBucketListResponse) {
 	buf.Write([]byte("digraph{\nnode [shape=box];edge [dir=none];\n"))
+	defer buf.Write([]byte("}\n"))
 
 	buckets := info.GetBuckets()
 	addBucketsToGraph(buckets, 0, buf, "")
-
-	buf.Write([]byte("}\n"))
 
 }
 
@@ -75,6 +74,7 @@ func addBucketsToGraph(b []*pb.GetBucketListResponse_Bucket, depth int, buf *byt
 
 func addLeafBucketToGraph(b *pb.GetBucketListResponse_Bucket, buf *bytes.Buffer, prefix string) {
 	fmt.Fprintf(buf, "b%s [label=<<b><font point-size=\"18\">%s </font></b><br />\n<i>routing:</i><br align=\"left\"/>", prefix, prefix)
+	defer fmt.Fprintf(buf, ">];")
 
 	routingNodes := b.GetRoutingNodes()
 	for _, n := range routingNodes {
@@ -85,5 +85,5 @@ func addLeafBucketToGraph(b *pb.GetBucketListResponse_Bucket, buf *bytes.Buffer,
 	for _, c := range cachedNodes {
 		printNodeInBuffer(c, buf)
 	}
-	fmt.Fprintf(buf, ">];")
+	
 }

@@ -108,8 +108,8 @@ var (
 		RunE:  DumpNodes,
 	}
 	drawTableCmd = &cobra.Command{
-		Use:   "routing-graph (<node_id>)",
-		Short: "Create a graph of the routing table in the dot format",
+		Use:   "routing-graph",
+		Short: "Dumps a graph of the routing table in the dot format",
 		RunE:  DrawTableAsGraph,
 	}
 	getStatsCmd = &cobra.Command{
@@ -253,16 +253,6 @@ func NodeInfo(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
-func dotOutput() (*os.File, error) {
-	if DotPath == "stdout" {
-		return os.Stdout, nil
-	}
-	if DotPath == "" {
-		DotPath = "routing-graph.dot"
-	}
-
-	return os.Create(DotPath)
-}
 // DrawTableAsGraph outputs the table routing as a graph
 func DrawTableAsGraph(cmd *cobra.Command, args []string) (err error) {
 	i, err := NewInspector(*Addr, *IdentityPath)
@@ -275,21 +265,11 @@ func DrawTableAsGraph(cmd *cobra.Command, args []string) (err error) {
 		return ErrRequest.Wrap(err)
 	}
 
-	fh, err := dotOutput()
-	if err != nil {
-		return ErrRequest.Wrap(err)
-	}
-	defer func() {
-		err = errs.Combine(err, fh.Close())
-	}()
 	var buf bytes.Buffer
 	bufferedGraph(&buf, info)
-	_, err = buf.WriteTo(fh)
+	_, err = buf.WriteTo(os.Stdout)
 	if err != nil {
 		return ErrRequest.Wrap(err)
-	}
-	if DotPath != "stdout" {
-		fmt.Println("Routing table graph saved under:", DotPath)
 	}
 
 	return nil
@@ -784,7 +764,6 @@ func init() {
 	kadCmd.AddCommand(nodeInfoCmd)
 	kadCmd.AddCommand(dumpNodesCmd)
 	kadCmd.AddCommand(drawTableCmd)
-	drawTableCmd.Flags().StringVar(&DotPath, "dot-path", "", "path where command output is written (default is routing-graph.dot)")
 
 	statsCmd.AddCommand(getStatsCmd)
 	statsCmd.AddCommand(getCSVStatsCmd)
