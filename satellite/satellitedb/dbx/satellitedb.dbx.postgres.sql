@@ -156,7 +156,7 @@ CREATE TABLE storagenode_bandwidth_rollups (
 CREATE TABLE storagenode_storage_tallies (
 	storagenode_id bytea NOT NULL,
 	interval_start timestamp NOT NULL,
-	total bigint NOT NULL,
+	total double precision NOT NULL,
 	PRIMARY KEY ( storagenode_id, interval_start )
 );
 CREATE TABLE users (

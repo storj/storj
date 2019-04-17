@@ -46,7 +46,7 @@ func TestDeleteRawBefore(t *testing.T) {
 			nodeData := make(map[storj.NodeID]float64)
 			nodeData[id] = float64(1000)
 
-			err := planet.Satellites[0].DB.Accounting().SaveAtRestRaw(ctx, tt.createdAt, tt.createdAt, nodeData)
+			err := planet.Satellites[0].DB.Accounting().SaveStorageTallies(ctx, tt.createdAt, tt.createdAt, nodeData)
 			require.NoError(t, err)
 
 			err = planet.Satellites[0].DB.Accounting().DeleteRawBefore(ctx, tt.eraseBefore)

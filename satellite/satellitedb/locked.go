@@ -113,13 +113,6 @@ func (m *lockedAccounting) QueryPaymentInfo(ctx context.Context, start time.Time
 	return m.db.QueryPaymentInfo(ctx, start, end)
 }
 
-// SaveAtRestRaw records raw tallies of at-rest-data.
-func (m *lockedAccounting) SaveAtRestRaw(ctx context.Context, latestTally time.Time, created time.Time, nodeData map[storj.NodeID]float64) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.SaveAtRestRaw(ctx, latestTally, created, nodeData)
-}
-
 // SaveBucketTallies saves the latest bucket info
 func (m *lockedAccounting) SaveBucketTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*accounting.BucketTally) ([]accounting.BucketTally, error) {
 	m.Lock()
@@ -132,6 +125,13 @@ func (m *lockedAccounting) SaveRollup(ctx context.Context, latestTally time.Time
 	m.Lock()
 	defer m.Unlock()
 	return m.db.SaveRollup(ctx, latestTally, stats)
+}
+
+// SaveStorageTallies records the at rest data
+func (m *lockedAccounting) SaveStorageTallies(ctxt context.Context, latestTally time.Time, created time.Time, nodeData map[storj.NodeID]float64) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SaveStorageTallies(ctxt, latestTally, created, nodeData)
 }
 
 // BandwidthAgreement returns database for storing bandwidth agreements
@@ -752,7 +752,7 @@ func (m *lockedOverlayCache) Update(ctx context.Context, value *pb.Node) error {
 	return m.db.Update(ctx, value)
 }
 
-// UpdateOperator updates the email and wallet for a given node ID for satellite payments.
+// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
 func (m *lockedOverlayCache) UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *overlay.NodeDossier, err error) {
 	m.Lock()
 	defer m.Unlock()

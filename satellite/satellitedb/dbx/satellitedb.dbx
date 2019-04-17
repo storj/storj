@@ -487,8 +487,20 @@ model storagenode_storage_tally (
 	field storagenode_id   blob
 	field interval_start   utimestamp
 
-	field total            uint64
+	field total            float64
 )
+
+create storagenode_storage_tally ( )
+
+read all (
+	select storagenode_storage_tally
+)
+
+read all (
+	select storagenode_storage_tally
+	where storagenode_storage_tally.interval_start >= ?
+)
+
 
 //--- certRecord ---//
 

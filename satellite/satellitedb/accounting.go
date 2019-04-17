@@ -94,19 +94,17 @@ func (db *accountingDB) LastTimestamp(ctx context.Context, timestampType string)
 	return lastTally, err
 }
 
-// SaveAtRestRaw records raw tallies of at rest data to the database
-func (db *accountingDB) SaveAtRestRaw(ctx context.Context, latestTally time.Time, created time.Time, nodeData map[storj.NodeID]float64) error {
+// SaveStorageTallies records the at rest data
+func (db *accountingDB) SaveStorageTallies(ctx context.Context, latestTally time.Time, created time.Time, nodeData map[storj.NodeID]float64) error {
 	if len(nodeData) == 0 {
-		return Error.New("In SaveAtRestRaw with empty nodeData")
+		return Error.New("In SaveStorageTallies with empty nodeData")
 	}
 	err := db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
 		for k, v := range nodeData {
-			nID := dbx.AccountingRaw_NodeId(k.Bytes())
-			end := dbx.AccountingRaw_IntervalEndTime(latestTally)
-			total := dbx.AccountingRaw_DataTotal(v)
-			dataType := dbx.AccountingRaw_DataType(accounting.AtRest)
-			timestamp := dbx.AccountingRaw_CreatedAt(created)
-			_, err := tx.Create_AccountingRaw(ctx, nID, end, total, dataType, timestamp)
+			nID := dbx.StoragenodeStorageTally_StoragenodeId(k.Bytes())
+			timestamp := dbx.StoragenodeStorageTally_IntervalStart(latestTally)
+			total := dbx.StoragenodeStorageTally_Total(v)
+			_, err := tx.Create_StoragenodeStorageTally(ctx, nID, timestamp, total)
 			if err != nil {
 				return err
 			}
@@ -116,6 +114,7 @@ func (db *accountingDB) SaveAtRestRaw(ctx context.Context, latestTally time.Time
 		return err
 	})
 	return Error.Wrap(err)
+
 }
 
 // GetRaw retrieves all raw tallies
