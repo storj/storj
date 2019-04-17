@@ -37,6 +37,8 @@ func WorkWithLibUplink(satelliteAddress string, encryptionKey *storj.Key, apiKey
 	}
 	defer upl.Close()
 
+	// It is temporarily required to set the encryption key in project options.
+	// This requirement will be removed in the future.
 	opts := uplink.ProjectOptions{}
 	opts.Volatile.EncryptionKey = encryptionKey
 
