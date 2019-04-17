@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testplanet"
+	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/miniogw"
@@ -141,7 +142,7 @@ func TestUploadDownload(t *testing.T) {
 }
 
 // runGateway creates and starts a gateway
-func runGateway(ctx context.Context, gwCfg config, uplinkCfg uplink.Config, log *zap.Logger, identity *identity.FullIdentity) (err error) {
+func runGateway(ctx context.Context, gwCfg config, uplinkCfg uplink.Config, log *zap.Logger, ident *identity.FullIdentity) (err error) {
 
 	// set gateway flags
 	flags := flag.NewFlagSet("gateway", flag.ExitOnError)
@@ -168,17 +169,45 @@ func runGateway(ctx context.Context, gwCfg config, uplinkCfg uplink.Config, log 
 		return err
 	}
 
-	metainfo, streams, err := uplinkCfg.GetMetainfo(ctx, identity)
+	cfg := libuplink.Config{}
+	cfg.Volatile.TLS = struct {
+		SkipPeerCAWhitelist bool
+		PeerCAWhitelistPath string
+	}{
+		SkipPeerCAWhitelist: !uplinkCfg.TLS.UsePeerCAWhitelist,
+		PeerCAWhitelistPath: uplinkCfg.TLS.PeerCAWhitelistPath,
+	}
+	cfg.Volatile.UseIdentity = ident
+	cfg.Volatile.MaxInlineSize = uplinkCfg.Client.MaxInlineSize
+	cfg.Volatile.MaxMemory = uplinkCfg.RS.MaxBufferMem
+
+	uplink, err := libuplink.NewUplink(ctx, &cfg)
+	if err != nil {
+		return err
+	}
+
+	apiKey, err := libuplink.ParseAPIKey(uplinkCfg.Client.APIKey)
+	if err != nil {
+		return err
+	}
+
+	encKey := new(storj.Key)
+	copy(encKey[:], uplinkCfg.Enc.Key)
+
+	var projectOptions libuplink.ProjectOptions
+	projectOptions.Volatile.EncryptionKey = encKey
+	project, err := uplink.OpenProject(ctx, uplinkCfg.Client.SatelliteAddr, apiKey, &projectOptions)
 	if err != nil {
 		return err
 	}
 
 	gw := miniogw.NewStorjGateway(
-		metainfo,
-		streams,
-		storj.Cipher(uplinkCfg.Enc.PathType),
-		uplinkCfg.GetEncryptionScheme(),
+		project,
+		encKey,
+		storj.Cipher(uplinkCfg.Enc.PathType).ToCipherSuite(),
+		uplinkCfg.GetEncryptionScheme().ToEncryptionParameters(),
 		uplinkCfg.GetRedundancyScheme(),
+		uplinkCfg.Client.SegmentSize,
 	)
 
 	minio.StartGateway(cliCtx, miniogw.Logging(gw, log))
