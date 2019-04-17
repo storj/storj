@@ -21,9 +21,7 @@ func (group *Group) Go(f func() error) {
 		defer group.wg.Done()
 
 		if err := f(); err != nil {
-			group.errOnce.Do(func() {
-				group.errors = append(group.errors, err)
-			})
+			group.errors = append(group.errors, err)
 		}
 	}()
 }
