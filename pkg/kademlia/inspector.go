@@ -137,16 +137,29 @@ func (srv *Inspector) NodeInfo(ctx context.Context, req *pb.NodeInfoRequest) (*p
 	}, nil
 }
 
-// DrawTable sends a PING RPC to a node and draw a graph of its routing table
-func (srv *Inspector) DrawTable(ctx context.Context, req *pb.DrawTableRequest) (*pb.DrawTableResponse, error) {
-	x := make([][]byte, 1)
+// GetBucketList returns the list of buckets with their routing nodes and their cached nodes
+func (srv *Inspector) GetBucketList(ctx context.Context, req *pb.GetBucketListRequest) (*pb.GetBucketListResponse, error) {
 
-	rt := srv.dht.RoutingTable()
+	bucket_ids, err := srv.dht.GetBucketIds()
+	if err != nil {
+		return nil, err
+	}
 
-	x[0] = rt.BuildDotGraph()
+	buckets := make([]*pb.GetBucketListResponse_Bucket, len(bucket_ids))
+
+	for i, b := range bucket_ids {
+		bucket_id := keyToBucketID(b)
+		routingNodes, _ := srv.dht.GetNodesWithinKBucket(bucket_id)
+		cachedNodes := srv.dht.GetCachedNodesWithinKBucket(bucket_id)
+		buckets[i] = &pb.GetBucketListResponse_Bucket{
+			BucketId: keyToBucketID(b),
+			RoutingNodes: routingNodes,
+			CachedNodes: cachedNodes,
+		}
+		
 	
-	return &pb.DrawTableResponse{
-		Graph: x,
+	}
+	return &pb.GetBucketListResponse{
+		Buckets: buckets,
 	}, nil
-
 }

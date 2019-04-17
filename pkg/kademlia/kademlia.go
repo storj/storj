@@ -312,9 +312,13 @@ func (k *Kademlia) Seen() []*pb.Node {
 	return nodes
 }
 
-// RoutingTable returns the routing table
-func (k *Kademlia) RoutingTable() *RoutingTable {
-	return k.routingTable
+func (k *Kademlia) GetNodesWithinKBucket(bID bucketID) ([]*pb.Node, error) {
+	return k.routingTable.getUnmarshaledNodesFromBucket(bID)
+	//return nodes, err
+}
+
+func (k *Kademlia) GetCachedNodesWithinKBucket(bID bucketID) ([]*pb.Node) {
+	return k.routingTable.replacementCache[bID]
 }
 
 // SetBucketRefreshThreshold changes the threshold when buckets are considered stale and need refreshing.

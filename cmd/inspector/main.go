@@ -5,7 +5,6 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"encoding/csv"
 	"encoding/json"
@@ -15,7 +14,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
-
+	"bytes"
+	
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	prompt "github.com/segmentio/go-prompt"
@@ -263,18 +263,18 @@ func dotOutput() (*os.File, error) {
 
 	return os.Create(DotPath)
 }
-
 // DrawTableAsGraph outputs the table routing as a graph
 func DrawTableAsGraph(cmd *cobra.Command, args []string) (err error) {
 	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
-
-	info, err := i.kadclient.DrawTable(context.Background(), &pb.DrawTableRequest{})
+	// retrieve buckets
+	info, err := i.kadclient.GetBucketList(context.Background(), &pb.GetBucketListRequest{})
 	if err != nil {
 		return ErrRequest.Wrap(err)
 	}
+
 	fh, err := dotOutput()
 	if err != nil {
 		return ErrRequest.Wrap(err)
@@ -282,7 +282,8 @@ func DrawTableAsGraph(cmd *cobra.Command, args []string) (err error) {
 	defer func() {
 		err = errs.Combine(err, fh.Close())
 	}()
-	buf := bytes.NewBuffer(info.Graph[0])
+	var buf bytes.Buffer
+	bufferedGraph(&buf, info)
 	_, err = buf.WriteTo(fh)
 	if err != nil {
 		return ErrRequest.Wrap(err)
