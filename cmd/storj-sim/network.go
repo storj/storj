@@ -148,17 +148,22 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	processes := NewProcesses(flags.Directory)
 
 	var (
-		host                   = flags.Host
-		gatewayPort            = 9000
-		bootstrapPort          = 9999
-		bootstrapPrivatePort   = 9988
-		satellitePort          = 10000
-		satellitePrivatePort   = 11000
-		storageNodePort        = 12000
-		storageNodePrivatePort = 13000
-		consolePort            = 10100
-		bootstrapWebPort       = 10010
-		versioncontrolPort     = 10011
+		host                    = flags.Host
+		gatewayPort             = 9000
+		gatewayDebugPort        = 9500
+		bootstrapPort           = 9999
+		bootstrapPrivatePort    = 9988
+		bootstrapDebugPort      = 9977
+		satellitePort           = 10000
+		satellitePrivatePort    = 11000
+		satelliteDebugPort      = 11500
+		storageNodePort         = 12000
+		storageNodePrivatePort  = 13000
+		storageNodeDebugPort    = 13500
+		consolePort             = 10100
+		bootstrapWebPort        = 10010
+		versioncontrolPort      = 10011
+		versioncontrolDebugPort = 10012
 	)
 
 	versioncontrol := processes.New(Info{
@@ -171,6 +176,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	versioncontrol.Arguments = withCommon(versioncontrol.Directory, Arguments{
 		"setup": {
 			"--address", versioncontrol.Address,
+			"--debug.addr", net.JoinHostPort("127.0.0.1", strconv.Itoa(versioncontrolDebugPort)),
 		},
 		"run": {},
 	})
@@ -206,6 +212,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			"--server.use-peer-ca-whitelist=false",
 
 			"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
+
+			"--debug.addr", net.JoinHostPort("127.0.0.1", strconv.Itoa(bootstrapDebugPort)),
 		},
 		"run": {},
 	})
@@ -256,6 +264,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--mail.template-path", filepath.Join(storjRoot, "web/satellite/static/emails"),
 
 				"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
+				"--debug.addr", net.JoinHostPort("127.0.0.1", strconv.Itoa(satelliteDebugPort+i)),
 			},
 			"run": {},
 		})
@@ -297,6 +306,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 				"--tls.extensions.revocation=false",
 				"--tls.use-peer-ca-whitelist=false",
+
+				"--debug.addr", net.JoinHostPort(host, strconv.Itoa(gatewayDebugPort+i)),
 			},
 			"run": {},
 		})
@@ -391,6 +402,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--storage.satellite-id-restriction=false",
 
 				"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
+				"--debug.addr", net.JoinHostPort("127.0.0.1", strconv.Itoa(storageNodeDebugPort+i)),
 			},
 			"run": {},
 		})
