@@ -298,10 +298,10 @@ func (uplink *Uplink) GetConfig(satellite *satellite.Peer) uplink.Config {
 	config.Client.SatelliteAddr = satellite.Addr()
 	config.Client.APIKey = uplink.APIKey[satellite.ID()]
 
-	config.RS.MinThreshold = 1 * uplink.StorageNodeCount / 5
-	config.RS.RepairThreshold = 2 * uplink.StorageNodeCount / 5
-	config.RS.SuccessThreshold = 3 * uplink.StorageNodeCount / 5
-	config.RS.MaxThreshold = 4 * uplink.StorageNodeCount / 5
+	config.RS.MinThreshold = atLeastOne(1 * uplink.StorageNodeCount / 5)
+	config.RS.RepairThreshold = atLeastOne(2 * uplink.StorageNodeCount / 5)
+	config.RS.SuccessThreshold = atLeastOne(3 * uplink.StorageNodeCount / 5)
+	config.RS.MaxThreshold = atLeastOne(4 * uplink.StorageNodeCount / 5)
 
 	config.TLS.UsePeerCAWhitelist = false
 	config.TLS.Extensions.Revocation = false
@@ -314,4 +314,12 @@ func getDefaultConfig() uplink.Config {
 	config := uplink.Config{}
 	cfgstruct.Bind(&pflag.FlagSet{}, &config, true)
 	return config
+}
+
+// atLeastOne returns 1 if value < 1, or value otherwise.
+func atLeastOne(value int) int {
+	if value < 1 {
+		return 1
+	}
+	return value
 }
