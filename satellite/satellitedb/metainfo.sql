@@ -15,12 +15,14 @@ CREATE TYPE redundancy_scheme AS (
 );
 
 CREATE TABLE buckets (
-    bucket_id   UUID; -- 16 bytes, should we use here a serial of 8 bytes?
-    project_id  UUID; -- 16 bytes
+    bucket_id      UUID; -- 16 bytes, should we use here a serial of 8 bytes?
+    project_id     UUID; -- 16 bytes
 
     bucket_name BYTEA NOT NULL;     -- ? bytes
-    created_at  TIMESTAMP NOT NULL; -- 8 bytes
-    modified_at TIMESTAMP NOT NULL; -- 8 bytes
+
+    created_at     TIMESTAMP NOT NULL; -- 8 bytes
+    modified_at    TIMESTAMP NOT NULL; -- 8 bytes
+    attribution_id UUID      NOT NULL; -- 16 bytes (or should this be a serial of 8 bytes, should this be on object?)
 
     path_encryption_algorithm BYTE NOT NULL; -- 1 byte
 
