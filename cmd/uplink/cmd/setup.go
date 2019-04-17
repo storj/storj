@@ -127,8 +127,8 @@ Please enter numeric choice or enter satellite address manually [1]: `)
 			return errs.New("API key cannot be empty")
 		}
 
-		n, err = fmt.Print("Enter your encryption passphrase: ")
-		if err != nil && n != 0 {
+		_, err = fmt.Print("Enter your encryption passphrase: ")
+		if err != nil {
 			return err
 		}
 		encKey, err := terminal.ReadPassword(int(os.Stdin.Fd()))
