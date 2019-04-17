@@ -154,6 +154,18 @@ func Example() {
 		log.Fatalf("got different object back: %q != %q\n", []byte(testData), receivedContents)
 	}
 
+	// Delete the Object
+	err = bucket.DeleteObject(ctx, testUploadPath)
+	if err != nil {
+		log.Fatalln("could not delete object:", err)
+	}
+
+	// Delete the Bucket
+	err = proj.DeleteBucket(ctx, testBucket)
+	if err != nil {
+		log.Fatalln("could not delete bucket:", err)
+	}
+
 	fmt.Println("success!")
 
 	// Output:
