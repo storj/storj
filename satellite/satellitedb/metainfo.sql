@@ -22,14 +22,14 @@ CREATE TABLE buckets (
 
     created_at     TIMESTAMP NOT NULL; -- 8 bytes
     modified_at    TIMESTAMP NOT NULL; -- 8 bytes
-    attribution_id UUID      NOT NULL; -- 16 bytes (or should this be a serial of 8 bytes, should this be on object?)
+    attribution_id UUID;               -- 16 bytes (or should this be a serial of 8 bytes, should this be on object?)
 
     path_encryption_algorithm BYTE NOT NULL; -- 1 byte
 
     default_segment_size INT4 NOT NULL;
 
-    default_encryption   encryption_parameters NOT NULL; -- 5 bytes
-    default_redundancy   redundancy_scheme     NOT NULL; -- 9 bytes
+    default_encryption encryption_parameters NOT NULL; -- 5 bytes
+    default_redundancy redundancy_scheme     NOT NULL; -- 9 bytes
 
     PRIMARY KEY (bucket_id, project_id);
 )
