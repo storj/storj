@@ -82,10 +82,14 @@ Please enter numeric choice or enter satellite address manually [1]: `)
 		}
 		satellites := []string{"mars.tardigrade.io", "jupiter.tardigrade.io", "saturn.tardigrade.io"}
 		var satelliteAddress string
-		_, err = fmt.Scanln(&satelliteAddress)
+		n, err := fmt.Scanln(&satelliteAddress)
 		if err != nil {
-			// fmt.Scanln cannot handle empty input
-			satelliteAddress = satellites[0]
+			if n == 0 {
+				// fmt.Scanln cannot handle empty input
+				satelliteAddress = satellites[0]
+			} else {
+				return err
+			}
 		}
 
 		// TODO add better validation
@@ -114,8 +118,8 @@ Please enter numeric choice or enter satellite address manually [1]: `)
 			return err
 		}
 		var apiKey string
-		_, err = fmt.Scanln(&apiKey)
-		if err != nil {
+		n, err = fmt.Scanln(&apiKey)
+		if err != nil && n != 0 {
 			return err
 		}
 
@@ -123,8 +127,8 @@ Please enter numeric choice or enter satellite address manually [1]: `)
 			return errs.New("API key cannot be empty")
 		}
 
-		_, err = fmt.Print("Enter your encryption passphrase: ")
-		if err != nil {
+		n, err = fmt.Print("Enter your encryption passphrase: ")
+		if err != nil && n != 0 {
 			return err
 		}
 		encKey, err := terminal.ReadPassword(int(os.Stdin.Fd()))
