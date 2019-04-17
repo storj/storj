@@ -86,34 +86,6 @@ read all (
 	where  accounting_rollup.start_time >= ?
 )
 
-model accounting_raw (
-	key id
-
-	field id                serial64
-	field node_id           blob
-	field interval_end_time timestamp
-	field data_total        float64
-	field data_type         int
-	field created_at        timestamp
-)
-
-create accounting_raw ( )
-delete accounting_raw ( where accounting_raw.id = ? )
-
-read one (
-	select accounting_raw
-	where  accounting_raw.id = ?
-)
-
-read all (
-	select accounting_raw
-)
-
-read all (
-	select accounting_raw
-	where accounting_raw.interval_end_time >= ?
-)
-
 //--- statdb ---//
 
 model node (
@@ -482,15 +454,22 @@ read all (
 )
 
 model storagenode_storage_tally (
-	key    storagenode_id interval_start
+	key id
 
-	field storagenode_id   blob
-	field interval_start   utimestamp
-
-	field total            float64
+	field id                serial64
+	field node_id           blob
+	field interval_end_time timestamp
+	field data_total        float64
+	field created_at        timestamp
 )
 
 create storagenode_storage_tally ( )
+delete storagenode_storage_tally ( where storagenode_storage_tally.id = ? )
+
+read one (
+	select storagenode_storage_tally
+	where  storagenode_storage_tally.id = ?
+)
 
 read all (
 	select storagenode_storage_tally
@@ -498,9 +477,8 @@ read all (
 
 read all (
 	select storagenode_storage_tally
-	where storagenode_storage_tally.interval_start >= ?
+	where storagenode_storage_tally.interval_end_time >= ?
 )
-
 
 //--- certRecord ---//
 

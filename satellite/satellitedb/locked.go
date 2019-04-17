@@ -64,25 +64,25 @@ func (m *lockedAccounting) DeleteRawBefore(ctx context.Context, latestRollup tim
 	return m.db.DeleteRawBefore(ctx, latestRollup)
 }
 
-// GetRaw retrieves all raw tallies
-func (m *lockedAccounting) GetRaw(ctx context.Context) ([]*accounting.Raw, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetRaw(ctx)
-}
-
-// GetRawSince retrieves all raw tallies since latestRollup
-func (m *lockedAccounting) GetRawSince(ctx context.Context, latestRollup time.Time) ([]*accounting.Raw, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetRawSince(ctx, latestRollup)
-}
-
 // GetStoragenodeBandwidthSince retrieves all storagenode_bandwidth_rollup entires since latestRollup
 func (m *lockedAccounting) GetStoragenodeBandwidthSince(ctx context.Context, latestRollup time.Time) ([]*accounting.StoragenodeBandwidthRollup, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetStoragenodeBandwidthSince(ctx, latestRollup)
+}
+
+// GetStoragenodeStorage retrieves all the storagenode at rest data tallies
+func (m *lockedAccounting) GetStoragenodeStorage(ctx context.Context) ([]*accounting.StoragenodeStorageTally, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetStoragenodeStorage(ctx)
+}
+
+// GetStoragenodeStorageSince retrieves all the storagenode at rest data tallies since latestRollup
+func (m *lockedAccounting) GetStoragenodeStorageSince(ctx context.Context, latestRollup time.Time) ([]*accounting.StoragenodeStorageTally, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetStoragenodeStorageSince(ctx, latestRollup)
 }
 
 // LastTimestamp records the latest last tallied time.
