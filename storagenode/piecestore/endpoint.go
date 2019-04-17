@@ -161,7 +161,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 	defer func() {
 		// cancel error if it hasn't been committed
 		if cancelErr := pieceWriter.Cancel(); cancelErr != nil {
-			endpoint.log.Error("error during cancelling a piece write", zap.Error(cancelErr))
+			endpoint.log.Error("error during canceling a piece write", zap.Error(cancelErr))
 		}
 	}()
 
