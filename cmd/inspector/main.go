@@ -23,11 +23,11 @@ import (
 
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/kademlia/routinggraph"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
-	"storj.io/storj/pkg/kademlia/routinggraph"
 )
 
 var (
@@ -262,7 +262,10 @@ func DrawTableAsGraph(cmd *cobra.Command, args []string) (err error) {
 		return ErrRequest.Wrap(err)
 	}
 
-	routinggraph.Draw(os.Stdout, info)
+	err = routinggraph.Draw(os.Stdout, info)
+	if err != nil {
+		return ErrRequest.Wrap(err)
+	}
 
 	return nil
 }

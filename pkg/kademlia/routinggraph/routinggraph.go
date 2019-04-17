@@ -18,6 +18,7 @@ func extendPrefix(prefix string, bit bool) string {
 	return prefix + "0"
 }
 
+// Draw writes the routing graph obtained using a GetBucketListResponse in the specified file
 func Draw(file *os.File, info *pb.GetBucketListResponse) error {
 	_, err := file.Write([]byte("digraph{\nnode [shape=plaintext, fontname=\"Courier\"];edge [dir=none];\n"))
 	if err != nil {
