@@ -37,8 +37,11 @@ func WorkWithLibUplink(satelliteAddress string, encryptionKey *storj.Key, apiKey
 	}
 	defer upl.Close()
 
+	opts := uplink.ProjectOptions{}
+	opts.Volatile.EncryptionKey = encryptionKey
+
 	// Open up the Project we will be working with
-	proj, err := upl.OpenProject(ctx, satelliteAddress, encryptionKey, apiKey)
+	proj, err := upl.OpenProject(ctx, satelliteAddress, apiKey, &opts)
 	if err != nil {
 		return fmt.Errorf("could not open project: %v", err)
 	}
