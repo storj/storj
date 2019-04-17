@@ -59,6 +59,10 @@ type ObjectMeta struct {
 		// Error Correction encoding parameters to be used for this
 		// Object.
 		RedundancyScheme storj.RedundancyScheme
+
+		// SegmentsSize gives the segment size being used for the
+		// Object's data storage.
+		SegmentsSize int64
 	}
 }
 
@@ -70,14 +74,14 @@ type Object struct {
 	// Meta holds the metainfo associated with the Object.
 	Meta ObjectMeta
 
-	metainfo *kvmetainfo.DB
-	streams  streams.Store
+	metainfoDB *kvmetainfo.DB
+	streams    streams.Store
 }
 
 // DownloadRange returns an Object's data. A length of -1 will mean
 // (Object.Size - offset).
 func (o *Object) DownloadRange(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
-	readOnlyStream, err := o.metainfo.GetObjectStream(ctx, o.Meta.Bucket, o.Meta.Path)
+	readOnlyStream, err := o.metainfoDB.GetObjectStream(ctx, o.Meta.Bucket, o.Meta.Path)
 	if err != nil {
 		return nil, err
 	}

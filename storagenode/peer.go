@@ -9,8 +9,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
@@ -204,10 +204,23 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 
 		peer.Storage2.Store = pieces.NewStore(peer.Log.Named("pieces"), peer.DB.Pieces())
 
+		peer.Storage2.Monitor = monitor.NewService(
+			log.Named("piecestore:monitor"),
+			peer.Kademlia.RoutingTable,
+			peer.Storage2.Store,
+			peer.DB.PieceInfo(),
+			peer.DB.Bandwidth(),
+			config.Storage.AllocatedDiskSpace.Int64(),
+			config.Storage.AllocatedBandwidth.Int64(),
+			//TODO use config.Storage.Monitor.Interval, but for some reason is not set
+			config.Storage.KBucketRefreshInterval,
+		)
+
 		peer.Storage2.Endpoint, err = piecestore.NewEndpoint(
 			peer.Log.Named("piecestore"),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Storage2.Trust,
+			peer.Storage2.Monitor,
 			peer.Storage2.Store,
 			peer.DB.PieceInfo(),
 			peer.DB.Orders(),
@@ -230,18 +243,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		)
 		pb.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage2.Inspector)
 
-		peer.Storage2.Monitor = monitor.NewService(
-			log.Named("piecestore:monitor"),
-			peer.Kademlia.RoutingTable,
-			peer.Storage2.Store,
-			peer.DB.PieceInfo(),
-			peer.DB.Bandwidth(),
-			config.Storage.AllocatedDiskSpace.Int64(),
-			config.Storage.AllocatedBandwidth.Int64(),
-			//TODO use config.Storage.Monitor.Interval, but for some reason is not set
-			config.Storage.KBucketRefreshInterval,
-		)
-
 		peer.Storage2.Sender = orders.NewSender(
 			log.Named("piecestore:orderssender"),
 			peer.Transport,
@@ -259,22 +260,22 @@ func (peer *Peer) Run(ctx context.Context) error {
 	group, ctx := errgroup.WithContext(ctx)
 
 	group.Go(func() error {
-		return ignoreCancel(peer.Version.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Version.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Kademlia.Service.Bootstrap(ctx))
+		return errs2.IgnoreCanceled(peer.Kademlia.Service.Bootstrap(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Kademlia.Service.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Kademlia.Service.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Agreements.Sender.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Agreements.Sender.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Storage2.Sender.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Storage2.Sender.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Storage2.Monitor.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Storage2.Monitor.Run(ctx))
 	})
 	group.Go(func() error {
 		// TODO: move the message into Server instead
@@ -282,17 +283,10 @@ func (peer *Peer) Run(ctx context.Context) error {
 		peer.Log.Sugar().Infof("Node %s started", peer.Identity.ID)
 		peer.Log.Sugar().Infof("Public server started on %s", peer.Addr())
 		peer.Log.Sugar().Infof("Private server started on %s", peer.PrivateAddr())
-		return ignoreCancel(peer.Server.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Server.Run(ctx))
 	})
 
 	return group.Wait()
-}
-
-func ignoreCancel(err error) error {
-	if err == context.Canceled || err == grpc.ErrServerStopped {
-		return nil
-	}
-	return err
 }
 
 // Close closes all the resources.

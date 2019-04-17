@@ -5,17 +5,15 @@ package kademlia_test
 
 import (
 	"context"
-	"fmt"
 	"io"
-	"log"
 	"net"
 	"path/filepath"
-	"storj.io/storj/pkg/storj"
 	"testing"
 	"time"
 
+	"storj.io/storj/pkg/storj"
+
 	"github.com/stretchr/testify/require"
-	// "go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
@@ -32,7 +30,6 @@ import (
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/transport"
-	// "storj.io/storj/satellite"
 	"storj.io/storj/storagenode"
 )
 
@@ -193,7 +190,6 @@ func TestBootstrapBackoff(t *testing.T) {
 }
 
 func badBootstrapProxy(done chan bool) (err error) {
-	fmt.Println("into bad proxy")
 	l, err := net.Listen("tcp", ":9999")
 	if err != nil {
 		return err
@@ -206,23 +202,19 @@ func badBootstrapProxy(done chan bool) (err error) {
 	}()
 
 	for {
-		fmt.Println("about to accept")
 		c, err := l.Accept()
 		if err != nil {
 			return err
 		}
-		fmt.Println("accepted conn")
 		connCount++
 
 		go func() {
 			if connCount < 3 {
-				log.Println("Not a winner")
 				c.Close()
 				return
 			}
 			c2, err := net.Dial("tcp", "127.0.0.1:9990")
 			if err != nil {
-				log.Println("Can't connect!")
 				c.Close()
 				return
 			}
