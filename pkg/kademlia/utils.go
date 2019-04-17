@@ -77,10 +77,3 @@ func determineDifferingBitIndex(bID, comparisonID bucketID) (int, error) {
 
 	return -1, nil
 }
-
-func extendPrefix(prefix string, bit bool) string {
-	if bit {
-		return prefix + "1"
-	}
-	return prefix + "0"
-}

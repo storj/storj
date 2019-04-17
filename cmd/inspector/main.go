@@ -5,6 +5,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/csv"
 	"encoding/json"
@@ -14,8 +15,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"bytes"
-	
+
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	prompt "github.com/segmentio/go-prompt"
@@ -39,9 +39,6 @@ var (
 
 	// CSVPath is the csv path where command output is written
 	CSVPath string
-
-	//DotPath is the output of command routing-graph
-	DotPath string
 
 	// ErrInspectorDial throws when there are errors dialing the inspector server
 	ErrInspectorDial = errs.Class("error dialing inspector server:")

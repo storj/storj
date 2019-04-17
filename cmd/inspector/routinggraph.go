@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
 )
 
 func extendPrefix(prefix string, bit bool) string {
@@ -17,8 +16,6 @@ func extendPrefix(prefix string, bit bool) string {
 	}
 	return prefix + "0"
 }
-
-type bucketID = storj.NodeID
 
 func bufferedGraph(buf *bytes.Buffer, info *pb.GetBucketListResponse) {
 	buf.Write([]byte("digraph{\nnode [shape=box];edge [dir=none];\n"))
@@ -85,5 +82,5 @@ func addLeafBucketToGraph(b *pb.GetBucketListResponse_Bucket, buf *bytes.Buffer,
 	for _, c := range cachedNodes {
 		printNodeInBuffer(c, buf)
 	}
-	
+
 }
