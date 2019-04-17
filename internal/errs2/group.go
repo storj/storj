@@ -8,9 +8,8 @@ import "sync"
 // Group is a collection of goroutines working on subtasks that are part of
 // the same overall task.
 type Group struct {
-	wg      sync.WaitGroup
-	errOnce sync.Once
-	errors  []error
+	wg     sync.WaitGroup
+	errors []error
 
 	mutex sync.Mutex
 }

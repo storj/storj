@@ -260,7 +260,8 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 	unresponsiveNode := pointer.Remote.RemotePieces[0].NodeId
 	for _, storageNode := range planet.StorageNodes {
 		if storageNode.ID() == unresponsiveNode {
-			planet.StopPeer(storageNode)
+			err = planet.StopPeer(storageNode)
+			require.NoError(t, err)
 
 			listener, err := net.Listen("tcp", storageNode.Addr())
 			require.NoError(t, err)
