@@ -115,12 +115,7 @@ func (r *Service) RollupStorage(ctx context.Context, lastRollup time.Time, rollu
 			rollupStats[iDay][node] = &accounting.Rollup{NodeID: node, StartTime: iDay}
 		}
 		//increment data at rest sum
-		switch tallyRow.DataType {
-		case accounting.AtRest:
-			rollupStats[iDay][node].AtRestTotal += tallyRow.DataTotal
-		default:
-			r.logger.Info("rollupStorage no longer supports non-accounting.AtRest datatypes")
-		}
+		rollupStats[iDay][node].AtRestTotal += tallyRow.DataTotal
 	}
 	//remove the latest day (which we cannot know is complete), then push to DB
 	latestTally = time.Date(latestTally.Year(), latestTally.Month(), latestTally.Day(), 0, 0, 0, 0, latestTally.Location())
