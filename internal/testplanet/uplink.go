@@ -298,10 +298,10 @@ func (uplink *Uplink) GetConfig(satellite *satellite.Peer) uplink.Config {
 	config.Client.SatelliteAddr = satellite.Addr()
 	config.Client.APIKey = uplink.APIKey[satellite.ID()]
 
-	config.RS.MinThreshold = atLeastOne(1 * uplink.StorageNodeCount / 5)
-	config.RS.RepairThreshold = atLeastOne(2 * uplink.StorageNodeCount / 5)
-	config.RS.SuccessThreshold = atLeastOne(3 * uplink.StorageNodeCount / 5)
-	config.RS.MaxThreshold = atLeastOne(4 * uplink.StorageNodeCount / 5)
+	config.RS.MinThreshold = atLeastOne(uplink.StorageNodeCount * 1 / 5)     // 20% of storage nodes
+	config.RS.RepairThreshold = atLeastOne(uplink.StorageNodeCount * 2 / 5)  // 40% of storage nodes
+	config.RS.SuccessThreshold = atLeastOne(uplink.StorageNodeCount * 3 / 5) // 60% of storage nodes
+	config.RS.MaxThreshold = atLeastOne(uplink.StorageNodeCount * 4 / 5)     // 80% of storage nodes
 
 	config.TLS.UsePeerCAWhitelist = false
 	config.TLS.Extensions.Revocation = false
