@@ -40,11 +40,6 @@ message InfoResponse {
     node.NodeVersion version = 5;
 }
 
-message GraphRequest {};
-message GraphResponse {
-    repeated bytes graph = 1;
-}
-
 message Restriction {
     enum Operator {
         LT = 0;

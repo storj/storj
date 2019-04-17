@@ -5,7 +5,6 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"encoding/csv"
 	"encoding/json"
@@ -28,6 +27,7 @@ import (
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/pkg/kademlia/routinggraph"
 )
 
 var (
@@ -262,12 +262,7 @@ func DrawTableAsGraph(cmd *cobra.Command, args []string) (err error) {
 		return ErrRequest.Wrap(err)
 	}
 
-	var buf bytes.Buffer
-	bufferedGraph(&buf, info)
-	_, err = buf.WriteTo(os.Stdout)
-	if err != nil {
-		return ErrRequest.Wrap(err)
-	}
+	routinggraph.Draw(os.Stdout, info)
 
 	return nil
 }

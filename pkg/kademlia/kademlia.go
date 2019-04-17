@@ -315,7 +315,6 @@ func (k *Kademlia) Seen() []*pb.Node {
 // GetNodesWithinKBucket returns all the routing nodes in the specified k-bucket
 func (k *Kademlia) GetNodesWithinKBucket(bID bucketID) ([]*pb.Node, error) {
 	return k.routingTable.getUnmarshaledNodesFromBucket(bID)
-	//return nodes, err
 }
 
 // GetCachedNodesWithinKBucket returns all the cached nodes in the specified k-bucket

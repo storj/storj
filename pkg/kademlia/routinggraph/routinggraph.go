@@ -1,11 +1,12 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package main
+package routinggraph
 
 import (
 	"bytes"
 	"fmt"
+	"os"
 
 	"storj.io/storj/pkg/pb"
 )
@@ -17,13 +18,17 @@ func extendPrefix(prefix string, bit bool) string {
 	return prefix + "0"
 }
 
-func bufferedGraph(buf *bytes.Buffer, info *pb.GetBucketListResponse) {
-	buf.Write([]byte("digraph{\nnode [shape=box];edge [dir=none];\n"))
-	defer buf.Write([]byte("}\n"))
-
+func Draw(file *os.File, info *pb.GetBucketListResponse) error {
+	_, err := file.Write([]byte("digraph{\nnode [shape=plaintext, fontname=\"Courier\"];edge [dir=none];\n"))
+	if err != nil {
+		return err
+	}
+	defer file.Write([]byte("}\n"))
+	var buf bytes.Buffer
 	buckets := info.GetBuckets()
-	addBucketsToGraph(buckets, 0, buf, "")
-
+	addBucketsToGraph(buckets, 0, &buf, "")
+	_, err = buf.WriteTo(os.Stdout)
+	return err
 }
 
 func splitBucket(buckets []*pb.GetBucketListResponse_Bucket, bitDepth int) ([]*pb.GetBucketListResponse_Bucket, []*pb.GetBucketListResponse_Bucket) {
@@ -46,10 +51,6 @@ func splitBucket(buckets []*pb.GetBucketListResponse_Bucket, bitDepth int) ([]*p
 	return b0, b1
 }
 
-func printNodeInBuffer(n *pb.Node, buf *bytes.Buffer) {
-	fmt.Fprintf(buf, "  %s <i>(%s)</i><br align=\"left\" />", n.Id.String(), n.Address.Address)
-}
-
 func addBucketsToGraph(b []*pb.GetBucketListResponse_Bucket, depth int, buf *bytes.Buffer, inPrefix string) {
 	if len(b) == 1 {
 		addLeafBucketToGraph(b[0], buf, inPrefix)
@@ -69,18 +70,24 @@ func addBucketsToGraph(b []*pb.GetBucketListResponse_Bucket, depth int, buf *byt
 	fmt.Fprintf(buf, "b%s -> b%s [label=<<b>1</b>>];", inPrefix, outPrefix)
 }
 
-func addLeafBucketToGraph(b *pb.GetBucketListResponse_Bucket, buf *bytes.Buffer, prefix string) {
-	fmt.Fprintf(buf, "b%s [label=<<b><font point-size=\"18\">%s </font></b><br />\n<i>routing:</i><br align=\"left\"/>", prefix, prefix)
-	defer fmt.Fprintf(buf, ">];")
+func printNodeInBuffer(n *pb.Node, buf *bytes.Buffer) {
+	fmt.Fprintf(buf, "<TR><TD ALIGN=\"LEFT\">%s</TD><TD SIDES=\"R\" ALIGN=\"LEFT\">%s</TD></TR>", n.Id.String(), n.Address.Address)
+}
 
+func addLeafBucketToGraph(b *pb.GetBucketListResponse_Bucket, buf *bytes.Buffer, prefix string) {
+	fmt.Fprintf(buf,
+		"b%s [label=< <TABLE CELLBORDER=\"0\"><TR><TD CELLSPACING=\"0\" SIDES=\"B\" BORDER=\"1\" COLSPAN=\"2\"><B> %s </B></TD></TR>", prefix, prefix)
+	defer fmt.Fprintf(buf, "</TABLE>>];")
+
+	fmt.Fprintf(buf, "<TR><TD  COLSPAN=\"2\" ALIGN=\"LEFT\"><I><B>Routing:</B></I></TD></TR>")
 	routingNodes := b.GetRoutingNodes()
 	for _, n := range routingNodes {
 		printNodeInBuffer(n, buf)
 	}
-	fmt.Fprintf(buf, "<i>cache:</i><br align=\"left\" />")
+	fmt.Fprintf(buf, "<TR><TD  COLSPAN=\"2\"></TD></TR>")
+	fmt.Fprintf(buf, "<TR><TD  COLSPAN=\"2\" ALIGN=\"LEFT\"><I><B>Cache:</B></I></TD></TR>")
 	cachedNodes := b.GetCachedNodes()
 	for _, c := range cachedNodes {
 		printNodeInBuffer(c, buf)
 	}
-
 }
