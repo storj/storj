@@ -1,9 +1,3 @@
-ARG CGO_ENABLED=1
-ARG REPOSITORY=../storj.io/storj
-ARG PACKAGE=storj.io/storj/cmd/satellite
-FROM storjlabs/golang as build-env
-#FROM storjlabs/satellite-ui:5f00274a-philip-satelliteUIDocker-go1.11 as satellite-ui
-
 # Satellite UI static asset generation
 FROM node:10.15.1 as satellite-ui
 WORKDIR /app
@@ -15,19 +9,21 @@ RUN npm run build
 FROM alpine as ca-cert
 RUN apk -U add ca-certificates
 
-# final stage
-FROM alpine
+ARG DOCKER_ARCH
+FROM ${DOCKER_ARCH:-amd64}/alpine
+ARG TAG
+ARG GOARCH
+ENV GOARCH ${GOARCH}
 ENV API_KEY= \
     CONF_PATH=/root/.local/share/storj/satellite \
-    BOOTSTRAP_ADDR=bootstrap.storj.io:8080 \
     STORJ_CONSOLE_STATIC_DIR=/app \
     STORJ_CONSOLE_ADDRESS=0.0.0.0:10100
 EXPOSE 7777
 EXPOSE 10100
 WORKDIR /app
-VOLUME /root/.local/share/storj/satellite
+COPY --from=satellite-ui /app/static /app/static
+COPY --from=satellite-ui /app/dist /app/dist
 COPY --from=ca-cert /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-COPY --from=satellite-ui /app/ /app
-COPY --from=build-env /app /app/satellite
-COPY /cmd/satellite/entrypoint /entrypoint
+COPY release/${TAG}/satellite_linux_${GOARCH:-amd64} /app/satellite
+COPY cmd/satellite/entrypoint /entrypoint
 ENTRYPOINT ["/entrypoint"]

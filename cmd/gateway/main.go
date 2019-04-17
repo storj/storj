@@ -243,7 +243,10 @@ func (flags GatewayFlags) NewGateway(ctx context.Context, ident *identity.FullId
 	encKey := new(storj.Key)
 	copy(encKey[:], flags.Enc.Key)
 
-	project, err := uplink.OpenProject(ctx, flags.Client.SatelliteAddr, encKey, apiKey)
+	var opts libuplink.ProjectOptions
+	opts.Volatile.EncryptionKey = encKey
+
+	project, err := uplink.OpenProject(ctx, flags.Client.SatelliteAddr, apiKey, &opts)
 	if err != nil {
 		return nil, err
 	}
