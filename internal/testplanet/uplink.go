@@ -10,6 +10,7 @@ import (
 	"io"
 	"io/ioutil"
 	"strconv"
+	"time"
 
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
@@ -144,7 +145,9 @@ func (uplink *Uplink) DialPiecestore(ctx context.Context, destination Peer) (*pi
 
 	signer := signing.SignerFromFullIdentity(uplink.Transport.Identity())
 
-	return piecestore.NewClient(uplink.Log.Named("uplink>piecestore"), signer, conn, piecestore.DefaultConfig), nil
+	config := piecestore.DefaultConfig
+	config.Timeout = 3 * time.Second
+	return piecestore.NewClient(uplink.Log.Named("uplink>piecestore"), signer, conn, config), nil
 }
 
 // Upload data to specific satellite

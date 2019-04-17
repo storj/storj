@@ -5,8 +5,10 @@ package testplanet_test
 
 import (
 	"crypto/rand"
+	"net"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -213,4 +215,70 @@ func TestUploadDownloadMultipleUplinksInParallel(t *testing.T) {
 	}
 	err = group.Wait()
 	require.NoError(t, err)
+}
+
+func TestDownloadFromUnresponsiveNode(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	planet, err := testplanet.New(t, 1, 6, 1)
+	require.NoError(t, err)
+	defer ctx.Check(planet.Shutdown)
+
+	planet.Start(ctx)
+
+	expectedData := make([]byte, 1*memory.MiB)
+	_, err = rand.Read(expectedData)
+	assert.NoError(t, err)
+
+	err = planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &uplink.RSConfig{
+		MinThreshold:     2,
+		RepairThreshold:  3,
+		SuccessThreshold: 4,
+		MaxThreshold:     5,
+	}, "testbucket", "test/path", expectedData)
+	require.NoError(t, err)
+
+	// get a remote segment from pointerdb
+	pdb := planet.Satellites[0].Metainfo.Service
+	listResponse, _, err := pdb.List("", "", "", true, 0, 0)
+	require.NoError(t, err)
+
+	var path string
+	var pointer *pb.Pointer
+	for _, v := range listResponse {
+		path = v.GetPath()
+		pointer, err = pdb.Get(path)
+		require.NoError(t, err)
+		if pointer.GetType() == pb.Pointer_REMOTE {
+			break
+		}
+	}
+
+	stopped := false
+	// choose used storage node and replace it with fake listener
+	unresponsiveNode := pointer.Remote.RemotePieces[0].NodeId
+	for _, storageNode := range planet.StorageNodes {
+		if storageNode.ID() == unresponsiveNode {
+			planet.StopPeer(storageNode)
+
+			listener, err := net.Listen("tcp", storageNode.Addr())
+			require.NoError(t, err)
+			go func() {
+				conn, err := listener.Accept()
+				require.NoError(t, err)
+				// testplanet uplink default timeout is 3 sec
+				time.Sleep(5 * time.Second)
+				require.NoError(t, conn.Close())
+			}()
+			stopped = true
+			break
+		}
+	}
+	assert.True(t, stopped, "no storage node was altered")
+
+	data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path")
+	assert.NoError(t, err)
+
+	assert.Equal(t, expectedData, data)
 }
