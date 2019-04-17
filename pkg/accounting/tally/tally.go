@@ -71,7 +71,7 @@ func (t *Service) Tally(ctx context.Context) error {
 		errAtRest = errs.New("Query for data-at-rest failed : %v", err)
 	} else {
 		if len(nodeData) > 0 {
-			err = t.SaveStorageTallies(ctx, latestTally, time.Now().UTC(), nodeData)
+			err = t.SaveStoragenodeStorageTallies(ctx, latestTally, time.Now().UTC(), nodeData)
 			if err != nil {
 				errAtRest = errs.New("Saving storage node data-at-rest failed : %v", err)
 			}
@@ -201,7 +201,7 @@ func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Tim
 	return latestTally, nodeData, bucketTallies, err
 }
 
-// SaveStorageTallies records the at rest data and updates LastTimestamp
-func (t *Service) SaveStorageTallies(ctx context.Context, latestTally time.Time, created time.Time, nodeData map[storj.NodeID]float64) error {
-	return t.accountingDB.SaveStorageTallies(ctx, latestTally, created, nodeData)
+// SaveStoragenodeStorageTallies records the storagenode at rest data and updates LastTimestamp
+func (t *Service) SaveStoragenodeStorageTallies(ctx context.Context, latestTally time.Time, created time.Time, nodeData map[storj.NodeID]float64) error {
+	return t.accountingDB.SaveStoragenodeStorageTallies(ctx, latestTally, created, nodeData)
 }

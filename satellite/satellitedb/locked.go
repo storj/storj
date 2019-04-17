@@ -127,11 +127,11 @@ func (m *lockedAccounting) SaveRollup(ctx context.Context, latestTally time.Time
 	return m.db.SaveRollup(ctx, latestTally, stats)
 }
 
-// SaveStorageTallies records the at rest data
-func (m *lockedAccounting) SaveStorageTallies(ctxt context.Context, latestTally time.Time, created time.Time, nodeData map[storj.NodeID]float64) error {
+// SaveStoragenodeStorageTallies records the storagenode at rest data and updates LastTimestamp
+func (m *lockedAccounting) SaveStoragenodeStorageTallies(ctx context.Context, latestTally time.Time, created time.Time, nodeData map[storj.NodeID]float64) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.SaveStorageTallies(ctxt, latestTally, created, nodeData)
+	return m.db.SaveStoragenodeStorageTallies(ctx, latestTally, created, nodeData)
 }
 
 // BandwidthAgreement returns database for storing bandwidth agreements

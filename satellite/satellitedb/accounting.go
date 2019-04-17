@@ -94,10 +94,10 @@ func (db *accountingDB) LastTimestamp(ctx context.Context, timestampType string)
 	return lastTally, err
 }
 
-// SaveStorageTallies records the at rest data
-func (db *accountingDB) SaveStorageTallies(ctx context.Context, latestTally time.Time, created time.Time, nodeData map[storj.NodeID]float64) error {
+// SaveStoragenodeStorageTallies records the storagenode at rest data and updates LastTimestamp
+func (db *accountingDB) SaveStoragenodeStorageTallies(ctx context.Context, latestTally time.Time, created time.Time, nodeData map[storj.NodeID]float64) error {
 	if len(nodeData) == 0 {
-		return Error.New("In SaveStorageTallies with empty nodeData")
+		return Error.New("In SaveStoragenodeStorageTallies with empty nodeData")
 	}
 	err := db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
 		for k, v := range nodeData {

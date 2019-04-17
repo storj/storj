@@ -50,8 +50,12 @@ type Rollup struct {
 type DB interface {
 	// LastTimestamp records the latest last tallied time.
 	LastTimestamp(ctx context.Context, timestampType string) (time.Time, error)
-	// SaveStorageTallies records the at rest data
-	SaveStorageTallies(ctx context.Context, latestTally time.Time, created time.Time, nodeData map[storj.NodeID]float64) error
+	// SaveStoragenodeStorageTallies records the storagenode at rest data and updates LastTimestamp
+	SaveStoragenodeStorageTallies(ctx context.Context, latestTally time.Time, created time.Time, nodeData map[storj.NodeID]float64) error
+	// GetStoragenodeStorage retrieves all the storagenode at rest storage tallies
+	// GetStoragenodeStorageSince retrieves all the storagenode at rest storage tallies since latestRollup
+	
+	
 	// GetRaw retrieves all raw tallies
 	GetRaw(ctx context.Context) ([]*Raw, error)
 	// GetRawSince retrieves all raw tallies since latestRollup
