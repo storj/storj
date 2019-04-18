@@ -175,11 +175,27 @@ func (notes *Notes) Get(ctx context.Context, key string) (string, error) {
 }
 
 func (notes *Notes) List(ctx context.Context, prefix string) ([]string, error) {
+	list, err := notes.Bucket.ListObjects(ctx, &uplink.ListOptions{
+		Prefix:    prefix,
+		Recursive: true,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list objects failed: %v", err)
+	}
 
+	keys := []string{}
+	for _, item := range list.Items {
+		keys = append(keys, item.Path)
+	}
+
+	return keys, nil
 }
 
 func deriveEncryptionKey(password string) storj.Key {
-	return nil
+	var key storj.Key
+	// TODO: use some hashing thing here
+	copy(key[:], []byte(password))
+	return key
 }
 
 func fatalf(format string, args ...interface{}) {
