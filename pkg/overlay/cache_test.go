@@ -146,7 +146,7 @@ func testRandomizedSelection(t *testing.T, reputable bool) {
 		for i := 0; i < totalNodes; i++ {
 			newID := storj.NodeID{}
 			_, _ = rand.Read(newID[:])
-			err := cache.Update(ctx, &pb.Node{Id: newID})
+			err := cache.UpdateAddress(ctx, &pb.Node{Id: newID})
 			require.NoError(t, err)
 			_, err = cache.UpdateNodeInfo(ctx, newID, &pb.InfoResponse{
 				Type:     pb.NodeType_STORAGE,

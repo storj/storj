@@ -221,7 +221,7 @@ func (cache *overlaycache) Paginate(ctx context.Context, offset int64, limit int
 }
 
 // Update updates node address
-func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error) {
+func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node) (err error) {
 	if info == nil || info.Id.IsZero() {
 		return overlay.ErrEmptyNode
 	}
