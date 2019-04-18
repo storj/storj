@@ -25,8 +25,8 @@ func (dot *dot) printf(format string, args ...interface{}) {
 // Draw writes the routing graph obtained using a GetBucketListResponse in the specified file
 func Draw(w io.Writer, info *pb.GetBucketListResponse) (err error) {
 	dot := dot{out: w}
-	dot.printf("digraph{\nnode [shape=plaintext, fontname=\"Courier\"];edge [dir=none];\n")
-	defer dot.printf("}\n")
+	dot.printf(`digraph{node [shape=plaintext, fontname="Courier"];edge [dir=none];`)
+	defer dot.printf("}")
 
 	buckets := info.GetBuckets()
 	dot.addBuckets(buckets, 0, "")
@@ -53,20 +53,20 @@ func (dot *dot) addBuckets(b []*pb.GetBucketListResponse_Bucket, depth int, inPr
 }
 
 func (dot *dot) Edge(inPrefix, outPrefix, label string) {
-	dot.printf("b%s -> b%s [label=<<b>%s</b>>];", inPrefix, outPrefix, label)
+	dot.printf(`b%s -> b%s [label=<<b><font point-size="18">%s</font></b>>];`, inPrefix, outPrefix, label)
 }
 
 func (dot *dot) Leaf(b *pb.GetBucketListResponse_Bucket, prefix string) {
-	dot.printf("b%s [label=< <table cellborder=\"0\"><tr><td cellspacing=\"0\" sides=\"b\" border=\"1\" colspan=\"2\"><b> %s </b></td></tr>", prefix, prefix)
+	dot.printf(`b%s [label=< <table cellborder="0"><tr><td cellspacing="0" sides="b" border="1" colspan="2"><b><font point-size="18"> %s </font></b></td></tr>`, prefix, prefix)
 	defer dot.printf("</table>>];")
 
-	dot.printf("<tr><td  colspan=\"2\" align=\"left\"><i><b>routing:</b></i></td></tr>")
+	dot.printf(`<tr><td  colspan="2" align="left"><i><b><font point-size="16">routing:</font></b></i></td></tr>`)
 	routingNodes := b.GetRoutingNodes()
 	for _, n := range routingNodes {
 		dot.Node(n)
 	}
-	dot.printf("<tr><td  colspan=\"2\"></td></tr>")
-	dot.printf("<tr><td  colspan=\"2\" align=\"left\"><i><b>cache:</b></i></td></tr>")
+	dot.printf(`<tr><td  colspan="2"></td></tr>`)
+	dot.printf(`<tr><td  colspan="2" align="left"><i><b><font point-size="16">cache:</font></b></i></td></tr>`)
 	cachedNodes := b.GetCachedNodes()
 	for _, c := range cachedNodes {
 		dot.Node(c)
@@ -74,7 +74,7 @@ func (dot *dot) Leaf(b *pb.GetBucketListResponse_Bucket, prefix string) {
 }
 
 func (dot *dot) Node(node *pb.Node) {
-	dot.printf(`<tr><td align="left">%s</td><td sides="r" align="left">%s</td></tr>`, node.Id, node.Address.Address)
+	dot.printf(`<tr><td align="left"><font point-size="14">%s</font></td><td sides="r" align="left"><i>(%s)</i></td></tr>`, node.Id, node.Address.Address)
 }
 
 func splitBucket(buckets []*pb.GetBucketListResponse_Bucket, bitDepth int) (left, right []*pb.GetBucketListResponse_Bucket) {
