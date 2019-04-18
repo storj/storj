@@ -4,51 +4,65 @@ pipeline {
     }
     stages {
         stage('Environment') {
-            sh './scripts/install-awscli.sh'
-            sh 'curl -L https://github.com/google/protobuf/releases/download/v3.6.1/protoc-3.6.1-linux-x86_64.zip -o /tmp/protoc.zip'
-            sh 'unzip /tmp/protoc.zip -d "$HOME"/protoc'
-            
-            // TODO: lock these to specific version
-            sh 'go get github.com/ckaznocha/protoc-gen-lint'
-            sh 'go get github.com/nilslice/protolock/cmd/protolock'
-            sh 'go get github.com/mattn/goveralls'
-            sh 'go get github.com/mfridman/tparse'
+            steps {
+                sh './scripts/install-awscli.sh'
+                sh 'curl -L https://github.com/google/protobuf/releases/download/v3.6.1/protoc-3.6.1-linux-x86_64.zip -o /tmp/protoc.zip'
+                sh 'unzip /tmp/protoc.zip -d "$HOME"/protoc'
+                
+                // TODO: lock these to specific version
+                sh 'go get github.com/ckaznocha/protoc-gen-lint'
+                sh 'go get github.com/nilslice/protolock/cmd/protolock'
+                sh 'go get github.com/mattn/goveralls'
+                sh 'go get github.com/mfridman/tparse'
 
-            sh 'go version'
+                sh 'go version'
+            }
         }
 
         stage('Checkout') {
-            checkout scm
-            sh 'go mod download'
+            steps {
+                checkout scm
+                sh 'go mod download'
+            }
         }
 
         stage('Build') {
-            sh 'go install -race ./...'
-            sh 'make install-sim'
+            steps {
+                sh 'go install -race ./...'
+                sh 'make install-sim'
+            }
         }
 
         stage('Verification') {
             parallel {
                 stage('Checks') {
-                    sh 'go run ./scripts/check-copyright.go'
-                    sh 'go run ./scripts/check-imports.go'
-                    sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint'
-                    sh 'protolock status'
-                    sh './scripts/check-dbx-version.sh'
-                    // TODO: check for go mod tidy
-                    // TODO: check for directory tidy
+                    steps {
+                        sh 'go run ./scripts/check-copyright.go'
+                        sh 'go run ./scripts/check-imports.go'
+                        sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint'
+                        sh 'protolock status'
+                        sh './scripts/check-dbx-version.sh'
+                        // TODO: check for go mod tidy
+                        // TODO: check for directory tidy
+                    }
                 }
 
                 stage('Lint') {
-                    sh 'golangci-lint -j=4 run'
+                    steps {
+                        sh 'golangci-lint -j=4 run'
+                    }
                 }
 
                 stage('Tests') {
-                    sh 'go test -vet=off -race -cover ./...'
+                    steps {
+                        sh 'go test -vet=off -race -cover ./...'
+                    }
                 }
 
                 stage('Integration') {
-                    sh 'make test-sim'
+                    steps {
+                        sh 'make test-sim'
+                    }
                 }
             }
         }
