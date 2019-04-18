@@ -119,4 +119,4 @@ code under Apache v2, or other licenses in the future.
 
 If you have any questions or suggestions please reach out to us on
 [Rocketchat](https://community.storj.io/) or
-[Twitter](https://twitter.com/storjproject).
+email us at support@tardigrade.io.
