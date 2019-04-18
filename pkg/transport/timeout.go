@@ -5,7 +5,6 @@ package transport
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -79,13 +78,10 @@ func (wrapper *clientStreamWrapper) addTimout(f func() error) error {
 
 	select {
 	case <-timoutTicker.C:
-		// if wrapper.grpcConn.GetState()
 		var errClose error
 		if wrapper.grpcConn.GetState() != connectivity.Shutdown {
 			errClose = wrapper.grpcConn.Close()
 		}
-		fmt.Println(wrapper.grpcConn.GetState(), errClose)
-
 		return errs.Combine(context.DeadlineExceeded, errClose)
 	case err := <-errChannel:
 		return err
