@@ -87,9 +87,9 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 		return err
 	}
 	defer func() {
-		err = project.Close()
+		err := project.Close()
 		if err != nil {
-			fmt.Printf("Error closing project uplink: %+v\n", err)
+			fmt.Printf("Error closing project: %+v\n", err)
 		}
 	}()
 
@@ -149,9 +149,9 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 		return err
 	}
 	defer func() {
-		err = project.Close()
+		err := project.Close()
 		if err != nil {
-			fmt.Printf("Error closing project uplink: %+v\n", err)
+			fmt.Printf("Error closing project: %+v\n", err)
 		}
 	}()
 
@@ -202,7 +202,12 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 		if err != nil {
 			return err
 		}
-		defer func() { err = errs.Combine(err, file.Close()) }()
+		defer func() {
+			err := file.Close()
+			if err != nil {
+				fmt.Printf("Error closing file: %+v\n", err)
+			}
+		}()
 	}
 
 	_, err = io.Copy(file, reader)
@@ -236,9 +241,9 @@ func copyObject(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err erro
 		return err
 	}
 	defer func() {
-		err = project.Close()
+		err := project.Close()
 		if err != nil {
-			fmt.Printf("Error closing project uplink: %+v\n", err)
+			fmt.Printf("Error closing project: %+v\n", err)
 		}
 	}()
 
