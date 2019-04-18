@@ -52,7 +52,7 @@ func TestDeleteRawBefore(t *testing.T) {
 			err = planet.Satellites[0].DB.Accounting().DeleteRawBefore(ctx, tt.eraseBefore)
 			require.NoError(t, err)
 
-			raws, err := planet.Satellites[0].DB.Accounting().GetRaw(ctx)
+			raws, err := planet.Satellites[0].DB.Accounting().GetStoragenodeStorage(ctx)
 			require.NoError(t, err)
 			assert.Len(t, raws, tt.expectedRaws)
 		})
