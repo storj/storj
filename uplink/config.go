@@ -6,6 +6,9 @@ package uplink
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io"
+	"os"
 	"time"
 
 	"github.com/vivint/infectious"
@@ -38,13 +41,45 @@ type RSConfig struct {
 	MaxThreshold     int         `help:"the largest amount of pieces to encode to. n." releaseDefault:"95" devDefault:"10"`
 }
 
+// keyFilepath is a convenient type to load a key stored in a file.
+type keyFilepath string
+
+func (kfp keyFilepath) Key() (storj.Key, error) {
+	f, err := os.Open(string(kfp))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return storj.Key{}, Error.Wrap(fmt.Errorf("not found key file %q", kfp))
+		}
+
+		return storj.Key{}, errs.Wrap(err)
+	}
+
+	fi, err := f.Stat()
+	if err != nil {
+		return storj.Key{}, errs.Wrap(err)
+	}
+
+	if p := fi.Mode().Perm(); p != os.FileMode(0400) {
+		return storj.Key{}, Error.Wrap(
+			fmt.Errorf("permissions '%#o' for key file %q are too open", p, kfp),
+		)
+	}
+
+	var key storj.Key
+	if _, err := f.Read(key[:]); err != nil && err != io.EOF {
+		return storj.Key{}, errs.Wrap(err)
+	}
+
+	return key, nil
+}
+
 // EncryptionConfig is a configuration struct that keeps details about
 // encrypting segments
 type EncryptionConfig struct {
-	Key       string      `help:"root key for encrypting the data"`
-	BlockSize memory.Size `help:"size (in bytes) of encrypted blocks" default:"1KiB"`
-	DataType  int         `help:"Type of encryption to use for content and metadata (1=AES-GCM, 2=SecretBox)" default:"1"`
-	PathType  int         `help:"Type of encryption to use for paths (0=Unencrypted, 1=AES-GCM, 2=SecretBox)" default:"1"`
+	KeyFilepath string      `help:"the path to the file which contains the root key for encrypting the data"`
+	BlockSize   memory.Size `help:"size (in bytes) of encrypted blocks" default:"1KiB"`
+	DataType    int         `help:"Type of encryption to use for content and metadata (1=AES-GCM, 2=SecretBox)" default:"1"`
+	PathType    int         `help:"Type of encryption to use for paths (0=Unencrypted, 1=AES-GCM, 2=SecretBox)" default:"1"`
 }
 
 // ClientConfig is a configuration struct for the uplink that controls how
@@ -115,17 +150,25 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, err
 	}
 
-	key := new(storj.Key)
-	copy(key[:], c.Enc.Key)
+	var key storj.Key
+	{
+		kfp := keyFilepath(c.Enc.KeyFilepath)
 
-	streams, err := streams.NewStreamStore(segments, c.Client.SegmentSize.Int64(), key, c.Enc.BlockSize.Int(), storj.Cipher(c.Enc.DataType))
+		var err error
+		key, err = kfp.Key()
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	streams, err := streams.NewStreamStore(segments, c.Client.SegmentSize.Int64(), &key, c.Enc.BlockSize.Int(), storj.Cipher(c.Enc.DataType))
 	if err != nil {
 		return nil, nil, Error.New("failed to create stream store: %v", err)
 	}
 
 	buckets := buckets.NewStore(streams)
 
-	return kvmetainfo.New(metainfo, buckets, streams, segments, key, c.Enc.BlockSize.Int32(), rs, c.Client.SegmentSize.Int64()), streams, nil
+	return kvmetainfo.New(metainfo, buckets, streams, segments, &key, c.Enc.BlockSize.Int32(), rs, c.Client.SegmentSize.Int64()), streams, nil
 }
 
 // GetRedundancyScheme returns the configured redundancy scheme for new uploads
