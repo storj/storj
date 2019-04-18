@@ -48,14 +48,8 @@ func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
 }
 
 // NewUplink returns a pointer to a new Client with a Config and Uplink pointer on it and an error.
-func (c *UplinkFlags) NewUplink(ctx context.Context, config libuplink.Config) (*libuplink.Uplink, error) {
-	return libuplink.NewUplink(ctx, nil)
-}
-
-// NewUplinkWithConfigs allows configs to be passed through to libuplink from the command line flags
-func NewUplinkWithConfigs(ctx context.Context, config cfgstruct.FlagSet) (*libuplink.Uplink, error) {
-	// TODO (dylan): Add a function to allow passing a FlagSet to a NewUplink.
-	panic("TODO")
+func (c *UplinkFlags) NewUplink(ctx context.Context, config *libuplink.Config) (*libuplink.Uplink, error) {
+	return libuplink.NewUplink(ctx, config)
 }
 
 // GetProject returns a *libuplink.Project for interacting with a specific project
@@ -90,7 +84,7 @@ func (c *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, error
 	cfg.Volatile.UseIdentity = identity
 	cfg.Volatile.IdentityVersion = identityVersion
 
-	uplink, err := c.NewUplink(ctx, *cfg)
+	uplink, err := c.NewUplink(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
