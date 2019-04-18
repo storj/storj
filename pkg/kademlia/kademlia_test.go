@@ -413,6 +413,7 @@ func newKademlia(log *zap.Logger, nodeType pb.NodeType, bootstrapNodes []pb.Node
 			Id:      identity.ID,
 			Address: &pb.NodeAddress{Address: address},
 		},
+		Type:     nodeType,
 		Operator: operator,
 	}
 
