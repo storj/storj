@@ -80,9 +80,10 @@ CREATE TABLE certRecords (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE injuredsegments (
-	id bigserial NOT NULL,
-	info bytea NOT NULL,
-	PRIMARY KEY ( id )
+	path text NOT NULL,
+	data bytea NOT NULL,
+	attempted timestamp,
+	PRIMARY KEY ( path )
 );
 CREATE TABLE irreparabledbs (
 	segmentpath bytea NOT NULL,
@@ -215,7 +216,11 @@ INSERT INTO "project_members"("member_id", "project_id", "created_at") VALUES (E
 
 INSERT INTO "bwagreements"("serialnum", "storage_node_id", "action", "total", "created_at", "expires_at", "uplink_id") VALUES ('8fc0ceaa-984c-4d52-bcf4-b5429e1e35e812FpiifDbcJkePa12jxjDEutKrfLmwzT7sz2jfVwpYqgtM8B74c', E'\\245Z[/\\333\\022\\011\\001\\036\\003\\204\\005\\032.\\206\\333E\\261\\342\\227=y,}aRaH6\\240\\370\\000'::bytea, 1, 666, '2019-02-14 15:09:54.420181+00', '2019-02-14 16:09:54+00', E'\\253Z+\\374eFm\\245$\\036\\206\\335\\247\\263\\350x\\\\\\304+\\364\\343\\364+\\276fIJQ\\361\\014\\232\\000'::bytea);
 INSERT INTO "irreparabledbs" ("segmentpath", "segmentdetail", "pieces_lost_count", "seg_damaged_unix_sec", "repair_attempt_count") VALUES ('\x49616d5365676d656e746b6579696e666f30', '\x49616d5365676d656e7464657461696c696e666f30', 10, 1550159554, 10);
-INSERT INTO "injuredsegments" ("id", "info") VALUES (1, '\x0a0130120100');
+
+INSERT INTO "injuredsegments" ("path", "data") VALUES ('0', '\x0a0130120100');
+INSERT INTO "injuredsegments" ("path", "data") VALUES ('here''s/a/great/path', '\x0a136865726527732f612f67726561742f70617468120a0102030405060708090a');
+INSERT INTO "injuredsegments" ("path", "data") VALUES ('yet/another/cool/path', '\x0a157965742f616e6f746865722f636f6f6c2f70617468120a0102030405060708090a');
+INSERT INTO "injuredsegments" ("path", "data") VALUES ('so/many/iconic/paths/to/choose/from', '\x0a23736f2f6d616e792f69636f6e69632f70617468732f746f2f63686f6f73652f66726f6d120a0102030405060708090a');
 
 INSERT INTO "certrecords" VALUES (E'0Y0\\023\\006\\007*\\206H\\316=\\002\\001\\006\\010*\\206H\\316=\\003\\001\\007\\003B\\000\\004\\360\\267\\227\\377\\253u\\222\\337Y\\324C:GQ\\010\\277v\\010\\315D\\271\\333\\337.\\203\\023=C\\343\\014T%6\\027\\362?\\214\\326\\017U\\334\\000\\260\\224\\260J\\221\\304\\331F\\304\\221\\236zF,\\325\\326l\\215\\306\\365\\200\\022', E'L\\301|\\200\\247}F|1\\320\\232\\037n\\335\\241\\206\\244\\242\\207\\204.\\253\\357\\326\\352\\033Dt\\202`\\022\\325', '2019-02-14 08:07:31.335028+00');
 
