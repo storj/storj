@@ -62,9 +62,7 @@ CREATE TABLE objects (
 CREATE TABLE segments (
     -- total ~3350 bytes or ~950 bytes (ignoring inline data)
     stream_id            UUID   NOT NULL; -- 16 bytes (or should this be a serial of 8 bytes)
-
-    segment_index        INT4   DEFAULT NULL;  -- 4 bytes
-    segment_upload_index INT8   NOT NULL;      -- 8 bytes (is there a way to have this only temporarily)
+    segment_index        INT8   NOT NULL; -- 8 bytes
 
     root_piece_id        BYTEA  NOT NULL; -- 32 bytes
     encrypted_key_nonce  BYTEA  NOT NULL; -- 32 bytes
