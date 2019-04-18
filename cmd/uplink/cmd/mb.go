@@ -43,13 +43,13 @@ func makeBucket(cmd *cobra.Command, args []string) error {
 
 	project, err := cfg.GetProject(ctx)
 	if err != nil {
-		fmt.Printf("Error setting up project uplink: %+v\n", err)
+		fmt.Printf("Error setting up project: %+v\n", err)
 		return err
 	}
 	defer func() {
 		err = project.Close()
 		if err != nil {
-			fmt.Printf("Error closing project uplink: %+v\n", err)
+			fmt.Printf("Error closing project: %+v\n", err)
 		}
 	}()
 

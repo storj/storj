@@ -26,13 +26,6 @@ type UplinkFlags struct {
 
 var cfg UplinkFlags
 
-// Client holds the libuplink Uplink and Config information
-type Client struct {
-	Uplink *libuplink.Uplink
-	Config *libuplink.Config
-	Flags  *UplinkFlags
-}
-
 //RootCmd represents the base CLI command when called without any subcommands
 var RootCmd = &cobra.Command{
 	Use:   "uplink",
@@ -55,7 +48,7 @@ func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
 }
 
 // NewUplink returns a pointer to a new Client with a Config and Uplink pointer on it and an error.
-func (c *UplinkFlags) NewUplink(ctx context.Context) (*libuplink.Uplink, error) {
+func (c *UplinkFlags) NewUplink(ctx context.Context, config libuplink.Config) (*libuplink.Uplink, error) {
 	return libuplink.NewUplink(ctx, nil)
 }
 
@@ -74,7 +67,30 @@ func (c *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, error
 
 	satelliteAddr := c.Client.SatelliteAddr
 
-	uplink, err := c.NewUplink(ctx)
+	identity, err := c.Identity.Load()
+	if err != nil {
+		return nil, err
+	}
+
+	identityVersion, err := identity.Version()
+	if err != nil {
+		return nil, err
+	}
+
+	cfg := &libuplink.Config{}
+
+	cfg.Volatile.TLS = struct {
+		SkipPeerCAWhitelist bool
+		PeerCAWhitelistPath string
+	}{
+		SkipPeerCAWhitelist: !c.TLS.UsePeerCAWhitelist,
+		PeerCAWhitelistPath: c.TLS.PeerCAWhitelistPath,
+	}
+
+	cfg.Volatile.UseIdentity = identity
+	cfg.Volatile.IdentityVersion = identityVersion
+
+	uplink, err := c.NewUplink(ctx, *cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -86,14 +102,6 @@ func (c *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, error
 	opts.Volatile.EncryptionKey = encKey
 
 	return uplink.OpenProject(ctx, satelliteAddr, apiKey, opts)
-}
-
-func (c *Client) getAPIKey() (libuplink.APIKey, error) {
-	return libuplink.ParseAPIKey(c.Flags.Client.APIKey)
-}
-
-func (c *Client) getSatelliteAddr() string {
-	return c.Flags.Client.SatelliteAddr
 }
 
 func convertError(err error, path fpath.FPath) error {
