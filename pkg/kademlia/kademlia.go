@@ -5,6 +5,7 @@ package kademlia
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"sync"
 	"sync/atomic"
@@ -49,7 +50,9 @@ type Kademlia struct {
 	dialer         *Dialer
 	lookups        sync2.WorkGroup
 
-	bootstrapFinished sync2.Fence
+	bootstrapFinished    sync2.Fence
+	bootstrapBackoffMax  time.Duration
+	bootstrapBackoffBase time.Duration
 
 	refreshThreshold int64
 	RefreshBuckets   sync2.Cycle
@@ -62,12 +65,14 @@ type Kademlia struct {
 // NewService returns a newly configured Kademlia instance
 func NewService(log *zap.Logger, self pb.Node, transport transport.Client, rt *RoutingTable, config Config) (*Kademlia, error) {
 	k := &Kademlia{
-		log:              log,
-		alpha:            config.Alpha,
-		routingTable:     rt,
-		bootstrapNodes:   config.BootstrapNodes(),
-		dialer:           NewDialer(log.Named("dialer"), transport),
-		refreshThreshold: int64(time.Minute),
+		log:                  log,
+		alpha:                config.Alpha,
+		routingTable:         rt,
+		bootstrapNodes:       config.BootstrapNodes(),
+		bootstrapBackoffMax:  config.BootstrapBackoffMax,
+		bootstrapBackoffBase: config.BootstrapBackoffBase,
+		dialer:               NewDialer(log.Named("dialer"), transport),
+		refreshThreshold:     int64(time.Minute),
 	}
 
 	return k, nil
@@ -199,9 +204,11 @@ func (k *Kademlia) DumpNodes(ctx context.Context) ([]*pb.Node, error) {
 // Bootstrap contacts one of a set of pre defined trusted nodes on the network and
 // begins populating the local Kademlia node
 func (k *Kademlia) Bootstrap(ctx context.Context) error {
+	fmt.Println("inside bootstrap call")
 	defer k.bootstrapFinished.Release()
 
 	if !k.lookups.Start() {
+		fmt.Println("context canceled apparently")
 		return context.Canceled
 	}
 	defer k.lookups.Done()
@@ -211,28 +218,36 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 		return nil
 	}
 
-	var errGroup errs.Group
-	waitInterval := 1 * time.Second
-	maxWait := 30 * time.Second
+	fmt.Println("about to go into loop")
 
-	for i := 0; waitInterval < maxWait; i++ {
-		if i > 0 {
+	waitInterval := k.bootstrapBackoffBase
+
+	var errGroup errs.Group
+	for i := 0; waitInterval < k.bootstrapBackoffMax; i++ {
+		fmt.Println("inside the loop")
+		if i < 0 {
+			fmt.Println("in here for some reason")
 			time.Sleep(waitInterval)
 			waitInterval = waitInterval * 2
 		}
+		fmt.Println("outside again")
 
 		var foundOnlineBootstrap bool
 		for i, node := range k.bootstrapNodes {
 			if ctx.Err() != nil {
+				fmt.Println("here were problems")
 				errGroup.Add(ctx.Err())
 				return errGroup.Err()
 			}
 
+			fmt.Println("about to dial in bootstrap")
 			ident, err := k.dialer.FetchPeerIdentityUnverified(ctx, node.Address.Address)
 			if err != nil {
+				fmt.Println("err dialing in bootstrap")
 				errGroup.Add(err)
 				continue
 			}
+			fmt.Println("post dialing in bootstrap")
 
 			k.routingTable.mutex.Lock()
 			node.Id = ident.ID

@@ -436,8 +436,10 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				},
 			},
 			Kademlia: kademlia.Config{
-				Alpha:  5,
-				DBPath: storageDir, // TODO: replace with master db
+				Alpha:                5,
+				BootstrapBackoffBase: 500 * time.Millisecond,
+				BootstrapBackoffMax:  2 * time.Second,
+				DBPath:               storageDir, // TODO: replace with master db
 				Operator: kademlia.OperatorConfig{
 					Email:  prefix + "@example.com",
 					Wallet: "0x" + strings.Repeat("00", 20),
@@ -585,6 +587,8 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 				},
 			},
 			Kademlia: kademlia.Config{
+				BootstrapBackoffBase: 500 * time.Millisecond,
+				BootstrapBackoffMax:  2 * time.Second,
 				Alpha:  5,
 				DBPath: storageDir, // TODO: replace with master db
 				Operator: kademlia.OperatorConfig{
@@ -680,6 +684,8 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 			},
 		},
 		Kademlia: kademlia.Config{
+			BootstrapBackoffBase: 500 * time.Millisecond,
+			BootstrapBackoffMax:  2 * time.Second,
 			Alpha:  5,
 			DBPath: dbDir, // TODO: replace with master db
 			Operator: kademlia.OperatorConfig{

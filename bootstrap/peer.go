@@ -129,6 +129,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			return nil, errs.Combine(err, peer.Close())
 		}
 
+		fmt.Println("starting bootstrap node at addr", config.ExternalAddress)
 		self := pb.Node{
 			Id:   peer.ID(),
 			Type: pb.NodeType_BOOTSTRAP,

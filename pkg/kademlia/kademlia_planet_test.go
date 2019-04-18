@@ -21,7 +21,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/transport"
-	"storj.io/storj/storagenode"
 )
 
 func TestFetchPeerIdentity(t *testing.T) {
@@ -99,16 +98,21 @@ func TestPingTimeout(t *testing.T) {
 }
 
 func TestBootstrapBackoff(t *testing.T) {
-	done := make(chan bool)
-	go badBootstrapProxy(done)
+	// done := make(chan bool)
+	// go badBootstrapProxy(done)
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
-		Reconfigure: testplanet.Reconfigure{
-			StorageNode: func(index int, config *storagenode.Config) {
-				config.Kademlia.BootstrapAddr = ":9999"
-			},
-		},
+		// Reconfigure: testplanet.Reconfigure{
+		// 	Bootstrap: func(index int, config *bootstrap.Config) {
+		// 		config.Kademlia.ExternalAddress = "127.0.0.1:9999"
+		// 	},
+		// 	StorageNode: func(index int, config *storagenode.Config) {
+		// 		config.Kademlia.BootstrapAddr = "127.0.0.1:9999"
+		// 		// config.Kademlia.BootstrapBackoffInterval = 1 * time.Second
+		// 		// config.Kademlia.BootstrapBackoffMax = 10 * time.Second
+		// 	},
+		// },
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
 	})
@@ -141,6 +145,7 @@ func badBootstrapProxy(done chan bool) (err error) {
 			}
 			c2, err := net.Dial("tcp", "127.0.0.1:9990")
 			if err != nil {
+				fmt.Println("err dial", err)
 				c.Close()
 				return
 			}
