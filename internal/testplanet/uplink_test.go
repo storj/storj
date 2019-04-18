@@ -4,8 +4,9 @@
 package testplanet_test
 
 import (
+	"context"
 	"crypto/rand"
-	"net"
+	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
@@ -18,6 +19,9 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls/extensions"
+	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink"
 )
@@ -217,6 +221,27 @@ func TestUploadDownloadMultipleUplinksInParallel(t *testing.T) {
 	require.NoError(t, err)
 }
 
+type piecestoreMock struct {
+}
+
+func (mock *piecestoreMock) Upload(server pb.Piecestore_UploadServer) error {
+	return nil
+}
+func (mock *piecestoreMock) Download(server pb.Piecestore_DownloadServer) error {
+	timoutTicker := time.NewTicker(30 * time.Second)
+	defer timoutTicker.Stop()
+
+	select {
+	case <-timoutTicker.C:
+		return nil
+	case <-server.Context().Done():
+		return nil
+	}
+}
+func (mock *piecestoreMock) Delete(ctx context.Context, delete *pb.PieceDeleteRequest) (_ *pb.PieceDeleteResponse, err error) {
+	return nil, nil
+}
+
 func TestDownloadFromUnresponsiveNode(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
@@ -263,14 +288,26 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 			err = planet.StopPeer(storageNode)
 			require.NoError(t, err)
 
-			listener, err := net.Listen("tcp", storageNode.Addr())
+			wl, err := planet.WriteWhitelist(storj.LatestIDVersion())
 			require.NoError(t, err)
+			options, err := tlsopts.NewOptions(storageNode.Identity, tlsopts.Config{
+				RevocationDBURL:     "bolt://" + filepath.Join(ctx.Dir("fakestoragenode"), "revocation.db"),
+				UsePeerCAWhitelist:  true,
+				PeerCAWhitelistPath: wl,
+				PeerIDVersions:      "*",
+				Extensions: extensions.Config{
+					Revocation:          false,
+					WhitelistSignedLeaf: false,
+				},
+			})
+			require.NoError(t, err)
+
+			server, err := server.New(options, storageNode.Addr(), storageNode.PrivateAddr(), nil)
+			require.NoError(t, err)
+			pb.RegisterPiecestoreServer(server.GRPC(), &piecestoreMock{})
 			go func() {
-				conn, err := listener.Accept()
+				err := server.Run(ctx)
 				require.NoError(t, err)
-				// testplanet uplink default timeout is 3 sec
-				time.Sleep(5 * time.Second)
-				require.NoError(t, conn.Close())
 			}()
 			stopped = true
 			break

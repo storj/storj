@@ -6,6 +6,7 @@ package uplink
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/vivint/infectious"
 	"github.com/zeebo/errs"
@@ -49,10 +50,11 @@ type EncryptionConfig struct {
 // ClientConfig is a configuration struct for the uplink that controls how
 // to talk to the rest of the network.
 type ClientConfig struct {
-	APIKey        string      `default:"" help:"the api key to use for the satellite" noprefix:"true"`
-	SatelliteAddr string      `default:"127.0.0.1:7777" devDefault:"127.0.0.1:10000" help:"the address to use for the satellite" noprefix:"true"`
-	MaxInlineSize memory.Size `help:"max inline segment size in bytes" default:"4KiB"`
-	SegmentSize   memory.Size `help:"the size of a segment in bytes" default:"64MiB"`
+	APIKey        string        `default:"" help:"the api key to use for the satellite" noprefix:"true"`
+	SatelliteAddr string        `default:"127.0.0.1:7777" devDefault:"127.0.0.1:10000" help:"the address to use for the satellite" noprefix:"true"`
+	MaxInlineSize memory.Size   `help:"max inline segment size in bytes" default:"4KiB"`
+	SegmentSize   memory.Size   `help:"the size of a segment in bytes" default:"64MiB"`
+	Timeout       time.Duration `help:"timeout for request" default:"0h0m20s"`
 }
 
 // Config uplink configuration
@@ -81,7 +83,7 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 
 	// ToDo: Handle Versioning for Uplinks here
 
-	tc := transport.NewClient(tlsOpts)
+	tc := transport.NewClientWithTimeout(tlsOpts, c.Client.Timeout)
 
 	if c.Client.SatelliteAddr == "" {
 		return nil, nil, errors.New("satellite address not specified")

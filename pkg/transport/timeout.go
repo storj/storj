@@ -5,6 +5,7 @@ package transport
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"google.golang.org/grpc"
@@ -30,9 +31,9 @@ type InvokeStreamTimeout struct {
 }
 
 type clientStreamWrapper struct {
-	timeout  time.Duration
-	stream   grpc.ClientStream
-	grpcConn *grpc.ClientConn
+	timeout time.Duration
+	stream  grpc.ClientStream
+	mu      sync.Mutex
 }
 
 func (wrapper *clientStreamWrapper) Header() (metadata.MD, error) {
@@ -53,15 +54,15 @@ func (wrapper *clientStreamWrapper) CloseSend() error {
 	})
 }
 
-func (wrapper *clientStreamWrapper) RecvMsg(m interface{}) error {
-	return wrapper.addTimout(func() error {
-		return wrapper.stream.RecvMsg(m)
-	})
-}
-
 func (wrapper *clientStreamWrapper) SendMsg(m interface{}) error {
 	return wrapper.addTimout(func() error {
 		return wrapper.stream.SendMsg(m)
+	})
+}
+
+func (wrapper *clientStreamWrapper) RecvMsg(m interface{}) error {
+	return wrapper.addTimout(func() error {
+		return wrapper.stream.RecvMsg(m)
 	})
 }
 
@@ -71,6 +72,9 @@ func (wrapper *clientStreamWrapper) addTimout(f func() error) error {
 	errChannel := make(chan error)
 
 	go func() {
+		// TODO is there a better way to avoid race ??
+		wrapper.mu.Lock()
+		defer wrapper.mu.Unlock()
 		errChannel <- f()
 	}()
 
@@ -88,5 +92,5 @@ func (it InvokeStreamTimeout) Intercept(ctx context.Context, desc *grpc.StreamDe
 	if err != nil {
 		return stream, err
 	}
-	return &clientStreamWrapper{timeout: it.Timeout, stream: stream, grpcConn: cc}, nil
+	return &clientStreamWrapper{timeout: it.Timeout, stream: stream}, nil
 }
