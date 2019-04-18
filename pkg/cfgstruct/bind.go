@@ -20,23 +20,25 @@ import (
 )
 
 // BindOpt is an option for the Bind method
-type BindOpt func(vars map[string]confVar)
+type BindOpt struct {
+	varfn func(vars map[string]confVar)
+}
 
 // ConfDir sets variables for default options called $CONFDIR and $CONFNAME.
 func ConfDir(path string) BindOpt {
 	val := filepath.Clean(os.ExpandEnv(path))
-	return BindOpt(func(vars map[string]confVar) {
+	return BindOpt{varfn: func(vars map[string]confVar) {
 		vars["CONFDIR"] = confVar{val: val, nested: false}
 		vars["CONFNAME"] = confVar{val: val, nested: false}
-	})
+	}}
 }
 
 // IdentityDir sets a variable for the default option called $IDENTITYDIR.
 func IdentityDir(path string) BindOpt {
 	val := filepath.Clean(os.ExpandEnv(path))
-	return BindOpt(func(vars map[string]confVar) {
+	return BindOpt{varfn: func(vars map[string]confVar) {
 		vars["IDENTITYDIR"] = confVar{val: val, nested: false}
-	})
+	}}
 }
 
 // ConfDirNested sets variables for default options called $CONFDIR and $CONFNAME.
@@ -44,10 +46,10 @@ func IdentityDir(path string) BindOpt {
 // descending into substructs.
 func ConfDirNested(confdir string) BindOpt {
 	val := filepath.Clean(os.ExpandEnv(confdir))
-	return BindOpt(func(vars map[string]confVar) {
+	return BindOpt{varfn: func(vars map[string]confVar) {
 		vars["CONFDIR"] = confVar{val: val, nested: true}
 		vars["CONFNAME"] = confVar{val: val, nested: true}
-	})
+	}}
 }
 
 type confVar struct {
@@ -76,7 +78,9 @@ func bind(flags FlagSet, config interface{}, setupCommand bool, isDev bool, opts
 	}
 	vars := map[string]confVar{}
 	for _, opt := range opts {
-		opt(vars)
+		if opt.varfn != nil {
+			opt.varfn(vars)
+		}
 	}
 
 	bindConfig(flags, "", reflect.ValueOf(config).Elem(), vars, setupCommand, false, isDev)
