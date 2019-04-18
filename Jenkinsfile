@@ -7,7 +7,7 @@ pipeline {
             steps {
                 sh 'bash ./scripts/install-awscli.sh'
                 sh 'curl -L https://github.com/google/protobuf/releases/download/v3.6.1/protoc-3.6.1-linux-x86_64.zip -o /tmp/protoc.zip'
-                sh 'unzip /tmp/protoc.zip -d "$HOME"/protoc'
+                // sh 'unzip /tmp/protoc.zip -d "$HOME"/protoc'
                 
                 // TODO: lock these to specific version
                 sh 'go get github.com/ckaznocha/protoc-gen-lint'
@@ -39,8 +39,8 @@ pipeline {
                     steps {
                         sh 'go run ./scripts/check-copyright.go'
                         sh 'go run ./scripts/check-imports.go'
-                        sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint'
-                        sh 'protolock status'
+                        // sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint'
+                        // sh 'protolock status'
                         sh 'bash ./scripts/check-dbx-version.sh'
                         // TODO: check for go mod tidy
                         // TODO: check for directory tidy
