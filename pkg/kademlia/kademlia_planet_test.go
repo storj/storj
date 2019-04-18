@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/storj/bootstrap"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
@@ -21,6 +22,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/storagenode"
 )
 
 func TestFetchPeerIdentity(t *testing.T) {
@@ -103,16 +105,16 @@ func TestBootstrapBackoff(t *testing.T) {
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
-		// Reconfigure: testplanet.Reconfigure{
-		// 	Bootstrap: func(index int, config *bootstrap.Config) {
-		// 		config.Kademlia.ExternalAddress = "127.0.0.1:9999"
-		// 	},
-		// 	StorageNode: func(index int, config *storagenode.Config) {
-		// 		config.Kademlia.BootstrapAddr = "127.0.0.1:9999"
-		// 		// config.Kademlia.BootstrapBackoffInterval = 1 * time.Second
-		// 		// config.Kademlia.BootstrapBackoffMax = 10 * time.Second
-		// 	},
-		// },
+		Reconfigure: testplanet.Reconfigure{
+			Bootstrap: func(index int, config *bootstrap.Config) {
+				config.Kademlia.ExternalAddress = "127.0.0.1:9999"
+			},
+			StorageNode: func(index int, config *storagenode.Config) {
+				config.Kademlia.BootstrapAddr = "127.0.0.1:9999"
+				// config.Kademlia.BootstrapBackoffInterval = 1 * time.Second
+				// config.Kademlia.BootstrapBackoffMax = 10 * time.Second
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
 	})
