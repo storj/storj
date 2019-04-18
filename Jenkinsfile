@@ -1,6 +1,26 @@
 node('node') {
-    stage('Preparation') {
+    /*
+    agent {
+        docker { image 'golangci/golangci-lint' }
+    }
+
+    stage('Environment') {
+        // sh 'curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.16.0'
+        sh './scripts/install-awscli.sh'
+        sh 'curl -L https://github.com/google/protobuf/releases/download/v3.6.1/protoc-3.6.1-linux-x86_64.zip -o /tmp/protoc.zip'
+        sh 'unzip /tmp/protoc.zip -d "$HOME"/protoc'
+        
+        // TODO: lock these to specific version
+        sh 'go get github.com/ckaznocha/protoc-gen-lint'
+        sh 'go get github.com/nilslice/protolock/cmd/protolock'
+        sh 'go get github.com/mattn/goveralls'
+        sh 'go get github.com/mfridman/tparse'
+
         sh 'go version'
+    }
+    */
+
+    stage('Checkout') {
         checkout scm
         sh 'go mod download'
     }
@@ -15,6 +35,11 @@ node('node') {
             stage('Checks') {
                 sh 'go run ./scripts/check-copyright.go'
                 sh 'go run ./scripts/check-imports.go'
+                // sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint'
+                // sh 'protolock status'
+                sh './scripts/check-dbx-version.sh'
+                // TODO: check for go mod tidy
+                // TODO: check for directory tidy
             }
 
             stage('Lint') {
