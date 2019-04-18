@@ -1,5 +1,5 @@
 node('node') {
-    pipeline 'Testsuite' {
+    pipeline('Testsuite'){
         stage('Preparation') {
             sh 'go version'
             checkout scm
