@@ -258,12 +258,13 @@ func (planet *Planet) Start(ctx context.Context) {
 
 	planet.Bootstrap.Kademlia.Service.WaitForBootstrap()
 
+	for _, peer := range planet.StorageNodes {
+		peer.Kademlia.Service.WaitForBootstrap()
+	}
+
 	for _, peer := range planet.Satellites {
 		peer.Kademlia.Service.WaitForBootstrap()
 		peer.Discovery.Service.Refresh.TriggerWait()
-	}
-	for _, peer := range planet.StorageNodes {
-		peer.Kademlia.Service.WaitForBootstrap()
 	}
 
 	planet.Reconnect(ctx)
