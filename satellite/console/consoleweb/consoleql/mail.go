@@ -29,7 +29,6 @@ type ForgotPasswordEmail struct {
 	Origin        string
 	UserName      string
 	ResetLink     string
-	LetUsKnowLink string
 }
 
 // Template returns email template name
