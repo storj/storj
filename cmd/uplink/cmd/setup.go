@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -67,7 +68,13 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	var override map[string]interface{}
+	var (
+		encKeyFilepath = filepath.Join(setupDir, ".enc.key")
+		encKey         []byte
+		override       = map[string]interface{}{
+			"enc.key-filepath": encKeyFilepath,
+		}
+	)
 	if !setupCfg.NonInteractive {
 		_, err = fmt.Print(`
 Pick satellite to use:
@@ -110,6 +117,7 @@ Please enter numeric choice or enter satellite address manually [1]: `)
 		if err != nil {
 			return err
 		}
+		override["satellite-addr"] = satelliteAddress
 
 		_, err = fmt.Print("Enter your API key: ")
 		if err != nil {
@@ -124,12 +132,13 @@ Please enter numeric choice or enter satellite address manually [1]: `)
 		if apiKey == "" {
 			return errs.New("API key cannot be empty")
 		}
+		override["api-key"] = apiKey
 
 		_, err = fmt.Print("Enter your encryption passphrase: ")
 		if err != nil {
 			return err
 		}
-		encKey, err := terminal.ReadPassword(int(os.Stdin.Fd()))
+		encKey, err = terminal.ReadPassword(int(os.Stdin.Fd()))
 		if err != nil {
 			return err
 		}
@@ -160,12 +169,11 @@ Please enter numeric choice or enter satellite address manually [1]: `)
 			if err != nil {
 				return err
 			}
-		}
-
-		override = map[string]interface{}{
-			"satellite-addr": satelliteAddress,
-			"api-key":        apiKey,
-			"enc.key":        string(encKey),
+		} else {
+			err = SaveEncryptionKey(encKey, encKeyFilepath)
+			if err != nil {
+				return err
+			}
 		}
 
 		err = process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), override)
@@ -249,4 +257,38 @@ func ApplyDefaultHostAndPortToAddr(address, defaultAddress string) (string, erro
 
 	// address is host:
 	return net.JoinHostPort(addressParts[0], defaultPort), nil
+}
+
+// SaveEncryptionKey saves the key in a new file which will be stored in
+// filepath.
+// It returns an error if the directory doesn't exist, the file already exists
+// or there is an I/O error.
+func SaveEncryptionKey(key []byte, filepath string) (err error) {
+	f, err := os.OpenFile(filepath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return errors.New("directory path doesn't exist")
+		}
+
+		if os.IsExist(err) {
+			return errors.New("file key already exists")
+		}
+
+		return err
+	}
+
+	defer func() {
+		if err == nil {
+			err = f.Close()
+		} else {
+			_ = f.Close()
+		}
+	}()
+
+	_, err = f.Write(key)
+	if err != nil {
+		return err
+	}
+
+	return f.Chmod(0400)
 }
