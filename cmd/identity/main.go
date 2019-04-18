@@ -57,7 +57,7 @@ var (
 		ParentKeyPath  string `help:"path to the parent authority's private key"`
 		Signer         certificates.CertClientConfig
 		// TODO: ideally the default is the latest version; can't interpolate struct tags
-		Version uint `default:"1" help:"identity version to use when creating an identity or CA"`
+		Version uint `default:"0" help:"identity version to use when creating an identity or CA"`
 	}
 
 	identityDir, configDir string
