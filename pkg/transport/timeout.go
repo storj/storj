@@ -7,9 +7,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -78,11 +76,7 @@ func (wrapper *clientStreamWrapper) addTimout(f func() error) error {
 
 	select {
 	case <-timoutTicker.C:
-		var errClose error
-		if wrapper.grpcConn.GetState() != connectivity.Shutdown {
-			errClose = wrapper.grpcConn.Close()
-		}
-		return errs.Combine(context.DeadlineExceeded, errClose)
+		return context.DeadlineExceeded
 	case err := <-errChannel:
 		return err
 	}
