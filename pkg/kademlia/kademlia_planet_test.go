@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/transport"
@@ -38,13 +39,17 @@ func TestRequestInfo(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		node := planet.StorageNodes[0]
-		info, err := planet.Satellites[0].Kademlia.Service.FetchInfo(ctx, node.Local())
+		info, err := planet.Satellites[0].Kademlia.Service.FetchInfo(ctx, node.Local().Node)
 		require.NoError(t, err)
 		require.Equal(t, node.Local().Type, info.GetType())
-		require.Equal(t, node.Local().Metadata.GetEmail(), info.GetOperator().GetEmail())
-		require.Equal(t, node.Local().Metadata.GetWallet(), info.GetOperator().GetWallet())
-		require.Equal(t, node.Local().Restrictions.GetFreeDisk(), info.GetCapacity().GetFreeDisk())
-		require.Equal(t, node.Local().Restrictions.GetFreeBandwidth(), info.GetCapacity().GetFreeBandwidth())
+		require.Equal(t, node.Local().Operator.GetEmail(), info.GetOperator().GetEmail())
+		require.Equal(t, node.Local().Operator.GetWallet(), info.GetOperator().GetWallet())
+		require.Equal(t, node.Local().Capacity.GetFreeDisk(), info.GetCapacity().GetFreeDisk())
+		require.Equal(t, node.Local().Capacity.GetFreeBandwidth(), info.GetCapacity().GetFreeBandwidth())
+		require.Equal(t, node.Local().Version.GetVersion(), info.GetVersion().GetVersion())
+		require.Equal(t, node.Local().Version.GetCommitHash(), info.GetVersion().GetCommitHash())
+		require.Equal(t, node.Local().Version.GetTimestamp().GetSeconds(), info.GetVersion().GetTimestamp().GetSeconds())
+		require.Equal(t, node.Local().Version.GetRelease(), info.GetVersion().GetRelease())
 	})
 }
 
@@ -69,10 +74,12 @@ func TestPingTimeout(t *testing.T) {
 		slowClient := network.NewClient(self.Transport)
 		require.NotNil(t, slowClient)
 
-		node := pb.Node{
-			Id: self.ID(),
-			Address: &pb.NodeAddress{
-				Transport: pb.NodeTransport_TCP_TLS_GRPC,
+		node := &overlay.NodeDossier{
+			Node: pb.Node{
+				Id: self.ID(),
+				Address: &pb.NodeAddress{
+					Transport: pb.NodeTransport_TCP_TLS_GRPC,
+				},
 			},
 		}
 

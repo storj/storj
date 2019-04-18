@@ -3,13 +3,11 @@
 
 package pb
 
-import (
-	fmt "fmt"
-	_ "github.com/gogo/protobuf/gogoproto"
-	proto "github.com/gogo/protobuf/proto"
-	timestamp "github.com/golang/protobuf/ptypes/timestamp"
-	math "math"
-)
+import proto "github.com/gogo/protobuf/proto"
+import fmt "fmt"
+import math "math"
+import _ "github.com/gogo/protobuf/gogoproto"
+import timestamp "github.com/golang/protobuf/ptypes/timestamp"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -31,7 +29,6 @@ const (
 var RedundancyScheme_SchemeType_name = map[int32]string{
 	0: "RS",
 }
-
 var RedundancyScheme_SchemeType_value = map[string]int32{
 	"RS": 0,
 }
@@ -39,9 +36,8 @@ var RedundancyScheme_SchemeType_value = map[string]int32{
 func (x RedundancyScheme_SchemeType) String() string {
 	return proto.EnumName(RedundancyScheme_SchemeType_name, int32(x))
 }
-
 func (RedundancyScheme_SchemeType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_75fef806d28fc810, []int{0, 0}
+	return fileDescriptor_pointerdb_58c33c20c23ab842, []int{0, 0}
 }
 
 type Pointer_DataType int32
@@ -55,7 +51,6 @@ var Pointer_DataType_name = map[int32]string{
 	0: "INLINE",
 	1: "REMOTE",
 }
-
 var Pointer_DataType_value = map[string]int32{
 	"INLINE": 0,
 	"REMOTE": 1,
@@ -64,9 +59,8 @@ var Pointer_DataType_value = map[string]int32{
 func (x Pointer_DataType) String() string {
 	return proto.EnumName(Pointer_DataType_name, int32(x))
 }
-
 func (Pointer_DataType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_75fef806d28fc810, []int{3, 0}
+	return fileDescriptor_pointerdb_58c33c20c23ab842, []int{3, 0}
 }
 
 type RedundancyScheme struct {
@@ -86,7 +80,7 @@ func (m *RedundancyScheme) Reset()         { *m = RedundancyScheme{} }
 func (m *RedundancyScheme) String() string { return proto.CompactTextString(m) }
 func (*RedundancyScheme) ProtoMessage()    {}
 func (*RedundancyScheme) Descriptor() ([]byte, []int) {
-	return fileDescriptor_75fef806d28fc810, []int{0}
+	return fileDescriptor_pointerdb_58c33c20c23ab842, []int{0}
 }
 func (m *RedundancyScheme) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RedundancyScheme.Unmarshal(m, b)
@@ -94,8 +88,8 @@ func (m *RedundancyScheme) XXX_Unmarshal(b []byte) error {
 func (m *RedundancyScheme) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RedundancyScheme.Marshal(b, m, deterministic)
 }
-func (m *RedundancyScheme) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RedundancyScheme.Merge(m, src)
+func (dst *RedundancyScheme) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RedundancyScheme.Merge(dst, src)
 }
 func (m *RedundancyScheme) XXX_Size() int {
 	return xxx_messageInfo_RedundancyScheme.Size(m)
@@ -161,7 +155,7 @@ func (m *RemotePiece) Reset()         { *m = RemotePiece{} }
 func (m *RemotePiece) String() string { return proto.CompactTextString(m) }
 func (*RemotePiece) ProtoMessage()    {}
 func (*RemotePiece) Descriptor() ([]byte, []int) {
-	return fileDescriptor_75fef806d28fc810, []int{1}
+	return fileDescriptor_pointerdb_58c33c20c23ab842, []int{1}
 }
 func (m *RemotePiece) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RemotePiece.Unmarshal(m, b)
@@ -169,8 +163,8 @@ func (m *RemotePiece) XXX_Unmarshal(b []byte) error {
 func (m *RemotePiece) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RemotePiece.Marshal(b, m, deterministic)
 }
-func (m *RemotePiece) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RemotePiece.Merge(m, src)
+func (dst *RemotePiece) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RemotePiece.Merge(dst, src)
 }
 func (m *RemotePiece) XXX_Size() int {
 	return xxx_messageInfo_RemotePiece.Size(m)
@@ -209,7 +203,7 @@ func (m *RemoteSegment) Reset()         { *m = RemoteSegment{} }
 func (m *RemoteSegment) String() string { return proto.CompactTextString(m) }
 func (*RemoteSegment) ProtoMessage()    {}
 func (*RemoteSegment) Descriptor() ([]byte, []int) {
-	return fileDescriptor_75fef806d28fc810, []int{2}
+	return fileDescriptor_pointerdb_58c33c20c23ab842, []int{2}
 }
 func (m *RemoteSegment) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RemoteSegment.Unmarshal(m, b)
@@ -217,8 +211,8 @@ func (m *RemoteSegment) XXX_Unmarshal(b []byte) error {
 func (m *RemoteSegment) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RemoteSegment.Marshal(b, m, deterministic)
 }
-func (m *RemoteSegment) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RemoteSegment.Merge(m, src)
+func (dst *RemoteSegment) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RemoteSegment.Merge(dst, src)
 }
 func (m *RemoteSegment) XXX_Size() int {
 	return xxx_messageInfo_RemoteSegment.Size(m)
@@ -267,7 +261,7 @@ func (m *Pointer) Reset()         { *m = Pointer{} }
 func (m *Pointer) String() string { return proto.CompactTextString(m) }
 func (*Pointer) ProtoMessage()    {}
 func (*Pointer) Descriptor() ([]byte, []int) {
-	return fileDescriptor_75fef806d28fc810, []int{3}
+	return fileDescriptor_pointerdb_58c33c20c23ab842, []int{3}
 }
 func (m *Pointer) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Pointer.Unmarshal(m, b)
@@ -275,8 +269,8 @@ func (m *Pointer) XXX_Unmarshal(b []byte) error {
 func (m *Pointer) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Pointer.Marshal(b, m, deterministic)
 }
-func (m *Pointer) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Pointer.Merge(m, src)
+func (dst *Pointer) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Pointer.Merge(dst, src)
 }
 func (m *Pointer) XXX_Size() int {
 	return xxx_messageInfo_Pointer.Size(m)
@@ -349,7 +343,7 @@ func (m *ListResponse) Reset()         { *m = ListResponse{} }
 func (m *ListResponse) String() string { return proto.CompactTextString(m) }
 func (*ListResponse) ProtoMessage()    {}
 func (*ListResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_75fef806d28fc810, []int{4}
+	return fileDescriptor_pointerdb_58c33c20c23ab842, []int{4}
 }
 func (m *ListResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListResponse.Unmarshal(m, b)
@@ -357,8 +351,8 @@ func (m *ListResponse) XXX_Unmarshal(b []byte) error {
 func (m *ListResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ListResponse.Marshal(b, m, deterministic)
 }
-func (m *ListResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ListResponse.Merge(m, src)
+func (dst *ListResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListResponse.Merge(dst, src)
 }
 func (m *ListResponse) XXX_Size() int {
 	return xxx_messageInfo_ListResponse.Size(m)
@@ -396,7 +390,7 @@ func (m *ListResponse_Item) Reset()         { *m = ListResponse_Item{} }
 func (m *ListResponse_Item) String() string { return proto.CompactTextString(m) }
 func (*ListResponse_Item) ProtoMessage()    {}
 func (*ListResponse_Item) Descriptor() ([]byte, []int) {
-	return fileDescriptor_75fef806d28fc810, []int{4, 0}
+	return fileDescriptor_pointerdb_58c33c20c23ab842, []int{4, 0}
 }
 func (m *ListResponse_Item) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListResponse_Item.Unmarshal(m, b)
@@ -404,8 +398,8 @@ func (m *ListResponse_Item) XXX_Unmarshal(b []byte) error {
 func (m *ListResponse_Item) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ListResponse_Item.Marshal(b, m, deterministic)
 }
-func (m *ListResponse_Item) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ListResponse_Item.Merge(m, src)
+func (dst *ListResponse_Item) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListResponse_Item.Merge(dst, src)
 }
 func (m *ListResponse_Item) XXX_Size() int {
 	return xxx_messageInfo_ListResponse_Item.Size(m)
@@ -438,19 +432,19 @@ func (m *ListResponse_Item) GetIsPrefix() bool {
 }
 
 func init() {
-	proto.RegisterEnum("pointerdb.RedundancyScheme_SchemeType", RedundancyScheme_SchemeType_name, RedundancyScheme_SchemeType_value)
-	proto.RegisterEnum("pointerdb.Pointer_DataType", Pointer_DataType_name, Pointer_DataType_value)
 	proto.RegisterType((*RedundancyScheme)(nil), "pointerdb.RedundancyScheme")
 	proto.RegisterType((*RemotePiece)(nil), "pointerdb.RemotePiece")
 	proto.RegisterType((*RemoteSegment)(nil), "pointerdb.RemoteSegment")
 	proto.RegisterType((*Pointer)(nil), "pointerdb.Pointer")
 	proto.RegisterType((*ListResponse)(nil), "pointerdb.ListResponse")
 	proto.RegisterType((*ListResponse_Item)(nil), "pointerdb.ListResponse.Item")
+	proto.RegisterEnum("pointerdb.RedundancyScheme_SchemeType", RedundancyScheme_SchemeType_name, RedundancyScheme_SchemeType_value)
+	proto.RegisterEnum("pointerdb.Pointer_DataType", Pointer_DataType_name, Pointer_DataType_value)
 }
 
-func init() { proto.RegisterFile("pointerdb.proto", fileDescriptor_75fef806d28fc810) }
+func init() { proto.RegisterFile("pointerdb.proto", fileDescriptor_pointerdb_58c33c20c23ab842) }
 
-var fileDescriptor_75fef806d28fc810 = []byte{
+var fileDescriptor_pointerdb_58c33c20c23ab842 = []byte{
 	// 720 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x53, 0xcd, 0x6e, 0xeb, 0x44,
 	0x14, 0x6e, 0xfe, 0x9c, 0xf4, 0xd8, 0xf9, 0xb9, 0xa3, 0x2b, 0xb0, 0x72, 0x91, 0x52, 0x2c, 0x5d,
