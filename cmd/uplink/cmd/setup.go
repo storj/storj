@@ -189,7 +189,8 @@ Some things to try next:
 		return nil
 	}
 
-	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), nil)
+	return process.SaveConfigWithAllDefaults(
+		cmd.Flags(), filepath.Join(setupDir, process.DefaultConfFilename), nil)
 }
 
 // ApplyDefaultHostAndPortToAddrFlag applies the default host and/or port if either is missing in the specified flag name.
