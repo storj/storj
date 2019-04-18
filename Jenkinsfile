@@ -1,13 +1,52 @@
 node('node') {
+    pipeline 'Testsuite' {
+        stage('Preparation') {
+            sh 'go version'
+            checkout scm
+            sh 'go mod download'
+        }
+
+        stage('Build') {
+            sh 'go install -race ./...'
+            sh 'make install-sim'
+        }
+
+        stage('Verification') {
+            parallel {
+                stage('Checks') {
+                    sh 'go run ./scripts/check-copyright.go'
+                    sh 'go run ./scripts/check-imports.go'
+                }
+
+                stage('Lint') {
+                    sh 'golangci-lint -j=4 run'
+                }
+
+                stage('Tests') {
+                    sh 'go test -vet=off -race -cover ./...'
+                }
+
+                stage('Integration') {
+                    sh 'make test-sim'
+                }
+            }
+        }
+    }
+}
+
+/*
+node {
   properties([disableConcurrentBuilds()])
   try {
     currentBuild.result = "SUCCESS"
 
-    stage('Checkout') {
-      checkout scm
-
-      echo "Current build result: ${currentBuild.result}"
+    
+    stage('Build') {
+      steps {
+        sh 'go install -race ./...'
+      }
     }
+
 
     stage('Build Images') {
       sh 'make images'
@@ -28,7 +67,6 @@ node('node') {
     }
 
     if (env.BRANCH_NAME == "master") {
-      /* This should only deploy to staging if the branch is master */
       stage('Deploy to staging') {
         sh 'make deploy'
         echo "Current build result: ${currentBuild.result}"
@@ -63,3 +101,4 @@ node('node') {
 
   }
 }
+*/
