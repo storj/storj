@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package utils
+package errs2
 
 import (
 	"time"
@@ -9,8 +9,8 @@ import (
 	"github.com/zeebo/errs"
 )
 
-// CollectErrors returns first error from channel and all errors that happen within duration
-func CollectErrors(errch chan error, duration time.Duration) error {
+// Collect returns first error from channel and all errors that happen within duration
+func Collect(errch chan error, duration time.Duration) error {
 	errch = discardNil(errch)
 	errlist := []error{<-errch}
 	timeout := time.After(duration)
