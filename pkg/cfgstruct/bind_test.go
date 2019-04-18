@@ -37,7 +37,7 @@ func TestBind(t *testing.T) {
 			AnotherInt int `default:"0" devDefault:"6"`
 		}
 	}
-	Bind(f, &c, false)
+	Bind(f, &c, UseReleaseDefaults())
 
 	assertEqual(c.String, string(""))
 	assertEqual(c.Bool, bool(false))
@@ -88,7 +88,7 @@ func TestConfDir(t *testing.T) {
 			}
 		}
 	}
-	Bind(f, &c, false, ConfDir("confpath"))
+	Bind(f, &c, UseReleaseDefaults(), ConfDir("confpath"))
 	assertEqual(f.Lookup("string").DefValue, "-confpath+")
 	assertEqual(f.Lookup("my-struct1.string").DefValue, "1confpath2")
 	assertEqual(f.Lookup("my-struct1.my-struct2.string").DefValue, "2confpath3")
@@ -105,7 +105,7 @@ func TestNesting(t *testing.T) {
 			}
 		}
 	}
-	Bind(f, &c, false, ConfDirNested("confpath"))
+	Bind(f, &c, UseReleaseDefaults(), ConfDirNested("confpath"))
 	assertEqual(f.Lookup("string").DefValue, "-confpath+")
 	assertEqual(f.Lookup("my-struct1.string").DefValue, filepath.FromSlash("1confpath/my-struct12"))
 	assertEqual(f.Lookup("my-struct1.my-struct2.string").DefValue, filepath.FromSlash("2confpath/my-struct1/my-struct23"))
@@ -129,7 +129,7 @@ func TestBindDevDefaults(t *testing.T) {
 			AnotherInt int `default:"0" devDefault:"6"`
 		}
 	}
-	Bind(f, &c, true)
+	Bind(f, &c, UseDevDefaults())
 
 	assertEqual(c.String, string("dev"))
 	assertEqual(c.Bool, bool(true))
