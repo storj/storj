@@ -127,9 +127,11 @@ func (db *accountingDB) GetStoragenodeStorage(ctx context.Context) ([]*accountin
 			return nil, Error.Wrap(err)
 		}
 		out[i] = &accounting.StoragenodeStorageTally{
-			NodeID:          nodeID,
+			ID:              t.Id,
+			NodeId:          nodeID,
 			IntervalEndTime: t.IntervalEndTime,
 			DataTotal:       t.DataTotal,
+			CreatedAt:       t.CreatedAt,
 		}
 	}
 	return out, Error.Wrap(err)
@@ -145,9 +147,11 @@ func (db *accountingDB) GetStoragenodeStorageSince(ctx context.Context, latestRo
 			return nil, Error.Wrap(err)
 		}
 		out[i] = &accounting.StoragenodeStorageTally{
-			NodeID:          nodeID,
+			ID:              t.Id,
+			NodeId:          nodeID,
 			IntervalEndTime: t.IntervalEndTime,
 			DataTotal:       t.DataTotal,
+			CreatedAt:       t.CreatedAt,
 		}
 	}
 	return out, Error.Wrap(err)

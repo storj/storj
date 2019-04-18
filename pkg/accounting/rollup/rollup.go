@@ -101,7 +101,7 @@ func (r *Service) RollupStorage(ctx context.Context, lastRollup time.Time, rollu
 	}
 	//loop through tallies and build Rollup
 	for _, tallyRow := range tallies {
-		node := tallyRow.NodeID
+		node := tallyRow.NodeId
 		if tallyRow.CreatedAt.After(latestTally) {
 			latestTally = tallyRow.CreatedAt
 		}

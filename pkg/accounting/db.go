@@ -18,7 +18,7 @@ type RollupStats map[time.Time]map[storj.NodeID]*Rollup
 // StoragenodeStorageTally mirrors dbx.StoragenodeStorageTally allowing us to use that struct without leaking dbx
 type StoragenodeStorageTally struct {
 	ID              int64
-	NodeID          storj.NodeID
+	NodeId          storj.NodeID
 	IntervalEndTime time.Time
 	DataTotal       float64
 	CreatedAt       time.Time

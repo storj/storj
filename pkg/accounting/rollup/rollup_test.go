@@ -47,7 +47,7 @@ func TestRollup(t *testing.T) {
 			require.NoError(t, err)
 			for _, r := range raw {
 				assert.Equal(t, r.IntervalEndTime.UTC().Truncate(time.Second), timestamp.Truncate(time.Second))
-				assert.Equal(t, testData[i].nodeData[r.NodeID], r.DataTotal)
+				assert.Equal(t, testData[i].nodeData[r.NodeId], r.DataTotal)
 			}
 
 			// Advance time by 24 hours
