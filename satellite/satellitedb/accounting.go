@@ -172,7 +172,7 @@ func (db *accountingDB) GetStoragenodeBandwidthSince(ctx context.Context, latest
 	return out, Error.Wrap(err)
 }
 
-// SaveRollup records raw tallies of at rest data to the database
+// SaveRollup records at rest tallies and bw rollups to the accounting_rollups table
 func (db *accountingDB) SaveRollup(ctx context.Context, latestRollup time.Time, stats accounting.RollupStats) error {
 	if len(stats) == 0 {
 		return Error.New("In SaveRollup with empty nodeData")
@@ -281,9 +281,9 @@ func (db *accountingDB) QueryPaymentInfo(ctx context.Context, start time.Time, e
 	return csv, nil
 }
 
-// DeleteRawBefore deletes all raw tallies prior to some time
-func (db *accountingDB) DeleteRawBefore(ctx context.Context, latestRollup time.Time) error {
-	var deleteRawSQL = `DELETE FROM accounting_raws WHERE interval_end_time < ?`
+// DeleteTalliesBefore deletes all storagenode storage tallies prior to some time
+func (db *accountingDB) DeleteTalliesBefore(ctx context.Context, latestRollup time.Time) error {
+	var deleteRawSQL = `DELETE FROM storagenode_storage_tallies WHERE interval_end_time < ?`
 	_, err := db.db.DB.ExecContext(ctx, db.db.Rebind(deleteRawSQL), latestRollup)
 	return err
 }

@@ -57,14 +57,14 @@ type DB interface {
 	GetStoragenodeStorageSince(ctx context.Context, latestRollup time.Time) ([]*StoragenodeStorageTally, error)
 	// GetStoragenodeBandwidthSince retrieves all storagenode_bandwidth_rollup entires since latestRollup
 	GetStoragenodeBandwidthSince(ctx context.Context, latestRollup time.Time) ([]*StoragenodeBandwidthRollup, error)
-	// SaveRollup records raw tallies of at rest data to the database
+	// SaveRollup records at rest tallies and bw rollups to the accounting_rollups table
 	SaveRollup(ctx context.Context, latestTally time.Time, stats RollupStats) error
 	// SaveBucketTallies saves the latest bucket info
 	SaveBucketTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*BucketTally) ([]BucketTally, error)
 	// QueryPaymentInfo queries Overlay, Accounting Rollup on nodeID
 	QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*CSVRow, error)
-	// DeleteRawBefore deletes all raw tallies prior to some time
-	DeleteRawBefore(ctx context.Context, latestRollup time.Time) error
+	// DeleteTalliesBefore deletes all storagenode storage tallies prior to some time
+	DeleteTalliesBefore(ctx context.Context, latestRollup time.Time) error
 	// CreateBucketStorageTally creates a record for BucketStorageTally in the accounting DB table
 	CreateBucketStorageTally(ctx context.Context, tally BucketStorageTally) error
 	// ProjectAllocatedBandwidthTotal returns the sum of GET bandwidth usage allocated for a projectID in the past time frame

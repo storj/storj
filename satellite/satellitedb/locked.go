@@ -57,11 +57,11 @@ func (m *lockedAccounting) CreateBucketStorageTally(ctx context.Context, tally a
 	return m.db.CreateBucketStorageTally(ctx, tally)
 }
 
-// DeleteRawBefore deletes all raw tallies prior to some time
-func (m *lockedAccounting) DeleteRawBefore(ctx context.Context, latestRollup time.Time) error {
+// DeleteTalliesBefore deletes all storagenode storage tallies prior to some time
+func (m *lockedAccounting) DeleteTalliesBefore(ctx context.Context, latestRollup time.Time) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.DeleteRawBefore(ctx, latestRollup)
+	return m.db.DeleteTalliesBefore(ctx, latestRollup)
 }
 
 // GetStoragenodeBandwidthSince retrieves all storagenode_bandwidth_rollup entires since latestRollup
@@ -120,7 +120,7 @@ func (m *lockedAccounting) SaveBucketTallies(ctx context.Context, intervalStart 
 	return m.db.SaveBucketTallies(ctx, intervalStart, bucketTallies)
 }
 
-// SaveRollup records raw tallies of at rest data to the database
+// SaveRollup records at rest tallies and bw rollups to the accounting_rollups table
 func (m *lockedAccounting) SaveRollup(ctx context.Context, latestTally time.Time, stats accounting.RollupStats) error {
 	m.Lock()
 	defer m.Unlock()
