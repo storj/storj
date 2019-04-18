@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/zeebo/errs"
 	"storj.io/storj/pkg/pb"
 )
 
@@ -19,12 +20,16 @@ func extendPrefix(prefix string, bit bool) string {
 }
 
 // Draw writes the routing graph obtained using a GetBucketListResponse in the specified file
-func Draw(file *os.File, info *pb.GetBucketListResponse) error {
-	_, err := file.Write([]byte("digraph{\nnode [shape=plaintext, fontname=\"Courier\"];edge [dir=none];\n"))
+func Draw(file *os.File, info *pb.GetBucketListResponse) (err error) {
+	_, err = file.Write([]byte("digraph{\nnode [shape=plaintext, fontname=\"Courier\"];edge [dir=none];\n"))
 	if err != nil {
 		return err
 	}
-	defer file.Write([]byte("}\n"))
+	defer func() {
+		_, errWrite := file.Write([]byte("}\n"))
+		err = errs.Combine(err, errWrite)
+		err = errs.Combine(err, file.Close())
+	}()
 	var buf bytes.Buffer
 	buckets := info.GetBuckets()
 	addBucketsToGraph(buckets, 0, &buf, "")
