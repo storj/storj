@@ -8,6 +8,7 @@ pipeline {
     stages {
         stage('Environment') {
             steps {
+                sh 'echo $PATH'
                 //Disable script, as already installed
                 //sh 'bash ./scripts/install-awscli.sh'
                 sh 'curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.16.0'
