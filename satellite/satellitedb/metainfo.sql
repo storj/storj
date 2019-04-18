@@ -71,7 +71,7 @@ CREATE TABLE segments (
     encrypted_key        BYTEA  NOT NULL; -- 32 bytes
 
     data_checksum        INT8   NOT NULL; -- 8 bytes (do we need this, is this encrypted_data_checksum or cleardata_checksum)
-    size                 INT4   NOT NULL DEFAULT -1; -- 4 bytes
+    data_size            INT4   NOT NULL DEFAULT -1; -- 4 bytes
     inline_data_or_nodes BYTEA  NOT NULL; -- 100 * 32 bytes (or 100 * 8 bytes with node link optimization)
 
     PRIMARY KEY (stream_id, segment_index);
@@ -92,7 +92,7 @@ CREATE TABLE committed_segments (
     encrypted_key        BYTEA  NOT NULL; -- 32 bytes
 
     data_checksum        INT8   NOT NULL; -- 8 bytes (do we need this, is this encrypted_data_checksum or cleardata_checksum)
-    size                 INT4   NOT NULL; -- 4 bytes
+    data_size            INT4   NOT NULL; -- 4 bytes
     inline_data_or_nodes BYTEA  NOT NULL; -- 100 * 32 bytes (or 100 * 8 bytes with node link optimization)
 
     PRIMARY KEY (stream_id, segment_index);
@@ -109,7 +109,7 @@ CREATE TABLE partial_segments (
     encrypted_key        BYTEA  NOT NULL; -- 32 bytes
 
     data_checksum        INT8   NOT NULL; -- 8 bytes (do we need this, is this encrypted_data_checksum or cleardata_checksum)
-    size                 INT4   NOT NULL; -- 4 bytes
+    data_size            INT4   NOT NULL; -- 4 bytes
     inline_data_or_nodes BYTEA  NOT NULL; -- 100 * 32 bytes (or 100 * 8 bytes with node link optimization)
 
     PRIMARY KEY (stream_id, segment_upload_index);
