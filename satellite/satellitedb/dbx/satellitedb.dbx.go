@@ -5661,32 +5661,6 @@ func (obj *postgresImpl) Delete_Node_By_Id(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Delete_Node_By_Id(ctx context.Context,
-	node_id Node_Id_Field) (
-	deleted bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM nodes WHERE nodes.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
 func (obj *postgresImpl) Delete_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	deleted bool, err error) {
@@ -9424,25 +9398,6 @@ func (rx *Rx) First_BucketStorageTally_By_ProjectId_OrderBy_Desc_IntervalStart(c
 	return tx.First_BucketStorageTally_By_ProjectId_OrderBy_Desc_IntervalStart(ctx, bucket_storage_tally_project_id)
 }
 
-<<<<<<< HEAD
-func (rx *Rx) Get_AccountingRaw_By_Id(ctx context.Context,
-	accounting_raw_id AccountingRaw_Id_Field) (
-	accounting_raw *AccountingRaw, err error) {
-=======
-func (rx *Rx) First_Injuredsegment(ctx context.Context) (
-	injuredsegment *Injuredsegment, err error) {
->>>>>>> 21c04d558... migration
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-<<<<<<< HEAD
-	return tx.Get_AccountingRaw_By_Id(ctx, accounting_raw_id)
-=======
-	return tx.First_Injuredsegment(ctx)
->>>>>>> 21c04d558... migration
-}
-
 func (rx *Rx) Get_AccountingRollup_By_Id(ctx context.Context,
 	accounting_rollup_id AccountingRollup_Id_Field) (
 	accounting_rollup *AccountingRollup, err error) {
@@ -9961,15 +9916,6 @@ type Methods interface {
 	First_BucketStorageTally_By_ProjectId_OrderBy_Desc_IntervalStart(ctx context.Context,
 		bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field) (
 		bucket_storage_tally *BucketStorageTally, err error)
-
-<<<<<<< HEAD
-	Get_AccountingRaw_By_Id(ctx context.Context,
-		accounting_raw_id AccountingRaw_Id_Field) (
-		accounting_raw *AccountingRaw, err error)
-=======
-	First_Injuredsegment(ctx context.Context) (
-		injuredsegment *Injuredsegment, err error)
->>>>>>> 21c04d558... migration
 
 	Get_AccountingRollup_By_Id(ctx context.Context,
 		accounting_rollup_id AccountingRollup_Id_Field) (
