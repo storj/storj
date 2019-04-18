@@ -59,7 +59,6 @@ func NewClient(log *zap.Logger, signer signing.Signer, conn *grpc.ClientConn, co
 
 // Delete uses delete order limit to delete a piece on piece store.
 func (client *Client) Delete(ctx context.Context, limit *pb.OrderLimit2) error {
-
 	_, err := client.client.Delete(ctx, &pb.PieceDeleteRequest{
 		Limit: limit,
 	})
