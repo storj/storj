@@ -4,44 +4,80 @@
 package routinggraph
 
 import (
-	"bytes"
 	"fmt"
-	"os"
-
-	"github.com/zeebo/errs"
+	"io"
 
 	"storj.io/storj/pkg/pb"
 )
 
-func extendPrefix(prefix string, bit bool) string {
-	if bit {
-		return prefix + "1"
+type dot struct {
+	out io.Writer
+	err error
+}
+
+func (dot *dot) printf(format string, args ...interface{}) {
+	if dot.err != nil {
+		return
 	}
-	return prefix + "0"
+	_, dot.err = fmt.Fprintf(dot.out, format, args...)
 }
 
 // Draw writes the routing graph obtained using a GetBucketListResponse in the specified file
-func Draw(file *os.File, info *pb.GetBucketListResponse) (err error) {
-	_, err = file.Write([]byte("digraph{\nnode [shape=plaintext, fontname=\"Courier\"];edge [dir=none];rankdir=LR;\n"))
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_, errWrite := file.Write([]byte("}\n"))
-		err = errs.Combine(err, errWrite)
-		err = errs.Combine(err, file.Close())
-	}()
-	var buf bytes.Buffer
+func Draw(w io.Writer, info *pb.GetBucketListResponse) (err error) {
+	dot := dot{out: w}
+	dot.printf("digraph{\nnode [shape=plaintext, fontname=\"Courier\"];edge [dir=none];\n")
+	defer dot.printf("}\n")
+
 	buckets := info.GetBuckets()
-	addBucketsToGraph(buckets, 0, &buf, "")
-	_, err = buf.WriteTo(os.Stdout)
-	return err
+	dot.addBuckets(buckets, 0, "")
+	return dot.err
 }
 
-func splitBucket(buckets []*pb.GetBucketListResponse_Bucket, bitDepth int) ([]*pb.GetBucketListResponse_Bucket, []*pb.GetBucketListResponse_Bucket) {
-	var b0 []*pb.GetBucketListResponse_Bucket
-	var b1 []*pb.GetBucketListResponse_Bucket
+func (dot *dot) addBuckets(b []*pb.GetBucketListResponse_Bucket, depth int, inPrefix string) {
+	if len(b) == 1 {
+		dot.Leaf(b[0], inPrefix)
+		return
+	}
 
+	left, right := splitBucket(b, depth)
+
+	outPrefix := extendPrefix(inPrefix, false)
+	dot.printf("b%s [shape=point];", inPrefix)
+
+	dot.addBuckets(left, depth+1, outPrefix)
+	dot.Edge(inPrefix, outPrefix, "0")
+
+	outPrefix = extendPrefix(inPrefix, true)
+	dot.addBuckets(right, depth+1, outPrefix)
+	dot.Edge(inPrefix, outPrefix, "1")
+}
+
+func (dot *dot) Edge(inPrefix, outPrefix, label string) {
+	dot.printf("b%s -> b%s [label=<<b>%s</b>>];", inPrefix, outPrefix, label)
+}
+
+func (dot *dot) Leaf(b *pb.GetBucketListResponse_Bucket, prefix string) {
+	dot.printf("b%s [label=< <table cellborder=\"0\"><tr><td cellspacing=\"0\" sides=\"b\" border=\"1\" colspan=\"2\"><b> %s </b></td></tr>", prefix, prefix)
+	defer dot.printf("</table>>];")
+
+	dot.printf("<tr><td  colspan=\"2\" align=\"left\"><i><b>routing:</b></i></td></tr>")
+	routingNodes := b.GetRoutingNodes()
+	for _, n := range routingNodes {
+		dot.Node(n)
+	}
+	dot.printf("<tr><td  colspan=\"2\"></td></tr>")
+	dot.printf("<tr><td  colspan=\"2\" align=\"left\"><i><b>cache:</b></i></td></tr>")
+	cachedNodes := b.GetCachedNodes()
+	for _, c := range cachedNodes {
+		dot.Node(c)
+	}
+}
+
+func (dot *dot) Node(node *pb.Node) {
+	dot.printf(`<tr><td align="left">%s</td><td sides="r" align="left">%s</td></tr>`, node.Id, node.Address.Address)
+}
+
+func splitBucket(buckets []*pb.GetBucketListResponse_Bucket, bitDepth int) (left, right []*pb.GetBucketListResponse_Bucket) {
 	for _, bucket := range buckets {
 		bID := bucket.BucketId
 		byteDepth := bitDepth / 8
@@ -50,51 +86,17 @@ func splitBucket(buckets []*pb.GetBucketListResponse_Bucket, bitDepth int) ([]*p
 		bitMask := byte(1 << power)
 		b := bID[byteDepth]
 		if b&bitMask > 0 {
-			b1 = append(b1, bucket)
+			right = append(right, bucket)
 		} else {
-			b0 = append(b0, bucket)
+			left = append(left, bucket)
 		}
 	}
-	return b0, b1
+	return
 }
 
-func addBucketsToGraph(b []*pb.GetBucketListResponse_Bucket, depth int, buf *bytes.Buffer, inPrefix string) {
-	if len(b) == 1 {
-		addLeafBucketToGraph(b[0], buf, inPrefix)
-		return
+func extendPrefix(prefix string, bit bool) string {
+	if bit {
+		return prefix + "1"
 	}
-
-	b0, b1 := splitBucket(b, depth)
-
-	outPrefix := extendPrefix(inPrefix, false)
-	fmt.Fprintf(buf, "b%s [shape=point];", inPrefix)
-
-	addBucketsToGraph(b0, depth+1, buf, outPrefix)
-	fmt.Fprintf(buf, "b%s -> b%s [label=<<b>0</b>>];", inPrefix, outPrefix)
-
-	outPrefix = extendPrefix(inPrefix, true)
-	addBucketsToGraph(b1, depth+1, buf, outPrefix)
-	fmt.Fprintf(buf, "b%s -> b%s [label=<<b>1</b>>];", inPrefix, outPrefix)
-}
-
-func printNodeInBuffer(n *pb.Node, buf *bytes.Buffer) {
-	fmt.Fprintf(buf, "<TR><TD ALIGN=\"LEFT\">%s</TD><TD SIDES=\"R\" ALIGN=\"LEFT\">%s</TD></TR>", n.Id.String(), n.Address.Address)
-}
-
-func addLeafBucketToGraph(b *pb.GetBucketListResponse_Bucket, buf *bytes.Buffer, prefix string) {
-	fmt.Fprintf(buf,
-		"b%s [label=< <TABLE CELLBORDER=\"0\"><TR><TD CELLSPACING=\"0\" SIDES=\"B\" BORDER=\"1\" COLSPAN=\"2\"><B> %s </B></TD></TR>", prefix, prefix)
-	defer fmt.Fprintf(buf, "</TABLE>>];")
-
-	fmt.Fprintf(buf, "<TR><TD  COLSPAN=\"2\" ALIGN=\"LEFT\"><I><B>Routing:</B></I></TD></TR>")
-	routingNodes := b.GetRoutingNodes()
-	for _, n := range routingNodes {
-		printNodeInBuffer(n, buf)
-	}
-	fmt.Fprintf(buf, "<TR><TD  COLSPAN=\"2\"></TD></TR>")
-	fmt.Fprintf(buf, "<TR><TD  COLSPAN=\"2\" ALIGN=\"LEFT\"><I><B>Cache:</B></I></TD></TR>")
-	cachedNodes := b.GetCachedNodes()
-	for _, c := range cachedNodes {
-		printNodeInBuffer(c, buf)
-	}
+	return prefix + "0"
 }
