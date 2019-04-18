@@ -83,6 +83,8 @@ func (c *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, error
 
 	cfg.Volatile.UseIdentity = identity
 	cfg.Volatile.IdentityVersion = identityVersion
+	cfg.Volatile.MaxInlineSize = c.Client.MaxInlineSize
+	cfg.Volatile.MaxMemory = c.RS.MaxBufferMem
 
 	uplink, err := c.NewUplink(ctx, cfg)
 	if err != nil {

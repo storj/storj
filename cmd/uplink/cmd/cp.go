@@ -158,6 +158,8 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 	var access libuplink.EncryptionAccess
 	copy(access.Key[:], []byte(cfg.Enc.Key))
 
+	fmt.Printf("%+v\n", dst.Bucket())
+
 	bucket, err := project.OpenBucket(ctx, dst.Bucket(), &access)
 	if err != nil {
 		return err

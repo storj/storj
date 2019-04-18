@@ -9,6 +9,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/internal/fpath"
+	"storj.io/storj/internal/memory"
+	"storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
 )
@@ -61,7 +63,18 @@ func makeBucket(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	_, err = project.CreateBucket(ctx, dst.Bucket(), nil)
+	bucketCfg := &uplink.BucketConfig{}
+	// bucketCfg.PathCipher =
+	// bucketCfg.EncryptionParameters =
+	bucketCfg.Volatile = struct {
+		RedundancyScheme storj.RedundancyScheme
+		SegmentsSize     memory.Size
+	}{
+		RedundancyScheme: cfg.GetRedundancyScheme(),
+		// SegmentSize:
+	}
+
+	_, err = project.CreateBucket(ctx, dst.Bucket(), bucketCfg)
 	if err != nil {
 		return err
 	}
