@@ -44,8 +44,6 @@ type Upload struct {
 
 // Upload initiates an upload to the storage node.
 func (client *Client) Upload(ctx context.Context, limit *pb.OrderLimit2) (Uploader, error) {
-	ctx, client.cancel = context.WithTimeout(ctx, client.config.Timeout)
-
 	stream, err := client.client.Upload(ctx)
 	if err != nil {
 		return nil, err

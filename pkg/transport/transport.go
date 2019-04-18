@@ -74,6 +74,7 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 		grpc.WithBlock(),
 		grpc.FailOnNonTempDialError(true),
 		grpc.WithUnaryInterceptor(InvokeTimeout{transport.requestTimeout}.Intercept),
+		grpc.WithStreamInterceptor(InvokeStreamTimeout{time.Second * 15}.Intercept),
 	}, opts...)
 
 	timedCtx, cancel := context.WithTimeout(ctx, defaultDialTimeout)
