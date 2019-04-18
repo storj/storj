@@ -28,7 +28,7 @@ import (
 type peerClass int
 
 func (p peerClass) String() string {
-	return []string{"Satellite", "Storage Node", "Version Control", "Boostrap", "Gateway"}[p]
+	return []string{"Satellite", "Version Control", "Boostrap", "Gateway", "Storage Node"}[p]
 }
 
 const (
@@ -37,10 +37,10 @@ const (
 
 	// Peer class
 	satellitePeer peerClass = iota
-	storagenodePeer
 	gatewayPeer
 	versioncontrolPeer
 	bootstrapPeer
+	storagenodePeer
 
 	// Index for peers with one instance (i.e. version control and bootstrap)
 	singleIndex = 0
@@ -57,10 +57,22 @@ const folderPermissions = 0744
 // port creates a port with a consistent format for storj-sim services.
 // The port format is: "1PXXE", where P is the peer class, XX is the index of the instance, and E is the endpoint.
 func port(peer peerClass, index, endpoint int) (string, error) {
-	if index > 99 {
-		return "", fmt.Errorf("reached max of 100 instances of %s peer class", peer.String())
+	const (
+		maxInstanceCount    = 100
+		maxStoragenodeCount = 200
+	)
+
+	switch {
+	// Storage nodes can run up to maxStoragenodeCount number of instances
+	case index >= maxStoragenodeCount && peer == storagenodePeer:
+		return "", fmt.Errorf("reached the max storage node count of %d", maxStoragenodeCount)
+	// All other peer classes must run fewer than maxInstanceCount number of instances
+	case index >= maxInstanceCount && peer != storagenodePeer:
+		return "", fmt.Errorf("reached the max instance count of %d for %s peer class", maxInstanceCount, peer.String())
 	}
-	return strconv.Itoa(10000 + int(peer)*1000 + index*10 + endpoint), nil
+
+	port := 10000 + int(peer)*1000 + index*10 + endpoint
+	return strconv.Itoa(port), nil
 }
 
 func networkExec(flags *Flags, args []string, command string) error {
