@@ -114,7 +114,7 @@ func Example() {
 		}
 
 		if !bytes.Equal(receivedContents, testData) {
-			return fmt.Errorf("got different object back: %q != %q", []byte(testData), receivedContents)
+			return fmt.Errorf("got different object back: %q != %q", testData, receivedContents)
 		}
 
 		// Delete the Object
