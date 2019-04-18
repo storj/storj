@@ -1,4 +1,4 @@
-node('node') {
+pipeline {
     agent {
         docker { image 'golangci/golangci-lint' }
     }
