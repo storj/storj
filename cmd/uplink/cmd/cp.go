@@ -96,7 +96,7 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 	var access libuplink.EncryptionAccess
 	copy(access.Key[:], []byte(cfg.Enc.Key))
 
-	bucket, err := project.OpenBucket(ctx, dst.Bucket(), &access, 0)
+	bucket, err := project.OpenBucket(ctx, dst.Bucket(), &access)
 	if err != nil {
 		return err
 	}
@@ -110,7 +110,7 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 	reader := io.Reader(file)
 	var bar *progressbar.ProgressBar
 	if showProgress {
-		bar = progressbar.New(int(fileInfo.Size())).SetUnits(progressbar.U_BYTES)
+		bar = progressbar.New64(fileInfo.Size()).SetUnits(progressbar.U_BYTES)
 		bar.Start()
 		reader = bar.NewProxyReader(reader)
 	}
@@ -158,7 +158,7 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 	var access libuplink.EncryptionAccess
 	copy(access.Key[:], []byte(cfg.Enc.Key))
 
-	bucket, err := project.OpenBucket(ctx, dst.Bucket(), &access, 0)
+	bucket, err := project.OpenBucket(ctx, dst.Bucket(), &access)
 	if err != nil {
 		return err
 	}
@@ -183,7 +183,7 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 	var bar *progressbar.ProgressBar
 	var reader io.ReadCloser
 	if showProgress {
-		bar = progressbar.New(int(object.Meta.Size)).SetUnits(progressbar.U_BYTES)
+		bar = progressbar.New64(object.Meta.Size).SetUnits(progressbar.U_BYTES)
 		bar.Start()
 		reader = bar.NewProxyReader(rc)
 	} else {
@@ -245,7 +245,7 @@ func copyObject(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err erro
 	var access libuplink.EncryptionAccess
 	copy(access.Key[:], []byte(cfg.Enc.Key))
 
-	bucket, err := project.OpenBucket(ctx, dst.Bucket(), &access, 0)
+	bucket, err := project.OpenBucket(ctx, dst.Bucket(), &access)
 	if err != nil {
 		return err
 	}
@@ -270,7 +270,7 @@ func copyObject(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err erro
 	var bar *progressbar.ProgressBar
 	var reader io.Reader
 	if *progress {
-		bar = progressbar.New(int(object.Meta.Size)).SetUnits(progressbar.U_BYTES)
+		bar = progressbar.New64(object.Meta.Size).SetUnits(progressbar.U_BYTES)
 		bar.Start()
 		reader = bar.NewProxyReader(rc)
 	} else {

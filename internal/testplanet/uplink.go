@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"strconv"
 
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
@@ -47,7 +48,9 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 		return nil, err
 	}
 
-	tlsOpts, err := tlsopts.NewOptions(identity, tlsopts.Config{})
+	tlsOpts, err := tlsopts.NewOptions(identity, tlsopts.Config{
+		PeerIDVersions: strconv.Itoa(int(planet.config.IdentityVersion.Number)),
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -295,10 +298,10 @@ func (uplink *Uplink) GetConfig(satellite *satellite.Peer) uplink.Config {
 	config.Client.SatelliteAddr = satellite.Addr()
 	config.Client.APIKey = uplink.APIKey[satellite.ID()]
 
-	config.RS.MinThreshold = 1 * uplink.StorageNodeCount / 5
-	config.RS.RepairThreshold = 2 * uplink.StorageNodeCount / 5
-	config.RS.SuccessThreshold = 3 * uplink.StorageNodeCount / 5
-	config.RS.MaxThreshold = 4 * uplink.StorageNodeCount / 5
+	config.RS.MinThreshold = atLeastOne(uplink.StorageNodeCount * 1 / 5)     // 20% of storage nodes
+	config.RS.RepairThreshold = atLeastOne(uplink.StorageNodeCount * 2 / 5)  // 40% of storage nodes
+	config.RS.SuccessThreshold = atLeastOne(uplink.StorageNodeCount * 3 / 5) // 60% of storage nodes
+	config.RS.MaxThreshold = atLeastOne(uplink.StorageNodeCount * 4 / 5)     // 80% of storage nodes
 
 	config.TLS.UsePeerCAWhitelist = false
 	config.TLS.Extensions.Revocation = false
@@ -311,4 +314,12 @@ func getDefaultConfig() uplink.Config {
 	config := uplink.Config{}
 	cfgstruct.Bind(&pflag.FlagSet{}, &config, true)
 	return config
+}
+
+// atLeastOne returns 1 if value < 1, or value otherwise.
+func atLeastOne(value int) int {
+	if value < 1 {
+		return 1
+	}
+	return value
 }

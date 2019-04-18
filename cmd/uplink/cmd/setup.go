@@ -4,12 +4,17 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/crypto/ssh/terminal"
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
@@ -23,9 +28,13 @@ var (
 		RunE:        cmdSetup,
 		Annotations: map[string]string{"type": "setup"},
 	}
+
 	setupCfg UplinkFlags
 	confDir  string
 	isDev    bool
+
+	// Error is the default uplink setup errs class
+	Error = errs.Class("uplink setup error")
 )
 
 func init() {
@@ -37,6 +46,12 @@ func init() {
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
+	// Ensure use the default port if the user only specifies a host.
+	err = ApplyDefaultHostAndPortToAddrFlag(cmd, "satellite-addr")
+	if err != nil {
+		return err
+	}
+
 	setupDir, err := filepath.Abs(confDir)
 	if err != nil {
 		return err
@@ -52,5 +67,143 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), nil)
+	var override map[string]interface{}
+	if !setupCfg.NonInteractive {
+		_, err = fmt.Print("Enter your Satellite address: ")
+		if err != nil {
+			return err
+		}
+		var satelliteAddress string
+		_, err = fmt.Scanln(&satelliteAddress)
+		if err != nil {
+			return err
+		}
+
+		// TODO add better validation
+		if satelliteAddress == "" {
+			return errs.New("Satellite address cannot be empty")
+		}
+
+		satelliteAddress, err = ApplyDefaultHostAndPortToAddr(satelliteAddress, cmd.Flags().Lookup("satellite-addr").Value.String())
+		if err != nil {
+			return err
+		}
+
+		_, err = fmt.Print("Enter your API key: ")
+		if err != nil {
+			return err
+		}
+		var apiKey string
+		_, err = fmt.Scanln(&apiKey)
+		if err != nil {
+			return err
+		}
+
+		if apiKey == "" {
+			return errs.New("API key cannot be empty")
+		}
+
+		_, err = fmt.Print("Enter your encryption passphrase: ")
+		if err != nil {
+			return err
+		}
+		encKey, err := terminal.ReadPassword(int(os.Stdin.Fd()))
+		if err != nil {
+			return err
+		}
+		_, err = fmt.Println()
+		if err != nil {
+			return err
+		}
+
+		_, err = fmt.Print("Enter your encryption passphrase again: ")
+		if err != nil {
+			return err
+		}
+		repeatedEncKey, err := terminal.ReadPassword(int(os.Stdin.Fd()))
+		if err != nil {
+			return err
+		}
+		_, err = fmt.Println()
+		if err != nil {
+			return err
+		}
+
+		if !bytes.Equal(encKey, repeatedEncKey) {
+			return errs.New("encryption passphrases doesn't match")
+		}
+
+		if len(encKey) == 0 {
+			_, err = fmt.Println("Warning: Encryption passphrase is empty!")
+			if err != nil {
+				return err
+			}
+		}
+
+		override = map[string]interface{}{
+			"satellite-addr": satelliteAddress,
+			"api-key":        apiKey,
+			"enc.key":        string(encKey),
+		}
+	}
+
+	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), override)
+}
+
+// ApplyDefaultHostAndPortToAddrFlag applies the default host and/or port if either is missing in the specified flag name.
+func ApplyDefaultHostAndPortToAddrFlag(cmd *cobra.Command, flagName string) error {
+	flag := cmd.Flags().Lookup(flagName)
+	if flag == nil {
+		// No flag found for us to handle.
+		return nil
+	}
+
+	address, err := ApplyDefaultHostAndPortToAddr(flag.Value.String(), flag.DefValue)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if flag.Value.String() == address {
+		// Don't trip the flag set bit
+		return nil
+	}
+
+	return Error.Wrap(flag.Value.Set(address))
+}
+
+// ApplyDefaultHostAndPortToAddr applies the default host and/or port if either is missing in the specified address.
+func ApplyDefaultHostAndPortToAddr(address, defaultAddress string) (string, error) {
+	defaultHost, defaultPort, err := net.SplitHostPort(defaultAddress)
+	if err != nil {
+		return "", Error.Wrap(err)
+	}
+
+	addressParts := strings.Split(address, ":")
+	numberOfParts := len(addressParts)
+
+	if numberOfParts > 1 && len(addressParts[0]) > 0 && len(addressParts[1]) > 0 {
+		// address is host:port so skip applying any defaults.
+		return address, nil
+	}
+
+	// We are missing a host:port part. Figure out which part we are missing.
+	indexOfPortSeparator := strings.Index(address, ":")
+	lengthOfFirstPart := len(addressParts[0])
+
+	if indexOfPortSeparator < 0 {
+		if lengthOfFirstPart == 0 {
+			// address is blank.
+			return defaultAddress, nil
+		}
+		// address is host
+		return net.JoinHostPort(addressParts[0], defaultPort), nil
+	}
+
+	if indexOfPortSeparator == 0 {
+		// address is :1234
+		return net.JoinHostPort(defaultHost, addressParts[1]), nil
+	}
+
+	// address is host:
+	return net.JoinHostPort(addressParts[0], defaultPort), nil
 }

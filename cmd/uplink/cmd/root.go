@@ -19,7 +19,8 @@ import (
 
 // UplinkFlags configuration flags
 type UplinkFlags struct {
-	Identity identity.Config
+	NonInteractive bool `help:"disable interactive mode" default:"false" setup:"true"`
+	Identity       identity.Config
 	uplink.Config
 }
 
@@ -78,7 +79,7 @@ func (c *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, error
 		return nil, err
 	}
 
-	return uplink.OpenProject(ctx, satelliteAddr, apiKey)
+	return uplink.OpenProject(ctx, satelliteAddr, apiKey, nil)
 }
 
 func (c *Client) getAPIKey() (libuplink.APIKey, error) {

@@ -25,6 +25,7 @@ message Node {
     bool update_latency = 10;
     bool update_audit_success = 11;
     bool update_uptime = 12;
+    NodeVersion version = 13;
 }
 
 // NodeType is an enum of possible node types
@@ -82,4 +83,12 @@ message NodeMetadata {
 message NodeRestrictions {
     int64 free_bandwidth = 1;
     int64 free_disk = 2;
+}
+
+// NodeVersion contains
+message NodeVersion {
+    string version = 1; // must be semver formatted
+    string commit_hash = 2;
+    google.protobuf.Timestamp timestamp = 3;
+    bool release = 4;
 }

@@ -61,15 +61,15 @@ type DB interface {
 	// SaveRollup records raw tallies of at rest data to the database
 	SaveRollup(ctx context.Context, latestTally time.Time, stats RollupStats) error
 	// SaveBucketTallies saves the latest bucket info
-	SaveBucketTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*BucketTally) error
+	SaveBucketTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*BucketTally) ([]BucketTally, error)
 	// QueryPaymentInfo queries Overlay, Accounting Rollup on nodeID
 	QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*CSVRow, error)
 	// DeleteRawBefore deletes all raw tallies prior to some time
 	DeleteRawBefore(ctx context.Context, latestRollup time.Time) error
 	// CreateBucketStorageTally creates a record for BucketStorageTally in the accounting DB table
 	CreateBucketStorageTally(ctx context.Context, tally BucketStorageTally) error
-	// ProjectBandwidthTotal returns the sum of GET bandwidth usage for a projectID in the past time frame
-	ProjectBandwidthTotal(ctx context.Context, bucketID []byte, from time.Time) (int64, error)
+	// ProjectAllocatedBandwidthTotal returns the sum of GET bandwidth usage allocated for a projectID in the past time frame
+	ProjectAllocatedBandwidthTotal(ctx context.Context, bucketID []byte, from time.Time) (int64, error)
 	// ProjectStorageTotals returns the current inline and remote storage usage for a projectID
 	ProjectStorageTotals(ctx context.Context, projectID uuid.UUID) (int64, int64, error)
 }

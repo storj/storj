@@ -81,9 +81,10 @@ CREATE TABLE certRecords (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE injuredsegments (
-	id INTEGER NOT NULL,
-	info BLOB NOT NULL,
-	PRIMARY KEY ( id )
+	path TEXT NOT NULL,
+	data BLOB NOT NULL,
+	attempted TIMESTAMP,
+	PRIMARY KEY ( path )
 );
 CREATE TABLE irreparabledbs (
 	segmentpath BLOB NOT NULL,
@@ -102,6 +103,12 @@ CREATE TABLE nodes (
 	wallet TEXT NOT NULL,
 	free_bandwidth INTEGER NOT NULL,
 	free_disk INTEGER NOT NULL,
+	major INTEGER NOT NULL,
+	minor INTEGER NOT NULL,
+	patch INTEGER NOT NULL,
+	hash TEXT NOT NULL,
+	timestamp TIMESTAMP NOT NULL,
+	release INTEGER NOT NULL,
 	latency_90 INTEGER NOT NULL,
 	audit_success_count INTEGER NOT NULL,
 	total_audit_count INTEGER NOT NULL,

@@ -51,7 +51,7 @@ func deleteObject(cmd *cobra.Command, args []string) error {
 	var access libuplink.EncryptionAccess
 	copy(access.Key[:], []byte(cfg.Enc.Key))
 
-	bucket, err := project.OpenBucket(ctx, dst.Bucket(), &access, 0)
+	bucket, err := project.OpenBucket(ctx, dst.Bucket(), &access)
 	if err != nil {
 		return convertError(err, dst)
 	}

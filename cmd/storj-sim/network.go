@@ -70,6 +70,19 @@ func networkEnv(flags *Flags, args []string) error {
 		}
 	}
 
+	if len(args) == 1 {
+		envprefix := strings.ToUpper(args[0] + "=")
+		// find the environment value that the environment variable is set to
+		for _, env := range processes.Env() {
+			if strings.HasPrefix(strings.ToUpper(env), envprefix) {
+				fmt.Println(env[len(envprefix):])
+				return nil
+			}
+		}
+
+		return nil
+	}
+
 	for _, env := range processes.Env() {
 		fmt.Println(env)
 	}
@@ -274,6 +287,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--server.address", process.Address,
 
 				"--satellite-addr", satellite.Address,
+
+				"--enc.key=TestEncryptionKey",
 
 				"--rs.min-threshold", strconv.Itoa(1 * flags.StorageNodeCount / 5),
 				"--rs.repair-threshold", strconv.Itoa(2 * flags.StorageNodeCount / 5),

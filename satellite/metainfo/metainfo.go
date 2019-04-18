@@ -137,6 +137,11 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
+	err = endpoint.validateRedundancy(req.Redundancy)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
 	// Check if this projectID has exceeded alpha usage limits, i.e. 25GB of bandwidth or storage used in the past month
 	// TODO: remove this code once we no longer need usage limiting for alpha release
 	// Ref: https://storjlabs.atlassian.net/browse/V3-1274
@@ -249,19 +254,18 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	// Check if this projectID has exceeded alpha usage limits, i.e. 25GB of bandwidth or storage used in the past month
+	// Check if this projectID has exceeded alpha usage limits for bandwidth or storage used in the past month
 	// TODO: remove this code once we no longer need usage limiting for alpha release
 	// Ref: https://storjlabs.atlassian.net/browse/V3-1274
 	bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
 	from := time.Now().AddDate(0, 0, -accounting.AverageDaysInMonth) // past 30 days
-	bandwidthTotal, err := endpoint.accountingDB.ProjectBandwidthTotal(ctx, bucketID, from)
+	bandwidthTotal, err := endpoint.accountingDB.ProjectAllocatedBandwidthTotal(ctx, bucketID, from)
 	if err != nil {
 		endpoint.log.Error("retrieving ProjectBandwidthTotal", zap.Error(err))
 	}
 	exceeded, resource := accounting.ExceedsAlphaUsage(bandwidthTotal, 0, 0, endpoint.maxAlphaUsage)
 	if exceeded {
-		endpoint.log.Sugar().Errorf("monthly project limits are %s of storage and bandwidth usage. This limit has been exceeded for %s for projectID %s.",
-			endpoint.maxAlphaUsage.String(),
+		endpoint.log.Sugar().Errorf("monthly project usage limit has been exceeded for resource: %s, for project: %d. Contact customer support to increase the limit.",
 			resource, keyInfo.ProjectID,
 		)
 		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Alpha Usage Limit")
@@ -444,6 +448,9 @@ func (endpoint *Endpoint) validateCommit(req *pb.SegmentCommitRequest) error {
 	if req.Pointer.Type == pb.Pointer_REMOTE {
 		remote := req.Pointer.Remote
 
+		if len(req.OriginalLimits) == 0 {
+			return Error.New("no order limits")
+		}
 		if int32(len(req.OriginalLimits)) != remote.Redundancy.Total {
 			return Error.New("invalid no order limit for piece")
 		}
@@ -511,4 +518,12 @@ func CreatePath(projectID uuid.UUID, segmentIndex int64, bucket, path []byte) (s
 		entries = append(entries, string(path))
 	}
 	return storj.JoinPaths(entries...), nil
+}
+
+func (endpoint *Endpoint) validateRedundancy(redundancy *pb.RedundancyScheme) error {
+	// TODO more validation, use validation from eestream.NewRedundancyStrategy
+	if redundancy.ErasureShareSize <= 0 {
+		return Error.New("erasure share size cannot be less than 0")
+	}
+	return nil
 }

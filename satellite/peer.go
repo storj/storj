@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"net/http"
 	"net/mail"
 	"net/smtp"
 	"os"
@@ -17,8 +16,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/post"
 	"storj.io/storj/internal/post/oauth2"
 	"storj.io/storj/internal/version"
@@ -229,16 +228,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		log.Debug("Starting overlay")
 		config := config.Overlay
 
-		nodeSelectionConfig := overlay.NodeSelectionConfig{
-			UptimeCount:           config.Node.UptimeCount,
-			UptimeRatio:           config.Node.UptimeRatio,
-			AuditSuccessRatio:     config.Node.AuditSuccessRatio,
-			AuditCount:            config.Node.AuditCount,
-			NewNodeAuditThreshold: config.Node.NewNodeAuditThreshold,
-			NewNodePercentage:     config.Node.NewNodePercentage,
-		}
-
-		peer.Overlay.Service = overlay.NewCache(peer.Log.Named("overlay"), peer.DB.OverlayCache(), nodeSelectionConfig)
+		peer.Overlay.Service = overlay.NewCache(peer.Log.Named("overlay"), peer.DB.OverlayCache(), config.Node)
 		peer.Transport = peer.Transport.WithObservers(peer.Overlay.Service)
 
 		peer.Overlay.Inspector = overlay.NewInspector(peer.Overlay.Service)
@@ -253,6 +243,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			config.ExternalAddress = peer.Addr()
 		}
 
+		pbVersion, err := versionInfo.Proto()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		self := pb.Node{
 			Id:   peer.ID(),
 			Type: pb.NodeType_SATELLITE,
@@ -262,6 +257,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			Metadata: &pb.NodeMetadata{
 				Wallet: config.Operator.Wallet,
 			},
+			Version: pbVersion,
 		}
 
 		{ // setup routing table
@@ -516,43 +512,36 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 	return peer, nil
 }
 
-func ignoreCancel(err error) error {
-	if err == context.Canceled || err == grpc.ErrServerStopped || err == http.ErrServerClosed {
-		return nil
-	}
-	return err
-}
-
 // Run runs storage node until it's either closed or it errors.
 func (peer *Peer) Run(ctx context.Context) error {
 	group, ctx := errgroup.WithContext(ctx)
 
 	group.Go(func() error {
-		return ignoreCancel(peer.Version.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Version.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Kademlia.Service.Bootstrap(ctx))
+		return errs2.IgnoreCanceled(peer.Kademlia.Service.Bootstrap(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Kademlia.Service.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Kademlia.Service.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Discovery.Service.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Discovery.Service.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Repair.Checker.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Repair.Checker.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Repair.Repairer.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Repair.Repairer.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Accounting.Tally.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Accounting.Tally.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Accounting.Rollup.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Accounting.Rollup.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Audit.Service.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Audit.Service.Run(ctx))
 	})
 	group.Go(func() error {
 		// TODO: move the message into Server instead
@@ -560,10 +549,10 @@ func (peer *Peer) Run(ctx context.Context) error {
 		peer.Log.Sugar().Infof("Node %s started", peer.Identity.ID)
 		peer.Log.Sugar().Infof("Public server started on %s", peer.Addr())
 		peer.Log.Sugar().Infof("Private server started on %s", peer.PrivateAddr())
-		return ignoreCancel(peer.Server.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Server.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Console.Endpoint.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
 	})
 
 	return group.Wait()

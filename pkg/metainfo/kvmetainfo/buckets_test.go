@@ -74,9 +74,9 @@ func TestBucketsBasic(t *testing.T) {
 }
 
 func TestBucketsReadNewWayWriteOldWay(t *testing.T) {
-	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
+	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, bucketStore buckets.Store, streams streams.Store) {
 		// (Old API) Create new bucket
-		_, err := buckets.Put(ctx, TestBucket, storj.AESGCM)
+		_, err := bucketStore.Put(ctx, TestBucket, buckets.Meta{PathEncryptionType: storj.AESGCM})
 		assert.NoError(t, err)
 
 		// (New API) Check that bucket list include the new bucket
@@ -95,7 +95,7 @@ func TestBucketsReadNewWayWriteOldWay(t *testing.T) {
 		}
 
 		// (Old API) Delete the bucket
-		err = buckets.Delete(ctx, TestBucket)
+		err = bucketStore.Delete(ctx, TestBucket)
 		assert.NoError(t, err)
 
 		// (New API) Check that the bucket list is empty
@@ -377,7 +377,7 @@ func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, buckets.Store,
 
 	buckets := buckets.NewStore(streams)
 
-	return kvmetainfo.New(metainfo, buckets, streams, segments, key), buckets, streams, nil
+	return kvmetainfo.New(metainfo, buckets, streams, segments, key, 1*memory.KiB.Int32(), rs, 64*memory.MiB.Int64()), buckets, streams, nil
 }
 
 func forAllCiphers(test func(cipher storj.Cipher)) {

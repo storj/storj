@@ -19,6 +19,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
+	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/miniogw"
@@ -216,18 +217,47 @@ func (flags GatewayFlags) action(ctx context.Context, cliCtx *cli.Context, ident
 }
 
 // NewGateway creates a new minio Gateway
-func (flags GatewayFlags) NewGateway(ctx context.Context, identity *identity.FullIdentity) (gw minio.Gateway, err error) {
-	metainfo, streams, err := flags.GetMetainfo(ctx, identity)
+func (flags GatewayFlags) NewGateway(ctx context.Context, ident *identity.FullIdentity) (gw minio.Gateway, err error) {
+	cfg := libuplink.Config{}
+	cfg.Volatile.TLS = struct {
+		SkipPeerCAWhitelist bool
+		PeerCAWhitelistPath string
+	}{
+		SkipPeerCAWhitelist: !flags.TLS.UsePeerCAWhitelist,
+		PeerCAWhitelistPath: flags.TLS.PeerCAWhitelistPath,
+	}
+	cfg.Volatile.UseIdentity = ident
+	cfg.Volatile.MaxInlineSize = flags.Client.MaxInlineSize
+	cfg.Volatile.MaxMemory = flags.RS.MaxBufferMem
+
+	uplink, err := libuplink.NewUplink(ctx, &cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	apiKey, err := libuplink.ParseAPIKey(flags.Client.APIKey)
+	if err != nil {
+		return nil, err
+	}
+
+	encKey := new(storj.Key)
+	copy(encKey[:], flags.Enc.Key)
+
+	var opts libuplink.ProjectOptions
+	opts.Volatile.EncryptionKey = encKey
+
+	project, err := uplink.OpenProject(ctx, flags.Client.SatelliteAddr, apiKey, &opts)
 	if err != nil {
 		return nil, err
 	}
 
 	return miniogw.NewStorjGateway(
-		metainfo,
-		streams,
-		storj.Cipher(flags.Enc.PathType),
-		flags.GetEncryptionScheme(),
+		project,
+		encKey,
+		storj.Cipher(flags.Enc.PathType).ToCipherSuite(),
+		flags.GetEncryptionScheme().ToEncryptionParameters(),
 		flags.GetRedundancyScheme(),
+		flags.Client.SegmentSize,
 	), nil
 }
 

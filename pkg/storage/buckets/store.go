@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/encryption"
@@ -25,7 +26,7 @@ var mon = monkit.Package()
 // Store creates an interface for interacting with buckets
 type Store interface {
 	Get(ctx context.Context, bucket string) (meta Meta, err error)
-	Put(ctx context.Context, bucket string, pathCipher storj.Cipher) (meta Meta, err error)
+	Put(ctx context.Context, bucket string, inMeta Meta) (meta Meta, err error)
 	Delete(ctx context.Context, bucket string) (err error)
 	List(ctx context.Context, startAfter, endBefore string, limit int) (items []ListItem, more bool, err error)
 	GetObjectStore(ctx context.Context, bucketName string) (store objects.Store, err error)
@@ -98,28 +99,43 @@ func (b *BucketStore) Get(ctx context.Context, bucket string) (meta Meta, err er
 	return convertMeta(objMeta)
 }
 
-// Put calls objects store Put
-func (b *BucketStore) Put(ctx context.Context, bucket string, pathCipher storj.Cipher) (meta Meta, err error) {
+// Put calls objects store Put and fills in some specific metadata to be used
+// in the bucket's object Pointer. Note that the Meta.Created field is ignored.
+func (b *BucketStore) Put(ctx context.Context, bucketName string, inMeta Meta) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if bucket == "" {
+	if bucketName == "" {
 		return Meta{}, storj.ErrNoBucket.New("")
 	}
 
+	pathCipher := inMeta.PathEncryptionType
 	if pathCipher < storj.Unencrypted || pathCipher > storj.SecretBox {
 		return Meta{}, encryption.ErrInvalidConfig.New("encryption type %d is not supported", pathCipher)
 	}
 
 	r := bytes.NewReader(nil)
 	userMeta := map[string]string{
-		"path-enc-type": strconv.Itoa(int(pathCipher)),
+		"path-enc-type":     strconv.Itoa(int(pathCipher)),
+		"default-seg-size":  strconv.FormatInt(inMeta.SegmentsSize, 10),
+		"default-enc-type":  strconv.Itoa(int(inMeta.EncryptionScheme.Cipher)),
+		"default-enc-blksz": strconv.FormatInt(int64(inMeta.EncryptionScheme.BlockSize), 10),
+		"default-rs-algo":   strconv.Itoa(int(inMeta.RedundancyScheme.Algorithm)),
+		"default-rs-sharsz": strconv.FormatInt(int64(inMeta.RedundancyScheme.ShareSize), 10),
+		"default-rs-reqd":   strconv.Itoa(int(inMeta.RedundancyScheme.RequiredShares)),
+		"default-rs-repair": strconv.Itoa(int(inMeta.RedundancyScheme.RepairShares)),
+		"default-rs-optim":  strconv.Itoa(int(inMeta.RedundancyScheme.OptimalShares)),
+		"default-rs-total":  strconv.Itoa(int(inMeta.RedundancyScheme.TotalShares)),
 	}
 	var exp time.Time
-	m, err := b.store.Put(ctx, bucket, r, pb.SerializableMeta{UserDefined: userMeta}, exp)
+	m, err := b.store.Put(ctx, bucketName, r, pb.SerializableMeta{UserDefined: userMeta}, exp)
 	if err != nil {
 		return Meta{}, err
 	}
-	return convertMeta(m)
+	// we could use convertMeta() here, but that's a lot of int-parsing
+	// just to get back to what should be the same contents we already
+	// have. the only change ought to be the modified time.
+	inMeta.Created = m.Modified
+	return inMeta, nil
 }
 
 // Delete calls objects store Delete
@@ -166,27 +182,40 @@ func (b *BucketStore) List(ctx context.Context, startAfter, endBefore string, li
 }
 
 // convertMeta converts stream metadata to object metadata
-func convertMeta(m objects.Meta) (Meta, error) {
-	var cipher storj.Cipher
+func convertMeta(m objects.Meta) (out Meta, err error) {
+	out.Created = m.Modified
+	// backwards compatibility for old buckets
+	out.PathEncryptionType = storj.AESGCM
+	out.EncryptionScheme.Cipher = storj.Invalid
 
-	pathEncType := m.UserDefined["path-enc-type"]
-
-	if pathEncType == "" {
-		// backward compatibility for old buckets
-		cipher = storj.AESGCM
-	} else {
-		pet, err := strconv.Atoi(pathEncType)
+	applySetting := func(nameInMap string, bits int, storeFunc func(val int64)) {
 		if err != nil {
-			return Meta{}, err
+			return
 		}
-		cipher = storj.Cipher(pet)
+		if stringVal := m.UserDefined[nameInMap]; stringVal != "" {
+			var intVal int64
+			intVal, err = strconv.ParseInt(stringVal, 10, bits)
+			if err != nil {
+				err = errs.New("invalid metadata field for %s: %v", nameInMap, err)
+				return
+			}
+			storeFunc(intVal)
+		}
 	}
 
-	return Meta{
-		Created:            m.Modified,
-		PathEncryptionType: cipher,
-		RedundancyScheme:   m.RedundancyScheme,
-		EncryptionScheme:   m.EncryptionScheme,
-		SegmentsSize:       m.SegmentsSize,
-	}, nil
+	es := &out.EncryptionScheme
+	rs := &out.RedundancyScheme
+
+	applySetting("path-enc-type", 16, func(v int64) { out.PathEncryptionType = storj.Cipher(v) })
+	applySetting("default-seg-size", 64, func(v int64) { out.SegmentsSize = v })
+	applySetting("default-enc-type", 32, func(v int64) { es.Cipher = storj.Cipher(v) })
+	applySetting("default-enc-blksz", 32, func(v int64) { es.BlockSize = int32(v) })
+	applySetting("default-rs-algo", 32, func(v int64) { rs.Algorithm = storj.RedundancyAlgorithm(v) })
+	applySetting("default-rs-sharsz", 32, func(v int64) { rs.ShareSize = int32(v) })
+	applySetting("default-rs-reqd", 16, func(v int64) { rs.RequiredShares = int16(v) })
+	applySetting("default-rs-repair", 16, func(v int64) { rs.RepairShares = int16(v) })
+	applySetting("default-rs-optim", 16, func(v int64) { rs.OptimalShares = int16(v) })
+	applySetting("default-rs-total", 16, func(v int64) { rs.TotalShares = int16(v) })
+
+	return out, err
 }

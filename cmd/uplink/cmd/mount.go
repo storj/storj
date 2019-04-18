@@ -64,7 +64,7 @@ func mountBucket(cmd *cobra.Command, args []string) (err error) {
 	var access libuplink.EncryptionAccess
 	copy(access.Key[:], []byte(cfg.Enc.Key))
 
-	bucket, err := project.OpenBucket(ctx, src.Bucket(), &access, 0)
+	bucket, err := project.OpenBucket(ctx, src.Bucket(), &access)
 	if err != nil {
 		return convertError(err, src)
 	}

@@ -56,7 +56,7 @@ func list(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("No bucket specified, use format sj://bucket/")
 		}
 
-		bucket, err := project.OpenBucket(ctx, src.String(), &access, 0)
+		bucket, err := project.OpenBucket(ctx, src.String(), &access)
 		if err != nil {
 			return err
 		}
@@ -84,7 +84,7 @@ func list(cmd *cobra.Command, args []string) error {
 						return err
 					}
 
-					bucket, err := project.OpenBucket(ctx, bucket.Name, &access, 0)
+					bucket, err := project.OpenBucket(ctx, bucket.Name, &access)
 					if err != nil {
 						return err
 					}

@@ -76,11 +76,12 @@ func (opts *Options) ExtensionOptions() *extensions.Options {
 	return &extensions.Options{
 		PeerCAWhitelist: opts.PeerCAWhitelist,
 		RevDB:           opts.RevDB,
+		PeerIDVersions:  opts.Config.PeerIDVersions,
 	}
 }
 
-// configure adds peer certificate verification functions and revocation
-// database to the config.
+// configure adds peer certificate verification functions and data structures
+// required for completing TLS handshakes to the options.
 func (opts *Options) configure() (err error) {
 	if opts.Config.UsePeerCAWhitelist {
 		whitelist := []byte(DefaultPeerCAWhitelist)
@@ -173,11 +174,11 @@ func (vf *VerificationFuncs) ServerAdd(verificationFuncs ...peertls.PeerCertVeri
 }
 
 func removeNils(verificationFuncs []peertls.PeerCertVerificationFunc) []peertls.PeerCertVerificationFunc {
-	for i, f := range verificationFuncs {
-		if f == nil {
-			copy(verificationFuncs[i:], verificationFuncs[i+1:])
-			verificationFuncs = verificationFuncs[:len(verificationFuncs)-1]
+	result := verificationFuncs[:0]
+	for _, f := range verificationFuncs {
+		if f != nil {
+			result = append(result, f)
 		}
 	}
-	return verificationFuncs
+	return result
 }
