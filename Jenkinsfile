@@ -2,14 +2,13 @@ pipeline {
     agent {
         docker {
             image 'golang:1.12'
-            args '-u root:root'
+            //args '-u root:root'
         }
     }
     stages {
         stage('Environment') {
             steps {
-                //Disable script, as already installed
-                //sh 'bash ./scripts/install-awscli.sh'
+                sh 'bash ./scripts/install-awscli.sh'
                 sh 'curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.16.0'
                 sh 'curl -L https://github.com/google/protobuf/releases/download/v3.6.1/protoc-3.6.1-linux-x86_64.zip -o /tmp/protoc.zip'
                 // sh 'unzip /tmp/protoc.zip -d "$HOME"/protoc'
@@ -66,7 +65,6 @@ pipeline {
 
                 stage('Integration') {
                     steps {
-                        sh 'echo $PATH'
                         sh 'make test-sim'
                     }
                 }
