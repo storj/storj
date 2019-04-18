@@ -72,45 +72,8 @@ CREATE TABLE segments (
 
     data_checksum        INT8   NOT NULL; -- 8 bytes (do we need this, is this encrypted_data_checksum or cleardata_checksum)
     data_size            INT4   NOT NULL DEFAULT -1; -- 4 bytes
-    inline_data_or_nodes BYTEA  NOT NULL; -- 100 * 32 bytes (or 100 * 8 bytes with node link optimization)
+    inline_data          BYTEA  NOT NULL;
+    nodes                BYTEA  NOT NULL; -- 100 * 32 bytes (or 100 * 8 bytes with node link optimization)
 
     PRIMARY KEY (stream_id, segment_index);
-)
-
-----------------------------------------------------------------------------------------------------------------------------------------------------------------
--- alternate implementation of segments
-----------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-CREATE TABLE committed_segments (
-    -- total ~3350 bytes or ~950 bytes (ignoring inline data)
-    stream_id            UUID   NOT NULL; -- 16 bytes (or should this be a serial of 8 bytes)
-
-    segment_index        INT4   NOT NULL; -- 4 bytes
-
-    root_piece_id        BYTEA  NOT NULL; -- 32 bytes
-    encrypted_key_nonce  BYTEA  NOT NULL; -- 32 bytes
-    encrypted_key        BYTEA  NOT NULL; -- 32 bytes
-
-    data_checksum        INT8   NOT NULL; -- 8 bytes (do we need this, is this encrypted_data_checksum or cleardata_checksum)
-    data_size            INT4   NOT NULL; -- 4 bytes
-    inline_data_or_nodes BYTEA  NOT NULL; -- 100 * 32 bytes (or 100 * 8 bytes with node link optimization)
-
-    PRIMARY KEY (stream_id, segment_index);
-)
-
-CREATE TABLE partial_segments (
-    -- total ~3350 bytes or ~950 bytes (ignoring inline data)
-    stream_id            UUID   NOT NULL; -- 16 bytes (or should this be a serial of 8 bytes)
-
-    segment_upload_index INT8   NOT NULL; -- 8 bytes
-
-    root_piece_id        BYTEA  NOT NULL; -- 32 bytes
-    encrypted_key_nonce  BYTEA  NOT NULL; -- 32 bytes
-    encrypted_key        BYTEA  NOT NULL; -- 32 bytes
-
-    data_checksum        INT8   NOT NULL; -- 8 bytes (do we need this, is this encrypted_data_checksum or cleardata_checksum)
-    data_size            INT4   NOT NULL; -- 4 bytes
-    inline_data_or_nodes BYTEA  NOT NULL; -- 100 * 32 bytes (or 100 * 8 bytes with node link optimization)
-
-    PRIMARY KEY (stream_id, segment_upload_index);
 )
