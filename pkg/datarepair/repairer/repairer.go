@@ -106,7 +106,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	return service.Loop.Run(ctx, func(ctx context.Context) error {
 		err := service.process(ctx)
 		if err != nil {
-			zap.L().Error("Process", zap.Error(err))
+			zap.L().Error("process", zap.Error(err))
 		}
 		return nil
 	})
@@ -126,11 +126,11 @@ func (service *Service) process(ctx context.Context) error {
 		service.Limiter.Go(ctx, func() {
 			err := service.repairer.Repair(ctx, seg.GetPath(), seg.GetLostPieces())
 			if err != nil {
-				zap.L().Error("Repair failed", zap.Error(err))
+				zap.L().Error("repair failed", zap.Error(err))
 			}
 			err = service.queue.Delete(ctx, seg)
 			if err != nil {
-				zap.L().Error("Repair delete failed", zap.Error(err))
+				zap.L().Error("repair delete failed", zap.Error(err))
 			}
 		})
 	}
