@@ -610,6 +610,32 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE storagenode_storage_tallies DROP COLUMN data_type`,
 				},
 			},
+			{
+				Description: "Retrofit storagenode_bandwidth_rollups into accounting_rollups since April 1, 2019",
+				Version:     18,
+				Action: migrate.SQL{
+					`WITH node_rollups AS (SELECT
+						storagenode_id AS node_id
+						,date_trunc('day', interval_start) AS start_time
+						,SUM(CASE WHEN action = 1 THEN settled ELSE 0 END) AS put_total
+						,SUM(CASE WHEN action = 2 THEN settled ELSE 0 END) AS get_total
+						,SUM(CASE WHEN action = 3 THEN settled ELSE 0 END) AS get_audit_total
+						,SUM(CASE WHEN action = 4 THEN settled ELSE 0 END) AS get_repair_total
+						,SUM(CASE WHEN action = 5 THEN settled ELSE 0 END) AS put_repair_total
+						FROM storagenode_bandwidth_rollups
+						WHERE interval_start >= '4/1/2019'
+						GROUP BY node_id, start_time)
+						
+						UPDATE accounting_rollups
+						SET put_total = node_rollups.put_total
+						,get_total = node_rollups.get_total
+						,get_audit_total = node_rollups.get_audit_total
+						,get_repair_total = node_rollups.get_repair_total
+						,put_repair_total = node_rollups.put_repair_total
+						FROM node_rollups
+						WHERE accounting_rollups.node_id = node_rollups.node_id AND accounting_rollups.start_time = node_rollups.start_time;`,
+				},
+			},
 		},
 	}
 }
