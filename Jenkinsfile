@@ -8,7 +8,7 @@ pipeline {
     stages {
         stage('Environment') {
             steps {
-                sh 'apt-get install unzip -y'
+                sh 'apt-get update && apt-get install unzip -y'
                 sh 'bash ./scripts/install-awscli.sh'
                 sh 'curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.16.0'
                 sh 'curl -L https://github.com/google/protobuf/releases/download/v3.6.1/protoc-3.6.1-linux-x86_64.zip -o /tmp/protoc.zip'
