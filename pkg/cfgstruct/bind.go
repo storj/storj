@@ -19,7 +19,9 @@ import (
 	"storj.io/storj/internal/memory"
 )
 
-// BindOpt is an option for the Bind method
+// BindOpt is an option for the Bind method. This allows you to change default
+// value variables and many other options. Please see ConfDir and IdentityDir
+// for examples.
 type BindOpt struct {
 	varfn func(vars map[string]confVar)
 }
