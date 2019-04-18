@@ -1,22 +1,4 @@
 -- Copied from the corresponding version of dbx generated schema
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 06c890b08... merge conflicts
-CREATE TABLE accounting_raws (
-	id bigserial NOT NULL,
-	node_id bytea NOT NULL,
-	interval_end_time timestamp with time zone NOT NULL,
-	data_total double precision NOT NULL,
-	data_type integer NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id )
-);
-<<<<<<< HEAD
-=======
->>>>>>> 21c04d558... migration
-=======
->>>>>>> 06c890b08... merge conflicts
 CREATE TABLE accounting_rollups (
 	id bigserial NOT NULL,
 	node_id bytea NOT NULL,
@@ -89,22 +71,9 @@ CREATE TABLE certRecords (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE injuredsegments (
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 06c890b08... merge conflicts
-	path text NOT NULL,
-	data bytea NOT NULL,
-	attempted timestamp,
-	PRIMARY KEY ( path )
-<<<<<<< HEAD
-=======
 	id bigserial NOT NULL,
 	info bytea NOT NULL,
 	PRIMARY KEY ( id )
->>>>>>> 21c04d558... migration
-=======
->>>>>>> 06c890b08... merge conflicts
 );
 CREATE TABLE irreparabledbs (
 	segmentpath bytea NOT NULL,
@@ -174,25 +143,12 @@ CREATE TABLE storagenode_bandwidth_rollups (
 	PRIMARY KEY ( storagenode_id, interval_start, action )
 );
 CREATE TABLE storagenode_storage_tallies (
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 06c890b08... merge conflicts
-	storagenode_id bytea NOT NULL,
-	interval_start timestamp NOT NULL,
-	total bigint NOT NULL,
-	PRIMARY KEY ( storagenode_id, interval_start )
-<<<<<<< HEAD
-=======
 	id bigserial NOT NULL,
 	node_id bytea NOT NULL,
 	interval_end_time timestamp with time zone NOT NULL,
 	data_total double precision NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
->>>>>>> 21c04d558... migration
-=======
->>>>>>> 06c890b08... merge conflicts
 );
 CREATE TABLE users (
 	id bytea NOT NULL,
@@ -225,15 +181,7 @@ CREATE TABLE used_serials (
 	storage_node_id bytea NOT NULL,
 	PRIMARY KEY ( serial_number_id, storage_node_id )
 );
-<<<<<<< HEAD
-<<<<<<< HEAD
-CREATE INDEX bucket_id_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
-=======
 CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
->>>>>>> 21c04d558... migration
-=======
-CREATE INDEX bucket_id_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
->>>>>>> 06c890b08... merge conflicts
 CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
@@ -241,16 +189,6 @@ CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandw
 
 ---
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-INSERT INTO "accounting_raws" VALUES (1, E'\\3510\\323\\225"~\\036<\\342\\330m\\0253Jhr\\246\\233K\\246#\\2303\\351\\256\\275j\\212UM\\362\\207', '2019-02-14 08:16:57.812849+00', 1000, 0, '2019-02-14 08:16:57.844849+00');
-
-=======
->>>>>>> 21c04d558... migration
-=======
-INSERT INTO "accounting_raws" VALUES (1, E'\\3510\\323\\225"~\\036<\\342\\330m\\0253Jhr\\246\\233K\\246#\\2303\\351\\256\\275j\\212UM\\362\\207', '2019-02-14 08:16:57.812849+00', 1000, 0, '2019-02-14 08:16:57.844849+00');
-
->>>>>>> 06c890b08... merge conflicts
 INSERT INTO "accounting_rollups"("id", "node_id", "start_time", "put_total", "get_total", "get_audit_total", "get_repair_total", "put_repair_total", "at_rest_total") VALUES (1, E'\\367M\\177\\251]t/\\022\\256\\214\\265\\025\\224\\204:\\217\\212\\0102<\\321\\374\\020&\\271Qc\\325\\261\\354\\246\\233'::bytea, '2019-02-09 00:00:00+00', 1000, 2000, 3000, 4000, 0, 5000);
 
 INSERT INTO "accounting_timestamps" VALUES ('LastAtRestTally', '0001-01-01 00:00:00+00');
@@ -268,21 +206,7 @@ INSERT INTO "project_members"("member_id", "project_id", "created_at") VALUES (E
 
 INSERT INTO "bwagreements"("serialnum", "storage_node_id", "action", "total", "created_at", "expires_at", "uplink_id") VALUES ('8fc0ceaa-984c-4d52-bcf4-b5429e1e35e812FpiifDbcJkePa12jxjDEutKrfLmwzT7sz2jfVwpYqgtM8B74c', E'\\245Z[/\\333\\022\\011\\001\\036\\003\\204\\005\\032.\\206\\333E\\261\\342\\227=y,}aRaH6\\240\\370\\000'::bytea, 1, 666, '2019-02-14 15:09:54.420181+00', '2019-02-14 16:09:54+00', E'\\253Z+\\374eFm\\245$\\036\\206\\335\\247\\263\\350x\\\\\\304+\\364\\343\\364+\\276fIJQ\\361\\014\\232\\000'::bytea);
 INSERT INTO "irreparabledbs" ("segmentpath", "segmentdetail", "pieces_lost_count", "seg_damaged_unix_sec", "repair_attempt_count") VALUES ('\x49616d5365676d656e746b6579696e666f30', '\x49616d5365676d656e7464657461696c696e666f30', 10, 1550159554, 10);
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 06c890b08... merge conflicts
-
-INSERT INTO "injuredsegments" ("path", "data") VALUES ('0', '\x0a0130120100');
-INSERT INTO "injuredsegments" ("path", "data") VALUES ('here''s/a/great/path', '\x0a136865726527732f612f67726561742f70617468120a0102030405060708090a');
-INSERT INTO "injuredsegments" ("path", "data") VALUES ('yet/another/cool/path', '\x0a157965742f616e6f746865722f636f6f6c2f70617468120a0102030405060708090a');
-INSERT INTO "injuredsegments" ("path", "data") VALUES ('so/many/iconic/paths/to/choose/from', '\x0a23736f2f6d616e792f69636f6e69632f70617468732f746f2f63686f6f73652f66726f6d120a0102030405060708090a');
-<<<<<<< HEAD
-=======
 INSERT INTO "injuredsegments" ("id", "info") VALUES (1, '\x0a0130120100');
->>>>>>> 21c04d558... migration
-=======
->>>>>>> 06c890b08... merge conflicts
 
 INSERT INTO "certrecords" VALUES (E'0Y0\\023\\006\\007*\\206H\\316=\\002\\001\\006\\010*\\206H\\316=\\003\\001\\007\\003B\\000\\004\\360\\267\\227\\377\\253u\\222\\337Y\\324C:GQ\\010\\277v\\010\\315D\\271\\333\\337.\\203\\023=C\\343\\014T%6\\027\\362?\\214\\326\\017U\\334\\000\\260\\224\\260J\\221\\304\\331F\\304\\221\\236zF,\\325\\326l\\215\\306\\365\\200\\022', E'L\\301|\\200\\247}F|1\\320\\232\\037n\\335\\241\\206\\244\\242\\207\\204.\\253\\357\\326\\352\\033Dt\\202`\\022\\325', '2019-02-14 08:07:31.335028+00');
 
@@ -294,15 +218,7 @@ INSERT INTO "serial_numbers" ("id", "serial_number", "bucket_id", "expires_at") 
 INSERT INTO "used_serials" ("serial_number_id", "storage_node_id") VALUES (1, E'\\006\\223\\250R\\221\\005\\365\\377v>0\\266\\365\\216\\255?\\347\\244\\371?2\\264\\262\\230\\007<\\001\\262\\263\\237\\247n');
 
 INSERT INTO "storagenode_bandwidth_rollups" ("storagenode_id", "interval_start", "interval_seconds", "action", "allocated", "settled") VALUES (E'\\006\\223\\250R\\221\\005\\365\\377v>0\\266\\365\\216\\255?\\347\\244\\371?2\\264\\262\\230\\007<\\001\\262\\263\\237\\247n', '2019-03-06 08:00:00.000000+00', 3600, 1, 1024, 2024);
-<<<<<<< HEAD
-<<<<<<< HEAD
-INSERT INTO "storagenode_storage_tallies" ("storagenode_id", "interval_start", "total") VALUES (E'\\006\\223\\250R\\221\\005\\365\\377v>0\\266\\365\\216\\255?\\347\\244\\371?2\\264\\262\\230\\007<\\001\\262\\263\\237\\247n', '2019-03-06 08:00:00.000000+00', 4024);
-=======
 INSERT INTO "storagenode_storage_tallies" VALUES (1, E'\\3510\\323\\225"~\\036<\\342\\330m\\0253Jhr\\246\\233K\\246#\\2303\\351\\256\\275j\\212UM\\362\\207', '2019-02-14 08:16:57.812849+00', 1000, '2019-02-14 08:16:57.844849+00');
->>>>>>> 21c04d558... migration
-=======
-INSERT INTO "storagenode_storage_tallies" ("storagenode_id", "interval_start", "total") VALUES (E'\\006\\223\\250R\\221\\005\\365\\377v>0\\266\\365\\216\\255?\\347\\244\\371?2\\264\\262\\230\\007<\\001\\262\\263\\237\\247n', '2019-03-06 08:00:00.000000+00', 4024);
->>>>>>> 06c890b08... merge conflicts
 
 INSERT INTO "bucket_bandwidth_rollups" ("bucket_name", "project_id", "interval_start", "interval_seconds", "action", "inline", "allocated", "settled") VALUES (E'testbucket'::bytea, E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea,'2019-03-06 08:00:00.000000+00', 3600, 1, 1024, 2024, 3024);
 INSERT INTO "bucket_storage_tallies" ("bucket_name", "project_id", "interval_start", "inline", "remote", "remote_segments_count", "inline_segments_count", "object_count", "metadata_size") VALUES (E'testbucket'::bytea, E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea,'2019-03-06 08:00:00.000000+00', 4024, 5024, 0, 0, 0, 0);

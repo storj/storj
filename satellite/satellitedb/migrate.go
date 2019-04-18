@@ -601,6 +601,15 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					return nil
 				}),
 			},
+			{
+				Description: "Drops storagenode_storage_tally table, Renames accounting_raws to storagenode_storage_tally, and Drops data_type column",
+				Version:     17,
+				Action: migrate.SQL{
+					`DROP TABLE storagenode_storage_tallies CASCADE`,
+					`ALTER TABLE accounting_raws RENAME TO storagenode_storage_tallies`,
+					`ALTER TABLE storagenode_storage_tallies DROP COLUMN data_type`,
+				},
+			},
 		},
 	}
 }
