@@ -79,7 +79,13 @@ func (c *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, error
 		return nil, err
 	}
 
-	return uplink.OpenProject(ctx, satelliteAddr, apiKey, nil)
+	opts := &libuplink.ProjectOptions{}
+
+	encKey := new(storj.Key)
+	copy(encKey[:], c.Enc.Key)
+	opts.Volatile.EncryptionKey = encKey
+
+	return uplink.OpenProject(ctx, satelliteAddr, apiKey, opts)
 }
 
 func (c *Client) getAPIKey() (libuplink.APIKey, error) {
