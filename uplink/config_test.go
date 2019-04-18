@@ -47,6 +47,7 @@ func TestKeyFilepath_Key(t *testing.T) {
 	t.Run("ok: file with key length greater than max size", func(t *testing.T) {
 		expKey := make([]byte, rand.Intn(10)+1+storj.KeySize)
 		_, err := rand.Read(expKey)
+		require.NoError(t, err)
 		fpath, cleanup := saveKey(expKey)
 		defer cleanup()
 
