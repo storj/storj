@@ -101,10 +101,11 @@ func (db *accountingDB) SaveStoragenodeStorageTallies(ctx context.Context, lates
 	}
 	err := db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
 		for k, v := range nodeData {
-			nID := dbx.StoragenodeStorageTally_StoragenodeId(k.Bytes())
-			timestamp := dbx.StoragenodeStorageTally_IntervalStart(latestTally)
-			total := dbx.StoragenodeStorageTally_Total(v)
-			_, err := tx.Create_StoragenodeStorageTally(ctx, nID, timestamp, total)
+			nID := dbx.StoragenodeStorageTally_NodeId(k.Bytes())
+			end := dbx.StoragenodeStorageTally_IntervalEndTime(latestTally)
+			total := dbx.StoragenodeStorageTally_DataTotal(v)
+			created := dbx.StoragenodeStorageTally_CreatedAt(created)
+			_, err := tx.Create_StoragenodeStorageTally(ctx, nID, end, total, created)
 			if err != nil {
 				return err
 			}
@@ -117,36 +118,36 @@ func (db *accountingDB) SaveStoragenodeStorageTallies(ctx context.Context, lates
 }
 
 // GetStoragenodeStorage retrieves all the storagenode at rest data tallies
-func (db *accountingDB) GetStoragenodeStorage(ctx context.Context) ([]*StoragenodeStorageTally, error) {
+func (db *accountingDB) GetStoragenodeStorage(ctx context.Context) ([]*accounting.StoragenodeStorageTally, error) {
 	tallies, err := db.db.All_StoragenodeStorageTally(ctx)
 	out := make([]*accounting.StoragenodeStorageTally, len(tallies))
 	for i, t := range tallies {
-		nodeID, err := storj.NodeIDFromBytes(t.NodeID)
+		nodeID, err := storj.NodeIDFromBytes(t.NodeId)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
 		out[i] = &accounting.StoragenodeStorageTally{
-			NodeID:        nodeID,
-			IntervalStart: t.IntervalStart,
-			Total:         t.Total,
+			NodeID:          nodeID,
+			IntervalEndTime: t.IntervalEndTime,
+			DataTotal:       t.DataTotal,
 		}
 	}
 	return out, Error.Wrap(err)
 }
 
 // GetStoragenodeStorageSince retrieves all the storagenode at rest data tallies since latestRollup
-func (db *accountingDB) GetStoragenodeStorageSince(ctx context.Context, latestRollup time.Time) ([]*StoragenodeStorageTally, error) {
-	tallies, err := db.db.All_StoragenodeStorageTally_By_IntervalStart_GreaterOrEqual(ctx, dbx.StoragenodeStorageTally_IntervalStart(latestRollup))
+func (db *accountingDB) GetStoragenodeStorageSince(ctx context.Context, latestRollup time.Time) ([]*accounting.StoragenodeStorageTally, error) {
+	tallies, err := db.db.All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqual(ctx, dbx.StoragenodeStorageTally_IntervalEndTime(latestRollup))
 	out := make([]*accounting.StoragenodeStorageTally, len(tallies))
 	for i, t := range tallies {
-		nodeID, err := storj.NodeIDFromBytes(t.NodeID)
+		nodeID, err := storj.NodeIDFromBytes(t.NodeId)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
 		out[i] = &accounting.StoragenodeStorageTally{
-			NodeID:        nodeID,
-			IntervalStart: t.IntervalStart,
-			Total:         t.Total,
+			NodeID:          nodeID,
+			IntervalEndTime: t.IntervalEndTime,
+			DataTotal:       t.DataTotal,
 		}
 	}
 	return out, Error.Wrap(err)
