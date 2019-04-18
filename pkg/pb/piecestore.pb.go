@@ -3,11 +3,13 @@
 
 package pb
 
-import proto "github.com/gogo/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import _ "github.com/gogo/protobuf/gogoproto"
-import _ "github.com/golang/protobuf/ptypes/duration"
+import (
+	fmt "fmt"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/gogo/protobuf/proto"
+	_ "github.com/golang/protobuf/ptypes/duration"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -37,6 +39,7 @@ var BandwidthAction_name = map[int32]string{
 	3: "GET_REPAIR",
 	4: "PUT_REPAIR",
 }
+
 var BandwidthAction_value = map[string]int32{
 	"PUT":        0,
 	"GET":        1,
@@ -48,8 +51,9 @@ var BandwidthAction_value = map[string]int32{
 func (x BandwidthAction) String() string {
 	return proto.EnumName(BandwidthAction_name, int32(x))
 }
+
 func (BandwidthAction) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_piecestore_d90b57bcb7a0125f, []int{0}
+	return fileDescriptor_569d535d76469daf, []int{0}
 }
 
 type PayerBandwidthAllocation struct {
@@ -71,7 +75,7 @@ func (m *PayerBandwidthAllocation) Reset()         { *m = PayerBandwidthAllocati
 func (m *PayerBandwidthAllocation) String() string { return proto.CompactTextString(m) }
 func (*PayerBandwidthAllocation) ProtoMessage()    {}
 func (*PayerBandwidthAllocation) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piecestore_d90b57bcb7a0125f, []int{0}
+	return fileDescriptor_569d535d76469daf, []int{0}
 }
 func (m *PayerBandwidthAllocation) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PayerBandwidthAllocation.Unmarshal(m, b)
@@ -79,8 +83,8 @@ func (m *PayerBandwidthAllocation) XXX_Unmarshal(b []byte) error {
 func (m *PayerBandwidthAllocation) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_PayerBandwidthAllocation.Marshal(b, m, deterministic)
 }
-func (dst *PayerBandwidthAllocation) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_PayerBandwidthAllocation.Merge(dst, src)
+func (m *PayerBandwidthAllocation) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_PayerBandwidthAllocation.Merge(m, src)
 }
 func (m *PayerBandwidthAllocation) XXX_Size() int {
 	return xxx_messageInfo_PayerBandwidthAllocation.Size(m)
@@ -155,7 +159,7 @@ func (m *RenterBandwidthAllocation) Reset()         { *m = RenterBandwidthAlloca
 func (m *RenterBandwidthAllocation) String() string { return proto.CompactTextString(m) }
 func (*RenterBandwidthAllocation) ProtoMessage()    {}
 func (*RenterBandwidthAllocation) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piecestore_d90b57bcb7a0125f, []int{1}
+	return fileDescriptor_569d535d76469daf, []int{1}
 }
 func (m *RenterBandwidthAllocation) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RenterBandwidthAllocation.Unmarshal(m, b)
@@ -163,8 +167,8 @@ func (m *RenterBandwidthAllocation) XXX_Unmarshal(b []byte) error {
 func (m *RenterBandwidthAllocation) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RenterBandwidthAllocation.Marshal(b, m, deterministic)
 }
-func (dst *RenterBandwidthAllocation) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RenterBandwidthAllocation.Merge(dst, src)
+func (m *RenterBandwidthAllocation) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RenterBandwidthAllocation.Merge(m, src)
 }
 func (m *RenterBandwidthAllocation) XXX_Size() int {
 	return xxx_messageInfo_RenterBandwidthAllocation.Size(m)
@@ -216,7 +220,7 @@ func (m *SignedMessage) Reset()         { *m = SignedMessage{} }
 func (m *SignedMessage) String() string { return proto.CompactTextString(m) }
 func (*SignedMessage) ProtoMessage()    {}
 func (*SignedMessage) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piecestore_d90b57bcb7a0125f, []int{2}
+	return fileDescriptor_569d535d76469daf, []int{2}
 }
 func (m *SignedMessage) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SignedMessage.Unmarshal(m, b)
@@ -224,8 +228,8 @@ func (m *SignedMessage) XXX_Unmarshal(b []byte) error {
 func (m *SignedMessage) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SignedMessage.Marshal(b, m, deterministic)
 }
-func (dst *SignedMessage) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SignedMessage.Merge(dst, src)
+func (m *SignedMessage) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SignedMessage.Merge(m, src)
 }
 func (m *SignedMessage) XXX_Size() int {
 	return xxx_messageInfo_SignedMessage.Size(m)
@@ -270,7 +274,7 @@ func (m *SignedHash) Reset()         { *m = SignedHash{} }
 func (m *SignedHash) String() string { return proto.CompactTextString(m) }
 func (*SignedHash) ProtoMessage()    {}
 func (*SignedHash) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piecestore_d90b57bcb7a0125f, []int{3}
+	return fileDescriptor_569d535d76469daf, []int{3}
 }
 func (m *SignedHash) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SignedHash.Unmarshal(m, b)
@@ -278,8 +282,8 @@ func (m *SignedHash) XXX_Unmarshal(b []byte) error {
 func (m *SignedHash) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SignedHash.Marshal(b, m, deterministic)
 }
-func (dst *SignedHash) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SignedHash.Merge(dst, src)
+func (m *SignedHash) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SignedHash.Merge(m, src)
 }
 func (m *SignedHash) XXX_Size() int {
 	return xxx_messageInfo_SignedHash.Size(m)
@@ -312,16 +316,16 @@ func (m *SignedHash) GetSignature() []byte {
 }
 
 func init() {
+	proto.RegisterEnum("piecestoreroutes.BandwidthAction", BandwidthAction_name, BandwidthAction_value)
 	proto.RegisterType((*PayerBandwidthAllocation)(nil), "piecestoreroutes.PayerBandwidthAllocation")
 	proto.RegisterType((*RenterBandwidthAllocation)(nil), "piecestoreroutes.RenterBandwidthAllocation")
 	proto.RegisterType((*SignedMessage)(nil), "piecestoreroutes.SignedMessage")
 	proto.RegisterType((*SignedHash)(nil), "piecestoreroutes.SignedHash")
-	proto.RegisterEnum("piecestoreroutes.BandwidthAction", BandwidthAction_name, BandwidthAction_value)
 }
 
-func init() { proto.RegisterFile("piecestore.proto", fileDescriptor_piecestore_d90b57bcb7a0125f) }
+func init() { proto.RegisterFile("piecestore.proto", fileDescriptor_569d535d76469daf) }
 
-var fileDescriptor_piecestore_d90b57bcb7a0125f = []byte{
+var fileDescriptor_569d535d76469daf = []byte{
 	// 548 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x74, 0x53, 0x41, 0x4f, 0xdb, 0x3e,
 	0x1c, 0x25, 0x4d, 0x5a, 0xc8, 0x8f, 0xb6, 0xe4, 0xef, 0x3f, 0x87, 0x80, 0xb6, 0xd1, 0xb1, 0x4b,
