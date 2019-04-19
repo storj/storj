@@ -78,20 +78,20 @@ func main() {
 	defer encoder.EncodeToken(xml.EndElement{Name: xml.Name{Local: "testsuites"}})
 
 	for _, pkg := range pkgs {
-		if pkg.NoTests {
+		failed := pkg.TestsByAction(parse.ActionFail)
+		skipped := pkg.TestsByAction(parse.ActionSkip)
+		passed := pkg.TestsByAction(parse.ActionPass)
+
+		all := []*parse.Test{}
+		all = append(all, failed...)
+		all = append(all, skipped...)
+		all = append(all, passed...)
+
+		if pkg.NoTests || len(all) == 0 {
 			continue
 		}
 
 		func() {
-			failed := pkg.TestsByAction(parse.ActionFail)
-			skipped := pkg.TestsByAction(parse.ActionSkip)
-			passed := pkg.TestsByAction(parse.ActionPass)
-
-			all := []*parse.Test{}
-			all = append(all, failed...)
-			all = append(all, skipped...)
-			all = append(all, passed...)
-
 			encoder.EncodeToken(xml.StartElement{
 				Name: xml.Name{Local: "testsuite"},
 				Attr: []xml.Attr{
