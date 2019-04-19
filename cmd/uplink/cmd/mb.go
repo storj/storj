@@ -54,14 +54,6 @@ func makeBucket(cmd *cobra.Command, args []string) error {
 		}
 	}()
 
-	_, _, err = project.GetBucketInfo(ctx, dst.Bucket())
-	if err == nil {
-		return fmt.Errorf("Bucket already exists")
-	}
-	if !storj.ErrBucketNotFound.Has(err) {
-		return err
-	}
-
 	bucketCfg := &uplink.BucketConfig{}
 	//TODO (alex): make segment size customizable
 	bucketCfg.Volatile = struct {
