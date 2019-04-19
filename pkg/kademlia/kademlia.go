@@ -160,7 +160,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 
 	var errGroup errs.Group
 	for i := 0; waitInterval < k.bootstrapBackoffMax; i++ {
-		if i < 0 {
+		if i > 0 {
 			time.Sleep(waitInterval)
 			waitInterval = waitInterval * 2
 		}

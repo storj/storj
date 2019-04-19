@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/storj/bootstrap"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
@@ -99,7 +100,7 @@ func TestPingTimeout(t *testing.T) {
 	})
 }
 
-func TestBootstrapBackoff(t *testing.T) {
+func TestBootstrapBackoffReconnect(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -114,8 +115,8 @@ func TestBootstrapBackoff(t *testing.T) {
 			},
 			StorageNode: func(index int, config *storagenode.Config) {
 				config.Kademlia.BootstrapAddr = proxy.listener.Addr().String()
-				config.Kademlia.BootstrapBackoffBase = 1 * time.Second
-				config.Kademlia.BootstrapBackoffMax = 10 * time.Second
+				config.Kademlia.BootstrapBackoffBase = 200 * time.Millisecond
+				config.Kademlia.BootstrapBackoffMax = 3 * time.Second
 			},
 		},
 	})
@@ -125,7 +126,9 @@ func TestBootstrapBackoff(t *testing.T) {
 	proxy.target = planet.Bootstrap.Addr()
 
 	done := make(chan bool)
-	go proxy.start(done)
+
+	droppedConnInterval := 500 * time.Millisecond
+	go proxy.start(done, droppedConnInterval)
 
 	planet.Start(ctx)
 }
@@ -145,7 +148,7 @@ func newBadProxy(addr string) (*badProxy, error) {
 	}, nil
 }
 
-func (proxy *badProxy) start(done chan bool) (err error) {
+func (proxy *badProxy) start(done chan bool, droppedConnInterval time.Duration) (err error) {
 	start := time.Now()
 	defer func() {
 		done <- true
@@ -157,7 +160,7 @@ func (proxy *badProxy) start(done chan bool) (err error) {
 			return err
 		}
 		go func() {
-			if time.Since(start) < 1*time.Second {
+			if time.Since(start) < droppedConnInterval {
 				c.Close()
 				return
 			}
