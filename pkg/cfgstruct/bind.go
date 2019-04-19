@@ -161,11 +161,11 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 			}
 		default:
 			help := field.Tag.Get("help")
-			def := field.Tag.Get("default")
+			var def string
 			if isDev {
-				if devDefault, ok := field.Tag.Lookup("devDefault"); ok {
-					def = devDefault
-				}
+				def = getDefault(field.Tag, "devDefault", "releaseDefault", "default", flagname)
+			} else {
+				def = getDefault(field.Tag, "releaseDefault", "devDefault", "default", flagname)
 			}
 			fieldaddr := fieldval.Addr().Interface()
 			check := func(err error) {
@@ -219,6 +219,22 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 			}
 		}
 	}
+}
+
+func getDefault(tag reflect.StructTag, preferred, opposite, fallback, flagname string) string {
+	if val, ok := tag.Lookup(preferred); ok {
+		if _, oppositeExists := tag.Lookup(opposite); !oppositeExists {
+			panic(fmt.Sprintf("%q defined but %q missing for %v", preferred, opposite, flagname))
+		}
+		if _, fallbackExists := tag.Lookup(fallback); fallbackExists {
+			panic(fmt.Sprintf("%q defined along with %q fallback for %v", preferred, fallback, flagname))
+		}
+		return val
+	}
+	if _, oppositeExists := tag.Lookup(opposite); oppositeExists {
+		panic(fmt.Sprintf("%q missing but %q defined for %v", preferred, opposite, flagname))
+	}
+	return tag.Get(fallback)
 }
 
 func setBoolAnnotation(flagset interface{}, name, key string) {

@@ -22,19 +22,19 @@ func assertEqual(actual, expected interface{}) {
 func TestBind(t *testing.T) {
 	f := pflag.NewFlagSet("test", pflag.PanicOnError)
 	var c struct {
-		String   string        `default:"" devDefault:"dev"`
-		Bool     bool          `default:"false" devDefault:"true"`
-		Int64    int64         `default:"0" devDefault:"1"`
-		Int      int           `default:"0" devDefault:"2"`
-		Uint64   uint64        `default:"0" devDefault:"3"`
-		Uint     uint          `default:"0" devDefault:"4"`
-		Float64  float64       `default:"0" devDefault:"5.5"`
-		Duration time.Duration `default:"0" devDefault:"1h"`
+		String   string        `default:""`
+		Bool     bool          `releaseDefault:"false" devDefault:"true"`
+		Int64    int64         `releaseDefault:"0" devDefault:"1"`
+		Int      int           `default:"0"`
+		Uint64   uint64        `default:"0"`
+		Uint     uint          `default:"0"`
+		Float64  float64       `default:"0"`
+		Duration time.Duration `default:"0"`
 		Struct   struct {
-			AnotherString string `default:"" devDefault:"dev2"`
+			AnotherString string `default:""`
 		}
 		Fields [10]struct {
-			AnotherInt int `default:"0" devDefault:"6"`
+			AnotherInt int `default:"0"`
 		}
 	}
 	Bind(f, &c, UseReleaseDefaults())
@@ -114,19 +114,19 @@ func TestNesting(t *testing.T) {
 func TestBindDevDefaults(t *testing.T) {
 	f := pflag.NewFlagSet("test", pflag.PanicOnError)
 	var c struct {
-		String   string        `default:"" devDefault:"dev"`
-		Bool     bool          `default:"false" devDefault:"true"`
-		Int64    int64         `default:"0" devDefault:"1"`
-		Int      int           `default:"0" devDefault:"2"`
-		Uint64   uint64        `default:"0" devDefault:"3"`
-		Uint     uint          `default:"0" devDefault:"4"`
-		Float64  float64       `default:"0" devDefault:"5.5"`
-		Duration time.Duration `default:"0" devDefault:"1h"`
+		String   string        `default:"dev"`
+		Bool     bool          `releaseDefault:"false" devDefault:"true"`
+		Int64    int64         `releaseDefault:"0" devDefault:"1"`
+		Int      int           `default:"2"`
+		Uint64   uint64        `default:"3"`
+		Uint     uint          `releaseDefault:"0" devDefault:"4"`
+		Float64  float64       `default:"5.5"`
+		Duration time.Duration `default:"1h"`
 		Struct   struct {
-			AnotherString string `default:"" devDefault:"dev2"`
+			AnotherString string `default:"dev2"`
 		}
 		Fields [10]struct {
-			AnotherInt int `default:"0" devDefault:"6"`
+			AnotherInt int `default:"6"`
 		}
 	}
 	Bind(f, &c, UseDevDefaults())
