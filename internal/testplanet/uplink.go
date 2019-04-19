@@ -311,7 +311,7 @@ func (uplink *Uplink) GetConfig(satellite *satellite.Peer) uplink.Config {
 
 func getDefaultConfig() uplink.Config {
 	config := uplink.Config{}
-	cfgstruct.Bind(&pflag.FlagSet{}, &config, true)
+	cfgstruct.Bind(&pflag.FlagSet{}, &config, cfgstruct.UseDevDefaults())
 	return config
 }
 
