@@ -43,9 +43,6 @@ const (
 	bootstrapPeer      = 3
 	storagenodePeer    = 4
 
-	// Index for peers with one instance (i.e. version control and bootstrap)
-	singleIndex = 0
-
 	// Endpoint
 	publicGRPC  = 0
 	privateGRPC = 1
@@ -181,7 +178,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	processes := NewProcesses(flags.Directory)
 
 	var host = flags.Host
-	publicPort, err := port(versioncontrolPeer, singleIndex, publicGRPC)
+	publicPort, err := port(versioncontrolPeer, 0, publicGRPC)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +189,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		Address:    net.JoinHostPort(host, publicPort),
 	})
 
-	debugPort, err := port(versioncontrolPeer, singleIndex, debugHTTP)
+	debugPort, err := port(versioncontrolPeer, 0, debugHTTP)
 	if err != nil {
 		return nil, err
 	}
@@ -208,7 +205,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		return readConfigString(&versioncontrol.Address, versioncontrol.Directory, "address")
 	}
 
-	publicPort, err = port(bootstrapPeer, singleIndex, publicGRPC)
+	publicPort, err = port(bootstrapPeer, 0, publicGRPC)
 	if err != nil {
 		return nil, err
 	}
@@ -222,15 +219,15 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	// gateway must wait for the versioncontrol to start up
 	bootstrap.WaitForStart(versioncontrol)
 
-	webPort, err := port(bootstrapPeer, singleIndex, publicHTTP)
+	webPort, err := port(bootstrapPeer, 0, publicHTTP)
 	if err != nil {
 		return nil, err
 	}
-	privatePort, err := port(bootstrapPeer, singleIndex, privateGRPC)
+	privatePort, err := port(bootstrapPeer, 0, privateGRPC)
 	if err != nil {
 		return nil, err
 	}
-	debugPort, err = port(bootstrapPeer, singleIndex, debugHTTP)
+	debugPort, err = port(bootstrapPeer, 0, debugHTTP)
 	if err != nil {
 		return nil, err
 	}
