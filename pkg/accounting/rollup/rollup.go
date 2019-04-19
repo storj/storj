@@ -5,6 +5,7 @@ package rollup
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"go.uber.org/zap"
@@ -19,26 +20,30 @@ import (
 type Config struct {
 	Interval      time.Duration `help:"how frequently rollup should run" devDefault:"120s" default:"6h"`
 	MaxAlphaUsage memory.Size   `help:"the bandwidth and storage usage limit for the alpha release" default:"25GB"`
+	DeleteTallies bool          `help:"option for deleting tallies after they are rolled up" default:"true"`
 }
 
 // Service is the rollup service for totalling data on storage nodes on daily intervals
 type Service struct {
-	logger *zap.Logger
-	ticker *time.Ticker
-	db     accounting.DB
+	logger        *zap.Logger
+	ticker        *time.Ticker
+	db            accounting.DB
+	deleteTallies bool
 }
 
 // New creates a new rollup service
-func New(logger *zap.Logger, db accounting.DB, interval time.Duration) *Service {
+func New(logger *zap.Logger, db accounting.DB, interval time.Duration, deleteTallies bool) *Service {
 	return &Service{
-		logger: logger,
-		ticker: time.NewTicker(interval),
-		db:     db,
+		logger:        logger,
+		ticker:        time.NewTicker(interval),
+		db:            db,
+		deleteTallies: deleteTallies,
 	}
 }
 
 // Run the Rollup loop
 func (r *Service) Run(ctx context.Context) (err error) {
+	fmt.Println("***", r.deleteTallies)
 	r.logger.Info("Rollup service starting up")
 	defer mon.Task()(&ctx)(&err)
 	for {
@@ -85,11 +90,14 @@ func (r *Service) Rollup(ctx context.Context) error {
 		return Error.Wrap(err)
 	}
 
-	// Delete already rolled up tallies
-	err = r.db.DeleteRawBefore(ctx, latestTally)
-	if err != nil {
-		return Error.Wrap(err)
+	if r.deleteTallies {
+		// Delete already rolled up tallies
+		err = r.db.DeleteRawBefore(ctx, latestTally)
+		if err != nil {
+			return Error.Wrap(err)
+		}
 	}
+
 	return nil
 }
 
