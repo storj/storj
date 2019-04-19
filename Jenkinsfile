@@ -52,22 +52,48 @@ pipeline {
 
                 stage('Integration') {
                     environment {
+                        // use different hostname to avoid port conflicts
                         STORJ_NETWORK_HOST4 = '127.0.0.2'
                         STORJ_NETWORK_HOST6 = '127.0.0.2'
                     }
-                    // cannot run in parallel, because tests may end up using ports that
-                    // test-sim needs.
+
                     steps {
                         sh 'make test-sim'
                     }
                 }
             }
         }
+
+        // if (env.BRANCH_NAME == "master") {
+        if (true) {
+            stage('Build Images') {
+                sh 'make images'
+            }
+
+            stage('Build Binaries') {
+                sh 'make binaries'
+            }
+
+            // stage('Push Images') {
+            //     milestone()
+            //     sh 'make push-images'
+            // }
+
+            // stage('Deploy to staging') {
+            //     milestone()
+            //     sh 'make deploy'
+            // }
+
+            // stage('Upload') {
+            //     milestone()
+            //     sh 'make binaries-upload'
+            // }
+        }
     }
 
     post {
         always {
-            deleteDir()
+          deleteDir()
         }
     }
 }
@@ -78,23 +104,14 @@ node {
   try {
     currentBuild.result = "SUCCESS"
 
-    
-    stage('Build') {
-      steps {
-        sh 'go install -race ./...'
-      }
-    }
-
 
     stage('Build Images') {
       sh 'make images'
-
       echo "Current build result: ${currentBuild.result}"
     }
 
     stage('Build Binaries') {
       sh 'make binaries'
-
       echo "Current build result: ${currentBuild.result}"
     }
 
@@ -104,12 +121,11 @@ node {
       echo "Current build result: ${currentBuild.result}"
     }
 
-    if (env.BRANCH_NAME == "master") {
-      stage('Deploy to staging') {
-        sh 'make deploy'
-        echo "Current build result: ${currentBuild.result}"
-      }
+    stage('Deploy to staging') {
+      sh 'make deploy'
+      echo "Current build result: ${currentBuild.result}"
     }
+
     stage('Upload') {
       sh 'make binaries-upload'
       echo "Current build result: ${currentBuild.result}"
