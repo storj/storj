@@ -78,7 +78,7 @@ func main() {
 	defer encoder.EncodeToken(xml.EndElement{Name: xml.Name{Local: "testsuites"}})
 
 	for _, pkg := range pkgs {
-		if len(pkg.Tests) == 0 {
+		if pkg.NoTests {
 			continue
 		}
 
