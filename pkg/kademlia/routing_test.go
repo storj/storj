@@ -16,7 +16,6 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/teststorj"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
@@ -168,41 +167,6 @@ func TestConnectionSuccess(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.testID, func(t *testing.T) {
 			err := rt.ConnectionSuccess(c.node)
-			assert.NoError(t, err)
-			v, err := rt.nodeBucketDB.Get(c.id.Bytes())
-			assert.NoError(t, err)
-			n, err := unmarshalNodes([]storage.Value{v})
-			assert.NoError(t, err)
-			assert.Equal(t, c.address.Address, n[0].Address.Address)
-		})
-	}
-}
-
-func TestUpdateSelf(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	id := teststorj.NodeIDFromString("AA")
-	rt := createRoutingTable(id)
-	defer ctx.Check(rt.Close)
-	address := &pb.NodeAddress{Address: "a"}
-	node := &overlay.NodeDossier{Node: pb.Node{Id: id, Address: address}}
-	cases := []struct {
-		testID  string
-		node    *overlay.NodeDossier
-		id      storj.NodeID
-		address *pb.NodeAddress
-	}{
-		{testID: "Update Node",
-			node:    node,
-			id:      id,
-			address: address,
-		},
-	}
-	for _, c := range cases {
-		t.Run(c.testID, func(t *testing.T) {
-			newNode := c.node
-			err := rt.UpdateSelf(newNode)
 			assert.NoError(t, err)
 			v, err := rt.nodeBucketDB.Get(c.id.Bytes())
 			assert.NoError(t, err)

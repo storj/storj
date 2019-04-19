@@ -134,11 +134,6 @@ func (service *Service) updateNodeInformation(ctx context.Context) error {
 		FreeDisk:      service.allocatedDiskSpace - usedSpace,
 	}
 
-	// Update the routing table with latest capacity
-	if err := service.routingTable.UpdateSelf(self); err != nil {
-		return Error.Wrap(err)
-	}
-
 	return nil
 }
 
