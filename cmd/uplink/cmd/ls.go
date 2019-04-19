@@ -37,8 +37,7 @@ func list(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	defer func() {
-		err := project.Close()
-		if err != nil {
+		if err := project.Close(); err != nil {
 			fmt.Printf("error closing project: %+v\n", err)
 		}
 	}()
@@ -62,8 +61,7 @@ func list(cmd *cobra.Command, args []string) error {
 		}
 
 		defer func() {
-			err := bucket.Close()
-			if err != nil {
+			if err := bucket.Close(); err != nil {
 				fmt.Printf("error closing bucket: %+v\n", err)
 			}
 		}()
@@ -117,8 +115,7 @@ func listFilesFromBucket(ctx context.Context, project *libuplink.Project, bucket
 	}
 
 	defer func() {
-		err := bucket.Close()
-		if err != nil {
+		if err := bucket.Close(); err != nil {
 			fmt.Printf("error closing bucket: %+v\n", err)
 		}
 	}()
