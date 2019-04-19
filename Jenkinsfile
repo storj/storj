@@ -2,7 +2,7 @@ pipeline {
     agent {
         dockerfile {
             filename 'Dockerfile.jenkins'
-            args '-u root:root -v "/tmp/gomod":/go/pkg/mod -p 54320:5432'
+            args '-u root:root -v "/tmp/gomod":/go/pkg/mod'
         }
         /*
         docker {
