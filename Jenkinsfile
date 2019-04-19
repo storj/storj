@@ -35,6 +35,7 @@ pipeline {
 
                 stage('Tests') {
                     environment {
+                        PATH = $HOME/bin:$PATH
                         STORJ_POSTGRES_TEST = 'postgres://postgres@localhost/teststorj?sslmode=disable'
                     }
                     steps {
@@ -52,6 +53,7 @@ pipeline {
 
                 stage('Integration') {
                     environment {
+                        PATH = $HOME/bin:$PATH
                         // use different hostname to avoid port conflicts
                         STORJ_NETWORK_HOST4 = '127.0.0.2'
                         STORJ_NETWORK_HOST6 = '127.0.0.2'
