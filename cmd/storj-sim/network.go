@@ -25,22 +25,23 @@ import (
 	"storj.io/storj/internal/processgroup"
 )
 
-type peerClass int
+const (
+	maxInstanceCount    = 100
+	maxStoragenodeCount = 200
 
-func (p peerClass) String() string {
-	return []string{"Satellite", "Version Control", "Boostrap", "Gateway", "Storage Node"}[p]
-}
+	folderPermissions = 0744
+)
 
 const (
 	// The following values of peer class, index, and endpoints are used
 	// to create a port with a consistent format for storj-sim services.
 
 	// Peer class
-	satellitePeer peerClass = iota
-	gatewayPeer
-	versioncontrolPeer
-	bootstrapPeer
-	storagenodePeer
+	satellitePeer      = 0
+	gatewayPeer        = 1
+	versioncontrolPeer = 2
+	bootstrapPeer      = 3
+	storagenodePeer    = 4
 
 	// Index for peers with one instance (i.e. version control and bootstrap)
 	singleIndex = 0
@@ -52,26 +53,10 @@ const (
 	debugHTTP   = 9
 )
 
-const folderPermissions = 0744
-
 // port creates a port with a consistent format for storj-sim services.
 // The port format is: "1PXXE", where P is the peer class, XX is the index of the instance, and E is the endpoint.
-func port(peer peerClass, index, endpoint int) (string, error) {
-	const (
-		maxInstanceCount    = 100
-		maxStoragenodeCount = 200
-	)
-
-	switch {
-	// Storage nodes can run up to maxStoragenodeCount number of instances
-	case index >= maxStoragenodeCount && peer == storagenodePeer:
-		return "", fmt.Errorf("reached the max storage node count of %d", maxStoragenodeCount)
-	// All other peer classes must run fewer than maxInstanceCount number of instances
-	case index >= maxInstanceCount && peer != storagenodePeer:
-		return "", fmt.Errorf("reached the max instance count of %d for %s peer class", maxInstanceCount, peer.String())
-	}
-
-	port := 10000 + int(peer)*1000 + index*10 + endpoint
+func port(peerclass, index, endpoint int) (string, error) {
+	port := 10000 + int(peerclass)*1000 + index*10 + endpoint
 	return strconv.Itoa(port), nil
 }
 
@@ -276,6 +261,10 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	}
 
 	// Create satellites making all satellites wait for bootstrap to start
+	if flags.SatelliteCount > maxInstanceCount {
+		return nil, fmt.Errorf("exceeded the max instance count of %d with Satellite count of %d", maxInstanceCount, flags.SatelliteCount)
+	}
+
 	var satellites []*Process
 	for i := 0; i < flags.SatelliteCount; i++ {
 		publicPort, err = port(satellitePeer, i, publicGRPC)
@@ -451,6 +440,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	}
 
 	// Create storage nodes
+	if flags.StorageNodeCount > maxStoragenodeCount {
+		return nil, fmt.Errorf("exceeded the max instance count of %d with Storage Node count of %d", maxStoragenodeCount, flags.StorageNodeCount)
+	}
 	for i := 0; i < flags.StorageNodeCount; i++ {
 		publicPort, err = port(storagenodePeer, i, publicGRPC)
 		if err != nil {
