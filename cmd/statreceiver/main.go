@@ -32,9 +32,8 @@ func main() {
 		Short: "stat receiving",
 		RunE:  Main,
 	}
-	isDev := false
-	cfgstruct.DevFlag(cmd, &isDev, false, "use development and test configuration settings")
-	cfgstruct.Bind(cmd.Flags(), &Config, isDev, cfgstruct.ConfDir(defaultConfDir))
+	defaults := cfgstruct.DefaultsFlag(cmd)
+	cfgstruct.Bind(cmd.Flags(), &Config, defaults, cfgstruct.ConfDir(defaultConfDir))
 	cmd.Flags().String("config", filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
 	process.Exec(cmd)
 }
