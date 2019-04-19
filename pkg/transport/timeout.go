@@ -5,7 +5,6 @@ package transport
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"google.golang.org/grpc"
@@ -33,7 +32,7 @@ type InvokeStreamTimeout struct {
 type clientStreamWrapper struct {
 	timeout time.Duration
 	stream  grpc.ClientStream
-	mu      sync.Mutex
+	cancel  func()
 }
 
 func (wrapper *clientStreamWrapper) Header() (metadata.MD, error) {
@@ -49,48 +48,46 @@ func (wrapper *clientStreamWrapper) Context() context.Context {
 }
 
 func (wrapper *clientStreamWrapper) CloseSend() error {
-	return wrapper.addTimout(func() error {
+	return wrapper.addTimeout(func() error {
 		return wrapper.stream.CloseSend()
 	})
 }
 
 func (wrapper *clientStreamWrapper) SendMsg(m interface{}) error {
-	return wrapper.addTimout(func() error {
+	return wrapper.addTimeout(func() error {
 		return wrapper.stream.SendMsg(m)
 	})
 }
 
 func (wrapper *clientStreamWrapper) RecvMsg(m interface{}) error {
-	return wrapper.addTimout(func() error {
+	return wrapper.addTimeout(func() error {
 		return wrapper.stream.RecvMsg(m)
 	})
 }
 
-func (wrapper *clientStreamWrapper) addTimout(f func() error) error {
+func (wrapper *clientStreamWrapper) addTimeout(f func() error) error {
 	timoutTicker := time.NewTicker(wrapper.timeout)
 	defer timoutTicker.Stop()
-	errChannel := make(chan error)
 
 	go func() {
-		// TODO is there a better way to avoid race ??
-		wrapper.mu.Lock()
-		defer wrapper.mu.Unlock()
-		errChannel <- f()
+		select {
+		case <-timoutTicker.C:
+			wrapper.cancel()
+		case <-wrapper.Context().Done():
+		}
 	}()
 
-	select {
-	case <-timoutTicker.C:
-		return context.DeadlineExceeded
-	case err := <-errChannel:
-		return err
-	}
+	return f()
 }
 
 // Intercept adds a timeout to a stream requests
-func (it InvokeStreamTimeout) Intercept(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
-	stream, err := streamer(ctx, desc, cc, method, opts...)
+func (it InvokeStreamTimeout) Intercept(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (_ grpc.ClientStream, err error) {
+	wrapper := &clientStreamWrapper{timeout: it.Timeout}
+	ctx, wrapper.cancel = context.WithCancel(ctx)
+
+	wrapper.stream, err = streamer(ctx, desc, cc, method, opts...)
 	if err != nil {
-		return stream, err
+		return wrapper.stream, err
 	}
-	return &clientStreamWrapper{timeout: it.Timeout, stream: stream}, nil
+	return wrapper, nil
 }
