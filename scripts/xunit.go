@@ -78,6 +78,10 @@ func main() {
 	defer encoder.EncodeToken(xml.EndElement{Name: xml.Name{Local: "testsuites"}})
 
 	for _, pkg := range pkgs {
+		if len(pkg.Tests) == 0 {
+			continue
+		}
+
 		func() {
 			failed := pkg.TestsByAction(parse.ActionFail)
 			skipped := pkg.TestsByAction(parse.ActionSkip)
