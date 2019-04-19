@@ -18,6 +18,34 @@ pipeline {
             }
         }
 
+        // if (env.BRANCH_NAME == "master") {
+            stage('Build Images') {
+              steps {
+                sh 'make images'
+              }
+            }
+
+            stage('Build Binaries') {
+              steps {
+                sh 'make binaries'
+              }
+            }
+
+            // stage('Push Images') {
+            //     milestone()
+            //     sh 'make push-images'
+            // }
+
+            // stage('Deploy to staging') {
+            //     milestone()
+            //     sh 'make deploy'
+            // }
+
+            // stage('Upload') {
+            //     milestone()
+            //     sh 'make binaries-upload'
+            // }
+            
         stage('Verification') {
             parallel {
                 stage('Lint') {
@@ -64,33 +92,6 @@ pipeline {
             }
         }
 
-        // if (env.BRANCH_NAME == "master") {
-            stage('Build Images') {
-              steps {
-                sh 'make images'
-              }
-            }
-
-            stage('Build Binaries') {
-              steps {
-                sh 'make binaries'
-              }
-            }
-
-            // stage('Push Images') {
-            //     milestone()
-            //     sh 'make push-images'
-            // }
-
-            // stage('Deploy to staging') {
-            //     milestone()
-            //     sh 'make deploy'
-            // }
-
-            // stage('Upload') {
-            //     milestone()
-            //     sh 'make binaries-upload'
-            // }
     }
 
     post {
