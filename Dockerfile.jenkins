@@ -9,8 +9,6 @@ RUN rm /etc/postgresql/9.6/main/pg_hba.conf; \
 	echo 'host    all             all             ::1/128                 trust' >> /etc/postgresql/9.6/main/pg_hba.conf; \
 	echo 'host    all             all             ::0/0                   trust' >> /etc/postgresql/9.6/main/pg_hba.conf;
 
-RUN service postgresql start
-
 COPY ./scripts/install-awscli.sh /tmp/install-awscli.sh
 RUN bash /tmp/install-awscli.sh
 

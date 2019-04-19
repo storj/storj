@@ -18,6 +18,8 @@ pipeline {
 
                 sh 'go install -v -race ./...'
                 sh 'make install-sim'
+
+                sh 'service postgresql start'
             }
         }
 
