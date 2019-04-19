@@ -45,8 +45,7 @@ func makeBucket(cmd *cobra.Command, args []string) error {
 
 	project, err := cfg.GetProject(ctx)
 	if err != nil {
-		fmt.Printf("Error setting up project: %+v\n", err)
-		return err
+		return fmt.Errorf("Error setting up project: %+v\n", err)
 	}
 	defer func() {
 		err = project.Close()
@@ -64,14 +63,12 @@ func makeBucket(cmd *cobra.Command, args []string) error {
 	}
 
 	bucketCfg := &uplink.BucketConfig{}
-	// bucketCfg.PathCipher =
-	// bucketCfg.EncryptionParameters =
+	//TODO (alex): make segment size customizable
 	bucketCfg.Volatile = struct {
 		RedundancyScheme storj.RedundancyScheme
 		SegmentsSize     memory.Size
 	}{
 		RedundancyScheme: cfg.GetRedundancyScheme(),
-		// SegmentSize:
 	}
 
 	_, err = project.CreateBucket(ctx, dst.Bucket(), bucketCfg)

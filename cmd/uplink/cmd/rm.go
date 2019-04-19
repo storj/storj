@@ -44,7 +44,7 @@ func deleteObject(cmd *cobra.Command, args []string) error {
 	defer func() {
 		err = project.Close()
 		if err != nil {
-			fmt.Printf("Error closing project uplink: %+v\n", err)
+			fmt.Printf("Error closing project: %+v\n", err)
 		}
 	}()
 
@@ -56,7 +56,14 @@ func deleteObject(cmd *cobra.Command, args []string) error {
 		return convertError(err, dst)
 	}
 
-	err = bucket.DeleteObject(ctx, dst.Bucket())
+	defer func() {
+		err := bucket.Close()
+		if err != nil {
+			fmt.Printf("Error closing bucket: %+v\n", err)
+		}
+	}()
+
+	err = bucket.DeleteObject(ctx, dst.Path())
 	if err != nil {
 		return convertError(err, dst)
 	}

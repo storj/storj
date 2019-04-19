@@ -49,7 +49,7 @@ func deleteBucket(cmd *cobra.Command, args []string) error {
 	defer func() {
 		err := project.Close()
 		if err != nil {
-			fmt.Printf("Error closing project uplink: %+v\n", err)
+			fmt.Printf("Error closing project: %+v\n", err)
 		}
 	}()
 
