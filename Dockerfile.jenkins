@@ -11,7 +11,7 @@ RUN rm /etc/postgresql/9.6/main/pg_hba.conf; \
 
 COPY ./scripts/install-awscli.sh /tmp/install-awscli.sh
 RUN bash /tmp/install-awscli.sh
-ENV PATH="root/bin:${PATH}"
+ENV PATH "$PATH:/root/bin"
 
 RUN curl -L https://github.com/google/protobuf/releases/download/v3.6.1/protoc-3.6.1-linux-x86_64.zip -o /tmp/protoc.zip
 RUN unzip /tmp/protoc.zip -d "$HOME"/protoc
@@ -23,4 +23,3 @@ RUN go get github.com/mfridman/tparse
 RUN go get github.com/josephspurrier/goversioninfo
 
 RUN go version
-RUN aws --version

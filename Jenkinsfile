@@ -58,7 +58,6 @@ pipeline {
                     }
 
                     steps {
-                        sh 'echo $PATH'
                         sh 'make test-sim'
                     }
                 }
