@@ -38,9 +38,9 @@ pipeline {
                         STORJ_POSTGRES_TEST = 'postgres://postgres@localhost/teststorj?sslmode=disable'
                     }
                     steps {
-                      sh 'psql -U postgres -c \'create database teststorj;\''
-                      sh 'go test -vet=off -json -race ./... | go run ./scripts/xunit.go -out tests.xml'
-                      // sh 'cat test.json | tparse'
+                        sh 'psql -U postgres -c \'create database teststorj;\''
+                        sh 'go run scripts/use-ports.go -from 1024 -to 10000 &'
+                        sh 'go test -vet=off -json -race ./... | go run ./scripts/xunit.go -out tests.xml'
                     }
 
                     post {
@@ -66,9 +66,9 @@ pipeline {
     }
 
     post {
-      always {
-        deleteDir()
-      }
+        always {
+            deleteDir()
+        }
     }
 }
 
