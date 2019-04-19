@@ -11,25 +11,6 @@ pipeline {
         }*/
     }
     stages {
-      /*
-        stage('Environment') {
-            steps {
-                sh 'apt-get update && apt-get install unzip -y'
-                sh 'bash ./scripts/install-awscli.sh'
-                sh 'curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.16.0'
-                sh 'curl -L https://github.com/google/protobuf/releases/download/v3.6.1/protoc-3.6.1-linux-x86_64.zip -o /tmp/protoc.zip'
-                sh 'unzip /tmp/protoc.zip -d "$HOME"/protoc'
-
-                // TODO: lock these to specific version
-                sh 'go get github.com/ckaznocha/protoc-gen-lint'
-                sh 'go get github.com/nilslice/protolock/cmd/protolock'
-                sh 'go get github.com/mfridman/tparse'
-
-                sh 'go version'
-            }
-        }
-        */
-
         stage('Build') {
             steps {
                 checkout scm
@@ -57,6 +38,9 @@ pipeline {
 
                 stage('Tests') {
                     steps {
+                      sh 'su postgres psql -c \'create database teststorj;\''
+                      sh 'STORJ_POSTGRES_TEST=postgres://postgres@localhost/teststorj?sslmode=disable'
+
                       sh 'go test -vet=off -json -race ./... | go run ./scripts/xunit.go -out tests.xml'
                     }
                 }
