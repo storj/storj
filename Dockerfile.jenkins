@@ -19,5 +19,6 @@ RUN curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.s
 RUN go get github.com/ckaznocha/protoc-gen-lint
 RUN go get github.com/nilslice/protolock/cmd/protolock
 RUN go get github.com/mfridman/tparse
+RUN go get github.com/josephspurrier/goversioninfo
 
 RUN go version

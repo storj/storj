@@ -45,7 +45,7 @@ pipeline {
             //     milestone()
             //     sh 'make binaries-upload'
             // }
-            
+
         stage('Verification') {
             parallel {
                 stage('Lint') {
