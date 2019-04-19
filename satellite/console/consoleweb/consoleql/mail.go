@@ -26,10 +26,9 @@ func (*AccountActivationEmail) Subject() string { return "Activate your email" }
 
 // ForgotPasswordEmail is mailservice template with reset password data
 type ForgotPasswordEmail struct {
-	Origin        string
-	UserName      string
-	ResetLink     string
-	LetUsKnowLink string
+	Origin    string
+	UserName  string
+	ResetLink string
 }
 
 // Template returns email template name
