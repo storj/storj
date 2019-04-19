@@ -231,9 +231,12 @@ func ProcessWithEcho(r io.Reader) (parse.Packages, error) {
 			pkg.Coverage = cover
 		}
 
+		if line := strings.TrimSpace(event.Output); line != "" {
+			fmt.Fprintln(os.Stdout, line)
+		}
+
 		if !event.Discard() {
 			pkg.AddEvent(event)
-			fmt.Fprintln(os.Stdout, strings.TrimSpace(event.Output))
 		}
 	}
 
