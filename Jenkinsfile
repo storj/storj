@@ -63,12 +63,14 @@ pipeline {
                         sh 'go test -vet=off -race -cover ./...'
                     }
                 }
+            }
+        }
 
-                stage('Integration') {
-                    steps {
-                        sh 'make test-sim'
-                    }
-                }
+        stage('Integration') {
+            // cannot run in parallel, because tests may end up using ports that
+            // test-sim needs.
+            steps {
+                sh 'make test-sim'
             }
         }
     }
