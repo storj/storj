@@ -18,34 +18,6 @@ pipeline {
             }
         }
 
-        // if (env.BRANCH_NAME == "master") {
-            stage('Build Images') {
-              steps {
-                sh 'make images'
-              }
-            }
-
-            stage('Build Binaries') {
-              steps {
-                sh 'make binaries'
-              }
-            }
-
-            // stage('Push Images') {
-            //     milestone()
-            //     sh 'make push-images'
-            // }
-
-            // stage('Deploy to staging') {
-            //     milestone()
-            //     sh 'make deploy'
-            // }
-
-            // stage('Upload') {
-            //     milestone()
-            //     sh 'make binaries-upload'
-            // }
-
         stage('Verification') {
             parallel {
                 stage('Lint') {
@@ -72,9 +44,9 @@ pipeline {
                     }
 
                     post {
-                      always {
-                        junit 'tests.xml'
-                      }
+                        always {
+                            junit 'tests.xml'
+                        }
                     }
                 }
 
@@ -91,7 +63,6 @@ pipeline {
                 }
             }
         }
-
     }
 
     post {
@@ -100,62 +71,3 @@ pipeline {
         }
     }
 }
-
-/*
-node {
-  properties([disableConcurrentBuilds()])
-  try {
-    currentBuild.result = "SUCCESS"
-
-
-    stage('Build Images') {
-      sh 'make images'
-      echo "Current build result: ${currentBuild.result}"
-    }
-
-    stage('Build Binaries') {
-      sh 'make binaries'
-      echo "Current build result: ${currentBuild.result}"
-    }
-
-    stage('Push Images') {
-      echo 'Push to Repo'
-      sh 'make push-images'
-      echo "Current build result: ${currentBuild.result}"
-    }
-
-    stage('Deploy to staging') {
-      sh 'make deploy'
-      echo "Current build result: ${currentBuild.result}"
-    }
-
-    stage('Upload') {
-      sh 'make binaries-upload'
-      echo "Current build result: ${currentBuild.result}"
-    }
-
-  }
-  catch (err) {
-    echo "Caught errors! ${err}"
-    echo "Setting build result to FAILURE"
-    currentBuild.result = "FAILURE"
-
-    mail from: 'builds@storj.io',
-      replyTo: 'builds@storj.io',
-      to: 'builds@storj.io',
-      subject: "storj/storj branch ${env.BRANCH_NAME} build failed",
-      body: "Project build log: ${env.BUILD_URL}"
-
-      throw err
-
-  }
-  finally {
-
-    stage('Cleanup') {
-      sh 'make clean-images'
-      deleteDir()
-    }
-
-  }
-}
-*/
