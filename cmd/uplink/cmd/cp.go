@@ -89,7 +89,7 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 	defer func() {
 		err := project.Close()
 		if err != nil {
-			fmt.Printf("Error closing project: %+v\n", err)
+			fmt.Printf("error closing project: %+v\n", err)
 		}
 	}()
 
@@ -103,7 +103,7 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 	defer func() {
 		err := bucket.Close()
 		if err != nil {
-			fmt.Printf("Error closing bucket: %+v\n", err)
+			fmt.Printf("error closing bucket: %+v\n", err)
 		}
 	}()
 
@@ -151,7 +151,7 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 	defer func() {
 		err := project.Close()
 		if err != nil {
-			fmt.Printf("Error closing project: %+v\n", err)
+			fmt.Printf("error closing project: %+v\n", err)
 		}
 	}()
 
@@ -165,7 +165,7 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 	defer func() {
 		err := bucket.Close()
 		if err != nil {
-			fmt.Printf("Error closing bucket: %+v\n", err)
+			fmt.Printf("error closing bucket: %+v\n", err)
 		}
 	}()
 
@@ -205,7 +205,7 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 		defer func() {
 			err := file.Close()
 			if err != nil {
-				fmt.Printf("Error closing file: %+v\n", err)
+				fmt.Printf("error closing file: %+v\n", err)
 			}
 		}()
 	}
@@ -243,7 +243,7 @@ func copyObject(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err erro
 	defer func() {
 		err := project.Close()
 		if err != nil {
-			fmt.Printf("Error closing project: %+v\n", err)
+			fmt.Printf("error closing project: %+v\n", err)
 		}
 	}()
 
@@ -257,7 +257,7 @@ func copyObject(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err erro
 	defer func() {
 		err := bucket.Close()
 		if err != nil {
-			fmt.Printf("Error closing bucket: %+v\n", err)
+			fmt.Printf("error closing bucket: %+v\n", err)
 		}
 	}()
 

@@ -45,12 +45,12 @@ func makeBucket(cmd *cobra.Command, args []string) error {
 
 	project, err := cfg.GetProject(ctx)
 	if err != nil {
-		return fmt.Errorf("Error setting up project: %+v\n", err)
+		return fmt.Errorf("error setting up project: %+v\n", err)
 	}
 	defer func() {
 		err = project.Close()
 		if err != nil {
-			fmt.Printf("Error closing project: %+v\n", err)
+			fmt.Printf("error closing project: %+v\n", err)
 		}
 	}()
 
