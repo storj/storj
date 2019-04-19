@@ -29,9 +29,9 @@ var (
 		Annotations: map[string]string{"type": "setup"},
 	}
 
-	setupCfg    UplinkFlags
-	confDir     string
-	defaults    cfgstruct.BindOpt
+	setupCfg UplinkFlags
+	confDir  string
+	defaults cfgstruct.BindOpt
 
 	// Error is the default uplink setup errs class
 	Error = errs.Class("uplink setup error")
