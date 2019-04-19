@@ -293,14 +293,14 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 		Type:    pb.NodeType_STORAGE,
 	})
 	if err != nil {
-		zap.S().Errorf("Failed dialing for putting piece %s to node %s: %v", pieceID, storageNodeID, err)
+		zap.S().Debugf("Failed dialing for putting piece %s to node %s: %v", pieceID, storageNodeID, err)
 		return nil, err
 	}
 	defer func() { err = errs.Combine(err, ps.Close()) }()
 
 	upload, err := ps.Upload(ctx, limit.GetLimit())
 	if err != nil {
-		zap.S().Errorf("Failed requesting upload of piece %s to node %s: %v", pieceID, storageNodeID, err)
+		zap.S().Debugf("Failed requesting upload of piece %s to node %s: %v", pieceID, storageNodeID, err)
 		return nil, err
 	}
 	defer func() {
@@ -329,7 +329,7 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 		if limit.GetStorageNodeAddress() != nil {
 			nodeAddress = limit.GetStorageNodeAddress().GetAddress()
 		}
-		zap.S().Errorf("Failed uploading piece %s to node %s (%+v): %v", pieceID, storageNodeID, nodeAddress, err)
+		zap.S().Debugf("Failed uploading piece %s to node %s (%+v): %v", pieceID, storageNodeID, nodeAddress, err)
 	}
 
 	return hash, err
