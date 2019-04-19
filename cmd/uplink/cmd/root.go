@@ -48,7 +48,7 @@ func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
 		defaultIdentityDir = identityDirParam
 	}
 
-	cfgstruct.Bind(cmd.Flags(), &cfg, isDev, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(cmd.Flags(), &cfg, defaults, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 	return cmd
 }
 
