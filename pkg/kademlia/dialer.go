@@ -5,7 +5,6 @@ package kademlia
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -119,7 +118,6 @@ func (dialer *Dialer) FetchPeerIdentityUnverified(ctx context.Context, address s
 
 	conn, err := dialer.dialAddress(ctx, address)
 	if err != nil {
-		fmt.Println("err from dial address", err)
 		return nil, err
 	}
 	defer func() {
@@ -128,7 +126,6 @@ func (dialer *Dialer) FetchPeerIdentityUnverified(ctx context.Context, address s
 
 	p := &peer.Peer{}
 	_, err = conn.client.Ping(ctx, &pb.PingRequest{}, grpc.Peer(p))
-		fmt.Println("err from ping", err)
 	ident, errFromPeer := identity.PeerIdentityFromPeer(p)
 	return ident, errs.Combine(err, errFromPeer)
 }

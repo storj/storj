@@ -5,7 +5,6 @@ package kademlia
 
 import (
 	"context"
-	"fmt"
 	"math/rand"
 	"sync"
 	"sync/atomic"
@@ -144,71 +143,10 @@ func (k *Kademlia) DumpNodes(ctx context.Context) ([]*pb.Node, error) {
 
 // Bootstrap contacts one of a set of pre defined trusted nodes on the network and
 // begins populating the local Kademlia node
-// func (k *Kademlia) Bootstrap(ctx context.Context) error {
-// 	defer k.bootstrapFinished.Release()
-
-// 	if !k.lookups.Start() {
-// 		return context.Canceled
-// 	}
-// 	defer k.lookups.Done()
-
-// 	if len(k.bootstrapNodes) == 0 {
-// 		k.log.Warn("No bootstrap address specified.")
-// 		return nil
-// 	}
-
-// 	var errGroup errs.Group
-// 	var foundOnlineBootstrap bool
-// 	for i, node := range k.bootstrapNodes {
-// 		if ctx.Err() != nil {
-// 			errGroup.Add(ctx.Err())
-// 			return errGroup.Err()
-// 		}
-
-// 		ident, err := k.dialer.FetchPeerIdentityUnverified(ctx, node.Address.Address)
-// 		if err != nil {
-// 			errGroup.Add(err)
-// 			continue
-// 		}
-
-// 		k.routingTable.mutex.Lock()
-// 		node.Id = ident.ID
-// 		k.bootstrapNodes[i] = node
-// 		k.routingTable.mutex.Unlock()
-// 		foundOnlineBootstrap = true
-// 	}
-
-// 	if !foundOnlineBootstrap {
-// 		err := errGroup.Err()
-// 		if err != nil {
-// 			return err
-// 		}
-// 	}
-
-// 	//find nodes most similar to self
-// 	k.routingTable.mutex.Lock()
-// 	id := k.routingTable.self.Id
-// 	k.routingTable.mutex.Unlock()
-// 	_, err := k.lookup(ctx, id, true)
-
-// 	// TODO(dylan): We do not currently handle this last bit of behavior.
-// 	// ```
-// 	// Finally, u refreshes all k-buckets further away than its closest neighbor.
-// 	// During the refreshes, u both populates its own k-buckets and inserts
-// 	// itself into other nodes' k-buckets as necessary.
-// 	// ``
-
-// 	return err
-// }
-
-// Bootstrap contacts one of a set of pre defined trusted nodes on the network and
-// begins populating the local Kademlia node
 func (k *Kademlia) Bootstrap(ctx context.Context) error {
-	fmt.Println("inside bootstrap call")
 	defer k.bootstrapFinished.Release()
 
 	if !k.lookups.Start() {
-		fmt.Println("context canceled apparently")
 		return context.Canceled
 	}
 	defer k.lookups.Done()
@@ -218,36 +156,27 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 		return nil
 	}
 
-	fmt.Println("about to go into loop")
-
 	waitInterval := k.bootstrapBackoffBase
 
 	var errGroup errs.Group
 	for i := 0; waitInterval < k.bootstrapBackoffMax; i++ {
-		fmt.Println("inside the loop")
 		if i < 0 {
-			fmt.Println("in here for some reason")
 			time.Sleep(waitInterval)
 			waitInterval = waitInterval * 2
 		}
-		fmt.Println("outside again")
 
 		var foundOnlineBootstrap bool
 		for i, node := range k.bootstrapNodes {
 			if ctx.Err() != nil {
-				fmt.Println("here were problems")
 				errGroup.Add(ctx.Err())
 				return errGroup.Err()
 			}
 
-			fmt.Println("about to dial in bootstrap")
 			ident, err := k.dialer.FetchPeerIdentityUnverified(ctx, node.Address.Address)
 			if err != nil {
-				fmt.Println("err dialing in bootstrap")
 				errGroup.Add(err)
 				continue
 			}
-			fmt.Println("post dialing in bootstrap")
 
 			k.routingTable.mutex.Lock()
 			node.Id = ident.ID
