@@ -41,7 +41,7 @@ pipeline {
                 stage('Tests') {
                     steps {
                       sh 'psql -U postgres -c \'create database teststorj;\''
-                      sh 'STORJ_POSTGRES_TEST=postgres://postgres@localhost/teststorj?sslmode=disable'
+                      sh 'export STORJ_POSTGRES_TEST=postgres://postgres@localhost/teststorj?sslmode=disable'
 
                       sh 'go test -vet=off -json -race ./... | go run ./scripts/xunit.go -out tests.xml'
                     }
