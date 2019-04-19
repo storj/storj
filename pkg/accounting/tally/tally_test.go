@@ -87,8 +87,6 @@ func TestCalculateAtRestData(t *testing.T) {
 			MetadataSize:   112, // brittle, this is hardcoded since its too difficult to get this value progamatically
 		}
 
-		planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
-
 		// Execute test: upload a file, then calculate at rest data
 		expectedBucketName := "testbucket"
 		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName, "test/path", expectedData)

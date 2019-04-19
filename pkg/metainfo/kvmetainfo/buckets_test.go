@@ -310,22 +310,14 @@ func getBucketNames(bucketList storj.BucketList) []string {
 }
 
 func runTest(t *testing.T, test func(context.Context, *testplanet.Planet, *kvmetainfo.DB, buckets.Store, streams.Store)) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		db, buckets, streams, err := newMetainfoParts(planet)
+		require.NoError(t, err)
 
-	planet, err := testplanet.New(t, 1, 4, 1)
-	require.NoError(t, err)
-
-	defer ctx.Check(planet.Shutdown)
-
-	planet.Start(ctx)
-
-	planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
-
-	db, buckets, streams, err := newMetainfoParts(planet)
-	require.NoError(t, err)
-
-	test(ctx, planet, db, buckets, streams)
+		test(ctx, planet, db, buckets, streams)
+	})
 }
 
 func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, buckets.Store, streams.Store, error) {

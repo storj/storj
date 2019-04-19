@@ -46,8 +46,6 @@ func TestProjectUsageStorage(t *testing.T) {
 		projectID := projects[0].ID
 		require.NoError(t, err)
 
-		planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
-
 		for _, tt := range cases {
 			t.Run(tt.name, func(t *testing.T) {
 
@@ -100,8 +98,6 @@ func TestProjectUsageBandwidth(t *testing.T) {
 		saDB := planet.Satellites[0].DB
 		orderDB := saDB.Orders()
 		acctDB := saDB.Accounting()
-
-		planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
 
 		// Setup: get projectID and create bucketID
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)

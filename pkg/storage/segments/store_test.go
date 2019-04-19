@@ -240,8 +240,6 @@ func runTest(t *testing.T, test func(t *testing.T, ctx *testcontext.Context, pla
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
-
 		// TODO move apikey creation to testplanet
 		project, err := planet.Satellites[0].DB.Console().Projects().Insert(context.Background(), &console.Project{
 			Name: "testProject",

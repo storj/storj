@@ -27,8 +27,6 @@ func TestRollup(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
-
 		days := 5
 		testData := createData(planet, days)
 
