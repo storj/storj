@@ -19,7 +19,6 @@ import (
 )
 
 type testConfig struct {
-	planetCfg *testplanet.Config
 	uplinkCfg Config
 }
 
