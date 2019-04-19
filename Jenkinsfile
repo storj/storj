@@ -50,7 +50,7 @@ pipeline {
 
                 stage('Tests') {
                     steps {
-                      sh 'go test -vet=off -json -race -cover ./... | go run ./scripts/xunit.go -out tests.xml'
+                      sh 'go test -vet=off -json -race ./... | go run ./scripts/xunit.go -out tests.xml'
                     }
                 }
             }
