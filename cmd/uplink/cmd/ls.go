@@ -86,23 +86,7 @@ func list(cmd *cobra.Command, args []string) error {
 			for _, bucket := range list.Items {
 				fmt.Println("BKT", formatTime(bucket.Created), bucket.Name)
 				if *recursiveFlag {
-					prefix, err := fpath.New(fmt.Sprintf("sj://%s/", bucket.Name))
-					if err != nil {
-						return err
-					}
-
-					bucket, err := project.OpenBucket(ctx, bucket.Name, &access)
-					if err != nil {
-						return err
-					}
-
-					err = listFiles(ctx, bucket, prefix, true)
-					if err != nil {
-						return err
-					}
-
-					err = bucket.Close()
-					if err != nil {
+					if err := listFilesFromBucket(ctx, project, bucket.Name, access); err != nil {
 						return err
 					}
 				}
@@ -116,6 +100,32 @@ func list(cmd *cobra.Command, args []string) error {
 
 	if noBuckets {
 		fmt.Println("No buckets")
+	}
+
+	return nil
+}
+
+func listFilesFromBucket(ctx context.Context, project *libuplink.Project, bucketName string, access libuplink.EncryptionAccess) error {
+	prefix, err := fpath.New(fmt.Sprintf("sj://%s/", bucketName))
+	if err != nil {
+		return err
+	}
+
+	bucket, err := project.OpenBucket(ctx, bucketName, &access)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		err := bucket.Close()
+		if err != nil {
+			fmt.Printf("Error closing bucket: %+v\n", err)
+		}
+	}()
+
+	err = listFiles(ctx, bucket, prefix, true)
+	if err != nil {
+		return err
 	}
 
 	return nil
