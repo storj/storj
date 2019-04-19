@@ -50,7 +50,7 @@ pipeline {
 
                 stage('Tests') {
                     steps {
-                      sh 'go test -vet=off -json -race -cover ./... | go run ./scripts/xunit.go -out build/reports/tests.xml'
+                      sh 'go test -vet=off -json -race -cover ./... | go run ./scripts/xunit.go -out tests.xml'
                     }
                 }
             }
@@ -67,7 +67,7 @@ pipeline {
 
     post {
       always {
-        junit 'build/reports/*.xml'
+        junit 'tests.xml'
         deleteDir()
       }
     }
