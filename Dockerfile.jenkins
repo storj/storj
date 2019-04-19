@@ -2,10 +2,10 @@ FROM golangci/golangci-lint:latest
 
 
 
-RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ stretch-pgdg main" | tee /var/apt/sources.list.d/postgres.list
+RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ stretch-pgdg main" | tee /etc/apt/sources.list.d/postgres.list
 RUN wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
 RUN apt-get update
-RUN apt install -y postgres unzip
+RUN apt-get install -y postgres unzip
 
 RUN service postgres start
 
