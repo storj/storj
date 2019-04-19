@@ -1,9 +1,14 @@
 pipeline {
     agent {
+        dockerfile {
+            filename 'Dockerfile.jenkins'
+            args '-u root:root -v "/tmp/gomod":/go/pkg/mod'
+        }
+        /*
         docker {
             image 'golang:1.12'
             args '-u root:root -v "/tmp/gomod":/go/pkg/mod'
-        }
+        }*/
     }
     stages {
         stage('Environment') {
