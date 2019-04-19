@@ -53,7 +53,7 @@ const (
 // port creates a port with a consistent format for storj-sim services.
 // The port format is: "1PXXE", where P is the peer class, XX is the index of the instance, and E is the endpoint.
 func port(peerclass, index, endpoint int) string {
-	port := 10000 + int(peerclass)*1000 + index*10 + endpoint
+	port := 10000 + peerclass*1000 + index*10 + endpoint
 	return strconv.Itoa(port)
 }
 
