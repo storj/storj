@@ -11,6 +11,7 @@ pipeline {
         }*/
     }
     stages {
+      /*
         stage('Environment') {
             steps {
                 sh 'apt-get update && apt-get install unzip -y'
@@ -27,6 +28,7 @@ pipeline {
                 sh 'go version'
             }
         }
+        */
 
         stage('Build') {
             steps {
