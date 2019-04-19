@@ -1,7 +1,13 @@
 FROM golang:1.12
 
 RUN apt-get update;
-RUN apt-get install -y -qq postgresql unzip;
+RUN apt-get install -y -qq postgresql-9.6 unzip;
+
+RUN rm /etc/postgresql/9.6/main/pg_hba.conf; \
+	echo 'local   all             all                                     trust' >> /etc/postgresql/9.6/main/pg_hba.conf; \
+	echo 'host    all             all             127.0.0.1/8             trust' >> /etc/postgresql/9.6/main/pg_hba.conf; \
+	echo 'host    all             all             ::1/128                 trust' >> /etc/postgresql/9.6/main/pg_hba.conf; \
+	echo 'host    all             all             ::0/0                   trust' >> /etc/postgresql/9.6/main/pg_hba.conf;
 
 RUN service postgresql start
 

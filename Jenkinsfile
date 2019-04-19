@@ -2,7 +2,7 @@ pipeline {
     agent {
         dockerfile {
             filename 'Dockerfile.jenkins'
-            args '-u root:root -v "/tmp/gomod":/go/pkg/mod'
+            args '-u root:root -v "/tmp/gomod":/go/pkg/mod -p 54320:5432'
         }
         /*
         docker {
@@ -38,7 +38,7 @@ pipeline {
 
                 stage('Tests') {
                     steps {
-                      sh 'su postgres psql -c \'create database teststorj;\''
+                      sh 'psql -U postgres -c \'create database teststorj;\''
                       sh 'STORJ_POSTGRES_TEST=postgres://postgres@localhost/teststorj?sslmode=disable'
 
                       sh 'go test -vet=off -json -race ./... | go run ./scripts/xunit.go -out tests.xml'
