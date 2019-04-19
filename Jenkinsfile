@@ -65,7 +65,6 @@ pipeline {
         }
 
         // if (env.BRANCH_NAME == "master") {
-        if (true) {
             stage('Build Images') {
                 sh 'make images'
             }
@@ -88,7 +87,6 @@ pipeline {
             //     milestone()
             //     sh 'make binaries-upload'
             // }
-        }
     }
 
     post {
