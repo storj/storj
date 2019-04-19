@@ -66,11 +66,15 @@ pipeline {
 
         // if (env.BRANCH_NAME == "master") {
             stage('Build Images') {
+              steps {
                 sh 'make images'
+              }
             }
 
             stage('Build Binaries') {
+              steps {
                 sh 'make binaries'
+              }
             }
 
             // stage('Push Images') {
