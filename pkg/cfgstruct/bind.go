@@ -305,9 +305,12 @@ func DefaultsFlag(cmd *cobra.Command) BindOpt {
 	_ = cmd.PersistentFlags().String("defaults", defaults,
 		"determines which set of configuration defaults to use. can either be 'dev' or 'release'")
 
-	switch strings.ToLower(FindDefaultsParam()) {
-	case "":
-		return BindOpt{} // a do-nothing BindOpt
+	foundDefaults := strings.ToLower(FindDefaultsParam())
+	if foundDefaults == "" {
+		foundDefaults = defaults
+	}
+
+	switch foundDefaults {
 	case "dev":
 		return UseDevDefaults()
 	case "release":
