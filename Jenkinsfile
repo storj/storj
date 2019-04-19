@@ -54,6 +54,24 @@ pipeline {
                         sh 'go test -vet=off -race -cover ./...'
                     }
                 }
+
+                stage('Test - Race') {
+                    steps {
+                        sh 'go test -vet=off -race ./...'
+                    }
+                }
+
+                stage('Test - Cover') {
+                    steps {
+                        sh 'go test -vet=off -cover ./...'
+                    }
+                }
+
+                stage('Test - Memory Sanitizer') {
+                    steps {
+                        sh 'go test -vet=off -msan ./...'
+                    }
+                }
             }
         }
 
