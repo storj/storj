@@ -72,6 +72,7 @@ func main() {
 	_, _ = output.Write([]byte(xml.Header))
 
 	encoder := xml.NewEncoder(output)
+	encoder.Indent("", "\t")
 	defer encoder.Flush()
 
 	encoder.EncodeToken(xml.StartElement{Name: xml.Name{Local: "testsuites"}, Attr: nil})
@@ -81,6 +82,8 @@ func main() {
 		failed := pkg.TestsByAction(parse.ActionFail)
 		skipped := pkg.TestsByAction(parse.ActionSkip)
 		passed := pkg.TestsByAction(parse.ActionPass)
+
+		skipped = withoutEmptyName(skipped)
 
 		all := []*parse.Test{}
 		all = append(all, failed...)
@@ -149,6 +152,16 @@ func fullOutput(t *parse.Test) string {
 		out.WriteString(event.Output)
 	}
 	return out.String()
+}
+
+func withoutEmptyName(tests []*parse.Test) []*parse.Test {
+	out := tests[:0]
+	for _, test := range tests {
+		if test.Name != "" {
+			out = append(out, test)
+		}
+	}
+	return out
 }
 
 func ProcessWithEcho(r io.Reader) (parse.Packages, error) {
