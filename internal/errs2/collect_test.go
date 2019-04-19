@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package utils_test
+package errs2_test
 
 import (
 	"testing"
@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/utils"
+	"storj.io/storj/internal/errs2"
 )
 
 func TestCollectSingleError(t *testing.T) {
@@ -21,12 +21,12 @@ func TestCollectSingleError(t *testing.T) {
 		errchan <- errs.New("error")
 	}()
 
-	err := utils.CollectErrors(errchan, 1*time.Second)
+	err := errs2.Collect(errchan, 1*time.Second)
 	assert.Error(t, err)
 	assert.Equal(t, err.Error(), "error")
 }
 
-func TestCollecMultipleError(t *testing.T) {
+func TestCollectMultipleError(t *testing.T) {
 	errchan := make(chan error)
 	defer close(errchan)
 
@@ -36,7 +36,7 @@ func TestCollecMultipleError(t *testing.T) {
 		errchan <- errs.New("error3")
 	}()
 
-	err := utils.CollectErrors(errchan, 1*time.Second)
+	err := errs2.Collect(errchan, 1*time.Second)
 	assert.Error(t, err)
 	assert.Equal(t, err.Error(), "error1; error2; error3")
 }
