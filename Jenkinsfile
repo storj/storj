@@ -21,6 +21,7 @@ pipeline {
                 sh 'go get github.com/mfridman/tparse'
 
                 sh 'go version'
+                echo "Go version: ${currentBuild.result}"
             }
         }
 
@@ -36,21 +37,16 @@ pipeline {
 
         stage('Verification') {
             parallel {
-                stage('Checks') {
+                stage('Lint') {
                     steps {
                         sh 'go run ./scripts/check-copyright.go'
                         sh 'go run ./scripts/check-imports.go'
                         sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint'
                         sh 'protolock status'
                         sh 'bash ./scripts/check-dbx-version.sh'
+                        sh 'golangci-lint -j=4 run'
                         // TODO: check for go mod tidy
                         // TODO: check for directory tidy
-                    }
-                }
-
-                stage('Lint') {
-                    steps {
-                        sh 'golangci-lint -j=4 run'
                     }
                 }
 
@@ -69,6 +65,12 @@ pipeline {
                 sh 'make test-sim'
             }
         }
+    }
+
+    post {
+      always {
+        deleteDir()
+      }
     }
 }
 
