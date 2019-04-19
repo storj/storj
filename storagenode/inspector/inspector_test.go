@@ -29,6 +29,8 @@ func TestInspectorStats(t *testing.T) {
 
 	planet.Start(ctx)
 
+	planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
+
 	var availableBandwidth int64
 	var availableSpace int64
 	for _, storageNode := range planet.StorageNodes {
@@ -102,6 +104,8 @@ func TestInspectorDashboard(t *testing.T) {
 	defer ctx.Check(planet.Shutdown)
 
 	planet.Start(ctx)
+
+	planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
 
 	for _, storageNode := range planet.StorageNodes {
 		response, err := storageNode.Storage2.Inspector.Dashboard(ctx, &pb.DashboardRequest{})

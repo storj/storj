@@ -31,6 +31,8 @@ func TestInspectorStats(t *testing.T) {
 
 	planet.Start(ctx)
 
+	planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
+
 	uplink := planet.Uplinks[0]
 	testData := make([]byte, 1*memory.MiB)
 	_, err = rand.Read(testData)

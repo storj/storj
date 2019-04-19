@@ -169,6 +169,8 @@ func TestCommitSegment(t *testing.T) {
 
 	planet.Start(ctx)
 
+	planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
+
 	projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
 	require.NoError(t, err)
 	apiKey := console.APIKeyFromBytes([]byte(projects[0].Name)).String()

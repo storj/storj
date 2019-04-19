@@ -41,6 +41,8 @@ func testPlanetWithLibUplink(t *testing.T, cfg testConfig, encKey *storj.Key,
 
 	planet.Start(ctx)
 
+	planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
+
 	// we only use testUplink for the free API key, until such time
 	// as testplanet makes it easy to get another way :D
 	testUplink := planet.Uplinks[0]

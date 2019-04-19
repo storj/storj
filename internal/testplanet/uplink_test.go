@@ -34,6 +34,8 @@ func TestUploadDownload(t *testing.T) {
 	_, err = rand.Read(expectedData)
 	assert.NoError(t, err)
 
+	planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
+
 	err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
 	assert.NoError(t, err)
 
@@ -56,6 +58,8 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 	// first, upload some remote data
 	ul := planet.Uplinks[0]
 	satellite := planet.Satellites[0]
+
+	satellite.Discovery.Service.Refresh.TriggerWait()
 
 	// stop discovery service so that we do not get a race condition when we delete nodes from overlay cache
 	satellite.Discovery.Service.Discovery.Stop()
@@ -130,6 +134,8 @@ func TestUploadDownloadOneUplinksInParallel(t *testing.T) {
 
 	planet.Start(ctx)
 
+	planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
+
 	dataToUpload := make([][]byte, 5)
 	for i := 0; i < len(dataToUpload); i++ {
 		dataToUpload[i] = make([]byte, 100*memory.KiB.Int()+(i*100*memory.KiB.Int()))
@@ -177,6 +183,8 @@ func TestUploadDownloadMultipleUplinksInParallel(t *testing.T) {
 	defer ctx.Check(planet.Shutdown)
 
 	planet.Start(ctx)
+
+	planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
 
 	dataToUpload := make([][]byte, numberOfUplinks)
 	for i := 0; i < len(dataToUpload); i++ {

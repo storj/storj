@@ -21,6 +21,7 @@ func TestSendingReceivingOrders(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
 
 		for _, storageNode := range planet.StorageNodes {
 			storageNode.Storage2.Sender.Loop.Pause()
@@ -66,6 +67,8 @@ func TestUnableToSendOrders(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
+
 		for _, storageNode := range planet.StorageNodes {
 			storageNode.Storage2.Sender.Loop.Pause()
 		}
@@ -111,6 +114,8 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
+
 		hourBeforeTest := time.Now().UTC().Add(-time.Hour)
 
 		for _, storageNode := range planet.StorageNodes {

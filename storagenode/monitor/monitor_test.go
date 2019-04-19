@@ -26,6 +26,8 @@ func TestMonitor(t *testing.T) {
 
 	planet.Start(ctx)
 
+	planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
+
 	var freeBandwidth int64
 	for _, storageNode := range planet.StorageNodes {
 		storageNode.Storage2.Monitor.Loop.Pause()

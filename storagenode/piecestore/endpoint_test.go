@@ -35,6 +35,8 @@ func TestUploadAndPartialDownload(t *testing.T) {
 
 	planet.Start(ctx)
 
+	planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
+
 	expectedData := make([]byte, 100*memory.KiB)
 	_, err = rand.Read(expectedData)
 	require.NoError(t, err)

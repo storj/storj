@@ -320,6 +320,8 @@ func runTest(t *testing.T, test func(context.Context, *testplanet.Planet, *kvmet
 
 	planet.Start(ctx)
 
+	planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
+
 	db, buckets, streams, err := newMetainfoParts(planet)
 	require.NoError(t, err)
 
