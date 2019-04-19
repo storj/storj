@@ -106,12 +106,13 @@ func (r *Service) RollupStorage(ctx context.Context, lastRollup time.Time, rollu
 	//loop through tallies and build Rollup
 	for _, tallyRow := range tallies {
 		node := tallyRow.NodeID
-		interval := tallyRow.IntervalEndTime.UTC()
-		if interval.After(latestTally) {
-			latestTally = interval
+		// tallyEndTime is the time the at rest tally was saved
+		tallyEndTime := tallyRow.IntervalEndTime.UTC()
+		if tallyEndTime.After(latestTally) {
+			latestTally = tallyEndTime
 		}
 		//create or get AccoutingRollup day entry
-		iDay := time.Date(interval.Year(), interval.Month(), interval.Day(), 0, 0, 0, 0, interval.Location())
+		iDay := time.Date(tallyEndTime.Year(), tallyEndTime.Month(), tallyEndTime.Day(), 0, 0, 0, 0, tallyEndTime.Location())
 		if rollupStats[iDay] == nil {
 			rollupStats[iDay] = make(map[storj.NodeID]*accounting.Rollup)
 		}
@@ -143,6 +144,7 @@ func (r *Service) RollupBW(ctx context.Context, lastRollup time.Time, rollupStat
 	}
 	for _, row := range bws {
 		nodeID := row.NodeID
+		// interval is the time the bw order was saved
 		interval := row.IntervalStart.UTC()
 		if interval.After(latestTally) {
 			latestTally = interval
