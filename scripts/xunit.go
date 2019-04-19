@@ -164,6 +164,7 @@ func withoutEmptyName(tests []*parse.Test) []*parse.Test {
 	return out
 }
 
+// Code based on: https://github.com/mfridman/tparse/blob/master/parse/process.go#L27
 func ProcessWithEcho(r io.Reader) (parse.Packages, error) {
 	pkgs := parse.Packages{}
 
