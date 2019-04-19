@@ -4,11 +4,6 @@ pipeline {
             filename 'Dockerfile.jenkins'
             args '-u root:root -v "/tmp/gomod":/go/pkg/mod'
         }
-        /*
-        docker {
-            image 'golang:1.12'
-            args '-u root:root -v "/tmp/gomod":/go/pkg/mod'
-        }*/
     }
     stages {
         stage('Build') {
@@ -45,23 +40,33 @@ pipeline {
                     steps {
                       sh 'psql -U postgres -c \'create database teststorj;\''
                       sh 'go test -vet=off -json -race ./... | go run ./scripts/xunit.go -out tests.xml'
+                      // sh 'cat test.json | tparse'
+                    }
+
+                    post {
+                      always {
+                        junit 'tests.xml'
+                      }
                     }
                 }
-            }
-        }
 
-        stage('Integration') {
-            // cannot run in parallel, because tests may end up using ports that
-            // test-sim needs.
-            steps {
-                sh 'make test-sim'
+                stage('Integration') {
+                    environment {
+                        STORJ_NETWORK_HOST4 = '127.0.0.2'
+                        STORJ_NETWORK_HOST6 = '127.0.0.2'
+                    }
+                    // cannot run in parallel, because tests may end up using ports that
+                    // test-sim needs.
+                    steps {
+                        sh 'make test-sim'
+                    }
+                }
             }
         }
     }
 
     post {
       always {
-        junit 'tests.xml'
         deleteDir()
       }
     }
