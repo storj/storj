@@ -264,7 +264,6 @@ func (planet *Planet) Start(ctx context.Context) {
 
 	for _, peer := range planet.Satellites {
 		peer.Kademlia.Service.WaitForBootstrap()
-		peer.Discovery.Service.Refresh.TriggerWait()
 	}
 
 	planet.Reconnect(ctx)
@@ -293,12 +292,7 @@ func (planet *Planet) Reconnect(ctx context.Context) {
 	for _, satellite := range planet.Satellites {
 		satellite := satellite
 		group.Go(func() error {
-			for _, storageNode := range planet.StorageNodes {
-				_, err := satellite.Kademlia.Service.Ping(ctx, storageNode.Local().Node)
-				if err != nil {
-					log.Error("satellite did not find storage node", zap.Error(err))
-				}
-			}
+			satellite.Discovery.Service.Refresh.TriggerWait()
 			return nil
 		})
 	}
