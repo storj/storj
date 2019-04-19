@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/bootstrap"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/satellite"
 	"storj.io/storj/storagenode"
 )
 
@@ -99,51 +100,68 @@ func TestPingTimeout(t *testing.T) {
 }
 
 func TestBootstrapBackoff(t *testing.T) {
-	done := make(chan bool)
-	go badBootstrapProxy(done)
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
-	testplanet.Run(t, testplanet.Config{
+	proxy, err := newBadProxy("127.0.0.1:0")
+	require.NoError(t, err)
+
+	planet, err := testplanet.NewCustom(zaptest.NewLogger(t), testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
-			Bootstrap: func(index int, config *bootstrap.Config) {
-				config.Server.Address = "127.0.0.1:9990"
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Kademlia.BootstrapAddr = proxy.listener.Addr().String()
 			},
 			StorageNode: func(index int, config *storagenode.Config) {
-				config.Kademlia.BootstrapAddr = "127.0.0.1:9999"
+				config.Kademlia.BootstrapAddr = proxy.listener.Addr().String()
 				config.Kademlia.BootstrapBackoffBase = 1 * time.Second
 				config.Kademlia.BootstrapBackoffMax = 10 * time.Second
 			},
 		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-
 	})
+	require.NoError(t, err)
+	defer ctx.Check(planet.Shutdown)
+
+	proxy.target = planet.Bootstrap.Addr()
+
+	done := make(chan bool)
+	go proxy.start(done)
+
+	planet.Start(ctx)
 }
 
-func badBootstrapProxy(done chan bool) (err error) {
-	start := time.Now()
+type badProxy struct {
+	listener net.Listener
+	target   string
+}
 
-	l, err := net.Listen("tcp", ":9999")
+func newBadProxy(addr string) (*badProxy, error) {
+	l, err := net.Listen("tcp", addr)
 	if err != nil {
-		return err
+		return nil, err
 	}
+	return &badProxy{
+		listener: l,
+	}, nil
+}
 
+func (proxy *badProxy) start(done chan bool) (err error) {
+	start := time.Now()
 	defer func() {
 		done <- true
-		l.Close()
+		proxy.listener.Close()
 	}()
-
 	for {
-		c, err := l.Accept()
+		c, err := proxy.listener.Accept()
 		if err != nil {
 			return err
 		}
-
 		go func() {
 			if time.Since(start) < 1*time.Second {
 				c.Close()
 				return
 			}
-			c2, err := net.Dial("tcp", "127.0.0.1:9990")
+			c2, err := net.Dial("tcp", proxy.target)
 			if err != nil {
 				c.Close()
 				return
