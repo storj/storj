@@ -5,12 +5,15 @@ package kademlia_test
 
 import (
 	"context"
+	"io"
+	"net"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/storj/bootstrap"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
@@ -18,6 +21,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/storagenode"
 )
 
 func TestFetchPeerIdentity(t *testing.T) {
@@ -92,4 +96,60 @@ func TestPingTimeout(t *testing.T) {
 		require.True(t, kademlia.NodeErr.Has(err) && transport.Error.Has(err))
 
 	})
+}
+
+func TestBootstrapBackoff(t *testing.T) {
+	done := make(chan bool)
+	go badBootstrapProxy(done)
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Bootstrap: func(index int, config *bootstrap.Config) {
+				config.Server.Address = "127.0.0.1:9990"
+			},
+			StorageNode: func(index int, config *storagenode.Config) {
+				config.Kademlia.BootstrapAddr = "127.0.0.1:9999"
+				config.Kademlia.BootstrapBackoffBase = 1 * time.Second
+				config.Kademlia.BootstrapBackoffMax = 10 * time.Second
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+
+	})
+}
+
+func badBootstrapProxy(done chan bool) (err error) {
+	start := time.Now()
+
+	l, err := net.Listen("tcp", ":9999")
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		done <- true
+		l.Close()
+	}()
+
+	for {
+		c, err := l.Accept()
+		if err != nil {
+			return err
+		}
+
+		go func() {
+			if time.Since(start) < 1*time.Second {
+				c.Close()
+				return
+			}
+			c2, err := net.Dial("tcp", "127.0.0.1:9990")
+			if err != nil {
+				c.Close()
+				return
+			}
+			go io.Copy(c, c2)
+			io.Copy(c2, c)
+		}()
+	}
 }
