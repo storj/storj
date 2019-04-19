@@ -43,8 +43,9 @@ func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
 		defaultConfDir = confDirParam
 	}
 
-	cfgstruct.Bind(cmd.Flags(), &cfg, isDev, cfgstruct.ConfDir(defaultConfDir))
-	return cmd
+	cfgstruct.Bind(cmd.Flags(), &cfg, defaults, cfgstruct.ConfDir(defaultConfDir))
+
+  return cmd
 }
 
 // NewUplink returns a pointer to a new Client with a Config and Uplink pointer on it and an error.
