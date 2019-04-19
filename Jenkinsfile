@@ -20,8 +20,7 @@ pipeline {
                 sh 'go get github.com/mattn/goveralls'
                 sh 'go get github.com/mfridman/tparse'
 
-                GO_VERSION = sh (script: 'go version', returnStdout: true).trim()
-                echo "Go version: ${GO_VERSION}"
+                sh 'go version'
             }
         }
 
