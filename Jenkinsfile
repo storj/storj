@@ -2,7 +2,7 @@ pipeline {
     agent {
         docker {
             image 'golang:1.12'
-            args '-u root:root'
+            args '-u root:root -v "/tmp/gomod":/go/pkg/mod'
         }
     }
     stages {
@@ -24,15 +24,11 @@ pipeline {
             }
         }
 
-        stage('Checkout') {
-            steps {
-                checkout scm
-                sh 'go mod -v download'
-            }
-        }
-
         stage('Build') {
             steps {
+                checkout scm
+                sh 'go mod download'
+
                 sh 'go install -v -race ./...'
                 sh 'make install-sim'
             }
