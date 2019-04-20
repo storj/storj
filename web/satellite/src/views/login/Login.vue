@@ -84,6 +84,9 @@ import { validateEmail, validatePassword } from '@/utils/validation';
             this.$router.push(ROUTES.REGISTER.path);
         },
     },
+    mounted(): void {
+        this.analytics.page('Login');
+    },
     components: {
         HeaderlessInput,
         Button
