@@ -7,7 +7,6 @@ import router from './router';
 import store from './store';
 import VueSegmentAnalytics from 'vue-segment-analytics';
 
-
 Vue.config.productionTip = false;
 declare module 'vue/types/vue' {
     interface Vue {
