@@ -146,6 +146,10 @@ router.beforeEach((to, from, next) => {
     next();
 });
 
+router.afterEach((to, from) => {
+    (<any>window).analytics.page(to.name);
+})
+
 // isUnavailablePageWithoutProject checks if we are able to navigate to page without existing project
 function isUnavailablePageWithoutProject(pageName: string): boolean {
     let unavailablePages: string[] = [ROUTES.TEAM.name, ROUTES.API_KEYS.name];
