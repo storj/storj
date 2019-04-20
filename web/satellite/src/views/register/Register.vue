@@ -142,8 +142,6 @@ import { setUserId } from '@/utils/consoleLocalStorage';
             if (this.$route.query.token) {
                 this.$data.secret = this.$route.query.token.toString();
             }
- 
-            this.analytics.page(ROUTES.REGISTER.name);
         }
     })
 

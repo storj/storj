@@ -64,9 +64,6 @@
                     return isEmailValid;
                 }
             },
-            mounted(): void {
-                this.analytics.page('ForgotPassword');
-            }
         })
 
     export default class ForgotPassword extends Vue {

@@ -24,3 +24,5 @@ new Vue({
     store,
     render: (h) => h(App),
 }).$mount('#app');
+
+(<any>window).analytics.page(router.currentRoute.name);
