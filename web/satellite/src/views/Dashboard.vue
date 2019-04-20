@@ -87,6 +87,8 @@ import {AppState} from "../utils/constants/appStateEnum";
 
             this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
         }, 800);
+
+        this.analytics.page('Dashboard');
     },
     computed: {
         isLoading: function() {
