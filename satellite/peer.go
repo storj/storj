@@ -198,7 +198,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 	var err error
 
-	{
+	{ // setup version control service
 		test := version.Info{}
 		if test != versionInfo {
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
@@ -351,7 +351,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		pb.RegisterBandwidthServer(peer.Server.GRPC(), peer.Agreements.Endpoint)
 	}
 
-	{ // setup datarepair
+	if config.Repairer.Interval > 0 && config.Checker.Interval > 0 { // setup datarepair
 		log.Debug("Setting up datarepair")
 		// TODO: simplify argument list somehow
 		peer.Repair.Checker = checker.NewChecker(
@@ -376,7 +376,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		pb.RegisterIrreparableInspectorServer(peer.Server.PrivateGRPC(), peer.Repair.Inspector)
 	}
 
-	{ // setup audit
+	if config.Audit.Interval > 0 { // setup audit
 		log.Debug("Setting up audits")
 		config := config.Audit
 
@@ -393,7 +393,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		}
 	}
 
-	{ // setup accounting
+	if config.Tally.Interval > 0 && config.Rollup.Interval > 0 { // setup accounting
 		log.Debug("Setting up accounting")
 		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.Accounting(), peer.Metainfo.Service, peer.Overlay.Service, 0, config.Tally.Interval)
 		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.Accounting(), config.Rollup.Interval)
@@ -528,19 +528,34 @@ func (peer *Peer) Run(ctx context.Context) error {
 		return errs2.IgnoreCanceled(peer.Discovery.Service.Run(ctx))
 	})
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Repair.Checker.Run(ctx))
+		if peer.Repair.Checker != nil {
+			return errs2.IgnoreCanceled(peer.Repair.Checker.Run(ctx))
+		}
+		return nil
 	})
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Repair.Repairer.Run(ctx))
+		if peer.Repair.Repairer != nil {
+			return errs2.IgnoreCanceled(peer.Repair.Repairer.Run(ctx))
+		}
+		return nil
 	})
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Accounting.Tally.Run(ctx))
+		if peer.Audit.Service != nil {
+			return errs2.IgnoreCanceled(peer.Audit.Service.Run(ctx))
+		}
+		return nil
 	})
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Accounting.Rollup.Run(ctx))
+		if peer.Accounting.Tally != nil {
+			return errs2.IgnoreCanceled(peer.Accounting.Tally.Run(ctx))
+		}
+		return nil
 	})
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Audit.Service.Run(ctx))
+		if peer.Accounting.Rollup != nil {
+			return errs2.IgnoreCanceled(peer.Accounting.Rollup.Run(ctx))
+		}
+		return nil
 	})
 	group.Go(func() error {
 		// TODO: move the message into Server instead
