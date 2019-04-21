@@ -21,7 +21,7 @@ import (
 
 // Config contains configurable values for the tally service
 type Config struct {
-	Interval time.Duration `help:"how frequently the tally service should run" default:"1h" devDefault:"30s"`
+	Interval time.Duration `help:"how frequently the tally service should run" releaseDefault:"1h" devDefault:"30s"`
 }
 
 // Service is the tally service for data stored on each storage node
