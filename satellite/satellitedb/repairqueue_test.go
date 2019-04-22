@@ -39,6 +39,24 @@ func TestInsertSelect(t *testing.T) {
 	})
 }
 
+func TestInsertDuplicate(t *testing.T) {
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		q := db.RepairQueue()
+
+		seg := &pb.InjuredSegment{
+			Path:       "abc",
+			LostPieces: []int32{int32(1), int32(3)},
+		}
+		err := q.Insert(ctx, seg)
+		require.NoError(t, err)
+		err = q.Insert(ctx, seg)
+		require.NoError(t, err)
+	})
+}
+
 func TestDequeueEmptyQueue(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
