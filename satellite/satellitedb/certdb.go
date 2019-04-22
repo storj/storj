@@ -9,6 +9,8 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/internal/dbutil/pgutil"
+	"storj.io/storj/internal/dbutil/sqliteutil"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
@@ -32,10 +34,17 @@ func (b *certDB) SavePublicKey(ctx context.Context, nodeID storj.NodeID, publicK
 			return Error.Wrap(errs.Combine(err, tx.Rollback()))
 		}
 
+		// TODO: use upsert here instead of create
 		_, err = tx.Create_CertRecord(ctx,
 			dbx.CertRecord_Publickey(pubbytes),
 			dbx.CertRecord_Id(nodeID.Bytes()),
 		)
+
+		// another goroutine raced to create the cert record, let's rollback
+		if pgutil.IsConstraintError(err) || sqliteutil.IsConstraintError(err) {
+			return Error.Wrap(tx.Rollback())
+		}
+
 		if err != nil {
 			return Error.Wrap(errs.Combine(err, tx.Rollback()))
 		}
