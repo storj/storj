@@ -554,6 +554,12 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Version:     16,
 				Action: migrate.Func(func(log *zap.Logger, db migrate.DB, tx *sql.Tx) error {
 					_, err := tx.Exec(`
+						DELETE FROM injuredsegments a USING injuredsegments b WHERE a.id < b.id AND a.info = b.info;
+					`)
+					if err != nil {
+						return ErrMigrate.Wrap(err)
+					}
+					_, err = tx.Exec(`
 						ALTER TABLE injuredsegments ADD path text;
 						ALTER TABLE injuredsegments RENAME COLUMN info TO data;
 						ALTER TABLE injuredsegments ADD attempted timestamp;
