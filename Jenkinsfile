@@ -1,16 +1,23 @@
-node {
+node('node') {
   properties([disableConcurrentBuilds()])
   try {
     currentBuild.result = "SUCCESS"
 
+    stage('Checkout') {
+      checkout scm
+
+      echo "Current build result: ${currentBuild.result}"
+    }
 
     stage('Build Images') {
       sh 'make images'
+
       echo "Current build result: ${currentBuild.result}"
     }
 
     stage('Build Binaries') {
       sh 'make binaries'
+
       echo "Current build result: ${currentBuild.result}"
     }
 
@@ -20,11 +27,13 @@ node {
       echo "Current build result: ${currentBuild.result}"
     }
 
-    stage('Deploy to staging') {
-      sh 'make deploy'
-      echo "Current build result: ${currentBuild.result}"
+    if (env.BRANCH_NAME == "master") {
+      /* This should only deploy to staging if the branch is master */
+      stage('Deploy to staging') {
+        sh 'make deploy'
+        echo "Current build result: ${currentBuild.result}"
+      }
     }
-
     stage('Upload') {
       sh 'make binaries-upload'
       echo "Current build result: ${currentBuild.result}"
