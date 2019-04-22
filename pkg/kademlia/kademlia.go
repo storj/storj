@@ -313,6 +313,16 @@ func (k *Kademlia) Seen() []*pb.Node {
 	return nodes
 }
 
+// GetNodesWithinKBucket returns all the routing nodes in the specified k-bucket
+func (k *Kademlia) GetNodesWithinKBucket(bID bucketID) ([]*pb.Node, error) {
+	return k.routingTable.getUnmarshaledNodesFromBucket(bID)
+}
+
+// GetCachedNodesWithinKBucket returns all the cached nodes in the specified k-bucket
+func (k *Kademlia) GetCachedNodesWithinKBucket(bID bucketID) []*pb.Node {
+	return k.routingTable.replacementCache[bID]
+}
+
 // SetBucketRefreshThreshold changes the threshold when buckets are considered stale and need refreshing.
 func (k *Kademlia) SetBucketRefreshThreshold(threshold time.Duration) {
 	atomic.StoreInt64(&k.refreshThreshold, int64(threshold))
