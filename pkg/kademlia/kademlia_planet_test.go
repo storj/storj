@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
@@ -41,14 +42,9 @@ func TestRequestInfo(t *testing.T) {
 		info, err := planet.Satellites[0].Kademlia.Service.FetchInfo(ctx, node.Local().Node)
 		require.NoError(t, err)
 		require.Equal(t, node.Local().Type, info.GetType())
-		require.Equal(t, node.Local().Operator.Email, info.GetOperator().GetEmail())
-		require.Equal(t, node.Local().Operator.Wallet, info.GetOperator().GetWallet())
-		require.Equal(t, node.Local().Capacity.FreeDisk, info.GetCapacity().GetFreeDisk())
-		require.Equal(t, node.Local().Capacity.FreeBandwidth, info.GetCapacity().GetFreeBandwidth())
-		require.Equal(t, node.Local().Version.Version, info.GetVersion().GetVersion())
-		require.Equal(t, node.Local().Version.CommitHash, info.GetVersion().GetCommitHash())
-		require.Equal(t, node.Local().Version.Timestamp.GetSeconds(), info.GetVersion().GetTimestamp().GetSeconds())
-		require.Equal(t, node.Local().Version.Release, info.GetVersion().GetRelease())
+		require.Empty(t, cmp.Diff(node.Local().Operator, *info.GetOperator(), cmp.Comparer(pb.Equal)))
+		require.Empty(t, cmp.Diff(node.Local().Capacity, *info.GetCapacity(), cmp.Comparer(pb.Equal)))
+		require.Empty(t, cmp.Diff(node.Local().Version, *info.GetVersion(), cmp.Comparer(pb.Equal)))
 	})
 }
 
