@@ -98,22 +98,48 @@ func (c *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, error
 	copy(encKey[:], c.Enc.Key)
 	opts.Volatile.EncryptionKey = encKey
 
-	return uplink.OpenProject(ctx, satelliteAddr, apiKey, opts)
+	project, err := uplink.OpenProject(ctx, satelliteAddr, apiKey, opts)
+
+	if err != nil {
+		if err := uplink.Close(); err != nil {
+			fmt.Printf("error closing uplink: %+v\n", err)
+		}
+	}
+
+	return project, err
 }
 
 // GetProjectAndBucket returns a *libuplink.Bucket for interacting with a specific project's bucket
-func (c *UplinkFlags) GetProjectAndBucket(ctx context.Context, bucketName string, access libuplink.EncryptionAccess) (*libuplink.Project, *libuplink.Bucket, error) {
-	project, err := c.GetProject(ctx)
+func (c *UplinkFlags) GetProjectAndBucket(ctx context.Context, bucketName string, access libuplink.EncryptionAccess) (project *libuplink.Project, bucket *libuplink.Bucket, err error) {
+	project, err = c.GetProject(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	bucket, err := project.OpenBucket(ctx, bucketName, &access)
+	defer func() {
+		if err != nil {
+			if err := project.Close(); err != nil {
+				fmt.Printf("error closing project: %+v\n", err)
+			}
+		}
+	}()
+
+	bucket, err = project.OpenBucket(ctx, bucketName, &access)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	return project, bucket, nil
+}
+
+func closeProjectAndBucket(project *libuplink.Project, bucket *libuplink.Bucket) {
+	if err := bucket.Close(); err != nil {
+		fmt.Printf("error closing bucket: %+v\n", err)
+	}
+
+	if err := project.Close(); err != nil {
+		fmt.Printf("error closing project: %+v\n", err)
+	}
 }
 
 func convertError(err error, path fpath.FPath) error {

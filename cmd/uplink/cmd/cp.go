@@ -90,15 +90,7 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 		return err
 	}
 
-	defer func() {
-		if err := bucket.Close(); err != nil {
-			fmt.Printf("error closing bucket: %+v\n", err)
-		}
-
-		if err := project.Close(); err != nil {
-			fmt.Printf("error closing project: %+v\n", err)
-		}
-	}()
+	defer closeProjectAndBucket(project, bucket)
 
 	reader := io.Reader(file)
 	var bar *progressbar.ProgressBar
@@ -148,15 +140,7 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 		return err
 	}
 
-	defer func() {
-		if err := bucket.Close(); err != nil {
-			fmt.Printf("error closing bucket: %+v\n", err)
-		}
-
-		if err := project.Close(); err != nil {
-			fmt.Printf("error closing project: %+v\n", err)
-		}
-	}()
+	defer closeProjectAndBucket(project, bucket)
 
 	object, err := bucket.OpenObject(ctx, src.Path())
 	if err != nil {
@@ -232,15 +216,7 @@ func copyObject(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err erro
 		return err
 	}
 
-	defer func() {
-		if err := bucket.Close(); err != nil {
-			fmt.Printf("error closing bucket: %+v\n", err)
-		}
-
-		if err := project.Close(); err != nil {
-			fmt.Printf("error closing project: %+v\n", err)
-		}
-	}()
+	defer closeProjectAndBucket(project, bucket)
 
 	object, err := bucket.OpenObject(ctx, src.Path())
 	if err != nil {

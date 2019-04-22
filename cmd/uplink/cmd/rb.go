@@ -50,15 +50,7 @@ func deleteBucket(cmd *cobra.Command, args []string) error {
 		return convertError(err, dst)
 	}
 
-	defer func() {
-		if err := bucket.Close(); err != nil {
-			fmt.Printf("error closing bucket: %+v\n", err)
-		}
-
-		if err := project.Close(); err != nil {
-			fmt.Printf("error closing project: %+v\n", err)
-		}
-	}()
+	defer closeProjectAndBucket(project, bucket)
 
 	list, err := bucket.ListObjects(ctx, &storj.ListOptions{Direction: storj.After, Recursive: true, Limit: 1})
 	if err != nil {
