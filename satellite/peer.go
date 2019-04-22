@@ -351,7 +351,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		pb.RegisterBandwidthServer(peer.Server.GRPC(), peer.Agreements.Endpoint)
 	}
 
-	if config.Repairer.Interval > 0 && config.Checker.Interval > 0 { // setup datarepair
+	{ // setup datarepair
 		log.Debug("Setting up datarepair")
 		// TODO: simplify argument list somehow
 		peer.Repair.Checker = checker.NewChecker(
@@ -376,7 +376,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		pb.RegisterIrreparableInspectorServer(peer.Server.PrivateGRPC(), peer.Repair.Inspector)
 	}
 
-	if config.Audit.Interval > 0 { // setup audit
+	{ // setup audit
 		log.Debug("Setting up audits")
 		config := config.Audit
 
@@ -393,7 +393,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		}
 	}
 
-	if config.Tally.Interval > 0 && config.Rollup.Interval > 0 { // setup accounting
+	{ // setup accounting
 		log.Debug("Setting up accounting")
 		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.Accounting(), peer.Metainfo.Service, peer.Overlay.Service, 0, config.Tally.Interval)
 		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.Accounting(), config.Rollup.Interval)
