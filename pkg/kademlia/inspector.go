@@ -136,3 +136,31 @@ func (srv *Inspector) NodeInfo(ctx context.Context, req *pb.NodeInfoRequest) (*p
 		Version:  info.GetVersion(),
 	}, nil
 }
+
+// GetBucketList returns the list of buckets with their routing nodes and their cached nodes
+func (srv *Inspector) GetBucketList(ctx context.Context, req *pb.GetBucketListRequest) (*pb.GetBucketListResponse, error) {
+	bucketIds, err := srv.dht.GetBucketIds()
+	if err != nil {
+		return nil, err
+	}
+
+	buckets := make([]*pb.GetBucketListResponse_Bucket, len(bucketIds))
+
+	for i, b := range bucketIds {
+		bucketID := keyToBucketID(b)
+		routingNodes, err := srv.dht.GetNodesWithinKBucket(bucketID)
+		if err != nil {
+			return nil, err
+		}
+		cachedNodes := srv.dht.GetCachedNodesWithinKBucket(bucketID)
+		buckets[i] = &pb.GetBucketListResponse_Bucket{
+			BucketId:     keyToBucketID(b),
+			RoutingNodes: routingNodes,
+			CachedNodes:  cachedNodes,
+		}
+
+	}
+	return &pb.GetBucketListResponse{
+		Buckets: buckets,
+	}, nil
+}
