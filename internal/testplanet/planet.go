@@ -484,7 +484,6 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			},
 			Tally: tally.Config{
 				Interval: 30 * time.Second,
-
 			},
 			Rollup: rollup.Config{
 				Interval:      2 * time.Minute,
