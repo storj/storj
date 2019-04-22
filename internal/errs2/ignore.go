@@ -33,8 +33,10 @@ func IsFunc(err error, is func(err error) bool) bool {
 		if is(err) {
 			return true
 		}
-		if err = errs.Unwrap(err); err == nil {
+		unwrapped := errs.Unwrap(err)
+		if unwrapped == nil || unwrapped == err {
 			return false
 		}
+		err = unwrapped
 	}
 }
