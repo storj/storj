@@ -13,17 +13,9 @@ import (
 //go:generate dbx.v1 golang -d postgres -d sqlite3 satellitedb.dbx .
 
 func init() {
-	// catch dbx errors
-	c := errs.Class("satellitedb")
+	// do not hide the actual error, necessary for other logic to work
 	WrapErr = func(e *Error) error {
-		switch e.Code {
-		case ErrorCode_NoRows:
-			return e.Err
-		case ErrorCode_ConstraintViolation:
-			return errs.New("violates constraint: %s: %s", e.Constraint, e.Error())
-		}
-
-		return c.Wrap(e)
+		return e.Err
 	}
 }
 
