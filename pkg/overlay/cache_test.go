@@ -41,7 +41,11 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 	_, _ = rand.Read(valid2ID[:])
 	_, _ = rand.Read(missingID[:])
 
-	cache := overlay.NewCache(zaptest.NewLogger(t), store, overlay.NodeSelectionConfig{})
+	cache := overlay.NewCache(zaptest.NewLogger(t), store, overlay.NodeSelectionConfig{
+		OnlineWindow:      time.Hour,
+		AuditSuccessRatio: 0.5,
+		UptimeRatio:       0.5,
+	})
 
 	{ // Put
 		err := cache.Put(ctx, valid1ID, pb.Node{Id: valid1ID})
@@ -79,26 +83,79 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 	}
 
 	{ // GetAll
-		nodes, err := cache.GetAll(ctx, storj.NodeIDList{valid2ID, valid1ID, valid2ID})
+		nodes, err := cache.GetAll(ctx, storj.NodeIDList{valid2ID, valid1ID, valid2ID}, nil)
 		assert.NoError(t, err)
 		assert.Equal(t, nodes[0].Id, valid2ID)
 		assert.Equal(t, nodes[1].Id, valid1ID)
 		assert.Equal(t, nodes[2].Id, valid2ID)
 
-		nodes, err = cache.GetAll(ctx, storj.NodeIDList{valid1ID, missingID})
+		nodes, err = cache.GetAll(ctx, storj.NodeIDList{valid1ID, missingID}, nil)
 		assert.NoError(t, err)
 		assert.Equal(t, nodes[0].Id, valid1ID)
 		assert.Nil(t, nodes[1])
 
-		nodes, err = cache.GetAll(ctx, make(storj.NodeIDList, 2))
+		nodes, err = cache.GetAll(ctx, make(storj.NodeIDList, 2), nil)
 		assert.NoError(t, err)
 		assert.Nil(t, nodes[0])
 		assert.Nil(t, nodes[1])
 
-		_, err = cache.GetAll(ctx, storj.NodeIDList{})
+		_, err = cache.GetAll(ctx, storj.NodeIDList{}, nil)
 		assert.True(t, overlay.OverlayError.Has(err))
 
 		// TODO: add erroring database test
+	}
+
+	{ // InvalidNodes
+		for _, tt := range []struct {
+			nodeID             storj.NodeID
+			auditSuccessCount  int64
+			auditCount         int64
+			auditSuccessRatio  float64
+			uptimeSuccessCount int64
+			uptimeCount        int64
+			uptimeRatio        float64
+		}{
+			{storj.NodeID{1}, 20, 20, 1, 20, 20, 1},   // good audit success
+			{storj.NodeID{2}, 5, 20, 0.25, 20, 20, 1}, // bad audit success, good uptime
+			{storj.NodeID{3}, 20, 20, 1, 5, 20, 0.25}, // good audit success, bad uptime
+			{storj.NodeID{4}, 0, 0, 0, 20, 20, 1},     // "bad" audit success, no audits
+			{storj.NodeID{5}, 20, 20, 1, 0, 0, 0.25},  // "bad" uptime success, no checks
+			{storj.NodeID{6}, 0, 1, 0, 5, 5, 1},       // bad audit success exactly one audit
+			{storj.NodeID{7}, 0, 20, 0, 20, 20, 1},    // bad ratios, excluded from query
+		} {
+			nodeStats := &overlay.NodeStats{
+				AuditSuccessRatio:  tt.auditSuccessRatio,
+				UptimeRatio:        tt.uptimeRatio,
+				AuditCount:         tt.auditCount,
+				AuditSuccessCount:  tt.auditSuccessCount,
+				UptimeCount:        tt.uptimeCount,
+				UptimeSuccessCount: tt.uptimeSuccessCount,
+			}
+
+			err := cache.Put(ctx, tt.nodeID, pb.Node{Id: tt.nodeID})
+			require.NoError(t, err)
+
+			//_, err = cache.db.CreateStats(ctx, tt.nodeID, nodeStats)
+			//require.NoError(t, err)
+		}
+
+		nodeIds := storj.NodeIDList{
+			storj.NodeID{1}, storj.NodeID{2},
+			storj.NodeID{3}, storj.NodeID{4},
+			storj.NodeID{5}, storj.NodeID{6},
+		}
+
+		invalidNodes := func(nodes []storj.NodeID) ([]*overlay.NodeDossier, error) {
+			return cache.GetAll(ctx, nodes, func(n *overlay.NodeDossier) bool { return !cache.IsValid(n) })
+		}
+
+		invalid, err := invalidNodes(nodeIds)
+		require.NoError(t, err)
+
+		assert.Contains(t, invalid, storj.NodeID{2})
+		assert.Contains(t, invalid, storj.NodeID{3})
+		assert.Contains(t, invalid, storj.NodeID{6})
+		assert.Len(t, invalid, 3)
 	}
 
 	{ // List

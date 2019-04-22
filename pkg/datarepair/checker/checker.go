@@ -112,21 +112,18 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 					nodeIDs = append(nodeIDs, p.NodeId)
 				}
 
-				// Find all offline nodes
-				offlineNodes, err := checker.overlay.OfflineNodes(ctx, nodeIDs)
+				// Find all nil / offline / invalid nodes
+				results, err := checker.overlay.GetAll(ctx, nodeIDs, func(r *overlay.NodeDossier) bool {
+					return r == nil || !checker.overlay.IsOnline(r) || !checker.overlay.IsValid(r)
+				})
 				if err != nil {
-					return Error.New("error getting offline nodes %s", err)
+					return err
 				}
-
-				invalidNodes, err := checker.invalidNodes(ctx, nodeIDs)
-				if err != nil {
-					return Error.New("error getting invalid nodes %s", err)
-				}
-
-				missingIndices := combineOfflineWithInvalid(offlineNodes, invalidNodes)
 				var missingPieces []int32
-				for _, i := range missingIndices {
-					missingPieces = append(missingPieces, pieces[i].GetPieceNum())
+				for i, r := range results {
+					if r == nil || !checker.overlay.IsOnline(r) || !checker.overlay.IsValid(r) {
+						missingPieces = append(missingPieces, pieces[i].GetPieceNum())
+					}
 				}
 
 				remoteSegmentsChecked++
@@ -185,52 +182,6 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 	mon.IntVal("remote_files_lost").Observe(int64(len(remoteSegmentInfo)))
 
 	return nil
-}
-
-// Find invalidNodes by checking the audit results that are place in overlay
-func (checker *Checker) invalidNodes(ctx context.Context, nodeIDs storj.NodeIDList) (invalidNodes []int, err error) {
-	// filter if nodeIDs have invalid pieces from auditing results
-	maxStats := &overlay.NodeStats{
-		AuditSuccessRatio: 0, // TODO: update when we have stats added to overlay
-		UptimeRatio:       0, // TODO: update when we have stats added to overlay
-	}
-
-	invalidIDs, err := checker.overlay.FindInvalidNodes(ctx, nodeIDs, maxStats)
-	if err != nil {
-		return nil, Error.New("error getting valid nodes from overlay %s", err)
-	}
-
-	invalidNodesMap := make(map[storj.NodeID]bool)
-	for _, invalidID := range invalidIDs {
-		invalidNodesMap[invalidID] = true
-	}
-
-	for i, nID := range nodeIDs {
-		if invalidNodesMap[nID] {
-			invalidNodes = append(invalidNodes, i)
-		}
-	}
-
-	return invalidNodes, nil
-}
-
-// combine the offline nodes with nodes marked invalid by overlay
-func combineOfflineWithInvalid(offlineNodes []int, invalidNodes []int) (missingPieces []int32) {
-	for _, offline := range offlineNodes {
-		missingPieces = append(missingPieces, int32(offline))
-	}
-
-	offlineMap := make(map[int]bool)
-	for _, i := range offlineNodes {
-		offlineMap[i] = true
-	}
-	for _, i := range invalidNodes {
-		if !offlineMap[i] {
-			missingPieces = append(missingPieces, int32(i))
-		}
-	}
-
-	return missingPieces
 }
 
 // checks for a string in slice

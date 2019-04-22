@@ -452,6 +452,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 					AuditCount:            0,
 					NewNodeAuditThreshold: 0,
 					NewNodePercentage:     0,
+					OnlineWindow:          time.Hour,
 				},
 			},
 			Discovery: discovery.Config{
