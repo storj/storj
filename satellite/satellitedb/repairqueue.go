@@ -27,7 +27,7 @@ func (r *repairQueue) Insert(ctx context.Context, seg *pb.InjuredSegment) error 
 	_, err := r.db.ExecContext(ctx, r.db.Rebind(`INSERT INTO injuredsegments ( path, data ) VALUES ( ?, ? )`), seg.Path, seg)
 	if err != nil {
 		if pgutil.IsConstraintError(err) || sqliteutil.IsConstraintError(err) {
-			return nil // quitely fail on reinsert
+			return nil // quietly fail on reinsert
 		}
 		return err
 	}

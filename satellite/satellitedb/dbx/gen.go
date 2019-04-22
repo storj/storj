@@ -27,6 +27,7 @@ func init() {
 	}
 }
 
+// Unwrap returns the underlying error.
 func (e *Error) Unwrap() error {
 	return e.Err
 }
@@ -36,10 +37,12 @@ type constraintError struct {
 	err        error
 }
 
+// Unwrap returns the underlying error.
 func (err *constraintError) Unwrap() error {
 	return err.err
 }
 
+// Error implements the error interface.
 func (err *constraintError) Error() string {
 	return fmt.Sprintf("violates constraint %q: %v", err.constraint, err.err)
 }
