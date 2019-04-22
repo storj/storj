@@ -113,7 +113,7 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 	if *expires != "" {
 		opts.Expires = expiration.UTC()
 	}
-	
+
 	opts.Volatile.RedundancyScheme = cfg.GetRedundancyScheme()
 	opts.Volatile.EncryptionParameters = cfg.GetEncryptionScheme().ToEncryptionParameters()
 
