@@ -143,13 +143,13 @@ func NewCache(log *zap.Logger, db DB, preferences NodeSelectionConfig) *Cache {
 // Close closes resources
 func (cache *Cache) Close() error { return nil }
 
-// Online checks if a node is 'online' based on the collected statistics.
+// IsOnline checks if a node is 'online' based on the collected statistics.
 func (cache *Cache) IsOnline(node *NodeDossier) bool {
 	return time.Now().Sub(node.Reputation.LastContactSuccess) < cache.preferences.OnlineWindow &&
 		node.Reputation.LastContactSuccess.After(node.Reputation.LastContactFailure)
 }
 
-// Valid checks if a node is 'valid' based on the collected statistics.
+// IsValid checks if a node is 'valid' based on the collected statistics.
 func (cache *Cache) IsValid(node *NodeDossier) bool {
 	r, p := node.Reputation, cache.preferences
 	return r.AuditCount >= p.AuditCount && r.UptimeCount >= p.UptimeCount &&
