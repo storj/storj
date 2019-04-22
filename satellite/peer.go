@@ -530,34 +530,19 @@ func (peer *Peer) Run(ctx context.Context) error {
 		return errs2.IgnoreCanceled(peer.Discovery.Service.Run(ctx))
 	})
 	group.Go(func() error {
-		if peer.Repair.Checker != nil {
-			return errs2.IgnoreCanceled(peer.Repair.Checker.Run(ctx))
-		}
-		return nil
+		return errs2.IgnoreCanceled(peer.Repair.Checker.Run(ctx))
 	})
 	group.Go(func() error {
-		if peer.Repair.Repairer != nil {
-			return errs2.IgnoreCanceled(peer.Repair.Repairer.Run(ctx))
-		}
-		return nil
+		return errs2.IgnoreCanceled(peer.Repair.Repairer.Run(ctx))
 	})
 	group.Go(func() error {
-		if peer.Audit.Service != nil {
-			return errs2.IgnoreCanceled(peer.Audit.Service.Run(ctx))
-		}
-		return nil
+		return errs2.IgnoreCanceled(peer.Audit.Service.Run(ctx))
 	})
 	group.Go(func() error {
-		if peer.Accounting.Tally != nil {
-			return errs2.IgnoreCanceled(peer.Accounting.Tally.Run(ctx))
-		}
-		return nil
+		return errs2.IgnoreCanceled(peer.Accounting.Tally.Run(ctx))
 	})
 	group.Go(func() error {
-		if peer.Accounting.Rollup != nil {
-			return errs2.IgnoreCanceled(peer.Accounting.Rollup.Run(ctx))
-		}
-		return nil
+		return errs2.IgnoreCanceled(peer.Accounting.Rollup.Run(ctx))
 	})
 	group.Go(func() error {
 		// TODO: move the message into Server instead

@@ -70,7 +70,7 @@ func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error)
 	currentInterval := cycle.interval
 	// Return if Interval is set to "disabled"
 	if currentInterval == 0 || currentInterval == -1 {
-		return nil
+		cycle.Pause()
 	}
 	cycle.ticker = time.NewTicker(currentInterval)
 	if err := fn(ctx); err != nil {
