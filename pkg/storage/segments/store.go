@@ -248,7 +248,6 @@ func makeRemotePointer(nodes []*pb.Node, hashes []*pb.PieceHash, rs eestream.Red
 		if nodes[i] == nil {
 			continue
 		}
-		nodes[i].Type.DPanicOnInvalid("makeremotepointer")
 		remotePieces = append(remotePieces, &pb.RemotePiece{
 			PieceNum: int32(i),
 			NodeId:   nodes[i].Id,

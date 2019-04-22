@@ -13,6 +13,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
+
 	"storj.io/storj/pkg/peertls/tlsopts"
 
 	"storj.io/storj/internal/memory"
@@ -51,7 +52,7 @@ func TestDialer(t *testing.T) {
 		for _, peer := range peers {
 			peer := peer
 			group.Go(func() error {
-				pinged, err := dialer.PingNode(ctx, peer.Local())
+				pinged, err := dialer.PingNode(ctx, peer.Local().Node)
 				var pingErr error
 				if !pinged {
 					pingErr = fmt.Errorf("ping to %s should have succeeded", peer.ID())
@@ -71,7 +72,7 @@ func TestDialer(t *testing.T) {
 		defer ctx.Check(group.Wait)
 
 		group.Go(func() error {
-			ident, err := dialer.FetchPeerIdentity(ctx, planet.Satellites[0].Local())
+			ident, err := dialer.FetchPeerIdentity(ctx, planet.Satellites[0].Local().Node)
 			if err != nil {
 				return fmt.Errorf("failed to fetch peer identity")
 			}
@@ -107,7 +108,7 @@ func TestDialer(t *testing.T) {
 					peer.Local().Type.DPanicOnInvalid("test client peer")
 					target.Local().Type.DPanicOnInvalid("test client target")
 
-					results, err := dialer.Lookup(ctx, self.Local(), peer.Local(), target.Local())
+					results, err := dialer.Lookup(ctx, self.Local().Node, peer.Local().Node, target.Local().Node)
 					if err != nil {
 						return errs.Combine(errTag, err)
 					}
@@ -147,7 +148,7 @@ func TestDialer(t *testing.T) {
 				group.Go(func() error {
 					errTag := fmt.Errorf("invalid lookup peer:%s target:%s", peer.ID(), target)
 					peer.Local().Type.DPanicOnInvalid("peer info")
-					results, err := dialer.Lookup(ctx, self.Local(), peer.Local(), pb.Node{Id: target, Type: pb.NodeType_STORAGE})
+					results, err := dialer.Lookup(ctx, self.Local().Node, peer.Local().Node, pb.Node{Id: target})
 					if err != nil {
 						return errs.Combine(errTag, err)
 					}
@@ -201,7 +202,7 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 		for _, peer := range peers {
 			peer := peer
 			group.Go(func() error {
-				_, err := dialer.PingNode(ctx, peer.Local())
+				_, err := dialer.PingNode(ctx, peer.Local().Node)
 				require.Error(t, err, context.DeadlineExceeded)
 				require.True(t, transport.Error.Has(err))
 
@@ -233,7 +234,7 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 		defer ctx.Check(group.Wait)
 
 		group.Go(func() error {
-			_, err := dialer.FetchPeerIdentity(ctx, planet.Satellites[0].Local())
+			_, err := dialer.FetchPeerIdentity(ctx, planet.Satellites[0].Local().Node)
 			require.Error(t, err, context.DeadlineExceeded)
 			require.True(t, transport.Error.Has(err))
 
@@ -275,7 +276,7 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 					peer.Local().Type.DPanicOnInvalid("test client peer")
 					target.Local().Type.DPanicOnInvalid("test client target")
 
-					_, err := dialer.Lookup(ctx, self.Local(), peer.Local(), target.Local())
+					_, err := dialer.Lookup(ctx, self.Local().Node, peer.Local().Node, target.Local().Node)
 					require.Error(t, err, context.DeadlineExceeded, errTag)
 					require.True(t, transport.Error.Has(err), errTag)
 

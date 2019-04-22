@@ -220,8 +220,8 @@ func (cache *overlaycache) Paginate(ctx context.Context, offset int64, limit int
 	return infos, more, nil
 }
 
-// Update updates node information
-func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error) {
+// Update updates node address
+func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node) (err error) {
 	if info == nil || info.Id.IsZero() {
 		return overlay.ErrEmptyNode
 	}
@@ -239,64 +239,30 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 	}
 
 	if err != nil {
-		metadata := info.Metadata
-		if metadata == nil {
-			metadata = &pb.NodeMetadata{}
-		}
-
-		restrictions := info.Restrictions
-		if restrictions == nil {
-			restrictions = &pb.NodeRestrictions{
-				FreeBandwidth: -1,
-				FreeDisk:      -1,
-			}
-		}
-
-		reputation := info.Reputation
-		if reputation == nil {
-			reputation = &pb.NodeStats{}
-		}
-
-		ver := info.Version
-		var semver version.SemVer
-		var verTime time.Time
-		if ver == nil {
-			ver = &pb.NodeVersion{}
-		} else {
-			parsed, err := version.NewSemVer(ver.Version)
-			if err == nil {
-				semver = *parsed
-			}
-			verTime, err = ptypes.Timestamp(ver.Timestamp)
-			if err != nil {
-				verTime = time.Time{}
-			}
-		}
-
+		// add the node to DB for first time
 		_, err = tx.Create_Node(
 			ctx,
 			dbx.Node_Id(info.Id.Bytes()),
 			dbx.Node_Address(address.Address),
 			dbx.Node_Protocol(int(address.Transport)),
-			dbx.Node_Type(int(info.Type)),
-			dbx.Node_Email(metadata.Email),
-			dbx.Node_Wallet(metadata.Wallet),
-			dbx.Node_FreeBandwidth(restrictions.FreeBandwidth),
-			dbx.Node_FreeDisk(restrictions.FreeDisk),
-			dbx.Node_Major(semver.Major),
-			dbx.Node_Minor(semver.Minor),
-			dbx.Node_Patch(semver.Patch),
-			dbx.Node_Hash(ver.CommitHash),
-			dbx.Node_Timestamp(verTime),
-			dbx.Node_Release(ver.Release),
-
-			dbx.Node_Latency90(reputation.Latency_90),
-			dbx.Node_AuditSuccessCount(reputation.AuditSuccessCount),
-			dbx.Node_TotalAuditCount(reputation.AuditCount),
-			dbx.Node_AuditSuccessRatio(reputation.AuditSuccessRatio),
-			dbx.Node_UptimeSuccessCount(reputation.UptimeSuccessCount),
-			dbx.Node_TotalUptimeCount(reputation.UptimeCount),
-			dbx.Node_UptimeRatio(reputation.UptimeRatio),
+			dbx.Node_Type(int(pb.NodeType_INVALID)),
+			dbx.Node_Email(""),
+			dbx.Node_Wallet(""),
+			dbx.Node_FreeBandwidth(-1),
+			dbx.Node_FreeDisk(-1),
+			dbx.Node_Major(0),
+			dbx.Node_Minor(0),
+			dbx.Node_Patch(0),
+			dbx.Node_Hash(""),
+			dbx.Node_Timestamp(time.Time{}),
+			dbx.Node_Release(false),
+			dbx.Node_Latency90(0),
+			dbx.Node_AuditSuccessCount(0),
+			dbx.Node_TotalAuditCount(0),
+			dbx.Node_AuditSuccessRatio(0),
+			dbx.Node_UptimeSuccessCount(0),
+			dbx.Node_TotalUptimeCount(0),
+			dbx.Node_UptimeRatio(0),
 			dbx.Node_LastContactSuccess(time.Now()),
 			dbx.Node_LastContactFailure(time.Time{}),
 		)
@@ -305,29 +271,8 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 		}
 	} else {
 		update := dbx.Node_Update_Fields{
-			// TODO: should we be able to update node type?
 			Address:  dbx.Node_Address(address.Address),
 			Protocol: dbx.Node_Protocol(int(address.Transport)),
-		}
-
-		if info.Reputation != nil {
-			update.Latency90 = dbx.Node_Latency90(info.Reputation.Latency_90)
-			update.AuditSuccessRatio = dbx.Node_AuditSuccessRatio(info.Reputation.AuditSuccessRatio)
-			update.UptimeRatio = dbx.Node_UptimeRatio(info.Reputation.UptimeRatio)
-			update.TotalAuditCount = dbx.Node_TotalAuditCount(info.Reputation.AuditCount)
-			update.AuditSuccessCount = dbx.Node_AuditSuccessCount(info.Reputation.AuditSuccessCount)
-			update.TotalUptimeCount = dbx.Node_TotalUptimeCount(info.Reputation.UptimeCount)
-			update.UptimeSuccessCount = dbx.Node_UptimeSuccessCount(info.Reputation.UptimeSuccessCount)
-		}
-
-		if info.Metadata != nil {
-			update.Email = dbx.Node_Email(info.Metadata.Email)
-			update.Wallet = dbx.Node_Wallet(info.Metadata.Wallet)
-		}
-
-		if info.Restrictions != nil {
-			update.FreeBandwidth = dbx.Node_FreeBandwidth(info.Restrictions.FreeBandwidth)
-			update.FreeDisk = dbx.Node_FreeDisk(info.Restrictions.FreeDisk)
 		}
 
 		_, err := tx.Update_Node_By_Id(ctx, dbx.Node_Id(info.Id.Bytes()), update)
@@ -513,6 +458,9 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 
 	var updateFields dbx.Node_Update_Fields
 	if nodeInfo != nil {
+		if nodeInfo.GetType() != pb.NodeType_INVALID {
+			updateFields.Type = dbx.Node_Type(int(nodeInfo.GetType()))
+		}
 		if nodeInfo.GetOperator() != nil {
 			updateFields.Wallet = dbx.Node_Wallet(nodeInfo.GetOperator().GetWallet())
 			updateFields.Email = dbx.Node_Email(nodeInfo.GetOperator().GetEmail())
@@ -524,11 +472,11 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 		if nodeInfo.GetVersion() != nil {
 			semVer, err := version.NewSemVer(nodeInfo.GetVersion().GetVersion())
 			if err != nil {
-				return &overlay.NodeDossier{}, errs.New("unable to convert version to semVer")
+				return nil, errs.New("unable to convert version to semVer")
 			}
 			pbts, err := ptypes.Timestamp(nodeInfo.GetVersion().GetTimestamp())
 			if err != nil {
-				return &overlay.NodeDossier{}, errs.New("unable to convert version timestamp")
+				return nil, errs.New("unable to convert version timestamp")
 			}
 			updateFields.Major = dbx.Node_Major(semVer.Major)
 			updateFields.Minor = dbx.Node_Minor(semVer.Minor)
@@ -623,7 +571,6 @@ func convertDBNode(info *dbx.Node) (*overlay.NodeDossier, error) {
 				Address:   info.Address,
 				Transport: pb.NodeTransport(info.Protocol),
 			},
-			Type: pb.NodeType(info.Type),
 		},
 		Type: pb.NodeType(info.Type),
 		Operator: pb.NodeOperator{
@@ -651,10 +598,6 @@ func convertDBNode(info *dbx.Node) (*overlay.NodeDossier, error) {
 			Timestamp:  pbts,
 			Release:    info.Release,
 		},
-	}
-
-	if time.Now().Sub(info.LastContactSuccess) < 1*time.Hour && info.LastContactSuccess.After(info.LastContactFailure) {
-		node.IsUp = true
 	}
 
 	return node, nil
