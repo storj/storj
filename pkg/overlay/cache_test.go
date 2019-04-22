@@ -123,34 +123,41 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 			{storj.NodeID{6}, 0, 1, 0, 5, 5, 1},       // bad audit success exactly one audit
 			{storj.NodeID{7}, 0, 20, 0, 20, 20, 1},    // bad ratios, excluded from query
 		} {
-			nodeStats := &overlay.NodeStats{
-				AuditSuccessRatio:  tt.auditSuccessRatio,
-				UptimeRatio:        tt.uptimeRatio,
-				AuditCount:         tt.auditCount,
-				AuditSuccessCount:  tt.auditSuccessCount,
-				UptimeCount:        tt.uptimeCount,
-				UptimeSuccessCount: tt.uptimeSuccessCount,
-			}
-
 			err := cache.Put(ctx, tt.nodeID, pb.Node{Id: tt.nodeID})
 			require.NoError(t, err)
 
-			//_, err = cache.db.CreateStats(ctx, tt.nodeID, nodeStats)
-			//require.NoError(t, err)
+			as, u, a := int64(0), int64(0), int64(0)
+			for i := int64(0); i < tt.auditSuccessCount; i++ {
+				var audit, auditSuccess, isUp bool
+				if as > tt.auditSuccessCount {
+					auditSuccess = true
+					as++
+				}
+				if u > tt.uptimeSuccessCount {
+					isUp = true
+					u++
+				}
+				if a > tt.auditCount {
+					isUp = true
+					a++
+				}
+				if audit {
+					_, err = cache.UpdateStats(ctx, &overlay.UpdateRequest{NodeID: tt.nodeID, AuditSuccess: auditSuccess, IsUp: isUp})
+					require.NoError(t, err)
+				} else {
+					_, err = cache.UpdateUptime(ctx, tt.nodeID, isUp)
+					require.NoError(t, err)
+				}
+			}
 		}
 
-		nodeIds := storj.NodeIDList{
-			storj.NodeID{1}, storj.NodeID{2},
-			storj.NodeID{3}, storj.NodeID{4},
-			storj.NodeID{5}, storj.NodeID{6},
-		}
-
-		invalidNodes := func(nodes []storj.NodeID) ([]*overlay.NodeDossier, error) {
-			return cache.GetAll(ctx, nodes, func(n *overlay.NodeDossier) bool { return !cache.IsValid(n) })
-		}
-
-		invalid, err := invalidNodes(nodeIds)
+		nodeIds := storj.NodeIDList{storj.NodeID{1}, storj.NodeID{2}, storj.NodeID{3}, storj.NodeID{4}, storj.NodeID{5}, storj.NodeID{6}}
+		invalidNodes, err := cache.GetAll(ctx, nodeIds, func(n *overlay.NodeDossier) bool { return !cache.IsValid(n) })
 		require.NoError(t, err)
+		invalid := []storj.NodeID{}
+		for _, x := range invalidNodes {
+			invalid = append(invalid, x.Node.Id)
+		}
 
 		assert.Contains(t, invalid, storj.NodeID{2})
 		assert.Contains(t, invalid, storj.NodeID{3})

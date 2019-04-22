@@ -141,6 +141,11 @@ func NewCache(log *zap.Logger, db DB, preferences NodeSelectionConfig) *Cache {
 // Close closes resources
 func (cache *Cache) Close() error { return nil }
 
+// IsNew checks if a node is 'new' based on the collected statistics.
+func (cache *Cache) IsNew(node *NodeDossier) bool {
+	return node.Reputation.AuditCount > cache.preferences.NewNodeAuditThreshold
+}
+
 // IsOnline checks if a node is 'online' based on the collected statistics.
 func (cache *Cache) IsOnline(node *NodeDossier) bool {
 	return time.Now().Sub(node.Reputation.LastContactSuccess) < cache.preferences.OnlineWindow &&
