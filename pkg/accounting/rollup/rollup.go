@@ -5,7 +5,6 @@ package rollup
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"go.uber.org/zap"
@@ -43,7 +42,6 @@ func New(logger *zap.Logger, db accounting.DB, interval time.Duration, deleteTal
 
 // Run the Rollup loop
 func (r *Service) Run(ctx context.Context) (err error) {
-	fmt.Println("***", r.deleteTallies)
 	r.logger.Info("Rollup service starting up")
 	defer mon.Task()(&ctx)(&err)
 	for {
