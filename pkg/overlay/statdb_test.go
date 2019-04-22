@@ -52,7 +52,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 			UptimeSuccessCount: currUptimeSuccess,
 		}
 
-		err := cache.Update(ctx, &pb.Node{Id: nodeID})
+		err := cache.UpdateAddress(ctx, &pb.Node{Id: nodeID})
 		require.NoError(t, err)
 
 		stats, err := cache.CreateStats(ctx, nodeID, nodeStats)
@@ -105,7 +105,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 				UptimeSuccessCount: tt.uptimeSuccessCount,
 			}
 
-			err := cache.Update(ctx, &pb.Node{Id: tt.nodeID})
+			err := cache.UpdateAddress(ctx, &pb.Node{Id: tt.nodeID})
 			require.NoError(t, err)
 
 			_, err = cache.CreateStats(ctx, tt.nodeID, nodeStats)
@@ -133,7 +133,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 
 	{ // TestUpdateOperator
 		nodeID := storj.NodeID{10}
-		err := cache.Update(ctx, &pb.Node{Id: nodeID})
+		err := cache.UpdateAddress(ctx, &pb.Node{Id: nodeID})
 		require.NoError(t, err)
 
 		update, err := cache.UpdateNodeInfo(ctx, nodeID, &pb.InfoResponse{
