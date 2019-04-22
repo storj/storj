@@ -108,9 +108,12 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 		reader = bar.NewProxyReader(reader)
 	}
 
-	opts := &libuplink.UploadOptions{
-		Expires: expiration.UTC(),
+	opts := &libuplink.UploadOptions{}
+
+	if *expires != "" {
+		opts.Expires = expiration.UTC()
 	}
+	
 	opts.Volatile.RedundancyScheme = cfg.GetRedundancyScheme()
 	opts.Volatile.EncryptionParameters = cfg.GetEncryptionScheme().ToEncryptionParameters()
 
