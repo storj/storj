@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package queue_test
+package satellitedb_test
 
 import (
 	"sort"

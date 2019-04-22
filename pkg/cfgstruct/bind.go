@@ -17,26 +17,22 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/internal/version"
 )
 
 // BindOpt is an option for the Bind method
-type BindOpt func(vars map[string]confVar)
+type BindOpt struct {
+	isDev *bool
+	varfn func(vars map[string]confVar)
+}
 
 // ConfDir sets variables for default options called $CONFDIR and $CONFNAME.
 func ConfDir(path string) BindOpt {
 	val := filepath.Clean(os.ExpandEnv(path))
-	return BindOpt(func(vars map[string]confVar) {
+	return BindOpt{varfn: func(vars map[string]confVar) {
 		vars["CONFDIR"] = confVar{val: val, nested: false}
 		vars["CONFNAME"] = confVar{val: val, nested: false}
-	})
-}
-
-// IdentityDir sets a variable for the default option called $IDENTITYDIR.
-func IdentityDir(path string) BindOpt {
-	val := filepath.Clean(os.ExpandEnv(path))
-	return BindOpt(func(vars map[string]confVar) {
-		vars["IDENTITYDIR"] = confVar{val: val, nested: false}
-	})
+	}}
 }
 
 // ConfDirNested sets variables for default options called $CONFDIR and $CONFNAME.
@@ -44,10 +40,36 @@ func IdentityDir(path string) BindOpt {
 // descending into substructs.
 func ConfDirNested(confdir string) BindOpt {
 	val := filepath.Clean(os.ExpandEnv(confdir))
-	return BindOpt(func(vars map[string]confVar) {
+	return BindOpt{varfn: func(vars map[string]confVar) {
 		vars["CONFDIR"] = confVar{val: val, nested: true}
 		vars["CONFNAME"] = confVar{val: val, nested: true}
-	})
+	}}
+}
+
+// IdentityDir sets a variable for the default option called $IDENTITYDIR.
+func IdentityDir(path string) BindOpt {
+	val := filepath.Clean(os.ExpandEnv(path))
+	return BindOpt{varfn: func(vars map[string]confVar) {
+		vars["IDENTITYDIR"] = confVar{val: val, nested: false}
+	}}
+}
+
+// UseDevDefaults forces the bind call to use development defaults unless
+// UseReleaseDefaults is provided as a subsequent option.
+// Without either, Bind will default to determining which defaults to use
+// based on version.Build.Release
+func UseDevDefaults() BindOpt {
+	dev := true
+	return BindOpt{isDev: &dev}
+}
+
+// UseReleaseDefaults forces the bind call to use release defaults unless
+// UseDevDefaults is provided as a subsequent option.
+// Without either, Bind will default to determining which defaults to use
+// based on version.Build.Release
+func UseReleaseDefaults() BindOpt {
+	dev := false
+	return BindOpt{isDev: &dev}
 }
 
 type confVar struct {
@@ -58,25 +80,31 @@ type confVar struct {
 // Bind sets flags on a FlagSet that match the configuration struct
 // 'config'. This works by traversing the config struct using the 'reflect'
 // package. Will ignore fields with `setup:"true"` tag.
-func Bind(flags FlagSet, config interface{}, isDev bool, opts ...BindOpt) {
-	bind(flags, config, false, isDev, opts...)
+func Bind(flags FlagSet, config interface{}, opts ...BindOpt) {
+	bind(flags, config, false, opts...)
 }
 
 // BindSetup sets flags on a FlagSet that match the configuration struct
 // 'config'. This works by traversing the config struct using the 'reflect'
 // package.
-func BindSetup(flags FlagSet, config interface{}, isDev bool, opts ...BindOpt) {
-	bind(flags, config, true, isDev, opts...)
+func BindSetup(flags FlagSet, config interface{}, opts ...BindOpt) {
+	bind(flags, config, true, opts...)
 }
 
-func bind(flags FlagSet, config interface{}, setupCommand bool, isDev bool, opts ...BindOpt) {
+func bind(flags FlagSet, config interface{}, setupCommand bool, opts ...BindOpt) {
 	ptrtype := reflect.TypeOf(config)
 	if ptrtype.Kind() != reflect.Ptr {
 		panic(fmt.Sprintf("invalid config type: %#v. Expecting pointer to struct.", config))
 	}
+	isDev := !version.Build.Release
 	vars := map[string]confVar{}
 	for _, opt := range opts {
-		opt(vars)
+		if opt.varfn != nil {
+			opt.varfn(vars)
+		}
+		if opt.isDev != nil {
+			isDev = *opt.isDev
+		}
 	}
 
 	bindConfig(flags, "", reflect.ValueOf(config).Elem(), vars, setupCommand, false, isDev)
@@ -133,11 +161,11 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 			}
 		default:
 			help := field.Tag.Get("help")
-			def := field.Tag.Get("default")
+			var def string
 			if isDev {
-				if devDefault, ok := field.Tag.Lookup("devDefault"); ok {
-					def = devDefault
-				}
+				def = getDefault(field.Tag, "devDefault", "releaseDefault", "default", flagname)
+			} else {
+				def = getDefault(field.Tag, "releaseDefault", "devDefault", "default", flagname)
 			}
 			fieldaddr := fieldval.Addr().Interface()
 			check := func(err error) {
@@ -193,6 +221,22 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 	}
 }
 
+func getDefault(tag reflect.StructTag, preferred, opposite, fallback, flagname string) string {
+	if val, ok := tag.Lookup(preferred); ok {
+		if _, oppositeExists := tag.Lookup(opposite); !oppositeExists {
+			panic(fmt.Sprintf("%q defined but %q missing for %v", preferred, opposite, flagname))
+		}
+		if _, fallbackExists := tag.Lookup(fallback); fallbackExists {
+			panic(fmt.Sprintf("%q defined along with %q fallback for %v", preferred, fallback, flagname))
+		}
+		return val
+	}
+	if _, oppositeExists := tag.Lookup(opposite); oppositeExists {
+		panic(fmt.Sprintf("%q missing but %q defined for %v", preferred, opposite, flagname))
+	}
+	return tag.Get(fallback)
+}
+
 func setBoolAnnotation(flagset interface{}, name, key string) {
 	flags, ok := flagset.(*pflag.FlagSet)
 	if !ok {
@@ -219,6 +263,11 @@ func FindIdentityDirParam() string {
 	return FindFlagEarly("identity-dir")
 }
 
+// FindDefaultsParam returns '--defaults' param from os.Args (if it exists)
+func FindDefaultsParam() string {
+	return FindFlagEarly("defaults")
+}
+
 // FindFlagEarly retrieves the value of a flag before `flag.Parse` has been called
 func FindFlagEarly(flagName string) string {
 	// workaround to have early access to 'dir' param
@@ -232,7 +281,7 @@ func FindFlagEarly(flagName string) string {
 	return ""
 }
 
-//SetupFlag sets up flags that are needed before `flag.Parse` has been called
+// SetupFlag sets up flags that are needed before `flag.Parse` has been called
 func SetupFlag(log *zap.Logger, cmd *cobra.Command, dest *string, name, value, usage string) {
 	if foundValue := FindFlagEarly(name); foundValue != "" {
 		value = foundValue
@@ -243,18 +292,30 @@ func SetupFlag(log *zap.Logger, cmd *cobra.Command, dest *string, name, value, u
 	}
 }
 
-//DevFlag sets up the dev flag, which is needed before `flag.Parse` has been called
-func DevFlag(cmd *cobra.Command, dest *bool, value bool, usage string) {
-	for _, arg := range os.Args {
-		if strings.HasPrefix(arg, "--dev=") {
-			if val, err := strconv.ParseBool(strings.TrimPrefix(arg, "--dev=")); err == nil {
-				value = val
-				break
-			}
-		} else if arg == "--dev" {
-			value = true
-			break
-		}
+// DefaultsFlag sets up the defaults=dev/release flag options, which is needed
+// before `flag.Parse` has been called
+func DefaultsFlag(cmd *cobra.Command) BindOpt {
+	// define a flag so that the flag parsing system will be happy.
+	defaults := "dev"
+	if version.Build.Release {
+		defaults = "release"
 	}
-	cmd.PersistentFlags().BoolVar(dest, "dev", value, usage)
+	// we're actually going to ignore this flag entirely and parse the commandline
+	// arguments early instead
+	_ = cmd.PersistentFlags().String("defaults", defaults,
+		"determines which set of configuration defaults to use. can either be 'dev' or 'release'")
+
+	foundDefaults := strings.ToLower(FindDefaultsParam())
+	if foundDefaults == "" {
+		foundDefaults = defaults
+	}
+
+	switch foundDefaults {
+	case "dev":
+		return UseDevDefaults()
+	case "release":
+		return UseReleaseDefaults()
+	default:
+		panic(fmt.Sprintf("unsupported defaults value %q", FindDefaultsParam()))
+	}
 }
