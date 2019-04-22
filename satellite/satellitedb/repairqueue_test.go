@@ -109,6 +109,8 @@ func TestSequential(t *testing.T) {
 }
 
 func TestParallel(t *testing.T) {
+	t.Skip("flaky")
+
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
