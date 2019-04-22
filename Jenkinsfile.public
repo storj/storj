@@ -40,7 +40,7 @@ pipeline {
                     steps {
                         sh 'psql -U postgres -c \'create database teststorj;\''
                         sh 'go run scripts/use-ports.go -from 1024 -to 10000 &'
-                        sh 'go test -vet=off -timeout 9m -json -race ./... |& tee -a tests.json |& go run ./scripts/xunit.go -out tests.xml'
+                        sh 'go test -vet=off -timeout 9m -json -race ./... &2>1 | tee -a tests.json &2>1 | go run ./scripts/xunit.go -out tests.xml'
                     }
 
                     post {
