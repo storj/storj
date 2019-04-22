@@ -46,10 +46,10 @@ func (srv *Inspector) GetStats(ctx context.Context, req *pb.GetStatsRequest) (*p
 	}
 
 	return &pb.GetStatsResponse{
-		AuditCount:  node.GetReputation().GetAuditCount(),
-		AuditRatio:  node.GetReputation().GetAuditSuccessRatio(),
-		UptimeCount: node.GetReputation().GetUptimeCount(),
-		UptimeRatio: node.GetReputation().GetUptimeRatio(),
+		AuditCount:  node.Reputation.AuditCount,
+		AuditRatio:  node.Reputation.AuditSuccessRatio,
+		UptimeCount: node.Reputation.UptimeCount,
+		UptimeRatio: node.Reputation.UptimeRatio,
 	}, nil
 }
 

@@ -500,10 +500,6 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 	limits := make([]*pb.AddressedOrderLimit, totalPieces)
 	var pieceNum int
 	for _, node := range newNodes {
-		if node != nil {
-			node.Type.DPanicOnInvalid("order service put repair order limits")
-		}
-
 		for pieceNum < totalPieces && getOrderLimits[pieceNum] != nil {
 			pieceNum++
 		}
