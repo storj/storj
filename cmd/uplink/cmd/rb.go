@@ -42,23 +42,23 @@ func deleteBucket(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Nested buckets not supported, use format sj://bucket/")
 	}
 
-	project, err := cfg.GetProject(ctx)
+	var access libuplink.EncryptionAccess
+	copy(access.Key[:], []byte(cfg.Enc.Key))
+
+	project, bucket, err := cfg.GetProjectAndBucket(ctx, dst.Bucket(), access)
 	if err != nil {
-		return err
+		return convertError(err, dst)
 	}
+
 	defer func() {
+		if err := bucket.Close(); err != nil {
+			fmt.Printf("error closing bucket: %+v\n", err)
+		}
+
 		if err := project.Close(); err != nil {
 			fmt.Printf("error closing project: %+v\n", err)
 		}
 	}()
-
-	var access libuplink.EncryptionAccess
-	copy(access.Key[:], []byte(cfg.Enc.Key))
-
-	bucket, err := project.OpenBucket(ctx, dst.Bucket(), &access)
-	if err != nil {
-		return convertError(err, dst)
-	}
 
 	list, err := bucket.ListObjects(ctx, &storj.ListOptions{Direction: storj.After, Recursive: true, Limit: 1})
 	if err != nil {

@@ -82,26 +82,21 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 		return fmt.Errorf("source cannot be a directory: %s", src)
 	}
 
-	project, err := cfg.GetProject(ctx)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := project.Close(); err != nil {
-			fmt.Printf("error closing project: %+v\n", err)
-		}
-	}()
-
 	var access libuplink.EncryptionAccess
 	copy(access.Key[:], []byte(cfg.Enc.Key))
 
-	bucket, err := project.OpenBucket(ctx, dst.Bucket(), &access)
+	project, bucket, err := cfg.GetProjectAndBucket(ctx, dst.Bucket(), access)
 	if err != nil {
 		return err
 	}
+
 	defer func() {
 		if err := bucket.Close(); err != nil {
 			fmt.Printf("error closing bucket: %+v\n", err)
+		}
+
+		if err := project.Close(); err != nil {
+			fmt.Printf("error closing project: %+v\n", err)
 		}
 	}()
 
@@ -142,26 +137,21 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 		return fmt.Errorf("destination must be local path: %s", dst)
 	}
 
-	project, err := cfg.GetProject(ctx)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := project.Close(); err != nil {
-			fmt.Printf("error closing project: %+v\n", err)
-		}
-	}()
-
 	var access libuplink.EncryptionAccess
 	copy(access.Key[:], []byte(cfg.Enc.Key))
 
-	bucket, err := project.OpenBucket(ctx, src.Bucket(), &access)
+	project, bucket, err := cfg.GetProjectAndBucket(ctx, src.Bucket(), access)
 	if err != nil {
 		return err
 	}
+
 	defer func() {
 		if err := bucket.Close(); err != nil {
 			fmt.Printf("error closing bucket: %+v\n", err)
+		}
+
+		if err := project.Close(); err != nil {
+			fmt.Printf("error closing project: %+v\n", err)
 		}
 	}()
 
@@ -231,26 +221,21 @@ func copyObject(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err erro
 		return fmt.Errorf("destination must be Storj URL: %s", dst)
 	}
 
-	project, err := cfg.GetProject(ctx)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := project.Close(); err != nil {
-			fmt.Printf("error closing project: %+v\n", err)
-		}
-	}()
-
 	var access libuplink.EncryptionAccess
 	copy(access.Key[:], []byte(cfg.Enc.Key))
 
-	bucket, err := project.OpenBucket(ctx, dst.Bucket(), &access)
+	project, bucket, err := cfg.GetProjectAndBucket(ctx, dst.Bucket(), access)
 	if err != nil {
 		return err
 	}
+
 	defer func() {
 		if err := bucket.Close(); err != nil {
 			fmt.Printf("error closing bucket: %+v\n", err)
+		}
+
+		if err := project.Close(); err != nil {
+			fmt.Printf("error closing project: %+v\n", err)
 		}
 	}()
 

@@ -101,6 +101,21 @@ func (c *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, error
 	return uplink.OpenProject(ctx, satelliteAddr, apiKey, opts)
 }
 
+// GetProjectAndBucket returns a *libuplink.Bucket for interacting with a specific project's bucket
+func (c *UplinkFlags) GetProjectAndBucket(ctx context.Context, bucketName string, access libuplink.EncryptionAccess) (*libuplink.Project, *libuplink.Bucket, error) {
+	project, err := c.GetProject(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	bucket, err := project.OpenBucket(ctx, bucketName, &access)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return project, bucket, nil
+}
+
 func convertError(err error, path fpath.FPath) error {
 	if storj.ErrBucketNotFound.Has(err) {
 		return fmt.Errorf("Bucket not found: %s", path.Bucket())

@@ -37,20 +37,10 @@ func deleteObject(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("No bucket specified, use format sj://bucket/")
 	}
 
-	project, err := cfg.GetProject(ctx)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := project.Close(); err != nil {
-			fmt.Printf("error closing project: %+v\n", err)
-		}
-	}()
-
 	var access libuplink.EncryptionAccess
 	copy(access.Key[:], []byte(cfg.Enc.Key))
 
-	bucket, err := project.OpenBucket(ctx, dst.Bucket(), &access)
+	project, bucket, err := cfg.GetProjectAndBucket(ctx, dst.Bucket(), access)
 	if err != nil {
 		return convertError(err, dst)
 	}
@@ -58,6 +48,10 @@ func deleteObject(cmd *cobra.Command, args []string) error {
 	defer func() {
 		if err := bucket.Close(); err != nil {
 			fmt.Printf("error closing bucket: %+v\n", err)
+		}
+
+		if err := project.Close(); err != nil {
+			fmt.Printf("error closing project: %+v\n", err)
 		}
 	}()
 
