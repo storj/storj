@@ -34,7 +34,7 @@ func TestRollup(t *testing.T) {
 		start := timestamp
 
 		for i := 0; i < days; i++ {
-			err := planet.Satellites[0].DB.Accounting().SaveStoragenodeStorageTallies(ctx, timestamp, timestamp, testData[i].nodeData)
+			err := planet.Satellites[0].DB.Accounting().SaveSNStorageTallies(ctx, timestamp, timestamp, testData[i].nodeData)
 			require.NoError(t, err)
 			err = saveBW(ctx, planet, testData[i].bwTotals, timestamp)
 			require.NoError(t, err)
@@ -43,11 +43,11 @@ func TestRollup(t *testing.T) {
 			require.NoError(t, err)
 
 			// Assert that RollupStorage deleted all tallies except for today's
-			raw, err := planet.Satellites[0].DB.Accounting().GetStoragenodeStorage(ctx)
+			raw, err := planet.Satellites[0].DB.Accounting().GetSNStorageTallies(ctx)
 			require.NoError(t, err)
 			for _, r := range raw {
 				assert.Equal(t, r.IntervalEndTime.UTC().Truncate(time.Second), timestamp.Truncate(time.Second))
-				assert.Equal(t, testData[i].nodeData[r.NodeId], r.DataTotal)
+				assert.Equal(t, testData[i].nodeData[r.NodeID], r.DataTotal)
 			}
 
 			// Advance time by 24 hours

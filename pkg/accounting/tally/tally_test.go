@@ -20,7 +20,7 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-func TestDeleteStoragenodeTalliesBefore(t *testing.T) {
+func TestDeleteSNStorageTalliesBefore(t *testing.T) {
 	tests := []struct {
 		createdAt    time.Time
 		eraseBefore  time.Time
@@ -46,13 +46,13 @@ func TestDeleteStoragenodeTalliesBefore(t *testing.T) {
 			nodeData := make(map[storj.NodeID]float64)
 			nodeData[id] = float64(1000)
 
-			err := planet.Satellites[0].DB.Accounting().SaveStoragenodeStorageTallies(ctx, tt.createdAt, tt.createdAt, nodeData)
+			err := planet.Satellites[0].DB.Accounting().SaveSNStorageTallies(ctx, tt.createdAt, tt.createdAt, nodeData)
 			require.NoError(t, err)
 
-			err = planet.Satellites[0].DB.Accounting().DeleteStoragenodeTalliesBefore(ctx, tt.eraseBefore)
+			err = planet.Satellites[0].DB.Accounting().DeleteSNStorageTalliesBefore(ctx, tt.eraseBefore)
 			require.NoError(t, err)
 
-			raws, err := planet.Satellites[0].DB.Accounting().GetStoragenodeStorage(ctx)
+			raws, err := planet.Satellites[0].DB.Accounting().GetSNStorageTallies(ctx)
 			require.NoError(t, err)
 			assert.Len(t, raws, tt.expectedRaws)
 		})
