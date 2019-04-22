@@ -63,7 +63,6 @@ matrix:
         - go run ./scripts/check-copyright.go
         - go run ./scripts/check-imports.go ./...
         - go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint
-        - 
         - protolock status
         - golangci-lint run
         - ./scripts/check-dbx-version.sh
