@@ -120,27 +120,6 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		assert.NotNil(t, more)
 		assert.NotEqual(t, len(zero), 0)
 	}
-
-	{ // Delete
-		// Test standard delete
-		err := cache.Delete(ctx, valid1ID)
-		assert.NoError(t, err)
-
-		// Check that it was deleted
-		deleted, err := cache.Get(ctx, valid1ID)
-		assert.Error(t, err)
-		assert.Nil(t, deleted)
-		assert.True(t, overlay.ErrNodeNotFound.Has(err))
-
-		// Test idempotent delete / non existent key delete
-		err = cache.Delete(ctx, valid1ID)
-		assert.NoError(t, err)
-
-		// Test empty key delete
-		err = cache.Delete(ctx, storj.NodeID{})
-		assert.Error(t, err)
-		assert.True(t, err == overlay.ErrEmptyNode)
-	}
 }
 
 func TestRandomizedSelection(t *testing.T) {
@@ -173,6 +152,8 @@ func testRandomizedSelection(t *testing.T, reputable bool) {
 				Restrictions: &pb.NodeRestrictions{},
 				Reputation:   &pb.NodeStats{},
 			})
+			require.NoError(t, err)
+			_, err = cache.UpdateUptime(ctx, newID, true)
 			require.NoError(t, err)
 			allIDs[i] = newID
 			nodeCounts[newID] = 0

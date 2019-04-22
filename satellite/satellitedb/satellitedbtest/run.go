@@ -49,7 +49,7 @@ func Databases() []Database {
 // Run method will iterate over all supported databases. Will establish
 // connection and will create tables for each DB.
 func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
-	schemaSuffix := pgutil.RandomString(8)
+	schemaSuffix := pgutil.CreateRandomTestingSchemaName(8)
 	t.Log("schema-suffix ", schemaSuffix)
 
 	for _, dbInfo := range Databases() {

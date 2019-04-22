@@ -19,6 +19,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
+	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/miniogw"
@@ -62,7 +63,6 @@ var (
 
 	confDir     string
 	identityDir string
-	isDev       bool
 )
 
 func init() {
@@ -70,12 +70,12 @@ func init() {
 	defaultIdentityDir := fpath.ApplicationDir("storj", "identity", "gateway")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for gateway configuration")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for gateway identity credentials")
-	cfgstruct.DevFlag(rootCmd, &isDev, false, "use development and test configuration settings")
+	defaults := cfgstruct.DefaultsFlag(rootCmd)
 
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
-	cfgstruct.Bind(runCmd.Flags(), &runCfg, isDev, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, isDev, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	cfgstruct.Bind(runCmd.Flags(), &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
@@ -140,7 +140,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 	if host == "" {
-		address = net.JoinHostPort("localhost", port)
+		address = net.JoinHostPort("127.0.0.1", port)
 	}
 
 	fmt.Printf("Starting Storj S3-compatible gateway!\n\n")
@@ -157,6 +157,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
 		zap.S().Error("Failed to initialize telemetry batcher: ", err)
 	}
+
 	_, err = metainfo.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
 	if err != nil {
 		return fmt.Errorf("Failed to contact Satellite.\n"+
@@ -215,18 +216,47 @@ func (flags GatewayFlags) action(ctx context.Context, cliCtx *cli.Context, ident
 }
 
 // NewGateway creates a new minio Gateway
-func (flags GatewayFlags) NewGateway(ctx context.Context, identity *identity.FullIdentity) (gw minio.Gateway, err error) {
-	metainfo, streams, err := flags.GetMetainfo(ctx, identity)
+func (flags GatewayFlags) NewGateway(ctx context.Context, ident *identity.FullIdentity) (gw minio.Gateway, err error) {
+	cfg := libuplink.Config{}
+	cfg.Volatile.TLS = struct {
+		SkipPeerCAWhitelist bool
+		PeerCAWhitelistPath string
+	}{
+		SkipPeerCAWhitelist: !flags.TLS.UsePeerCAWhitelist,
+		PeerCAWhitelistPath: flags.TLS.PeerCAWhitelistPath,
+	}
+	cfg.Volatile.UseIdentity = ident
+	cfg.Volatile.MaxInlineSize = flags.Client.MaxInlineSize
+	cfg.Volatile.MaxMemory = flags.RS.MaxBufferMem
+
+	uplink, err := libuplink.NewUplink(ctx, &cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	apiKey, err := libuplink.ParseAPIKey(flags.Client.APIKey)
+	if err != nil {
+		return nil, err
+	}
+
+	encKey := new(storj.Key)
+	copy(encKey[:], flags.Enc.Key)
+
+	var opts libuplink.ProjectOptions
+	opts.Volatile.EncryptionKey = encKey
+
+	project, err := uplink.OpenProject(ctx, flags.Client.SatelliteAddr, apiKey, &opts)
 	if err != nil {
 		return nil, err
 	}
 
 	return miniogw.NewStorjGateway(
-		metainfo,
-		streams,
-		storj.Cipher(flags.Enc.PathType),
-		flags.GetEncryptionScheme(),
+		project,
+		encKey,
+		storj.Cipher(flags.Enc.PathType).ToCipherSuite(),
+		flags.GetEncryptionScheme().ToEncryptionParameters(),
 		flags.GetRedundancyScheme(),
+		flags.Client.SegmentSize,
 	), nil
 }
 

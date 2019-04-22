@@ -36,9 +36,9 @@ read one (
 	where  irreparabledb.segmentpath = ?
 )
 
-read limitoffset ( 
-	select irreparabledb 
-	orderby asc irreparabledb.segmentpath 
+read limitoffset (
+	select irreparabledb
+	orderby asc irreparabledb.segmentpath
 )
 
 //--- accounting ---//
@@ -68,7 +68,7 @@ model accounting_rollup (
 	field put_total        int64
 	field get_total        int64
 	field get_audit_total  int64
-	field get_repair_total int64 
+	field get_repair_total int64
 	field put_repair_total int64
 	field at_rest_total    float64
 )
@@ -119,20 +119,34 @@ read all (
 model node (
 	key id
 
-	field id                  blob
-	field audit_success_count int64   ( updatable )
-	field total_audit_count   int64   ( updatable )
-	field audit_success_ratio float64 ( updatable )
+	field id             blob
+	field address        text  ( updatable ) // TODO: use compressed format
+	field protocol       int   ( updatable )
+	field type           int   ( updatable )
+	field email          text  ( updatable )
+	field wallet         text  ( updatable ) // TODO: use compressed format
+	field free_bandwidth int64 ( updatable )
+	field free_disk      int64 ( updatable )
 
+ 	field major             int64 ( updatable )
+	field minor             int64 ( updatable )
+	field patch             int64 ( updatable )
+	field hash              text ( updatable )
+	field timestamp         timestamp ( updatable )
+	field release           bool ( updatable )
+
+	field latency_90           int64   ( updatable )
+	field audit_success_count  int64   ( updatable )
+	field total_audit_count    int64   ( updatable )
+	field audit_success_ratio  float64 ( updatable )
 	field uptime_success_count int64   ( updatable )
 	field total_uptime_count   int64   ( updatable )
 	field uptime_ratio         float64 ( updatable )
 
-	field created_at timestamp ( autoinsert )
-	field updated_at timestamp ( autoinsert, autoupdate )
-
-	field wallet 			text ( updatable )
-	field email 			text ( updatable )
+	field created_at           timestamp ( autoinsert )
+	field updated_at           timestamp ( autoinsert, autoupdate )
+	field last_contact_success timestamp ( updatable )
+	field last_contact_failure timestamp ( updatable )
 )
 
 create node ( )
@@ -145,79 +159,25 @@ read one (
 	where  node.id = ?
 )
 
-// "Find" query; returns nil if node not found
-read scalar (
-	select node
-	where  node.id = ?
-)
-
 read all (
 	select node.id
 )
 
-//--- overlaycache ---//
-
-model overlay_cache_node (
-	key    node_id
-	unique node_id
-
-	field node_id   blob
-	field node_type int
-
-	field address   text (updatable) // TODO: use compressed format
-	field protocol  int  (updatable)
-	
-	field operator_email  text (updatable)
-	field operator_wallet text (updatable) //TODO: use compressed format
-	
-	field free_bandwidth int64 (updatable)
-	field free_disk      int64 (updatable)
-
-	field latency_90           int64  (updatable)
-	
-	field audit_success_ratio  float64 (updatable)
-	field audit_uptime_ratio   float64 (updatable)
-	field audit_count          int64   (updatable)
-	field audit_success_count  int64   (updatable)
-
-	field uptime_count         int64 (updatable)
-	field uptime_success_count int64 (updatable)
-)
-
-create overlay_cache_node ( )
-
-read one (
-	select overlay_cache_node
-	where  overlay_cache_node.node_id = ?
-)
-
 read limitoffset (
-	select overlay_cache_node
-	where  overlay_cache_node.node_id >= ?
+	select node
+	where  node.id >= ?
+	orderby asc node.id
 )
-
-update overlay_cache_node ( where overlay_cache_node.node_id = ? )
-delete overlay_cache_node ( where overlay_cache_node.node_id = ? )
 
 //--- repairqueue ---//
 
 model injuredsegment (
-	key id
+	key path
 
-	field id   serial64
-	field info blob
+	field path text
+	field data blob
+	field attempted utimestamp (updatable, nullable)
 )
-
-create injuredsegment ( )
-
-read first (
-	select injuredsegment
-)
-
-read limitoffset (
-	select injuredsegment
-)
-delete injuredsegment ( where injuredsegment.id = ? )
 
 //--- satellite console ---//
 
@@ -264,6 +224,7 @@ read one (
     select project
     where project.id = ?
 )
+
 read all (
     select project
     join project.id = project_member.project_id
@@ -429,36 +390,65 @@ create used_serial ()
 // --- bucket accounting tables --- //
 
 model bucket_bandwidth_rollup (
-	key    bucket_id interval_start action
+	key    bucket_name project_id interval_start action
 	index (
-	    name bucket_id_interval_start_interval_seconds
-	    fields bucket_id interval_start interval_seconds
+	    name bucket_name_project_id_interval_start_interval_seconds
+	    fields bucket_name project_id interval_start interval_seconds
 	)
 
-	field bucket_id        blob
+	field bucket_name       blob
+	field project_id        blob
+
 	field interval_start   utimestamp
 	field interval_seconds uint
 	field action           uint
 
-	field inline    uint64
-	field allocated uint64
-	field settled   uint64
+	field inline    uint64 ( updatable )
+	field allocated uint64 ( updatable )
+	field settled   uint64 ( updatable )
+)
+
+read scalar (
+	select bucket_bandwidth_rollup
+	where  bucket_bandwidth_rollup.bucket_name = ?
+	where  bucket_bandwidth_rollup.project_id = ?
+	where  bucket_bandwidth_rollup.interval_start = ?
+	where  bucket_bandwidth_rollup.action = ?
 )
 
 model bucket_storage_tally (
-	key    bucket_id interval_start
+	key    bucket_name project_id interval_start
 
-	field bucket_id        blob
+	field bucket_name       blob
+	field project_id        blob
+
 	field interval_start   utimestamp
 
 	field inline uint64
 	field remote uint64
-	
+
 	field  remote_segments_count    uint
 	field  inline_segments_count    uint
 	field  object_count             uint
 
 	field  metadata_size      uint64
+)
+
+create bucket_storage_tally ()
+
+read first (
+    select bucket_storage_tally
+    where bucket_storage_tally.project_id = ?
+    orderby desc bucket_storage_tally.interval_start
+)
+
+read all (
+    select bucket_storage_tally
+    where bucket_storage_tally.project_id = ?
+    where bucket_storage_tally.bucket_name = ?
+    where bucket_storage_tally.interval_start >= ?
+    where bucket_storage_tally.interval_start <= ?
+    orderby desc bucket_storage_tally.interval_start
 )
 
 // --- storage node accounting tables --- //
@@ -475,8 +465,20 @@ model storagenode_bandwidth_rollup (
 	field interval_seconds uint
 	field action           uint
 
-	field allocated uint64
-	field settled   uint64
+	field allocated uint64 ( updatable )
+	field settled   uint64 ( updatable )
+)
+
+read scalar (
+	select storagenode_bandwidth_rollup
+	where  storagenode_bandwidth_rollup.storagenode_id = ?
+	where  storagenode_bandwidth_rollup.interval_start = ?
+	where  storagenode_bandwidth_rollup.action = ?
+)
+
+read all (
+	select storagenode_bandwidth_rollup
+	where storagenode_bandwidth_rollup.interval_start >= ?
 )
 
 model storagenode_storage_tally (
@@ -491,7 +493,7 @@ model storagenode_storage_tally (
 //--- certRecord ---//
 
 model certRecord (
-	key id 
+	key id
 
 	field publickey  blob		//--uplink public key--//
 	field id         blob		//--uplink node id  --//

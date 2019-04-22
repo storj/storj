@@ -21,7 +21,6 @@ import (
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/stream"
-	"storj.io/storj/pkg/utils"
 )
 
 var (
@@ -103,7 +102,7 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 	reader := io.Reader(file)
 	var bar *progressbar.ProgressBar
 	if showProgress {
-		bar = progressbar.New(int(fileInfo.Size())).SetUnits(progressbar.U_BYTES)
+		bar = progressbar.New64(fileInfo.Size()).SetUnits(progressbar.U_BYTES)
 		bar.Start()
 		reader = bar.NewProxyReader(reader)
 	}
@@ -132,7 +131,7 @@ func uploadStream(ctx context.Context, streams streams.Store, mutableObject stor
 
 	_, err = io.Copy(upload, reader)
 
-	return utils.CombineErrors(err, upload.Close())
+	return errs.Combine(err, upload.Close())
 }
 
 // download transfers s3 compatible object src to dst on local machine
@@ -161,7 +160,7 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 	var bar *progressbar.ProgressBar
 	var reader io.Reader
 	if showProgress {
-		bar = progressbar.New(int(readOnlyStream.Info().Size)).SetUnits(progressbar.U_BYTES)
+		bar = progressbar.New64(readOnlyStream.Info().Size).SetUnits(progressbar.U_BYTES)
 		bar.Start()
 		reader = bar.NewProxyReader(download)
 	} else {
@@ -225,7 +224,7 @@ func copy(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err error) {
 	var bar *progressbar.ProgressBar
 	var reader io.Reader
 	if *progress {
-		bar = progressbar.New(int(readOnlyStream.Info().Size)).SetUnits(progressbar.U_BYTES)
+		bar = progressbar.New64(readOnlyStream.Info().Size).SetUnits(progressbar.U_BYTES)
 		bar.Start()
 		reader = bar.NewProxyReader(download)
 	} else {

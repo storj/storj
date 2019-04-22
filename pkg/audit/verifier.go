@@ -170,6 +170,9 @@ func (d *defaultDownloader) getShare(ctx context.Context, limit *pb.AddressedOrd
 	timedCtx := ctx
 	if d.minBytesPerSecond > 0 {
 		maxTransferTime := time.Duration(int64(time.Second) * int64(bandwidthMsgSize) / d.minBytesPerSecond.Int64())
+		if maxTransferTime < (5 * time.Second) {
+			maxTransferTime = 5 * time.Second
+		}
 		var cancel func()
 		timedCtx, cancel = context.WithTimeout(ctx, maxTransferTime)
 		defer cancel()
@@ -191,6 +194,12 @@ func (d *defaultDownloader) getShare(ctx context.Context, limit *pb.AddressedOrd
 		conn,
 		piecestore.DefaultConfig,
 	)
+	defer func() {
+		err := ps.Close()
+		if err != nil {
+			d.log.Error("audit verifier failed to close conn to node: %+v", zap.Error(err))
+		}
+	}()
 
 	offset := int64(shareSize) * stripeIndex
 
@@ -273,8 +282,9 @@ func getSuccessNodes(ctx context.Context, nodes map[int]storj.NodeID, failedNode
 
 func createBucketID(path storj.Path) []byte {
 	comps := storj.SplitPath(path)
-	if len(comps) < 2 {
+	if len(comps) < 3 {
 		return nil
 	}
-	return []byte(storj.JoinPaths(comps[0], comps[1]))
+	// project_id/bucket_name
+	return []byte(storj.JoinPaths(comps[0], comps[2]))
 }

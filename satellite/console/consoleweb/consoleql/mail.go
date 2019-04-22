@@ -6,6 +6,8 @@ package consoleql
 const (
 	// ActivationPath is key for path which handles account activation
 	ActivationPath = "activationPath"
+	// PasswordRecoveryPath is key for path which handles password recovery
+	PasswordRecoveryPath = "passwordRecoveryPath"
 	// SignInPath is key for sign in server route
 	SignInPath = "signInPath"
 )
@@ -24,17 +26,16 @@ func (*AccountActivationEmail) Subject() string { return "Activate your email" }
 
 // ForgotPasswordEmail is mailservice template with reset password data
 type ForgotPasswordEmail struct {
-	Origin        string
-	UserName      string
-	ResetLink     string
-	LetUsKnowLink string
+	Origin    string
+	UserName  string
+	ResetLink string
 }
 
 // Template returns email template name
 func (*ForgotPasswordEmail) Template() string { return "Forgot" }
 
 // Subject gets email subject
-func (*ForgotPasswordEmail) Subject() string { return "" }
+func (*ForgotPasswordEmail) Subject() string { return "Password recovery request" }
 
 // ProjectInvitationEmail is mailservice template for project invitation email
 type ProjectInvitationEmail struct {
@@ -49,5 +50,5 @@ func (*ProjectInvitationEmail) Template() string { return "Invite" }
 
 // Subject gets email subject
 func (email *ProjectInvitationEmail) Subject() string {
-	return "You were invited you to join the Project " + email.ProjectName
+	return "You were invited to join the Project " + email.ProjectName
 }

@@ -6,15 +6,15 @@ package bootstrap
 import (
 	"context"
 	"net"
-	"net/http"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc"
 
 	"storj.io/storj/bootstrap/bootstrapweb"
 	"storj.io/storj/bootstrap/bootstrapweb/bootstrapserver"
+	"storj.io/storj/internal/errs2"
+	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
@@ -44,6 +44,8 @@ type Config struct {
 	Kademlia kademlia.Config
 
 	Web bootstrapserver.Config
+
+	Version version.Config
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
@@ -62,6 +64,8 @@ type Peer struct {
 
 	Server *server.Server
 
+	Version *version.Service
+
 	// services and endpoints
 	Kademlia struct {
 		RoutingTable *kademlia.RoutingTable
@@ -79,7 +83,7 @@ type Peer struct {
 }
 
 // New creates a new Bootstrap Node.
-func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*Peer, error) {
+func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, versionInfo version.Info) (*Peer, error) {
 	peer := &Peer{
 		Log:      log,
 		Identity: full,
@@ -87,6 +91,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 	}
 
 	var err error
+
+	{
+		test := version.Info{}
+		if test != versionInfo {
+			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
+				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
+		}
+		peer.Version = version.NewService(config.Version, versionInfo, "Bootstrap")
+	}
 
 	{ // setup listener and server
 		sc := config.Server
@@ -110,6 +123,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 			config.ExternalAddress = peer.Addr()
 		}
 
+		pbVersion, err := versionInfo.Proto()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		self := pb.Node{
 			Id:   peer.ID(),
 			Type: pb.NodeType_BOOTSTRAP,
@@ -120,6 +138,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config) (*P
 			Metadata: &pb.NodeMetadata{
 				Wallet: config.Operator.Wallet,
 			},
+			Version: pbVersion,
 		}
 
 		kdb, ndb := peer.DB.RoutingTable()
@@ -175,10 +194,13 @@ func (peer *Peer) Run(ctx context.Context) error {
 	group, ctx := errgroup.WithContext(ctx)
 
 	group.Go(func() error {
-		return ignoreCancel(peer.Kademlia.Service.Bootstrap(ctx))
+		return errs2.IgnoreCanceled(peer.Version.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Kademlia.Service.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Kademlia.Service.Bootstrap(ctx))
+	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Kademlia.Service.Run(ctx))
 	})
 	group.Go(func() error {
 		// TODO: move the message into Server instead
@@ -186,20 +208,13 @@ func (peer *Peer) Run(ctx context.Context) error {
 		peer.Log.Sugar().Infof("Node %s started", peer.Identity.ID)
 		peer.Log.Sugar().Infof("Public server started on %s", peer.Addr())
 		peer.Log.Sugar().Infof("Private server started on %s", peer.PrivateAddr())
-		return ignoreCancel(peer.Server.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Server.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Web.Endpoint.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Web.Endpoint.Run(ctx))
 	})
 
 	return group.Wait()
-}
-
-func ignoreCancel(err error) error {
-	if err == context.Canceled || err == grpc.ErrServerStopped || err == http.ErrServerClosed {
-		return nil
-	}
-	return err
 }
 
 // Close closes all the resources.

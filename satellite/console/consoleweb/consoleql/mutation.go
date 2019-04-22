@@ -53,15 +53,15 @@ const (
 )
 
 // rootMutation creates mutation for graphql populated by AccountsClient
-func rootMutation(log *zap.Logger, service *console.Service, mailService *mailservice.Service, types Types) *graphql.Object {
+func rootMutation(log *zap.Logger, service *console.Service, mailService *mailservice.Service, types *TypeCreator) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: Mutation,
 		Fields: graphql.Fields{
 			CreateUserMutation: &graphql.Field{
-				Type: types.User(),
+				Type: types.user,
 				Args: graphql.FieldConfigArgument{
 					InputArg: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(types.UserInput()),
+						Type: graphql.NewNonNull(types.userInput),
 					},
 					Secret: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
@@ -78,10 +78,18 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 						return nil, err
 					}
 
+					log.Error("register: failed to parse secret",
+						zap.String("rawSecret", secretInput),
+						zap.Error(err))
+
 					user, err := service.CreateUser(p.Context, createUser, secret)
 					if err != nil {
 						return nil, err
 					}
+
+					log.Error("register: failed to create account",
+						zap.String("rawSecret", secretInput),
+						zap.Error(err))
 
 					token, err := service.GenerateActivationToken(p.Context, user.ID, user.Email)
 					if err != nil {
@@ -117,10 +125,10 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 				},
 			},
 			UpdateAccountMutation: &graphql.Field{
-				Type: types.User(),
+				Type: types.user,
 				Args: graphql.FieldConfigArgument{
 					InputArg: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(types.UserInput()),
+						Type: graphql.NewNonNull(types.userInput),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
@@ -142,7 +150,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 				},
 			},
 			ChangePasswordMutation: &graphql.Field{
-				Type: types.User(),
+				Type: types.user,
 				Args: graphql.FieldConfigArgument{
 					FieldPassword: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
@@ -169,7 +177,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 				},
 			},
 			DeleteAccountMutation: &graphql.Field{
-				Type: types.User(),
+				Type: types.user,
 				Args: graphql.FieldConfigArgument{
 					FieldPassword: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
@@ -193,10 +201,10 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 			},
 			// creates project from input params
 			CreateProjectMutation: &graphql.Field{
-				Type: types.Project(),
+				Type: types.project,
 				Args: graphql.FieldConfigArgument{
 					InputArg: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(types.ProjectInput()),
+						Type: graphql.NewNonNull(types.projectInput),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
@@ -207,7 +215,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 			},
 			// deletes project by id, taken from input params
 			DeleteProjectMutation: &graphql.Field{
-				Type: types.Project(),
+				Type: types.project,
 				Args: graphql.FieldConfigArgument{
 					FieldID: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
@@ -234,7 +242,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 			},
 			// updates project description
 			UpdateProjectDescriptionMutation: &graphql.Field{
-				Type: types.Project(),
+				Type: types.project,
 				Args: graphql.FieldConfigArgument{
 					FieldID: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
@@ -257,7 +265,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 			},
 			// add user as member of given project
 			AddProjectMembersMutation: &graphql.Field{
-				Type: types.Project(),
+				Type: types.project,
 				Args: graphql.FieldConfigArgument{
 					FieldProjectID: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
@@ -320,7 +328,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 			},
 			// delete user membership for given project
 			DeleteProjectMembersMutation: &graphql.Field{
-				Type: types.Project(),
+				Type: types.project,
 				Args: graphql.FieldConfigArgument{
 					FieldProjectID: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
@@ -353,7 +361,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 			},
 			// creates new api key
 			CreateAPIKeyMutation: &graphql.Field{
-				Type: types.CreateAPIKey(),
+				Type: types.createAPIKey,
 				Args: graphql.FieldConfigArgument{
 					FieldProjectID: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
@@ -384,7 +392,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 			},
 			// deletes api key
 			DeleteAPIKeysMutation: &graphql.Field{
-				Type: graphql.NewList(types.APIKeyInfo()),
+				Type: graphql.NewList(types.apiKeyInfo),
 				Args: graphql.FieldConfigArgument{
 					FieldID: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.NewList(graphql.String)),

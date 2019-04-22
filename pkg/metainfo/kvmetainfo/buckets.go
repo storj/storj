@@ -11,50 +11,85 @@ import (
 )
 
 // CreateBucket creates a new bucket with the specified information
-func (db *DB) CreateBucket(ctx context.Context, bucket string, info *storj.Bucket) (bucketInfo storj.Bucket, err error) {
+func (db *Project) CreateBucket(ctx context.Context, bucketName string, info *storj.Bucket) (bucketInfo storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if bucket == "" {
+	if bucketName == "" {
 		return storj.Bucket{}, storj.ErrNoBucket.New("")
 	}
+	if info == nil {
+		info = &storj.Bucket{PathCipher: storj.AESGCM}
+	}
+	if info.EncryptionParameters.CipherSuite == storj.EncUnspecified {
+		info.EncryptionParameters.CipherSuite = storj.EncAESGCM
+	}
+	if info.EncryptionParameters.BlockSize == 0 {
+		info.EncryptionParameters.BlockSize = db.encryptedBlockSize
+	}
+	if info.RedundancyScheme.Algorithm == storj.InvalidRedundancyAlgorithm {
+		info.RedundancyScheme.Algorithm = storj.ReedSolomon
+	}
+	if info.RedundancyScheme.RequiredShares == 0 {
+		info.RedundancyScheme.RequiredShares = int16(db.redundancy.RequiredCount())
+	}
+	if info.RedundancyScheme.RepairShares == 0 {
+		info.RedundancyScheme.RepairShares = int16(db.redundancy.RepairThreshold())
+	}
+	if info.RedundancyScheme.OptimalShares == 0 {
+		info.RedundancyScheme.OptimalShares = int16(db.redundancy.OptimalThreshold())
+	}
+	if info.RedundancyScheme.TotalShares == 0 {
+		info.RedundancyScheme.TotalShares = int16(db.redundancy.TotalCount())
+	}
+	if info.RedundancyScheme.ShareSize == 0 {
+		info.RedundancyScheme.ShareSize = int32(db.redundancy.ErasureShareSize())
+	}
+	if info.SegmentsSize == 0 {
+		info.SegmentsSize = db.segmentsSize
+	}
 
-	meta, err := db.buckets.Put(ctx, bucket, getPathCipher(info))
+	meta, err := db.buckets.Put(ctx, bucketName, buckets.Meta{
+		PathEncryptionType: info.PathCipher,
+		SegmentsSize:       info.SegmentsSize,
+		RedundancyScheme:   info.RedundancyScheme,
+		EncryptionScheme:   info.EncryptionParameters.ToEncryptionScheme(),
+	})
 	if err != nil {
 		return storj.Bucket{}, err
 	}
 
-	return bucketFromMeta(bucket, meta), nil
+	return bucketFromMeta(bucketName, meta), nil
 }
 
 // DeleteBucket deletes bucket
-func (db *DB) DeleteBucket(ctx context.Context, bucket string) (err error) {
+func (db *Project) DeleteBucket(ctx context.Context, bucketName string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if bucket == "" {
+	if bucketName == "" {
 		return storj.ErrNoBucket.New("")
 	}
 
-	return db.buckets.Delete(ctx, bucket)
+	return db.buckets.Delete(ctx, bucketName)
 }
 
 // GetBucket gets bucket information
-func (db *DB) GetBucket(ctx context.Context, bucket string) (bucketInfo storj.Bucket, err error) {
+func (db *Project) GetBucket(ctx context.Context, bucketName string) (bucketInfo storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if bucket == "" {
+	if bucketName == "" {
 		return storj.Bucket{}, storj.ErrNoBucket.New("")
 	}
 
-	meta, err := db.buckets.Get(ctx, bucket)
+	meta, err := db.buckets.Get(ctx, bucketName)
 	if err != nil {
 		return storj.Bucket{}, err
 	}
 
-	return bucketFromMeta(bucket, meta), nil
+	return bucketFromMeta(bucketName, meta), nil
 }
 
 // ListBuckets lists buckets
-func (db *DB) ListBuckets(ctx context.Context, options storj.BucketListOptions) (list storj.BucketList, err error) {
+func (db *Project) ListBuckets(ctx context.Context, options storj.BucketListOptions) (list storj.BucketList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var startAfter, endBefore string
@@ -97,17 +132,13 @@ func (db *DB) ListBuckets(ctx context.Context, options storj.BucketListOptions) 
 	return list, nil
 }
 
-func getPathCipher(info *storj.Bucket) storj.Cipher {
-	if info == nil {
-		return storj.AESGCM
-	}
-	return info.PathCipher
-}
-
-func bucketFromMeta(bucket string, meta buckets.Meta) storj.Bucket {
+func bucketFromMeta(bucketName string, meta buckets.Meta) storj.Bucket {
 	return storj.Bucket{
-		Name:       bucket,
-		Created:    meta.Created,
-		PathCipher: meta.PathEncryptionType,
+		Name:                 bucketName,
+		Created:              meta.Created,
+		PathCipher:           meta.PathEncryptionType,
+		SegmentsSize:         meta.SegmentsSize,
+		RedundancyScheme:     meta.RedundancyScheme,
+		EncryptionParameters: meta.EncryptionScheme.ToEncryptionParameters(),
 	}
 }

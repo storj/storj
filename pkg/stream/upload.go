@@ -8,12 +8,12 @@ import (
 	"io"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/utils"
 )
 
 // Upload implements Writer and Closer for writing to stream.
@@ -46,12 +46,12 @@ func NewUpload(ctx context.Context, stream storj.MutableStream, streams streams.
 		}
 		metadata, err := proto.Marshal(&serMetaInfo)
 		if err != nil {
-			return utils.CombineErrors(err, reader.CloseWithError(err))
+			return errs.Combine(err, reader.CloseWithError(err))
 		}
 
 		_, err = streams.Put(ctx, storj.JoinPaths(obj.Bucket.Name, obj.Path), obj.Bucket.PathCipher, reader, metadata, obj.Expires)
 		if err != nil {
-			return utils.CombineErrors(err, reader.CloseWithError(err))
+			return errs.Combine(err, reader.CloseWithError(err))
 		}
 
 		return nil
@@ -82,5 +82,5 @@ func (upload *Upload) Close() error {
 	err := upload.writer.Close()
 
 	// Wait for streams.Put to commit the upload to the PointerDB
-	return utils.CombineErrors(err, upload.errgroup.Wait())
+	return errs.Combine(err, upload.errgroup.Wait())
 }

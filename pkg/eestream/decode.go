@@ -9,10 +9,12 @@ import (
 	"io/ioutil"
 	"sync"
 
+	"github.com/zeebo/errs"
+	"go.uber.org/zap"
+
 	"storj.io/storj/internal/readcloser"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/ranger"
-	"storj.io/storj/pkg/utils"
 )
 
 type decodedReader struct {
@@ -97,23 +99,29 @@ func (dr *decodedReader) Close() error {
 	// cancel the context to terminate reader goroutines
 	dr.cancel()
 	// avoid double close of readers
+	errorThreshold := len(dr.readers) - dr.scheme.RequiredCount()
 	dr.close.Do(func() {
-		var errs []error
+		var errlist errs.Group
 		// close the readers
 		for _, r := range dr.readers {
 			err := r.Close()
 			if err != nil {
-				errs = append(errs, err)
+				errlist.Add(err)
+				errorThreshold--
 			}
 		}
 		// close the stripe reader
-		err := dr.stripeReader.Close()
-		if err != nil {
-			errs = append(errs, err)
-		}
-		dr.closeErr = utils.CombineErrors(errs...)
+		errlist.Add(dr.stripeReader.Close())
+		dr.closeErr = errlist.Err()
 	})
-	return dr.closeErr
+	// TODO this is workaround, we need reorganize to return multiple errors or divide into fatal, non fatal
+	if errorThreshold <= 0 {
+		return dr.closeErr
+	}
+	if dr.closeErr != nil {
+		zap.L().Debug("decode close non fatal error: ", zap.Error(dr.closeErr))
+	}
+	return nil
 }
 
 type decodedRanger struct {

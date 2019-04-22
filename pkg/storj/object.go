@@ -25,9 +25,12 @@ var (
 
 // Bucket contains information about a specific bucket
 type Bucket struct {
-	Name       string
-	Created    time.Time
-	PathCipher Cipher
+	Name                 string
+	Created              time.Time
+	PathCipher           Cipher
+	SegmentsSize         int64
+	RedundancyScheme     RedundancyScheme
+	EncryptionParameters EncryptionParameters
 }
 
 // Object contains information about a specific object

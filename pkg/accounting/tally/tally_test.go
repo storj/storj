@@ -4,79 +4,124 @@
 package tally_test
 
 import (
-	"context"
+	"crypto/rand"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/pkg/bwagreement/testbwagreement"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/piecestore/psserver/psdb"
-	"storj.io/storj/satellite"
+	"storj.io/storj/internal/teststorj"
+	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/pkg/encryption"
+	"storj.io/storj/pkg/storj"
 )
 
-func TestQueryNoAgreements(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		tally := planet.Satellites[0].Accounting.Tally
-		_, bwTotals, err := tally.QueryBW(ctx)
-		require.NoError(t, err)
-		require.Len(t, bwTotals, 0)
-	})
+func TestDeleteRawBefore(t *testing.T) {
+	tests := []struct {
+		createdAt    time.Time
+		eraseBefore  time.Time
+		expectedRaws int
+	}{
+		{
+			createdAt:    time.Now(),
+			eraseBefore:  time.Now(),
+			expectedRaws: 1,
+		},
+		{
+			createdAt:    time.Now(),
+			eraseBefore:  time.Now().Add(24 * time.Hour),
+			expectedRaws: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		testplanet.Run(t, testplanet.Config{
+			SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			id := teststorj.NodeIDFromBytes([]byte{})
+			nodeData := make(map[storj.NodeID]float64)
+			nodeData[id] = float64(1000)
+
+			err := planet.Satellites[0].DB.Accounting().SaveAtRestRaw(ctx, tt.createdAt, tt.createdAt, nodeData)
+			require.NoError(t, err)
+
+			err = planet.Satellites[0].DB.Accounting().DeleteRawBefore(ctx, tt.eraseBefore)
+			require.NoError(t, err)
+
+			raws, err := planet.Satellites[0].DB.Accounting().GetRaw(ctx)
+			require.NoError(t, err)
+			assert.Len(t, raws, tt.expectedRaws)
+		})
+	}
 }
 
-func TestQueryWithBw(t *testing.T) {
+func TestCalculateAtRestData(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		db := planet.Satellites[0].DB
-		sendGeneratedAgreements(ctx, t, db, planet)
+		tallySvc := planet.Satellites[0].Accounting.Tally
+		uplink := planet.Uplinks[0]
 
-		tally := planet.Satellites[0].Accounting.Tally
-		tallyEnd, bwTotals, err := tally.QueryBW(ctx)
+		// Setup: create 50KiB of data for the uplink to upload
+		expectedData := make([]byte, 50*memory.KiB)
+		_, err := rand.Read(expectedData)
 		require.NoError(t, err)
-		require.Len(t, bwTotals, 1)
 
-		for id, nodeTotals := range bwTotals {
-			require.Len(t, nodeTotals, 5)
-			for _, total := range nodeTotals {
-				require.Equal(t, planet.StorageNodes[0].Identity.ID, id)
-				require.Equal(t, int64(1000), total)
-			}
+		// Setup: get the expected size of the data that will be stored in pointer
+		uplinkConfig := uplink.GetConfig(planet.Satellites[0])
+		expectedTotalBytes, err := encryption.CalcEncryptedSize(int64(len(expectedData)), uplinkConfig.GetEncryptionScheme())
+		require.NoError(t, err)
+
+		// Setup: The data in this tally should match the pointer that the uplink.upload created
+		expectedTally := accounting.BucketTally{
+			Segments:       1,
+			RemoteSegments: 1,
+			Files:          1,
+			RemoteFiles:    1,
+			Bytes:          expectedTotalBytes,
+			RemoteBytes:    expectedTotalBytes,
+			MetadataSize:   112, // brittle, this is hardcoded since its too difficult to get this value progamatically
 		}
-		err = tally.SaveBWRaw(ctx, tallyEnd, time.Now().UTC(), bwTotals)
+
+		// Execute test: upload a file, then calculate at rest data
+		expectedBucketName := "testbucket"
+		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName, "test/path", expectedData)
+		assert.NoError(t, err)
+		_, actualNodeData, actualBucketData, err := tallySvc.CalculateAtRestData(ctx)
 		require.NoError(t, err)
+
+		// Confirm the correct number of shares were stored
+		uplinkRS := uplinkConfig.GetRedundancyScheme()
+		if !correctRedundencyScheme(len(actualNodeData), uplinkRS) {
+			t.Fatalf("expected between: %d and %d, actual: %d", uplinkRS.RepairShares, uplinkRS.TotalShares, len(actualNodeData))
+		}
+
+		// Confirm the correct number of bytes were stored on each node
+		for _, actualTotalBytes := range actualNodeData {
+			assert.Equal(t, int64(actualTotalBytes), expectedTotalBytes)
+		}
+
+		// Confirm the correct bucket storage tally was created
+		assert.Equal(t, len(actualBucketData), 1)
+		for bucketID, actualTally := range actualBucketData {
+			assert.Contains(t, bucketID, expectedBucketName)
+			assert.Equal(t, *actualTally, expectedTally)
+		}
 	})
 }
 
-func sendGeneratedAgreements(ctx context.Context, t *testing.T, db satellite.DB, planet *testplanet.Planet) {
-	satID := planet.Satellites[0].Identity
-	upID := planet.Uplinks[0].Identity
-	snID := planet.StorageNodes[0].Identity
-	sender := planet.StorageNodes[0].Agreements.Sender
-	actions := []pb.BandwidthAction{
-		pb.BandwidthAction_PUT,
-		pb.BandwidthAction_GET,
-		pb.BandwidthAction_GET_AUDIT,
-		pb.BandwidthAction_GET_REPAIR,
-		pb.BandwidthAction_PUT_REPAIR,
+func correctRedundencyScheme(shareCount int, uplinkRS storj.RedundancyScheme) bool {
+
+	// The shareCount should be a value between RequiredShares and TotalShares where
+	// RequiredShares is the min number of shares required to recover a segment and
+	// TotalShares is the number of shares to encode
+	if int(uplinkRS.RepairShares) <= shareCount && shareCount <= int(uplinkRS.TotalShares) {
+		return true
 	}
 
-	agreements := make([]*psdb.Agreement, len(actions))
-	for i, action := range actions {
-		pba, err := testbwagreement.GenerateOrderLimit(action, satID, upID, time.Hour)
-		require.NoError(t, err)
-		err = db.CertDB().SavePublicKey(ctx, pba.UplinkId, upID.Leaf.PublicKey)
-		assert.NoError(t, err)
-		rba, err := testbwagreement.GenerateOrder(pba, snID.ID, upID, 1000)
-		require.NoError(t, err)
-		agreements[i] = &psdb.Agreement{Agreement: *rba}
-	}
-
-	sender.SettleAgreements(ctx, satID.ID, agreements)
+	return false
 }

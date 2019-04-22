@@ -12,7 +12,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/accounting"
-	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
@@ -20,37 +19,35 @@ import (
 	"storj.io/storj/storage"
 )
 
-// Config contains configurable values for tally
+// Config contains configurable values for the tally service
 type Config struct {
-	Interval time.Duration `help:"how frequently tally should run" default:"1h" devDefault:"30s"`
+	Interval time.Duration `help:"how frequently the tally service should run" releaseDefault:"1h" devDefault:"30s"`
 }
 
-// Tally is the service for accounting for data stored on each storage node
-type Tally struct { // TODO: rename Tally to Service
-	logger        *zap.Logger
-	pointerdb     *pointerdb.Service
-	overlay       *overlay.Cache
-	limit         int
-	ticker        *time.Ticker
-	accountingDB  accounting.DB
-	bwAgreementDB bwagreement.DB // bwagreements database
+// Service is the tally service for data stored on each storage node
+type Service struct {
+	logger       *zap.Logger
+	pointerdb    *pointerdb.Service
+	overlay      *overlay.Cache
+	limit        int
+	ticker       *time.Ticker
+	accountingDB accounting.DB
 }
 
-// New creates a new Tally
-func New(logger *zap.Logger, accountingDB accounting.DB, bwAgreementDB bwagreement.DB, pointerdb *pointerdb.Service, overlay *overlay.Cache, limit int, interval time.Duration) *Tally {
-	return &Tally{
-		logger:        logger,
-		pointerdb:     pointerdb,
-		overlay:       overlay,
-		limit:         limit,
-		ticker:        time.NewTicker(interval),
-		accountingDB:  accountingDB,
-		bwAgreementDB: bwAgreementDB,
+// New creates a new tally Service
+func New(logger *zap.Logger, accountingDB accounting.DB, pointerdb *pointerdb.Service, overlay *overlay.Cache, limit int, interval time.Duration) *Service {
+	return &Service{
+		logger:       logger,
+		pointerdb:    pointerdb,
+		overlay:      overlay,
+		limit:        limit,
+		ticker:       time.NewTicker(interval),
+		accountingDB: accountingDB,
 	}
 }
 
-// Run the Tally loop
-func (t *Tally) Run(ctx context.Context) (err error) {
+// Run the tally service loop
+func (t *Service) Run(ctx context.Context) (err error) {
 	t.logger.Info("Tally service starting up")
 	defer mon.Task()(&ctx)(&err)
 
@@ -66,61 +63,44 @@ func (t *Tally) Run(ctx context.Context) (err error) {
 	}
 }
 
-//Tally calculates data-at-rest and bandwidth usage once
-func (t *Tally) Tally(ctx context.Context) error {
-	//data at rest
-	var errAtRest, errBWA error
-	latestTally, nodeData, err := t.calculateAtRestData(ctx)
+// Tally calculates data-at-rest usage once
+func (t *Service) Tally(ctx context.Context) error {
+	var errAtRest, errBucketInfo error
+	latestTally, nodeData, bucketData, err := t.CalculateAtRestData(ctx)
 	if err != nil {
 		errAtRest = errs.New("Query for data-at-rest failed : %v", err)
-	} else if len(nodeData) > 0 {
-		err = t.SaveAtRestRaw(ctx, latestTally, time.Now().UTC(), nodeData)
-		if err != nil {
-			errAtRest = errs.New("Saving data-at-rest failed : %v", err)
-		}
-	}
-	//bandwdith
-	tallyEnd, bwTotals, err := t.QueryBW(ctx)
-	if err != nil {
-		errBWA = errs.New("Query for bandwidth failed: %v", err)
-	} else if len(bwTotals) > 0 {
-		err = t.SaveBWRaw(ctx, tallyEnd, time.Now().UTC(), bwTotals)
-		if err != nil {
-			errBWA = errs.New("Saving for bandwidth failed : %v", err)
-		} else {
-			//remove expired records
-			now := time.Now()
-			_, err = t.bwAgreementDB.GetExpired(ctx, tallyEnd, now)
+	} else {
+		if len(nodeData) > 0 {
+			err = t.SaveAtRestRaw(ctx, latestTally, time.Now().UTC(), nodeData)
 			if err != nil {
-				return err
+				errAtRest = errs.New("Saving storage node data-at-rest failed : %v", err)
 			}
-			var expiredOrdersHaveBeenSaved bool
-			//todo: write files to disk or whatever we decide to do here
-			if expiredOrdersHaveBeenSaved {
-				err = t.bwAgreementDB.DeleteExpired(ctx, tallyEnd, now)
-				if err != nil {
-					return err
-				}
+		}
+		if len(bucketData) > 0 {
+			_, err = t.accountingDB.SaveBucketTallies(ctx, latestTally, bucketData)
+			if err != nil {
+				errBucketInfo = errs.New("Saving bucket storage data failed")
 			}
 		}
 	}
-	return errs.Combine(errAtRest, errBWA)
+	return errs.Combine(errAtRest, errBucketInfo)
 }
 
-// calculateAtRestData iterates through the pieces on pointerdb and calculates
-// the amount of at-rest data stored on each respective node
-func (t *Tally) calculateAtRestData(ctx context.Context) (latestTally time.Time, nodeData map[storj.NodeID]float64, err error) {
+// CalculateAtRestData iterates through the pieces on pointerdb and calculates
+// the amount of at-rest data stored in each bucket and on each respective node
+func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Time, nodeData map[storj.NodeID]float64, bucketTallies map[string]*accounting.BucketTally, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	latestTally, err = t.accountingDB.LastTimestamp(ctx, accounting.LastAtRestTally)
 	if err != nil {
-		return latestTally, nodeData, Error.Wrap(err)
+		return latestTally, nodeData, bucketTallies, Error.Wrap(err)
 	}
 	nodeData = make(map[storj.NodeID]float64)
+	bucketTallies = make(map[string]*accounting.BucketTally)
 
 	var currentBucket string
 	var bucketCount int64
-	var totalStats, currentBucketStats stats
+	var totalTallies, currentBucketTally accounting.BucketTally
 
 	err = t.pointerdb.Iterate("", "", true, false,
 		func(it storage.Iterator) error {
@@ -152,14 +132,17 @@ func (t *Tally) calculateAtRestData(ctx context.Context) (latestTally time.Time,
 					if currentBucket != bucketID {
 						if currentBucket != "" {
 							// report the previous bucket and add to the totals
-							currentBucketStats.Report("bucket")
-							totalStats.Combine(&currentBucketStats)
-							currentBucketStats = stats{}
+							currentBucketTally.Report("bucket")
+							totalTallies.Combine(&currentBucketTally)
+
+							// add currentBucketTally to bucketTallies
+							bucketTallies[currentBucket] = &currentBucketTally
+							currentBucketTally = accounting.BucketTally{}
 						}
 						currentBucket = bucketID
 					}
 
-					currentBucketStats.AddSegment(pointer, segment == "l")
+					currentBucketTally.AddSegment(pointer, segment == "l")
 				}
 
 				remote := pointer.GetRemote()
@@ -191,18 +174,19 @@ func (t *Tally) calculateAtRestData(ctx context.Context) (latestTally time.Time,
 		},
 	)
 	if err != nil {
-		return latestTally, nodeData, Error.Wrap(err)
+		return latestTally, nodeData, bucketTallies, Error.Wrap(err)
 	}
 
 	if currentBucket != "" {
 		// wrap up the last bucket
-		totalStats.Combine(&currentBucketStats)
+		totalTallies.Combine(&currentBucketTally)
+		bucketTallies[currentBucket] = &currentBucketTally
 	}
-	totalStats.Report("total")
+	totalTallies.Report("total")
 	mon.IntVal("bucket_count").Observe(bucketCount)
 
 	if len(nodeData) == 0 {
-		return latestTally, nodeData, nil
+		return latestTally, nodeData, bucketTallies, nil
 	}
 
 	//store byte hours, not just bytes
@@ -210,39 +194,14 @@ func (t *Tally) calculateAtRestData(ctx context.Context) (latestTally time.Time,
 	if latestTally.IsZero() {
 		numHours = 1.0 //todo: something more considered?
 	}
-	latestTally = time.Now()
+	latestTally = time.Now().UTC()
 	for k := range nodeData {
 		nodeData[k] *= numHours //calculate byte hours
 	}
-	return latestTally, nodeData, err
+	return latestTally, nodeData, bucketTallies, err
 }
 
 // SaveAtRestRaw records raw tallies of at-rest-data and updates the LastTimestamp
-func (t *Tally) SaveAtRestRaw(ctx context.Context, latestTally time.Time, created time.Time, nodeData map[storj.NodeID]float64) error {
+func (t *Service) SaveAtRestRaw(ctx context.Context, latestTally time.Time, created time.Time, nodeData map[storj.NodeID]float64) error {
 	return t.accountingDB.SaveAtRestRaw(ctx, latestTally, created, nodeData)
-}
-
-// QueryBW queries bandwidth allocation database, selecting all new contracts since the last collection run time.
-// Grouping by action type, storage node ID and adding total of bandwidth to granular data table.
-func (t *Tally) QueryBW(ctx context.Context) (time.Time, map[storj.NodeID][]int64, error) {
-	var bwTotals map[storj.NodeID][]int64
-	now := time.Now()
-	lastBwTally, err := t.accountingDB.LastTimestamp(ctx, accounting.LastBandwidthTally)
-	if err != nil {
-		return now, bwTotals, Error.Wrap(err)
-	}
-	bwTotals, err = t.bwAgreementDB.GetTotals(ctx, lastBwTally, now)
-	if err != nil {
-		return now, bwTotals, Error.Wrap(err)
-	}
-	if len(bwTotals) == 0 {
-		t.logger.Info("Tally found no new bandwidth allocations")
-		return now, bwTotals, nil
-	}
-	return now, bwTotals, nil
-}
-
-// SaveBWRaw records granular tallies (sums of bw agreement values) to the database and updates the LastTimestamp
-func (t *Tally) SaveBWRaw(ctx context.Context, tallyEnd time.Time, created time.Time, bwTotals map[storj.NodeID][]int64) error {
-	return t.accountingDB.SaveBWRaw(ctx, tallyEnd, created, bwTotals)
 }

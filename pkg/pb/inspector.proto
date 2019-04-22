@@ -25,6 +25,8 @@ service KadInspector {
   rpc FindNear(FindNearRequest) returns (FindNearResponse);
   // DumpNodes returns all the nodes in the node database
   rpc DumpNodes(DumpNodesRequest) returns (DumpNodesResponse);
+  // GetBucketList returns all the buckets with all their nodes
+  rpc GetBucketList(GetBucketListRequest) returns (GetBucketListResponse);
 }
 
 service OverlayInspector {
@@ -49,6 +51,14 @@ service IrreparableInspector {
   // ListIrreparableSegments returns damaged segments
   rpc ListIrreparableSegments(ListIrreparableSegmentsRequest) returns (ListIrreparableSegmentsResponse);
 }
+
+service HealthInspector {
+  // ObjectHealth will return stats about the health of an object
+  rpc ObjectHealth(ObjectHealthRequest) returns (ObjectHealthResponse) {}
+  // SegmentHealth will return stats about the health of a segment
+  rpc SegmentHealth(SegmentHealthRequest) returns (SegmentHealthResponse) {}
+}
+
 
 // ListSegments
 message ListIrreparableSegmentsRequest {
@@ -98,6 +108,18 @@ message CountNodesResponse {
 }
 
 message CountNodesRequest {
+}
+
+message GetBucketListRequest {
+}
+
+message GetBucketListResponse {
+	message Bucket {
+	  bytes bucket_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+	  repeated node.Node routing_nodes = 2;
+	  repeated node.Node cached_nodes = 3;
+	}
+	repeated Bucket buckets = 1;
 }
 
 // GetBuckets
@@ -155,6 +177,7 @@ message NodeInfoResponse {
   node.NodeType type = 1;
   node.NodeOperator operator = 2;
   node.NodeCapacity capacity = 3;
+  node.NodeVersion version = 4;
 }
 
 message FindNearRequest {
@@ -198,3 +221,34 @@ message DashboardResponse {
   google.protobuf.Timestamp last_pinged = 8;
   google.protobuf.Timestamp last_queried = 9;
 }
+
+message SegmentHealthRequest {
+  bytes bucket = 1;         // segment bucket name
+  bytes encrypted_path = 2; // segment encrypted path
+  int64 segment_index = 3;  // segment index
+  bytes project_id = 4;     // segment project id
+}
+
+message SegmentHealth {
+  int32 online_nodes = 1; // amount of pieces with nodes that are online
+  bytes segment = 2;      // path formatted segment index
+}
+
+message SegmentHealthResponse {
+  SegmentHealth health = 1;                  // Information about a segment's health
+  pointerdb.RedundancyScheme redundancy = 2; // expected segment info
+}
+
+message ObjectHealthRequest {
+  bytes encrypted_path = 1;                  // object encrypted path
+  bytes bucket = 2;                          // object bucket name
+  bytes project_id = 3;                      // object project id
+  int64 start_after_segment = 4;             // Get all segments after specified segment index 
+  int64 end_before_segment = 5;              // Stop at segment before specified segment index 
+  int32 limit = 6;                           // Max number of segments that are checked
+}
+
+message ObjectHealthResponse {
+  repeated SegmentHealth segments = 1;       // actual segment info 
+  pointerdb.RedundancyScheme redundancy = 2; // expected segment info
+} 

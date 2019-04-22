@@ -16,7 +16,7 @@ const (
 )
 
 // graphqlToken creates *graphql.Object type that encapsulates user and token string
-func graphqlToken(service *console.Service, types Types) *graphql.Object {
+func graphqlToken(service *console.Service, types *TypeCreator) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: TokenType,
 		Fields: graphql.Fields{
@@ -24,7 +24,7 @@ func graphqlToken(service *console.Service, types Types) *graphql.Object {
 				Type: graphql.String,
 			},
 			UserType: &graphql.Field{
-				Type: types.User(),
+				Type: types.user,
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					wrapper, _ := p.Source.(tokenWrapper)
 

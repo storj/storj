@@ -1,29 +1,12 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { 
-    validateProjectName, 
+import {
     validatePassword,
     validateEmail
  } from '@/utils/validation';
 
 describe('validation', () => {
-    it('validateProjectName regex works correctly', () => {
-        const testString1 = 'test';
-        const testString2 = '     ';
-        const testString3 = '   test   ';
-        const testString4 = '  /test  ';
-        const testString5 = '  test213##221344rfvv^  ';
-        const testString6 = '';
-
-        expect(validateProjectName(testString1)).toBe(true);
-        expect(validateProjectName(testString2)).toBe(true);
-        expect(validateProjectName(testString3)).toBe(true);
-        expect(validateProjectName(testString4)).toBe(false);
-        expect(validateProjectName(testString5)).toBe(true);
-        expect(validateProjectName(testString6)).toBe(false);
-    });
-    
     it('validatePassword regex works correctly', () => {
         const testString1 = 'test';
         const testString2 = '        ';
