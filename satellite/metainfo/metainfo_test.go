@@ -158,3 +158,65 @@ func TestServiceList(t *testing.T) {
 		require.Equal(t, item.IsPrefix, list.Items[i].IsPrefix)
 	}
 }
+
+func TestCommitSegment(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
+		require.NoError(t, err)
+		apiKey := console.APIKeyFromBytes([]byte(projects[0].Name)).String()
+
+		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+
+		{
+			// error if pointer is nil
+			_, err = metainfo.CommitSegment(ctx, "bucket", "path", -1, nil, []*pb.OrderLimit2{})
+			require.Error(t, err)
+		}
+		{
+			// error if bucket contains slash
+			_, err = metainfo.CommitSegment(ctx, "bucket/storj", "path", -1, &pb.Pointer{}, []*pb.OrderLimit2{})
+			require.Error(t, err)
+		}
+		{
+			// error if number of remote pieces is lower then repair threshold
+			redundancy := &pb.RedundancyScheme{
+				MinReq:           1,
+				RepairThreshold:  2,
+				SuccessThreshold: 4,
+				Total:            6,
+				ErasureShareSize: 10,
+			}
+			addresedLimits, rootPieceID, err := metainfo.CreateSegment(ctx, "bucket", "path", -1, redundancy, 1000, time.Now())
+			require.NoError(t, err)
+
+			// create number of pieces below repair threshold
+			usedForPieces := addresedLimits[:redundancy.RepairThreshold-1]
+			pieces := make([]*pb.RemotePiece, len(usedForPieces))
+			for i, limit := range usedForPieces {
+				pieces[i] = &pb.RemotePiece{
+					PieceNum: int32(i),
+					NodeId:   limit.Limit.StorageNodeId,
+				}
+			}
+			pointer := &pb.Pointer{
+				Type: pb.Pointer_REMOTE,
+				Remote: &pb.RemoteSegment{
+					RootPieceId:  rootPieceID,
+					Redundancy:   redundancy,
+					RemotePieces: pieces,
+				},
+			}
+
+			limits := make([]*pb.OrderLimit2, len(addresedLimits))
+			for i, addresedLimit := range addresedLimits {
+				limits[i] = addresedLimit.Limit
+			}
+			_, err = metainfo.CommitSegment(ctx, "bucket", "path", -1, pointer, limits)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "Number of valid pieces is lower then repair threshold")
+		}
+	})
+}

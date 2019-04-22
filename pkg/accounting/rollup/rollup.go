@@ -17,7 +17,7 @@ import (
 
 // Config contains configurable values for rollup
 type Config struct {
-	Interval      time.Duration `help:"how frequently rollup should run" devDefault:"120s" default:"6h"`
+	Interval      time.Duration `help:"how frequently rollup should run" devDefault:"120s" releaseDefault:"6h"`
 	MaxAlphaUsage memory.Size   `help:"the bandwidth and storage usage limit for the alpha release" default:"25GB"`
 }
 
@@ -136,7 +136,7 @@ func (r *Service) RollupStorage(ctx context.Context, lastRollup time.Time, rollu
 // RollupBW aggregates the bandwidth rollups, modifies rollupStats map
 func (r *Service) RollupBW(ctx context.Context, lastRollup time.Time, rollupStats accounting.RollupStats) error {
 	var latestTally time.Time
-	bws, err := r.db.GetStoragenodeBandwidthSince(ctx, lastRollup)
+	bws, err := r.db.GetStoragenodeBandwidthSince(ctx, lastRollup.UTC())
 	if err != nil {
 		return Error.Wrap(err)
 	}

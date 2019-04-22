@@ -61,29 +61,14 @@ func (inspector *Endpoint) retrieveStats(ctx context.Context) (*pb.StatSummaryRe
 	if err != nil {
 		return nil, err
 	}
-	totalUsedSpaceOld, err := inspector.psdbDB.SumTTLSizes()
-	if err != nil {
-		return nil, err
-	}
-	totalUsedSpace += totalUsedSpaceOld
-
-	// Bandwidth Usage
-	usage, err := inspector.usageDB.Summary(ctx, getBeginningOfMonth(), time.Now())
+	usage, err := bandwidth.TotalMonthlySummary(ctx, inspector.usageDB)
 	if err != nil {
 		return nil, err
 	}
 	ingress := usage.Put + usage.PutRepair
 	egress := usage.Get + usage.GetAudit + usage.GetRepair
 
-	totalUsedBandwidth := int64(0)
-	oldUsage, err := inspector.psdbDB.GetTotalBandwidthBetween(getBeginningOfMonth(), time.Now())
-	if err != nil {
-		inspector.log.Warn("unable to calculate old bandwidth usage")
-	} else {
-		totalUsedBandwidth = oldUsage
-	}
-
-	totalUsedBandwidth += usage.Total()
+	totalUsedBandwidth := usage.Total()
 
 	return &pb.StatSummaryResponse{
 		UsedSpace:          totalUsedSpace,
@@ -163,10 +148,4 @@ func (inspector *Endpoint) Dashboard(ctx context.Context, in *pb.DashboardReques
 		return nil, err
 	}
 	return data, nil
-}
-
-func getBeginningOfMonth() time.Time {
-	t := time.Now()
-	y, m, _ := t.Date()
-	return time.Date(y, m, 1, 0, 0, 0, 0, time.Now().Location())
 }

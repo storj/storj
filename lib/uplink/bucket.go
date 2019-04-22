@@ -18,12 +18,13 @@ import (
 
 // Bucket represents operations you can perform on a bucket
 type Bucket struct {
-	storj.Bucket
-	Config BucketConfig
+	BucketConfig
+	Name    string
+	Created time.Time
 
-	metainfo   *kvmetainfo.DB
-	streams    streams.Store
-	pathCipher storj.Cipher
+	bucket   storj.Bucket
+	metainfo *kvmetainfo.DB
+	streams  streams.Store
 }
 
 // OpenObject returns an Object handle, if authorized.
@@ -50,13 +51,15 @@ func (b *Bucket) OpenObject(ctx context.Context, path storj.Path) (o *Object, er
 			Volatile: struct {
 				EncryptionParameters storj.EncryptionParameters
 				RedundancyScheme     storj.RedundancyScheme
+				SegmentsSize         int64
 			}{
 				EncryptionParameters: info.ToEncryptionParameters(),
 				RedundancyScheme:     info.RedundancyScheme,
+				SegmentsSize:         info.FixedSegmentSize,
 			},
 		},
-		metainfo: b.metainfo,
-		streams:  b.streams,
+		metainfoDB: b.metainfo,
+		streams:    b.streams,
 	}, nil
 }
 
@@ -97,6 +100,30 @@ func (b *Bucket) UploadObject(ctx context.Context, path storj.Path, data io.Read
 		opts = &UploadOptions{}
 	}
 
+	if opts.Volatile.RedundancyScheme.Algorithm == 0 {
+		opts.Volatile.RedundancyScheme.Algorithm = b.Volatile.RedundancyScheme.Algorithm
+	}
+	if opts.Volatile.RedundancyScheme.OptimalShares == 0 {
+		opts.Volatile.RedundancyScheme.OptimalShares = b.Volatile.RedundancyScheme.OptimalShares
+	}
+	if opts.Volatile.RedundancyScheme.RepairShares == 0 {
+		opts.Volatile.RedundancyScheme.RepairShares = b.Volatile.RedundancyScheme.RepairShares
+	}
+	if opts.Volatile.RedundancyScheme.RequiredShares == 0 {
+		opts.Volatile.RedundancyScheme.RequiredShares = b.Volatile.RedundancyScheme.RequiredShares
+	}
+	if opts.Volatile.RedundancyScheme.ShareSize == 0 {
+		opts.Volatile.RedundancyScheme.ShareSize = b.Volatile.RedundancyScheme.ShareSize
+	}
+	if opts.Volatile.RedundancyScheme.TotalShares == 0 {
+		opts.Volatile.RedundancyScheme.TotalShares = b.Volatile.RedundancyScheme.TotalShares
+	}
+	if opts.Volatile.EncryptionParameters.CipherSuite == storj.EncUnspecified {
+		opts.Volatile.EncryptionParameters.CipherSuite = b.EncryptionParameters.CipherSuite
+	}
+	if opts.Volatile.EncryptionParameters.BlockSize == 0 {
+		opts.Volatile.EncryptionParameters.BlockSize = b.EncryptionParameters.BlockSize
+	}
 	createInfo := storj.CreateObject{
 		ContentType:      opts.ContentType,
 		Metadata:         opts.Metadata,
@@ -125,20 +152,19 @@ func (b *Bucket) UploadObject(ctx context.Context, path storj.Path, data io.Read
 // DeleteObject removes an object, if authorized.
 func (b *Bucket) DeleteObject(ctx context.Context, path storj.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return b.metainfo.DeleteObject(ctx, b.Bucket.Name, path)
+	return b.metainfo.DeleteObject(ctx, b.bucket.Name, path)
 }
 
 // ListOptions controls options for the ListObjects() call.
 type ListOptions = storj.ListOptions
 
 // ListObjects lists objects a user is authorized to see.
-// TODO(paul): should probably have a ListOptions defined in this package, for consistency's sake
 func (b *Bucket) ListObjects(ctx context.Context, cfg *ListOptions) (list storj.ObjectList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if cfg == nil {
 		cfg = &storj.ListOptions{}
 	}
-	return b.metainfo.ListObjects(ctx, b.Bucket.Name, *cfg)
+	return b.metainfo.ListObjects(ctx, b.bucket.Name, *cfg)
 }
 
 // Close closes the Bucket session.

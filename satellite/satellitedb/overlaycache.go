@@ -9,9 +9,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -33,31 +35,57 @@ type overlaycache struct {
 
 func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) ([]*pb.Node, error) {
 	nodeType := int(pb.NodeType_STORAGE)
-	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, `
+
+	safeQuery := `
 		WHERE type = ? AND free_bandwidth >= ? AND free_disk >= ?
 		  AND total_audit_count >= ?
 		  AND audit_success_ratio >= ?
 		  AND total_uptime_count >= ?
 		  AND uptime_ratio >= ?
 		  AND last_contact_success > ?
-		  AND last_contact_success > last_contact_failure
-		`, nodeType, criteria.FreeBandwidth, criteria.FreeDisk,
+		  AND last_contact_success > last_contact_failure`
+	args := append(make([]interface{}, 0, 13),
+		nodeType, criteria.FreeBandwidth, criteria.FreeDisk,
 		criteria.AuditCount, criteria.AuditSuccessRatio, criteria.UptimeCount, criteria.UptimeSuccessRatio,
-		time.Now().Add(-1*time.Hour),
-	)
+		time.Now().Add(-overlay.OnlineWindow))
+
+	if criteria.MinimumVersion != "" {
+		v, err := version.NewSemVer(criteria.MinimumVersion)
+		if err != nil {
+			return nil, Error.New("invalid node selection criteria version: %v", err)
+		}
+		safeQuery += `
+			AND major > ? OR (major = ? AND (minor > ? OR (minor = ? AND patch >= ?)))
+			AND release`
+		args = append(args, v.Major, v.Major, v.Minor, v.Minor, v.Patch)
+	}
+
+	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, safeQuery, args...)
 }
 
 func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int, criteria *overlay.NewNodeCriteria) ([]*pb.Node, error) {
 	nodeType := int(pb.NodeType_STORAGE)
-	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, `
+
+	safeQuery := `
 		WHERE type = ? AND free_bandwidth >= ? AND free_disk >= ?
 		  AND total_audit_count < ?
 		  AND last_contact_success > ?
-		  AND last_contact_success > last_contact_failure
-	`, nodeType, criteria.FreeBandwidth, criteria.FreeDisk,
-		criteria.AuditThreshold,
-		time.Now().Add(-1*time.Hour),
-	)
+		  AND last_contact_success > last_contact_failure`
+	args := append(make([]interface{}, 0, 10),
+		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditThreshold, time.Now().Add(-overlay.OnlineWindow))
+
+	if criteria.MinimumVersion != "" {
+		v, err := version.NewSemVer(criteria.MinimumVersion)
+		if err != nil {
+			return nil, Error.New("invalid node selection criteria version: %v", err)
+		}
+		safeQuery += `
+			AND major > ? OR (major = ? AND (minor > ? OR (minor = ? AND patch >= ?)))
+			AND release`
+		args = append(args, v.Major, v.Major, v.Minor, v.Minor, v.Patch)
+	}
+
+	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, safeQuery, args...)
 }
 
 func (cache *overlaycache) queryFilteredNodes(ctx context.Context, excluded []storj.NodeID, count int, safeQuery string, args ...interface{}) (_ []*pb.Node, err error) {
@@ -192,8 +220,8 @@ func (cache *overlaycache) Paginate(ctx context.Context, offset int64, limit int
 	return infos, more, nil
 }
 
-// Update updates node information
-func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error) {
+// Update updates node address
+func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node) (err error) {
 	if info == nil || info.Id.IsZero() {
 		return overlay.ErrEmptyNode
 	}
@@ -202,7 +230,6 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 	if err != nil {
 		return Error.Wrap(err)
 	}
-
 	// TODO: use upsert
 	_, err = tx.Get_Node_By_Id(ctx, dbx.Node_Id(info.Id.Bytes()))
 
@@ -212,42 +239,30 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 	}
 
 	if err != nil {
-		metadata := info.Metadata
-		if metadata == nil {
-			metadata = &pb.NodeMetadata{}
-		}
-
-		restrictions := info.Restrictions
-		if restrictions == nil {
-			restrictions = &pb.NodeRestrictions{
-				FreeBandwidth: -1,
-				FreeDisk:      -1,
-			}
-		}
-
-		reputation := info.Reputation
-		if reputation == nil {
-			reputation = &pb.NodeStats{}
-		}
-
+		// add the node to DB for first time
 		_, err = tx.Create_Node(
 			ctx,
 			dbx.Node_Id(info.Id.Bytes()),
 			dbx.Node_Address(address.Address),
 			dbx.Node_Protocol(int(address.Transport)),
-			dbx.Node_Type(int(info.Type)),
-			dbx.Node_Email(metadata.Email),
-			dbx.Node_Wallet(metadata.Wallet),
-			dbx.Node_FreeBandwidth(restrictions.FreeBandwidth),
-			dbx.Node_FreeDisk(restrictions.FreeDisk),
-
-			dbx.Node_Latency90(reputation.Latency_90),
-			dbx.Node_AuditSuccessCount(reputation.AuditSuccessCount),
-			dbx.Node_TotalAuditCount(reputation.AuditCount),
-			dbx.Node_AuditSuccessRatio(reputation.AuditSuccessRatio),
-			dbx.Node_UptimeSuccessCount(reputation.UptimeSuccessCount),
-			dbx.Node_TotalUptimeCount(reputation.UptimeCount),
-			dbx.Node_UptimeRatio(reputation.UptimeRatio),
+			dbx.Node_Type(int(pb.NodeType_INVALID)),
+			dbx.Node_Email(""),
+			dbx.Node_Wallet(""),
+			dbx.Node_FreeBandwidth(-1),
+			dbx.Node_FreeDisk(-1),
+			dbx.Node_Major(0),
+			dbx.Node_Minor(0),
+			dbx.Node_Patch(0),
+			dbx.Node_Hash(""),
+			dbx.Node_Timestamp(time.Time{}),
+			dbx.Node_Release(false),
+			dbx.Node_Latency90(0),
+			dbx.Node_AuditSuccessCount(0),
+			dbx.Node_TotalAuditCount(0),
+			dbx.Node_AuditSuccessRatio(0),
+			dbx.Node_UptimeSuccessCount(0),
+			dbx.Node_TotalUptimeCount(0),
+			dbx.Node_UptimeRatio(0),
 			dbx.Node_LastContactSuccess(time.Now()),
 			dbx.Node_LastContactFailure(time.Time{}),
 		)
@@ -256,29 +271,8 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 		}
 	} else {
 		update := dbx.Node_Update_Fields{
-			// TODO: should we be able to update node type?
 			Address:  dbx.Node_Address(address.Address),
 			Protocol: dbx.Node_Protocol(int(address.Transport)),
-		}
-
-		if info.Reputation != nil {
-			update.Latency90 = dbx.Node_Latency90(info.Reputation.Latency_90)
-			update.AuditSuccessRatio = dbx.Node_AuditSuccessRatio(info.Reputation.AuditSuccessRatio)
-			update.UptimeRatio = dbx.Node_UptimeRatio(info.Reputation.UptimeRatio)
-			update.TotalAuditCount = dbx.Node_TotalAuditCount(info.Reputation.AuditCount)
-			update.AuditSuccessCount = dbx.Node_AuditSuccessCount(info.Reputation.AuditSuccessCount)
-			update.TotalUptimeCount = dbx.Node_TotalUptimeCount(info.Reputation.UptimeCount)
-			update.UptimeSuccessCount = dbx.Node_UptimeSuccessCount(info.Reputation.UptimeSuccessCount)
-		}
-
-		if info.Metadata != nil {
-			update.Email = dbx.Node_Email(info.Metadata.Email)
-			update.Wallet = dbx.Node_Wallet(info.Metadata.Wallet)
-		}
-
-		if info.Restrictions != nil {
-			update.FreeBandwidth = dbx.Node_FreeBandwidth(info.Restrictions.FreeBandwidth)
-			update.FreeDisk = dbx.Node_FreeDisk(info.Restrictions.FreeDisk)
 		}
 
 		_, err := tx.Update_Node_By_Id(ctx, dbx.Node_Id(info.Id.Bytes()), update)
@@ -329,7 +323,13 @@ func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID,
 		}
 	}
 
-	return getNodeStats(nodeID, dbNode), Error.Wrap(tx.Commit())
+	// TODO: Allegedly tx.Get_Node_By_Id and tx.Update_Node_By_Id should never return a nil value for dbNode,
+	// however we've seen from some crashes that it does. We need to track down the cause of these crashes
+	// but for now we're adding a nil check to prevent a panic.
+	if dbNode == nil {
+		return nil, Error.Wrap(errs.New("unable to get node by ID: %s", nodeID.String()))
+	}
+	return getNodeStats(dbNode), Error.Wrap(tx.Commit())
 }
 
 // FindInvalidNodes finds a subset of storagenodes that fail to meet minimum reputation requirements
@@ -442,17 +442,49 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 
-	nodeStats := getNodeStats(nodeID, dbNode)
-	return nodeStats, Error.Wrap(tx.Commit())
+	// TODO: Allegedly tx.Get_Node_By_Id and tx.Update_Node_By_Id should never return a nil value for dbNode,
+	// however we've seen from some crashes that it does. We need to track down the cause of these crashes
+	// but for now we're adding a nil check to prevent a panic.
+	if dbNode == nil {
+		return nil, Error.Wrap(errs.New("unable to get node by ID: %s", nodeID.String()))
+	}
+
+	return getNodeStats(dbNode), Error.Wrap(tx.Commit())
 }
 
-// UpdateOperator updates the email and wallet for a given node ID for satellite payments.
-func (cache *overlaycache) UpdateOperator(ctx context.Context, nodeID storj.NodeID, operator pb.NodeOperator) (stats *overlay.NodeDossier, err error) {
+// UpdateNodeInfo updates the email and wallet for a given node ID for satellite payments.
+func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.NodeID, nodeInfo *pb.InfoResponse) (stats *overlay.NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	updateFields := dbx.Node_Update_Fields{
-		Wallet: dbx.Node_Wallet(operator.GetWallet()),
-		Email:  dbx.Node_Email(operator.GetEmail()),
+	var updateFields dbx.Node_Update_Fields
+	if nodeInfo != nil {
+		if nodeInfo.GetType() != pb.NodeType_INVALID {
+			updateFields.Type = dbx.Node_Type(int(nodeInfo.GetType()))
+		}
+		if nodeInfo.GetOperator() != nil {
+			updateFields.Wallet = dbx.Node_Wallet(nodeInfo.GetOperator().GetWallet())
+			updateFields.Email = dbx.Node_Email(nodeInfo.GetOperator().GetEmail())
+		}
+		if nodeInfo.GetCapacity() != nil {
+			updateFields.FreeDisk = dbx.Node_FreeDisk(nodeInfo.GetCapacity().GetFreeDisk())
+			updateFields.FreeBandwidth = dbx.Node_FreeBandwidth(nodeInfo.GetCapacity().GetFreeBandwidth())
+		}
+		if nodeInfo.GetVersion() != nil {
+			semVer, err := version.NewSemVer(nodeInfo.GetVersion().GetVersion())
+			if err != nil {
+				return nil, errs.New("unable to convert version to semVer")
+			}
+			pbts, err := ptypes.Timestamp(nodeInfo.GetVersion().GetTimestamp())
+			if err != nil {
+				return nil, errs.New("unable to convert version timestamp")
+			}
+			updateFields.Major = dbx.Node_Major(semVer.Major)
+			updateFields.Minor = dbx.Node_Minor(semVer.Minor)
+			updateFields.Patch = dbx.Node_Patch(semVer.Patch)
+			updateFields.Hash = dbx.Node_Hash(nodeInfo.GetVersion().GetCommitHash())
+			updateFields.Timestamp = dbx.Node_Timestamp(pbts)
+			updateFields.Release = dbx.Node_Release(nodeInfo.GetVersion().GetRelease())
+		}
 	}
 
 	updatedDBNode, err := cache.db.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
@@ -502,9 +534,14 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 	if err != nil {
 		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
+	// TODO: Allegedly tx.Get_Node_By_Id and tx.Update_Node_By_Id should never return a nil value for dbNode,
+	// however we've seen from some crashes that it does. We need to track down the cause of these crashes
+	// but for now we're adding a nil check to prevent a panic.
+	if dbNode == nil {
+		return nil, Error.Wrap(errs.New("unable to get node by ID: %s", nodeID.String()))
+	}
 
-	nodeStats := getNodeStats(nodeID, dbNode)
-	return nodeStats, Error.Wrap(tx.Commit())
+	return getNodeStats(dbNode), Error.Wrap(tx.Commit())
 }
 
 func convertDBNode(info *dbx.Node) (*overlay.NodeDossier, error) {
@@ -516,6 +553,16 @@ func convertDBNode(info *dbx.Node) (*overlay.NodeDossier, error) {
 	if err != nil {
 		return nil, err
 	}
+	ver := &version.SemVer{
+		Major: info.Major,
+		Minor: info.Minor,
+		Patch: info.Patch,
+	}
+
+	pbts, err := ptypes.TimestampProto(info.Timestamp)
+	if err != nil {
+		return nil, err
+	}
 
 	node := &overlay.NodeDossier{
 		Node: pb.Node{
@@ -524,7 +571,6 @@ func convertDBNode(info *dbx.Node) (*overlay.NodeDossier, error) {
 				Address:   info.Address,
 				Transport: pb.NodeTransport(info.Protocol),
 			},
-			Type: pb.NodeType(info.Type),
 		},
 		Type: pb.NodeType(info.Type),
 		Operator: pb.NodeOperator{
@@ -546,16 +592,18 @@ func convertDBNode(info *dbx.Node) (*overlay.NodeDossier, error) {
 			LastContactSuccess: info.LastContactSuccess,
 			LastContactFailure: info.LastContactFailure,
 		},
-	}
-
-	if time.Now().Sub(info.LastContactSuccess) < 1*time.Hour && info.LastContactSuccess.After(info.LastContactFailure) {
-		node.IsUp = true
+		Version: pb.NodeVersion{
+			Version:    ver.String(),
+			CommitHash: info.Hash,
+			Timestamp:  pbts,
+			Release:    info.Release,
+		},
 	}
 
 	return node, nil
 }
 
-func getNodeStats(nodeID storj.NodeID, dbNode *dbx.Node) *overlay.NodeStats {
+func getNodeStats(dbNode *dbx.Node) *overlay.NodeStats {
 	nodeStats := &overlay.NodeStats{
 		Latency90:          dbNode.Latency90,
 		AuditSuccessRatio:  dbNode.AuditSuccessRatio,

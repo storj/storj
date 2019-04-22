@@ -17,8 +17,6 @@ import (
 )
 
 const (
-	// OverlayBucket is the string representing the bucket used for a bolt-backed overlay dht cache
-	OverlayBucket = "overlay"
 	// OnlineWindow is the maximum amount of time that can pass without seeing a node before that node is considered offline
 	OnlineWindow = 1 * time.Hour
 )
@@ -53,17 +51,17 @@ type DB interface {
 	List(ctx context.Context, cursor storj.NodeID, limit int) ([]*NodeDossier, error)
 	// Paginate will page through the database nodes
 	Paginate(ctx context.Context, offset int64, limit int) ([]*NodeDossier, bool, error)
-	// Update updates node information
-	Update(ctx context.Context, value *pb.Node) error
 
 	// CreateStats initializes the stats for node.
 	CreateStats(ctx context.Context, nodeID storj.NodeID, initial *NodeStats) (stats *NodeStats, err error)
 	// FindInvalidNodes finds a subset of storagenodes that have stats below provided reputation requirements.
 	FindInvalidNodes(ctx context.Context, nodeIDs storj.NodeIDList, maxStats *NodeStats) (invalid storj.NodeIDList, err error)
+	// Update updates node address
+	UpdateAddress(ctx context.Context, value *pb.Node) error
 	// UpdateStats all parts of single storagenode's stats.
 	UpdateStats(ctx context.Context, request *UpdateRequest) (stats *NodeStats, err error)
-	// UpdateOperator updates the email and wallet for a given node ID for satellite payments.
-	UpdateOperator(ctx context.Context, node storj.NodeID, updatedOperator pb.NodeOperator) (stats *NodeDossier, err error)
+	// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
+	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *NodeDossier, err error)
 	// UpdateUptime updates a single storagenode's uptime stats.
 	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error)
 }
@@ -77,6 +75,8 @@ type FindStorageNodesRequest struct {
 	FreeDisk      int64
 
 	ExcludedNodes []storj.NodeID
+
+	MinimumVersion string // semver or empty
 }
 
 // NodeCriteria are the requirements for selecting nodes
@@ -90,6 +90,8 @@ type NodeCriteria struct {
 	UptimeSuccessRatio float64
 
 	Excluded []storj.NodeID
+
+	MinimumVersion string // semver or empty
 }
 
 // NewNodeCriteria are the requirement for selecting new nodes
@@ -100,6 +102,8 @@ type NewNodeCriteria struct {
 	AuditThreshold int64
 
 	Excluded []storj.NodeID
+
+	MinimumVersion string // semver or empty
 }
 
 // UpdateRequest is used to update a node status.
@@ -116,6 +120,7 @@ type NodeDossier struct {
 	Operator   pb.NodeOperator
 	Capacity   pb.NodeCapacity
 	Reputation NodeStats
+	Version    pb.NodeVersion
 }
 
 // Online checks if a node is online based on the collected statistics.
@@ -219,7 +224,6 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 
 	// TODO: add sanity limits to requested node count
 	// TODO: add sanity limits to excluded nodes
-
 	reputableNodeCount := req.MinimumRequiredNodes
 	if reputableNodeCount <= 0 {
 		reputableNodeCount = req.RequestedCount
@@ -239,6 +243,8 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 			AuditThreshold: preferences.NewNodeAuditThreshold,
 
 			Excluded: req.ExcludedNodes,
+
+			MinimumVersion: preferences.MinimumVersion,
 		})
 		if err != nil {
 			return nil, err
@@ -260,6 +266,8 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 		UptimeSuccessRatio: preferences.UptimeRatio,
 
 		Excluded: req.ExcludedNodes,
+
+		MinimumVersion: preferences.MinimumVersion,
 	})
 	if err != nil {
 		return nil, err
@@ -286,7 +294,7 @@ func (cache *Cache) GetAll(ctx context.Context, ids storj.NodeIDList) (_ []*Node
 	return cache.db.GetAll(ctx, ids)
 }
 
-// Put adds a node id and proto definition into the overlay cache and stat db
+// Put adds a node id and proto definition into the overlay cache
 func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -298,8 +306,7 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 	if nodeID != value.Id {
 		return errors.New("invalid request")
 	}
-
-	return cache.db.Update(ctx, &value)
+	return cache.db.UpdateAddress(ctx, &value)
 }
 
 // Create adds a new stats entry for node.
@@ -320,10 +327,10 @@ func (cache *Cache) UpdateStats(ctx context.Context, request *UpdateRequest) (st
 	return cache.db.UpdateStats(ctx, request)
 }
 
-// UpdateOperator updates the email and wallet for a given node ID for satellite payments.
-func (cache *Cache) UpdateOperator(ctx context.Context, node storj.NodeID, updatedOperator pb.NodeOperator) (stats *NodeDossier, err error) {
+// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
+func (cache *Cache) UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return cache.db.UpdateOperator(ctx, node, updatedOperator)
+	return cache.db.UpdateNodeInfo(ctx, node, nodeInfo)
 }
 
 // UpdateUptime updates a single storagenode's uptime stats.

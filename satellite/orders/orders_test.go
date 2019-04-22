@@ -9,10 +9,12 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/uplink"
 )
 
 func TestSendingReceivingOrders(t *testing.T) {
@@ -20,7 +22,7 @@ func TestSendingReceivingOrders(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-
+		planet.Satellites[0].Audit.Service.Loop.Stop()
 		for _, storageNode := range planet.StorageNodes {
 			storageNode.Storage2.Sender.Loop.Pause()
 		}
@@ -29,7 +31,8 @@ func TestSendingReceivingOrders(t *testing.T) {
 		_, err := rand.Read(expectedData)
 		require.NoError(t, err)
 
-		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
+		redundancy := noLongTailRedundancy(planet)
+		err = planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &redundancy, "testbucket", "test/path", expectedData)
 		require.NoError(t, err)
 
 		sumBeforeSend := 0
@@ -65,6 +68,7 @@ func TestUnableToSendOrders(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		planet.Satellites[0].Audit.Service.Loop.Stop()
 		for _, storageNode := range planet.StorageNodes {
 			storageNode.Storage2.Sender.Loop.Pause()
 		}
@@ -73,7 +77,8 @@ func TestUnableToSendOrders(t *testing.T) {
 		_, err := rand.Read(expectedData)
 		require.NoError(t, err)
 
-		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
+		redundancy := noLongTailRedundancy(planet)
+		err = planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &redundancy, "testbucket", "test/path", expectedData)
 		require.NoError(t, err)
 
 		sumBeforeSend := 0
@@ -110,8 +115,9 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		hourBeforeTest := time.Now().Add(-time.Hour)
+		hourBeforeTest := time.Now().UTC().Add(-time.Hour)
 
+		planet.Satellites[0].Audit.Service.Loop.Stop()
 		for _, storageNode := range planet.StorageNodes {
 			storageNode.Storage2.Sender.Loop.Pause()
 		}
@@ -120,7 +126,8 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 		_, err := rand.Read(expectedData)
 		require.NoError(t, err)
 
-		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
+		redundancy := noLongTailRedundancy(planet)
+		err = planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &redundancy, "testbucket", "test/path", expectedData)
 		require.NoError(t, err)
 
 		data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path")
@@ -150,14 +157,20 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 		ordersDB := planet.Satellites[0].DB.Orders()
 		bucketID := storj.JoinPaths(projects[0].ID.String(), "testbucket")
 
-		bucketBandwidth, err := ordersDB.GetBucketBandwidth(ctx, []byte(bucketID), hourBeforeTest, time.Now())
+		bucketBandwidth, err := ordersDB.GetBucketBandwidth(ctx, []byte(bucketID), hourBeforeTest, time.Now().UTC())
 		require.NoError(t, err)
 		require.Equal(t, expectedBucketBandwidth, bucketBandwidth)
 
 		for _, storageNode := range planet.StorageNodes {
-			nodeBandwidth, err := ordersDB.GetStorageNodeBandwidth(ctx, storageNode.ID(), hourBeforeTest, time.Now())
+			nodeBandwidth, err := ordersDB.GetStorageNodeBandwidth(ctx, storageNode.ID(), hourBeforeTest, time.Now().UTC())
 			require.NoError(t, err)
 			require.Equal(t, expectedStorageBandwidth[storageNode.ID()], nodeBandwidth)
 		}
 	})
+}
+
+func noLongTailRedundancy(planet *testplanet.Planet) uplink.RSConfig {
+	redundancy := planet.Uplinks[0].GetConfig(planet.Satellites[0]).RS
+	redundancy.SuccessThreshold = redundancy.MaxThreshold
+	return redundancy
 }

@@ -92,11 +92,11 @@ func (m *lockedAccounting) LastTimestamp(ctx context.Context, timestampType stri
 	return m.db.LastTimestamp(ctx, timestampType)
 }
 
-// ProjectBandwidthTotal returns the sum of GET bandwidth usage for a projectID in the past time frame
-func (m *lockedAccounting) ProjectBandwidthTotal(ctx context.Context, bucketID []byte, from time.Time) (int64, error) {
+// ProjectAllocatedBandwidthTotal returns the sum of GET bandwidth usage allocated for a projectID in the past time frame
+func (m *lockedAccounting) ProjectAllocatedBandwidthTotal(ctx context.Context, bucketID []byte, from time.Time) (int64, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.ProjectBandwidthTotal(ctx, bucketID, from)
+	return m.db.ProjectAllocatedBandwidthTotal(ctx, bucketID, from)
 }
 
 // ProjectStorageTotals returns the current inline and remote storage usage for a projectID
@@ -121,7 +121,7 @@ func (m *lockedAccounting) SaveAtRestRaw(ctx context.Context, latestTally time.T
 }
 
 // SaveBucketTallies saves the latest bucket info
-func (m *lockedAccounting) SaveBucketTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*accounting.BucketTally) error {
+func (m *lockedAccounting) SaveBucketTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*accounting.BucketTally) ([]accounting.BucketTally, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.SaveBucketTallies(ctx, intervalStart, bucketTallies)
@@ -471,6 +471,12 @@ type lockedUsageRollups struct {
 	db console.UsageRollups
 }
 
+func (m *lockedUsageRollups) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since time.Time, before time.Time) ([]console.BucketUsageRollup, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetBucketUsageRollups(ctx, projectID, since, before)
+}
+
 func (m *lockedUsageRollups) GetProjectTotal(ctx context.Context, projectID uuid.UUID, since time.Time, before time.Time) (*console.ProjectUsage, error) {
 	m.Lock()
 	defer m.Unlock()
@@ -739,18 +745,18 @@ func (m *lockedOverlayCache) SelectStorageNodes(ctx context.Context, count int, 
 	return m.db.SelectStorageNodes(ctx, count, criteria)
 }
 
-// Update updates node information
-func (m *lockedOverlayCache) Update(ctx context.Context, value *pb.Node) error {
+// Update updates node address
+func (m *lockedOverlayCache) UpdateAddress(ctx context.Context, value *pb.Node) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Update(ctx, value)
+	return m.db.UpdateAddress(ctx, value)
 }
 
-// UpdateOperator updates the email and wallet for a given node ID for satellite payments.
-func (m *lockedOverlayCache) UpdateOperator(ctx context.Context, node storj.NodeID, updatedOperator pb.NodeOperator) (stats *overlay.NodeDossier, err error) {
+// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
+func (m *lockedOverlayCache) UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *overlay.NodeDossier, err error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.UpdateOperator(ctx, node, updatedOperator)
+	return m.db.UpdateNodeInfo(ctx, node, nodeInfo)
 }
 
 // UpdateStats all parts of single storagenode's stats.
@@ -780,23 +786,30 @@ type lockedRepairQueue struct {
 	db queue.RepairQueue
 }
 
-// Dequeue removes an injured segment.
-func (m *lockedRepairQueue) Dequeue(ctx context.Context) (pb.InjuredSegment, error) {
+// Delete removes an injured segment.
+func (m *lockedRepairQueue) Delete(ctx context.Context, s *pb.InjuredSegment) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Dequeue(ctx)
+	return m.db.Delete(ctx, s)
 }
 
-// Enqueue adds an injured segment.
-func (m *lockedRepairQueue) Enqueue(ctx context.Context, qi *pb.InjuredSegment) error {
+// Insert adds an injured segment.
+func (m *lockedRepairQueue) Insert(ctx context.Context, s *pb.InjuredSegment) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Enqueue(ctx, qi)
+	return m.db.Insert(ctx, s)
 }
 
-// Peekqueue lists limit amount of injured segments.
-func (m *lockedRepairQueue) Peekqueue(ctx context.Context, limit int) ([]pb.InjuredSegment, error) {
+// Select gets an injured segment.
+func (m *lockedRepairQueue) Select(ctx context.Context) (*pb.InjuredSegment, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Peekqueue(ctx, limit)
+	return m.db.Select(ctx)
+}
+
+// SelectN lists limit amount of injured segments.
+func (m *lockedRepairQueue) SelectN(ctx context.Context, limit int) ([]pb.InjuredSegment, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SelectN(ctx, limit)
 }

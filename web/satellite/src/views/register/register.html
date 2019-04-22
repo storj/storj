@@ -20,7 +20,7 @@
 				</div>
 				<HeaderlessInput
 						class="full-input"
-						label="Full name"
+						label="Full Name"
 						placeholder="Enter Full Name"
 						:error="fullNameError"
 						@setData="setFullName"
@@ -46,14 +46,14 @@
 				</HeaderlessInput>
 				<div class="register-input">
 					<HeaderlessInput
-							class="full-input"
-							label="Password"
-							placeholder="Enter Password"
-							:error="passwordError"
-							@setData="setPassword"
-							width="100%"
-							height="46px"
-							isPassword>
+						class="full-input"
+						label="Password"
+						placeholder="Enter Password"
+						:error="passwordError"
+						@setData="setPassword"
+						width="100%"
+						height="46px"
+						isPassword>
 					</HeaderlessInput>
 					<span
 							v-html="infoImage"
@@ -62,8 +62,8 @@
 				<div class="register-input">
 					<HeaderlessInput
 							class="full-input"
-							label="Repeat Password"
-							placeholder="Repeat Password"
+							label="Confirm Password"
+							placeholder="Confirm Password"
 							:error="repeatedPasswordError"
 							@setData="setRepeatedPassword"
 							width="100%"
@@ -79,7 +79,7 @@
 							<input type="checkbox" v-model="isTermsAccepted">
 							<span v-bind:class="[isTermsAcceptedError ? 'checkmark error': 'checkmark']"></span>
 						</label>
-						<h2>I agree to the <a>Terms & Conditions</a></h2>
+						<h2>I agree to the <a href="https://tardigrade.io/terms-of-use/" target="_blank">Terms & Conditions</a></h2>
 					</div>
 					<div id="createAccountButton" class="register-area__submit-container__create-button" v-on:click.prevent="onCreateClick">
 						<p>Create Account</p>

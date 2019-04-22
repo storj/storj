@@ -28,6 +28,7 @@ import (
 	"storj.io/storj/bootstrap/bootstrapdb"
 	"storj.io/storj/bootstrap/bootstrapweb/bootstrapserver"
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/accounting/rollup"
 	"storj.io/storj/pkg/accounting/tally"
@@ -62,7 +63,7 @@ import (
 type Peer interface {
 	ID() storj.NodeID
 	Addr() string
-	Local() pb.Node
+	Local() overlay.NodeDossier
 
 	Run(context.Context) error
 	Close() error
@@ -74,8 +75,9 @@ type Config struct {
 	StorageNodeCount int
 	UplinkCount      int
 
-	Identities  *Identities
-	Reconfigure Reconfigure
+	Identities      *testidentity.Identities
+	IdentityVersion *storj.IDVersion
+	Reconfigure     Reconfigure
 }
 
 // Planet is a full storj system setup.
@@ -97,7 +99,7 @@ type Planet struct {
 	StorageNodes   []*storagenode.Peer
 	Uplinks        []*Uplink
 
-	identities    *Identities
+	identities    *testidentity.Identities
 	whitelistPath string // TODO: in-memory
 
 	run    errgroup.Group
@@ -135,6 +137,23 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 	return NewWithLogger(log, satelliteCount, storageNodeCount, uplinkCount)
 }
 
+// NewWithIdentityVersion creates a new full system with the given version for node identities and the given number of nodes.
+func NewWithIdentityVersion(t zaptest.TestingT, identityVersion *storj.IDVersion, satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
+	var log *zap.Logger
+	if t == nil {
+		log = zap.NewNop()
+	} else {
+		log = zaptest.NewLogger(t)
+	}
+
+	return NewCustom(log, Config{
+		SatelliteCount:   satelliteCount,
+		StorageNodeCount: storageNodeCount,
+		UplinkCount:      uplinkCount,
+		IdentityVersion:  identityVersion,
+	})
+}
+
 // NewWithLogger creates a new full system with the given number of nodes.
 func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
 	return NewCustom(log, Config{
@@ -146,8 +165,12 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 
 // NewCustom creates a new full system with the specified configuration.
 func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
+	if config.IdentityVersion == nil {
+		version := storj.LatestIDVersion()
+		config.IdentityVersion = &version
+	}
 	if config.Identities == nil {
-		config.Identities = pregeneratedSignedIdentities.Clone()
+		config.Identities = testidentity.NewPregeneratedSignedIdentities(*config.IdentityVersion)
 	}
 
 	planet := &Planet{
@@ -162,7 +185,7 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 		return nil, err
 	}
 
-	whitelistPath, err := planet.WriteWhitelist()
+	whitelistPath, err := planet.WriteWhitelist(*config.IdentityVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -201,13 +224,13 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 	// init Satellites
 	for _, satellite := range planet.Satellites {
 		if len(satellite.Kademlia.Service.GetBootstrapNodes()) == 0 {
-			satellite.Kademlia.Service.SetBootstrapNodes([]pb.Node{planet.Bootstrap.Local()})
+			satellite.Kademlia.Service.SetBootstrapNodes([]pb.Node{planet.Bootstrap.Local().Node})
 		}
 	}
 	// init storage nodes
 	for _, storageNode := range planet.StorageNodes {
 		if len(storageNode.Kademlia.Service.GetBootstrapNodes()) == 0 {
-			storageNode.Kademlia.Service.SetBootstrapNodes([]pb.Node{planet.Bootstrap.Local()})
+			storageNode.Kademlia.Service.SetBootstrapNodes([]pb.Node{planet.Bootstrap.Local().Node})
 		}
 	}
 
@@ -235,10 +258,11 @@ func (planet *Planet) Start(ctx context.Context) {
 
 	planet.Bootstrap.Kademlia.Service.WaitForBootstrap()
 
-	for _, peer := range planet.Satellites {
+	for _, peer := range planet.StorageNodes {
 		peer.Kademlia.Service.WaitForBootstrap()
 	}
-	for _, peer := range planet.StorageNodes {
+
+	for _, peer := range planet.Satellites {
 		peer.Kademlia.Service.WaitForBootstrap()
 	}
 
@@ -257,7 +281,7 @@ func (planet *Planet) Reconnect(ctx context.Context) {
 	for _, storageNode := range planet.StorageNodes {
 		storageNode := storageNode
 		group.Go(func() error {
-			_, err := storageNode.Kademlia.Service.Ping(ctx, planet.Bootstrap.Local())
+			_, err := storageNode.Kademlia.Service.Ping(ctx, planet.Bootstrap.Local().Node)
 			if err != nil {
 				log.Error("storage node did not find bootstrap", zap.Error(err))
 			}
@@ -269,7 +293,7 @@ func (planet *Planet) Reconnect(ctx context.Context) {
 		satellite := satellite
 		group.Go(func() error {
 			for _, storageNode := range planet.StorageNodes {
-				_, err := satellite.Kademlia.Service.Ping(ctx, storageNode.Local())
+				_, err := satellite.Kademlia.Service.Ping(ctx, storageNode.Local().Node)
 				if err != nil {
 					log.Error("satellite did not find storage node", zap.Error(err))
 				}
@@ -405,6 +429,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 					RevocationDBURL:     "bolt://" + filepath.Join(storageDir, "revocation.db"),
 					UsePeerCAWhitelist:  true,
 					PeerCAWhitelistPath: planet.whitelistPath,
+					PeerIDVersions:      "latest",
 					Extensions: extensions.Config{
 						Revocation:          false,
 						WhitelistSignedLeaf: false,
@@ -449,6 +474,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			Repairer: repairer.Config{
 				MaxRepair:    10,
 				Interval:     time.Hour,
+				Timeout:      2 * time.Second,
 				MaxBufferMem: 4 * memory.MiB,
 			},
 			Audit: audit.Config{
@@ -552,6 +578,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 					RevocationDBURL:     "bolt://" + filepath.Join(storageDir, "revocation.db"),
 					UsePeerCAWhitelist:  true,
 					PeerCAWhitelistPath: planet.whitelistPath,
+					PeerIDVersions:      "*",
 					Extensions: extensions.Config{
 						Revocation:          false,
 						WhitelistSignedLeaf: false,
@@ -568,7 +595,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 			},
 			Storage: psserver.Config{
 				Path:                   "", // TODO: this argument won't be needed with master storagenodedb
-				AllocatedDiskSpace:     memory.TB,
+				AllocatedDiskSpace:     1500 * memory.GB,
 				AllocatedBandwidth:     memory.TB,
 				KBucketRefreshInterval: time.Hour,
 
@@ -646,6 +673,7 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 				RevocationDBURL:     "bolt://" + filepath.Join(dbDir, "revocation.db"),
 				UsePeerCAWhitelist:  true,
 				PeerCAWhitelistPath: planet.whitelistPath,
+				PeerIDVersions:      "latest",
 				Extensions: extensions.Config{
 					Revocation:          false,
 					WhitelistSignedLeaf: false,
@@ -718,7 +746,7 @@ func (planet *Planet) newVersionControlServer() (peer *versioncontrol.Peer, err 
 func (planet *Planet) NewVersionInfo() version.Info {
 	info := version.Info{
 		Timestamp:  time.Now(),
-		CommitHash: "",
+		CommitHash: "testplanet",
 		Version: version.SemVer{
 			Major: 0,
 			Minor: 0,
@@ -738,7 +766,7 @@ func (planet *Planet) NewVersionConfig() version.Config {
 }
 
 // Identities returns the identity provider for this planet.
-func (planet *Planet) Identities() *Identities {
+func (planet *Planet) Identities() *testidentity.Identities {
 	return planet.identities
 }
 
@@ -753,9 +781,9 @@ func (planet *Planet) NewListener() (net.Listener, error) {
 }
 
 // WriteWhitelist writes the pregenerated signer's CA cert to a "CA whitelist", PEM-encoded.
-func (planet *Planet) WriteWhitelist() (string, error) {
+func (planet *Planet) WriteWhitelist(version storj.IDVersion) (string, error) {
 	whitelistPath := filepath.Join(planet.directory, "whitelist.pem")
-	signer := NewPregeneratedSigner()
+	signer := testidentity.NewPregeneratedSigner(version)
 	err := identity.PeerCAConfig{
 		CertPath: whitelistPath,
 	}.Save(signer.PeerCA())

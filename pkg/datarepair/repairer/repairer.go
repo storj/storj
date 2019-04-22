@@ -28,8 +28,8 @@ type SegmentRepairer interface {
 type Service struct {
 	queue     queue.RepairQueue
 	config    *Config
-	limiter   *sync2.Limiter
-	ticker    *time.Ticker
+	Limiter   *sync2.Limiter
+	Loop      sync2.Cycle
 	transport transport.Client
 	pointerdb *pointerdb.Service
 	orders    *orders.Service
@@ -42,8 +42,8 @@ func NewService(queue queue.RepairQueue, config *Config, interval time.Duration,
 	return &Service{
 		queue:     queue,
 		config:    config,
-		limiter:   sync2.NewLimiter(concurrency),
-		ticker:    time.NewTicker(interval),
+		Limiter:   sync2.NewLimiter(concurrency),
+		Loop:      *sync2.NewCycle(interval),
 		transport: transport,
 		pointerdb: pointerdb,
 		orders:    orders,
@@ -72,25 +72,20 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	}
 
 	// wait for all repairs to complete
-	defer service.limiter.Wait()
+	defer service.Limiter.Wait()
 
-	for {
+	return service.Loop.Run(ctx, func(ctx context.Context) error {
 		err := service.process(ctx)
 		if err != nil {
 			zap.L().Error("process", zap.Error(err))
 		}
-
-		select {
-		case <-service.ticker.C: // wait for the next interval to happen
-		case <-ctx.Done(): // or the repairer service is canceled via context
-			return ctx.Err()
-		}
-	}
+		return nil
+	})
 }
 
 // process picks an item from repair queue and spawns a repair worker
 func (service *Service) process(ctx context.Context) error {
-	seg, err := service.queue.Dequeue(ctx)
+	seg, err := service.queue.Select(ctx)
 	if err != nil {
 		if storage.ErrEmptyQueue.Has(err) {
 			return nil
@@ -98,10 +93,14 @@ func (service *Service) process(ctx context.Context) error {
 		return err
 	}
 
-	service.limiter.Go(ctx, func() {
+	service.Limiter.Go(ctx, func() {
 		err := service.repairer.Repair(ctx, seg.GetPath(), seg.GetLostPieces())
 		if err != nil {
 			zap.L().Error("Repair failed", zap.Error(err))
+		}
+		err = service.queue.Delete(ctx, seg)
+		if err != nil {
+			zap.L().Error("Repair delete failed", zap.Error(err))
 		}
 	})
 

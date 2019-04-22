@@ -84,14 +84,9 @@ func (endpoint *Endpoint) RequestInfo(ctx context.Context, req *pb.InfoRequest) 
 	self := endpoint.service.Local()
 
 	return &pb.InfoResponse{
-		Type: self.GetType(),
-		Operator: &pb.NodeOperator{
-			Email:  self.GetMetadata().GetEmail(),
-			Wallet: self.GetMetadata().GetWallet(),
-		},
-		Capacity: &pb.NodeCapacity{
-			FreeBandwidth: self.GetRestrictions().GetFreeBandwidth(),
-			FreeDisk:      self.GetRestrictions().GetFreeDisk(),
-		},
+		Type:     self.Type,
+		Operator: &self.Operator,
+		Capacity: &self.Capacity,
+		Version:  &self.Version,
 	}, nil
 }

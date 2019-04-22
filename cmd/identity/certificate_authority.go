@@ -106,11 +106,11 @@ func init() {
 	caCmd.AddCommand(revokeCACmd)
 	caCmd.AddCommand(revokePeerCACmd)
 
-	cfgstruct.Bind(newCACmd.Flags(), &newCACfg, isDev, cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.Bind(getIDCmd.Flags(), &getIDCfg, isDev, cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.Bind(caExtCmd.Flags(), &caExtCfg, isDev, cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.Bind(revokeCACmd.Flags(), &revokeCACfg, isDev, cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.Bind(revokePeerCACmd.Flags(), &revokePeerCACfg, isDev, cfgstruct.ConfDir(defaultConfigDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(newCACmd.Flags(), &newCACfg, defaults, cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(getIDCmd.Flags(), &getIDCfg, defaults, cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(caExtCmd.Flags(), &caExtCfg, defaults, cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(revokeCACmd.Flags(), &revokeCACfg, defaults, cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(revokePeerCACmd.Flags(), &revokePeerCACfg, defaults, cfgstruct.ConfDir(defaultConfigDir), cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func cmdNewCA(cmd *cobra.Command, args []string) error {
@@ -124,7 +124,15 @@ func cmdGetID(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	fmt.Println(p.ID.String())
+	fmt.Printf("base58-check node ID:\t%s\n", p.ID)
+	fmt.Printf("hex node ID:\t\t%x\n", p.ID)
+	fmt.Printf("node ID bytes:\t\t%v\n", p.ID[:])
+
+	difficulty, err := p.ID.Difficulty()
+	if err != nil {
+		return nil
+	}
+	fmt.Printf("difficulty:\t\t%d\n", difficulty)
 	return nil
 }
 

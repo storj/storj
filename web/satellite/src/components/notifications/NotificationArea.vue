@@ -36,7 +36,8 @@ export default class NotificationArea extends Vue {
         display: flex;
         position: fixed;
         bottom: 50px;
-        right: 30px;
+        right: 50%;
+        transform: translate(50%);
         align-items: center;
         justify-content: space-between;
         box-shadow: 0px 12px 24px rgba(175, 183, 193, 0.4);

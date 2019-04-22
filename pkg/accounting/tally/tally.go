@@ -21,7 +21,7 @@ import (
 
 // Config contains configurable values for the tally service
 type Config struct {
-	Interval time.Duration `help:"how frequently the tally service should run" default:"1h" devDefault:"30s"`
+	Interval time.Duration `help:"how frequently the tally service should run" releaseDefault:"1h" devDefault:"30s"`
 }
 
 // Service is the tally service for data stored on each storage node
@@ -63,11 +63,10 @@ func (t *Service) Run(ctx context.Context) (err error) {
 	}
 }
 
-// Tally calculates data-at-rest once
+// Tally calculates data-at-rest usage once
 func (t *Service) Tally(ctx context.Context) error {
 	var errAtRest, errBucketInfo error
-	latestTally, nodeData, bucketData, err := t.calculateAtRestData(ctx)
-
+	latestTally, nodeData, bucketData, err := t.CalculateAtRestData(ctx)
 	if err != nil {
 		errAtRest = errs.New("Query for data-at-rest failed : %v", err)
 	} else {
@@ -78,7 +77,7 @@ func (t *Service) Tally(ctx context.Context) error {
 			}
 		}
 		if len(bucketData) > 0 {
-			err = t.accountingDB.SaveBucketTallies(ctx, latestTally, bucketData)
+			_, err = t.accountingDB.SaveBucketTallies(ctx, latestTally, bucketData)
 			if err != nil {
 				errBucketInfo = errs.New("Saving bucket storage data failed")
 			}
@@ -87,9 +86,9 @@ func (t *Service) Tally(ctx context.Context) error {
 	return errs.Combine(errAtRest, errBucketInfo)
 }
 
-// calculateAtRestData iterates through the pieces on pointerdb and calculates
+// CalculateAtRestData iterates through the pieces on pointerdb and calculates
 // the amount of at-rest data stored in each bucket and on each respective node
-func (t *Service) calculateAtRestData(ctx context.Context) (latestTally time.Time, nodeData map[storj.NodeID]float64, bucketTallies map[string]*accounting.BucketTally, err error) {
+func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Time, nodeData map[storj.NodeID]float64, bucketTallies map[string]*accounting.BucketTally, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	latestTally, err = t.accountingDB.LastTimestamp(ctx, accounting.LastAtRestTally)
@@ -195,7 +194,7 @@ func (t *Service) calculateAtRestData(ctx context.Context) (latestTally time.Tim
 	if latestTally.IsZero() {
 		numHours = 1.0 //todo: something more considered?
 	}
-	latestTally = time.Now()
+	latestTally = time.Now().UTC()
 	for k := range nodeData {
 		nodeData[k] *= numHours //calculate byte hours
 	}

@@ -425,7 +425,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						PRIMARY KEY ( bucket_id, interval_start )
 					)`,
 					`ALTER TABLE bucket_usages DROP CONSTRAINT bucket_usages_rollup_end_time_bucket_id_key`,
-					`CREATE UNIQUE INDEX bucket_id_rollup_end_time_index ON bucket_usages ( 
+					`CREATE UNIQUE INDEX bucket_id_rollup_end_time_index ON bucket_usages (
 						bucket_id,
 						rollup_end_time )`,
 				},
@@ -530,6 +530,77 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE bucket_bandwidth_rollups ADD CONSTRAINT bucket_bandwidth_rollups_pk PRIMARY KEY (bucket_name, project_id, interval_start, action);`,
 				},
 			},
+			{
+				Description: "Add new Columns to store version information",
+				Version:     14,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD major bigint NOT NULL DEFAULT 0;
+					ALTER TABLE nodes ADD minor bigint NOT NULL DEFAULT 1;
+					ALTER TABLE nodes ADD patch bigint NOT NULL DEFAULT 0;
+					ALTER TABLE nodes ADD hash TEXT NOT NULL DEFAULT '';
+					ALTER TABLE nodes ADD timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT 'epoch';
+					ALTER TABLE nodes ADD release bool NOT NULL DEFAULT FALSE;`,
+				},
+			},
+			{
+				Description: "Default Node Type should be invalid",
+				Version:     15,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ALTER COLUMN type SET DEFAULT 0;`,
+				},
+			},
+			{
+				Description: "Add path to injuredsegment to prevent duplicates",
+				Version:     16,
+				Action: migrate.Func(func(log *zap.Logger, db migrate.DB, tx *sql.Tx) error {
+					_, err := tx.Exec(`
+						ALTER TABLE injuredsegments ADD path text;
+						ALTER TABLE injuredsegments RENAME COLUMN info TO data;
+						ALTER TABLE injuredsegments ADD attempted timestamp;
+						ALTER TABLE injuredsegments DROP CONSTRAINT IF EXISTS id_pkey;`)
+					if err != nil {
+						return ErrMigrate.Wrap(err)
+					}
+					// add 'path' using a cursor
+					err = func() error {
+						_, err = tx.Exec(`DECLARE injured_cursor CURSOR FOR SELECT data FROM injuredsegments FOR UPDATE`)
+						if err != nil {
+							return ErrMigrate.Wrap(err)
+						}
+						defer func() {
+							_, closeErr := tx.Exec(`CLOSE injured_cursor`)
+							err = errs.Combine(err, closeErr)
+						}()
+						for {
+							var seg pb.InjuredSegment
+							err := tx.QueryRow(`FETCH NEXT FROM injured_cursor`).Scan(&seg)
+							if err != nil {
+								if err == sql.ErrNoRows {
+									break
+								}
+								return ErrMigrate.Wrap(err)
+							}
+							_, err = tx.Exec(`UPDATE injuredsegments SET path = $1 WHERE CURRENT OF injured_cursor`, seg.Path)
+							if err != nil {
+								return ErrMigrate.Wrap(err)
+							}
+						}
+						return nil
+					}()
+					if err != nil {
+						return err
+					}
+					// keep changing
+					_, err = tx.Exec(`
+						ALTER TABLE injuredsegments DROP COLUMN id;
+						ALTER TABLE injuredsegments ALTER COLUMN path SET NOT NULL;
+						ALTER TABLE injuredsegments ADD PRIMARY KEY (path);`)
+					if err != nil {
+						return ErrMigrate.Wrap(err)
+					}
+					return nil
+				}),
+			},
 		},
 	}
 }
@@ -537,7 +608,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 func postgresHasColumn(tx *sql.Tx, table, column string) (bool, error) {
 	var columnName string
 	err := tx.QueryRow(`
-		SELECT column_name FROM information_schema.COLUMNS 
+		SELECT column_name FROM information_schema.COLUMNS
 			WHERE table_schema = CURRENT_SCHEMA
 				AND table_name = $1
 				AND column_name = $2
@@ -555,7 +626,7 @@ func postgresHasColumn(tx *sql.Tx, table, column string) (bool, error) {
 func postgresColumnNullability(tx *sql.Tx, table, column string) (bool, error) {
 	var nullability string
 	err := tx.QueryRow(`
-		SELECT is_nullable FROM information_schema.COLUMNS 
+		SELECT is_nullable FROM information_schema.COLUMNS
 			WHERE table_schema = CURRENT_SCHEMA
 				AND table_name = $1
 				AND column_name = $2

@@ -6,18 +6,18 @@ package bootstrap
 import (
 	"context"
 	"net"
-	"net/http"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc"
 
 	"storj.io/storj/bootstrap/bootstrapweb"
 	"storj.io/storj/bootstrap/bootstrapweb/bootstrapserver"
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/server"
@@ -124,16 +124,24 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			config.ExternalAddress = peer.Addr()
 		}
 
-		self := pb.Node{
-			Id:   peer.ID(),
-			Type: pb.NodeType_BOOTSTRAP,
-			Address: &pb.NodeAddress{
-				Transport: pb.NodeTransport_TCP_TLS_GRPC,
-				Address:   config.ExternalAddress,
+		pbVersion, err := versionInfo.Proto()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		self := &overlay.NodeDossier{
+			Node: pb.Node{
+				Id: peer.ID(),
+				Address: &pb.NodeAddress{
+					Transport: pb.NodeTransport_TCP_TLS_GRPC,
+					Address:   config.ExternalAddress,
+				},
 			},
-			Metadata: &pb.NodeMetadata{
+			Type: pb.NodeType_BOOTSTRAP,
+			Operator: pb.NodeOperator{
 				Wallet: config.Operator.Wallet,
 			},
+			Version: *pbVersion,
 		}
 
 		kdb, ndb := peer.DB.RoutingTable()
@@ -144,7 +152,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 
 		peer.Transport = peer.Transport.WithObservers(peer.Kademlia.RoutingTable)
 
-		peer.Kademlia.Service, err = kademlia.NewService(peer.Log.Named("kademlia"), self, peer.Transport, peer.Kademlia.RoutingTable, config)
+		peer.Kademlia.Service, err = kademlia.NewService(peer.Log.Named("kademlia"), peer.Transport, peer.Kademlia.RoutingTable, config)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -189,13 +197,13 @@ func (peer *Peer) Run(ctx context.Context) error {
 	group, ctx := errgroup.WithContext(ctx)
 
 	group.Go(func() error {
-		return ignoreCancel(peer.Version.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Version.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Kademlia.Service.Bootstrap(ctx))
+		return errs2.IgnoreCanceled(peer.Kademlia.Service.Bootstrap(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Kademlia.Service.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Kademlia.Service.Run(ctx))
 	})
 	group.Go(func() error {
 		// TODO: move the message into Server instead
@@ -203,20 +211,13 @@ func (peer *Peer) Run(ctx context.Context) error {
 		peer.Log.Sugar().Infof("Node %s started", peer.Identity.ID)
 		peer.Log.Sugar().Infof("Public server started on %s", peer.Addr())
 		peer.Log.Sugar().Infof("Private server started on %s", peer.PrivateAddr())
-		return ignoreCancel(peer.Server.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Server.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Web.Endpoint.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Web.Endpoint.Run(ctx))
 	})
 
 	return group.Wait()
-}
-
-func ignoreCancel(err error) error {
-	if err == context.Canceled || err == grpc.ErrServerStopped || err == http.ErrServerClosed {
-		return nil
-	}
-	return err
 }
 
 // Close closes all the resources.
@@ -253,7 +254,7 @@ func (peer *Peer) Close() error {
 func (peer *Peer) ID() storj.NodeID { return peer.Identity.ID }
 
 // Local returns the peer local node info.
-func (peer *Peer) Local() pb.Node { return peer.Kademlia.RoutingTable.Local() }
+func (peer *Peer) Local() overlay.NodeDossier { return peer.Kademlia.RoutingTable.Local() }
 
 // Addr returns the public address.
 func (peer *Peer) Addr() string { return peer.Server.Addr().String() }

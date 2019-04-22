@@ -16,23 +16,36 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2/collect"
+	"gopkg.in/spacemonkeygo/monkit.v2/present"
+
+	"storj.io/storj/internal/version"
 )
 
-// ExecuteWithConfig runs a Cobra command with the provided default config
-func ExecuteWithConfig(cmd *cobra.Command, defaultConfig string) {
-	flag.String("config", os.ExpandEnv(defaultConfig), "config file")
-	Exec(cmd)
-}
+var (
+	mon = monkit.Package()
+
+	contextMtx sync.Mutex
+	contexts   = map[*cobra.Command]context.Context{}
+)
 
 // Exec runs a Cobra command. If a "config" flag is defined it will be parsed
 // and loaded using viper.
 func Exec(cmd *cobra.Command) {
+	cmd.AddCommand(&cobra.Command{
+		Use:         "version",
+		Short:       "output the version's build information, if any",
+		RunE:        cmdVersion,
+		Annotations: map[string]string{"type": "setup"}})
+
 	exe, err := os.Executable()
 	if err == nil {
 		cmd.Use = exe
@@ -42,13 +55,6 @@ func Exec(cmd *cobra.Command) {
 	cleanup(cmd)
 	_ = cmd.Execute()
 }
-
-var (
-	mon = monkit.Package()
-
-	contextMtx sync.Mutex
-	contexts   = map[*cobra.Command]context.Context{}
-)
 
 // SaveConfig will save only the user-specific flags with default values to
 // outfile with specific values specified in 'overrides' overridden.
@@ -151,6 +157,9 @@ func cleanup(cmd *cobra.Command) {
 	if internalRun == nil {
 		return
 	}
+
+	traceOut := cmd.Flags().String("debug.trace-out", "", "If set, a path to write a process trace SVG to")
+
 	cmd.RunE = func(cmd *cobra.Command, args []string) (err error) {
 		ctx := context.Background()
 		defer mon.TaskNamed("root")(&ctx)(&err)
@@ -229,16 +238,35 @@ func cleanup(cmd *cobra.Command) {
 			logger.Error("failed to start debug endpoints", zap.Error(err))
 		}
 
-		contextMtx.Lock()
-		contexts[cmd] = ctx
-		contextMtx.Unlock()
-		defer func() {
+		var workErr error
+		work := func(ctx context.Context) {
 			contextMtx.Lock()
-			delete(contexts, cmd)
+			contexts[cmd] = ctx
 			contextMtx.Unlock()
-		}()
+			defer func() {
+				contextMtx.Lock()
+				delete(contexts, cmd)
+				contextMtx.Unlock()
+			}()
 
-		err = internalRun(cmd, args)
+			workErr = internalRun(cmd, args)
+		}
+
+		if *traceOut != "" {
+			fh, err := os.Create(*traceOut)
+			if err != nil {
+				return err
+			}
+			err = present.SpansToSVG(fh, collect.CollectSpans(ctx, work))
+			err = errs.Combine(err, fh.Close())
+			if err != nil {
+				logger.Error("failed to write svg", zap.Error(err))
+			}
+		} else {
+			work(ctx)
+		}
+
+		err = workErr
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "Fatal error: %v\n", err)
 			logger.Sugar().Debugf("Fatal error: %+v", err)
@@ -247,4 +275,23 @@ func cleanup(cmd *cobra.Command) {
 		}
 		return err
 	}
+}
+
+func cmdVersion(cmd *cobra.Command, args []string) (err error) {
+	if version.Build.Release {
+		fmt.Println("Release build")
+	} else {
+		fmt.Println("Development build")
+	}
+
+	if version.Build.Version != (version.SemVer{}) {
+		fmt.Println("Version:", version.Build.Version.String())
+	}
+	if !version.Build.Timestamp.IsZero() {
+		fmt.Println("Build timestamp:", version.Build.Timestamp.Format(time.RFC822))
+	}
+	if version.Build.CommitHash != "" {
+		fmt.Println("Git commit:", version.Build.CommitHash)
+	}
+	return err
 }
