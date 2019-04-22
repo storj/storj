@@ -18,7 +18,7 @@ type RollupStats map[time.Time]map[storj.NodeID]*Rollup
 // StoragenodeStorageTally mirrors dbx.StoragenodeStorageTally allowing us to use that struct without leaking dbx
 type StoragenodeStorageTally struct {
 	ID              int64
-	NodeId          storj.NodeID
+	NodeID          storj.NodeID
 	IntervalEndTime time.Time
 	DataTotal       float64
 	CreatedAt       time.Time
@@ -49,22 +49,22 @@ type Rollup struct {
 type DB interface {
 	// LastTimestamp records the latest last tallied time.
 	LastTimestamp(ctx context.Context, timestampType string) (time.Time, error)
-	// SaveStoragenodeStorageTallies records the storagenode at rest data and updates LastTimestamp
-	SaveStoragenodeStorageTallies(ctx context.Context, latestTally time.Time, created time.Time, nodeData map[storj.NodeID]float64) error
-	// GetStoragenodeStorage retrieves all the storagenode at rest data tallies
-	GetStoragenodeStorage(ctx context.Context) ([]*StoragenodeStorageTally, error)
-	// GetStoragenodeStorageSince retrieves all the storagenode at rest data tallies since latestRollup
-	GetStoragenodeStorageSince(ctx context.Context, latestRollup time.Time) ([]*StoragenodeStorageTally, error)
-	// GetStoragenodeBandwidthSince retrieves all storagenode_bandwidth_rollup entires since latestRollup
-	GetStoragenodeBandwidthSince(ctx context.Context, latestRollup time.Time) ([]*StoragenodeBandwidthRollup, error)
+	// SaveSNStorageTallies records the storagenode at rest data and updates LastTimestamp
+	SaveSNStorageTallies(ctx context.Context, latestTally time.Time, created time.Time, nodeData map[storj.NodeID]float64) error
+	// GetSNStorageTallies retrieves all the storagenode at rest data tallies
+	GetSNStorageTallies(ctx context.Context) ([]*StoragenodeStorageTally, error)
+	// GetSNStorageTalliesSince retrieves all the storagenode at rest data tallies since latestRollup
+	GetSNStorageTalliesSince(ctx context.Context, latestRollup time.Time) ([]*StoragenodeStorageTally, error)
+	// GetSNBandwidthSince retrieves all storagenode_bandwidth_rollup entires since latestRollup
+	GetSNBandwidthSince(ctx context.Context, latestRollup time.Time) ([]*StoragenodeBandwidthRollup, error)
 	// SaveRollup records at rest tallies and bw rollups to the accounting_rollups table
 	SaveRollup(ctx context.Context, latestTally time.Time, stats RollupStats) error
-	// SaveBucketTallies saves the latest bucket info
-	SaveBucketTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*BucketTally) ([]BucketTally, error)
+	// SaveBucketStorageTallies saves the latest bucket info
+	SaveBucketStorageTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*BucketTally) ([]BucketTally, error)
 	// QueryPaymentInfo queries Overlay, Accounting Rollup on nodeID
 	QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*CSVRow, error)
-	// DeleteStoragenodeTalliesBefore deletes all storagenode storage tallies prior to some time
-	DeleteStoragenodeTalliesBefore(ctx context.Context, latestRollup time.Time) error
+	// DeleteSNStorageTalliesBefore deletes all storagenode storage tallies prior to some time
+	DeleteSNStorageTalliesBefore(ctx context.Context, latestRollup time.Time) error
 	// CreateBucketStorageTally creates a record for BucketStorageTally in the accounting DB table
 	CreateBucketStorageTally(ctx context.Context, tally BucketStorageTally) error
 	// ProjectAllocatedBandwidthTotal returns the sum of GET bandwidth usage allocated for a projectID in the past time frame

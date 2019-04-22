@@ -57,32 +57,32 @@ func (m *lockedAccounting) CreateBucketStorageTally(ctx context.Context, tally a
 	return m.db.CreateBucketStorageTally(ctx, tally)
 }
 
-// DeleteStoragenodeTalliesBefore deletes all storagenode storage tallies prior to some time
-func (m *lockedAccounting) DeleteStoragenodeTalliesBefore(ctx context.Context, latestRollup time.Time) error {
+// DeleteSNStorageTalliesBefore deletes all storagenode storage tallies prior to some time
+func (m *lockedAccounting) DeleteSNStorageTalliesBefore(ctx context.Context, latestRollup time.Time) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.DeleteStoragenodeTalliesBefore(ctx, latestRollup)
+	return m.db.DeleteSNStorageTalliesBefore(ctx, latestRollup)
 }
 
-// GetStoragenodeBandwidthSince retrieves all storagenode_bandwidth_rollup entires since latestRollup
-func (m *lockedAccounting) GetStoragenodeBandwidthSince(ctx context.Context, latestRollup time.Time) ([]*accounting.StoragenodeBandwidthRollup, error) {
+// GetSNBandwidthSince retrieves all storagenode_bandwidth_rollup entires since latestRollup
+func (m *lockedAccounting) GetSNBandwidthSince(ctx context.Context, latestRollup time.Time) ([]*accounting.StoragenodeBandwidthRollup, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetStoragenodeBandwidthSince(ctx, latestRollup)
+	return m.db.GetSNBandwidthSince(ctx, latestRollup)
 }
 
-// GetStoragenodeStorage retrieves all the storagenode at rest data tallies
-func (m *lockedAccounting) GetStoragenodeStorage(ctx context.Context) ([]*accounting.StoragenodeStorageTally, error) {
+// GetSNStorageTallies retrieves all the storagenode at rest data tallies
+func (m *lockedAccounting) GetSNStorageTallies(ctx context.Context) ([]*accounting.StoragenodeStorageTally, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetStoragenodeStorage(ctx)
+	return m.db.GetSNStorageTallies(ctx)
 }
 
-// GetStoragenodeStorageSince retrieves all the storagenode at rest data tallies since latestRollup
-func (m *lockedAccounting) GetStoragenodeStorageSince(ctx context.Context, latestRollup time.Time) ([]*accounting.StoragenodeStorageTally, error) {
+// GetSNStorageTalliesSince retrieves all the storagenode at rest data tallies since latestRollup
+func (m *lockedAccounting) GetSNStorageTalliesSince(ctx context.Context, latestRollup time.Time) ([]*accounting.StoragenodeStorageTally, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetStoragenodeStorageSince(ctx, latestRollup)
+	return m.db.GetSNStorageTalliesSince(ctx, latestRollup)
 }
 
 // LastTimestamp records the latest last tallied time.
@@ -113,11 +113,11 @@ func (m *lockedAccounting) QueryPaymentInfo(ctx context.Context, start time.Time
 	return m.db.QueryPaymentInfo(ctx, start, end)
 }
 
-// SaveBucketTallies saves the latest bucket info
-func (m *lockedAccounting) SaveBucketTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*accounting.BucketTally) ([]accounting.BucketTally, error) {
+// SaveBucketStorageTallies saves the latest bucket info
+func (m *lockedAccounting) SaveBucketStorageTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*accounting.BucketTally) ([]accounting.BucketTally, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.SaveBucketTallies(ctx, intervalStart, bucketTallies)
+	return m.db.SaveBucketStorageTallies(ctx, intervalStart, bucketTallies)
 }
 
 // SaveRollup records at rest tallies and bw rollups to the accounting_rollups table
@@ -127,11 +127,11 @@ func (m *lockedAccounting) SaveRollup(ctx context.Context, latestTally time.Time
 	return m.db.SaveRollup(ctx, latestTally, stats)
 }
 
-// SaveStoragenodeStorageTallies records the storagenode at rest data and updates LastTimestamp
-func (m *lockedAccounting) SaveStoragenodeStorageTallies(ctx context.Context, latestTally time.Time, created time.Time, nodeData map[storj.NodeID]float64) error {
+// SaveSNStorageTallies records the storagenode at rest data and updates LastTimestamp
+func (m *lockedAccounting) SaveSNStorageTallies(ctx context.Context, latestTally time.Time, created time.Time, nodeData map[storj.NodeID]float64) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.SaveStoragenodeStorageTallies(ctx, latestTally, created, nodeData)
+	return m.db.SaveSNStorageTallies(ctx, latestTally, created, nodeData)
 }
 
 // BandwidthAgreement returns database for storing bandwidth agreements

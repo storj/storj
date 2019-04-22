@@ -82,7 +82,7 @@ func (r *Service) Rollup(ctx context.Context) error {
 		return Error.Wrap(err)
 	}
 	// Delete already rolled up tallies
-	err = r.db.DeleteStoragenodeTalliesBefore(ctx, latestTally)
+	err = r.db.DeleteSNStorageTalliesBefore(ctx, latestTally)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -91,7 +91,7 @@ func (r *Service) Rollup(ctx context.Context) error {
 
 // RollupStorage rolls up storage tally, modifies rollupStats map
 func (r *Service) RollupStorage(ctx context.Context, lastRollup time.Time, rollupStats accounting.RollupStats) (latestTally time.Time, err error) {
-	tallies, err := r.db.GetStoragenodeStorageSince(ctx, lastRollup)
+	tallies, err := r.db.GetSNStorageTalliesSince(ctx, lastRollup)
 	if err != nil {
 		return time.Now(), Error.Wrap(err)
 	}
@@ -101,7 +101,7 @@ func (r *Service) RollupStorage(ctx context.Context, lastRollup time.Time, rollu
 	}
 	//loop through tallies and build Rollup
 	for _, tallyRow := range tallies {
-		node := tallyRow.NodeId
+		node := tallyRow.NodeID
 		if tallyRow.CreatedAt.After(latestTally) {
 			latestTally = tallyRow.CreatedAt
 		}
@@ -131,7 +131,7 @@ func (r *Service) RollupStorage(ctx context.Context, lastRollup time.Time, rollu
 // RollupBW aggregates the bandwidth rollups, modifies rollupStats map
 func (r *Service) RollupBW(ctx context.Context, lastRollup time.Time, rollupStats accounting.RollupStats) error {
 	var latestTally time.Time
-	bws, err := r.db.GetStoragenodeBandwidthSince(ctx, lastRollup.UTC())
+	bws, err := r.db.GetSNBandwidthSince(ctx, lastRollup.UTC())
 	if err != nil {
 		return Error.Wrap(err)
 	}
