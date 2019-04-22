@@ -17,10 +17,10 @@ import (
 )
 
 func TestVerifierHappyPath(t *testing.T) {
+	t.Skip("flaky")
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		t.Skip("flaky")
 		// TODO (back story): the way NextStripe currently works, it will get a random segment
 		// from pointerdb. If it picks an inline segment, it will return nil. If this happens
 		// 3 times in a row, the test will fail. Increasing the amount of iterations will
