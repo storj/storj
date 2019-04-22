@@ -25,6 +25,8 @@ service KadInspector {
   rpc FindNear(FindNearRequest) returns (FindNearResponse);
   // DumpNodes returns all the nodes in the node database
   rpc DumpNodes(DumpNodesRequest) returns (DumpNodesResponse);
+  // GetBucketList returns all the buckets with all their nodes
+  rpc GetBucketList(GetBucketListRequest) returns (GetBucketListResponse);
 }
 
 service OverlayInspector {
@@ -106,6 +108,18 @@ message CountNodesResponse {
 }
 
 message CountNodesRequest {
+}
+
+message GetBucketListRequest {
+}
+
+message GetBucketListResponse {
+	message Bucket {
+	  bytes bucket_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+	  repeated node.Node routing_nodes = 2;
+	  repeated node.Node cached_nodes = 3;
+	}
+	repeated Bucket buckets = 1;
 }
 
 // GetBuckets

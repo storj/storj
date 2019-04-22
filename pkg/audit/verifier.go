@@ -183,7 +183,6 @@ func (d *defaultDownloader) getShare(ctx context.Context, limit *pb.AddressedOrd
 	conn, err := d.transport.DialNode(timedCtx, &pb.Node{
 		Id:      storageNodeID,
 		Address: limit.GetStorageNodeAddress(),
-		Type:    pb.NodeType_STORAGE,
 	})
 	if err != nil {
 		return Share{}, err
