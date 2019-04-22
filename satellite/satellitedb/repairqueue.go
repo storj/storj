@@ -7,12 +7,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/lib/pq"
 	sqlite3 "github.com/mattn/go-sqlite3"
 
+	"storj.io/storj/internal/dbutil/pgutil"
+	"storj.io/storj/internal/dbutil/sqliteutil"
 	"storj.io/storj/pkg/pb"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/storage"
@@ -24,10 +25,13 @@ type repairQueue struct {
 
 func (r *repairQueue) Insert(ctx context.Context, seg *pb.InjuredSegment) error {
 	_, err := r.db.ExecContext(ctx, r.db.Rebind(`INSERT INTO injuredsegments ( path, data ) VALUES ( ?, ? )`), seg.Path, seg)
-	if err != nil && (strings.Contains(err.Error(), "UNIQUE constraint failed") || strings.Contains(err.Error(), "violates unique constraint")) {
-		return nil // quietly fail on reinsert
+	if err != nil {
+		if pgutil.IsConstraintError(err) || sqliteutil.IsConstraintError(err) {
+			return nil // quitely fail on reinsert
+		}
+		return err
 	}
-	return err
+	return nil
 }
 
 func (r *repairQueue) postgresSelect(ctx context.Context) (seg *pb.InjuredSegment, err error) {

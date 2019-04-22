@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto"
 	"io"
-	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -17,6 +16,8 @@ import (
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/dbutil/pgutil"
+	"storj.io/storj/internal/dbutil/sqliteutil"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/identity"
@@ -116,8 +117,7 @@ func (s *Server) BandwidthAgreements(ctx context.Context, rba *pb.Order) (reply 
 
 	//save and return rersults
 	if err = s.bwdb.SaveOrder(ctx, rba); err != nil {
-		if strings.Contains(err.Error(), "UNIQUE constraint failed") ||
-			strings.Contains(err.Error(), "violates unique constraint") {
+		if pgutil.IsConstraintError(err) || sqliteutil.IsConstraintError(err) {
 			return reply, pb.ErrPayer.Wrap(auth.ErrSerial.Wrap(err))
 		}
 		reply.Status = pb.AgreementsSummary_FAIL
@@ -187,7 +187,7 @@ func (s *Server) Settlement(client pb.Bandwidth_SettlementServer) (err error) {
 
 		if err = s.bwdb.SaveOrder(ctx, allocation); err != nil {
 			s.log.Debug("saving order failed", zap.String("serial", payerAllocation.SerialNumber), zap.Error(err))
-			duplicateRequest := strings.Contains(err.Error(), "UNIQUE constraint failed") || strings.Contains(err.Error(), "violates unique constraint")
+			duplicateRequest := pgutil.IsConstraintError(err) || sqliteutil.IsConstraintError(err)
 			if duplicateRequest {
 				err := client.Send(&pb.BandwidthSettlementResponse{
 					SerialNumber: payerAllocation.SerialNumber,
