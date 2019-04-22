@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
@@ -120,7 +121,10 @@ func TestBootstrapBackoffReconnect(t *testing.T) {
 	done := make(chan bool)
 
 	droppedConnInterval := 500 * time.Millisecond
-	go proxy.start(done, droppedConnInterval)
+	go func() {
+		err := proxy.start(done, droppedConnInterval)
+		require.NoError(t, err)
+	}()
 
 	planet.Start(ctx)
 }
@@ -142,27 +146,48 @@ func newBadProxy(addr string) (*badProxy, error) {
 
 func (proxy *badProxy) start(done chan bool, droppedConnInterval time.Duration) (err error) {
 	start := time.Now()
-	defer func() {
+	var errList errs.Group
+
+	defer func() error {
 		done <- true
-		proxy.listener.Close()
+		err := proxy.listener.Close()
+		errList.Add(err)
+		return errList.Err()
 	}()
+
 	for {
 		c, err := proxy.listener.Accept()
 		if err != nil {
 			return err
 		}
-		go func() {
+		go func() error {
 			if time.Since(start) < droppedConnInterval {
-				c.Close()
-				return
+				err := c.Close()
+				if err != nil {
+					errList.Add(err)
+				}
+				return errList.Err()
 			}
 			c2, err := net.Dial("tcp", proxy.target)
 			if err != nil {
-				c.Close()
-				return
+				errList.Add(err)
+				err = c.Close()
+				if err != nil {
+					errList.Add(err)
+				}
+				return errList.Err()
 			}
-			go io.Copy(c, c2)
-			io.Copy(c2, c)
+			go func() {
+				_, err := io.Copy(c, c2)
+				if err != nil {
+					errList.Add(err)
+				}
+			}()
+			_, err = io.Copy(c2, c)
+			if err != nil {
+				errList.Add(err)
+			}
+			return nil
 		}()
 	}
 }
