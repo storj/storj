@@ -84,6 +84,33 @@ export async function changePasswordRequest(password: string, newPassword: strin
     return result;
 }
 
+export async function forgotPasswordRequest(email: string): Promise<RequestResponse<null>> {
+    let result: RequestResponse<null> = {
+        errorMessage: '',
+        isSuccess: false,
+        data: null
+    };
+
+    let response: any = await apolloManager.query(
+        {
+            query: gql(`
+                    query {
+                        forgotPassword(email: "${email}")
+                    }`),
+            fetchPolicy: 'no-cache',
+            errorPolicy: 'all',
+        },
+    );
+
+    if (response.errors) {
+        result.errorMessage = response.errors[0].message;
+    } else {
+        result.isSuccess = true;
+    }
+
+    return result;
+}
+
 // Performs Create user graqhQL request.
 export async function createUserRequest(user: User, password: string, secret: string): Promise<RequestResponse<null>> {
     let result: RequestResponse<null> = {

@@ -85,7 +85,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 
 // process picks an item from repair queue and spawns a repair worker
 func (service *Service) process(ctx context.Context) error {
-	seg, err := service.queue.Dequeue(ctx)
+	seg, err := service.queue.Select(ctx)
 	if err != nil {
 		if storage.ErrEmptyQueue.Has(err) {
 			return nil
@@ -97,6 +97,10 @@ func (service *Service) process(ctx context.Context) error {
 		err := service.repairer.Repair(ctx, seg.GetPath(), seg.GetLostPieces())
 		if err != nil {
 			zap.L().Error("Repair failed", zap.Error(err))
+		}
+		err = service.queue.Delete(ctx, seg)
+		if err != nil {
+			zap.L().Error("Repair delete failed", zap.Error(err))
 		}
 	})
 

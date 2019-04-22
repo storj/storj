@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/pb"
@@ -56,7 +57,7 @@ func TestMakeBucketWithLocation(t *testing.T) {
 		bucket, err := metainfo.GetBucket(ctx, TestBucket)
 		assert.NoError(t, err)
 		assert.Equal(t, TestBucket, bucket.Name)
-		assert.True(t, time.Since(bucket.Created) < 1*time.Second)
+		assert.True(t, time.Since(bucket.Created) < 1*time.Minute)
 		assert.Equal(t, storj.AESGCM, bucket.PathCipher)
 
 		// Check the error when trying to create an existing bucket
@@ -197,7 +198,7 @@ func TestPutObject(t *testing.T) {
 			assert.Equal(t, TestFile, info.Name)
 			assert.Equal(t, TestBucket, info.Bucket)
 			assert.False(t, info.IsDir)
-			assert.True(t, time.Since(info.ModTime) < 1*time.Second)
+			assert.True(t, time.Since(info.ModTime) < 1*time.Minute)
 			assert.Equal(t, data.Size(), info.Size)
 			// assert.Equal(t, data.SHA256HexString(), info.ETag) TODO: when we start calculating checksums
 			assert.Equal(t, serMetaInfo.ContentType, info.ContentType)
@@ -375,7 +376,7 @@ func TestCopyObject(t *testing.T) {
 			assert.Equal(t, DestFile, info.Name)
 			assert.Equal(t, DestBucket, info.Bucket)
 			assert.False(t, info.IsDir)
-			assert.True(t, info.ModTime.Sub(obj.Modified) < 1*time.Second)
+			assert.True(t, info.ModTime.Sub(obj.Modified) < 1*time.Minute)
 			assert.Equal(t, obj.Size, info.Size)
 			assert.Equal(t, hex.EncodeToString(obj.Checksum), info.ETag)
 			assert.Equal(t, createInfo.ContentType, info.ContentType)
@@ -647,7 +648,7 @@ func runTest(t *testing.T, test func(context.Context, minio.ObjectLayer, storj.M
 
 	planet.Start(ctx)
 
-	layer, metainfo, streams, err := initEnv(planet)
+	layer, metainfo, streams, err := initEnv(ctx, planet)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -655,10 +656,10 @@ func runTest(t *testing.T, test func(context.Context, minio.ObjectLayer, storj.M
 	test(ctx, layer, metainfo, streams)
 }
 
-func initEnv(planet *testplanet.Planet) (minio.ObjectLayer, storj.Metainfo, streams.Store, error) {
+func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer, storj.Metainfo, streams.Store, error) {
 	// TODO(kaloyan): We should have a better way for configuring the Satellite's API Key
 	// add project to satisfy constraint
-	project, err := planet.Satellites[0].DB.Console().Projects().Insert(context.Background(), &console.Project{
+	project, err := planet.Satellites[0].DB.Console().Projects().Insert(ctx, &console.Project{
 		Name: "testProject",
 	})
 
@@ -673,12 +674,12 @@ func initEnv(planet *testplanet.Planet) (minio.ObjectLayer, storj.Metainfo, stre
 	}
 
 	// add api key to db
-	_, err = planet.Satellites[0].DB.Console().APIKeys().Create(context.Background(), apiKey, apiKeyInfo)
+	_, err = planet.Satellites[0].DB.Console().APIKeys().Create(ctx, apiKey, apiKeyInfo)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	metainfo, err := planet.Uplinks[0].DialMetainfo(context.Background(), planet.Satellites[0], apiKey.String())
+	metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey.String())
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -696,25 +697,51 @@ func initEnv(planet *testplanet.Planet) (minio.ObjectLayer, storj.Metainfo, stre
 
 	segments := segments.NewSegmentStore(metainfo, ec, rs, 4*memory.KiB.Int(), 8*memory.MiB.Int64())
 
-	key := new(storj.Key)
-	copy(key[:], TestEncKey)
+	encKey := new(storj.Key)
+	copy(encKey[:], TestEncKey)
 
-	streams, err := streams.NewStreamStore(segments, 64*memory.MiB.Int64(), key, 1*memory.KiB.Int(), storj.AESGCM)
+	streams, err := streams.NewStreamStore(segments, 64*memory.MiB.Int64(), encKey, 1*memory.KiB.Int(), storj.AESGCM)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
 	buckets := buckets.NewStore(streams)
 
-	kvmetainfo := kvmetainfo.New(metainfo, buckets, streams, segments, key)
+	kvmetainfo := kvmetainfo.New(metainfo, buckets, streams, segments, encKey, 1*memory.KiB.Int32(), rs, 64*memory.MiB.Int64())
+
+	cfg := libuplink.Config{}
+	cfg.Volatile.TLS = struct {
+		SkipPeerCAWhitelist bool
+		PeerCAWhitelistPath string
+	}{
+		SkipPeerCAWhitelist: true,
+	}
+	cfg.Volatile.UseIdentity = planet.Uplinks[0].Identity
+
+	uplink, err := libuplink.NewUplink(ctx, &cfg)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	parsedAPIKey, err := libuplink.ParseAPIKey(apiKey.String())
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	var projectOptions libuplink.ProjectOptions
+	projectOptions.Volatile.EncryptionKey = encKey
+	proj, err := uplink.OpenProject(ctx, planet.Satellites[0].Addr(), parsedAPIKey, &projectOptions)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 
 	gateway := NewStorjGateway(
-		kvmetainfo,
-		streams,
-		storj.AESGCM,
-		storj.EncryptionScheme{
-			Cipher:    storj.AESGCM,
-			BlockSize: 1 * memory.KiB.Int32(),
+		proj,
+		encKey,
+		storj.EncAESGCM,
+		storj.EncryptionParameters{
+			CipherSuite: storj.EncAESGCM,
+			BlockSize:   1 * memory.KiB.Int32(),
 		},
 		storj.RedundancyScheme{
 			Algorithm:      storj.ReedSolomon,
@@ -724,6 +751,7 @@ func initEnv(planet *testplanet.Planet) (minio.ObjectLayer, storj.Metainfo, stre
 			TotalShares:    int16(rs.TotalCount()),
 			ShareSize:      int32(rs.ErasureShareSize()),
 		},
+		8*memory.MiB,
 	)
 
 	layer, err := gateway.NewGatewayLayer(auth.Credentials{})
