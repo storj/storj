@@ -51,7 +51,6 @@ func NewClient(tc transport.Client, memoryLimit int) Client {
 }
 
 func (ec *ecClient) newPSClient(ctx context.Context, n *pb.Node) (*piecestore.Client, error) {
-	n.Type.DPanicOnInvalid("new ps client")
 	conn, err := ec.transport.DialNode(ctx, n)
 	if err != nil {
 		return nil, err
@@ -124,7 +123,6 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 		successfulNodes[info.i] = &pb.Node{
 			Id:      limits[info.i].GetLimit().StorageNodeId,
 			Address: limits[info.i].GetStorageNodeAddress(),
-			Type:    pb.NodeType_STORAGE,
 		}
 		successfulHashes[info.i] = info.hash
 
@@ -240,7 +238,6 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 		successfulNodes[info.i] = &pb.Node{
 			Id:      limits[info.i].GetLimit().StorageNodeId,
 			Address: limits[info.i].GetStorageNodeAddress(),
-			Type:    pb.NodeType_STORAGE,
 		}
 		successfulHashes[info.i] = info.hash
 
@@ -290,7 +287,6 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 	ps, err := ec.newPSClient(ctx, &pb.Node{
 		Id:      storageNodeID,
 		Address: limit.GetStorageNodeAddress(),
-		Type:    pb.NodeType_STORAGE,
 	})
 	if err != nil {
 		zap.S().Debugf("Failed dialing for putting piece %s to node %s: %v", pieceID, storageNodeID, err)
@@ -385,7 +381,6 @@ func (ec *ecClient) Delete(ctx context.Context, limits []*pb.AddressedOrderLimit
 			ps, err := ec.newPSClient(ctx, &pb.Node{
 				Id:      limit.StorageNodeId,
 				Address: addressedLimit.GetStorageNodeAddress(),
-				Type:    pb.NodeType_STORAGE,
 			})
 			if err != nil {
 				zap.S().Errorf("Failed dialing for deleting piece %s from node %s: %v", limit.PieceId, limit.StorageNodeId, err)
@@ -467,7 +462,6 @@ func (lr *lazyPieceRanger) Range(ctx context.Context, offset, length int64) (io.
 	ps, err := lr.newPSClientHelper(ctx, &pb.Node{
 		Id:      lr.limit.GetLimit().StorageNodeId,
 		Address: lr.limit.GetStorageNodeAddress(),
-		Type:    pb.NodeType_STORAGE,
 	})
 	if err != nil {
 		return nil, err
