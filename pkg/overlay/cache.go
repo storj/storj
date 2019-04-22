@@ -51,13 +51,13 @@ type DB interface {
 	List(ctx context.Context, cursor storj.NodeID, limit int) ([]*NodeDossier, error)
 	// Paginate will page through the database nodes
 	Paginate(ctx context.Context, offset int64, limit int) ([]*NodeDossier, bool, error)
-	// Update updates node information
-	Update(ctx context.Context, value *pb.Node) error
 
 	// CreateStats initializes the stats for node.
 	CreateStats(ctx context.Context, nodeID storj.NodeID, initial *NodeStats) (stats *NodeStats, err error)
 	// FindInvalidNodes finds a subset of storagenodes that have stats below provided reputation requirements.
 	FindInvalidNodes(ctx context.Context, nodeIDs storj.NodeIDList, maxStats *NodeStats) (invalid storj.NodeIDList, err error)
+	// Update updates node address
+	UpdateAddress(ctx context.Context, value *pb.Node) error
 	// UpdateStats all parts of single storagenode's stats.
 	UpdateStats(ctx context.Context, request *UpdateRequest) (stats *NodeStats, err error)
 	// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
@@ -288,7 +288,7 @@ func (cache *Cache) GetAll(ctx context.Context, ids storj.NodeIDList) (_ []*Node
 	return cache.db.GetAll(ctx, ids)
 }
 
-// Put adds a node id and proto definition into the overlay cache and stat db
+// Put adds a node id and proto definition into the overlay cache
 func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -300,7 +300,7 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 	if nodeID != value.Id {
 		return errors.New("invalid request")
 	}
-	return cache.db.Update(ctx, &value)
+	return cache.db.UpdateAddress(ctx, &value)
 }
 
 // Create adds a new stats entry for node.
