@@ -82,7 +82,7 @@ func (r *Service) Rollup(ctx context.Context) error {
 		return Error.Wrap(err)
 	}
 	// Delete already rolled up tallies
-	err = r.db.DeleteTalliesBefore(ctx, latestTally)
+	err = r.db.DeleteStoragenodeTalliesBefore(ctx, latestTally)
 	if err != nil {
 		return Error.Wrap(err)
 	}

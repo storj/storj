@@ -63,8 +63,8 @@ type DB interface {
 	SaveBucketTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*BucketTally) ([]BucketTally, error)
 	// QueryPaymentInfo queries Overlay, Accounting Rollup on nodeID
 	QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*CSVRow, error)
-	// DeleteTalliesBefore deletes all storagenode storage tallies prior to some time
-	DeleteTalliesBefore(ctx context.Context, latestRollup time.Time) error
+	// DeleteStoragenodeTalliesBefore deletes all storagenode storage tallies prior to some time
+	DeleteStoragenodeTalliesBefore(ctx context.Context, latestRollup time.Time) error
 	// CreateBucketStorageTally creates a record for BucketStorageTally in the accounting DB table
 	CreateBucketStorageTally(ctx context.Context, tally BucketStorageTally) error
 	// ProjectAllocatedBandwidthTotal returns the sum of GET bandwidth usage allocated for a projectID in the past time frame

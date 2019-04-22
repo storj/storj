@@ -57,11 +57,11 @@ func (m *lockedAccounting) CreateBucketStorageTally(ctx context.Context, tally a
 	return m.db.CreateBucketStorageTally(ctx, tally)
 }
 
-// DeleteTalliesBefore deletes all storagenode storage tallies prior to some time
-func (m *lockedAccounting) DeleteTalliesBefore(ctx context.Context, latestRollup time.Time) error {
+// DeleteStoragenodeTalliesBefore deletes all storagenode storage tallies prior to some time
+func (m *lockedAccounting) DeleteStoragenodeTalliesBefore(ctx context.Context, latestRollup time.Time) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.DeleteTalliesBefore(ctx, latestRollup)
+	return m.db.DeleteStoragenodeTalliesBefore(ctx, latestRollup)
 }
 
 // GetStoragenodeBandwidthSince retrieves all storagenode_bandwidth_rollup entires since latestRollup
