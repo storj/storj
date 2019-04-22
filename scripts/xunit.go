@@ -16,6 +16,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/mfridman/tparse/parse"
 )
@@ -26,7 +27,7 @@ func main() {
 	flag.Parse()
 
 	if *xunit == "" {
-		fmt.Fprintf(os.Stderr, "xunit file not specified")
+		fmt.Fprintf(os.Stderr, "xunit file not specified\n")
 		os.Exit(1)
 	}
 
@@ -249,7 +250,7 @@ func ProcessWithEcho(r io.Reader) (parse.Packages, error) {
 			pkg.Coverage = cover
 		}
 
-		if line := strings.TrimSpace(event.Output); line != "" {
+		if line := strings.TrimRightFunc(event.Output, unicode.IsSpace); line != "" {
 			fmt.Fprintln(os.Stdout, line)
 		}
 
