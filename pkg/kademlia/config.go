@@ -44,7 +44,6 @@ func (c Config) BootstrapNodes() []pb.Node {
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,
 				Address:   c.BootstrapAddr,
 			},
-			Type: pb.NodeType_BOOTSTRAP,
 		})
 	}
 	return nodes
