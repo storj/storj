@@ -1,7 +1,7 @@
 # Storj V3 Network
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/storj/storj)](https://goreportcard.com/report/github.com/storj/storj)
-[![Go Doc](https://img.shields.io/badge/godoc-reference-blue.svg?style=flat-square)](http://godoc.org/github.com/storj/storj)
+[![Go Report Card](https://goreportcard.com/badge/storj.io/storj)](https://goreportcard.com/report/storj.io/storj)
+[![Go Doc](https://img.shields.io/badge/godoc-reference-blue.svg?style=flat-square)](https://godoc.org/storj.io/storj)
 [![Coverage Status](https://coveralls.io/repos/github/storj/storj/badge.svg?branch=master)](https://coveralls.io/github/storj/storj?branch=master)
 ![Alpha](https://img.shields.io/badge/version-alpha-green.svg)
 [![Build Status](https://travis-ci.com/storj/storj.svg?branch=master)](https://travis-ci.com/storj/storj)
@@ -119,4 +119,4 @@ code under Apache v2, or other licenses in the future.
 
 If you have any questions or suggestions please reach out to us on
 [Rocketchat](https://community.storj.io/) or
-[Twitter](https://twitter.com/storjproject).
+email us at support@tardigrade.io.

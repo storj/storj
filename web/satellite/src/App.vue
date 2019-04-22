@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div id="app" v-on:click="onClick">
+    <div id="app">
         <router-view/>
         <!-- Area for displaying notification -->
         <NotificationArea/>
@@ -15,52 +15,9 @@ import NotificationArea from '@/components/notifications/NotificationArea.vue';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({
-    data: function() {
-        return {
-            ids: [
-                'newProjectPopup',
-                'newProjectButton',
-                'accountDropdown',
-                'accountDropdownButton',
-                'projectDropdown',
-                'projectDropdownButton',
-                'deleteProjectPopup',
-                'deleteProjectPopupButton',
-                'deleteAccountPopupButton',
-                'deleteAccountPopup',
-                'addTeamMemberPopupButton',
-                'addTeamMemberPopup',
-                'addTeamMemberPopupButtonSVG',
-                'addApiKeyPopup',
-                'addApiKeyPopupButton',
-                'addApiKeysPopupEmptyButton',
-                'addTeamMemberPopupButtonSVG',
-                'sortTeamMemberByDropdown',
-                'sortTeamMemberByDropdownButton',
-                'createAccountButton',
-                'successfulRegistrationPopup',
-                'successfulProjectCreationPopup'
-            ]
-        };
-    },
     components: {
         NotificationArea
     },
-    methods: {
-        onClick: function(e) {
-            let target: any = e.target;
-
-            while (target) {
-                if (this.$data.ids.includes(target.id)) {
-                    return;
-                }
-
-                target = target.parentNode;
-            }
-
-            this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
-        }
-    }
 })
 
 export default class App extends Vue {

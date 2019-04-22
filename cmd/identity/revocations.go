@@ -33,7 +33,7 @@ var (
 func init() {
 	rootCmd.AddCommand(revocationsCmd)
 
-	cfgstruct.Bind(revocationsCmd.Flags(), &revCfg, isDev, cfgstruct.ConfDir(defaultConfigDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(revocationsCmd.Flags(), &revCfg, defaults, cfgstruct.ConfDir(defaultConfigDir), cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func cmdRevocations(cmd *cobra.Command, args []string) error {

@@ -745,14 +745,14 @@ func (m *lockedOverlayCache) SelectStorageNodes(ctx context.Context, count int, 
 	return m.db.SelectStorageNodes(ctx, count, criteria)
 }
 
-// Update updates node information
-func (m *lockedOverlayCache) Update(ctx context.Context, value *pb.Node) error {
+// Update updates node address
+func (m *lockedOverlayCache) UpdateAddress(ctx context.Context, value *pb.Node) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Update(ctx, value)
+	return m.db.UpdateAddress(ctx, value)
 }
 
-// UpdateOperator updates the email and wallet for a given node ID for satellite payments.
+// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
 func (m *lockedOverlayCache) UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *overlay.NodeDossier, err error) {
 	m.Lock()
 	defer m.Unlock()
@@ -786,23 +786,30 @@ type lockedRepairQueue struct {
 	db queue.RepairQueue
 }
 
-// Dequeue removes an injured segment.
-func (m *lockedRepairQueue) Dequeue(ctx context.Context) (pb.InjuredSegment, error) {
+// Delete removes an injured segment.
+func (m *lockedRepairQueue) Delete(ctx context.Context, s *pb.InjuredSegment) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Dequeue(ctx)
+	return m.db.Delete(ctx, s)
 }
 
-// Enqueue adds an injured segment.
-func (m *lockedRepairQueue) Enqueue(ctx context.Context, qi *pb.InjuredSegment) error {
+// Insert adds an injured segment.
+func (m *lockedRepairQueue) Insert(ctx context.Context, s *pb.InjuredSegment) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Enqueue(ctx, qi)
+	return m.db.Insert(ctx, s)
 }
 
-// Peekqueue lists limit amount of injured segments.
-func (m *lockedRepairQueue) Peekqueue(ctx context.Context, limit int) ([]pb.InjuredSegment, error) {
+// Select gets an injured segment.
+func (m *lockedRepairQueue) Select(ctx context.Context) (*pb.InjuredSegment, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Peekqueue(ctx, limit)
+	return m.db.Select(ctx)
+}
+
+// SelectN lists limit amount of injured segments.
+func (m *lockedRepairQueue) SelectN(ctx context.Context, limit int) ([]pb.InjuredSegment, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.SelectN(ctx, limit)
 }

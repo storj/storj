@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"net/http"
 	"net/mail"
 	"net/smtp"
 	"os"
@@ -17,8 +16,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/post"
 	"storj.io/storj/internal/post/oauth2"
 	"storj.io/storj/internal/version"
@@ -54,7 +53,6 @@ import (
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
-	"storj.io/storj/storage/storelogger"
 )
 
 // DB is the master database for the satellite
@@ -249,16 +247,18 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		self := pb.Node{
-			Id:   peer.ID(),
-			Type: pb.NodeType_SATELLITE,
-			Address: &pb.NodeAddress{
-				Address: config.ExternalAddress,
+		self := &overlay.NodeDossier{
+			Node: pb.Node{
+				Id: peer.ID(),
+				Address: &pb.NodeAddress{
+					Address: config.ExternalAddress,
+				},
 			},
-			Metadata: &pb.NodeMetadata{
+			Type: pb.NodeType_SATELLITE,
+			Operator: pb.NodeOperator{
 				Wallet: config.Operator.Wallet,
 			},
-			Version: pbVersion,
+			Version: *pbVersion,
 		}
 
 		{ // setup routing table
@@ -285,7 +285,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Transport = peer.Transport.WithObservers(peer.Kademlia.RoutingTable)
 		}
 
-		peer.Kademlia.Service, err = kademlia.NewService(peer.Log.Named("kademlia"), self, peer.Transport, peer.Kademlia.RoutingTable, config)
+		peer.Kademlia.Service, err = kademlia.NewService(peer.Log.Named("kademlia"), peer.Transport, peer.Kademlia.RoutingTable, config)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -330,7 +330,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Metainfo.Database = storelogger.New(peer.Log.Named("pdb"), db)
+		peer.Metainfo.Database = db // for logging: storelogger.New(peer.Log.Named("pdb"), db)
 		peer.Metainfo.Service = pointerdb.NewService(peer.Log.Named("pointerdb"), peer.Metainfo.Database)
 
 		peer.Metainfo.Endpoint2 = metainfo.NewEndpoint(
@@ -513,43 +513,36 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 	return peer, nil
 }
 
-func ignoreCancel(err error) error {
-	if err == context.Canceled || err == grpc.ErrServerStopped || err == http.ErrServerClosed {
-		return nil
-	}
-	return err
-}
-
 // Run runs storage node until it's either closed or it errors.
 func (peer *Peer) Run(ctx context.Context) error {
 	group, ctx := errgroup.WithContext(ctx)
 
 	group.Go(func() error {
-		return ignoreCancel(peer.Version.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Version.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Kademlia.Service.Bootstrap(ctx))
+		return errs2.IgnoreCanceled(peer.Kademlia.Service.Bootstrap(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Kademlia.Service.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Kademlia.Service.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Discovery.Service.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Discovery.Service.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Repair.Checker.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Repair.Checker.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Repair.Repairer.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Repair.Repairer.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Accounting.Tally.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Accounting.Tally.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Accounting.Rollup.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Accounting.Rollup.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Audit.Service.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Audit.Service.Run(ctx))
 	})
 	group.Go(func() error {
 		// TODO: move the message into Server instead
@@ -557,10 +550,10 @@ func (peer *Peer) Run(ctx context.Context) error {
 		peer.Log.Sugar().Infof("Node %s started", peer.Identity.ID)
 		peer.Log.Sugar().Infof("Public server started on %s", peer.Addr())
 		peer.Log.Sugar().Infof("Private server started on %s", peer.PrivateAddr())
-		return ignoreCancel(peer.Server.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Server.Run(ctx))
 	})
 	group.Go(func() error {
-		return ignoreCancel(peer.Console.Endpoint.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
 	})
 
 	return group.Wait()
@@ -629,7 +622,7 @@ func (peer *Peer) Close() error {
 func (peer *Peer) ID() storj.NodeID { return peer.Identity.ID }
 
 // Local returns the peer local node info.
-func (peer *Peer) Local() pb.Node { return peer.Kademlia.RoutingTable.Local() }
+func (peer *Peer) Local() overlay.NodeDossier { return peer.Kademlia.RoutingTable.Local() }
 
 // Addr returns the public address.
 func (peer *Peer) Addr() string { return peer.Server.Addr().String() }

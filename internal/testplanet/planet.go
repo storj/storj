@@ -63,7 +63,7 @@ import (
 type Peer interface {
 	ID() storj.NodeID
 	Addr() string
-	Local() pb.Node
+	Local() overlay.NodeDossier
 
 	Run(context.Context) error
 	Close() error
@@ -224,13 +224,13 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 	// init Satellites
 	for _, satellite := range planet.Satellites {
 		if len(satellite.Kademlia.Service.GetBootstrapNodes()) == 0 {
-			satellite.Kademlia.Service.SetBootstrapNodes([]pb.Node{planet.Bootstrap.Local()})
+			satellite.Kademlia.Service.SetBootstrapNodes([]pb.Node{planet.Bootstrap.Local().Node})
 		}
 	}
 	// init storage nodes
 	for _, storageNode := range planet.StorageNodes {
 		if len(storageNode.Kademlia.Service.GetBootstrapNodes()) == 0 {
-			storageNode.Kademlia.Service.SetBootstrapNodes([]pb.Node{planet.Bootstrap.Local()})
+			storageNode.Kademlia.Service.SetBootstrapNodes([]pb.Node{planet.Bootstrap.Local().Node})
 		}
 	}
 
@@ -258,10 +258,11 @@ func (planet *Planet) Start(ctx context.Context) {
 
 	planet.Bootstrap.Kademlia.Service.WaitForBootstrap()
 
-	for _, peer := range planet.Satellites {
+	for _, peer := range planet.StorageNodes {
 		peer.Kademlia.Service.WaitForBootstrap()
 	}
-	for _, peer := range planet.StorageNodes {
+
+	for _, peer := range planet.Satellites {
 		peer.Kademlia.Service.WaitForBootstrap()
 	}
 
@@ -280,7 +281,7 @@ func (planet *Planet) Reconnect(ctx context.Context) {
 	for _, storageNode := range planet.StorageNodes {
 		storageNode := storageNode
 		group.Go(func() error {
-			_, err := storageNode.Kademlia.Service.Ping(ctx, planet.Bootstrap.Local())
+			_, err := storageNode.Kademlia.Service.Ping(ctx, planet.Bootstrap.Local().Node)
 			if err != nil {
 				log.Error("storage node did not find bootstrap", zap.Error(err))
 			}
@@ -292,7 +293,7 @@ func (planet *Planet) Reconnect(ctx context.Context) {
 		satellite := satellite
 		group.Go(func() error {
 			for _, storageNode := range planet.StorageNodes {
-				_, err := satellite.Kademlia.Service.Ping(ctx, storageNode.Local())
+				_, err := satellite.Kademlia.Service.Ping(ctx, storageNode.Local().Node)
 				if err != nil {
 					log.Error("satellite did not find storage node", zap.Error(err))
 				}
@@ -594,7 +595,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 			},
 			Storage: psserver.Config{
 				Path:                   "", // TODO: this argument won't be needed with master storagenodedb
-				AllocatedDiskSpace:     memory.TB,
+				AllocatedDiskSpace:     1500 * memory.GB,
 				AllocatedBandwidth:     memory.TB,
 				KBucketRefreshInterval: time.Hour,
 

@@ -466,5 +466,51 @@ func TestGraphqlQuery(t *testing.T) {
 			assert.NoError(t, err)
 			assert.True(t, rootUser.CreatedAt.Equal(createdAt))
 		})
+
+		t.Run("PasswordReset query", func(t *testing.T) {
+			regToken, err := service.CreateRegToken(ctx, 2)
+			if err != nil {
+				t.Fatal(err)
+			}
+			user, err := service.CreateUser(authCtx, console.CreateUser{
+				UserInfo: console.UserInfo{
+					FullName:  "Example User",
+					ShortName: "Example",
+					Email:     "user@example.com",
+				},
+				Password: "123a123",
+			}, regToken.Secret)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			t.Run("Activation", func(t *testing.T) {
+				activationToken, err := service.GenerateActivationToken(
+					ctx,
+					user.ID,
+					"user@example.com",
+				)
+				if err != nil {
+					t.Fatal(err)
+				}
+				err = service.ActivateAccount(ctx, activationToken)
+				if err != nil {
+					t.Fatal(err)
+				}
+				user.Email = "user@example.com"
+
+			})
+
+			rootObject[consoleql.PasswordRecoveryPath] = "?activationToken="
+			query := fmt.Sprintf("query {forgotPassword(email: \"%s\")}", user.Email)
+
+			result := testQuery(t, query)
+			assert.NotNil(t, result)
+			data := result.(map[string]interface{})
+
+			ok := data[consoleql.ForgotPasswordQuery].(bool)
+			assert.True(t, ok)
+		})
 	})
 }
