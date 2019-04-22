@@ -16,11 +16,6 @@ import (
 	"storj.io/storj/storage"
 )
 
-const (
-	// OnlineWindow is the maximum amount of time that can pass without seeing a node before that node is considered offline
-	OnlineWindow = 1 * time.Hour
-)
-
 // ErrEmptyNode is returned when the nodeID is empty
 var ErrEmptyNode = errs.New("empty node ID")
 
@@ -70,40 +65,33 @@ type DB interface {
 type FindStorageNodesRequest struct {
 	MinimumRequiredNodes int
 	RequestedCount       int
-
-	FreeBandwidth int64
-	FreeDisk      int64
-
-	ExcludedNodes []storj.NodeID
-
-	MinimumVersion string // semver or empty
+	FreeBandwidth        int64
+	FreeDisk             int64
+	ExcludedNodes        []storj.NodeID
+	MinimumVersion       string // semver or empty
 }
 
 // NodeCriteria are the requirements for selecting nodes
 type NodeCriteria struct {
-	FreeBandwidth int64
-	FreeDisk      int64
-
+	FreeBandwidth      int64
+	FreeDisk           int64
 	AuditCount         int64
 	AuditSuccessRatio  float64
 	UptimeCount        int64
 	UptimeSuccessRatio float64
-
-	Excluded []storj.NodeID
-
-	MinimumVersion string // semver or empty
+	Excluded           []storj.NodeID
+	MinimumVersion     string // semver or empty
+	OnlineWindow       time.Duration
 }
 
 // NewNodeCriteria are the requirement for selecting new nodes
 type NewNodeCriteria struct {
-	FreeBandwidth int64
-	FreeDisk      int64
-
+	FreeBandwidth  int64
+	FreeDisk       int64
 	AuditThreshold int64
-
-	Excluded []storj.NodeID
-
+	Excluded       []storj.NodeID
 	MinimumVersion string // semver or empty
+	OnlineWindow   time.Duration
 }
 
 // UpdateRequest is used to update a node status.
@@ -121,15 +109,6 @@ type NodeDossier struct {
 	Capacity   pb.NodeCapacity
 	Reputation NodeStats
 	Version    pb.NodeVersion
-}
-
-// Online checks if a node is online based on the collected statistics.
-//
-// A node is considered online if the last attempt for contact was successful
-// and it was within the last hour.
-func (node *NodeDossier) Online() bool {
-	return time.Now().Sub(node.Reputation.LastContactSuccess) < OnlineWindow &&
-		node.Reputation.LastContactSuccess.After(node.Reputation.LastContactFailure)
 }
 
 // NodeStats contains statistics about a node.
@@ -163,6 +142,19 @@ func NewCache(log *zap.Logger, db DB, preferences NodeSelectionConfig) *Cache {
 
 // Close closes resources
 func (cache *Cache) Close() error { return nil }
+
+// Online checks if a node is 'online' based on the collected statistics.
+func (cache *Cache) IsOnline(node *NodeDossier) bool {
+	return time.Now().Sub(node.Reputation.LastContactSuccess) < cache.preferences.OnlineWindow &&
+		node.Reputation.LastContactSuccess.After(node.Reputation.LastContactFailure)
+}
+
+// Valid checks if a node is 'valid' based on the collected statistics.
+func (cache *Cache) IsValid(node *NodeDossier) bool {
+	r, p := node.Reputation, cache.preferences
+	return r.AuditCount >= p.AuditCount && r.UptimeCount >= p.UptimeCount &&
+		r.AuditSuccessRatio >= p.AuditSuccessRatio && r.UptimeRatio >= p.UptimeRatio
+}
 
 // Inspect lists limited number of items in the cache
 func (cache *Cache) Inspect(ctx context.Context) (storage.Keys, error) {
@@ -203,7 +195,7 @@ func (cache *Cache) OfflineNodes(ctx context.Context, nodes []storj.NodeID) (off
 	}
 
 	for i, r := range results {
-		if r == nil || !r.Online() {
+		if r == nil || !cache.IsOnline(r) {
 			offline = append(offline, i)
 		}
 	}
@@ -235,17 +227,15 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 	}
 
 	reputableNodes, err := cache.db.SelectStorageNodes(ctx, reputableNodeCount, &NodeCriteria{
-		FreeBandwidth: req.FreeBandwidth,
-		FreeDisk:      req.FreeDisk,
-
+		FreeBandwidth:      req.FreeBandwidth,
+		FreeDisk:           req.FreeDisk,
 		AuditCount:         auditCount,
 		AuditSuccessRatio:  preferences.AuditSuccessRatio,
 		UptimeCount:        preferences.UptimeCount,
 		UptimeSuccessRatio: preferences.UptimeRatio,
-
-		Excluded: req.ExcludedNodes,
-
-		MinimumVersion: preferences.MinimumVersion,
+		Excluded:           req.ExcludedNodes,
+		MinimumVersion:     preferences.MinimumVersion,
+		OnlineWindow:       time.Hour,
 	})
 	if err != nil {
 		return nil, err
@@ -253,14 +243,12 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 
 	newNodeCount := int64(float64(reputableNodeCount) * preferences.NewNodePercentage)
 	newNodes, err := cache.db.SelectNewStorageNodes(ctx, int(newNodeCount), &NewNodeCriteria{
-		FreeBandwidth: req.FreeBandwidth,
-		FreeDisk:      req.FreeDisk,
-
+		FreeBandwidth:  req.FreeBandwidth,
+		FreeDisk:       req.FreeDisk,
 		AuditThreshold: preferences.NewNodeAuditThreshold,
-
-		Excluded: req.ExcludedNodes,
-
+		Excluded:       req.ExcludedNodes,
 		MinimumVersion: preferences.MinimumVersion,
+		OnlineWindow:   time.Hour,
 	})
 	if err != nil {
 		return nil, err

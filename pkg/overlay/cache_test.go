@@ -7,6 +7,7 @@ import (
 	"context"
 	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -165,10 +166,13 @@ func testRandomizedSelection(t *testing.T, reputable bool) {
 			var err error
 
 			if reputable {
-				nodes, err = cache.SelectStorageNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{})
+				nodes, err = cache.SelectStorageNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{
+					OnlineWindow: time.Hour,
+				})
 				require.NoError(t, err)
 			} else {
 				nodes, err = cache.SelectNewStorageNodes(ctx, numNodesToSelect, &overlay.NewNodeCriteria{
+					OnlineWindow:   time.Hour,
 					AuditThreshold: 1,
 				})
 				require.NoError(t, err)
