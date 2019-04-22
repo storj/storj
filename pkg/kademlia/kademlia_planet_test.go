@@ -102,7 +102,7 @@ func TestBootstrapBackoffReconnect(t *testing.T) {
 	// The reason for using this bad or unreliable proxy is to accurately test that
 	// the Bootstrap function's new backoff functionality will retry a connection
 	// if it initially failed.
-	proxy, err := newBadProxy("127.0.0.1:0")
+	proxy, err := newBadProxy(zaptest.NewLogger(t), "127.0.0.1:0")
 	require.NoError(t, err)
 
 	planet, err := testplanet.NewCustom(zaptest.NewLogger(t), testplanet.Config{
@@ -131,7 +131,11 @@ func TestBootstrapBackoffReconnect(t *testing.T) {
 	go func() {
 		// This starts the unreliable proxy server and sets it to
 		// drop connections for the first 500 milliseconds that it's up.
-		err := proxy.start(done, droppedConnInterval)
+		err := proxy.run(done, droppedConnInterval)
+		require.NoError(t, err)
+	}()
+	defer func() {
+		err := proxy.close()
 		require.NoError(t, err)
 	}()
 
@@ -139,27 +143,33 @@ func TestBootstrapBackoffReconnect(t *testing.T) {
 }
 
 type badProxy struct {
+	log      *zap.Logger
 	listener net.Listener
 	target   string
 }
 
-func newBadProxy(addr string) (*badProxy, error) {
+func newBadProxy(log *zap.Logger, addr string) (*badProxy, error) {
 	l, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, err
 	}
 	return &badProxy{
+		log:      log,
 		listener: l,
 	}, nil
 }
 
-func (proxy *badProxy) start(done chan bool, droppedConnInterval time.Duration) (err error) {
+func (proxy *badProxy) close() error {
+	return proxy.listener.Close()
+}
+
+func (proxy *badProxy) run(done chan bool, droppedConnInterval time.Duration) (err error) {
 	start := time.Now()
 
 	defer func() {
 		done <- true
 		err := proxy.listener.Close()
-		zap.S().Errorf("bad proxy err %v", err)
+		proxy.log.Error("bad proxy", zap.Error(err))
 	}()
 
 	for {
@@ -173,16 +183,16 @@ func (proxy *badProxy) start(done chan bool, droppedConnInterval time.Duration) 
 			if time.Since(start) < droppedConnInterval {
 				err := c.Close()
 				if err != nil {
-					zap.S().Errorf("bad proxy err %v", err)
+					proxy.log.Error("bad proxy", zap.Error(err))
 				}
 				return
 			}
 			c2, err := net.Dial("tcp", proxy.target)
 			if err != nil {
-				zap.S().Errorf("bad proxy err %v", err)
+				proxy.log.Error("bad proxy", zap.Error(err))
 				err = c.Close()
 				if err != nil {
-					zap.S().Errorf("bad proxy err %v", err)
+					proxy.log.Error("bad proxy", zap.Error(err))
 				}
 				return
 			}
@@ -193,12 +203,12 @@ func (proxy *badProxy) start(done chan bool, droppedConnInterval time.Duration) 
 			go func() {
 				_, err := io.Copy(c, c2)
 				if err != nil {
-					zap.S().Errorf("bad proxy err %v", err)
+					proxy.log.Error("bad proxy", zap.Error(err))
 				}
 			}()
 			_, err = io.Copy(c2, c)
 			if err != nil {
-				zap.S().Errorf("bad proxy err %v", err)
+				proxy.log.Error("bad proxy", zap.Error(err))
 			}
 		}()
 	}
