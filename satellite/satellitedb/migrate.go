@@ -554,12 +554,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Version:     16,
 				Action: migrate.Func(func(log *zap.Logger, db migrate.DB, tx *sql.Tx) error {
 					_, err := tx.Exec(`
-						DELETE FROM injuredsegments a USING injuredsegments b WHERE a.id < b.id AND a.info = b.info;
-					`)
-					if err != nil {
-						return ErrMigrate.Wrap(err)
-					}
-					_, err = tx.Exec(`
 						ALTER TABLE injuredsegments ADD path text;
 						ALTER TABLE injuredsegments RENAME COLUMN info TO data;
 						ALTER TABLE injuredsegments ADD attempted timestamp;
@@ -598,6 +592,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					}
 					// keep changing
 					_, err = tx.Exec(`
+						DELETE FROM injuredsegments a USING injuredsegments b WHERE a.id < b.id AND a.path = b.path;
 						ALTER TABLE injuredsegments DROP COLUMN id;
 						ALTER TABLE injuredsegments ALTER COLUMN path SET NOT NULL;
 						ALTER TABLE injuredsegments ADD PRIMARY KEY (path);`)
