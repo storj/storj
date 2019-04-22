@@ -96,6 +96,12 @@ func TestBootstrapBackoffReconnect(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
+	// This sets up an unreliable proxy server which will receive conns from
+	// storage nodes and the satellite, but doesn't connect them with
+	// the bootstrap node (proxy.target) until the droppedConnInterval has passed.
+	// The reason for using this bad or unreliable proxy is to accurately test that
+	// the Bootstrap function's new backoff functionality will retry a connection
+	// if it initially failed.
 	proxy, err := newBadProxy("127.0.0.1:0")
 	require.NoError(t, err)
 
@@ -115,12 +121,16 @@ func TestBootstrapBackoffReconnect(t *testing.T) {
 	require.NoError(t, err)
 	defer ctx.Check(planet.Shutdown)
 
+	// We set the bad proxy's "target" to the bootstrap node's addr
+	// (which was selected when the new custom planet was set up).
 	proxy.target = planet.Bootstrap.Addr()
 
 	done := make(chan bool)
 
 	droppedConnInterval := 500 * time.Millisecond
 	go func() {
+		// This starts the unreliable proxy server and sets it to
+		// drop connections for the first 500 milliseconds that it's up.
 		err := proxy.start(done, droppedConnInterval)
 		require.NoError(t, err)
 	}()
@@ -158,6 +168,8 @@ func (proxy *badProxy) start(done chan bool, droppedConnInterval time.Duration) 
 			return err
 		}
 		go func() {
+			// Within the droppedConnInterval duration,
+			// the proxy will drop conns.
 			if time.Since(start) < droppedConnInterval {
 				err := c.Close()
 				if err != nil {
@@ -174,6 +186,10 @@ func (proxy *badProxy) start(done chan bool, droppedConnInterval time.Duration) 
 				}
 				return
 			}
+			// Simulating a successful connection,
+			// here the proxy correctly copies the
+			// data from Peer A (storage node or satellite)
+			// to Peer B (bootstrap node).
 			go func() {
 				_, err := io.Copy(c, c2)
 				if err != nil {
