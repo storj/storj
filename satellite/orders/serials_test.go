@@ -1,14 +1,13 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package satellitedb_test
+package orders_test
 
 import (
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
-
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
