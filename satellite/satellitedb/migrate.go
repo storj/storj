@@ -592,6 +592,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					}
 					// keep changing
 					_, err = tx.Exec(`
+						DELETE FROM injuredsegments a USING injuredsegments b WHERE a.id < b.id AND a.path = b.path;
 						ALTER TABLE injuredsegments DROP COLUMN id;
 						ALTER TABLE injuredsegments ALTER COLUMN path SET NOT NULL;
 						ALTER TABLE injuredsegments ADD PRIMARY KEY (path);`)

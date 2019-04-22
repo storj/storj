@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package queue_test
+package satellitedb_test
 
 import (
 	"sort"
@@ -36,6 +36,24 @@ func TestInsertSelect(t *testing.T) {
 		err = q.Delete(ctx, s)
 		require.NoError(t, err)
 		require.True(t, pb.Equal(s, seg))
+	})
+}
+
+func TestInsertDuplicate(t *testing.T) {
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		q := db.RepairQueue()
+
+		seg := &pb.InjuredSegment{
+			Path:       "abc",
+			LostPieces: []int32{int32(1), int32(3)},
+		}
+		err := q.Insert(ctx, seg)
+		require.NoError(t, err)
+		err = q.Insert(ctx, seg)
+		require.NoError(t, err)
 	})
 }
 
