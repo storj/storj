@@ -220,14 +220,14 @@ func (cache *Cache) FindStorageNodes(ctx context.Context, req FindStorageNodesRe
 func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req FindStorageNodesRequest, preferences *NodeSelectionConfig) (nodes []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO: verify logic
-
 	// TODO: add sanity limits to requested node count
 	// TODO: add sanity limits to excluded nodes
 	reputableNodeCount := req.MinimumRequiredNodes
 	if reputableNodeCount <= 0 {
 		reputableNodeCount = req.RequestedCount
 	}
+
+	excluded := req.ExcludedNodes
 
 	newNodeCount := 0
 	if preferences.NewNodePercentage > 0 {
@@ -242,7 +242,7 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 
 			AuditThreshold: preferences.NewNodeAuditThreshold,
 
-			Excluded: req.ExcludedNodes,
+			Excluded: excluded,
 
 			MinimumVersion: preferences.MinimumVersion,
 		})
@@ -256,6 +256,11 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 		auditCount = preferences.NewNodeAuditThreshold
 	}
 
+	// add selected new nodes to the excluded list for reputable node selection
+	for _, newNode := range newNodes {
+		excluded = append(excluded, newNode.Id)
+	}
+
 	reputableNodes, err := cache.db.SelectStorageNodes(ctx, reputableNodeCount-len(newNodes), &NodeCriteria{
 		FreeBandwidth: req.FreeBandwidth,
 		FreeDisk:      req.FreeDisk,
@@ -265,7 +270,7 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 		UptimeCount:        preferences.UptimeCount,
 		UptimeSuccessRatio: preferences.UptimeRatio,
 
-		Excluded: req.ExcludedNodes,
+		Excluded: excluded,
 
 		MinimumVersion: preferences.MinimumVersion,
 	})
