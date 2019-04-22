@@ -25,7 +25,7 @@ type DHT interface {
 // RoutingTable contains information on nodes we have locally
 type RoutingTable interface {
 	// local params
-	Local() *overlay.NodeDossier
+	Local() overlay.NodeDossier
 	K() int
 	CacheSize() int
 	GetBucketIds() (storage.Keys, error)

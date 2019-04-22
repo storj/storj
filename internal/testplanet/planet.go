@@ -63,7 +63,7 @@ import (
 type Peer interface {
 	ID() storj.NodeID
 	Addr() string
-	Local() *overlay.NodeDossier
+	Local() overlay.NodeDossier
 
 	Run(context.Context) error
 	Close() error

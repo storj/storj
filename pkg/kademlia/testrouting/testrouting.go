@@ -149,7 +149,7 @@ func (t *Table) FindNear(id storj.NodeID, limit int) ([]*pb.Node, error) {
 }
 
 // Local returns the local node
-func (t *Table) Local() *overlay.NodeDossier {
+func (t *Table) Local() overlay.NodeDossier {
 	// the routing table has no idea what the right address of ourself is,
 	// so this is the wrong place to get this information. we could return
 	// our own id only?

@@ -472,11 +472,11 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 		if nodeInfo.GetVersion() != nil {
 			semVer, err := version.NewSemVer(nodeInfo.GetVersion().GetVersion())
 			if err != nil {
-				return &overlay.NodeDossier{}, errs.New("unable to convert version to semVer")
+				return nil, errs.New("unable to convert version to semVer")
 			}
 			pbts, err := ptypes.Timestamp(nodeInfo.GetVersion().GetTimestamp())
 			if err != nil {
-				return &overlay.NodeDossier{}, errs.New("unable to convert version timestamp")
+				return nil, errs.New("unable to convert version timestamp")
 			}
 			updateFields.Major = dbx.Node_Major(semVer.Major)
 			updateFields.Minor = dbx.Node_Minor(semVer.Minor)

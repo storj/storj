@@ -127,12 +127,10 @@ func (service *Service) updateNodeInformation(ctx context.Context) error {
 		return Error.Wrap(err)
 	}
 
-	self := service.routingTable.Local()
-
-	self.Capacity = pb.NodeCapacity{
+	service.routingTable.UpdateSelf(&pb.NodeCapacity{
 		FreeBandwidth: service.allocatedBandwidth - usedBandwidth,
 		FreeDisk:      service.allocatedDiskSpace - usedSpace,
-	}
+	})
 
 	return nil
 }

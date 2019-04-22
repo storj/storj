@@ -15,7 +15,6 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/transport"
@@ -42,14 +41,14 @@ func TestRequestInfo(t *testing.T) {
 		info, err := planet.Satellites[0].Kademlia.Service.FetchInfo(ctx, node.Local().Node)
 		require.NoError(t, err)
 		require.Equal(t, node.Local().Type, info.GetType())
-		require.Equal(t, node.Local().Operator.GetEmail(), info.GetOperator().GetEmail())
-		require.Equal(t, node.Local().Operator.GetWallet(), info.GetOperator().GetWallet())
-		require.Equal(t, node.Local().Capacity.GetFreeDisk(), info.GetCapacity().GetFreeDisk())
-		require.Equal(t, node.Local().Capacity.GetFreeBandwidth(), info.GetCapacity().GetFreeBandwidth())
-		require.Equal(t, node.Local().Version.GetVersion(), info.GetVersion().GetVersion())
-		require.Equal(t, node.Local().Version.GetCommitHash(), info.GetVersion().GetCommitHash())
-		require.Equal(t, node.Local().Version.GetTimestamp().GetSeconds(), info.GetVersion().GetTimestamp().GetSeconds())
-		require.Equal(t, node.Local().Version.GetRelease(), info.GetVersion().GetRelease())
+		require.Equal(t, node.Local().Operator.Email, info.GetOperator().GetEmail())
+		require.Equal(t, node.Local().Operator.Wallet, info.GetOperator().GetWallet())
+		require.Equal(t, node.Local().Capacity.FreeDisk, info.GetCapacity().GetFreeDisk())
+		require.Equal(t, node.Local().Capacity.FreeBandwidth, info.GetCapacity().GetFreeBandwidth())
+		require.Equal(t, node.Local().Version.Version, info.GetVersion().GetVersion())
+		require.Equal(t, node.Local().Version.CommitHash, info.GetVersion().GetCommitHash())
+		require.Equal(t, node.Local().Version.Timestamp.GetSeconds(), info.GetVersion().GetTimestamp().GetSeconds())
+		require.Equal(t, node.Local().Version.Release, info.GetVersion().GetRelease())
 	})
 }
 
@@ -74,16 +73,7 @@ func TestPingTimeout(t *testing.T) {
 		slowClient := network.NewClient(self.Transport)
 		require.NotNil(t, slowClient)
 
-		node := &overlay.NodeDossier{
-			Node: pb.Node{
-				Id: self.ID(),
-				Address: &pb.NodeAddress{
-					Transport: pb.NodeTransport_TCP_TLS_GRPC,
-				},
-			},
-		}
-
-		newService, err := kademlia.NewService(zaptest.NewLogger(t), node, slowClient, routingTable, kademlia.Config{})
+		newService, err := kademlia.NewService(zaptest.NewLogger(t), slowClient, routingTable, kademlia.Config{})
 		require.NoError(t, err)
 
 		target := pb.Node{

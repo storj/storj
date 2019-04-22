@@ -61,7 +61,7 @@ type Kademlia struct {
 }
 
 // NewService returns a newly configured Kademlia instance
-func NewService(log *zap.Logger, self *overlay.NodeDossier, transport transport.Client, rt *RoutingTable, config Config) (*Kademlia, error) {
+func NewService(log *zap.Logger, transport transport.Client, rt *RoutingTable, config Config) (*Kademlia, error) {
 	k := &Kademlia{
 		log:              log,
 		alpha:            config.Alpha,
@@ -122,7 +122,7 @@ func (k *Kademlia) GetBucketIds() (storage.Keys, error) {
 }
 
 // Local returns the local node
-func (k *Kademlia) Local() *overlay.NodeDossier {
+func (k *Kademlia) Local() overlay.NodeDossier {
 	return k.routingTable.Local()
 }
 

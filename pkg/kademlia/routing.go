@@ -106,10 +106,19 @@ func (rt *RoutingTable) Close() error {
 }
 
 // Local returns the local node
-func (rt *RoutingTable) Local() *overlay.NodeDossier {
+func (rt *RoutingTable) Local() overlay.NodeDossier {
 	rt.mutex.Lock()
 	defer rt.mutex.Unlock()
-	return rt.self
+	return *rt.self
+}
+
+// UpdateSelf updates the local node with the provided info
+func (rt *RoutingTable) UpdateSelf(capacity *pb.NodeCapacity) {
+	rt.mutex.Lock()
+	defer rt.mutex.Unlock()
+	if capacity != nil {
+		rt.self.Capacity = *capacity
+	}
 }
 
 // K returns the currently configured maximum of nodes to store in a bucket
