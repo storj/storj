@@ -24,5 +24,6 @@ RUN go get github.com/ckaznocha/protoc-gen-lint
 RUN go get github.com/nilslice/protolock/cmd/protolock
 RUN go get github.com/mfridman/tparse
 RUN go get github.com/josephspurrier/goversioninfo
+RUN go get github.com/loov/leakcheck
 
 RUN go version
