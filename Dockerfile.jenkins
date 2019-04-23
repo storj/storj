@@ -24,6 +24,8 @@ RUN go get github.com/josephspurrier/goversioninfo
 
 RUN go version
 
+WORKDIR $HOME/dependencies
+
 COPY go.mod go.mod
 COPY go.sum go.sum
 
@@ -39,4 +41,4 @@ RUN go build -race net/http
 RUN go build -race github.com/minio/minio/cmd
 RUN go build -race gopkg.in/olivere/elastic.v5
 
-RUN rm go.mod go.sum
+WORKDIR $HOME/storj
