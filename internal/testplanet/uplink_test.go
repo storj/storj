@@ -226,80 +226,76 @@ func (mock *piecestoreMock) Delete(ctx context.Context, delete *pb.PieceDeleteRe
 }
 
 func TestDownloadFromUnresponsiveNode(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
-	planet, err := testplanet.New(t, 1, 5, 1)
-	require.NoError(t, err)
-	defer ctx.Check(planet.Shutdown)
+		expectedData := make([]byte, 1*memory.MiB)
+		_, err := rand.Read(expectedData)
+		assert.NoError(t, err)
 
-	planet.Start(ctx)
-
-	expectedData := make([]byte, 1*memory.MiB)
-	_, err = rand.Read(expectedData)
-	assert.NoError(t, err)
-
-	err = planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &uplink.RSConfig{
-		MinThreshold:     2,
-		RepairThreshold:  3,
-		SuccessThreshold: 4,
-		MaxThreshold:     5,
-	}, "testbucket", "test/path", expectedData)
-	require.NoError(t, err)
-
-	// get a remote segment from pointerdb
-	pdb := planet.Satellites[0].Metainfo.Service
-	listResponse, _, err := pdb.List("", "", "", true, 0, 0)
-	require.NoError(t, err)
-
-	var path string
-	var pointer *pb.Pointer
-	for _, v := range listResponse {
-		path = v.GetPath()
-		pointer, err = pdb.Get(path)
+		err = planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &uplink.RSConfig{
+			MinThreshold:     2,
+			RepairThreshold:  3,
+			SuccessThreshold: 4,
+			MaxThreshold:     5,
+		}, "testbucket", "test/path", expectedData)
 		require.NoError(t, err)
-		if pointer.GetType() == pb.Pointer_REMOTE {
-			break
+
+		// get a remote segment from pointerdb
+		pdb := planet.Satellites[0].Metainfo.Service
+		listResponse, _, err := pdb.List("", "", "", true, 0, 0)
+		require.NoError(t, err)
+
+		var path string
+		var pointer *pb.Pointer
+		for _, v := range listResponse {
+			path = v.GetPath()
+			pointer, err = pdb.Get(path)
+			require.NoError(t, err)
+			if pointer.GetType() == pb.Pointer_REMOTE {
+				break
+			}
 		}
-	}
 
-	stopped := false
-	// choose used storage node and replace it with fake listener
-	unresponsiveNode := pointer.Remote.RemotePieces[0].NodeId
-	for _, storageNode := range planet.StorageNodes {
-		if storageNode.ID() == unresponsiveNode {
-			err = planet.StopPeer(storageNode)
-			require.NoError(t, err)
-
-			wl, err := planet.WriteWhitelist(storj.LatestIDVersion())
-			require.NoError(t, err)
-			options, err := tlsopts.NewOptions(storageNode.Identity, tlsopts.Config{
-				RevocationDBURL:     "bolt://" + filepath.Join(ctx.Dir("fakestoragenode"), "revocation.db"),
-				UsePeerCAWhitelist:  true,
-				PeerCAWhitelistPath: wl,
-				PeerIDVersions:      "*",
-				Extensions: extensions.Config{
-					Revocation:          false,
-					WhitelistSignedLeaf: false,
-				},
-			})
-			require.NoError(t, err)
-
-			server, err := server.New(options, storageNode.Addr(), storageNode.PrivateAddr(), nil)
-			require.NoError(t, err)
-			pb.RegisterPiecestoreServer(server.GRPC(), &piecestoreMock{})
-			go func() {
-				err := server.Run(ctx)
+		stopped := false
+		// choose used storage node and replace it with fake listener
+		unresponsiveNode := pointer.Remote.RemotePieces[0].NodeId
+		for _, storageNode := range planet.StorageNodes {
+			if storageNode.ID() == unresponsiveNode {
+				err = planet.StopPeer(storageNode)
 				require.NoError(t, err)
-			}()
-			stopped = true
-			break
+
+				wl, err := planet.WriteWhitelist(storj.LatestIDVersion())
+				require.NoError(t, err)
+				options, err := tlsopts.NewOptions(storageNode.Identity, tlsopts.Config{
+					RevocationDBURL:     "bolt://" + filepath.Join(ctx.Dir("fakestoragenode"), "revocation.db"),
+					UsePeerCAWhitelist:  true,
+					PeerCAWhitelistPath: wl,
+					PeerIDVersions:      "*",
+					Extensions: extensions.Config{
+						Revocation:          false,
+						WhitelistSignedLeaf: false,
+					},
+				})
+				require.NoError(t, err)
+
+				server, err := server.New(options, storageNode.Addr(), storageNode.PrivateAddr(), nil)
+				require.NoError(t, err)
+				pb.RegisterPiecestoreServer(server.GRPC(), &piecestoreMock{})
+				go func() {
+					err := server.Run(ctx)
+					require.NoError(t, err)
+				}()
+				stopped = true
+				break
+			}
 		}
-	}
-	assert.True(t, stopped, "no storage node was altered")
+		assert.True(t, stopped, "no storage node was altered")
 
-	data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path")
-	assert.NoError(t, err)
+		data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path")
+		assert.NoError(t, err)
 
-	assert.Equal(t, expectedData, data)
+		assert.Equal(t, expectedData, data)
+	})
 }
