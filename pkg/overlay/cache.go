@@ -7,7 +7,7 @@ import (
 	"context"
 	"errors"
 	"time"
-
+	
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -128,9 +128,8 @@ type NodeDossier struct {
 // A node is considered online if the last attempt for contact was successful
 // and it was within the last hour.
 func (node *NodeDossier) Online() bool {
-	return false
-	//return time.Now().Sub(node.Reputation.LastContactSuccess) < OnlineWindow &&
-	//	node.Reputation.LastContactSuccess.After(node.Reputation.LastContactFailure)
+	return time.Now().Sub(node.Reputation.LastContactSuccess) < OnlineWindow &&
+		node.Reputation.LastContactSuccess.After(node.Reputation.LastContactFailure)
 }
 
 func (node *NodeDossier) Valid(maxStats *NodeStats) bool {
