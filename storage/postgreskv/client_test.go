@@ -11,10 +11,8 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/zeebo/errs"
-	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/storage"
-	"storj.io/storj/storage/storelogger"
 	"storj.io/storj/storage/testsuite"
 )
 
@@ -48,8 +46,9 @@ func TestSuite(t *testing.T) {
 	store, cleanup := newTestPostgres(t)
 	defer cleanup()
 
-	zap := zaptest.NewLogger(t)
-	testsuite.RunTests(t, storelogger.New(zap, store))
+	// zap := zaptest.NewLogger(t)
+	// loggedStore := storelogger.New(zap, store)
+	testsuite.RunTests(t, store)
 }
 
 func BenchmarkSuite(b *testing.B) {
