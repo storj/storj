@@ -221,7 +221,7 @@ func (db *usagerollups) GetBucketTotals(ctx context.Context, projectID uuid.UUID
 	storageQuery := db.db.All_BucketStorageTally_By_ProjectId_And_BucketName_And_IntervalStart_GreaterOrEqual_And_IntervalStart_LessOrEqual_OrderBy_Desc_IntervalStart
 
 	var bucketUsages []console.BucketUsage
-	for _, bucket := range buckets {
+	for _, bucket := range buckets[:len(buckets)-1] {
 		bucketUsage := console.BucketUsage{
 			ProjectID:  projectID,
 			BucketName: bucket,

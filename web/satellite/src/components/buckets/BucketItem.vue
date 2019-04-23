@@ -3,18 +3,22 @@
 
 <template>
 	<tr class="container">
-		<td class="container__item">test</td>
-		<td class="container__item">test</td>
-		<td class="container__item">test</td>
-		<td class="container__item">test</td>
-		<td class="container__item">test</td>
+		<td class="container__item">{{ bucket.bucketName }}</td>
+		<td class="container__item">{{ bucket.since }}</td>
+		<td class="container__item">{{ bucket.storage }}</td>
+		<td class="container__item">{{ bucket.egress }}</td>
+		<td class="container__item">{{ bucket.objectCount }}</td>
 	</tr>
 </template>
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({})
+    @Component({
+		props: {
+			bucket: Object
+		}
+	})
 
     export default class BucketItem extends Vue {}
 </script>

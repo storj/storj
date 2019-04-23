@@ -28,19 +28,6 @@ type ProjectUsage struct {
 	Before time.Time
 }
 
-// BucketUsageCursor holds info for bucket usage
-// cursor pagination
-type BucketUsageCursor struct {
-	AfterBucket []byte
-	Limit uint
-}
-
-// BucketUsagePage represents bucket usage page result
-type BucketUsagePage struct {
-	BucketUsages []BucketUsage
-	HasMore bool
-}
-
 // BucketUsage consist of total bucket usage for period
 type BucketUsage struct {
 	ProjectID  uuid.UUID
@@ -52,6 +39,19 @@ type BucketUsage struct {
 
 	Since  time.Time
 	Before time.Time
+}
+
+// BucketUsageCursor holds info for bucket usage
+// cursor pagination
+type BucketUsageCursor struct {
+	AfterBucket []byte
+	Limit uint
+}
+
+// BucketUsagePage represents bucket usage page result
+type BucketUsagePage struct {
+	BucketUsages []BucketUsage
+	HasMore bool
 }
 
 // BucketUsageRollup is total bucket usage info

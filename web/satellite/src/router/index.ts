@@ -101,6 +101,11 @@ let router = new Router({
                     name: ROUTES.API_KEYS.name,
                     component: ApiKeysArea
                 },
+                {
+                    path: ROUTES.BUCKETS.path,
+                    name: ROUTES.BUCKETS.name,
+                    component: BucketArea
+                },
                 // {
                 //     path: ROUTES.BUCKETS.path,
                 //     name: ROUTES.BUCKETS.name,
