@@ -4,10 +4,10 @@
 <template>
     <div class="api-keys-header-container">
         <div class="api-keys-header-container__item">
-            <SearchArea />
             <div id="addApiKeyPopupButton">
                 <Button label="New API Key" width="240px" height="54px" :onPress="togglePopup" />
             </div>
+            <SearchArea />
         </div>
         <div class="api-keys-header-container__item">
             <!-- <SortApiKeysHeader /> -->

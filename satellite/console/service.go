@@ -317,6 +317,7 @@ func (s *Service) UpdateAccount(ctx context.Context, info UserInfo) (err error) 
 		ShortName:    info.ShortName,
 		Email:        email,
 		PasswordHash: nil,
+		Status:       auth.User.Status,
 	})
 	if err != nil {
 		return errs.New(internalErrMsg)
