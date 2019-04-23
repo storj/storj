@@ -188,7 +188,7 @@ func (checker *Checker) getMissingPieces(ctx context.Context, pieces []*pb.Remot
 	}
 	
 	for i, node := range nodes {
-		if node == nil || !node.Online() || !node.Vetted(maxStats) {
+		if node == nil || !node.Online() || !node.VettedFor(maxStats) {
 			missingPieces = append(missingPieces, pieces[i].GetPieceNum())
 		}
 	}

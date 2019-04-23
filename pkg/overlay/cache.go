@@ -132,7 +132,7 @@ func (node *NodeDossier) Online() bool {
 
 // VettedFor checks if the node is vetted for the given stats.
 func (node *NodeDossier) VettedFor(stats *NodeStats) bool {
-	return node.Reputation.AuditSuccessRatio >= stats.AuditSuccessRatio && node.Reputation.UptimeRatio >= maxStats.UptimeRatio
+	return node.Reputation.AuditSuccessRatio >= stats.AuditSuccessRatio && node.Reputation.UptimeRatio >= stats.UptimeRatio
 }
 
 // NodeStats contains statistics about a node.
