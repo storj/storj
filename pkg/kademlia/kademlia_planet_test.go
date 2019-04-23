@@ -7,11 +7,14 @@ import (
 	"context"
 	"io"
 	"net"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
@@ -99,9 +102,8 @@ func TestBootstrapBackoffReconnect(t *testing.T) {
 	// This sets up an unreliable proxy server which will receive conns from
 	// storage nodes and the satellite, but doesn't connect them with
 	// the bootstrap node (proxy.target) until the droppedConnInterval has passed.
-	// The reason for using this bad or unreliable proxy is to accurately test that
-	// the Bootstrap function's new backoff functionality will retry a connection
-	// if it initially failed.
+	// This should test that the Bootstrap function will retry a connection
+	// if it initially fails.
 	proxy, err := newBadProxy(zaptest.NewLogger(t), "127.0.0.1:0")
 	require.NoError(t, err)
 
@@ -125,13 +127,11 @@ func TestBootstrapBackoffReconnect(t *testing.T) {
 	// (which was selected when the new custom planet was set up).
 	proxy.target = planet.Bootstrap.Addr()
 
-	done := make(chan bool)
-
 	droppedConnInterval := 500 * time.Millisecond
 	go func() {
 		// This starts the unreliable proxy server and sets it to
 		// drop connections for the first 500 milliseconds that it's up.
-		err := proxy.run(done, droppedConnInterval)
+		err := proxy.run(droppedConnInterval)
 		require.NoError(t, err)
 	}()
 	defer func() {
@@ -143,6 +143,7 @@ func TestBootstrapBackoffReconnect(t *testing.T) {
 }
 
 type badProxy struct {
+	closed   uint32 // using sync/atomic package to do an atomic set/load of closed (as bool flag)
 	log      *zap.Logger
 	listener net.Listener
 	target   string
@@ -160,22 +161,27 @@ func newBadProxy(log *zap.Logger, addr string) (*badProxy, error) {
 }
 
 func (proxy *badProxy) close() error {
+	atomic.StoreUint32(&proxy.closed, 1)
 	return proxy.listener.Close()
 }
 
-func (proxy *badProxy) run(done chan bool, droppedConnInterval time.Duration) (err error) {
+func (proxy *badProxy) run(droppedConnInterval time.Duration) (err error) {
 	start := time.Now()
 
 	defer func() {
-		done <- true
 		err := proxy.listener.Close()
-		proxy.log.Error("bad proxy", zap.Error(err))
+		if atomic.LoadUint32(&proxy.closed) == 0 {
+			proxy.log.Error("bad proxy", zap.Error(err))
+		}
 	}()
 
 	for {
 		c, err := proxy.listener.Accept()
 		if err != nil {
-			return err
+			if atomic.LoadUint32(&proxy.closed) > 0 {
+				return nil
+			}
+			return errs.Wrap(err)
 		}
 		go func() {
 			// Within the droppedConnInterval duration,
@@ -196,16 +202,26 @@ func (proxy *badProxy) run(done chan bool, droppedConnInterval time.Duration) (e
 				}
 				return
 			}
+			closer := func() {
+				err := errs.Combine(c.Close(), c2.Close())
+				if err != nil {
+					proxy.log.Error("bad proxy", zap.Error(err))
+				}
+			}
+			var closeOnce sync.Once
 			// Simulating a successful connection,
 			// here the proxy correctly copies the
 			// data from Peer A (storage node or satellite)
 			// to Peer B (bootstrap node).
 			go func() {
+				defer closeOnce.Do(closer)
 				_, err := io.Copy(c, c2)
 				if err != nil {
 					proxy.log.Error("bad proxy", zap.Error(err))
 				}
 			}()
+			// starts copy loops concurrently where the first to exit closes the connections
+			defer closeOnce.Do(closer)
 			_, err = io.Copy(c2, c)
 			if err != nil {
 				proxy.log.Error("bad proxy", zap.Error(err))
