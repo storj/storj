@@ -67,8 +67,7 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 	uplink.Transport = transport.NewClient(tlsOpts)
 
 	uplink.Info = pb.Node{
-		Id:   uplink.Identity.ID,
-		Type: pb.NodeType_UPLINK,
+		Id: uplink.Identity.ID,
 		Address: &pb.NodeAddress{
 			Transport: pb.NodeTransport_TCP_TLS_GRPC,
 			Address:   "",
@@ -138,7 +137,7 @@ func (uplink *Uplink) DialMetainfo(ctx context.Context, destination Peer, apikey
 func (uplink *Uplink) DialPiecestore(ctx context.Context, destination Peer) (*piecestore.Client, error) {
 	node := destination.Local()
 
-	conn, err := uplink.Transport.DialNode(ctx, &node)
+	conn, err := uplink.Transport.DialNode(ctx, &node.Node)
 	if err != nil {
 		return nil, err
 	}

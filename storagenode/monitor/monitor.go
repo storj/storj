@@ -127,17 +127,10 @@ func (service *Service) updateNodeInformation(ctx context.Context) error {
 		return Error.Wrap(err)
 	}
 
-	self := service.routingTable.Local()
-
-	self.Restrictions = &pb.NodeRestrictions{
+	service.routingTable.UpdateSelf(&pb.NodeCapacity{
 		FreeBandwidth: service.allocatedBandwidth - usedBandwidth,
 		FreeDisk:      service.allocatedDiskSpace - usedSpace,
-	}
-
-	// Update the routing table with latest restrictions
-	if err := service.routingTable.UpdateSelf(&self); err != nil {
-		return Error.Wrap(err)
-	}
+	})
 
 	return nil
 }
