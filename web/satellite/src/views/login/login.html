@@ -1,14 +1,14 @@
 <!--Copyright (C) 2019 Storj Labs, Inc.-->
 <!--See LICENSE for copying information.-->
 
-<div class="login-container" v-on:keyup.enter="onLogin">
-	<div v-bind:class="loadingClassName"></div>
-	<img v-bind:class="loadingLogoClassName" src="../../../static/images/LogoWhite.svg" alt="loading-logo">
+<div class="login-container" @keyup.enter="onLogin">
+	<div :class="loadingClassName"></div>
+	<img :class="loadingLogoClassName" src="../../../static/images/LogoWhite.svg" alt="loading-logo">
 	<img class="image" src="../../../static/images/AuthImage.svg" alt="" >
 	<div class="login-container__wrapper">
 		<div class="login-container__header">
-			<img class="login-container__logo" src="../../../static/images/Logo.svg" alt="logo" v-on:click="onLogoClick">
-			<div class="login-container__register-button" v-on:click.prevent="onSignUpClick">
+			<img class="login-container__logo" src="../../../static/images/Logo.svg" alt="logo" @click="onLogoClick">
+			<div class="login-container__register-button" @click.prevent="onSignUpClick">
 				<p>Create Account</p>
 			</div>
 		</div>
@@ -20,6 +20,7 @@
 				<HeaderlessInput
 						class="login-area__email-input"
 						placeholder="Email"
+                        :error="emailError"
 						@setData="setEmail"
 						height="46px"
 						width="100%">
@@ -27,16 +28,17 @@
 				<HeaderlessInput
 						class="login-area__password-input"
 						placeholder="Password"
+                        :error="passwordError"
 						@setData="setPassword"
 						width="100%"
 						height="46px"
 						isPassword>
 				</HeaderlessInput>
 				<div class="login-area__submit-area">
-					<router-link v-bind:to="forgotPasswordRouterPath" class="login-area__navigation-area__nav-link" exact>
+					<router-link :to="forgotPasswordRouterPath" class="login-area__navigation-area__nav-link" exact>
 						<h3><strong>Forgot password?</strong></h3>
 					</router-link>
-					<div class="login-area__submit-area__login-button" v-on:click.prevent="onLogin">
+					<div class="login-area__submit-area__login-button" @click.prevent="onLogin">
 						<p>Log In</p>
 					</div>
 				</div>
