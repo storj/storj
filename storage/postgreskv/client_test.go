@@ -22,7 +22,7 @@ const (
 )
 
 var (
-	testPostgres = flag.String("postgres-test-db", os.Getenv("STORJ_POSTGRES_TEST"), "PostgreSQL test database connection string")
+	testPostgres = flag.String("postgres-test-db4", os.Getenv("STORJ_POSTGRES_TEST"), "PostgreSQL test database connection string")
 )
 
 func newTestPostgres(t testing.TB) (store *Client, cleanup func()) {
