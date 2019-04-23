@@ -74,6 +74,7 @@ export default class SortUsersDropdown extends Vue {
         box-sizing: border-box;
         border-radius: 6px;
         transition: all .2s ease-in-out;
+        margin-left: 24px;
 
         &:hover {
             box-shadow: 0px 4px rgba(231, 232, 238, 0.6);

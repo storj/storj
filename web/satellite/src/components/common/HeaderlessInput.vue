@@ -9,11 +9,11 @@
 			<h3 class="label-container__error" v-if="error" :style="style.errorStyle">{{error}}</h3>
 		</div>
         <input
-            v-bind:class="[error ? 'inputError' : null]"
+            :class="{'inputError' : error}"
             @input="onInput"
-            :placeholder="this.$props.placeholder"
+            :placeholder="placeholder"
             v-model="value"
-            v-bind:type="[isPassword ? passwordType : textType]"
+            :type="[isPassword ? passwordType : textType]"
             :style="style.inputStyle"/>
         <!--2 conditions of eye image (crossed or not) -->
             <svg v-if="isPassword && !isPasswordShown" v-on:click="changeVision()" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -141,7 +141,13 @@ h3 {
 .label-container {
     display: flex;
     justify-content: flex-start;
+    align-items: flex-end;
+    padding-bottom: 8px;
     flex-direction: row;
+
+    h3 {
+        margin-bottom: 0;
+    }
 
     &__add-label {
         margin-left: 5px;
