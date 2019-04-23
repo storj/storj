@@ -100,7 +100,7 @@ func (dr *decodedReader) Close() error {
 	// cancel the context to terminate reader goroutines
 	dr.cancel()
 	errorThreshold := len(dr.readers) - dr.scheme.RequiredCount()
-	closeGroup := &errs2.Group{}
+	var closeGroup errs2.Group
 	// avoid double close of readers
 	dr.close.Do(func() {
 		for _, r := range dr.readers {
