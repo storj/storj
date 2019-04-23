@@ -39,4 +39,4 @@ RUN go build -race net/http
 RUN go build -race github.com/minio/minio/cmd
 RUN go build -race gopkg.in/olivere/elastic.v5
 
-go rm go.mod go.sum
+RUN rm go.mod go.sum
