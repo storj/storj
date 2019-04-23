@@ -196,33 +196,6 @@ func (checker *Checker) getMissingPieces(ctx context.Context, pieces []*pb.Remot
 	return missingPieces, nil
 }
 
-// Find invalidNodes by checking the audit results that are place in overlay
-func (checker *Checker) invalidNodes(ctx context.Context, nodeIDs storj.NodeIDList) (invalidNodes []int, err error) {
-	// filter if nodeIDs have invalid pieces from auditing results
-	maxStats := &overlay.NodeStats{
-		AuditSuccessRatio: 0, // TODO: update when we have stats added to overlay
-		UptimeRatio:       0, // TODO: update when we have stats added to overlay
-	}
-
-	invalidIDs, err := checker.overlay.FindInvalidNodes(ctx, nodeIDs, maxStats)
-	if err != nil {
-		return nil, Error.New("error getting valid nodes from overlay %s", err)
-	}
-
-	invalidNodesMap := make(map[storj.NodeID]bool)
-	for _, invalidID := range invalidIDs {
-		invalidNodesMap[invalidID] = true
-	}
-
-	for i, nID := range nodeIDs {
-		if invalidNodesMap[nID] {
-			invalidNodes = append(invalidNodes, i)
-		}
-	}
-
-	return invalidNodes, nil
-}
-
 // checks for a string in slice
 func contains(a []string, x string) bool {
 	for _, n := range a {

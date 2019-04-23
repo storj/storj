@@ -696,13 +696,6 @@ func (m *lockedOverlayCache) CreateStats(ctx context.Context, nodeID storj.NodeI
 	return m.db.CreateStats(ctx, nodeID, initial)
 }
 
-// FindInvalidNodes finds a subset of storagenodes that have stats below provided reputation requirements.
-func (m *lockedOverlayCache) FindInvalidNodes(ctx context.Context, nodeIDs storj.NodeIDList, maxStats *overlay.NodeStats) (invalid storj.NodeIDList, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.FindInvalidNodes(ctx, nodeIDs, maxStats)
-}
-
 // Get looks up the node by nodeID
 func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*overlay.NodeDossier, error) {
 	m.Lock()

@@ -54,8 +54,6 @@ type DB interface {
 
 	// CreateStats initializes the stats for node.
 	CreateStats(ctx context.Context, nodeID storj.NodeID, initial *NodeStats) (stats *NodeStats, err error)
-	// FindInvalidNodes finds a subset of storagenodes that have stats below provided reputation requirements.
-	FindInvalidNodes(ctx context.Context, nodeIDs storj.NodeIDList, maxStats *NodeStats) (invalid storj.NodeIDList, err error)
 	// Update updates node address
 	UpdateAddress(ctx context.Context, value *pb.Node) error
 	// UpdateStats all parts of single storagenode's stats.
@@ -196,25 +194,6 @@ func (cache *Cache) Get(ctx context.Context, nodeID storj.NodeID) (_ *NodeDossie
 	return cache.db.Get(ctx, nodeID)
 }
 
-// OfflineNodes returns indices of the nodes that are offline
-func (cache *Cache) OfflineNodes(ctx context.Context, nodes []storj.NodeID) (offline []int, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	// TODO: optimize
-	results, err := cache.GetAll(ctx, nodes)
-	if err != nil {
-		return nil, err
-	}
-
-	for i, r := range results {
-		if r == nil || !r.Online() {
-			offline = append(offline, i)
-		}
-	}
-
-	return offline, nil
-}
-
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
 func (cache *Cache) FindStorageNodes(ctx context.Context, req FindStorageNodesRequest) ([]*pb.Node, error) {
 	return cache.FindStorageNodesWithPreferences(ctx, req, &cache.preferences)
@@ -311,12 +290,6 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 func (cache *Cache) Create(ctx context.Context, nodeID storj.NodeID, initial *NodeStats) (stats *NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return cache.db.CreateStats(ctx, nodeID, initial)
-}
-
-// FindInvalidNodes finds a subset of storagenodes that have stats below provided reputation requirements.
-func (cache *Cache) FindInvalidNodes(ctx context.Context, nodeIDs storj.NodeIDList, maxStats *NodeStats) (invalid storj.NodeIDList, err error) {
-	defer mon.Task()(&ctx)(&err)
-	return cache.db.FindInvalidNodes(ctx, nodeIDs, maxStats)
 }
 
 // UpdateStats all parts of single storagenode's stats.
