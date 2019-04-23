@@ -80,7 +80,6 @@ func (checker *Checker) Close() error {
 func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	checker.logger.Debug("Identify injured segments")
 	var remoteSegmentsChecked int64
 	var remoteSegmentsNeedingRepair int64
 	var remoteSegmentsLost int64

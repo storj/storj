@@ -130,8 +130,9 @@ func (node *NodeDossier) Online() bool {
 		node.Reputation.LastContactSuccess.After(node.Reputation.LastContactFailure)
 }
 
-func (node *NodeDossier) Vetted(maxStats *NodeStats) bool {
-	return node.Reputation.AuditSuccessRatio >= maxStats.AuditSuccessRatio && node.Reputation.UptimeRatio >= maxStats.UptimeRatio
+// VettedFor checks if the node is vetted for the given stats.
+func (node *NodeDossier) VettedFor(stats *NodeStats) bool {
+	return node.Reputation.AuditSuccessRatio >= stats.AuditSuccessRatio && node.Reputation.UptimeRatio >= maxStats.UptimeRatio
 }
 
 // NodeStats contains statistics about a node.
