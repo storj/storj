@@ -28,9 +28,10 @@ func init() {
 }
 
 // Unwrap returns the underlying error.
-func (e *Error) Unwrap() error {
-	return e.Err
-}
+func (e *Error) Unwrap() error { return e.Err }
+
+// Cause returns the underlying error.
+func (e *Error) Cause() error { return e.Err }
 
 type constraintError struct {
 	constraint string
@@ -38,9 +39,10 @@ type constraintError struct {
 }
 
 // Unwrap returns the underlying error.
-func (err *constraintError) Unwrap() error {
-	return err.err
-}
+func (err *constraintError) Unwrap() error { return err.err }
+
+// Cause returns the underlying error.
+func (err *constraintError) Cause() error { return err.err }
 
 // Error implements the error interface.
 func (err *constraintError) Error() string {
