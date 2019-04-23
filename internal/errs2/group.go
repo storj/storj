@@ -9,9 +9,8 @@ import "sync"
 // the same overall task.
 type Group struct {
 	wg     sync.WaitGroup
+	mu     sync.Mutex
 	errors []error
-
-	mutex sync.Mutex
 }
 
 // Go calls the given function in a new goroutine.
@@ -22,8 +21,8 @@ func (group *Group) Go(f func() error) {
 		defer group.wg.Done()
 
 		if err := f(); err != nil {
-			group.mutex.Lock()
-			defer group.mutex.Unlock()
+			group.mu.Lock()
+			defer group.mu.Unlock()
 
 			group.errors = append(group.errors, err)
 		}
