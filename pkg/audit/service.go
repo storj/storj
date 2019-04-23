@@ -77,9 +77,6 @@ func (service *Service) process(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if stripe == nil {
-		return nil
-	}
 
 	verifiedNodes, err := service.Verifier.Verify(ctx, stripe)
 	if err != nil {

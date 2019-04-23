@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/pb"
@@ -54,17 +55,6 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 		return nil, err
 	}
 
-	if len(pointerItems) == 0 {
-		return nil, nil
-	}
-
-	pointerItem, err := getRandomPointer(pointerItems)
-	if err != nil {
-		return nil, err
-	}
-
-	path = pointerItem.Path
-
 	// keep track of last path listed
 	if !more {
 		cursor.lastPath = ""
@@ -72,29 +62,21 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 		cursor.lastPath = pointerItems[len(pointerItems)-1].Path
 	}
 
-	// get pointer info
-	pointer, err := cursor.pointerdb.Get(path)
-	if err != nil {
-		return nil, err
-	}
+	var pointer *pb.Pointer
+	errGroup := new(errs.Group)
+	for {
+		if len(pointerItems) == 0 {
+			errGroup.Add(Error.New("no stripes in pointerdb"))
+			return nil, errGroup.Err()
+		}
 
-	//delete expired items rather than auditing them
-	if expiration := pointer.GetExpirationDate(); expiration != nil {
-		t, err := ptypes.Timestamp(expiration)
+		pointer, pointerItems, err = cursor.getRandomPointer(pointerItems)
 		if err != nil {
-			return nil, err
+			errGroup.Add(err)
 		}
-		if t.Before(time.Now()) {
-			return nil, cursor.pointerdb.Delete(path)
+		if pointer != nil {
+			break
 		}
-	}
-
-	if pointer.GetType() != pb.Pointer_REMOTE {
-		return nil, nil
-	}
-
-	if pointer.GetSegmentSize() == 0 {
-		return nil, nil
 	}
 
 	index, err := getRandomStripe(pointer)
@@ -128,11 +110,43 @@ func getRandomStripe(pointer *pb.Pointer) (index int64, err error) {
 	return randomStripeIndex.Int64(), nil
 }
 
-func getRandomPointer(pointerItems []*pb.ListResponse_Item) (pointer *pb.ListResponse_Item, err error) {
+// getRandomPointer attempts to get a random pointer from a list, and if the selected pointer is invalid, it returns a list without that item
+func (cursor *Cursor) getRandomPointer(pointerItems []*pb.ListResponse_Item) (pointer *pb.Pointer, newPointerItems []*pb.ListResponse_Item, err error) {
 	randomNum, err := rand.Int(rand.Reader, big.NewInt(int64(len(pointerItems))))
 	if err != nil {
-		return &pb.ListResponse_Item{}, err
+		return nil, pointerItems, err
 	}
 
-	return pointerItems[randomNum.Int64()], nil
+	i := randomNum.Int64()
+	pointerItem := pointerItems[i]
+	path := pointerItem.Path
+
+	// get pointer info
+	pointer, err = cursor.pointerdb.Get(path)
+	if err != nil {
+		return nil, pointerItems, err
+	}
+
+	newPointerItems = append(pointerItems[:i], pointerItems[i+1:]...)
+
+	//delete expired items rather than auditing them
+	if expiration := pointer.GetExpirationDate(); expiration != nil {
+		t, err := ptypes.Timestamp(expiration)
+		if err != nil {
+			return nil, newPointerItems, err
+		}
+		if t.Before(time.Now()) {
+			return nil, newPointerItems, cursor.pointerdb.Delete(path)
+		}
+	}
+
+	if pointer.GetType() != pb.Pointer_REMOTE {
+		return nil, newPointerItems, Error.New("not remote pointer")
+	}
+
+	if pointer.GetSegmentSize() == 0 {
+		return nil, newPointerItems, Error.New("segment size 0")
+	}
+
+	return pointer, newPointerItems, nil
 }
