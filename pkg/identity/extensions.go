@@ -6,6 +6,7 @@ package identity
 import (
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/binary"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/storj"
@@ -37,5 +38,9 @@ func POWCounterFromCert(cert *x509.Certificate) (peertls.POWCounter, error) {
 	if !ok {
 		return 0, Error.New("no proof-of-work counter extension found")
 	}
-	return peertls.POWCounter(counterExt.Value[0]), nil
+	counterLen := len(counterExt.Value)
+	if counterLen != 8 {
+		return 0, Error.New("invalid counter extension length %d", counterLen)
+	}
+	return peertls.POWCounter(binary.BigEndian.Uint64(counterExt.Value)), nil
 }

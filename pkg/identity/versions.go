@@ -103,11 +103,6 @@ func newV1CA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthorit
 
 	err = GenerateKeyKeyWithCounter(ctx, minimumLoggableDifficulty, int(opts.Concurrency), storj.IDVersions[storj.V1],
 		func(k crypto.PrivateKey, counter peertls.POWCounter, id storj.NodeID) (done bool, err error) {
-			//if ctxDone() {
-			//	fmt.Println("ctx done at start")
-			//	return false, nil
-			//}
-
 			if opts.Logger != nil {
 				if atomic.AddUint32(i, 1)%100 == 0 {
 					updateStatus()
@@ -118,17 +113,10 @@ func newV1CA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthorit
 			if err != nil {
 				return false, err
 			}
-			fmt.Printf("found diff: %d\n", difficulty)
 			if difficulty >= opts.Difficulty {
 				mu.Lock()
-				//if ctxDone() {
-				//	fmt.Println("ctx done in lock")
-				//	return false, nil
-				//}
 				if selectedKey == nil {
 					updateStatus()
-					fmt.Println("updating selected")
-					fmt.Printf("count: %d\n", counter)
 					selectedKey = k
 					selectedID = id
 					selectedCount = counter
@@ -159,6 +147,5 @@ func newV1CA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthorit
 		return nil, err
 	}
 	extraExtensions = append(extraExtensions, NewPOWCounterExt(selectedCount))
-	fmt.Printf("building CA id: %s | count: %d\n", selectedID, selectedCount)
 	return buildCA(opts, selectedKey, selectedID, extraExtensions)
 }

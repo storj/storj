@@ -114,6 +114,7 @@ func TestExtensionMap_HandleExtensions(t *testing.T) {
 				for _, testcase := range testcases {
 					t.Log(testcase.name)
 					extensionsMap := extensions.NewExtensionsMap(testcase.chain...)
+					t.Log(len(extensionsMap))
 					err := extensionsMap.HandleExtensions(handlerFuncMap, identity.ToChains(testcase.chain))
 					assert.NoError(t, err)
 				}

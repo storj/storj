@@ -77,8 +77,8 @@ func (nte NonTemporaryError) Err() error {
 
 // Bytes converts the counter to a byte-slice.
 func (counter POWCounter) Bytes() []byte {
-	var counterBytes = make([]byte, binary.Size(counter))
-	binary.PutUvarint(counterBytes, uint64(counter))
+	var counterBytes = make([]byte, 8)
+	binary.BigEndian.PutUint64(counterBytes, uint64(counter))
 	return counterBytes
 }
 

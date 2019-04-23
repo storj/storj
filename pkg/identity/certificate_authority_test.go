@@ -50,16 +50,13 @@ func TestNewCA(t *testing.T) {
 		assert.Equal(t, generatedNodeID, parsedNodeID)
 
 		if version.Number == storj.V1 {
-			extMap := extensions.NewExtensionsMap(ca.Cert)
-			powCounterExt := extMap[extensions.IdentityPOWCounterExtID.String()]
-			require.NotNil(t, powCounterExt)
-
-			value := powCounterExt.Value
-			require.NotNil(t, value)
+			counter, err := identity.POWCounterFromCert(ca.Cert)
+			require.NoError(t, err)
+			require.NotEmpty(t, counter)
 
 			assert.Condition(t, func() bool {
 				// NB: 0 technically possible but extremely unlikely.
-				return int(value[0]) > 0
+				return int(counter) > 0
 			})
 		}
 	}
