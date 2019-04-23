@@ -80,20 +80,16 @@ import { toUnixTimestamp } from '@/utils/time';
                 Datepicker,
             },
             beforeMount: function() {
-                const currentDate = new Date();
-                const previousDate = new Date();
-                previousDate.setDate(1);
+				const currentDate = new Date();
 
-                this.$data.dateRange.startDate = previousDate;
+                this.$data.dateRange.startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
                 this.$data.dateRange.endDate = currentDate;
             },
             beforeRouteLeave: function(to, from, next) {
-                const currentDate = new Date();
-                const previousDate = new Date();
-                previousDate.setDate(1);
+				const currentDate = new Date();
 
-                this.$data.dateRange.startDate = previousDate;
-                this.$data.dateRange.endDate = currentDate;
+				this.$data.dateRange.startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+				this.$data.dateRange.endDate = currentDate;
 
                 const buttons = [...(document as any).querySelectorAll('.usage-report-container__options-area__option')];
                 buttons.forEach(option => {
@@ -120,12 +116,10 @@ import { toUnixTimestamp } from '@/utils/time';
                     this.$router.push(ROUTES.PROJECT_OVERVIEW);
                 },
                 onCurrentRollupClick: async function (event: any) {
-                    const currentDate = new Date();
-                    const previousDate = new Date();
-                    previousDate.setDate(1);
+					const currentDate = new Date();
 
-                    this.$data.dateRange.startDate = previousDate;
-                    this.$data.dateRange.endDate = currentDate;
+					this.$data.dateRange.startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+					this.$data.dateRange.endDate = currentDate;
                     (this as any).onButtonClickAction(event);
 
                     const response = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, this.$data.dateRange);
@@ -136,7 +130,7 @@ import { toUnixTimestamp } from '@/utils/time';
                 onPreviousRollupClick: async function (event: any) {
                     const date = new Date();
                     const previousDate = new Date(date.getFullYear(), date.getMonth() - 1, 1);
-                    const currentDate = new Date(date.getFullYear(), date.getMonth(), 0);
+                    const currentDate = new Date(date.getFullYear(), date.getMonth(), 0, 23, 59, 59);
 
                     this.$data.dateRange.startDate = previousDate;
                     this.$data.dateRange.endDate = currentDate;

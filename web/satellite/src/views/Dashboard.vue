@@ -76,8 +76,7 @@ import {AppState} from "../utils/constants/appStateEnum";
             }
 
             const currentDate = new Date();
-            const previousDate = new Date();
-            previousDate.setMonth(currentDate.getMonth() - 1);
+            const previousDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
 
             const usageResponse = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, {startDate: previousDate, endDate: currentDate});
             if (!usageResponse.isSuccess) {
