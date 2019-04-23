@@ -68,12 +68,15 @@ func (wrapper *clientStreamWrapper) RecvMsg(m interface{}) error {
 func (wrapper *clientStreamWrapper) withTimeout(f func() error) error {
 	timoutTicker := time.NewTicker(wrapper.timeout)
 	defer timoutTicker.Stop()
+	doneCh := make(chan struct{})
+	defer close(doneCh)
 
 	go func() {
 		select {
 		case <-timoutTicker.C:
 			wrapper.cancel()
 		case <-wrapper.Context().Done():
+		case <-doneCh:
 		}
 	}()
 

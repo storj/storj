@@ -104,16 +104,11 @@ func (dr *decodedReader) Close() error {
 	// avoid double close of readers
 	dr.close.Do(func() {
 		for _, r := range dr.readers {
-			r := r
-			closeGroup.Go(func() error {
-				return r.Close()
-			})
+			closeGroup.Go(r.Close)
 		}
 
 		// close the stripe reader
-		closeGroup.Go(func() error {
-			return dr.stripeReader.Close()
-		})
+		closeGroup.Go(dr.stripeReader.Close)
 
 		allErrors := closeGroup.Wait()
 		errorThreshold -= len(allErrors)
