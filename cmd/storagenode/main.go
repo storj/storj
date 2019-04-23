@@ -77,7 +77,6 @@ var (
 	confDir        string
 	identityDir    string
 	useColor       bool
-	isDev          bool
 )
 
 const (
@@ -91,18 +90,18 @@ func init() {
 	defaultDiagDir = filepath.Join(defaultConfDir, "storage")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for storagenode configuration")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for storagenode identity credentials")
-	cfgstruct.DevFlag(rootCmd, &isDev, false, "use development and test configuration settings")
+	defaults := cfgstruct.DefaultsFlag(rootCmd)
 	rootCmd.PersistentFlags().BoolVar(&useColor, "color", false, "use color in user interface")
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(diagCmd)
 	rootCmd.AddCommand(dashboardCmd)
-	cfgstruct.Bind(runCmd.Flags(), &runCfg, isDev, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, isDev, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	cfgstruct.BindSetup(configCmd.Flags(), &setupCfg, isDev, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, isDev, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	cfgstruct.Bind(dashboardCmd.Flags(), &dashboardCfg, isDev, cfgstruct.ConfDir(defaultDiagDir))
+	cfgstruct.Bind(runCmd.Flags(), &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	cfgstruct.BindSetup(configCmd.Flags(), &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	cfgstruct.Bind(dashboardCmd.Flags(), &dashboardCfg, defaults, cfgstruct.ConfDir(defaultDiagDir))
 }
 
 func databaseConfig(config storagenode.Config) storagenodedb.Config {

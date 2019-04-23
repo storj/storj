@@ -7,8 +7,8 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/asn1"
-	"strings"
 
+	"storj.io/storj/internal/dbutil/sqliteutil"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/storagenode/trust"
@@ -31,7 +31,7 @@ func (db *certdb) Include(ctx context.Context, pi *identity.PeerIdentity) (certi
 	defer db.locked()()
 
 	result, err := db.db.Exec(`INSERT INTO certificate(node_id, peer_identity) VALUES(?, ?)`, pi.ID, chain)
-	if err != nil && strings.Contains(err.Error(), "UNIQUE constraint") {
+	if err != nil && sqliteutil.IsConstraintError(err) {
 		err = db.db.QueryRow(`SELECT cert_id FROM certificate WHERE peer_identity = ?`, chain).Scan(&certid)
 		return certid, ErrInfo.Wrap(err)
 	} else if err != nil {
