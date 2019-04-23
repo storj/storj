@@ -23,3 +23,20 @@ RUN go get github.com/mfridman/tparse
 RUN go get github.com/josephspurrier/goversioninfo
 
 RUN go version
+
+COPY go.mod go.mod
+COPY go.sum go.sum
+
+RUN go build -race github.com/yuin/gopher-lua
+RUN go build -race github.com/minio/minio-go
+RUN go build -race google.golang.org/grpc
+RUN go build -race github.com/golang/protobuf/proto
+RUN go build -race github.com/Shopify/go-lua
+RUN go build -race gopkg.in/Shopify/sarama.v1
+RUN go build -race github.com/gogo/protobuf/proto
+RUN go build -race github.com/go-redis/redis
+RUN go build -race net/http
+RUN go build -race github.com/minio/minio/cmd
+RUN go build -race gopkg.in/olivere/elastic.v5
+
+go rm go.mod go.sum
