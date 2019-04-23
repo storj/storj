@@ -237,13 +237,10 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 	var newNodes []*pb.Node
 	if newNodeCount > 0 {
 		newNodes, err = cache.db.SelectNewStorageNodes(ctx, newNodeCount, &NewNodeCriteria{
-			FreeBandwidth: req.FreeBandwidth,
-			FreeDisk:      req.FreeDisk,
-
-			AuditThreshold: preferences.NewNodeAuditThreshold,
-
-			Excluded: excluded,
-
+			FreeBandwidth:  req.FreeBandwidth,
+			FreeDisk:       req.FreeDisk,
+			AuditThreshold: preferences.AuditCount,
+			Excluded:       excluded,
 			MinimumVersion: preferences.MinimumVersion,
 		})
 		if err != nil {
@@ -259,14 +256,14 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 	}
 
 	reputableNodes, err := cache.db.SelectStorageNodes(ctx, reputableNodeCount-len(newNodes), &NodeCriteria{
-		FreeBandwidth: req.FreeBandwidth,
-		FreeDisk:      req.FreeDisk,
+		FreeBandwidth:      req.FreeBandwidth,
+		FreeDisk:           req.FreeDisk,
 		AuditCount:         auditCount,
 		AuditSuccessRatio:  preferences.AuditSuccessRatio,
 		UptimeCount:        preferences.UptimeCount,
 		UptimeSuccessRatio: preferences.UptimeRatio,
-		Excluded: excluded,
-		MinimumVersion: preferences.MinimumVersion,
+		Excluded:           excluded,
+		MinimumVersion:     preferences.MinimumVersion,
 	})
 	if err != nil {
 		return nil, err
