@@ -80,6 +80,7 @@ func (checker *Checker) Close() error {
 func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	checker.logger.Debug("Identify injured segments")
 	var remoteSegmentsChecked int64
 	var remoteSegmentsNeedingRepair int64
 	var remoteSegmentsLost int64
@@ -107,30 +108,13 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 					continue
 				}
 
-				var nodeIDs storj.NodeIDList
-				for _, p := range pieces {
-					nodeIDs = append(nodeIDs, p.NodeId)
-				}
-
-				// Find all offline nodes
-				offlineNodes, err := checker.overlay.OfflineNodes(ctx, nodeIDs)
+				missingPieces, err := checker.getMissingPieces(ctx, pieces)
 				if err != nil {
-					return Error.New("error getting offline nodes %s", err)
-				}
-
-				invalidNodes, err := checker.invalidNodes(ctx, nodeIDs)
-				if err != nil {
-					return Error.New("error getting invalid nodes %s", err)
-				}
-
-				missingIndices := combineOfflineWithInvalid(offlineNodes, invalidNodes)
-				var missingPieces []int32
-				for _, i := range missingIndices {
-					missingPieces = append(missingPieces, pieces[i].GetPieceNum())
+					return Error.New("error getting missing pieces %s", err)
 				}
 
 				remoteSegmentsChecked++
-				numHealthy := len(nodeIDs) - len(missingPieces)
+				numHealthy := len(pieces) - len(missingPieces)
 				if (int32(numHealthy) >= pointer.Remote.Redundancy.MinReq) && (int32(numHealthy) <= pointer.Remote.Redundancy.RepairThreshold) {
 					remoteSegmentsNeedingRepair++
 					err = checker.repairQueue.Insert(ctx, &pb.InjuredSegment{
@@ -187,6 +171,31 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 	return nil
 }
 
+func (checker *Checker) getMissingPieces(ctx context.Context, pieces []*pb.RemotePiece) (missingPieces []int32, err error) {
+	var nodeIDs storj.NodeIDList
+	for _, p := range pieces {
+		nodeIDs = append(nodeIDs, p.NodeId)
+	}
+
+	nodeDossiers, err := checker.overlay.GetAll(ctx, nodeIDs)
+
+	maxStats := &overlay.NodeStats{
+		AuditSuccessRatio: 0, // TODO: update when we have stats added to overlay
+		UptimeRatio:       0, // TODO: update when we have stats added to overlay
+	}
+
+	if err != nil {
+		return nil,Error.New("error getting nodes %s", err)
+	}
+	
+	for i, nodeDossier := range nodeDossiers {
+		if !nodeDossier.Online() || !nodeDossier.Valid(maxStats) {
+			missingPieces = append(missingPieces, pieces[i].GetPieceNum())
+		}
+	}
+	return missingPieces, nil
+}
+
 // Find invalidNodes by checking the audit results that are place in overlay
 func (checker *Checker) invalidNodes(ctx context.Context, nodeIDs storj.NodeIDList) (invalidNodes []int, err error) {
 	// filter if nodeIDs have invalid pieces from auditing results
@@ -212,25 +221,6 @@ func (checker *Checker) invalidNodes(ctx context.Context, nodeIDs storj.NodeIDLi
 	}
 
 	return invalidNodes, nil
-}
-
-// combine the offline nodes with nodes marked invalid by overlay
-func combineOfflineWithInvalid(offlineNodes []int, invalidNodes []int) (missingPieces []int32) {
-	for _, offline := range offlineNodes {
-		missingPieces = append(missingPieces, int32(offline))
-	}
-
-	offlineMap := make(map[int]bool)
-	for _, i := range offlineNodes {
-		offlineMap[i] = true
-	}
-	for _, i := range invalidNodes {
-		if !offlineMap[i] {
-			missingPieces = append(missingPieces, int32(i))
-		}
-	}
-
-	return missingPieces
 }
 
 // checks for a string in slice
