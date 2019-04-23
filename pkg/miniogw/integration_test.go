@@ -79,7 +79,9 @@ func TestUploadDownload(t *testing.T) {
 
 	// keys
 	uplinkCfg.Client.APIKey = "apiKey"
-	uplinkCfg.Enc.Key = "encKey"
+	const humanReadableEncKey = "encKey"
+	encKey := new(storj.Key)
+	copy(encKey[:], humanReadableEncKey)
 
 	// redundancy
 	uplinkCfg.RS.MinThreshold = 7
@@ -98,7 +100,7 @@ func TestUploadDownload(t *testing.T) {
 	// setup and start gateway
 	go func() {
 		// TODO: this leaks the gateway server, however it shouldn't
-		err := runGateway(ctx, gwCfg, uplinkCfg, zaptest.NewLogger(t), identity)
+		err := runGateway(ctx, gwCfg, uplinkCfg, encKey, zaptest.NewLogger(t), identity)
 		if err != nil {
 			t.Log(err)
 		}
@@ -112,7 +114,7 @@ func TestUploadDownload(t *testing.T) {
 		AccessKey:     gwCfg.Minio.AccessKey,
 		SecretKey:     gwCfg.Minio.SecretKey,
 		APIKey:        uplinkCfg.Client.APIKey,
-		EncryptionKey: uplinkCfg.Enc.Key,
+		EncryptionKey: humanReadableEncKey,
 		NoSSL:         true,
 	})
 	assert.NoError(t, err)
@@ -142,7 +144,7 @@ func TestUploadDownload(t *testing.T) {
 }
 
 // runGateway creates and starts a gateway
-func runGateway(ctx context.Context, gwCfg config, uplinkCfg uplink.Config, log *zap.Logger, ident *identity.FullIdentity) (err error) {
+func runGateway(ctx context.Context, gwCfg config, uplinkCfg uplink.Config, encKey *storj.Key, log *zap.Logger, ident *identity.FullIdentity) (err error) {
 
 	// set gateway flags
 	flags := flag.NewFlagSet("gateway", flag.ExitOnError)
@@ -190,9 +192,6 @@ func runGateway(ctx context.Context, gwCfg config, uplinkCfg uplink.Config, log 
 	if err != nil {
 		return err
 	}
-
-	encKey := new(storj.Key)
-	copy(encKey[:], uplinkCfg.Enc.Key)
 
 	var projectOptions libuplink.ProjectOptions
 	projectOptions.Volatile.EncryptionKey = encKey
