@@ -130,6 +130,8 @@ func (s *Server) bucketUsageReportHandler(w http.ResponseWriter, req *http.Reque
 
 	auth, err := s.service.Authorize(auth.WithAPIKey(req.Context(), []byte(tokenCookie.Value)))
 	if err != nil {
+		s.log.Error("bucket usage report error", zap.Error(err))
+
 		w.WriteHeader(http.StatusUnauthorized)
 		http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "errors", "404.html"))
 		return
@@ -137,6 +139,8 @@ func (s *Server) bucketUsageReportHandler(w http.ResponseWriter, req *http.Reque
 
 	defer func() {
 		if err != nil {
+			s.log.Error("bucket usage report error", zap.Error(err))
+
 			w.WriteHeader(http.StatusNotFound)
 			http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "errors", "404.html"))
 		}
@@ -147,14 +151,17 @@ func (s *Server) bucketUsageReportHandler(w http.ResponseWriter, req *http.Reque
 	if err != nil {
 		return
 	}
-	since, err = time.Parse(time.RFC3339, req.URL.Query().Get("since"))
+	sinceStamp, err := strconv.ParseInt(req.URL.Query().Get("since"), 10, 64)
 	if err != nil {
 		return
 	}
-	before, err = time.Parse(time.RFC3339, req.URL.Query().Get("before"))
+	beforeStamp, err := strconv.ParseInt(req.URL.Query().Get("before"), 10, 64)
 	if err != nil {
 		return
 	}
+
+	since = time.Unix(sinceStamp, 0)
+	before = time.Unix(beforeStamp, 0)
 
 	s.log.Debug("querying bucket usage report",
 		zap.String("projectID", projectID.String()),
