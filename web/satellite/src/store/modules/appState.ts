@@ -69,16 +69,9 @@ export const appStateModule = {
         },
         // Mutation that closes each popup/dropdown
         [APP_STATE_MUTATIONS.CLOSE_ALL](state: any): void {
-            state.appState.isAddTeamMembersPopupShown = false;
-            state.appState.isNewProjectPopupShown = false;
             state.appState.isProjectsDropdownShown = false;
             state.appState.isAccountDropdownShown = false;
-            state.appState.isDeleteProjectPopupShown = false;
-            state.appState.isDeleteAccountPopupShown = false;
             state.appState.isSortProjectMembersByPopupShown = false;
-            state.appState.isNewAPIKeyPopupShown = false;
-            state.appState.isSuccessfulRegistrationPopupShown = false;
-            state.appState.isSuccessfulProjectCreationPopupShown = false;
         },
         [APP_STATE_MUTATIONS.CHANGE_STATE](state: any, newFetchState: AppState): void {
             state.appState.fetchState = newFetchState;

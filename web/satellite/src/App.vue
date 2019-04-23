@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div id="app">
+    <div id="app" v-on:click="onClick">
         <router-view/>
         <!-- Area for displaying notification -->
         <NotificationArea/>
@@ -15,9 +15,34 @@ import NotificationArea from '@/components/notifications/NotificationArea.vue';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({
+    data: function() {
+        return {
+            ids: [
+                'accountDropdown',
+                'accountDropdownButton',
+                'projectDropdown',
+                'projectDropdownButton',
+                'sortTeamMemberByDropdown',
+                'sortTeamMemberByDropdownButton',
+                'notificationArea',
+            ]
+        };
+    },
     components: {
         NotificationArea
     },
+    methods: {
+        onClick: function(e) {
+            let target: any = e.target;
+            while (target) {
+                if (this.$data.ids.includes(target.id)) {
+                    return;
+                }
+                target = target.parentNode;
+            }
+            this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+        }
+    }
 })
 
 export default class App extends Vue {
