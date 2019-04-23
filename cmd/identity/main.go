@@ -101,6 +101,7 @@ func cmdNewService(cmd *cobra.Command, args []string) error {
 		Concurrency:    config.Concurrency,
 		ParentCertPath: config.ParentCertPath,
 		ParentKeyPath:  config.ParentKeyPath,
+		VersionNumber: 1,
 	}
 
 	status, err := caConfig.Status()

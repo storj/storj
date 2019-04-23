@@ -18,7 +18,6 @@ import (
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls/extensions"
-	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -45,8 +44,13 @@ func TestNewCA(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, actualDifficulty >= expectedDifficulty)
 
+		generatedNodeID := ca.ID
+		parsedNodeID, err := identity.NodeIDFromCert(ca.Cert)
+		require.NoError(t, err)
+		assert.Equal(t, generatedNodeID, parsedNodeID)
+
 		if version.Number == storj.V1 {
-			extMap := tlsopts.NewExtensionsMap(ca.Cert)
+			extMap := extensions.NewExtensionsMap(ca.Cert)
 			powCounterExt := extMap[extensions.IdentityPOWCounterExtID.String()]
 			require.NotNil(t, powCounterExt)
 
@@ -191,7 +195,7 @@ func TestFullCertificateAuthority_AddExtension(t *testing.T) {
 	assert.Equal(t, oldCert.SerialNumber, ca.Cert.SerialNumber)
 	assert.Equal(t, oldCert.IsCA, ca.Cert.IsCA)
 	assert.Equal(t, oldCert.PublicKey, ca.Cert.PublicKey)
-	assert.Equal(t, randExt, tlsopts.NewExtensionsMap(ca.Cert)[randExt.Id.String()])
+	assert.Equal(t, randExt, extensions.NewExtensionsMap(ca.Cert)[randExt.Id.String()])
 
 	assert.NotEqual(t, oldCert.Raw, ca.Cert.Raw)
 	assert.NotEqual(t, oldCert.RawTBSCertificate, ca.Cert.RawTBSCertificate)
@@ -222,7 +226,7 @@ func TestFullCertificateAuthority_Revoke(t *testing.T) {
 	assert.NotEqual(t, oldCert.RawTBSCertificate, ca.Cert.RawTBSCertificate)
 	assert.NotEqual(t, oldCert.Signature, ca.Cert.Signature)
 
-	revocationExt := tlsopts.NewExtensionsMap(ca.Cert)[extensions.RevocationExtID.String()]
+	revocationExt := extensions.NewExtensionsMap(ca.Cert)[extensions.RevocationExtID.String()]
 	assert.True(t, extensions.RevocationExtID.Equal(revocationExt.Id))
 
 	var rev extensions.Revocation

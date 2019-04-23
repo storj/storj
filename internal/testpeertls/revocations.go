@@ -11,7 +11,6 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/extensions"
-	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -80,7 +79,7 @@ func RevokeCA(caKey crypto.PrivateKey, chain []*x509.Certificate) ([]*x509.Certi
 		return nil, pkix.Extension{}, err
 	}
 
-	extMap := tlsopts.NewExtensionsMap(ca.Cert)
+	extMap := extensions.NewExtensionsMap(ca.Cert)
 	revocationExt, ok := extMap[extensions.RevocationExtID.String()]
 	if !ok {
 		return nil, pkix.Extension{}, extensions.ErrRevocation.New("no revocation extension found")

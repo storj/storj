@@ -14,7 +14,6 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/extensions"
-	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -115,7 +114,7 @@ func TestIDVersionExtensionHandler_success(t *testing.T) {
 		err := storj.IDVersionHandler.NewHandlerFunc(opts)(ext, identity.ToChains(testcase.chain))
 		assert.NoError(t, err)
 
-		extensionMap := tlsopts.NewExtensionsMap(testcase.chain...)
+		extensionMap := extensions.NewExtensionsMap(testcase.chain...)
 		handlerFuncMap := extensions.AllHandlers.WithOptions(opts)
 
 		err = extensionMap.HandleExtensions(handlerFuncMap, identity.ToChains(testcase.chain))
@@ -146,7 +145,7 @@ func TestIDVersionExtensionHandler_error(t *testing.T) {
 		err := storj.IDVersionHandler.NewHandlerFunc(opts)(ext, identity.ToChains(testcase.chain))
 		assert.Error(t, err)
 
-		extensionMap := tlsopts.NewExtensionsMap(testcase.chain...)
+		extensionMap := extensions.NewExtensionsMap(testcase.chain...)
 		handlerFuncMap := extensions.AllHandlers.WithOptions(opts)
 
 		err = extensionMap.HandleExtensions(handlerFuncMap, identity.ToChains(testcase.chain))

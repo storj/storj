@@ -62,12 +62,8 @@ func GenerateKeys(ctx context.Context, minDifficulty uint16, concurrency int, ve
 		group.Go(func() error {
 			defer cancel()
 			for {
-				ctxDone := ctx.Done()
-				select {
-				case <-ctxDone:
+				if ctxDone(ctx) {
 					return nil
-				default:
-					break
 				}
 
 				k, id, err := GenerateKey(ctx, minDifficulty, version)
@@ -105,16 +101,12 @@ func GenerateKeyKeyWithCounter(ctx context.Context, minDifficulty uint16, concur
 		group.Go(func() error {
 			defer cancel()
 			for {
-				ctxDone := ctx.Done()
-				select {
-				case <-ctxDone:
+				if ctxDone(ctx) {
 					return nil
-				default:
-					break
 				}
 
 				counter := peertls.POWCounter(count.Inc())
-				//time.Sleep(500 * time.Millisecond)
+				//time.Sleep(25 * time.Millisecond)
 				id, err := NodeIDFromKeyWithCounter(pkcrypto.PublicKeyFromPrivate(k), counter, version)
 				if err != nil {
 					return err
@@ -132,4 +124,14 @@ func GenerateKeyKeyWithCounter(ctx context.Context, minDifficulty uint16, concur
 	}
 
 	return group.Wait()
+}
+
+func ctxDone(ctx context.Context) bool {
+	ctxDone := ctx.Done()
+	select {
+	case <-ctxDone:
+		return true
+	default:
+		return false
+	}
 }

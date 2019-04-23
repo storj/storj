@@ -93,12 +93,10 @@ func LatestIDVersion() IDVersion {
 
 // IDVersionFromCert parsed the IDVersion from the passed certificate's IDVersion extension.
 func IDVersionFromCert(cert *x509.Certificate) (IDVersion, error) {
-	//fmt.Printf("extensions %d\n", len(cert.Extensions))
-	//fmt.Printf("extra extensions %d\n", len(cert.ExtraExtensions))
-	for _, ext := range cert.Extensions {
-		if extensions.IdentityVersionExtID.Equal(ext.Id) {
-			return GetIDVersion(IDVersionNumber(ext.Value[0]))
-		}
+	exts := extensions.NewExtensionsMap(cert)
+	versionExt, ok := exts[extensions.IdentityVersionExtID.String()]
+	if ok {
+		return GetIDVersion(IDVersionNumber(versionExt.Value[0]))
 	}
 
 	// NB: for backward-compatibility with V0 certificate generation, V0 is used

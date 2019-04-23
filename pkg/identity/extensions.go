@@ -4,6 +4,7 @@
 package identity
 
 import (
+	"crypto/x509"
 	"crypto/x509/pkix"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/extensions"
@@ -28,3 +29,13 @@ func NewVersionExt(version storj.IDVersion) pkix.Extension {
 	}
 }
 
+// POWCounterFromCert retrieves the POWCounter from the certificate's
+// proof-of-work counter extension value.
+func POWCounterFromCert(cert *x509.Certificate) (peertls.POWCounter, error) {
+	exts := extensions.NewExtensionsMap(cert)
+	counterExt, ok := exts[extensions.IdentityPOWCounterExtID.String()]
+	if !ok {
+		return 0, Error.New("no proof-of-work counter extension found")
+	}
+	return peertls.POWCounter(counterExt.Value[0]), nil
+}

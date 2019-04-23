@@ -374,10 +374,19 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 				AuthToken: auths[unclaimedIndex].Token.String(),
 				Timestamp: time.Now().Unix(),
 			},
-			Peer:          grpcPeer,
-			ChainBytes:    [][]byte{ident2.CA.Raw},
-			MinDifficulty: difficulty2 + 1,
+			Peer:       grpcPeer,
+			ChainBytes: [][]byte{ident2.CA.Raw},
+			//MinDifficulty: difficulty2 + 1,
+			MinDifficulty: 0,
 		})
+		fmt.Printf("difficulty2 %d\n", difficulty2)
+		fmt.Printf("nodeID %s\n", ident2.ID)
+		fmt.Printf("nodeID %v\n", ident2.ID[:])
+
+		testID, err := identity.NodeIDFromCert(ident2.CA)
+		require.NoError(t, err)
+		fmt.Printf("nodeID3 %s\n", testID)
+		fmt.Printf("nodeID3 %v\n", testID[:])
 		if assert.Error(t, err) {
 			assert.True(t, ErrAuthorization.Has(err))
 			// NB: token string shouldn't leak into error message

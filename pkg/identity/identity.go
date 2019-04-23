@@ -257,7 +257,20 @@ func NodeIDFromCert(cert *x509.Certificate) (id storj.NodeID, err error) {
 	if err != nil {
 		return id, err
 	}
-	return NodeIDFromKey(cert.PublicKey, version)
+
+	switch version.Number {
+	case storj.V0:
+		fmt.Println("V0")
+		return NodeIDFromKey(cert.PublicKey, version)
+	default:
+		fmt.Printf("V%d\n", version.Number)
+		counter, err := POWCounterFromCert(cert)
+		if err != nil {
+			return storj.NodeID{}, err
+		}
+		fmt.Printf("%d\n", counter)
+		return NodeIDFromKeyWithCounter(cert.PublicKey, counter, version)
+	}
 }
 
 // NodeIDFromKey calculates the node ID for a given public key with the passed version.

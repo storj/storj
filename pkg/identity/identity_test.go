@@ -25,7 +25,6 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/extensions"
-	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
 )
@@ -109,7 +108,7 @@ func TestConfig_Save_with_extension(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, version.Number, caVersion.Number)
 
-			versionExt := tlsopts.NewExtensionsMap(ident.CA)[extensions.IdentityVersionExtID.String()]
+			versionExt := extensions.NewExtensionsMap(ident.CA)[extensions.IdentityVersionExtID.String()]
 			require.NotEmpty(t, versionExt)
 			assert.Equal(t, ident.ID.Version().Number, storj.IDVersionNumber(versionExt.Value[0]))
 		}
@@ -139,7 +138,7 @@ func TestConfig_Save_with_extension(t *testing.T) {
 			assert.Equal(t, ident.CA, loadedFi.CA)
 			assert.Equal(t, ident.ID, loadedFi.ID)
 
-			versionExt := tlsopts.NewExtensionsMap(ident.CA)[extensions.IdentityVersionExtID.String()]
+			versionExt := extensions.NewExtensionsMap(ident.CA)[extensions.IdentityVersionExtID.String()]
 			require.NotEmpty(t, versionExt)
 			assert.Equal(t, ident.ID.Version().Number, storj.IDVersionNumber(versionExt.Value[0]))
 		}
@@ -253,10 +252,10 @@ func TestManageablePeerIdentity_AddExtension(t *testing.T) {
 	assert.Equal(t, oldLeaf.SerialNumber, manageablePeerIdentity.Leaf.SerialNumber)
 	assert.Equal(t, oldLeaf.IsCA, manageablePeerIdentity.Leaf.IsCA)
 	assert.Equal(t, oldLeaf.PublicKey, manageablePeerIdentity.Leaf.PublicKey)
-	ext := tlsopts.NewExtensionsMap(manageablePeerIdentity.Leaf)[randExt.Id.String()]
+	ext := extensions.NewExtensionsMap(manageablePeerIdentity.Leaf)[randExt.Id.String()]
 	assert.Equal(t, randExt, ext)
 
-	assert.Equal(t, randExt, tlsopts.NewExtensionsMap(manageablePeerIdentity.Leaf)[randExt.Id.String()])
+	assert.Equal(t, randExt, extensions.NewExtensionsMap(manageablePeerIdentity.Leaf)[randExt.Id.String()])
 
 	assert.NotEqual(t, oldLeaf.Raw, manageablePeerIdentity.Leaf.Raw)
 	assert.NotEqual(t, oldLeaf.RawTBSCertificate, manageablePeerIdentity.Leaf.RawTBSCertificate)
@@ -287,7 +286,7 @@ func TestManageableFullIdentity_Revoke(t *testing.T) {
 	assert.NotEqual(t, oldLeaf.RawTBSCertificate, manageableFullIdentity.Leaf.RawTBSCertificate)
 	assert.NotEqual(t, oldLeaf.Signature, manageableFullIdentity.Leaf.Signature)
 
-	revocationExt := tlsopts.NewExtensionsMap(manageableFullIdentity.Leaf)[extensions.RevocationExtID.String()]
+	revocationExt := extensions.NewExtensionsMap(manageableFullIdentity.Leaf)[extensions.RevocationExtID.String()]
 	assert.True(t, extensions.RevocationExtID.Equal(revocationExt.Id))
 
 	var rev extensions.Revocation

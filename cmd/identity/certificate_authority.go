@@ -124,6 +124,7 @@ func cmdGetID(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
+	fmt.Printf("identity version:\t%d\n", p.ID.Version().Number)
 	fmt.Printf("base58-check node ID:\t%s\n", p.ID)
 	fmt.Printf("hex node ID:\t\t%x\n", p.ID)
 	fmt.Printf("node ID bytes:\t\t%v\n", p.ID[:])

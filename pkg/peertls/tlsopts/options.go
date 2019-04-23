@@ -6,11 +6,10 @@ package tlsopts
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"crypto/x509/pkix"
 	"io/ioutil"
 
 	"github.com/zeebo/errs"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
@@ -41,9 +40,6 @@ type VerificationFuncs struct {
 	server []peertls.PeerCertVerificationFunc
 }
 
-// ExtensionMap maps `pkix.Extension`s to their respective asn1 object ID string.
-type ExtensionMap map[string]pkix.Extension
-
 // NewOptions is a constructor for `tls options` given an identity and config.
 func NewOptions(i *identity.FullIdentity, c Config) (*Options, error) {
 	opts := &Options{
@@ -58,17 +54,6 @@ func NewOptions(i *identity.FullIdentity, c Config) (*Options, error) {
 	}
 
 	return opts, nil
-}
-
-// NewExtensionsMap builds an `ExtensionsMap` from the extensions in the passed certificate(s).
-func NewExtensionsMap(chain ...*x509.Certificate) ExtensionMap {
-	extensionMap := make(ExtensionMap)
-	for _, cert := range chain {
-		for _, ext := range cert.Extensions {
-			extensionMap[ext.Id.String()] = ext
-		}
-	}
-	return extensionMap
 }
 
 // ExtensionOptions converts options for use in extension handling.
@@ -122,27 +107,11 @@ func (opts *Options) handleExtensions(handlers extensions.HandlerFactories) {
 	handlerFuncMap := handlers.WithOptions(opts.ExtensionOptions())
 
 	combinedHandlerFunc := func(_ [][]byte, parsedChains [][]*x509.Certificate) error {
-		extensionMap := NewExtensionsMap(parsedChains[0]...)
+		extensionMap := extensions.NewExtensionsMap(parsedChains[0]...)
 		return extensionMap.HandleExtensions(handlerFuncMap, parsedChains)
 	}
 
 	opts.VerificationFuncs.Add(combinedHandlerFunc)
-}
-
-// HandleExtensions calls each `extensions.HandlerFunc` with its respective extension
-// and the certificate chain where its object ID string matches the extension's.
-func (extensionMap ExtensionMap) HandleExtensions(handlerFuncMap extensions.HandlerFuncMap, chain [][]*x509.Certificate) error {
-	for idStr, extension := range extensionMap {
-		for id, handlerFunc := range handlerFuncMap {
-			if idStr == id.String() {
-				err := handlerFunc(extension, chain)
-				if err != nil {
-					return Error.Wrap(err)
-				}
-			}
-		}
-	}
-	return nil
 }
 
 // Client returns the client verification functions.

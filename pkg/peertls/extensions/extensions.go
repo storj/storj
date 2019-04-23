@@ -101,6 +101,9 @@ type HandlerFunc func(pkix.Extension, [][]*x509.Certificate) error
 // underlying extension id value.
 type HandlerFuncMap map[*ExtensionID]HandlerFunc
 
+// ExtensionMap maps `pkix.Extension`s to their respective asn1 object ID string.
+type ExtensionMap map[string]pkix.Extension
+
 func init() {
 	// NB: register all handlers defined in this file.
 	AllHandlers.Register(
@@ -136,6 +139,17 @@ func AddExtraExtension(cert *x509.Certificate, exts ...pkix.Extension) (err erro
 	return nil
 }
 
+// NewExtensionsMap builds an `ExtensionsMap` from the extensions in the passed certificate(s).
+func NewExtensionsMap(chain ...*x509.Certificate) ExtensionMap {
+	extensionMap := make(ExtensionMap)
+	for _, cert := range chain {
+		for _, ext := range cert.Extensions {
+			extensionMap[ext.Id.String()] = ext
+		}
+	}
+	return extensionMap
+}
+
 // Register adds an extension handler factory to the list.
 func (factories *HandlerFactories) Register(newHandlers ...*HandlerFactory) {
 	*factories = append(*factories, newHandlers...)
@@ -161,6 +175,22 @@ func (handlerFactory *HandlerFactory) ID() *ExtensionID {
 // NewHandlerFunc returns a new `HandlerFunc` with the passed `Options`.
 func (handlerFactory *HandlerFactory) NewHandlerFunc(opts *Options) HandlerFunc {
 	return handlerFactory.factory(opts)
+}
+
+// HandleExtensions calls each `extensions.HandlerFunc` with its respective extension
+// and the certificate chain where its object ID string matches the extension's.
+func (extensionMap ExtensionMap) HandleExtensions(handlerFuncMap HandlerFuncMap, chain [][]*x509.Certificate) error {
+	for idStr, extension := range extensionMap {
+		for id, handlerFunc := range handlerFuncMap {
+			if idStr == id.String() {
+				err := handlerFunc(extension, chain)
+				if err != nil {
+					return Error.Wrap(err)
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func uniqueExts(exts []pkix.Extension) bool {

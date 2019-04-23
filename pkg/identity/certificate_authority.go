@@ -146,6 +146,7 @@ func (caS CASetupConfig) Create(ctx context.Context, logger io.Writer) (*FullCer
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("saving CA id: %s", ca.ID)
 	caC := FullCAConfig{
 		CertPath: caS.CertPath,
 		KeyPath:  caS.KeyPath,
@@ -404,7 +405,7 @@ func statusLogger(logger io.Writer, i *uint32, highscore *uint32) func() {
 		if logger != nil {
 			count := atomic.LoadUint32(i)
 			hs := atomic.LoadUint32(highscore)
-			_, err := fmt.Fprintf(logger, "\rGenerated %d keys; best difficulty so far: %d", count, hs)
+			_, err := fmt.Fprintf(logger, "\rGenerated %d IDs; best difficulty so far: %d", count, hs)
 			if err != nil {
 				log.Print(errs.Wrap(err))
 			}

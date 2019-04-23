@@ -349,6 +349,8 @@ func (authDB *AuthorizationDB) Claim(opts *ClaimOpts) error {
 	}
 
 	fmt.Printf("peerDifficulty: %d\n", peerDifficulty)
+	fmt.Printf("peer nodeID %s\n", ident.ID)
+	fmt.Printf("peer nodeID %v\n", ident.ID[:])
 	if peerDifficulty < opts.MinDifficulty {
 		return ErrAuthorization.New("difficulty must be greater than or equal to: %d", opts.MinDifficulty)
 	}

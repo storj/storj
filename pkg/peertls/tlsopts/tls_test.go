@@ -113,7 +113,7 @@ func TestExtensionMap_HandleExtensions(t *testing.T) {
 				handlerFuncMap := extensions.AllHandlers.WithOptions(opts)
 				for _, testcase := range testcases {
 					t.Log(testcase.name)
-					extensionsMap := tlsopts.NewExtensionsMap(testcase.chain...)
+					extensionsMap := extensions.NewExtensionsMap(testcase.chain...)
 					err := extensionsMap.HandleExtensions(handlerFuncMap, identity.ToChains(testcase.chain))
 					assert.NoError(t, err)
 				}
@@ -145,7 +145,7 @@ func TestExtensionMap_HandleExtensions_error(t *testing.T) {
 		handlerFuncMap := extensions.HandlerFactories{
 			extensions.RevocationUpdateHandler,
 		}.WithOptions(opts)
-		extensionsMap := tlsopts.NewExtensionsMap(chain[peertls.LeafIndex])
+		extensionsMap := extensions.NewExtensionsMap(chain[peertls.LeafIndex])
 
 		assert.Equal(t, oldRevocation, extensionsMap[extensions.RevocationExtID.String()])
 
