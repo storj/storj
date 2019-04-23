@@ -78,7 +78,6 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		assert.Error(t, err)
 	}
 
-
 	{ // TestUpdateOperator
 		nodeID := storj.NodeID{10}
 		err := cache.UpdateAddress(ctx, &pb.Node{Id: nodeID})

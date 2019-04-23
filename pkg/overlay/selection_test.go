@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/testcontext"
@@ -15,39 +14,6 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/storj"
 )
-
-func TestOffline(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		satellite := planet.Satellites[0]
-		service := satellite.Overlay.Service
-		// TODO: handle cleanup
-
-		result, err := service.OfflineNodes(ctx, []storj.NodeID{
-			planet.StorageNodes[0].ID(),
-		})
-		require.NoError(t, err)
-		require.Empty(t, result)
-
-		result, err = service.OfflineNodes(ctx, []storj.NodeID{
-			planet.StorageNodes[0].ID(),
-			planet.StorageNodes[1].ID(),
-			planet.StorageNodes[2].ID(),
-		})
-		require.NoError(t, err)
-		require.Empty(t, result)
-
-		result, err = service.OfflineNodes(ctx, []storj.NodeID{
-			planet.StorageNodes[0].ID(),
-			storj.NodeID{1, 2, 3, 4},
-			planet.StorageNodes[2].ID(),
-		})
-		require.NoError(t, err)
-		require.Equal(t, []int{1}, result)
-
-	})
-}
 
 func TestNodeSelection(t *testing.T) {
 	t.Skip("flaky")
