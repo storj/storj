@@ -69,7 +69,7 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 	safeQuery := `
 		WHERE type = ? AND free_bandwidth >= ? AND free_disk >= ?
 		  AND total_audit_count < ?
-		  AND (audit_success_ratio >= ? || total_audit_count == 0)
+		  AND (audit_success_ratio >= ? OR total_audit_count == 0)
 		  AND last_contact_success > ?
 		  AND last_contact_success > last_contact_failure`
 	args := append(make([]interface{}, 0, 10),
