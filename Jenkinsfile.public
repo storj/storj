@@ -39,7 +39,7 @@ pipeline {
                     }
                     steps {
                         sh 'psql -U postgres -c \'create database teststorj;\''
-                        sh 'go test -exec "leakcheck -temponly" -vet=off -timeout 9m -json -race ./... 2>&1 | tee tests.json | go run ./scripts/xunit.go -out tests.xml'
+                        sh 'go test -exec "leakcheck -temp" -vet=off -timeout 9m -json -race ./... 2>&1 | tee tests.json | go run ./scripts/xunit.go -out tests.xml'
                     }
 
                     post {
