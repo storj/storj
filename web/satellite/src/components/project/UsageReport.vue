@@ -69,6 +69,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import ROUTES from '@/utils/constants/routerConstants';
 import Datepicker from '@/components/project/DatePicker.vue';
 import { NOTIFICATION_ACTIONS, PROJECT_USAGE_ACTIONS } from '@/utils/constants/actionNames';
+import { toUnixTimestamp } from '@/utils/time';
 
 @Component(
         {
@@ -188,8 +189,8 @@ import { NOTIFICATION_ACTIONS, PROJECT_USAGE_ACTIONS } from '@/utils/constants/a
                     let url = new URL(location.origin);
                     url.pathname = 'usage-report';
                     url.searchParams.append('projectID', projectID);
-                    url.searchParams.append('since', this.$data.dateRange.startDate.toISOString());
-                    url.searchParams.append('before', this.$data.dateRange.endDate.toISOString());
+                    url.searchParams.append('since', toUnixTimestamp(this.$data.dateRange.startDate).toString());
+                    url.searchParams.append('before', toUnixTimestamp(this.$data.dateRange.endDate).toString());
 
                     window.open(url.href, '_blank');
                 },
