@@ -41,7 +41,7 @@ func TestNilMacaroon(t *testing.T) {
 }
 
 func TestMacaroon(t *testing.T) {
-	nonce, err := macaroon.NewNonce()
+	nonce, err := macaroon.NewSecret()
 	assert.NotNil(t, nonce)
 	assert.NoError(t, err)
 	assert.Equal(t, len(nonce), 32)

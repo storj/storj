@@ -50,18 +50,6 @@ func NewSecret() (secret []byte, err error) {
 	return secret, nil
 }
 
-// NewNonce generates cryptographically random 32 bytes
-func NewNonce() (nonce []byte, err error) {
-	nonce = make([]byte, 32)
-
-	_, err = rand.Read(nonce)
-	if err != nil {
-		return nil, err
-	}
-
-	return nonce, nil
-}
-
 // AddFirstPartyCaveat creates signed macaroon with appended caveat
 func (m *Macaroon) AddFirstPartyCaveat(c Caveat) (macaroon *Macaroon, err error) {
 	macaroon = m.Copy()
