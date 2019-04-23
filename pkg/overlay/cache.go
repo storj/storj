@@ -130,7 +130,7 @@ func (node *NodeDossier) Online() bool {
 		node.Reputation.LastContactSuccess.After(node.Reputation.LastContactFailure)
 }
 
-func (node *NodeDossier) Valid(maxStats *NodeStats) bool {
+func (node *NodeDossier) Vetted(maxStats *NodeStats) bool {
 	return node.Reputation.AuditSuccessRatio >= maxStats.AuditSuccessRatio && node.Reputation.UptimeRatio >= maxStats.UptimeRatio
 }
 

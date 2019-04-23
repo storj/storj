@@ -177,7 +177,7 @@ func (checker *Checker) getMissingPieces(ctx context.Context, pieces []*pb.Remot
 		nodeIDs = append(nodeIDs, p.NodeId)
 	}
 
-	nodeDossiers, err := checker.overlay.GetAll(ctx, nodeIDs)
+	nodes, err := checker.overlay.GetAll(ctx, nodeIDs)
 
 	maxStats := &overlay.NodeStats{
 		AuditSuccessRatio: 0, // TODO: update when we have stats added to overlay
@@ -188,8 +188,8 @@ func (checker *Checker) getMissingPieces(ctx context.Context, pieces []*pb.Remot
 		return nil,Error.New("error getting nodes %s", err)
 	}
 	
-	for i, nodeDossier := range nodeDossiers {
-		if nodeDossier == nil || !nodeDossier.Online() || !nodeDossier.Valid(maxStats) {
+	for i, node := range nodes {
+		if node == nil || !node.Online() || !node.Vetted(maxStats) {
 			missingPieces = append(missingPieces, pieces[i].GetPieceNum())
 		}
 	}
