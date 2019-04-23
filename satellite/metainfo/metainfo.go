@@ -77,7 +77,7 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context) (*console.APIKeyInfo
 		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
 	}
 
-	key, err := console.APIKeyFromBase64(string(APIKey))
+	key, err := console.APIKeyFromBase32(string(APIKey))
 	if err != nil {
 		endpoint.log.Error("unauthorized request: ", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
 		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
