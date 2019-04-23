@@ -41,7 +41,7 @@ type DB interface {
 	// SelectStorageNodes looks up nodes based on criteria
 	SelectStorageNodes(ctx context.Context, count int, criteria *NodeCriteria) ([]*pb.Node, error)
 	// SelectNewStorageNodes looks up nodes based on new node criteria
-	SelectNewStorageNodes(ctx context.Context, count int, criteria *NewNodeCriteria) ([]*pb.Node, error)
+	SelectNewStorageNodes(ctx context.Context, count int, criteria *NodeCriteria) ([]*pb.Node, error)
 
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
@@ -88,18 +88,6 @@ type NodeCriteria struct {
 	AuditSuccessRatio  float64
 	UptimeCount        int64
 	UptimeSuccessRatio float64
-
-	Excluded []storj.NodeID
-
-	MinimumVersion string // semver or empty
-}
-
-// NewNodeCriteria are the requirement for selecting new nodes
-type NewNodeCriteria struct {
-	FreeBandwidth int64
-	FreeDisk      int64
-
-	AuditThreshold int64
 
 	Excluded []storj.NodeID
 
@@ -236,12 +224,13 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 
 	var newNodes []*pb.Node
 	if newNodeCount > 0 {
-		newNodes, err = cache.db.SelectNewStorageNodes(ctx, newNodeCount, &NewNodeCriteria{
-			FreeBandwidth:  req.FreeBandwidth,
-			FreeDisk:       req.FreeDisk,
-			AuditThreshold: preferences.AuditCount,
-			Excluded:       excluded,
-			MinimumVersion: preferences.MinimumVersion,
+		newNodes, err = cache.db.SelectNewStorageNodes(ctx, newNodeCount, &NodeCriteria{
+			FreeBandwidth:     req.FreeBandwidth,
+			FreeDisk:          req.FreeDisk,
+			AuditCount:        preferences.AuditCount,
+			AuditSuccessRatio: preferences.AuditSuccessRatio,
+			Excluded:          excluded,
+			MinimumVersion:    preferences.MinimumVersion,
 		})
 		if err != nil {
 			return nil, err
