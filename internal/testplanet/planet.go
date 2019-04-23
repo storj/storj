@@ -7,6 +7,7 @@ package testplanet
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
@@ -27,6 +28,8 @@ import (
 	"storj.io/storj/bootstrap/bootstrapdb"
 	"storj.io/storj/bootstrap/bootstrapweb/bootstrapserver"
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/internal/testidentity"
+	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/accounting/rollup"
 	"storj.io/storj/pkg/accounting/tally"
 	"storj.io/storj/pkg/audit"
@@ -38,7 +41,7 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/pointerdb"
@@ -50,14 +53,17 @@ import (
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/orders"
+	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/storagenodedb"
+	"storj.io/storj/versioncontrol"
 )
 
 // Peer represents one of StorageNode or Satellite
 type Peer interface {
 	ID() storj.NodeID
 	Addr() string
-	Local() pb.Node
+	Local() overlay.NodeDossier
 
 	Run(context.Context) error
 	Close() error
@@ -69,8 +75,9 @@ type Config struct {
 	StorageNodeCount int
 	UplinkCount      int
 
-	Identities  *Identities
-	Reconfigure Reconfigure
+	Identities      *testidentity.Identities
+	IdentityVersion *storj.IDVersion
+	Reconfigure     Reconfigure
 }
 
 // Planet is a full storj system setup.
@@ -86,12 +93,13 @@ type Planet struct {
 	databases []io.Closer
 	uplinks   []*Uplink
 
-	Bootstrap    *bootstrap.Peer
-	Satellites   []*satellite.Peer
-	StorageNodes []*storagenode.Peer
-	Uplinks      []*Uplink
+	Bootstrap      *bootstrap.Peer
+	VersionControl *versioncontrol.Peer
+	Satellites     []*satellite.Peer
+	StorageNodes   []*storagenode.Peer
+	Uplinks        []*Uplink
 
-	identities    *Identities
+	identities    *testidentity.Identities
 	whitelistPath string // TODO: in-memory
 
 	run    errgroup.Group
@@ -129,6 +137,23 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 	return NewWithLogger(log, satelliteCount, storageNodeCount, uplinkCount)
 }
 
+// NewWithIdentityVersion creates a new full system with the given version for node identities and the given number of nodes.
+func NewWithIdentityVersion(t zaptest.TestingT, identityVersion *storj.IDVersion, satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
+	var log *zap.Logger
+	if t == nil {
+		log = zap.NewNop()
+	} else {
+		log = zaptest.NewLogger(t)
+	}
+
+	return NewCustom(log, Config{
+		SatelliteCount:   satelliteCount,
+		StorageNodeCount: storageNodeCount,
+		UplinkCount:      uplinkCount,
+		IdentityVersion:  identityVersion,
+	})
+}
+
 // NewWithLogger creates a new full system with the given number of nodes.
 func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
 	return NewCustom(log, Config{
@@ -140,8 +165,12 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 
 // NewCustom creates a new full system with the specified configuration.
 func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
+	if config.IdentityVersion == nil {
+		version := storj.LatestIDVersion()
+		config.IdentityVersion = &version
+	}
 	if config.Identities == nil {
-		config.Identities = pregeneratedSignedIdentities.Clone()
+		config.Identities = testidentity.NewPregeneratedSignedIdentities(*config.IdentityVersion)
 	}
 
 	planet := &Planet{
@@ -156,11 +185,16 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 		return nil, err
 	}
 
-	whitelistPath, err := planet.WriteWhitelist()
+	whitelistPath, err := planet.WriteWhitelist(*config.IdentityVersion)
 	if err != nil {
 		return nil, err
 	}
 	planet.whitelistPath = whitelistPath
+
+	planet.VersionControl, err = planet.newVersionControlServer()
+	if err != nil {
+		return nil, errs.Combine(err, planet.Shutdown())
+	}
 
 	planet.Bootstrap, err = planet.newBootstrap()
 	if err != nil {
@@ -190,13 +224,13 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 	// init Satellites
 	for _, satellite := range planet.Satellites {
 		if len(satellite.Kademlia.Service.GetBootstrapNodes()) == 0 {
-			satellite.Kademlia.Service.SetBootstrapNodes([]pb.Node{planet.Bootstrap.Local()})
+			satellite.Kademlia.Service.SetBootstrapNodes([]pb.Node{planet.Bootstrap.Local().Node})
 		}
 	}
 	// init storage nodes
 	for _, storageNode := range planet.StorageNodes {
 		if len(storageNode.Kademlia.Service.GetBootstrapNodes()) == 0 {
-			storageNode.Kademlia.Service.SetBootstrapNodes([]pb.Node{planet.Bootstrap.Local()})
+			storageNode.Kademlia.Service.SetBootstrapNodes([]pb.Node{planet.Bootstrap.Local().Node})
 		}
 	}
 
@@ -207,6 +241,10 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 func (planet *Planet) Start(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	planet.cancel = cancel
+
+	planet.run.Go(func() error {
+		return planet.VersionControl.Run(ctx)
+	})
 
 	for i := range planet.peers {
 		peer := &planet.peers[i]
@@ -220,10 +258,11 @@ func (planet *Planet) Start(ctx context.Context) {
 
 	planet.Bootstrap.Kademlia.Service.WaitForBootstrap()
 
-	for _, peer := range planet.Satellites {
+	for _, peer := range planet.StorageNodes {
 		peer.Kademlia.Service.WaitForBootstrap()
 	}
-	for _, peer := range planet.StorageNodes {
+
+	for _, peer := range planet.Satellites {
 		peer.Kademlia.Service.WaitForBootstrap()
 	}
 
@@ -242,7 +281,7 @@ func (planet *Planet) Reconnect(ctx context.Context) {
 	for _, storageNode := range planet.StorageNodes {
 		storageNode := storageNode
 		group.Go(func() error {
-			_, err := storageNode.Kademlia.Service.Ping(ctx, planet.Bootstrap.Local())
+			_, err := storageNode.Kademlia.Service.Ping(ctx, planet.Bootstrap.Local().Node)
 			if err != nil {
 				log.Error("storage node did not find bootstrap", zap.Error(err))
 			}
@@ -254,7 +293,7 @@ func (planet *Planet) Reconnect(ctx context.Context) {
 		satellite := satellite
 		group.Go(func() error {
 			for _, storageNode := range planet.StorageNodes {
-				_, err := satellite.Kademlia.Service.Ping(ctx, storageNode.Local())
+				_, err := satellite.Kademlia.Service.Ping(ctx, storageNode.Local().Node)
 				if err != nil {
 					log.Error("satellite did not find storage node", zap.Error(err))
 				}
@@ -305,7 +344,6 @@ func (planet *Planet) Shutdown() error {
 		case <-ctx.Done():
 		}
 	}()
-
 	errlist.Add(planet.run.Wait())
 	cancel()
 
@@ -321,6 +359,7 @@ func (planet *Planet) Shutdown() error {
 	for _, db := range planet.databases {
 		errlist.Add(db.Close())
 	}
+	errlist.Add(planet.VersionControl.Close())
 
 	errlist.Add(os.RemoveAll(planet.directory))
 	return errlist.Err()
@@ -390,7 +429,8 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 					RevocationDBURL:     "bolt://" + filepath.Join(storageDir, "revocation.db"),
 					UsePeerCAWhitelist:  true,
 					PeerCAWhitelistPath: planet.whitelistPath,
-					Extensions: peertls.TLSExtConfig{
+					PeerIDVersions:      "latest",
+					Extensions: extensions.Config{
 						Revocation:          false,
 						WhitelistSignedLeaf: false,
 					},
@@ -434,27 +474,31 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			Repairer: repairer.Config{
 				MaxRepair:    10,
 				Interval:     time.Hour,
+				Timeout:      2 * time.Second,
 				MaxBufferMem: 4 * memory.MiB,
 			},
 			Audit: audit.Config{
-				MaxRetriesStatDB: 0,
-				Interval:         30 * time.Second,
+				MaxRetriesStatDB:  0,
+				Interval:          30 * time.Second,
+				MinBytesPerSecond: 1 * memory.KB,
 			},
 			Tally: tally.Config{
 				Interval: 30 * time.Second,
 			},
 			Rollup: rollup.Config{
-				Interval: 120 * time.Second,
+				Interval:      2 * time.Minute,
+				MaxAlphaUsage: 25 * memory.GB,
 			},
 			Mail: mailservice.Config{
-				SMTPServerAddress: "smtp.gmail.com:587",
-				From:              "Labs <yaroslav-satellite-test@storj.io>",
+				SMTPServerAddress: "smtp.mail.example.com:587",
+				From:              "Labs <storj@example.com>",
 				AuthType:          "simulate",
 			},
 			Console: consoleweb.Config{
 				Address:      "127.0.0.1:0",
 				PasswordCost: console.TestPasswordCost,
 			},
+			Version: planet.NewVersionConfig(),
 		}
 		if planet.config.Reconfigure.Satellite != nil {
 			planet.config.Reconfigure.Satellite(log, i, &config)
@@ -471,7 +515,9 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 		config.Console.StaticDir = filepath.Join(storjRoot, "web/satellite")
 		config.Mail.TemplatePath = filepath.Join(storjRoot, "web/satellite/static/emails")
 
-		peer, err := satellite.New(log, identity, db, &config)
+		verInfo := planet.NewVersionInfo()
+
+		peer, err := satellite.New(log, identity, db, &config, verInfo)
 		if err != nil {
 			return xs, err
 		}
@@ -532,7 +578,8 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 					RevocationDBURL:     "bolt://" + filepath.Join(storageDir, "revocation.db"),
 					UsePeerCAWhitelist:  true,
 					PeerCAWhitelistPath: planet.whitelistPath,
-					Extensions: peertls.TLSExtConfig{
+					PeerIDVersions:      "*",
+					Extensions: extensions.Config{
 						Revocation:          false,
 						WhitelistSignedLeaf: false,
 					},
@@ -548,7 +595,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 			},
 			Storage: psserver.Config{
 				Path:                   "", // TODO: this argument won't be needed with master storagenodedb
-				AllocatedDiskSpace:     memory.TB,
+				AllocatedDiskSpace:     1500 * memory.GB,
 				AllocatedBandwidth:     memory.TB,
 				KBucketRefreshInterval: time.Hour,
 
@@ -558,12 +605,21 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 				SatelliteIDRestriction:  true,
 				WhitelistedSatelliteIDs: strings.Join(whitelistedSatelliteIDs, ","),
 			},
+			Storage2: piecestore.Config{
+				Sender: orders.SenderConfig{
+					Interval: time.Hour,
+					Timeout:  time.Hour,
+				},
+			},
+			Version: planet.NewVersionConfig(),
 		}
 		if planet.config.Reconfigure.StorageNode != nil {
 			planet.config.Reconfigure.StorageNode(i, &config)
 		}
 
-		peer, err := storagenode.New(log, identity, db, config)
+		verInfo := planet.NewVersionInfo()
+
+		peer, err := storagenode.New(log, identity, db, config, verInfo)
 		if err != nil {
 			return xs, err
 		}
@@ -617,7 +673,8 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 				RevocationDBURL:     "bolt://" + filepath.Join(dbDir, "revocation.db"),
 				UsePeerCAWhitelist:  true,
 				PeerCAWhitelistPath: planet.whitelistPath,
-				Extensions: peertls.TLSExtConfig{
+				PeerIDVersions:      "latest",
+				Extensions: extensions.Config{
 					Revocation:          false,
 					WhitelistSignedLeaf: false,
 				},
@@ -635,12 +692,16 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 			Address:   "127.0.0.1:0",
 			StaticDir: "./web/bootstrap", // TODO: for development only
 		},
+		Version: planet.NewVersionConfig(),
 	}
 	if planet.config.Reconfigure.Bootstrap != nil {
 		planet.config.Reconfigure.Bootstrap(0, &config)
 	}
 
-	peer, err = bootstrap.New(log, identity, db, config)
+	var verInfo version.Info
+	verInfo = planet.NewVersionInfo()
+
+	peer, err = bootstrap.New(log, identity, db, config, verInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -650,8 +711,62 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 	return peer, nil
 }
 
+// newVersionControlServer initializes the Versioning Server
+func (planet *Planet) newVersionControlServer() (peer *versioncontrol.Peer, err error) {
+
+	prefix := "versioncontrol"
+	log := planet.log.Named(prefix)
+	dbDir := filepath.Join(planet.directory, prefix)
+
+	if err := os.MkdirAll(dbDir, 0700); err != nil {
+		return nil, err
+	}
+
+	config := &versioncontrol.Config{
+		Address: "127.0.0.1:0",
+		Versions: versioncontrol.ServiceVersions{
+			Bootstrap:   "v0.0.1",
+			Satellite:   "v0.0.1",
+			Storagenode: "v0.0.1",
+			Uplink:      "v0.0.1",
+			Gateway:     "v0.0.1",
+		},
+	}
+	peer, err = versioncontrol.New(log, config)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Debug(" addr= " + peer.Addr())
+
+	return peer, nil
+}
+
+// NewVersionInfo returns the Version Info for this planet with tuned metrics.
+func (planet *Planet) NewVersionInfo() version.Info {
+	info := version.Info{
+		Timestamp:  time.Now(),
+		CommitHash: "testplanet",
+		Version: version.SemVer{
+			Major: 0,
+			Minor: 0,
+			Patch: 1},
+		Release: false,
+	}
+	return info
+}
+
+// NewVersionConfig returns the Version Config for this planet with tuned metrics.
+func (planet *Planet) NewVersionConfig() version.Config {
+	return version.Config{
+		ServerAddress:  fmt.Sprintf("http://%s/", planet.VersionControl.Addr()),
+		RequestTimeout: time.Second * 15,
+		CheckInterval:  time.Minute * 5,
+	}
+}
+
 // Identities returns the identity provider for this planet.
-func (planet *Planet) Identities() *Identities {
+func (planet *Planet) Identities() *testidentity.Identities {
 	return planet.identities
 }
 
@@ -666,9 +781,9 @@ func (planet *Planet) NewListener() (net.Listener, error) {
 }
 
 // WriteWhitelist writes the pregenerated signer's CA cert to a "CA whitelist", PEM-encoded.
-func (planet *Planet) WriteWhitelist() (string, error) {
+func (planet *Planet) WriteWhitelist(version storj.IDVersion) (string, error) {
 	whitelistPath := filepath.Join(planet.directory, "whitelist.pem")
-	signer := NewPregeneratedSigner()
+	signer := testidentity.NewPregeneratedSigner(version)
 	err := identity.PeerCAConfig{
 		CertPath: whitelistPath,
 	}.Save(signer.PeerCA())

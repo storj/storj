@@ -25,7 +25,37 @@ import (
 	"storj.io/storj/internal/processgroup"
 )
 
-const folderPermissions = 0744
+const (
+	maxInstanceCount    = 100
+	maxStoragenodeCount = 200
+
+	folderPermissions = 0744
+)
+
+const (
+	// The following values of peer class and endpoints are used
+	// to create a port with a consistent format for storj-sim services.
+
+	// Peer class
+	satellitePeer      = 0
+	gatewayPeer        = 1
+	versioncontrolPeer = 2
+	bootstrapPeer      = 3
+	storagenodePeer    = 4
+
+	// Endpoint
+	publicGRPC  = 0
+	privateGRPC = 1
+	publicHTTP  = 2
+	debugHTTP   = 9
+)
+
+// port creates a port with a consistent format for storj-sim services.
+// The port format is: "1PXXE", where P is the peer class, XX is the index of the instance, and E is the endpoint.
+func port(peerclass, index, endpoint int) string {
+	port := 10000 + peerclass*1000 + index*10 + endpoint
+	return strconv.Itoa(port)
+}
 
 func networkExec(flags *Flags, args []string, command string) error {
 	processes, err := newNetwork(flags)
@@ -52,6 +82,42 @@ func networkExec(flags *Flags, args []string, command string) error {
 	closeErr := processes.Close()
 
 	return errs.Combine(err, closeErr)
+}
+
+func networkEnv(flags *Flags, args []string) error {
+	flags.OnlyEnv = true
+	processes, err := newNetwork(flags)
+	if err != nil {
+		return err
+	}
+
+	// run exec before, since it will load env vars from configs
+	for _, process := range processes.List {
+		if exec := process.ExecBefore["run"]; exec != nil {
+			if err := exec(process); err != nil {
+				return err
+			}
+		}
+	}
+
+	if len(args) == 1 {
+		envprefix := strings.ToUpper(args[0] + "=")
+		// find the environment value that the environment variable is set to
+		for _, env := range processes.Env() {
+			if strings.HasPrefix(strings.ToUpper(env), envprefix) {
+				fmt.Println(env[len(envprefix):])
+				return nil
+			}
+		}
+
+		return nil
+	}
+
+	for _, env := range processes.Env() {
+		fmt.Println(env)
+	}
+
+	return nil
 }
 
 func networkTest(flags *Flags, command string, args []string) error {
@@ -111,34 +177,44 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 	processes := NewProcesses(flags.Directory)
 
-	var (
-		host                   = flags.Host
-		gatewayPort            = 9000
-		bootstrapPort          = 9999
-		bootstrapPrivatePort   = 9988
-		satellitePort          = 10000
-		satellitePrivatePort   = 11000
-		storageNodePort        = 12000
-		storageNodePrivatePort = 13000
-		consolePort            = 10100
-		bootstrapWebPort       = 10010
-	)
+	var host = flags.Host
+	versioncontrol := processes.New(Info{
+		Name:       "versioncontrol/0",
+		Executable: "versioncontrol",
+		Directory:  filepath.Join(processes.Directory, "versioncontrol", "0"),
+		Address:    net.JoinHostPort(host, port(versioncontrolPeer, 0, publicGRPC)),
+	})
+
+	versioncontrol.Arguments = withCommon(versioncontrol.Directory, Arguments{
+		"setup": {
+			"--address", versioncontrol.Address,
+			"--debug.addr", net.JoinHostPort("127.0.0.1", port(versioncontrolPeer, 0, debugHTTP)),
+		},
+		"run": {},
+	})
+
+	versioncontrol.ExecBefore["run"] = func(process *Process) error {
+		return readConfigString(&versioncontrol.Address, versioncontrol.Directory, "address")
+	}
 
 	bootstrap := processes.New(Info{
 		Name:       "bootstrap/0",
 		Executable: "bootstrap",
 		Directory:  filepath.Join(processes.Directory, "bootstrap", "0"),
-		Address:    net.JoinHostPort(host, strconv.Itoa(bootstrapPort)),
+		Address:    net.JoinHostPort(host, port(bootstrapPeer, 0, publicGRPC)),
 	})
+
+	// gateway must wait for the versioncontrol to start up
+	bootstrap.WaitForStart(versioncontrol)
 
 	bootstrap.Arguments = withCommon(bootstrap.Directory, Arguments{
 		"setup": {
 			"--identity-dir", bootstrap.Directory,
 
-			"--web.address", net.JoinHostPort(host, strconv.Itoa(bootstrapWebPort)),
+			"--web.address", net.JoinHostPort(host, port(bootstrapPeer, 0, publicHTTP)),
 
 			"--server.address", bootstrap.Address,
-			"--server.private-address", net.JoinHostPort(host, strconv.Itoa(bootstrapPrivatePort)),
+			"--server.private-address", net.JoinHostPort(host, port(bootstrapPeer, 0, privateGRPC)),
 
 			"--kademlia.bootstrap-addr", bootstrap.Address,
 			"--kademlia.operator.email", "bootstrap@example.com",
@@ -146,6 +222,10 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 			"--server.extensions.revocation=false",
 			"--server.use-peer-ca-whitelist=false",
+
+			"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
+
+			"--debug.addr", net.JoinHostPort("127.0.0.1", port(bootstrapPeer, 0, debugHTTP)),
 		},
 		"run": {},
 	})
@@ -154,13 +234,17 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	}
 
 	// Create satellites making all satellites wait for bootstrap to start
+	if flags.SatelliteCount > maxInstanceCount {
+		return nil, fmt.Errorf("exceeded the max instance count of %d with Satellite count of %d", maxInstanceCount, flags.SatelliteCount)
+	}
+
 	var satellites []*Process
 	for i := 0; i < flags.SatelliteCount; i++ {
 		process := processes.New(Info{
 			Name:       fmt.Sprintf("satellite/%d", i),
 			Executable: "satellite",
 			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
-			Address:    net.JoinHostPort(host, strconv.Itoa(satellitePort+i)),
+			Address:    net.JoinHostPort(host, port(satellitePeer, i, publicGRPC)),
 		})
 		satellites = append(satellites, process)
 
@@ -179,12 +263,12 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process.Arguments = withCommon(process.Directory, Arguments{
 			"setup": {
 				"--identity-dir", process.Directory,
-				"--console.address", net.JoinHostPort(host, strconv.Itoa(consolePort+i)),
+				"--console.address", net.JoinHostPort(host, port(satellitePeer, i, publicHTTP)),
 				"--console.static-dir", filepath.Join(storjRoot, "web/satellite/"),
 				// TODO: remove console.auth-token after vanguard release
 				"--console.auth-token", consoleAuthToken,
 				"--server.address", process.Address,
-				"--server.private-address", net.JoinHostPort(host, strconv.Itoa(satellitePrivatePort+i)),
+				"--server.private-address", net.JoinHostPort(host, port(satellitePeer, i, privateGRPC)),
 
 				"--kademlia.bootstrap-addr", bootstrap.Address,
 
@@ -194,6 +278,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--mail.smtp-server-address", "smtp.gmail.com:587",
 				"--mail.from", "Storj <yaroslav-satellite-test@storj.io>",
 				"--mail.template-path", filepath.Join(storjRoot, "web/satellite/static/emails"),
+
+				"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
+				"--debug.addr", net.JoinHostPort("127.0.0.1", port(satellitePeer, i, debugHTTP)),
 			},
 			"run": {},
 		})
@@ -210,13 +297,12 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			Name:       fmt.Sprintf("gateway/%d", i),
 			Executable: "gateway",
 			Directory:  filepath.Join(processes.Directory, "gateway", fmt.Sprint(i)),
-			Address:    net.JoinHostPort(host, strconv.Itoa(gatewayPort+i)),
+			Address:    net.JoinHostPort(host, port(gatewayPeer, i, publicGRPC)),
 			Extra:      []string{},
 		})
 
 		// gateway must wait for the corresponding satellite to start up
 		process.WaitForStart(satellite)
-
 		process.Arguments = withCommon(process.Directory, Arguments{
 			"setup": {
 				"--identity-dir", process.Directory,
@@ -224,8 +310,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 				"--server.address", process.Address,
 
-				"--client.overlay-addr", satellite.Address,
-				"--client.pointer-db-addr", satellite.Address,
+				"--satellite-addr", satellite.Address,
+
+				"--enc.key=TestEncryptionKey",
 
 				"--rs.min-threshold", strconv.Itoa(1 * flags.StorageNodeCount / 5),
 				"--rs.repair-threshold", strconv.Itoa(2 * flags.StorageNodeCount / 5),
@@ -234,6 +321,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 				"--tls.extensions.revocation=false",
 				"--tls.use-peer-ca-whitelist=false",
+
+				"--debug.addr", net.JoinHostPort(host, port(gatewayPeer, i, debugHTTP)),
 			},
 			"run": {},
 		})
@@ -255,8 +344,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			// check if gateway config has an api key, if it's not
 			// create example project with key and add it to the config
 			// so that gateway can have access to the satellite
-			apiKey := vip.GetString("client.api-key")
-			if apiKey == "" {
+			apiKey := vip.GetString("api-key")
+			if !flags.OnlyEnv && apiKey == "" {
 				var consoleAddress string
 				satelliteConfigErr := readConfigString(&consoleAddress, satellite.Directory, "console.address")
 				if satelliteConfigErr != nil {
@@ -275,11 +364,15 @@ func newNetwork(flags *Flags) (*Processes, error) {
 					return err
 				}
 
-				vip.Set("client.api-key", apiKey)
+				vip.Set("api-key", apiKey)
 
 				if err := vip.WriteConfig(); err != nil {
 					return err
 				}
+			}
+
+			if apiKey != "" {
+				process.Extra = append(process.Extra, "API_KEY="+apiKey)
 			}
 
 			accessKey := vip.GetString("minio.access-key")
@@ -295,12 +388,15 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	}
 
 	// Create storage nodes
+	if flags.StorageNodeCount > maxStoragenodeCount {
+		return nil, fmt.Errorf("exceeded the max instance count of %d with Storage Node count of %d", maxStoragenodeCount, flags.StorageNodeCount)
+	}
 	for i := 0; i < flags.StorageNodeCount; i++ {
 		process := processes.New(Info{
 			Name:       fmt.Sprintf("storagenode/%d", i),
 			Executable: "storagenode",
 			Directory:  filepath.Join(processes.Directory, "storagenode", fmt.Sprint(i)),
-			Address:    net.JoinHostPort(host, strconv.Itoa(storageNodePort+i)),
+			Address:    net.JoinHostPort(host, port(storagenodePeer, i, publicGRPC)),
 		})
 
 		// storage node must wait for bootstrap and satellites to start
@@ -313,7 +409,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			"setup": {
 				"--identity-dir", process.Directory,
 				"--server.address", process.Address,
-				"--server.private-address", net.JoinHostPort(host, strconv.Itoa(storageNodePrivatePort+i)),
+				"--server.private-address", net.JoinHostPort(host, port(storagenodePeer, i, privateGRPC)),
 
 				"--kademlia.bootstrap-addr", bootstrap.Address,
 				"--kademlia.operator.email", fmt.Sprintf("storage%d@example.com", i),
@@ -321,6 +417,10 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 				"--server.extensions.revocation=false",
 				"--server.use-peer-ca-whitelist=false",
+				"--storage.satellite-id-restriction=false",
+
+				"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
+				"--debug.addr", net.JoinHostPort("127.0.0.1", port(storagenodePeer, i, debugHTTP)),
 			},
 			"run": {},
 		})

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
@@ -14,7 +15,7 @@ import (
 
 func TestCache_Refresh(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		for _, storageNode := range planet.StorageNodes {
@@ -28,24 +29,31 @@ func TestCache_Refresh(t *testing.T) {
 
 func TestCache_Graveyard(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		testnode := planet.StorageNodes[0]
 		offlineID := testnode.ID()
 
-		satellite.Discovery.Service.Graveyard.Pause()
+		satellite.Kademlia.Service.RefreshBuckets.Pause()
 
-		err := satellite.Overlay.Service.Delete(ctx, offlineID)
+		satellite.Discovery.Service.Refresh.Pause()
+		satellite.Discovery.Service.Graveyard.Pause()
+		satellite.Discovery.Service.Discovery.Pause()
+
+		// mark node as offline in overlay cache
+		_, err := satellite.Overlay.Service.UpdateUptime(ctx, offlineID, false)
+		require.NoError(t, err)
+
+		node, err := satellite.Overlay.Service.Get(ctx, offlineID)
 		assert.NoError(t, err)
-		_, err = satellite.Overlay.Service.Get(ctx, offlineID)
-		assert.NotNil(t, err)
+		assert.False(t, node.Online())
 
 		satellite.Discovery.Service.Graveyard.TriggerWait()
 
 		found, err := satellite.Overlay.Service.Get(ctx, offlineID)
 		assert.NoError(t, err)
-		assert.NotNil(t, found)
 		assert.Equal(t, offlineID, found.Id)
+		assert.True(t, found.Online())
 	})
 }

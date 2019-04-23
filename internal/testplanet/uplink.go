@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"strconv"
 
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
@@ -19,7 +20,6 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/stream"
@@ -48,7 +48,9 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 		return nil, err
 	}
 
-	tlsOpts, err := tlsopts.NewOptions(identity, tlsopts.Config{})
+	tlsOpts, err := tlsopts.NewOptions(identity, tlsopts.Config{
+		PeerIDVersions: strconv.Itoa(int(planet.config.IdentityVersion.Number)),
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -64,8 +66,7 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 	uplink.Transport = transport.NewClient(tlsOpts)
 
 	uplink.Info = pb.Node{
-		Id:   uplink.Identity.ID,
-		Type: pb.NodeType_UPLINK,
+		Id: uplink.Identity.ID,
 		Address: &pb.NodeAddress{
 			Transport: pb.NodeTransport_TCP_TLS_GRPC,
 			Address:   "",
@@ -125,12 +126,6 @@ func (uplink *Uplink) Local() pb.Node { return uplink.Info }
 // Shutdown shuts down all uplink dependencies
 func (uplink *Uplink) Shutdown() error { return nil }
 
-// DialPointerDB dials destination with apikey and returns pointerdb Client
-func (uplink *Uplink) DialPointerDB(destination Peer, apikey string) (pdbclient.Client, error) {
-	// TODO: handle disconnect
-	return pdbclient.NewClient(uplink.Transport, destination.Addr(), apikey)
-}
-
 // DialMetainfo dials destination with apikey and returns metainfo Client
 func (uplink *Uplink) DialMetainfo(ctx context.Context, destination Peer, apikey string) (metainfo.Client, error) {
 	// TODO: handle disconnect
@@ -141,7 +136,7 @@ func (uplink *Uplink) DialMetainfo(ctx context.Context, destination Peer, apikey
 func (uplink *Uplink) DialPiecestore(ctx context.Context, destination Peer) (*piecestore.Client, error) {
 	node := destination.Local()
 
-	conn, err := uplink.Transport.DialNode(ctx, &node)
+	conn, err := uplink.Transport.DialNode(ctx, &node.Node)
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +148,56 @@ func (uplink *Uplink) DialPiecestore(ctx context.Context, destination Peer) (*pi
 
 // Upload data to specific satellite
 func (uplink *Uplink) Upload(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path, data []byte) error {
-	config := uplink.getConfig(satellite)
+	config := uplink.GetConfig(satellite)
+	metainfo, streams, err := config.GetMetainfo(ctx, uplink.Identity)
+	if err != nil {
+		return err
+	}
+
+	encScheme := config.GetEncryptionScheme()
+	redScheme := config.GetRedundancyScheme()
+
+	// create bucket if not exists
+	_, err = metainfo.GetBucket(ctx, bucket)
+	if err != nil {
+		if storj.ErrBucketNotFound.Has(err) {
+			_, err := metainfo.CreateBucket(ctx, bucket, &storj.Bucket{PathCipher: encScheme.Cipher})
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+
+	createInfo := storj.CreateObject{
+		RedundancyScheme: redScheme,
+		EncryptionScheme: encScheme,
+	}
+	obj, err := metainfo.CreateObject(ctx, bucket, path, &createInfo)
+	if err != nil {
+		return err
+	}
+
+	reader := bytes.NewReader(data)
+	err = uploadStream(ctx, streams, obj, reader)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// UploadWithConfig uploads data to specific satellite with configured values
+func (uplink *Uplink) UploadWithConfig(ctx context.Context, satellite *satellite.Peer, redundancy *uplink.RSConfig, bucket string, path storj.Path, data []byte) error {
+	config := uplink.GetConfig(satellite)
+	if redundancy != nil {
+		config.RS.MinThreshold = redundancy.MinThreshold
+		config.RS.RepairThreshold = redundancy.RepairThreshold
+		config.RS.SuccessThreshold = redundancy.SuccessThreshold
+		config.RS.MaxThreshold = redundancy.MaxThreshold
+	}
+
 	metainfo, streams, err := config.GetMetainfo(ctx, uplink.Identity)
 	if err != nil {
 		return err
@@ -208,7 +252,7 @@ func uploadStream(ctx context.Context, streams streams.Store, mutableObject stor
 
 // DownloadStream returns stream for downloading data.
 func (uplink *Uplink) DownloadStream(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) (*stream.Download, error) {
-	config := uplink.getConfig(satellite)
+	config := uplink.GetConfig(satellite)
 	metainfo, streams, err := config.GetMetainfo(ctx, uplink.Identity)
 	if err != nil {
 		return nil, err
@@ -239,7 +283,7 @@ func (uplink *Uplink) Download(ctx context.Context, satellite *satellite.Peer, b
 
 // Delete data to specific satellite
 func (uplink *Uplink) Delete(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) error {
-	config := uplink.getConfig(satellite)
+	config := uplink.GetConfig(satellite)
 	metainfo, _, err := config.GetMetainfo(ctx, uplink.Identity)
 	if err != nil {
 		return err
@@ -247,16 +291,16 @@ func (uplink *Uplink) Delete(ctx context.Context, satellite *satellite.Peer, buc
 	return metainfo.DeleteObject(ctx, bucket, path)
 }
 
-func (uplink *Uplink) getConfig(satellite *satellite.Peer) uplink.Config {
+// GetConfig returns a default config for a given satellite.
+func (uplink *Uplink) GetConfig(satellite *satellite.Peer) uplink.Config {
 	config := getDefaultConfig()
-	config.Client.OverlayAddr = satellite.Addr()
-	config.Client.PointerDBAddr = satellite.Addr()
+	config.Client.SatelliteAddr = satellite.Addr()
 	config.Client.APIKey = uplink.APIKey[satellite.ID()]
 
-	config.RS.MinThreshold = 1 * uplink.StorageNodeCount / 5
-	config.RS.RepairThreshold = 2 * uplink.StorageNodeCount / 5
-	config.RS.SuccessThreshold = 3 * uplink.StorageNodeCount / 5
-	config.RS.MaxThreshold = 4 * uplink.StorageNodeCount / 5
+	config.RS.MinThreshold = atLeastOne(uplink.StorageNodeCount * 1 / 5)     // 20% of storage nodes
+	config.RS.RepairThreshold = atLeastOne(uplink.StorageNodeCount * 2 / 5)  // 40% of storage nodes
+	config.RS.SuccessThreshold = atLeastOne(uplink.StorageNodeCount * 3 / 5) // 60% of storage nodes
+	config.RS.MaxThreshold = atLeastOne(uplink.StorageNodeCount * 4 / 5)     // 80% of storage nodes
 
 	config.TLS.UsePeerCAWhitelist = false
 	config.TLS.Extensions.Revocation = false
@@ -267,6 +311,14 @@ func (uplink *Uplink) getConfig(satellite *satellite.Peer) uplink.Config {
 
 func getDefaultConfig() uplink.Config {
 	config := uplink.Config{}
-	cfgstruct.Bind(&pflag.FlagSet{}, &config, true)
+	cfgstruct.Bind(&pflag.FlagSet{}, &config, cfgstruct.UseDevDefaults())
 	return config
+}
+
+// atLeastOne returns 1 if value < 1, or value otherwise.
+func atLeastOne(value int) int {
+	if value < 1 {
+		return 1
+	}
+	return value
 }

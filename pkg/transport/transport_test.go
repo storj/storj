@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
@@ -30,26 +31,29 @@ func TestDialNode(t *testing.T) {
 	}
 	defer ctx.Check(planet.Shutdown)
 
-	whitelistPath, err := planet.WriteWhitelist()
+	whitelistPath, err := planet.WriteWhitelist(storj.LatestIDVersion())
 	require.NoError(t, err)
 
 	planet.Start(ctx)
 
 	client := planet.StorageNodes[0].Transport
 
-	unsignedIdent, err := testplanet.PregeneratedIdentity(0)
+	unsignedIdent, err := testidentity.PregeneratedIdentity(0, storj.LatestIDVersion())
 	require.NoError(t, err)
 
-	signedIdent, err := testplanet.PregeneratedSignedIdentity(0)
+	signedIdent, err := testidentity.PregeneratedSignedIdentity(0, storj.LatestIDVersion())
 	require.NoError(t, err)
 
 	opts, err := tlsopts.NewOptions(signedIdent, tlsopts.Config{
 		UsePeerCAWhitelist:  true,
 		PeerCAWhitelistPath: whitelistPath,
+		PeerIDVersions:      "*",
 	})
 	require.NoError(t, err)
 
-	unsignedClientOpts, err := tlsopts.NewOptions(unsignedIdent, tlsopts.Config{})
+	unsignedClientOpts, err := tlsopts.NewOptions(unsignedIdent, tlsopts.Config{
+		PeerIDVersions: "*",
+	})
 	require.NoError(t, err)
 
 	t.Run("DialNode with invalid targets", func(t *testing.T) {
@@ -57,14 +61,12 @@ func TestDialNode(t *testing.T) {
 			{
 				Id:      storj.NodeID{},
 				Address: nil,
-				Type:    pb.NodeType_STORAGE,
 			},
 			{
 				Id: storj.NodeID{},
 				Address: &pb.NodeAddress{
 					Transport: pb.NodeTransport_TCP_TLS_GRPC,
 				},
-				Type: pb.NodeType_STORAGE,
 			},
 			{
 				Id: storj.NodeID{123},
@@ -72,7 +74,6 @@ func TestDialNode(t *testing.T) {
 					Transport: pb.NodeTransport_TCP_TLS_GRPC,
 					Address:   "127.0.0.1:100",
 				},
-				Type: pb.NodeType_STORAGE,
 			},
 			{
 				Id: storj.NodeID{},
@@ -80,7 +81,6 @@ func TestDialNode(t *testing.T) {
 					Transport: pb.NodeTransport_TCP_TLS_GRPC,
 					Address:   planet.StorageNodes[1].Addr(),
 				},
-				Type: pb.NodeType_STORAGE,
 			},
 		}
 
@@ -102,7 +102,6 @@ func TestDialNode(t *testing.T) {
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,
 				Address:   planet.StorageNodes[1].Addr(),
 			},
-			Type: pb.NodeType_STORAGE,
 		}
 
 		timedCtx, cancel := context.WithTimeout(ctx, time.Second)
@@ -122,7 +121,6 @@ func TestDialNode(t *testing.T) {
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,
 				Address:   planet.StorageNodes[1].Addr(),
 			},
-			Type: pb.NodeType_STORAGE,
 		}
 
 		dialOption, err := opts.DialOption(target.Id)
@@ -145,7 +143,6 @@ func TestDialNode(t *testing.T) {
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,
 				Address:   planet.StorageNodes[1].Addr(),
 			},
-			Type: pb.NodeType_STORAGE,
 		}
 
 		timedCtx, cancel := context.WithTimeout(ctx, time.Second)
@@ -197,7 +194,7 @@ func TestDialNode_BadServerCertificate(t *testing.T) {
 			StorageNodeCount: 2,
 			UplinkCount:      0,
 			Reconfigure:      testplanet.DisablePeerCAWhitelist,
-			Identities:       testplanet.NewPregeneratedIdentities(),
+			Identities:       testidentity.NewPregeneratedIdentities(storj.LatestIDVersion()),
 		},
 	)
 	if err != nil {
@@ -205,13 +202,13 @@ func TestDialNode_BadServerCertificate(t *testing.T) {
 	}
 	defer ctx.Check(planet.Shutdown)
 
-	whitelistPath, err := planet.WriteWhitelist()
+	whitelistPath, err := planet.WriteWhitelist(storj.LatestIDVersion())
 	require.NoError(t, err)
 
 	planet.Start(ctx)
 
 	client := planet.StorageNodes[0].Transport
-	ident, err := testplanet.PregeneratedSignedIdentity(0)
+	ident, err := testidentity.PregeneratedSignedIdentity(0, storj.LatestIDVersion())
 	require.NoError(t, err)
 
 	opts, err := tlsopts.NewOptions(ident, tlsopts.Config{
@@ -227,7 +224,6 @@ func TestDialNode_BadServerCertificate(t *testing.T) {
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,
 				Address:   planet.StorageNodes[1].Addr(),
 			},
-			Type: pb.NodeType_STORAGE,
 		}
 
 		timedCtx, cancel := context.WithTimeout(ctx, time.Second)

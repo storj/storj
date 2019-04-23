@@ -17,7 +17,6 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/storage/buckets"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
@@ -32,10 +31,10 @@ import (
 type RSConfig struct {
 	MaxBufferMem     memory.Size `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4MiB"`
 	ErasureShareSize memory.Size `help:"the size of each new erasure sure in bytes" default:"1KiB"`
-	MinThreshold     int         `help:"the minimum pieces required to recover a segment. k." default:"29"`
-	RepairThreshold  int         `help:"the minimum safe pieces before a repair is triggered. m." default:"35"`
-	SuccessThreshold int         `help:"the desired total pieces for a segment. o." default:"80"`
-	MaxThreshold     int         `help:"the largest amount of pieces to encode to. n." default:"95"`
+	MinThreshold     int         `help:"the minimum pieces required to recover a segment. k." releaseDefault:"29" devDefault:"4"`
+	RepairThreshold  int         `help:"the minimum safe pieces before a repair is triggered. m." releaseDefault:"35" devDefault:"6"`
+	SuccessThreshold int         `help:"the desired total pieces for a segment. o." releaseDefault:"80" devDefault:"8"`
+	MaxThreshold     int         `help:"the largest amount of pieces to encode to. n." releaseDefault:"95" devDefault:"10"`
 }
 
 // EncryptionConfig is a configuration struct that keeps details about
@@ -50,11 +49,8 @@ type EncryptionConfig struct {
 // ClientConfig is a configuration struct for the uplink that controls how
 // to talk to the rest of the network.
 type ClientConfig struct {
-	// TODO(jt): these should probably be the same
-	OverlayAddr   string `help:"Address to contact overlay server through"`
-	PointerDBAddr string `help:"Address to contact pointerdb server through"`
-
-	APIKey        string      `help:"API Key (TODO: this needs to change to macaroons somehow)"`
+	APIKey        string      `default:"" help:"the api key to use for the satellite" noprefix:"true"`
+	SatelliteAddr string      `releaseDefault:"127.0.0.1:7777" devDefault:"127.0.0.1:10000" help:"the address to use for the satellite" noprefix:"true"`
 	MaxInlineSize memory.Size `help:"max inline segment size in bytes" default:"4KiB"`
 	SegmentSize   memory.Size `help:"the size of a segment in bytes" default:"64MiB"`
 }
@@ -82,27 +78,18 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 	if err != nil {
 		return nil, nil, err
 	}
+
+	// ToDo: Handle Versioning for Uplinks here
+
 	tc := transport.NewClient(tlsOpts)
 
-	if c.Client.OverlayAddr == "" || c.Client.PointerDBAddr == "" {
-		var errlist errs.Group
-		if c.Client.OverlayAddr == "" {
-			errlist.Add(errors.New("overlay address not specified"))
-		}
-		if c.Client.PointerDBAddr == "" {
-			errlist.Add(errors.New("pointerdb address not specified"))
-		}
-		return nil, nil, errlist.Err()
+	if c.Client.SatelliteAddr == "" {
+		return nil, nil, errors.New("satellite address not specified")
 	}
 
-	metainfo, err := metainfo.NewClient(ctx, tc, c.Client.PointerDBAddr, c.Client.APIKey)
+	metainfo, err := metainfo.NewClient(ctx, tc, c.Client.SatelliteAddr, c.Client.APIKey)
 	if err != nil {
 		return nil, nil, Error.New("failed to connect to metainfo service: %v", err)
-	}
-
-	pdb, err := pdbclient.NewClient(tc, c.Client.PointerDBAddr, c.Client.APIKey)
-	if err != nil {
-		return nil, nil, Error.New("failed to connect to pointer DB: %v", err)
 	}
 
 	ec := ecclient.NewClient(tc, c.RS.MaxBufferMem.Int())
@@ -136,7 +123,7 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 
 	buckets := buckets.NewStore(streams)
 
-	return kvmetainfo.New(buckets, streams, segments, pdb, key), streams, nil
+	return kvmetainfo.New(metainfo, buckets, streams, segments, key, c.Enc.BlockSize.Int32(), rs, c.Client.SegmentSize.Int64()), streams, nil
 }
 
 // GetRedundancyScheme returns the configured redundancy scheme for new uploads

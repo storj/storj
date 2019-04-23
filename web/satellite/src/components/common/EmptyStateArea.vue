@@ -10,7 +10,8 @@
                 <Button
                     :onPress="onButtonClick"
                     :label="buttonLabel"
-                    width="170px" />
+                    width="190px"
+                    height="50px"/>
             </div>
             <div class="empty-state__wrap__img" v-html="imageSource"></div>
         </div>
@@ -48,6 +49,7 @@ export default class EmptyStateProjectArea extends Vue {
         display: flex;
         justify-content: center;
         margin-top: 120px;
+        color: rgba(56, 75, 101, 0.7);
 
         &__wrap {
             text-align: center;
@@ -57,13 +59,13 @@ export default class EmptyStateProjectArea extends Vue {
             align-items: center;
 
             &__additional-text {
-                font-family: 'montserrat_regular';
+                font-family: 'font_regular';
                 font-size: 16px;
                 width: 60%;
                 margin-bottom: 10px;
 
                 b {
-                    font-family: 'montserrat_bold' !important;
+                    font-family: 'font_bold' !important;
                     font-size: 16px;
                 }
             }
@@ -73,15 +75,16 @@ export default class EmptyStateProjectArea extends Vue {
              }
 
             h1 {
-                font-family: 'montserrat_bold';
+                font-family: 'font_bold';
                 font-size: 32px;
                 line-height: 35px;
-                margin-bottom: 30px;
+                margin-bottom: 15px;
                 min-width: 900px;
+                color: #354049;
             }
 
             p {
-                font-family: 'montserrat_regular';
+                font-family: 'font_regular';
                 font-size: 16px;
                 line-height: 21px;
             }

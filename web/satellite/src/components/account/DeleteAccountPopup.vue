@@ -9,7 +9,7 @@
                 <div v-html='imageSource'></div>
             </div>
             <div class='delete-account__form-container'>
-                <p>Are you sure you want to delete your account? If you do so, all your information, projects and API Keys will be deleted from the Satellite forever.</p>
+                <p>Are you sure you want to delete your account? If you do so, all your information, projects and API Keys will be deleted forever.(drop from the satellite)</p>
                 <HeaderedInput 
                     label='Enter your password' 
                     placeholder='Your Password'
@@ -48,6 +48,7 @@ import { APP_STATE_ACTIONS, USER_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/c
                 password: '',
                 passwordError: '',
                 imageSource: EMPTY_STATE_IMAGES.DELETE_ACCOUNT,
+                isLoading: false,
             };
         },
         methods: {
@@ -55,16 +56,25 @@ import { APP_STATE_ACTIONS, USER_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/c
                 this.$data.password = value;
             },
             onDeleteAccountClick: async function() {
+                if (this.$data.isLoading) {
+                    return;
+                }
+
+                this.$data.isLoading = true;
+
                 let response = await this.$store.dispatch(USER_ACTIONS.DELETE, this.$data.password);
 
                 if (!response.isSuccess) {
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
+                    this.$data.isLoading = false;
 
                     return;
                 }
 
                 this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Account was successfully deleted');
                 removeToken();
+
+                this.$data.isLoading = false;
                 this.$router.push('/login');
             },
             onCloseClick: function (): void {
@@ -103,7 +113,7 @@ export default class DeleteAccountPopup extends Vue {}
     .text {
         margin: 0;
         margin-bottom: 0 !important;
-        font-family: 'montserrat_regular' !important;
+        font-family: 'font_regular' !important;
         font-size: 16px;
         line-height: 25px;
     }
@@ -127,7 +137,7 @@ export default class DeleteAccountPopup extends Vue {}
             margin-right: 100px;
 
             &__main-label-text {
-                font-family: 'montserrat_bold';
+                font-family: 'font_bold';
                 font-size: 32px;
                 line-height: 39px;
                 color: #384B65;
@@ -143,7 +153,7 @@ export default class DeleteAccountPopup extends Vue {}
             p {
                 margin: 0;
                 margin-bottom: 25px;
-                font-family: 'montserrat_medium';
+                font-family: 'font_medium';
                 font-size: 16px;
                 line-height: 25px;
 
@@ -153,7 +163,7 @@ export default class DeleteAccountPopup extends Vue {}
             }
 
             a {
-                font-family: 'montserrat_medium';
+                font-family: 'font_medium';
                 font-size: 16px;
                 color: #2683FF;
             }

@@ -6,7 +6,6 @@ package kademlia
 import (
 	"context"
 	"sync/atomic"
-	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -19,30 +18,27 @@ var EndpointError = errs.Class("kademlia endpoint error")
 
 // Endpoint implements the kademlia Endpoints
 type Endpoint struct {
-	log             *zap.Logger
-	service         *Kademlia
-	routingTable    *RoutingTable
-	connected       int32
-	pingbackTimeout time.Duration
+	log          *zap.Logger
+	service      *Kademlia
+	routingTable *RoutingTable
+	connected    int32
 }
 
 // NewEndpoint returns a new kademlia endpoint
-func NewEndpoint(log *zap.Logger, service *Kademlia, routingTable *RoutingTable, pingbackTimeout time.Duration) *Endpoint {
+func NewEndpoint(log *zap.Logger, service *Kademlia, routingTable *RoutingTable) *Endpoint {
 	return &Endpoint{
-		service:         service,
-		routingTable:    routingTable,
-		log:             log,
-		pingbackTimeout: pingbackTimeout,
+		service:      service,
+		routingTable: routingTable,
+		log:          log,
 	}
 }
 
 // Query is a node to node communication query
 func (endpoint *Endpoint) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error) {
+	endpoint.service.Queried()
 
 	if req.GetPingback() {
-		timedCtx, cancel := context.WithTimeout(ctx, endpoint.pingbackTimeout)
-		defer cancel()
-		endpoint.pingback(timedCtx, req.Sender)
+		endpoint.pingback(ctx, req.Sender)
 	}
 
 	nodes, err := endpoint.routingTable.FindNear(req.Target.Id, int(req.Limit))
@@ -79,7 +75,7 @@ func (endpoint *Endpoint) pingback(ctx context.Context, target *pb.Node) {
 
 // Ping provides an easy way to verify a node is online and accepting requests
 func (endpoint *Endpoint) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingResponse, error) {
-	//TODO
+	endpoint.service.Pinged()
 	return &pb.PingResponse{}, nil
 }
 
@@ -88,14 +84,9 @@ func (endpoint *Endpoint) RequestInfo(ctx context.Context, req *pb.InfoRequest) 
 	self := endpoint.service.Local()
 
 	return &pb.InfoResponse{
-		Type: self.GetType(),
-		Operator: &pb.NodeOperator{
-			Email:  self.GetMetadata().GetEmail(),
-			Wallet: self.GetMetadata().GetWallet(),
-		},
-		Capacity: &pb.NodeCapacity{
-			FreeBandwidth: self.GetRestrictions().GetFreeBandwidth(),
-			FreeDisk:      self.GetRestrictions().GetFreeDisk(),
-		},
+		Type:     self.Type,
+		Operator: &self.Operator,
+		Capacity: &self.Capacity,
+		Version:  &self.Version,
 	}, nil
 }

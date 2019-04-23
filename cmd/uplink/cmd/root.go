@@ -19,10 +19,8 @@ import (
 
 // UplinkFlags configuration flags
 type UplinkFlags struct {
-	Identity      identity.Config
-	APIKey        string `default:"" help:"the api key to use for the satellite" setup:"true"`
-	SatelliteAddr string `default:"localhost:7778" help:"the address to use for the satellite" setup:"true"`
-
+	NonInteractive bool `help:"disable interactive mode" default:"false" setup:"true"`
+	Identity       identity.Config
 	uplink.Config
 }
 
@@ -50,7 +48,7 @@ func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
 		defaultIdentityDir = identityDirParam
 	}
 
-	cfgstruct.Bind(cmd.Flags(), &cfg, isDev, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(cmd.Flags(), &cfg, defaults, cfgstruct.ConfDir(defaultConfDir), cfgstruct.IdentityDir(defaultIdentityDir))
 	return cmd
 }
 

@@ -7,22 +7,22 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/asn1"
-	"strings"
 
+	"storj.io/storj/internal/dbutil/sqliteutil"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/storagenode/trust"
 )
 
 type certdb struct {
-	*infodb
+	*InfoDB
 }
 
 // CertDB returns certificate database.
 func (db *DB) CertDB() trust.CertDB { return db.info.CertDB() }
 
 // CertDB returns certificate database.
-func (db *infodb) CertDB() trust.CertDB { return &certdb{db} }
+func (db *InfoDB) CertDB() trust.CertDB { return &certdb{db} }
 
 // Include includes the certificate in the table and returns an unique id.
 func (db *certdb) Include(ctx context.Context, pi *identity.PeerIdentity) (certid int64, err error) {
@@ -31,7 +31,7 @@ func (db *certdb) Include(ctx context.Context, pi *identity.PeerIdentity) (certi
 	defer db.locked()()
 
 	result, err := db.db.Exec(`INSERT INTO certificate(node_id, peer_identity) VALUES(?, ?)`, pi.ID, chain)
-	if err != nil && strings.Contains(err.Error(), "UNIQUE constraint") {
+	if err != nil && sqliteutil.IsConstraintError(err) {
 		err = db.db.QueryRow(`SELECT cert_id FROM certificate WHERE peer_identity = ?`, chain).Scan(&certid)
 		return certid, ErrInfo.Wrap(err)
 	} else if err != nil {
@@ -93,5 +93,5 @@ func decodePeerIdentity(chain []byte) (*identity.PeerIdentity, error) {
 	if len(certs) < 2 {
 		return nil, ErrInfo.New("not enough certificates")
 	}
-	return identity.PeerIdentityFromCerts(certs[0], certs[1], certs[2:])
+	return identity.PeerIdentityFromChain(certs)
 }

@@ -37,14 +37,14 @@ import { API_KEYS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/action
         onDelete: async function () {
             let selectedKeys: any[] = this.$store.getters.selectedAPIKeys.map((key) => {return key.id; });
 
-            const dispatchResult = await this.$store.dispatch(API_KEYS_ACTIONS.DELETE, selectedKeys);
+            const dispatchResult: RequestResponse<null> = await this.$store.dispatch(API_KEYS_ACTIONS.DELETE, selectedKeys);
 
             let keySuffix = selectedKeys.length > 1 ? '\'s' : '';
 
             if (dispatchResult.isSuccess) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, `API key${keySuffix} deleted successfully`);
             } else {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Error during deletion API key${keySuffix}`);
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, dispatchResult.errorMessage);
             }
         },
         onClearSelection: function (): void {
@@ -97,7 +97,7 @@ export default class DeleteApiKeysArea extends Vue {
                 align-items: center;
                 justify-content: center;
                 border-radius: 6px;
-                font-family: 'montserrat_medium';
+                font-family: 'font_medium';
                 font-size: 16px;
                 cursor: pointer;
             }
@@ -110,7 +110,7 @@ export default class DeleteApiKeysArea extends Vue {
         &__selected-api-keys-count {
             display: flex;
             align-items: center;
-            font-family: 'montserrat_regular';
+            font-family: 'font_regular';
             font-size: 18px;
             color: #AFB7C1;
 

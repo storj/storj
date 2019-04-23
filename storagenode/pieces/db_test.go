@@ -8,10 +8,11 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -27,11 +28,13 @@ func TestPieceInfo(t *testing.T) {
 
 		pieceinfos := db.PieceInfo()
 
-		satellite0 := testplanet.MustPregeneratedSignedIdentity(0)
-		satellite1 := testplanet.MustPregeneratedSignedIdentity(1)
+		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion())
+		satellite1 := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion())
+		satellite2 := testidentity.MustPregeneratedSignedIdentity(2, storj.LatestIDVersion())
 
-		uplink0 := testplanet.MustPregeneratedSignedIdentity(2)
-		uplink1 := testplanet.MustPregeneratedSignedIdentity(3)
+		uplink0 := testidentity.MustPregeneratedSignedIdentity(3, storj.LatestIDVersion())
+		uplink1 := testidentity.MustPregeneratedSignedIdentity(4, storj.LatestIDVersion())
+		uplink2 := testidentity.MustPregeneratedSignedIdentity(5, storj.LatestIDVersion())
 
 		pieceid0 := storj.NewPieceID()
 
@@ -50,7 +53,7 @@ func TestPieceInfo(t *testing.T) {
 
 			PieceID:         pieceid0,
 			PieceSize:       123,
-			PieceExpiration: now,
+			PieceExpiration: &now,
 
 			UplinkPieceHash: piecehash0,
 			Uplink:          uplink0.PeerIdentity(),
@@ -69,10 +72,29 @@ func TestPieceInfo(t *testing.T) {
 
 			PieceID:         pieceid0,
 			PieceSize:       123,
-			PieceExpiration: now,
+			PieceExpiration: &now,
 
 			UplinkPieceHash: piecehash1,
 			Uplink:          uplink1.PeerIdentity(),
+		}
+
+		piecehash2, err := signing.SignPieceHash(
+			signing.SignerFromFullIdentity(uplink2),
+			&pb.PieceHash{
+				PieceId: pieceid0,
+				Hash:    []byte{1, 2, 3, 4, 5},
+			})
+		require.NoError(t, err)
+
+		info2 := &pieces.Info{
+			SatelliteID: satellite2.ID,
+
+			PieceID:         pieceid0,
+			PieceSize:       123,
+			PieceExpiration: &now,
+
+			UplinkPieceHash: piecehash2,
+			Uplink:          uplink2.PeerIdentity(),
 		}
 
 		_, err = pieceinfos.Get(ctx, info0.SatelliteID, info0.PieceID)
@@ -83,6 +105,9 @@ func TestPieceInfo(t *testing.T) {
 		require.NoError(t, err)
 
 		err = pieceinfos.Add(ctx, info1)
+		require.NoError(t, err, "adding different satellite, but same pieceid")
+
+		err = pieceinfos.Add(ctx, info2)
 		require.NoError(t, err, "adding different satellite, but same pieceid")
 
 		err = pieceinfos.Add(ctx, info0)
@@ -97,10 +122,20 @@ func TestPieceInfo(t *testing.T) {
 		require.NoError(t, err)
 		require.Empty(t, cmp.Diff(info1, info1loaded, cmp.Comparer(pb.Equal)))
 
+		// getting expired pieces
+		exp := time.Now().Add(time.Hour * 24)
+		infoexp, err := pieceinfos.GetExpired(ctx, exp)
+		assert.NoError(t, err)
+		assert.NotEmpty(t, infoexp)
+
 		// deleting
 		err = pieceinfos.Delete(ctx, info0.SatelliteID, info0.PieceID)
 		require.NoError(t, err)
 		err = pieceinfos.Delete(ctx, info1.SatelliteID, info1.PieceID)
+		require.NoError(t, err)
+
+		// deleting expired pieces
+		err = pieceinfos.DeleteExpired(ctx, exp, info2.SatelliteID, info2.PieceID)
 		require.NoError(t, err)
 
 		// getting after delete

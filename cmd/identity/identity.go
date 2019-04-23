@@ -11,7 +11,6 @@ import (
 
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/peertls"
 )
 
 var (
@@ -57,7 +56,7 @@ var (
 
 	revokeLeafCfg struct {
 		CA       identity.FullCAConfig
-		Identity identity.PeerConfig
+		Identity identity.Config
 		// TODO: add "broadcast" option to send revocation to network nodes
 	}
 )
@@ -68,9 +67,9 @@ func init() {
 	idCmd.AddCommand(leafExtCmd)
 	idCmd.AddCommand(revokeLeafCmd)
 
-	cfgstruct.Bind(newIDCmd.Flags(), &newIDCfg, isDev, cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.Bind(leafExtCmd.Flags(), &leafExtCfg, isDev, cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.Bind(revokeLeafCmd.Flags(), &revokeLeafCfg, isDev, cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(newIDCmd.Flags(), &newIDCfg, defaults, cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(leafExtCmd.Flags(), &leafExtCfg, defaults, cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(revokeLeafCmd.Flags(), &revokeLeafCfg, defaults, cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func cmdNewID(cmd *cobra.Command, args []string) (err error) {
@@ -102,7 +101,7 @@ func cmdLeafExtensions(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	return printExtensions(ident.Leaf.Raw, ident.Leaf.ExtraExtensions)
+	return printExtensions(ident.Leaf.Raw, ident.Leaf.Extensions)
 }
 
 func cmdRevokeLeaf(cmd *cobra.Command, args []string) (err error) {
@@ -115,24 +114,17 @@ func cmdRevokeLeaf(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	updatedIdent, err := ca.NewIdentity()
-	if err != nil {
+	manageableIdent := identity.NewManageableFullIdentity(originalIdent, ca)
+	if err := manageableIdent.Revoke(); err != nil {
 		return err
 	}
 
-	if err := peertls.AddRevocationExt(ca.Key, originalIdent.Leaf, updatedIdent.Leaf); err != nil {
-		return err
-	}
-
-	// NB: backup original cert
+	// NB: backup original cert and key.
 	if err := revokeLeafCfg.Identity.SaveBackup(originalIdent); err != nil {
 		return err
 	}
 
-	updateCfg := identity.Config{
-		CertPath: revokeLeafCfg.Identity.CertPath,
-	}
-	if err := updateCfg.Save(updatedIdent); err != nil {
+	if err := revokeLeafCfg.Identity.Save(manageableIdent.FullIdentity); err != nil {
 		return err
 	}
 	return nil

@@ -15,6 +15,6 @@ func TestCompile(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	exe := ctx.Compile("storj.io/storj/examples/pointerdb-client")
+	exe := ctx.Compile("storj.io/storj/examples/grpc-debug")
 	assert.NotEmpty(t, exe)
 }

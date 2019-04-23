@@ -14,10 +14,11 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/fpath"
+	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/certificates"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/process"
 )
@@ -55,6 +56,8 @@ var (
 		ParentCertPath string `help:"path to the parent authority's certificate chain"`
 		ParentKeyPath  string `help:"path to the parent authority's private key"`
 		Signer         certificates.CertClientConfig
+		// TODO: ideally the default is the latest version; can't interpolate struct tags
+		Version uint `default:"0" help:"identity version to use when creating an identity or CA"`
 	}
 
 	identityDir, configDir string
@@ -66,16 +69,11 @@ func init() {
 	rootCmd.AddCommand(newServiceCmd)
 	rootCmd.AddCommand(authorizeCmd)
 
-	cfgstruct.Bind(newServiceCmd.Flags(), &config, isDev, cfgstruct.ConfDir(defaultConfigDir), cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.Bind(authorizeCmd.Flags(), &config, isDev, cfgstruct.ConfDir(defaultConfigDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(newServiceCmd.Flags(), &config, defaults, cfgstruct.ConfDir(defaultConfigDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(authorizeCmd.Flags(), &config, defaults, cfgstruct.ConfDir(defaultConfigDir), cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func main() {
-	if writable, err := fpath.IsWritable(identityDir); !writable || err != nil {
-		fmt.Printf("%s is not a writeable directory: %s\n", identityDir, err)
-		return
-	}
-
 	process.Exec(rootCmd)
 }
 
@@ -84,6 +82,13 @@ func serviceDirectory(serviceName string) string {
 }
 
 func cmdNewService(cmd *cobra.Command, args []string) error {
+	ctx := process.Ctx(cmd)
+
+	err := version.CheckProcessVersion(ctx, version.Config{}, version.Build, "Identity")
+	if err != nil {
+		return err
+	}
+
 	serviceDir := serviceDirectory(args[0])
 
 	caCertPath := filepath.Join(serviceDir, "ca.cert")
@@ -98,6 +103,7 @@ func cmdNewService(cmd *cobra.Command, args []string) error {
 		Concurrency:    config.Concurrency,
 		ParentCertPath: config.ParentCertPath,
 		ParentKeyPath:  config.ParentKeyPath,
+		VersionNumber:  config.Version,
 	}
 
 	status, err := caConfig.Status()
@@ -121,7 +127,7 @@ func cmdNewService(cmd *cobra.Command, args []string) error {
 		return errs.New("Identity certificate and/or key already exists, NOT overwriting!")
 	}
 
-	ca, caerr := caConfig.Create(process.Ctx(cmd), os.Stdout)
+	ca, caerr := caConfig.Create(ctx, os.Stdout)
 	if caerr != nil {
 		return caerr
 	}
@@ -139,6 +145,11 @@ func cmdNewService(cmd *cobra.Command, args []string) error {
 
 func cmdAuthorize(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
+
+	err := version.CheckProcessVersion(ctx, version.Config{}, version.Build, "Identity")
+	if err != nil {
+		return err
+	}
 
 	serviceDir := serviceDirectory(args[0])
 
@@ -183,6 +194,7 @@ func cmdAuthorize(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// NB: signedChain is this identity's CA + signer chain.
 	ca.Cert = signedChain[0]
 	ca.RestChain = signedChain[1:]
 	err = caConfig.Save(ca)
@@ -217,14 +229,13 @@ func printExtensions(cert []byte, exts []pkix.Extension) error {
 	fmt.Println("Extensions:")
 	for _, e := range exts {
 		var data interface{}
-		switch e.Id.String() {
-		case peertls.ExtensionIDs[peertls.RevocationExtID].String():
-			var rev peertls.Revocation
+		if e.Id.Equal(extensions.RevocationExtID) {
+			var rev extensions.Revocation
 			if err := rev.Unmarshal(e.Value); err != nil {
 				return err
 			}
 			data = rev
-		default:
+		} else {
 			data = e.Value
 		}
 		out, err := json.MarshalIndent(data, "", "  ")

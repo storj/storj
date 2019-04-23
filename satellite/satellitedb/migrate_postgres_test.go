@@ -45,7 +45,7 @@ func loadSnapshots(connstr string) (*dbschema.Snapshots, error) {
 
 		snapshot, err := pgutil.LoadSnapshotFromSQL(connstr, string(scriptData))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("Version %d error: %+v", version, err)
 		}
 		snapshot.Version = version
 
@@ -105,7 +105,7 @@ func TestMigratePostgres(t *testing.T) {
 
 		t.Run(strconv.Itoa(base.Version), func(t *testing.T) {
 			log := zaptest.NewLogger(t)
-			schemaName := "migrate/satellite/" + strconv.Itoa(base.Version) + pgutil.RandomString(8)
+			schemaName := "migrate/satellite/" + strconv.Itoa(base.Version) + pgutil.CreateRandomTestingSchemaName(8)
 			connstr := pgutil.ConnstrWithSchema(*satellitedbtest.TestPostgres, schemaName)
 
 			// create a new satellitedb connection

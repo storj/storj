@@ -6,6 +6,7 @@ package kademlia
 import (
 	"context"
 	"math/rand"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
@@ -52,10 +54,14 @@ type Kademlia struct {
 
 	refreshThreshold int64
 	RefreshBuckets   sync2.Cycle
+
+	mu          sync.Mutex
+	lastPinged  time.Time
+	lastQueried time.Time
 }
 
 // NewService returns a newly configured Kademlia instance
-func NewService(log *zap.Logger, self pb.Node, transport transport.Client, rt *RoutingTable, config Config) (*Kademlia, error) {
+func NewService(log *zap.Logger, transport transport.Client, rt *RoutingTable, config Config) (*Kademlia, error) {
 	k := &Kademlia{
 		log:              log,
 		alpha:            config.Alpha,
@@ -76,10 +82,38 @@ func (k *Kademlia) Close() error {
 	return dialerErr
 }
 
+// LastPinged returns last time someone pinged this node.
+func (k *Kademlia) LastPinged() time.Time {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	return k.lastPinged
+}
+
+// Pinged notifies the service it has been remotely pinged.
+func (k *Kademlia) Pinged() {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	k.lastPinged = time.Now()
+}
+
+// LastQueried returns last time someone queried this node.
+func (k *Kademlia) LastQueried() time.Time {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	return k.lastQueried
+}
+
+// Queried notifies the service it has been remotely queried
+func (k *Kademlia) Queried() {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	k.lastQueried = time.Now()
+}
+
 // FindNear returns all nodes from a starting node up to a maximum limit
-// stored in the local routing table limiting the result by the specified restrictions
-func (k *Kademlia) FindNear(ctx context.Context, start storj.NodeID, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error) {
-	return k.routingTable.FindNear(start, limit, restrictions...)
+// stored in the local routing table.
+func (k *Kademlia) FindNear(ctx context.Context, start storj.NodeID, limit int) ([]*pb.Node, error) {
+	return k.routingTable.FindNear(start, limit)
 }
 
 // GetBucketIds returns a storage.Keys type of bucket ID's in the Kademlia instance
@@ -87,8 +121,8 @@ func (k *Kademlia) GetBucketIds() (storage.Keys, error) {
 	return k.routingTable.GetBucketIds()
 }
 
-// Local returns the local nodes ID
-func (k *Kademlia) Local() pb.Node {
+// Local returns the local node
+func (k *Kademlia) Local() overlay.NodeDossier {
 	return k.routingTable.Local()
 }
 
@@ -243,7 +277,7 @@ func (k *Kademlia) lookup(ctx context.Context, ID storj.NodeID, isBootstrap bool
 			return pb.Node{}, err
 		}
 	}
-	lookup := newPeerDiscovery(k.log, k.routingTable.Local(), nodes, k.dialer, ID, discoveryOptions{
+	lookup := newPeerDiscovery(k.log, k.routingTable.Local().Node, nodes, k.dialer, ID, discoveryOptions{
 		concurrency: k.alpha, retries: defaultRetries, bootstrap: isBootstrap, bootstrapNodes: k.bootstrapNodes,
 	})
 	target, err := lookup.Run(ctx)
@@ -277,6 +311,16 @@ func (k *Kademlia) Seen() []*pb.Node {
 	}
 	k.routingTable.mutex.Unlock()
 	return nodes
+}
+
+// GetNodesWithinKBucket returns all the routing nodes in the specified k-bucket
+func (k *Kademlia) GetNodesWithinKBucket(bID bucketID) ([]*pb.Node, error) {
+	return k.routingTable.getUnmarshaledNodesFromBucket(bID)
+}
+
+// GetCachedNodesWithinKBucket returns all the cached nodes in the specified k-bucket
+func (k *Kademlia) GetCachedNodesWithinKBucket(bID bucketID) []*pb.Node {
+	return k.routingTable.replacementCache[bID]
 }
 
 // SetBucketRefreshThreshold changes the threshold when buckets are considered stale and need refreshing.
@@ -363,89 +407,4 @@ func randomIDInRange(start, end bucketID) (storj.NodeID, error) {
 		}
 	}
 	return randID, nil
-}
-
-// Restrict is used to limit nodes returned that don't match the miniumum storage requirements
-func Restrict(r pb.Restriction, n []*pb.Node) []*pb.Node {
-	oper := r.GetOperand()
-	op := r.GetOperator()
-	val := r.GetValue()
-	var comp int64
-
-	results := []*pb.Node{}
-	for _, v := range n {
-		switch oper {
-		case pb.Restriction_FREE_BANDWIDTH:
-			comp = v.GetRestrictions().GetFreeBandwidth()
-		case pb.Restriction_FREE_DISK:
-			comp = v.GetRestrictions().GetFreeDisk()
-		}
-
-		switch op {
-		case pb.Restriction_EQ:
-			if comp == val {
-				results = append(results, v)
-				continue
-			}
-		case pb.Restriction_LT:
-			if comp < val {
-				results = append(results, v)
-				continue
-			}
-		case pb.Restriction_LTE:
-			if comp <= val {
-				results = append(results, v)
-				continue
-			}
-		case pb.Restriction_GT:
-			if comp > val {
-				results = append(results, v)
-				continue
-			}
-		case pb.Restriction_GTE:
-			if comp >= val {
-				results = append(results, v)
-				continue
-			}
-		}
-	}
-	return results
-}
-
-func meetsRestrictions(rs []pb.Restriction, n pb.Node) bool {
-	for _, r := range rs {
-		oper := r.GetOperand()
-		op := r.GetOperator()
-		val := r.GetValue()
-		var comp int64
-		switch oper {
-		case pb.Restriction_FREE_BANDWIDTH:
-			comp = n.GetRestrictions().GetFreeBandwidth()
-		case pb.Restriction_FREE_DISK:
-			comp = n.GetRestrictions().GetFreeDisk()
-		}
-		switch op {
-		case pb.Restriction_EQ:
-			if comp != val {
-				return false
-			}
-		case pb.Restriction_LT:
-			if comp >= val {
-				return false
-			}
-		case pb.Restriction_LTE:
-			if comp > val {
-				return false
-			}
-		case pb.Restriction_GT:
-			if comp <= val {
-				return false
-			}
-		case pb.Restriction_GTE:
-			if comp < val {
-				return false
-			}
-		}
-	}
-	return true
 }

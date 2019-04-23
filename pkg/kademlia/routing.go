@@ -14,9 +14,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 )
 
@@ -56,7 +56,7 @@ type RoutingTableConfig struct {
 // RoutingTable implements the RoutingTable interface
 type RoutingTable struct {
 	log              *zap.Logger
-	self             pb.Node
+	self             *overlay.NodeDossier
 	kadBucketDB      storage.KeyValueStore
 	nodeBucketDB     storage.KeyValueStore
 	transport        *pb.NodeTransport
@@ -69,9 +69,7 @@ type RoutingTable struct {
 }
 
 // NewRoutingTable returns a newly configured instance of a RoutingTable
-func NewRoutingTable(logger *zap.Logger, localNode pb.Node, kdb, ndb storage.KeyValueStore, config *RoutingTableConfig) (*RoutingTable, error) {
-	localNode.Type.DPanicOnInvalid("new routing table")
-
+func NewRoutingTable(logger *zap.Logger, localNode *overlay.NodeDossier, kdb, ndb storage.KeyValueStore, config *RoutingTableConfig) (*RoutingTable, error) {
 	if config == nil || config.BucketSize == 0 || config.ReplacementCacheSize == 0 {
 		// TODO: handle this more nicely
 		config = &RoutingTableConfig{
@@ -95,7 +93,7 @@ func NewRoutingTable(logger *zap.Logger, localNode pb.Node, kdb, ndb storage.Key
 		bucketSize:   config.BucketSize,
 		rcBucketSize: config.ReplacementCacheSize,
 	}
-	ok, err := rt.addNode(&localNode)
+	ok, err := rt.addNode(&localNode.Node)
 	if !ok || err != nil {
 		return nil, RoutingErr.New("could not add localNode to routing table: %s", err)
 	}
@@ -107,11 +105,20 @@ func (rt *RoutingTable) Close() error {
 	return nil
 }
 
-// Local returns the local nodes ID
-func (rt *RoutingTable) Local() pb.Node {
+// Local returns the local node
+func (rt *RoutingTable) Local() overlay.NodeDossier {
 	rt.mutex.Lock()
 	defer rt.mutex.Unlock()
-	return rt.self
+	return *rt.self
+}
+
+// UpdateSelf updates the local node with the provided info
+func (rt *RoutingTable) UpdateSelf(capacity *pb.NodeCapacity) {
+	rt.mutex.Lock()
+	defer rt.mutex.Unlock()
+	if capacity != nil {
+		rt.self.Capacity = *capacity
+	}
 }
 
 // K returns the currently configured maximum of nodes to store in a bucket
@@ -153,28 +160,28 @@ func (rt *RoutingTable) GetBucketIds() (storage.Keys, error) {
 // DumpNodes iterates through all nodes in the nodeBucketDB and marshals them to &pb.Nodes, then returns them
 func (rt *RoutingTable) DumpNodes() ([]*pb.Node, error) {
 	var nodes []*pb.Node
-	var errors utils.ErrorGroup
+	var nodeErrors errs.Group
 
 	err := rt.iterateNodes(storj.NodeID{}, func(newID storj.NodeID, protoNode []byte) error {
 		newNode := pb.Node{}
 		err := proto.Unmarshal(protoNode, &newNode)
 		if err != nil {
-			errors.Add(err)
+			nodeErrors.Add(err)
 		}
 		nodes = append(nodes, &newNode)
 		return nil
 	}, false)
 
 	if err != nil {
-		errors.Add(err)
+		nodeErrors.Add(err)
 	}
 
-	return nodes, errors.Finish()
+	return nodes, nodeErrors.Err()
 }
 
 // FindNear returns the node corresponding to the provided nodeID
 // returns all Nodes (excluding self) closest via XOR to the provided nodeID up to the provided limit
-func (rt *RoutingTable) FindNear(target storj.NodeID, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error) {
+func (rt *RoutingTable) FindNear(target storj.NodeID, limit int) ([]*pb.Node, error) {
 	closestNodes := make([]*pb.Node, 0, limit+1)
 	err := rt.iterateNodes(storj.NodeID{}, func(newID storj.NodeID, protoNode []byte) error {
 		newPos := len(closestNodes)
@@ -186,39 +193,18 @@ func (rt *RoutingTable) FindNear(target storj.NodeID, limit int, restrictions ..
 			if err != nil {
 				return err
 			}
-			if meetsRestrictions(restrictions, newNode) {
-				closestNodes = append(closestNodes, &newNode)
-				if newPos != len(closestNodes) { //reorder
-					copy(closestNodes[newPos+1:], closestNodes[newPos:])
-					closestNodes[newPos] = &newNode
-					if len(closestNodes) > limit {
-						closestNodes = closestNodes[:limit]
-					}
+			closestNodes = append(closestNodes, &newNode)
+			if newPos != len(closestNodes) { //reorder
+				copy(closestNodes[newPos+1:], closestNodes[newPos:])
+				closestNodes[newPos] = &newNode
+				if len(closestNodes) > limit {
+					closestNodes = closestNodes[:limit]
 				}
 			}
 		}
 		return nil
 	}, true)
 	return closestNodes, Error.Wrap(err)
-}
-
-// UpdateSelf updates a node on the routing table
-func (rt *RoutingTable) UpdateSelf(node *pb.Node) error {
-	// TODO: replace UpdateSelf with UpdateRestrictions and UpdateAddress
-	rt.mutex.Lock()
-	if node.Id != rt.self.Id {
-		rt.mutex.Unlock()
-		return RoutingErr.New("self does not have a matching node id")
-	}
-	rt.self = *node
-	rt.seen[node.Id] = node
-	rt.mutex.Unlock()
-
-	if err := rt.updateNode(node); err != nil {
-		return RoutingErr.New("could not update node %s", err)
-	}
-
-	return nil
 }
 
 // ConnectionSuccess updates or adds a node to the routing table when
@@ -228,8 +214,6 @@ func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
 	if node.Id == (storj.NodeID{}) {
 		return nil
 	}
-
-	node.Type.DPanicOnInvalid("connection success")
 
 	rt.mutex.Lock()
 	rt.seen[node.Id] = node
@@ -256,7 +240,6 @@ func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
 // ConnectionFailed removes a node from the routing table when
 // a connection fails for the node on the network
 func (rt *RoutingTable) ConnectionFailed(node *pb.Node) error {
-	node.Type.DPanicOnInvalid("connection failed")
 	err := rt.removeNode(node)
 	if err != nil {
 		return RoutingErr.New("could not remove node %s", err)

@@ -23,6 +23,7 @@ import (
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/storj"
@@ -65,7 +66,7 @@ func TestNewKademlia(t *testing.T) {
 	}
 
 	for i, v := range cases {
-		kad, err := newKademlia(zaptest.NewLogger(t), pb.NodeType_STORAGE, v.bn, v.addr, nil, v.id, ctx.Dir(strconv.Itoa(i)), defaultAlpha)
+		kad, err := newKademlia(zaptest.NewLogger(t), pb.NodeType_STORAGE, v.bn, v.addr, pb.NodeOperator{}, v.id, ctx.Dir(strconv.Itoa(i)), defaultAlpha)
 		require.NoError(t, err)
 		assert.Equal(t, v.expectedErr, err)
 		assert.Equal(t, kad.bootstrapNodes, v.bn)
@@ -88,14 +89,14 @@ func TestPeerDiscovery(t *testing.T) {
 	targetServer, _, targetID, targetAddress := startTestNodeServer(ctx)
 	defer targetServer.GracefulStop()
 
-	bootstrapNodes := []pb.Node{{Id: bootID.ID, Address: &pb.NodeAddress{Address: bootAddress}, Type: pb.NodeType_STORAGE}}
-	metadata := &pb.NodeMetadata{
+	bootstrapNodes := []pb.Node{{Id: bootID.ID, Address: &pb.NodeAddress{Address: bootAddress}}}
+	operator := pb.NodeOperator{
 		Wallet: "OperatorWallet",
 	}
-	k, err := newKademlia(zaptest.NewLogger(t), pb.NodeType_STORAGE, bootstrapNodes, testAddress, metadata, testID, ctx.Dir("test"), defaultAlpha)
-	assert.NoError(t, err)
+	k, err := newKademlia(zaptest.NewLogger(t), pb.NodeType_STORAGE, bootstrapNodes, testAddress, operator, testID, ctx.Dir("test"), defaultAlpha)
+	require.NoError(t, err)
 	rt := k.routingTable
-	assert.Equal(t, rt.Local().Metadata.Wallet, "OperatorWallet")
+	assert.Equal(t, rt.Local().Operator.Wallet, "OperatorWallet")
 
 	defer ctx.Check(k.Close)
 
@@ -105,7 +106,7 @@ func TestPeerDiscovery(t *testing.T) {
 		expectedErr error
 	}{
 		{target: func() storj.NodeID {
-			mockBootServer.returnValue = []*pb.Node{{Id: targetID.ID, Type: pb.NodeType_STORAGE, Address: &pb.NodeAddress{Address: targetAddress}}}
+			mockBootServer.returnValue = []*pb.Node{{Id: targetID.ID, Address: &pb.NodeAddress{Address: targetAddress}}}
 			return targetID.ID
 		}(),
 			expected:    &pb.Node{},
@@ -130,43 +131,45 @@ func TestBootstrap(t *testing.T) {
 	defer clean()
 	defer s.GracefulStop()
 
-	n1, s1, clean1 := testNode(ctx, "2", t, []pb.Node{bn.routingTable.self})
+	n1, s1, clean1 := testNode(ctx, "2", t, []pb.Node{bn.routingTable.self.Node})
 	defer clean1()
 	defer s1.GracefulStop()
 
 	err := n1.Bootstrap(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
-	n2, s2, clean2 := testNode(ctx, "3", t, []pb.Node{bn.routingTable.self})
+	n2, s2, clean2 := testNode(ctx, "3", t, []pb.Node{bn.routingTable.self.Node})
 	defer clean2()
 	defer s2.GracefulStop()
 
 	err = n2.Bootstrap(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	nodeIDs, err := n2.routingTable.nodeBucketDB.List(nil, 0)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, nodeIDs, 3)
 }
 
 func testNode(ctx *testcontext.Context, name string, t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
 	// new address
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	// new config
 	// new identity
 	fid, err := testidentity.NewTestIdentity(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	// new kademlia
 
 	logger := zaptest.NewLogger(t)
-	k, err := newKademlia(logger, pb.NodeType_STORAGE, bn, lis.Addr().String(), nil, fid, ctx.Dir(name), defaultAlpha)
-	assert.NoError(t, err)
+	k, err := newKademlia(logger, pb.NodeType_STORAGE, bn, lis.Addr().String(), pb.NodeOperator{}, fid, ctx.Dir(name), defaultAlpha)
+	require.NoError(t, err)
 
-	s := NewEndpoint(logger, k, k.routingTable, 60*time.Second)
+	s := NewEndpoint(logger, k, k.routingTable)
 	// new ident opts
 
-	serverOptions, err := tlsopts.NewOptions(fid, tlsopts.Config{})
+	serverOptions, err := tlsopts.NewOptions(fid, tlsopts.Config{
+		PeerIDVersions: "*",
+	})
 	require.NoError(t, err)
 	identOpt := serverOptions.ServerOption()
 
@@ -198,18 +201,18 @@ func TestRefresh(t *testing.T) {
 	now := time.Now().UTC()
 	bID := firstBucketID //always exists
 	err := rt.SetBucketTimestamp(bID[:], now.Add(-2*time.Hour))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	//refresh should  call FindNode, updating the time
 	err = k.refresh(ctx, time.Minute)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	ts1, err := rt.GetBucketTimestamp(bID[:])
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, now.Add(-5*time.Minute).Before(ts1))
 	//refresh should not call FindNode, leaving the previous time
 	err = k.refresh(ctx, time.Minute)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	ts2, err := rt.GetBucketTimestamp(bID[:])
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, ts1.Equal(ts2))
 	s.GracefulStop()
 }
@@ -220,14 +223,14 @@ func TestFindNear(t *testing.T) {
 
 	// make new identity
 	fid, err := testidentity.NewTestIdentity(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	fid2, err := testidentity.NewTestIdentity(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotEqual(t, fid.ID, fid2.ID)
 
 	//start kademlia
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	srv, _ := newTestServer(ctx, []*pb.Node{{Id: teststorj.NodeIDFromString("foo")}})
 
 	defer srv.Stop()
@@ -241,23 +244,22 @@ func TestFindNear(t *testing.T) {
 
 	bootstrap := []pb.Node{{Id: fid2.ID, Address: &pb.NodeAddress{Address: lis.Addr().String()}}}
 	k, err := newKademlia(zaptest.NewLogger(t), pb.NodeType_STORAGE, bootstrap,
-		lis.Addr().String(), nil, fid, ctx.Dir("kademlia"), defaultAlpha)
-	assert.NoError(t, err)
+		lis.Addr().String(), pb.NodeOperator{}, fid, ctx.Dir("kademlia"), defaultAlpha)
+	require.NoError(t, err)
 	defer ctx.Check(k.Close)
 
 	// add nodes
 	nodes := []*pb.Node{}
 	newNode := func(id string, bw, disk int64) pb.Node {
 		nodeID := teststorj.NodeIDFromString(id)
-		restriction := &pb.NodeRestrictions{FreeBandwidth: bw, FreeDisk: disk}
-		n := &pb.Node{Id: nodeID, Restrictions: restriction, Type: pb.NodeType_STORAGE}
+		n := &pb.Node{Id: nodeID}
 		nodes = append(nodes, n)
 		err = k.routingTable.ConnectionSuccess(n)
 		require.NoError(t, err)
 		return *n
 	}
 	nodeIDA := newNode("AAAAA", 1, 4)
-	nodeIDB := newNode("BBBBB", 2, 3)
+	newNode("BBBBB", 2, 3)
 	newNode("CCCCC", 3, 2)
 	newNode("DDDDD", 4, 1)
 	require.Len(t, nodes, 4)
@@ -269,24 +271,13 @@ func TestFindNear(t *testing.T) {
 		restrictions []pb.Restriction
 		expected     []*pb.Node
 	}{
-		{testID: "one", target: nodeIDB.Id, limit: 2, expected: nodes[2:],
-			restrictions: []pb.Restriction{
-				{Operator: pb.Restriction_GT, Operand: pb.Restriction_FREE_BANDWIDTH, Value: int64(2)},
-			},
-		},
-		{testID: "two", target: nodeIDA.Id, limit: 3, expected: nodes[3:],
-			restrictions: []pb.Restriction{
-				{Operator: pb.Restriction_GT, Operand: pb.Restriction_FREE_BANDWIDTH, Value: int64(2)},
-				{Operator: pb.Restriction_LT, Operand: pb.Restriction_FREE_DISK, Value: int64(2)},
-			},
-		},
 		{testID: "three", target: nodeIDA.Id, limit: 4, expected: nodes, restrictions: []pb.Restriction{}},
 	}
 	for _, c := range cases {
 		t.Run(c.testID, func(t *testing.T) {
 
-			ns, err := k.FindNear(ctx, c.target, c.limit, c.restrictions...)
-			assert.NoError(t, err)
+			ns, err := k.FindNear(ctx, c.target, c.limit)
+			require.NoError(t, err)
 			assert.Equal(t, len(c.expected), len(ns))
 			for _, e := range c.expected {
 				found := false
@@ -297,100 +288,6 @@ func TestFindNear(t *testing.T) {
 				}
 				assert.True(t, found, e.String())
 			}
-		})
-	}
-}
-
-func TestMeetsRestrictions(t *testing.T) {
-	cases := []struct {
-		testID string
-		r      []pb.Restriction
-		n      pb.Node
-		expect bool
-	}{
-		{testID: "pass one",
-			r: []pb.Restriction{
-				{
-					Operator: pb.Restriction_EQ,
-					Operand:  pb.Restriction_FREE_BANDWIDTH,
-					Value:    int64(1),
-				},
-			},
-			n: pb.Node{
-				Restrictions: &pb.NodeRestrictions{
-					FreeBandwidth: int64(1),
-				},
-			},
-			expect: true,
-		},
-		{testID: "pass multiple",
-			r: []pb.Restriction{
-				{
-					Operator: pb.Restriction_LTE,
-					Operand:  pb.Restriction_FREE_BANDWIDTH,
-					Value:    int64(2),
-				},
-				{
-					Operator: pb.Restriction_GTE,
-					Operand:  pb.Restriction_FREE_DISK,
-					Value:    int64(2),
-				},
-			},
-			n: pb.Node{
-				Restrictions: &pb.NodeRestrictions{
-					FreeBandwidth: int64(1),
-					FreeDisk:      int64(3),
-				},
-			},
-			expect: true,
-		},
-		{testID: "fail one",
-			r: []pb.Restriction{
-				{
-					Operator: pb.Restriction_LT,
-					Operand:  pb.Restriction_FREE_BANDWIDTH,
-					Value:    int64(2),
-				},
-				{
-					Operator: pb.Restriction_GT,
-					Operand:  pb.Restriction_FREE_DISK,
-					Value:    int64(2),
-				},
-			},
-			n: pb.Node{
-				Restrictions: &pb.NodeRestrictions{
-					FreeBandwidth: int64(2),
-					FreeDisk:      int64(3),
-				},
-			},
-			expect: false,
-		},
-		{testID: "fail multiple",
-			r: []pb.Restriction{
-				{
-					Operator: pb.Restriction_LT,
-					Operand:  pb.Restriction_FREE_BANDWIDTH,
-					Value:    int64(2),
-				},
-				{
-					Operator: pb.Restriction_GT,
-					Operand:  pb.Restriction_FREE_DISK,
-					Value:    int64(2),
-				},
-			},
-			n: pb.Node{
-				Restrictions: &pb.NodeRestrictions{
-					FreeBandwidth: int64(2),
-					FreeDisk:      int64(2),
-				},
-			},
-			expect: false,
-		},
-	}
-	for _, c := range cases {
-		t.Run(c.testID, func(t *testing.T) {
-			result := meetsRestrictions(c.r, c.n)
-			assert.Equal(t, c.expect, result)
 		})
 	}
 }
@@ -465,7 +362,7 @@ func TestRandomIds(t *testing.T) {
 			start, end = end, start
 		}
 		id, err := randomIDInRange(start, end)
-		assert.NoError(t, err, "Unexpected err in randomIDInRange")
+		require.NoError(t, err, "Unexpected err in randomIDInRange")
 		assert.True(t, bytes.Compare(id[:], start[:]) > 0, "Random id was less than starting id")
 		assert.True(t, bytes.Compare(id[:], end[:]) <= 0, "Random id was greater than end id")
 		//invalid range
@@ -482,7 +379,7 @@ func TestRandomIds(t *testing.T) {
 			end[31] = start[31] + 1
 		}
 		id, err = randomIDInRange(start, end)
-		assert.NoError(t, err, "Unexpected err in randomIDInRange")
+		require.NoError(t, err, "Unexpected err in randomIDInRange")
 		assert.True(t, bytes.Equal(id[:], end[:]), "Not-so-random id was incorrect")
 	}
 }
@@ -510,12 +407,14 @@ func (mn *mockNodesServer) RequestInfo(ctx context.Context, req *pb.InfoRequest)
 }
 
 // newKademlia returns a newly configured Kademlia instance
-func newKademlia(log *zap.Logger, nodeType pb.NodeType, bootstrapNodes []pb.Node, address string, metadata *pb.NodeMetadata, identity *identity.FullIdentity, path string, alpha int) (*Kademlia, error) {
-	self := pb.Node{
-		Id:       identity.ID,
+func newKademlia(log *zap.Logger, nodeType pb.NodeType, bootstrapNodes []pb.Node, address string, operator pb.NodeOperator, identity *identity.FullIdentity, path string, alpha int) (*Kademlia, error) {
+	self := &overlay.NodeDossier{
+		Node: pb.Node{
+			Id:      identity.ID,
+			Address: &pb.NodeAddress{Address: address},
+		},
 		Type:     nodeType,
-		Address:  &pb.NodeAddress{Address: address},
-		Metadata: metadata,
+		Operator: operator,
 	}
 
 	rt, err := NewRoutingTable(log, self, teststore.New(), teststore.New(), nil)
@@ -523,17 +422,20 @@ func newKademlia(log *zap.Logger, nodeType pb.NodeType, bootstrapNodes []pb.Node
 		return nil, err
 	}
 
-	tlsOptions, err := tlsopts.NewOptions(identity, tlsopts.Config{})
+	tlsOptions, err := tlsopts.NewOptions(identity, tlsopts.Config{
+		PeerIDVersions: "*",
+	})
 	if err != nil {
 		return nil, err
 	}
+
 	transportClient := transport.NewClient(tlsOptions, rt)
 
 	kadConfig := Config{
 		Alpha: alpha,
 	}
 
-	kad, err := NewService(log, self, transportClient, rt, kadConfig)
+	kad, err := NewService(log, transportClient, rt, kadConfig)
 	if err != nil {
 		return nil, err
 	}

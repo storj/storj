@@ -5,22 +5,24 @@ package storj // import "storj.io/storj/pkg/storj"
 
 import (
 	"crypto/sha256"
+	"crypto/x509/pkix"
 	"database/sql/driver"
 	"math/bits"
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/utils"
+	"storj.io/storj/pkg/peertls/extensions"
 )
 
-// IDVersion is the default version used in the base58check node ID encoding
-const IDVersion = 0
+var (
+	// ErrNodeID is used when something goes wrong with a node id.
+	ErrNodeID = errs.Class("node ID error")
+	// ErrVersion is used for identity version related errors.
+	ErrVersion = errs.Class("node ID version error")
+)
 
-// ErrNodeID is used when something goes wrong with a node id
-var ErrNodeID = errs.Class("node ID error")
-
-//NodeIDSize is the byte length of a NodeID
+// NodeIDSize is the byte length of a NodeID
 const NodeIDSize = sha256.Size
 
 // NodeID is a unique node identifier
@@ -29,13 +31,37 @@ type NodeID [NodeIDSize]byte
 // NodeIDList is a slice of NodeIDs (implements sort)
 type NodeIDList []NodeID
 
+// NewVersionedID adds an identity version to a node ID.
+func NewVersionedID(id NodeID, version IDVersion) NodeID {
+	var versionedID NodeID
+	copy(versionedID[:], id[:])
+
+	versionedID[NodeIDSize-1] = byte(version.Number)
+	return versionedID
+}
+
+// NewVersionExt creates a new identity version certificate extension for the
+// given identity version,
+func NewVersionExt(version IDVersion) pkix.Extension {
+	return pkix.Extension{
+		Id:    extensions.IdentityVersionExtID,
+		Value: []byte{byte(version.Number)},
+	}
+}
+
 // NodeIDFromString decodes a base58check encoded node id string
 func NodeIDFromString(s string) (NodeID, error) {
-	idBytes, _, err := base58.CheckDecode(s)
+	idBytes, versionNumber, err := base58.CheckDecode(s)
 	if err != nil {
 		return NodeID{}, ErrNodeID.Wrap(err)
 	}
-	return NodeIDFromBytes(idBytes)
+	unversionedID, err := NodeIDFromBytes(idBytes)
+	if err != nil {
+		return NodeID{}, err
+	}
+
+	version := IDVersions[IDVersionNumber(versionNumber)]
+	return NewVersionedID(unversionedID, version), nil
 }
 
 // NodeIDsFromBytes converts a 2d byte slice into a list of nodes
@@ -51,7 +77,7 @@ func NodeIDsFromBytes(b [][]byte) (ids NodeIDList, err error) {
 		ids = append(ids, id)
 	}
 
-	if err = utils.CombineErrors(idErrs...); err != nil {
+	if err = errs.Combine(idErrs...); err != nil {
 		return nil, err
 	}
 	return ids, nil
@@ -71,7 +97,8 @@ func NodeIDFromBytes(b []byte) (NodeID, error) {
 
 // String returns NodeID as base58 encoded string with checksum and version bytes
 func (id NodeID) String() string {
-	return base58.CheckEncode(id[:], IDVersion)
+	unversionedID := id.unversioned()
+	return base58.CheckEncode(unversionedID[:], byte(id.Version().Number))
 }
 
 // IsZero returns whether NodeID is unassigned
@@ -94,12 +121,29 @@ func (id NodeID) Less(b NodeID) bool {
 	return false
 }
 
+// Version returns the version of the identity format
+func (id NodeID) Version() IDVersion {
+	versionNumber := id.versionByte()
+	if versionNumber == 0 {
+		return IDVersions[V0]
+	}
+
+	version, err := GetIDVersion(IDVersionNumber(versionNumber))
+	// NB: when in doubt, use V0
+	if err != nil {
+		return IDVersions[V0]
+	}
+
+	return version
+}
+
 // Difficulty returns the number of trailing zero bits in a node ID
 func (id NodeID) Difficulty() (uint16, error) {
 	idLen := len(id)
 	var b byte
 	var zeroBits int
-	for i := 1; i <= idLen; i++ {
+	// NB: last difficulty byte is used for version
+	for i := 2; i <= idLen; i++ {
 		b = id[idLen-i]
 
 		if b != 0 {
@@ -186,3 +230,16 @@ func (n NodeIDList) Swap(i, j int) { n[i], n[j] = n[j], n[i] }
 
 // Less implements sort.Interface.Less()
 func (n NodeIDList) Less(i, j int) bool { return n[i].Less(n[j]) }
+
+func (id NodeID) versionByte() byte {
+	return id[NodeIDSize-1]
+}
+
+// unversioned returns the node ID with the version byte replaced with `0`.
+// NB: Legacy node IDs (i.e. pre-identity-versions) with a difficulty less
+// than `8` are unsupported.
+func (id NodeID) unversioned() NodeID {
+	unversionedID := NodeID{}
+	copy(unversionedID[:], id[:NodeIDSize-1])
+	return unversionedID
+}

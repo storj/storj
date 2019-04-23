@@ -10,7 +10,6 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/utils"
 )
 
 var (
@@ -41,6 +40,8 @@ type NodeSelectionConfig struct {
 
 	NewNodeAuditThreshold int64   `help:"the number of audits a node must have to not be considered a New Node" default:"0"`
 	NewNodePercentage     float64 `help:"the percentage of new nodes allowed per request" default:"0.05"` // TODO: fix, this is not percentage, it's ratio
+
+	MinimumVersion string `help:"the minimum node software version for node selection queries" default:""`
 }
 
 // ParseIDs converts the base58check encoded node ID strings from the config into node IDs
@@ -55,7 +56,7 @@ func (c LookupConfig) ParseIDs() (ids storj.NodeIDList, err error) {
 		}
 		ids = append(ids, id)
 	}
-	if err := utils.CombineErrors(idErrs...); err != nil {
+	if err := errs.Combine(idErrs...); err != nil {
 		return nil, err
 	}
 	return ids, nil

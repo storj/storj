@@ -26,7 +26,6 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/transport"
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 )
 
@@ -208,7 +207,8 @@ func (c *Client) Sign(ctx context.Context, tokenStr string) ([][]byte, error) {
 	return res.Chain, nil
 }
 
-// Sign signs a valid certificate signing request's cert.
+// Sign signs the CA certificate of the remote peer's identity with the signer's certificate.
+// Returns a certificate chain consisting of the remote peer's CA followed by the signer's chain.
 func (c CertificateSigner) Sign(ctx context.Context, req *pb.SigningRequest) (*pb.SigningResponse, error) {
 	grpcPeer, ok := peer.FromContext(ctx)
 	if !ok {
@@ -259,7 +259,7 @@ func (authDB *AuthorizationDB) Create(userID string, count int) (Authorizations,
 
 	var (
 		newAuths Authorizations
-		authErrs utils.ErrorGroup
+		authErrs errs.Group
 	)
 	for i := 0; i < count; i++ {
 		auth, err := NewAuthorization(userID)
@@ -269,7 +269,7 @@ func (authDB *AuthorizationDB) Create(userID string, count int) (Authorizations,
 		}
 		newAuths = append(newAuths, auth)
 	}
-	if err := authErrs.Finish(); err != nil {
+	if err := authErrs.Err(); err != nil {
 		return nil, ErrAuthorizationDB.Wrap(err)
 	}
 
@@ -298,29 +298,36 @@ func (authDB *AuthorizationDB) Get(userID string) (Authorizations, error) {
 }
 
 // UserIDs returns a list of all userIDs present in the authorization database.
-func (authDB *AuthorizationDB) UserIDs() ([]string, error) {
-	keys, err := authDB.DB.List([]byte{}, 0)
-	if err != nil {
-		return nil, ErrAuthorizationDB.Wrap(err)
-	}
-	return keys.Strings(), nil
+func (authDB *AuthorizationDB) UserIDs() (userIDs []string, err error) {
+	err = authDB.DB.Iterate(storage.IterateOptions{
+		Recurse: true,
+	}, func(iterator storage.Iterator) error {
+		var listItem storage.ListItem
+		for iterator.Next(&listItem) {
+			userIDs = append(userIDs, listItem.Key.String())
+		}
+		return nil
+	})
+	return userIDs, err
 }
 
 // List returns all authorizations in the database.
-func (authDB *AuthorizationDB) List() (auths Authorizations, _ error) {
-	uids, err := authDB.UserIDs()
-	if err != nil {
-		return nil, err
-	}
-
-	for _, uid := range uids {
-		idAuths, err := authDB.Get(uid)
-		if err != nil {
-			return nil, err
+func (authDB *AuthorizationDB) List() (auths Authorizations, err error) {
+	err = authDB.DB.Iterate(storage.IterateOptions{
+		Recurse: true,
+	}, func(iterator storage.Iterator) error {
+		var listErrs errs.Group
+		var listItem storage.ListItem
+		for iterator.Next(&listItem) {
+			var nextAuths Authorizations
+			if err := nextAuths.Unmarshal(listItem.Value); err != nil {
+				listErrs.Add(err)
+			}
+			auths = append(auths, nextAuths...)
 		}
-		auths = append(auths, idAuths...)
-	}
-	return auths, nil
+		return listErrs.Err()
+	})
+	return auths, err
 }
 
 // Claim marks an authorization as claimed and records claim information.

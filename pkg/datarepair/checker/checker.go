@@ -15,9 +15,9 @@ import (
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
-	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 )
@@ -35,20 +35,18 @@ type Config struct {
 
 // Checker contains the information needed to do checks for missing pieces
 type Checker struct {
-	statdb      statdb.DB
 	pointerdb   *pointerdb.Service
 	repairQueue queue.RepairQueue
-	overlay     pb.OverlayServer
+	overlay     *overlay.Cache
 	irrdb       irreparable.DB
 	logger      *zap.Logger
 	Loop        sync2.Cycle
 }
 
 // NewChecker creates a new instance of checker
-func NewChecker(pointerdb *pointerdb.Service, sdb statdb.DB, repairQueue queue.RepairQueue, overlay pb.OverlayServer, irrdb irreparable.DB, limit int, logger *zap.Logger, interval time.Duration) *Checker {
+func NewChecker(pointerdb *pointerdb.Service, repairQueue queue.RepairQueue, overlay *overlay.Cache, irrdb irreparable.DB, limit int, logger *zap.Logger, interval time.Duration) *Checker {
 	// TODO: reorder arguments
 	checker := &Checker{
-		statdb:      sdb,
 		pointerdb:   pointerdb,
 		repairQueue: repairQueue,
 		overlay:     overlay,
@@ -68,7 +66,7 @@ func (checker *Checker) Run(ctx context.Context) (err error) {
 		if err != nil {
 			checker.logger.Error("error with injured segments identification: ", zap.Error(err))
 		}
-		return err
+		return nil
 	})
 }
 
@@ -115,7 +113,7 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 				}
 
 				// Find all offline nodes
-				offlineNodes, err := checker.OfflineNodes(ctx, nodeIDs)
+				offlineNodes, err := checker.overlay.OfflineNodes(ctx, nodeIDs)
 				if err != nil {
 					return Error.New("error getting offline nodes %s", err)
 				}
@@ -125,13 +123,17 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 					return Error.New("error getting invalid nodes %s", err)
 				}
 
-				missingPieces := combineOfflineWithInvalid(offlineNodes, invalidNodes)
+				missingIndices := combineOfflineWithInvalid(offlineNodes, invalidNodes)
+				var missingPieces []int32
+				for _, i := range missingIndices {
+					missingPieces = append(missingPieces, pieces[i].GetPieceNum())
+				}
 
 				remoteSegmentsChecked++
 				numHealthy := len(nodeIDs) - len(missingPieces)
-				if (int32(numHealthy) >= pointer.Remote.Redundancy.MinReq) && (int32(numHealthy) < pointer.Remote.Redundancy.RepairThreshold) {
+				if (int32(numHealthy) >= pointer.Remote.Redundancy.MinReq) && (int32(numHealthy) <= pointer.Remote.Redundancy.RepairThreshold) {
 					remoteSegmentsNeedingRepair++
-					err = checker.repairQueue.Enqueue(ctx, &pb.InjuredSegment{
+					err = checker.repairQueue.Insert(ctx, &pb.InjuredSegment{
 						Path:       string(item.Key),
 						LostPieces: missingPieces,
 					})
@@ -150,6 +152,9 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 							remoteSegmentInfo = append(remoteSegmentInfo, lostSegInfo)
 						}
 					}
+
+					// TODO: irreparable segment should be using storj.NodeID or something, since at the point of repair
+					//       it may have been already repaired once.
 
 					remoteSegmentsLost++
 					// make an entry in to the irreparable table
@@ -182,32 +187,17 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 	return nil
 }
 
-// OfflineNodes returns the indices of offline nodes
-func (checker *Checker) OfflineNodes(ctx context.Context, nodeIDs storj.NodeIDList) (offline []int32, err error) {
-	responses, err := checker.overlay.BulkLookup(ctx, pb.NodeIDsToLookupRequests(nodeIDs))
-	if err != nil {
-		return []int32{}, err
-	}
-	nodes := pb.LookupResponsesToNodes(responses)
-	for i, n := range nodes {
-		if n == nil {
-			offline = append(offline, int32(i))
-		}
-	}
-	return offline, nil
-}
-
-// Find invalidNodes by checking the audit results that are place in statdb
-func (checker *Checker) invalidNodes(ctx context.Context, nodeIDs storj.NodeIDList) (invalidNodes []int32, err error) {
+// Find invalidNodes by checking the audit results that are place in overlay
+func (checker *Checker) invalidNodes(ctx context.Context, nodeIDs storj.NodeIDList) (invalidNodes []int, err error) {
 	// filter if nodeIDs have invalid pieces from auditing results
-	maxStats := &statdb.NodeStats{
-		AuditSuccessRatio: 0, // TODO: update when we have stats added to statdb
-		UptimeRatio:       0, // TODO: update when we have stats added to statdb
+	maxStats := &overlay.NodeStats{
+		AuditSuccessRatio: 0, // TODO: update when we have stats added to overlay
+		UptimeRatio:       0, // TODO: update when we have stats added to overlay
 	}
 
-	invalidIDs, err := checker.statdb.FindInvalidNodes(ctx, nodeIDs, maxStats)
+	invalidIDs, err := checker.overlay.FindInvalidNodes(ctx, nodeIDs, maxStats)
 	if err != nil {
-		return nil, Error.New("error getting valid nodes from statdb %s", err)
+		return nil, Error.New("error getting valid nodes from overlay %s", err)
 	}
 
 	invalidNodesMap := make(map[storj.NodeID]bool)
@@ -217,24 +207,26 @@ func (checker *Checker) invalidNodes(ctx context.Context, nodeIDs storj.NodeIDLi
 
 	for i, nID := range nodeIDs {
 		if invalidNodesMap[nID] {
-			invalidNodes = append(invalidNodes, int32(i))
+			invalidNodes = append(invalidNodes, i)
 		}
 	}
 
 	return invalidNodes, nil
 }
 
-// combine the offline nodes with nodes marked invalid by statdb
-func combineOfflineWithInvalid(offlineNodes []int32, invalidNodes []int32) (missingPieces []int32) {
-	missingPieces = append(missingPieces, offlineNodes...)
+// combine the offline nodes with nodes marked invalid by overlay
+func combineOfflineWithInvalid(offlineNodes []int, invalidNodes []int) (missingPieces []int32) {
+	for _, offline := range offlineNodes {
+		missingPieces = append(missingPieces, int32(offline))
+	}
 
-	offlineMap := make(map[int32]bool)
+	offlineMap := make(map[int]bool)
 	for _, i := range offlineNodes {
 		offlineMap[i] = true
 	}
 	for _, i := range invalidNodes {
 		if !offlineMap[i] {
-			missingPieces = append(missingPieces, i)
+			missingPieces = append(missingPieces, int32(i))
 		}
 	}
 

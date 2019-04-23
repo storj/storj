@@ -14,7 +14,13 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pkcrypto"
-	"storj.io/storj/pkg/utils"
+)
+
+const (
+	// LeafIndex is the index of the leaf certificate in a cert chain (0)
+	LeafIndex = iota
+	// CAIndex is the index of the CA certificate in a cert chain (1)
+	CAIndex
 )
 
 var (
@@ -84,7 +90,7 @@ func VerifyCAWhitelist(cas []*x509.Certificate) PeerCertVerificationFunc {
 func TLSCert(chain [][]byte, leaf *x509.Certificate, key crypto.PrivateKey) (*tls.Certificate, error) {
 	var err error
 	if leaf == nil {
-		leaf, err = pkcrypto.CertFromDER(chain[0])
+		leaf, err = pkcrypto.CertFromDER(chain[LeafIndex])
 		if err != nil {
 			return nil, err
 		}
@@ -97,25 +103,19 @@ func TLSCert(chain [][]byte, leaf *x509.Certificate, key crypto.PrivateKey) (*tl
 	}, nil
 }
 
-// WriteChain writes the certificate chain (leaf-first) to the writer, PEM-encoded.
+// WriteChain writes the certificate chain (leaf-first) and extensions to the writer, PEM-encoded.
 func WriteChain(w io.Writer, chain ...*x509.Certificate) error {
 	if len(chain) < 1 {
 		return errs.New("expected at least one certificate for writing")
 	}
 
-	var extErrs utils.ErrorGroup
+	var extErrs errs.Group
 	for _, c := range chain {
 		if err := pkcrypto.WriteCertPEM(w, c); err != nil {
 			return errs.Wrap(err)
 		}
-
-		for _, e := range c.ExtraExtensions {
-			if err := pkcrypto.WritePKIXExtensionPEM(w, &e); err != nil {
-				extErrs.Add(errs.Wrap(err))
-			}
-		}
 	}
-	return extErrs.Finish()
+	return extErrs.Err()
 }
 
 // ChainBytes returns bytes of the certificate chain (leaf-first) to the writer, PEM-encoded.
@@ -125,34 +125,38 @@ func ChainBytes(chain ...*x509.Certificate) ([]byte, error) {
 	return data.Bytes(), err
 }
 
-// NewCert returns a new x509 certificate using the provided templates and key,
-// signed by the parent cert if provided; otherwise, self-signed.
-func NewCert(key, parentKey crypto.PrivateKey, template, parent *x509.Certificate) (*x509.Certificate, error) {
-	var signingKey crypto.PrivateKey
-	if parentKey != nil {
-		signingKey = parentKey
-	} else {
-		signingKey = key
+// CreateSelfSignedCertificate creates a new self-signed X.509v3 certificate
+// using fields from the given template.
+func CreateSelfSignedCertificate(key crypto.PrivateKey, template *x509.Certificate) (*x509.Certificate, error) {
+	return CreateCertificate(pkcrypto.PublicKeyFromPrivate(key), key, template, template)
+}
+
+// CreateCertificate creates a new X.509v3 certificate based on a template.
+// The new certificate:
+//
+//  * will have the public key given as 'signee'
+//  * will be signed by 'signer' (which should be the private key of 'issuer')
+//  * will be issued by 'issuer'
+//  * will have metadata fields copied from 'template'
+//
+// Returns the new Certificate object.
+func CreateCertificate(signee crypto.PublicKey, signer crypto.PrivateKey, template, issuer *x509.Certificate) (*x509.Certificate, error) {
+	if _, ok := signer.(crypto.Signer); !ok {
+		// x509.CreateCertificate will panic in this case, so check here and make debugging easier
+		return nil, errs.New("can't sign certificate with signer key of type %T", signer)
 	}
 
-	if parent == nil {
-		parent = template
-	}
-
+	// TODO: should we check for uniqueness?
+	template.ExtraExtensions = append(template.ExtraExtensions, template.Extensions...)
 	cb, err := x509.CreateCertificate(
 		rand.Reader,
 		template,
-		parent,
-		pkcrypto.PublicKeyFromPrivate(key),
-		signingKey,
+		issuer,
+		signee,
+		signer,
 	)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
-
-	cert, err := pkcrypto.CertFromDER(cb)
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
-	return cert, nil
+	return pkcrypto.CertFromDER(cb)
 }

@@ -37,3 +37,35 @@ func (srv *Inspector) CountNodes(ctx context.Context, req *pb.CountNodesRequest)
 func (srv *Inspector) DumpNodes(ctx context.Context, req *pb.DumpNodesRequest) (*pb.DumpNodesResponse, error) {
 	return &pb.DumpNodesResponse{}, errs.New("Not Implemented")
 }
+
+// GetStats returns the stats for a particular node ID
+func (srv *Inspector) GetStats(ctx context.Context, req *pb.GetStatsRequest) (*pb.GetStatsResponse, error) {
+	node, err := srv.cache.Get(ctx, req.NodeId)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.GetStatsResponse{
+		AuditCount:  node.Reputation.AuditCount,
+		AuditRatio:  node.Reputation.AuditSuccessRatio,
+		UptimeCount: node.Reputation.UptimeCount,
+		UptimeRatio: node.Reputation.UptimeRatio,
+	}, nil
+}
+
+// CreateStats creates a node with specified stats
+func (srv *Inspector) CreateStats(ctx context.Context, req *pb.CreateStatsRequest) (*pb.CreateStatsResponse, error) {
+	stats := &NodeStats{
+		AuditCount:         req.AuditCount,
+		AuditSuccessCount:  req.AuditSuccessCount,
+		UptimeCount:        req.UptimeCount,
+		UptimeSuccessCount: req.UptimeSuccessCount,
+	}
+
+	_, err := srv.cache.Create(ctx, req.NodeId, stats)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.CreateStatsResponse{}, nil
+}

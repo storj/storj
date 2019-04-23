@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/bootstrap"
 	"storj.io/storj/bootstrap/bootstrapdb"
 	"storj.io/storj/internal/fpath"
+	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
 )
@@ -41,7 +42,6 @@ var (
 
 	confDir     string
 	identityDir string
-	isDev       bool
 )
 
 const (
@@ -53,14 +53,17 @@ func init() {
 	defaultIdentityDir := fpath.ApplicationDir("storj", "identity", "bootstrap")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for bootstrap configuration")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for bootstrap identity credentials")
-	cfgstruct.DevFlag(rootCmd, &isDev, false, "use development and test configuration settings")
+	defaults := cfgstruct.DefaultsFlag(rootCmd)
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
-	cfgstruct.Bind(runCmd.Flags(), &runCfg, isDev, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, isDev, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	cfgstruct.Bind(runCmd.Flags(), &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
+	// inert constructors only ====
+
+	ctx := process.Ctx(cmd)
 	log := zap.L()
 
 	identity, err := runCfg.Identity.Load()
@@ -71,11 +74,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	if err := runCfg.Verify(log); err != nil {
 		log.Sugar().Error("Invalid configuration: ", err)
 		return err
-	}
-
-	ctx := process.Ctx(cmd)
-	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
-		zap.S().Error("Failed to initialize telemetry batcher: ", err)
 	}
 
 	db, err := bootstrapdb.New(bootstrapdb.Config{
@@ -89,14 +87,25 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
+	peer, err := bootstrap.New(log, identity, db, runCfg, version.Build)
+	if err != nil {
+		return err
+	}
+
+	// okay, start doing stuff ====
+
+	err = peer.Version.CheckVersion(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
+		zap.S().Error("Failed to initialize telemetry batcher: ", err)
+	}
+
 	err = db.CreateTables()
 	if err != nil {
 		return errs.New("Error creating tables for master database on bootstrap: %+v", err)
-	}
-
-	peer, err := bootstrap.New(log, identity, db, runCfg)
-	if err != nil {
-		return err
 	}
 
 	runError := peer.Run(ctx)
@@ -130,7 +139,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 
 	kademliaBootstrapAddr := cmd.Flag("kademlia.bootstrap-addr")
 	if !kademliaBootstrapAddr.Changed {
-		overrides[kademliaBootstrapAddr.Name] = "localhost" + defaultServerAddr
+		overrides[kademliaBootstrapAddr.Name] = "127.0.0.1" + defaultServerAddr
 	}
 
 	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)

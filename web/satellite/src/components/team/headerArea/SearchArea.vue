@@ -31,9 +31,9 @@
                 this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, this.$data.searchQuery);
                 const response = await this.$store.dispatch(PM_ACTIONS.FETCH);
 
-                if (response.isSuccess) return;
-
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+                if (!response.isSuccess) {
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+                }
             },
             clearSearch: function () {
                 this.$data.searchQuery = '';
@@ -98,9 +98,9 @@
                     border-radius: 6px;
                     width: 100%;
                     height: 56px;
-                    padding-right: 20px;
+                    padding-right: 100px;
                     padding-left: 20px;
-                    font-family: 'montserrat_regular';
+                    font-family: 'font_regular';
                     font-size: 16px;
                     transition: all .2s ease-in-out;
 

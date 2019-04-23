@@ -55,29 +55,28 @@ func NewEndpoint(log *zap.Logger, pieceInfo pieces.DB, kademlia *kademlia.Kademl
 }
 
 func (inspector *Endpoint) retrieveStats(ctx context.Context) (*pb.StatSummaryResponse, error) {
+
+	// Space Usage
 	totalUsedSpace, err := inspector.pieceInfo.SpaceUsed(ctx)
 	if err != nil {
 		return nil, err
 	}
-	usage, err := inspector.usageDB.Summary(ctx, getBeginningOfMonth(), time.Now())
+	usage, err := bandwidth.TotalMonthlySummary(ctx, inspector.usageDB)
 	if err != nil {
 		return nil, err
 	}
-	totalUsedBandwidth := int64(0)
-	oldUsage, err := inspector.psdbDB.SumTTLSizes()
-	if err != nil {
-		inspector.log.Warn("unable to calculate old bandwidth usage")
-	} else {
-		totalUsedBandwidth = oldUsage
-	}
+	ingress := usage.Put + usage.PutRepair
+	egress := usage.Get + usage.GetAudit + usage.GetRepair
 
-	totalUsedBandwidth += usage.Total()
+	totalUsedBandwidth := usage.Total()
 
 	return &pb.StatSummaryResponse{
 		UsedSpace:          totalUsedSpace,
-		AvailableSpace:     (inspector.config.AllocatedDiskSpace.Int64() - totalUsedSpace),
+		AvailableSpace:     inspector.config.AllocatedDiskSpace.Int64() - totalUsedSpace,
+		UsedIngress:        ingress,
+		UsedEgress:         egress,
 		UsedBandwidth:      totalUsedBandwidth,
-		AvailableBandwidth: (inspector.config.AllocatedBandwidth.Int64() - totalUsedBandwidth),
+		AvailableBandwidth: inspector.config.AllocatedBandwidth.Int64() - totalUsedBandwidth,
 	}, nil
 }
 
@@ -115,13 +114,25 @@ func (inspector *Endpoint) getDashboardData(ctx context.Context) (*pb.DashboardR
 		bsNodes[i] = node.Address.Address
 	}
 
+	pinged, err := ptypes.TimestampProto(inspector.kademlia.LastPinged())
+	if err != nil {
+		inspector.log.Warn("last ping time bad", zap.Error(err))
+		pinged = nil
+	}
+	queried, err := ptypes.TimestampProto(inspector.kademlia.LastQueried())
+	if err != nil {
+		inspector.log.Warn("last query time bad", zap.Error(err))
+		queried = nil
+	}
+
 	return &pb.DashboardResponse{
 		NodeId:           inspector.kademlia.Local().Id,
 		NodeConnections:  int64(len(nodes)),
 		BootstrapAddress: strings.Join(bsNodes[:], ", "),
 		InternalAddress:  "",
 		ExternalAddress:  inspector.kademlia.Local().Address.Address,
-		Connection:       true,
+		LastPinged:       pinged,
+		LastQueried:      queried,
 		Uptime:           ptypes.DurationProto(time.Since(inspector.startTime)),
 		Stats:            statsSummary,
 	}, nil
@@ -137,10 +148,4 @@ func (inspector *Endpoint) Dashboard(ctx context.Context, in *pb.DashboardReques
 		return nil, err
 	}
 	return data, nil
-}
-
-func getBeginningOfMonth() time.Time {
-	t := time.Now()
-	y, m, _ := t.Date()
-	return time.Date(y, m, 1, 0, 0, 0, 0, time.Now().Location())
 }

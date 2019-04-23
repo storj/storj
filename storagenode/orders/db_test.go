@@ -7,12 +7,13 @@ import (
 	"crypto/rand"
 	"testing"
 
+	"storj.io/storj/internal/testidentity"
+
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -28,18 +29,23 @@ func TestOrders(t *testing.T) {
 
 		ordersdb := db.Orders()
 
-		storagenode := testplanet.MustPregeneratedSignedIdentity(0)
+		storagenode := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion())
 
-		satellite0 := testplanet.MustPregeneratedSignedIdentity(1)
+		satellite0 := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion())
 
-		uplink := testplanet.MustPregeneratedSignedIdentity(3)
+		uplink := testidentity.MustPregeneratedSignedIdentity(3, storj.LatestIDVersion())
 		piece := storj.NewPieceID()
 
 		serialNumber := newRandomSerial()
 
 		// basic test
-		_, err := ordersdb.ListUnsent(ctx, 100)
+		emptyUnsent, err := ordersdb.ListUnsent(ctx, 100)
 		require.NoError(t, err)
+		require.Len(t, emptyUnsent, 0)
+
+		emptyArchive, err := ordersdb.ListArchived(ctx, 100)
+		require.NoError(t, err)
+		require.Len(t, emptyArchive, 0)
 
 		now := ptypes.TimestampNow()
 
@@ -78,8 +84,48 @@ func TestOrders(t *testing.T) {
 
 		unsent, err := ordersdb.ListUnsent(ctx, 100)
 		require.NoError(t, err)
-
 		require.Empty(t, cmp.Diff([]*orders.Info{info}, unsent, cmp.Comparer(pb.Equal)))
+
+		// list by group
+		unsentGrouped, err := ordersdb.ListUnsentBySatellite(ctx)
+		require.NoError(t, err)
+
+		expectedGrouped := map[storj.NodeID][]*orders.Info{
+			satellite0.ID: []*orders.Info{
+				{Limit: limit, Order: order},
+			},
+		}
+		require.Empty(t, cmp.Diff(expectedGrouped, unsentGrouped, cmp.Comparer(pb.Equal)))
+
+		// test archival
+		err = ordersdb.Archive(ctx, satellite0.ID, serialNumber, orders.StatusAccepted)
+		require.NoError(t, err)
+
+		// duplicate archive
+		err = ordersdb.Archive(ctx, satellite0.ID, serialNumber, orders.StatusRejected)
+		require.Error(t, err)
+
+		// shouldn't be in unsent list
+		unsent, err = ordersdb.ListUnsent(ctx, 100)
+		require.NoError(t, err)
+		require.Len(t, unsent, 0)
+
+		// it should now be in the archive
+		archived, err := ordersdb.ListArchived(ctx, 100)
+		require.NoError(t, err)
+		require.Len(t, archived, 1)
+
+		require.Empty(t, cmp.Diff([]*orders.ArchivedInfo{
+			{
+				Limit:  limit,
+				Order:  order,
+				Uplink: uplink.PeerIdentity(),
+
+				Status:     orders.StatusAccepted,
+				ArchivedAt: archived[0].ArchivedAt,
+			},
+		}, archived, cmp.Comparer(pb.Equal)))
+
 	})
 }
 

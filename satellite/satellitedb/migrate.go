@@ -337,7 +337,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
   						get_egress bigint NOT NULL,
   						audit_egress bigint NOT NULL,
   						PRIMARY KEY ( id ),
-  						UNIQUE ( rollup_end_time, bucket_id )
+						UNIQUE ( rollup_end_time, bucket_id )
 					)`,
 				},
 			},
@@ -362,6 +362,246 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					)`,
 				},
 			},
+			{
+				Description: "Add new tables for tracking used serials, bandwidth and storage",
+				Version:     9,
+				Action: migrate.SQL{
+					`CREATE TABLE serial_numbers (
+						id serial NOT NULL,
+						serial_number bytea NOT NULL,
+						bucket_id bytea NOT NULL,
+						expires_at timestamp NOT NULL,
+						PRIMARY KEY ( id )
+					)`,
+					`CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at )`,
+					`CREATE UNIQUE INDEX serial_number_index ON serial_numbers ( serial_number )`,
+					`CREATE TABLE used_serials (
+						serial_number_id integer NOT NULL REFERENCES serial_numbers( id ) ON DELETE CASCADE,
+						storage_node_id bytea NOT NULL,
+						PRIMARY KEY ( serial_number_id, storage_node_id )
+					)`,
+					`CREATE TABLE storagenode_bandwidth_rollups (
+						storagenode_id bytea NOT NULL,
+						interval_start timestamp NOT NULL,
+						interval_seconds integer NOT NULL,
+						action integer NOT NULL,
+						allocated bigint NOT NULL,
+						settled bigint NOT NULL,
+						PRIMARY KEY ( storagenode_id, interval_start, action )
+					)`,
+					`CREATE INDEX storagenode_id_interval_start_interval_seconds_index ON storagenode_bandwidth_rollups (
+						storagenode_id,
+						interval_start,
+						interval_seconds
+					)`,
+					`CREATE TABLE storagenode_storage_rollups (
+						storagenode_id bytea NOT NULL,
+						interval_start timestamp NOT NULL,
+						interval_seconds integer NOT NULL,
+						total bigint NOT NULL,
+						PRIMARY KEY ( storagenode_id, interval_start )
+					)`,
+					`CREATE TABLE bucket_bandwidth_rollups (
+						bucket_id bytea NOT NULL,
+						interval_start timestamp NOT NULL,
+						interval_seconds integer NOT NULL,
+						action integer NOT NULL,
+						inline bigint NOT NULL,
+						allocated bigint NOT NULL,
+						settled bigint NOT NULL,
+						PRIMARY KEY ( bucket_id, interval_start, action )
+					)`,
+					`CREATE INDEX bucket_id_interval_start_interval_seconds_index ON bucket_bandwidth_rollups (
+						bucket_id,
+						interval_start,
+						interval_seconds
+					)`,
+					`CREATE TABLE bucket_storage_rollups (
+						bucket_id bytea NOT NULL,
+						interval_start timestamp NOT NULL,
+						interval_seconds integer NOT NULL,
+						inline bigint NOT NULL,
+						remote bigint NOT NULL,
+						PRIMARY KEY ( bucket_id, interval_start )
+					)`,
+					`ALTER TABLE bucket_usages DROP CONSTRAINT bucket_usages_rollup_end_time_bucket_id_key`,
+					`CREATE UNIQUE INDEX bucket_id_rollup_end_time_index ON bucket_usages (
+						bucket_id,
+						rollup_end_time )`,
+				},
+			},
+			{
+				Description: "users first_name to full_name, last_name to short_name",
+				Version:     10,
+				Action: migrate.SQL{
+					`ALTER TABLE users RENAME COLUMN first_name TO full_name;
+					ALTER TABLE users ALTER COLUMN last_name DROP NOT NULL;
+					ALTER TABLE users RENAME COLUMN last_name TO short_name;`,
+				},
+			},
+			{
+				Description: "drops interval seconds from storage_rollups, renames x_storage_rollups to x_storage_tallies, adds fields to bucket_storage_tallies",
+				Version:     11,
+				Action: migrate.SQL{
+					`ALTER TABLE storagenode_storage_rollups RENAME TO storagenode_storage_tallies`,
+					`ALTER TABLE bucket_storage_rollups RENAME TO bucket_storage_tallies`,
+
+					`ALTER TABLE storagenode_storage_tallies DROP COLUMN interval_seconds`,
+					`ALTER TABLE bucket_storage_tallies DROP COLUMN interval_seconds`,
+
+					`ALTER TABLE bucket_storage_tallies ADD remote_segments_count integer;
+					UPDATE bucket_storage_tallies SET remote_segments_count = 0;
+					ALTER TABLE bucket_storage_tallies ALTER COLUMN remote_segments_count SET NOT NULL;`,
+
+					`ALTER TABLE bucket_storage_tallies ADD inline_segments_count integer;
+					UPDATE bucket_storage_tallies SET inline_segments_count = 0;
+					ALTER TABLE bucket_storage_tallies ALTER COLUMN inline_segments_count SET NOT NULL;`,
+
+					`ALTER TABLE bucket_storage_tallies ADD object_count integer;
+					UPDATE bucket_storage_tallies SET object_count = 0;
+					ALTER TABLE bucket_storage_tallies ALTER COLUMN object_count SET NOT NULL;`,
+
+					`ALTER TABLE bucket_storage_tallies ADD metadata_size bigint;
+					UPDATE bucket_storage_tallies SET metadata_size = 0;
+					ALTER TABLE bucket_storage_tallies ALTER COLUMN metadata_size SET NOT NULL;`,
+				},
+			},
+			{
+				Description: "Merge overlay_cache_nodes into nodes table",
+				Version:     12,
+				Action: migrate.SQL{
+					// Add the new columns to the nodes table
+					`ALTER TABLE nodes ADD address TEXT NOT NULL DEFAULT '';
+					 ALTER TABLE nodes ADD protocol INTEGER NOT NULL DEFAULT 0;
+					 ALTER TABLE nodes ADD type INTEGER NOT NULL DEFAULT 2;
+					 ALTER TABLE nodes ADD free_bandwidth BIGINT NOT NULL DEFAULT -1;
+					 ALTER TABLE nodes ADD free_disk BIGINT NOT NULL DEFAULT -1;
+					 ALTER TABLE nodes ADD latency_90 BIGINT NOT NULL DEFAULT 0;
+					 ALTER TABLE nodes ADD last_contact_success TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT 'epoch';
+					 ALTER TABLE nodes ADD last_contact_failure TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT 'epoch';`,
+					// Copy data from overlay_cache_nodes to nodes
+					`UPDATE nodes
+					 SET address=overlay.address,
+					     protocol=overlay.protocol,
+						 type=overlay.node_type,
+						 free_bandwidth=overlay.free_bandwidth,
+						 free_disk=overlay.free_disk,
+						 latency_90=overlay.latency_90
+					 FROM (SELECT node_id, node_type, address, protocol, free_bandwidth, free_disk, latency_90
+						   FROM overlay_cache_nodes) AS overlay
+					 WHERE nodes.id=overlay.node_id;`,
+					// Delete the overlay cache_nodes table
+					`DROP TABLE overlay_cache_nodes CASCADE;`,
+				},
+			},
+			{
+				Description: "Change bucket_id to bucket_name and project_id",
+				Version:     13,
+				Action: migrate.SQL{
+					// Modify columns: bucket_id --> bucket_name + project_id for table bucket_storage_tallies
+					`ALTER TABLE bucket_storage_tallies ADD project_id bytea;`,
+					`UPDATE bucket_storage_tallies SET project_id=SUBSTRING(bucket_id FROM 1 FOR 16);`,
+					`ALTER TABLE bucket_storage_tallies ALTER COLUMN project_id SET NOT NULL;`,
+					`ALTER TABLE bucket_storage_tallies RENAME COLUMN bucket_id TO bucket_name;`,
+					`UPDATE bucket_storage_tallies SET bucket_name=SUBSTRING(bucket_name from 18);`,
+
+					// Update the primary key for bucket_storage_tallies
+					`ALTER TABLE bucket_storage_tallies DROP CONSTRAINT bucket_storage_rollups_pkey;`,
+					`ALTER TABLE bucket_storage_tallies ADD CONSTRAINT bucket_storage_tallies_pk PRIMARY KEY (bucket_name, project_id, interval_start);`,
+
+					// Modify columns: bucket_id --> bucket_name + project_id for table bucket_bandwidth_rollups
+					`ALTER TABLE bucket_bandwidth_rollups ADD project_id bytea;`,
+					`UPDATE bucket_bandwidth_rollups SET project_id=SUBSTRING(bucket_id FROM 1 FOR 16);`,
+					`ALTER TABLE bucket_bandwidth_rollups ALTER COLUMN project_id SET NOT NULL;`,
+					`ALTER TABLE bucket_bandwidth_rollups RENAME COLUMN bucket_id TO bucket_name;`,
+					`UPDATE bucket_bandwidth_rollups SET bucket_name=SUBSTRING(bucket_name from 18);`,
+
+					// Update index for bucket_bandwidth_rollups
+					`DROP INDEX IF EXISTS bucket_id_interval_start_interval_seconds_index;`,
+					`CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups (
+						bucket_name,
+						project_id,
+						interval_start,
+						interval_seconds
+					);`,
+
+					// Update the primary key for bucket_bandwidth_rollups
+					`ALTER TABLE bucket_bandwidth_rollups DROP CONSTRAINT bucket_bandwidth_rollups_pkey;`,
+					`ALTER TABLE bucket_bandwidth_rollups ADD CONSTRAINT bucket_bandwidth_rollups_pk PRIMARY KEY (bucket_name, project_id, interval_start, action);`,
+				},
+			},
+			{
+				Description: "Add new Columns to store version information",
+				Version:     14,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD major bigint NOT NULL DEFAULT 0;
+					ALTER TABLE nodes ADD minor bigint NOT NULL DEFAULT 1;
+					ALTER TABLE nodes ADD patch bigint NOT NULL DEFAULT 0;
+					ALTER TABLE nodes ADD hash TEXT NOT NULL DEFAULT '';
+					ALTER TABLE nodes ADD timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT 'epoch';
+					ALTER TABLE nodes ADD release bool NOT NULL DEFAULT FALSE;`,
+				},
+			},
+			{
+				Description: "Default Node Type should be invalid",
+				Version:     15,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ALTER COLUMN type SET DEFAULT 0;`,
+				},
+			},
+			{
+				Description: "Add path to injuredsegment to prevent duplicates",
+				Version:     16,
+				Action: migrate.Func(func(log *zap.Logger, db migrate.DB, tx *sql.Tx) error {
+					_, err := tx.Exec(`
+						ALTER TABLE injuredsegments ADD path text;
+						ALTER TABLE injuredsegments RENAME COLUMN info TO data;
+						ALTER TABLE injuredsegments ADD attempted timestamp;
+						ALTER TABLE injuredsegments DROP CONSTRAINT IF EXISTS id_pkey;`)
+					if err != nil {
+						return ErrMigrate.Wrap(err)
+					}
+					// add 'path' using a cursor
+					err = func() error {
+						_, err = tx.Exec(`DECLARE injured_cursor CURSOR FOR SELECT data FROM injuredsegments FOR UPDATE`)
+						if err != nil {
+							return ErrMigrate.Wrap(err)
+						}
+						defer func() {
+							_, closeErr := tx.Exec(`CLOSE injured_cursor`)
+							err = errs.Combine(err, closeErr)
+						}()
+						for {
+							var seg pb.InjuredSegment
+							err := tx.QueryRow(`FETCH NEXT FROM injured_cursor`).Scan(&seg)
+							if err != nil {
+								if err == sql.ErrNoRows {
+									break
+								}
+								return ErrMigrate.Wrap(err)
+							}
+							_, err = tx.Exec(`UPDATE injuredsegments SET path = $1 WHERE CURRENT OF injured_cursor`, seg.Path)
+							if err != nil {
+								return ErrMigrate.Wrap(err)
+							}
+						}
+						return nil
+					}()
+					if err != nil {
+						return err
+					}
+					// keep changing
+					_, err = tx.Exec(`
+						DELETE FROM injuredsegments a USING injuredsegments b WHERE a.id < b.id AND a.path = b.path;
+						ALTER TABLE injuredsegments DROP COLUMN id;
+						ALTER TABLE injuredsegments ALTER COLUMN path SET NOT NULL;
+						ALTER TABLE injuredsegments ADD PRIMARY KEY (path);`)
+					if err != nil {
+						return ErrMigrate.Wrap(err)
+					}
+					return nil
+				}),
+			},
 		},
 	}
 }
@@ -369,7 +609,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 func postgresHasColumn(tx *sql.Tx, table, column string) (bool, error) {
 	var columnName string
 	err := tx.QueryRow(`
-		SELECT column_name FROM information_schema.COLUMNS 
+		SELECT column_name FROM information_schema.COLUMNS
 			WHERE table_schema = CURRENT_SCHEMA
 				AND table_name = $1
 				AND column_name = $2
@@ -387,7 +627,7 @@ func postgresHasColumn(tx *sql.Tx, table, column string) (bool, error) {
 func postgresColumnNullability(tx *sql.Tx, table, column string) (bool, error) {
 	var nullability string
 	err := tx.QueryRow(`
-		SELECT is_nullable FROM information_schema.COLUMNS 
+		SELECT is_nullable FROM information_schema.COLUMNS
 			WHERE table_schema = CURRENT_SCHEMA
 				AND table_name = $1
 				AND column_name = $2

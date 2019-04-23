@@ -7,6 +7,7 @@ option go_package = "pb";
 package node;
 
 import "gogo.proto";
+import "google/protobuf/timestamp.proto";
 
 // TODO move statdb.Update() stuff out of here
 // Node represents a node in the overlay network
@@ -14,16 +15,8 @@ import "gogo.proto";
 message Node {
     bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
     NodeAddress address = 2;
-    NodeType type = 3;
-    NodeRestrictions restrictions = 4;
-    NodeStats reputation = 5;
-    NodeMetadata metadata = 6;
-    repeated int64 latency_list = 7;
-    bool audit_success = 8;
-    bool is_up = 9;
-    bool update_latency = 10;
-    bool update_audit_success = 11;
-    bool update_uptime = 12;
+    reserved 3 to 13;
+    reserved "type", "restrictions", "reputation", "metadata", "latency_list", "audit_success", "is_up", "update_latency", "update_audit_success", "update_uptime", "version";
 }
 
 // NodeType is an enum of possible node types
@@ -47,7 +40,7 @@ enum NodeTransport {
 }
 // NodeStats is the reputation characteristics of a node
 message NodeStats {
-    bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false]; // TODO: remove
     int64 latency_90 = 2; // 90th percentile measure of storagenode latency
     double audit_success_ratio = 3; // (auditSuccessCount / totalAuditCount)
     double uptime_ratio = 4; // (uptimeCount / totalUptimeCheckCount)
@@ -55,6 +48,8 @@ message NodeStats {
     int64 audit_success_count = 6;
     int64 uptime_count = 7;
     int64 uptime_success_count = 8;
+    google.protobuf.Timestamp last_contact_success = 9;
+    google.protobuf.Timestamp last_contact_failure = 10;
 }
 
 // NodeOperator contains info about the storage node operator
@@ -79,4 +74,12 @@ message NodeMetadata {
 message NodeRestrictions {
     int64 free_bandwidth = 1;
     int64 free_disk = 2;
+}
+
+// NodeVersion contains
+message NodeVersion {
+    string version = 1; // must be semver formatted
+    string commit_hash = 2;
+    google.protobuf.Timestamp timestamp = 3;
+    bool release = 4;
 }

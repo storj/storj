@@ -9,8 +9,9 @@ import (
 	"math/big"
 	"reflect"
 	"testing"
+	"time"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
@@ -18,6 +19,7 @@ import (
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storj"
 )
@@ -34,91 +36,19 @@ func TestAuditSegment(t *testing.T) {
 		// note: to simulate better,
 		// change limit in library to 5 in
 		// list api call, default is  0 == 1000 listing
-		tests := []struct {
-			bm   string
-			path storj.Path
-		}{
-			{
-				bm:   "success-1",
-				path: "folder1/file1",
-			},
-			{
-				bm:   "success-2",
-				path: "foodFolder1/file1/file2",
-			},
-			{
-				bm:   "success-3",
-				path: "foodFolder1/file1/file2/foodFolder2/file3",
-			},
-			{
-				bm:   "success-4",
-				path: "projectFolder/project1.txt/",
-			},
-			{
-				bm:   "success-5",
-				path: "newProjectFolder/project2.txt",
-			},
-			{
-				bm:   "success-6",
-				path: "Pictures/image1.png",
-			},
-			{
-				bm:   "success-7",
-				path: "Pictures/Nature/mountains.png",
-			},
-			{
-				bm:   "success-8",
-				path: "Pictures/City/streets.png",
-			},
-			{
-				bm:   "success-9",
-				path: "Pictures/Animals/Dogs/dogs.png",
-			},
-			{
-				bm:   "success-10",
-				path: "Nada/ビデオ/😶",
-			},
-		}
-
-		pointerdb := planet.Satellites[0].Metainfo.Service
-		allocation := planet.Satellites[0].Metainfo.Allocation
-		cache := planet.Satellites[0].Overlay.Service
-		// create a pdb client and instance of audit
-		cursor := audit.NewCursor(pointerdb, allocation, cache, planet.Satellites[0].Identity)
-
-		// put 10 paths in db
-		t.Run("putToDB", func(t *testing.T) {
-			for _, tt := range tests {
-				t.Run(tt.bm, func(t *testing.T) {
-					assert1 := assert.New(t)
-
-					// create a pointer and put in db
-					putRequest := makePutRequest(tt.path)
-
-					// put pointer into db
-					err := pointerdb.Put(tt.path, putRequest.Pointer)
-					if err != nil {
-						t.Fatalf("failed to put %v: error: %v", putRequest.Pointer, err)
-						assert1.NotNil(err)
-					}
-					if err != nil {
-						t.Error("cant instantiate the piece store client")
-					}
-				})
-			}
-		})
+		//populate pointerdb with 10 non-expired pointers of test data
+		tests, cursor, pointerdb := populateTestData(t, planet, &timestamp.Timestamp{Seconds: time.Now().Unix() + 3000})
 
 		t.Run("NextStripe", func(t *testing.T) {
 			for _, tt := range tests {
 				t.Run(tt.bm, func(t *testing.T) {
-					assert1 := assert.New(t)
 					stripe, err := cursor.NextStripe(ctx)
 					if err != nil {
-						assert1.Error(err)
-						assert1.Nil(stripe)
+						require.Error(t, err)
+						require.Nil(t, stripe)
 					}
 					if stripe != nil {
-						assert1.Nil(err)
+						require.Nil(t, err)
 					}
 				})
 			}
@@ -183,30 +113,87 @@ func TestAuditSegment(t *testing.T) {
 	})
 }
 
-func makePutRequest(path storj.Path) pb.PutRequest {
+func TestDeleteExpired(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		//populate pointerdb with 10 expired pointers of test data
+		tests, cursor, pointerdb := populateTestData(t, planet, &timestamp.Timestamp{})
+		//make sure it they're in there
+		list, _, err := pointerdb.List("", "", "", true, 10, meta.None)
+		require.NoError(t, err)
+		require.Len(t, list, 10)
+		// make sure its all null and no errors
+		t.Run("NextStripe", func(t *testing.T) {
+			for _, tt := range tests {
+				t.Run(tt.bm, func(t *testing.T) {
+					stripe, err := cursor.NextStripe(ctx)
+					require.NoError(t, err)
+					require.Nil(t, stripe)
+				})
+			}
+		})
+		//make sure it they're not in there anymore
+		list, _, err = pointerdb.List("", "", "", true, 10, meta.None)
+		require.NoError(t, err)
+		require.Len(t, list, 0)
+	})
+}
+
+type testData struct {
+	bm   string
+	path storj.Path
+}
+
+func populateTestData(t *testing.T, planet *testplanet.Planet, expiration *timestamp.Timestamp) ([]testData, *audit.Cursor, *pointerdb.Service) {
+	tests := []testData{
+		{bm: "success-1", path: "folder1/file1"},
+		{bm: "success-2", path: "foodFolder1/file1/file2"},
+		{bm: "success-3", path: "foodFolder1/file1/file2/foodFolder2/file3"},
+		{bm: "success-4", path: "projectFolder/project1.txt/"},
+		{bm: "success-5", path: "newProjectFolder/project2.txt"},
+		{bm: "success-6", path: "Pictures/image1.png"},
+		{bm: "success-7", path: "Pictures/Nature/mountains.png"},
+		{bm: "success-8", path: "Pictures/City/streets.png"},
+		{bm: "success-9", path: "Pictures/Animals/Dogs/dogs.png"},
+		{bm: "success-10", path: "Nada/ビデオ/😶"},
+	}
+	pointerdb := planet.Satellites[0].Metainfo.Service
+	cursor := audit.NewCursor(pointerdb)
+
+	// put 10 pointers in db with expirations
+	t.Run("putToDB", func(t *testing.T) {
+		for _, tt := range tests {
+			t.Run(tt.bm, func(t *testing.T) {
+				pointer := makePointer(tt.path, expiration)
+				require.NoError(t, pointerdb.Put(tt.path, pointer))
+			})
+		}
+	})
+	return tests, cursor, pointerdb
+}
+
+func makePointer(path storj.Path, expiration *timestamp.Timestamp) *pb.Pointer {
 	var rps []*pb.RemotePiece
 	rps = append(rps, &pb.RemotePiece{
 		PieceNum: 1,
 		NodeId:   teststorj.NodeIDFromString("testId"),
 	})
-	pr := pb.PutRequest{
-		Path: path,
-		Pointer: &pb.Pointer{
-			Type: pb.Pointer_REMOTE,
-			Remote: &pb.RemoteSegment{
-				Redundancy: &pb.RedundancyScheme{
-					Type:             pb.RedundancyScheme_RS,
-					MinReq:           1,
-					Total:            3,
-					RepairThreshold:  2,
-					SuccessThreshold: 3,
-					ErasureShareSize: 2,
-				},
-				RootPieceId:  teststorj.PieceIDFromString("testId"),
-				RemotePieces: rps,
+	return &pb.Pointer{
+		ExpirationDate: expiration,
+		Type:           pb.Pointer_REMOTE,
+		Remote: &pb.RemoteSegment{
+			Redundancy: &pb.RedundancyScheme{
+				Type:             pb.RedundancyScheme_RS,
+				MinReq:           1,
+				Total:            3,
+				RepairThreshold:  2,
+				SuccessThreshold: 3,
+				ErasureShareSize: 2,
 			},
-			SegmentSize: int64(10),
+			RootPieceId:  teststorj.PieceIDFromString("testId"),
+			RemotePieces: rps,
 		},
+		SegmentSize: int64(10),
 	}
-	return pr
 }

@@ -51,7 +51,6 @@ func NewClient(tc transport.Client, memoryLimit int) Client {
 }
 
 func (ec *ecClient) newPSClient(ctx context.Context, n *pb.Node) (*piecestore.Client, error) {
-	n.Type.DPanicOnInvalid("new ps client")
 	conn, err := ec.transport.DialNode(ctx, n)
 	if err != nil {
 		return nil, err
@@ -124,7 +123,6 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 		successfulNodes[info.i] = &pb.Node{
 			Id:      limits[info.i].GetLimit().StorageNodeId,
 			Address: limits[info.i].GetStorageNodeAddress(),
-			Type:    pb.NodeType_STORAGE,
 		}
 		successfulHashes[info.i] = info.hash
 
@@ -240,7 +238,6 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 		successfulNodes[info.i] = &pb.Node{
 			Id:      limits[info.i].GetLimit().StorageNodeId,
 			Address: limits[info.i].GetStorageNodeAddress(),
-			Type:    pb.NodeType_STORAGE,
 		}
 		successfulHashes[info.i] = info.hash
 
@@ -270,6 +267,10 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 		}
 	}()
 
+	if successfulCount < int32(optimalCount) {
+		return nil, nil, Error.New("successful nodes count (%d) does not match optimal count (%d) of erasure scheme", successfulCount, optimalCount)
+	}
+
 	return successfulNodes, successfulHashes, nil
 }
 
@@ -286,17 +287,16 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 	ps, err := ec.newPSClient(ctx, &pb.Node{
 		Id:      storageNodeID,
 		Address: limit.GetStorageNodeAddress(),
-		Type:    pb.NodeType_STORAGE,
 	})
 	if err != nil {
-		zap.S().Errorf("Failed dialing for putting piece %s to node %s: %v", pieceID, storageNodeID, err)
+		zap.S().Debugf("Failed dialing for putting piece %s to node %s: %v", pieceID, storageNodeID, err)
 		return nil, err
 	}
 	defer func() { err = errs.Combine(err, ps.Close()) }()
 
 	upload, err := ps.Upload(ctx, limit.GetLimit())
 	if err != nil {
-		zap.S().Errorf("Failed requesting upload of piece %s to node %s: %v", pieceID, storageNodeID, err)
+		zap.S().Debugf("Failed requesting upload of piece %s to node %s: %v", pieceID, storageNodeID, err)
 		return nil, err
 	}
 	defer func() {
@@ -325,7 +325,7 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 		if limit.GetStorageNodeAddress() != nil {
 			nodeAddress = limit.GetStorageNodeAddress().GetAddress()
 		}
-		zap.S().Errorf("Failed uploading piece %s to node %s (%+v): %v", pieceID, storageNodeID, nodeAddress, err)
+		zap.S().Debugf("Failed uploading piece %s to node %s (%+v): %v", pieceID, storageNodeID, nodeAddress, err)
 	}
 
 	return hash, err
@@ -381,7 +381,6 @@ func (ec *ecClient) Delete(ctx context.Context, limits []*pb.AddressedOrderLimit
 			ps, err := ec.newPSClient(ctx, &pb.Node{
 				Id:      limit.StorageNodeId,
 				Address: addressedLimit.GetStorageNodeAddress(),
-				Type:    pb.NodeType_STORAGE,
 			})
 			if err != nil {
 				zap.S().Errorf("Failed dialing for deleting piece %s from node %s: %v", limit.PieceId, limit.StorageNodeId, err)
@@ -463,12 +462,28 @@ func (lr *lazyPieceRanger) Range(ctx context.Context, offset, length int64) (io.
 	ps, err := lr.newPSClientHelper(ctx, &pb.Node{
 		Id:      lr.limit.GetLimit().StorageNodeId,
 		Address: lr.limit.GetStorageNodeAddress(),
-		Type:    pb.NodeType_STORAGE,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return ps.Download(ctx, lr.limit.GetLimit(), offset, length)
+
+	download, err := ps.Download(ctx, lr.limit.GetLimit(), offset, length)
+	if err != nil {
+		return nil, errs.Combine(err, ps.Close())
+	}
+	return &clientCloser{download, ps}, nil
+}
+
+type clientCloser struct {
+	piecestore.Downloader
+	client *piecestore.Client
+}
+
+func (client *clientCloser) Close() error {
+	return errs.Combine(
+		client.Downloader.Close(),
+		client.client.Close(),
+	)
 }
 
 func nonNilCount(limits []*pb.AddressedOrderLimit) int {

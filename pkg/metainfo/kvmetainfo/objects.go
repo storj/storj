@@ -235,7 +235,7 @@ func (db *DB) getInfo(ctx context.Context, prefix string, bucket string, path st
 		return object{}, storj.Object{}, err
 	}
 
-	pointer, _, _, err := db.pointers.Get(ctx, prefix+encryptedPath)
+	pointer, err := db.metainfo.SegmentInfo(ctx, bucket, storj.JoinPaths(storj.SplitPath(encryptedPath)[1:]...), -1)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
 			err = storj.ErrObjectNotFound.Wrap(err)
@@ -265,19 +265,13 @@ func (db *DB) getInfo(ctx context.Context, prefix string, bucket string, path st
 		Data:       pointer.GetMetadata(),
 	}
 
-	streamInfoData, err := streams.DecryptStreamInfo(ctx, lastSegmentMeta, fullpath, db.rootKey)
+	streamInfoData, streamMeta, err := streams.DecryptStreamInfo(ctx, lastSegmentMeta.Data, fullpath, db.rootKey)
 	if err != nil {
 		return object{}, storj.Object{}, err
 	}
 
 	streamInfo := pb.StreamInfo{}
 	err = proto.Unmarshal(streamInfoData, &streamInfo)
-	if err != nil {
-		return object{}, storj.Object{}, err
-	}
-
-	streamMeta := pb.StreamMeta{}
-	err = proto.Unmarshal(lastSegmentMeta.Data, &streamMeta)
 	if err != nil {
 		return object{}, storj.Object{}, err
 	}

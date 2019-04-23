@@ -11,7 +11,7 @@
             <div class="delete-project-popup__form-container">
                 <p>Are you sure that you want to delete your project? You will lose all your buckets and files that linked to this project.</p>
                 <div>
-                    <p class="text" v-if="!nameError">To proceed with deletion, enter full project name</p>
+                    <p class="text" v-if="!nameError">To confirm, enter the project name</p>
                     <div v-if="nameError" class="delete-project-popup__form-container__label">
                         <img src="../../../static/images/register/ErrorInfo.svg"/>
                         <p class="text">{{nameError}}</p>
@@ -48,6 +48,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import Button from '@/components/common/Button.vue';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 import { PROJETS_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component(
     {
@@ -56,6 +57,7 @@ import { PROJETS_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS, APP_STATE_ACTIONS } 
                 projectName: '',
                 nameError: '',
                 imageSource: EMPTY_STATE_IMAGES.DELETE_PROJECT,
+                isLoading: false,
             };
         },
         methods: {
@@ -63,8 +65,15 @@ import { PROJETS_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS, APP_STATE_ACTIONS } 
                 this.$data.nameError = '';
             },
             onDeleteProjectClick: async function (): Promise<any> {
+                if (this.$data.isLoading) {
+                    return;
+                }
+
+                this.$data.isLoading = true;
+
                 if (this.$data.projectName !== this.$store.getters.selectedProject.name) {
                     this.$data.nameError = 'Name doesn\'t match with current project name';
+                    this.$data.isLoading = false;
 
                     return;
                 }
@@ -75,23 +84,36 @@ import { PROJETS_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS, APP_STATE_ACTIONS } 
                 );
 
                 if (!response.isSuccess) {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Error during project deletion');
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
+                    this.$data.isLoading = false;
 
                     return;
                 }
 
                 this.$store.dispatch(PM_ACTIONS.CLEAR);
+
                 this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Project was successfully deleted');
-                this.$store.dispatch(PROJETS_ACTIONS.FETCH);
-                this.$router.push('/');
+
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_PROJ);
+
+                if (this.$store.state.projectsModule.projects.length > 0) {
+                    this.$store.dispatch(
+                        PROJETS_ACTIONS.SELECT,
+                        this.$store.state.projectsModule.projects[0].id,
+                    );
+
+                    this.$store.dispatch(PM_ACTIONS.FETCH);
+                    this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
+                }
+
+                this.$data.isLoading = false;
             },
             onCloseClick: function (): void {
                 this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_PROJ);
-            }
+            },
         },
         computed: {
             isDeleteButtonDisabled: function (): boolean {
-                
                 return (this.$data.projectName === '' || this.$data.nameError !== '');
             },
         },
@@ -145,7 +167,7 @@ export default class DeleteProjectPopup extends Vue {
             margin-right: 55px;
 
             &__main-label-text {
-                font-family: 'montserrat_bold';
+                font-family: 'font_bold';
                 font-size: 32px;
                 line-height: 39px;
                 color: #384B65;
@@ -160,7 +182,7 @@ export default class DeleteProjectPopup extends Vue {
             height: 335px;
 
             p {
-                font-family: 'montserrat_medium';
+                font-family: 'font_medium';
                 font-size: 16px;
                 line-height: 21px;
                 margin-bottom: 30px;
@@ -183,7 +205,7 @@ export default class DeleteProjectPopup extends Vue {
             }
 
             input {
-                font-family: 'montserrat_regular';
+                font-family: 'font_regular';
                 font-size: 16px;
                 line-height: 21px;
                 margin-top: 10px;

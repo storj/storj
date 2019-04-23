@@ -8,7 +8,7 @@
                 <div v-html="imageSource"></div>
             </div>
             <div class="add-api-key-popup__form-container">
-                <h2 class="add-api-key-popup__form-container__main-label-text">New API Key</h2>
+                <h2 class="add-api-key-popup__form-container__main-label-text">Create an API Key</h2>
                 <HeaderedInput
                     @setData="onChangeName"
                     label="Name"
@@ -54,6 +54,7 @@ Vue.use(VueClipboards);
                 imageSource: EMPTY_STATE_IMAGES.ADD_API_KEY,
                 name: '',
                 key: '',
+                isLoading: false,
             };
         },
         methods: {
@@ -61,16 +62,25 @@ Vue.use(VueClipboards);
                 this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
             },
             onCreateClick: async function (): Promise<any> {
+                if (this.$data.isLoading) {
+                    return;
+                }
+
+                this.$data.isLoading = true;
+
                 let result: any = await this.$store.dispatch(API_KEYS_ACTIONS.CREATE, this.$data.name);
 
                 if (!result.isSuccess) {
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, result.errorMessage);
+                    this.$data.isLoading = false;
 
                     return;
                 }
 
                 this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Successfully created new api key');
                 this.$data.key = result.data.key;
+
+                this.$data.isLoading = false;
             },
             onChangeName: function (value: string): void {
                 this.$data.name = value;
@@ -90,7 +100,7 @@ export default class AddApiKeyPopup extends Vue {
 
 <style scoped lang="scss">
     p {
-        font-family: 'montserrat_medium';
+        font-family: 'font_medium';
         font-size: 16px;
         line-height: 21px;
         color: #354049;
@@ -139,7 +149,7 @@ export default class AddApiKeyPopup extends Vue {
              margin-top: 10px;
 
              p {
-                 font-family: 'montserrat_regular';
+                 font-family: 'font_regular';
                  font-size: 16px;
                  margin-top: 20px;
 
@@ -149,7 +159,7 @@ export default class AddApiKeyPopup extends Vue {
              }
 
             &__main-label-text {
-                font-family: 'montserrat_bold';
+                font-family: 'font_bold';
                 font-size: 32px;
                 line-height: 39px;
                 color: #384B65;
