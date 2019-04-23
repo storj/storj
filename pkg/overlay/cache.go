@@ -131,7 +131,7 @@ func (node *NodeDossier) Online() bool {
 }
 
 func (node *NodeDossier) Valid(maxStats *NodeStats) bool {
-	return true
+	return node.Reputation.AuditSuccessRatio >= maxStats.AuditSuccessRatio && node.Reputation.UptimeRatio >= maxStats.UptimeRatio
 }
 
 // NodeStats contains statistics about a node.
