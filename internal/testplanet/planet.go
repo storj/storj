@@ -446,12 +446,11 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			},
 			Overlay: overlay.Config{
 				Node: overlay.NodeSelectionConfig{
-					UptimeRatio:           0,
-					UptimeCount:           0,
-					AuditSuccessRatio:     0,
-					AuditCount:            0,
-					NewNodeAuditThreshold: 0,
-					NewNodePercentage:     0,
+					UptimeRatio:       0,
+					UptimeCount:       0,
+					AuditSuccessRatio: 0,
+					AuditCount:        0,
+					NewNodePercentage: 0,
 				},
 			},
 			Discovery: discovery.Config{

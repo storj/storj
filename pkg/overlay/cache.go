@@ -41,7 +41,7 @@ type DB interface {
 	// SelectStorageNodes looks up nodes based on criteria
 	SelectStorageNodes(ctx context.Context, count int, criteria *NodeCriteria) ([]*pb.Node, error)
 	// SelectNewStorageNodes looks up nodes based on new node criteria
-	SelectNewStorageNodes(ctx context.Context, count int, criteria *NewNodeCriteria) ([]*pb.Node, error)
+	SelectNewStorageNodes(ctx context.Context, count int, criteria *NodeCriteria) ([]*pb.Node, error)
 
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
@@ -54,8 +54,6 @@ type DB interface {
 
 	// CreateStats initializes the stats for node.
 	CreateStats(ctx context.Context, nodeID storj.NodeID, initial *NodeStats) (stats *NodeStats, err error)
-	// FindInvalidNodes finds a subset of storagenodes that have stats below provided reputation requirements.
-	FindInvalidNodes(ctx context.Context, nodeIDs storj.NodeIDList, maxStats *NodeStats) (invalid storj.NodeIDList, err error)
 	// Update updates node address
 	UpdateAddress(ctx context.Context, value *pb.Node) error
 	// UpdateStats all parts of single storagenode's stats.
@@ -94,18 +92,6 @@ type NodeCriteria struct {
 	MinimumVersion string // semver or empty
 }
 
-// NewNodeCriteria are the requirement for selecting new nodes
-type NewNodeCriteria struct {
-	FreeBandwidth int64
-	FreeDisk      int64
-
-	AuditThreshold int64
-
-	Excluded []storj.NodeID
-
-	MinimumVersion string // semver or empty
-}
-
 // UpdateRequest is used to update a node status.
 type UpdateRequest struct {
 	NodeID       storj.NodeID
@@ -130,6 +116,11 @@ type NodeDossier struct {
 func (node *NodeDossier) Online() bool {
 	return time.Now().Sub(node.Reputation.LastContactSuccess) < OnlineWindow &&
 		node.Reputation.LastContactSuccess.After(node.Reputation.LastContactFailure)
+}
+
+// VettedFor checks if the node is vetted for the given stats.
+func (node *NodeDossier) VettedFor(stats *NodeStats) bool {
+	return node.Reputation.AuditSuccessRatio >= stats.AuditSuccessRatio && node.Reputation.UptimeRatio >= stats.UptimeRatio
 }
 
 // NodeStats contains statistics about a node.
@@ -192,25 +183,6 @@ func (cache *Cache) Get(ctx context.Context, nodeID storj.NodeID) (_ *NodeDossie
 	return cache.db.Get(ctx, nodeID)
 }
 
-// OfflineNodes returns indices of the nodes that are offline
-func (cache *Cache) OfflineNodes(ctx context.Context, nodes []storj.NodeID) (offline []int, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	// TODO: optimize
-	results, err := cache.GetAll(ctx, nodes)
-	if err != nil {
-		return nil, err
-	}
-
-	for i, r := range results {
-		if r == nil || !r.Online() {
-			offline = append(offline, i)
-		}
-	}
-
-	return offline, nil
-}
-
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
 func (cache *Cache) FindStorageNodes(ctx context.Context, req FindStorageNodesRequest) ([]*pb.Node, error) {
 	return cache.FindStorageNodesWithPreferences(ctx, req, &cache.preferences)
@@ -236,15 +208,13 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 
 	var newNodes []*pb.Node
 	if newNodeCount > 0 {
-		newNodes, err = cache.db.SelectNewStorageNodes(ctx, newNodeCount, &NewNodeCriteria{
-			FreeBandwidth: req.FreeBandwidth,
-			FreeDisk:      req.FreeDisk,
-
-			AuditThreshold: preferences.NewNodeAuditThreshold,
-
-			Excluded: excluded,
-
-			MinimumVersion: preferences.MinimumVersion,
+		newNodes, err = cache.db.SelectNewStorageNodes(ctx, newNodeCount, &NodeCriteria{
+			FreeBandwidth:     req.FreeBandwidth,
+			FreeDisk:          req.FreeDisk,
+			AuditCount:        preferences.AuditCount,
+			AuditSuccessRatio: preferences.AuditSuccessRatio,
+			Excluded:          excluded,
+			MinimumVersion:    preferences.MinimumVersion,
 		})
 		if err != nil {
 			return nil, err
@@ -252,9 +222,6 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 	}
 
 	auditCount := preferences.AuditCount
-	if auditCount < preferences.NewNodeAuditThreshold {
-		auditCount = preferences.NewNodeAuditThreshold
-	}
 
 	// add selected new nodes to the excluded list for reputable node selection
 	for _, newNode := range newNodes {
@@ -262,17 +229,14 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 	}
 
 	reputableNodes, err := cache.db.SelectStorageNodes(ctx, reputableNodeCount-len(newNodes), &NodeCriteria{
-		FreeBandwidth: req.FreeBandwidth,
-		FreeDisk:      req.FreeDisk,
-
+		FreeBandwidth:      req.FreeBandwidth,
+		FreeDisk:           req.FreeDisk,
 		AuditCount:         auditCount,
 		AuditSuccessRatio:  preferences.AuditSuccessRatio,
 		UptimeCount:        preferences.UptimeCount,
 		UptimeSuccessRatio: preferences.UptimeRatio,
-
-		Excluded: excluded,
-
-		MinimumVersion: preferences.MinimumVersion,
+		Excluded:           excluded,
+		MinimumVersion:     preferences.MinimumVersion,
 	})
 	if err != nil {
 		return nil, err
@@ -318,12 +282,6 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 func (cache *Cache) Create(ctx context.Context, nodeID storj.NodeID, initial *NodeStats) (stats *NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return cache.db.CreateStats(ctx, nodeID, initial)
-}
-
-// FindInvalidNodes finds a subset of storagenodes that have stats below provided reputation requirements.
-func (cache *Cache) FindInvalidNodes(ctx context.Context, nodeIDs storj.NodeIDList, maxStats *NodeStats) (invalid storj.NodeIDList, err error) {
-	defer mon.Task()(&ctx)(&err)
-	return cache.db.FindInvalidNodes(ctx, nodeIDs, maxStats)
 }
 
 // UpdateStats all parts of single storagenode's stats.
