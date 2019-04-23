@@ -8,6 +8,7 @@ import (
 	"crypto"
 
 	"go.uber.org/atomic"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/pkcrypto"
@@ -55,73 +56,80 @@ type GenerateKeyWithCounterCallback func(crypto.PrivateKey, peertls.POWCounter, 
 // or the ctx is canceled.
 func GenerateKeys(ctx context.Context, minDifficulty uint16, concurrency int, version storj.IDVersion, found GenerateCallback) error {
 	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	errchan := make(chan error, concurrency)
+	group, _ := errgroup.WithContext(ctx)
 
 	for i := 0; i < concurrency; i++ {
-		go func() {
+		group.Go(func() error {
+			defer cancel()
 			for {
+				ctxDone := ctx.Done()
+				select {
+				case <-ctxDone:
+					return nil
+				default:
+					break
+				}
+
 				k, id, err := GenerateKey(ctx, minDifficulty, version)
 				if err != nil {
-					errchan <- err
-					return
+					return err
 				}
 
 				done, err := found(k, id)
 				if err != nil {
-					errchan <- err
-					return
+					return err
 				}
 				if done {
-					errchan <- nil
-					return
+					return err
 				}
 			}
-		}()
+		})
 	}
 
-	// we only care about the first error. the rest of the errors will be
-	// context cancellation errors
-	return <-errchan
+	return group.Wait()
 }
 
 // GenerateKeyWithCounter generates a key and continues to increment the counter
 // until found returns done == true or the ctx is canceled.
 func GenerateKeyKeyWithCounter(ctx context.Context, minDifficulty uint16, concurrency int, version storj.IDVersion, found GenerateKeyWithCounterCallback) error {
 	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	errchan := make(chan error, concurrency)
+	group, _ := errgroup.WithContext(ctx)
 
-	k, id, err := GenerateKey(ctx, minDifficulty, version)
+	k, _, err := GenerateKey(ctx, minDifficulty, version)
 	if err != nil {
 		return err
 	}
 
 	count := atomic.NewUint64(0)
 	for i := 0; i < concurrency; i++ {
-		go func(i int) {
+		group.Go(func() error {
+			defer cancel()
 			for {
+				ctxDone := ctx.Done()
+				select {
+				case <-ctxDone:
+					return nil
+				default:
+					break
+				}
+
 				counter := peertls.POWCounter(count.Inc())
-				id, err = NodeIDFromKeyWithCounter(pkcrypto.PublicKeyFromPrivate(k), counter, version)
+				//time.Sleep(500 * time.Millisecond)
+				id, err := NodeIDFromKeyWithCounter(pkcrypto.PublicKeyFromPrivate(k), counter, version)
 				if err != nil {
-					errchan <- err
-					return
+					return err
 				}
 
 				done, err := found(k, counter, id)
 				if err != nil {
-					errchan <- err
-					return
+					return err
 				}
 				if done {
-					errchan <- nil
-					return
+					return err
 				}
 			}
-		}(i)
+		})
 	}
 
-	// we only care about the first error. the rest of the errors will be
-	// context cancellation errors
-	return <-errchan
+	return group.Wait()
 }

@@ -85,15 +85,22 @@ func newV1CA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthorit
 		i            = new(uint32)
 		updateStatus = statusLogger(opts.Logger, i, highscore)
 
-		mu            sync.Mutex
-		selectedKey   crypto.PrivateKey
-		selectedID    storj.NodeID
-		selectedCount peertls.POWCounter
+		mu              sync.Mutex
+		selectedKey     crypto.PrivateKey
+		selectedID      storj.NodeID
+		selectedCount   peertls.POWCounter
 		extraExtensions = []pkix.Extension{NewVersionExt(storj.IDVersions[storj.V1])}
 	)
 
 	err = GenerateKeyKeyWithCounter(ctx, minimumLoggableDifficulty, int(opts.Concurrency), storj.IDVersions[storj.V1],
 		func(k crypto.PrivateKey, counter peertls.POWCounter, id storj.NodeID) (done bool, err error) {
+			select {
+			case <-ctx.Done():
+				return false, nil
+			default:
+				break
+			}
+
 			if opts.Logger != nil {
 				if atomic.AddUint32(i, 1)%100 == 0 {
 					updateStatus()
