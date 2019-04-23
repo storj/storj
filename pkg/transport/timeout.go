@@ -48,24 +48,24 @@ func (wrapper *clientStreamWrapper) Context() context.Context {
 }
 
 func (wrapper *clientStreamWrapper) CloseSend() error {
-	return wrapper.addTimeout(func() error {
+	return wrapper.withTimeout(func() error {
 		return wrapper.stream.CloseSend()
 	})
 }
 
 func (wrapper *clientStreamWrapper) SendMsg(m interface{}) error {
-	return wrapper.addTimeout(func() error {
+	return wrapper.withTimeout(func() error {
 		return wrapper.stream.SendMsg(m)
 	})
 }
 
 func (wrapper *clientStreamWrapper) RecvMsg(m interface{}) error {
-	return wrapper.addTimeout(func() error {
+	return wrapper.withTimeout(func() error {
 		return wrapper.stream.RecvMsg(m)
 	})
 }
 
-func (wrapper *clientStreamWrapper) addTimeout(f func() error) error {
+func (wrapper *clientStreamWrapper) withTimeout(f func() error) error {
 	timoutTicker := time.NewTicker(wrapper.timeout)
 	defer timoutTicker.Stop()
 
