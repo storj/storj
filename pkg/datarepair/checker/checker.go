@@ -189,7 +189,7 @@ func (checker *Checker) getMissingPieces(ctx context.Context, pieces []*pb.Remot
 	}
 	
 	for i, nodeDossier := range nodeDossiers {
-		if !nodeDossier.Online() || !nodeDossier.Valid(maxStats) {
+		if nodeDossier == nil || !nodeDossier.Online() || !nodeDossier.Valid(maxStats) {
 			missingPieces = append(missingPieces, pieces[i].GetPieceNum())
 		}
 	}
