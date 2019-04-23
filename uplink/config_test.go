@@ -15,7 +15,7 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-func TestKeyFilepath_Key(t *testing.T) {
+func TestEncryptionConfig_Key(t *testing.T) {
 	saveKey := func(key []byte) (filepath string, removeFile func()) {
 		f, err := ioutil.TempFile("", "storj-test-uplink-keyfilepath-*")
 		require.NoError(t, err)
@@ -40,8 +40,10 @@ func TestKeyFilepath_Key(t *testing.T) {
 		var expKey storj.Key
 		copy(expKey[:], someKey)
 
-		kfpath := keyFilepath(fpath)
-		key, err := kfpath.Key()
+		encCfg := &EncryptionConfig{
+			KeyFilepath: fpath,
+		}
+		key, err := encCfg.Key()
 		require.NoError(t, err)
 
 		assert.Equal(t, expKey[:], key[:])
@@ -54,8 +56,10 @@ func TestKeyFilepath_Key(t *testing.T) {
 		fpath, cleanup := saveKey(expKey)
 		defer cleanup()
 
-		kfpath := keyFilepath(fpath)
-		key, err := kfpath.Key()
+		encCfg := &EncryptionConfig{
+			KeyFilepath: fpath,
+		}
+		key, err := encCfg.Key()
 		require.NoError(t, err)
 
 		assert.Equal(t, expKey[:storj.KeySize], key[:])
@@ -65,8 +69,10 @@ func TestKeyFilepath_Key(t *testing.T) {
 		fpath, cleanup := saveKey([]byte{})
 		defer cleanup()
 
-		kfpath := keyFilepath(fpath)
-		key, err := kfpath.Key()
+		encCfg := &EncryptionConfig{
+			KeyFilepath: fpath,
+		}
+		key, err := encCfg.Key()
 		require.NoError(t, err)
 		assert.Equal(t, key, storj.Key{})
 	})
@@ -80,8 +86,10 @@ func TestKeyFilepath_Key(t *testing.T) {
 		err = os.Remove(f.Name())
 		require.NoError(t, err)
 
-		kfpath := keyFilepath(f.Name())
-		_, err = kfpath.Key()
+		encCfg := &EncryptionConfig{
+			KeyFilepath: f.Name(),
+		}
+		_, err = encCfg.Key()
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), fmt.Sprintf("not found key file %q", f.Name()))
 		assert.True(t, Error.Has(err), "err is not of %q class", Error)
@@ -99,8 +107,10 @@ func TestKeyFilepath_Key(t *testing.T) {
 		err = f.Chmod(0401)
 		require.NoError(t, err)
 
-		kfpath := keyFilepath(f.Name())
-		_, err = kfpath.Key()
+		encCfg := &EncryptionConfig{
+			KeyFilepath: f.Name(),
+		}
+		_, err = encCfg.Key()
 		require.Error(t, err)
 		assert.Contains(t,
 			err.Error(), fmt.Sprintf("permissions '0401' for key file %q are too open", f.Name()),

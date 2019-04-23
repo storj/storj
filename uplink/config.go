@@ -41,14 +41,39 @@ type RSConfig struct {
 	MaxThreshold     int         `help:"the largest amount of pieces to encode to. n." releaseDefault:"95" devDefault:"10"`
 }
 
-// keyFilepath is a convenient type to load a key stored in a file.
-type keyFilepath string
+// EncryptionConfig is a configuration struct that keeps details about
+// encrypting segments
+type EncryptionConfig struct {
+	// TODO: WIP#if/v3-1541 read TODO in Key method why the following field cannot
+	// be added
+	// RootKey     *storj.Key  // The root key for encrypting the data and read it from KeyFilepath, see Key method.
+	KeyFilepath string      `help:"the path to the file which contains the root key for encrypting the data"`
+	BlockSize   memory.Size `help:"size (in bytes) of encrypted blocks" default:"1KiB"`
+	DataType    int         `help:"Type of encryption to use for content and metadata (1=AES-GCM, 2=SecretBox)" default:"1"`
+	PathType    int         `help:"Type of encryption to use for paths (0=Unencrypted, 1=AES-GCM, 2=SecretBox)" default:"1"`
+}
 
-func (kfp keyFilepath) Key() (storj.Key, error) {
-	f, err := os.Open(string(kfp))
+// Key returns the root key for encrypting the data which is stored in the path
+// indicated by KeyFilepath field.
+//
+// It returns an error if:
+//
+// * The file doesn't exist.
+// * The file doesn't have exactly 0400 permissions.
+// * There is an I/O error.
+//
+// TODO: WIP#if/v3-1541 refactor cache the key after the firs read. The problem
+// is with pkg/cfgstruct which is inflexible on accepting unexported keys nor
+// several different types as a type of storj.Key, [32]byte, etc.
+func (encCfg *EncryptionConfig) Key() (storj.Key, error) {
+	if encCfg.KeyFilepath == "" {
+		return storj.Key{}, nil
+	}
+
+	f, err := os.Open(encCfg.KeyFilepath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return storj.Key{}, Error.Wrap(fmt.Errorf("not found key file %q", kfp))
+			return storj.Key{}, Error.Wrap(fmt.Errorf("not found key file %q", encCfg.KeyFilepath))
 		}
 
 		return storj.Key{}, errs.Wrap(err)
@@ -61,7 +86,7 @@ func (kfp keyFilepath) Key() (storj.Key, error) {
 
 	if p := fi.Mode().Perm(); p != os.FileMode(0400) {
 		return storj.Key{}, Error.Wrap(
-			fmt.Errorf("permissions '%#o' for key file %q are too open", p, kfp),
+			fmt.Errorf("permissions '%#o' for key file %q are too open", p, encCfg.KeyFilepath),
 		)
 	}
 
@@ -71,15 +96,6 @@ func (kfp keyFilepath) Key() (storj.Key, error) {
 	}
 
 	return key, nil
-}
-
-// EncryptionConfig is a configuration struct that keeps details about
-// encrypting segments
-type EncryptionConfig struct {
-	KeyFilepath string      `help:"the path to the file which contains the root key for encrypting the data"`
-	BlockSize   memory.Size `help:"size (in bytes) of encrypted blocks" default:"1KiB"`
-	DataType    int         `help:"Type of encryption to use for content and metadata (1=AES-GCM, 2=SecretBox)" default:"1"`
-	PathType    int         `help:"Type of encryption to use for paths (0=Unencrypted, 1=AES-GCM, 2=SecretBox)" default:"1"`
 }
 
 // ClientConfig is a configuration struct for the uplink that controls how
@@ -150,15 +166,9 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, err
 	}
 
-	var key storj.Key
-	{
-		kfp := keyFilepath(c.Enc.KeyFilepath)
-
-		var err error
-		key, err = kfp.Key()
-		if err != nil {
-			return nil, nil, err
-		}
+	key, err := c.Enc.Key()
+	if err != nil {
+		return nil, nil, err
 	}
 
 	streams, err := streams.NewStreamStore(segments, c.Client.SegmentSize.Int64(), &key, c.Enc.BlockSize.Int(), storj.Cipher(c.Enc.DataType))
