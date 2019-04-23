@@ -109,20 +109,6 @@ type NodeDossier struct {
 	Version    pb.NodeVersion
 }
 
-// Online checks if a node is online based on the collected statistics.
-//
-// A node is considered online if the last attempt for contact was successful
-// and it was within the last hour.
-func (node *NodeDossier) Online() bool {
-	return time.Now().Sub(node.Reputation.LastContactSuccess) < OnlineWindow &&
-		node.Reputation.LastContactSuccess.After(node.Reputation.LastContactFailure)
-}
-
-// VettedFor checks if the node is vetted for the given stats.
-func (node *NodeDossier) VettedFor(stats *NodeStats) bool {
-	return node.Reputation.AuditSuccessRatio >= stats.AuditSuccessRatio && node.Reputation.UptimeRatio >= stats.UptimeRatio
-}
-
 // NodeStats contains statistics about a node.
 type NodeStats struct {
 	Latency90          int64
@@ -181,6 +167,24 @@ func (cache *Cache) Get(ctx context.Context, nodeID storj.NodeID) (_ *NodeDossie
 		return nil, ErrEmptyNode
 	}
 	return cache.db.Get(ctx, nodeID)
+}
+
+// IsNew checks if a node is 'new' based on the collected statistics.
+func (cache *Cache) IsNew(node *NodeDossier) bool {
+	return node.Reputation.AuditCount > cache.preferences.AuditCount
+}
+
+// IsOnline checks if a node is 'online' based on the collected statistics.
+func (cache *Cache) IsOnline(node *NodeDossier) bool {
+	return time.Now().Sub(node.Reputation.LastContactSuccess) < OnlineWindow &&
+		node.Reputation.LastContactSuccess.After(node.Reputation.LastContactFailure)
+}
+
+// IsHealthy checks if a node is 'valid' based on the collected statistics.
+func (cache *Cache) IsHealthy(node *NodeDossier) bool {
+	r, p := node.Reputation, cache.preferences
+	return r.AuditCount >= p.AuditCount && r.UptimeCount >= p.UptimeCount &&
+		r.AuditSuccessRatio >= p.AuditSuccessRatio && r.UptimeRatio >= p.UptimeRatio
 }
 
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
