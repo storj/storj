@@ -9,7 +9,7 @@
 			<h3 class="label-container__error" v-if="error" :style="style.errorStyle">{{error}}</h3>
 		</div>
         <input
-            :class="[error ? 'inputError' : null]"
+            :class="{'inputError' : error}"
             @input="onInput"
             :placeholder="placeholder"
             v-model="value"

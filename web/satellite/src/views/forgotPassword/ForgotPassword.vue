@@ -5,12 +5,12 @@
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
-    import HeaderlessInput from '../../components/common/HeaderlessInput.vue';
+    import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
     import { LOADING_CLASSES } from '@/utils/constants/classConstants';
     import { forgotPasswordRequest } from '@/api/users';
     import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
     import ROUTES from '@/utils/constants/routerConstants';
-    import { validateEmail } from '../../utils/validation';
+    import { validateEmail } from '@/utils/validation';
 
     @Component(
         {

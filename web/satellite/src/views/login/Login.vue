@@ -13,7 +13,7 @@ import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actio
 import { getTokenRequest } from '@/api/users';
 import { LOADING_CLASSES } from '@/utils/constants/classConstants';
 import { AppState } from '@/utils/constants/appStateEnum';
-import { validateEmail, validatePassword } from '../../utils/validation';
+import { validateEmail, validatePassword } from '@/utils/validation';
 
 @Component({
     data: function () {
