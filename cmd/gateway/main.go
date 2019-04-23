@@ -37,6 +37,7 @@ type GatewayFlags struct {
 	Minio  miniogw.MinioConfig
 
 	uplink.Config
+	EncryptionKey string `default:"" help:"the root key for encrypting the data; when set, it overrides the key stored in the file indicated by the configuration file" setup:"false"`
 }
 
 var (
@@ -239,8 +240,18 @@ func (flags GatewayFlags) NewGateway(ctx context.Context, ident *identity.FullId
 		return nil, err
 	}
 
-	encKey := new(storj.Key)
-	copy(encKey[:], flags.Enc.Key)
+	var encKey *storj.Key
+	if flags.EncryptionKey != "" {
+		encKey = new(storj.Key)
+		copy(encKey[:], flags.EncryptionKey)
+	} else {
+		k, err := flags.Enc.Key()
+		if err != nil {
+			return nil, err
+		}
+
+		encKey = &k
+	}
 
 	var opts libuplink.ProjectOptions
 	opts.Volatile.EncryptionKey = encKey
