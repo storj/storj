@@ -7,10 +7,7 @@ import (
 	"flag"
 	"testing"
 
-	"go.uber.org/zap/zaptest"
-
 	"storj.io/storj/storage"
-	"storj.io/storj/storage/storelogger"
 	"storj.io/storj/storage/testsuite"
 )
 
@@ -42,8 +39,9 @@ func TestSuiteAlt(t *testing.T) {
 	store, cleanup := newTestAlternatePostgres(t)
 	defer cleanup()
 
-	zap := zaptest.NewLogger(t)
-	testsuite.RunTests(t, storelogger.New(zap, store))
+	// zap := zaptest.NewLogger(t)
+	// loggedStore := storelogger.New(zap, store)
+	testsuite.RunTests(t, store)
 }
 
 func BenchmarkSuiteAlt(b *testing.B) {

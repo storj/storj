@@ -66,8 +66,7 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 	uplink.Transport = transport.NewClient(tlsOpts)
 
 	uplink.Info = pb.Node{
-		Id:   uplink.Identity.ID,
-		Type: pb.NodeType_UPLINK,
+		Id: uplink.Identity.ID,
 		Address: &pb.NodeAddress{
 			Transport: pb.NodeTransport_TCP_TLS_GRPC,
 			Address:   "",
@@ -137,7 +136,7 @@ func (uplink *Uplink) DialMetainfo(ctx context.Context, destination Peer, apikey
 func (uplink *Uplink) DialPiecestore(ctx context.Context, destination Peer) (*piecestore.Client, error) {
 	node := destination.Local()
 
-	conn, err := uplink.Transport.DialNode(ctx, &node)
+	conn, err := uplink.Transport.DialNode(ctx, &node.Node)
 	if err != nil {
 		return nil, err
 	}
@@ -298,10 +297,10 @@ func (uplink *Uplink) GetConfig(satellite *satellite.Peer) uplink.Config {
 	config.Client.SatelliteAddr = satellite.Addr()
 	config.Client.APIKey = uplink.APIKey[satellite.ID()]
 
-	config.RS.MinThreshold = 1 * uplink.StorageNodeCount / 5
-	config.RS.RepairThreshold = 2 * uplink.StorageNodeCount / 5
-	config.RS.SuccessThreshold = 3 * uplink.StorageNodeCount / 5
-	config.RS.MaxThreshold = 4 * uplink.StorageNodeCount / 5
+	config.RS.MinThreshold = atLeastOne(uplink.StorageNodeCount * 1 / 5)     // 20% of storage nodes
+	config.RS.RepairThreshold = atLeastOne(uplink.StorageNodeCount * 2 / 5)  // 40% of storage nodes
+	config.RS.SuccessThreshold = atLeastOne(uplink.StorageNodeCount * 3 / 5) // 60% of storage nodes
+	config.RS.MaxThreshold = atLeastOne(uplink.StorageNodeCount * 4 / 5)     // 80% of storage nodes
 
 	config.TLS.UsePeerCAWhitelist = false
 	config.TLS.Extensions.Revocation = false
@@ -312,6 +311,14 @@ func (uplink *Uplink) GetConfig(satellite *satellite.Peer) uplink.Config {
 
 func getDefaultConfig() uplink.Config {
 	config := uplink.Config{}
-	cfgstruct.Bind(&pflag.FlagSet{}, &config, true)
+	cfgstruct.Bind(&pflag.FlagSet{}, &config, cfgstruct.UseDevDefaults())
 	return config
+}
+
+// atLeastOne returns 1 if value < 1, or value otherwise.
+func atLeastOne(value int) int {
+	if value < 1 {
+		return 1
+	}
+	return value
 }
