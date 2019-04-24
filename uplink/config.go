@@ -73,7 +73,7 @@ func (encCfg *EncryptionConfig) Key() (storj.Key, error) {
 	f, err := os.Open(encCfg.KeyFilepath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return storj.Key{}, Error.Wrap(fmt.Errorf("not found key file %q", encCfg.KeyFilepath))
+			return storj.Key{}, Error.New("not found key file %q", encCfg.KeyFilepath)
 		}
 
 		return storj.Key{}, errs.Wrap(err)
