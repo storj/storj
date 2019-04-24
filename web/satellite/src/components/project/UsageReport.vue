@@ -91,7 +91,9 @@ import { toUnixTimestamp } from '@/utils/time';
 				this.$data.dateRange.startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
 				this.$data.dateRange.endDate = currentDate;
 
-                const buttons = [...(document as any).querySelectorAll('.usage-report-container__options-area__option')];
+				this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, this.$data.dateRange);
+
+                const buttons = [...(document as any).querySelectorAll('.usage-report-container__header__options-area__option')];
                 buttons.forEach(option => {
                     option.classList.remove('active');
                 });
