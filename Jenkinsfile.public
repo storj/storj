@@ -49,8 +49,8 @@ pipeline {
                     post {
                         always {
                             sh script: 'cat $HOME/tests.json | tparse -all -top -slow 100', returnStatus: true
-                            archiveArtifacts artifacts: '$HOME/tests.json', returnStatus: true
-                            junit script: '$HOME/tests.xml', returnStatus: true
+                            archiveArtifacts artifacts: '$HOME/tests.json'
+                            junit '$HOME/tests.xml'
                         }
                     }
                 }
