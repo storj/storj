@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
+	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
@@ -39,18 +40,20 @@ type Checker struct {
 	repairQueue queue.RepairQueue
 	overlay     *overlay.Cache
 	irrdb       irreparable.DB
+	kad         *kademlia.Kademlia
 	logger      *zap.Logger
 	Loop        sync2.Cycle
 }
 
 // NewChecker creates a new instance of checker
-func NewChecker(pointerdb *pointerdb.Service, repairQueue queue.RepairQueue, overlay *overlay.Cache, irrdb irreparable.DB, limit int, logger *zap.Logger, interval time.Duration) *Checker {
+func NewChecker(pointerdb *pointerdb.Service, repairQueue queue.RepairQueue, overlay *overlay.Cache, irrdb irreparable.DB, kad *kademlia.Kademlia, limit int, logger *zap.Logger, interval time.Duration) *Checker {
 	// TODO: reorder arguments
 	checker := &Checker{
 		pointerdb:   pointerdb,
 		repairQueue: repairQueue,
 		overlay:     overlay,
 		irrdb:       irrdb,
+		kad:         kad,
 		logger:      logger,
 		Loop:        *sync2.NewCycle(interval),
 	}
@@ -61,6 +64,7 @@ func NewChecker(pointerdb *pointerdb.Service, repairQueue queue.RepairQueue, ove
 func (checker *Checker) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	checker.kad.WaitForBootstrap()
 	return checker.Loop.Run(ctx, func(ctx context.Context) error {
 		err := checker.IdentifyInjuredSegments(ctx)
 		if err != nil {
@@ -182,7 +186,11 @@ func (checker *Checker) getMissingPieces(ctx context.Context, pieces []*pb.Remot
 	}
 
 	for i, node := range nodes {
-		if node == nil || !checker.overlay.IsOnline(node) || !checker.overlay.IsHealthy(node) {
+		if node == nil {
+			if _, err = checker.kad.FetchPeerIdentity(ctx, nodeIDs[i]); err != nil {
+				missingPieces = append(missingPieces, pieces[i].GetPieceNum())
+			}
+		} else if !checker.overlay.IsOnline(node) || !checker.overlay.IsHealthy(node) {
 			missingPieces = append(missingPieces, pieces[i].GetPieceNum())
 		}
 	}
