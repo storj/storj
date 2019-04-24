@@ -88,10 +88,10 @@ import { toUnixTimestamp } from '@/utils/time';
             beforeRouteLeave: function(to, from, next) {
 				const currentDate = new Date();
 
-				this.$data.dateRange.startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-				this.$data.dateRange.endDate = currentDate;
+                this.$data.dateRange.startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+                this.$data.dateRange.endDate = currentDate;
 
-				this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, this.$data.dateRange);
+            	this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, this.$data.dateRange);
 
                 const buttons = [...(document as any).querySelectorAll('.usage-report-container__header__options-area__option')];
                 buttons.forEach(option => {
