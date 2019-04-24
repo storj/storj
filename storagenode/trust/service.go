@@ -32,7 +32,7 @@ type Pool struct {
 
 // satelliteInfoCache caches identity information about a satellite
 type satelliteInfoCache struct {
-	once     sync.Once
+	mu       sync.Mutex
 	identity *identity.PeerIdentity
 }
 
@@ -123,17 +123,19 @@ func (pool *Pool) GetSignee(ctx context.Context, id storj.NodeID) (signing.Signe
 		}
 	}
 
-	identity, err := pool.kademlia.FetchPeerIdentity(nestedContext, id)
-	if err != nil {
-		if err == context.Canceled {
-			return nil, err
-		}
-		return nil, Error.Wrap(err)
-	}
+	info.mu.Lock()
+	defer info.mu.Unlock()
 
-	info.once.Do(func() {
+	if info.identity != nil {
+		identity, err := pool.kademlia.FetchPeerIdentity(nestedContext, id)
+		if err != nil {
+			if err == context.Canceled {
+				return nil, err
+			}
+			return nil, Error.Wrap(err)
+		}
 		info.identity = identity
-	})
+	}
 
 	return signing.SigneeFromPeerIdentity(info.identity), nil
 }
