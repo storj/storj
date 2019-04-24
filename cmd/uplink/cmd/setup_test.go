@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"storj.io/storj/cmd/uplink/cmd"
+	"storj.io/storj/internal/testcontext"
 )
 
 func TestDefaultHostAndPortAppliedToSatelliteAddrWithNoHostOrPort(t *testing.T) {
@@ -122,33 +123,32 @@ func TestDefaultPortAppliedToSatelliteAddrWithPortColonButNoPort(t *testing.T) {
 }
 
 func TestSaveEncriptionKey(t *testing.T) {
-	expKey := make([]byte, rand.Intn(20)+1)
-	_, err := rand.Read(expKey)
+	expectedKey := make([]byte, rand.Intn(20)+1)
+	_, err := rand.Read(expectedKey)
 	require.NoError(t, err)
 
 	t.Run("ok", func(t *testing.T) {
-		dir, err := ioutil.TempDir("", "storj-test-cmd-uplink")
-		require.NoError(t, err)
-		defer func() { _ = os.RemoveAll(dir) }()
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
 
-		fname := filepath.Join(dir, ".enc.key")
-		err = cmd.SaveEncryptionKey(expKey, fname)
+		filename := ctx.File("storj-test-cmd-uplink", ".enc.key")
+		err = cmd.SaveEncryptionKey(expectedKey, filename)
 		require.NoError(t, err)
 
 		// Read the key from the file to compare that it matches with the saved one.
-		f, err := os.Open(fname)
+		file, err := os.Open(filename)
 		require.NoError(t, err)
-		defer func() { _ = f.Close() }()
+		defer func() { require.NoError(t, file.Close()) }()
 
-		key := make([]byte, len(expKey))
-		_, err = f.Read(key)
+		key := make([]byte, len(expectedKey))
+		_, err = file.Read(key)
 		require.NoError(t, err)
-		assert.Equal(t, expKey, key)
+		assert.Equal(t, expectedKey, key)
 
 		// Check that the key file has a read only file permissions for the user
-		fi, err := f.Stat()
+		fileInfo, err := file.Stat()
 		require.NoError(t, err)
-		assert.Equal(t, os.FileMode(0400), fi.Mode().Perm())
+		assert.Equal(t, os.FileMode(0400), fileInfo.Mode().Perm())
 	})
 
 	t.Run("error: unexisting dir", func(t *testing.T) {
@@ -159,20 +159,20 @@ func TestSaveEncriptionKey(t *testing.T) {
 		err = os.RemoveAll(dir)
 		require.NoError(t, err)
 
-		fname := filepath.Join(dir, "enc.key")
-		err = cmd.SaveEncryptionKey(expKey, fname)
-		assert.Errorf(t, err, "directory path doesn't exist")
+		filename := filepath.Join(dir, "enc.key")
+		err = cmd.SaveEncryptionKey(expectedKey, filename)
+		require.Errorf(t, err, "directory path doesn't exist")
 	})
 
 	t.Run("error: file already exists", func(t *testing.T) {
 		// Create an empty file
-		f, err := ioutil.TempFile("", "storj-test-cmd-uplink-key-*")
+		file, err := ioutil.TempFile("", "storj-test-cmd-uplink-key-*")
 		require.NoError(t, err)
-		err = f.Close()
+		err = file.Close()
 		require.NoError(t, err)
-		defer func() { _ = os.Remove(f.Name()) }()
+		defer func() { require.NoError(t, os.Remove(file.Name())) }()
 
-		err = cmd.SaveEncryptionKey(expKey, f.Name())
-		assert.Errorf(t, err, "file key already exists")
+		err = cmd.SaveEncryptionKey(expectedKey, file.Name())
+		require.Errorf(t, err, "file key already exists")
 	})
 }
