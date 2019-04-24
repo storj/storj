@@ -61,10 +61,7 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 		cursor.lastPath = pointerItems[len(pointerItems)-1].Path
 	}
 
-	var pointer *pb.Pointer
-	errGroup := new(errs.Group)
-
-	pointer, err = cursor.getRandomValidPointer(pointerItems)
+	pointer, err := cursor.getRandomValidPointer(pointerItems)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +98,7 @@ func getRandomStripe(pointer *pb.Pointer) (index int64, err error) {
 // getRandomValidPointer attempts to get a random remote pointer from a list. If it sees expired pointers in the process of looking, deletes them
 func (cursor *Cursor) getRandomValidPointer(pointerItems []*pb.ListResponse_Item) (pointer *pb.Pointer, err error) {
 	if len(pointerItems) == 0 {
-		return nil, Error.New("no stripes in pointerdb"))
+		return nil, Error.New("no stripes in pointerdb")
 	}
 
 	errGroup := new(errs.Group)
@@ -138,8 +135,9 @@ func (cursor *Cursor) getRandomValidPointer(pointerItems []*pb.ListResponse_Item
 			continue
 		}
 
-		return pointer, toDelete, nil
+		return pointer, nil
 	}
 
-	return nil, toDelete, errGroup.Err()
+	errGroup.Add(Error.New("no valid node found in selection"))
+	return nil, errGroup.Err()
 }
