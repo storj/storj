@@ -111,8 +111,6 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 }
 
 func TestUploadDownloadOneUplinksInParallel(t *testing.T) {
-	t.Skip("flaky")
-
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
