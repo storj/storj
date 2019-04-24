@@ -22,7 +22,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	leftover := strings.Split(string(out), "\n")
+	leftover := strings.Split(strings.TrimSpace(string(out)), "\n")
 	leftover = ignoreDir(leftover, ".build")
 
 	if len(leftover) != 0 {
@@ -37,6 +37,9 @@ func main() {
 func ignoreDir(files []string, dir string) []string {
 	result := files[:0]
 	for _, file := range files {
+		if file == "" {
+			continue
+		}
 		if strings.HasPrefix(file, dir) {
 			continue
 		}
