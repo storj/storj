@@ -24,6 +24,13 @@ const (
 	myEncryptionKey = "you'll never guess this"
 )
 
+func logClose(fn func() error) {
+	err := fn()
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
 // ExampleProj_CreateBucket example documentation
 func ExampleProject_CreateBucket() {
 	var encryptionKey storj.Key
@@ -31,7 +38,7 @@ func ExampleProject_CreateBucket() {
 
 	apiKey, err := uplink.ParseAPIKey(myAPIKey)
 	if err != nil {
-		log.Fatalln("could not parse api key:", err)
+		log.Fatal("could not parse api key:", err)
 	}
 
 	ctx := context.Background()
@@ -39,13 +46,10 @@ func ExampleProject_CreateBucket() {
 	// Create an Uplink object with a default config
 	upl, err := uplink.NewUplink(ctx, nil)
 	if err != nil {
-		fmt.Println("could not create new Uplink object:", err)
+		log.Fatal("could not create new Uplink object:", err)
 	}
-	defer func() {
-		if err := upl.Close(); err != nil {
-			log.Printf("Failed to close input: %scope", err)
-		}
-	}()
+
+	defer logClose(upl.Close)
 
 	// It is temporarily required to set the encryption key in project options.
 	// This requirement will be removed in the future.
@@ -55,18 +59,14 @@ func ExampleProject_CreateBucket() {
 	// Open up the Project we will be working with
 	proj, err := upl.OpenProject(ctx, satellite, apiKey, &opts)
 	if err != nil {
-		fmt.Println("could not open project:", err)
+		log.Fatal("could not open project:", err)
 	}
-	defer func() {
-		if err := proj.Close(); err != nil {
-			log.Printf("Failed to close input: %scope", err)
-		}
-	}()
+	defer logClose(proj.Close)
 
 	// Create the desired Bucket within the Project
 	_, err = proj.CreateBucket(ctx, myBucket, nil)
 	if err != nil {
-		fmt.Println("could not create bucket:", err)
+		log.Fatal("could not create bucket:", err)
 	}
 
 	fmt.Println("success")
@@ -87,13 +87,9 @@ func ExampleProject_OpenBucket() {
 	// Create an Uplink object with a default config
 	upl, err := uplink.NewUplink(ctx, nil)
 	if err != nil {
-		fmt.Println("could not create new Uplink object:", err)
+		log.Fatal("could not create new Uplink object:", err)
 	}
-	defer func() {
-		if err := upl.Close(); err != nil {
-			log.Printf("Failed to close input: %scope", err)
-		}
-	}()
+	defer logClose(upl.Close)
 
 	// It is temporarily required to set the encryption key in project options.
 	// This requirement will be removed in the future.
@@ -103,29 +99,21 @@ func ExampleProject_OpenBucket() {
 	// Open up the Project we will be working with
 	proj, err := upl.OpenProject(ctx, satellite, apiKey, &opts)
 	if err != nil {
-		fmt.Println("could not open project:", err)
+		log.Fatal("could not open project:", err)
 	}
-	defer func() {
-		if err := proj.Close(); err != nil {
-			log.Printf("Failed to close input: %scope", err)
-		}
-	}()
+	defer logClose(proj.Close)
 
 	// Create the desired Bucket within the Project
 	_, err = proj.CreateBucket(ctx, myBucket, nil)
 	if err != nil {
-		fmt.Println("could not create bucket:", err)
+		log.Fatal("could not create bucket:", err)
 	}
 	// Open up the desired Bucket within the Project
 	bucket, err := proj.OpenBucket(ctx, myBucket, &uplink.EncryptionAccess{Key: encryptionKey})
 	if err != nil {
-		fmt.Println("could not open bucket ", myBucket, ":", err)
+		log.Fatal("could not open bucket ", myBucket, ":", err)
 	}
-	defer func() {
-		if err := bucket.Close(); err != nil {
-			log.Printf("Failed to close input: %scope", err)
-		}
-	}()
+	defer logClose(bucket.Close)
 	fmt.Println("success")
 }
 
@@ -144,13 +132,10 @@ func ExampleBucket_UploadObject() {
 	// Create an Uplink object with a default config
 	upl, err := uplink.NewUplink(ctx, nil)
 	if err != nil {
-		fmt.Println("could not create new Uplink object:", err)
+		log.Fatal("could not create new Uplink object:", err)
 	}
-	defer func() {
-		if err := upl.Close(); err != nil {
-			log.Printf("Failed to close input: %scope", err)
-		}
-	}()
+	defer logClose(upl.Close)
+
 	// It is temporarily required to set the encryption key in project options.
 	// This requirement will be removed in the future.
 	opts := uplink.ProjectOptions{}
@@ -159,35 +144,27 @@ func ExampleBucket_UploadObject() {
 	// Open up the Project we will be working with
 	proj, err := upl.OpenProject(ctx, satellite, apiKey, &opts)
 	if err != nil {
-		fmt.Println("could not open project:", err)
+		log.Fatal("could not open project:", err)
 	}
-	defer func() {
-		if err := proj.Close(); err != nil {
-			log.Printf("Failed to close input: %scope", err)
-		}
-	}()
+	defer logClose(proj.Close)
 
 	// Create the desired Bucket within the Project
 	_, err = proj.CreateBucket(ctx, myBucket, nil)
 	if err != nil {
-		fmt.Println("could not create bucket:", err)
+		log.Fatal("could not create bucket:", err)
 	}
 	// Open up the desired Bucket within the Project
 	bucket, err := proj.OpenBucket(ctx, myBucket, &uplink.EncryptionAccess{Key: encryptionKey})
 	if err != nil {
-		fmt.Println("could not open bucket ", myBucket, ":", err)
+		log.Fatal("could not open bucket ", myBucket, ":", err)
 	}
-	defer func() {
-		if err := bucket.Close(); err != nil {
-			log.Printf("Failed to close input: %scope", err)
-		}
-	}()
+	defer logClose(bucket.Close)
 
 	// Upload our Object to the specified path
 	buf := bytes.NewBuffer([]byte(myData))
 	err = bucket.UploadObject(ctx, myUploadPath, buf, nil)
 	if err != nil {
-		fmt.Println("could not upload: ", err)
+		log.Fatal("could not upload: ", err)
 	}
 
 	fmt.Println("success")
@@ -200,7 +177,7 @@ func ExampleObject_DownloadRange() {
 
 	apiKey, err := uplink.ParseAPIKey(myAPIKey)
 	if err != nil {
-		log.Fatalln("could not parse api key:", err)
+		log.Fatal("could not parse api key:", err)
 	}
 
 	ctx := context.Background()
@@ -208,13 +185,9 @@ func ExampleObject_DownloadRange() {
 	// Create an Uplink object with a default config
 	upl, err := uplink.NewUplink(ctx, nil)
 	if err != nil {
-		fmt.Println("could not create new Uplink object:", err)
+		log.Fatal("could not create new Uplink object:", err)
 	}
-	defer func() {
-		if err := upl.Close(); err != nil {
-			log.Printf("Failed to close input: %scope", err)
-		}
-	}()
+	defer logClose(upl.Close)
 
 	// It is temporarily required to set the encryption key in project options.
 	// This requirement will be removed in the future.
@@ -224,62 +197,46 @@ func ExampleObject_DownloadRange() {
 	// Open up the Project we will be working with
 	proj, err := upl.OpenProject(ctx, satellite, apiKey, &opts)
 	if err != nil {
-		fmt.Println("could not open project:", err)
+		log.Fatal("could not open project:", err)
 	}
-	defer func() {
-		if err := proj.Close(); err != nil {
-			log.Printf("Failed to close input: %scope", err)
-		}
-	}()
+	defer logClose(proj.Close)
 
 	// Create the desired Bucket within the Project
 	_, err = proj.CreateBucket(ctx, myBucket, nil)
 	if err != nil {
-		fmt.Println("could not create bucket:", err)
+		log.Fatal("could not create bucket:", err)
 	}
 	// Open up the desired Bucket within the Project
 	bucket, err := proj.OpenBucket(ctx, myBucket, &uplink.EncryptionAccess{Key: encryptionKey})
 	if err != nil {
-		fmt.Println("could not open bucket ", myBucket, ":", err)
+		log.Fatal("could not open bucket ", myBucket, ":", err)
 	}
-	defer func() {
-		if err := bucket.Close(); err != nil {
-			log.Printf("Failed to close input: %scope", err)
-		}
-	}()
+	defer logClose(bucket.Close)
 
 	// Upload our Object to the specified path
 	buf := bytes.NewBuffer([]byte(myData))
 	err = bucket.UploadObject(ctx, myUploadPath, buf, nil)
 	if err != nil {
-		fmt.Println("could not upload: ", err)
+		log.Fatal("could not upload: ", err)
 	}
 	// Initiate a download of the same object again
 	readBack, err := bucket.OpenObject(ctx, myUploadPath)
 	if err != nil {
-		fmt.Println("could not open object at ", myUploadPath, ":", err)
+		log.Fatal("could not open object at ", myUploadPath, ":", err)
 	}
-	defer func() {
-		if err := readBack.Close(); err != nil {
-			log.Printf("Failed to close input: %scope", err)
-		}
-	}()
+	defer logClose(readBack.Close)
 
 	// We want the whole thing, so range from 0 to -1
 	strm, err := readBack.DownloadRange(ctx, 0, -1)
 	if err != nil {
-		fmt.Println("could not initiate download: ", err)
+		log.Fatal("could not initiate download: ", err)
 	}
-	defer func() {
-		if err := strm.Close(); err != nil {
-			log.Printf("Failed to close input: %scope", err)
-		}
-	}()
+	defer logClose(strm.Close)
 
 	// Read everything from the stream
 	_, err = ioutil.ReadAll(strm)
 	if err != nil {
-		fmt.Println("could not read object: ", err)
+		log.Fatal("could not read object: ", err)
 	}
 
 	fmt.Println("success")
