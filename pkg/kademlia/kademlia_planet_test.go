@@ -104,7 +104,7 @@ func TestBootstrapBackoffReconnect(t *testing.T) {
 	// the bootstrap node (proxy.target) until the droppedConnInterval has passed.
 	// This should test that the Bootstrap function will retry a connection
 	// if it initially fails.
-	proxy, err := newBadProxy(zaptest.NewLogger(t), "127.0.0.1:0")
+	proxy, err := newBadProxy("127.0.0.1:0")
 	require.NoError(t, err)
 
 	planet, err := testplanet.NewCustom(zaptest.NewLogger(t), testplanet.Config{
@@ -149,19 +149,17 @@ func TestBootstrapBackoffReconnect(t *testing.T) {
 
 type badProxy struct {
 	closed   uint32 // using sync/atomic package to do an atomic set/load of closed (as bool flag)
-	log      *zap.Logger
 	listener net.Listener
 	target   string
 	errors   errs.Group
 }
 
-func newBadProxy(log *zap.Logger, addr string) (*badProxy, error) {
+func newBadProxy(addr string) (*badProxy, error) {
 	l, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, err
 	}
 	return &badProxy{
-		log:      log,
 		listener: l,
 	}, nil
 }
