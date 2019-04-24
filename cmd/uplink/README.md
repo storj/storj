@@ -6,6 +6,8 @@ Usage:
 
 First make an identity:
 ```
+git clone https://github.com/storj/storj
+cd storj
 go install storj.io/storj/cmd/identity
 identity create uplink
 ```
