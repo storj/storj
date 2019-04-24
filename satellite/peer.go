@@ -359,7 +359,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		peer.Repair.Checker = checker.NewChecker(
 			peer.Metainfo.Service,
 			peer.DB.RepairQueue(),
-			peer.Overlay.Service, peer.DB.Irreparable(),
+			peer.Overlay.Service,
+			peer.DB.Irreparable(),
+			peer.Kademlia.Service,
 			0, peer.Log.Named("checker"),
 			config.Checker.Interval)
 
