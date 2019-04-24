@@ -21,6 +21,10 @@ func init() {
 }
 
 func deleteObject(cmd *cobra.Command, args []string) error {
+	if *debugPprof {
+		f := startCPUProf()
+		defer stopCPUProf(f)
+	}
 	ctx := process.Ctx(cmd)
 
 	if len(args) == 0 {

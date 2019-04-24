@@ -22,6 +22,10 @@ func init() {
 
 // catMain is the function executed when catCmd is called
 func catMain(cmd *cobra.Command, args []string) (err error) {
+	if *debugPprof {
+		f := startCPUProf()
+		defer stopCPUProf(f)
+	}
 	if len(args) == 0 {
 		return fmt.Errorf("No object specified for copy")
 	}

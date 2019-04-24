@@ -5,7 +5,11 @@ package cmd
 
 import (
 	"context"
+	"flag"
 	"fmt"
+	"os"
+	"runtime"
+	"runtime/pprof"
 
 	"github.com/spf13/cobra"
 
@@ -75,4 +79,38 @@ func convertError(err error, path fpath.FPath) error {
 	}
 
 	return err
+}
+
+var debugPprof = flag.Bool("debug.pprof", false, "if true, creates cpu.prof and memory.prof results in current directory")
+
+func startCPUProf() *os.File {
+	if *debugPprof {
+		f, err := os.Create("cpu.prof")
+		if err != nil {
+			fmt.Println("could not create CPU profile: ", err)
+		}
+		if err := pprof.StartCPUProfile(f); err != nil {
+			fmt.Println("could not start CPU profile: ", err)
+		}
+		return f
+	}
+	return nil
+}
+
+func stopCPUProf(f *os.File) {
+	pprof.StopCPUProfile()
+	f.Close()
+	runMemoryProf()
+}
+
+func runMemoryProf() {
+	f, err := os.Create("memory.prof")
+	if err != nil {
+		fmt.Println("could not create memory profile: ", err)
+	}
+	defer f.Close()
+	runtime.GC() // get up-to-date statistics
+	if err := pprof.WriteHeapProfile(f); err != nil {
+		fmt.Println("could not write memory profile: ", err)
+	}
 }

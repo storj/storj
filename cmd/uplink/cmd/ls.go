@@ -29,6 +29,10 @@ func init() {
 }
 
 func list(cmd *cobra.Command, args []string) error {
+	if *debugPprof {
+		f := startCPUProf()
+		defer stopCPUProf(f)
+	}
 	ctx := process.Ctx(cmd)
 
 	metainfo, _, err := cfg.Metainfo(ctx)

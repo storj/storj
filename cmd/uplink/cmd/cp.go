@@ -261,6 +261,11 @@ func copy(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err error) {
 
 // copyMain is the function executed when cpCmd is called
 func copyMain(cmd *cobra.Command, args []string) (err error) {
+	if *debugPprof {
+		f := startCPUProf()
+		defer stopCPUProf(f)
+	}
+
 	if len(args) == 0 {
 		return fmt.Errorf("No object specified for copy")
 	}
