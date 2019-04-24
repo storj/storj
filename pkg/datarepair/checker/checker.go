@@ -186,11 +186,7 @@ func (checker *Checker) getMissingPieces(ctx context.Context, pieces []*pb.Remot
 	}
 
 	for i, node := range nodes {
-		if node == nil {
-			if _, err = checker.kad.FetchPeerIdentity(ctx, nodeIDs[i]); err != nil {
-				missingPieces = append(missingPieces, pieces[i].GetPieceNum())
-			}
-		} else if !checker.overlay.IsOnline(node) || !checker.overlay.IsHealthy(node) {
+		if !checker.overlay.IsOnline(node) || !checker.overlay.IsHealthy(node) {
 			missingPieces = append(missingPieces, pieces[i].GetPieceNum())
 		}
 	}

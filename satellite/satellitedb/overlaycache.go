@@ -162,7 +162,7 @@ func (cache *overlaycache) GetAll(ctx context.Context, ids storj.NodeIDList) ([]
 		// TODO: abort on canceled context
 		info, err := cache.Get(ctx, id)
 		if err != nil {
-			continue
+			return nil, err
 		}
 		infos[i] = info
 	}
