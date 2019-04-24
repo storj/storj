@@ -145,7 +145,7 @@ func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *pb.SegmentHealt
 
 	onlineNodeCount := int32(0)
 	for _, n := range nodes {
-		if n.Online() {
+		if endpoint.cache.IsOnline(n) {
 			onlineNodeCount++
 		}
 	}
