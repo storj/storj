@@ -101,10 +101,6 @@ func getRandomStripe(pointer *pb.Pointer) (index int64, err error) {
 
 // getRandomValidPointer attempts to get a random remote pointer from a list. If it sees expired pointers in the process of looking, deletes them
 func (cursor *Cursor) getRandomValidPointer(pointerItems []*pb.ListResponse_Item) (pointer *pb.Pointer, path storj.Path, err error) {
-	if len(pointerItems) == 0 {
-		return nil, "", Error.New("no stripes in pointerdb")
-	}
-
 	var src cryptoSource
 	rnd := rand.New(src)
 	errGroup := new(errs.Group)
