@@ -48,8 +48,9 @@ pipeline {
 
                     post {
                         always {
-                            archiveArtifacts artifacts: 'tests.json'
-                            junit 'tests.xml'
+                            sh returnStatus: true, 'cat tests.json | tparse -all -top -slow 100'
+                            archiveArtifacts returnStatus: true, artifacts: 'tests.json'
+                            junit returnStatus: true, 'tests.xml'
                         }
                     }
                 }
