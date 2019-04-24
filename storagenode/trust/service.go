@@ -126,7 +126,7 @@ func (pool *Pool) GetSignee(ctx context.Context, id storj.NodeID) (signing.Signe
 	info.mu.Lock()
 	defer info.mu.Unlock()
 
-	if info.identity != nil {
+	if info.identity == nil {
 		identity, err := pool.kademlia.FetchPeerIdentity(nestedContext, id)
 		if err != nil {
 			if err == context.Canceled {
