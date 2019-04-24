@@ -10,7 +10,7 @@ pipeline {
             steps {
                 checkout scm
                 // make a backup of the mod file in case, for later linting
-                sh 'cp go.mod go.mod.orig'
+                sh 'cp go.mod $HOME/go.mod.orig'
                 // download dependencies
                 sh 'go mod download'
 
@@ -31,7 +31,7 @@ pipeline {
                         sh 'protolock status'
                         sh 'bash ./scripts/check-dbx-version.sh'
                         sh 'golangci-lint -j=4 run'
-                        sh 'go run scripts/check-mod-tidy.go -mod go.mod.orig'
+                        sh 'go run scripts/check-mod-tidy.go -mod $HOME/go.mod.orig'
                     }
                 }
 
