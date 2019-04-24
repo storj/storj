@@ -64,7 +64,7 @@ func NewChecker(pointerdb *pointerdb.Service, repairQueue queue.RepairQueue, ove
 func (checker *Checker) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	checker.kad.WaitForBootstrap()
+	//checker.kad.WaitForBootstrap()
 	return checker.Loop.Run(ctx, func(ctx context.Context) error {
 		err := checker.IdentifyInjuredSegments(ctx)
 		if err != nil {

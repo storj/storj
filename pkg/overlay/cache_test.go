@@ -84,10 +84,10 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		assert.Equal(t, nodes[1].Id, valid1ID)
 		assert.Equal(t, nodes[2].Id, valid2ID)
 
-		nodes, err = cache.GetAll(ctx, storj.NodeIDList{valid1ID, missingID})
+		_, err = cache.GetAll(ctx, storj.NodeIDList{valid1ID, missingID})
 		assert.Error(t, err)
 
-		nodes, err = cache.GetAll(ctx, make(storj.NodeIDList, 2))
+		_, err = cache.GetAll(ctx, make(storj.NodeIDList, 2))
 		assert.Error(t, err)
 
 		_, err = cache.GetAll(ctx, storj.NodeIDList{})
