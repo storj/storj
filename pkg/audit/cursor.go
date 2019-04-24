@@ -5,6 +5,8 @@ package audit
 
 import (
 	"context"
+	crand "crypto/rand"
+	"encoding/binary"
 	"math/rand"
 	"sync"
 	"time"
@@ -89,8 +91,10 @@ func getRandomStripe(pointer *pb.Pointer) (index int64, err error) {
 		return 0, nil
 	}
 
+	var src cryptoSource
+	rnd := rand.New(src)
 	numStripes := pointer.GetSegmentSize() / int64(redundancy.StripeSize())
-	randomStripeIndex := rand.Int63n(numStripes)
+	randomStripeIndex := rnd.Int63n(numStripes)
 
 	return randomStripeIndex, nil
 }
@@ -101,8 +105,10 @@ func (cursor *Cursor) getRandomValidPointer(pointerItems []*pb.ListResponse_Item
 		return nil, "", Error.New("no stripes in pointerdb")
 	}
 
+	var src cryptoSource
+	rnd := rand.New(src)
 	errGroup := new(errs.Group)
-	randomNums := rand.Perm(len(pointerItems))
+	randomNums := rnd.Perm(len(pointerItems))
 
 	for _, randomIndex := range randomNums {
 		pointerItem := pointerItems[randomIndex]
@@ -140,4 +146,21 @@ func (cursor *Cursor) getRandomValidPointer(pointerItems []*pb.ListResponse_Item
 
 	errGroup.Add(Error.New("no valid node found in selection"))
 	return nil, "", errGroup.Err()
+}
+
+// cryptoSource implements the math/rand Source interface using crypto/rand
+type cryptoSource struct{}
+
+func (s cryptoSource) Seed(seed int64) {}
+
+func (s cryptoSource) Int63() int64 {
+	return int64(s.Uint64() & ^uint64(1<<63))
+}
+
+func (s cryptoSource) Uint64() (v uint64) {
+	err := binary.Read(crand.Reader, binary.BigEndian, &v)
+	if err != nil {
+		panic(err)
+	}
+	return v
 }
