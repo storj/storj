@@ -19,6 +19,9 @@ const (
 	RevocationBucket = "revocations"
 )
 
+// ExtensionMap maps `pkix.Extension`s to their respective asn1 object ID string.
+type ExtensionMap map[string]pkix.Extension
+
 var (
 	// AllHandlers holds all registered extension handlers
 	AllHandlers HandlerFactories
@@ -100,9 +103,6 @@ type HandlerFunc func(pkix.Extension, [][]*x509.Certificate) error
 // asn1 object ID constant to store multiple `HandlerFunc`s for the same
 // underlying extension id value.
 type HandlerFuncMap map[*ExtensionID]HandlerFunc
-
-// ExtensionMap maps `pkix.Extension`s to their respective asn1 object ID string.
-type ExtensionMap map[string]pkix.Extension
 
 func init() {
 	// NB: register all handlers defined in this file.

@@ -24,8 +24,8 @@ type SignerTest func(*testing.T, storj.IDVersion, *identity.FullCertificateAutho
 
 // NewTestIdentity is a helper function to generate new node identities with
 // correct difficulty and concurrency
-func NewTestIdentity(ctx context.Context) (*identity.FullIdentity, error) {
-	ca, err := NewTestCA(ctx)
+func NewTestIdentity(ctx context.Context, versionNumber storj.IDVersionNumber) (*identity.FullIdentity, error) {
+	ca, err := NewTestCA(ctx, versionNumber)
 	if err != nil {
 		return nil, err
 	}
@@ -33,11 +33,21 @@ func NewTestIdentity(ctx context.Context) (*identity.FullIdentity, error) {
 }
 
 // NewTestCA returns a ca with a default difficulty and concurrency for use in tests
-func NewTestCA(ctx context.Context) (*identity.FullCertificateAuthority, error) {
+func NewTestCA(ctx context.Context, versionNumber storj.IDVersionNumber) (*identity.FullCertificateAuthority, error) {
 	return identity.NewCA(ctx, identity.NewCAOptions{
-		VersionNumber: storj.LatestIDVersion().Number,
+		VersionNumber: versionNumber,
 		Difficulty:    8,
 		Concurrency:   4,
+	})
+}
+
+func NewTestCAWithParent(ctx context.Context, versionNumber storj.IDVersionNumber, parent *identity.FullCertificateAuthority) (*identity.FullCertificateAuthority, error) {
+	return identity.NewCA(ctx, identity.NewCAOptions{
+		VersionNumber: versionNumber,
+		Difficulty:    8,
+		Concurrency:   4,
+		ParentCert:    parent.Cert,
+		ParentKey:     parent.Key,
 	})
 }
 
@@ -92,8 +102,8 @@ func SignerVersionsTest(t *testing.T, test SignerTest) {
 }
 
 // NewTestManageablePeerIdentity returns a new manageable peer identity for use in tests.
-func NewTestManageablePeerIdentity(ctx context.Context) (*identity.ManageablePeerIdentity, error) {
-	ca, err := NewTestCA(ctx)
+func NewTestManageablePeerIdentity(ctx context.Context, versionNumber storj.IDVersionNumber) (*identity.ManageablePeerIdentity, error) {
+	ca, err := NewTestCA(ctx, versionNumber)
 	if err != nil {
 		return nil, err
 	}
@@ -106,8 +116,8 @@ func NewTestManageablePeerIdentity(ctx context.Context) (*identity.ManageablePee
 }
 
 // NewTestManageableFullIdentity returns a new manageable full identity for use in tests.
-func NewTestManageableFullIdentity(ctx context.Context) (*identity.ManageableFullIdentity, error) {
-	ca, err := NewTestCA(ctx)
+func NewTestManageableFullIdentity(ctx context.Context, versionNumber storj.IDVersionNumber) (*identity.ManageableFullIdentity, error) {
+	ca, err := NewTestCA(ctx, versionNumber)
 	if err != nil {
 		return nil, err
 	}

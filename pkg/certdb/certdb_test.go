@@ -6,6 +6,8 @@ package certdb_test
 import (
 	"context"
 	"crypto/x509"
+	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/storj"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -28,27 +30,27 @@ func TestCertDB(t *testing.T) {
 }
 
 func testDatabase(ctx context.Context, t *testing.T, upldb certdb.DB) {
-	//testing variables
-	upID, err := testidentity.NewTestIdentity(ctx)
-	require.NoError(t, err)
-	upIDpubbytes, err := x509.MarshalPKIXPublicKey(upID.Leaf.PublicKey)
-	require.NoError(t, err)
+	testidentity.IdentityVersionsTest(t, func(t *testing.T, version storj.IDVersion, upID *identity.FullIdentity) {
+		//testing variables
+		upIDpubbytes, err := x509.MarshalPKIXPublicKey(upID.Leaf.PublicKey)
+		require.NoError(t, err)
 
-	{ // New entry
-		err := upldb.SavePublicKey(ctx, upID.ID, upID.Leaf.PublicKey)
-		assert.NoError(t, err)
-	}
+		{ // New entry
+			err := upldb.SavePublicKey(ctx, upID.ID, upID.Leaf.PublicKey)
+			assert.NoError(t, err)
+		}
 
-	{ // New entry
-		err := upldb.SavePublicKey(ctx, upID.ID, upID.Leaf.PublicKey)
-		assert.NoError(t, err)
-	}
+		{ // New entry
+			err := upldb.SavePublicKey(ctx, upID.ID, upID.Leaf.PublicKey)
+			assert.NoError(t, err)
+		}
 
-	{ // Get the corresponding Public key for the serialnum
-		pubkey, err := upldb.GetPublicKey(ctx, upID.ID)
-		assert.NoError(t, err)
-		pubbytes, err := x509.MarshalPKIXPublicKey(pubkey)
-		assert.NoError(t, err)
-		assert.EqualValues(t, upIDpubbytes, pubbytes)
-	}
+		{ // Get the corresponding Public key for the serialnum
+			pubkey, err := upldb.GetPublicKey(ctx, upID.ID)
+			assert.NoError(t, err)
+			pubbytes, err := x509.MarshalPKIXPublicKey(pubkey)
+			assert.NoError(t, err)
+			assert.EqualValues(t, upIDpubbytes, pubbytes)
+		}
+	})
 }

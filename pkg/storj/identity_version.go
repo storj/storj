@@ -91,12 +91,12 @@ func LatestIDVersion() IDVersion {
 	return IDVersions[IDVersionNumber(len(IDVersions)-1)]
 }
 
-// IDVersionFromCert parsed the IDVersion from the passed certificate's IDVersion extension.
+// IDVersionFromCert parses the IDVersion from the passed certificate's IDVersion extension.
 func IDVersionFromCert(cert *x509.Certificate) (IDVersion, error) {
 	exts := extensions.NewExtensionsMap(cert)
 	versionExt, ok := exts[extensions.IdentityVersionExtID.String()]
 	if ok {
-		return GetIDVersion(IDVersionNumber(versionExt.Value[0]))
+		return IDVersionFromExt(versionExt)
 	}
 
 	// NB: for backward-compatibility with V0 certificate generation, V0 is used
@@ -106,6 +106,11 @@ func IDVersionFromCert(cert *x509.Certificate) (IDVersion, error) {
 	//
 	// return IDVersion{}, ErrVersion.New("certificate doesn't contain an identity version extension")
 	return IDVersions[V0], nil
+}
+
+// IDVersionFromExt  parses the IDVersion from the passed IDVersion extension.
+func IDVersionFromExt(ext pkix.Extension) (IDVersion, error) {
+	return GetIDVersion(IDVersionNumber(ext.Value[0]))
 }
 
 // IDVersionInVersions returns an error if the given version is in the given string of version(s)/range(s).
@@ -159,6 +164,10 @@ func IDVersionInVersions(versionNumber IDVersionNumber, versionsStr string) erro
 
 func idVersionHandler(opts *extensions.Options) extensions.HandlerFunc {
 	return func(ext pkix.Extension, chain [][]*x509.Certificate) error {
-		return IDVersionInVersions(IDVersionNumber(ext.Value[0]), opts.PeerIDVersions)
+		version, err := IDVersionFromExt(ext)
+		if err != nil {
+			return err
+		}
+		return IDVersionInVersions(version.Number, opts.PeerIDVersions)
 	}
 }

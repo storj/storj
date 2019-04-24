@@ -56,6 +56,7 @@ var (
 		ParentCertPath string `help:"path to the parent authority's certificate chain"`
 		ParentKeyPath  string `help:"path to the parent authority's private key"`
 		Signer         certificates.CertClientConfig
+		VersionNumber  uint `help:"identity version to use (default is latest)"`
 	}
 
 	identityDir, configDir string
@@ -101,6 +102,7 @@ func cmdNewService(cmd *cobra.Command, args []string) error {
 		Concurrency:    config.Concurrency,
 		ParentCertPath: config.ParentCertPath,
 		ParentKeyPath:  config.ParentKeyPath,
+		VersionNumber:  config.VersionNumber,
 	}
 
 	status, err := caConfig.Status()

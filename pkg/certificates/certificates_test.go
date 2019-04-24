@@ -10,6 +10,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"net"
+	"os"
 	"testing"
 	"time"
 
@@ -199,63 +200,65 @@ func TestAuthorizationDB_Claim_Valid(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	authDB, err := newTestAuthDB(ctx)
-	require.NoError(t, err)
-	defer ctx.Check(authDB.Close)
-
-	userID := "user@example.com"
-
-	auths, err := authDB.Create(userID, 1)
-	require.NoError(t, err)
-	require.NotEmpty(t, auths)
-
-	ident, err := testidentity.NewTestIdentity(ctx)
-	require.NoError(t, err)
-	require.NotNil(t, ident)
-
 	addr := &net.TCPAddr{
 		IP:   net.ParseIP("1.2.3.4"),
 		Port: 5,
 	}
-	grpcPeer := &peer.Peer{
-		Addr: addr,
-		AuthInfo: credentials.TLSInfo{
-			State: tls.ConnectionState{
-				PeerCertificates: []*x509.Certificate{ident.Leaf, ident.CA},
+
+	testidentity.IdentityVersionsTest(t, func(t *testing.T, version storj.IDVersion, ident *identity.FullIdentity) {
+		userID := fmt.Sprintf("user@example.com%d", version.Number)
+		authDB, err := newTestAuthDB(ctx)
+		require.NoError(t, err)
+		defer ctx.Check(authDB.Close)
+
+		auths, err := authDB.Create(userID, 1)
+		require.NoError(t, err)
+		require.NotEmpty(t, auths)
+		defer ctx.Check(func() error {
+			// TODO: clean this up
+			_ = os.Remove("bolt://" + ctx.File("authorizations.db"))
+			return nil
+		})
+
+		grpcPeer := &peer.Peer{
+			Addr: addr,
+			AuthInfo: credentials.TLSInfo{
+				State: tls.ConnectionState{
+					PeerCertificates: []*x509.Certificate{ident.Leaf, ident.CA},
+				},
 			},
-		},
-	}
+		}
 
-	now := time.Now().Unix()
-	req := &pb.SigningRequest{
-		AuthToken: auths[0].Token.String(),
-		Timestamp: now,
-	}
-	difficulty, err := ident.ID.Difficulty()
-	require.NoError(t, err)
+		now := time.Now().Unix()
+		req := &pb.SigningRequest{
+			AuthToken: auths[0].Token.String(),
+			Timestamp: now,
+		}
+		difficulty, err := ident.ID.Difficulty()
+		require.NoError(t, err)
 
-	fmt.Printf("difficulty: %d\n", difficulty)
-	err = authDB.Claim(&ClaimOpts{
-		Req:           req,
-		Peer:          grpcPeer,
-		ChainBytes:    [][]byte{ident.CA.Raw},
-		MinDifficulty: difficulty,
-	})
-	require.NoError(t, err)
+		err = authDB.Claim(&ClaimOpts{
+			Req:           req,
+			Peer:          grpcPeer,
+			ChainBytes:    [][]byte{ident.CA.Raw},
+			MinDifficulty: difficulty,
+		})
+		require.NoError(t, err)
 
-	updatedAuths, err := authDB.Get(userID)
-	require.NoError(t, err)
-	require.NotEmpty(t, updatedAuths)
-	assert.Equal(t, auths[0].Token, updatedAuths[0].Token)
+		updatedAuths, err := authDB.Get(userID)
+		require.NoError(t, err)
+		require.NotEmpty(t, updatedAuths)
+		assert.Equal(t, auths[0].Token, updatedAuths[0].Token)
 
-	require.NotNil(t, updatedAuths[0].Claim)
+		require.NotNil(t, updatedAuths[0].Claim)
 
-	claim := updatedAuths[0].Claim
-	assert.Equal(t, grpcPeer.Addr.String(), claim.Addr)
-	assert.Equal(t, [][]byte{ident.CA.Raw}, claim.SignedChainBytes)
-	assert.Condition(t, func() bool {
-		return now-MaxClaimDelaySeconds < claim.Timestamp &&
-			claim.Timestamp < now+MaxClaimDelaySeconds
+		claim := updatedAuths[0].Claim
+		assert.Equal(t, grpcPeer.Addr.String(), claim.Addr)
+		assert.Equal(t, [][]byte{ident.CA.Raw}, claim.SignedChainBytes)
+		assert.Condition(t, func() bool {
+			return now-MaxClaimDelaySeconds < claim.Timestamp &&
+				claim.Timestamp < now+MaxClaimDelaySeconds
+		})
 	})
 }
 
@@ -271,134 +274,132 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 	claimedTime := int64(1000000)
 	claimedAddr := "6.7.8.9:0"
 
-	ident1, err := testidentity.NewTestIdentity(ctx)
-	require.NoError(t, err)
-	require.NotNil(t, ident1)
-
-	claimedIdent := &identity.PeerIdentity{
-		CA:   ident1.CA,
-		Leaf: ident1.Leaf,
-	}
-
-	auths, err := authDB.Create(userID, 2)
-	require.NoError(t, err)
-	require.NotEmpty(t, auths)
-
-	claimedIndex, unclaimedIndex := 0, 1
-
-	auths[claimedIndex].Claim = &Claim{
-		Timestamp:        claimedTime,
-		Addr:             claimedAddr,
-		Identity:         claimedIdent,
-		SignedChainBytes: [][]byte{claimedIdent.CA.Raw},
-	}
-	err = authDB.put(userID, auths)
-	require.NoError(t, err)
-
-	ident2, err := testidentity.NewTestIdentity(ctx)
-	require.NoError(t, err)
-	require.NotNil(t, ident2)
-
-	addr := &net.TCPAddr{
-		IP:   net.ParseIP("1.2.3.4"),
-		Port: 5,
-	}
-	grpcPeer := &peer.Peer{
-		Addr: addr,
-		AuthInfo: credentials.TLSInfo{
-			State: tls.ConnectionState{
-				PeerCertificates: []*x509.Certificate{ident2.Leaf, ident2.CA},
-			},
-		},
-	}
-
-	difficulty2, err := ident2.ID.Difficulty()
-	require.NoError(t, err)
-
-	t.Run("double claim", func(t *testing.T) {
-		err = authDB.Claim(&ClaimOpts{
-			Req: &pb.SigningRequest{
-				AuthToken: auths[claimedIndex].Token.String(),
-				Timestamp: time.Now().Unix(),
-			},
-			Peer:          grpcPeer,
-			ChainBytes:    [][]byte{ident2.CA.Raw},
-			MinDifficulty: difficulty2,
-		})
-		if assert.Error(t, err) {
-			assert.True(t, ErrAuthorization.Has(err))
-			// NB: token string shouldn't leak into error message
-			assert.NotContains(t, err.Error(), auths[claimedIndex].Token.String())
+	testidentity.IdentityVersionsTest(t, func(t *testing.T, version storj.IDVersion, ident1 *identity.FullIdentity) {
+		claimedIdent := &identity.PeerIdentity{
+			CA:   ident1.CA,
+			Leaf: ident1.Leaf,
 		}
 
-		updatedAuths, err := authDB.Get(userID)
+		auths, err := authDB.Create(userID, 2)
 		require.NoError(t, err)
-		require.NotEmpty(t, updatedAuths)
+		require.NotEmpty(t, auths)
 
-		assert.Equal(t, auths[claimedIndex].Token, updatedAuths[claimedIndex].Token)
+		claimedIndex, unclaimedIndex := 0, 1
 
-		claim := updatedAuths[claimedIndex].Claim
-		assert.Equal(t, claimedAddr, claim.Addr)
-		assert.Equal(t, [][]byte{ident1.CA.Raw}, claim.SignedChainBytes)
-		assert.Equal(t, claimedTime, claim.Timestamp)
-	})
+		auths[claimedIndex].Claim = &Claim{
+			Timestamp:        claimedTime,
+			Addr:             claimedAddr,
+			Identity:         claimedIdent,
+			SignedChainBytes: [][]byte{claimedIdent.CA.Raw},
+		}
+		err = authDB.put(userID, auths)
+		require.NoError(t, err)
 
-	t.Run("invalid timestamp", func(t *testing.T) {
-		err = authDB.Claim(&ClaimOpts{
-			Req: &pb.SigningRequest{
-				AuthToken: auths[unclaimedIndex].Token.String(),
-				// NB: 1 day ago
-				Timestamp: time.Now().Unix() - 86400,
+		ident2, err := testidentity.NewTestIdentity(ctx, version.Number)
+		require.NoError(t, err)
+		require.NotNil(t, ident2)
+
+		addr := &net.TCPAddr{
+			IP:   net.ParseIP("1.2.3.4"),
+			Port: 5,
+		}
+		grpcPeer := &peer.Peer{
+			Addr: addr,
+			AuthInfo: credentials.TLSInfo{
+				State: tls.ConnectionState{
+					PeerCertificates: []*x509.Certificate{ident2.Leaf, ident2.CA},
+				},
 			},
-			Peer:          grpcPeer,
-			ChainBytes:    [][]byte{ident2.CA.Raw},
-			MinDifficulty: difficulty2,
-		})
-		if assert.Error(t, err) {
-			assert.True(t, ErrAuthorization.Has(err))
-			// NB: token string shouldn't leak into error message
-			assert.NotContains(t, err.Error(), auths[unclaimedIndex].Token.String())
 		}
 
-		updatedAuths, err := authDB.Get(userID)
+		difficulty2, err := ident2.ID.Difficulty()
 		require.NoError(t, err)
-		require.NotEmpty(t, updatedAuths)
 
-		assert.Equal(t, auths[unclaimedIndex].Token, updatedAuths[unclaimedIndex].Token)
-		assert.Nil(t, updatedAuths[unclaimedIndex].Claim)
-	})
+		t.Run("double claim", func(t *testing.T) {
+			err = authDB.Claim(&ClaimOpts{
+				Req: &pb.SigningRequest{
+					AuthToken: auths[claimedIndex].Token.String(),
+					Timestamp: time.Now().Unix(),
+				},
+				Peer:          grpcPeer,
+				ChainBytes:    [][]byte{ident2.CA.Raw},
+				MinDifficulty: difficulty2,
+			})
+			if assert.Error(t, err) {
+				assert.True(t, ErrAuthorization.Has(err))
+				// NB: token string shouldn't leak into error message
+				assert.NotContains(t, err.Error(), auths[claimedIndex].Token.String())
+			}
 
-	t.Run("invalid difficulty", func(t *testing.T) {
-		err = authDB.Claim(&ClaimOpts{
-			Req: &pb.SigningRequest{
-				AuthToken: auths[unclaimedIndex].Token.String(),
-				Timestamp: time.Now().Unix(),
-			},
-			Peer:       grpcPeer,
-			ChainBytes: [][]byte{ident2.CA.Raw},
-			//MinDifficulty: difficulty2 + 1,
-			MinDifficulty: 0,
+			updatedAuths, err := authDB.Get(userID)
+			require.NoError(t, err)
+			require.NotEmpty(t, updatedAuths)
+
+			assert.Equal(t, auths[claimedIndex].Token, updatedAuths[claimedIndex].Token)
+
+			claim := updatedAuths[claimedIndex].Claim
+			assert.Equal(t, claimedAddr, claim.Addr)
+			assert.Equal(t, [][]byte{ident1.CA.Raw}, claim.SignedChainBytes)
+			assert.Equal(t, claimedTime, claim.Timestamp)
 		})
-		fmt.Printf("difficulty2 %d\n", difficulty2)
-		fmt.Printf("nodeID %s\n", ident2.ID)
-		fmt.Printf("nodeID %v\n", ident2.ID[:])
 
-		testID, err := identity.NodeIDFromCert(ident2.CA)
-		require.NoError(t, err)
-		fmt.Printf("nodeID3 %s\n", testID)
-		fmt.Printf("nodeID3 %v\n", testID[:])
-		if assert.Error(t, err) {
-			assert.True(t, ErrAuthorization.Has(err))
-			// NB: token string shouldn't leak into error message
-			assert.NotContains(t, err.Error(), auths[unclaimedIndex].Token.String())
-		}
+		t.Run("invalid timestamp", func(t *testing.T) {
+			err = authDB.Claim(&ClaimOpts{
+				Req: &pb.SigningRequest{
+					AuthToken: auths[unclaimedIndex].Token.String(),
+					// NB: 1 day ago
+					Timestamp: time.Now().Unix() - 86400,
+				},
+				Peer:          grpcPeer,
+				ChainBytes:    [][]byte{ident2.CA.Raw},
+				MinDifficulty: difficulty2,
+			})
+			if assert.Error(t, err) {
+				assert.True(t, ErrAuthorization.Has(err))
+				// NB: token string shouldn't leak into error message
+				assert.NotContains(t, err.Error(), auths[unclaimedIndex].Token.String())
+			}
 
-		updatedAuths, err := authDB.Get(userID)
-		require.NoError(t, err)
-		require.NotEmpty(t, updatedAuths)
+			updatedAuths, err := authDB.Get(userID)
+			require.NoError(t, err)
+			require.NotEmpty(t, updatedAuths)
 
-		assert.Equal(t, auths[unclaimedIndex].Token, updatedAuths[unclaimedIndex].Token)
-		assert.Nil(t, updatedAuths[unclaimedIndex].Claim)
+			assert.Equal(t, auths[unclaimedIndex].Token, updatedAuths[unclaimedIndex].Token)
+			assert.Nil(t, updatedAuths[unclaimedIndex].Claim)
+		})
+
+		t.Run("invalid difficulty", func(t *testing.T) {
+			err = authDB.Claim(&ClaimOpts{
+				Req: &pb.SigningRequest{
+					AuthToken: auths[unclaimedIndex].Token.String(),
+					Timestamp: time.Now().Unix(),
+				},
+				Peer:          grpcPeer,
+				ChainBytes:    [][]byte{ident2.CA.Raw},
+				MinDifficulty: difficulty2 + 1,
+			})
+			fmt.Printf("difficulty2 %d\n", difficulty2)
+			fmt.Printf("nodeID %s\n", ident2.ID)
+			fmt.Printf("nodeID %v\n", ident2.ID[:])
+
+			testID, idErr := identity.NodeIDFromCert(ident2.CA)
+			require.NoError(t, idErr)
+			fmt.Printf("nodeID3 %s\n", testID)
+			fmt.Printf("nodeID3 %v\n", testID[:])
+
+			if assert.Error(t, err) {
+				assert.True(t, ErrAuthorization.Has(err))
+				// NB: token string shouldn't leak into error message
+				assert.NotContains(t, err.Error(), auths[unclaimedIndex].Token.String())
+			}
+
+			updatedAuths, err := authDB.Get(userID)
+			require.NoError(t, err)
+			require.NotEmpty(t, updatedAuths)
+
+			assert.Equal(t, auths[unclaimedIndex].Token, updatedAuths[unclaimedIndex].Token)
+			assert.Nil(t, updatedAuths[unclaimedIndex].Claim)
+		})
 	})
 }
 

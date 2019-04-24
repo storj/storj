@@ -5,6 +5,7 @@ package storagenode
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -109,6 +110,7 @@ type Peer struct {
 
 // New creates a new Storage Node.
 func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, versionInfo version.Info) (*Peer, error) {
+	fmt.Printf("storagenode ID %s\n", full.ID)
 	peer := &Peer{
 		Log:      log,
 		Identity: full,

@@ -260,20 +260,18 @@ func NodeIDFromCert(cert *x509.Certificate) (id storj.NodeID, err error) {
 
 	switch version.Number {
 	case storj.V0:
-		fmt.Println("V0")
 		return NodeIDFromKey(cert.PublicKey, version)
 	default:
-		fmt.Printf("V%d\n", version.Number)
 		counter, err := POWCounterFromCert(cert)
 		if err != nil {
 			return storj.NodeID{}, err
 		}
-		fmt.Printf("%d\n", counter)
 		return NodeIDFromKeyWithCounter(cert.PublicKey, counter, version)
 	}
 }
 
 // NodeIDFromKey calculates the node ID for a given public key with the passed version.
+// NB: unless you're working with identity-V0 you probably should be using `NodeIDFromKeyWithCounter`.
 func NodeIDFromKey(k crypto.PublicKey, version storj.IDVersion) (storj.NodeID, error) {
 	idBytes, err := peertls.DoubleSHA256PublicKey(k)
 	if err != nil {

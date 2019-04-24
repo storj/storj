@@ -5,11 +5,14 @@ package peertls_test
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"encoding/gob"
+	"storj.io/storj/internal/testidentity"
+	"storj.io/storj/pkg/identity"
 	"testing"
 	"time"
 
@@ -122,59 +125,61 @@ func TestVerifyPeerCertChains(t *testing.T) {
 }
 
 func TestVerifyCAWhitelist(t *testing.T) {
-	_, chain2, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
-	if !assert.NoError(t, err) {
-		t.FailNow()
-	}
-	leafCert, caCert := chain2[0], chain2[1]
+	testidentity.IdentityVersionsTest(t, func(t *testing.T, version storj.IDVersion, _ *identity.FullIdentity) {
+		_, chain2, err := testpeertls.NewCertChain(2, version.Number)
+		if !assert.NoError(t, err) {
+			t.FailNow()
+		}
+		leafCert, caCert := chain2[0], chain2[1]
 
-	t.Run("empty whitelist", func(t *testing.T) {
-		err = peertls.VerifyPeerFunc(peertls.VerifyCAWhitelist(nil))([][]byte{leafCert.Raw, caCert.Raw}, nil)
-		assert.NoError(t, err)
-	})
+		t.Run("empty whitelist", func(t *testing.T) {
+			err = peertls.VerifyPeerFunc(peertls.VerifyCAWhitelist(nil))([][]byte{leafCert.Raw, caCert.Raw}, nil)
+			assert.NoError(t, err)
+		})
 
-	t.Run("whitelist contains ca", func(t *testing.T) {
-		err = peertls.VerifyPeerFunc(peertls.VerifyCAWhitelist([]*x509.Certificate{caCert}))([][]byte{leafCert.Raw, caCert.Raw}, nil)
-		assert.NoError(t, err)
-	})
+		t.Run("whitelist contains ca", func(t *testing.T) {
+			err = peertls.VerifyPeerFunc(peertls.VerifyCAWhitelist([]*x509.Certificate{caCert}))([][]byte{leafCert.Raw, caCert.Raw}, nil)
+			assert.NoError(t, err)
+		})
 
-	_, unrelatedChain, err := testpeertls.NewCertChain(1, storj.LatestIDVersion().Number)
-	if !assert.NoError(t, err) {
-		t.FailNow()
-	}
-	unrelatedCert := unrelatedChain[0]
+		//_, unrelatedChain, err := testpeertls.NewCertChain(1, version.Number)
+		//require.NoError(t, err)
+		//unrelatedCert := unrelatedChain[0]
+		unrelatedCA, err := testidentity.NewTestCA(context.Background(), version.Number)
+		require.NoError(t, err)
 
-	t.Run("no valid signed extension, non-empty whitelist", func(t *testing.T) {
-		err = peertls.VerifyPeerFunc(peertls.VerifyCAWhitelist([]*x509.Certificate{unrelatedCert}))([][]byte{leafCert.Raw, caCert.Raw}, nil)
-		nonTempErr, ok := err.(peertls.NonTemporaryError)
-		require.True(t, ok)
-		assert.True(t, peertls.ErrVerifyCAWhitelist.Has(nonTempErr.Err()))
-	})
+		t.Run("no valid signed extension, non-empty whitelist", func(t *testing.T) {
+			err = peertls.VerifyPeerFunc(peertls.VerifyCAWhitelist([]*x509.Certificate{unrelatedCA.Cert}))([][]byte{leafCert.Raw, caCert.Raw}, nil)
+			nonTempErr, ok := err.(peertls.NonTemporaryError)
+			require.True(t, ok)
+			assert.True(t, peertls.ErrVerifyCAWhitelist.Has(nonTempErr.Err()))
+		})
 
-	t.Run("last cert in whitelist is signer", func(t *testing.T) {
-		err = peertls.VerifyPeerFunc(peertls.VerifyCAWhitelist([]*x509.Certificate{unrelatedCert, caCert}))([][]byte{leafCert.Raw, caCert.Raw}, nil)
-		assert.NoError(t, err)
-	})
+		t.Run("last cert in whitelist is signer", func(t *testing.T) {
+			err = peertls.VerifyPeerFunc(peertls.VerifyCAWhitelist([]*x509.Certificate{unrelatedCA.Cert, caCert}))([][]byte{leafCert.Raw, caCert.Raw}, nil)
+			assert.NoError(t, err)
+		})
 
-	t.Run("first cert in whitelist is signer", func(t *testing.T) {
-		err = peertls.VerifyPeerFunc(peertls.VerifyCAWhitelist([]*x509.Certificate{caCert, unrelatedCert}))([][]byte{leafCert.Raw, caCert.Raw}, nil)
-		assert.NoError(t, err)
-	})
+		t.Run("first cert in whitelist is signer", func(t *testing.T) {
+			err = peertls.VerifyPeerFunc(peertls.VerifyCAWhitelist([]*x509.Certificate{caCert, unrelatedCA.Cert}))([][]byte{leafCert.Raw, caCert.Raw}, nil)
+			assert.NoError(t, err)
+		})
 
-	_, chain3, err := testpeertls.NewCertChain(3, storj.LatestIDVersion().Number)
-	if !assert.NoError(t, err) {
-		t.FailNow()
-	}
-	leaf2Cert, ca2Cert, rootCert := chain3[0], chain3[1], chain3[2]
+		_, chain3, err := testpeertls.NewCertChain(3, storj.LatestIDVersion().Number)
+		if !assert.NoError(t, err) {
+			t.FailNow()
+		}
+		leaf2Cert, ca2Cert, rootCert := chain3[0], chain3[1], chain3[2]
 
-	t.Run("length 3 chain - first cert in whitelist is signer", func(t *testing.T) {
-		err = peertls.VerifyPeerFunc(peertls.VerifyCAWhitelist([]*x509.Certificate{rootCert, unrelatedCert}))([][]byte{leaf2Cert.Raw, ca2Cert.Raw, unrelatedCert.Raw}, nil)
-		assert.NoError(t, err)
-	})
+		t.Run("length 3 chain - first cert in whitelist is signer", func(t *testing.T) {
+			err = peertls.VerifyPeerFunc(peertls.VerifyCAWhitelist([]*x509.Certificate{rootCert, unrelatedCA.Cert}))([][]byte{leaf2Cert.Raw, ca2Cert.Raw, unrelatedCA.Cert.Raw}, nil)
+			assert.NoError(t, err)
+		})
 
-	t.Run("length 3 chain - last cert in whitelist is signer", func(t *testing.T) {
-		err = peertls.VerifyPeerFunc(peertls.VerifyCAWhitelist([]*x509.Certificate{unrelatedCert, rootCert}))([][]byte{leaf2Cert.Raw, ca2Cert.Raw, unrelatedCert.Raw}, nil)
-		assert.NoError(t, err)
+		t.Run("length 3 chain - last cert in whitelist is signer", func(t *testing.T) {
+			err = peertls.VerifyPeerFunc(peertls.VerifyCAWhitelist([]*x509.Certificate{unrelatedCA.Cert, rootCert}))([][]byte{leaf2Cert.Raw, ca2Cert.Raw, unrelatedCA.Cert.Raw}, nil)
+			assert.NoError(t, err)
+		})
 	})
 }
 

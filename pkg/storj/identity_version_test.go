@@ -109,12 +109,13 @@ func TestIDVersionExtensionHandler_success(t *testing.T) {
 		t.Log(testcase.name)
 		opts := &extensions.Options{PeerIDVersions: testcase.versions}
 
-		cert := testcase.chain[peertls.CAIndex]
-		ext := cert.Extensions[len(cert.Extensions)-1]
-		err := storj.IDVersionHandler.NewHandlerFunc(opts)(ext, identity.ToChains(testcase.chain))
+		extensionMap := extensions.NewExtensionsMap(testcase.chain...)
+		versionExt, ok := extensionMap[extensions.IdentityVersionExtID.String()]
+		require.True(t, ok)
+
+		err = storj.IDVersionHandler.NewHandlerFunc(opts)(versionExt, identity.ToChains(testcase.chain))
 		assert.NoError(t, err)
 
-		extensionMap := extensions.NewExtensionsMap(testcase.chain...)
 		handlerFuncMap := extensions.AllHandlers.WithOptions(opts)
 
 		err = extensionMap.HandleExtensions(handlerFuncMap, identity.ToChains(testcase.chain))

@@ -5,6 +5,7 @@ package bwagreement_test
 
 import (
 	"context"
+	"storj.io/storj/pkg/storj"
 	"testing"
 	"time"
 
@@ -24,16 +25,16 @@ func TestBandwidthDBAgreement(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		upID, err := testidentity.NewTestIdentity(ctx)
-		require.NoError(t, err)
-		snID, err := testidentity.NewTestIdentity(ctx)
-		require.NoError(t, err)
+		testidentity.IdentityVersionsTest(t, func(t *testing.T, version storj.IDVersion, upID *identity.FullIdentity) {
+			snID, err := testidentity.IdentityVersions[version.Number].NewIdentity()
+			require.NoError(t, err)
 
-		require.NoError(t, testSaveOrder(ctx, t, db.BandwidthAgreement(), pb.BandwidthAction_PUT, "1", upID, snID))
-		require.Error(t, testSaveOrder(ctx, t, db.BandwidthAgreement(), pb.BandwidthAction_GET, "1", upID, snID))
-		require.NoError(t, testSaveOrder(ctx, t, db.BandwidthAgreement(), pb.BandwidthAction_GET, "2", upID, snID))
-		testGetTotals(ctx, t, db.BandwidthAgreement(), snID)
-		testGetUplinkStats(ctx, t, db.BandwidthAgreement(), upID)
+			require.NoError(t, testSaveOrder(ctx, t, db.BandwidthAgreement(), pb.BandwidthAction_PUT, "1", upID, snID))
+			require.Error(t, testSaveOrder(ctx, t, db.BandwidthAgreement(), pb.BandwidthAction_GET, "1", upID, snID))
+			require.NoError(t, testSaveOrder(ctx, t, db.BandwidthAgreement(), pb.BandwidthAction_GET, "2", upID, snID))
+			testGetTotals(ctx, t, db.BandwidthAgreement(), snID)
+			testGetUplinkStats(ctx, t, db.BandwidthAgreement(), upID)
+		})
 	})
 }
 

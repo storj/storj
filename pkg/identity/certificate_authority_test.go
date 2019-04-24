@@ -170,66 +170,70 @@ func TestFullCertificateAuthority_AddExtension(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	ca, err := testidentity.NewTestCA(ctx)
-	require.NoError(t, err)
+	testidentity.IdentityVersionsTest(t, func(t *testing.T, version storj.IDVersion, _ *identity.FullIdentity) {
+		ca, err := testidentity.NewTestCA(ctx, version.Number)
+		require.NoError(t, err)
 
-	oldCert := ca.Cert
-	assert.Len(t, ca.Cert.ExtraExtensions, 0)
+		oldCert := ca.Cert
+		assert.Len(t, ca.Cert.ExtraExtensions, 0)
 
-	randBytes := make([]byte, 10)
-	rand.Read(randBytes)
-	randExt := pkix.Extension{
-		Id:    asn1.ObjectIdentifier{2, 999, int(randBytes[0])},
-		Value: randBytes,
-	}
+		randBytes := make([]byte, 10)
+		rand.Read(randBytes)
+		randExt := pkix.Extension{
+			Id:    asn1.ObjectIdentifier{2, 999, int(randBytes[0])},
+			Value: randBytes,
+		}
 
-	err = ca.AddExtension(randExt)
-	require.NoError(t, err)
+		err = ca.AddExtension(randExt)
+		require.NoError(t, err)
 
-	assert.Len(t, ca.Cert.ExtraExtensions, 0)
-	assert.Len(t, ca.Cert.Extensions, len(oldCert.Extensions)+1)
+		assert.Len(t, ca.Cert.ExtraExtensions, 0)
+		assert.Len(t, ca.Cert.Extensions, len(oldCert.Extensions)+1)
 
-	assert.Equal(t, oldCert.SerialNumber, ca.Cert.SerialNumber)
-	assert.Equal(t, oldCert.IsCA, ca.Cert.IsCA)
-	assert.Equal(t, oldCert.PublicKey, ca.Cert.PublicKey)
-	assert.Equal(t, randExt, extensions.NewExtensionsMap(ca.Cert)[randExt.Id.String()])
+		assert.Equal(t, oldCert.SerialNumber, ca.Cert.SerialNumber)
+		assert.Equal(t, oldCert.IsCA, ca.Cert.IsCA)
+		assert.Equal(t, oldCert.PublicKey, ca.Cert.PublicKey)
+		assert.Equal(t, randExt, extensions.NewExtensionsMap(ca.Cert)[randExt.Id.String()])
 
-	assert.NotEqual(t, oldCert.Raw, ca.Cert.Raw)
-	assert.NotEqual(t, oldCert.RawTBSCertificate, ca.Cert.RawTBSCertificate)
-	assert.NotEqual(t, oldCert.Signature, ca.Cert.Signature)
+		assert.NotEqual(t, oldCert.Raw, ca.Cert.Raw)
+		assert.NotEqual(t, oldCert.RawTBSCertificate, ca.Cert.RawTBSCertificate)
+		assert.NotEqual(t, oldCert.Signature, ca.Cert.Signature)
+	})
 }
 
 func TestFullCertificateAuthority_Revoke(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	ca, err := testidentity.NewTestCA(ctx)
-	require.NoError(t, err)
+	testidentity.IdentityVersionsTest(t, func(t *testing.T, version storj.IDVersion, _ *identity.FullIdentity) {
+		ca, err := testidentity.NewTestCA(ctx, version.Number)
+		require.NoError(t, err)
 
-	oldCert := ca.Cert
-	assert.Len(t, ca.Cert.ExtraExtensions, 0)
+		oldCert := ca.Cert
+		assert.Len(t, ca.Cert.ExtraExtensions, 0)
 
-	err = ca.Revoke()
-	require.NoError(t, err)
+		err = ca.Revoke()
+		require.NoError(t, err)
 
-	assert.Len(t, ca.Cert.ExtraExtensions, 0)
-	assert.Len(t, ca.Cert.Extensions, len(oldCert.Extensions)+1)
+		assert.Len(t, ca.Cert.ExtraExtensions, 0)
+		assert.Len(t, ca.Cert.Extensions, len(oldCert.Extensions)+1)
 
-	assert.Equal(t, oldCert.SerialNumber, ca.Cert.SerialNumber)
-	assert.Equal(t, oldCert.IsCA, ca.Cert.IsCA)
-	assert.Equal(t, oldCert.PublicKey, ca.Cert.PublicKey)
+		assert.Equal(t, oldCert.SerialNumber, ca.Cert.SerialNumber)
+		assert.Equal(t, oldCert.IsCA, ca.Cert.IsCA)
+		assert.Equal(t, oldCert.PublicKey, ca.Cert.PublicKey)
 
-	assert.NotEqual(t, oldCert.Raw, ca.Cert.Raw)
-	assert.NotEqual(t, oldCert.RawTBSCertificate, ca.Cert.RawTBSCertificate)
-	assert.NotEqual(t, oldCert.Signature, ca.Cert.Signature)
+		assert.NotEqual(t, oldCert.Raw, ca.Cert.Raw)
+		assert.NotEqual(t, oldCert.RawTBSCertificate, ca.Cert.RawTBSCertificate)
+		assert.NotEqual(t, oldCert.Signature, ca.Cert.Signature)
 
-	revocationExt := extensions.NewExtensionsMap(ca.Cert)[extensions.RevocationExtID.String()]
-	assert.True(t, extensions.RevocationExtID.Equal(revocationExt.Id))
+		revocationExt := extensions.NewExtensionsMap(ca.Cert)[extensions.RevocationExtID.String()]
+		assert.True(t, extensions.RevocationExtID.Equal(revocationExt.Id))
 
-	var rev extensions.Revocation
-	err = rev.Unmarshal(revocationExt.Value)
-	require.NoError(t, err)
+		var rev extensions.Revocation
+		err = rev.Unmarshal(revocationExt.Value)
+		require.NoError(t, err)
 
-	err = rev.Verify(ca.Cert)
-	assert.NoError(t, err)
+		err = rev.Verify(ca.Cert)
+		assert.NoError(t, err)
+	})
 }

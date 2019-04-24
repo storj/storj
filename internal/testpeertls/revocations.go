@@ -28,7 +28,7 @@ func RevokeLeaf(caKey crypto.PrivateKey, chain []*x509.Certificate) ([]*x509.Cer
 	}
 
 	var err error
-	ca.ID, err = identity.NodeIDFromKey(ca.Cert.PublicKey, storj.LatestIDVersion())
+	ca.ID, err = identity.NodeIDFromCert(ca.Cert)
 	if err != nil {
 		return nil, pkix.Extension{}, err
 	}

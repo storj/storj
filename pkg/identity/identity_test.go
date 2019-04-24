@@ -229,70 +229,74 @@ func TestManageablePeerIdentity_AddExtension(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	manageablePeerIdentity, err := testidentity.NewTestManageablePeerIdentity(ctx)
-	require.NoError(t, err)
+	testidentity.IdentityVersionsTest(t, func(t *testing.T, version storj.IDVersion, _ *identity.FullIdentity) {
+		manageablePeerIdentity, err := testidentity.NewTestManageablePeerIdentity(ctx, version.Number)
+		require.NoError(t, err)
 
-	oldLeaf := manageablePeerIdentity.Leaf
-	assert.Len(t, manageablePeerIdentity.CA.Cert.ExtraExtensions, 0)
+		oldLeaf := manageablePeerIdentity.Leaf
+		assert.Len(t, manageablePeerIdentity.CA.Cert.ExtraExtensions, 0)
 
-	randBytes := make([]byte, 10)
-	_, err = rand.Read(randBytes)
-	require.NoError(t, err)
-	randExt := pkix.Extension{
-		Id:    asn1.ObjectIdentifier{2, 999, int(randBytes[0])},
-		Value: randBytes,
-	}
+		randBytes := make([]byte, 10)
+		_, err = rand.Read(randBytes)
+		require.NoError(t, err)
+		randExt := pkix.Extension{
+			Id:    asn1.ObjectIdentifier{2, 999, int(randBytes[0])},
+			Value: randBytes,
+		}
 
-	err = manageablePeerIdentity.AddExtension(randExt)
-	require.NoError(t, err)
+		err = manageablePeerIdentity.AddExtension(randExt)
+		require.NoError(t, err)
 
-	assert.Len(t, manageablePeerIdentity.Leaf.ExtraExtensions, 0)
-	assert.Len(t, manageablePeerIdentity.Leaf.Extensions, len(oldLeaf.Extensions)+1)
+		assert.Len(t, manageablePeerIdentity.Leaf.ExtraExtensions, 0)
+		assert.Len(t, manageablePeerIdentity.Leaf.Extensions, len(oldLeaf.Extensions)+1)
 
-	assert.Equal(t, oldLeaf.SerialNumber, manageablePeerIdentity.Leaf.SerialNumber)
-	assert.Equal(t, oldLeaf.IsCA, manageablePeerIdentity.Leaf.IsCA)
-	assert.Equal(t, oldLeaf.PublicKey, manageablePeerIdentity.Leaf.PublicKey)
-	ext := extensions.NewExtensionsMap(manageablePeerIdentity.Leaf)[randExt.Id.String()]
-	assert.Equal(t, randExt, ext)
+		assert.Equal(t, oldLeaf.SerialNumber, manageablePeerIdentity.Leaf.SerialNumber)
+		assert.Equal(t, oldLeaf.IsCA, manageablePeerIdentity.Leaf.IsCA)
+		assert.Equal(t, oldLeaf.PublicKey, manageablePeerIdentity.Leaf.PublicKey)
+		ext := extensions.NewExtensionsMap(manageablePeerIdentity.Leaf)[randExt.Id.String()]
+		assert.Equal(t, randExt, ext)
 
-	assert.Equal(t, randExt, extensions.NewExtensionsMap(manageablePeerIdentity.Leaf)[randExt.Id.String()])
+		assert.Equal(t, randExt, extensions.NewExtensionsMap(manageablePeerIdentity.Leaf)[randExt.Id.String()])
 
-	assert.NotEqual(t, oldLeaf.Raw, manageablePeerIdentity.Leaf.Raw)
-	assert.NotEqual(t, oldLeaf.RawTBSCertificate, manageablePeerIdentity.Leaf.RawTBSCertificate)
-	assert.NotEqual(t, oldLeaf.Signature, manageablePeerIdentity.Leaf.Signature)
+		assert.NotEqual(t, oldLeaf.Raw, manageablePeerIdentity.Leaf.Raw)
+		assert.NotEqual(t, oldLeaf.RawTBSCertificate, manageablePeerIdentity.Leaf.RawTBSCertificate)
+		assert.NotEqual(t, oldLeaf.Signature, manageablePeerIdentity.Leaf.Signature)
+	})
 }
 
 func TestManageableFullIdentity_Revoke(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	manageableFullIdentity, err := testidentity.NewTestManageableFullIdentity(ctx)
-	require.NoError(t, err)
+	testidentity.IdentityVersionsTest(t, func(t *testing.T, version storj.IDVersion, _ *identity.FullIdentity) {
+		manageableFullIdentity, err := testidentity.NewTestManageableFullIdentity(ctx, version.Number)
+		require.NoError(t, err)
 
-	oldLeaf := manageableFullIdentity.Leaf
-	assert.Len(t, manageableFullIdentity.CA.Cert.ExtraExtensions, 0)
+		oldLeaf := manageableFullIdentity.Leaf
+		assert.Len(t, manageableFullIdentity.CA.Cert.ExtraExtensions, 0)
 
-	err = manageableFullIdentity.Revoke()
-	require.NoError(t, err)
+		err = manageableFullIdentity.Revoke()
+		require.NoError(t, err)
 
-	assert.Len(t, manageableFullIdentity.Leaf.ExtraExtensions, 0)
-	assert.Len(t, manageableFullIdentity.Leaf.Extensions, len(oldLeaf.Extensions)+1)
+		assert.Len(t, manageableFullIdentity.Leaf.ExtraExtensions, 0)
+		assert.Len(t, manageableFullIdentity.Leaf.Extensions, len(oldLeaf.Extensions)+1)
 
-	assert.Equal(t, oldLeaf.IsCA, manageableFullIdentity.Leaf.IsCA)
+		assert.Equal(t, oldLeaf.IsCA, manageableFullIdentity.Leaf.IsCA)
 
-	assert.NotEqual(t, oldLeaf.PublicKey, manageableFullIdentity.Leaf.PublicKey)
-	assert.NotEqual(t, oldLeaf.SerialNumber, manageableFullIdentity.Leaf.SerialNumber)
-	assert.NotEqual(t, oldLeaf.Raw, manageableFullIdentity.Leaf.Raw)
-	assert.NotEqual(t, oldLeaf.RawTBSCertificate, manageableFullIdentity.Leaf.RawTBSCertificate)
-	assert.NotEqual(t, oldLeaf.Signature, manageableFullIdentity.Leaf.Signature)
+		assert.NotEqual(t, oldLeaf.PublicKey, manageableFullIdentity.Leaf.PublicKey)
+		assert.NotEqual(t, oldLeaf.SerialNumber, manageableFullIdentity.Leaf.SerialNumber)
+		assert.NotEqual(t, oldLeaf.Raw, manageableFullIdentity.Leaf.Raw)
+		assert.NotEqual(t, oldLeaf.RawTBSCertificate, manageableFullIdentity.Leaf.RawTBSCertificate)
+		assert.NotEqual(t, oldLeaf.Signature, manageableFullIdentity.Leaf.Signature)
 
-	revocationExt := extensions.NewExtensionsMap(manageableFullIdentity.Leaf)[extensions.RevocationExtID.String()]
-	assert.True(t, extensions.RevocationExtID.Equal(revocationExt.Id))
+		revocationExt := extensions.NewExtensionsMap(manageableFullIdentity.Leaf)[extensions.RevocationExtID.String()]
+		assert.True(t, extensions.RevocationExtID.Equal(revocationExt.Id))
 
-	var rev extensions.Revocation
-	err = rev.Unmarshal(revocationExt.Value)
-	require.NoError(t, err)
+		var rev extensions.Revocation
+		err = rev.Unmarshal(revocationExt.Value)
+		require.NoError(t, err)
 
-	err = rev.Verify(manageableFullIdentity.CA.Cert)
-	require.NoError(t, err)
+		err = rev.Verify(manageableFullIdentity.CA.Cert)
+		require.NoError(t, err)
+	})
 }

@@ -24,10 +24,11 @@ func NewPOWCounterExt(counter peertls.POWCounter) pkix.Extension {
 // NewVersionExt creates a new identity version certificate extension for the
 // given identity version,
 func NewVersionExt(version storj.IDVersion) pkix.Extension {
-	return pkix.Extension{
+	ext := pkix.Extension{
 		Id:    extensions.IdentityVersionExtID,
 		Value: []byte{byte(version.Number)},
 	}
+	return ext
 }
 
 // POWCounterFromCert retrieves the POWCounter from the certificate's
