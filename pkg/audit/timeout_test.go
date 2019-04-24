@@ -44,12 +44,7 @@ func TestGetShareTimeout(t *testing.T) {
 		cursor := audit.NewCursor(pointerdb)
 
 		var stripe *audit.Stripe
-		for {
-			stripe, err = cursor.NextStripe(ctx)
-			if stripe != nil || err != nil {
-				break
-			}
-		}
+		stripe, err = cursor.NextStripe(ctx)
 		require.NoError(t, err)
 		require.NotNil(t, stripe)
 
