@@ -138,7 +138,9 @@ func TestBootstrapBackoffReconnect(t *testing.T) {
 		err := proxy.close()
 		// Expect a group of errors such as "use of closed network connection"
 		// or "connection reset by peer" or "broken pipe" since we're closing
-		// the storage nodes' connections inside proxy.run.
+		// the storage nodes' connections inside proxy.run, and they will
+		// attempt to contact each other between the storageNodeConn.Close()
+		// and bootstrapNodeConn.Close() calls.
 		require.Error(t, err)
 	}()
 
