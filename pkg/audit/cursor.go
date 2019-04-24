@@ -5,8 +5,7 @@ package audit
 
 import (
 	"context"
-	"crypto/rand"
-	"math/big"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -64,19 +63,10 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 
 	var pointer *pb.Pointer
 	errGroup := new(errs.Group)
-	for {
-		if len(pointerItems) == 0 {
-			errGroup.Add(Error.New("no stripes in pointerdb"))
-			return nil, errGroup.Err()
-		}
 
-		pointer, pointerItems, err = cursor.getRandomPointer(pointerItems)
-		if err != nil {
-			errGroup.Add(err)
-		}
-		if pointer != nil {
-			break
-		}
+	pointer, err = cursor.getRandomValidPointer(pointerItems)
+	if err != nil {
+		return nil, err
 	}
 
 	index, err := getRandomStripe(pointer)
@@ -102,51 +92,54 @@ func getRandomStripe(pointer *pb.Pointer) (index int64, err error) {
 		return 0, nil
 	}
 
-	randomStripeIndex, err := rand.Int(rand.Reader, big.NewInt(pointer.GetSegmentSize()/int64(redundancy.StripeSize())))
-	if err != nil {
-		return -1, err
-	}
+	numStripes := pointer.GetSegmentSize() / int64(redundancy.StripeSize())
+	randomStripeIndex := rand.Int63n(numStripes)
 
-	return randomStripeIndex.Int64(), nil
+	return randomStripeIndex, nil
 }
 
-// getRandomPointer attempts to get a random pointer from a list, and if the selected pointer is invalid, it returns a list without that item
-func (cursor *Cursor) getRandomPointer(pointerItems []*pb.ListResponse_Item) (pointer *pb.Pointer, newPointerItems []*pb.ListResponse_Item, err error) {
-	randomNum, err := rand.Int(rand.Reader, big.NewInt(int64(len(pointerItems))))
-	if err != nil {
-		return nil, pointerItems, err
+// getRandomValidPointer attempts to get a random remote pointer from a list. If it sees expired pointers in the process of looking, deletes them
+func (cursor *Cursor) getRandomValidPointer(pointerItems []*pb.ListResponse_Item) (pointer *pb.Pointer, err error) {
+	if len(pointerItems) == 0 {
+		return nil, Error.New("no stripes in pointerdb"))
 	}
 
-	i := randomNum.Int64()
-	pointerItem := pointerItems[i]
-	path := pointerItem.Path
+	errGroup := new(errs.Group)
+	randomNums := rand.Perm(len(pointerItems))
 
-	// get pointer info
-	pointer, err = cursor.pointerdb.Get(path)
-	if err != nil {
-		return nil, pointerItems, err
-	}
+	for _, randomIndex := range randomNums {
+		pointerItem := pointerItems[randomIndex]
+		path := pointerItem.Path
 
-	newPointerItems = append(pointerItems[:i], pointerItems[i+1:]...)
-
-	//delete expired items rather than auditing them
-	if expiration := pointer.GetExpirationDate(); expiration != nil {
-		t, err := ptypes.Timestamp(expiration)
+		// get pointer info
+		pointer, err := cursor.pointerdb.Get(path)
 		if err != nil {
-			return nil, newPointerItems, err
+			errGroup.Add(err)
+			continue
 		}
-		if t.Before(time.Now()) {
-			return nil, newPointerItems, cursor.pointerdb.Delete(path)
+
+		//delete expired items rather than auditing them
+		if expiration := pointer.GetExpirationDate(); expiration != nil {
+			t, err := ptypes.Timestamp(expiration)
+			if err != nil {
+				errGroup.Add(err)
+				continue
+			}
+			if t.Before(time.Now()) {
+				err := cursor.pointerdb.Delete(path)
+				if err != nil {
+					errGroup.Add(err)
+				}
+				continue
+			}
 		}
+
+		if pointer.GetType() != pb.Pointer_REMOTE || pointer.GetSegmentSize() == 0 {
+			continue
+		}
+
+		return pointer, toDelete, nil
 	}
 
-	if pointer.GetType() != pb.Pointer_REMOTE {
-		return nil, newPointerItems, Error.New("not remote pointer")
-	}
-
-	if pointer.GetSegmentSize() == 0 {
-		return nil, newPointerItems, Error.New("segment size 0")
-	}
-
-	return pointer, newPointerItems, nil
+	return nil, toDelete, errGroup.Err()
 }
