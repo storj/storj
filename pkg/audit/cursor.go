@@ -14,9 +14,9 @@ import (
 
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/metainfo"
 )
 
 // Stripe keeps track of a stripe's index and its parent segment
@@ -28,15 +28,15 @@ type Stripe struct {
 
 // Cursor keeps track of audit location in pointer db
 type Cursor struct {
-	pointerdb *pointerdb.Service
-	lastPath  storj.Path
-	mutex     sync.Mutex
+	metainfo *metainfo.Service
+	lastPath storj.Path
+	mutex    sync.Mutex
 }
 
 // NewCursor creates a Cursor which iterates over pointer db
-func NewCursor(pointerdb *pointerdb.Service) *Cursor {
+func NewCursor(metainfo *metainfo.Service) *Cursor {
 	return &Cursor{
-		pointerdb: pointerdb,
+		metainfo: metainfo,
 	}
 }
 
@@ -49,7 +49,7 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 	var path storj.Path
 	var more bool
 
-	pointerItems, more, err = cursor.pointerdb.List("", cursor.lastPath, "", true, 0, meta.None)
+	pointerItems, more, err = cursor.metainfo.List("", cursor.lastPath, "", true, 0, meta.None)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +73,7 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 	}
 
 	// get pointer info
-	pointer, err := cursor.pointerdb.Get(path)
+	pointer, err := cursor.metainfo.Get(path)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +85,7 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 			return nil, err
 		}
 		if t.Before(time.Now()) {
-			return nil, cursor.pointerdb.Delete(path)
+			return nil, cursor.metainfo.Delete(path)
 		}
 	}
 

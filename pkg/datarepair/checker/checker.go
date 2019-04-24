@@ -17,8 +17,8 @@ import (
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storage"
 )
 
@@ -35,7 +35,7 @@ type Config struct {
 
 // Checker contains the information needed to do checks for missing pieces
 type Checker struct {
-	pointerdb   *pointerdb.Service
+	metainfo    *metainfo.Service
 	repairQueue queue.RepairQueue
 	overlay     *overlay.Cache
 	irrdb       irreparable.DB
@@ -44,10 +44,10 @@ type Checker struct {
 }
 
 // NewChecker creates a new instance of checker
-func NewChecker(pointerdb *pointerdb.Service, repairQueue queue.RepairQueue, overlay *overlay.Cache, irrdb irreparable.DB, limit int, logger *zap.Logger, interval time.Duration) *Checker {
+func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overlay *overlay.Cache, irrdb irreparable.DB, limit int, logger *zap.Logger, interval time.Duration) *Checker {
 	// TODO: reorder arguments
 	checker := &Checker{
-		pointerdb:   pointerdb,
+		metainfo:    metainfo,
 		repairQueue: repairQueue,
 		overlay:     overlay,
 		irrdb:       irrdb,
@@ -76,7 +76,7 @@ func (checker *Checker) Close() error {
 	return nil
 }
 
-// IdentifyInjuredSegments checks for missing pieces off of the pointerdb and overlay cache
+// IdentifyInjuredSegments checks for missing pieces off of the metainfo and overlay cache
 func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -85,7 +85,7 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 	var remoteSegmentsLost int64
 	var remoteSegmentInfo []string
 
-	err = checker.pointerdb.Iterate("", "", true, false,
+	err = checker.metainfo.Iterate("", "", true, false,
 		func(it storage.Iterator) error {
 			var item storage.ListItem
 			for it.Next(&item) {
