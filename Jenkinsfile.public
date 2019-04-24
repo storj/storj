@@ -9,6 +9,7 @@ pipeline {
         stage('Build') {
             steps {
                 checkout scm
+
                 // make a backup of the mod file in case, for later linting
                 sh 'cp go.mod $HOME/go.mod.orig'
                 // download dependencies
@@ -49,8 +50,8 @@ pipeline {
                     post {
                         always {
                             sh script: 'cat $HOME/tests.json | tparse -all -top -slow 100', returnStatus: true
-                            archiveArtifacts artifacts: '${HOME}/tests.json'
-                            junit '${HOME}/tests.xml'
+                            archiveArtifacts artifacts: env.HOME + '/tests.json'
+                            junit env.HOME + '/tests.xml'
                         }
                     }
                 }
