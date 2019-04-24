@@ -115,7 +115,7 @@ func TestBootstrapBackoffReconnect(t *testing.T) {
 			},
 			StorageNode: func(index int, config *storagenode.Config) {
 				config.Kademlia.BootstrapAddr = proxy.listener.Addr().String()
-				config.Kademlia.BootstrapBackoffBase = 200 * time.Millisecond
+				config.Kademlia.BootstrapBackoffBase = 100 * time.Millisecond
 				config.Kademlia.BootstrapBackoffMax = 3 * time.Second
 			},
 		},
@@ -127,7 +127,7 @@ func TestBootstrapBackoffReconnect(t *testing.T) {
 	// (which was selected when the new custom planet was set up).
 	proxy.target = planet.Bootstrap.Addr()
 
-	droppedConnInterval := 500 * time.Millisecond
+	droppedConnInterval := 200 * time.Millisecond
 	go func() {
 		// This starts the unreliable proxy server and sets it to
 		// drop connections for the first 500 milliseconds that it's up.
@@ -136,7 +136,10 @@ func TestBootstrapBackoffReconnect(t *testing.T) {
 	}()
 	defer func() {
 		err := proxy.close()
-		require.NoError(t, err)
+		// Expect a group of errors such as "use of closed network connection"
+		// or "connection reset by peer" or "broken pipe" since we're closing
+		// the storage nodes' connections inside proxy.run.
+		require.Error(t, err)
 	}()
 
 	planet.Start(ctx)
@@ -147,6 +150,7 @@ type badProxy struct {
 	log      *zap.Logger
 	listener net.Listener
 	target   string
+	errors   errs.Group
 }
 
 func newBadProxy(log *zap.Logger, addr string) (*badProxy, error) {
@@ -162,7 +166,8 @@ func newBadProxy(log *zap.Logger, addr string) (*badProxy, error) {
 
 func (proxy *badProxy) close() error {
 	atomic.StoreUint32(&proxy.closed, 1)
-	return proxy.listener.Close()
+	proxy.errors.Add(proxy.listener.Close())
+	return proxy.errors.Err()
 }
 
 func (proxy *badProxy) run(droppedConnInterval time.Duration) (err error) {
@@ -171,12 +176,12 @@ func (proxy *badProxy) run(droppedConnInterval time.Duration) (err error) {
 	defer func() {
 		err := proxy.listener.Close()
 		if atomic.LoadUint32(&proxy.closed) == 0 {
-			proxy.log.Error("bad proxy", zap.Error(err))
+			proxy.errors.Add(err)
 		}
 	}()
 
 	for {
-		c, err := proxy.listener.Accept()
+		storageNodeConn, err := proxy.listener.Accept()
 		if err != nil {
 			if atomic.LoadUint32(&proxy.closed) > 0 {
 				return nil
@@ -187,44 +192,42 @@ func (proxy *badProxy) run(droppedConnInterval time.Duration) (err error) {
 			// Within the droppedConnInterval duration,
 			// the proxy will drop conns.
 			if time.Since(start) < droppedConnInterval {
-				err := c.Close()
+				err := storageNodeConn.Close()
 				if err != nil {
-					proxy.log.Error("bad proxy", zap.Error(err))
+					proxy.errors.Add(err)
 				}
 				return
 			}
-			c2, err := net.Dial("tcp", proxy.target)
+			bootstrapNodeConn, err := net.Dial("tcp", proxy.target)
 			if err != nil {
-				proxy.log.Error("bad proxy", zap.Error(err))
-				err = c.Close()
+				proxy.errors.Add(err)
+				err = storageNodeConn.Close()
 				if err != nil {
-					proxy.log.Error("bad proxy", zap.Error(err))
+					proxy.errors.Add(err)
 				}
 				return
-			}
-			closer := func() {
-				err := errs.Combine(c.Close(), c2.Close())
-				if err != nil {
-					proxy.log.Error("bad proxy", zap.Error(err))
-				}
 			}
 			var closeOnce sync.Once
-			// Simulating a successful connection,
-			// here the proxy correctly copies the
-			// data from Peer A (storage node or satellite)
+			closer := func() {
+				proxy.errors.Add(storageNodeConn.Close())
+				proxy.errors.Add(bootstrapNodeConn.Close())
+			}
+			// Here the proxy copies the data from
+			// Peer A (storage node or satellite)
 			// to Peer B (bootstrap node).
 			go func() {
 				defer closeOnce.Do(closer)
-				_, err := io.Copy(c, c2)
+				_, err := io.Copy(storageNodeConn, bootstrapNodeConn)
 				if err != nil {
-					proxy.log.Error("bad proxy", zap.Error(err))
+					proxy.errors.Add(err)
 				}
 			}()
-			// starts copy loops concurrently where the first to exit closes the connections
+			// Starts copy loops concurrently where
+			// the first to exit closes the connections.
 			defer closeOnce.Do(closer)
-			_, err = io.Copy(c2, c)
+			_, err = io.Copy(bootstrapNodeConn, storageNodeConn)
 			if err != nil {
-				proxy.log.Error("bad proxy", zap.Error(err))
+				proxy.errors.Add(err)
 			}
 		}()
 	}
