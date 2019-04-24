@@ -46,9 +46,8 @@ func TestAuditSegment(t *testing.T) {
 					if err != nil {
 						require.Error(t, err)
 						require.Nil(t, stripe)
-					}
-					if stripe != nil {
-						require.Nil(t, err)
+					} else {
+						require.NotNil(t, stripe)
 					}
 				})
 			}
@@ -118,20 +117,16 @@ func TestDeleteExpired(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		//populate pointerdb with 10 expired pointers of test data
-		tests, cursor, pointerdb := populateTestData(t, planet, &timestamp.Timestamp{})
+		_, cursor, pointerdb := populateTestData(t, planet, &timestamp.Timestamp{})
 		//make sure it they're in there
 		list, _, err := pointerdb.List("", "", "", true, 10, meta.None)
 		require.NoError(t, err)
 		require.Len(t, list, 10)
-		// make sure its all null and no errors
+		// make sure an error and no pointer is returned
 		t.Run("NextStripe", func(t *testing.T) {
-			for _, tt := range tests {
-				t.Run(tt.bm, func(t *testing.T) {
-					stripe, err := cursor.NextStripe(ctx)
-					require.NoError(t, err)
-					require.Nil(t, stripe)
-				})
-			}
+			stripe, err := cursor.NextStripe(ctx)
+			require.Error(t, err)
+			require.Nil(t, stripe)
 		})
 		//make sure it they're not in there anymore
 		list, _, err = pointerdb.List("", "", "", true, 10, meta.None)
