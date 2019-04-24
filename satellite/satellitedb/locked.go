@@ -696,13 +696,6 @@ func (m *lockedOverlayCache) CreateStats(ctx context.Context, nodeID storj.NodeI
 	return m.db.CreateStats(ctx, nodeID, initial)
 }
 
-// FindInvalidNodes finds a subset of storagenodes that have stats below provided reputation requirements.
-func (m *lockedOverlayCache) FindInvalidNodes(ctx context.Context, nodeIDs storj.NodeIDList, maxStats *overlay.NodeStats) (invalid storj.NodeIDList, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.FindInvalidNodes(ctx, nodeIDs, maxStats)
-}
-
 // Get looks up the node by nodeID
 func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*overlay.NodeDossier, error) {
 	m.Lock()
@@ -732,7 +725,7 @@ func (m *lockedOverlayCache) Paginate(ctx context.Context, offset int64, limit i
 }
 
 // SelectNewStorageNodes looks up nodes based on new node criteria
-func (m *lockedOverlayCache) SelectNewStorageNodes(ctx context.Context, count int, criteria *overlay.NewNodeCriteria) ([]*pb.Node, error) {
+func (m *lockedOverlayCache) SelectNewStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) ([]*pb.Node, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.SelectNewStorageNodes(ctx, count, criteria)
@@ -745,14 +738,14 @@ func (m *lockedOverlayCache) SelectStorageNodes(ctx context.Context, count int, 
 	return m.db.SelectStorageNodes(ctx, count, criteria)
 }
 
-// Update updates node information
-func (m *lockedOverlayCache) Update(ctx context.Context, value *pb.Node) error {
+// Update updates node address
+func (m *lockedOverlayCache) UpdateAddress(ctx context.Context, value *pb.Node) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Update(ctx, value)
+	return m.db.UpdateAddress(ctx, value)
 }
 
-// UpdateOperator updates the email and wallet for a given node ID for satellite payments.
+// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
 func (m *lockedOverlayCache) UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *overlay.NodeDossier, err error) {
 	m.Lock()
 	defer m.Unlock()

@@ -26,6 +26,7 @@ export const projectsModule = {
         },
         [PROJECTS_MUTATIONS.SELECT](state: any, projectID: string): void {
             const selected = state.projects.find((project: any) => project.id === projectID);
+
             if (!selected) {
                 return;
             }

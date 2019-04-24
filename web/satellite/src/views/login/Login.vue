@@ -1,4 +1,4 @@
- // Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template src="./login.html"></template>
@@ -13,16 +13,18 @@ import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actio
 import { getTokenRequest } from '@/api/users';
 import { LOADING_CLASSES } from '@/utils/constants/classConstants';
 import { AppState } from '@/utils/constants/appStateEnum';
+import { validateEmail, validatePassword } from '@/utils/validation';
 
 @Component({
     data: function () {
-
         return {
             email: '',
             password: '',
             loadingClassName: LOADING_CLASSES.LOADING_OVERLAY,
             loadingLogoClassName: LOADING_CLASSES.LOADING_LOGO,
             forgotPasswordRouterPath: ROUTES.FORGOT_PASSWORD.path,
+            emailError: '',
+            passwordError: '',
         };
     },
     methods: {
@@ -31,16 +33,20 @@ import { AppState } from '@/utils/constants/appStateEnum';
         },
         setEmail: function (value: string): void {
             this.$data.email = value;
+            this.$data.emailError = '';
         },
         setPassword: function (value: string): void {
             this.$data.password = value;
+            this.$data.passwordError = '';
         },
         activateLoadingOverlay: function(): void {
             this.$data.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY_ACTIVE;
             this.$data.loadingLogoClassName = LOADING_CLASSES.LOADING_LOGO_ACTIVE;
         },
         onLogin: async function (): Promise<any> {
-            if (!this.$data.email || !this.$data.password) {
+            let self = this as any;
+
+            if (!self.validateFields()) {
                 return;
             }
 
@@ -58,6 +64,21 @@ import { AppState } from '@/utils/constants/appStateEnum';
                 this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADING);
                 this.$router.push(ROUTES.PROJECT_DETAILS.path);
             }, 2000);
+        },
+        validateFields: function (): boolean {
+            let isNoErrors = true;
+
+            if (!validateEmail(this.$data.email.trim())) {
+                this.$data.emailError = 'Invalid Email';
+                isNoErrors = false;
+            }
+
+            if (!validatePassword(this.$data.password)) {
+                this.$data.passwordError = 'Invalid Password';
+                isNoErrors = false;
+            }
+
+            return isNoErrors;
         },
         onSignUpClick: function (): void {
             this.$router.push(ROUTES.REGISTER.path);

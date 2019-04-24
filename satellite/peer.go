@@ -53,7 +53,6 @@ import (
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
-	"storj.io/storj/storage/storelogger"
 )
 
 // DB is the master database for the satellite
@@ -248,16 +247,18 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		self := pb.Node{
-			Id:   peer.ID(),
-			Type: pb.NodeType_SATELLITE,
-			Address: &pb.NodeAddress{
-				Address: config.ExternalAddress,
+		self := &overlay.NodeDossier{
+			Node: pb.Node{
+				Id: peer.ID(),
+				Address: &pb.NodeAddress{
+					Address: config.ExternalAddress,
+				},
 			},
-			Metadata: &pb.NodeMetadata{
+			Type: pb.NodeType_SATELLITE,
+			Operator: pb.NodeOperator{
 				Wallet: config.Operator.Wallet,
 			},
-			Version: pbVersion,
+			Version: *pbVersion,
 		}
 
 		{ // setup routing table
@@ -284,7 +285,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Transport = peer.Transport.WithObservers(peer.Kademlia.RoutingTable)
 		}
 
-		peer.Kademlia.Service, err = kademlia.NewService(peer.Log.Named("kademlia"), self, peer.Transport, peer.Kademlia.RoutingTable, config)
+		peer.Kademlia.Service, err = kademlia.NewService(peer.Log.Named("kademlia"), peer.Transport, peer.Kademlia.RoutingTable, config)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -329,7 +330,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Metainfo.Database = storelogger.New(peer.Log.Named("pdb"), db)
+		peer.Metainfo.Database = db // for logging: storelogger.New(peer.Log.Named("pdb"), db)
 		peer.Metainfo.Service = pointerdb.NewService(peer.Log.Named("pointerdb"), peer.Metainfo.Database)
 
 		peer.Metainfo.Endpoint2 = metainfo.NewEndpoint(
@@ -397,7 +398,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 	{ // setup accounting
 		log.Debug("Setting up accounting")
 		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.Accounting(), peer.Metainfo.Service, peer.Overlay.Service, 0, config.Tally.Interval)
-		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.Accounting(), config.Rollup.Interval)
+		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.Accounting(), config.Rollup.Interval, config.Rollup.DeleteTallies)
 	}
 
 	{ // setup inspector
@@ -621,7 +622,7 @@ func (peer *Peer) Close() error {
 func (peer *Peer) ID() storj.NodeID { return peer.Identity.ID }
 
 // Local returns the peer local node info.
-func (peer *Peer) Local() pb.Node { return peer.Kademlia.RoutingTable.Local() }
+func (peer *Peer) Local() overlay.NodeDossier { return peer.Kademlia.RoutingTable.Local() }
 
 // Addr returns the public address.
 func (peer *Peer) Addr() string { return peer.Server.Addr().String() }

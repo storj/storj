@@ -31,7 +31,7 @@ var (
 	setupCfg    UplinkFlags
 	confDir     string
 	identityDir string
-	isDev       bool
+	defaults    cfgstruct.BindOpt
 
 	// Error is the default uplink setup errs class
 	Error = errs.Class("uplink setup error")
@@ -42,9 +42,9 @@ func init() {
 	defaultIdentityDir := fpath.ApplicationDir("storj", "identity", "uplink")
 	cfgstruct.SetupFlag(zap.L(), RootCmd, &confDir, "config-dir", defaultConfDir, "main directory for uplink configuration")
 	cfgstruct.SetupFlag(zap.L(), RootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for uplink identity credentials")
-	cfgstruct.DevFlag(RootCmd, &isDev, false, "use development and test configuration settings")
+	defaults = cfgstruct.DefaultsFlag(RootCmd)
 	RootCmd.AddCommand(setupCmd)
-	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, isDev, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
