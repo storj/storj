@@ -717,6 +717,13 @@ func (m *lockedOverlayCache) List(ctx context.Context, cursor storj.NodeID, limi
 	return m.db.List(ctx, cursor, limit)
 }
 
+// UnhealthyOrOffline filters a set of nodes to unhealth or offlines node, independent of new
+func (m *lockedOverlayCache) UnhealthyOrOffline(ctx context.Context, a1 *overlay.NodeCriteria, a2 storj.NodeIDList) (storj.NodeIDList, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UnhealthyOrOffline(ctx, a1, a2)
+}
+
 // Paginate will page through the database nodes
 func (m *lockedOverlayCache) Paginate(ctx context.Context, offset int64, limit int) ([]*overlay.NodeDossier, bool, error) {
 	m.Lock()

@@ -169,6 +169,40 @@ func (cache *overlaycache) GetAll(ctx context.Context, ids storj.NodeIDList) ([]
 	return infos, nil
 }
 
+// UnhealthyOrOffline filters a set of nodes to unhealth or offlines node, independent of new
+func (cache *overlaycache) UnhealthyOrOffline(ctx context.Context, c *overlay.NodeCriteria, nodeIds storj.NodeIDList) (goodNodes storj.NodeIDList, err error) {
+	args := make([]interface{}, len(nodeIds))
+	for i, id := range nodeIds {
+		args[i] = id.Bytes()
+	}
+	args = append(args, c.AuditSuccessRatio, c.UptimeSuccessRatio, time.Now().Add(-overlay.OnlineWindow))
+
+	rows, err := cache.db.Query(cache.db.Rebind(`
+		SELECT id FROM nodes
+		WHERE id IN (?`+strings.Repeat(", ?", len(nodeIds)-1)+`)
+		AND ((audit_success_ratio <= ? AND total_audit_count != 0) 
+			OR (uptime_ratio <= ? AND total_uptime_count != 0)
+			OR last_contact_success <= ? OR last_contact_success <= last_contact_failure
+		)
+	`), args...)
+
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+	for rows.Next() {
+		var id storj.NodeID
+		err = rows.Scan(&id)
+		if err != nil {
+			return nil, err
+		}
+		goodNodes = append(goodNodes, id)
+	}
+	return goodNodes, nil
+}
+
 // List lists nodes starting from cursor
 func (cache *overlaycache) List(ctx context.Context, cursor storj.NodeID, limit int) ([]*overlay.NodeDossier, error) {
 	// TODO: handle this nicer

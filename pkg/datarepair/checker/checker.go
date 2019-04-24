@@ -175,15 +175,16 @@ func (checker *Checker) getMissingPieces(ctx context.Context, pieces []*pb.Remot
 	for _, p := range pieces {
 		nodeIDs = append(nodeIDs, p.NodeId)
 	}
-	nodes, err := checker.overlay.GetAll(ctx, nodeIDs)
-
+	nodeIDs, err = checker.overlay.UnhealthyOrOffline(ctx, nodeIDs)
 	if err != nil {
 		return nil, Error.New("error getting nodes %s", err)
 	}
 
-	for i, node := range nodes {
-		if node == nil || !checker.overlay.IsOnline(node) || !checker.overlay.IsHealthy(node) {
-			missingPieces = append(missingPieces, pieces[i].GetPieceNum())
+	for _, p := range pieces {
+		for _, nodeID := range nodeIDs {
+			if nodeID == p.NodeId {
+				missingPieces = append(missingPieces, p.GetPieceNum())
+			}
 		}
 	}
 	return missingPieces, nil

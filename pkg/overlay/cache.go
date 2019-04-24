@@ -47,6 +47,9 @@ type DB interface {
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
 	// GetAll looks up nodes based on the ids from the overlay cache
 	GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*NodeDossier, error)
+
+	// UnhealthyOrOffline filters a set of nodes to unhealth or offlines node, independent of new
+	UnhealthyOrOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
 	// List lists nodes starting from cursor
 	List(ctx context.Context, cursor storj.NodeID, limit int) ([]*NodeDossier, error)
 	// Paginate will page through the database nodes
@@ -225,8 +228,6 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 		}
 	}
 
-	auditCount := preferences.AuditCount
-
 	// add selected new nodes to the excluded list for reputable node selection
 	for _, newNode := range newNodes {
 		excluded = append(excluded, newNode.Id)
@@ -235,7 +236,7 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 	reputableNodes, err := cache.db.SelectStorageNodes(ctx, reputableNodeCount-len(newNodes), &NodeCriteria{
 		FreeBandwidth:      req.FreeBandwidth,
 		FreeDisk:           req.FreeDisk,
-		AuditCount:         auditCount,
+		AuditCount:         preferences.AuditCount,
 		AuditSuccessRatio:  preferences.AuditSuccessRatio,
 		UptimeCount:        preferences.UptimeCount,
 		UptimeSuccessRatio: preferences.UptimeRatio,
@@ -265,6 +266,21 @@ func (cache *Cache) GetAll(ctx context.Context, ids storj.NodeIDList) (_ []*Node
 	}
 
 	return cache.db.GetAll(ctx, ids)
+}
+
+// UnhealthyOrOffline filters a set of nodes to unhealth or offlines node, independent of new
+func (cache *Cache) UnhealthyOrOffline(ctx context.Context, nodeIds storj.NodeIDList) (goodNodes storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if len(nodeIds) == 0 {
+		return nil, OverlayError.New("no ids provided")
+	}
+	criteria := &NodeCriteria{
+		AuditCount:         cache.preferences.AuditCount,
+		AuditSuccessRatio:  cache.preferences.AuditSuccessRatio,
+		UptimeCount:        cache.preferences.UptimeCount,
+		UptimeSuccessRatio: cache.preferences.UptimeRatio,
+	}
+	return cache.db.UnhealthyOrOffline(ctx, criteria, nodeIds)
 }
 
 // Put adds a node id and proto definition into the overlay cache
