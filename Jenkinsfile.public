@@ -45,7 +45,9 @@ pipeline {
                     steps {
                         sh 'psql -U postgres -c \'create database teststorj;\''
                         sh 'go run scripts/use-ports.go -from 1024 -to 10000 &'
-                        def cover = '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/pkg/...,storj.io/storj/satellite/...,storj.io/storj/storagenode/...,storj.io/storj/uplink/...,storj.io/storj/storage/...,storj.io/storj/lib/...,storj.io/storj/internal/...,storj.io/storj/versioncontrol/...'
+                        script {
+                            def cover = '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/pkg/...,storj.io/storj/satellite/...,storj.io/storj/storagenode/...,storj.io/storj/uplink/...,storj.io/storj/storage/...,storj.io/storj/lib/...,storj.io/storj/internal/...,storj.io/storj/versioncontrol/...'
+                        }
                         sh "go test -vet=off ${cover} -timeout 9m -json -race ./... 2>&1 | tee .build/tests.json | go run ./scripts/xunit.go -out .build/tests.xml"
                         sh 'go run scripts/check-clean-directory.go'
                     }
