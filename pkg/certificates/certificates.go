@@ -238,6 +238,23 @@ func (c CertificateSigner) Sign(ctx context.Context, req *pb.SigningRequest) (*p
 		return nil, err
 	}
 
+	difficulty, err := peerIdent.ID.Difficulty()
+	if err != nil {
+		c.log.Error("error checking difficulty", zap.Error(err))
+	}
+	token, err := ParseToken(req.AuthToken)
+	if err != nil {
+		c.log.Error("error parsing auth token", zap.Error(err))
+	}
+	tokenFormatter := Authorization{
+		Token: *token,
+	}
+	c.log.Info("certificate successfully signed",
+		zap.String("node ID", peerIdent.ID.String()),
+		zap.Uint16("difficulty", difficulty),
+		zap.String("truncated token", tokenFormatter.String()),
+	)
+
 	return &pb.SigningResponse{
 		Chain: signedChainBytes,
 	}, nil
