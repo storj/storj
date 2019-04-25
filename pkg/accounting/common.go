@@ -12,7 +12,7 @@ import (
 
 // Constants for accounting_raw, accounting_rollup, and accounting_timestamps
 const (
-	// AtRest is the data_type representing at-rest data calculated from pointerdb
+	// AtRest is the data_type representing at-rest data calculated from metainfo
 	BandwidthPut       = int(pb.BandwidthAction_PUT)
 	BandwidthGet       = int(pb.BandwidthAction_GET)
 	BandwidthGetAudit  = int(pb.BandwidthAction_GET_AUDIT)
