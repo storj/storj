@@ -520,7 +520,8 @@ func (lr *lazySegmentRanger) Size() int64 {
 }
 
 // Range implements Ranger.Range to be lazily connected
-func (lr *lazySegmentRanger) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
+func (lr *lazySegmentRanger) Range(ctx context.Context, offset, length int64) (r io.ReadCloser, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if lr.ranger == nil {
 		rr, m, err := lr.segments.Get(ctx, lr.path)
 		if err != nil {
@@ -542,6 +543,7 @@ func (lr *lazySegmentRanger) Range(ctx context.Context, offset, length int64) (i
 
 // decryptRanger returns a decrypted ranger of the given rr ranger
 func decryptRanger(ctx context.Context, rr ranger.Ranger, decryptedSize int64, cipher storj.Cipher, derivedKey *storj.Key, encryptedKey storj.EncryptedPrivateKey, encryptedKeyNonce, startingNonce *storj.Nonce, encBlockSize int) (decrypted ranger.Ranger, err error) {
+	defer mon.Task()(&ctx)(&err)
 	contentKey, err := encryption.DecryptKey(encryptedKey, cipher, derivedKey, encryptedKeyNonce)
 	if err != nil {
 		return nil, err
@@ -646,6 +648,7 @@ func getEncryptedKeyAndNonce(m *pb.SegmentMeta) (storj.EncryptedPrivateKey, *sto
 // DecryptStreamInfo decrypts stream info
 func DecryptStreamInfo(ctx context.Context, streamMetaBytes []byte, path storj.Path, rootKey *storj.Key) (
 	streamInfo []byte, streamMeta pb.StreamMeta, err error) {
+	defer mon.Task()(&ctx)(&err)
 	err = proto.Unmarshal(streamMetaBytes, &streamMeta)
 	if err != nil {
 		return nil, pb.StreamMeta{}, err

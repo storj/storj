@@ -63,7 +63,8 @@ func (r *httpRanger) Size() int64 {
 }
 
 // Range implements Ranger.Range
-func (r *httpRanger) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
+func (r *httpRanger) Range(ctx context.Context, offset, length int64) (rc io.ReadCloser, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if offset < 0 {
 		return nil, Error.New("negative offset")
 	}

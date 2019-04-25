@@ -9,8 +9,12 @@ import (
 	"io"
 	"io/ioutil"
 
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+
 	"storj.io/storj/internal/readcloser"
 )
+
+var mon = monkit.Package()
 
 // A Ranger is a flexible data stream type that allows for more effective
 // pipelining during seeking. A Ranger can return multiple parallel Readers for
@@ -27,7 +31,8 @@ type ByteRanger []byte
 func (b ByteRanger) Size() int64 { return int64(len(b)) }
 
 // Range implements Ranger.Range
-func (b ByteRanger) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
+func (b ByteRanger) Range(ctx context.Context, offset, length int64) (rc io.ReadCloser, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if offset < 0 {
 		return nil, Error.New("negative offset")
 	}
@@ -50,7 +55,8 @@ func (c *concatReader) Size() int64 {
 	return c.r1.Size() + c.r2.Size()
 }
 
-func (c *concatReader) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
+func (c *concatReader) Range(ctx context.Context, offset, length int64) (r io.ReadCloser, err error) {
+	defer mon.Task()(&ctx)(&err)
 	r1Size := c.r1.Size()
 	if offset+length <= r1Size {
 		return c.r1.Range(ctx, offset, length)
@@ -109,6 +115,7 @@ func (s *subrange) Size() int64 {
 	return s.length
 }
 
-func (s *subrange) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
+func (s *subrange) Range(ctx context.Context, offset, length int64) (r io.ReadCloser, err error) {
+	defer mon.Task()(&ctx)(&err)
 	return s.r.Range(ctx, offset+s.offset, length)
 }

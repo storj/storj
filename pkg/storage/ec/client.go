@@ -141,7 +141,8 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 				}
 			})
 		case rs.OptimalThreshold():
-			zap.S().Infof("Success threshold (%d nodes) reached. Canceling the long tail...", rs.OptimalThreshold())
+			elapsed := time.Since(start)
+			zap.S().Infof("Success threshold (%d nodes) reached in %.2f s. Canceling the long tail...", rs.OptimalThreshold(), elapsed.Seconds())
 			timer.Stop()
 			cancel()
 		}
@@ -458,7 +459,8 @@ func (lr *lazyPieceRanger) Size() int64 {
 }
 
 // Range implements Ranger.Range to be lazily connected
-func (lr *lazyPieceRanger) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
+func (lr *lazyPieceRanger) Range(ctx context.Context, offset, length int64) (r io.ReadCloser, err error) {
+	defer mon.Task()(&ctx)(&err)
 	ps, err := lr.newPSClientHelper(ctx, &pb.Node{
 		Id:      lr.limit.GetLimit().StorageNodeId,
 		Address: lr.limit.GetStorageNodeAddress(),

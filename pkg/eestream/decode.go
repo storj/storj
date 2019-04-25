@@ -176,7 +176,8 @@ func (dr *decodedRanger) Size() int64 {
 	return blocks * int64(dr.es.StripeSize())
 }
 
-func (dr *decodedRanger) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
+func (dr *decodedRanger) Range(ctx context.Context, offset, length int64) (rc io.ReadCloser, err error) {
+	defer mon.Task()(&ctx)(&err)
 	// offset and length might not be block-aligned. figure out which
 	// blocks contain this request
 	firstBlock, blockCount := encryption.CalcEncompassingBlocks(offset, length, dr.es.StripeSize())
@@ -209,7 +210,7 @@ func (dr *decodedRanger) Range(ctx context.Context, offset, length int64) (io.Re
 	// decode from all those ranges
 	r := DecodeReaders(ctx, readers, dr.es, blockCount*int64(dr.es.StripeSize()), dr.mbm)
 	// offset might start a few bytes in, potentially discard the initial bytes
-	_, err := io.CopyN(ioutil.Discard, r,
+	_, err = io.CopyN(ioutil.Discard, r,
 		offset-firstBlock*int64(dr.es.StripeSize()))
 	if err != nil {
 		return nil, Error.Wrap(err)

@@ -11,6 +11,7 @@ import (
 
 	"github.com/vivint/infectious"
 	"go.uber.org/zap"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/readcloser"
 	"storj.io/storj/internal/sync2"
@@ -18,6 +19,8 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
 )
+
+var mon = monkit.Package()
 
 // ErasureScheme represents the general format of any erasure scheme algorithm.
 // If this interface can be implemented, the rest of this library will work
@@ -233,7 +236,8 @@ func (er *EncodedRanger) OutputSize() int64 {
 }
 
 // Range is like Ranger.Range, but returns a slice of Readers
-func (er *EncodedRanger) Range(ctx context.Context, offset, length int64) ([]io.ReadCloser, error) {
+func (er *EncodedRanger) Range(ctx context.Context, offset, length int64) (rc []io.ReadCloser, err error) {
+	defer mon.Task()(&ctx)(&err)
 	// the offset and length given may not be block-aligned, so let's figure
 	// out which blocks contain the request.
 	firstBlock, blockCount := encryption.CalcEncompassingBlocks(

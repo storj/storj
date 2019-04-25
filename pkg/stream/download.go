@@ -7,9 +7,12 @@ import (
 	"context"
 	"io"
 
+	"gopkg.in/spacemonkeygo/monkit.v2"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 )
+
+var mon = monkit.Package()
 
 // Download implements Reader, Seeker and Closer for reading from stream.
 type Download struct {
@@ -59,6 +62,7 @@ func (download *Download) Read(data []byte) (n int, err error) {
 //
 // See io.Seeker for more details.
 func (download *Download) Seek(offset int64, whence int) (int64, error) {
+	defer mon.Task()(&download.ctx)(&err)
 	if download.closed {
 		return 0, Error.New("already closed")
 	}
@@ -97,6 +101,7 @@ func (download *Download) Close() error {
 }
 
 func (download *Download) resetReader(offset int64) error {
+	defer mon.Task()(&download.ctx)(&err)
 	if download.reader != nil {
 		err := download.reader.Close()
 		if err != nil {
