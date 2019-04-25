@@ -1,5 +1,5 @@
 # storagenode
-/pkg/storagenode/ @aleitner
+/storagenode/ @aleitner
 
 # audits
 /pkg/audit/ @navillasa
