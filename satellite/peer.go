@@ -39,7 +39,6 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
@@ -96,7 +95,7 @@ type Config struct {
 	Overlay   overlay.Config
 	Discovery discovery.Config
 
-	PointerDB   pointerdb.Config
+	Metainfo    metainfo.Config
 	BwAgreement bwagreement.Config // TODO: decide whether to keep empty configs for consistency
 
 	Checker  checker.Config
@@ -146,7 +145,7 @@ type Peer struct {
 
 	Metainfo struct {
 		Database  storage.KeyValueStore // TODO: move into pointerDB
-		Service   *pointerdb.Service
+		Service   *metainfo.Service
 		Endpoint2 *metainfo.Endpoint
 	}
 
@@ -325,13 +324,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 	{ // setup metainfo
 		log.Debug("Setting up metainfo")
-		db, err := pointerdb.NewStore(config.PointerDB.DatabaseURL)
+		db, err := metainfo.NewStore(config.Metainfo.DatabaseURL)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
 		peer.Metainfo.Database = db // for logging: storelogger.New(peer.Log.Named("pdb"), db)
-		peer.Metainfo.Service = pointerdb.NewService(peer.Log.Named("pointerdb"), peer.Metainfo.Database)
+		peer.Metainfo.Service = metainfo.NewService(peer.Log.Named("metainfo:service"), peer.Metainfo.Database)
 
 		peer.Metainfo.Endpoint2 = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),

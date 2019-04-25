@@ -22,7 +22,7 @@ func TestVerifierHappyPath(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// TODO (back story): the way NextStripe currently works, it will get a random segment
-		// from pointerdb. If it picks an inline segment, it will return nil. If this happens
+		// from metainfo. If it picks an inline segment, it will return nil. If this happens
 		// 3 times in a row, the test will fail. Increasing the amount of iterations will
 		// decrease risk of flaking but not eliminate it. Kaloyan and Nat are working on refactoring NextStripe.
 
@@ -37,9 +37,9 @@ func TestVerifierHappyPath(t *testing.T) {
 		err = uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		pointerdb := planet.Satellites[0].Metainfo.Service
+		metainfo := planet.Satellites[0].Metainfo.Service
 		overlay := planet.Satellites[0].Overlay.Service
-		cursor := audit.NewCursor(pointerdb)
+		cursor := audit.NewCursor(metainfo)
 
 		var stripe *audit.Stripe
 		maxRetries := 3
