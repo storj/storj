@@ -74,7 +74,6 @@ func TestDataRepair(t *testing.T) {
 		assert.True(t, (numStorageNodes-toKill) >= numPieces)
 
 		// kill nodes and track lost pieces
-		var lostPieces []int32
 		nodesToKill := make(map[storj.NodeID]bool)
 		nodesToKeepAlive := make(map[storj.NodeID]bool)
 
@@ -84,7 +83,6 @@ func TestDataRepair(t *testing.T) {
 				continue
 			}
 			nodesToKill[piece.NodeId] = true
-			lostPieces = append(lostPieces, piece.GetPieceNum())
 		}
 
 		for _, node := range planet.StorageNodes {
