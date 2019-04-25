@@ -103,7 +103,7 @@ func TestBootstrapBackoffReconnect(t *testing.T) {
 
 	// This sets up an unreliable proxy server which will receive conns from
 	// storage nodes and the satellite, but doesn't connect them with
-	// the bootstrap node (proxy.target) until the droppedConnInterval has passed.
+	// the bootstrap node (proxy.target) until the dropInterval has passed.
 	// This should test that the Bootstrap function will retry a connection
 	// if it initially fails.
 	proxy, err := newBadProxy(log.Named("proxy"), "127.0.0.1:0", 200*time.Millisecond)
