@@ -94,7 +94,7 @@ func main() {
 			})
 			defer encoder.EncodeToken(xml.EndElement{Name: xml.Name{Local: "testsuite"}})
 
-			if pkg.HasPanic() {
+			if pkg.HasPanic {
 				encoder.EncodeToken(xml.StartElement{
 					Name: xml.Name{Local: "testcase"},
 					Attr: []xml.Attr{
