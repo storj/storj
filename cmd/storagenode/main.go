@@ -263,7 +263,7 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	sort.Sort(satellites)
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', tabwriter.AlignRight|tabwriter.Debug)
-	defer w.Flush()
+	defer func() { err = errs.Combine(err, w.Flush()) }()
 
 	fmt.Fprint(w, "Satellite\tTotal\tPut\tGet\tDelete\tAudit Get\tRepair Get\tRepair Put\n")
 
