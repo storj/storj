@@ -21,9 +21,9 @@ var (
 
 func init() {
 	lsCmd := addCmd(&cobra.Command{
-		Use:      "ls",
-		Short:    "List objects and prefixes or all buckets",
-		RunE:     list,
+		Use:   "ls",
+		Short: "List objects and prefixes or all buckets",
+		RunE:  list,
 	}, RootCmd)
 	recursiveFlag = lsCmd.Flags().Bool("recursive", false, "if true, list recursively")
 }
