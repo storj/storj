@@ -3,21 +3,25 @@
 
 <template>
 	<div>
-		<div v-if="buckets.length > 0" class="buckets-overflow">
+		<div  class="buckets-overflow">
 			<div class="buckets-header">
 				<p>Buckets</p>
 				<SearchArea/>
 			</div>
-			<div class="buckets-container">
+			<div v-if="buckets.length > 0" class="buckets-container">
 				<table style="width:98.5%; margin-top:20px;">
 					<SortingHeader />
                     <BucketItem v-for="(bucket, index) in buckets" v-bind:bucket="bucket" v-bind:key="index" />
 				</table>
 				<PaginationArea />
 			</div>
+			<EmptyState
+                v-if="pages === 0 && search && search.length > 0"
+                mainTitle="Nothing found :("
+                :imageSource="emptyImage" />
 		</div>
 		<EmptyState
-			v-if="pages === 0"
+			v-if="pages === 0 && !search"
 			mainTitle="You have no Buckets yet"
 			:imageSource="emptyImage" />
 	</div>
@@ -38,8 +42,6 @@
                 emptyImage: EMPTY_STATE_IMAGES.API_KEY
             };
         },
-		beforeMount: async function() {
-		},
         components: {
             EmptyState,
             SearchArea,
@@ -48,11 +50,15 @@
             PaginationArea,
         },
 		computed: {
-        	buckets: function () {
+        	buckets: function (): BucketUsage[] {
 				return this.$store.state.bucketUsageModule.page.bucketUsages;
 			},
-			pages: function () {
+			pages: function (): number {
         		return this.$store.state.bucketUsageModule.page.pageCount;
+			},
+			search: function (): string {
+        		console.log("search: ", this.$store.state.bucketUsageModule.cursor.search);
+				return this.$store.state.bucketUsageModule.cursor.search;
 			}
 		}
     })

@@ -18,7 +18,7 @@
     @Component({
 		methods: {
             fetch: async function() {
-                const bucketsResponse = await this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, 0);
+                const bucketsResponse = await this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, 1);
                 if (!bucketsResponse.isSuccess) {
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + bucketsResponse.errorMessage);
                 }

@@ -63,7 +63,7 @@
 		},
 		computed: {
         	pages: function(): number[] {
-        		return new Array(this.$store.state.bucketUsageModule.page.pageCount - 1);
+        		return new Array(this.$store.state.bucketUsageModule.page.pageCount);
 			},
 			currentPage: function (): number {
 				return this.$store.state.bucketUsageModule.page.currentPage;
