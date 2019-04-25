@@ -32,7 +32,7 @@ type Pool struct {
 
 // satelliteInfoCache caches identity information about a satellite
 type satelliteInfoCache struct {
-	once     sync.Once
+	mu       sync.Mutex
 	identity *identity.PeerIdentity
 }
 
@@ -97,9 +97,6 @@ func (pool *Pool) VerifyUplinkID(ctx context.Context, id storj.NodeID) error {
 // GetSignee gets the corresponding signee for verifying signatures.
 // It ignores passed in ctx cancellation to avoid miscaching between concurrent requests.
 func (pool *Pool) GetSignee(ctx context.Context, id storj.NodeID) (signing.Signee, error) {
-	// creating a new context here to avoid request context canceling fetching peer identity
-	nestedContext := context.Background()
-
 	// lookup peer identity with id
 	pool.mu.RLock()
 	info, ok := pool.trustedSatellites[id]
@@ -123,17 +120,19 @@ func (pool *Pool) GetSignee(ctx context.Context, id storj.NodeID) (signing.Signe
 		}
 	}
 
-	identity, err := pool.kademlia.FetchPeerIdentity(nestedContext, id)
-	if err != nil {
-		if err == context.Canceled {
-			return nil, err
-		}
-		return nil, Error.Wrap(err)
-	}
+	info.mu.Lock()
+	defer info.mu.Unlock()
 
-	info.once.Do(func() {
+	if info.identity == nil {
+		identity, err := pool.kademlia.FetchPeerIdentity(ctx, id)
+		if err != nil {
+			if err == context.Canceled {
+				return nil, err
+			}
+			return nil, Error.Wrap(err)
+		}
 		info.identity = identity
-	})
+	}
 
 	return signing.SigneeFromPeerIdentity(info.identity), nil
 }
