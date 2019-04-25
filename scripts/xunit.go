@@ -35,28 +35,13 @@ func main() {
 	stdin := io.TeeReader(os.Stdin, &buffer)
 
 	pkgs, err := ProcessWithEcho(stdin)
-	switch err {
-	case nil: // do nothing
-
-	case parse.ErrNotParseable:
-		fmt.Fprintf(os.Stderr, "tparse error: no parseable events: call go test with -json flag\n\n")
-		fmt.Fprintf(os.Stdout, "\n\n\n\n=== RAW OUTPUT ===\n\n\n\n")
-		parse.ReplayOutput(os.Stderr, &buffer)
-		os.Exit(1)
-
-	case parse.ErrRaceDetected:
-		fmt.Fprintf(os.Stderr, "tparse error: %v\n\n", err)
-		fmt.Fprintf(os.Stdout, "\n\n\n\n=== RAW OUTPUT ===\n\n\n\n")
-		parse.ReplayRaceOutput(os.Stderr, &buffer)
-		os.Exit(1)
-
-	default:
-		fmt.Fprintf(os.Stderr, "tparse error: %v\n\n", err)
-		fmt.Fprintf(os.Stdout, "\n\n\n\n=== RAW OUTPUT ===\n\n\n\n")
-		parse.ReplayOutput(os.Stderr, &buffer)
-		os.Exit(1)
+	if err != nil {
+		if err == parse.ErrNotParseable {
+			fmt.Fprintf(os.Stderr, "tparse error: no parseable events: call go test with -json flag\n\n")
+		} else {
+			fmt.Fprintf(os.Stderr, "tparse error: %v\n\n", err)
+		}
 	}
-
 	defer os.Exit(pkgs.ExitCode())
 
 	output, err := os.Create(*xunit)
@@ -91,7 +76,7 @@ func main() {
 		all = append(all, skipped...)
 		all = append(all, passed...)
 
-		if pkg.NoTests || len(all) == 0 {
+		if !pkg.HasPanic && (pkg.NoTests || len(all) == 0) {
 			continue
 		}
 
@@ -109,6 +94,21 @@ func main() {
 			})
 			defer encoder.EncodeToken(xml.EndElement{Name: xml.Name{Local: "testsuite"}})
 
+			if pkg.HasPanic() {
+				encoder.EncodeToken(xml.StartElement{
+					Name: xml.Name{Local: "testcase"},
+					Attr: []xml.Attr{
+						{xml.Name{Local: "classname"}, pkg.Summary.Package},
+						{xml.Name{Local: "name"}, "Panic"},
+					},
+				})
+				encoder.EncodeToken(xml.StartElement{xml.Name{Local: "system-out"}, nil})
+				encoder.EncodeToken(xml.CharData(eventOutput(pkg.PanicEvents)))
+				encoder.EncodeToken(xml.EndElement{xml.Name{Local: "system-out"}})
+
+				encoder.EncodeToken(xml.EndElement{Name: xml.Name{Local: "testcase"}})
+			}
+
 			for _, t := range all {
 				t.SortEvents()
 				func() {
@@ -123,11 +123,10 @@ func main() {
 					defer encoder.EncodeToken(xml.EndElement{Name: xml.Name{Local: "testcase"}})
 
 					encoder.EncodeToken(xml.StartElement{xml.Name{Local: "system-out"}, nil})
-					encoder.EncodeToken(xml.CharData(fullOutput(t)))
+					encoder.EncodeToken(xml.CharData(eventOutput(t.Events)))
 					encoder.EncodeToken(xml.EndElement{xml.Name{Local: "system-out"}})
 
-					switch t.Status() {
-					case parse.ActionSkip:
+					if t.Status() == parse.ActionSkip {
 						encoder.EncodeToken(xml.StartElement{
 							Name: xml.Name{Local: "skipped"},
 							Attr: []xml.Attr{
@@ -135,11 +134,6 @@ func main() {
 							},
 						})
 						encoder.EncodeToken(xml.EndElement{Name: xml.Name{Local: "skipped"}})
-
-					case parse.ActionFail:
-						encoder.EncodeToken(xml.StartElement{Name: xml.Name{Local: "failure"}, Attr: nil})
-						encoder.EncodeToken(xml.CharData(t.Stack()))
-						encoder.EncodeToken(xml.EndElement{Name: xml.Name{Local: "failure"}})
 					}
 				}()
 			}
@@ -147,9 +141,9 @@ func main() {
 	}
 }
 
-func fullOutput(t *parse.Test) string {
+func eventOutput(events parse.Events) string {
 	var out strings.Builder
-	for _, event := range t.Events {
+	for _, event := range events {
 		out.WriteString(event.Output)
 	}
 	return out.String()
@@ -192,6 +186,10 @@ func ProcessWithEcho(r io.Reader) (parse.Packages, error) {
 			continue
 		}
 		scan = true
+
+		if line := strings.TrimRightFunc(event.Output, unicode.IsSpace); line != "" {
+			fmt.Fprintln(os.Stdout, line)
+		}
 
 		pkg, ok := pkgs[event.Package]
 		if !ok {
@@ -248,10 +246,6 @@ func ProcessWithEcho(r io.Reader) (parse.Packages, error) {
 		if ok {
 			pkg.Cover = true
 			pkg.Coverage = cover
-		}
-
-		if line := strings.TrimRightFunc(event.Output, unicode.IsSpace); line != "" {
-			fmt.Fprintln(os.Stdout, line)
 		}
 
 		if !event.Discard() {
