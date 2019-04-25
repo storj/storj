@@ -169,7 +169,7 @@ func (cache *overlaycache) GetAll(ctx context.Context, ids storj.NodeIDList) ([]
 	return infos, nil
 }
 
-// ReliableAndOnline filters a set of nodes to reliable and onlines nodes, independent of new
+// ReliableAndOnline filters a set of nodes to reliable and online nodes, independent of new
 func (cache *overlaycache) ReliableAndOnline(ctx context.Context, c *overlay.NodeCriteria, nodeIds storj.NodeIDList) (goodNodes map[storj.NodeID]bool, err error) {
 	goodNodes = make(map[storj.NodeID]bool)
 	if len(nodeIds) == 0 {

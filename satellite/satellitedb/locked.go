@@ -717,7 +717,7 @@ func (m *lockedOverlayCache) List(ctx context.Context, cursor storj.NodeID, limi
 	return m.db.List(ctx, cursor, limit)
 }
 
-// ReliableAndOnline filters a set of nodes to reliable and onlines nodes, independent of new
+// ReliableAndOnline filters a set of nodes to reliable and online nodes, independent of new
 func (m *lockedOverlayCache) ReliableAndOnline(ctx context.Context, a1 *overlay.NodeCriteria, a2 storj.NodeIDList) (map[storj.NodeID]bool, error) {
 	m.Lock()
 	defer m.Unlock()

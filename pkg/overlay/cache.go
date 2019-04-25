@@ -48,7 +48,7 @@ type DB interface {
 	// GetAll looks up nodes based on the ids from the overlay cache
 	GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*NodeDossier, error)
 
-	// ReliableAndOnline filters a set of nodes to reliable and onlines nodes, independent of new
+	// ReliableAndOnline filters a set of nodes to reliable and online nodes, independent of new
 	ReliableAndOnline(context.Context, *NodeCriteria, storj.NodeIDList) (map[storj.NodeID]bool, error)
 	// List lists nodes starting from cursor
 	List(ctx context.Context, cursor storj.NodeID, limit int) ([]*NodeDossier, error)
@@ -271,7 +271,7 @@ func (cache *Cache) UnreliableOrOffline(ctx context.Context, nodeIds storj.NodeI
 	return badNodes, err
 }
 
-// ReliableAndOnline filters a set of nodes to reliable and onlines nodes, independent of new
+// ReliableAndOnline filters a set of nodes to reliable and online nodes, independent of new
 func (cache *Cache) ReliableAndOnline(ctx context.Context, nodeIds storj.NodeIDList) (goodNodes map[storj.NodeID]bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 	criteria := &NodeCriteria{
