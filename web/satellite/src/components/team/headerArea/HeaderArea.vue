@@ -3,9 +3,9 @@
 
 <template>
     <div class="team-header-container">
+        <Button label="Add User" width="240px" height="58px" :onPress="onAddUsersClick" id="addTeamMemberPopupButton" />
         <SortUsersDropdown />
         <SearchArea />
-        <Button label="Add User" width="240px" height="58px" :onPress="onAddUsersClick" id="addTeamMemberPopupButton" />
     </div>
 </template>
 

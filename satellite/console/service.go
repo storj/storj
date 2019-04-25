@@ -307,16 +307,13 @@ func (s *Service) UpdateAccount(ctx context.Context, info UserInfo) (err error) 
 		return err
 	}
 
-	//TODO: store original email input in the db,
-	// add normalization
-	email := normalizeEmail(info.Email)
-
 	err = s.store.Users().Update(ctx, &User{
 		ID:           auth.User.ID,
 		FullName:     info.FullName,
 		ShortName:    info.ShortName,
-		Email:        email,
+		Email:        auth.User.Email,
 		PasswordHash: nil,
+		Status:       auth.User.Status,
 	})
 	if err != nil {
 		return errs.New(internalErrMsg)

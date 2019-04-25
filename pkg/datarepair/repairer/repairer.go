@@ -16,11 +16,11 @@ import (
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/pointerdb"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/storage"
 )
@@ -40,12 +40,12 @@ type Config struct {
 }
 
 // GetSegmentRepairer creates a new segment repairer from storeConfig values
-func (c Config) GetSegmentRepairer(ctx context.Context, tc transport.Client, pointerdb *pointerdb.Service, orders *orders.Service, cache *overlay.Cache, identity *identity.FullIdentity) (ss SegmentRepairer, err error) {
+func (c Config) GetSegmentRepairer(ctx context.Context, tc transport.Client, metainfo *metainfo.Service, orders *orders.Service, cache *overlay.Cache, identity *identity.FullIdentity) (ss SegmentRepairer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	ec := ecclient.NewClient(tc, c.MaxBufferMem.Int())
 
-	return segments.NewSegmentRepairer(pointerdb, orders, cache, ec, identity, c.Timeout), nil
+	return segments.NewSegmentRepairer(metainfo, orders, cache, ec, identity, c.Timeout), nil
 }
 
 // SegmentRepairer is a repairer for segments
@@ -60,21 +60,21 @@ type Service struct {
 	Limiter   *sync2.Limiter
 	Loop      sync2.Cycle
 	transport transport.Client
-	pointerdb *pointerdb.Service
+	metainfo  *metainfo.Service
 	orders    *orders.Service
 	cache     *overlay.Cache
 	repairer  SegmentRepairer
 }
 
 // NewService creates repairing service
-func NewService(queue queue.RepairQueue, config *Config, interval time.Duration, concurrency int, transport transport.Client, pointerdb *pointerdb.Service, orders *orders.Service, cache *overlay.Cache) *Service {
+func NewService(queue queue.RepairQueue, config *Config, interval time.Duration, concurrency int, transport transport.Client, metainfo *metainfo.Service, orders *orders.Service, cache *overlay.Cache) *Service {
 	return &Service{
 		queue:     queue,
 		config:    config,
 		Limiter:   sync2.NewLimiter(concurrency),
 		Loop:      *sync2.NewCycle(interval),
 		transport: transport,
-		pointerdb: pointerdb,
+		metainfo:  metainfo,
 		orders:    orders,
 		cache:     cache,
 	}
@@ -91,7 +91,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	service.repairer, err = service.config.GetSegmentRepairer(
 		ctx,
 		service.transport,
-		service.pointerdb,
+		service.metainfo,
 		service.orders,
 		service.cache,
 		service.transport.Identity(),
