@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/storj"
 )
 
 var (
@@ -69,10 +70,10 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	var (
-		encKeyFilepath = filepath.Join(setupDir, ".enc.key")
-		encKey         []byte
-		override       = map[string]interface{}{
-			"enc.key-filepath": encKeyFilepath,
+		encryptionKeyFilepath = filepath.Join(setupDir, ".encryption.key")
+		encryptionKey         []byte
+		override              = map[string]interface{}{
+			"enc.key-filepath": encryptionKeyFilepath,
 		}
 	)
 	if !setupCfg.NonInteractive {
@@ -138,7 +139,7 @@ Please enter numeric choice or enter satellite address manually [1]: `)
 		if err != nil {
 			return err
 		}
-		encKey, err = terminal.ReadPassword(int(os.Stdin.Fd()))
+		encryptionKey, err = terminal.ReadPassword(int(os.Stdin.Fd()))
 		if err != nil {
 			return err
 		}
@@ -160,17 +161,18 @@ Please enter numeric choice or enter satellite address manually [1]: `)
 			return err
 		}
 
-		if !bytes.Equal(encKey, repeatedEncKey) {
+		if !bytes.Equal(encryptionKey, repeatedEncKey) {
 			return errs.New("encryption passphrases doesn't match")
 		}
 
-		if len(encKey) == 0 {
+		if len(encryptionKey) == 0 {
 			_, err = fmt.Println("Warning: Encryption passphrase is empty!")
 			if err != nil {
 				return err
 			}
 		} else {
-			err = SaveEncryptionKey(encKey, encKeyFilepath)
+			key := storj.NewKey(encryptionKey)
+			err = SaveEncryptionKey(key, encryptionKeyFilepath)
 			if err != nil {
 				return err
 			}
@@ -261,34 +263,33 @@ func ApplyDefaultHostAndPortToAddr(address, defaultAddress string) (string, erro
 
 // SaveEncryptionKey saves the key in a new file which will be stored in
 // filepath.
-// It returns an error if the directory doesn't exist, the file already exists
-// or there is an I/O error.
-func SaveEncryptionKey(key []byte, filepath string) (err error) {
-	f, err := os.OpenFile(filepath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+//
+// key is a pointer for avoiding having several copies of the key in memory.
+//
+// It returns an error if the key is nil, the directory doesn't exist, the
+// file already exists or there is an I/O error.
+func SaveEncryptionKey(key *storj.Key, filepath string) (err error) {
+	if key == nil {
+		return errors.New("key cannot be nil")
+	}
+
+	file, err := os.OpenFile(filepath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return errors.New("directory path doesn't exist")
+			return fmt.Errorf("directory path doesn't exist. %+v", err)
 		}
 
 		if os.IsExist(err) {
-			return errors.New("file key already exists")
+			return fmt.Errorf("file key already exists. %+v", err)
 		}
 
 		return err
 	}
 
 	defer func() {
-		if err == nil {
-			err = f.Close()
-		} else {
-			_ = f.Close()
-		}
+		err = errs.Combine(err, file.Close())
 	}()
 
-	_, err = f.Write(key)
-	if err != nil {
-		return err
-	}
-
-	return f.Chmod(0400)
+	_, err = file.Write(key[:])
+	return err
 }

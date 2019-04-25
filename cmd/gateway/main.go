@@ -245,7 +245,7 @@ func (flags GatewayFlags) NewGateway(ctx context.Context, ident *identity.FullId
 		encKey = new(storj.Key)
 		copy(encKey[:], flags.EncryptionKey)
 	} else {
-		k, err := flags.Enc.Key()
+		k, err := flags.Enc.LoadKey()
 		if err != nil {
 			return nil, err
 		}
