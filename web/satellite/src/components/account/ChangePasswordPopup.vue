@@ -83,17 +83,14 @@
                 setOldPassword: function (value: string) {
                     this.$data.oldPassword = value;
                     this.$data.oldPasswordError = '';
-                    this.$data.isPasswordEditing = true;
                 },
                 setNewPassword: function (value: string) {
                     this.$data.newPassword = value;
                     this.$data.newPasswordError = '';
-                    this.$data.isPasswordEditing = true;
                 },
                 setPasswordConfirmation: function (value: string) {
                     this.$data.confirmationPassword = value;
                     this.$data.confirmationPasswordError = '';
-                    this.$data.isPasswordEditing = true;
                 },
                 cancel: function () {
                     this.$data.oldPassword = '';
