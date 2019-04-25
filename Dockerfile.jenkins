@@ -12,6 +12,8 @@ RUN rm /etc/postgresql/11/main/pg_hba.conf; \
 	echo 'host    all             all             ::1/128                 trust' >> /etc/postgresql/11/main/pg_hba.conf; \
 	echo 'host    all             all             ::0/0                   trust' >> /etc/postgresql/11/main/pg_hba.conf;
 
+RUN echo 'max_connections = 1000' >> /etc/postgresql/11/main/conf.d/connectionlimits.conf
+
 COPY ./scripts/install-awscli.sh /tmp/install-awscli.sh
 RUN bash /tmp/install-awscli.sh
 ENV PATH "$PATH:/root/bin"
