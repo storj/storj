@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class='add-user-container' v-on:keyup.enter="onAddUsersClick" v-on:keyup.esc="onClose">
+    <div class='add-user-container' @keyup.enter="onAddUsersClick" @keyup.esc="onClose">
         <div class='add-user' id="addTeamMemberPopup">
             <div class="add-user__main">
                 <div class='add-user__info-panel-container'>
@@ -18,24 +18,24 @@
                     <div :class="[inputs.length > 4 ? 'add-user__form-container__inputs-group scrollable' : 'add-user__form-container__inputs-group']">
                         <div v-for="(input, index) in inputs"
                             class="add-user__form-container__inputs-group__item"
-                            v-bind:key="index" >
+                            :key="index" >
                             <input
                                 placeholder="test@test.net"
                                 v-model="input.value"
-                                v-bind:class="[input.error ? 'error' : 'no-error']"
-                                v-on:keyup="resetFormErrors(index)" />
+                                :class="[input.error ? 'error' : 'no-error']"
+                                @keyup="resetFormErrors(index)" />
                             <span v-html="imageDeleteUser" @click="deleteInput(index)"></span>
                         </div>
                     </div>
                     <div class="add-user-row">
-                        <div v-on:click='addInput' class="add-user-row__item" id="addUserButton">
-                            <div v-bind:class="[isMaxInputsCount ? 'inactive-image' : '']">
+                        <div @click='addInput' class="add-user-row__item" id="addUserButton">
+                            <div :class="[isMaxInputsCount ? 'inactive-image' : '']">
                                 <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
                                     <rect width="40" height="40" rx="20" fill="#2683FF" />
                                     <path d="M25 18.977V21.046H20.9722V25H19.0046V21.046H15V18.977H19.0046V15H20.9722V18.977H25Z" fill="white" />
                                 </svg>
                             </div>
-                            <p v-bind:class="[ isMaxInputsCount ? 'inactive-label' : '' ]">Add Another</p>
+                            <p :class="[ isMaxInputsCount ? 'inactive-label' : '' ]">Add Another</p>
                         </div>
                     </div>
                     <div class='add-user__form-container__button-container'>
@@ -44,7 +44,7 @@
                     </div>
                 </div>
                 <div class='add-user__close-cross-container'>
-                    <svg width='16' height='16' viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg' v-on:click='onClose'>
+                    <svg width='16' height='16' viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg' @click='onClose'>
                         <path d='M15.7071 1.70711C16.0976 1.31658 16.0976 0.683417 15.7071 0.292893C15.3166 -0.0976311 14.6834 -0.0976311 14.2929 0.292893L15.7071 1.70711ZM0.292893 14.2929C-0.0976311 14.6834 -0.0976311 15.3166 0.292893 15.7071C0.683417 16.0976 1.31658 16.0976 1.70711 15.7071L0.292893 14.2929ZM1.70711 0.292893C1.31658 -0.0976311 0.683417 -0.0976311 0.292893 0.292893C-0.0976311 0.683417 -0.0976311 1.31658 0.292893 1.70711L1.70711 0.292893ZM14.2929 15.7071C14.6834 16.0976 15.3166 16.0976 15.7071 15.7071C16.0976 15.3166 16.0976 14.6834 15.7071 14.2929L14.2929 15.7071ZM14.2929 0.292893L0.292893 14.2929L1.70711 15.7071L15.7071 1.70711L14.2929 0.292893ZM0.292893 1.70711L14.2929 15.7071L15.7071 14.2929L1.70711 0.292893L0.292893 1.70711Z' fill='#384B65'/>
                     </svg>
                 </div>
@@ -69,7 +69,7 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 import { PM_ACTIONS, NOTIFICATION_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { EmailInput } from '@/types/EmailInput';
 import { validateEmail } from '@/utils/validation';
-import ROUTES from "@/utils/constants/routerConstants";
+import ROUTES from '@/utils/constants/routerConstants';
 
 @Component(
     {
@@ -208,8 +208,8 @@ import ROUTES from "@/utils/constants/routerConstants";
 
                 return false;
             },
-	        registerPath: function (): string {
-		        return location.host + ROUTES.REGISTER.path;
+            registerPath: function (): string {
+                return location.host + ROUTES.REGISTER.path;
             }
         },
         components: {
@@ -306,8 +306,11 @@ export default class AddUserPopup extends Vue {}
 
         a {
             color: #2683FF;
-            text-decoration: underline;
             cursor: pointer;
+
+            &:hover {
+                text-decoration: underline;
+            }
         }
     }
 
@@ -498,8 +501,11 @@ export default class AddUserPopup extends Vue {}
 
             a {
                 cursor: pointer;
-                text-decoration: none;
                 color: #2683FF;
+
+                &:hover {
+                    text-decoration: underline;
+                }
             }
         }
     }
