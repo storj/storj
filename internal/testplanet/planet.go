@@ -54,7 +54,6 @@ import (
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/piecestore"
-	"storj.io/storj/storagenode/psserver"
 	"storj.io/storj/storagenode/storagenodedb"
 	"storj.io/storj/versioncontrol"
 )
@@ -593,7 +592,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 					Wallet: "0x" + strings.Repeat("00", 20),
 				},
 			},
-			Storage: psserver.Config{
+			Storage: piecestore.OldConfig{
 				Path:                   "", // TODO: this argument won't be needed with master storagenodedb
 				AllocatedDiskSpace:     1500 * memory.GB,
 				AllocatedBandwidth:     memory.TB,

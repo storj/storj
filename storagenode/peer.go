@@ -28,9 +28,6 @@ import (
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
-	"storj.io/storj/storagenode/psserver"
-	"storj.io/storj/storagenode/psserver/agreementsender"
-	"storj.io/storj/storagenode/psserver/psdb"
 	"storj.io/storj/storagenode/trust"
 )
 
@@ -50,7 +47,6 @@ type DB interface {
 	UsedSerials() piecestore.UsedSerials
 
 	// TODO: use better interfaces
-	PSDB() *psdb.DB
 	RoutingTable() (kdb, ndb storage.KeyValueStore)
 }
 
@@ -60,8 +56,8 @@ type Config struct {
 
 	Server   server.Config
 	Kademlia kademlia.Config
-	Storage  psserver.Config
 
+	Storage  piecestore.OldConfig
 	Storage2 piecestore.Config
 
 	Version version.Config
@@ -92,10 +88,6 @@ type Peer struct {
 		Service      *kademlia.Kademlia
 		Endpoint     *kademlia.Endpoint
 		Inspector    *kademlia.Inspector
-	}
-
-	Agreements struct {
-		Sender *agreementsender.AgreementSender
 	}
 
 	Storage2 struct {
@@ -187,15 +179,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 
 		peer.Kademlia.Inspector = kademlia.NewInspector(peer.Kademlia.Service, peer.Identity)
 		pb.RegisterKadInspectorServer(peer.Server.PrivateGRPC(), peer.Kademlia.Inspector)
-	}
-
-	{ // agreements
-		config := config.Storage // TODO: separate config
-		peer.Agreements.Sender = agreementsender.New(
-			peer.Log.Named("agreements"),
-			peer.DB.PSDB(), peer.Transport, peer.Kademlia.Service,
-			config.AgreementSenderCheckInterval,
-		)
 	}
 
 	{ // setup storage 2
