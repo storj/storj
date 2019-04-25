@@ -55,7 +55,7 @@
                     <path d="M18.1489 17.043H21.9149V28H18.1489V17.043ZM20 12C20.5816 12 21.0567 12.1823 21.4255 12.5468C21.8085 12.8979 22 13.357 22 13.9241C22 14.4776 21.8085 14.9367 21.4255 15.3013C21.0567 15.6658 20.5816 15.8481 20 15.8481C19.4184 15.8481 18.9362 15.6658 18.5532 15.3013C18.1844 14.9367 18 14.4776 18 13.9241C18 13.357 18.1844 12.8979 18.5532 12.5468C18.9362 12.1823 19.4184 12 20 12Z" fill="#F5F6FA"/>
                 </svg>
                 <div class="notification-wrap__text">
-                    <p>If the team member you want to invite to join the project is still not on this Satellite, please share this link to the signup page and ask them to register here: <router-link target="_blank" :to="registerPath" >{{registerPath}}</router-link></p>
+                    <p>If the team member you want to invite to join the project is still not on this Satellite, please share this link to the signup page and ask them to register here: <router-link target="_blank" exact to="/register" >{{registerPath}}</router-link></p>
                 </div>
             </div>
         </div>
@@ -192,10 +192,6 @@ import ROUTES from "@/utils/constants/routerConstants";
                     return element.error;
                 });
             },
-            redirectToRegister: function (): void {
-                let routeData = this.$router.resolve(ROUTES.REGISTER.name);
-                window.open(routeData.href, '_blank');
-            },
          },
         computed: {
             isMaxInputsCount: function(): boolean {
@@ -310,7 +306,7 @@ export default class AddUserPopup extends Vue {}
 
         a {
             color: #2683FF;
-            text-decoration: none;
+            text-decoration: underline;
             cursor: pointer;
         }
     }
