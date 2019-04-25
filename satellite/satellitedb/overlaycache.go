@@ -155,6 +155,27 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (*overlay.N
 	return convertDBNode(node)
 }
 
+// GetNodeType looks up the node by node type
+func (cache *overlaycache) GetNodeType(ctx context.Context, nodeType pb.NodeType) ([]storj.NodeID, error) {
+	nodes, err := cache.db.All_Node_By_Type(ctx, dbx.Node_Type(int(nodeType)))
+	if err == sql.ErrNoRows {
+		return nil, overlay.ErrNodeNotFound.New(nodeType.String())
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	var ids []storj.NodeID
+	for _, node := range nodes {
+		id, err := storj.NodeIDFromBytes(node.Id)
+		if err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
+}
+
 // GetAll looks up nodes based on the ids from the overlay cache
 func (cache *overlaycache) GetAll(ctx context.Context, ids storj.NodeIDList) ([]*overlay.NodeDossier, error) {
 	infos := make([]*overlay.NodeDossier, len(ids))

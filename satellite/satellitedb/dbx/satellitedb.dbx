@@ -163,6 +163,11 @@ read all (
 	select node.id
 )
 
+read all (
+	select node
+	where  node.type = ?
+)
+
 read limitoffset (
 	select node
 	where  node.id >= ?

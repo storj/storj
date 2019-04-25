@@ -703,6 +703,13 @@ func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*ove
 	return m.db.Get(ctx, nodeID)
 }
 
+// GetNodeType looks up the node by node type
+func (m *lockedOverlayCache) GetNodeType(ctx context.Context, nodeType pb.NodeType) ([]storj.NodeID, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetNodeType(ctx, nodeType)
+}
+
 // GetAll looks up nodes based on the ids from the overlay cache
 func (m *lockedOverlayCache) GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*overlay.NodeDossier, error) {
 	m.Lock()

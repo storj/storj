@@ -40,6 +40,8 @@ type DB interface {
 
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
+	// GetNodeType looks up the node by node type
+	GetNodeType(ctx context.Context, nodeType pb.NodeType) (ids []storj.NodeID, err error)
 	// GetAll looks up nodes based on the ids from the overlay cache
 	GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*NodeDossier, error)
 	// Paginate will page through the database nodes
@@ -239,6 +241,13 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 	return nodes, nil
 }
 
+// GetNodeType returns node ids of a specific type
+func (cache *Cache) GetNodeType(ctx context.Context, nodeType pb.NodeType) (ids []storj.NodeID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return cache.db.GetNodeType(ctx, nodeType)
+}
+
 // GetAll looks up the provided ids from the overlay cache
 func (cache *Cache) GetAll(ctx context.Context, ids storj.NodeIDList) (_ []*NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -305,15 +314,4 @@ func (cache *Cache) ConnFailure(ctx context.Context, node *pb.Node, failureError
 
 // ConnSuccess implements the Transport Observer `ConnSuccess` function
 func (cache *Cache) ConnSuccess(ctx context.Context, node *pb.Node) {
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	err = cache.Put(ctx, node.Id, *node)
-	if err != nil {
-		zap.L().Debug("error updating uptime for node", zap.Error(err))
-	}
-	_, err = cache.db.UpdateUptime(ctx, node.Id, true)
-	if err != nil {
-		zap.L().Debug("error updating node connection info", zap.Error(err))
-	}
 }

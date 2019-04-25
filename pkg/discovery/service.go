@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -106,9 +107,46 @@ func (discovery *Discovery) Run(ctx context.Context) error {
 // but should in the future.
 func (discovery *Discovery) refresh(ctx context.Context) error {
 	nodes := discovery.kad.Seen()
-	for _, v := range nodes {
-		if err := discovery.cache.Put(ctx, v.Id, *v); err != nil {
-			return err
+	for _, node := range nodes {
+		ping, err := discovery.kad.Ping(ctx, *node)
+		if err != nil {
+			discovery.log.Info("could not ping node", zap.String("ID", node.Id.String()), zap.Error(err))
+			_, err := discovery.cache.UpdateUptime(ctx, node.Id, false)
+			if err != nil {
+				discovery.log.Error("could not update node uptime in cache", zap.String("ID", node.Id.String()), zap.Error(err))
+			}
+			continue
+		}
+
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
+		// update wallet with correct info
+		info, err := discovery.kad.FetchInfo(ctx, *node)
+		if err != nil {
+			discovery.log.Warn("could not fetch node info", zap.String("ID", ping.GetAddress().String()))
+			continue
+		}
+
+		if (info.Type == pb.NodeType_INVALID) || (info.Type == pb.NodeType_BOOTSTRAP) || (info.Type == pb.NodeType_SATELLITE) {
+			discovery.log.Warn("node info not needed to be added", zap.String("ID", ping.GetAddress().String()))
+			continue
+		}
+
+		err = discovery.cache.Put(ctx, ping.Id, ping)
+		if err != nil {
+			zap.L().Debug("error updating uptime for node", zap.Error(err))
+		}
+
+		_, err = discovery.cache.UpdateUptime(ctx, ping.Id, true)
+		if err != nil {
+			zap.L().Debug("error updating node connection info", zap.Error(err))
+		}
+
+		_, err = discovery.cache.UpdateNodeInfo(ctx, ping.Id, info)
+		if err != nil {
+			discovery.log.Warn("could not update node info", zap.String("ID", ping.GetAddress().String()))
 		}
 	}
 
@@ -146,18 +184,6 @@ func (discovery *Discovery) refresh(ctx context.Context) error {
 		_, err = discovery.cache.UpdateUptime(ctx, ping.Id, true)
 		if err != nil {
 			discovery.log.Error("could not update node uptime in cache", zap.String("ID", ping.Id.String()), zap.Error(err))
-		}
-
-		// update wallet with correct info
-		info, err := discovery.kad.FetchInfo(ctx, node.Node)
-		if err != nil {
-			discovery.log.Warn("could not fetch node info", zap.String("ID", ping.GetAddress().String()))
-			continue
-		}
-
-		_, err = discovery.cache.UpdateNodeInfo(ctx, ping.Id, info)
-		if err != nil {
-			discovery.log.Warn("could not update node info", zap.String("ID", ping.GetAddress().String()))
 		}
 	}
 
