@@ -17,8 +17,6 @@ import (
 )
 
 func TestBasic(t *testing.T) {
-	panic("test")
-
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
