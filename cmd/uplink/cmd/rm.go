@@ -14,11 +14,9 @@ import (
 
 func init() {
 	addCmd(&cobra.Command{
-		Use:      "rm",
-		Short:    "Delete an object",
-		RunE:     deleteObject,
-		PreRunE:  startCPUProf,
-		PostRunE: stopCPUStartMemProf,
+		Use:   "rm",
+		Short: "Delete an object",
+		RunE:  deleteObject,
 	}, RootCmd)
 }
 

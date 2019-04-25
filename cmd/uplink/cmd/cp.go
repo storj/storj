@@ -30,11 +30,9 @@ var (
 
 func init() {
 	cpCmd := addCmd(&cobra.Command{
-		Use:      "cp",
-		Short:    "Copies a local file or Storj object to another location locally or in Storj",
-		RunE:     copyMain,
-		PreRunE:  startCPUProf,
-		PostRunE: stopCPUStartMemProf,
+		Use:   "cp",
+		Short: "Copies a local file or Storj object to another location locally or in Storj",
+		RunE:  copyMain,
 	}, RootCmd)
 	progress = cpCmd.Flags().Bool("progress", true, "if true, show progress")
 	expires = cpCmd.Flags().String("expires", "", "optional expiration date of an object. Please use format (yyyy-mm-ddThh:mm:ssZhh:mm)")

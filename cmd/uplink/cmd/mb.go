@@ -15,11 +15,9 @@ import (
 
 func init() {
 	addCmd(&cobra.Command{
-		Use:      "mb",
-		Short:    "Create a new bucket",
-		RunE:     makeBucket,
-		PreRunE:  startCPUProf,
-		PostRunE: stopCPUStartMemProf,
+		Use:   "mb",
+		Short: "Create a new bucket",
+		RunE:  makeBucket,
 	}, RootCmd)
 }
 

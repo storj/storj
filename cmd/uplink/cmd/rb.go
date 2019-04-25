@@ -15,11 +15,9 @@ import (
 
 func init() {
 	addCmd(&cobra.Command{
-		Use:      "rb",
-		Short:    "Remove an empty bucket",
-		RunE:     deleteBucket,
-		PreRunE:  startCPUProf,
-		PostRunE: stopCPUStartMemProf,
+		Use:   "rb",
+		Short: "Remove an empty bucket",
+		RunE:  deleteBucket,
 	}, RootCmd)
 }
 

@@ -34,9 +34,11 @@ var debugPprof = flag.Bool("debug.pprof", false, "if true, creates cpu.prof and 
 
 //RootCmd represents the base CLI command when called without any subcommands
 var RootCmd = &cobra.Command{
-	Use:   "uplink",
-	Short: "The Storj client-side CLI",
-	Args:  cobra.OnlyValidArgs,
+	Use:                "uplink",
+	Short:              "The Storj client-side CLI",
+	Args:               cobra.OnlyValidArgs,
+	PersistentPreRunE:  startCPUProf,
+	PersistentPostRunE: stopCPUStartMemProf,
 }
 
 func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {

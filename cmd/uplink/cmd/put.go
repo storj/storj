@@ -14,11 +14,9 @@ import (
 
 func init() {
 	addCmd(&cobra.Command{
-		Use:      "put",
-		Short:    "Copies data from standard in to a Storj object",
-		RunE:     putMain,
-		PreRunE:  startCPUProf,
-		PostRunE: stopCPUStartMemProf,
+		Use:   "put",
+		Short: "Copies data from standard in to a Storj object",
+		RunE:  putMain,
 	}, RootCmd)
 }
 

@@ -17,8 +17,6 @@ func init() {
 		Use:      "cat",
 		Short:    "Copies a Storj object to standard out",
 		RunE:     catMain,
-		PreRunE:  startCPUProf,
-		PostRunE: stopCPUStartMemProf,
 	}, RootCmd)
 }
 
