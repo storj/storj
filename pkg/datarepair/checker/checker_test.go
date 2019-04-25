@@ -26,13 +26,13 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 		checker := planet.Satellites[0].Repair.Checker
 		checker.Loop.Stop()
 
-		//add noise to pointerdb before bad record
+		//add noise to metainfo before bad record
 		for x := 0; x < 1000; x++ {
 			makePointer(t, planet, fmt.Sprintf("a-%d", x), false)
 		}
 		//create piece that needs repair
 		makePointer(t, planet, fmt.Sprintf("b"), true)
-		//add more noise to pointerdb after bad record
+		//add more noise to metainfo after bad record
 		for x := 0; x < 1000; x++ {
 			makePointer(t, planet, fmt.Sprintf("c-%d", x), false)
 		}
@@ -97,8 +97,8 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		}
 
 		// put test pointer to db
-		pointerdb := planet.Satellites[0].Metainfo.Service
-		err := pointerdb.Put("fake-piece-id", pointer)
+		metainfo := planet.Satellites[0].Metainfo.Service
+		err := metainfo.Put("fake-piece-id", pointer)
 		require.NoError(t, err)
 
 		err = checker.IdentifyInjuredSegments(ctx)
