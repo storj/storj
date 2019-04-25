@@ -96,18 +96,22 @@ func TestPingTimeout(t *testing.T) {
 }
 
 func TestBootstrapBackoffReconnect(t *testing.T) {
+	t.Parallel()
+
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
+
+	log := zaptest.NewLogger(t)
 
 	// This sets up an unreliable proxy server which will receive conns from
 	// storage nodes and the satellite, but doesn't connect them with
 	// the bootstrap node (proxy.target) until the droppedConnInterval has passed.
 	// This should test that the Bootstrap function will retry a connection
 	// if it initially fails.
-	proxy, err := newBadProxy("127.0.0.1:0", 200*time.Millisecond)
+	proxy, err := newBadProxy(log.Named("proxy"), "127.0.0.1:0", 200*time.Millisecond)
 	require.NoError(t, err)
 
-	planet, err := testplanet.NewCustom(zaptest.NewLogger(t), testplanet.Config{
+	planet, err := testplanet.NewCustom(log, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
@@ -128,34 +132,39 @@ func TestBootstrapBackoffReconnect(t *testing.T) {
 
 	var group errgroup.Group
 	group.Go(func() error { return proxy.run(ctx) })
-	defer ctx.Check(proxy.close)
 	defer ctx.Check(group.Wait)
 
+	defer ctx.Check(proxy.close)
+
 	planet.Start(ctx)
-	time.Sleep(2 * time.Second)
-	defer ctx.Check(planet.Shutdown)
+	ctx.Check(planet.Shutdown)
 }
 
 type badProxy struct {
+	log          *zap.Logger
 	target       string
 	dropInterval time.Duration
 	listener     net.Listener
+	done         chan struct{}
 }
 
-func newBadProxy(addr string, dropInterval time.Duration) (*badProxy, error) {
+func newBadProxy(log *zap.Logger, addr string, dropInterval time.Duration) (*badProxy, error) {
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
 	return &badProxy{
+		log:          log,
 		target:       "",
 		dropInterval: dropInterval,
 		listener:     listener,
+		done:         make(chan struct{}),
 	}, nil
 }
 
 func (proxy *badProxy) close() error {
+	close(proxy.done)
 	return proxy.listener.Close()
 }
 
@@ -175,7 +184,12 @@ func (proxy *badProxy) run(ctx context.Context) error {
 		for {
 			conn, err := proxy.listener.Accept()
 			if err != nil {
-				return errs.Wrap(errs2.IgnoreCanceled(err))
+				select {
+				case <-proxy.done:
+					return nil
+				default:
+				}
+				return errs.Wrap(err)
 			}
 
 			if time.Since(start) < proxy.dropInterval {
@@ -186,7 +200,9 @@ func (proxy *badProxy) run(ctx context.Context) error {
 			}
 
 			connections.Go(func() error {
-				defer func() { err = errs.Combine(err, conn.Close()) }()
+				defer func() {
+					err = errs.Combine(err, conn.Close())
+				}()
 
 				targetConn, err := net.Dial("tcp", proxy.target)
 				if err != nil {
@@ -197,11 +213,19 @@ func (proxy *badProxy) run(ctx context.Context) error {
 				var pipe errs2.Group
 				pipe.Go(func() error {
 					_, err := io.Copy(targetConn, conn)
-					return err
+					// since planet is shutting down a forced close is to be expected
+					if err != nil {
+						proxy.log.Debug("copy error", zap.Error(err))
+					}
+					return nil
 				})
 				pipe.Go(func() error {
 					_, err := io.Copy(conn, targetConn)
-					return err
+					// since planet is shutting down a forced close is to be expected
+					if err != nil {
+						proxy.log.Debug("copy error", zap.Error(err))
+					}
+					return nil
 				})
 
 				return errs.Combine(pipe.Wait()...)
