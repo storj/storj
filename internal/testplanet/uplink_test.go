@@ -4,9 +4,12 @@
 package testplanet_test
 
 import (
+	"context"
 	"crypto/rand"
+	"path/filepath"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -16,6 +19,9 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls/extensions"
+	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink"
 )
@@ -193,5 +199,101 @@ func TestUploadDownloadMultipleUplinksInParallel(t *testing.T) {
 		}
 		err = group.Wait()
 		require.NoError(t, err)
+	})
+}
+
+type piecestoreMock struct {
+}
+
+func (mock *piecestoreMock) Upload(server pb.Piecestore_UploadServer) error {
+	return nil
+}
+func (mock *piecestoreMock) Download(server pb.Piecestore_DownloadServer) error {
+	timoutTicker := time.NewTicker(30 * time.Second)
+	defer timoutTicker.Stop()
+
+	select {
+	case <-timoutTicker.C:
+		return nil
+	case <-server.Context().Done():
+		return nil
+	}
+}
+func (mock *piecestoreMock) Delete(ctx context.Context, delete *pb.PieceDeleteRequest) (_ *pb.PieceDeleteResponse, err error) {
+	return nil, nil
+}
+
+func TestDownloadFromUnresponsiveNode(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+
+		expectedData := make([]byte, 1*memory.MiB)
+		_, err := rand.Read(expectedData)
+		assert.NoError(t, err)
+
+		err = planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &uplink.RSConfig{
+			MinThreshold:     2,
+			RepairThreshold:  3,
+			SuccessThreshold: 4,
+			MaxThreshold:     5,
+		}, "testbucket", "test/path", expectedData)
+		require.NoError(t, err)
+
+		// get a remote segment from pointerdb
+		pdb := planet.Satellites[0].Metainfo.Service
+		listResponse, _, err := pdb.List("", "", "", true, 0, 0)
+		require.NoError(t, err)
+
+		var path string
+		var pointer *pb.Pointer
+		for _, v := range listResponse {
+			path = v.GetPath()
+			pointer, err = pdb.Get(path)
+			require.NoError(t, err)
+			if pointer.GetType() == pb.Pointer_REMOTE {
+				break
+			}
+		}
+
+		stopped := false
+		// choose used storage node and replace it with fake listener
+		unresponsiveNode := pointer.Remote.RemotePieces[0].NodeId
+		for _, storageNode := range planet.StorageNodes {
+			if storageNode.ID() == unresponsiveNode {
+				err = planet.StopPeer(storageNode)
+				require.NoError(t, err)
+
+				wl, err := planet.WriteWhitelist(storj.LatestIDVersion())
+				require.NoError(t, err)
+				options, err := tlsopts.NewOptions(storageNode.Identity, tlsopts.Config{
+					RevocationDBURL:     "bolt://" + filepath.Join(ctx.Dir("fakestoragenode"), "revocation.db"),
+					UsePeerCAWhitelist:  true,
+					PeerCAWhitelistPath: wl,
+					PeerIDVersions:      "*",
+					Extensions: extensions.Config{
+						Revocation:          false,
+						WhitelistSignedLeaf: false,
+					},
+				})
+				require.NoError(t, err)
+
+				server, err := server.New(options, storageNode.Addr(), storageNode.PrivateAddr(), nil)
+				require.NoError(t, err)
+				pb.RegisterPiecestoreServer(server.GRPC(), &piecestoreMock{})
+				go func() {
+					err := server.Run(ctx)
+					require.NoError(t, err)
+				}()
+				stopped = true
+				break
+			}
+		}
+		assert.True(t, stopped, "no storage node was altered")
+
+		data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path")
+		assert.NoError(t, err)
+
+		assert.Equal(t, expectedData, data)
 	})
 }

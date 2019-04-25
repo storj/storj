@@ -12,6 +12,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/readcloser"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/ranger"
@@ -98,21 +99,20 @@ func (dr *decodedReader) Read(p []byte) (n int, err error) {
 func (dr *decodedReader) Close() error {
 	// cancel the context to terminate reader goroutines
 	dr.cancel()
-	// avoid double close of readers
 	errorThreshold := len(dr.readers) - dr.scheme.RequiredCount()
+	var closeGroup errs2.Group
+	// avoid double close of readers
 	dr.close.Do(func() {
-		var errlist errs.Group
-		// close the readers
 		for _, r := range dr.readers {
-			err := r.Close()
-			if err != nil {
-				errlist.Add(err)
-				errorThreshold--
-			}
+			closeGroup.Go(r.Close)
 		}
+
 		// close the stripe reader
-		errlist.Add(dr.stripeReader.Close())
-		dr.closeErr = errlist.Err()
+		closeGroup.Go(dr.stripeReader.Close)
+
+		allErrors := closeGroup.Wait()
+		errorThreshold -= len(allErrors)
+		dr.closeErr = errs.Combine(allErrors...)
 	})
 	// TODO this is workaround, we need reorganize to return multiple errors or divide into fatal, non fatal
 	if errorThreshold <= 0 {
