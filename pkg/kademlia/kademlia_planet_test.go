@@ -7,8 +7,6 @@ import (
 	"context"
 	"io"
 	"net"
-	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -17,7 +15,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
+	"golang.org/x/sync/errgroup"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
@@ -96,18 +96,22 @@ func TestPingTimeout(t *testing.T) {
 }
 
 func TestBootstrapBackoffReconnect(t *testing.T) {
+	t.Parallel()
+
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
+
+	log := zaptest.NewLogger(t)
 
 	// This sets up an unreliable proxy server which will receive conns from
 	// storage nodes and the satellite, but doesn't connect them with
 	// the bootstrap node (proxy.target) until the droppedConnInterval has passed.
 	// This should test that the Bootstrap function will retry a connection
 	// if it initially fails.
-	proxy, err := newBadProxy("127.0.0.1:0")
+	proxy, err := newBadProxy(log.Named("proxy"), "127.0.0.1:0", 200*time.Millisecond)
 	require.NoError(t, err)
 
-	planet, err := testplanet.NewCustom(zaptest.NewLogger(t), testplanet.Config{
+	planet, err := testplanet.NewCustom(log, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
@@ -121,114 +125,112 @@ func TestBootstrapBackoffReconnect(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	defer ctx.Check(planet.Shutdown)
 
 	// We set the bad proxy's "target" to the bootstrap node's addr
 	// (which was selected when the new custom planet was set up).
 	proxy.target = planet.Bootstrap.Addr()
 
-	droppedConnInterval := 200 * time.Millisecond
-	go func() {
-		// This starts the unreliable proxy server and sets it to
-		// drop connections for the first 500 milliseconds that it's up.
-		err := proxy.run(droppedConnInterval)
-		require.NoError(t, err)
-	}()
-	defer func() {
-		err := proxy.close()
-		// Expect a group of errors such as "use of closed network connection"
-		// or "connection reset by peer" or "broken pipe" since we're closing
-		// the storage nodes' connections inside proxy.run, and they will
-		// attempt to contact each other between the storageNodeConn.Close()
-		// and bootstrapNodeConn.Close() calls.
-		require.Error(t, err)
-	}()
+	var group errgroup.Group
+	group.Go(func() error { return proxy.run(ctx) })
+	defer ctx.Check(group.Wait)
+
+	defer ctx.Check(proxy.close)
 
 	planet.Start(ctx)
+	ctx.Check(planet.Shutdown)
 }
 
 type badProxy struct {
-	closed   uint32 // using sync/atomic package to do an atomic set/load of closed (as bool flag)
-	listener net.Listener
-	target   string
-	errors   errs.Group
+	log          *zap.Logger
+	target       string
+	dropInterval time.Duration
+	listener     net.Listener
+	done         chan struct{}
 }
 
-func newBadProxy(addr string) (*badProxy, error) {
-	l, err := net.Listen("tcp", addr)
+func newBadProxy(log *zap.Logger, addr string, dropInterval time.Duration) (*badProxy, error) {
+	listener, err := net.Listen("tcp", addr)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
+
 	return &badProxy{
-		listener: l,
+		log:          log,
+		target:       "",
+		dropInterval: dropInterval,
+		listener:     listener,
+		done:         make(chan struct{}),
 	}, nil
 }
 
 func (proxy *badProxy) close() error {
-	atomic.StoreUint32(&proxy.closed, 1)
-	proxy.errors.Add(proxy.listener.Close())
-	return proxy.errors.Err()
+	close(proxy.done)
+	return proxy.listener.Close()
 }
 
-func (proxy *badProxy) run(droppedConnInterval time.Duration) (err error) {
+func (proxy *badProxy) run(ctx context.Context) error {
 	start := time.Now()
 
-	defer func() {
-		err := proxy.listener.Close()
-		if atomic.LoadUint32(&proxy.closed) == 0 {
-			proxy.errors.Add(err)
-		}
-	}()
-
-	for {
-		storageNodeConn, err := proxy.listener.Accept()
-		if err != nil {
-			if atomic.LoadUint32(&proxy.closed) > 0 {
-				return nil
-			}
-			return errs.Wrap(err)
-		}
-		go func() {
-			// Within the droppedConnInterval duration,
-			// the proxy will drop conns.
-			if time.Since(start) < droppedConnInterval {
-				err := storageNodeConn.Close()
-				if err != nil {
-					proxy.errors.Add(err)
-				}
-				return
-			}
-			bootstrapNodeConn, err := net.Dial("tcp", proxy.target)
-			if err != nil {
-				proxy.errors.Add(err)
-				err = storageNodeConn.Close()
-				if err != nil {
-					proxy.errors.Add(err)
-				}
-				return
-			}
-			var closeOnce sync.Once
-			closer := func() {
-				proxy.errors.Add(storageNodeConn.Close())
-				proxy.errors.Add(bootstrapNodeConn.Close())
-			}
-			// Here the proxy copies the data from
-			// Peer A (storage node or satellite)
-			// to Peer B (bootstrap node).
-			go func() {
-				defer closeOnce.Do(closer)
-				_, err := io.Copy(storageNodeConn, bootstrapNodeConn)
-				if err != nil {
-					proxy.errors.Add(err)
-				}
-			}()
-			// Starts copy loops concurrently where
-			// the first to exit closes the connections.
-			defer closeOnce.Do(closer)
-			_, err = io.Copy(bootstrapNodeConn, storageNodeConn)
-			if err != nil {
-				proxy.errors.Add(err)
-			}
+	group, ctx := errgroup.WithContext(ctx)
+	group.Go(func() (err error) {
+		var connections errs2.Group
+		defer func() {
+			var errlist errs.Group
+			errlist.Add(err)
+			errlist.Add(connections.Wait()...)
+			err = errlist.Err()
 		}()
-	}
+
+		for {
+			conn, err := proxy.listener.Accept()
+			if err != nil {
+				select {
+				case <-proxy.done:
+					return nil
+				default:
+				}
+				return errs.Wrap(err)
+			}
+
+			if time.Since(start) < proxy.dropInterval {
+				if err := conn.Close(); err != nil {
+					return errs.Wrap(err)
+				}
+				continue
+			}
+
+			connections.Go(func() error {
+				defer func() {
+					err = errs.Combine(err, conn.Close())
+				}()
+
+				targetConn, err := net.Dial("tcp", proxy.target)
+				if err != nil {
+					return err
+				}
+				defer func() { err = errs.Combine(err, targetConn.Close()) }()
+
+				var pipe errs2.Group
+				pipe.Go(func() error {
+					_, err := io.Copy(targetConn, conn)
+					// since planet is shutting down a forced close is to be expected
+					if err != nil {
+						proxy.log.Debug("copy error", zap.Error(err))
+					}
+					return nil
+				})
+				pipe.Go(func() error {
+					_, err := io.Copy(conn, targetConn)
+					// since planet is shutting down a forced close is to be expected
+					if err != nil {
+						proxy.log.Debug("copy error", zap.Error(err))
+					}
+					return nil
+				})
+
+				return errs.Combine(pipe.Wait()...)
+			})
+		}
+	})
+	return errs.Wrap(group.Wait())
 }
