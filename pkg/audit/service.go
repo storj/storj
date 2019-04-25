@@ -13,8 +13,8 @@ import (
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 )
 
@@ -37,13 +37,13 @@ type Service struct {
 }
 
 // NewService instantiates a Service with access to a Cursor and Verifier
-func NewService(log *zap.Logger, config Config, pointerdb *pointerdb.Service,
+func NewService(log *zap.Logger, config Config, metainfo *metainfo.Service,
 	orders *orders.Service, transport transport.Client, overlay *overlay.Cache,
 	identity *identity.FullIdentity) (service *Service, err error) {
 	return &Service{
 		log: log,
 
-		Cursor:   NewCursor(pointerdb),
+		Cursor:   NewCursor(metainfo),
 		Verifier: NewVerifier(log.Named("audit:verifier"), transport, overlay, orders, identity, config.MinBytesPerSecond),
 		Reporter: NewReporter(overlay, config.MaxRetriesStatDB),
 
