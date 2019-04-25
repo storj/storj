@@ -68,14 +68,26 @@ func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error)
 	defer close(cycle.stop)
 
 	currentInterval := cycle.interval
-	// Return if Interval is set to "disabled"
-	if currentInterval == 0 || currentInterval == -1 {
-		cycle.Pause()
+
+	// pause if the interval is less than 0
+	if currentInterval <= 0 {
+		// we still create a ticker and interval, otherwise rest of the logic can break
+		currentInterval = 300 * 24 * time.Hour
+		cycle.ticker = time.NewTicker(currentInterval)
+
+		// same as cyclePause
+		cycle.ticker.Stop()
+		select {
+		case <-cycle.ticker.C:
+		default:
+		}
+	} else {
+		cycle.ticker = time.NewTicker(currentInterval)
+		if err := fn(ctx); err != nil {
+			return err
+		}
 	}
-	cycle.ticker = time.NewTicker(currentInterval)
-	if err := fn(ctx); err != nil {
-		return err
-	}
+
 	for {
 		select {
 
