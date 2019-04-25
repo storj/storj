@@ -15,11 +15,11 @@ import (
 
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/piecestore/psserver"
-	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/pieces"
+	"storj.io/storj/storagenode/psserver"
+	"storj.io/storj/storagenode/psserver/psdb"
 )
 
 var (

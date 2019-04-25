@@ -1,6 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+// Package psserver is the old implementation of piece store, it will be eventually deleted.
 package psserver
 
 import (

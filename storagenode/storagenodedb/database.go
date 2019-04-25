@@ -8,12 +8,12 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storage/teststore"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/psserver/psdb"
 )
 
 var _ storagenode.DB = (*DB)(nil)

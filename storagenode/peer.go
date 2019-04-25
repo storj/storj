@@ -18,9 +18,6 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/piecestore/psserver"
-	"storj.io/storj/pkg/piecestore/psserver/agreementsender"
-	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
@@ -31,6 +28,9 @@ import (
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
+	"storj.io/storj/storagenode/psserver"
+	"storj.io/storj/storagenode/psserver/agreementsender"
+	"storj.io/storj/storagenode/psserver/psdb"
 	"storj.io/storj/storagenode/trust"
 )
 

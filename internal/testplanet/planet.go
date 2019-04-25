@@ -43,7 +43,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
@@ -55,6 +54,7 @@ import (
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/piecestore"
+	"storj.io/storj/storagenode/psserver"
 	"storj.io/storj/storagenode/storagenodedb"
 	"storj.io/storj/versioncontrol"
 )
