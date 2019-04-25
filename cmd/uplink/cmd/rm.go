@@ -14,17 +14,15 @@ import (
 
 func init() {
 	addCmd(&cobra.Command{
-		Use:   "rm",
-		Short: "Delete an object",
-		RunE:  deleteObject,
+		Use:      "rm",
+		Short:    "Delete an object",
+		RunE:     deleteObject,
+		PreRunE:  startCPUProf,
+		PostRunE: stopCPUStartMemProf,
 	}, RootCmd)
 }
 
 func deleteObject(cmd *cobra.Command, args []string) error {
-	if *debugPprof {
-		f := startCPUProf()
-		defer stopCPUProf(f)
-	}
 	ctx := process.Ctx(cmd)
 
 	if len(args) == 0 {

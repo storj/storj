@@ -15,17 +15,15 @@ import (
 
 func init() {
 	addCmd(&cobra.Command{
-		Use:   "mb",
-		Short: "Create a new bucket",
-		RunE:  makeBucket,
+		Use:      "mb",
+		Short:    "Create a new bucket",
+		RunE:     makeBucket,
+		PreRunE:  startCPUProf,
+		PostRunE: stopCPUStartMemProf,
 	}, RootCmd)
 }
 
 func makeBucket(cmd *cobra.Command, args []string) error {
-	if *debugPprof {
-		f := startCPUProf()
-		defer stopCPUProf(f)
-	}
 	ctx := process.Ctx(cmd)
 
 	if len(args) == 0 {

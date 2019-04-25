@@ -14,18 +14,16 @@ import (
 
 func init() {
 	addCmd(&cobra.Command{
-		Use:   "cat",
-		Short: "Copies a Storj object to standard out",
-		RunE:  catMain,
+		Use:      "cat",
+		Short:    "Copies a Storj object to standard out",
+		RunE:     catMain,
+		PreRunE:  startCPUProf,
+		PostRunE: stopCPUStartMemProf,
 	}, RootCmd)
 }
 
 // catMain is the function executed when catCmd is called
 func catMain(cmd *cobra.Command, args []string) (err error) {
-	if *debugPprof {
-		f := startCPUProf()
-		defer stopCPUProf(f)
-	}
 	if len(args) == 0 {
 		return fmt.Errorf("No object specified for copy")
 	}

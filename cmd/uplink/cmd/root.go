@@ -30,6 +30,8 @@ type UplinkFlags struct {
 
 var cfg UplinkFlags
 
+var debugPprof = flag.Bool("debug.pprof", false, "if true, creates cpu.prof and memory.prof results in current directory")
+
 //RootCmd represents the base CLI command when called without any subcommands
 var RootCmd = &cobra.Command{
 	Use:   "uplink",
@@ -81,36 +83,39 @@ func convertError(err error, path fpath.FPath) error {
 	return err
 }
 
-var debugPprof = flag.Bool("debug.pprof", false, "if true, creates cpu.prof and memory.prof results in current directory")
-
-func startCPUProf() *os.File {
+func startCPUProf(cmd *cobra.Command, args []string) error {
 	if *debugPprof {
 		f, err := os.Create("cpu.prof")
 		if err != nil {
-			fmt.Println("could not create CPU profile: ", err)
+			return err
 		}
 		if err := pprof.StartCPUProfile(f); err != nil {
-			fmt.Println("could not start CPU profile: ", err)
+			return err
 		}
-		return f
 	}
 	return nil
 }
 
-func stopCPUProf(f *os.File) {
-	pprof.StopCPUProfile()
-	f.Close()
-	runMemoryProf()
+func stopCPUStartMemProf(cmd *cobra.Command, args []string) error {
+	if *debugPprof {
+		pprof.StopCPUProfile()
+		return runMemoryProf()
+	}
+	return nil
 }
 
-func runMemoryProf() {
+func runMemoryProf() error {
 	f, err := os.Create("memory.prof")
 	if err != nil {
-		fmt.Println("could not create memory profile: ", err)
+		return err
 	}
-	defer f.Close()
-	runtime.GC() // get up-to-date statistics
+	runtime.GC()
 	if err := pprof.WriteHeapProfile(f); err != nil {
-		fmt.Println("could not write memory profile: ", err)
+		return err
 	}
+	err = f.Close()
+	if err != nil {
+		return err
+	}
+	return nil
 }

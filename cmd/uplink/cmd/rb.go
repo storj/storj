@@ -15,17 +15,15 @@ import (
 
 func init() {
 	addCmd(&cobra.Command{
-		Use:   "rb",
-		Short: "Remove an empty bucket",
-		RunE:  deleteBucket,
+		Use:      "rb",
+		Short:    "Remove an empty bucket",
+		RunE:     deleteBucket,
+		PreRunE:  startCPUProf,
+		PostRunE: stopCPUStartMemProf,
 	}, RootCmd)
 }
 
 func deleteBucket(cmd *cobra.Command, args []string) error {
-	if *debugPprof {
-		f := startCPUProf()
-		defer stopCPUProf(f)
-	}
 	ctx := process.Ctx(cmd)
 
 	if len(args) == 0 {

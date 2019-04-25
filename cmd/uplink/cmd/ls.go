@@ -21,18 +21,16 @@ var (
 
 func init() {
 	lsCmd := addCmd(&cobra.Command{
-		Use:   "ls",
-		Short: "List objects and prefixes or all buckets",
-		RunE:  list,
+		Use:      "ls",
+		Short:    "List objects and prefixes or all buckets",
+		RunE:     list,
+		PreRunE:  startCPUProf,
+		PostRunE: stopCPUStartMemProf,
 	}, RootCmd)
 	recursiveFlag = lsCmd.Flags().Bool("recursive", false, "if true, list recursively")
 }
 
 func list(cmd *cobra.Command, args []string) error {
-	if *debugPprof {
-		f := startCPUProf()
-		defer stopCPUProf(f)
-	}
 	ctx := process.Ctx(cmd)
 
 	metainfo, _, err := cfg.Metainfo(ctx)

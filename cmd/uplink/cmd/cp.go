@@ -30,9 +30,11 @@ var (
 
 func init() {
 	cpCmd := addCmd(&cobra.Command{
-		Use:   "cp",
-		Short: "Copies a local file or Storj object to another location locally or in Storj",
-		RunE:  copyMain,
+		Use:      "cp",
+		Short:    "Copies a local file or Storj object to another location locally or in Storj",
+		RunE:     copyMain,
+		PreRunE:  startCPUProf,
+		PostRunE: stopCPUStartMemProf,
 	}, RootCmd)
 	progress = cpCmd.Flags().Bool("progress", true, "if true, show progress")
 	expires = cpCmd.Flags().String("expires", "", "optional expiration date of an object. Please use format (yyyy-mm-ddThh:mm:ssZhh:mm)")
@@ -261,11 +263,6 @@ func copy(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err error) {
 
 // copyMain is the function executed when cpCmd is called
 func copyMain(cmd *cobra.Command, args []string) (err error) {
-	if *debugPprof {
-		f := startCPUProf()
-		defer stopCPUProf(f)
-	}
-
 	if len(args) == 0 {
 		return fmt.Errorf("No object specified for copy")
 	}
