@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/pieces"
+	"storj.io/storj/storagenode/piecestore"
 )
 
 var (
@@ -33,20 +34,18 @@ type Endpoint struct {
 	pieceInfo pieces.DB
 	kademlia  *kademlia.Kademlia
 	usageDB   bandwidth.DB
-	psdbDB    *psdb.DB // TODO remove after complete migration
 
 	startTime time.Time
 	config    piecestore.OldConfig
 }
 
 // NewEndpoint creates piecestore inspector instance
-func NewEndpoint(log *zap.Logger, pieceInfo pieces.DB, kademlia *kademlia.Kademlia, usageDB bandwidth.DB, psdbDB *psdb.DB, config piecestore.OldConfig) *Endpoint {
+func NewEndpoint(log *zap.Logger, pieceInfo pieces.DB, kademlia *kademlia.Kademlia, usageDB bandwidth.DB, config piecestore.OldConfig) *Endpoint {
 	return &Endpoint{
 		log:       log,
 		pieceInfo: pieceInfo,
 		kademlia:  kademlia,
 		usageDB:   usageDB,
-		psdbDB:    psdbDB,
 		config:    config,
 		startTime: time.Now(),
 	}
