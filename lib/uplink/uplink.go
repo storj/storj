@@ -59,7 +59,7 @@ type Config struct {
 		PeerIDVersion string
 
 		// MaxInlineSize determines whether the uplink will attempt to
-		// store a new object in the satellite's pointerDB. Objects at
+		// store a new object in the satellite's metainfo. Objects at
 		// or below this size will be marked for inline storage, and
 		// objects above this size will not. (The satellite may reject
 		// the inline storage and require remote storage, still.)

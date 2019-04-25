@@ -13,31 +13,31 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pointerdb"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 )
 
 // Repairer for segments
 type Repairer struct {
-	pointerdb *pointerdb.Service
-	orders    *orders.Service
-	cache     *overlay.Cache
-	ec        ecclient.Client
-	identity  *identity.FullIdentity
-	timeout   time.Duration
+	metainfo *metainfo.Service
+	orders   *orders.Service
+	cache    *overlay.Cache
+	ec       ecclient.Client
+	identity *identity.FullIdentity
+	timeout  time.Duration
 }
 
 // NewSegmentRepairer creates a new instance of SegmentRepairer
-func NewSegmentRepairer(pointerdb *pointerdb.Service, orders *orders.Service, cache *overlay.Cache, ec ecclient.Client, identity *identity.FullIdentity, timeout time.Duration) *Repairer {
+func NewSegmentRepairer(metainfo *metainfo.Service, orders *orders.Service, cache *overlay.Cache, ec ecclient.Client, identity *identity.FullIdentity, timeout time.Duration) *Repairer {
 	return &Repairer{
-		pointerdb: pointerdb,
-		orders:    orders,
-		cache:     cache,
-		ec:        ec,
-		identity:  identity,
-		timeout:   timeout,
+		metainfo: metainfo,
+		orders:   orders,
+		cache:    cache,
+		ec:       ec,
+		identity: identity,
+		timeout:  timeout,
 	}
 }
 
@@ -45,8 +45,8 @@ func NewSegmentRepairer(pointerdb *pointerdb.Service, orders *orders.Service, ca
 func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int32) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// Read the segment pointer from the PointerDB
-	pointer, err := repairer.pointerdb.Get(path)
+	// Read the segment pointer from the metainfo
+	pointer, err := repairer.metainfo.Get(path)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -137,8 +137,8 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 	// Update the remote pieces in the pointer
 	pointer.GetRemote().RemotePieces = healthyPieces
 
-	// Update the segment pointer in the PointerDB
-	return repairer.pointerdb.Put(path, pointer)
+	// Update the segment pointer in the metainfo
+	return repairer.metainfo.Put(path, pointer)
 }
 
 // sliceToSet converts the given slice to a set

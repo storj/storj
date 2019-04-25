@@ -17,8 +17,8 @@ import (
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storage"
 )
 
@@ -35,7 +35,7 @@ type Config struct {
 
 // Checker contains the information needed to do checks for missing pieces
 type Checker struct {
-	pointerdb   *pointerdb.Service
+	metainfo    *metainfo.Service
 	repairQueue queue.RepairQueue
 	overlay     *overlay.Cache
 	irrdb       irreparable.DB
@@ -44,10 +44,10 @@ type Checker struct {
 }
 
 // NewChecker creates a new instance of checker
-func NewChecker(pointerdb *pointerdb.Service, repairQueue queue.RepairQueue, overlay *overlay.Cache, irrdb irreparable.DB, limit int, logger *zap.Logger, interval time.Duration) *Checker {
+func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overlay *overlay.Cache, irrdb irreparable.DB, limit int, logger *zap.Logger, interval time.Duration) *Checker {
 	// TODO: reorder arguments
 	checker := &Checker{
-		pointerdb:   pointerdb,
+		metainfo:    metainfo,
 		repairQueue: repairQueue,
 		overlay:     overlay,
 		irrdb:       irrdb,
@@ -76,7 +76,7 @@ func (checker *Checker) Close() error {
 	return nil
 }
 
-// IdentifyInjuredSegments checks for missing pieces off of the pointerdb and overlay cache
+// IdentifyInjuredSegments checks for missing pieces off of the metainfo and overlay cache
 func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -85,7 +85,7 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 	var remoteSegmentsLost int64
 	var remoteSegmentInfo []string
 
-	err = checker.pointerdb.Iterate("", "", true, false,
+	err = checker.metainfo.Iterate("", "", true, false,
 		func(it storage.Iterator) error {
 			var item storage.ListItem
 			for it.Next(&item) {
@@ -107,30 +107,13 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 					continue
 				}
 
-				var nodeIDs storj.NodeIDList
-				for _, p := range pieces {
-					nodeIDs = append(nodeIDs, p.NodeId)
-				}
-
-				// Find all offline nodes
-				offlineNodes, err := checker.overlay.OfflineNodes(ctx, nodeIDs)
+				missingPieces, err := checker.getMissingPieces(ctx, pieces)
 				if err != nil {
-					return Error.New("error getting offline nodes %s", err)
-				}
-
-				invalidNodes, err := checker.invalidNodes(ctx, nodeIDs)
-				if err != nil {
-					return Error.New("error getting invalid nodes %s", err)
-				}
-
-				missingIndices := combineOfflineWithInvalid(offlineNodes, invalidNodes)
-				var missingPieces []int32
-				for _, i := range missingIndices {
-					missingPieces = append(missingPieces, pieces[i].GetPieceNum())
+					return Error.New("error getting missing pieces %s", err)
 				}
 
 				remoteSegmentsChecked++
-				numHealthy := len(nodeIDs) - len(missingPieces)
+				numHealthy := len(pieces) - len(missingPieces)
 				if (int32(numHealthy) >= pointer.Remote.Redundancy.MinReq) && (int32(numHealthy) <= pointer.Remote.Redundancy.RepairThreshold) {
 					remoteSegmentsNeedingRepair++
 					err = checker.repairQueue.Insert(ctx, &pb.InjuredSegment{
@@ -187,50 +170,23 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 	return nil
 }
 
-// Find invalidNodes by checking the audit results that are place in overlay
-func (checker *Checker) invalidNodes(ctx context.Context, nodeIDs storj.NodeIDList) (invalidNodes []int, err error) {
-	// filter if nodeIDs have invalid pieces from auditing results
-	maxStats := &overlay.NodeStats{
-		AuditSuccessRatio: 0, // TODO: update when we have stats added to overlay
-		UptimeRatio:       0, // TODO: update when we have stats added to overlay
+func (checker *Checker) getMissingPieces(ctx context.Context, pieces []*pb.RemotePiece) (missingPieces []int32, err error) {
+	var nodeIDs storj.NodeIDList
+	for _, p := range pieces {
+		nodeIDs = append(nodeIDs, p.NodeId)
 	}
+	nodes, err := checker.overlay.GetAll(ctx, nodeIDs)
 
-	invalidIDs, err := checker.overlay.FindInvalidNodes(ctx, nodeIDs, maxStats)
 	if err != nil {
-		return nil, Error.New("error getting valid nodes from overlay %s", err)
+		return nil, Error.New("error getting nodes %s", err)
 	}
 
-	invalidNodesMap := make(map[storj.NodeID]bool)
-	for _, invalidID := range invalidIDs {
-		invalidNodesMap[invalidID] = true
-	}
-
-	for i, nID := range nodeIDs {
-		if invalidNodesMap[nID] {
-			invalidNodes = append(invalidNodes, i)
+	for i, node := range nodes {
+		if node == nil || !checker.overlay.IsOnline(node) || !checker.overlay.IsHealthy(node) {
+			missingPieces = append(missingPieces, pieces[i].GetPieceNum())
 		}
 	}
-
-	return invalidNodes, nil
-}
-
-// combine the offline nodes with nodes marked invalid by overlay
-func combineOfflineWithInvalid(offlineNodes []int, invalidNodes []int) (missingPieces []int32) {
-	for _, offline := range offlineNodes {
-		missingPieces = append(missingPieces, int32(offline))
-	}
-
-	offlineMap := make(map[int]bool)
-	for _, i := range offlineNodes {
-		offlineMap[i] = true
-	}
-	for _, i := range invalidNodes {
-		if !offlineMap[i] {
-			missingPieces = append(missingPieces, int32(i))
-		}
-	}
-
-	return missingPieces
+	return missingPieces, nil
 }
 
 // checks for a string in slice

@@ -1,16 +1,16 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package satellitedb_test
+package queue_test
 
 import (
 	"sort"
 	"strconv"
-	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite"
@@ -36,6 +36,24 @@ func TestInsertSelect(t *testing.T) {
 		err = q.Delete(ctx, s)
 		require.NoError(t, err)
 		require.True(t, pb.Equal(s, seg))
+	})
+}
+
+func TestInsertDuplicate(t *testing.T) {
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		q := db.RepairQueue()
+
+		seg := &pb.InjuredSegment{
+			Path:       "abc",
+			LostPieces: []int32{int32(1), int32(3)},
+		}
+		err := q.Insert(ctx, seg)
+		require.NoError(t, err)
+		err = q.Insert(ctx, seg)
+		require.NoError(t, err)
 	})
 }
 
@@ -97,62 +115,42 @@ func TestParallel(t *testing.T) {
 
 		q := db.RepairQueue()
 		const N = 100
-		errs := make(chan error, N*2)
 		entries := make(chan *pb.InjuredSegment, N)
-		var wg sync.WaitGroup
-		wg.Add(N)
+
+		var inserts errs2.Group
 		// Add to queue concurrently
 		for i := 0; i < N; i++ {
-			go func(i int) {
-				defer wg.Done()
-				err := q.Insert(ctx, &pb.InjuredSegment{
+			i := i
+			inserts.Go(func() error {
+				return q.Insert(ctx, &pb.InjuredSegment{
 					Path:       strconv.Itoa(i),
 					LostPieces: []int32{int32(i)},
 				})
-				if err != nil {
-					errs <- err
-				}
-			}(i)
+			})
 		}
-		wg.Wait()
+		require.Empty(t, inserts.Wait(), "unexpected queue.Insert errors")
 
-		if len(errs) > 0 {
-			for err := range errs {
-				t.Error(err)
-			}
-
-			t.Fatal("unexpected queue.Insert errors")
-		}
-
-		wg.Add(N)
 		// Remove from queue concurrently
+		var remove errs2.Group
 		for i := 0; i < N; i++ {
-			go func(i int) {
-				defer wg.Done()
+			remove.Go(func() error {
 				s, err := q.Select(ctx)
 				if err != nil {
-					errs <- err
+					return err
 				}
 
 				err = q.Delete(ctx, s)
 				if err != nil {
-					errs <- err
+					return err
 				}
 
 				entries <- s
-			}(i)
+				return nil
+			})
 		}
-		wg.Wait()
-		close(errs)
+
+		require.Empty(t, remove.Wait(), "unexpected queue.Select/Delete errors")
 		close(entries)
-
-		if len(errs) > 0 {
-			for err := range errs {
-				t.Error(err)
-			}
-
-			t.Fatal("unexpected queue.Select/Delete errors")
-		}
 
 		var items []*pb.InjuredSegment
 		for segment := range entries {
