@@ -75,7 +75,7 @@ func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error)
 		currentInterval = 100 * 355 * 24 * time.Hour
 		cycle.ticker = time.NewTicker(currentInterval)
 
-		// same as cyclePause
+		// same as cyclePause, which means that the cycle will never trigger
 		cycle.ticker.Stop()
 		select {
 		case <-cycle.ticker.C:
