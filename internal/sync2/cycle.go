@@ -72,7 +72,7 @@ func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error)
 	// pause if the interval is less than 0
 	if currentInterval <= 0 {
 		// we still create a ticker and interval, otherwise rest of the logic can break
-		currentInterval = 300 * 24 * time.Hour
+		currentInterval = 100 * 355 * 24 * time.Hour
 		cycle.ticker = time.NewTicker(currentInterval)
 
 		// same as cyclePause

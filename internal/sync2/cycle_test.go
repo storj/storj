@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/internal/sync2"
@@ -86,4 +87,46 @@ func TestCycle_Basic(t *testing.T) {
 			cycle.Trigger()
 		})
 	}
+}
+
+func TestCycle_Paused(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	cycle := sync2.NewCycle(0)
+
+	var group errgroup.Group
+	cycle.Start(ctx, &group, func(ctx context.Context) error {
+		panic("should never happen")
+	})
+
+	go func() {
+		time.Sleep(time.Second)
+		cycle.Stop()
+	}()
+
+	require.NoError(t, group.Wait())
+}
+
+func TestCycle_Trigger(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	cycle := sync2.NewCycle(0)
+
+	var group errgroup.Group
+	var counter int64
+	cycle.Start(ctx, &group, func(ctx context.Context) error {
+		atomic.AddInt64(&counter, 1)
+		return nil
+	})
+
+	time.Sleep(time.Second)
+	require.Equal(t, atomic.LoadInt64(&counter), int64(0))
+
+	cycle.TriggerWait()
+	require.Equal(t, atomic.LoadInt64(&counter), int64(1))
+
+	cycle.Stop()
+	require.NoError(t, group.Wait())
 }
