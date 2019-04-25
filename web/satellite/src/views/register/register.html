@@ -1,15 +1,15 @@
 <!--Copyright (C) 2019 Storj Labs, Inc.-->
 <!--See LICENSE for copying information.-->
 
-<div class="register-container" v-on:keyup.enter="onCreateClick">
-	<div v-bind:class="loadingClassName">
+<div class="register-container" @keyup.enter="onCreateClick">
+	<div :class="loadingClassName">
 		<img src="../../../static/images/register/Loading.gif">
 	</div>
 	<img class="image" src="../../../static/images/AuthImage.svg" alt="" >
 	<div class="register-container__wrapper">
 		<div class="register-container__header">
-			<img class="register-container__logo" src="../../../static/images/Logo.svg" alt="logo" v-on:click="onLogoClick">
-			<div class="register-container__register-button" v-on:click.prevent="onLoginClick">
+			<img class="register-container__logo" src="../../../static/images/Logo.svg" alt="logo" @click="onLogoClick">
+			<div class="register-container__register-button" @click.prevent="onLoginClick">
 				<p>Login</p>
 			</div>
 		</div>
@@ -77,11 +77,11 @@
 					<div class="register-area__submit-container__terms-area">
 						<label class="container">
 							<input type="checkbox" v-model="isTermsAccepted">
-							<span v-bind:class="[isTermsAcceptedError ? 'checkmark error': 'checkmark']"></span>
+							<span :class="[isTermsAcceptedError ? 'checkmark error': 'checkmark']"></span>
 						</label>
 						<h2>I agree to the <a href="https://tardigrade.io/terms-of-use/" target="_blank">Terms & Conditions</a></h2>
 					</div>
-					<div id="createAccountButton" class="register-area__submit-container__create-button" v-on:click.prevent="onCreateClick">
+					<div id="createAccountButton" class="register-area__submit-container__create-button" @click.prevent="onCreateClick">
 						<p>Create Account</p>
 					</div>
 				</div>
