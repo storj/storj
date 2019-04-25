@@ -5,12 +5,14 @@ package audit
 
 import (
 	"context"
-	"crypto/rand"
-	"math/big"
+	crand "crypto/rand"
+	"encoding/binary"
+	"math/rand"
 	"sync"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/pb"
@@ -54,17 +56,6 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 		return nil, err
 	}
 
-	if len(pointerItems) == 0 {
-		return nil, nil
-	}
-
-	pointerItem, err := getRandomPointer(pointerItems)
-	if err != nil {
-		return nil, err
-	}
-
-	path = pointerItem.Path
-
 	// keep track of last path listed
 	if !more {
 		cursor.lastPath = ""
@@ -72,29 +63,9 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 		cursor.lastPath = pointerItems[len(pointerItems)-1].Path
 	}
 
-	// get pointer info
-	pointer, err := cursor.metainfo.Get(path)
+	pointer, path, err := cursor.getRandomValidPointer(pointerItems)
 	if err != nil {
 		return nil, err
-	}
-
-	//delete expired items rather than auditing them
-	if expiration := pointer.GetExpirationDate(); expiration != nil {
-		t, err := ptypes.Timestamp(expiration)
-		if err != nil {
-			return nil, err
-		}
-		if t.Before(time.Now()) {
-			return nil, cursor.metainfo.Delete(path)
-		}
-	}
-
-	if pointer.GetType() != pb.Pointer_REMOTE {
-		return nil, nil
-	}
-
-	if pointer.GetSegmentSize() == 0 {
-		return nil, nil
 	}
 
 	index, err := getRandomStripe(pointer)
@@ -120,19 +91,72 @@ func getRandomStripe(pointer *pb.Pointer) (index int64, err error) {
 		return 0, nil
 	}
 
-	randomStripeIndex, err := rand.Int(rand.Reader, big.NewInt(pointer.GetSegmentSize()/int64(redundancy.StripeSize())))
-	if err != nil {
-		return -1, err
-	}
+	var src cryptoSource
+	rnd := rand.New(src)
+	numStripes := pointer.GetSegmentSize() / int64(redundancy.StripeSize())
+	randomStripeIndex := rnd.Int63n(numStripes)
 
-	return randomStripeIndex.Int64(), nil
+	return randomStripeIndex, nil
 }
 
-func getRandomPointer(pointerItems []*pb.ListResponse_Item) (pointer *pb.ListResponse_Item, err error) {
-	randomNum, err := rand.Int(rand.Reader, big.NewInt(int64(len(pointerItems))))
-	if err != nil {
-		return &pb.ListResponse_Item{}, err
+// getRandomValidPointer attempts to get a random remote pointer from a list. If it sees expired pointers in the process of looking, deletes them
+func (cursor *Cursor) getRandomValidPointer(pointerItems []*pb.ListResponse_Item) (pointer *pb.Pointer, path storj.Path, err error) {
+	var src cryptoSource
+	rnd := rand.New(src)
+	errGroup := new(errs.Group)
+	randomNums := rnd.Perm(len(pointerItems))
+
+	for _, randomIndex := range randomNums {
+		pointerItem := pointerItems[randomIndex]
+		path := pointerItem.Path
+
+		// get pointer info
+		pointer, err := cursor.metainfo.Get(path)
+		if err != nil {
+			errGroup.Add(err)
+			continue
+		}
+
+		//delete expired items rather than auditing them
+		if expiration := pointer.GetExpirationDate(); expiration != nil {
+			t, err := ptypes.Timestamp(expiration)
+			if err != nil {
+				errGroup.Add(err)
+				continue
+			}
+			if t.Before(time.Now()) {
+				err := cursor.metainfo.Delete(path)
+				if err != nil {
+					errGroup.Add(err)
+				}
+				continue
+			}
+		}
+
+		if pointer.GetType() != pb.Pointer_REMOTE || pointer.GetSegmentSize() == 0 {
+			continue
+		}
+
+		return pointer, path, nil
 	}
 
-	return pointerItems[randomNum.Int64()], nil
+	errGroup.Add(Error.New("no valid node found in selection"))
+	return nil, "", errGroup.Err()
+}
+
+// cryptoSource implements the math/rand Source interface using crypto/rand
+type cryptoSource struct{}
+
+func (s cryptoSource) Seed(seed int64) {}
+
+func (s cryptoSource) Int63() int64 {
+	return int64(s.Uint64() & ^uint64(1<<63))
+}
+
+func (s cryptoSource) Uint64() (v uint64) {
+	err := binary.Read(crand.Reader, binary.BigEndian, &v)
+	if err != nil {
+		panic(err)
+	}
+	return v
 }
