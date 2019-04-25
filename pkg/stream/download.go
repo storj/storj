@@ -62,7 +62,6 @@ func (download *Download) Read(data []byte) (n int, err error) {
 //
 // See io.Seeker for more details.
 func (download *Download) Seek(offset int64, whence int) (int64, error) {
-	defer mon.Task()(&download.ctx)(&err)
 	if download.closed {
 		return 0, Error.New("already closed")
 	}
@@ -100,7 +99,7 @@ func (download *Download) Close() error {
 	return download.reader.Close()
 }
 
-func (download *Download) resetReader(offset int64) error {
+func (download *Download) resetReader(offset int64) (err error) {
 	defer mon.Task()(&download.ctx)(&err)
 	if download.reader != nil {
 		err := download.reader.Close()
