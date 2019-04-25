@@ -19,8 +19,8 @@ import (
 
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/storagenode/psserver/psdb"
 )
 
 const concurrency = 10

@@ -16,7 +16,7 @@ import (
 
 	"storj.io/storj/internal/dbutil/dbschema"
 	"storj.io/storj/internal/dbutil/sqliteutil"
-	"storj.io/storj/pkg/piecestore/psserver/psdb"
+	"storj.io/storj/storagenode/psserver/psdb"
 )
 
 // loadSnapshots loads all the dbschemas from testdata/db.* caching the result
