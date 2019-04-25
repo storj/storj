@@ -197,7 +197,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 	var err error
 
-	{ // setup version control service
+	{
 		test := version.Info{}
 		if test != versionInfo {
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
@@ -535,13 +535,13 @@ func (peer *Peer) Run(ctx context.Context) error {
 		return errs2.IgnoreCanceled(peer.Repair.Repairer.Run(ctx))
 	})
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Audit.Service.Run(ctx))
-	})
-	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Accounting.Tally.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Accounting.Rollup.Run(ctx))
+	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Audit.Service.Run(ctx))
 	})
 	group.Go(func() error {
 		// TODO: move the message into Server instead
@@ -560,7 +560,8 @@ func (peer *Peer) Run(ctx context.Context) error {
 
 // Close closes all the resources.
 func (peer *Peer) Close() error {
-	errlist := errs.Group{}
+	var errlist errs.Group
+
 	// TODO: ensure that Close can be called on nil-s that way this code won't need the checks.
 
 	// close servers, to avoid new connections to closing subsystems
