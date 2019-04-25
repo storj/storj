@@ -96,8 +96,6 @@ func TestPingTimeout(t *testing.T) {
 }
 
 func TestBootstrapBackoffReconnect(t *testing.T) {
-	t.Parallel()
-
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -171,7 +169,7 @@ func (proxy *badProxy) close() error {
 func (proxy *badProxy) run(ctx context.Context) error {
 	start := time.Now()
 
-	group, ctx := errgroup.WithContext(ctx)
+	var group errgroup.Group
 	group.Go(func() (err error) {
 		var connections errs2.Group
 		defer func() {

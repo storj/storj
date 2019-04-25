@@ -209,7 +209,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 		// ```
 	}
 
-	errGroup.Add(Error.New("unable to start bootstrap after final wait time of %ds", waitInterval/time.Second))
+	errGroup.Add(Error.New("unable to start bootstrap after final wait time of %s", waitInterval))
 	return errGroup.Err()
 }
 
