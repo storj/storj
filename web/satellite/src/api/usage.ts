@@ -57,16 +57,23 @@ export async function fetchBucketUsages(projectID: string, before: Date, cursor:
                 query: gql(`
                     query {
                         project(id: "${projectID}") {
-                            bucketUsages(before: "${before.toISOString()}", cursor: {limit: ${cursor.limit}, afterBucket: "${cursor.afterBucket}"}) {
-                                bucketUsages{
-                                    bucketName,
-                                    storage,
-                                    egress,
-                                    objectCount,
-                                    since,
-                                    before
-                                },
-                                hasMore
+                            bucketUsages(before: "${before.toISOString()}", cursor: {
+                                    limit: ${cursor.limit}, search: "${cursor.search}", page: ${cursor.page}
+                                }) {
+                                    bucketUsages{
+                                        bucketName,
+                                        storage,
+                                        egress,
+                                        objectCount,
+                                        since,
+                                        before
+                                    },
+                                    search,
+                                    limit,
+                                    offset,
+                                    pageCount,
+                                    currentPage,
+                                    totalCount 
                             }
                         }
                     }`

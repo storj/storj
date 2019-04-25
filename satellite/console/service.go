@@ -806,8 +806,8 @@ func (s *Service) GetProjectUsage(ctx context.Context, projectID uuid.UUID, sinc
 	return projectUsage, nil
 }
 
-// GetBucketUsages retrieves paged bucket total usages since project creation
-func (s *Service) GetBucketUsages(ctx context.Context, projectID uuid.UUID, cursor BucketUsageCursor, before time.Time) (*BucketUsagePage, error) {
+// GetBucketTotals retrieves paged bucket total usages since project creation
+func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor BucketUsageCursor, before time.Time) (*BucketUsagePage, error) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 

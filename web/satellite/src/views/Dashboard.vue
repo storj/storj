@@ -84,7 +84,11 @@ import {AppState} from "../utils/constants/appStateEnum";
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
             }
 
-            this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, new Date());
+            const bucketsResponse = await this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, 1);
+            if (!bucketsResponse.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + bucketsResponse.errorMessage);
+            }
+
             this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
         }, 800);
     },

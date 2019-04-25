@@ -45,12 +45,16 @@ const (
 	FieldEgress = "egress"
 	// FieldObjectCount is a field name for objects count
 	FieldObjectCount = "objectCount"
-	// FieldAfterBucket is a field name for after bucket usage cursor
-	FieldAfterBucket = "afterBucket"
-	// FieldHasMore is a field name for bucket usage page has more
-	FieldHasMore = "hasMore"
+	// FieldPageCount is a field name for total page count
+	FieldPageCount = "pageCount"
+	// FieldCurrentPage is a field name for current page number
+	FieldCurrentPage = "currentPage"
+	// FieldTotalCount is a field name for bucket usage count total
+	FieldTotalCount = "totalCount"
 	// CursorArg is an argument name for cursor
 	CursorArg = "cursor"
+	// PageArg ia an argument name for page number
+	PageArg = "page"
 	// LimitArg is argument name for limit
 	LimitArg = "limit"
 	// OffsetArg is argument name for offset
@@ -182,7 +186,7 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 					before := p.Args[BeforeArg].(time.Time)
 					cursor := fromMapBucketUsageCursor(p.Args[CursorArg].(map[string]interface{}))
 
-					return service.GetBucketUsages(p.Context, project.ID, cursor, before)
+					return service.GetBucketTotals(p.Context, project.ID, cursor, before)
 				},
 			},
 		},
@@ -209,10 +213,13 @@ func graphqlBucketUsageCursor() *graphql.InputObject {
 	return graphql.NewInputObject(graphql.InputObjectConfig{
 		Name: BucketUsageCursorInputType,
 		Fields: graphql.InputObjectConfigFieldMap{
-			FieldAfterBucket: &graphql.InputObjectFieldConfig{
+			SearchArg: &graphql.InputObjectFieldConfig{
 				Type: graphql.NewNonNull(graphql.String),
 			},
 			LimitArg: &graphql.InputObjectFieldConfig{
+				Type: graphql.NewNonNull(graphql.Int),
+			},
+			PageArg: &graphql.InputObjectFieldConfig{
 				Type: graphql.NewNonNull(graphql.Int),
 			},
 		},
@@ -254,8 +261,23 @@ func graphqlBucketUsagePage(types *TypeCreator) *graphql.Object {
 			FieldBucketUsages: &graphql.Field{
 				Type: graphql.NewList(types.bucketUsage),
 			},
-			FieldHasMore: &graphql.Field{
-				Type: graphql.Boolean,
+			SearchArg: &graphql.Field{
+				Type: graphql.String,
+			},
+			LimitArg: &graphql.Field{
+				Type: graphql.Int,
+			},
+			OffsetArg: &graphql.Field{
+				Type: graphql.Int,
+			},
+			FieldPageCount: &graphql.Field{
+				Type: graphql.Int,
+			},
+			FieldCurrentPage: &graphql.Field{
+				Type: graphql.Int,
+			},
+			FieldTotalCount: &graphql.Field{
+				Type: graphql.Int,
 			},
 		},
 	})
@@ -296,9 +318,10 @@ func fromMapProjectInfo(args map[string]interface{}) (project console.ProjectInf
 // fromMapBucketUsageCursor creates console.BucketUsageCursor from input args
 func fromMapBucketUsageCursor(args map[string]interface{}) (cursor console.BucketUsageCursor) {
 	limit, _ := args[LimitArg].(int)
-	after, _ := args[FieldAfterBucket].(string)
+	page, _ := args[PageArg].(int)
 
 	cursor.Limit = uint(limit)
-	cursor.AfterBucket = []byte(after)
+	cursor.Page = uint(page)
+	cursor.Search, _ = args[SearchArg].(string)
 	return
 }

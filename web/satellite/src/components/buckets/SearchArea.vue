@@ -5,7 +5,7 @@
 	<div class="search-container">
 		<div class="search-container__wrap">
 			<label class="search-container__wrap__input">
-				<input placeholder="Search Buckets" type="text">
+				<input v-model="search" v-on:input="fetch" placeholder="Search Buckets" type="text">
 			</label>
 		</div>
 	</div>
@@ -13,8 +13,28 @@
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
+	import { BUCKET_USAGE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
-    @Component({})
+    @Component({
+		methods: {
+            fetch: async function() {
+                const bucketsResponse = await this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, 0);
+                if (!bucketsResponse.isSuccess) {
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + bucketsResponse.errorMessage);
+                }
+            }
+        },
+		computed: {
+			search: {
+				get: function (): string {
+					return this.$store.state.bucketUsageModule.cursor.search;
+				},
+				set: function (search: string) {
+					this.$store.dispatch(BUCKET_USAGE_ACTIONS.SET_SEARCH, search)
+				}
+			}
+		}
+	})
 
     export default class SearchArea extends Vue {}
 </script>

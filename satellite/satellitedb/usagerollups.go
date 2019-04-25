@@ -5,6 +5,7 @@ package satellitedb
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -179,23 +180,57 @@ func (db *usagerollups) GetBucketUsageRollups(ctx context.Context, projectID uui
 
 // GetBucketTotals retrieves bucket usage totals for period of time
 func (db *usagerollups) GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor console.BucketUsageCursor, since, before time.Time) (*console.BucketUsagePage, error) {
-	bucketsQuery := db.db.Rebind(`SELECT DISTINCT bucket_name 
-			FROM bucket_bandwidth_rollups 
-			WHERE project_id = ? AND interval_start >= ? AND interval_start <= ?
-			AND bucket_name > ?
-			ORDER BY bucket_name ASC
-			LIMIT ?`)
+	search := fmt.Sprintf("%s%%", cursor.Search)
 
 	if cursor.Limit > 50 {
 		cursor.Limit = 50
 	}
+	if cursor.Page == 0 {
+		return nil, errs.New("page can not be 0")
+	}
+
+	page := &console.BucketUsagePage{
+		Search: cursor.Search,
+		Limit:  cursor.Limit,
+		Offset: uint64((cursor.Page - 1) * cursor.Limit),
+	}
+
+	countQuery := db.db.Rebind(`SELECT COUNT(DISTINCT bucket_name) 
+				FROM bucket_bandwidth_rollups 
+				WHERE project_id = ? AND interval_start >= ? AND interval_start <= ?
+				AND CAST(bucket_name as TEXT) LIKE ?`)
+
+	countRow := db.db.QueryRowContext(ctx,
+		countQuery,
+		[]byte(projectID.String()),
+		since, before,
+		search)
+
+	err := countRow.Scan(&page.TotalCount)
+	if err != nil {
+		return nil, err
+	}
+	if page.TotalCount == 0 {
+		return page, nil
+	}
+	if page.Offset > page.TotalCount-1 {
+		return nil, errs.New("page is out of range")
+	}
+
+	bucketsQuery := db.db.Rebind(`SELECT DISTINCT bucket_name 
+			FROM bucket_bandwidth_rollups 
+			WHERE project_id = ? AND interval_start >= ? AND interval_start <= ?
+			AND CAST(bucket_name as TEXT) LIKE ?
+			ORDER BY bucket_name ASC
+			LIMIT ? OFFSET ?`)
 
 	bucketRows, err := db.db.QueryContext(ctx,
 		bucketsQuery,
 		[]byte(projectID.String()),
 		since, before,
-		cursor.AfterBucket,
-		cursor.Limit+1)
+		search,
+		page.Limit,
+		page.Offset)
 
 	if err != nil {
 		return nil, err
@@ -221,7 +256,7 @@ func (db *usagerollups) GetBucketTotals(ctx context.Context, projectID uuid.UUID
 	storageQuery := db.db.All_BucketStorageTally_By_ProjectId_And_BucketName_And_IntervalStart_GreaterOrEqual_And_IntervalStart_LessOrEqual_OrderBy_Desc_IntervalStart
 
 	var bucketUsages []console.BucketUsage
-	for _, bucket := range buckets[:len(buckets)-1] {
+	for _, bucket := range buckets {
 		bucketUsage := console.BucketUsage{
 			ProjectID:  projectID,
 			BucketName: bucket,
@@ -280,12 +315,13 @@ func (db *usagerollups) GetBucketTotals(ctx context.Context, projectID uuid.UUID
 		bucketUsages = append(bucketUsages, bucketUsage)
 	}
 
-	page := new(console.BucketUsagePage)
-	page.BucketUsages = bucketUsages
-	if uint(len(buckets)) > cursor.Limit {
-		page.HasMore = true
+	page.PageCount = uint(page.TotalCount / uint64(cursor.Limit))
+	if page.TotalCount%uint64(cursor.Limit) != 0 {
+		page.PageCount++
 	}
 
+	page.BucketUsages = bucketUsages
+	page.CurrentPage = cursor.Page
 	return page, nil
 }
 

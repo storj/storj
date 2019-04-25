@@ -44,14 +44,22 @@ type BucketUsage struct {
 // BucketUsageCursor holds info for bucket usage
 // cursor pagination
 type BucketUsageCursor struct {
-	AfterBucket []byte
-	Limit uint
+	Search string
+	Limit  uint
+	Page   uint
 }
 
 // BucketUsagePage represents bucket usage page result
 type BucketUsagePage struct {
 	BucketUsages []BucketUsage
-	HasMore bool
+
+	Search string
+	Limit  uint
+	Offset uint64
+
+	PageCount   uint
+	CurrentPage uint
+	TotalCount  uint64
 }
 
 // BucketUsageRollup is total bucket usage info

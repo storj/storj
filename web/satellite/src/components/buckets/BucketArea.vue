@@ -12,13 +12,12 @@
 				<table style="width:98.5%; margin-top:20px;">
 					<SortingHeader />
                     <BucketItem v-for="bucket in buckets" v-bind:bucket="bucket" />
-					<BucketItem v-for="bucket in buckets" v-bind:bucket="bucket" />
 				</table>
 				<PaginationArea />
 			</div>
 		</div>
 		<EmptyState
-			v-if="pages.length === 0"
+			v-if="pages === 0"
 			mainTitle="You have no Buckets yet"
 			:imageSource="emptyImage" />
 	</div>
@@ -40,6 +39,8 @@
                 emptyImage: EMPTY_STATE_IMAGES.API_KEY
             };
         },
+		beforeMount: async function() {
+		},
         components: {
             EmptyState,
             SearchArea,
@@ -49,10 +50,10 @@
         },
 		computed: {
         	buckets: function () {
-				return this.$store.state.bucketUsageModule.currentPage.bucketUsages;
+				return this.$store.state.bucketUsageModule.page.bucketUsages;
 			},
 			pages: function () {
-        		return this.$store.state.bucketUsageModule.pages;
+        		return this.$store.state.bucketUsageModule.page.pageCount;
 			}
 		}
     })

@@ -4,10 +4,9 @@
 <template>
 	<tr class="container">
 		<td class="container__item">{{ bucket.bucketName }}</td>
-		<td class="container__item">{{ bucket.since }}</td>
-		<td class="container__item">{{ bucket.storage }}</td>
-		<td class="container__item">{{ bucket.egress }}</td>
-		<td class="container__item">{{ bucket.objectCount }}</td>
+		<td class="container__item">{{ storage }}</td>
+		<td class="container__item">{{ egress }}</td>
+		<td class="container__item">{{ objectCount }}</td>
 	</tr>
 </template>
 
@@ -17,6 +16,17 @@
     @Component({
 		props: {
 			bucket: Object
+		},
+		computed: {
+			storage: function (): string {
+                return (this as any).bucket.storage.toFixed(4);
+            },
+			egress: function (): string {
+				return (this as any).bucket.egress.toFixed(4);
+			},
+			objectCount: function (): string {
+				return (this as any).bucket.objectCount.toFixed(4);
+			}
 		}
 	})
 

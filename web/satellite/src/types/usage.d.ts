@@ -24,11 +24,17 @@ declare type BucketUsage = {
 // wether more usages available
 declare type BucketUsagePage = {
     bucketUsages: BucketUsage[],
-    hasMore: boolean
+    search: string,
+    limit: number,
+    offset: number,
+    pageCount: number,
+    currentPage: number,
+    totalCount: number,
 };
 
 // BucketUsageCursor holds cursor for bucket name and limit
 declare type BucketUsageCursor = {
-    afterBucket: string,
-    limit: number
+    search: string,
+    limit: number,
+    page: number
 };

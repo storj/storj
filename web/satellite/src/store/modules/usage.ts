@@ -35,58 +35,46 @@ export const usageModule = {
     }
 };
 
+const bucketPageLimit = 12;
+const firstPage = 1;
+
 export const bucketUsageModule = {
     state: {
-        pages: [] as BucketUsagePage[],
-        currentPage: {} as BucketUsagePage,
-        cursor: {limit:2} as BucketUsageCursor
+        cursor: { limit: bucketPageLimit, search: '', page: firstPage } as BucketUsageCursor,
+        page: { bucketUsages: [] as BucketUsage[] } as BucketUsagePage,
     },
     mutations: {
         [BUCKET_USAGE_MUTATIONS.FETCH](state: any, page: BucketUsagePage) {
-            state.pages = [page] as BucketUsagePage[];
-            state.currentPage = page;
-            if (page.hasMore) {
-                state.cursor.afterBucket = page.bucketUsages[page.bucketUsages.length-1];
-            }
+            state.page = page;
         },
-        [BUCKET_USAGE_MUTATIONS.FETCH_NEXT](state: any, page: BucketUsagePage) {
-            state.pages.push(page);
-            state.currentPage = page;
-            if (page.hasMore) {
-                state.cursor.afterBucket = page.bucketUsages[page.bucketUsages.length-1];
-            }
+        [BUCKET_USAGE_MUTATIONS.SET_PAGE](state: any, page: number) {
+           state.cursor.page = page;
+        },
+        [BUCKET_USAGE_MUTATIONS.SET_SEARCH](state: any, search: string) {
+            state.cursor.search = search;
         },
         [BUCKET_USAGE_MUTATIONS.CLEAR](state: any) {
-            state.pages = [] as BucketUsagePage[];
-            state.cursor.afterBucket = '';
-            state.currentPage = {} as BucketUsagePage;
+            state.cursor = { limit: bucketPageLimit, search: '', page: firstPage } as BucketUsageCursor;
+            state.page = { bucketUsages: [] as BucketUsage[] } as BucketUsagePage;
         }
     },
     actions: {
-        [BUCKET_USAGE_ACTIONS.FETCH]: async function({commit, rootGetters, state}: any, before: Date): Promise<RequestResponse<BucketUsagePage>> {
+        [BUCKET_USAGE_ACTIONS.FETCH]: async function({commit, rootGetters, state}: any, page: number): Promise<RequestResponse<BucketUsagePage>> {
             const projectID = rootGetters.selectedProject.id;
+            const before = new Date();
+            state.cursor.page = page;
 
-            commit(BUCKET_USAGE_MUTATIONS.CLEAR);
+            commit(BUCKET_USAGE_MUTATIONS.SET_PAGE, page);
+
             let result = await fetchBucketUsages(projectID, before, state.cursor);
-            console.log("action fetch: ", result);
             if (result.isSuccess) {
                 commit(BUCKET_USAGE_MUTATIONS.FETCH, result.data);
             }
 
             return result;
         },
-        [BUCKET_USAGE_ACTIONS.FETCH_NEXT]: async function({commit, rootGetters}: any, {before, cursor}: any): Promise<RequestResponse<BucketUsagePage>> {
-            const projectID = rootGetters.selectedProject.id;
-            before = before as Date;
-            cursor = cursor as BucketUsagePage;
-
-            let result = await fetchBucketUsages(projectID, before, cursor);
-
-            if (result.isSuccess) {
-                commit(BUCKET_USAGE_MUTATIONS.FETCH_NEXT, result.data);
-            }
-
-            return result;
+        [BUCKET_USAGE_ACTIONS.SET_SEARCH]: function({commit}, search: string) {
+            commit(BUCKET_USAGE_MUTATIONS.SET_SEARCH, search);
         },
         [BUCKET_USAGE_ACTIONS.CLEAR]: function({commit}) {
             commit(BUCKET_USAGE_MUTATIONS.CLEAR);
