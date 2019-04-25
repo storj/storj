@@ -78,6 +78,67 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		assert.Error(t, err)
 	}
 
+	{ // TestReliableAndOnline
+		for _, tt := range []struct {
+			nodeID             storj.NodeID
+			auditSuccessCount  int64
+			auditCount         int64
+			auditSuccessRatio  float64
+			uptimeSuccessCount int64
+			uptimeCount        int64
+			uptimeRatio        float64
+		}{
+			{storj.NodeID{1}, 20, 20, 1, 20, 20, 1},   // good audit success
+			{storj.NodeID{2}, 5, 20, 0.25, 20, 20, 1}, // bad audit success, good uptime
+			{storj.NodeID{3}, 20, 20, 1, 5, 20, 0.25}, // good audit success, bad uptime
+			{storj.NodeID{4}, 0, 0, 0, 20, 20, 1},     // "bad" audit success, but ok b/c no audits
+			{storj.NodeID{5}, 20, 20, 1, 0, 0, 0.25},  // "bad" uptime success, but ok b/c no checks
+			{storj.NodeID{6}, 0, 1, 0, 5, 5, 1},       // bad audit success exactly one audit
+			{storj.NodeID{7}, 0, 20, 0, 20, 20, 1},    // bad ratios, excluded from query
+		} {
+			nodeStats := &overlay.NodeStats{
+				AuditSuccessRatio:  tt.auditSuccessRatio,
+				UptimeRatio:        tt.uptimeRatio,
+				AuditCount:         tt.auditCount,
+				AuditSuccessCount:  tt.auditSuccessCount,
+				UptimeCount:        tt.uptimeCount,
+				UptimeSuccessCount: tt.uptimeSuccessCount,
+			}
+
+			err := cache.UpdateAddress(ctx, &pb.Node{Id: tt.nodeID})
+			require.NoError(t, err)
+
+			_, err = cache.CreateStats(ctx, tt.nodeID, nodeStats)
+			require.NoError(t, err)
+		}
+
+		nodeIds := storj.NodeIDList{
+			storj.NodeID{1}, storj.NodeID{2},
+			storj.NodeID{3}, storj.NodeID{4},
+			storj.NodeID{5}, storj.NodeID{6},
+		}
+		criteria := &overlay.NodeCriteria{
+			AuditSuccessRatio:  0.5,
+			UptimeSuccessRatio: 0.5,
+		}
+
+		goodNodes, err := cache.ReliableAndOnline(ctx, criteria, nodeIds)
+		require.NoError(t, err)
+		invalid := make(map[storj.NodeID]bool)
+		if err == nil {
+			for _, n := range nodeIds {
+				if _, ok := goodNodes[n]; !ok {
+					invalid[n] = true
+				}
+			}
+		}
+
+		assert.Contains(t, invalid, storj.NodeID{2})
+		assert.Contains(t, invalid, storj.NodeID{3})
+		assert.Contains(t, invalid, storj.NodeID{6})
+		assert.Len(t, invalid, 3)
+	}
+
 	{ // TestUpdateOperator
 		nodeID := storj.NodeID{10}
 		err := cache.UpdateAddress(ctx, &pb.Node{Id: nodeID})

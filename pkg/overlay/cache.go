@@ -48,8 +48,8 @@ type DB interface {
 	// GetAll looks up nodes based on the ids from the overlay cache
 	GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*NodeDossier, error)
 
-	// UnreliableOrOffline filters a set of nodes to unreliable or offlines node, independent of new
-	UnreliableOrOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
+	// ReliableAndOnline filters a set of nodes to reliable and onlines nodes, independent of new
+	ReliableAndOnline(context.Context, *NodeCriteria, storj.NodeIDList) (map[storj.NodeID]bool, error)
 	// List lists nodes starting from cursor
 	List(ctx context.Context, cursor storj.NodeID, limit int) ([]*NodeDossier, error)
 	// Paginate will page through the database nodes
@@ -172,23 +172,10 @@ func (cache *Cache) Get(ctx context.Context, nodeID storj.NodeID) (_ *NodeDossie
 	return cache.db.Get(ctx, nodeID)
 }
 
-// IsNew checks if a node is 'new' based on the collected statistics.
-func (cache *Cache) IsNew(node *NodeDossier) bool {
-	return node.Reputation.AuditCount < cache.preferences.AuditCount ||
-		node.Reputation.UptimeCount < cache.preferences.UptimeCount
-}
-
 // IsOnline checks if a node is 'online' based on the collected statistics.
 func (cache *Cache) IsOnline(node *NodeDossier) bool {
 	return time.Now().Sub(node.Reputation.LastContactSuccess) < OnlineWindow &&
 		node.Reputation.LastContactSuccess.After(node.Reputation.LastContactFailure)
-}
-
-// IsReliable checks if a node is 'reliable' based on the collected statistics.
-func (cache *Cache) IsReliable(node *NodeDossier) bool {
-	r, p := node.Reputation, cache.preferences
-	return r.AuditCount >= p.AuditCount && r.UptimeCount >= p.UptimeCount &&
-		r.AuditSuccessRatio >= p.AuditSuccessRatio && r.UptimeRatio >= p.UptimeRatio
 }
 
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
@@ -269,8 +256,23 @@ func (cache *Cache) GetAll(ctx context.Context, ids storj.NodeIDList) (_ []*Node
 	return cache.db.GetAll(ctx, ids)
 }
 
-// UnreliableOrOffline filters a set of nodes to unreliable or offlines node, independent of new
-func (cache *Cache) UnreliableOrOffline(ctx context.Context, nodeIds storj.NodeIDList) (goodNodes storj.NodeIDList, err error) {
+// UnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
+func (cache *Cache) UnreliableOrOffline(ctx context.Context, nodeIds storj.NodeIDList) (badNodes map[storj.NodeID]bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	badNodes = make(map[storj.NodeID]bool)
+	goodNodes, err := cache.ReliableAndOnline(ctx, nodeIds)
+	if err == nil {
+		for _, n := range nodeIds {
+			if _, ok := goodNodes[n]; !ok {
+				badNodes[n] = true
+			}
+		}
+	}
+	return badNodes, err
+}
+
+// ReliableAndOnline filters a set of nodes to reliable and onlines nodes, independent of new
+func (cache *Cache) ReliableAndOnline(ctx context.Context, nodeIds storj.NodeIDList) (goodNodes map[storj.NodeID]bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 	criteria := &NodeCriteria{
 		AuditCount:         cache.preferences.AuditCount,
@@ -278,7 +280,7 @@ func (cache *Cache) UnreliableOrOffline(ctx context.Context, nodeIds storj.NodeI
 		UptimeCount:        cache.preferences.UptimeCount,
 		UptimeSuccessRatio: cache.preferences.UptimeRatio,
 	}
-	return cache.db.UnreliableOrOffline(ctx, criteria, nodeIds)
+	return cache.db.ReliableAndOnline(ctx, criteria, nodeIds)
 }
 
 // Put adds a node id and proto definition into the overlay cache

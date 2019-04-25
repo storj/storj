@@ -169,8 +169,9 @@ func (cache *overlaycache) GetAll(ctx context.Context, ids storj.NodeIDList) ([]
 	return infos, nil
 }
 
-// UnreliableOrOffline filters a set of nodes to unreliable or offlines node, independent of new
-func (cache *overlaycache) UnreliableOrOffline(ctx context.Context, c *overlay.NodeCriteria, nodeIds storj.NodeIDList) (goodNodes storj.NodeIDList, err error) {
+// ReliableAndOnline filters a set of nodes to reliable and onlines nodes, independent of new
+func (cache *overlaycache) ReliableAndOnline(ctx context.Context, c *overlay.NodeCriteria, nodeIds storj.NodeIDList) (goodNodes map[storj.NodeID]bool, err error) {
+	goodNodes = make(map[storj.NodeID]bool)
 	if len(nodeIds) == 0 {
 		return nil, Error.New("no ids provided")
 	}
@@ -183,10 +184,9 @@ func (cache *overlaycache) UnreliableOrOffline(ctx context.Context, c *overlay.N
 	rows, err := cache.db.Query(cache.db.Rebind(`
 		SELECT id FROM nodes
 		WHERE id IN (?`+strings.Repeat(", ?", len(nodeIds)-1)+`)
-		AND ((audit_success_ratio <= ? AND total_audit_count != 0) 
-			OR (uptime_ratio <= ? AND total_uptime_count != 0)
-			OR last_contact_success <= ? OR last_contact_success <= last_contact_failure
-		)
+		AND (audit_success_ratio > ? OR total_audit_count = 0) 
+		AND (uptime_ratio > ? OR total_uptime_count = 0)
+		AND last_contact_success > ? AND last_contact_success > last_contact_failure
 	`), args...)
 
 	if err != nil {
@@ -199,9 +199,9 @@ func (cache *overlaycache) UnreliableOrOffline(ctx context.Context, c *overlay.N
 		var id storj.NodeID
 		err = rows.Scan(&id)
 		if err != nil {
-			return nil, err
+			return goodNodes, err
 		}
-		goodNodes = append(goodNodes, id)
+		goodNodes[id] = true
 	}
 	return goodNodes, nil
 }
