@@ -11,7 +11,7 @@
 			<div class="buckets-container">
 				<table style="width:98.5%; margin-top:20px;">
 					<SortingHeader />
-                    <BucketItem v-for="bucket in buckets" v-bind:bucket="bucket" />
+                    <BucketItem v-for="(bucket, index) in buckets" v-bind:bucket="bucket" v-bind:key="index" />
 				</table>
 				<PaginationArea />
 			</div>
@@ -31,7 +31,6 @@
     import PaginationArea from '@/components/buckets/PaginationArea.vue';
     import SortingHeader from '@/components/buckets/SortingHeader.vue';
     import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-	import { BUCKET_USAGE_ACTIONS } from '@/utils/constants/actionNames';
 
     @Component({
         data: function () {
