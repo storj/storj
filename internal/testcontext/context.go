@@ -20,7 +20,8 @@ import (
 	"storj.io/storj/internal/memory"
 )
 
-const defaultTimeout = 3 * time.Minute
+// DefaultTimeout is the default timeout used by new context
+const DefaultTimeout = 3 * time.Minute
 
 // Context is a context that has utility methods for testing and waiting for asynchronous errors.
 type Context struct {
@@ -55,9 +56,9 @@ type TB interface {
 	Fatal(args ...interface{})
 }
 
-// New creates a new test context
+// New creates a new test context with default timeout
 func New(test TB) *Context {
-	return NewWithTimeout(test, defaultTimeout)
+	return NewWithTimeout(test, DefaultTimeout)
 }
 
 // NewWithTimeout creates a new test context with a given timeout
@@ -106,7 +107,9 @@ func (ctx *Context) Check(fn func() error) {
 	}
 }
 
-// Dir returns a directory path inside temp
+// Dir creates a subdirectory inside temp and return its absolute path.
+//
+// subs are joined into a single path adding a separator if necessary.
 func (ctx *Context) Dir(subs ...string) string {
 	ctx.test.Helper()
 
@@ -120,11 +123,18 @@ func (ctx *Context) Dir(subs ...string) string {
 	})
 
 	dir := filepath.Join(append([]string{ctx.directory}, subs...)...)
-	_ = os.MkdirAll(dir, 0744)
+	err := os.MkdirAll(dir, 0744)
+	if err != nil {
+		ctx.test.Fatal(err)
+	}
 	return dir
 }
 
-// File returns a filepath inside temp
+// File returns a filepath inside temp.
+//
+// subs are joined into a single path adding a separator if necessary, being the
+// last one the name of the file. Directories are created, the file isn't
+// created.
 func (ctx *Context) File(subs ...string) string {
 	ctx.test.Helper()
 
@@ -137,7 +147,8 @@ func (ctx *Context) File(subs ...string) string {
 }
 
 // Cleanup waits everything to be completed,
-// checks errors and tries to cleanup directories
+// checks errors and goroutines which haven't ended and tries to cleanup
+// directories
 func (ctx *Context) Cleanup() {
 	ctx.test.Helper()
 
