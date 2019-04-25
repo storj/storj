@@ -102,9 +102,9 @@ func main() {
 						{xml.Name{Local: "name"}, "Panic"},
 					},
 				})
-				encoder.EncodeToken(xml.StartElement{xml.Name{Local: "system-out"}, nil})
+				encoder.EncodeToken(xml.StartElement{Name: xml.Name{Local: "failure"}, Attr: nil})
 				encoder.EncodeToken(xml.CharData(eventOutput(pkg.PanicEvents)))
-				encoder.EncodeToken(xml.EndElement{xml.Name{Local: "system-out"}})
+				encoder.EncodeToken(xml.EndElement{Name: xml.Name{Local: "failure"}})
 
 				encoder.EncodeToken(xml.EndElement{Name: xml.Name{Local: "testcase"}})
 			}
@@ -126,7 +126,8 @@ func main() {
 					encoder.EncodeToken(xml.CharData(eventOutput(t.Events)))
 					encoder.EncodeToken(xml.EndElement{xml.Name{Local: "system-out"}})
 
-					if t.Status() == parse.ActionSkip {
+					switch t.Status() {
+					case parse.ActionSkip:
 						encoder.EncodeToken(xml.StartElement{
 							Name: xml.Name{Local: "skipped"},
 							Attr: []xml.Attr{
@@ -134,6 +135,10 @@ func main() {
 							},
 						})
 						encoder.EncodeToken(xml.EndElement{Name: xml.Name{Local: "skipped"}})
+					case parse.ActionFail:
+						encoder.EncodeToken(xml.StartElement{Name: xml.Name{Local: "failure"}, Attr: nil})
+						encoder.EncodeToken(xml.CharData(t.Stack()))
+						encoder.EncodeToken(xml.EndElement{Name: xml.Name{Local: "failure"}})
 					}
 				}()
 			}
