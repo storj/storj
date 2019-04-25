@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package satellitedb_test
+package orders_test
 
 import (
 	"testing"

@@ -9,6 +9,12 @@ pipeline {
         stage('Build') {
             steps {
                 checkout scm
+
+                sh 'mkdir .build'
+
+                // make a backup of the mod file in case, for later linting
+                sh 'cp go.mod .build/go.mod.orig'
+                // download dependencies
                 sh 'go mod download'
 
                 sh 'go install -v -race ./...'
@@ -28,8 +34,7 @@ pipeline {
                         sh 'protolock status'
                         sh 'bash ./scripts/check-dbx-version.sh'
                         sh 'golangci-lint -j=4 run'
-                        // TODO: check for go mod tidy
-                        // TODO: check for directory tidy
+                        sh 'go run scripts/check-mod-tidy.go -mod .build/go.mod.orig'
                     }
                 }
 
@@ -38,14 +43,18 @@ pipeline {
                         STORJ_POSTGRES_TEST = 'postgres://postgres@localhost/teststorj?sslmode=disable'
                     }
                     steps {
+                        sh 'psql -U postgres -c \'alter system set max_connections = 1000;\''
                         sh 'psql -U postgres -c \'create database teststorj;\''
                         sh 'go run scripts/use-ports.go -from 1024 -to 10000 &'
-                        sh 'go test -vet=off -timeout 9m -json -race ./... | go run ./scripts/xunit.go -out tests.xml'
+                        sh 'go test -vet=off -timeout 9m -json -race ./... 2>&1 | tee .build/tests.json | go run ./scripts/xunit.go -out .build/tests.xml'
+                        sh 'go run scripts/check-clean-directory.go'
                     }
 
                     post {
                         always {
-                            junit 'tests.xml'
+                            sh script: 'cat .build/tests.json | tparse -all -top -slow 100', returnStatus: true
+                            archiveArtifacts artifacts: '.build/tests.json'
+                            junit '.build/tests.xml'
                         }
                     }
                 }
@@ -67,7 +76,8 @@ pipeline {
 
     post {
         always {
-          deleteDir()
+            sh "chmod -R 777 ." // ensure Jenkins agent can delete the working directory
+            deleteDir()
         }
     }
 }
