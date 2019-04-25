@@ -6,7 +6,6 @@ package uplink
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"time"
@@ -53,46 +52,35 @@ type EncryptionConfig struct {
 	PathType    int         `help:"Type of encryption to use for paths (0=Unencrypted, 1=AES-GCM, 2=SecretBox)" default:"1"`
 }
 
-// Key returns the root key for encrypting the data which is stored in the path
+// LoadKey returns the root key for encrypting the data which is stored in the path
 // indicated by KeyFilepath field.
 //
 // It returns an error if:
 //
 // * The file doesn't exist.
-// * The file doesn't have exactly 0400 permissions.
 // * There is an I/O error.
 //
 // TODO: WIP#if/v3-1541 refactor cache the key after the firs read. The problem
 // is with pkg/cfgstruct which is inflexible on accepting unexported keys nor
 // several different types as a type of storj.Key, [32]byte, etc.
-func (encCfg *EncryptionConfig) Key() (storj.Key, error) {
-	if encCfg.KeyFilepath == "" {
+func (cfg *EncryptionConfig) LoadKey() (key storj.Key, err error) {
+	if cfg.KeyFilepath == "" {
 		return storj.Key{}, nil
 	}
 
-	f, err := os.Open(encCfg.KeyFilepath)
+	file, err := os.Open(cfg.KeyFilepath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return storj.Key{}, Error.New("not found key file %q", encCfg.KeyFilepath)
+			return storj.Key{}, Error.New("not found key file %q", cfg.KeyFilepath)
 		}
 
-		return storj.Key{}, errs.Wrap(err)
+		return storj.Key{}, Error.Wrap(err)
 	}
 
-	fi, err := f.Stat()
-	if err != nil {
-		return storj.Key{}, errs.Wrap(err)
-	}
+	defer func() { err = errs.Combine(err, file.Close()) }()
 
-	if p := fi.Mode().Perm(); p != os.FileMode(0400) {
-		return storj.Key{}, Error.Wrap(
-			fmt.Errorf("permissions '%#o' for key file %q are too open", p, encCfg.KeyFilepath),
-		)
-	}
-
-	var key storj.Key
-	if _, err := f.Read(key[:]); err != nil && err != io.EOF {
-		return storj.Key{}, errs.Wrap(err)
+	if _, err := file.Read(key[:]); err != nil && err != io.EOF {
+		return storj.Key{}, Error.Wrap(err)
 	}
 
 	return key, nil
@@ -166,7 +154,7 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, err
 	}
 
-	key, err := c.Enc.Key()
+	key, err := c.Enc.LoadKey()
 	if err != nil {
 		return nil, nil, err
 	}

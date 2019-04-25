@@ -131,6 +131,13 @@ const (
 	NonceSize = 24
 )
 
+// NewKey creates a new key from a passphrase
+func NewKey(passphrase []byte) *Key {
+	key := &Key{}
+	copy(key[:], passphrase)
+	return key
+}
+
 // Key represents the largest key used by any encryption protocol
 type Key [KeySize]byte
 
