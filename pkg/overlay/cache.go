@@ -48,8 +48,8 @@ type DB interface {
 	// GetAll looks up nodes based on the ids from the overlay cache
 	GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*NodeDossier, error)
 
-	// UnhealthyOrOffline filters a set of nodes to unhealth or offlines node, independent of new
-	UnhealthyOrOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
+	// UnreliableOrOffline filters a set of nodes to unreliable or offlines node, independent of new
+	UnreliableOrOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
 	// List lists nodes starting from cursor
 	List(ctx context.Context, cursor storj.NodeID, limit int) ([]*NodeDossier, error)
 	// Paginate will page through the database nodes
@@ -174,7 +174,8 @@ func (cache *Cache) Get(ctx context.Context, nodeID storj.NodeID) (_ *NodeDossie
 
 // IsNew checks if a node is 'new' based on the collected statistics.
 func (cache *Cache) IsNew(node *NodeDossier) bool {
-	return node.Reputation.AuditCount < cache.preferences.AuditCount
+	return node.Reputation.AuditCount < cache.preferences.AuditCount ||
+		node.Reputation.UptimeCount < cache.preferences.UptimeCount
 }
 
 // IsOnline checks if a node is 'online' based on the collected statistics.
@@ -183,8 +184,8 @@ func (cache *Cache) IsOnline(node *NodeDossier) bool {
 		node.Reputation.LastContactSuccess.After(node.Reputation.LastContactFailure)
 }
 
-// IsHealthy checks if a node is 'valid' based on the collected statistics.
-func (cache *Cache) IsHealthy(node *NodeDossier) bool {
+// IsReliable checks if a node is 'reliable' based on the collected statistics.
+func (cache *Cache) IsReliable(node *NodeDossier) bool {
 	r, p := node.Reputation, cache.preferences
 	return r.AuditCount >= p.AuditCount && r.UptimeCount >= p.UptimeCount &&
 		r.AuditSuccessRatio >= p.AuditSuccessRatio && r.UptimeRatio >= p.UptimeRatio
@@ -268,19 +269,16 @@ func (cache *Cache) GetAll(ctx context.Context, ids storj.NodeIDList) (_ []*Node
 	return cache.db.GetAll(ctx, ids)
 }
 
-// UnhealthyOrOffline filters a set of nodes to unhealth or offlines node, independent of new
-func (cache *Cache) UnhealthyOrOffline(ctx context.Context, nodeIds storj.NodeIDList) (goodNodes storj.NodeIDList, err error) {
+// UnreliableOrOffline filters a set of nodes to unreliable or offlines node, independent of new
+func (cache *Cache) UnreliableOrOffline(ctx context.Context, nodeIds storj.NodeIDList) (goodNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
-	if len(nodeIds) == 0 {
-		return nil, OverlayError.New("no ids provided")
-	}
 	criteria := &NodeCriteria{
 		AuditCount:         cache.preferences.AuditCount,
 		AuditSuccessRatio:  cache.preferences.AuditSuccessRatio,
 		UptimeCount:        cache.preferences.UptimeCount,
 		UptimeSuccessRatio: cache.preferences.UptimeRatio,
 	}
-	return cache.db.UnhealthyOrOffline(ctx, criteria, nodeIds)
+	return cache.db.UnreliableOrOffline(ctx, criteria, nodeIds)
 }
 
 // Put adds a node id and proto definition into the overlay cache

@@ -169,8 +169,11 @@ func (cache *overlaycache) GetAll(ctx context.Context, ids storj.NodeIDList) ([]
 	return infos, nil
 }
 
-// UnhealthyOrOffline filters a set of nodes to unhealth or offlines node, independent of new
-func (cache *overlaycache) UnhealthyOrOffline(ctx context.Context, c *overlay.NodeCriteria, nodeIds storj.NodeIDList) (goodNodes storj.NodeIDList, err error) {
+// UnreliableOrOffline filters a set of nodes to unreliable or offlines node, independent of new
+func (cache *overlaycache) UnreliableOrOffline(ctx context.Context, c *overlay.NodeCriteria, nodeIds storj.NodeIDList) (goodNodes storj.NodeIDList, err error) {
+	if len(nodeIds) == 0 {
+		return nil, Error.New("no ids provided")
+	}
 	args := make([]interface{}, len(nodeIds))
 	for i, id := range nodeIds {
 		args[i] = id.Bytes()

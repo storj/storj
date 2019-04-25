@@ -717,11 +717,11 @@ func (m *lockedOverlayCache) List(ctx context.Context, cursor storj.NodeID, limi
 	return m.db.List(ctx, cursor, limit)
 }
 
-// UnhealthyOrOffline filters a set of nodes to unhealth or offlines node, independent of new
-func (m *lockedOverlayCache) UnhealthyOrOffline(ctx context.Context, a1 *overlay.NodeCriteria, a2 storj.NodeIDList) (storj.NodeIDList, error) {
+// UnreliableOrOffline filters a set of nodes to unreliable or offlines node, independent of new
+func (m *lockedOverlayCache) UnreliableOrOffline(ctx context.Context, a1 *overlay.NodeCriteria, a2 storj.NodeIDList) (storj.NodeIDList, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.UnhealthyOrOffline(ctx, a1, a2)
+	return m.db.UnreliableOrOffline(ctx, a1, a2)
 }
 
 // Paginate will page through the database nodes

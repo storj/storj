@@ -145,7 +145,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 		if err != nil {
 			endpoint.log.Info("upload failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Node ID", limit.StorageNodeId), zap.Error(err))
 		} else {
-			endpoint.log.Info("uploaded", zap.Stringer("Piece ID", limit.PieceId))
+			endpoint.log.Info("uploaded", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Action", limit.Action))
 		}
 	}()
 
@@ -313,7 +313,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 		if err != nil {
 			endpoint.log.Info("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Error(err))
 		} else {
-			endpoint.log.Info("downloaded", zap.Stringer("Piece ID", limit.PieceId))
+			endpoint.log.Info("downloaded", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Action", limit.Action))
 		}
 	}()
 
