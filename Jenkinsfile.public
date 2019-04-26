@@ -53,8 +53,11 @@ pipeline {
                         always {
                             sh script: 'cat .build/tests.json | tparse -all -top -slow 100', returnStatus: true
                             archiveArtifacts artifacts: '.build/tests.json'
-                            archiveArtifacts artifacts: '.build/coverprofile'
                             junit '.build/tests.xml'
+
+                            archiveArtifacts artifacts: '.build/coverprofile'
+                            sh script: 'gocov convert .build/coverprofile | gocov-xml > .build/cobertura.xml', returnStatus: true
+                            cobertura coberturaReportFile: '.build/cobertura.xml'
                         }
                     }
                 }
