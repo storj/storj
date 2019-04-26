@@ -103,8 +103,10 @@ type timeoutConn struct {
 
 func (conn *timeoutConn) Read(b []byte) (n int, err error) {
 	// deadline needs to be set before each read operation
-	conn.SetReadDeadline(time.Now().Add(conn.timeout))
-
+	err = conn.SetReadDeadline(time.Now().Add(conn.timeout))
+	if err != nil {
+		return err
+	}
 	return conn.conn.Read(b)
 }
 
