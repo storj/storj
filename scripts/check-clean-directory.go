@@ -22,9 +22,28 @@ func main() {
 		os.Exit(1)
 	}
 
-	if strings.TrimSpace(string(out)) != "" {
+	leftover := strings.Split(strings.TrimSpace(string(out)), "\n")
+	leftover = ignoreDir(leftover, ".build")
+
+	if len(leftover) != 0 {
 		fmt.Println("Files left-over after running tests:")
-		fmt.Println(string(out))
+		for _, file := range leftover {
+			fmt.Println(file)
+		}
 		os.Exit(1)
 	}
+}
+
+func ignoreDir(files []string, dir string) []string {
+	result := files[:0]
+	for _, file := range files {
+		if file == "" {
+			continue
+		}
+		if strings.HasPrefix(file, dir) {
+			continue
+		}
+		result = append(result, file)
+	}
+	return result
 }

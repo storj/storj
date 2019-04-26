@@ -12,6 +12,8 @@ RUN rm /etc/postgresql/11/main/pg_hba.conf; \
 	echo 'host    all             all             ::1/128                 trust' >> /etc/postgresql/11/main/pg_hba.conf; \
 	echo 'host    all             all             ::0/0                   trust' >> /etc/postgresql/11/main/pg_hba.conf;
 
+RUN echo 'max_connections = 1000' >> /etc/postgresql/11/main/conf.d/connectionlimits.conf
+
 COPY ./scripts/install-awscli.sh /tmp/install-awscli.sh
 RUN bash /tmp/install-awscli.sh
 ENV PATH "$PATH:/root/bin"
@@ -24,5 +26,9 @@ RUN go get github.com/ckaznocha/protoc-gen-lint
 RUN go get github.com/nilslice/protolock/cmd/protolock
 RUN go get github.com/mfridman/tparse
 RUN go get github.com/josephspurrier/goversioninfo
+
+RUN go get github.com/axw/gocov/gocov
+RUN go get github.com/AlekSi/gocov-xml
+RUN go get gopkg.in/matm/v1/gocov-html
 
 RUN go version

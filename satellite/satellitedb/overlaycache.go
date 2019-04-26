@@ -47,7 +47,7 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 	args := append(make([]interface{}, 0, 13),
 		nodeType, criteria.FreeBandwidth, criteria.FreeDisk,
 		criteria.AuditCount, criteria.AuditSuccessRatio, criteria.UptimeCount, criteria.UptimeSuccessRatio,
-		time.Now().Add(-overlay.OnlineWindow))
+		time.Now().Add(-criteria.OnlineWindow))
 
 	if criteria.MinimumVersion != "" {
 		v, err := version.NewSemVer(criteria.MinimumVersion)
@@ -73,7 +73,7 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 		  AND last_contact_success > ?
 		  AND last_contact_success > last_contact_failure`
 	args := append(make([]interface{}, 0, 10),
-		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditCount, criteria.AuditSuccessRatio, time.Now().Add(-overlay.OnlineWindow))
+		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditCount, criteria.AuditSuccessRatio, time.Now().Add(-criteria.OnlineWindow))
 
 	if criteria.MinimumVersion != "" {
 		v, err := version.NewSemVer(criteria.MinimumVersion)
@@ -165,28 +165,6 @@ func (cache *overlaycache) GetAll(ctx context.Context, ids storj.NodeIDList) ([]
 			continue
 		}
 		infos[i] = info
-	}
-	return infos, nil
-}
-
-// List lists nodes starting from cursor
-func (cache *overlaycache) List(ctx context.Context, cursor storj.NodeID, limit int) ([]*overlay.NodeDossier, error) {
-	// TODO: handle this nicer
-	if limit <= 0 || limit > storage.LookupLimit {
-		limit = storage.LookupLimit
-	}
-
-	dbxInfos, err := cache.db.Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx, dbx.Node_Id(cursor.Bytes()), limit, 0)
-	if err != nil {
-		return nil, err
-	}
-
-	infos := make([]*overlay.NodeDossier, len(dbxInfos))
-	for i, dbxInfo := range dbxInfos {
-		infos[i], err = convertDBNode(dbxInfo)
-		if err != nil {
-			return nil, err
-		}
 	}
 	return infos, nil
 }

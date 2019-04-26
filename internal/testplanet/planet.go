@@ -43,14 +43,13 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/piecestore/psserver"
-	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/orders"
@@ -437,8 +436,10 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				},
 			},
 			Kademlia: kademlia.Config{
-				Alpha:  5,
-				DBPath: storageDir, // TODO: replace with master db
+				Alpha:                5,
+				BootstrapBackoffBase: 500 * time.Millisecond,
+				BootstrapBackoffMax:  2 * time.Second,
+				DBPath:               storageDir, // TODO: replace with master db
 				Operator: kademlia.OperatorConfig{
 					Email:  prefix + "@example.com",
 					Wallet: "0x" + strings.Repeat("00", 20),
@@ -451,6 +452,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 					AuditSuccessRatio: 0,
 					AuditCount:        0,
 					NewNodePercentage: 0,
+					OnlineWindow:      time.Hour,
 				},
 			},
 			Discovery: discovery.Config{
@@ -459,7 +461,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				RefreshInterval:   1 * time.Second,
 				RefreshLimit:      100,
 			},
-			PointerDB: pointerdb.Config{
+			Metainfo: metainfo.Config{
 				DatabaseURL:          "bolt://" + filepath.Join(storageDir, "pointers.db"),
 				MinRemoteSegmentSize: 0, // TODO: fix tests to work with 1024
 				MaxInlineSegmentSize: 8000,
@@ -487,7 +489,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			Rollup: rollup.Config{
 				Interval:      2 * time.Minute,
 				MaxAlphaUsage: 25 * memory.GB,
-				DeleteTallies: true,
+				DeleteTallies: false,
 			},
 			Mail: mailservice.Config{
 				SMTPServerAddress: "smtp.mail.example.com:587",
@@ -586,14 +588,16 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 				},
 			},
 			Kademlia: kademlia.Config{
-				Alpha:  5,
-				DBPath: storageDir, // TODO: replace with master db
+				BootstrapBackoffBase: 500 * time.Millisecond,
+				BootstrapBackoffMax:  2 * time.Second,
+				Alpha:                5,
+				DBPath:               storageDir, // TODO: replace with master db
 				Operator: kademlia.OperatorConfig{
 					Email:  prefix + "@example.com",
 					Wallet: "0x" + strings.Repeat("00", 20),
 				},
 			},
-			Storage: psserver.Config{
+			Storage: piecestore.OldConfig{
 				Path:                   "", // TODO: this argument won't be needed with master storagenodedb
 				AllocatedDiskSpace:     1500 * memory.GB,
 				AllocatedBandwidth:     memory.TB,
@@ -681,8 +685,10 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 			},
 		},
 		Kademlia: kademlia.Config{
-			Alpha:  5,
-			DBPath: dbDir, // TODO: replace with master db
+			BootstrapBackoffBase: 500 * time.Millisecond,
+			BootstrapBackoffMax:  2 * time.Second,
+			Alpha:                5,
+			DBPath:               dbDir, // TODO: replace with master db
 			Operator: kademlia.OperatorConfig{
 				Email:  prefix + "@example.com",
 				Wallet: "0x" + strings.Repeat("00", 20),

@@ -27,13 +27,7 @@ type testData struct {
 
 func TestRollupNoDeletes(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 0,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Rollup.DeleteTallies = false
-			},
-		},
-	},
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 0},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			days := 5
 			testData := createData(planet, days)
@@ -87,7 +81,13 @@ func TestRollupNoDeletes(t *testing.T) {
 }
 func TestRollupDeletes(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 0},
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Rollup.DeleteTallies = true
+			},
+		},
+	},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			days := 5
 			testData := createData(planet, days)

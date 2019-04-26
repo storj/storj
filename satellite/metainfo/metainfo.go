@@ -24,7 +24,6 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/orders"
@@ -45,7 +44,7 @@ type APIKeys interface {
 // Endpoint metainfo endpoint
 type Endpoint struct {
 	log           *zap.Logger
-	pointerdb     *pointerdb.Service
+	metainfo      *Service
 	orders        *orders.Service
 	cache         *overlay.Cache
 	apiKeys       APIKeys
@@ -54,11 +53,11 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates new metainfo endpoint instance
-func NewEndpoint(log *zap.Logger, pointerdb *pointerdb.Service, orders *orders.Service, cache *overlay.Cache, apiKeys APIKeys, acctDB accounting.DB, maxAlphaUsage memory.Size) *Endpoint {
+func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, apiKeys APIKeys, acctDB accounting.DB, maxAlphaUsage memory.Size) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
 		log:           log,
-		pointerdb:     pointerdb,
+		metainfo:      metainfo,
 		orders:        orders,
 		cache:         cache,
 		apiKeys:       apiKeys,
@@ -112,7 +111,7 @@ func (endpoint *Endpoint) SegmentInfo(ctx context.Context, req *pb.SegmentInfoRe
 	}
 
 	// TODO refactor to use []byte directly
-	pointer, err := endpoint.pointerdb.Get(path)
+	pointer, err := endpoint.metainfo.Get(path)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
 			return nil, status.Errorf(codes.NotFound, err.Error())
@@ -218,7 +217,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	err = endpoint.pointerdb.Put(path, req.Pointer)
+	err = endpoint.metainfo.Put(path, req.Pointer)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
@@ -232,7 +231,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		}
 	}
 
-	pointer, err := endpoint.pointerdb.Get(path)
+	pointer, err := endpoint.metainfo.Get(path)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
@@ -277,7 +276,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	}
 
 	// TODO refactor to use []byte directly
-	pointer, err := endpoint.pointerdb.Get(path)
+	pointer, err := endpoint.metainfo.Get(path)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
 			return nil, status.Errorf(codes.NotFound, err.Error())
@@ -328,7 +327,7 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 	}
 
 	// TODO refactor to use []byte directly
-	pointer, err := endpoint.pointerdb.Get(path)
+	pointer, err := endpoint.metainfo.Get(path)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
 			return nil, status.Errorf(codes.NotFound, err.Error())
@@ -336,7 +335,7 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	err = endpoint.pointerdb.Delete(path)
+	err = endpoint.metainfo.Delete(path)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
@@ -373,7 +372,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.ListSegments
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	items, more, err := endpoint.pointerdb.List(prefix, string(req.StartAfter), string(req.EndBefore), req.Recursive, req.Limit, req.MetaFlags)
+	items, more, err := endpoint.metainfo.List(prefix, string(req.StartAfter), string(req.EndBefore), req.Recursive, req.Limit, req.MetaFlags)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "ListV2: %v", err)
 	}

@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package pointerdb
+package metainfo
 
 import (
 	"github.com/gogo/protobuf/proto"
@@ -20,7 +20,7 @@ type Service struct {
 	DB     storage.KeyValueStore
 }
 
-// NewService creates new pointerdb service
+// NewService creates new metainfo service
 func NewService(logger *zap.Logger, db storage.KeyValueStore) *Service {
 	return &Service{logger: logger, DB: db}
 }
