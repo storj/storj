@@ -5,6 +5,7 @@ package overlay_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -87,6 +88,7 @@ func TestNodeSelection(t *testing.T) {
 				Preferences: overlay.NodeSelectionConfig{
 					AuditCount:        0,
 					NewNodePercentage: 0,
+					OnlineWindow:      time.Hour,
 				},
 				RequestCount:  5,
 				ExpectedCount: 5,
@@ -95,6 +97,7 @@ func TestNodeSelection(t *testing.T) {
 				Preferences: overlay.NodeSelectionConfig{
 					AuditCount:        0,
 					NewNodePercentage: 1,
+					OnlineWindow:      time.Hour,
 				},
 				RequestCount:  5,
 				ExpectedCount: 5,
@@ -103,6 +106,7 @@ func TestNodeSelection(t *testing.T) {
 				Preferences: overlay.NodeSelectionConfig{
 					AuditCount:        1,
 					NewNodePercentage: 1,
+					OnlineWindow:      time.Hour,
 				},
 				RequestCount:  5,
 				ExpectedCount: 6,
@@ -111,6 +115,7 @@ func TestNodeSelection(t *testing.T) {
 				Preferences: overlay.NodeSelectionConfig{
 					AuditCount:        5,
 					NewNodePercentage: 1,
+					OnlineWindow:      time.Hour,
 				},
 				RequestCount:  2,
 				ExpectedCount: 4,
@@ -119,6 +124,7 @@ func TestNodeSelection(t *testing.T) {
 				Preferences: overlay.NodeSelectionConfig{
 					AuditCount:        5,
 					NewNodePercentage: 0.5,
+					OnlineWindow:      time.Hour,
 				},
 				RequestCount:  4,
 				ExpectedCount: 6,
@@ -127,6 +133,7 @@ func TestNodeSelection(t *testing.T) {
 				Preferences: overlay.NodeSelectionConfig{
 					AuditCount:        8,
 					NewNodePercentage: 1,
+					OnlineWindow:      time.Hour,
 				},
 				RequestCount:  1,
 				ExpectedCount: 2,
@@ -135,6 +142,7 @@ func TestNodeSelection(t *testing.T) {
 				Preferences: overlay.NodeSelectionConfig{
 					AuditCount:        9,
 					NewNodePercentage: 1,
+					OnlineWindow:      time.Hour,
 				},
 				RequestCount:   2,
 				ExpectedCount:  3,
@@ -144,6 +152,7 @@ func TestNodeSelection(t *testing.T) {
 				Preferences: overlay.NodeSelectionConfig{
 					AuditCount:        50,
 					NewNodePercentage: 1,
+					OnlineWindow:      time.Hour,
 				},
 				RequestCount:   2,
 				ExpectedCount:  2,
@@ -153,6 +162,7 @@ func TestNodeSelection(t *testing.T) {
 				Preferences: overlay.NodeSelectionConfig{
 					AuditCount:        9,
 					NewNodePercentage: 0,
+					OnlineWindow:      time.Hour,
 				},
 				RequestCount:  1,
 				ExpectedCount: 1,
@@ -161,6 +171,7 @@ func TestNodeSelection(t *testing.T) {
 				Preferences: overlay.NodeSelectionConfig{
 					AuditCount:        0,
 					NewNodePercentage: 1,
+					OnlineWindow:      time.Hour,
 				},
 				RequestCount:  1,
 				ExpectedCount: 1,
@@ -169,6 +180,7 @@ func TestNodeSelection(t *testing.T) {
 				Preferences: overlay.NodeSelectionConfig{
 					AuditCount:        5,
 					NewNodePercentage: 0,
+					OnlineWindow:      time.Hour,
 				},
 				ExcludeCount:   7,
 				RequestCount:   5,
