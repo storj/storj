@@ -5,6 +5,7 @@ package transport
 
 import (
 	"context"
+	"net"
 	"time"
 
 	"google.golang.org/grpc"
@@ -71,7 +72,13 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 		grpc.WithBlock(),
 		grpc.FailOnNonTempDialError(true),
 		grpc.WithUnaryInterceptor(InvokeTimeout{transport.requestTimeout}.Intercept),
-		grpc.WithStreamInterceptor(InvokeStreamTimeout{transport.requestTimeout}.Intercept),
+		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
+			conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", addr)
+			if err != nil {
+				return nil, err
+			}
+			return &timeoutConn{conn: conn, timeout: transport.requestTimeout}, nil
+		}),
 	}, opts...)
 
 	timedCtx, cancel := context.WithTimeout(ctx, defaultDialTimeout)
@@ -105,6 +112,13 @@ func (transport *Transport) DialAddress(ctx context.Context, address string, opt
 		grpc.FailOnNonTempDialError(true),
 		grpc.WithUnaryInterceptor(InvokeTimeout{transport.requestTimeout}.Intercept),
 		grpc.WithStreamInterceptor(InvokeStreamTimeout{transport.requestTimeout}.Intercept),
+		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
+			conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", addr)
+			if err != nil {
+				return nil, err
+			}
+			return &timeoutConn{conn: conn, timeout: transport.requestTimeout}, nil
+		}),
 	}, opts...)
 
 	timedCtx, cancel := context.WithTimeout(ctx, defaultDialTimeout)
