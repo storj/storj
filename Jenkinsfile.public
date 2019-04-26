@@ -63,7 +63,7 @@ pipeline {
                                 allowMissing: false,
                                 alwaysLinkToLastBuild: false,
                                 keepAll: true,
-                                reportDir: './build',
+                                reportDir: '.build',
                                 reportFiles: 'cover.html',
                                 reportName: 'gocov-html'
                             ]
