@@ -456,7 +456,6 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				},
 			},
 			Discovery: discovery.Config{
-				GraveyardInterval: 1 * time.Second,
 				DiscoveryInterval: 1 * time.Second,
 				RefreshInterval:   1 * time.Second,
 				RefreshLimit:      100,

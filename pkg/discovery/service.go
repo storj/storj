@@ -29,7 +29,6 @@ var (
 // Config loads on the configuration values for the cache
 type Config struct {
 	RefreshInterval   time.Duration `help:"the interval at which the cache refreshes itself in seconds" default:"1s"`
-	GraveyardInterval time.Duration `help:"the interval at which the the graveyard tries to resurrect nodes" default:"30s"`
 	DiscoveryInterval time.Duration `help:"the interval at which the satellite attempts to find new nodes via random node ID lookups" default:"1s"`
 	RefreshLimit      int           `help:"the amount of nodes refreshed at each interval" default:"100"`
 }
@@ -45,7 +44,6 @@ type Discovery struct {
 	refreshLimit  int
 
 	Refresh   sync2.Cycle
-	Graveyard sync2.Cycle
 	Discovery sync2.Cycle
 }
 
@@ -61,7 +59,6 @@ func New(logger *zap.Logger, ol *overlay.Cache, kad *kademlia.Kademlia, config C
 	}
 
 	discovery.Refresh.SetInterval(config.RefreshInterval)
-	discovery.Graveyard.SetInterval(config.GraveyardInterval)
 	discovery.Discovery.SetInterval(config.DiscoveryInterval)
 
 	return discovery
@@ -70,7 +67,6 @@ func New(logger *zap.Logger, ol *overlay.Cache, kad *kademlia.Kademlia, config C
 // Close closes resources
 func (discovery *Discovery) Close() error {
 	discovery.Refresh.Close()
-	discovery.Graveyard.Close()
 	discovery.Discovery.Close()
 	return nil
 }
