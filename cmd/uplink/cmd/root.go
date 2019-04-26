@@ -101,13 +101,7 @@ func (c *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, error
 		return nil, err
 	}
 
-	opts := &libuplink.ProjectOptions{}
-
-	encKey := new(storj.Key)
-	copy(encKey[:], c.Enc.Key)
-	opts.Volatile.EncryptionKey = encKey
-
-	project, err := uplink.OpenProject(ctx, satelliteAddr, apiKey, opts)
+	project, err := uplink.OpenProject(ctx, satelliteAddr, apiKey, nil)
 
 	if err != nil {
 		if err := uplink.Close(); err != nil {
