@@ -56,7 +56,19 @@ pipeline {
                             junit '.build/tests.xml'
 
                             archiveArtifacts artifacts: '.build/coverprofile'
-                            sh script: 'gocov convert .build/coverprofile | gocov-xml > .build/cobertura.xml', returnStatus: true
+                            sh script: 'gocov convert .build/coverprofile > .build/cover.json', returnStatus: true
+
+                            sh script: 'gocov-html < .build/cover.json > .build/cover.html', returnStatus: true
+                            publishHTML target: [
+                                allowMissing: false,
+                                alwaysLinkToLastBuild: false,
+                                keepAll: true,
+                                reportDir: './build',
+                                reportFiles: 'cover.html',
+                                reportName: 'gocov-html'
+                            ]
+
+                            sh script: 'gocov-xml  < .build/cover.json > .build/cobertura.xml', returnStatus: true
                             cobertura coberturaReportFile: '.build/cobertura.xml'
                         }
                     }
