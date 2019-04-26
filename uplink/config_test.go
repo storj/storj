@@ -63,7 +63,7 @@ func TestEncryptionConfig_LoadKey(t *testing.T) {
 		assert.Equal(t, expectedKey[:storj.KeySize], key[:])
 	})
 
-	t.Run("ok: empty file path", func(t *testing.T) {
+	t.Run("ok: empty file", func(t *testing.T) {
 		filename, cleanup := saveKey([]byte{})
 		defer cleanup()
 
@@ -73,6 +73,15 @@ func TestEncryptionConfig_LoadKey(t *testing.T) {
 		key, err := encCfg.LoadKey()
 		require.NoError(t, err)
 		assert.Equal(t, key, storj.Key{})
+	})
+
+	t.Run("error: KeyFilepath is empty", func(t *testing.T) {
+		encCfg := &EncryptionConfig{}
+
+		_, err := encCfg.LoadKey()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "KeyFilepath is empty")
+		assert.True(t, Error.Has(err), "err is not of %q class", Error)
 	})
 
 	t.Run("error: file not found", func(t *testing.T) {
