@@ -265,7 +265,7 @@ func ProcessWithEcho(r io.Reader) (parse.Packages, error) {
 		return nil, parse.ErrNotParseable
 	}
 	if hasRace {
-		return nil, parse.ErrRaceDetected
+		return pkgs, parse.ErrRaceDetected
 	}
 
 	return pkgs, nil
