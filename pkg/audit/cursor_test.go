@@ -36,8 +36,8 @@ func TestAuditSegment(t *testing.T) {
 		// note: to simulate better,
 		// change limit in library to 5 in
 		// list api call, default is  0 == 1000 listing
-		//populate pointerdb with 10 non-expired pointers of test data
-		tests, cursor, pointerdb := populateTestData(t, planet, &timestamp.Timestamp{Seconds: time.Now().Unix() + 3000})
+		//populate metainfo with 10 non-expired pointers of test data
+		tests, cursor, metainfo := populateTestData(t, planet, &timestamp.Timestamp{Seconds: time.Now().Unix() + 3000})
 
 		t.Run("NextStripe", func(t *testing.T) {
 			for _, tt := range tests {
@@ -46,9 +46,8 @@ func TestAuditSegment(t *testing.T) {
 					if err != nil {
 						require.Error(t, err)
 						require.Nil(t, stripe)
-					}
-					if stripe != nil {
-						require.Nil(t, err)
+					} else {
+						require.NotNil(t, stripe)
 					}
 				})
 			}
@@ -56,7 +55,7 @@ func TestAuditSegment(t *testing.T) {
 
 		// test to see how random paths are
 		t.Run("probabilisticTest", func(t *testing.T) {
-			list, _, err := pointerdb.List("", "", "", true, 10, meta.None)
+			list, _, err := metainfo.List("", "", "", true, 10, meta.None)
 			require.NoError(t, err)
 			require.Len(t, list, 10)
 
@@ -118,20 +117,16 @@ func TestDeleteExpired(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		//populate metainfo with 10 expired pointers of test data
-		tests, cursor, metainfo := populateTestData(t, planet, &timestamp.Timestamp{})
+		_, cursor, metainfo := populateTestData(t, planet, &timestamp.Timestamp{})
 		//make sure it they're in there
 		list, _, err := metainfo.List("", "", "", true, 10, meta.None)
 		require.NoError(t, err)
 		require.Len(t, list, 10)
-		// make sure its all null and no errors
+		// make sure an error and no pointer is returned
 		t.Run("NextStripe", func(t *testing.T) {
-			for _, tt := range tests {
-				t.Run(tt.bm, func(t *testing.T) {
-					stripe, err := cursor.NextStripe(ctx)
-					require.NoError(t, err)
-					require.Nil(t, stripe)
-				})
-			}
+			stripe, err := cursor.NextStripe(ctx)
+			require.Error(t, err)
+			require.Nil(t, stripe)
 		})
 		//make sure it they're not in there anymore
 		list, _, err = metainfo.List("", "", "", true, 10, meta.None)

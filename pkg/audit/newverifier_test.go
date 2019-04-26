@@ -17,15 +17,9 @@ import (
 )
 
 func TestVerifierHappyPath(t *testing.T) {
-	t.Skip("flaky")
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		// TODO (back story): the way NextStripe currently works, it will get a random segment
-		// from metainfo. If it picks an inline segment, it will return nil. If this happens
-		// 3 times in a row, the test will fail. Increasing the amount of iterations will
-		// decrease risk of flaking but not eliminate it. Kaloyan and Nat are working on refactoring NextStripe.
-
 		err := planet.Satellites[0].Audit.Service.Close()
 		require.NoError(t, err)
 
@@ -41,16 +35,9 @@ func TestVerifierHappyPath(t *testing.T) {
 		overlay := planet.Satellites[0].Overlay.Service
 		cursor := audit.NewCursor(metainfo)
 
-		var stripe *audit.Stripe
-		maxRetries := 3
-		for i := 0; i < maxRetries; i++ {
-			stripe, err = cursor.NextStripe(ctx)
-			if stripe != nil || err != nil {
-				break
-			}
-		}
+		stripe, err := cursor.NextStripe(ctx)
 		require.NoError(t, err)
-		require.NotNil(t, stripe, "unable to get stripe; likely no pointers in pointerdb")
+		require.NotNil(t, stripe)
 
 		transport := planet.Satellites[0].Transport
 		orders := planet.Satellites[0].Orders.Service
