@@ -30,15 +30,16 @@ type UplinkFlags struct {
 
 var cfg UplinkFlags
 
-var debugPprof = flag.Bool("debug.pprof", false, "if true, creates cpu.prof and memory.prof results in current directory")
+var cpuProfile = flag.String("profile.cpu", "", "file path of the cpu profile to be created")
+var memoryProfile = flag.String("profile.mem", "", "file path of the memory profile to be created")
 
 //RootCmd represents the base CLI command when called without any subcommands
 var RootCmd = &cobra.Command{
 	Use:                "uplink",
 	Short:              "The Storj client-side CLI",
 	Args:               cobra.OnlyValidArgs,
-	PersistentPreRunE:  startCPUProf,
-	PersistentPostRunE: stopCPUStartMemProf,
+	PersistentPreRunE:  startCPUProfile,
+	PersistentPostRunE: stopAndWriteProfile,
 }
 
 func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
@@ -85,9 +86,9 @@ func convertError(err error, path fpath.FPath) error {
 	return err
 }
 
-func startCPUProf(cmd *cobra.Command, args []string) error {
-	if *debugPprof {
-		f, err := os.Create("cpu.prof")
+func startCPUProfile(cmd *cobra.Command, args []string) error {
+	if *cpuProfile != "" {
+		f, err := os.Create(*cpuProfile)
 		if err != nil {
 			return err
 		}
@@ -98,16 +99,18 @@ func startCPUProf(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func stopCPUStartMemProf(cmd *cobra.Command, args []string) error {
-	if *debugPprof {
+func stopAndWriteProfile(cmd *cobra.Command, args []string) error {
+	if *cpuProfile != "" {
 		pprof.StopCPUProfile()
-		return runMemoryProf()
+	}
+	if *memoryProfile != "" {
+		return writeMemoryProfile()
 	}
 	return nil
 }
 
-func runMemoryProf() error {
-	f, err := os.Create("memory.prof")
+func writeMemoryProfile() error {
+	f, err := os.Create(*memoryProfile)
 	if err != nil {
 		return err
 	}
@@ -115,9 +118,5 @@ func runMemoryProf() error {
 	if err := pprof.WriteHeapProfile(f); err != nil {
 		return err
 	}
-	err = f.Close()
-	if err != nil {
-		return err
-	}
-	return nil
+	return f.Close()
 }
