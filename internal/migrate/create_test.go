@@ -5,8 +5,6 @@ package migrate_test
 
 import (
 	"database/sql"
-	"flag"
-	"os"
 	"strconv"
 	"testing"
 
@@ -14,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/dbutil/pgutil"
+	"storj.io/storj/internal/dbutil/pgutil/pgtest"
 	"storj.io/storj/internal/migrate"
 
 	_ "github.com/lib/pq"
@@ -44,19 +43,14 @@ func TestCreate_Sqlite(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// this connstring is expected to work under the storj-test docker-compose instance
-const defaultPostgresConn = "postgres://storj:storj-pass@test-postgres/teststorj?sslmode=disable"
-
-var testPostgres = flag.String("postgres-test-db2", os.Getenv("STORJ_POSTGRES_TEST"), "PostgreSQL test database connection string")
-
 func TestCreate_Postgres(t *testing.T) {
-	if *testPostgres == "" {
-		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", defaultPostgresConn)
+	if *pgtest.ConnStr == "" {
+		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", pgtest.DefaultConnStr)
 	}
 
 	schema := "create-" + pgutil.CreateRandomTestingSchemaName(8)
 
-	db, err := sql.Open("postgres", pgutil.ConnstrWithSchema(*testPostgres, schema))
+	db, err := sql.Open("postgres", pgutil.ConnstrWithSchema(*pgtest.ConnStr, schema))
 	if err != nil {
 		t.Fatal(err)
 	}

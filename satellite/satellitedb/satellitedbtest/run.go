@@ -6,29 +6,20 @@ package satellitedbtest
 // This package should be referenced only in test files!
 
 import (
-	"flag"
-	"os"
 	"strings"
 	"testing"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
-
 	"storj.io/storj/internal/dbutil/pgutil"
+	"storj.io/storj/internal/dbutil/pgutil/pgtest"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb"
 )
 
 const (
-	// DefaultPostgresConn is a connstring that works with docker-compose
-	DefaultPostgresConn = "postgres://storj:storj-pass@test-postgres/teststorj?sslmode=disable"
 	// DefaultSqliteConn is a connstring that is inmemory
 	DefaultSqliteConn = "sqlite3://file::memory:?mode=memory"
-)
-
-var (
-	// TestPostgres is flag for the postgres test database
-	TestPostgres = flag.String("postgres-test-db3", os.Getenv("STORJ_POSTGRES_TEST"), "PostgreSQL test database connection string")
 )
 
 // Database describes a test database
@@ -42,7 +33,7 @@ type Database struct {
 func Databases() []Database {
 	return []Database{
 		{"Sqlite", DefaultSqliteConn, ""},
-		{"Postgres", *TestPostgres, "Postgres flag missing, example: -postgres-test-db=" + DefaultPostgresConn},
+		{"Postgres", *pgtest.ConnStr, "Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultConnStr},
 	}
 }
 
