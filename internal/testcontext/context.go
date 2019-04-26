@@ -107,10 +107,9 @@ func (ctx *Context) Check(fn func() error) {
 	}
 }
 
-// Dir creates a subdirectory inside temp and return its absolute path.
-//
-// subs are joined into a single path adding a separator if necessary.
-func (ctx *Context) Dir(subs ...string) string {
+// Dir creates a subdirectory inside temp joining any number of path elements
+// into a single path and return its absolute path.
+func (ctx *Context) Dir(elem ...string) string {
 	ctx.test.Helper()
 
 	ctx.once.Do(func() {
@@ -122,7 +121,7 @@ func (ctx *Context) Dir(subs ...string) string {
 		}
 	})
 
-	dir := filepath.Join(append([]string{ctx.directory}, subs...)...)
+	dir := filepath.Join(append([]string{ctx.directory}, elem...)...)
 	err := os.MkdirAll(dir, 0744)
 	if err != nil {
 		ctx.test.Fatal(err)
@@ -130,20 +129,17 @@ func (ctx *Context) Dir(subs ...string) string {
 	return dir
 }
 
-// File returns a filepath inside temp.
-//
-// subs are joined into a single path adding a separator if necessary, being the
-// last one the name of the file. Directories are created, the file isn't
-// created.
-func (ctx *Context) File(subs ...string) string {
+// File returns a filepath inside a temp directory joining any number of path
+// elements into a single path and returns its absolute path.
+func (ctx *Context) File(elem ...string) string {
 	ctx.test.Helper()
 
-	if len(subs) == 0 {
+	if len(elem) == 0 {
 		ctx.test.Fatal("expected more than one argument")
 	}
 
-	dir := ctx.Dir(subs[:len(subs)-1]...)
-	return filepath.Join(dir, subs[len(subs)-1])
+	dir := ctx.Dir(elem[:len(elem)-1]...)
+	return filepath.Join(dir, elem[len(elem)-1])
 }
 
 // Cleanup waits everything to be completed,
