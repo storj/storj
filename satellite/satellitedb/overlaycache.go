@@ -170,8 +170,7 @@ func (cache *overlaycache) GetAll(ctx context.Context, ids storj.NodeIDList) ([]
 }
 
 // ReliableAndOnline filters a set of nodes to reliable and online nodes, independent of new
-func (cache *overlaycache) ReliableAndOnline(ctx context.Context, c *overlay.NodeCriteria, nodeIds storj.NodeIDList) (goodNodes map[storj.NodeID]bool, err error) {
-	goodNodes = make(map[storj.NodeID]bool)
+func (cache *overlaycache) ReliableAndOnline(ctx context.Context, c *overlay.NodeCriteria, nodeIds storj.NodeIDList) (goodNodes storj.NodeIDList, err error) {
 	if len(nodeIds) == 0 {
 		return nil, Error.New("no ids provided")
 	}
@@ -199,9 +198,47 @@ func (cache *overlaycache) ReliableAndOnline(ctx context.Context, c *overlay.Nod
 		var id storj.NodeID
 		err = rows.Scan(&id)
 		if err != nil {
-			return goodNodes, err
+			return nil, err
 		}
-		goodNodes[id] = true
+		goodNodes = append(goodNodes, id)
+	}
+	return goodNodes, nil
+}
+
+// UnreliableOrOffline filters a set of nodes to unreliable or offlines node, independent of new
+// Note that UnreliableOrOffline will not return node ids which are not in the database at all
+func (cache *overlaycache) UnreliableOrOffline(ctx context.Context, c *overlay.NodeCriteria, nodeIds storj.NodeIDList) (goodNodes storj.NodeIDList, err error) {
+	if len(nodeIds) == 0 {
+		return nil, Error.New("no ids provided")
+	}
+	args := make([]interface{}, len(nodeIds))
+	for i, id := range nodeIds {
+		args[i] = id.Bytes()
+	}
+	args = append(args, c.AuditSuccessRatio, c.UptimeSuccessRatio, time.Now().Add(-overlay.OnlineWindow))
+
+	rows, err := cache.db.Query(cache.db.Rebind(`
+		SELECT id FROM nodes
+		WHERE id IN (?`+strings.Repeat(", ?", len(nodeIds)-1)+`)
+		AND ((audit_success_ratio < ? AND total_audit_count != 0) 
+			OR (uptime_ratio < ? AND total_uptime_count != 0)
+			OR last_contact_success <= ? OR last_contact_success <= last_contact_failure
+		)
+	`), args...)
+
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+	for rows.Next() {
+		var id storj.NodeID
+		err = rows.Scan(&id)
+		if err != nil {
+			return nil, err
+		}
+		goodNodes = append(goodNodes, id)
 	}
 	return goodNodes, nil
 }

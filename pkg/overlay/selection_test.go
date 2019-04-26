@@ -40,12 +40,11 @@ func TestOffline(t *testing.T) {
 
 		result, err = service.UnreliableOrOffline(ctx, []storj.NodeID{
 			planet.StorageNodes[0].ID(),
-			storj.NodeID{1, 2, 3, 4},
+			storj.NodeID{1, 2, 3, 4}, //note that this succeeds by design
 			planet.StorageNodes[2].ID(),
 		})
 		require.NoError(t, err)
-		require.Len(t, result, 1)
-		require.Contains(t, result, storj.NodeID{1, 2, 3, 4})
+		require.Len(t, result, 0)
 	})
 }
 

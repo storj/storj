@@ -122,16 +122,8 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 			UptimeSuccessRatio: 0.5,
 		}
 
-		goodNodes, err := cache.ReliableAndOnline(ctx, criteria, nodeIds)
+		invalid, err := cache.UnreliableOrOffline(ctx, criteria, nodeIds)
 		require.NoError(t, err)
-		invalid := make(map[storj.NodeID]bool)
-		if err == nil {
-			for _, n := range nodeIds {
-				if _, ok := goodNodes[n]; !ok {
-					invalid[n] = true
-				}
-			}
-		}
 
 		assert.Contains(t, invalid, storj.NodeID{2})
 		assert.Contains(t, invalid, storj.NodeID{3})

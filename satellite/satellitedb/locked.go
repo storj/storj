@@ -717,18 +717,18 @@ func (m *lockedOverlayCache) List(ctx context.Context, cursor storj.NodeID, limi
 	return m.db.List(ctx, cursor, limit)
 }
 
-// ReliableAndOnline filters a set of nodes to reliable and online nodes, independent of new
-func (m *lockedOverlayCache) ReliableAndOnline(ctx context.Context, a1 *overlay.NodeCriteria, a2 storj.NodeIDList) (map[storj.NodeID]bool, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.ReliableAndOnline(ctx, a1, a2)
-}
-
 // Paginate will page through the database nodes
 func (m *lockedOverlayCache) Paginate(ctx context.Context, offset int64, limit int) ([]*overlay.NodeDossier, bool, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Paginate(ctx, offset, limit)
+}
+
+// ReliableAndOnline filters a set of nodes to reliable and online nodes, independent of new
+func (m *lockedOverlayCache) ReliableAndOnline(ctx context.Context, a1 *overlay.NodeCriteria, a2 storj.NodeIDList) (storj.NodeIDList, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.ReliableAndOnline(ctx, a1, a2)
 }
 
 // SelectNewStorageNodes looks up nodes based on new node criteria
@@ -743,6 +743,14 @@ func (m *lockedOverlayCache) SelectStorageNodes(ctx context.Context, count int, 
 	m.Lock()
 	defer m.Unlock()
 	return m.db.SelectStorageNodes(ctx, count, criteria)
+}
+
+// UnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
+// Note that UnreliableOrOffline will not return node ids which are not in the database at all
+func (m *lockedOverlayCache) UnreliableOrOffline(ctx context.Context, a1 *overlay.NodeCriteria, a2 storj.NodeIDList) (storj.NodeIDList, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UnreliableOrOffline(ctx, a1, a2)
 }
 
 // Update updates node address

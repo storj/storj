@@ -49,7 +49,10 @@ type DB interface {
 	GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*NodeDossier, error)
 
 	// ReliableAndOnline filters a set of nodes to reliable and online nodes, independent of new
-	ReliableAndOnline(context.Context, *NodeCriteria, storj.NodeIDList) (map[storj.NodeID]bool, error)
+	ReliableAndOnline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
+	// UnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
+	// Note that UnreliableOrOffline will not return node ids which are not in the database at all
+	UnreliableOrOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
 	// List lists nodes starting from cursor
 	List(ctx context.Context, cursor storj.NodeID, limit int) ([]*NodeDossier, error)
 	// Paginate will page through the database nodes
@@ -257,22 +260,20 @@ func (cache *Cache) GetAll(ctx context.Context, ids storj.NodeIDList) (_ []*Node
 }
 
 // UnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
-func (cache *Cache) UnreliableOrOffline(ctx context.Context, nodeIds storj.NodeIDList) (badNodes map[storj.NodeID]bool, err error) {
+// Note that UnreliableOrOffline will not return node ids which are not in the database at all
+func (cache *Cache) UnreliableOrOffline(ctx context.Context, nodeIds storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
-	badNodes = make(map[storj.NodeID]bool)
-	goodNodes, err := cache.ReliableAndOnline(ctx, nodeIds)
-	if err == nil {
-		for _, n := range nodeIds {
-			if _, ok := goodNodes[n]; !ok {
-				badNodes[n] = true
-			}
-		}
+	criteria := &NodeCriteria{
+		AuditCount:         cache.preferences.AuditCount,
+		AuditSuccessRatio:  cache.preferences.AuditSuccessRatio,
+		UptimeCount:        cache.preferences.UptimeCount,
+		UptimeSuccessRatio: cache.preferences.UptimeRatio,
 	}
-	return badNodes, err
+	return cache.db.UnreliableOrOffline(ctx, criteria, nodeIds)
 }
 
 // ReliableAndOnline filters a set of nodes to reliable and online nodes, independent of new
-func (cache *Cache) ReliableAndOnline(ctx context.Context, nodeIds storj.NodeIDList) (goodNodes map[storj.NodeID]bool, err error) {
+func (cache *Cache) ReliableAndOnline(ctx context.Context, nodeIds storj.NodeIDList) (goodNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	criteria := &NodeCriteria{
 		AuditCount:         cache.preferences.AuditCount,
