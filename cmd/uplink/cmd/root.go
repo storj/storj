@@ -94,7 +94,7 @@ func (cliCfg *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, 
 		return nil, err
 	}
 
-	project, err := uplk.OpenProject(ctx, cliCfg.Client.SatelliteAddr, apiKey, opts)
+	project, err := uplk.OpenProject(ctx, cliCfg.Client.SatelliteAddr, apiKey, nil)
 	if err != nil {
 		if err := uplk.Close(); err != nil {
 			fmt.Printf("error closing uplink: %+v\n", err)
