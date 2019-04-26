@@ -184,8 +184,8 @@ func (cache *overlaycache) ReliableAndOnline(ctx context.Context, c *overlay.Nod
 	rows, err := cache.db.Query(cache.db.Rebind(`
 		SELECT id FROM nodes
 		WHERE id IN (?`+strings.Repeat(", ?", len(nodeIds)-1)+`)
-		AND (audit_success_ratio > ? OR total_audit_count = 0) 
-		AND (uptime_ratio > ? OR total_uptime_count = 0)
+		AND (audit_success_ratio >= ? OR total_audit_count = 0) 
+		AND (uptime_ratio >= ? OR total_uptime_count = 0)
 		AND last_contact_success > ? AND last_contact_success > last_contact_failure
 	`), args...)
 
