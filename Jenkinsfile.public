@@ -8,7 +8,7 @@ pipeline {
     stages {
         stage('Build') {
             environment {
-                FLAGTEST = "${ branch 'master' ? 'alpha' : 'beta'}"
+                FLAGTEST = "${ env.BRANCH_NAME == 'master' ? 'alpha' : 'beta'}"
             }
             steps {
                 checkout scm
