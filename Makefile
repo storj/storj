@@ -253,5 +253,3 @@ clean-images:
 test-docker-clean: ## Clean up Docker environment used in test-docker target
 	-docker-compose down --rmi all
 
-cover:
-	go test -vet=off -cover -coverprofile=.coverprofile -coverpkg=storj.io/storj/pkg/...,storj.io/storj/satellite/...,storj.io/storj/storagenode/...,storj.io/storj/uplink/...,storj.io/storj/storage/...,storj.io/storj/lib/...,storj.io/storj/internal/...,storj.io/storj/versioncontrol/... ./...
