@@ -57,38 +57,38 @@ type BucketConfig struct {
 	}
 }
 
-func (cfg *BucketConfig) clone() *BucketConfig {
-	clone := *cfg
+func (c *BucketConfig) clone() *BucketConfig {
+	clone := *c
 	return &clone
 }
 
-func (cfg *BucketConfig) setDefaults() {
-	if cfg.PathCipher == storj.EncUnspecified {
-		cfg.PathCipher = defaultCipher
+func (c *BucketConfig) setDefaults() {
+	if c.PathCipher == storj.EncUnspecified {
+		c.PathCipher = defaultCipher
 	}
-	if cfg.EncryptionParameters.CipherSuite == storj.EncUnspecified {
-		cfg.EncryptionParameters.CipherSuite = defaultCipher
+	if c.EncryptionParameters.CipherSuite == storj.EncUnspecified {
+		c.EncryptionParameters.CipherSuite = defaultCipher
 	}
-	if cfg.EncryptionParameters.BlockSize == 0 {
-		cfg.EncryptionParameters.BlockSize = (1 * memory.KiB).Int32()
+	if c.EncryptionParameters.BlockSize == 0 {
+		c.EncryptionParameters.BlockSize = (1 * memory.KiB).Int32()
 	}
-	if cfg.Volatile.RedundancyScheme.RequiredShares == 0 {
-		cfg.Volatile.RedundancyScheme.RequiredShares = 29
+	if c.Volatile.RedundancyScheme.RequiredShares == 0 {
+		c.Volatile.RedundancyScheme.RequiredShares = 29
 	}
-	if cfg.Volatile.RedundancyScheme.RepairShares == 0 {
-		cfg.Volatile.RedundancyScheme.RepairShares = 35
+	if c.Volatile.RedundancyScheme.RepairShares == 0 {
+		c.Volatile.RedundancyScheme.RepairShares = 35
 	}
-	if cfg.Volatile.RedundancyScheme.OptimalShares == 0 {
-		cfg.Volatile.RedundancyScheme.OptimalShares = 80
+	if c.Volatile.RedundancyScheme.OptimalShares == 0 {
+		c.Volatile.RedundancyScheme.OptimalShares = 80
 	}
-	if cfg.Volatile.RedundancyScheme.TotalShares == 0 {
-		cfg.Volatile.RedundancyScheme.TotalShares = 95
+	if c.Volatile.RedundancyScheme.TotalShares == 0 {
+		c.Volatile.RedundancyScheme.TotalShares = 95
 	}
-	if cfg.Volatile.RedundancyScheme.ShareSize == 0 {
-		cfg.Volatile.RedundancyScheme.ShareSize = (1 * memory.KiB).Int32()
+	if c.Volatile.RedundancyScheme.ShareSize == 0 {
+		c.Volatile.RedundancyScheme.ShareSize = (1 * memory.KiB).Int32()
 	}
-	if cfg.Volatile.SegmentsSize.Int() == 0 {
-		cfg.Volatile.SegmentsSize = 64 * memory.MiB
+	if c.Volatile.SegmentsSize.Int() == 0 {
+		c.Volatile.SegmentsSize = 64 * memory.MiB
 	}
 }
 

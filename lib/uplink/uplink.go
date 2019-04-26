@@ -75,16 +75,16 @@ type Config struct {
 	}
 }
 
-func (cfg *Config) clone() *Config {
-	clone := *cfg
+func (c *Config) clone() *Config {
+	clone := *c
 	return &clone
 }
 
-func (cfg *Config) setDefaults(ctx context.Context) error {
-	if cfg.Volatile.UseIdentity == nil {
+func (c *Config) setDefaults(ctx context.Context) error {
+	if c.Volatile.UseIdentity == nil {
 		var err error
-		cfg.Volatile.UseIdentity, err = identity.NewFullIdentity(ctx, identity.NewCAOptions{
-			VersionNumber: cfg.Volatile.IdentityVersion.Number,
+		c.Volatile.UseIdentity, err = identity.NewFullIdentity(ctx, identity.NewCAOptions{
+			VersionNumber: c.Volatile.IdentityVersion.Number,
 			Difficulty:    0,
 			Concurrency:   1,
 		})
@@ -92,20 +92,20 @@ func (cfg *Config) setDefaults(ctx context.Context) error {
 			return err
 		}
 	}
-	idVersion, err := cfg.Volatile.UseIdentity.Version()
+	idVersion, err := c.Volatile.UseIdentity.Version()
 	if err != nil {
 		return err
 	}
-	if idVersion.Number != cfg.Volatile.IdentityVersion.Number {
-		return storj.ErrVersion.New("`UseIdentity` version (%d) didn't match version in config (%d)", idVersion.Number, cfg.Volatile.IdentityVersion.Number)
+	if idVersion.Number != c.Volatile.IdentityVersion.Number {
+		return storj.ErrVersion.New("`UseIdentity` version (%d) didn't match version in config (%d)", idVersion.Number, c.Volatile.IdentityVersion.Number)
 	}
-	if cfg.Volatile.MaxInlineSize == 0 {
-		cfg.Volatile.MaxInlineSize = 4 * memory.KiB
+	if c.Volatile.MaxInlineSize == 0 {
+		c.Volatile.MaxInlineSize = 4 * memory.KiB
 	}
-	if cfg.Volatile.MaxMemory.Int() == 0 {
-		cfg.Volatile.MaxMemory = 4 * memory.MiB
-	} else if cfg.Volatile.MaxMemory.Int() < 0 {
-		cfg.Volatile.MaxMemory = 0
+	if c.Volatile.MaxMemory.Int() == 0 {
+		c.Volatile.MaxMemory = 4 * memory.MiB
+	} else if c.Volatile.MaxMemory.Int() < 0 {
+		c.Volatile.MaxMemory = 0
 	}
 	return nil
 }
