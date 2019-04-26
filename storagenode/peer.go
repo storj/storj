@@ -18,9 +18,6 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/piecestore/psserver"
-	"storj.io/storj/pkg/piecestore/psserver/agreementsender"
-	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
@@ -50,7 +47,6 @@ type DB interface {
 	UsedSerials() piecestore.UsedSerials
 
 	// TODO: use better interfaces
-	PSDB() *psdb.DB
 	RoutingTable() (kdb, ndb storage.KeyValueStore)
 }
 
@@ -60,8 +56,8 @@ type Config struct {
 
 	Server   server.Config
 	Kademlia kademlia.Config
-	Storage  psserver.Config
 
+	Storage  piecestore.OldConfig
 	Storage2 piecestore.Config
 
 	Version version.Config
@@ -92,10 +88,6 @@ type Peer struct {
 		Service      *kademlia.Kademlia
 		Endpoint     *kademlia.Endpoint
 		Inspector    *kademlia.Inspector
-	}
-
-	Agreements struct {
-		Sender *agreementsender.AgreementSender
 	}
 
 	Storage2 struct {
@@ -189,15 +181,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		pb.RegisterKadInspectorServer(peer.Server.PrivateGRPC(), peer.Kademlia.Inspector)
 	}
 
-	{ // agreements
-		config := config.Storage // TODO: separate config
-		peer.Agreements.Sender = agreementsender.New(
-			peer.Log.Named("agreements"),
-			peer.DB.PSDB(), peer.Transport, peer.Kademlia.Service,
-			config.AgreementSenderCheckInterval,
-		)
-	}
-
 	{ // setup storage 2
 		trustAllSatellites := !config.Storage.SatelliteIDRestriction
 		peer.Storage2.Trust, err = trust.NewPool(peer.Kademlia.Service, trustAllSatellites, config.Storage.WhitelistedSatelliteIDs)
@@ -241,7 +224,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			peer.DB.PieceInfo(),
 			peer.Kademlia.Service,
 			peer.DB.Bandwidth(),
-			peer.DB.PSDB(),
 			config.Storage,
 		)
 		pb.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage2.Inspector)
@@ -270,9 +252,6 @@ func (peer *Peer) Run(ctx context.Context) error {
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Kademlia.Service.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Agreements.Sender.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Storage2.Sender.Run(ctx))
