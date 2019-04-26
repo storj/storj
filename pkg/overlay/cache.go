@@ -42,8 +42,6 @@ type DB interface {
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
 	// GetAll looks up nodes based on the ids from the overlay cache
 	GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*NodeDossier, error)
-	// List lists nodes starting from cursor
-	List(ctx context.Context, cursor storj.NodeID, limit int) ([]*NodeDossier, error)
 	// Paginate will page through the database nodes
 	Paginate(ctx context.Context, offset int64, limit int) ([]*NodeDossier, bool, error)
 
@@ -135,13 +133,6 @@ func (cache *Cache) Close() error { return nil }
 func (cache *Cache) Inspect(ctx context.Context) (storage.Keys, error) {
 	// TODO: implement inspection tools
 	return nil, errors.New("not implemented")
-}
-
-// List returns a list of nodes from the cache DB
-func (cache *Cache) List(ctx context.Context, cursor storj.NodeID, limit int) (_ []*NodeDossier, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	return cache.db.List(ctx, cursor, limit)
 }
 
 // Paginate returns a list of `limit` nodes starting from `start` offset.
