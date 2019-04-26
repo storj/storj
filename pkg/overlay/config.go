@@ -40,7 +40,7 @@ type NodeSelectionConfig struct {
 	AuditCount        int64         `help:"the number of times a node has been audited to not be considered a New Node" releaseDefault:"500" devDefault:"0"`
 	NewNodePercentage float64       `help:"the percentage of new nodes allowed per request" default:"0.05"` // TODO: fix, this is not percentage, it's ratio
 	MinimumVersion    string        `help:"the minimum node software version for node selection queries" default:""`
-	OnlineWindow      time.Duration `help:"the amount of time without seeing a node before its considered offline" default:"1h"` //todo:  wire up instead of constants
+	OnlineWindow      time.Duration `help:"the amount of time without seeing a node before its considered offline" default:"1h"`
 }
 
 // ParseIDs converts the base58check encoded node ID strings from the config into node IDs

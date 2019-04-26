@@ -39,17 +39,12 @@ func TestGetShareTimeout(t *testing.T) {
 		err = uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		pointerdb := planet.Satellites[0].Metainfo.Service
+		metainfo := planet.Satellites[0].Metainfo.Service
 		overlay := planet.Satellites[0].Overlay.Service
-		cursor := audit.NewCursor(pointerdb)
+		cursor := audit.NewCursor(metainfo)
 
 		var stripe *audit.Stripe
-		for {
-			stripe, err = cursor.NextStripe(ctx)
-			if stripe != nil || err != nil {
-				break
-			}
-		}
+		stripe, err = cursor.NextStripe(ctx)
 		require.NoError(t, err)
 		require.NotNil(t, stripe)
 

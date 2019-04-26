@@ -43,7 +43,7 @@ export const usersModule = {
     },
 
     actions: {
-        updateAccount: async function ({commit}: any, userInfo: User): Promise<RequestResponse<User>> {
+        updateAccount: async function ({commit}: any, userInfo: UpdatedUser): Promise<RequestResponse<User>> {
             let response = await updateAccountRequest(userInfo);
             
             if (response.isSuccess) {

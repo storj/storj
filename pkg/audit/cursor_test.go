@@ -19,9 +19,9 @@ import (
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/metainfo"
 )
 
 func TestAuditSegment(t *testing.T) {
@@ -36,8 +36,8 @@ func TestAuditSegment(t *testing.T) {
 		// note: to simulate better,
 		// change limit in library to 5 in
 		// list api call, default is  0 == 1000 listing
-		//populate pointerdb with 10 non-expired pointers of test data
-		tests, cursor, pointerdb := populateTestData(t, planet, &timestamp.Timestamp{Seconds: time.Now().Unix() + 3000})
+		//populate metainfo with 10 non-expired pointers of test data
+		tests, cursor, metainfo := populateTestData(t, planet, &timestamp.Timestamp{Seconds: time.Now().Unix() + 3000})
 
 		t.Run("NextStripe", func(t *testing.T) {
 			for _, tt := range tests {
@@ -46,9 +46,8 @@ func TestAuditSegment(t *testing.T) {
 					if err != nil {
 						require.Error(t, err)
 						require.Nil(t, stripe)
-					}
-					if stripe != nil {
-						require.Nil(t, err)
+					} else {
+						require.NotNil(t, stripe)
 					}
 				})
 			}
@@ -56,7 +55,7 @@ func TestAuditSegment(t *testing.T) {
 
 		// test to see how random paths are
 		t.Run("probabilisticTest", func(t *testing.T) {
-			list, _, err := pointerdb.List("", "", "", true, 10, meta.None)
+			list, _, err := metainfo.List("", "", "", true, 10, meta.None)
 			require.NoError(t, err)
 			require.Len(t, list, 10)
 
@@ -117,24 +116,20 @@ func TestDeleteExpired(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		//populate pointerdb with 10 expired pointers of test data
-		tests, cursor, pointerdb := populateTestData(t, planet, &timestamp.Timestamp{})
+		//populate metainfo with 10 expired pointers of test data
+		_, cursor, metainfo := populateTestData(t, planet, &timestamp.Timestamp{})
 		//make sure it they're in there
-		list, _, err := pointerdb.List("", "", "", true, 10, meta.None)
+		list, _, err := metainfo.List("", "", "", true, 10, meta.None)
 		require.NoError(t, err)
 		require.Len(t, list, 10)
-		// make sure its all null and no errors
+		// make sure an error and no pointer is returned
 		t.Run("NextStripe", func(t *testing.T) {
-			for _, tt := range tests {
-				t.Run(tt.bm, func(t *testing.T) {
-					stripe, err := cursor.NextStripe(ctx)
-					require.NoError(t, err)
-					require.Nil(t, stripe)
-				})
-			}
+			stripe, err := cursor.NextStripe(ctx)
+			require.Error(t, err)
+			require.Nil(t, stripe)
 		})
 		//make sure it they're not in there anymore
-		list, _, err = pointerdb.List("", "", "", true, 10, meta.None)
+		list, _, err = metainfo.List("", "", "", true, 10, meta.None)
 		require.NoError(t, err)
 		require.Len(t, list, 0)
 	})
@@ -145,7 +140,7 @@ type testData struct {
 	path storj.Path
 }
 
-func populateTestData(t *testing.T, planet *testplanet.Planet, expiration *timestamp.Timestamp) ([]testData, *audit.Cursor, *pointerdb.Service) {
+func populateTestData(t *testing.T, planet *testplanet.Planet, expiration *timestamp.Timestamp) ([]testData, *audit.Cursor, *metainfo.Service) {
 	tests := []testData{
 		{bm: "success-1", path: "folder1/file1"},
 		{bm: "success-2", path: "foodFolder1/file1/file2"},
@@ -158,19 +153,19 @@ func populateTestData(t *testing.T, planet *testplanet.Planet, expiration *times
 		{bm: "success-9", path: "Pictures/Animals/Dogs/dogs.png"},
 		{bm: "success-10", path: "Nada/ビデオ/😶"},
 	}
-	pointerdb := planet.Satellites[0].Metainfo.Service
-	cursor := audit.NewCursor(pointerdb)
+	metainfo := planet.Satellites[0].Metainfo.Service
+	cursor := audit.NewCursor(metainfo)
 
 	// put 10 pointers in db with expirations
 	t.Run("putToDB", func(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.bm, func(t *testing.T) {
 				pointer := makePointer(tt.path, expiration)
-				require.NoError(t, pointerdb.Put(tt.path, pointer))
+				require.NoError(t, metainfo.Put(tt.path, pointer))
 			})
 		}
 	})
-	return tests, cursor, pointerdb
+	return tests, cursor, metainfo
 }
 
 func makePointer(path storj.Path, expiration *timestamp.Timestamp) *pb.Pointer {

@@ -20,6 +20,8 @@ export const appStateModule = {
             isSortProjectMembersByPopupShown: false,
             isSuccessfulRegistrationPopupShown: false,
             isSuccessfulProjectCreationPopupShown: false,
+            isEditProfilePopupShown: false,
+            isChangePasswordPopupShown: false,
         },
     },
     mutations: {
@@ -66,6 +68,12 @@ export const appStateModule = {
         // Mutation changing 'successful project creation' popup visibility
         [APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP](state: any): void {
             state.appState.isSuccessfulProjectCreationPopupShown = !state.appState.isSuccessfulProjectCreationPopupShown;
+        },
+        [APP_STATE_MUTATIONS.TOGGLE_CHANGE_PASSWORD_POPUP](state: any): void {
+            state.appState.isChangePasswordPopupShown = !state.appState.isChangePasswordPopupShown;
+        },
+        [APP_STATE_MUTATIONS.TOGGLE_EDIT_PROFILE_POPUP](state: any): void {
+            state.appState.isEditProfilePopupShown = !state.appState.isEditProfilePopupShown;
         },
         // Mutation that closes each popup/dropdown
         [APP_STATE_MUTATIONS.CLOSE_ALL](state: any): void {
@@ -148,6 +156,12 @@ export const appStateModule = {
             }
 
             commit(APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP);
+        },
+        [APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP]: function ({commit}: any): void {
+            commit(APP_STATE_MUTATIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
+        },
+        [APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP]: function ({commit}: any): void {
+            commit(APP_STATE_MUTATIONS.TOGGLE_EDIT_PROFILE_POPUP);
         },
         [APP_STATE_ACTIONS.CLOSE_POPUPS]: function ({commit}: any): void {
             commit(APP_STATE_MUTATIONS.CLOSE_ALL);
