@@ -696,13 +696,6 @@ func (m *lockedOverlayCache) CreateStats(ctx context.Context, nodeID storj.NodeI
 	return m.db.CreateStats(ctx, nodeID, initial)
 }
 
-// FindInvalidNodes finds a subset of storagenodes that have stats below provided reputation requirements.
-func (m *lockedOverlayCache) FindInvalidNodes(ctx context.Context, nodeIDs storj.NodeIDList, maxStats *overlay.NodeStats) (invalid storj.NodeIDList, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.FindInvalidNodes(ctx, nodeIDs, maxStats)
-}
-
 // Get looks up the node by nodeID
 func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*overlay.NodeDossier, error) {
 	m.Lock()
@@ -717,13 +710,6 @@ func (m *lockedOverlayCache) GetAll(ctx context.Context, nodeIDs storj.NodeIDLis
 	return m.db.GetAll(ctx, nodeIDs)
 }
 
-// List lists nodes starting from cursor
-func (m *lockedOverlayCache) List(ctx context.Context, cursor storj.NodeID, limit int) ([]*overlay.NodeDossier, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.List(ctx, cursor, limit)
-}
-
 // Paginate will page through the database nodes
 func (m *lockedOverlayCache) Paginate(ctx context.Context, offset int64, limit int) ([]*overlay.NodeDossier, bool, error) {
 	m.Lock()
@@ -732,7 +718,7 @@ func (m *lockedOverlayCache) Paginate(ctx context.Context, offset int64, limit i
 }
 
 // SelectNewStorageNodes looks up nodes based on new node criteria
-func (m *lockedOverlayCache) SelectNewStorageNodes(ctx context.Context, count int, criteria *overlay.NewNodeCriteria) ([]*pb.Node, error) {
+func (m *lockedOverlayCache) SelectNewStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) ([]*pb.Node, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.SelectNewStorageNodes(ctx, count, criteria)

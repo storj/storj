@@ -59,7 +59,7 @@ type Config struct {
 		PeerIDVersion string
 
 		// MaxInlineSize determines whether the uplink will attempt to
-		// store a new object in the satellite's pointerDB. Objects at
+		// store a new object in the satellite's metainfo. Objects at
 		// or below this size will be marked for inline storage, and
 		// objects above this size will not. (The satellite may reject
 		// the inline storage and require remote storage, still.)
@@ -75,11 +75,16 @@ type Config struct {
 	}
 }
 
-func (c *Config) setDefaults(ctx context.Context) error {
-	if c.Volatile.UseIdentity == nil {
+func (cfg *Config) clone() *Config {
+	clone := *cfg
+	return &clone
+}
+
+func (cfg *Config) setDefaults(ctx context.Context) error {
+	if cfg.Volatile.UseIdentity == nil {
 		var err error
-		c.Volatile.UseIdentity, err = identity.NewFullIdentity(ctx, identity.NewCAOptions{
-			VersionNumber: c.Volatile.IdentityVersion.Number,
+		cfg.Volatile.UseIdentity, err = identity.NewFullIdentity(ctx, identity.NewCAOptions{
+			VersionNumber: cfg.Volatile.IdentityVersion.Number,
 			Difficulty:    0,
 			Concurrency:   1,
 		})
@@ -87,20 +92,20 @@ func (c *Config) setDefaults(ctx context.Context) error {
 			return err
 		}
 	}
-	idVersion, err := c.Volatile.UseIdentity.Version()
+	idVersion, err := cfg.Volatile.UseIdentity.Version()
 	if err != nil {
 		return err
 	}
-	if idVersion.Number != c.Volatile.IdentityVersion.Number {
-		return storj.ErrVersion.New("`UseIdentity` version (%d) didn't match version in config (%d)", idVersion.Number, c.Volatile.IdentityVersion.Number)
+	if idVersion.Number != cfg.Volatile.IdentityVersion.Number {
+		return storj.ErrVersion.New("`UseIdentity` version (%d) didn't match version in config (%d)", idVersion.Number, cfg.Volatile.IdentityVersion.Number)
 	}
-	if c.Volatile.MaxInlineSize == 0 {
-		c.Volatile.MaxInlineSize = 4 * memory.KiB
+	if cfg.Volatile.MaxInlineSize == 0 {
+		cfg.Volatile.MaxInlineSize = 4 * memory.KiB
 	}
-	if c.Volatile.MaxMemory.Int() == 0 {
-		c.Volatile.MaxMemory = 4 * memory.MiB
-	} else if c.Volatile.MaxMemory.Int() < 0 {
-		c.Volatile.MaxMemory = 0
+	if cfg.Volatile.MaxMemory.Int() == 0 {
+		cfg.Volatile.MaxMemory = 4 * memory.MiB
+	} else if cfg.Volatile.MaxMemory.Int() < 0 {
+		cfg.Volatile.MaxMemory = 0
 	}
 	return nil
 }
@@ -118,6 +123,7 @@ func NewUplink(ctx context.Context, cfg *Config) (*Uplink, error) {
 	if cfg == nil {
 		cfg = &Config{}
 	}
+	cfg = cfg.clone()
 	if err := cfg.setDefaults(ctx); err != nil {
 		return nil, err
 	}

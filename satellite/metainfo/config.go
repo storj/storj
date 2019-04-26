@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package pointerdb
+package metainfo
 
 import (
 	"storj.io/storj/internal/dbutil"
@@ -16,8 +16,7 @@ const (
 	BoltPointerBucket = "pointers"
 )
 
-// Config is a configuration struct that is everything you need to start a
-// PointerDB responsibility
+// Config is a configuration struct that is everything you need to start a metainfo
 type Config struct {
 	DatabaseURL          string      `help:"the database connection string to use" default:"bolt://$CONFDIR/pointerdb.db"`
 	MinRemoteSegmentSize memory.Size `default:"1240" help:"minimum remote segment size"`

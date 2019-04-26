@@ -47,7 +47,7 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 	args := append(make([]interface{}, 0, 13),
 		nodeType, criteria.FreeBandwidth, criteria.FreeDisk,
 		criteria.AuditCount, criteria.AuditSuccessRatio, criteria.UptimeCount, criteria.UptimeSuccessRatio,
-		time.Now().Add(-overlay.OnlineWindow))
+		time.Now().Add(-criteria.OnlineWindow))
 
 	if criteria.MinimumVersion != "" {
 		v, err := version.NewSemVer(criteria.MinimumVersion)
@@ -63,16 +63,17 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, safeQuery, args...)
 }
 
-func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int, criteria *overlay.NewNodeCriteria) ([]*pb.Node, error) {
+func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) ([]*pb.Node, error) {
 	nodeType := int(pb.NodeType_STORAGE)
 
 	safeQuery := `
 		WHERE type = ? AND free_bandwidth >= ? AND free_disk >= ?
 		  AND total_audit_count < ?
+		  AND (audit_success_ratio >= ? OR total_audit_count = 0)
 		  AND last_contact_success > ?
 		  AND last_contact_success > last_contact_failure`
 	args := append(make([]interface{}, 0, 10),
-		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditThreshold, time.Now().Add(-overlay.OnlineWindow))
+		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditCount, criteria.AuditSuccessRatio, time.Now().Add(-criteria.OnlineWindow))
 
 	if criteria.MinimumVersion != "" {
 		v, err := version.NewSemVer(criteria.MinimumVersion)
@@ -164,28 +165,6 @@ func (cache *overlaycache) GetAll(ctx context.Context, ids storj.NodeIDList) ([]
 			continue
 		}
 		infos[i] = info
-	}
-	return infos, nil
-}
-
-// List lists nodes starting from cursor
-func (cache *overlaycache) List(ctx context.Context, cursor storj.NodeID, limit int) ([]*overlay.NodeDossier, error) {
-	// TODO: handle this nicer
-	if limit <= 0 || limit > storage.LookupLimit {
-		limit = storage.LookupLimit
-	}
-
-	dbxInfos, err := cache.db.Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx, dbx.Node_Id(cursor.Bytes()), limit, 0)
-	if err != nil {
-		return nil, err
-	}
-
-	infos := make([]*overlay.NodeDossier, len(dbxInfos))
-	for i, dbxInfo := range dbxInfos {
-		infos[i], err = convertDBNode(dbxInfo)
-		if err != nil {
-			return nil, err
-		}
 	}
 	return infos, nil
 }
@@ -330,62 +309,6 @@ func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID,
 		return nil, Error.Wrap(errs.New("unable to get node by ID: %s", nodeID.String()))
 	}
 	return getNodeStats(dbNode), Error.Wrap(tx.Commit())
-}
-
-// FindInvalidNodes finds a subset of storagenodes that fail to meet minimum reputation requirements
-func (cache *overlaycache) FindInvalidNodes(ctx context.Context, nodeIDs storj.NodeIDList, maxStats *overlay.NodeStats) (invalidIDs storj.NodeIDList, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var invalidIds storj.NodeIDList
-
-	maxAuditSuccess := maxStats.AuditSuccessRatio
-	maxUptime := maxStats.UptimeRatio
-
-	rows, err := cache.findInvalidNodesQuery(nodeIDs, maxAuditSuccess, maxUptime)
-
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		err = errs.Combine(err, rows.Close())
-	}()
-
-	for rows.Next() {
-		node := &dbx.Node{}
-		err = rows.Scan(&node.Id, &node.TotalAuditCount, &node.TotalUptimeCount, &node.AuditSuccessRatio, &node.UptimeRatio)
-		if err != nil {
-			return nil, err
-		}
-		id, err := storj.NodeIDFromBytes(node.Id)
-		if err != nil {
-			return nil, err
-		}
-		invalidIds = append(invalidIds, id)
-	}
-
-	return invalidIds, nil
-}
-
-func (cache *overlaycache) findInvalidNodesQuery(nodeIds storj.NodeIDList, auditSuccess, uptime float64) (*sql.Rows, error) {
-	args := make([]interface{}, len(nodeIds))
-	for i, id := range nodeIds {
-		args[i] = id.Bytes()
-	}
-	args = append(args, auditSuccess, uptime)
-
-	rows, err := cache.db.Query(cache.db.Rebind(`SELECT nodes.id, nodes.total_audit_count,
-		nodes.total_uptime_count, nodes.audit_success_ratio,
-		nodes.uptime_ratio
-		FROM nodes
-		WHERE nodes.id IN (?`+strings.Repeat(", ?", len(nodeIds)-1)+`)
-		AND nodes.total_audit_count > 0
-		AND nodes.total_uptime_count > 0
-		AND (
-			nodes.audit_success_ratio < ?
-			OR nodes.uptime_ratio < ?
-		)`), args...)
-
-	return rows, err
 }
 
 // UpdateStats a single storagenode's stats in the db

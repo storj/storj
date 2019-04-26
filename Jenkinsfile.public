@@ -9,6 +9,12 @@ pipeline {
         stage('Build') {
             steps {
                 checkout scm
+
+                sh 'mkdir .build'
+
+                // make a backup of the mod file in case, for later linting
+                sh 'cp go.mod .build/go.mod.orig'
+                // download dependencies
                 sh 'go mod download'
 
                 sh 'go install -v -race ./...'
@@ -23,29 +29,52 @@ pipeline {
                 stage('Lint') {
                     steps {
                         sh 'go run ./scripts/check-copyright.go'
-                        sh 'go run ./scripts/check-imports.go'
+                        sh 'go run ./scripts/check-imports.go ./...'
                         sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint'
                         sh 'protolock status'
                         sh 'bash ./scripts/check-dbx-version.sh'
                         sh 'golangci-lint -j=4 run'
-                        // TODO: check for go mod tidy
-                        // TODO: check for directory tidy
+                        sh 'go run scripts/check-mod-tidy.go -mod .build/go.mod.orig'
                     }
                 }
 
                 stage('Tests') {
                     environment {
                         STORJ_POSTGRES_TEST = 'postgres://postgres@localhost/teststorj?sslmode=disable'
+                        COVERFLAGS = "${ env.BRANCH_NAME != 'master' ? '' : '-coverprofile=.build/coverprofile -coverpkg=-coverpkg=storj.io/storj/bootstrap/...,storj.io/storj/internal/...,storj.io/storj/lib/...,storj.io/storj/pkg/...,storj.io/storj/satellite/...,storj.io/storj/storage/...,storj.io/storj/storagenode/...,storj.io/storj/uplink/...,storj.io/storj/versioncontrol/...'}"
                     }
                     steps {
                         sh 'psql -U postgres -c \'create database teststorj;\''
                         sh 'go run scripts/use-ports.go -from 1024 -to 10000 &'
-                        sh 'go test -vet=off -timeout 9m -json -race ./... | go run ./scripts/xunit.go -out tests.xml'
+                        sh 'go test -vet=off $COVERFLAGS -timeout 9m -json -race ./... 2>&1 | tee .build/tests.json | go run ./scripts/xunit.go -out .build/tests.xml'
+                        sh 'go run scripts/check-clean-directory.go'
                     }
 
                     post {
                         always {
-                            junit 'tests.xml'
+                            sh script: 'cat .build/tests.json | tparse -all -top -slow 100', returnStatus: true
+                            archiveArtifacts artifacts: '.build/tests.json'
+                            junit '.build/tests.xml'
+
+                            script {
+                                if(fileExists(".build/coverprofile")){
+                                    sh script: 'go run ./scripts/cover-remove-generated.go < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
+                                    sh script: 'gocov convert .build/clean.coverprofile > .build/cover.json', returnStatus: true
+
+                                    sh script: 'gocov-html < .build/cover.json > .build/cover.html', returnStatus: true
+                                    publishHTML target: [
+                                        allowMissing: false,
+                                        alwaysLinkToLastBuild: false,
+                                        keepAll: false,
+                                        reportDir: '.build',
+                                        reportFiles: 'cover.html',
+                                        reportName: 'Coverage Details'
+                                    ]
+
+                                    sh script: 'gocov-xml  < .build/cover.json > .build/cobertura.xml', returnStatus: true
+                                    cobertura coberturaReportFile: '.build/cobertura.xml'
+                                }
+                            }
                         }
                     }
                 }
@@ -67,7 +96,8 @@ pipeline {
 
     post {
         always {
-          deleteDir()
+            sh "chmod -R 777 ." // ensure Jenkins agent can delete the working directory
+            deleteDir()
         }
     }
 }

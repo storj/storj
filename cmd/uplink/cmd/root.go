@@ -5,7 +5,11 @@ package cmd
 
 import (
 	"context"
+	"flag"
 	"fmt"
+	"os"
+	"runtime"
+	"runtime/pprof"
 
 	"github.com/spf13/cobra"
 
@@ -26,11 +30,16 @@ type UplinkFlags struct {
 
 var cfg UplinkFlags
 
+var cpuProfile = flag.String("profile.cpu", "", "file path of the cpu profile to be created")
+var memoryProfile = flag.String("profile.mem", "", "file path of the memory profile to be created")
+
 //RootCmd represents the base CLI command when called without any subcommands
 var RootCmd = &cobra.Command{
-	Use:   "uplink",
-	Short: "The Storj client-side CLI",
-	Args:  cobra.OnlyValidArgs,
+	Use:                "uplink",
+	Short:              "The Storj client-side CLI",
+	Args:               cobra.OnlyValidArgs,
+	PersistentPreRunE:  startCPUProfile,
+	PersistentPostRunE: stopAndWriteProfile,
 }
 
 func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
@@ -152,4 +161,39 @@ func convertError(err error, path fpath.FPath) error {
 	}
 
 	return err
+}
+
+func startCPUProfile(cmd *cobra.Command, args []string) error {
+	if *cpuProfile != "" {
+		f, err := os.Create(*cpuProfile)
+		if err != nil {
+			return err
+		}
+		if err := pprof.StartCPUProfile(f); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func stopAndWriteProfile(cmd *cobra.Command, args []string) error {
+	if *cpuProfile != "" {
+		pprof.StopCPUProfile()
+	}
+	if *memoryProfile != "" {
+		return writeMemoryProfile()
+	}
+	return nil
+}
+
+func writeMemoryProfile() error {
+	f, err := os.Create(*memoryProfile)
+	if err != nil {
+		return err
+	}
+	runtime.GC()
+	if err := pprof.WriteHeapProfile(f); err != nil {
+		return err
+	}
+	return f.Close()
 }

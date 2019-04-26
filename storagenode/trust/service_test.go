@@ -33,17 +33,13 @@ func TestGetSignee(t *testing.T) {
 
 	var group errgroup.Group
 	group.Go(func() error {
-		cert, err := trust.GetSignee(canceledContext, planet.Satellites[0].ID())
-		if err != context.Canceled {
+		_, err := trust.GetSignee(canceledContext, planet.Satellites[0].ID())
+		if err == context.Canceled {
 			return nil
 		}
-		if err != nil {
-			return err
-		}
-		if cert != nil {
-			return errors.New("got certificate")
-		}
-		return nil
+		// if the other goroutine races us,
+		// then we might get the certificate from the cache, however we shouldn't get an error
+		return err
 	})
 
 	group.Go(func() error {
