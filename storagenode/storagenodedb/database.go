@@ -8,7 +8,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/filestore"
@@ -31,8 +30,7 @@ type Config struct {
 
 // DB contains access to different database tables
 type DB struct {
-	log  *zap.Logger
-	psdb *psdb.DB
+	log *zap.Logger
 
 	pieces interface {
 		storage.Blobs
@@ -57,19 +55,13 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 		return nil, err
 	}
 
-	psdb, err := psdb.Open(config.Info)
-	if err != nil {
-		return nil, err
-	}
-
 	dbs, err := boltdb.NewShared(config.Kademlia, kademlia.KademliaBucket, kademlia.NodeBucket)
 	if err != nil {
 		return nil, err
 	}
 
 	return &DB{
-		log:  log,
-		psdb: psdb,
+		log: log,
 
 		pieces: pieces,
 
@@ -94,18 +86,11 @@ func NewInMemory(log *zap.Logger, storageDir string) (*DB, error) {
 		return nil, err
 	}
 
-	psdb, err := psdb.OpenInMemory()
-	if err != nil {
-		return nil, err
-	}
-
 	return &DB{
-		log:  log,
-		psdb: psdb,
+		log: log,
 
 		pieces: pieces,
-
-		info: infodb,
+		info:   infodb,
 
 		kdb: teststore.New(),
 		ndb: teststore.New(),
@@ -114,17 +99,12 @@ func NewInMemory(log *zap.Logger, storageDir string) (*DB, error) {
 
 // CreateTables creates any necessary tables.
 func (db *DB) CreateTables() error {
-	migration := db.psdb.Migration()
-	return errs.Combine(
-		migration.Run(db.log.Named("migration"), db.psdb),
-		db.info.CreateTables(db.log.Named("info")),
-	)
+	return db.info.CreateTables(db.log)
 }
 
 // Close closes any resources.
 func (db *DB) Close() error {
 	return errs.Combine(
-		db.psdb.Close(),
 		db.kdb.Close(),
 		db.ndb.Close(),
 
@@ -136,11 +116,6 @@ func (db *DB) Close() error {
 // Pieces returns blob storage for pieces
 func (db *DB) Pieces() storage.Blobs {
 	return db.pieces
-}
-
-// PSDB returns piecestore database
-func (db *DB) PSDB() *psdb.DB {
-	return db.psdb
 }
 
 // RoutingTable returns kademlia routing table
