@@ -40,8 +40,6 @@ type DB interface {
 
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
-	// GetNodeType looks up the node by node type
-	GetNodeType(ctx context.Context, nodeType pb.NodeType) (ids []storj.NodeID, err error)
 	// GetAll looks up nodes based on the ids from the overlay cache
 	GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*NodeDossier, error)
 	// Paginate will page through the database nodes
@@ -239,13 +237,6 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 	}
 
 	return nodes, nil
-}
-
-// GetNodeType returns node ids of a specific type
-func (cache *Cache) GetNodeType(ctx context.Context, nodeType pb.NodeType) (ids []storj.NodeID, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	return cache.db.GetNodeType(ctx, nodeType)
 }
 
 // GetAll looks up the provided ids from the overlay cache

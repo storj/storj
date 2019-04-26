@@ -165,20 +165,10 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 
 	maxPieceSize := eestream.CalcPieceSize(req.GetMaxEncryptedSegmentSize(), redundancy)
 
-	var excludeList []storj.NodeID
-	satList, err := endpoint.cache.GetNodeType(ctx, pb.NodeType_SATELLITE)
-	for _, v := range satList {
-		excludeList = append(excludeList, v)
-	}
-	bsList, err := endpoint.cache.GetNodeType(ctx, pb.NodeType_BOOTSTRAP)
-	for _, v := range bsList {
-		excludeList = append(excludeList, v)
-	}
 	request := overlay.FindStorageNodesRequest{
 		RequestedCount: int(req.Redundancy.Total),
 		FreeBandwidth:  maxPieceSize,
 		FreeDisk:       maxPieceSize,
-		ExcludedNodes:  excludeList,
 	}
 	nodes, err := endpoint.cache.FindStorageNodes(ctx, request)
 	if err != nil {

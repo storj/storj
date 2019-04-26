@@ -85,13 +85,6 @@ func (discovery *Discovery) Run(ctx context.Context) error {
 		}
 		return nil
 	})
-	discovery.Graveyard.Start(ctx, &group, func(ctx context.Context) error {
-		err := discovery.searchGraveyard(ctx)
-		if err != nil {
-			discovery.log.Error("graveyard resurrection failed: ", zap.Error(err))
-		}
-		return nil
-	})
 	discovery.Discovery.Start(ctx, &group, func(ctx context.Context) error {
 		err := discovery.discover(ctx)
 		if err != nil {
@@ -188,44 +181,6 @@ func (discovery *Discovery) refresh(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-// graveyard attempts to ping all nodes in the Seen() map from Kademlia and adds them to the cache
-// if they respond. This is an attempt to resurrect nodes that may have gone offline in the last hour
-// and were removed from the cache due to an unsuccessful response.
-func (discovery *Discovery) searchGraveyard(ctx context.Context) error {
-	seen := discovery.kad.Seen()
-
-	var errors errs.Group
-	for _, n := range seen {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-
-		ping, err := discovery.kad.Ping(ctx, *n)
-		if err != nil {
-			discovery.log.Debug("could not ping node in graveyard check")
-			// we don't want to report the ping error to ErrorGroup because it's to be expected here.
-			continue
-		}
-
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-
-		err = discovery.cache.Put(ctx, ping.Id, ping)
-		if err != nil {
-			discovery.log.Warn("could not update node uptime")
-			errors.Add(err)
-		}
-
-		_, err = discovery.cache.UpdateUptime(ctx, ping.Id, true)
-		if err != nil {
-			discovery.log.Warn("could not update node uptime")
-			errors.Add(err)
-		}
-	}
-	return errors.Err()
 }
 
 // Discovery runs lookups for random node ID's to find new nodes in the network
