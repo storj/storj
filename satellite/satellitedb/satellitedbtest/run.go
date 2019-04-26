@@ -11,6 +11,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
+
 	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/internal/dbutil/pgutil/pgtest"
 	"storj.io/storj/satellite"
