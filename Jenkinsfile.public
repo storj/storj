@@ -29,7 +29,7 @@ pipeline {
                 stage('Lint') {
                     steps {
                         sh 'go run ./scripts/check-copyright.go'
-                        sh 'go run ./scripts/check-imports.go'
+                        sh 'go run ./scripts/check-imports.go ./...'
                         sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint'
                         sh 'protolock status'
                         sh 'bash ./scripts/check-dbx-version.sh'
