@@ -7,10 +7,15 @@ pipeline {
     }
     stages {
         stage('Build') {
+            environment {
+                FLAGTEST = "${ branch 'master' ? 'alpha' : 'beta'}"
+            }
             steps {
                 checkout scm
 
                 sh 'mkdir .build'
+
+                sh 'echo $FLAGTEST'
 
                 // make a backup of the mod file in case, for later linting
                 sh 'cp go.mod .build/go.mod.orig'
@@ -46,7 +51,7 @@ pipeline {
                     steps {
                         sh 'psql -U postgres -c \'create database teststorj;\''
                         sh 'go run scripts/use-ports.go -from 1024 -to 10000 &'
-                        sh "go test -vet=off ${env.COVERFLAGS} -timeout 9m -json -race ./... 2>&1 | tee .build/tests.json | go run ./scripts/xunit.go -out .build/tests.xml"
+                        sh 'go test -vet=off $COVERFLAGS -timeout 9m -json -race ./... 2>&1 | tee .build/tests.json | go run ./scripts/xunit.go -out .build/tests.xml'
                         sh 'go run scripts/check-clean-directory.go'
                     }
 
