@@ -45,7 +45,7 @@ pipeline {
                     steps {
                         sh 'psql -U postgres -c \'create database teststorj;\''
                         sh 'go run scripts/use-ports.go -from 1024 -to 10000 &'
-                        sh 'go test -vet=off -coverprofile=.build/coverprofile -coverpkg=-coverpkg=storj.io/storj/bootstrap/...,storj.io/storj/internal/...,storj.io/storj/lib/...,storj.io/storj/pkg/...,storj.io/storj/satellite/...,storj.io/storj/storage/...,storj.io/storj/storagenode/...,storj.io/storj/uplink/...,storj.io/storj/versioncontrol/... -timeout 9m -json -race ./... 2>&1 | tee .build/tests.json | go run ./scripts/xunit.go -out .build/tests.xml'
+                        sh 'go test -vet=off -timeout 9m -json -race ./... 2>&1 | tee .build/tests.json | go run ./scripts/xunit.go -out .build/tests.xml'
                         sh 'go run scripts/check-clean-directory.go'
                     }
 
@@ -54,7 +54,21 @@ pipeline {
                             sh script: 'cat .build/tests.json | tparse -all -top -slow 100', returnStatus: true
                             archiveArtifacts artifacts: '.build/tests.json'
                             junit '.build/tests.xml'
+                        }
+                    }
+                }
 
+                stage('Coverage') {
+                    // when { branch 'master' }
+                    environment {
+                        STORJ_POSTGRES_TEST = 'postgres://postgres@localhost/teststorj2?sslmode=disable'
+                    }
+                    steps {
+                        sh 'psql -U postgres -c \'create database teststorj2;\''
+                        sh 'go test -vet=off -coverprofile=.build/coverprofile -coverpkg=-coverpkg=storj.io/storj/bootstrap/...,storj.io/storj/internal/...,storj.io/storj/lib/...,storj.io/storj/pkg/...,storj.io/storj/satellite/...,storj.io/storj/storage/...,storj.io/storj/storagenode/...,storj.io/storj/uplink/...,storj.io/storj/versioncontrol/... -timeout 9m ./...'
+                    }
+                    post {
+                        always {
                             sh script: 'go run ./scripts/cover-remove-generated.go < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
                             sh script: 'gocov convert .build/clean.coverprofile > .build/cover.json', returnStatus: true
 
