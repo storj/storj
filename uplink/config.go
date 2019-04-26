@@ -57,6 +57,7 @@ type EncryptionConfig struct {
 //
 // It returns an error if:
 //
+// * If KeyFilepath field is an empty string.
 // * The file doesn't exist.
 // * There is an I/O error.
 //
@@ -65,7 +66,7 @@ type EncryptionConfig struct {
 // several different types as a type of storj.Key, [32]byte, etc.
 func (cfg *EncryptionConfig) LoadKey() (key storj.Key, err error) {
 	if cfg.KeyFilepath == "" {
-		return storj.Key{}, nil
+		return storj.Key{}, Error.New("KeyFilepath is empty")
 	}
 
 	file, err := os.Open(cfg.KeyFilepath)
@@ -154,9 +155,13 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, err
 	}
 
-	key, err := c.Enc.LoadKey()
-	if err != nil {
-		return nil, nil, err
+	var key storj.Key
+	if c.Enc.KeyFilepath != "" {
+		var err error
+		key, err = c.Enc.LoadKey()
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	streams, err := streams.NewStreamStore(segments, c.Client.SegmentSize.Int64(), &key, c.Enc.BlockSize.Int(), storj.Cipher(c.Enc.DataType))
