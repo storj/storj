@@ -16,11 +16,6 @@ import (
 	"storj.io/storj/storage"
 )
 
-const (
-	// OnlineWindow is the maximum amount of time that can pass without seeing a node before that node is considered offline
-	OnlineWindow = 1 * time.Hour
-)
-
 // ErrEmptyNode is returned when the nodeID is empty
 var ErrEmptyNode = errs.New("empty node ID")
 
@@ -68,28 +63,23 @@ type DB interface {
 type FindStorageNodesRequest struct {
 	MinimumRequiredNodes int
 	RequestedCount       int
-
-	FreeBandwidth int64
-	FreeDisk      int64
-
-	ExcludedNodes []storj.NodeID
-
-	MinimumVersion string // semver or empty
+	FreeBandwidth        int64
+	FreeDisk             int64
+	ExcludedNodes        []storj.NodeID
+	MinimumVersion       string // semver or empty
 }
 
 // NodeCriteria are the requirements for selecting nodes
 type NodeCriteria struct {
-	FreeBandwidth int64
-	FreeDisk      int64
-
+	FreeBandwidth      int64
+	FreeDisk           int64
 	AuditCount         int64
 	AuditSuccessRatio  float64
 	UptimeCount        int64
 	UptimeSuccessRatio float64
-
-	Excluded []storj.NodeID
-
-	MinimumVersion string // semver or empty
+	Excluded           []storj.NodeID
+	MinimumVersion     string // semver or empty
+	OnlineWindow       time.Duration
 }
 
 // UpdateRequest is used to update a node status.
@@ -176,7 +166,7 @@ func (cache *Cache) IsNew(node *NodeDossier) bool {
 
 // IsOnline checks if a node is 'online' based on the collected statistics.
 func (cache *Cache) IsOnline(node *NodeDossier) bool {
-	return time.Now().Sub(node.Reputation.LastContactSuccess) < OnlineWindow &&
+	return time.Now().Sub(node.Reputation.LastContactSuccess) < cache.preferences.OnlineWindow &&
 		node.Reputation.LastContactSuccess.After(node.Reputation.LastContactFailure)
 }
 
@@ -219,6 +209,7 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 			AuditSuccessRatio: preferences.AuditSuccessRatio,
 			Excluded:          excluded,
 			MinimumVersion:    preferences.MinimumVersion,
+			OnlineWindow:      preferences.OnlineWindow,
 		})
 		if err != nil {
 			return nil, err
@@ -241,6 +232,7 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 		UptimeSuccessRatio: preferences.UptimeRatio,
 		Excluded:           excluded,
 		MinimumVersion:     preferences.MinimumVersion,
+		OnlineWindow:       preferences.OnlineWindow,
 	})
 	if err != nil {
 		return nil, err
