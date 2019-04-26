@@ -111,6 +111,11 @@ func (conn *timeoutConn) Read(b []byte) (n int, err error) {
 }
 
 func (conn *timeoutConn) Write(b []byte) (n int, err error) {
+	// deadline needs to be set before each write operation
+	err = conn.SetWriteDeadline(time.Now().Add(conn.timeout))
+	if err != nil {
+		return 0, err
+	}
 	return conn.conn.Write(b)
 }
 
