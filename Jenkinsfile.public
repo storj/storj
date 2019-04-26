@@ -55,7 +55,6 @@ pipeline {
                             archiveArtifacts artifacts: '.build/tests.json'
                             junit '.build/tests.xml'
 
-                            archiveArtifacts artifacts: '.build/coverprofile'
                             sh script: 'gocov convert .build/coverprofile > .build/cover.json', returnStatus: true
 
                             sh script: 'gocov-html < .build/cover.json > .build/cover.html', returnStatus: true
