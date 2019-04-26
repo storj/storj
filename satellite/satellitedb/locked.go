@@ -710,13 +710,6 @@ func (m *lockedOverlayCache) GetAll(ctx context.Context, nodeIDs storj.NodeIDLis
 	return m.db.GetAll(ctx, nodeIDs)
 }
 
-// List lists nodes starting from cursor
-func (m *lockedOverlayCache) List(ctx context.Context, cursor storj.NodeID, limit int) ([]*overlay.NodeDossier, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.List(ctx, cursor, limit)
-}
-
 // Paginate will page through the database nodes
 func (m *lockedOverlayCache) Paginate(ctx context.Context, offset int64, limit int) ([]*overlay.NodeDossier, bool, error) {
 	m.Lock()
