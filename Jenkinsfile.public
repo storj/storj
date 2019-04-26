@@ -64,7 +64,7 @@ pipeline {
                                 keepAll: true,
                                 reportDir: '.build',
                                 reportFiles: 'cover.html',
-                                reportName: 'gocov-html'
+                                reportName: 'Coverage Details'
                             ]
 
                             sh script: 'gocov-xml  < .build/cover.json > .build/cobertura.xml', returnStatus: true
