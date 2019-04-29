@@ -9,11 +9,16 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/storj"
 )
+
+// Error is the default error class
+var Error = errs.Class("trust:")
 
 // Pool implements different peer verifications.
 type Pool struct {
@@ -27,9 +32,8 @@ type Pool struct {
 
 // satelliteInfoCache caches identity information about a satellite
 type satelliteInfoCache struct {
-	once     sync.Once
+	mu       sync.Mutex
 	identity *identity.PeerIdentity
-	err      error
 }
 
 // NewPool creates a new trust pool using kademlia to find certificates and with the specified list of trusted satellites.
@@ -93,9 +97,6 @@ func (pool *Pool) VerifyUplinkID(ctx context.Context, id storj.NodeID) error {
 // GetSignee gets the corresponding signee for verifying signatures.
 // It ignores passed in ctx cancellation to avoid miscaching between concurrent requests.
 func (pool *Pool) GetSignee(ctx context.Context, id storj.NodeID) (signing.Signee, error) {
-	// creating a new context here to avoid request context canceling fetching peer identity
-	nestedContext := context.Background()
-
 	// lookup peer identity with id
 	pool.mu.RLock()
 	info, ok := pool.trustedSatellites[id]
@@ -119,12 +120,19 @@ func (pool *Pool) GetSignee(ctx context.Context, id storj.NodeID) (signing.Signe
 		}
 	}
 
-	info.once.Do(func() {
-		info.identity, info.err = pool.kademlia.FetchPeerIdentity(nestedContext, id)
-	})
+	info.mu.Lock()
+	defer info.mu.Unlock()
 
-	if info.err != nil {
-		return nil, info.err
+	if info.identity == nil {
+		identity, err := pool.kademlia.FetchPeerIdentity(ctx, id)
+		if err != nil {
+			if err == context.Canceled {
+				return nil, err
+			}
+			return nil, Error.Wrap(err)
+		}
+		info.identity = identity
 	}
+
 	return signing.SigneeFromPeerIdentity(info.identity), nil
 }

@@ -7,17 +7,46 @@ import (
 	"context"
 	"time"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/datarepair/queue"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/pointerdb"
+	ecclient "storj.io/storj/pkg/storage/ec"
+	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/storage"
 )
+
+// Error is a standard error class for this package.
+var (
+	Error = errs.Class("repairer error")
+	mon   = monkit.Package()
+)
+
+// Config contains configurable values for repairer
+type Config struct {
+	MaxRepair    int           `help:"maximum segments that can be repaired concurrently" default:"10"`
+	Interval     time.Duration `help:"how frequently checker should audit segments" default:"0h5m0s"`
+	Timeout      time.Duration `help:"time limit for uploading repaired pieces to new storage nodes" default:"1m0s"`
+	MaxBufferMem memory.Size   `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4M"`
+}
+
+// GetSegmentRepairer creates a new segment repairer from storeConfig values
+func (c Config) GetSegmentRepairer(ctx context.Context, tc transport.Client, metainfo *metainfo.Service, orders *orders.Service, cache *overlay.Cache, identity *identity.FullIdentity) (ss SegmentRepairer, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	ec := ecclient.NewClient(tc, c.MaxBufferMem.Int())
+
+	return segments.NewSegmentRepairer(metainfo, orders, cache, ec, identity, c.Timeout), nil
+}
 
 // SegmentRepairer is a repairer for segments
 type SegmentRepairer interface {
@@ -31,21 +60,21 @@ type Service struct {
 	Limiter   *sync2.Limiter
 	Loop      sync2.Cycle
 	transport transport.Client
-	pointerdb *pointerdb.Service
+	metainfo  *metainfo.Service
 	orders    *orders.Service
 	cache     *overlay.Cache
 	repairer  SegmentRepairer
 }
 
 // NewService creates repairing service
-func NewService(queue queue.RepairQueue, config *Config, interval time.Duration, concurrency int, transport transport.Client, pointerdb *pointerdb.Service, orders *orders.Service, cache *overlay.Cache) *Service {
+func NewService(queue queue.RepairQueue, config *Config, interval time.Duration, concurrency int, transport transport.Client, metainfo *metainfo.Service, orders *orders.Service, cache *overlay.Cache) *Service {
 	return &Service{
 		queue:     queue,
 		config:    config,
 		Limiter:   sync2.NewLimiter(concurrency),
 		Loop:      *sync2.NewCycle(interval),
 		transport: transport,
-		pointerdb: pointerdb,
+		metainfo:  metainfo,
 		orders:    orders,
 		cache:     cache,
 	}
@@ -62,7 +91,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	service.repairer, err = service.config.GetSegmentRepairer(
 		ctx,
 		service.transport,
-		service.pointerdb,
+		service.metainfo,
 		service.orders,
 		service.cache,
 		service.transport.Identity(),
@@ -83,22 +112,26 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	})
 }
 
-// process picks an item from repair queue and spawns a repair worker
+// process picks items from repair queue and spawns a repair worker
 func (service *Service) process(ctx context.Context) error {
-	seg, err := service.queue.Dequeue(ctx)
-	if err != nil {
-		if storage.ErrEmptyQueue.Has(err) {
-			return nil
-		}
-		return err
-	}
-
-	service.Limiter.Go(ctx, func() {
-		err := service.repairer.Repair(ctx, seg.GetPath(), seg.GetLostPieces())
+	for {
+		seg, err := service.queue.Select(ctx)
 		if err != nil {
-			zap.L().Error("Repair failed", zap.Error(err))
+			if storage.ErrEmptyQueue.Has(err) {
+				return nil
+			}
+			return err
 		}
-	})
 
-	return nil
+		service.Limiter.Go(ctx, func() {
+			err := service.repairer.Repair(ctx, seg.GetPath(), seg.GetLostPieces())
+			if err != nil {
+				zap.L().Error("repair failed", zap.Error(err))
+			}
+			err = service.queue.Delete(ctx, seg)
+			if err != nil {
+				zap.L().Error("repair delete failed", zap.Error(err))
+			}
+		})
+	}
 }

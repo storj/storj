@@ -7,6 +7,7 @@ import (
 	"context"
 	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -40,7 +41,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 	_, _ = rand.Read(valid2ID[:])
 	_, _ = rand.Read(missingID[:])
 
-	cache := overlay.NewCache(zaptest.NewLogger(t), store, overlay.NodeSelectionConfig{})
+	cache := overlay.NewCache(zaptest.NewLogger(t), store, overlay.NodeSelectionConfig{OnlineWindow: time.Hour})
 
 	{ // Put
 		err := cache.Put(ctx, valid1ID, pb.Node{Id: valid1ID})
@@ -100,12 +101,6 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		// TODO: add erroring database test
 	}
 
-	{ // List
-		list, err := cache.List(ctx, storj.NodeID{}, 3)
-		assert.NoError(t, err)
-		assert.NotNil(t, list)
-	}
-
 	{ // Paginate
 
 		// should return two nodes
@@ -124,11 +119,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 
 func TestRandomizedSelection(t *testing.T) {
 	t.Parallel()
-	testRandomizedSelection(t, true)
-	testRandomizedSelection(t, false)
-}
 
-func testRandomizedSelection(t *testing.T, reputable bool) {
 	totalNodes := 1000
 	selectIterations := 100
 	numNodesToSelect := 100
@@ -146,11 +137,11 @@ func testRandomizedSelection(t *testing.T, reputable bool) {
 		for i := 0; i < totalNodes; i++ {
 			newID := storj.NodeID{}
 			_, _ = rand.Read(newID[:])
-			err := cache.Update(ctx, &pb.Node{
-				Id:           newID,
-				Type:         pb.NodeType_STORAGE,
-				Restrictions: &pb.NodeRestrictions{},
-				Reputation:   &pb.NodeStats{},
+			err := cache.UpdateAddress(ctx, &pb.Node{Id: newID})
+			require.NoError(t, err)
+			_, err = cache.UpdateNodeInfo(ctx, newID, &pb.InfoResponse{
+				Type:     pb.NodeType_STORAGE,
+				Capacity: &pb.NodeCapacity{},
 			})
 			require.NoError(t, err)
 			_, err = cache.UpdateUptime(ctx, newID, true)
@@ -164,12 +155,13 @@ func testRandomizedSelection(t *testing.T, reputable bool) {
 			var nodes []*pb.Node
 			var err error
 
-			if reputable {
-				nodes, err = cache.SelectStorageNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{})
+			if i%2 == 0 {
+				nodes, err = cache.SelectStorageNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{OnlineWindow: time.Hour})
 				require.NoError(t, err)
 			} else {
-				nodes, err = cache.SelectNewStorageNodes(ctx, numNodesToSelect, &overlay.NewNodeCriteria{
-					AuditThreshold: 1,
+				nodes, err = cache.SelectNewStorageNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{
+					OnlineWindow: time.Hour,
+					AuditCount:   1,
 				})
 				require.NoError(t, err)
 			}

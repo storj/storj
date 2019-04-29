@@ -7,10 +7,8 @@ import (
 	"flag"
 	"testing"
 
-	"go.uber.org/zap/zaptest"
-
+	"storj.io/storj/internal/dbutil/pgutil/pgtest"
 	"storj.io/storj/storage"
-	"storj.io/storj/storage/storelogger"
 	"storj.io/storj/storage/testsuite"
 )
 
@@ -22,11 +20,11 @@ func newTestAlternatePostgres(t testing.TB) (store *AlternateClient, cleanup fun
 	if !*doAltTests {
 		t.Skip("alternate-implementation PG tests not enabled.")
 	}
-	if *testPostgres == "" {
-		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", defaultPostgresConn)
+	if *pgtest.ConnStr == "" {
+		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", pgtest.DefaultConnStr)
 	}
 
-	pgdb, err := AltNew(*testPostgres)
+	pgdb, err := AltNew(*pgtest.ConnStr)
 	if err != nil {
 		t.Fatalf("init: %v", err)
 	}
@@ -42,8 +40,9 @@ func TestSuiteAlt(t *testing.T) {
 	store, cleanup := newTestAlternatePostgres(t)
 	defer cleanup()
 
-	zap := zaptest.NewLogger(t)
-	testsuite.RunTests(t, storelogger.New(zap, store))
+	// zap := zaptest.NewLogger(t)
+	// loggedStore := storelogger.New(zap, store)
+	testsuite.RunTests(t, store)
 }
 
 func BenchmarkSuiteAlt(b *testing.B) {

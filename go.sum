@@ -138,8 +138,6 @@ github.com/gorilla/rpc v1.1.0/go.mod h1:V4h9r+4sF5HnzqbwIez0fKSpANP0zlYd3qR7p36j
 github.com/graphql-go/graphql v0.7.9-0.20190403165646-199d20bbfed7 h1:E45QFM7IqRdFnuyFk8GSamb42EckUSyJ55rtVB/w8VQ=
 github.com/graphql-go/graphql v0.7.9-0.20190403165646-199d20bbfed7/go.mod h1:k6yrAYQaSP59DC5UVxbgxESlmVyojThKdORUqGDGmrI=
 github.com/hailocab/go-hostpool v0.0.0-20160125115350-e80d13ce29ed/go.mod h1:tMWxXQ9wFIaZeTI9F+hmhFiGpFmhOHzyShyFUhRm0H4=
-github.com/hanwen/go-fuse v0.0.0-20181027161220-c029b69a13a7 h1:+INF0+TK4ga3O+6Y0Z2ftiujA13KaCO/+kHN9V6Mj4A=
-github.com/hanwen/go-fuse v0.0.0-20181027161220-c029b69a13a7/go.mod h1:unqXarDXqzAk0rt98O2tVndEPIpUgLD9+rwFisZH3Ok=
 github.com/hashicorp/go-immutable-radix v1.0.0 h1:AKDB1HM5PWEA7i4nhcpwOrO2byshxBjXVn/J/3+z5/0=
 github.com/hashicorp/go-immutable-radix v1.0.0/go.mod h1:0y9vanUI8NX6FsYoO3zeMjhV/C5i9g4Q3DwcSNZ4P60=
 github.com/hashicorp/go-msgpack v0.5.3 h1:zKjpN5BK/P5lMYrLmBHdBULWbJ0XpYR+7NGzqkZzoD4=

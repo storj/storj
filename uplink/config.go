@@ -6,6 +6,7 @@ package uplink
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/vivint/infectious"
 	"github.com/zeebo/errs"
@@ -31,10 +32,10 @@ import (
 type RSConfig struct {
 	MaxBufferMem     memory.Size `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4MiB"`
 	ErasureShareSize memory.Size `help:"the size of each new erasure sure in bytes" default:"1KiB"`
-	MinThreshold     int         `help:"the minimum pieces required to recover a segment. k." default:"29" devDefault:"4"`
-	RepairThreshold  int         `help:"the minimum safe pieces before a repair is triggered. m." default:"35" devDefault:"6"`
-	SuccessThreshold int         `help:"the desired total pieces for a segment. o." default:"80" devDefault:"8"`
-	MaxThreshold     int         `help:"the largest amount of pieces to encode to. n." default:"95" devDefault:"10"`
+	MinThreshold     int         `help:"the minimum pieces required to recover a segment. k." releaseDefault:"29" devDefault:"4"`
+	RepairThreshold  int         `help:"the minimum safe pieces before a repair is triggered. m." releaseDefault:"35" devDefault:"6"`
+	SuccessThreshold int         `help:"the desired total pieces for a segment. o." releaseDefault:"80" devDefault:"8"`
+	MaxThreshold     int         `help:"the largest amount of pieces to encode to. n." releaseDefault:"95" devDefault:"10"`
 }
 
 // EncryptionConfig is a configuration struct that keeps details about
@@ -49,10 +50,11 @@ type EncryptionConfig struct {
 // ClientConfig is a configuration struct for the uplink that controls how
 // to talk to the rest of the network.
 type ClientConfig struct {
-	APIKey        string      `default:"" help:"the api key to use for the satellite" noprefix:"true"`
-	SatelliteAddr string      `default:"127.0.0.1:7777" devDefault:"127.0.0.1:10000" help:"the address to use for the satellite" noprefix:"true"`
-	MaxInlineSize memory.Size `help:"max inline segment size in bytes" default:"4KiB"`
-	SegmentSize   memory.Size `help:"the size of a segment in bytes" default:"64MiB"`
+	APIKey        string        `default:"" help:"the api key to use for the satellite" noprefix:"true"`
+	SatelliteAddr string        `releaseDefault:"127.0.0.1:7777" devDefault:"127.0.0.1:10000" help:"the address to use for the satellite" noprefix:"true"`
+	MaxInlineSize memory.Size   `help:"max inline segment size in bytes" default:"4KiB"`
+	SegmentSize   memory.Size   `help:"the size of a segment in bytes" default:"64MiB"`
+	Timeout       time.Duration `help:"timeout for request" default:"0h0m20s"`
 }
 
 // Config uplink configuration
@@ -81,7 +83,7 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 
 	// ToDo: Handle Versioning for Uplinks here
 
-	tc := transport.NewClient(tlsOpts)
+	tc := transport.NewClientWithTimeout(tlsOpts, c.Client.Timeout)
 
 	if c.Client.SatelliteAddr == "" {
 		return nil, nil, errors.New("satellite address not specified")

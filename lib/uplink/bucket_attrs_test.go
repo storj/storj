@@ -11,7 +11,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
@@ -20,49 +19,39 @@ import (
 )
 
 type testConfig struct {
-	planetCfg *testplanet.Config
 	uplinkCfg Config
 }
 
 func testPlanetWithLibUplink(t *testing.T, cfg testConfig, encKey *storj.Key,
 	testFunc func(*testing.T, *testcontext.Context, *testplanet.Planet, *Project)) {
-	if cfg.planetCfg == nil {
-		cfg.planetCfg = &testplanet.Config{SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1}
-	}
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// we only use testUplink for the free API key, until such time
+		// as testplanet makes it easy to get another way :D
+		testUplink := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+		cfg.uplinkCfg.Volatile.TLS.SkipPeerCAWhitelist = true
 
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+		apiKey, err := ParseAPIKey(testUplink.APIKey[satellite.ID()])
+		if err != nil {
+			t.Fatalf("could not parse API key from testplanet: %v", err)
+		}
+		uplink, err := NewUplink(ctx, &cfg.uplinkCfg)
+		if err != nil {
+			t.Fatalf("could not create new Uplink object: %v", err)
+		}
+		defer ctx.Check(uplink.Close)
+		var projectOptions ProjectOptions
+		projectOptions.Volatile.EncryptionKey = encKey
+		proj, err := uplink.OpenProject(ctx, satellite.Addr(), apiKey, &projectOptions)
+		if err != nil {
+			t.Fatalf("could not open project from libuplink under testplanet: %v", err)
+		}
+		defer ctx.Check(proj.Close)
 
-	planet, err := testplanet.NewCustom(zaptest.NewLogger(t), *cfg.planetCfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ctx.Check(planet.Shutdown)
-
-	planet.Start(ctx)
-
-	// we only use testUplink for the free API key, until such time
-	// as testplanet makes it easy to get another way :D
-	testUplink := planet.Uplinks[0]
-	satellite := planet.Satellites[0]
-	cfg.uplinkCfg.Volatile.TLS.SkipPeerCAWhitelist = true
-
-	apiKey, err := ParseAPIKey(testUplink.APIKey[satellite.ID()])
-	if err != nil {
-		t.Fatalf("could not parse API key from testplanet: %v", err)
-	}
-	uplink, err := NewUplink(ctx, &cfg.uplinkCfg)
-	if err != nil {
-		t.Fatalf("could not create new Uplink object: %v", err)
-	}
-	defer ctx.Check(uplink.Close)
-	proj, err := uplink.OpenProject(ctx, satellite.Addr(), encKey, apiKey)
-	if err != nil {
-		t.Fatalf("could not open project from libuplink under testplanet: %v", err)
-	}
-	defer ctx.Check(proj.Close)
-
-	testFunc(t, ctx, planet, proj)
+		testFunc(t, ctx, planet, proj)
+	})
 }
 
 func simpleEncryptionAccess(encKey string) (access EncryptionAccess) {

@@ -58,9 +58,6 @@ func NewClientWithTimeout(tlsOpts *tlsopts.Options, requestTimeout time.Duration
 func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if node != nil {
-		node.Type.DPanicOnInvalid("transport dial node")
-	}
 	if node.Address == nil || node.Address.Address == "" {
 		return nil, Error.New("no address")
 	}
@@ -74,6 +71,7 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 		grpc.WithBlock(),
 		grpc.FailOnNonTempDialError(true),
 		grpc.WithUnaryInterceptor(InvokeTimeout{transport.requestTimeout}.Intercept),
+		grpc.WithStreamInterceptor(InvokeStreamTimeout{transport.requestTimeout}.Intercept),
 	}, opts...)
 
 	timedCtx, cancel := context.WithTimeout(ctx, defaultDialTimeout)
@@ -106,6 +104,7 @@ func (transport *Transport) DialAddress(ctx context.Context, address string, opt
 		grpc.WithBlock(),
 		grpc.FailOnNonTempDialError(true),
 		grpc.WithUnaryInterceptor(InvokeTimeout{transport.requestTimeout}.Intercept),
+		grpc.WithStreamInterceptor(InvokeStreamTimeout{transport.requestTimeout}.Intercept),
 	}, opts...)
 
 	timedCtx, cancel := context.WithTimeout(ctx, defaultDialTimeout)

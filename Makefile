@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.11
+GO_VERSION ?= 1.12.1
 GOOS ?= linux
 GOARCH ?= amd64
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
@@ -132,9 +132,6 @@ satellite-image: satellite_linux_arm satellite_linux_amd64 ## Build satellite Do
 	${DOCKER_BUILD} --pull=true -t storjlabs/satellite:${TAG}${CUSTOMTAG}-arm32v6 \
 		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
 		-f cmd/satellite/Dockerfile .
-.PHONY: satellite-ui-image
-satellite-ui-image: ## Build satellite-ui Docker image
-	${DOCKER_BUILD} --pull=true -t storjlabs/satellite-ui:${TAG}${CUSTOMTAG} -f web/satellite/Dockerfile .
 .PHONY: storagenode-image
 storagenode-image: storagenode_linux_arm storagenode_linux_amd64 ## Build storagenode Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG}-amd64 \
@@ -161,14 +158,14 @@ binary:
 	[ "${GOARCH}" = "amd64" ] && goversioninfo $$sixtyfour -o cmd/${COMPONENT}/resource.syso \
 	-original-name ${COMPONENT}_${GOOS}_${GOARCH}${FILEEXT} \
 	-description "${COMPONENT} program for Storj" \
-	-product-ver-build 2 -ver-build 2 \
-	-product-version "alpha2" \
+	-product-ver-build 9 -ver-build 9 \
+	-product-version "alpha9" \
 	resources/versioninfo.json || echo "goversioninfo is not installed, metadata will not be created"
-	tar -c . | docker run --rm -i -e TAR=1 -e GO111MODULE=on \
+	docker run --rm -i -v "${PWD}":/go/src/storj.io/storj -e GO111MODULE=on \
 	-e GOOS=${GOOS} -e GOARCH=${GOARCH} -e GOARM=6 -e CGO_ENABLED=1 \
-	-w /go/src/storj.io/storj -e GOPROXY storjlabs/golang \
-	-o app storj.io/storj/cmd/${COMPONENT} \
-	| tar -O -x ./app > release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT}
+	-w /go/src/storj.io/storj -e GOPROXY -u $(shell id -u):$(shell id -g) storjlabs/golang:${GO_VERSION} \
+	scripts/release.sh build -o release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT} \
+	storj.io/storj/cmd/${COMPONENT}
 	chmod 755 release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT}
 	[ "${FILEEXT}" = ".exe" ] && storj-sign release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT} || echo "Skipping signing"
 	rm -f release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH}.zip
@@ -214,53 +211,26 @@ deploy: ## Update Kubernetes deployments in staging (jenkins)
 	for deployment in $$(kubectl --context nonprod -n v3 get deployment -l app=storagenode --output=jsonpath='{.items..metadata.name}'); do \
 		kubectl --context nonprod --namespace v3 patch deployment $$deployment -p"{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"storagenode\",\"image\":\"storjlabs/storagenode:${TAG}\"}]}}}}" ; \
 	done
-	kubectl --context nonprod --namespace v3 patch deployment satellite -p"{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"satellite\",\"image\":\"storjlabs/satellite:${TAG}\"}]}}}}"
+	kubectl --context nonprod --namespace v3 patch deployment earth-satellite -p"{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"satellite\",\"image\":\"storjlabs/satellite:${TAG}\"}]}}}}"
 
 .PHONY: push-images
 push-images: ## Push Docker images to Docker Hub (jenkins)
 	# images have to be pushed before a manifest can be created
 	# satellite
-	docker push storjlabs/satellite:${TAG}${CUSTOMTAG}-amd64
-	docker push storjlabs/satellite:${TAG}${CUSTOMTAG}-arm32v6
-	docker manifest create storjlabs/satellite:${TAG}${CUSTOMTAG} storjlabs/satellite:${TAG}${CUSTOMTAG}-amd64 storjlabs/satellite:${TAG}${CUSTOMTAG}-arm32v6
-	docker manifest annotate storjlabs/satellite:${TAG}${CUSTOMTAG} storjlabs/satellite:${TAG}${CUSTOMTAG}-amd64 --os linux --arch amd64
-	docker manifest annotate storjlabs/satellite:${TAG}${CUSTOMTAG} storjlabs/satellite:${TAG}${CUSTOMTAG}-arm32v6 --os linux --arch arm --variant arm32v6
-	docker manifest push storjlabs/satellite:${TAG}${CUSTOMTAG}
-	# storagenode
-	docker push storjlabs/storagenode:${TAG}${CUSTOMTAG}-amd64
-	docker push storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm32v6
-	docker manifest create storjlabs/storagenode:${TAG}${CUSTOMTAG} storjlabs/storagenode:${TAG}${CUSTOMTAG}-amd64 storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm32v6
-	docker manifest annotate storjlabs/storagenode:${TAG}${CUSTOMTAG} storjlabs/storagenode:${TAG}${CUSTOMTAG}-amd64 --os linux --arch amd64
-	docker manifest annotate storjlabs/storagenode:${TAG}${CUSTOMTAG} storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm32v6 --os linux --arch arm --variant arm32v6
-	docker manifest push storjlabs/storagenode:${TAG}${CUSTOMTAG}
-	# uplink
-	docker push storjlabs/uplink:${TAG}${CUSTOMTAG}-amd64
-	docker push storjlabs/uplink:${TAG}${CUSTOMTAG}-arm32v6
-	docker manifest create storjlabs/uplink:${TAG}${CUSTOMTAG} storjlabs/uplink:${TAG}${CUSTOMTAG}-amd64 storjlabs/uplink:${TAG}${CUSTOMTAG}-arm32v6
-	docker manifest annotate storjlabs/uplink:${TAG}${CUSTOMTAG} storjlabs/uplink:${TAG}${CUSTOMTAG}-amd64 --os linux --arch amd64
-	docker manifest annotate storjlabs/uplink:${TAG}${CUSTOMTAG} storjlabs/uplink:${TAG}${CUSTOMTAG}-arm32v6 --os linux --arch arm --variant arm32v6
-	docker manifest push storjlabs/uplink:${TAG}${CUSTOMTAG}
-	# gateway
-	docker push storjlabs/gateway:${TAG}${CUSTOMTAG}-amd64
-	docker push storjlabs/gateway:${TAG}${CUSTOMTAG}-arm32v6
-	docker manifest create storjlabs/gateway:${TAG}${CUSTOMTAG} storjlabs/gateway:${TAG}${CUSTOMTAG}-amd64 storjlabs/gateway:${TAG}${CUSTOMTAG}-arm32v6
-	docker manifest annotate storjlabs/gateway:${TAG}${CUSTOMTAG} storjlabs/gateway:${TAG}${CUSTOMTAG}-amd64 --os linux --arch amd64
-	docker manifest annotate storjlabs/gateway:${TAG}${CUSTOMTAG} storjlabs/gateway:${TAG}${CUSTOMTAG}-arm32v6 --os linux --arch arm --variant arm32v6
-	docker manifest push storjlabs/gateway:${TAG}${CUSTOMTAG}
-ifeq (${TRACKED_BRANCH},true)
-	docker tag storjlabs/satellite:${TAG}${CUSTOMTAG} storjlabs/satellite:${LATEST_TAG}
-	docker push storjlabs/satellite:${LATEST_TAG}
-	docker tag storjlabs/storagenode:${TAG}${CUSTOMTAG} storjlabs/storagenode:${LATEST_TAG}
-	docker push storjlabs/storagenode:${LATEST_TAG}
-	docker tag storjlabs/uplink:${TAG}${CUSTOMTAG} storjlabs/uplink:${LATEST_TAG}
-	docker push storjlabs/uplink:${LATEST_TAG}
-	docker tag storjlabs/gateway:${TAG}${CUSTOMTAG} storjlabs/gateway:${LATEST_TAG}
-	docker push storjlabs/gateway:${LATEST_TAG}
-endif
+	for c in satellite storagenode uplink gateway; do \
+		docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-amd64 \
+		&& docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v6 \
+		&& for t in ${TAG}${CUSTOMTAG} ${LATEST_TAG}; do \
+			docker manifest create storjlabs/$$c:$$t storjlabs/$$c:${TAG}${CUSTOMTAG}-amd64 storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v6 \
+			&& docker manifest annotate storjlabs/$$c:$$t storjlabs/$$c:${TAG}${CUSTOMTAG}-amd64 --os linux --arch amd64 \
+			&& docker manifest annotate storjlabs/$$c:$$t storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v6 --os linux --arch arm --variant arm32v6 \
+			&& docker manifest push --purge storjlabs/$$c:$$t \
+		; done \
+	; done
 
 .PHONY: binaries-upload
 binaries-upload: ## Upload binaries to Google Storage (jenkins)
-	cd "release/${TAG}"; for f in "*"; do zip "$f".zip "$f"; done
+	cd "release/${TAG}"; for f in *; do zip $${f}.zip $${f}; done
 	cd "release/${TAG}"; gsutil -m cp -r *.zip "gs://storj-v3-alpha-builds/${TAG}/"
 
 ##@ Clean
@@ -273,19 +243,11 @@ binaries-clean: ## Remove all local release binaries (jenkins)
 	rm -rf release
 
 .PHONY: clean-images
-ifeq (${TRACKED_BRANCH},true)
-clean-images: ## Remove Docker images from local engine
-	-docker rmi storjlabs/gateway:${TAG}${CUSTOMTAG} storjlabs/gateway:${LATEST_TAG}
-	-docker rmi storjlabs/satellite:${TAG}${CUSTOMTAG} storjlabs/satellite:${LATEST_TAG}
-	-docker rmi storjlabs/storagenode:${TAG}${CUSTOMTAG} storjlabs/storagenode:${LATEST_TAG}
-	-docker rmi storjlabs/uplink:${TAG}${CUSTOMTAG} storjlabs/uplink:${LATEST_TAG}
-else
 clean-images:
 	-docker rmi storjlabs/gateway:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/satellite:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/storagenode:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/uplink:${TAG}${CUSTOMTAG}
-endif
 
 .PHONY: test-docker-clean
 test-docker-clean: ## Clean up Docker environment used in test-docker target

@@ -248,7 +248,6 @@ func makeRemotePointer(nodes []*pb.Node, hashes []*pb.PieceHash, rs eestream.Red
 		if nodes[i] == nil {
 			continue
 		}
-		nodes[i].Type.DPanicOnInvalid("makeremotepointer")
 		remotePieces = append(remotePieces, &pb.RemotePiece{
 			PieceNum: int32(i),
 			NodeId:   nodes[i].Id,
@@ -306,7 +305,7 @@ func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) 
 	return nil
 }
 
-// List retrieves paths to segments and their metadata stored in the pointerdb
+// List retrieves paths to segments and their metadata stored in the metainfo
 func (s *segmentStore) List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 

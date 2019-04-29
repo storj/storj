@@ -5,36 +5,24 @@ package postgreskv
 
 import (
 	"database/sql"
-	"flag"
-	"os"
 	"testing"
 
 	_ "github.com/jackc/pgx/stdlib"
 	"github.com/lib/pq"
 
 	"github.com/zeebo/errs"
-	"go.uber.org/zap/zaptest"
 
+	"storj.io/storj/internal/dbutil/pgutil/pgtest"
 	"storj.io/storj/storage"
-	"storj.io/storj/storage/storelogger"
 	"storj.io/storj/storage/testsuite"
 )
 
-const (
-	// this connstring is expected to work under the storj-test docker-compose instance
-	defaultPostgresConn = "postgres://storj:storj-pass@test-postgres/teststorj?sslmode=disable"
-)
-
-var (
-	testPostgres = flag.String("postgres-test-db", os.Getenv("STORJ_POSTGRES_TEST"), "PostgreSQL test database connection string")
-)
-
 func newTestPostgres(t testing.TB) (store *Client, cleanup func()) {
-	if *testPostgres == "" {
-		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", defaultPostgresConn)
+	if *pgtest.ConnStr == "" {
+		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", pgtest.DefaultConnStr)
 	}
 
-	pgdb, err := New(*testPostgres)
+	pgdb, err := New(*pgtest.ConnStr)
 	if err != nil {
 		t.Fatalf("init: %v", err)
 	}
@@ -50,8 +38,9 @@ func TestSuite(t *testing.T) {
 	store, cleanup := newTestPostgres(t)
 	defer cleanup()
 
-	zap := zaptest.NewLogger(t)
-	testsuite.RunTests(t, storelogger.New(zap, store))
+	// zap := zaptest.NewLogger(t)
+	// loggedStore := storelogger.New(zap, store)
+	testsuite.RunTests(t, store)
 }
 
 func BenchmarkSuite(b *testing.B) {

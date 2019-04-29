@@ -81,9 +81,10 @@ CREATE TABLE certRecords (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE injuredsegments (
-	id INTEGER NOT NULL,
-	info BLOB NOT NULL,
-	PRIMARY KEY ( id )
+	path TEXT NOT NULL,
+	data BLOB NOT NULL,
+	attempted TIMESTAMP,
+	PRIMARY KEY ( path )
 );
 CREATE TABLE irreparabledbs (
 	segmentpath BLOB NOT NULL,

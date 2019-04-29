@@ -21,8 +21,11 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2/collect"
+	"gopkg.in/spacemonkeygo/monkit.v2/present"
 
 	"storj.io/storj/internal/version"
 )
@@ -114,7 +117,7 @@ func saveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]int
 	if err != nil {
 		return err
 	}
-	fmt.Println("Configuration saved to:", outfile)
+	fmt.Println("Your configuration is saved to:", outfile)
 	return nil
 }
 
@@ -154,6 +157,9 @@ func cleanup(cmd *cobra.Command) {
 	if internalRun == nil {
 		return
 	}
+
+	traceOut := cmd.Flags().String("debug.trace-out", "", "If set, a path to write a process trace SVG to")
+
 	cmd.RunE = func(cmd *cobra.Command, args []string) (err error) {
 		ctx := context.Background()
 		defer mon.TaskNamed("root")(&ctx)(&err)
@@ -232,16 +238,35 @@ func cleanup(cmd *cobra.Command) {
 			logger.Error("failed to start debug endpoints", zap.Error(err))
 		}
 
-		contextMtx.Lock()
-		contexts[cmd] = ctx
-		contextMtx.Unlock()
-		defer func() {
+		var workErr error
+		work := func(ctx context.Context) {
 			contextMtx.Lock()
-			delete(contexts, cmd)
+			contexts[cmd] = ctx
 			contextMtx.Unlock()
-		}()
+			defer func() {
+				contextMtx.Lock()
+				delete(contexts, cmd)
+				contextMtx.Unlock()
+			}()
 
-		err = internalRun(cmd, args)
+			workErr = internalRun(cmd, args)
+		}
+
+		if *traceOut != "" {
+			fh, err := os.Create(*traceOut)
+			if err != nil {
+				return err
+			}
+			err = present.SpansToSVG(fh, collect.CollectSpans(ctx, work))
+			err = errs.Combine(err, fh.Close())
+			if err != nil {
+				logger.Error("failed to write svg", zap.Error(err))
+			}
+		} else {
+			work(ctx)
+		}
+
+		err = workErr
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "Fatal error: %v\n", err)
 			logger.Sugar().Debugf("Fatal error: %+v", err)

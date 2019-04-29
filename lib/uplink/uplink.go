@@ -59,7 +59,7 @@ type Config struct {
 		PeerIDVersion string
 
 		// MaxInlineSize determines whether the uplink will attempt to
-		// store a new object in the satellite's pointerDB. Objects at
+		// store a new object in the satellite's metainfo. Objects at
 		// or below this size will be marked for inline storage, and
 		// objects above this size will not. (The satellite may reject
 		// the inline storage and require remote storage, still.)
@@ -75,11 +75,16 @@ type Config struct {
 	}
 }
 
-func (c *Config) setDefaults(ctx context.Context) error {
-	if c.Volatile.UseIdentity == nil {
+func (cfg *Config) clone() *Config {
+	clone := *cfg
+	return &clone
+}
+
+func (cfg *Config) setDefaults(ctx context.Context) error {
+	if cfg.Volatile.UseIdentity == nil {
 		var err error
-		c.Volatile.UseIdentity, err = identity.NewFullIdentity(ctx, identity.NewCAOptions{
-			VersionNumber: c.Volatile.IdentityVersion.Number,
+		cfg.Volatile.UseIdentity, err = identity.NewFullIdentity(ctx, identity.NewCAOptions{
+			VersionNumber: cfg.Volatile.IdentityVersion.Number,
 			Difficulty:    0,
 			Concurrency:   1,
 		})
@@ -87,20 +92,20 @@ func (c *Config) setDefaults(ctx context.Context) error {
 			return err
 		}
 	}
-	idVersion, err := c.Volatile.UseIdentity.Version()
+	idVersion, err := cfg.Volatile.UseIdentity.Version()
 	if err != nil {
 		return err
 	}
-	if idVersion.Number != c.Volatile.IdentityVersion.Number {
-		return storj.ErrVersion.New("`UseIdentity` version (%d) didn't match version in config (%d)", idVersion.Number, c.Volatile.IdentityVersion.Number)
+	if idVersion.Number != cfg.Volatile.IdentityVersion.Number {
+		return storj.ErrVersion.New("`UseIdentity` version (%d) didn't match version in config (%d)", idVersion.Number, cfg.Volatile.IdentityVersion.Number)
 	}
-	if c.Volatile.MaxInlineSize == 0 {
-		c.Volatile.MaxInlineSize = 4 * memory.KiB
+	if cfg.Volatile.MaxInlineSize == 0 {
+		cfg.Volatile.MaxInlineSize = 4 * memory.KiB
 	}
-	if c.Volatile.MaxMemory.Int() == 0 {
-		c.Volatile.MaxMemory = 4 * memory.MiB
-	} else if c.Volatile.MaxMemory.Int() < 0 {
-		c.Volatile.MaxMemory = 0
+	if cfg.Volatile.MaxMemory.Int() == 0 {
+		cfg.Volatile.MaxMemory = 4 * memory.MiB
+	} else if cfg.Volatile.MaxMemory.Int() < 0 {
+		cfg.Volatile.MaxMemory = 0
 	}
 	return nil
 }
@@ -118,6 +123,7 @@ func NewUplink(ctx context.Context, cfg *Config) (*Uplink, error) {
 	if cfg == nil {
 		cfg = &Config{}
 	}
+	cfg = cfg.clone()
 	if err := cfg.setDefaults(ctx); err != nil {
 		return nil, err
 	}
@@ -138,8 +144,15 @@ func NewUplink(ctx context.Context, cfg *Config) (*Uplink, error) {
 	}, nil
 }
 
+// ProjectOptions allows configuration of various project options during opening
+type ProjectOptions struct {
+	Volatile struct {
+		EncryptionKey *storj.Key
+	}
+}
+
 // OpenProject returns a Project handle with the given APIKey
-func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, encryptionKey *storj.Key, apiKey APIKey) (p *Project, err error) {
+func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey APIKey, opts *ProjectOptions) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	metainfo, err := metainfo.NewClient(ctx, u.tc, satelliteAddr, apiKey.key)
@@ -158,6 +171,15 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, encrypti
 		return nil, Error.New("failed to create redundancy strategy: %v", err)
 	}
 	segments := segments.NewSegmentStore(metainfo, nil, rs, maxBucketMetaSize.Int(), maxBucketMetaSize.Int64())
+	var encryptionKey *storj.Key
+	if opts != nil {
+		encryptionKey = opts.Volatile.EncryptionKey
+	}
+	if encryptionKey == nil {
+		// volatile warning: we're setting an encryption key of all zeros when one isn't provided.
+		// TODO: fix before the final alpha network wipe
+		encryptionKey = new(storj.Key)
+	}
 	streams, err := streams.NewStreamStore(segments, maxBucketMetaSize.Int64(),
 		encryptionKey, memory.KiB.Int(), storj.AESGCM)
 	if err != nil {

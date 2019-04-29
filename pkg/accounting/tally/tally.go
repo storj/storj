@@ -14,20 +14,20 @@ import (
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storage"
 )
 
 // Config contains configurable values for the tally service
 type Config struct {
-	Interval time.Duration `help:"how frequently the tally service should run" default:"1h" devDefault:"30s"`
+	Interval time.Duration `help:"how frequently the tally service should run" releaseDefault:"1h" devDefault:"30s"`
 }
 
 // Service is the tally service for data stored on each storage node
 type Service struct {
 	logger       *zap.Logger
-	pointerdb    *pointerdb.Service
+	metainfo     *metainfo.Service
 	overlay      *overlay.Cache
 	limit        int
 	ticker       *time.Ticker
@@ -35,10 +35,10 @@ type Service struct {
 }
 
 // New creates a new tally Service
-func New(logger *zap.Logger, accountingDB accounting.DB, pointerdb *pointerdb.Service, overlay *overlay.Cache, limit int, interval time.Duration) *Service {
+func New(logger *zap.Logger, accountingDB accounting.DB, metainfo *metainfo.Service, overlay *overlay.Cache, limit int, interval time.Duration) *Service {
 	return &Service{
 		logger:       logger,
-		pointerdb:    pointerdb,
+		metainfo:     metainfo,
 		overlay:      overlay,
 		limit:        limit,
 		ticker:       time.NewTicker(interval),
@@ -86,7 +86,7 @@ func (t *Service) Tally(ctx context.Context) error {
 	return errs.Combine(errAtRest, errBucketInfo)
 }
 
-// CalculateAtRestData iterates through the pieces on pointerdb and calculates
+// CalculateAtRestData iterates through the pieces on metainfo and calculates
 // the amount of at-rest data stored in each bucket and on each respective node
 func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Time, nodeData map[storj.NodeID]float64, bucketTallies map[string]*accounting.BucketTally, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -102,7 +102,7 @@ func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Tim
 	var bucketCount int64
 	var totalTallies, currentBucketTally accounting.BucketTally
 
-	err = t.pointerdb.Iterate("", "", true, false,
+	err = t.metainfo.Iterate("", "", true, false,
 		func(it storage.Iterator) error {
 			var item storage.ListItem
 			for it.Next(&item) {

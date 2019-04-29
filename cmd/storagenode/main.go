@@ -9,15 +9,16 @@ import (
 	"path/filepath"
 	"sort"
 	"text/tabwriter"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode"
@@ -77,7 +78,6 @@ var (
 	confDir        string
 	identityDir    string
 	useColor       bool
-	isDev          bool
 )
 
 const (
@@ -91,18 +91,18 @@ func init() {
 	defaultDiagDir = filepath.Join(defaultConfDir, "storage")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for storagenode configuration")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for storagenode identity credentials")
-	cfgstruct.DevFlag(rootCmd, &isDev, false, "use development and test configuration settings")
+	defaults := cfgstruct.DefaultsFlag(rootCmd)
 	rootCmd.PersistentFlags().BoolVar(&useColor, "color", false, "use color in user interface")
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(diagCmd)
 	rootCmd.AddCommand(dashboardCmd)
-	cfgstruct.Bind(runCmd.Flags(), &runCfg, isDev, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, isDev, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	cfgstruct.BindSetup(configCmd.Flags(), &setupCfg, isDev, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, isDev, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	cfgstruct.Bind(dashboardCmd.Flags(), &dashboardCfg, isDev, cfgstruct.ConfDir(defaultDiagDir))
+	cfgstruct.Bind(runCmd.Flags(), &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	cfgstruct.BindSetup(configCmd.Flags(), &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	cfgstruct.Bind(dashboardCmd.Flags(), &dashboardCfg, defaults, cfgstruct.ConfDir(defaultDiagDir))
 }
 
 func databaseConfig(config storagenode.Config) storagenodedb.Config {
@@ -228,6 +228,8 @@ func cmdConfig(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {
+	ctx := process.Ctx(cmd)
+
 	diagDir, err := filepath.Abs(confDir)
 	if err != nil {
 		return err
@@ -236,88 +238,50 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	// check if the directory exists
 	_, err = os.Stat(diagDir)
 	if err != nil {
-		fmt.Println("Storagenode directory doesn't exist", diagDir)
+		fmt.Println("storage node directory doesn't exist", diagDir)
 		return err
 	}
 
 	db, err := storagenodedb.New(zap.L().Named("db"), databaseConfig(diagCfg))
 	if err != nil {
-		return errs.New("Error starting master database on storagenode: %v", err)
+		return errs.New("Error starting master database on storage node: %v", err)
 	}
 	defer func() {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	//get all bandwidth aggrements entries already ordered
-	bwAgreements, err := db.PSDB().GetBandwidthAllocations()
+	summaries, err := db.Bandwidth().SummaryBySatellite(ctx, time.Time{}, time.Now())
 	if err != nil {
-		fmt.Printf("storage node 'bandwidth_agreements' table read error: %v\n", err)
+		fmt.Printf("unable to get bandwidth summary: %v\n", err)
 		return err
 	}
 
-	// Agreement is a struct that contains a bandwidth agreement and the associated signature
-	type SatelliteSummary struct {
-		TotalBytes           int64
-		PutActionCount       int64
-		GetActionCount       int64
-		GetAuditActionCount  int64
-		GetRepairActionCount int64
-		PutRepairActionCount int64
-		TotalTransactions    int64
-		// additional attributes add here ...
+	satellites := storj.NodeIDList{}
+	for id := range summaries {
+		satellites = append(satellites, id)
+	}
+	sort.Sort(satellites)
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', tabwriter.AlignRight|tabwriter.Debug)
+	defer func() { err = errs.Combine(err, w.Flush()) }()
+
+	fmt.Fprint(w, "Satellite\tTotal\tPut\tGet\tDelete\tAudit Get\tRepair Get\tRepair Put\n")
+
+	for _, id := range satellites {
+		summary := summaries[id]
+		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
+			id,
+			memory.Size(summary.Total()),
+			memory.Size(summary.Put),
+			memory.Size(summary.Get),
+			memory.Size(summary.Delete),
+			memory.Size(summary.GetAudit),
+			memory.Size(summary.GetRepair),
+			memory.Size(summary.PutRepair),
+		)
 	}
 
-	// attributes per satelliteid
-	summaries := make(map[storj.NodeID]*SatelliteSummary)
-	satelliteIDs := storj.NodeIDList{}
-
-	for _, rbaVal := range bwAgreements {
-		for _, rbaDataVal := range rbaVal {
-			rba := rbaDataVal.Agreement
-			pba := rba.PayerAllocation
-
-			summary, ok := summaries[pba.SatelliteId]
-			if !ok {
-				summaries[pba.SatelliteId] = &SatelliteSummary{}
-				satelliteIDs = append(satelliteIDs, pba.SatelliteId)
-				summary = summaries[pba.SatelliteId]
-			}
-
-			// fill the summary info
-			summary.TotalBytes += rba.Total
-			summary.TotalTransactions++
-			switch pba.Action {
-			case pb.BandwidthAction_PUT:
-				summary.PutActionCount++
-			case pb.BandwidthAction_GET:
-				summary.GetActionCount++
-			case pb.BandwidthAction_GET_AUDIT:
-				summary.GetAuditActionCount++
-			case pb.BandwidthAction_GET_REPAIR:
-				summary.GetRepairActionCount++
-			case pb.BandwidthAction_PUT_REPAIR:
-				summary.PutRepairActionCount++
-			}
-		}
-	}
-
-	// initialize the table header (fields)
-	const padding = 3
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.AlignRight|tabwriter.Debug)
-	fmt.Fprintln(w, "SatelliteID\tTotal\t# Of Transactions\tPUT Action\tGET Action\tGET (Audit) Action\tGET (Repair) Action\tPUT (Repair) Action\t")
-
-	// populate the row fields
-	sort.Sort(satelliteIDs)
-	for _, satelliteID := range satelliteIDs {
-		summary := summaries[satelliteID]
-		fmt.Fprint(w, satelliteID, "\t", summary.TotalBytes, "\t", summary.TotalTransactions, "\t",
-			summary.PutActionCount, "\t", summary.GetActionCount, "\t", summary.GetAuditActionCount,
-			"\t", summary.GetRepairActionCount, "\t", summary.PutRepairActionCount, "\t\n")
-	}
-
-	// display the data
-	err = w.Flush()
-	return err
+	return nil
 }
 
 func main() {

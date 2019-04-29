@@ -6,6 +6,7 @@ package kademlia
 import (
 	"fmt"
 	"regexp"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -22,10 +23,12 @@ var (
 // Config defines all of the things that are needed to start up Kademlia
 // server endpoints (and not necessarily client code).
 type Config struct {
-	BootstrapAddr   string `help:"the Kademlia node to bootstrap against" default:""`
-	DBPath          string `help:"the path for storage node db services to be created on" default:"$CONFDIR/kademlia"`
-	ExternalAddress string `user:"true" help:"the public address of the Kademlia node, useful for nodes behind NAT" default:""`
-	Operator        OperatorConfig
+	BootstrapAddr        string        `help:"the Kademlia node to bootstrap against" default:""`
+	BootstrapBackoffMax  time.Duration `help:"the maximum amount of time to wait when retrying bootstrap" default:"30s"`
+	BootstrapBackoffBase time.Duration `help:"the base interval to wait when retrying bootstrap" default:"1s"`
+	DBPath               string        `help:"the path for storage node db services to be created on" default:"$CONFDIR/kademlia"`
+	ExternalAddress      string        `user:"true" help:"the public address of the Kademlia node, useful for nodes behind NAT" default:""`
+	Operator             OperatorConfig
 
 	// TODO: reduce the number of flags here
 	Alpha int `help:"alpha is a system wide concurrency parameter" default:"5"`
@@ -41,7 +44,6 @@ func (c Config) BootstrapNodes() []pb.Node {
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,
 				Address:   c.BootstrapAddr,
 			},
-			Type: pb.NodeType_BOOTSTRAP,
 		})
 	}
 	return nodes

@@ -17,8 +17,8 @@ import (
 
 	"storj.io/storj/internal/dbutil/dbschema"
 	"storj.io/storj/internal/dbutil/pgutil"
+	"storj.io/storj/internal/dbutil/pgutil/pgtest"
 	"storj.io/storj/satellite/satellitedb"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
 // loadSnapshots loads all the dbschemas from testdata/postgres.* caching the result
@@ -45,7 +45,7 @@ func loadSnapshots(connstr string) (*dbschema.Snapshots, error) {
 
 		snapshot, err := pgutil.LoadSnapshotFromSQL(connstr, string(scriptData))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("Version %d error: %+v", version, err)
 		}
 		snapshot.Version = version
 
@@ -90,11 +90,11 @@ const (
 )
 
 func TestMigratePostgres(t *testing.T) {
-	if *satellitedbtest.TestPostgres == "" {
-		t.Skip("Postgres flag missing, example: -postgres-test-db=" + satellitedbtest.DefaultPostgresConn)
+	if *pgtest.ConnStr == "" {
+		t.Skip("Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultConnStr)
 	}
 
-	snapshots, err := loadSnapshots(*satellitedbtest.TestPostgres)
+	snapshots, err := loadSnapshots(*pgtest.ConnStr)
 	require.NoError(t, err)
 
 	for _, base := range snapshots.List {
@@ -106,7 +106,7 @@ func TestMigratePostgres(t *testing.T) {
 		t.Run(strconv.Itoa(base.Version), func(t *testing.T) {
 			log := zaptest.NewLogger(t)
 			schemaName := "migrate/satellite/" + strconv.Itoa(base.Version) + pgutil.CreateRandomTestingSchemaName(8)
-			connstr := pgutil.ConnstrWithSchema(*satellitedbtest.TestPostgres, schemaName)
+			connstr := pgutil.ConnstrWithSchema(*pgtest.ConnStr, schemaName)
 
 			// create a new satellitedb connection
 			db, err := satellitedb.New(log, connstr)
@@ -170,7 +170,7 @@ func TestMigratePostgres(t *testing.T) {
 			}
 
 			// verify that we also match the dbx version
-			dbxschema, err := loadDBXSchema(*satellitedbtest.TestPostgres, rawdb.Schema())
+			dbxschema, err := loadDBXSchema(*pgtest.ConnStr, rawdb.Schema())
 			require.NoError(t, err)
 
 			require.Equal(t, dbxschema, finalSchema, "dbx")
