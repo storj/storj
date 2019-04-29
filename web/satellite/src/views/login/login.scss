@@ -180,10 +180,13 @@
       font-size: 15px;
       line-height: 18px;
       text-align: center;
-      text-decoration: none;
-      color: #66686C;
+      color: #2683FF;
       margin-block-start: 0;
       margin-block-end: 0;
+
+      &:hover {
+        text-decoration: underline;
+      }
     }
 
     &__signature {
@@ -218,8 +221,11 @@
       padding-left: 15px;
       padding-right: 15px;
       min-width: 140px;
-      text-decoration: none;
-      color: #66686C;
+      color: #2683FF;
+
+      &:hover {
+        text-decoration: underline;
+      }
 
       .bold {
         font-family: 'font_medium';

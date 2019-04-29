@@ -7,6 +7,7 @@ import (
 	"context"
 	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -40,7 +41,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 	_, _ = rand.Read(valid2ID[:])
 	_, _ = rand.Read(missingID[:])
 
-	cache := overlay.NewCache(zaptest.NewLogger(t), store, overlay.NodeSelectionConfig{})
+	cache := overlay.NewCache(zaptest.NewLogger(t), store, overlay.NodeSelectionConfig{OnlineWindow: time.Hour})
 
 	{ // Put
 		err := cache.Put(ctx, valid1ID, pb.Node{Id: valid1ID})
@@ -100,12 +101,6 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		// TODO: add erroring database test
 	}
 
-	{ // List
-		list, err := cache.List(ctx, storj.NodeID{}, 3)
-		assert.NoError(t, err)
-		assert.NotNil(t, list)
-	}
-
 	{ // Paginate
 
 		// should return two nodes
@@ -161,11 +156,12 @@ func TestRandomizedSelection(t *testing.T) {
 			var err error
 
 			if i%2 == 0 {
-				nodes, err = cache.SelectStorageNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{})
+				nodes, err = cache.SelectStorageNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{OnlineWindow: time.Hour})
 				require.NoError(t, err)
 			} else {
 				nodes, err = cache.SelectNewStorageNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{
-					AuditCount: 1,
+					OnlineWindow: time.Hour,
+					AuditCount:   1,
 				})
 				require.NoError(t, err)
 			}
