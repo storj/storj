@@ -194,7 +194,7 @@ CREATE TABLE buckets (
 	attribution_id bytea REFERENCES attributions( id ) ON DELETE SET NULL,
 	created_at timestamp NOT NULL,
 	default_segment_size integer NOT NULL,
-	default_encryption_ciphersuite integer NOT NULL,
+	default_encryption_cipher_suite integer NOT NULL,
 	default_encryption_block_size integer NOT NULL,
 	default_redundancy_algorithm integer NOT NULL,
 	default_redundancy_share_size integer NOT NULL,

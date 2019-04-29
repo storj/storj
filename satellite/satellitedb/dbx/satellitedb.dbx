@@ -305,13 +305,13 @@ model bucket (
 	field path_cipher    int // byte
 
 	field attribution_id attribution.id setnull ( nullable ) // uuid
-	field created_at     utimestamp ( autoinsert )
+	field created_at     utimestamp // should this be autoinsert
 
 	// defaults (should these be a pb?)
 	field default_segment_size           int (updatable)
 
-	field default_encryption_ciphersuite int (updatable) // byte
-	field default_encryption_block_size  int (updatable) // byte
+	field default_encryption_cipher_suite int (updatable) // byte
+	field default_encryption_block_size   int (updatable) // byte
    
 	field default_redundancy_algorithm       int (updatable) // byte
 	field default_redundancy_share_size      int (updatable)

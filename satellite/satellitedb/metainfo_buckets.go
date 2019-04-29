@@ -22,7 +22,35 @@ type buckets struct {
 }
 
 func (buckets *buckets) Create(ctx context.Context, bucket *metainfo.Bucket) error {
+	var attribution interface{}
 
+	_, err := buckets.db.Create_Bucket(ctx,
+		dbx.Bucket_Id(bucket.ProjectID[:]),
+
+		dbx.Bucket_ProjectId(bucket.ProjectID[:]),
+		dbx.Bucket_Name([]byte(bucket.Name)),
+		dbx.Bucket_PathCipher(int(bucket.PathCipher)),
+
+		dbx.Bucket_CreatedAt(bucket.CreatedAt.UTC()),
+
+		dbx.Bucket_DefaultSegmentSize(int(bucket.DefaultSegmentSize)),
+
+		dbx.Bucket_DefaultEncryptionCipherSuite(int(bucket.DefaultEncryption.CipherSuite)),
+		dbx.Bucket_DefaultEncryptionBlockSize(int(bucket.DefaultEncryption.BlockSize)),
+
+		dbx.Bucket_DefaultRedundancyAlgorithm(int(bucket.DefaultRedundancy.Algorithm)),
+		dbx.Bucket_DefaultRedundancyShareSize(int(bucket.DefaultRedundancy.ShareSize)),
+		dbx.Bucket_DefaultRedundancyRequiredShares(int(bucket.DefaultRedundancy.RequiredShares)),
+		dbx.Bucket_DefaultRedundancyRepairShares(int(bucket.DefaultRedundancy.RepairShares)),
+		dbx.Bucket_DefaultRedundancyOptimalShares(int(bucket.DefaultRedundancy.OptimalShares)),
+		dbx.Bucket_DefaultRedundancyTotalShares(int(bucket.DefaultRedundancy.TotalShares)),
+
+		dbx.Bucket_Create_Fields{
+			// AttributionID uuid.UUID, optional
+		},
+	)
+
+	return err
 }
 
 func (buckets *buckets) Get(ctx context.Context, projectID uuid.UUID, name string) (*metainfo.Bucket, error) {
@@ -74,7 +102,7 @@ func bucketFromDBX(bucket *dbx.Bucket) (*metainfo.Bucket, error) {
 
 		DefaultSegmentSize: int64(bucket.DefaultSegmentSize),
 		DefaultEncryption: storj.EncryptionParameters{
-			CipherSuite: storj.CipherSuite(bucket.DefaultEncryptionCiphersuite),
+			CipherSuite: storj.CipherSuite(bucket.DefaultEncryptionCipherSuite),
 			BlockSize:   int32(bucket.DefaultEncryptionBlockSize),
 		},
 		DefaultRedundancy: storj.RedundancyScheme{

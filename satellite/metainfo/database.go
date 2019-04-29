@@ -14,16 +14,14 @@ import (
 
 // Bucket defines internal implementation of buckets
 type Bucket struct {
-	ProjectID uuid.UUID
-	ID        uuid.UUID
+	ID uuid.UUID
 
-	Name string
-
-	AttributionID uuid.UUID // []byte?
-
+	ProjectID  uuid.UUID
+	Name       string
 	PathCipher storj.Cipher
 
-	CreatedAt time.Time
+	AttributionID uuid.UUID // []byte?
+	CreatedAt     time.Time
 
 	// do we need "Default" prefix here?
 	DefaultSegmentSize int64
