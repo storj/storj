@@ -1,7 +1,6 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-//#include "uplink.h"
 #include "uplink-cgo-common.h"
 
 typedef struct Uplink {

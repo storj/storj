@@ -255,7 +255,7 @@ extern "C" {
 #endif
 
 void
-_wrap_Swig_free_main_7a5f7638a58f34cd(void *swig_v)
+_wrap_Swig_free_main_923e9cf92a793af7(void *swig_v)
 {
   void *arg1 = (void *) 0 ;
   void *_swig_go_0;
@@ -272,7 +272,7 @@ _wrap_Swig_free_main_7a5f7638a58f34cd(void *swig_v)
 
 
 void
-_wrap_Swig_malloc_main_7a5f7638a58f34cd(void *swig_v)
+_wrap_Swig_malloc_main_923e9cf92a793af7(void *swig_v)
 {
   int arg1 ;
   void *result = 0 ;
@@ -297,7 +297,7 @@ _wrap_Swig_malloc_main_7a5f7638a58f34cd(void *swig_v)
 
 
 void
-_wrap_Uplink_tc_set_main_7a5f7638a58f34cd(void *swig_v)
+_wrap_Uplink_tc_set_main_923e9cf92a793af7(void *swig_v)
 {
   struct Uplink *arg1 = (struct Uplink *) 0 ;
   GoUintptr arg2 ;
@@ -326,7 +326,7 @@ _wrap_Uplink_tc_set_main_7a5f7638a58f34cd(void *swig_v)
 
 
 void
-_wrap_Uplink_tc_get_main_7a5f7638a58f34cd(void *swig_v)
+_wrap_Uplink_tc_get_main_923e9cf92a793af7(void *swig_v)
 {
   struct Uplink *arg1 = (struct Uplink *) 0 ;
   GoUintptr result;
@@ -355,7 +355,7 @@ _wrap_Uplink_tc_get_main_7a5f7638a58f34cd(void *swig_v)
 
 
 void
-_wrap_Uplink_cfg_set_main_7a5f7638a58f34cd(void *swig_v)
+_wrap_Uplink_cfg_set_main_923e9cf92a793af7(void *swig_v)
 {
   struct Uplink *arg1 = (struct Uplink *) 0 ;
   struct Config *arg2 = (struct Config *) 0 ;
@@ -377,7 +377,7 @@ _wrap_Uplink_cfg_set_main_7a5f7638a58f34cd(void *swig_v)
 
 
 void
-_wrap_Uplink_cfg_get_main_7a5f7638a58f34cd(void *swig_v)
+_wrap_Uplink_cfg_get_main_923e9cf92a793af7(void *swig_v)
 {
   struct Uplink *arg1 = (struct Uplink *) 0 ;
   struct Config *result = 0 ;
@@ -402,7 +402,7 @@ _wrap_Uplink_cfg_get_main_7a5f7638a58f34cd(void *swig_v)
 
 
 void
-_wrap_Uplink_error_set_main_7a5f7638a58f34cd(void *swig_v)
+_wrap_Uplink_error_set_main_923e9cf92a793af7(void *swig_v)
 {
   struct Uplink *arg1 = (struct Uplink *) 0 ;
   char *arg2 = (char *) 0 ;
@@ -437,7 +437,7 @@ _wrap_Uplink_error_set_main_7a5f7638a58f34cd(void *swig_v)
 
 
 void
-_wrap_Uplink_error_get_main_7a5f7638a58f34cd(void *swig_v)
+_wrap_Uplink_error_get_main_923e9cf92a793af7(void *swig_v)
 {
   struct Uplink *arg1 = (struct Uplink *) 0 ;
   char *result = 0 ;
@@ -462,7 +462,7 @@ _wrap_Uplink_error_get_main_7a5f7638a58f34cd(void *swig_v)
 
 
 void
-_wrap_new_Uplink_main_7a5f7638a58f34cd(void *swig_v)
+_wrap_new_Uplink_main_923e9cf92a793af7(void *swig_v)
 {
   struct Uplink *result = 0 ;
   struct Uplink *_swig_go_result;
@@ -482,7 +482,7 @@ _wrap_new_Uplink_main_7a5f7638a58f34cd(void *swig_v)
 
 
 void
-_wrap_delete_Uplink_main_7a5f7638a58f34cd(void *swig_v)
+_wrap_delete_Uplink_main_923e9cf92a793af7(void *swig_v)
 {
   struct Uplink *arg1 = (struct Uplink *) 0 ;
   struct Uplink *_swig_go_0;

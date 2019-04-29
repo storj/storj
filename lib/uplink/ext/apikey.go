@@ -6,7 +6,7 @@
 package main
 
 //go:generate go build -o uplink-cgo-common.so -buildmode=c-shared apikey.go
-//go:generate swig -go -intgosize 64 -module main -o uplink uplink-cgo.h
+//go:generate swig -go -intgosize 64 -module main -o uplink.c uplink-cgo.h
 
 // #cgo CFLAGS: -g -Wall
 // #include <stdlib.h>

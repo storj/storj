@@ -43,11 +43,11 @@ func swigCopyString(s string) string {
   return r
 }
 
-var _wrap_Swig_free_main_7a5f7638a58f34cd unsafe.Pointer
+var _wrap_Swig_free_main_923e9cf92a793af7 unsafe.Pointer
 
 func _swig_wrap_Swig_free(base uintptr) {
 	_swig_p := uintptr(unsafe.Pointer(&base))
-	_cgo_runtime_cgocall(_wrap_Swig_free_main_7a5f7638a58f34cd, _swig_p)
+	_cgo_runtime_cgocall(_wrap_Swig_free_main_923e9cf92a793af7, _swig_p)
 	return
 }
 
@@ -55,11 +55,11 @@ func Swig_free(arg1 uintptr) {
 	_swig_wrap_Swig_free(arg1)
 }
 
-var _wrap_Swig_malloc_main_7a5f7638a58f34cd unsafe.Pointer
+var _wrap_Swig_malloc_main_923e9cf92a793af7 unsafe.Pointer
 
 func Swig_malloc(arg1 int) (_swig_ret uintptr) {
 	_swig_p := uintptr(unsafe.Pointer(&arg1))
-	_cgo_runtime_cgocall(_wrap_Swig_malloc_main_7a5f7638a58f34cd, _swig_p)
+	_cgo_runtime_cgocall(_wrap_Swig_malloc_main_923e9cf92a793af7, _swig_p)
 	return
 }
 type SwigcptrUplink uintptr
@@ -71,11 +71,11 @@ func (p SwigcptrUplink) Swigcptr() uintptr {
 func (p SwigcptrUplink) SwigIsUplink() {
 }
 
-var _wrap_Uplink_tc_set_main_7a5f7638a58f34cd unsafe.Pointer
+var _wrap_Uplink_tc_set_main_923e9cf92a793af7 unsafe.Pointer
 
 func _swig_wrap_Uplink_tc_set(base SwigcptrUplink, _ uintptr) {
 	_swig_p := uintptr(unsafe.Pointer(&base))
-	_cgo_runtime_cgocall(_wrap_Uplink_tc_set_main_7a5f7638a58f34cd, _swig_p)
+	_cgo_runtime_cgocall(_wrap_Uplink_tc_set_main_923e9cf92a793af7, _swig_p)
 	return
 }
 
@@ -83,11 +83,11 @@ func (arg1 SwigcptrUplink) SetTc(arg2 GoUintptr) {
 	_swig_wrap_Uplink_tc_set(arg1, arg2.Swigcptr())
 }
 
-var _wrap_Uplink_tc_get_main_7a5f7638a58f34cd unsafe.Pointer
+var _wrap_Uplink_tc_get_main_923e9cf92a793af7 unsafe.Pointer
 
 func _swig_wrap_Uplink_tc_get(base SwigcptrUplink) (_ SwigcptrGoUintptr) {
 	_swig_p := uintptr(unsafe.Pointer(&base))
-	_cgo_runtime_cgocall(_wrap_Uplink_tc_get_main_7a5f7638a58f34cd, _swig_p)
+	_cgo_runtime_cgocall(_wrap_Uplink_tc_get_main_923e9cf92a793af7, _swig_p)
 	return
 }
 
@@ -95,11 +95,11 @@ func (arg1 SwigcptrUplink) GetTc() (_swig_ret GoUintptr) {
 	return _swig_wrap_Uplink_tc_get(arg1)
 }
 
-var _wrap_Uplink_cfg_set_main_7a5f7638a58f34cd unsafe.Pointer
+var _wrap_Uplink_cfg_set_main_923e9cf92a793af7 unsafe.Pointer
 
 func _swig_wrap_Uplink_cfg_set(base SwigcptrUplink, _ uintptr) {
 	_swig_p := uintptr(unsafe.Pointer(&base))
-	_cgo_runtime_cgocall(_wrap_Uplink_cfg_set_main_7a5f7638a58f34cd, _swig_p)
+	_cgo_runtime_cgocall(_wrap_Uplink_cfg_set_main_923e9cf92a793af7, _swig_p)
 	return
 }
 
@@ -107,11 +107,11 @@ func (arg1 SwigcptrUplink) SetCfg(arg2 Struct_SS_Config) {
 	_swig_wrap_Uplink_cfg_set(arg1, arg2.Swigcptr())
 }
 
-var _wrap_Uplink_cfg_get_main_7a5f7638a58f34cd unsafe.Pointer
+var _wrap_Uplink_cfg_get_main_923e9cf92a793af7 unsafe.Pointer
 
 func _swig_wrap_Uplink_cfg_get(base SwigcptrUplink) (_ SwigcptrStruct_SS_Config) {
 	_swig_p := uintptr(unsafe.Pointer(&base))
-	_cgo_runtime_cgocall(_wrap_Uplink_cfg_get_main_7a5f7638a58f34cd, _swig_p)
+	_cgo_runtime_cgocall(_wrap_Uplink_cfg_get_main_923e9cf92a793af7, _swig_p)
 	return
 }
 
@@ -119,11 +119,11 @@ func (arg1 SwigcptrUplink) GetCfg() (_swig_ret Struct_SS_Config) {
 	return _swig_wrap_Uplink_cfg_get(arg1)
 }
 
-var _wrap_Uplink_error_set_main_7a5f7638a58f34cd unsafe.Pointer
+var _wrap_Uplink_error_set_main_923e9cf92a793af7 unsafe.Pointer
 
 func _swig_wrap_Uplink_error_set(base SwigcptrUplink, _ string) {
 	_swig_p := uintptr(unsafe.Pointer(&base))
-	_cgo_runtime_cgocall(_wrap_Uplink_error_set_main_7a5f7638a58f34cd, _swig_p)
+	_cgo_runtime_cgocall(_wrap_Uplink_error_set_main_923e9cf92a793af7, _swig_p)
 	return
 }
 
@@ -134,11 +134,11 @@ func (arg1 SwigcptrUplink) SetError(arg2 string) {
 	_swig_wrap_Uplink_error_set(arg1, arg2)
 }
 
-var _wrap_Uplink_error_get_main_7a5f7638a58f34cd unsafe.Pointer
+var _wrap_Uplink_error_get_main_923e9cf92a793af7 unsafe.Pointer
 
 func _swig_wrap_Uplink_error_get(base SwigcptrUplink) (_ string) {
 	_swig_p := uintptr(unsafe.Pointer(&base))
-	_cgo_runtime_cgocall(_wrap_Uplink_error_get_main_7a5f7638a58f34cd, _swig_p)
+	_cgo_runtime_cgocall(_wrap_Uplink_error_get_main_923e9cf92a793af7, _swig_p)
 	return
 }
 
@@ -150,11 +150,11 @@ func (arg1 SwigcptrUplink) GetError() (_swig_ret string) {
 	return swig_r_1
 }
 
-var _wrap_new_Uplink_main_7a5f7638a58f34cd unsafe.Pointer
+var _wrap_new_Uplink_main_923e9cf92a793af7 unsafe.Pointer
 
 func _swig_wrap_new_Uplink() (base SwigcptrUplink) {
 	_swig_p := uintptr(unsafe.Pointer(&base))
-	_cgo_runtime_cgocall(_wrap_new_Uplink_main_7a5f7638a58f34cd, _swig_p)
+	_cgo_runtime_cgocall(_wrap_new_Uplink_main_923e9cf92a793af7, _swig_p)
 	return
 }
 
@@ -162,11 +162,11 @@ func NewUplink() (_swig_ret Uplink) {
 	return _swig_wrap_new_Uplink()
 }
 
-var _wrap_delete_Uplink_main_7a5f7638a58f34cd unsafe.Pointer
+var _wrap_delete_Uplink_main_923e9cf92a793af7 unsafe.Pointer
 
 func _swig_wrap_delete_Uplink(base uintptr) {
 	_swig_p := uintptr(unsafe.Pointer(&base))
-	_cgo_runtime_cgocall(_wrap_delete_Uplink_main_7a5f7638a58f34cd, _swig_p)
+	_cgo_runtime_cgocall(_wrap_delete_Uplink_main_923e9cf92a793af7, _swig_p)
 	return
 }
 
