@@ -29,9 +29,46 @@ type Bucket struct {
 	DefaultEncryption  storj.EncryptionParameters
 }
 
+// BucketListOptions lists objects
+type BucketListOptions struct {
+	Cursor    string
+	Direction storj.ListDirection
+	Limit     int
+}
+
+// BucketList is a list of buckets
+type BucketList struct {
+	More  bool
+	Items []*Bucket // TODO: does this need to be a pointer?
+}
+
+// NextPage returns options for listing the next page
+func (opts BucketListOptions) NextPage(list BucketList) BucketListOptions {
+	if !list.More || len(list.Items) == 0 {
+		return BucketListOptions{}
+	}
+
+	switch opts.Direction {
+	case storj.Before, storj.Backward:
+		return BucketListOptions{
+			Cursor:    list.Items[0].Name,
+			Direction: storj.Before,
+			Limit:     opts.Limit,
+		}
+	case storj.After, storj.Forward:
+		return BucketListOptions{
+			Cursor:    list.Items[len(list.Items)-1].Name,
+			Direction: storj.After,
+			Limit:     opts.Limit,
+		}
+	}
+
+	return BucketListOptions{}
+}
+
 type Buckets interface {
 	Create(ctx context.Context, bucket *Bucket) error
 	Get(ctx context.Context, projectID uuid.UUID, name string) (*Bucket, error)
 	Delete(ctx context.Context, projectID uuid.UUID, name string) error
-	List(ctx context.Context, projectID uuid.UUID, opts storj.BucketListOptions) (storj.BucketList, error)
+	List(ctx context.Context, projectID uuid.UUID, opts BucketListOptions) (BucketList, error)
 }

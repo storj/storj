@@ -322,16 +322,39 @@ model bucket (
 )
 
 create bucket ()
-update bucket ( 
-	where bucket.id = ? 
-)
 delete bucket ( 
-	where bucket.id = ? 
+	where bucket.project_id = ?
+	where bucket.name = ?
 )
 read one (
 	select bucket
 	where bucket.project_id = ?
 	where bucket.name = ?
+)
+
+read limitoffset (
+	select bucket
+	where bucket.project_id = ?
+	where bucket.name <= ?
+	orderby asc bucket.name
+)
+read limitoffset (
+	select bucket
+	where bucket.project_id = ?
+	where bucket.name < ?
+	orderby asc bucket.name
+)
+read limitoffset (
+	select bucket
+	where bucket.project_id = ?
+	where bucket.name > ?
+	orderby asc bucket.name
+)
+read limitoffset (
+	select bucket
+	where bucket.project_id = ?
+	where bucket.name >= ?
+	orderby asc bucket.name
 )
 
 //--- attribution ---//

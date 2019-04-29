@@ -5402,6 +5402,154 @@ func (obj *postgresImpl) Get_Bucket_By_ProjectId_And_Name(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Limited_Bucket_By_ProjectId_And_Name_LessOrEqual_OrderBy_Asc_Name(ctx context.Context,
+	bucket_project_id Bucket_ProjectId_Field,
+	bucket_name_less_or_equal Bucket_Name_Field,
+	limit int, offset int64) (
+	rows []*Bucket, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT buckets.id, buckets.project_id, buckets.name, buckets.path_cipher, buckets.attribution_id, buckets.created_at, buckets.default_segment_size, buckets.default_encryption_cipher_suite, buckets.default_encryption_block_size, buckets.default_redundancy_algorithm, buckets.default_redundancy_share_size, buckets.default_redundancy_required_shares, buckets.default_redundancy_repair_shares, buckets.default_redundancy_optimal_shares, buckets.default_redundancy_total_shares FROM buckets WHERE buckets.project_id = ? AND buckets.name <= ? ORDER BY buckets.name LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_project_id.value(), bucket_name_less_or_equal.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bucket := &Bucket{}
+		err = __rows.Scan(&bucket.Id, &bucket.ProjectId, &bucket.Name, &bucket.PathCipher, &bucket.AttributionId, &bucket.CreatedAt, &bucket.DefaultSegmentSize, &bucket.DefaultEncryptionCipherSuite, &bucket.DefaultEncryptionBlockSize, &bucket.DefaultRedundancyAlgorithm, &bucket.DefaultRedundancyShareSize, &bucket.DefaultRedundancyRequiredShares, &bucket.DefaultRedundancyRepairShares, &bucket.DefaultRedundancyOptimalShares, &bucket.DefaultRedundancyTotalShares)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bucket)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) Limited_Bucket_By_ProjectId_And_Name_Less_OrderBy_Asc_Name(ctx context.Context,
+	bucket_project_id Bucket_ProjectId_Field,
+	bucket_name_less Bucket_Name_Field,
+	limit int, offset int64) (
+	rows []*Bucket, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT buckets.id, buckets.project_id, buckets.name, buckets.path_cipher, buckets.attribution_id, buckets.created_at, buckets.default_segment_size, buckets.default_encryption_cipher_suite, buckets.default_encryption_block_size, buckets.default_redundancy_algorithm, buckets.default_redundancy_share_size, buckets.default_redundancy_required_shares, buckets.default_redundancy_repair_shares, buckets.default_redundancy_optimal_shares, buckets.default_redundancy_total_shares FROM buckets WHERE buckets.project_id = ? AND buckets.name < ? ORDER BY buckets.name LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_project_id.value(), bucket_name_less.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bucket := &Bucket{}
+		err = __rows.Scan(&bucket.Id, &bucket.ProjectId, &bucket.Name, &bucket.PathCipher, &bucket.AttributionId, &bucket.CreatedAt, &bucket.DefaultSegmentSize, &bucket.DefaultEncryptionCipherSuite, &bucket.DefaultEncryptionBlockSize, &bucket.DefaultRedundancyAlgorithm, &bucket.DefaultRedundancyShareSize, &bucket.DefaultRedundancyRequiredShares, &bucket.DefaultRedundancyRepairShares, &bucket.DefaultRedundancyOptimalShares, &bucket.DefaultRedundancyTotalShares)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bucket)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) Limited_Bucket_By_ProjectId_And_Name_Greater_OrderBy_Asc_Name(ctx context.Context,
+	bucket_project_id Bucket_ProjectId_Field,
+	bucket_name_greater Bucket_Name_Field,
+	limit int, offset int64) (
+	rows []*Bucket, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT buckets.id, buckets.project_id, buckets.name, buckets.path_cipher, buckets.attribution_id, buckets.created_at, buckets.default_segment_size, buckets.default_encryption_cipher_suite, buckets.default_encryption_block_size, buckets.default_redundancy_algorithm, buckets.default_redundancy_share_size, buckets.default_redundancy_required_shares, buckets.default_redundancy_repair_shares, buckets.default_redundancy_optimal_shares, buckets.default_redundancy_total_shares FROM buckets WHERE buckets.project_id = ? AND buckets.name > ? ORDER BY buckets.name LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_project_id.value(), bucket_name_greater.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bucket := &Bucket{}
+		err = __rows.Scan(&bucket.Id, &bucket.ProjectId, &bucket.Name, &bucket.PathCipher, &bucket.AttributionId, &bucket.CreatedAt, &bucket.DefaultSegmentSize, &bucket.DefaultEncryptionCipherSuite, &bucket.DefaultEncryptionBlockSize, &bucket.DefaultRedundancyAlgorithm, &bucket.DefaultRedundancyShareSize, &bucket.DefaultRedundancyRequiredShares, &bucket.DefaultRedundancyRepairShares, &bucket.DefaultRedundancyOptimalShares, &bucket.DefaultRedundancyTotalShares)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bucket)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) Limited_Bucket_By_ProjectId_And_Name_GreaterOrEqual_OrderBy_Asc_Name(ctx context.Context,
+	bucket_project_id Bucket_ProjectId_Field,
+	bucket_name_greater_or_equal Bucket_Name_Field,
+	limit int, offset int64) (
+	rows []*Bucket, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT buckets.id, buckets.project_id, buckets.name, buckets.path_cipher, buckets.attribution_id, buckets.created_at, buckets.default_segment_size, buckets.default_encryption_cipher_suite, buckets.default_encryption_block_size, buckets.default_redundancy_algorithm, buckets.default_redundancy_share_size, buckets.default_redundancy_required_shares, buckets.default_redundancy_repair_shares, buckets.default_redundancy_optimal_shares, buckets.default_redundancy_total_shares FROM buckets WHERE buckets.project_id = ? AND buckets.name >= ? ORDER BY buckets.name LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_project_id.value(), bucket_name_greater_or_equal.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bucket := &Bucket{}
+		err = __rows.Scan(&bucket.Id, &bucket.ProjectId, &bucket.Name, &bucket.PathCipher, &bucket.AttributionId, &bucket.CreatedAt, &bucket.DefaultSegmentSize, &bucket.DefaultEncryptionCipherSuite, &bucket.DefaultEncryptionBlockSize, &bucket.DefaultRedundancyAlgorithm, &bucket.DefaultRedundancyShareSize, &bucket.DefaultRedundancyRequiredShares, &bucket.DefaultRedundancyRepairShares, &bucket.DefaultRedundancyOptimalShares, &bucket.DefaultRedundancyTotalShares)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bucket)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *postgresImpl) Get_BucketUsage_By_Id(ctx context.Context,
 	bucket_usage_id BucketUsage_Id_Field) (
 	bucket_usage *BucketUsage, err error) {
@@ -6150,86 +6298,6 @@ func (obj *postgresImpl) Update_ApiKey_By_Id(ctx context.Context,
 	return api_key, nil
 }
 
-func (obj *postgresImpl) Update_Bucket_By_Id(ctx context.Context,
-	bucket_id Bucket_Id_Field,
-	update Bucket_Update_Fields) (
-	bucket *Bucket, err error) {
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE buckets SET "), __sets, __sqlbundle_Literal(" WHERE buckets.id = ? RETURNING buckets.id, buckets.project_id, buckets.name, buckets.path_cipher, buckets.attribution_id, buckets.created_at, buckets.default_segment_size, buckets.default_encryption_cipher_suite, buckets.default_encryption_block_size, buckets.default_redundancy_algorithm, buckets.default_redundancy_share_size, buckets.default_redundancy_required_shares, buckets.default_redundancy_repair_shares, buckets.default_redundancy_optimal_shares, buckets.default_redundancy_total_shares")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	if update.DefaultSegmentSize._set {
-		__values = append(__values, update.DefaultSegmentSize.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_segment_size = ?"))
-	}
-
-	if update.DefaultEncryptionCipherSuite._set {
-		__values = append(__values, update.DefaultEncryptionCipherSuite.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_encryption_cipher_suite = ?"))
-	}
-
-	if update.DefaultEncryptionBlockSize._set {
-		__values = append(__values, update.DefaultEncryptionBlockSize.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_encryption_block_size = ?"))
-	}
-
-	if update.DefaultRedundancyAlgorithm._set {
-		__values = append(__values, update.DefaultRedundancyAlgorithm.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_algorithm = ?"))
-	}
-
-	if update.DefaultRedundancyShareSize._set {
-		__values = append(__values, update.DefaultRedundancyShareSize.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_share_size = ?"))
-	}
-
-	if update.DefaultRedundancyRequiredShares._set {
-		__values = append(__values, update.DefaultRedundancyRequiredShares.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_required_shares = ?"))
-	}
-
-	if update.DefaultRedundancyRepairShares._set {
-		__values = append(__values, update.DefaultRedundancyRepairShares.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_repair_shares = ?"))
-	}
-
-	if update.DefaultRedundancyOptimalShares._set {
-		__values = append(__values, update.DefaultRedundancyOptimalShares.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_optimal_shares = ?"))
-	}
-
-	if update.DefaultRedundancyTotalShares._set {
-		__values = append(__values, update.DefaultRedundancyTotalShares.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_total_shares = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
-	}
-
-	__args = append(__args, bucket_id.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	bucket = &Bucket{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket.Id, &bucket.ProjectId, &bucket.Name, &bucket.PathCipher, &bucket.AttributionId, &bucket.CreatedAt, &bucket.DefaultSegmentSize, &bucket.DefaultEncryptionCipherSuite, &bucket.DefaultEncryptionBlockSize, &bucket.DefaultRedundancyAlgorithm, &bucket.DefaultRedundancyShareSize, &bucket.DefaultRedundancyRequiredShares, &bucket.DefaultRedundancyRepairShares, &bucket.DefaultRedundancyOptimalShares, &bucket.DefaultRedundancyTotalShares)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return bucket, nil
-}
-
 func (obj *postgresImpl) Update_CertRecord_By_Id(ctx context.Context,
 	certRecord_id CertRecord_Id_Field,
 	update CertRecord_Update_Fields) (
@@ -6515,14 +6583,15 @@ func (obj *postgresImpl) Delete_ApiKey_By_Id(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Delete_Bucket_By_Id(ctx context.Context,
-	bucket_id Bucket_Id_Field) (
+func (obj *postgresImpl) Delete_Bucket_By_ProjectId_And_Name(ctx context.Context,
+	bucket_project_id Bucket_ProjectId_Field,
+	bucket_name Bucket_Name_Field) (
 	deleted bool, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM buckets WHERE buckets.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM buckets WHERE buckets.project_id = ? AND buckets.name = ?")
 
 	var __values []interface{}
-	__values = append(__values, bucket_id.value())
+	__values = append(__values, bucket_project_id.value(), bucket_name.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -8031,6 +8100,154 @@ func (obj *sqlite3Impl) Get_Bucket_By_ProjectId_And_Name(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Limited_Bucket_By_ProjectId_And_Name_LessOrEqual_OrderBy_Asc_Name(ctx context.Context,
+	bucket_project_id Bucket_ProjectId_Field,
+	bucket_name_less_or_equal Bucket_Name_Field,
+	limit int, offset int64) (
+	rows []*Bucket, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT buckets.id, buckets.project_id, buckets.name, buckets.path_cipher, buckets.attribution_id, buckets.created_at, buckets.default_segment_size, buckets.default_encryption_cipher_suite, buckets.default_encryption_block_size, buckets.default_redundancy_algorithm, buckets.default_redundancy_share_size, buckets.default_redundancy_required_shares, buckets.default_redundancy_repair_shares, buckets.default_redundancy_optimal_shares, buckets.default_redundancy_total_shares FROM buckets WHERE buckets.project_id = ? AND buckets.name <= ? ORDER BY buckets.name LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_project_id.value(), bucket_name_less_or_equal.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bucket := &Bucket{}
+		err = __rows.Scan(&bucket.Id, &bucket.ProjectId, &bucket.Name, &bucket.PathCipher, &bucket.AttributionId, &bucket.CreatedAt, &bucket.DefaultSegmentSize, &bucket.DefaultEncryptionCipherSuite, &bucket.DefaultEncryptionBlockSize, &bucket.DefaultRedundancyAlgorithm, &bucket.DefaultRedundancyShareSize, &bucket.DefaultRedundancyRequiredShares, &bucket.DefaultRedundancyRepairShares, &bucket.DefaultRedundancyOptimalShares, &bucket.DefaultRedundancyTotalShares)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bucket)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) Limited_Bucket_By_ProjectId_And_Name_Less_OrderBy_Asc_Name(ctx context.Context,
+	bucket_project_id Bucket_ProjectId_Field,
+	bucket_name_less Bucket_Name_Field,
+	limit int, offset int64) (
+	rows []*Bucket, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT buckets.id, buckets.project_id, buckets.name, buckets.path_cipher, buckets.attribution_id, buckets.created_at, buckets.default_segment_size, buckets.default_encryption_cipher_suite, buckets.default_encryption_block_size, buckets.default_redundancy_algorithm, buckets.default_redundancy_share_size, buckets.default_redundancy_required_shares, buckets.default_redundancy_repair_shares, buckets.default_redundancy_optimal_shares, buckets.default_redundancy_total_shares FROM buckets WHERE buckets.project_id = ? AND buckets.name < ? ORDER BY buckets.name LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_project_id.value(), bucket_name_less.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bucket := &Bucket{}
+		err = __rows.Scan(&bucket.Id, &bucket.ProjectId, &bucket.Name, &bucket.PathCipher, &bucket.AttributionId, &bucket.CreatedAt, &bucket.DefaultSegmentSize, &bucket.DefaultEncryptionCipherSuite, &bucket.DefaultEncryptionBlockSize, &bucket.DefaultRedundancyAlgorithm, &bucket.DefaultRedundancyShareSize, &bucket.DefaultRedundancyRequiredShares, &bucket.DefaultRedundancyRepairShares, &bucket.DefaultRedundancyOptimalShares, &bucket.DefaultRedundancyTotalShares)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bucket)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) Limited_Bucket_By_ProjectId_And_Name_Greater_OrderBy_Asc_Name(ctx context.Context,
+	bucket_project_id Bucket_ProjectId_Field,
+	bucket_name_greater Bucket_Name_Field,
+	limit int, offset int64) (
+	rows []*Bucket, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT buckets.id, buckets.project_id, buckets.name, buckets.path_cipher, buckets.attribution_id, buckets.created_at, buckets.default_segment_size, buckets.default_encryption_cipher_suite, buckets.default_encryption_block_size, buckets.default_redundancy_algorithm, buckets.default_redundancy_share_size, buckets.default_redundancy_required_shares, buckets.default_redundancy_repair_shares, buckets.default_redundancy_optimal_shares, buckets.default_redundancy_total_shares FROM buckets WHERE buckets.project_id = ? AND buckets.name > ? ORDER BY buckets.name LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_project_id.value(), bucket_name_greater.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bucket := &Bucket{}
+		err = __rows.Scan(&bucket.Id, &bucket.ProjectId, &bucket.Name, &bucket.PathCipher, &bucket.AttributionId, &bucket.CreatedAt, &bucket.DefaultSegmentSize, &bucket.DefaultEncryptionCipherSuite, &bucket.DefaultEncryptionBlockSize, &bucket.DefaultRedundancyAlgorithm, &bucket.DefaultRedundancyShareSize, &bucket.DefaultRedundancyRequiredShares, &bucket.DefaultRedundancyRepairShares, &bucket.DefaultRedundancyOptimalShares, &bucket.DefaultRedundancyTotalShares)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bucket)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) Limited_Bucket_By_ProjectId_And_Name_GreaterOrEqual_OrderBy_Asc_Name(ctx context.Context,
+	bucket_project_id Bucket_ProjectId_Field,
+	bucket_name_greater_or_equal Bucket_Name_Field,
+	limit int, offset int64) (
+	rows []*Bucket, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT buckets.id, buckets.project_id, buckets.name, buckets.path_cipher, buckets.attribution_id, buckets.created_at, buckets.default_segment_size, buckets.default_encryption_cipher_suite, buckets.default_encryption_block_size, buckets.default_redundancy_algorithm, buckets.default_redundancy_share_size, buckets.default_redundancy_required_shares, buckets.default_redundancy_repair_shares, buckets.default_redundancy_optimal_shares, buckets.default_redundancy_total_shares FROM buckets WHERE buckets.project_id = ? AND buckets.name >= ? ORDER BY buckets.name LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_project_id.value(), bucket_name_greater_or_equal.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bucket := &Bucket{}
+		err = __rows.Scan(&bucket.Id, &bucket.ProjectId, &bucket.Name, &bucket.PathCipher, &bucket.AttributionId, &bucket.CreatedAt, &bucket.DefaultSegmentSize, &bucket.DefaultEncryptionCipherSuite, &bucket.DefaultEncryptionBlockSize, &bucket.DefaultRedundancyAlgorithm, &bucket.DefaultRedundancyShareSize, &bucket.DefaultRedundancyRequiredShares, &bucket.DefaultRedundancyRepairShares, &bucket.DefaultRedundancyOptimalShares, &bucket.DefaultRedundancyTotalShares)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bucket)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *sqlite3Impl) Get_BucketUsage_By_Id(ctx context.Context,
 	bucket_usage_id BucketUsage_Id_Field) (
 	bucket_usage *BucketUsage, err error) {
@@ -8839,96 +9056,6 @@ func (obj *sqlite3Impl) Update_ApiKey_By_Id(ctx context.Context,
 	return api_key, nil
 }
 
-func (obj *sqlite3Impl) Update_Bucket_By_Id(ctx context.Context,
-	bucket_id Bucket_Id_Field,
-	update Bucket_Update_Fields) (
-	bucket *Bucket, err error) {
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE buckets SET "), __sets, __sqlbundle_Literal(" WHERE buckets.id = ?")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	if update.DefaultSegmentSize._set {
-		__values = append(__values, update.DefaultSegmentSize.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_segment_size = ?"))
-	}
-
-	if update.DefaultEncryptionCipherSuite._set {
-		__values = append(__values, update.DefaultEncryptionCipherSuite.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_encryption_cipher_suite = ?"))
-	}
-
-	if update.DefaultEncryptionBlockSize._set {
-		__values = append(__values, update.DefaultEncryptionBlockSize.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_encryption_block_size = ?"))
-	}
-
-	if update.DefaultRedundancyAlgorithm._set {
-		__values = append(__values, update.DefaultRedundancyAlgorithm.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_algorithm = ?"))
-	}
-
-	if update.DefaultRedundancyShareSize._set {
-		__values = append(__values, update.DefaultRedundancyShareSize.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_share_size = ?"))
-	}
-
-	if update.DefaultRedundancyRequiredShares._set {
-		__values = append(__values, update.DefaultRedundancyRequiredShares.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_required_shares = ?"))
-	}
-
-	if update.DefaultRedundancyRepairShares._set {
-		__values = append(__values, update.DefaultRedundancyRepairShares.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_repair_shares = ?"))
-	}
-
-	if update.DefaultRedundancyOptimalShares._set {
-		__values = append(__values, update.DefaultRedundancyOptimalShares.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_optimal_shares = ?"))
-	}
-
-	if update.DefaultRedundancyTotalShares._set {
-		__values = append(__values, update.DefaultRedundancyTotalShares.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_total_shares = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
-	}
-
-	__args = append(__args, bucket_id.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	bucket = &Bucket{}
-	_, err = obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT buckets.id, buckets.project_id, buckets.name, buckets.path_cipher, buckets.attribution_id, buckets.created_at, buckets.default_segment_size, buckets.default_encryption_cipher_suite, buckets.default_encryption_block_size, buckets.default_redundancy_algorithm, buckets.default_redundancy_share_size, buckets.default_redundancy_required_shares, buckets.default_redundancy_repair_shares, buckets.default_redundancy_optimal_shares, buckets.default_redundancy_total_shares FROM buckets WHERE buckets.id = ?")
-
-	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
-	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
-
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&bucket.Id, &bucket.ProjectId, &bucket.Name, &bucket.PathCipher, &bucket.AttributionId, &bucket.CreatedAt, &bucket.DefaultSegmentSize, &bucket.DefaultEncryptionCipherSuite, &bucket.DefaultEncryptionBlockSize, &bucket.DefaultRedundancyAlgorithm, &bucket.DefaultRedundancyShareSize, &bucket.DefaultRedundancyRequiredShares, &bucket.DefaultRedundancyRepairShares, &bucket.DefaultRedundancyOptimalShares, &bucket.DefaultRedundancyTotalShares)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return bucket, nil
-}
-
 func (obj *sqlite3Impl) Update_CertRecord_By_Id(ctx context.Context,
 	certRecord_id CertRecord_Id_Field,
 	update CertRecord_Update_Fields) (
@@ -9234,14 +9361,15 @@ func (obj *sqlite3Impl) Delete_ApiKey_By_Id(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Delete_Bucket_By_Id(ctx context.Context,
-	bucket_id Bucket_Id_Field) (
+func (obj *sqlite3Impl) Delete_Bucket_By_ProjectId_And_Name(ctx context.Context,
+	bucket_project_id Bucket_ProjectId_Field,
+	bucket_name Bucket_Name_Field) (
 	deleted bool, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM buckets WHERE buckets.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM buckets WHERE buckets.project_id = ? AND buckets.name = ?")
 
 	var __values []interface{}
-	__values = append(__values, bucket_id.value())
+	__values = append(__values, bucket_project_id.value(), bucket_name.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -10314,14 +10442,15 @@ func (rx *Rx) Delete_BucketUsage_By_Id(ctx context.Context,
 	return tx.Delete_BucketUsage_By_Id(ctx, bucket_usage_id)
 }
 
-func (rx *Rx) Delete_Bucket_By_Id(ctx context.Context,
-	bucket_id Bucket_Id_Field) (
+func (rx *Rx) Delete_Bucket_By_ProjectId_And_Name(ctx context.Context,
+	bucket_project_id Bucket_ProjectId_Field,
+	bucket_name Bucket_Name_Field) (
 	deleted bool, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Delete_Bucket_By_Id(ctx, bucket_id)
+	return tx.Delete_Bucket_By_ProjectId_And_Name(ctx, bucket_project_id, bucket_name)
 }
 
 func (rx *Rx) Delete_CertRecord_By_Id(ctx context.Context,
@@ -10618,6 +10747,54 @@ func (rx *Rx) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_Roll
 	return tx.Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Desc_RollupEndTime(ctx, bucket_usage_bucket_id, bucket_usage_rollup_end_time_greater, bucket_usage_rollup_end_time_less_or_equal, limit, offset)
 }
 
+func (rx *Rx) Limited_Bucket_By_ProjectId_And_Name_GreaterOrEqual_OrderBy_Asc_Name(ctx context.Context,
+	bucket_project_id Bucket_ProjectId_Field,
+	bucket_name_greater_or_equal Bucket_Name_Field,
+	limit int, offset int64) (
+	rows []*Bucket, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_Bucket_By_ProjectId_And_Name_GreaterOrEqual_OrderBy_Asc_Name(ctx, bucket_project_id, bucket_name_greater_or_equal, limit, offset)
+}
+
+func (rx *Rx) Limited_Bucket_By_ProjectId_And_Name_Greater_OrderBy_Asc_Name(ctx context.Context,
+	bucket_project_id Bucket_ProjectId_Field,
+	bucket_name_greater Bucket_Name_Field,
+	limit int, offset int64) (
+	rows []*Bucket, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_Bucket_By_ProjectId_And_Name_Greater_OrderBy_Asc_Name(ctx, bucket_project_id, bucket_name_greater, limit, offset)
+}
+
+func (rx *Rx) Limited_Bucket_By_ProjectId_And_Name_LessOrEqual_OrderBy_Asc_Name(ctx context.Context,
+	bucket_project_id Bucket_ProjectId_Field,
+	bucket_name_less_or_equal Bucket_Name_Field,
+	limit int, offset int64) (
+	rows []*Bucket, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_Bucket_By_ProjectId_And_Name_LessOrEqual_OrderBy_Asc_Name(ctx, bucket_project_id, bucket_name_less_or_equal, limit, offset)
+}
+
+func (rx *Rx) Limited_Bucket_By_ProjectId_And_Name_Less_OrderBy_Asc_Name(ctx context.Context,
+	bucket_project_id Bucket_ProjectId_Field,
+	bucket_name_less Bucket_Name_Field,
+	limit int, offset int64) (
+	rows []*Bucket, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_Bucket_By_ProjectId_And_Name_Less_OrderBy_Asc_Name(ctx, bucket_project_id, bucket_name_less, limit, offset)
+}
+
 func (rx *Rx) Limited_Irreparabledb_OrderBy_Asc_Segmentpath(ctx context.Context,
 	limit int, offset int64) (
 	rows []*Irreparabledb, err error) {
@@ -10670,17 +10847,6 @@ func (rx *Rx) Update_ApiKey_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Update_ApiKey_By_Id(ctx, api_key_id, update)
-}
-
-func (rx *Rx) Update_Bucket_By_Id(ctx context.Context,
-	bucket_id Bucket_Id_Field,
-	update Bucket_Update_Fields) (
-	bucket *Bucket, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Update_Bucket_By_Id(ctx, bucket_id, update)
 }
 
 func (rx *Rx) Update_CertRecord_By_Id(ctx context.Context,
@@ -10957,8 +11123,9 @@ type Methods interface {
 		bucket_usage_id BucketUsage_Id_Field) (
 		deleted bool, err error)
 
-	Delete_Bucket_By_Id(ctx context.Context,
-		bucket_id Bucket_Id_Field) (
+	Delete_Bucket_By_ProjectId_And_Name(ctx context.Context,
+		bucket_project_id Bucket_ProjectId_Field,
+		bucket_name Bucket_Name_Field) (
 		deleted bool, err error)
 
 	Delete_CertRecord_By_Id(ctx context.Context,
@@ -11086,6 +11253,30 @@ type Methods interface {
 		limit int, offset int64) (
 		rows []*BucketUsage, err error)
 
+	Limited_Bucket_By_ProjectId_And_Name_GreaterOrEqual_OrderBy_Asc_Name(ctx context.Context,
+		bucket_project_id Bucket_ProjectId_Field,
+		bucket_name_greater_or_equal Bucket_Name_Field,
+		limit int, offset int64) (
+		rows []*Bucket, err error)
+
+	Limited_Bucket_By_ProjectId_And_Name_Greater_OrderBy_Asc_Name(ctx context.Context,
+		bucket_project_id Bucket_ProjectId_Field,
+		bucket_name_greater Bucket_Name_Field,
+		limit int, offset int64) (
+		rows []*Bucket, err error)
+
+	Limited_Bucket_By_ProjectId_And_Name_LessOrEqual_OrderBy_Asc_Name(ctx context.Context,
+		bucket_project_id Bucket_ProjectId_Field,
+		bucket_name_less_or_equal Bucket_Name_Field,
+		limit int, offset int64) (
+		rows []*Bucket, err error)
+
+	Limited_Bucket_By_ProjectId_And_Name_Less_OrderBy_Asc_Name(ctx context.Context,
+		bucket_project_id Bucket_ProjectId_Field,
+		bucket_name_less Bucket_Name_Field,
+		limit int, offset int64) (
+		rows []*Bucket, err error)
+
 	Limited_Irreparabledb_OrderBy_Asc_Segmentpath(ctx context.Context,
 		limit int, offset int64) (
 		rows []*Irreparabledb, err error)
@@ -11109,11 +11300,6 @@ type Methods interface {
 		api_key_id ApiKey_Id_Field,
 		update ApiKey_Update_Fields) (
 		api_key *ApiKey, err error)
-
-	Update_Bucket_By_Id(ctx context.Context,
-		bucket_id Bucket_Id_Field,
-		update Bucket_Update_Fields) (
-		bucket *Bucket, err error)
 
 	Update_CertRecord_By_Id(ctx context.Context,
 		certRecord_id CertRecord_Id_Field,
