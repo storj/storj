@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	pgxstd "github.com/jackc/pgx/stdlib"
 	"github.com/lib/pq"
 	sqlite3 "github.com/mattn/go-sqlite3"
@@ -86,7 +85,7 @@ func (r *repairQueue) Select(ctx context.Context) (seg *pb.InjuredSegment, err e
 		return r.sqliteSelect(ctx)
 	case *pq.Driver:
 		return r.postgresSelect(ctx)
-	case *pqxstd.Driver:
+	case *pgxstd.Driver:
 		return r.postgresSelect(ctx)
 	default:
 		return seg, fmt.Errorf("Unsupported database %t", t)
