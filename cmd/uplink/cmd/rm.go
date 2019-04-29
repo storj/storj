@@ -38,7 +38,10 @@ func deleteObject(cmd *cobra.Command, args []string) error {
 	}
 
 	var access libuplink.EncryptionAccess
-	copy(access.Key[:], []byte(cfg.Enc.Key))
+	access.Key, err = cfg.Enc.LoadKey()
+	if err != nil {
+		return err
+	}
 
 	project, bucket, err := cfg.GetProjectAndBucket(ctx, dst.Bucket(), access)
 	if err != nil {

@@ -37,7 +37,7 @@ func init() {
 }
 
 // upload transfers src from local machine to s3 compatible object dst
-func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress bool) (err error) {
+func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress bool) error {
 	if !src.IsLocal() {
 		return fmt.Errorf("source must be local path: %s", src)
 	}
@@ -46,7 +46,10 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 		return fmt.Errorf("destination must be Storj URL: %s", dst)
 	}
 
-	var expiration time.Time
+	var (
+		expiration time.Time
+		err        error
+	)
 	if *expires != "" {
 		expiration, err = time.Parse(time.RFC3339, *expires)
 		if err != nil {
@@ -83,7 +86,10 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 	}
 
 	var access libuplink.EncryptionAccess
-	copy(access.Key[:], []byte(cfg.Enc.Key))
+	access.Key, err = cfg.Enc.LoadKey()
+	if err != nil {
+		return err
+	}
 
 	project, bucket, err := cfg.GetProjectAndBucket(ctx, dst.Bucket(), access)
 	if err != nil {
@@ -123,7 +129,7 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 }
 
 // download transfers s3 compatible object src to dst on local machine
-func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress bool) (err error) {
+func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress bool) error {
 	if src.IsLocal() {
 		return fmt.Errorf("source must be Storj URL: %s", src)
 	}
@@ -132,8 +138,14 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 		return fmt.Errorf("destination must be local path: %s", dst)
 	}
 
-	var access libuplink.EncryptionAccess
-	copy(access.Key[:], []byte(cfg.Enc.Key))
+	var (
+		access libuplink.EncryptionAccess
+		err    error
+	)
+	access.Key, err = cfg.Enc.LoadKey()
+	if err != nil {
+		return err
+	}
 
 	project, bucket, err := cfg.GetProjectAndBucket(ctx, src.Bucket(), access)
 	if err != nil {
@@ -199,7 +211,7 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 }
 
 // copy copies s3 compatible object src to s3 compatible object dst
-func copyObject(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err error) {
+func copyObject(ctx context.Context, src fpath.FPath, dst fpath.FPath) error {
 	if src.IsLocal() {
 		return fmt.Errorf("source must be Storj URL: %s", src)
 	}
@@ -208,8 +220,14 @@ func copyObject(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err erro
 		return fmt.Errorf("destination must be Storj URL: %s", dst)
 	}
 
-	var access libuplink.EncryptionAccess
-	copy(access.Key[:], []byte(cfg.Enc.Key))
+	var (
+		access libuplink.EncryptionAccess
+		err    error
+	)
+	access.Key, err = cfg.Enc.LoadKey()
+	if err != nil {
+		return err
+	}
 
 	project, bucket, err := cfg.GetProjectAndBucket(ctx, dst.Bucket(), access)
 	if err != nil {

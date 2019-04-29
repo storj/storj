@@ -43,7 +43,10 @@ func list(cmd *cobra.Command, args []string) error {
 	}()
 
 	var access libuplink.EncryptionAccess
-	copy(access.Key[:], []byte(cfg.Enc.Key))
+	access.Key, err = cfg.Enc.LoadKey()
+	if err != nil {
+		return err
+	}
 
 	if len(args) > 0 {
 		src, err := fpath.New(args[0])
