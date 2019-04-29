@@ -26,6 +26,13 @@ CREATE TABLE accounting_timestamps (
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
 );
+CREATE TABLE attributions (
+	id bytea NOT NULL,
+	name text NOT NULL,
+	description text NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( name )
+);
 CREATE TABLE bucket_bandwidth_rollups (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,

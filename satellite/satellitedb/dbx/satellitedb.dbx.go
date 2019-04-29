@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -299,6 +298,13 @@ CREATE TABLE accounting_timestamps (
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
 );
+CREATE TABLE attributions (
+	id bytea NOT NULL,
+	name text NOT NULL,
+	description text NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( name )
+);
 CREATE TABLE bucket_bandwidth_rollups (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
@@ -556,6 +562,13 @@ CREATE TABLE accounting_timestamps (
 	name TEXT NOT NULL,
 	value TIMESTAMP NOT NULL,
 	PRIMARY KEY ( name )
+);
+CREATE TABLE attributions (
+	id BLOB NOT NULL,
+	name TEXT NOT NULL,
+	description TEXT NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( name )
 );
 CREATE TABLE bucket_bandwidth_rollups (
 	bucket_name BLOB NOT NULL,
@@ -1152,6 +1165,74 @@ func (f AccountingTimestamps_Value_Field) value() interface{} {
 }
 
 func (AccountingTimestamps_Value_Field) _Column() string { return "value" }
+
+type Attribution struct {
+	Id          []byte
+	Name        string
+	Description string
+}
+
+func (Attribution) _Table() string { return "attributions" }
+
+type Attribution_Update_Fields struct {
+}
+
+type Attribution_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Attribution_Id(v []byte) Attribution_Id_Field {
+	return Attribution_Id_Field{_set: true, _value: v}
+}
+
+func (f Attribution_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Attribution_Id_Field) _Column() string { return "id" }
+
+type Attribution_Name_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Attribution_Name(v string) Attribution_Name_Field {
+	return Attribution_Name_Field{_set: true, _value: v}
+}
+
+func (f Attribution_Name_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Attribution_Name_Field) _Column() string { return "name" }
+
+type Attribution_Description_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Attribution_Description(v string) Attribution_Description_Field {
+	return Attribution_Description_Field{_set: true, _value: v}
+}
+
+func (f Attribution_Description_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Attribution_Description_Field) _Column() string { return "description" }
 
 type BucketBandwidthRollup struct {
 	BucketName      []byte
@@ -3641,10 +3722,54 @@ func __sqlbundle_Render(dialect __sqlbundle_Dialect, sql __sqlbundle_SQL, ops ..
 	return dialect.Rebind(out)
 }
 
-var __sqlbundle_reSpace = regexp.MustCompile(`\s+`)
+func __sqlbundle_flattenSQL(x string) string {
+	// trim whitespace from beginning and end
+	s, e := 0, len(x)-1
+	for s < len(x) && (x[s] == ' ' || x[s] == '\t' || x[s] == '\n') {
+		s++
+	}
+	for s <= e && (x[e] == ' ' || x[e] == '\t' || x[e] == '\n') {
+		e--
+	}
+	if s > e {
+		return ""
+	}
+	x = x[s : e+1]
 
-func __sqlbundle_flattenSQL(s string) string {
-	return strings.TrimSpace(__sqlbundle_reSpace.ReplaceAllString(s, " "))
+	// check for whitespace that needs fixing
+	wasSpace := false
+	for i := 0; i < len(x); i++ {
+		r := x[i]
+		justSpace := r == ' '
+		if (wasSpace && justSpace) || r == '\t' || r == '\n' {
+			// whitespace detected, start writing a new string
+			var result strings.Builder
+			result.Grow(len(x))
+			if wasSpace {
+				result.WriteString(x[:i-1])
+			} else {
+				result.WriteString(x[:i])
+			}
+			for p := i; p < len(x); p++ {
+				for p < len(x) && (x[p] == ' ' || x[p] == '\t' || x[p] == '\n') {
+					p++
+				}
+				result.WriteByte(' ')
+
+				start := p
+				for p < len(x) && !(x[p] == ' ' || x[p] == '\t' || x[p] == '\n') {
+					p++
+				}
+				result.WriteString(x[start:p])
+			}
+
+			return result.String()
+		}
+		wasSpace = justSpace
+	}
+
+	// no problematic whitespace found
+	return x
 }
 
 // this type is specially named to match up with the name returned by the
@@ -3723,6 +3848,8 @@ type __sqlbundle_Condition struct {
 func (*__sqlbundle_Condition) private() {}
 
 func (c *__sqlbundle_Condition) Render() string {
+	// TODO(jeff): maybe check if we can use placeholders instead of the
+	// literal null: this would make the templates easier.
 
 	switch {
 	case c.Equal && c.Null:
@@ -6104,6 +6231,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM bucket_bandwidth_rollups;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM attributions;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -8890,6 +9027,16 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM bucket_bandwidth_rollups;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM attributions;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}

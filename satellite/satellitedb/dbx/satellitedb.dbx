@@ -292,6 +292,61 @@ read all (
     orderby asc api_key.name
 )
 
+//--- metainfo buckets ---//
+
+model bucket (
+	key    id
+	unique name project_id
+
+	field id             blob // uuid
+
+	field project_id     project.id
+	field name           blob
+
+	field attribution_id attribution.id ( nullable ) // uuid
+
+	field created_at     utimestamp ( autoinsert )
+
+	field path_cipher    byte
+
+	// defaults (should these be a pb?)
+	field default_segment_size           int
+
+	field default_encryption_ciphersuite byte
+	field default_encryption_block_size  byte
+
+	field default_redundancy_algorithm   byte
+	field default_redundancy_share_size  int
+	field default_redundancy_required    byte
+	field default_redundancy_repair      byte
+	field default_redundancy_optimal     byte
+	field default_redundancy_total       byte
+)
+
+create bucket ()
+update bucket ( 
+	where bucket.id = ? 
+)
+delete bucket ( 
+	where bucket.id = ? 
+)
+read one (
+	select bucket
+	where bucket.project_id = ?
+	where bucket.name = ?
+)
+
+//--- attribution ---//
+
+model attribution (
+	key    id
+	unique name
+
+	field id          blob // uuid
+	field name        text
+	field description text
+)
+
 //-----bucket_usage----//
 
 model bucket_usage (
