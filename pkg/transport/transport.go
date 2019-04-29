@@ -5,9 +5,11 @@ package transport
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"google.golang.org/grpc"
+	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
@@ -82,6 +84,8 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 		if err == context.Canceled {
 			return nil, err
 		}
+		errTxt := fmt.Sprintf("*********** DialNode failed %+v", err)
+		zap.S().Errorf(errTxt)
 		alertFail(timedCtx, transport.observers, node, err)
 		return nil, Error.Wrap(err)
 	}
