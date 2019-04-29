@@ -2,17 +2,18 @@
 // See LICENSE for copying information.
 
 #include <stdbool.h>
+#include <stdint.h>
 
-struct APIKey {
+typedef struct APIKey {
     const char *key;
 };
 
-struct TLS {
+typedef struct TLS {
     bool SkipPeerCAWhitelist;
     char* PeerCAWhitelistPath;
 };
 
-struct Volatile {
+typedef struct Volatile {
     struct TLS tls;
     uint8_t IdentityVersion;
     uint32_t* PeerIDVersion;
@@ -20,6 +21,6 @@ struct Volatile {
     uint64_t MaxMemory;
 };
 
-struct Config {
-    struct Volatile volatile;
+typedef struct Config {
+    struct Volatile volatile_;
 };

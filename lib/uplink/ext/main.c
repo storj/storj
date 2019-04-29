@@ -1,10 +1,11 @@
 #include <stdio.h>
-#include "awesome.h"
+#include "uplink-cgo.h"
+//#include "uplink.h"
 
-// gcc -o client main.c ./awesome.so
+// gcc -o cgo-test-bin lib/uplink/ext/main.c lib/uplink/ext/uplink-cgo-common.so
 
 int main() {
-    GoString key = {"butts", 5};
+    GoString key = {"poop", 5};
     struct APIKey apikey = ParseAPIKey(key);
 
     char *val = Serialize(apikey);

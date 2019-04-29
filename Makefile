@@ -230,6 +230,10 @@ BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
 binaries: ${BINARIES} ## Build bootstrap, certificates, gateway, identity, inspector, satellite, storagenode, uplink, and versioncontrol binaries (jenkins)
 
+.PHONY: libuplink
+libuplink:
+	go generate lib/uplink/ext/apikey.go
+
 ##@ Deploy
 
 .PHONY: deploy
