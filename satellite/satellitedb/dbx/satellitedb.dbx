@@ -300,27 +300,25 @@ model bucket (
 
 	field id             blob // uuid
 
-	field project_id     project.id
+	field project_id     project.id restrict
 	field name           blob
+	field path_cipher    int // byte
 
-	field attribution_id attribution.id ( nullable ) // uuid
-
+	field attribution_id attribution.id setnull ( nullable ) // uuid
 	field created_at     utimestamp ( autoinsert )
 
-	field path_cipher    byte
-
 	// defaults (should these be a pb?)
-	field default_segment_size           int
+	field default_segment_size           int (updatable)
 
-	field default_encryption_ciphersuite byte
-	field default_encryption_block_size  byte
-
-	field default_redundancy_algorithm   byte
-	field default_redundancy_share_size  int
-	field default_redundancy_required    byte
-	field default_redundancy_repair      byte
-	field default_redundancy_optimal     byte
-	field default_redundancy_total       byte
+	field default_encryption_ciphersuite int (updatable) // byte
+	field default_encryption_block_size  int (updatable) // byte
+   
+	field default_redundancy_algorithm       int (updatable) // byte
+	field default_redundancy_share_size      int (updatable)
+	field default_redundancy_required_shares int (updatable) // byte
+	field default_redundancy_repair_shares   int (updatable) // byte
+	field default_redundancy_optimal_shares  int (updatable) // byte
+	field default_redundancy_total_shares    int (updatable) // byte
 )
 
 create bucket ()

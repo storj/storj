@@ -186,6 +186,25 @@ CREATE TABLE api_keys (
 	UNIQUE ( key ),
 	UNIQUE ( name, project_id )
 );
+CREATE TABLE buckets (
+	id BLOB NOT NULL,
+	project_id BLOB NOT NULL REFERENCES projects( id ),
+	name BLOB NOT NULL,
+	path_cipher INTEGER NOT NULL,
+	attribution_id BLOB REFERENCES attributions( id ) ON DELETE SET NULL,
+	created_at TIMESTAMP NOT NULL,
+	default_segment_size INTEGER NOT NULL,
+	default_encryption_ciphersuite INTEGER NOT NULL,
+	default_encryption_block_size INTEGER NOT NULL,
+	default_redundancy_algorithm INTEGER NOT NULL,
+	default_redundancy_share_size INTEGER NOT NULL,
+	default_redundancy_required_shares INTEGER NOT NULL,
+	default_redundancy_repair_shares INTEGER NOT NULL,
+	default_redundancy_optimal_shares INTEGER NOT NULL,
+	default_redundancy_total_shares INTEGER NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( name, project_id )
+);
 CREATE TABLE project_members (
 	member_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,

@@ -23,7 +23,7 @@ type Bucket struct {
 
 	PathCipher storj.Cipher
 
-	Created time.Time
+	CreatedAt time.Time
 
 	// do we need "Default" prefix here?
 	DefaultSegmentSize int64

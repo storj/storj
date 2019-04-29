@@ -458,6 +458,25 @@ CREATE TABLE api_keys (
 	UNIQUE ( key ),
 	UNIQUE ( name, project_id )
 );
+CREATE TABLE buckets (
+	id bytea NOT NULL,
+	project_id bytea NOT NULL REFERENCES projects( id ),
+	name bytea NOT NULL,
+	path_cipher integer NOT NULL,
+	attribution_id bytea REFERENCES attributions( id ) ON DELETE SET NULL,
+	created_at timestamp NOT NULL,
+	default_segment_size integer NOT NULL,
+	default_encryption_ciphersuite integer NOT NULL,
+	default_encryption_block_size integer NOT NULL,
+	default_redundancy_algorithm integer NOT NULL,
+	default_redundancy_share_size integer NOT NULL,
+	default_redundancy_required_shares integer NOT NULL,
+	default_redundancy_repair_shares integer NOT NULL,
+	default_redundancy_optimal_shares integer NOT NULL,
+	default_redundancy_total_shares integer NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( name, project_id )
+);
 CREATE TABLE project_members (
 	member_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
@@ -721,6 +740,25 @@ CREATE TABLE api_keys (
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id ),
 	UNIQUE ( key ),
+	UNIQUE ( name, project_id )
+);
+CREATE TABLE buckets (
+	id BLOB NOT NULL,
+	project_id BLOB NOT NULL REFERENCES projects( id ),
+	name BLOB NOT NULL,
+	path_cipher INTEGER NOT NULL,
+	attribution_id BLOB REFERENCES attributions( id ) ON DELETE SET NULL,
+	created_at TIMESTAMP NOT NULL,
+	default_segment_size INTEGER NOT NULL,
+	default_encryption_ciphersuite INTEGER NOT NULL,
+	default_encryption_block_size INTEGER NOT NULL,
+	default_redundancy_algorithm INTEGER NOT NULL,
+	default_redundancy_share_size INTEGER NOT NULL,
+	default_redundancy_required_shares INTEGER NOT NULL,
+	default_redundancy_repair_shares INTEGER NOT NULL,
+	default_redundancy_optimal_shares INTEGER NOT NULL,
+	default_redundancy_total_shares INTEGER NOT NULL,
+	PRIMARY KEY ( id ),
 	UNIQUE ( name, project_id )
 );
 CREATE TABLE project_members (
@@ -3551,6 +3589,355 @@ func (f ApiKey_CreatedAt_Field) value() interface{} {
 
 func (ApiKey_CreatedAt_Field) _Column() string { return "created_at" }
 
+type Bucket struct {
+	Id                              []byte
+	ProjectId                       []byte
+	Name                            []byte
+	PathCipher                      int
+	AttributionId                   []byte
+	CreatedAt                       time.Time
+	DefaultSegmentSize              int
+	DefaultEncryptionCiphersuite    int
+	DefaultEncryptionBlockSize      int
+	DefaultRedundancyAlgorithm      int
+	DefaultRedundancyShareSize      int
+	DefaultRedundancyRequiredShares int
+	DefaultRedundancyRepairShares   int
+	DefaultRedundancyOptimalShares  int
+	DefaultRedundancyTotalShares    int
+}
+
+func (Bucket) _Table() string { return "buckets" }
+
+type Bucket_Create_Fields struct {
+	AttributionId Bucket_AttributionId_Field
+}
+
+type Bucket_Update_Fields struct {
+	DefaultSegmentSize              Bucket_DefaultSegmentSize_Field
+	DefaultEncryptionCiphersuite    Bucket_DefaultEncryptionCiphersuite_Field
+	DefaultEncryptionBlockSize      Bucket_DefaultEncryptionBlockSize_Field
+	DefaultRedundancyAlgorithm      Bucket_DefaultRedundancyAlgorithm_Field
+	DefaultRedundancyShareSize      Bucket_DefaultRedundancyShareSize_Field
+	DefaultRedundancyRequiredShares Bucket_DefaultRedundancyRequiredShares_Field
+	DefaultRedundancyRepairShares   Bucket_DefaultRedundancyRepairShares_Field
+	DefaultRedundancyOptimalShares  Bucket_DefaultRedundancyOptimalShares_Field
+	DefaultRedundancyTotalShares    Bucket_DefaultRedundancyTotalShares_Field
+}
+
+type Bucket_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Bucket_Id(v []byte) Bucket_Id_Field {
+	return Bucket_Id_Field{_set: true, _value: v}
+}
+
+func (f Bucket_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Bucket_Id_Field) _Column() string { return "id" }
+
+type Bucket_ProjectId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Bucket_ProjectId(v []byte) Bucket_ProjectId_Field {
+	return Bucket_ProjectId_Field{_set: true, _value: v}
+}
+
+func (f Bucket_ProjectId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Bucket_ProjectId_Field) _Column() string { return "project_id" }
+
+type Bucket_Name_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Bucket_Name(v []byte) Bucket_Name_Field {
+	return Bucket_Name_Field{_set: true, _value: v}
+}
+
+func (f Bucket_Name_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Bucket_Name_Field) _Column() string { return "name" }
+
+type Bucket_PathCipher_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Bucket_PathCipher(v int) Bucket_PathCipher_Field {
+	return Bucket_PathCipher_Field{_set: true, _value: v}
+}
+
+func (f Bucket_PathCipher_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Bucket_PathCipher_Field) _Column() string { return "path_cipher" }
+
+type Bucket_AttributionId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Bucket_AttributionId(v []byte) Bucket_AttributionId_Field {
+	return Bucket_AttributionId_Field{_set: true, _value: v}
+}
+
+func Bucket_AttributionId_Raw(v []byte) Bucket_AttributionId_Field {
+	if v == nil {
+		return Bucket_AttributionId_Null()
+	}
+	return Bucket_AttributionId(v)
+}
+
+func Bucket_AttributionId_Null() Bucket_AttributionId_Field {
+	return Bucket_AttributionId_Field{_set: true, _null: true}
+}
+
+func (f Bucket_AttributionId_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Bucket_AttributionId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Bucket_AttributionId_Field) _Column() string { return "attribution_id" }
+
+type Bucket_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Bucket_CreatedAt(v time.Time) Bucket_CreatedAt_Field {
+	v = toUTC(v)
+	return Bucket_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f Bucket_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Bucket_CreatedAt_Field) _Column() string { return "created_at" }
+
+type Bucket_DefaultSegmentSize_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Bucket_DefaultSegmentSize(v int) Bucket_DefaultSegmentSize_Field {
+	return Bucket_DefaultSegmentSize_Field{_set: true, _value: v}
+}
+
+func (f Bucket_DefaultSegmentSize_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Bucket_DefaultSegmentSize_Field) _Column() string { return "default_segment_size" }
+
+type Bucket_DefaultEncryptionCiphersuite_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Bucket_DefaultEncryptionCiphersuite(v int) Bucket_DefaultEncryptionCiphersuite_Field {
+	return Bucket_DefaultEncryptionCiphersuite_Field{_set: true, _value: v}
+}
+
+func (f Bucket_DefaultEncryptionCiphersuite_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Bucket_DefaultEncryptionCiphersuite_Field) _Column() string {
+	return "default_encryption_ciphersuite"
+}
+
+type Bucket_DefaultEncryptionBlockSize_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Bucket_DefaultEncryptionBlockSize(v int) Bucket_DefaultEncryptionBlockSize_Field {
+	return Bucket_DefaultEncryptionBlockSize_Field{_set: true, _value: v}
+}
+
+func (f Bucket_DefaultEncryptionBlockSize_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Bucket_DefaultEncryptionBlockSize_Field) _Column() string {
+	return "default_encryption_block_size"
+}
+
+type Bucket_DefaultRedundancyAlgorithm_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Bucket_DefaultRedundancyAlgorithm(v int) Bucket_DefaultRedundancyAlgorithm_Field {
+	return Bucket_DefaultRedundancyAlgorithm_Field{_set: true, _value: v}
+}
+
+func (f Bucket_DefaultRedundancyAlgorithm_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Bucket_DefaultRedundancyAlgorithm_Field) _Column() string { return "default_redundancy_algorithm" }
+
+type Bucket_DefaultRedundancyShareSize_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Bucket_DefaultRedundancyShareSize(v int) Bucket_DefaultRedundancyShareSize_Field {
+	return Bucket_DefaultRedundancyShareSize_Field{_set: true, _value: v}
+}
+
+func (f Bucket_DefaultRedundancyShareSize_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Bucket_DefaultRedundancyShareSize_Field) _Column() string {
+	return "default_redundancy_share_size"
+}
+
+type Bucket_DefaultRedundancyRequiredShares_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Bucket_DefaultRedundancyRequiredShares(v int) Bucket_DefaultRedundancyRequiredShares_Field {
+	return Bucket_DefaultRedundancyRequiredShares_Field{_set: true, _value: v}
+}
+
+func (f Bucket_DefaultRedundancyRequiredShares_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Bucket_DefaultRedundancyRequiredShares_Field) _Column() string {
+	return "default_redundancy_required_shares"
+}
+
+type Bucket_DefaultRedundancyRepairShares_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Bucket_DefaultRedundancyRepairShares(v int) Bucket_DefaultRedundancyRepairShares_Field {
+	return Bucket_DefaultRedundancyRepairShares_Field{_set: true, _value: v}
+}
+
+func (f Bucket_DefaultRedundancyRepairShares_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Bucket_DefaultRedundancyRepairShares_Field) _Column() string {
+	return "default_redundancy_repair_shares"
+}
+
+type Bucket_DefaultRedundancyOptimalShares_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Bucket_DefaultRedundancyOptimalShares(v int) Bucket_DefaultRedundancyOptimalShares_Field {
+	return Bucket_DefaultRedundancyOptimalShares_Field{_set: true, _value: v}
+}
+
+func (f Bucket_DefaultRedundancyOptimalShares_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Bucket_DefaultRedundancyOptimalShares_Field) _Column() string {
+	return "default_redundancy_optimal_shares"
+}
+
+type Bucket_DefaultRedundancyTotalShares_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Bucket_DefaultRedundancyTotalShares(v int) Bucket_DefaultRedundancyTotalShares_Field {
+	return Bucket_DefaultRedundancyTotalShares_Field{_set: true, _value: v}
+}
+
+func (f Bucket_DefaultRedundancyTotalShares_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Bucket_DefaultRedundancyTotalShares_Field) _Column() string {
+	return "default_redundancy_total_shares"
+}
+
 type ProjectMember struct {
 	MemberId  []byte
 	ProjectId []byte
@@ -4170,6 +4557,54 @@ func (obj *postgresImpl) Create_ApiKey(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return api_key, nil
+
+}
+
+func (obj *postgresImpl) Create_Bucket(ctx context.Context,
+	bucket_id Bucket_Id_Field,
+	bucket_project_id Bucket_ProjectId_Field,
+	bucket_name Bucket_Name_Field,
+	bucket_path_cipher Bucket_PathCipher_Field,
+	bucket_default_segment_size Bucket_DefaultSegmentSize_Field,
+	bucket_default_encryption_ciphersuite Bucket_DefaultEncryptionCiphersuite_Field,
+	bucket_default_encryption_block_size Bucket_DefaultEncryptionBlockSize_Field,
+	bucket_default_redundancy_algorithm Bucket_DefaultRedundancyAlgorithm_Field,
+	bucket_default_redundancy_share_size Bucket_DefaultRedundancyShareSize_Field,
+	bucket_default_redundancy_required_shares Bucket_DefaultRedundancyRequiredShares_Field,
+	bucket_default_redundancy_repair_shares Bucket_DefaultRedundancyRepairShares_Field,
+	bucket_default_redundancy_optimal_shares Bucket_DefaultRedundancyOptimalShares_Field,
+	bucket_default_redundancy_total_shares Bucket_DefaultRedundancyTotalShares_Field,
+	optional Bucket_Create_Fields) (
+	bucket *Bucket, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := bucket_id.value()
+	__project_id_val := bucket_project_id.value()
+	__name_val := bucket_name.value()
+	__path_cipher_val := bucket_path_cipher.value()
+	__attribution_id_val := optional.AttributionId.value()
+	__created_at_val := __now.UTC()
+	__default_segment_size_val := bucket_default_segment_size.value()
+	__default_encryption_ciphersuite_val := bucket_default_encryption_ciphersuite.value()
+	__default_encryption_block_size_val := bucket_default_encryption_block_size.value()
+	__default_redundancy_algorithm_val := bucket_default_redundancy_algorithm.value()
+	__default_redundancy_share_size_val := bucket_default_redundancy_share_size.value()
+	__default_redundancy_required_shares_val := bucket_default_redundancy_required_shares.value()
+	__default_redundancy_repair_shares_val := bucket_default_redundancy_repair_shares.value()
+	__default_redundancy_optimal_shares_val := bucket_default_redundancy_optimal_shares.value()
+	__default_redundancy_total_shares_val := bucket_default_redundancy_total_shares.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO buckets ( id, project_id, name, path_cipher, attribution_id, created_at, default_segment_size, default_encryption_ciphersuite, default_encryption_block_size, default_redundancy_algorithm, default_redundancy_share_size, default_redundancy_required_shares, default_redundancy_repair_shares, default_redundancy_optimal_shares, default_redundancy_total_shares ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING buckets.id, buckets.project_id, buckets.name, buckets.path_cipher, buckets.attribution_id, buckets.created_at, buckets.default_segment_size, buckets.default_encryption_ciphersuite, buckets.default_encryption_block_size, buckets.default_redundancy_algorithm, buckets.default_redundancy_share_size, buckets.default_redundancy_required_shares, buckets.default_redundancy_repair_shares, buckets.default_redundancy_optimal_shares, buckets.default_redundancy_total_shares")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __id_val, __project_id_val, __name_val, __path_cipher_val, __attribution_id_val, __created_at_val, __default_segment_size_val, __default_encryption_ciphersuite_val, __default_encryption_block_size_val, __default_redundancy_algorithm_val, __default_redundancy_share_size_val, __default_redundancy_required_shares_val, __default_redundancy_repair_shares_val, __default_redundancy_optimal_shares_val, __default_redundancy_total_shares_val)
+
+	bucket = &Bucket{}
+	err = obj.driver.QueryRow(__stmt, __id_val, __project_id_val, __name_val, __path_cipher_val, __attribution_id_val, __created_at_val, __default_segment_size_val, __default_encryption_ciphersuite_val, __default_encryption_block_size_val, __default_redundancy_algorithm_val, __default_redundancy_share_size_val, __default_redundancy_required_shares_val, __default_redundancy_repair_shares_val, __default_redundancy_optimal_shares_val, __default_redundancy_total_shares_val).Scan(&bucket.Id, &bucket.ProjectId, &bucket.Name, &bucket.PathCipher, &bucket.AttributionId, &bucket.CreatedAt, &bucket.DefaultSegmentSize, &bucket.DefaultEncryptionCiphersuite, &bucket.DefaultEncryptionBlockSize, &bucket.DefaultRedundancyAlgorithm, &bucket.DefaultRedundancyShareSize, &bucket.DefaultRedundancyRequiredShares, &bucket.DefaultRedundancyRepairShares, &bucket.DefaultRedundancyOptimalShares, &bucket.DefaultRedundancyTotalShares)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket, nil
 
 }
 
@@ -4946,6 +5381,28 @@ func (obj *postgresImpl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Co
 
 }
 
+func (obj *postgresImpl) Get_Bucket_By_ProjectId_And_Name(ctx context.Context,
+	bucket_project_id Bucket_ProjectId_Field,
+	bucket_name Bucket_Name_Field) (
+	bucket *Bucket, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT buckets.id, buckets.project_id, buckets.name, buckets.path_cipher, buckets.attribution_id, buckets.created_at, buckets.default_segment_size, buckets.default_encryption_ciphersuite, buckets.default_encryption_block_size, buckets.default_redundancy_algorithm, buckets.default_redundancy_share_size, buckets.default_redundancy_required_shares, buckets.default_redundancy_repair_shares, buckets.default_redundancy_optimal_shares, buckets.default_redundancy_total_shares FROM buckets WHERE buckets.project_id = ? AND buckets.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_project_id.value(), bucket_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket = &Bucket{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket.Id, &bucket.ProjectId, &bucket.Name, &bucket.PathCipher, &bucket.AttributionId, &bucket.CreatedAt, &bucket.DefaultSegmentSize, &bucket.DefaultEncryptionCiphersuite, &bucket.DefaultEncryptionBlockSize, &bucket.DefaultRedundancyAlgorithm, &bucket.DefaultRedundancyShareSize, &bucket.DefaultRedundancyRequiredShares, &bucket.DefaultRedundancyRepairShares, &bucket.DefaultRedundancyOptimalShares, &bucket.DefaultRedundancyTotalShares)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket, nil
+
+}
+
 func (obj *postgresImpl) Get_BucketUsage_By_Id(ctx context.Context,
 	bucket_usage_id BucketUsage_Id_Field) (
 	bucket_usage *BucketUsage, err error) {
@@ -5694,6 +6151,86 @@ func (obj *postgresImpl) Update_ApiKey_By_Id(ctx context.Context,
 	return api_key, nil
 }
 
+func (obj *postgresImpl) Update_Bucket_By_Id(ctx context.Context,
+	bucket_id Bucket_Id_Field,
+	update Bucket_Update_Fields) (
+	bucket *Bucket, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE buckets SET "), __sets, __sqlbundle_Literal(" WHERE buckets.id = ? RETURNING buckets.id, buckets.project_id, buckets.name, buckets.path_cipher, buckets.attribution_id, buckets.created_at, buckets.default_segment_size, buckets.default_encryption_ciphersuite, buckets.default_encryption_block_size, buckets.default_redundancy_algorithm, buckets.default_redundancy_share_size, buckets.default_redundancy_required_shares, buckets.default_redundancy_repair_shares, buckets.default_redundancy_optimal_shares, buckets.default_redundancy_total_shares")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.DefaultSegmentSize._set {
+		__values = append(__values, update.DefaultSegmentSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_segment_size = ?"))
+	}
+
+	if update.DefaultEncryptionCiphersuite._set {
+		__values = append(__values, update.DefaultEncryptionCiphersuite.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_encryption_ciphersuite = ?"))
+	}
+
+	if update.DefaultEncryptionBlockSize._set {
+		__values = append(__values, update.DefaultEncryptionBlockSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_encryption_block_size = ?"))
+	}
+
+	if update.DefaultRedundancyAlgorithm._set {
+		__values = append(__values, update.DefaultRedundancyAlgorithm.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_algorithm = ?"))
+	}
+
+	if update.DefaultRedundancyShareSize._set {
+		__values = append(__values, update.DefaultRedundancyShareSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_share_size = ?"))
+	}
+
+	if update.DefaultRedundancyRequiredShares._set {
+		__values = append(__values, update.DefaultRedundancyRequiredShares.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_required_shares = ?"))
+	}
+
+	if update.DefaultRedundancyRepairShares._set {
+		__values = append(__values, update.DefaultRedundancyRepairShares.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_repair_shares = ?"))
+	}
+
+	if update.DefaultRedundancyOptimalShares._set {
+		__values = append(__values, update.DefaultRedundancyOptimalShares.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_optimal_shares = ?"))
+	}
+
+	if update.DefaultRedundancyTotalShares._set {
+		__values = append(__values, update.DefaultRedundancyTotalShares.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_total_shares = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, bucket_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket = &Bucket{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket.Id, &bucket.ProjectId, &bucket.Name, &bucket.PathCipher, &bucket.AttributionId, &bucket.CreatedAt, &bucket.DefaultSegmentSize, &bucket.DefaultEncryptionCiphersuite, &bucket.DefaultEncryptionBlockSize, &bucket.DefaultRedundancyAlgorithm, &bucket.DefaultRedundancyShareSize, &bucket.DefaultRedundancyRequiredShares, &bucket.DefaultRedundancyRepairShares, &bucket.DefaultRedundancyOptimalShares, &bucket.DefaultRedundancyTotalShares)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket, nil
+}
+
 func (obj *postgresImpl) Update_CertRecord_By_Id(ctx context.Context,
 	certRecord_id CertRecord_Id_Field,
 	update CertRecord_Update_Fields) (
@@ -5979,6 +6516,32 @@ func (obj *postgresImpl) Delete_ApiKey_By_Id(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Delete_Bucket_By_Id(ctx context.Context,
+	bucket_id Bucket_Id_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM buckets WHERE buckets.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *postgresImpl) Delete_BucketUsage_By_Id(ctx context.Context,
 	bucket_usage_id BucketUsage_Id_Field) (
 	deleted bool, err error) {
@@ -6081,6 +6644,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM project_members;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM buckets;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -6593,6 +7166,57 @@ func (obj *sqlite3Impl) Create_ApiKey(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return obj.getLastApiKey(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_Bucket(ctx context.Context,
+	bucket_id Bucket_Id_Field,
+	bucket_project_id Bucket_ProjectId_Field,
+	bucket_name Bucket_Name_Field,
+	bucket_path_cipher Bucket_PathCipher_Field,
+	bucket_default_segment_size Bucket_DefaultSegmentSize_Field,
+	bucket_default_encryption_ciphersuite Bucket_DefaultEncryptionCiphersuite_Field,
+	bucket_default_encryption_block_size Bucket_DefaultEncryptionBlockSize_Field,
+	bucket_default_redundancy_algorithm Bucket_DefaultRedundancyAlgorithm_Field,
+	bucket_default_redundancy_share_size Bucket_DefaultRedundancyShareSize_Field,
+	bucket_default_redundancy_required_shares Bucket_DefaultRedundancyRequiredShares_Field,
+	bucket_default_redundancy_repair_shares Bucket_DefaultRedundancyRepairShares_Field,
+	bucket_default_redundancy_optimal_shares Bucket_DefaultRedundancyOptimalShares_Field,
+	bucket_default_redundancy_total_shares Bucket_DefaultRedundancyTotalShares_Field,
+	optional Bucket_Create_Fields) (
+	bucket *Bucket, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := bucket_id.value()
+	__project_id_val := bucket_project_id.value()
+	__name_val := bucket_name.value()
+	__path_cipher_val := bucket_path_cipher.value()
+	__attribution_id_val := optional.AttributionId.value()
+	__created_at_val := __now.UTC()
+	__default_segment_size_val := bucket_default_segment_size.value()
+	__default_encryption_ciphersuite_val := bucket_default_encryption_ciphersuite.value()
+	__default_encryption_block_size_val := bucket_default_encryption_block_size.value()
+	__default_redundancy_algorithm_val := bucket_default_redundancy_algorithm.value()
+	__default_redundancy_share_size_val := bucket_default_redundancy_share_size.value()
+	__default_redundancy_required_shares_val := bucket_default_redundancy_required_shares.value()
+	__default_redundancy_repair_shares_val := bucket_default_redundancy_repair_shares.value()
+	__default_redundancy_optimal_shares_val := bucket_default_redundancy_optimal_shares.value()
+	__default_redundancy_total_shares_val := bucket_default_redundancy_total_shares.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO buckets ( id, project_id, name, path_cipher, attribution_id, created_at, default_segment_size, default_encryption_ciphersuite, default_encryption_block_size, default_redundancy_algorithm, default_redundancy_share_size, default_redundancy_required_shares, default_redundancy_repair_shares, default_redundancy_optimal_shares, default_redundancy_total_shares ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __id_val, __project_id_val, __name_val, __path_cipher_val, __attribution_id_val, __created_at_val, __default_segment_size_val, __default_encryption_ciphersuite_val, __default_encryption_block_size_val, __default_redundancy_algorithm_val, __default_redundancy_share_size_val, __default_redundancy_required_shares_val, __default_redundancy_repair_shares_val, __default_redundancy_optimal_shares_val, __default_redundancy_total_shares_val)
+
+	__res, err := obj.driver.Exec(__stmt, __id_val, __project_id_val, __name_val, __path_cipher_val, __attribution_id_val, __created_at_val, __default_segment_size_val, __default_encryption_ciphersuite_val, __default_encryption_block_size_val, __default_redundancy_algorithm_val, __default_redundancy_share_size_val, __default_redundancy_required_shares_val, __default_redundancy_repair_shares_val, __default_redundancy_optimal_shares_val, __default_redundancy_total_shares_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastBucket(ctx, __pk)
 
 }
 
@@ -7384,6 +8008,28 @@ func (obj *sqlite3Impl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Con
 		return nil, obj.makeErr(err)
 	}
 	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) Get_Bucket_By_ProjectId_And_Name(ctx context.Context,
+	bucket_project_id Bucket_ProjectId_Field,
+	bucket_name Bucket_Name_Field) (
+	bucket *Bucket, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT buckets.id, buckets.project_id, buckets.name, buckets.path_cipher, buckets.attribution_id, buckets.created_at, buckets.default_segment_size, buckets.default_encryption_ciphersuite, buckets.default_encryption_block_size, buckets.default_redundancy_algorithm, buckets.default_redundancy_share_size, buckets.default_redundancy_required_shares, buckets.default_redundancy_repair_shares, buckets.default_redundancy_optimal_shares, buckets.default_redundancy_total_shares FROM buckets WHERE buckets.project_id = ? AND buckets.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_project_id.value(), bucket_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket = &Bucket{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket.Id, &bucket.ProjectId, &bucket.Name, &bucket.PathCipher, &bucket.AttributionId, &bucket.CreatedAt, &bucket.DefaultSegmentSize, &bucket.DefaultEncryptionCiphersuite, &bucket.DefaultEncryptionBlockSize, &bucket.DefaultRedundancyAlgorithm, &bucket.DefaultRedundancyShareSize, &bucket.DefaultRedundancyRequiredShares, &bucket.DefaultRedundancyRepairShares, &bucket.DefaultRedundancyOptimalShares, &bucket.DefaultRedundancyTotalShares)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket, nil
 
 }
 
@@ -8195,6 +8841,96 @@ func (obj *sqlite3Impl) Update_ApiKey_By_Id(ctx context.Context,
 	return api_key, nil
 }
 
+func (obj *sqlite3Impl) Update_Bucket_By_Id(ctx context.Context,
+	bucket_id Bucket_Id_Field,
+	update Bucket_Update_Fields) (
+	bucket *Bucket, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE buckets SET "), __sets, __sqlbundle_Literal(" WHERE buckets.id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.DefaultSegmentSize._set {
+		__values = append(__values, update.DefaultSegmentSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_segment_size = ?"))
+	}
+
+	if update.DefaultEncryptionCiphersuite._set {
+		__values = append(__values, update.DefaultEncryptionCiphersuite.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_encryption_ciphersuite = ?"))
+	}
+
+	if update.DefaultEncryptionBlockSize._set {
+		__values = append(__values, update.DefaultEncryptionBlockSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_encryption_block_size = ?"))
+	}
+
+	if update.DefaultRedundancyAlgorithm._set {
+		__values = append(__values, update.DefaultRedundancyAlgorithm.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_algorithm = ?"))
+	}
+
+	if update.DefaultRedundancyShareSize._set {
+		__values = append(__values, update.DefaultRedundancyShareSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_share_size = ?"))
+	}
+
+	if update.DefaultRedundancyRequiredShares._set {
+		__values = append(__values, update.DefaultRedundancyRequiredShares.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_required_shares = ?"))
+	}
+
+	if update.DefaultRedundancyRepairShares._set {
+		__values = append(__values, update.DefaultRedundancyRepairShares.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_repair_shares = ?"))
+	}
+
+	if update.DefaultRedundancyOptimalShares._set {
+		__values = append(__values, update.DefaultRedundancyOptimalShares.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_optimal_shares = ?"))
+	}
+
+	if update.DefaultRedundancyTotalShares._set {
+		__values = append(__values, update.DefaultRedundancyTotalShares.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_total_shares = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, bucket_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket = &Bucket{}
+	_, err = obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT buckets.id, buckets.project_id, buckets.name, buckets.path_cipher, buckets.attribution_id, buckets.created_at, buckets.default_segment_size, buckets.default_encryption_ciphersuite, buckets.default_encryption_block_size, buckets.default_redundancy_algorithm, buckets.default_redundancy_share_size, buckets.default_redundancy_required_shares, buckets.default_redundancy_repair_shares, buckets.default_redundancy_optimal_shares, buckets.default_redundancy_total_shares FROM buckets WHERE buckets.id = ?")
+
+	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
+	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
+
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&bucket.Id, &bucket.ProjectId, &bucket.Name, &bucket.PathCipher, &bucket.AttributionId, &bucket.CreatedAt, &bucket.DefaultSegmentSize, &bucket.DefaultEncryptionCiphersuite, &bucket.DefaultEncryptionBlockSize, &bucket.DefaultRedundancyAlgorithm, &bucket.DefaultRedundancyShareSize, &bucket.DefaultRedundancyRequiredShares, &bucket.DefaultRedundancyRepairShares, &bucket.DefaultRedundancyOptimalShares, &bucket.DefaultRedundancyTotalShares)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket, nil
+}
+
 func (obj *sqlite3Impl) Update_CertRecord_By_Id(ctx context.Context,
 	certRecord_id CertRecord_Id_Field,
 	update CertRecord_Update_Fields) (
@@ -8500,6 +9236,32 @@ func (obj *sqlite3Impl) Delete_ApiKey_By_Id(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Delete_Bucket_By_Id(ctx context.Context,
+	bucket_id Bucket_Id_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM buckets WHERE buckets.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *sqlite3Impl) Delete_BucketUsage_By_Id(ctx context.Context,
 	bucket_usage_id BucketUsage_Id_Field) (
 	deleted bool, err error) {
@@ -8740,6 +9502,24 @@ func (obj *sqlite3Impl) getLastApiKey(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) getLastBucket(ctx context.Context,
+	pk int64) (
+	bucket *Bucket, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT buckets.id, buckets.project_id, buckets.name, buckets.path_cipher, buckets.attribution_id, buckets.created_at, buckets.default_segment_size, buckets.default_encryption_ciphersuite, buckets.default_encryption_block_size, buckets.default_redundancy_algorithm, buckets.default_redundancy_share_size, buckets.default_redundancy_required_shares, buckets.default_redundancy_repair_shares, buckets.default_redundancy_optimal_shares, buckets.default_redundancy_total_shares FROM buckets WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	bucket = &Bucket{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&bucket.Id, &bucket.ProjectId, &bucket.Name, &bucket.PathCipher, &bucket.AttributionId, &bucket.CreatedAt, &bucket.DefaultSegmentSize, &bucket.DefaultEncryptionCiphersuite, &bucket.DefaultEncryptionBlockSize, &bucket.DefaultRedundancyAlgorithm, &bucket.DefaultRedundancyShareSize, &bucket.DefaultRedundancyRequiredShares, &bucket.DefaultRedundancyRepairShares, &bucket.DefaultRedundancyOptimalShares, &bucket.DefaultRedundancyTotalShares)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket, nil
+
+}
+
 func (obj *sqlite3Impl) getLastBucketUsage(ctx context.Context,
 	pk int64) (
 	bucket_usage *BucketUsage, err error) {
@@ -8877,6 +9657,16 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM project_members;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM buckets;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -9282,6 +10072,30 @@ func (rx *Rx) Create_ApiKey(ctx context.Context,
 
 }
 
+func (rx *Rx) Create_Bucket(ctx context.Context,
+	bucket_id Bucket_Id_Field,
+	bucket_project_id Bucket_ProjectId_Field,
+	bucket_name Bucket_Name_Field,
+	bucket_path_cipher Bucket_PathCipher_Field,
+	bucket_default_segment_size Bucket_DefaultSegmentSize_Field,
+	bucket_default_encryption_ciphersuite Bucket_DefaultEncryptionCiphersuite_Field,
+	bucket_default_encryption_block_size Bucket_DefaultEncryptionBlockSize_Field,
+	bucket_default_redundancy_algorithm Bucket_DefaultRedundancyAlgorithm_Field,
+	bucket_default_redundancy_share_size Bucket_DefaultRedundancyShareSize_Field,
+	bucket_default_redundancy_required_shares Bucket_DefaultRedundancyRequiredShares_Field,
+	bucket_default_redundancy_repair_shares Bucket_DefaultRedundancyRepairShares_Field,
+	bucket_default_redundancy_optimal_shares Bucket_DefaultRedundancyOptimalShares_Field,
+	bucket_default_redundancy_total_shares Bucket_DefaultRedundancyTotalShares_Field,
+	optional Bucket_Create_Fields) (
+	bucket *Bucket, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_Bucket(ctx, bucket_id, bucket_project_id, bucket_name, bucket_path_cipher, bucket_default_segment_size, bucket_default_encryption_ciphersuite, bucket_default_encryption_block_size, bucket_default_redundancy_algorithm, bucket_default_redundancy_share_size, bucket_default_redundancy_required_shares, bucket_default_redundancy_repair_shares, bucket_default_redundancy_optimal_shares, bucket_default_redundancy_total_shares, optional)
+
+}
+
 func (rx *Rx) Create_BucketStorageTally(ctx context.Context,
 	bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
 	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
@@ -9501,6 +10315,16 @@ func (rx *Rx) Delete_BucketUsage_By_Id(ctx context.Context,
 	return tx.Delete_BucketUsage_By_Id(ctx, bucket_usage_id)
 }
 
+func (rx *Rx) Delete_Bucket_By_Id(ctx context.Context,
+	bucket_id Bucket_Id_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_Bucket_By_Id(ctx, bucket_id)
+}
+
 func (rx *Rx) Delete_CertRecord_By_Id(ctx context.Context,
 	certRecord_id CertRecord_Id_Field) (
 	deleted bool, err error) {
@@ -9678,6 +10502,17 @@ func (rx *Rx) Get_BucketUsage_By_Id(ctx context.Context,
 	return tx.Get_BucketUsage_By_Id(ctx, bucket_usage_id)
 }
 
+func (rx *Rx) Get_Bucket_By_ProjectId_And_Name(ctx context.Context,
+	bucket_project_id Bucket_ProjectId_Field,
+	bucket_name Bucket_Name_Field) (
+	bucket *Bucket, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_Bucket_By_ProjectId_And_Name(ctx, bucket_project_id, bucket_name)
+}
+
 func (rx *Rx) Get_CertRecord_By_Id(ctx context.Context,
 	certRecord_id CertRecord_Id_Field) (
 	certRecord *CertRecord, err error) {
@@ -9838,6 +10673,17 @@ func (rx *Rx) Update_ApiKey_By_Id(ctx context.Context,
 	return tx.Update_ApiKey_By_Id(ctx, api_key_id, update)
 }
 
+func (rx *Rx) Update_Bucket_By_Id(ctx context.Context,
+	bucket_id Bucket_Id_Field,
+	update Bucket_Update_Fields) (
+	bucket *Bucket, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_Bucket_By_Id(ctx, bucket_id, update)
+}
+
 func (rx *Rx) Update_CertRecord_By_Id(ctx context.Context,
 	certRecord_id CertRecord_Id_Field,
 	update CertRecord_Update_Fields) (
@@ -9976,6 +10822,23 @@ type Methods interface {
 		api_key_name ApiKey_Name_Field) (
 		api_key *ApiKey, err error)
 
+	Create_Bucket(ctx context.Context,
+		bucket_id Bucket_Id_Field,
+		bucket_project_id Bucket_ProjectId_Field,
+		bucket_name Bucket_Name_Field,
+		bucket_path_cipher Bucket_PathCipher_Field,
+		bucket_default_segment_size Bucket_DefaultSegmentSize_Field,
+		bucket_default_encryption_ciphersuite Bucket_DefaultEncryptionCiphersuite_Field,
+		bucket_default_encryption_block_size Bucket_DefaultEncryptionBlockSize_Field,
+		bucket_default_redundancy_algorithm Bucket_DefaultRedundancyAlgorithm_Field,
+		bucket_default_redundancy_share_size Bucket_DefaultRedundancyShareSize_Field,
+		bucket_default_redundancy_required_shares Bucket_DefaultRedundancyRequiredShares_Field,
+		bucket_default_redundancy_repair_shares Bucket_DefaultRedundancyRepairShares_Field,
+		bucket_default_redundancy_optimal_shares Bucket_DefaultRedundancyOptimalShares_Field,
+		bucket_default_redundancy_total_shares Bucket_DefaultRedundancyTotalShares_Field,
+		optional Bucket_Create_Fields) (
+		bucket *Bucket, err error)
+
 	Create_BucketStorageTally(ctx context.Context,
 		bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
 		bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
@@ -10094,6 +10957,10 @@ type Methods interface {
 		bucket_usage_id BucketUsage_Id_Field) (
 		deleted bool, err error)
 
+	Delete_Bucket_By_Id(ctx context.Context,
+		bucket_id Bucket_Id_Field) (
+		deleted bool, err error)
+
 	Delete_CertRecord_By_Id(ctx context.Context,
 		certRecord_id CertRecord_Id_Field) (
 		deleted bool, err error)
@@ -10168,6 +11035,11 @@ type Methods interface {
 		bucket_usage_id BucketUsage_Id_Field) (
 		bucket_usage *BucketUsage, err error)
 
+	Get_Bucket_By_ProjectId_And_Name(ctx context.Context,
+		bucket_project_id Bucket_ProjectId_Field,
+		bucket_name Bucket_Name_Field) (
+		bucket *Bucket, err error)
+
 	Get_CertRecord_By_Id(ctx context.Context,
 		certRecord_id CertRecord_Id_Field) (
 		certRecord *CertRecord, err error)
@@ -10237,6 +11109,11 @@ type Methods interface {
 		api_key_id ApiKey_Id_Field,
 		update ApiKey_Update_Fields) (
 		api_key *ApiKey, err error)
+
+	Update_Bucket_By_Id(ctx context.Context,
+		bucket_id Bucket_Id_Field,
+		update Bucket_Update_Fields) (
+		bucket *Bucket, err error)
 
 	Update_CertRecord_By_Id(ctx context.Context,
 		certRecord_id CertRecord_Id_Field,

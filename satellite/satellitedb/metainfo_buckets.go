@@ -10,7 +10,6 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metainfo"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -49,12 +48,42 @@ func bucketFromDBX(bucket *dbx.Bucket) (*metainfo.Bucket, error) {
 		return nil, err
 	}
 
-	u := &console.Project{
-		ID:          id,
-		Name:        project.Name,
-		Description: project.Description,
-		CreatedAt:   project.CreatedAt,
+	projectID, err := bytesToUUID(bucket.ProjectId)
+	if err != nil {
+		return nil, err
 	}
 
-	return u, nil
+	var attributionID uuid.UUID
+	if bucket.AttributionId == nil {
+		parsedID, err := bytesToUUID(bucket.AttributionId)
+		if err != nil {
+			return nil, err
+		}
+		attributionID = parsedID
+	}
+
+	return &metainfo.Bucket{
+		ID: id,
+
+		ProjectID:  projectID,
+		Name:       string(bucket.Name),
+		PathCipher: storj.Cipher(bucket.PathCipher),
+
+		AttributionID: attributionID,
+		CreatedAt:     bucket.CreatedAt,
+
+		DefaultSegmentSize: int64(bucket.DefaultSegmentSize),
+		DefaultEncryption: storj.EncryptionParameters{
+			CipherSuite: storj.CipherSuite(bucket.DefaultEncryptionCiphersuite),
+			BlockSize:   int32(bucket.DefaultEncryptionBlockSize),
+		},
+		DefaultRedundancy: storj.RedundancyScheme{
+			Algorithm:      storj.RedundancyAlgorithm(bucket.DefaultRedundancyAlgorithm),
+			ShareSize:      int32(bucket.DefaultRedundancyShareSize),
+			RequiredShares: int16(bucket.DefaultRedundancyRequiredShares),
+			RepairShares:   int16(bucket.DefaultRedundancyRepairShares),
+			OptimalShares:  int16(bucket.DefaultRedundancyOptimalShares),
+			TotalShares:    int16(bucket.DefaultRedundancyTotalShares),
+		},
+	}, nil
 }
