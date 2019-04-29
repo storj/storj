@@ -5,9 +5,9 @@ package overlay_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/testcontext"
@@ -15,39 +15,6 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/storj"
 )
-
-func TestOffline(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		satellite := planet.Satellites[0]
-		service := satellite.Overlay.Service
-		// TODO: handle cleanup
-
-		result, err := service.OfflineNodes(ctx, []storj.NodeID{
-			planet.StorageNodes[0].ID(),
-		})
-		require.NoError(t, err)
-		require.Empty(t, result)
-
-		result, err = service.OfflineNodes(ctx, []storj.NodeID{
-			planet.StorageNodes[0].ID(),
-			planet.StorageNodes[1].ID(),
-			planet.StorageNodes[2].ID(),
-		})
-		require.NoError(t, err)
-		require.Empty(t, result)
-
-		result, err = service.OfflineNodes(ctx, []storj.NodeID{
-			planet.StorageNodes[0].ID(),
-			storj.NodeID{1, 2, 3, 4},
-			planet.StorageNodes[2].ID(),
-		})
-		require.NoError(t, err)
-		require.Equal(t, []int{1}, result)
-
-	})
-}
 
 func TestNodeSelection(t *testing.T) {
 	t.Skip("flaky")
@@ -86,56 +53,63 @@ func TestNodeSelection(t *testing.T) {
 		for i, tt := range []test{
 			{ // all reputable nodes, only reputable nodes requested
 				Preferences: overlay.NodeSelectionConfig{
-					NewNodeAuditThreshold: 0,
-					NewNodePercentage:     0,
+					AuditCount:        0,
+					NewNodePercentage: 0,
+					OnlineWindow:      time.Hour,
 				},
 				RequestCount:  5,
 				ExpectedCount: 5,
 			},
 			{ // all reputable nodes, reputable and new nodes requested
 				Preferences: overlay.NodeSelectionConfig{
-					NewNodeAuditThreshold: 0,
-					NewNodePercentage:     1,
+					AuditCount:        0,
+					NewNodePercentage: 1,
+					OnlineWindow:      time.Hour,
 				},
 				RequestCount:  5,
 				ExpectedCount: 5,
 			},
 			{ // all reputable nodes except one, reputable and new nodes requested
 				Preferences: overlay.NodeSelectionConfig{
-					NewNodeAuditThreshold: 1,
-					NewNodePercentage:     1,
+					AuditCount:        1,
+					NewNodePercentage: 1,
+					OnlineWindow:      time.Hour,
 				},
 				RequestCount:  5,
 				ExpectedCount: 6,
 			},
 			{ // 50-50 reputable and new nodes, reputable and new nodes requested (new node ratio 1.0)
 				Preferences: overlay.NodeSelectionConfig{
-					NewNodeAuditThreshold: 5,
-					NewNodePercentage:     1,
+					AuditCount:        5,
+					NewNodePercentage: 1,
+					OnlineWindow:      time.Hour,
 				},
 				RequestCount:  2,
 				ExpectedCount: 4,
 			},
 			{ // 50-50 reputable and new nodes, reputable and new nodes requested (new node ratio 0.5)
 				Preferences: overlay.NodeSelectionConfig{
-					NewNodeAuditThreshold: 5,
-					NewNodePercentage:     0.5,
+					AuditCount:        5,
+					NewNodePercentage: 0.5,
+					OnlineWindow:      time.Hour,
 				},
 				RequestCount:  4,
 				ExpectedCount: 6,
 			},
 			{ // all new nodes except one, reputable and new nodes requested (happy path)
 				Preferences: overlay.NodeSelectionConfig{
-					NewNodeAuditThreshold: 8,
-					NewNodePercentage:     1,
+					AuditCount:        8,
+					NewNodePercentage: 1,
+					OnlineWindow:      time.Hour,
 				},
 				RequestCount:  1,
 				ExpectedCount: 2,
 			},
 			{ // all new nodes except one, reputable and new nodes requested (not happy path)
 				Preferences: overlay.NodeSelectionConfig{
-					NewNodeAuditThreshold: 9,
-					NewNodePercentage:     1,
+					AuditCount:        9,
+					NewNodePercentage: 1,
+					OnlineWindow:      time.Hour,
 				},
 				RequestCount:   2,
 				ExpectedCount:  3,
@@ -143,8 +117,9 @@ func TestNodeSelection(t *testing.T) {
 			},
 			{ // all new nodes, reputable and new nodes requested
 				Preferences: overlay.NodeSelectionConfig{
-					NewNodeAuditThreshold: 50,
-					NewNodePercentage:     1,
+					AuditCount:        50,
+					NewNodePercentage: 1,
+					OnlineWindow:      time.Hour,
 				},
 				RequestCount:   2,
 				ExpectedCount:  2,
@@ -152,24 +127,27 @@ func TestNodeSelection(t *testing.T) {
 			},
 			{ // audit threshold edge case (1)
 				Preferences: overlay.NodeSelectionConfig{
-					NewNodeAuditThreshold: 9,
-					NewNodePercentage:     0,
+					AuditCount:        9,
+					NewNodePercentage: 0,
+					OnlineWindow:      time.Hour,
 				},
 				RequestCount:  1,
 				ExpectedCount: 1,
 			},
 			{ // audit threshold edge case (2)
 				Preferences: overlay.NodeSelectionConfig{
-					NewNodeAuditThreshold: 0,
-					NewNodePercentage:     1,
+					AuditCount:        0,
+					NewNodePercentage: 1,
+					OnlineWindow:      time.Hour,
 				},
 				RequestCount:  1,
 				ExpectedCount: 1,
 			},
 			{ // excluded node ids being excluded
 				Preferences: overlay.NodeSelectionConfig{
-					NewNodeAuditThreshold: 5,
-					NewNodePercentage:     0,
+					AuditCount:        5,
+					NewNodePercentage: 0,
+					OnlineWindow:      time.Hour,
 				},
 				ExcludeCount:   7,
 				RequestCount:   5,

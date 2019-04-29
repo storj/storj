@@ -28,10 +28,10 @@ var (
 		RunE:        cmdSetup,
 		Annotations: map[string]string{"type": "setup"},
 	}
-	setupCfg    UplinkFlags
-	confDir     string
-	identityDir string
-	defaults    cfgstruct.BindOpt
+
+	setupCfg UplinkFlags
+	confDir  string
+	defaults cfgstruct.BindOpt
 
 	// Error is the default uplink setup errs class
 	Error = errs.Class("uplink setup error")
@@ -39,12 +39,10 @@ var (
 
 func init() {
 	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
-	defaultIdentityDir := fpath.ApplicationDir("storj", "identity", "uplink")
 	cfgstruct.SetupFlag(zap.L(), RootCmd, &confDir, "config-dir", defaultConfDir, "main directory for uplink configuration")
-	cfgstruct.SetupFlag(zap.L(), RootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for uplink identity credentials")
 	defaults = cfgstruct.DefaultsFlag(RootCmd)
 	RootCmd.AddCommand(setupCmd)
-	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, defaults, cfgstruct.ConfDir(confDir))
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
@@ -71,19 +69,41 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 
 	var override map[string]interface{}
 	if !setupCfg.NonInteractive {
-		_, err = fmt.Print("Enter your Satellite address: ")
+		_, err = fmt.Print(`
+Pick satellite to use:
+  [1] mars.tardigrade.io
+  [2] jupiter.tardigrade.io
+  [3] saturn.tardigrade.io
+Please enter numeric choice or enter satellite address manually [1]: `)
 		if err != nil {
 			return err
 		}
+		satellites := []string{"mars.tardigrade.io", "jupiter.tardigrade.io", "saturn.tardigrade.io"}
 		var satelliteAddress string
-		_, err = fmt.Scanln(&satelliteAddress)
+		n, err := fmt.Scanln(&satelliteAddress)
 		if err != nil {
-			return err
+			if n == 0 {
+				// fmt.Scanln cannot handle empty input
+				satelliteAddress = satellites[0]
+			} else {
+				return err
+			}
 		}
 
 		// TODO add better validation
 		if satelliteAddress == "" {
-			return errs.New("Satellite address cannot be empty")
+			return errs.New("satellite address cannot be empty")
+		} else if len(satelliteAddress) == 1 {
+			switch satelliteAddress {
+			case "1":
+				satelliteAddress = satellites[0]
+			case "2":
+				satelliteAddress = satellites[1]
+			case "3":
+				satelliteAddress = satellites[2]
+			default:
+				return errs.New("Satellite address cannot be one character")
+			}
 		}
 
 		satelliteAddress, err = ApplyDefaultHostAndPortToAddr(satelliteAddress, cmd.Flags().Lookup("satellite-addr").Value.String())
@@ -96,8 +116,8 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 			return err
 		}
 		var apiKey string
-		_, err = fmt.Scanln(&apiKey)
-		if err != nil {
+		n, err = fmt.Scanln(&apiKey)
+		if err != nil && n != 0 {
 			return err
 		}
 
@@ -147,9 +167,29 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 			"api-key":        apiKey,
 			"enc.key":        string(encKey),
 		}
+
+		err = process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), override)
+		if err != nil {
+			return nil
+		}
+
+		_, err = fmt.Println(`
+Your Uplink CLI is configured and ready to use!
+
+Some things to try next:
+
+* Run 'uplink --help' to see the operations that can be performed
+
+* See https://github.com/storj/docs/blob/master/Uplink-CLI.md#usage for some example commands
+		`)
+		if err != nil {
+			return nil
+		}
+
+		return nil
 	}
 
-	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), override)
+	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), nil)
 }
 
 // ApplyDefaultHostAndPortToAddrFlag applies the default host and/or port if either is missing in the specified flag name.

@@ -129,7 +129,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 			node.Type.DPanicOnInvalid("order service get order limits")
 		}
 
-		if !node.Online() {
+		if !service.cache.IsOnline(node) {
 			service.log.Debug("node is offline", zap.String("ID", node.Id.String()))
 			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
 			continue
@@ -266,7 +266,7 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *ide
 			node.Type.DPanicOnInvalid("order service delete order limits")
 		}
 
-		if !node.Online() {
+		if !service.cache.IsOnline(node) {
 			service.log.Debug("node is offline", zap.String("ID", node.Id.String()))
 			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
 			continue
@@ -346,7 +346,7 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 			node.Type.DPanicOnInvalid("order service audit order limits")
 		}
 
-		if !node.Online() {
+		if !service.cache.IsOnline(node) {
 			service.log.Debug("node is offline", zap.String("ID", node.Id.String()))
 			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
 			continue
@@ -429,7 +429,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 			node.Type.DPanicOnInvalid("order service get repair order limits")
 		}
 
-		if !node.Online() {
+		if !service.cache.IsOnline(node) {
 			service.log.Debug("node is offline", zap.String("ID", node.Id.String()))
 			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
 			continue

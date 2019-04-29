@@ -6,7 +6,7 @@ import gql from 'graphql-tag';
 
 // Performs update user info graphQL mutation request.
 // Returns User object if succeed, null otherwise
-export async function updateAccountRequest(user: User): Promise<RequestResponse<User>> {
+export async function updateAccountRequest(user: UpdatedUser): Promise<RequestResponse<User>> {
     let result: RequestResponse<User> = {
         errorMessage: '',
         isSuccess: false,
@@ -23,7 +23,6 @@ export async function updateAccountRequest(user: User): Promise<RequestResponse<
                 mutation {
                     updateAccount (
                         input: {
-                            email: "${user.email}",
                             fullName: "${user.fullName}",
                             shortName: "${user.shortName}"
                         }
