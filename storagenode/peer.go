@@ -244,6 +244,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 func (peer *Peer) Run(ctx context.Context) error {
 	group, ctx := errgroup.WithContext(ctx)
 
+	err := errs2.IgnoreCanceled(peer.Server.Run(ctx))
+	if err != nil {
+		return err
+	}
+
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Version.Run(ctx))
 	})
@@ -259,16 +264,14 @@ func (peer *Peer) Run(ctx context.Context) error {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Storage2.Monitor.Run(ctx))
 	})
-	group.Go(func() error {
-		// TODO: move the message into Server instead
-		// Don't change the format of this comment, it is used to figure out the node id.
-		peer.Log.Sugar().Infof("Node %s started", peer.Identity.ID)
-		peer.Log.Sugar().Infof("Public server started on %s", peer.Addr())
-		peer.Log.Sugar().Infof("Private server started on %s", peer.PrivateAddr())
-		return errs2.IgnoreCanceled(peer.Server.Run(ctx))
-	})
 
-	return group.Wait()
+	err = group.Wait()
+	// TODO: move the message into Server instead
+	// Don't change the format of this comment, it is used to figure out the node id.
+	peer.Log.Sugar().Infof("Node %s started", peer.Identity.ID)
+	peer.Log.Sugar().Infof("Public server started on %s", peer.Addr())
+	peer.Log.Sugar().Infof("Private server started on %s", peer.PrivateAddr())
+	return err
 }
 
 // Close closes all the resources.
