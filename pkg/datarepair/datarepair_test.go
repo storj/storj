@@ -97,11 +97,13 @@ func TestDataRepair(t *testing.T) {
 		}
 
 		satellite.Repair.Checker.Loop.Restart()
-		satellite.Repair.Checker.Loop.TriggerWait()
 		satellite.Repair.Checker.Loop.Pause()
+		satellite.Repair.Checker.Loop.TriggerWait()
+
 		satellite.Repair.Repairer.Loop.Restart()
-		satellite.Repair.Repairer.Loop.TriggerWait()
 		satellite.Repair.Repairer.Loop.Pause()
+		satellite.Repair.Repairer.Loop.TriggerWait()
+
 		satellite.Repair.Repairer.Limiter.Wait()
 
 		// kill nodes kept alive to ensure repair worked
