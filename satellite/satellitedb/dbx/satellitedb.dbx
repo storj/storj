@@ -338,6 +338,12 @@ read limitoffset (
 	where bucket.name <= ?
 	orderby asc bucket.name
 )
+read limitoffset ( // Backward with limit
+	select bucket
+	where bucket.project_id = ?
+	where bucket.name <= ?
+	orderby desc bucket.name
+)
 read limitoffset (
 	select bucket
 	where bucket.project_id = ?
@@ -355,6 +361,12 @@ read limitoffset (
 	where bucket.project_id = ?
 	where bucket.name >= ?
 	orderby asc bucket.name
+)
+read limitoffset ( // Backward with limit
+	select bucket
+	where bucket.project_id = ?
+	where bucket.name >= ?
+	orderby desc bucket.name
 )
 
 //--- attribution ---//

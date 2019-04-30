@@ -4,8 +4,11 @@
 package satellitedb
 
 import (
+	"bytes"
 	"context"
+	"database/sql"
 	"errors"
+	"sort"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
@@ -52,10 +55,16 @@ func (buckets *buckets) Create(ctx context.Context, bucket *metainfo.Bucket) err
 }
 
 func (buckets *buckets) Get(ctx context.Context, projectID uuid.UUID, name string) (*metainfo.Bucket, error) {
+	if name == "" {
+		return nil, storj.ErrNoBucket.New("")
+	}
 	dbxBucket, err := buckets.db.Get_Bucket_By_ProjectId_And_Name(ctx,
 		dbx.Bucket_ProjectId(projectID[:]),
 		dbx.Bucket_Name([]byte(name)),
 	)
+	if err == sql.ErrNoRows {
+		return nil, storj.ErrBucketNotFound.New("")
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -63,6 +72,9 @@ func (buckets *buckets) Get(ctx context.Context, projectID uuid.UUID, name strin
 }
 
 func (buckets *buckets) Delete(ctx context.Context, projectID uuid.UUID, name string) error {
+	if name == "" {
+		return storj.ErrNoBucket.New("")
+	}
 	_, err := buckets.db.Delete_Bucket_By_ProjectId_And_Name(ctx,
 		dbx.Bucket_ProjectId(projectID[:]),
 		dbx.Bucket_Name([]byte(name)),
@@ -88,11 +100,23 @@ func (buckets *buckets) List(ctx context.Context, projectID uuid.UUID, opts meta
 			limit, 0,
 		)
 	case storj.Backward:
-		dbxBuckets, err = buckets.db.Limited_Bucket_By_ProjectId_And_Name_LessOrEqual_OrderBy_Asc_Name(ctx,
-			dbx.Bucket_ProjectId(projectID[:]),
-			dbx.Bucket_Name([]byte(opts.Cursor)),
-			limit, 0,
-		)
+		// TODO most probably needs optimization
+		if opts.Cursor == "" {
+			dbxBuckets, err = buckets.db.Limited_Bucket_By_ProjectId_And_Name_GreaterOrEqual_OrderBy_Desc_Name(ctx,
+				dbx.Bucket_ProjectId(projectID[:]),
+				dbx.Bucket_Name([]byte(opts.Cursor)),
+				limit, 0,
+			)
+		} else {
+			dbxBuckets, err = buckets.db.Limited_Bucket_By_ProjectId_And_Name_LessOrEqual_OrderBy_Desc_Name(ctx,
+				dbx.Bucket_ProjectId(projectID[:]),
+				dbx.Bucket_Name([]byte(opts.Cursor)),
+				limit, 0,
+			)
+		}
+		sort.Slice(dbxBuckets, func(i, j int) bool {
+			return bytes.Compare(dbxBuckets[i].Name, dbxBuckets[j].Name) < 1
+		})
 	case storj.After:
 		dbxBuckets, err = buckets.db.Limited_Bucket_By_ProjectId_And_Name_Greater_OrderBy_Asc_Name(ctx,
 			dbx.Bucket_ProjectId(projectID[:]),
@@ -120,7 +144,7 @@ func (buckets *buckets) List(ctx context.Context, projectID uuid.UUID, opts meta
 	if result.More {
 		switch opts.Direction {
 		case storj.Before, storj.Backward:
-			dbxBuckets = dbxBuckets[:len(dbxBuckets)-1]
+			dbxBuckets = dbxBuckets[1:]
 		case storj.After, storj.Forward:
 			dbxBuckets = dbxBuckets[0 : len(dbxBuckets)-1]
 		default:
