@@ -386,7 +386,7 @@ model object (
 	field fixed_segment_size         int // -1 when variable due to multipart upload
 
 	field total_size                 int
-	field total_inline_size          int
+	field total_inline_size          int // len(inline_data) + len(encrypted_metadata)
 
 	field encrypted_metadata         blob
 
@@ -452,10 +452,10 @@ model segment (
 	field encrypted_key       blob
 
 	field segment_checksum    uint64
-	field segment_size        int64
+	field segment_size        int64  // size will be -1 for uncommited segment
 
 	field encrypted_inline_data   blob
-	field nodes                   blob
+	field nodes                   blob // for inline segment, this is always 0
 )
 
 create segment ()
