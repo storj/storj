@@ -94,11 +94,23 @@ func (buckets *buckets) List(ctx context.Context, projectID uuid.UUID, opts meta
 
 	switch opts.Direction {
 	case storj.Before:
-		dbxBuckets, err = buckets.db.Limited_Bucket_By_ProjectId_And_Name_Less_OrderBy_Asc_Name(ctx,
-			dbx.Bucket_ProjectId(projectID[:]),
-			dbx.Bucket_Name([]byte(opts.Cursor)),
-			limit, 0,
-		)
+		// TODO most probably needs optimization
+		if opts.Cursor == "" {
+			dbxBuckets, err = buckets.db.Limited_Bucket_By_ProjectId_And_Name_GreaterOrEqual_OrderBy_Desc_Name(ctx,
+				dbx.Bucket_ProjectId(projectID[:]),
+				dbx.Bucket_Name([]byte(opts.Cursor)),
+				limit, 0,
+			)
+		} else {
+			dbxBuckets, err = buckets.db.Limited_Bucket_By_ProjectId_And_Name_Less_OrderBy_Desc_Name(ctx,
+				dbx.Bucket_ProjectId(projectID[:]),
+				dbx.Bucket_Name([]byte(opts.Cursor)),
+				limit, 0,
+			)
+		}
+		sort.Slice(dbxBuckets, func(i, j int) bool {
+			return bytes.Compare(dbxBuckets[i].Name, dbxBuckets[j].Name) < 1
+		})
 	case storj.Backward:
 		// TODO most probably needs optimization
 		if opts.Cursor == "" {
@@ -198,7 +210,7 @@ func bucketFromDBX(bucket *dbx.Bucket) (*metainfo.Bucket, error) {
 		PathCipher: storj.CipherSuite(bucket.PathCipher),
 
 		AttributionID: attributionID,
-		CreatedAt:     bucket.CreatedAt,
+		CreatedAt:     bucket.CreatedAt.UTC(),
 
 		DefaultSegmentSize: int64(bucket.DefaultSegmentSize),
 		DefaultEncryption: storj.EncryptionParameters{

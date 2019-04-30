@@ -340,7 +340,7 @@ read limitoffset (
 	where bucket.name <= ?
 	orderby asc bucket.name
 )
-read limitoffset ( // Backward with limit
+read limitoffset ( // Backward
 	select bucket
 	where bucket.project_id = ?
 	where bucket.name <= ?
@@ -351,6 +351,12 @@ read limitoffset (
 	where bucket.project_id = ?
 	where bucket.name < ?
 	orderby asc bucket.name
+)
+read limitoffset ( // Before
+	select bucket
+	where bucket.project_id = ?
+	where bucket.name < ?
+	orderby desc bucket.name
 )
 read limitoffset (
 	select bucket
@@ -364,7 +370,7 @@ read limitoffset (
 	where bucket.name >= ?
 	orderby asc bucket.name
 )
-read limitoffset ( // Backward with limit
+read limitoffset ( // Backward
 	select bucket
 	where bucket.project_id = ?
 	where bucket.name >= ?

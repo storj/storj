@@ -240,7 +240,7 @@ CREATE TABLE objects (
 	PRIMARY KEY ( bucket_id, encrypted_path, version )
 );
 CREATE TABLE segments (
-	stream_id bytea NOT NULL REFERENCES objects( stream_id ) ON DELETE CASCADE,
+	stream_id bytea NOT NULL REFERENCES objects( stream_id ),
 	segment_index bigint NOT NULL,
 	root_piece_id bytea NOT NULL,
 	encrypted_key_nonce bytea NOT NULL,

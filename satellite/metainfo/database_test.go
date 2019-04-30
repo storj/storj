@@ -6,6 +6,7 @@ package metainfo_test
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
@@ -18,6 +19,58 @@ import (
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
+
+func TestBasicBucket(t *testing.T) {
+	satellitedbtest.Run(t, func(t *testing.T, masterDB satellite.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		project := &console.Project{
+			Name: "TestProject",
+		}
+		project, err := masterDB.Console().Projects().Insert(ctx, project)
+		require.NoError(t, err)
+
+		bucketsDB := masterDB.MetainfoBuckets()
+
+		bucketID, err := uuid.New()
+		require.NoError(t, err)
+		// attributionID, err := uuid.New()
+		// require.NoError(t, err)
+
+		// DB is not keeping nanoseconds
+		createdAt := time.Now().UTC()
+		createdAt = time.Date(createdAt.Year(), createdAt.Month(), createdAt.Day(), createdAt.Hour(), createdAt.Minute(), createdAt.Second(), 0, createdAt.Location())
+
+		expectedBucket := &metainfo.Bucket{
+			ID:         *bucketID,
+			Name:       "test-bucket",
+			ProjectID:  project.ID,
+			PathCipher: storj.EncAESGCM,
+			// AttributionID: *attributionID,
+			CreatedAt:          createdAt,
+			DefaultSegmentSize: 256,
+			DefaultRedundancy: storj.RedundancyScheme{
+				Algorithm:      storj.ReedSolomon,
+				ShareSize:      9,
+				RequiredShares: 10,
+				RepairShares:   11,
+				OptimalShares:  12,
+				TotalShares:    13,
+			},
+			DefaultEncryption: storj.EncryptionParameters{
+				CipherSuite: storj.EncAESGCM,
+				BlockSize:   32,
+			},
+		}
+		err = bucketsDB.Create(ctx, expectedBucket)
+		require.NoError(t, err)
+
+		bucket, err := bucketsDB.Get(ctx, project.ID, "test-bucket")
+		require.NoError(t, err)
+		require.Equal(t, expectedBucket, bucket)
+	})
+}
 
 func TestListBucketsEmpty(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, masterDB satellite.DB) {
@@ -153,22 +206,22 @@ func TestListBuckets(t *testing.T) {
 			{cursor: "c", dir: storj.Backward, limit: 2, more: true, result: []string{"bb", "c"}},
 			{cursor: "ca", dir: storj.Backward, limit: 2, more: true, result: []string{"bb", "c"}},
 			// before
-			// {cursor: "", dir: storj.Before, limit: 0, more: false, result: []string{"a", "aa", "b", "bb", "c"}},
-			// {cursor: "`", dir: storj.Before, limit: 0, more: false, result: []string{}},
-			// {cursor: "b", dir: storj.Before, limit: 0, more: false, result: []string{"a", "aa"}},
-			// {cursor: "c", dir: storj.Before, limit: 0, more: false, result: []string{"a", "aa", "b", "bb"}},
-			// {cursor: "ca", dir: storj.Before, limit: 0, more: false, result: []string{"a", "aa", "b", "bb", "c"}},
-			// {cursor: "", dir: storj.Before, limit: 1, more: true, result: []string{"c"}},
-			// {cursor: "`", dir: storj.Before, limit: 1, more: false, result: []string{}},
-			// {cursor: "aa", dir: storj.Before, limit: 1, more: false, result: []string{"a"}},
-			// {cursor: "c", dir: storj.Before, limit: 1, more: true, result: []string{"bb"}},
-			// {cursor: "ca", dir: storj.Before, limit: 1, more: true, result: []string{"c"}},
-			// {cursor: "", dir: storj.Before, limit: 2, more: true, result: []string{"bb", "c"}},
-			// {cursor: "`", dir: storj.Before, limit: 2, more: false, result: []string{}},
-			// {cursor: "aa", dir: storj.Before, limit: 2, more: false, result: []string{"a"}},
-			// {cursor: "bb", dir: storj.Before, limit: 2, more: true, result: []string{"aa", "b"}},
-			// {cursor: "c", dir: storj.Before, limit: 2, more: true, result: []string{"b", "bb"}},
-			// {cursor: "ca", dir: storj.Before, limit: 2, more: true, result: []string{"bb", "c"}},
+			{cursor: "", dir: storj.Before, limit: 0, more: false, result: []string{"a", "aa", "b", "bb", "c"}},
+			{cursor: "`", dir: storj.Before, limit: 0, more: false, result: []string{}},
+			{cursor: "b", dir: storj.Before, limit: 0, more: false, result: []string{"a", "aa"}},
+			{cursor: "c", dir: storj.Before, limit: 0, more: false, result: []string{"a", "aa", "b", "bb"}},
+			{cursor: "ca", dir: storj.Before, limit: 0, more: false, result: []string{"a", "aa", "b", "bb", "c"}},
+			{cursor: "", dir: storj.Before, limit: 1, more: true, result: []string{"c"}},
+			{cursor: "`", dir: storj.Before, limit: 1, more: false, result: []string{}},
+			{cursor: "aa", dir: storj.Before, limit: 1, more: false, result: []string{"a"}},
+			{cursor: "c", dir: storj.Before, limit: 1, more: true, result: []string{"bb"}},
+			{cursor: "ca", dir: storj.Before, limit: 1, more: true, result: []string{"c"}},
+			{cursor: "", dir: storj.Before, limit: 2, more: true, result: []string{"bb", "c"}},
+			{cursor: "`", dir: storj.Before, limit: 2, more: false, result: []string{}},
+			{cursor: "aa", dir: storj.Before, limit: 2, more: false, result: []string{"a"}},
+			{cursor: "bb", dir: storj.Before, limit: 2, more: true, result: []string{"aa", "b"}},
+			{cursor: "c", dir: storj.Before, limit: 2, more: true, result: []string{"b", "bb"}},
+			{cursor: "ca", dir: storj.Before, limit: 2, more: true, result: []string{"bb", "c"}},
 		} {
 			errTag := fmt.Sprintf("%d. %+v", i, tt)
 
