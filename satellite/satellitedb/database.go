@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -135,4 +136,9 @@ func (db *DB) Console() console.DB {
 // Orders returns database for storing orders
 func (db *DB) Orders() orders.DB {
 	return &ordersDB{db: db.db}
+}
+
+// MetainfoBuckets returns database for metainfo
+func (db *DB) MetainfoBuckets() metainfo.Buckets {
+	return &buckets{db: db.db}
 }

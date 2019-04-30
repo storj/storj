@@ -82,6 +82,8 @@ type DB interface {
 	Console() console.DB
 	// Orders returns database for orders
 	Orders() orders.DB
+	// MetainfoBuckets return database for metainfo
+	MetainfoBuckets() metainfo.Buckets
 }
 
 // Config is the global config satellite

@@ -66,6 +66,9 @@ func (opts BucketListOptions) NextPage(list BucketList) BucketListOptions {
 	return BucketListOptions{}
 }
 
+// TODO create interface metainfo.DB.Buckets()
+
+// Buckets interface for managing buckets
 type Buckets interface {
 	Create(ctx context.Context, bucket *Bucket) error
 	Get(ctx context.Context, projectID uuid.UUID, name string) (*Bucket, error)

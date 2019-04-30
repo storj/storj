@@ -24,7 +24,7 @@ type buckets struct {
 
 func (buckets *buckets) Create(ctx context.Context, bucket *metainfo.Bucket) error {
 	_, err := buckets.db.Create_Bucket(ctx,
-		dbx.Bucket_Id(bucket.ProjectID[:]),
+		dbx.Bucket_Id(bucket.ID[:]),
 
 		dbx.Bucket_ProjectId(bucket.ProjectID[:]),
 		dbx.Bucket_Name([]byte(bucket.Name)),
@@ -72,7 +72,9 @@ func (buckets *buckets) Delete(ctx context.Context, projectID uuid.UUID, name st
 
 func (buckets *buckets) List(ctx context.Context, projectID uuid.UUID, opts metainfo.BucketListOptions) (metainfo.BucketList, error) {
 	// TODO: add sanity checks
-
+	if opts.Limit < 1 {
+		opts.Limit = 10000
+	}
 	limit := opts.Limit + 1 // add one to detect More
 
 	var dbxBuckets []*dbx.Bucket
@@ -83,25 +85,25 @@ func (buckets *buckets) List(ctx context.Context, projectID uuid.UUID, opts meta
 		dbxBuckets, err = buckets.db.Limited_Bucket_By_ProjectId_And_Name_Less_OrderBy_Asc_Name(ctx,
 			dbx.Bucket_ProjectId(projectID[:]),
 			dbx.Bucket_Name([]byte(opts.Cursor)),
-			0, int64(limit),
+			limit, 0,
 		)
 	case storj.Backward:
 		dbxBuckets, err = buckets.db.Limited_Bucket_By_ProjectId_And_Name_LessOrEqual_OrderBy_Asc_Name(ctx,
 			dbx.Bucket_ProjectId(projectID[:]),
 			dbx.Bucket_Name([]byte(opts.Cursor)),
-			0, int64(limit),
+			limit, 0,
 		)
 	case storj.After:
 		dbxBuckets, err = buckets.db.Limited_Bucket_By_ProjectId_And_Name_Greater_OrderBy_Asc_Name(ctx,
 			dbx.Bucket_ProjectId(projectID[:]),
 			dbx.Bucket_Name([]byte(opts.Cursor)),
-			0, int64(limit),
+			limit, 0,
 		)
 	case storj.Forward:
 		dbxBuckets, err = buckets.db.Limited_Bucket_By_ProjectId_And_Name_GreaterOrEqual_OrderBy_Asc_Name(ctx,
 			dbx.Bucket_ProjectId(projectID[:]),
 			dbx.Bucket_Name([]byte(opts.Cursor)),
-			0, int64(limit),
+			limit, 0,
 		)
 	default:
 		return metainfo.BucketList{}, errors.New("unknown list direction")
@@ -120,7 +122,7 @@ func (buckets *buckets) List(ctx context.Context, projectID uuid.UUID, opts meta
 		case storj.Before, storj.Backward:
 			dbxBuckets = dbxBuckets[:len(dbxBuckets)-1]
 		case storj.After, storj.Forward:
-			dbxBuckets = dbxBuckets[0:]
+			dbxBuckets = dbxBuckets[0 : len(dbxBuckets)-1]
 		default:
 			return metainfo.BucketList{}, errors.New("unknown list direction")
 		}
@@ -156,7 +158,7 @@ func bucketFromDBX(bucket *dbx.Bucket) (*metainfo.Bucket, error) {
 	}
 
 	var attributionID uuid.UUID
-	if bucket.AttributionId == nil {
+	if bucket.AttributionId != nil {
 		parsedID, err := bytesToUUID(bucket.AttributionId)
 		if err != nil {
 			return nil, err

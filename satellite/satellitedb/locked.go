@@ -23,6 +23,7 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 )
 
@@ -591,6 +592,43 @@ func (m *lockedIrreparable) IncrementRepairAttempts(ctx context.Context, segment
 	m.Lock()
 	defer m.Unlock()
 	return m.db.IncrementRepairAttempts(ctx, segmentInfo)
+}
+
+// MetainfoBuckets return database for metainfo
+func (m *locked) MetainfoBuckets() metainfo.Buckets {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedMetainfoBuckets{m.Locker, m.db.MetainfoBuckets()}
+}
+
+// lockedMetainfoBuckets implements locking wrapper for metainfo.Buckets
+type lockedMetainfoBuckets struct {
+	sync.Locker
+	db metainfo.Buckets
+}
+
+func (m *lockedMetainfoBuckets) Create(ctx context.Context, bucket *metainfo.Bucket) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Create(ctx, bucket)
+}
+
+func (m *lockedMetainfoBuckets) Delete(ctx context.Context, projectID uuid.UUID, name string) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Delete(ctx, projectID, name)
+}
+
+func (m *lockedMetainfoBuckets) Get(ctx context.Context, projectID uuid.UUID, name string) (*metainfo.Bucket, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Get(ctx, projectID, name)
+}
+
+func (m *lockedMetainfoBuckets) List(ctx context.Context, projectID uuid.UUID, opts metainfo.BucketListOptions) (metainfo.BucketList, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.List(ctx, projectID, opts)
 }
 
 // Orders returns database for orders
