@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx"
+	//Importing to test functionality
 	_ "github.com/jackc/pgx/stdlib"
 	"github.com/lib/pq"
 	"github.com/zeebo/errs"
