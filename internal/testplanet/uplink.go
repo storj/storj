@@ -10,6 +10,7 @@ import (
 	"io"
 	"io/ioutil"
 	"strconv"
+	"time"
 
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
@@ -296,6 +297,7 @@ func (uplink *Uplink) GetConfig(satellite *satellite.Peer) uplink.Config {
 	config := getDefaultConfig()
 	config.Client.SatelliteAddr = satellite.Addr()
 	config.Client.APIKey = uplink.APIKey[satellite.ID()]
+	config.Client.Timeout = 10 * time.Second
 
 	config.RS.MinThreshold = atLeastOne(uplink.StorageNodeCount * 1 / 5)     // 20% of storage nodes
 	config.RS.RepairThreshold = atLeastOne(uplink.StorageNodeCount * 2 / 5)  // 40% of storage nodes

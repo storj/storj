@@ -14,7 +14,6 @@ import (
 
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/metainfo"
 )
@@ -29,17 +28,17 @@ const lastSegmentIndex = int64(-1)
 
 // Endpoint for checking object and segment health
 type Endpoint struct {
-	log       *zap.Logger
-	cache     *overlay.Cache
-	pointerdb *pointerdb.Service
+	log      *zap.Logger
+	cache    *overlay.Cache
+	metainfo *metainfo.Service
 }
 
 // NewEndpoint will initialize an Endpoint struct
-func NewEndpoint(log *zap.Logger, cache *overlay.Cache, pdb *pointerdb.Service) *Endpoint {
+func NewEndpoint(log *zap.Logger, cache *overlay.Cache, metainfo *metainfo.Service) *Endpoint {
 	return &Endpoint{
-		log:       log,
-		cache:     cache,
-		pointerdb: pdb,
+		log:      log,
+		cache:    cache,
+		metainfo: metainfo,
 	}
 }
 
@@ -124,7 +123,7 @@ func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *pb.SegmentHealt
 		return nil, Error.Wrap(err)
 	}
 
-	pointer, err := endpoint.pointerdb.Get(path)
+	pointer, err := endpoint.metainfo.Get(path)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -145,7 +144,7 @@ func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *pb.SegmentHealt
 
 	onlineNodeCount := int32(0)
 	for _, n := range nodes {
-		if n.Online() {
+		if endpoint.cache.IsOnline(n) && endpoint.cache.IsHealthy(n) {
 			onlineNodeCount++
 		}
 	}
