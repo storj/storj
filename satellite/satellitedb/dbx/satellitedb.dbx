@@ -310,9 +310,11 @@ model bucket (
 	// defaults (should these be a pb?)
 	field default_segment_size           int (updatable)
 
+	// TODO compress into a single uint64
 	field default_encryption_cipher_suite int (updatable) // byte
 	field default_encryption_block_size   int (updatable) // byte
-   
+
+	// TODO compress into a single uint64
 	field default_redundancy_algorithm       int (updatable) // byte
 	field default_redundancy_share_size      int (updatable)
 	field default_redundancy_required_shares int (updatable) // byte
@@ -402,9 +404,11 @@ model object (
 
 	field fixed_segment_size         int // -1 when variable due to multipart upload
 
+	// TODO compress into a single uint64
 	field encryption_cipher_suite    int // byte
 	field encryption_block_size      int // byte
 
+	// TODO compress into a single uint64
 	field redundancy_algorithm       int // byte
 	field redundancy_share_size      int
 	field redundancy_required_shares int // byte

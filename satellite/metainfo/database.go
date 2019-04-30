@@ -108,20 +108,6 @@ type Object struct {
 	Encryption       storj.EncryptionParameters
 }
 
-// Objects interface for managing objects
-type Objects interface {
-	Get(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version uint32) (*Object, error)
-	List(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version uint32) ([]*Object, error)
-	Delete(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version uint32) error
-
-	GetPartial(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version uint32) (*Object, error)
-	ListPartial(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version uint32) ([]*Object, error)
-	DeletePartial(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version uint32) error
-
-	Create(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version uint32, object *Object) error
-	Commit(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version uint32) (*Object, error)
-}
-
 type Segment struct {
 	StreamID     uuid.UUID
 	SegmentIndex uint64
@@ -136,6 +122,38 @@ type Segment struct {
 
 	EncryptedInlineData []byte
 	Nodes               []storj.NodeID
+}
+
+// ListOptions lists objects
+type ListOptions struct {
+	EncryptedPrefix storj.Path
+	EncryptedCursor storj.Path // Cursor is relative to Prefix, full path is Prefix + Cursor
+	Recursive       bool
+	Direction       storj.ListDirection
+	Limit           int
+}
+
+// ObjectList is a list of objects
+type ObjectList struct {
+	EncryptedPrefix storj.Path
+	More            bool
+
+	// Items paths are relative to Prefix
+	// To get the full path use list.Prefix + list.Items[0].Path
+	Items []*Object
+}
+
+// Objects interface for managing objects
+type Objects interface {
+	Create(ctx context.Context, object *Object) error
+	Commit(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version uint32) (*Object, error)
+
+	Get(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version uint32) (*Object, error)
+	List(ctx context.Context, bucket uuid.UUID, opts ListOptions) (ObjectList, error)
+	Delete(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version uint32) error
+
+	ListPartial(ctx context.Context, bucket uuid.UUID, opts ListOptions) (ObjectList, error)
+	DeletePartial(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version uint32) error
 }
 
 // Segments interface for managing segments
