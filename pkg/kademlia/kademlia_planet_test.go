@@ -96,6 +96,10 @@ func TestPingTimeout(t *testing.T) {
 }
 
 func TestBootstrapBackoffReconnect(t *testing.T) {
+	// TODO(nat): skipping because flakily erroring with "panic: planet took too long to shutdown."
+	// I need to remove the time dependence/investigate further.
+	t.Skip("flaky")
+
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
