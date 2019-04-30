@@ -42,7 +42,7 @@ func NewCursor(metainfo *metainfo.Service) *Cursor {
 	}
 }
 
-// NextStripe returns a random stripe to be audited
+// NextStripe returns a random stripe to be audited. "more" is true except when we have completed iterating over metainfo. It can be disregarded if there is an error or stripe returned
 func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, more bool, err error) {
 	cursor.mutex.Lock()
 	defer cursor.mutex.Unlock()

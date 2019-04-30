@@ -125,7 +125,7 @@ func TestDeleteExpired(t *testing.T) {
 		// make sure an error and no pointer is returned
 		t.Run("NextStripe", func(t *testing.T) {
 			stripe, _, err := cursor.NextStripe(ctx)
-			require.Error(t, err)
+			require.NoError(t, err)
 			require.Nil(t, stripe)
 		})
 		//make sure it they're not in there anymore
