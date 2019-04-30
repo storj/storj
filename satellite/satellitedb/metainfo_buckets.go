@@ -195,7 +195,7 @@ func bucketFromDBX(bucket *dbx.Bucket) (*metainfo.Bucket, error) {
 
 		ProjectID:  projectID,
 		Name:       string(bucket.Name),
-		PathCipher: storj.Cipher(bucket.PathCipher),
+		PathCipher: storj.CipherSuite(bucket.PathCipher),
 
 		AttributionID: attributionID,
 		CreatedAt:     bucket.CreatedAt,
