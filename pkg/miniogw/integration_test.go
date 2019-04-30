@@ -37,7 +37,7 @@ type config struct {
 }
 
 func TestUploadDownload(t *testing.T) {
-	t.Skip("disable because, keeps stalling Travis intermittently")
+	t.Skip("disable because, keeps stalling CI intermittently")
 
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
