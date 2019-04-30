@@ -12,11 +12,16 @@ import (
 )
 
 var (
-	Error           = errs.Class("api key error")
-	ErrFormat       = errs.Class("api key format error")
-	ErrInvalid      = errs.Class("api key invalid error")
+	// Error is a general API Key error
+	Error = errs.Class("api key error")
+	// ErrFormat means that the structural formatting of the API Key is invalid
+	ErrFormat = errs.Class("api key format error")
+	// ErrInvalid means that the API Key is improperly signed
+	ErrInvalid = errs.Class("api key invalid error")
+	// ErrUnauthorized means that the API key does not grant the requested permission
 	ErrUnauthorized = errs.Class("api key unauthorized error")
-	ErrRevoked      = errs.Class("api key revocation error")
+	// ErrRevoked means the API key has been revoked
+	ErrRevoked = errs.Class("api key revocation error")
 )
 
 // APIKey implements a Macaroon-backed Storj-v3 API key.
