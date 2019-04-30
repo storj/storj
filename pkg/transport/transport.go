@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"time"
 
-	"google.golang.org/grpc"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
