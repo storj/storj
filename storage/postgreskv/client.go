@@ -146,7 +146,7 @@ func (client *Client) GetAllPath(bucket storage.Key, keys storage.Keys) (storage
 	var byteaArray pgtype.ByteaArray
 	err := byteaArray.Set(keys.ByteSlices())
 	if err != nil {
-		return nil errs.Wrap(err)
+		return nil, errs.Wrap(err)
 	}
 
 	rows, err := client.pgConn.Query(q, []byte(bucket), &byteaArray)
