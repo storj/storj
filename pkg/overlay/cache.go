@@ -16,11 +16,6 @@ import (
 	"storj.io/storj/storage"
 )
 
-const (
-	// OnlineWindow is the maximum amount of time that can pass without seeing a node before that node is considered offline
-	OnlineWindow = 1 * time.Hour
-)
-
 // ErrEmptyNode is returned when the nodeID is empty
 var ErrEmptyNode = errs.New("empty node ID")
 
@@ -47,8 +42,6 @@ type DB interface {
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
 	// GetAll looks up nodes based on the ids from the overlay cache
 	GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*NodeDossier, error)
-	// List lists nodes starting from cursor
-	List(ctx context.Context, cursor storj.NodeID, limit int) ([]*NodeDossier, error)
 	// Paginate will page through the database nodes
 	Paginate(ctx context.Context, offset int64, limit int) ([]*NodeDossier, bool, error)
 
@@ -68,28 +61,23 @@ type DB interface {
 type FindStorageNodesRequest struct {
 	MinimumRequiredNodes int
 	RequestedCount       int
-
-	FreeBandwidth int64
-	FreeDisk      int64
-
-	ExcludedNodes []storj.NodeID
-
-	MinimumVersion string // semver or empty
+	FreeBandwidth        int64
+	FreeDisk             int64
+	ExcludedNodes        []storj.NodeID
+	MinimumVersion       string // semver or empty
 }
 
 // NodeCriteria are the requirements for selecting nodes
 type NodeCriteria struct {
-	FreeBandwidth int64
-	FreeDisk      int64
-
+	FreeBandwidth      int64
+	FreeDisk           int64
 	AuditCount         int64
 	AuditSuccessRatio  float64
 	UptimeCount        int64
 	UptimeSuccessRatio float64
-
-	Excluded []storj.NodeID
-
-	MinimumVersion string // semver or empty
+	Excluded           []storj.NodeID
+	MinimumVersion     string // semver or empty
+	OnlineWindow       time.Duration
 }
 
 // UpdateRequest is used to update a node status.
@@ -147,13 +135,6 @@ func (cache *Cache) Inspect(ctx context.Context) (storage.Keys, error) {
 	return nil, errors.New("not implemented")
 }
 
-// List returns a list of nodes from the cache DB
-func (cache *Cache) List(ctx context.Context, cursor storj.NodeID, limit int) (_ []*NodeDossier, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	return cache.db.List(ctx, cursor, limit)
-}
-
 // Paginate returns a list of `limit` nodes starting from `start` offset.
 func (cache *Cache) Paginate(ctx context.Context, offset int64, limit int) (_ []*NodeDossier, _ bool, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -176,7 +157,7 @@ func (cache *Cache) IsNew(node *NodeDossier) bool {
 
 // IsOnline checks if a node is 'online' based on the collected statistics.
 func (cache *Cache) IsOnline(node *NodeDossier) bool {
-	return time.Now().Sub(node.Reputation.LastContactSuccess) < OnlineWindow &&
+	return time.Now().Sub(node.Reputation.LastContactSuccess) < cache.preferences.OnlineWindow &&
 		node.Reputation.LastContactSuccess.After(node.Reputation.LastContactFailure)
 }
 
@@ -219,6 +200,7 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 			AuditSuccessRatio: preferences.AuditSuccessRatio,
 			Excluded:          excluded,
 			MinimumVersion:    preferences.MinimumVersion,
+			OnlineWindow:      preferences.OnlineWindow,
 		})
 		if err != nil {
 			return nil, err
@@ -241,6 +223,7 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 		UptimeSuccessRatio: preferences.UptimeRatio,
 		Excluded:           excluded,
 		MinimumVersion:     preferences.MinimumVersion,
+		OnlineWindow:       preferences.OnlineWindow,
 	})
 	if err != nil {
 		return nil, err

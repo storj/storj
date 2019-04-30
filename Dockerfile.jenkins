@@ -27,4 +27,8 @@ RUN go get github.com/nilslice/protolock/cmd/protolock
 RUN go get github.com/mfridman/tparse
 RUN go get github.com/josephspurrier/goversioninfo
 
+RUN go get github.com/axw/gocov/gocov
+RUN go get github.com/AlekSi/gocov-xml
+RUN go get gopkg.in/matm/v1/gocov-html
+
 RUN go version

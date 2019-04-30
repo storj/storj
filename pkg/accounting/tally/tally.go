@@ -185,16 +185,16 @@ func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Tim
 	totalTallies.Report("total")
 	mon.IntVal("bucket_count").Observe(bucketCount)
 
-	if len(nodeData) == 0 {
-		return latestTally, nodeData, bucketTallies, nil
-	}
-
 	//store byte hours, not just bytes
 	numHours := time.Now().Sub(latestTally).Hours()
 	if latestTally.IsZero() {
 		numHours = 1.0 //todo: something more considered?
 	}
 	latestTally = time.Now().UTC()
+
+	if len(nodeData) == 0 {
+		return latestTally, nodeData, bucketTallies, nil
+	}
 	for k := range nodeData {
 		nodeData[k] *= numHours //calculate byte hours
 	}

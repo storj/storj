@@ -50,7 +50,9 @@ type Kademlia struct {
 	dialer         *Dialer
 	lookups        sync2.WorkGroup
 
-	bootstrapFinished sync2.Fence
+	bootstrapFinished    sync2.Fence
+	bootstrapBackoffMax  time.Duration
+	bootstrapBackoffBase time.Duration
 
 	refreshThreshold int64
 	RefreshBuckets   sync2.Cycle
@@ -63,12 +65,14 @@ type Kademlia struct {
 // NewService returns a newly configured Kademlia instance
 func NewService(log *zap.Logger, transport transport.Client, rt *RoutingTable, config Config) (*Kademlia, error) {
 	k := &Kademlia{
-		log:              log,
-		alpha:            config.Alpha,
-		routingTable:     rt,
-		bootstrapNodes:   config.BootstrapNodes(),
-		dialer:           NewDialer(log.Named("dialer"), transport),
-		refreshThreshold: int64(time.Minute),
+		log:                  log,
+		alpha:                config.Alpha,
+		routingTable:         rt,
+		bootstrapNodes:       config.BootstrapNodes(),
+		bootstrapBackoffMax:  config.BootstrapBackoffMax,
+		bootstrapBackoffBase: config.BootstrapBackoffBase,
+		dialer:               NewDialer(log.Named("dialer"), transport),
+		refreshThreshold:     int64(time.Minute),
 	}
 
 	return k, nil
@@ -153,48 +157,60 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 		return nil
 	}
 
+	waitInterval := k.bootstrapBackoffBase
+
 	var errGroup errs.Group
-	var foundOnlineBootstrap bool
-	for i, node := range k.bootstrapNodes {
-		if ctx.Err() != nil {
-			errGroup.Add(ctx.Err())
-			return errGroup.Err()
+	for i := 0; waitInterval < k.bootstrapBackoffMax; i++ {
+		if i > 0 {
+			time.Sleep(waitInterval)
+			waitInterval = waitInterval * 2
 		}
 
-		ident, err := k.dialer.FetchPeerIdentityUnverified(ctx, node.Address.Address)
+		var foundOnlineBootstrap bool
+		for i, node := range k.bootstrapNodes {
+			if ctx.Err() != nil {
+				errGroup.Add(ctx.Err())
+				return errGroup.Err()
+			}
+
+			ident, err := k.dialer.FetchPeerIdentityUnverified(ctx, node.Address.Address)
+			if err != nil {
+				errGroup.Add(err)
+				continue
+			}
+
+			k.routingTable.mutex.Lock()
+			node.Id = ident.ID
+			k.bootstrapNodes[i] = node
+			k.routingTable.mutex.Unlock()
+			foundOnlineBootstrap = true
+		}
+
+		if !foundOnlineBootstrap {
+			errGroup.Add(Error.New("no bootstrap node found online"))
+			continue
+		}
+
+		//find nodes most similar to self
+		k.routingTable.mutex.Lock()
+		id := k.routingTable.self.Id
+		k.routingTable.mutex.Unlock()
+		_, err := k.lookup(ctx, id, true)
 		if err != nil {
 			errGroup.Add(err)
 			continue
 		}
-
-		k.routingTable.mutex.Lock()
-		node.Id = ident.ID
-		k.bootstrapNodes[i] = node
-		k.routingTable.mutex.Unlock()
-		foundOnlineBootstrap = true
+		return nil
+		// TODO(dylan): We do not currently handle this last bit of behavior.
+		// ```
+		// Finally, u refreshes all k-buckets further away than its closest neighbor.
+		// During the refreshes, u both populates its own k-buckets and inserts
+		// itself into other nodes' k-buckets as necessary.
+		// ```
 	}
 
-	if !foundOnlineBootstrap {
-		err := errGroup.Err()
-		if err != nil {
-			return err
-		}
-	}
-
-	//find nodes most similar to self
-	k.routingTable.mutex.Lock()
-	id := k.routingTable.self.Id
-	k.routingTable.mutex.Unlock()
-	_, err := k.lookup(ctx, id, true)
-
-	// TODO(dylan): We do not currently handle this last bit of behavior.
-	// ```
-	// Finally, u refreshes all k-buckets further away than its closest neighbor.
-	// During the refreshes, u both populates its own k-buckets and inserts
-	// itself into other nodes' k-buckets as necessary.
-	// ``
-
-	return err
+	errGroup.Add(Error.New("unable to start bootstrap after final wait time of %s", waitInterval))
+	return errGroup.Err()
 }
 
 // WaitForBootstrap waits for bootstrap pinging has been completed.

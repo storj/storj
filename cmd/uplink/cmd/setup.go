@@ -28,10 +28,10 @@ var (
 		RunE:        cmdSetup,
 		Annotations: map[string]string{"type": "setup"},
 	}
-	setupCfg    UplinkFlags
-	confDir     string
-	identityDir string
-	defaults    cfgstruct.BindOpt
+
+	setupCfg UplinkFlags
+	confDir  string
+	defaults cfgstruct.BindOpt
 
 	// Error is the default uplink setup errs class
 	Error = errs.Class("uplink setup error")
@@ -39,12 +39,10 @@ var (
 
 func init() {
 	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
-	defaultIdentityDir := fpath.ApplicationDir("storj", "identity", "uplink")
 	cfgstruct.SetupFlag(zap.L(), RootCmd, &confDir, "config-dir", defaultConfDir, "main directory for uplink configuration")
-	cfgstruct.SetupFlag(zap.L(), RootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for uplink identity credentials")
 	defaults = cfgstruct.DefaultsFlag(RootCmd)
 	RootCmd.AddCommand(setupCmd)
-	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, defaults, cfgstruct.ConfDir(confDir))
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
