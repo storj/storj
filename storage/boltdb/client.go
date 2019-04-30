@@ -5,6 +5,7 @@ package boltdb
 
 import (
 	"bytes"
+	"log"
 	"sync/atomic"
 	"time"
 
@@ -119,6 +120,39 @@ func (client *Client) Put(key storage.Key, value storage.Value) error {
 	}
 
 	return client.update(func(bucket *bolt.Bucket) error {
+		return bucket.Put(key, value)
+	})
+}
+
+// batch executes the db operation, fn, in batches instead of
+// every time the operation is called (like how db.Update does).
+// By default, the batch is written to the db every 1000 operations
+// or every 2 ms, which ever comes first. Those values are set by bolt,
+// but can be modified if we choose to.
+func (client *Client) batch(fn func(*bolt.Bucket) error) error {
+	go func() {
+		err := client.db.Batch(func(tx *bolt.Tx) error {
+			err := fn(tx.Bucket(client.Bucket))
+			if err != nil {
+				log.Printf("err boltDB db operation: %v", err)
+				return err
+			}
+			return nil
+		})
+		if err != nil {
+			log.Printf("err boltdb Batch: %v", err)
+		}
+	}()
+	return nil
+}
+
+// BatchPut adds a value to the provided key in boltdb, returning an error on failure.
+func (client *Client) BatchPut(key storage.Key, value storage.Value) error {
+	if key.IsZero() {
+		return storage.ErrEmptyKey.New("")
+	}
+
+	return client.batch(func(bucket *bolt.Bucket) error {
 		return bucket.Put(key, value)
 	})
 }

@@ -11,10 +11,108 @@ import (
 	"testing"
 
 	"github.com/zeebo/errs"
-
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/testsuite"
 )
+
+func BenchmarkClientWrite(b *testing.B) {
+	// setup db
+	tempdir, err := ioutil.TempDir("", "storj-bolt")
+	if err != nil {
+		fmt.Println("err:", err)
+	}
+	defer func() { _ = os.RemoveAll(tempdir) }()
+	dbname := filepath.Join(tempdir, "testbolt.db")
+	dbs, err := NewShared(dbname, "kbuckets", "nodes")
+	if err != nil {
+		fmt.Printf("failed to create db: %v\n", err)
+	}
+	defer func() {
+		if err := dbs[0].Close(); err != nil {
+			fmt.Printf("failed to close db: %v\n", err)
+		}
+		if err := dbs[1].Close(); err != nil {
+			fmt.Printf("failed to close db: %v\n", err)
+		}
+	}()
+	kdb := dbs[0]
+
+	// benchmark test: execute 1000 Put operations
+	for n := 0; n < b.N; n++ {
+		for i := 0; i < 1000; i++ {
+			key := storage.Key(fmt.Sprintf("testkey%d", i))
+			value := storage.Value("testvalue")
+			err := kdb.Put(key, value)
+			if err != nil {
+				fmt.Println("Put err:", err)
+			}
+		}
+	}
+}
+
+func BenchmarkClientNoSyncWrite(b *testing.B) {
+	// setup db
+	tempdir, err := ioutil.TempDir("", "storj-bolt")
+	if err != nil {
+		fmt.Println("err:", err)
+	}
+	defer func() { _ = os.RemoveAll(tempdir) }()
+	dbname := filepath.Join(tempdir, "testbolt.db")
+	dbs, err := NewShared(dbname, "kbuckets", "nodes")
+	if err != nil {
+		fmt.Printf("failed to create db: %v\n", err)
+	}
+	defer func() {
+		if err := dbs[0].Close(); err != nil {
+			fmt.Printf("failed to close db: %v\n", err)
+		}
+		if err := dbs[1].Close(); err != nil {
+			fmt.Printf("failed to close db: %v\n", err)
+		}
+	}()
+	kdb := dbs[0]
+
+	// run benchmark test: execute 1000 Put operations with fsync turned off
+	kdb.db.NoSync = true
+	for n := 0; n < b.N; n++ {
+		for i := 0; i < 1000; i++ {
+			key := storage.Key(fmt.Sprintf("testkey%d", i))
+			value := storage.Value("testvalue")
+			err := kdb.Put(key, value)
+			if err != nil {
+				fmt.Println("Put Nosync err:", err)
+			}
+		}
+	}
+	kdb.db.Sync()
+}
+
+func BenchmarkClientBatchWrite(b *testing.B) {
+	// setup db
+	tempdir, err := ioutil.TempDir("", "storj-bolt")
+	if err != nil {
+		fmt.Println("err:", err)
+	}
+	defer func() { _ = os.RemoveAll(tempdir) }()
+	dbname := filepath.Join(tempdir, "batchbolt.db")
+	dbs, err := NewShared(dbname, "kbuckets", "nodes")
+	if err != nil {
+		fmt.Printf("failed to create db: %v\n", err)
+	}
+	kdb := dbs[0]
+
+	// run benchmark tests: execute 1000 Put operations with batch
+	for n := 0; n < b.N; n++ {
+		for i := 0; i < 1000; i++ {
+			key := storage.Key(fmt.Sprintf("testkey%d", i))
+			value := storage.Value("testvalue")
+			err := kdb.BatchPut(key, value)
+			if err != nil {
+				fmt.Println("batch err: ", err)
+			}
+		}
+	}
+}
 
 func TestSuite(t *testing.T) {
 	tempdir, err := ioutil.TempDir("", "storj-bolt")
