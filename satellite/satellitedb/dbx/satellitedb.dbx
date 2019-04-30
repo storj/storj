@@ -424,35 +424,35 @@ read one (
 	where object.bucket_id = ?
 	where object.encrypted_path = ?
 	where object.version = ?
-	where segment.status = ?
+	where object.status = ?
 )
 
 read limitoffset (
 	select object
 	where object.bucket_id = ?
 	where object.encrypted_path <= ?
-	where segment.status = ?
+	where object.status = ?
 	orderby asc object.encrypted_path
 )
 read limitoffset (
 	select object
 	where object.bucket_id = ?
 	where object.encrypted_path < ?
-	where segment.status = ?
+	where object.status = ?
 	orderby asc object.encrypted_path
 )
 read limitoffset (
 	select object
 	where object.bucket_id = ?
 	where object.encrypted_path > ?
-	where segment.status = ?
+	where object.status = ?
 	orderby asc object.encrypted_path
 )
 read limitoffset (
 	select object
 	where object.bucket_id = ?
 	where object.encrypted_path >= ?
-	where segment.status = ?
+	where object.status = ?
 	orderby asc object.encrypted_path
 )
 
@@ -468,23 +468,21 @@ model segment (
 	field encrypted_key_nonce blob
 	field encrypted_key       blob
 
-	field segment_checksum    uint64
-	field segment_size        int64  // size will be -1 for uncommited segment
+	field segment_checksum    uint64 (updatable)
+	field segment_size        int64  (updatable) // size will be -1 for uncommited segment
 
-	field encrypted_inline_data   blob
-	field nodes                   blob // for inline segment, this is always 0
+	field encrypted_inline_data   blob (updatable)
+	field nodes                   blob (updatable) // for inline segment, this is always 0
 )
 
 create segment ()
 delete segment (
 	where segment.stream_id = ?
 	where segment.segment_index = ?
-	where segment.version = ?
 )
 update segment (
 	where segment.stream_id = ?
 	where segment.segment_index = ?
-	where segment.version = ?
 )
 read limitoffset (
 	select segment

@@ -216,6 +216,41 @@ CREATE TABLE used_serials (
 	storage_node_id BLOB NOT NULL,
 	PRIMARY KEY ( serial_number_id, storage_node_id )
 );
+CREATE TABLE objects (
+	bucket_id BLOB NOT NULL REFERENCES buckets( id ) ON DELETE CASCADE,
+	encrypted_path BLOB NOT NULL,
+	version INTEGER NOT NULL,
+	status INTEGER NOT NULL,
+	stream_id BLOB NOT NULL,
+	encrypted_metadata BLOB NOT NULL,
+	total_size INTEGER NOT NULL,
+	inline_size INTEGER NOT NULL,
+	remote_size INTEGER NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	expires_at TIMESTAMP NOT NULL,
+	fixed_segment_size INTEGER NOT NULL,
+	encryption_cipher_suite INTEGER NOT NULL,
+	encryption_block_size INTEGER NOT NULL,
+	redundancy_algorithm INTEGER NOT NULL,
+	redundancy_share_size INTEGER NOT NULL,
+	redundancy_required_shares INTEGER NOT NULL,
+	redundancy_repair_shares INTEGER NOT NULL,
+	redundancy_optimal_shares INTEGER NOT NULL,
+	redundancy_total_shares INTEGER NOT NULL,
+	PRIMARY KEY ( bucket_id, encrypted_path, version )
+);
+CREATE TABLE segments (
+	stream_id BLOB NOT NULL REFERENCES objects( stream_id ) ON DELETE CASCADE,
+	segment_index INTEGER NOT NULL,
+	root_piece_id BLOB NOT NULL,
+	encrypted_key_nonce BLOB NOT NULL,
+	encrypted_key BLOB NOT NULL,
+	segment_checksum INTEGER NOT NULL,
+	segment_size INTEGER NOT NULL,
+	encrypted_inline_data BLOB NOT NULL,
+	nodes BLOB NOT NULL,
+	PRIMARY KEY ( stream_id, segment_index )
+);
 CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
 CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );

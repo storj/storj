@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -489,6 +488,41 @@ CREATE TABLE used_serials (
 	storage_node_id bytea NOT NULL,
 	PRIMARY KEY ( serial_number_id, storage_node_id )
 );
+CREATE TABLE objects (
+	bucket_id bytea NOT NULL REFERENCES buckets( id ) ON DELETE CASCADE,
+	encrypted_path bytea NOT NULL,
+	version integer NOT NULL,
+	status integer NOT NULL,
+	stream_id bytea NOT NULL,
+	encrypted_metadata bytea NOT NULL,
+	total_size bigint NOT NULL,
+	inline_size bigint NOT NULL,
+	remote_size bigint NOT NULL,
+	created_at timestamp NOT NULL,
+	expires_at timestamp NOT NULL,
+	fixed_segment_size integer NOT NULL,
+	encryption_cipher_suite integer NOT NULL,
+	encryption_block_size integer NOT NULL,
+	redundancy_algorithm integer NOT NULL,
+	redundancy_share_size integer NOT NULL,
+	redundancy_required_shares integer NOT NULL,
+	redundancy_repair_shares integer NOT NULL,
+	redundancy_optimal_shares integer NOT NULL,
+	redundancy_total_shares integer NOT NULL,
+	PRIMARY KEY ( bucket_id, encrypted_path, version )
+);
+CREATE TABLE segments (
+	stream_id bytea NOT NULL REFERENCES objects( stream_id ) ON DELETE CASCADE,
+	segment_index bigint NOT NULL,
+	root_piece_id bytea NOT NULL,
+	encrypted_key_nonce bytea NOT NULL,
+	encrypted_key bytea NOT NULL,
+	segment_checksum bigint NOT NULL,
+	segment_size bigint NOT NULL,
+	encrypted_inline_data bytea NOT NULL,
+	nodes bytea NOT NULL,
+	PRIMARY KEY ( stream_id, segment_index )
+);
 CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
 CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
@@ -772,6 +806,41 @@ CREATE TABLE used_serials (
 	serial_number_id INTEGER NOT NULL REFERENCES serial_numbers( id ) ON DELETE CASCADE,
 	storage_node_id BLOB NOT NULL,
 	PRIMARY KEY ( serial_number_id, storage_node_id )
+);
+CREATE TABLE objects (
+	bucket_id BLOB NOT NULL REFERENCES buckets( id ) ON DELETE CASCADE,
+	encrypted_path BLOB NOT NULL,
+	version INTEGER NOT NULL,
+	status INTEGER NOT NULL,
+	stream_id BLOB NOT NULL,
+	encrypted_metadata BLOB NOT NULL,
+	total_size INTEGER NOT NULL,
+	inline_size INTEGER NOT NULL,
+	remote_size INTEGER NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	expires_at TIMESTAMP NOT NULL,
+	fixed_segment_size INTEGER NOT NULL,
+	encryption_cipher_suite INTEGER NOT NULL,
+	encryption_block_size INTEGER NOT NULL,
+	redundancy_algorithm INTEGER NOT NULL,
+	redundancy_share_size INTEGER NOT NULL,
+	redundancy_required_shares INTEGER NOT NULL,
+	redundancy_repair_shares INTEGER NOT NULL,
+	redundancy_optimal_shares INTEGER NOT NULL,
+	redundancy_total_shares INTEGER NOT NULL,
+	PRIMARY KEY ( bucket_id, encrypted_path, version )
+);
+CREATE TABLE segments (
+	stream_id BLOB NOT NULL REFERENCES objects( stream_id ) ON DELETE CASCADE,
+	segment_index INTEGER NOT NULL,
+	root_piece_id BLOB NOT NULL,
+	encrypted_key_nonce BLOB NOT NULL,
+	encrypted_key BLOB NOT NULL,
+	segment_checksum INTEGER NOT NULL,
+	segment_size INTEGER NOT NULL,
+	encrypted_inline_data BLOB NOT NULL,
+	nodes BLOB NOT NULL,
+	PRIMARY KEY ( stream_id, segment_index )
 );
 CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
 CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
@@ -4055,6 +4124,608 @@ func (f UsedSerial_StorageNodeId_Field) value() interface{} {
 
 func (UsedSerial_StorageNodeId_Field) _Column() string { return "storage_node_id" }
 
+type Object struct {
+	BucketId                 []byte
+	EncryptedPath            []byte
+	Version                  int
+	Status                   int
+	StreamId                 []byte
+	EncryptedMetadata        []byte
+	TotalSize                int64
+	InlineSize               int64
+	RemoteSize               int64
+	CreatedAt                time.Time
+	ExpiresAt                time.Time
+	FixedSegmentSize         int
+	EncryptionCipherSuite    int
+	EncryptionBlockSize      int
+	RedundancyAlgorithm      int
+	RedundancyShareSize      int
+	RedundancyRequiredShares int
+	RedundancyRepairShares   int
+	RedundancyOptimalShares  int
+	RedundancyTotalShares    int
+}
+
+func (Object) _Table() string { return "objects" }
+
+type Object_Update_Fields struct {
+}
+
+type Object_BucketId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Object_BucketId(v []byte) Object_BucketId_Field {
+	return Object_BucketId_Field{_set: true, _value: v}
+}
+
+func (f Object_BucketId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Object_BucketId_Field) _Column() string { return "bucket_id" }
+
+type Object_EncryptedPath_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Object_EncryptedPath(v []byte) Object_EncryptedPath_Field {
+	return Object_EncryptedPath_Field{_set: true, _value: v}
+}
+
+func (f Object_EncryptedPath_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Object_EncryptedPath_Field) _Column() string { return "encrypted_path" }
+
+type Object_Version_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Object_Version(v int) Object_Version_Field {
+	return Object_Version_Field{_set: true, _value: v}
+}
+
+func (f Object_Version_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Object_Version_Field) _Column() string { return "version" }
+
+type Object_Status_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Object_Status(v int) Object_Status_Field {
+	return Object_Status_Field{_set: true, _value: v}
+}
+
+func (f Object_Status_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Object_Status_Field) _Column() string { return "status" }
+
+type Object_StreamId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Object_StreamId(v []byte) Object_StreamId_Field {
+	return Object_StreamId_Field{_set: true, _value: v}
+}
+
+func (f Object_StreamId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Object_StreamId_Field) _Column() string { return "stream_id" }
+
+type Object_EncryptedMetadata_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Object_EncryptedMetadata(v []byte) Object_EncryptedMetadata_Field {
+	return Object_EncryptedMetadata_Field{_set: true, _value: v}
+}
+
+func (f Object_EncryptedMetadata_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Object_EncryptedMetadata_Field) _Column() string { return "encrypted_metadata" }
+
+type Object_TotalSize_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func Object_TotalSize(v int64) Object_TotalSize_Field {
+	return Object_TotalSize_Field{_set: true, _value: v}
+}
+
+func (f Object_TotalSize_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Object_TotalSize_Field) _Column() string { return "total_size" }
+
+type Object_InlineSize_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func Object_InlineSize(v int64) Object_InlineSize_Field {
+	return Object_InlineSize_Field{_set: true, _value: v}
+}
+
+func (f Object_InlineSize_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Object_InlineSize_Field) _Column() string { return "inline_size" }
+
+type Object_RemoteSize_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func Object_RemoteSize(v int64) Object_RemoteSize_Field {
+	return Object_RemoteSize_Field{_set: true, _value: v}
+}
+
+func (f Object_RemoteSize_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Object_RemoteSize_Field) _Column() string { return "remote_size" }
+
+type Object_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Object_CreatedAt(v time.Time) Object_CreatedAt_Field {
+	v = toUTC(v)
+	return Object_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f Object_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Object_CreatedAt_Field) _Column() string { return "created_at" }
+
+type Object_ExpiresAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Object_ExpiresAt(v time.Time) Object_ExpiresAt_Field {
+	v = toUTC(v)
+	return Object_ExpiresAt_Field{_set: true, _value: v}
+}
+
+func (f Object_ExpiresAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Object_ExpiresAt_Field) _Column() string { return "expires_at" }
+
+type Object_FixedSegmentSize_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Object_FixedSegmentSize(v int) Object_FixedSegmentSize_Field {
+	return Object_FixedSegmentSize_Field{_set: true, _value: v}
+}
+
+func (f Object_FixedSegmentSize_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Object_FixedSegmentSize_Field) _Column() string { return "fixed_segment_size" }
+
+type Object_EncryptionCipherSuite_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Object_EncryptionCipherSuite(v int) Object_EncryptionCipherSuite_Field {
+	return Object_EncryptionCipherSuite_Field{_set: true, _value: v}
+}
+
+func (f Object_EncryptionCipherSuite_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Object_EncryptionCipherSuite_Field) _Column() string { return "encryption_cipher_suite" }
+
+type Object_EncryptionBlockSize_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Object_EncryptionBlockSize(v int) Object_EncryptionBlockSize_Field {
+	return Object_EncryptionBlockSize_Field{_set: true, _value: v}
+}
+
+func (f Object_EncryptionBlockSize_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Object_EncryptionBlockSize_Field) _Column() string { return "encryption_block_size" }
+
+type Object_RedundancyAlgorithm_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Object_RedundancyAlgorithm(v int) Object_RedundancyAlgorithm_Field {
+	return Object_RedundancyAlgorithm_Field{_set: true, _value: v}
+}
+
+func (f Object_RedundancyAlgorithm_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Object_RedundancyAlgorithm_Field) _Column() string { return "redundancy_algorithm" }
+
+type Object_RedundancyShareSize_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Object_RedundancyShareSize(v int) Object_RedundancyShareSize_Field {
+	return Object_RedundancyShareSize_Field{_set: true, _value: v}
+}
+
+func (f Object_RedundancyShareSize_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Object_RedundancyShareSize_Field) _Column() string { return "redundancy_share_size" }
+
+type Object_RedundancyRequiredShares_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Object_RedundancyRequiredShares(v int) Object_RedundancyRequiredShares_Field {
+	return Object_RedundancyRequiredShares_Field{_set: true, _value: v}
+}
+
+func (f Object_RedundancyRequiredShares_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Object_RedundancyRequiredShares_Field) _Column() string { return "redundancy_required_shares" }
+
+type Object_RedundancyRepairShares_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Object_RedundancyRepairShares(v int) Object_RedundancyRepairShares_Field {
+	return Object_RedundancyRepairShares_Field{_set: true, _value: v}
+}
+
+func (f Object_RedundancyRepairShares_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Object_RedundancyRepairShares_Field) _Column() string { return "redundancy_repair_shares" }
+
+type Object_RedundancyOptimalShares_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Object_RedundancyOptimalShares(v int) Object_RedundancyOptimalShares_Field {
+	return Object_RedundancyOptimalShares_Field{_set: true, _value: v}
+}
+
+func (f Object_RedundancyOptimalShares_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Object_RedundancyOptimalShares_Field) _Column() string { return "redundancy_optimal_shares" }
+
+type Object_RedundancyTotalShares_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Object_RedundancyTotalShares(v int) Object_RedundancyTotalShares_Field {
+	return Object_RedundancyTotalShares_Field{_set: true, _value: v}
+}
+
+func (f Object_RedundancyTotalShares_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Object_RedundancyTotalShares_Field) _Column() string { return "redundancy_total_shares" }
+
+type Segment struct {
+	StreamId            []byte
+	SegmentIndex        uint64
+	RootPieceId         []byte
+	EncryptedKeyNonce   []byte
+	EncryptedKey        []byte
+	SegmentChecksum     uint64
+	SegmentSize         int64
+	EncryptedInlineData []byte
+	Nodes               []byte
+}
+
+func (Segment) _Table() string { return "segments" }
+
+type Segment_Update_Fields struct {
+	SegmentChecksum     Segment_SegmentChecksum_Field
+	SegmentSize         Segment_SegmentSize_Field
+	EncryptedInlineData Segment_EncryptedInlineData_Field
+	Nodes               Segment_Nodes_Field
+}
+
+type Segment_StreamId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Segment_StreamId(v []byte) Segment_StreamId_Field {
+	return Segment_StreamId_Field{_set: true, _value: v}
+}
+
+func (f Segment_StreamId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Segment_StreamId_Field) _Column() string { return "stream_id" }
+
+type Segment_SegmentIndex_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func Segment_SegmentIndex(v uint64) Segment_SegmentIndex_Field {
+	return Segment_SegmentIndex_Field{_set: true, _value: v}
+}
+
+func (f Segment_SegmentIndex_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Segment_SegmentIndex_Field) _Column() string { return "segment_index" }
+
+type Segment_RootPieceId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Segment_RootPieceId(v []byte) Segment_RootPieceId_Field {
+	return Segment_RootPieceId_Field{_set: true, _value: v}
+}
+
+func (f Segment_RootPieceId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Segment_RootPieceId_Field) _Column() string { return "root_piece_id" }
+
+type Segment_EncryptedKeyNonce_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Segment_EncryptedKeyNonce(v []byte) Segment_EncryptedKeyNonce_Field {
+	return Segment_EncryptedKeyNonce_Field{_set: true, _value: v}
+}
+
+func (f Segment_EncryptedKeyNonce_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Segment_EncryptedKeyNonce_Field) _Column() string { return "encrypted_key_nonce" }
+
+type Segment_EncryptedKey_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Segment_EncryptedKey(v []byte) Segment_EncryptedKey_Field {
+	return Segment_EncryptedKey_Field{_set: true, _value: v}
+}
+
+func (f Segment_EncryptedKey_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Segment_EncryptedKey_Field) _Column() string { return "encrypted_key" }
+
+type Segment_SegmentChecksum_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func Segment_SegmentChecksum(v uint64) Segment_SegmentChecksum_Field {
+	return Segment_SegmentChecksum_Field{_set: true, _value: v}
+}
+
+func (f Segment_SegmentChecksum_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Segment_SegmentChecksum_Field) _Column() string { return "segment_checksum" }
+
+type Segment_SegmentSize_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func Segment_SegmentSize(v int64) Segment_SegmentSize_Field {
+	return Segment_SegmentSize_Field{_set: true, _value: v}
+}
+
+func (f Segment_SegmentSize_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Segment_SegmentSize_Field) _Column() string { return "segment_size" }
+
+type Segment_EncryptedInlineData_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Segment_EncryptedInlineData(v []byte) Segment_EncryptedInlineData_Field {
+	return Segment_EncryptedInlineData_Field{_set: true, _value: v}
+}
+
+func (f Segment_EncryptedInlineData_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Segment_EncryptedInlineData_Field) _Column() string { return "encrypted_inline_data" }
+
+type Segment_Nodes_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Segment_Nodes(v []byte) Segment_Nodes_Field {
+	return Segment_Nodes_Field{_set: true, _value: v}
+}
+
+func (f Segment_Nodes_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Segment_Nodes_Field) _Column() string { return "nodes" }
+
 func toUTC(t time.Time) time.Time {
 	return t.UTC()
 }
@@ -4110,10 +4781,54 @@ func __sqlbundle_Render(dialect __sqlbundle_Dialect, sql __sqlbundle_SQL, ops ..
 	return dialect.Rebind(out)
 }
 
-var __sqlbundle_reSpace = regexp.MustCompile(`\s+`)
+func __sqlbundle_flattenSQL(x string) string {
+	// trim whitespace from beginning and end
+	s, e := 0, len(x)-1
+	for s < len(x) && (x[s] == ' ' || x[s] == '\t' || x[s] == '\n') {
+		s++
+	}
+	for s <= e && (x[e] == ' ' || x[e] == '\t' || x[e] == '\n') {
+		e--
+	}
+	if s > e {
+		return ""
+	}
+	x = x[s : e+1]
 
-func __sqlbundle_flattenSQL(s string) string {
-	return strings.TrimSpace(__sqlbundle_reSpace.ReplaceAllString(s, " "))
+	// check for whitespace that needs fixing
+	wasSpace := false
+	for i := 0; i < len(x); i++ {
+		r := x[i]
+		justSpace := r == ' '
+		if (wasSpace && justSpace) || r == '\t' || r == '\n' {
+			// whitespace detected, start writing a new string
+			var result strings.Builder
+			result.Grow(len(x))
+			if wasSpace {
+				result.WriteString(x[:i-1])
+			} else {
+				result.WriteString(x[:i])
+			}
+			for p := i; p < len(x); p++ {
+				for p < len(x) && (x[p] == ' ' || x[p] == '\t' || x[p] == '\n') {
+					p++
+				}
+				result.WriteByte(' ')
+
+				start := p
+				for p < len(x) && !(x[p] == ' ' || x[p] == '\t' || x[p] == '\n') {
+					p++
+				}
+				result.WriteString(x[start:p])
+			}
+
+			return result.String()
+		}
+		wasSpace = justSpace
+	}
+
+	// no problematic whitespace found
+	return x
 }
 
 // this type is specially named to match up with the name returned by the
@@ -4192,6 +4907,8 @@ type __sqlbundle_Condition struct {
 func (*__sqlbundle_Condition) private() {}
 
 func (c *__sqlbundle_Condition) Render() string {
+	// TODO(jeff): maybe check if we can use placeholders instead of the
+	// literal null: this would make the templates easier.
 
 	switch {
 	case c.Equal && c.Null:
@@ -4559,6 +5276,98 @@ func (obj *postgresImpl) Create_Bucket(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return bucket, nil
+
+}
+
+func (obj *postgresImpl) Create_Object(ctx context.Context,
+	object_bucket_id Object_BucketId_Field,
+	object_encrypted_path Object_EncryptedPath_Field,
+	object_version Object_Version_Field,
+	object_status Object_Status_Field,
+	object_stream_id Object_StreamId_Field,
+	object_encrypted_metadata Object_EncryptedMetadata_Field,
+	object_total_size Object_TotalSize_Field,
+	object_inline_size Object_InlineSize_Field,
+	object_remote_size Object_RemoteSize_Field,
+	object_created_at Object_CreatedAt_Field,
+	object_expires_at Object_ExpiresAt_Field,
+	object_fixed_segment_size Object_FixedSegmentSize_Field,
+	object_encryption_cipher_suite Object_EncryptionCipherSuite_Field,
+	object_encryption_block_size Object_EncryptionBlockSize_Field,
+	object_redundancy_algorithm Object_RedundancyAlgorithm_Field,
+	object_redundancy_share_size Object_RedundancyShareSize_Field,
+	object_redundancy_required_shares Object_RedundancyRequiredShares_Field,
+	object_redundancy_repair_shares Object_RedundancyRepairShares_Field,
+	object_redundancy_optimal_shares Object_RedundancyOptimalShares_Field,
+	object_redundancy_total_shares Object_RedundancyTotalShares_Field) (
+	object *Object, err error) {
+	__bucket_id_val := object_bucket_id.value()
+	__encrypted_path_val := object_encrypted_path.value()
+	__version_val := object_version.value()
+	__status_val := object_status.value()
+	__stream_id_val := object_stream_id.value()
+	__encrypted_metadata_val := object_encrypted_metadata.value()
+	__total_size_val := object_total_size.value()
+	__inline_size_val := object_inline_size.value()
+	__remote_size_val := object_remote_size.value()
+	__created_at_val := object_created_at.value()
+	__expires_at_val := object_expires_at.value()
+	__fixed_segment_size_val := object_fixed_segment_size.value()
+	__encryption_cipher_suite_val := object_encryption_cipher_suite.value()
+	__encryption_block_size_val := object_encryption_block_size.value()
+	__redundancy_algorithm_val := object_redundancy_algorithm.value()
+	__redundancy_share_size_val := object_redundancy_share_size.value()
+	__redundancy_required_shares_val := object_redundancy_required_shares.value()
+	__redundancy_repair_shares_val := object_redundancy_repair_shares.value()
+	__redundancy_optimal_shares_val := object_redundancy_optimal_shares.value()
+	__redundancy_total_shares_val := object_redundancy_total_shares.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO objects ( bucket_id, encrypted_path, version, status, stream_id, encrypted_metadata, total_size, inline_size, remote_size, created_at, expires_at, fixed_segment_size, encryption_cipher_suite, encryption_block_size, redundancy_algorithm, redundancy_share_size, redundancy_required_shares, redundancy_repair_shares, redundancy_optimal_shares, redundancy_total_shares ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING objects.bucket_id, objects.encrypted_path, objects.version, objects.status, objects.stream_id, objects.encrypted_metadata, objects.total_size, objects.inline_size, objects.remote_size, objects.created_at, objects.expires_at, objects.fixed_segment_size, objects.encryption_cipher_suite, objects.encryption_block_size, objects.redundancy_algorithm, objects.redundancy_share_size, objects.redundancy_required_shares, objects.redundancy_repair_shares, objects.redundancy_optimal_shares, objects.redundancy_total_shares")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __bucket_id_val, __encrypted_path_val, __version_val, __status_val, __stream_id_val, __encrypted_metadata_val, __total_size_val, __inline_size_val, __remote_size_val, __created_at_val, __expires_at_val, __fixed_segment_size_val, __encryption_cipher_suite_val, __encryption_block_size_val, __redundancy_algorithm_val, __redundancy_share_size_val, __redundancy_required_shares_val, __redundancy_repair_shares_val, __redundancy_optimal_shares_val, __redundancy_total_shares_val)
+
+	object = &Object{}
+	err = obj.driver.QueryRow(__stmt, __bucket_id_val, __encrypted_path_val, __version_val, __status_val, __stream_id_val, __encrypted_metadata_val, __total_size_val, __inline_size_val, __remote_size_val, __created_at_val, __expires_at_val, __fixed_segment_size_val, __encryption_cipher_suite_val, __encryption_block_size_val, __redundancy_algorithm_val, __redundancy_share_size_val, __redundancy_required_shares_val, __redundancy_repair_shares_val, __redundancy_optimal_shares_val, __redundancy_total_shares_val).Scan(&object.BucketId, &object.EncryptedPath, &object.Version, &object.Status, &object.StreamId, &object.EncryptedMetadata, &object.TotalSize, &object.InlineSize, &object.RemoteSize, &object.CreatedAt, &object.ExpiresAt, &object.FixedSegmentSize, &object.EncryptionCipherSuite, &object.EncryptionBlockSize, &object.RedundancyAlgorithm, &object.RedundancyShareSize, &object.RedundancyRequiredShares, &object.RedundancyRepairShares, &object.RedundancyOptimalShares, &object.RedundancyTotalShares)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return object, nil
+
+}
+
+func (obj *postgresImpl) Create_Segment(ctx context.Context,
+	segment_stream_id Segment_StreamId_Field,
+	segment_segment_index Segment_SegmentIndex_Field,
+	segment_root_piece_id Segment_RootPieceId_Field,
+	segment_encrypted_key_nonce Segment_EncryptedKeyNonce_Field,
+	segment_encrypted_key Segment_EncryptedKey_Field,
+	segment_segment_checksum Segment_SegmentChecksum_Field,
+	segment_segment_size Segment_SegmentSize_Field,
+	segment_encrypted_inline_data Segment_EncryptedInlineData_Field,
+	segment_nodes Segment_Nodes_Field) (
+	segment *Segment, err error) {
+	__stream_id_val := segment_stream_id.value()
+	__segment_index_val := segment_segment_index.value()
+	__root_piece_id_val := segment_root_piece_id.value()
+	__encrypted_key_nonce_val := segment_encrypted_key_nonce.value()
+	__encrypted_key_val := segment_encrypted_key.value()
+	__segment_checksum_val := segment_segment_checksum.value()
+	__segment_size_val := segment_segment_size.value()
+	__encrypted_inline_data_val := segment_encrypted_inline_data.value()
+	__nodes_val := segment_nodes.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO segments ( stream_id, segment_index, root_piece_id, encrypted_key_nonce, encrypted_key, segment_checksum, segment_size, encrypted_inline_data, nodes ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING segments.stream_id, segments.segment_index, segments.root_piece_id, segments.encrypted_key_nonce, segments.encrypted_key, segments.segment_checksum, segments.segment_size, segments.encrypted_inline_data, segments.nodes")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __stream_id_val, __segment_index_val, __root_piece_id_val, __encrypted_key_nonce_val, __encrypted_key_val, __segment_checksum_val, __segment_size_val, __encrypted_inline_data_val, __nodes_val)
+
+	segment = &Segment{}
+	err = obj.driver.QueryRow(__stmt, __stream_id_val, __segment_index_val, __root_piece_id_val, __encrypted_key_nonce_val, __encrypted_key_val, __segment_checksum_val, __segment_size_val, __encrypted_inline_data_val, __nodes_val).Scan(&segment.StreamId, &segment.SegmentIndex, &segment.RootPieceId, &segment.EncryptedKeyNonce, &segment.EncryptedKey, &segment.SegmentChecksum, &segment.SegmentSize, &segment.EncryptedInlineData, &segment.Nodes)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return segment, nil
 
 }
 
@@ -5579,6 +6388,219 @@ func (obj *postgresImpl) Limited_Bucket_By_ProjectId_And_Name_GreaterOrEqual_Ord
 
 }
 
+func (obj *postgresImpl) Get_Object_By_BucketId_And_EncryptedPath_And_Version_And_Status(ctx context.Context,
+	object_bucket_id Object_BucketId_Field,
+	object_encrypted_path Object_EncryptedPath_Field,
+	object_version Object_Version_Field,
+	object_status Object_Status_Field) (
+	object *Object, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT objects.bucket_id, objects.encrypted_path, objects.version, objects.status, objects.stream_id, objects.encrypted_metadata, objects.total_size, objects.inline_size, objects.remote_size, objects.created_at, objects.expires_at, objects.fixed_segment_size, objects.encryption_cipher_suite, objects.encryption_block_size, objects.redundancy_algorithm, objects.redundancy_share_size, objects.redundancy_required_shares, objects.redundancy_repair_shares, objects.redundancy_optimal_shares, objects.redundancy_total_shares FROM objects WHERE objects.bucket_id = ? AND objects.encrypted_path = ? AND objects.version = ? AND objects.status = ?")
+
+	var __values []interface{}
+	__values = append(__values, object_bucket_id.value(), object_encrypted_path.value(), object_version.value(), object_status.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	object = &Object{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&object.BucketId, &object.EncryptedPath, &object.Version, &object.Status, &object.StreamId, &object.EncryptedMetadata, &object.TotalSize, &object.InlineSize, &object.RemoteSize, &object.CreatedAt, &object.ExpiresAt, &object.FixedSegmentSize, &object.EncryptionCipherSuite, &object.EncryptionBlockSize, &object.RedundancyAlgorithm, &object.RedundancyShareSize, &object.RedundancyRequiredShares, &object.RedundancyRepairShares, &object.RedundancyOptimalShares, &object.RedundancyTotalShares)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return object, nil
+
+}
+
+func (obj *postgresImpl) Limited_Object_By_BucketId_And_EncryptedPath_LessOrEqual_And_Status_OrderBy_Asc_EncryptedPath(ctx context.Context,
+	object_bucket_id Object_BucketId_Field,
+	object_encrypted_path_less_or_equal Object_EncryptedPath_Field,
+	object_status Object_Status_Field,
+	limit int, offset int64) (
+	rows []*Object, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT objects.bucket_id, objects.encrypted_path, objects.version, objects.status, objects.stream_id, objects.encrypted_metadata, objects.total_size, objects.inline_size, objects.remote_size, objects.created_at, objects.expires_at, objects.fixed_segment_size, objects.encryption_cipher_suite, objects.encryption_block_size, objects.redundancy_algorithm, objects.redundancy_share_size, objects.redundancy_required_shares, objects.redundancy_repair_shares, objects.redundancy_optimal_shares, objects.redundancy_total_shares FROM objects WHERE objects.bucket_id = ? AND objects.encrypted_path <= ? AND objects.status = ? ORDER BY objects.encrypted_path LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, object_bucket_id.value(), object_encrypted_path_less_or_equal.value(), object_status.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		object := &Object{}
+		err = __rows.Scan(&object.BucketId, &object.EncryptedPath, &object.Version, &object.Status, &object.StreamId, &object.EncryptedMetadata, &object.TotalSize, &object.InlineSize, &object.RemoteSize, &object.CreatedAt, &object.ExpiresAt, &object.FixedSegmentSize, &object.EncryptionCipherSuite, &object.EncryptionBlockSize, &object.RedundancyAlgorithm, &object.RedundancyShareSize, &object.RedundancyRequiredShares, &object.RedundancyRepairShares, &object.RedundancyOptimalShares, &object.RedundancyTotalShares)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, object)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) Limited_Object_By_BucketId_And_EncryptedPath_Less_And_Status_OrderBy_Asc_EncryptedPath(ctx context.Context,
+	object_bucket_id Object_BucketId_Field,
+	object_encrypted_path_less Object_EncryptedPath_Field,
+	object_status Object_Status_Field,
+	limit int, offset int64) (
+	rows []*Object, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT objects.bucket_id, objects.encrypted_path, objects.version, objects.status, objects.stream_id, objects.encrypted_metadata, objects.total_size, objects.inline_size, objects.remote_size, objects.created_at, objects.expires_at, objects.fixed_segment_size, objects.encryption_cipher_suite, objects.encryption_block_size, objects.redundancy_algorithm, objects.redundancy_share_size, objects.redundancy_required_shares, objects.redundancy_repair_shares, objects.redundancy_optimal_shares, objects.redundancy_total_shares FROM objects WHERE objects.bucket_id = ? AND objects.encrypted_path < ? AND objects.status = ? ORDER BY objects.encrypted_path LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, object_bucket_id.value(), object_encrypted_path_less.value(), object_status.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		object := &Object{}
+		err = __rows.Scan(&object.BucketId, &object.EncryptedPath, &object.Version, &object.Status, &object.StreamId, &object.EncryptedMetadata, &object.TotalSize, &object.InlineSize, &object.RemoteSize, &object.CreatedAt, &object.ExpiresAt, &object.FixedSegmentSize, &object.EncryptionCipherSuite, &object.EncryptionBlockSize, &object.RedundancyAlgorithm, &object.RedundancyShareSize, &object.RedundancyRequiredShares, &object.RedundancyRepairShares, &object.RedundancyOptimalShares, &object.RedundancyTotalShares)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, object)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) Limited_Object_By_BucketId_And_EncryptedPath_Greater_And_Status_OrderBy_Asc_EncryptedPath(ctx context.Context,
+	object_bucket_id Object_BucketId_Field,
+	object_encrypted_path_greater Object_EncryptedPath_Field,
+	object_status Object_Status_Field,
+	limit int, offset int64) (
+	rows []*Object, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT objects.bucket_id, objects.encrypted_path, objects.version, objects.status, objects.stream_id, objects.encrypted_metadata, objects.total_size, objects.inline_size, objects.remote_size, objects.created_at, objects.expires_at, objects.fixed_segment_size, objects.encryption_cipher_suite, objects.encryption_block_size, objects.redundancy_algorithm, objects.redundancy_share_size, objects.redundancy_required_shares, objects.redundancy_repair_shares, objects.redundancy_optimal_shares, objects.redundancy_total_shares FROM objects WHERE objects.bucket_id = ? AND objects.encrypted_path > ? AND objects.status = ? ORDER BY objects.encrypted_path LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, object_bucket_id.value(), object_encrypted_path_greater.value(), object_status.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		object := &Object{}
+		err = __rows.Scan(&object.BucketId, &object.EncryptedPath, &object.Version, &object.Status, &object.StreamId, &object.EncryptedMetadata, &object.TotalSize, &object.InlineSize, &object.RemoteSize, &object.CreatedAt, &object.ExpiresAt, &object.FixedSegmentSize, &object.EncryptionCipherSuite, &object.EncryptionBlockSize, &object.RedundancyAlgorithm, &object.RedundancyShareSize, &object.RedundancyRequiredShares, &object.RedundancyRepairShares, &object.RedundancyOptimalShares, &object.RedundancyTotalShares)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, object)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) Limited_Object_By_BucketId_And_EncryptedPath_GreaterOrEqual_And_Status_OrderBy_Asc_EncryptedPath(ctx context.Context,
+	object_bucket_id Object_BucketId_Field,
+	object_encrypted_path_greater_or_equal Object_EncryptedPath_Field,
+	object_status Object_Status_Field,
+	limit int, offset int64) (
+	rows []*Object, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT objects.bucket_id, objects.encrypted_path, objects.version, objects.status, objects.stream_id, objects.encrypted_metadata, objects.total_size, objects.inline_size, objects.remote_size, objects.created_at, objects.expires_at, objects.fixed_segment_size, objects.encryption_cipher_suite, objects.encryption_block_size, objects.redundancy_algorithm, objects.redundancy_share_size, objects.redundancy_required_shares, objects.redundancy_repair_shares, objects.redundancy_optimal_shares, objects.redundancy_total_shares FROM objects WHERE objects.bucket_id = ? AND objects.encrypted_path >= ? AND objects.status = ? ORDER BY objects.encrypted_path LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, object_bucket_id.value(), object_encrypted_path_greater_or_equal.value(), object_status.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		object := &Object{}
+		err = __rows.Scan(&object.BucketId, &object.EncryptedPath, &object.Version, &object.Status, &object.StreamId, &object.EncryptedMetadata, &object.TotalSize, &object.InlineSize, &object.RemoteSize, &object.CreatedAt, &object.ExpiresAt, &object.FixedSegmentSize, &object.EncryptionCipherSuite, &object.EncryptionBlockSize, &object.RedundancyAlgorithm, &object.RedundancyShareSize, &object.RedundancyRequiredShares, &object.RedundancyRepairShares, &object.RedundancyOptimalShares, &object.RedundancyTotalShares)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, object)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) Limited_Segment_By_StreamId_And_SegmentIndex_LessOrEqual_OrderBy_Asc_SegmentIndex(ctx context.Context,
+	segment_stream_id Segment_StreamId_Field,
+	segment_segment_index_less_or_equal Segment_SegmentIndex_Field,
+	limit int, offset int64) (
+	rows []*Segment, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT segments.stream_id, segments.segment_index, segments.root_piece_id, segments.encrypted_key_nonce, segments.encrypted_key, segments.segment_checksum, segments.segment_size, segments.encrypted_inline_data, segments.nodes FROM segments WHERE segments.stream_id = ? AND segments.segment_index <= ? ORDER BY segments.segment_index LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, segment_stream_id.value(), segment_segment_index_less_or_equal.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		segment := &Segment{}
+		err = __rows.Scan(&segment.StreamId, &segment.SegmentIndex, &segment.RootPieceId, &segment.EncryptedKeyNonce, &segment.EncryptedKey, &segment.SegmentChecksum, &segment.SegmentSize, &segment.EncryptedInlineData, &segment.Nodes)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, segment)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *postgresImpl) Get_BucketUsage_By_Id(ctx context.Context,
 	bucket_usage_id BucketUsage_Id_Field) (
 	bucket_usage *BucketUsage, err error) {
@@ -6327,6 +7349,62 @@ func (obj *postgresImpl) Update_ApiKey_By_Id(ctx context.Context,
 	return api_key, nil
 }
 
+func (obj *postgresImpl) Update_Segment_By_StreamId_And_SegmentIndex(ctx context.Context,
+	segment_stream_id Segment_StreamId_Field,
+	segment_segment_index Segment_SegmentIndex_Field,
+	update Segment_Update_Fields) (
+	segment *Segment, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE segments SET "), __sets, __sqlbundle_Literal(" WHERE segments.stream_id = ? AND segments.segment_index = ? RETURNING segments.stream_id, segments.segment_index, segments.root_piece_id, segments.encrypted_key_nonce, segments.encrypted_key, segments.segment_checksum, segments.segment_size, segments.encrypted_inline_data, segments.nodes")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.SegmentChecksum._set {
+		__values = append(__values, update.SegmentChecksum.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("segment_checksum = ?"))
+	}
+
+	if update.SegmentSize._set {
+		__values = append(__values, update.SegmentSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("segment_size = ?"))
+	}
+
+	if update.EncryptedInlineData._set {
+		__values = append(__values, update.EncryptedInlineData.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("encrypted_inline_data = ?"))
+	}
+
+	if update.Nodes._set {
+		__values = append(__values, update.Nodes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("nodes = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, segment_stream_id.value(), segment_segment_index.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	segment = &Segment{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&segment.StreamId, &segment.SegmentIndex, &segment.RootPieceId, &segment.EncryptedKeyNonce, &segment.EncryptedKey, &segment.SegmentChecksum, &segment.SegmentSize, &segment.EncryptedInlineData, &segment.Nodes)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return segment, nil
+}
+
 func (obj *postgresImpl) Update_CertRecord_By_Id(ctx context.Context,
 	certRecord_id CertRecord_Id_Field,
 	update CertRecord_Update_Fields) (
@@ -6639,6 +7717,61 @@ func (obj *postgresImpl) Delete_Bucket_By_ProjectId_And_Name(ctx context.Context
 
 }
 
+func (obj *postgresImpl) Delete_Object_By_BucketId_And_EncryptedPath_And_Version(ctx context.Context,
+	object_bucket_id Object_BucketId_Field,
+	object_encrypted_path Object_EncryptedPath_Field,
+	object_version Object_Version_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM objects WHERE objects.bucket_id = ? AND objects.encrypted_path = ? AND objects.version = ?")
+
+	var __values []interface{}
+	__values = append(__values, object_bucket_id.value(), object_encrypted_path.value(), object_version.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *postgresImpl) Delete_Segment_By_StreamId_And_SegmentIndex(ctx context.Context,
+	segment_stream_id Segment_StreamId_Field,
+	segment_segment_index Segment_SegmentIndex_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM segments WHERE segments.stream_id = ? AND segments.segment_index = ?")
+
+	var __values []interface{}
+	__values = append(__values, segment_stream_id.value(), segment_segment_index.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *postgresImpl) Delete_BucketUsage_By_Id(ctx context.Context,
 	bucket_usage_id BucketUsage_Id_Field) (
 	deleted bool, err error) {
@@ -6730,6 +7863,26 @@ func (impl postgresImpl) isConstraintError(err error) (
 func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	var __res sql.Result
 	var __count int64
+	__res, err = obj.driver.Exec("DELETE FROM segments;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM objects;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM used_serials;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -7313,6 +8466,104 @@ func (obj *sqlite3Impl) Create_Bucket(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return obj.getLastBucket(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_Object(ctx context.Context,
+	object_bucket_id Object_BucketId_Field,
+	object_encrypted_path Object_EncryptedPath_Field,
+	object_version Object_Version_Field,
+	object_status Object_Status_Field,
+	object_stream_id Object_StreamId_Field,
+	object_encrypted_metadata Object_EncryptedMetadata_Field,
+	object_total_size Object_TotalSize_Field,
+	object_inline_size Object_InlineSize_Field,
+	object_remote_size Object_RemoteSize_Field,
+	object_created_at Object_CreatedAt_Field,
+	object_expires_at Object_ExpiresAt_Field,
+	object_fixed_segment_size Object_FixedSegmentSize_Field,
+	object_encryption_cipher_suite Object_EncryptionCipherSuite_Field,
+	object_encryption_block_size Object_EncryptionBlockSize_Field,
+	object_redundancy_algorithm Object_RedundancyAlgorithm_Field,
+	object_redundancy_share_size Object_RedundancyShareSize_Field,
+	object_redundancy_required_shares Object_RedundancyRequiredShares_Field,
+	object_redundancy_repair_shares Object_RedundancyRepairShares_Field,
+	object_redundancy_optimal_shares Object_RedundancyOptimalShares_Field,
+	object_redundancy_total_shares Object_RedundancyTotalShares_Field) (
+	object *Object, err error) {
+	__bucket_id_val := object_bucket_id.value()
+	__encrypted_path_val := object_encrypted_path.value()
+	__version_val := object_version.value()
+	__status_val := object_status.value()
+	__stream_id_val := object_stream_id.value()
+	__encrypted_metadata_val := object_encrypted_metadata.value()
+	__total_size_val := object_total_size.value()
+	__inline_size_val := object_inline_size.value()
+	__remote_size_val := object_remote_size.value()
+	__created_at_val := object_created_at.value()
+	__expires_at_val := object_expires_at.value()
+	__fixed_segment_size_val := object_fixed_segment_size.value()
+	__encryption_cipher_suite_val := object_encryption_cipher_suite.value()
+	__encryption_block_size_val := object_encryption_block_size.value()
+	__redundancy_algorithm_val := object_redundancy_algorithm.value()
+	__redundancy_share_size_val := object_redundancy_share_size.value()
+	__redundancy_required_shares_val := object_redundancy_required_shares.value()
+	__redundancy_repair_shares_val := object_redundancy_repair_shares.value()
+	__redundancy_optimal_shares_val := object_redundancy_optimal_shares.value()
+	__redundancy_total_shares_val := object_redundancy_total_shares.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO objects ( bucket_id, encrypted_path, version, status, stream_id, encrypted_metadata, total_size, inline_size, remote_size, created_at, expires_at, fixed_segment_size, encryption_cipher_suite, encryption_block_size, redundancy_algorithm, redundancy_share_size, redundancy_required_shares, redundancy_repair_shares, redundancy_optimal_shares, redundancy_total_shares ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __bucket_id_val, __encrypted_path_val, __version_val, __status_val, __stream_id_val, __encrypted_metadata_val, __total_size_val, __inline_size_val, __remote_size_val, __created_at_val, __expires_at_val, __fixed_segment_size_val, __encryption_cipher_suite_val, __encryption_block_size_val, __redundancy_algorithm_val, __redundancy_share_size_val, __redundancy_required_shares_val, __redundancy_repair_shares_val, __redundancy_optimal_shares_val, __redundancy_total_shares_val)
+
+	__res, err := obj.driver.Exec(__stmt, __bucket_id_val, __encrypted_path_val, __version_val, __status_val, __stream_id_val, __encrypted_metadata_val, __total_size_val, __inline_size_val, __remote_size_val, __created_at_val, __expires_at_val, __fixed_segment_size_val, __encryption_cipher_suite_val, __encryption_block_size_val, __redundancy_algorithm_val, __redundancy_share_size_val, __redundancy_required_shares_val, __redundancy_repair_shares_val, __redundancy_optimal_shares_val, __redundancy_total_shares_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastObject(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_Segment(ctx context.Context,
+	segment_stream_id Segment_StreamId_Field,
+	segment_segment_index Segment_SegmentIndex_Field,
+	segment_root_piece_id Segment_RootPieceId_Field,
+	segment_encrypted_key_nonce Segment_EncryptedKeyNonce_Field,
+	segment_encrypted_key Segment_EncryptedKey_Field,
+	segment_segment_checksum Segment_SegmentChecksum_Field,
+	segment_segment_size Segment_SegmentSize_Field,
+	segment_encrypted_inline_data Segment_EncryptedInlineData_Field,
+	segment_nodes Segment_Nodes_Field) (
+	segment *Segment, err error) {
+	__stream_id_val := segment_stream_id.value()
+	__segment_index_val := segment_segment_index.value()
+	__root_piece_id_val := segment_root_piece_id.value()
+	__encrypted_key_nonce_val := segment_encrypted_key_nonce.value()
+	__encrypted_key_val := segment_encrypted_key.value()
+	__segment_checksum_val := segment_segment_checksum.value()
+	__segment_size_val := segment_segment_size.value()
+	__encrypted_inline_data_val := segment_encrypted_inline_data.value()
+	__nodes_val := segment_nodes.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO segments ( stream_id, segment_index, root_piece_id, encrypted_key_nonce, encrypted_key, segment_checksum, segment_size, encrypted_inline_data, nodes ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __stream_id_val, __segment_index_val, __root_piece_id_val, __encrypted_key_nonce_val, __encrypted_key_val, __segment_checksum_val, __segment_size_val, __encrypted_inline_data_val, __nodes_val)
+
+	__res, err := obj.driver.Exec(__stmt, __stream_id_val, __segment_index_val, __root_piece_id_val, __encrypted_key_nonce_val, __encrypted_key_val, __segment_checksum_val, __segment_size_val, __encrypted_inline_data_val, __nodes_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastSegment(ctx, __pk)
 
 }
 
@@ -8351,6 +9602,219 @@ func (obj *sqlite3Impl) Limited_Bucket_By_ProjectId_And_Name_GreaterOrEqual_Orde
 
 }
 
+func (obj *sqlite3Impl) Get_Object_By_BucketId_And_EncryptedPath_And_Version_And_Status(ctx context.Context,
+	object_bucket_id Object_BucketId_Field,
+	object_encrypted_path Object_EncryptedPath_Field,
+	object_version Object_Version_Field,
+	object_status Object_Status_Field) (
+	object *Object, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT objects.bucket_id, objects.encrypted_path, objects.version, objects.status, objects.stream_id, objects.encrypted_metadata, objects.total_size, objects.inline_size, objects.remote_size, objects.created_at, objects.expires_at, objects.fixed_segment_size, objects.encryption_cipher_suite, objects.encryption_block_size, objects.redundancy_algorithm, objects.redundancy_share_size, objects.redundancy_required_shares, objects.redundancy_repair_shares, objects.redundancy_optimal_shares, objects.redundancy_total_shares FROM objects WHERE objects.bucket_id = ? AND objects.encrypted_path = ? AND objects.version = ? AND objects.status = ?")
+
+	var __values []interface{}
+	__values = append(__values, object_bucket_id.value(), object_encrypted_path.value(), object_version.value(), object_status.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	object = &Object{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&object.BucketId, &object.EncryptedPath, &object.Version, &object.Status, &object.StreamId, &object.EncryptedMetadata, &object.TotalSize, &object.InlineSize, &object.RemoteSize, &object.CreatedAt, &object.ExpiresAt, &object.FixedSegmentSize, &object.EncryptionCipherSuite, &object.EncryptionBlockSize, &object.RedundancyAlgorithm, &object.RedundancyShareSize, &object.RedundancyRequiredShares, &object.RedundancyRepairShares, &object.RedundancyOptimalShares, &object.RedundancyTotalShares)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return object, nil
+
+}
+
+func (obj *sqlite3Impl) Limited_Object_By_BucketId_And_EncryptedPath_LessOrEqual_And_Status_OrderBy_Asc_EncryptedPath(ctx context.Context,
+	object_bucket_id Object_BucketId_Field,
+	object_encrypted_path_less_or_equal Object_EncryptedPath_Field,
+	object_status Object_Status_Field,
+	limit int, offset int64) (
+	rows []*Object, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT objects.bucket_id, objects.encrypted_path, objects.version, objects.status, objects.stream_id, objects.encrypted_metadata, objects.total_size, objects.inline_size, objects.remote_size, objects.created_at, objects.expires_at, objects.fixed_segment_size, objects.encryption_cipher_suite, objects.encryption_block_size, objects.redundancy_algorithm, objects.redundancy_share_size, objects.redundancy_required_shares, objects.redundancy_repair_shares, objects.redundancy_optimal_shares, objects.redundancy_total_shares FROM objects WHERE objects.bucket_id = ? AND objects.encrypted_path <= ? AND objects.status = ? ORDER BY objects.encrypted_path LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, object_bucket_id.value(), object_encrypted_path_less_or_equal.value(), object_status.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		object := &Object{}
+		err = __rows.Scan(&object.BucketId, &object.EncryptedPath, &object.Version, &object.Status, &object.StreamId, &object.EncryptedMetadata, &object.TotalSize, &object.InlineSize, &object.RemoteSize, &object.CreatedAt, &object.ExpiresAt, &object.FixedSegmentSize, &object.EncryptionCipherSuite, &object.EncryptionBlockSize, &object.RedundancyAlgorithm, &object.RedundancyShareSize, &object.RedundancyRequiredShares, &object.RedundancyRepairShares, &object.RedundancyOptimalShares, &object.RedundancyTotalShares)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, object)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) Limited_Object_By_BucketId_And_EncryptedPath_Less_And_Status_OrderBy_Asc_EncryptedPath(ctx context.Context,
+	object_bucket_id Object_BucketId_Field,
+	object_encrypted_path_less Object_EncryptedPath_Field,
+	object_status Object_Status_Field,
+	limit int, offset int64) (
+	rows []*Object, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT objects.bucket_id, objects.encrypted_path, objects.version, objects.status, objects.stream_id, objects.encrypted_metadata, objects.total_size, objects.inline_size, objects.remote_size, objects.created_at, objects.expires_at, objects.fixed_segment_size, objects.encryption_cipher_suite, objects.encryption_block_size, objects.redundancy_algorithm, objects.redundancy_share_size, objects.redundancy_required_shares, objects.redundancy_repair_shares, objects.redundancy_optimal_shares, objects.redundancy_total_shares FROM objects WHERE objects.bucket_id = ? AND objects.encrypted_path < ? AND objects.status = ? ORDER BY objects.encrypted_path LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, object_bucket_id.value(), object_encrypted_path_less.value(), object_status.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		object := &Object{}
+		err = __rows.Scan(&object.BucketId, &object.EncryptedPath, &object.Version, &object.Status, &object.StreamId, &object.EncryptedMetadata, &object.TotalSize, &object.InlineSize, &object.RemoteSize, &object.CreatedAt, &object.ExpiresAt, &object.FixedSegmentSize, &object.EncryptionCipherSuite, &object.EncryptionBlockSize, &object.RedundancyAlgorithm, &object.RedundancyShareSize, &object.RedundancyRequiredShares, &object.RedundancyRepairShares, &object.RedundancyOptimalShares, &object.RedundancyTotalShares)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, object)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) Limited_Object_By_BucketId_And_EncryptedPath_Greater_And_Status_OrderBy_Asc_EncryptedPath(ctx context.Context,
+	object_bucket_id Object_BucketId_Field,
+	object_encrypted_path_greater Object_EncryptedPath_Field,
+	object_status Object_Status_Field,
+	limit int, offset int64) (
+	rows []*Object, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT objects.bucket_id, objects.encrypted_path, objects.version, objects.status, objects.stream_id, objects.encrypted_metadata, objects.total_size, objects.inline_size, objects.remote_size, objects.created_at, objects.expires_at, objects.fixed_segment_size, objects.encryption_cipher_suite, objects.encryption_block_size, objects.redundancy_algorithm, objects.redundancy_share_size, objects.redundancy_required_shares, objects.redundancy_repair_shares, objects.redundancy_optimal_shares, objects.redundancy_total_shares FROM objects WHERE objects.bucket_id = ? AND objects.encrypted_path > ? AND objects.status = ? ORDER BY objects.encrypted_path LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, object_bucket_id.value(), object_encrypted_path_greater.value(), object_status.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		object := &Object{}
+		err = __rows.Scan(&object.BucketId, &object.EncryptedPath, &object.Version, &object.Status, &object.StreamId, &object.EncryptedMetadata, &object.TotalSize, &object.InlineSize, &object.RemoteSize, &object.CreatedAt, &object.ExpiresAt, &object.FixedSegmentSize, &object.EncryptionCipherSuite, &object.EncryptionBlockSize, &object.RedundancyAlgorithm, &object.RedundancyShareSize, &object.RedundancyRequiredShares, &object.RedundancyRepairShares, &object.RedundancyOptimalShares, &object.RedundancyTotalShares)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, object)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) Limited_Object_By_BucketId_And_EncryptedPath_GreaterOrEqual_And_Status_OrderBy_Asc_EncryptedPath(ctx context.Context,
+	object_bucket_id Object_BucketId_Field,
+	object_encrypted_path_greater_or_equal Object_EncryptedPath_Field,
+	object_status Object_Status_Field,
+	limit int, offset int64) (
+	rows []*Object, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT objects.bucket_id, objects.encrypted_path, objects.version, objects.status, objects.stream_id, objects.encrypted_metadata, objects.total_size, objects.inline_size, objects.remote_size, objects.created_at, objects.expires_at, objects.fixed_segment_size, objects.encryption_cipher_suite, objects.encryption_block_size, objects.redundancy_algorithm, objects.redundancy_share_size, objects.redundancy_required_shares, objects.redundancy_repair_shares, objects.redundancy_optimal_shares, objects.redundancy_total_shares FROM objects WHERE objects.bucket_id = ? AND objects.encrypted_path >= ? AND objects.status = ? ORDER BY objects.encrypted_path LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, object_bucket_id.value(), object_encrypted_path_greater_or_equal.value(), object_status.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		object := &Object{}
+		err = __rows.Scan(&object.BucketId, &object.EncryptedPath, &object.Version, &object.Status, &object.StreamId, &object.EncryptedMetadata, &object.TotalSize, &object.InlineSize, &object.RemoteSize, &object.CreatedAt, &object.ExpiresAt, &object.FixedSegmentSize, &object.EncryptionCipherSuite, &object.EncryptionBlockSize, &object.RedundancyAlgorithm, &object.RedundancyShareSize, &object.RedundancyRequiredShares, &object.RedundancyRepairShares, &object.RedundancyOptimalShares, &object.RedundancyTotalShares)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, object)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) Limited_Segment_By_StreamId_And_SegmentIndex_LessOrEqual_OrderBy_Asc_SegmentIndex(ctx context.Context,
+	segment_stream_id Segment_StreamId_Field,
+	segment_segment_index_less_or_equal Segment_SegmentIndex_Field,
+	limit int, offset int64) (
+	rows []*Segment, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT segments.stream_id, segments.segment_index, segments.root_piece_id, segments.encrypted_key_nonce, segments.encrypted_key, segments.segment_checksum, segments.segment_size, segments.encrypted_inline_data, segments.nodes FROM segments WHERE segments.stream_id = ? AND segments.segment_index <= ? ORDER BY segments.segment_index LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, segment_stream_id.value(), segment_segment_index_less_or_equal.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		segment := &Segment{}
+		err = __rows.Scan(&segment.StreamId, &segment.SegmentIndex, &segment.RootPieceId, &segment.EncryptedKeyNonce, &segment.EncryptedKey, &segment.SegmentChecksum, &segment.SegmentSize, &segment.EncryptedInlineData, &segment.Nodes)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, segment)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *sqlite3Impl) Get_BucketUsage_By_Id(ctx context.Context,
 	bucket_usage_id BucketUsage_Id_Field) (
 	bucket_usage *BucketUsage, err error) {
@@ -9159,6 +10623,72 @@ func (obj *sqlite3Impl) Update_ApiKey_By_Id(ctx context.Context,
 	return api_key, nil
 }
 
+func (obj *sqlite3Impl) Update_Segment_By_StreamId_And_SegmentIndex(ctx context.Context,
+	segment_stream_id Segment_StreamId_Field,
+	segment_segment_index Segment_SegmentIndex_Field,
+	update Segment_Update_Fields) (
+	segment *Segment, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE segments SET "), __sets, __sqlbundle_Literal(" WHERE segments.stream_id = ? AND segments.segment_index = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.SegmentChecksum._set {
+		__values = append(__values, update.SegmentChecksum.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("segment_checksum = ?"))
+	}
+
+	if update.SegmentSize._set {
+		__values = append(__values, update.SegmentSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("segment_size = ?"))
+	}
+
+	if update.EncryptedInlineData._set {
+		__values = append(__values, update.EncryptedInlineData.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("encrypted_inline_data = ?"))
+	}
+
+	if update.Nodes._set {
+		__values = append(__values, update.Nodes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("nodes = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, segment_stream_id.value(), segment_segment_index.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	segment = &Segment{}
+	_, err = obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT segments.stream_id, segments.segment_index, segments.root_piece_id, segments.encrypted_key_nonce, segments.encrypted_key, segments.segment_checksum, segments.segment_size, segments.encrypted_inline_data, segments.nodes FROM segments WHERE segments.stream_id = ? AND segments.segment_index = ?")
+
+	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
+	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
+
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&segment.StreamId, &segment.SegmentIndex, &segment.RootPieceId, &segment.EncryptedKeyNonce, &segment.EncryptedKey, &segment.SegmentChecksum, &segment.SegmentSize, &segment.EncryptedInlineData, &segment.Nodes)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return segment, nil
+}
+
 func (obj *sqlite3Impl) Update_CertRecord_By_Id(ctx context.Context,
 	certRecord_id CertRecord_Id_Field,
 	update CertRecord_Update_Fields) (
@@ -9491,6 +11021,61 @@ func (obj *sqlite3Impl) Delete_Bucket_By_ProjectId_And_Name(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Delete_Object_By_BucketId_And_EncryptedPath_And_Version(ctx context.Context,
+	object_bucket_id Object_BucketId_Field,
+	object_encrypted_path Object_EncryptedPath_Field,
+	object_version Object_Version_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM objects WHERE objects.bucket_id = ? AND objects.encrypted_path = ? AND objects.version = ?")
+
+	var __values []interface{}
+	__values = append(__values, object_bucket_id.value(), object_encrypted_path.value(), object_version.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *sqlite3Impl) Delete_Segment_By_StreamId_And_SegmentIndex(ctx context.Context,
+	segment_stream_id Segment_StreamId_Field,
+	segment_segment_index Segment_SegmentIndex_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM segments WHERE segments.stream_id = ? AND segments.segment_index = ?")
+
+	var __values []interface{}
+	__values = append(__values, segment_stream_id.value(), segment_segment_index.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *sqlite3Impl) Delete_BucketUsage_By_Id(ctx context.Context,
 	bucket_usage_id BucketUsage_Id_Field) (
 	deleted bool, err error) {
@@ -9749,6 +11334,42 @@ func (obj *sqlite3Impl) getLastBucket(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) getLastObject(ctx context.Context,
+	pk int64) (
+	object *Object, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT objects.bucket_id, objects.encrypted_path, objects.version, objects.status, objects.stream_id, objects.encrypted_metadata, objects.total_size, objects.inline_size, objects.remote_size, objects.created_at, objects.expires_at, objects.fixed_segment_size, objects.encryption_cipher_suite, objects.encryption_block_size, objects.redundancy_algorithm, objects.redundancy_share_size, objects.redundancy_required_shares, objects.redundancy_repair_shares, objects.redundancy_optimal_shares, objects.redundancy_total_shares FROM objects WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	object = &Object{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&object.BucketId, &object.EncryptedPath, &object.Version, &object.Status, &object.StreamId, &object.EncryptedMetadata, &object.TotalSize, &object.InlineSize, &object.RemoteSize, &object.CreatedAt, &object.ExpiresAt, &object.FixedSegmentSize, &object.EncryptionCipherSuite, &object.EncryptionBlockSize, &object.RedundancyAlgorithm, &object.RedundancyShareSize, &object.RedundancyRequiredShares, &object.RedundancyRepairShares, &object.RedundancyOptimalShares, &object.RedundancyTotalShares)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return object, nil
+
+}
+
+func (obj *sqlite3Impl) getLastSegment(ctx context.Context,
+	pk int64) (
+	segment *Segment, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT segments.stream_id, segments.segment_index, segments.root_piece_id, segments.encrypted_key_nonce, segments.encrypted_key, segments.segment_checksum, segments.segment_size, segments.encrypted_inline_data, segments.nodes FROM segments WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	segment = &Segment{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&segment.StreamId, &segment.SegmentIndex, &segment.RootPieceId, &segment.EncryptedKeyNonce, &segment.EncryptedKey, &segment.SegmentChecksum, &segment.SegmentSize, &segment.EncryptedInlineData, &segment.Nodes)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return segment, nil
+
+}
+
 func (obj *sqlite3Impl) getLastBucketUsage(ctx context.Context,
 	pk int64) (
 	bucket_usage *BucketUsage, err error) {
@@ -9875,6 +11496,26 @@ func (impl sqlite3Impl) isConstraintError(err error) (
 func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) {
 	var __res sql.Result
 	var __count int64
+	__res, err = obj.driver.Exec("DELETE FROM segments;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM objects;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM used_serials;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -10427,6 +12068,36 @@ func (rx *Rx) Create_Node(ctx context.Context,
 
 }
 
+func (rx *Rx) Create_Object(ctx context.Context,
+	object_bucket_id Object_BucketId_Field,
+	object_encrypted_path Object_EncryptedPath_Field,
+	object_version Object_Version_Field,
+	object_status Object_Status_Field,
+	object_stream_id Object_StreamId_Field,
+	object_encrypted_metadata Object_EncryptedMetadata_Field,
+	object_total_size Object_TotalSize_Field,
+	object_inline_size Object_InlineSize_Field,
+	object_remote_size Object_RemoteSize_Field,
+	object_created_at Object_CreatedAt_Field,
+	object_expires_at Object_ExpiresAt_Field,
+	object_fixed_segment_size Object_FixedSegmentSize_Field,
+	object_encryption_cipher_suite Object_EncryptionCipherSuite_Field,
+	object_encryption_block_size Object_EncryptionBlockSize_Field,
+	object_redundancy_algorithm Object_RedundancyAlgorithm_Field,
+	object_redundancy_share_size Object_RedundancyShareSize_Field,
+	object_redundancy_required_shares Object_RedundancyRequiredShares_Field,
+	object_redundancy_repair_shares Object_RedundancyRepairShares_Field,
+	object_redundancy_optimal_shares Object_RedundancyOptimalShares_Field,
+	object_redundancy_total_shares Object_RedundancyTotalShares_Field) (
+	object *Object, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_Object(ctx, object_bucket_id, object_encrypted_path, object_version, object_status, object_stream_id, object_encrypted_metadata, object_total_size, object_inline_size, object_remote_size, object_created_at, object_expires_at, object_fixed_segment_size, object_encryption_cipher_suite, object_encryption_block_size, object_redundancy_algorithm, object_redundancy_share_size, object_redundancy_required_shares, object_redundancy_repair_shares, object_redundancy_optimal_shares, object_redundancy_total_shares)
+
+}
+
 func (rx *Rx) Create_Project(ctx context.Context,
 	project_id Project_Id_Field,
 	project_name Project_Name_Field,
@@ -10462,6 +12133,25 @@ func (rx *Rx) Create_RegistrationToken(ctx context.Context,
 		return
 	}
 	return tx.Create_RegistrationToken(ctx, registration_token_secret, registration_token_project_limit, optional)
+
+}
+
+func (rx *Rx) Create_Segment(ctx context.Context,
+	segment_stream_id Segment_StreamId_Field,
+	segment_segment_index Segment_SegmentIndex_Field,
+	segment_root_piece_id Segment_RootPieceId_Field,
+	segment_encrypted_key_nonce Segment_EncryptedKeyNonce_Field,
+	segment_encrypted_key Segment_EncryptedKey_Field,
+	segment_segment_checksum Segment_SegmentChecksum_Field,
+	segment_segment_size Segment_SegmentSize_Field,
+	segment_encrypted_inline_data Segment_EncryptedInlineData_Field,
+	segment_nodes Segment_Nodes_Field) (
+	segment *Segment, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_Segment(ctx, segment_stream_id, segment_segment_index, segment_root_piece_id, segment_encrypted_key_nonce, segment_encrypted_key, segment_segment_checksum, segment_segment_size, segment_encrypted_inline_data, segment_nodes)
 
 }
 
@@ -10586,6 +12276,18 @@ func (rx *Rx) Delete_Node_By_Id(ctx context.Context,
 	return tx.Delete_Node_By_Id(ctx, node_id)
 }
 
+func (rx *Rx) Delete_Object_By_BucketId_And_EncryptedPath_And_Version(ctx context.Context,
+	object_bucket_id Object_BucketId_Field,
+	object_encrypted_path Object_EncryptedPath_Field,
+	object_version Object_Version_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_Object_By_BucketId_And_EncryptedPath_And_Version(ctx, object_bucket_id, object_encrypted_path, object_version)
+}
+
 func (rx *Rx) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
 	project_member_member_id ProjectMember_MemberId_Field,
 	project_member_project_id ProjectMember_ProjectId_Field) (
@@ -10605,6 +12307,17 @@ func (rx *Rx) Delete_Project_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Delete_Project_By_Id(ctx, project_id)
+}
+
+func (rx *Rx) Delete_Segment_By_StreamId_And_SegmentIndex(ctx context.Context,
+	segment_stream_id Segment_StreamId_Field,
+	segment_segment_index Segment_SegmentIndex_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_Segment_By_StreamId_And_SegmentIndex(ctx, segment_stream_id, segment_segment_index)
 }
 
 func (rx *Rx) Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx context.Context,
@@ -10772,6 +12485,19 @@ func (rx *Rx) Get_Node_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Get_Node_By_Id(ctx, node_id)
+}
+
+func (rx *Rx) Get_Object_By_BucketId_And_EncryptedPath_And_Version_And_Status(ctx context.Context,
+	object_bucket_id Object_BucketId_Field,
+	object_encrypted_path Object_EncryptedPath_Field,
+	object_version Object_Version_Field,
+	object_status Object_Status_Field) (
+	object *Object, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_Object_By_BucketId_And_EncryptedPath_And_Version_And_Status(ctx, object_bucket_id, object_encrypted_path, object_version, object_status)
 }
 
 func (rx *Rx) Get_Project_By_Id(ctx context.Context,
@@ -10943,6 +12669,58 @@ func (rx *Rx) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx context.Conte
 	return tx.Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx, node_id_greater_or_equal, limit, offset)
 }
 
+func (rx *Rx) Limited_Object_By_BucketId_And_EncryptedPath_GreaterOrEqual_And_Status_OrderBy_Asc_EncryptedPath(ctx context.Context,
+	object_bucket_id Object_BucketId_Field,
+	object_encrypted_path_greater_or_equal Object_EncryptedPath_Field,
+	object_status Object_Status_Field,
+	limit int, offset int64) (
+	rows []*Object, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_Object_By_BucketId_And_EncryptedPath_GreaterOrEqual_And_Status_OrderBy_Asc_EncryptedPath(ctx, object_bucket_id, object_encrypted_path_greater_or_equal, object_status, limit, offset)
+}
+
+func (rx *Rx) Limited_Object_By_BucketId_And_EncryptedPath_Greater_And_Status_OrderBy_Asc_EncryptedPath(ctx context.Context,
+	object_bucket_id Object_BucketId_Field,
+	object_encrypted_path_greater Object_EncryptedPath_Field,
+	object_status Object_Status_Field,
+	limit int, offset int64) (
+	rows []*Object, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_Object_By_BucketId_And_EncryptedPath_Greater_And_Status_OrderBy_Asc_EncryptedPath(ctx, object_bucket_id, object_encrypted_path_greater, object_status, limit, offset)
+}
+
+func (rx *Rx) Limited_Object_By_BucketId_And_EncryptedPath_LessOrEqual_And_Status_OrderBy_Asc_EncryptedPath(ctx context.Context,
+	object_bucket_id Object_BucketId_Field,
+	object_encrypted_path_less_or_equal Object_EncryptedPath_Field,
+	object_status Object_Status_Field,
+	limit int, offset int64) (
+	rows []*Object, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_Object_By_BucketId_And_EncryptedPath_LessOrEqual_And_Status_OrderBy_Asc_EncryptedPath(ctx, object_bucket_id, object_encrypted_path_less_or_equal, object_status, limit, offset)
+}
+
+func (rx *Rx) Limited_Object_By_BucketId_And_EncryptedPath_Less_And_Status_OrderBy_Asc_EncryptedPath(ctx context.Context,
+	object_bucket_id Object_BucketId_Field,
+	object_encrypted_path_less Object_EncryptedPath_Field,
+	object_status Object_Status_Field,
+	limit int, offset int64) (
+	rows []*Object, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_Object_By_BucketId_And_EncryptedPath_Less_And_Status_OrderBy_Asc_EncryptedPath(ctx, object_bucket_id, object_encrypted_path_less, object_status, limit, offset)
+}
+
 func (rx *Rx) Limited_ProjectMember_By_ProjectId(ctx context.Context,
 	project_member_project_id ProjectMember_ProjectId_Field,
 	limit int, offset int64) (
@@ -10952,6 +12730,18 @@ func (rx *Rx) Limited_ProjectMember_By_ProjectId(ctx context.Context,
 		return
 	}
 	return tx.Limited_ProjectMember_By_ProjectId(ctx, project_member_project_id, limit, offset)
+}
+
+func (rx *Rx) Limited_Segment_By_StreamId_And_SegmentIndex_LessOrEqual_OrderBy_Asc_SegmentIndex(ctx context.Context,
+	segment_stream_id Segment_StreamId_Field,
+	segment_segment_index_less_or_equal Segment_SegmentIndex_Field,
+	limit int, offset int64) (
+	rows []*Segment, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_Segment_By_StreamId_And_SegmentIndex_LessOrEqual_OrderBy_Asc_SegmentIndex(ctx, segment_stream_id, segment_segment_index_less_or_equal, limit, offset)
 }
 
 func (rx *Rx) Update_AccountingTimestamps_By_Name(ctx context.Context,
@@ -11029,6 +12819,18 @@ func (rx *Rx) Update_RegistrationToken_By_Secret(ctx context.Context,
 		return
 	}
 	return tx.Update_RegistrationToken_By_Secret(ctx, registration_token_secret, update)
+}
+
+func (rx *Rx) Update_Segment_By_StreamId_And_SegmentIndex(ctx context.Context,
+	segment_stream_id Segment_StreamId_Field,
+	segment_segment_index Segment_SegmentIndex_Field,
+	update Segment_Update_Fields) (
+	segment *Segment, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_Segment_By_StreamId_And_SegmentIndex(ctx, segment_stream_id, segment_segment_index, update)
 }
 
 func (rx *Rx) Update_User_By_Id(ctx context.Context,
@@ -11198,6 +13000,29 @@ type Methods interface {
 		node_last_contact_failure Node_LastContactFailure_Field) (
 		node *Node, err error)
 
+	Create_Object(ctx context.Context,
+		object_bucket_id Object_BucketId_Field,
+		object_encrypted_path Object_EncryptedPath_Field,
+		object_version Object_Version_Field,
+		object_status Object_Status_Field,
+		object_stream_id Object_StreamId_Field,
+		object_encrypted_metadata Object_EncryptedMetadata_Field,
+		object_total_size Object_TotalSize_Field,
+		object_inline_size Object_InlineSize_Field,
+		object_remote_size Object_RemoteSize_Field,
+		object_created_at Object_CreatedAt_Field,
+		object_expires_at Object_ExpiresAt_Field,
+		object_fixed_segment_size Object_FixedSegmentSize_Field,
+		object_encryption_cipher_suite Object_EncryptionCipherSuite_Field,
+		object_encryption_block_size Object_EncryptionBlockSize_Field,
+		object_redundancy_algorithm Object_RedundancyAlgorithm_Field,
+		object_redundancy_share_size Object_RedundancyShareSize_Field,
+		object_redundancy_required_shares Object_RedundancyRequiredShares_Field,
+		object_redundancy_repair_shares Object_RedundancyRepairShares_Field,
+		object_redundancy_optimal_shares Object_RedundancyOptimalShares_Field,
+		object_redundancy_total_shares Object_RedundancyTotalShares_Field) (
+		object *Object, err error)
+
 	Create_Project(ctx context.Context,
 		project_id Project_Id_Field,
 		project_name Project_Name_Field,
@@ -11214,6 +13039,18 @@ type Methods interface {
 		registration_token_project_limit RegistrationToken_ProjectLimit_Field,
 		optional RegistrationToken_Create_Fields) (
 		registration_token *RegistrationToken, err error)
+
+	Create_Segment(ctx context.Context,
+		segment_stream_id Segment_StreamId_Field,
+		segment_segment_index Segment_SegmentIndex_Field,
+		segment_root_piece_id Segment_RootPieceId_Field,
+		segment_encrypted_key_nonce Segment_EncryptedKeyNonce_Field,
+		segment_encrypted_key Segment_EncryptedKey_Field,
+		segment_segment_checksum Segment_SegmentChecksum_Field,
+		segment_segment_size Segment_SegmentSize_Field,
+		segment_encrypted_inline_data Segment_EncryptedInlineData_Field,
+		segment_nodes Segment_Nodes_Field) (
+		segment *Segment, err error)
 
 	Create_SerialNumber(ctx context.Context,
 		serial_number_serial_number SerialNumber_SerialNumber_Field,
@@ -11267,6 +13104,12 @@ type Methods interface {
 		node_id Node_Id_Field) (
 		deleted bool, err error)
 
+	Delete_Object_By_BucketId_And_EncryptedPath_And_Version(ctx context.Context,
+		object_bucket_id Object_BucketId_Field,
+		object_encrypted_path Object_EncryptedPath_Field,
+		object_version Object_Version_Field) (
+		deleted bool, err error)
+
 	Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
 		project_member_member_id ProjectMember_MemberId_Field,
 		project_member_project_id ProjectMember_ProjectId_Field) (
@@ -11274,6 +13117,11 @@ type Methods interface {
 
 	Delete_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
+		deleted bool, err error)
+
+	Delete_Segment_By_StreamId_And_SegmentIndex(ctx context.Context,
+		segment_stream_id Segment_StreamId_Field,
+		segment_segment_index Segment_SegmentIndex_Field) (
 		deleted bool, err error)
 
 	Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx context.Context,
@@ -11345,6 +13193,13 @@ type Methods interface {
 	Get_Node_By_Id(ctx context.Context,
 		node_id Node_Id_Field) (
 		node *Node, err error)
+
+	Get_Object_By_BucketId_And_EncryptedPath_And_Version_And_Status(ctx context.Context,
+		object_bucket_id Object_BucketId_Field,
+		object_encrypted_path Object_EncryptedPath_Field,
+		object_version Object_Version_Field,
+		object_status Object_Status_Field) (
+		object *Object, err error)
 
 	Get_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
@@ -11425,10 +13280,44 @@ type Methods interface {
 		limit int, offset int64) (
 		rows []*Node, err error)
 
+	Limited_Object_By_BucketId_And_EncryptedPath_GreaterOrEqual_And_Status_OrderBy_Asc_EncryptedPath(ctx context.Context,
+		object_bucket_id Object_BucketId_Field,
+		object_encrypted_path_greater_or_equal Object_EncryptedPath_Field,
+		object_status Object_Status_Field,
+		limit int, offset int64) (
+		rows []*Object, err error)
+
+	Limited_Object_By_BucketId_And_EncryptedPath_Greater_And_Status_OrderBy_Asc_EncryptedPath(ctx context.Context,
+		object_bucket_id Object_BucketId_Field,
+		object_encrypted_path_greater Object_EncryptedPath_Field,
+		object_status Object_Status_Field,
+		limit int, offset int64) (
+		rows []*Object, err error)
+
+	Limited_Object_By_BucketId_And_EncryptedPath_LessOrEqual_And_Status_OrderBy_Asc_EncryptedPath(ctx context.Context,
+		object_bucket_id Object_BucketId_Field,
+		object_encrypted_path_less_or_equal Object_EncryptedPath_Field,
+		object_status Object_Status_Field,
+		limit int, offset int64) (
+		rows []*Object, err error)
+
+	Limited_Object_By_BucketId_And_EncryptedPath_Less_And_Status_OrderBy_Asc_EncryptedPath(ctx context.Context,
+		object_bucket_id Object_BucketId_Field,
+		object_encrypted_path_less Object_EncryptedPath_Field,
+		object_status Object_Status_Field,
+		limit int, offset int64) (
+		rows []*Object, err error)
+
 	Limited_ProjectMember_By_ProjectId(ctx context.Context,
 		project_member_project_id ProjectMember_ProjectId_Field,
 		limit int, offset int64) (
 		rows []*ProjectMember, err error)
+
+	Limited_Segment_By_StreamId_And_SegmentIndex_LessOrEqual_OrderBy_Asc_SegmentIndex(ctx context.Context,
+		segment_stream_id Segment_StreamId_Field,
+		segment_segment_index_less_or_equal Segment_SegmentIndex_Field,
+		limit int, offset int64) (
+		rows []*Segment, err error)
 
 	Update_AccountingTimestamps_By_Name(ctx context.Context,
 		accounting_timestamps_name AccountingTimestamps_Name_Field,
@@ -11464,6 +13353,12 @@ type Methods interface {
 		registration_token_secret RegistrationToken_Secret_Field,
 		update RegistrationToken_Update_Fields) (
 		registration_token *RegistrationToken, err error)
+
+	Update_Segment_By_StreamId_And_SegmentIndex(ctx context.Context,
+		segment_stream_id Segment_StreamId_Field,
+		segment_segment_index Segment_SegmentIndex_Field,
+		update Segment_Update_Fields) (
+		segment *Segment, err error)
 
 	Update_User_By_Id(ctx context.Context,
 		user_id User_Id_Field,
