@@ -461,7 +461,7 @@ read limitoffset (
 model segment (
 	key   stream_id segment_index
 
-	field stream_id      object.stream_id cascade // uuid, do we want this to be cascading, might end up being slow?
+	field stream_id      object.stream_id restrict // uuid, do we want this to be cascading, might end up being slow?
 	field segment_index  uint64
 
 	field root_piece_id       blob
