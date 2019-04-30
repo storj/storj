@@ -151,7 +151,7 @@ func (rt *RoutingTable) putNode(node *pb.Node) error {
 		return RoutingErr.Wrap(err)
 	}
 
-	err = rt.nodeBucketDB.BatchPut(node.Id.Bytes(), v)
+	err = rt.nodeBucketDB.Put(node.Id.Bytes(), v)
 	if err != nil {
 		return RoutingErr.New("could not add key value pair to nodeBucketDB: %s", err)
 	}
@@ -162,7 +162,7 @@ func (rt *RoutingTable) putNode(node *pb.Node) error {
 func (rt *RoutingTable) createOrUpdateKBucket(bID bucketID, now time.Time) error {
 	dateTime := make([]byte, binary.MaxVarintLen64)
 	binary.PutVarint(dateTime, now.UnixNano())
-	err := rt.kadBucketDB.BatchPut(bID[:], dateTime)
+	err := rt.kadBucketDB.Put(bID[:], dateTime)
 	if err != nil {
 		return RoutingErr.New("could not add or update k bucket: %s", err)
 	}

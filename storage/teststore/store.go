@@ -94,12 +94,6 @@ func (store *Client) Put(key storage.Key, value storage.Value) error {
 	return nil
 }
 
-// BatchPut adds a value to store in batches
-func (store *Client) BatchPut(key storage.Key, value storage.Value) error {
-	// TODO: this satisfies the storage.KeyValueStore interface, implement if needed.
-	return errors.New("BatchPut method is not implemented")
-}
-
 // Get gets a value to store
 func (store *Client) Get(key storage.Key) (storage.Value, error) {
 	defer store.locked()()
@@ -182,6 +176,12 @@ func (store *Client) List(first storage.Key, limit int) (storage.Keys, error) {
 	}
 	store.mu.Unlock()
 	return storage.ListKeys(store, first, limit)
+}
+
+// Sync writes data to disk
+func (store *Client) Sync() error {
+	// TODO: this satisfies the storage.KeyValueStore interface, implement if needed.
+	return errors.New("Sync not implemented")
 }
 
 // Close closes the store

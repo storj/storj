@@ -46,12 +46,6 @@ func (client *Client) Put(key storage.Key, value storage.Value) error {
 	return client.PutPath(storage.Key(defaultBucket), key, value)
 }
 
-// BatchPut sets the value for the provided key in batches.
-func (client *Client) BatchPut(key storage.Key, value storage.Value) error {
-	// TODO: this satisfies the storage.KeyValueStore interface, implement if needed.
-	return Error.New("BatchPut method is not implemented")
-}
-
 // PutPath sets the value for the provided key (in the given bucket).
 func (client *Client) PutPath(bucket, key storage.Key, value storage.Value) error {
 	if key.IsZero() {
@@ -119,6 +113,12 @@ func (client *Client) DeletePath(bucket, key storage.Key) error {
 // List returns either a list of known keys, in order, or an error.
 func (client *Client) List(first storage.Key, limit int) (storage.Keys, error) {
 	return storage.ListKeys(client, first, limit)
+}
+
+// Sync writes data to disk
+func (client *Client) Sync() error {
+	// TODO: this satisfies the storage.KeyValueStore interface, implement if needed.
+	return Error.New("Sync not implemented")
 }
 
 // Close closes the client

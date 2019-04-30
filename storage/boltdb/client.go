@@ -68,6 +68,7 @@ func NewShared(path string, buckets ...string) ([]*Client, error) {
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
+	db.NoSync = true
 
 	err = Error.Wrap(db.Update(func(tx *bolt.Tx) error {
 		for _, bucket := range buckets {
@@ -192,9 +193,15 @@ func (client *Client) List(first storage.Key, limit int) (storage.Keys, error) {
 	return rv, Error.Wrap(err)
 }
 
+// Sync calls fsync and writes data to disk
+func (client *Client) Sync() error {
+	return Error.Wrap(client.db.Sync())
+}
+
 // Close closes a BoltDB client
 func (client *Client) Close() error {
 	if atomic.AddInt32(client.referenceCount, -1) == 0 {
+		client.db.Sync()
 		return Error.Wrap(client.db.Close())
 	}
 	return nil

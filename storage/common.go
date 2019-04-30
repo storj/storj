@@ -54,8 +54,6 @@ type ListItem struct {
 type KeyValueStore interface {
 	// Put adds a value to store
 	Put(Key, Value) error
-	// BatchPut adds a value to store in batches
-	BatchPut(Key, Value) error
 	// Get gets a value to store
 	Get(Key) (Value, error)
 	// GetAll gets all values from the store
@@ -66,6 +64,8 @@ type KeyValueStore interface {
 	List(start Key, limit int) (Keys, error)
 	// Iterate iterates over items based on opts
 	Iterate(opts IterateOptions, fn func(Iterator) error) error
+	// Sync writes data to disk
+	Sync() error
 	// Close closes the store
 	Close() error
 }

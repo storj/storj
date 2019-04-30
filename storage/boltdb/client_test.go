@@ -36,6 +36,7 @@ func BenchmarkClientWrite(b *testing.B) {
 		}
 	}()
 	kdb := dbs[0]
+	kdb.db.NoSync = false
 
 	// benchmark test: execute 1000 Put operations
 	for n := 0; n < b.N; n++ {
@@ -48,6 +49,7 @@ func BenchmarkClientWrite(b *testing.B) {
 			}
 		}
 	}
+	b.Logf("\n b.N: %d, TxStats Write: %v, WriteTime: %v\n", b.N, kdb.db.Stats().TxStats.Write, kdb.db.Stats().TxStats.WriteTime)
 }
 
 func BenchmarkClientNoSyncWrite(b *testing.B) {
@@ -85,6 +87,7 @@ func BenchmarkClientNoSyncWrite(b *testing.B) {
 		}
 	}
 	kdb.db.Sync()
+	b.Logf("\n b.N: %d, TxStats Write: %v, WriteTime: %v\n", b.N, kdb.db.Stats().TxStats.Write, kdb.db.Stats().TxStats.WriteTime)
 }
 
 func BenchmarkClientBatchWrite(b *testing.B) {
@@ -100,18 +103,52 @@ func BenchmarkClientBatchWrite(b *testing.B) {
 		fmt.Printf("failed to create db: %v\n", err)
 	}
 	kdb := dbs[0]
+	kdb.db.NoSync = false
 
 	// run benchmark tests: execute 1000 Put operations with batch
 	for n := 0; n < b.N; n++ {
 		for i := 0; i < 1000; i++ {
 			key := storage.Key(fmt.Sprintf("testkey%d", i))
 			value := storage.Value("testvalue")
+
 			err := kdb.BatchPut(key, value)
 			if err != nil {
 				fmt.Println("batch err: ", err)
 			}
 		}
 	}
+	b.Logf("\n b.N: %d, TxStats Write: %v, WriteTime: %v\n", b.N, kdb.db.Stats().TxStats.Write, kdb.db.Stats().TxStats.WriteTime)
+}
+
+func BenchmarkClientBatchNoSyncWrite(b *testing.B) {
+	// setup db
+	tempdir, err := ioutil.TempDir("", "storj-bolt")
+	if err != nil {
+		fmt.Println("err:", err)
+	}
+	defer func() { _ = os.RemoveAll(tempdir) }()
+	dbname := filepath.Join(tempdir, "batchbolt.db")
+	dbs, err := NewShared(dbname, "kbuckets", "nodes")
+	if err != nil {
+		fmt.Printf("failed to create db: %v\n", err)
+	}
+	kdb := dbs[0]
+	kdb.db.NoSync = true
+
+	// run benchmark tests: execute 1000 Put operations with batch and no fsync
+	for n := 0; n < b.N; n++ {
+		for i := 0; i < 1000; i++ {
+			key := storage.Key(fmt.Sprintf("testkey%d", i))
+			value := storage.Value("testvalue")
+
+			err := kdb.BatchPut(key, value)
+			if err != nil {
+				fmt.Println("batch err: ", err)
+			}
+		}
+	}
+	kdb.db.Sync()
+	b.Logf("\n b.N: %d, TxStats Write: %v, WriteTime: %v\n", b.N, kdb.db.Stats().TxStats.Write, kdb.db.Stats().TxStats.WriteTime)
 }
 
 func TestSuite(t *testing.T) {

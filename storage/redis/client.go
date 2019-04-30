@@ -99,12 +99,6 @@ func (client *Client) Put(key storage.Key, value storage.Value) error {
 	return nil
 }
 
-// BatchPut adds values to the provided key in redis as a mass insertion, returning an error on failure.
-func (client *Client) BatchPut(key storage.Key, value storage.Value) error {
-	// TODO: this satisfies the storage.KeyValueStore interface, implement if needed.
-	return Error.New("BatchPut method is not implemented")
-}
-
 // List returns either a list of keys for which boltdb has values or an error.
 func (client *Client) List(first storage.Key, limit int) (storage.Keys, error) {
 	return storage.ListKeys(client, first, limit)
@@ -121,6 +115,12 @@ func (client *Client) Delete(key storage.Key) error {
 		return Error.New("delete error: %v", err)
 	}
 	return nil
+}
+
+// Sync writes data to disk
+func (client *Client) Sync() error {
+	// TODO: this satisfies the storage.KeyValueStore interface, implement if needed.
+	return Error.New("Sync not implemented")
 }
 
 // Close closes a redis client
