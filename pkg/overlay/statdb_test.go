@@ -89,13 +89,13 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 			uptimeCount        int64
 			uptimeRatio        float64
 		}{
-			{storj.NodeID{1}, 20, 20, 1.0, 20, 20, 1.0}, // good audit success
-			{storj.NodeID{2}, 5, 20, 0.25, 20, 20, 1},   // bad audit success, good uptime
-			{storj.NodeID{3}, 20, 20, 1.0, 5, 20, 0.25}, // good audit success, bad uptime
-			{storj.NodeID{4}, 0, 0, 0.0, 20, 20, 1.0},   // "bad" audit success, no audits - now considered bad
-			{storj.NodeID{5}, 20, 20, 1.0, 0, 0, 0.25},  // "bad" uptime success, no checks - now considered bad
-			{storj.NodeID{6}, 0, 1, 0.0, 5, 5, .01},     // bad audit success exactly one audit
-			{storj.NodeID{7}, 0, 20, 0.0, 20, 20, 1.0},  // bad ratios, excluded from query
+			{storj.NodeID{1}, 20, 20, 1.0, 20, 20, 1.0}, // good ratios => good
+			{storj.NodeID{2}, 5, 20, 0.25, 20, 20, 1},   // bad audit success, good uptime => bad
+			{storj.NodeID{3}, 20, 20, 1.0, 5, 20, 0.25}, // good audit success, bad uptime => bad
+			{storj.NodeID{4}, 0, 0, 0.0, 20, 20, 1.0},   // "bad" audit success, no audits => now considered bad
+			{storj.NodeID{5}, 20, 20, 1.0, 0, 0, 0.25},  // "bad" uptime success, no checks => now considered bad
+			{storj.NodeID{6}, 0, 1, 0.0, 5, 5, .01},     // bad audit success exactly one audit => bad
+			{storj.NodeID{7}, 0, 20, 0.0, 20, 20, 1.0},  // impossible math, but good ratios => good
 		} {
 			nodeStats := &overlay.NodeStats{
 				AuditSuccessRatio:  tt.auditSuccessRatio,
