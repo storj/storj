@@ -54,6 +54,8 @@ type ListItem struct {
 type KeyValueStore interface {
 	// Put adds a value to store
 	Put(Key, Value) error
+	// BatchPut adds a value to store in batches
+	BatchPut(Key, Value) error
 	// Get gets a value to store
 	Get(Key) (Value, error)
 	// GetAll gets all values from the store
