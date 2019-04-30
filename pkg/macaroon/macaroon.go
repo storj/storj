@@ -12,28 +12,29 @@ import (
 // Macaroon is a struct that determine contextual caveats and authorization
 type Macaroon struct {
 	head    []byte
-	caveats []Caveat
+	caveats [][]byte
 	tail    []byte
 }
 
-// Caveat is a struct that determine restriction
-type Caveat struct {
-	Identifier string
-}
-
 // NewUnrestricted creates Macaroon with random Head and generated Tail
-func NewUnrestricted(identifier []byte, secret []byte) *Macaroon {
-	return &Macaroon{
-		head: identifier,
-		tail: sign(secret, identifier),
+func NewUnrestricted(secret []byte) (*Macaroon, error) {
+	head, err := NewSecret()
+	if err != nil {
+		return nil, err
 	}
+	return &Macaroon{
+		head: head,
+		tail: sign(secret, head),
+	}, nil
 }
 
-// sign
 func sign(secret []byte, data []byte) []byte {
 	signer := hmac.New(sha256.New, secret)
-	// Error skipped because sha256 does not return error
-	_, _ = signer.Write(data)
+	_, err := signer.Write(data)
+	if err != nil {
+		// Error skipped because sha256 does not return error
+		panic(err)
+	}
 
 	return signer.Sum(nil)
 }
@@ -51,28 +52,36 @@ func NewSecret() (secret []byte, err error) {
 }
 
 // AddFirstPartyCaveat creates signed macaroon with appended caveat
-func (m *Macaroon) AddFirstPartyCaveat(c Caveat) (macaroon *Macaroon, err error) {
+func (m *Macaroon) AddFirstPartyCaveat(c []byte) (macaroon *Macaroon, err error) {
 	macaroon = m.Copy()
 
 	macaroon.caveats = append(macaroon.caveats, c)
-	macaroon.tail = sign(macaroon.tail, []byte(c.Identifier))
+	macaroon.tail = sign(macaroon.tail, c)
 
 	return macaroon, nil
 }
 
-// CheckUnpack reconstructs with all caveats from the secret and compares tails.
-// Returns list of Caveats if tails matches.
-func CheckUnpack(secret []byte, macaroon *Macaroon) (c []Caveat, ok bool) {
-	tail := sign(secret, macaroon.head)
-	for _, cav := range macaroon.caveats {
-		tail = sign(tail, []byte(cav.Identifier))
+// Validate reconstructs with all caveats from the secret and compares tails,
+// returning true if the tails match
+func (m *Macaroon) Validate(secret []byte) (ok bool) {
+	tail := sign(secret, m.head)
+	for _, cav := range m.caveats {
+		tail = sign(tail, cav)
 	}
 
-	if 0 == subtle.ConstantTimeCompare(tail, macaroon.tail) {
-		return nil, false
-	}
+	return subtle.ConstantTimeCompare(tail, m.tail) == 1
+}
 
-	return macaroon.Caveats(), true
+// Tails returns all ancestor tails up to and including the current tail
+func (m *Macaroon) Tails(secret []byte) [][]byte {
+	tails := make([][]byte, 0, len(m.caveats)+1)
+	tail := sign(secret, m.head)
+	tails = append(tails, tail)
+	for _, cav := range m.caveats {
+		tail = sign(tail, cav)
+		tails = append(tails, tail)
+	}
+	return tails
 }
 
 // Head returns copy of macaroon head
@@ -80,22 +89,22 @@ func (m *Macaroon) Head() (head []byte) {
 	if len(m.head) == 0 {
 		return nil
 	}
+	return append([]byte(nil), m.head...)
+}
 
-	head = make([]byte, len(m.head))
-	copy(head, m.head)
-
-	return head
+func (m *Macaroon) CaveatLen() int {
+	return len(m.caveats)
 }
 
 // Caveats returns copy of macaroon caveats
-func (m *Macaroon) Caveats() (caveats []Caveat) {
+func (m *Macaroon) Caveats() (caveats [][]byte) {
 	if len(m.caveats) == 0 {
 		return nil
 	}
-
-	caveats = make([]Caveat, len(m.caveats))
-	copy(caveats, m.caveats)
-
+	caveats = make([][]byte, 0, len(m.caveats))
+	for _, cav := range m.caveats {
+		caveats = append(caveats, append([]byte(nil), cav...))
+	}
 	return caveats
 }
 
@@ -104,11 +113,7 @@ func (m *Macaroon) Tail() (tail []byte) {
 	if len(m.tail) == 0 {
 		return nil
 	}
-
-	tail = make([]byte, len(m.tail))
-	copy(tail, m.tail)
-
-	return tail
+	return append([]byte(nil), m.tail...)
 }
 
 // Copy return copy of macaroon

@@ -6,34 +6,35 @@ package macaroon_test
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	assert "github.com/stretchr/testify/require"
 	"storj.io/storj/pkg/macaroon"
 )
 
 func TestNilMacaroon(t *testing.T) {
-	mac := macaroon.NewUnrestricted(nil, nil)
+	mac, err := macaroon.NewUnrestricted(nil)
+	assert.NoError(t, err)
 	assert.NotNil(t, mac)
-	data := macaroon.Serialize(mac)
+	data := mac.Serialize()
 	assert.NotNil(t, data)
 	assert.NotEmpty(t, data)
-	mac2, err := macaroon.Deserialize(data)
+	mac2, err := macaroon.ParseMacaroon(data)
 	assert.NoError(t, err)
 	assert.NotNil(t, mac2)
 	assert.Equal(t, mac, mac2)
 
 	t.Run("Successful add Caveat", func(t *testing.T) {
-		mac, err = mac.AddFirstPartyCaveat(macaroon.Caveat{Identifier: "cav1"})
+		mac, err = mac.AddFirstPartyCaveat([]byte("cav1"))
 		assert.NotNil(t, mac)
 		assert.NoError(t, err)
 		assert.Equal(t, len(mac.Caveats()), 1)
 	})
 
 	t.Run("Successful serialization", func(t *testing.T) {
-		data := macaroon.Serialize(mac)
+		data := mac.Serialize()
 		assert.NotNil(t, data)
 		assert.NotEmpty(t, data)
 
-		mac2, err := macaroon.Deserialize(data)
+		mac2, err := macaroon.ParseMacaroon(data)
 		assert.NotNil(t, mac2)
 		assert.NoError(t, err)
 		assert.Equal(t, mac, mac2)
@@ -41,42 +42,42 @@ func TestNilMacaroon(t *testing.T) {
 }
 
 func TestMacaroon(t *testing.T) {
-	nonce, err := macaroon.NewSecret()
-	assert.NotNil(t, nonce)
-	assert.NoError(t, err)
-	assert.Equal(t, len(nonce), 32)
-
 	secret, err := macaroon.NewSecret()
-	assert.NotNil(t, secret)
 	assert.NoError(t, err)
+	assert.NotNil(t, secret)
 	assert.Equal(t, len(secret), 32)
 
-	mac := macaroon.NewUnrestricted(nonce, secret)
+	mac, err := macaroon.NewUnrestricted(secret)
+	assert.NoError(t, err)
 	assert.NotNil(t, mac)
 
+	nonce := mac.Head()
+	assert.NotNil(t, nonce)
+	assert.Equal(t, len(nonce), 32)
+
 	t.Run("Successful add Caveat", func(t *testing.T) {
-		mac, err = mac.AddFirstPartyCaveat(macaroon.Caveat{Identifier: "cav1"})
+		mac, err = mac.AddFirstPartyCaveat([]byte("cav1"))
 		assert.NotNil(t, mac)
 		assert.NoError(t, err)
 		assert.Equal(t, len(mac.Caveats()), 1)
 	})
 
 	t.Run("Successful serialization", func(t *testing.T) {
-		data := macaroon.Serialize(mac)
+		data := mac.Serialize()
 		assert.NotNil(t, data)
 		assert.NotEmpty(t, data)
 
-		mac2, err := macaroon.Deserialize(data)
+		mac2, err := macaroon.ParseMacaroon(data)
 		assert.NotNil(t, mac2)
 		assert.NoError(t, err)
 		assert.Equal(t, mac, mac2)
 	})
 
 	t.Run("Successful Unpack", func(t *testing.T) {
-		c, ok := macaroon.CheckUnpack(secret, mac)
+		ok := mac.Validate(secret)
 		assert.True(t, ok)
+		c := mac.Caveats()
 		assert.NotNil(t, c)
 		assert.NotEmpty(t, c)
-		assert.Equal(t, c, mac.Caveats())
 	})
 }

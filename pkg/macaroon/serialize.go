@@ -24,7 +24,7 @@ type packet struct {
 }
 
 // Serialize converts macaroon to binary format
-func Serialize(m *Macaroon) (data []byte) {
+func (m *Macaroon) Serialize() (data []byte) {
 	// Start data from version int
 	data = append(data, 2)
 
@@ -39,7 +39,7 @@ func Serialize(m *Macaroon) (data []byte) {
 	for _, cav := range m.caveats {
 		data = serializePacket(data, packet{
 			fieldType: fieldIdentifier,
-			data:      []byte(cav.Identifier),
+			data:      cav,
 		})
 		data = append(data, 0)
 	}
@@ -71,8 +71,8 @@ func appendVarint(data []byte, x int) []byte {
 	return append(data, buf[:n]...)
 }
 
-// Deserialize converts binary to macaroon
-func Deserialize(data []byte) (*Macaroon, error) {
+// ParseMacaroon converts binary to macaroon
+func ParseMacaroon(data []byte) (*Macaroon, error) {
 	// skip version
 	data = data[1:]
 	// Parse Location
@@ -98,14 +98,13 @@ func Deserialize(data []byte) (*Macaroon, error) {
 		if len(section) == 0 {
 			break
 		}
-		var cav Caveat
 		if len(section) > 0 && section[0].fieldType == fieldLocation {
 			section = section[1:]
 		}
 		if len(section) == 0 || section[0].fieldType != fieldIdentifier {
 			return nil, errors.New("no Identifier in caveat")
 		}
-		cav.Identifier = string(section[0].data)
+		cav := append([]byte(nil), section[0].data...)
 		section = section[1:]
 		if len(section) == 0 {
 			// First party caveat.
