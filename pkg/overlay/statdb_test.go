@@ -78,7 +78,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		assert.Error(t, err)
 	}
 
-	{ // TestReliableAndOnline
+	{ // TestUnreliableOrOffline
 		for _, tt := range []struct {
 			nodeID             storj.NodeID
 			auditSuccessCount  int64

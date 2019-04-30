@@ -68,8 +68,7 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 
 	safeQuery := `
 		WHERE type = ? AND free_bandwidth >= ? AND free_disk >= ?
-		  AND total_audit_count < ?
-		  AND (audit_success_ratio >= ? OR total_audit_count = 0)
+		  AND total_audit_count < ? AND audit_success_ratio >= ?
 		  AND last_contact_success > ?
 		  AND last_contact_success > last_contact_failure`
 	args := append(make([]interface{}, 0, 10),
@@ -155,59 +154,9 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (*overlay.N
 	return convertDBNode(node)
 }
 
-// GetAll looks up nodes based on the ids from the overlay cache
-func (cache *overlaycache) GetAll(ctx context.Context, ids storj.NodeIDList) ([]*overlay.NodeDossier, error) {
-	infos := make([]*overlay.NodeDossier, len(ids))
-	for i, id := range ids {
-		// TODO: abort on canceled context
-		info, err := cache.Get(ctx, id)
-		if err != nil {
-			continue
-		}
-		infos[i] = info
-	}
-	return infos, nil
-}
-
-// ReliableAndOnline filters a set of nodes to reliable and online nodes, independent of new
-func (cache *overlaycache) ReliableAndOnline(ctx context.Context, c *overlay.NodeCriteria, nodeIds storj.NodeIDList) (goodNodes storj.NodeIDList, err error) {
-	if len(nodeIds) == 0 {
-		return nil, Error.New("no ids provided")
-	}
-	args := make([]interface{}, len(nodeIds))
-	for i, id := range nodeIds {
-		args[i] = id.Bytes()
-	}
-	args = append(args, c.AuditSuccessRatio, c.UptimeSuccessRatio, time.Now().Add(-overlay.OnlineWindow))
-
-	rows, err := cache.db.Query(cache.db.Rebind(`
-		SELECT id FROM nodes
-		WHERE id IN (?`+strings.Repeat(", ?", len(nodeIds)-1)+`)
-		AND (audit_success_ratio >= ? OR total_audit_count = 0) 
-		AND (uptime_ratio >= ? OR total_uptime_count = 0)
-		AND last_contact_success > ? AND last_contact_success > last_contact_failure
-	`), args...)
-
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		err = errs.Combine(err, rows.Close())
-	}()
-	for rows.Next() {
-		var id storj.NodeID
-		err = rows.Scan(&id)
-		if err != nil {
-			return nil, err
-		}
-		goodNodes = append(goodNodes, id)
-	}
-	return goodNodes, nil
-}
-
 // UnreliableOrOffline filters a set of nodes to unreliable or offlines node, independent of new
 // Note that UnreliableOrOffline will not return node ids which are not in the database at all
-func (cache *overlaycache) UnreliableOrOffline(ctx context.Context, c *overlay.NodeCriteria, nodeIds storj.NodeIDList) (goodNodes storj.NodeIDList, err error) {
+func (cache *overlaycache) UnreliableOrOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIds storj.NodeIDList) (goodNodes storj.NodeIDList, err error) {
 	if len(nodeIds) == 0 {
 		return nil, Error.New("no ids provided")
 	}
@@ -215,17 +164,13 @@ func (cache *overlaycache) UnreliableOrOffline(ctx context.Context, c *overlay.N
 	for i, id := range nodeIds {
 		args[i] = id.Bytes()
 	}
-	args = append(args, c.AuditSuccessRatio, c.UptimeSuccessRatio, time.Now().Add(-overlay.OnlineWindow))
+	args = append(args, criteria.AuditSuccessRatio, criteria.UptimeSuccessRatio, time.Now().Add(-criteria.OnlineWindow))
 
 	rows, err := cache.db.Query(cache.db.Rebind(`
 		SELECT id FROM nodes
 		WHERE id IN (?`+strings.Repeat(", ?", len(nodeIds)-1)+`)
-		AND ((audit_success_ratio < ? AND total_audit_count != 0) 
-			OR (uptime_ratio < ? AND total_uptime_count != 0)
-			OR last_contact_success <= ? OR last_contact_success <= last_contact_failure
-		)
-	`), args...)
-
+		AND ( audit_success_ratio < ? OR uptime_ratio < ? 
+			OR last_contact_success <= ? OR last_contact_success <= last_contact_failure )`), args...)
 	if err != nil {
 		return nil, err
 	}
@@ -334,10 +279,10 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node) (er
 			dbx.Node_Latency90(0),
 			dbx.Node_AuditSuccessCount(0),
 			dbx.Node_TotalAuditCount(0),
-			dbx.Node_AuditSuccessRatio(0),
+			dbx.Node_AuditSuccessRatio(1),
 			dbx.Node_UptimeSuccessCount(0),
 			dbx.Node_TotalUptimeCount(0),
-			dbx.Node_UptimeRatio(0),
+			dbx.Node_UptimeRatio(1),
 			dbx.Node_LastContactSuccess(time.Now()),
 			dbx.Node_LastContactFailure(time.Time{}),
 		)

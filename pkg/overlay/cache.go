@@ -40,11 +40,7 @@ type DB interface {
 
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
-	// GetAll looks up nodes based on the ids from the overlay cache
-	GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*NodeDossier, error)
 
-	// ReliableAndOnline filters a set of nodes to reliable and online nodes, independent of new
-	ReliableAndOnline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
 	// UnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
 	// Note that UnreliableOrOffline will not return node ids which are not in the database at all
 	UnreliableOrOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
@@ -240,17 +236,6 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 	return nodes, nil
 }
 
-// GetAll looks up the provided ids from the overlay cache
-func (cache *Cache) GetAll(ctx context.Context, ids storj.NodeIDList) (_ []*NodeDossier, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if len(ids) == 0 {
-		return nil, OverlayError.New("no ids provided")
-	}
-
-	return cache.db.GetAll(ctx, ids)
-}
-
 // UnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
 // Note that UnreliableOrOffline will not return node ids which are not in the database at all
 func (cache *Cache) UnreliableOrOffline(ctx context.Context, nodeIds storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
@@ -258,22 +243,11 @@ func (cache *Cache) UnreliableOrOffline(ctx context.Context, nodeIds storj.NodeI
 	criteria := &NodeCriteria{
 		AuditCount:         cache.preferences.AuditCount,
 		AuditSuccessRatio:  cache.preferences.AuditSuccessRatio,
+		OnlineWindow:       cache.preferences.OnlineWindow,
 		UptimeCount:        cache.preferences.UptimeCount,
 		UptimeSuccessRatio: cache.preferences.UptimeRatio,
 	}
 	return cache.db.UnreliableOrOffline(ctx, criteria, nodeIds)
-}
-
-// ReliableAndOnline filters a set of nodes to reliable and online nodes, independent of new
-func (cache *Cache) ReliableAndOnline(ctx context.Context, nodeIds storj.NodeIDList) (goodNodes storj.NodeIDList, err error) {
-	defer mon.Task()(&ctx)(&err)
-	criteria := &NodeCriteria{
-		AuditCount:         cache.preferences.AuditCount,
-		AuditSuccessRatio:  cache.preferences.AuditSuccessRatio,
-		UptimeCount:        cache.preferences.UptimeCount,
-		UptimeSuccessRatio: cache.preferences.UptimeRatio,
-	}
-	return cache.db.ReliableAndOnline(ctx, criteria, nodeIds)
 }
 
 // Put adds a node id and proto definition into the overlay cache

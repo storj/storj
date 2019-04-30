@@ -703,13 +703,6 @@ func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*ove
 	return m.db.Get(ctx, nodeID)
 }
 
-// GetAll looks up nodes based on the ids from the overlay cache
-func (m *lockedOverlayCache) GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*overlay.NodeDossier, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetAll(ctx, nodeIDs)
-}
-
 // List lists nodes starting from cursor
 func (m *lockedOverlayCache) List(ctx context.Context, cursor storj.NodeID, limit int) ([]*overlay.NodeDossier, error) {
 	m.Lock()
@@ -722,13 +715,6 @@ func (m *lockedOverlayCache) Paginate(ctx context.Context, offset int64, limit i
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Paginate(ctx, offset, limit)
-}
-
-// ReliableAndOnline filters a set of nodes to reliable and online nodes, independent of new
-func (m *lockedOverlayCache) ReliableAndOnline(ctx context.Context, a1 *overlay.NodeCriteria, a2 storj.NodeIDList) (storj.NodeIDList, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.ReliableAndOnline(ctx, a1, a2)
 }
 
 // SelectNewStorageNodes looks up nodes based on new node criteria
