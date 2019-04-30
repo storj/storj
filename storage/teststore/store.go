@@ -94,6 +94,12 @@ func (store *Client) Put(key storage.Key, value storage.Value) error {
 	return nil
 }
 
+// BatchPut adds a value to store in batches
+func (store *Client) BatchPut(key storage.Key, value storage.Value) error {
+	// TODO: this satisfies the storage.KeyValueStore interface, implement if needed.
+	return nil
+}
+
 // Get gets a value to store
 func (store *Client) Get(key storage.Key) (storage.Value, error) {
 	defer store.locked()()

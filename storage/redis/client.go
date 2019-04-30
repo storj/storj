@@ -99,6 +99,12 @@ func (client *Client) Put(key storage.Key, value storage.Value) error {
 	return nil
 }
 
+// BatchPut adds values to the provided key in redis as a mass insertion, returning an error on failure.
+func (client *Client) BatchPut(key storage.Key, value storage.Value) error {
+	// TODO: this satisfies the storage.KeyValueStore interface, implement if needed.
+	return nil
+}
+
 // List returns either a list of keys for which boltdb has values or an error.
 func (client *Client) List(first storage.Key, limit int) (storage.Keys, error) {
 	return storage.ListKeys(client, first, limit)
