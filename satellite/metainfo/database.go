@@ -87,7 +87,7 @@ const (
 
 type Object struct {
 	BucketID      uuid.UUID
-	EncryptedPath []byte
+	EncryptedPath storj.Path
 	Version       int64
 	Status        ObjectStatus
 
@@ -141,6 +141,32 @@ type ObjectList struct {
 	// Items paths are relative to Prefix
 	// To get the full path use list.Prefix + list.Items[0].Path
 	Items []*Object
+}
+
+// NextPage returns options for listing the next page
+func (opts ListOptions) NextPage(list ObjectList) ListOptions {
+	if !list.More || len(list.Items) == 0 {
+		return ListOptions{}
+	}
+
+	switch opts.Direction {
+	case storj.Before, storj.Backward:
+		return ListOptions{
+			EncryptedPrefix: opts.EncryptedPrefix,
+			EncryptedCursor: list.Items[0].EncryptedPath,
+			Direction:       storj.Before,
+			Limit:           opts.Limit,
+		}
+	case storj.After, storj.Forward:
+		return ListOptions{
+			EncryptedPrefix: opts.EncryptedPrefix,
+			EncryptedCursor: list.Items[len(list.Items)-1].EncryptedPath,
+			Direction:       storj.After,
+			Limit:           opts.Limit,
+		}
+	}
+
+	return ListOptions{}
 }
 
 // Objects interface for managing objects

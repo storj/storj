@@ -34,15 +34,15 @@ func (objects *objects) Commit(ctx context.Context, bucket uuid.UUID, encryptedP
 func (objects *objects) Get(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version uint32) (*metainfo.Object, error) {
 	return nil, nil
 }
-func (objects *objects) List(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version uint32) ([]*metainfo.Object, error) {
-	return nil, nil
+func (objects *objects) List(ctx context.Context, bucket uuid.UUID, opts metainfo.ListOptions) (metainfo.ObjectList, error) {
+	return metainfo.ObjectList{}, nil
 }
 func (objects *objects) Delete(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version uint32) error {
 	return nil
 }
 
-func (objects *objects) ListPartial(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version uint32) ([]*metainfo.Object, error) {
-	return nil, nil
+func (objects *objects) ListPartial(ctx context.Context, bucket uuid.UUID, opts metainfo.ListOptions) (metainfo.ObjectList, error) {
+	return metainfo.ObjectList{}, nil
 }
 func (objects *objects) DeletePartial(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version uint32) error {
 	return nil
