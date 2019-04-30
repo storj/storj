@@ -36,6 +36,7 @@ protos/google/*
 
 *.coverprofile
 *.log
+*~*
 
 /release/
 *.swp
@@ -49,5 +50,3 @@ small-upload-testfile
 small-download-testfile
 /bin
 resource.syso
-
-mobile-out
