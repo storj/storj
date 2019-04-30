@@ -210,7 +210,7 @@ func bucketFromDBX(bucket *dbx.Bucket) (*metainfo.Bucket, error) {
 		PathCipher: storj.CipherSuite(bucket.PathCipher),
 
 		AttributionID: attributionID,
-		CreatedAt:     bucket.CreatedAt,
+		CreatedAt:     bucket.CreatedAt.UTC(),
 
 		DefaultSegmentSize: int64(bucket.DefaultSegmentSize),
 		DefaultEncryption: storj.EncryptionParameters{
