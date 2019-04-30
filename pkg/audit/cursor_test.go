@@ -5,6 +5,7 @@ package audit_test
 
 import (
 	"crypto/rand"
+	"fmt"
 	"math"
 	"math/big"
 	"reflect"
@@ -51,6 +52,25 @@ func TestAuditSegment(t *testing.T) {
 					}
 				})
 			}
+
+			t.Run("more boolean", func(t *testing.T) {
+				numPointers := 991
+				for i := 0; i < numPointers; i++ {
+					path := fmt.Sprintf("/this/is/a/path/%d", i)
+					pointer := makePointer(path, &timestamp.Timestamp{Seconds: time.Now().Unix() + 3000})
+					require.NoError(t, metainfo.Put(path, pointer))
+				}
+
+				stripe, more, err := cursor.NextStripe(ctx)
+				require.NoError(t, err)
+				require.NotNil(t, stripe)
+				require.True(t, more)
+
+				stripe, more, err = cursor.NextStripe(ctx)
+				require.NoError(t, err)
+				require.NotNil(t, stripe)
+				require.False(t, more)
+			})
 		})
 
 		// test to see how random paths are
