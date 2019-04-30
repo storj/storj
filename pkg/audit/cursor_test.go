@@ -42,7 +42,7 @@ func TestAuditSegment(t *testing.T) {
 		t.Run("NextStripe", func(t *testing.T) {
 			for _, tt := range tests {
 				t.Run(tt.bm, func(t *testing.T) {
-					stripe, err := cursor.NextStripe(ctx)
+					stripe, _, err := cursor.NextStripe(ctx)
 					if err != nil {
 						require.Error(t, err)
 						require.Nil(t, stripe)
@@ -124,7 +124,7 @@ func TestDeleteExpired(t *testing.T) {
 		require.Len(t, list, 10)
 		// make sure an error and no pointer is returned
 		t.Run("NextStripe", func(t *testing.T) {
-			stripe, err := cursor.NextStripe(ctx)
+			stripe, _, err := cursor.NextStripe(ctx)
 			require.Error(t, err)
 			require.Nil(t, stripe)
 		})
