@@ -97,7 +97,7 @@ func (store *Client) Put(key storage.Key, value storage.Value) error {
 // BatchPut adds a value to store in batches
 func (store *Client) BatchPut(key storage.Key, value storage.Value) error {
 	// TODO: this satisfies the storage.KeyValueStore interface, implement if needed.
-	return nil
+	return errors.New("BatchPut method is not implemented")
 }
 
 // Get gets a value to store

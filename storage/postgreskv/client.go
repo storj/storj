@@ -49,7 +49,7 @@ func (client *Client) Put(key storage.Key, value storage.Value) error {
 // BatchPut sets the value for the provided key in batches.
 func (client *Client) BatchPut(key storage.Key, value storage.Value) error {
 	// TODO: this satisfies the storage.KeyValueStore interface, implement if needed.
-	return nil
+	return Error.New("BatchPut method is not implemented")
 }
 
 // PutPath sets the value for the provided key (in the given bucket).
