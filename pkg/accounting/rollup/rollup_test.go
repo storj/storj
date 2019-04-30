@@ -14,7 +14,6 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
@@ -37,7 +36,7 @@ func TestRollupNoDeletes(t *testing.T) {
 			start := timestamp
 
 			for i := 0; i < days; i++ {
-				err := planet.Satellites[0].DB.Accounting().SaveAtRestRaw(ctx, timestamp, timestamp, testData[i].nodeData)
+				err := planet.Satellites[0].DB.StoragenodeAccounting().SaveTallies(ctx, timestamp, timestamp, testData[i].nodeData)
 				require.NoError(t, err)
 				err = saveBW(ctx, planet, testData[i].bwTotals, timestamp)
 				require.NoError(t, err)
@@ -53,7 +52,7 @@ func TestRollupNoDeletes(t *testing.T) {
 				start = time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, start.Location())
 				end = time.Date(end.Year(), end.Month(), end.Day(), 0, 0, 0, 0, end.Location())
 
-				rows, err := planet.Satellites[0].DB.Accounting().QueryPaymentInfo(ctx, start, end)
+				rows, err := planet.Satellites[0].DB.StoragenodeAccounting().QueryPaymentInfo(ctx, start, end)
 				require.NoError(t, err)
 				if i == 0 { // we need at least two days for rollup to work
 					assert.Equal(t, 0, len(rows))
@@ -74,7 +73,7 @@ func TestRollupNoDeletes(t *testing.T) {
 					assert.NotEmpty(t, r.Wallet)
 				}
 			}
-			raw, err := planet.Satellites[0].DB.Accounting().GetRaw(ctx)
+			raw, err := planet.Satellites[0].DB.StoragenodeAccounting().GetTallies(ctx)
 			require.NoError(t, err)
 			assert.Equal(t, days*len(planet.StorageNodes), len(raw))
 		})
@@ -97,7 +96,7 @@ func TestRollupDeletes(t *testing.T) {
 			start := timestamp
 
 			for i := 0; i < days; i++ {
-				err := planet.Satellites[0].DB.Accounting().SaveAtRestRaw(ctx, timestamp, timestamp, testData[i].nodeData)
+				err := planet.Satellites[0].DB.StoragenodeAccounting().SaveTallies(ctx, timestamp, timestamp, testData[i].nodeData)
 				require.NoError(t, err)
 				err = saveBW(ctx, planet, testData[i].bwTotals, timestamp)
 				require.NoError(t, err)
@@ -106,15 +105,12 @@ func TestRollupDeletes(t *testing.T) {
 				require.NoError(t, err)
 
 				// Assert that RollupStorage deleted all raws except for today's
-				raw, err := planet.Satellites[0].DB.Accounting().GetRaw(ctx)
+				raw, err := planet.Satellites[0].DB.StoragenodeAccounting().GetTallies(ctx)
 				require.NoError(t, err)
 				for _, r := range raw {
 					assert.Equal(t, r.IntervalEndTime.UTC().Truncate(time.Second), timestamp.Truncate(time.Second))
-					if r.DataType == accounting.AtRest {
-						assert.Equal(t, testData[i].nodeData[r.NodeID], r.DataTotal)
-					} else {
-						assert.Equal(t, testData[i].bwTotals[r.NodeID][r.DataType], int64(r.DataTotal))
-					}
+					assert.Equal(t, testData[i].nodeData[r.NodeID], r.DataTotal)
+
 				}
 
 				// Advance time by 24 hours
@@ -125,7 +121,7 @@ func TestRollupDeletes(t *testing.T) {
 				start = time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, start.Location())
 				end = time.Date(end.Year(), end.Month(), end.Day(), 0, 0, 0, 0, end.Location())
 
-				rows, err := planet.Satellites[0].DB.Accounting().QueryPaymentInfo(ctx, start, end)
+				rows, err := planet.Satellites[0].DB.StoragenodeAccounting().QueryPaymentInfo(ctx, start, end)
 				require.NoError(t, err)
 				if i == 0 { // we need at least two days for rollup to work
 					assert.Equal(t, 0, len(rows))

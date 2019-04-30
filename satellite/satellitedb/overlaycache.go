@@ -154,8 +154,7 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (*overlay.N
 	return convertDBNode(node)
 }
 
-// KnownUnreliableOrOffline filters a set of nodes to unreliable or offlines node, independent of new
-// Note that KnownUnreliableOrOffline will not return node ids which are not in the database at all
+// KnownUnreliableOrOffline filters a set of nodes to unreliable or offlines node, independent of new. Note that KnownUnreliableOrOffline will not return node ids which are not in the database at all
 func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIds storj.NodeIDList) (goodNodes storj.NodeIDList, err error) {
 	if len(nodeIds) == 0 {
 		return nil, Error.New("no ids provided")

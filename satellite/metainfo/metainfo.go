@@ -43,26 +43,28 @@ type APIKeys interface {
 
 // Endpoint metainfo endpoint
 type Endpoint struct {
-	log           *zap.Logger
-	metainfo      *Service
-	orders        *orders.Service
-	cache         *overlay.Cache
-	apiKeys       APIKeys
-	accountingDB  accounting.DB
-	maxAlphaUsage memory.Size
+	log                     *zap.Logger
+	metainfo                *Service
+	orders                  *orders.Service
+	cache                   *overlay.Cache
+	apiKeys                 APIKeys
+	storagenodeAccountingDB accounting.StoragenodeAccounting
+	projectAccountingDB     accounting.ProjectAccounting
+	maxAlphaUsage           memory.Size
 }
 
 // NewEndpoint creates new metainfo endpoint instance
-func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, apiKeys APIKeys, acctDB accounting.DB, maxAlphaUsage memory.Size) *Endpoint {
+func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, apiKeys APIKeys, sdb accounting.StoragenodeAccounting, pdb accounting.ProjectAccounting, maxAlphaUsage memory.Size) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
-		log:           log,
-		metainfo:      metainfo,
-		orders:        orders,
-		cache:         cache,
-		apiKeys:       apiKeys,
-		accountingDB:  acctDB,
-		maxAlphaUsage: maxAlphaUsage,
+		log:                     log,
+		metainfo:                metainfo,
+		orders:                  orders,
+		cache:                   cache,
+		apiKeys:                 apiKeys,
+		storagenodeAccountingDB: sdb,
+		projectAccountingDB:     pdb,
+		maxAlphaUsage:           maxAlphaUsage,
 	}
 }
 
@@ -145,9 +147,9 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 	// TODO: remove this code once we no longer need usage limiting for alpha release
 	// Ref: https://storjlabs.atlassian.net/browse/V3-1274
 	bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
-	inlineTotal, remoteTotal, err := endpoint.accountingDB.ProjectStorageTotals(ctx, keyInfo.ProjectID)
+	inlineTotal, remoteTotal, err := endpoint.projectAccountingDB.GetStorageTotals(ctx, keyInfo.ProjectID)
 	if err != nil {
-		endpoint.log.Error("retrieving ProjectStorageTotals", zap.Error(err))
+		endpoint.log.Error("retrieving GetStorageTotals", zap.Error(err))
 	}
 	exceeded, resource := accounting.ExceedsAlphaUsage(0, inlineTotal, remoteTotal, endpoint.maxAlphaUsage)
 	if exceeded {
@@ -258,7 +260,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	// Ref: https://storjlabs.atlassian.net/browse/V3-1274
 	bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
 	from := time.Now().AddDate(0, 0, -accounting.AverageDaysInMonth) // past 30 days
-	bandwidthTotal, err := endpoint.accountingDB.ProjectAllocatedBandwidthTotal(ctx, bucketID, from)
+	bandwidthTotal, err := endpoint.projectAccountingDB.GetAllocatedBandwidthTotal(ctx, bucketID, from)
 	if err != nil {
 		endpoint.log.Error("retrieving ProjectBandwidthTotal", zap.Error(err))
 	}

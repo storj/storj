@@ -17,7 +17,7 @@ import (
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
-func TestSaveBucketTallies(t *testing.T) {
+func TestSaveTallies(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
@@ -30,8 +30,8 @@ func TestSaveBucketTallies(t *testing.T) {
 
 		// Execute test:  retrieve the save tallies and confirm they contains the expected data
 		intervalStart := time.Now()
-		accountingDB := db.Accounting()
-		actualTallies, err := accountingDB.SaveBucketTallies(ctx, intervalStart, bucketTallies)
+		pdb := db.ProjectAccounting()
+		actualTallies, err := pdb.SaveTallies(ctx, intervalStart, bucketTallies)
 		require.NoError(t, err)
 		for _, tally := range actualTallies {
 			require.Contains(t, expectedTallies, tally)

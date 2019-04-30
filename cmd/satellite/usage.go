@@ -29,7 +29,7 @@ func generateCSV(ctx context.Context, start time.Time, end time.Time, output io.
 		err = errs.Combine(err, db.Close())
 	}()
 
-	rows, err := db.Accounting().QueryPaymentInfo(ctx, start, end)
+	rows, err := db.StoragenodeAccounting().QueryPaymentInfo(ctx, start, end)
 	if err != nil {
 		return err
 	}

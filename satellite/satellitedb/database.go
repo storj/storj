@@ -114,9 +114,14 @@ func (db *DB) RepairQueue() queue.RepairQueue {
 	return &repairQueue{db: db.db}
 }
 
-// Accounting returns database for tracking bandwidth agreements over time
-func (db *DB) Accounting() accounting.DB {
-	return &accountingDB{db: db.db}
+// StoragenodeAccounting returns database for tracking storagenode usage
+func (db *DB) StoragenodeAccounting() accounting.StoragenodeAccounting {
+	return &StoragenodeAccounting{db: db.db}
+}
+
+// ProjectAccounting returns database for tracking project data use
+func (db *DB) ProjectAccounting() accounting.ProjectAccounting {
+	return &ProjectAccounting{db: db.db}
 }
 
 // Irreparable returns database for storing segments that failed repair
