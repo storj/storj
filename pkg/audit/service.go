@@ -75,11 +75,12 @@ func (service *Service) Close() error {
 func (service *Service) process(ctx context.Context) error {
 	var stripe *Stripe
 	for {
-		stripe, more, err := service.Cursor.NextStripe(ctx)
+		s, more, err := service.Cursor.NextStripe(ctx)
 		if err != nil {
 			return err
 		}
-		if stripe != nil {
+		if s != nil {
+			stripe = s
 			break
 		}
 		if !more {
