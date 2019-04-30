@@ -92,6 +92,7 @@ func (m *Macaroon) Head() (head []byte) {
 	return append([]byte(nil), m.head...)
 }
 
+// CaveatLen returns the number of caveats this macaroon has
 func (m *Macaroon) CaveatLen() int {
 	return len(m.caveats)
 }
