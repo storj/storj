@@ -232,7 +232,7 @@ binaries: ${BINARIES} ## Build bootstrap, certificates, gateway, identity, inspe
 
 .PHONY: libuplink
 libuplink:
-	go generate lib/uplink/ext/apikey.go
+	go generate lib/uplink/ext/uplink.go
 
 ##@ Deploy
 

@@ -4,16 +4,18 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct APIKey {
+typedef __SIZE_TYPE__ GoUintptr;
+
+struct APIKey {
     const char *key;
 };
 
-typedef struct TLS {
+struct TLS {
     bool SkipPeerCAWhitelist;
     char* PeerCAWhitelistPath;
 };
 
-typedef struct Volatile {
+struct Volatile {
     struct TLS tls;
     uint8_t IdentityVersion;
     uint32_t* PeerIDVersion;
@@ -21,6 +23,11 @@ typedef struct Volatile {
     uint64_t MaxMemory;
 };
 
-typedef struct Config {
+struct Config {
     struct Volatile volatile_;
+};
+
+struct Uplink {
+    GoUintptr GoUplink;
+    struct Config *config;
 };

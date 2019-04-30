@@ -1,21 +1,12 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// +build ignore
-
 package main
 
-//go:generate go build -o uplink-cgo-common.so -buildmode=c-shared apikey.go
-//go:generate swig -go -intgosize 64 -module main -o uplink.c uplink-cgo.h
-
-// #cgo CFLAGS: -g -Wall
+// #cgo CFLAGS: -ggdb -Wall
 // #include <stdlib.h>
 // #include "uplink.h"
-import (
-	"C"
-	// "storj.io/storj/lib/uplink"
-)
-
+import "C"
 
 //export ParseAPIKey
 // ParseAPIKey parses an API Key
@@ -33,6 +24,7 @@ func Serialize(key C.struct_APIKey) *C.char {
 	return key.key
 }
 
-func main() {
+//export TestMe
+func TestMe() {
 
 }
