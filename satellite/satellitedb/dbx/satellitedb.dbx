@@ -376,19 +376,19 @@ model object (
 	field bucket_id      bucket.id cascade // uuid, do we want this to be cascading, might end up being slow?
 	field encrypted_path blob
 	field version        int
+	field status         int // byte = partial, commiting, comitted, deleting
 
-	field stream_id      blob
+	field stream_id           blob
+	field encrypted_metadata  blob
 
-	field status         int        // byte = partial, commiting, comitted, deleting
+	field total_size          int64
+	field inline_size         int64
+	field remote_size         int64
+
 	field created_at     utimestamp // should this be autoinsert?, do we need this?
 	field expires_at     utimestamp
 
 	field fixed_segment_size         int // -1 when variable due to multipart upload
-
-	field total_size                 int
-	field total_inline_size          int // len(inline_data) + len(encrypted_metadata)
-
-	field encrypted_metadata         blob
 
 	field encryption_cipher_suite    int // byte
 	field encryption_block_size      int // byte
@@ -412,30 +412,35 @@ read one (
 	where object.bucket_id = ?
 	where object.encrypted_path = ?
 	where object.version = ?
+	where segment.status = ?
 )
 
 read limitoffset (
 	select object
 	where object.bucket_id = ?
 	where object.encrypted_path <= ?
+	where segment.status = ?
 	orderby asc object.encrypted_path
 )
 read limitoffset (
 	select object
 	where object.bucket_id = ?
 	where object.encrypted_path < ?
+	where segment.status = ?
 	orderby asc object.encrypted_path
 )
 read limitoffset (
 	select object
 	where object.bucket_id = ?
 	where object.encrypted_path > ?
+	where segment.status = ?
 	orderby asc object.encrypted_path
 )
 read limitoffset (
 	select object
 	where object.bucket_id = ?
 	where object.encrypted_path >= ?
+	where segment.status = ?
 	orderby asc object.encrypted_path
 )
 
