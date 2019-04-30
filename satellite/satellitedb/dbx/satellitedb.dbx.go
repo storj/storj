@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -4110,10 +4109,54 @@ func __sqlbundle_Render(dialect __sqlbundle_Dialect, sql __sqlbundle_SQL, ops ..
 	return dialect.Rebind(out)
 }
 
-var __sqlbundle_reSpace = regexp.MustCompile(`\s+`)
+func __sqlbundle_flattenSQL(x string) string {
+	// trim whitespace from beginning and end
+	s, e := 0, len(x)-1
+	for s < len(x) && (x[s] == ' ' || x[s] == '\t' || x[s] == '\n') {
+		s++
+	}
+	for s <= e && (x[e] == ' ' || x[e] == '\t' || x[e] == '\n') {
+		e--
+	}
+	if s > e {
+		return ""
+	}
+	x = x[s : e+1]
 
-func __sqlbundle_flattenSQL(s string) string {
-	return strings.TrimSpace(__sqlbundle_reSpace.ReplaceAllString(s, " "))
+	// check for whitespace that needs fixing
+	wasSpace := false
+	for i := 0; i < len(x); i++ {
+		r := x[i]
+		justSpace := r == ' '
+		if (wasSpace && justSpace) || r == '\t' || r == '\n' {
+			// whitespace detected, start writing a new string
+			var result strings.Builder
+			result.Grow(len(x))
+			if wasSpace {
+				result.WriteString(x[:i-1])
+			} else {
+				result.WriteString(x[:i])
+			}
+			for p := i; p < len(x); p++ {
+				for p < len(x) && (x[p] == ' ' || x[p] == '\t' || x[p] == '\n') {
+					p++
+				}
+				result.WriteByte(' ')
+
+				start := p
+				for p < len(x) && !(x[p] == ' ' || x[p] == '\t' || x[p] == '\n') {
+					p++
+				}
+				result.WriteString(x[start:p])
+			}
+
+			return result.String()
+		}
+		wasSpace = justSpace
+	}
+
+	// no problematic whitespace found
+	return x
 }
 
 // this type is specially named to match up with the name returned by the
@@ -4192,6 +4235,8 @@ type __sqlbundle_Condition struct {
 func (*__sqlbundle_Condition) private() {}
 
 func (c *__sqlbundle_Condition) Render() string {
+	// TODO(jeff): maybe check if we can use placeholders instead of the
+	// literal null: this would make the templates easier.
 
 	switch {
 	case c.Equal && c.Null:
