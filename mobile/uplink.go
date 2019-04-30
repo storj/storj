@@ -21,9 +21,12 @@ func NewUplink(config *Config) (*Uplink, error) {
 
 	cfg := &libuplink.Config{}
 	cfg.Volatile.UseIdentity = nil // TODO
-	libuplink.NewUplink(scope.ctx, cfg)
-
-	return &Uplink{scope, nil}, nil
+	cfg.Volatile.TLS.SkipPeerCAWhitelist = true
+	lib, err := libuplink.NewUplink(scope.ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &Uplink{scope, lib}, nil
 }
 
 func (uplink *Uplink) Close() error {
@@ -44,6 +47,7 @@ func (uplink *Uplink) OpenProject(satellite string, apikey string, options *Proj
 	scope := uplink.scope.child()
 
 	opts := libuplink.ProjectOptions{}
+	opts.Volatile.EncryptionKey = &storj.Key{}
 	copy(opts.Volatile.EncryptionKey[:], options.EncryptionKey) // TODO: error check
 
 	key, err := libuplink.ParseAPIKey(apikey)

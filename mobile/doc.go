@@ -5,4 +5,18 @@
 //
 // build loop for development
 //    watchrun gobind -lang=java -outdir=../mobile-out storj.io/storj/mobile == pt skipped ../mobile-out
+//
+// gomobile bind -target android
+//
+// To use:
+//    gomobile bind -target android
+//
+// Create a new project in AndroidStudio
+//
+// Copy mobile-source.jar and mobile.aar into `AndroidStudioProjects\MyApplication\app\libs\`
+//
+// Modify build.gradle to also find *.aar files:
+//   implementation fileTree(dir: 'libs', include: ['*.jar', '*.aar'])
+//
+// See example Java file
 package mobile
