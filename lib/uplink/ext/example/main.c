@@ -15,13 +15,13 @@ int main() {
 //    free(val);
 //    TestMe()
 
-    struct Config uplinkConfig;
-    uplinkConfig.volatile_.IdentityVersion = 1;
-    uplinkConfig.volatile_.tls.SkipPeerCAWhitelist = true;
+    struct Config uplinkConfig; // = {{{true}, 3}};
+    uplinkConfig.Volatile.IdentityVersion = 2;
+    uplinkConfig.Volatile.tls.SkipPeerCAWhitelist = true;
 
     char *err = "";
-    struct Uplink uplink;
-    struct Config cfg = NewUplink(uplinkConfig, err);
+//    struct Uplink uplink;
+    struct Uplink uplink = NewUplink(uplinkConfig, err);
 
     printf("testing 123\n");
     if (err == "") {
@@ -29,10 +29,13 @@ int main() {
     }
 
 
-    printf("%d\n", uplinkConfig.volatile_.IdentityVersion);
+//    printf("%d\n", uplinkConfig.volatile_.IdentityVersion);
+    printf("%d\n", uplink.Config.Volatile.IdentityVersion);
 //    printf("%s\n", cfg.volatile_.tls);
-    printf("%p\n", uplinkConfig.volatile_.tls.SkipPeerCAWhitelist);
-    printf("%p\n", cfg.volatile_.tls.SkipPeerCAWhitelist);
+//    printf("%s\n", uplink.config.volatile_.tls);
+//    printf("%s\n", uplink.config.volatile_.tls.SkipPeerCAWhitelist);
+    printf("%s\n", uplinkConfig.Volatile.tls.SkipPeerCAWhitelist);
+//    printf("%p\n", cfg.volatile_.tls.SkipPeerCAWhitelist);
 //    printf("%p\n", uplink);
 //    printf("%p\n", uplink.config);
 //    printf("%p\n", uplink.config->volatile_);

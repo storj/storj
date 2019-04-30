@@ -3,9 +3,12 @@
 
 package main
 
-// #cgo CFLAGS: -ggdb -Wall
+// #cgo CFLAGS: -g -Wall
 // #include <stdlib.h>
-// #include "uplink.h"
+// #ifndef UPLINK_HEADERS
+//   #define UPLINK_HEADERS
+//   #include "uplink.h"
+// #endif
 import "C"
 
 //export ParseAPIKey

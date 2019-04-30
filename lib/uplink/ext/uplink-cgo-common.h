@@ -20,12 +20,19 @@ typedef struct { const char *p; ptrdiff_t n; } _GoString_;
 #line 6 "apikey.go"
 
  #include <stdlib.h>
- #include "uplink.h"
+ #ifndef UPLINK_HEADERS
+   #define UPLINK_HEADERS
+   #include "uplink.h"
+ #endif
 
 #line 1 "cgo-generated-wrapper"
 
 #line 8 "uplink.go"
 
+ #ifndef UPLINK_HEADERS
+   #define UPLINK_HEADERS
+   #include "uplink.h"
+ #endif
 
 #line 1 "cgo-generated-wrapper"
 
@@ -86,7 +93,7 @@ extern char* Serialize(struct APIKey p0);
 
 extern void TestMe();
 
-extern struct Config NewUplink(struct Config p0, char* p1);
+extern struct Uplink NewUplink(struct Config p0, char* p1);
 
 #ifdef __cplusplus
 }

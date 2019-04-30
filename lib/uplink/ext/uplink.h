@@ -24,10 +24,10 @@ struct Volatile {
 };
 
 struct Config {
-    struct Volatile volatile_;
+    struct Volatile Volatile;
 };
 
 struct Uplink {
     GoUintptr GoUplink;
-    struct Config *config;
+    struct Config Config;
 };
