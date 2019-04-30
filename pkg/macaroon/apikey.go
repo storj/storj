@@ -16,6 +16,7 @@ var (
 	ErrFormat       = errs.Class("api key format error")
 	ErrInvalid      = errs.Class("api key invalid error")
 	ErrUnauthorized = errs.Class("api key unauthorized error")
+	ErrRevoked      = errs.Class("api key revocation error")
 )
 
 // APIKey implements a Macaroon-backed Storj-v3 API key.
@@ -74,11 +75,11 @@ func (a *APIKey) Check(secret []byte, action Action, revoked [][]byte) error {
 			revokedMap[string(revokedID)] = struct{}{}
 		}
 		if _, exists := revokedMap[string(a.mac.Head())]; exists {
-			return ErrUnauthorized.New("macaroon head revoked")
+			return ErrRevoked.New("macaroon head revoked")
 		}
 		for _, tail := range a.mac.Tails(secret) {
 			if _, exists := revokedMap[string(tail)]; exists {
-				return ErrUnauthorized.New("macaroon tail revoked")
+				return ErrRevoked.New("macaroon tail revoked")
 			}
 		}
 	}
