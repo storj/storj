@@ -368,6 +368,114 @@ model attribution (
 	field description text
 )
 
+//--- metainfo objects ---//
+
+model object (
+	key   bucket_id encrypted_path version
+
+	field bucket_id      bucket.id cascade // uuid, do we want this to be cascading, might end up being slow?
+	field encrypted_path blob
+	field version        int
+
+	field stream_id      blob
+
+	field status         int        // byte = partial, commiting, comitted, deleting
+	field created_at     utimestamp // should this be autoinsert?, do we need this?
+	field expires_at     utimestamp
+
+	field fixed_segment_size         int // -1 when variable due to multipart upload
+
+	field total_size                 int
+	field total_inline_size          int
+
+	field encrypted_metadata         blob
+
+	field encryption_cipher_suite    int // byte
+	field encryption_block_size      int // byte
+
+	field redundancy_algorithm       int // byte
+	field redundancy_share_size      int
+	field redundancy_required_shares int // byte
+	field redundancy_repair_shares   int // byte
+	field redundancy_optimal_shares  int // byte
+	field redundancy_total_shares    int // byte
+)
+
+create object ()
+delete object ( 
+	where object.bucket_id = ?
+	where object.encrypted_path = ?
+	where object.version = ?
+)
+read one (
+	select object
+	where object.bucket_id = ?
+	where object.encrypted_path = ?
+	where object.version = ?
+)
+
+read limitoffset (
+	select object
+	where object.bucket_id = ?
+	where object.encrypted_path <= ?
+	orderby asc object.encrypted_path
+)
+read limitoffset (
+	select object
+	where object.bucket_id = ?
+	where object.encrypted_path < ?
+	orderby asc object.encrypted_path
+)
+read limitoffset (
+	select object
+	where object.bucket_id = ?
+	where object.encrypted_path > ?
+	orderby asc object.encrypted_path
+)
+read limitoffset (
+	select object
+	where object.bucket_id = ?
+	where object.encrypted_path >= ?
+	orderby asc object.encrypted_path
+)
+
+//--- metainfo segments ---//
+
+model segment (
+	key   stream_id segment_index
+
+	field stream_id      object.stream_id cascade // uuid, do we want this to be cascading, might end up being slow?
+	field segment_index  uint64
+
+	field root_piece_id       blob
+	field encrypted_key_nonce blob
+	field encrypted_key       blob
+
+	field segment_checksum    uint64
+	field segment_size        int64
+
+	field encrypted_inline_data   blob
+	field nodes                   blob
+)
+
+create segment ()
+delete segment (
+	where segment.stream_id = ?
+	where segment.segment_index = ?
+	where segment.version = ?
+)
+update segment (
+	where segment.stream_id = ?
+	where segment.segment_index = ?
+	where segment.version = ?
+)
+read limitoffset (
+	select segment
+	where segment.stream_id = ?
+	where segment.segment_index <= ?
+	orderby asc segment.segment_index
+)
+
 //-----bucket_usage----//
 
 model bucket_usage (
