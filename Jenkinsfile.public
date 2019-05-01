@@ -33,7 +33,7 @@ pipeline {
                         sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint'
                         sh 'protolock status'
                         sh 'bash ./scripts/check-dbx-version.sh'
-                        sh 'golangci-lint -j=4 run --build-tags race'
+                        sh 'golangci-lint -j=4 run'
                         sh 'go run scripts/check-mod-tidy.go -mod .build/go.mod.orig'
                     }
                 }

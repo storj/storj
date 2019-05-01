@@ -46,7 +46,7 @@ func main() {
 	}
 
 	roots, err := packages.Load(&packages.Config{
-		Mode:       packages.LoadImports,
+		Mode:       packages.LoadAllSyntax,
 		Env:        os.Environ(),
 		BuildFlags: buildFlags,
 	}, pkgNames...)
