@@ -14,6 +14,7 @@ import (
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/uplink"
 )
 
 var (
@@ -44,7 +45,7 @@ func list(cmd *cobra.Command, args []string) error {
 
 	var access libuplink.EncryptionAccess
 	access.Key, err = cfg.Enc.LoadKey()
-	if err != nil {
+	if err != nil && err != uplink.ErrKeyFilepathEmpty {
 		return err
 	}
 

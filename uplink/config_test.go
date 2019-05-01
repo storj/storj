@@ -80,8 +80,8 @@ func TestEncryptionConfig_LoadKey(t *testing.T) {
 
 		_, err := encCfg.LoadKey()
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "KeyFilepath is empty")
 		assert.True(t, Error.Has(err), "err is not of %q class", Error)
+		assert.Equal(t, ErrKeyFilepathEmpty, err, "unexpected error value")
 	})
 
 	t.Run("error: file not found", func(t *testing.T) {

@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/internal/fpath"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/uplink"
 )
 
 var (
@@ -87,7 +88,7 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 
 	var access libuplink.EncryptionAccess
 	access.Key, err = cfg.Enc.LoadKey()
-	if err != nil {
+	if err != nil && err != uplink.ErrKeyFilepathEmpty {
 		return err
 	}
 
@@ -143,7 +144,7 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 		err    error
 	)
 	access.Key, err = cfg.Enc.LoadKey()
-	if err != nil {
+	if err != nil && err != uplink.ErrKeyFilepathEmpty {
 		return err
 	}
 
@@ -225,7 +226,7 @@ func copyObject(ctx context.Context, src fpath.FPath, dst fpath.FPath) error {
 		err    error
 	)
 	access.Key, err = cfg.Enc.LoadKey()
-	if err != nil {
+	if err != nil && err != uplink.ErrKeyFilepathEmpty {
 		return err
 	}
 
