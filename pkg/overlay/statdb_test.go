@@ -6,6 +6,7 @@ package overlay_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -76,6 +77,62 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 
 		_, err := cache.Get(ctx, noNodeID)
 		assert.Error(t, err)
+	}
+
+	{ // TestKnownUnreliableOrOffline
+		for _, tt := range []struct {
+			nodeID             storj.NodeID
+			auditSuccessCount  int64
+			auditCount         int64
+			auditSuccessRatio  float64
+			uptimeSuccessCount int64
+			uptimeCount        int64
+			uptimeRatio        float64
+		}{
+			{storj.NodeID{1}, 20, 20, 1.0, 20, 20, 1.0}, // good ratios => good
+			{storj.NodeID{2}, 5, 20, 0.25, 20, 20, 1},   // bad audit success, good uptime => bad
+			{storj.NodeID{3}, 20, 20, 1.0, 5, 20, 0.25}, // good audit success, bad uptime => bad
+			{storj.NodeID{4}, 0, 0, 0.0, 20, 20, 1.0},   // "bad" audit success, no audits => now considered bad
+			{storj.NodeID{5}, 20, 20, 1.0, 0, 0, 0.25},  // "bad" uptime success, no checks => now considered bad
+			{storj.NodeID{6}, 0, 1, 0.0, 5, 5, .01},     // bad audit success exactly one audit => bad
+			{storj.NodeID{7}, 0, 20, 0.0, 20, 20, 1.0},  // impossible math, but good ratios => good
+		} {
+			nodeStats := &overlay.NodeStats{
+				AuditSuccessRatio:  tt.auditSuccessRatio,
+				UptimeRatio:        tt.uptimeRatio,
+				AuditCount:         tt.auditCount,
+				AuditSuccessCount:  tt.auditSuccessCount,
+				UptimeCount:        tt.uptimeCount,
+				UptimeSuccessCount: tt.uptimeSuccessCount,
+			}
+
+			err := cache.UpdateAddress(ctx, &pb.Node{Id: tt.nodeID})
+			require.NoError(t, err)
+
+			_, err = cache.CreateStats(ctx, tt.nodeID, nodeStats)
+			require.NoError(t, err)
+		}
+
+		nodeIds := storj.NodeIDList{
+			storj.NodeID{1}, storj.NodeID{2},
+			storj.NodeID{3}, storj.NodeID{4},
+			storj.NodeID{5}, storj.NodeID{6},
+		}
+		criteria := &overlay.NodeCriteria{
+			AuditSuccessRatio:  0.5,
+			UptimeSuccessRatio: 0.5,
+			OnlineWindow:       time.Hour,
+		}
+
+		invalid, err := cache.KnownUnreliableOrOffline(ctx, criteria, nodeIds)
+		require.NoError(t, err)
+
+		assert.Contains(t, invalid, storj.NodeID{2})
+		assert.Contains(t, invalid, storj.NodeID{3})
+		assert.Contains(t, invalid, storj.NodeID{4})
+		assert.Contains(t, invalid, storj.NodeID{5})
+		assert.Contains(t, invalid, storj.NodeID{6})
+		assert.Len(t, invalid, 5)
 	}
 
 	{ // TestUpdateOperator
