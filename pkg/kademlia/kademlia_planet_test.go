@@ -102,11 +102,11 @@ func TestBootstrapBackoffReconnect(t *testing.T) {
 	log := zaptest.NewLogger(t)
 
 	// This sets up an unreliable proxy server which will receive conns from
-	// storage nodes and the satellite, but doesn't connect them with
-	// the bootstrap node (proxy.target) until the dropInterval has passed.
+	// storage nodes and the satellite, but drops the connections of the first
+	// `dropCount` number of connections to the bootstrap node (proxy.target).
 	// This should test that the Bootstrap function will retry a connection
 	// if it initially fails.
-	proxy, err := newBadProxy(log.Named("proxy"), "127.0.0.1:0", 200*time.Millisecond)
+	proxy, err := newBadProxy(log.Named("proxy"), "127.0.0.1:0", 4)
 	require.NoError(t, err)
 
 	planet, err := testplanet.NewCustom(log, testplanet.Config{
@@ -139,25 +139,25 @@ func TestBootstrapBackoffReconnect(t *testing.T) {
 }
 
 type badProxy struct {
-	log          *zap.Logger
-	target       string
-	dropInterval time.Duration
-	listener     net.Listener
-	done         chan struct{}
+	log       *zap.Logger
+	target    string
+	dropCount int
+	listener  net.Listener
+	done      chan struct{}
 }
 
-func newBadProxy(log *zap.Logger, addr string, dropInterval time.Duration) (*badProxy, error) {
+func newBadProxy(log *zap.Logger, addr string, dropCount int) (*badProxy, error) {
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
 	return &badProxy{
-		log:          log,
-		target:       "",
-		dropInterval: dropInterval,
-		listener:     listener,
-		done:         make(chan struct{}),
+		log:       log,
+		target:    "",
+		dropCount: dropCount,
+		listener:  listener,
+		done:      make(chan struct{}),
 	}, nil
 }
 
@@ -167,8 +167,6 @@ func (proxy *badProxy) close() error {
 }
 
 func (proxy *badProxy) run(ctx context.Context) error {
-	start := time.Now()
-
 	var group errgroup.Group
 	group.Go(func() (err error) {
 		var connections errs2.Group
@@ -179,6 +177,7 @@ func (proxy *badProxy) run(ctx context.Context) error {
 			err = errlist.Err()
 		}()
 
+		var conns int
 		for {
 			conn, err := proxy.listener.Accept()
 			if err != nil {
@@ -189,8 +188,9 @@ func (proxy *badProxy) run(ctx context.Context) error {
 				}
 				return errs.Wrap(err)
 			}
+			conns++
 
-			if time.Since(start) < proxy.dropInterval {
+			if conns < proxy.dropCount {
 				if err := conn.Close(); err != nil {
 					return errs.Wrap(err)
 				}
