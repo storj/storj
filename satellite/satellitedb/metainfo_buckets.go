@@ -106,7 +106,7 @@ func (buckets *buckets) List(ctx context.Context, projectID uuid.UUID, opts meta
 				limit, 0,
 			)
 		}
-		reverse(dbxBuckets)
+		reverseBuckets(dbxBuckets)
 	case storj.Backward:
 		// TODO most probably needs optimization
 		if opts.Cursor == "" {
@@ -122,7 +122,7 @@ func (buckets *buckets) List(ctx context.Context, projectID uuid.UUID, opts meta
 				limit, 0,
 			)
 		}
-		reverse(dbxBuckets)
+		reverseBuckets(dbxBuckets)
 	case storj.After:
 		dbxBuckets, err = buckets.db.Limited_Bucket_By_ProjectId_And_Name_Greater_OrderBy_Asc_Name(ctx,
 			dbx.Bucket_ProjectId(projectID[:]),
@@ -171,7 +171,7 @@ func (buckets *buckets) List(ctx context.Context, projectID uuid.UUID, opts meta
 	return result, nil
 }
 
-func reverse(buckets []*dbx.Bucket) {
+func reverseBuckets(buckets []*dbx.Bucket) {
 	for i, j := 0, len(buckets)-1; i < j; i, j = i+1, j-1 {
 		buckets[i], buckets[j] = buckets[j], buckets[i]
 	}
