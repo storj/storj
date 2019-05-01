@@ -99,17 +99,20 @@ func saveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]int
 		if overriddenValue != nil {
 			value = fmt.Sprintf("%v", overriddenValue)
 		}
+		//print usage info
 		if f.Usage != "" {
 			fmt.Fprintf(w, "# %s\n", f.Usage)
 		}
-		fmt.Fprintf(w, "%s: ", k)
+		//print commented key (beginning of value assignement line)
+		fmt.Fprintf(w, "# %s: ", k)
+		//print value (remainder of value assignement line)
 		switch f.Value.Type() {
 		case "string":
 			// save ourselves 250+ lines of code and just double quote strings
-			fmt.Fprintf(w, "%q\n", value)
+			fmt.Fprintf(w, "%q\n\n", value)
 		default:
 			//assume that everything else doesn't have fancy control characters
-			fmt.Fprintf(w, "%s\n", value)
+			fmt.Fprintf(w, "%s\n\n", value)
 		}
 	}
 
