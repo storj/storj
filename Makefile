@@ -81,17 +81,17 @@ install-sim: ## install storj-sim
 ##@ Test
 
 .PHONY: test
-test: ## Run tests on source code (travis)
+test: ## Run tests on source code (jenkins)
 	go test -race -v -cover -coverprofile=.coverprofile ./...
 	@echo done
 
 .PHONY: test-sim
-test-sim: ## Test source with storj-sim (travis)
+test-sim: ## Test source with storj-sim (jenkins)
 	@echo "Running ${@}"
 	@./scripts/test-sim.sh
 
 .PHONY: test-certificate-signing
-test-certificate-signing: ## Test certificate signing service and storagenode setup (travis)
+test-certificate-signing: ## Test certificate signing service and storagenode setup (jenkins)
 	@echo "Running ${@}"
 	@./scripts/test-certificate-signing.sh
 
