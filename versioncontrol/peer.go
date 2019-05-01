@@ -31,6 +31,7 @@ type ServiceVersions struct {
 	Storagenode string `user:"true" help:"Allowed Storagenode Versions" default:"v0.0.1"`
 	Uplink      string `user:"true" help:"Allowed Uplink Versions" default:"v0.0.1"`
 	Gateway     string `user:"true" help:"Allowed Gateway Versions" default:"v0.0.1"`
+	Identity    string `user:"true" help:"Allowed Identity Versions" default:"v0.0.1"`
 }
 
 // Peer is the representation of a VersionControl Server.
