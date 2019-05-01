@@ -41,9 +41,9 @@ type DB interface {
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
 
-	// UnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
-	// Note that UnreliableOrOffline will not return node ids which are not in the database at all
-	UnreliableOrOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
+	// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
+	// Note that KnownUnreliableOrOffline will not return node ids which are not in the database at all
+	KnownUnreliableOrOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
 	// List lists nodes starting from cursor
 	List(ctx context.Context, cursor storj.NodeID, limit int) ([]*NodeDossier, error)
 	// Paginate will page through the database nodes
@@ -236,9 +236,9 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 	return nodes, nil
 }
 
-// UnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
-// Note that UnreliableOrOffline will not return node ids which are not in the database at all
-func (cache *Cache) UnreliableOrOffline(ctx context.Context, nodeIds storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
+// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
+// Note that KnownUnreliableOrOffline will not return node ids which are not in the database at all
+func (cache *Cache) KnownUnreliableOrOffline(ctx context.Context, nodeIds storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	criteria := &NodeCriteria{
 		AuditCount:         cache.preferences.AuditCount,
@@ -247,7 +247,7 @@ func (cache *Cache) UnreliableOrOffline(ctx context.Context, nodeIds storj.NodeI
 		UptimeCount:        cache.preferences.UptimeCount,
 		UptimeSuccessRatio: cache.preferences.UptimeRatio,
 	}
-	return cache.db.UnreliableOrOffline(ctx, criteria, nodeIds)
+	return cache.db.KnownUnreliableOrOffline(ctx, criteria, nodeIds)
 }
 
 // Put adds a node id and proto definition into the overlay cache

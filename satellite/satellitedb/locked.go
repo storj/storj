@@ -731,12 +731,12 @@ func (m *lockedOverlayCache) SelectStorageNodes(ctx context.Context, count int, 
 	return m.db.SelectStorageNodes(ctx, count, criteria)
 }
 
-// UnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
-// Note that UnreliableOrOffline will not return node ids which are not in the database at all
-func (m *lockedOverlayCache) UnreliableOrOffline(ctx context.Context, a1 *overlay.NodeCriteria, a2 storj.NodeIDList) (storj.NodeIDList, error) {
+// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
+// Note that KnownUnreliableOrOffline will not return node ids which are not in the database at all
+func (m *lockedOverlayCache) KnownUnreliableOrOffline(ctx context.Context, a1 *overlay.NodeCriteria, a2 storj.NodeIDList) (storj.NodeIDList, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.UnreliableOrOffline(ctx, a1, a2)
+	return m.db.KnownUnreliableOrOffline(ctx, a1, a2)
 }
 
 // Update updates node address

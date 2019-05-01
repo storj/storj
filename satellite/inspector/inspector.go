@@ -137,7 +137,7 @@ func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *pb.SegmentHealt
 		nodeIDs = append(nodeIDs, piece.NodeId)
 	}
 
-	badNodes, err := endpoint.cache.UnreliableOrOffline(ctx, nodeIDs)
+	badNodes, err := endpoint.cache.KnownUnreliableOrOffline(ctx, nodeIDs)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

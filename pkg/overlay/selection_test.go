@@ -25,13 +25,13 @@ func TestOffline(t *testing.T) {
 		service := satellite.Overlay.Service
 		// TODO: handle cleanup
 
-		result, err := service.UnreliableOrOffline(ctx, []storj.NodeID{
+		result, err := service.KnownUnreliableOrOffline(ctx, []storj.NodeID{
 			planet.StorageNodes[0].ID(),
 		})
 		require.NoError(t, err)
 		require.Empty(t, result)
 
-		result, err = service.UnreliableOrOffline(ctx, []storj.NodeID{
+		result, err = service.KnownUnreliableOrOffline(ctx, []storj.NodeID{
 			planet.StorageNodes[0].ID(),
 			planet.StorageNodes[1].ID(),
 			planet.StorageNodes[2].ID(),
@@ -39,7 +39,7 @@ func TestOffline(t *testing.T) {
 		require.NoError(t, err)
 		require.Empty(t, result)
 
-		result, err = service.UnreliableOrOffline(ctx, []storj.NodeID{
+		result, err = service.KnownUnreliableOrOffline(ctx, []storj.NodeID{
 			planet.StorageNodes[0].ID(),
 			storj.NodeID{1, 2, 3, 4}, //note that this succeeds by design
 			planet.StorageNodes[2].ID(),

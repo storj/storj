@@ -79,7 +79,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		assert.Error(t, err)
 	}
 
-	{ // TestUnreliableOrOffline
+	{ // TestKnownUnreliableOrOffline
 		for _, tt := range []struct {
 			nodeID             storj.NodeID
 			auditSuccessCount  int64
@@ -124,7 +124,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 			OnlineWindow:       time.Hour,
 		}
 
-		invalid, err := cache.UnreliableOrOffline(ctx, criteria, nodeIds)
+		invalid, err := cache.KnownUnreliableOrOffline(ctx, criteria, nodeIds)
 		require.NoError(t, err)
 
 		assert.Contains(t, invalid, storj.NodeID{2})
