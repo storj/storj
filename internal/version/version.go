@@ -57,6 +57,7 @@ type AllowedVersions struct {
 	Storagenode []SemVer
 	Uplink      []SemVer
 	Gateway     []SemVer
+	Identity    []SemVer
 }
 
 // SemVerRegex is the regular expression used to parse a semantic version.
