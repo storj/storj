@@ -93,6 +93,9 @@ func New(log *zap.Logger, config *Config) (peer *Peer, err error) {
 	gatewayVersions := strings.Split(config.Versions.Gateway, ",")
 	peer.Versions.Gateway, err = version.StrToSemVerList(gatewayVersions)
 
+	identityVersions := strings.Split(config.Versions.Identity, ",")
+	peer.Versions.Identity, err = version.StrToSemVerList(identityVersions)
+
 	peer.response, err = json.Marshal(peer.Versions)
 
 	if err != nil {
