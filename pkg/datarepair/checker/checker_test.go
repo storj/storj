@@ -18,6 +18,63 @@ import (
 	"storj.io/storj/storage"
 )
 
+func TestCheckerResume(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		checker := planet.Satellites[0].Repair.Checker
+		checker.Loop.Stop()
+		repairQueue := planet.Satellites[0].DB.RepairQueue()
+
+		// create pointer that needs repair
+		makePointer(t, planet, "a", true)
+
+		// create pointer that will cause an error (TODO)
+
+
+		// create pointer that needs repair
+		makePointer(t, planet, "c", true)
+
+		// create pointer that will cause an error (TODO)
+
+		err := checker.IdentifyInjuredSegments(ctx)
+		require.Error(t, err)
+
+		// "a" should be the only segment in the repair queue
+		injuredSegment, err := repairQueue.Select(ctx)
+		require.NoError(t, err)
+		require.Equal(t, injuredSegment.Path, "a")
+		err = repairQueue.Delete(ctx, injuredSegment)
+		require.NoError(t, err)
+		injuredSegment, err = repairQueue.Select(ctx)
+		require.Error(t, err)
+
+		err = checker.IdentifyInjuredSegments(ctx)
+		require.Error(t, err)
+
+		// "c" should be the only segment in the repair queue
+		injuredSegment, err = repairQueue.Select(ctx)
+		require.NoError(t, err)
+		require.Equal(t, injuredSegment.Path, "c")
+		err = repairQueue.Delete(ctx, injuredSegment)
+		require.NoError(t, err)
+		injuredSegment, err = repairQueue.Select(ctx)
+		require.Error(t, err)
+
+		err = checker.IdentifyInjuredSegments(ctx)
+		require.Error(t, err)
+
+		// "a" should be the only segment in the repair queue
+		injuredSegment, err = repairQueue.Select(ctx)
+		require.NoError(t, err)
+		require.Equal(t, injuredSegment.Path, "a")
+		err = repairQueue.Delete(ctx, injuredSegment)
+		require.NoError(t, err)
+		injuredSegment, err = repairQueue.Select(ctx)
+		require.Error(t, err)
+	})
+}
+
 func TestIdentifyInjuredSegments(t *testing.T) {
 	t.Skip()
 	testplanet.Run(t, testplanet.Config{
