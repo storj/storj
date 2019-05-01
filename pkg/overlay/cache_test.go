@@ -78,7 +78,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		// TODO: add erroring database test
 	}
 
-  { // Paginate
+	{ // Paginate
 
 		// should return two nodes
 		nodes, more, err := cache.Paginate(ctx, 0, 2)
