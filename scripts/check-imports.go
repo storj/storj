@@ -30,6 +30,8 @@ check-imports verifies whether imports are divided into three blocks:
 
 */
 
+var race = flag.Bool("race", false, "load with race tag")
+
 func main() {
 	flag.Parse()
 
@@ -38,9 +40,15 @@ func main() {
 		pkgNames = []string{"."}
 	}
 
+	var buildFlags []string
+	if *race {
+		buildFlags = append(buildFlags, "-race")
+	}
+
 	roots, err := packages.Load(&packages.Config{
-		Mode: packages.LoadAllSyntax,
-		Env:  os.Environ(),
+		Mode:       packages.LoadImports,
+		Env:        os.Environ(),
+		BuildFlags: buildFlags,
 	}, pkgNames...)
 
 	if err != nil {
