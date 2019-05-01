@@ -27,10 +27,11 @@ message Caveat {
 
 message Action {
   enum Operation {
-    READ = 0;
-    WRITE = 1;
-    LIST = 2;
-    DELETE = 3;
+    UNSET = 0; // no operation was set - this will always fail
+    READ = 1;
+    WRITE = 2;
+    LIST = 3;
+    DELETE = 4;
   }
 
   Operation op = 1;

@@ -123,6 +123,7 @@ func TestExpiration(t *testing.T) {
 		{notAfterMinuteAgo, &twoMinutesFromNow, false},
 	} {
 		err := test.keyToTest.Check(secret, Action{
+			Op:   Action_READ,
 			Time: test.timestampToTest,
 		}, nil)
 		if test.authorized {

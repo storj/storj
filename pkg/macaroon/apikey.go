@@ -118,6 +118,8 @@ func (a *APIKey) Serialize() (string, error) {
 // Allows returns true if the provided action is allowed by the caveat.
 func (c *Caveat) Allows(action Action) bool {
 	switch action.Op {
+	case Action_UNSET:
+		return false
 	case Action_READ:
 		if c.DisallowReads {
 			return false
