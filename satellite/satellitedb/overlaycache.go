@@ -188,28 +188,6 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 	return goodNodes, nil
 }
 
-// List lists nodes starting from cursor
-func (cache *overlaycache) List(ctx context.Context, cursor storj.NodeID, limit int) ([]*overlay.NodeDossier, error) {
-	// TODO: handle this nicer
-	if limit <= 0 || limit > storage.LookupLimit {
-		limit = storage.LookupLimit
-	}
-
-	dbxInfos, err := cache.db.Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx, dbx.Node_Id(cursor.Bytes()), limit, 0)
-	if err != nil {
-		return nil, err
-	}
-
-	infos := make([]*overlay.NodeDossier, len(dbxInfos))
-	for i, dbxInfo := range dbxInfos {
-		infos[i], err = convertDBNode(dbxInfo)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return infos, nil
-}
-
 // Paginate will run through
 func (cache *overlaycache) Paginate(ctx context.Context, offset int64, limit int) ([]*overlay.NodeDossier, bool, error) {
 	cursor := storj.NodeID{}

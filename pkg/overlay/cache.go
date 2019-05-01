@@ -40,12 +40,9 @@ type DB interface {
 
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
-
 	// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
 	// Note that KnownUnreliableOrOffline will not return node ids which are not in the database at all
 	KnownUnreliableOrOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
-	// List lists nodes starting from cursor
-	List(ctx context.Context, cursor storj.NodeID, limit int) ([]*NodeDossier, error)
 	// Paginate will page through the database nodes
 	Paginate(ctx context.Context, offset int64, limit int) ([]*NodeDossier, bool, error)
 
@@ -137,13 +134,6 @@ func (cache *Cache) Close() error { return nil }
 func (cache *Cache) Inspect(ctx context.Context) (storage.Keys, error) {
 	// TODO: implement inspection tools
 	return nil, errors.New("not implemented")
-}
-
-// List returns a list of nodes from the cache DB
-func (cache *Cache) List(ctx context.Context, cursor storj.NodeID, limit int) (_ []*NodeDossier, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	return cache.db.List(ctx, cursor, limit)
 }
 
 // Paginate returns a list of `limit` nodes starting from `start` offset.

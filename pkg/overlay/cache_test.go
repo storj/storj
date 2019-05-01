@@ -78,13 +78,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		// TODO: add erroring database test
 	}
 
-	{ // List
-		list, err := cache.List(ctx, storj.NodeID{}, 3)
-		assert.NoError(t, err)
-		assert.NotNil(t, list)
-	}
-
-	{ // Paginate
+  { // Paginate
 
 		// should return two nodes
 		nodes, more, err := cache.Paginate(ctx, 0, 2)

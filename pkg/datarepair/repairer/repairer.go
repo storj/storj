@@ -35,7 +35,7 @@ var (
 type Config struct {
 	MaxRepair    int           `help:"maximum segments that can be repaired concurrently" default:"10"`
 	Interval     time.Duration `help:"how frequently checker should audit segments" default:"0h5m0s"`
-	Timeout      time.Duration `help:"time limit for uploading repaired pieces to new storage nodes" default:"1m0s"`
+	Timeout      time.Duration `help:"time limit for uploading repaired pieces to new storage nodes" default:"10m0s"`
 	MaxBufferMem memory.Size   `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4M"`
 }
 
