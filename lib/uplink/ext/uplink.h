@@ -15,10 +15,15 @@ struct TLS {
     char* PeerCAWhitelistPath;
 };
 
+struct IDVersion {
+    uint8_t Number;
+    GoUintptr NewPrivateKey;
+};
+
 struct Volatile {
-    struct TLS tls;
-    uint8_t IdentityVersion;
-    uint32_t* PeerIDVersion;
+    struct TLS TLS;
+    struct IDVersion IdentityVersion;
+    char* PeerIDVersion;
     uint64_t MaxInlineSize;
     uint64_t MaxMemory;
 };

@@ -3,14 +3,16 @@
 /* package storj.io/storj/lib/uplink/ext */
 
 
-#line 1 "cgo-builtin-prolog"
+#line 1 "cgo-builtin-export-prolog"
 
 #include <stddef.h> /* for ptrdiff_t below */
 
 #ifndef GO_CGO_EXPORT_PROLOGUE_H
 #define GO_CGO_EXPORT_PROLOGUE_H
 
+#ifndef GO_CGO_GOSTRING_TYPEDEF
 typedef struct { const char *p; ptrdiff_t n; } _GoString_;
+#endif
 
 #endif
 
@@ -18,6 +20,16 @@ typedef struct { const char *p; ptrdiff_t n; } _GoString_;
 
 
 #line 6 "apikey.go"
+
+ #include <stdlib.h>
+ #ifndef UPLINK_HEADERS
+   #define UPLINK_HEADERS
+   #include "uplink.h"
+ #endif
+
+#line 1 "cgo-generated-wrapper"
+
+#line 6 "common.go"
 
  #include <stdlib.h>
  #ifndef UPLINK_HEADERS
@@ -68,7 +80,9 @@ typedef double _Complex GoComplex128;
 */
 typedef char _check_for_64_bit_pointer_matching_GoInt[sizeof(void*)==64/8 ? 1:-1];
 
+#ifndef GO_CGO_GOSTRING_TYPEDEF
 typedef _GoString_ GoString;
+#endif
 typedef void *GoMap;
 typedef void *GoChan;
 typedef struct { void *t; void *v; } GoInterface;
@@ -91,7 +105,7 @@ extern struct APIKey ParseAPIKey(GoString p0);
 
 extern char* Serialize(struct APIKey p0);
 
-extern void TestMe();
+extern struct IDVersion GetIDVersion(short unsigned int p0, char* p1);
 
 extern struct Uplink NewUplink(struct Config p0, char* p1);
 

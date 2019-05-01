@@ -28,7 +28,7 @@ func NewUplink(cConfig C.struct_Config, cErr *C.char) C.struct_Uplink {
 		*cErr = *C.CString(err.Error())
 	}
 	//goConfig := uplink.Config{}
-	goConfig.Volatile.TLS.SkipPeerCAWhitelist = true
+	//goConfig.Volatile.TLS.SkipPeerCAWhitelist = true
 	//if err != nil {
 	//
 	//}
@@ -62,12 +62,7 @@ func cToGoStruct(cStruct interface{}, goPtr interface{}) error {
 	case reflect.Struct:
 		fmt.Println("outer struct case!")
 		goFieldI := cStructValue.Interface()
-		//elem := goFieldValue.Elem()
 		fmt.Printf("%+v\n", goFieldI)
-		//fmt.Printf("%+v\n", elem)
-		//if err := cToGoStruct(goFieldI, reflect.New(cStructValue.Type())); err != nil {
-		//	return err
-		//}
 	default:
 		fmt.Println("outer default case!")
 		//reflect.Indirect(reflect.ValueOf(goPtr))
@@ -76,38 +71,37 @@ func cToGoStruct(cStruct interface{}, goPtr interface{}) error {
 		v.Pointer()
 	}
 
-	//for i := 0; i < cStructValue.NumField(); i++ {
-	//	field := cStructValue.Field(i)
-	//	fmt.Printf("%+v\n", field)
-	//
-	//	//fmt.Printf("%s\n", field.Name)
-	//	goPtrValue := reflect.ValueOf(goPtr)
-	//	//goValue := reflect.Indirect(goPtrValue)
-	//	goValue := reflect.Indirect(goPtrValue)
-	//	goFieldValue := goValue.FieldByName(field.Name)
-	//
-	//	fmt.Printf("kind: %+v\n", goFieldValue.Kind())
-	//	//fmt.Printf("type: %+v\n", goValue.Type())
-	//	fmt.Printf("type: %+v\n", goValue.Type())
-	//	//fmt.Printf("type: %+v\n", goPtrValue.Type().Name())
-	//	switch goFieldValue.Kind() {
-	//	case reflect.Uintptr:
-	//		fmt.Println("Uintptr case!")
-	//		//goFieldValue.
-	//	case reflect.Struct:
-	//		fmt.Println("struct case!")
-	//		goFieldI := goFieldValue.Interface()
-	//		//elem := goFieldValue.Elem()
-	//		fmt.Printf("%+v\n", goFieldI)
-	//		//fmt.Printf("%+v\n", elem)
-	//		//if err := cToGoStruct(goFieldI, reflect.New(goFieldValue.Type())); err != nil {
-	//		if err := cToGoStruct(goFieldI, goFieldValue.Pointer()); err != nil {
-	//			return err
-	//		}
-	//	default:
-	//		fmt.Println("default case!")
-	//	}
-	//}
+	for i := 0; i < cStructValue.NumField(); i++ {
+		cFieldValue := cStructValue.Field(i)
+		fmt.Printf("%+v\n", cFieldValue)
+
+		//fmt.Printf("%s\n", cFieldValue.Name)
+		goPtrValue := reflect.ValueOf(goPtr)
+		//goValue := reflect.Indirect(goPtrValue)
+		goValue := reflect.Indirect(goPtrValue)
+
+		fmt.Printf("kind: %+v\n", cFieldValue.Kind())
+		//fmt.Printf("type: %+v\n", goValue.Type())
+		fmt.Printf("type: %+v\n", goValue.Type())
+		//fmt.Printf("type: %+v\n", goPtrValue.Type().Name())
+		switch cFieldValue.Kind() {
+		case reflect.Uintptr:
+			fmt.Println("Uintptr case!")
+			//cFieldValue.
+		case reflect.Struct:
+			fmt.Println("struct case!")
+			goFieldI := cFieldValue.Interface()
+			//elem := cFieldValue.Elem()
+			fmt.Printf("%+v\n", goFieldI)
+			//fmt.Printf("%+v\n", elem)
+			//if err := cToGoStruct(goFieldI, reflect.New(cFieldValue.Type())); err != nil {
+			//if err := cToGoStruct(goFieldI, cFieldValue.Pointer()); err != nil {
+			//	return err
+			//}
+		default:
+			fmt.Println("default case!")
+		}
+	}
 	return nil
 }
 

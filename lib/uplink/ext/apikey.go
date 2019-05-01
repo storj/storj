@@ -26,8 +26,3 @@ func ParseAPIKey(val string) (key C.struct_APIKey) {
 func Serialize(key C.struct_APIKey) *C.char {
 	return key.key
 }
-
-//export TestMe
-func TestMe() {
-
-}

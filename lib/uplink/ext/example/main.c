@@ -2,25 +2,17 @@
 #include <unistd.h>
 #include "../uplink-cgo-common.h"
 
-// gcc -o cgo-test-bin lib/uplink/ext/main.c lib/uplink/ext/uplink-cgo-common.so
+// gcc -o cgo-test-bin lib/uplink/ext/example/main.c lib/uplink/ext/uplink-cgo-common.so
 
 int main() {
-//    GoString key = {"butts", 5};
-//    struct APIKey apikey = ParseAPIKey(key);
-//
-//    char *val = Serialize(apikey);
-//
-//    printf ("apikey = %s\n", val);
-//
-//    free(val);
-//    TestMe()
-
-    struct Config uplinkConfig; // = {{{true}, 3}};
-    uplinkConfig.Volatile.IdentityVersion = 2;
-    uplinkConfig.Volatile.tls.SkipPeerCAWhitelist = true;
+//    struct Config uplinkConfig = {{{true, ""}, 3}};
+    struct Config uplinkConfig;
+    struct IDVersion idVersion = {2,};
+//    uplinkConfig.Volatile.IdentityVersion = {2};
+    uplinkConfig.Volatile.IdentityVersion = idVersion;
+    uplinkConfig.Volatile.TLS.SkipPeerCAWhitelist = true;
 
     char *err = "";
-//    struct Uplink uplink;
     struct Uplink uplink = NewUplink(uplinkConfig, err);
 
     printf("testing 123\n");
@@ -29,19 +21,8 @@ int main() {
     }
 
 
-//    printf("%d\n", uplinkConfig.volatile_.IdentityVersion);
-    printf("%d\n", uplink.Config.Volatile.IdentityVersion);
-//    printf("%s\n", cfg.volatile_.tls);
-//    printf("%s\n", uplink.config.volatile_.tls);
-//    printf("%s\n", uplink.config.volatile_.tls.SkipPeerCAWhitelist);
-    printf("%s\n", uplinkConfig.Volatile.tls.SkipPeerCAWhitelist);
-//    printf("%p\n", cfg.volatile_.tls.SkipPeerCAWhitelist);
-//    printf("%p\n", uplink);
-//    printf("%p\n", uplink.config);
-//    printf("%p\n", uplink.config->volatile_);
-//    if (uplink.config == NULL) {
-//        printf("uplink.config is null\n");
-//    }
+    printf("%d\n", uplink.Config.Volatile.IdentityVersion.Number);
+    printf("%s\n", uplink.Config.Volatile.TLS.SkipPeerCAWhitelist ? "true" : "false");
+    printf("%s\n", uplinkConfig.Volatile.TLS.SkipPeerCAWhitelist ? "true" : "false");
 //    kill(getpid(), 10);
-//    printf("SkipPeerCAWhitelist: %s\n", uplink.config->volatile_.tls.SkipPeerCAWhitelist);
 }
