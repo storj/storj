@@ -71,6 +71,7 @@ func cToGoStruct(cStruct interface{}, goPtr interface{}) error {
 		v.Pointer()
 	}
 
+	cStructType := reflect.TypeOf(cStructValue)
 	for i := 0; i < cStructValue.NumField(); i++ {
 		cFieldValue := cStructValue.Field(i)
 		fmt.Printf("%+v\n", cFieldValue)
@@ -79,6 +80,7 @@ func cToGoStruct(cStruct interface{}, goPtr interface{}) error {
 		goPtrValue := reflect.ValueOf(goPtr)
 		//goValue := reflect.Indirect(goPtrValue)
 		goValue := reflect.Indirect(goPtrValue)
+		goField := goValue.FieldByName(cStructType.Field(i).Name)
 
 		fmt.Printf("kind: %+v\n", cFieldValue.Kind())
 		//fmt.Printf("type: %+v\n", goValue.Type())
@@ -90,14 +92,10 @@ func cToGoStruct(cStruct interface{}, goPtr interface{}) error {
 			//cFieldValue.
 		case reflect.Struct:
 			fmt.Println("struct case!")
-			goFieldI := cFieldValue.Interface()
-			//elem := cFieldValue.Elem()
-			fmt.Printf("%+v\n", goFieldI)
-			//fmt.Printf("%+v\n", elem)
-			//if err := cToGoStruct(goFieldI, reflect.New(cFieldValue.Type())); err != nil {
-			//if err := cToGoStruct(goFieldI, cFieldValue.Pointer()); err != nil {
-			//	return err
-			//}
+			//if err := cToGoStruct(cFieldI, reflect.New(cFieldValue.Type())); err != nil {
+			if err := cToGoStruct(cFieldValue.Interface(), goField.Pointer()); err != nil {
+				return err
+			}
 		default:
 			fmt.Println("default case!")
 		}
