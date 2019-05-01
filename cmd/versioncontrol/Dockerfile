@@ -6,4 +6,5 @@ ENV GOARCH ${GOARCH}
 EXPOSE 8080
 WORKDIR /app
 COPY release/${TAG}/versioncontrol_linux_${GOARCH:-amd64} /app/versioncontrol
-ENTRYPOINT ["/app/versioncontrol"]
+COPY cmd/versioncontrol/entrypoint /entrypoint
+ENTRYPOINT ["/entrypoint"]
