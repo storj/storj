@@ -17,8 +17,15 @@ pipeline {
                 // download dependencies
                 sh 'go mod download'
 
-                sh 'go install -v -race ./...'
-                sh 'make install-sim'
+                parallel (
+                    "normal" : {
+                        sh 'go build -v ./...'
+                    }
+                    "race" : {
+                        sh 'go install -v -race ./...'
+                        sh 'make install-sim'
+                    }
+                )
 
                 sh 'service postgresql start'
             }
