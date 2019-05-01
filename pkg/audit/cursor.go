@@ -42,18 +42,17 @@ func NewCursor(metainfo *metainfo.Service) *Cursor {
 	}
 }
 
-// NextStripe returns a random stripe to be audited
-func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error) {
+// NextStripe returns a random stripe to be audited. "more" is true except when we have completed iterating over metainfo. It can be disregarded if there is an error or stripe returned
+func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, more bool, err error) {
 	cursor.mutex.Lock()
 	defer cursor.mutex.Unlock()
 
 	var pointerItems []*pb.ListResponse_Item
 	var path storj.Path
-	var more bool
 
 	pointerItems, more, err = cursor.metainfo.List("", cursor.lastPath, "", true, 0, meta.None)
 	if err != nil {
-		return nil, err
+		return nil, more, err
 	}
 
 	// keep track of last path listed
@@ -65,19 +64,22 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 
 	pointer, path, err := cursor.getRandomValidPointer(pointerItems)
 	if err != nil {
-		return nil, err
+		return nil, more, err
+	}
+	if pointer == nil {
+		return nil, more, nil
 	}
 
 	index, err := getRandomStripe(pointer)
 	if err != nil {
-		return nil, err
+		return nil, more, err
 	}
 
 	return &Stripe{
 		Index:       index,
 		Segment:     pointer,
 		SegmentPath: path,
-	}, nil
+	}, more, nil
 }
 
 func getRandomStripe(pointer *pb.Pointer) (index int64, err error) {
@@ -140,7 +142,6 @@ func (cursor *Cursor) getRandomValidPointer(pointerItems []*pb.ListResponse_Item
 		return pointer, path, nil
 	}
 
-	errGroup.Add(Error.New("no valid node found in selection"))
 	return nil, "", errGroup.Err()
 }
 

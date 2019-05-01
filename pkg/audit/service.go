@@ -73,9 +73,19 @@ func (service *Service) Close() error {
 
 // process picks a random stripe and verifies correctness
 func (service *Service) process(ctx context.Context) error {
-	stripe, err := service.Cursor.NextStripe(ctx)
-	if err != nil {
-		return err
+	var stripe *Stripe
+	for {
+		s, more, err := service.Cursor.NextStripe(ctx)
+		if err != nil {
+			return err
+		}
+		if s != nil {
+			stripe = s
+			break
+		}
+		if !more {
+			return nil
+		}
 	}
 
 	verifiedNodes, err := service.Verifier.Verify(ctx, stripe)
