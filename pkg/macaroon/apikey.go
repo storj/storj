@@ -55,9 +55,7 @@ func NewAPIKey(secret []byte) (*APIKey, error) {
 
 // Check makes sure that the key authorizes the provided action given the root
 // project secret and any possible revocations, returning an error if the action
-// is not authorized. 'revoked' is a list of either revoked heads or revoked
-// tails. Keep in mind that any key generated from a key with a revoked head
-// _or_ tail will also be considered revoked.
+// is not authorized. 'revoked' is a list of revoked heads.
 func (a *APIKey) Check(secret []byte, action Action, revoked [][]byte) error {
 	if !a.mac.Validate(secret) {
 		return ErrInvalid.New("macaroon unauthorized")
@@ -74,18 +72,10 @@ func (a *APIKey) Check(secret []byte, action Action, revoked [][]byte) error {
 		}
 	}
 
-	if len(revoked) > 0 {
-		revokedMap := make(map[string]struct{}, len(revoked))
-		for _, revokedID := range revoked {
-			revokedMap[string(revokedID)] = struct{}{}
-		}
-		if _, exists := revokedMap[string(a.mac.Head())]; exists {
+	head := a.mac.Head()
+	for _, revokedID := range revoked {
+		if bytes.Equal(revokedID, head) {
 			return ErrRevoked.New("macaroon head revoked")
-		}
-		for _, tail := range a.mac.Tails(secret) {
-			if _, exists := revokedMap[string(tail)]; exists {
-				return ErrRevoked.New("macaroon tail revoked")
-			}
 		}
 	}
 

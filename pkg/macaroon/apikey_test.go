@@ -77,7 +77,4 @@ func TestRevocation(t *testing.T) {
 
 	require.True(t, ErrRevoked.Has(key.Check(secret, action, [][]byte{restricted.Head()})))
 	require.True(t, ErrRevoked.Has(restricted.Check(secret, action, [][]byte{restricted.Head()})))
-
-	require.NoError(t, key.Check(secret, action, [][]byte{restricted.Tail()}))
-	require.True(t, ErrRevoked.Has(restricted.Check(secret, action, [][]byte{restricted.Tail()})))
 }
