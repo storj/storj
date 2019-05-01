@@ -18,10 +18,10 @@ pipeline {
                 sh 'go mod download'
 
                 parallel {
-                    "normal" : {
+                    stage('normal') {
                         sh 'go build -v ./...'
                     }
-                    "race" : {
+                    stage('race') {
                         sh 'go install -v -race ./...'
                         sh 'make install-sim'
                     }
