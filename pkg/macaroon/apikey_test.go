@@ -5,6 +5,7 @@ package macaroon
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 	"time"
 
@@ -77,4 +78,57 @@ func TestRevocation(t *testing.T) {
 
 	require.True(t, ErrRevoked.Has(key.Check(secret, action, [][]byte{restricted.Head()})))
 	require.True(t, ErrRevoked.Has(restricted.Check(secret, action, [][]byte{restricted.Head()})))
+}
+
+func TestExpiration(t *testing.T) {
+	secret, err := NewSecret()
+	require.NoError(t, err)
+	key, err := NewAPIKey(secret)
+	require.NoError(t, err)
+
+	now := time.Now()
+	minuteAgo := now.Add(-time.Minute)
+	minuteFromNow := now.Add(time.Minute)
+	twoMinutesAgo := now.Add(-2 * time.Minute)
+	twoMinutesFromNow := now.Add(2 * time.Minute)
+
+	notBeforeMinuteFromNow, err := key.Restrict(Caveat{
+		NotBefore: &minuteFromNow,
+	})
+	require.NoError(t, err)
+	notAfterMinuteAgo, err := key.Restrict(Caveat{
+		NotAfter: &minuteAgo,
+	})
+	require.NoError(t, err)
+
+	for i, test := range []struct {
+		keyToTest       *APIKey
+		timestampToTest *time.Time
+		authorized      bool
+	}{
+		{key, nil, false},
+		{notBeforeMinuteFromNow, nil, false},
+		{notAfterMinuteAgo, nil, false},
+
+		{key, &now, true},
+		{notBeforeMinuteFromNow, &now, false},
+		{notAfterMinuteAgo, &now, false},
+
+		{key, &twoMinutesAgo, true},
+		{notBeforeMinuteFromNow, &twoMinutesAgo, false},
+		{notAfterMinuteAgo, &twoMinutesAgo, true},
+
+		{key, &twoMinutesFromNow, true},
+		{notBeforeMinuteFromNow, &twoMinutesFromNow, true},
+		{notAfterMinuteAgo, &twoMinutesFromNow, false},
+	} {
+		err := test.keyToTest.Check(secret, Action{
+			Time: test.timestampToTest,
+		}, nil)
+		if test.authorized {
+			require.NoError(t, err, fmt.Sprintf("test #%d", i+1))
+		} else {
+			require.False(t, !ErrUnauthorized.Has(err), fmt.Sprintf("test #%d", i+1))
+		}
+	}
 }

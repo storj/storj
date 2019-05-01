@@ -61,7 +61,12 @@ func (a *APIKey) Check(secret []byte, action Action, revoked [][]byte) error {
 		return ErrInvalid.New("macaroon unauthorized")
 	}
 
-	for _, cavbuf := range a.mac.Caveats() {
+	caveats := a.mac.Caveats()
+	if len(caveats) == 0 {
+		// make sure we always check at least one empty caveat
+		caveats = [][]byte{[]byte("")}
+	}
+	for _, cavbuf := range caveats {
 		var cav Caveat
 		err := proto.Unmarshal(cavbuf, &cav)
 		if err != nil {
