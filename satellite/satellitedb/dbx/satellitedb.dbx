@@ -436,6 +436,13 @@ read one (
 	where object.version = ?
 	where object.status = ?
 )
+read one (
+	select object
+	where object.bucket_id = ?
+	where object.encrypted_path = ?
+	where object.status = ?
+	orderby desc object.version
+)
 
 read limitoffset (
 	select object

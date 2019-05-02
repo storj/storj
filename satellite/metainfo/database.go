@@ -85,10 +85,14 @@ const (
 	Deleting
 )
 
+type ObjectVersion int64
+
+const LastObjectVersion = ObjectVersion(-1)
+
 type Object struct {
 	BucketID      uuid.UUID
 	EncryptedPath storj.Path
-	Version       int64
+	Version       ObjectVersion
 	Status        ObjectStatus
 
 	StreamID uuid.UUID
@@ -172,7 +176,7 @@ func (opts ListOptions) NextPage(list ObjectList) ListOptions {
 // Objects interface for managing objects
 type Objects interface {
 	Create(ctx context.Context, object *Object) error
-	Commit(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version uint32) (*Object, error)
+	Commit(ctx context.Context, object *Object) (*Object, error)
 
 	Get(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version uint32) (*Object, error)
 	List(ctx context.Context, bucket uuid.UUID, opts ListOptions) (ObjectList, error)
