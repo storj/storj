@@ -395,7 +395,7 @@ model object (
 
 	field bucket_id      bucket.id cascade // uuid, do we want this to be cascading, might end up being slow?
 	field encrypted_path blob
-	field version        int
+	field version        int64
 	field status         int // byte = partial, commiting, comitted, deleting
 
 	field stream_id           blob
@@ -408,7 +408,7 @@ model object (
 	field created_at     utimestamp // should this be autoinsert?, do we need this?
 	field expires_at     utimestamp
 
-	field fixed_segment_size         int // -1 when variable due to multipart upload
+	field fixed_segment_size         int64 // -1 when variable due to multipart upload
 
 	// TODO compress into a single uint64
 	field encryption_cipher_suite    int // byte

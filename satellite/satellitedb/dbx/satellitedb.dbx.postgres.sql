@@ -219,7 +219,7 @@ CREATE TABLE used_serials (
 CREATE TABLE objects (
 	bucket_id bytea NOT NULL REFERENCES buckets( id ) ON DELETE CASCADE,
 	encrypted_path bytea NOT NULL,
-	version integer NOT NULL,
+	version bigint NOT NULL,
 	status integer NOT NULL,
 	stream_id bytea NOT NULL,
 	encrypted_metadata bytea NOT NULL,
@@ -228,7 +228,7 @@ CREATE TABLE objects (
 	remote_size bigint NOT NULL,
 	created_at timestamp NOT NULL,
 	expires_at timestamp NOT NULL,
-	fixed_segment_size integer NOT NULL,
+	fixed_segment_size bigint NOT NULL,
 	encryption_cipher_suite integer NOT NULL,
 	encryption_block_size integer NOT NULL,
 	redundancy_algorithm integer NOT NULL,

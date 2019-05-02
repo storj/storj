@@ -491,7 +491,7 @@ CREATE TABLE used_serials (
 CREATE TABLE objects (
 	bucket_id bytea NOT NULL REFERENCES buckets( id ) ON DELETE CASCADE,
 	encrypted_path bytea NOT NULL,
-	version integer NOT NULL,
+	version bigint NOT NULL,
 	status integer NOT NULL,
 	stream_id bytea NOT NULL,
 	encrypted_metadata bytea NOT NULL,
@@ -500,7 +500,7 @@ CREATE TABLE objects (
 	remote_size bigint NOT NULL,
 	created_at timestamp NOT NULL,
 	expires_at timestamp NOT NULL,
-	fixed_segment_size integer NOT NULL,
+	fixed_segment_size bigint NOT NULL,
 	encryption_cipher_suite integer NOT NULL,
 	encryption_block_size integer NOT NULL,
 	redundancy_algorithm integer NOT NULL,
@@ -4127,7 +4127,7 @@ func (UsedSerial_StorageNodeId_Field) _Column() string { return "storage_node_id
 type Object struct {
 	BucketId                 []byte
 	EncryptedPath            []byte
-	Version                  int
+	Version                  int64
 	Status                   int
 	StreamId                 []byte
 	EncryptedMetadata        []byte
@@ -4136,7 +4136,7 @@ type Object struct {
 	RemoteSize               int64
 	CreatedAt                time.Time
 	ExpiresAt                time.Time
-	FixedSegmentSize         int
+	FixedSegmentSize         int64
 	EncryptionCipherSuite    int
 	EncryptionBlockSize      int
 	RedundancyAlgorithm      int
@@ -4193,10 +4193,10 @@ func (Object_EncryptedPath_Field) _Column() string { return "encrypted_path" }
 type Object_Version_Field struct {
 	_set   bool
 	_null  bool
-	_value int
+	_value int64
 }
 
-func Object_Version(v int) Object_Version_Field {
+func Object_Version(v int64) Object_Version_Field {
 	return Object_Version_Field{_set: true, _value: v}
 }
 
@@ -4366,10 +4366,10 @@ func (Object_ExpiresAt_Field) _Column() string { return "expires_at" }
 type Object_FixedSegmentSize_Field struct {
 	_set   bool
 	_null  bool
-	_value int
+	_value int64
 }
 
-func Object_FixedSegmentSize(v int) Object_FixedSegmentSize_Field {
+func Object_FixedSegmentSize(v int64) Object_FixedSegmentSize_Field {
 	return Object_FixedSegmentSize_Field{_set: true, _value: v}
 }
 

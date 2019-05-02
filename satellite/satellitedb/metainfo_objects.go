@@ -25,6 +25,35 @@ type segments struct {
 }
 
 func (objects *objects) Create(ctx context.Context, object *metainfo.Object) error {
+	objects.db.Create_Object(ctx,
+		dbx.Object_BucketId(object.BucketID[:]),
+		dbx.Object_EncryptedPath([]byte(object.EncryptedPath)),
+		dbx.Object_Version(object.Version),
+		dbx.Object_Status(int(object.Status)),
+
+		dbx.Object_StreamId(object.StreamID[:]),
+		dbx.Object_EncryptedMetadata(object.EncryptedMetadata),
+
+		dbx.Object_TotalSize(object.TotalSize),
+		dbx.Object_InlineSize(object.InlineSize),
+		dbx.Object_RemoteSize(object.RemoteSize),
+
+		dbx.Object_CreatedAt(object.CreatedAt),
+		dbx.Object_ExpiresAt(object.ExpiresAt),
+
+		dbx.Object_FixedSegmentSize(object.FixedSegmentSize),
+
+		dbx.Object_EncryptionCipherSuite(int(object.Encryption.CipherSuite)),
+		dbx.Object_EncryptionBlockSize(int(object.Encryption.BlockSize)),
+
+		dbx.Object_RedundancyAlgorithm(int(object.Redundancy.Algorithm)),
+		dbx.Object_RedundancyShareSize(int(object.Redundancy.ShareSize)),
+		dbx.Object_RedundancyRequiredShares(int(object.Redundancy.RequiredShares)),
+		dbx.Object_RedundancyRepairShares(int(object.Redundancy.RepairShares)),
+		dbx.Object_RedundancyOptimalShares(int(object.Redundancy.OptimalShares)),
+		dbx.Object_RedundancyTotalShares(int(object.Redundancy.TotalShares)),
+	)
+
 	return nil
 }
 
