@@ -50,6 +50,7 @@ import (
 	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/referral/offersweb"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 )
@@ -108,7 +109,8 @@ type Config struct {
 	Mail    mailservice.Config
 	Console consoleweb.Config
 
-	Version version.Config
+	Referral offersweb.Config
+	Version  version.Config
 }
 
 // Peer is the satellite
@@ -184,6 +186,12 @@ type Peer struct {
 		Listener net.Listener
 		Service  *console.Service
 		Endpoint *consoleweb.Server
+	}
+
+	Referral struct {
+		Listener net.Listener
+		// Service  *console.Service
+		Endpoint *offersweb.Server
 	}
 }
 
@@ -509,6 +517,22 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		)
 	}
 
+	{ // setup referral offers
+		log.Debug("Setting up offers")
+		referralConfig := config.Referral
+
+		peer.Referral.Listener, err = net.Listen("tcp", referralConfig.Address)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Referral.Endpoint = offersweb.NewServer(
+			peer.Log.Named("referral:endpoint"),
+			referralConfig,
+			peer.Referral.Listener,
+		)
+	}
+
 	return peer, nil
 }
 
@@ -554,6 +578,9 @@ func (peer *Peer) Run(ctx context.Context) error {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
 	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Referral.Endpoint.Run(ctx))
+	})
 
 	return group.Wait()
 }
@@ -574,6 +601,14 @@ func (peer *Peer) Close() error {
 	} else {
 		if peer.Console.Listener != nil {
 			errlist.Add(peer.Console.Listener.Close())
+		}
+	}
+
+	if peer.Referral.Endpoint != nil {
+		errlist.Add(peer.Referral.Endpoint.Close())
+	} else {
+		if peer.Referral.Listener != nil {
+			errlist.Add(peer.Referral.Listener.Close())
 		}
 	}
 
