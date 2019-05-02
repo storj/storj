@@ -136,18 +136,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Error starting master database on storagenode: %+v", err)
 	}
 
-	// Sync routing table database every 1s
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
-	kdb, ndb := db.RoutingTable()
-	go func() {
-		for {
-			<-ticker.C
-			kdb.Sync()
-			ndb.Sync()
-		}
-	}()
-
 	defer func() {
 		err = errs.Combine(err, db.Close())
 	}()

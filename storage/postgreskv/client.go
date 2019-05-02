@@ -115,12 +115,6 @@ func (client *Client) List(first storage.Key, limit int) (storage.Keys, error) {
 	return storage.ListKeys(client, first, limit)
 }
 
-// Sync writes data to disk
-func (client *Client) Sync() error {
-	// TODO: this satisfies the storage.KeyValueStore interface, implement if needed.
-	return Error.New("Sync not implemented")
-}
-
 // Close closes the client
 func (client *Client) Close() error {
 	return client.pgConn.Close()

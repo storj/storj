@@ -68,7 +68,6 @@ func NewShared(path string, buckets ...string) ([]*Client, error) {
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	db.NoSync = true
 
 	err = Error.Wrap(db.Update(func(tx *bolt.Tx) error {
 		for _, bucket := range buckets {
@@ -114,8 +113,20 @@ func (client *Client) view(fn func(*bolt.Bucket) error) error {
 	}))
 }
 
-// Put adds a value to the provided key in boltdb, returning an error on failure.
+// Put adds a key/value to BoltDB in a batch, where the batch is committed to
+// to disk every 1000 operations or 2 ms, whichever is first.
 func (client *Client) Put(key storage.Key, value storage.Value) error {
+	if key.IsZero() {
+		return storage.ErrEmptyKey.New("")
+	}
+
+	return client.batch(func(bucket *bolt.Bucket) error {
+		return bucket.Put(key, value)
+	})
+}
+
+// PutAndCommit adds a key/value to BoltDB and writes it to disk.
+func (client *Client) PutAndCommit(key storage.Key, value storage.Value) error {
 	if key.IsZero() {
 		return storage.ErrEmptyKey.New("")
 	}
@@ -125,11 +136,9 @@ func (client *Client) Put(key storage.Key, value storage.Value) error {
 	})
 }
 
-// batch executes the db operation, fn, in batches instead of
-// every time the operation is called (like how db.Update does).
-// By default, the batch is written to the db every 1000 operations
-// or every 2 ms, which ever comes first. Those values are set by bolt,
-// but can be modified if we choose to.
+// batch executes and commits the db operation, fn, in batches instead of every time the
+// operation is called. By default, the batch is written to disk every 1000 operations or
+// every 2 ms, which ever comes first.
 func (client *Client) batch(fn func(*bolt.Bucket) error) error {
 	go func() {
 		err := client.db.Batch(func(tx *bolt.Tx) error {
@@ -145,17 +154,6 @@ func (client *Client) batch(fn func(*bolt.Bucket) error) error {
 		}
 	}()
 	return nil
-}
-
-// BatchPut adds a value to the provided key in boltdb, returning an error on failure.
-func (client *Client) BatchPut(key storage.Key, value storage.Value) error {
-	if key.IsZero() {
-		return storage.ErrEmptyKey.New("")
-	}
-
-	return client.batch(func(bucket *bolt.Bucket) error {
-		return bucket.Put(key, value)
-	})
 }
 
 // Get looks up the provided key from boltdb returning either an error or the result.
@@ -193,15 +191,9 @@ func (client *Client) List(first storage.Key, limit int) (storage.Keys, error) {
 	return rv, Error.Wrap(err)
 }
 
-// Sync calls fsync and writes data to disk
-func (client *Client) Sync() error {
-	return Error.Wrap(client.db.Sync())
-}
-
 // Close closes a BoltDB client
 func (client *Client) Close() error {
 	if atomic.AddInt32(client.referenceCount, -1) == 0 {
-		client.db.Sync()
 		return Error.Wrap(client.db.Close())
 	}
 	return nil

@@ -15,142 +15,6 @@ import (
 	"storj.io/storj/storage/testsuite"
 )
 
-func BenchmarkClientWrite(b *testing.B) {
-	// setup db
-	tempdir, err := ioutil.TempDir("", "storj-bolt")
-	if err != nil {
-		fmt.Println("err:", err)
-	}
-	defer func() { _ = os.RemoveAll(tempdir) }()
-	dbname := filepath.Join(tempdir, "testbolt.db")
-	dbs, err := NewShared(dbname, "kbuckets", "nodes")
-	if err != nil {
-		fmt.Printf("failed to create db: %v\n", err)
-	}
-	defer func() {
-		if err := dbs[0].Close(); err != nil {
-			fmt.Printf("failed to close db: %v\n", err)
-		}
-		if err := dbs[1].Close(); err != nil {
-			fmt.Printf("failed to close db: %v\n", err)
-		}
-	}()
-	kdb := dbs[0]
-	kdb.db.NoSync = false
-
-	// benchmark test: execute 1000 Put operations
-	for n := 0; n < b.N; n++ {
-		for i := 0; i < 1000; i++ {
-			key := storage.Key(fmt.Sprintf("testkey%d", i))
-			value := storage.Value("testvalue")
-			err := kdb.Put(key, value)
-			if err != nil {
-				fmt.Println("Put err:", err)
-			}
-		}
-	}
-	b.Logf("\n b.N: %d, TxStats Write: %v, WriteTime: %v\n", b.N, kdb.db.Stats().TxStats.Write, kdb.db.Stats().TxStats.WriteTime)
-}
-
-func BenchmarkClientNoSyncWrite(b *testing.B) {
-	// setup db
-	tempdir, err := ioutil.TempDir("", "storj-bolt")
-	if err != nil {
-		fmt.Println("err:", err)
-	}
-	defer func() { _ = os.RemoveAll(tempdir) }()
-	dbname := filepath.Join(tempdir, "testbolt.db")
-	dbs, err := NewShared(dbname, "kbuckets", "nodes")
-	if err != nil {
-		fmt.Printf("failed to create db: %v\n", err)
-	}
-	defer func() {
-		if err := dbs[0].Close(); err != nil {
-			fmt.Printf("failed to close db: %v\n", err)
-		}
-		if err := dbs[1].Close(); err != nil {
-			fmt.Printf("failed to close db: %v\n", err)
-		}
-	}()
-	kdb := dbs[0]
-
-	// run benchmark test: execute 1000 Put operations with fsync turned off
-	kdb.db.NoSync = true
-	for n := 0; n < b.N; n++ {
-		for i := 0; i < 1000; i++ {
-			key := storage.Key(fmt.Sprintf("testkey%d", i))
-			value := storage.Value("testvalue")
-			err := kdb.Put(key, value)
-			if err != nil {
-				fmt.Println("Put Nosync err:", err)
-			}
-		}
-	}
-	kdb.db.Sync()
-	b.Logf("\n b.N: %d, TxStats Write: %v, WriteTime: %v\n", b.N, kdb.db.Stats().TxStats.Write, kdb.db.Stats().TxStats.WriteTime)
-}
-
-func BenchmarkClientBatchWrite(b *testing.B) {
-	// setup db
-	tempdir, err := ioutil.TempDir("", "storj-bolt")
-	if err != nil {
-		fmt.Println("err:", err)
-	}
-	defer func() { _ = os.RemoveAll(tempdir) }()
-	dbname := filepath.Join(tempdir, "batchbolt.db")
-	dbs, err := NewShared(dbname, "kbuckets", "nodes")
-	if err != nil {
-		fmt.Printf("failed to create db: %v\n", err)
-	}
-	kdb := dbs[0]
-	kdb.db.NoSync = false
-
-	// run benchmark tests: execute 1000 Put operations with batch
-	for n := 0; n < b.N; n++ {
-		for i := 0; i < 1000; i++ {
-			key := storage.Key(fmt.Sprintf("testkey%d", i))
-			value := storage.Value("testvalue")
-
-			err := kdb.BatchPut(key, value)
-			if err != nil {
-				fmt.Println("batch err: ", err)
-			}
-		}
-	}
-	b.Logf("\n b.N: %d, TxStats Write: %v, WriteTime: %v\n", b.N, kdb.db.Stats().TxStats.Write, kdb.db.Stats().TxStats.WriteTime)
-}
-
-func BenchmarkClientBatchNoSyncWrite(b *testing.B) {
-	// setup db
-	tempdir, err := ioutil.TempDir("", "storj-bolt")
-	if err != nil {
-		fmt.Println("err:", err)
-	}
-	defer func() { _ = os.RemoveAll(tempdir) }()
-	dbname := filepath.Join(tempdir, "batchbolt.db")
-	dbs, err := NewShared(dbname, "kbuckets", "nodes")
-	if err != nil {
-		fmt.Printf("failed to create db: %v\n", err)
-	}
-	kdb := dbs[0]
-	kdb.db.NoSync = true
-
-	// run benchmark tests: execute 1000 Put operations with batch and no fsync
-	for n := 0; n < b.N; n++ {
-		for i := 0; i < 1000; i++ {
-			key := storage.Key(fmt.Sprintf("testkey%d", i))
-			value := storage.Value("testvalue")
-
-			err := kdb.BatchPut(key, value)
-			if err != nil {
-				fmt.Println("batch err: ", err)
-			}
-		}
-	}
-	kdb.db.Sync()
-	b.Logf("\n b.N: %d, TxStats Write: %v, WriteTime: %v\n", b.N, kdb.db.Stats().TxStats.Write, kdb.db.Stats().TxStats.WriteTime)
-}
-
 func TestSuite(t *testing.T) {
 	tempdir, err := ioutil.TempDir("", "storj-bolt")
 	if err != nil {
@@ -274,4 +138,151 @@ func BenchmarkSuiteLong(b *testing.B) {
 		dirPath: tempdir,
 	}
 	testsuite.BenchmarkPathOperationsInLargeDb(b, longStore)
+}
+
+func BenchmarkClientWrite(b *testing.B) {
+	// setup db
+	tempdir, err := ioutil.TempDir("", "storj-bolt")
+	if err != nil {
+		fmt.Println("err:", err)
+	}
+	defer func() { _ = os.RemoveAll(tempdir) }()
+	dbname := filepath.Join(tempdir, "testbolt.db")
+	dbs, err := NewShared(dbname, "kbuckets", "nodes")
+	if err != nil {
+		fmt.Printf("failed to create db: %v\n", err)
+	}
+	defer func() {
+		if err := dbs[0].Close(); err != nil {
+			fmt.Printf("failed to close db: %v\n", err)
+		}
+		if err := dbs[1].Close(); err != nil {
+			fmt.Printf("failed to close db: %v\n", err)
+		}
+	}()
+	kdb := dbs[0]
+
+	// benchmark test: execute 1000 Put operations where each call to `PutAndCommit` does the following:
+	// 1) create a BoltDB transaction (tx), 2) execute the db operation, 3) commit the tx which writes it to disk.
+	for n := 0; n < b.N; n++ {
+		for i := 0; i < 1000; i++ {
+			key := storage.Key(fmt.Sprintf("testkey%d", i))
+			value := storage.Value("testvalue")
+
+			err := kdb.PutAndCommit(key, value)
+			if err != nil {
+				fmt.Println("Put err:", err)
+			}
+		}
+	}
+	b.Logf("\n b.N: %d, TxStats Write: %v, WriteTime: %v\n", b.N, kdb.db.Stats().TxStats.Write, kdb.db.Stats().TxStats.WriteTime)
+}
+
+func BenchmarkClientNoSyncWrite(b *testing.B) {
+	// setup db
+	tempdir, err := ioutil.TempDir("", "storj-bolt")
+	if err != nil {
+		fmt.Println("err:", err)
+	}
+	defer func() { _ = os.RemoveAll(tempdir) }()
+	dbname := filepath.Join(tempdir, "testbolt.db")
+	dbs, err := NewShared(dbname, "kbuckets", "nodes")
+	if err != nil {
+		fmt.Printf("failed to create db: %v\n", err)
+	}
+	defer func() {
+		if err := dbs[0].Close(); err != nil {
+			fmt.Printf("failed to close db: %v\n", err)
+		}
+		if err := dbs[1].Close(); err != nil {
+			fmt.Printf("failed to close db: %v\n", err)
+		}
+	}()
+	kdb := dbs[0]
+
+	// benchmark test: execute 1000 Put operations with fsync turned off.
+	// Each call to `PutAndCommit` does the following: 1) creates a BoltDB transaction (tx),
+	// 2) executes the db operation, and 3) commits the tx which does NOT write it to disk.
+	kdb.db.NoSync = true
+	for n := 0; n < b.N; n++ {
+		for i := 0; i < 1000; i++ {
+			key := storage.Key(fmt.Sprintf("testkey%d", i))
+			value := storage.Value("testvalue")
+
+			err := kdb.PutAndCommit(key, value)
+			if err != nil {
+				fmt.Println("PutAndCommit Nosync err:", err)
+			}
+		}
+	}
+	kdb.db.Sync()
+	b.Logf("\n b.N: %d, TxStats Write: %v, WriteTime: %v\n", b.N, kdb.db.Stats().TxStats.Write, kdb.db.Stats().TxStats.WriteTime)
+}
+
+func BenchmarkClientBatchWrite(b *testing.B) {
+	// setup db
+	tempdir, err := ioutil.TempDir("", "storj-bolt")
+	if err != nil {
+		fmt.Println("err:", err)
+	}
+	defer func() { _ = os.RemoveAll(tempdir) }()
+	dbname := filepath.Join(tempdir, "batchbolt.db")
+	dbs, err := NewShared(dbname, "kbuckets", "nodes")
+	if err != nil {
+		fmt.Printf("failed to create db: %v\n", err)
+	}
+	kdb := dbs[0]
+
+	// benchmark test: batch 1000 Put operations.
+	// Each call to `Put` does the following: 1) adds the db operation to a queue in boltDB,
+	// 2) every 1000 operations or 2 ms, whichever is first, BoltDB creates a single
+	// transaction for all operations currently in the batch, executes the operations,
+	//  commits, and writes them to disk
+	for n := 0; n < b.N; n++ {
+		for i := 0; i < 1000; i++ {
+			key := storage.Key(fmt.Sprintf("testkey%d", i))
+			value := storage.Value("testvalue")
+
+			err := kdb.Put(key, value)
+			if err != nil {
+				fmt.Println("batch Put err: ", err)
+			}
+		}
+	}
+	b.Logf("\n b.N: %d, TxStats Write: %v, WriteTime: %v\n", b.N, kdb.db.Stats().TxStats.Write, kdb.db.Stats().TxStats.WriteTime)
+}
+
+func BenchmarkClientBatchNoSyncWrite(b *testing.B) {
+	// setup db
+	tempdir, err := ioutil.TempDir("", "storj-bolt")
+	if err != nil {
+		fmt.Println("err:", err)
+	}
+	defer func() { _ = os.RemoveAll(tempdir) }()
+	dbname := filepath.Join(tempdir, "batchbolt.db")
+	dbs, err := NewShared(dbname, "kbuckets", "nodes")
+	if err != nil {
+		fmt.Printf("failed to create db: %v\n", err)
+	}
+	kdb := dbs[0]
+
+	// benchmark test: batch 1000 Put operations with fsync turned off.
+	// Each call to `Put` does the following: 1) adds the db operation to a queue in boltDB,
+	// 2) every 1000 operations or 2 ms, whichever is first, BoltDB creates a single
+	// transaction for all operations currently in the batch, executes the operations,
+	// commits, but does NOT write them to disk
+	kdb.db.NoSync = true
+	for n := 0; n < b.N; n++ {
+		for i := 0; i < 1000; i++ {
+			key := storage.Key(fmt.Sprintf("testkey%d", i))
+			value := storage.Value("testvalue")
+
+			err := kdb.Put(key, value)
+			if err != nil {
+				fmt.Println("batch Put NoSync err: ", err)
+			}
+		}
+	}
+	kdb.db.Sync()
+	b.Logf("\n b.N: %d, TxStats Write: %v, WriteTime: %v\n", b.N, kdb.db.Stats().TxStats.Write, kdb.db.Stats().TxStats.WriteTime)
 }

@@ -178,12 +178,6 @@ func (store *Client) List(first storage.Key, limit int) (storage.Keys, error) {
 	return storage.ListKeys(store, first, limit)
 }
 
-// Sync writes data to disk
-func (store *Client) Sync() error {
-	// TODO: this satisfies the storage.KeyValueStore interface, implement if needed.
-	return errors.New("Sync not implemented")
-}
-
 // Close closes the store
 func (store *Client) Close() error {
 	defer store.locked()()

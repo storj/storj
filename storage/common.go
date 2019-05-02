@@ -64,8 +64,6 @@ type KeyValueStore interface {
 	List(start Key, limit int) (Keys, error)
 	// Iterate iterates over items based on opts
 	Iterate(opts IterateOptions, fn func(Iterator) error) error
-	// Sync writes data to disk
-	Sync() error
 	// Close closes the store
 	Close() error
 }

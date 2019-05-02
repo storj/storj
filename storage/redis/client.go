@@ -117,12 +117,6 @@ func (client *Client) Delete(key storage.Key) error {
 	return nil
 }
 
-// Sync writes data to disk
-func (client *Client) Sync() error {
-	// TODO: this satisfies the storage.KeyValueStore interface, implement if needed.
-	return Error.New("Sync not implemented")
-}
-
 // Close closes a redis client
 func (client *Client) Close() error {
 	return client.db.Close()
