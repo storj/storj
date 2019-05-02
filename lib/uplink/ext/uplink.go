@@ -14,17 +14,19 @@ import "C"
 import (
 	"context"
 	"fmt"
+	"github.com/zeebo/errs"
 	"reflect"
 
 	"storj.io/storj/lib/uplink"
 )
 
+var ErrConvert = errs.Class("struct conversion error")
 //func main() {}
 
 //export NewUplink
 func NewUplink(cConfig C.struct_Config, cErr *C.char) C.struct_Uplink {
 	goConfig := new(uplink.Config)
-	if err := ConvertStruct(cConfig, goConfig); err != nil {
+	if err := GoToCStruct(cConfig, goConfig); err != nil {
 		*cErr = *C.CString(err.Error())
 	}
 	//goConfig := uplink.Config{}
@@ -54,7 +56,7 @@ func NewUplink(cConfig C.struct_Config, cErr *C.char) C.struct_Uplink {
 	//fmt.Printf("go: %s\n", cUplink.volatile_.tls.SkipPeerCAWhitelist)
 }
 
-func ConvertStruct(fromVar, toPtr interface{}) error {
+func GoToCStruct(fromVar, toPtr interface{}) error {
 	fromValue := reflect.ValueOf(fromVar)
 	fromKind := fromValue.Kind()
 	//fmt.Printf("from kind: %s\n", fromValue.Kind())
@@ -68,38 +70,44 @@ func ConvertStruct(fromVar, toPtr interface{}) error {
 	case reflect.Bool:
 		toValue.Set(reflect.ValueOf(C.bool(fromValue.Bool())))
 		return nil
+	case reflect.Int:
+		toValue.Set(reflect.ValueOf(C.int(fromValue.Int())))
+		return nil
+	case reflect.Uint:
+		toValue.Set(reflect.ValueOf(C.int(fromValue.Uint())))
+		return nil
+	//case reflect.Uintptr:
+	//	return nil
 	case reflect.Uintptr:
+		return nil
 	case reflect.Struct:
-	default:
-		panic(fmt.Sprintf("unsupported kind %s", fromKind))
-	}
+		for i := 0; i < fromValue.NumField(); i++ {
+			fromFieldValue := fromValue.Field(i)
+			fromField := fromValue.Type().Field(i)
+			//fmt.Printf("fromValue %s\n", fromValue.Interface())
+			//fmt.Printf("fromFieldValue %s\n", fromFieldValue.Interface())
 
-	for i := 0; i < fromValue.NumField(); i++ {
-		fromFieldValue := fromValue.Field(i)
+			fmt.Printf("fromField.Name %s\n", fromField.Name)
+			fmt.Printf("fromFieldValue type %s\n", fromFieldValue.Type())
+			toField := toValue.FieldByName(fromField.Name)
 
-		// TODO: recurse here?
-		switch fromFieldValue.Kind() {
-		case reflect.Uintptr:
-		case reflect.Struct:
-			fmt.Printf("fromField: %+v\n", fromFieldValue)
+			toFieldPtr := reflect.New(toField.Type())
+			toFieldValue := toFieldPtr.Interface()
 
-			toFieldPtr := reflect.New(fromFieldValue.Type())
-			if err := ConvertStruct(fromFieldValue.Interface(), toFieldPtr.Pointer()); err != nil {
+			// initialize new C value pointer
+			if err := GoToCStruct(fromFieldValue.Interface(), &toFieldValue); err != nil {
 				return err
 			}
-			//toValue.
-			// -- use .Set
-			//fromField := fromType.Field(i)
-			//fmt.Printf("fromField: %+v\n", fromField)
-			//toValue.FieldByName(fromField.Name)
-			//fromField := fromValue.Field(i)
-		//fmt.Printf("fromField: %+v\n", fromFieldValue)
-			//toValue.FieldByName(fromField.Name)
-		default:
-			//fmt.Println("default case!")
+
+			// set field value to modified value
+			// TODO: use `FieldByName` instead
+			// WIP
+			toValue.Field(i).Set(reflect.Indirect(toFieldPtr))
 		}
+		return nil
+	default:
+		return ErrConvert.New("unsupported kind %s", fromKind)
 	}
-	return nil
 }
 
 var cRegistry = make(map[uint64]interface{})

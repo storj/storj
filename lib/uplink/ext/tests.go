@@ -23,8 +23,8 @@ var AllTests testing.Tests
 
 func init() {
 	AllTests.Register(
-		testing.NewTest("TestConvertStruct_success", TestConvertStruct_success),
-		testing.NewTest("TestConvertStruct_error", TestConvertStruct_error),
+		testing.NewTest("TestGoToCStruct_success", TestGoToCStruct_success),
+		testing.NewTest("TestGoToCStruct_error", TestGoToCStruct_error),
 	)
 }
 
@@ -32,14 +32,14 @@ func main() {
 	AllTests.Run()
 }
 
-func TestConvertStruct_success(t *testing.T) {
+func TestGoToCStruct_success(t *testing.T) {
 	{
 		t.Info("go to C string")
 
 		stringGo := "testing 123"
 		toCString := C.CString("")
 
-		err := ConvertStruct(stringGo, &toCString)
+		err := GoToCStruct(stringGo, &toCString)
 		require.NoError(t, err)
 
 		assert.Equal(t, stringGo, C.GoString(toCString))
@@ -51,7 +51,7 @@ func TestConvertStruct_success(t *testing.T) {
 		boolGo := true
 		var toCBool C.bool
 
-		err := ConvertStruct(boolGo, &toCBool)
+		err := GoToCStruct(boolGo, &toCBool)
 		require.NoError(t, err)
 
 		assert.Equal(t, boolGo, bool(toCBool))
@@ -61,20 +61,20 @@ func TestConvertStruct_success(t *testing.T) {
 		t.Info("go to C simple struct")
 
 		simpleGo := struct {
-			str1  string
-			int2  int
-			uint3 uint
+			Str1  string
+			Int2  int
+			Uint3 uint
 		}{"one", -2, 3,}
 		toCStruct := C.struct_Simple{}
 
-		err := ConvertStruct(simpleGo, &toCStruct)
+		err := GoToCStruct(simpleGo, &toCStruct)
 		require.NoError(t, err)
 
-		assert.Equal(t, simpleGo.str1, toCStruct.str1)
-		assert.Equal(t, simpleGo.int2, toCStruct.int2)
-		assert.Equal(t, simpleGo.uint3, toCStruct.uint3)
+		assert.Equal(t, simpleGo.Str1, C.GoString(toCStruct.Str1))
+		assert.Equal(t, simpleGo.Int2, int(toCStruct.Int2))
+		assert.Equal(t, simpleGo.Uint3, uint(toCStruct.Uint3))
 	}
 }
 
-func TestConvertStruct_error(t *testing.T) {
+func TestGoToCStruct_error(t *testing.T) {
 }
