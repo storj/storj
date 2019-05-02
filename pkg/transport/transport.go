@@ -37,6 +37,7 @@ type Transport struct {
 	requestTimeout time.Duration
 }
 
+// TCP represents TCP network type
 const TCP = "tcp"
 
 // NewClient returns a transport client with a default timeout for requests
