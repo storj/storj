@@ -156,7 +156,7 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (*overlay.N
 
 // KnownUnreliableOrOffline filters a set of nodes to unreliable or offlines node, independent of new
 // Note that KnownUnreliableOrOffline will not return node ids which are not in the database at all
-func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIds storj.NodeIDList) (goodNodes storj.NodeIDList, err error) {
+func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIds storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
 	if len(nodeIds) == 0 {
 		return nil, Error.New("no ids provided")
 	}
@@ -183,9 +183,9 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 		if err != nil {
 			return nil, err
 		}
-		goodNodes = append(goodNodes, id)
+		badNodes = append(badNodes, id)
 	}
-	return goodNodes, nil
+	return badNodes, nil
 }
 
 // Paginate will run through
