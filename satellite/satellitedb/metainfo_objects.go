@@ -98,6 +98,7 @@ func (objects *objects) Delete(ctx context.Context, bucket uuid.UUID, encryptedP
 }
 
 func (objects *objects) GetPartial(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version metainfo.ObjectVersion) (*metainfo.Object, error) {
+	// this currently returns non-committed
 	if version == metainfo.LastObjectVersion {
 		dbxObject, err := objects.db.Get_Object_By_BucketId_And_EncryptedPath_And_Status_Not_OrderBy_Desc_Version(ctx,
 			dbx.Object_BucketId(bucket[:]),
