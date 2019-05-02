@@ -16,11 +16,6 @@ import (
 	"storj.io/storj/storage"
 )
 
-const (
-	// OnlineWindow is the maximum amount of time that can pass without seeing a node before that node is considered offline
-	OnlineWindow = 1 * time.Hour
-)
-
 // ErrEmptyNode is returned when the nodeID is empty
 var ErrEmptyNode = errs.New("empty node ID")
 
@@ -45,10 +40,9 @@ type DB interface {
 
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
-	// GetAll looks up nodes based on the ids from the overlay cache
-	GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*NodeDossier, error)
-	// List lists nodes starting from cursor
-	List(ctx context.Context, cursor storj.NodeID, limit int) ([]*NodeDossier, error)
+	// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
+	// Note that KnownUnreliableOrOffline will not return node ids which are not in the database at all
+	KnownUnreliableOrOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
 	// Paginate will page through the database nodes
 	Paginate(ctx context.Context, offset int64, limit int) ([]*NodeDossier, bool, error)
 
@@ -68,28 +62,23 @@ type DB interface {
 type FindStorageNodesRequest struct {
 	MinimumRequiredNodes int
 	RequestedCount       int
-
-	FreeBandwidth int64
-	FreeDisk      int64
-
-	ExcludedNodes []storj.NodeID
-
-	MinimumVersion string // semver or empty
+	FreeBandwidth        int64
+	FreeDisk             int64
+	ExcludedNodes        []storj.NodeID
+	MinimumVersion       string // semver or empty
 }
 
 // NodeCriteria are the requirements for selecting nodes
 type NodeCriteria struct {
-	FreeBandwidth int64
-	FreeDisk      int64
-
+	FreeBandwidth      int64
+	FreeDisk           int64
 	AuditCount         int64
 	AuditSuccessRatio  float64
 	UptimeCount        int64
 	UptimeSuccessRatio float64
-
-	Excluded []storj.NodeID
-
-	MinimumVersion string // semver or empty
+	Excluded           []storj.NodeID
+	MinimumVersion     string // semver or empty
+	OnlineWindow       time.Duration
 }
 
 // UpdateRequest is used to update a node status.
@@ -147,13 +136,6 @@ func (cache *Cache) Inspect(ctx context.Context) (storage.Keys, error) {
 	return nil, errors.New("not implemented")
 }
 
-// List returns a list of nodes from the cache DB
-func (cache *Cache) List(ctx context.Context, cursor storj.NodeID, limit int) (_ []*NodeDossier, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	return cache.db.List(ctx, cursor, limit)
-}
-
 // Paginate returns a list of `limit` nodes starting from `start` offset.
 func (cache *Cache) Paginate(ctx context.Context, offset int64, limit int) (_ []*NodeDossier, _ bool, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -169,22 +151,10 @@ func (cache *Cache) Get(ctx context.Context, nodeID storj.NodeID) (_ *NodeDossie
 	return cache.db.Get(ctx, nodeID)
 }
 
-// IsNew checks if a node is 'new' based on the collected statistics.
-func (cache *Cache) IsNew(node *NodeDossier) bool {
-	return node.Reputation.AuditCount < cache.preferences.AuditCount
-}
-
 // IsOnline checks if a node is 'online' based on the collected statistics.
 func (cache *Cache) IsOnline(node *NodeDossier) bool {
-	return time.Now().Sub(node.Reputation.LastContactSuccess) < OnlineWindow &&
+	return time.Now().Sub(node.Reputation.LastContactSuccess) < cache.preferences.OnlineWindow &&
 		node.Reputation.LastContactSuccess.After(node.Reputation.LastContactFailure)
-}
-
-// IsHealthy checks if a node is 'valid' based on the collected statistics.
-func (cache *Cache) IsHealthy(node *NodeDossier) bool {
-	r, p := node.Reputation, cache.preferences
-	return r.AuditCount >= p.AuditCount && r.UptimeCount >= p.UptimeCount &&
-		r.AuditSuccessRatio >= p.AuditSuccessRatio && r.UptimeRatio >= p.UptimeRatio
 }
 
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
@@ -219,13 +189,12 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 			AuditSuccessRatio: preferences.AuditSuccessRatio,
 			Excluded:          excluded,
 			MinimumVersion:    preferences.MinimumVersion,
+			OnlineWindow:      preferences.OnlineWindow,
 		})
 		if err != nil {
 			return nil, err
 		}
 	}
-
-	auditCount := preferences.AuditCount
 
 	// add selected new nodes to the excluded list for reputable node selection
 	for _, newNode := range newNodes {
@@ -235,12 +204,13 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 	reputableNodes, err := cache.db.SelectStorageNodes(ctx, reputableNodeCount-len(newNodes), &NodeCriteria{
 		FreeBandwidth:      req.FreeBandwidth,
 		FreeDisk:           req.FreeDisk,
-		AuditCount:         auditCount,
+		AuditCount:         preferences.AuditCount,
 		AuditSuccessRatio:  preferences.AuditSuccessRatio,
 		UptimeCount:        preferences.UptimeCount,
 		UptimeSuccessRatio: preferences.UptimeRatio,
 		Excluded:           excluded,
 		MinimumVersion:     preferences.MinimumVersion,
+		OnlineWindow:       preferences.OnlineWindow,
 	})
 	if err != nil {
 		return nil, err
@@ -256,15 +226,18 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 	return nodes, nil
 }
 
-// GetAll looks up the provided ids from the overlay cache
-func (cache *Cache) GetAll(ctx context.Context, ids storj.NodeIDList) (_ []*NodeDossier, err error) {
+// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
+// Note that KnownUnreliableOrOffline will not return node ids which are not in the database at all
+func (cache *Cache) KnownUnreliableOrOffline(ctx context.Context, nodeIds storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	if len(ids) == 0 {
-		return nil, OverlayError.New("no ids provided")
+	criteria := &NodeCriteria{
+		AuditCount:         cache.preferences.AuditCount,
+		AuditSuccessRatio:  cache.preferences.AuditSuccessRatio,
+		OnlineWindow:       cache.preferences.OnlineWindow,
+		UptimeCount:        cache.preferences.UptimeCount,
+		UptimeSuccessRatio: cache.preferences.UptimeRatio,
 	}
-
-	return cache.db.GetAll(ctx, ids)
+	return cache.db.KnownUnreliableOrOffline(ctx, criteria, nodeIds)
 }
 
 // Put adds a node id and proto definition into the overlay cache

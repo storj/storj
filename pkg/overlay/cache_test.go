@@ -7,6 +7,7 @@ import (
 	"context"
 	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -40,7 +41,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 	_, _ = rand.Read(valid2ID[:])
 	_, _ = rand.Read(missingID[:])
 
-	cache := overlay.NewCache(zaptest.NewLogger(t), store, overlay.NodeSelectionConfig{})
+	cache := overlay.NewCache(zaptest.NewLogger(t), store, overlay.NodeSelectionConfig{OnlineWindow: time.Hour})
 
 	{ // Put
 		err := cache.Put(ctx, valid1ID, pb.Node{Id: valid1ID})
@@ -75,35 +76,6 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		assert.Nil(t, invalid2)
 
 		// TODO: add erroring database test
-	}
-
-	{ // GetAll
-		nodes, err := cache.GetAll(ctx, storj.NodeIDList{valid2ID, valid1ID, valid2ID})
-		assert.NoError(t, err)
-		assert.Equal(t, nodes[0].Id, valid2ID)
-		assert.Equal(t, nodes[1].Id, valid1ID)
-		assert.Equal(t, nodes[2].Id, valid2ID)
-
-		nodes, err = cache.GetAll(ctx, storj.NodeIDList{valid1ID, missingID})
-		assert.NoError(t, err)
-		assert.Equal(t, nodes[0].Id, valid1ID)
-		assert.Nil(t, nodes[1])
-
-		nodes, err = cache.GetAll(ctx, make(storj.NodeIDList, 2))
-		assert.NoError(t, err)
-		assert.Nil(t, nodes[0])
-		assert.Nil(t, nodes[1])
-
-		_, err = cache.GetAll(ctx, storj.NodeIDList{})
-		assert.True(t, overlay.OverlayError.Has(err))
-
-		// TODO: add erroring database test
-	}
-
-	{ // List
-		list, err := cache.List(ctx, storj.NodeID{}, 3)
-		assert.NoError(t, err)
-		assert.NotNil(t, list)
 	}
 
 	{ // Paginate
@@ -161,11 +133,12 @@ func TestRandomizedSelection(t *testing.T) {
 			var err error
 
 			if i%2 == 0 {
-				nodes, err = cache.SelectStorageNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{})
+				nodes, err = cache.SelectStorageNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{OnlineWindow: time.Hour})
 				require.NoError(t, err)
 			} else {
 				nodes, err = cache.SelectNewStorageNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{
-					AuditCount: 1,
+					OnlineWindow: time.Hour,
+					AuditCount:   1,
 				})
 				require.NoError(t, err)
 			}

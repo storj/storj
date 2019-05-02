@@ -5,8 +5,10 @@ package overlay_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/testcontext"
@@ -14,6 +16,38 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/storj"
 )
+
+func TestOffline(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		service := satellite.Overlay.Service
+		// TODO: handle cleanup
+
+		result, err := service.KnownUnreliableOrOffline(ctx, []storj.NodeID{
+			planet.StorageNodes[0].ID(),
+		})
+		require.NoError(t, err)
+		require.Empty(t, result)
+
+		result, err = service.KnownUnreliableOrOffline(ctx, []storj.NodeID{
+			planet.StorageNodes[0].ID(),
+			planet.StorageNodes[1].ID(),
+			planet.StorageNodes[2].ID(),
+		})
+		require.NoError(t, err)
+		require.Empty(t, result)
+
+		result, err = service.KnownUnreliableOrOffline(ctx, []storj.NodeID{
+			planet.StorageNodes[0].ID(),
+			storj.NodeID{1, 2, 3, 4}, //note that this succeeds by design
+			planet.StorageNodes[2].ID(),
+		})
+		require.NoError(t, err)
+		require.Len(t, result, 0)
+	})
+}
 
 func TestNodeSelection(t *testing.T) {
 	t.Skip("flaky")
@@ -54,6 +88,7 @@ func TestNodeSelection(t *testing.T) {
 				Preferences: overlay.NodeSelectionConfig{
 					AuditCount:        0,
 					NewNodePercentage: 0,
+					OnlineWindow:      time.Hour,
 				},
 				RequestCount:  5,
 				ExpectedCount: 5,
@@ -62,6 +97,7 @@ func TestNodeSelection(t *testing.T) {
 				Preferences: overlay.NodeSelectionConfig{
 					AuditCount:        0,
 					NewNodePercentage: 1,
+					OnlineWindow:      time.Hour,
 				},
 				RequestCount:  5,
 				ExpectedCount: 5,
@@ -70,6 +106,7 @@ func TestNodeSelection(t *testing.T) {
 				Preferences: overlay.NodeSelectionConfig{
 					AuditCount:        1,
 					NewNodePercentage: 1,
+					OnlineWindow:      time.Hour,
 				},
 				RequestCount:  5,
 				ExpectedCount: 6,
@@ -78,6 +115,7 @@ func TestNodeSelection(t *testing.T) {
 				Preferences: overlay.NodeSelectionConfig{
 					AuditCount:        5,
 					NewNodePercentage: 1,
+					OnlineWindow:      time.Hour,
 				},
 				RequestCount:  2,
 				ExpectedCount: 4,
@@ -86,6 +124,7 @@ func TestNodeSelection(t *testing.T) {
 				Preferences: overlay.NodeSelectionConfig{
 					AuditCount:        5,
 					NewNodePercentage: 0.5,
+					OnlineWindow:      time.Hour,
 				},
 				RequestCount:  4,
 				ExpectedCount: 6,
@@ -94,6 +133,7 @@ func TestNodeSelection(t *testing.T) {
 				Preferences: overlay.NodeSelectionConfig{
 					AuditCount:        8,
 					NewNodePercentage: 1,
+					OnlineWindow:      time.Hour,
 				},
 				RequestCount:  1,
 				ExpectedCount: 2,
@@ -102,6 +142,7 @@ func TestNodeSelection(t *testing.T) {
 				Preferences: overlay.NodeSelectionConfig{
 					AuditCount:        9,
 					NewNodePercentage: 1,
+					OnlineWindow:      time.Hour,
 				},
 				RequestCount:   2,
 				ExpectedCount:  3,
@@ -111,6 +152,7 @@ func TestNodeSelection(t *testing.T) {
 				Preferences: overlay.NodeSelectionConfig{
 					AuditCount:        50,
 					NewNodePercentage: 1,
+					OnlineWindow:      time.Hour,
 				},
 				RequestCount:   2,
 				ExpectedCount:  2,
@@ -120,6 +162,7 @@ func TestNodeSelection(t *testing.T) {
 				Preferences: overlay.NodeSelectionConfig{
 					AuditCount:        9,
 					NewNodePercentage: 0,
+					OnlineWindow:      time.Hour,
 				},
 				RequestCount:  1,
 				ExpectedCount: 1,
@@ -128,6 +171,7 @@ func TestNodeSelection(t *testing.T) {
 				Preferences: overlay.NodeSelectionConfig{
 					AuditCount:        0,
 					NewNodePercentage: 1,
+					OnlineWindow:      time.Hour,
 				},
 				RequestCount:  1,
 				ExpectedCount: 1,
@@ -136,6 +180,7 @@ func TestNodeSelection(t *testing.T) {
 				Preferences: overlay.NodeSelectionConfig{
 					AuditCount:        5,
 					NewNodePercentage: 0,
+					OnlineWindow:      time.Hour,
 				},
 				ExcludeCount:   7,
 				RequestCount:   5,

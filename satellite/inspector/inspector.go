@@ -137,19 +137,11 @@ func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *pb.SegmentHealt
 		nodeIDs = append(nodeIDs, piece.NodeId)
 	}
 
-	nodes, err := endpoint.cache.GetAll(ctx, nodeIDs)
+	badNodes, err := endpoint.cache.KnownUnreliableOrOffline(ctx, nodeIDs)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-
-	onlineNodeCount := int32(0)
-	for _, n := range nodes {
-		if endpoint.cache.IsOnline(n) {
-			onlineNodeCount++
-		}
-	}
-
-	health.OnlineNodes = onlineNodeCount
+	health.OnlineNodes = int32(len(nodeIDs) - len(badNodes))
 
 	if in.GetSegmentIndex() > -1 {
 		health.Segment = []byte("s" + strconv.FormatInt(in.GetSegmentIndex(), 10))
