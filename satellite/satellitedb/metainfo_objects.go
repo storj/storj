@@ -140,10 +140,13 @@ func (objects *objects) DeletePartial(ctx context.Context, bucket uuid.UUID, enc
 }
 
 func (segments *segments) Create(ctx context.Context, segment *metainfo.Segment) error {
+	// insert new segment with
+	//   segment_size = -1
 	return nil
 }
 
 func (segments *segments) Commit(ctx context.Context, segment *metainfo.Segment) error {
+	// verify against segment size and update missing fields
 	return nil
 }
 
@@ -180,7 +183,7 @@ func objectFromDBX(object *dbx.Object) (*metainfo.Object, error) {
 	}
 
 	return &metainfo.Object{
-		BucketId:      bucketID,
+		BucketID:      bucketID,
 		EncryptedPath: storj.Path(object.EncryptedPath),
 		Version:       metainfo.ObjectVersion(object.Version),
 		Status:        metainfo.ObjectStatus(object.Status),
