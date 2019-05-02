@@ -35,19 +35,16 @@ func TestBasicBucket(t *testing.T) {
 
 		bucketID, err := uuid.New()
 		require.NoError(t, err)
-		// attributionID, err := uuid.New()
-		// require.NoError(t, err)
 
 		// DB is not keeping nanoseconds
 		createdAt := time.Now().UTC()
 		createdAt = time.Date(createdAt.Year(), createdAt.Month(), createdAt.Day(), createdAt.Hour(), createdAt.Minute(), createdAt.Second(), 0, createdAt.Location())
 
+		// TODO test AttributionID
 		expectedBucket := &metainfo.Bucket{
-			ID:         *bucketID,
-			Name:       "test-bucket",
-			ProjectID:  project.ID,
-			PathCipher: storj.EncAESGCM,
-			// AttributionID: *attributionID,
+			ID:                 *bucketID,
+			Name:               "test-bucket",
+			ProjectID:          project.ID,
 			CreatedAt:          createdAt,
 			DefaultSegmentSize: 256,
 			DefaultRedundancy: storj.RedundancyScheme{
@@ -69,6 +66,9 @@ func TestBasicBucket(t *testing.T) {
 		bucket, err := bucketsDB.Get(ctx, project.ID, "test-bucket")
 		require.NoError(t, err)
 		require.Equal(t, expectedBucket, bucket)
+
+		err = bucketsDB.Delete(ctx, project.ID, "test-bucket")
+		require.NoError(t, err)
 	})
 }
 
