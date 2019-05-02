@@ -703,13 +703,6 @@ func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*ove
 	return m.db.Get(ctx, nodeID)
 }
 
-// GetAll looks up nodes based on the ids from the overlay cache
-func (m *lockedOverlayCache) GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*overlay.NodeDossier, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetAll(ctx, nodeIDs)
-}
-
 // Paginate will page through the database nodes
 func (m *lockedOverlayCache) Paginate(ctx context.Context, offset int64, limit int) ([]*overlay.NodeDossier, bool, error) {
 	m.Lock()
@@ -729,6 +722,14 @@ func (m *lockedOverlayCache) SelectStorageNodes(ctx context.Context, count int, 
 	m.Lock()
 	defer m.Unlock()
 	return m.db.SelectStorageNodes(ctx, count, criteria)
+}
+
+// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
+// Note that KnownUnreliableOrOffline will not return node ids which are not in the database at all
+func (m *lockedOverlayCache) KnownUnreliableOrOffline(ctx context.Context, a1 *overlay.NodeCriteria, a2 storj.NodeIDList) (storj.NodeIDList, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.KnownUnreliableOrOffline(ctx, a1, a2)
 }
 
 // Update updates node address

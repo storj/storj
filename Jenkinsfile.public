@@ -5,6 +5,9 @@ pipeline {
             args '-u root:root -v "/tmp/gomod":/go/pkg/mod'
         }
     }
+    options {
+          timeout(time: 30, unit: 'MINUTES')
+    }
     stages {
         stage('Build') {
             steps {
@@ -29,7 +32,7 @@ pipeline {
                 stage('Lint') {
                     steps {
                         sh 'go run ./scripts/check-copyright.go'
-                        sh 'go run ./scripts/check-imports.go ./...'
+                        sh 'go run ./scripts/check-imports.go -race ./...'
                         sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint'
                         sh 'protolock status'
                         sh 'bash ./scripts/check-dbx-version.sh'

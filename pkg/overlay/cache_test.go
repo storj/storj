@@ -78,29 +78,6 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		// TODO: add erroring database test
 	}
 
-	{ // GetAll
-		nodes, err := cache.GetAll(ctx, storj.NodeIDList{valid2ID, valid1ID, valid2ID})
-		assert.NoError(t, err)
-		assert.Equal(t, nodes[0].Id, valid2ID)
-		assert.Equal(t, nodes[1].Id, valid1ID)
-		assert.Equal(t, nodes[2].Id, valid2ID)
-
-		nodes, err = cache.GetAll(ctx, storj.NodeIDList{valid1ID, missingID})
-		assert.NoError(t, err)
-		assert.Equal(t, nodes[0].Id, valid1ID)
-		assert.Nil(t, nodes[1])
-
-		nodes, err = cache.GetAll(ctx, make(storj.NodeIDList, 2))
-		assert.NoError(t, err)
-		assert.Nil(t, nodes[0])
-		assert.Nil(t, nodes[1])
-
-		_, err = cache.GetAll(ctx, storj.NodeIDList{})
-		assert.True(t, overlay.OverlayError.Has(err))
-
-		// TODO: add erroring database test
-	}
-
 	{ // Paginate
 
 		// should return two nodes
