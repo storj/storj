@@ -7,7 +7,6 @@
 typedef __SIZE_TYPE__ GoUintptr;
 
 struct Simple {
-    bool ballz;
     char *str1;
     int32_t int2;
     uint32_t uint3;

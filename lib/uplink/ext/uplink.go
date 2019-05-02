@@ -56,13 +56,12 @@ func NewUplink(cConfig C.struct_Config, cErr *C.char) C.struct_Uplink {
 
 func ConvertStruct(fromVar, toPtr interface{}) error {
 	fromValue := reflect.ValueOf(fromVar)
+	fromKind := fromValue.Kind()
 	//fmt.Printf("from kind: %s\n", fromValue.Kind())
 	toValue := reflect.Indirect(reflect.ValueOf(toPtr))
 	//fmt.Printf("toValue kind: %s\n", toValue.Kind())
-	//fmt.Printf("toValue reflect bool: %v\n", toValue.Kind() == reflect.Bool)
-	//fmt.Printf("toValue : %s\n", toValue.Kind())
 
-	switch fromValue.Kind() {
+	switch fromKind {
 	case reflect.String:
 		toValue.Set(reflect.ValueOf(C.CString(fromValue.String())))
 		return nil
@@ -70,47 +69,21 @@ func ConvertStruct(fromVar, toPtr interface{}) error {
 		toValue.Set(reflect.ValueOf(C.bool(fromValue.Bool())))
 		return nil
 	case reflect.Uintptr:
-		//fmt.Println("Uintptr case!")
 	case reflect.Struct:
-		//fmt.Println("outer struct case!")
-		//fromValueI := fromValue.Interface()
-		//fmt.Printf("fromValueI: %+v\n", fromValueI)
 	default:
-		//fmt.Println("outer default case!")
-		// NB: get a reflect value for what `toPtr` points to
-		//toValue := reflect.Indirect(reflect.ValueOf(toPtr))
-		//fmt.Printf("toValueI: %+v\n", toValue.Interface())
-
-		//v := reflect.ValueOf(toPtr)
-		//v.Pointer()
+		panic(fmt.Sprintf("unsupported kind %s", fromKind))
 	}
 
-	//fromType := reflect.TypeOf(fromValue)
 	for i := 0; i < fromValue.NumField(); i++ {
 		fromFieldValue := fromValue.Field(i)
-		//fmt.Printf("fromFieldValue: %+v\n", fromFieldValue)
 
-		//toValue := reflect.ValueOf(toPtr)
-		//fmt.Printf("toValue kind: %+v\n", fromFieldValue.Kind())
-		//fmt.Printf("toValule type: %+v\n", toValue.Type())
+		// TODO: recurse here?
 		switch fromFieldValue.Kind() {
 		case reflect.Uintptr:
-			//fmt.Println("Uintptr case!")
-			//fromFieldValue.
 		case reflect.Struct:
-			//fmt.Println("struct case!")
-			fmt.Printf("ConvertStruct(fromFieldValue.Interface(), <pointer to new fromFieldValue.Type()>\n")
-			//toFieldPtr := reflect.New(fromFieldValue.Type())
-			//json, err := json2.MarshalIndent(fromFieldValue, "", "  ")
-			//if err != nil {
-			//	return err
-			//}
-			//fmt.Printf("fromField: %s\n", json)
 			fmt.Printf("fromField: %+v\n", fromFieldValue)
+
 			toFieldPtr := reflect.New(fromFieldValue.Type())
-			//if err := ConvertStruct(cFieldI, reflect.New(fromFieldValue.Type())); err != nil {
-			//structField := reflect.New(fromFieldValue.Type())
-			//structField.
 			if err := ConvertStruct(fromFieldValue.Interface(), toFieldPtr.Pointer()); err != nil {
 				return err
 			}
