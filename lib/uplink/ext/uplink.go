@@ -13,8 +13,8 @@ package main
 import "C"
 import (
 	"context"
+
 	"github.com/zeebo/errs"
-	"reflect"
 
 	"storj.io/storj/lib/uplink"
 )
@@ -55,47 +55,6 @@ func NewUplink(cConfig C.struct_Config, cErr *C.char) C.struct_Uplink {
 	//fmt.Printf("go: %s\n", cUplink.volatile_.tls.SkipPeerCAWhitelist)
 }
 
-func GoToCStruct(fromVar, toPtr interface{}) error {
-	fromValue := reflect.ValueOf(fromVar)
-	fromKind := fromValue.Kind()
-	toValue := reflect.Indirect(reflect.ValueOf(toPtr))
-
-	switch fromKind {
-	case reflect.String:
-		toValue.Set(reflect.ValueOf(C.CString(fromValue.String())))
-		return nil
-	case reflect.Bool:
-		toValue.Set(reflect.ValueOf(C.bool(fromValue.Bool())))
-		return nil
-	case reflect.Int:
-		toValue.Set(reflect.ValueOf(C.int(fromValue.Int())))
-		return nil
-	case reflect.Uint:
-		toValue.Set(reflect.ValueOf(C.uint(fromValue.Uint())))
-		return nil
-	//case reflect.Uintptr:
-	//	return nil
-	case reflect.Struct:
-		for i := 0; i < fromValue.NumField(); i++ {
-			fromFieldValue := fromValue.Field(i)
-			fromField := fromValue.Type().Field(i)
-			toField := toValue.FieldByName(fromField.Name)
-			toFieldPtr := reflect.New(toField.Type())
-			toFieldValue := toFieldPtr.Interface()
-
-			// initialize new C value pointer
-			if err := GoToCStruct(fromFieldValue.Interface(), toFieldValue); err != nil {
-				return err
-			}
-
-			// set "to" field value to modified value
-			toValue.FieldByName(fromField.Name).Set(reflect.Indirect(toFieldPtr))
-		}
-		return nil
-	default:
-		return ErrConvert.New("unsupported kind %s", fromKind)
-	}
-}
 
 var cRegistry = make(map[uint64]interface{})
 var cNext uint64 = 0
