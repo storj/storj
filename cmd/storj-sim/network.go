@@ -48,6 +48,7 @@ const (
 	publicGRPC  = 0
 	privateGRPC = 1
 	publicHTTP  = 2
+	privateHTTP = 3
 	debugHTTP   = 9
 )
 
@@ -268,6 +269,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--console.static-dir", filepath.Join(storjRoot, "web/satellite/"),
 				// TODO: remove console.auth-token after vanguard release
 				"--console.auth-token", consoleAuthToken,
+				"--marketing.address", net.JoinHostPort(host, port(satellitePeer, i, privateHTTP)),
 				"--server.address", process.Address,
 				"--server.private-address", net.JoinHostPort(host, port(satellitePeer, i, privateGRPC)),
 
