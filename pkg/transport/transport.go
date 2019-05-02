@@ -37,9 +37,6 @@ type Transport struct {
 	requestTimeout time.Duration
 }
 
-// TCP represents TCP network type
-const TCP = "tcp"
-
 // NewClient returns a transport client with a default timeout for requests
 func NewClient(tlsOpts *tlsopts.Options, obs ...Observer) Client {
 	return NewClientWithTimeout(tlsOpts, defaultRequestTimeout, obs...)
@@ -76,7 +73,7 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 		grpc.FailOnNonTempDialError(true),
 		grpc.WithUnaryInterceptor(InvokeTimeout{transport.requestTimeout}.Intercept),
 		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
-			conn, err := (&net.Dialer{}).DialContext(ctx, TCP, addr)
+			conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", addr)
 			if err != nil {
 				return nil, err
 			}
@@ -115,7 +112,7 @@ func (transport *Transport) DialAddress(ctx context.Context, address string, opt
 		grpc.FailOnNonTempDialError(true),
 		grpc.WithUnaryInterceptor(InvokeTimeout{transport.requestTimeout}.Intercept),
 		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
-			conn, err := (&net.Dialer{}).DialContext(ctx, TCP, addr)
+			conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", addr)
 			if err != nil {
 				return nil, err
 			}
