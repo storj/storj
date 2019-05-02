@@ -133,6 +133,7 @@ const (
 
 // NewKey creates a new key from a passphrase
 func NewKey(passphrase []byte) *Key {
+	// TODO: if/v3-1541 This function should return an error when len(passphrase) == 0
 	key := &Key{}
 	copy(key[:], passphrase)
 	return key
@@ -144,6 +145,11 @@ type Key [KeySize]byte
 // Raw returns the key as a raw byte array pointer
 func (key *Key) Raw() *[KeySize]byte {
 	return (*[KeySize]byte)(key)
+}
+
+// IsZero returns true if key is nil or it points to its zero value
+func (key *Key) IsZero() bool {
+	return key == nil || *key == (Key{})
 }
 
 // Nonce represents the largest nonce used by any encryption protocol

@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -96,5 +97,59 @@ func TestEncryptionConfig_LoadKey(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), fmt.Sprintf("not found key file %q", filename))
 		assert.True(t, Error.Has(err), "err is not of %q class", Error)
+	})
+}
+
+func TestEncryptionConfig_SaveKey(t *testing.T) {
+	var expectedKey *storj.Key
+	{
+		key := make([]byte, rand.Intn(20)+1)
+		_, err := rand.Read(key)
+		require.NoError(t, err)
+		expectedKey = storj.NewKey(key)
+	}
+
+	t.Run("ok", func(t *testing.T) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		filename := ctx.File("storj-test-cmd-uplink", "encryption.key")
+		encryptionCfg := &EncryptionConfig{
+			KeyFilepath: filename,
+		}
+		err := encryptionCfg.SaveKey(expectedKey)
+		require.NoError(t, err)
+
+		key, err := ioutil.ReadFile(filename)
+		require.NoError(t, err)
+		assert.Equal(t, expectedKey, storj.NewKey(key))
+	})
+
+	t.Run("error: unexisting dir", func(t *testing.T) {
+		// Create a directory and remove it for making sure that the path doesn't
+		// exist
+		ctx := testcontext.New(t)
+		dir := ctx.Dir("storj-test-cmd-uplink")
+		ctx.Cleanup()
+
+		encryptionCfg := &EncryptionConfig{
+			KeyFilepath: filepath.Join(dir, "enc.key"),
+		}
+		err := encryptionCfg.SaveKey(expectedKey)
+		require.Errorf(t, err, "directory path doesn't exist")
+	})
+
+	t.Run("error: file already exists", func(t *testing.T) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		filename := ctx.File("encryption.key")
+		require.NoError(t, ioutil.WriteFile(filename, nil, os.FileMode(0600)))
+
+		encryptionCfg := &EncryptionConfig{
+			KeyFilepath: filename,
+		}
+		err := encryptionCfg.SaveKey(expectedKey)
+		require.Errorf(t, err, "file key already exists")
 	})
 }
