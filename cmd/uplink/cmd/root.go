@@ -102,7 +102,7 @@ func (c *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, error
 	}
 
 	encryptionKey, err := c.Enc.LoadKey()
-	if err != nil && err != uplink.ErrKeyFilepathEmpty {
+	if err != nil {
 		return nil, err
 	}
 
