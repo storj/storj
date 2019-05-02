@@ -12,7 +12,6 @@ import (
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/uplink"
 )
 
 func init() {
@@ -45,7 +44,7 @@ func deleteBucket(cmd *cobra.Command, args []string) error {
 
 	var access libuplink.EncryptionAccess
 	access.Key, err = cfg.Enc.LoadKey()
-	if err != nil && err != uplink.ErrKeyFilepathEmpty {
+	if err != nil {
 		return err
 	}
 
