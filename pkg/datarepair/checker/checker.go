@@ -90,9 +90,19 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 	err = checker.metainfo.Iterate("", checker.lastChecked, true, false,
 		func(it storage.Iterator) error {
 			var item storage.ListItem
-			for it.Next(&item) {
-				checker.lastChecked = item.Key.String()
 
+			defer func() {
+				var nextItem storage.ListItem
+				it.Next(&nextItem)
+				// start at the next item in the next call
+				checker.lastChecked = nextItem.Key.String()
+				// if keys are equal, start from the beginning in the next call
+				if nextItem.Key.String() == item.Key.String() {
+					checker.lastChecked = ""
+				}
+			}()
+
+			for it.Next(&item) {
 				pointer := &pb.Pointer{}
 
 				err = proto.Unmarshal(item.Value, pointer)
@@ -160,8 +170,6 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 					}
 				}
 			}
-			// tells Iterate to start from beginning again
-			checker.lastChecked = ""
 			return nil
 		},
 	)
