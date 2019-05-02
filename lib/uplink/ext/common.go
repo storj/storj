@@ -82,8 +82,8 @@ func goToCStruct(goStruct interface{}, cPtr interface{}) error {
 	//		//elem := goFieldValue.Elem()
 	//		fmt.Printf("%+v\n", goFieldI)
 	//		//fmt.Printf("%+v\n", elem)
-	//		//if err := cToGoStruct(goFieldI, reflect.New(goFieldValue.Type())); err != nil {
-	//		if err := cToGoStruct(goFieldI, goFieldValue.Pointer()); err != nil {
+	//		//if err := ConvertStruct(goFieldI, reflect.New(goFieldValue.Type())); err != nil {
+	//		if err := ConvertStruct(goFieldI, goFieldValue.Pointer()); err != nil {
 	//			return err
 	//		}
 	//	default:

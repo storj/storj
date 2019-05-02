@@ -19,12 +19,12 @@ import (
 	"storj.io/storj/lib/uplink"
 )
 
-func main() {}
+//func main() {}
 
 //export NewUplink
 func NewUplink(cConfig C.struct_Config, cErr *C.char) C.struct_Uplink {
 	goConfig := new(uplink.Config)
-	if err := cToGoStruct(cConfig, goConfig); err != nil {
+	if err := ConvertStruct(cConfig, goConfig); err != nil {
 		*cErr = *C.CString(err.Error())
 	}
 	//goConfig := uplink.Config{}
@@ -54,50 +54,76 @@ func NewUplink(cConfig C.struct_Config, cErr *C.char) C.struct_Uplink {
 	//fmt.Printf("go: %s\n", cUplink.volatile_.tls.SkipPeerCAWhitelist)
 }
 
-func cToGoStruct(cStruct interface{}, goPtr interface{}) error {
-	cStructValue := reflect.ValueOf(cStruct)
-	switch cStructValue.Kind() {
+func ConvertStruct(fromVar, toPtr interface{}) error {
+	fromValue := reflect.ValueOf(fromVar)
+	//fmt.Printf("from kind: %s\n", fromValue.Kind())
+	toValue := reflect.Indirect(reflect.ValueOf(toPtr))
+	//fmt.Printf("toValue kind: %s\n", toValue.Kind())
+	//fmt.Printf("toValue reflect bool: %v\n", toValue.Kind() == reflect.Bool)
+	//fmt.Printf("toValue : %s\n", toValue.Kind())
+
+	switch fromValue.Kind() {
+	case reflect.String:
+		toValue.Set(reflect.ValueOf(C.CString(fromValue.String())))
+		return nil
+	case reflect.Bool:
+		toValue.Set(reflect.ValueOf(C.bool(fromValue.Bool())))
+		return nil
 	case reflect.Uintptr:
-		fmt.Println("Uintptr case!")
+		//fmt.Println("Uintptr case!")
 	case reflect.Struct:
-		fmt.Println("outer struct case!")
-		goFieldI := cStructValue.Interface()
-		fmt.Printf("%+v\n", goFieldI)
+		//fmt.Println("outer struct case!")
+		//fromValueI := fromValue.Interface()
+		//fmt.Printf("fromValueI: %+v\n", fromValueI)
 	default:
-		fmt.Println("outer default case!")
-		//reflect.Indirect(reflect.ValueOf(goPtr))
-		reflect.Indirect(reflect.ValueOf(goPtr))
-		v := reflect.ValueOf(goPtr)
-		v.Pointer()
+		//fmt.Println("outer default case!")
+		// NB: get a reflect value for what `toPtr` points to
+		//toValue := reflect.Indirect(reflect.ValueOf(toPtr))
+		//fmt.Printf("toValueI: %+v\n", toValue.Interface())
+
+		//v := reflect.ValueOf(toPtr)
+		//v.Pointer()
 	}
 
-	cStructType := reflect.TypeOf(cStructValue)
-	for i := 0; i < cStructValue.NumField(); i++ {
-		cFieldValue := cStructValue.Field(i)
-		fmt.Printf("%+v\n", cFieldValue)
+	//fromType := reflect.TypeOf(fromValue)
+	for i := 0; i < fromValue.NumField(); i++ {
+		fromFieldValue := fromValue.Field(i)
+		//fmt.Printf("fromFieldValue: %+v\n", fromFieldValue)
 
-		//fmt.Printf("%s\n", cFieldValue.Name)
-		goPtrValue := reflect.ValueOf(goPtr)
-		//goValue := reflect.Indirect(goPtrValue)
-		goValue := reflect.Indirect(goPtrValue)
-		goField := goValue.FieldByName(cStructType.Field(i).Name)
-
-		fmt.Printf("kind: %+v\n", cFieldValue.Kind())
-		//fmt.Printf("type: %+v\n", goValue.Type())
-		fmt.Printf("type: %+v\n", goValue.Type())
-		//fmt.Printf("type: %+v\n", goPtrValue.Type().Name())
-		switch cFieldValue.Kind() {
+		//toValue := reflect.ValueOf(toPtr)
+		//fmt.Printf("toValue kind: %+v\n", fromFieldValue.Kind())
+		//fmt.Printf("toValule type: %+v\n", toValue.Type())
+		switch fromFieldValue.Kind() {
 		case reflect.Uintptr:
-			fmt.Println("Uintptr case!")
-			//cFieldValue.
+			//fmt.Println("Uintptr case!")
+			//fromFieldValue.
 		case reflect.Struct:
-			fmt.Println("struct case!")
-			//if err := cToGoStruct(cFieldI, reflect.New(cFieldValue.Type())); err != nil {
-			if err := cToGoStruct(cFieldValue.Interface(), goField.Pointer()); err != nil {
+			//fmt.Println("struct case!")
+			fmt.Printf("ConvertStruct(fromFieldValue.Interface(), <pointer to new fromFieldValue.Type()>\n")
+			//toFieldPtr := reflect.New(fromFieldValue.Type())
+			//json, err := json2.MarshalIndent(fromFieldValue, "", "  ")
+			//if err != nil {
+			//	return err
+			//}
+			//fmt.Printf("fromField: %s\n", json)
+			fmt.Printf("fromField: %+v\n", fromFieldValue)
+			toFieldPtr := reflect.New(fromFieldValue.Type())
+			//if err := ConvertStruct(cFieldI, reflect.New(fromFieldValue.Type())); err != nil {
+			//structField := reflect.New(fromFieldValue.Type())
+			//structField.
+			if err := ConvertStruct(fromFieldValue.Interface(), toFieldPtr.Pointer()); err != nil {
 				return err
 			}
+			//toValue.
+			// -- use .Set
+			//fromField := fromType.Field(i)
+			//fmt.Printf("fromField: %+v\n", fromField)
+			//toValue.FieldByName(fromField.Name)
+			//fromField := fromValue.Field(i)
+		//fmt.Printf("fromField: %+v\n", fromFieldValue)
+			//toValue.FieldByName(fromField.Name)
 		default:
-			fmt.Println("default case!")
+			//fmt.Println("default case!")
 		}
 	}
 	return nil

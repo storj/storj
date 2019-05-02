@@ -1,3 +1,6 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 #include <stdio.h>
 #include <unistd.h>
 #include "../uplink-cgo-common.h"
