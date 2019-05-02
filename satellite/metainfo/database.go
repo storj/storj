@@ -182,12 +182,14 @@ type Objects interface {
 
 	Get(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version uint32) (*Object, error)
 	List(ctx context.Context, bucket uuid.UUID, opts ListOptions) (ObjectList, error)
-	Delete(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version uint32) error
+	StartDelete(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version uint32) error
+	FinishDelete(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version uint32) error
 
 	// Should these be "Partial" or "Uncommitted" or "Any"?
 	GetPartial(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version uint32) (*Object, error)
 	ListPartial(ctx context.Context, bucket uuid.UUID, opts ListOptions) (ObjectList, error)
-	DeletePartial(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version uint32) error
+	StartDeletePartial(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version uint32) error
+	FinishDeletePartial(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version uint32) error
 }
 
 // Segments interface for managing segments

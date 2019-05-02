@@ -93,7 +93,15 @@ func (objects *objects) List(ctx context.Context, bucket uuid.UUID, opts metainf
 	return metainfo.ObjectList{}, nil
 }
 
-func (objects *objects) Delete(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version metainfo.ObjectVersion) error {
+func (objects *objects) StartDelete(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version metainfo.ObjectVersion) error {
+	// mark object as deleting with status committed
+	// mark segments as being deleted to prevent further repairs
+	return nil
+}
+
+func (objects *objects) FinishDelete(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version metainfo.ObjectVersion) error {
+	// verify that all segments have been deleted
+	// delete object
 	return nil
 }
 
@@ -139,7 +147,15 @@ func (segments *segments) Commit(ctx context.Context, segment *metainfo.Segment)
 	return nil
 }
 
-func (segments *segments) Delete(ctx context.Context, streamID uuid.UUID, segmentIndex int64) error {
+func (objects *objects) StartDeletePartial(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version metainfo.ObjectVersion) error {
+	// mark object as deleting with status committed
+	// mark segments as being deleted to prevent further repairs
+	return nil
+}
+
+func (objects *objects) FinishDeletePartial(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version metainfo.ObjectVersion) error {
+	// verify that all segments have been deleted
+	// delete object
 	return nil
 }
 
