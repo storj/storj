@@ -34,44 +34,44 @@ type timeoutConn struct {
 	timeout time.Duration
 }
 
-func (conn *timeoutConn) Read(b []byte) (n int, err error) {
+func (tc *timeoutConn) Read(b []byte) (n int, err error) {
 	// deadline needs to be set before each read operation
-	err = conn.SetReadDeadline(time.Now().Add(conn.timeout))
+	err = tc.SetReadDeadline(time.Now().Add(tc.timeout))
 	if err != nil {
 		return 0, err
 	}
-	return conn.conn.Read(b)
+	return tc.conn.Read(b)
 }
 
-func (conn *timeoutConn) Write(b []byte) (n int, err error) {
+func (tc *timeoutConn) Write(b []byte) (n int, err error) {
 	// deadline needs to be set before each write operation
-	err = conn.SetWriteDeadline(time.Now().Add(conn.timeout))
+	err = tc.SetWriteDeadline(time.Now().Add(tc.timeout))
 	if err != nil {
 		return 0, err
 	}
-	return conn.conn.Write(b)
+	return tc.conn.Write(b)
 }
 
-func (conn *timeoutConn) Close() error {
-	return conn.conn.Close()
+func (tc *timeoutConn) Close() error {
+	return tc.conn.Close()
 }
 
-func (conn *timeoutConn) LocalAddr() net.Addr {
-	return conn.conn.LocalAddr()
+func (tc *timeoutConn) LocalAddr() net.Addr {
+	return tc.conn.LocalAddr()
 }
 
-func (conn *timeoutConn) RemoteAddr() net.Addr {
-	return conn.conn.RemoteAddr()
+func (tc *timeoutConn) RemoteAddr() net.Addr {
+	return tc.conn.RemoteAddr()
 }
 
-func (conn *timeoutConn) SetDeadline(t time.Time) error {
-	return conn.conn.SetDeadline(t)
+func (tc *timeoutConn) SetDeadline(t time.Time) error {
+	return tc.conn.SetDeadline(t)
 }
 
-func (conn *timeoutConn) SetReadDeadline(t time.Time) error {
-	return conn.conn.SetReadDeadline(t)
+func (tc *timeoutConn) SetReadDeadline(t time.Time) error {
+	return tc.conn.SetReadDeadline(t)
 }
 
-func (conn *timeoutConn) SetWriteDeadline(t time.Time) error {
-	return conn.conn.SetWriteDeadline(t)
+func (tc *timeoutConn) SetWriteDeadline(t time.Time) error {
+	return tc.conn.SetWriteDeadline(t)
 }
