@@ -20,6 +20,7 @@ type Cycle struct {
 	ticker  *time.Ticker
 	control chan interface{}
 	stop    chan struct{}
+	running bool
 
 	init sync.Once
 }
@@ -55,6 +56,8 @@ func (cycle *Cycle) initialize() {
 // Start runs the specified function with an errgroup
 func (cycle *Cycle) Start(ctx context.Context, group *errgroup.Group, fn func(ctx context.Context) error) {
 	group.Go(func() error {
+		cycle.running = true
+		defer func() { cycle.running = false }()
 		return cycle.Run(ctx, fn)
 	})
 }
@@ -124,9 +127,13 @@ func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error)
 
 // Close closes all resources associated with it.
 func (cycle *Cycle) Close() {
-	cycle.Stop()
-	<-cycle.stop
-	close(cycle.control)
+	if cycle.running {
+		cycle.Stop()
+		<-cycle.stop
+	}
+	if cycle.control != nil {
+		close(cycle.control)
+	}
 }
 
 // sendControl sends a control message
