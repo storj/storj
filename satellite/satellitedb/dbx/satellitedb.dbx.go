@@ -6494,6 +6494,75 @@ func (obj *postgresImpl) Get_Object_By_BucketId_And_EncryptedPath_And_Status_Ord
 
 }
 
+func (obj *postgresImpl) Get_Object_By_BucketId_And_EncryptedPath_And_Version_And_Status_Not(ctx context.Context,
+	object_bucket_id Object_BucketId_Field,
+	object_encrypted_path Object_EncryptedPath_Field,
+	object_version Object_Version_Field,
+	object_status_not Object_Status_Field) (
+	object *Object, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT objects.bucket_id, objects.encrypted_path, objects.version, objects.status, objects.stream_id, objects.encrypted_metadata, objects.total_size, objects.inline_size, objects.remote_size, objects.created_at, objects.expires_at, objects.fixed_segment_size, objects.encryption_cipher_suite, objects.encryption_block_size, objects.redundancy_algorithm, objects.redundancy_share_size, objects.redundancy_required_shares, objects.redundancy_repair_shares, objects.redundancy_optimal_shares, objects.redundancy_total_shares FROM objects WHERE objects.bucket_id = ? AND objects.encrypted_path = ? AND objects.version = ? AND objects.status != ?")
+
+	var __values []interface{}
+	__values = append(__values, object_bucket_id.value(), object_encrypted_path.value(), object_version.value(), object_status_not.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	object = &Object{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&object.BucketId, &object.EncryptedPath, &object.Version, &object.Status, &object.StreamId, &object.EncryptedMetadata, &object.TotalSize, &object.InlineSize, &object.RemoteSize, &object.CreatedAt, &object.ExpiresAt, &object.FixedSegmentSize, &object.EncryptionCipherSuite, &object.EncryptionBlockSize, &object.RedundancyAlgorithm, &object.RedundancyShareSize, &object.RedundancyRequiredShares, &object.RedundancyRepairShares, &object.RedundancyOptimalShares, &object.RedundancyTotalShares)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return object, nil
+
+}
+
+func (obj *postgresImpl) Get_Object_By_BucketId_And_EncryptedPath_And_Status_Not_OrderBy_Desc_Version(ctx context.Context,
+	object_bucket_id Object_BucketId_Field,
+	object_encrypted_path Object_EncryptedPath_Field,
+	object_status_not Object_Status_Field) (
+	object *Object, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT objects.bucket_id, objects.encrypted_path, objects.version, objects.status, objects.stream_id, objects.encrypted_metadata, objects.total_size, objects.inline_size, objects.remote_size, objects.created_at, objects.expires_at, objects.fixed_segment_size, objects.encryption_cipher_suite, objects.encryption_block_size, objects.redundancy_algorithm, objects.redundancy_share_size, objects.redundancy_required_shares, objects.redundancy_repair_shares, objects.redundancy_optimal_shares, objects.redundancy_total_shares FROM objects WHERE objects.bucket_id = ? AND objects.encrypted_path = ? AND objects.status != ? ORDER BY objects.version DESC LIMIT 2")
+
+	var __values []interface{}
+	__values = append(__values, object_bucket_id.value(), object_encrypted_path.value(), object_status_not.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	if !__rows.Next() {
+		if err := __rows.Err(); err != nil {
+			return nil, obj.makeErr(err)
+		}
+		return nil, makeErr(sql.ErrNoRows)
+	}
+
+	object = &Object{}
+	err = __rows.Scan(&object.BucketId, &object.EncryptedPath, &object.Version, &object.Status, &object.StreamId, &object.EncryptedMetadata, &object.TotalSize, &object.InlineSize, &object.RemoteSize, &object.CreatedAt, &object.ExpiresAt, &object.FixedSegmentSize, &object.EncryptionCipherSuite, &object.EncryptionBlockSize, &object.RedundancyAlgorithm, &object.RedundancyShareSize, &object.RedundancyRequiredShares, &object.RedundancyRepairShares, &object.RedundancyOptimalShares, &object.RedundancyTotalShares)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	if __rows.Next() {
+		return nil, tooManyRows("Object_By_BucketId_And_EncryptedPath_And_Status_Not_OrderBy_Desc_Version")
+	}
+
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	return object, nil
+
+}
+
 func (obj *postgresImpl) Limited_Object_By_BucketId_And_EncryptedPath_LessOrEqual_And_Status_OrderBy_Asc_EncryptedPath(ctx context.Context,
 	object_bucket_id Object_BucketId_Field,
 	object_encrypted_path_less_or_equal Object_EncryptedPath_Field,
@@ -9790,6 +9859,75 @@ func (obj *sqlite3Impl) Get_Object_By_BucketId_And_EncryptedPath_And_Status_Orde
 
 }
 
+func (obj *sqlite3Impl) Get_Object_By_BucketId_And_EncryptedPath_And_Version_And_Status_Not(ctx context.Context,
+	object_bucket_id Object_BucketId_Field,
+	object_encrypted_path Object_EncryptedPath_Field,
+	object_version Object_Version_Field,
+	object_status_not Object_Status_Field) (
+	object *Object, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT objects.bucket_id, objects.encrypted_path, objects.version, objects.status, objects.stream_id, objects.encrypted_metadata, objects.total_size, objects.inline_size, objects.remote_size, objects.created_at, objects.expires_at, objects.fixed_segment_size, objects.encryption_cipher_suite, objects.encryption_block_size, objects.redundancy_algorithm, objects.redundancy_share_size, objects.redundancy_required_shares, objects.redundancy_repair_shares, objects.redundancy_optimal_shares, objects.redundancy_total_shares FROM objects WHERE objects.bucket_id = ? AND objects.encrypted_path = ? AND objects.version = ? AND objects.status != ?")
+
+	var __values []interface{}
+	__values = append(__values, object_bucket_id.value(), object_encrypted_path.value(), object_version.value(), object_status_not.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	object = &Object{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&object.BucketId, &object.EncryptedPath, &object.Version, &object.Status, &object.StreamId, &object.EncryptedMetadata, &object.TotalSize, &object.InlineSize, &object.RemoteSize, &object.CreatedAt, &object.ExpiresAt, &object.FixedSegmentSize, &object.EncryptionCipherSuite, &object.EncryptionBlockSize, &object.RedundancyAlgorithm, &object.RedundancyShareSize, &object.RedundancyRequiredShares, &object.RedundancyRepairShares, &object.RedundancyOptimalShares, &object.RedundancyTotalShares)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return object, nil
+
+}
+
+func (obj *sqlite3Impl) Get_Object_By_BucketId_And_EncryptedPath_And_Status_Not_OrderBy_Desc_Version(ctx context.Context,
+	object_bucket_id Object_BucketId_Field,
+	object_encrypted_path Object_EncryptedPath_Field,
+	object_status_not Object_Status_Field) (
+	object *Object, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT objects.bucket_id, objects.encrypted_path, objects.version, objects.status, objects.stream_id, objects.encrypted_metadata, objects.total_size, objects.inline_size, objects.remote_size, objects.created_at, objects.expires_at, objects.fixed_segment_size, objects.encryption_cipher_suite, objects.encryption_block_size, objects.redundancy_algorithm, objects.redundancy_share_size, objects.redundancy_required_shares, objects.redundancy_repair_shares, objects.redundancy_optimal_shares, objects.redundancy_total_shares FROM objects WHERE objects.bucket_id = ? AND objects.encrypted_path = ? AND objects.status != ? ORDER BY objects.version DESC LIMIT 2")
+
+	var __values []interface{}
+	__values = append(__values, object_bucket_id.value(), object_encrypted_path.value(), object_status_not.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	if !__rows.Next() {
+		if err := __rows.Err(); err != nil {
+			return nil, obj.makeErr(err)
+		}
+		return nil, makeErr(sql.ErrNoRows)
+	}
+
+	object = &Object{}
+	err = __rows.Scan(&object.BucketId, &object.EncryptedPath, &object.Version, &object.Status, &object.StreamId, &object.EncryptedMetadata, &object.TotalSize, &object.InlineSize, &object.RemoteSize, &object.CreatedAt, &object.ExpiresAt, &object.FixedSegmentSize, &object.EncryptionCipherSuite, &object.EncryptionBlockSize, &object.RedundancyAlgorithm, &object.RedundancyShareSize, &object.RedundancyRequiredShares, &object.RedundancyRepairShares, &object.RedundancyOptimalShares, &object.RedundancyTotalShares)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	if __rows.Next() {
+		return nil, tooManyRows("Object_By_BucketId_And_EncryptedPath_And_Status_Not_OrderBy_Desc_Version")
+	}
+
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	return object, nil
+
+}
+
 func (obj *sqlite3Impl) Limited_Object_By_BucketId_And_EncryptedPath_LessOrEqual_And_Status_OrderBy_Asc_EncryptedPath(ctx context.Context,
 	object_bucket_id Object_BucketId_Field,
 	object_encrypted_path_less_or_equal Object_EncryptedPath_Field,
@@ -12651,6 +12789,18 @@ func (rx *Rx) Get_Node_By_Id(ctx context.Context,
 	return tx.Get_Node_By_Id(ctx, node_id)
 }
 
+func (rx *Rx) Get_Object_By_BucketId_And_EncryptedPath_And_Status_Not_OrderBy_Desc_Version(ctx context.Context,
+	object_bucket_id Object_BucketId_Field,
+	object_encrypted_path Object_EncryptedPath_Field,
+	object_status_not Object_Status_Field) (
+	object *Object, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_Object_By_BucketId_And_EncryptedPath_And_Status_Not_OrderBy_Desc_Version(ctx, object_bucket_id, object_encrypted_path, object_status_not)
+}
+
 func (rx *Rx) Get_Object_By_BucketId_And_EncryptedPath_And_Status_OrderBy_Desc_Version(ctx context.Context,
 	object_bucket_id Object_BucketId_Field,
 	object_encrypted_path Object_EncryptedPath_Field,
@@ -12674,6 +12824,19 @@ func (rx *Rx) Get_Object_By_BucketId_And_EncryptedPath_And_Version_And_Status(ct
 		return
 	}
 	return tx.Get_Object_By_BucketId_And_EncryptedPath_And_Version_And_Status(ctx, object_bucket_id, object_encrypted_path, object_version, object_status)
+}
+
+func (rx *Rx) Get_Object_By_BucketId_And_EncryptedPath_And_Version_And_Status_Not(ctx context.Context,
+	object_bucket_id Object_BucketId_Field,
+	object_encrypted_path Object_EncryptedPath_Field,
+	object_version Object_Version_Field,
+	object_status_not Object_Status_Field) (
+	object *Object, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_Object_By_BucketId_And_EncryptedPath_And_Version_And_Status_Not(ctx, object_bucket_id, object_encrypted_path, object_version, object_status_not)
 }
 
 func (rx *Rx) Get_Project_By_Id(ctx context.Context,
@@ -13382,6 +13545,12 @@ type Methods interface {
 		node_id Node_Id_Field) (
 		node *Node, err error)
 
+	Get_Object_By_BucketId_And_EncryptedPath_And_Status_Not_OrderBy_Desc_Version(ctx context.Context,
+		object_bucket_id Object_BucketId_Field,
+		object_encrypted_path Object_EncryptedPath_Field,
+		object_status_not Object_Status_Field) (
+		object *Object, err error)
+
 	Get_Object_By_BucketId_And_EncryptedPath_And_Status_OrderBy_Desc_Version(ctx context.Context,
 		object_bucket_id Object_BucketId_Field,
 		object_encrypted_path Object_EncryptedPath_Field,
@@ -13393,6 +13562,13 @@ type Methods interface {
 		object_encrypted_path Object_EncryptedPath_Field,
 		object_version Object_Version_Field,
 		object_status Object_Status_Field) (
+		object *Object, err error)
+
+	Get_Object_By_BucketId_And_EncryptedPath_And_Version_And_Status_Not(ctx context.Context,
+		object_bucket_id Object_BucketId_Field,
+		object_encrypted_path Object_EncryptedPath_Field,
+		object_version Object_Version_Field,
+		object_status_not Object_Status_Field) (
 		object *Object, err error)
 
 	Get_Project_By_Id(ctx context.Context,

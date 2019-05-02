@@ -443,34 +443,47 @@ read one (
 	where object.status = ?
 	orderby desc object.version
 )
-
+read one (
+	select object
+	where object.bucket_id = ?
+	where object.encrypted_path = ?
+	where object.version = ?
+	where object.status != ?
+)
+read one (
+	select object
+	where object.bucket_id = ?
+	where object.encrypted_path = ?
+	where object.status != ?
+	orderby desc object.version
+)
 read limitoffset (
 	select object
 	where object.bucket_id = ?
 	where object.encrypted_path <= ?
 	where object.status = ?
-	orderby asc object.encrypted_path
+	orderby asc object.encrypted_path //TODO: and by object.version
 )
 read limitoffset (
 	select object
 	where object.bucket_id = ?
 	where object.encrypted_path < ?
 	where object.status = ?
-	orderby asc object.encrypted_path
+	orderby asc object.encrypted_path //TODO: and by object.version
 )
 read limitoffset (
 	select object
 	where object.bucket_id = ?
 	where object.encrypted_path > ?
 	where object.status = ?
-	orderby asc object.encrypted_path
+	orderby asc object.encrypted_path //TODO: and by object.version
 )
 read limitoffset (
 	select object
 	where object.bucket_id = ?
 	where object.encrypted_path >= ?
 	where object.status = ?
-	orderby asc object.encrypted_path
+	orderby asc object.encrypted_path //TODO: and by object.version
 )
 
 //--- metainfo segments ---//

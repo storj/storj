@@ -58,6 +58,9 @@ func (objects *objects) Create(ctx context.Context, object *metainfo.Object) err
 }
 
 func (objects *objects) Commit(ctx context.Context, object *metainfo.Object) (*metainfo.Object, error) {
+	// mark object as committing with status partial
+	// verify segments and collect info
+	// mark object as committed
 	return nil, nil
 }
 
@@ -92,6 +95,31 @@ func (objects *objects) List(ctx context.Context, bucket uuid.UUID, opts metainf
 
 func (objects *objects) Delete(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version metainfo.ObjectVersion) error {
 	return nil
+}
+
+func (objects *objects) GetPartial(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version metainfo.ObjectVersion) (*metainfo.Object, error) {
+	if version == metainfo.LastObjectVersion {
+		dbxObject, err := objects.db.Get_Object_By_BucketId_And_EncryptedPath_And_Status_Not_OrderBy_Desc_Version(ctx,
+			dbx.Object_BucketId(bucket[:]),
+			dbx.Object_EncryptedPath([]byte(encryptedPath)),
+			dbx.Object_Status(int(metainfo.Committed)),
+		)
+		if err != nil {
+			return nil, err
+		}
+		return objectFromDBX(dbxObject)
+	}
+
+	dbxObject, err := objects.db.Get_Object_By_BucketId_And_EncryptedPath_And_Version_And_Status_Not(ctx,
+		dbx.Object_BucketId(bucket[:]),
+		dbx.Object_EncryptedPath([]byte(encryptedPath)),
+		dbx.Object_Version(int64(version)),
+		dbx.Object_Status(int(metainfo.Committed)),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return objectFromDBX(dbxObject)
 }
 
 func (objects *objects) ListPartial(ctx context.Context, bucket uuid.UUID, opts metainfo.ListOptions) (metainfo.ObjectList, error) {

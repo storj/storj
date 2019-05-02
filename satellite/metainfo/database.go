@@ -135,6 +135,8 @@ type ListOptions struct {
 	Recursive       bool
 	Direction       storj.ListDirection
 	Limit           int
+
+	AllVersions bool
 }
 
 // ObjectList is a list of objects
@@ -182,6 +184,8 @@ type Objects interface {
 	List(ctx context.Context, bucket uuid.UUID, opts ListOptions) (ObjectList, error)
 	Delete(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version uint32) error
 
+	// Should these be "Partial" or "Uncommitted" or "Any"?
+	GetPartial(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version uint32) (*Object, error)
 	ListPartial(ctx context.Context, bucket uuid.UUID, opts ListOptions) (ObjectList, error)
 	DeletePartial(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version uint32) error
 }
