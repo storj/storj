@@ -87,6 +87,42 @@ func (cfg *EncryptionConfig) LoadKey() (key storj.Key, err error) {
 	return key, nil
 }
 
+// SaveKey saves the key in the file indicated by KeyFilepath field.
+//
+// key is a pointer for avoiding having several copies of the key in memory.
+//
+// It returns an error if KeyFilepath is empty, key IsZero return true, the
+// directory doesn't exist, the file already exists or there is an I/O error.
+func (cfg *EncryptionConfig) SaveKey(key *storj.Key) error {
+	if cfg.KeyFilepath == "" {
+		return ErrKeyFilepathEmpty
+	}
+
+	if key.IsZero() {
+		return Error.New("key cannot be nil or zero value")
+	}
+
+	file, err := os.OpenFile(cfg.KeyFilepath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return Error.New("directory path doesn't exist. %+v", err)
+		}
+
+		if os.IsExist(err) {
+			return Error.New("file key already exists. %+v", err)
+		}
+
+		return Error.Wrap(err)
+	}
+
+	defer func() {
+		err = Error.Wrap(errs.Combine(err, file.Close()))
+	}()
+
+	_, err = file.Write(key[:])
+	return err
+}
+
 // ClientConfig is a configuration struct for the uplink that controls how
 // to talk to the rest of the network.
 type ClientConfig struct {

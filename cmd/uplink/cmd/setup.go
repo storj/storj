@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -21,6 +20,7 @@ import (
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/uplink"
 )
 
 var (
@@ -31,9 +31,10 @@ var (
 		Annotations: map[string]string{"type": "setup"},
 	}
 
-	setupCfg UplinkFlags
-	confDir  string
-	defaults cfgstruct.BindOpt
+	setupCfg              UplinkFlags
+	confDir               string
+	encryptionKeyFilepath string
+	defaults              cfgstruct.BindOpt
 
 	// Error is the default uplink setup errs class
 	Error = errs.Class("uplink setup error")
@@ -45,6 +46,9 @@ func init() {
 	defaults = cfgstruct.DefaultsFlag(RootCmd)
 	RootCmd.AddCommand(setupCmd)
 	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, defaults, cfgstruct.ConfDir(confDir))
+
+	defaultEncryptionKeyFilepath := filepath.Join(defaultConfDir, ".encryption.key")
+	cfgstruct.SetupFlag(zap.L(), setupCmd, &encryptionKeyFilepath, "enc.key-filepath", defaultEncryptionKeyFilepath, "path to the file which contains the encryption key")
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
@@ -69,10 +73,15 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
+	encryptionCfg := uplink.EncryptionConfig{}
+	encryptionCfg.KeyFilepath, err = filepath.Abs(encryptionKeyFilepath)
+	if err != nil {
+		return err
+	}
+
 	var (
-		encryptionKeyFilepath = filepath.Join(setupDir, ".encryption.key")
-		encryptionKey         []byte
-		override              = map[string]interface{}{
+		encryptionKey []byte
+		override      = map[string]interface{}{
 			"enc.key-filepath": encryptionKeyFilepath,
 		}
 	)
@@ -172,7 +181,7 @@ Please enter numeric choice or enter satellite address manually [1]: `)
 			}
 		} else {
 			key := storj.NewKey(encryptionKey)
-			err = SaveEncryptionKey(key, encryptionKeyFilepath)
+			err = encryptionCfg.SaveKey(key)
 			if err != nil {
 				return err
 			}
@@ -259,37 +268,4 @@ func ApplyDefaultHostAndPortToAddr(address, defaultAddress string) (string, erro
 
 	// address is host:
 	return net.JoinHostPort(addressParts[0], defaultPort), nil
-}
-
-// SaveEncryptionKey saves the key in a new file which will be stored in
-// filepath.
-//
-// key is a pointer for avoiding having several copies of the key in memory.
-//
-// It returns an error if the key is nil, the directory doesn't exist, the
-// file already exists or there is an I/O error.
-func SaveEncryptionKey(key *storj.Key, filepath string) (err error) {
-	if key == nil {
-		return errors.New("key cannot be nil")
-	}
-
-	file, err := os.OpenFile(filepath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return fmt.Errorf("directory path doesn't exist. %+v", err)
-		}
-
-		if os.IsExist(err) {
-			return fmt.Errorf("file key already exists. %+v", err)
-		}
-
-		return err
-	}
-
-	defer func() {
-		err = errs.Combine(err, file.Close())
-	}()
-
-	_, err = file.Write(key[:])
-	return err
 }
