@@ -13,7 +13,6 @@ package main
 import "C"
 import (
 	"context"
-	"fmt"
 	"github.com/zeebo/errs"
 	"reflect"
 
@@ -59,9 +58,7 @@ func NewUplink(cConfig C.struct_Config, cErr *C.char) C.struct_Uplink {
 func GoToCStruct(fromVar, toPtr interface{}) error {
 	fromValue := reflect.ValueOf(fromVar)
 	fromKind := fromValue.Kind()
-	//fmt.Printf("from kind: %s\n", fromValue.Kind())
 	toValue := reflect.Indirect(reflect.ValueOf(toPtr))
-	//fmt.Printf("toValue kind: %s\n", toValue.Kind())
 
 	switch fromKind {
 	case reflect.String:
@@ -74,35 +71,25 @@ func GoToCStruct(fromVar, toPtr interface{}) error {
 		toValue.Set(reflect.ValueOf(C.int(fromValue.Int())))
 		return nil
 	case reflect.Uint:
-		toValue.Set(reflect.ValueOf(C.int(fromValue.Uint())))
+		toValue.Set(reflect.ValueOf(C.uint(fromValue.Uint())))
 		return nil
 	//case reflect.Uintptr:
 	//	return nil
-	case reflect.Uintptr:
-		return nil
 	case reflect.Struct:
 		for i := 0; i < fromValue.NumField(); i++ {
 			fromFieldValue := fromValue.Field(i)
 			fromField := fromValue.Type().Field(i)
-			//fmt.Printf("fromValue %s\n", fromValue.Interface())
-			//fmt.Printf("fromFieldValue %s\n", fromFieldValue.Interface())
-
-			fmt.Printf("fromField.Name %s\n", fromField.Name)
-			fmt.Printf("fromFieldValue type %s\n", fromFieldValue.Type())
 			toField := toValue.FieldByName(fromField.Name)
-
 			toFieldPtr := reflect.New(toField.Type())
 			toFieldValue := toFieldPtr.Interface()
 
 			// initialize new C value pointer
-			if err := GoToCStruct(fromFieldValue.Interface(), &toFieldValue); err != nil {
+			if err := GoToCStruct(fromFieldValue.Interface(), toFieldValue); err != nil {
 				return err
 			}
 
-			// set field value to modified value
-			// TODO: use `FieldByName` instead
-			// WIP
-			toValue.Field(i).Set(reflect.Indirect(toFieldPtr))
+			// set "to" field value to modified value
+			toValue.FieldByName(fromField.Name).Set(reflect.Indirect(toFieldPtr))
 		}
 		return nil
 	default:
