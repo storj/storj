@@ -121,6 +121,7 @@ model node (
 
 	field id             blob
 	field address        text  ( updatable ) // TODO: use compressed format
+	field last_ip        text  ( updatable )
 	field protocol       int   ( updatable )
 	field type           int   ( updatable )
 	field email          text  ( updatable )

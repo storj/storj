@@ -97,6 +97,7 @@ CREATE TABLE irreparabledbs (
 CREATE TABLE nodes (
 	id bytea NOT NULL,
 	address text NOT NULL,
+	last_ip text NOT NULL,
 	protocol integer NOT NULL,
 	type integer NOT NULL,
 	email text NOT NULL,
