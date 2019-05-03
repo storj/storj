@@ -115,7 +115,7 @@ test-all-in-one: ## Test docker images locally
 ##@ Build
 
 .PHONY: images
-images: satellite-image storagenode-image uplink-image gateway-image ## Build gateway, satellite, storagenode, and uplink Docker images
+images: satellite-image storagenode-image uplink-image gateway-image versioncontrol-image ## Build gateway, satellite, storagenode, and uplink Docker images
 	echo Built version: ${TAG}
 
 .PHONY: gateway-image
