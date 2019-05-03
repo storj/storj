@@ -43,7 +43,7 @@ type RSConfig struct {
 // EncryptionConfig is a configuration struct that keeps details about
 // encrypting segments
 type EncryptionConfig struct {
-	// TODO: WIP#if/v3-1541 read TODO in Key method why the following field cannot
+	// TODO: if/v3-1541 read TODO in Key method why the following field cannot
 	// be added
 	// RootKey     *storj.Key  // The root key for encrypting the data and read it from KeyFilepath, see Key method.
 	KeyFilepath string      `help:"the path to the file which contains the root key for encrypting the data"`
@@ -61,8 +61,8 @@ type EncryptionConfig struct {
 // * The file doesn't exist.
 // * There is an I/O error.
 //
-// TODO: WIP#if/v3-1541 refactor cache the key after the firs read. The problem
-// is with pkg/cfgstruct which is inflexible on accepting unexported keys nor
+// TODO: if/v3-1541 refactor cache the key after the firs read. The problem is
+// with pkg/cfgstruct which is inflexible on accepting unexported keys nor
 // several different types as a type of storj.Key, [32]byte, etc.
 func (cfg *EncryptionConfig) LoadKey() (key storj.Key, err error) {
 	if cfg.KeyFilepath == "" {
