@@ -602,6 +602,15 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					return nil
 				}),
 			},
+			{
+				Description: "Add last_ip column",
+				Version:     17,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD last_ip TEXT;
+					UPDATE nodes SET last_ip = '';
+					ALTER TABLE nodes ALTER COLUMN last_ip SET NOT NULL;`,
+				},
+			},
 		},
 	}
 }
