@@ -66,7 +66,7 @@ type EncryptionConfig struct {
 // several different types as a type of storj.Key, [32]byte, etc.
 func (cfg *EncryptionConfig) LoadKey() (key storj.Key, err error) {
 	if cfg.KeyFilepath == "" {
-		return storj.Key{}, ErrKeyFilepathEmpty
+		return storj.Key{}, Error.New("KeyFilepath is empty")
 	}
 
 	file, err := os.Open(cfg.KeyFilepath)
@@ -95,7 +95,7 @@ func (cfg *EncryptionConfig) LoadKey() (key storj.Key, err error) {
 // directory doesn't exist, the file already exists or there is an I/O error.
 func (cfg *EncryptionConfig) SaveKey(key *storj.Key) error {
 	if cfg.KeyFilepath == "" {
-		return ErrKeyFilepathEmpty
+		return Error.New("KeyFilepath is empty")
 	}
 
 	if key.IsZero() {
@@ -146,9 +146,6 @@ var (
 
 	// Error is the errs class of standard End User Client errors
 	Error = errs.Class("Uplink configuration error")
-	// ErrKeyFilepathEmpty is returned when trying to load from the file the
-	// encryption key but the filepath value is an empty string.
-	ErrKeyFilepathEmpty = Error.New("KeyFilepath is empty")
 )
 
 // GetMetainfo returns an implementation of storj.Metainfo
