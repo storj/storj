@@ -5,15 +5,17 @@ package boltdb
 
 import (
 	"bytes"
-	"log"
 	"sync/atomic"
 	"time"
 
 	"github.com/boltdb/bolt"
 	"github.com/zeebo/errs"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/storage"
 )
+
+var mon = monkit.Package()
 
 // Error is the default boltdb errs class
 var Error = errs.Class("boltdb error")
@@ -113,16 +115,24 @@ func (client *Client) view(fn func(*bolt.Bucket) error) error {
 	}))
 }
 
-// Put adds a key/value to BoltDB in a batch, where the batch is committed to
-// to disk every 1000 operations or 2 ms, whichever is first.
+// Put adds a key/value to BoltDB in a batch, where boltDB commits the batch to
+// to disk every 1000 operations or 10ms, whichever is first.
+// The MaxBatchDelay are using default settings and be changed if need be.
+// Ref: https://github.com/boltdb/bolt/blob/master/db.go#L160
+// Note: when using this method, make sure its being executed asynchronously since
+// it blocks for the duration db.MaxBatchDelay.
 func (client *Client) Put(key storage.Key, value storage.Value) error {
+	start := time.Now()
 	if key.IsZero() {
 		return storage.ErrEmptyKey.New("")
 	}
 
-	return client.batch(func(bucket *bolt.Bucket) error {
+	err := client.db.Batch(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(client.Bucket)
 		return bucket.Put(key, value)
 	})
+	mon.IntVal("boltDB Batch time elapsed").Observe(int64(time.Since(start)))
+	return err
 }
 
 // PutAndCommit adds a key/value to BoltDB and writes it to disk.
@@ -131,29 +141,10 @@ func (client *Client) PutAndCommit(key storage.Key, value storage.Value) error {
 		return storage.ErrEmptyKey.New("")
 	}
 
-	return client.update(func(bucket *bolt.Bucket) error {
+	return client.db.Update(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(client.Bucket)
 		return bucket.Put(key, value)
 	})
-}
-
-// batch executes and commits the db operation, fn, in batches instead of every time the
-// operation is called. By default, the batch is written to disk every 1000 operations or
-// every 2 ms, which ever comes first.
-func (client *Client) batch(fn func(*bolt.Bucket) error) error {
-	go func() {
-		err := client.db.Batch(func(tx *bolt.Tx) error {
-			err := fn(tx.Bucket(client.Bucket))
-			if err != nil {
-				log.Printf("err boltDB db operation: %v", err)
-				return err
-			}
-			return nil
-		})
-		if err != nil {
-			log.Printf("err boltdb Batch: %v", err)
-		}
-	}()
-	return nil
 }
 
 // Get looks up the provided key from boltdb returning either an error or the result.

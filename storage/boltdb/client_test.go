@@ -8,9 +8,12 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/zeebo/errs"
+	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/testsuite"
 )
@@ -27,6 +30,7 @@ func TestSuite(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create db: %v", err)
 	}
+	store.db.MaxBatchDelay = 1 * time.Millisecond
 	defer func() {
 		if err := store.Close(); err != nil {
 			t.Fatalf("failed to close db: %v", err)
@@ -48,6 +52,7 @@ func BenchmarkSuite(b *testing.B) {
 	if err != nil {
 		b.Fatalf("failed to create db: %v", err)
 	}
+	store.db.MaxBatchDelay = 1 * time.Millisecond
 	defer func() {
 		if err := store.Close(); err != nil {
 			b.Fatalf("failed to close db: %v", err)
@@ -66,6 +71,8 @@ func TestSuiteShared(t *testing.T) {
 
 	dbname := filepath.Join(tempdir, "bolt.db")
 	stores, err := NewShared(dbname, "alpha", "beta")
+	stores[0].db.MaxBatchDelay = 1 * time.Millisecond
+	stores[1].db.MaxBatchDelay = 1 * time.Millisecond
 	if err != nil {
 		t.Fatalf("failed to create db: %v", err)
 	}
@@ -91,6 +98,7 @@ func (store *boltLongBenchmarkStore) BulkImport(iter storage.Iterator) (err erro
 	// turn off syncing during import
 	oldval := store.db.NoSync
 	store.db.NoSync = true
+	store.db.MaxBatchDelay = 1 * time.Millisecond
 	defer func() { store.db.NoSync = oldval }()
 
 	var item storage.ListItem
@@ -127,6 +135,8 @@ func BenchmarkSuiteLong(b *testing.B) {
 	if err != nil {
 		b.Fatalf("failed to create db: %v", err)
 	}
+	store.db.MaxBatchDelay = 1 * time.Millisecond
+
 	defer func() {
 		if err := errs.Combine(store.Close(), os.RemoveAll(tempdir)); err != nil {
 			b.Fatalf("failed to close db: %v", err)
@@ -142,13 +152,10 @@ func BenchmarkSuiteLong(b *testing.B) {
 
 func BenchmarkClientWrite(b *testing.B) {
 	// setup db
-	tempdir, err := ioutil.TempDir("", "storj-bolt")
-	if err != nil {
-		fmt.Println("err:", err)
-	}
-	defer func() { _ = os.RemoveAll(tempdir) }()
-	dbname := filepath.Join(tempdir, "testbolt.db")
-	dbs, err := NewShared(dbname, "kbuckets", "nodes")
+	ctx := testcontext.New(b)
+	defer ctx.Cleanup()
+	dbfile := ctx.File("testbolt.db")
+	dbs, err := NewShared(dbfile, "kbuckets", "nodes")
 	if err != nil {
 		fmt.Printf("failed to create db: %v\n", err)
 	}
@@ -175,18 +182,14 @@ func BenchmarkClientWrite(b *testing.B) {
 			}
 		}
 	}
-	b.Logf("\n b.N: %d, TxStats Write: %v, WriteTime: %v\n", b.N, kdb.db.Stats().TxStats.Write, kdb.db.Stats().TxStats.WriteTime)
 }
 
 func BenchmarkClientNoSyncWrite(b *testing.B) {
 	// setup db
-	tempdir, err := ioutil.TempDir("", "storj-bolt")
-	if err != nil {
-		fmt.Println("err:", err)
-	}
-	defer func() { _ = os.RemoveAll(tempdir) }()
-	dbname := filepath.Join(tempdir, "testbolt.db")
-	dbs, err := NewShared(dbname, "kbuckets", "nodes")
+	ctx := testcontext.New(b)
+	defer ctx.Cleanup()
+	dbfile := ctx.File("testbolt.db")
+	dbs, err := NewShared(dbfile, "kbuckets", "nodes")
 	if err != nil {
 		fmt.Printf("failed to create db: %v\n", err)
 	}
@@ -215,19 +218,19 @@ func BenchmarkClientNoSyncWrite(b *testing.B) {
 			}
 		}
 	}
-	kdb.db.Sync()
-	b.Logf("\n b.N: %d, TxStats Write: %v, WriteTime: %v\n", b.N, kdb.db.Stats().TxStats.Write, kdb.db.Stats().TxStats.WriteTime)
+	err = kdb.db.Sync()
+	if err != nil {
+		fmt.Printf("boltDB sync err: %v\n", err)
+	}
+
 }
 
 func BenchmarkClientBatchWrite(b *testing.B) {
 	// setup db
-	tempdir, err := ioutil.TempDir("", "storj-bolt")
-	if err != nil {
-		fmt.Println("err:", err)
-	}
-	defer func() { _ = os.RemoveAll(tempdir) }()
-	dbname := filepath.Join(tempdir, "batchbolt.db")
-	dbs, err := NewShared(dbname, "kbuckets", "nodes")
+	ctx := testcontext.New(b)
+	defer ctx.Cleanup()
+	dbfile := ctx.File("testbolt.db")
+	dbs, err := NewShared(dbfile, "kbuckets", "nodes")
 	if err != nil {
 		fmt.Printf("failed to create db: %v\n", err)
 	}
@@ -235,32 +238,35 @@ func BenchmarkClientBatchWrite(b *testing.B) {
 
 	// benchmark test: batch 1000 Put operations.
 	// Each call to `Put` does the following: 1) adds the db operation to a queue in boltDB,
-	// 2) every 1000 operations or 2 ms, whichever is first, BoltDB creates a single
+	// 2) every 1000 operations or 10ms, whichever is first, BoltDB creates a single
 	// transaction for all operations currently in the batch, executes the operations,
-	//  commits, and writes them to disk
+	// commits, and writes them to disk
 	for n := 0; n < b.N; n++ {
+		var wg sync.WaitGroup
 		for i := 0; i < 1000; i++ {
 			key := storage.Key(fmt.Sprintf("testkey%d", i))
 			value := storage.Value("testvalue")
 
-			err := kdb.Put(key, value)
+			wg.Add(1)
+			go func() error {
+				defer wg.Done()
+				return kdb.Put(key, value)
+			}()
+
 			if err != nil {
-				fmt.Println("batch Put err: ", err)
+				fmt.Printf("boltDB put: %v\n", err)
 			}
 		}
+		wg.Wait()
 	}
-	b.Logf("\n b.N: %d, TxStats Write: %v, WriteTime: %v\n", b.N, kdb.db.Stats().TxStats.Write, kdb.db.Stats().TxStats.WriteTime)
 }
 
 func BenchmarkClientBatchNoSyncWrite(b *testing.B) {
 	// setup db
-	tempdir, err := ioutil.TempDir("", "storj-bolt")
-	if err != nil {
-		fmt.Println("err:", err)
-	}
-	defer func() { _ = os.RemoveAll(tempdir) }()
-	dbname := filepath.Join(tempdir, "batchbolt.db")
-	dbs, err := NewShared(dbname, "kbuckets", "nodes")
+	ctx := testcontext.New(b)
+	defer ctx.Cleanup()
+	dbfile := ctx.File("testbolt.db")
+	dbs, err := NewShared(dbfile, "kbuckets", "nodes")
 	if err != nil {
 		fmt.Printf("failed to create db: %v\n", err)
 	}
@@ -273,16 +279,25 @@ func BenchmarkClientBatchNoSyncWrite(b *testing.B) {
 	// commits, but does NOT write them to disk
 	kdb.db.NoSync = true
 	for n := 0; n < b.N; n++ {
+		var wg sync.WaitGroup
 		for i := 0; i < 1000; i++ {
 			key := storage.Key(fmt.Sprintf("testkey%d", i))
 			value := storage.Value("testvalue")
 
-			err := kdb.Put(key, value)
+			wg.Add(1)
+			go func() error {
+				defer wg.Done()
+				return kdb.Put(key, value)
+			}()
+
 			if err != nil {
-				fmt.Println("batch Put NoSync err: ", err)
+				fmt.Printf("boltDB put: %v\n", err)
 			}
 		}
+		wg.Wait()
+		err := kdb.db.Sync()
+		if err != nil {
+			fmt.Printf("boltDB sync err: %v\n", err)
+		}
 	}
-	kdb.db.Sync()
-	b.Logf("\n b.N: %d, TxStats Write: %v, WriteTime: %v\n", b.N, kdb.db.Stats().TxStats.Write, kdb.db.Stats().TxStats.WriteTime)
 }

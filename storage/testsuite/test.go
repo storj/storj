@@ -5,6 +5,7 @@ package testsuite
 
 import (
 	"strconv"
+	"sync"
 	"testing"
 
 	"storj.io/storj/storage"
@@ -35,11 +36,17 @@ func testConstraints(t *testing.T, store storage.KeyValueStore) {
 		})
 	}
 
+	var wg sync.WaitGroup
 	for _, item := range items {
-		if err := store.Put(item.Key, item.Value); err != nil {
-			t.Fatal(err)
-		}
+		key := item.Key
+		value := item.Value
+		wg.Add(1)
+		go func() error {
+			defer wg.Done()
+			return store.Put(key, value)
+		}()
 	}
+	wg.Wait()
 	defer cleanupItems(store, items)
 
 	t.Run("Put Empty", func(t *testing.T) {
