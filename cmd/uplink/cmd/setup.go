@@ -187,7 +187,8 @@ Please enter numeric choice or enter satellite address manually [1]: `)
 			}
 		}
 
-		err = process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), override)
+		err = process.SaveConfigWithAllDefaults(
+			cmd.Flags(), filepath.Join(setupDir, process.DefaultConfFilename), override)
 		if err != nil {
 			return nil
 		}
