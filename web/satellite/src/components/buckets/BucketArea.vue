@@ -57,7 +57,6 @@
         		return this.$store.state.bucketUsageModule.page.pageCount;
 			},
 			search: function (): string {
-        		console.log("search: ", this.$store.state.bucketUsageModule.cursor.search);
 				return this.$store.state.bucketUsageModule.cursor.search;
 			}
 		}
