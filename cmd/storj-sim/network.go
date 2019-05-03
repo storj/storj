@@ -321,10 +321,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--tls.use-peer-ca-whitelist=false",
 
 				"--debug.addr", net.JoinHostPort(host, port(gatewayPeer, i, debugHTTP)),
-			},
-			"run": {
 				"--encryption-key=TestEncryptionKey",
 			},
+			"run": {},
 		})
 
 		process.ExecBefore["run"] = func(process *Process) error {

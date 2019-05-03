@@ -37,7 +37,7 @@ type GatewayFlags struct {
 	Minio  miniogw.MinioConfig
 
 	uplink.Config
-	EncryptionKey string `default:"" help:"the root key for encrypting the data; when set, it overrides the key stored in the file indicated by the configuration file"`
+	EncryptionKey string `help:"the root key for encrypting the data; when set, it overrides the key stored in the file indicated by the configuration file" setup:"true"`
 }
 
 var (
@@ -93,6 +93,14 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	err = os.MkdirAll(setupDir, 0700)
 	if err != nil {
 		return err
+	}
+
+	if setupCfg.EncryptionKey != "" {
+		setupCfg.Enc.KeyFilepath = filepath.Join(setupDir, ".encryption.key")
+		key := storj.NewKey([]byte(setupCfg.EncryptionKey))
+		if err := setupCfg.Enc.SaveKey(key); err != nil {
+			return err
+		}
 	}
 
 	if setupCfg.GenerateTestCerts {
@@ -240,21 +248,13 @@ func (flags GatewayFlags) NewGateway(ctx context.Context, ident *identity.FullId
 		return nil, err
 	}
 
-	var encKey *storj.Key
-	if flags.EncryptionKey != "" {
-		encKey = new(storj.Key)
-		copy(encKey[:], flags.EncryptionKey)
-	} else {
-		k, err := flags.Enc.LoadKey()
-		if err != nil {
-			return nil, err
-		}
-
-		encKey = &k
+	encKey, err := flags.Enc.LoadKey()
+	if err != nil {
+		return nil, err
 	}
 
 	var opts libuplink.ProjectOptions
-	opts.Volatile.EncryptionKey = encKey
+	opts.Volatile.EncryptionKey = &encKey
 
 	project, err := uplink.OpenProject(ctx, flags.Client.SatelliteAddr, apiKey, &opts)
 	if err != nil {
@@ -263,7 +263,7 @@ func (flags GatewayFlags) NewGateway(ctx context.Context, ident *identity.FullId
 
 	return miniogw.NewStorjGateway(
 		project,
-		encKey,
+		&encKey,
 		storj.Cipher(flags.Enc.PathType).ToCipherSuite(),
 		flags.GetEncryptionScheme().ToEncryptionParameters(),
 		flags.GetRedundancyScheme(),
