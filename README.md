@@ -29,7 +29,9 @@ retrieve those files!
 
 All of our code for Storj v3 is open source. Have a code change you think would make Storj better? Please send a pull request along! Make sure to sign our [Contributor License Agreement (CLA)](https://docs.google.com/forms/d/e/1FAIpQLSdVzD5W8rx-J_jLaPuG31nbOzS8yhNIIu4yHvzonji6NeZ4ig/viewform) first. See our [license section](#license) for more details.
 
-Have comments, or bug reports? Want to propose a PR before hand-crafting it? Jump on to our [Rocketchat](https://community.storj.io) and join the [#dev channel](https://community.storj.io/channel/dev) to say hi to the developer community and to talk to the Storj core team. Want to vote on or suggest a new features? Post it on [ideas.storj.io](https://ideas.storj.io).
+Have comments or bug reports? Want to propose a PR before hand-crafting it? Jump on to our [Rocketchat](https://community.storj.io) and join the [#dev channel](https://community.storj.io/channel/dev) to say hi to the developer community and to talk to the Storj core team. 
+
+Want to vote on or suggest new features? Post it on [ideas.storj.io](https://ideas.storj.io).
 
 ### Issue tracking and roadmap
 
