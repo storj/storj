@@ -39,7 +39,7 @@ typedef struct { const char *p; ptrdiff_t n; } _GoString_;
 
 #line 1 "cgo-generated-wrapper"
 
-#line 8 "uplink.go"
+#line 6 "uplink.go"
 
  #ifndef UPLINK_HEADERS
    #define UPLINK_HEADERS

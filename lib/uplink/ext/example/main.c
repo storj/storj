@@ -3,9 +3,9 @@
 
 #include <stdio.h>
 #include <unistd.h>
-#include "../uplink-cgo-common.h"
+#include "../uplink-cgo.h"
 
-// gcc -o cgo-test-bin lib/uplink/ext/example/main.c lib/uplink/ext/uplink-cgo-common.so
+// gcc -o cgo-test-bin lib/uplink/ext/example/main.c lib/uplink/ext/uplink-cgo.so
 
 int main() {
 //    struct Config uplinkConfig = {{{true, ""}, 3}};
