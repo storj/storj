@@ -8,17 +8,14 @@
 // gcc -o cgo-test-bin lib/uplink/ext/example/main.c lib/uplink/ext/uplink-cgo.so
 
 int main() {
-//    struct Config uplinkConfig = {{{true, ""}, 3}};
     struct Config uplinkConfig;
-    struct IDVersion idVersion = {2,};
-//    uplinkConfig.Volatile.IdentityVersion = {2};
+    struct IDVersion idVersion = {2};
     uplinkConfig.Volatile.IdentityVersion = idVersion;
     uplinkConfig.Volatile.TLS.SkipPeerCAWhitelist = true;
 
     char *err = "";
-    struct Uplink uplink = NewUplink(uplinkConfig, err);
+    struct Uplink uplink = NewUplink(uplinkConfig, &err);
 
-    printf("testing 123\n");
     if (err == "") {
         printf("error: %s\n", *err);
     }
@@ -27,5 +24,4 @@ int main() {
     printf("%d\n", uplink.Config.Volatile.IdentityVersion.Number);
     printf("%s\n", uplink.Config.Volatile.TLS.SkipPeerCAWhitelist ? "true" : "false");
     printf("%s\n", uplinkConfig.Volatile.TLS.SkipPeerCAWhitelist ? "true" : "false");
-//    kill(getpid(), 10);
 }

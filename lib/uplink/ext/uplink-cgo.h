@@ -107,7 +107,7 @@ extern char* Serialize(struct APIKey p0);
 
 extern struct IDVersion GetIDVersion(short unsigned int p0, char* p1);
 
-extern struct Uplink NewUplink(struct Config p0, char* p1);
+extern struct Uplink NewUplink(struct Config p0, char** p1);
 
 #ifdef __cplusplus
 }

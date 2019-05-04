@@ -21,10 +21,10 @@ var ErrConvert = errs.Class("struct conversion error")
 //func main() {}
 
 //export NewUplink
-func NewUplink(cConfig C.struct_Config, cErr *C.char) C.struct_Uplink {
+func NewUplink(cConfig C.struct_Config, cErr **C.char) C.struct_Uplink {
 	goConfig := new(uplink.Config)
-	if err := GoToCStruct(cConfig, goConfig); err != nil {
-		*cErr = *C.CString(err.Error())
+	if err := CToGoStruct(cConfig, goConfig); err != nil {
+		*cErr = C.CString(err.Error())
 	}
 	//goConfig := uplink.Config{}
 	//goConfig.Volatile.TLS.SkipPeerCAWhitelist = true
@@ -35,7 +35,7 @@ func NewUplink(cConfig C.struct_Config, cErr *C.char) C.struct_Uplink {
 	goUplink, err := uplink.NewUplink(context.Background(), goConfig)
 	//_, err := uplink.NewUplink(context.Background(), &goConfig)
 	if err != nil {
-		*cErr = *C.CString(err.Error())
+		*cErr = C.CString(err.Error())
 	}
 
 	//t := reflect.TypeOf(C.struct_Uplink{})
