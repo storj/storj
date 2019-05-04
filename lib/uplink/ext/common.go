@@ -57,6 +57,7 @@ func GoToCStruct(fromVar, toPtr interface{}) error {
 		toValue.Set(reflect.ValueOf(C.uint(fromValue.Uint())))
 		return nil
 	//case reflect.Uintptr:
+	//	toValue.Set(reflect.ValueOf(C.GoUintptr(fromValue.Uint())))
 	//	return nil
 	case reflect.Struct:
 		for i := 0; i < fromValue.NumField(); i++ {
@@ -86,6 +87,9 @@ func CToGoStruct(fromVar, toPtr interface{}) error {
 
 	toValue := reflect.Indirect(reflect.ValueOf(toPtr))
 
+	//fmt.Printf("fromValue: %+v\n", fromValue)
+	//fmt.Printf("toValue: %+v\n", toValue)
+
 	switch {
 	case fromType == reflect.TypeOf(C.CString("")):
 		toValue.Set(reflect.ValueOf(C.GoString(fromValue.Interface().(*C.char))))
@@ -100,17 +104,21 @@ func CToGoStruct(fromVar, toPtr interface{}) error {
 		toValue.Set(reflect.ValueOf(uint(fromValue.Interface().(C.uint))))
 		return nil
 	//case reflect.Uintptr:
+	//	toValue.Set()
 	//	return nil
 	case fromType.Kind() == reflect.Struct:
 		for i := 0; i < fromValue.NumField(); i++ {
 			fromFieldValue := fromValue.Field(i)
 			fromField := fromValue.Type().Field(i)
 			toField := toValue.FieldByName(fromField.Name)
+
+			//fmt.Printf("toField: %+v\n", toField)
+
 			toFieldPtr := reflect.New(toField.Type())
 			toFieldValue := toFieldPtr.Interface()
 
 			// initialize new Go value pointer
-			if err := GoToCStruct(fromFieldValue.Interface(), toFieldValue); err != nil {
+			if err := CToGoStruct(fromFieldValue.Interface(), toFieldValue); err != nil {
 				return err
 			}
 
