@@ -14,13 +14,18 @@ import (
 // Cycle implements a controllable recurring event.
 //
 // Cycle control methods don't have any effect after the cycle has completed.
+type runningState struct {
+	running bool
+	m       sync.Mutex
+}
+
 type Cycle struct {
 	interval time.Duration
 
-	ticker  *time.Ticker
-	control chan interface{}
-	stop    chan struct{}
-	running bool
+	ticker       *time.Ticker
+	control      chan interface{}
+	stop         chan struct{}
+	runningState runningState
 
 	init sync.Once
 }
@@ -33,6 +38,18 @@ type (
 	cycleChangeInterval struct{ Interval time.Duration }
 	cycleTrigger        struct{ done chan struct{} }
 )
+
+func (state *runningState) SetRunning(running bool) {
+	state.m.Lock()
+	defer state.m.Unlock()
+	state.running = running
+}
+
+func (state *runningState) IsRunning() bool {
+	state.m.Lock()
+	defer state.m.Unlock()
+	return state.running
+}
 
 // NewCycle creates a new cycle with the specified interval.
 func NewCycle(interval time.Duration) *Cycle {
@@ -56,8 +73,6 @@ func (cycle *Cycle) initialize() {
 // Start runs the specified function with an errgroup
 func (cycle *Cycle) Start(ctx context.Context, group *errgroup.Group, fn func(ctx context.Context) error) {
 	group.Go(func() error {
-		cycle.running = true
-		defer func() { cycle.running = false }()
 		return cycle.Run(ctx, fn)
 	})
 }
@@ -69,6 +84,8 @@ func (cycle *Cycle) Start(ctx context.Context, group *errgroup.Group, fn func(ct
 func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error) error {
 	cycle.initialize()
 	defer close(cycle.stop)
+	cycle.runningState.SetRunning(true)
+	defer cycle.runningState.SetRunning(false)
 
 	currentInterval := cycle.interval
 	cycle.ticker = time.NewTicker(currentInterval)
@@ -127,13 +144,12 @@ func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error)
 
 // Close closes all resources associated with it.
 func (cycle *Cycle) Close() {
-	if cycle.running {
+	cycle.initialize()
+	if cycle.runningState.IsRunning() {
 		cycle.Stop()
 		<-cycle.stop
 	}
-	if cycle.control != nil {
-		close(cycle.control)
-	}
+	close(cycle.control)
 }
 
 // sendControl sends a control message
