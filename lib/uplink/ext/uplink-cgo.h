@@ -105,7 +105,7 @@ extern struct APIKey ParseAPIKey(GoString p0);
 
 extern char* Serialize(struct APIKey p0);
 
-extern struct IDVersion GetIDVersion(short unsigned int p0, char* p1);
+extern struct IDVersion GetIDVersion(unsigned int p0, char** p1);
 
 extern struct Uplink NewUplink(struct Config p0, char** p1);
 

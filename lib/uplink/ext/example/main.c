@@ -8,16 +8,26 @@
 // gcc -o cgo-test-bin lib/uplink/ext/example/main.c lib/uplink/ext/uplink-cgo.so
 
 int main() {
+    char *err = "";
+
     struct Config uplinkConfig;
-    struct IDVersion idVersion = {2};
-    uplinkConfig.Volatile.IdentityVersion = idVersion;
+//    printf("getidversion\n");
+//    struct IDVersion idVersion = {2};
+    uplinkConfig.Volatile.IdentityVersion = GetIDVersion(0, &err);
+    if (err != "") {
+        printf("error: %s\n", err);
+        return 1;
+    }
+
+//    printf("got idVersion %d\n", uplinkConfig.Volatile.IdentityVersion.Number);
     uplinkConfig.Volatile.TLS.SkipPeerCAWhitelist = true;
 
-    char *err = "";
+//    printf("newuplink\n");
     struct Uplink uplink = NewUplink(uplinkConfig, &err);
 
-    if (err == "") {
-        printf("error: %s\n", *err);
+    if (err != "") {
+        printf("error: %s\n", err);
+        return 1;
     }
 
 

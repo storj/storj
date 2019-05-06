@@ -3,15 +3,22 @@
 
 package storj
 
+// #cgo CFLAGS: -g -Wall
+// #include <stdlib.h>
+// #ifndef UPLINK_HEADERS
+//   #define UPLINK_HEADERS
+//   #include "../../lib/uplink/ext/uplink.h"
+// #endif
+import "C"
 import (
 	"crypto"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"strconv"
-	"strings"
-
+	"reflect"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/pkcrypto"
+	"strconv"
+	"strings"
 )
 
 const (
@@ -131,6 +138,20 @@ func IDVersionInVersions(versionNumber IDVersionNumber, versionsStr string) erro
 		}
 	}
 	return ErrVersion.New("version %d not in versions %s", versionNumber, versionsStr)
+}
+
+func (idVersion *IDVersion) GoToC(cValue *C.struct_IDVersion) error {
+	// TODO: is this ok?
+	//*cValue = C.uint(idVersion.Number)
+	cValue.Number = C.uchar(idVersion.Number)
+	//cValue.GoIDVersion = C.GoUintptr(reflect.ValueOf(idVersion).Pointer())
+	cValue.GoIDVersion = C.GoUintptr(reflect.ValueOf(idVersion).Pointer())
+	return nil
+}
+
+func (number *IDVersionNumber) CToGo(cValue interface{}) error {
+	*number = IDVersionNumber(reflect.ValueOf(cValue).Uint())
+	return nil
 }
 
 func idVersionHandler(opts *extensions.Options) extensions.HandlerFunc {

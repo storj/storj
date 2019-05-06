@@ -3,12 +3,20 @@
 
 package uplink
 
+// #cgo CFLAGS: -g -Wall
+// #include <stdlib.h>
+// #ifndef UPLINK_HEADERS
+//   #define UPLINK_HEADERS
+//   #include "ext/uplink.h"
+// #endif
+import "C"
 import (
 	"context"
 
 	"github.com/vivint/infectious"
 
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/lib/uplink/ext/lib"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
@@ -25,26 +33,24 @@ var (
 	maxBucketMetaSize = 10 * memory.MiB
 )
 
-// Config represents configuration options for an Uplink
-type Config struct {
-	// Volatile groups config values that are likely to change semantics
-	// or go away entirely between releases. Be careful when using them!
-	Volatile struct {
-		// TLS defines options that affect TLS negotiation for outbound
-		// connections initiated by this uplink.
-		TLS struct {
-			// SkipPeerCAWhitelist determines whether to require all
-			// remote hosts to have identity certificates signed by
-			// Certificate Authorities in the default whitelist. If
-			// set to true, the whitelist will be ignored.
-			SkipPeerCAWhitelist bool
+// Volatile groups config values that are likely to change semantics
+// or go away entirely between releases. Be careful when using them!
+type Volatile struct {
+	// TLS defines options that affect TLS negotiation for outbound
+	// connections initiated by this uplink.
+	TLS struct {
+		// SkipPeerCAWhitelist determines whether to require all
+		// remote hosts to have identity certificates signed by
+		// Certificate Authorities in the default whitelist. If
+		// set to true, the whitelist will be ignored.
+		SkipPeerCAWhitelist bool
 
-			// PeerCAWhitelistPath gives the path to a CA cert
-			// whitelist file. It is ignored if SkipPeerCAWhitelist
-			// is set. If empty, the internal default peer whitelist
-			// is used.
-			PeerCAWhitelistPath string
-		}
+		// PeerCAWhitelistPath gives the path to a CA cert
+		// whitelist file. It is ignored if SkipPeerCAWhitelist
+		// is set. If empty, the internal default peer whitelist
+		// is used.
+		PeerCAWhitelistPath string
+	}
 
 		// PeerIDVersion is the identity versions remote peers to this node
 		// will be supported by this node.
@@ -57,14 +63,18 @@ type Config struct {
 		// the inline storage and require remote storage, still.)
 		MaxInlineSize memory.Size
 
-		// MaxMemory is the default maximum amount of memory to be
-		// allocated for read buffers while performing decodes of
-		// objects. (This option is overrideable per Bucket if the user
-		// so desires.) If set to zero, the library default (4 MiB) will
-		// be used. If set to a negative value, the system will use the
-		// smallest amount of memory it can.
-		MaxMemory memory.Size
-	}
+	// MaxMemory is the default maximum amount of memory to be
+	// allocated for read buffers while performing decodes of
+	// objects. (This option is overrideable per Bucket if the user
+	// so desires.) If set to zero, the library default (4 MiB) will
+	// be used. If set to a negative value, the system will use the
+	// smallest amount of memory it can.
+	MaxMemory memory.Size
+}
+
+// Config represents configuration options for an Uplink
+type Config struct {
+	Volatile
 }
 
 func (cfg *Config) clone() *Config {
@@ -185,5 +195,21 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey A
 // still be called to allow forward compatibility. No Project or Bucket
 // objects using this Uplink should be used after calling Close.
 func (u *Uplink) Close() error {
+	return nil
+}
+
+func (volatile Volatile) CtoGo(cValue *C.struct_Volatile) error {
+	if err := lib.CToGoStruct(cValue.TLS, &volatile.TLS); err != nil {
+		return err
+	}
+	if err := lib.CToGoStruct(cValue.IdentityVersion, &volatile.IdentityVersion); err != nil {
+		return err
+	}
+	if err := lib.CToGoStruct(cValue.PeerIDVersion, &volatile.PeerIDVersion); err != nil {
+		return err
+	}
+
+	volatile.MaxInlineSize = memory.Size(cValue.MaxInlineSize)
+	volatile.MaxMemory = memory.Size(cValue.MaxMemory)
 	return nil
 }

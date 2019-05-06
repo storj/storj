@@ -17,15 +17,15 @@ struct TLS {
 
 struct IDVersion {
     uint8_t Number;
-    GoUintptr NewPrivateKey;
+    GoUintptr GoIDVersion;
 };
 
 struct Volatile {
     struct TLS TLS;
     struct IDVersion IdentityVersion;
     char* PeerIDVersion;
-    uint64_t MaxInlineSize;
-    uint64_t MaxMemory;
+    int64_t MaxInlineSize;
+    int64_t MaxMemory;
 };
 
 struct Config {

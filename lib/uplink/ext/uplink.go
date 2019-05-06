@@ -11,46 +11,35 @@ package main
 import "C"
 import (
 	"context"
+	"reflect"
 
-	"github.com/zeebo/errs"
-
+	"storj.io/storj/lib/uplink/ext/lib"
 	"storj.io/storj/lib/uplink"
 )
 
-var ErrConvert = errs.Class("struct conversion error")
-//func main() {}
-
 //export NewUplink
-func NewUplink(cConfig C.struct_Config, cErr **C.char) C.struct_Uplink {
+func NewUplink(cConfig C.struct_Config, cErr **C.char) (cUplink C.struct_Uplink) {
 	goConfig := new(uplink.Config)
-	if err := CToGoStruct(cConfig, goConfig); err != nil {
+	if err := lib.CToGoStruct(cConfig, goConfig); err != nil {
 		*cErr = C.CString(err.Error())
+		return cUplink
 	}
-	//goConfig := uplink.Config{}
-	//goConfig.Volatile.TLS.SkipPeerCAWhitelist = true
-	//if err != nil {
-	//
-	//}
 
 	goUplink, err := uplink.NewUplink(context.Background(), goConfig)
-	//_, err := uplink.NewUplink(context.Background(), &goConfig)
 	if err != nil {
 		*cErr = C.CString(err.Error())
+		return cUplink
 	}
 
-	//t := reflect.TypeOf(C.struct_Uplink{})
-	//for i := 0; i < t.NumField(); i++ {
-	//	//t := reflect.TypeOf(t.Field(i))
-	//	field := t.Field(i)
-	//	fmt.Printf("%+v\n", field)
-	//	//fmt.Printf("field name: %s; kind: %s\n", field.Name, field.Type.Kind())
-	//}
 	return C.struct_Uplink{
-		GoUplink: C.ulong(register(goUplink)),
+		GoUplink: C.GoUintptr(reflect.ValueOf(goUplink).Pointer()),
 		Config:   cConfig,
 	}
-	//return cConfig
-	//fmt.Printf("go: %s\n", cUplink.volatile_.tls.SkipPeerCAWhitelist)
+	//if err := GoToCStruct(goUplink, &cUplink); err != nil {
+	//	*cErr = C.CString(err.Error())
+	//	return C.struct_Uplink{}
+	//}
+	//return cUplink
 }
 
 
