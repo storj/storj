@@ -17,8 +17,8 @@ import (
 
 // Config defines values needed by mailservice service
 type Config struct {
-	SMTPServerAddress string `help:"smtp server address" default:""`
-	TemplatePath      string `help:"path to email templates source" default:""`
+	SMTPServerAddress string `help:"smtp server address" default:"" mandatory:"true"`
+	TemplatePath      string `help:"path to email templates source" default:"" mandatory:"true"`
 	From              string `help:"sender email address" default:"" mandatory:"true"`
 	AuthType          string `help:"smtp authentication type" default:"simulate"`
 	Login             string `help:"plain/login auth user login" default:""`
