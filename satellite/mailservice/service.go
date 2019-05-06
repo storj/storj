@@ -19,7 +19,7 @@ import (
 type Config struct {
 	SMTPServerAddress string `help:"smtp server address" default:""`
 	TemplatePath      string `help:"path to email templates source" default:""`
-	From              string `help:"sender email address" default:""`
+	From              string `help:"sender email address" default:"" mandatory:"true"`
 	AuthType          string `help:"smtp authentication type" default:"simulate"`
 	Login             string `help:"plain/login auth user login" default:""`
 	Password          string `help:"plain/login auth user password" default:""`

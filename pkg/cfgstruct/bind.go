@@ -146,6 +146,8 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 			continue
 		}
 
+		mandatory := (field.Tag.Get("mandatory") == "true")
+
 		switch field.Type.Kind() {
 		case reflect.Struct:
 			if field.Anonymous {
@@ -213,6 +215,9 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 			}
 			if onlyForSetup {
 				setBoolAnnotation(flags, flagname, "setup")
+			}
+			if mandatory {
+				setBoolAnnotation(flags, flagname, "mandatory")
 			}
 			if field.Tag.Get("user") == "true" {
 				setBoolAnnotation(flags, flagname, "user")

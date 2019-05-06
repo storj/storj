@@ -103,6 +103,9 @@ func saveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]int
 			fmt.Fprintf(w, "# %s\n", f.Usage)
 		}
 		fmt.Fprintf(w, "%s: ", k)
+		if readBoolAnnotation(f, "mandatory") && (value == "") {
+			panic("Please provide a value for field " + k)
+		}
 		switch f.Value.Type() {
 		case "string":
 			// save ourselves 250+ lines of code and just double quote strings
