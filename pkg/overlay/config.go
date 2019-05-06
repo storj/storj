@@ -41,6 +41,7 @@ type NodeSelectionConfig struct {
 	NewNodePercentage float64       `help:"the percentage of new nodes allowed per request" default:"0.05"` // TODO: fix, this is not percentage, it's ratio
 	MinimumVersion    string        `help:"the minimum node software version for node selection queries" default:""`
 	OnlineWindow      time.Duration `help:"the amount of time without seeing a node before its considered offline" default:"1h"`
+	DistinctIPs       bool          `help:"require distinct IPs when choosing nodes for upload" releaseDefault:"true" devDefault:"false"`
 }
 
 // ParseIDs converts the base58check encoded node ID strings from the config into node IDs
