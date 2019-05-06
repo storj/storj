@@ -6,6 +6,7 @@ package testsuite
 import (
 	"path"
 	"strconv"
+	"sync"
 	"testing"
 
 	"storj.io/storj/storage"
@@ -42,12 +43,18 @@ func RunBenchmarks(b *testing.B, store storage.KeyValueStore) {
 	b.Run("Put", func(b *testing.B) {
 		b.SetBytes(int64(len(items)))
 		for k := 0; k < b.N; k++ {
+			var wg sync.WaitGroup
 			for _, item := range items {
-				err := store.Put(item.Key, item.Value)
-				if err != nil {
-					b.Fatal(err)
-				}
+				key := item.Key
+				value := item.Value
+
+				wg.Add(1)
+				go func() error {
+					defer wg.Done()
+					return store.Put(key, value)
+				}()
 			}
+			wg.Wait()
 		}
 	})
 

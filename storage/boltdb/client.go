@@ -109,29 +109,33 @@ func (client *Client) update(fn func(*bolt.Bucket) error) error {
 	}))
 }
 
+func (client *Client) batch(fn func(*bolt.Bucket) error) error {
+	return Error.Wrap(client.db.Batch(func(tx *bolt.Tx) error {
+		return fn(tx.Bucket(client.Bucket))
+	}))
+}
+
 func (client *Client) view(fn func(*bolt.Bucket) error) error {
 	return Error.Wrap(client.db.View(func(tx *bolt.Tx) error {
 		return fn(tx.Bucket(client.Bucket))
 	}))
 }
 
-// Put adds a key/value to BoltDB in a batch, where boltDB commits the batch to
-// to disk every 1000 operations or 10ms, whichever is first.
-// The MaxBatchDelay are using default settings and be changed if need be.
+// Put adds a key/value to boltDB in a batch, where boltDB commits the batch to to disk every
+// 1000 operations or 10ms, whichever is first. The MaxBatchDelay are using default settings.
 // Ref: https://github.com/boltdb/bolt/blob/master/db.go#L160
-// Note: when using this method, make sure its being executed asynchronously since
-// it blocks for the duration db.MaxBatchDelay.
+// Note: when using this method, check if it need to be executed asynchronously
+// since it blocks for the duration db.MaxBatchDelay.
 func (client *Client) Put(key storage.Key, value storage.Value) error {
 	start := time.Now()
 	if key.IsZero() {
 		return storage.ErrEmptyKey.New("")
 	}
 
-	err := client.db.Batch(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket(client.Bucket)
+	err := client.batch(func(bucket *bolt.Bucket) error {
 		return bucket.Put(key, value)
 	})
-	mon.IntVal("boltDB Batch time elapsed").Observe(int64(time.Since(start)))
+	mon.IntVal("boltdb_batch_time_elapsed").Observe(int64(time.Since(start)))
 	return err
 }
 
@@ -141,8 +145,7 @@ func (client *Client) PutAndCommit(key storage.Key, value storage.Value) error {
 		return storage.ErrEmptyKey.New("")
 	}
 
-	return client.db.Update(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket(client.Bucket)
+	return client.update(func(bucket *bolt.Bucket) error {
 		return bucket.Put(key, value)
 	})
 }

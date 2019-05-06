@@ -30,7 +30,6 @@ func TestSuite(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create db: %v", err)
 	}
-	store.db.MaxBatchDelay = 1 * time.Millisecond
 	defer func() {
 		if err := store.Close(); err != nil {
 			t.Fatalf("failed to close db: %v", err)
@@ -52,7 +51,6 @@ func BenchmarkSuite(b *testing.B) {
 	if err != nil {
 		b.Fatalf("failed to create db: %v", err)
 	}
-	store.db.MaxBatchDelay = 1 * time.Millisecond
 	defer func() {
 		if err := store.Close(); err != nil {
 			b.Fatalf("failed to close db: %v", err)
@@ -98,7 +96,6 @@ func (store *boltLongBenchmarkStore) BulkImport(iter storage.Iterator) (err erro
 	// turn off syncing during import
 	oldval := store.db.NoSync
 	store.db.NoSync = true
-	store.db.MaxBatchDelay = 1 * time.Millisecond
 	defer func() { store.db.NoSync = oldval }()
 
 	var item storage.ListItem
@@ -135,8 +132,6 @@ func BenchmarkSuiteLong(b *testing.B) {
 	if err != nil {
 		b.Fatalf("failed to create db: %v", err)
 	}
-	store.db.MaxBatchDelay = 1 * time.Millisecond
-
 	defer func() {
 		if err := errs.Combine(store.Close(), os.RemoveAll(tempdir)); err != nil {
 			b.Fatalf("failed to close db: %v", err)
@@ -157,14 +152,14 @@ func BenchmarkClientWrite(b *testing.B) {
 	dbfile := ctx.File("testbolt.db")
 	dbs, err := NewShared(dbfile, "kbuckets", "nodes")
 	if err != nil {
-		fmt.Printf("failed to create db: %v\n", err)
+		b.Fatalf("failed to create db: %v\n", err)
 	}
 	defer func() {
 		if err := dbs[0].Close(); err != nil {
-			fmt.Printf("failed to close db: %v\n", err)
+			b.Fatalf("failed to close db: %v\n", err)
 		}
 		if err := dbs[1].Close(); err != nil {
-			fmt.Printf("failed to close db: %v\n", err)
+			b.Fatalf("failed to close db: %v\n", err)
 		}
 	}()
 	kdb := dbs[0]
@@ -172,15 +167,21 @@ func BenchmarkClientWrite(b *testing.B) {
 	// benchmark test: execute 1000 Put operations where each call to `PutAndCommit` does the following:
 	// 1) create a BoltDB transaction (tx), 2) execute the db operation, 3) commit the tx which writes it to disk.
 	for n := 0; n < b.N; n++ {
+		var wg sync.WaitGroup
 		for i := 0; i < 1000; i++ {
 			key := storage.Key(fmt.Sprintf("testkey%d", i))
 			value := storage.Value("testvalue")
 
-			err := kdb.PutAndCommit(key, value)
-			if err != nil {
-				fmt.Println("Put err:", err)
-			}
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				err := kdb.PutAndCommit(key, value)
+				if err != nil {
+					fmt.Println("Put err:", err)
+				}
+			}()
 		}
+		wg.Wait()
 	}
 }
 
@@ -191,14 +192,14 @@ func BenchmarkClientNoSyncWrite(b *testing.B) {
 	dbfile := ctx.File("testbolt.db")
 	dbs, err := NewShared(dbfile, "kbuckets", "nodes")
 	if err != nil {
-		fmt.Printf("failed to create db: %v\n", err)
+		b.Fatalf("failed to create db: %v\n", err)
 	}
 	defer func() {
 		if err := dbs[0].Close(); err != nil {
-			fmt.Printf("failed to close db: %v\n", err)
+			b.Fatalf("failed to close db: %v\n", err)
 		}
 		if err := dbs[1].Close(); err != nil {
-			fmt.Printf("failed to close db: %v\n", err)
+			b.Fatalf("failed to close db: %v\n", err)
 		}
 	}()
 	kdb := dbs[0]
@@ -208,19 +209,25 @@ func BenchmarkClientNoSyncWrite(b *testing.B) {
 	// 2) executes the db operation, and 3) commits the tx which does NOT write it to disk.
 	kdb.db.NoSync = true
 	for n := 0; n < b.N; n++ {
+		var wg sync.WaitGroup
 		for i := 0; i < 1000; i++ {
 			key := storage.Key(fmt.Sprintf("testkey%d", i))
 			value := storage.Value("testvalue")
 
-			err := kdb.PutAndCommit(key, value)
-			if err != nil {
-				fmt.Println("PutAndCommit Nosync err:", err)
-			}
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				err := kdb.PutAndCommit(key, value)
+				if err != nil {
+					fmt.Println("PutAndCommit Nosync err:", err)
+				}
+			}()
 		}
+		wg.Wait()
 	}
 	err = kdb.db.Sync()
 	if err != nil {
-		fmt.Printf("boltDB sync err: %v\n", err)
+		b.Fatalf("boltDB sync err: %v\n", err)
 	}
 
 }
@@ -232,9 +239,19 @@ func BenchmarkClientBatchWrite(b *testing.B) {
 	dbfile := ctx.File("testbolt.db")
 	dbs, err := NewShared(dbfile, "kbuckets", "nodes")
 	if err != nil {
-		fmt.Printf("failed to create db: %v\n", err)
+		b.Fatalf("failed to create db: %v\n", err)
 	}
+	defer func() {
+		if err := dbs[0].Close(); err != nil {
+			b.Fatalf("failed to close db: %v\n", err)
+		}
+		if err := dbs[1].Close(); err != nil {
+			b.Fatalf("failed to close db: %v\n", err)
+		}
+	}()
 	kdb := dbs[0]
+	defer kdb.Close()
+	defer dbs[1].Close()
 
 	// benchmark test: batch 1000 Put operations.
 	// Each call to `Put` does the following: 1) adds the db operation to a queue in boltDB,
@@ -254,7 +271,7 @@ func BenchmarkClientBatchWrite(b *testing.B) {
 			}()
 
 			if err != nil {
-				fmt.Printf("boltDB put: %v\n", err)
+				b.Fatalf("boltDB put: %v\n", err)
 			}
 		}
 		wg.Wait()
@@ -268,8 +285,16 @@ func BenchmarkClientBatchNoSyncWrite(b *testing.B) {
 	dbfile := ctx.File("testbolt.db")
 	dbs, err := NewShared(dbfile, "kbuckets", "nodes")
 	if err != nil {
-		fmt.Printf("failed to create db: %v\n", err)
+		b.Fatalf("failed to create db: %v\n", err)
 	}
+	defer func() {
+		if err := dbs[0].Close(); err != nil {
+			b.Fatalf("failed to close db: %v\n", err)
+		}
+		if err := dbs[1].Close(); err != nil {
+			b.Fatalf("failed to close db: %v\n", err)
+		}
+	}()
 	kdb := dbs[0]
 
 	// benchmark test: batch 1000 Put operations with fsync turned off.
@@ -291,13 +316,13 @@ func BenchmarkClientBatchNoSyncWrite(b *testing.B) {
 			}()
 
 			if err != nil {
-				fmt.Printf("boltDB put: %v\n", err)
+				b.Fatalf("boltDB put: %v\n", err)
 			}
 		}
 		wg.Wait()
 		err := kdb.db.Sync()
 		if err != nil {
-			fmt.Printf("boltDB sync err: %v\n", err)
+			b.Fatalf("boltDB sync err: %v\n", err)
 		}
 	}
 }
