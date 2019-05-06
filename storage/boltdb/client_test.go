@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/zeebo/errs"
 	"storj.io/storj/internal/testcontext"
@@ -69,8 +68,6 @@ func TestSuiteShared(t *testing.T) {
 
 	dbname := filepath.Join(tempdir, "bolt.db")
 	stores, err := NewShared(dbname, "alpha", "beta")
-	stores[0].db.MaxBatchDelay = 1 * time.Millisecond
-	stores[1].db.MaxBatchDelay = 1 * time.Millisecond
 	if err != nil {
 		t.Fatalf("failed to create db: %v", err)
 	}
