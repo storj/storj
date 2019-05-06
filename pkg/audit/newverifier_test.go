@@ -35,7 +35,7 @@ func TestVerifierHappyPath(t *testing.T) {
 		overlay := planet.Satellites[0].Overlay.Service
 		cursor := audit.NewCursor(metainfo)
 
-		stripe, err := cursor.NextStripe(ctx)
+		stripe, _, err := cursor.NextStripe(ctx)
 		require.NoError(t, err)
 		require.NotNil(t, stripe)
 
