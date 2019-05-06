@@ -6,6 +6,7 @@ package transport_test
 import (
 	"context"
 	"fmt"
+	"net"
 	"testing"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/transport"
 )
 
 func TestDialNode(t *testing.T) {
@@ -251,4 +253,19 @@ func TestDialNode_BadServerCertificate(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "not signed by any CA in the whitelist")
 	})
+}
+
+func TestGetIP(t *testing.T) {
+	conn, err := net.Dial("tcp", "bootstrap.storj.io:8888")
+	require.NoError(t, err)
+	addr := conn.RemoteAddr()
+	ipAddr1, _, err := net.SplitHostPort(addr.String())
+	require.NoError(t, err)
+	ipAddr2, err := transport.GetIP("bootstrap.storj.io:8888")
+	require.NoError(t, err)
+	require.Equal(t, ipAddr1, ipAddr2)
+
+	ipAddr3, err := transport.GetIP("127.0.0.1:10000")
+	require.NoError(t, err)
+	require.Equal(t, "127.0.0.1", ipAddr3)
 }
