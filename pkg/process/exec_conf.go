@@ -37,6 +37,14 @@ var (
 	contexts   = map[*cobra.Command]context.Context{}
 )
 
+type missingValueError struct {
+	fieldName string
+}
+
+func (e *missingValueError) Error() string {
+	return "Please provide a value for mandatory field " + e.fieldName
+}
+
 // Exec runs a Cobra command. If a "config" flag is defined it will be parsed
 // and loaded using viper.
 func Exec(cmd *cobra.Command) {
@@ -104,7 +112,7 @@ func saveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]int
 		}
 		fmt.Fprintf(w, "%s: ", k)
 		if readBoolAnnotation(f, "mandatory") && (value == "") {
-			panic("Please provide a value for field " + k)
+			return &missingValueError{k}
 		}
 		switch f.Value.Type() {
 		case "string":
