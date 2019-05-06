@@ -6,7 +6,6 @@ package transport
 import (
 	"context"
 	"net"
-	"strings"
 	"time"
 
 	"google.golang.org/grpc"
@@ -139,8 +138,11 @@ func (transport *Transport) WithObservers(obs ...Observer) Client {
 }
 
 func getIP(target string) (string, error) {
-	addrElements := strings.Split(target, ":")
-	ipAddr, err := net.ResolveIPAddr("ip", addrElements[0])
+	host, _, err := net.SplitHostPort(target)
+	if err != nil {
+		return "", err
+	}
+	ipAddr, err := net.ResolveIPAddr("ip", host)
 	if err != nil {
 		return "", err
 	}
