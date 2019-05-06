@@ -3,7 +3,7 @@
 
 <template>
     <div class="team-header-container">
-        <Button label="Add User" width="240px" height="58px" :onPress="onAddUsersClick" id="addTeamMemberPopupButton" />
+        <Button label="Add User" width="251px" height="56px" :onPress="onAddUsersClick" id="addTeamMemberPopupButton" />
         <SortUsersDropdown />
         <SearchArea />
     </div>
