@@ -71,7 +71,6 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 		dialOption,
 		grpc.WithBlock(),
 		grpc.FailOnNonTempDialError(true),
-		grpc.WithUnaryInterceptor(InvokeTimeout{transport.requestTimeout}.Intercept),
 		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
 			conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", addr)
 			if err != nil {
@@ -110,7 +109,6 @@ func (transport *Transport) DialAddress(ctx context.Context, address string, opt
 		transport.tlsOpts.DialUnverifiedIDOption(),
 		grpc.WithBlock(),
 		grpc.FailOnNonTempDialError(true),
-		grpc.WithUnaryInterceptor(InvokeTimeout{transport.requestTimeout}.Intercept),
 		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
 			conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", addr)
 			if err != nil {
