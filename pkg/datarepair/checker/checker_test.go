@@ -4,15 +4,18 @@
 package checker_test
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/teststorj"
+	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
@@ -22,22 +25,24 @@ func TestCheckerResume(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		checker := planet.Satellites[0].Repair.Checker
-		checker.Loop.Stop()
+		c := checker.NewChecker(planet.Satellites[0].Metainfo.Service, &mockRepairQueue{}, planet.Satellites[0].Overlay.Service, nil, 0, nil, 1*time.Second)	
+		// planet.Satellites[0].Repair.Checker
+		// checker.Loop.Stop()
 		repairQueue := planet.Satellites[0].DB.RepairQueue()
 
 		// create pointer that needs repair
 		makePointer(t, planet, "a", true)
 
-		// create pointer that will cause an error (TODO)
-
+		// create pointer that will cause an error
+		makePointer(t, planet, "b", true)
 
 		// create pointer that needs repair
 		makePointer(t, planet, "c", true)
 
-		// create pointer that will cause an error (TODO)
+		// create pointer that will cause an error
+		makePointer(t, planet, "d", true)
 
-		err := checker.IdentifyInjuredSegments(ctx)
+		err := c.IdentifyInjuredSegments(ctx)
 		require.Error(t, err)
 
 		// "a" should be the only segment in the repair queue
@@ -49,7 +54,7 @@ func TestCheckerResume(t *testing.T) {
 		injuredSegment, err = repairQueue.Select(ctx)
 		require.Error(t, err)
 
-		err = checker.IdentifyInjuredSegments(ctx)
+		err = c.IdentifyInjuredSegments(ctx)
 		require.Error(t, err)
 
 		// "c" should be the only segment in the repair queue
@@ -61,7 +66,7 @@ func TestCheckerResume(t *testing.T) {
 		injuredSegment, err = repairQueue.Select(ctx)
 		require.Error(t, err)
 
-		err = checker.IdentifyInjuredSegments(ctx)
+		err = c.IdentifyInjuredSegments(ctx)
 		require.Error(t, err)
 
 		// "a" should be the only segment in the repair queue
@@ -227,4 +232,27 @@ func makePointer(t *testing.T, planet *testplanet.Planet, pieceID string, create
 	pointerdb := planet.Satellites[0].Metainfo.Service
 	err := pointerdb.Put(pieceID, pointer)
 	require.NoError(t, err)
+}
+
+// mock repair queue used for TestCheckerResume
+type mockRepairQueue struct {
+}
+
+func (mockRepairQueue *mockRepairQueue) Insert(ctx context.Context, s *pb.InjuredSegment) error {
+	if s.Path == "b" || s.Path == "d" {
+		return errs.New("mock Insert error")
+	}
+	return nil
+}
+
+func (mockRepairQueue *mockRepairQueue) Select(ctx context.Context) (*pb.InjuredSegment, error) {
+	return &pb.InjuredSegment{}, errs.New("mock Select error")
+}
+
+func (mockRepairQueue *mockRepairQueue) Delete(ctx context.Context, s *pb.InjuredSegment) error {
+	return errs.New("mock Delete error")
+}
+
+func (mockRepairQueue *mockRepairQueue) SelectN(ctx context.Context, limit int) ([]pb.InjuredSegment, error) {
+	return []pb.InjuredSegment{}, errs.New("mock SelectN error")
 }
