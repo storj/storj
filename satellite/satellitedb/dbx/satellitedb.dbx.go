@@ -4150,6 +4150,11 @@ type Object struct {
 func (Object) _Table() string { return "objects" }
 
 type Object_Update_Fields struct {
+	Status           Object_Status_Field
+	TotalSize        Object_TotalSize_Field
+	InlineSize       Object_InlineSize_Field
+	RemoteSize       Object_RemoteSize_Field
+	FixedSegmentSize Object_FixedSegmentSize_Field
 }
 
 type Object_BucketId_Field struct {
@@ -6715,16 +6720,53 @@ func (obj *postgresImpl) Limited_Object_By_BucketId_And_EncryptedPath_GreaterOrE
 
 }
 
-func (obj *postgresImpl) Limited_Segment_By_StreamId_And_SegmentIndex_LessOrEqual_OrderBy_Asc_SegmentIndex(ctx context.Context,
+func (obj *postgresImpl) Limited_Segment_By_StreamId_And_SegmentIndex_GreaterOrEqual_OrderBy_Asc_SegmentIndex(ctx context.Context,
 	segment_stream_id Segment_StreamId_Field,
-	segment_segment_index_less_or_equal Segment_SegmentIndex_Field,
+	segment_segment_index_greater_or_equal Segment_SegmentIndex_Field,
 	limit int, offset int64) (
 	rows []*Segment, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT segments.stream_id, segments.segment_index, segments.root_piece_id, segments.encrypted_key_nonce, segments.encrypted_key, segments.segment_checksum, segments.segment_size, segments.encrypted_inline_data, segments.nodes FROM segments WHERE segments.stream_id = ? AND segments.segment_index <= ? ORDER BY segments.segment_index LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT segments.stream_id, segments.segment_index, segments.root_piece_id, segments.encrypted_key_nonce, segments.encrypted_key, segments.segment_checksum, segments.segment_size, segments.encrypted_inline_data, segments.nodes FROM segments WHERE segments.stream_id = ? AND segments.segment_index >= ? ORDER BY segments.segment_index LIMIT ? OFFSET ?")
 
 	var __values []interface{}
-	__values = append(__values, segment_stream_id.value(), segment_segment_index_less_or_equal.value())
+	__values = append(__values, segment_stream_id.value(), segment_segment_index_greater_or_equal.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		segment := &Segment{}
+		err = __rows.Scan(&segment.StreamId, &segment.SegmentIndex, &segment.RootPieceId, &segment.EncryptedKeyNonce, &segment.EncryptedKey, &segment.SegmentChecksum, &segment.SegmentSize, &segment.EncryptedInlineData, &segment.Nodes)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, segment)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) Limited_Segment_By_StreamId_And_SegmentIndex_Greater_OrderBy_Asc_SegmentIndex(ctx context.Context,
+	segment_stream_id Segment_StreamId_Field,
+	segment_segment_index_greater Segment_SegmentIndex_Field,
+	limit int, offset int64) (
+	rows []*Segment, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT segments.stream_id, segments.segment_index, segments.root_piece_id, segments.encrypted_key_nonce, segments.encrypted_key, segments.segment_checksum, segments.segment_size, segments.encrypted_inline_data, segments.nodes FROM segments WHERE segments.stream_id = ? AND segments.segment_index > ? ORDER BY segments.segment_index LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, segment_stream_id.value(), segment_segment_index_greater.value())
 
 	__values = append(__values, limit, offset)
 
@@ -7498,6 +7540,69 @@ func (obj *postgresImpl) Update_ApiKey_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return api_key, nil
+}
+
+func (obj *postgresImpl) Update_Object_By_BucketId_And_EncryptedPath_And_Version_And_Status(ctx context.Context,
+	object_bucket_id Object_BucketId_Field,
+	object_encrypted_path Object_EncryptedPath_Field,
+	object_version Object_Version_Field,
+	object_status Object_Status_Field,
+	update Object_Update_Fields) (
+	object *Object, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE objects SET "), __sets, __sqlbundle_Literal(" WHERE objects.bucket_id = ? AND objects.encrypted_path = ? AND objects.version = ? AND objects.status = ? RETURNING objects.bucket_id, objects.encrypted_path, objects.version, objects.status, objects.stream_id, objects.encrypted_metadata, objects.total_size, objects.inline_size, objects.remote_size, objects.created_at, objects.expires_at, objects.fixed_segment_size, objects.encryption_cipher_suite, objects.encryption_block_size, objects.redundancy_algorithm, objects.redundancy_share_size, objects.redundancy_required_shares, objects.redundancy_repair_shares, objects.redundancy_optimal_shares, objects.redundancy_total_shares")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.TotalSize._set {
+		__values = append(__values, update.TotalSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_size = ?"))
+	}
+
+	if update.InlineSize._set {
+		__values = append(__values, update.InlineSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("inline_size = ?"))
+	}
+
+	if update.RemoteSize._set {
+		__values = append(__values, update.RemoteSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("remote_size = ?"))
+	}
+
+	if update.FixedSegmentSize._set {
+		__values = append(__values, update.FixedSegmentSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("fixed_segment_size = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, object_bucket_id.value(), object_encrypted_path.value(), object_version.value(), object_status.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	object = &Object{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&object.BucketId, &object.EncryptedPath, &object.Version, &object.Status, &object.StreamId, &object.EncryptedMetadata, &object.TotalSize, &object.InlineSize, &object.RemoteSize, &object.CreatedAt, &object.ExpiresAt, &object.FixedSegmentSize, &object.EncryptionCipherSuite, &object.EncryptionBlockSize, &object.RedundancyAlgorithm, &object.RedundancyShareSize, &object.RedundancyRequiredShares, &object.RedundancyRepairShares, &object.RedundancyOptimalShares, &object.RedundancyTotalShares)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return object, nil
 }
 
 func (obj *postgresImpl) Update_Segment_By_StreamId_And_SegmentIndex(ctx context.Context,
@@ -10080,16 +10185,53 @@ func (obj *sqlite3Impl) Limited_Object_By_BucketId_And_EncryptedPath_GreaterOrEq
 
 }
 
-func (obj *sqlite3Impl) Limited_Segment_By_StreamId_And_SegmentIndex_LessOrEqual_OrderBy_Asc_SegmentIndex(ctx context.Context,
+func (obj *sqlite3Impl) Limited_Segment_By_StreamId_And_SegmentIndex_GreaterOrEqual_OrderBy_Asc_SegmentIndex(ctx context.Context,
 	segment_stream_id Segment_StreamId_Field,
-	segment_segment_index_less_or_equal Segment_SegmentIndex_Field,
+	segment_segment_index_greater_or_equal Segment_SegmentIndex_Field,
 	limit int, offset int64) (
 	rows []*Segment, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT segments.stream_id, segments.segment_index, segments.root_piece_id, segments.encrypted_key_nonce, segments.encrypted_key, segments.segment_checksum, segments.segment_size, segments.encrypted_inline_data, segments.nodes FROM segments WHERE segments.stream_id = ? AND segments.segment_index <= ? ORDER BY segments.segment_index LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT segments.stream_id, segments.segment_index, segments.root_piece_id, segments.encrypted_key_nonce, segments.encrypted_key, segments.segment_checksum, segments.segment_size, segments.encrypted_inline_data, segments.nodes FROM segments WHERE segments.stream_id = ? AND segments.segment_index >= ? ORDER BY segments.segment_index LIMIT ? OFFSET ?")
 
 	var __values []interface{}
-	__values = append(__values, segment_stream_id.value(), segment_segment_index_less_or_equal.value())
+	__values = append(__values, segment_stream_id.value(), segment_segment_index_greater_or_equal.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		segment := &Segment{}
+		err = __rows.Scan(&segment.StreamId, &segment.SegmentIndex, &segment.RootPieceId, &segment.EncryptedKeyNonce, &segment.EncryptedKey, &segment.SegmentChecksum, &segment.SegmentSize, &segment.EncryptedInlineData, &segment.Nodes)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, segment)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) Limited_Segment_By_StreamId_And_SegmentIndex_Greater_OrderBy_Asc_SegmentIndex(ctx context.Context,
+	segment_stream_id Segment_StreamId_Field,
+	segment_segment_index_greater Segment_SegmentIndex_Field,
+	limit int, offset int64) (
+	rows []*Segment, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT segments.stream_id, segments.segment_index, segments.root_piece_id, segments.encrypted_key_nonce, segments.encrypted_key, segments.segment_checksum, segments.segment_size, segments.encrypted_inline_data, segments.nodes FROM segments WHERE segments.stream_id = ? AND segments.segment_index > ? ORDER BY segments.segment_index LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, segment_stream_id.value(), segment_segment_index_greater.value())
 
 	__values = append(__values, limit, offset)
 
@@ -10923,6 +11065,79 @@ func (obj *sqlite3Impl) Update_ApiKey_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return api_key, nil
+}
+
+func (obj *sqlite3Impl) Update_Object_By_BucketId_And_EncryptedPath_And_Version_And_Status(ctx context.Context,
+	object_bucket_id Object_BucketId_Field,
+	object_encrypted_path Object_EncryptedPath_Field,
+	object_version Object_Version_Field,
+	object_status Object_Status_Field,
+	update Object_Update_Fields) (
+	object *Object, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE objects SET "), __sets, __sqlbundle_Literal(" WHERE objects.bucket_id = ? AND objects.encrypted_path = ? AND objects.version = ? AND objects.status = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.TotalSize._set {
+		__values = append(__values, update.TotalSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_size = ?"))
+	}
+
+	if update.InlineSize._set {
+		__values = append(__values, update.InlineSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("inline_size = ?"))
+	}
+
+	if update.RemoteSize._set {
+		__values = append(__values, update.RemoteSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("remote_size = ?"))
+	}
+
+	if update.FixedSegmentSize._set {
+		__values = append(__values, update.FixedSegmentSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("fixed_segment_size = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, object_bucket_id.value(), object_encrypted_path.value(), object_version.value(), object_status.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	object = &Object{}
+	_, err = obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT objects.bucket_id, objects.encrypted_path, objects.version, objects.status, objects.stream_id, objects.encrypted_metadata, objects.total_size, objects.inline_size, objects.remote_size, objects.created_at, objects.expires_at, objects.fixed_segment_size, objects.encryption_cipher_suite, objects.encryption_block_size, objects.redundancy_algorithm, objects.redundancy_share_size, objects.redundancy_required_shares, objects.redundancy_repair_shares, objects.redundancy_optimal_shares, objects.redundancy_total_shares FROM objects WHERE objects.bucket_id = ? AND objects.encrypted_path = ? AND objects.version = ? AND objects.status = ?")
+
+	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
+	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
+
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&object.BucketId, &object.EncryptedPath, &object.Version, &object.Status, &object.StreamId, &object.EncryptedMetadata, &object.TotalSize, &object.InlineSize, &object.RemoteSize, &object.CreatedAt, &object.ExpiresAt, &object.FixedSegmentSize, &object.EncryptionCipherSuite, &object.EncryptionBlockSize, &object.RedundancyAlgorithm, &object.RedundancyShareSize, &object.RedundancyRequiredShares, &object.RedundancyRepairShares, &object.RedundancyOptimalShares, &object.RedundancyTotalShares)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return object, nil
 }
 
 func (obj *sqlite3Impl) Update_Segment_By_StreamId_And_SegmentIndex(ctx context.Context,
@@ -13083,16 +13298,28 @@ func (rx *Rx) Limited_ProjectMember_By_ProjectId(ctx context.Context,
 	return tx.Limited_ProjectMember_By_ProjectId(ctx, project_member_project_id, limit, offset)
 }
 
-func (rx *Rx) Limited_Segment_By_StreamId_And_SegmentIndex_LessOrEqual_OrderBy_Asc_SegmentIndex(ctx context.Context,
+func (rx *Rx) Limited_Segment_By_StreamId_And_SegmentIndex_GreaterOrEqual_OrderBy_Asc_SegmentIndex(ctx context.Context,
 	segment_stream_id Segment_StreamId_Field,
-	segment_segment_index_less_or_equal Segment_SegmentIndex_Field,
+	segment_segment_index_greater_or_equal Segment_SegmentIndex_Field,
 	limit int, offset int64) (
 	rows []*Segment, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Limited_Segment_By_StreamId_And_SegmentIndex_LessOrEqual_OrderBy_Asc_SegmentIndex(ctx, segment_stream_id, segment_segment_index_less_or_equal, limit, offset)
+	return tx.Limited_Segment_By_StreamId_And_SegmentIndex_GreaterOrEqual_OrderBy_Asc_SegmentIndex(ctx, segment_stream_id, segment_segment_index_greater_or_equal, limit, offset)
+}
+
+func (rx *Rx) Limited_Segment_By_StreamId_And_SegmentIndex_Greater_OrderBy_Asc_SegmentIndex(ctx context.Context,
+	segment_stream_id Segment_StreamId_Field,
+	segment_segment_index_greater Segment_SegmentIndex_Field,
+	limit int, offset int64) (
+	rows []*Segment, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_Segment_By_StreamId_And_SegmentIndex_Greater_OrderBy_Asc_SegmentIndex(ctx, segment_stream_id, segment_segment_index_greater, limit, offset)
 }
 
 func (rx *Rx) Update_AccountingTimestamps_By_Name(ctx context.Context,
@@ -13148,6 +13375,20 @@ func (rx *Rx) Update_Node_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Update_Node_By_Id(ctx, node_id, update)
+}
+
+func (rx *Rx) Update_Object_By_BucketId_And_EncryptedPath_And_Version_And_Status(ctx context.Context,
+	object_bucket_id Object_BucketId_Field,
+	object_encrypted_path Object_EncryptedPath_Field,
+	object_version Object_Version_Field,
+	object_status Object_Status_Field,
+	update Object_Update_Fields) (
+	object *Object, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_Object_By_BucketId_And_EncryptedPath_And_Version_And_Status(ctx, object_bucket_id, object_encrypted_path, object_version, object_status, update)
 }
 
 func (rx *Rx) Update_Project_By_Id(ctx context.Context,
@@ -13689,9 +13930,15 @@ type Methods interface {
 		limit int, offset int64) (
 		rows []*ProjectMember, err error)
 
-	Limited_Segment_By_StreamId_And_SegmentIndex_LessOrEqual_OrderBy_Asc_SegmentIndex(ctx context.Context,
+	Limited_Segment_By_StreamId_And_SegmentIndex_GreaterOrEqual_OrderBy_Asc_SegmentIndex(ctx context.Context,
 		segment_stream_id Segment_StreamId_Field,
-		segment_segment_index_less_or_equal Segment_SegmentIndex_Field,
+		segment_segment_index_greater_or_equal Segment_SegmentIndex_Field,
+		limit int, offset int64) (
+		rows []*Segment, err error)
+
+	Limited_Segment_By_StreamId_And_SegmentIndex_Greater_OrderBy_Asc_SegmentIndex(ctx context.Context,
+		segment_stream_id Segment_StreamId_Field,
+		segment_segment_index_greater Segment_SegmentIndex_Field,
 		limit int, offset int64) (
 		rows []*Segment, err error)
 
@@ -13719,6 +13966,14 @@ type Methods interface {
 		node_id Node_Id_Field,
 		update Node_Update_Fields) (
 		node *Node, err error)
+
+	Update_Object_By_BucketId_And_EncryptedPath_And_Version_And_Status(ctx context.Context,
+		object_bucket_id Object_BucketId_Field,
+		object_encrypted_path Object_EncryptedPath_Field,
+		object_version Object_Version_Field,
+		object_status Object_Status_Field,
+		update Object_Update_Fields) (
+		object *Object, err error)
 
 	Update_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field,

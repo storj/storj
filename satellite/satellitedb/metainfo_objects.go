@@ -18,11 +18,11 @@ var _ metainfo.Objects = (*objects)(nil)
 var _ metainfo.Segments = (*segments)(nil)
 
 type objects struct {
-	db dbx.Methods
+	db *dbx.DB
 }
 
 type segments struct {
-	db dbx.Methods
+	db *dbx.DB
 }
 
 func (objects *objects) Create(ctx context.Context, object *metainfo.Object) error {
@@ -58,10 +58,129 @@ func (objects *objects) Create(ctx context.Context, object *metainfo.Object) err
 }
 
 func (objects *objects) Commit(ctx context.Context, object *metainfo.Object) (*metainfo.Object, error) {
-	// mark object as committing with status partial
-	// verify segments and collect info
-	// mark object as committed
-	return nil, nil
+	// TODO: remove any other irrelevant fields from the argument
+
+	_, err := objects.db.ExecContext(ctx, objects.db.Rebind(`
+	BEGIN TRANSACTION;
+		arg_bucket_id := ?;
+		arg_encrypted_path := ?;
+		arg_version := ?;
+
+		-- mark the object as being in committing status
+		obj := UPDATE objects SET status = committing
+			WHERE bucket_id = arg_bucket_id AND encrypted_path = arg_encrypted_path AND version = arg_version AND status = partial
+			RETURNING stream_id;
+
+		-- calculate the inline and remote size, with segment size bounds
+		total :=
+			SELECT 
+				sum(WHEN nodes == null THEN segment_size) AS inline_size,
+				sum(WHEN nodes != null THEN segment_size) AS remote_size,
+				min(segment_checksum) as min_checksum,
+				min(segment_size) as min_segment_size,
+				max(segment_size) as max_segment_size
+			FROM segments WHERE stream_id = obj.stream_id;
+
+		-- fail when there is a segment that has not been committed
+		IF total.min_checksum = 0 THEN
+			ROLLBACK;
+
+		fixed_segment_size := -1;
+		IF total.min_segment_size == total.max_segment_size THEN
+			fixed_segment_size = total.min_segment_size;
+
+		-- update segment indices
+		UPDATE segments SET segment_index = ROW_NUMBER() WHERE stream_id = obj.stream_id ORDER BY segment_index;
+
+		-- update the object
+		UPDATE objects SET 
+			status = committed
+			fixed_segment_size = fixed_segment_size
+			total_size = total.inline_size + total.remote_size
+			inline_size = total.inline_size
+			remote_size = total.remote_size
+			WHERE bucket_id = arg_bucket_id AND
+				encrypted_path = arg_encrypted_path AND
+				version = arg_version AND
+				status = committing
+	COMMIT;
+	`), object.BucketID[:], object.EncryptedPath, object.Version)
+	return nil, err
+
+	/*
+		result, err := objects.db.Update_Object_By_BucketId_And_EncryptedPath_And_Version_And_Status(ctx,
+			dbx.Object_BucketId(object.BucketID[:]),
+			dbx.Object_EncryptedPath([]byte(object.EncryptedPath)),
+			dbx.Object_Version(int64(object.Version)),
+			dbx.Object_Status(int(metainfo.Partial)),
+			dbx.Object_Update_Fields{
+				Status: dbx.Object_Status(int(metainfo.Committing)),
+			},
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		streamID := dbx.Segment_StreamId(result.StreamId)
+		totalSize := int64(0)
+		inlineSize := int64(0)
+		remoteSize := int64(0)
+		fixedSegmentSize := -1
+
+		dbxSegments, err := objects.db.Limited_Segment_By_StreamId_And_SegmentIndex_GreaterOrEqual_OrderBy_Asc_SegmentIndex(ctx, streamID, dbx.Segment_SegmentIndex(0), 10, 0)
+		if err == sql.ErrNoRows {
+			// abort, or allow empty file?
+			return nil, err
+		}
+		if err != nil {
+			// undo object status
+			return nil, err
+		}
+
+		for len(dbxSegments) > 0 {
+			var lastIndex uint64
+			for _, dbxSegment := range dbxSegments {
+				lastIndex = dbxSegment.SegmentIndex
+				if dbxSegment.SegmentSize < 0 {
+					// abort
+					return nil, err
+				}
+
+				totalSize += int64(len(dbxSegment.EncryptedInlineData))
+				inlineSize += int64(len(dbxSegment.EncryptedInlineData))
+				if len(dbxSegment.Nodes) > 0 {
+					totalSize += dbxSegment.SegmentSize
+					remoteSize += dbxSegment.SegmentSize
+			}
+
+			dbxSegments, err = objects.db.Limited_Segment_By_StreamId_And_SegmentIndex_Greater_OrderBy_Asc_SegmentIndex(ctx, streamID, dbx.Segment_SegmentIndex(lastIndex), 1, 0)
+		}
+		if err == sql.ErrNoRows {
+			err = nil
+		}
+		if err != nil {
+			// undo object status
+			return nil, err
+		}
+
+		result, err := objects.db.Update_Object_By_BucketId_And_EncryptedPath_And_Version_And_Status(ctx,
+			dbx.Object_BucketId(object.BucketID[:]),
+			dbx.Object_EncryptedPath([]byte(object.EncryptedPath)),
+			dbx.Object_Version(int64(object.Version)),
+			dbx.Object_Status(int(metainfo.Partial)),
+			dbx.Object_Update_Fields{
+				Status: dbx.Object_Status(int(metainfo.Committing)),
+			},
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// mark object as committing with status partial
+		// verify segments and collect info
+		// mark object as committed
+		return nil, nil
+	*/
 }
 
 func (objects *objects) Get(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version metainfo.ObjectVersion) (*metainfo.Object, error) {
@@ -94,15 +213,32 @@ func (objects *objects) List(ctx context.Context, bucket uuid.UUID, opts metainf
 }
 
 func (objects *objects) StartDelete(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version metainfo.ObjectVersion) error {
-	// mark object as deleting with status committed
-	// mark segments as being deleted to prevent further repairs
-	return nil
+	_, err := objects.db.ExecContext(ctx, objects.db.Rebind(`
+	BEGIN TRANSACTION;
+		-- get the relevant information
+		obj := UPDATE status = deleting
+			WHERE bucket_id = ? AND encrypted_path = ? AND version = ? AND
+				status = committed;
+
+		-- update segment indices
+		UPDATE segments SET status = deleting WHERE stream_id = obj.stream_id;
+	COMMIT;
+	`))
+	return nil, err
 }
 
 func (objects *objects) FinishDelete(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version metainfo.ObjectVersion) error {
-	// verify that all segments have been deleted
-	// delete object
-	return nil
+	_, err := objects.db.ExecContext(ctx, objects.db.Rebind(`
+	BEGIN TRANSACTION;
+		-- update segment indices
+		select segments WHERE stream_id = obj.stream_id;
+		-- ensure that there are none
+		
+		-- get the relevant information
+		obj := DELETE objects WHERE bucket_id = ? AND encrypted_path = ? AND version = ? AND status = deleting;
+	COMMIT;
+	`))
+	return nil, err
 }
 
 func (objects *objects) GetPartial(ctx context.Context, bucket uuid.UUID, encryptedPath storj.Path, version metainfo.ObjectVersion) (*metainfo.Object, error) {
