@@ -49,9 +49,12 @@ func RunBenchmarks(b *testing.B, store storage.KeyValueStore) {
 				value := item.Value
 
 				wg.Add(1)
-				go func() error {
+				go func() {
 					defer wg.Done()
-					return store.Put(key, value)
+					err := store.Put(key, value)
+					if err != nil {
+						b.Fatal("store.Put err", err)
+					}
 				}()
 			}
 			wg.Wait()

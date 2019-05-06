@@ -41,9 +41,12 @@ func testConstraints(t *testing.T, store storage.KeyValueStore) {
 		key := item.Key
 		value := item.Value
 		wg.Add(1)
-		go func() error {
+		go func() {
 			defer wg.Done()
-			return store.Put(key, value)
+			err := store.Put(key, value)
+			if err != nil {
+				t.Fatal("store.Put err:", err)
+			}
 		}()
 	}
 	wg.Wait()

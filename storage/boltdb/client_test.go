@@ -174,7 +174,7 @@ func BenchmarkClientWrite(b *testing.B) {
 				defer wg.Done()
 				err := kdb.PutAndCommit(key, value)
 				if err != nil {
-					fmt.Println("Put err:", err)
+					b.Fatal("Put err:", err)
 				}
 			}()
 		}
@@ -216,7 +216,7 @@ func BenchmarkClientNoSyncWrite(b *testing.B) {
 				defer wg.Done()
 				err := kdb.PutAndCommit(key, value)
 				if err != nil {
-					fmt.Println("PutAndCommit Nosync err:", err)
+					b.Fatal("PutAndCommit Nosync err:", err)
 				}
 			}()
 		}
@@ -247,8 +247,6 @@ func BenchmarkClientBatchWrite(b *testing.B) {
 		}
 	}()
 	kdb := dbs[0]
-	defer kdb.Close()
-	defer dbs[1].Close()
 
 	// benchmark test: batch 1000 Put operations.
 	// Each call to `Put` does the following: 1) adds the db operation to a queue in boltDB,
@@ -262,9 +260,12 @@ func BenchmarkClientBatchWrite(b *testing.B) {
 			value := storage.Value("testvalue")
 
 			wg.Add(1)
-			go func() error {
+			go func() {
 				defer wg.Done()
-				return kdb.Put(key, value)
+				err := kdb.Put(key, value)
+				if err != nil {
+					b.Fatalf("boltDB put: %v\n", err)
+				}
 			}()
 
 			if err != nil {
@@ -307,9 +308,12 @@ func BenchmarkClientBatchNoSyncWrite(b *testing.B) {
 			value := storage.Value("testvalue")
 
 			wg.Add(1)
-			go func() error {
+			go func() {
 				defer wg.Done()
-				return kdb.Put(key, value)
+				err := kdb.Put(key, value)
+				if err != nil {
+					b.Fatalf("boltDB put: %v\n", err)
+				}
 			}()
 
 			if err != nil {
