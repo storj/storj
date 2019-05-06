@@ -14,11 +14,6 @@ import (
 // Cycle implements a controllable recurring event.
 //
 // Cycle control methods don't have any effect after the cycle has completed.
-type runningState struct {
-	running bool
-	m       sync.Mutex
-}
-
 type Cycle struct {
 	interval time.Duration
 
@@ -28,6 +23,10 @@ type Cycle struct {
 	runningState runningState
 
 	init sync.Once
+}
+type runningState struct {
+	running bool
+	m       sync.Mutex
 }
 
 type (
