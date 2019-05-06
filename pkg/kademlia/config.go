@@ -23,7 +23,7 @@ var (
 // Config defines all of the things that are needed to start up Kademlia
 // server endpoints (and not necessarily client code).
 type Config struct {
-	BootstrapAddr        string        `help:"the Kademlia node to bootstrap against" default:"bootstrap.storj.io:8888"`
+	BootstrapAddr        string        `help:"the Kademlia node to bootstrap against" releaseDefault:"bootstrap.storj.io:8888" devDefault:""`
 	BootstrapBackoffMax  time.Duration `help:"the maximum amount of time to wait when retrying bootstrap" default:"30s"`
 	BootstrapBackoffBase time.Duration `help:"the base interval to wait when retrying bootstrap" default:"1s"`
 	DBPath               string        `help:"the path for storage node db services to be created on" default:"$CONFDIR/kademlia"`
