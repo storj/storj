@@ -103,7 +103,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	// the available disk space is less than remaining allocated space,
 	// due to change of setting before restarting
 	if freeDiskSpace < service.allocatedDiskSpace-totalUsed {
-		service.allocatedDiskSpace = freeDiskSpace
+		service.allocatedDiskSpace = freeDiskSpace + totalUsed
 		service.log.Warn("Disk space is less than requested. Allocating space", zap.Int64("bytes", service.allocatedDiskSpace))
 	}
 
