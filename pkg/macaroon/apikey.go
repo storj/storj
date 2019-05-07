@@ -29,7 +29,7 @@ var (
 type ActionType int
 
 const (
-	actionUnset ActionType = iota
+	_ ActionType = iota // ActionType zero value
 
 	// ActionRead specifies a read operation
 	ActionRead
