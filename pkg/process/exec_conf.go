@@ -104,7 +104,7 @@ func saveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]int
 			fmt.Fprintf(w, "# %s\n", f.Usage)
 		}
 		//print commented key (beginning of value assignement line)
-		if pflag.CommandLine.Lookup(k) != nil {
+		if f.DefValue != value {
 			fmt.Fprintf(w, "%s: ", k)
 		} else {
 			fmt.Fprintf(w, "# %s: ", k)
