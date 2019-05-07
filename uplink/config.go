@@ -35,7 +35,7 @@ type RSConfig struct {
 	MinThreshold     int         `help:"the minimum pieces required to recover a segment. k." releaseDefault:"29" devDefault:"4"`
 	RepairThreshold  int         `help:"the minimum safe pieces before a repair is triggered. m." releaseDefault:"35" devDefault:"6"`
 	SuccessThreshold int         `help:"the desired total pieces for a segment. o." releaseDefault:"80" devDefault:"8"`
-	MaxThreshold     int         `help:"the largest amount of pieces to encode to. n." releaseDefault:"95" devDefault:"10"`
+	MaxThreshold     int         `help:"the largest amount of pieces to encode to. n." releaseDefault:"130" devDefault:"10"`
 }
 
 // EncryptionConfig is a configuration struct that keeps details about

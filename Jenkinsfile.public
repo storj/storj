@@ -5,6 +5,9 @@ pipeline {
             args '-u root:root -v "/tmp/gomod":/go/pkg/mod'
         }
     }
+    options {
+          timeout(time: 30, unit: 'MINUTES')
+    }
     stages {
         stage('Build') {
             steps {
@@ -88,6 +91,7 @@ pipeline {
 
                     steps {
                         sh 'make test-sim'
+                        sh 'make test-satellite-cfg-change'
                     }
                 }
             }
