@@ -55,11 +55,11 @@ func applyDefaultHostAndPortToAddr(address, defaultAddress string) (string, erro
 // PromptForSatelitte handles user input for a satelitte address to be used with wizards
 func PromptForSatelitte(cmd *cobra.Command) (string, error) {
 	_, err := fmt.Print(`
-	Pick satellite to use:
-	[1] mars.tardigrade.io
-	[2] jupiter.tardigrade.io
-	[3] saturn.tardigrade.io
-	Please enter numeric choice or enter satellite address manually [1]: `)
+Pick satellite to use:
+  [1] mars.tardigrade.io
+  [2] jupiter.tardigrade.io
+  [3] saturn.tardigrade.io
+Please enter numeric choice or enter satellite address manually [1]: `)
 	if err != nil {
 		return "", err
 	}
