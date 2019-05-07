@@ -602,6 +602,14 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					return nil
 				}),
 			},
+			{
+				Description: "Fix audit and uptime ratios for new nodes",
+				Version:     17,
+				Action: migrate.SQL{`
+					UPDATE nodes SET audit_success_ratio = 1 WHERE total_audit_count = 0;
+					UPDATE nodes SET uptime_ratio = 1 WHERE total_uptime_count = 0;`,
+				},
+			},
 		},
 	}
 }
