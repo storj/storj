@@ -143,12 +143,10 @@ func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error)
 
 // Close closes all resources associated with it.
 func (cycle *Cycle) Close() {
-	cycle.initialize()
 	if cycle.runningState.IsRunning() {
 		cycle.Stop()
 		<-cycle.stop
 	}
-	close(cycle.control)
 }
 
 // sendControl sends a control message
