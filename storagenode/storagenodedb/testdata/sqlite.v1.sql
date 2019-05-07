@@ -74,8 +74,6 @@ CREATE TABLE order_archive (
 CREATE INDEX idx_order_archive_satellite ON order_archive(satellite_id);
 CREATE INDEX idx_order_archive_status ON order_archive(status);
 
--- NEW DATA --
-
 INSERT INTO used_serial VALUES(X'0693a8529105f5ff763e30b6f58ead3fe7a4f93f32b4b298073c01b2b39fa76e',X'18283dd3cec0a5abf6112e903549bdff','2019-04-01 18:58:53.3169599+03:00');
 INSERT INTO used_serial VALUES(X'976a6bbcfcec9d96d847f8642c377d5f23c118187fb0ca21e9e1c5a9fbafa5f7',X'18283dd3cec0a5abf6112e903549bdff','2019-04-01 18:58:53.3169599+03:00');
 
