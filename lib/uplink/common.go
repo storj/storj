@@ -5,11 +5,13 @@ package uplink
 
 import (
 	"github.com/zeebo/errs"
+	"github.com/zeebo/goof"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
 
 var (
-	mon = monkit.Package()
+	Troop goof.Troop
+	mon   = monkit.Package()
 
 	// Error is the toplevel class of errors for the uplink library.
 	Error = errs.Class("libuplink")

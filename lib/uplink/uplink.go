@@ -34,6 +34,7 @@ var (
 
 // Volatile groups config values that are likely to change semantics
 // or go away entirely between releases. Be careful when using them!
+// CExport Volatile
 type Volatile struct {
 	// TLS defines options that affect TLS negotiation for outbound
 	// connections initiated by this uplink.
@@ -72,6 +73,7 @@ type Volatile struct {
 }
 
 // Config represents configuration options for an Uplink
+// CExport Config
 type Config struct {
 	Volatile
 }
