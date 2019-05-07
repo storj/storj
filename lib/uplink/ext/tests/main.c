@@ -8,12 +8,14 @@
 #include "unity.h"
 #include "../uplink-cgo.h"
 
-extern void TestNewUplink_config(void);
 extern void TestGetIDVersion(void);
+extern void TestNewUplink_config(void);
+extern void TestOpenProject(void);
 
 int main(void) {
     UNITY_BEGIN();
-    RUN_TEST(TestNewUplink_config);
     RUN_TEST(TestGetIDVersion);
+    RUN_TEST(TestNewUplink_config);
+    RUN_TEST(TestOpenProject);
     return UNITY_END();
 }
