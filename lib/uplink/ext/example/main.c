@@ -11,20 +11,14 @@ int main() {
     char *err = "";
 
     struct Config uplinkConfig;
-//    printf("getidversion\n");
-//    struct IDVersion idVersion = {2};
+    uplinkConfig.Volatile.TLS.SkipPeerCAWhitelist = true;
     uplinkConfig.Volatile.IdentityVersion = GetIDVersion(0, &err);
     if (err != "") {
         printf("error: %s\n", err);
         return 1;
     }
 
-//    printf("got idVersion %d\n", uplinkConfig.Volatile.IdentityVersion.Number);
-    uplinkConfig.Volatile.TLS.SkipPeerCAWhitelist = true;
-
-//    printf("newuplink\n");
     struct Uplink uplink = NewUplink(uplinkConfig, &err);
-
     if (err != "") {
         printf("error: %s\n", err);
         return 1;

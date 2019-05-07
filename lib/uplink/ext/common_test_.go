@@ -9,7 +9,6 @@ import "C"
 import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"storj.io/storj/lib/uplink/ext/lib"
 
 	"storj.io/storj/lib/uplink/ext/testing"
 )
@@ -21,7 +20,7 @@ func TestGoToCStruct_success(t *testing.T) {
 		stringGo := "testing 123"
 		toCString := C.CString("")
 
-		err := lib.GoToCStruct(stringGo, &toCString)
+		err := GoToCStruct(stringGo, &toCString)
 		require.NoError(t, err)
 
 		assert.Equal(t, stringGo, C.GoString(toCString))
@@ -33,7 +32,7 @@ func TestGoToCStruct_success(t *testing.T) {
 		boolGo := true
 		var toCBool C.bool
 
-		err := lib.GoToCStruct(boolGo, &toCBool)
+		err := GoToCStruct(boolGo, &toCBool)
 		require.NoError(t, err)
 
 		assert.Equal(t, boolGo, bool(toCBool))
@@ -45,7 +44,7 @@ func TestGoToCStruct_success(t *testing.T) {
 		simpleGo := simple{"one", -2, 3,}
 		toCStruct := C.struct_Simple{}
 
-		err := lib.GoToCStruct(simpleGo, &toCStruct)
+		err := GoToCStruct(simpleGo, &toCStruct)
 		require.NoError(t, err)
 
 		assert.Equal(t, simpleGo.Str1, C.GoString(toCStruct.Str1))
@@ -60,7 +59,7 @@ func TestGoToCStruct_success(t *testing.T) {
 		nestedGo := nested{simpleGo, 4}
 		toCStruct := C.struct_Nested{}
 
-		err := lib.GoToCStruct(nestedGo, &toCStruct)
+		err := GoToCStruct(nestedGo, &toCStruct)
 		require.NoError(t, err)
 
 		assert.Equal(t, nestedGo.Simple.Str1, C.GoString(toCStruct.Simple.Str1))
@@ -81,7 +80,7 @@ func TestCToGoStruct_success(t *testing.T) {
 		stringC := C.CString("testing 123")
 		toGoString := ""
 
-		err := lib.CToGoStruct(stringC, &toGoString)
+		err := CToGoStruct(stringC, &toGoString)
 		require.NoError(t, err)
 
 		assert.Equal(t, C.GoString(stringC), toGoString)
@@ -93,7 +92,7 @@ func TestCToGoStruct_success(t *testing.T) {
 		boolC := C.bool(true)
 		toGoBool := false
 
-		err := lib.CToGoStruct(boolC, &toGoBool)
+		err := CToGoStruct(boolC, &toGoBool)
 		require.NoError(t, err)
 
 		assert.Equal(t, bool(boolC), toGoBool)
@@ -105,7 +104,7 @@ func TestCToGoStruct_success(t *testing.T) {
 		simpleC := C.struct_Simple{C.CString("one"), -2, 3,}
 		toGoStruct := simple{}
 
-		err := lib.CToGoStruct(simpleC, &toGoStruct)
+		err := CToGoStruct(simpleC, &toGoStruct)
 		require.NoError(t, err)
 
 		assert.Equal(t, C.GoString(simpleC.Str1), toGoStruct.Str1)

@@ -16,7 +16,6 @@ import (
 	"github.com/vivint/infectious"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/lib/uplink/ext/lib"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
@@ -198,18 +197,18 @@ func (u *Uplink) Close() error {
 	return nil
 }
 
-func (volatile Volatile) CtoGo(cValue *C.struct_Volatile) error {
-	if err := lib.CToGoStruct(cValue.TLS, &volatile.TLS); err != nil {
-		return err
-	}
-	if err := lib.CToGoStruct(cValue.IdentityVersion, &volatile.IdentityVersion); err != nil {
-		return err
-	}
-	if err := lib.CToGoStruct(cValue.PeerIDVersion, &volatile.PeerIDVersion); err != nil {
-		return err
-	}
-
-	volatile.MaxInlineSize = memory.Size(cValue.MaxInlineSize)
-	volatile.MaxMemory = memory.Size(cValue.MaxMemory)
-	return nil
-}
+//func (volatile Volatile) CtoGo(cValue *C.struct_Volatile) error {
+//	if err := CToGoStruct(cValue.TLS, &volatile.TLS); err != nil {
+//		return err
+//	}
+//	if err := CToGoStruct(cValue.IdentityVersion, &volatile.IdentityVersion); err != nil {
+//		return err
+//	}
+//	if err := CToGoStruct(cValue.PeerIDVersion, &volatile.PeerIDVersion); err != nil {
+//		return err
+//	}
+//
+//	volatile.MaxInlineSize = memory.Size(cValue.MaxInlineSize)
+//	volatile.MaxMemory = memory.Size(cValue.MaxMemory)
+//	return nil
+//}

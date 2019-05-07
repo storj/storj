@@ -13,14 +13,13 @@ import (
 	"context"
 	"reflect"
 
-	"storj.io/storj/lib/uplink/ext/lib"
 	"storj.io/storj/lib/uplink"
 )
 
 //export NewUplink
 func NewUplink(cConfig C.struct_Config, cErr **C.char) (cUplink C.struct_Uplink) {
 	goConfig := new(uplink.Config)
-	if err := lib.CToGoStruct(cConfig, goConfig); err != nil {
+	if err := CToGoStruct(cConfig, goConfig); err != nil {
 		*cErr = C.CString(err.Error())
 		return cUplink
 	}

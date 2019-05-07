@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 typedef __SIZE_TYPE__ GoUintptr;
+typedef int64_t Size;
 
 struct APIKey {
     const char *key;
@@ -24,8 +25,8 @@ struct Volatile {
     struct TLS TLS;
     struct IDVersion IdentityVersion;
     char* PeerIDVersion;
-    int64_t MaxInlineSize;
-    int64_t MaxMemory;
+    Size MaxInlineSize;
+    Size MaxMemory;
 };
 
 struct Config {
