@@ -62,7 +62,7 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 		args = append(args, v.Major, v.Major, v.Minor, v.Minor, v.Patch)
 	}
 
-	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, safeQuery, args...)
+	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, safeQuery, criteria.DistinctIPs, args...)
 }
 
 func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) ([]*pb.Node, error) {
@@ -89,10 +89,10 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 		args = append(args, v.Major, v.Major, v.Minor, v.Minor, v.Patch)
 	}
 
-	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, safeQuery, args...)
+	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, safeQuery, criteria.DistinctIPs, args...)
 }
 
-func (cache *overlaycache) queryFilteredNodes(ctx context.Context, excluded []storj.NodeID, count int, safeQuery string, args ...interface{}) (_ []*pb.Node, err error) {
+func (cache *overlaycache) queryFilteredNodes(ctx context.Context, excluded []storj.NodeID, count int, safeQuery string, distinctIPs bool, args ...interface{}) (_ []*pb.Node, err error) {
 	if count == 0 {
 		return nil, nil
 	}
@@ -106,7 +106,22 @@ func (cache *overlaycache) queryFilteredNodes(ctx context.Context, excluded []st
 	}
 	args = append(args, count)
 
-	rows, err := cache.db.Query(cache.db.Rebind(`SELECT id,
+	var rows *sql.Rows
+	if distinctIPs {
+		rows, err = cache.db.Query(cache.db.Rebind(`SELECT id,
+		type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
+		uptime_ratio, total_audit_count, audit_success_count, total_uptime_count,
+		uptime_success_count
+		FROM (SELECT id, type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
+			uptime_ratio, total_audit_count, audit_success_count, total_uptime_count, uptime_success_count,
+			Row_number() OVER(PARTITION BY last_ip ORDER BY RANDOM()) rn
+			FROM nodes
+			`+safeQuery+safeExcludeNodes+`) n
+		WHERE rn = 1
+		ORDER BY RANDOM()
+		LIMIT ?`), args...)
+	} else {
+		rows, err = cache.db.Query(cache.db.Rebind(`SELECT id,
 		type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
 		uptime_ratio, total_audit_count, audit_success_count, total_uptime_count,
 		uptime_success_count
@@ -114,11 +129,11 @@ func (cache *overlaycache) queryFilteredNodes(ctx context.Context, excluded []st
 		`+safeQuery+safeExcludeNodes+`
 		ORDER BY RANDOM()
 		LIMIT ?`), args...)
+	}
 	if err != nil {
 		return nil, err
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
-
 	var nodes []*pb.Node
 	for rows.Next() {
 		dbNode := &dbx.Node{}
