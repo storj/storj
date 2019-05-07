@@ -25,16 +25,23 @@ var (
 	ErrRevoked = errs.Class("api key revocation error")
 )
 
+// ActionType specifies the operation type being performed that the Macaroon will validate
 type ActionType int
 
 const (
-	ActionUnset ActionType = iota
+	actionUnset ActionType = iota
+
+	// ActionRead specifies a read operation
 	ActionRead
+	// ActionWrite specifies a read operation
 	ActionWrite
+	// ActionList specifies a read operation
 	ActionList
+	// ActionDelete specifies a read operation
 	ActionDelete
 )
 
+// ActionType specifies the specific operation being performed that the Macaroon will validate
 type Action struct {
 	Op            ActionType
 	Bucket        []byte
@@ -137,8 +144,6 @@ func (a *APIKey) Serialize() (string, error) {
 // Allows returns true if the provided action is allowed by the caveat.
 func (c *Caveat) Allows(action Action) bool {
 	switch action.Op {
-	case ActionUnset:
-		return false
 	case ActionRead:
 		if c.DisallowReads {
 			return false
