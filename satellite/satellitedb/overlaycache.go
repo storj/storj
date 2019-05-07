@@ -107,7 +107,7 @@ func (cache *overlaycache) queryFilteredNodes(ctx context.Context, excluded []st
 	args = append(args, count)
 
 	rows, err := cache.db.Query(cache.db.Rebind(`SELECT id,
-		type, address, free_bandwidth, free_disk, audit_success_ratio,
+		type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
 		uptime_ratio, total_audit_count, audit_success_count, total_uptime_count,
 		uptime_success_count
 		FROM nodes
@@ -123,7 +123,7 @@ func (cache *overlaycache) queryFilteredNodes(ctx context.Context, excluded []st
 	for rows.Next() {
 		dbNode := &dbx.Node{}
 		err = rows.Scan(&dbNode.Id, &dbNode.Type,
-			&dbNode.Address, &dbNode.FreeBandwidth, &dbNode.FreeDisk,
+			&dbNode.Address, &dbNode.LastIp, &dbNode.FreeBandwidth, &dbNode.FreeDisk,
 			&dbNode.AuditSuccessRatio, &dbNode.UptimeRatio,
 			&dbNode.TotalAuditCount, &dbNode.AuditSuccessCount,
 			&dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount)
@@ -514,7 +514,8 @@ func convertDBNode(info *dbx.Node) (*overlay.NodeDossier, error) {
 
 	node := &overlay.NodeDossier{
 		Node: pb.Node{
-			Id: id,
+			Id:     id,
+			LastIp: info.LastIp,
 			Address: &pb.NodeAddress{
 				Address:   info.Address,
 				Transport: pb.NodeTransport(info.Protocol),
