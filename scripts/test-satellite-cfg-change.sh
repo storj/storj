@@ -14,7 +14,7 @@ cleanup(){
 }
 trap cleanup EXIT
 
-satellite --config-dir "$TESTDATA_DIR" setup > /dev/null
+satellite --config-dir "$TESTDATA_DIR" --defaults release setup > /dev/null
 
 
 diff "$TESTDATA_DIR/satellite-config.yaml.lock" "$TESTDATA_DIR/config.yaml"

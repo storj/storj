@@ -21,7 +21,7 @@ debug.addr: "127.0.0.1:0"
 # If set, a path to write a process trace SVG to
 debug.trace-out: ""
 # determines which set of configuration defaults to use. can either be 'dev' or 'release'
-defaults: "dev"
+defaults: "release"
 # the interval at which the satellite attempts to find new nodes via random node ID lookups
 discovery.discovery-interval: 1s
 # the interval at which the the graveyard tries to resurrect nodes
@@ -109,9 +109,9 @@ metrics.interval: 1m0s
 # path to log for oom notices
 monkit.hw.oomlog: "/var/log/kern.log"
 # the number of times a node has been audited to not be considered a New Node
-overlay.node.audit-count: 0
+overlay.node.audit-count: 500
 # a node's ratio of successful audits
-overlay.node.audit-success-ratio: 0
+overlay.node.audit-success-ratio: 0.4
 # the minimum node software version for node selection queries
 overlay.node.minimum-version: ""
 # the percentage of new nodes allowed per request
@@ -119,9 +119,9 @@ overlay.node.new-node-percentage: 0.05
 # the amount of time without seeing a node before its considered offline
 overlay.node.online-window: 1h0m0s
 # the number of times a node's uptime has been checked to not be considered a New Node
-overlay.node.uptime-count: 0
+overlay.node.uptime-count: 500
 # a node's ratio of being up/online vs. down/offline
-overlay.node.uptime-ratio: 0
+overlay.node.uptime-ratio: 0.9
 # how frequently checker should audit segments
 repairer.interval: 5m0s
 # maximum buffer memory (in bytes) to be allocated for read buffers
@@ -133,7 +133,7 @@ repairer.timeout: 10m0s
 # option for deleting tallies after they are rolled up
 rollup.delete-tallies: false
 # how frequently rollup should run
-rollup.interval: 2m0s
+rollup.interval: 24h0m0s
 # the bandwidth and storage usage limit for the alpha release
 rollup.max-alpha-usage: 25.0 GB
 # public address to listen on
@@ -153,7 +153,7 @@ server.revocation-dburl: "bolt://testdata/revocations.db"
 # if true, uses peer ca whitelist checking
 server.use-peer-ca-whitelist: false
 # how frequently the tally service should run
-tally.interval: 30s
+tally.interval: 1h0m0s
 # Interval to check the version
 version.check-interval: 15m0s
 # Request timeout for version checks
