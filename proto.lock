@@ -1853,12 +1853,13 @@
                 "type": "NodeAddress"
               },
               {
-                "id": 3,
+                "id": 14,
                 "name": "last_ip",
                 "type": "string"
               }
             ],
             "reserved_ids": [
+              3,
               4,
               5,
               6,
@@ -1868,8 +1869,7 @@
               10,
               11,
               12,
-              13,
-              14
+              13
             ],
             "reserved_names": [
               "type",
