@@ -41,7 +41,7 @@ const (
 	ActionDelete
 )
 
-// ActionType specifies the specific operation being performed that the Macaroon will validate
+// Action specifies the specific operation being performed that the Macaroon will validate
 type Action struct {
 	Op            ActionType
 	Bucket        []byte
