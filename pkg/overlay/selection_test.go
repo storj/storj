@@ -4,17 +4,21 @@
 package overlay_test
 
 import (
+	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite"
 )
 
 func TestOffline(t *testing.T) {
@@ -214,4 +218,83 @@ func TestNodeSelection(t *testing.T) {
 			assert.Equal(t, tt.ExpectedCount, len(response))
 		}
 	})
+}
+
+func TestDistinctIPs(t *testing.T) {
+	tests := []struct {
+		nodeCount      int
+		duplicateCount int
+		requestCount   int
+		preferences    overlay.NodeSelectionConfig
+	}{
+		{ // test only distinct IPs are retrieved
+			nodeCount:      10,
+			duplicateCount: 7,
+			requestCount:   4,
+			preferences: overlay.NodeSelectionConfig{
+				AuditCount:        0,
+				NewNodePercentage: 0,
+				OnlineWindow:      time.Hour,
+				DistinctIPs:       true,
+			},
+		},
+		{ // test distinct flag false allows duplicates
+			nodeCount:      10,
+			duplicateCount: 10,
+			requestCount:   5,
+			preferences: overlay.NodeSelectionConfig{
+				AuditCount:        0,
+				NewNodePercentage: 0,
+				OnlineWindow:      time.Hour,
+				DistinctIPs:       false,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		testplanet.Run(t, testplanet.Config{
+			SatelliteCount: 1, StorageNodeCount: tt.nodeCount, UplinkCount: 1,
+			Reconfigure: testplanet.Reconfigure{
+				Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Overlay.Node.DistinctIPs = tt.preferences.DistinctIPs
+					config.Discovery.RefreshInterval = 60 * time.Second
+				},
+			},
+		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			var err error
+			service := planet.Satellites[0].Overlay.Service
+			time.Sleep(1 * time.Second)
+
+			// update node last IPs
+			for i := 0; i < tt.nodeCount; i++ {
+				node := planet.StorageNodes[i].Local().Node
+				if i < tt.duplicateCount {
+					node.LastIp = "127.0.0.1"
+				} else {
+					node.LastIp = strconv.Itoa(i)
+				}
+
+				err = service.Put(ctx, planet.StorageNodes[i].ID(), node)
+				require.NoError(t, err)
+			}
+
+			response, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
+				FreeBandwidth:  0,
+				FreeDisk:       0,
+				RequestedCount: tt.requestCount,
+			}, &tt.preferences)
+
+			// assert all IPs are unique
+			if tt.preferences.DistinctIPs {
+				ips := make(map[string]bool)
+				for _, n := range response {
+					fmt.Println(n.Id, n.LastIp)
+					assert.False(t, ips[n.LastIp])
+					ips[n.LastIp] = true
+				}
+			}
+
+			assert.Equal(t, tt.requestCount, len(response))
+		})
+	}
 }
