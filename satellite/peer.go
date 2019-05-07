@@ -42,6 +42,7 @@ import (
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/satellite/accountingcache"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
@@ -102,8 +103,9 @@ type Config struct {
 	Repairer repairer.Config
 	Audit    audit.Config
 
-	Tally  tally.Config
-	Rollup rollup.Config
+	Tally           tally.Config
+	Rollup          rollup.Config
+	AccountingCache accountingcache.Config
 
 	Mail    mailservice.Config
 	Console consoleweb.Config
@@ -174,6 +176,10 @@ type Peer struct {
 	Accounting struct {
 		Tally  *tally.Service
 		Rollup *rollup.Service
+	}
+
+	AccountingCache struct {
+		Service accountingcache.Service
 	}
 
 	Mail struct {
@@ -302,6 +308,16 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		peer.Discovery.Service = discovery.New(peer.Log.Named("discovery"), peer.Overlay.Service, peer.Kademlia.Service, config)
 	}
 
+	{ // setup accountingcache
+		log.Debug("Setting up accountingcache")
+		config := config.AccountingCache
+		acctCacheService, err := accountingcache.New(peer.Log.Named("accountingcache"), config)
+		if err != nil {
+			return nil, err
+		}
+		peer.AccountingCache.Service = acctCacheService
+	}
+
 	{ // setup orders
 		log.Debug("Setting up orders")
 		satelliteSignee := signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity())
@@ -339,6 +355,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Overlay.Service,
 			peer.DB.Console().APIKeys(),
 			peer.DB.Accounting(),
+			peer.AccountingCache.Service,
 			config.Rollup.MaxAlphaUsage,
 		)
 
@@ -396,7 +413,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 	{ // setup accounting
 		log.Debug("Setting up accounting")
-		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.Accounting(), peer.Metainfo.Service, peer.Overlay.Service, 0, config.Tally.Interval)
+		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.Accounting(), peer.AccountingCache.Service, peer.Metainfo.Service, peer.Overlay.Service, 0, config.Tally.Interval)
 		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.Accounting(), config.Rollup.Interval, config.Rollup.DeleteTallies)
 	}
 

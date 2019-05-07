@@ -32,7 +32,7 @@ func TestProjectUsageStorage(t *testing.T) {
 		expectedErrMsg   string
 	}{
 		{name: "doesn't exceed storage or bandwidth project limit", expectedExceeded: false, expectedErrMsg: ""},
-		{name: "exceeds storage project limit", expectedExceeded: true, expectedResource: "storage", expectedErrMsg: "segment error: metainfo error: rpc error: code = ResourceExhausted desc = Exceeded Alpha Usage Limit; segment error: metainfo error: rpc error: code = ResourceExhausted desc = Exceeded Alpha Usage Limit"},
+		{name: "exceeds storage project limit", expectedExceeded: true, expectedResource: "storage", expectedErrMsg: "segment error: metainfo error: rpc error: code = ResourceExhausted desc = Exceeded Usage Limit; segment error: metainfo error: rpc error: code = ResourceExhausted desc = Exceeded Usage Limit"},
 	}
 
 	testplanet.Run(t, testplanet.Config{
@@ -59,8 +59,8 @@ func TestProjectUsageStorage(t *testing.T) {
 				// Execute test: get storage totals for a project, then check if that exceeds the max usage limit
 				inlineTotal, remoteTotal, err := acctDB.ProjectStorageTotals(ctx, projectID)
 				require.NoError(t, err)
-				maxAlphaUsage := 25 * memory.GB
-				actualExceeded, actualResource := accounting.ExceedsAlphaUsage(0, inlineTotal, remoteTotal, maxAlphaUsage)
+				maxUsage := 25 * memory.GB
+				actualExceeded, actualResource := accounting.ExceedsUsageLimit(0, inlineTotal, remoteTotal, maxUsage)
 				require.Equal(t, tt.expectedExceeded, actualExceeded)
 				require.Equal(t, tt.expectedResource, actualResource)
 
@@ -89,7 +89,7 @@ func TestProjectUsageBandwidth(t *testing.T) {
 		expectedErrMsg   string
 	}{
 		{name: "doesn't exceed storage or bandwidth project limit", expectedExceeded: false, expectedErrMsg: ""},
-		{name: "exceeds bandwidth project limit", expectedExceeded: true, expectedResource: "bandwidth", expectedErrMsg: "segment error: metainfo error: rpc error: code = ResourceExhausted desc = Exceeded Alpha Usage Limit"},
+		{name: "exceeds bandwidth project limit", expectedExceeded: true, expectedResource: "bandwidth", expectedErrMsg: "segment error: metainfo error: rpc error: code = ResourceExhausted desc = Exceeded Usage Limit"},
 	}
 
 	testplanet.Run(t, testplanet.Config{
@@ -130,8 +130,8 @@ func TestProjectUsageBandwidth(t *testing.T) {
 				// Execute test: get bandwidth totals for a project, then check if that exceeds the max usage limit
 				bandwidthTotal, err := acctDB.ProjectAllocatedBandwidthTotal(ctx, bucketID, from)
 				require.NoError(t, err)
-				maxAlphaUsage := 25 * memory.GB
-				actualExceeded, actualResource := accounting.ExceedsAlphaUsage(bandwidthTotal, 0, 0, maxAlphaUsage)
+				maxUsage := 25 * memory.GB
+				actualExceeded, actualResource := accounting.ExceedsUsageLimit(bandwidthTotal, 0, 0, maxUsage)
 				require.Equal(t, tt.expectedExceeded, actualExceeded)
 				require.Equal(t, tt.expectedResource, actualResource)
 
@@ -166,7 +166,7 @@ func setUpStorageTallies(ctx *testcontext.Context, projectID uuid.UUID, acctDB a
 			IntervalStart: time,
 
 			// In order to exceed the project limits, create storage tally records
-			// that sum greater than the maxAlphaUsage * expansionFactor
+			// that sum greater than the maxUsage * expansionFactor
 			RemoteBytes: 10 * memory.GB.Int64() * accounting.ExpansionFactor,
 		}
 		err := acctDB.CreateBucketStorageTally(ctx, tally)
@@ -251,7 +251,7 @@ func setUpBucketBandwidthAllocations(ctx *testcontext.Context, projectID uuid.UU
 		bucketID := createBucketID(projectID, []byte(bucketName))
 
 		// In order to exceed the project limits, create bandwidth allocation records
-		// that sum greater than the maxAlphaUsage * expansionFactor
+		// that sum greater than the maxUsage * expansionFactor
 		amount := 10 * memory.GB.Int64() * accounting.ExpansionFactor
 		action := pb.PieceAction_GET
 		intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())

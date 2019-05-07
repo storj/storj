@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/accountingcache"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storage"
 )
@@ -26,23 +27,25 @@ type Config struct {
 
 // Service is the tally service for data stored on each storage node
 type Service struct {
-	logger       *zap.Logger
-	metainfo     *metainfo.Service
-	overlay      *overlay.Cache
-	limit        int
-	ticker       *time.Ticker
-	accountingDB accounting.DB
+	logger            *zap.Logger
+	metainfo          *metainfo.Service
+	overlay           *overlay.Cache
+	limit             int
+	ticker            *time.Ticker
+	accountingDB      accounting.DB
+	accountingRTCache accountingcache.Service
 }
 
 // New creates a new tally Service
-func New(logger *zap.Logger, accountingDB accounting.DB, metainfo *metainfo.Service, overlay *overlay.Cache, limit int, interval time.Duration) *Service {
+func New(logger *zap.Logger, accountingDB accounting.DB, accountingRTCache accountingcache.Service, metainfo *metainfo.Service, overlay *overlay.Cache, limit int, interval time.Duration) *Service {
 	return &Service{
-		logger:       logger,
-		metainfo:     metainfo,
-		overlay:      overlay,
-		limit:        limit,
-		ticker:       time.NewTicker(interval),
-		accountingDB: accountingDB,
+		logger:            logger,
+		metainfo:          metainfo,
+		overlay:           overlay,
+		limit:             limit,
+		ticker:            time.NewTicker(interval),
+		accountingDB:      accountingDB,
+		accountingRTCache: accountingRTCache,
 	}
 }
 
@@ -65,6 +68,15 @@ func (t *Service) Run(ctx context.Context) (err error) {
 
 // Tally calculates data-at-rest usage once
 func (t *Service) Tally(ctx context.Context) error {
+	// The RT cache will only keep deltas to space/bw used relative to the
+	// latest tally. Since a new tally is beginning, we will zero it out now.
+	// There is a window between this call and the point where the tally DB
+	// transaction starts, during which some changes in space/bw usage may be
+	// double-counted (counted in the tally and also counted as a delta to
+	// the tally). If that happens, it will be fixed at the time of the next
+	// tally run.
+	t.accountingRTCache.ResetTotals()
+
 	var errAtRest, errBucketInfo error
 	latestTally, nodeData, bucketData, err := t.CalculateAtRestData(ctx)
 	if err != nil {
