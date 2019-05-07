@@ -260,6 +260,10 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		consoleAuthToken := "secure_token"
 
+		satelliteDB := flags.SatelliteDB
+		if os.Getenv("STORJ_POSTGRES_TEST") != "" {
+			satelliteDB = os.Getenv("STORJ_POSTGRES_TEST")
+		}
 		process.Arguments = withCommon(process.Directory, Arguments{
 			"setup": {
 				"--identity-dir", process.Directory,
@@ -281,6 +285,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 				"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
 				"--debug.addr", net.JoinHostPort("127.0.0.1", port(satellitePeer, i, debugHTTP)),
+
+				"--database", satelliteDB,
+				"--metainfo.database-url", flags.MetainfoDB,
 			},
 			"run": {},
 		})

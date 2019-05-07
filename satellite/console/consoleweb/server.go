@@ -6,6 +6,7 @@ package consoleweb
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"net"
 	"net/http"
@@ -76,7 +77,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		mailService: mailService,
 	}
 
-	logger.Debug("Starting Satellite UI...")
+	logger.Debug(fmt.Sprintf("Starting Satellite UI on %s...", server.listener.Addr().String()))
 
 	if server.config.ExternalAddress != "" {
 		if !strings.HasSuffix(server.config.ExternalAddress, "/") {
