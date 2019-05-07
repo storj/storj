@@ -143,8 +143,6 @@ func (discovery *Discovery) refresh(ctx context.Context) error {
 			return ctx.Err()
 		}
 
-		// TODO: add method to update ping.LastIp? Or is it done above in cache.Put?
-
 		_, err = discovery.cache.UpdateUptime(ctx, ping.Id, true)
 		if err != nil {
 			discovery.log.Error("could not update node uptime in cache", zap.String("ID", ping.Id.String()), zap.Error(err))

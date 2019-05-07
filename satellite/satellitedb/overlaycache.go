@@ -36,8 +36,6 @@ type overlaycache struct {
 func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) ([]*pb.Node, error) {
 	nodeType := int(pb.NodeType_STORAGE)
 
-	// TODO: if criteria.DistinctIPs == true, query for distinct IPs
-
 	safeQuery := `
 		WHERE type = ? AND free_bandwidth >= ? AND free_disk >= ?
 		  AND total_audit_count >= ?
@@ -67,8 +65,6 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 
 func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) ([]*pb.Node, error) {
 	nodeType := int(pb.NodeType_STORAGE)
-
-	// TODO: if criteria.DistinctIPs == true, query for distinct IPs
 
 	safeQuery := `
 		WHERE type = ? AND free_bandwidth >= ? AND free_disk >= ?
