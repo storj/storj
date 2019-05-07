@@ -6,8 +6,6 @@
 #include "unity.h"
 #include "../uplink-cgo.h"
 
-// gcc -o cgo-test-bin lib/uplink/ext/tests/*.c lib/uplink/ext/uplink-cgo.so
-
 void TestGetIDVersion(void) {
     char *err = "";
     uint8_t idVersionNumber = 0;

@@ -35,17 +35,3 @@ func NewUplink(cConfig C.struct_Config, cErr **C.char) (cUplink C.struct_Uplink)
 		Config:   cConfig,
 	}
 }
-
-
-var cRegistry = make(map[uint64]interface{})
-var cNext uint64 = 0
-
-func register(value interface{}) uint64 {
-	cNext += 1
-	cRegistry[cNext] = value
-	return cNext
-}
-
-func lookup(key uint64) interface{} {
-	return cRegistry[key]
-}

@@ -6,10 +6,6 @@
 #include "unity.h"
 #include "../uplink-cgo.h"
 
-extern void TestGetIDVersion(void);
-
-// gcc -o cgo-test-bin lib/uplink/ext/tests/*.c lib/uplink/ext/uplink-cgo.so
-
 void TestNewUplink_config(void) {
     char *err = "";
     uint8_t idVersionNumber = 0;
@@ -39,11 +35,4 @@ void TestNewUplink_config(void) {
     TEST_ASSERT_TRUE(uplink.Config.Volatile.TLS.SkipPeerCAWhitelist);
     TEST_ASSERT_EQUAL_UINT8(idVersionNumber, uplink.Config.Volatile.IdentityVersion.Number);
     TEST_ASSERT_NOT_EQUAL(0, uplink.Config.Volatile.IdentityVersion.GoIDVersion);
-}
-
-int main(void) {
-    UNITY_BEGIN();
-    RUN_TEST(TestNewUplink_config);
-    RUN_TEST(TestGetIDVersion);
-    return UNITY_END();
 }

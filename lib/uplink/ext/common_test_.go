@@ -4,7 +4,7 @@
 package main
 // #cgo CFLAGS: -g -Wall
 // #include <stdbool.h>
-// #include "example/test.h"
+// #include "tests/test.h"
 import "C"
 import (
 	"github.com/stretchr/testify/assert"
@@ -111,18 +111,6 @@ func TestCToGoStruct_success(t *testing.T) {
 		assert.Equal(t, int(simpleC.Int2), toGoStruct.Int2)
 		assert.Equal(t, uint(simpleC.Uint3), toGoStruct.Uint3)
 	}
-
-	//{
-	//	t.Info("C to go uchar")
-	//
-	//	ucharC := C.uchar('f')
-	//	var toGoChar rune
-	//
-	//	err := CToGoStruct(ucharC, &toGoChar)
-	//	require.NoError(t, err)
-	//
-	//	assert.Equal(t, rune(ucharC), toGoChar)
-	//}
 }
 
 func TestCToGoStruct_error(t *testing.T) {
