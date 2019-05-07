@@ -78,7 +78,6 @@ func init() {
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
 	cfgstruct.Bind(runCmd.Flags(), &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	// HERE BindSetup takes the flags and writes to the config ?
 	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
