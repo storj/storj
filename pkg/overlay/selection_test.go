@@ -283,6 +283,7 @@ func TestDistinctIPs(t *testing.T) {
 				FreeDisk:       0,
 				RequestedCount: tt.requestCount,
 			}, &tt.preferences)
+			require.NoError(t, err)
 
 			// assert all IPs are unique
 			if tt.preferences.DistinctIPs {
