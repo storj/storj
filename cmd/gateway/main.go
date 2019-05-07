@@ -32,6 +32,7 @@ import (
 type GatewayFlags struct {
 	Identity          identity.Config
 	GenerateTestCerts bool `default:"false" help:"generate sample TLS certs for Minio GW" setup:"true"`
+	NonInteractive    bool `help:"disable interactive mode" default:"false" setup:"true"`
 
 	Server miniogw.ServerConfig
 	Minio  miniogw.MinioConfig
@@ -40,6 +41,8 @@ type GatewayFlags struct {
 }
 
 var (
+	// Error is the default gateway setup errs class
+	Error = errs.Class("gateway setup error")
 	// rootCmd represents the base gateway command when called without any subcommands
 	rootCmd = &cobra.Command{
 		Use:   "gateway",
@@ -108,6 +111,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	overrides := map[string]interface{}{}
+
 	accessKeyFlag := cmd.Flag("minio.access-key")
 	if !accessKeyFlag.Changed {
 		accessKey, err := generateKey()
@@ -123,6 +127,10 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 			return err
 		}
 		overrides[secretKeyFlag.Name] = secretKey
+	}
+
+	if !setupCfg.NonInteractive {
+		return setupCfg.interactive(cmd, setupDir, overrides)
 	}
 
 	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
@@ -258,6 +266,48 @@ func (flags GatewayFlags) NewGateway(ctx context.Context, ident *identity.FullId
 		flags.GetRedundancyScheme(),
 		flags.Client.SegmentSize,
 	), nil
+}
+
+func (flags GatewayFlags) interactive(cmd *cobra.Command, setupDir string, overrides map[string]interface{}) error {
+	satelliteAddress, err := cfgstruct.PromptForSatelitte(cmd)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	apiKey, err := cfgstruct.PromptForAPIKey()
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	encKey, err := cfgstruct.PromptForEncryptionKey()
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	overrides["satellite-addr"] = satelliteAddress
+	overrides["api-key"] = apiKey
+	overrides["enc.key"] = encKey
+
+	err = process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
+	if err != nil {
+		return nil
+	}
+
+	_, err = fmt.Println(`
+Your S3 Gateway is configured and ready to use!
+
+Some things to try next:
+
+* Run 'gateway --help' to see the operations that can be performed
+
+* See https://github.com/storj/docs/blob/master/S3-Gateway.md#using-the-aws-s3-commandline-interface for some example commands
+	`)
+	if err != nil {
+		return nil
+	}
+
+	return nil
+
 }
 
 func main() {
