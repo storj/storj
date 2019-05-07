@@ -41,7 +41,7 @@ void TestNewUplink_config(void) {
     TEST_ASSERT_NOT_EQUAL(0, uplink.Config.Volatile.IdentityVersion.GoIDVersion);
 }
 
-int _main(void) {
+int main(void) {
     UNITY_BEGIN();
     RUN_TEST(TestNewUplink_config);
     RUN_TEST(TestGetIDVersion);
