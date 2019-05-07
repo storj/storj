@@ -22,4 +22,11 @@ type FlagSet interface {
 	Var(val pflag.Value, name string, usage string)
 }
 
-var _ FlagSet = (*pflag.FlagSet)(nil)
+type ArrayFlagSet interface {
+	StringArrayVar(p *[]string, name string, value []string, usage string)
+}
+
+var (
+	_ FlagSet      = (*pflag.FlagSet)(nil)
+	_ ArrayFlagSet = (*pflag.FlagSet)(nil)
+)

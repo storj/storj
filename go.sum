@@ -17,6 +17,8 @@ github.com/alicebob/gopher-json v0.0.0-20180125190556-5a6b3ba71ee6 h1:45bxf7AZMw
 github.com/alicebob/gopher-json v0.0.0-20180125190556-5a6b3ba71ee6/go.mod h1:SGnFV6hVsYE877CKEZ6tDNTjaSXYUk6QqoIK6PrAtcc=
 github.com/alicebob/miniredis v0.0.0-20180911162847-3657542c8629 h1:gLoh8jzwIxdisBnHiWRIuReqtH9cpslSE2564UWXun0=
 github.com/alicebob/miniredis v0.0.0-20180911162847-3657542c8629/go.mod h1:8HZjEj4yU0dwhYHky+DxYx+6BMjkBbe5ONFIF1MXffk=
+github.com/araddon/dateparse v0.0.0-20190426192744-0d74ffceef83 h1:ukTLOeMC0aVxbJWVg6hOsVJ0VPIo8w++PbNsze/pqF8=
+github.com/araddon/dateparse v0.0.0-20190426192744-0d74ffceef83/go.mod h1:SLqhdZcd+dF3TEVL2RMoob5bBP5R1P1qkox+HtCBgGI=
 github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da h1:8GUt8eRujhVEGZFFEjBj46YV4rDjvGrNxb0KMWYkL2I=
 github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da/go.mod h1:Q73ZrmVTwzkszR9V5SSuryQ31EELlFMUz1kKyl939pY=
 github.com/aws/aws-sdk-go v1.15.34/go.mod h1:mFuSZ37Z9YOHbQEwBWztmVzqXrEkub65tZoCYDt7FT0=
@@ -282,6 +284,8 @@ github.com/rs/cors v1.5.0 h1:dgSHE6+ia18arGOTIYQKKGWLvEbGvmbNE6NfxhoNHUY=
 github.com/rs/cors v1.5.0/go.mod h1:gFx+x8UowdsKA9AchylcLynDq+nNFfI8FkUZdN/jGCU=
 github.com/segmentio/go-prompt v1.2.1-0.20161017233205-f0d19b6901ad h1:EqOdoSJGI7CsBQczPcIgmpm3hJE7X8Hj3jrgI002whs=
 github.com/segmentio/go-prompt v1.2.1-0.20161017233205-f0d19b6901ad/go.mod h1:B3ehdD1xPoWDKgrQgUaGk+m8H1xb1J5TyYDfKpKNeEE=
+github.com/simplereach/timeutils v1.2.0 h1:btgOAlu9RW6de2r2qQiONhjgxdAG7BL6je0G6J/yPnA=
+github.com/simplereach/timeutils v1.2.0/go.mod h1:VVbQDfN/FHRZa1LSqcwo4kNZ62OOyqLLGQKYB3pB0Q8=
 github.com/sirupsen/logrus v1.0.6 h1:hcP1GmhGigz/O7h1WVUM5KklBp1JoNS9FggWKdj/j3s=
 github.com/sirupsen/logrus v1.0.6/go.mod h1:pMByvHTf9Beacp5x1UXfOR9xyW/9antXMhjMPG0dEzc=
 github.com/sirupsen/logrus v1.3.0 h1:hI/7Q+DtNZ2kINb6qt/lS+IyXnHQe9e90POfeewL/ME=
@@ -430,6 +434,8 @@ gopkg.in/gemnasium/logrus-airbrake-hook.v2 v2.1.2/go.mod h1:Xk6kEKp8OKb+X14hQBKW
 gopkg.in/inf.v0 v0.9.1/go.mod h1:cWUDdTG/fYaXco+Dcufb5Vnc6Gp2YChqWtbxRZE0mXw=
 gopkg.in/ini.v1 v1.38.2 h1:dGcbywv4RufeGeiMycPT/plKB5FtmLKLnWKwBiLhUA4=
 gopkg.in/ini.v1 v1.38.2/go.mod h1:pNLf8WUiyNEtQjuu5G5vTm06TEv9tsIgeAvK8hOrP4k=
+gopkg.in/mgo.v2 v2.0.0-20180705113604-9856a29383ce h1:xcEWjVhvbDy+nHP67nPDDpbYrY+ILlfndk4bRioVHaU=
+gopkg.in/mgo.v2 v2.0.0-20180705113604-9856a29383ce/go.mod h1:yeKp02qBN3iKW1OzL3MGk2IdtZzaj7SFntXj72NppTA=
 gopkg.in/olivere/elastic.v5 v5.0.76 h1:A6W7X4yLPQDINHiYAqIwqev+rD5hIQ4G0e1d5H//VXk=
 gopkg.in/olivere/elastic.v5 v5.0.76/go.mod h1:uhHoB4o3bvX5sorxBU29rPcmBQdV2Qfg0FBrx5D6pV0=
 gopkg.in/spacemonkeygo/monkit.v2 v2.0.0-20180827161543-6ebf5a752f9b h1:zkhw+LuPvld5/ZwIlpYzd4DX/r0KxTvhEpo+2lcrp9k=
