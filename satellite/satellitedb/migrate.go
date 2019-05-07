@@ -603,8 +603,16 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				}),
 			},
 			{
-				Description: "Add last_ip column",
+				Description: "Fix audit and uptime ratios for new nodes",
 				Version:     17,
+				Action: migrate.SQL{`
+					UPDATE nodes SET audit_success_ratio = 1 WHERE total_audit_count = 0;
+					UPDATE nodes SET uptime_ratio = 1 WHERE total_uptime_count = 0;`,
+				},
+			},
+			{
+				Description: "Add last_ip column",
+				Version:     18,
 				Action: migrate.SQL{
 					`ALTER TABLE nodes ADD last_ip TEXT;
 					UPDATE nodes SET last_ip = '';

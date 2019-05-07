@@ -203,9 +203,7 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 		excluded = append(excluded, newNode.Id)
 	}
 
-	// TODO: exclude IPs of newNodes from SelectStorageNodes
-
-	reputableNodes, err := cache.db.SelectStorageNodes(ctx, reputableNodeCount-len(newNodes), &NodeCriteria{
+	criteria := NodeCriteria{
 		FreeBandwidth:      req.FreeBandwidth,
 		FreeDisk:           req.FreeDisk,
 		AuditCount:         preferences.AuditCount,
@@ -216,7 +214,8 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 		MinimumVersion:     preferences.MinimumVersion,
 		OnlineWindow:       preferences.OnlineWindow,
 		DistinctIPs:        preferences.DistinctIPs,
-	})
+	}
+	reputableNodes, err := cache.db.SelectStorageNodes(ctx, reputableNodeCount-len(newNodes), &criteria)
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +224,7 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 	nodes = append(nodes, reputableNodes...)
 
 	if len(nodes) < reputableNodeCount {
-		return nodes, ErrNotEnoughNodes.New("requested %d found %d", reputableNodeCount, len(nodes))
+		return nodes, ErrNotEnoughNodes.New("requested %d found %d; %+v ", reputableNodeCount, len(nodes), criteria)
 	}
 
 	return nodes, nil
