@@ -1,3 +1,5 @@
+# What to use for storing real-time accounting data
+accounting-cache.storage-backend: ""
 # how frequently segments are audited
 audit.interval: 30s
 # max number of times to attempt updating a statdb batch
@@ -33,9 +35,9 @@ discovery.refresh-limit: 100
 # help for setup
 help: false
 # path to the certificate chain for this identity
-identity.cert-path: "/root/.local/share/storj/identity/satellite/identity.cert"
+identity.cert-path: "/Users/paul/Library/Application Support/Storj/Identity/Satellite/identity.cert"
 # path to the private key for this identity
-identity.key-path: "/root/.local/share/storj/identity/satellite/identity.key"
+identity.key-path: "/Users/paul/Library/Application Support/Storj/Identity/Satellite/identity.key"
 # alpha is a system wide concurrency parameter
 kademlia.alpha: 5
 # the Kademlia node to bootstrap against
