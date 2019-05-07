@@ -4,14 +4,12 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
-	"strings"
 
 	base58 "github.com/jbenet/go-base58"
 	"github.com/minio/cli"
@@ -19,7 +17,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"golang.org/x/crypto/ssh/terminal"
 
 	"storj.io/storj/internal/fpath"
 	libuplink "storj.io/storj/lib/uplink"
@@ -35,7 +32,7 @@ import (
 type GatewayFlags struct {
 	Identity          identity.Config
 	GenerateTestCerts bool `default:"false" help:"generate sample TLS certs for Minio GW" setup:"true"`
-	Interactive       bool `help:"enable|disable interactive mode" default:"true" setup:"true"`
+	NonInteractive    bool `help:"disable interactive mode" default:"false" setup:"true"`
 
 	Server miniogw.ServerConfig
 	Minio  miniogw.MinioConfig
@@ -85,10 +82,6 @@ func init() {
 	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
-/*
-~/go/bin/gateway setup --api-key abc123 --satellite-addr mars.tardigrade.io:7777 \
-  --enc.key highlydistributedridiculouslyresilient
-*/
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	setupDir, err := filepath.Abs(confDir)
 	if err != nil {
@@ -137,7 +130,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		overrides[secretKeyFlag.Name] = secretKey
 	}
 
-	if setupCfg.Interactive {
+	if !setupCfg.NonInteractive {
 		return setupCfg.interactive(cmd, setupDir, overrides)
 	}
 
@@ -277,102 +270,24 @@ func (flags GatewayFlags) NewGateway(ctx context.Context, ident *identity.FullId
 }
 
 func (flags GatewayFlags) interactive(cmd *cobra.Command, setupDir string, overrides map[string]interface{}) error {
-	_, err := fmt.Print(`
-Pick satellite to use:
-[1] mars.tardigrade.io
-[2] jupiter.tardigrade.io
-[3] saturn.tardigrade.io
-Please enter numeric choice or enter satellite address manually [1]: `)
+	satelliteAddress, err := cfgstruct.PromptForSatelitte(cmd)
 	if err != nil {
-		return err
-	}
-	satellites := []string{"mars.tardigrade.io", "jupiter.tardigrade.io", "saturn.tardigrade.io"}
-	var satelliteAddress string
-	n, err := fmt.Scanln(&satelliteAddress)
-	if err != nil {
-		if n == 0 {
-			// fmt.Scanln cannot handle empty input
-			satelliteAddress = satellites[0]
-		} else {
-			return err
-		}
+		return Error.Wrap(err)
 	}
 
-	// TODO add better validation
-	if satelliteAddress == "" {
-		return errs.New("satellite address cannot be empty")
-	} else if len(satelliteAddress) == 1 {
-		switch satelliteAddress {
-		case "1":
-			satelliteAddress = satellites[0]
-		case "2":
-			satelliteAddress = satellites[1]
-		case "3":
-			satelliteAddress = satellites[2]
-		default:
-			return errs.New("Satellite address cannot be one character")
-		}
+	apiKey, err := cfgstruct.PromptForAPIKey()
+	if err != nil {
+		return Error.Wrap(err)
 	}
 
-	satelliteAddress, err = ApplyDefaultHostAndPortToAddr(satelliteAddress, cmd.Flags().Lookup("satellite-addr").Value.String())
+	encKey, err := cfgstruct.PromptForEncryptionKey()
 	if err != nil {
-		return err
-	}
-
-	_, err = fmt.Print("Enter your API key: ")
-	if err != nil {
-		return err
-	}
-	var apiKey string
-	n, err = fmt.Scanln(&apiKey)
-	if err != nil && n != 0 {
-		return err
-	}
-
-	if apiKey == "" {
-		return errs.New("API key cannot be empty")
-	}
-
-	_, err = fmt.Print("Enter your encryption passphrase: ")
-	if err != nil {
-		return err
-	}
-	encKey, err := terminal.ReadPassword(int(os.Stdin.Fd()))
-	if err != nil {
-		return err
-	}
-	_, err = fmt.Println()
-	if err != nil {
-		return err
-	}
-
-	_, err = fmt.Print("Enter your encryption passphrase again: ")
-	if err != nil {
-		return err
-	}
-	repeatedEncKey, err := terminal.ReadPassword(int(os.Stdin.Fd()))
-	if err != nil {
-		return err
-	}
-	_, err = fmt.Println()
-	if err != nil {
-		return err
-	}
-
-	if !bytes.Equal(encKey, repeatedEncKey) {
-		return errs.New("encryption passphrases doesn't match")
-	}
-
-	if len(encKey) == 0 {
-		_, err = fmt.Println("Warning: Encryption passphrase is empty!")
-		if err != nil {
-			return err
-		}
+		return Error.Wrap(err)
 	}
 
 	overrides["satellite-addr"] = satelliteAddress
 	overrides["api-key"] = apiKey
-	overrides["enc.key"] = string(encKey)
+	overrides["enc.key"] = encKey
 
 	err = process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
 	if err != nil {
@@ -394,43 +309,6 @@ Some things to try next:
 
 	return nil
 
-}
-
-// ApplyDefaultHostAndPortToAddr applies the default host and/or port if either is missing in the specified address.
-func ApplyDefaultHostAndPortToAddr(address, defaultAddress string) (string, error) {
-	defaultHost, defaultPort, err := net.SplitHostPort(defaultAddress)
-	if err != nil {
-		return "", Error.Wrap(err)
-	}
-
-	addressParts := strings.Split(address, ":")
-	numberOfParts := len(addressParts)
-
-	if numberOfParts > 1 && len(addressParts[0]) > 0 && len(addressParts[1]) > 0 {
-		// address is host:port so skip applying any defaults.
-		return address, nil
-	}
-
-	// We are missing a host:port part. Figure out which part we are missing.
-	indexOfPortSeparator := strings.Index(address, ":")
-	lengthOfFirstPart := len(addressParts[0])
-
-	if indexOfPortSeparator < 0 {
-		if lengthOfFirstPart == 0 {
-			// address is blank.
-			return defaultAddress, nil
-		}
-		// address is host
-		return net.JoinHostPort(addressParts[0], defaultPort), nil
-	}
-
-	if indexOfPortSeparator == 0 {
-		// address is :1234
-		return net.JoinHostPort(defaultHost, addressParts[1]), nil
-	}
-
-	// address is host:
-	return net.JoinHostPort(addressParts[0], defaultPort), nil
 }
 
 func main() {
