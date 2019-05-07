@@ -15,7 +15,7 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/satellite/accountingcache"
+	"storj.io/storj/satellite/liveaccounting"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storage"
 )
@@ -27,25 +27,25 @@ type Config struct {
 
 // Service is the tally service for data stored on each storage node
 type Service struct {
-	logger            *zap.Logger
-	metainfo          *metainfo.Service
-	overlay           *overlay.Cache
-	limit             int
-	ticker            *time.Ticker
-	accountingDB      accounting.DB
-	accountingRTCache accountingcache.Service
+	logger         *zap.Logger
+	metainfo       *metainfo.Service
+	overlay        *overlay.Cache
+	limit          int
+	ticker         *time.Ticker
+	accountingDB   accounting.DB
+	liveAccounting liveaccounting.Service
 }
 
 // New creates a new tally Service
-func New(logger *zap.Logger, accountingDB accounting.DB, accountingRTCache accountingcache.Service, metainfo *metainfo.Service, overlay *overlay.Cache, limit int, interval time.Duration) *Service {
+func New(logger *zap.Logger, accountingDB accounting.DB, liveAccounting liveaccounting.Service, metainfo *metainfo.Service, overlay *overlay.Cache, limit int, interval time.Duration) *Service {
 	return &Service{
-		logger:            logger,
-		metainfo:          metainfo,
-		overlay:           overlay,
-		limit:             limit,
-		ticker:            time.NewTicker(interval),
-		accountingDB:      accountingDB,
-		accountingRTCache: accountingRTCache,
+		logger:         logger,
+		metainfo:       metainfo,
+		overlay:        overlay,
+		limit:          limit,
+		ticker:         time.NewTicker(interval),
+		accountingDB:   accountingDB,
+		liveAccounting: liveAccounting,
 	}
 }
 
@@ -75,7 +75,7 @@ func (t *Service) Tally(ctx context.Context) error {
 	// double-counted (counted in the tally and also counted as a delta to
 	// the tally). If that happens, it will be fixed at the time of the next
 	// tally run.
-	t.accountingRTCache.ResetTotals()
+	t.liveAccounting.ResetTotals()
 
 	var errAtRest, errBucketInfo error
 	latestTally, nodeData, bucketData, err := t.CalculateAtRestData(ctx)

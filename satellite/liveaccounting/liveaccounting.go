@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package accountingcache
+package liveaccounting
 
 import (
 	"context"
@@ -13,12 +13,12 @@ import (
 	"go.uber.org/zap"
 )
 
-// Config contains configurable values for the accountingcache service.
+// Config contains configurable values for the liveaccounting service.
 type Config struct {
 	StorageBackend string `help:"What to use for storing real-time accounting data"`
 }
 
-// Service represents the external interface to the accountingcache
+// Service represents the external interface to the liveaccounting
 // functionality.
 type Service interface {
 	GetProjectStorageUsage(ctx context.Context, projectID uuid.UUID) (int64, int64, error)
@@ -26,7 +26,7 @@ type Service interface {
 	ResetTotals()
 }
 
-// New creates a new accountingcache.Service instance of the type specified in
+// New creates a new liveaccounting.Service instance of the type specified in
 // the provided config.
 func New(log *zap.Logger, config Config) (Service, error) {
 	parts := strings.SplitN(config.StorageBackend, ":", 2)
@@ -38,12 +38,12 @@ func New(log *zap.Logger, config Config) (Service, error) {
 	}
 	switch backendType {
 	case "plainmemory":
-		return newPlainMemoryAccountingCache(log)
+		return newPlainMemoryLiveAccounting(log)
 	}
-	return nil, errs.New("Unrecognized accountingcache backend specifier %q", backendType)
+	return nil, errs.New("Unrecognized liveaccounting backend specifier %q", backendType)
 }
 
-// plainMemoryAccountingCache represents an accountingcache.Service-implementing
+// plainMemoryLiveAccounting represents an liveaccounting.Service-implementing
 // instance using plain memory (no coordination with other servers). It can be
 // used to coordinate tracking of how much space and bandwidth an uplink has
 // used.
@@ -52,7 +52,7 @@ func New(log *zap.Logger, config Config) (Service, error) {
 // the accounting cache does not matter significantly. For production, an
 // implementation that allows multiple servers to participate together would
 // be preferable.
-type plainMemoryAccountingCache struct {
+type plainMemoryLiveAccounting struct {
 	log *zap.Logger
 
 	spaceMapLock     sync.RWMutex
@@ -66,24 +66,24 @@ type spaceUsedAccounting struct {
 	remoteSpace int64
 }
 
-func newPlainMemoryAccountingCache(log *zap.Logger) (*plainMemoryAccountingCache, error) {
-	pmac := &plainMemoryAccountingCache{log: log}
+func newPlainMemoryLiveAccounting(log *zap.Logger) (*plainMemoryLiveAccounting, error) {
+	pmac := &plainMemoryLiveAccounting{log: log}
 	pmac.ResetTotals()
 	return pmac, nil
 }
 
 // GetProjectStorageUsage gets inline and remote storage totals for a given
 // project, back to the time of the last accounting tally.
-func (pmac *plainMemoryAccountingCache) GetProjectStorageUsage(ctx context.Context, projectID uuid.UUID) (inlineTotal, remoteTotal int64, err error) {
+func (pmac *plainMemoryLiveAccounting) GetProjectStorageUsage(ctx context.Context, projectID uuid.UUID) (inlineTotal, remoteTotal int64, err error) {
 	pmac.spaceMapLock.Lock()
 	defer pmac.spaceMapLock.Unlock()
 	curVal := pmac.spaceDeltas[projectID]
 	return curVal.inlineSpace, curVal.remoteSpace, nil
 }
 
-// AddSpaceUsed lets the accountingcache know that the given project has just
+// AddSpaceUsed lets the liveaccounting know that the given project has just
 // added spaceUsed bytes of usage.
-func (pmac *plainMemoryAccountingCache) AddSpaceUsed(projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) error {
+func (pmac *plainMemoryLiveAccounting) AddSpaceUsed(projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) error {
 	pmac.spaceMapLock.Lock()
 	defer pmac.spaceMapLock.Unlock()
 	curVal := pmac.spaceDeltas[projectID]
@@ -96,7 +96,7 @@ func (pmac *plainMemoryAccountingCache) AddSpaceUsed(projectID uuid.UUID, inline
 // ResetTotals reset all space-used and bandwidth-used totals for all projects
 // back to zero. This would normally be done in concert with calculating new
 // tally counts in the accountingDB.
-func (pmac *plainMemoryAccountingCache) ResetTotals() {
+func (pmac *plainMemoryLiveAccounting) ResetTotals() {
 	pmac.log.Info("Resetting real-time accounting data")
 	pmac.spaceMapLock.Lock()
 	pmac.spaceDeltas = make(map[uuid.UUID]spaceUsedAccounting)

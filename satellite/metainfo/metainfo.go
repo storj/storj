@@ -25,8 +25,8 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/satellite/accountingcache"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/liveaccounting"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/storage"
 )
@@ -44,28 +44,28 @@ type APIKeys interface {
 
 // Endpoint metainfo endpoint
 type Endpoint struct {
-	log               *zap.Logger
-	metainfo          *Service
-	orders            *orders.Service
-	cache             *overlay.Cache
-	apiKeys           APIKeys
-	accountingDB      accounting.DB
-	accountingRTCache accountingcache.Service
-	maxUsage          memory.Size
+	log            *zap.Logger
+	metainfo       *Service
+	orders         *orders.Service
+	cache          *overlay.Cache
+	apiKeys        APIKeys
+	accountingDB   accounting.DB
+	liveAccounting liveaccounting.Service
+	maxUsage       memory.Size
 }
 
 // NewEndpoint creates new metainfo endpoint instance
-func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, apiKeys APIKeys, acctDB accounting.DB, acctCache accountingcache.Service, maxUsage memory.Size) *Endpoint {
+func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, apiKeys APIKeys, acctDB accounting.DB, liveAccounting liveaccounting.Service, maxUsage memory.Size) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
-		log:               log,
-		metainfo:          metainfo,
-		orders:            orders,
-		cache:             cache,
-		apiKeys:           apiKeys,
-		accountingDB:      acctDB,
-		accountingRTCache: acctCache,
-		maxUsage:          maxUsage,
+		log:            log,
+		metainfo:       metainfo,
+		orders:         orders,
+		cache:          cache,
+		apiKeys:        apiKeys,
+		accountingDB:   acctDB,
+		liveAccounting: liveAccounting,
+		maxUsage:       maxUsage,
 	}
 }
 
@@ -194,7 +194,7 @@ func (endpoint *Endpoint) getProjectStorageTotals(ctx context.Context, projectID
 	if err != nil {
 		return 0, 0, err
 	}
-	rtInline, rtRemote, err := endpoint.accountingRTCache.GetProjectStorageUsage(ctx, projectID)
+	rtInline, rtRemote, err := endpoint.liveAccounting.GetProjectStorageUsage(ctx, projectID)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -247,7 +247,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	}
 
 	inlineUsed, remoteUsed := calculateSpaceUsed(req.Pointer)
-	if err := endpoint.accountingRTCache.AddSpaceUsed(keyInfo.ProjectID, inlineUsed, remoteUsed); err != nil {
+	if err := endpoint.liveAccounting.AddSpaceUsed(keyInfo.ProjectID, inlineUsed, remoteUsed); err != nil {
 		endpoint.log.Sugar().Errorf("Could not track new storage usage by project %v: %v", keyInfo.ProjectID, err)
 		// but continue. it's most likely our own fault that we couldn't track it, and the only thing
 		// that will be affected is our per-project bandwidth and storage limits.

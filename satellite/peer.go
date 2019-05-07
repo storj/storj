@@ -42,11 +42,11 @@ import (
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
-	"storj.io/storj/satellite/accountingcache"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/inspector"
+	"storj.io/storj/satellite/liveaccounting"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/satellite/metainfo"
@@ -103,9 +103,9 @@ type Config struct {
 	Repairer repairer.Config
 	Audit    audit.Config
 
-	Tally           tally.Config
-	Rollup          rollup.Config
-	AccountingCache accountingcache.Config
+	Tally          tally.Config
+	Rollup         rollup.Config
+	LiveAccounting liveaccounting.Config
 
 	Mail    mailservice.Config
 	Console consoleweb.Config
@@ -178,8 +178,8 @@ type Peer struct {
 		Rollup *rollup.Service
 	}
 
-	AccountingCache struct {
-		Service accountingcache.Service
+	LiveAccounting struct {
+		Service liveaccounting.Service
 	}
 
 	Mail struct {
@@ -308,14 +308,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		peer.Discovery.Service = discovery.New(peer.Log.Named("discovery"), peer.Overlay.Service, peer.Kademlia.Service, config)
 	}
 
-	{ // setup accountingcache
-		log.Debug("Setting up accountingcache")
-		config := config.AccountingCache
-		acctCacheService, err := accountingcache.New(peer.Log.Named("accountingcache"), config)
+	{ // setup liveaccounting
+		log.Debug("Setting up liveaccounting")
+		config := config.LiveAccounting
+		liveAccountingService, err := liveaccounting.New(peer.Log.Named("liveaccounting"), config)
 		if err != nil {
 			return nil, err
 		}
-		peer.AccountingCache.Service = acctCacheService
+		peer.LiveAccounting.Service = liveAccountingService
 	}
 
 	{ // setup orders
@@ -355,7 +355,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Overlay.Service,
 			peer.DB.Console().APIKeys(),
 			peer.DB.Accounting(),
-			peer.AccountingCache.Service,
+			peer.LiveAccounting.Service,
 			config.Rollup.MaxAlphaUsage,
 		)
 
@@ -413,7 +413,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 	{ // setup accounting
 		log.Debug("Setting up accounting")
-		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.Accounting(), peer.AccountingCache.Service, peer.Metainfo.Service, peer.Overlay.Service, 0, config.Tally.Interval)
+		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.Accounting(), peer.LiveAccounting.Service, peer.Metainfo.Service, peer.Overlay.Service, 0, config.Tally.Interval)
 		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.Accounting(), config.Rollup.Interval, config.Rollup.DeleteTallies)
 	}
 
