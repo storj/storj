@@ -197,18 +197,3 @@ func (u *Uplink) Close() error {
 	return nil
 }
 
-//func (volatile Volatile) CtoGo(cValue *C.struct_Volatile) error {
-//	if err := CToGoStruct(cValue.TLS, &volatile.TLS); err != nil {
-//		return err
-//	}
-//	if err := CToGoStruct(cValue.IdentityVersion, &volatile.IdentityVersion); err != nil {
-//		return err
-//	}
-//	if err := CToGoStruct(cValue.PeerIDVersion, &volatile.PeerIDVersion); err != nil {
-//		return err
-//	}
-//
-//	volatile.MaxInlineSize = memory.Size(cValue.MaxInlineSize)
-//	volatile.MaxMemory = memory.Size(cValue.MaxMemory)
-//	return nil
-//}

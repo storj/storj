@@ -34,11 +34,6 @@ func NewUplink(cConfig C.struct_Config, cErr **C.char) (cUplink C.struct_Uplink)
 		GoUplink: C.GoUintptr(reflect.ValueOf(goUplink).Pointer()),
 		Config:   cConfig,
 	}
-	//if err := GoToCStruct(goUplink, &cUplink); err != nil {
-	//	*cErr = C.CString(err.Error())
-	//	return C.struct_Uplink{}
-	//}
-	//return cUplink
 }
 
 

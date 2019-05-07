@@ -37,14 +37,13 @@ func GetIDVersion(number C.uint, cErr **C.char) C.struct_IDVersion {
 	goIDVersion, err := storj.GetIDVersion(storj.IDVersionNumber(number))
 	if err != nil {
 		*cErr = C.CString(err.Error())
-		return C.struct_IDVersion{}
-	}
-
-	if err := GoToCStruct(goIDVersion, cIDVersion); err != nil {
-		*cErr = C.CString(err.Error())
 		return cIDVersion
 	}
-	return cIDVersion
+
+	return C.struct_IDVersion{
+		GoIDVersion: C.GoUintptr(reflect.ValueOf(&goIDVersion).Pointer()),
+		Number:      C.uchar(goIDVersion.Number),
+	}
 }
 
 func GoToCStruct(fromVar, toPtr interface{}) error {
