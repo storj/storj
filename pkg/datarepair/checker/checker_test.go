@@ -247,7 +247,6 @@ func (mockRepairQueue *mockRepairQueue) Select(ctx context.Context) (*pb.Injured
 		return &pb.InjuredSegment{}, errs.New("mock Select error")
 	}
 	s := mockRepairQueue.injuredSegments[0]
-	// mockRepairQueue.injuredSegments = mockRepairQueue.injuredSegments[1:]
 	return &s, nil
 }
 
