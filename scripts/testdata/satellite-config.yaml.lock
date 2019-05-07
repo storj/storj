@@ -15,7 +15,7 @@ console.external-address: ""
 # path to static resources
 console.static-dir: ""
 # satellite database connection string
-database: "sqlite3://testdata/master.db"
+database: "postgres://"
 # address to listen on for debug endpoints
 debug.addr: "127.0.0.1:0"
 # If set, a path to write a process trace SVG to
@@ -39,7 +39,7 @@ identity.key-path: "/root/.local/share/storj/identity/satellite/identity.key"
 # alpha is a system wide concurrency parameter
 kademlia.alpha: 5
 # the Kademlia node to bootstrap against
-kademlia.bootstrap-addr: ""
+kademlia.bootstrap-addr: "bootstrap.storj.io:8888"
 # the base interval to wait when retrying bootstrap
 kademlia.bootstrap-backoff-base: 1s
 # the maximum amount of time to wait when retrying bootstrap
@@ -69,7 +69,7 @@ log.output: "stderr"
 # if true, log stack traces
 log.stack: false
 # smtp authentication type
-mail.auth-type: "simulate"
+mail.auth-type: "login"
 # oauth2 app's client id
 mail.client-id: ""
 # oauth2 app's client secret
@@ -91,7 +91,7 @@ mail.token-uri: ""
 # lifespan of bandwidth agreements in days
 metainfo.bw-expiration: 45
 # the database connection string to use
-metainfo.database-url: "bolt://testdata/pointerdb.db"
+metainfo.database-url: "postgres://"
 # maximum inline segment size
 metainfo.max-inline-segment-size: 8.0 KB
 # minimum remote segment size
@@ -123,11 +123,11 @@ overlay.node.uptime-count: 500
 # a node's ratio of being up/online vs. down/offline
 overlay.node.uptime-ratio: 0.9
 # how frequently checker should audit segments
-repairer.interval: 5m0s
+repairer.interval: 1h0m0s
 # maximum buffer memory (in bytes) to be allocated for read buffers
 repairer.max-buffer-mem: 4.0 MB
 # maximum segments that can be repaired concurrently
-repairer.max-repair: 10
+repairer.max-repair: 5
 # time limit for uploading repaired pieces to new storage nodes
 repairer.timeout: 10m0s
 # option for deleting tallies after they are rolled up
