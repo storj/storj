@@ -5,6 +5,7 @@ package macaroon
 
 import (
 	"bytes"
+	time "time"
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/gogo/protobuf/proto"
@@ -23,6 +24,23 @@ var (
 	// ErrRevoked means the API key has been revoked
 	ErrRevoked = errs.Class("api key revocation error")
 )
+
+type ActionType int
+
+const (
+	ActionUnset ActionType = iota
+	ActionRead
+	ActionWrite
+	ActionList
+	ActionDelete
+)
+
+type Action struct {
+	Op            ActionType
+	Bucket        []byte
+	EncryptedPath []byte
+	Time          time.Time
+}
 
 // APIKey implements a Macaroon-backed Storj-v3 API key.
 type APIKey struct {
@@ -61,11 +79,12 @@ func (a *APIKey) Check(secret []byte, action Action, revoked [][]byte) error {
 		return ErrInvalid.New("macaroon unauthorized")
 	}
 
-	caveats := a.mac.Caveats()
-	if len(caveats) == 0 {
-		// make sure we always check at least one empty caveat
-		caveats = [][]byte{[]byte("")}
+	// a timestamp is always required on an action
+	if action.Time.IsZero() {
+		return Error.New("no timestamp provided")
 	}
+
+	caveats := a.mac.Caveats()
 	for _, cavbuf := range caveats {
 		var cav Caveat
 		err := proto.Unmarshal(cavbuf, &cav)
@@ -118,30 +137,25 @@ func (a *APIKey) Serialize() (string, error) {
 // Allows returns true if the provided action is allowed by the caveat.
 func (c *Caveat) Allows(action Action) bool {
 	switch action.Op {
-	case Action_UNSET:
+	case ActionUnset:
 		return false
-	case Action_READ:
+	case ActionRead:
 		if c.DisallowReads {
 			return false
 		}
-	case Action_WRITE:
+	case ActionWrite:
 		if c.DisallowWrites {
 			return false
 		}
-	case Action_LIST:
+	case ActionList:
 		if c.DisallowLists {
 			return false
 		}
-	case Action_DELETE:
+	case ActionDelete:
 		if c.DisallowDeletes {
 			return false
 		}
 	default:
-		return false
-	}
-
-	// a timestamp is always required on an action
-	if action.Time == nil {
 		return false
 	}
 
@@ -151,7 +165,7 @@ func (c *Caveat) Allows(action Action) bool {
 	}
 	// if the caveat's "not before" field is *after* the action, then the action
 	// is before the "not before" field and it is invalid
-	if c.NotBefore != nil && c.NotBefore.After(*action.Time) {
+	if c.NotBefore != nil && c.NotBefore.After(action.Time) {
 		return false
 	}
 

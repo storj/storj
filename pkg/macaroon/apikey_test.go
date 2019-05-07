@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 )
 
 func TestSerializeParseRestrictAndCheck(t *testing.T) {
@@ -39,13 +40,13 @@ func TestSerializeParseRestrictAndCheck(t *testing.T) {
 
 	now := time.Now()
 	action1 := Action{
-		Op:            Action_READ,
-		Time:          &now,
+		Op:            ActionRead,
+		Time:          now,
 		EncryptedPath: []byte("a-test-path"),
 	}
 	action2 := Action{
-		Op:            Action_READ,
-		Time:          &now,
+		Op:            ActionRead,
+		Time:          now,
 		EncryptedPath: []byte("another-test-path"),
 	}
 
@@ -69,8 +70,8 @@ func TestRevocation(t *testing.T) {
 
 	now := time.Now()
 	action := Action{
-		Op:   Action_WRITE,
-		Time: &now,
+		Op:   ActionWrite,
+		Time: now,
 	}
 
 	require.NoError(t, key.Check(secret, action, nil))
@@ -103,33 +104,33 @@ func TestExpiration(t *testing.T) {
 
 	for i, test := range []struct {
 		keyToTest       *APIKey
-		timestampToTest *time.Time
-		authorized      bool
+		timestampToTest time.Time
+		errClass        *errs.Class
 	}{
-		{key, nil, false},
-		{notBeforeMinuteFromNow, nil, false},
-		{notAfterMinuteAgo, nil, false},
+		{key, time.Time{}, &Error},
+		{notBeforeMinuteFromNow, time.Time{}, &Error},
+		{notAfterMinuteAgo, time.Time{}, &Error},
 
-		{key, &now, true},
-		{notBeforeMinuteFromNow, &now, false},
-		{notAfterMinuteAgo, &now, false},
+		{key, now, nil},
+		{notBeforeMinuteFromNow, now, &ErrUnauthorized},
+		{notAfterMinuteAgo, now, &ErrUnauthorized},
 
-		{key, &twoMinutesAgo, true},
-		{notBeforeMinuteFromNow, &twoMinutesAgo, false},
-		{notAfterMinuteAgo, &twoMinutesAgo, true},
+		{key, twoMinutesAgo, nil},
+		{notBeforeMinuteFromNow, twoMinutesAgo, &ErrUnauthorized},
+		{notAfterMinuteAgo, twoMinutesAgo, nil},
 
-		{key, &twoMinutesFromNow, true},
-		{notBeforeMinuteFromNow, &twoMinutesFromNow, true},
-		{notAfterMinuteAgo, &twoMinutesFromNow, false},
+		{key, twoMinutesFromNow, nil},
+		{notBeforeMinuteFromNow, twoMinutesFromNow, nil},
+		{notAfterMinuteAgo, twoMinutesFromNow, &ErrUnauthorized},
 	} {
 		err := test.keyToTest.Check(secret, Action{
-			Op:   Action_READ,
+			Op:   ActionRead,
 			Time: test.timestampToTest,
 		}, nil)
-		if test.authorized {
+		if test.errClass == nil {
 			require.NoError(t, err, fmt.Sprintf("test #%d", i+1))
 		} else {
-			require.False(t, !ErrUnauthorized.Has(err), fmt.Sprintf("test #%d", i+1))
+			require.False(t, !test.errClass.Has(err), fmt.Sprintf("test #%d", i+1))
 		}
 	}
 }

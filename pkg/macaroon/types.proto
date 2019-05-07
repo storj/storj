@@ -24,19 +24,3 @@ message Caveat {
   google.protobuf.Timestamp not_after = 20 [(gogoproto.stdtime) = true];
   google.protobuf.Timestamp not_before = 21 [(gogoproto.stdtime) = true];
 }
-
-message Action {
-  enum Operation {
-    UNSET = 0; // no operation was set - this will always fail
-    READ = 1;
-    WRITE = 2;
-    LIST = 3;
-    DELETE = 4;
-  }
-
-  Operation op = 1;
-  bytes bucket = 2;
-  bytes encrypted_path = 3;
-
-  google.protobuf.Timestamp time = 4 [(gogoproto.stdtime) = true];
-}
