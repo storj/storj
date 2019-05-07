@@ -51,11 +51,11 @@ type Endpoint struct {
 	apiKeys           APIKeys
 	accountingDB      accounting.DB
 	accountingRTCache accountingcache.Service
-	maxAlphaUsage     memory.Size
+	maxUsage          memory.Size
 }
 
 // NewEndpoint creates new metainfo endpoint instance
-func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, apiKeys APIKeys, acctDB accounting.DB, acctCache accountingcache.Service, maxAlphaUsage memory.Size) *Endpoint {
+func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, apiKeys APIKeys, acctDB accounting.DB, acctCache accountingcache.Service, maxUsage memory.Size) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
 		log:               log,
@@ -65,7 +65,7 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cac
 		apiKeys:           apiKeys,
 		accountingDB:      acctDB,
 		accountingRTCache: acctCache,
-		maxAlphaUsage:     maxAlphaUsage,
+		maxUsage:          maxUsage,
 	}
 }
 
@@ -149,13 +149,13 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 	if err != nil {
 		endpoint.log.Error("retrieving project storage totals", zap.Error(err))
 	}
-	exceeded, resource := accounting.ExceedsUsageLimit(0, inlineTotal, remoteTotal, endpoint.maxAlphaUsage)
+	exceeded, resource := accounting.ExceedsUsageLimit(0, inlineTotal, remoteTotal, endpoint.maxUsage)
 	if exceeded {
 		endpoint.log.Sugar().Errorf("monthly project limits are %s of storage and bandwidth usage. This limit has been exceeded for %s for projectID %s.",
-			endpoint.maxAlphaUsage.String(),
+			endpoint.maxUsage.String(),
 			resource, keyInfo.ProjectID,
 		)
-		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Alpha Usage Limit")
+		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Usage Limit")
 	}
 
 	redundancy, err := eestream.NewRedundancyStrategyFromProto(req.GetRedundancy())
@@ -208,6 +208,9 @@ func calculateSpaceUsed(ptr *pb.Pointer) (inlineSpace, remoteSpace int64) {
 	}
 	segmentSize := ptr.GetSegmentSize()
 	remote := ptr.GetRemote()
+	if remote == nil {
+		return 0, 0
+	}
 	minReq := remote.GetRedundancy().GetMinReq()
 	pieceSize := segmentSize / int64(minReq)
 	pieces := remote.GetRemotePieces()
@@ -295,12 +298,12 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	if err != nil {
 		endpoint.log.Error("retrieving ProjectBandwidthTotal", zap.Error(err))
 	}
-	exceeded, resource := accounting.ExceedsUsageLimit(bandwidthTotal, 0, 0, endpoint.maxAlphaUsage)
+	exceeded, resource := accounting.ExceedsUsageLimit(bandwidthTotal, 0, 0, endpoint.maxUsage)
 	if exceeded {
 		endpoint.log.Sugar().Errorf("monthly project usage limit has been exceeded for resource: %s, for project: %d. Contact customer support to increase the limit.",
 			resource, keyInfo.ProjectID,
 		)
-		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Alpha Usage Limit")
+		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Usage Limit")
 	}
 
 	path, err := CreatePath(keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
