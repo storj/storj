@@ -5,7 +5,7 @@ go 1.12
 require (
 	github.com/Microsoft/go-winio v0.4.12 // indirect
 	github.com/Shopify/go-lua v0.0.0-20181106184032-48449c60c0a9
-	github.com/aleitner/gogert v0.0.0-20190507203833-78d80ca65fb3
+	github.com/aleitner/gogert v0.0.0-20190508024053-121d38f9e153
 	github.com/alicebob/miniredis v2.5.0+incompatible
 	github.com/baiyubin/aliyun-sts-go-sdk v0.0.0-20180326062324-cfa1a18b161f // indirect
 	github.com/boltdb/bolt v1.3.1
@@ -36,7 +36,7 @@ require (
 	github.com/marstr/guid v1.1.0 // indirect
 	github.com/mattn/go-sqlite3 v1.10.0
 	github.com/minio/cli v1.3.0
-	github.com/minio/minio v0.0.0-20190507173926-a71e08efb4df
+	github.com/minio/minio v0.0.0-20190507204954-757c63904403
 	github.com/minio/minio-go v6.0.14+incompatible
 	github.com/minio/sha256-simd v0.0.0-20190328051042-05b4dd3047e5
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect

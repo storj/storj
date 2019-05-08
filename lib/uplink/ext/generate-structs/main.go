@@ -139,17 +139,15 @@ func generateStructRecursive(fset *token.FileSet, name string, fields *ast.Field
 
 		// Field name
 		gotype := typeNameBuf.String()
-		name := strings.ToLower(gotype)
-
+		fieldName := gotype
 		if len(field.Names) > 0 {
-			name = field.Names[0].Name
+			fieldName = field.Names[0].Name
 		}
 
 		// Give anonymous structs a name
 		fieldGoType := gotype
 		if strings.HasPrefix(gotype, "struct {") {
-			gotype = fmt.Sprintf("%s %s", name, gotype)
-			fieldGoType = "Anonymous Struct"
+			fieldGoType = fmt.Sprintf("Anonymous struct")
 		}
 
 		converter, err := gogert.NewConverter()
@@ -165,7 +163,7 @@ func generateStructRecursive(fset *token.FileSet, name string, fields *ast.Field
 
 		cstruct.Fields = append(cstruct.Fields, &gogert.Field{
 			CType:  ctype,
-			Name:   name,
+			Name:   fieldName,
 			GoType: fieldGoType,
 		})
 
