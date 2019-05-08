@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/internal/post/oauth2"
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/pkg/accounting/live"
 	"storj.io/storj/pkg/accounting/rollup"
 	"storj.io/storj/pkg/accounting/tally"
 	"storj.io/storj/pkg/audit"
@@ -46,7 +47,6 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/inspector"
-	"storj.io/storj/satellite/liveaccounting"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/satellite/metainfo"
@@ -105,7 +105,7 @@ type Config struct {
 
 	Tally          tally.Config
 	Rollup         rollup.Config
-	LiveAccounting liveaccounting.Config
+	LiveAccounting live.Config
 
 	Mail    mailservice.Config
 	Console consoleweb.Config
@@ -179,7 +179,7 @@ type Peer struct {
 	}
 
 	LiveAccounting struct {
-		Service liveaccounting.Service
+		Service live.Service
 	}
 
 	Mail struct {
@@ -308,10 +308,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		peer.Discovery.Service = discovery.New(peer.Log.Named("discovery"), peer.Overlay.Service, peer.Kademlia.Service, config)
 	}
 
-	{ // setup liveaccounting
-		log.Debug("Setting up liveaccounting")
+	{ // setup live accounting
+		log.Debug("Setting up live accounting")
 		config := config.LiveAccounting
-		liveAccountingService, err := liveaccounting.New(peer.Log.Named("liveaccounting"), config)
+		liveAccountingService, err := live.New(peer.Log.Named("live-accounting"), config)
 		if err != nil {
 			return nil, err
 		}

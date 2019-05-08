@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package liveaccounting
+package live
 
 import (
 	"context"
@@ -13,12 +13,12 @@ import (
 	"go.uber.org/zap"
 )
 
-// Config contains configurable values for the liveaccounting service.
+// Config contains configurable values for the live accounting service.
 type Config struct {
 	StorageBackend string `help:"what to use for storing real-time accounting data"`
 }
 
-// Service represents the external interface to the liveaccounting
+// Service represents the external interface to the live accounting
 // functionality.
 type Service interface {
 	GetProjectStorageUsage(ctx context.Context, projectID uuid.UUID) (int64, int64, error)
@@ -26,7 +26,7 @@ type Service interface {
 	ResetTotals()
 }
 
-// New creates a new liveaccounting.Service instance of the type specified in
+// New creates a new live.Service instance of the type specified in
 // the provided config.
 func New(log *zap.Logger, config Config) (Service, error) {
 	parts := strings.SplitN(config.StorageBackend, ":", 2)
@@ -40,10 +40,10 @@ func New(log *zap.Logger, config Config) (Service, error) {
 	case "plainmemory":
 		return newPlainMemoryLiveAccounting(log)
 	}
-	return nil, errs.New("unrecognized liveaccounting backend specifier %q", backendType)
+	return nil, errs.New("unrecognized live accounting backend specifier %q", backendType)
 }
 
-// plainMemoryLiveAccounting represents an liveaccounting.Service-implementing
+// plainMemoryLiveAccounting represents an live.Service-implementing
 // instance using plain memory (no coordination with other servers). It can be
 // used to coordinate tracking of how much space a project has used.
 //
@@ -78,9 +78,9 @@ func (pmac *plainMemoryLiveAccounting) GetProjectStorageUsage(ctx context.Contex
 	return curVal.inlineSpace, curVal.remoteSpace, nil
 }
 
-// AddProjectStorageUsage lets the liveaccounting know that the given project
-// has just added inlineSpaceUsed bytes of inline space usage and
-// remoteSpaceUsed bytes of remote space usage.
+// AddProjectStorageUsage lets the live accounting know that the given
+// project has just added inlineSpaceUsed bytes of inline space usage
+// and remoteSpaceUsed bytes of remote space usage.
 func (pmac *plainMemoryLiveAccounting) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) error {
 	pmac.spaceMapLock.Lock()
 	defer pmac.spaceMapLock.Unlock()

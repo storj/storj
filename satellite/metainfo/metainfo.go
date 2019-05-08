@@ -19,6 +19,7 @@ import (
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/pkg/accounting/live"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
@@ -26,7 +27,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/liveaccounting"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/storage"
 )
@@ -50,12 +50,12 @@ type Endpoint struct {
 	cache          *overlay.Cache
 	apiKeys        APIKeys
 	accountingDB   accounting.DB
-	liveAccounting liveaccounting.Service
+	liveAccounting live.Service
 	maxAlphaUsage  memory.Size
 }
 
 // NewEndpoint creates new metainfo endpoint instance
-func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, apiKeys APIKeys, acctDB accounting.DB, liveAccounting liveaccounting.Service, maxAlphaUsage memory.Size) *Endpoint {
+func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, apiKeys APIKeys, acctDB accounting.DB, liveAccounting live.Service, maxAlphaUsage memory.Size) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
 		log:            log,
