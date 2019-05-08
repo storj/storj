@@ -62,7 +62,6 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 }
 
 func TestIdentifyIrreparableSegments(t *testing.T) {
-	//t.Skip()
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 3, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
