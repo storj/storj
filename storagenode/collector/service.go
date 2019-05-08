@@ -58,7 +58,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 
 // Close stops the collector service.
 func (service *Service) Close() (err error) {
-	service.Loop.Stop()
+	service.Loop.Close()
 	return nil
 }
 
