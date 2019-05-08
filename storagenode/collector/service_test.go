@@ -36,7 +36,7 @@ func TestCollector(t *testing.T) {
 		require.NoError(t, err)
 
 		// stop planet to prevent audits
-		planet.StopPeer(planet.Satellites[0])
+		require.NoError(t, planet.StopPeer(planet.Satellites[0]))
 
 		collections := 0
 
