@@ -107,3 +107,23 @@ func TestCycle_MultipleStops(t *testing.T) {
 	cycle.Stop()
 	cycle.Stop()
 }
+
+func TestCycle_StopCancelled(t *testing.T) {
+	t.Parallel()
+
+	cycle := sync2.NewCycle(time.Second)
+	defer cycle.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	var group errgroup.Group
+	var count int64
+	cycle.Start(ctx, &group, func(ctx context.Context) error {
+		atomic.AddInt64(&count, 1)
+		return nil
+	})
+
+	cycle.Stop()
+	cycle.Stop()
+}
