@@ -39,11 +39,11 @@ func (db *pieceinfo) Add(ctx context.Context, info *pieces.Info) error {
 
 	defer db.locked()()
 
-	_, err = db.db.Exec(`
+	_, err = db.db.ExecContext(ctx, db.Rebind(`
 		INSERT INTO
 			pieceinfo(satellite_id, piece_id, piece_size, piece_expiration, uplink_piece_hash, uplink_cert_id)
 		VALUES (?,?,?,?,?,?)
-	`, info.SatelliteID, info.PieceID, info.PieceSize, info.PieceExpiration, uplinkPieceHash, certid)
+	`), info.SatelliteID, info.PieceID, info.PieceSize, info.PieceExpiration, uplinkPieceHash, certid)
 
 	return ErrInfo.Wrap(err)
 }
@@ -58,12 +58,12 @@ func (db *pieceinfo) Get(ctx context.Context, satelliteID storj.NodeID, pieceID 
 	var uplinkIdentity []byte
 
 	db.mu.Lock()
-	err := db.db.QueryRow(`
+	err := db.db.QueryRowContext(ctx, db.Rebind(`
 		SELECT piece_size, piece_expiration, uplink_piece_hash, certificate.peer_identity
 		FROM pieceinfo
 		INNER JOIN certificate ON pieceinfo.uplink_cert_id = certificate.cert_id
 		WHERE satellite_id = ? AND piece_id = ?
-	`, satelliteID, pieceID).Scan(&info.PieceSize, &info.PieceExpiration, &uplinkPieceHash, &uplinkIdentity)
+	`), satelliteID, pieceID).Scan(&info.PieceSize, &info.PieceExpiration, &uplinkPieceHash, &uplinkIdentity)
 	db.mu.Unlock()
 
 	if err != nil {
@@ -88,9 +88,53 @@ func (db *pieceinfo) Get(ctx context.Context, satelliteID storj.NodeID, pieceID 
 func (db *pieceinfo) Delete(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) error {
 	defer db.locked()()
 
-	_, err := db.db.Exec(`DELETE FROM pieceinfo WHERE satellite_id = ? AND piece_id = ?`, satelliteID, pieceID)
+	_, err := db.db.ExecContext(ctx, db.Rebind(`
+		DELETE FROM pieceinfo 
+		WHERE satellite_id = ? 
+		  AND piece_id = ?
+	`), satelliteID, pieceID)
 
 	return ErrInfo.Wrap(err)
+}
+
+// DeleteFailed marks piece as a failed deletion.
+func (db *pieceinfo) DeleteFailed(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID, now time.Time) error {
+	defer db.locked()()
+
+	_, err := db.db.ExecContext(ctx, db.Rebind(`
+		UPDATE pieceinfo 
+		SET deletion_failed_at = ?
+		WHERE satellite_id = ? 
+		  AND piece_id = ?
+	`), now, satelliteID, pieceID)
+
+	return ErrInfo.Wrap(err)
+}
+
+// GetExpired gets pieceinformation identites that are expired.
+func (db *pieceinfo) GetExpired(ctx context.Context, expiredAt time.Time, limit int64) (infos []pieces.ExpiredInfo, err error) {
+	defer db.locked()()
+
+	rows, err := db.db.QueryContext(ctx, db.Rebind(`
+		SELECT satellite_id, piece_id, piece_size
+		FROM pieceinfo
+		WHERE piece_expiration < ? AND ((deletion_failed_at IS NULL) OR deletion_failed_at <> ?)
+		ORDER BY satellite_id
+		LIMIT ?
+	`), expiredAt, expiredAt, limit)
+	if err != nil {
+		return nil, ErrInfo.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+	for rows.Next() {
+		info := pieces.ExpiredInfo{}
+		err = rows.Scan(&info.SatelliteID, &info.PieceID, &info.PieceSize)
+		if err != nil {
+			return infos, ErrInfo.Wrap(err)
+		}
+		infos = append(infos, info)
+	}
+	return infos, nil
 }
 
 // SpaceUsed calculates disk space used by all pieces
@@ -98,54 +142,13 @@ func (db *pieceinfo) SpaceUsed(ctx context.Context) (int64, error) {
 	defer db.locked()()
 
 	var sum *int64
-	err := db.db.QueryRow(`SELECT SUM(piece_size) FROM pieceinfo;`).Scan(&sum)
+	err := db.db.QueryRowContext(ctx, db.Rebind(`
+		SELECT SUM(piece_size)
+		FROM pieceinfo
+	`)).Scan(&sum)
+
 	if err == sql.ErrNoRows || sum == nil {
 		return 0, nil
 	}
 	return *sum, err
-}
-
-// GetExpired gets orders that are expired and were created before some time
-func (db *pieceinfo) GetExpired(ctx context.Context, expiredAt time.Time) (info []pieces.Info, err error) {
-	var getExpiredSQL = `SELECT satellite_id, piece_id, piece_size, piece_expiration, uplink_piece_hash, certificate.peer_identity
-		FROM pieceinfo
-		INNER JOIN certificate ON pieceinfo.uplink_cert_id = certificate.cert_id
-		WHERE piece_expiration < ? ORDER BY satellite_id `
-
-	rows, err := db.db.QueryContext(ctx, db.Rebind(getExpiredSQL), expiredAt)
-	if err != nil {
-		return nil, ErrInfo.Wrap(err)
-	}
-	defer func() { err = errs.Combine(err, rows.Close()) }()
-	for rows.Next() {
-		pi := pieces.Info{}
-		var uplinkPieceHash []byte
-		var uplinkIdentity []byte
-		err = rows.Scan(&pi.SatelliteID, &pi.PieceID, &pi.PieceSize, &pi.PieceExpiration, &uplinkPieceHash, &uplinkIdentity)
-		if err != nil {
-			return info, ErrInfo.Wrap(err)
-		}
-
-		pi.UplinkPieceHash = &pb.PieceHash{}
-		err = proto.Unmarshal(uplinkPieceHash, pi.UplinkPieceHash)
-		if err != nil {
-			return nil, ErrInfo.Wrap(err)
-		}
-
-		pi.Uplink, err = decodePeerIdentity(uplinkIdentity)
-		if err != nil {
-			return nil, ErrInfo.Wrap(err)
-		}
-		info = append(info, pi)
-	}
-	return info, nil
-}
-
-// DeleteExpired deletes expired piece information.
-func (db *pieceinfo) DeleteExpired(ctx context.Context, expiredAt time.Time, satelliteID storj.NodeID, pieceID storj.PieceID) error {
-	defer db.locked()()
-
-	_, err := db.db.Exec(`DELETE FROM pieceinfo WHERE piece_expiration < ? AND satellite_id = ? AND piece_id = ?`, expiredAt, satelliteID, pieceID)
-
-	return ErrInfo.Wrap(err)
 }

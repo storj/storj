@@ -52,6 +52,7 @@ import (
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/storagenodedb"
@@ -603,11 +604,11 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 				AllocatedBandwidth:     memory.TB,
 				KBucketRefreshInterval: time.Hour,
 
-				AgreementSenderCheckInterval: time.Hour,
-				CollectorInterval:            time.Hour,
-
 				SatelliteIDRestriction:  true,
 				WhitelistedSatelliteIDs: strings.Join(whitelistedSatelliteIDs, ","),
+			},
+			Collector: collector.Config{
+				Interval: time.Minute,
 			},
 			Storage2: piecestore.Config{
 				Sender: orders.SenderConfig{

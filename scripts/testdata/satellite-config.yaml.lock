@@ -1,164 +1,245 @@
 # What to use for storing real-time accounting data
 accounting-cache.storage-backend: ""
 # how frequently segments are audited
-audit.interval: 30s
+# audit.interval: 30s
+
 # max number of times to attempt updating a statdb batch
-audit.max-retries-stat-db: 3
+# audit.max-retries-stat-db: 3
+
 # the minimum acceptable bytes that storage nodes can transfer per second to the satellite
-audit.min-bytes-per-second: 128 B
+# audit.min-bytes-per-second: 128 B
+
 # how frequently checker should audit segments
-checker.interval: 30s
+# checker.interval: 30s
+
 # server address of the graphql api gateway and frontend app
-console.address: "127.0.0.1:8081"
+# console.address: "127.0.0.1:8081"
+
 # auth token needed for access to registration token creation endpoint
-console.auth-token: ""
+# console.auth-token: ""
+
 # external endpoint of the satellite if hosted
-console.external-address: ""
+# console.external-address: ""
+
 # path to static resources
-console.static-dir: ""
+# console.static-dir: ""
+
 # satellite database connection string
-database: "postgres://"
+# database: "postgres://"
+
 # address to listen on for debug endpoints
-debug.addr: "127.0.0.1:0"
+# debug.addr: "127.0.0.1:0"
+
 # If set, a path to write a process trace SVG to
-debug.trace-out: ""
+# debug.trace-out: ""
+
 # determines which set of configuration defaults to use. can either be 'dev' or 'release'
 defaults: "release"
+
 # the interval at which the satellite attempts to find new nodes via random node ID lookups
-discovery.discovery-interval: 1s
+# discovery.discovery-interval: 1s
+
 # the interval at which the the graveyard tries to resurrect nodes
-discovery.graveyard-interval: 30s
+# discovery.graveyard-interval: 30s
+
 # the interval at which the cache refreshes itself in seconds
-discovery.refresh-interval: 1s
+# discovery.refresh-interval: 1s
+
 # the amount of nodes refreshed at each interval
-discovery.refresh-limit: 100
+# discovery.refresh-limit: 100
+
 # help for setup
-help: false
+# help: false
+
 # path to the certificate chain for this identity
 identity.cert-path: "/root/.local/share/storj/identity/satellite/identity.cert"
+
 # path to the private key for this identity
 identity.key-path: "/root/.local/share/storj/identity/satellite/identity.key"
+
 # alpha is a system wide concurrency parameter
-kademlia.alpha: 5
+# kademlia.alpha: 5
+
 # the Kademlia node to bootstrap against
-kademlia.bootstrap-addr: "bootstrap.storj.io:8888"
+# kademlia.bootstrap-addr: "bootstrap.storj.io:8888"
+
 # the base interval to wait when retrying bootstrap
-kademlia.bootstrap-backoff-base: 1s
+# kademlia.bootstrap-backoff-base: 1s
+
 # the maximum amount of time to wait when retrying bootstrap
-kademlia.bootstrap-backoff-max: 30s
+# kademlia.bootstrap-backoff-max: 30s
+
 # size of each Kademlia bucket
-kademlia.bucket-size: 20
+# kademlia.bucket-size: 20
+
 # the path for storage node db services to be created on
-kademlia.db-path: "testdata/kademlia"
+# kademlia.db-path: "testdata/kademlia"
+
 # the public address of the Kademlia node, useful for nodes behind NAT
 kademlia.external-address: ""
+
 # operator email address
 kademlia.operator.email: ""
+
 # operator wallet adress
 kademlia.operator.wallet: ""
+
 # size of Kademlia replacement cache
-kademlia.replacement-cache-size: 5
+# kademlia.replacement-cache-size: 5
+
 # if true, log function filename and line number
-log.caller: false
+# log.caller: false
+
 # if true, set logging to development mode
-log.development: false
+# log.development: false
+
 # configures log encoding. can either be 'console' or 'json'
-log.encoding: "console"
+# log.encoding: "console"
+
 # the minimum log level to log
-log.level: warn
+# log.level: warn
+
 # can be stdout, stderr, or a filename
-log.output: "stderr"
+# log.output: "stderr"
+
 # if true, log stack traces
-log.stack: false
+# log.stack: false
+
 # smtp authentication type
-mail.auth-type: "login"
+# mail.auth-type: "login"
+
 # oauth2 app's client id
-mail.client-id: ""
+# mail.client-id: ""
+
 # oauth2 app's client secret
-mail.client-secret: ""
+# mail.client-secret: ""
+
 # sender email address
-mail.from: ""
+# mail.from: ""
+
 # plain/login auth user login
-mail.login: ""
+# mail.login: ""
+
 # plain/login auth user password
-mail.password: ""
+# mail.password: ""
+
 # refresh token used to retrieve new access token
-mail.refresh-token: ""
+# mail.refresh-token: ""
+
 # smtp server address
-mail.smtp-server-address: ""
+# mail.smtp-server-address: ""
+
 # path to email templates source
-mail.template-path: ""
+# mail.template-path: ""
+
 # uri which is used when retrieving new access token
-mail.token-uri: ""
+# mail.token-uri: ""
+
 # lifespan of bandwidth agreements in days
-metainfo.bw-expiration: 45
+# metainfo.bw-expiration: 45
+
 # the database connection string to use
-metainfo.database-url: "postgres://"
+# metainfo.database-url: "postgres://"
+
 # maximum inline segment size
-metainfo.max-inline-segment-size: 8.0 KB
+# metainfo.max-inline-segment-size: 8.0 KB
+
 # minimum remote segment size
-metainfo.min-remote-segment-size: 1.2 KiB
+# metainfo.min-remote-segment-size: 1.2 KiB
+
 # toggle flag if overlay is enabled
-metainfo.overlay: true
+# metainfo.overlay: true
+
 # address to send telemetry to
-metrics.addr: "collectora.storj.io:9000"
+# metrics.addr: "collectora.storj.io:9000"
+
 # application name for telemetry identification
-metrics.app: "satellite"
+# metrics.app: "satellite"
+
 # application suffix
-metrics.app-suffix: "-dev"
+# metrics.app-suffix: "-dev"
+
 # how frequently to send up telemetry
-metrics.interval: 1m0s
+# metrics.interval: 1m0s
+
 # path to log for oom notices
-monkit.hw.oomlog: "/var/log/kern.log"
+# monkit.hw.oomlog: "/var/log/kern.log"
+
 # the number of times a node has been audited to not be considered a New Node
-overlay.node.audit-count: 500
+# overlay.node.audit-count: 500
+
 # a node's ratio of successful audits
-overlay.node.audit-success-ratio: 0.4
+# overlay.node.audit-success-ratio: 0.4
+
 # the minimum node software version for node selection queries
-overlay.node.minimum-version: ""
+# overlay.node.minimum-version: ""
+
 # the percentage of new nodes allowed per request
-overlay.node.new-node-percentage: 0.05
+# overlay.node.new-node-percentage: 0.05
+
 # the amount of time without seeing a node before its considered offline
-overlay.node.online-window: 1h0m0s
+# overlay.node.online-window: 1h0m0s
+
 # the number of times a node's uptime has been checked to not be considered a New Node
-overlay.node.uptime-count: 500
+# overlay.node.uptime-count: 500
+
 # a node's ratio of being up/online vs. down/offline
-overlay.node.uptime-ratio: 0.9
+# overlay.node.uptime-ratio: 0.9
+
 # how frequently checker should audit segments
-repairer.interval: 1h0m0s
+# repairer.interval: 1h0m0s
+
 # maximum buffer memory (in bytes) to be allocated for read buffers
-repairer.max-buffer-mem: 4.0 MB
+# repairer.max-buffer-mem: 4.0 MB
+
 # maximum segments that can be repaired concurrently
-repairer.max-repair: 5
+# repairer.max-repair: 5
+
 # time limit for uploading repaired pieces to new storage nodes
-repairer.timeout: 10m0s
+# repairer.timeout: 10m0s
+
 # option for deleting tallies after they are rolled up
-rollup.delete-tallies: false
+# rollup.delete-tallies: false
+
 # how frequently rollup should run
-rollup.interval: 24h0m0s
+# rollup.interval: 24h0m0s
+
 # the bandwidth and storage usage limit for the alpha release
-rollup.max-alpha-usage: 25.0 GB
+# rollup.max-alpha-usage: 25.0 GB
+
 # public address to listen on
 server.address: ":7777"
+
 # if true, client leaves may contain the most recent certificate revocation for the current certificate
-server.extensions.revocation: true
+# server.extensions.revocation: true
+
 # if true, client leaves must contain a valid "signed certificate extension" (NB: verified against certs in the peer ca whitelist; i.e. if true, a whitelist must be provided)
-server.extensions.whitelist-signed-leaf: false
+# server.extensions.whitelist-signed-leaf: false
+
 # path to the CA cert whitelist (peer identities must be signed by one these to be verified). this will override the default peer whitelist
-server.peer-ca-whitelist-path: ""
+# server.peer-ca-whitelist-path: ""
+
 # identity version(s) the server will be allowed to talk to
-server.peer-id-versions: "latest"
+# server.peer-id-versions: "latest"
+
 # private address to listen on
 server.private-address: "127.0.0.1:7778"
+
 # url for revocation database (e.g. bolt://some.db OR redis://127.0.0.1:6378?db=2&password=abc123)
-server.revocation-dburl: "bolt://testdata/revocations.db"
+# server.revocation-dburl: "bolt://testdata/revocations.db"
+
 # if true, uses peer ca whitelist checking
-server.use-peer-ca-whitelist: false
+# server.use-peer-ca-whitelist: false
+
 # how frequently the tally service should run
-tally.interval: 1h0m0s
+# tally.interval: 1h0m0s
+
 # Interval to check the version
-version.check-interval: 15m0s
+# version.check-interval: 15m0s
+
 # Request timeout for version checks
-version.request-timeout: 1m0s
+# version.request-timeout: 1m0s
+
 # server address to check its version against
-version.server-address: "https://version.alpha.storj.io"
+# version.server-address: "https://version.alpha.storj.io"
+
