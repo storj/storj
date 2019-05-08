@@ -31,7 +31,9 @@
 			</div>
 			<div class="project-creation-success-popup__form-container">
 				<h2 class="project-creation-success-popup__form-container__main-label-text">Congrats!</h2>
-				<p>You just created your project. Next, we recommend you create your first API Key for this project. API Keys allow developers to manage their projects and build applications on top of the Storj network through our <a>Uplink CLI.</a></p>
+				<p>You just created your project. Next, we recommend you create your first API Key for this project. API Keys allow developers to manage their projects and build applications on top of the Storj network through our
+					<a href="https://github.com/storj/storj/wiki/Uplink-CLI" target="_blank">Uplink CLI.</a>
+				</p>
 				<div class="project-creation-success-popup__form-container__button-container">
 					<Button label="I will do it later" width="214px" height="50px" :onPress="onCloseClick" isWhite />
 					<Button label="Create first API Key" width="214px" height="50px" :onPress="onCreateAPIKeyClick" />
@@ -65,6 +67,7 @@
                 },
                 onCreateAPIKeyClick: function (): void {
                     this.$router.push(ROUTES.API_KEYS.path);
+                    (this as any).onCloseClick();
                     this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
                 }
             },

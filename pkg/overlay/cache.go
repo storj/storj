@@ -40,8 +40,8 @@ type DB interface {
 
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
-	// GetAll looks up nodes based on the ids from the overlay cache
-	GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]*NodeDossier, error)
+	// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
+	KnownUnreliableOrOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
 	// Paginate will page through the database nodes
 	Paginate(ctx context.Context, offset int64, limit int) ([]*NodeDossier, bool, error)
 
@@ -150,22 +150,10 @@ func (cache *Cache) Get(ctx context.Context, nodeID storj.NodeID) (_ *NodeDossie
 	return cache.db.Get(ctx, nodeID)
 }
 
-// IsNew checks if a node is 'new' based on the collected statistics.
-func (cache *Cache) IsNew(node *NodeDossier) bool {
-	return node.Reputation.AuditCount < cache.preferences.AuditCount
-}
-
 // IsOnline checks if a node is 'online' based on the collected statistics.
 func (cache *Cache) IsOnline(node *NodeDossier) bool {
 	return time.Now().Sub(node.Reputation.LastContactSuccess) < cache.preferences.OnlineWindow &&
 		node.Reputation.LastContactSuccess.After(node.Reputation.LastContactFailure)
-}
-
-// IsHealthy checks if a node is 'valid' based on the collected statistics.
-func (cache *Cache) IsHealthy(node *NodeDossier) bool {
-	r, p := node.Reputation, cache.preferences
-	return r.AuditCount >= p.AuditCount && r.UptimeCount >= p.UptimeCount &&
-		r.AuditSuccessRatio >= p.AuditSuccessRatio && r.UptimeRatio >= p.UptimeRatio
 }
 
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
@@ -207,24 +195,23 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 		}
 	}
 
-	auditCount := preferences.AuditCount
-
 	// add selected new nodes to the excluded list for reputable node selection
 	for _, newNode := range newNodes {
 		excluded = append(excluded, newNode.Id)
 	}
 
-	reputableNodes, err := cache.db.SelectStorageNodes(ctx, reputableNodeCount-len(newNodes), &NodeCriteria{
+	criteria := NodeCriteria{
 		FreeBandwidth:      req.FreeBandwidth,
 		FreeDisk:           req.FreeDisk,
-		AuditCount:         auditCount,
+		AuditCount:         preferences.AuditCount,
 		AuditSuccessRatio:  preferences.AuditSuccessRatio,
 		UptimeCount:        preferences.UptimeCount,
 		UptimeSuccessRatio: preferences.UptimeRatio,
 		Excluded:           excluded,
 		MinimumVersion:     preferences.MinimumVersion,
 		OnlineWindow:       preferences.OnlineWindow,
-	})
+	}
+	reputableNodes, err := cache.db.SelectStorageNodes(ctx, reputableNodeCount-len(newNodes), &criteria)
 	if err != nil {
 		return nil, err
 	}
@@ -233,21 +220,24 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 	nodes = append(nodes, reputableNodes...)
 
 	if len(nodes) < reputableNodeCount {
-		return nodes, ErrNotEnoughNodes.New("requested %d found %d", reputableNodeCount, len(nodes))
+		return nodes, ErrNotEnoughNodes.New("requested %d found %d; %+v ", reputableNodeCount, len(nodes), criteria)
 	}
 
 	return nodes, nil
 }
 
-// GetAll looks up the provided ids from the overlay cache
-func (cache *Cache) GetAll(ctx context.Context, ids storj.NodeIDList) (_ []*NodeDossier, err error) {
+// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
+// Note that KnownUnreliableOrOffline will not return node ids which are not in the database at all
+func (cache *Cache) KnownUnreliableOrOffline(ctx context.Context, nodeIds storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	if len(ids) == 0 {
-		return nil, OverlayError.New("no ids provided")
+	criteria := &NodeCriteria{
+		AuditCount:         cache.preferences.AuditCount,
+		AuditSuccessRatio:  cache.preferences.AuditSuccessRatio,
+		OnlineWindow:       cache.preferences.OnlineWindow,
+		UptimeCount:        cache.preferences.UptimeCount,
+		UptimeSuccessRatio: cache.preferences.UptimeRatio,
 	}
-
-	return cache.db.GetAll(ctx, ids)
+	return cache.db.KnownUnreliableOrOffline(ctx, criteria, nodeIds)
 }
 
 // Put adds a node id and proto definition into the overlay cache
