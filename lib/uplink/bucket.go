@@ -167,6 +167,78 @@ func (b *Bucket) ListObjects(ctx context.Context, cfg *ListOptions) (list storj.
 	return b.metainfo.ListObjects(ctx, b.bucket.Name, *cfg)
 }
 
+// NewWriter creates a writer which uploads the object.
+func (b *Bucket) NewWriter(ctx context.Context, path storj.Path, opts *UploadOptions) (_ io.WriteCloser, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if opts == nil {
+		opts = &UploadOptions{}
+	}
+
+	if opts.Volatile.RedundancyScheme.Algorithm == 0 {
+		opts.Volatile.RedundancyScheme.Algorithm = b.Volatile.RedundancyScheme.Algorithm
+	}
+	if opts.Volatile.RedundancyScheme.OptimalShares == 0 {
+		opts.Volatile.RedundancyScheme.OptimalShares = b.Volatile.RedundancyScheme.OptimalShares
+	}
+	if opts.Volatile.RedundancyScheme.RepairShares == 0 {
+		opts.Volatile.RedundancyScheme.RepairShares = b.Volatile.RedundancyScheme.RepairShares
+	}
+	if opts.Volatile.RedundancyScheme.RequiredShares == 0 {
+		opts.Volatile.RedundancyScheme.RequiredShares = b.Volatile.RedundancyScheme.RequiredShares
+	}
+	if opts.Volatile.RedundancyScheme.ShareSize == 0 {
+		opts.Volatile.RedundancyScheme.ShareSize = b.Volatile.RedundancyScheme.ShareSize
+	}
+	if opts.Volatile.RedundancyScheme.TotalShares == 0 {
+		opts.Volatile.RedundancyScheme.TotalShares = b.Volatile.RedundancyScheme.TotalShares
+	}
+	if opts.Volatile.EncryptionParameters.CipherSuite == storj.EncUnspecified {
+		opts.Volatile.EncryptionParameters.CipherSuite = b.EncryptionParameters.CipherSuite
+	}
+	if opts.Volatile.EncryptionParameters.BlockSize == 0 {
+		opts.Volatile.EncryptionParameters.BlockSize = b.EncryptionParameters.BlockSize
+	}
+	createInfo := storj.CreateObject{
+		ContentType:      opts.ContentType,
+		Metadata:         opts.Metadata,
+		Expires:          opts.Expires,
+		RedundancyScheme: opts.Volatile.RedundancyScheme,
+		EncryptionScheme: opts.Volatile.EncryptionParameters.ToEncryptionScheme(),
+	}
+
+	obj, err := b.metainfo.CreateObject(ctx, b.Name, path, &createInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	mutableStream, err := obj.CreateStream(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	upload := stream.NewUpload(ctx, mutableStream, b.streams)
+	return upload, nil
+}
+
+type ReadSeekCloser interface {
+	io.Reader
+	io.Seeker
+	io.Closer
+}
+
+// NewReader creates a new reader that downloads the object data.
+func (b *Bucket) NewReader(ctx context.Context, path storj.Path) (_ ReadSeekCloser, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	segmentStream, err := b.metainfo.GetObjectStream(ctx, b.Name, path)
+	if err != nil {
+		return nil, err
+	}
+
+	return stream.NewDownload(ctx, segmentStream, b.streams), nil
+}
+
 // Close closes the Bucket session.
 func (b *Bucket) Close() error {
 	return nil
