@@ -533,3 +533,26 @@ read one (
     where  registration_token.owner_id = ?
 )
 update registration_token ( where registration_token.secret = ? )
+
+//--- satellite reset password token ---//
+
+model reset_password_token (
+    key    secret
+    unique owner_id
+
+    field secret blob
+    field owner_id blob        ( updatable )
+
+    field created_at timestamp ( autoinsert )
+)
+
+create reset_password_token ( )
+read one (
+    select reset_password_token
+    where reset_password_token.secret = ?
+)
+read one (
+    select reset_password_token
+    where reset_password_token.owner_id = ?
+)
+delete reset_password_token ( where reset_password_token.secret = ? )

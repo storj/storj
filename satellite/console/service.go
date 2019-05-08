@@ -12,7 +12,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console/consoleauth"
@@ -26,6 +26,8 @@ const (
 	// maxLimit specifies the limit for all paged queries
 	maxLimit            = 50
 	tokenExpirationTime = 24 * time.Hour
+
+	resetPasswordExpirationTime = 24 * time.Hour
 
 	// DefaultPasswordCost is the hashing complexity
 	DefaultPasswordCost = bcrypt.DefaultCost
@@ -154,13 +156,20 @@ func (s *Service) GenerateActivationToken(ctx context.Context, id uuid.UUID, ema
 func (s *Service) GeneratePasswordRecoveryToken(ctx context.Context, id uuid.UUID, email string) (token string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	claims := &consoleauth.Claims{
-		ID:         id,
-		Email:      email,
-		Expiration: time.Now().Add(time.Hour),
+	resetPasswordToken, err := s.store.ResetPasswordTokens().GetByOwnerID(ctx, id)
+	if err == nil {
+		err := s.store.ResetPasswordTokens().Delete(ctx, resetPasswordToken.Secret)
+		if err != nil {
+			return "", err
+		}
 	}
 
-	return s.createToken(claims)
+	resetPasswordToken, err = s.store.ResetPasswordTokens().Create(ctx, &id)
+	if err != nil {
+		return "", err
+	}
+
+	return resetPasswordToken.Secret.String(), nil
 }
 
 // ActivateAccount - is a method for activating user account after registration
@@ -211,17 +220,16 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, password string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	token, err := consoleauth.FromBase64URLString(resetPasswordToken)
+	secret, err := ResetPasswordSecretFromBase64(resetPasswordToken)
+	if err != nil {
+		return
+	}
+	token, err := s.store.ResetPasswordTokens().GetBySecret(ctx, secret)
 	if err != nil {
 		return
 	}
 
-	claims, err := s.authenticate(token)
-	if err != nil {
-		return
-	}
-
-	user, err := s.store.Users().Get(ctx, claims.ID)
+	user, err := s.store.Users().Get(ctx, *token.OwnerId)
 	if err != nil {
 		return
 	}
@@ -230,7 +238,7 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 		return err
 	}
 
-	if time.Since(claims.Expiration) > 0 {
+	if time.Since(token.CreatedAt.Add(resetPasswordExpirationTime)) > 0 {
 		return errs.New(passwordRecoveryTokenIsExpiredErrMsg)
 	}
 
@@ -240,7 +248,13 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 	}
 
 	user.PasswordHash = hash
-	return s.store.Users().Update(ctx, user)
+
+	err = s.store.Users().Update(ctx, user)
+	if err != nil {
+		return err
+	}
+
+	return s.store.ResetPasswordTokens().Delete(ctx, token.Secret)
 }
 
 // Token authenticates User by credentials and returns auth token

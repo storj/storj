@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -409,6 +410,13 @@ CREATE TABLE registration_tokens (
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
 );
+CREATE TABLE reset_password_tokens (
+	secret bytea NOT NULL,
+	owner_id bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( secret ),
+	UNIQUE ( owner_id )
+);
 CREATE TABLE serial_numbers (
 	id serial NOT NULL,
 	serial_number bytea NOT NULL,
@@ -663,6 +671,13 @@ CREATE TABLE registration_tokens (
 	secret BLOB NOT NULL,
 	owner_id BLOB,
 	project_limit INTEGER NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( secret ),
+	UNIQUE ( owner_id )
+);
+CREATE TABLE reset_password_tokens (
+	secret BLOB NOT NULL,
+	owner_id BLOB NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
@@ -2901,6 +2916,75 @@ func (f RegistrationToken_CreatedAt_Field) value() interface{} {
 
 func (RegistrationToken_CreatedAt_Field) _Column() string { return "created_at" }
 
+type ResetPasswordToken struct {
+	Secret    []byte
+	OwnerId   []byte
+	CreatedAt time.Time
+}
+
+func (ResetPasswordToken) _Table() string { return "reset_password_tokens" }
+
+type ResetPasswordToken_Update_Fields struct {
+	OwnerId ResetPasswordToken_OwnerId_Field
+}
+
+type ResetPasswordToken_Secret_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ResetPasswordToken_Secret(v []byte) ResetPasswordToken_Secret_Field {
+	return ResetPasswordToken_Secret_Field{_set: true, _value: v}
+}
+
+func (f ResetPasswordToken_Secret_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ResetPasswordToken_Secret_Field) _Column() string { return "secret" }
+
+type ResetPasswordToken_OwnerId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ResetPasswordToken_OwnerId(v []byte) ResetPasswordToken_OwnerId_Field {
+	return ResetPasswordToken_OwnerId_Field{_set: true, _value: v}
+}
+
+func (f ResetPasswordToken_OwnerId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ResetPasswordToken_OwnerId_Field) _Column() string { return "owner_id" }
+
+type ResetPasswordToken_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func ResetPasswordToken_CreatedAt(v time.Time) ResetPasswordToken_CreatedAt_Field {
+	return ResetPasswordToken_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f ResetPasswordToken_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ResetPasswordToken_CreatedAt_Field) _Column() string { return "created_at" }
+
 type SerialNumber struct {
 	Id           int
 	SerialNumber []byte
@@ -3640,54 +3724,10 @@ func __sqlbundle_Render(dialect __sqlbundle_Dialect, sql __sqlbundle_SQL, ops ..
 	return dialect.Rebind(out)
 }
 
-func __sqlbundle_flattenSQL(x string) string {
-	// trim whitespace from beginning and end
-	s, e := 0, len(x)-1
-	for s < len(x) && (x[s] == ' ' || x[s] == '\t' || x[s] == '\n') {
-		s++
-	}
-	for s <= e && (x[e] == ' ' || x[e] == '\t' || x[e] == '\n') {
-		e--
-	}
-	if s > e {
-		return ""
-	}
-	x = x[s : e+1]
+var __sqlbundle_reSpace = regexp.MustCompile(`\s+`)
 
-	// check for whitespace that needs fixing
-	wasSpace := false
-	for i := 0; i < len(x); i++ {
-		r := x[i]
-		justSpace := r == ' '
-		if (wasSpace && justSpace) || r == '\t' || r == '\n' {
-			// whitespace detected, start writing a new string
-			var result strings.Builder
-			result.Grow(len(x))
-			if wasSpace {
-				result.WriteString(x[:i-1])
-			} else {
-				result.WriteString(x[:i])
-			}
-			for p := i; p < len(x); p++ {
-				for p < len(x) && (x[p] == ' ' || x[p] == '\t' || x[p] == '\n') {
-					p++
-				}
-				result.WriteByte(' ')
-
-				start := p
-				for p < len(x) && !(x[p] == ' ' || x[p] == '\t' || x[p] == '\n') {
-					p++
-				}
-				result.WriteString(x[start:p])
-			}
-
-			return result.String()
-		}
-		wasSpace = justSpace
-	}
-
-	// no problematic whitespace found
-	return x
+func __sqlbundle_flattenSQL(s string) string {
+	return strings.TrimSpace(__sqlbundle_reSpace.ReplaceAllString(s, " "))
 }
 
 // this type is specially named to match up with the name returned by the
@@ -3766,8 +3806,6 @@ type __sqlbundle_Condition struct {
 func (*__sqlbundle_Condition) private() {}
 
 func (c *__sqlbundle_Condition) Render() string {
-	// TODO(jeff): maybe check if we can use placeholders instead of the
-	// literal null: this would make the templates easier.
 
 	switch {
 	case c.Equal && c.Null:
@@ -4258,6 +4296,30 @@ func (obj *postgresImpl) Create_RegistrationToken(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return registration_token, nil
+
+}
+
+func (obj *postgresImpl) Create_ResetPasswordToken(ctx context.Context,
+	reset_password_token_secret ResetPasswordToken_Secret_Field,
+	reset_password_token_owner_id ResetPasswordToken_OwnerId_Field) (
+	reset_password_token *ResetPasswordToken, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__secret_val := reset_password_token_secret.value()
+	__owner_id_val := reset_password_token_owner_id.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO reset_password_tokens ( secret, owner_id, created_at ) VALUES ( ?, ?, ? ) RETURNING reset_password_tokens.secret, reset_password_tokens.owner_id, reset_password_tokens.created_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __secret_val, __owner_id_val, __created_at_val)
+
+	reset_password_token = &ResetPasswordToken{}
+	err = obj.driver.QueryRow(__stmt, __secret_val, __owner_id_val, __created_at_val).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reset_password_token, nil
 
 }
 
@@ -5231,6 +5293,48 @@ func (obj *postgresImpl) Get_RegistrationToken_By_OwnerId(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Get_ResetPasswordToken_By_Secret(ctx context.Context,
+	reset_password_token_secret ResetPasswordToken_Secret_Field) (
+	reset_password_token *ResetPasswordToken, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reset_password_tokens.secret, reset_password_tokens.owner_id, reset_password_tokens.created_at FROM reset_password_tokens WHERE reset_password_tokens.secret = ?")
+
+	var __values []interface{}
+	__values = append(__values, reset_password_token_secret.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reset_password_token = &ResetPasswordToken{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reset_password_token, nil
+
+}
+
+func (obj *postgresImpl) Get_ResetPasswordToken_By_OwnerId(ctx context.Context,
+	reset_password_token_owner_id ResetPasswordToken_OwnerId_Field) (
+	reset_password_token *ResetPasswordToken, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reset_password_tokens.secret, reset_password_tokens.owner_id, reset_password_tokens.created_at FROM reset_password_tokens WHERE reset_password_tokens.owner_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, reset_password_token_owner_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reset_password_token = &ResetPasswordToken{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reset_password_token, nil
+
+}
+
 func (obj *postgresImpl) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	update Irreparabledb_Update_Fields) (
@@ -5975,6 +6079,32 @@ func (obj *postgresImpl) Delete_CertRecord_By_Id(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Delete_ResetPasswordToken_By_Secret(ctx context.Context,
+	reset_password_token_secret ResetPasswordToken_Secret_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM reset_password_tokens WHERE reset_password_tokens.secret = ?")
+
+	var __values []interface{}
+	__values = append(__values, reset_password_token_secret.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (impl postgresImpl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(*pq.Error); ok {
@@ -6049,6 +6179,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM serial_numbers;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM reset_password_tokens;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -6689,6 +6829,33 @@ func (obj *sqlite3Impl) Create_RegistrationToken(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return obj.getLastRegistrationToken(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_ResetPasswordToken(ctx context.Context,
+	reset_password_token_secret ResetPasswordToken_Secret_Field,
+	reset_password_token_owner_id ResetPasswordToken_OwnerId_Field) (
+	reset_password_token *ResetPasswordToken, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__secret_val := reset_password_token_secret.value()
+	__owner_id_val := reset_password_token_owner_id.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO reset_password_tokens ( secret, owner_id, created_at ) VALUES ( ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __secret_val, __owner_id_val, __created_at_val)
+
+	__res, err := obj.driver.Exec(__stmt, __secret_val, __owner_id_val, __created_at_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastResetPasswordToken(ctx, __pk)
 
 }
 
@@ -7662,6 +7829,48 @@ func (obj *sqlite3Impl) Get_RegistrationToken_By_OwnerId(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Get_ResetPasswordToken_By_Secret(ctx context.Context,
+	reset_password_token_secret ResetPasswordToken_Secret_Field) (
+	reset_password_token *ResetPasswordToken, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reset_password_tokens.secret, reset_password_tokens.owner_id, reset_password_tokens.created_at FROM reset_password_tokens WHERE reset_password_tokens.secret = ?")
+
+	var __values []interface{}
+	__values = append(__values, reset_password_token_secret.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reset_password_token = &ResetPasswordToken{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reset_password_token, nil
+
+}
+
+func (obj *sqlite3Impl) Get_ResetPasswordToken_By_OwnerId(ctx context.Context,
+	reset_password_token_owner_id ResetPasswordToken_OwnerId_Field) (
+	reset_password_token *ResetPasswordToken, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reset_password_tokens.secret, reset_password_tokens.owner_id, reset_password_tokens.created_at FROM reset_password_tokens WHERE reset_password_tokens.owner_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, reset_password_token_owner_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reset_password_token = &ResetPasswordToken{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reset_password_token, nil
+
+}
+
 func (obj *sqlite3Impl) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	update Irreparabledb_Update_Fields) (
@@ -8486,6 +8695,32 @@ func (obj *sqlite3Impl) Delete_CertRecord_By_Id(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Delete_ResetPasswordToken_By_Secret(ctx context.Context,
+	reset_password_token_secret ResetPasswordToken_Secret_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM reset_password_tokens WHERE reset_password_tokens.secret = ?")
+
+	var __values []interface{}
+	__values = append(__values, reset_password_token_secret.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *sqlite3Impl) getLastIrreparabledb(ctx context.Context,
 	pk int64) (
 	irreparabledb *Irreparabledb, err error) {
@@ -8756,6 +8991,24 @@ func (obj *sqlite3Impl) getLastRegistrationToken(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) getLastResetPasswordToken(ctx context.Context,
+	pk int64) (
+	reset_password_token *ResetPasswordToken, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reset_password_tokens.secret, reset_password_tokens.owner_id, reset_password_tokens.created_at FROM reset_password_tokens WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	reset_password_token = &ResetPasswordToken{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reset_password_token, nil
+
+}
+
 func (impl sqlite3Impl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(sqlite3.Error); ok {
@@ -8835,6 +9088,16 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM serial_numbers;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM reset_password_tokens;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -9319,6 +9582,18 @@ func (rx *Rx) Create_RegistrationToken(ctx context.Context,
 
 }
 
+func (rx *Rx) Create_ResetPasswordToken(ctx context.Context,
+	reset_password_token_secret ResetPasswordToken_Secret_Field,
+	reset_password_token_owner_id ResetPasswordToken_OwnerId_Field) (
+	reset_password_token *ResetPasswordToken, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_ResetPasswordToken(ctx, reset_password_token_secret, reset_password_token_owner_id)
+
+}
+
 func (rx *Rx) Create_SerialNumber(ctx context.Context,
 	serial_number_serial_number SerialNumber_SerialNumber_Field,
 	serial_number_bucket_id SerialNumber_BucketId_Field,
@@ -9448,6 +9723,16 @@ func (rx *Rx) Delete_Project_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Delete_Project_By_Id(ctx, project_id)
+}
+
+func (rx *Rx) Delete_ResetPasswordToken_By_Secret(ctx context.Context,
+	reset_password_token_secret ResetPasswordToken_Secret_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_ResetPasswordToken_By_Secret(ctx, reset_password_token_secret)
 }
 
 func (rx *Rx) Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx context.Context,
@@ -9634,6 +9919,26 @@ func (rx *Rx) Get_RegistrationToken_By_Secret(ctx context.Context,
 		return
 	}
 	return tx.Get_RegistrationToken_By_Secret(ctx, registration_token_secret)
+}
+
+func (rx *Rx) Get_ResetPasswordToken_By_OwnerId(ctx context.Context,
+	reset_password_token_owner_id ResetPasswordToken_OwnerId_Field) (
+	reset_password_token *ResetPasswordToken, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_ResetPasswordToken_By_OwnerId(ctx, reset_password_token_owner_id)
+}
+
+func (rx *Rx) Get_ResetPasswordToken_By_Secret(ctx context.Context,
+	reset_password_token_secret ResetPasswordToken_Secret_Field) (
+	reset_password_token *ResetPasswordToken, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_ResetPasswordToken_By_Secret(ctx, reset_password_token_secret)
 }
 
 func (rx *Rx) Get_User_By_Email_And_Status_Not_Number(ctx context.Context,
@@ -9957,6 +10262,11 @@ type Methods interface {
 		optional RegistrationToken_Create_Fields) (
 		registration_token *RegistrationToken, err error)
 
+	Create_ResetPasswordToken(ctx context.Context,
+		reset_password_token_secret ResetPasswordToken_Secret_Field,
+		reset_password_token_owner_id ResetPasswordToken_OwnerId_Field) (
+		reset_password_token *ResetPasswordToken, err error)
+
 	Create_SerialNumber(ctx context.Context,
 		serial_number_serial_number SerialNumber_SerialNumber_Field,
 		serial_number_bucket_id SerialNumber_BucketId_Field,
@@ -10011,6 +10321,10 @@ type Methods interface {
 
 	Delete_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
+		deleted bool, err error)
+
+	Delete_ResetPasswordToken_By_Secret(ctx context.Context,
+		reset_password_token_secret ResetPasswordToken_Secret_Field) (
 		deleted bool, err error)
 
 	Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx context.Context,
@@ -10089,6 +10403,14 @@ type Methods interface {
 	Get_RegistrationToken_By_Secret(ctx context.Context,
 		registration_token_secret RegistrationToken_Secret_Field) (
 		registration_token *RegistrationToken, err error)
+
+	Get_ResetPasswordToken_By_OwnerId(ctx context.Context,
+		reset_password_token_owner_id ResetPasswordToken_OwnerId_Field) (
+		reset_password_token *ResetPasswordToken, err error)
+
+	Get_ResetPasswordToken_By_Secret(ctx context.Context,
+		reset_password_token_secret ResetPasswordToken_Secret_Field) (
+		reset_password_token *ResetPasswordToken, err error)
 
 	Get_User_By_Email_And_Status_Not_Number(ctx context.Context,
 		user_email User_Email_Field) (

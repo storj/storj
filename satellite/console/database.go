@@ -23,6 +23,8 @@ type DB interface {
 	BucketUsage() accounting.BucketUsage
 	// RegistrationTokens is a getter for RegistrationTokens repository
 	RegistrationTokens() RegistrationTokens
+	// ResetPasswordTokens is a getter for ResetPasswordTokens repository
+	ResetPasswordTokens() ResetPasswordTokens
 	// UsageRollups is a getter for UsageRollups repository
 	UsageRollups() UsageRollups
 

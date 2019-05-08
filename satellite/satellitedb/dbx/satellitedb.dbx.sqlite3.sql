@@ -137,6 +137,13 @@ CREATE TABLE registration_tokens (
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
 );
+CREATE TABLE reset_password_tokens (
+	secret BLOB NOT NULL,
+	owner_id BLOB NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( secret ),
+	UNIQUE ( owner_id )
+);
 CREATE TABLE serial_numbers (
 	id INTEGER NOT NULL,
 	serial_number BLOB NOT NULL,
