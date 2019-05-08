@@ -255,12 +255,14 @@ func (peer *Peer) Run(ctx context.Context) error {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Version.Run(ctx))
 	})
+
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Kademlia.Service.Bootstrap(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Kademlia.Service.Run(ctx))
 	})
+
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Collector.Run(ctx))
 	})
@@ -293,17 +295,18 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.Server.Close())
 	}
 
-	if peer.Collector != nil {
-		errlist.Add(peer.Collector.Close())
+	// close services in reverse initialization order
+
+	if peer.Storage2.Monitor != nil {
+		errlist.Add(peer.Storage2.Monitor.Close())
 	}
 	if peer.Storage2.Sender != nil {
 		errlist.Add(peer.Storage2.Sender.Close())
 	}
-	if peer.Storage2.Monitor != nil {
-		errlist.Add(peer.Storage2.Monitor.Close())
+	if peer.Collector != nil {
+		errlist.Add(peer.Collector.Close())
 	}
 
-	// close services in reverse initialization order
 	if peer.Kademlia.Service != nil {
 		errlist.Add(peer.Kademlia.Service.Close())
 	}
