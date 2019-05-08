@@ -6,12 +6,12 @@ package collector
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/storagenode/pieces"
 )
@@ -68,29 +68,40 @@ func (service *Service) Collect(ctx context.Context, now time.Time) (err error) 
 	const maxBatches = 100
 	const batchSize = 1024
 
+	var count int64
+	var bytes int64
+	defer func() {
+		if count > 0 {
+			service.log.Info("collect", zap.Int64("count", count), zap.Stringer("size", memory.Size(bytes)))
+		}
+	}()
+
 	for k := 0; k < maxBatches; k++ {
-		ids, err := service.pieceinfos.GetExpired(ctx, now, batchSize)
+		infos, err := service.pieceinfos.GetExpired(ctx, now, batchSize)
 		if err != nil {
 			return err
 		}
-		if len(ids) == 0 {
+		if len(infos) == 0 {
 			return nil
 		}
 
-		for _, id := range ids {
-			err := service.pieces.Delete(ctx, id.SatelliteID, id.PieceID)
+		for _, expired := range infos {
+			err := service.pieces.Delete(ctx, expired.SatelliteID, expired.PieceID)
 			if err != nil {
-				service.log.Error("unable to delete piece", zap.Stringer("satellite id", id.SatelliteID), zap.Stringer("piece id", id.PieceID))
+				service.log.Error("unable to delete piece", zap.Stringer("satellite id", expired.SatelliteID), zap.Stringer("piece id", expired.PieceID))
 				continue
 			}
 
-			err = service.pieceinfos.DeleteExpired(ctx, now, id.SatelliteID, id.PieceID)
+			err = service.pieceinfos.DeleteExpired(ctx, now, expired.SatelliteID, expired.PieceID)
 			if err != nil {
-				service.log.Error("unable to delete piece info", zap.Stringer("satellite id", id.SatelliteID), zap.Stringer("piece id", id.PieceID))
+				service.log.Error("unable to delete piece info", zap.Stringer("satellite id", expired.SatelliteID), zap.Stringer("piece id", expired.PieceID))
 				continue
 			}
+
+			count++
+			bytes += expired.PieceSize
 		}
 	}
 
-	return errors.New("unable to cleanup everything")
+	return nil
 }

@@ -38,10 +38,11 @@ type Info struct {
 	Uplink          *identity.PeerIdentity
 }
 
-// ID is a fully namespaced piece id
-type ID struct {
+// ExpiredInfo is a fully namespaced piece id
+type ExpiredInfo struct {
 	SatelliteID storj.NodeID
 	PieceID     storj.PieceID
+	PieceSize   int64
 }
 
 // DB stores meta information about a piece, the actual piece is stored in storage.Blobs
@@ -55,7 +56,7 @@ type DB interface {
 	// SpaceUsed calculates disk space used by all pieces
 	SpaceUsed(ctx context.Context) (int64, error)
 	// GetExpired gets orders that are expired and were created before some time
-	GetExpired(ctx context.Context, expiredAt time.Time, limit int64) ([]ID, error)
+	GetExpired(ctx context.Context, expiredAt time.Time, limit int64) ([]ExpiredInfo, error)
 	// DeleteExpired deletes pieces that are expired
 	DeleteExpired(ctx context.Context, expiredAt time.Time, satelliteID storj.NodeID, pieceID storj.PieceID) error
 }

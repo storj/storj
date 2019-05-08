@@ -114,11 +114,11 @@ func (db *pieceinfo) SpaceUsed(ctx context.Context) (int64, error) {
 }
 
 // GetExpired gets pieceinformation identites that are expired.
-func (db *pieceinfo) GetExpired(ctx context.Context, expiredAt time.Time, limit int64) (ids []pieces.ID, err error) {
+func (db *pieceinfo) GetExpired(ctx context.Context, expiredAt time.Time, limit int64) (infos []pieces.ExpiredInfo, err error) {
 	defer db.locked()()
 
 	rows, err := db.db.QueryContext(ctx, db.Rebind(`
-		SELECT satellite_id, piece_id
+		SELECT satellite_id, piece_id, piece_size
 		FROM pieceinfo
 		WHERE piece_expiration < ? ORDER BY satellite_id
 		LIMIT ?
@@ -128,14 +128,14 @@ func (db *pieceinfo) GetExpired(ctx context.Context, expiredAt time.Time, limit 
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 	for rows.Next() {
-		id := pieces.ID{}
-		err = rows.Scan(&id.SatelliteID, &id.PieceID)
+		info := pieces.ExpiredInfo{}
+		err = rows.Scan(&info.SatelliteID, &info.PieceID, &info.PieceSize)
 		if err != nil {
-			return ids, ErrInfo.Wrap(err)
+			return infos, ErrInfo.Wrap(err)
 		}
-		ids = append(ids, id)
+		infos = append(infos, info)
 	}
-	return ids, nil
+	return infos, nil
 }
 
 // DeleteExpired deletes expired piece information.
