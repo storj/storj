@@ -6,6 +6,7 @@ package sync2
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -19,7 +20,10 @@ type Cycle struct {
 
 	ticker  *time.Ticker
 	control chan interface{}
-	stop    chan struct{}
+
+	stopsent int64
+	stopping chan struct{}
+	stopped  chan struct{}
 
 	init sync.Once
 }
@@ -28,7 +32,6 @@ type (
 	// cycle control messages
 	cyclePause          struct{}
 	cycleContinue       struct{}
-	cycleStop           struct{}
 	cycleChangeInterval struct{ Interval time.Duration }
 	cycleTrigger        struct{ done chan struct{} }
 )
@@ -47,7 +50,8 @@ func (cycle *Cycle) SetInterval(interval time.Duration) {
 
 func (cycle *Cycle) initialize() {
 	cycle.init.Do(func() {
-		cycle.stop = make(chan struct{})
+		cycle.stopped = make(chan struct{})
+		cycle.stopping = make(chan struct{})
 		cycle.control = make(chan interface{})
 	})
 }
@@ -65,7 +69,7 @@ func (cycle *Cycle) Start(ctx context.Context, group *errgroup.Group, fn func(ct
 // When `fn` is not fast enough, it may skip some of those executions.
 func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error) error {
 	cycle.initialize()
-	defer close(cycle.stop)
+	defer close(cycle.stopped)
 
 	currentInterval := cycle.interval
 	cycle.ticker = time.NewTicker(currentInterval)
@@ -79,8 +83,6 @@ func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error)
 			// handle control messages
 
 			switch message := message.(type) {
-			case cycleStop:
-				return nil
 
 			case cycleChangeInterval:
 				currentInterval = message.Interval
@@ -109,6 +111,9 @@ func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error)
 				}
 			}
 
+		case <-cycle.stopping:
+			return nil
+
 		case <-ctx.Done():
 			// handle control messages
 			return ctx.Err()
@@ -125,7 +130,7 @@ func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error)
 // Close closes all resources associated with it.
 func (cycle *Cycle) Close() {
 	cycle.Stop()
-	<-cycle.stop
+	<-cycle.stopped
 	close(cycle.control)
 }
 
@@ -134,13 +139,16 @@ func (cycle *Cycle) sendControl(message interface{}) {
 	cycle.initialize()
 	select {
 	case cycle.control <- message:
-	case <-cycle.stop:
+	case <-cycle.stopped:
 	}
 }
 
 // Stop stops the cycle permanently
 func (cycle *Cycle) Stop() {
-	cycle.sendControl(cycleStop{})
+	cycle.initialize()
+	if atomic.CompareAndSwapInt64(&cycle.stopsent, 0, 1) {
+		close(cycle.stopping)
+	}
 }
 
 // ChangeInterval allows to change the ticker interval after it has started.
@@ -173,6 +181,6 @@ func (cycle *Cycle) TriggerWait() {
 	cycle.sendControl(cycleTrigger{done})
 	select {
 	case <-done:
-	case <-cycle.stop:
+	case <-cycle.stopped:
 	}
 }

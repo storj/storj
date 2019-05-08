@@ -40,7 +40,8 @@ type DB interface {
 
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
-	// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new note that KnownUnreliableOrOffline will not return node ids which are not in the database at all
+
+	// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
 	KnownUnreliableOrOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
 	// Paginate will page through the database nodes
 	Paginate(ctx context.Context, offset int64, limit int) ([]*NodeDossier, bool, error)
