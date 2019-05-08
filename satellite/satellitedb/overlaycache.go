@@ -154,8 +154,8 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (*overlay.N
 	return convertDBNode(node)
 }
 
-// KnownUnreliableOrOffline filters a set of nodes to unreliable or offlines node, independent of new.
-func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIds storj.NodeIDList) (goodNodes storj.NodeIDList, err error) {
+// KnownUnreliableOrOffline filters a set of nodes to unreliable or offlines node, independent of new
+func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIds storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
 	if len(nodeIds) == 0 {
 		return nil, Error.New("no ids provided")
 	}
@@ -165,26 +165,34 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 	}
 	args = append(args, criteria.AuditSuccessRatio, criteria.UptimeSuccessRatio, time.Now().Add(-criteria.OnlineWindow))
 
+	// get reliable and online nodes
 	rows, err := cache.db.Query(cache.db.Rebind(`
 		SELECT id FROM nodes
 		WHERE id IN (?`+strings.Repeat(", ?", len(nodeIds)-1)+`)
-		AND ( audit_success_ratio < ? OR uptime_ratio < ? 
-			OR last_contact_success <= ? OR last_contact_success <= last_contact_failure )`), args...)
+		AND audit_success_ratio >= ? AND uptime_ratio >= ? 
+		AND last_contact_success > ? AND last_contact_success > last_contact_failure`), args...)
 	if err != nil {
 		return nil, err
 	}
 	defer func() {
 		err = errs.Combine(err, rows.Close())
 	}()
+
+	goodNodesMap := make(map[storj.NodeID]bool)
 	for rows.Next() {
 		var id storj.NodeID
 		err = rows.Scan(&id)
 		if err != nil {
 			return nil, err
 		}
-		goodNodes = append(goodNodes, id)
+		goodNodesMap[id] = true
 	}
-	return goodNodes, nil
+	for _, id := range nodeIds {
+		if !goodNodesMap[id] {
+			badNodes = append(badNodes, id)
+		}
+	}
+	return badNodes, nil
 }
 
 // Paginate will run through

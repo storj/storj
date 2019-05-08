@@ -204,6 +204,6 @@ func (sender *Sender) Settle(ctx context.Context, satelliteID storj.NodeID, orde
 
 // Close stops the sending service.
 func (sender *Sender) Close() error {
-	sender.Loop.Stop()
+	sender.Loop.Close()
 	return nil
 }
