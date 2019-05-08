@@ -40,7 +40,7 @@ type DB interface {
 
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
-	// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new note that KnownUnreliableOrOffline will not return node ids which are not in the database at all
+	// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
 	KnownUnreliableOrOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
 	// Paginate will page through the database nodes
 	Paginate(ctx context.Context, offset int64, limit int) ([]*NodeDossier, bool, error)
@@ -226,7 +226,7 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 	return nodes, nil
 }
 
-// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new. Note that KnownUnreliableOrOffline will not return node ids which are not in the database at all
+// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new.
 func (cache *Cache) KnownUnreliableOrOffline(ctx context.Context, nodeIds storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	criteria := &NodeCriteria{

@@ -606,7 +606,7 @@ func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*ove
 	return m.db.Get(ctx, nodeID)
 }
 
-// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new note that KnownUnreliableOrOffline will not return node ids which are not in the database at all
+// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
 func (m *lockedOverlayCache) KnownUnreliableOrOffline(ctx context.Context, a1 *overlay.NodeCriteria, a2 storj.NodeIDList) (storj.NodeIDList, error) {
 	m.Lock()
 	defer m.Unlock()
