@@ -12,12 +12,14 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/fpath"
+	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/macaroon"
+	"storj.io/storj/pkg/process"
 )
 
 var shareCfg struct {
-	APIKey            string   `help:"the api key to use for the satellite"`
 	DisallowReads     bool     `default:"false" help:"if true, disallow reads"`
 	DisallowWrites    bool     `default:"false" help:"if true, disallow writes"`
 	DisallowLists     bool     `default:"false" help:"if true, disallow lists"`
@@ -32,23 +34,16 @@ var shareCfg struct {
 var shareRequiredPathPrefixes []string
 
 func init() {
-	shareCmd := &cobra.Command{
+	// sadly, we have to use addCmd so that it adds the cfg struct to the flags
+	// so that we can open projects and buckets. that pulls in so many unnecessary
+	// flags which makes figuring out the share command really hard. oh well.
+	shareCmd := addCmd(&cobra.Command{
 		Use:   "share",
 		Short: "Creates a possibly restricted api key",
 		RunE:  shareMain,
-	}
+	}, RootCmd)
 
-	// We skip using addCmd like the other commands because it includes many
-	// flags that aren't necessary for sharing, making the help text very
-	// hard to understand.
-
-	RootCmd.AddCommand(shareCmd)
-	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
-	confDirParam := cfgstruct.FindConfigDirParam()
-	if confDirParam != "" {
-		defaultConfDir = confDirParam
-	}
-	cfgstruct.Bind(shareCmd.Flags(), &shareCfg, defaults, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.Bind(shareCmd.Flags(), &shareCfg)
 }
 
 func parseHumanDate(date string, now time.Time) (*time.Time, error) {
@@ -72,6 +67,7 @@ func parseHumanDate(date string, now time.Time) (*time.Time, error) {
 
 // shareMain is the function executed when shareCmd is called
 func shareMain(cmd *cobra.Command, args []string) (err error) {
+	ctx := process.Ctx(cmd)
 	now := time.Now()
 
 	notBefore, err := parseHumanDate(shareCfg.NotBefore, now)
@@ -87,7 +83,7 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 	// before we can change libuplink to use macaroons because of all the tests.
 	// For now, just use the raw macaroon library.
 
-	key, err := macaroon.ParseAPIKey(shareCfg.APIKey)
+	key, err := macaroon.ParseAPIKey(cfg.Client.APIKey)
 	if err != nil {
 		return err
 	}
@@ -100,6 +96,11 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 	caveat.NotBefore = notBefore
 	caveat.NotAfter = notAfter
 
+	var project *libuplink.Project
+	var access libuplink.EncryptionAccess
+	copy(access.Key[:], []byte(cfg.Enc.Key))
+	cache := make(map[string]*libuplink.BucketConfig)
+
 	for _, path := range shareCfg.AllowedPathPrefix {
 		p, err := fpath.New(path)
 		if err != nil {
@@ -109,15 +110,32 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 			return errs.New("required path must be remote: %q", path)
 		}
 
-		// TODO(jeff): The path should be encrypted somehow. This function
-		//     encryption.EncryptPath(path, cipher, key)
-		// should do the trick, but we need to figure out the cipher and key
-		// to pass. The key should be local to the user, but the cipher
-		// apparently depends on the bucket metadata.
+		bi, ok := cache[p.Bucket()]
+		if !ok {
+			if project == nil {
+				project, err = cfg.GetProject(ctx)
+				if err != nil {
+					return err
+				}
+				defer func() { err = errs.Combine(err, project.Close()) }()
+			}
+
+			_, bi, err = project.GetBucketInfo(ctx, p.Bucket())
+			if err != nil {
+				return err
+			}
+
+			cache[p.Bucket()] = bi
+		}
+
+		encPath, err := encryption.EncryptPath(path, bi.PathCipher.ToCipher(), &access.Key)
+		if err != nil {
+			return err
+		}
 
 		caveat.AllowedPaths = append(caveat.AllowedPaths, &macaroon.Caveat_Path{
 			Bucket:              []byte(p.Bucket()),
-			EncryptedPathPrefix: []byte(p.Path()),
+			EncryptedPathPrefix: []byte(encPath),
 		})
 	}
 
