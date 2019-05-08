@@ -190,7 +190,6 @@ type Peer struct {
 
 	Referral struct {
 		Listener net.Listener
-		// Service  *console.Service
 		Endpoint *offersweb.Server
 	}
 }

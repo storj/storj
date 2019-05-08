@@ -27,7 +27,6 @@ type Server struct {
 	log *zap.Logger
 
 	config Config
-	// service *referral.Service
 
 	listener net.Listener
 	server   http.Server
@@ -39,14 +38,13 @@ func NewServer(logger *zap.Logger, config Config, listener net.Listener) *Server
 		log:      logger,
 		config:   config,
 		listener: listener,
-		// service:  service,
 	}
 
 	logger.Debug("Starting offersweb UI...")
 
 	mux := http.NewServeMux()
 
-	mux.Handle("/", http.HandlerFunc(server.localAccessHandler(server.appHandler)))
+	mux.Handle("/", server.localAccessHandler(server.appHandler))
 
 	server.server = http.Server{
 		Handler: mux,
@@ -56,14 +54,14 @@ func NewServer(logger *zap.Logger, config Config, listener net.Listener) *Server
 }
 
 // localAccessHandler is a method for ensuring allow request only from localhost
-func (s *Server) localAccessHandler(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, req *http.Request) {
+func (s *Server) localAccessHandler(next http.HandlerFunc) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if !strings.HasPrefix(req.RemoteAddr, "127.0.0.1") {
 			s.serveError(w, req)
 			return
 		}
 		next(w, req)
-	}
+	})
 }
 
 // appHandler is web app http handler function
