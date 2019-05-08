@@ -18,7 +18,7 @@ import (
 	"strings"
 
 	"github.com/aleitner/gogert"
-	"github.com/storj/storj/lib/uplink"
+	// "github.com/storj/storj/lib/uplink"
 )
 
 type set map[string]struct{}
@@ -147,10 +147,10 @@ func generateStructRecursive(fset *token.FileSet, name string, fields *ast.Field
 			return cstructs, err
 		}
 
-		reflectType, err := LookupReflectType(gotype)
-		if err != nil {
-			return cstructs, err
-		}
+		// reflectType, err := LookupReflectType(gotype)
+		// if err != nil {
+		// 	return cstructs, err
+		// }
 
 		// Convert type from go to C
 		ctype, dependencies := converter.FromGoType(gotype)
@@ -174,21 +174,21 @@ func generateStructRecursive(fset *token.FileSet, name string, fields *ast.Field
 	return cstructs, nil
 }
 
-func LookupReflectType(gotype string) (reflectType reflect.Type) {
-	types, err := uplink.Troop.Types()
-	if err != nil { // something went wrong getting them
-		return nil, err
-	}
+// func LookupReflectType(gotype string) (reflectType reflect.Type) {
+// 	types, err := uplink.Troop.Types()
+// 	if err != nil { // something went wrong getting them
+// 		return nil, err
+// 	}
 
-	for _, typ := range types {
-		fmt.Println(typ.String())
-		if typ.String() == gotype {
-			return typ, nil
-		}
-	}
+// 	for _, typ := range types {
+// 		fmt.Println(typ.String())
+// 		if typ.String() == gotype {
+// 			return typ, nil
+// 		}
+// 	}
 
-	return nil, nil
-}
+// 	return nil, nil
+// }
 
 func getStructNames(file *ast.File) set {
 	// Parse comments for exported structs
