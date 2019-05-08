@@ -91,6 +91,7 @@ pipeline {
 
                     steps {
                         sh 'make test-sim'
+                        sh 'make test-satellite-cfg-change'
                     }
                 }
             }
