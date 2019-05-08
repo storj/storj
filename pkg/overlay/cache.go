@@ -208,7 +208,9 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 	// add selected new nodes and their IPs to the excluded lists for reputable node selection
 	for _, newNode := range newNodes {
 		exclude.Nodes = append(exclude.Nodes, newNode.Id)
-		exclude.IPs = append(exclude.IPs, newNode.LastIp)
+		if preferences.DistinctIP {
+			exclude.IPs = append(exclude.IPs, newNode.LastIp)
+		}
 	}
 
 	criteria := NodeCriteria{
