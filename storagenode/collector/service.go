@@ -66,7 +66,7 @@ func (service *Service) Collect(ctx context.Context, now time.Time) (err error) 
 	defer mon.Task()(&ctx)(&err)
 
 	const maxBatches = 100
-	const batchSize = 1024
+	const batchSize = 1000
 
 	var count int64
 	var bytes int64
