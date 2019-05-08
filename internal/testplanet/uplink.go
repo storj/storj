@@ -149,6 +149,11 @@ func (uplink *Uplink) DialPiecestore(ctx context.Context, destination Peer) (*pi
 
 // Upload data to specific satellite
 func (uplink *Uplink) Upload(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path, data []byte) error {
+	return uplink.UploadWithExpiration(ctx, satellite, bucket, path, data, time.Time{})
+}
+
+// UploadWithExpiration data to specific satellite
+func (uplink *Uplink) UploadWithExpiration(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path, data []byte, expiration time.Time) error {
 	config := uplink.GetConfig(satellite)
 	metainfo, streams, err := config.GetMetainfo(ctx, uplink.Identity)
 	if err != nil {
@@ -174,6 +179,7 @@ func (uplink *Uplink) Upload(ctx context.Context, satellite *satellite.Peer, buc
 	createInfo := storj.CreateObject{
 		RedundancyScheme: redScheme,
 		EncryptionScheme: encScheme,
+		Expires:          expiration,
 	}
 	obj, err := metainfo.CreateObject(ctx, bucket, path, &createInfo)
 	if err != nil {

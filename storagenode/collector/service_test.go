@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
@@ -30,30 +29,41 @@ func TestCollector(t *testing.T) {
 		_, err := rand.Read(expectedData)
 		require.NoError(t, err)
 
-		// upload some data
-		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
+		// upload some data that expires in 8 days
+		err = planet.Uplinks[0].UploadWithExpiration(ctx,
+			planet.Satellites[0], "testbucket", "test/path",
+			expectedData, time.Now().Add(8*24*time.Hour))
 		require.NoError(t, err)
 
 		// stop planet to prevent audits
 		planet.StopPeer(planet.Satellites[0])
 
-		// imagine we are 100 days in the future
+		collections := 0
+
+		// imagine we are 16 days in the future
 		for _, storageNode := range planet.StorageNodes {
 			pieceinfos := storageNode.DB.PieceInfo()
 
 			// verify that we actually have some data on storage nodes
 			used, err := pieceinfos.SpaceUsed(ctx)
 			require.NoError(t, err)
-			require.NotZero(t, used)
+			if used == 0 {
+				// this storage node didn't get picked for storing data
+				continue
+			}
 
 			// collect all the data
-			err = storageNode.Collector.Collect(ctx, time.Now().Add(100*24*time.Hour))
-			assert.NoError(t, err)
+			err = storageNode.Collector.Collect(ctx, time.Now().Add(16*24*time.Hour))
+			require.NoError(t, err)
 
 			// verify that we deleted everything
 			used, err = pieceinfos.SpaceUsed(ctx)
 			require.NoError(t, err)
 			require.Equal(t, int64(0), used)
+
+			collections++
 		}
+
+		require.NotZero(t, collections)
 	})
 }
