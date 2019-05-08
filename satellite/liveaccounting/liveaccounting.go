@@ -15,14 +15,14 @@ import (
 
 // Config contains configurable values for the liveaccounting service.
 type Config struct {
-	StorageBackend string `help:"What to use for storing real-time accounting data"`
+	StorageBackend string `help:"what to use for storing real-time accounting data"`
 }
 
 // Service represents the external interface to the liveaccounting
 // functionality.
 type Service interface {
 	GetProjectStorageUsage(ctx context.Context, projectID uuid.UUID) (int64, int64, error)
-	AddProjectStorageUsage(projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) error
+	AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) error
 	ResetTotals()
 }
 
@@ -40,7 +40,7 @@ func New(log *zap.Logger, config Config) (Service, error) {
 	case "plainmemory":
 		return newPlainMemoryLiveAccounting(log)
 	}
-	return nil, errs.New("Unrecognized liveaccounting backend specifier %q", backendType)
+	return nil, errs.New("unrecognized liveaccounting backend specifier %q", backendType)
 }
 
 // plainMemoryLiveAccounting represents an liveaccounting.Service-implementing
@@ -81,7 +81,7 @@ func (pmac *plainMemoryLiveAccounting) GetProjectStorageUsage(ctx context.Contex
 // AddProjectStorageUsage lets the liveaccounting know that the given project
 // has just added inlineSpaceUsed bytes of inline space usage and
 // remoteSpaceUsed bytes of remote space usage.
-func (pmac *plainMemoryLiveAccounting) AddProjectStorageUsage(projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) error {
+func (pmac *plainMemoryLiveAccounting) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) error {
 	pmac.spaceMapLock.Lock()
 	defer pmac.spaceMapLock.Unlock()
 	curVal := pmac.spaceDeltas[projectID]
