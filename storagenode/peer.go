@@ -196,8 +196,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 
 		peer.Storage2.Store = pieces.NewStore(peer.Log.Named("pieces"), peer.DB.Pieces())
 
-		peer.Storage2.Collector = collector.NewService(peer.Log.Named("collector"), peer.DB.Pieces(), peer.Storage2.Store, config.Collector)
-
 		peer.Storage2.Monitor = monitor.NewService(
 			log.Named("piecestore:monitor"),
 			peer.Kademlia.RoutingTable,
@@ -244,6 +242,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			config.Storage2.Sender,
 		)
 	}
+
+	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.DB.PieceInfo(), config.Collector)
 
 	return peer, nil
 }
