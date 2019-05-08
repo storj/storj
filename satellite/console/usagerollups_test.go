@@ -46,8 +46,8 @@ func TestUsageRollups(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		p1base := binary.BigEndian.Uint64(project1[:8]) >> 32
-		p2base := binary.BigEndian.Uint64(project2[:8]) >> 32
+		p1base := binary.BigEndian.Uint64(project1[:8]) >> 48
+		p2base := binary.BigEndian.Uint64(project2[:8]) >> 48
 
 		getValue := func(i, j int, base uint64) int64 {
 			a := uint64((i+1)*(j+1)) ^ base
