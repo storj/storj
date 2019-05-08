@@ -97,6 +97,46 @@ func (db *pieceinfo) Delete(ctx context.Context, satelliteID storj.NodeID, piece
 	return ErrInfo.Wrap(err)
 }
 
+// DeleteFailed marks piece as a failed deletion.
+func (db *pieceinfo) DeleteFailed(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID, now time.Time) error {
+	defer db.locked()()
+
+	_, err := db.db.ExecContext(ctx, db.Rebind(`
+		UPDATE pieceinfo 
+		SET deletion_failed_at = ?
+		WHERE satellite_id = ? 
+		  AND piece_id = ?
+	`), now, satelliteID, pieceID)
+
+	return ErrInfo.Wrap(err)
+}
+
+// GetExpired gets pieceinformation identites that are expired.
+func (db *pieceinfo) GetExpired(ctx context.Context, expiredAt time.Time, limit int64) (infos []pieces.ExpiredInfo, err error) {
+	defer db.locked()()
+
+	rows, err := db.db.QueryContext(ctx, db.Rebind(`
+		SELECT satellite_id, piece_id, piece_size
+		FROM pieceinfo
+		WHERE piece_expiration < ? AND ((deletion_failed_at IS NULL) OR deletion_failed_at <> ?)
+		ORDER BY satellite_id
+		LIMIT ?
+	`), expiredAt, expiredAt, limit)
+	if err != nil {
+		return nil, ErrInfo.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+	for rows.Next() {
+		info := pieces.ExpiredInfo{}
+		err = rows.Scan(&info.SatelliteID, &info.PieceID, &info.PieceSize)
+		if err != nil {
+			return infos, ErrInfo.Wrap(err)
+		}
+		infos = append(infos, info)
+	}
+	return infos, nil
+}
+
 // SpaceUsed calculates disk space used by all pieces
 func (db *pieceinfo) SpaceUsed(ctx context.Context) (int64, error) {
 	defer db.locked()()
@@ -111,29 +151,4 @@ func (db *pieceinfo) SpaceUsed(ctx context.Context) (int64, error) {
 		return 0, nil
 	}
 	return *sum, err
-}
-
-// GetExpired gets pieceinformation identites that are expired.
-func (db *pieceinfo) GetExpired(ctx context.Context, expiredAt time.Time, limit int64) (infos []pieces.ExpiredInfo, err error) {
-	defer db.locked()()
-
-	rows, err := db.db.QueryContext(ctx, db.Rebind(`
-		SELECT satellite_id, piece_id, piece_size
-		FROM pieceinfo
-		WHERE piece_expiration < ? ORDER BY satellite_id
-		LIMIT ?
-	`), expiredAt, limit)
-	if err != nil {
-		return nil, ErrInfo.Wrap(err)
-	}
-	defer func() { err = errs.Combine(err, rows.Close()) }()
-	for rows.Next() {
-		info := pieces.ExpiredInfo{}
-		err = rows.Scan(&info.SatelliteID, &info.PieceID, &info.PieceSize)
-		if err != nil {
-			return infos, ErrInfo.Wrap(err)
-		}
-		infos = append(infos, info)
-	}
-	return infos, nil
 }

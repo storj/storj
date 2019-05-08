@@ -123,15 +123,24 @@ func TestPieceInfo(t *testing.T) {
 		require.Empty(t, cmp.Diff(info1, info1loaded, cmp.Comparer(pb.Equal)))
 
 		// getting no expired pieces
-		ids, err := pieceinfos.GetExpired(ctx, now.Add(-10*time.Hour), 10)
+		expired, err := pieceinfos.GetExpired(ctx, now.Add(-10*time.Hour), 10)
 		assert.NoError(t, err)
-		assert.Empty(t, ids)
+		assert.Len(t, expired, 0)
 
 		// getting expired pieces
-		exp := now.Add(time.Hour * 24)
-		ids, err = pieceinfos.GetExpired(ctx, exp, 10)
+		exp := now.Add(8 * 24 * time.Hour)
+		expired, err = pieceinfos.GetExpired(ctx, exp, 10)
 		assert.NoError(t, err)
-		assert.NotEmpty(t, ids)
+		assert.Len(t, expired, 3)
+
+		// mark info0 deletion as a failure
+		err = pieceinfos.DeleteFailed(ctx, info0.SatelliteID, info0.PieceID, exp)
+		assert.NoError(t, err)
+
+		// this shouldn't return info0
+		expired, err = pieceinfos.GetExpired(ctx, exp, 10)
+		assert.NoError(t, err)
+		assert.Len(t, expired, 2)
 
 		// deleting
 		err = pieceinfos.Delete(ctx, info0.SatelliteID, info0.PieceID)
