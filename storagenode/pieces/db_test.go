@@ -140,10 +140,10 @@ func TestPieceInfo(t *testing.T) {
 		require.NoError(t, err)
 
 		// deleting expired pieces
-		err = pieceinfos.Delete(ctx, exp, info2.SatelliteID, info2.PieceID)
+		err = pieceinfos.Delete(ctx, info2.SatelliteID, info2.PieceID)
 		require.NoError(t, err)
 		// duplicate deletion
-		err = pieceinfos.Delete(ctx, exp, info2.SatelliteID, info2.PieceID)
+		err = pieceinfos.Delete(ctx, info2.SatelliteID, info2.PieceID)
 		require.NoError(t, err)
 
 		// getting after delete
