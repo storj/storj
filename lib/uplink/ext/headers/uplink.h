@@ -7,33 +7,37 @@
 typedef __SIZE_TYPE__ GoUintptr;
 typedef int64_t Size;
 
-struct APIKey {
+struct APIKey
+{
     const char *key;
 };
 
-struct TLS {
-    bool SkipPeerCAWhitelist;
-    char* PeerCAWhitelistPath;
-};
-
-struct IDVersion {
+struct IDVersion
+{
     uint8_t Number;
     GoUintptr GoIDVersion;
 };
 
-struct UplinkConfigVolatile {
-    struct TLS TLS;
+struct UplinkConfigVolatile
+{
+    struct
+    {
+        bool SkipPeerCAWhitelist;
+        char *PeerCAWhitelistPath;
+    } TLS;
     struct IDVersion IdentityVersion;
-    char* PeerIDVersion;
+    char *PeerIDVersion;
     Size MaxInlineSize;
     Size MaxMemory;
 };
 
-struct Config {
+struct Config
+{
     struct UplinkConfigVolatile Volatile;
 };
 
-struct Uplink {
+struct Uplink
+{
     GoUintptr GoUplink;
     struct Config Config;
 };

@@ -9,18 +9,16 @@
 #include "../uplink-cgo.h"
 
 uint8_t idVersionNumber = 0;
-const struct TLS tls = {true, "/whitelist.pem"};
 const struct IDVersion idVersion = {0, 8};
 const struct Config testUplinkConfig = {
-        {
-            tls,
-            idVersion,
-            "latest",
-            1, 2
-        }
-};
+    {{true, "/whitelist.pem"},
+     {0, 8},
+     "latest",
+     1,
+     2}};
 
-void TestNewUplink_config(void) {
+void TestNewUplink_config(void)
+{
     char *err = "";
     struct Config uplinkConfig = testUplinkConfig;
 
@@ -41,7 +39,8 @@ void TestNewUplink_config(void) {
     TEST_ASSERT_NOT_EQUAL(0, uplink.Config.Volatile.IdentityVersion.GoIDVersion);
 }
 
-struct Uplink* NewTestUplink(char *err) {
+struct Uplink *NewTestUplink(char *err)
+{
     struct Config uplinkConfig = testUplinkConfig;
     struct IDVersion version = GetIDVersion(idVersionNumber, err);
     uplinkConfig.Volatile.IdentityVersion = version;
@@ -51,21 +50,19 @@ struct Uplink* NewTestUplink(char *err) {
     return uplink;
 }
 
-void TestOpenProject(void) {
+void TestOpenProject(void)
+{
     char *err = malloc(256);
     uint8_t idVersionNumber = 0;
-    struct TLS tls = {true, "/whitelist.pem"};
     struct IDVersion idVersion = {0, 0};
     struct Config uplinkConfig = {
-        {
-            tls,
-            idVersion,
-            "latest",
-            1, 2
-        }
-    };
+        {{true, "/whitelist.pem"},
+         idVersion,
+         "latest",
+         1,
+         2}};
     char *satelliteAddr = "127.0.0.1:7777";
-//    struct APIKey apiKey =
+    //    struct APIKey apiKey =
 
     // NB: ensure we get a valid ID version
     idVersion = GetIDVersion(idVersionNumber, err);
@@ -80,6 +77,6 @@ void TestOpenProject(void) {
     TEST_ASSERT_EQUAL_STRING("", err);
     TEST_ASSERT_NOT_NULL(uplink);
 
-//    OpenProject(uplink, satelliteAddr, apiKey, opts, err)
-//    TEST_ASSERT_EQUAL_STRING("", err)
+    //    OpenProject(uplink, satelliteAddr, apiKey, opts, err)
+    //    TEST_ASSERT_EQUAL_STRING("", err)
 }
