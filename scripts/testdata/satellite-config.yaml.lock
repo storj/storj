@@ -11,16 +11,16 @@
 # checker.interval: 30s
 
 # server address of the graphql api gateway and frontend app
-console.address: "127.0.0.1:8081"
+# console.address: "127.0.0.1:8081"
 
 # auth token needed for access to registration token creation endpoint
-console.auth-token: ""
+# console.auth-token: ""
 
 # external endpoint of the satellite if hosted
 # console.external-address: ""
 
 # path to static resources
-console.static-dir: ""
+# console.static-dir: ""
 
 # satellite database connection string
 # database: "postgres://"
@@ -32,7 +32,7 @@ debug.addr: "127.0.0.1:0"
 # debug.trace-out: ""
 
 # determines which set of configuration defaults to use. can either be 'dev' or 'release'
-# defaults: "release"
+defaults: "release"
 
 # the interval at which the satellite attempts to find new nodes via random node ID lookups
 # discovery.discovery-interval: 1s
@@ -59,7 +59,7 @@ identity.key-path: "/root/.local/share/storj/identity/satellite/identity.key"
 # kademlia.alpha: 5
 
 # the Kademlia node to bootstrap against
-kademlia.bootstrap-addr: "bootstrap.storj.io:8888"
+# kademlia.bootstrap-addr: "bootstrap.storj.io:8888"
 
 # the base interval to wait when retrying bootstrap
 # kademlia.bootstrap-backoff-base: 1s
@@ -95,7 +95,7 @@ kademlia.operator.wallet: ""
 # log.encoding: "console"
 
 # the minimum log level to log
-log.level: warn
+# log.level: warn
 
 # can be stdout, stderr, or a filename
 # log.output: "stderr"
@@ -113,7 +113,7 @@ log.level: warn
 # mail.client-secret: ""
 
 # sender email address
-mail.from: ""
+# mail.from: ""
 
 # plain/login auth user login
 # mail.login: ""
@@ -125,10 +125,10 @@ mail.from: ""
 # mail.refresh-token: ""
 
 # smtp server address
-mail.smtp-server-address: ""
+# mail.smtp-server-address: ""
 
 # path to email templates source
-mail.template-path: ""
+# mail.template-path: ""
 
 # uri which is used when retrieving new access token
 # mail.token-uri: ""
@@ -155,7 +155,7 @@ mail.template-path: ""
 # metrics.app: "satellite"
 
 # application suffix
-metrics.app-suffix: "-dev"
+# metrics.app-suffix: "-dev"
 
 # how frequently to send up telemetry
 # metrics.interval: 1m0s
@@ -209,7 +209,7 @@ metrics.app-suffix: "-dev"
 server.address: ":7777"
 
 # if true, client leaves may contain the most recent certificate revocation for the current certificate
-server.extensions.revocation: true
+# server.extensions.revocation: true
 
 # if true, client leaves must contain a valid "signed certificate extension" (NB: verified against certs in the peer ca whitelist; i.e. if true, a whitelist must be provided)
 # server.extensions.whitelist-signed-leaf: false
@@ -227,7 +227,7 @@ server.private-address: "127.0.0.1:7778"
 # server.revocation-dburl: "bolt://testdata/revocations.db"
 
 # if true, uses peer ca whitelist checking
-server.use-peer-ca-whitelist: false
+# server.use-peer-ca-whitelist: false
 
 # how frequently the tally service should run
 # tally.interval: 1h0m0s
@@ -239,5 +239,5 @@ server.use-peer-ca-whitelist: false
 # version.request-timeout: 1m0s
 
 # server address to check its version against
-version.server-address: "https://version.alpha.storj.io"
+# version.server-address: "https://version.alpha.storj.io"
 
