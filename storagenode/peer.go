@@ -23,6 +23,7 @@ import (
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode/bandwidth"
+	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/inspector"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/orders"
@@ -57,8 +58,10 @@ type Config struct {
 	Server   server.Config
 	Kademlia kademlia.Config
 
-	Storage  piecestore.OldConfig
-	Storage2 piecestore.Config
+	// TODO: flatten storage config and only keep the new one
+	Storage   piecestore.OldConfig
+	Storage2  piecestore.Config
+	Collector collector.Config
 
 	Version version.Config
 }
@@ -91,6 +94,7 @@ type Peer struct {
 	}
 
 	Storage2 struct {
+		// TODO: lift things outside of it to organize better
 		Trust     *trust.Pool
 		Store     *pieces.Store
 		Endpoint  *piecestore.Endpoint
@@ -98,6 +102,8 @@ type Peer struct {
 		Monitor   *monitor.Service
 		Sender    *orders.Sender
 	}
+
+	Collector *collector.Service
 }
 
 // New creates a new Storage Node.
@@ -181,7 +187,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		pb.RegisterKadInspectorServer(peer.Server.PrivateGRPC(), peer.Kademlia.Inspector)
 	}
 
-	{ // setup storage 2
+	{ // setup storage
 		trustAllSatellites := !config.Storage.SatelliteIDRestriction
 		peer.Storage2.Trust, err = trust.NewPool(peer.Kademlia.Service, trustAllSatellites, config.Storage.WhitelistedSatelliteIDs)
 		if err != nil {
@@ -189,6 +195,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		}
 
 		peer.Storage2.Store = pieces.NewStore(peer.Log.Named("pieces"), peer.DB.Pieces())
+
+		peer.Storage2.Collector = collector.NewService(peer.Log.Named("collector"), peer.DB.Pieces(), peer.Storage2.Store, config.Collector)
 
 		peer.Storage2.Monitor = monitor.NewService(
 			log.Named("piecestore:monitor"),
