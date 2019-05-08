@@ -79,7 +79,7 @@ type NodeCriteria struct {
 	Excluded           []storj.NodeID
 	MinimumVersion     string // semver or empty
 	OnlineWindow       time.Duration
-	DistinctIPs        bool
+	DistinctIP         bool
 }
 
 // UpdateRequest is used to update a node status.
@@ -191,7 +191,7 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 			Excluded:          excluded,
 			MinimumVersion:    preferences.MinimumVersion,
 			OnlineWindow:      preferences.OnlineWindow,
-			DistinctIPs:       preferences.DistinctIPs,
+			DistinctIP:        preferences.DistinctIP,
 		})
 		if err != nil {
 			return nil, err
@@ -213,7 +213,7 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 		Excluded:           excluded,
 		MinimumVersion:     preferences.MinimumVersion,
 		OnlineWindow:       preferences.OnlineWindow,
-		DistinctIPs:        preferences.DistinctIPs,
+		DistinctIP:         preferences.DistinctIP,
 	}
 	reputableNodes, err := cache.db.SelectStorageNodes(ctx, reputableNodeCount-len(newNodes), &criteria)
 	if err != nil {

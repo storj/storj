@@ -235,7 +235,7 @@ func TestDistinctIPs(t *testing.T) {
 				AuditCount:        0,
 				NewNodePercentage: 0,
 				OnlineWindow:      time.Hour,
-				DistinctIPs:       true,
+				DistinctIP:        true,
 			},
 		},
 		{ // test distinct flag false allows duplicates
@@ -246,7 +246,7 @@ func TestDistinctIPs(t *testing.T) {
 				AuditCount:        0,
 				NewNodePercentage: 0,
 				OnlineWindow:      time.Hour,
-				DistinctIPs:       false,
+				DistinctIP:        false,
 			},
 		},
 	}
@@ -256,7 +256,7 @@ func TestDistinctIPs(t *testing.T) {
 			SatelliteCount: 1, StorageNodeCount: tt.nodeCount, UplinkCount: 1,
 			Reconfigure: testplanet.Reconfigure{
 				Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-					config.Overlay.Node.DistinctIPs = tt.preferences.DistinctIPs
+					config.Overlay.Node.DistinctIP = tt.preferences.DistinctIP
 					config.Discovery.RefreshInterval = 60 * time.Second
 				},
 			},
@@ -286,7 +286,7 @@ func TestDistinctIPs(t *testing.T) {
 			require.NoError(t, err)
 
 			// assert all IPs are unique
-			if tt.preferences.DistinctIPs {
+			if tt.preferences.DistinctIP {
 				ips := make(map[string]bool)
 				for _, n := range response {
 					fmt.Println(n.Id, n.LastIp)

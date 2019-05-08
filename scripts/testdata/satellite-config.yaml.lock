@@ -169,6 +169,9 @@ kademlia.operator.wallet: ""
 # a node's ratio of successful audits
 # overlay.node.audit-success-ratio: 0.4
 
+# require distinct IPs when choosing nodes for upload
+# overlay.node.distinct-ip: true
+
 # the minimum node software version for node selection queries
 # overlay.node.minimum-version: ""
 

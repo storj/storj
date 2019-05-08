@@ -60,7 +60,7 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 		args = append(args, v.Major, v.Major, v.Minor, v.Minor, v.Patch)
 	}
 
-	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, safeQuery, criteria.DistinctIPs, args...)
+	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, safeQuery, criteria.DistinctIP, args...)
 }
 
 func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) ([]*pb.Node, error) {
@@ -85,10 +85,10 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 		args = append(args, v.Major, v.Major, v.Minor, v.Minor, v.Patch)
 	}
 
-	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, safeQuery, criteria.DistinctIPs, args...)
+	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, safeQuery, criteria.DistinctIP, args...)
 }
 
-func (cache *overlaycache) queryFilteredNodes(ctx context.Context, excluded []storj.NodeID, count int, safeQuery string, distinctIPs bool, args ...interface{}) (_ []*pb.Node, err error) {
+func (cache *overlaycache) queryFilteredNodes(ctx context.Context, excluded []storj.NodeID, count int, safeQuery string, distinctIP bool, args ...interface{}) (_ []*pb.Node, err error) {
 	if count == 0 {
 		return nil, nil
 	}
@@ -103,7 +103,7 @@ func (cache *overlaycache) queryFilteredNodes(ctx context.Context, excluded []st
 	args = append(args, count)
 
 	var rows *sql.Rows
-	if distinctIPs {
+	if distinctIP {
 		rows, err = cache.db.Query(cache.db.Rebind(`SELECT id,
 		type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
 		uptime_ratio, total_audit_count, audit_success_count, total_uptime_count,
