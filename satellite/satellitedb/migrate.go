@@ -611,12 +611,13 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				Description: "Add last_ip column",
+				Description: "Add last_ip column and index",
 				Version:     18,
 				Action: migrate.SQL{
 					`ALTER TABLE nodes ADD last_ip TEXT;
 					UPDATE nodes SET last_ip = '';
-					ALTER TABLE nodes ALTER COLUMN last_ip SET NOT NULL;`,
+					ALTER TABLE nodes ALTER COLUMN last_ip SET NOT NULL;
+					CREATE INDEX IF NOT EXISTS node_last_ip ON nodes (last_ip)`,
 				},
 			},
 		},
