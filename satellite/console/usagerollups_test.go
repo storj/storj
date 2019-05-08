@@ -25,7 +25,7 @@ const (
 	numBuckets     = 5
 	tallyIntervals = 10
 
-	tallyInterval = time.Duration(time.Hour * 1)
+	tallyInterval = time.Hour
 )
 
 func TestUsageRollups(t *testing.T) {
