@@ -52,6 +52,7 @@ import (
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/storagenodedb"
