@@ -6,6 +6,7 @@ package sync2
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -17,10 +18,12 @@ import (
 type Cycle struct {
 	interval time.Duration
 
-	ticker      *time.Ticker
-	control     chan interface{}
-	stopcontrol chan struct{}
-	stop        chan struct{}
+	ticker  *time.Ticker
+	control chan interface{}
+
+	stopsent int64
+	stopping chan struct{}
+	stopped  chan struct{}
 
 	init sync.Once
 }
@@ -47,8 +50,8 @@ func (cycle *Cycle) SetInterval(interval time.Duration) {
 
 func (cycle *Cycle) initialize() {
 	cycle.init.Do(func() {
-		cycle.stop = make(chan struct{})
-		cycle.stopcontrol = make(chan struct{})
+		cycle.stopped = make(chan struct{})
+		cycle.stopping = make(chan struct{})
 		cycle.control = make(chan interface{})
 	})
 }
@@ -66,7 +69,7 @@ func (cycle *Cycle) Start(ctx context.Context, group *errgroup.Group, fn func(ct
 // When `fn` is not fast enough, it may skip some of those executions.
 func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error) error {
 	cycle.initialize()
-	defer close(cycle.stop)
+	defer close(cycle.stopped)
 
 	currentInterval := cycle.interval
 	cycle.ticker = time.NewTicker(currentInterval)
@@ -108,7 +111,7 @@ func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error)
 				}
 			}
 
-		case <-cycle.stopcontrol:
+		case <-cycle.stopping:
 			return nil
 
 		case <-ctx.Done():
@@ -127,7 +130,7 @@ func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error)
 // Close closes all resources associated with it.
 func (cycle *Cycle) Close() {
 	cycle.Stop()
-	<-cycle.stop
+	<-cycle.stopped
 	close(cycle.control)
 }
 
@@ -136,18 +139,15 @@ func (cycle *Cycle) sendControl(message interface{}) {
 	cycle.initialize()
 	select {
 	case cycle.control <- message:
-	case <-cycle.stop:
+	case <-cycle.stopped:
 	}
 }
 
 // Stop stops the cycle permanently
 func (cycle *Cycle) Stop() {
 	cycle.initialize()
-	select {
-	case cycle.stopcontrol <- struct{}{}:
-	case <-cycle.stop:
-	default:
-		// when there's already a stop mesasge, we can avoid waiting
+	if atomic.CompareAndSwapInt64(&cycle.stopsent, 0, 1) {
+		close(cycle.stopping)
 	}
 }
 
@@ -181,6 +181,6 @@ func (cycle *Cycle) TriggerWait() {
 	cycle.sendControl(cycleTrigger{done})
 	select {
 	case <-done:
-	case <-cycle.stop:
+	case <-cycle.stopped:
 	}
 }
