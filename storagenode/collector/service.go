@@ -47,7 +47,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return service.Loop.Run(ctx, func(ctx context.Context) error {
-		err := service.collect(ctx)
+		err := service.Collect(ctx, time.Now())
 		if err != nil {
 			service.log.Error("error during collecting pieces: ", zap.Error(err))
 		}
@@ -61,10 +61,10 @@ func (service *Service) Close() (err error) {
 	return nil
 }
 
-func (service *Service) collect(ctx context.Context) (err error) {
+// Collect collects pieces that have expired by now.
+func (service *Service) Collect(ctx context.Context, now time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	now := time.Now()
 	const maxBatches = 100
 	const batchSize = 1024
 
