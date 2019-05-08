@@ -257,6 +257,19 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 	return s.store.ResetPasswordTokens().Delete(ctx, token.Secret)
 }
 
+func (s *Service) RevokeResetPasswordToken(ctx context.Context, resetPasswordToken string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	secret, err := ResetPasswordSecretFromBase64(resetPasswordToken)
+	if err != nil {
+		return
+	}
+
+	err = s.store.ResetPasswordTokens().Delete(ctx, secret)
+
+	return err
+}
+
 // Token authenticates User by credentials and returns auth token
 func (s *Service) Token(ctx context.Context, email, password string) (token string, err error) {
 	defer mon.Task()(&ctx)(&err)

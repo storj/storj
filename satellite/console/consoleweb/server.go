@@ -94,6 +94,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	if server.config.StaticDir != "" {
 		mux.Handle("/activation/", http.HandlerFunc(server.accountActivationHandler))
 		mux.Handle("/password-recovery/", http.HandlerFunc(server.passwordRecoveryHandler))
+		mux.Handle("/password-recovery-let-us-know/", http.HandlerFunc(server.passwordRecoveryLetUsKnowHandler))
 		mux.Handle("/registrationToken/", http.HandlerFunc(server.createRegistrationTokenHandler))
 		mux.Handle("/usage-report/", http.HandlerFunc(server.bucketUsageReportHandler))
 		mux.Handle("/static/", http.StripPrefix("/static", fs))
@@ -264,6 +265,7 @@ func (s *Server) passwordRecoveryHandler(w http.ResponseWriter, req *http.Reques
 		if err != nil {
 			s.serveError(w, req)
 		}
+		http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "resetPassword", "success.html"))
 	default:
 		t, err := template.ParseFiles(filepath.Join(s.config.StaticDir, "static", "resetPassword", "resetPassword.html"))
 		if err != nil {
@@ -275,6 +277,19 @@ func (s *Server) passwordRecoveryHandler(w http.ResponseWriter, req *http.Reques
 			s.serveError(w, req)
 		}
 	}
+}
+
+func (s *Server) passwordRecoveryLetUsKnowHandler(w http.ResponseWriter, req *http.Request) {
+	recoveryToken := req.URL.Query().Get("token")
+	if len(recoveryToken) == 0 {
+		http.Redirect(w, req, "https://storjlabs.atlassian.net/servicedesk/customer/portals", http.StatusSeeOther)
+		// TODO redirect to support page
+	}
+
+	// No need to check error as we anyway redirect user to support page
+	_ = s.service.RevokeResetPasswordToken(context.Background(), recoveryToken)
+
+	http.Redirect(w, req, "https://storjlabs.atlassian.net/servicedesk/customer/portals", http.StatusSeeOther)
 }
 
 func (s *Server) serveError(w http.ResponseWriter, req *http.Request) {
@@ -305,6 +320,7 @@ func (s *Server) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 	rootObject["origin"] = s.config.ExternalAddress
 	rootObject[consoleql.ActivationPath] = "activation/?token="
 	rootObject[consoleql.PasswordRecoveryPath] = "password-recovery/?token="
+	rootObject[consoleql.PasswordRecoveryLetUsKnowPath] = "password-recovery-let-us-know/?token="
 	rootObject[consoleql.SignInPath] = "login"
 
 	result := graphql.Do(graphql.Params{
