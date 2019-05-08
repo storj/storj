@@ -221,7 +221,7 @@ func TestUsageRollups(t *testing.T) {
 			assert.NoError(t, err)
 			assert.NotNil(t, totals1)
 
-			totals2, err := usageRollups.GetBucketTotals(ctx, *project1, cursor, start, now)
+			totals2, err := usageRollups.GetBucketTotals(ctx, *project2, cursor, start, now)
 			assert.NoError(t, err)
 			assert.NotNil(t, totals2)
 		})
