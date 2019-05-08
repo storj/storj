@@ -89,7 +89,7 @@ func (service *Service) Collect(ctx context.Context, now time.Time) (err error) 
 			err := service.pieces.Delete(ctx, expired.SatelliteID, expired.PieceID)
 			if err != nil {
 				errfailed := service.pieceinfos.DeleteFailed(ctx, expired.SatelliteID, expired.PieceID, now)
-				if err != nil {
+				if errfailed != nil {
 					service.log.Error("unable to update piece info", zap.Stringer("satellite id", expired.SatelliteID), zap.Stringer("piece id", expired.PieceID), zap.Error(errfailed))
 				}
 				service.log.Error("unable to delete piece", zap.Stringer("satellite id", expired.SatelliteID), zap.Stringer("piece id", expired.PieceID), zap.Error(err))
