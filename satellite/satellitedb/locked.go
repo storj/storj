@@ -458,6 +458,47 @@ func (m *lockedRegistrationTokens) UpdateOwner(ctx context.Context, secret conso
 	return m.db.UpdateOwner(ctx, secret, ownerID)
 }
 
+// ResetPasswordTokens is a getter for ResetPasswordTokens repository
+func (m *lockedConsole) ResetPasswordTokens() console.ResetPasswordTokens {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedResetPasswordTokens{m.Locker, m.db.ResetPasswordTokens()}
+}
+
+// lockedResetPasswordTokens implements locking wrapper for console.ResetPasswordTokens
+type lockedResetPasswordTokens struct {
+	sync.Locker
+	db console.ResetPasswordTokens
+}
+
+// Create creates new reset password token
+func (m *lockedResetPasswordTokens) Create(ctx context.Context, ownerID *uuid.UUID) (*console.ResetPasswordToken, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Create(ctx, ownerID)
+}
+
+// Delete deletes ResetPasswordToken by ResetPasswordSecret
+func (m *lockedResetPasswordTokens) Delete(ctx context.Context, secret console.ResetPasswordSecret) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Delete(ctx, secret)
+}
+
+// GetByOwnerID retrieves ResetPasswordToken by ownerID
+func (m *lockedResetPasswordTokens) GetByOwnerID(ctx context.Context, ownerID uuid.UUID) (*console.ResetPasswordToken, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetByOwnerID(ctx, ownerID)
+}
+
+// GetBySecret retrieves ResetPasswordToken with given secret
+func (m *lockedResetPasswordTokens) GetBySecret(ctx context.Context, secret console.ResetPasswordSecret) (*console.ResetPasswordToken, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetBySecret(ctx, secret)
+}
+
 // UsageRollups is a getter for UsageRollups repository
 func (m *lockedConsole) UsageRollups() console.UsageRollups {
 	m.Lock()
@@ -703,6 +744,14 @@ func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*ove
 	return m.db.Get(ctx, nodeID)
 }
 
+// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
+// Note that KnownUnreliableOrOffline will not return node ids which are not in the database at all
+func (m *lockedOverlayCache) KnownUnreliableOrOffline(ctx context.Context, a1 *overlay.NodeCriteria, a2 storj.NodeIDList) (storj.NodeIDList, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.KnownUnreliableOrOffline(ctx, a1, a2)
+}
+
 // Paginate will page through the database nodes
 func (m *lockedOverlayCache) Paginate(ctx context.Context, offset int64, limit int) ([]*overlay.NodeDossier, bool, error) {
 	m.Lock()
@@ -722,14 +771,6 @@ func (m *lockedOverlayCache) SelectStorageNodes(ctx context.Context, count int, 
 	m.Lock()
 	defer m.Unlock()
 	return m.db.SelectStorageNodes(ctx, count, criteria)
-}
-
-// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
-// Note that KnownUnreliableOrOffline will not return node ids which are not in the database at all
-func (m *lockedOverlayCache) KnownUnreliableOrOffline(ctx context.Context, a1 *overlay.NodeCriteria, a2 storj.NodeIDList) (storj.NodeIDList, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.KnownUnreliableOrOffline(ctx, a1, a2)
 }
 
 // Update updates node address

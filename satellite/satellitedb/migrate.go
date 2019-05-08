@@ -610,6 +610,19 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					UPDATE nodes SET uptime_ratio = 1 WHERE total_uptime_count = 0;`,
 				},
 			},
+			{
+				Description: "Added new table to store reset password tokens",
+				Version:     18,
+				Action: migrate.SQL{`
+					CREATE TABLE reset_password_tokens (
+						secret bytea NOT NULL,
+						owner_id bytea NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( secret ),
+						UNIQUE ( owner_id )
+					);`,
+				},
+			},
 		},
 	}
 }
