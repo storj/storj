@@ -118,7 +118,8 @@ type Uplink struct {
 	cfg *Config
 }
 
-// NewUplink creates a new Uplink
+// NewUplink creates a new Uplink. This is the first step to create an uplink
+// session with a user specified config or with default config, if nil config
 func NewUplink(ctx context.Context, cfg *Config) (*Uplink, error) {
 	if cfg == nil {
 		cfg = &Config{}
