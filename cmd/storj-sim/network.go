@@ -305,6 +305,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process.WaitForStart(satellite)
 		process.Arguments = withCommon(process.Directory, Arguments{
 			"setup": {
+				"--non-interactive=true",
 				"--identity-dir", process.Directory,
 				"--satellite-addr", satellite.Address,
 
