@@ -124,9 +124,9 @@ func TestPieceInfo(t *testing.T) {
 
 		// getting expired pieces
 		exp := time.Now().Add(time.Hour * 24)
-		infoexp, err := pieceinfos.GetExpired(ctx, exp)
+		ids, err := pieceinfos.GetExpired(ctx, exp, 10)
 		assert.NoError(t, err)
-		assert.NotEmpty(t, infoexp)
+		assert.NotEmpty(t, ids)
 
 		// deleting
 		err = pieceinfos.Delete(ctx, info0.SatelliteID, info0.PieceID)
