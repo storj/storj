@@ -3,7 +3,7 @@
 
 // usage: storj-sim sj://bucket_name ~/target-directory
 //
-// Currently storj-mount is using 'uplink' configuration and identity
+// Currently storj-mount is using 'uplink' configuration
 
 // +build linux darwin
 
@@ -26,7 +26,6 @@ import (
 	"storj.io/storj/internal/fpath"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink"
@@ -34,7 +33,6 @@ import (
 
 // UplinkFlags test
 type UplinkFlags struct {
-	Identity identity.Config
 	uplink.Config
 }
 
@@ -63,22 +61,17 @@ func init() {
 	rootCmd.AddCommand(mountCmd)
 
 	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
-	defaultIdentityDir := fpath.ApplicationDir("storj", "identity", "uplink")
 
 	confDirParam := cfgstruct.FindConfigDirParam()
 	if confDirParam != "" {
 		defaultConfDir = confDirParam
-	}
-	identityDirParam := cfgstruct.FindIdentityDirParam()
-	if identityDirParam != "" {
-		defaultIdentityDir = identityDirParam
 	}
 
 	var confDir string
 	cfgstruct.SetupFlag(zap.L(), mountCmd, &confDir, "config-dir", defaultConfDir, "main directory for mount configuration")
 
 	defaults := cfgstruct.DefaultsFlag(mountCmd)
-	cfgstruct.Bind(mountCmd.Flags(), &cfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(mountCmd.Flags(), &cfg, defaults, cfgstruct.ConfDir(confDir))
 }
 
 func mountBucket(cmd *cobra.Command, args []string) (err error) {
@@ -91,7 +84,7 @@ func mountBucket(cmd *cobra.Command, args []string) (err error) {
 
 	ctx := process.Ctx(cmd)
 
-	if err := process.InitMetricsWithCertPath(ctx, nil, cfg.Identity.CertPath); err != nil {
+	if err := process.InitMetrics(ctx, nil, ""); err != nil {
 		zap.S().Error("Failed to initialize telemetry batcher: ", err)
 	}
 
@@ -522,16 +515,6 @@ func (c *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, error
 
 	satelliteAddr := c.Client.SatelliteAddr
 
-	identity, err := c.Identity.Load()
-	if err != nil {
-		return nil, err
-	}
-
-	identityVersion, err := identity.Version()
-	if err != nil {
-		return nil, err
-	}
-
 	cfg := &libuplink.Config{}
 
 	cfg.Volatile.TLS = struct {
@@ -542,8 +525,6 @@ func (c *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, error
 		PeerCAWhitelistPath: c.TLS.PeerCAWhitelistPath,
 	}
 
-	cfg.Volatile.UseIdentity = identity
-	cfg.Volatile.IdentityVersion = identityVersion
 	cfg.Volatile.MaxInlineSize = c.Client.MaxInlineSize
 	cfg.Volatile.MaxMemory = c.RS.MaxBufferMem
 
