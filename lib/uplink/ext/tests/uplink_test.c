@@ -62,7 +62,10 @@ void TestOpenProject(void)
          1,
          2}};
     char *satelliteAddr = "127.0.0.1:7777";
-    //    struct APIKey apiKey =
+    struct APIKey apiKey = {"testapikeyandBUTTS"};
+    uint8_t encryptionKey[32];
+    struct ProjectOptions opts = {
+        {&encryptionKey}};
 
     // NB: ensure we get a valid ID version
     idVersion = GetIDVersion(idVersionNumber, err);
@@ -77,6 +80,6 @@ void TestOpenProject(void)
     TEST_ASSERT_EQUAL_STRING("", err);
     TEST_ASSERT_NOT_NULL(uplink);
 
-    //    OpenProject(uplink, satelliteAddr, apiKey, opts, err)
-    //    TEST_ASSERT_EQUAL_STRING("", err)
+    OpenProject(*uplink, satelliteAddr, apiKey, opts, err);
+    TEST_ASSERT_EQUAL_STRING("", err);
 }

@@ -13,7 +13,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	//"unsafe"
+	"unsafe"
 
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 	"storj.io/storj/lib/uplink"
@@ -44,35 +44,38 @@ func NewUplink(cConfig C.struct_Config, cErr *C.char) (cUplink C.struct_Uplink) 
 }
 
 //export OpenProject
-func OpenProject(cUplink *C.struct_Uplink, satelliteAddr *C.char, cAPIKey C.struct_APIKey, cOpts *C.struct_ProjectOptions, cErr *C.char) (cProject C.struct_Project) {
-	//var err error
-	//ctx := context.Background()
-	//defer mon.Task()(&ctx)(&err)
-	//
-	////goUplink := (*uplink.Uplink)(unsafe.Pointer(reflect.Indirect(cUplink.GoUplink).Uint()))
-	//fmt.Printf("goUplink: %+v\n", goUplink)
-	//
-	//opts := new(uplink.ProjectOptions)
-	//err = CToGoStruct(cOpts, opts)
-	//if err != nil {
-	//	*cErr = *C.CString(err.Error())
-	//	return cProject
-	//}
-	//
-	//apiKey := new(uplink.APIKey)
-	//err = CToGoStruct(cAPIKey, apiKey)
-	//if err != nil {
-	//	*cErr = *C.CString(err.Error())
-	//	return cProject
-	//}
-	//
-	//project, err := goUplink.OpenProject(ctx, C.GoString(satelliteAddr), *apiKey, opts)
-	//if err != nil {
-	//	*cErr = *C.CString(err.Error())
-	//	return cProject
-	//}
-	//return C.struct_Project{
-	//	GoProject: C.GoUintptr(reflect.ValueOf(&project).Pointer()),
-	//}
+func OpenProject(cUplink C.struct_Uplink, satelliteAddr *C.char, cAPIKey C.struct_APIKey, cOpts C.struct_ProjectOptions, cErr *C.char) (cProject C.struct_Project) {
+	var err error
+	ctx := context.Background()
+	defer mon.Task()(&ctx)(&err)
+	
+	goUplink := (*uplink.Uplink)(unsafe.Pointer(uintptr(cUplink.GoUplink)))
+	fmt.Printf("goUplink: %+v\n", goUplink)
+	
+	opts := new(uplink.ProjectOptions)
+	err = CToGoStruct(cOpts, opts)
+	if err != nil {
+		*cErr = *C.CString(err.Error())
+		fmt.Println(cErr, err.Error())
+		return cProject
+	}
+	
+	apiKey := new(uplink.APIKey)
+	err = CToGoStruct(cAPIKey, apiKey)
+	if err != nil {
+		*cErr = *C.CString(err.Error())
+		fmt.Println(cErr, err.Error())
+		return cProject
+	}
+	
+	project, err := goUplink.OpenProject(ctx, C.GoString(satelliteAddr), *apiKey, opts)
+	if err != nil {
+		*cErr = *C.CString(err.Error())
+		fmt.Println(cErr, err.Error())
+		return cProject
+	}
+	return C.struct_Project{
+		GoProject: C.GoUintptr(reflect.ValueOf(&project).Pointer()),
+	}
 	return C.struct_Project{}
 }

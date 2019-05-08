@@ -9,7 +9,7 @@ typedef int64_t Size;
 
 struct APIKey
 {
-    const char *key;
+    GoUintptr apikey;
 };
 
 struct IDVersion

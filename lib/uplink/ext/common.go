@@ -26,6 +26,7 @@ var (
 	cUintType      = reflect.TypeOf(C.uint(0))
 	cUcharType     = reflect.TypeOf(C.uchar('0'))
 	cLongType      = reflect.TypeOf(C.long(0))
+	cKeyType 	   = reflect.TypeOf(C.struct_Key{})
 	memorySizeType = reflect.TypeOf(memory.Size(0))
 
 	ErrConvert = errs.Class("struct conversion error")
@@ -116,10 +117,12 @@ func CToGoStruct(fromVar, toPtr interface{}) error {
 
 	switch fromType {
 	case cStringType:
-		toValue.Set(reflect.ValueOf(C.GoString(fromValue.Interface().(*C.char))))
+		fallthrough
+	case cKeyType:
+		toValue.Set(reflect.ValueOf(fromValue.String()))
 		return nil
 	case cBoolType:
-		toValue.Set(reflect.ValueOf(bool(fromValue.Interface().(C.bool))))
+		toValue.Set(reflect.ValueOf(fromValue.Bool()))
 		return nil
 	case cIntType:
 		toValue.Set(reflect.ValueOf(int(fromValue.Interface().(C.int))))
