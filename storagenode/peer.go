@@ -262,6 +262,9 @@ func (peer *Peer) Run(ctx context.Context) error {
 		return errs2.IgnoreCanceled(peer.Kademlia.Service.Run(ctx))
 	})
 	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Collector.Run(ctx))
+	})
+	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Storage2.Sender.Run(ctx))
 	})
 	group.Go(func() error {
@@ -288,6 +291,16 @@ func (peer *Peer) Close() error {
 	// close servers, to avoid new connections to closing subsystems
 	if peer.Server != nil {
 		errlist.Add(peer.Server.Close())
+	}
+
+	if peer.Collector != nil {
+		errlist.Add(peer.Collector.Close())
+	}
+	if peer.Storage2.Sender != nil {
+		errlist.Add(peer.Storage2.Sender.Close())
+	}
+	if peer.Storage2.Monitor != nil {
+		errlist.Add(peer.Storage2.Monitor.Close())
 	}
 
 	// close services in reverse initialization order

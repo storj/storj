@@ -116,6 +116,12 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	})
 }
 
+// Close stops the monitor service.
+func (service *Service) Close() (err error) {
+	service.Loop.Stop()
+	return nil
+}
+
 func (service *Service) updateNodeInformation(ctx context.Context) error {
 	usedSpace, err := service.usedSpace(ctx)
 	if err != nil {

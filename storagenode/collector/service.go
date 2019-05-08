@@ -55,6 +55,12 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	})
 }
 
+// Close stops the collector service.
+func (service *Service) Close() (err error) {
+	service.Loop.Stop()
+	return nil
+}
+
 func (service *Service) collect(ctx context.Context) (err error) {
 	now := time.Now()
 	const maxBatches = 100
