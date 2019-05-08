@@ -7,10 +7,7 @@
 typedef __SIZE_TYPE__ GoUintptr;
 typedef int64_t Size;
 
-struct APIKey
-{
-    GoUintptr apikey;
-};
+typedef GoUintptr APIKey;
 
 struct IDVersion
 {

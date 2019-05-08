@@ -10,19 +10,26 @@ package main
 //   #include "headers/main.h"
 // #endif
 import "C"
+import (
+	"storj.io/storj/lib/uplink"
+	"unsafe"
+)
 
 //export ParseAPIKey
 // ParseAPIKey parses an API Key
-func ParseAPIKey(val string) (key C.struct_APIKey) {
-	cval := C.CString(val)
-	return C.struct_APIKey{
-		key: cval,
+func ParseAPIKey(val *C.char, cErr *C.char) (cApiKey C.APIKey) {
+	goApiKeyStruct, err := uplink.ParseAPIKey(C.GoString(val))
+	if err != nil {
+		cErr = C.CString(err.Error())
+		return cApiKey
 	}
+	return cPointerFromGoStruct(&goApiKeyStruct)
 
 }
 
 //export Serialize
 // Serialize serializes the API Key to a string
-func Serialize(key C.struct_APIKey) *C.char {
-	return key.key
+func Serialize(CApiKey C.APIKey) *C.char {
+	goApiKeyStruct := (*uplink.APIKey)(unsafe.Pointer(uintptr(CApiKey)))
+	return C.CString(goApiKeyStruct.Serialize())
 }

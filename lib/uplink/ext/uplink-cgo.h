@@ -99,17 +99,15 @@ extern "C" {
 
 // ParseAPIKey parses an API Key
 
-extern struct APIKey ParseAPIKey(GoString p0);
+extern APIKey ParseAPIKey(char* p0, char* p1);
 
 // Serialize serializes the API Key to a string
 
-extern char* Serialize(struct APIKey p0);
+extern char* Serialize(APIKey p0);
 
 extern struct IDVersion GetIDVersion(unsigned int p0, char* p1);
 
 extern struct Uplink NewUplink(struct Config p0, char* p1);
-
-extern struct Project OpenProject(struct Uplink p0, char* p1, struct APIKey p2, struct ProjectOptions p3, char* p4);
 
 #ifdef __cplusplus
 }

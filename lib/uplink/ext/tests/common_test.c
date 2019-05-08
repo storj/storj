@@ -6,7 +6,8 @@
 #include "unity.h"
 #include "../uplink-cgo.h"
 
-void TestGetIDVersion(void) {
+void TestGetIDVersion(void)
+{
     char *err = "";
     uint8_t idVersionNumber = 0;
     struct IDVersion idVersion = {0, 0};
@@ -15,4 +16,15 @@ void TestGetIDVersion(void) {
 
     TEST_ASSERT_EQUAL_STRING("", err);
     TEST_ASSERT_NOT_EQUAL(0, idVersion.GoIDVersion);
+}
+
+void TestAPIKey(void)
+{
+    char *err = "";
+    char *keyStr = "HiBryanIDidIt";
+    APIKey apikey = ParseAPIKey(keyStr, err);
+    char *resultKey = Serialize(apikey);
+
+    TEST_ASSERT_EQUAL_STRING("", err);
+    TEST_ASSERT_EQUAL_STRING(keyStr, resultKey);
 }

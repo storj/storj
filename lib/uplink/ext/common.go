@@ -32,6 +32,11 @@ var (
 	ErrConvert = errs.Class("struct conversion error")
 )
 
+// Create pointer to a go struct for C to interact with
+func cPointerFromGoStruct(s interface{}) C.GoUintptr {
+	return C.GoUintptr(reflect.ValueOf(s).Pointer())
+}
+
 //export GetIDVersion
 func GetIDVersion(number C.uint, cErr *C.char) C.struct_IDVersion {
 	cIDVersion := C.struct_IDVersion{}
@@ -42,7 +47,7 @@ func GetIDVersion(number C.uint, cErr *C.char) C.struct_IDVersion {
 	}
 
 	return C.struct_IDVersion{
-		GoIDVersion: C.GoUintptr(reflect.ValueOf(&goIDVersion).Pointer()),
+		GoIDVersion: cPointerFromGoStruct(&goIDVersion),
 		// NB: C.uchar is uint8
 		Number:      C.uchar(goIDVersion.Number),
 	}

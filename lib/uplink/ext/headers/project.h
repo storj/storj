@@ -4,15 +4,13 @@
 typedef __SIZE_TYPE__ GoUintptr;
 typedef uint8_t Key[32];
 
-struct Project
-{
-    GoUintptr GoProject;
-};
+typedef GoUintptr Project;
 
 struct ProjectOptions
 {
     struct
     {
         Key *EncryptionKey;
+
     } Volatile;
 };
