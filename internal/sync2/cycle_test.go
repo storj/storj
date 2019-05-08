@@ -87,3 +87,23 @@ func TestCycle_Basic(t *testing.T) {
 		})
 	}
 }
+
+func TestCycle_MultipleStops(t *testing.T) {
+	t.Parallel()
+
+	cycle := sync2.NewCycle(time.Second)
+	defer cycle.Close()
+
+	ctx := context.Background()
+
+	var group errgroup.Group
+	var count int64
+	cycle.Start(ctx, &group, func(ctx context.Context) error {
+		atomic.AddInt64(&count, 1)
+		return nil
+	})
+
+	go cycle.Stop()
+	cycle.Stop()
+	cycle.Stop()
+}
