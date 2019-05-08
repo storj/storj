@@ -21,7 +21,7 @@ struct IDVersion {
     GoUintptr GoIDVersion;
 };
 
-struct Volatile {
+struct UplinkConfigVolatile {
     struct TLS TLS;
     struct IDVersion IdentityVersion;
     char* PeerIDVersion;
@@ -30,7 +30,7 @@ struct Volatile {
 };
 
 struct Config {
-    struct Volatile Volatile;
+    struct UplinkConfigVolatile Volatile;
 };
 
 struct Uplink {

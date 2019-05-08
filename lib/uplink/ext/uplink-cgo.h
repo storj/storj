@@ -24,7 +24,7 @@ typedef struct { const char *p; ptrdiff_t n; } _GoString_;
  #include <stdlib.h>
  #ifndef UPLINK_HEADERS
    #define UPLINK_HEADERS
-   #include "uplink.h"
+   #include "headers/main.h"
  #endif
 
 #line 1 "cgo-generated-wrapper"
@@ -34,7 +34,7 @@ typedef struct { const char *p; ptrdiff_t n; } _GoString_;
  #include <stdlib.h>
  #ifndef UPLINK_HEADERS
    #define UPLINK_HEADERS
-   #include "uplink.h"
+   #include "headers/main.h"
  #endif
 
 #line 1 "cgo-generated-wrapper"
@@ -43,7 +43,7 @@ typedef struct { const char *p; ptrdiff_t n; } _GoString_;
 
  #ifndef UPLINK_HEADERS
    #define UPLINK_HEADERS
-   #include "uplink.h"
+   #include "headers/main.h"
  #endif
 
 #line 1 "cgo-generated-wrapper"
@@ -105,9 +105,11 @@ extern struct APIKey ParseAPIKey(GoString p0);
 
 extern char* Serialize(struct APIKey p0);
 
-extern struct IDVersion GetIDVersion(unsigned int p0, char** p1);
+extern struct IDVersion GetIDVersion(unsigned int p0, char* p1);
 
-extern struct Uplink NewUplink(struct Config p0, char** p1);
+extern struct Uplink NewUplink(struct Config p0, char* p1);
+
+extern struct Project OpenProject(struct Uplink* p0, char* p1, struct ProjectOptions* p2, struct ProjectOptions* p3, char* p4);
 
 #ifdef __cplusplus
 }

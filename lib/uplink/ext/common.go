@@ -7,7 +7,7 @@ package main
 // #include <stdlib.h>
 // #ifndef UPLINK_HEADERS
 //   #define UPLINK_HEADERS
-//   #include "uplink.h"
+//   #include "headers/main.h"
 // #endif
 import "C"
 import (
@@ -32,16 +32,17 @@ var (
 )
 
 //export GetIDVersion
-func GetIDVersion(number C.uint, cErr **C.char) C.struct_IDVersion {
+func GetIDVersion(number C.uint, cErr *C.char) C.struct_IDVersion {
 	cIDVersion := C.struct_IDVersion{}
 	goIDVersion, err := storj.GetIDVersion(storj.IDVersionNumber(number))
 	if err != nil {
-		*cErr = C.CString(err.Error())
+		*cErr = *C.CString(err.Error())
 		return cIDVersion
 	}
 
 	return C.struct_IDVersion{
 		GoIDVersion: C.GoUintptr(reflect.ValueOf(&goIDVersion).Pointer()),
+		// NB: C.uchar is uint8
 		Number:      C.uchar(goIDVersion.Number),
 	}
 }
@@ -124,6 +125,7 @@ func CToGoStruct(fromVar, toPtr interface{}) error {
 		toValue.Set(reflect.ValueOf(int(fromValue.Interface().(C.int))))
 		return nil
 	case cUintType:
+		// TODO: simplify? ^ as well
 		toValue.Set(reflect.ValueOf(uint(fromValue.Interface().(C.uint))))
 		return nil
 	case cUcharType:

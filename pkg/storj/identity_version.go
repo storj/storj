@@ -7,7 +7,7 @@ package storj
 // #include <stdlib.h>
 // #ifndef UPLINK_HEADERS
 //   #define UPLINK_HEADERS
-//   #include "../../lib/uplink/ext/uplink.h"
+//   #include "../../lib/uplink/ext/headers/main.h"
 // #endif
 import "C"
 import (

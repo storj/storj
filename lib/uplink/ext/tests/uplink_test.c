@@ -3,6 +3,8 @@
 
 #include <stdio.h>
 #include <unistd.h>
+#include <signal.h>
+#include <string.h>
 #include "unity.h"
 #include "../uplink-cgo.h"
 
@@ -23,7 +25,7 @@ void TestNewUplink_config(void) {
     struct Config uplinkConfig = testUplinkConfig;
 
     // NB: ensure we get a valid ID version
-    struct IDVersion version = GetIDVersion(idVersionNumber, &err);
+    struct IDVersion version = GetIDVersion(idVersionNumber, err);
     TEST_ASSERT_EQUAL_STRING("", err);
     TEST_ASSERT_NOT_EQUAL(0, version.GoIDVersion);
 
@@ -31,7 +33,7 @@ void TestNewUplink_config(void) {
     TEST_ASSERT_EQUAL_STRING("", err);
     TEST_ASSERT_EQUAL_UINT8(idVersionNumber, uplinkConfig.Volatile.IdentityVersion.Number);
 
-    struct Uplink uplink = NewUplink(uplinkConfig, &err);
+    struct Uplink uplink = NewUplink(uplinkConfig, err);
     TEST_ASSERT_EQUAL_STRING("", err);
 
     TEST_ASSERT_TRUE(uplink.Config.Volatile.TLS.SkipPeerCAWhitelist);
@@ -39,28 +41,16 @@ void TestNewUplink_config(void) {
     TEST_ASSERT_NOT_EQUAL(0, uplink.Config.Volatile.IdentityVersion.GoIDVersion);
 }
 
-struct Uplink* NewTestUplink(char *err) {
+void NewTestUplink(struct Uplink *uplink, char *err) {
     struct Config uplinkConfig = testUplinkConfig;
-    struct Uplink *uplink;
-
-    struct IDVersion version = GetIDVersion(idVersionNumber, &err);
-    printf("version err %s\n", err);
-    if (*err != "") {
-        return NULL;
-    }
+    struct IDVersion version = GetIDVersion(idVersionNumber, err);
 
     uplinkConfig.Volatile.IdentityVersion = version;
-
-    *uplink = NewUplink(uplinkConfig, &err);
-    printf("newuplink err %s\n", err);
-    if (*err != "") {
-        return NULL;
-    }
-    return uplink;
+    *uplink = NewUplink(uplinkConfig, err);
 }
 
 void TestOpenProject(void) {
-    char *err = "";
+    char *err = malloc(256);
     uint8_t idVersionNumber = 0;
     struct TLS tls = {true, "/whitelist.pem"};
     struct IDVersion idVersion = {0, 0};
@@ -72,9 +62,11 @@ void TestOpenProject(void) {
             1, 2
         }
     };
+    satelliteAddr = "127.0.0.1:7777"
+    struct APIKey apiKey =
 
     // NB: ensure we get a valid ID version
-    idVersion = GetIDVersion(idVersionNumber, &err);
+    idVersion = GetIDVersion(idVersionNumber, err);
     TEST_ASSERT_EQUAL_STRING("", err);
     TEST_ASSERT_NOT_EQUAL(0, idVersion.GoIDVersion);
 
@@ -82,10 +74,11 @@ void TestOpenProject(void) {
     TEST_ASSERT_EQUAL_STRING("", err);
     TEST_ASSERT_EQUAL_UINT8(idVersionNumber, uplinkConfig.Volatile.IdentityVersion.Number);
 
-    struct Uplink* uplink = NewTestUplink(err);
+    struct Uplink *uplink = malloc(sizeof(struct Uplink));
+    NewTestUplink(uplink, err);
     TEST_ASSERT_EQUAL_STRING("", err);
+    TEST_ASSERT_NOT_NULL(uplink);
 
-    TEST_ASSERT_TRUE(uplink->Config.Volatile.TLS.SkipPeerCAWhitelist);
-    TEST_ASSERT_EQUAL_UINT8(idVersionNumber, uplink->Config.Volatile.IdentityVersion.Number);
-    TEST_ASSERT_NOT_EQUAL(0, uplink->Config.Volatile.IdentityVersion.GoIDVersion);
+    OpenProject(uplink, satelliteAddr, apiKey, opts, err)
+//    TEST_ASSERT_EQUAL_STRING("", err)
 }

@@ -7,7 +7,7 @@ package uplink
 // #include <stdlib.h>
 // #ifndef UPLINK_HEADERS
 //   #define UPLINK_HEADERS
-//   #include "ext/uplink.h"
+//   #include "ext/headers/main.h"
 // #endif
 import "C"
 import (
