@@ -25,20 +25,19 @@ var mon = monkit.Package()
 func NewUplink(cConfig C.struct_Config, cErr *C.char) (cUplink C.struct_Uplink) {
 	goConfig := new(uplink.Config)
 	if err := CToGoStruct(cConfig, goConfig); err != nil {
-		*cErr = *C.CString(err.Error())
+		cErr = C.CString(err.Error())
 		return cUplink
 	}
 
 	goUplink, err := uplink.NewUplink(context.Background(), goConfig)
-	//fmt.Println("sanity check")
 	if err != nil {
 		fmt.Printf("NewUplink go err: %s\n", err)
-		*cErr = *C.CString(err.Error())
+		cErr = C.CString(err.Error())
 		return cUplink
 	}
 
 	return C.struct_Uplink{
-		GoUplink: cPointerFromGoStruct(goUplink),
+		GoUplink: cPointerFromGoStruct(&goUplink),
 		Config:   cConfig,
 	}
 }
