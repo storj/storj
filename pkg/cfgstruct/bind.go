@@ -209,11 +209,7 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 				check(err)
 				flags.BoolVar(fieldaddr.(*bool), flagname, val, help)
 			case reflect.TypeOf([]string(nil)):
-				aflags, ok := flags.(ArrayFlagSet)
-				if !ok {
-					panic(fmt.Sprintf("unable to set slice on passed in flag set: %T", flags))
-				}
-				aflags.StringArrayVar(fieldaddr.(*[]string), flagname, nil, help)
+				flags.StringArrayVar(fieldaddr.(*[]string), flagname, nil, help)
 			default:
 				panic(fmt.Sprintf("invalid field type: %s", field.Type.String()))
 			}

@@ -31,8 +31,6 @@ var shareCfg struct {
 	AllowedPathPrefix []string `help:"whitelist of bucket path prefixes to require"`
 }
 
-var shareRequiredPathPrefixes []string
-
 func init() {
 	// sadly, we have to use addCmd so that it adds the cfg struct to the flags
 	// so that we can open projects and buckets. that pulls in so many unnecessary
