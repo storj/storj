@@ -26,7 +26,7 @@
 # database: "postgres://"
 
 # address to listen on for debug endpoints
-debug.addr: "127.0.0.1:0"
+# debug.addr: "127.0.0.1:0"
 
 # If set, a path to write a process trace SVG to
 # debug.trace-out: ""
