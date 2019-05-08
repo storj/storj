@@ -62,47 +62,57 @@ func (objects *objects) Commit(ctx context.Context, object *metainfo.Object) (*m
 
 	_, err := objects.db.ExecContext(ctx, objects.db.Rebind(`
 	BEGIN TRANSACTION;
-		arg_bucket_id := ?;
-		arg_encrypted_path := ?;
-		arg_version := ?;
-
-		-- mark the object as being in committing status
-		obj := UPDATE objects SET status = committing
-			WHERE bucket_id = arg_bucket_id AND encrypted_path = arg_encrypted_path AND version = arg_version AND status = partial
-			RETURNING stream_id;
-
-		-- calculate the inline and remote size, with segment size bounds
-		total :=
-			SELECT 
-				sum(WHEN nodes == null THEN segment_size) AS inline_size,
-				sum(WHEN nodes != null THEN segment_size) AS remote_size,
-				min(segment_checksum) as min_checksum,
-				min(segment_size) as min_segment_size,
-				max(segment_size) as max_segment_size
-			FROM segments WHERE stream_id = obj.stream_id;
-
-		-- fail when there is a segment that has not been committed
-		IF total.min_checksum = 0 THEN
-			ROLLBACK;
-
-		fixed_segment_size := -1;
-		IF total.min_segment_size == total.max_segment_size THEN
-			fixed_segment_size = total.min_segment_size;
-
-		-- update segment indices
-		UPDATE segments SET segment_index = ROW_NUMBER() WHERE stream_id = obj.stream_id ORDER BY segment_index;
-
-		-- update the object
-		UPDATE objects SET 
-			status = committed
-			fixed_segment_size = fixed_segment_size
-			total_size = total.inline_size + total.remote_size
-			inline_size = total.inline_size
-			remote_size = total.remote_size
-			WHERE bucket_id = arg_bucket_id AND
-				encrypted_path = arg_encrypted_path AND
-				version = arg_version AND
-				status = committing
+		DO $$
+		DECLARE
+			target_id        uuid;
+		
+			min_segment_size bigint;
+			max_segment_size bigint;
+		
+			var_inline_size      bigint;
+			var_remote_size      bigint;
+			var_fixed_segment_size bigint = 0;
+		BEGIN
+			UPDATE objects
+				SET status = 'committing'::object_status
+				WHERE bucket_id	= 'core'::bytea AND encrypted_path = 'alpha/something'::bytea
+				RETURNING stream_id INTO target_id;
+		
+			SELECT
+				sum(CASE WHEN segment_size IS NULL THEN segment_size ELSE 0 END),
+				sum(CASE WHEN segment_size IS NOT NULL THEN segment_size ELSE 0 END),
+				min(segment_size),
+				max(segment_size)
+				INTO var_inline_size, var_remote_size, min_segment_size, max_segment_size
+				FROM segments
+				WHERE stream_id = target_id;
+			
+			IF min_segment_size = max_segment_size THEN
+				var_fixed_segment_size = min_segment_size;
+			END IF;
+		
+			-- doesn't work
+			-- WITH ordered_segments AS (
+			-- 	SELECT 
+			-- ) UPDATE segments SET segment_index = new_segment_index;
+		
+			UPDATE segments
+				SET segments.segment_index = segments.new_segment_index
+				FROM (
+				) segments;
+				
+				segment_index = ROW_NUMBER,
+				status = 'committed'::segment_status
+				WHERE stream_id = target_id;
+			
+			UPDATE objects SET
+				status = 'committed'::object_status,
+				fixed_segment_size = var_fixed_segment_size,
+				total_size  = var_inline_size + var_remote_size,
+				inline_size = var_inline_size,
+				remote_size = var_remote_size
+				WHERE bucket_id	= 'core'::bytea AND encrypted_path = 'alpha/something'::bytea;
+		END $$;
 	COMMIT;
 	`), object.BucketID[:], object.EncryptedPath, object.Version)
 	return nil, err
