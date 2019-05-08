@@ -44,13 +44,12 @@ func NewUplink(cConfig C.struct_Config, cErr *C.char) (cUplink C.struct_Uplink) 
 }
 
 //export OpenProject
-func OpenProject(cUplink *C.struct_Uplink, satelliteAddr *C.char, cAPIKey uplink.APIKey, cOpts *C.struct_ProjectOptions, cErr *C.char) C.struct_Project {
+func OpenProject(cUplink *C.struct_Uplink, satelliteAddr *C.char, cAPIKey C.struct_APIKey, cOpts *C.struct_ProjectOptions, cErr *C.char) (cProject C.struct_Project) {
 	//var err error
-	//var cProject C.struct_Project
 	//ctx := context.Background()
 	//defer mon.Task()(&ctx)(&err)
-
-	//goUplink := (*uplink.Uplink)(unsafe.Pointer(*cUplink.GoUplink))
+	//
+	////goUplink := (*uplink.Uplink)(unsafe.Pointer(reflect.Indirect(cUplink.GoUplink).Uint()))
 	//fmt.Printf("goUplink: %+v\n", goUplink)
 	//
 	//opts := new(uplink.ProjectOptions)
@@ -71,6 +70,9 @@ func OpenProject(cUplink *C.struct_Uplink, satelliteAddr *C.char, cAPIKey uplink
 	//if err != nil {
 	//	*cErr = *C.CString(err.Error())
 	//	return cProject
+	//}
+	//return C.struct_Project{
+	//	GoProject: C.GoUintptr(reflect.ValueOf(&project).Pointer()),
 	//}
 	return C.struct_Project{}
 }

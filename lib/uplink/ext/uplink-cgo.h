@@ -109,7 +109,7 @@ extern struct IDVersion GetIDVersion(unsigned int p0, char* p1);
 
 extern struct Uplink NewUplink(struct Config p0, char* p1);
 
-extern struct Project OpenProject(struct Uplink* p0, char* p1, struct ProjectOptions* p2, struct ProjectOptions* p3, char* p4);
+extern struct Project OpenProject(struct Uplink* p0, char* p1, struct APIKey p2, struct ProjectOptions* p3, char* p4);
 
 #ifdef __cplusplus
 }

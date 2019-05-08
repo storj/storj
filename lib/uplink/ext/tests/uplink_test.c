@@ -41,12 +41,14 @@ void TestNewUplink_config(void) {
     TEST_ASSERT_NOT_EQUAL(0, uplink.Config.Volatile.IdentityVersion.GoIDVersion);
 }
 
-void NewTestUplink(struct Uplink *uplink, char *err) {
+struct Uplink* NewTestUplink(char *err) {
     struct Config uplinkConfig = testUplinkConfig;
     struct IDVersion version = GetIDVersion(idVersionNumber, err);
-
     uplinkConfig.Volatile.IdentityVersion = version;
+
+    struct Uplink *uplink = malloc(sizeof(struct Uplink));
     *uplink = NewUplink(uplinkConfig, err);
+    return uplink;
 }
 
 void TestOpenProject(void) {
@@ -62,8 +64,8 @@ void TestOpenProject(void) {
             1, 2
         }
     };
-    satelliteAddr = "127.0.0.1:7777"
-    struct APIKey apiKey =
+    char *satelliteAddr = "127.0.0.1:7777";
+//    struct APIKey apiKey =
 
     // NB: ensure we get a valid ID version
     idVersion = GetIDVersion(idVersionNumber, err);
@@ -74,11 +76,10 @@ void TestOpenProject(void) {
     TEST_ASSERT_EQUAL_STRING("", err);
     TEST_ASSERT_EQUAL_UINT8(idVersionNumber, uplinkConfig.Volatile.IdentityVersion.Number);
 
-    struct Uplink *uplink = malloc(sizeof(struct Uplink));
-    NewTestUplink(uplink, err);
+    struct Uplink *uplink = NewTestUplink(err);
     TEST_ASSERT_EQUAL_STRING("", err);
     TEST_ASSERT_NOT_NULL(uplink);
 
-    OpenProject(uplink, satelliteAddr, apiKey, opts, err)
+//    OpenProject(uplink, satelliteAddr, apiKey, opts, err)
 //    TEST_ASSERT_EQUAL_STRING("", err)
 }
