@@ -21,6 +21,7 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/internal/processgroup"
 )
@@ -260,9 +261,11 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		consoleAuthToken := "secure_token"
 
-		satelliteDB := flags.SatelliteDB
-		if os.Getenv("STORJ_POSTGRES_TEST") != "" {
-			satelliteDB = os.Getenv("STORJ_POSTGRES_TEST")
+		var schema string
+		database := "sqlite3://" + process.Directory + "/master.db"
+		if flags.Postgres != "" {
+			schema = fmt.Sprintf("satellite%d", i)
+			database = pgutil.ConnstrWithSchema(flags.Postgres, schema)
 		}
 		process.Arguments = withCommon(process.Directory, Arguments{
 			"setup": {
@@ -286,8 +289,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
 				"--debug.addr", net.JoinHostPort("127.0.0.1", port(satellitePeer, i, debugHTTP)),
 
-				"--database", satelliteDB,
-				"--metainfo.database-url", flags.MetainfoDB,
+				"--database", database,
+				"--schema", schema,
+				// TODO(jg): add connection to postgres for metainfo.databaseURL once metainfo refactor is complete
 			},
 			"run": {},
 		})

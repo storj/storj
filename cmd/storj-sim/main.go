@@ -24,10 +24,8 @@ type Flags struct {
 
 	OnlyEnv bool // only do things necessary for loading env vars
 
-	// Connection string for the satellite masterdb
-	SatelliteDB string
-	// Connection string for the satellite metainfo/pointerDB
-	MetainfoDB string
+	// Connection string for the postgres database to use for storj-sim processes
+	Postgres string
 }
 
 var printCommands bool
@@ -58,8 +56,7 @@ func main() {
 	rootCmd.PersistentFlags().BoolVarP(&printCommands, "print-commands", "x", false, "print commands as they are run")
 	rootCmd.PersistentFlags().BoolVarP(&flags.IsDev, "dev", "", false, "use configuration values tuned for development")
 
-	rootCmd.PersistentFlags().StringVarP(&flags.SatelliteDB, "satellitedb", "", "sqlite3://"+configDir+"/master.db", "connection string for the satellite masterdb")
-	rootCmd.PersistentFlags().StringVarP(&flags.MetainfoDB, "metainfodb", "", "bolt://"+configDir+"/pointerdb.db", "connection string for the satellite masterdb")
+	rootCmd.PersistentFlags().StringVarP(&flags.Postgres, "postgres", "", "", "connection string for postgres. If provided, storj-sim will use posgtres for all databases that support it.")
 
 	networkCmd := &cobra.Command{
 		Use:   "network",

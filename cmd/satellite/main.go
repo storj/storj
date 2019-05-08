@@ -26,6 +26,7 @@ import (
 // Satellite defines satellite configuration
 type Satellite struct {
 	Database string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
+	Schema   string `help:"satellite database schema name" default:""`
 
 	satellite.Config
 }
@@ -139,6 +140,13 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
 		zap.S().Error("Failed to initialize telemetry batcher: ", err)
+	}
+
+	if runCfg.Schema != "" {
+		err = db.CreateSchema(runCfg.Schema)
+		if err != nil {
+			return errs.New("Error creating schema, %s, for master database on satellite: %+v", runCfg.Schema, err)
+		}
 	}
 
 	err = db.CreateTables()
