@@ -9,8 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"storj.io/storj/satellite/console"
-
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 
@@ -18,6 +16,7 @@ import (
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
