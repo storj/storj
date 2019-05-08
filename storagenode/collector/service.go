@@ -6,6 +6,7 @@ package collector
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"go.uber.org/zap"
@@ -55,9 +56,10 @@ func (service *Service) Run(ctx context.Context) (err error) {
 
 func (service *Service) collect(ctx context.Context) (err error) {
 	now := time.Now()
-	const batchSize = 256
+	const maxBatches = 100
+	const batchSize = 1024
 
-	for {
+	for k := 0; k < maxBatches; k++ {
 		ids, err := service.pieceinfos.GetExpired(ctx, now, batchSize)
 		if err == sql.ErrNoRows {
 			return nil
@@ -82,4 +84,6 @@ func (service *Service) collect(ctx context.Context) (err error) {
 			}
 		}
 	}
+
+	return errors.New("unable to cleanup everything")
 }
