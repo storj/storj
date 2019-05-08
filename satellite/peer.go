@@ -356,7 +356,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.DB.Console().APIKeys(),
 			peer.DB.Accounting(),
 			peer.LiveAccounting.Service,
-			config.Rollup.MaxAlphaUsage,
+			config.Rollup.MaxUsage,
 		)
 
 		pb.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)

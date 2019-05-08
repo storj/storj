@@ -19,8 +19,8 @@ const (
 // for a project in the past month (30 days). The usage limit is 25GB multiplied by the redundancy
 // expansion factor, so that the uplinks have a raw limit of 25GB.
 // Ref: https://storjlabs.atlassian.net/browse/V3-1274
-func ExceedsUsageLimit(bandwidthGetTotal, inlineTotal, remoteTotal int64, maxAlphaUsageGB memory.Size) (bool, string) {
-	maxUsage := maxAlphaUsageGB.Int64() * int64(ExpansionFactor)
+func ExceedsUsageLimit(bandwidthGetTotal, inlineTotal, remoteTotal int64, maxUsageGB memory.Size) (bool, string) {
+	maxUsage := maxUsageGB.Int64() * int64(ExpansionFactor)
 	if bandwidthGetTotal >= maxUsage {
 		return true, "bandwidth"
 	}

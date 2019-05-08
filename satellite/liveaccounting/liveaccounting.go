@@ -22,7 +22,7 @@ type Config struct {
 // functionality.
 type Service interface {
 	GetProjectStorageUsage(ctx context.Context, projectID uuid.UUID) (int64, int64, error)
-	AddSpaceUsed(projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) error
+	AddProjectStorageUsage(projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) error
 	ResetTotals()
 }
 
@@ -45,8 +45,7 @@ func New(log *zap.Logger, config Config) (Service, error) {
 
 // plainMemoryLiveAccounting represents an liveaccounting.Service-implementing
 // instance using plain memory (no coordination with other servers). It can be
-// used to coordinate tracking of how much space and bandwidth an uplink has
-// used.
+// used to coordinate tracking of how much space a project has used.
 //
 // This should probably only be used at small scale or for testing areas where
 // the accounting cache does not matter significantly. For production, an
@@ -55,10 +54,8 @@ func New(log *zap.Logger, config Config) (Service, error) {
 type plainMemoryLiveAccounting struct {
 	log *zap.Logger
 
-	spaceMapLock     sync.RWMutex
-	spaceDeltas      map[uuid.UUID]spaceUsedAccounting
-	bandwidthMapLock sync.RWMutex
-	bandwidthDeltas  map[uuid.UUID]int64
+	spaceMapLock sync.RWMutex
+	spaceDeltas  map[uuid.UUID]spaceUsedAccounting
 }
 
 type spaceUsedAccounting struct {
@@ -81,9 +78,10 @@ func (pmac *plainMemoryLiveAccounting) GetProjectStorageUsage(ctx context.Contex
 	return curVal.inlineSpace, curVal.remoteSpace, nil
 }
 
-// AddSpaceUsed lets the liveaccounting know that the given project has just
-// added spaceUsed bytes of usage.
-func (pmac *plainMemoryLiveAccounting) AddSpaceUsed(projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) error {
+// AddProjectStorageUsage lets the liveaccounting know that the given project
+// has just added inlineSpaceUsed bytes of inline space usage and
+// remoteSpaceUsed bytes of remote space usage.
+func (pmac *plainMemoryLiveAccounting) AddProjectStorageUsage(projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) error {
 	pmac.spaceMapLock.Lock()
 	defer pmac.spaceMapLock.Unlock()
 	curVal := pmac.spaceDeltas[projectID]
@@ -93,15 +91,12 @@ func (pmac *plainMemoryLiveAccounting) AddSpaceUsed(projectID uuid.UUID, inlineS
 	return nil
 }
 
-// ResetTotals reset all space-used and bandwidth-used totals for all projects
-// back to zero. This would normally be done in concert with calculating new
-// tally counts in the accountingDB.
+// ResetTotals reset all space-used totals for all projects back to zero. This
+// would normally be done in concert with calculating new tally counts in the
+// accountingDB.
 func (pmac *plainMemoryLiveAccounting) ResetTotals() {
 	pmac.log.Info("Resetting real-time accounting data")
 	pmac.spaceMapLock.Lock()
 	pmac.spaceDeltas = make(map[uuid.UUID]spaceUsedAccounting)
 	pmac.spaceMapLock.Unlock()
-	pmac.bandwidthMapLock.Lock()
-	pmac.bandwidthDeltas = make(map[uuid.UUID]int64)
-	pmac.bandwidthMapLock.Unlock()
 }

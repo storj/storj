@@ -247,7 +247,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	}
 
 	inlineUsed, remoteUsed := calculateSpaceUsed(req.Pointer)
-	if err := endpoint.liveAccounting.AddSpaceUsed(keyInfo.ProjectID, inlineUsed, remoteUsed); err != nil {
+	if err := endpoint.liveAccounting.AddProjectStorageUsage(keyInfo.ProjectID, inlineUsed, remoteUsed); err != nil {
 		endpoint.log.Sugar().Errorf("Could not track new storage usage by project %v: %v", keyInfo.ProjectID, err)
 		// but continue. it's most likely our own fault that we couldn't track it, and the only thing
 		// that will be affected is our per-project bandwidth and storage limits.
@@ -289,9 +289,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	// Check if this projectID has exceeded alpha usage limits for bandwidth or storage used in the past month
-	// TODO: remove this code once we no longer need usage limiting for alpha release
-	// Ref: https://storjlabs.atlassian.net/browse/V3-1274
+	// Check if this projectID has exceeded usage limits for bandwidth or storage used in the past month
 	bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
 	from := time.Now().AddDate(0, 0, -accounting.AverageDaysInMonth) // past 30 days
 	bandwidthTotal, err := endpoint.accountingDB.ProjectAllocatedBandwidthTotal(ctx, bucketID, from)

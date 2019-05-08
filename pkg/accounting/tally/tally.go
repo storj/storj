@@ -68,10 +68,10 @@ func (t *Service) Run(ctx context.Context) (err error) {
 
 // Tally calculates data-at-rest usage once
 func (t *Service) Tally(ctx context.Context) error {
-	// The RT cache will only keep deltas to space/bw used relative to the
-	// latest tally. Since a new tally is beginning, we will zero it out now.
-	// There is a window between this call and the point where the tally DB
-	// transaction starts, during which some changes in space/bw usage may be
+	// The liveaccounting store will only keep a delta to space used relative
+	// to the latest tally. Since a new tally is beginning, we will zero it out
+	// now. There is a window between this call and the point where the tally DB
+	// transaction starts, during which some changes in space usage may be
 	// double-counted (counted in the tally and also counted as a delta to
 	// the tally). If that happens, it will be fixed at the time of the next
 	// tally run.
