@@ -17,9 +17,10 @@ import (
 type Cycle struct {
 	interval time.Duration
 
-	ticker  *time.Ticker
-	control chan interface{}
-	stop    chan struct{}
+	ticker      *time.Ticker
+	control     chan interface{}
+	stopcontrol chan struct{}
+	stop        chan struct{}
 
 	init sync.Once
 }
@@ -28,7 +29,6 @@ type (
 	// cycle control messages
 	cyclePause          struct{}
 	cycleContinue       struct{}
-	cycleStop           struct{}
 	cycleChangeInterval struct{ Interval time.Duration }
 	cycleTrigger        struct{ done chan struct{} }
 )
@@ -48,6 +48,7 @@ func (cycle *Cycle) SetInterval(interval time.Duration) {
 func (cycle *Cycle) initialize() {
 	cycle.init.Do(func() {
 		cycle.stop = make(chan struct{})
+		cycle.stopcontrol = make(chan struct{})
 		cycle.control = make(chan interface{})
 	})
 }
@@ -79,8 +80,6 @@ func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error)
 			// handle control messages
 
 			switch message := message.(type) {
-			case cycleStop:
-				return nil
 
 			case cycleChangeInterval:
 				currentInterval = message.Interval
@@ -108,6 +107,9 @@ func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error)
 					message.done <- struct{}{}
 				}
 			}
+
+		case <-cycle.stopcontrol:
+			return nil
 
 		case <-ctx.Done():
 			// handle control messages
@@ -140,7 +142,13 @@ func (cycle *Cycle) sendControl(message interface{}) {
 
 // Stop stops the cycle permanently
 func (cycle *Cycle) Stop() {
-	cycle.sendControl(cycleStop{})
+	cycle.initialize()
+	select {
+	case cycle.stopcontrol <- struct{}{}:
+	case <-cycle.stop:
+	default:
+		// when there's already a stop mesasge, we can avoid waiting
+	}
 }
 
 // ChangeInterval allows to change the ticker interval after it has started.
