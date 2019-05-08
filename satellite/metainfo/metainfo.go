@@ -23,6 +23,7 @@ import (
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -39,7 +40,7 @@ var (
 
 // APIKeys is api keys store methods used by endpoint
 type APIKeys interface {
-	GetByKey(ctx context.Context, key console.APIKey) (*console.APIKeyInfo, error)
+	GetByKey(ctx context.Context, key macaroon.APIKey) (*console.APIKeyInfo, error)
 }
 
 // Endpoint metainfo endpoint
@@ -75,13 +76,13 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cac
 func (endpoint *Endpoint) Close() error { return nil }
 
 func (endpoint *Endpoint) validateAuth(ctx context.Context) (*console.APIKeyInfo, error) {
-	APIKey, ok := auth.GetAPIKey(ctx)
+	keyData, ok := auth.GetAPIKey(ctx)
 	if !ok {
 		endpoint.log.Error("unauthorized request: ", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
 		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
 	}
 
-	key, err := console.APIKeyFromBase32(string(APIKey))
+	key, err := macaroon.ParseAPIKey(string(keyData))
 	if err != nil {
 		endpoint.log.Error("unauthorized request: ", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
 		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")

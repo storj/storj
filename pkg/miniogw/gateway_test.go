@@ -23,6 +23,7 @@ import (
 	"storj.io/storj/internal/testplanet"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storage/buckets"
@@ -662,24 +663,27 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 	project, err := planet.Satellites[0].DB.Console().Projects().Insert(ctx, &console.Project{
 		Name: "testProject",
 	})
-
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	apiKey := console.APIKey{}
+	apiKey, err := macaroon.NewAPIKey([]byte("TODO secret"))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
 	apiKeyInfo := console.APIKeyInfo{
 		ProjectID: project.ID,
 		Name:      "testKey",
 	}
 
 	// add api key to db
-	_, err = planet.Satellites[0].DB.Console().APIKeys().Create(ctx, apiKey, apiKeyInfo)
+	_, err = planet.Satellites[0].DB.Console().APIKeys().Create(ctx, *apiKey, apiKeyInfo)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey.String())
+	metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey.Serialize())
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -722,7 +726,7 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 		return nil, nil, nil, err
 	}
 
-	parsedAPIKey, err := libuplink.ParseAPIKey(apiKey.String())
+	parsedAPIKey, err := libuplink.ParseAPIKey(apiKey.Serialize())
 	if err != nil {
 		return nil, nil, nil, err
 	}

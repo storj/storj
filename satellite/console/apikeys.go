@@ -5,13 +5,10 @@ package console
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base32"
-	"io"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
-	"github.com/zeebo/errs"
+	"storj.io/storj/pkg/macaroon"
 )
 
 // APIKeys is interface for working with api keys store
@@ -20,10 +17,10 @@ type APIKeys interface {
 	GetByProjectID(ctx context.Context, projectID uuid.UUID) ([]APIKeyInfo, error)
 	// Get retrieves APIKeyInfo with given ID
 	Get(ctx context.Context, id uuid.UUID) (*APIKeyInfo, error)
-	//GetByKey retrieves APIKeyInfo for given key
-	GetByKey(ctx context.Context, key APIKey) (*APIKeyInfo, error)
+	// GetByKey retrieves APIKeyInfo for given key
+	GetByKey(ctx context.Context, key macaroon.APIKey) (*APIKeyInfo, error)
 	// Create creates and stores new APIKeyInfo
-	Create(ctx context.Context, key APIKey, info APIKeyInfo) (*APIKeyInfo, error)
+	Create(ctx context.Context, key macaroon.APIKey, info APIKeyInfo) (*APIKeyInfo, error)
 	// Update updates APIKeyInfo in store
 	Update(ctx context.Context, key APIKeyInfo) error
 	// Delete deletes APIKeyInfo from store
@@ -40,42 +37,4 @@ type APIKeyInfo struct {
 	Name string `json:"name"`
 
 	CreatedAt time.Time `json:"createdAt"`
-}
-
-// APIKey is an api key type
-type APIKey [24]byte
-
-// String implements Stringer
-func (key APIKey) String() string {
-	return base32.HexEncoding.EncodeToString(key[:])
-}
-
-// APIKeyFromBytes creates new key from byte slice
-func APIKeyFromBytes(b []byte) *APIKey {
-	key := new(APIKey)
-	copy(key[:], b)
-	return key
-}
-
-// APIKeyFromBase32 creates new key from base32 string
-func APIKeyFromBase32(s string) (*APIKey, error) {
-	b, err := base32.HexEncoding.DecodeString(s)
-	if err != nil {
-		return nil, err
-	}
-	key := new(APIKey)
-	copy(key[:], b)
-	return key, nil
-}
-
-// CreateAPIKey creates new api key
-func CreateAPIKey() (*APIKey, error) {
-	key := new(APIKey)
-
-	n, err := io.ReadFull(rand.Reader, key[:])
-	if err != nil || n != 24 {
-		return nil, errs.New(internalErrMsg)
-	}
-
-	return key, nil
 }

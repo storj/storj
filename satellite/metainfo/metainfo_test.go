@@ -5,7 +5,6 @@ package metainfo_test
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"testing"
 	"time"
@@ -19,6 +18,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/console"
@@ -31,7 +31,7 @@ type mockAPIKeys struct {
 }
 
 // GetByKey return api key info for given key
-func (keys *mockAPIKeys) GetByKey(ctx context.Context, key console.APIKey) (*console.APIKeyInfo, error) {
+func (keys *mockAPIKeys) GetByKey(ctx context.Context, key macaroon.APIKey) (*console.APIKeyInfo, error) {
 	return &keys.info, keys.err
 }
 
@@ -153,7 +153,7 @@ func TestServiceList(t *testing.T) {
 		return list.Items[i].Path < list.Items[k].Path
 	})
 	for i, item := range expected {
-		fmt.Println(item.Path, list.Items[i].Path)
+		t.Log(item.Path, list.Items[i].Path)
 		require.Equal(t, item.Path, list.Items[i].Path)
 		require.Equal(t, item.IsPrefix, list.Items[i].IsPrefix)
 	}
@@ -163,9 +163,7 @@ func TestCommitSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-		apiKey := console.APIKeyFromBytes([]byte(projects[0].Name)).String()
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
 		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)

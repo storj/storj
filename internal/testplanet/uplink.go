@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"time"
 
+	"storj.io/storj/pkg/macaroon"
+
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -82,7 +84,10 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 		consoleDB := satellite.DB.Console()
 
 		projectName := fmt.Sprintf("%s_%d", name, j)
-		key := console.APIKeyFromBytes([]byte(projectName))
+		key, err := macaroon.NewAPIKey([]byte(projectName))
+		if err != nil {
+			return nil, err
+		}
 
 		project, err := consoleDB.Projects().Insert(
 			context.Background(),
@@ -106,7 +111,7 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 			return nil, err
 		}
 
-		apiKeys[satellite.ID()] = key.String()
+		apiKeys[satellite.ID()] = key.Serialize()
 	}
 
 	uplink.APIKey = apiKeys

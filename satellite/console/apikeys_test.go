@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -32,7 +33,7 @@ func TestApiKeysRepository(t *testing.T) {
 
 		t.Run("Creation success", func(t *testing.T) {
 			for i := 0; i < 10; i++ {
-				key, err := console.CreateAPIKey()
+				key, err := macaroon.NewAPIKey([]byte("test-secret"))
 				assert.NoError(t, err)
 
 				keyInfo := console.APIKeyInfo{

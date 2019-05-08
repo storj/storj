@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/meta"
@@ -246,17 +247,19 @@ func runTest(t *testing.T, test func(t *testing.T, ctx *testcontext.Context, pla
 		})
 		require.NoError(t, err)
 
-		apiKey := console.APIKey{}
+		apiKey, err := macaroon.NewAPIKey([]byte("TODO secret"))
+		require.NoError(t, err)
+
 		apiKeyInfo := console.APIKeyInfo{
 			ProjectID: project.ID,
 			Name:      "testKey",
 		}
 
 		// add api key to db
-		_, err = planet.Satellites[0].DB.Console().APIKeys().Create(context.Background(), apiKey, apiKeyInfo)
+		_, err = planet.Satellites[0].DB.Console().APIKeys().Create(context.Background(), *apiKey, apiKeyInfo)
 		require.NoError(t, err)
 
-		TestAPIKey := apiKey.String()
+		TestAPIKey := apiKey.Serialize()
 
 		metainfo, err := planet.Uplinks[0].DialMetainfo(context.Background(), planet.Satellites[0], TestAPIKey)
 		require.NoError(t, err)

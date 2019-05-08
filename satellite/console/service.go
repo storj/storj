@@ -8,6 +8,8 @@ import (
 	"crypto/subtle"
 	"time"
 
+	"storj.io/storj/pkg/macaroon"
+
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -44,7 +46,7 @@ const (
 	credentialsErrMsg                    = "Your email or password was incorrect, please try again"
 	oldPassIncorrectErrMsg               = "Old password is incorrect, please try again"
 	passwordIncorrectErrMsg              = "Your password needs at least %d characters long"
-	teamMemberDoesNotExistErrMsg         = `There is no account on this Satellite for the user(s) you have entered. 
+	teamMemberDoesNotExistErrMsg         = `There is no account on this Satellite for the user(s) you have entered.
 									     Please add team members with active accounts`
 
 	// TODO: remove after vanguard release
@@ -661,7 +663,7 @@ func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, pa
 }
 
 // CreateAPIKey creates new api key
-func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name string) (*APIKeyInfo, *APIKey, error) {
+func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name string) (*APIKeyInfo, *macaroon.APIKey, error) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
@@ -675,7 +677,7 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 		return nil, nil, ErrUnauthorized.Wrap(err)
 	}
 
-	key, err := CreateAPIKey()
+	key, err := macaroon.NewAPIKey([]byte("TODO: real secret"))
 	if err != nil {
 		return nil, nil, err
 	}

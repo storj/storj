@@ -9,6 +9,7 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/satellite/console"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -56,8 +57,8 @@ func (keys *apikeys) Get(ctx context.Context, id uuid.UUID) (*console.APIKeyInfo
 }
 
 // GetByKey implements satellite.APIKeys
-func (keys *apikeys) GetByKey(ctx context.Context, key console.APIKey) (*console.APIKeyInfo, error) {
-	dbKey, err := keys.db.Get_ApiKey_By_Key(ctx, dbx.ApiKey_Key(key[:]))
+func (keys *apikeys) GetByKey(ctx context.Context, key macaroon.APIKey) (*console.APIKeyInfo, error) {
+	dbKey, err := keys.db.Get_ApiKey_By_Key(ctx, dbx.ApiKey_Key([]byte(key.Serialize())))
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +67,7 @@ func (keys *apikeys) GetByKey(ctx context.Context, key console.APIKey) (*console
 }
 
 // Create implements satellite.APIKeys
-func (keys *apikeys) Create(ctx context.Context, key console.APIKey, info console.APIKeyInfo) (*console.APIKeyInfo, error) {
+func (keys *apikeys) Create(ctx context.Context, key macaroon.APIKey, info console.APIKeyInfo) (*console.APIKeyInfo, error) {
 	id, err := uuid.New()
 	if err != nil {
 		return nil, err
@@ -76,7 +77,7 @@ func (keys *apikeys) Create(ctx context.Context, key console.APIKey, info consol
 		ctx,
 		dbx.ApiKey_Id(id[:]),
 		dbx.ApiKey_ProjectId(info.ProjectID[:]),
-		dbx.ApiKey_Key(key[:]),
+		dbx.ApiKey_Key([]byte(key.Serialize())),
 		dbx.ApiKey_Name(info.Name),
 	)
 
