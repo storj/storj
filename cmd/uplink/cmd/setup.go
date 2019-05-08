@@ -133,9 +133,14 @@ Please enter numeric choice or enter satellite address manually [1]: `)
 		if err != nil {
 			return err
 		}
+
 		_, err = fmt.Println()
 		if err != nil {
 			return err
+		}
+
+		if len(encKey) == 0 {
+			return errs.New("Encryption passphrase cannot be empty")
 		}
 
 		_, err = fmt.Print("Enter your encryption passphrase again: ")
@@ -153,13 +158,6 @@ Please enter numeric choice or enter satellite address manually [1]: `)
 
 		if !bytes.Equal(encKey, repeatedEncKey) {
 			return errs.New("encryption passphrases doesn't match")
-		}
-
-		if len(encKey) == 0 {
-			_, err = fmt.Println("Warning: Encryption passphrase is empty!")
-			if err != nil {
-				return err
-			}
 		}
 
 		override = map[string]interface{}{
