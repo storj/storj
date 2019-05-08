@@ -137,16 +137,3 @@ func (db *pieceinfo) GetExpired(ctx context.Context, expiredAt time.Time, limit 
 	}
 	return infos, nil
 }
-
-// DeleteExpired deletes expired piece information.
-func (db *pieceinfo) DeleteExpired(ctx context.Context, expiredAt time.Time, satelliteID storj.NodeID, pieceID storj.PieceID) error {
-	defer db.locked()()
-
-	_, err := db.db.ExecContext(ctx, db.Rebind(`
-		DELETE FROM pieceinfo
-		WHERE piece_expiration < ?
-		  AND satellite_id = ?
-		  AND piece_id = ?
-	`), expiredAt, satelliteID, pieceID)
-	return ErrInfo.Wrap(err)
-}
