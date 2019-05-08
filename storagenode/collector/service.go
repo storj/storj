@@ -6,7 +6,6 @@ package collector
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"time"
 
@@ -63,15 +62,15 @@ func (service *Service) Close() (err error) {
 }
 
 func (service *Service) collect(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	now := time.Now()
 	const maxBatches = 100
 	const batchSize = 1024
 
 	for k := 0; k < maxBatches; k++ {
 		ids, err := service.pieceinfos.GetExpired(ctx, now, batchSize)
-		if err == sql.ErrNoRows {
-			return nil
-		} else if err != nil {
+		if err != nil {
 			return err
 		}
 		if len(ids) == 0 {
