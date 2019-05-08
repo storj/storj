@@ -27,12 +27,10 @@ func (db *StoragenodeAccounting) SaveTallies(ctx context.Context, latestTally ti
 	}
 	err := db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
 		for k, v := range nodeData {
-			nID := dbx.AccountingRaw_NodeId(k.Bytes())
-			end := dbx.AccountingRaw_IntervalEndTime(latestTally)
-			total := dbx.AccountingRaw_DataTotal(v)
-			dataType := dbx.AccountingRaw_DataType(accounting.AtRest)
-			timestamp := dbx.AccountingRaw_CreatedAt(created)
-			_, err := tx.Create_AccountingRaw(ctx, nID, end, total, dataType, timestamp)
+			nID := dbx.StoragenodeStorageTally_NodeId(k.Bytes())
+			end := dbx.StoragenodeStorageTally_IntervalEndTime(latestTally)
+			total := dbx.StoragenodeStorageTally_DataTotal(v)
+			_, err := tx.Create_StoragenodeStorageTally(ctx, nID, end, total)
 			if err != nil {
 				return err
 			}
@@ -46,7 +44,7 @@ func (db *StoragenodeAccounting) SaveTallies(ctx context.Context, latestTally ti
 
 // GetTallies retrieves all raw tallies
 func (db *StoragenodeAccounting) GetTallies(ctx context.Context) ([]*accounting.StoragenodeStorageTally, error) {
-	raws, err := db.db.All_AccountingRaw(ctx)
+	raws, err := db.db.All_StoragenodeStorageTally(ctx)
 	out := make([]*accounting.StoragenodeStorageTally, len(raws))
 	for i, r := range raws {
 		nodeID, err := storj.NodeIDFromBytes(r.NodeId)
@@ -65,7 +63,7 @@ func (db *StoragenodeAccounting) GetTallies(ctx context.Context) ([]*accounting.
 
 // GetTalliesSince retrieves all raw tallies since latestRollup
 func (db *StoragenodeAccounting) GetTalliesSince(ctx context.Context, latestRollup time.Time) ([]*accounting.StoragenodeStorageTally, error) {
-	raws, err := db.db.All_AccountingRaw_By_IntervalEndTime_GreaterOrEqual(ctx, dbx.AccountingRaw_IntervalEndTime(latestRollup))
+	raws, err := db.db.All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqual(ctx, dbx.StoragenodeStorageTally_IntervalEndTime(latestRollup))
 	out := make([]*accounting.StoragenodeStorageTally, len(raws))
 	for i, r := range raws {
 		nodeID, err := storj.NodeIDFromBytes(r.NodeId)
