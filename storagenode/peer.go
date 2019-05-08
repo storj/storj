@@ -272,6 +272,7 @@ func (peer *Peer) Run(ctx context.Context) error {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Storage2.Monitor.Run(ctx))
 	})
+
 	group.Go(func() error {
 		// TODO: move the message into Server instead
 		// Don't change the format of this comment, it is used to figure out the node id.
