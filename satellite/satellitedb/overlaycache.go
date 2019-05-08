@@ -60,7 +60,7 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 		args = append(args, v.Major, v.Major, v.Minor, v.Minor, v.Patch)
 	}
 
-	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, safeQuery, criteria.DistinctIP, args...)
+	return cache.queryFilteredNodes(ctx, criteria.Exclude, count, safeQuery, criteria.DistinctIP, args...)
 }
 
 func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) ([]*pb.Node, error) {
@@ -85,21 +85,30 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 		args = append(args, v.Major, v.Major, v.Minor, v.Minor, v.Patch)
 	}
 
-	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, safeQuery, criteria.DistinctIP, args...)
+	return cache.queryFilteredNodes(ctx, criteria.Exclude, count, safeQuery, criteria.DistinctIP, args...)
 }
 
-func (cache *overlaycache) queryFilteredNodes(ctx context.Context, excluded []storj.NodeID, count int, safeQuery string, distinctIP bool, args ...interface{}) (_ []*pb.Node, err error) {
+func (cache *overlaycache) queryFilteredNodes(ctx context.Context, exclude overlay.Exclude, count int, safeQuery string, distinctIP bool, args ...interface{}) (_ []*pb.Node, err error) {
 	if count == 0 {
 		return nil, nil
 	}
 
 	safeExcludeNodes := ""
-	if len(excluded) > 0 {
-		safeExcludeNodes = ` AND id NOT IN (?` + strings.Repeat(", ?", len(excluded)-1) + `)`
+	if len(exclude.Nodes) > 0 {
+		safeExcludeNodes = ` AND id NOT IN (?` + strings.Repeat(", ?", len(exclude.Nodes)-1) + `)`
+		for _, id := range exclude.Nodes {
+			args = append(args, id.Bytes())
+		}
 	}
-	for _, id := range excluded {
-		args = append(args, id.Bytes())
+
+	safeExcludeIPs := ""
+	if len(exclude.IPs) > 0 {
+		safeExcludeIPs = ` AND last_ip NOT IN (?` + strings.Repeat(", ?", len(exclude.IPs)-1) + `)`
+		for _, ip := range exclude.IPs {
+			args = append(args, ip)
+		}
 	}
+
 	args = append(args, count)
 
 	var rows *sql.Rows
@@ -112,7 +121,7 @@ func (cache *overlaycache) queryFilteredNodes(ctx context.Context, excluded []st
 			uptime_ratio, total_audit_count, audit_success_count, total_uptime_count, uptime_success_count,
 			Row_number() OVER(PARTITION BY last_ip ORDER BY RANDOM()) rn
 			FROM nodes
-			`+safeQuery+safeExcludeNodes+`) n
+			`+safeQuery+safeExcludeNodes+safeExcludeIPs+`) n
 		WHERE rn = 1
 		ORDER BY RANDOM()
 		LIMIT ?`), args...)
@@ -122,7 +131,7 @@ func (cache *overlaycache) queryFilteredNodes(ctx context.Context, excluded []st
 		uptime_ratio, total_audit_count, audit_success_count, total_uptime_count,
 		uptime_success_count
 		FROM nodes
-		`+safeQuery+safeExcludeNodes+`
+		`+safeQuery+safeExcludeNodes+safeExcludeIPs+`
 		ORDER BY RANDOM()
 		LIMIT ?`), args...)
 	}

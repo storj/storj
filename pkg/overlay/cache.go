@@ -76,7 +76,7 @@ type NodeCriteria struct {
 	AuditSuccessRatio  float64
 	UptimeCount        int64
 	UptimeSuccessRatio float64
-	Excluded           []storj.NodeID
+	Exclude            Exclude
 	MinimumVersion     string // semver or empty
 	OnlineWindow       time.Duration
 	DistinctIP         bool
@@ -110,6 +110,12 @@ type NodeStats struct {
 	UptimeCount        int64
 	LastContactSuccess time.Time
 	LastContactFailure time.Time
+}
+
+// Exclude contains node IDs and IPs to exclude from node selection
+type Exclude struct {
+	Nodes []storj.NodeID
+	IPs   []string
 }
 
 // Cache is used to store and handle node information
@@ -174,7 +180,8 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 		reputableNodeCount = req.RequestedCount
 	}
 
-	excluded := req.ExcludedNodes
+	var exclude Exclude
+	exclude.Nodes = req.ExcludedNodes
 
 	newNodeCount := 0
 	if preferences.NewNodePercentage > 0 {
@@ -188,7 +195,7 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 			FreeDisk:          req.FreeDisk,
 			AuditCount:        preferences.AuditCount,
 			AuditSuccessRatio: preferences.AuditSuccessRatio,
-			Excluded:          excluded,
+			Exclude:           exclude,
 			MinimumVersion:    preferences.MinimumVersion,
 			OnlineWindow:      preferences.OnlineWindow,
 			DistinctIP:        preferences.DistinctIP,
@@ -198,9 +205,10 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 		}
 	}
 
-	// add selected new nodes to the excluded list for reputable node selection
+	// add selected new nodes and their IPs to the excluded lists for reputable node selection
 	for _, newNode := range newNodes {
-		excluded = append(excluded, newNode.Id)
+		exclude.Nodes = append(exclude.Nodes, newNode.Id)
+		exclude.IPs = append(exclude.IPs, newNode.LastIp)
 	}
 
 	criteria := NodeCriteria{
@@ -210,7 +218,7 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 		AuditSuccessRatio:  preferences.AuditSuccessRatio,
 		UptimeCount:        preferences.UptimeCount,
 		UptimeSuccessRatio: preferences.UptimeRatio,
-		Excluded:           excluded,
+		Exclude:            exclude,
 		MinimumVersion:     preferences.MinimumVersion,
 		OnlineWindow:       preferences.OnlineWindow,
 		DistinctIP:         preferences.DistinctIP,
