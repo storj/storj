@@ -7,6 +7,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"strings"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -45,13 +46,24 @@ func NewServer(logger *zap.Logger, config Config, listener net.Listener) *Server
 
 	mux := http.NewServeMux()
 
-	mux.Handle("/", http.HandlerFunc(server.appHandler))
+	mux.Handle("/", http.HandlerFunc(server.localAccessHandler(server.appHandler)))
 
 	server.server = http.Server{
 		Handler: mux,
 	}
 
 	return &server
+}
+
+// localAccessHandler is a method for ensuring allow request only from localhost
+func (s *Server) localAccessHandler(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		if !strings.HasPrefix(req.RemoteAddr, "127.0.0.1") {
+			s.serveError(w, req)
+			return
+		}
+		next(w, req)
+	}
 }
 
 // appHandler is web app http handler function
