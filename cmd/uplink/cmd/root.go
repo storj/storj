@@ -16,7 +16,6 @@ import (
 	"storj.io/storj/internal/fpath"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink"
 )
@@ -24,7 +23,6 @@ import (
 // UplinkFlags configuration flags
 type UplinkFlags struct {
 	NonInteractive bool `help:"disable interactive mode" default:"false" setup:"true"`
-	Identity       identity.Config
 	uplink.Config
 }
 
@@ -71,16 +69,6 @@ func (c *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, error
 
 	satelliteAddr := c.Client.SatelliteAddr
 
-	identity, err := c.Identity.Load()
-	if err != nil {
-		return nil, err
-	}
-
-	identityVersion, err := identity.Version()
-	if err != nil {
-		return nil, err
-	}
-
 	cfg := &libuplink.Config{}
 
 	cfg.Volatile.TLS = struct {
@@ -91,8 +79,6 @@ func (c *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, error
 		PeerCAWhitelistPath: c.TLS.PeerCAWhitelistPath,
 	}
 
-	cfg.Volatile.UseIdentity = identity
-	cfg.Volatile.IdentityVersion = identityVersion
 	cfg.Volatile.MaxInlineSize = c.Client.MaxInlineSize
 	cfg.Volatile.MaxMemory = c.RS.MaxBufferMem
 
