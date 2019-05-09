@@ -188,7 +188,7 @@ func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start tim
 
 // DeleteTalliesBefore deletes all raw tallies prior to some time
 func (db *StoragenodeAccounting) DeleteTalliesBefore(ctx context.Context, latestRollup time.Time) error {
-	var deleteRawSQL = `DELETE FROM accounting_raws WHERE interval_end_time < ?`
+	var deleteRawSQL = `DELETE FROM storagenode_storage_tallies WHERE interval_end_time < ?`
 	_, err := db.db.DB.ExecContext(ctx, db.db.Rebind(deleteRawSQL), latestRollup)
 	return err
 }
