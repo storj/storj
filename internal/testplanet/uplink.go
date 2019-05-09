@@ -84,7 +84,7 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 		consoleDB := satellite.DB.Console()
 
 		projectName := fmt.Sprintf("%s_%d", name, j)
-		key, err := macaroon.NewAPIKey([]byte(projectName))
+		key, err := macaroon.NewAPIKey([]byte("fake secret"))
 		if err != nil {
 			return nil, err
 		}
@@ -101,7 +101,7 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 
 		_, err = consoleDB.APIKeys().Create(
 			context.Background(),
-			*key,
+			key.Tail(),
 			console.APIKeyInfo{
 				Name:      "root",
 				ProjectID: project.ID,

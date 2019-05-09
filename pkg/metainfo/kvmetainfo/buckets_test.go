@@ -32,8 +32,6 @@ const (
 	TestBucket = "test-bucket"
 )
 
-var TestAPIKey = "test-api-key"
-
 func TestBucketsBasic(t *testing.T) {
 	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
 		// Create new bucket
@@ -331,7 +329,7 @@ func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, buckets.Store,
 		return nil, nil, nil, err
 	}
 
-	apiKey, err := macaroon.NewAPIKey([]byte("TODO secret"))
+	apiKey, err := macaroon.NewAPIKey([]byte("testSecret"))
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -342,7 +340,7 @@ func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, buckets.Store,
 	}
 
 	// add api key to db
-	_, err = planet.Satellites[0].DB.Console().APIKeys().Create(context.Background(), *apiKey, apiKeyInfo)
+	_, err = planet.Satellites[0].DB.Console().APIKeys().Create(context.Background(), apiKey.Tail(), apiKeyInfo)
 	if err != nil {
 		return nil, nil, nil, err
 	}

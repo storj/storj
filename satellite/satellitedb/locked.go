@@ -18,7 +18,6 @@ import (
 	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
-	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -147,10 +146,10 @@ type lockedAPIKeys struct {
 }
 
 // Create creates and stores new APIKeyInfo
-func (m *lockedAPIKeys) Create(ctx context.Context, key macaroon.APIKey, info console.APIKeyInfo) (*console.APIKeyInfo, error) {
+func (m *lockedAPIKeys) Create(ctx context.Context, tail []byte, info console.APIKeyInfo) (*console.APIKeyInfo, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Create(ctx, key, info)
+	return m.db.Create(ctx, tail, info)
 }
 
 // Delete deletes APIKeyInfo from store
@@ -167,18 +166,18 @@ func (m *lockedAPIKeys) Get(ctx context.Context, id uuid.UUID) (*console.APIKeyI
 	return m.db.Get(ctx, id)
 }
 
-// GetByKey retrieves APIKeyInfo for given key
-func (m *lockedAPIKeys) GetByKey(ctx context.Context, key macaroon.APIKey) (*console.APIKeyInfo, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetByKey(ctx, key)
-}
-
 // GetByProjectID retrieves list of APIKeys for given projectID
 func (m *lockedAPIKeys) GetByProjectID(ctx context.Context, projectID uuid.UUID) ([]console.APIKeyInfo, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetByProjectID(ctx, projectID)
+}
+
+// GetByTail retrieves APIKeyInfo for given key
+func (m *lockedAPIKeys) GetByTail(ctx context.Context, tail []byte) (*console.APIKeyInfo, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetByTail(ctx, tail)
 }
 
 // Update updates APIKeyInfo in store

@@ -667,7 +667,7 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 		return nil, nil, nil, err
 	}
 
-	apiKey, err := macaroon.NewAPIKey([]byte("TODO secret"))
+	apiKey, err := macaroon.NewAPIKey([]byte("testSecret"))
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -678,7 +678,7 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 	}
 
 	// add api key to db
-	_, err = planet.Satellites[0].DB.Console().APIKeys().Create(ctx, *apiKey, apiKeyInfo)
+	_, err = planet.Satellites[0].DB.Console().APIKeys().Create(ctx, apiKey.Tail(), apiKeyInfo)
 	if err != nil {
 		return nil, nil, nil, err
 	}

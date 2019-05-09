@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
-	"storj.io/storj/pkg/macaroon"
 )
 
 // APIKeys is interface for working with api keys store
@@ -17,10 +16,10 @@ type APIKeys interface {
 	GetByProjectID(ctx context.Context, projectID uuid.UUID) ([]APIKeyInfo, error)
 	// Get retrieves APIKeyInfo with given ID
 	Get(ctx context.Context, id uuid.UUID) (*APIKeyInfo, error)
-	// GetByKey retrieves APIKeyInfo for given key
-	GetByKey(ctx context.Context, key macaroon.APIKey) (*APIKeyInfo, error)
+	// GetByTail retrieves APIKeyInfo for given key
+	GetByTail(ctx context.Context, tail []byte) (*APIKeyInfo, error)
 	// Create creates and stores new APIKeyInfo
-	Create(ctx context.Context, key macaroon.APIKey, info APIKeyInfo) (*APIKeyInfo, error)
+	Create(ctx context.Context, tail []byte, info APIKeyInfo) (*APIKeyInfo, error)
 	// Update updates APIKeyInfo in store
 	Update(ctx context.Context, key APIKeyInfo) error
 	// Delete deletes APIKeyInfo from store

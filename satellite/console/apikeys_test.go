@@ -33,7 +33,7 @@ func TestApiKeysRepository(t *testing.T) {
 
 		t.Run("Creation success", func(t *testing.T) {
 			for i := 0; i < 10; i++ {
-				key, err := macaroon.NewAPIKey([]byte("test-secret"))
+				key, err := macaroon.NewAPIKey([]byte("testSecret"))
 				assert.NoError(t, err)
 
 				keyInfo := console.APIKeyInfo{
@@ -41,7 +41,7 @@ func TestApiKeysRepository(t *testing.T) {
 					ProjectID: project.ID,
 				}
 
-				createdKey, err := apikeys.Create(ctx, *key, keyInfo)
+				createdKey, err := apikeys.Create(ctx, key.Tail(), keyInfo)
 				assert.NotNil(t, createdKey)
 				assert.NoError(t, err)
 			}

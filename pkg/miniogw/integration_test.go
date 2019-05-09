@@ -54,7 +54,7 @@ func TestUploadDownload(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	apiKey, err := macaroon.NewAPIKey([]byte("TODO secret"))
+	apiKey, err := macaroon.NewAPIKey([]byte("testSecret"))
 	assert.NoError(t, err)
 
 	apiKeyInfo := console.APIKeyInfo{
@@ -63,7 +63,7 @@ func TestUploadDownload(t *testing.T) {
 	}
 
 	// add api key to db
-	_, err = planet.Satellites[0].DB.Console().APIKeys().Create(context.Background(), *apiKey, apiKeyInfo)
+	_, err = planet.Satellites[0].DB.Console().APIKeys().Create(context.Background(), apiKey.Tail(), apiKeyInfo)
 	assert.NoError(t, err)
 
 	// bind default values to config

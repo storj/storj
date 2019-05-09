@@ -247,7 +247,7 @@ func runTest(t *testing.T, test func(t *testing.T, ctx *testcontext.Context, pla
 		})
 		require.NoError(t, err)
 
-		apiKey, err := macaroon.NewAPIKey([]byte("TODO secret"))
+		apiKey, err := macaroon.NewAPIKey([]byte("testSecret"))
 		require.NoError(t, err)
 
 		apiKeyInfo := console.APIKeyInfo{
@@ -256,7 +256,7 @@ func runTest(t *testing.T, test func(t *testing.T, ctx *testcontext.Context, pla
 		}
 
 		// add api key to db
-		_, err = planet.Satellites[0].DB.Console().APIKeys().Create(context.Background(), *apiKey, apiKeyInfo)
+		_, err = planet.Satellites[0].DB.Console().APIKeys().Create(context.Background(), apiKey.Tail(), apiKeyInfo)
 		require.NoError(t, err)
 
 		TestAPIKey := apiKey.Serialize()
