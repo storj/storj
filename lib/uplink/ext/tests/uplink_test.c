@@ -30,7 +30,9 @@ void TestNewUplink_config(void)
     TEST_ASSERT_EQUAL_STRING("", *err);
     TEST_ASSERT_EQUAL_UINT8(idVersionNumber, testUplinkConfig.Volatile.IdentityVersion.Number);
 
-    struct Uplink uplink = NewUplink(testUplinkConfig, err);
+    GoCtxPtr ctx = GetContext();
+
+    struct Uplink uplink = NewUplink(ctx, testUplinkConfig, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
     TEST_ASSERT_NOT_EQUAL(0, uplink.GoUplink);
     TEST_ASSERT_TRUE(uplink.Config.Volatile.TLS.SkipPeerCAWhitelist);
@@ -38,7 +40,7 @@ void TestNewUplink_config(void)
     TEST_ASSERT_NOT_EQUAL(0, uplink.Config.Volatile.IdentityVersion.GoIDVersion);
 }
 
-struct Uplink *NewTestUplink(char **err)
+struct Uplink *NewTestUplink(GoCtxPtr ctx, char **err)
 {
     uint8_t idVersionNumber = 0;
     const struct IDVersion idVersion = {0, 8};
@@ -52,7 +54,7 @@ struct Uplink *NewTestUplink(char **err)
     testUplinkConfig.Volatile.IdentityVersion = version;
 
     struct Uplink *uplink = malloc(sizeof(struct Uplink));
-    *uplink = NewUplink(testUplinkConfig, err);
+    *uplink = NewUplink(ctx, testUplinkConfig, err);
     return uplink;
 }
 
@@ -68,7 +70,7 @@ void TestOpenProject(void)
          "latest",
          1,
          2}};
-    char *satelliteAddr = "127.0.0.1:7777";
+    char *satelliteAddr = getenv("SATELLITE");
     APIKey apiKey = ParseAPIKey("testapikey", err);
     uint8_t encryptionKey[32];
     struct ProjectOptions opts = {
@@ -83,10 +85,16 @@ void TestOpenProject(void)
     TEST_ASSERT_EQUAL_STRING("", *err);
     TEST_ASSERT_EQUAL_UINT8(idVersionNumber, uplinkConfig.Volatile.IdentityVersion.Number);
 
-    struct Uplink *uplink = NewTestUplink(err);
+    GoCtxPtr ctx = GetContext();
+
+    struct Uplink *uplink = NewTestUplink(ctx, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
     TEST_ASSERT_NOT_NULL(uplink);
 
     OpenProject(*uplink, satelliteAddr, apiKey, opts, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
+}
+
+void TestCreateBucket(void)
+{
 }

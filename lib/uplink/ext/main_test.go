@@ -4,6 +4,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -40,7 +41,7 @@ func TestSanity(t *testing.T) {
 
 	cmd := exec.Command(testBinPath)
 	cmd.Env = append(os.Environ(),
-		"SATELLITE=127.0.0.1",
+		fmt.Sprintf("SATELLITEADDR=%s", planet.Satellites[0].Addr()),
 	)
 
 	out, err := cmd.CombinedOutput()

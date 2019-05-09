@@ -22,14 +22,20 @@ import (
 var mon = monkit.Package()
 
 //export NewUplink
-func NewUplink(cConfig C.struct_Config, cErr **C.char) (cUplink C.struct_Uplink) {
+func NewUplink(ctxPtr C.GoCtxPtr, cConfig C.struct_Config, cErr **C.char) (cUplink C.struct_Uplink) {
 	goConfig := new(uplink.Config)
 	if err := CToGoStruct(cConfig, goConfig); err != nil {
 		*cErr = C.CString(err.Error())
 		return cUplink
 	}
 
-	goUplink, err := uplink.NewUplink(context.Background(), goConfig)
+	ctx, ok := ctxMapping.Get(token(ctxPtr)).(context.Context)
+	if !ok {
+		*cErr = C.CString("Could not retrieve context.Context from context Map")
+		return cUplink
+	}
+
+	goUplink, err := uplink.NewUplink(ctx, goConfig)
 	if err != nil {
 		fmt.Printf("NewUplink go err: %s\n", err)
 		*cErr = C.CString(err.Error())

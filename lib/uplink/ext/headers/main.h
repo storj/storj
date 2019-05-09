@@ -4,3 +4,5 @@
 #include "uplink.h"
 #include "project.h"
 
+typedef __SIZE_TYPE__ GoUintptr;
+typedef GoUintptr GoCtxPtr;

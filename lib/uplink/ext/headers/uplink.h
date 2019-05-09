@@ -15,22 +15,20 @@ struct IDVersion
     GoUintptr GoIDVersion;
 };
 
-struct UplinkConfigVolatile
+struct Config
 {
     struct
     {
-        bool SkipPeerCAWhitelist;
-        char *PeerCAWhitelistPath;
-    } TLS;
-    struct IDVersion IdentityVersion;
-    char *PeerIDVersion;
-    Size MaxInlineSize;
-    Size MaxMemory;
-};
-
-struct Config
-{
-    struct UplinkConfigVolatile Volatile;
+        struct
+        {
+            bool SkipPeerCAWhitelist;
+            char *PeerCAWhitelistPath;
+        } TLS;
+        struct IDVersion IdentityVersion;
+        char *PeerIDVersion;
+        Size MaxInlineSize;
+        Size MaxMemory;
+    } Volatile;
 };
 
 struct Uplink

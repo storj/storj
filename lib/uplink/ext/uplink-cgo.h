@@ -105,9 +105,13 @@ extern APIKey ParseAPIKey(char* p0, char** p1);
 
 extern char* Serialize(APIKey p0);
 
+// GoCtxPtr gets a pointer to a go context that can be passed around
+
+extern GoCtxPtr GetContext();
+
 extern struct IDVersion GetIDVersion(unsigned int p0, char** p1);
 
-extern struct Uplink NewUplink(struct Config p0, char** p1);
+extern struct Uplink NewUplink(GoCtxPtr p0, struct Config p1, char** p2);
 
 extern Project OpenProject(struct Uplink p0, char* p1, APIKey p2, struct ProjectOptions p3, char** p4);
 
