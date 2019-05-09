@@ -177,7 +177,7 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 	// TODO: also use satellites
 	peers := planet.StorageNodes
 
-	{ // PingNode
+	func() { // PingNode
 		self := planet.StorageNodes[0]
 
 		tlsOpts, err := tlsopts.NewOptions(self.Identity, tlsopts.Config{})
@@ -203,15 +203,15 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 			peer := peer
 			group.Go(func() error {
 				_, err := dialer.PingNode(ctx, peer.Local().Node)
-				require.Error(t, err, context.DeadlineExceeded)
-				require.True(t, transport.Error.Has(err))
-
+				if !transport.Error.Has(err) || errs.Unwrap(err) != context.DeadlineExceeded {
+					return errs.New("invalid error: %v", err)
+				}
 				return nil
 			})
 		}
-	}
+	}()
 
-	{ // FetchPeerIdentity
+	func() { // FetchPeerIdentity
 		self := planet.StorageNodes[1]
 
 		tlsOpts, err := tlsopts.NewOptions(self.Identity, tlsopts.Config{})
@@ -235,18 +235,18 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 
 		group.Go(func() error {
 			_, err := dialer.FetchPeerIdentity(ctx, planet.Satellites[0].Local().Node)
-			require.Error(t, err, context.DeadlineExceeded)
-			require.True(t, transport.Error.Has(err))
-
+			if !transport.Error.Has(err) || errs.Unwrap(err) != context.DeadlineExceeded {
+				return errs.New("invalid error: %v", err)
+			}
 			_, err = dialer.FetchPeerIdentityUnverified(ctx, planet.Satellites[0].Addr())
-			require.Error(t, err, context.DeadlineExceeded)
-			require.True(t, transport.Error.Has(err))
-
+			if !transport.Error.Has(err) || errs.Unwrap(err) != context.DeadlineExceeded {
+				return errs.New("invalid error: %v", err)
+			}
 			return nil
 		})
-	}
+	}()
 
-	{ // Lookup
+	func() { // Lookup
 		self := planet.StorageNodes[2]
 
 		tlsOpts, err := tlsopts.NewOptions(self.Identity, tlsopts.Config{})
@@ -272,20 +272,19 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 			peer := peer
 			group.Go(func() error {
 				for _, target := range peers {
-					errTag := fmt.Errorf("lookup peer:%s target:%s", peer.ID(), target.ID())
 					peer.Local().Type.DPanicOnInvalid("test client peer")
 					target.Local().Type.DPanicOnInvalid("test client target")
 
 					_, err := dialer.Lookup(ctx, self.Local().Node, peer.Local().Node, target.Local().Node)
-					require.Error(t, err, context.DeadlineExceeded, errTag)
-					require.True(t, transport.Error.Has(err), errTag)
-
+					if !transport.Error.Has(err) || errs.Unwrap(err) != context.DeadlineExceeded {
+						return errs.New("invalid error: %v (peer:%s target:%s)", err, peer.ID(), target.ID())
+					}
 					return nil
 				}
 				return nil
 			})
 		}
-	}
+	}()
 }
 
 func containsResult(nodes []*pb.Node, target storj.NodeID) bool {
