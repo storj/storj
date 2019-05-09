@@ -21,7 +21,6 @@ import (
 	"storj.io/storj/internal/fpath"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
@@ -30,9 +29,7 @@ import (
 
 // GatewayFlags configuration flags
 type GatewayFlags struct {
-	Identity          identity.Config
-	GenerateTestCerts bool `default:"false" help:"generate sample TLS certs for Minio GW" setup:"true"`
-	NonInteractive    bool `help:"disable interactive mode" default:"false" setup:"true"`
+	NonInteractive bool `help:"disable interactive mode" default:"false" setup:"true"`
 
 	Server miniogw.ServerConfig
 	Minio  miniogw.MinioConfig
@@ -97,19 +94,6 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	if setupCfg.GenerateTestCerts {
-		minioCerts := filepath.Join(setupDir, "minio", "certs")
-		if err := os.MkdirAll(minioCerts, 0744); err != nil {
-			return err
-		}
-		if err := os.Link(setupCfg.Identity.CertPath, filepath.Join(minioCerts, "public.crt")); err != nil {
-			return err
-		}
-		if err := os.Link(setupCfg.Identity.KeyPath, filepath.Join(minioCerts, "private.key")); err != nil {
-			return err
-		}
-	}
-
 	overrides := map[string]interface{}{}
 
 	accessKeyFlag := cmd.Flag("minio.access-key")
@@ -137,11 +121,6 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
-	identity, err := runCfg.Identity.Load()
-	if err != nil {
-		zap.S().Fatal(err)
-	}
-
 	address := runCfg.Server.Address
 	host, port, err := net.SplitHostPort(address)
 	if err != nil {
@@ -157,22 +136,24 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	fmt.Printf("Secret key: %s\n", runCfg.Minio.SecretKey)
 
 	ctx := process.Ctx(cmd)
-	metainfo, _, err := runCfg.GetMetainfo(ctx, identity)
-	if err != nil {
-		return err
-	}
 
-	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
+	if err := process.InitMetrics(ctx, nil, ""); err != nil {
 		zap.S().Error("Failed to initialize telemetry batcher: ", err)
 	}
 
-	_, err = metainfo.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
+	proj, err := runCfg.openProject(ctx)
 	if err != nil {
 		return fmt.Errorf("Failed to contact Satellite.\n"+
 			"Perhaps your configuration is invalid?\n%s", err)
 	}
 
-	return runCfg.Run(ctx, identity)
+	_, err = proj.ListBuckets(ctx, &storj.BucketListOptions{Direction: storj.After})
+	if err != nil {
+		return fmt.Errorf("Failed to contact Satellite.\n"+
+			"Perhaps your configuration is invalid?\n%s", err)
+	}
+
+	return runCfg.Run(ctx)
 }
 
 func generateKey() (key string, err error) {
@@ -185,12 +166,12 @@ func generateKey() (key string, err error) {
 }
 
 // Run starts a Minio Gateway given proper config
-func (flags GatewayFlags) Run(ctx context.Context, identity *identity.FullIdentity) (err error) {
+func (flags GatewayFlags) Run(ctx context.Context) (err error) {
 	err = minio.RegisterGatewayCommand(cli.Command{
 		Name:  "storj",
 		Usage: "Storj",
 		Action: func(cliCtx *cli.Context) error {
-			return flags.action(ctx, cliCtx, identity)
+			return flags.action(ctx, cliCtx)
 		},
 		HideHelpCommand: true,
 	})
@@ -213,8 +194,8 @@ func (flags GatewayFlags) Run(ctx context.Context, identity *identity.FullIdenti
 	return errs.New("unexpected minio exit")
 }
 
-func (flags GatewayFlags) action(ctx context.Context, cliCtx *cli.Context, identity *identity.FullIdentity) (err error) {
-	gw, err := flags.NewGateway(ctx, identity)
+func (flags GatewayFlags) action(ctx context.Context, cliCtx *cli.Context) (err error) {
+	gw, err := flags.NewGateway(ctx)
 	if err != nil {
 		return err
 	}
@@ -224,7 +205,26 @@ func (flags GatewayFlags) action(ctx context.Context, cliCtx *cli.Context, ident
 }
 
 // NewGateway creates a new minio Gateway
-func (flags GatewayFlags) NewGateway(ctx context.Context, ident *identity.FullIdentity) (gw minio.Gateway, err error) {
+func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.Gateway, err error) {
+	encKey := new(storj.Key)
+	copy(encKey[:], flags.Enc.Key)
+
+	project, err := flags.openProject(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return miniogw.NewStorjGateway(
+		project,
+		encKey,
+		storj.Cipher(flags.Enc.PathType).ToCipherSuite(),
+		flags.GetEncryptionScheme().ToEncryptionParameters(),
+		flags.GetRedundancyScheme(),
+		flags.Client.SegmentSize,
+	), nil
+}
+
+func (flags GatewayFlags) openProject(ctx context.Context) (*libuplink.Project, error) {
 	cfg := libuplink.Config{}
 	cfg.Volatile.TLS = struct {
 		SkipPeerCAWhitelist bool
@@ -233,7 +233,6 @@ func (flags GatewayFlags) NewGateway(ctx context.Context, ident *identity.FullId
 		SkipPeerCAWhitelist: !flags.TLS.UsePeerCAWhitelist,
 		PeerCAWhitelistPath: flags.TLS.PeerCAWhitelistPath,
 	}
-	cfg.Volatile.UseIdentity = ident
 	cfg.Volatile.MaxInlineSize = flags.Client.MaxInlineSize
 	cfg.Volatile.MaxMemory = flags.RS.MaxBufferMem
 
@@ -253,19 +252,7 @@ func (flags GatewayFlags) NewGateway(ctx context.Context, ident *identity.FullId
 	var opts libuplink.ProjectOptions
 	opts.Volatile.EncryptionKey = encKey
 
-	project, err := uplink.OpenProject(ctx, flags.Client.SatelliteAddr, apiKey, &opts)
-	if err != nil {
-		return nil, err
-	}
-
-	return miniogw.NewStorjGateway(
-		project,
-		encKey,
-		storj.Cipher(flags.Enc.PathType).ToCipherSuite(),
-		flags.GetEncryptionScheme().ToEncryptionParameters(),
-		flags.GetRedundancyScheme(),
-		flags.Client.SegmentSize,
-	), nil
+	return uplink.OpenProject(ctx, flags.Client.SatelliteAddr, apiKey, &opts)
 }
 
 func (flags GatewayFlags) interactive(cmd *cobra.Command, setupDir string, overrides map[string]interface{}) error {
