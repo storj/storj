@@ -106,6 +106,7 @@ extern APIKey ParseAPIKey(char* p0, char** p1);
 extern char* Serialize(APIKey p0);
 
 // GoCtxPtr gets a pointer to a go context that can be passed around
+// TODO: Get rid of this and just use context.Background() for everything in go land
 
 extern GoCtxPtr GetContext();
 

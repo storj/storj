@@ -12,7 +12,10 @@ package main
 import "C"
 import (
 	"storj.io/storj/lib/uplink"
-	"unsafe"
+)
+
+var ( 
+	ApiKeyMap = newMapping()
 )
 
 //export ParseAPIKey
@@ -23,13 +26,18 @@ func ParseAPIKey(val *C.char, cErr **C.char) (cApiKey C.APIKey) {
 		*cErr = C.CString(err.Error())
 		return cApiKey
 	}
-	return cPointerFromGoStruct(&goApiKeyStruct)
+
+	return C.APIKey(ApiKeyMap.Add(goApiKeyStruct))
 
 }
 
 //export Serialize
 // Serialize serializes the API Key to a string
 func Serialize(CApiKey C.APIKey) *C.char {
-	goApiKeyStruct := (*uplink.APIKey)(unsafe.Pointer(uintptr(CApiKey)))
+	goApiKeyStruct, ok := ApiKeyMap.Get(token(CApiKey)).(uplink.APIKey)
+	if !ok {
+		return C.CString("")
+	}
+
 	return C.CString(goApiKeyStruct.Serialize())
 }
