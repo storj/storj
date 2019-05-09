@@ -4,7 +4,6 @@
 package overlay_test
 
 import (
-	"fmt"
 	"strconv"
 	"testing"
 	"time"
@@ -221,59 +220,66 @@ func TestNodeSelection(t *testing.T) {
 }
 
 func TestDistinctIPs(t *testing.T) {
-	tests := []struct {
-		nodeCount      int
-		duplicateCount int
-		requestCount   int
-		preferences    overlay.NodeSelectionConfig
-	}{
-		{ // test only distinct IPs are retrieved
-			nodeCount:      10,
-			duplicateCount: 7,
-			requestCount:   4,
-			preferences: overlay.NodeSelectionConfig{
-				AuditCount:        0,
-				NewNodePercentage: 0,
-				OnlineWindow:      time.Hour,
-				DistinctIP:        true,
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Discovery.RefreshInterval = 60 * time.Second
 			},
 		},
-		{ // test distinct flag false allows duplicates
-			nodeCount:      10,
-			duplicateCount: 10,
-			requestCount:   5,
-			preferences: overlay.NodeSelectionConfig{
-				AuditCount:        0,
-				NewNodePercentage: 0,
-				OnlineWindow:      time.Hour,
-				DistinctIP:        false,
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		testplanet.Run(t, testplanet.Config{
-			SatelliteCount: 1, StorageNodeCount: tt.nodeCount, UplinkCount: 1,
-			Reconfigure: testplanet.Reconfigure{
-				Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-					config.Overlay.Node.DistinctIP = tt.preferences.DistinctIP
-					config.Discovery.RefreshInterval = 60 * time.Second
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		var err error
+		satellite := planet.Satellites[0]
+		service := satellite.Overlay.Service
+		tests := []struct {
+			nodeCount      int
+			duplicateCount int
+			requestCount   int
+			preferences    overlay.NodeSelectionConfig
+		}{
+			{ // test only distinct IPs with half new nodes
+				duplicateCount: 7,
+				requestCount:   4,
+				preferences: overlay.NodeSelectionConfig{
+					AuditCount:        8,
+					NewNodePercentage: 0.5,
+					OnlineWindow:      time.Hour,
+					DistinctIP:        true,
 				},
 			},
-		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-			var err error
-			service := planet.Satellites[0].Overlay.Service
-			time.Sleep(1 * time.Second)
+			{ // test distinct flag false allows duplicates
+				duplicateCount: 10,
+				requestCount:   5,
+				preferences: overlay.NodeSelectionConfig{
+					AuditCount:        0,
+					NewNodePercentage: 0.5,
+					OnlineWindow:      time.Hour,
+					DistinctIP:        false,
+				},
+			},
+		}
 
+		// This sets a reputable audit count for a certain number of nodes.
+		for i, node := range planet.StorageNodes {
+			for k := 0; k < i; k++ {
+				_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
+					NodeID:       node.ID(),
+					IsUp:         true,
+					AuditSuccess: true,
+				})
+				assert.NoError(t, err)
+			}
+		}
+
+		for _, tt := range tests {
 			// update node last IPs
-			for i := 0; i < tt.nodeCount; i++ {
+			for i := 0; i < 10; i++ {
 				node := planet.StorageNodes[i].Local().Node
 				if i < tt.duplicateCount {
 					node.LastIp = "127.0.0.1"
 				} else {
 					node.LastIp = strconv.Itoa(i)
 				}
-
 				err = service.Put(ctx, planet.StorageNodes[i].ID(), node)
 				require.NoError(t, err)
 			}
@@ -289,13 +295,12 @@ func TestDistinctIPs(t *testing.T) {
 			if tt.preferences.DistinctIP {
 				ips := make(map[string]bool)
 				for _, n := range response {
-					fmt.Println(n.Id, n.LastIp)
 					assert.False(t, ips[n.LastIp])
 					ips[n.LastIp] = true
 				}
 			}
 
 			assert.Equal(t, tt.requestCount, len(response))
-		})
-	}
+		}
+	})
 }
