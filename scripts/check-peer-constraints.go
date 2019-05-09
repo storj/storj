@@ -83,10 +83,11 @@ func links(source, destination []*packages.Package) bool {
 			if _, visited := visited[id]; visited {
 				continue
 			}
+			visited[id] = true
 			if targets[id] {
 				fmt.Printf("import %q\n", pathstr(append(path, pkg, imp)))
+				continue
 			}
-			visited[id] = true
 			visit(imp, append(path, pkg))
 		}
 	}
