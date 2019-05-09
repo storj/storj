@@ -36,7 +36,7 @@ The contained flag should only be relevant to the audit service.
 
 ## Design
 
-#### Identifying Nodes That Need to Be Contained
+### Identifying Nodes That Need to Be Contained
 We need to add functionality to the audit verifier to better distinguish between the different reasons that a storage node may not respond to an audit request.
 The following cases could occur:
 1. The node is busy fulfilling other requests and can't respond to the audit request within the audit timeout defined on the Satellite.
@@ -44,15 +44,12 @@ The following cases could occur:
 3. The node can't read the piece due to a file permission issue (a SNO config mistake).
 4. The node can't read the piece due to bad sectors on the HDD.
 
-For the first case, the node doesn't necessarily need to be contained.
-
-For the second case, the node does need to be contained.
-
-For the third and fourth cases, the node should probably also be contained.
+For 1, the node doesn't necessarily need to be contained. For 2, the node does need to be contained.
+For 3 and 4, the node should probably also be contained.
 
 We need to find out what the error messages are for these different cases so that we don't lump the first case with the rest.
 
-#### Handling Contained Nodes
+### Handling Contained Nodes
 New functionality needs to be added to the audit verifier, where upon receiving a pointer, the verifier should first iterate through the nodes listed in the pointer and check if they have a `contained` field set to true on their NodeDossier or not.
 
 For nodes that are not contained, the audit will continue as normal.
@@ -134,16 +131,18 @@ err := verifier.containment.IncrementPending(ctx, &pendingAudit{
 #### 2. Audits continue normally. But now the nodes listed in a pointer are checked for `contained` status.
 ```go pkg/audit/containment/checker.go
 func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe) (verifiedNodes *RecordAuditsInfo, err error) {
-	defer mon.Task()(&ctx)(&err)
+  defer mon.Task()(&ctx)(&err)
 
-	pointer := stripe.Segment
+  pointer := stripe.Segment
 
-	pieces := pointer.GetRemote().GetRemotePieces()
-	
-	// Get the NodeDossiers from the overlay using the pieces’ nodeIDs.
+  pieces := pointer.GetRemote().GetRemotePieces()
+
+  // Get the NodeDossiers from the overlay using the pieces’ nodeIDs.
   // Determine if they have the contained flag set to true.
   // If so, call Reverify on them.
   // Either way, then continue this audit normally with the contained nodes included.
+  ...
+}
 ```
 
 #### 3. Contained nodes are checked for the same data that they were originally requested to respond with:
@@ -181,16 +180,17 @@ func (verifier *Verifier) Reverify(ctx context.Context, node storj.NodeID) (audi
   // Delete the pending audit from the ContainmentDB.
 
   return auditRecords
+}
 ```
 
 ## Open Issues
 
-#### How do we specifically determine if a node should be "contained" or marked as offline?
+#### - How do we specifically determine if a node should be "contained" or marked as offline?
 We can't verify that just because DialNode failed that a node is offline. There are many other reasons for DialNode to fail, not only that the target is not reachable (offline). For example, the node can check that the incoming connection is from a satellite and just refuse the connection. This is not the same as being offline.
 
 What is a better way to check and distinguish between an "uncooperative node" and an "offline node"?
 
-#### How often can a contained node expect to be reverified in a real-life system?
+#### - How often can a contained node expect to be reverified in a real-life system?
 
-#### Why create yet another database table when we never iterate through all records in ContainmentDB?
+#### - Why create yet another database table when we never iterate through all records in ContainmentDB?
 Couldn't the information on the `pendingAudit` struct just be added to the NodeDossier?
