@@ -48,7 +48,8 @@ func TestOffline(t *testing.T) {
 			planet.StorageNodes[2].ID(),
 		})
 		require.NoError(t, err)
-		require.Len(t, result, 0)
+		require.Len(t, result, 1)
+		require.Equal(t, result[0], storj.NodeID{1, 2, 3, 4})
 	})
 }
 
