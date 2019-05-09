@@ -9,16 +9,16 @@ import (
 )
 
 const (
-	// EncUnspecified indicates no encryption suite has been selected.
-	CipherSuite_EncUnspecified = byte(storj.EncUnspecified)
-	// EncNull indicates use of the NULL cipher; that is, no encryption is
+	// CipherSuiteEncUnspecified indicates no encryption suite has been selected.
+	CipherSuiteEncUnspecified = byte(storj.EncUnspecified)
+	// CipherSuiteEncNull indicates use of the NULL cipher; that is, no encryption is
 	// done. The ciphertext is equal to the plaintext.
-	CipherSuite_EncNull = byte(storj.EncNull)
-	// EncAESGCM indicates use of AES128-GCM encryption.
-	CipherSuite_EncAESGCM = byte(storj.EncAESGCM)
-	// EncSecretBox indicates use of XSalsa20-Poly1305 encryption, as provided
+	CipherSuiteEncNull = byte(storj.EncNull)
+	// CipherSuiteEncAESGCM indicates use of AES128-GCM encryption.
+	CipherSuiteEncAESGCM = byte(storj.EncAESGCM)
+	// CipherSuiteEncSecretBox indicates use of XSalsa20-Poly1305 encryption, as provided
 	// by the NaCl cryptography library under the name "Secretbox".
-	CipherSuite_EncSecretBox = byte(storj.EncSecretBox)
+	CipherSuiteEncSecretBox = byte(storj.EncSecretBox)
 )
 
 type Bucket struct {
@@ -40,6 +40,10 @@ type BucketInfo struct {
 	RedundancyScheme     RedundancyScheme
 	PathCipher           byte
 	EncryptionParameters EncryptionParameters
+}
+
+type BucketConfig struct {
+	RedundancyScheme *RedundancyScheme
 }
 
 func newBucketInfo(bucket storj.Bucket) *BucketInfo {
@@ -102,6 +106,20 @@ type RedundancyScheme struct {
 	TotalShares int16
 }
 
+func newStorjRedundancyScheme(scheme *RedundancyScheme) storj.RedundancyScheme {
+	if scheme == nil {
+		return storj.RedundancyScheme{}
+	}
+	return storj.RedundancyScheme{
+		Algorithm:      storj.RedundancyAlgorithm(scheme.Algorithm),
+		ShareSize:      scheme.ShareSize,
+		RequiredShares: scheme.RequiredShares,
+		RepairShares:   scheme.RepairShares,
+		OptimalShares:  scheme.OptimalShares,
+		TotalShares:    scheme.TotalShares,
+	}
+}
+
 // EncryptionParameters is the cipher suite and parameters used for encryption
 // It is like EncryptionScheme, but uses the CipherSuite type instead of Cipher.
 // EncryptionParameters is preferred for new uses.
@@ -119,7 +137,7 @@ type EncryptionParameters struct {
 	BlockSize int32
 }
 
-// Close bucket
+// Close closes the Bucket session.
 func (bucket *Bucket) Close() error {
 	defer bucket.cancel()
 	return bucket.lib.Close()
@@ -148,8 +166,9 @@ func (bucket *Bucket) NewWriter(path storj.Path, options *WriterOptions) (*Write
 	return &Writer{scope, writer}, nil
 }
 
-func (w *Writer) Write(data []byte) (int, error) {
-	return w.writer.Write(data)
+func (w *Writer) Write(data []byte) error {
+	_, err := w.writer.Write(data)
+	return err
 }
 
 func (w *Writer) Close() error {
@@ -179,8 +198,13 @@ func (bucket *Bucket) NewReader(path storj.Path, options *ReaderOptions) (*Reade
 	return &Reader{scope, reader}, nil
 }
 
-func (r *Reader) Read(data []byte) (int, error) {
-	return r.reader.Read(data)
+func (r *Reader) Read(data []byte) (int32, error) {
+	// TODO add validation for int vs int32
+	n, err := r.reader.Read(data)
+	if err == io.EOF {
+		return -1, nil
+	}
+	return int32(n), err
 }
 
 func (r *Reader) Close() error {

@@ -96,53 +96,10 @@ type UploadOptions struct {
 func (b *Bucket) UploadObject(ctx context.Context, path storj.Path, data io.Reader, opts *UploadOptions) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if opts == nil {
-		opts = &UploadOptions{}
-	}
-
-	if opts.Volatile.RedundancyScheme.Algorithm == 0 {
-		opts.Volatile.RedundancyScheme.Algorithm = b.Volatile.RedundancyScheme.Algorithm
-	}
-	if opts.Volatile.RedundancyScheme.OptimalShares == 0 {
-		opts.Volatile.RedundancyScheme.OptimalShares = b.Volatile.RedundancyScheme.OptimalShares
-	}
-	if opts.Volatile.RedundancyScheme.RepairShares == 0 {
-		opts.Volatile.RedundancyScheme.RepairShares = b.Volatile.RedundancyScheme.RepairShares
-	}
-	if opts.Volatile.RedundancyScheme.RequiredShares == 0 {
-		opts.Volatile.RedundancyScheme.RequiredShares = b.Volatile.RedundancyScheme.RequiredShares
-	}
-	if opts.Volatile.RedundancyScheme.ShareSize == 0 {
-		opts.Volatile.RedundancyScheme.ShareSize = b.Volatile.RedundancyScheme.ShareSize
-	}
-	if opts.Volatile.RedundancyScheme.TotalShares == 0 {
-		opts.Volatile.RedundancyScheme.TotalShares = b.Volatile.RedundancyScheme.TotalShares
-	}
-	if opts.Volatile.EncryptionParameters.CipherSuite == storj.EncUnspecified {
-		opts.Volatile.EncryptionParameters.CipherSuite = b.EncryptionParameters.CipherSuite
-	}
-	if opts.Volatile.EncryptionParameters.BlockSize == 0 {
-		opts.Volatile.EncryptionParameters.BlockSize = b.EncryptionParameters.BlockSize
-	}
-	createInfo := storj.CreateObject{
-		ContentType:      opts.ContentType,
-		Metadata:         opts.Metadata,
-		Expires:          opts.Expires,
-		RedundancyScheme: opts.Volatile.RedundancyScheme,
-		EncryptionScheme: opts.Volatile.EncryptionParameters.ToEncryptionScheme(),
-	}
-
-	obj, err := b.metainfo.CreateObject(ctx, b.Name, path, &createInfo)
+	upload, err := b.NewWriter(ctx, path, opts)
 	if err != nil {
 		return err
 	}
-
-	mutableStream, err := obj.CreateStream(ctx)
-	if err != nil {
-		return err
-	}
-
-	upload := stream.NewUpload(ctx, mutableStream, b.streams)
 
 	_, err = io.Copy(upload, data)
 

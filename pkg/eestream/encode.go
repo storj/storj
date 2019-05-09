@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"runtime"
 
 	"github.com/vivint/infectious"
 	"go.uber.org/zap"
@@ -123,15 +124,24 @@ type encodedReader struct {
 
 // EncodeReader takes a Reader and a RedundancyStrategy and returns a slice of
 // io.ReadClosers.
-func EncodeReader(ctx context.Context, r io.Reader, rs RedundancyStrategy) ([]io.ReadCloser, error) {
+func EncodeReader(ctx context.Context, r io.Reader, rs RedundancyStrategy) (_ []io.ReadCloser, err error) {
 	er := &encodedReader{
 		rs:     rs,
 		pieces: make(map[int]*encodedPiece, rs.TotalCount()),
 	}
 
-	pipeReaders, pipeWriter, err := sync2.NewTeeFile(rs.TotalCount(), os.TempDir())
-	if err != nil {
-		return nil, err
+	var pipeReaders []sync2.PipeReader
+	var pipeWriter sync2.PipeWriter
+	if runtime.GOOS == "android" {
+		pipeReaders, pipeWriter, err = sync2.NewTeeInmemory(rs.TotalCount())
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		pipeReaders, pipeWriter, err = sync2.NewTeeFile(rs.TotalCount(), os.TempDir())
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	readers := make([]io.ReadCloser, 0, rs.TotalCount())

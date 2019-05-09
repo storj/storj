@@ -42,6 +42,12 @@ func NewTeeFile(readers int, tempdir string) ([]PipeReader, PipeWriter, error) {
 	return newTee(buffer, readers, &handles)
 }
 
+// NewTeeInmemory returns a tee that uses inmemory
+func NewTeeInmemory(readers int) ([]PipeReader, PipeWriter, error) {
+	handles := int64(readers + 1) // +1 for the writer
+	return newTee(&memory{}, readers, &handles)
+}
+
 func newTee(buffer ReadAtWriteAtCloser, readers int, open *int64) ([]PipeReader, PipeWriter, error) {
 	tee := &tee{
 		buffer: buffer,
