@@ -337,6 +337,7 @@ func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, buckets.Store,
 	apiKeyInfo := console.APIKeyInfo{
 		ProjectID: project.ID,
 		Name:      "testKey",
+		Secret:    []byte("testSecret"),
 	}
 
 	// add api key to db

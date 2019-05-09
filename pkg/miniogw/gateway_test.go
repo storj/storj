@@ -675,6 +675,7 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 	apiKeyInfo := console.APIKeyInfo{
 		ProjectID: project.ID,
 		Name:      "testKey",
+		Secret:    []byte("testSecret"),
 	}
 
 	// add api key to db

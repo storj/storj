@@ -39,6 +39,7 @@ func TestApiKeysRepository(t *testing.T) {
 				keyInfo := console.APIKeyInfo{
 					Name:      fmt.Sprintf("key %d", i),
 					ProjectID: project.ID,
+					Secret:    []byte("testSecret"),
 				}
 
 				createdKey, err := apikeys.Create(ctx, key.Head(), keyInfo)

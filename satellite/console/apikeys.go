@@ -28,12 +28,9 @@ type APIKeys interface {
 
 // APIKeyInfo describing api key model in the database
 type APIKeyInfo struct {
-	ID uuid.UUID `json:"id"`
-
-	// Fk on project
+	ID        uuid.UUID `json:"id"`
 	ProjectID uuid.UUID `json:"projectId"`
-
-	Name string `json:"name"`
-
+	Name      string    `json:"name"`
+	Secret    []byte    `json:"-"`
 	CreatedAt time.Time `json:"createdAt"`
 }

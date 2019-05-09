@@ -253,6 +253,7 @@ func runTest(t *testing.T, test func(t *testing.T, ctx *testcontext.Context, pla
 		apiKeyInfo := console.APIKeyInfo{
 			ProjectID: project.ID,
 			Name:      "testKey",
+			Secret:    []byte("testSecret"),
 		}
 
 		// add api key to db

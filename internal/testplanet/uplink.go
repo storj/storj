@@ -105,6 +105,7 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 			console.APIKeyInfo{
 				Name:      "root",
 				ProjectID: project.ID,
+				Secret:    []byte("testSecret"),
 			},
 		)
 		if err != nil {

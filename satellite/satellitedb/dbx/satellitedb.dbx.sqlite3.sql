@@ -171,11 +171,12 @@ CREATE TABLE users (
 CREATE TABLE api_keys (
 	id BLOB NOT NULL,
 	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-	key BLOB NOT NULL,
+	head BLOB NOT NULL,
 	name TEXT NOT NULL,
+	secret BLOB NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id ),
-	UNIQUE ( key ),
+	UNIQUE ( head ),
 	UNIQUE ( name, project_id )
 );
 CREATE TABLE project_members (

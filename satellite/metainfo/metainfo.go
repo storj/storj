@@ -88,15 +88,14 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context, action macaroon.Acti
 		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
 	}
 
-	// TODO(jeff): add a real secret
-	// TODO(jeff): add the set of relevant revoked tails
-	err = key.Check([]byte("testSecret"), action, nil)
+	keyInfo, err := endpoint.apiKeys.GetByHead(ctx, key.Head())
 	if err != nil {
 		endpoint.log.Error("unauthorized request", zap.Error(status.Errorf(codes.Unauthenticated, err.Error())))
 		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
 	}
 
-	keyInfo, err := endpoint.apiKeys.GetByHead(ctx, key.Head())
+	// TODO(jeff): add the set of relevant revoked tails
+	err = key.Check(keyInfo.Secret, action, nil)
 	if err != nil {
 		endpoint.log.Error("unauthorized request", zap.Error(status.Errorf(codes.Unauthenticated, err.Error())))
 		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
