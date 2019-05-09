@@ -177,7 +177,6 @@ func runGateway(ctx context.Context, gwCfg config, uplinkCfg uplink.Config, log 
 		SkipPeerCAWhitelist: !uplinkCfg.TLS.UsePeerCAWhitelist,
 		PeerCAWhitelistPath: uplinkCfg.TLS.PeerCAWhitelistPath,
 	}
-	cfg.Volatile.UseIdentity = ident
 	cfg.Volatile.MaxInlineSize = uplinkCfg.Client.MaxInlineSize
 	cfg.Volatile.MaxMemory = uplinkCfg.RS.MaxBufferMem
 
