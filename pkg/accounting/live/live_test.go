@@ -16,10 +16,6 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-const (
-	valuesListSize = 1000
-)
-
 func TestPlainMemoryLiveAccounting(t *testing.T) {
 	const (
 		valuesListSize  = 1000
@@ -82,4 +78,22 @@ func TestPlainMemoryLiveAccounting(t *testing.T) {
 		assert.Equalf(t, sum, inlineUsed, "projectID %v", projID)
 		assert.Equalf(t, sum, remoteUsed, "projectID %v", projID)
 	}
+}
+
+func TestResetTotals(t *testing.T) {
+	config := Config{
+		StorageBackend: "plainmemory:",
+	}
+	service, err := New(zap.L().Named("live-accounting"), config)
+	require.NoError(t, err)
+
+	// ensure we are using the expected underlying type
+	_, ok := service.(*plainMemoryLiveAccounting)
+	require.True(t, ok)
+
+	ctx := context.Background()
+	projID, err := uuid.New()
+	require.NoError(t, err)
+	err = service.AddProjectStorageUsage(ctx, *projID, 0, -20)
+	require.NoError(t, err)
 }
