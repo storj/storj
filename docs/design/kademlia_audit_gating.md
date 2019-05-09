@@ -1,8 +1,8 @@
-# Title: Kademlia Audit Gating
+# Kademlia Audit Gating
 
 ## Abstract
 
-TODO
+StorageNode B is added to StorageNode A's routing table only if StorageNode A trusts Satellite C and Satellite C as verified StorageNode B has a high enough identity-generate difficulty (CPU proof-of-work) and disk space. If StorageNode B does not have this verification, it is added to StorageNode A's Routing Table Antechamber.
 
 ## Background
 
@@ -28,34 +28,35 @@ A node that is allowed to enter routing tables is considered vetted and lookups 
 5. On deployment, avoid complete erasure of the network's routing tables.
 
 
-
 ## Terminology
-**Routing Table Antechamber** - *Definition TODO*
+**Routing Table Antechamber** - *XOR-ordered temporary holding place for unverified storagenodes*
 
-**Node Neighborhood** - *Definition TODO*
+**Node Neighborhood** - *The k-closest nodes to self where distance is measured by XOR. A node is within the node neighboorhood if it is closer than the furthest node in the neighborhood. The vetted node neighborhood is the k-closest nodes that are currently in the Routing Table.*
+
+[TODO Node Neighborhood Diagram]
 
 ## Design
 
 1. Satellite Signatures for Node Verification
     - Identities can sign messages already
-    - Message (protobuf) to sign that Satellite A says Node B has been vetted
-    - Get info about audits to add to the message
+    - Create a Message (protobuf) to sign that Satellite C says Node B has been vetted
+    - Get info about the Node's difficulty and disk space to add to the message
 
 2. Trusted Satellites List
-    - Whitelist/blacklist w abstraction layer for trusted/untrusted Satellites
+    - Create Whitelist/blacklist with an abstraction layer for trusted/untrusted Satellites
+    - These lists will live on each Node
 
 3. Routing Table Antechamber
-    - XOR ordered data structure 
-    - A node can be added if it would be within vetted node neighborhood
-    - Nodes are moved to the Routing Table once both successfully re-contacted and verified
-        - Once a node has been verified, it broadcasts its new status to try to join routing tables
-    - Only contains nodes within the XOR range of the closest k nodes from self. Nodes are moved to the Routing Table once both successfully re-contacted and verified. A Node may enter the Routing Table directly if at first contact it is already verified by a trusted Satellite.  
-    Node gets kicked out of RT if disqualified
-    - If the network grows, the space in your neighborhood shrinks, remove antechamber nodes that no longer fit in this neighborhood
+    - XOR ordered data structure (perhaps an ordered slice)
+    - A node can be added if it would be within the vetted node neighborhood
+    - Once a node has been verified, it broadcasts its new status to try to join routing tables
+    - A Node may enter a Routing Table directly if at first contact it is already verified by a trusted Satellite.  
+    - A Node may be removed from a Routing Table if on bucket refresh it no longer meets qualifications
+    - Since the antechamber may only contain nodes that would be part of the node neighborhood, if the network grows, the space in the neighborhood will shrinks so we must remove antechamber nodes that no longer fit in the neighborhood.
   
 4. FindNear
-    - also returns x XOR-closest nodes from the antechamber: 
-    - Only call find near on the nodes that are verified from satellites you trust
+    - should return n XOR-closest nodes from the antechamber in addition to its current behavior
+    - During processes like Bootrapping or Kademlia Lookups, we should only call FindNear on verified nodes, not on those that are in the antechamber.
 
 5. Progressively migrate nodes from the current Routing Table into antechamber until verified. 
     - Deploy vetting and signing first
@@ -64,7 +65,7 @@ A node that is allowed to enter routing tables is considered vetted and lookups 
 
 ## Rationale
 
-TODO
+To help prevent Sybill Attacks where bad Nodes fill the routing tables and push out good Nodes.
 
 ## Implementation
 
@@ -81,6 +82,10 @@ TODO
 ## Open issues 
 
 Q: Should closer buckets to self get refreshed more frequently?
+
+A: ?
+
+Q: If a node is removed from the Routing Table, should it be added back to the antechamber?
 
 A: ?
 
