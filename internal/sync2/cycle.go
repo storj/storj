@@ -14,7 +14,10 @@ import (
 
 // Cycle implements a controllable recurring event.
 //
-// Cycle control methods don't have any effect after the cycle has completed.
+// Cycle control methods PANICS after Close has been called and don't have any
+// effect after Stop has been called.
+//
+// Start or Run (only of of them, not both) must be only called once.
 type Cycle struct {
 	interval time.Duration
 
@@ -22,6 +25,7 @@ type Cycle struct {
 	control chan interface{}
 
 	stopsent int64
+	runexec  int64
 	stopping chan struct{}
 	stopped  chan struct{}
 
@@ -56,8 +60,9 @@ func (cycle *Cycle) initialize() {
 	})
 }
 
-// Start runs the specified function with an errgroup
+// Start runs the specified function with an errgroup.
 func (cycle *Cycle) Start(ctx context.Context, group *errgroup.Group, fn func(ctx context.Context) error) {
+	atomic.CompareAndSwapInt64(&cycle.runexec, 0, 1)
 	group.Go(func() error {
 		return cycle.Run(ctx, fn)
 	})
@@ -67,12 +72,19 @@ func (cycle *Cycle) Start(ctx context.Context, group *errgroup.Group, fn func(ct
 //
 // Every interval `fn` is started.
 // When `fn` is not fast enough, it may skip some of those executions.
+//
+// Run PANICS if it's called after Stop has been called.
 func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error) error {
+	atomic.CompareAndSwapInt64(&cycle.runexec, 0, 1)
 	cycle.initialize()
 	defer close(cycle.stopped)
 
 	currentInterval := cycle.interval
 	cycle.ticker = time.NewTicker(currentInterval)
+	defer func() {
+		cycle.ticker.Stop()
+	}()
+
 	if err := fn(ctx); err != nil {
 		return err
 	}
@@ -107,7 +119,7 @@ func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error)
 					return err
 				}
 				if message.done != nil {
-					message.done <- struct{}{}
+					close(message.done)
 				}
 			}
 
@@ -128,9 +140,15 @@ func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error)
 }
 
 // Close closes all resources associated with it.
+//
+// It MUST NOT be called concurrently.
 func (cycle *Cycle) Close() {
 	cycle.Stop()
-	<-cycle.stopped
+
+	if atomic.LoadInt64(&cycle.runexec) == 1 {
+		<-cycle.stopped
+	}
+
 	close(cycle.control)
 }
 
@@ -176,7 +194,6 @@ func (cycle *Cycle) Trigger() {
 // If it's currently running it waits for the previous to complete and then runs.
 func (cycle *Cycle) TriggerWait() {
 	done := make(chan struct{})
-	defer close(done)
 
 	cycle.sendControl(cycleTrigger{done})
 	select {
