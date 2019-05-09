@@ -58,21 +58,21 @@ For nodes that are contained, the verifier will ask the ContainmentDB for the ha
 
 The verifier will then attempt to download that erasure share from the contained node.
 From there, the following cases can occur:
-- Passes audit ->  `pendingAudit` removed from the ContainmentDB  -> stats updated in overlaycache/satelliteDB
-- Fails audit -> `pendingAudit` is removed from the ContainmentDB -> stats updated in overlaycache/satelliteDB
+- Passes audit ->  `pendingAudit` is deleted from the ContainmentDB  -> stats updated in overlaycache/satelliteDB
+- Fails audit -> `pendingAudit` is deleted from the ContainmentDB -> stats updated in overlaycache/satelliteDB
 - Refuses to respond again -> the `pendingAudit`'s `reverifyCount` is incremented in the ContainmentDB ->
-    - -> If that count exceeds the reverify limit, then the node’s stats will be updated to reflect an audit failure and the node will be removed from the ContainmentDB
-    - -> If the count does not exceed the reverify limit, the `pendingAudit` will remain in the ContainmentDB
+    - -> If that count exceeds the reverify limit, then the node’s stats will be updated to reflect an audit failure and the node will be removed from the ContainmentDB.
+    - -> If the count does not exceed the reverify limit, the `pendingAudit` will remain in the ContainmentDB.
 
 ```go
 type pendingAudit struct {
-    nodeID       storj.NodeID
-    pieceID      storj.PieceID
-    pieceNum     int
-    stripeIndex  int
-    shareSize    int64
+    nodeID            storj.NodeID
+    pieceID           storj.PieceID
+    pieceNum          int
+    stripeIndex       int
+    shareSize         int64
     expectedShareHash []byte
-    reverifyCount   int // number of times reverify has been attempted
+    reverifyCount     int // number of times reverify has been attempted
 }
 ```
 `pendingAudit` entries are created and added to the ContainmentDB when a node seems to be online and opens a connection with the satellite to be audited (this happens within the existing Verify function in the audit package), but then refuses to send the requested erasure share.
@@ -92,6 +92,20 @@ type ContainmentDB interface {
 `IncrementPending` is an upsert that is used when an "uncooperative" node is identified during the normal process, and when a node doesn't pass a reverification.
 
 `Delete` will be used to delete the pendingAudit from the ContainmentDB after the node either passes or fails the audit.
+
+#### Pending Audits SQL Table
+```sql
+pending_audits (
+  node_id bytea NOT NULL,
+  piece_id bytea NOT NULL,
+  piece_num bigint NOT NULL,
+  stripe_index bigint NOT NULL,
+  share_size bigint NOT NULL,
+  expected_share_hash bytea NOT NULL,
+  reverify_count integer NOT NULL,
+  PRIMARY KEY ( node_id, segment_path )
+)
+```
 
 ## Rationale
 
@@ -184,11 +198,6 @@ func (verifier *Verifier) Reverify(ctx context.Context, node storj.NodeID) (audi
 ```
 
 ## Open Issues
-
-#### - How do we specifically determine if a node should be "contained" or marked as offline?
-We can't verify that just because DialNode failed that a node is offline. There are many other reasons for DialNode to fail, not only that the target is not reachable (offline). For example, the node can check that the incoming connection is from a satellite and just refuse the connection. This is not the same as being offline.
-
-What is a better way to check and distinguish between an "uncooperative node" and an "offline node"?
 
 #### - How often can a contained node expect to be reverified in a real-life system?
 
