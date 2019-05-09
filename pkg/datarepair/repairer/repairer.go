@@ -13,6 +13,7 @@ import (
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
+	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
@@ -33,10 +34,11 @@ var (
 
 // Config contains configurable values for repairer
 type Config struct {
-	MaxRepair    int           `help:"maximum segments that can be repaired concurrently" releaseDefault:"5" devDefault:"1"`
-	Interval     time.Duration `help:"how frequently checker should audit segments" releaseDefault:"1h" devDefault:"0h5m0s"`
-	Timeout      time.Duration `help:"time limit for uploading repaired pieces to new storage nodes" default:"10m0s"`
-	MaxBufferMem memory.Size   `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4M"`
+	MaxRepair        int           `help:"maximum segments that can be repaired concurrently" releaseDefault:"5" devDefault:"1"`
+	RepairInterval   time.Duration `help:"how frequently repair checker should audit segments" releaseDefault:"1h" devDefault:"0h5m0s"`
+	IrrepairInterval time.Duration `help:"how frequently irrepair checker should audit segments" releaseDefault:"30m" devDefault:"0h1m0s"`
+	Timeout          time.Duration `help:"time limit for uploading repaired pieces to new storage nodes" default:"10m0s"`
+	MaxBufferMem     memory.Size   `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4M"`
 }
 
 // GetSegmentRepairer creates a new segment repairer from storeConfig values
@@ -55,28 +57,32 @@ type SegmentRepairer interface {
 
 // Service contains the information needed to run the repair service
 type Service struct {
-	queue     queue.RepairQueue
-	config    *Config
-	Limiter   *sync2.Limiter
-	Loop      sync2.Cycle
-	transport transport.Client
-	metainfo  *metainfo.Service
-	orders    *orders.Service
-	cache     *overlay.Cache
-	repairer  SegmentRepairer
+	queue        queue.RepairQueue
+	irrdb        irreparable.DB
+	config       *Config
+	Limiter      *sync2.Limiter
+	RepairLoop   sync2.Cycle
+	IrrepairLoop sync2.Cycle
+	transport    transport.Client
+	metainfo     *metainfo.Service
+	orders       *orders.Service
+	cache        *overlay.Cache
+	repairer     SegmentRepairer
 }
 
 // NewService creates repairing service
-func NewService(queue queue.RepairQueue, config *Config, interval time.Duration, concurrency int, transport transport.Client, metainfo *metainfo.Service, orders *orders.Service, cache *overlay.Cache) *Service {
+func NewService(queue queue.RepairQueue, irrdb irreparable.DB, config *Config, repairInterval, irrepairInterval time.Duration, concurrency int, transport transport.Client, metainfo *metainfo.Service, orders *orders.Service, cache *overlay.Cache) *Service {
 	return &Service{
-		queue:     queue,
-		config:    config,
-		Limiter:   sync2.NewLimiter(concurrency),
-		Loop:      *sync2.NewCycle(interval),
-		transport: transport,
-		metainfo:  metainfo,
-		orders:    orders,
-		cache:     cache,
+		queue:        queue,
+		irrdb:        irrdb,
+		config:       config,
+		Limiter:      sync2.NewLimiter(concurrency),
+		RepairLoop:   *sync2.NewCycle(repairInterval),
+		IrrepairLoop: *sync2.NewCycle(irrepairInterval),
+		transport:    transport,
+		metainfo:     metainfo,
+		orders:       orders,
+		cache:        cache,
 	}
 }
 
@@ -102,18 +108,38 @@ func (service *Service) Run(ctx context.Context) (err error) {
 
 	// wait for all repairs to complete
 	defer service.Limiter.Wait()
+	c := make(chan error)
 
-	return service.Loop.Run(ctx, func(ctx context.Context) error {
-		err := service.process(ctx)
+	go func() {
+		c <- service.RepairLoop.Run(ctx, func(ctx context.Context) error {
+			err := service.repairProcess(ctx)
+			if err != nil {
+				zap.L().Error("process", zap.Error(err))
+			}
+			return nil
+		})
+	}()
+
+	go func() {
+		c <- service.IrrepairLoop.Run(ctx, func(ctx context.Context) error {
+			err := service.irrepairProcess(ctx)
+			if err != nil {
+				zap.L().Error("process", zap.Error(err))
+			}
+			return nil
+		})
+	}()
+
+	for err := range c {
 		if err != nil {
-			zap.L().Error("process", zap.Error(err))
+			return err
 		}
-		return nil
-	})
+	}
+	return nil
 }
 
-// process picks items from repair queue and spawns a repair worker
-func (service *Service) process(ctx context.Context) error {
+// repairProcess picks items from repair queue and spawns a repair worker
+func (service *Service) repairProcess(ctx context.Context) error {
 	for {
 		seg, err := service.queue.Select(ctx)
 		zap.L().Info("Dequeued segment from repair queue", zap.String("segment", seg.GetPath()))
@@ -135,6 +161,35 @@ func (service *Service) process(ctx context.Context) error {
 			if err != nil {
 				zap.L().Error("repair delete failed", zap.Error(err))
 			}
+		})
+	}
+}
+
+// irrepairProcess picks items from irrepairabledb and spawns a repair worker
+func (service *Service) irrepairProcess(ctx context.Context) error {
+	limit := 1
+	var offset int64
+	for {
+		seg, err := service.irrdb.GetLimited(ctx, limit, offset)
+		if err != nil {
+			return err
+		}
+
+		// irrepairabledb empty
+		if len(seg) == 0 {
+			return nil
+		}
+
+		service.Limiter.Go(ctx, func() {
+			err := service.repairer.Repair(ctx, string(seg[0].GetPath()))
+			if err != nil {
+				zap.L().Error("repair failed", zap.Error(err))
+			}
+			err = service.irrdb.Delete(ctx, seg[0].GetPath())
+			if err != nil {
+				zap.L().Error("repair delete failed", zap.Error(err))
+			}
+			offset++
 		})
 	}
 }
