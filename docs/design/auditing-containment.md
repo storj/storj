@@ -2,36 +2,57 @@
 
 ## Abstract
 
-This design doc outlines how we will implement "containment mode," in which the auditing service monitors a node that has accepted an audit request, but refuses to send the requested data.
+This design doc outlines how we will implement "containment mode," in which the auditing service monitors a node that has received an audit request, but refuses to send the requested data.
 Currently in the codebase, nodes that do this will be marked as having audit failures.
 However, we don't want to mark nodes as offline or immediately mark an audit failure if this specific case arises.
 Instead, we want to "contain" these nodes by retrying the original audit until they either eventually respond and pass the audit, or refuse to respond a certain number of times and ultimately receive an audit failure mark.
 
 ## Main Objectives
+
 1. Nodes won’t be able to “escape” audits for specific data by refusing to send requested data.
-2. The audit service should not audit contained nodes for other data, and should verify their originally requested data.
-3. The overlay service should not select contained nodes.
-4. A ContainmentDB holds metadata required to verify contained nodes' originally requested data.
+See _Identifying Nodes That Need to Be Contained_ subsection below for how we consider "refusing."
+2. The audit service should verify the nodes' originally requested data in addition to their normal audits.
+3. A ContainmentDB holds metadata required to verify contained nodes' originally requested data.
 
 ## Background
 
 The whitepaper section 4.13 talks about containment mode as follows:
-```
-Given a specific storage node, an audit might reveal that it is offline or incorrect. In the case of a node being offline, the audit failure may be due to the address in the node discovery cache being stale, so another, fresh Kademlia lookup will be attempted. If the node still appears to be offline, the Satellite places the node in containment mode. In containment mode, the Satellite will calculate and save the expected response, then continue to try the same audit with that node until the node either responds successfully, actively fails the audit, or is disqualified from being offline too long. Once the node responds successfully, it leaves containment mode. All audit failures will be stored and saved in the reputation system. 
-```
+
+> Given a specific storage node, an audit might reveal that it is offline or incorrect. In the case of a node being offline, the audit failure may be due to the address in the node discovery cache being stale, so another, fresh Kademlia lookup will be attempted. If the node still appears to be offline, the Satellite places the node in containment mode. In containment mode, the Satellite will calculate and save the expected response, then continue to try the same audit with that node until the node either responds successfully, actively fails the audit, or is disqualified from being offline too long. Once the node responds successfully, it leaves containment mode. All audit failures will be stored and saved in the reputation system. 
+
 However, we're departing from the whitepaper because offline nodes will not be moved to containment mode.
 They will just be marked as offline.
 It's only when nodes initially respond to the audit service's dial but then refuse to send the requested erasure share that they are moved to containment mode.
 
-The node will be given a `contained` flag, and if the audit service attempts to audit the node again, it will see this flag and request the same share it had originally requested.
+The node will be given a `contained` flag, and if the audit service attempts to audit the node again, it will see this flag and first request the same share it had originally requested, then continue the new audit right after.
 If the storage node fails to send this share again, it will have its `reverifyCount` incremented.
 
 If the `failedReverifyCount` exceeds a `reverifyLimit`, then the node will be marked as failing the audit and removed from containment mode.
 Otherwise, the node will pass the audit and will also be removed from containment mode.
 
-Additionally, contained nodes will be excluded from node selection.
+Additionally, other services such as the overlay, repair checker, and repairer should not "care" or treat contained nodes any differently.
+They should be selected normally.
+The contained flag should only be relevant to the audit service.
 
 ## Design
+
+#### Identifying Nodes That Need to Be Contained
+We need to add functionality to the audit verifier to better distinguish between the different reasons that a storage node may not respond to an audit request.
+The following cases could occur:
+1. The node is busy fulfilling other requests and can't respond to the audit request within the audit timeout defined on the Satellite.
+2. The node does not have the audit piece anymore because the SNO deleted it.
+3. The node can't read the piece due to a file permission issue (a SNO config mistake).
+4. The node can't read the piece due to bad sectors on the HDD.
+
+For the first case, the node doesn't necessarily need to be contained.
+
+For the second case, the node does need to be contained.
+
+For the third and fourth cases, the node should probably also be contained.
+
+We need to find out what the error messages are for these different cases so that we don't lump the first case with the rest.
+
+#### Handling Contained Nodes
 New functionality needs to be added to the audit verifier, where upon receiving a pointer, the verifier should first iterate through the nodes listed in the pointer and check if they have a `contained` field set to true on their NodeDossier or not.
 
 For nodes that are not contained, the audit will continue as normal.
@@ -46,7 +67,7 @@ From there, the following cases can occur:
     - -> If that count exceeds the reverify limit, then the node’s stats will be updated to reflect an audit failure and the node will be removed from the ContainmentDB
     - -> If the count does not exceed the reverify limit, the `pendingAudit` will remain in the ContainmentDB
 
-```
+```go
 type pendingAudit struct {
     nodeID       storj.NodeID
     pieceID      storj.PieceID
@@ -56,18 +77,24 @@ type pendingAudit struct {
     expectedShareHash []byte
     reverifyCount   int // number of times reverify has been attempted
 }
-
-type ContainmentDB interface {
-  Contain(ctx context.Context, pendingAudit pendingAudit) error
-  Get(ctx context.Context, nodeID pb.NodeID) error
-  ReverifyFail(ctx context.Context, nodeID pb.NodeID) error
-  ReverifySuccess(ctx context.Context, nodeID pb.NodeID) error
-}
 ```
-
 `pendingAudit` entries are created and added to the ContainmentDB when a node seems to be online and opens a connection with the satellite to be audited (this happens within the existing Verify function in the audit package), but then refuses to send the requested erasure share.
 
 Additionally, the satellite should make sure to empty the ContainmentDB of certain pending audits when segments are deleted.
+
+```go
+type ContainmentDB interface {
+  Get(ctx context.Context, nodeID pb.NodeID) (pendingAudit, error)
+  IncrementPending(ctx context.Context, pendingAudit pendingAudit) error
+  Delete(ctx context.Context, nodeID pb.NodeID) error
+}
+```
+
+`Get` will be used in the Reverify function to get the `pendingAudit` information from the ContainmentDB needed to compare the expected audit result with the actual.
+
+`IncrementPending` is an upsert that is used when an "uncooperative" node is identified during the normal process, and when a node doesn't pass a reverification.
+
+`Delete` will be used to delete the pendingAudit from the ContainmentDB after the node either passes or fails the audit.
 
 ## Rationale
 
@@ -80,21 +107,21 @@ They should just be reverified whenever they pass through the audit service norm
 
 #### 1. Uncooperative nodes are documented in the ContainmentDB:
 
-By "uncooperative," I mean that the auditor will be able to successfully DialNode (within pkg/audit/verifier.go), but errors will occur at
-```
+By "uncooperative," I mean that the verifier will likely be able to successfully DialNode (within pkg/audit/verifier.go), but errors may occur at
+```go
 downloader, err := ps.Download(timedCtx, limit.GetLimit(), offset, int64(shareSize))
 ```
 or
-```
+```go
 _, err = io.ReadFull(downloader, buf)
 ```
 Once these errors have occurred and we know that a `pendingAudit` entry should be made in the ContainmentDB, we should use infectious’s `f.Decode` to generate the original stripe.
 Then we should use infectious’s `f.EncodeSingle` where we input the stripe and output the missing share. We then make a hash of that missing share to be saved to the ContainmentDB as `ExpectedShareHash`.
 
-`containment.Contain` should be called when a node is found to be “uncooperative."
+`containment.IncrementPending` should be called when a node is found to be “uncooperative."
 
-``` pkg/audit/verifier.go
-verifier.containment.Contain(ctx, &pendingAudit{
+```go pkg/audit/verifier.go
+err := verifier.containment.IncrementPending(ctx, &pendingAudit{
     nodeID:            nodeID,
     pieceID:           pieceID,
     pieceNum:          pieceNum,
@@ -105,7 +132,7 @@ verifier.containment.Contain(ctx, &pendingAudit{
 ```
 
 #### 2. Audits continue normally. But now the nodes listed in a pointer are checked for `contained` status.
-``` pkg/audit/containment/checker.go
+```go pkg/audit/containment/checker.go
 func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe) (verifiedNodes *RecordAuditsInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -113,30 +140,31 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe) (verifiedN
 
 	pieces := pointer.GetRemote().GetRemotePieces()
 	
-	// get the NodeDossiers from the overlay using the pieces’ nodeIDs
-  // determine if they have the contained flag set to true
-  ...
+	// Get the NodeDossiers from the overlay using the pieces’ nodeIDs.
+  // Determine if they have the contained flag set to true.
+  // If so, call Reverify on them.
+  // Either way, then continue this audit normally with the contained nodes included.
 ```
 
 #### 3. Contained nodes are checked for the same data that they were originally requested to respond with:
 
-```
+```go pkg/audit/verifier.go
 func (verifier *Verifier) Reverify(ctx context.Context, node storj.NodeID) (auditRecords *RecordAuditsInfo, err error) {
 
   pendingAudit, err := checker.containment.Get(id)
 
-  // dial the node, then use info from the pendingAudit to download the target share from the node
+  // Dial the node, then use info from the pendingAudit to download the target share from the node.
 
   offset := node.stripeIndex * node.shareSize
   downloader, err := ps.Download(timedCtx, limit.GetLimit(), offset, int64(shareSize))
 
-  // if the error is a timeout (or any other error?), call ReverifyFail
-  // if the download occurred successfully, then get the hash of the original erasure share from the ContainmentDB
+  // If the error is a timeout (or any other error?), call IncrementPending.
+  // if the download occurred successfully, then get the hash of the original erasure share from the ContainmentDB.
 
   shareData := make([]byte, shareSize)
   _, err = io.ReadFull(downloader, shareData)
 
-  // create a hash of shareData
+  // Create a hash of shareData.
 
   var successNodes storj.NodeIDList
   var failNodes storj.NodeIDList
@@ -149,20 +177,20 @@ func (verifier *Verifier) Reverify(ctx context.Context, node storj.NodeID) (audi
     auditRecords.SuccessNodeIDs = successNodes
   }
 
-  // remove the set the contained flag to false on the NodeDossier and update the overlay (satellitedb)
-  // remove the pending audit from the ContainmentDB
+  // Remove the set the contained flag to false on the NodeDossier and update the overlay (satellitedb).
+  // Delete the pending audit from the ContainmentDB.
 
   return auditRecords
 ```
 
 ## Open Issues
 
-#### Why not audit a contained node for other data?
-If a node is storing lots of pieces and goes offline or refuse to respond to audits, it should be audited for all the segments that were selected by audit service. What would be the reason for not doing this?
-
-If the fear is that the node would pass audits for other data and have a higher audit success ratio, the node could also gain a higher success ratio when set free from other audits and continuing to refuse to respond to just one audit.
-
 #### How do we specifically determine if a node should be "contained" or marked as offline?
 We can't verify that just because DialNode failed that a node is offline. There are many other reasons for DialNode to fail, not only that the target is not reachable (offline). For example, the node can check that the incoming connection is from a satellite and just refuse the connection. This is not the same as being offline.
 
 What is a better way to check and distinguish between an "uncooperative node" and an "offline node"?
+
+#### How often can a contained node expect to be reverified in a real-life system?
+
+#### Why create yet another database table when we never iterate through all records in ContainmentDB?
+Couldn't the information on the `pendingAudit` struct just be added to the NodeDossier?
