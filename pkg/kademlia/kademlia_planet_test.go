@@ -67,7 +67,9 @@ func TestPingTimeout(t *testing.T) {
 		tlsOpts, err := tlsopts.NewOptions(self.Identity, tlsopts.Config{})
 		require.NoError(t, err)
 
-		self.Transport = transport.NewClientWithTimeout(tlsOpts, 1*time.Millisecond)
+		self.Transport = transport.NewClientWithTimeouts(tlsOpts, transport.Timeouts{
+			Request: 1 * time.Millisecond,
+		})
 
 		network := &transport.SimulatedNetwork{
 			DialLatency:    300 * time.Second,
