@@ -12,6 +12,7 @@ package main
 import "C"
 import (
 	"reflect"
+	"unsafe"
 
 	"github.com/zeebo/errs"
 
@@ -20,14 +21,19 @@ import (
 )
 
 var (
-	cStringType    = reflect.TypeOf(C.CString(""))
-	cBoolType      = reflect.TypeOf(C.bool(false))
-	cIntType       = reflect.TypeOf(C.int(0))
-	cUintType      = reflect.TypeOf(C.uint(0))
-	cUcharType     = reflect.TypeOf(C.uchar('0'))
-	cLongType      = reflect.TypeOf(C.long(0))
-	cKeyType 	   = reflect.TypeOf(C.struct_Key{})
+	// cgo types
+	cStringType = reflect.TypeOf(C.CString(""))
+	cBoolType   = reflect.TypeOf(C.bool(false))
+	cIntType    = reflect.TypeOf(C.int(0))
+	cUintType   = reflect.TypeOf(C.uint(0))
+	// NB: C.uchar is uint8
+	cUcharType  = reflect.TypeOf(C.uchar('0'))
+	// NB: C.long is int64
+	cLongType   = reflect.TypeOf(C.long(0))
+
+	// our types
 	memorySizeType = reflect.TypeOf(memory.Size(0))
+	keyPtrType     = reflect.TypeOf(new(C.Key))
 
 	ErrConvert = errs.Class("struct conversion error")
 )
@@ -37,19 +43,22 @@ func cPointerFromGoStruct(s interface{}) C.GoUintptr {
 	return C.GoUintptr(reflect.ValueOf(s).Pointer())
 }
 
+func goPointerFromCGoUintptr(p C.GoUintptr) unsafe.Pointer {
+	return unsafe.Pointer(uintptr(p))
+}
+
 //export GetIDVersion
-func GetIDVersion(number C.uint, cErr *C.char) C.struct_IDVersion {
+func GetIDVersion(number C.uint, cErr **C.char) C.struct_IDVersion {
 	cIDVersion := C.struct_IDVersion{}
 	goIDVersion, err := storj.GetIDVersion(storj.IDVersionNumber(number))
 	if err != nil {
-		*cErr = *C.CString(err.Error())
+		*cErr = C.CString(err.Error())
 		return cIDVersion
 	}
 
 	return C.struct_IDVersion{
 		GoIDVersion: cPointerFromGoStruct(&goIDVersion),
-		// NB: C.uchar is uint8
-		Number:      C.uchar(goIDVersion.Number),
+		Number: C.uchar(goIDVersion.Number),
 	}
 }
 
@@ -122,19 +131,22 @@ func CToGoStruct(fromVar, toPtr interface{}) error {
 
 	switch fromType {
 	case cStringType:
-		fallthrough
-	case cKeyType:
-		toValue.Set(reflect.ValueOf(fromValue.String()))
+		toValue.Set(reflect.ValueOf(C.GoString(fromValue.Interface().(*C.char))))
+		return nil
+	case keyPtrType:
+		key := new(storj.Key)
+		from := C.GoBytes(unsafe.Pointer(fromValue.Interface().(*C.Key)), 32)
+		copy(key[:], from)
+		toValue.Set(reflect.ValueOf(key))
 		return nil
 	case cBoolType:
 		toValue.Set(reflect.ValueOf(fromValue.Bool()))
 		return nil
 	case cIntType:
-		toValue.Set(reflect.ValueOf(int(fromValue.Interface().(C.int))))
+		toValue.Set(reflect.ValueOf(int(fromValue.Int())))
 		return nil
 	case cUintType:
-		// TODO: simplify? ^ as well
-		toValue.Set(reflect.ValueOf(uint(fromValue.Interface().(C.uint))))
+		toValue.Set(reflect.ValueOf(uint(fromValue.Uint())))
 		return nil
 	case cUcharType:
 		toValue.Set(reflect.ValueOf(uint8(fromValue.Uint())))

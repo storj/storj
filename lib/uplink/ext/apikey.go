@@ -17,10 +17,10 @@ import (
 
 //export ParseAPIKey
 // ParseAPIKey parses an API Key
-func ParseAPIKey(val *C.char, cErr *C.char) (cApiKey C.APIKey) {
+func ParseAPIKey(val *C.char, cErr **C.char) (cApiKey C.APIKey) {
 	goApiKeyStruct, err := uplink.ParseAPIKey(C.GoString(val))
 	if err != nil {
-		cErr = C.CString(err.Error())
+		*cErr = C.CString(err.Error())
 		return cApiKey
 	}
 	return cPointerFromGoStruct(&goApiKeyStruct)
