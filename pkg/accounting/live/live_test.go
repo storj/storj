@@ -7,13 +7,13 @@ import (
 	"context"
 	"encoding/binary"
 	"math/rand"
-	"sync"
 	"testing"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -54,13 +54,10 @@ func TestPlainMemoryLiveAccounting(t *testing.T) {
 
 	// send lots of space used updates for all of these projects to the live
 	// accounting store.
-	ctx := context.Background()
-	var wg sync.WaitGroup
+	errg, ctx := errgroup.WithContext(context.Background())
 	for _, projID := range projectIDs {
-		wg.Add(1)
-		go func(projID uuid.UUID) {
-			defer wg.Done()
-
+		projID := projID
+		errg.Go(func() error {
 			// have each project sending the values in a different order
 			myValues := make([]int64, valuesListSize)
 			copy(myValues, someValues)
@@ -69,17 +66,20 @@ func TestPlainMemoryLiveAccounting(t *testing.T) {
 			})
 
 			for _, val := range myValues {
-				service.AddProjectStorageUsage(ctx, projID, val, val)
+				if err := service.AddProjectStorageUsage(ctx, projID, val, val); err != nil {
+					return err
+				}
 			}
-		}(projID)
+			return nil
+		})
 	}
-	wg.Wait()
+	require.NoError(t, errg.Wait())
 
-	// make sure all of them got all updates and got right totals
+	// make sure all of the "projects" got all space updates and got right totals
 	for _, projID := range projectIDs {
 		inlineUsed, remoteUsed, err := service.GetProjectStorageUsage(ctx, projID)
 		require.NoError(t, err)
-		assert.Equal(t, inlineUsed, sum)
-		assert.Equal(t, remoteUsed, sum)
+		assert.Equalf(t, sum, inlineUsed, "projectID %v", projID)
+		assert.Equalf(t, sum, remoteUsed, "projectID %v", projID)
 	}
 }
