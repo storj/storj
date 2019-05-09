@@ -21,17 +21,11 @@ type Cycle struct {
 	ticker  *time.Ticker
 	control chan interface{}
 
-	runningState runningState
-
 	stopsent int64
 	stopping chan struct{}
 	stopped  chan struct{}
 
 	init sync.Once
-}
-type runningState struct {
-	running bool
-	m       sync.Mutex
 }
 
 type (
@@ -41,18 +35,6 @@ type (
 	cycleChangeInterval struct{ Interval time.Duration }
 	cycleTrigger        struct{ done chan struct{} }
 )
-
-func (state *runningState) SetRunning(running bool) {
-	state.m.Lock()
-	defer state.m.Unlock()
-	state.running = running
-}
-
-func (state *runningState) IsRunning() bool {
-	state.m.Lock()
-	defer state.m.Unlock()
-	return state.running
-}
 
 // NewCycle creates a new cycle with the specified interval.
 func NewCycle(interval time.Duration) *Cycle {
@@ -88,8 +70,6 @@ func (cycle *Cycle) Start(ctx context.Context, group *errgroup.Group, fn func(ct
 func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error) error {
 	cycle.initialize()
 	defer close(cycle.stopped)
-	cycle.runningState.SetRunning(true)
-	defer cycle.runningState.SetRunning(false)
 
 	currentInterval := cycle.interval
 	cycle.ticker = time.NewTicker(currentInterval)
@@ -149,11 +129,9 @@ func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error)
 
 // Close closes all resources associated with it.
 func (cycle *Cycle) Close() {
-	if cycle.runningState.IsRunning() {
-		cycle.Stop()
-		<-cycle.stopped
-		close(cycle.control)
-	}
+	cycle.Stop()
+	<-cycle.stopped
+	close(cycle.control)
 }
 
 // sendControl sends a control message
