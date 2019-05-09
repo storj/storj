@@ -10,8 +10,9 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
+
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 )
@@ -42,7 +43,7 @@ func TestSanity(t *testing.T) {
 		"SATELLITE=127.0.0.1",
 	)
 
-	out, err := cmd.CombinedOutput() 
-	require.NoError(t, err)
-	require.NotContains(t, string(out), "FAIL")
+	out, err := cmd.CombinedOutput()
+	assert.NoError(t, err)
+	t.Log(string(out))
 }
