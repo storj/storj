@@ -4,10 +4,12 @@
 package offersweb
 
 import (
+	"html/template"
 	"context"
 	"net"
 	"net/http"
 	"strings"
+	"runtime"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -15,7 +17,11 @@ import (
 )
 
 // Error is satellite referral error type
-var Error = errs.Class("satellite referral error")
+var (
+	Error = errs.Class("satellite referral error")
+	_, fp, _, _ = runtime.Caller(0)
+	dir = strings.Split(fp,"server.go")[0]
+)
 
 // Config contains configuration for referral offersweb server
 type Config struct {
@@ -41,9 +47,8 @@ func NewServer(logger *zap.Logger, config Config, listener net.Listener) *Server
 	}
 
 	logger.Debug("Starting offersweb UI...")
-
 	mux := http.NewServeMux()
-
+	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 	mux.Handle("/", server.localAccessHandler(server.appHandler))
 
 	server.server = http.Server{
@@ -66,11 +71,17 @@ func (s *Server) localAccessHandler(next http.HandlerFunc) http.Handler {
 
 // appHandler is web app http handler function
 func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
-	//TODO: handle request
+	if req.URL.Path != "/" {
+		s.serveError(w,req)
+		return
+	}
+	home := template.Must(template.New("landingPage").ParseFiles(dir+"pages/base.html",dir+"pages/index.html", dir+"pages/home.html"))
+	home.ExecuteTemplate(w,"base",nil)
 }
 
 func (s *Server) serveError(w http.ResponseWriter, req *http.Request) {
-	//TODO: serve a 404 page
+	unavailable := template.Must(template.New("404").ParseFiles(dir+"pages/base.html",dir+"pages/index.html", dir+"pages/404.html"))
+	unavailable.ExecuteTemplate(w,"base",nil)
 }
 
 // Run starts the server that host admin web app and api endpoint
