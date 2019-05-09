@@ -68,13 +68,13 @@ TODO
 
 ## Implementation
 
-1. [Satellite Signatures for Node Verification](https://storjlabs.atlassian.net/browse/V3-1726)
+1. [Implement Satellite Signatures for Node Verification](https://storjlabs.atlassian.net/browse/V3-1726)
 
 2. Deploy step 1 to production
 
-3. [Trusted Satellites List](https://storjlabs.atlassian.net/browse/V3-1727)
+3. [Make Trusted Satellites List](https://storjlabs.atlassian.net/browse/V3-1727)
 
-4. [Routing Table Antechamber](https://storjlabs.atlassian.net/browse/V3-1728)
+4. [Create Routing Table Antechamber](https://storjlabs.atlassian.net/browse/V3-1728)
 
 5. [Update FindNear](https://storjlabs.atlassian.net/browse/V3-1729)
 
