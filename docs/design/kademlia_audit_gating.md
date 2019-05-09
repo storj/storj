@@ -25,8 +25,9 @@ A node that is allowed to enter routing tables is considered vetted and lookups 
 
 
 ## Terminology
-Routing Table Antechamber - Definition
-Node Neighborhood - Definition
+**Routing Table Antechamber** - *Definition TODO*
+
+**Node Neighborhood** - *Definition TODO*
 
 ## Design
 
@@ -54,7 +55,7 @@ If the network grows, the space in your neighborhood shrinks, remove antechamber
 
 ## Rationale
 
-[A discussion of alternate approaches and the trade offs, advantages, and disadvantages of the specified approach.]
+TODO
 
 ## Implementation
 
