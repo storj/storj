@@ -36,6 +36,7 @@ type Config struct {
 // Checker contains the information needed to do checks for missing pieces
 type Checker struct {
 	metainfo    *metainfo.Service
+	lastChecked string
 	repairQueue queue.RepairQueue
 	overlay     *overlay.Cache
 	irrdb       irreparable.DB
@@ -48,6 +49,7 @@ func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overl
 	// TODO: reorder arguments
 	checker := &Checker{
 		metainfo:    metainfo,
+		lastChecked: "",
 		repairQueue: repairQueue,
 		overlay:     overlay,
 		irrdb:       irrdb,
@@ -85,9 +87,21 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 	var remoteSegmentsLost int64
 	var remoteSegmentInfo []string
 
-	err = checker.metainfo.Iterate("", "", true, false,
+	err = checker.metainfo.Iterate("", checker.lastChecked, true, false,
 		func(it storage.Iterator) error {
 			var item storage.ListItem
+
+			defer func() {
+				var nextItem storage.ListItem
+				it.Next(&nextItem)
+				// start at the next item in the next call
+				checker.lastChecked = nextItem.Key.String()
+				// if keys are equal, start from the beginning in the next call
+				if nextItem.Key.String() == item.Key.String() {
+					checker.lastChecked = ""
+				}
+			}()
+
 			for it.Next(&item) {
 				pointer := &pb.Pointer{}
 
@@ -149,7 +163,7 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 						RepairAttemptCount: int64(1),
 					}
 
-					//add the entry if new or update attempt count if already exists
+					// add the entry if new or update attempt count if already exists
 					err := checker.irrdb.IncrementRepairAttempts(ctx, segmentInfo)
 					if err != nil {
 						return Error.New("error handling irreparable segment to queue %s", err)
