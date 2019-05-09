@@ -290,8 +290,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--debug.addr", net.JoinHostPort("127.0.0.1", port(satellitePeer, i, debugHTTP)),
 
 				"--database", database,
-				"--schema", schema,
-				// TODO(jg): add connection to postgres for metainfo.databaseURL once metainfo refactor is complete
+				"--metainfo.database-url", database,
 			},
 			"run": {},
 		})

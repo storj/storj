@@ -15,6 +15,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/cfgstruct"
@@ -26,7 +27,6 @@ import (
 // Satellite defines satellite configuration
 type Satellite struct {
 	Database string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
-	Schema   string `help:"satellite database schema name" default:""`
 
 	satellite.Config
 }
@@ -142,10 +142,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Error("Failed to initialize telemetry batcher: ", err)
 	}
 
-	if runCfg.Schema != "" {
-		err = db.CreateSchema(runCfg.Schema)
+	schema, err := pgutil.ParseSchemaFromConnstr(runCfg.Database)
+	if schema != "" {
+		err = db.CreateSchema(schema)
 		if err != nil {
-			return errs.New("Error creating schema, %s, for master database on satellite: %+v", runCfg.Schema, err)
+			return errs.New("Error creating schema from, %s, for master database on satellite: %+v", runCfg.Database, err)
 		}
 	}
 

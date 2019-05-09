@@ -28,6 +28,15 @@ func ConnstrWithSchema(connstr, schema string) string {
 	return connstr + "&search_path=" + url.QueryEscape(schema)
 }
 
+// ParseSchemaFromConnstr returns the schema name parsed from the connection string
+func ParseSchemaFromConnstr(connstr string) (string, error) {
+	connstrParts := strings.Split(connstr, "&search_path=")
+	if len(connstrParts) > 1 {
+		return url.QueryUnescape(connstrParts[1])
+	}
+	return "", nil
+}
+
 // QuoteSchema quotes schema name for
 func QuoteSchema(schema string) string {
 	return strconv.QuoteToASCII(schema)
