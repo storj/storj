@@ -4,15 +4,15 @@
 
 This design doc outlines how we will implement "containment mode," in which the auditing service monitors a node that has received an audit request, but refuses to send the requested data.
 Currently in the codebase, nodes that do this will be marked as having audit failures.
-However, we don't want to mark nodes as offline or immediately mark an audit failure if this specific case arises.
+However, we don't want to immediately mark an audit failure if this specific case arises, because factors such as unintentional misconfiguration by the SNO, or a node backed up fulfilling requests should not warrant the penalty of an audit failure mark.
 Instead, we want to "contain" these nodes by retrying the original audit until they either eventually respond and pass the audit, or refuse to respond a certain number of times and ultimately receive an audit failure mark.
 
 ## Main Objectives
 
-1. Nodes won’t be able to “escape” audits for specific data by refusing to send requested data.
+1. Nodes won’t be able to “escape” audits for specific data by refusing to send requested data or going offline right after receiving a request from a Satellite.
 See _Identifying Nodes That Need to Be Contained_ subsection below for how we consider "refusing."
-2. The audit service should verify the nodes' originally requested data in addition to their normal audits.
-3. A ContainmentDB holds metadata required to verify contained nodes' originally requested data.
+2. The audit service should attempt to verify the nodes' originally requested data in addition to continuing normal audits for that node.
+3. ContainmentDB holds metadata required to verify contained nodes' originally requested data.
 
 ## Background
 
@@ -22,23 +22,23 @@ The whitepaper section 4.13 talks about containment mode as follows:
 
 However, we're departing from the whitepaper because offline nodes will not be moved to containment mode.
 They will just be marked as offline.
-It's only when nodes initially respond to the audit service's dial but then refuse to send the requested erasure share that they are moved to containment mode.
+Instead, containment mode is specifically for nodes that initially respond to the audit service's dial but then don't send the requested erasure share.
 
 The node will be given a `contained` flag, and if the audit service attempts to audit the node again, it will see this flag and first request the same share it had originally requested, then continue the new audit right after.
 If the storage node fails to send this share again, it will have its `reverifyCount` incremented.
 
-If the `failedReverifyCount` exceeds a `reverifyLimit`, then the node will be marked as failing the audit and removed from containment mode.
+If the `reverifyCount` exceeds a `reverifyLimit`, then the node will be marked as failing the audit and removed from containment mode.
 Otherwise, the node will pass the audit and will also be removed from containment mode.
 
-Additionally, other services such as the overlay, repair checker, and repairer should not "care" or treat contained nodes any differently.
-They should be selected normally.
+Additionally, other services such as the overlay, repair checker, and repairer should not "care" about the contained flag and functionality should remain the same.
+Contained nodes should be handled the same as other nodes in the node selection process.
 The contained flag should only be relevant to the audit service.
 
 ## Design
 
 ### Identifying Nodes That Need to Be Contained
-We need to add functionality to the audit verifier to better distinguish between the different reasons that a storage node may not respond to an audit request.
-The following cases could occur:
+In the audit verifier, we need a better system for handling the different cases in which a storage node may not respond to an audit request.
+Here are a few possibile cases:
 1. The node is busy fulfilling other requests and can't respond to the audit request within the audit timeout defined on the Satellite.
 2. The node does not have the audit piece anymore because the SNO deleted it.
 3. The node can't read the piece due to a file permission issue (a SNO config mistake).
