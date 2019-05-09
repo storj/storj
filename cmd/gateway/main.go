@@ -141,13 +141,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Error("Failed to initialize telemetry batcher: ", err)
 	}
 
-	proj, err := runCfg.openProject(ctx)
-	if err != nil {
-		return fmt.Errorf("Failed to contact Satellite.\n"+
-			"Perhaps your configuration is invalid?\n%s", err)
-	}
-
-	_, err = proj.ListBuckets(ctx, &storj.BucketListOptions{Direction: storj.After})
+	err = checkCfg(ctx)
 	if err != nil {
 		return fmt.Errorf("Failed to contact Satellite.\n"+
 			"Perhaps your configuration is invalid?\n%s", err)
@@ -163,6 +157,21 @@ func generateKey() (key string, err error) {
 		return "", err
 	}
 	return base58.Encode(buf[:]), nil
+}
+
+func checkCfg(ctx context.Context) (err error) {
+	proj, err := runCfg.openProject(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errs.Combine(err, proj.Close()) }()
+
+	_, err = proj.ListBuckets(ctx, &storj.BucketListOptions{Direction: storj.After})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Run starts a Minio Gateway given proper config
