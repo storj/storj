@@ -16,10 +16,10 @@ type APIKeys interface {
 	GetByProjectID(ctx context.Context, projectID uuid.UUID) ([]APIKeyInfo, error)
 	// Get retrieves APIKeyInfo with given ID
 	Get(ctx context.Context, id uuid.UUID) (*APIKeyInfo, error)
-	// GetByTail retrieves APIKeyInfo for given key
-	GetByTail(ctx context.Context, tail []byte) (*APIKeyInfo, error)
+	// GetByHead retrieves APIKeyInfo for given key head
+	GetByHead(ctx context.Context, head []byte) (*APIKeyInfo, error)
 	// Create creates and stores new APIKeyInfo
-	Create(ctx context.Context, tail []byte, info APIKeyInfo) (*APIKeyInfo, error)
+	Create(ctx context.Context, head []byte, info APIKeyInfo) (*APIKeyInfo, error)
 	// Update updates APIKeyInfo in store
 	Update(ctx context.Context, key APIKeyInfo) error
 	// Delete deletes APIKeyInfo from store

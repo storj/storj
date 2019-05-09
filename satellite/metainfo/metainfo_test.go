@@ -50,31 +50,142 @@ func TestInvalidAPIKey(t *testing.T) {
 		require.NoError(t, err)
 
 		_, _, err = client.CreateSegment(ctx, "hello", "world", 1, &pb.RedundancyScheme{}, 123, time.Now())
-		assertUnauthenticated(t, err)
+		assertUnauthenticated(t, err, false)
 
 		_, err = client.CommitSegment(ctx, "testbucket", "testpath", 0, &pb.Pointer{}, nil)
-		assertUnauthenticated(t, err)
+		assertUnauthenticated(t, err, false)
 
 		_, err = client.SegmentInfo(ctx, "testbucket", "testpath", 0)
-		assertUnauthenticated(t, err)
+		assertUnauthenticated(t, err, false)
 
 		_, _, err = client.ReadSegment(ctx, "testbucket", "testpath", 0)
-		assertUnauthenticated(t, err)
+		assertUnauthenticated(t, err, false)
 
 		_, err = client.DeleteSegment(ctx, "testbucket", "testpath", 0)
-		assertUnauthenticated(t, err)
+		assertUnauthenticated(t, err, false)
 
 		_, _, err = client.ListSegments(ctx, "testbucket", "", "", "", true, 1, 0)
-		assertUnauthenticated(t, err)
+		assertUnauthenticated(t, err, false)
 	}
 }
 
-func assertUnauthenticated(t *testing.T, err error) {
+func TestRestrictedAPIKey(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	planet, err := testplanet.New(t, 1, 1, 1)
+	require.NoError(t, err)
+	defer ctx.Check(planet.Shutdown)
+
+	planet.Start(ctx)
+
+	key, err := macaroon.ParseAPIKey(planet.Uplinks[0].APIKey[planet.Satellites[0].ID()])
+	require.NoError(t, err)
+
+	tests := []struct {
+		Caveat               macaroon.Caveat
+		CreateSegmentAllowed bool
+		CommitSegmentAllowed bool
+		SegmentInfoAllowed   bool
+		ReadSegmentAllowed   bool
+		DeleteSegmentAllowed bool
+		ListSegmentsAllowed  bool
+	}{
+		{ // Everything disallowed
+			Caveat: macaroon.Caveat{
+				DisallowReads:   true,
+				DisallowWrites:  true,
+				DisallowLists:   true,
+				DisallowDeletes: true,
+			},
+		},
+
+		{ // Read only
+			Caveat: macaroon.Caveat{
+				DisallowWrites:  true,
+				DisallowDeletes: true,
+			},
+			SegmentInfoAllowed:  true,
+			ReadSegmentAllowed:  true,
+			ListSegmentsAllowed: true,
+		},
+
+		{ // Write only
+			Caveat: macaroon.Caveat{
+				DisallowReads: true,
+				DisallowLists: true,
+			},
+			CreateSegmentAllowed: true,
+			CommitSegmentAllowed: true,
+			DeleteSegmentAllowed: true,
+		},
+
+		{ // Bucket restriction
+			Caveat: macaroon.Caveat{
+				AllowedPaths: []*macaroon.Caveat_Path{{
+					Bucket: []byte("otherbucket"),
+				}},
+			},
+		},
+
+		{ // Path restriction
+			Caveat: macaroon.Caveat{
+				AllowedPaths: []*macaroon.Caveat_Path{{
+					Bucket:              []byte("testbucket"),
+					EncryptedPathPrefix: []byte("otherpath"),
+				}},
+			},
+		},
+
+		{ // Time restriction after
+			Caveat: macaroon.Caveat{
+				NotAfter: func(x time.Time) *time.Time { return &x }(time.Now()),
+			},
+		},
+
+		{ // Time restriction before
+			Caveat: macaroon.Caveat{
+				NotBefore: func(x time.Time) *time.Time { return &x }(time.Now().Add(time.Hour)),
+			},
+		},
+	}
+
+	for _, test := range tests {
+		restrictedKey, err := key.Restrict(test.Caveat)
+		require.NoError(t, err)
+
+		client, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], restrictedKey.Serialize())
+		require.NoError(t, err)
+
+		_, _, err = client.CreateSegment(ctx, "testbucket", "testpath", 1, &pb.RedundancyScheme{}, 123, time.Now())
+		assertUnauthenticated(t, err, test.CreateSegmentAllowed)
+
+		_, err = client.CommitSegment(ctx, "testbucket", "testpath", 0, &pb.Pointer{}, nil)
+		assertUnauthenticated(t, err, test.CommitSegmentAllowed)
+
+		_, err = client.SegmentInfo(ctx, "testbucket", "testpath", 0)
+		assertUnauthenticated(t, err, test.SegmentInfoAllowed)
+
+		_, _, err = client.ReadSegment(ctx, "testbucket", "testpath", 0)
+		assertUnauthenticated(t, err, test.ReadSegmentAllowed)
+
+		_, err = client.DeleteSegment(ctx, "testbucket", "testpath", 0)
+		assertUnauthenticated(t, err, test.DeleteSegmentAllowed)
+
+		_, _, err = client.ListSegments(ctx, "testbucket", "testpath", "", "", true, 1, 0)
+		assertUnauthenticated(t, err, test.ListSegmentsAllowed)
+
+	}
+}
+
+func assertUnauthenticated(t *testing.T, err error, allowed bool) {
 	t.Helper()
 
+	// If it's allowed, we allow any non-unauthenticated error because
+	// some calls error after authentication checks.
 	if err, ok := status.FromError(errs.Unwrap(err)); ok {
-		assert.Equal(t, codes.Unauthenticated, err.Code())
-	} else {
+		assert.Equal(t, codes.Unauthenticated == err.Code(), !allowed)
+	} else if !allowed {
 		assert.Fail(t, "got unexpected error", "%T", err)
 	}
 }

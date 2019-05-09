@@ -40,7 +40,7 @@ var (
 
 // APIKeys is api keys store methods used by endpoint
 type APIKeys interface {
-	GetByTail(ctx context.Context, tail []byte) (*console.APIKeyInfo, error)
+	GetByHead(ctx context.Context, head []byte) (*console.APIKeyInfo, error)
 }
 
 // Endpoint metainfo endpoint
@@ -96,7 +96,7 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context, action macaroon.Acti
 		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
 	}
 
-	keyInfo, err := endpoint.apiKeys.GetByTail(ctx, key.Tail())
+	keyInfo, err := endpoint.apiKeys.GetByHead(ctx, key.Head())
 	if err != nil {
 		endpoint.log.Error("unauthorized request", zap.Error(status.Errorf(codes.Unauthenticated, err.Error())))
 		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")

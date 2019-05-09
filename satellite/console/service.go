@@ -677,12 +677,12 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 		return nil, nil, ErrUnauthorized.Wrap(err)
 	}
 
-	key, err := macaroon.NewAPIKey([]byte("TODO: real secret"))
+	key, err := macaroon.NewAPIKey([]byte("testSecret"))
 	if err != nil {
 		return nil, nil, err
 	}
 
-	info, err := s.store.APIKeys().Create(ctx, key.Tail(), APIKeyInfo{
+	info, err := s.store.APIKeys().Create(ctx, key.Head(), APIKeyInfo{
 		Name:      name,
 		ProjectID: projectID,
 	})

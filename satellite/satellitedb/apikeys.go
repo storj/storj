@@ -55,9 +55,9 @@ func (keys *apikeys) Get(ctx context.Context, id uuid.UUID) (*console.APIKeyInfo
 	return fromDBXAPIKey(dbKey)
 }
 
-// GetByTail implements satellite.APIKeys
-func (keys *apikeys) GetByTail(ctx context.Context, tail []byte) (*console.APIKeyInfo, error) {
-	dbKey, err := keys.db.Get_ApiKey_By_Key(ctx, dbx.ApiKey_Key(tail))
+// GetByHead implements satellite.APIKeys
+func (keys *apikeys) GetByHead(ctx context.Context, head []byte) (*console.APIKeyInfo, error) {
+	dbKey, err := keys.db.Get_ApiKey_By_Key(ctx, dbx.ApiKey_Key(head))
 	if err != nil {
 		return nil, err
 	}

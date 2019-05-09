@@ -101,7 +101,7 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 
 		_, err = consoleDB.APIKeys().Create(
 			context.Background(),
-			key.Tail(),
+			key.Head(),
 			console.APIKeyInfo{
 				Name:      "root",
 				ProjectID: project.ID,

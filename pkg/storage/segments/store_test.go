@@ -256,7 +256,7 @@ func runTest(t *testing.T, test func(t *testing.T, ctx *testcontext.Context, pla
 		}
 
 		// add api key to db
-		_, err = planet.Satellites[0].DB.Console().APIKeys().Create(context.Background(), apiKey.Tail(), apiKeyInfo)
+		_, err = planet.Satellites[0].DB.Console().APIKeys().Create(context.Background(), apiKey.Head(), apiKeyInfo)
 		require.NoError(t, err)
 
 		TestAPIKey := apiKey.Serialize()

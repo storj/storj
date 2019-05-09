@@ -41,7 +41,7 @@ func TestApiKeysRepository(t *testing.T) {
 					ProjectID: project.ID,
 				}
 
-				createdKey, err := apikeys.Create(ctx, key.Tail(), keyInfo)
+				createdKey, err := apikeys.Create(ctx, key.Head(), keyInfo)
 				assert.NotNil(t, createdKey)
 				assert.NoError(t, err)
 			}

@@ -146,10 +146,10 @@ type lockedAPIKeys struct {
 }
 
 // Create creates and stores new APIKeyInfo
-func (m *lockedAPIKeys) Create(ctx context.Context, tail []byte, info console.APIKeyInfo) (*console.APIKeyInfo, error) {
+func (m *lockedAPIKeys) Create(ctx context.Context, head []byte, info console.APIKeyInfo) (*console.APIKeyInfo, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Create(ctx, tail, info)
+	return m.db.Create(ctx, head, info)
 }
 
 // Delete deletes APIKeyInfo from store
@@ -166,18 +166,18 @@ func (m *lockedAPIKeys) Get(ctx context.Context, id uuid.UUID) (*console.APIKeyI
 	return m.db.Get(ctx, id)
 }
 
+// GetByHead retrieves APIKeyInfo for given key head
+func (m *lockedAPIKeys) GetByHead(ctx context.Context, head []byte) (*console.APIKeyInfo, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetByHead(ctx, head)
+}
+
 // GetByProjectID retrieves list of APIKeys for given projectID
 func (m *lockedAPIKeys) GetByProjectID(ctx context.Context, projectID uuid.UUID) ([]console.APIKeyInfo, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetByProjectID(ctx, projectID)
-}
-
-// GetByTail retrieves APIKeyInfo for given key
-func (m *lockedAPIKeys) GetByTail(ctx context.Context, tail []byte) (*console.APIKeyInfo, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetByTail(ctx, tail)
 }
 
 // Update updates APIKeyInfo in store
