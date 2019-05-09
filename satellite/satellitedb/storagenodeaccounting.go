@@ -21,7 +21,7 @@ type StoragenodeAccounting struct {
 }
 
 // SaveTallies records raw tallies of at rest data to the database
-func (db *StoragenodeAccounting) SaveTallies(ctx context.Context, latestTally time.Time, created time.Time, nodeData map[storj.NodeID]float64) error {
+func (db *StoragenodeAccounting) SaveTallies(ctx context.Context, latestTally time.Time, nodeData map[storj.NodeID]float64) error {
 	if len(nodeData) == 0 {
 		return Error.New("In SaveTallies with empty nodeData")
 	}

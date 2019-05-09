@@ -807,8 +807,8 @@ func (m *lockedStoragenodeAccounting) SaveRollup(ctx context.Context, latestTall
 }
 
 // SaveTallies records tallies of data at rest
-func (m *lockedStoragenodeAccounting) SaveTallies(ctx context.Context, latestTally time.Time, created time.Time, nodeData map[storj.NodeID]float64) error {
+func (m *lockedStoragenodeAccounting) SaveTallies(ctx context.Context, latestTally time.Time, nodeData map[storj.NodeID]float64) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.SaveTallies(ctx, latestTally, created, nodeData)
+	return m.db.SaveTallies(ctx, latestTally, nodeData)
 }

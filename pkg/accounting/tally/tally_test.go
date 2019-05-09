@@ -22,7 +22,6 @@ import (
 
 func TestDeleteTalliesBefore(t *testing.T) {
 	tests := []struct {
-		createdAt    time.Time
 		eraseBefore  time.Time
 		expectedRaws int
 	}{
@@ -46,7 +45,7 @@ func TestDeleteTalliesBefore(t *testing.T) {
 			nodeData := make(map[storj.NodeID]float64)
 			nodeData[id] = float64(1000)
 
-			err := planet.Satellites[0].DB.StoragenodeAccounting().SaveTallies(ctx, tt.createdAt, tt.createdAt, nodeData)
+			err := planet.Satellites[0].DB.StoragenodeAccounting().SaveTallies(ctx, tt.createdAt, nodeData)
 			require.NoError(t, err)
 
 			err = planet.Satellites[0].DB.StoragenodeAccounting().DeleteTalliesBefore(ctx, tt.eraseBefore)

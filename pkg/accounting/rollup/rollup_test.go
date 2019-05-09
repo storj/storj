@@ -36,7 +36,7 @@ func TestRollupNoDeletes(t *testing.T) {
 			start := timestamp
 
 			for i := 0; i < days; i++ {
-				err := planet.Satellites[0].DB.StoragenodeAccounting().SaveTallies(ctx, timestamp, timestamp, testData[i].nodeData)
+				err := planet.Satellites[0].DB.StoragenodeAccounting().SaveTallies(ctx, timestamp, testData[i].nodeData)
 				require.NoError(t, err)
 				err = saveBW(ctx, planet, testData[i].bwTotals, timestamp)
 				require.NoError(t, err)
@@ -96,7 +96,7 @@ func TestRollupDeletes(t *testing.T) {
 			start := timestamp
 
 			for i := 0; i < days; i++ {
-				err := planet.Satellites[0].DB.StoragenodeAccounting().SaveTallies(ctx, timestamp, timestamp, testData[i].nodeData)
+				err := planet.Satellites[0].DB.StoragenodeAccounting().SaveTallies(ctx, timestamp, testData[i].nodeData)
 				require.NoError(t, err)
 				err = saveBW(ctx, planet, testData[i].bwTotals, timestamp)
 				require.NoError(t, err)
