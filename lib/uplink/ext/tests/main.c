@@ -13,7 +13,7 @@ extern void TestAPIKey(void);
 extern void TestNewUplink_config(void);
 extern void TestOpenProject(void);
 
-int main(void)
+int main(int argc, char *argv[])
 {
     UNITY_BEGIN();
     RUN_TEST(TestGetIDVersion);
