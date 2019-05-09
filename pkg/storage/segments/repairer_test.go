@@ -100,7 +100,7 @@ func TestSegmentStoreRepair(t *testing.T) {
 		repairer := segments.NewSegmentRepairer(metainfo, os, oc, ec, satellite.Identity, time.Minute)
 		assert.NotNil(t, repairer)
 
-		err = repairer.Repair(ctx, path, lostPieces)
+		err = repairer.Repair(ctx, path)
 		assert.NoError(t, err)
 
 		// kill one of the nodes kept alive to ensure repair worked

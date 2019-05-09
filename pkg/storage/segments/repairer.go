@@ -42,7 +42,7 @@ func NewSegmentRepairer(metainfo *metainfo.Service, orders *orders.Service, cach
 }
 
 // Repair retrieves an at-risk segment and repairs and stores lost pieces on new nodes
-func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int32) (err error) {
+func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// Read the segment pointer from the metainfo
@@ -65,7 +65,18 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 
 	var excludeNodeIDs storj.NodeIDList
 	var healthyPieces []*pb.RemotePiece
-	lostPiecesSet := sliceToSet(lostPieces)
+	pieces := pointer.GetRemote().GetRemotePieces()
+	missingPieces, err := repairer.updateMissingPieces(ctx, pieces)
+	if err != nil {
+		return Error.New("error getting missing pieces %s", err)
+	}
+	numHealthy := len(pieces) - len(missingPieces)
+	if (int32(numHealthy) >= pointer.Remote.Redundancy.MinReq) && (int32(numHealthy) > pointer.Remote.Redundancy.RepairThreshold) {
+		// repair not needed
+		return nil
+	}
+
+	lostPiecesSet := sliceToSet(missingPieces)
 
 	// Populate healthyPieces with all pieces from the pointer except those correlating to indices in lostPieces
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
@@ -156,4 +167,24 @@ func createBucketID(path storj.Path) ([]byte, error) {
 		return nil, Error.New("no bucket component in path: %s", path)
 	}
 	return []byte(storj.JoinPaths(comps[0], comps[2])), nil
+}
+
+func (repairer *Repairer) updateMissingPieces(ctx context.Context, pieces []*pb.RemotePiece) (missingPieces []int32, err error) {
+	var nodeIDs storj.NodeIDList
+	for _, p := range pieces {
+		nodeIDs = append(nodeIDs, p.NodeId)
+	}
+	badNodeIDs, err := repairer.cache.KnownUnreliableOrOffline(ctx, nodeIDs)
+	if err != nil {
+		return nil, Error.New("error getting nodes %s", err)
+	}
+
+	for _, p := range pieces {
+		for _, nodeID := range badNodeIDs {
+			if nodeID == p.NodeId {
+				missingPieces = append(missingPieces, p.GetPieceNum())
+			}
+		}
+	}
+	return missingPieces, nil
 }
