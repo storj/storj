@@ -30,7 +30,8 @@ var (
 
 // Config contains configurable values for checker
 type Config struct {
-	Interval time.Duration `help:"how frequently checker should audit segments" default:"30s"`
+	StartDelay time.Duration `help:"how long before starting the checker" default:"30s"`
+	Interval   time.Duration `help:"how frequently checker should audit segments" default:"30s"`
 }
 
 // Checker contains the information needed to do checks for missing pieces
@@ -42,10 +43,11 @@ type Checker struct {
 	irrdb       irreparable.DB
 	logger      *zap.Logger
 	Loop        sync2.Cycle
+	startDelay  time.Duration
 }
 
 // NewChecker creates a new instance of checker
-func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overlay *overlay.Cache, irrdb irreparable.DB, limit int, logger *zap.Logger, interval time.Duration) *Checker {
+func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overlay *overlay.Cache, irrdb irreparable.DB, limit int, logger *zap.Logger, startDelay, interval time.Duration) *Checker {
 	// TODO: reorder arguments
 	checker := &Checker{
 		metainfo:    metainfo,
@@ -54,6 +56,7 @@ func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overl
 		overlay:     overlay,
 		irrdb:       irrdb,
 		logger:      logger,
+		startDelay:  startDelay,
 		Loop:        *sync2.NewCycle(interval),
 	}
 	return checker
@@ -62,6 +65,9 @@ func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overl
 // Run the checker loop
 func (checker *Checker) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	timer := time.NewTimer(checker.startDelay)
+	<-timer.C
 
 	return checker.Loop.Run(ctx, func(ctx context.Context) error {
 		err := checker.IdentifyInjuredSegments(ctx)

@@ -35,6 +35,7 @@ var (
 type Config struct {
 	MaxRepair    int           `help:"maximum segments that can be repaired concurrently" releaseDefault:"5" devDefault:"1"`
 	Interval     time.Duration `help:"how frequently checker should audit segments" releaseDefault:"1h" devDefault:"0h5m0s"`
+	StartDelay   time.Duration `help:"how long should we wait before starting" releaseDefault:"30s" devDefault:"30s"`
 	Timeout      time.Duration `help:"time limit for uploading repaired pieces to new storage nodes" default:"10m0s"`
 	MaxBufferMem memory.Size   `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4M"`
 }
@@ -86,6 +87,9 @@ func (service *Service) Close() error { return nil }
 // Run runs the repairer service
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	timer := time.NewTimer(service.config.StartDelay)
+	<-timer.C
 
 	// TODO: close segment repairer, currently this leaks connections
 	service.repairer, err = service.config.GetSegmentRepairer(

@@ -360,6 +360,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.DB.RepairQueue(),
 			peer.Overlay.Service, peer.DB.Irreparable(),
 			0, peer.Log.Named("checker"),
+			config.Checker.StartDelay,
 			config.Checker.Interval)
 
 		peer.Repair.Repairer = repairer.NewService(

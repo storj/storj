@@ -21,6 +21,7 @@ import (
 // Config contains configurable values for audit service
 type Config struct {
 	MaxRetriesStatDB  int           `help:"max number of times to attempt updating a statdb batch" default:"3"`
+	StartDelay        time.Duration `help:"how long should we wait before starting the audit" default:"30s"`
 	Interval          time.Duration `help:"how frequently segments are audited" default:"30s"`
 	MinBytesPerSecond memory.Size   `help:"the minimum acceptable bytes that storage nodes can transfer per second to the satellite" default:"128B"`
 }
@@ -33,7 +34,8 @@ type Service struct {
 	Verifier *Verifier
 	Reporter reporter
 
-	Loop sync2.Cycle
+	startDelay time.Duration
+	Loop       sync2.Cycle
 }
 
 // NewService instantiates a Service with access to a Cursor and Verifier
@@ -47,13 +49,18 @@ func NewService(log *zap.Logger, config Config, metainfo *metainfo.Service,
 		Verifier: NewVerifier(log.Named("audit:verifier"), transport, overlay, orders, identity, config.MinBytesPerSecond),
 		Reporter: NewReporter(overlay, config.MaxRetriesStatDB),
 
-		Loop: *sync2.NewCycle(config.Interval),
+		startDelay: config.StartDelay,
+		Loop:       *sync2.NewCycle(config.Interval),
 	}, nil
 }
 
 // Run runs auditing service
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	timer := time.NewTimer(service.startDelay)
+	<-timer.C
+
 	service.log.Info("Audit cron is starting up")
 
 	return service.Loop.Run(ctx, func(ctx context.Context) error {
