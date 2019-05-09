@@ -56,6 +56,8 @@ The credit is automatically applied to the account and will have a max limit tha
 **Referrer Award Credit**:
   - This is the credit awarded to the Referrer once the Invitee has created a *paid* account and has successfully paid their second invoice. This credit can have a different expiration date than the awarded Invitee Credit and the Default Free Credit.
 
+[Offer Types Table](https://docs.google.com/spreadsheets/d/1I3Do-HMNkpUpJAsebtl1NXw6-PlkoVaFKCP9e-TTgHA/edit?zx=aqgnyh2ltfad#gid=0&range=A3:E13)
+
 ## Design
 
 ### Database
