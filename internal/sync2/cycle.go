@@ -81,9 +81,7 @@ func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error)
 
 	currentInterval := cycle.interval
 	cycle.ticker = time.NewTicker(currentInterval)
-	defer func() {
-		cycle.ticker.Stop()
-	}()
+	defer cycle.ticker.Stop()
 
 	if err := fn(ctx); err != nil {
 		return err
