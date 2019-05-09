@@ -19,6 +19,6 @@ int main(void)
     RUN_TEST(TestGetIDVersion);
     RUN_TEST(TestAPIKey);
     RUN_TEST(TestNewUplink_config);
-     RUN_TEST(TestOpenProject);
+    RUN_TEST(TestOpenProject);
     return UNITY_END();
 }
