@@ -4,16 +4,14 @@
 package main
 
 import (
-	"fmt"
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"storj.io/storj/internal/testplanet"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
+	"github.com/stretchr/testify/require"
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testplanet"
 )
 
 var defaultLibPath string
@@ -27,16 +25,18 @@ func TestSanity(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	// WIP -- set up testplanet...
-	//testplanet.New
+	planet, err := testplanet.New(t, 1, 8, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ctx.Check(planet.Shutdown)
 
+	planet.Start(ctx)
 
-	assert.True(t, false)
 	testBinPath := ctx.CompileC(defaultLibPath, filepath.Join(filepath.Dir(defaultLibPath), "tests", "*.c"))
 
 	cmd := exec.Command(testBinPath)
-	out, err := cmd.CombinedOutput()
-	_, _ = out, err
-	fmt.Println(out)
-	fmt.Println(err)
+	out, err := cmd.CombinedOutput() 
+	require.NoError(t, err)
+	require.NotContains(t, string(out), "FAIL")
 }
