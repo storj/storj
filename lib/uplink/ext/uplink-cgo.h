@@ -105,16 +105,11 @@ extern APIKey ParseAPIKey(char* p0, char** p1);
 
 extern char* Serialize(APIKey p0);
 
-// GoCtxPtr gets a pointer to a go context that can be passed around
-// TODO: Get rid of this and just use context.Background() for everything in go land
-
-extern GoCtxPtr GetContext();
-
 extern IDVersion GetIDVersion(unsigned int p0, char** p1);
 
 extern IDVersionNumber GetIDVersionNumber(IDVersion p0);
 
-extern struct Uplink NewUplink(GoCtxPtr p0, struct Config p1, char** p2);
+extern struct Uplink NewUplink(struct Config p0, char** p1);
 
 extern Project OpenProject(struct Uplink p0, char* p1, APIKey p2, struct ProjectOptions p3, char** p4);
 

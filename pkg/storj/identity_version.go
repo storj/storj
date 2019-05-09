@@ -7,10 +7,11 @@ import (
 	"crypto"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"storj.io/storj/pkg/peertls/extensions"
-	"storj.io/storj/pkg/pkcrypto"
 	"strconv"
 	"strings"
+
+	"storj.io/storj/pkg/peertls/extensions"
+	"storj.io/storj/pkg/pkcrypto"
 )
 
 const (

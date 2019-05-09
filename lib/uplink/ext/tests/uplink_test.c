@@ -10,52 +10,45 @@
 
 void TestNewUplink_config(void)
 {
-    // uint8_t idVersionNumber = 0;
-    // const struct IDVersion idVersion = {0, 8};
-    // struct Config testUplinkConfig = {
-    //     {{true, "/whitelist.pem"},
-    //      idVersion,
-    //      "latest",
-    //      1,
-    //      2}};
-    // char *_err = "";
-    // char **err = &_err;
+    uint8_t idVersionNumber = 0;
+    char *_err = "";
+    char **err = &_err;
 
-    // // NB: ensure we get a valid ID version
-    // struct IDVersion version = GetIDVersion(idVersionNumber, err);
-    // TEST_ASSERT_EQUAL_STRING("", *err);
-    // TEST_ASSERT_NOT_EQUAL(0, version.GoIDVersion);
+    // NB: ensure we get a valid ID version
+    IDVersion version = GetIDVersion(idVersionNumber, err);
+    TEST_ASSERT_EQUAL_STRING("", *err);
 
-    // testUplinkConfig.Volatile.IdentityVersion = version;
-    // TEST_ASSERT_EQUAL_STRING("", *err);
-    // TEST_ASSERT_EQUAL_UINT8(idVersionNumber, testUplinkConfig.Volatile.IdentityVersion.Number);
+    struct Config testUplinkConfig = {
+        {{true, "/whitelist.pem"},
+         version,
+         "latest",
+         1,
+         2}};
 
-    // GoCtxPtr ctx = GetContext();
+    testUplinkConfig.Volatile.IdentityVersion = version;
+    TEST_ASSERT_EQUAL_STRING("", *err);
 
-    // struct Uplink uplink = NewUplink(ctx, testUplinkConfig, err);
-    // TEST_ASSERT_EQUAL_STRING("", *err);
-    // TEST_ASSERT_NOT_EQUAL(0, uplink.GoUplink);
-    // TEST_ASSERT_TRUE(uplink.Config.Volatile.TLS.SkipPeerCAWhitelist);
-    // TEST_ASSERT_EQUAL_UINT8(idVersionNumber, uplink.Config.Volatile.IdentityVersion.Number);
-    // TEST_ASSERT_NOT_EQUAL(0, uplink.Config.Volatile.IdentityVersion.GoIDVersion);
+    struct Uplink uplink = NewUplink(testUplinkConfig, err);
+    TEST_ASSERT_EQUAL_STRING("", *err);
+    TEST_ASSERT_NOT_EQUAL(0, uplink.GoUplink);
+    TEST_ASSERT_TRUE(uplink.Config.Volatile.TLS.SkipPeerCAWhitelist);
 }
 
-struct Uplink *NewTestUplink(GoCtxPtr ctx, char **err)
+struct Uplink *NewTestUplink(char **err)
 {
-    // uint8_t idVersionNumber = 0;
-    // const struct IDVersion idVersion = {0, 8};
-    // struct Config testUplinkConfig = {
-    //     {{true, "/whitelist.pem"},
-    //      idVersion,
-    //      "latest",
-    //      1,
-    //      2}};
-    // struct IDVersion version = GetIDVersion(idVersionNumber, err);
-    // testUplinkConfig.Volatile.IdentityVersion = version;
+    uint8_t idVersionNumber = 0;
+    IDVersion version = GetIDVersion(idVersionNumber, err);
 
-    // struct Uplink *uplink = malloc(sizeof(struct Uplink));
-    // *uplink = NewUplink(ctx, testUplinkConfig, err);
-    // return uplink;
+    struct Config testUplinkConfig = {
+        {{true, "/whitelist.pem"},
+         version,
+         "latest",
+         1,
+         2}};
+
+    struct Uplink *uplink = malloc(sizeof(struct Uplink));
+    *uplink = NewUplink(testUplinkConfig, err);
+    return uplink;
 }
 
 void TestOpenProject(void)

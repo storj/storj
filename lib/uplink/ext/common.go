@@ -11,7 +11,6 @@ package main
 // #endif
 import "C"
 import (
-	"context"
 	"reflect"
 	"unsafe"
 
@@ -37,7 +36,6 @@ var (
 	keyPtrType     = reflect.TypeOf(new(C.Key))
 
 	ErrConvert = errs.Class("struct conversion error")
-	ctxMapping = newMapping()
 	IDVersionMapping = newMapping()
 )
 
@@ -48,14 +46,6 @@ func cPointerFromGoStruct(s interface{}) C.GoUintptr {
 
 func goPointerFromCGoUintptr(p C.GoUintptr) unsafe.Pointer {
 	return unsafe.Pointer(uintptr(p))
-}
-
-// GoCtxPtr gets a pointer to a go context that can be passed around
-// TODO: Get rid of this and just use context.Background() for everything in go land
-//export GetContext
-func GetContext() C.GoCtxPtr {
-	ctx := context.Background()
-	return C.GoCtxPtr(ctxMapping.Add(ctx))
 }
 
 //export GetIDVersion
