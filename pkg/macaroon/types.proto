@@ -1,0 +1,26 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+
+package macaroon;
+
+import "gogo.proto";
+import "google/protobuf/timestamp.proto";
+
+message Caveat {
+  // if any of these three are set, disallow that type of access
+  bool disallow_reads = 1;
+  bool disallow_writes = 2;
+  bool disallow_lists = 3;
+  bool disallow_deletes = 4;
+
+  // if one of these two lists are not empty, restrict accesses
+  // to the given values
+  repeated bytes buckets = 10;
+  repeated bytes encrypted_path_prefixes = 11;
+
+  // if set, the validity time window
+  google.protobuf.Timestamp not_after = 20 [(gogoproto.stdtime) = true];
+  google.protobuf.Timestamp not_before = 21 [(gogoproto.stdtime) = true];
+}

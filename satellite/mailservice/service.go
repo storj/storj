@@ -20,7 +20,7 @@ type Config struct {
 	SMTPServerAddress string `help:"smtp server address" default:"" mandatory:"true"`
 	TemplatePath      string `help:"path to email templates source" default:"" mandatory:"true"`
 	From              string `help:"sender email address" default:"" mandatory:"true"`
-	AuthType          string `help:"smtp authentication type" default:"simulate"`
+	AuthType          string `help:"smtp authentication type" releaseDefault:"login" devDefault:"simulate"`
 	Login             string `help:"plain/login auth user login" default:""`
 	Password          string `help:"plain/login auth user password" default:""`
 	RefreshToken      string `help:"refresh token used to retrieve new access token" default:""`

@@ -41,7 +41,6 @@ type DB interface {
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
 	// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
-	// Note that KnownUnreliableOrOffline will not return node ids which are not in the database at all
 	KnownUnreliableOrOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
 	// Paginate will page through the database nodes
 	Paginate(ctx context.Context, offset int64, limit int) ([]*NodeDossier, bool, error)
@@ -201,7 +200,7 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 		excluded = append(excluded, newNode.Id)
 	}
 
-	reputableNodes, err := cache.db.SelectStorageNodes(ctx, reputableNodeCount-len(newNodes), &NodeCriteria{
+	criteria := NodeCriteria{
 		FreeBandwidth:      req.FreeBandwidth,
 		FreeDisk:           req.FreeDisk,
 		AuditCount:         preferences.AuditCount,
@@ -211,7 +210,8 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 		Excluded:           excluded,
 		MinimumVersion:     preferences.MinimumVersion,
 		OnlineWindow:       preferences.OnlineWindow,
-	})
+	}
+	reputableNodes, err := cache.db.SelectStorageNodes(ctx, reputableNodeCount-len(newNodes), &criteria)
 	if err != nil {
 		return nil, err
 	}
@@ -220,7 +220,7 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 	nodes = append(nodes, reputableNodes...)
 
 	if len(nodes) < reputableNodeCount {
-		return nodes, ErrNotEnoughNodes.New("requested %d found %d", reputableNodeCount, len(nodes))
+		return nodes, ErrNotEnoughNodes.New("requested %d found %d; %+v ", reputableNodeCount, len(nodes), criteria)
 	}
 
 	return nodes, nil

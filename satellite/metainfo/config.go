@@ -18,7 +18,7 @@ const (
 
 // Config is a configuration struct that is everything you need to start a metainfo
 type Config struct {
-	DatabaseURL          string      `help:"the database connection string to use" default:"bolt://$CONFDIR/pointerdb.db" mandatory:"true"`
+	DatabaseURL          string      `help:"the database connection string to use" releaseDefault:"postgres://" devDefault:"bolt://$CONFDIR/pointerdb.db" mandatory:"true"`
 	MinRemoteSegmentSize memory.Size `default:"1240" help:"minimum remote segment size"`
 	MaxInlineSegmentSize memory.Size `default:"8000" help:"maximum inline segment size"`
 	Overlay              bool        `default:"true" help:"toggle flag if overlay is enabled"`

@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.12.1
+GO_VERSION ?= 1.12.5
 GOOS ?= linux
 GOARCH ?= amd64
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
@@ -89,6 +89,15 @@ test: ## Run tests on source code (jenkins)
 test-sim: ## Test source with storj-sim (jenkins)
 	@echo "Running ${@}"
 	@./scripts/test-sim.sh
+
+.PHONY: test-satellite-cfg-change
+test-satellite-cfg-change: ## Test if the satellite config file has changed
+	@echo "Running ${@}"
+	@cd scripts; ./test-satellite-cfg-change.sh
+
+.PHONY: test-update-satellite-cfg-lock
+test-update-satellite-cfg-lock: ## Update the satellite config lock file
+	@cd scripts; ./update-satellite-cfg-lock.sh
 
 .PHONY: test-certificate-signing
 test-certificate-signing: ## Test certificate signing service and storagenode setup (jenkins)
