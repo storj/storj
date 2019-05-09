@@ -2,7 +2,7 @@
 
 ## Abstract
 
-
+TODO
 
 ## Background
 
@@ -17,11 +17,11 @@ A node that is allowed to enter routing tables is considered vetted and lookups 
 
 
 ## Goals
-1. A Satellite-Node signature service that authenticates which Nodes have passed enough audits (CPU + Disk Space).
-2. Nodes have a trusted Satellite list that contains the IDs of Satellites from which they will accept Node verification signatures.
-3. Routing Table Antechamber: XOR ordered data structure where unverified nodes are entered if successfully contacted. Only contains nodes within the XOR range of the closest k nodes from self. Nodes are moved to the Routing Table once both successfully re-contacted and verified. A Node may enter the Routing Table directly if at first contact it is already verified by a trusted Satellite.
-4. FindNear also returns x XOR-closest nodes from the antechamber
-5. Progressively migrate nodes from the current Routing Table into antechamber until verified. Need to ensure this is done at a slow enough rate to allow for verification of nodes before Routing Tables are emptied completely.
+1. Add a signed message from Satellites to authenticate whether a Node has a high enough ID generation difficulty and disk space.
+2. Create a trusted Satellite list that contains the IDs of Satellites from which Nodes will accept verification signatures of other Nodes.
+3. Implement a Routing Table Antechamber: An XOR-ordered data structure in which unverified nodes are entered if successfully contacted. 
+4. Modify FindNear to return n XOR-closest nodes from the antechamber in addition to those already returned from the routing table.
+5. On deployment, avoid complete erasure of the network's routing tables.
 
 
 ## Terminology
@@ -41,7 +41,12 @@ Node Neighborhood - Definition
     - A node can be added if it would be within vetted node neighborhood
     - Nodes are moved to the Routing Table once both successfully re-contacted and verified
         - Once a node has been verified, it broadcasts its new status to try to join routing tables
-4. FindNear also returns x XOR-closest nodes from the antechamber
+    - Only contains nodes within the XOR range of the closest k nodes from self. Nodes are moved to the Routing Table once both successfully re-contacted and verified. A Node may enter the Routing Table directly if at first contact it is already verified by a trusted Satellite.  
+    Node gets kicked out of RT if disqualified
+If the network grows, the space in your neighborhood shrinks, remove antechamber nodes that no longer fit in this neighborhood
+  
+4. FindNear also returns x XOR-closest nodes from the antechamber: Only call find near on the nodes that are verified from satellites you trust
+
 5. Progressively migrate nodes from the current Routing Table into antechamber until verified. 
     - Deploy vetting and signing first
     - Deploy antechamber and nodes will naturally shift
@@ -53,13 +58,16 @@ Node Neighborhood - Definition
 
 ## Implementation
 
-1.
-2.
-3.
-4.
-5.
+1. [I'm an inline-style link](https://www.google.com)
+2. [I'm an inline-style link](https://www.google.com)
+3. [I'm an inline-style link](https://www.google.com)
+4. [I'm an inline-style link](https://www.google.com)
+5. [I'm an inline-style link](https://www.google.com)
 
 ## Open issues 
+
+Q: Should closer buckets to self get refreshed more frequently?
+A: ?
 
 Q: Should the routing table antechamber have a maximum size? 
 A: We've decided not for now.
