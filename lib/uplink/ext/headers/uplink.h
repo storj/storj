@@ -8,12 +8,8 @@ typedef __SIZE_TYPE__ GoUintptr;
 typedef int64_t Size;
 
 typedef GoUintptr APIKey;
-
-struct IDVersion
-{
-    uint8_t Number;
-    GoUintptr GoIDVersion;
-};
+typedef GoUintptr IDVersion;
+typedef uint8_t IDVersionNumber;
 
 struct Config
 {
@@ -24,7 +20,7 @@ struct Config
             bool SkipPeerCAWhitelist;
             char *PeerCAWhitelistPath;
         } TLS;
-        struct IDVersion IdentityVersion;
+        IDVersion IdentityVersion;
         char *PeerIDVersion;
         Size MaxInlineSize;
         Size MaxMemory;

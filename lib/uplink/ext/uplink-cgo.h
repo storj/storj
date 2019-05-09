@@ -110,7 +110,9 @@ extern char* Serialize(APIKey p0);
 
 extern GoCtxPtr GetContext();
 
-extern struct IDVersion GetIDVersion(unsigned int p0, char** p1);
+extern IDVersion GetIDVersion(unsigned int p0, char** p1);
+
+extern IDVersionNumber GetIDVersionNumber(IDVersion p0);
 
 extern struct Uplink NewUplink(GoCtxPtr p0, struct Config p1, char** p2);
 

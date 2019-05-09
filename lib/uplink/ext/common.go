@@ -38,6 +38,7 @@ var (
 
 	ErrConvert = errs.Class("struct conversion error")
 	ctxMapping = newMapping()
+	IDVersionMapping = newMapping()
 )
 
 // Create pointer to a go struct for C to interact with
@@ -58,18 +59,24 @@ func GetContext() C.GoCtxPtr {
 }
 
 //export GetIDVersion
-func GetIDVersion(number C.uint, cErr **C.char) C.struct_IDVersion {
-	cIDVersion := C.struct_IDVersion{}
+func GetIDVersion(number C.uint, cErr **C.char) (cIDVersion C.IDVersion) {
 	goIDVersion, err := storj.GetIDVersion(storj.IDVersionNumber(number))
 	if err != nil {
 		*cErr = C.CString(err.Error())
 		return cIDVersion
 	}
 
-	return C.struct_IDVersion{
-		GoIDVersion: cPointerFromGoStruct(&goIDVersion),
-		Number: C.uchar(goIDVersion.Number),
+	return C.IDVersion(IDVersionMapping.Add(goIDVersion))
+}
+
+//export GetIDVersionNumber
+func GetIDVersionNumber(idversion C.IDVersion) (IDVersionNumber C.IDVersionNumber) {
+	goApiKeyStruct, ok := IDVersionMapping.Get(token(idversion)).(storj.IDVersion)
+	if !ok {
+		return IDVersionNumber
 	}
+
+	return C.IDVersionNumber(goApiKeyStruct.Number)
 }
 
 func GoToCStruct(fromVar, toPtr interface{}) error {

@@ -11,12 +11,13 @@ void TestGetIDVersion(void)
     char *_err = "";
     char **err = &_err;
     uint8_t idVersionNumber = 0;
-    struct IDVersion idVersion = {0, 0};
 
-    idVersion = GetIDVersion(idVersionNumber, err);
-
+    IDVersion idVersion = GetIDVersion(idVersionNumber, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
-    TEST_ASSERT_NOT_EQUAL(0, idVersion.GoIDVersion);
+
+    IDVersionNumber versionnumber = GetIDVersionNumber(idVersion);
+
+    TEST_ASSERT_EQUAL(0, versionnumber);
 }
 
 void TestAPIKey(void)
