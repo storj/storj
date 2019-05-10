@@ -51,6 +51,7 @@ func (db *ConsoleDB) RegistrationTokens() console.RegistrationTokens {
 	return &registrationTokens{db.methods}
 }
 
+// ResetPasswordTokens is a getter for ResetPasswordTokens repository
 func (db *ConsoleDB) ResetPasswordTokens() console.ResetPasswordTokens {
 	return &resetPasswordTokens{db.methods}
 }

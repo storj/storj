@@ -229,7 +229,7 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 		return
 	}
 
-	user, err := s.store.Users().Get(ctx, *token.OwnerId)
+	user, err := s.store.Users().Get(ctx, *token.OwnerID)
 	if err != nil {
 		return
 	}
@@ -257,6 +257,7 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 	return s.store.ResetPasswordTokens().Delete(ctx, token.Secret)
 }
 
+// RevokeResetPasswordToken - is a method to revoke reset password token
 func (s *Service) RevokeResetPasswordToken(ctx context.Context, resetPasswordToken string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 

@@ -7,11 +7,13 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"time"
+
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
-	"time"
 )
 
+// ResetPasswordTokens is interface for working with reset password tokens
 type ResetPasswordTokens interface {
 	// Create creates new reset password token
 	Create(ctx context.Context, ownerID *uuid.UUID) (*ResetPasswordToken, error)
@@ -23,11 +25,15 @@ type ResetPasswordTokens interface {
 	Delete(ctx context.Context, secret ResetPasswordSecret) error
 }
 
-type ResetPasswordSecret [32] byte
+// ResetPasswordSecret stores secret of registration token
+type ResetPasswordSecret [32]byte
 
+// ResetPasswordToken describing reset password model in the database
 type ResetPasswordToken struct {
-	Secret  ResetPasswordSecret
-	OwnerId *uuid.UUID
+	// Secret is PK of the table and keeps unique value for reset password token
+	Secret ResetPasswordSecret
+	// OwnerID stores current token owner ID
+	OwnerID *uuid.UUID
 
 	CreatedAt time.Time `json:"createdAt"`
 }

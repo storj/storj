@@ -1,12 +1,16 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package console_test
 
 import (
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"testing"
 )
 
 func TestNewRegistrationSecret(t *testing.T) {
@@ -50,19 +54,19 @@ func TestNewRegistrationSecret(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, rptoken.Secret, tokenBySecret.Secret)
 			assert.Equal(t, rptoken.CreatedAt, tokenBySecret.CreatedAt)
-			assert.Equal(t, rptoken.OwnerId, tokenBySecret.OwnerId)
+			assert.Equal(t, rptoken.OwnerID, tokenBySecret.OwnerID)
 		})
 
 		t.Run("Get reset password token by UUID and Secret equal", func(t *testing.T) {
 			tokenBySecret, err := rptokens.GetBySecret(ctx, rptoken.Secret)
 			assert.NoError(t, err)
 
-			tokenByUUID, err := rptokens.GetByOwnerID(ctx, *rptoken.OwnerId)
+			tokenByUUID, err := rptokens.GetByOwnerID(ctx, *rptoken.OwnerID)
 			assert.NoError(t, err)
 
 			assert.Equal(t, tokenByUUID.Secret, tokenBySecret.Secret)
 			assert.Equal(t, tokenByUUID.CreatedAt, tokenBySecret.CreatedAt)
-			assert.Equal(t, tokenByUUID.OwnerId, tokenBySecret.OwnerId)
+			assert.Equal(t, tokenByUUID.OwnerID, tokenBySecret.OwnerID)
 		})
 
 		t.Run("Successful base64 encoding", func(t *testing.T) {

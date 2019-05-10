@@ -78,7 +78,7 @@ func resetPasswordTokenFromDBX(resetToken *dbx.ResetPasswordToken) (*console.Res
 
 	result := &console.ResetPasswordToken{
 		Secret:    secret,
-		OwnerId:   nil,
+		OwnerID:   nil,
 		CreatedAt: resetToken.CreatedAt,
 	}
 
@@ -88,7 +88,7 @@ func resetPasswordTokenFromDBX(resetToken *dbx.ResetPasswordToken) (*console.Res
 			return nil, err
 		}
 
-		result.OwnerId = &ownerID
+		result.OwnerID = &ownerID
 	}
 
 	return result, nil
