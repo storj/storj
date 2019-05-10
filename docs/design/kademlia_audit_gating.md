@@ -31,7 +31,7 @@ A node that is allowed to enter routing tables is considered vetted and lookups 
 ## Terminology
 **Routing Table Antechamber** - *XOR-ordered temporary holding place for unverified storagenodes*
 
-**Node Neighborhood** - *The k-closest nodes to self where distance is measured by XOR. A node is within the node neighboorhood if it is closer than the furthest node in the neighborhood. The vetted node neighborhood is the k-closest nodes that are currently in the Routing Table.*
+**Node Neighborhood** - *The k-closest nodes to self where distance is measured by XOR. A node is within the node neighborhood if it is closer than the furthest node in the neighborhood. The vetted node neighborhood is the k-closest nodes that are currently in the Routing Table.*
 
 [TODO Node Neighborhood Diagram]
 
