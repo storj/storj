@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -12,10 +13,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/satellite/console"
 )
 
 var defaultLibPath string
@@ -25,7 +28,8 @@ func init() {
 	defaultLibPath = filepath.Join(filepath.Dir(thisFile), "uplink-cgo.so")
 }
 
-func TestSanity(t *testing.T) {
+// TODO: split c test up into multiple suites, each of which gets a go test function.
+func TestAllCTests(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -37,11 +41,37 @@ func TestSanity(t *testing.T) {
 
 	planet.Start(ctx)
 
+	// TODO: support multiple satelllites?
+	projectName := t.Name()
+	APIKey := console.APIKeyFromBytes([]byte(projectName))
+	consoleDB := planet.Satellites[0].DB.Console()
+
+
+	project, err := consoleDB.Projects().Insert(
+		context.Background(),
+		&console.Project{
+			Name: projectName,
+		},
+	)
+	require.NoError(t, err)
+	require.NotNil(t, project)
+
+	_, err = consoleDB.APIKeys().Create(
+		context.Background(),
+		*APIKey,
+		console.APIKeyInfo{
+			Name:      "root",
+			ProjectID: project.ID,
+		},
+	)
+	require.NoError(t, err)
+
 	testBinPath := ctx.CompileC(defaultLibPath, filepath.Join(filepath.Dir(defaultLibPath), "tests", "*.c"))
 
 	cmd := exec.Command(testBinPath)
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("SATELLITEADDR=%s", planet.Satellites[0].Addr()),
+		fmt.Sprintf("APIKEY=%s", APIKey.String()),
 	)
 
 	out, err := cmd.CombinedOutput()

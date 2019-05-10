@@ -27,16 +27,16 @@ var (
 	cIntType    = reflect.TypeOf(C.int(0))
 	cUintType   = reflect.TypeOf(C.uint(0))
 	// NB: C.uchar is uint8
-	cUcharType  = reflect.TypeOf(C.uchar('0'))
+	cUcharType = reflect.TypeOf(C.uchar('0'))
 	// NB: C.long is int64
-	cLongType   = reflect.TypeOf(C.long(0))
+	cLongType = reflect.TypeOf(C.long(0))
 
 	// our types
-	memorySizeType = reflect.TypeOf(memory.Size(0))
-	keyPtrType     = reflect.TypeOf(new(C.Key))
+	memorySizeType  = reflect.TypeOf(memory.Size(0))
+	cipherSuiteType = reflect.TypeOf(storj.CipherSuite(0))
+	keyPtrType      = reflect.TypeOf(new(C.Key))
 
 	ErrConvert = errs.Class("struct conversion error")
-	IDVersionMapping = newMapping()
 )
 
 // Create pointer to a go struct for C to interact with
@@ -49,24 +49,18 @@ func goPointerFromCGoUintptr(p C.GoUintptr) unsafe.Pointer {
 }
 
 //export GetIDVersion
-func GetIDVersion(number C.uint, cErr **C.char) (cIDVersion C.IDVersion) {
+func GetIDVersion(number C.uint, cErr **C.char) C.struct_IDVersion {
+	cIDVersion := C.struct_IDVersion{}
 	goIDVersion, err := storj.GetIDVersion(storj.IDVersionNumber(number))
 	if err != nil {
 		*cErr = C.CString(err.Error())
 		return cIDVersion
 	}
 
-	return C.IDVersion(IDVersionMapping.Add(goIDVersion))
-}
-
-//export GetIDVersionNumber
-func GetIDVersionNumber(idversion C.IDVersion) (IDVersionNumber C.IDVersionNumber) {
-	goApiKeyStruct, ok := IDVersionMapping.Get(token(idversion)).(storj.IDVersion)
-	if !ok {
-		return IDVersionNumber
+	return C.struct_IDVersion{
+		GoIDVersion: cPointerFromGoStruct(&goIDVersion),
+		Number:      C.uchar(goIDVersion.Number),
 	}
-
-	return C.IDVersionNumber(goApiKeyStruct.Number)
 }
 
 func GoToCStruct(fromVar, toPtr interface{}) error {
@@ -156,7 +150,12 @@ func CToGoStruct(fromVar, toPtr interface{}) error {
 		toValue.Set(reflect.ValueOf(uint(fromValue.Uint())))
 		return nil
 	case cUcharType:
-		toValue.Set(reflect.ValueOf(uint8(fromValue.Uint())))
+		switch toValue.Type() {
+		case cipherSuiteType:
+			toValue.Set(reflect.ValueOf(storj.CipherSuite(fromValue.Uint())))
+		default:
+			toValue.Set(reflect.ValueOf(uint8(fromValue.Uint())))
+		}
 		return nil
 	case cLongType:
 		switch toValue.Type() {

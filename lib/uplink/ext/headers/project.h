@@ -14,3 +14,9 @@ struct ProjectOptions
 
     } Volatile;
 };
+
+// TODO: move to bucket.h? (also move go src)
+struct BucketConfig
+{
+    CipherSuite PathCipher;
+};

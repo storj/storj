@@ -39,6 +39,15 @@ typedef struct { const char *p; ptrdiff_t n; } _GoString_;
 
 #line 1 "cgo-generated-wrapper"
 
+#line 6 "project.go"
+
+ #ifndef UPLINK_HEADERS
+   #define UPLINK_HEADERS
+   #include "headers/main.h"
+ #endif
+
+#line 1 "cgo-generated-wrapper"
+
 #line 6 "uplink.go"
 
  #ifndef UPLINK_HEADERS
@@ -108,6 +117,8 @@ extern char* Serialize(APIKey p0);
 extern IDVersion GetIDVersion(unsigned int p0, char** p1);
 
 extern IDVersionNumber GetIDVersionNumber(IDVersion p0);
+
+extern struct Bucket CreateBucket(GoUintptr p0, char* p1, struct BucketConfig p2, char** p3);
 
 extern struct Uplink NewUplink(struct Config p0, char** p1);
 

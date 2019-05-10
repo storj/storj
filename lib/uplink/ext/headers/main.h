@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 #include "uplink.h"
+#include "redundancy.h"
+#include "encryption.h"
+#include "bucket.h"
 #include "project.h"
-
-typedef __SIZE_TYPE__ GoUintptr;
-typedef GoUintptr GoCtxPtr;

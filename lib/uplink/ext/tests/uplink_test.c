@@ -61,9 +61,10 @@ void TestOpenProject(void)
     char *_err = "";
     char **err = &_err;
     char *satelliteAddr = getenv("SATELLITEADDR");
-    APIKey apiKey = ParseAPIKey("testapikey", err);
-    uint8_t encryptionKey[32];
+    APIKey apiKey = ParseAPIKey(getenv("APIKEY"), err);
+    TEST_ASSERT_EQUAL_STRING("", *err);
 
+    uint8_t encryptionKey[32];
     struct ProjectOptions opts = {
         {&encryptionKey}
     };
@@ -74,8 +75,4 @@ void TestOpenProject(void)
 
     OpenProject(*uplink, satelliteAddr, apiKey, opts, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
-}
-
-void TestCreateBucket(void)
-{
 }

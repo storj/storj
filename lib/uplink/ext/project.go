@@ -10,16 +10,32 @@ package main
 // #endif
 import "C"
 import (
-	// "context"
-	// "fmt"
-	// "unsafe"
-	// "storj.io/storj/lib/uplink"
+	"context"
+
+	"storj.io/storj/lib/uplink"
 )
 
-func CreateBucket(project C.Project, name string, cfg uintptr, err *C.char) (b uintptr) {
-	// convert project to go type
-	// project.CreateBucket
-	// check err
-	// convert bucket to ptr
-	return b
+//export CreateBucket
+func CreateBucket(cProject C.GoUintptr, name *C.char, cCfg C.struct_BucketConfig, cErr **C.char) (cBucket C.struct_Bucket) {
+	ctx := context.Background()
+	project := (*uplink.Project)(goPointerFromCGoUintptr(cProject))
+
+	cfg := new(uplink.BucketConfig)
+	if err := CToGoStruct(cCfg, cfg); err != nil {
+		*cErr = C.CString(err.Error())
+		return cBucket
+	}
+
+	bucket, err := project.CreateBucket(ctx, C.GoString(name), cfg)
+	if err != nil {
+		*cErr = C.CString(err.Error())
+		return cBucket
+	}
+
+	if err := CToGoStruct(bucket, cBucket); err != nil {
+		*cErr = C.CString(err.Error())
+		return cBucket
+	}
+
+	return cBucket
 }
