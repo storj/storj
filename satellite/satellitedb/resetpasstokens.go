@@ -8,6 +8,7 @@ import (
 	"errors"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
+
 	"storj.io/storj/satellite/console"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
