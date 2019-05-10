@@ -55,13 +55,14 @@ New functionality needs to be added to the audit verifier, where upon receiving 
 For nodes that are not contained, the audit will continue as normal.
 
 For nodes that are contained, the verifier will ask the ContainmentDB for the hash of the erasure share expected from the node when it was originally audited.
+The verifier will also use info from the ContainmentDB to make the request to the node for the original erasure share.
 
 The verifier will then attempt to download that erasure share from the contained node.
 From there, the following cases can occur:
-- Passes audit ->  `pendingAudit` is deleted from the ContainmentDB  -> stats updated in overlaycache/satelliteDB
-- Fails audit -> `pendingAudit` is deleted from the ContainmentDB -> stats updated in overlaycache/satelliteDB
+- Passes audit ->  `pendingAudit` is deleted from the ContainmentDB  -> stats updated in overlaycache/satelliteDB and `contained` field set to false
+- Fails audit -> `pendingAudit` is deleted from the ContainmentDB -> stats updated in overlaycache/satelliteDB and `contained` field set to false
 - Refuses to respond again -> the `pendingAudit`'s `reverifyCount` is incremented in the ContainmentDB ->
-    - -> If that count exceeds the reverify limit, then the node’s stats will be updated to reflect an audit failure and the node will be removed from the ContainmentDB.
+    - -> If that count exceeds the reverify limit, then the node’s stats will be updated to reflect an audit failure and the node will be removed from the ContainmentDB and `contained` field will be set to false.
     - -> If the count does not exceed the reverify limit, the `pendingAudit` will remain in the ContainmentDB.
 
 ```go
@@ -92,6 +93,7 @@ type ContainmentDB interface {
 `IncrementPending` is an upsert that is used when an "uncooperative" node is identified during the normal process, and when a node doesn't pass a reverification.
 
 `Delete` will be used to delete the pendingAudit from the ContainmentDB after the node either passes or fails the audit.
+It will also update the node's NodeDossier to set `contained` to false.
 
 #### Pending Audits SQL Table
 ```sql
@@ -168,8 +170,8 @@ func (verifier *Verifier) Reverify(ctx context.Context, node storj.NodeID) (audi
 
   // Dial the node, then use info from the pendingAudit to download the target share from the node.
 
-  offset := node.stripeIndex * node.shareSize
-  downloader, err := ps.Download(timedCtx, limit.GetLimit(), offset, int64(shareSize))
+  offset := pendingAudit.stripeIndex * pendingAudit.shareSize
+  downloader, err := ps.Download(timedCtx, limit.GetLimit(), offset, int64(pendingAudit.shareSize))
 
   // If the error is a timeout (or any other error?), call IncrementPending.
   // if the download occurred successfully, then get the hash of the original erasure share from the ContainmentDB.
