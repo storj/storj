@@ -34,7 +34,7 @@ type Service struct {
 	ticker                  *time.Ticker
 	storagenodeAccountingDB accounting.StoragenodeAccounting
 	projectAccountingDB     accounting.ProjectAccounting
-  liveAccounting          live.Service
+	liveAccounting          live.Service
 }
 
 // New creates a new tally Service
@@ -47,7 +47,7 @@ func New(logger *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accountin
 		ticker:                  time.NewTicker(interval),
 		storagenodeAccountingDB: sdb,
 		projectAccountingDB:     pdb,
-    liveAccounting:          liveAccounting,
+		liveAccounting:          liveAccounting,
 	}
 }
 

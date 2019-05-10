@@ -51,7 +51,7 @@ type Endpoint struct {
 	apiKeys                 APIKeys
 	storagenodeAccountingDB accounting.StoragenodeAccounting
 	projectAccountingDB     accounting.ProjectAccounting
-  liveAccounting live.Service
+	liveAccounting          live.Service
 	maxAlphaUsage           memory.Size
 }
 
@@ -66,9 +66,8 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cac
 		apiKeys:                 apiKeys,
 		storagenodeAccountingDB: sdb,
 		projectAccountingDB:     pdb,
-    liveAccounting: liveAccounting,
+		liveAccounting:          liveAccounting,
 		maxAlphaUsage:           maxAlphaUsage,
-
 	}
 }
 
