@@ -1,3 +1,6 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 const EVENTS = {
     CLICKED_LOGO: 'clicked-on-logo',
     CLICKED_LOGIN: 'clicked-on-login',

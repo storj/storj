@@ -11,7 +11,7 @@
     import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
     import ROUTES from '@/utils/constants/routerConstants';
     import { validateEmail } from '@/utils/validation';
-    import EVENTS from '@/utils/constants/UIEventNames';
+    import EVENTS from '@/utils/constants/analyticsEventNames';
 
     @Component(
         {
@@ -52,7 +52,7 @@
                 },
                 onLogoClick: function () {
                    location.reload();
-                    this.analytics.track(EVENTS.CLICKED_LOGO);
+                   this.analytics.track(EVENTS.CLICKED_LOGO);
                 },
                 validateFields: function (): boolean {
                     const isEmailValid = validateEmail(this.$data.email.trim());

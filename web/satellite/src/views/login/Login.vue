@@ -14,6 +14,7 @@ import { getTokenRequest } from '@/api/users';
 import { LOADING_CLASSES } from '@/utils/constants/classConstants';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { validateEmail, validatePassword } from '@/utils/validation';
+import EVENTS from '../../utils/constants/analyticsEventNames';
 
 @Component({
     data: function () {
@@ -45,6 +46,7 @@ import { validateEmail, validatePassword } from '@/utils/validation';
         },
         onLogin: async function (): Promise<any> {
             let self = this as any;
+            this.analytics.track(EVENTS.CLICKED_LOGIN);
 
             if (!self.validateFields()) {
                 return;
