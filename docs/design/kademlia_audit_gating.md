@@ -33,7 +33,8 @@ A node that is allowed to enter routing tables is considered vetted and lookups 
 
 **Node Neighborhood** - *The k-closest nodes to self where distance is measured by XOR. A node is within the node neighborhood if it is closer than the furthest node in the neighborhood. The vetted node neighborhood is the k-closest nodes that are currently in the Routing Table.*
 
-[TODO Node Neighborhood Diagram]
+![Node Neighborhood](kad-audit.jpg "Node Neighborhood")
+
 
 ## Design
 
