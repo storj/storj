@@ -4,6 +4,7 @@
 package metainfo
 
 import (
+	"go.uber.org/zap"
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/storage"
@@ -26,7 +27,7 @@ type Config struct {
 }
 
 // NewStore returns database for storing pointer data
-func NewStore(dbURLString string) (db storage.KeyValueStore, err error) {
+func NewStore(logger *zap.Logger, dbURLString string) (db storage.KeyValueStore, err error) {
 	driver, source, err := dbutil.SplitConnstr(dbURLString)
 	if err != nil {
 		return nil, err
@@ -38,5 +39,6 @@ func NewStore(dbURLString string) (db storage.KeyValueStore, err error) {
 	} else {
 		err = Error.New("unsupported db scheme: %s", driver)
 	}
+	logger.Debug("Connected to:", zap.String("db source", source))
 	return db, err
 }

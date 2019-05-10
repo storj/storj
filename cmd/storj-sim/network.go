@@ -263,7 +263,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		var schema string
 		sqlDatabase := "sqlite3://" + process.Directory + "/master.db"
-		kvDatabase := "bolt://" + process.Directory + "pointers.db"
+		kvDatabase := "bolt://" + process.Directory + "/pointer.db"
 		if flags.Postgres != "" {
 			schema = fmt.Sprintf("satellite%d", i)
 			postgresConnstr := pgutil.ConnstrWithSchema(flags.Postgres, schema)

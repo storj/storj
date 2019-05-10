@@ -50,6 +50,7 @@ func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
 		return nil, Error.New("failed opening database %q, %q: %v",
 			driver, source, err)
 	}
+	log.Debug("Connected to:", zap.String("db source", source))
 
 	core := &DB{log: log, db: db, driver: driver, source: source}
 	if driver == "sqlite3" {
