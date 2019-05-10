@@ -33,6 +33,7 @@ type DB struct {
 	log    *zap.Logger
 	db     *dbx.DB
 	driver string
+	source string
 }
 
 // New creates instance of database (supports: postgres, sqlite3)
@@ -50,7 +51,7 @@ func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
 			driver, source, err)
 	}
 
-	core := &DB{log: log, db: db, driver: driver}
+	core := &DB{log: log, db: db, driver: driver, source: source}
 	if driver == "sqlite3" {
 		return newLocked(core), nil
 	}

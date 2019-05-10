@@ -15,7 +15,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/cfgstruct"
@@ -140,14 +139,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
 		zap.S().Error("Failed to initialize telemetry batcher: ", err)
-	}
-
-	schema, err := pgutil.ParseSchemaFromConnstr(runCfg.Database)
-	if schema != "" {
-		err = db.CreateSchema(schema)
-		if err != nil {
-			return errs.New("Error creating schema from, %s, for master database on satellite: %+v", runCfg.Database, err)
-		}
 	}
 
 	err = db.CreateTables()

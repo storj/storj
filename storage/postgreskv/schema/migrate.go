@@ -7,15 +7,18 @@ package schema
 
 import (
 	"database/sql"
+	"strconv"
 
 	"github.com/golang-migrate/migrate/v3"
 	"github.com/golang-migrate/migrate/v3/database/postgres"
 	bindata "github.com/golang-migrate/migrate/v3/source/go_bindata"
+	"github.com/zeebo/errs"
+	"storj.io/storj/internal/dbutil/pgutil"
 )
 
 // PrepareDB applies schema migrations as necessary to the given database to
 // get it up to date.
-func PrepareDB(db *sql.DB) error {
+func PrepareDB(db *sql.DB, dbURL string) error {
 	srcDriver, err := bindata.WithInstance(bindata.Resource(AssetNames(),
 		func(name string) ([]byte, error) {
 			return Asset(name)
@@ -23,6 +26,18 @@ func PrepareDB(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
+
+	schema, err := pgutil.ParseSchemaFromConnstr(dbURL)
+	if err != nil {
+		return errs.New("error parsing schema: %+v", err)
+	}
+	if schema != "" {
+		err := createSchema(db, schema)
+		if err != nil {
+			return errs.New("error creating schema: %+v", err)
+		}
+	}
+
 	dbDriver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {
 		return err
@@ -36,4 +51,12 @@ func PrepareDB(db *sql.DB) error {
 		err = nil
 	}
 	return err
+}
+
+func createSchema(db *sql.DB, schema string) error {
+	_, err := db.Exec(`create schema if not exists ` + strconv.QuoteToASCII(schema) + `;`)
+	if err != nil {
+		return err
+	}
+	return nil
 }

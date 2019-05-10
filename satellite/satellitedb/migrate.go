@@ -11,6 +11,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite/console"
@@ -23,6 +24,16 @@ var ErrMigrate = errs.Class("migrate")
 func (db *DB) CreateTables() error {
 	switch db.driver {
 	case "postgres":
+		schema, err := pgutil.ParseSchemaFromConnstr(db.source)
+		if err != nil {
+			return errs.New("error parsing schema: %+v", err)
+		}
+		if schema != "" {
+			err = db.CreateSchema(schema)
+			if err != nil {
+				return errs.New("error creating schema: %+v", err)
+			}
+		}
 		migration := db.PostgresMigration()
 		return migration.Run(db.log.Named("migrate"), db.db)
 	default:
