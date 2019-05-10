@@ -135,6 +135,12 @@ CREATE TABLE reset_password_tokens (
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
 );
+CREATE TABLE revocations (
+	id bigserial NOT NULL,
+	head bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE serial_numbers (
 	id serial NOT NULL,
 	serial_number bytea NOT NULL,

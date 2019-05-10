@@ -262,6 +262,30 @@ read all (
     orderby asc api_key.name
 )
 
+//-----revocations----//
+
+model revocation (
+	key id
+
+	field id         serial64
+	field head       blob
+	field created_at timestamp ( autoinsert )
+)
+
+create revocation ( )
+delete revocation ( )
+
+read one (
+	select revocation
+	where  revocation.id = ?
+)
+
+read all (
+	select revocation
+	join   revocation.head    = api_key.head
+	where  api_key.project_id = ?
+)
+
 //-----bucket_usage----//
 
 model bucket_usage (
@@ -453,7 +477,7 @@ read all (
 
 model storagenode_storage_tally (
 	key   id
-	
+
 	field id								serial64
 	field node_id						blob
 	field interval_end_time	timestamp
