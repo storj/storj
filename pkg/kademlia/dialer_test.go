@@ -183,7 +183,9 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 		tlsOpts, err := tlsopts.NewOptions(self.Identity, tlsopts.Config{})
 		require.NoError(t, err)
 
-		self.Transport = transport.NewClientWithTimeout(tlsOpts, 20*time.Millisecond)
+		self.Transport = transport.NewClientWithTimeouts(tlsOpts, transport.Timeouts{
+			Dial: 20 * time.Millisecond,
+		})
 
 		network := &transport.SimulatedNetwork{
 			DialLatency:    200 * time.Second,
@@ -217,7 +219,9 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 		tlsOpts, err := tlsopts.NewOptions(self.Identity, tlsopts.Config{})
 		require.NoError(t, err)
 
-		self.Transport = transport.NewClientWithTimeout(tlsOpts, 20*time.Millisecond)
+		self.Transport = transport.NewClientWithTimeouts(tlsOpts, transport.Timeouts{
+			Dial: 20 * time.Millisecond,
+		})
 
 		network := &transport.SimulatedNetwork{
 			DialLatency:    200 * time.Second,
@@ -252,7 +256,9 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 		tlsOpts, err := tlsopts.NewOptions(self.Identity, tlsopts.Config{})
 		require.NoError(t, err)
 
-		self.Transport = transport.NewClientWithTimeout(tlsOpts, 20*time.Millisecond)
+		self.Transport = transport.NewClientWithTimeouts(tlsOpts, transport.Timeouts{
+			Dial: 20 * time.Millisecond,
+		})
 
 		network := &transport.SimulatedNetwork{
 			DialLatency:    200 * time.Second,
