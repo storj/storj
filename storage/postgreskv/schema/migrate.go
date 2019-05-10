@@ -13,6 +13,7 @@ import (
 	"github.com/golang-migrate/migrate/v3/database/postgres"
 	bindata "github.com/golang-migrate/migrate/v3/source/go_bindata"
 	"github.com/zeebo/errs"
+
 	"storj.io/storj/internal/dbutil/pgutil"
 )
 
