@@ -262,10 +262,13 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		consoleAuthToken := "secure_token"
 
 		var schema string
-		database := "sqlite3://" + process.Directory + "/master.db"
+		sqlDatabase := "sqlite3://" + process.Directory + "/master.db"
+		kvDatabase := "bolt://" + process.Directory + "pointers.db"
 		if flags.Postgres != "" {
 			schema = fmt.Sprintf("satellite%d", i)
-			database = pgutil.ConnstrWithSchema(flags.Postgres, schema)
+			postgresConnstr := pgutil.ConnstrWithSchema(flags.Postgres, schema)
+			sqlDatabase = postgresConnstr
+			kvDatabase = postgresConnstr
 		}
 		process.Arguments = withCommon(process.Directory, Arguments{
 			"setup": {
@@ -289,8 +292,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
 				"--debug.addr", net.JoinHostPort("127.0.0.1", port(satellitePeer, i, debugHTTP)),
 
-				"--database", database,
-				"--metainfo.database-url", database,
+				"--database", sqlDatabase,
+				"--metainfo.database-url", kvDatabase,
 			},
 			"run": {},
 		})
