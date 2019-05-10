@@ -60,6 +60,7 @@ func (scope *Scope) register(name string, val interface{}, pusher func(l *lua.St
 // Run runs the Lua source represented by in
 func (scope *Scope) Run(in io.Reader) error {
 	l := lua.NewState()
+	lua.OpenLibraries(l)
 	luar.SetOptions(l, luar.Options{AllowUnexportedAccess: true})
 
 	scope.mu.Lock()

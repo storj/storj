@@ -273,9 +273,11 @@ func (code *Code) PrintLockedFunc(receiverType string, method *types.Func, nesti
 	sig := method.Type().Underlying().(*types.Signature)
 	code.IncludeImports(sig)
 
-	doc := code.MethodDoc(method)
+	doc := strings.TrimSpace(code.MethodDoc(method))
 	if doc != "" {
-		code.Printf("// %s", code.MethodDoc(method))
+		for _, line := range strings.Split(doc, "\n") {
+			code.Printf("// %s\n", line)
+		}
 	}
 	code.Printf("func (m *%s) %s", receiverType, method.Name())
 	code.PrintSignature(sig)

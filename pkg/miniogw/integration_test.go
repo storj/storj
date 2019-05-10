@@ -37,7 +37,7 @@ type config struct {
 }
 
 func TestUploadDownload(t *testing.T) {
-	t.Skip("disable because, keeps stalling Travis intermittently")
+	t.Skip("disable because, keeps stalling CI intermittently")
 
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
@@ -177,7 +177,6 @@ func runGateway(ctx context.Context, gwCfg config, uplinkCfg uplink.Config, log 
 		SkipPeerCAWhitelist: !uplinkCfg.TLS.UsePeerCAWhitelist,
 		PeerCAWhitelistPath: uplinkCfg.TLS.PeerCAWhitelistPath,
 	}
-	cfg.Volatile.UseIdentity = ident
 	cfg.Volatile.MaxInlineSize = uplinkCfg.Client.MaxInlineSize
 	cfg.Volatile.MaxMemory = uplinkCfg.RS.MaxBufferMem
 
