@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/araddon/dateparse"
+	"github.com/gogo/protobuf/proto"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
@@ -44,6 +44,8 @@ func init() {
 	cfgstruct.Bind(shareCmd.Flags(), &shareCfg)
 }
 
+const shareISO8601 = "2006-01-02T15:04:05-0700"
+
 func parseHumanDate(date string, now time.Time) (*time.Time, error) {
 	if date == "" {
 		return nil, nil
@@ -58,7 +60,7 @@ func parseHumanDate(date string, now time.Time) (*time.Time, error) {
 		t := now.Add(-d)
 		return &t, errs.Wrap(err)
 	} else {
-		t, err := dateparse.ParseAny(date)
+		t, err := time.Parse(shareISO8601, date)
 		return &t, errs.Wrap(err)
 	}
 }
@@ -135,6 +137,23 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 			Bucket:              []byte(p.Bucket()),
 			EncryptedPathPrefix: []byte(encPath),
 		})
+	}
+
+	{
+		// Times don't marshal very well with MarshalTextString, and the nonce doesn't
+		// matter to humans, so handle those explicitly and then dispatch to the generic
+		// routine to avoid having to print all the things individually.
+		caveat := caveat
+		caveat.Nonce = nil
+		if caveat.NotBefore != nil {
+			fmt.Println("not before:", caveat.NotBefore.Truncate(0).Format(shareISO8601))
+			caveat.NotBefore = nil
+		}
+		if caveat.NotAfter != nil {
+			fmt.Println("not after:", caveat.NotAfter.Truncate(0).Format(shareISO8601))
+			caveat.NotAfter = nil
+		}
+		fmt.Print(proto.MarshalTextString(&caveat))
 	}
 
 	key, err = key.Restrict(caveat)
