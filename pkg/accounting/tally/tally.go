@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/pkg/accounting/live"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -33,10 +34,11 @@ type Service struct {
 	ticker                  *time.Ticker
 	storagenodeAccountingDB accounting.StoragenodeAccounting
 	projectAccountingDB     accounting.ProjectAccounting
+  liveAccounting          live.Service
 }
 
 // New creates a new tally Service
-func New(logger *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accounting.ProjectAccounting, metainfo *metainfo.Service, overlay *overlay.Cache, limit int, interval time.Duration) *Service {
+func New(logger *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accounting.ProjectAccounting, liveAccounting live.Service, metainfo *metainfo.Service, overlay *overlay.Cache, limit int, interval time.Duration) *Service {
 	return &Service{
 		logger:                  logger,
 		metainfo:                metainfo,
@@ -45,6 +47,7 @@ func New(logger *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accountin
 		ticker:                  time.NewTicker(interval),
 		storagenodeAccountingDB: sdb,
 		projectAccountingDB:     pdb,
+    liveAccounting:          liveAccounting,
 	}
 }
 
@@ -67,6 +70,15 @@ func (t *Service) Run(ctx context.Context) (err error) {
 
 // Tally calculates data-at-rest usage once
 func (t *Service) Tally(ctx context.Context) error {
+	// The live accounting store will only keep a delta to space used relative
+	// to the latest tally. Since a new tally is beginning, we will zero it out
+	// now. There is a window between this call and the point where the tally DB
+	// transaction starts, during which some changes in space usage may be
+	// double-counted (counted in the tally and also counted as a delta to
+	// the tally). If that happens, it will be fixed at the time of the next
+	// tally run.
+	t.liveAccounting.ResetTotals()
+
 	var errAtRest, errBucketInfo error
 	latestTally, nodeData, bucketData, err := t.CalculateAtRestData(ctx)
 	if err != nil {
