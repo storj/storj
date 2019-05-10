@@ -19,6 +19,7 @@ import (
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/pkg/accounting/live"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
@@ -43,26 +44,28 @@ type APIKeys interface {
 
 // Endpoint metainfo endpoint
 type Endpoint struct {
-	log           *zap.Logger
-	metainfo      *Service
-	orders        *orders.Service
-	cache         *overlay.Cache
-	apiKeys       APIKeys
-	accountingDB  accounting.DB
-	maxAlphaUsage memory.Size
+	log            *zap.Logger
+	metainfo       *Service
+	orders         *orders.Service
+	cache          *overlay.Cache
+	apiKeys        APIKeys
+	accountingDB   accounting.DB
+	liveAccounting live.Service
+	maxAlphaUsage  memory.Size
 }
 
 // NewEndpoint creates new metainfo endpoint instance
-func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, apiKeys APIKeys, acctDB accounting.DB, maxAlphaUsage memory.Size) *Endpoint {
+func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, apiKeys APIKeys, acctDB accounting.DB, liveAccounting live.Service, maxAlphaUsage memory.Size) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
-		log:           log,
-		metainfo:      metainfo,
-		orders:        orders,
-		cache:         cache,
-		apiKeys:       apiKeys,
-		accountingDB:  acctDB,
-		maxAlphaUsage: maxAlphaUsage,
+		log:            log,
+		metainfo:       metainfo,
+		orders:         orders,
+		cache:          cache,
+		apiKeys:        apiKeys,
+		accountingDB:   acctDB,
+		liveAccounting: liveAccounting,
+		maxAlphaUsage:  maxAlphaUsage,
 	}
 }
 
@@ -144,10 +147,9 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 	// Check if this projectID has exceeded alpha usage limits, i.e. 25GB of bandwidth or storage used in the past month
 	// TODO: remove this code once we no longer need usage limiting for alpha release
 	// Ref: https://storjlabs.atlassian.net/browse/V3-1274
-	bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
-	inlineTotal, remoteTotal, err := endpoint.accountingDB.ProjectStorageTotals(ctx, keyInfo.ProjectID)
+	inlineTotal, remoteTotal, err := endpoint.getProjectStorageTotals(ctx, keyInfo.ProjectID)
 	if err != nil {
-		endpoint.log.Error("retrieving ProjectStorageTotals", zap.Error(err))
+		endpoint.log.Error("retrieving project storage totals", zap.Error(err))
 	}
 	exceeded, resource := accounting.ExceedsAlphaUsage(0, inlineTotal, remoteTotal, endpoint.maxAlphaUsage)
 	if exceeded {
@@ -180,12 +182,41 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
+	bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
 	rootPieceID, addressedLimits, err := endpoint.orders.CreatePutOrderLimits(ctx, uplinkIdentity, bucketID, nodes, req.Expiration, maxPieceSize)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
 	return &pb.SegmentWriteResponse{AddressedLimits: addressedLimits, RootPieceId: rootPieceID}, nil
+}
+
+func (endpoint *Endpoint) getProjectStorageTotals(ctx context.Context, projectID uuid.UUID) (int64, int64, error) {
+	lastCountInline, lastCountRemote, err := endpoint.accountingDB.ProjectStorageTotals(ctx, projectID)
+	if err != nil {
+		return 0, 0, err
+	}
+	rtInline, rtRemote, err := endpoint.liveAccounting.GetProjectStorageUsage(ctx, projectID)
+	if err != nil {
+		return 0, 0, err
+	}
+	return lastCountInline + rtInline, lastCountRemote + rtRemote, nil
+}
+
+func calculateSpaceUsed(ptr *pb.Pointer) (inlineSpace, remoteSpace int64) {
+	inline := ptr.GetInlineSegment()
+	if inline != nil {
+		return int64(len(inline)), 0
+	}
+	segmentSize := ptr.GetSegmentSize()
+	remote := ptr.GetRemote()
+	if remote == nil {
+		return 0, 0
+	}
+	minReq := remote.GetRedundancy().GetMinReq()
+	pieceSize := segmentSize / int64(minReq)
+	pieces := remote.GetRemotePieces()
+	return 0, pieceSize * int64(len(pieces))
 }
 
 // CommitSegment commits segment metadata
@@ -215,6 +246,13 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	path, err := CreatePath(keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	inlineUsed, remoteUsed := calculateSpaceUsed(req.Pointer)
+	if err := endpoint.liveAccounting.AddProjectStorageUsage(ctx, keyInfo.ProjectID, inlineUsed, remoteUsed); err != nil {
+		endpoint.log.Sugar().Errorf("Could not track new storage usage by project %v: %v", keyInfo.ProjectID, err)
+		// but continue. it's most likely our own fault that we couldn't track it, and the only thing
+		// that will be affected is our per-project bandwidth and storage limits.
 	}
 
 	err = endpoint.metainfo.Put(path, req.Pointer)
