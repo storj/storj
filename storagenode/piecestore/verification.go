@@ -66,6 +66,9 @@ func (endpoint *Endpoint) VerifyOrderLimit(ctx context.Context, limit *pb.OrderL
 	}
 
 	if err := endpoint.VerifyOrderLimitSignature(ctx, limit); err != nil {
+		if err == context.Canceled {
+			return err
+		}
 		return ErrVerifyUntrusted.Wrap(err)
 	}
 
@@ -124,6 +127,9 @@ func (endpoint *Endpoint) VerifyPieceHash(ctx context.Context, peer *identity.Pe
 func (endpoint *Endpoint) VerifyOrderLimitSignature(ctx context.Context, limit *pb.OrderLimit2) error {
 	signee, err := endpoint.trust.GetSignee(ctx, limit.SatelliteId)
 	if err != nil {
+		if err == context.Canceled {
+			return err
+		}
 		return ErrVerifyUntrusted.New("unable to get signee: %v", err) // TODO: report grpc status bad message
 	}
 

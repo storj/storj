@@ -22,22 +22,22 @@ func assertEqual(actual, expected interface{}) {
 func TestBind(t *testing.T) {
 	f := pflag.NewFlagSet("test", pflag.PanicOnError)
 	var c struct {
-		String   string        `default:"" devDefault:"dev"`
-		Bool     bool          `default:"false" devDefault:"true"`
-		Int64    int64         `default:"0" devDefault:"1"`
-		Int      int           `default:"0" devDefault:"2"`
-		Uint64   uint64        `default:"0" devDefault:"3"`
-		Uint     uint          `default:"0" devDefault:"4"`
-		Float64  float64       `default:"0" devDefault:"5.5"`
-		Duration time.Duration `default:"0" devDefault:"1h"`
+		String   string        `default:""`
+		Bool     bool          `releaseDefault:"false" devDefault:"true"`
+		Int64    int64         `releaseDefault:"0" devDefault:"1"`
+		Int      int           `default:"0"`
+		Uint64   uint64        `default:"0"`
+		Uint     uint          `default:"0"`
+		Float64  float64       `default:"0"`
+		Duration time.Duration `default:"0"`
 		Struct   struct {
-			AnotherString string `default:"" devDefault:"dev2"`
+			AnotherString string `default:""`
 		}
 		Fields [10]struct {
-			AnotherInt int `default:"0" devDefault:"6"`
+			AnotherInt int `default:"0"`
 		}
 	}
-	Bind(f, &c, false)
+	Bind(f, &c, UseReleaseDefaults())
 
 	assertEqual(c.String, string(""))
 	assertEqual(c.Bool, bool(false))
@@ -88,7 +88,7 @@ func TestConfDir(t *testing.T) {
 			}
 		}
 	}
-	Bind(f, &c, false, ConfDir("confpath"))
+	Bind(f, &c, UseReleaseDefaults(), ConfDir("confpath"))
 	assertEqual(f.Lookup("string").DefValue, "-confpath+")
 	assertEqual(f.Lookup("my-struct1.string").DefValue, "1confpath2")
 	assertEqual(f.Lookup("my-struct1.my-struct2.string").DefValue, "2confpath3")
@@ -105,7 +105,7 @@ func TestNesting(t *testing.T) {
 			}
 		}
 	}
-	Bind(f, &c, false, ConfDirNested("confpath"))
+	Bind(f, &c, UseReleaseDefaults(), ConfDirNested("confpath"))
 	assertEqual(f.Lookup("string").DefValue, "-confpath+")
 	assertEqual(f.Lookup("my-struct1.string").DefValue, filepath.FromSlash("1confpath/my-struct12"))
 	assertEqual(f.Lookup("my-struct1.my-struct2.string").DefValue, filepath.FromSlash("2confpath/my-struct1/my-struct23"))
@@ -114,22 +114,22 @@ func TestNesting(t *testing.T) {
 func TestBindDevDefaults(t *testing.T) {
 	f := pflag.NewFlagSet("test", pflag.PanicOnError)
 	var c struct {
-		String   string        `default:"" devDefault:"dev"`
-		Bool     bool          `default:"false" devDefault:"true"`
-		Int64    int64         `default:"0" devDefault:"1"`
-		Int      int           `default:"0" devDefault:"2"`
-		Uint64   uint64        `default:"0" devDefault:"3"`
-		Uint     uint          `default:"0" devDefault:"4"`
-		Float64  float64       `default:"0" devDefault:"5.5"`
-		Duration time.Duration `default:"0" devDefault:"1h"`
+		String   string        `default:"dev"`
+		Bool     bool          `releaseDefault:"false" devDefault:"true"`
+		Int64    int64         `releaseDefault:"0" devDefault:"1"`
+		Int      int           `default:"2"`
+		Uint64   uint64        `default:"3"`
+		Uint     uint          `releaseDefault:"0" devDefault:"4"`
+		Float64  float64       `default:"5.5"`
+		Duration time.Duration `default:"1h"`
 		Struct   struct {
-			AnotherString string `default:"" devDefault:"dev2"`
+			AnotherString string `default:"dev2"`
 		}
 		Fields [10]struct {
-			AnotherInt int `default:"0" devDefault:"6"`
+			AnotherInt int `default:"6"`
 		}
 	}
-	Bind(f, &c, true)
+	Bind(f, &c, UseDevDefaults())
 
 	assertEqual(c.String, string("dev"))
 	assertEqual(c.Bool, bool(true))

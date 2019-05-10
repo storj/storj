@@ -19,12 +19,12 @@ import (
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/pkg/accounting/live"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/orders"
@@ -44,26 +44,28 @@ type APIKeys interface {
 
 // Endpoint metainfo endpoint
 type Endpoint struct {
-	log           *zap.Logger
-	pointerdb     *pointerdb.Service
-	orders        *orders.Service
-	cache         *overlay.Cache
-	apiKeys       APIKeys
-	accountingDB  accounting.DB
-	maxAlphaUsage memory.Size
+	log            *zap.Logger
+	metainfo       *Service
+	orders         *orders.Service
+	cache          *overlay.Cache
+	apiKeys        APIKeys
+	accountingDB   accounting.DB
+	liveAccounting live.Service
+	maxAlphaUsage  memory.Size
 }
 
 // NewEndpoint creates new metainfo endpoint instance
-func NewEndpoint(log *zap.Logger, pointerdb *pointerdb.Service, orders *orders.Service, cache *overlay.Cache, apiKeys APIKeys, acctDB accounting.DB, maxAlphaUsage memory.Size) *Endpoint {
+func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, apiKeys APIKeys, acctDB accounting.DB, liveAccounting live.Service, maxAlphaUsage memory.Size) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
-		log:           log,
-		pointerdb:     pointerdb,
-		orders:        orders,
-		cache:         cache,
-		apiKeys:       apiKeys,
-		accountingDB:  acctDB,
-		maxAlphaUsage: maxAlphaUsage,
+		log:            log,
+		metainfo:       metainfo,
+		orders:         orders,
+		cache:          cache,
+		apiKeys:        apiKeys,
+		accountingDB:   acctDB,
+		liveAccounting: liveAccounting,
+		maxAlphaUsage:  maxAlphaUsage,
 	}
 }
 
@@ -77,7 +79,7 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context) (*console.APIKeyInfo
 		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
 	}
 
-	key, err := console.APIKeyFromBase64(string(APIKey))
+	key, err := console.APIKeyFromBase32(string(APIKey))
 	if err != nil {
 		endpoint.log.Error("unauthorized request: ", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
 		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
@@ -112,7 +114,7 @@ func (endpoint *Endpoint) SegmentInfo(ctx context.Context, req *pb.SegmentInfoRe
 	}
 
 	// TODO refactor to use []byte directly
-	pointer, err := endpoint.pointerdb.Get(path)
+	pointer, err := endpoint.metainfo.Get(path)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
 			return nil, status.Errorf(codes.NotFound, err.Error())
@@ -145,10 +147,9 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 	// Check if this projectID has exceeded alpha usage limits, i.e. 25GB of bandwidth or storage used in the past month
 	// TODO: remove this code once we no longer need usage limiting for alpha release
 	// Ref: https://storjlabs.atlassian.net/browse/V3-1274
-	bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
-	inlineTotal, remoteTotal, err := endpoint.accountingDB.ProjectStorageTotals(ctx, keyInfo.ProjectID)
+	inlineTotal, remoteTotal, err := endpoint.getProjectStorageTotals(ctx, keyInfo.ProjectID)
 	if err != nil {
-		endpoint.log.Error("retrieving ProjectStorageTotals", zap.Error(err))
+		endpoint.log.Error("retrieving project storage totals", zap.Error(err))
 	}
 	exceeded, resource := accounting.ExceedsAlphaUsage(0, inlineTotal, remoteTotal, endpoint.maxAlphaUsage)
 	if exceeded {
@@ -181,12 +182,41 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
+	bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
 	rootPieceID, addressedLimits, err := endpoint.orders.CreatePutOrderLimits(ctx, uplinkIdentity, bucketID, nodes, req.Expiration, maxPieceSize)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
 	return &pb.SegmentWriteResponse{AddressedLimits: addressedLimits, RootPieceId: rootPieceID}, nil
+}
+
+func (endpoint *Endpoint) getProjectStorageTotals(ctx context.Context, projectID uuid.UUID) (int64, int64, error) {
+	lastCountInline, lastCountRemote, err := endpoint.accountingDB.ProjectStorageTotals(ctx, projectID)
+	if err != nil {
+		return 0, 0, err
+	}
+	rtInline, rtRemote, err := endpoint.liveAccounting.GetProjectStorageUsage(ctx, projectID)
+	if err != nil {
+		return 0, 0, err
+	}
+	return lastCountInline + rtInline, lastCountRemote + rtRemote, nil
+}
+
+func calculateSpaceUsed(ptr *pb.Pointer) (inlineSpace, remoteSpace int64) {
+	inline := ptr.GetInlineSegment()
+	if inline != nil {
+		return int64(len(inline)), 0
+	}
+	segmentSize := ptr.GetSegmentSize()
+	remote := ptr.GetRemote()
+	if remote == nil {
+		return 0, 0
+	}
+	minReq := remote.GetRedundancy().GetMinReq()
+	pieceSize := segmentSize / int64(minReq)
+	pieces := remote.GetRemotePieces()
+	return 0, pieceSize * int64(len(pieces))
 }
 
 // CommitSegment commits segment metadata
@@ -218,7 +248,14 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	err = endpoint.pointerdb.Put(path, req.Pointer)
+	inlineUsed, remoteUsed := calculateSpaceUsed(req.Pointer)
+	if err := endpoint.liveAccounting.AddProjectStorageUsage(ctx, keyInfo.ProjectID, inlineUsed, remoteUsed); err != nil {
+		endpoint.log.Sugar().Errorf("Could not track new storage usage by project %v: %v", keyInfo.ProjectID, err)
+		// but continue. it's most likely our own fault that we couldn't track it, and the only thing
+		// that will be affected is our per-project bandwidth and storage limits.
+	}
+
+	err = endpoint.metainfo.Put(path, req.Pointer)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
@@ -232,7 +269,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		}
 	}
 
-	pointer, err := endpoint.pointerdb.Get(path)
+	pointer, err := endpoint.metainfo.Get(path)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
@@ -277,7 +314,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	}
 
 	// TODO refactor to use []byte directly
-	pointer, err := endpoint.pointerdb.Get(path)
+	pointer, err := endpoint.metainfo.Get(path)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
 			return nil, status.Errorf(codes.NotFound, err.Error())
@@ -328,7 +365,7 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 	}
 
 	// TODO refactor to use []byte directly
-	pointer, err := endpoint.pointerdb.Get(path)
+	pointer, err := endpoint.metainfo.Get(path)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
 			return nil, status.Errorf(codes.NotFound, err.Error())
@@ -336,7 +373,7 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	err = endpoint.pointerdb.Delete(path)
+	err = endpoint.metainfo.Delete(path)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
@@ -373,7 +410,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.ListSegments
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	items, more, err := endpoint.pointerdb.List(prefix, string(req.StartAfter), string(req.EndBefore), req.Recursive, req.Limit, req.MetaFlags)
+	items, more, err := endpoint.metainfo.List(prefix, string(req.StartAfter), string(req.EndBefore), req.Recursive, req.Limit, req.MetaFlags)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "ListV2: %v", err)
 	}

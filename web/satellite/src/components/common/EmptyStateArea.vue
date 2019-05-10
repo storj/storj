@@ -80,6 +80,7 @@ export default class EmptyStateProjectArea extends Vue {
                 line-height: 35px;
                 margin-bottom: 15px;
                 min-width: 900px;
+                color: #354049;
             }
 
             p {

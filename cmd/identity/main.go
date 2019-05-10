@@ -56,6 +56,8 @@ var (
 		ParentCertPath string `help:"path to the parent authority's certificate chain"`
 		ParentKeyPath  string `help:"path to the parent authority's private key"`
 		Signer         certificates.CertClientConfig
+		// TODO: ideally the default is the latest version; can't interpolate struct tags
+		Version uint `default:"0" help:"identity version to use when creating an identity or CA"`
 	}
 
 	identityDir, configDir string
@@ -67,8 +69,8 @@ func init() {
 	rootCmd.AddCommand(newServiceCmd)
 	rootCmd.AddCommand(authorizeCmd)
 
-	cfgstruct.Bind(newServiceCmd.Flags(), &config, isDev, cfgstruct.ConfDir(defaultConfigDir), cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.Bind(authorizeCmd.Flags(), &config, isDev, cfgstruct.ConfDir(defaultConfigDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(newServiceCmd.Flags(), &config, defaults, cfgstruct.ConfDir(defaultConfigDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	cfgstruct.Bind(authorizeCmd.Flags(), &config, defaults, cfgstruct.ConfDir(defaultConfigDir), cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func main() {
@@ -101,6 +103,7 @@ func cmdNewService(cmd *cobra.Command, args []string) error {
 		Concurrency:    config.Concurrency,
 		ParentCertPath: config.ParentCertPath,
 		ParentKeyPath:  config.ParentKeyPath,
+		VersionNumber:  config.Version,
 	}
 
 	status, err := caConfig.Status()

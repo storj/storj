@@ -280,7 +280,6 @@ func (db *DB) getInfo(ctx context.Context, prefix string, bucket string, path st
 	if err != nil {
 		return object{}, storj.Object{}, err
 	}
-	lastSegmentMeta.RedundancyScheme = info.Stream.RedundancyScheme
 
 	return object{
 		fullpath:        fullpath,
@@ -342,7 +341,14 @@ func objectStreamFromMeta(bucket storj.Bucket, path storj.Path, lastSegment segm
 			SegmentCount:     stream.NumberOfSegments,
 			FixedSegmentSize: stream.SegmentsSize,
 
-			RedundancyScheme: segments.RedundancySchemeFromProto(redundancyScheme),
+			RedundancyScheme: storj.RedundancyScheme{
+				Algorithm:      storj.ReedSolomon,
+				ShareSize:      redundancyScheme.GetErasureShareSize(),
+				RequiredShares: int16(redundancyScheme.GetMinReq()),
+				RepairShares:   int16(redundancyScheme.GetRepairThreshold()),
+				OptimalShares:  int16(redundancyScheme.GetSuccessThreshold()),
+				TotalShares:    int16(redundancyScheme.GetTotal()),
+			},
 			EncryptionScheme: storj.EncryptionScheme{
 				Cipher:    storj.Cipher(streamMeta.EncryptionType),
 				BlockSize: streamMeta.EncryptionBlockSize,

@@ -13,6 +13,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
+
 	"storj.io/storj/pkg/peertls/tlsopts"
 
 	"storj.io/storj/internal/memory"
@@ -51,7 +52,7 @@ func TestDialer(t *testing.T) {
 		for _, peer := range peers {
 			peer := peer
 			group.Go(func() error {
-				pinged, err := dialer.PingNode(ctx, peer.Local())
+				pinged, err := dialer.PingNode(ctx, peer.Local().Node)
 				var pingErr error
 				if !pinged {
 					pingErr = fmt.Errorf("ping to %s should have succeeded", peer.ID())
@@ -71,7 +72,7 @@ func TestDialer(t *testing.T) {
 		defer ctx.Check(group.Wait)
 
 		group.Go(func() error {
-			ident, err := dialer.FetchPeerIdentity(ctx, planet.Satellites[0].Local())
+			ident, err := dialer.FetchPeerIdentity(ctx, planet.Satellites[0].Local().Node)
 			if err != nil {
 				return fmt.Errorf("failed to fetch peer identity")
 			}
@@ -107,7 +108,7 @@ func TestDialer(t *testing.T) {
 					peer.Local().Type.DPanicOnInvalid("test client peer")
 					target.Local().Type.DPanicOnInvalid("test client target")
 
-					results, err := dialer.Lookup(ctx, self.Local(), peer.Local(), target.Local())
+					results, err := dialer.Lookup(ctx, self.Local().Node, peer.Local().Node, target.Local().Node)
 					if err != nil {
 						return errs.Combine(errTag, err)
 					}
@@ -147,7 +148,7 @@ func TestDialer(t *testing.T) {
 				group.Go(func() error {
 					errTag := fmt.Errorf("invalid lookup peer:%s target:%s", peer.ID(), target)
 					peer.Local().Type.DPanicOnInvalid("peer info")
-					results, err := dialer.Lookup(ctx, self.Local(), peer.Local(), pb.Node{Id: target, Type: pb.NodeType_STORAGE})
+					results, err := dialer.Lookup(ctx, self.Local().Node, peer.Local().Node, pb.Node{Id: target})
 					if err != nil {
 						return errs.Combine(errTag, err)
 					}
@@ -176,13 +177,15 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 	// TODO: also use satellites
 	peers := planet.StorageNodes
 
-	{ // PingNode
+	func() { // PingNode
 		self := planet.StorageNodes[0]
 
 		tlsOpts, err := tlsopts.NewOptions(self.Identity, tlsopts.Config{})
 		require.NoError(t, err)
 
-		self.Transport = transport.NewClientWithTimeout(tlsOpts, 20*time.Millisecond)
+		self.Transport = transport.NewClientWithTimeouts(tlsOpts, transport.Timeouts{
+			Dial: 20 * time.Millisecond,
+		})
 
 		network := &transport.SimulatedNetwork{
 			DialLatency:    200 * time.Second,
@@ -201,22 +204,24 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 		for _, peer := range peers {
 			peer := peer
 			group.Go(func() error {
-				_, err := dialer.PingNode(ctx, peer.Local())
-				require.Error(t, err, context.DeadlineExceeded)
-				require.True(t, transport.Error.Has(err))
-
+				_, err := dialer.PingNode(ctx, peer.Local().Node)
+				if !transport.Error.Has(err) || errs.Unwrap(err) != context.DeadlineExceeded {
+					return errs.New("invalid error: %v", err)
+				}
 				return nil
 			})
 		}
-	}
+	}()
 
-	{ // FetchPeerIdentity
+	func() { // FetchPeerIdentity
 		self := planet.StorageNodes[1]
 
 		tlsOpts, err := tlsopts.NewOptions(self.Identity, tlsopts.Config{})
 		require.NoError(t, err)
 
-		self.Transport = transport.NewClientWithTimeout(tlsOpts, 20*time.Millisecond)
+		self.Transport = transport.NewClientWithTimeouts(tlsOpts, transport.Timeouts{
+			Dial: 20 * time.Millisecond,
+		})
 
 		network := &transport.SimulatedNetwork{
 			DialLatency:    200 * time.Second,
@@ -233,25 +238,27 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 		defer ctx.Check(group.Wait)
 
 		group.Go(func() error {
-			_, err := dialer.FetchPeerIdentity(ctx, planet.Satellites[0].Local())
-			require.Error(t, err, context.DeadlineExceeded)
-			require.True(t, transport.Error.Has(err))
-
+			_, err := dialer.FetchPeerIdentity(ctx, planet.Satellites[0].Local().Node)
+			if !transport.Error.Has(err) || errs.Unwrap(err) != context.DeadlineExceeded {
+				return errs.New("invalid error: %v", err)
+			}
 			_, err = dialer.FetchPeerIdentityUnverified(ctx, planet.Satellites[0].Addr())
-			require.Error(t, err, context.DeadlineExceeded)
-			require.True(t, transport.Error.Has(err))
-
+			if !transport.Error.Has(err) || errs.Unwrap(err) != context.DeadlineExceeded {
+				return errs.New("invalid error: %v", err)
+			}
 			return nil
 		})
-	}
+	}()
 
-	{ // Lookup
+	func() { // Lookup
 		self := planet.StorageNodes[2]
 
 		tlsOpts, err := tlsopts.NewOptions(self.Identity, tlsopts.Config{})
 		require.NoError(t, err)
 
-		self.Transport = transport.NewClientWithTimeout(tlsOpts, 20*time.Millisecond)
+		self.Transport = transport.NewClientWithTimeouts(tlsOpts, transport.Timeouts{
+			Dial: 20 * time.Millisecond,
+		})
 
 		network := &transport.SimulatedNetwork{
 			DialLatency:    200 * time.Second,
@@ -271,20 +278,19 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 			peer := peer
 			group.Go(func() error {
 				for _, target := range peers {
-					errTag := fmt.Errorf("lookup peer:%s target:%s", peer.ID(), target.ID())
 					peer.Local().Type.DPanicOnInvalid("test client peer")
 					target.Local().Type.DPanicOnInvalid("test client target")
 
-					_, err := dialer.Lookup(ctx, self.Local(), peer.Local(), target.Local())
-					require.Error(t, err, context.DeadlineExceeded, errTag)
-					require.True(t, transport.Error.Has(err), errTag)
-
+					_, err := dialer.Lookup(ctx, self.Local().Node, peer.Local().Node, target.Local().Node)
+					if !transport.Error.Has(err) || errs.Unwrap(err) != context.DeadlineExceeded {
+						return errs.New("invalid error: %v (peer:%s target:%s)", err, peer.ID(), target.ID())
+					}
 					return nil
 				}
 				return nil
 			})
 		}
-	}
+	}()
 }
 
 func containsResult(nodes []*pb.Node, target storj.NodeID) bool {

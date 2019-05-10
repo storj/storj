@@ -172,22 +172,12 @@ read limitoffset (
 //--- repairqueue ---//
 
 model injuredsegment (
-	key id
+	key path
 
-	field id   serial64
-	field info blob
+	field path text
+	field data blob
+	field attempted utimestamp (updatable, nullable)
 )
-
-create injuredsegment ( )
-
-read first (
-	select injuredsegment
-)
-
-read limitoffset (
-	select injuredsegment
-)
-delete injuredsegment ( where injuredsegment.id = ? )
 
 //--- satellite console ---//
 
@@ -234,6 +224,7 @@ read one (
     select project
     where project.id = ?
 )
+
 read all (
     select project
     join project.id = project_member.project_id

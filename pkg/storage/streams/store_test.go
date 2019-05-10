@@ -54,9 +54,6 @@ func TestStreamStoreMeta(t *testing.T) {
 		Expiration: staticTime,
 		Size:       50,
 		Data:       lastSegmentMetadata,
-		RedundancyScheme: storj.RedundancyScheme{
-			Algorithm: storj.ReedSolomon,
-		},
 	}
 
 	streamMetaUnmarshaled := pb.StreamMeta{}
@@ -66,11 +63,10 @@ func TestStreamStoreMeta(t *testing.T) {
 	}
 
 	segmentMetaStreamInfo := segments.Meta{
-		Modified:         staticTime,
-		Expiration:       staticTime,
-		Size:             50,
-		Data:             streamMetaUnmarshaled.EncryptedStreamInfo,
-		RedundancyScheme: segmentMeta.RedundancyScheme,
+		Modified:   staticTime,
+		Expiration: staticTime,
+		Size:       50,
+		Data:       streamMetaUnmarshaled.EncryptedStreamInfo,
 	}
 
 	streamMeta := convertMeta(segmentMetaStreamInfo, streamInfo, streamMetaUnmarshaled)
@@ -104,7 +100,6 @@ func TestStreamStoreMeta(t *testing.T) {
 		}
 
 		assert.Equal(t, test.streamMeta, meta, errTag)
-		assert.Equal(t, storj.ReedSolomon, test.streamMeta.RedundancyScheme.Algorithm)
 	}
 }
 
@@ -130,15 +125,10 @@ func TestStreamStorePut(t *testing.T) {
 	}
 
 	streamMeta := Meta{
-		Modified:     segmentMeta.Modified,
-		Expiration:   segmentMeta.Expiration,
-		Size:         4,
-		Data:         []byte("metadata"),
-		SegmentsSize: segSize,
-		EncryptionScheme: storj.EncryptionScheme{
-			Cipher:    dataCipher,
-			BlockSize: encBlockSize,
-		},
+		Modified:   segmentMeta.Modified,
+		Expiration: segmentMeta.Expiration,
+		Size:       4,
+		Data:       []byte("metadata"),
 	}
 
 	for i, test := range []struct {
@@ -257,15 +247,10 @@ func TestStreamStoreGet(t *testing.T) {
 	streamRanger := ranger.ByteRanger(nil)
 
 	streamMeta := Meta{
-		Modified:     staticTime,
-		Expiration:   staticTime,
-		Size:         0,
-		Data:         nil,
-		SegmentsSize: segSize,
-		EncryptionScheme: storj.EncryptionScheme{
-			Cipher:    dataCipher,
-			BlockSize: encBlockSize,
-		},
+		Modified:   staticTime,
+		Expiration: staticTime,
+		Size:       0,
+		Data:       nil,
 	}
 
 	for i, test := range []struct {

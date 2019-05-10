@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/version"
 )
 
@@ -30,6 +31,7 @@ type ServiceVersions struct {
 	Storagenode string `user:"true" help:"Allowed Storagenode Versions" default:"v0.0.1"`
 	Uplink      string `user:"true" help:"Allowed Uplink Versions" default:"v0.0.1"`
 	Gateway     string `user:"true" help:"Allowed Gateway Versions" default:"v0.0.1"`
+	Identity    string `user:"true" help:"Allowed Identity Versions" default:"v0.0.1"`
 }
 
 // Peer is the representation of a VersionControl Server.
@@ -46,13 +48,6 @@ type Peer struct {
 
 	// response contains the byte version of current allowed versions
 	response []byte
-}
-
-func ignoreCancel(err error) error {
-	if err == context.Canceled || err == http.ErrServerClosed {
-		return nil
-	}
-	return err
 }
 
 // HandleGet contains the request handler for the version control web server
@@ -98,6 +93,9 @@ func New(log *zap.Logger, config *Config) (peer *Peer, err error) {
 	gatewayVersions := strings.Split(config.Versions.Gateway, ",")
 	peer.Versions.Gateway, err = version.StrToSemVerList(gatewayVersions)
 
+	identityVersions := strings.Split(config.Versions.Identity, ",")
+	peer.Versions.Identity, err = version.StrToSemVerList(identityVersions)
+
 	peer.response, err = json.Marshal(peer.Versions)
 
 	if err != nil {
@@ -127,12 +125,12 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 
 	group.Go(func() error {
 		<-ctx.Done()
-		return ignoreCancel(peer.Server.Endpoint.Shutdown(ctx))
+		return errs2.IgnoreCanceled(peer.Server.Endpoint.Shutdown(ctx))
 	})
 	group.Go(func() error {
 		defer cancel()
 		peer.Log.Sugar().Infof("Versioning server started on %s", peer.Addr())
-		return ignoreCancel(peer.Server.Endpoint.Serve(peer.Server.Listener))
+		return errs2.IgnoreCanceled(peer.Server.Endpoint.Serve(peer.Server.Listener))
 	})
 	return group.Wait()
 }

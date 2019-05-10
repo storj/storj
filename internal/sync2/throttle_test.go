@@ -98,6 +98,6 @@ func TestThrottleBasic(t *testing.T) {
 	}
 
 	if err := <-c; err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 }

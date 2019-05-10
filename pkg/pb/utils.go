@@ -25,29 +25,15 @@ func NodesToIDs(nodes []*Node) storj.NodeIDList {
 // with gogo's customtype extension.
 // (see https://github.com/gogo/protobuf/issues/147)
 func CopyNode(src *Node) (dst *Node) {
-	src.Type.DPanicOnInvalid("copy node")
 	node := Node{Id: storj.NodeID{}}
 	copy(node.Id[:], src.Id[:])
+
 	if src.Address != nil {
 		node.Address = &NodeAddress{
 			Transport: src.Address.Transport,
 			Address:   src.Address.Address,
 		}
 	}
-	if src.Metadata != nil {
-		node.Metadata = &NodeMetadata{
-			Email:  src.Metadata.Email,
-			Wallet: src.Metadata.Wallet,
-		}
-	}
-	if src.Restrictions != nil {
-		node.Restrictions = &NodeRestrictions{
-			FreeBandwidth: src.Restrictions.FreeBandwidth,
-			FreeDisk:      src.Restrictions.FreeDisk,
-		}
-	}
-
-	node.Type = src.Type
 
 	return &node
 }

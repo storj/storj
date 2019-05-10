@@ -43,16 +43,16 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/piecestore/psserver"
-	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/storagenodedb"
@@ -63,7 +63,7 @@ import (
 type Peer interface {
 	ID() storj.NodeID
 	Addr() string
-	Local() pb.Node
+	Local() overlay.NodeDossier
 
 	Run(context.Context) error
 	Close() error
@@ -224,13 +224,13 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 	// init Satellites
 	for _, satellite := range planet.Satellites {
 		if len(satellite.Kademlia.Service.GetBootstrapNodes()) == 0 {
-			satellite.Kademlia.Service.SetBootstrapNodes([]pb.Node{planet.Bootstrap.Local()})
+			satellite.Kademlia.Service.SetBootstrapNodes([]pb.Node{planet.Bootstrap.Local().Node})
 		}
 	}
 	// init storage nodes
 	for _, storageNode := range planet.StorageNodes {
 		if len(storageNode.Kademlia.Service.GetBootstrapNodes()) == 0 {
-			storageNode.Kademlia.Service.SetBootstrapNodes([]pb.Node{planet.Bootstrap.Local()})
+			storageNode.Kademlia.Service.SetBootstrapNodes([]pb.Node{planet.Bootstrap.Local().Node})
 		}
 	}
 
@@ -258,10 +258,11 @@ func (planet *Planet) Start(ctx context.Context) {
 
 	planet.Bootstrap.Kademlia.Service.WaitForBootstrap()
 
-	for _, peer := range planet.Satellites {
+	for _, peer := range planet.StorageNodes {
 		peer.Kademlia.Service.WaitForBootstrap()
 	}
-	for _, peer := range planet.StorageNodes {
+
+	for _, peer := range planet.Satellites {
 		peer.Kademlia.Service.WaitForBootstrap()
 	}
 
@@ -280,7 +281,7 @@ func (planet *Planet) Reconnect(ctx context.Context) {
 	for _, storageNode := range planet.StorageNodes {
 		storageNode := storageNode
 		group.Go(func() error {
-			_, err := storageNode.Kademlia.Service.Ping(ctx, planet.Bootstrap.Local())
+			_, err := storageNode.Kademlia.Service.Ping(ctx, planet.Bootstrap.Local().Node)
 			if err != nil {
 				log.Error("storage node did not find bootstrap", zap.Error(err))
 			}
@@ -292,7 +293,7 @@ func (planet *Planet) Reconnect(ctx context.Context) {
 		satellite := satellite
 		group.Go(func() error {
 			for _, storageNode := range planet.StorageNodes {
-				_, err := satellite.Kademlia.Service.Ping(ctx, storageNode.Local())
+				_, err := satellite.Kademlia.Service.Ping(ctx, storageNode.Local().Node)
 				if err != nil {
 					log.Error("satellite did not find storage node", zap.Error(err))
 				}
@@ -436,8 +437,10 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				},
 			},
 			Kademlia: kademlia.Config{
-				Alpha:  5,
-				DBPath: storageDir, // TODO: replace with master db
+				Alpha:                5,
+				BootstrapBackoffBase: 500 * time.Millisecond,
+				BootstrapBackoffMax:  2 * time.Second,
+				DBPath:               storageDir, // TODO: replace with master db
 				Operator: kademlia.OperatorConfig{
 					Email:  prefix + "@example.com",
 					Wallet: "0x" + strings.Repeat("00", 20),
@@ -445,12 +448,12 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			},
 			Overlay: overlay.Config{
 				Node: overlay.NodeSelectionConfig{
-					UptimeRatio:           0,
-					UptimeCount:           0,
-					AuditSuccessRatio:     0,
-					AuditCount:            0,
-					NewNodeAuditThreshold: 0,
-					NewNodePercentage:     0,
+					UptimeRatio:       0,
+					UptimeCount:       0,
+					AuditSuccessRatio: 0,
+					AuditCount:        0,
+					NewNodePercentage: 0,
+					OnlineWindow:      time.Hour,
 				},
 			},
 			Discovery: discovery.Config{
@@ -459,7 +462,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				RefreshInterval:   1 * time.Second,
 				RefreshLimit:      100,
 			},
-			PointerDB: pointerdb.Config{
+			Metainfo: metainfo.Config{
 				DatabaseURL:          "bolt://" + filepath.Join(storageDir, "pointers.db"),
 				MinRemoteSegmentSize: 0, // TODO: fix tests to work with 1024
 				MaxInlineSegmentSize: 8000,
@@ -487,6 +490,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			Rollup: rollup.Config{
 				Interval:      2 * time.Minute,
 				MaxAlphaUsage: 25 * memory.GB,
+				DeleteTallies: false,
 			},
 			Mail: mailservice.Config{
 				SMTPServerAddress: "smtp.mail.example.com:587",
@@ -585,24 +589,26 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 				},
 			},
 			Kademlia: kademlia.Config{
-				Alpha:  5,
-				DBPath: storageDir, // TODO: replace with master db
+				BootstrapBackoffBase: 500 * time.Millisecond,
+				BootstrapBackoffMax:  2 * time.Second,
+				Alpha:                5,
+				DBPath:               storageDir, // TODO: replace with master db
 				Operator: kademlia.OperatorConfig{
 					Email:  prefix + "@example.com",
 					Wallet: "0x" + strings.Repeat("00", 20),
 				},
 			},
-			Storage: psserver.Config{
+			Storage: piecestore.OldConfig{
 				Path:                   "", // TODO: this argument won't be needed with master storagenodedb
-				AllocatedDiskSpace:     memory.TB,
+				AllocatedDiskSpace:     1500 * memory.GB,
 				AllocatedBandwidth:     memory.TB,
 				KBucketRefreshInterval: time.Hour,
 
-				AgreementSenderCheckInterval: time.Hour,
-				CollectorInterval:            time.Hour,
-
 				SatelliteIDRestriction:  true,
 				WhitelistedSatelliteIDs: strings.Join(whitelistedSatelliteIDs, ","),
+			},
+			Collector: collector.Config{
+				Interval: time.Minute,
 			},
 			Storage2: piecestore.Config{
 				Sender: orders.SenderConfig{
@@ -680,8 +686,10 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 			},
 		},
 		Kademlia: kademlia.Config{
-			Alpha:  5,
-			DBPath: dbDir, // TODO: replace with master db
+			BootstrapBackoffBase: 500 * time.Millisecond,
+			BootstrapBackoffMax:  2 * time.Second,
+			Alpha:                5,
+			DBPath:               dbDir, // TODO: replace with master db
 			Operator: kademlia.OperatorConfig{
 				Email:  prefix + "@example.com",
 				Wallet: "0x" + strings.Repeat("00", 20),

@@ -32,28 +32,19 @@ var mon = monkit.Package()
 
 // Meta info about a stream
 type Meta struct {
-	Modified         time.Time
-	Expiration       time.Time
-	Size             int64
-	Data             []byte
-	SegmentsSize     int64
-	EncryptionScheme storj.EncryptionScheme
-	RedundancyScheme storj.RedundancyScheme
+	Modified   time.Time
+	Expiration time.Time
+	Size       int64
+	Data       []byte
 }
 
 // convertMeta converts segment metadata to stream metadata
 func convertMeta(lastSegmentMeta segments.Meta, stream pb.StreamInfo, streamMeta pb.StreamMeta) Meta {
 	return Meta{
-		Modified:         lastSegmentMeta.Modified,
-		Expiration:       lastSegmentMeta.Expiration,
-		Size:             ((stream.NumberOfSegments - 1) * stream.SegmentsSize) + stream.LastSegmentSize,
-		Data:             stream.Metadata,
-		SegmentsSize:     stream.SegmentsSize,
-		RedundancyScheme: lastSegmentMeta.RedundancyScheme,
-		EncryptionScheme: storj.EncryptionScheme{
-			Cipher:    storj.Cipher(streamMeta.EncryptionType),
-			BlockSize: streamMeta.EncryptionBlockSize,
-		},
+		Modified:   lastSegmentMeta.Modified,
+		Expiration: lastSegmentMeta.Expiration,
+		Size:       ((stream.NumberOfSegments - 1) * stream.SegmentsSize) + stream.LastSegmentSize,
+		Data:       stream.Metadata,
 	}
 }
 
@@ -272,15 +263,10 @@ func (s *streamStore) upload(ctx context.Context, path storj.Path, pathCipher st
 	}
 
 	resultMeta := Meta{
-		Modified:     putMeta.Modified,
-		Expiration:   expiration,
-		Size:         streamSize,
-		Data:         metadata,
-		SegmentsSize: s.segmentSize,
-		EncryptionScheme: storj.EncryptionScheme{
-			Cipher:    s.cipher,
-			BlockSize: int32(s.encBlockSize),
-		},
+		Modified:   putMeta.Modified,
+		Expiration: expiration,
+		Size:       streamSize,
+		Data:       metadata,
 	}
 
 	return resultMeta, currentSegment, nil
@@ -555,7 +541,7 @@ func (lr *lazySegmentRanger) Range(ctx context.Context, offset, length int64) (i
 }
 
 // decryptRanger returns a decrypted ranger of the given rr ranger
-func decryptRanger(ctx context.Context, rr ranger.Ranger, decryptedSize int64, cipher storj.Cipher, derivedKey *storj.Key, encryptedKey storj.EncryptedPrivateKey, encryptedKeyNonce, startingNonce *storj.Nonce, encBlockSize int) (ranger.Ranger, error) {
+func decryptRanger(ctx context.Context, rr ranger.Ranger, decryptedSize int64, cipher storj.Cipher, derivedKey *storj.Key, encryptedKey storj.EncryptedPrivateKey, encryptedKeyNonce, startingNonce *storj.Nonce, encBlockSize int) (decrypted ranger.Ranger, err error) {
 	contentKey, err := encryption.DecryptKey(encryptedKey, cipher, derivedKey, encryptedKeyNonce)
 	if err != nil {
 		return nil, err
@@ -572,6 +558,7 @@ func decryptRanger(ctx context.Context, rr ranger.Ranger, decryptedSize int64, c
 		if err != nil {
 			return nil, err
 		}
+		defer func() { err = errs.Combine(err, reader.Close()) }()
 		cipherData, err := ioutil.ReadAll(reader)
 		if err != nil {
 			return nil, err

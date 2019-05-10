@@ -1,5 +1,5 @@
-# piecestore
-/pkg/piecestore/ @aleitner
+# storagenode
+/storagenode/ @aleitner
 
 # audits
 /pkg/audit/ @navillasa

@@ -19,8 +19,8 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
+	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
@@ -29,8 +29,7 @@ import (
 
 // GatewayFlags configuration flags
 type GatewayFlags struct {
-	Identity          identity.Config
-	GenerateTestCerts bool `default:"false" help:"generate sample TLS certs for Minio GW" setup:"true"`
+	NonInteractive bool `help:"disable interactive mode" default:"false" setup:"true"`
 
 	Server miniogw.ServerConfig
 	Minio  miniogw.MinioConfig
@@ -39,6 +38,8 @@ type GatewayFlags struct {
 }
 
 var (
+	// Error is the default gateway setup errs class
+	Error = errs.Class("gateway setup error")
 	// rootCmd represents the base gateway command when called without any subcommands
 	rootCmd = &cobra.Command{
 		Use:   "gateway",
@@ -62,7 +63,6 @@ var (
 
 	confDir     string
 	identityDir string
-	isDev       bool
 )
 
 func init() {
@@ -70,12 +70,12 @@ func init() {
 	defaultIdentityDir := fpath.ApplicationDir("storj", "identity", "gateway")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for gateway configuration")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for gateway identity credentials")
-	cfgstruct.DevFlag(rootCmd, &isDev, false, "use development and test configuration settings")
+	defaults := cfgstruct.DefaultsFlag(rootCmd)
 
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
-	cfgstruct.Bind(runCmd.Flags(), &runCfg, isDev, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, isDev, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	cfgstruct.Bind(runCmd.Flags(), &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
@@ -94,20 +94,8 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	if setupCfg.GenerateTestCerts {
-		minioCerts := filepath.Join(setupDir, "minio", "certs")
-		if err := os.MkdirAll(minioCerts, 0744); err != nil {
-			return err
-		}
-		if err := os.Link(setupCfg.Identity.CertPath, filepath.Join(minioCerts, "public.crt")); err != nil {
-			return err
-		}
-		if err := os.Link(setupCfg.Identity.KeyPath, filepath.Join(minioCerts, "private.key")); err != nil {
-			return err
-		}
-	}
-
 	overrides := map[string]interface{}{}
+
 	accessKeyFlag := cmd.Flag("minio.access-key")
 	if !accessKeyFlag.Changed {
 		accessKey, err := generateKey()
@@ -125,15 +113,14 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		overrides[secretKeyFlag.Name] = secretKey
 	}
 
+	if !setupCfg.NonInteractive {
+		return setupCfg.interactive(cmd, setupDir, overrides)
+	}
+
 	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
-	identity, err := runCfg.Identity.Load()
-	if err != nil {
-		zap.S().Fatal(err)
-	}
-
 	address := runCfg.Server.Address
 	host, port, err := net.SplitHostPort(address)
 	if err != nil {
@@ -149,22 +136,18 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	fmt.Printf("Secret key: %s\n", runCfg.Minio.SecretKey)
 
 	ctx := process.Ctx(cmd)
-	metainfo, _, err := runCfg.GetMetainfo(ctx, identity)
-	if err != nil {
-		return err
-	}
 
-	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
+	if err := process.InitMetrics(ctx, nil, ""); err != nil {
 		zap.S().Error("Failed to initialize telemetry batcher: ", err)
 	}
 
-	_, err = metainfo.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
+	err = checkCfg(ctx)
 	if err != nil {
 		return fmt.Errorf("Failed to contact Satellite.\n"+
 			"Perhaps your configuration is invalid?\n%s", err)
 	}
 
-	return runCfg.Run(ctx, identity)
+	return runCfg.Run(ctx)
 }
 
 func generateKey() (key string, err error) {
@@ -176,13 +159,24 @@ func generateKey() (key string, err error) {
 	return base58.Encode(buf[:]), nil
 }
 
+func checkCfg(ctx context.Context) (err error) {
+	proj, err := runCfg.openProject(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errs.Combine(err, proj.Close()) }()
+
+	_, err = proj.ListBuckets(ctx, &storj.BucketListOptions{Direction: storj.After})
+	return err
+}
+
 // Run starts a Minio Gateway given proper config
-func (flags GatewayFlags) Run(ctx context.Context, identity *identity.FullIdentity) (err error) {
+func (flags GatewayFlags) Run(ctx context.Context) (err error) {
 	err = minio.RegisterGatewayCommand(cli.Command{
 		Name:  "storj",
 		Usage: "Storj",
 		Action: func(cliCtx *cli.Context) error {
-			return flags.action(ctx, cliCtx, identity)
+			return flags.action(ctx, cliCtx)
 		},
 		HideHelpCommand: true,
 	})
@@ -205,8 +199,8 @@ func (flags GatewayFlags) Run(ctx context.Context, identity *identity.FullIdenti
 	return errs.New("unexpected minio exit")
 }
 
-func (flags GatewayFlags) action(ctx context.Context, cliCtx *cli.Context, identity *identity.FullIdentity) (err error) {
-	gw, err := flags.NewGateway(ctx, identity)
+func (flags GatewayFlags) action(ctx context.Context, cliCtx *cli.Context) (err error) {
+	gw, err := flags.NewGateway(ctx)
 	if err != nil {
 		return err
 	}
@@ -216,19 +210,96 @@ func (flags GatewayFlags) action(ctx context.Context, cliCtx *cli.Context, ident
 }
 
 // NewGateway creates a new minio Gateway
-func (flags GatewayFlags) NewGateway(ctx context.Context, identity *identity.FullIdentity) (gw minio.Gateway, err error) {
-	metainfo, streams, err := flags.GetMetainfo(ctx, identity)
+func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.Gateway, err error) {
+	encKey := new(storj.Key)
+	copy(encKey[:], flags.Enc.Key)
+
+	project, err := flags.openProject(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	return miniogw.NewStorjGateway(
-		metainfo,
-		streams,
-		storj.Cipher(flags.Enc.PathType),
-		flags.GetEncryptionScheme(),
+		project,
+		encKey,
+		storj.Cipher(flags.Enc.PathType).ToCipherSuite(),
+		flags.GetEncryptionScheme().ToEncryptionParameters(),
 		flags.GetRedundancyScheme(),
+		flags.Client.SegmentSize,
 	), nil
+}
+
+func (flags GatewayFlags) openProject(ctx context.Context) (*libuplink.Project, error) {
+	cfg := libuplink.Config{}
+	cfg.Volatile.TLS = struct {
+		SkipPeerCAWhitelist bool
+		PeerCAWhitelistPath string
+	}{
+		SkipPeerCAWhitelist: !flags.TLS.UsePeerCAWhitelist,
+		PeerCAWhitelistPath: flags.TLS.PeerCAWhitelistPath,
+	}
+	cfg.Volatile.MaxInlineSize = flags.Client.MaxInlineSize
+	cfg.Volatile.MaxMemory = flags.RS.MaxBufferMem
+
+	uplink, err := libuplink.NewUplink(ctx, &cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	apiKey, err := libuplink.ParseAPIKey(flags.Client.APIKey)
+	if err != nil {
+		return nil, err
+	}
+
+	encKey := new(storj.Key)
+	copy(encKey[:], flags.Enc.Key)
+
+	var opts libuplink.ProjectOptions
+	opts.Volatile.EncryptionKey = encKey
+
+	return uplink.OpenProject(ctx, flags.Client.SatelliteAddr, apiKey, &opts)
+}
+
+func (flags GatewayFlags) interactive(cmd *cobra.Command, setupDir string, overrides map[string]interface{}) error {
+	satelliteAddress, err := cfgstruct.PromptForSatelitte(cmd)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	apiKey, err := cfgstruct.PromptForAPIKey()
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	encKey, err := cfgstruct.PromptForEncryptionKey()
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	overrides["satellite-addr"] = satelliteAddress
+	overrides["api-key"] = apiKey
+	overrides["enc.key"] = encKey
+
+	err = process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
+	if err != nil {
+		return nil
+	}
+
+	_, err = fmt.Println(`
+Your S3 Gateway is configured and ready to use!
+
+Some things to try next:
+
+* Run 'gateway --help' to see the operations that can be performed
+
+* See https://github.com/storj/docs/blob/master/S3-Gateway.md#using-the-aws-s3-commandline-interface for some example commands
+	`)
+	if err != nil {
+		return nil
+	}
+
+	return nil
+
 }
 
 func main() {

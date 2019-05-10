@@ -6,6 +6,7 @@ package sync2
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -13,13 +14,20 @@ import (
 
 // Cycle implements a controllable recurring event.
 //
-// Cycle control methods don't have any effect after the cycle has completed.
+// Cycle control methods PANICS after Close has been called and don't have any
+// effect after Stop has been called.
+//
+// Start or Run (only of of them, not both) must be only called once.
 type Cycle struct {
 	interval time.Duration
 
 	ticker  *time.Ticker
 	control chan interface{}
-	stop    chan struct{}
+
+	stopsent int64
+	runexec  int64
+	stopping chan struct{}
+	stopped  chan struct{}
 
 	init sync.Once
 }
@@ -28,7 +36,6 @@ type (
 	// cycle control messages
 	cyclePause          struct{}
 	cycleContinue       struct{}
-	cycleStop           struct{}
 	cycleChangeInterval struct{ Interval time.Duration }
 	cycleTrigger        struct{ done chan struct{} }
 )
@@ -47,13 +54,15 @@ func (cycle *Cycle) SetInterval(interval time.Duration) {
 
 func (cycle *Cycle) initialize() {
 	cycle.init.Do(func() {
-		cycle.stop = make(chan struct{})
+		cycle.stopped = make(chan struct{})
+		cycle.stopping = make(chan struct{})
 		cycle.control = make(chan interface{})
 	})
 }
 
-// Start runs the specified function with an errgroup
+// Start runs the specified function with an errgroup.
 func (cycle *Cycle) Start(ctx context.Context, group *errgroup.Group, fn func(ctx context.Context) error) {
+	atomic.CompareAndSwapInt64(&cycle.runexec, 0, 1)
 	group.Go(func() error {
 		return cycle.Run(ctx, fn)
 	})
@@ -63,12 +72,17 @@ func (cycle *Cycle) Start(ctx context.Context, group *errgroup.Group, fn func(ct
 //
 // Every interval `fn` is started.
 // When `fn` is not fast enough, it may skip some of those executions.
+//
+// Run PANICS if it's called after Stop has been called.
 func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error) error {
+	atomic.CompareAndSwapInt64(&cycle.runexec, 0, 1)
 	cycle.initialize()
-	defer close(cycle.stop)
+	defer close(cycle.stopped)
 
 	currentInterval := cycle.interval
 	cycle.ticker = time.NewTicker(currentInterval)
+	defer cycle.ticker.Stop()
+
 	if err := fn(ctx); err != nil {
 		return err
 	}
@@ -79,8 +93,6 @@ func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error)
 			// handle control messages
 
 			switch message := message.(type) {
-			case cycleStop:
-				return nil
 
 			case cycleChangeInterval:
 				currentInterval = message.Interval
@@ -105,9 +117,12 @@ func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error)
 					return err
 				}
 				if message.done != nil {
-					message.done <- struct{}{}
+					close(message.done)
 				}
 			}
+
+		case <-cycle.stopping:
+			return nil
 
 		case <-ctx.Done():
 			// handle control messages
@@ -123,9 +138,15 @@ func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error)
 }
 
 // Close closes all resources associated with it.
+//
+// It MUST NOT be called concurrently.
 func (cycle *Cycle) Close() {
 	cycle.Stop()
-	<-cycle.stop
+
+	if atomic.LoadInt64(&cycle.runexec) == 1 {
+		<-cycle.stopped
+	}
+
 	close(cycle.control)
 }
 
@@ -134,13 +155,16 @@ func (cycle *Cycle) sendControl(message interface{}) {
 	cycle.initialize()
 	select {
 	case cycle.control <- message:
-	case <-cycle.stop:
+	case <-cycle.stopped:
 	}
 }
 
 // Stop stops the cycle permanently
 func (cycle *Cycle) Stop() {
-	cycle.sendControl(cycleStop{})
+	cycle.initialize()
+	if atomic.CompareAndSwapInt64(&cycle.stopsent, 0, 1) {
+		close(cycle.stopping)
+	}
 }
 
 // ChangeInterval allows to change the ticker interval after it has started.
@@ -168,11 +192,10 @@ func (cycle *Cycle) Trigger() {
 // If it's currently running it waits for the previous to complete and then runs.
 func (cycle *Cycle) TriggerWait() {
 	done := make(chan struct{})
-	defer close(done)
 
 	cycle.sendControl(cycleTrigger{done})
 	select {
 	case <-done:
-	case <-cycle.stop:
+	case <-cycle.stopped:
 	}
 }

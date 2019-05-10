@@ -25,7 +25,7 @@ import (
 
 // Satellite defines satellite configuration
 type Satellite struct {
-	Database string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
+	Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"sqlite3://$CONFDIR/master.db"`
 
 	satellite.Config
 }
@@ -72,19 +72,18 @@ var (
 	setupCfg Satellite
 
 	diagCfg struct {
-		Database string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
+		Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"sqlite3://$CONFDIR/master.db"`
 	}
 	qdiagCfg struct {
-		Database   string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
+		Database   string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"sqlite3://$CONFDIR/master.db"`
 		QListLimit int    `help:"maximum segments that can be requested" default:"1000"`
 	}
 	nodeUsageCfg struct {
-		Database string `help:"satellite database connection string" default:"sqlite3://$CONFDIR/master.db"`
+		Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"sqlite3://$CONFDIR/master.db"`
 		Output   string `help:"destination of report output" default:""`
 	}
 	confDir     string
 	identityDir string
-	isDev       bool
 )
 
 func init() {
@@ -92,18 +91,18 @@ func init() {
 	defaultIdentityDir := fpath.ApplicationDir("storj", "identity", "satellite")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for satellite configuration")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for satellite identity credentials")
-	cfgstruct.DevFlag(rootCmd, &isDev, true, "use development and test configuration settings")
+	defaults := cfgstruct.DefaultsFlag(rootCmd)
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(diagCmd)
 	rootCmd.AddCommand(qdiagCmd)
 	rootCmd.AddCommand(reportsCmd)
 	reportsCmd.AddCommand(nodeUsageCmd)
-	cfgstruct.Bind(runCmd.Flags(), &runCfg, isDev, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, isDev, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, isDev, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	cfgstruct.Bind(qdiagCmd.Flags(), &qdiagCfg, isDev, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	cfgstruct.Bind(nodeUsageCmd.Flags(), &nodeUsageCfg, isDev, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	cfgstruct.Bind(runCmd.Flags(), &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	cfgstruct.Bind(qdiagCmd.Flags(), &qdiagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	cfgstruct.Bind(nodeUsageCmd.Flags(), &nodeUsageCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -218,7 +217,7 @@ func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
 		}
 	}()
 
-	list, err := database.RepairQueue().Peekqueue(context.Background(), qdiagCfg.QListLimit)
+	list, err := database.RepairQueue().SelectN(context.Background(), qdiagCfg.QListLimit)
 	if err != nil {
 		return err
 	}

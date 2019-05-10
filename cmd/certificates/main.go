@@ -49,7 +49,6 @@ var (
 
 	confDir     string
 	identityDir string
-	isDev       bool
 )
 
 func cmdRun(cmd *cobra.Command, args []string) error {
@@ -69,7 +68,7 @@ func main() {
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for certificates configuration")
 	//cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", fpath.ApplicationDir("storj", "identity", "bootstrap"), "main directory for bootstrap identity credentials")
 	rootCmd.PersistentFlags().StringVar(&identityDir, "identity-dir", defaultIdentityDir, "main directory for storagenode identity credentials")
-	cfgstruct.DevFlag(rootCmd, &isDev, false, "use development and test configuration settings")
+	defaults := cfgstruct.DefaultsFlag(rootCmd)
 
 	rootCmd.AddCommand(authCmd)
 	rootCmd.AddCommand(runCmd)
@@ -83,15 +82,15 @@ func main() {
 	authCmd.AddCommand(authInfoCmd)
 	authCmd.AddCommand(authExportCmd)
 
-	cfgstruct.Bind(authCreateCmd.Flags(), &config, isDev, cfgstruct.ConfDir(confDir))
-	cfgstruct.Bind(authInfoCmd.Flags(), &config, isDev, cfgstruct.ConfDir(confDir))
-	cfgstruct.Bind(authExportCmd.Flags(), &config, isDev, cfgstruct.ConfDir(confDir))
-	cfgstruct.Bind(runCmd.Flags(), &config, isDev, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	cfgstruct.BindSetup(setupCmd.Flags(), &config, isDev, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	cfgstruct.Bind(signCmd.Flags(), &signCfg, isDev, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	cfgstruct.Bind(verifyCmd.Flags(), &verifyCfg, isDev, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	cfgstruct.Bind(claimsExportCmd.Flags(), &claimsExportCfg, isDev, cfgstruct.ConfDir(confDir))
-	cfgstruct.Bind(claimDeleteCmd.Flags(), &claimsDeleteCfg, isDev, cfgstruct.ConfDir(confDir))
+	cfgstruct.Bind(authCreateCmd.Flags(), &config, defaults, cfgstruct.ConfDir(confDir))
+	cfgstruct.Bind(authInfoCmd.Flags(), &config, defaults, cfgstruct.ConfDir(confDir))
+	cfgstruct.Bind(authExportCmd.Flags(), &config, defaults, cfgstruct.ConfDir(confDir))
+	cfgstruct.Bind(runCmd.Flags(), &config, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &config, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	cfgstruct.Bind(signCmd.Flags(), &signCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	cfgstruct.Bind(verifyCmd.Flags(), &verifyCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	cfgstruct.Bind(claimsExportCmd.Flags(), &claimsExportCfg, defaults, cfgstruct.ConfDir(confDir))
+	cfgstruct.Bind(claimDeleteCmd.Flags(), &claimsDeleteCfg, defaults, cfgstruct.ConfDir(confDir))
 
 	process.Exec(rootCmd)
 }

@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -31,5 +32,5 @@ func (c cacheConfig) open(ctx context.Context) (cache *overlay.Cache, dbClose fu
 		}
 	}
 
-	return overlay.NewCache(zap.L(), database.OverlayCache(), overlay.NodeSelectionConfig{}), dbClose, nil
+	return overlay.NewCache(zap.L(), database.OverlayCache(), overlay.NodeSelectionConfig{OnlineWindow: time.Hour}), dbClose, nil
 }

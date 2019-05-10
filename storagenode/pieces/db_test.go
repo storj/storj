@@ -122,11 +122,25 @@ func TestPieceInfo(t *testing.T) {
 		require.NoError(t, err)
 		require.Empty(t, cmp.Diff(info1, info1loaded, cmp.Comparer(pb.Equal)))
 
-		// getting expired pieces
-		exp := time.Now().Add(time.Hour * 24)
-		infoexp, err := pieceinfos.GetExpired(ctx, exp)
+		// getting no expired pieces
+		expired, err := pieceinfos.GetExpired(ctx, now.Add(-10*time.Hour), 10)
 		assert.NoError(t, err)
-		assert.NotEmpty(t, infoexp)
+		assert.Len(t, expired, 0)
+
+		// getting expired pieces
+		exp := now.Add(8 * 24 * time.Hour)
+		expired, err = pieceinfos.GetExpired(ctx, exp, 10)
+		assert.NoError(t, err)
+		assert.Len(t, expired, 3)
+
+		// mark info0 deletion as a failure
+		err = pieceinfos.DeleteFailed(ctx, info0.SatelliteID, info0.PieceID, exp)
+		assert.NoError(t, err)
+
+		// this shouldn't return info0
+		expired, err = pieceinfos.GetExpired(ctx, exp, 10)
+		assert.NoError(t, err)
+		assert.Len(t, expired, 2)
 
 		// deleting
 		err = pieceinfos.Delete(ctx, info0.SatelliteID, info0.PieceID)
@@ -135,7 +149,10 @@ func TestPieceInfo(t *testing.T) {
 		require.NoError(t, err)
 
 		// deleting expired pieces
-		err = pieceinfos.DeleteExpired(ctx, exp, info2.SatelliteID, info2.PieceID)
+		err = pieceinfos.Delete(ctx, info2.SatelliteID, info2.PieceID)
+		require.NoError(t, err)
+		// duplicate deletion
+		err = pieceinfos.Delete(ctx, info2.SatelliteID, info2.PieceID)
 		require.NoError(t, err)
 
 		// getting after delete

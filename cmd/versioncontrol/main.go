@@ -38,7 +38,6 @@ var (
 	setupCfg versioncontrol.Config
 
 	confDir string
-	isDev   bool
 )
 
 const (
@@ -48,11 +47,11 @@ const (
 func init() {
 	defaultConfDir := fpath.ApplicationDir("storj", "versioncontrol")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for versioncontrol configuration")
-	cfgstruct.DevFlag(rootCmd, &isDev, false, "use development and test configuration settings")
+	defaults := cfgstruct.DefaultsFlag(rootCmd)
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
-	cfgstruct.Bind(runCmd.Flags(), &runCfg, isDev, cfgstruct.ConfDir(confDir))
-	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, isDev, cfgstruct.ConfDir(confDir))
+	cfgstruct.Bind(runCmd.Flags(), &runCfg, defaults, cfgstruct.ConfDir(confDir))
+	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, defaults, cfgstruct.ConfDir(confDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {

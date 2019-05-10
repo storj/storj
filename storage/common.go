@@ -68,18 +68,6 @@ type KeyValueStore interface {
 	Close() error
 }
 
-//Queue is an interface describing queue stores like redis
-type Queue interface {
-	//Enqueue add a FIFO element
-	Enqueue(Value) error
-	//Dequeue removes a FIFO element, returning ErrEmptyQueue if empty
-	Dequeue() (Value, error)
-	//Peekqueue returns 'limit' elements from the queue
-	Peekqueue(limit int) ([]Value, error)
-	//Close closes the store
-	Close() error
-}
-
 // IterateOptions contains options for iterator
 type IterateOptions struct {
 	// Prefix ensure
@@ -94,8 +82,8 @@ type IterateOptions struct {
 
 // Iterator iterates over a sequence of ListItems
 type Iterator interface {
-	// Next prepares the next list item
-	// returns false when you reach final item
+	// Next prepares the next list item.
+	// It returns true on success, or false if there is no next result row or an error happened while preparing it.
 	Next(item *ListItem) bool
 }
 
