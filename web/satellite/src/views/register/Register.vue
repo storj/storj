@@ -10,7 +10,7 @@ import { EMPTY_STATE_IMAGES } from '../../utils/constants/emptyStatesImages';
 import RegistrationSuccessPopup from '../../components/common/RegistrationSuccessPopup.vue';
 import { validateEmail, validatePassword } from '../../utils/validation';
 import ROUTES from '../../utils/constants/routerConstants';
-import EVENTS from '../../utils/constants/UIEventNames';
+import EVENTS from '../../utils/constants/analyticsEventNames';
 import { LOADING_CLASSES } from '../../utils/constants/classConstants';
 import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '../../utils/constants/actionNames';
 import { createUserRequest } from '../../api/users';
