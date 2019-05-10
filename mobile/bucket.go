@@ -3,6 +3,7 @@ package mobile
 import (
 	"fmt"
 	"io"
+	"time"
 
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/storj"
@@ -42,10 +43,6 @@ type BucketInfo struct {
 	EncryptionParameters EncryptionParameters
 }
 
-type BucketConfig struct {
-	RedundancyScheme *RedundancyScheme
-}
-
 func newBucketInfo(bucket storj.Bucket) *BucketInfo {
 	return &BucketInfo{
 		Name:    bucket.Name,
@@ -63,6 +60,22 @@ func newBucketInfo(bucket storj.Bucket) *BucketInfo {
 			BlockSize:   bucket.EncryptionParameters.BlockSize,
 		},
 	}
+}
+
+type BucketConfig struct {
+	// PathCipher indicates which cipher suite is to be used for path
+	// encryption within the new Bucket. If not set, AES-GCM encryption
+	// will be used.
+	PathCipher byte
+
+	// EncryptionParameters specifies the default encryption parameters to
+	// be used for data encryption of new Objects in this bucket.
+	EncryptionParameters *EncryptionParameters
+
+	// RedundancyScheme defines the default Reed-Solomon and/or
+	// Forward Error Correction encoding parameters to be used by
+	// objects in this Bucket.
+	RedundancyScheme *RedundancyScheme
 }
 
 type BucketList struct {
@@ -137,6 +150,12 @@ type EncryptionParameters struct {
 	BlockSize int32
 }
 
+// DeleteObject removes an object, if authorized.
+func (bucket *Bucket) DeleteObject(objectName string) error {
+	scope := bucket.scope.child()
+	return bucket.lib.DeleteObject(scope.ctx, objectName)
+}
+
 // Close closes the Bucket session.
 func (bucket *Bucket) Close() error {
 	defer bucket.cancel()
@@ -144,6 +163,31 @@ func (bucket *Bucket) Close() error {
 }
 
 type WriterOptions struct {
+	// ContentType, if set, gives a MIME content-type for the Object.
+	ContentType string
+	// Metadata contains additional information about an Object. It can
+	// hold arbitrary textual fields and can be retrieved together with the
+	// Object. Field names can be at most 1024 bytes long. Field values are
+	// not individually limited in size, but the total of all metadata
+	// (fields and values) can not exceed 4 kiB.
+	Metadata map[string]string
+	// Expires is the time at which the new Object can expire (be deleted
+	// automatically from storage nodes).
+	Expires int
+
+	// Volatile groups config values that are likely to change semantics
+	// or go away entirely between releases. Be careful when using them!
+	Volatile struct {
+		// EncryptionParameters determines the cipher suite to use for
+		// the Object's data encryption. If not set, the Bucket's
+		// defaults will be used.
+		EncryptionParameters *EncryptionParameters
+
+		// RedundancyScheme determines the Reed-Solomon and/or Forward
+		// Error Correction encoding parameters to be used for this
+		// Object.
+		RedundancyScheme *RedundancyScheme
+	}
 }
 
 func NewWriterOptions() *WriterOptions {
@@ -155,10 +199,20 @@ type Writer struct {
 	writer io.WriteCloser
 }
 
+// NewWriter creates instance of Writer
 func (bucket *Bucket) NewWriter(path storj.Path, options *WriterOptions) (*Writer, error) {
 	scope := bucket.scope.child()
 
 	opts := &libuplink.UploadOptions{}
+	opts.ContentType = options.ContentType
+	opts.Metadata = options.Metadata
+	if options.Expires != 0 {
+		opts.Expires = time.Unix(int64(options.Expires), 0)
+	}
+	// opts.Volatile.EncryptionParameters =  options.Volatile.EncryptionParameters
+
+	opts.Volatile.RedundancyScheme = newStorjRedundancyScheme(options.Volatile.RedundancyScheme)
+
 	writer, err := bucket.lib.NewWriter(scope.ctx, path, opts)
 	if err != nil {
 		return nil, err
@@ -166,11 +220,14 @@ func (bucket *Bucket) NewWriter(path storj.Path, options *WriterOptions) (*Write
 	return &Writer{scope, writer}, nil
 }
 
-func (w *Writer) Write(data []byte) error {
-	_, err := w.writer.Write(data)
-	return err
+// Write writes data.length bytes from data to the underlying data stream.
+func (w *Writer) Write(data []byte) (int32, error) {
+	// in Java byte array size is max int32
+	n, err := w.writer.Write(data)
+	return int32(n), err
 }
 
+// Close closes writer
 func (w *Writer) Close() error {
 	defer w.cancel()
 	return w.writer.Close()

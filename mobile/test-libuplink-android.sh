@@ -12,7 +12,7 @@ set -ueo pipefail
 
 echo "Executing gomobile bind"
 
-gomobile bind -target android -o libuplink_android/app/libs/libuplink.aar -javapkg io.storj.libuplink storj.io/storj/mobile
+gomobile bind -target android -o libuplink_android/app/libs/libuplink-android.aar -javapkg io.storj.libuplink storj.io/storj/mobile
 
 cd libuplink_android
 

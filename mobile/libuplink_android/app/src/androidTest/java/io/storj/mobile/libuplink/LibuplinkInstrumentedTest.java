@@ -1,16 +1,14 @@
 package io.storj.mobile.libuplink;
 
-import android.support.test.runner.AndroidJUnit4;
 import android.support.test.InstrumentationRegistry;
+import android.support.test.runner.AndroidJUnit4;
 
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.io.BufferedOutputStream;
-import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
 import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
@@ -32,19 +30,27 @@ import io.storj.libuplink.mobile.WriterOptions;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 @RunWith(AndroidJUnit4.class)
 public class LibuplinkInstrumentedTest {
 
     public static final String VALID_SATELLITE_ADDRESS = "192.168.8.134:10000";
-    public static final String VALID_API_KEY = InstrumentationRegistry.getArguments().getString("api.key");
+    public static final String VALID_API_KEY = InstrumentationRegistry.getArguments().getString("api.key", "7RBD98DENOA4TCJ0MKMJBB5A6BM9O7R6MSMI5NO=");
+
+    String filesDir;
+
+    @Before
+    public void setUp() {
+        filesDir = InstrumentationRegistry.getTargetContext().getFilesDir().getAbsolutePath();
+    }
 
     @Test
     public void testOpenProjectFail() throws Exception {
         Config config = new Config();
 
-        Uplink uplink = new Uplink(config);
+        Uplink uplink = new Uplink(config, filesDir);
         try {
             ProjectOptions options = new ProjectOptions();
             options.setEncryptionKey("TestEncryptionKey".getBytes());
@@ -70,7 +76,7 @@ public class LibuplinkInstrumentedTest {
     public void testBasicBucket() throws Exception {
         Config config = new Config();
 
-        Uplink uplink = new Uplink(config);
+        Uplink uplink = new Uplink(config, filesDir);
         try {
             ProjectOptions options = new ProjectOptions();
             options.setEncryptionKey("TestEncryptionKey".getBytes());
@@ -105,7 +111,7 @@ public class LibuplinkInstrumentedTest {
     public void testListBuckets() throws Exception {
         Config config = new Config();
 
-        Uplink uplink = new Uplink(config);
+        Uplink uplink = new Uplink(config, filesDir);
         try {
             ProjectOptions options = new ProjectOptions();
             options.setEncryptionKey("TestEncryptionKey".getBytes());
@@ -125,13 +131,13 @@ public class LibuplinkInstrumentedTest {
                 BucketList bucketList = project.listBuckets("", 1, 100);
                 assertEquals(false, bucketList.more());
                 String aa = "";
-                for(int i =0; i< bucketList.length();i++){
-                    aa += bucketList.item(i).getName() +"|";
+                for (int i = 0; i < bucketList.length(); i++) {
+                    aa += bucketList.item(i).getName() + "|";
                 }
 
                 assertEquals(aa, expectedBuckets.size(), bucketList.length());
 
-                for (String bucket : expectedBuckets){
+                for (String bucket : expectedBuckets) {
                     project.deleteBucket(bucket);
                 }
 
@@ -152,7 +158,7 @@ public class LibuplinkInstrumentedTest {
     public void testUploadDownloadInline() throws Exception {
         Config config = new Config();
 
-        Uplink uplink = new Uplink(config);
+        Uplink uplink = new Uplink(config, filesDir);
         try {
             ProjectOptions options = new ProjectOptions();
             options.setEncryptionKey("TestEncryptionKey".getBytes());
@@ -165,10 +171,10 @@ public class LibuplinkInstrumentedTest {
                 access.setPathEncryptionKey("TestEncryptionKey".getBytes());
 
                 RedundancyScheme scheme = new RedundancyScheme();
-                scheme.setRequiredShares((short)2);
-                scheme.setRepairShares((short)4);
-                scheme.setOptimalShares((short)6);
-                scheme.setTotalShares((short)8);
+                scheme.setRequiredShares((short) 2);
+                scheme.setRepairShares((short) 4);
+                scheme.setOptimalShares((short) 6);
+                scheme.setTotalShares((short) 8);
 
                 BucketConfig bucketConfig = new BucketConfig();
                 bucketConfig.setRedundancyScheme(scheme);
@@ -178,14 +184,14 @@ public class LibuplinkInstrumentedTest {
                 Bucket bucket = project.openBucket("test", access);
 
                 byte[] expectedData = new byte[1024];
-                Random random = new Random() ;
+                Random random = new Random();
                 random.nextBytes(expectedData);
 
                 {
                     Writer writer = bucket.newWriter("object/path", new WriterOptions());
                     try {
                         writer.write(expectedData);
-                    }catch(Exception e){
+                    } catch (Exception e) {
                         e.printStackTrace();
                     } finally {
                         writer.close();
@@ -205,6 +211,89 @@ public class LibuplinkInstrumentedTest {
                     } finally {
                         reader.close();
                     }
+                }
+
+                project.deleteBucket("test");
+            } finally {
+                if (project != null) {
+                    project.close();
+                }
+            }
+        } finally {
+            uplink.close();
+        }
+    }
+
+
+    @Test
+    public void testUploadDownloadDeleteRemote() throws Exception {
+        Config config = new Config();
+
+        Uplink uplink = new Uplink(config, filesDir);
+        try {
+            ProjectOptions options = new ProjectOptions();
+            options.setEncryptionKey("TestEncryptionKey".getBytes());
+
+            Project project = null;
+            try {
+                project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY, options);
+
+                BucketAccess access = new BucketAccess();
+                access.setPathEncryptionKey("TestEncryptionKey".getBytes());
+
+                RedundancyScheme scheme = new RedundancyScheme();
+                scheme.setRequiredShares((short) 2);
+                scheme.setRepairShares((short) 4);
+                scheme.setOptimalShares((short) 6);
+                scheme.setTotalShares((short) 8);
+
+                BucketConfig bucketConfig = new BucketConfig();
+                bucketConfig.setRedundancyScheme(scheme);
+
+                project.createBucket("test", bucketConfig);
+
+                Bucket bucket = project.openBucket("test", access);
+
+                byte[] expectedData = new byte[1024 * 100];
+                Random random = new Random();
+                random.nextBytes(expectedData);
+//                InputStream stream = new ByteArrayInputStream(expectedData);
+                {
+//                    System.out.println(expectedData.length);
+                    Writer writer = bucket.newWriter("object/path", new WriterOptions());
+                    try {
+//                        byte[] buf = new byte[4096];
+//                        int read = 0;
+//                        while ((read = stream.read(buf)) != -1) {
+                        writer.write(expectedData);
+//                          assertEquals(n, buf.length);
+//                        }
+                    } finally {
+                        writer.close();
+                    }
+                }
+
+                {
+                    Reader reader = bucket.newReader("object/path", new ReaderOptions());
+                    try {
+                        ByteArrayOutputStream writer = new ByteArrayOutputStream();
+                        byte[] buf = new byte[4096];
+                        int read = 0;
+                        while ((read = reader.read(buf)) != -1) {
+                            writer.write(buf, 0, read);
+                        }
+                        assertEquals(expectedData.length, writer.size());
+                    } finally {
+                        reader.close();
+                    }
+                }
+
+                bucket.deleteObject("object/path");
+
+                try {
+                    bucket.deleteObject("object/path");
+                } catch (Exception e) {
+                    assertTrue(e.getMessage().startsWith("object not found"));
                 }
 
                 project.deleteBucket("test");

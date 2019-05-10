@@ -8,7 +8,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"runtime"
 
 	"github.com/vivint/infectious"
 	"go.uber.org/zap"
@@ -130,15 +129,23 @@ func EncodeReader(ctx context.Context, r io.Reader, rs RedundancyStrategy) (_ []
 		pieces: make(map[int]*encodedPiece, rs.TotalCount()),
 	}
 
+	var tmpDir string
+	value := ctx.Value("writableDir")
+	if value == nil {
+		tmpDir = os.TempDir()
+	} else {
+		tmpDir = value.(string)
+	}
+
 	var pipeReaders []sync2.PipeReader
 	var pipeWriter sync2.PipeWriter
-	if runtime.GOOS == "android" {
+	if tmpDir == "inmemory" {
 		pipeReaders, pipeWriter, err = sync2.NewTeeInmemory(rs.TotalCount())
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		pipeReaders, pipeWriter, err = sync2.NewTeeFile(rs.TotalCount(), os.TempDir())
+		pipeReaders, pipeWriter, err = sync2.NewTeeFile(rs.TotalCount(), tmpDir)
 		if err != nil {
 			return nil, err
 		}

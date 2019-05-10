@@ -35,8 +35,8 @@ type Uplink struct {
 
 // NewUplink creates a new Uplink. This is the first step to create an uplink
 // session with a user specified config or with default config, if nil config
-func NewUplink(config *Config) (*Uplink, error) {
-	scope := rootScope()
+func NewUplink(config *Config, writableDir string) (*Uplink, error) {
+	scope := rootScope(writableDir)
 
 	cfg := &libuplink.Config{}
 	cfg.Volatile.TLS.SkipPeerCAWhitelist = true
