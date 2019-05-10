@@ -67,6 +67,7 @@ func (msg *Message) Bytes() (data []byte, err error) {
 	// multipart upload
 	case len(msg.Parts) > 0:
 		wr := multipart.NewWriter(&body)
+		defer func() { err = errs.Combine(err, wr.Close()) }()
 
 		fmt.Fprintf(&body, "Content-Type: multipart/alternative;")
 		fmt.Fprintf(&body, "\tboundary=\"%v\"\r\n", wr.Boundary())
@@ -84,12 +85,12 @@ func (msg *Message) Bytes() (data []byte, err error) {
 			}
 
 			enc := quotedprintable.NewWriter(sub)
+			defer func() { err = errs.Combine(err, enc.Close()) }()
+
 			_, err = enc.Write([]byte(msg.PlainText))
 			if err != nil {
 				return nil, Error.Wrap(err)
 			}
-
-			defer func() { err = errs.Combine(err, enc.Close()) }()
 		}
 
 		for _, part := range msg.Parts {
@@ -104,8 +105,6 @@ func (msg *Message) Bytes() (data []byte, err error) {
 			sub, _ = wr.CreatePart(header)
 			fmt.Fprint(sub, part.Content)
 		}
-
-		defer func() { err = errs.Combine(err, wr.Close()) }()
 
 	// fallback if there are no parts, write PlainText with appropriate Content-Type
 	default:
