@@ -167,11 +167,7 @@ func checkCfg(ctx context.Context) (err error) {
 	defer func() { err = errs.Combine(err, proj.Close()) }()
 
 	_, err = proj.ListBuckets(ctx, &storj.BucketListOptions{Direction: storj.After})
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 // Run starts a Minio Gateway given proper config
