@@ -261,15 +261,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		consoleAuthToken := "secure_token"
 
-		var schema string
-		sqlDatabase := "sqlite3://" + process.Directory + "/master.db"
-		kvDatabase := "bolt://" + process.Directory + "/pointer.db"
-		if flags.Postgres != "" {
-			schema = fmt.Sprintf("satellite%d", i)
-			postgresConnstr := pgutil.ConnstrWithSchema(flags.Postgres, schema)
-			sqlDatabase = postgresConnstr
-			kvDatabase = postgresConnstr
-		}
 		process.Arguments = withCommon(process.Directory, Arguments{
 			"setup": {
 				"--identity-dir", process.Directory,
@@ -291,12 +282,16 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 				"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
 				"--debug.addr", net.JoinHostPort("127.0.0.1", port(satellitePeer, i, debugHTTP)),
-
-				"--database", sqlDatabase,
-				"--metainfo.database-url", kvDatabase,
 			},
 			"run": {},
 		})
+		var schema string
+		if flags.Postgres != "" {
+			schema = fmt.Sprintf("satellite%d", i)
+			postgresConnstr := pgutil.ConnstrWithSchema(flags.Postgres, schema)
+			dbArgs := []string{"--database", postgresConnstr, "--metainfo.database-url", postgresConnstr}
+			process.Arguments["setup"] = append(process.Arguments["setup"], dbArgs...)
+		}
 
 		process.ExecBefore["run"] = func(process *Process) error {
 			return readConfigString(&process.Address, process.Directory, "server.address")
