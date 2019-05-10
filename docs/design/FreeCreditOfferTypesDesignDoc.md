@@ -1,4 +1,4 @@
-# Title: [Free Credit Offer Types Design Document]
+# Free Credit Offer Types Design Document
 
 ## Abstract
 
