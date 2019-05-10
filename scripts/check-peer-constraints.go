@@ -27,6 +27,7 @@ func main() {
 		"storj.io/storj/satellite/...",
 		"storj.io/storj/storagenode/...",
 		"storj.io/storj/bootstrap/...",
+		"storj.io/storj/versioncontrol/...",
 	)
 	if err != nil {
 		fmt.Printf("failed to load peers: %v\n", err)
