@@ -80,7 +80,7 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 		}),
 	}, opts...)
 
-	timedCtx, cancel := context.WithTimeout(ctx, defaultDialTimeout)
+	timedCtx, cancel := context.WithTimeout(ctx, transport.requestTimeout)
 	defer cancel()
 
 	conn, err = grpc.DialContext(timedCtx, node.GetAddress().Address, options...)
@@ -118,7 +118,7 @@ func (transport *Transport) DialAddress(ctx context.Context, address string, opt
 		}),
 	}, opts...)
 
-	timedCtx, cancel := context.WithTimeout(ctx, defaultDialTimeout)
+	timedCtx, cancel := context.WithTimeout(ctx, transport.requestTimeout)
 	defer cancel()
 
 	conn, err = grpc.DialContext(timedCtx, address, options...)
