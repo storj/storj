@@ -32,9 +32,10 @@ var (
 	cLongType = reflect.TypeOf(C.long(0))
 
 	// our types
-	memorySizeType  = reflect.TypeOf(memory.Size(0))
-	cipherSuiteType = reflect.TypeOf(storj.CipherSuite(0))
-	keyPtrType      = reflect.TypeOf(new(C.Key))
+	memorySizeType          = reflect.TypeOf(memory.Size(0))
+	cipherSuiteType         = reflect.TypeOf(storj.CipherSuite(0))
+	redundancyAlgorithmType = reflect.TypeOf(storj.RedundancyAlgorithm(0))
+	keyPtrType              = reflect.TypeOf(new(C.Key))
 
 	ErrConvert = errs.Class("struct conversion error")
 )
@@ -144,7 +145,12 @@ func CToGoStruct(fromVar, toPtr interface{}) error {
 		toValue.Set(reflect.ValueOf(fromValue.Bool()))
 		return nil
 	case cIntType:
-		toValue.Set(reflect.ValueOf(int(fromValue.Int())))
+		switch toValue.Kind() {
+		case reflect.Int32:
+			toValue.Set(reflect.ValueOf(int32(fromValue.Int())))
+		default:
+			toValue.Set(reflect.ValueOf(int(fromValue.Int())))
+		}
 		return nil
 	case cUintType:
 		toValue.Set(reflect.ValueOf(uint(fromValue.Uint())))
@@ -153,6 +159,8 @@ func CToGoStruct(fromVar, toPtr interface{}) error {
 		switch toValue.Type() {
 		case cipherSuiteType:
 			toValue.Set(reflect.ValueOf(storj.CipherSuite(fromValue.Uint())))
+		case redundancyAlgorithmType:
+			toValue.Set(reflect.ValueOf(storj.RedundancyAlgorithm(fromValue.Uint())))
 		default:
 			toValue.Set(reflect.ValueOf(uint8(fromValue.Uint())))
 		}

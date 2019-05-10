@@ -32,7 +32,7 @@ func CreateBucket(cProject C.GoUintptr, name *C.char, cCfg C.struct_BucketConfig
 		return cBucket
 	}
 
-	if err := CToGoStruct(bucket, cBucket); err != nil {
+	if err := CToGoStruct(cBucket, bucket); err != nil {
 		*cErr = C.CString(err.Error())
 		return cBucket
 	}

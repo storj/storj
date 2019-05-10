@@ -19,4 +19,9 @@ struct ProjectOptions
 struct BucketConfig
 {
     CipherSuite PathCipher;
+    struct EncryptionParameters EncryptionParameters;
+    struct {
+        struct RedundancyScheme RedundancyScheme;
+        Size SegmentSize;
+    } Volatile;
 };
