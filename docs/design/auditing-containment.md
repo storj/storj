@@ -116,7 +116,7 @@ However, after talking with JT it seemed unnecessary to have another service for
 I think we also don't want to pound the contained nodes with reverification audits.
 They should just be reverified whenever they pass through the audit service normally.
 
-## Implementation
+## Walkthrough
 
 #### 1. Uncooperative nodes are documented in the ContainmentDB:
 
@@ -164,7 +164,7 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe) (verifiedN
 #### 3. Contained nodes are checked for the same data that they were originally requested to respond with:
 
 ```go pkg/audit/verifier.go
-func (verifier *Verifier) Reverify(ctx context.Context, node storj.NodeID) (auditRecords *RecordAuditsInfo, err error) {
+func (verifier *Verifier) Reverify(ctx context.Context, node storj.NodeID) (err error) {
 
   pendingAudit, err := checker.containment.Get(id)
 
@@ -194,14 +194,24 @@ func (verifier *Verifier) Reverify(ctx context.Context, node storj.NodeID) (audi
 
   // Remove the set the contained flag to false on the NodeDossier and update the overlay (satellitedb).
   // Delete the pending audit from the ContainmentDB.
-
-  return auditRecords
-}
+  ...
 ```
+
+#### 4. Reverify should directly report any successful or failed audits to the StatDB.
+This will require a refactor because the audit system's existing `reporter` is currently in charge of recording all audits, and it's only accessible at the level of `pkg/audit/service.go`.
+I think we'll want to call `RecordAudits` from inside the Reverify function, so that the Verify function (which calls Reverify) won't have to wait on Reverify's results to package with other audit results.
+
+## Implementation (Stories)
+- Create ContainmentDB table (alternately, add `pendingAudit` struct to NodeDossier)
+- Identify errors from connecting with nodes, determine who needs to be contained
+- Implement ContainmentDB interface
+- Make sure `pendingAudit` entries associated with deleted segments are also deleted from ContainmentDB
+    - (or that their `pendingAudit` info gets cleared from their NodeDossier)
+- Make the audit system Reverify contained nodes and save audit results
 
 ## Open Issues
 
-#### - How often can a contained node expect to be reverified in a real-life system?
+Q: How often can a contained node expect to be reverified in a real-life system?
 
-#### - Why create yet another database table when we never iterate through all records in ContainmentDB?
+Q: Why create yet another database table when we never iterate through all records in ContainmentDB?
 Couldn't the information on the `pendingAudit` struct just be added to the NodeDossier?
