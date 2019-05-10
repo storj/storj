@@ -5,6 +5,7 @@ package satellitedb
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/zeebo/errs"
 )
@@ -14,17 +15,38 @@ import (
 
 func init() {
 	// catch dbx errors
-	c := errs.Class("satellitedb")
+	class := errs.Class("satellitedb")
 	WrapErr = func(e *Error) error {
 		switch e.Code {
 		case ErrorCode_NoRows:
 			return e.Err
 		case ErrorCode_ConstraintViolation:
-			return errs.New("violates constraint: %s: %s", e.Constraint, e.Error())
+			return class.Wrap(&constraintError{e.Constraint, e.Err})
 		}
-
-		return c.Wrap(e)
+		return class.Wrap(e)
 	}
+}
+
+// Unwrap returns the underlying error.
+func (e *Error) Unwrap() error { return e.Err }
+
+// Cause returns the underlying error.
+func (e *Error) Cause() error { return e.Err }
+
+type constraintError struct {
+	constraint string
+	err        error
+}
+
+// Unwrap returns the underlying error.
+func (err *constraintError) Unwrap() error { return err.err }
+
+// Cause returns the underlying error.
+func (err *constraintError) Cause() error { return err.err }
+
+// Error implements the error interface.
+func (err *constraintError) Error() string {
+	return fmt.Sprintf("violates constraint %q: %v", err.constraint, err.err)
 }
 
 // WithTx wraps DB code in a transaction

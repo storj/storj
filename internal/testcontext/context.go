@@ -20,7 +20,8 @@ import (
 	"storj.io/storj/internal/memory"
 )
 
-const defaultTimeout = 3 * time.Minute
+// DefaultTimeout is the default timeout used by new context
+const DefaultTimeout = 3 * time.Minute
 
 // Context is a context that has utility methods for testing and waiting for asynchronous errors.
 type Context struct {
@@ -55,9 +56,9 @@ type TB interface {
 	Fatal(args ...interface{})
 }
 
-// New creates a new test context
+// New creates a new test context with default timeout
 func New(test TB) *Context {
-	return NewWithTimeout(test, defaultTimeout)
+	return NewWithTimeout(test, DefaultTimeout)
 }
 
 // NewWithTimeout creates a new test context with a given timeout
@@ -106,8 +107,9 @@ func (ctx *Context) Check(fn func() error) {
 	}
 }
 
-// Dir returns a directory path inside temp
-func (ctx *Context) Dir(subs ...string) string {
+// Dir creates a subdirectory inside temp joining any number of path elements
+// into a single path and return its absolute path.
+func (ctx *Context) Dir(elem ...string) string {
 	ctx.test.Helper()
 
 	ctx.once.Do(func() {
@@ -119,25 +121,30 @@ func (ctx *Context) Dir(subs ...string) string {
 		}
 	})
 
-	dir := filepath.Join(append([]string{ctx.directory}, subs...)...)
-	_ = os.MkdirAll(dir, 0744)
+	dir := filepath.Join(append([]string{ctx.directory}, elem...)...)
+	err := os.MkdirAll(dir, 0744)
+	if err != nil {
+		ctx.test.Fatal(err)
+	}
 	return dir
 }
 
-// File returns a filepath inside temp
-func (ctx *Context) File(subs ...string) string {
+// File returns a filepath inside a temp directory joining any number of path
+// elements into a single path and returns its absolute path.
+func (ctx *Context) File(elem ...string) string {
 	ctx.test.Helper()
 
-	if len(subs) == 0 {
+	if len(elem) == 0 {
 		ctx.test.Fatal("expected more than one argument")
 	}
 
-	dir := ctx.Dir(subs[:len(subs)-1]...)
-	return filepath.Join(dir, subs[len(subs)-1])
+	dir := ctx.Dir(elem[:len(elem)-1]...)
+	return filepath.Join(dir, elem[len(elem)-1])
 }
 
 // Cleanup waits everything to be completed,
-// checks errors and tries to cleanup directories
+// checks errors and goroutines which haven't ended and tries to cleanup
+// directories
 func (ctx *Context) Cleanup() {
 	ctx.test.Helper()
 

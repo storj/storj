@@ -7,4 +7,5 @@ then
     echo "dbx version ok"
 else
     echo "please use latest dbx tool to generate code"
+    exit 1
 fi

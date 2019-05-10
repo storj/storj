@@ -30,11 +30,10 @@ var (
 
 // Meta info about a segment
 type Meta struct {
-	Modified         time.Time
-	Expiration       time.Time
-	Size             int64
-	Data             []byte
-	RedundancyScheme storj.RedundancyScheme
+	Modified   time.Time
+	Expiration time.Time
+	Size       int64
+	Data       []byte
 }
 
 // ListItem is a single item in a listing
@@ -249,7 +248,6 @@ func makeRemotePointer(nodes []*pb.Node, hashes []*pb.PieceHash, rs eestream.Red
 		if nodes[i] == nil {
 			continue
 		}
-		nodes[i].Type.DPanicOnInvalid("makeremotepointer")
 		remotePieces = append(remotePieces, &pb.RemotePiece{
 			PieceNum: int32(i),
 			NodeId:   nodes[i].Id,
@@ -307,7 +305,7 @@ func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) 
 	return nil
 }
 
-// List retrieves paths to segments and their metadata stored in the pointerdb
+// List retrieves paths to segments and their metadata stored in the metainfo
 func (s *segmentStore) List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -355,26 +353,13 @@ func CalcNeededNodes(rs *pb.RedundancyScheme) int32 {
 	return needed
 }
 
-// RedundancySchemeFromProto translates a pb.RedundancyScheme to a storj.RedundancyScheme.
-func RedundancySchemeFromProto(redundancyScheme *pb.RedundancyScheme) storj.RedundancyScheme {
-	return storj.RedundancyScheme{
-		Algorithm:      storj.ReedSolomon,
-		ShareSize:      redundancyScheme.GetErasureShareSize(),
-		RequiredShares: int16(redundancyScheme.GetMinReq()),
-		RepairShares:   int16(redundancyScheme.GetRepairThreshold()),
-		OptimalShares:  int16(redundancyScheme.GetSuccessThreshold()),
-		TotalShares:    int16(redundancyScheme.GetTotal()),
-	}
-}
-
 // convertMeta converts pointer to segment metadata
 func convertMeta(pr *pb.Pointer) Meta {
 	return Meta{
-		Modified:         convertTime(pr.GetCreationDate()),
-		Expiration:       convertTime(pr.GetExpirationDate()),
-		Size:             pr.GetSegmentSize(),
-		Data:             pr.GetMetadata(),
-		RedundancyScheme: RedundancySchemeFromProto(pr.GetRemote().GetRedundancy()),
+		Modified:   convertTime(pr.GetCreationDate()),
+		Expiration: convertTime(pr.GetExpirationDate()),
+		Size:       pr.GetSegmentSize(),
+		Data:       pr.GetMetadata(),
 	}
 }
 

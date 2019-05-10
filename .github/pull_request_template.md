@@ -5,8 +5,6 @@ Why:
 
 Thanks for submitting a PR!
 
-![](https://media.giphy.com/media/14nakW0jC4HA6k/giphy.gif)
-
 ## Code Review Checklist (to be filled out by reviewer)
  - [ ] Does the PR describe what changes are being made?
  - [ ] Does the PR describe why the changes are being made?

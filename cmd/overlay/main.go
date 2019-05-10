@@ -39,15 +39,14 @@ var (
 	cacheCfg struct {
 		cacheConfig
 	}
-	isDev bool
 )
 
 func init() {
-	cfgstruct.DevFlag(rootCmd, &isDev, false, "use development and test configuration settings")
+	defaults := cfgstruct.DefaultsFlag(rootCmd)
 	rootCmd.AddCommand(addCmd)
 	rootCmd.AddCommand(listCmd)
-	cfgstruct.Bind(addCmd.Flags(), &cacheCfg, isDev)
-	cfgstruct.Bind(listCmd.Flags(), &cacheCfg, isDev)
+	cfgstruct.Bind(addCmd.Flags(), &cacheCfg, defaults)
+	cfgstruct.Bind(listCmd.Flags(), &cacheCfg, defaults)
 }
 
 func cmdList(cmd *cobra.Command, args []string) (err error) {
@@ -117,11 +116,6 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 				Transport: 0,
 				Address:   a,
 			},
-			Restrictions: &pb.NodeRestrictions{
-				FreeBandwidth: 2000000000,
-				FreeDisk:      2000000000,
-			},
-			Type: pb.NodeType_STORAGE,
 		})
 		if err != nil {
 			return err

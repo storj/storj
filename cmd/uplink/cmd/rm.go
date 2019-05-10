@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/internal/fpath"
+	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/process"
 )
 
@@ -36,12 +37,17 @@ func deleteObject(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("No bucket specified, use format sj://bucket/")
 	}
 
-	metainfo, _, err := cfg.Metainfo(ctx)
+	var access libuplink.EncryptionAccess
+	copy(access.Key[:], []byte(cfg.Enc.Key))
+
+	project, bucket, err := cfg.GetProjectAndBucket(ctx, dst.Bucket(), access)
 	if err != nil {
-		return err
+		return convertError(err, dst)
 	}
 
-	err = metainfo.DeleteObject(ctx, dst.Bucket(), dst.Path())
+	defer closeProjectAndBucket(project, bucket)
+
+	err = bucket.DeleteObject(ctx, dst.Path())
 	if err != nil {
 		return convertError(err, dst)
 	}

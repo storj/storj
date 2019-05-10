@@ -15,17 +15,8 @@ import "google/protobuf/timestamp.proto";
 message Node {
     bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
     NodeAddress address = 2;
-    NodeType type = 3;
-    NodeRestrictions restrictions = 4;
-    NodeStats reputation = 5;
-    NodeMetadata metadata = 6;
-    repeated int64 latency_list = 7;
-    bool audit_success = 8;
-    bool is_up = 9;
-    bool update_latency = 10;
-    bool update_audit_success = 11;
-    bool update_uptime = 12;
-    NodeVersion version = 13;
+    reserved 3 to 13;
+    reserved "type", "restrictions", "reputation", "metadata", "latency_list", "audit_success", "is_up", "update_latency", "update_audit_success", "update_uptime", "version";
 }
 
 // NodeType is an enum of possible node types

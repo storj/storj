@@ -88,13 +88,7 @@ func (lookup *peerDiscovery) Run(ctx context.Context) (target *pb.Node, err erro
 					lookup.cond.Wait()
 				}
 				lookup.cond.L.Unlock()
-				var nodeType pb.NodeType
-				if target != nil {
-					nodeType = target.Type
-					nodeType.DPanicOnInvalid("Peer Discovery Run")
-				}
-				next.Type.DPanicOnInvalid("next")
-				neighbors, err := lookup.dialer.Lookup(ctx, lookup.self, *next, pb.Node{Id: lookup.target, Type: nodeType})
+				neighbors, err := lookup.dialer.Lookup(ctx, lookup.self, *next, pb.Node{Id: lookup.target})
 
 				if err != nil && !isDone(ctx) {
 					// TODO: reenable retry after fixing logic

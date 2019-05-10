@@ -102,7 +102,9 @@ import { createUserRequest } from '../../api/users';
             onCreateClick: function (): any {
                 let self = this as any;
 
-                if (!self.validateFields()) return;
+                if (!self.validateFields()) {
+                    return;
+                }
 
                 this.$data.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY_ACTIVE;
 

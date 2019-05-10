@@ -163,6 +163,20 @@ func (db *InfoDB) Migration() *migrate.Migration {
 					`CREATE INDEX idx_order_archive_status ON order_archive(status)`,
 				},
 			},
+			{
+				Description: "Network Wipe #2",
+				Version:     1,
+				Action: migrate.SQL{
+					`UPDATE pieceinfo SET piece_expiration = '2019-05-09 00:00:00.000000+00:00'`,
+				},
+			},
+			{
+				Description: "Add tracking of deletion failures.",
+				Version:     2,
+				Action: migrate.SQL{
+					`ALTER TABLE pieceinfo ADD COLUMN deletion_failed_at TIMESTAMP`,
+				},
+			},
 		},
 	}
 }

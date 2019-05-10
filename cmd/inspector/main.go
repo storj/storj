@@ -23,6 +23,7 @@ import (
 
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/kademlia/routinggraph"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
@@ -102,6 +103,11 @@ var (
 		Use:   "dump-nodes",
 		Short: "dump all nodes in the routing table",
 		RunE:  DumpNodes,
+	}
+	drawTableCmd = &cobra.Command{
+		Use:   "routing-graph",
+		Short: "Dumps a graph of the routing table in the dot format",
+		RunE:  DrawTableAsGraph,
 	}
 	getStatsCmd = &cobra.Command{
 		Use:   "getstats <node_id>",
@@ -240,6 +246,26 @@ func NodeInfo(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	fmt.Println(prettyPrint(info))
+
+	return nil
+}
+
+// DrawTableAsGraph outputs the table routing as a graph
+func DrawTableAsGraph(cmd *cobra.Command, args []string) (err error) {
+	i, err := NewInspector(*Addr, *IdentityPath)
+	if err != nil {
+		return ErrInspectorDial.Wrap(err)
+	}
+	// retrieve buckets
+	info, err := i.kadclient.GetBucketList(context.Background(), &pb.GetBucketListRequest{})
+	if err != nil {
+		return ErrRequest.Wrap(err)
+	}
+
+	err = routinggraph.Draw(os.Stdout, info)
+	if err != nil {
+		return ErrRequest.Wrap(err)
+	}
 
 	return nil
 }
@@ -732,6 +758,7 @@ func init() {
 	kadCmd.AddCommand(lookupNodeCmd)
 	kadCmd.AddCommand(nodeInfoCmd)
 	kadCmd.AddCommand(dumpNodesCmd)
+	kadCmd.AddCommand(drawTableCmd)
 
 	statsCmd.AddCommand(getStatsCmd)
 	statsCmd.AddCommand(getCSVStatsCmd)

@@ -93,32 +93,8 @@ func main() {
 		},
 	)
 
-	inmemoryCmd := &cobra.Command{
-		Use:   "inmemory",
-		Short: "in-memory single process network",
-	}
-
-	inmemoryCmd.AddCommand(
-		&cobra.Command{
-			Use:   "run",
-			Short: "run an in-memory network",
-			RunE: func(cmd *cobra.Command, args []string) (err error) {
-				return inmemoryRun(&flags)
-			},
-		},
-		&cobra.Command{
-			Use:   "test <command>",
-			Short: "run command with an in-memory network",
-			Args:  cobra.MinimumNArgs(1),
-			RunE: func(cmd *cobra.Command, args []string) (err error) {
-				return inmemoryTest(&flags, args[0], args[1:])
-			},
-		},
-	)
-
 	rootCmd.AddCommand(
 		networkCmd,
-		inmemoryCmd,
 	)
 
 	rootCmd.SilenceUsage = true

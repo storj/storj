@@ -158,7 +158,7 @@
   &__info-area {
     width: 100%;
     height: 42px;
-    margin-top: 300px;
+    margin-top: 250px;
     display: flex;
     align-items: flex-end;
     justify-content: flex-start;
@@ -180,10 +180,13 @@
       font-size: 15px;
       line-height: 18px;
       text-align: center;
-      text-decoration: none;
-      color: #66686C;
+      color: #2683FF;
       margin-block-start: 0;
       margin-block-end: 0;
+
+      &:hover {
+        text-decoration: underline;
+      }
     }
 
     &__signature {
@@ -218,8 +221,11 @@
       padding-left: 15px;
       padding-right: 15px;
       min-width: 140px;
-      text-decoration: none;
-      color: #66686C;
+      color: #2683FF;
+
+      &:hover {
+        text-decoration: underline;
+      }
 
       .bold {
         font-family: 'font_medium';
@@ -255,8 +261,8 @@
 
   &__logo {
     position: absolute;
-    left: 50%;
-    top: 50%;
+    left: calc(50% - 104px);
+    top: calc(50% - 60px);
     transform: translate(-50%);
     display: block;
     width: 240px;
@@ -391,7 +397,7 @@
     }
 
     &__info-area {
-      margin-top: 200px;
+      margin-top: 150px;
       font-size: 10px;
 
       &__signature {
@@ -484,7 +490,7 @@
 @media screen and (max-height: 850px) {
   .login-area {
     &__info-area {
-      margin-top: 200px;
+      margin-top: 150px;
     }
   }
 }
@@ -492,7 +498,7 @@
 @media screen and (max-height: 700px) {
   .login-area {
     &__info-area {
-      margin-top: 150px;
+      margin-top: 100px;
     }
   }
 }
@@ -500,7 +506,7 @@
 @media screen and (max-height: 610px) {
   .login-area {
     &__info-area {
-      margin-top: 100px;
+      margin-top: 50px;
     }
   }
 }

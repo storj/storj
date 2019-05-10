@@ -147,10 +147,6 @@ func (discovery *Discovery) refresh(ctx context.Context) error {
 		if err != nil {
 			discovery.log.Error("could not update node uptime in cache", zap.String("ID", ping.Id.String()), zap.Error(err))
 		}
-		err = discovery.cache.Put(ctx, ping.Id, ping)
-		if err != nil {
-			discovery.log.Error("could not put node into cache", zap.String("ID", ping.Id.String()), zap.Error(err))
-		}
 
 		// update wallet with correct info
 		info, err := discovery.kad.FetchInfo(ctx, node.Node)
@@ -161,7 +157,7 @@ func (discovery *Discovery) refresh(ctx context.Context) error {
 
 		_, err = discovery.cache.UpdateNodeInfo(ctx, ping.Id, info)
 		if err != nil {
-			discovery.log.Warn("could not update node operator", zap.String("ID", ping.GetAddress().String()))
+			discovery.log.Warn("could not update node info", zap.String("ID", ping.GetAddress().String()))
 		}
 	}
 

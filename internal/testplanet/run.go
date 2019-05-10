@@ -64,6 +64,10 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 			defer ctx.Check(planet.Shutdown)
 
 			planet.Start(ctx)
+
+			// make sure nodes are refreshed in db
+			planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
+
 			test(t, ctx, planet)
 		})
 	}

@@ -6,7 +6,7 @@ import gql from 'graphql-tag';
 
 // Performs update user info graphQL mutation request.
 // Returns User object if succeed, null otherwise
-export async function updateAccountRequest(user: User): Promise<RequestResponse<User>> {
+export async function updateAccountRequest(user: UpdatedUser): Promise<RequestResponse<User>> {
     let result: RequestResponse<User> = {
         errorMessage: '',
         isSuccess: false,
@@ -23,7 +23,6 @@ export async function updateAccountRequest(user: User): Promise<RequestResponse<
                 mutation {
                     updateAccount (
                         input: {
-                            email: "${user.email}",
                             fullName: "${user.fullName}",
                             shortName: "${user.shortName}"
                         }
@@ -73,6 +72,33 @@ export async function changePasswordRequest(password: string, newPassword: strin
             fetchPolicy: 'no-cache',
             errorPolicy: 'all',
         }
+    );
+
+    if (response.errors) {
+        result.errorMessage = response.errors[0].message;
+    } else {
+        result.isSuccess = true;
+    }
+
+    return result;
+}
+
+export async function forgotPasswordRequest(email: string): Promise<RequestResponse<null>> {
+    let result: RequestResponse<null> = {
+        errorMessage: '',
+        isSuccess: false,
+        data: null
+    };
+
+    let response: any = await apolloManager.query(
+        {
+            query: gql(`
+                    query {
+                        forgotPassword(email: "${email}")
+                    }`),
+            fetchPolicy: 'no-cache',
+            errorPolicy: 'all',
+        },
     );
 
     if (response.errors) {

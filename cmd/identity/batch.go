@@ -46,13 +46,13 @@ var (
 		Concurrency   int    `help:"worker concurrency" default:"4"`
 		OutputDir     string `help:"output directory to place keys" default:"."`
 	}
-	isDev bool
+	defaults cfgstruct.BindOpt
 )
 
 func init() {
-	cfgstruct.DevFlag(rootCmd, &isDev, false, "use development and test configuration settings")
+	defaults = cfgstruct.DefaultsFlag(rootCmd)
 	rootCmd.AddCommand(keyGenerateCmd)
-	cfgstruct.Bind(keyGenerateCmd.Flags(), &keyCfg, isDev)
+	cfgstruct.Bind(keyGenerateCmd.Flags(), &keyCfg, defaults)
 }
 
 func cmdKeyGenerate(cmd *cobra.Command, args []string) (err error) {

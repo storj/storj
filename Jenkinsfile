@@ -9,14 +9,14 @@ node('node') {
       echo "Current build result: ${currentBuild.result}"
     }
 
-    stage('Build Images') {
-      sh 'make images'
+    stage('Build Binaries') {
+      sh 'make binaries'
 
       echo "Current build result: ${currentBuild.result}"
     }
 
-    stage('Build Binaries') {
-      sh 'make binaries'
+    stage('Build Images') {
+      sh 'make images'
 
       echo "Current build result: ${currentBuild.result}"
     }

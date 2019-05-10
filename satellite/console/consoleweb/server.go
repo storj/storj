@@ -93,6 +93,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 
 	if server.config.StaticDir != "" {
 		mux.Handle("/activation/", http.HandlerFunc(server.accountActivationHandler))
+		mux.Handle("/password-recovery/", http.HandlerFunc(server.passwordRecoveryHandler))
 		mux.Handle("/registrationToken/", http.HandlerFunc(server.createRegistrationTokenHandler))
 		mux.Handle("/usage-report/", http.HandlerFunc(server.bucketUsageReportHandler))
 		mux.Handle("/static/", http.StripPrefix("/static", fs))
@@ -129,6 +130,8 @@ func (s *Server) bucketUsageReportHandler(w http.ResponseWriter, req *http.Reque
 
 	auth, err := s.service.Authorize(auth.WithAPIKey(req.Context(), []byte(tokenCookie.Value)))
 	if err != nil {
+		s.log.Error("bucket usage report error", zap.Error(err))
+
 		w.WriteHeader(http.StatusUnauthorized)
 		http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "errors", "404.html"))
 		return
@@ -136,6 +139,8 @@ func (s *Server) bucketUsageReportHandler(w http.ResponseWriter, req *http.Reque
 
 	defer func() {
 		if err != nil {
+			s.log.Error("bucket usage report error", zap.Error(err))
+
 			w.WriteHeader(http.StatusNotFound)
 			http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "errors", "404.html"))
 		}
@@ -146,14 +151,17 @@ func (s *Server) bucketUsageReportHandler(w http.ResponseWriter, req *http.Reque
 	if err != nil {
 		return
 	}
-	since, err = time.Parse(time.RFC3339, req.URL.Query().Get("since"))
+	sinceStamp, err := strconv.ParseInt(req.URL.Query().Get("since"), 10, 64)
 	if err != nil {
 		return
 	}
-	before, err = time.Parse(time.RFC3339, req.URL.Query().Get("before"))
+	beforeStamp, err := strconv.ParseInt(req.URL.Query().Get("before"), 10, 64)
 	if err != nil {
 		return
 	}
+
+	since = time.Unix(sinceStamp, 0)
+	before = time.Unix(beforeStamp, 0)
 
 	s.log.Debug("querying bucket usage report",
 		zap.String("projectID", projectID.String()),
@@ -224,11 +232,53 @@ func (s *Server) accountActivationHandler(w http.ResponseWriter, req *http.Reque
 			zap.String("token", activationToken),
 			zap.Error(err))
 
-		http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "errors", "404.html"))
+		s.serveError(w, req)
 		return
 	}
 
 	http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "activation", "success.html"))
+}
+
+func (s *Server) passwordRecoveryHandler(w http.ResponseWriter, req *http.Request) {
+	recoveryToken := req.URL.Query().Get("token")
+	if len(recoveryToken) == 0 {
+		s.serveError(w, req)
+		return
+	}
+
+	switch req.Method {
+	case "POST":
+		err := req.ParseForm()
+		if err != nil {
+			s.serveError(w, req)
+		}
+
+		password := req.FormValue("password")
+		passwordRepeat := req.FormValue("passwordRepeat")
+		if strings.Compare(password, passwordRepeat) != 0 {
+			s.serveError(w, req)
+			return
+		}
+
+		err = s.service.ResetPassword(context.Background(), recoveryToken, password)
+		if err != nil {
+			s.serveError(w, req)
+		}
+	default:
+		t, err := template.ParseFiles(filepath.Join(s.config.StaticDir, "static", "resetPassword", "resetPassword.html"))
+		if err != nil {
+			s.serveError(w, req)
+		}
+
+		err = t.Execute(w, nil)
+		if err != nil {
+			s.serveError(w, req)
+		}
+	}
+}
+
+func (s *Server) serveError(w http.ResponseWriter, req *http.Request) {
+	http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "errors", "404.html"))
 }
 
 // grapqlHandler is graphql endpoint http handler function
@@ -254,6 +304,7 @@ func (s *Server) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 
 	rootObject["origin"] = s.config.ExternalAddress
 	rootObject[consoleql.ActivationPath] = "activation/?token="
+	rootObject[consoleql.PasswordRecoveryPath] = "password-recovery/?token="
 	rootObject[consoleql.SignInPath] = "login"
 
 	result := graphql.Do(graphql.Params{

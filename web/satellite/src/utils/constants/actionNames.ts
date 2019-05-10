@@ -12,6 +12,8 @@ export const APP_STATE_ACTIONS = {
     TOGGLE_SORT_PM_BY_DROPDOWN: 'toggleSortProjectMembersByPopup',
     TOGGLE_SUCCESSFUL_REGISTRATION_POPUP: 'toggleSuccessfulRegistrationPopup',
     TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP: 'toggleSuccessfulProjectCreationPopup',
+    TOGGLE_EDIT_PROFILE_POPUP: 'toggleEditProfilePopup',
+    TOGGLE_CHANGE_PASSWORD_POPUP: 'toggleChangePasswordPopup',
     CLOSE_POPUPS: 'closePopups',
     CHANGE_STATE: 'changeFetchState',
 };

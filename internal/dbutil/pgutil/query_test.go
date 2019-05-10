@@ -4,8 +4,6 @@
 package pgutil_test
 
 import (
-	"flag"
-	"os"
 	"testing"
 
 	_ "github.com/lib/pq"
@@ -14,6 +12,7 @@ import (
 
 	"storj.io/storj/internal/dbutil/dbschema"
 	"storj.io/storj/internal/dbutil/pgutil"
+	"storj.io/storj/internal/dbutil/pgutil/pgtest"
 	"storj.io/storj/internal/testcontext"
 )
 
@@ -22,20 +21,15 @@ const (
 	DefaultPostgresConn = "postgres://storj:storj-pass@test-postgres/teststorj?sslmode=disable"
 )
 
-var (
-	// TestPostgres is flag for the postgres test database
-	TestPostgres = flag.String("postgres-test-db", os.Getenv("STORJ_POSTGRES_TEST"), "PostgreSQL test database connection string")
-)
-
 func TestQuery(t *testing.T) {
-	if *TestPostgres == "" {
+	if *pgtest.ConnStr == "" {
 		t.Skip("Postgres flag missing, example: -postgres-test-db=" + DefaultPostgresConn)
 	}
 
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	db, err := pgutil.Open(*TestPostgres, "pgutil-query")
+	db, err := pgutil.Open(*pgtest.ConnStr, "pgutil-query")
 	require.NoError(t, err)
 	defer ctx.Check(db.Close)
 

@@ -17,6 +17,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/dbutil/pgutil"
+	"storj.io/storj/internal/dbutil/pgutil/pgtest"
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/internal/testcontext"
 )
@@ -30,13 +31,13 @@ func TestBasicMigrationSqlite(t *testing.T) {
 }
 
 func TestBasicMigrationPostgres(t *testing.T) {
-	if *testPostgres == "" {
-		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", defaultPostgresConn)
+	if *pgtest.ConnStr == "" {
+		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", pgtest.DefaultConnStr)
 	}
 
 	schema := "create-" + pgutil.CreateRandomTestingSchemaName(8)
 
-	db, err := sql.Open("postgres", pgutil.ConnstrWithSchema(*testPostgres, schema))
+	db, err := sql.Open("postgres", pgutil.ConnstrWithSchema(*pgtest.ConnStr, schema))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,11 +113,11 @@ func TestMultipleMigrationSqlite(t *testing.T) {
 }
 
 func TestMultipleMigrationPostgres(t *testing.T) {
-	if *testPostgres == "" {
-		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", defaultPostgresConn)
+	if *pgtest.ConnStr == "" {
+		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", pgtest.DefaultConnStr)
 	}
 
-	db, err := sql.Open("postgres", *testPostgres)
+	db, err := sql.Open("postgres", *pgtest.ConnStr)
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
@@ -185,11 +186,11 @@ func TestFailedMigrationSqlite(t *testing.T) {
 }
 
 func TestFailedMigrationPostgres(t *testing.T) {
-	if *testPostgres == "" {
-		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", defaultPostgresConn)
+	if *pgtest.ConnStr == "" {
+		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", pgtest.DefaultConnStr)
 	}
 
-	db, err := sql.Open("postgres", *testPostgres)
+	db, err := sql.Open("postgres", *pgtest.ConnStr)
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 

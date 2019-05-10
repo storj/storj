@@ -38,6 +38,17 @@ var (
 )
 var _ pb.PiecestoreServer = (*Endpoint)(nil)
 
+// OldConfig contains everything necessary for a server
+type OldConfig struct {
+	Path string `help:"path to store data in" default:"$CONFDIR/storage"`
+
+	WhitelistedSatelliteIDs string        `help:"a comma-separated list of approved satellite node ids" default:""`
+	SatelliteIDRestriction  bool          `help:"if true, only allow data from approved satellites" devDefault:"false" releaseDefault:"true"`
+	AllocatedDiskSpace      memory.Size   `user:"true" help:"total allocated disk space in bytes" default:"1TB"`
+	AllocatedBandwidth      memory.Size   `user:"true" help:"total allocated bandwidth in bytes" default:"500GiB"`
+	KBucketRefreshInterval  time.Duration `help:"how frequently Kademlia bucket should be refreshed with node stats" default:"1h0m0s"`
+}
+
 // Config defines parameters for piecestore endpoint.
 type Config struct {
 	ExpirationGracePeriod time.Duration `help:"how soon before expiration date should things be considered expired" default:"48h0m0s"`
@@ -51,8 +62,9 @@ type Endpoint struct {
 	log    *zap.Logger
 	config Config
 
-	signer signing.Signer
-	trust  *trust.Pool
+	signer  signing.Signer
+	trust   *trust.Pool
+	monitor *monitor.Service
 
 	store       *pieces.Store
 	pieceinfo   pieces.DB
@@ -62,13 +74,14 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates a new piecestore endpoint.
-func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, store *pieces.Store, pieceinfo pieces.DB, orders orders.DB, usage bandwidth.DB, usedSerials UsedSerials, config Config) (*Endpoint, error) {
+func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, store *pieces.Store, pieceinfo pieces.DB, orders orders.DB, usage bandwidth.DB, usedSerials UsedSerials, config Config) (*Endpoint, error) {
 	return &Endpoint{
 		log:    log,
 		config: config,
 
-		signer: signer,
-		trust:  trust,
+		signer:  signer,
+		trust:   trust,
+		monitor: monitor,
 
 		store:       store,
 		pieceinfo:   pieceinfo,
@@ -143,7 +156,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 		if err != nil {
 			endpoint.log.Info("upload failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Node ID", limit.StorageNodeId), zap.Error(err))
 		} else {
-			endpoint.log.Info("uploaded", zap.Stringer("Piece ID", limit.PieceId))
+			endpoint.log.Info("uploaded", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Action", limit.Action))
 		}
 	}()
 
@@ -159,9 +172,19 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 	defer func() {
 		// cancel error if it hasn't been committed
 		if cancelErr := pieceWriter.Cancel(); cancelErr != nil {
-			endpoint.log.Error("error during cancelling a piece write", zap.Error(cancelErr))
+			endpoint.log.Error("error during canceling a piece write", zap.Error(cancelErr))
 		}
 	}()
+
+	availableBandwidth, err := endpoint.monitor.AvailableBandwidth(ctx)
+	if err != nil {
+		return ErrInternal.Wrap(err)
+	}
+
+	availableSpace, err := endpoint.monitor.AvailableSpace(ctx)
+	if err != nil {
+		return ErrInternal.Wrap(err)
+	}
 
 	largestOrder := pb.Order2{}
 	defer endpoint.SaveOrder(ctx, limit, &largestOrder, peer)
@@ -192,9 +215,19 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 				return ErrProtocol.New("chunk out of order") // TODO: report grpc status bad message
 			}
 
-			if largestOrder.Amount < pieceWriter.Size()+int64(len(message.Chunk.Data)) {
+			chunkSize := int64(len(message.Chunk.Data))
+			if largestOrder.Amount < pieceWriter.Size()+chunkSize {
 				// TODO: should we write currently and give a chance for uplink to remedy the situation?
 				return ErrProtocol.New("not enough allocated, allocated=%v writing=%v", largestOrder.Amount, pieceWriter.Size()+int64(len(message.Chunk.Data))) // TODO: report grpc status ?
+			}
+
+			availableBandwidth -= chunkSize
+			if availableBandwidth < 0 {
+				return ErrProtocol.New("out of bandwidth")
+			}
+			availableSpace -= chunkSize
+			if availableSpace < 0 {
+				return ErrProtocol.New("out of space")
 			}
 
 			if _, err := pieceWriter.Write(message.Chunk.Data); err != nil {
@@ -291,7 +324,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 		if err != nil {
 			endpoint.log.Info("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Error(err))
 		} else {
-			endpoint.log.Info("downloaded", zap.Stringer("Piece ID", limit.PieceId))
+			endpoint.log.Info("downloaded", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Action", limit.Action))
 		}
 	}()
 
@@ -315,6 +348,11 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 	// TODO: verify chunk.Size behavior logic with regards to reading all
 	if chunk.Offset+chunk.ChunkSize > pieceReader.Size() {
 		return Error.New("requested more data than available, requesting=%v available=%v", chunk.Offset+chunk.ChunkSize, pieceReader.Size())
+	}
+
+	availableBandwidth, err := endpoint.monitor.AvailableBandwidth(ctx)
+	if err != nil {
+		return ErrInternal.Wrap(err)
 	}
 
 	throttle := sync2.NewThrottle()
@@ -389,7 +427,14 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 			if err := endpoint.VerifyOrder(ctx, peer, limit, message.Order, largestOrder.Amount); err != nil {
 				return err
 			}
-			if err := throttle.Produce(message.Order.Amount - largestOrder.Amount); err != nil {
+
+			chunkSize := message.Order.Amount - largestOrder.Amount
+			availableBandwidth -= chunkSize
+			if availableBandwidth < 0 {
+				return ErrProtocol.New("out of bandwidth")
+			}
+
+			if err := throttle.Produce(chunkSize); err != nil {
 				// shouldn't happen since only receiving side is calling Fail
 				return ErrInternal.Wrap(err)
 			}

@@ -18,28 +18,13 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
     data: function() {
         return {
             ids: [
-                'newProjectPopup',
-                'newProjectButton',
                 'accountDropdown',
                 'accountDropdownButton',
                 'projectDropdown',
                 'projectDropdownButton',
-                'deleteProjectPopup',
-                'deleteProjectPopupButton',
-                'deleteAccountPopupButton',
-                'deleteAccountPopup',
-                'addTeamMemberPopupButton',
-                'addTeamMemberPopup',
-                'addTeamMemberPopupButtonSVG',
-                'addApiKeyPopup',
-                'addApiKeyPopupButton',
-                'addApiKeysPopupEmptyButton',
-                'addTeamMemberPopupButtonSVG',
                 'sortTeamMemberByDropdown',
                 'sortTeamMemberByDropdownButton',
-                'createAccountButton',
-                'successfulRegistrationPopup',
-                'successfulProjectCreationPopup'
+                'notificationArea',
             ]
         };
     },
@@ -49,15 +34,12 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
     methods: {
         onClick: function(e) {
             let target: any = e.target;
-
             while (target) {
                 if (this.$data.ids.includes(target.id)) {
                     return;
                 }
-
                 target = target.parentNode;
             }
-
             this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
         }
     }
