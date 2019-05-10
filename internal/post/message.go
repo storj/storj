@@ -41,7 +41,7 @@ type Part struct {
 var Error = errs.Class("Email message error")
 
 // Bytes builds message and returns result as bytes
-func (msg *Message) Bytes() ([]byte, error) {
+func (msg *Message) Bytes() (data []byte, err error) {
 	// always returns nil error on read and write, so most of the errors can be ignored
 	var body bytes.Buffer
 
@@ -105,10 +105,8 @@ func (msg *Message) Bytes() ([]byte, error) {
 			fmt.Fprint(sub, part.Content)
 		}
 
-		err := wr.Close()
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
+		defer func() { err = errs.Combine(err, wr.Close()) }()
+
 	// fallback if there are no parts, write PlainText with appropriate Content-Type
 	default:
 		fmt.Fprintf(&body, "Content-Type: text/plain; charset=UTF-8; format=flowed\r\n")
