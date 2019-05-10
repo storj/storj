@@ -5,9 +5,7 @@ package console
 
 import (
 	"context"
-	"crypto/rand"
 	"crypto/subtle"
-	"io"
 	"time"
 
 	"storj.io/storj/pkg/macaroon"
@@ -679,8 +677,8 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 		return nil, nil, ErrUnauthorized.Wrap(err)
 	}
 
-	secret := make([]byte, 32)
-	if _, err := io.ReadFull(rand.Reader, secret); err != nil {
+	secret, err := macaroon.NewSecret()
+	if err != nil {
 		return nil, nil, errs.New(internalErrMsg)
 	}
 
