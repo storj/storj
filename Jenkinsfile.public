@@ -102,7 +102,7 @@ pipeline {
                         STORJ_NETWORK_HOST6 = '127.0.0.3'
                     }
                     steps {
-                        sh 'psql -U postgres -c \'create database teststorj;\''
+                        sh 'psql -U postgres -c \'create database teststorj2;\''
                         sh 'make test-sim'
                     }
                 }
