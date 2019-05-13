@@ -22,9 +22,9 @@ const ROUTES = {
         path: '/account-settings',
         name: 'AccountSettings'
     },
-    PROJECT_DETAILS: {
-        path: '/project-details',
-        name: 'ProjectDetails'
+    PROJECT_OVERVIEW: {
+        path: '/project-overview',
+        name: 'ProjectOverview'
     },
     TEAM: {
         path: '/team',
@@ -35,8 +35,12 @@ const ROUTES = {
         name: 'ApiKeys'
     },
     USAGE_REPORT: {
-        path: '/project-details/usage-report',
+        path: 'usage-report',
         name: 'UsageReport'
+    },
+    PROJECT_DETAILS: {
+        path: 'details',
+        name: 'ProjectDetails'
     },
     BUCKETS: {
         path: '/buckets',

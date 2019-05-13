@@ -62,7 +62,7 @@ import { validateEmail, validatePassword } from '@/utils/validation';
             setTimeout(() => {
                 setToken(loginResponse.data);
                 this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADING);
-                this.$router.push(ROUTES.PROJECT_DETAILS.path);
+                this.$router.push(ROUTES.PROJECT_OVERVIEW.path);
             }, 2000);
         },
         validateFields: function (): boolean {
