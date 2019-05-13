@@ -11,22 +11,22 @@ We want to ensure the performance for uploads and downloads remains competitive 
 
 ## Design
 
-### GOALS
+### Goals
 * Keep it simple at first but give us something we can keep extending in the future. 
 * Measure both uploads and downloads and optionally replacements (causes a delete). 
 * Measure different workloads for both upload and download. 100 byte, 1MB, 10MB, 100MB and 1GB files. 
 * Measure each test 10 times and report the distribution graph of 50%, 75%, 90%, 99% percentiles. 
 * Author the tests using Go’s built-in benchmarking tools so that developers can run them locally against storage-sim for quick iteration for developer testing.
 
-### CURRENT ENVIRONMENT
+### Current Environment
 Our current build environment supports running a deploy target that deploys a satellite and 100 storage nodes. We can reuse this environment for these performance tests.
 
-### BENCHMARK SCHEDULE
+### Benchmark Schedule
 Currently the master branch deploys to a developer environment with 1 satellite and 100 storage nodes every merge to master. We can try to fit our performance benchmarks into those but it’s very possible the performance benchmarks will take longer to get worthwhile measurements. We may have to do deployments and measurements on a schedule. For example once every hour.
 
 ## Implementation
 
-### AUTHORING
+### Authoring
 Writing a benchmark that we want to measure will be done in a Go standard benchmark function which gives us the following output.
 
 Foo-40   3000000	   432 ns/op    2.31 MB/s     0 B/op	   0 allocs/op
@@ -35,7 +35,7 @@ Baz-40   3000000	   402 ns/op    9.94 MB/s     0 B/op	   0 allocs/op
 
 For integration tests it’s possible to re-use the MB/s ability of the go benchmarks to report operations/second for easy graphing purposes when needed.
 
-### REPORTING
+### Reporting
 There is already a repository with easy to use R scripts that plot various graphs from standard Go benchmark results like the ones above in the authoring section. It also supports HdrHistogram files which are easy to output in Go benchmarks and will be key in understanding our performance results. These R scripts can be found here and produce the following types of graphs which can be run on any developer machine. We can store the results on Storj itself or locally and plot historical percentiles over time so we can monitor our results. These scripts make it trivial to process Go output and HdrHistogram output.
 
 ![](https://raw.githubusercontent.com/kellabyte/go-benchmarks/master/results/hashing-histogram.png)
