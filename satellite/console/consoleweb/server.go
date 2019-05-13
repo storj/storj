@@ -269,7 +269,7 @@ func (s *Server) passwordRecoveryHandler(w http.ResponseWriter, req *http.Reques
 	default:
 		t, err := template.ParseFiles(filepath.Join(s.config.StaticDir, "static", "resetPassword", "resetPassword.html"))
 		if err != nil {
-			s.log.Debug(err.Error())
+			s.serveError(w, req)
 		}
 
 		err = t.Execute(w, nil)
