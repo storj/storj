@@ -112,11 +112,9 @@ func (msg *Message) Bytes() (data []byte, err error) {
 		fmt.Fprintf(&body, "Content-Transfer-Encoding: quoted-printable\r\n\r\n")
 
 		enc := quotedprintable.NewWriter(&body)
-		if _, err := enc.Write([]byte(msg.PlainText)); err != nil {
-			return nil, Error.Wrap(err)
-		}
+		defer func() { err = errs.Combine(err, enc.Close()) }()
 
-		if err := enc.Close(); err != nil {
+		if _, err := enc.Write([]byte(msg.PlainText)); err != nil {
 			return nil, Error.Wrap(err)
 		}
 	}
