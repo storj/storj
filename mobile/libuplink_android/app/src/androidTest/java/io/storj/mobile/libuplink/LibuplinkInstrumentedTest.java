@@ -21,6 +21,7 @@ import io.storj.libuplink.mobile.BucketList;
 import io.storj.libuplink.mobile.Config;
 import io.storj.libuplink.mobile.ListOptions;
 import io.storj.libuplink.mobile.Mobile;
+import io.storj.libuplink.mobile.ObjectInfo;
 import io.storj.libuplink.mobile.ObjectList;
 import io.storj.libuplink.mobile.Project;
 import io.storj.libuplink.mobile.ProjectOptions;

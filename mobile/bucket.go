@@ -39,7 +39,7 @@ type BucketAccess struct {
 
 type BucketInfo struct {
 	Name                 string
-	Created              string
+	Created              int
 	SegmentsSize         int64
 	RedundancyScheme     RedundancyScheme
 	PathCipher           byte
@@ -49,7 +49,7 @@ type BucketInfo struct {
 func newBucketInfo(bucket storj.Bucket) *BucketInfo {
 	return &BucketInfo{
 		Name:    bucket.Name,
-		Created: bucket.Created.String(),
+		Created: int(bucket.Created.UTC().Unix()),
 		RedundancyScheme: RedundancyScheme{
 			Algorithm:      byte(bucket.RedundancyScheme.Algorithm),
 			ShareSize:      bucket.RedundancyScheme.ShareSize,
@@ -157,73 +157,11 @@ type EncryptionParameters struct {
 	BlockSize int32
 }
 
-type ObjectInfo struct {
-	//Version  uint32
-	// Bucket   Bucket
-	Path     storj.Path
-	IsPrefix bool
-
-	// Metadata map[string]string
-
-	// ContentType string
-	// Created     time.Time
-	// Modified    time.Time
-	// Expires     time.Time
-
-	// Stream
-}
-
-type ObjectList struct {
-	list storj.ObjectList
-
-	// Bucket string
-	// Prefix string
-	// More   bool
-
-	// // Items paths are relative to Prefix
-	// // To get the full path use list.Prefix + list.Items[0].Path
-	// Items []Object
-}
-
-// More returns true if list request was not able to return all results
-func (bl *ObjectList) More() bool {
-	return bl.list.More
-}
-
-// Prefix
-func (bl *ObjectList) Prefix() string {
-	return string(bl.list.Prefix)
-}
-
-// Bucket returns bucket name
-func (bl *ObjectList) Bucket() string {
-	return bl.list.Bucket
-}
-
-// Length returns number of returned items
-func (bl *ObjectList) Length() int {
-	return len(bl.list.Items)
-}
-
-// Item gets item from specific index
-func (bl *ObjectList) Item(index int) (*ObjectInfo, error) {
-	if index < 0 && index >= len(bl.list.Items) {
-		return nil, fmt.Errorf("index out of range")
-	}
-	return newObjectInfo(bl.list.Items[index]), nil
-}
-
-func newObjectInfo(object storj.Object) *ObjectInfo {
-	return &ObjectInfo{
-		Path:     string(object.Path),
-		IsPrefix: object.IsPrefix,
-	}
-}
-
+// ListOptions lists objects
 type ListOptions struct {
 	Prefix    string
 	Cursor    string // Cursor is relative to Prefix, full path is Prefix + Cursor
-	Delimiter byte
+	Delimiter string
 	Recursive bool
 	Direction byte
 	Limit     int
