@@ -9,9 +9,10 @@ void* ConvertValue(struct GoValue *val, char **err)
 {
     switch(val->Type) {
     case IDVersionType:
-//        IDVersionProto *idVersionProto = storj__libuplink__idversion__unpack(NULL, val.Size, val.Snapshot);
+//        IDVersionProto *idVersionProto = storj__libuplink__idversion__unpack(NULL, val->Size, val->Snapshot);
 
 //        struct IDVersion idVersion = {IDVersionProto.number};
+        break;
     default:
         *err = "unknown type";
         return NULL;

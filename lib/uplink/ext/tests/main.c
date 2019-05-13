@@ -20,7 +20,7 @@ int main(int argc, char *argv[])
     UNITY_BEGIN();
     RUN_TEST(TestAPIKey);
     RUN_TEST(TestGetIDVersion);
-//    RUN_TEST(TestNewUplink_config);
+    RUN_TEST(TestNewUplink_config);
 //    RUN_TEST(TestValue);
 //     RUN_TEST(TestOpenProject);
 //     RUN_TEST(TestCreateBucket);
