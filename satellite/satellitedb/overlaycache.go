@@ -55,7 +55,7 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 			return nil, Error.New("invalid node selection criteria version: %v", err)
 		}
 		safeQuery += `
-			AND major > ? OR (major = ? AND (minor > ? OR (minor = ? AND patch >= ?)))
+			AND (major > ? OR (major = ? AND (minor > ? OR (minor = ? AND patch >= ?))))
 			AND release`
 		args = append(args, v.Major, v.Major, v.Minor, v.Minor, v.Patch)
 	}
@@ -80,7 +80,7 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 			return nil, Error.New("invalid node selection criteria version: %v", err)
 		}
 		safeQuery += `
-			AND major > ? OR (major = ? AND (minor > ? OR (minor = ? AND patch >= ?)))
+			AND (major > ? OR (major = ? AND (minor > ? OR (minor = ? AND patch >= ?))))
 			AND release`
 		args = append(args, v.Major, v.Major, v.Minor, v.Minor, v.Patch)
 	}
