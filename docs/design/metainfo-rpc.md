@@ -9,9 +9,10 @@ If we shipped our current client code, it wouldn't be easy to update clients and
 - cleanup for uncommitted segments
 - general concurrency fixes
 
-Multipart upload can't happen with our current architecture because there's no concept of starting and ending a stream.
+Native multipart upload can't happen with our current architecture because there's no concept of starting and ending a stream.
 
-Versions also wouldn't work, because if concurrent clients tried to upload to the same version, they would clobber each other.
+Versions also wouldn't work, because if concurrent clients tried to upload at the same time, they would clobber each other.
+The current protobuf does not contain which version is being written, so it has to assume "latest version", which is problematic with concurrent clients (they both are writing to the "latest version").
 
 This should also reduce the number of roundtrips needed to start and end both streams and segments.
 
@@ -22,7 +23,7 @@ This design should ensure compatibility between client and server in the future 
 The following is a proto file for just the rpc portion to create segments. The read portions just need to have a stream id included, which should default to being the largest stream id.
 (When we implement versions, every upload will have a new stream, which will be given the largest stream id at that time. This will allow us to get older versions by checking the stream id.)
 
-With this design, streams will be created that contain multiple segments. Previously, there wasn't a finalization step between segments, which meant that a big global object was created at a certain path. This prevented multipart uploads because the start/end of each segment was not tracked.
+With this design, streams will be created that contain multiple parts. There were already RPCs to finalize individual segments, but each segment was not logically associated with a part, but instead just the specific object.
 
 ```protobuf
 message AddressedOrderLimit {
@@ -111,8 +112,25 @@ message CommitSegmentAndCommitStreamResponse {
 
 ## Rationale
 
-Alternatives include individual messages (e.g. StartStream, CommitStream, StartSegment, CommitSegment), but this would result in more rpc calls overall.
-Also, trying to combine a StartStream message and StartSegment message would lead to unused fields sometimes, like stream_upload_id.
+Alternatives include using individual messages, e.g.
+```
+message StartStream {
+    bytes stream_upload_id = 1;
+}
+message StartSegment {
+    bytes stream_upload_id = 1;
+    int64 segment_index = 2;
+    int64 part_number = 3;
+}
+```
+but this would result in more rpc calls overall.
+Also, trying to combine a StartStream message and StartSegment message would lead to unused fields sometimes (like stream_upload_id):
+```
+message StartStreamAndStartSegment {
+	StartStream start_stream = 1;
+	StartSegment start_segment = 2;
+}
+```
 
 The current upload also uses the full path every time and the request includes bucket, path, stream id, and segment index. This is less future proof because the server can't squirrel away data in the opaque upload id that clients will send back to it. With the new design, whatever the server provides for the stream_upload_id, the client has to send back. In the future we may add a feature that will require extra info from the client, so this would allow the client to respond back with stream_upload_id content.
 
