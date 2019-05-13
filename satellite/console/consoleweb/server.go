@@ -94,7 +94,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	if server.config.StaticDir != "" {
 		mux.Handle("/activation/", http.HandlerFunc(server.accountActivationHandler))
 		mux.Handle("/password-recovery/", http.HandlerFunc(server.passwordRecoveryHandler))
-		mux.Handle("/password-recovered-accidentally/", http.HandlerFunc(server.passwordRecoveredAccidentallyHandler))
+		mux.Handle("/cancel-password-recovery/", http.HandlerFunc(server.cancelPasswordRecoveryHandler))
 		mux.Handle("/registrationToken/", http.HandlerFunc(server.createRegistrationTokenHandler))
 		mux.Handle("/usage-report/", http.HandlerFunc(server.bucketUsageReportHandler))
 		mux.Handle("/static/", http.StripPrefix("/static", fs))
@@ -279,7 +279,7 @@ func (s *Server) passwordRecoveryHandler(w http.ResponseWriter, req *http.Reques
 	}
 }
 
-func (s *Server) passwordRecoveredAccidentallyHandler(w http.ResponseWriter, req *http.Request) {
+func (s *Server) cancelPasswordRecoveryHandler(w http.ResponseWriter, req *http.Request) {
 	recoveryToken := req.URL.Query().Get("token")
 	if len(recoveryToken) == 0 {
 		http.Redirect(w, req, "https://storjlabs.atlassian.net/servicedesk/customer/portals", http.StatusSeeOther)
@@ -319,7 +319,7 @@ func (s *Server) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 	rootObject["origin"] = s.config.ExternalAddress
 	rootObject[consoleql.ActivationPath] = "activation/?token="
 	rootObject[consoleql.PasswordRecoveryPath] = "password-recovery/?token="
-	rootObject[consoleql.PasswordRecoveredAccidentallyPath] = "password-recovered-accidentally/?token="
+	rootObject[consoleql.CancelPasswordRecoveryPath] = "cancel-password-recovery/?token="
 	rootObject[consoleql.SignInPath] = "login"
 
 	result := graphql.Do(graphql.Params{
