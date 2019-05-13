@@ -27,8 +27,6 @@ const (
 	maxLimit            = 50
 	tokenExpirationTime = 24 * time.Hour
 
-	resetPasswordExpirationTime = 24 * time.Hour
-
 	// DefaultPasswordCost is the hashing complexity
 	DefaultPasswordCost = bcrypt.DefaultCost
 	// TestPasswordCost is the hashing complexity to use for testing
@@ -238,7 +236,7 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 		return err
 	}
 
-	if time.Since(token.CreatedAt.Add(resetPasswordExpirationTime)) > 0 {
+	if time.Since(token.CreatedAt.Add(tokenExpirationTime)) > 0 {
 		return errs.New(passwordRecoveryTokenIsExpiredErrMsg)
 	}
 
