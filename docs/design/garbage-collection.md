@@ -31,20 +31,20 @@ In these cases, unneeded data is considered garbage.
 ## Design
 ### Deletion Process
 - The uplink should send a “DataDeletionReport” to the satellite with the list of pieces and corresponding storage nodes it has been unable to delete
-- The satellite responds with a message indicating if there are still k nodes detaining pieces of the segment. If there are, the delete process has failed.
+- The satellite responds with a message indicating if there are still *k* nodes detaining pieces of the segment. If there are, the delete process has failed.
 - The satellite keeps track of undeleted pieces and corresponding storage nodes. 		
 - When a storage node comes back online, or just want to perform a clean-up, it sends a request to the satellite. The satellite replies with the list of pieces id it may delete (possibly using a bloom filter).
 - The satellite removes the piece id and storage node id from its “not deleted pieces” table. 	 
 
 ### Garbage Collection
-**Approach from the whitepaper:**
+#### Approach from the whitepaper
 - The uplink makes a request to the satellite 
 - The satellite replies with a hash of the pieces the storage node should be holding
 - If the storage node detects a difference, it makes a second request to the satellite
 - The satellite replies with the bloom filter of the pieces the storage node should keep
 - Upon receiving the bloom filter, the storage node checks, for each piece, if it is in the set. If it is not, it deletes it. The storage node may still hold deleted pieces, as bloom filter can trigger a false positive.
 
-**Bloom filter:** 
+#### Bloom filter
 A bloom filter is a probabilistic data structure used to test if an element belongs to a set. It can raise false positives, but no false negatives. 
 A Bloom filter is an array of *m* bits, and a set of *k* hash functions that return an integer between 0 and *m-1* . To add an element, it has to be fed to the different hash functions and the bits at the resulting positions are set to 1. 
 
@@ -53,10 +53,34 @@ The probability of having a false positive depends on the size of the Bloom filt
 
 ## Rationale
 
-[A discussion of alternate approaches and the trade offs, advantages, and disadvantages of the specified approach.]
+### Interesting figures
+- piece id size: currently 32 bytes
+- size of piece: s_max, s_min
+- minimum number of pieces id for a storage node storing x bytes of data: d/s_max
+- packet size?
+
+### Thoughts
+What could we send the node:
+- list of useless pieces for a storage node
+    - would mean the satellite has to keep track of these useless pieces. 
+    - This list of pieces id would probably be smaller than the list of useful pieces if the storage node and the uplink are trustworthy.
+- list of useful pieces for a storage node
+    - no need for the satellite to track deleted pieces for each storage node (except for audit purposes) 
+    - More robust against nodes and uplinks that are not trustworthy
+    - possibility to use a Bloom filter
+
+### Bloom filter
+- **n**: number of elements in the set
+- **m**: size of the Bloom filter array
+- **k**: number of hash functions used
+- **Probability of false positives**: (1-(1-1/m)^kn)^k which can be approximate by (1-e^(kn/m))^k.
+
+#### Hash functions choice
+
+### Integration of deleted segments in the audit system
+*Should we and how we integrate deletion in the audit system?*
 
 ## Implementation
-
 [A description of the steps in the implementation.]
 
 ## Open issues (if applicable)
