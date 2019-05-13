@@ -7,7 +7,6 @@ package schema
 
 import (
 	"database/sql"
-	"strconv"
 
 	"github.com/golang-migrate/migrate/v3"
 	"github.com/golang-migrate/migrate/v3/database/postgres"
@@ -33,7 +32,7 @@ func PrepareDB(db *sql.DB, dbURL string) error {
 		return errs.New("error parsing schema: %+v", err)
 	}
 	if schema != "" {
-		err := createSchema(db, schema)
+		err := pgutil.CreateSchema(db, schema)
 		if err != nil {
 			return errs.New("error creating schema: %+v", err)
 		}
@@ -52,12 +51,4 @@ func PrepareDB(db *sql.DB, dbURL string) error {
 		err = nil
 	}
 	return err
-}
-
-func createSchema(db *sql.DB, schema string) error {
-	_, err := db.Exec(`create schema if not exists ` + strconv.QuoteToASCII(schema) + `;`)
-	if err != nil {
-		return err
-	}
-	return nil
 }

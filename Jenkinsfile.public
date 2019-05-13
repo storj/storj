@@ -84,12 +84,14 @@ pipeline {
 
                 stage('Integration') {
                     environment {
+                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj?sslmode=disable'
+
                         // use different hostname to avoid port conflicts
                         STORJ_NETWORK_HOST4 = '127.0.0.2'
                         STORJ_NETWORK_HOST6 = '127.0.0.2'
                     }
-
                     steps {
+                        sh 'psql -U postgres -c \'create database teststorj;\''
                         sh 'make test-sim'
                     }
                 }
