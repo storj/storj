@@ -112,14 +112,15 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 						return false, fmt.Errorf("%s is not found", email)
 					}
 
-					recoveryToken, err := service.GeneratePasswordRecoveryToken(p.Context, user.ID, user.Email)
+					recoveryToken, err := service.GeneratePasswordRecoveryToken(p.Context, user.ID)
 					if err != nil {
 						return false, errors.New("failed to generate password recovery token")
 					}
 
 					rootObject := p.Info.RootValue.(map[string]interface{})
 					origin := rootObject["origin"].(string)
-					link := origin + rootObject[PasswordRecoveryPath].(string) + recoveryToken
+					passwordRecoveryLink := origin + rootObject[PasswordRecoveryPath].(string) + recoveryToken
+					cancelPasswordRecoveryLink := origin + rootObject[CancelPasswordRecoveryPath].(string) + recoveryToken
 					userName := user.ShortName
 					if user.ShortName == "" {
 						userName = user.FullName
@@ -131,9 +132,10 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 							p.Context,
 							[]post.Address{{Address: user.Email, Name: userName}},
 							&ForgotPasswordEmail{
-								Origin:    origin,
-								ResetLink: link,
-								UserName:  userName,
+								Origin:                     origin,
+								ResetLink:                  passwordRecoveryLink,
+								CancelPasswordRecoveryLink: cancelPasswordRecoveryLink,
+								UserName:                   userName,
 							},
 						)
 					}()

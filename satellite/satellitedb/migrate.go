@@ -620,6 +620,19 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE storagenode_storage_tallies DROP COLUMN created_at`,
 				},
 			},
+			{
+				Description: "Added new table to store reset password tokens",
+				Version:     19,
+				Action: migrate.SQL{`
+					CREATE TABLE reset_password_tokens (
+						secret bytea NOT NULL,
+						owner_id bytea NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( secret ),
+						UNIQUE ( owner_id )
+					);`,
+				},
+			},
 		},
 	}
 }
