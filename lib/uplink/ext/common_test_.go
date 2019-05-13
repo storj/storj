@@ -116,3 +116,7 @@ func TestCToGoStruct_success(t *testing.T) {
 func TestCToGoStruct_error(t *testing.T) {
 	// TODO
 }
+
+//func TestValueType_String(t *testing.T) {
+//
+//}

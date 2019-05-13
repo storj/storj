@@ -29,6 +29,7 @@ func init() {
 		testing.NewTest("TestGoToCStruct_error", TestGoToCStruct_error),
 		testing.NewTest("TestCToGoStruct_success", TestCToGoStruct_success),
 		testing.NewTest("TestCToGoStruct_error", TestCToGoStruct_error),
+		//testing.NewTest("TestValueType_String", TestValueType_String),
 	)
 }
 

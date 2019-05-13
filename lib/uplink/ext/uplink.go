@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"unsafe"
 
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/lib/uplink"
 )
@@ -22,7 +22,8 @@ import (
 var mon = monkit.Package()
 
 //export NewUplink
-func NewUplink(cConfig C.struct_Config, cErr **C.char) (cUplink C.struct_Uplink) {
+func NewUplink(cConfig C.struct_Config, cErr **C.char) (cUplink C.struct_Value) {
+	//func NewUplink(cConfig C.struct_Config, cErr **C.char) (cUplink C.struct_Storj__Libuplink__Uplink) {
 	goConfig := new(uplink.Config)
 	if err := CToGoStruct(cConfig, goConfig); err != nil {
 		*cErr = C.CString(err.Error())
@@ -36,9 +37,23 @@ func NewUplink(cConfig C.struct_Config, cErr **C.char) (cUplink C.struct_Uplink)
 		return cUplink
 	}
 
-	return C.struct_Uplink{
-		GoUplink: cPointerFromGoStruct(goUplink),
-		Config:   cConfig,
+	//C.storj__libuplink__uplink__init(&cUplink)
+	//t := cUplink.Volatile.Tls.skip_peer_ca_whitelist
+	//fmt.Printf("skip: %+v\n", t)
+	//cUplink.Volatile.Tls.skip_peer_ca_whitelist = true
+	//t = cUplink.Volatile.Tls.skip_peer_ca_whitelist
+	//fmt.Printf("skip: %+v\n", t)
+
+	//return CValueOf(goUplink)
+	//return C.struct_Uplink{
+	//	GoUplink: cPointerFromGoStruct(goUplink),
+	//	Config:   cConfig,
+	//}
+	//return cUplink
+	return C.struct_Value{
+		GoPtr: cPointerFromGoStruct(goUplink),
+		//Snapshot: ,
+		//Size: ,
 	}
 }
 

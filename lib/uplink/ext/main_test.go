@@ -21,11 +21,12 @@ import (
 	"storj.io/storj/satellite/console"
 )
 
-var defaultLibPath string
+var defaultLibDir, defaultLibPath string
 
 func init() {
 	_, thisFile, _, _ := runtime.Caller(0)
-	defaultLibPath = filepath.Join(filepath.Dir(thisFile), "uplink-cgo.so")
+	defaultLibDir = filepath.Dir(thisFile)
+	defaultLibPath = filepath.Join(defaultLibDir, "uplink-cgo.so")
 }
 
 // TODO: split c test up into multiple suites, each of which gets a go test function.
@@ -46,7 +47,6 @@ func TestAllCTests(t *testing.T) {
 	APIKey := console.APIKeyFromBytes([]byte(projectName))
 	consoleDB := planet.Satellites[0].DB.Console()
 
-
 	project, err := consoleDB.Projects().Insert(
 		context.Background(),
 		&console.Project{
@@ -66,7 +66,7 @@ func TestAllCTests(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	testBinPath := ctx.CompileC(defaultLibPath, filepath.Join(filepath.Dir(defaultLibPath), "tests", "*.c"))
+	testBinPath := ctx.CompileC(defaultLibPath, filepath.Join(defaultLibDir, "pb", "*.c"), filepath.Join(defaultLibDir, "tests", "*.c"))
 
 	cmd := exec.Command(testBinPath)
 	cmd.Env = append(os.Environ(),

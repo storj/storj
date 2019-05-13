@@ -31,17 +31,21 @@ func (ctx *Context) Compile(pkg string) string {
 	return exe
 }
 
-func (ctx *Context) CompileC(libPath, glob string) string {
+func (ctx *Context) CompileC(srcGlobs ...string) string {
 	ctx.test.Helper()
 
-	exe := ctx.File("build", path.Base(glob)+".exe")
+	exe := ctx.File("build", path.Base(srcGlobs[0])+".exe")
 
-	files, err := filepath.Glob(glob)
-	if err != nil {
-		panic(err)
+	var files []string
+	for _, glob := range srcGlobs {
+		newFiles, err := filepath.Glob(glob)
+		if err != nil {
+			panic(err)
+		}
+		files = append(files, newFiles...)
 	}
 
-	cmdString := append(append([]string{"-ggdb"}, files...), "-o", exe, libPath)
+	cmdString := append(append([]string{"-ggdb"}, files...), "-o", exe, "-l", "protobuf-c")
 	cmd := exec.Command("gcc", cmdString...)
 
 	out, err := cmd.CombinedOutput()

@@ -3,4 +3,4 @@
 
 package pb
 
-//go:generate go run ../../scripts/protobuf.go generate
+//go:generate go run ../../scripts/protobuf.go generateGo

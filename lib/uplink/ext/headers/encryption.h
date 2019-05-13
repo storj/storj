@@ -3,7 +3,6 @@
 
 #include <stdint.h>
 
-typedef __SIZE_TYPE__ GoUintptr;
 // TODO: convert to enum
 typedef uint8_t Cipher;
 // TODO: convert to enum

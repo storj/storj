@@ -11,7 +11,9 @@ package main
 // #endif
 import "C"
 import (
+	"github.com/gogo/protobuf/proto"
 	"reflect"
+	"storj.io/storj/lib/uplink/ext/pb"
 	"unsafe"
 
 	"github.com/zeebo/errs"
@@ -36,8 +38,10 @@ var (
 	cipherSuiteType         = reflect.TypeOf(storj.CipherSuite(0))
 	redundancyAlgorithmType = reflect.TypeOf(storj.RedundancyAlgorithm(0))
 	keyPtrType              = reflect.TypeOf(new(C.Key))
+	valueType               = reflect.TypeOf(new(C.struct_Value))
 
-	ErrConvert = errs.Class("struct conversion error")
+	ErrConvert       = errs.Class("struct conversion error")
+	IDVersionMapping = newMapping()
 )
 
 // Create pointer to a go struct for C to interact with
@@ -50,19 +54,118 @@ func goPointerFromCGoUintptr(p C.GoUintptr) unsafe.Pointer {
 }
 
 //export GetIDVersion
-func GetIDVersion(number C.uint, cErr **C.char) C.struct_IDVersion {
-	cIDVersion := C.struct_IDVersion{}
+func GetIDVersion(number C.uint, cErr **C.char) (cIDVersion C.struct_IDVersion) {
+	//func GetIDVersion(number C.uint, cErr **C.char) (cIDVersionPtr C.IDVersionPtr) {
 	goIDVersion, err := storj.GetIDVersion(storj.IDVersionNumber(number))
 	if err != nil {
 		*cErr = C.CString(err.Error())
+		//return cIDVersionPtr
 		return cIDVersion
 	}
 
+	//return C.IDVersion(IDVersionMapping.Add(goIDVersion))
+	//TODO: replace wth mapping
 	return C.struct_IDVersion{
-		GoIDVersion: cPointerFromGoStruct(&goIDVersion),
-		Number:      C.uchar(goIDVersion.Number),
+		Number: C.IDVersionNumber(goIDVersion.Number),
+		// TODO: use value pointer instead
+		GoIDVersion: C.IDVersionPtr(cPointerFromGoStruct(goIDVersion)),
+	}
+	//return C.IDVersionPtr(cPointerFromGoStruct(&goIDVersion))
+}
+
+const (
+	IDVersionType = ValueType(iota)
+)
+
+type ValueType uint16
+type CValue struct {
+	ptr      unsafe.Pointer
+	_type    ValueType
+	snapshot []byte
+	size     uintptr
+}
+
+func (typ ValueType) String() string {
+	// TODO: do this using reflect?
+	switch typ {
+	case IDVersionType:
+		return "IDVersion"
+	default:
+		return "unknown type"
 	}
 }
+
+var ErrSnapshot = errs.Class("unable to snapshot value")
+
+func (val CValue) Snapshot() (data []byte, _ error) {
+	// TODO: use mapping instead of uintptr
+	// TODO: do this using reflect?
+	switch val._type {
+	case IDVersionType:
+		idVersion := (*storj.IDVersion)(val.ptr)
+		idVersionPb := pb.IDVersion{
+			Number: uint32(idVersion.Number),
+		}
+		return proto.Marshal(&idVersionPb)
+	default:
+		// TODO: rename `ErrConvert` to `ErrValue` or something and change message accordingly
+		return nil, ErrSnapshot.New("type %s", val._type)
+	}
+}
+
+//export Unpack
+func Unpack(cValue *C.struct_Value, cErr **C.char) {
+	// TODO: use mapping instead
+	value := new(CValue)
+	err := CToGoStruct(cValue, value)
+	if err != nil {
+		*cErr = C.CString(err.Error())
+		return
+	}
+	data, err := value.Snapshot()
+	if err != nil {
+		*cErr = C.CString(err.Error())
+		return
+	}
+
+	value.size = uintptr(len(data))
+
+	mem, err := CMalloc(len(data))
+	if err != nil {
+		*cErr = C.CString(err.Error())
+		return
+	}
+	value.snapshot = []byte(mem)
+	copy(value.snapshot, data)
+
+	if err := GoToCStruct(value, cValue); err != nil {
+		*cErr = C.CString(err.Error())
+		return
+	}
+}
+
+//export CMalloc
+func CMalloc(size C.size_t) C.GoUintptr {
+	//t.Info("TestMe!!")
+	CMem := C.malloc(size) // *C.void
+	return C.GoUintptr(uintptr(CMem))
+	//ptr := (*uint8)(unsafe.Pointer(CMem))
+	//*ptr = 42
+	//fmt.Printf("CMem: %+v\n", CMem)
+	//fmt.Printf("CMem: %p\n", CMem)
+	//fmt.Printf("CMem: %d\n", *ptr)
+}
+
+// TODO: use reflect to lookup fields dynamically
+//export GetIDVersionNumber
+//func GetIDVersionNumber(idversion C.IDVersion) (IDVersionNumber C.IDVersionNumber) {
+//	goApiKeyStruct, ok := IDVersionMapping.Get(token(idversion)).(storj.IDVersion)
+//	if !ok {
+//		return IDVersionNumber
+//	}
+//
+//	return C.IDVersionNumber(goApiKeyStruct.Number)
+//}
 
 func GoToCStruct(fromVar, toPtr interface{}) error {
 	fromValue := reflect.ValueOf(fromVar)
@@ -174,6 +277,8 @@ func CToGoStruct(fromVar, toPtr interface{}) error {
 			toValue.Set(reflect.ValueOf(int64(fromValue.Int())))
 		}
 		return nil
+	//case valueType:
+
 	default:
 		if fromType.Kind() == reflect.Struct {
 			for i := 0; i < fromValue.NumField(); i++ {
