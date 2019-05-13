@@ -78,18 +78,22 @@ type BucketConfig struct {
 	RedundancyScheme *RedundancyScheme
 }
 
+// BucketList is a list of buckets
 type BucketList struct {
 	list storj.BucketList
 }
 
+// More returns true if list request was not able to return all results
 func (bl *BucketList) More() bool {
 	return bl.list.More
 }
 
+// Length returns number of returned items
 func (bl *BucketList) Length() int {
 	return len(bl.list.Items)
 }
 
+// Item gets item from specific index
 func (bl *BucketList) Item(index int) (*BucketInfo, error) {
 	if index < 0 && index >= len(bl.list.Items) {
 		return nil, fmt.Errorf("index out of range")
@@ -148,6 +152,98 @@ type EncryptionParameters struct {
 	// have been encrypted and the authentication overhead has been added.
 	// It is _not_ the size of the data blocks to _be_ encrypted.
 	BlockSize int32
+}
+
+type ObjectInfo struct {
+	//Version  uint32
+	// Bucket   Bucket
+	Path     storj.Path
+	IsPrefix bool
+
+	// Metadata map[string]string
+
+	// ContentType string
+	// Created     time.Time
+	// Modified    time.Time
+	// Expires     time.Time
+
+	// Stream
+}
+
+type ObjectList struct {
+	list storj.ObjectList
+
+	// Bucket string
+	// Prefix string
+	// More   bool
+
+	// // Items paths are relative to Prefix
+	// // To get the full path use list.Prefix + list.Items[0].Path
+	// Items []Object
+}
+
+// More returns true if list request was not able to return all results
+func (bl *ObjectList) More() bool {
+	return bl.list.More
+}
+
+// Prefix
+func (bl *ObjectList) Prefix() string {
+	return string(bl.list.Prefix)
+}
+
+// Bucket returns bucket name
+func (bl *ObjectList) Bucket() string {
+	return bl.list.Bucket
+}
+
+// Length returns number of returned items
+func (bl *ObjectList) Length() int {
+	return len(bl.list.Items)
+}
+
+// Item gets item from specific index
+func (bl *ObjectList) Item(index int) (*ObjectInfo, error) {
+	if index < 0 && index >= len(bl.list.Items) {
+		return nil, fmt.Errorf("index out of range")
+	}
+	return newObjectInfo(bl.list.Items[index]), nil
+}
+
+func newObjectInfo(object storj.Object) *ObjectInfo {
+	return &ObjectInfo{
+		Path:     string(object.Path),
+		IsPrefix: object.IsPrefix,
+	}
+}
+
+type ListOptions struct {
+	Prefix    string
+	Cursor    string // Cursor is relative to Prefix, full path is Prefix + Cursor
+	Delimiter rune
+	Recursive bool
+	Direction byte
+	Limit     int
+}
+
+// ListObjects list objects in bucket, if authorized.
+func (bucket *Bucket) ListObjects(options *ListOptions) (*ObjectList, error) {
+	scope := bucket.scope.child()
+
+	opts := &storj.ListOptions{}
+	if options != nil {
+		opts.Prefix = options.Prefix
+		opts.Cursor = options.Cursor
+		opts.Delimiter = options.Delimiter
+		opts.Recursive = options.Recursive
+		opts.Limit = options.Limit
+	}
+
+	list, err := bucket.lib.ListObjects(scope.ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+	return &ObjectList{list}, nil
 }
 
 // DeleteObject removes an object, if authorized.
@@ -245,6 +341,7 @@ type Reader struct {
 	}
 }
 
+// NewReader returns new reader for downloading object
 func (bucket *Bucket) NewReader(path storj.Path, options *ReaderOptions) (*Reader, error) {
 	scope := bucket.scope.child()
 
