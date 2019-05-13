@@ -8,8 +8,8 @@ const (
 	ActivationPath = "activationPath"
 	// PasswordRecoveryPath is key for path which handles password recovery
 	PasswordRecoveryPath = "passwordRecoveryPath"
-	// PasswordRecoveryLetUsKnowPath is key for path which handles let us know sequence
-	PasswordRecoveryLetUsKnowPath = "passwordRecoveryPathLetUsKnowPath"
+	// PasswordRecoveredAccidentallyPath is key for path which handles let us know sequence
+	PasswordRecoveredAccidentallyPath = "passwordRecoveryPathLetUsKnowPath"
 	// SignInPath is key for sign in server route
 	SignInPath = "signInPath"
 )
@@ -28,10 +28,10 @@ func (*AccountActivationEmail) Subject() string { return "Activate your email" }
 
 // ForgotPasswordEmail is mailservice template with reset password data
 type ForgotPasswordEmail struct {
-	Origin        string
-	UserName      string
-	ResetLink     string
-	LetUsKnowLink string
+	Origin                            string
+	UserName                          string
+	ResetLink                         string
+	PasswordRecoveredAccidentallyLink string
 }
 
 // Template returns email template name

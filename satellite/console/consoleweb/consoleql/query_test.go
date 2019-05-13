@@ -503,7 +503,7 @@ func TestGraphqlQuery(t *testing.T) {
 			})
 
 			rootObject[consoleql.PasswordRecoveryPath] = "?token="
-			rootObject[consoleql.PasswordRecoveryLetUsKnowPath] = "?token="
+			rootObject[consoleql.PasswordRecoveredAccidentallyPath] = "?token="
 			query := fmt.Sprintf("query {forgotPassword(email: \"%s\")}", user.Email)
 
 			result := testQuery(t, query)

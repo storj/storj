@@ -320,7 +320,7 @@ func (s *Server) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 	rootObject["origin"] = s.config.ExternalAddress
 	rootObject[consoleql.ActivationPath] = "activation/?token="
 	rootObject[consoleql.PasswordRecoveryPath] = "password-recovery/?token="
-	rootObject[consoleql.PasswordRecoveryLetUsKnowPath] = "password-recovery-let-us-know/?token="
+	rootObject[consoleql.PasswordRecoveredAccidentallyPath] = "password-recovery-let-us-know/?token="
 	rootObject[consoleql.SignInPath] = "login"
 
 	result := graphql.Do(graphql.Params{
