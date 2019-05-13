@@ -236,7 +236,7 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 		return err
 	}
 
-	if time.Since(token.CreatedAt.Add(tokenExpirationTime)) > 0 {
+	if time.Since(token.CreatedAt) < tokenExpirationTime {
 		return errs.New(passwordRecoveryTokenIsExpiredErrMsg)
 	}
 
