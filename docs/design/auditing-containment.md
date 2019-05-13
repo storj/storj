@@ -4,7 +4,7 @@
 
 This design doc outlines how we will implement "containment mode," in which the auditing service monitors a node that has received an audit request, but refuses to send the requested data.
 Currently in the codebase, nodes that do this will be marked as having audit failures.
-However, we don't want to immediately mark an audit failure if this specific case arises, because factors such as unintentional misconfiguration by the SNO, or a node backed up fulfilling requests should not warrant the penalty of an audit failure mark.
+However, we don't want to immediately mark an audit failure if this specific case arises, because factors such as unintentional misconfiguration by the SNO, or a busy node fulfilling requests should not necessarily warrant the penalty of an audit failure mark.
 Instead, we want to "contain" these nodes by retrying the original audit until they either eventually respond and pass the audit, or refuse to respond a certain number of times and ultimately receive an audit failure mark.
 
 ## Main Objectives
