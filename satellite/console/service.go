@@ -153,7 +153,7 @@ func (s *Service) GenerateActivationToken(ctx context.Context, id uuid.UUID, ema
 }
 
 // GeneratePasswordRecoveryToken - is a method for generating password recovery token
-func (s *Service) GeneratePasswordRecoveryToken(ctx context.Context, id uuid.UUID, email string) (token string, err error) {
+func (s *Service) GeneratePasswordRecoveryToken(ctx context.Context, id uuid.UUID) (token string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	resetPasswordToken, err := s.store.ResetPasswordTokens().GetByOwnerID(ctx, id)

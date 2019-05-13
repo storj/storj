@@ -112,7 +112,7 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 						return false, fmt.Errorf("%s is not found", email)
 					}
 
-					recoveryToken, err := service.GeneratePasswordRecoveryToken(p.Context, user.ID, user.Email)
+					recoveryToken, err := service.GeneratePasswordRecoveryToken(p.Context, user.ID)
 					if err != nil {
 						return false, errors.New("failed to generate password recovery token")
 					}
