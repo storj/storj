@@ -8,7 +8,7 @@
 #include "unity.h"
 #include "../uplink-cgo.h"
 
-extern struct Uplink* NewTestUplink(char**);
+extern Uplink *NewTestUplink(char **);
 
 void TestCreateBucket(void)
 {
@@ -19,14 +19,13 @@ void TestCreateBucket(void)
     uint8_t encryptionKey[32];
 
     struct ProjectOptions opts = {
-        {&encryptionKey}
-    };
+        {&encryptionKey}};
 
-    struct Uplink *uplink = NewTestUplink(err);
+    Uplink *uplink = NewTestUplink(err);
     TEST_ASSERT_EQUAL_STRING("", *err);
     TEST_ASSERT_NOT_NULL(uplink);
 
-    Project project = OpenProject(*uplink, satelliteAddr, apiKey, opts, err);
+    Project project = OpenProject(uplink->Ptr, satelliteAddr, apiKey.Ptr, opts, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     // TODO: replace with enum

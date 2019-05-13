@@ -22,18 +22,6 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-const (
-	IDVersionType = ValueType(iota)
-)
-
-type ValueType uint16
-type GoValue struct {
-	ptr      unsafe.Pointer
-	_type    ValueType
-	snapshot uintptr
-	size     uintptr
-}
-
 var (
 	// cgo types
 	cStringType = reflect.TypeOf(C.CString(""))
@@ -53,7 +41,23 @@ var (
 
 	ErrConvert       = errs.Class("struct conversion error")
 	ErrSnapshot      = errs.Class("unable to snapshot value")
+
+	structRefMap = newMapping()
 )
+
+//export GetIDVersion
+func GetIDVersion(number C.uint, cErr **C.char) (cIDVersion C.IDVersion) {
+	goIDVersion, err := storj.GetIDVersion(storj.IDVersionNumber(number))
+	if err != nil {
+		*cErr = C.CString(err.Error())
+		return cIDVersion
+	}
+
+	return C.IDVersion{
+		Ptr:  C.IDVersionRef(structRefMap.Add(goIDVersion)),
+		Type: C.IDVersionType,
+	}
+}
 
 // Create pointer to a go struct for C to interact with
 func cPointerFromGoStruct(s interface{}) C.GoUintptr {
@@ -64,36 +68,18 @@ func goPointerFromCGoUintptr(p C.GoUintptr) unsafe.Pointer {
 	return unsafe.Pointer(uintptr(p))
 }
 
-//export GetIDVersion
-func GetIDVersion(number C.uint, cErr **C.char) (cIDVersion C.struct_GoValue) {
-	goIDVersion, err := storj.GetIDVersion(storj.IDVersionNumber(number))
-	if err != nil {
-		*cErr = C.CString(err.Error())
-		return cIDVersion
-	}
-
-	//TODO: replace wth mapping
-	return C.struct_GoValue{
-		Ptr: cPointerFromGoStruct(&goIDVersion),
-		Type: C.enum_ValueType(IDVersionType),
-	}
-}
-
-func (typ ValueType) String() string {
-	// TODO: do this using reflect?
-	switch typ {
-	case IDVersionType:
-		return "IDVersion"
-	default:
-		return "unknown type"
-	}
+type GoValue struct {
+	ptr      unsafe.Pointer
+	_type    uint
+	snapshot uintptr
+	size     uintptr
 }
 
 func (val GoValue) Snapshot() (data []byte, _ error) {
 	// TODO: do this using reflect?
 	// TODO: use mapping instead of uintptr
 	switch val._type {
-	case IDVersionType:
+	case C.IDVersionType:
 		idVersion := (*storj.IDVersion)(val.ptr)
 		idVersionPb := pb.IDVersion{
 			Number: uint32(idVersion.Number),

@@ -12,7 +12,6 @@ import "C"
 import (
 	"context"
 	"fmt"
-	"unsafe"
 
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -22,7 +21,7 @@ import (
 var mon = monkit.Package()
 
 //export NewUplink
-func NewUplink(cConfig C.struct_Config, cErr **C.char) (cUplink C.struct_GoValue) {
+func NewUplink(cConfig C.struct_Config, cErr **C.char) (cUplink C.Uplink) {
 	goConfig := new(uplink.Config)
 	if err := CToGoStruct(cConfig, goConfig); err != nil {
 		*cErr = C.CString(err.Error())
@@ -36,20 +35,23 @@ func NewUplink(cConfig C.struct_Config, cErr **C.char) (cUplink C.struct_GoValue
 		return cUplink
 	}
 
-	return C.struct_GoValue{
-		Ptr: cPointerFromGoStruct(goUplink),
-		//Snapshot: ,
-		//Size: ,
+	return C.Uplink{
+		Ptr: C.UplinkRef(structRefMap.Add(goUplink)),
+		Type: C.UplinkType,
 	}
 }
 
 //export OpenProject
-func OpenProject(cUplink C.struct_Uplink, satelliteAddr *C.char, cAPIKey C.APIKey, cOpts C.struct_ProjectOptions, cErr **C.char) (cProject C.Project) {
+func OpenProject(cUplink C.UplinkRef, satelliteAddr *C.char, cAPIKey C.APIKeyRef, cOpts C.struct_ProjectOptions, cErr **C.char) (cProject C.Project) {
 	var err error
 	ctx := context.Background()
 	defer mon.Task()(&ctx)(&err)
 
-	goUplink := (*uplink.Uplink)(unsafe.Pointer(uintptr(cUplink.GoUplink)))
+	goUplink, ok := structRefMap.Get(token(cUplink)).(uplink.Uplink)
+	if !ok {
+		*cErr = C.CString("invalid uplink")
+		fmt.Println(cErr, err.Error())
+		return cProject	}
 
 	opts := new(uplink.ProjectOptions)
 	err = CToGoStruct(cOpts, opts)
@@ -59,9 +61,14 @@ func OpenProject(cUplink C.struct_Uplink, satelliteAddr *C.char, cAPIKey C.APIKe
 		return cProject
 	}
 
-	apiKey := (*uplink.APIKey)(goPointerFromCGoUintptr(cAPIKey))
+	apiKey, ok := structRefMap.Get(token(cAPIKey)).(uplink.APIKey)
+	if !ok {
+		*cErr = C.CString("invalid API Key")
+		fmt.Println(cErr, err.Error())
+		return cProject
+	}
 
-	project, err := goUplink.OpenProject(ctx, C.GoString(satelliteAddr), *apiKey, opts)
+	project, err := goUplink.OpenProject(ctx, C.GoString(satelliteAddr), apiKey, opts)
 	if err != nil {
 		*cErr = C.CString(err.Error())
 		fmt.Println(cErr, err.Error())

@@ -108,21 +108,21 @@ extern "C" {
 
 // ParseAPIKey parses an API Key
 
-extern APIKey ParseAPIKey(char* p0, char** p1);
+extern Uplink ParseAPIKey(char* p0, char** p1);
 
 // Serialize serializes the API Key to a string
 
-extern char* Serialize(APIKey p0);
+extern char* Serialize(APIKeyRef p0);
 
-extern struct GoValue GetIDVersion(unsigned int p0, char** p1);
+extern Uplink GetIDVersion(unsigned int p0, char** p1);
 
-extern void Unpack(struct GoValue* p0, char** p1);
+extern void Unpack(Uplink* p0, char** p1);
 
 extern struct Bucket CreateBucket(GoUintptr p0, char* p1, struct BucketConfig p2, char** p3);
 
-extern struct GoValue NewUplink(struct Config p0, char** p1);
+extern Uplink NewUplink(struct Config p0, char** p1);
 
-extern Project OpenProject(struct Uplink p0, char* p1, APIKey p2, struct ProjectOptions p3, char** p4);
+extern Project OpenProject(UplinkRef p0, char* p1, APIKeyRef p2, struct ProjectOptions p3, char** p4);
 
 #ifdef __cplusplus
 }

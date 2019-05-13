@@ -6,25 +6,30 @@
 
 typedef __SIZE_TYPE__ GoUintptr;
 typedef int64_t Size;
-enum ValueType { IDVersionType };
 
-typedef GoUintptr APIKey;
-typedef uint8_t IDVersionNumber;
-
-struct IDVersion {
-    IDVersionNumber Number;
-//    IDVersionPtr GoIDVersion;
+enum ValueType
+{
+    IDVersionType,
+    APIKeyType,
+    UplinkType,
+    ProjectType,
+    BucketType
 };
 
-// NB: maybe don't use ValuePtr directly?
-struct GoValue {
-    // TODO: use mapping instead
+struct GoValue
+{
     GoUintptr Ptr;
     enum ValueType Type;
-    uint8_t* Snapshot;
+    uint8_t *Snapshot;
     GoUintptr Size;
-
 };
+
+typedef GoUintptr APIKeyRef;
+typedef struct GoValue APIKey;
+typedef GoUintptr IDVersionRef;
+typedef struct GoValue IDVersion;
+typedef GoUintptr UplinkRef;
+typedef struct GoValue Uplink;
 
 struct Config
 {
@@ -35,15 +40,9 @@ struct Config
             bool SkipPeerCAWhitelist;
             char *PeerCAWhitelistPath;
         } TLS;
-        struct IDVersion IdentityVersion;
+        IDVersionRef IdentityVersion;
         char *PeerIDVersion;
         Size MaxInlineSize;
         Size MaxMemory;
     } Volatile;
-};
-
-struct Uplink
-{
-    GoUintptr GoUplink;
-    struct Config Config;
 };

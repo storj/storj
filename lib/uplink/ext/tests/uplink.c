@@ -4,17 +4,19 @@
 #include <stdlib.h>
 #include "../headers/main.h"
 
-
-void* ConvertValue(struct GoValue *val, char **err)
+void *ConvertValue(struct GoValue *val, char **err)
 {
-    switch(val->Type) {
+    switch (val->Type)
+    {
     case IDVersionType:
-//        IDVersionProto *idVersionProto = storj__libuplink__idversion__unpack(NULL, val->Size, val->Snapshot);
+        //        IDVersionProto *idVersionProto = storj__libuplink__idversion__unpack(NULL, val->Size, val->Snapshot);
 
-//        struct IDVersion idVersion = {IDVersionProto.number};
+        //        struct IDVersion idVersion = {IDVersionProto.number};
         break;
     default:
         *err = "unknown type";
         return NULL;
     }
+
+    return NULL;
 }
