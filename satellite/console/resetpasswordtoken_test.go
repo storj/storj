@@ -45,7 +45,7 @@ func TestNewRegistrationSecret(t *testing.T) {
 			assert.NoError(t, err)
 			assert.NotNil(t, owner)
 
-			rptoken, err = rptokens.Create(ctx, &owner.ID)
+			rptoken, err = rptokens.Create(ctx, owner.ID)
 			assert.NotNil(t, rptoken)
 			assert.NoError(t, err)
 		})
