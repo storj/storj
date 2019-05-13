@@ -38,20 +38,6 @@
 					</div>
 				</div>
 			</div>
-			<div class="project-details-info-container" >
-				<div class="project-details-info-container__usage-report-container">
-					<div class="project-details-info-container__usage-report-container__info">
-						<img src="../../../static/images/projectDetails/UsageReport.svg" alt="">
-						<div class="project-details-info-container__usage-report-container__info__text">
-							<h4>Usage</h4>
-							<h2>Analyze and understand your storage, egress and object usage amounts</h2>
-						</div>
-					</div>
-					<div class="project-details-info-container__usage-report-container__buttons-area">
-						<Button label="View" width="140px" height="48px" :onPress="onMoreClick"/>
-					</div>
-				</div>
-			</div>
 			<div class="project-details__button-area" id="deleteProjectPopupButton">
 				<Button class="delete-project" label="Delete project" width="180px" height="48px" :onPress="toggleDeleteDialog" isDeletion/>
 			</div>
@@ -288,31 +274,6 @@
 				@extend .project-details-info-container__portability-container__info;
 				width: 380px;
 				justify-content: space-between;
-			}
-
-			img {
-				width: 6vw;
-				height: 10vh;
-			}
-		}
-
-		&__usage-report-container {
-			@extend .project-details-info-container__description-container;
-
-			&__info {
-				display: flex;
-				flex-direction: row;
-				align-items: center;
-
-				&__text {
-					margin-left: 2vw;
-				}
-			}
-
-			&__buttons-area {
-				@extend .project-details-info-container__usage-report-container__info;
-				width: 380px;
-				justify-content: flex-end;
 			}
 
 			img {

@@ -15,6 +15,7 @@ import Page404 from '@/components/errors/Page404.vue';
 import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
 import UsageReport from '@/components/project/UsageReport.vue';
 import ProjectDetails from '@/components/project/ProjectDetails.vue';
+import BillingHistory from '@/components/project/billing/BillingArea.vue';
 import BucketArea from '@/components/buckets/BucketArea.vue';
 import { getToken } from '@/utils/tokenManager';
 import store from '@/store';
@@ -70,6 +71,11 @@ let router = new Router({
                             path: ROUTES.PROJECT_DETAILS.path,
                             name: ROUTES.PROJECT_DETAILS.name,
                             component: ProjectDetails
+                        },
+                        {
+                            path: ROUTES.BILLING_HISTORY.path,
+                            name: ROUTES.BILLING_HISTORY.name,
+                            component: BillingHistory
                         },
                     ]
                 },

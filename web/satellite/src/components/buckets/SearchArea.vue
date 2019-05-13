@@ -53,7 +53,6 @@
 					padding-left: 20px;
 					font-family: 'font_regular';
 					font-size: 16px;
-					color: #AFB7C1;
 					outline: none;
 					box-shadow: none;
 				}

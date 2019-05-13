@@ -38,6 +38,10 @@ const ROUTES = {
         path: 'usage-report',
         name: 'UsageReport'
     },
+    BILLING_HISTORY: {
+        path: 'billing-history',
+        name: 'BillingHistory'
+    },
     PROJECT_DETAILS: {
         path: 'details',
         name: 'ProjectDetails'
