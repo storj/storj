@@ -61,9 +61,9 @@ In our implementation, the satellite should create a new Bloom filter for every 
 
 We also can't remove entries from a Bloom filter, only add, so frequently the Satellite will need to regenerate the Bloom filters.
 
-Since currently the repair checker considers every pieceID and nodeID anyway, we will integrate storage node garbage collection from there for the short term, but more long-term, we should have the Bloom filter generation run off of a snapshot of the database in a separate server. It doesn't need to necessarily run every day, but perhaps once a week.
+Since currently the repair checker considers every pieceID and nodeID anyway, we will integrate storage node garbage collection in the checker loop for the short term, but more long-term, we should have the Bloom filter generation run off of a snapshot of the database in a separate server. It doesn't need to necessarily run every day, but perhaps once a week.
 
-An advantage of the using the Bloom filter is that it knows which pieces a storage node should hold. We don't have to care about how the garbage was created. Otherwise, if we  do garbage collecting in a different way for specific scenarios (such as those listed under "Ways to create garbage data"), we would need to make sure we cover each one.
+An advantage of the using the Bloom filter is that it knows which pieces a storage node should hold. We don't have to care about how the garbage was created. Otherwise, if we do garbage collecting in a different way for specific scenarios (such as those listed under "Ways to create garbage data"), we would need to make sure we cover each case.
 
 Previously we'd planned on building reverse index functionality for pointerdb, but doing so would require storing tons of data. This would cause RAM issues eventually. In the case of the Bloom filter, RAM becomes less of an issue, but compute time becomes more of one.
 
