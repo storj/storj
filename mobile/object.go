@@ -1,3 +1,5 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
 package mobile
 
 import (
@@ -7,14 +9,16 @@ import (
 )
 
 type ObjectInfo struct {
-	// // Bucket   Bucket
-
 	object storj.Object
 	// Stream
 }
 
 func (bl *ObjectInfo) Version() int32 {
 	return int32(bl.object.Version)
+}
+
+func (bl *ObjectInfo) Bucket() *BucketInfo {
+	return newBucketInfo(bl.object.Bucket)
 }
 
 func (bl *ObjectInfo) Path() string {

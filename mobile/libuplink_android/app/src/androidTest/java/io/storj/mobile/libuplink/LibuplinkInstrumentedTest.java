@@ -330,9 +330,9 @@ public class LibuplinkInstrumentedTest {
                 BucketConfig bucketConfig = new BucketConfig();
                 bucketConfig.setRedundancyScheme(new RedundancyScheme());
 
-                project.createBucket("test", bucketConfig);
+                project.createBucket("testBucket", bucketConfig);
 
-                Bucket bucket = project.openBucket("test", access);
+                Bucket bucket = project.openBucket("testBucket", access);
 
                 for (int i = 0; i < 13; i++) {
                     Writer writer = bucket.newWriter("path" + i, new WriterOptions());
@@ -352,11 +352,14 @@ public class LibuplinkInstrumentedTest {
                 ObjectList list = bucket.listObjects(listOptions);
                 assertEquals(13, list.length());
 
-                for (int i = 0; i < 13; i++) {
+                for (int i = 0; i < list.length(); i++) {
+                    ObjectInfo info = list.item(i);
+                    assertEquals("testBucket", info.bucket().getName());
+
                     bucket.deleteObject("path" + i);
                 }
 
-                project.deleteBucket("test");
+                project.deleteBucket("testBucket");
             } finally {
                 if (project != null) {
                     project.close();
