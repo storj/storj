@@ -83,15 +83,32 @@ pipeline {
                     }
                 }
 
-                stage('Integration') {
+                stage('Integration sqlite') {
                     environment {
                         // use different hostname to avoid port conflicts
                         STORJ_NETWORK_HOST4 = '127.0.0.2'
                         STORJ_NETWORK_HOST6 = '127.0.0.2'
                     }
+
                     steps {
                         sh 'make test-sim'
                         sh 'make test-satellite-cfg-change'
+                    }
+                }
+
+                stage('Integration postgres') {
+                    environment {
+                        // use different hostname to avoid port conflicts
+                        STORJ_NETWORK_HOST4 = '127.0.0.3'
+                        STORJ_NETWORK_HOST6 = '127.0.0.3'
+
+                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj2?sslmode=disable'
+
+                    }
+
+                    steps {
+                        sh 'psql -U postgres -c \'create database teststorj2;\''
+                        sh 'make test-sim'
                     }
                 }
             }
