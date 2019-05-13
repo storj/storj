@@ -38,6 +38,13 @@ type Info struct {
 	Uplink          *identity.PeerIdentity
 }
 
+// ExpiredInfo is a fully namespaced piece id
+type ExpiredInfo struct {
+	SatelliteID storj.NodeID
+	PieceID     storj.PieceID
+	PieceSize   int64
+}
+
 // DB stores meta information about a piece, the actual piece is stored in storage.Blobs
 type DB interface {
 	// Add inserts Info to the database.
@@ -46,12 +53,12 @@ type DB interface {
 	Get(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (*Info, error)
 	// Delete deletes Info about a piece.
 	Delete(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) error
+	// DeleteFailed marks piece deletion from disk failed
+	DeleteFailed(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID, failedAt time.Time) error
 	// SpaceUsed calculates disk space used by all pieces
 	SpaceUsed(ctx context.Context) (int64, error)
 	// GetExpired gets orders that are expired and were created before some time
-	GetExpired(ctx context.Context, expiredAt time.Time) ([]Info, error)
-	// DeleteExpired deletes pieces that are expired
-	DeleteExpired(ctx context.Context, expiredAt time.Time, satelliteID storj.NodeID, pieceID storj.PieceID) error
+	GetExpired(ctx context.Context, expiredAt time.Time, limit int64) ([]ExpiredInfo, error)
 }
 
 // Store implements storing pieces onto a blob storage implementation.

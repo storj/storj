@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.12.1
+GO_VERSION ?= 1.12.5
 GOOS ?= linux
 GOARCH ?= amd64
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
@@ -89,6 +89,11 @@ test: ## Run tests on source code (jenkins)
 test-sim: ## Test source with storj-sim (jenkins)
 	@echo "Running ${@}"
 	@./scripts/test-sim.sh
+
+.PHONY: test-satellite-cfg-change
+test-satellite-cfg-change: ## Test if the satellite config file has changed (jenkins)
+	@echo "Running ${@}"
+	@cd scripts; ./test-satellite-cfg-change.sh
 
 .PHONY: test-certificate-signing
 test-certificate-signing: ## Test certificate signing service and storagenode setup (jenkins)
@@ -263,3 +268,16 @@ clean-images:
 test-docker-clean: ## Clean up Docker environment used in test-docker target
 	-docker-compose down --rmi all
 
+
+##@ Tooling
+
+.PHONY: update-satellite-cfg-lock
+update-satellite-cfg-lock: ## Update the satellite config lock file
+	@docker run -ti --rm \
+		-v ${GOPATH}/pkg/mod:/go/pkg/mod \
+		-v $(shell pwd):/storj \
+		-v $(shell go env GOCACHE):/go-cache \
+		-e "GOCACHE=/go-cache" \
+		-u root:root \
+		golang:${GO_VERSION} \
+		/bin/bash -c "cd /storj/scripts; ./update-satellite-cfg-lock.sh"

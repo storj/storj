@@ -20,19 +20,16 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-func TestDeleteRawBefore(t *testing.T) {
+func TestDeleteTalliesBefore(t *testing.T) {
 	tests := []struct {
-		createdAt    time.Time
 		eraseBefore  time.Time
 		expectedRaws int
 	}{
 		{
-			createdAt:    time.Now(),
 			eraseBefore:  time.Now(),
 			expectedRaws: 1,
 		},
 		{
-			createdAt:    time.Now(),
 			eraseBefore:  time.Now().Add(24 * time.Hour),
 			expectedRaws: 0,
 		},
@@ -46,13 +43,13 @@ func TestDeleteRawBefore(t *testing.T) {
 			nodeData := make(map[storj.NodeID]float64)
 			nodeData[id] = float64(1000)
 
-			err := planet.Satellites[0].DB.Accounting().SaveAtRestRaw(ctx, tt.createdAt, tt.createdAt, nodeData)
+			err := planet.Satellites[0].DB.StoragenodeAccounting().SaveTallies(ctx, time.Now(), nodeData)
 			require.NoError(t, err)
 
-			err = planet.Satellites[0].DB.Accounting().DeleteRawBefore(ctx, tt.eraseBefore)
+			err = planet.Satellites[0].DB.StoragenodeAccounting().DeleteTalliesBefore(ctx, tt.eraseBefore)
 			require.NoError(t, err)
 
-			raws, err := planet.Satellites[0].DB.Accounting().GetRaw(ctx)
+			raws, err := planet.Satellites[0].DB.StoragenodeAccounting().GetTallies(ctx)
 			require.NoError(t, err)
 			assert.Len(t, raws, tt.expectedRaws)
 		})
@@ -98,7 +95,7 @@ func TestOnlyInline(t *testing.T) {
 			require.NoError(t, err)
 			assert.Len(t, actualNodeData, 0)
 
-			_, err = planet.Satellites[0].DB.Accounting().SaveBucketTallies(ctx, latestTally, actualBucketData)
+			_, err = planet.Satellites[0].DB.ProjectAccounting().SaveTallies(ctx, latestTally, actualBucketData)
 			require.NoError(t, err)
 
 			// Confirm the correct bucket storage tally was created

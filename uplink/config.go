@@ -35,7 +35,7 @@ type RSConfig struct {
 	MinThreshold     int         `help:"the minimum pieces required to recover a segment. k." releaseDefault:"29" devDefault:"4"`
 	RepairThreshold  int         `help:"the minimum safe pieces before a repair is triggered. m." releaseDefault:"35" devDefault:"6"`
 	SuccessThreshold int         `help:"the desired total pieces for a segment. o." releaseDefault:"80" devDefault:"8"`
-	MaxThreshold     int         `help:"the largest amount of pieces to encode to. n." releaseDefault:"95" devDefault:"10"`
+	MaxThreshold     int         `help:"the largest amount of pieces to encode to. n." releaseDefault:"130" devDefault:"10"`
 }
 
 // EncryptionConfig is a configuration struct that keeps details about
@@ -50,11 +50,12 @@ type EncryptionConfig struct {
 // ClientConfig is a configuration struct for the uplink that controls how
 // to talk to the rest of the network.
 type ClientConfig struct {
-	APIKey        string        `default:"" help:"the api key to use for the satellite" noprefix:"true"`
-	SatelliteAddr string        `releaseDefault:"127.0.0.1:7777" devDefault:"127.0.0.1:10000" help:"the address to use for the satellite" noprefix:"true"`
-	MaxInlineSize memory.Size   `help:"max inline segment size in bytes" default:"4KiB"`
-	SegmentSize   memory.Size   `help:"the size of a segment in bytes" default:"64MiB"`
-	Timeout       time.Duration `help:"timeout for request" default:"0h0m20s"`
+	APIKey         string        `default:"" help:"the api key to use for the satellite" noprefix:"true"`
+	SatelliteAddr  string        `releaseDefault:"127.0.0.1:7777" devDefault:"127.0.0.1:10000" help:"the address to use for the satellite" noprefix:"true"`
+	MaxInlineSize  memory.Size   `help:"max inline segment size in bytes" default:"4KiB"`
+	SegmentSize    memory.Size   `help:"the size of a segment in bytes" default:"64MiB"`
+	RequestTimeout time.Duration `help:"timeout for request" default:"0h0m20s"`
+	DialTimeout    time.Duration `help:"timeout for dials" default:"0h0m20s"`
 }
 
 // Config uplink configuration
@@ -83,7 +84,10 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 
 	// ToDo: Handle Versioning for Uplinks here
 
-	tc := transport.NewClientWithTimeout(tlsOpts, c.Client.Timeout)
+	tc := transport.NewClientWithTimeouts(tlsOpts, transport.Timeouts{
+		Request: c.Client.RequestTimeout,
+		Dial:    c.Client.DialTimeout,
+	})
 
 	if c.Client.SatelliteAddr == "" {
 		return nil, nil, errors.New("satellite address not specified")

@@ -6,7 +6,7 @@ pipeline {
         }
     }
     options {
-          timeout(time: 30, unit: 'MINUTES')
+          timeout(time: 10, unit: 'MINUTES')
     }
     stages {
         stage('Build') {
@@ -33,6 +33,7 @@ pipeline {
                     steps {
                         sh 'go run ./scripts/check-copyright.go'
                         sh 'go run ./scripts/check-imports.go -race ./...'
+                        sh 'go run ./scripts/check-peer-constraints.go -race -fail=false'
                         sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint'
                         sh 'protolock status'
                         sh 'bash ./scripts/check-dbx-version.sh'
@@ -84,19 +85,13 @@ pipeline {
 
                 stage('Integration') {
                     environment {
-                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj2?sslmode=disable'
-
                         // use different hostname to avoid port conflicts
                         STORJ_NETWORK_HOST4 = '127.0.0.2'
                         STORJ_NETWORK_HOST6 = '127.0.0.2'
                     }
                     steps {
-                        sh 'psql -U postgres -c \'create database teststorj2;\''
                         sh 'make test-sim'
-
-                        // run integration tests with sqlite
-                        sh 'unset STORJ_SIM_POSTGRES'
-                        sh 'make test-sim'
+                        sh 'make test-satellite-cfg-change'
                     }
                 }
             }
