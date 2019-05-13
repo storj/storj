@@ -19,6 +19,9 @@ import io.storj.libuplink.mobile.BucketConfig;
 import io.storj.libuplink.mobile.BucketInfo;
 import io.storj.libuplink.mobile.BucketList;
 import io.storj.libuplink.mobile.Config;
+import io.storj.libuplink.mobile.ListOptions;
+import io.storj.libuplink.mobile.Mobile;
+import io.storj.libuplink.mobile.ObjectList;
 import io.storj.libuplink.mobile.Project;
 import io.storj.libuplink.mobile.ProjectOptions;
 import io.storj.libuplink.mobile.Reader;
@@ -36,8 +39,8 @@ import static org.junit.Assert.fail;
 @RunWith(AndroidJUnit4.class)
 public class LibuplinkInstrumentedTest {
 
-    public static final String VALID_SATELLITE_ADDRESS = "192.168.8.134:10000";
-    public static final String VALID_API_KEY = InstrumentationRegistry.getArguments().getString("api.key", "7RBD98DENOA4TCJ0MKMJBB5A6BM9O7R6MSMI5NO=");
+    public static final String VALID_SATELLITE_ADDRESS = InstrumentationRegistry.getArguments().getString("storj.sim.host", "192.168.8.134:10000");
+    public static final String VALID_API_KEY = InstrumentationRegistry.getArguments().getString("api.key", "GBK6TEMIPJQUOVVN99C2QO9USKTU26QB6C4VNM0=");
 
     String filesDir;
 
@@ -294,6 +297,62 @@ public class LibuplinkInstrumentedTest {
                     bucket.deleteObject("object/path");
                 } catch (Exception e) {
                     assertTrue(e.getMessage().startsWith("object not found"));
+                }
+
+                project.deleteBucket("test");
+            } finally {
+                if (project != null) {
+                    project.close();
+                }
+            }
+        } finally {
+            uplink.close();
+        }
+    }
+
+    @Test
+    public void testListObjects() throws Exception {
+        Config config = new Config();
+
+        Uplink uplink = new Uplink(config, filesDir);
+        try {
+            ProjectOptions options = new ProjectOptions();
+            options.setEncryptionKey("TestEncryptionKey".getBytes());
+
+            Project project = null;
+            try {
+                project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY, options);
+
+                BucketAccess access = new BucketAccess();
+                access.setPathEncryptionKey("TestEncryptionKey".getBytes());
+
+                BucketConfig bucketConfig = new BucketConfig();
+                bucketConfig.setRedundancyScheme(new RedundancyScheme());
+
+                project.createBucket("test", bucketConfig);
+
+                Bucket bucket = project.openBucket("test", access);
+
+                for (int i = 0; i < 13; i++) {
+                    Writer writer = bucket.newWriter("path" + i, new WriterOptions());
+                    try {
+                        byte[] buf = new byte[0];
+                        writer.write(buf);
+                    } finally {
+                        writer.close();
+                    }
+                }
+
+                ListOptions listOptions = new ListOptions();
+                listOptions.setCursor("");
+                listOptions.setDirection(Mobile.DirectionForward);
+                listOptions.setLimit(20);
+
+                ObjectList list = bucket.listObjects(listOptions);
+                assertEquals(13, list.length());
+
+                for (int i = 0; i < 13; i++) {
+                    bucket.deleteObject("path" + i);
                 }
 
                 project.deleteBucket("test");

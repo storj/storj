@@ -20,6 +20,9 @@ const (
 	// CipherSuiteEncSecretBox indicates use of XSalsa20-Poly1305 encryption, as provided
 	// by the NaCl cryptography library under the name "Secretbox".
 	CipherSuiteEncSecretBox = byte(storj.EncSecretBox)
+
+	DirectionAfter   = byte(storj.After)
+	DirectionForward = byte(storj.Forward)
 )
 
 type Bucket struct {
@@ -220,7 +223,7 @@ func newObjectInfo(object storj.Object) *ObjectInfo {
 type ListOptions struct {
 	Prefix    string
 	Cursor    string // Cursor is relative to Prefix, full path is Prefix + Cursor
-	Delimiter rune
+	Delimiter byte
 	Recursive bool
 	Direction byte
 	Limit     int
@@ -234,7 +237,8 @@ func (bucket *Bucket) ListObjects(options *ListOptions) (*ObjectList, error) {
 	if options != nil {
 		opts.Prefix = options.Prefix
 		opts.Cursor = options.Cursor
-		opts.Delimiter = options.Delimiter
+		opts.Direction = storj.ListDirection(options.Direction)
+		// opts.Delimiter = options.Delimiter
 		opts.Recursive = options.Recursive
 		opts.Limit = options.Limit
 	}
