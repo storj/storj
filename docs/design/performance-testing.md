@@ -38,8 +38,6 @@ For integration tests it’s possible to re-use the MB/s ability of the go bench
 ### Reporting
 There is already a repository with easy to use R scripts that plot various graphs from standard Go benchmark results like the ones above in the authoring section. It also supports HdrHistogram files which are easy to output in Go benchmarks and will be key in understanding our performance results. These R scripts can be found here and produce the following types of graphs which can be run on any developer machine. We can store the results on Storj itself or locally and plot historical percentiles over time so we can monitor our results. These scripts make it trivial to process Go output and HdrHistogram output.
 
-An example of how to report and graph latency distribution can be [found here](https://github.com/kellabyte/go-benchmarks/tree/master/queues)
-
 ![](https://raw.githubusercontent.com/kellabyte/go-benchmarks/master/results/hashing-histogram.png)
 ![](https://github.com/kellabyte/go-benchmarks/raw/master/results/hashing-multi.png)
 ```
@@ -62,3 +60,7 @@ BenchmarkBlake2B/4096-40    	  200000	      6195 ns/op	 661.11 MB/s	       0 B/o
 BenchmarkBlake2B/8192-40    	  100000	     12368 ns/op	 662.31 MB/s	       0 B/op	       0 allocs/op
 PASS
 ```
+
+An example of how to report and graph latency distribution can be [found here](https://github.com/kellabyte/go-benchmarks/tree/master/queues).  
+
+![](https://github.com/kellabyte/go-benchmarks/raw/master/results/queues_p999999.png)
