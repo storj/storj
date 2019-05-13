@@ -283,7 +283,6 @@ func (s *Server) passwordRecoveryLetUsKnowHandler(w http.ResponseWriter, req *ht
 	recoveryToken := req.URL.Query().Get("token")
 	if len(recoveryToken) == 0 {
 		http.Redirect(w, req, "https://storjlabs.atlassian.net/servicedesk/customer/portals", http.StatusSeeOther)
-		// TODO redirect to support page
 	}
 
 	// No need to check error as we anyway redirect user to support page
