@@ -50,6 +50,30 @@ A Bloom filter is an array of *m* bits, and a set of *k* hash functions that ret
 
 The probability of having a false positive depends on the size of the Bloom filter, the hash functions used and the number of elements in the set. 
 
+## Rationale
+
+### Interesting figures
+- piece id size: currently 32 bytes
+- size of piece: s_max, s_min
+- minimum number of pieces id for a storage node storing x bytes of data: d/s_max
+- packet size?
+
+### Thoughts
+What could we send the node:
+- list of useless pieces for a storage node
+    - would mean the satellite has to keep track of these useless pieces. 
+    - This list of pieces id would probably be smaller than the list of useful pieces if the storage node and the uplink are trustworthy.
+- list of useful pieces for a storage node
+    - no need for the satellite to track deleted pieces for each storage node (except for audit purposes) 
+    - More robust against nodes and uplinks that are not trustworthy
+    - possibility to use a Bloom filter
+
+### Bloom filter
+- **n**: number of elements in the set
+- **m**: size of the Bloom filter array
+- **k**: number of hash functions used
+- **Probability of false positives**: (1-(1-1/m)^kn)^k which can be approximate by (1-e^(kn/m))^k.
+
 | m/n|k|k=1	|k=2	|k=3	|k=4	|k=5	|k=6	|k=7	|k=8
 |---|---|---|---|---|---|---|---|---|---|
 |2	|1.39	|0.393	|0.400	|	 	 |	 |	| |	| 
@@ -85,30 +109,6 @@ The probability of having a false positive depends on the size of the Bloom filt
 |32	|22.2	|0.0308	|0.00367|	0.000717	|0.000191|	6.33e-05|	2.5e-05|	1.13e-05|	5.73e-06|
 
 see: [Bloom filter math](http://pages.cs.wisc.edu/~cao/papers/summary-cache/node8.html)
-## Rationale
-
-### Interesting figures
-- piece id size: currently 32 bytes
-- size of piece: s_max, s_min
-- minimum number of pieces id for a storage node storing x bytes of data: d/s_max
-- packet size?
-
-### Thoughts
-What could we send the node:
-- list of useless pieces for a storage node
-    - would mean the satellite has to keep track of these useless pieces. 
-    - This list of pieces id would probably be smaller than the list of useful pieces if the storage node and the uplink are trustworthy.
-- list of useful pieces for a storage node
-    - no need for the satellite to track deleted pieces for each storage node (except for audit purposes) 
-    - More robust against nodes and uplinks that are not trustworthy
-    - possibility to use a Bloom filter
-
-### Bloom filter
-- **n**: number of elements in the set
-- **m**: size of the Bloom filter array
-- **k**: number of hash functions used
-- **Probability of false positives**: (1-(1-1/m)^kn)^k which can be approximate by (1-e^(kn/m))^k.
-
 #### Hash functions choice
 
 ### Integration of deleted segments in the audit system
