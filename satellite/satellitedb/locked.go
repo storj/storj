@@ -402,6 +402,47 @@ func (m *lockedResetPasswordTokens) GetBySecret(ctx context.Context, secret cons
 	return m.db.GetBySecret(ctx, secret)
 }
 
+// Revocations is a getter for Revocations repository
+func (m *lockedConsole) Revocations() console.Revocations {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedRevocations{m.Locker, m.db.Revocations()}
+}
+
+// lockedRevocations implements locking wrapper for console.Revocations
+type lockedRevocations struct {
+	sync.Locker
+	db console.Revocations
+}
+
+// GetByProjectID retrieves list of Revocations for given projectID
+func (m *lockedRevocations) GetByProjectID(ctx context.Context, projectID uuid.UUID) ([][]byte, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetByProjectID(ctx, projectID)
+}
+
+// Revoke revokes a head.
+func (m *lockedRevocations) Revoke(ctx context.Context, head []byte) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Revoke(ctx, head)
+}
+
+// Revoked returns true if the provided head has been revoked.
+func (m *lockedRevocations) Revoked(ctx context.Context, head []byte) (bool, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Revoked(ctx, head)
+}
+
+// Unrevoke unrevokes a head. Returns true if a head matched.
+func (m *lockedRevocations) Unrevoke(ctx context.Context, head []byte) (bool, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Unrevoke(ctx, head)
+}
+
 // UsageRollups is a getter for UsageRollups repository
 func (m *lockedConsole) UsageRollups() console.UsageRollups {
 	m.Lock()

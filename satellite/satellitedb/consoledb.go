@@ -41,6 +41,11 @@ func (db *ConsoleDB) APIKeys() console.APIKeys {
 	return &apikeys{db.methods}
 }
 
+// Revocations is a getter for Revocations repository
+func (db *ConsoleDB) Revocations() console.Revocations {
+	return &revocations{db.methods}
+}
+
 // BucketUsage is a getter for accounting.BucketUsage repository
 func (db *ConsoleDB) BucketUsage() accounting.BucketUsage {
 	return &bucketusage{db.methods}

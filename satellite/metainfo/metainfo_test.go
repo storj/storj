@@ -178,6 +178,44 @@ func TestRestrictedAPIKey(t *testing.T) {
 	}
 }
 
+func TestRevokedAPIKey(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	planet, err := testplanet.New(t, 1, 1, 1)
+	require.NoError(t, err)
+	defer ctx.Check(planet.Shutdown)
+
+	planet.Start(ctx)
+
+	key, err := macaroon.ParseAPIKey(planet.Uplinks[0].APIKey[planet.Satellites[0].ID()])
+	require.NoError(t, err)
+
+	err = planet.Satellites[0].DB.Console().Revocations().Revoke(ctx, key.Head())
+	require.NoError(t, err)
+
+	client, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], key.Serialize())
+	require.NoError(t, err)
+
+	_, _, err = client.CreateSegment(ctx, "hello", "world", 1, &pb.RedundancyScheme{}, 123, time.Now())
+	assertUnauthenticated(t, err, false)
+
+	_, err = client.CommitSegment(ctx, "testbucket", "testpath", 0, &pb.Pointer{}, nil)
+	assertUnauthenticated(t, err, false)
+
+	_, err = client.SegmentInfo(ctx, "testbucket", "testpath", 0)
+	assertUnauthenticated(t, err, false)
+
+	_, _, err = client.ReadSegment(ctx, "testbucket", "testpath", 0)
+	assertUnauthenticated(t, err, false)
+
+	_, err = client.DeleteSegment(ctx, "testbucket", "testpath", 0)
+	assertUnauthenticated(t, err, false)
+
+	_, _, err = client.ListSegments(ctx, "testbucket", "", "", "", true, 1, 0)
+	assertUnauthenticated(t, err, false)
+}
+
 func assertUnauthenticated(t *testing.T, err error, allowed bool) {
 	t.Helper()
 
