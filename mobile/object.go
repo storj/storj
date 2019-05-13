@@ -4,6 +4,7 @@ package mobile
 
 import (
 	"fmt"
+	"time"
 
 	"storj.io/storj/pkg/storj"
 )
@@ -42,15 +43,15 @@ func (bl *ObjectInfo) GetContentType() string {
 }
 
 func (bl *ObjectInfo) GetCreated() int64 {
-	return bl.object.Created.UTC().Unix()
+	return bl.object.Created.UTC().UnixNano() / int64(time.Millisecond)
 }
 
 func (bl *ObjectInfo) GetModified() int64 {
-	return bl.object.Modified.UTC().Unix()
+	return bl.object.Modified.UTC().UnixNano() / int64(time.Millisecond)
 }
 
 func (bl *ObjectInfo) GetExpires() int64 {
-	return bl.object.Expires.UTC().Unix()
+	return bl.object.Expires.UTC().UnixNano() / int64(time.Millisecond)
 }
 
 type ObjectList struct {

@@ -41,7 +41,7 @@ type BucketAccess struct {
 
 type BucketInfo struct {
 	Name                 string
-	Created              int
+	Created              int64
 	SegmentsSize         int64
 	RedundancyScheme     RedundancyScheme
 	PathCipher           byte
@@ -51,7 +51,7 @@ type BucketInfo struct {
 func newBucketInfo(bucket storj.Bucket) *BucketInfo {
 	return &BucketInfo{
 		Name:    bucket.Name,
-		Created: int(bucket.Created.UTC().Unix()),
+		Created: bucket.Created.UTC().UnixNano() / int64(time.Millisecond),
 		RedundancyScheme: RedundancyScheme{
 			Algorithm:      byte(bucket.RedundancyScheme.Algorithm),
 			ShareSize:      bucket.RedundancyScheme.ShareSize,

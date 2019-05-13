@@ -334,6 +334,8 @@ public class LibuplinkInstrumentedTest {
 
                 Bucket bucket = project.openBucket("testBucket", access);
 
+                long before = System.currentTimeMillis();
+
                 for (int i = 0; i < 13; i++) {
                     Writer writer = bucket.newWriter("path" + i, new WriterOptions());
                     try {
@@ -355,7 +357,9 @@ public class LibuplinkInstrumentedTest {
                 for (int i = 0; i < list.length(); i++) {
                     ObjectInfo info = list.item(i);
                     assertEquals("testBucket", info.getBucket().getName());
+                    assertTrue(info.getCreated() >= before);
 
+                    // cleanup
                     bucket.deleteObject("path" + i);
                 }
 
