@@ -272,16 +272,7 @@ func newpostgres(db *DB) *postgresDB {
 }
 
 func (obj *postgresDB) Schema() string {
-	return `CREATE TABLE accounting_raws (
-	id bigserial NOT NULL,
-	node_id bytea NOT NULL,
-	interval_end_time timestamp with time zone NOT NULL,
-	data_total double precision NOT NULL,
-	data_type integer NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id )
-);
-CREATE TABLE accounting_rollups (
+	return `CREATE TABLE accounting_rollups (
 	id bigserial NOT NULL,
 	node_id bytea NOT NULL,
 	start_time timestamp with time zone NOT NULL,
@@ -433,10 +424,11 @@ CREATE TABLE storagenode_bandwidth_rollups (
 	PRIMARY KEY ( storagenode_id, interval_start, action )
 );
 CREATE TABLE storagenode_storage_tallies (
-	storagenode_id bytea NOT NULL,
-	interval_start timestamp NOT NULL,
-	total bigint NOT NULL,
-	PRIMARY KEY ( storagenode_id, interval_start )
+	id bigserial NOT NULL,
+	node_id bytea NOT NULL,
+	interval_end_time timestamp with time zone NOT NULL,
+	data_total double precision NOT NULL,
+	PRIMARY KEY ( id )
 );
 CREATE TABLE users (
 	id bytea NOT NULL,
@@ -537,16 +529,7 @@ func newsqlite3(db *DB) *sqlite3DB {
 }
 
 func (obj *sqlite3DB) Schema() string {
-	return `CREATE TABLE accounting_raws (
-	id INTEGER NOT NULL,
-	node_id BLOB NOT NULL,
-	interval_end_time TIMESTAMP NOT NULL,
-	data_total REAL NOT NULL,
-	data_type INTEGER NOT NULL,
-	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( id )
-);
-CREATE TABLE accounting_rollups (
+	return `CREATE TABLE accounting_rollups (
 	id INTEGER NOT NULL,
 	node_id BLOB NOT NULL,
 	start_time TIMESTAMP NOT NULL,
@@ -698,10 +681,11 @@ CREATE TABLE storagenode_bandwidth_rollups (
 	PRIMARY KEY ( storagenode_id, interval_start, action )
 );
 CREATE TABLE storagenode_storage_tallies (
-	storagenode_id BLOB NOT NULL,
-	interval_start TIMESTAMP NOT NULL,
-	total INTEGER NOT NULL,
-	PRIMARY KEY ( storagenode_id, interval_start )
+	id INTEGER NOT NULL,
+	node_id BLOB NOT NULL,
+	interval_end_time TIMESTAMP NOT NULL,
+	data_total REAL NOT NULL,
+	PRIMARY KEY ( id )
 );
 CREATE TABLE users (
 	id BLOB NOT NULL,
@@ -800,134 +784,6 @@ nextval:
 	}
 	fmt.Fprint(f, "]")
 }
-
-type AccountingRaw struct {
-	Id              int64
-	NodeId          []byte
-	IntervalEndTime time.Time
-	DataTotal       float64
-	DataType        int
-	CreatedAt       time.Time
-}
-
-func (AccountingRaw) _Table() string { return "accounting_raws" }
-
-type AccountingRaw_Update_Fields struct {
-}
-
-type AccountingRaw_Id_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func AccountingRaw_Id(v int64) AccountingRaw_Id_Field {
-	return AccountingRaw_Id_Field{_set: true, _value: v}
-}
-
-func (f AccountingRaw_Id_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (AccountingRaw_Id_Field) _Column() string { return "id" }
-
-type AccountingRaw_NodeId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func AccountingRaw_NodeId(v []byte) AccountingRaw_NodeId_Field {
-	return AccountingRaw_NodeId_Field{_set: true, _value: v}
-}
-
-func (f AccountingRaw_NodeId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (AccountingRaw_NodeId_Field) _Column() string { return "node_id" }
-
-type AccountingRaw_IntervalEndTime_Field struct {
-	_set   bool
-	_null  bool
-	_value time.Time
-}
-
-func AccountingRaw_IntervalEndTime(v time.Time) AccountingRaw_IntervalEndTime_Field {
-	return AccountingRaw_IntervalEndTime_Field{_set: true, _value: v}
-}
-
-func (f AccountingRaw_IntervalEndTime_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (AccountingRaw_IntervalEndTime_Field) _Column() string { return "interval_end_time" }
-
-type AccountingRaw_DataTotal_Field struct {
-	_set   bool
-	_null  bool
-	_value float64
-}
-
-func AccountingRaw_DataTotal(v float64) AccountingRaw_DataTotal_Field {
-	return AccountingRaw_DataTotal_Field{_set: true, _value: v}
-}
-
-func (f AccountingRaw_DataTotal_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (AccountingRaw_DataTotal_Field) _Column() string { return "data_total" }
-
-type AccountingRaw_DataType_Field struct {
-	_set   bool
-	_null  bool
-	_value int
-}
-
-func AccountingRaw_DataType(v int) AccountingRaw_DataType_Field {
-	return AccountingRaw_DataType_Field{_set: true, _value: v}
-}
-
-func (f AccountingRaw_DataType_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (AccountingRaw_DataType_Field) _Column() string { return "data_type" }
-
-type AccountingRaw_CreatedAt_Field struct {
-	_set   bool
-	_null  bool
-	_value time.Time
-}
-
-func AccountingRaw_CreatedAt(v time.Time) AccountingRaw_CreatedAt_Field {
-	return AccountingRaw_CreatedAt_Field{_set: true, _value: v}
-}
-
-func (f AccountingRaw_CreatedAt_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (AccountingRaw_CreatedAt_Field) _Column() string { return "created_at" }
 
 type AccountingRollup struct {
 	Id             int64
@@ -3205,9 +3061,10 @@ func (f StoragenodeBandwidthRollup_Settled_Field) value() interface{} {
 func (StoragenodeBandwidthRollup_Settled_Field) _Column() string { return "settled" }
 
 type StoragenodeStorageTally struct {
-	StoragenodeId []byte
-	IntervalStart time.Time
-	Total         uint64
+	Id              int64
+	NodeId          []byte
+	IntervalEndTime time.Time
+	DataTotal       float64
 }
 
 func (StoragenodeStorageTally) _Table() string { return "storagenode_storage_tallies" }
@@ -3215,63 +3072,81 @@ func (StoragenodeStorageTally) _Table() string { return "storagenode_storage_tal
 type StoragenodeStorageTally_Update_Fields struct {
 }
 
-type StoragenodeStorageTally_StoragenodeId_Field struct {
+type StoragenodeStorageTally_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func StoragenodeStorageTally_Id(v int64) StoragenodeStorageTally_Id_Field {
+	return StoragenodeStorageTally_Id_Field{_set: true, _value: v}
+}
+
+func (f StoragenodeStorageTally_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodeStorageTally_Id_Field) _Column() string { return "id" }
+
+type StoragenodeStorageTally_NodeId_Field struct {
 	_set   bool
 	_null  bool
 	_value []byte
 }
 
-func StoragenodeStorageTally_StoragenodeId(v []byte) StoragenodeStorageTally_StoragenodeId_Field {
-	return StoragenodeStorageTally_StoragenodeId_Field{_set: true, _value: v}
+func StoragenodeStorageTally_NodeId(v []byte) StoragenodeStorageTally_NodeId_Field {
+	return StoragenodeStorageTally_NodeId_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeStorageTally_StoragenodeId_Field) value() interface{} {
+func (f StoragenodeStorageTally_NodeId_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (StoragenodeStorageTally_StoragenodeId_Field) _Column() string { return "storagenode_id" }
+func (StoragenodeStorageTally_NodeId_Field) _Column() string { return "node_id" }
 
-type StoragenodeStorageTally_IntervalStart_Field struct {
+type StoragenodeStorageTally_IntervalEndTime_Field struct {
 	_set   bool
 	_null  bool
 	_value time.Time
 }
 
-func StoragenodeStorageTally_IntervalStart(v time.Time) StoragenodeStorageTally_IntervalStart_Field {
-	v = toUTC(v)
-	return StoragenodeStorageTally_IntervalStart_Field{_set: true, _value: v}
+func StoragenodeStorageTally_IntervalEndTime(v time.Time) StoragenodeStorageTally_IntervalEndTime_Field {
+	return StoragenodeStorageTally_IntervalEndTime_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeStorageTally_IntervalStart_Field) value() interface{} {
+func (f StoragenodeStorageTally_IntervalEndTime_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (StoragenodeStorageTally_IntervalStart_Field) _Column() string { return "interval_start" }
+func (StoragenodeStorageTally_IntervalEndTime_Field) _Column() string { return "interval_end_time" }
 
-type StoragenodeStorageTally_Total_Field struct {
+type StoragenodeStorageTally_DataTotal_Field struct {
 	_set   bool
 	_null  bool
-	_value uint64
+	_value float64
 }
 
-func StoragenodeStorageTally_Total(v uint64) StoragenodeStorageTally_Total_Field {
-	return StoragenodeStorageTally_Total_Field{_set: true, _value: v}
+func StoragenodeStorageTally_DataTotal(v float64) StoragenodeStorageTally_DataTotal_Field {
+	return StoragenodeStorageTally_DataTotal_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeStorageTally_Total_Field) value() interface{} {
+func (f StoragenodeStorageTally_DataTotal_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (StoragenodeStorageTally_Total_Field) _Column() string { return "total" }
+func (StoragenodeStorageTally_DataTotal_Field) _Column() string { return "data_total" }
 
 type User struct {
 	Id           []byte
@@ -3971,33 +3846,6 @@ func (obj *postgresImpl) Create_AccountingRollup(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Create_AccountingRaw(ctx context.Context,
-	accounting_raw_node_id AccountingRaw_NodeId_Field,
-	accounting_raw_interval_end_time AccountingRaw_IntervalEndTime_Field,
-	accounting_raw_data_total AccountingRaw_DataTotal_Field,
-	accounting_raw_data_type AccountingRaw_DataType_Field,
-	accounting_raw_created_at AccountingRaw_CreatedAt_Field) (
-	accounting_raw *AccountingRaw, err error) {
-	__node_id_val := accounting_raw_node_id.value()
-	__interval_end_time_val := accounting_raw_interval_end_time.value()
-	__data_total_val := accounting_raw_data_total.value()
-	__data_type_val := accounting_raw_data_type.value()
-	__created_at_val := accounting_raw_created_at.value()
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO accounting_raws ( node_id, interval_end_time, data_total, data_type, created_at ) VALUES ( ?, ?, ?, ?, ? ) RETURNING accounting_raws.id, accounting_raws.node_id, accounting_raws.interval_end_time, accounting_raws.data_total, accounting_raws.data_type, accounting_raws.created_at")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __node_id_val, __interval_end_time_val, __data_total_val, __data_type_val, __created_at_val)
-
-	accounting_raw = &AccountingRaw{}
-	err = obj.driver.QueryRow(__stmt, __node_id_val, __interval_end_time_val, __data_total_val, __data_type_val, __created_at_val).Scan(&accounting_raw.Id, &accounting_raw.NodeId, &accounting_raw.IntervalEndTime, &accounting_raw.DataTotal, &accounting_raw.DataType, &accounting_raw.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return accounting_raw, nil
-
-}
-
 func (obj *postgresImpl) Create_Node(ctx context.Context,
 	node_id Node_Id_Field,
 	node_address Node_Address_Field,
@@ -4294,6 +4142,29 @@ func (obj *postgresImpl) Create_BucketStorageTally(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Create_StoragenodeStorageTally(ctx context.Context,
+	storagenode_storage_tally_node_id StoragenodeStorageTally_NodeId_Field,
+	storagenode_storage_tally_interval_end_time StoragenodeStorageTally_IntervalEndTime_Field,
+	storagenode_storage_tally_data_total StoragenodeStorageTally_DataTotal_Field) (
+	storagenode_storage_tally *StoragenodeStorageTally, err error) {
+	__node_id_val := storagenode_storage_tally_node_id.value()
+	__interval_end_time_val := storagenode_storage_tally_interval_end_time.value()
+	__data_total_val := storagenode_storage_tally_data_total.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO storagenode_storage_tallies ( node_id, interval_end_time, data_total ) VALUES ( ?, ?, ? ) RETURNING storagenode_storage_tallies.id, storagenode_storage_tallies.node_id, storagenode_storage_tallies.interval_end_time, storagenode_storage_tallies.data_total")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __node_id_val, __interval_end_time_val, __data_total_val)
+
+	storagenode_storage_tally = &StoragenodeStorageTally{}
+	err = obj.driver.QueryRow(__stmt, __node_id_val, __interval_end_time_val, __data_total_val).Scan(&storagenode_storage_tally.Id, &storagenode_storage_tally.NodeId, &storagenode_storage_tally.IntervalEndTime, &storagenode_storage_tally.DataTotal)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return storagenode_storage_tally, nil
+
+}
+
 func (obj *postgresImpl) Create_CertRecord(ctx context.Context,
 	certRecord_publickey CertRecord_Publickey_Field,
 	certRecord_id CertRecord_Id_Field) (
@@ -4494,92 +4365,6 @@ func (obj *postgresImpl) All_AccountingRollup_By_StartTime_GreaterOrEqual(ctx co
 			return nil, obj.makeErr(err)
 		}
 		rows = append(rows, accounting_rollup)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *postgresImpl) Get_AccountingRaw_By_Id(ctx context.Context,
-	accounting_raw_id AccountingRaw_Id_Field) (
-	accounting_raw *AccountingRaw, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_raws.id, accounting_raws.node_id, accounting_raws.interval_end_time, accounting_raws.data_total, accounting_raws.data_type, accounting_raws.created_at FROM accounting_raws WHERE accounting_raws.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, accounting_raw_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	accounting_raw = &AccountingRaw{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&accounting_raw.Id, &accounting_raw.NodeId, &accounting_raw.IntervalEndTime, &accounting_raw.DataTotal, &accounting_raw.DataType, &accounting_raw.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return accounting_raw, nil
-
-}
-
-func (obj *postgresImpl) All_AccountingRaw(ctx context.Context) (
-	rows []*AccountingRaw, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_raws.id, accounting_raws.node_id, accounting_raws.interval_end_time, accounting_raws.data_total, accounting_raws.data_type, accounting_raws.created_at FROM accounting_raws")
-
-	var __values []interface{}
-	__values = append(__values)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		accounting_raw := &AccountingRaw{}
-		err = __rows.Scan(&accounting_raw.Id, &accounting_raw.NodeId, &accounting_raw.IntervalEndTime, &accounting_raw.DataTotal, &accounting_raw.DataType, &accounting_raw.CreatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, accounting_raw)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *postgresImpl) All_AccountingRaw_By_IntervalEndTime_GreaterOrEqual(ctx context.Context,
-	accounting_raw_interval_end_time_greater_or_equal AccountingRaw_IntervalEndTime_Field) (
-	rows []*AccountingRaw, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_raws.id, accounting_raws.node_id, accounting_raws.interval_end_time, accounting_raws.data_total, accounting_raws.data_type, accounting_raws.created_at FROM accounting_raws WHERE accounting_raws.interval_end_time >= ?")
-
-	var __values []interface{}
-	__values = append(__values, accounting_raw_interval_end_time_greater_or_equal.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		accounting_raw := &AccountingRaw{}
-		err = __rows.Scan(&accounting_raw.Id, &accounting_raw.NodeId, &accounting_raw.IntervalEndTime, &accounting_raw.DataTotal, &accounting_raw.DataType, &accounting_raw.CreatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, accounting_raw)
 	}
 	if err := __rows.Err(); err != nil {
 		return nil, obj.makeErr(err)
@@ -5268,6 +5053,92 @@ func (obj *postgresImpl) All_StoragenodeBandwidthRollup_By_IntervalStart_Greater
 
 }
 
+func (obj *postgresImpl) Get_StoragenodeStorageTally_By_Id(ctx context.Context,
+	storagenode_storage_tally_id StoragenodeStorageTally_Id_Field) (
+	storagenode_storage_tally *StoragenodeStorageTally, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_storage_tallies.id, storagenode_storage_tallies.node_id, storagenode_storage_tallies.interval_end_time, storagenode_storage_tallies.data_total FROM storagenode_storage_tallies WHERE storagenode_storage_tallies.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_storage_tally_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	storagenode_storage_tally = &StoragenodeStorageTally{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&storagenode_storage_tally.Id, &storagenode_storage_tally.NodeId, &storagenode_storage_tally.IntervalEndTime, &storagenode_storage_tally.DataTotal)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return storagenode_storage_tally, nil
+
+}
+
+func (obj *postgresImpl) All_StoragenodeStorageTally(ctx context.Context) (
+	rows []*StoragenodeStorageTally, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_storage_tallies.id, storagenode_storage_tallies.node_id, storagenode_storage_tallies.interval_end_time, storagenode_storage_tallies.data_total FROM storagenode_storage_tallies")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		storagenode_storage_tally := &StoragenodeStorageTally{}
+		err = __rows.Scan(&storagenode_storage_tally.Id, &storagenode_storage_tally.NodeId, &storagenode_storage_tally.IntervalEndTime, &storagenode_storage_tally.DataTotal)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, storagenode_storage_tally)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqual(ctx context.Context,
+	storagenode_storage_tally_interval_end_time_greater_or_equal StoragenodeStorageTally_IntervalEndTime_Field) (
+	rows []*StoragenodeStorageTally, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_storage_tallies.id, storagenode_storage_tallies.node_id, storagenode_storage_tallies.interval_end_time, storagenode_storage_tallies.data_total FROM storagenode_storage_tallies WHERE storagenode_storage_tallies.interval_end_time >= ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_storage_tally_interval_end_time_greater_or_equal.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		storagenode_storage_tally := &StoragenodeStorageTally{}
+		err = __rows.Scan(&storagenode_storage_tally.Id, &storagenode_storage_tally.NodeId, &storagenode_storage_tally.IntervalEndTime, &storagenode_storage_tally.DataTotal)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, storagenode_storage_tally)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *postgresImpl) Get_CertRecord_By_Id(ctx context.Context,
 	certRecord_id CertRecord_Id_Field) (
 	certRecord *CertRecord, err error) {
@@ -5889,32 +5760,6 @@ func (obj *postgresImpl) Delete_AccountingRollup_By_Id(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Delete_AccountingRaw_By_Id(ctx context.Context,
-	accounting_raw_id AccountingRaw_Id_Field) (
-	deleted bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM accounting_raws WHERE accounting_raws.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, accounting_raw_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
 func (obj *postgresImpl) Delete_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field) (
 	deleted bool, err error) {
@@ -6095,6 +5940,32 @@ func (obj *postgresImpl) Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx contex
 	}
 
 	return count, nil
+
+}
+
+func (obj *postgresImpl) Delete_StoragenodeStorageTally_By_Id(ctx context.Context,
+	storagenode_storage_tally_id StoragenodeStorageTally_Id_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM storagenode_storage_tallies WHERE storagenode_storage_tallies.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_storage_tally_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
 
 }
 
@@ -6363,16 +6234,6 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM accounting_raws;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
 
 	return count, nil
 
@@ -6465,36 +6326,6 @@ func (obj *sqlite3Impl) Create_AccountingRollup(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return obj.getLastAccountingRollup(ctx, __pk)
-
-}
-
-func (obj *sqlite3Impl) Create_AccountingRaw(ctx context.Context,
-	accounting_raw_node_id AccountingRaw_NodeId_Field,
-	accounting_raw_interval_end_time AccountingRaw_IntervalEndTime_Field,
-	accounting_raw_data_total AccountingRaw_DataTotal_Field,
-	accounting_raw_data_type AccountingRaw_DataType_Field,
-	accounting_raw_created_at AccountingRaw_CreatedAt_Field) (
-	accounting_raw *AccountingRaw, err error) {
-	__node_id_val := accounting_raw_node_id.value()
-	__interval_end_time_val := accounting_raw_interval_end_time.value()
-	__data_total_val := accounting_raw_data_total.value()
-	__data_type_val := accounting_raw_data_type.value()
-	__created_at_val := accounting_raw_created_at.value()
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO accounting_raws ( node_id, interval_end_time, data_total, data_type, created_at ) VALUES ( ?, ?, ?, ?, ? )")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __node_id_val, __interval_end_time_val, __data_total_val, __data_type_val, __created_at_val)
-
-	__res, err := obj.driver.Exec(__stmt, __node_id_val, __interval_end_time_val, __data_total_val, __data_type_val, __created_at_val)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastAccountingRaw(ctx, __pk)
 
 }
 
@@ -6821,6 +6652,32 @@ func (obj *sqlite3Impl) Create_BucketStorageTally(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Create_StoragenodeStorageTally(ctx context.Context,
+	storagenode_storage_tally_node_id StoragenodeStorageTally_NodeId_Field,
+	storagenode_storage_tally_interval_end_time StoragenodeStorageTally_IntervalEndTime_Field,
+	storagenode_storage_tally_data_total StoragenodeStorageTally_DataTotal_Field) (
+	storagenode_storage_tally *StoragenodeStorageTally, err error) {
+	__node_id_val := storagenode_storage_tally_node_id.value()
+	__interval_end_time_val := storagenode_storage_tally_interval_end_time.value()
+	__data_total_val := storagenode_storage_tally_data_total.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO storagenode_storage_tallies ( node_id, interval_end_time, data_total ) VALUES ( ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __node_id_val, __interval_end_time_val, __data_total_val)
+
+	__res, err := obj.driver.Exec(__stmt, __node_id_val, __interval_end_time_val, __data_total_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastStoragenodeStorageTally(ctx, __pk)
+
+}
+
 func (obj *sqlite3Impl) Create_CertRecord(ctx context.Context,
 	certRecord_publickey CertRecord_Publickey_Field,
 	certRecord_id CertRecord_Id_Field) (
@@ -7030,92 +6887,6 @@ func (obj *sqlite3Impl) All_AccountingRollup_By_StartTime_GreaterOrEqual(ctx con
 			return nil, obj.makeErr(err)
 		}
 		rows = append(rows, accounting_rollup)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) Get_AccountingRaw_By_Id(ctx context.Context,
-	accounting_raw_id AccountingRaw_Id_Field) (
-	accounting_raw *AccountingRaw, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_raws.id, accounting_raws.node_id, accounting_raws.interval_end_time, accounting_raws.data_total, accounting_raws.data_type, accounting_raws.created_at FROM accounting_raws WHERE accounting_raws.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, accounting_raw_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	accounting_raw = &AccountingRaw{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&accounting_raw.Id, &accounting_raw.NodeId, &accounting_raw.IntervalEndTime, &accounting_raw.DataTotal, &accounting_raw.DataType, &accounting_raw.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return accounting_raw, nil
-
-}
-
-func (obj *sqlite3Impl) All_AccountingRaw(ctx context.Context) (
-	rows []*AccountingRaw, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_raws.id, accounting_raws.node_id, accounting_raws.interval_end_time, accounting_raws.data_total, accounting_raws.data_type, accounting_raws.created_at FROM accounting_raws")
-
-	var __values []interface{}
-	__values = append(__values)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		accounting_raw := &AccountingRaw{}
-		err = __rows.Scan(&accounting_raw.Id, &accounting_raw.NodeId, &accounting_raw.IntervalEndTime, &accounting_raw.DataTotal, &accounting_raw.DataType, &accounting_raw.CreatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, accounting_raw)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) All_AccountingRaw_By_IntervalEndTime_GreaterOrEqual(ctx context.Context,
-	accounting_raw_interval_end_time_greater_or_equal AccountingRaw_IntervalEndTime_Field) (
-	rows []*AccountingRaw, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_raws.id, accounting_raws.node_id, accounting_raws.interval_end_time, accounting_raws.data_total, accounting_raws.data_type, accounting_raws.created_at FROM accounting_raws WHERE accounting_raws.interval_end_time >= ?")
-
-	var __values []interface{}
-	__values = append(__values, accounting_raw_interval_end_time_greater_or_equal.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		accounting_raw := &AccountingRaw{}
-		err = __rows.Scan(&accounting_raw.Id, &accounting_raw.NodeId, &accounting_raw.IntervalEndTime, &accounting_raw.DataTotal, &accounting_raw.DataType, &accounting_raw.CreatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, accounting_raw)
 	}
 	if err := __rows.Err(); err != nil {
 		return nil, obj.makeErr(err)
@@ -7796,6 +7567,92 @@ func (obj *sqlite3Impl) All_StoragenodeBandwidthRollup_By_IntervalStart_GreaterO
 			return nil, obj.makeErr(err)
 		}
 		rows = append(rows, storagenode_bandwidth_rollup)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) Get_StoragenodeStorageTally_By_Id(ctx context.Context,
+	storagenode_storage_tally_id StoragenodeStorageTally_Id_Field) (
+	storagenode_storage_tally *StoragenodeStorageTally, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_storage_tallies.id, storagenode_storage_tallies.node_id, storagenode_storage_tallies.interval_end_time, storagenode_storage_tallies.data_total FROM storagenode_storage_tallies WHERE storagenode_storage_tallies.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_storage_tally_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	storagenode_storage_tally = &StoragenodeStorageTally{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&storagenode_storage_tally.Id, &storagenode_storage_tally.NodeId, &storagenode_storage_tally.IntervalEndTime, &storagenode_storage_tally.DataTotal)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return storagenode_storage_tally, nil
+
+}
+
+func (obj *sqlite3Impl) All_StoragenodeStorageTally(ctx context.Context) (
+	rows []*StoragenodeStorageTally, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_storage_tallies.id, storagenode_storage_tallies.node_id, storagenode_storage_tallies.interval_end_time, storagenode_storage_tallies.data_total FROM storagenode_storage_tallies")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		storagenode_storage_tally := &StoragenodeStorageTally{}
+		err = __rows.Scan(&storagenode_storage_tally.Id, &storagenode_storage_tally.NodeId, &storagenode_storage_tally.IntervalEndTime, &storagenode_storage_tally.DataTotal)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, storagenode_storage_tally)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqual(ctx context.Context,
+	storagenode_storage_tally_interval_end_time_greater_or_equal StoragenodeStorageTally_IntervalEndTime_Field) (
+	rows []*StoragenodeStorageTally, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_storage_tallies.id, storagenode_storage_tallies.node_id, storagenode_storage_tallies.interval_end_time, storagenode_storage_tallies.data_total FROM storagenode_storage_tallies WHERE storagenode_storage_tallies.interval_end_time >= ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_storage_tally_interval_end_time_greater_or_equal.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		storagenode_storage_tally := &StoragenodeStorageTally{}
+		err = __rows.Scan(&storagenode_storage_tally.Id, &storagenode_storage_tally.NodeId, &storagenode_storage_tally.IntervalEndTime, &storagenode_storage_tally.DataTotal)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, storagenode_storage_tally)
 	}
 	if err := __rows.Err(); err != nil {
 		return nil, obj.makeErr(err)
@@ -8505,32 +8362,6 @@ func (obj *sqlite3Impl) Delete_AccountingRollup_By_Id(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Delete_AccountingRaw_By_Id(ctx context.Context,
-	accounting_raw_id AccountingRaw_Id_Field) (
-	deleted bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM accounting_raws WHERE accounting_raws.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, accounting_raw_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
 func (obj *sqlite3Impl) Delete_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field) (
 	deleted bool, err error) {
@@ -8714,6 +8545,32 @@ func (obj *sqlite3Impl) Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx context
 
 }
 
+func (obj *sqlite3Impl) Delete_StoragenodeStorageTally_By_Id(ctx context.Context,
+	storagenode_storage_tally_id StoragenodeStorageTally_Id_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM storagenode_storage_tallies WHERE storagenode_storage_tallies.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_storage_tally_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *sqlite3Impl) Delete_CertRecord_By_Id(ctx context.Context,
 	certRecord_id CertRecord_Id_Field) (
 	deleted bool, err error) {
@@ -8817,24 +8674,6 @@ func (obj *sqlite3Impl) getLastAccountingRollup(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return accounting_rollup, nil
-
-}
-
-func (obj *sqlite3Impl) getLastAccountingRaw(ctx context.Context,
-	pk int64) (
-	accounting_raw *AccountingRaw, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_raws.id, accounting_raws.node_id, accounting_raws.interval_end_time, accounting_raws.data_total, accounting_raws.data_type, accounting_raws.created_at FROM accounting_raws WHERE _rowid_ = ?")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, pk)
-
-	accounting_raw = &AccountingRaw{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&accounting_raw.Id, &accounting_raw.NodeId, &accounting_raw.IntervalEndTime, &accounting_raw.DataTotal, &accounting_raw.DataType, &accounting_raw.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return accounting_raw, nil
 
 }
 
@@ -8997,6 +8836,24 @@ func (obj *sqlite3Impl) getLastBucketStorageTally(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return bucket_storage_tally, nil
+
+}
+
+func (obj *sqlite3Impl) getLastStoragenodeStorageTally(ctx context.Context,
+	pk int64) (
+	storagenode_storage_tally *StoragenodeStorageTally, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_storage_tallies.id, storagenode_storage_tallies.node_id, storagenode_storage_tallies.interval_end_time, storagenode_storage_tallies.data_total FROM storagenode_storage_tallies WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	storagenode_storage_tally = &StoragenodeStorageTally{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&storagenode_storage_tally.Id, &storagenode_storage_tally.NodeId, &storagenode_storage_tally.IntervalEndTime, &storagenode_storage_tally.DataTotal)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return storagenode_storage_tally, nil
 
 }
 
@@ -9272,16 +9129,6 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM accounting_raws;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
 
 	return count, nil
 
@@ -9327,25 +9174,6 @@ func (rx *Rx) Rollback() (err error) {
 		rx.tx = nil
 	}
 	return err
-}
-
-func (rx *Rx) All_AccountingRaw(ctx context.Context) (
-	rows []*AccountingRaw, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.All_AccountingRaw(ctx)
-}
-
-func (rx *Rx) All_AccountingRaw_By_IntervalEndTime_GreaterOrEqual(ctx context.Context,
-	accounting_raw_interval_end_time_greater_or_equal AccountingRaw_IntervalEndTime_Field) (
-	rows []*AccountingRaw, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.All_AccountingRaw_By_IntervalEndTime_GreaterOrEqual(ctx, accounting_raw_interval_end_time_greater_or_equal)
 }
 
 func (rx *Rx) All_AccountingRollup_By_StartTime_GreaterOrEqual(ctx context.Context,
@@ -9429,19 +9257,23 @@ func (rx *Rx) All_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx
 	return tx.All_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx, storagenode_bandwidth_rollup_interval_start_greater_or_equal)
 }
 
-func (rx *Rx) Create_AccountingRaw(ctx context.Context,
-	accounting_raw_node_id AccountingRaw_NodeId_Field,
-	accounting_raw_interval_end_time AccountingRaw_IntervalEndTime_Field,
-	accounting_raw_data_total AccountingRaw_DataTotal_Field,
-	accounting_raw_data_type AccountingRaw_DataType_Field,
-	accounting_raw_created_at AccountingRaw_CreatedAt_Field) (
-	accounting_raw *AccountingRaw, err error) {
+func (rx *Rx) All_StoragenodeStorageTally(ctx context.Context) (
+	rows []*StoragenodeStorageTally, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_AccountingRaw(ctx, accounting_raw_node_id, accounting_raw_interval_end_time, accounting_raw_data_total, accounting_raw_data_type, accounting_raw_created_at)
+	return tx.All_StoragenodeStorageTally(ctx)
+}
 
+func (rx *Rx) All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqual(ctx context.Context,
+	storagenode_storage_tally_interval_end_time_greater_or_equal StoragenodeStorageTally_IntervalEndTime_Field) (
+	rows []*StoragenodeStorageTally, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqual(ctx, storagenode_storage_tally_interval_end_time_greater_or_equal)
 }
 
 func (rx *Rx) Create_AccountingRollup(ctx context.Context,
@@ -9652,6 +9484,19 @@ func (rx *Rx) Create_SerialNumber(ctx context.Context,
 
 }
 
+func (rx *Rx) Create_StoragenodeStorageTally(ctx context.Context,
+	storagenode_storage_tally_node_id StoragenodeStorageTally_NodeId_Field,
+	storagenode_storage_tally_interval_end_time StoragenodeStorageTally_IntervalEndTime_Field,
+	storagenode_storage_tally_data_total StoragenodeStorageTally_DataTotal_Field) (
+	storagenode_storage_tally *StoragenodeStorageTally, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_StoragenodeStorageTally(ctx, storagenode_storage_tally_node_id, storagenode_storage_tally_interval_end_time, storagenode_storage_tally_data_total)
+
+}
+
 func (rx *Rx) Create_UsedSerial(ctx context.Context,
 	used_serial_serial_number_id UsedSerial_SerialNumberId_Field,
 	used_serial_storage_node_id UsedSerial_StorageNodeId_Field) (
@@ -9677,16 +9522,6 @@ func (rx *Rx) Create_User(ctx context.Context,
 	}
 	return tx.Create_User(ctx, user_id, user_full_name, user_email, user_password_hash, optional)
 
-}
-
-func (rx *Rx) Delete_AccountingRaw_By_Id(ctx context.Context,
-	accounting_raw_id AccountingRaw_Id_Field) (
-	deleted bool, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Delete_AccountingRaw_By_Id(ctx, accounting_raw_id)
 }
 
 func (rx *Rx) Delete_AccountingRollup_By_Id(ctx context.Context,
@@ -9791,6 +9626,16 @@ func (rx *Rx) Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx context.Context,
 
 }
 
+func (rx *Rx) Delete_StoragenodeStorageTally_By_Id(ctx context.Context,
+	storagenode_storage_tally_id StoragenodeStorageTally_Id_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_StoragenodeStorageTally_By_Id(ctx, storagenode_storage_tally_id)
+}
+
 func (rx *Rx) Delete_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	deleted bool, err error) {
@@ -9854,16 +9699,6 @@ func (rx *Rx) First_BucketStorageTally_By_ProjectId_OrderBy_Desc_IntervalStart(c
 		return
 	}
 	return tx.First_BucketStorageTally_By_ProjectId_OrderBy_Desc_IntervalStart(ctx, bucket_storage_tally_project_id)
-}
-
-func (rx *Rx) Get_AccountingRaw_By_Id(ctx context.Context,
-	accounting_raw_id AccountingRaw_Id_Field) (
-	accounting_raw *AccountingRaw, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_AccountingRaw_By_Id(ctx, accounting_raw_id)
 }
 
 func (rx *Rx) Get_AccountingRollup_By_Id(ctx context.Context,
@@ -9984,6 +9819,16 @@ func (rx *Rx) Get_ResetPasswordToken_By_Secret(ctx context.Context,
 		return
 	}
 	return tx.Get_ResetPasswordToken_By_Secret(ctx, reset_password_token_secret)
+}
+
+func (rx *Rx) Get_StoragenodeStorageTally_By_Id(ctx context.Context,
+	storagenode_storage_tally_id StoragenodeStorageTally_Id_Field) (
+	storagenode_storage_tally *StoragenodeStorageTally, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_StoragenodeStorageTally_By_Id(ctx, storagenode_storage_tally_id)
 }
 
 func (rx *Rx) Get_User_By_Email_And_Status_Not_Number(ctx context.Context,
@@ -10153,13 +9998,6 @@ func (rx *Rx) Update_User_By_Id(ctx context.Context,
 }
 
 type Methods interface {
-	All_AccountingRaw(ctx context.Context) (
-		rows []*AccountingRaw, err error)
-
-	All_AccountingRaw_By_IntervalEndTime_GreaterOrEqual(ctx context.Context,
-		accounting_raw_interval_end_time_greater_or_equal AccountingRaw_IntervalEndTime_Field) (
-		rows []*AccountingRaw, err error)
-
 	All_AccountingRollup_By_StartTime_GreaterOrEqual(ctx context.Context,
 		accounting_rollup_start_time_greater_or_equal AccountingRollup_StartTime_Field) (
 		rows []*AccountingRollup, err error)
@@ -10193,13 +10031,12 @@ type Methods interface {
 		storagenode_bandwidth_rollup_interval_start_greater_or_equal StoragenodeBandwidthRollup_IntervalStart_Field) (
 		rows []*StoragenodeBandwidthRollup, err error)
 
-	Create_AccountingRaw(ctx context.Context,
-		accounting_raw_node_id AccountingRaw_NodeId_Field,
-		accounting_raw_interval_end_time AccountingRaw_IntervalEndTime_Field,
-		accounting_raw_data_total AccountingRaw_DataTotal_Field,
-		accounting_raw_data_type AccountingRaw_DataType_Field,
-		accounting_raw_created_at AccountingRaw_CreatedAt_Field) (
-		accounting_raw *AccountingRaw, err error)
+	All_StoragenodeStorageTally(ctx context.Context) (
+		rows []*StoragenodeStorageTally, err error)
+
+	All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqual(ctx context.Context,
+		storagenode_storage_tally_interval_end_time_greater_or_equal StoragenodeStorageTally_IntervalEndTime_Field) (
+		rows []*StoragenodeStorageTally, err error)
 
 	Create_AccountingRollup(ctx context.Context,
 		accounting_rollup_node_id AccountingRollup_NodeId_Field,
@@ -10318,6 +10155,12 @@ type Methods interface {
 		serial_number_expires_at SerialNumber_ExpiresAt_Field) (
 		serial_number *SerialNumber, err error)
 
+	Create_StoragenodeStorageTally(ctx context.Context,
+		storagenode_storage_tally_node_id StoragenodeStorageTally_NodeId_Field,
+		storagenode_storage_tally_interval_end_time StoragenodeStorageTally_IntervalEndTime_Field,
+		storagenode_storage_tally_data_total StoragenodeStorageTally_DataTotal_Field) (
+		storagenode_storage_tally *StoragenodeStorageTally, err error)
+
 	Create_UsedSerial(ctx context.Context,
 		used_serial_serial_number_id UsedSerial_SerialNumberId_Field,
 		used_serial_storage_node_id UsedSerial_StorageNodeId_Field) (
@@ -10330,10 +10173,6 @@ type Methods interface {
 		user_password_hash User_PasswordHash_Field,
 		optional User_Create_Fields) (
 		user *User, err error)
-
-	Delete_AccountingRaw_By_Id(ctx context.Context,
-		accounting_raw_id AccountingRaw_Id_Field) (
-		deleted bool, err error)
 
 	Delete_AccountingRollup_By_Id(ctx context.Context,
 		accounting_rollup_id AccountingRollup_Id_Field) (
@@ -10376,6 +10215,10 @@ type Methods interface {
 		serial_number_expires_at_less_or_equal SerialNumber_ExpiresAt_Field) (
 		count int64, err error)
 
+	Delete_StoragenodeStorageTally_By_Id(ctx context.Context,
+		storagenode_storage_tally_id StoragenodeStorageTally_Id_Field) (
+		deleted bool, err error)
+
 	Delete_User_By_Id(ctx context.Context,
 		user_id User_Id_Field) (
 		deleted bool, err error)
@@ -10404,10 +10247,6 @@ type Methods interface {
 	First_BucketStorageTally_By_ProjectId_OrderBy_Desc_IntervalStart(ctx context.Context,
 		bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field) (
 		bucket_storage_tally *BucketStorageTally, err error)
-
-	Get_AccountingRaw_By_Id(ctx context.Context,
-		accounting_raw_id AccountingRaw_Id_Field) (
-		accounting_raw *AccountingRaw, err error)
 
 	Get_AccountingRollup_By_Id(ctx context.Context,
 		accounting_rollup_id AccountingRollup_Id_Field) (
@@ -10456,6 +10295,10 @@ type Methods interface {
 	Get_ResetPasswordToken_By_Secret(ctx context.Context,
 		reset_password_token_secret ResetPasswordToken_Secret_Field) (
 		reset_password_token *ResetPasswordToken, err error)
+
+	Get_StoragenodeStorageTally_By_Id(ctx context.Context,
+		storagenode_storage_tally_id StoragenodeStorageTally_Id_Field) (
+		storagenode_storage_tally *StoragenodeStorageTally, err error)
 
 	Get_User_By_Email_And_Status_Not_Number(ctx context.Context,
 		user_email User_Email_Field) (

@@ -611,8 +611,18 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				Description: "Added new table to store reset password tokens",
+				Description: "Drops storagenode_storage_tally table, Renames accounting_raws to storagenode_storage_tally, and Drops data_type and created_at columns",
 				Version:     18,
+				Action: migrate.SQL{
+					`DROP TABLE storagenode_storage_tallies CASCADE`,
+					`ALTER TABLE accounting_raws RENAME TO storagenode_storage_tallies`,
+					`ALTER TABLE storagenode_storage_tallies DROP COLUMN data_type`,
+					`ALTER TABLE storagenode_storage_tallies DROP COLUMN created_at`,
+				},
+			},
+			{
+				Description: "Added new table to store reset password tokens",
+				Version:     19,
 				Action: migrate.SQL{`
 					CREATE TABLE reset_password_tokens (
 						secret bytea NOT NULL,

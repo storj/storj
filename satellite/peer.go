@@ -73,8 +73,10 @@ type DB interface {
 	CertDB() certdb.DB
 	// OverlayCache returns database for caching overlay information
 	OverlayCache() overlay.DB
-	// Accounting returns database for storing information about data use
-	Accounting() accounting.DB
+	// StoragenodeAccounting returns database for storing information about storagenode use
+	StoragenodeAccounting() accounting.StoragenodeAccounting
+	// ProjectAccounting returns database for storing information about project data use
+	ProjectAccounting() accounting.ProjectAccounting
 	// RepairQueue returns queue for segments that need repairing
 	RepairQueue() queue.RepairQueue
 	// Irreparable returns database for failed repairs
@@ -354,7 +356,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Orders.Service,
 			peer.Overlay.Service,
 			peer.DB.Console().APIKeys(),
-			peer.DB.Accounting(),
+			peer.DB.StoragenodeAccounting(),
+			peer.DB.ProjectAccounting(),
 			peer.LiveAccounting.Service,
 			config.Rollup.MaxAlphaUsage,
 		)
@@ -413,8 +416,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 	{ // setup accounting
 		log.Debug("Setting up accounting")
-		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.Accounting(), peer.LiveAccounting.Service, peer.Metainfo.Service, peer.Overlay.Service, 0, config.Tally.Interval)
-		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.Accounting(), config.Rollup.Interval, config.Rollup.DeleteTallies)
+		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.StoragenodeAccounting(), peer.DB.ProjectAccounting(), peer.LiveAccounting.Service, peer.Metainfo.Service, peer.Overlay.Service, 0, config.Tally.Interval)
+		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.StoragenodeAccounting(), config.Rollup.Interval, config.Rollup.DeleteTallies)
 	}
 
 	{ // setup inspector
