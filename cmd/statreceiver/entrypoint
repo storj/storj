@@ -1,4 +1,0 @@
-#!/bin/sh
-set -euo pipefail
-
-exec ./statreceiver --input ./config.lua
