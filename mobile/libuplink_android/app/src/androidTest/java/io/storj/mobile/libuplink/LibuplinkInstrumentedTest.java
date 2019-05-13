@@ -354,7 +354,7 @@ public class LibuplinkInstrumentedTest {
 
                 for (int i = 0; i < list.length(); i++) {
                     ObjectInfo info = list.item(i);
-                    assertEquals("testBucket", info.bucket().getName());
+                    assertEquals("testBucket", info.getBucket().getName());
 
                     bucket.deleteObject("path" + i);
                 }

@@ -13,15 +13,15 @@ type ObjectInfo struct {
 	// Stream
 }
 
-func (bl *ObjectInfo) Version() int32 {
+func (bl *ObjectInfo) GetVersion() int32 {
 	return int32(bl.object.Version)
 }
 
-func (bl *ObjectInfo) Bucket() *BucketInfo {
+func (bl *ObjectInfo) GetBucket() *BucketInfo {
 	return newBucketInfo(bl.object.Bucket)
 }
 
-func (bl *ObjectInfo) Path() string {
+func (bl *ObjectInfo) GetPath() string {
 	return bl.object.Path
 }
 
@@ -29,24 +29,28 @@ func (bl *ObjectInfo) IsPrefix() bool {
 	return bl.object.IsPrefix
 }
 
-func (bl *ObjectInfo) Metadata(key string) string {
+func (bl *ObjectInfo) GetSize() int64 {
+	return bl.object.Size
+}
+
+func (bl *ObjectInfo) GetMetadata(key string) string {
 	return bl.object.Metadata[key]
 }
 
-func (bl *ObjectInfo) ContentType() string {
+func (bl *ObjectInfo) GetContentType() string {
 	return bl.object.ContentType
 }
 
-func (bl *ObjectInfo) Created() int {
-	return int(bl.object.Created.UTC().Unix())
+func (bl *ObjectInfo) GetCreated() int64 {
+	return bl.object.Created.UTC().Unix()
 }
 
-func (bl *ObjectInfo) Modified() int {
-	return int(bl.object.Modified.UTC().Unix())
+func (bl *ObjectInfo) GetModified() int64 {
+	return bl.object.Modified.UTC().Unix()
 }
 
-func (bl *ObjectInfo) Expires() int {
-	return int(bl.object.Expires.UTC().Unix())
+func (bl *ObjectInfo) GetExpires() int64 {
+	return bl.object.Expires.UTC().Unix()
 }
 
 type ObjectList struct {
