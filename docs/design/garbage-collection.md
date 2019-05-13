@@ -1,5 +1,5 @@
 
-# Garbage Collection
+# Storage Node Garbage Collection
 
 ## Abstract
  
@@ -11,7 +11,8 @@ Storage nodes will sometimes be temporarily unavailable and will miss delete mes
 In these cases, unneeded data is considered garbage.
 
 ## Ways to create garbage data:
-- Failed upload
+- Failed or interrupted upload (we used to delete the previously uploaded segments but since the introduction of order limits, we no longer do this.)
+- Regular upload where the longtail is canceled (e.g. uploading to 90 pieces, but the slowest 10 are cut, so we end up with 80 relevant)
 - Upon deletion
 - Upon replacement
 - When a satellite makes a repair and drops the node
@@ -34,9 +35,13 @@ In these cases, unneeded data is considered garbage.
 ### Deletion Process
 - The uplink should send a “DataDeletionReport” to the satellite with the list of pieces and corresponding storage nodes it has been unable to delete
 - The satellite responds with a message indicating if there are still *k* nodes detaining pieces of the segment. If there are, the delete process has failed.
-- The satellite keeps track of undeleted pieces and corresponding storage nodes. 		
-- When a storage node comes back online, or just want to perform a clean-up, it sends a request to the satellite. The satellite replies with the list of pieces id it may delete (possibly using a bloom filter).
-- The satellite removes the piece id and storage node id from its “not deleted pieces” table. 	 
+- The satellite keeps track of pieces and corresponding storage nodes by creating a new bloom filter for every storage node.
+    - The satellite creates the in-memory bloom filters using storage node IDs and pieceIDs gotten from the pointerdb.
+    - As an early implementation, this bloom filter creation process can be integrated with the data repair checker loop that periodically accesses the pointerdb. This will lessen pointerdb overhead vs. creating a new process.
+- The satellite periodically pushes a bloom filter (or cuckoo filter) containing the list of piece IDs for the storage node to delete.
+    - If the storage node misses the push because it's offline, it will just miss that GC cycle and catch the next one.
+-  Each bloom filter will have a certain creation datetime. The storage node walks all pieces older than the bloom filter datetime and checks whether the piece exists in the bloom filter, if not then deletes it.
+    - There could also be some additional short time period (e.g. one hour) to be sure that it covered possible differences in the clocks. Storage nodes need to be accurate within an hour or they will suffer reputation failure.
 
 ### Garbage Collection
 #### Approach from the whitepaper
@@ -50,7 +55,19 @@ In these cases, unneeded data is considered garbage.
 A bloom filter is a probabilistic data structure used to test if an element belongs to a set. It can raise false positives, but no false negatives. 
 A Bloom filter is an array of *m* bits, and a set of *k* hash functions that return an integer between 0 and *m-1* . To add an element, it has to be fed to the different hash functions and the bits at the resulting positions are set to 1. 
 
-The probability of having a false positive depends on the size of the Bloom filter, the hash functions used and the number of elements in the set. 
+The probability of having a false positive depends on the size of the Bloom filter, the hash functions used and the number of elements in the set.
+
+In our implementation, the satellite should create a new Bloom filter for every storage node that includes relevant piece IDs.
+
+We also can't remove entries from a Bloom filter, only add, so frequently the Satellite will need to regenerate the Bloom filters.
+
+Since currently the repair checker considers every pieceID and nodeID anyway, we will integrate storage node garbage collection from there for the short term, but more long-term, we should have the Bloom filter generation run off of a snapshot of the database in a separate server. It doesn't need to necessarily run every day, but perhaps once a week.
+
+An advantage of the using the Bloom filter is that it knows which pieces a storage node should hold. We don't have to care about how the garbage was created. Otherwise, if we  do garbage collecting in a different way for specific scenarios (such as those listed under "Ways to create garbage data"), we would need to make sure we cover each one.
+
+Previously we'd planned on building reverse index functionality for pointerdb, but doing so would require storing tons of data. This would cause RAM issues eventually. In the case of the Bloom filter, RAM becomes less of an issue, but compute time becomes more of one.
+
+Whether we use Bloom filters, cuckoo filters, or another data structure for adding up data at rest, we need to make sure that it's something we can do concurrently, and then merge later. At some point we'll need to partition the garbage collection service.
 
 ## Rationale
 
@@ -128,4 +145,3 @@ Q: What is a deleted segment?
 The whitepaper states that a proof of deletion should be sent from the uplink to the satellite. 
 - What is the expected behavior in this case? Is the deletion canceled if no proof is received? 
 - Do we introduce a “prepare-to-delete” state, and what should happen if the proof of deletion never comes?
-
