@@ -139,7 +139,8 @@ CREATE TABLE revocations (
 	id INTEGER NOT NULL,
 	head BLOB NOT NULL,
 	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( id )
+	PRIMARY KEY ( id ),
+	UNIQUE ( head )
 );
 CREATE TABLE serial_numbers (
 	id INTEGER NOT NULL,

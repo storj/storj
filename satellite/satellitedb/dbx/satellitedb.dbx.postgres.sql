@@ -139,7 +139,8 @@ CREATE TABLE revocations (
 	id bigserial NOT NULL,
 	head bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id )
+	PRIMARY KEY ( id ),
+	UNIQUE ( head )
 );
 CREATE TABLE serial_numbers (
 	id serial NOT NULL,

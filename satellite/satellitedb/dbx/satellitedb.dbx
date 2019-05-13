@@ -265,19 +265,23 @@ read all (
 //-----revocations----//
 
 model revocation (
-	key id
+	key    id
+	unique head
 
 	field id         serial64
 	field head       blob
 	field created_at timestamp ( autoinsert )
 )
 
-create revocation ( )
-delete revocation ( )
+create revocation ( noreturn )
 
-read one (
+delete revocation (
+	where revocation.head = ?
+)
+
+read has (
 	select revocation
-	where  revocation.id = ?
+	where  revocation.head = ?
 )
 
 read all (
