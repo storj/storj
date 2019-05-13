@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
