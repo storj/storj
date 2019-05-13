@@ -162,7 +162,7 @@ func (s *Service) GeneratePasswordRecoveryToken(ctx context.Context, id uuid.UUI
 		}
 	}
 
-	resetPasswordToken, err = s.store.ResetPasswordTokens().Create(ctx, &id)
+	resetPasswordToken, err = s.store.ResetPasswordTokens().Create(ctx, id)
 	if err != nil {
 		return "", err
 	}
@@ -236,7 +236,7 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 		return err
 	}
 
-	if time.Since(token.CreatedAt) < tokenExpirationTime {
+	if time.Since(token.CreatedAt) > tokenExpirationTime {
 		return errs.New(passwordRecoveryTokenIsExpiredErrMsg)
 	}
 

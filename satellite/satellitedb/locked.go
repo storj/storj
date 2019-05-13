@@ -375,7 +375,7 @@ type lockedResetPasswordTokens struct {
 }
 
 // Create creates new reset password token
-func (m *lockedResetPasswordTokens) Create(ctx context.Context, ownerID *uuid.UUID) (*console.ResetPasswordToken, error) {
+func (m *lockedResetPasswordTokens) Create(ctx context.Context, ownerID uuid.UUID) (*console.ResetPasswordToken, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Create(ctx, ownerID)

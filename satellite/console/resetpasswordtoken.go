@@ -16,7 +16,7 @@ import (
 // ResetPasswordTokens is interface for working with reset password tokens
 type ResetPasswordTokens interface {
 	// Create creates new reset password token
-	Create(ctx context.Context, ownerID *uuid.UUID) (*ResetPasswordToken, error)
+	Create(ctx context.Context, ownerID uuid.UUID) (*ResetPasswordToken, error)
 	// GetBySecret retrieves ResetPasswordToken with given secret
 	GetBySecret(ctx context.Context, secret ResetPasswordSecret) (*ResetPasswordToken, error)
 	// GetByOwnerID retrieves ResetPasswordToken by ownerID

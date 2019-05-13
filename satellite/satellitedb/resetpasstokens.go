@@ -18,7 +18,7 @@ type resetPasswordTokens struct {
 }
 
 // Create creates new reset password token
-func (rpt *resetPasswordTokens) Create(ctx context.Context, ownerID *uuid.UUID) (*console.ResetPasswordToken, error) {
+func (rpt *resetPasswordTokens) Create(ctx context.Context, ownerID uuid.UUID) (*console.ResetPasswordToken, error) {
 	secret, err := console.NewResetPasswordSecret()
 	if err != nil {
 		return nil, err
