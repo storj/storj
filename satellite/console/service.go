@@ -264,9 +264,7 @@ func (s *Service) RevokeResetPasswordToken(ctx context.Context, resetPasswordTok
 		return
 	}
 
-	err = s.store.ResetPasswordTokens().Delete(ctx, secret)
-
-	return err
+	return s.store.ResetPasswordTokens().Delete(ctx, secret)
 }
 
 // Token authenticates User by credentials and returns auth token
