@@ -15,11 +15,13 @@ In these cases, unneeded data is considered garbage.
 - Upon deletion
 - Upon replacement
 - When a satellite makes a repair and drops the node
+- When the client stops paying his bills
+- Uplink uploads data without commiting it
 
 
 ### Today's implementation
 **Repair**
-- When a repair is issued and a storage node is removed from the pointer, a delete is issued to let it know it does not have to store the piece anymore.
+- When a repair is issued and a storage node is removed from the pointer
 
 **Delete**
 1. When a delete object command is issued, the uplink retrieves the list of segments for this object, and Delete is called on each segment. 		
