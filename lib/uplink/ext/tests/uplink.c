@@ -5,9 +5,9 @@
 #include "../headers/main.h"
 
 
-void* ConvertProto(struct Value val)
-{
-//    switch(val.Type) {
-//    case
-//    }
-}
+//void* ConvertProto(struct GoValue val)
+//{
+////    switch(val.Type) {
+////    case
+////    }
+//}

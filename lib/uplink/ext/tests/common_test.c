@@ -12,14 +12,16 @@ void TestGetIDVersion(void)
     char **err = &_err;
     uint8_t idVersionNumber = 0;
 
-    Value idVersionValue = GetIDVersion(idVersionNumber, err);
+    struct GoValue idVersionValue = GetIDVersion(idVersionNumber, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     Unpack(&idVersionValue, err);
-    struct IDVersionProto idVersion
+//    struct IDVersionProto *idVersion = storj__libuplink__idversion__unpack(NULL, idVersionValue.Size, idVersionValue.Snapshot)
+    Storj__Libuplink__IDVersion *idVersion = storj__libuplink__idversion__unpack(NULL, idVersionValue.Size, idVersionValue.Snapshot);
+
 //    IDVersionNumber versionNumber = GetIDVersionNumber(idVersion);
 //    TEST_ASSERT_EQUAL(0, versionNumber);
-//    TEST_ASSERT_EQUAL(0, idVersionValue.Snapshot.Number);
+    TEST_ASSERT_EQUAL(0, idVersion->number);
 }
 
 void TestAPIKey(void)

@@ -22,7 +22,7 @@ import (
 var mon = monkit.Package()
 
 //export NewUplink
-func NewUplink(cConfig C.struct_Config, cErr **C.char) (cUplink C.struct_Value) {
+func NewUplink(cConfig C.struct_Config, cErr **C.char) (cUplink C.struct_GoValue) {
 	//func NewUplink(cConfig C.struct_Config, cErr **C.char) (cUplink C.struct_Storj__Libuplink__Uplink) {
 	goConfig := new(uplink.Config)
 	if err := CToGoStruct(cConfig, goConfig); err != nil {
@@ -50,8 +50,8 @@ func NewUplink(cConfig C.struct_Config, cErr **C.char) (cUplink C.struct_Value) 
 	//	Config:   cConfig,
 	//}
 	//return cUplink
-	return C.struct_Value{
-		GoPtr: cPointerFromGoStruct(goUplink),
+	return C.struct_GoValue{
+		Ptr: cPointerFromGoStruct(goUplink),
 		//Snapshot: ,
 		//Size: ,
 	}

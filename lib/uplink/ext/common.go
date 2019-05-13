@@ -54,7 +54,7 @@ func goPointerFromCGoUintptr(p C.GoUintptr) unsafe.Pointer {
 }
 
 //export GetIDVersion
-func GetIDVersion(number C.uint, cErr **C.char) (cIDVersion C.struct_IDVersion) {
+func GetIDVersion(number C.uint, cErr **C.char) (cIDVersion C.struct_GoValue) {
 	//func GetIDVersion(number C.uint, cErr **C.char) (cIDVersionPtr C.IDVersionPtr) {
 	goIDVersion, err := storj.GetIDVersion(storj.IDVersionNumber(number))
 	if err != nil {
@@ -65,10 +65,11 @@ func GetIDVersion(number C.uint, cErr **C.char) (cIDVersion C.struct_IDVersion) 
 
 	//return C.IDVersion(IDVersionMapping.Add(goIDVersion))
 	//TODO: replace wth mapping
-	return C.struct_IDVersion{
-		Number: C.IDVersionNumber(goIDVersion.Number),
-		// TODO: use value pointer instead
-		GoIDVersion: C.IDVersionPtr(cPointerFromGoStruct(goIDVersion)),
+	return C.struct_GoValue{
+		//Number: C.IDVersionNumber(goIDVersion.Number),
+		//// TODO: use value pointer instead
+		//GoIDVersion: C.IDVersionPtr(cPointerFromGoStruct(goIDVersion)),
+		Ptr: cPointerFromGoStruct(&goIDVersion),
 	}
 	//return C.IDVersionPtr(cPointerFromGoStruct(&goIDVersion))
 }
@@ -78,10 +79,10 @@ const (
 )
 
 type ValueType uint16
-type CValue struct {
+type GoValue struct {
 	ptr      unsafe.Pointer
 	_type    ValueType
-	snapshot []byte
+	snapshot uintptr
 	size     uintptr
 }
 
@@ -97,9 +98,9 @@ func (typ ValueType) String() string {
 
 var ErrSnapshot = errs.Class("unable to snapshot value")
 
-func (val CValue) Snapshot() (data []byte, _ error) {
-	// TODO: use mapping instead of uintptr
+func (val GoValue) Snapshot() (data []byte, _ error) {
 	// TODO: do this using reflect?
+	// TODO: use mapping instead of uintptr
 	switch val._type {
 	case IDVersionType:
 		idVersion := (*storj.IDVersion)(val.ptr)
@@ -114,9 +115,9 @@ func (val CValue) Snapshot() (data []byte, _ error) {
 }
 
 //export Unpack
-func Unpack(cValue *C.struct_Value, cErr **C.char) {
+func Unpack(cValue *C.struct_GoValue, cErr **C.char) {
 	// TODO: use mapping instead
-	value := new(CValue)
+	value := new(GoValue)
 	err := CToGoStruct(cValue, value)
 	if err != nil {
 		*cErr = C.CString(err.Error())
@@ -130,13 +131,8 @@ func Unpack(cValue *C.struct_Value, cErr **C.char) {
 
 	value.size = uintptr(len(data))
 
-	mem, err := CMalloc(len(data))
-	if err != nil {
-		*cErr = C.CString(err.Error())
-		return
-	}
-	value.snapshot = []byte(mem)
-	copy(value.snapshot, data)
+	value.snapshot = uintptr(CMalloc(C.ulong(len(data))))
+	copy(*(*[]byte)(unsafe.Pointer(value.snapshot)), data)
 
 	if err := GoToCStruct(value, cValue); err != nil {
 		*cErr = C.CString(err.Error())

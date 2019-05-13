@@ -114,19 +114,15 @@ extern APIKey ParseAPIKey(char* p0, char** p1);
 
 extern char* Serialize(APIKey p0);
 
-extern struct IDVersion GetIDVersion(unsigned int p0, char** p1);
+extern struct GoValue GetIDVersion(unsigned int p0, char** p1);
 
-extern struct Value NewValueC(GoUintptr p0, size_t p1);
-
-extern struct Value SnapshotValue(struct Value p0);
-
-extern struct Value Unpack(struct Value p0, char** p1);
+extern void Unpack(struct GoValue* p0, char** p1);
 
 extern GoUintptr CMalloc(size_t p0);
 
 extern struct Bucket CreateBucket(GoUintptr p0, char* p1, struct BucketConfig p2, char** p3);
 
-extern struct Value NewUplink(struct Config p0, char** p1);
+extern struct GoValue NewUplink(struct Config p0, char** p1);
 
 extern Project OpenProject(struct Uplink p0, char* p1, APIKey p2, struct ProjectOptions p3, char** p4);
 

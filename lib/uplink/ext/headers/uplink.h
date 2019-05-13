@@ -12,9 +12,7 @@ enum ValueType {
 };
 
 typedef GoUintptr APIKey;
-typedef GoUintptr IDVersionPtr;
 typedef uint8_t IDVersionNumber;
-typedef GoUintptr ValuePtr;
 
 struct IDVersion {
     IDVersionNumber Number;
@@ -22,9 +20,9 @@ struct IDVersion {
 };
 
 // NB: maybe don't use ValuePtr directly?
-struct Value {
+struct GoValue {
     // TODO: use mapping instead
-    GoUintptr GoPtr;
+    GoUintptr Ptr;
     char* Type;
     uint8_t* Snapshot;
     GoUintptr Size;
@@ -40,7 +38,7 @@ struct Config
             bool SkipPeerCAWhitelist;
             char *PeerCAWhitelistPath;
         } TLS;
-        IDVersionPtr IdentityVersion;
+        struct IDVersion IdentityVersion;
         char *PeerIDVersion;
         Size MaxInlineSize;
         Size MaxMemory;

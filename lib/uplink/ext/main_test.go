@@ -66,7 +66,7 @@ func TestAllCTests(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	testBinPath := ctx.CompileC(defaultLibPath, filepath.Join(defaultLibDir, "pb", "*.c"), filepath.Join(defaultLibDir, "tests", "*.c"))
+	testBinPath := ctx.CompileC(defaultLibPath, filepath.Join(defaultLibDir, "pb", "c", "*.c"), filepath.Join(defaultLibDir, "tests", "*.c"))
 
 	cmd := exec.Command(testBinPath)
 	cmd.Env = append(os.Environ(),
