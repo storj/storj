@@ -8,6 +8,8 @@
 #include "unity.h"
 #include "../uplink-cgo.h"
 
+extern void* ConvertValue(struct GoValue*, char**);
+
 void TestNewUplink_config(void)
 {
     uint8_t idVersionNumber = 0;
@@ -15,23 +17,30 @@ void TestNewUplink_config(void)
     char **err = &_err;
 
     // NB: ensure we get a valid ID version
-//    struct IDVersion version = GetIDVersion(idVersionNumber, err);
-//    TEST_ASSERT_EQUAL_STRING("", *err);
-//
-//    struct Config testUplinkConfig = {
-//        {{true, "/whitelist.pem"},
-//         version,
-//         "latest",
-//         1,
-//         2}};
-//
-//    testUplinkConfig.Volatile.IdentityVersion = version;
-//    TEST_ASSERT_EQUAL_STRING("", *err);
-//
-//    struct Uplink uplink = NewUplink(testUplinkConfig, err);
-//    TEST_ASSERT_EQUAL_STRING("", *err);
-//    TEST_ASSERT_NOT_EQUAL(0, uplink.GoUplink);
-//    TEST_ASSERT_TRUE(uplink.Config.Volatile.TLS.SkipPeerCAWhitelist);
+    struct GoValue idVersionValue = GetIDVersion(idVersionNumber, err);
+    TEST_ASSERT_EQUAL_STRING("", *err);
+
+    Unpack(&idVersionValue, err);
+    struct IDVersion *idVersion = (struct IDVersion*)(ConvertValue(&idVersionValue, err));
+
+    TEST_ASSERT_EQUAL(idVersionNumber, idVersion->Number);
+
+    struct Config testUplinkConfig = {
+        {{true, "/whitelist.pem"},
+         *idVersion,
+         "latest",
+         1,
+         2}};
+
+    testUplinkConfig.Volatile.IdentityVersion = *idVersion;
+    TEST_ASSERT_EQUAL_STRING("", *err);
+
+    struct GoValue uplinkValue = NewUplink(testUplinkConfig, err);
+    TEST_ASSERT_EQUAL_STRING("", *err);
+
+    struct Uplink *uplink = (struct Uplink*)(ConvertValue(&uplinkValue, err));
+    TEST_ASSERT_NOT_EQUAL(0, uplink->GoUplink);
+    TEST_ASSERT_TRUE(uplink->Config.Volatile.TLS.SkipPeerCAWhitelist);
 }
 
 struct Uplink *NewTestUplink(char **err)

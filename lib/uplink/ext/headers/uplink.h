@@ -6,10 +6,7 @@
 
 typedef __SIZE_TYPE__ GoUintptr;
 typedef int64_t Size;
-enum ValueType {
-    Uplink,
-    UplinkConfig
-};
+enum ValueType { IDVersionType };
 
 typedef GoUintptr APIKey;
 typedef uint8_t IDVersionNumber;
@@ -23,7 +20,7 @@ struct IDVersion {
 struct GoValue {
     // TODO: use mapping instead
     GoUintptr Ptr;
-    char* Type;
+    enum ValueType Type;
     uint8_t* Snapshot;
     GoUintptr Size;
 

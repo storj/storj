@@ -118,8 +118,6 @@ extern struct GoValue GetIDVersion(unsigned int p0, char** p1);
 
 extern void Unpack(struct GoValue* p0, char** p1);
 
-extern GoUintptr CMalloc(size_t p0);
-
 extern struct Bucket CreateBucket(GoUintptr p0, char* p1, struct BucketConfig p2, char** p3);
 
 extern struct GoValue NewUplink(struct Config p0, char** p1);

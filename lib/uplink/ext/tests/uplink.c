@@ -5,9 +5,15 @@
 #include "../headers/main.h"
 
 
-//void* ConvertProto(struct GoValue val)
-//{
-////    switch(val.Type) {
-////    case
-////    }
-//}
+void* ConvertValue(struct GoValue *val, char **err)
+{
+    switch(val->Type) {
+    case IDVersionType:
+//        IDVersionProto *idVersionProto = storj__libuplink__idversion__unpack(NULL, val.Size, val.Snapshot);
+
+//        struct IDVersion idVersion = {IDVersionProto.number};
+    default:
+        *err = "unknown type";
+        return NULL;
+    }
+}

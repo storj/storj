@@ -22,6 +22,18 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+const (
+	IDVersionType = ValueType(iota)
+)
+
+type ValueType uint16
+type GoValue struct {
+	ptr      unsafe.Pointer
+	_type    ValueType
+	snapshot uintptr
+	size     uintptr
+}
+
 var (
 	// cgo types
 	cStringType = reflect.TypeOf(C.CString(""))
@@ -38,10 +50,9 @@ var (
 	cipherSuiteType         = reflect.TypeOf(storj.CipherSuite(0))
 	redundancyAlgorithmType = reflect.TypeOf(storj.RedundancyAlgorithm(0))
 	keyPtrType              = reflect.TypeOf(new(C.Key))
-	valueType               = reflect.TypeOf(new(C.struct_Value))
 
 	ErrConvert       = errs.Class("struct conversion error")
-	IDVersionMapping = newMapping()
+	ErrSnapshot      = errs.Class("unable to snapshot value")
 )
 
 // Create pointer to a go struct for C to interact with
@@ -55,35 +66,17 @@ func goPointerFromCGoUintptr(p C.GoUintptr) unsafe.Pointer {
 
 //export GetIDVersion
 func GetIDVersion(number C.uint, cErr **C.char) (cIDVersion C.struct_GoValue) {
-	//func GetIDVersion(number C.uint, cErr **C.char) (cIDVersionPtr C.IDVersionPtr) {
 	goIDVersion, err := storj.GetIDVersion(storj.IDVersionNumber(number))
 	if err != nil {
 		*cErr = C.CString(err.Error())
-		//return cIDVersionPtr
 		return cIDVersion
 	}
 
-	//return C.IDVersion(IDVersionMapping.Add(goIDVersion))
 	//TODO: replace wth mapping
 	return C.struct_GoValue{
-		//Number: C.IDVersionNumber(goIDVersion.Number),
-		//// TODO: use value pointer instead
-		//GoIDVersion: C.IDVersionPtr(cPointerFromGoStruct(goIDVersion)),
 		Ptr: cPointerFromGoStruct(&goIDVersion),
+		Type: C.enum_ValueType(IDVersionType),
 	}
-	//return C.IDVersionPtr(cPointerFromGoStruct(&goIDVersion))
-}
-
-const (
-	IDVersionType = ValueType(iota)
-)
-
-type ValueType uint16
-type GoValue struct {
-	ptr      unsafe.Pointer
-	_type    ValueType
-	snapshot uintptr
-	size     uintptr
 }
 
 func (typ ValueType) String() string {
@@ -95,8 +88,6 @@ func (typ ValueType) String() string {
 		return "unknown type"
 	}
 }
-
-var ErrSnapshot = errs.Class("unable to snapshot value")
 
 func (val GoValue) Snapshot() (data []byte, _ error) {
 	// TODO: do this using reflect?
@@ -131,7 +122,7 @@ func Unpack(cValue *C.struct_GoValue, cErr **C.char) {
 
 	value.size = uintptr(len(data))
 
-	value.snapshot = uintptr(CMalloc(C.ulong(len(data))))
+	value.snapshot = CMalloc(uintptr(len(data)))
 	copy(*(*[]byte)(unsafe.Pointer(value.snapshot)), data)
 
 	if err := GoToCStruct(value, cValue); err != nil {
@@ -140,28 +131,10 @@ func Unpack(cValue *C.struct_GoValue, cErr **C.char) {
 	}
 }
 
-//export CMalloc
-func CMalloc(size C.size_t) C.GoUintptr {
-	//t.Info("TestMe!!")
-	CMem := C.malloc(size) // *C.void
-	return C.GoUintptr(uintptr(CMem))
-	//ptr := (*uint8)(unsafe.Pointer(CMem))
-	//*ptr = 42
-	//fmt.Printf("CMem: %+v\n", CMem)
-	//fmt.Printf("CMem: %p\n", CMem)
-	//fmt.Printf("CMem: %d\n", *ptr)
+func CMalloc(size uintptr) uintptr {
+	CMem := C.malloc(C.ulong(size))
+	return uintptr(CMem)
 }
-
-// TODO: use reflect to lookup fields dynamically
-//export GetIDVersionNumber
-//func GetIDVersionNumber(idversion C.IDVersion) (IDVersionNumber C.IDVersionNumber) {
-//	goApiKeyStruct, ok := IDVersionMapping.Get(token(idversion)).(storj.IDVersion)
-//	if !ok {
-//		return IDVersionNumber
-//	}
-//
-//	return C.IDVersionNumber(goApiKeyStruct.Number)
-//}
 
 func GoToCStruct(fromVar, toPtr interface{}) error {
 	fromValue := reflect.ValueOf(fromVar)
