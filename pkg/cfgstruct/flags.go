@@ -19,6 +19,7 @@ type FlagSet interface {
 	DurationVar(p *time.Duration, name string, value time.Duration, usage string)
 	Float64Var(p *float64, name string, value float64, usage string)
 	StringVar(p *string, name string, value string, usage string)
+	StringArrayVar(p *[]string, name string, value []string, usage string)
 	Var(val pflag.Value, name string, usage string)
 }
 

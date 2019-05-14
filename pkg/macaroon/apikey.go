@@ -5,7 +5,7 @@ package macaroon
 
 import (
 	"bytes"
-	time "time"
+	"time"
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/gogo/protobuf/proto"
@@ -137,8 +137,8 @@ func (a *APIKey) Tail() []byte {
 }
 
 // Serialize serializes the API Key to a string
-func (a *APIKey) Serialize() (string, error) {
-	return base58.CheckEncode(a.mac.Serialize(), 0), nil
+func (a *APIKey) Serialize() string {
+	return base58.CheckEncode(a.mac.Serialize(), 0)
 }
 
 // Allows returns true if the provided action is allowed by the caveat.
@@ -174,23 +174,11 @@ func (c *Caveat) Allows(action Action) bool {
 		return false
 	}
 
-	if len(c.Buckets) > 0 {
+	if len(c.AllowedPaths) > 0 {
 		found := false
-		for _, bucket := range c.Buckets {
-			if bytes.Equal(action.Bucket, bucket) {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return false
-		}
-	}
-
-	if len(c.EncryptedPathPrefixes) > 0 {
-		found := false
-		for _, path := range c.EncryptedPathPrefixes {
-			if bytes.HasPrefix(action.EncryptedPath, path) {
+		for _, path := range c.AllowedPaths {
+			if bytes.Equal(action.Bucket, path.Bucket) &&
+				bytes.HasPrefix(action.EncryptedPath, path.EncryptedPathPrefix) {
 				found = true
 				break
 			}

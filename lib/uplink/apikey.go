@@ -8,12 +8,12 @@ type APIKey struct {
 	key string
 }
 
-// Serialize serializes the API Key to a string
+// Serialize serializes the API key to a string
 func (a APIKey) Serialize() string {
 	return a.key
 }
 
-// ParseAPIKey parses an API Key
+// ParseAPIKey parses an API key
 func ParseAPIKey(val string) (APIKey, error) {
 	return APIKey{key: val}, nil
 }
