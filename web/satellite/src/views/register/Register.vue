@@ -13,7 +13,7 @@ import ROUTES from '../../utils/constants/routerConstants';
 import { LOADING_CLASSES } from '../../utils/constants/classConstants';
 import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '../../utils/constants/actionNames';
 import { createUserRequest } from '../../api/users';
-import {setUserId, setUserEmail} from '@/utils/consoleLocalStorage'
+import { setUserId } from '@/utils/consoleLocalStorage';
 
 @Component(
     {
@@ -98,9 +98,8 @@ import {setUserId, setUserEmail} from '@/utils/consoleLocalStorage'
                     return;
                 }
 
-                if (response.data){
+                if (response.data) {
                     setUserId(response.data);
-                    setUserEmail(this.$data.email);
                 }
 
                 this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION_POPUP);

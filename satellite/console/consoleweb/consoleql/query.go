@@ -49,6 +49,10 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 					if err != nil {
 						return nil, err
 					}
+					_, err = console.GetAuth(p.Context)
+					if err != nil {
+						return nil, err
+					}
 
 					return service.GetUser(p.Context, *id)
 				},

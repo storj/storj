@@ -254,19 +254,18 @@ export async function deleteAccountRequest(password: string): Promise<RequestRes
     return result;
 }
 
-export async function resendEmailRequest(userID: string, email: string): Promise<RequestResponse<null>> {
+export async function resendEmailRequest(userID: string): Promise<RequestResponse<null>> {
     let result: RequestResponse<null> = {
         errorMessage: '',
         isSuccess: false,
         data: null
     };
 
-    console.log(userID)
     let response = await apolloManager.query(
         {
             query: gql(`
                 query {
-                    resendAccountActivationEmail(id: "${userID}", email: "${email}")
+                    resendAccountActivationEmail(id: "${userID}")
                 }`
             ),
             fetchPolicy: 'no-cache',
