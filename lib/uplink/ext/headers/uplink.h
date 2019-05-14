@@ -25,11 +25,11 @@ struct GoValue
 };
 
 typedef GoUintptr APIKeyRef;
-typedef struct GoValue APIKey;
+typedef struct GoValue gvAPIKey;
 typedef GoUintptr IDVersionRef;
-typedef struct GoValue IDVersion;
+typedef struct GoValue gvIDVersion;
 typedef GoUintptr UplinkRef;
-typedef struct GoValue Uplink;
+typedef struct GoValue gvUplink;
 
 struct Config
 {

@@ -8,20 +8,20 @@
 #include "unity.h"
 #include "../uplink-cgo.h"
 
-extern Uplink *NewTestUplink(char **);
+extern gvUplink *NewTestUplink(char **);
 
 void TestCreateBucket(void)
 {
     char *_err = "";
     char **err = &_err;
     char *satelliteAddr = getenv("SATELLITEADDR");
-    APIKey apiKey = ParseAPIKey(getenv("APIKEY"), err);
+    gvAPIKey apiKey = ParseAPIKey(getenv("APIKEY"), err);
     uint8_t encryptionKey[32];
 
     struct ProjectOptions opts = {
         {&encryptionKey}};
 
-    Uplink *uplink = NewTestUplink(err);
+    gvUplink *uplink = NewTestUplink(err);
     TEST_ASSERT_EQUAL_STRING("", *err);
     TEST_ASSERT_NOT_NULL(uplink);
 

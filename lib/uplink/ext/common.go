@@ -46,14 +46,14 @@ var (
 )
 
 //export GetIDVersion
-func GetIDVersion(number C.uint, cErr **C.char) (cIDVersion C.IDVersion) {
+func GetIDVersion(number C.uint, cErr **C.char) (cIDVersion C.gvIDVersion) {
 	goIDVersion, err := storj.GetIDVersion(storj.IDVersionNumber(number))
 	if err != nil {
 		*cErr = C.CString(err.Error())
 		return cIDVersion
 	}
 
-	return C.IDVersion{
+	return C.gvIDVersion{
 		Ptr:  C.IDVersionRef(structRefMap.Add(goIDVersion)),
 		Type: C.IDVersionType,
 	}

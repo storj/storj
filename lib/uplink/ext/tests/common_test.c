@@ -12,7 +12,7 @@ void TestGetIDVersion(void)
     char **err = &_err;
     uint8_t idVersionNumber = 0;
 
-    IDVersion idVersionValue = GetIDVersion(idVersionNumber, err);
+    gvIDVersion idVersionValue = GetIDVersion(idVersionNumber, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     Unpack(&idVersionValue, err);
@@ -26,7 +26,7 @@ void TestAPIKey(void)
     char *_err = "";
     char **err = &_err;
     char *keyStr = "HiBryanIDidIt";
-    APIKey apikey = ParseAPIKey(keyStr, err);
+    gvAPIKey apikey = ParseAPIKey(keyStr, err);
     char *resultKey = Serialize(apikey.Ptr);
 
     TEST_ASSERT_EQUAL_STRING("", *err);

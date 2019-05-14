@@ -21,7 +21,7 @@ import (
 var mon = monkit.Package()
 
 //export NewUplink
-func NewUplink(cConfig C.struct_Config, cErr **C.char) (cUplink C.Uplink) {
+func NewUplink(cConfig C.struct_Config, cErr **C.char) (cUplink C.gvUplink) {
 	goConfig := new(uplink.Config)
 	if err := CToGoStruct(cConfig, goConfig); err != nil {
 		*cErr = C.CString(err.Error())
@@ -35,7 +35,7 @@ func NewUplink(cConfig C.struct_Config, cErr **C.char) (cUplink C.Uplink) {
 		return cUplink
 	}
 
-	return C.Uplink{
+	return C.gvUplink{
 		Ptr: C.UplinkRef(structRefMap.Add(goUplink)),
 		Type: C.UplinkType,
 	}

@@ -17,15 +17,15 @@ void TestNewUplink_config(void)
     char **err = &_err;
 
     // NB: ensure we get a valid ID version
-    struct GoValue idVersionValue = GetIDVersion(idVersionNumber, err);
+    gvIDVersion idVersionValue = GetIDVersion(idVersionNumber, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     Unpack(&idVersionValue, err);
-    struct IDVersion *idVersion = (struct IDVersion *)(ConvertValue(&idVersionValue, err));
-    printf("idVersion %p\n", idVersion);
-    printf("idVersion %d\n", idVersionValue.Type);
-    printf("idVersion %d\n", IDVersionType);
-    TEST_ASSERT_EQUAL_STRING("", *err);
+    // struct IDVersion idVersion = (ConvertValue(&idVersionValue, err));
+    // printf("idVersion %p\n", idVersion);
+    // printf("idVersion %d\n", idVersionValue.Type);
+    // printf("idVersion %d\n", IDVersionType);
+    // TEST_ASSERT_EQUAL_STRING("", *err);
     //    TEST_ASSERT_TRUE(false);
 
     //    TEST_ASSERT_EQUAL(idVersionNumber, idVersion->Number);
@@ -48,10 +48,10 @@ void TestNewUplink_config(void)
     //    TEST_ASSERT_TRUE(uplink->Config.Volatile.TLS.SkipPeerCAWhitelist);
 }
 
-Uplink *NewTestUplink(char **err)
+gvUplink *NewTestUplink(char **err)
 {
     uint8_t idVersionNumber = 0;
-    IDVersion version = GetIDVersion(idVersionNumber, err);
+    gvIDVersion version = GetIDVersion(idVersionNumber, err);
 
     struct Config testUplinkConfig = {
         {{true, "/whitelist.pem"},
@@ -60,7 +60,7 @@ Uplink *NewTestUplink(char **err)
          1,
          2}};
 
-    Uplink *uplink = malloc(sizeof(Uplink));
+    gvUplink *uplink = malloc(sizeof(gvUplink));
     *uplink = NewUplink(testUplinkConfig, err);
     return uplink;
 }
@@ -70,14 +70,14 @@ void TestOpenProject(void)
     char *_err = "";
     char **err = &_err;
     char *satelliteAddr = getenv("SATELLITEADDR");
-    APIKey apiKey = ParseAPIKey(getenv("APIKEY"), err);
+    gvAPIKey apiKey = ParseAPIKey(getenv("APIKEY"), err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     uint8_t encryptionKey[32];
     struct ProjectOptions opts = {
         {&encryptionKey}};
 
-    Uplink *uplink = NewTestUplink(err);
+    gvUplink *uplink = NewTestUplink(err);
     TEST_ASSERT_EQUAL_STRING("", *err);
     TEST_ASSERT_NOT_NULL(uplink);
 
