@@ -8,18 +8,63 @@ import { Component, Vue } from 'vue-property-decorator';
 import Button from '@/components/common/Button.vue';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import ROUTES from '@/utils/constants/routerConstants';
+import { resendEmailRequest } from '../../api/users'
+import { getUserID, getUserEmail } from '@/utils/consoleLocalStorage'
 
-@Component(
+
+    @Component(
         {
-            computed:{
+            mounted: function () {
+                // (this as any).startResendEmailCountdown();
+            },
+            data: function () {
+                return {
+                    isResendEmailButtonDisabled: true,
+                    timeToEnableResendEmailButton: '00:30',
+                };
+            },
+            computed: {
                 isPopupShown: function () {
                     return this.$store.state.appStateModule.appState.isSuccessfulRegistrationPopupShown;
                 }
             },
             methods: {
+                onResendEmailButtonClick: async function () {
+                    this.$data.isResendEmailButtonDisabled = true;
+
+                    let userID = getUserID();
+                    if(!userID) {
+                        return;
+                    }
+
+                    let userEmail = getUserID();
+                    if(!userEmail) {
+                        return;
+                    }
+
+                    let response = await resendEmailRequest(userID, userEmail);
+                    if (response.isSuccess){
+                        (this as any).startResendEmailCountdown();
+                    }
+                },
                 onCloseClick: function () {
                     this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
                     this.$router.push(ROUTES.LOGIN.path);
+                },
+                startResendEmailCountdown: function () {
+                    let countdown = 30;
+                    let self = this;
+                    let countdownInterval = setInterval(function () {
+                        countdown--;
+
+                        let secondsLeft = countdown > 9 ? countdown : `0${countdown}`;
+                        self.$data.timeToEnableResendEmailButton = `00:${secondsLeft}`;
+
+                        if (countdown <= 0) {
+                            clearInterval(countdownInterval);
+                            self.$data.isResendEmailButtonDisabled = false;
+                        }
+                    }.bind(this), 1000);
                 }
             },
             components: {
@@ -42,6 +87,19 @@ import ROUTES from '@/utils/constants/routerConstants';
         margin: 0;
     }
 
+    h3 {
+        font-family: 'font_medium';
+        font-size: 12px;
+        line-height: 16px;
+        color: #354049;
+        padding: 27px 0 0 0;
+        margin: 0;
+    }
+
+    b {
+        color: #2683FF;
+    }
+
     a {
         font-family: 'font_bold';
         color: #2683ff;
@@ -59,6 +117,7 @@ import ROUTES from '@/utils/constants/routerConstants';
         justify-content: center;
         align-items: center;
     }
+
     .register-success-popup {
         width: 100%;
         max-width: 845px;
