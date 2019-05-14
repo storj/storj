@@ -4,14 +4,13 @@
 package macaroon
 
 import (
-	"encoding/binary"
-	"time"
+	"crypto/rand"
 )
 
 // NewCaveat returns a Caveat with a nonce initialized to the current timestamp
 // in nanoseconds.
-func NewCaveat() Caveat {
+func NewCaveat() (Caveat, error) {
 	var buf [8]byte
-	binary.BigEndian.PutUint64(buf[:], uint64(time.Now().UnixNano()))
-	return Caveat{Nonce: buf[:]}
+	_, err := rand.Read(buf[:])
+	return Caveat{Nonce: buf[:]}, err
 }
