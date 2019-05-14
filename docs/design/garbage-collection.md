@@ -32,8 +32,6 @@ In these cases, unneeded data is considered garbage.
 
 ## Design
 ### Deletion Process
-- The uplink should send a “DataDeletionReport” to the satellite with the list of pieces and corresponding storage nodes it has been unable to delete
-- The satellite responds with a message indicating if there are still *k* nodes detaining pieces of the segment. If there are, the delete process has failed.
 - The satellite keeps track of pieces and corresponding storage nodes by creating a new bloom filter for every storage node.
     - The satellite creates the in-memory bloom filters using storage node IDs and piece IDs gotten from the pointerdb.
     - As an early implementation, this bloom filter creation process can be integrated with the data repair checker loop that periodically accesses the pointerdb. This will lessen pointerdb overhead vs. creating a new process.
@@ -73,7 +71,7 @@ The probability of having a false positive depends on the size of the Bloom filt
 
 ----
 
-In our implementation, the satellite should create a new Bloom filter for every storage node that includes relevant piece IDs.
+In our implementation, the satellite should create a new Bloom filter (or cuckoo filter) for every storage node that includes all piece IDs that the storage node should have.
 
 We also can't remove entries from a Bloom filter, only add, meaning that the Satellite will need to frequently regenerate the Bloom filters.
 
@@ -102,6 +100,7 @@ What could we send the node:
     - no need for the satellite to track deleted pieces for each storage node (except for audit purposes) 
     - More robust against nodes and uplinks that are not trustworthy
     - possibility to use a Bloom filter
+- We also had the idea of using two bloom filters (one containing pieces that should be deleted, one for pieces that should not be deleted), but that could potentially give us a false positive for deleting a piece. We definitely shouldn't delete useful pieces, so this would be too risky.
 
 ### Bloom filter
 - **n**: number of elements in the set
