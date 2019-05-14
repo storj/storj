@@ -644,6 +644,31 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				Description: "Drops and recreates api key table to handle macaroons and adds revocation table",
+				Version:     20,
+				Action: migrate.SQL{
+					`DROP TABLE api_keys CASCADE`,
+					`CREATE TABLE api_keys (
+						id bytea NOT NULL,
+						project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+						head bytea NOT NULL,
+						name text NOT NULL,
+						secret bytea NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id ),
+						UNIQUE ( head ),
+						UNIQUE ( name, project_id )
+					);`,
+					`CREATE TABLE revocations (
+						id bigserial NOT NULL,
+						head bytea NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id ),
+						UNIQUE ( head )
+					);`,
+				},
+			},
 		},
 	}
 }
