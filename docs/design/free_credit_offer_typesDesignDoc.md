@@ -240,14 +240,22 @@ we will be using go template for the UI
 
 ## Rationale
 
-As if the current user_credit_stats table design, we will have a new entry each time when a user earns credits.
-**Disadvantage**:
+As if the current user_credit table design, we will have a new entry each time when a user earns a credit. The reason why we designed this way is due to the starting date for the expiration date of credits. Each credit will be expired at a different time based on the duration we set for a particular offer and the date the credit is awarded to a user.
 
-- The table will grow very quickly as the user base grows. The reason why we designed this way is due to the dynamic nature of the expiration date of credits. Each credit will be expired at a different time based on the duration we set for a particular offer and the date the credit is awarded to a user.
+Disadvantage:
+
+- The table will grow very quickly as the user base grows.
 - Each time when we want to retrieve a user's available credits, we will need to access two tables, offer and user_credit_stats, to update the is_expired value for all available credits to make sure it's up-to-date.
 - Foreign key relationship between user_credits_stats table, offer table, and user table
+
+Advantages:
+We will update the is_expired flag each time when we retrieve a user’s available credits. Therefore, except the first time, it will only retrieve the credits that are not expired
+
+Other approaches:
+We can have a running process to update the is_expired value for each credits on a daily basis
 
 ## Open issues (if applicable)
 
 1. Is there a better way to design the tables so that we don't have to have the foreign key relationship for user_credit_stats table?
-2. We will have other marketing programs, for example, open source partner program. Should we create a top level system for all the marketing related services since we will probably be using the same private port and admin GUI for the marketing team to manage configurations for all the programs?
+2. Should we have a running process to loop through the user_credit table to check which credit is expired on a daily basis?
+3. We will have other marketing programs, for example, open source partner program. Should we create a top level system for all the marketing related services since we will probably be using the same private port and admin GUI for the marketing team to manage configurations for all the programs?
