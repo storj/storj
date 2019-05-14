@@ -3,6 +3,18 @@
 
 package storj
 
+import (
+	"crypto/sha256"
+
+	"github.com/zeebo/errs"
+	"golang.org/x/crypto/pbkdf2"
+
+	"storj.io/storj/pkg/pkcrypto"
+)
+
+// ErrKey is used when something goes wrong a key.
+var ErrKey = errs.Class("key")
+
 // EncryptionScheme is the scheme and parameters used for encryption.
 // Use the similar EncryptionParameters struct instead, if possible.
 type EncryptionScheme struct {
@@ -131,12 +143,31 @@ const (
 	NonceSize = 24
 )
 
+// NewKey creates a new key from a passphrase
+func NewKey(passphrase []byte) (*Key, error) {
+	salt, err := pkcrypto.GenerateSalt(8)
+	if err != nil {
+		return nil, ErrKey.Wrap(err)
+	}
+
+	keyVal := pbkdf2.Key(passphrase, salt, 4096, KeySize, sha256.New)
+	var key Key
+	copy(key[:], keyVal)
+
+	return &key, nil
+}
+
 // Key represents the largest key used by any encryption protocol
 type Key [KeySize]byte
 
 // Raw returns the key as a raw byte array pointer
 func (key *Key) Raw() *[KeySize]byte {
 	return (*[KeySize]byte)(key)
+}
+
+// IsZero returns true if key is nil or it points to its zero value
+func (key *Key) IsZero() bool {
+	return key == nil || *key == (Key{})
 }
 
 // Nonce represents the largest nonce used by any encryption protocol
