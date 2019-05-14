@@ -41,8 +41,10 @@ func main() {
 		} else {
 			fmt.Fprintf(os.Stderr, "tparse error: %v\n\n", err)
 		}
+		defer os.Exit(1)
+	} else {
+		defer os.Exit(pkgs.ExitCode())
 	}
-	defer os.Exit(pkgs.ExitCode())
 
 	output, err := os.Create(*xunit)
 	if err != nil {

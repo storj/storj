@@ -305,6 +305,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process.WaitForStart(satellite)
 		process.Arguments = withCommon(process.Directory, Arguments{
 			"setup": {
+				"--non-interactive=true",
 				"--identity-dir", process.Directory,
 				"--satellite-addr", satellite.Address,
 
@@ -462,6 +463,11 @@ func identitySetup(network *Processes) (*Processes, error) {
 	processes := NewProcesses(network.Directory)
 
 	for _, process := range network.List {
+		if process.Info.Executable == "gateway" {
+			// gateways don't need an identity
+			continue
+		}
+
 		identity := processes.New(Info{
 			Name:       "identity/" + process.Info.Name,
 			Executable: "identity",

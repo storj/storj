@@ -716,7 +716,6 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 	}{
 		SkipPeerCAWhitelist: true,
 	}
-	cfg.Volatile.UseIdentity = planet.Uplinks[0].Identity
 
 	uplink, err := libuplink.NewUplink(ctx, &cfg)
 	if err != nil {

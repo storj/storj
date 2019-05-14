@@ -63,7 +63,7 @@ var (
 	}
 	dashboardCmd = &cobra.Command{
 		Use:         "dashboard",
-		Short:       "Display a dashbaord",
+		Short:       "Display a dashboard",
 		RunE:        cmdDashboard,
 		Annotations: map[string]string{"type": "helper"},
 	}
