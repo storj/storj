@@ -27,6 +27,9 @@ random_bytes_file 5x1024x1024 "$SRC_DIR/big-upload-testfile"       # create 5mb 
 random_bytes_file      5x1024 "$SRC_DIR/multipart-upload-testfile" # create 5kb file of random bytes (remote)
 
 echo "Creating Bucket"
+echo "$TMPDIR"
+echo "$GATEWAY_0_ACCESS_KEY"
+echo "$GATEWAY_0_SECRET_KEY"
 aws s3 --endpoint="http://$GATEWAY_0_ADDR" mb s3://bucket
 
 echo "Uploading Files"
