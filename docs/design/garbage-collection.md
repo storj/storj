@@ -25,18 +25,17 @@ In these cases, unneeded data is considered garbage.
 - When a repair is issued and a storage node is removed from the pointer
 
 **Delete**
-1. When a delete object command is issued, the uplink retrieves the list of segments for this object, and Delete is called on each segment. 		
-2. A delete segment request is sent to the satellite. 		
+1. When a delete object command is issued, the uplink retrieves the list of segments for this object, and Delete is called on each segment.
+2. A delete segment request is sent to the satellite. 
 3. The satellite deletes the segment and sends the order limits for deleting the segment on known online storage nodes.
 4. A delete piece request is sent by the uplink to the corresponding storage node for each addressed order limit.
-
 
 ## Design
 ### Deletion Process
 - The uplink should send a “DataDeletionReport” to the satellite with the list of pieces and corresponding storage nodes it has been unable to delete
 - The satellite responds with a message indicating if there are still *k* nodes detaining pieces of the segment. If there are, the delete process has failed.
 - The satellite keeps track of pieces and corresponding storage nodes by creating a new bloom filter for every storage node.
-    - The satellite creates the in-memory bloom filters using storage node IDs and pieceIDs gotten from the pointerdb.
+    - The satellite creates the in-memory bloom filters using storage node IDs and piece IDs gotten from the pointerdb.
     - As an early implementation, this bloom filter creation process can be integrated with the data repair checker loop that periodically accesses the pointerdb. This will lessen pointerdb overhead vs. creating a new process.
 - The satellite periodically pushes a bloom filter (or cuckoo filter) containing the list of piece IDs for the storage node to delete.
     - If the storage node misses the push because it's offline, it will just miss that GC cycle and catch the next one.
@@ -51,19 +50,36 @@ In these cases, unneeded data is considered garbage.
 - The satellite replies with the bloom filter of the pieces the storage node should keep
 - Upon receiving the bloom filter, the storage node checks, for each piece, if it is in the set. If it is not, it deletes it. The storage node may still hold deleted pieces, as bloom filter can trigger a false positive.
 
+### Service
+```protobuf
+service GarbageCollection {
+    rpc Delete(DeleteRequest) returns (DeleteResponse);
+}
+
+message Filter {
+    ...
+}
+
+message DeleteRequest {
+    Filter filter = 1;
+}
+```
+
 #### Bloom filter
 A bloom filter is a probabilistic data structure used to test if an element belongs to a set. It can raise false positives, but no false negatives. 
 A Bloom filter is an array of *m* bits, and a set of *k* hash functions that return an integer between 0 and *m-1* . To add an element, it has to be fed to the different hash functions and the bits at the resulting positions are set to 1. 
 
 The probability of having a false positive depends on the size of the Bloom filter, the hash functions used and the number of elements in the set.
 
+----
+
 In our implementation, the satellite should create a new Bloom filter for every storage node that includes relevant piece IDs.
 
-We also can't remove entries from a Bloom filter, only add, so frequently the Satellite will need to regenerate the Bloom filters.
+We also can't remove entries from a Bloom filter, only add, meaning that the Satellite will need to frequently regenerate the Bloom filters.
 
-Since currently the repair checker considers every pieceID and nodeID anyway, we will integrate storage node garbage collection in the checker loop for the short term, but more long-term, we should have the Bloom filter generation run off of a snapshot of the database in a separate server. It doesn't need to necessarily run every day, but perhaps once a week.
+Since currently the repair checker considers every piece id and node id anyway, we will integrate storage node garbage collection in the checker loop for the short term, but more long-term, we should have the Bloom filter generation run off of a snapshot of the database in a separate server. It doesn't need to necessarily run every day, but perhaps once a week.
 
-An advantage of the using the Bloom filter is that it knows which pieces a storage node should hold. We don't have to care about how the garbage was created. Otherwise, if we do garbage collecting in a different way for specific scenarios (such as those listed under "Ways to create garbage data"), we would need to make sure we cover each case.
+An advantage of using the Bloom filter is that it knows which pieces a storage node should hold. We don't have to care about how the garbage was created. Otherwise, if we do garbage collecting in a different way for specific scenarios (such as those listed under "Ways to create garbage data"), we would need to make sure we cover each case.
 
 Previously we'd planned on building reverse index functionality for pointerdb, but doing so would require storing tons of data. This would cause RAM issues eventually. In the case of the Bloom filter, RAM becomes less of an issue, but compute time becomes more of one.
 
@@ -134,7 +150,13 @@ see: [Bloom filter math](http://pages.cs.wisc.edu/~cao/papers/summary-cache/node
 *Should we and how we integrate deletion in the audit system?*
 
 ## Implementation
-[A description of the steps in the implementation.]
+- Determine if a Bloom filter or cuckoo filter would make the most sense for associating nodes with pieces that need to be deleted
+- The data repair checker should create a filter for each storage node that it checks, and its piece IDs
+- Implement the garbage collection service defined by the interface
+    - Satellite should be able to send a Delete request to a storage node
+    - Storage node should be able to receive a Delete request from a Satellite
+- Storage node should use the filter from the Delete request to decide which pieces to delete, then delete them
+- Eventually, this service should iterate over a db snapshot instead of being integrated with the data repair checker
 
 ## Open issues (if applicable)
 Q: What is a deleted segment?
