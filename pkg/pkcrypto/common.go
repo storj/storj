@@ -35,4 +35,6 @@ var (
 	ErrVerifySignature = errs.Class("signature verification error")
 	// ErrChainLength is used when the length of a cert chain isn't what was expected
 	ErrChainLength = errs.Class("cert chain length error")
+	// ErrSalt is used when something goes wrong while generating salt.
+	ErrSalt = errs.Class("unable to generate salt")
 )
