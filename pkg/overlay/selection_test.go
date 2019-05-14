@@ -237,16 +237,38 @@ func TestDistinctIPs(t *testing.T) {
 			duplicateCount int
 			requestCount   int
 			preferences    overlay.NodeSelectionConfig
+			shouldFailWith *errs.Class
 		}{
 			{ // test only distinct IPs with half new nodes
 				duplicateCount: 7,
 				requestCount:   4,
 				preferences: overlay.NodeSelectionConfig{
-					AuditCount:        8,
+					AuditCount:        7,
 					NewNodePercentage: 0.5,
 					OnlineWindow:      time.Hour,
 					DistinctIP:        true,
 				},
+			},
+			{
+				duplicateCount: 9,
+				requestCount:   2,
+				preferences: overlay.NodeSelectionConfig{
+					AuditCount:        0,
+					NewNodePercentage: 0,
+					OnlineWindow:      time.Hour,
+					DistinctIP:        true,
+				},
+			},
+			{ // test not enough distinct IPs
+				duplicateCount: 7,
+				requestCount:   5,
+				preferences: overlay.NodeSelectionConfig{
+					AuditCount:        0,
+					NewNodePercentage: 0,
+					OnlineWindow:      time.Hour,
+					DistinctIP:        true,
+				},
+				shouldFailWith: &overlay.ErrNotEnoughNodes,
 			},
 			{ // test distinct flag false allows duplicates
 				duplicateCount: 10,
@@ -290,7 +312,13 @@ func TestDistinctIPs(t *testing.T) {
 				FreeDisk:       0,
 				RequestedCount: tt.requestCount,
 			}, &tt.preferences)
-			require.NoError(t, err)
+			if tt.shouldFailWith != nil {
+				assert.Error(t, err)
+				assert.True(t, tt.shouldFailWith.Has(err))
+				continue
+			} else {
+				require.NoError(t, err)
+			}
 
 			// assert all IPs are unique
 			if tt.preferences.DistinctIP {
