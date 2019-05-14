@@ -80,6 +80,7 @@ export const appStateModule = {
             state.appState.isProjectsDropdownShown = false;
             state.appState.isAccountDropdownShown = false;
             state.appState.isSortProjectMembersByPopupShown = false;
+            state.appState.isSuccessfulRegistrationPopupShown = false;
         },
         [APP_STATE_MUTATIONS.CHANGE_STATE](state: any, newFetchState: AppState): void {
             state.appState.fetchState = newFetchState;

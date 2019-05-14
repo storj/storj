@@ -153,7 +153,7 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 			} else {
 				bindConfig(flags, flagname+".", fieldval, vars, setupCommand, onlyForSetup, isDev)
 			}
-		case reflect.Array, reflect.Slice:
+		case reflect.Array:
 			digits := len(fmt.Sprint(fieldval.Len()))
 			for j := 0; j < fieldval.Len(); j++ {
 				padding := strings.Repeat("0", digits-len(fmt.Sprint(j)))
@@ -208,6 +208,8 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 				val, err := strconv.ParseBool(def)
 				check(err)
 				flags.BoolVar(fieldaddr.(*bool), flagname, val, help)
+			case reflect.TypeOf([]string(nil)):
+				flags.StringArrayVar(fieldaddr.(*[]string), flagname, nil, help)
 			default:
 				panic(fmt.Sprintf("invalid field type: %s", field.Type.String()))
 			}
