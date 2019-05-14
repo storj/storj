@@ -9,10 +9,10 @@ If we shipped our current client code, it wouldn't be easy to update clients and
 - cleanup for uncommitted segments
 - general concurrency fixes
 
-Native multipart upload can't happen with our current architecture because there's no concept of starting and ending a stream.
+Native multipart upload can't happen with our current architecture because there are issues with out of order uploading of a single stream.
 
-Versions also wouldn't work, because if concurrent clients tried to upload at the same time, they would clobber each other.
-The current protobuf does not contain which version is being written, so it has to assume "latest version", which is problematic with concurrent clients (they both are writing to the "latest version").
+Currently, concurrent uploading causes segments to get mangled, but adding versions is a good way to handle concurrent uploads.
+The current protobuf does not contain which version is being written, so it has to assume "version 0", which is problematic with concurrent clients (they both are writing to the "version 0").
 
 This should also reduce the number of roundtrips needed to start and end both streams and segments.
 
