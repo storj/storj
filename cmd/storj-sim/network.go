@@ -285,12 +285,12 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			},
 			"run": {},
 		})
-		var schema string
+
 		if flags.Postgres != "" {
-			schema = fmt.Sprintf("satellite%d", i)
-			postgresConnstr := pgutil.ConnstrWithSchema(flags.Postgres, schema)
-			dbArgs := []string{"--database", postgresConnstr, "--metainfo.database-url", postgresConnstr}
-			process.Arguments["setup"] = append(process.Arguments["setup"], dbArgs...)
+			process.Arguments["setup"] = append(process.Arguments["setup"],
+				"--database", pgutil.ConnstrWithSchema(flags.Postgres, fmt.Sprintf("satellite/%d", i)),
+				"--metainfo.database-url", pgutil.ConnstrWithSchema(flags.Postgres, fmt.Sprintf("satellite/%d/meta", i)),
+			)
 		}
 
 		process.ExecBefore["run"] = func(process *Process) error {
