@@ -17,7 +17,7 @@ In these cases, unneeded data is considered garbage.
 - Upon deletion
 - Upon replacement
 - When a satellite makes a repair and drops the node
-- When the client stops paying his bills
+- When the client stops paying their bills
 - Uplink uploads data without committing it
 
 ### Today's implementation
