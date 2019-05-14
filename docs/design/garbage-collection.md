@@ -1,8 +1,9 @@
 
 # Storage Node Garbage Collection
-
-## Abstract
  
+## Abstract
+This design doc describes how the satellite should notify storage nodes about garbage pieces that they may be holding, and how storage nodes should go about deleting that data.
+
 ## Background
 When clients move, replace, or delete data, Satellites, or clients on behalf of Satellites, will notify storage nodes that they are no longer required to store that data. 
  In configurations where delete messages are issued by the client, the metadata system (and thus a Satellite, with Satellite reputation on the line) will require proof that deletes were issued to a configurable minimum number of storage nodes. 
@@ -17,8 +18,7 @@ In these cases, unneeded data is considered garbage.
 - Upon replacement
 - When a satellite makes a repair and drops the node
 - When the client stops paying his bills
-- Uplink uploads data without commiting it
-
+- Uplink uploads data without committing it
 
 ### Today's implementation
 **Repair**
