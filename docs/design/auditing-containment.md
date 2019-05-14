@@ -44,8 +44,8 @@ Here are a few possible cases:
 3. The node can't read the piece due to a file permission issue (a SNO config mistake).
 4. The node can't read the piece due to bad sectors on the HDD.
 
-For 1, the node doesn't necessarily need to be contained. For 2, the node does need to be contained.
-For 3 and 4, the node should probably also be contained.
+For 1, the node should be contained. For 2-4, the node should definitely fail the audit.
+Basically, we want to able to get a straight answer back when a node returns the wrong data, says "I don't have the data," or "I can't read the data." Because this will mean that they failed the audit. If the storage node completes an initial TLS handshake but then doesn't respond within some timeframe, _then_ we should mark it as contained.
 
 We need to find out what the error messages are for these different cases so that we don't lump the first case with the rest.
 
@@ -77,6 +77,7 @@ type pendingAudit struct {
 }
 ```
 `pendingAudit` entries are created and added to the ContainmentDB when a node seems to be online and opens a connection with the satellite to be audited (this happens within the existing Verify function in the audit package), but then refuses to send the requested erasure share.
+There should not be more than one pendingAudit per node.
 
 Additionally, the satellite should make sure to empty the ContainmentDB of certain pending audits when segments are deleted.
 
@@ -115,6 +116,7 @@ Originally I had the idea to have a separate service iterate through and check t
 However, after talking with JT it seemed unnecessary to have another service for this functionality that could be added to the existing verifier code.
 I think we also don't want to pound the contained nodes with reverification audits.
 They should just be reverified whenever they pass through the audit service normally.
+With one service, it would also be very difficult to make sure that the pending audit happened before any other normal audits happened to a contained node.
 
 ## Walkthrough
 
@@ -155,8 +157,11 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe) (verifiedN
 
   // Get the NodeDossiers from the overlay using the pieces’ nodeIDs.
   // Determine if they have the contained flag set to true.
-  // If so, call Reverify on them.
-  // Either way, then continue this audit normally with the contained nodes included.
+  // If so, call Reverify on the contained nodes in parallel.
+  // Wait for the Reverify results. If those nodes passed or failed
+  // their reverification, then they should continue to be verified here.
+  // Otherwise, if they're still contained, we don't try to verify new shares
+  // for them.
   ...
 }
 ```
@@ -202,16 +207,22 @@ This will require a refactor because the audit system's existing `reporter` is c
 I think we'll want to call `RecordAudits` from inside the Reverify function, so that the Verify function (which calls Reverify) won't have to wait on Reverify's results to package with other audit results.
 
 ## Implementation (Stories)
-- Create ContainmentDB table (alternately, add `pendingAudit` struct to NodeDossier)
+- Create ContainmentDB table
 - Identify errors from connecting with nodes, determine who needs to be contained
 - Implement ContainmentDB interface
 - Make sure `pendingAudit` entries associated with deleted segments are also deleted from ContainmentDB
     - (or that their `pendingAudit` info gets cleared from their NodeDossier)
 - Make the audit system Reverify contained nodes and save audit results
+- Prevent nodes from backing up all their data to Glacier and only getting that data and responding to the satellite
+    - Keep track of an overall speed for nodes using repairs
+    - Establish a minimum speed for node selection, since we won't get a high ratio of node speed if they're doing the Glacier thinng
 
-## Open Issues
+## Closed Issues
 
 Q: How often can a contained node expect to be reverified in a real-life system?
 
 Q: Why create yet another database table when we never iterate through all records in ContainmentDB?
 Couldn't the information on the `pendingAudit` struct just be added to the NodeDossier?
+
+A: The advantage of the containmentDB table is that it's separate from the existing nodes table. If the nodes table got messed up somehow, the containmentDB wouldn't be affected.
+Additionally, adding several more columns to the nodes table could make performance worse.
