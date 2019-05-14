@@ -18,7 +18,7 @@ Existing clients give their UUID Referral Link to their friends for their friend
 - When a user wants to issue a referral link:
   An existing client who has an account on one of the Tardigrade Satellites is able to retrieve their unique referral link from their dashboard. They can issue their referral link to their friends in the following ways:
   - Copy the static link associated to their account with the default invite message from their dashboard 
-  Twitter Share
+  - Twitter Share
 
 - When a referral link is accepted:
   The invitee can accept their invite to redeem their Referral Offer by going through the Referral Link to create an account on the Satellite they were invited to/through.
@@ -102,28 +102,52 @@ The credit is automatically applied to the account and will have a max limit tha
 
 ```golang
 type Offers interface {
-  GetAllOffers()
-  GetOfferById(offerId)
-  Update(offerId)
-  Delete(offerId)
-  Create()
+  ListAllOffers(ctx context.Context) ([]Offer, error)
+  GetOfferById(ctx context.Context, offerId []byte) (Offer, error)
+  Update(ctx context.Context, offer *Offer) (*Offer, error)
+  Delete(ctx context.Context, offerId []byte)
+  Create(ctx context.Context, offer *Offer)
 }
 ```
 
-**satellite/offer/credit.go**
+**satellite/console/credit.go**
 - Create a user_credit_stats interface to interact with the user_credit_stats  table
 
 ```golang
-type user_credit_stats interface {
-  GetAvailableCreditsByUserId(userId)
-  GetUserCreditsByCreditType(userId, creditType)
-  Update(userId, offerId, creditType, isExpired)
-  Create(credit *UserCredit)
+type Credits interface {
+  AvailableCredits(ctx context.Context, userId uuid.UUID) (int, error)
+  ListByCreditType(ctx context.Context, userId uuid.UUID, creditType Credit.Type) ([]Credit, error)
+  Update(ctx context.Context, credit *Credit) (*Credit, error)
+  Create(ctx context.Context, credit *Credit) (*Credit, error)
 }
 ```
 
-**satellite/console/userCreditStats.go**
-- New service methods for retrieving user credit data from credit.go
+**satellite/console/database.go**
+- New method for retrieving user credit data from user_credit table
+  
+```golang
+type DB interface {
+	// Users is a getter for Users repository
+  Users() Users
+  // Credits is a getter for Credits repository
+  Credits() Credits
+	// Projects is a getter for Projects repository
+	Projects() Projects
+	// ProjectMembers is a getter for ProjectMembers repository
+	ProjectMembers() ProjectMembers
+	// APIKeys is a getter for APIKeys repository
+	APIKeys() APIKeys
+	// BucketUsage is a getter for accounting.BucketUsage repository
+	BucketUsage() accounting.BucketUsage
+	// RegistrationTokens is a getter for RegistrationTokens repository
+	RegistrationTokens() RegistrationTokens
+	// UsageRollups is a getter for UsageRollups repository
+	UsageRollups() UsageRollups
+
+	// BeginTransaction is a method for opening transaction
+  BeginTx(ctx context.Context) (DBTx, error)
+}
+```
 
 **satellite/offer/offerweb/server.go**
 - Open a new private port on the satellite for admin users to manage referral offer configuration
