@@ -14,10 +14,16 @@ import { getUserID } from '@/utils/consoleLocalStorage';
 
 @Component(
     {
+        beforeDestroy: function() {
+            if (this.$data.intervalID) {
+                clearInterval(this.$data.intervalID);
+            }
+        },
         data: function () {
             return {
                 isResendEmailButtonDisabled: true,
                 timeToEnableResendEmailButton: '00:30',
+                intervalID: null,
             };
         },
         computed: {
@@ -46,14 +52,14 @@ import { getUserID } from '@/utils/consoleLocalStorage';
             startResendEmailCountdown: function () {
                 let countdown = 30;
                 let self = this;
-                let countdownInterval = setInterval(function () {
+                this.$data.intervalID = setInterval(function () {
                     countdown--;
 
                     let secondsLeft = countdown > 9 ? countdown : `0${countdown}`;
                     self.$data.timeToEnableResendEmailButton = `00:${secondsLeft}`;
 
                     if (countdown <= 0) {
-                        clearInterval(countdownInterval);
+                        clearInterval(self.$data.intervalID);
                         self.$data.isResendEmailButtonDisabled = false;
                     }
                 }.bind(this), 1000);
