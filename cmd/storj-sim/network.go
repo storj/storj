@@ -21,6 +21,7 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/internal/processgroup"
 )
@@ -188,7 +189,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	versioncontrol.Arguments = withCommon(versioncontrol.Directory, Arguments{
 		"setup": {
 			"--address", versioncontrol.Address,
-			"--debug.addr", net.JoinHostPort("127.0.0.1", port(versioncontrolPeer, 0, debugHTTP)),
+			"--debug.addr", net.JoinHostPort(host, port(versioncontrolPeer, 0, debugHTTP)),
 		},
 		"run": {},
 	})
@@ -225,7 +226,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 			"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
 
-			"--debug.addr", net.JoinHostPort("127.0.0.1", port(bootstrapPeer, 0, debugHTTP)),
+			"--debug.addr", net.JoinHostPort(host, port(bootstrapPeer, 0, debugHTTP)),
 		},
 		"run": {},
 	})
@@ -280,10 +281,17 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--mail.template-path", filepath.Join(storjRoot, "web/satellite/static/emails"),
 
 				"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
-				"--debug.addr", net.JoinHostPort("127.0.0.1", port(satellitePeer, i, debugHTTP)),
+				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugHTTP)),
 			},
 			"run": {},
 		})
+
+		if flags.Postgres != "" {
+			process.Arguments["setup"] = append(process.Arguments["setup"],
+				"--database", pgutil.ConnstrWithSchema(flags.Postgres, fmt.Sprintf("satellite/%d", i)),
+				"--metainfo.database-url", pgutil.ConnstrWithSchema(flags.Postgres, fmt.Sprintf("satellite/%d/meta", i)),
+			)
+		}
 
 		process.ExecBefore["run"] = func(process *Process) error {
 			return readConfigString(&process.Address, process.Directory, "server.address")
@@ -421,7 +429,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--storage.satellite-id-restriction=false",
 
 				"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
-				"--debug.addr", net.JoinHostPort("127.0.0.1", port(storagenodePeer, i, debugHTTP)),
+				"--debug.addr", net.JoinHostPort(host, port(storagenodePeer, i, debugHTTP)),
 			},
 			"run": {},
 		})

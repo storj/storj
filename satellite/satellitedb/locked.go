@@ -361,6 +361,47 @@ func (m *lockedRegistrationTokens) UpdateOwner(ctx context.Context, secret conso
 	return m.db.UpdateOwner(ctx, secret, ownerID)
 }
 
+// ResetPasswordTokens is a getter for ResetPasswordTokens repository
+func (m *lockedConsole) ResetPasswordTokens() console.ResetPasswordTokens {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedResetPasswordTokens{m.Locker, m.db.ResetPasswordTokens()}
+}
+
+// lockedResetPasswordTokens implements locking wrapper for console.ResetPasswordTokens
+type lockedResetPasswordTokens struct {
+	sync.Locker
+	db console.ResetPasswordTokens
+}
+
+// Create creates new reset password token
+func (m *lockedResetPasswordTokens) Create(ctx context.Context, ownerID uuid.UUID) (*console.ResetPasswordToken, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Create(ctx, ownerID)
+}
+
+// Delete deletes ResetPasswordToken by ResetPasswordSecret
+func (m *lockedResetPasswordTokens) Delete(ctx context.Context, secret console.ResetPasswordSecret) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Delete(ctx, secret)
+}
+
+// GetByOwnerID retrieves ResetPasswordToken by ownerID
+func (m *lockedResetPasswordTokens) GetByOwnerID(ctx context.Context, ownerID uuid.UUID) (*console.ResetPasswordToken, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetByOwnerID(ctx, ownerID)
+}
+
+// GetBySecret retrieves ResetPasswordToken with given secret
+func (m *lockedResetPasswordTokens) GetBySecret(ctx context.Context, secret console.ResetPasswordSecret) (*console.ResetPasswordToken, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetBySecret(ctx, secret)
+}
+
 // UsageRollups is a getter for UsageRollups repository
 func (m *lockedConsole) UsageRollups() console.UsageRollups {
 	m.Lock()

@@ -19,20 +19,21 @@ func TestSerializeParseRestrictAndCheck(t *testing.T) {
 	key, err := NewAPIKey(secret)
 	require.NoError(t, err)
 
-	serialized, err := key.Serialize()
-	require.NoError(t, err)
+	serialized := key.Serialize()
 	parsedKey, err := ParseAPIKey(serialized)
 	require.NoError(t, err)
 	require.True(t, bytes.Equal(key.Head(), parsedKey.Head()))
 	require.True(t, bytes.Equal(key.Tail(), parsedKey.Tail()))
 
 	restricted, err := key.Restrict(Caveat{
-		EncryptedPathPrefixes: [][]byte{[]byte("a-test-path")},
+		AllowedPaths: []*Caveat_Path{{
+			Bucket:              []byte("a-test-bucket"),
+			EncryptedPathPrefix: []byte("a-test-path"),
+		}},
 	})
 	require.NoError(t, err)
 
-	serialized, err = restricted.Serialize()
-	require.NoError(t, err)
+	serialized = restricted.Serialize()
 	parsedKey, err = ParseAPIKey(serialized)
 	require.NoError(t, err)
 	require.True(t, bytes.Equal(key.Head(), parsedKey.Head()))
@@ -42,11 +43,13 @@ func TestSerializeParseRestrictAndCheck(t *testing.T) {
 	action1 := Action{
 		Op:            ActionRead,
 		Time:          now,
+		Bucket:        []byte("a-test-bucket"),
 		EncryptedPath: []byte("a-test-path"),
 	}
 	action2 := Action{
 		Op:            ActionRead,
 		Time:          now,
+		Bucket:        []byte("another-test-bucket"),
 		EncryptedPath: []byte("another-test-path"),
 	}
 
