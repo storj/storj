@@ -239,8 +239,7 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 	return nodes, nil
 }
 
-// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
-// Note that KnownUnreliableOrOffline will not return node ids which are not in the database at all
+// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new.
 func (cache *Cache) KnownUnreliableOrOffline(ctx context.Context, nodeIds storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	criteria := &NodeCriteria{

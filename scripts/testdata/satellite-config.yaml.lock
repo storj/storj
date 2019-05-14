@@ -85,6 +85,9 @@ kademlia.operator.wallet: ""
 # size of Kademlia replacement cache
 # kademlia.replacement-cache-size: 5
 
+# what to use for storing real-time accounting data
+# live-accounting.storage-backend: ""
+
 # if true, log function filename and line number
 # log.caller: false
 

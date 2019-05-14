@@ -30,24 +30,37 @@ type Client interface {
 	WithObservers(obs ...Observer) Client
 }
 
+// Timeouts contains all of the timeouts configurable for a transport
+type Timeouts struct {
+	Request time.Duration
+	Dial    time.Duration
+}
+
 // Transport interface structure
 type Transport struct {
-	tlsOpts        *tlsopts.Options
-	observers      []Observer
-	requestTimeout time.Duration
+	tlsOpts   *tlsopts.Options
+	observers []Observer
+	timeouts  Timeouts
 }
 
 // NewClient returns a transport client with a default timeout for requests
 func NewClient(tlsOpts *tlsopts.Options, obs ...Observer) Client {
-	return NewClientWithTimeout(tlsOpts, defaultRequestTimeout, obs...)
+	return NewClientWithTimeouts(tlsOpts, Timeouts{}, obs...)
 }
 
-// NewClientWithTimeout returns a transport client with a specified timeout for requests
-func NewClientWithTimeout(tlsOpts *tlsopts.Options, requestTimeout time.Duration, obs ...Observer) Client {
+// NewClientWithTimeouts returns a transport client with a specified timeout for requests
+func NewClientWithTimeouts(tlsOpts *tlsopts.Options, timeouts Timeouts, obs ...Observer) Client {
+	if timeouts.Request == 0 {
+		timeouts.Request = defaultRequestTimeout
+	}
+	if timeouts.Dial == 0 {
+		timeouts.Dial = defaultDialTimeout
+	}
+
 	return &Transport{
-		tlsOpts:        tlsOpts,
-		requestTimeout: requestTimeout,
-		observers:      obs,
+		tlsOpts:   tlsOpts,
+		timeouts:  timeouts,
+		observers: obs,
 	}
 }
 
@@ -76,11 +89,11 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 			if err != nil {
 				return nil, err
 			}
-			return &timeoutConn{conn: conn, timeout: transport.requestTimeout}, nil
+			return &timeoutConn{conn: conn, timeout: transport.timeouts.Request}, nil
 		}),
 	}, opts...)
 
-	timedCtx, cancel := context.WithTimeout(ctx, defaultDialTimeout)
+	timedCtx, cancel := context.WithTimeout(ctx, transport.timeouts.Dial)
 	defer cancel()
 
 	conn, err = grpc.DialContext(timedCtx, node.GetAddress().Address, options...)
@@ -120,11 +133,11 @@ func (transport *Transport) DialAddress(ctx context.Context, address string, opt
 			if err != nil {
 				return nil, err
 			}
-			return &timeoutConn{conn: conn, timeout: transport.requestTimeout}, nil
+			return &timeoutConn{conn: conn, timeout: transport.timeouts.Request}, nil
 		}),
 	}, opts...)
 
-	timedCtx, cancel := context.WithTimeout(ctx, defaultDialTimeout)
+	timedCtx, cancel := context.WithTimeout(ctx, transport.timeouts.Dial)
 	defer cancel()
 
 	conn, err = grpc.DialContext(timedCtx, address, options...)
@@ -141,7 +154,7 @@ func (transport *Transport) Identity() *identity.FullIdentity {
 
 // WithObservers returns a new transport including the listed observers.
 func (transport *Transport) WithObservers(obs ...Observer) Client {
-	tr := &Transport{tlsOpts: transport.tlsOpts, requestTimeout: transport.requestTimeout}
+	tr := &Transport{tlsOpts: transport.tlsOpts, timeouts: transport.timeouts}
 	tr.observers = append(tr.observers, transport.observers...)
 	tr.observers = append(tr.observers, obs...)
 	return tr
