@@ -150,10 +150,10 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 				},
 			},
 			ResendAccountActivationEmailQuery: &graphql.Field{
-				Type:graphql.Boolean,
+				Type: graphql.Boolean,
 				Args: graphql.FieldConfigArgument{
 					FieldID: &graphql.ArgumentConfig{
-						Type:graphql.NewNonNull(graphql.String),
+						Type: graphql.NewNonNull(graphql.String),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {

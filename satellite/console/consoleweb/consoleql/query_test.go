@@ -513,5 +513,33 @@ func TestGraphqlQuery(t *testing.T) {
 			ok := data[consoleql.ForgotPasswordQuery].(bool)
 			assert.True(t, ok)
 		})
+
+		t.Run("Resend activation email query", func(t *testing.T) {
+			regToken, err := service.CreateRegToken(ctx, 2)
+			if err != nil {
+				t.Fatal(err)
+			}
+			user, err := service.CreateUser(authCtx, console.CreateUser{
+				UserInfo: console.UserInfo{
+					FullName:  "Example User",
+					ShortName: "Example",
+					Email:     "user1@example.com",
+				},
+				Password: "123a123",
+			}, regToken.Secret)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			query := fmt.Sprintf("query {resendAccountActivationEmail(id: \"%s\")}", user.ID)
+
+			result := testQuery(t, query)
+			assert.NotNil(t, result)
+			data := result.(map[string]interface{})
+
+			ok := data[consoleql.ResendAccountActivationEmailQuery].(bool)
+			assert.True(t, ok)
+		})
 	})
 }
