@@ -6,7 +6,6 @@ package consoleql
 import (
 	"github.com/graphql-go/graphql"
 
-	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/satellite/console"
 )
 
@@ -58,6 +57,6 @@ func graphqlCreateAPIKey(types *TypeCreator) *graphql.Object {
 
 // createAPIKey holds macaroon.APIKey and console.APIKeyInfo
 type createAPIKey struct {
-	Key     *macaroon.APIKey
+	Key     string
 	KeyInfo *console.APIKeyInfo
 }
