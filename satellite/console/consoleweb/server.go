@@ -76,7 +76,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		mailService: mailService,
 	}
 
-	logger.Debug("Starting Satellite UI...")
+	logger.Sugar().Debugf("Starting Satellite UI on %s...", server.listener.Addr().String())
 
 	if server.config.ExternalAddress != "" {
 		if !strings.HasSuffix(server.config.ExternalAddress, "/") {
