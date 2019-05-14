@@ -38,7 +38,7 @@ The contained flag should only be relevant to the audit service.
 
 ### Identifying Nodes That Need to Be Contained
 In the audit verifier, we need a better system for handling the different cases in which a storage node may not respond to an audit request.
-Here are a few possibile cases:
+Here are a few possible cases:
 1. The node is busy fulfilling other requests and can't respond to the audit request within the audit timeout defined on the Satellite.
 2. The node does not have the audit piece anymore because the SNO deleted it.
 3. The node can't read the piece due to a file permission issue (a SNO config mistake).
@@ -105,7 +105,7 @@ pending_audits (
   share_size bigint NOT NULL,
   expected_share_hash bytea NOT NULL,
   reverify_count integer NOT NULL,
-  PRIMARY KEY ( node_id, segment_path )
+  PRIMARY KEY ( node_id )
 )
 ```
 
