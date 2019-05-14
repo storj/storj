@@ -104,7 +104,7 @@ func (project *Project) Close() error {
 }
 
 // CreateBucket creates buckets in project
-func (project *Project) CreateBucket(bucketName string, opts *BucketConfig) error {
+func (project *Project) CreateBucket(bucketName string, opts *BucketConfig) (*BucketInfo, error) {
 	scope := project.scope.child()
 
 	cfg := libuplink.BucketConfig{}
@@ -115,12 +115,12 @@ func (project *Project) CreateBucket(bucketName string, opts *BucketConfig) erro
 		cfg.Volatile.SegmentsSize = memory.Size(opts.SegmentsSize)
 	}
 
-	_, err := project.lib.CreateBucket(scope.ctx, bucketName, &cfg)
+	bucket, err := project.lib.CreateBucket(scope.ctx, bucketName, &cfg)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return newBucketInfo(bucket), nil
 }
 
 // OpenBucket returns a Bucket handle with the given EncryptionAccess

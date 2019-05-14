@@ -174,7 +174,7 @@ public class LibuplinkInstrumentedTest {
                 {
                     Writer writer = bucket.newWriter("object/path", new WriterOptions());
                     try {
-                        writer.write(expectedData);
+                        writer.write(expectedData,0, expectedData.length);
                     } catch (Exception e) {
                         e.printStackTrace();
                     } finally {
@@ -249,7 +249,7 @@ public class LibuplinkInstrumentedTest {
 //                        byte[] buf = new byte[4096];
 //                        int read = 0;
 //                        while ((read = stream.read(buf)) != -1) {
-                        writer.write(expectedData);
+                        writer.write(expectedData, 0, expectedData.length);
 //                          assertEquals(n, buf.length);
 //                        }
                     } finally {
@@ -310,7 +310,8 @@ public class LibuplinkInstrumentedTest {
                 BucketConfig bucketConfig = new BucketConfig();
                 bucketConfig.setRedundancyScheme(new RedundancyScheme());
 
-                project.createBucket("testBucket", bucketConfig);
+                BucketInfo bucketInfo = project.createBucket("testBucket", bucketConfig);
+                assertEquals("testBucket", bucketInfo.getName());
 
                 Bucket bucket = project.openBucket("testBucket", access);
 
@@ -320,7 +321,7 @@ public class LibuplinkInstrumentedTest {
                     Writer writer = bucket.newWriter("path" + i, new WriterOptions());
                     try {
                         byte[] buf = new byte[0];
-                        writer.write(buf);
+                        writer.write(buf, 0, buf.length);
                     } finally {
                         writer.close();
                     }
