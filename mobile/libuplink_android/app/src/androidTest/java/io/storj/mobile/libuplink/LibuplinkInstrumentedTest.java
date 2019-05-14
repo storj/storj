@@ -13,29 +13,9 @@ import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
 
-import io.storj.libuplink.mobile.Bucket;
-import io.storj.libuplink.mobile.BucketAccess;
-import io.storj.libuplink.mobile.BucketConfig;
-import io.storj.libuplink.mobile.BucketInfo;
-import io.storj.libuplink.mobile.BucketList;
-import io.storj.libuplink.mobile.Config;
-import io.storj.libuplink.mobile.ListOptions;
-import io.storj.libuplink.mobile.Mobile;
-import io.storj.libuplink.mobile.ObjectInfo;
-import io.storj.libuplink.mobile.ObjectList;
-import io.storj.libuplink.mobile.Project;
-import io.storj.libuplink.mobile.ProjectOptions;
-import io.storj.libuplink.mobile.Reader;
-import io.storj.libuplink.mobile.ReaderOptions;
-import io.storj.libuplink.mobile.RedundancyScheme;
-import io.storj.libuplink.mobile.Uplink;
-import io.storj.libuplink.mobile.Writer;
-import io.storj.libuplink.mobile.WriterOptions;
+import io.storj.libuplink.mobile.*;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
 @RunWith(AndroidJUnit4.class)
 public class LibuplinkInstrumentedTest {

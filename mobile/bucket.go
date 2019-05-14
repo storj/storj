@@ -1,5 +1,6 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
+
 package mobile
 
 import (
@@ -23,8 +24,14 @@ const (
 	// by the NaCl cryptography library under the name "Secretbox".
 	CipherSuiteEncSecretBox = byte(storj.EncSecretBox)
 
-	DirectionAfter   = byte(storj.After)
-	DirectionForward = byte(storj.Forward)
+	// DirectionAfter
+	DirectionAfter = int(storj.After)
+	// DirectionForward
+	DirectionForward = int(storj.Forward)
+	// DirectionBackward
+	DirectionBackward = int(storj.Backward)
+	// DirectionBefore
+	DirectionBefore = int(storj.Before)
 )
 
 type Bucket struct {
@@ -81,6 +88,9 @@ type BucketConfig struct {
 	// Forward Error Correction encoding parameters to be used by
 	// objects in this Bucket.
 	RedundancyScheme *RedundancyScheme
+	// SegmentsSize is the default segment size to use for new
+	// objects in this Bucket.
+	SegmentsSize int64
 }
 
 // BucketList is a list of buckets
@@ -159,13 +169,23 @@ type EncryptionParameters struct {
 	BlockSize int32
 }
 
+func newStorjEncryptionParameters(ec *EncryptionParameters) storj.EncryptionParameters {
+	if ec == nil {
+		return storj.EncryptionParameters{}
+	}
+	return storj.EncryptionParameters{
+		CipherSuite: storj.CipherSuite(ec.CipherSuite),
+		BlockSize:   ec.BlockSize,
+	}
+}
+
 // ListOptions lists objects
 type ListOptions struct {
 	Prefix    string
 	Cursor    string // Cursor is relative to Prefix, full path is Prefix + Cursor
 	Delimiter string
 	Recursive bool
-	Direction byte
+	Direction int
 	Limit     int
 }
 
@@ -191,9 +211,9 @@ func (bucket *Bucket) ListObjects(options *ListOptions) (*ObjectList, error) {
 }
 
 // DeleteObject removes an object, if authorized.
-func (bucket *Bucket) DeleteObject(objectName string) error {
+func (bucket *Bucket) DeleteObject(objectPath string) error {
 	scope := bucket.scope.child()
-	return bucket.lib.DeleteObject(scope.ctx, objectName)
+	return bucket.lib.DeleteObject(scope.ctx, objectPath)
 }
 
 // Close closes the Bucket session.
@@ -215,19 +235,15 @@ type WriterOptions struct {
 	// automatically from storage nodes).
 	Expires int
 
-	// Volatile groups config values that are likely to change semantics
-	// or go away entirely between releases. Be careful when using them!
-	Volatile struct {
-		// EncryptionParameters determines the cipher suite to use for
-		// the Object's data encryption. If not set, the Bucket's
-		// defaults will be used.
-		EncryptionParameters *EncryptionParameters
+	// EncryptionParameters determines the cipher suite to use for
+	// the Object's data encryption. If not set, the Bucket's
+	// defaults will be used.
+	EncryptionParameters *EncryptionParameters
 
-		// RedundancyScheme determines the Reed-Solomon and/or Forward
-		// Error Correction encoding parameters to be used for this
-		// Object.
-		RedundancyScheme *RedundancyScheme
-	}
+	// RedundancyScheme determines the Reed-Solomon and/or Forward
+	// Error Correction encoding parameters to be used for this
+	// Object.
+	RedundancyScheme *RedundancyScheme
 }
 
 func NewWriterOptions() *WriterOptions {
@@ -244,14 +260,15 @@ func (bucket *Bucket) NewWriter(path storj.Path, options *WriterOptions) (*Write
 	scope := bucket.scope.child()
 
 	opts := &libuplink.UploadOptions{}
-	opts.ContentType = options.ContentType
-	opts.Metadata = options.Metadata
-	if options.Expires != 0 {
-		opts.Expires = time.Unix(int64(options.Expires), 0)
+	if options != nil {
+		opts.ContentType = options.ContentType
+		opts.Metadata = options.Metadata
+		if options.Expires != 0 {
+			opts.Expires = time.Unix(int64(options.Expires), 0)
+		}
+		opts.Volatile.EncryptionParameters = newStorjEncryptionParameters(options.EncryptionParameters)
+		opts.Volatile.RedundancyScheme = newStorjRedundancyScheme(options.RedundancyScheme)
 	}
-	// opts.Volatile.EncryptionParameters =  options.Volatile.EncryptionParameters
-
-	opts.Volatile.RedundancyScheme = newStorjRedundancyScheme(options.Volatile.RedundancyScheme)
 
 	writer, err := bucket.lib.NewWriter(scope.ctx, path, opts)
 	if err != nil {

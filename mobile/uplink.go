@@ -1,5 +1,6 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
+
 package mobile
 
 import (
@@ -41,9 +42,11 @@ func NewUplink(config *Config, writableDir string) (*Uplink, error) {
 	scope := rootScope(writableDir)
 
 	cfg := &libuplink.Config{}
-	cfg.Volatile.TLS.SkipPeerCAWhitelist = true
-	cfg.Volatile.MaxInlineSize = memory.Size(config.MaxInlineSize)
-	cfg.Volatile.MaxMemory = memory.Size(config.MaxMemory)
+	if config != nil {
+		cfg.Volatile.TLS.SkipPeerCAWhitelist = true
+		cfg.Volatile.MaxInlineSize = memory.Size(config.MaxInlineSize)
+		cfg.Volatile.MaxMemory = memory.Size(config.MaxMemory)
+	}
 
 	lib, err := libuplink.NewUplink(scope.ctx, cfg)
 	if err != nil {
@@ -76,8 +79,10 @@ func (uplink *Uplink) OpenProject(satellite string, apikey string, options *Proj
 	scope := uplink.scope.child()
 
 	opts := libuplink.ProjectOptions{}
-	opts.Volatile.EncryptionKey = &storj.Key{}
-	copy(opts.Volatile.EncryptionKey[:], options.EncryptionKey) // TODO: error check
+	if options != nil {
+		opts.Volatile.EncryptionKey = &storj.Key{}
+		copy(opts.Volatile.EncryptionKey[:], options.EncryptionKey) // TODO: error check
+	}
 
 	key, err := libuplink.ParseAPIKey(apikey)
 	if err != nil {
@@ -103,7 +108,12 @@ func (project *Project) CreateBucket(bucketName string, opts *BucketConfig) erro
 	scope := project.scope.child()
 
 	cfg := libuplink.BucketConfig{}
-	cfg.Volatile.RedundancyScheme = newStorjRedundancyScheme(opts.RedundancyScheme)
+	if opts != nil {
+		cfg.PathCipher = storj.CipherSuite(opts.PathCipher)
+		cfg.EncryptionParameters = newStorjEncryptionParameters(opts.EncryptionParameters)
+		cfg.Volatile.RedundancyScheme = newStorjRedundancyScheme(opts.RedundancyScheme)
+		cfg.Volatile.SegmentsSize = memory.Size(opts.SegmentsSize)
+	}
 
 	_, err := project.lib.CreateBucket(scope.ctx, bucketName, &cfg)
 	if err != nil {
@@ -119,8 +129,10 @@ func (project *Project) OpenBucket(bucketName string, options *BucketAccess) (*B
 	scope := project.scope.child()
 
 	opts := libuplink.EncryptionAccess{}
-	copy(opts.Key[:], options.PathEncryptionKey) // TODO: error check
-	opts.EncryptedPathPrefix = options.EncryptedPathPrefix
+	if options != nil {
+		copy(opts.Key[:], options.PathEncryptionKey) // TODO: error check
+		opts.EncryptedPathPrefix = options.EncryptedPathPrefix
+	}
 
 	bucket, err := project.lib.OpenBucket(scope.ctx, bucketName, &opts)
 	if err != nil {
