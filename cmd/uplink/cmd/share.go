@@ -88,7 +88,11 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	caveat := macaroon.NewCaveat()
+	caveat, err := macaroon.NewCaveat()
+	if err != nil {
+		return err
+	}
+
 	caveat.DisallowDeletes = shareCfg.DisallowDeletes || shareCfg.Readonly
 	caveat.DisallowLists = shareCfg.DisallowLists || shareCfg.Writeonly
 	caveat.DisallowReads = shareCfg.DisallowReads || shareCfg.Writeonly
