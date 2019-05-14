@@ -143,17 +143,17 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 		// Times don't marshal very well with MarshalTextString, and the nonce doesn't
 		// matter to humans, so handle those explicitly and then dispatch to the generic
 		// routine to avoid having to print all the things individually.
-		caveat := caveat
-		caveat.Nonce = nil
-		if caveat.NotBefore != nil {
-			fmt.Println("not before:", caveat.NotBefore.Truncate(0).Format(shareISO8601))
-			caveat.NotBefore = nil
+		caveatCopy := proto.Clone(&caveat).(*macaroon.Caveat)
+		caveatCopy.Nonce = nil
+		if caveatCopy.NotBefore != nil {
+			fmt.Println("not before:", caveatCopy.NotBefore.Truncate(0).Format(shareISO8601))
+			caveatCopy.NotBefore = nil
 		}
-		if caveat.NotAfter != nil {
-			fmt.Println("not after:", caveat.NotAfter.Truncate(0).Format(shareISO8601))
-			caveat.NotAfter = nil
+		if caveatCopy.NotAfter != nil {
+			fmt.Println("not after:", caveatCopy.NotAfter.Truncate(0).Format(shareISO8601))
+			caveatCopy.NotAfter = nil
 		}
-		fmt.Print(proto.MarshalTextString(&caveat))
+		fmt.Print(proto.MarshalTextString(caveatCopy))
 	}
 
 	key, err = key.Restrict(caveat)
