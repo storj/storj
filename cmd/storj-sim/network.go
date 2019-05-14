@@ -189,7 +189,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	versioncontrol.Arguments = withCommon(versioncontrol.Directory, Arguments{
 		"setup": {
 			"--address", versioncontrol.Address,
-			"--debug.addr", net.JoinHostPort("127.0.0.1", port(versioncontrolPeer, 0, debugHTTP)),
+			"--debug.addr", net.JoinHostPort(host, port(versioncontrolPeer, 0, debugHTTP)),
 		},
 		"run": {},
 	})
@@ -226,7 +226,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 			"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
 
-			"--debug.addr", net.JoinHostPort("127.0.0.1", port(bootstrapPeer, 0, debugHTTP)),
+			"--debug.addr", net.JoinHostPort(host, port(bootstrapPeer, 0, debugHTTP)),
 		},
 		"run": {},
 	})
@@ -281,7 +281,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--mail.template-path", filepath.Join(storjRoot, "web/satellite/static/emails"),
 
 				"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
-				"--debug.addr", net.JoinHostPort("127.0.0.1", port(satellitePeer, i, debugHTTP)),
+				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugHTTP)),
 			},
 			"run": {},
 		})
@@ -429,7 +429,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--storage.satellite-id-restriction=false",
 
 				"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
-				"--debug.addr", net.JoinHostPort("127.0.0.1", port(storagenodePeer, i, debugHTTP)),
+				"--debug.addr", net.JoinHostPort(host, port(storagenodePeer, i, debugHTTP)),
 			},
 			"run": {},
 		})
