@@ -243,7 +243,7 @@ func TestDistinctIPs(t *testing.T) {
 				duplicateCount: 7,
 				requestCount:   4,
 				preferences: overlay.NodeSelectionConfig{
-					AuditCount:        7,
+					AuditCount:        8,
 					NewNodePercentage: 0.5,
 					OnlineWindow:      time.Hour,
 					DistinctIP:        true,
@@ -261,7 +261,7 @@ func TestDistinctIPs(t *testing.T) {
 			},
 			{ // test not enough distinct IPs
 				duplicateCount: 7,
-				requestCount:   5,
+				requestCount:   7,
 				preferences: overlay.NodeSelectionConfig{
 					AuditCount:        0,
 					NewNodePercentage: 0,

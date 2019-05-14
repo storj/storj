@@ -103,7 +103,22 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 		args = append(args, v.Major, v.Major, v.Minor, v.Minor, v.Patch)
 	}
 
-	return cache.queryFilteredNodes(ctx, criteria.Exclude, count, safeQuery, criteria.DistinctIP, args...)
+	var totalNodes []*pb.Node
+	for i := 0; i < 3; i++ {
+		nodes, err := cache.queryFilteredNodes(ctx, criteria.Exclude, count-len(totalNodes), safeQuery, criteria.DistinctIP, args...)
+		if err != nil {
+			return nil, err
+		}
+		for _, n := range nodes {
+			totalNodes = append(totalNodes, n)
+			criteria.Exclude.Nodes = append(criteria.Exclude.Nodes, n.Id)
+			criteria.Exclude.IPs = append(criteria.Exclude.IPs, n.LastIp)
+		}
+		if len(totalNodes) == count {
+			break
+		}
+	}
+	return totalNodes, nil
 }
 
 func (cache *overlaycache) queryFilteredNodes(ctx context.Context, exclude overlay.Exclude, count int, safeQuery string, distinctIP bool, args ...interface{}) (_ []*pb.Node, err error) {
@@ -189,6 +204,7 @@ func (cache *overlaycache) sqliteQueryNodes(ctx context.Context, exclude overlay
 
 	return nodes, rows.Err()
 }
+
 func (cache *overlaycache) postgresQueryNodes(ctx context.Context, exclude overlay.Exclude, count int, safeQuery string, distinctIP bool, args ...interface{}) (_ []*pb.Node, err error) {
 	if count == 0 {
 		return nil, nil
@@ -209,7 +225,6 @@ func (cache *overlaycache) postgresQueryNodes(ctx context.Context, exclude overl
 			args = append(args, ip)
 		}
 	}
-
 	args = append(args, count)
 
 	var rows *sql.Rows
@@ -251,7 +266,6 @@ func (cache *overlaycache) postgresQueryNodes(ctx context.Context, exclude overl
 		if err != nil {
 			return nil, err
 		}
-
 		dossier, err := convertDBNode(dbNode)
 		if err != nil {
 			return nil, err
