@@ -213,6 +213,11 @@ message SegmentCommitRequest {
     int32 part_number;
     int32 index;
 
+    bytes encrypted_key_nonce;
+    bytes encrypted_key;
+
+    bytes encrypted_data_checksum;
+
     repeated orders.PieceHash signed_piece_hashes; // TODO: add encrypted_segment_size to piece hash
 }
 
