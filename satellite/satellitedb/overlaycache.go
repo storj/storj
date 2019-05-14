@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
+	"github.com/lib/pq"
+	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -60,7 +62,23 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 		args = append(args, v.Major, v.Major, v.Minor, v.Minor, v.Patch)
 	}
 
-	return cache.queryFilteredNodes(ctx, criteria.Exclude, count, safeQuery, criteria.DistinctIP, args...)
+	var totalNodes []*pb.Node
+	for i := 0; i < 3; i++ {
+		nodes, err := cache.queryFilteredNodes(ctx, criteria.Exclude, count-len(totalNodes), safeQuery, criteria.DistinctIP, args...)
+		if err != nil {
+			return nil, err
+		}
+		for _, n := range nodes {
+			totalNodes = append(totalNodes, n)
+			criteria.Exclude.Nodes = append(criteria.Exclude.Nodes, n.Id)
+			criteria.Exclude.IPs = append(criteria.Exclude.IPs, n.LastIp)
+		}
+		if len(totalNodes) == count {
+			break
+		}
+	}
+
+	return totalNodes, nil
 }
 
 func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) ([]*pb.Node, error) {
@@ -89,6 +107,17 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 }
 
 func (cache *overlaycache) queryFilteredNodes(ctx context.Context, exclude overlay.Exclude, count int, safeQuery string, distinctIP bool, args ...interface{}) (_ []*pb.Node, err error) {
+	switch t := cache.db.DB.Driver().(type) {
+	case *sqlite3.SQLiteDriver:
+		return cache.sqliteQueryNodes(ctx, exclude, count, safeQuery, distinctIP, args...)
+	case *pq.Driver:
+		return cache.postgresQueryNodes(ctx, exclude, count, safeQuery, distinctIP, args...)
+	default:
+		return []*pb.Node{}, Error.New("Unsupported database %t", t)
+	}
+}
+
+func (cache *overlaycache) sqliteQueryNodes(ctx context.Context, exclude overlay.Exclude, count int, safeQuery string, distinctIP bool, args ...interface{}) (_ []*pb.Node, err error) {
 	if count == 0 {
 		return nil, nil
 	}
@@ -125,6 +154,78 @@ func (cache *overlaycache) queryFilteredNodes(ctx context.Context, exclude overl
 		WHERE rn = 1
 		ORDER BY RANDOM()
 		LIMIT ?`), args...)
+	} else {
+		rows, err = cache.db.Query(cache.db.Rebind(`SELECT id,
+		type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
+		uptime_ratio, total_audit_count, audit_success_count, total_uptime_count,
+		uptime_success_count
+		FROM nodes
+		`+safeQuery+safeExcludeNodes+safeExcludeIPs+`
+		ORDER BY RANDOM()
+		LIMIT ?`), args...)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+	var nodes []*pb.Node
+	for rows.Next() {
+		dbNode := &dbx.Node{}
+		err = rows.Scan(&dbNode.Id, &dbNode.Type,
+			&dbNode.Address, &dbNode.LastIp, &dbNode.FreeBandwidth, &dbNode.FreeDisk,
+			&dbNode.AuditSuccessRatio, &dbNode.UptimeRatio,
+			&dbNode.TotalAuditCount, &dbNode.AuditSuccessCount,
+			&dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount)
+		if err != nil {
+			return nil, err
+		}
+
+		dossier, err := convertDBNode(dbNode)
+		if err != nil {
+			return nil, err
+		}
+		nodes = append(nodes, &dossier.Node)
+	}
+
+	return nodes, rows.Err()
+}
+func (cache *overlaycache) postgresQueryNodes(ctx context.Context, exclude overlay.Exclude, count int, safeQuery string, distinctIP bool, args ...interface{}) (_ []*pb.Node, err error) {
+	if count == 0 {
+		return nil, nil
+	}
+
+	safeExcludeNodes := ""
+	if len(exclude.Nodes) > 0 {
+		safeExcludeNodes = ` AND id NOT IN (?` + strings.Repeat(", ?", len(exclude.Nodes)-1) + `)`
+		for _, id := range exclude.Nodes {
+			args = append(args, id.Bytes())
+		}
+	}
+
+	safeExcludeIPs := ""
+	if len(exclude.IPs) > 0 {
+		safeExcludeIPs = ` AND last_ip NOT IN (?` + strings.Repeat(", ?", len(exclude.IPs)-1) + `)`
+		for _, ip := range exclude.IPs {
+			args = append(args, ip)
+		}
+	}
+
+	args = append(args, count)
+
+	var rows *sql.Rows
+	if distinctIP {
+		rows, err = cache.db.Query(cache.db.Rebind(`SELECT DISTINCT ON (last_ip) id,
+		type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
+		uptime_ratio, total_audit_count, audit_success_count, total_uptime_count,
+		uptime_success_count
+		FROM (SELECT id,
+			type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
+			uptime_ratio, total_audit_count, audit_success_count, total_uptime_count,
+			uptime_success_count
+			FROM nodes
+			`+safeQuery+safeExcludeNodes+safeExcludeIPs+`
+			ORDER BY RANDOM()
+			LIMIT ?) n`), args...)
 	} else {
 		rows, err = cache.db.Query(cache.db.Rebind(`SELECT id,
 		type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
