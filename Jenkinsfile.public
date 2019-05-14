@@ -95,6 +95,7 @@ pipeline {
                     steps {
                         sh 'psql -U postgres -c \'create database teststorj2;\''
                         sh 'make test-sim'
+                        sh 'make test-satellite-cfg-change'
                     }
                 }
             }
