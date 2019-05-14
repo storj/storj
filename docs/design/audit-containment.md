@@ -221,6 +221,8 @@ I think we'll want to call `RecordAudits` from inside the Reverify function, so 
 
 Q: How often can a contained node expect to be reverified in a real-life system?
 
+A: It should be checked a few times per day.
+
 Q: Why create yet another database table when we never iterate through all records in ContainmentDB?
 Couldn't the information on the `pendingAudit` struct just be added to the NodeDossier?
 
