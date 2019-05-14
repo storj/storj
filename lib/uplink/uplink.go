@@ -46,14 +46,6 @@ type Config struct {
 			PeerCAWhitelistPath string
 		}
 
-		// UseIdentity specifies the identity to be used by the uplink.
-		// If nil, a new identity will be generated.
-		UseIdentity *identity.FullIdentity
-
-		// IdentityVersion is the identity version expected in a loaded
-		// identity or used when creating an identity.
-		IdentityVersion storj.IDVersion
-
 		// PeerIDVersion is the identity versions remote peers to this node
 		// will be supported by this node.
 		PeerIDVersion string
@@ -81,24 +73,6 @@ func (cfg *Config) clone() *Config {
 }
 
 func (cfg *Config) setDefaults(ctx context.Context) error {
-	if cfg.Volatile.UseIdentity == nil {
-		var err error
-		cfg.Volatile.UseIdentity, err = identity.NewFullIdentity(ctx, identity.NewCAOptions{
-			VersionNumber: cfg.Volatile.IdentityVersion.Number,
-			Difficulty:    0,
-			Concurrency:   1,
-		})
-		if err != nil {
-			return err
-		}
-	}
-	idVersion, err := cfg.Volatile.UseIdentity.Version()
-	if err != nil {
-		return err
-	}
-	if idVersion.Number != cfg.Volatile.IdentityVersion.Number {
-		return storj.ErrVersion.New("`UseIdentity` version (%d) didn't match version in config (%d)", idVersion.Number, cfg.Volatile.IdentityVersion.Number)
-	}
 	if cfg.Volatile.MaxInlineSize == 0 {
 		cfg.Volatile.MaxInlineSize = 4 * memory.KiB
 	}
@@ -114,13 +88,22 @@ func (cfg *Config) setDefaults(ctx context.Context) error {
 // a specific Satellite and caches connections and resources, allowing one to
 // create sessions delineated by specific access controls.
 type Uplink struct {
-	tc  transport.Client
-	cfg *Config
+	ident *identity.FullIdentity
+	tc    transport.Client
+	cfg   *Config
 }
 
 // NewUplink creates a new Uplink. This is the first step to create an uplink
 // session with a user specified config or with default config, if nil config
 func NewUplink(ctx context.Context, cfg *Config) (*Uplink, error) {
+	ident, err := identity.NewFullIdentity(ctx, identity.NewCAOptions{
+		Difficulty:  0,
+		Concurrency: 1,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	if cfg == nil {
 		cfg = &Config{}
 	}
@@ -133,15 +116,16 @@ func NewUplink(ctx context.Context, cfg *Config) (*Uplink, error) {
 		PeerCAWhitelistPath: cfg.Volatile.TLS.PeerCAWhitelistPath,
 		PeerIDVersions:      "0",
 	}
-	tlsOpts, err := tlsopts.NewOptions(cfg.Volatile.UseIdentity, tlsConfig)
+	tlsOpts, err := tlsopts.NewOptions(ident, tlsConfig)
 	if err != nil {
 		return nil, err
 	}
 	tc := transport.NewClient(tlsOpts)
 
 	return &Uplink{
-		tc:  tc,
-		cfg: cfg,
+		ident: ident,
+		tc:    tc,
+		cfg:   cfg,
 	}, nil
 }
 
