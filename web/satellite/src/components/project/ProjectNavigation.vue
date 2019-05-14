@@ -3,7 +3,7 @@
 
 <template>
 	<div class="project-navigation-container">
-		<router-link :to="navLink.path" class="project-navigation-container__item" v-for="navLink in navigation">
+		<router-link :to="navLink.path" class="project-navigation-container__item" v-for="navLink in navigation" :key="navLink.name">
 			<p>{{navLink.name}}</p>
 		</router-link>
 	</div>

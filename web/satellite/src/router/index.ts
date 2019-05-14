@@ -16,6 +16,7 @@ import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
 import UsageReport from '@/components/project/UsageReport.vue';
 import ProjectDetails from '@/components/project/ProjectDetails.vue';
 import BillingHistory from '@/components/project/billing/BillingArea.vue';
+import PaymentMethods from '@/components/project/PaymentMethods.vue';
 import BucketArea from '@/components/buckets/BucketArea.vue';
 import { getToken } from '@/utils/tokenManager';
 import store from '@/store';
@@ -76,6 +77,11 @@ let router = new Router({
                             path: ROUTES.BILLING_HISTORY.path,
                             name: ROUTES.BILLING_HISTORY.name,
                             component: BillingHistory
+                        },
+                        {
+                            path: ROUTES.PAYMENT_METHODS.path,
+                            name: ROUTES.PAYMENT_METHODS.name,
+                            component: PaymentMethods
                         },
                     ]
                 },

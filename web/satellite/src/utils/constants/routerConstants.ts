@@ -46,6 +46,10 @@ const ROUTES = {
         path: 'details',
         name: 'ProjectDetails'
     },
+    PAYMENT_METHODS: {
+        path: 'payment-methods',
+        name: 'PaymentMethods'
+    },
     BUCKETS: {
         path: '/buckets',
         name: 'Buckets'
