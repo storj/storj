@@ -1,8 +1,8 @@
-# Title: Uplink Contexts
+# Title: Uplink Scopes
 
 ## Abstract
 
-This design document proposes the data we need to store inside of a share in order to access files. Currently, the uplink configuration yaml file includes distinct entries for the API key, the satellite url, and the root encryption key. This proposal is to bundle an API key, a satellite url, and a list of revealed paths into a context (much like a kubectl context) and call that bundle a share.
+This design document proposes the data we need to store inside of a share in order to access files. Currently, the uplink configuration yaml file includes distinct entries for the API key, the satellite url, and the root encryption key. This proposal is to bundle an API key, a satellite url, and a list of revealed paths into a scope, much like a kubectl context.
 
 ## Background
 
@@ -16,10 +16,10 @@ Additionally, there's a single global key per project. That's less than ideal fo
 
 ## Design
 
-Uplink will operate on a set of "contexts". Each context contains an API key, a satellite url, and a list of bucket shares. In Go,
+Uplink will operate on a set of "scopes". Each scope contains an API key, a satellite url, and a list of bucket shares. In Go,
 
 ```go
-type Context struct {
+type Scope struct {
     APIKey        string // Or perhaps uplink.APIKey
     SatelliteURL  string
     BucketShares  []BucketShare
@@ -38,35 +38,40 @@ type BucketShare struct {
 ```
 
 <blockquote>
-For concreteness, the following is an example UX around uplink with contexts. It is expected to evolve, and is just used to help with understanding.
+For concreteness, the following is an example UX around uplink with scopes. It is expected to evolve, and is just used to elucidate the model.
 </blockquote>
 
-When setting up uplink for the first time, a default context is created, and the command will prompt you for some credentials. For example,
+When setting up uplink for the first time, a default scope is created, and the command will prompt you for some credentials. For example,
 
 ```
 $ uplink setup
-A new "default" context has been created.
+A new "default" scope has been created.
 
 Please respond with the type of information you have:
 1. API key from a satellite
-2. Exported context
+2. Exported scope
 > 1
 
 API Key: <user pastes key>
 Satellite URL: <user puts in or picks satellite like now>
 ```
 
-After a context has been created, bucket information must be added. For example,
+After a scope has been created, bucket information must be added. For example,
 
 ```
-$ uplink import [optionally specify a context with --context=default]
+$ uplink import [optionally specify a scope with --scope=default]
 
 Please respond with the type of information you have:
-1. Bucket with root passphrase
+1. Bucket with root key
 2. Bucket share
 > 1
 
 Bucket name: <user inputs bucket name>
+Please respond with the type of root key you have:
+1. Passphrase
+2. Root key
+> 1
+
 Passphrase: <user inputs passphrase>
 
 $ uplink import
@@ -100,4 +105,4 @@ The design does mean that if you create a new bucket on the web, you must also c
 
 ## Implementation
 
-In order to implement this, the above structs would be added to the code base and uplink would be changed to be configured with a context. After that, the apis to construct paths and perform lists would have to be changed to consult the bucket shares. The list implementation must synthesize responses when listing a prefix of an encrypted path. For example, if one listed `sj://x`, both `"a"` and `"f"` would be returned without consulting the server. Concurrently with any work after uplink has been changed to be configured with a context, the command can be iterated upon to design the context import, export, management, and share workflows.
+In order to implement this, the above structs would be added to the code base and uplink would be changed to be configured with a scope. After that, the apis to construct paths and perform lists would have to be changed to consult the bucket shares. The list implementation must synthesize responses when listing a prefix of an encrypted path. For example, if one listed `sj://x`, both `"a"` and `"f"` would be returned without consulting the server. Concurrently with any work after uplink has been changed to be configured with a scope, the command can be iterated upon to design the scope import, export, management, and share workflows.
