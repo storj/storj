@@ -226,6 +226,8 @@ func TestDistinctIPs(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Discovery.RefreshInterval = 60 * time.Second
+				config.Discovery.DiscoveryInterval = 60 * time.Second
+				config.Discovery.GraveyardInterval = 60 * time.Second
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -299,7 +301,7 @@ func TestDistinctIPs(t *testing.T) {
 			for i := 0; i < 10; i++ {
 				node := planet.StorageNodes[i].Local().Node
 				if i < tt.duplicateCount {
-					node.LastIp = "127.0.0.1"
+					node.LastIp = "01.23.45.67"
 				} else {
 					node.LastIp = strconv.Itoa(i)
 				}
