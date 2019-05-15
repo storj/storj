@@ -47,30 +47,40 @@ type BucketAccess struct {
 }
 
 type BucketInfo struct {
-	Name                 string
-	Created              int64
-	SegmentsSize         int64
-	RedundancyScheme     RedundancyScheme
-	PathCipher           byte
-	EncryptionParameters EncryptionParameters
+	bucket storj.Bucket
 }
 
-func newBucketInfo(bucket storj.Bucket) *BucketInfo {
-	return &BucketInfo{
-		Name:    bucket.Name,
-		Created: bucket.Created.UTC().UnixNano() / int64(time.Millisecond),
-		RedundancyScheme: RedundancyScheme{
-			Algorithm:      byte(bucket.RedundancyScheme.Algorithm),
-			ShareSize:      bucket.RedundancyScheme.ShareSize,
-			RequiredShares: bucket.RedundancyScheme.RequiredShares,
-			RepairShares:   bucket.RedundancyScheme.RepairShares,
-			OptimalShares:  bucket.RedundancyScheme.OptimalShares,
-			TotalShares:    bucket.RedundancyScheme.TotalShares,
-		},
-		EncryptionParameters: EncryptionParameters{
-			CipherSuite: byte(bucket.EncryptionParameters.CipherSuite),
-			BlockSize:   bucket.EncryptionParameters.BlockSize,
-		},
+func (bi *BucketInfo) GetName() string {
+	return bi.bucket.Name
+}
+
+func (bi *BucketInfo) GetCreated() int64 {
+	return bi.bucket.Created.UTC().UnixNano() / int64(time.Millisecond)
+}
+
+func (bi *BucketInfo) GetRedundancyScheme() *RedundancyScheme {
+	return &RedundancyScheme{
+		Algorithm:      byte(bi.bucket.RedundancyScheme.Algorithm),
+		ShareSize:      bi.bucket.RedundancyScheme.ShareSize,
+		RequiredShares: bi.bucket.RedundancyScheme.RequiredShares,
+		RepairShares:   bi.bucket.RedundancyScheme.RepairShares,
+		OptimalShares:  bi.bucket.RedundancyScheme.OptimalShares,
+		TotalShares:    bi.bucket.RedundancyScheme.TotalShares,
+	}
+}
+
+func (bi *BucketInfo) GetSegmentsSize() int64 {
+	return bi.bucket.SegmentsSize
+}
+
+func (bi *BucketInfo) GetPathCipher() byte {
+	return byte(bi.bucket.PathCipher)
+}
+
+func (bi *BucketInfo) GetEncryptionParameters() *EncryptionParameters {
+	return &EncryptionParameters{
+		CipherSuite: byte(bi.bucket.EncryptionParameters.CipherSuite),
+		BlockSize:   bi.bucket.EncryptionParameters.BlockSize,
 	}
 }
 
@@ -113,7 +123,7 @@ func (bl *BucketList) Item(index int) (*BucketInfo, error) {
 	if index < 0 && index >= len(bl.list.Items) {
 		return nil, fmt.Errorf("index out of range")
 	}
-	return newBucketInfo(bl.list.Items[index]), nil
+	return &BucketInfo{bl.list.Items[index]}, nil
 }
 
 // RedundancyScheme specifies the parameters and the algorithm for redundancy

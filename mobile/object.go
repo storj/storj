@@ -19,7 +19,7 @@ func (bl *ObjectInfo) GetVersion() int32 {
 }
 
 func (bl *ObjectInfo) GetBucket() *BucketInfo {
-	return newBucketInfo(bl.object.Bucket)
+	return &BucketInfo{bl.object.Bucket}
 }
 
 func (bl *ObjectInfo) GetPath() string {

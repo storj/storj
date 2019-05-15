@@ -120,7 +120,7 @@ func (project *Project) CreateBucket(bucketName string, opts *BucketConfig) (*Bu
 		return nil, err
 	}
 
-	return newBucketInfo(bucket), nil
+	return &BucketInfo{bucket}, nil
 }
 
 // OpenBucket returns a Bucket handle with the given EncryptionAccess
@@ -151,7 +151,7 @@ func (project *Project) GetBucketInfo(bucketName string) (*BucketInfo, error) {
 		return nil, err
 	}
 
-	return newBucketInfo(bucket), nil
+	return &BucketInfo{bucket}, nil
 }
 
 // ListBuckets will list authorized buckets.
