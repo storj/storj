@@ -11,7 +11,6 @@ package main
 // #endif
 import "C"
 import (
-	"fmt"
 	"reflect"
 	"unsafe"
 
@@ -242,7 +241,6 @@ func CToGoStruct(fromVar, toPtr interface{}) error {
 		}
 		return nil
 	case cUlongType:
-		fmt.Printf("toValue.Type(): %+v\n", toValue.Type())
 		switch fromType {
 		case cGoUintptrType:
 			// TODO: can casting be done with reflection?
