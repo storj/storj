@@ -1,4 +1,4 @@
-#!/usr/bin/env bash -
+#!/usr/bin/env bash
 
 # NOTE this script MUST BE EXECUTED from the same directory where it's located
 # to always obtain the same paths in the satellite configuration file.
