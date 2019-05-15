@@ -84,3 +84,48 @@ func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
 		})
 	}
 }
+
+// Bench method will iterate over all supported databases. Will establish
+// connection and will create tables for each DB.
+func Bench(b *testing.B, bench func(b *testing.B, db satellite.DB)) {
+	schemaSuffix := pgutil.CreateRandomTestingSchemaName(8)
+	b.Log("schema-suffix ", schemaSuffix)
+
+	for _, dbInfo := range Databases() {
+		dbInfo := dbInfo
+		b.Run(dbInfo.Name, func(b *testing.B) {
+			if dbInfo.URL == "" {
+				b.Skipf("Database %s connection string not provided. %s", dbInfo.Name, dbInfo.Message)
+			}
+
+			log := zaptest.NewLogger(b)
+
+			schema := strings.ToLower(b.Name() + "-satellite/x-" + schemaSuffix)
+			connstr := pgutil.ConnstrWithSchema(dbInfo.URL, schema)
+			db, err := satellitedb.New(log, connstr)
+			if err != nil {
+				b.Fatal(err)
+			}
+
+			err = db.CreateSchema(schema)
+			if err != nil {
+				b.Fatal(err)
+			}
+
+			defer func() {
+				dropErr := db.DropSchema(schema)
+				err := errs.Combine(dropErr, db.Close())
+				if err != nil {
+					b.Fatal(err)
+				}
+			}()
+
+			err = db.CreateTables()
+			if err != nil {
+				b.Fatal(err)
+			}
+
+			bench(b, db)
+		})
+	}
+}

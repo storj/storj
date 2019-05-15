@@ -4,6 +4,8 @@
 package overlay_test
 
 import (
+	"context"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -14,7 +16,10 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
 func TestOffline(t *testing.T) {
@@ -47,6 +52,72 @@ func TestOffline(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, result, 1)
 		require.Equal(t, result[0], storj.NodeID{1, 2, 3, 4})
+	})
+}
+
+func BenchmarkOffline(b *testing.B) {
+	satellitedbtest.Bench(b, func(b *testing.B, db satellite.DB) {
+		const (
+			TotalNodeCount = 10000
+			OnlineCount    = 90
+			OfflineCount   = 10
+		)
+
+		overlaydb := db.OverlayCache()
+		ctx := context.Background()
+
+		var online []storj.NodeID
+		var offline []storj.NodeID
+
+		nodes := make(map[storj.NodeID]bool, TotalNodeCount)
+		for i := 0; i < TotalNodeCount; i++ {
+			var id storj.NodeID
+			_, _ = rand.Read(id[:]) // math/rand never returns error
+
+			overlaydb.UpdateAddress(ctx, &pb.Node{
+				Id: id,
+			})
+			nodes[id] = true
+		}
+
+		// pick random node ids to check
+		for id := range nodes {
+			online = append(online, id)
+			if len(online) >= OnlineCount {
+				break
+			}
+		}
+
+		// create random offline node ids to check
+		for i := 0; i < OfflineCount; i++ {
+			var id storj.NodeID
+			_, _ = rand.Read(id[:]) // math/rand never returns error
+			offline = append(offline, id)
+		}
+
+		var check []storj.NodeID
+		check = append(check, offline...)
+		check = append(check, online...)
+
+		criteria := &overlay.NodeCriteria{
+			AuditCount:         0,
+			AuditSuccessRatio:  0,
+			OnlineWindow:       1000 * time.Hour,
+			UptimeCount:        0,
+			UptimeSuccessRatio: 0,
+		}
+
+		b.ResetTimer()
+		defer b.StopTimer()
+		for i := 0; i < b.N; i++ {
+			badNodes, err := overlaydb.KnownUnreliableOrOffline(ctx, criteria, check)
+			if err != nil {
+				b.Fatal(err)
+			}
+			if len(badNodes) != len(offline) {
+				require.Len(b, badNodes, len(offline))
+			}
+		}
 	})
 }
 
