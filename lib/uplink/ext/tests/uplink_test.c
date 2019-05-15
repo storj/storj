@@ -20,7 +20,7 @@ void TestNewUplink_config(void)
     gvIDVersion idVersionValue = GetIDVersion(idVersionNumber, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
-    IDVersion *idVersion = (IDVersion*)(ConvertValue(&idVersionValue, err));
+    IDVersion *idVersion = (IDVersion *)(ConvertValue(&idVersionValue, err));
     TEST_ASSERT_EQUAL_STRING("", *err);
     TEST_ASSERT_NOT_NULL(idVersion);
 
