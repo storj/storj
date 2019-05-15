@@ -457,7 +457,7 @@ func (endpoint *Endpoint) filterValidPieces(pointer *pb.Pointer) error {
 			remotePieces = append(remotePieces, piece)
 		}
 
-		if int32(len(remotePieces)) < remote.Redundancy.RepairThreshold {
+		if int32(len(remotePieces)) <= remote.Redundancy.RepairThreshold && remote.Redundancy.RepairThreshold != remote.Redundancy.Total {
 			return Error.New("Number of valid pieces is lower then repair threshold: %v < %v",
 				len(remotePieces),
 				remote.Redundancy.RepairThreshold,
