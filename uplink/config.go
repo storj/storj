@@ -6,6 +6,9 @@ package uplink
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io"
+	"os"
 	"time"
 
 	"github.com/vivint/infectious"
@@ -41,12 +44,11 @@ type RSConfig struct {
 // EncryptionConfig is a configuration struct that keeps details about
 // encrypting segments
 type EncryptionConfig struct {
-	// TODO: if/v3-1541#3 delete the Key field
-	Key         string      `help:"root key for encrypting the data"`
-	KeyFilepath string      `help:"the path to the file which contains the root key for encrypting the data"`
-	BlockSize   memory.Size `help:"size (in bytes) of encrypted blocks" default:"1KiB"`
-	DataType    int         `help:"Type of encryption to use for content and metadata (1=AES-GCM, 2=SecretBox)" default:"1"`
-	PathType    int         `help:"Type of encryption to use for paths (0=Unencrypted, 1=AES-GCM, 2=SecretBox)" default:"1"`
+	EncryptionKey string      `help:"the root key for encrypting the data; when set, it overrides the key stored in the file indicated by the key-filepath flag"`
+	KeyFilepath   string      `help:"the path to the file which contains the root key for encrypting the data"`
+	BlockSize     memory.Size `help:"size (in bytes) of encrypted blocks" default:"1KiB"`
+	DataType      int         `help:"Type of encryption to use for content and metadata (1=AES-GCM, 2=SecretBox)" default:"1"`
+	PathType      int         `help:"Type of encryption to use for paths (0=Unencrypted, 1=AES-GCM, 2=SecretBox)" default:"1"`
 }
 
 // ClientConfig is a configuration struct for the uplink that controls how
@@ -121,8 +123,10 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, err
 	}
 
-	key := new(storj.Key)
-	copy(key[:], c.Enc.Key)
+	key, err := UseOrLoadEncryptionKey(c.Enc.EncryptionKey, c.Enc.KeyFilepath)
+	if err != nil {
+		return nil, nil, Error.Wrap(err)
+	}
 
 	streams, err := streams.NewStreamStore(segments, c.Client.SegmentSize.Int64(), key, c.Enc.BlockSize.Int(), storj.Cipher(c.Enc.DataType))
 	if err != nil {
@@ -151,4 +155,49 @@ func (c Config) GetEncryptionScheme() storj.EncryptionScheme {
 		Cipher:    storj.Cipher(c.Enc.DataType),
 		BlockSize: int32(c.Enc.BlockSize),
 	}
+}
+
+// LoadEncryptionKey loads the encryption key stored in the file pointed by
+// filepath.
+//
+// An error is returned if filepath is empty, file is not found or there is an
+// I/O error.
+func LoadEncryptionKey(filepath string) (key *storj.Key, error error) {
+	if filepath == "" {
+		return nil, errors.New("filepath cannot be empty")
+	}
+
+	file, err := os.Open(filepath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("not found key file %q", filepath)
+		}
+
+		return nil, err
+	}
+
+	defer func() { err = errs.Combine(err, file.Close()) }()
+
+	// TODO: if/v3-1541#3 should we check if the file contains a values of length
+	// storj.KeySize??
+	key = &storj.Key{}
+	if _, err := file.Read(key[:]); err != nil && err != io.EOF {
+		return nil, err
+	}
+
+	return key, nil
+}
+
+// UseOrLoadEncryptionKey return an encryption key from humanReadableKey when
+// it isn't empty otherwise try to load the key from the file pointed by
+// filepath calling LoadEncryptionKey function.
+func UseOrLoadEncryptionKey(humanReadableKey string, filepath string) (*storj.Key, error) {
+	if humanReadableKey != "" {
+		var key storj.Key
+		copy(key[:], humanReadableKey)
+
+		return &key, nil
+	}
+
+	return LoadEncryptionKey(filepath)
 }

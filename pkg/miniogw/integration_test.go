@@ -7,6 +7,8 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"io/ioutil"
+	"math/rand"
 	"os"
 	"testing"
 	"time"
@@ -15,6 +17,7 @@ import (
 	minio "github.com/minio/minio/cmd"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
@@ -79,7 +82,18 @@ func TestUploadDownload(t *testing.T) {
 
 	// keys
 	uplinkCfg.Client.APIKey = "apiKey"
-	uplinkCfg.Enc.Key = "encKey"
+
+	// Encryption key
+	passphrase := make([]byte, rand.Intn(100)+1)
+	_, err = rand.Read(passphrase)
+	require.NoError(t, err)
+
+	encryptionKey, err := storj.NewKey(passphrase)
+	require.NoError(t, err)
+	filename := ctx.File("encryption.key")
+	err = ioutil.WriteFile(filename, encryptionKey[:], os.FileMode(0400))
+	require.NoError(t, err)
+	uplinkCfg.Enc.KeyFilepath = filename
 
 	// redundancy
 	uplinkCfg.RS.MinThreshold = 7
@@ -112,7 +126,7 @@ func TestUploadDownload(t *testing.T) {
 		AccessKey:     gwCfg.Minio.AccessKey,
 		SecretKey:     gwCfg.Minio.SecretKey,
 		APIKey:        uplinkCfg.Client.APIKey,
-		EncryptionKey: uplinkCfg.Enc.Key,
+		EncryptionKey: string(encryptionKey[:]),
 		NoSSL:         true,
 	})
 	assert.NoError(t, err)
@@ -191,7 +205,14 @@ func runGateway(ctx context.Context, gwCfg config, uplinkCfg uplink.Config, log 
 	}
 
 	encKey := new(storj.Key)
-	copy(encKey[:], uplinkCfg.Enc.Key)
+	{
+		k, err := ioutil.ReadFile(uplinkCfg.Enc.KeyFilepath)
+		if err != nil {
+			return err
+		}
+
+		copy(encKey[:], k)
+	}
 
 	var projectOptions libuplink.ProjectOptions
 	projectOptions.Volatile.EncryptionKey = encKey
