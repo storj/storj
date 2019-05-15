@@ -179,7 +179,7 @@ func TestUsageRollups(t *testing.T) {
 				bucketTallies[bucketID2] = tally2
 			}
 
-			tallies, err := db.Accounting().SaveBucketTallies(ctx, interval, bucketTallies)
+			tallies, err := db.ProjectAccounting().SaveTallies(ctx, interval, bucketTallies)
 			if err != nil {
 				t.Fatal(err)
 			}

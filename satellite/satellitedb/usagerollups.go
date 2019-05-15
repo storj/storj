@@ -23,6 +23,8 @@ type usagerollups struct {
 
 // GetProjectTotal retrieves project usage for a given period
 func (db *usagerollups) GetProjectTotal(ctx context.Context, projectID uuid.UUID, since, before time.Time) (usage *console.ProjectUsage, err error) {
+	since = timeTruncateDown(since)
+
 	storageQuery := db.db.All_BucketStorageTally_By_ProjectId_And_BucketName_And_IntervalStart_GreaterOrEqual_And_IntervalStart_LessOrEqual_OrderBy_Desc_IntervalStart
 
 	roullupsQuery := db.db.Rebind(`SELECT SUM(settled), SUM(inline), action
@@ -95,6 +97,8 @@ func (db *usagerollups) GetProjectTotal(ctx context.Context, projectID uuid.UUID
 
 // GetBucketUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period
 func (db *usagerollups) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) ([]console.BucketUsageRollup, error) {
+	since = timeTruncateDown(since)
+
 	buckets, err := db.getBuckets(ctx, projectID, since, before)
 	if err != nil {
 		return nil, err
@@ -179,6 +183,7 @@ func (db *usagerollups) GetBucketUsageRollups(ctx context.Context, projectID uui
 
 // GetBucketTotals retrieves bucket usage totals for period of time
 func (db *usagerollups) GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor console.BucketUsageCursor, since, before time.Time) (*console.BucketUsagePage, error) {
+	since = timeTruncateDown(since)
 	search := cursor.Search + "%"
 
 	if cursor.Limit > 50 {
@@ -348,4 +353,9 @@ func (db *usagerollups) getBuckets(ctx context.Context, projectID uuid.UUID, sin
 	}
 
 	return buckets, nil
+}
+
+// timeTruncateDown truncates down to the hour before to be in sync with orders endpoint
+func timeTruncateDown(t time.Time) time.Time {
+	return time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, t.Location())
 }
