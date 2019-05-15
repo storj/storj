@@ -11,6 +11,7 @@ package main
 // #endif
 import "C"
 import (
+	"fmt"
 	"reflect"
 	"unsafe"
 
@@ -33,7 +34,8 @@ var (
 	// NB: C.uchar is uint8
 	cUcharType = reflect.TypeOf(C.uchar('0'))
 	// NB: C.long is int64
-	cLongType = reflect.TypeOf(C.long(0))
+	cLongType  = reflect.TypeOf(C.long(0))
+	cUlongType = reflect.TypeOf(C.ulong(0))
 
 	// our types
 	memorySizeType          = reflect.TypeOf(memory.Size(0))
@@ -41,6 +43,7 @@ var (
 	redundancyAlgorithmType = reflect.TypeOf(storj.RedundancyAlgorithm(0))
 	keyPtrType              = reflect.TypeOf(new(C.Key))
 	goValueType             = reflect.TypeOf(C.struct_GoValue{})
+	cGoUintptrType           = reflect.TypeOf(C.GoUintptr(0))
 
 	ErrConvert  = errs.Class("struct conversion error")
 	ErrSnapshot = errs.Class("unable to snapshot value")
@@ -236,6 +239,20 @@ func CToGoStruct(fromVar, toPtr interface{}) error {
 			toValue.Set(reflect.ValueOf(memory.Size(fromValue.Int())))
 		default:
 			toValue.Set(reflect.ValueOf(int64(fromValue.Int())))
+		}
+		return nil
+	case cUlongType:
+		fmt.Printf("toValue.Type(): %+v\n", toValue.Type())
+		switch fromType {
+		case cGoUintptrType:
+			// TODO: can casting be done with reflection?
+			idVersion, ok := structRefMap.Get(token(uintptr(fromValue.Uint()))).(storj.IDVersion)
+			if !ok {
+				return ErrConvert.New("")
+			}
+			toValue.Set(reflect.ValueOf(idVersion))
+		default:
+			toValue.Set(reflect.ValueOf(uint64(fromValue.Uint())))
 		}
 		return nil
 	case goValueType:

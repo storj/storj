@@ -20,35 +20,22 @@ void TestNewUplink_config(void)
     gvIDVersion idVersionValue = GetIDVersion(idVersionNumber, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
-    Unpack(&idVersionValue, err);
-     TEST_ASSERT_EQUAL_STRING("", *err);
+    IDVersion *idVersion = (IDVersion*)(ConvertValue(&idVersionValue, err));
+    TEST_ASSERT_EQUAL_STRING("", *err);
+    TEST_ASSERT_NOT_NULL(idVersion);
 
-//     IDVersion *idVersion = (IDVersion*)(ConvertValue(&idVersionValue, err));
-//     void* idVersion = ConvertValue(&idVersionValue, err);
-//     printf("idVersion %p\n", idVersion);
-//     printf("idVersion %d\n", idVersionValue.Type);
-//     printf("idVersion %d\n", IDVersionType);
-     TEST_ASSERT_EQUAL_STRING("", *err);
-    //    TEST_ASSERT_TRUE(false);
+    TEST_ASSERT_EQUAL(idVersionNumber, idVersion->number);
 
-    //    TEST_ASSERT_EQUAL(idVersionNumber, idVersion->Number);
-    //
-    //    struct Config testUplinkConfig = {
-    //        {{true, "/whitelist.pem"},
-    //         *idVersion,
-    //         "latest",
-    //         1,
-    //         2}};
-    //
-    //    testUplinkConfig.Volatile.IdentityVersion = *idVersion;
-    //    TEST_ASSERT_EQUAL_STRING("", *err);
-    //
-    //    struct GoValue uplinkValue = NewUplink(testUplinkConfig, err);
-    //    TEST_ASSERT_EQUAL_STRING("", *err);
-    //
-    //    struct Uplink *uplink = (struct Uplink*)(ConvertValue(&uplinkValue, err));
-    //    TEST_ASSERT_NOT_EQUAL(0, uplink->GoUplink);
-    //    TEST_ASSERT_TRUE(uplink->Config.Volatile.TLS.SkipPeerCAWhitelist);
+    struct Config testUplinkConfig = {
+        {{true, "/whitelist.pem"},
+         idVersionValue.Ptr,
+         "latest",
+         1,
+         2}};
+
+    struct GoValue uplinkValue = NewUplink(testUplinkConfig, err);
+    TEST_ASSERT_EQUAL_STRING("", *err);
+    TEST_ASSERT_NOT_EQUAL(0, uplinkValue.Ptr);
 }
 
 gvUplink *NewTestUplink(char **err)

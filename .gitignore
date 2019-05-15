@@ -12,6 +12,7 @@
 *.test
 *.prof
 lib/uplink/ext/c_tests.bin
+lib/uplink/ext/libluplink_c_tests
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
