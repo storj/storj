@@ -21,11 +21,14 @@ void TestNewUplink_config(void)
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     Unpack(&idVersionValue, err);
-    // struct IDVersion idVersion = (ConvertValue(&idVersionValue, err));
-    // printf("idVersion %p\n", idVersion);
-    // printf("idVersion %d\n", idVersionValue.Type);
-    // printf("idVersion %d\n", IDVersionType);
-    // TEST_ASSERT_EQUAL_STRING("", *err);
+     TEST_ASSERT_EQUAL_STRING("", *err);
+
+//     IDVersion *idVersion = (IDVersion*)(ConvertValue(&idVersionValue, err));
+//     void* idVersion = ConvertValue(&idVersionValue, err);
+//     printf("idVersion %p\n", idVersion);
+//     printf("idVersion %d\n", idVersionValue.Type);
+//     printf("idVersion %d\n", IDVersionType);
+     TEST_ASSERT_EQUAL_STRING("", *err);
     //    TEST_ASSERT_TRUE(false);
 
     //    TEST_ASSERT_EQUAL(idVersionNumber, idVersion->Number);

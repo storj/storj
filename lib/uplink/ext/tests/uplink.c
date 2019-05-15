@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include "../headers/main.h"
 
+// TODO: move into go?
 void *ConvertValue(struct GoValue *val, char **err)
 {
     switch (val->Type)

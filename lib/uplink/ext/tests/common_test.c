@@ -16,7 +16,8 @@ void TestGetIDVersion(void)
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     Unpack(&idVersionValue, err);
-    IDVersionProto *idVersion = storj__libuplink__idversion__unpack(NULL, idVersionValue.Size, idVersionValue.Snapshot);
+    // TODO: use ConvertValue
+    IDVersion *idVersion = storj__libuplink__idversion__unpack(NULL, idVersionValue.Size, idVersionValue.Snapshot);
 
     TEST_ASSERT_EQUAL(0, idVersion->number);
 }

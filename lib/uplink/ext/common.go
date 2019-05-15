@@ -11,10 +11,12 @@ package main
 // #endif
 import "C"
 import (
-	"github.com/gogo/protobuf/proto"
 	"reflect"
-	"storj.io/storj/lib/uplink/ext/pb"
 	"unsafe"
+
+	"github.com/gogo/protobuf/proto"
+
+	"storj.io/storj/lib/uplink/ext/pb"
 
 	"github.com/zeebo/errs"
 
@@ -38,9 +40,10 @@ var (
 	cipherSuiteType         = reflect.TypeOf(storj.CipherSuite(0))
 	redundancyAlgorithmType = reflect.TypeOf(storj.RedundancyAlgorithm(0))
 	keyPtrType              = reflect.TypeOf(new(C.Key))
+	goValueType             = reflect.TypeOf(C.struct_GoValue{})
 
-	ErrConvert       = errs.Class("struct conversion error")
-	ErrSnapshot      = errs.Class("unable to snapshot value")
+	ErrConvert  = errs.Class("struct conversion error")
+	ErrSnapshot = errs.Class("unable to snapshot value")
 
 	structRefMap = newMapping()
 )
@@ -69,9 +72,9 @@ func goPointerFromCGoUintptr(p C.GoUintptr) unsafe.Pointer {
 }
 
 type GoValue struct {
-	ptr      unsafe.Pointer
+	ptr      uintptr
 	_type    uint
-	snapshot uintptr
+	snapshot []byte
 	size     uintptr
 }
 
@@ -80,7 +83,7 @@ func (val GoValue) Snapshot() (data []byte, _ error) {
 	// TODO: use mapping instead of uintptr
 	switch val._type {
 	case C.IDVersionType:
-		idVersion := (*storj.IDVersion)(val.ptr)
+		idVersion := (*storj.IDVersion)(unsafe.Pointer(val.ptr))
 		idVersionPb := pb.IDVersion{
 			Number: uint32(idVersion.Number),
 		}
@@ -95,7 +98,8 @@ func (val GoValue) Snapshot() (data []byte, _ error) {
 func Unpack(cValue *C.struct_GoValue, cErr **C.char) {
 	// TODO: use mapping instead
 	value := new(GoValue)
-	err := CToGoStruct(cValue, value)
+	//value := GoValue{}
+	err := CToGoStruct(*cValue, value)
 	if err != nil {
 		*cErr = C.CString(err.Error())
 		return
@@ -108,10 +112,12 @@ func Unpack(cValue *C.struct_GoValue, cErr **C.char) {
 
 	value.size = uintptr(len(data))
 
-	value.snapshot = CMalloc(uintptr(len(data)))
-	copy(*(*[]byte)(unsafe.Pointer(value.snapshot)), data)
+	value.snapshot = data
+	//value.snapshot = CMalloc(uintptr(len(data)))
+	//copy(*(*[]byte)(unsafe.Pointer(value.snapshot)), data)
+	//snapshotBytes := C.GoBytes(unsafe.Pointer(fromValue.Interface().(*C.Key)), 32)
 
-	if err := GoToCStruct(value, cValue); err != nil {
+	if err := GoToCStruct(*value, cValue); err != nil {
 		*cErr = C.CString(err.Error())
 		return
 	}
@@ -232,8 +238,18 @@ func CToGoStruct(fromVar, toPtr interface{}) error {
 			toValue.Set(reflect.ValueOf(int64(fromValue.Int())))
 		}
 		return nil
-	//case valueType:
+	case goValueType:
+		fromSize := uintptr(fromValue.FieldByName("Size").Uint())
+		data := C.GoBytes(unsafe.Pointer(fromValue.FieldByName("Snapshot").Pointer()), C.int(fromSize))
 
+		goValue := GoValue{
+			ptr:      uintptr(fromValue.FieldByName("Ptr").Uint()),
+			_type:    uint(fromValue.FieldByName("Type").Uint()),
+			size:     fromSize,
+			snapshot: data,
+		}
+		reflect.Indirect(toValue).Set(reflect.ValueOf(goValue))
+		return nil
 	default:
 		if fromType.Kind() == reflect.Struct {
 			for i := 0; i < fromValue.NumField(); i++ {
