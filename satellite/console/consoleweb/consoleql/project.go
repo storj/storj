@@ -101,6 +101,11 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 						return nil, err
 					}
 
+					_, err = console.GetAuth(p.Context)
+					if err != nil {
+						return nil, err
+					}
+
 					var users []projectMember
 					for _, member := range members {
 						user, err := service.GetUser(p.Context, member.MemberID)
