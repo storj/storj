@@ -46,7 +46,7 @@ import EVENTS from '../../utils/constants/analyticsEventNames';
         },
         onLogin: async function (): Promise<any> {
             let self = this as any;
-            this.analytics.track(EVENTS.CLICKED_LOGIN);
+            this.$segment.track(EVENTS.CLICKED_LOGIN);
 
             if (!self.validateFields()) {
                 return;

@@ -47,12 +47,12 @@
                     this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Please look for instructions at your email');
                 },
                 onBackToLoginClick: function() {
-                    this.analytics.track(EVENTS.CLICKED_BACK_TO_LOGIN);
+                    this.$segment.track(EVENTS.CLICKED_BACK_TO_LOGIN);
                     this.$router.push(ROUTES.LOGIN.path);
                 },
                 onLogoClick: function () {
                    location.reload();
-                   this.analytics.track(EVENTS.CLICKED_LOGO);
+                   this.$segment.track(EVENTS.CLICKED_LOGO);
                 },
                 validateFields: function (): boolean {
                     const isEmailValid = validateEmail(this.$data.email.trim());
