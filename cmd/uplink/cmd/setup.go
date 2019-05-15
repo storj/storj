@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/storj"
 )
 
 var (
@@ -29,9 +30,10 @@ var (
 		Annotations: map[string]string{"type": "setup"},
 	}
 
-	setupCfg UplinkFlags
-	confDir  string
-	defaults cfgstruct.BindOpt
+	setupCfg              UplinkFlags
+	confDir               string
+	encryptionKeyFilepath string
+	defaults              cfgstruct.BindOpt
 
 	// Error is the default uplink setup errs class
 	Error = errs.Class("uplink setup error")
@@ -43,6 +45,9 @@ func init() {
 	defaults = cfgstruct.DefaultsFlag(RootCmd)
 	RootCmd.AddCommand(setupCmd)
 	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, defaults, cfgstruct.ConfDir(confDir))
+
+	defaultEncryptionKeyFilepath := filepath.Join(defaultConfDir, ".encryption.key")
+	cfgstruct.SetupFlag(zap.L(), setupCmd, &encryptionKeyFilepath, "enc.key-filepath", defaultEncryptionKeyFilepath, "path to the file which contains the encryption key")
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
@@ -67,111 +72,142 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	var override map[string]interface{}
-	if !setupCfg.NonInteractive {
-		_, err = fmt.Print(`
+	// override is required because the default value of Enc.KeyFilepath is ""
+	// and setting the value directly in setupCfg.Enc.KeyFiletpathon will set the
+	// value in the config file but commented out.
+	usedEncryptionKeyFilepath := setupCfg.Enc.KeyFilepath
+	if usedEncryptionKeyFilepath == "" {
+		usedEncryptionKeyFilepath, err = filepath.Abs(encryptionKeyFilepath)
+		if err != nil {
+			return err
+		}
+	}
+
+	if setupCfg.NonInteractive {
+		override := map[string]interface{}{
+			"enc.key-filepath": usedEncryptionKeyFilepath,
+		}
+		return process.SaveConfigWithAllDefaults(
+			cmd.Flags(), filepath.Join(setupDir, "config.yaml"), override)
+	}
+
+	_, err = fmt.Print(`
 Pick satellite to use:
-  [1] mars.tardigrade.io
-  [2] jupiter.tardigrade.io
-  [3] saturn.tardigrade.io
+	[1] mars.tardigrade.io
+	[2] jupiter.tardigrade.io
+	[3] saturn.tardigrade.io
 Please enter numeric choice or enter satellite address manually [1]: `)
-		if err != nil {
+	if err != nil {
+		return err
+	}
+	satellites := []string{"mars.tardigrade.io", "jupiter.tardigrade.io", "saturn.tardigrade.io"}
+	var satelliteAddress string
+	n, err := fmt.Scanln(&satelliteAddress)
+	if err != nil {
+		if n == 0 {
+			// fmt.Scanln cannot handle empty input
+			satelliteAddress = satellites[0]
+		} else {
 			return err
 		}
-		satellites := []string{"mars.tardigrade.io", "jupiter.tardigrade.io", "saturn.tardigrade.io"}
-		var satelliteAddress string
-		n, err := fmt.Scanln(&satelliteAddress)
-		if err != nil {
-			if n == 0 {
-				// fmt.Scanln cannot handle empty input
-				satelliteAddress = satellites[0]
-			} else {
-				return err
-			}
-		}
+	}
 
-		// TODO add better validation
-		if satelliteAddress == "" {
-			return errs.New("satellite address cannot be empty")
-		} else if len(satelliteAddress) == 1 {
-			switch satelliteAddress {
-			case "1":
-				satelliteAddress = satellites[0]
-			case "2":
-				satelliteAddress = satellites[1]
-			case "3":
-				satelliteAddress = satellites[2]
-			default:
-				return errs.New("Satellite address cannot be one character")
-			}
+	// TODO add better validation
+	if satelliteAddress == "" {
+		return errs.New("satellite address cannot be empty")
+	} else if len(satelliteAddress) == 1 {
+		switch satelliteAddress {
+		case "1":
+			satelliteAddress = satellites[0]
+		case "2":
+			satelliteAddress = satellites[1]
+		case "3":
+			satelliteAddress = satellites[2]
+		default:
+			return errs.New("Satellite address cannot be one character")
 		}
+	}
 
-		satelliteAddress, err = ApplyDefaultHostAndPortToAddr(satelliteAddress, cmd.Flags().Lookup("satellite-addr").Value.String())
-		if err != nil {
-			return err
-		}
+	satelliteAddress, err = ApplyDefaultHostAndPortToAddr(
+		satelliteAddress, cmd.Flags().Lookup("satellite-addr").Value.String())
+	if err != nil {
+		return err
+	}
 
-		_, err = fmt.Print("Enter your API key: ")
-		if err != nil {
-			return err
-		}
-		var apiKey string
-		n, err = fmt.Scanln(&apiKey)
-		if err != nil && n != 0 {
-			return err
-		}
+	_, err = fmt.Print("Enter your API key: ")
+	if err != nil {
+		return err
+	}
+	var apiKey string
+	n, err = fmt.Scanln(&apiKey)
+	if err != nil && n != 0 {
+		return err
+	}
 
-		if apiKey == "" {
-			return errs.New("API key cannot be empty")
-		}
+	if apiKey == "" {
+		return errs.New("API key cannot be empty")
+	}
 
-		_, err = fmt.Print("Enter your encryption passphrase: ")
-		if err != nil {
-			return err
-		}
-		encKey, err := terminal.ReadPassword(int(os.Stdin.Fd()))
-		if err != nil {
-			return err
-		}
+	_, err = fmt.Print("Enter your encryption passphrase: ")
+	if err != nil {
+		return err
+	}
+	passphrase, err := terminal.ReadPassword(int(os.Stdin.Fd()))
+	if err != nil {
+		return err
+	}
 
-		_, err = fmt.Println()
-		if err != nil {
-			return err
-		}
+	_, err = fmt.Println()
+	if err != nil {
+		return err
+	}
 
-		if len(encKey) == 0 {
-			return errs.New("Encryption passphrase cannot be empty")
-		}
+	if len(passphrase) == 0 {
+		return errs.New("Encryption passphrase cannot be empty")
+	}
 
-		_, err = fmt.Print("Enter your encryption passphrase again: ")
-		if err != nil {
-			return err
-		}
-		repeatedEncKey, err := terminal.ReadPassword(int(os.Stdin.Fd()))
-		if err != nil {
-			return err
-		}
-		_, err = fmt.Println()
-		if err != nil {
-			return err
-		}
+	_, err = fmt.Print("Enter your encryption passphrase again: ")
+	if err != nil {
+		return err
+	}
+	repeatedPassphrase, err := terminal.ReadPassword(int(os.Stdin.Fd()))
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Println()
+	if err != nil {
+		return err
+	}
 
-		if !bytes.Equal(encKey, repeatedEncKey) {
-			return errs.New("encryption passphrases doesn't match")
-		}
+	if !bytes.Equal(passphrase, repeatedPassphrase) {
+		return errs.New("encryption passphrases doesn't match")
+	}
 
-		override = map[string]interface{}{
-			"satellite-addr": satelliteAddress,
-			"api-key":        apiKey,
-			"enc.key":        string(encKey),
-		}
+	key, err := storj.NewKey(passphrase)
+	if err != nil {
+		return err
+	}
 
-		err = process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), override)
-		if err != nil {
-			return nil
-		}
+	err = saveEncryptionKey(key, usedEncryptionKeyFilepath)
+	if err != nil {
+		return err
+	}
 
-		_, err = fmt.Println(`
+	var override = map[string]interface{}{
+		"api-key":          apiKey,
+		"satellite-addr":   satelliteAddress,
+		"enc.key-filepath": usedEncryptionKeyFilepath,
+	}
+
+	err = process.SaveConfigWithAllDefaults(
+		cmd.Flags(), filepath.Join(setupDir, "config.yaml"), override)
+	if err != nil {
+		return nil
+	}
+
+	// if there is an error with this we cannot do that much and the setup process
+	// has ended OK, so we ignore it.
+	_, _ = fmt.Println(`
 Your Uplink CLI is configured and ready to use!
 
 Some things to try next:
@@ -179,15 +215,9 @@ Some things to try next:
 * Run 'uplink --help' to see the operations that can be performed
 
 * See https://github.com/storj/docs/blob/master/Uplink-CLI.md#usage for some example commands
-		`)
-		if err != nil {
-			return nil
-		}
+	`)
 
-		return nil
-	}
-
-	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), nil)
+	return nil
 }
 
 // ApplyDefaultHostAndPortToAddrFlag applies the default host and/or port if either is missing in the specified flag name.
@@ -246,4 +276,36 @@ func ApplyDefaultHostAndPortToAddr(address, defaultAddress string) (string, erro
 
 	// address is host:
 	return net.JoinHostPort(addressParts[0], defaultPort), nil
+}
+
+// saveEncryptionKey saves the encryption key into a new file created in
+// filepath.
+func saveEncryptionKey(key *storj.Key, filepath string) error {
+	if filepath == "" {
+		return Error.New("filepath is empty")
+	}
+
+	if key.IsZero() {
+		return Error.New("key cannot be nil or zero value")
+	}
+
+	file, err := os.OpenFile(filepath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return Error.New("directory path doesn't exist. %+v", err)
+		}
+
+		if os.IsExist(err) {
+			return Error.New("file key already exists. %+v", err)
+		}
+
+		return Error.Wrap(err)
+	}
+
+	defer func() {
+		err = Error.Wrap(errs.Combine(err, file.Close()))
+	}()
+
+	_, err = file.Write(key[:])
+	return err
 }

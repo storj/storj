@@ -41,10 +41,12 @@ type RSConfig struct {
 // EncryptionConfig is a configuration struct that keeps details about
 // encrypting segments
 type EncryptionConfig struct {
-	Key       string      `help:"root key for encrypting the data"`
-	BlockSize memory.Size `help:"size (in bytes) of encrypted blocks" default:"1KiB"`
-	DataType  int         `help:"Type of encryption to use for content and metadata (1=AES-GCM, 2=SecretBox)" default:"1"`
-	PathType  int         `help:"Type of encryption to use for paths (0=Unencrypted, 1=AES-GCM, 2=SecretBox)" default:"1"`
+	// TODO: if/v3-1541#3 delete the Key field
+	Key         string      `help:"root key for encrypting the data"`
+	KeyFilepath string      `help:"the path to the file which contains the root key for encrypting the data"`
+	BlockSize   memory.Size `help:"size (in bytes) of encrypted blocks" default:"1KiB"`
+	DataType    int         `help:"Type of encryption to use for content and metadata (1=AES-GCM, 2=SecretBox)" default:"1"`
+	PathType    int         `help:"Type of encryption to use for paths (0=Unencrypted, 1=AES-GCM, 2=SecretBox)" default:"1"`
 }
 
 // ClientConfig is a configuration struct for the uplink that controls how
