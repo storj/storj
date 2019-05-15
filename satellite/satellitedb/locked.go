@@ -14,6 +14,7 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 
 	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/datarepair/irreparable"
@@ -473,6 +474,37 @@ func (m *lockedUsers) Update(ctx context.Context, user *console.User) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Update(ctx, user)
+}
+
+// Containment returns database for containment
+func (m *locked) Containment() audit.DB {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedContainment{m.Locker, m.db.Containment()}
+}
+
+// lockedContainment implements locking wrapper for audit.DB
+type lockedContainment struct {
+	sync.Locker
+	db audit.DB
+}
+
+func (m *lockedContainment) Delete(ctx context.Context, nodeID storj.NodeID) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Delete(ctx, nodeID)
+}
+
+func (m *lockedContainment) Get(ctx context.Context, nodeID storj.NodeID) (*audit.PendingAudit, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Get(ctx, nodeID)
+}
+
+func (m *lockedContainment) IncrementPending(ctx context.Context, pendingAudit *audit.PendingAudit) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.IncrementPending(ctx, pendingAudit)
 }
 
 // CreateSchema sets the schema
