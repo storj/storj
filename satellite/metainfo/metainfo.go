@@ -43,6 +43,7 @@ type APIKeys interface {
 	GetByHead(ctx context.Context, head []byte) (*console.APIKeyInfo, error)
 }
 
+// Revocations is the revocations store methods used by the endpoint
 type Revocations interface {
 	GetByProjectID(ctx context.Context, projectID uuid.UUID) ([][]byte, error)
 }
