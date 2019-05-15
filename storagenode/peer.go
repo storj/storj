@@ -23,6 +23,7 @@ import (
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode/bandwidth"
+	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/inspector"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/orders"
@@ -57,8 +58,10 @@ type Config struct {
 	Server   server.Config
 	Kademlia kademlia.Config
 
-	Storage  piecestore.OldConfig
-	Storage2 piecestore.Config
+	// TODO: flatten storage config and only keep the new one
+	Storage   piecestore.OldConfig
+	Storage2  piecestore.Config
+	Collector collector.Config
 
 	Version version.Config
 }
@@ -91,6 +94,7 @@ type Peer struct {
 	}
 
 	Storage2 struct {
+		// TODO: lift things outside of it to organize better
 		Trust     *trust.Pool
 		Store     *pieces.Store
 		Endpoint  *piecestore.Endpoint
@@ -98,6 +102,8 @@ type Peer struct {
 		Monitor   *monitor.Service
 		Sender    *orders.Sender
 	}
+
+	Collector *collector.Service
 }
 
 // New creates a new Storage Node.
@@ -181,7 +187,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		pb.RegisterKadInspectorServer(peer.Server.PrivateGRPC(), peer.Kademlia.Inspector)
 	}
 
-	{ // setup storage 2
+	{ // setup storage
 		trustAllSatellites := !config.Storage.SatelliteIDRestriction
 		peer.Storage2.Trust, err = trust.NewPool(peer.Kademlia.Service, trustAllSatellites, config.Storage.WhitelistedSatelliteIDs)
 		if err != nil {
@@ -237,6 +243,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		)
 	}
 
+	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.DB.PieceInfo(), config.Collector)
+
 	return peer, nil
 }
 
@@ -247,11 +255,16 @@ func (peer *Peer) Run(ctx context.Context) error {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Version.Run(ctx))
 	})
+
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Kademlia.Service.Bootstrap(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Kademlia.Service.Run(ctx))
+	})
+
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Collector.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Storage2.Sender.Run(ctx))
@@ -259,6 +272,7 @@ func (peer *Peer) Run(ctx context.Context) error {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Storage2.Monitor.Run(ctx))
 	})
+
 	group.Go(func() error {
 		// TODO: move the message into Server instead
 		// Don't change the format of this comment, it is used to figure out the node id.
@@ -283,6 +297,17 @@ func (peer *Peer) Close() error {
 	}
 
 	// close services in reverse initialization order
+
+	if peer.Storage2.Monitor != nil {
+		errlist.Add(peer.Storage2.Monitor.Close())
+	}
+	if peer.Storage2.Sender != nil {
+		errlist.Add(peer.Storage2.Sender.Close())
+	}
+	if peer.Collector != nil {
+		errlist.Add(peer.Collector.Close())
+	}
+
 	if peer.Kademlia.Service != nil {
 		errlist.Add(peer.Kademlia.Service.Close())
 	}

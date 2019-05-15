@@ -8,10 +8,11 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/zeebo/errs"
-
+	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/testsuite"
 )
@@ -139,4 +140,190 @@ func BenchmarkSuiteLong(b *testing.B) {
 		dirPath: tempdir,
 	}
 	testsuite.BenchmarkPathOperationsInLargeDb(b, longStore)
+}
+
+func BenchmarkClientWrite(b *testing.B) {
+	// setup db
+	ctx := testcontext.New(b)
+	defer ctx.Cleanup()
+	dbfile := ctx.File("testbolt.db")
+	dbs, err := NewShared(dbfile, "kbuckets", "nodes")
+	if err != nil {
+		b.Fatalf("failed to create db: %v\n", err)
+	}
+	defer func() {
+		if err := dbs[0].Close(); err != nil {
+			b.Fatalf("failed to close db: %v\n", err)
+		}
+		if err := dbs[1].Close(); err != nil {
+			b.Fatalf("failed to close db: %v\n", err)
+		}
+	}()
+	kdb := dbs[0]
+
+	// benchmark test: execute 1000 Put operations where each call to `PutAndCommit` does the following:
+	// 1) create a BoltDB transaction (tx), 2) execute the db operation, 3) commit the tx which writes it to disk.
+	for n := 0; n < b.N; n++ {
+		var wg sync.WaitGroup
+		for i := 0; i < 1000; i++ {
+			key := storage.Key(fmt.Sprintf("testkey%d", i))
+			value := storage.Value("testvalue")
+
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				err := kdb.PutAndCommit(key, value)
+				if err != nil {
+					b.Fatal("Put err:", err)
+				}
+			}()
+		}
+		wg.Wait()
+	}
+}
+
+func BenchmarkClientNoSyncWrite(b *testing.B) {
+	// setup db
+	ctx := testcontext.New(b)
+	defer ctx.Cleanup()
+	dbfile := ctx.File("testbolt.db")
+	dbs, err := NewShared(dbfile, "kbuckets", "nodes")
+	if err != nil {
+		b.Fatalf("failed to create db: %v\n", err)
+	}
+	defer func() {
+		if err := dbs[0].Close(); err != nil {
+			b.Fatalf("failed to close db: %v\n", err)
+		}
+		if err := dbs[1].Close(); err != nil {
+			b.Fatalf("failed to close db: %v\n", err)
+		}
+	}()
+	kdb := dbs[0]
+
+	// benchmark test: execute 1000 Put operations with fsync turned off.
+	// Each call to `PutAndCommit` does the following: 1) creates a BoltDB transaction (tx),
+	// 2) executes the db operation, and 3) commits the tx which does NOT write it to disk.
+	kdb.db.NoSync = true
+	for n := 0; n < b.N; n++ {
+		var wg sync.WaitGroup
+		for i := 0; i < 1000; i++ {
+			key := storage.Key(fmt.Sprintf("testkey%d", i))
+			value := storage.Value("testvalue")
+
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				err := kdb.PutAndCommit(key, value)
+				if err != nil {
+					b.Fatal("PutAndCommit Nosync err:", err)
+				}
+			}()
+		}
+		wg.Wait()
+	}
+	err = kdb.db.Sync()
+	if err != nil {
+		b.Fatalf("boltDB sync err: %v\n", err)
+	}
+
+}
+
+func BenchmarkClientBatchWrite(b *testing.B) {
+	// setup db
+	ctx := testcontext.New(b)
+	defer ctx.Cleanup()
+	dbfile := ctx.File("testbolt.db")
+	dbs, err := NewShared(dbfile, "kbuckets", "nodes")
+	if err != nil {
+		b.Fatalf("failed to create db: %v\n", err)
+	}
+	defer func() {
+		if err := dbs[0].Close(); err != nil {
+			b.Fatalf("failed to close db: %v\n", err)
+		}
+		if err := dbs[1].Close(); err != nil {
+			b.Fatalf("failed to close db: %v\n", err)
+		}
+	}()
+	kdb := dbs[0]
+
+	// benchmark test: batch 1000 Put operations.
+	// Each call to `Put` does the following: 1) adds the db operation to a queue in boltDB,
+	// 2) every 1000 operations or 10ms, whichever is first, BoltDB creates a single
+	// transaction for all operations currently in the batch, executes the operations,
+	// commits, and writes them to disk
+	for n := 0; n < b.N; n++ {
+		var wg sync.WaitGroup
+		for i := 0; i < 1000; i++ {
+			key := storage.Key(fmt.Sprintf("testkey%d", i))
+			value := storage.Value("testvalue")
+
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				err := kdb.Put(key, value)
+				if err != nil {
+					b.Fatalf("boltDB put: %v\n", err)
+				}
+			}()
+
+			if err != nil {
+				b.Fatalf("boltDB put: %v\n", err)
+			}
+		}
+		wg.Wait()
+	}
+}
+
+func BenchmarkClientBatchNoSyncWrite(b *testing.B) {
+	// setup db
+	ctx := testcontext.New(b)
+	defer ctx.Cleanup()
+	dbfile := ctx.File("testbolt.db")
+	dbs, err := NewShared(dbfile, "kbuckets", "nodes")
+	if err != nil {
+		b.Fatalf("failed to create db: %v\n", err)
+	}
+	defer func() {
+		if err := dbs[0].Close(); err != nil {
+			b.Fatalf("failed to close db: %v\n", err)
+		}
+		if err := dbs[1].Close(); err != nil {
+			b.Fatalf("failed to close db: %v\n", err)
+		}
+	}()
+	kdb := dbs[0]
+
+	// benchmark test: batch 1000 Put operations with fsync turned off.
+	// Each call to `Put` does the following: 1) adds the db operation to a queue in boltDB,
+	// 2) every 1000 operations or 2 ms, whichever is first, BoltDB creates a single
+	// transaction for all operations currently in the batch, executes the operations,
+	// commits, but does NOT write them to disk
+	kdb.db.NoSync = true
+	for n := 0; n < b.N; n++ {
+		var wg sync.WaitGroup
+		for i := 0; i < 1000; i++ {
+			key := storage.Key(fmt.Sprintf("testkey%d", i))
+			value := storage.Value("testvalue")
+
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				err := kdb.Put(key, value)
+				if err != nil {
+					b.Fatalf("boltDB put: %v\n", err)
+				}
+			}()
+
+			if err != nil {
+				b.Fatalf("boltDB put: %v\n", err)
+			}
+		}
+		wg.Wait()
+		err := kdb.db.Sync()
+		if err != nil {
+			b.Fatalf("boltDB sync err: %v\n", err)
+		}
+	}
 }

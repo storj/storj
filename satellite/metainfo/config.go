@@ -4,6 +4,8 @@
 package metainfo
 
 import (
+	"go.uber.org/zap"
+
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/storage"
@@ -18,7 +20,7 @@ const (
 
 // Config is a configuration struct that is everything you need to start a metainfo
 type Config struct {
-	DatabaseURL          string      `help:"the database connection string to use" default:"bolt://$CONFDIR/pointerdb.db"`
+	DatabaseURL          string      `help:"the database connection string to use" releaseDefault:"postgres://" devDefault:"bolt://$CONFDIR/pointerdb.db"`
 	MinRemoteSegmentSize memory.Size `default:"1240" help:"minimum remote segment size"`
 	MaxInlineSegmentSize memory.Size `default:"8000" help:"maximum inline segment size"`
 	Overlay              bool        `default:"true" help:"toggle flag if overlay is enabled"`
@@ -26,7 +28,7 @@ type Config struct {
 }
 
 // NewStore returns database for storing pointer data
-func NewStore(dbURLString string) (db storage.KeyValueStore, err error) {
+func NewStore(logger *zap.Logger, dbURLString string) (db storage.KeyValueStore, err error) {
 	driver, source, err := dbutil.SplitConnstr(dbURLString)
 	if err != nil {
 		return nil, err
@@ -38,5 +40,6 @@ func NewStore(dbURLString string) (db storage.KeyValueStore, err error) {
 	} else {
 		err = Error.New("unsupported db scheme: %s", driver)
 	}
+	logger.Debug("Connected to:", zap.String("db source", source))
 	return db, err
 }

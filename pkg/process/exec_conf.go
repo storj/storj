@@ -99,17 +99,24 @@ func saveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]int
 		if overriddenValue != nil {
 			value = fmt.Sprintf("%v", overriddenValue)
 		}
+		//print usage info
 		if f.Usage != "" {
 			fmt.Fprintf(w, "# %s\n", f.Usage)
 		}
-		fmt.Fprintf(w, "%s: ", k)
+		//print commented key (beginning of value assignement line)
+		if readBoolAnnotation(f, "user") || f.Changed || overrideExist {
+			fmt.Fprintf(w, "%s: ", k)
+		} else {
+			fmt.Fprintf(w, "# %s: ", k)
+		}
+		//print value (remainder of value assignement line)
 		switch f.Value.Type() {
 		case "string":
 			// save ourselves 250+ lines of code and just double quote strings
-			fmt.Fprintf(w, "%q\n", value)
+			fmt.Fprintf(w, "%q\n\n", value)
 		default:
 			//assume that everything else doesn't have fancy control characters
-			fmt.Fprintf(w, "%s\n", value)
+			fmt.Fprintf(w, "%s\n\n", value)
 		}
 	}
 
@@ -146,6 +153,8 @@ func Ctx(cmd *cobra.Command) context.Context {
 	return ctx
 }
 
+var traceOut = flag.String("debug.trace-out", "", "If set, a path to write a process trace SVG to")
+
 func cleanup(cmd *cobra.Command) {
 	for _, ccmd := range cmd.Commands() {
 		cleanup(ccmd)
@@ -157,8 +166,6 @@ func cleanup(cmd *cobra.Command) {
 	if internalRun == nil {
 		return
 	}
-
-	traceOut := cmd.Flags().String("debug.trace-out", "", "If set, a path to write a process trace SVG to")
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) (err error) {
 		ctx := context.Background()
@@ -193,14 +200,22 @@ func cleanup(cmd *cobra.Command) {
 				// flag couldn't be found
 				brokenKeys = append(brokenKeys, key)
 			} else {
-				oldChanged := cmd.Flag(key).Changed
-				err := cmd.Flags().Set(key, vip.GetString(key))
-				if err != nil {
-					// flag couldn't be set
-					brokenVals = append(brokenVals, key)
+				flag := cmd.Flag(key)
+				// It's very hard to support string arrays from pflag
+				// because there's no way to unset some value. For now
+				// skip them. They can't be set from viper.
+				if flag.Value.Type() != "stringArray" {
+					oldChanged := flag.Changed
+
+					err := cmd.Flags().Set(key, vip.GetString(key))
+					if err != nil {
+						// flag couldn't be set
+						brokenVals = append(brokenVals, key)
+					}
+
+					// revert Changed value
+					flag.Changed = oldChanged
 				}
-				// revert Changed value
-				cmd.Flag(key).Changed = oldChanged
 			}
 		}
 

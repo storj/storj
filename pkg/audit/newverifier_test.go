@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/audit"
+	"storj.io/storj/uplink"
 )
 
 func TestVerifierHappyPath(t *testing.T) {
@@ -23,19 +24,24 @@ func TestVerifierHappyPath(t *testing.T) {
 		err := planet.Satellites[0].Audit.Service.Close()
 		require.NoError(t, err)
 
-		uplink := planet.Uplinks[0]
+		ul := planet.Uplinks[0]
 		testData := make([]byte, 1*memory.MiB)
 		_, err = rand.Read(testData)
 		require.NoError(t, err)
 
-		err = uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err = ul.UploadWithConfig(ctx, planet.Satellites[0], &uplink.RSConfig{
+			MinThreshold:     4,
+			RepairThreshold:  5,
+			SuccessThreshold: 6,
+			MaxThreshold:     6,
+		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		metainfo := planet.Satellites[0].Metainfo.Service
 		overlay := planet.Satellites[0].Overlay.Service
 		cursor := audit.NewCursor(metainfo)
 
-		stripe, err := cursor.NextStripe(ctx)
+		stripe, _, err := cursor.NextStripe(ctx)
 		require.NoError(t, err)
 		require.NotNil(t, stripe)
 
@@ -57,7 +63,11 @@ func TestVerifierHappyPath(t *testing.T) {
 		_, err = planet.Satellites[0].Overlay.Service.UpdateUptime(ctx, planet.StorageNodes[1].ID(), false)
 		require.NoError(t, err)
 
-		_, err = verifier.Verify(ctx, stripe)
+		verifiedNodes, err := verifier.Verify(ctx, stripe)
 		require.NoError(t, err)
+
+		require.Len(t, verifiedNodes.SuccessNodeIDs, 4)
+		require.Len(t, verifiedNodes.FailNodeIDs, 0)
+		require.Len(t, verifiedNodes.OfflineNodeIDs, 0)
 	})
 }

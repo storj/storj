@@ -31,7 +31,7 @@ func New(dbURL string) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = schema.PrepareDB(pgConn)
+	err = schema.PrepareDB(pgConn, dbURL)
 	if err != nil {
 		return nil, err
 	}

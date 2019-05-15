@@ -32,11 +32,11 @@
 		<div class="usage-report-container__main-area">
 			<div class="usage-report-container__main-area__info-area">
 				<div class="usage-report-container__main-area__info-area__item">
-					<h1>Storage GBh</h1>
+					<h1>Storage, GBh</h1>
 					<h2>{{storage}}</h2>
 				</div>
 				<div class="usage-report-container__main-area__info-area__item">
-					<h1>Egress GBh</h1>
+					<h1>Egress, GB</h1>
 					<h2>{{egress}}</h2>
 				</div>
 				<div class="usage-report-container__main-area__info-area__item">

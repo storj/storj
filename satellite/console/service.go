@@ -151,16 +151,23 @@ func (s *Service) GenerateActivationToken(ctx context.Context, id uuid.UUID, ema
 }
 
 // GeneratePasswordRecoveryToken - is a method for generating password recovery token
-func (s *Service) GeneratePasswordRecoveryToken(ctx context.Context, id uuid.UUID, email string) (token string, err error) {
+func (s *Service) GeneratePasswordRecoveryToken(ctx context.Context, id uuid.UUID) (token string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	claims := &consoleauth.Claims{
-		ID:         id,
-		Email:      email,
-		Expiration: time.Now().Add(time.Hour),
+	resetPasswordToken, err := s.store.ResetPasswordTokens().GetByOwnerID(ctx, id)
+	if err == nil {
+		err := s.store.ResetPasswordTokens().Delete(ctx, resetPasswordToken.Secret)
+		if err != nil {
+			return "", err
+		}
 	}
 
-	return s.createToken(claims)
+	resetPasswordToken, err = s.store.ResetPasswordTokens().Create(ctx, id)
+	if err != nil {
+		return "", err
+	}
+
+	return resetPasswordToken.Secret.String(), nil
 }
 
 // ActivateAccount - is a method for activating user account after registration
@@ -211,17 +218,16 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, password string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	token, err := consoleauth.FromBase64URLString(resetPasswordToken)
+	secret, err := ResetPasswordSecretFromBase64(resetPasswordToken)
+	if err != nil {
+		return
+	}
+	token, err := s.store.ResetPasswordTokens().GetBySecret(ctx, secret)
 	if err != nil {
 		return
 	}
 
-	claims, err := s.authenticate(token)
-	if err != nil {
-		return
-	}
-
-	user, err := s.store.Users().Get(ctx, claims.ID)
+	user, err := s.store.Users().Get(ctx, *token.OwnerID)
 	if err != nil {
 		return
 	}
@@ -230,7 +236,7 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 		return err
 	}
 
-	if time.Since(claims.Expiration) > 0 {
+	if time.Since(token.CreatedAt) > tokenExpirationTime {
 		return errs.New(passwordRecoveryTokenIsExpiredErrMsg)
 	}
 
@@ -240,7 +246,25 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 	}
 
 	user.PasswordHash = hash
-	return s.store.Users().Update(ctx, user)
+
+	err = s.store.Users().Update(ctx, user)
+	if err != nil {
+		return err
+	}
+
+	return s.store.ResetPasswordTokens().Delete(ctx, token.Secret)
+}
+
+// RevokeResetPasswordToken - is a method to revoke reset password token
+func (s *Service) RevokeResetPasswordToken(ctx context.Context, resetPasswordToken string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	secret, err := ResetPasswordSecretFromBase64(resetPasswordToken)
+	if err != nil {
+		return
+	}
+
+	return s.store.ResetPasswordTokens().Delete(ctx, secret)
 }
 
 // Token authenticates User by credentials and returns auth token
@@ -275,10 +299,6 @@ func (s *Service) Token(ctx context.Context, email, password string) (token stri
 // GetUser returns User by id
 func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = GetAuth(ctx)
-	if err != nil {
-		return nil, err
-	}
 
 	user, err := s.store.Users().Get(ctx, id)
 	if err != nil {
