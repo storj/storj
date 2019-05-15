@@ -19,34 +19,24 @@ In these cases, unneeded data is considered garbage.
 - When a satellite makes a repair and drops the node
 - When the client stops paying their bills
 - Uplink uploads data without committing it
-
-### Today's implementation
-**Repair**
-- When a repair is issued and a storage node is removed from the pointer
-
-**Delete**
-1. When a delete object command is issued, the uplink retrieves the list of segments for this object, and Delete is called on each segment.
-2. A delete segment request is sent to the satellite. 
-3. The satellite deletes the segment and sends the order limits for deleting the segment on known online storage nodes.
-4. A delete piece request is sent by the uplink to the corresponding storage node for each addressed order limit.
+The garbage collection process should not depend on how garbage is created.
 
 ## Design
-### Deletion Process
-- The satellite keeps track of pieces and corresponding storage nodes by creating a new bloom filter for every storage node.
-    - The satellite creates the in-memory bloom filters using storage node IDs and piece IDs gotten from the pointerdb.
-    - As an early implementation, this bloom filter creation process can be integrated with the data repair checker loop that periodically accesses the pointerdb. This will lessen pointerdb overhead vs. creating a new process.
-- The satellite periodically pushes a bloom filter (or cuckoo filter) containing the list of piece IDs for the storage node to delete.
-    - If the storage node misses the push because it's offline, it will just miss that GC cycle and catch the next one.
--  Each bloom filter will have a certain creation datetime. The storage node walks all pieces older than the bloom filter datetime and checks whether the piece exists in the bloom filter, if not then deletes it.
-    - There could also be some additional short time period (e.g. one hour) to be sure that it covered possible differences in the clocks. Storage nodes need to be accurate within an hour or they will suffer reputation failure.
-
-### Garbage Collection
-#### Approach from the whitepaper
+### Approach from the whitepaper
 - The uplink makes a request to the satellite 
 - The satellite replies with a hash of the pieces the storage node should be holding
 - If the storage node detects a difference, it makes a second request to the satellite
 - The satellite replies with the bloom filter of the pieces the storage node should keep
 - Upon receiving the bloom filter, the storage node checks, for each piece, if it is in the set. If it is not, it deletes it. The storage node may still hold deleted pieces, as bloom filter can trigger a false positive.
+
+### Selected Approach
+- The satellite keeps track of pieces and corresponding storage nodes by creating a new bloom filter for every storage node.
+    - The satellite creates the in-memory bloom filters using storage node IDs and piece IDs gotten from the pointerdb.
+    - As an early implementation, this bloom filter creation process can be integrated with the data repair checker loop that periodically accesses the pointerdb. This will lessen pointerdb overhead vs. creating a new process.
+- The satellite periodically pushes a bloom filter (or cuckoo filter) containing the list of piece IDs it expects the storage node to be holding.
+    - If the storage node misses the push because it's offline, it will just miss that GC cycle and catch the next one.
+-  Each bloom filter will have a certain creation datetime. The storage node walks all pieces older than the bloom filter datetime and checks whether the piece exists in the bloom filter, if not then deletes it.
+    - There could also be some additional short time period (e.g. one hour) to be sure that it covered possible differences in the clocks. Storage nodes need to be accurate within an hour or they will suffer reputation failure.
 
 ### Service
 ```protobuf
@@ -62,6 +52,13 @@ message DeleteRequest {
     Filter filter = 1;
 }
 ```
+### Probabilistic data set
+```go
+type ProbabilisticSet interface {
+    inSet(pieceId storj.PieceID) bool
+    add(piecesId storj.PieceID)
+}
+``` 
 
 #### Bloom filter
 A bloom filter is a probabilistic data structure used to test if an element belongs to a set. It can raise false positives, but no false negatives. 
@@ -83,7 +80,10 @@ Previously we'd planned on building reverse index functionality for pointerdb, b
 
 Whether we use Bloom filters, cuckoo filters, or another data structure for adding up data at rest, we need to make sure that it's something we can do concurrently, and then merge later. At some point we'll need to partition the garbage collection service.
 
+
 ## Rationale
+
+### Bloom filters vs. cuckoo filters
 
 ### Interesting figures
 - piece id size: currently 32 bytes
@@ -143,10 +143,6 @@ What could we send the node:
 |32	|22.2	|0.0308	|0.00367|	0.000717	|0.000191|	6.33e-05|	2.5e-05|	1.13e-05|	5.73e-06|
 
 see: [Bloom filter math](http://pages.cs.wisc.edu/~cao/papers/summary-cache/node8.html)
-#### Hash functions choice
-
-### Integration of deleted segments in the audit system
-*Should we and how we integrate deletion in the audit system?*
 
 ## Implementation
 - Determine if a Bloom filter or cuckoo filter would make the most sense for associating nodes with pieces that need to be deleted
@@ -157,12 +153,4 @@ see: [Bloom filter math](http://pages.cs.wisc.edu/~cao/papers/summary-cache/node
 - Storage node should use the filter from the Delete request to decide which pieces to delete, then delete them
 - Eventually, this service should iterate over a db snapshot instead of being integrated with the data repair checker
 
-## Open issues (if applicable)
-Q: What is a deleted segment?
-- A segment that has no recoverable metadata
-- A segment that has no recoverable metadata and is, even with metadata, not repairable
-- Something else?
-
-The whitepaper states that a proof of deletion should be sent from the uplink to the satellite. 
-- What is the expected behavior in this case? Is the deletion canceled if no proof is received? 
-- Do we introduce a “prepare-to-delete” state, and what should happen if the proof of deletion never comes?
+## Open issues
