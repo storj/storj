@@ -120,11 +120,11 @@ import { setUserId } from '@/utils/consoleLocalStorage';
                 self.createUser();
             },
             onLogoClick: function (): void {
-                this.analytics.track(EVENTS.CLICKED_LOGO);
+                this.$segment.track(EVENTS.CLICKED_LOGO);
                 location.reload();
             },
             onLoginClick: function (): void {
-                this.analytics.track(EVENTS.CLICKED_LOGIN);
+                this.$segment.track(EVENTS.CLICKED_LOGIN);
                 this.$router.push(ROUTES.LOGIN.path);
             },
         },
