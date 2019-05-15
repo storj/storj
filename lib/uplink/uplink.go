@@ -155,7 +155,8 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey A
 		return nil, Error.New("failed to create redundancy strategy: %v", err)
 	}
 	segments := segments.NewSegmentStore(metainfo, nil, rs, maxBucketMetaSize.Int(), maxBucketMetaSize.Int64())
-	// volatile warning: we're setting an encryption key of all zeros when one isn't provided.
+	// volatile warning: we're setting an encryption key of all zeros, but there
+	// just shouldn't be an encryption key here at all.
 	// TODO: fix before the final alpha network wipe
 	encryptionKey := new(storj.Key)
 	streams, err := streams.NewStreamStore(segments, maxBucketMetaSize.Int64(),
