@@ -386,6 +386,15 @@ CREATE TABLE nodes (
 	contained boolean NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE pending_audits (
+	node_id bytea NOT NULL,
+	piece_id bytea NOT NULL,
+	stripe_index bigint NOT NULL,
+	share_size bigint NOT NULL,
+	expected_share_hash bytea NOT NULL,
+	reverify_count bigint NOT NULL,
+	PRIMARY KEY ( node_id )
+);
 CREATE TABLE projects (
 	id bytea NOT NULL,
 	name text NOT NULL,
@@ -643,6 +652,15 @@ CREATE TABLE nodes (
 	last_contact_failure TIMESTAMP NOT NULL,
 	contained INTEGER NOT NULL,
 	PRIMARY KEY ( id )
+);
+CREATE TABLE pending_audits (
+	node_id BLOB NOT NULL,
+	piece_id BLOB NOT NULL,
+	stripe_index INTEGER NOT NULL,
+	share_size INTEGER NOT NULL,
+	expected_share_hash BLOB NOT NULL,
+	reverify_count INTEGER NOT NULL,
+	PRIMARY KEY ( node_id )
 );
 CREATE TABLE projects (
 	id BLOB NOT NULL,
@@ -2599,6 +2617,135 @@ func (f Node_Contained_Field) value() interface{} {
 
 func (Node_Contained_Field) _Column() string { return "contained" }
 
+type PendingAudits struct {
+	NodeId            []byte
+	PieceId           []byte
+	StripeIndex       int64
+	ShareSize         int64
+	ExpectedShareHash []byte
+	ReverifyCount     int64
+}
+
+func (PendingAudits) _Table() string { return "pending_audits" }
+
+type PendingAudits_Update_Fields struct {
+	ReverifyCount PendingAudits_ReverifyCount_Field
+}
+
+type PendingAudits_NodeId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func PendingAudits_NodeId(v []byte) PendingAudits_NodeId_Field {
+	return PendingAudits_NodeId_Field{_set: true, _value: v}
+}
+
+func (f PendingAudits_NodeId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PendingAudits_NodeId_Field) _Column() string { return "node_id" }
+
+type PendingAudits_PieceId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func PendingAudits_PieceId(v []byte) PendingAudits_PieceId_Field {
+	return PendingAudits_PieceId_Field{_set: true, _value: v}
+}
+
+func (f PendingAudits_PieceId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PendingAudits_PieceId_Field) _Column() string { return "piece_id" }
+
+type PendingAudits_StripeIndex_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func PendingAudits_StripeIndex(v int64) PendingAudits_StripeIndex_Field {
+	return PendingAudits_StripeIndex_Field{_set: true, _value: v}
+}
+
+func (f PendingAudits_StripeIndex_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PendingAudits_StripeIndex_Field) _Column() string { return "stripe_index" }
+
+type PendingAudits_ShareSize_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func PendingAudits_ShareSize(v int64) PendingAudits_ShareSize_Field {
+	return PendingAudits_ShareSize_Field{_set: true, _value: v}
+}
+
+func (f PendingAudits_ShareSize_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PendingAudits_ShareSize_Field) _Column() string { return "share_size" }
+
+type PendingAudits_ExpectedShareHash_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func PendingAudits_ExpectedShareHash(v []byte) PendingAudits_ExpectedShareHash_Field {
+	return PendingAudits_ExpectedShareHash_Field{_set: true, _value: v}
+}
+
+func (f PendingAudits_ExpectedShareHash_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PendingAudits_ExpectedShareHash_Field) _Column() string { return "expected_share_hash" }
+
+type PendingAudits_ReverifyCount_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func PendingAudits_ReverifyCount(v int64) PendingAudits_ReverifyCount_Field {
+	return PendingAudits_ReverifyCount_Field{_set: true, _value: v}
+}
+
+func (f PendingAudits_ReverifyCount_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PendingAudits_ReverifyCount_Field) _Column() string { return "reverify_count" }
+
 type Project struct {
 	Id          []byte
 	Name        string
@@ -3788,6 +3935,35 @@ type Value_Row struct {
 	Value time.Time
 }
 
+func (obj *postgresImpl) Create_PendingAudits(ctx context.Context,
+	pending_audits_node_id PendingAudits_NodeId_Field,
+	pending_audits_piece_id PendingAudits_PieceId_Field,
+	pending_audits_stripe_index PendingAudits_StripeIndex_Field,
+	pending_audits_share_size PendingAudits_ShareSize_Field,
+	pending_audits_expected_share_hash PendingAudits_ExpectedShareHash_Field,
+	pending_audits_reverify_count PendingAudits_ReverifyCount_Field) (
+	pending_audits *PendingAudits, err error) {
+	__node_id_val := pending_audits_node_id.value()
+	__piece_id_val := pending_audits_piece_id.value()
+	__stripe_index_val := pending_audits_stripe_index.value()
+	__share_size_val := pending_audits_share_size.value()
+	__expected_share_hash_val := pending_audits_expected_share_hash.value()
+	__reverify_count_val := pending_audits_reverify_count.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO pending_audits ( node_id, piece_id, stripe_index, share_size, expected_share_hash, reverify_count ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING pending_audits.node_id, pending_audits.piece_id, pending_audits.stripe_index, pending_audits.share_size, pending_audits.expected_share_hash, pending_audits.reverify_count")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __node_id_val, __piece_id_val, __stripe_index_val, __share_size_val, __expected_share_hash_val, __reverify_count_val)
+
+	pending_audits = &PendingAudits{}
+	err = obj.driver.QueryRow(__stmt, __node_id_val, __piece_id_val, __stripe_index_val, __share_size_val, __expected_share_hash_val, __reverify_count_val).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return pending_audits, nil
+
+}
+
 func (obj *postgresImpl) Create_Irreparabledb(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	irreparabledb_segmentdetail Irreparabledb_Segmentdetail_Field,
@@ -4261,6 +4437,27 @@ func (obj *postgresImpl) Create_ResetPasswordToken(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return reset_password_token, nil
+
+}
+
+func (obj *postgresImpl) Get_PendingAudits_By_NodeId(ctx context.Context,
+	pending_audits_node_id PendingAudits_NodeId_Field) (
+	pending_audits *PendingAudits, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT pending_audits.node_id, pending_audits.piece_id, pending_audits.stripe_index, pending_audits.share_size, pending_audits.expected_share_hash, pending_audits.reverify_count FROM pending_audits WHERE pending_audits.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, pending_audits_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	pending_audits = &PendingAudits{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return pending_audits, nil
 
 }
 
@@ -5276,6 +5473,46 @@ func (obj *postgresImpl) Get_ResetPasswordToken_By_OwnerId(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Update_PendingAudits_By_NodeId(ctx context.Context,
+	pending_audits_node_id PendingAudits_NodeId_Field,
+	update PendingAudits_Update_Fields) (
+	pending_audits *PendingAudits, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE pending_audits SET "), __sets, __sqlbundle_Literal(" WHERE pending_audits.node_id = ? RETURNING pending_audits.node_id, pending_audits.piece_id, pending_audits.stripe_index, pending_audits.share_size, pending_audits.expected_share_hash, pending_audits.reverify_count")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.ReverifyCount._set {
+		__values = append(__values, update.ReverifyCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("reverify_count = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, pending_audits_node_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	pending_audits = &PendingAudits{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return pending_audits, nil
+}
+
 func (obj *postgresImpl) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	update Irreparabledb_Update_Fields) (
@@ -5738,6 +5975,32 @@ func (obj *postgresImpl) Update_RegistrationToken_By_Secret(ctx context.Context,
 	return registration_token, nil
 }
 
+func (obj *postgresImpl) Delete_PendingAudits_By_NodeId(ctx context.Context,
+	pending_audits_node_id PendingAudits_NodeId_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM pending_audits WHERE pending_audits.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, pending_audits_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *postgresImpl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 	deleted bool, err error) {
@@ -6164,6 +6427,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM pending_audits;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM nodes;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -6266,6 +6539,38 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 	count += __count
 
 	return count, nil
+
+}
+
+func (obj *sqlite3Impl) Create_PendingAudits(ctx context.Context,
+	pending_audits_node_id PendingAudits_NodeId_Field,
+	pending_audits_piece_id PendingAudits_PieceId_Field,
+	pending_audits_stripe_index PendingAudits_StripeIndex_Field,
+	pending_audits_share_size PendingAudits_ShareSize_Field,
+	pending_audits_expected_share_hash PendingAudits_ExpectedShareHash_Field,
+	pending_audits_reverify_count PendingAudits_ReverifyCount_Field) (
+	pending_audits *PendingAudits, err error) {
+	__node_id_val := pending_audits_node_id.value()
+	__piece_id_val := pending_audits_piece_id.value()
+	__stripe_index_val := pending_audits_stripe_index.value()
+	__share_size_val := pending_audits_share_size.value()
+	__expected_share_hash_val := pending_audits_expected_share_hash.value()
+	__reverify_count_val := pending_audits_reverify_count.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO pending_audits ( node_id, piece_id, stripe_index, share_size, expected_share_hash, reverify_count ) VALUES ( ?, ?, ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __node_id_val, __piece_id_val, __stripe_index_val, __share_size_val, __expected_share_hash_val, __reverify_count_val)
+
+	__res, err := obj.driver.Exec(__stmt, __node_id_val, __piece_id_val, __stripe_index_val, __share_size_val, __expected_share_hash_val, __reverify_count_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastPendingAudits(ctx, __pk)
 
 }
 
@@ -6790,6 +7095,27 @@ func (obj *sqlite3Impl) Create_ResetPasswordToken(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return obj.getLastResetPasswordToken(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Get_PendingAudits_By_NodeId(ctx context.Context,
+	pending_audits_node_id PendingAudits_NodeId_Field) (
+	pending_audits *PendingAudits, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT pending_audits.node_id, pending_audits.piece_id, pending_audits.stripe_index, pending_audits.share_size, pending_audits.expected_share_hash, pending_audits.reverify_count FROM pending_audits WHERE pending_audits.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, pending_audits_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	pending_audits = &PendingAudits{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return pending_audits, nil
 
 }
 
@@ -7805,6 +8131,56 @@ func (obj *sqlite3Impl) Get_ResetPasswordToken_By_OwnerId(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Update_PendingAudits_By_NodeId(ctx context.Context,
+	pending_audits_node_id PendingAudits_NodeId_Field,
+	update PendingAudits_Update_Fields) (
+	pending_audits *PendingAudits, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE pending_audits SET "), __sets, __sqlbundle_Literal(" WHERE pending_audits.node_id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.ReverifyCount._set {
+		__values = append(__values, update.ReverifyCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("reverify_count = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, pending_audits_node_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	pending_audits = &PendingAudits{}
+	_, err = obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT pending_audits.node_id, pending_audits.piece_id, pending_audits.stripe_index, pending_audits.share_size, pending_audits.expected_share_hash, pending_audits.reverify_count FROM pending_audits WHERE pending_audits.node_id = ?")
+
+	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
+	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
+
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return pending_audits, nil
+}
+
 func (obj *sqlite3Impl) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	update Irreparabledb_Update_Fields) (
@@ -8347,6 +8723,32 @@ func (obj *sqlite3Impl) Update_RegistrationToken_By_Secret(ctx context.Context,
 	return registration_token, nil
 }
 
+func (obj *sqlite3Impl) Delete_PendingAudits_By_NodeId(ctx context.Context,
+	pending_audits_node_id PendingAudits_NodeId_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM pending_audits WHERE pending_audits.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, pending_audits_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *sqlite3Impl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 	deleted bool, err error) {
@@ -8657,6 +9059,24 @@ func (obj *sqlite3Impl) Delete_ResetPasswordToken_By_Secret(ctx context.Context,
 	}
 
 	return __count > 0, nil
+
+}
+
+func (obj *sqlite3Impl) getLastPendingAudits(ctx context.Context,
+	pk int64) (
+	pending_audits *PendingAudits, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT pending_audits.node_id, pending_audits.piece_id, pending_audits.stripe_index, pending_audits.share_size, pending_audits.expected_share_hash, pending_audits.reverify_count FROM pending_audits WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	pending_audits = &PendingAudits{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return pending_audits, nil
 
 }
 
@@ -9066,6 +9486,16 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM pending_audits;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM nodes;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -9459,6 +9889,22 @@ func (rx *Rx) Create_Node(ctx context.Context,
 
 }
 
+func (rx *Rx) Create_PendingAudits(ctx context.Context,
+	pending_audits_node_id PendingAudits_NodeId_Field,
+	pending_audits_piece_id PendingAudits_PieceId_Field,
+	pending_audits_stripe_index PendingAudits_StripeIndex_Field,
+	pending_audits_share_size PendingAudits_ShareSize_Field,
+	pending_audits_expected_share_hash PendingAudits_ExpectedShareHash_Field,
+	pending_audits_reverify_count PendingAudits_ReverifyCount_Field) (
+	pending_audits *PendingAudits, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_PendingAudits(ctx, pending_audits_node_id, pending_audits_piece_id, pending_audits_stripe_index, pending_audits_share_size, pending_audits_expected_share_hash, pending_audits_reverify_count)
+
+}
+
 func (rx *Rx) Create_Project(ctx context.Context,
 	project_id Project_Id_Field,
 	project_name Project_Name_Field,
@@ -9620,6 +10066,16 @@ func (rx *Rx) Delete_Node_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Delete_Node_By_Id(ctx, node_id)
+}
+
+func (rx *Rx) Delete_PendingAudits_By_NodeId(ctx context.Context,
+	pending_audits_node_id PendingAudits_NodeId_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_PendingAudits_By_NodeId(ctx, pending_audits_node_id)
 }
 
 func (rx *Rx) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
@@ -9807,6 +10263,16 @@ func (rx *Rx) Get_Node_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Get_Node_By_Id(ctx, node_id)
+}
+
+func (rx *Rx) Get_PendingAudits_By_NodeId(ctx context.Context,
+	pending_audits_node_id PendingAudits_NodeId_Field) (
+	pending_audits *PendingAudits, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_PendingAudits_By_NodeId(ctx, pending_audits_node_id)
 }
 
 func (rx *Rx) Get_Project_By_Id(ctx context.Context,
@@ -10002,6 +10468,17 @@ func (rx *Rx) Update_Node_By_Id(ctx context.Context,
 	return tx.Update_Node_By_Id(ctx, node_id, update)
 }
 
+func (rx *Rx) Update_PendingAudits_By_NodeId(ctx context.Context,
+	pending_audits_node_id PendingAudits_NodeId_Field,
+	update PendingAudits_Update_Fields) (
+	pending_audits *PendingAudits, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_PendingAudits_By_NodeId(ctx, pending_audits_node_id, update)
+}
+
 func (rx *Rx) Update_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field,
 	update Project_Update_Fields) (
@@ -10166,6 +10643,15 @@ type Methods interface {
 		node_contained Node_Contained_Field) (
 		node *Node, err error)
 
+	Create_PendingAudits(ctx context.Context,
+		pending_audits_node_id PendingAudits_NodeId_Field,
+		pending_audits_piece_id PendingAudits_PieceId_Field,
+		pending_audits_stripe_index PendingAudits_StripeIndex_Field,
+		pending_audits_share_size PendingAudits_ShareSize_Field,
+		pending_audits_expected_share_hash PendingAudits_ExpectedShareHash_Field,
+		pending_audits_reverify_count PendingAudits_ReverifyCount_Field) (
+		pending_audits *PendingAudits, err error)
+
 	Create_Project(ctx context.Context,
 		project_id Project_Id_Field,
 		project_name Project_Name_Field,
@@ -10235,6 +10721,10 @@ type Methods interface {
 
 	Delete_Node_By_Id(ctx context.Context,
 		node_id Node_Id_Field) (
+		deleted bool, err error)
+
+	Delete_PendingAudits_By_NodeId(ctx context.Context,
+		pending_audits_node_id PendingAudits_NodeId_Field) (
 		deleted bool, err error)
 
 	Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
@@ -10314,6 +10804,10 @@ type Methods interface {
 	Get_Node_By_Id(ctx context.Context,
 		node_id Node_Id_Field) (
 		node *Node, err error)
+
+	Get_PendingAudits_By_NodeId(ctx context.Context,
+		pending_audits_node_id PendingAudits_NodeId_Field) (
+		pending_audits *PendingAudits, err error)
 
 	Get_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
@@ -10399,6 +10893,11 @@ type Methods interface {
 		node_id Node_Id_Field,
 		update Node_Update_Fields) (
 		node *Node, err error)
+
+	Update_PendingAudits_By_NodeId(ctx context.Context,
+		pending_audits_node_id PendingAudits_NodeId_Field,
+		update PendingAudits_Update_Fields) (
+		pending_audits *PendingAudits, err error)
 
 	Update_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field,
