@@ -58,7 +58,7 @@ func TestOffline(t *testing.T) {
 func BenchmarkOffline(b *testing.B) {
 	satellitedbtest.Bench(b, func(b *testing.B, db satellite.DB) {
 		const (
-			TotalNodeCount = 1000
+			TotalNodeCount = 200
 			OnlineCount    = 90
 			OfflineCount   = 10
 		)
@@ -66,10 +66,7 @@ func BenchmarkOffline(b *testing.B) {
 		overlaydb := db.OverlayCache()
 		ctx := context.Background()
 
-		var online []storj.NodeID
-		var offline []storj.NodeID
-
-		nodes := make(map[storj.NodeID]bool, TotalNodeCount)
+		var check []storj.NodeID
 		for i := 0; i < TotalNodeCount; i++ {
 			var id storj.NodeID
 			_, _ = rand.Read(id[:]) // math/rand never returns error
@@ -77,14 +74,9 @@ func BenchmarkOffline(b *testing.B) {
 			overlaydb.UpdateAddress(ctx, &pb.Node{
 				Id: id,
 			})
-			nodes[id] = true
-		}
-
-		// pick random node ids to check
-		for id := range nodes {
-			online = append(online, id)
-			if len(online) >= OnlineCount {
-				break
+			
+			if i < OnlineCount {
+				check = append(check, id)
 			}
 		}
 
@@ -92,31 +84,23 @@ func BenchmarkOffline(b *testing.B) {
 		for i := 0; i < OfflineCount; i++ {
 			var id storj.NodeID
 			_, _ = rand.Read(id[:]) // math/rand never returns error
-			offline = append(offline, id)
+			check = append(check, id)
 		}
-
-		var check []storj.NodeID
-		check = append(check, offline...)
-		check = append(check, online...)
 
 		criteria := &overlay.NodeCriteria{
 			AuditCount:         0,
-			AuditSuccessRatio:  0,
+			AuditSuccessRatio:  0.5,
 			OnlineWindow:       1000 * time.Hour,
 			UptimeCount:        0,
-			UptimeSuccessRatio: 0,
+			UptimeSuccessRatio: 0.5,
 		}
 
 		b.ResetTimer()
 		defer b.StopTimer()
 		for i := 0; i < b.N; i++ {
 			badNodes, err := overlaydb.KnownUnreliableOrOffline(ctx, criteria, check)
-			if err != nil {
-				b.Fatal(err)
-			}
-			if len(badNodes) != len(offline) {
-				require.Len(b, badNodes, len(offline))
-			}
+			require.NoError(b, err)
+			require.Len(b, badNodes, OfflineCount)
 		}
 	})
 }
