@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/dbutil/pgutil"
@@ -98,7 +99,7 @@ func Bench(b *testing.B, bench func(b *testing.B, db satellite.DB)) {
 				b.Skipf("Database %s connection string not provided. %s", dbInfo.Name, dbInfo.Message)
 			}
 
-			log := zaptest.NewLogger(b)
+			log := zap.NewNop()
 
 			schema := strings.ToLower(b.Name() + "-satellite/x-" + schemaSuffix)
 			connstr := pgutil.ConnstrWithSchema(dbInfo.URL, schema)
