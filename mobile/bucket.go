@@ -220,6 +220,15 @@ func (bucket *Bucket) ListObjects(options *ListOptions) (*ObjectList, error) {
 	return &ObjectList{list}, nil
 }
 
+func (bucket *Bucket) OpenObject(objectPath string) (*ObjectInfo, error) {
+	scope := bucket.scope.child()
+	object, err := bucket.lib.OpenObject(scope.ctx, objectPath)
+	if err != nil {
+		return nil, err
+	}
+	return newObjectInfoFromObjectMeta(object.Meta), nil
+}
+
 // DeleteObject removes an object, if authorized.
 func (bucket *Bucket) DeleteObject(objectPath string) error {
 	scope := bucket.scope.child()

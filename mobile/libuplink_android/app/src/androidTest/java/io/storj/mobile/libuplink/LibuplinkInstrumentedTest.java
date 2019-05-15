@@ -337,7 +337,7 @@ public class LibuplinkInstrumentedTest {
 
                 for (int i = 0; i < list.length(); i++) {
                     ObjectInfo info = list.item(i);
-                    assertEquals("testBucket", info.getBucket().getName());
+                    assertEquals("testBucket", info.getBucket());
                     assertTrue(info.getCreated() >= before);
 
                     // cleanup
