@@ -27,26 +27,6 @@ type ObjectInfo struct {
 	// object storj.Object
 }
 
-// func (bl *ObjectInfo) GetVersion() int32 {
-// 	return int32(bl.object.Version)
-// }
-
-// func (bl *ObjectInfo) GetBucket() *BucketInfo {
-// 	return &BucketInfo{bl.object.Bucket}
-// }
-
-// func (bl *ObjectInfo) GetPath() string {
-// 	return bl.object.Path
-// }
-
-// func (bl *ObjectInfo) IsPrefix() bool {
-// 	return bl.object.IsPrefix
-// }
-
-// func (bl *ObjectInfo) GetSize() int64 {
-// 	return bl.object.Size
-// }
-
 func newObjectInfoFromObject(object storj.Object) *ObjectInfo {
 	return &ObjectInfo{
 		Version:     int32(object.Version),
@@ -81,22 +61,6 @@ func newObjectInfoFromObjectMeta(objectMeta libuplink.ObjectMeta) *ObjectInfo {
 func (bl *ObjectInfo) GetMetadata(key string) string {
 	return bl.metadata[key]
 }
-
-// func (bl *ObjectInfo) GetContentType() string {
-// 	return bl.object.ContentType
-// }
-
-// func (bl *ObjectInfo) GetCreated() int64 {
-// 	return bl.object.Created.UTC().UnixNano() / int64(time.Millisecond)
-// }
-
-// func (bl *ObjectInfo) GetModified() int64 {
-// 	return bl.object.Modified.UTC().UnixNano() / int64(time.Millisecond)
-// }
-
-// func (bl *ObjectInfo) GetExpires() int64 {
-// 	return bl.object.Expires.UTC().UnixNano() / int64(time.Millisecond)
-// }
 
 type ObjectList struct {
 	list storj.ObjectList

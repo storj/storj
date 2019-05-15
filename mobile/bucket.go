@@ -303,6 +303,10 @@ func (w *Writer) Write(data []byte, offset, length int32) (int32, error) {
 	return int32(n), err
 }
 
+func (w *Writer) Cancel() {
+	w.cancel()
+}
+
 // Close closes writer
 func (w *Writer) Close() error {
 	defer w.cancel()
@@ -339,6 +343,10 @@ func (r *Reader) Read(data []byte) (int32, error) {
 		return -1, nil
 	}
 	return int32(n), err
+}
+
+func (r *Reader) Cancel() {
+	r.cancel()
 }
 
 func (r *Reader) Close() error {
