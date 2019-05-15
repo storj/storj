@@ -547,6 +547,7 @@ func convertDBNode(info *dbx.Node) (*overlay.NodeDossier, error) {
 			Timestamp:  pbts,
 			Release:    info.Release,
 		},
+		Contained: info.Contained,
 	}
 
 	return node, nil

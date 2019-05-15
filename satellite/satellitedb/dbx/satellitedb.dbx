@@ -119,6 +119,8 @@ model node (
 	field updated_at           timestamp ( autoinsert, autoupdate )
 	field last_contact_success timestamp ( updatable )
 	field last_contact_failure timestamp ( updatable )
+
+	field contained bool ( updatable )
 )
 
 create node ( )

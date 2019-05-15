@@ -95,6 +95,7 @@ type NodeDossier struct {
 	Capacity   pb.NodeCapacity
 	Reputation NodeStats
 	Version    pb.NodeVersion
+	Contained  bool
 }
 
 // NodeStats contains statistics about a node.

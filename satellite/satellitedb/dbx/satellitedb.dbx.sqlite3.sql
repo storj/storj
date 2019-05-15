@@ -111,6 +111,7 @@ CREATE TABLE nodes (
 	updated_at TIMESTAMP NOT NULL,
 	last_contact_success TIMESTAMP NOT NULL,
 	last_contact_failure TIMESTAMP NOT NULL,
+	contained INTEGER NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE projects (

@@ -111,6 +111,7 @@ CREATE TABLE nodes (
 	updated_at timestamp with time zone NOT NULL,
 	last_contact_success timestamp with time zone NOT NULL,
 	last_contact_failure timestamp with time zone NOT NULL,
+	contained boolean NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE projects (
