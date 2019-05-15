@@ -10,7 +10,7 @@ import (
 // Error is the default audit errs class
 var Error = errs.Class("audit error")
 
-// ContainError the containment errs class
+// ContainError is the containment errs class
 var ContainError = errs.Class("containment error")
 
 // ErrContainedNotFound is the errs class for when a pending audit isn't found

@@ -35,6 +35,7 @@ func (containment *containment) Get(ctx context.Context, id pb.NodeID) (*audit.P
 	return convertDBPending(pending)
 }
 
+// IncrementPending will create a new pending audit entry, or increase its reverify count if it already exists
 func (containment *containment) IncrementPending(ctx context.Context, pendingAudit *audit.PendingAudit) error {
 	statement := containment.db.Rebind(
 		`INSERT INTO pending_audits (node_id, piece_id, stripe_index, share_size, expected_share_hash, reverify_count)
