@@ -32,7 +32,7 @@
 					<h2>{{egress}}</h2>
 				</div>
 				<div class="usage-report-container__main-area__info-area__item">
-					<h1>Objects per Hour</h1>
+					<h1>Object Hours</h1>
 					<h2>{{objectsCount}}</h2>
 				</div>
 			</div>
