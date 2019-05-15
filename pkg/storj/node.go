@@ -7,7 +7,6 @@ import (
 	"crypto/sha256"
 	"crypto/x509/pkix"
 	"database/sql/driver"
-	"encoding/hex"
 	"math/bits"
 
 	"github.com/btcsuite/btcutil/base58"
@@ -244,38 +243,3 @@ func (n NodeIDList) Swap(i, j int) { n[i], n[j] = n[j], n[i] }
 
 // Less implements sort.Interface.Less()
 func (n NodeIDList) Less(i, j int) bool { return n[i].Less(n[j]) }
-
-// Value converts a NodeIDList to a database field
-func (n NodeIDList) Value() (driver.Value, error) {
-	if n == nil {
-		return nil, nil
-	}
-	if len(n) == 0 {
-		return []byte("{}"), nil
-	}
-
-	var wp, x int
-	out := make([]byte, 2 + len(n) * (6 + NodeIDSize*2) - 1)
-	
-	x = copy(out[wp:], []byte(`{"\\x`))
-	wp += x
-
-	for i := range n {
-		x = hex.Encode(out[wp:], n[i].Bytes())
-		wp += x
-		if i +1 < len(n) {
-			x = copy(out[wp:], []byte(`","\\x`))
-			wp += x
-		}
-	}
-
-	x = copy(out[wp:], `"}`)
-	wp += x
-
-	if wp != len(out) {
-		println(wp, len(out))
-		panic("unreachable")
-	}
-
-	return out, nil
-}
