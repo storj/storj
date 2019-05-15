@@ -86,7 +86,6 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					if err != nil {
 						return nil, err
 					}
-
 					log.Error("register: failed to create account",
 						zap.String("rawSecret", secretInput),
 						zap.Error(err))
