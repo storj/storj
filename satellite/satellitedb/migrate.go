@@ -663,6 +663,27 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				Description: "Create new tables for free credits program",
+				Version:     21,
+				Action: migrate.SQL{`
+					CREATE TABLE offers (
+						id bytea NOT NULL,
+						name text NOT NULL,
+						description text NOT NULL,
+						type integer NOT NULL,
+						credit integer NOT NULL,
+						award_credit_duration integer NOT NULL,
+						invitee_credit_duration integer NOT NULL,
+						redeemable_cap integer NOT NULL,
+						num_redeemed integer NOT NULL,
+						offer_duration integer NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						status integer NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+				},
+			},
 		},
 	}
 }

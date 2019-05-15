@@ -564,3 +564,48 @@ read one (
     where reset_password_token.owner_id = ?
 )
 delete reset_password_token ( where reset_password_token.secret = ? )
+
+
+//--- offer table ---//
+
+model offer (
+	key id
+	
+	field id blob
+	field name text ( updatable )
+	field description text ( updatable )
+	field type int ( updatable )
+	
+	field credit int ( updatable ) 
+	field award_credit_duration int ( updatable )
+	field invitee_credit_duration int (updatable)
+
+	field redeemable_cap int ( updatable )
+	field num_redeemed int (updatable)
+
+	field offer_duration int ( updatable)
+	field created_at timestamp (autoinsert)
+
+	field status int ( updatable )
+)
+
+read one (
+    select offer
+    where offer.id = ?
+)
+
+read all ( select offer )
+
+read all (
+	select offer
+	where offer.status = ?
+)
+
+read all (
+	select offer
+	where offer.type = ?
+)
+
+create offer ( )
+update offer ( where offer.id = ? )
+delete offer ( where offer.id = ? )
