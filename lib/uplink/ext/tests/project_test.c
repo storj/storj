@@ -8,7 +8,7 @@
 #include "unity.h"
 #include "../uplink-cgo.h"
 
-extern gvUplink *NewTestUplink(char **);
+gvUplink *NewTestUplink(char **);
 
 void TestCreateBucket(void)
 {
