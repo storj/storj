@@ -58,7 +58,7 @@ func TestOffline(t *testing.T) {
 func BenchmarkOffline(b *testing.B) {
 	satellitedbtest.Bench(b, func(b *testing.B, db satellite.DB) {
 		const (
-			TotalNodeCount = 200
+			TotalNodeCount = 1000
 			OnlineCount    = 90
 			OfflineCount   = 10
 		)
