@@ -1,4 +1,19 @@
 -- Copied from the corresponding version of dbx generated schema
+CREATE TABLE offers (
+	id bytea NOT NULL,
+	name text NOT NULL,
+	description text NOT NULL,
+	type integer NOT NULL,
+	credit integer NOT NULL,
+	award_credit_duration_days integer NOT NULL,
+	invitee_credit_duration_days integer NOT NULL,
+	redeemable_cap integer NOT NULL,
+	num_redeemed integer NOT NULL,
+	offer_duration_days integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	status integer NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE pending_audits (
 	node_id bytea NOT NULL,
 	piece_id bytea NOT NULL,
