@@ -159,18 +159,18 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 	if len(nodeIds) == 0 {
 		return nil, Error.New("no ids provided")
 	}
-	args := make([]interface{}, len(nodeIds))
-	for i, id := range nodeIds {
-		args[i] = id.Bytes()
-	}
-	args = append(args, criteria.AuditSuccessRatio, criteria.UptimeSuccessRatio, time.Now().Add(-criteria.OnlineWindow))
 
 	// get reliable and online nodes
 	rows, err := cache.db.Query(cache.db.Rebind(`
 		SELECT id FROM nodes
-		WHERE id IN (?`+strings.Repeat(", ?", len(nodeIds)-1)+`)
-		AND audit_success_ratio >= ? AND uptime_ratio >= ? 
-		AND last_contact_success > ? AND last_contact_success > last_contact_failure`), args...)
+		WHERE audit_success_ratio >= ? AND uptime_ratio >= ? 
+		  AND last_contact_success > ? AND last_contact_success > last_contact_failure
+		  AND id = any(?::bytea[])
+		`),
+		criteria.AuditSuccessRatio, criteria.UptimeSuccessRatio,
+		time.Now().Add(-criteria.OnlineWindow),
+		nodeIds,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -178,17 +178,17 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 		err = errs.Combine(err, rows.Close())
 	}()
 
-	goodNodesMap := make(map[storj.NodeID]bool)
+	goodNodes := make(map[storj.NodeID]struct{})
 	for rows.Next() {
 		var id storj.NodeID
 		err = rows.Scan(&id)
 		if err != nil {
 			return nil, err
 		}
-		goodNodesMap[id] = true
+		goodNodes[id] = struct{}{}
 	}
 	for _, id := range nodeIds {
-		if !goodNodesMap[id] {
+		if _, ok := goodNodes[id]; !ok {
 			badNodes = append(badNodes, id)
 		}
 	}
