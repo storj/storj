@@ -8,8 +8,6 @@ import (
 	"crypto/subtle"
 	"time"
 
-	"storj.io/storj/pkg/macaroon"
-
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -17,6 +15,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
+	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/satellite/console/consoleauth"
 )
 
