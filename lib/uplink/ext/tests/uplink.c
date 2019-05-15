@@ -4,8 +4,6 @@
 #include <stdlib.h>
 #include "../headers/main.h"
 
-extern void Unpack(struct GoValue*, char**);
-
 // TODO: move into go?
 void *ConvertValue(struct GoValue *val, char **err)
 {
@@ -13,7 +11,7 @@ void *ConvertValue(struct GoValue *val, char **err)
     {
     case IDVersionType:
         Unpack(val, err);
-        return (void*)storj__libuplink__idversion__unpack(NULL, val->Size, val->Snapshot);
+        return (void *)storj__libuplink__idversion__unpack(NULL, val->Size, val->Snapshot);
     default:
         *err = "unknown type";
         return NULL;
