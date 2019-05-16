@@ -111,7 +111,17 @@ CREATE TABLE nodes (
 	updated_at TIMESTAMP NOT NULL,
 	last_contact_success TIMESTAMP NOT NULL,
 	last_contact_failure TIMESTAMP NOT NULL,
+	contained INTEGER NOT NULL,
 	PRIMARY KEY ( id )
+);
+CREATE TABLE pending_audits (
+	node_id BLOB NOT NULL,
+	piece_id BLOB NOT NULL,
+	stripe_index INTEGER NOT NULL,
+	share_size INTEGER NOT NULL,
+	expected_share_hash BLOB NOT NULL,
+	reverify_count INTEGER NOT NULL,
+	PRIMARY KEY ( node_id )
 );
 CREATE TABLE projects (
 	id BLOB NOT NULL,

@@ -1,13 +1,4 @@
 -- Copied from the corresponding version of dbx generated schema
-CREATE TABLE pending_audits (
-	node_id bytea NOT NULL,
-	piece_id bytea NOT NULL,
-	stripe_index bigint NOT NULL,
-	share_size bigint NOT NULL,
-	expected_share_hash bytea NOT NULL,
-	reverify_count bigint NOT NULL,
-	PRIMARY KEY ( node_id )
-);
 CREATE TABLE accounting_rollups (
 	id bigserial NOT NULL,
 	node_id bytea NOT NULL,
@@ -122,6 +113,15 @@ CREATE TABLE nodes (
 	contained boolean NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE pending_audits (
+	node_id bytea NOT NULL,
+	piece_id bytea NOT NULL,
+	stripe_index bigint NOT NULL,
+	share_size bigint NOT NULL,
+	expected_share_hash bytea NOT NULL,
+	reverify_count bigint NOT NULL,
+	PRIMARY KEY ( node_id )
+);
 CREATE TABLE projects (
 	id bytea NOT NULL,
 	name text NOT NULL,
@@ -136,6 +136,20 @@ CREATE TABLE registration_tokens (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
+);
+CREATE TABLE reset_password_tokens (
+	secret bytea NOT NULL,
+	owner_id bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( secret ),
+	UNIQUE ( owner_id )
+);
+CREATE TABLE revocations (
+	id bigserial NOT NULL,
+	head bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( head )
 );
 CREATE TABLE serial_numbers (
 	id serial NOT NULL,
@@ -173,11 +187,12 @@ CREATE TABLE users (
 CREATE TABLE api_keys (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-	key bytea NOT NULL,
+	head bytea NOT NULL,
 	name text NOT NULL,
+	secret bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id ),
-	UNIQUE ( key ),
+	UNIQUE ( head ),
 	UNIQUE ( name, project_id )
 );
 CREATE TABLE project_members (
@@ -190,13 +205,6 @@ CREATE TABLE used_serials (
 	serial_number_id integer NOT NULL REFERENCES serial_numbers( id ) ON DELETE CASCADE,
 	storage_node_id bytea NOT NULL,
 	PRIMARY KEY ( serial_number_id, storage_node_id )
-);
-CREATE TABLE reset_password_tokens (
-  secret bytea NOT NULL,
-  owner_id bytea NOT NULL,
-  created_at timestamp with time zone NOT NULL,
-  PRIMARY KEY ( secret ),
-  UNIQUE ( owner_id )
 );
 CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
 CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
@@ -212,13 +220,11 @@ INSERT INTO "accounting_timestamps" VALUES ('LastAtRestTally', '0001-01-01 00:00
 INSERT INTO "accounting_timestamps" VALUES ('LastRollup', '0001-01-01 00:00:00+00');
 INSERT INTO "accounting_timestamps" VALUES ('LastBandwidthTally', '0001-01-01 00:00:00+00');
 
-INSERT INTO "nodes"("id", "address", "protocol", "type", "email", "wallet", "free_bandwidth", "free_disk", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "audit_success_ratio", "uptime_success_count", "total_uptime_count", "uptime_ratio", "created_at", "updated_at", "last_contact_success", "last_contact_failure", "contained") VALUES (E'\\153\\313\\233\\074\\327\\177\\136\\070\\346\\001', '127.0.0.1:55516', 0, 4, '', '', -1, -1, 0, 1, 0, '', 'epoch', false, 0, 0, 5, 0, 0, 5, 0, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch', false);
-INSERT INTO "nodes"("id", "address", "protocol", "type", "email", "wallet", "free_bandwidth", "free_disk", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "audit_success_ratio", "uptime_success_count", "total_uptime_count", "uptime_ratio", "created_at", "updated_at", "last_contact_success", "last_contact_failure", "contained") VALUES (E'\\006\\223\\250R\\221\\005\\365\\377v>0\\266\\365\\216\\255?\\347\\244\\371?2\\264\\262\\230\\007<\\001\\262\\263\\237\\247n', '127.0.0.1:55518', 0, 4, '', '', -1, -1, 0, 1, 0, '', 'epoch', false, 0, 0, 0, 1, 3, 3, 1, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch', false);
-INSERT INTO "nodes"("id", "address", "protocol", "type", "email", "wallet", "free_bandwidth", "free_disk", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "audit_success_ratio", "uptime_success_count", "total_uptime_count", "uptime_ratio", "created_at", "updated_at", "last_contact_success", "last_contact_failure", "contained") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014', '127.0.0.1:55517', 0, 4, '', '', -1, -1, 0, 1, 0, '', 'epoch', false, 0, 0, 0, 1, 0, 0, 1, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch', false);
-
+INSERT INTO "nodes"("id", "address", "protocol", "type", "email", "wallet", "free_bandwidth", "free_disk", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "audit_success_ratio", "uptime_success_count", "total_uptime_count", "uptime_ratio", "created_at", "updated_at", "last_contact_success", "last_contact_failure") VALUES (E'\\153\\313\\233\\074\\327\\177\\136\\070\\346\\001', '127.0.0.1:55516', 0, 4, '', '', -1, -1, 0, 1, 0, '', 'epoch', false, 0, 0, 5, 0, 0, 5, 0, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch');
+INSERT INTO "nodes"("id", "address", "protocol", "type", "email", "wallet", "free_bandwidth", "free_disk", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "audit_success_ratio", "uptime_success_count", "total_uptime_count", "uptime_ratio", "created_at", "updated_at", "last_contact_success", "last_contact_failure") VALUES (E'\\006\\223\\250R\\221\\005\\365\\377v>0\\266\\365\\216\\255?\\347\\244\\371?2\\264\\262\\230\\007<\\001\\262\\263\\237\\247n', '127.0.0.1:55518', 0, 4, '', '', -1, -1, 0, 1, 0, '', 'epoch', false, 0, 0, 0, 1, 3, 3, 1, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch');
+INSERT INTO "nodes"("id", "address", "protocol", "type", "email", "wallet", "free_bandwidth", "free_disk", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "audit_success_ratio", "uptime_success_count", "total_uptime_count", "uptime_ratio", "created_at", "updated_at", "last_contact_success", "last_contact_failure") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014', '127.0.0.1:55517', 0, 4, '', '', -1, -1, 0, 1, 0, '', 'epoch', false, 0, 0, 0, 1, 0, 0, 1, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch');
 
 INSERT INTO "projects"("id", "name", "description", "created_at") VALUES (E'\\022\\217/\\014\\376!K\\023\\276\\031\\311}m\\236\\205\\300'::bytea, 'ProjectName', 'projects description', '2019-02-14 08:28:24.254934+00');
-INSERT INTO "api_keys"("id", "project_id", "key", "name", "created_at") VALUES (E'\\334/\\302;\\225\\355O\\323\\276f\\247\\354/6\\241\\033'::bytea, E'\\022\\217/\\014\\376!K\\023\\276\\031\\311}m\\236\\205\\300'::bytea, E'\\000]\\326N \\343\\270L\\327\\027\\337\\242\\240\\322mOl\\0318\\251.P I'::bytea, 'key 2', '2019-02-14 08:28:24.267934+00');
 
 INSERT INTO "users"("id", "full_name", "short_name", "email", "password_hash", "status", "created_at") VALUES (E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, 'Noahson', 'William', '1email1@ukr.net', E'some_readable_hash'::bytea, 1, '2019-02-14 08:28:24.614594+00');
 INSERT INTO "projects"("id", "name", "description", "created_at") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, 'projName1', 'Test project 1', '2019-02-14 08:28:24.636949+00');
@@ -251,4 +257,4 @@ INSERT INTO "reset_password_tokens" ("secret", "owner_id", "created_at") VALUES 
 
 -- NEW DATA --
 
-INSERT INTO "pending_audits" ("node_id", "piece_id", "stripe_index", "share_size", "expected_share_hash", "reverify_count") VALUES (E'\\153\\313\\233\\074\\327\\177\\136\\070\\346\\001'::bytea, E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, 5, 1024, E'\\070\\127\\144\\013\\332\\344\\102\\376\\306\\056\\303\\130\\106\\132\\321\\276\\321\\274\\170\\264\\054\\333\\221\\116\\154\\221\\335\\070\\220\\146\\344\\216'::bytea, 1);
+INSERT INTO "api_keys"("id", "project_id", "head", "name", "secret", "created_at") VALUES (E'\\334/\\302;\\225\\355O\\323\\276f\\247\\354/6\\241\\033'::bytea, E'\\022\\217/\\014\\376!K\\023\\276\\031\\311}m\\236\\205\\300'::bytea, E'\\111\\142\\147\\304\\132\\375\\070\\163\\270\\160\\251\\370\\126\\063\\351\\037\\257\\071\\143\\375\\351\\320\\253\\232\\220\\260\\075\\173\\306\\307\\115\\136'::bytea, 'key 2', E'\\254\\011\\315\\333\\273\\365\\001\\071\\024\\154\\253\\332\\301\\216\\361\\074\\221\\367\\251\\231\\274\\333\\300\\367\\001\\272\\327\\111\\315\\123\\042\\016'::bytea, '2019-02-14 08:28:24.267934+00');

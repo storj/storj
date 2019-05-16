@@ -3,21 +3,27 @@
 
 <template>
 	<div>
-		<div v-if="buckets > 0" class="buckets-overflow">
+		<div  class="buckets-overflow">
 			<div class="buckets-header">
 				<p>Buckets</p>
 				<SearchArea/>
 			</div>
-			<div class="buckets-container">
+			<div v-if="buckets.length > 0" class="buckets-container">
 				<table style="width:98.5%; margin-top:20px;">
 					<SortingHeader />
-					<BucketItem />
+                    <BucketItem v-for="(bucket, index) in buckets" v-bind:bucket="bucket" v-bind:key="index" />
 				</table>
 				<PaginationArea />
 			</div>
+			<EmptyState
+                class="empty-container"
+                v-if="pages === 0 && search && search.length > 0"
+                mainTitle="Nothing found :("
+                :imageSource="emptyImage" />
 		</div>
 		<EmptyState
-			v-if="buckets === 0"
+			class="empty-container"
+			v-if="pages === 0 && !search"
 			mainTitle="You have no Buckets yet"
 			:imageSource="emptyImage" />
 	</div>
@@ -35,8 +41,7 @@
     @Component({
         data: function () {
             return {
-                emptyImage: EMPTY_STATE_IMAGES.API_KEY,
-                buckets: 1,
+                emptyImage: EMPTY_STATE_IMAGES.API_KEY
             };
         },
         components: {
@@ -45,7 +50,18 @@
             SortingHeader,
             BucketItem,
             PaginationArea,
-        }
+        },
+		computed: {
+        	buckets: function (): BucketUsage[] {
+				return this.$store.state.bucketUsageModule.page.bucketUsages;
+			},
+			pages: function (): number {
+        		return this.$store.state.bucketUsageModule.page.pageCount;
+			},
+			search: function (): string {
+				return this.$store.state.bucketUsageModule.cursor.search;
+			}
+		}
     })
     export default class BucketArea extends Vue {}
 </script>
@@ -85,6 +101,12 @@
 		.buckets-overflow {
 			overflow-y: scroll;
 			height: 600px;
+		}
+		.empty-container {
+			position: absolute;
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%);
 		}
 	}
 
