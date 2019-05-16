@@ -47,7 +47,7 @@ func NewContainment(log *zap.Logger, db DB) *Containment {
 func (containment *Containment) Get(ctx context.Context, nodeID pb.NodeID) (*PendingAudit, error) {
 	pendingAudit, err := containment.db.Get(ctx, nodeID)
 	if err != nil {
-		return &PendingAudit{}, ContainError.Wrap(err)
+		return nil, ContainError.Wrap(err)
 	}
 	return pendingAudit, nil
 }

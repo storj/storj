@@ -20,15 +20,15 @@ type containment struct {
 // Get gets the pending audit by node id
 func (containment *containment) Get(ctx context.Context, id pb.NodeID) (*audit.PendingAudit, error) {
 	if id.IsZero() {
-		return &audit.PendingAudit{}, audit.ContainError.New("node ID empty")
+		return nil, audit.ContainError.New("node ID empty")
 	}
 
 	pending, err := containment.db.Get_PendingAudits_By_NodeId(ctx, dbx.PendingAudits_NodeId(id.Bytes()))
 	if err == sql.ErrNoRows {
-		return &audit.PendingAudit{}, audit.ErrContainedNotFound.New(id.String())
+		return nil, audit.ErrContainedNotFound.New(id.String())
 	}
 	if err != nil {
-		return &audit.PendingAudit{}, err
+		return nil, err
 	}
 
 	return convertDBPending(pending)
