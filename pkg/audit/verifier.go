@@ -38,50 +38,34 @@ type Share struct {
 
 // Verifier helps verify the correctness of a given stripe
 type Verifier struct {
-	orders  *orders.Service
-	auditor *identity.PeerIdentity
-
-	downloader downloader
-}
-
-type downloader interface {
-	DownloadShares(ctx context.Context, limits []*pb.AddressedOrderLimit, stripeIndex int64, shareSize int32) (shares map[int]Share, nodes map[int]storj.NodeID, err error)
-}
-
-// defaultDownloader downloads shares from networked storage nodes
-type defaultDownloader struct {
-	log       *zap.Logger
-	transport transport.Client
-	overlay   *overlay.Cache
-	reporter
-
+	log               *zap.Logger
+	orders            *orders.Service
+	auditor           *identity.PeerIdentity
+	transport         transport.Client
+	overlay           *overlay.Cache
+	maxRetries        int
 	minBytesPerSecond memory.Size
-}
-
-// newDefaultDownloader creates a defaultDownloader
-func newDefaultDownloader(log *zap.Logger, transport transport.Client, overlay *overlay.Cache, id *identity.FullIdentity, minBytesPerSecond memory.Size) *defaultDownloader {
-	return &defaultDownloader{log: log, transport: transport, overlay: overlay, minBytesPerSecond: minBytesPerSecond}
 }
 
 // NewVerifier creates a Verifier
 func NewVerifier(log *zap.Logger, transport transport.Client, overlay *overlay.Cache, orders *orders.Service, id *identity.FullIdentity, minBytesPerSecond memory.Size) *Verifier {
-	return &Verifier{downloader: newDefaultDownloader(log, transport, overlay, id, minBytesPerSecond), orders: orders, auditor: id.PeerIdentity()}
+	return &Verifier{log: log, orders: orders, auditor: id.PeerIdentity(), transport: transport, overlay: overlay, minBytesPerSecond: minBytesPerSecond}
 }
 
 // Verify downloads shares then verifies the data correctness at the given stripe
-func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe) (verifiedNodes *RecordAuditsInfo, err error) {
+func (v *Verifier) Verify(ctx context.Context, stripe *Stripe) (verifiedNodes *RecordAuditsInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	pointer := stripe.Segment
 	shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
 	bucketID := createBucketID(stripe.SegmentPath)
 
-	orderLimits, err := verifier.orders.CreateAuditOrderLimits(ctx, verifier.auditor, bucketID, pointer)
+	orderLimits, err := v.orders.CreateAuditOrderLimits(ctx, v.auditor, bucketID, pointer)
 	if err != nil {
 		return nil, err
 	}
 
-	shares, nodes, err := verifier.downloader.DownloadShares(ctx, orderLimits, stripe.Index, shareSize)
+	shares, nodes, err := v.DownloadShares(ctx, orderLimits, stripe.Index, shareSize)
 	if err != nil {
 		return nil, err
 	}
@@ -92,8 +76,7 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe) (verifiedN
 
 	for pieceNum, share := range shares {
 		if shares[pieceNum].Error != nil {
-			if shares[pieceNum].Error == context.DeadlineExceeded ||
-				!transport.Error.Has(shares[pieceNum].Error) {
+			if shares[pieceNum].Error == context.DeadlineExceeded || !transport.Error.Has(shares[pieceNum].Error) {
 				failedNodes = append(failedNodes, nodes[pieceNum])
 			} else {
 				offlineNodes = append(offlineNodes, nodes[pieceNum])
@@ -132,8 +115,8 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe) (verifiedN
 	}, nil
 }
 
-// Download Shares downloads shares from the nodes where remote pieces are located
-func (d *defaultDownloader) DownloadShares(ctx context.Context, limits []*pb.AddressedOrderLimit, stripeIndex int64, shareSize int32) (shares map[int]Share, nodes map[int]storj.NodeID, err error) {
+// DownloadShares downloads shares from the nodes where remote pieces are located
+func (v *Verifier) DownloadShares(ctx context.Context, limits []*pb.AddressedOrderLimit, stripeIndex int64, shareSize int32) (shares map[int]Share, nodes map[int]storj.NodeID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	shares = make(map[int]Share, len(limits))
@@ -144,7 +127,7 @@ func (d *defaultDownloader) DownloadShares(ctx context.Context, limits []*pb.Add
 			continue
 		}
 
-		share, err := d.getShare(ctx, limit, stripeIndex, shareSize, i)
+		share, err := v.getShare(ctx, limit, stripeIndex, shareSize, i)
 		if err != nil {
 			share = Share{
 				Error:    err,
@@ -161,15 +144,15 @@ func (d *defaultDownloader) DownloadShares(ctx context.Context, limits []*pb.Add
 }
 
 // getShare use piece store client to download shares from nodes
-func (d *defaultDownloader) getShare(ctx context.Context, limit *pb.AddressedOrderLimit, stripeIndex int64, shareSize int32, pieceNum int) (share Share, err error) {
+func (v *Verifier) getShare(ctx context.Context, limit *pb.AddressedOrderLimit, stripeIndex int64, shareSize int32, pieceNum int) (share Share, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	bandwidthMsgSize := shareSize
 
 	// determines number of seconds allotted for receiving data from a storage node
 	timedCtx := ctx
-	if d.minBytesPerSecond > 0 {
-		maxTransferTime := time.Duration(int64(time.Second) * int64(bandwidthMsgSize) / d.minBytesPerSecond.Int64())
+	if v.minBytesPerSecond > 0 {
+		maxTransferTime := time.Duration(int64(time.Second) * int64(bandwidthMsgSize) / v.minBytesPerSecond.Int64())
 		if maxTransferTime < (5 * time.Second) {
 			maxTransferTime = 5 * time.Second
 		}
@@ -180,7 +163,7 @@ func (d *defaultDownloader) getShare(ctx context.Context, limit *pb.AddressedOrd
 
 	storageNodeID := limit.GetLimit().StorageNodeId
 
-	conn, err := d.transport.DialNode(timedCtx, &pb.Node{
+	conn, err := v.transport.DialNode(timedCtx, &pb.Node{
 		Id:      storageNodeID,
 		Address: limit.GetStorageNodeAddress(),
 	})
@@ -188,15 +171,15 @@ func (d *defaultDownloader) getShare(ctx context.Context, limit *pb.AddressedOrd
 		return Share{}, err
 	}
 	ps := piecestore.NewClient(
-		d.log.Named(storageNodeID.String()),
-		signing.SignerFromFullIdentity(d.transport.Identity()),
+		v.log.Named(storageNodeID.String()),
+		signing.SignerFromFullIdentity(v.transport.Identity()),
 		conn,
 		piecestore.DefaultConfig,
 	)
 	defer func() {
 		err := ps.Close()
 		if err != nil {
-			d.log.Error("audit verifier failed to close conn to node: %+v", zap.Error(err))
+			v.log.Error("audit verifier failed to close conn to node: %+v", zap.Error(err))
 		}
 	}()
 

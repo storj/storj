@@ -9,6 +9,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/zeebo/errs"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
@@ -17,6 +18,9 @@ import (
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 )
+
+// Error is the default audit errs class
+var Error = errs.Class("audit error")
 
 // Config contains configurable values for audit service
 type Config struct {
