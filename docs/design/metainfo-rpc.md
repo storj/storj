@@ -40,10 +40,11 @@ service Metainfo {
     rpc FinishDeleteObject(ObjectDeleteRequest) returns (ObjectDeleteResponse);
 
     rpc CreateSegment(SegmentCreateRequest) returns (SegmentCreateResponse);
+    rpc AbortSegment(SegmentAbortRequest) returns (SegmentAbortResponse);
     rpc CommitSegment(SegmentCommitRequest) returns (SegmentCommitResponse);
-    rpc ContinueSegment(SegmentContinueRequest) returns (SegmentContinueResponse);
-
     rpc MakeInlineSegment(SegmentMakeInlineRequest) returns (SegmentMakeInlineResponse);
+
+    rpc Batch(BatchRequest) returns (BatchResponse);
 
     rpc ListSegments(SegmentListRequest) returns (SegmentListResponse);
     rpc DownloadSegment(SegmentDownloadRequest) returns (SegmentDownloadResponse);
@@ -231,6 +232,30 @@ message SegmentContinueRequest {
 message SegmentContinueResponse {
     SegmentCommitResponse commit = 1;
     SegmentCreateResponse next   = 2;
+}
+
+message BatchRequest {
+    message Request {
+        ObjectCreateRequest object_create;
+        ObjectCommitRequest object_commit;
+
+        SegmentCreateRequest     segment_create;
+        SegmentCommitRequest     segment_commit;
+        SegmentMakeInlineRequest segment_inline;
+    }
+    repeated Request requests;
+}
+
+message BatchResponse {
+    message Response {
+        ObjectCreateResponse object_create;
+        ObjectCommitResponse object_commit;
+
+        SegmentCreateResponse     segment_create;
+        SegmentCommitResponse     segment_commit;
+        SegmentMakeInlineResponse segment_inline;
+    }
+    repeated Response responses;
 }
 ```
 
