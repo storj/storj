@@ -55,7 +55,6 @@ func (nodes nodeIDsArray) Value() (driver.Value, error) {
 	wp += x
 
 	if wp != len(out) {
-		println(wp, len(out))
 		panic("unreachable")
 	}
 
