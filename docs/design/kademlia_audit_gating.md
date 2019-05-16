@@ -2,7 +2,7 @@
 
 ## Abstract
 
-StorageNode B is added to StorageNode A's routing table only if StorageNode A trusts Satellite C and Satellite C as verified StorageNode B has a high enough identity-generate difficulty (CPU proof-of-work) and disk space. If StorageNode B does not have this verification, it is added to StorageNode A's Routing Table Antechamber.
+StorageNode B is added to StorageNode A's routing table only if StorageNode A trusts Satellite C and Satellite C has verified StorageNode B has a high enough identity-generation difficulty (CPU proof-of-work) and disk space. If StorageNode B does not have this verification, it is added to StorageNode A's Routing Table Antechamber.
 
 ## Background
 
@@ -41,7 +41,7 @@ A node that is allowed to enter routing tables is considered vetted and lookups 
     - Identities can sign messages already
     - Create a Message (protobuf) to sign that Satellite C says Node B has been vetted
     - Get info about the Node's difficulty and disk space to add to the message
-
+ [TODO: protobuf]
 2. Trusted Satellites List
     - Create Whitelist/blacklist with an abstraction layer for trusted/untrusted Satellites
     - These lists will live on each Node
