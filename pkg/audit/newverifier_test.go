@@ -4,6 +4,7 @@
 package audit_test
 
 import (
+	"fmt"
 	"math/rand"
 	"testing"
 
@@ -45,6 +46,16 @@ func TestVerifierHappyPath(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, stripe)
 
+		fmt.Println("all nodes:")
+		for _, node := range planet.StorageNodes {
+			fmt.Println(node.ID())
+		}
+
+		fmt.Println("nodes associated with stripe:")
+		for _, piece := range stripe.Segment.GetRemote().GetRemotePieces() {
+			fmt.Println(piece.NodeId)
+		}
+
 		transport := planet.Satellites[0].Transport
 		orders := planet.Satellites[0].Orders.Service
 		minBytesPerSecond := 128 * memory.B
@@ -57,6 +68,10 @@ func TestVerifierHappyPath(t *testing.T) {
 		err = planet.StopPeer(planet.StorageNodes[1])
 		require.NoError(t, err)
 
+		fmt.Println("stopped nodes:")
+		fmt.Println(planet.StorageNodes[0].ID())
+		fmt.Println(planet.StorageNodes[1].ID())
+
 		// mark stopped nodes as offline in overlay cache
 		_, err = planet.Satellites[0].Overlay.Service.UpdateUptime(ctx, planet.StorageNodes[0].ID(), false)
 		require.NoError(t, err)
@@ -68,6 +83,16 @@ func TestVerifierHappyPath(t *testing.T) {
 
 		require.Len(t, verifiedNodes.SuccessNodeIDs, 4)
 		require.Len(t, verifiedNodes.FailNodeIDs, 0)
+
+		fmt.Println("success nodes:")
+		for _, id := range verifiedNodes.SuccessNodeIDs {
+			fmt.Println(id)
+		}
+
+		fmt.Println("offline nodes:")
+		for _, id := range verifiedNodes.OfflineNodeIDs {
+			fmt.Println(id)
+		}
 		require.Len(t, verifiedNodes.OfflineNodeIDs, 0)
 	})
 }
