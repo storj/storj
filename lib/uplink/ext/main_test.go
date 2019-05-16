@@ -72,7 +72,7 @@ func TestAllCTests(t *testing.T) {
 		libuplink,
 		filepath.Join(cSrcDir, "*.c"),
 		filepath.Join(cLibDir, "pb", "*.c"),
-		filepath.Join(cLibDir, "..", "tests", "*.c"),
+		filepath.Join(cLibDir, "tests", "*.c"),
 	)
 
 	cmd := exec.Command(testBinPath)

@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include "unity.h"
-#include "../uplink-cgo.h"
+#include "../../uplink-cgo.h"
 
 void TestGetIDVersion(void)
 {

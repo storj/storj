@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include "unity.h"
-#include "../uplink-cgo.h"
+#include "../../uplink-cgo.h"
 
 extern void TestGetIDVersion(void);
 extern void TestAPIKey(void);
