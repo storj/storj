@@ -69,6 +69,8 @@ export const API_KEYS_ACTIONS = {
 
 export const PROJECT_USAGE_ACTIONS = {
     FETCH: 'fetchProjectUsage',
+    FETCH_CURRENT_ROLLUP: 'fetchCurrentProjectUsage',
+    FETCH_PREVIOUS_ROLLUP: 'fetchPreviousProjectUsage',
     CLEAR: 'clearProjectUsage',
 };
 
