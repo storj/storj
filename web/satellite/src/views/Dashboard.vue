@@ -75,11 +75,7 @@ import {AppState} from "../utils/constants/appStateEnum";
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch api keys');
             }
 
-            const currentDate = new Date();
-            const previousDate = new Date();
-            previousDate.setMonth(currentDate.getMonth() - 1);
-
-            const usageResponse = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, {startDate: previousDate, endDate: currentDate});
+            const usageResponse = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
             if (!usageResponse.isSuccess) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
             }
