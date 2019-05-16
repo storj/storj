@@ -50,7 +50,7 @@ func (c Config) GetSegmentRepairer(ctx context.Context, tc transport.Client, met
 
 // SegmentRepairer is a repairer for segments
 type SegmentRepairer interface {
-	Repair(ctx context.Context, path storj.Path, lostPieces []int32) (err error)
+	Repair(ctx context.Context, path storj.Path) (err error)
 }
 
 // Service contains the information needed to run the repair service
@@ -124,7 +124,7 @@ func (service *Service) process(ctx context.Context) error {
 		}
 
 		service.Limiter.Go(ctx, func() {
-			err := service.repairer.Repair(ctx, seg.GetPath(), seg.GetLostPieces())
+			err := service.repairer.Repair(ctx, seg.GetPath())
 			if err != nil {
 				zap.L().Error("repair failed", zap.Error(err))
 			}
