@@ -22,7 +22,8 @@ func TestContainIncrementAndGet(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
 		randBytes := make([]byte, 10)
-		rand.Read(randBytes)
+		_, err := rand.Read(randBytes)
+		require.NoError(t, err)
 		someHash := pkcrypto.SHA256Hash(randBytes)
 
 		input := &audit.PendingAudit{
@@ -34,7 +35,7 @@ func TestContainIncrementAndGet(t *testing.T) {
 			ReverifyCount:     0,
 		}
 
-		err := planet.Satellites[0].DB.Containment().IncrementPending(ctx, input)
+		err = planet.Satellites[0].DB.Containment().IncrementPending(ctx, input)
 		require.NoError(t, err)
 
 		output, err := planet.Satellites[0].DB.Containment().Get(ctx, input.NodeID)
@@ -50,7 +51,8 @@ func TestContainIncrementPendingEntryExists(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
 		randBytes := make([]byte, 10)
-		rand.Read(randBytes)
+		_, err := rand.Read(randBytes)
+		require.NoError(t, err)
 		hash1 := pkcrypto.SHA256Hash(randBytes)
 
 		info1 := &audit.PendingAudit{
@@ -62,11 +64,12 @@ func TestContainIncrementPendingEntryExists(t *testing.T) {
 			ReverifyCount:     0,
 		}
 
-		err := planet.Satellites[0].DB.Containment().IncrementPending(ctx, info1)
+		err = planet.Satellites[0].DB.Containment().IncrementPending(ctx, info1)
 		require.NoError(t, err)
 
 		randBytes = make([]byte, 10)
-		rand.Read(randBytes)
+		_, err = rand.Read(randBytes)
+		require.NoError(t, err)
 		hash2 := pkcrypto.SHA256Hash(randBytes)
 
 		info2 := &audit.PendingAudit{
@@ -99,7 +102,8 @@ func TestContainDelete(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
 		randBytes := make([]byte, 10)
-		rand.Read(randBytes)
+		_, err := rand.Read(randBytes)
+		require.NoError(t, err)
 		hash1 := pkcrypto.SHA256Hash(randBytes)
 
 		info1 := &audit.PendingAudit{
@@ -111,7 +115,7 @@ func TestContainDelete(t *testing.T) {
 			ReverifyCount:     0,
 		}
 
-		err := planet.Satellites[0].DB.Containment().IncrementPending(ctx, info1)
+		err = planet.Satellites[0].DB.Containment().IncrementPending(ctx, info1)
 		require.NoError(t, err)
 
 		err = planet.Satellites[0].DB.Containment().Delete(ctx, info1.NodeID)
