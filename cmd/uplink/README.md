@@ -19,5 +19,5 @@ uplink setup
 You can edit `:~/.local/share/storj/uplink/config.yaml` to your liking. Then run it!
 
 ```
-uplink run
+uplink ls
 ```
