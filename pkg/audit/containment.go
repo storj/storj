@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"go.uber.org/zap"
+
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )

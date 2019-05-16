@@ -7,13 +7,13 @@ import (
 	"crypto/rand"
 	"testing"
 
-	"storj.io/storj/pkg/pkcrypto"
-	"storj.io/storj/pkg/storj"
-
 	"github.com/stretchr/testify/require"
+
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/audit"
+	"storj.io/storj/pkg/pkcrypto"
+	"storj.io/storj/pkg/storj"
 )
 
 func TestContainIncrementAndGet(t *testing.T) {
