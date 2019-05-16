@@ -665,7 +665,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 			},
 			{
 				Description: "Drops and recreates api key table to handle macaroons and adds revocation table",
-				Version:     20,
+				Version:     21,
 				Action: migrate.SQL{
 					`DROP TABLE api_keys CASCADE`,
 					`CREATE TABLE api_keys (
