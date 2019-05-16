@@ -28,7 +28,7 @@ func init() {
 	cLibDir = filepath.Join(filepath.Dir(thisFile), "c")
 	cSrcDir = filepath.Join(cLibDir, "src")
 	cHeadersDir = filepath.Join(cLibDir, "headers")
-	libuplink = filepath.Join(cHeadersDir, "uplink-cgo.so")
+	libuplink = filepath.Join(cLibDir, "..", "uplink-cgo.so")
 }
 
 // TODO: split c test up into multiple suites, each of which gets a go test function.
@@ -68,6 +68,7 @@ func TestAllCTests(t *testing.T) {
 	)
 	require.NoError(t, err)
 
+	fmt.Printf("libuplink: %s\n", libuplink)
 	testBinPath := ctx.CompileC(
 		libuplink,
 		filepath.Join(cSrcDir, "*.c"),

@@ -4,7 +4,7 @@
 package main
 // #cgo CFLAGS: -g -Wall
 // #include <stdbool.h>
-// #include "tests/test.h"
+// #include "c/tests/test.h"
 import "C"
 import (
 	"github.com/stretchr/testify/assert"
