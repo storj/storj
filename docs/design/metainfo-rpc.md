@@ -225,15 +225,6 @@ message SegmentCommitResponse {
 }
 
 
-message SegmentContinueRequest {
-    SegmentCommitRequest commit = 1;
-    SegmentCreateRequest next   = 2;
-}
-message SegmentContinueResponse {
-    SegmentCommitResponse commit = 1;
-    SegmentCreateResponse next   = 2;
-}
-
 message BatchRequest {
     message Request {
         ObjectCreateRequest object_create;
