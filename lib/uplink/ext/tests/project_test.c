@@ -6,7 +6,7 @@
 #include <signal.h>
 #include <string.h>
 #include "unity.h"
-#include "../c/headers/uplink-cgo.h"
+#include "../uplink-cgo.h"
 
 gvUplink *NewTestUplink(char **);
 

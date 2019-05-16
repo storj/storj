@@ -24,7 +24,7 @@ typedef struct { const char *p; ptrdiff_t n; } _GoString_;
  #include <stdlib.h>
  #ifndef UPLINK_HEADERS
    #define UPLINK_HEADERS
-   #include "/Users/alexleitner/Desktop/code/work/storj/lib/uplink/ext/c/headers/main.h"
+   #include "c/headers/main.h"
  #endif
 
 #line 1 "cgo-generated-wrapper"
