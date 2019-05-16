@@ -43,12 +43,9 @@ import {
                 this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PROJECTS);
                 this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
-                const currentDate = new Date();
-                const previousDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-
                 const pmResponse = await this.$store.dispatch(PM_ACTIONS.FETCH);
                 const keysResponse = await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
-                const usageResponse = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, {startDate: previousDate, endDate: currentDate});
+                const usageResponse = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
                 const bucketsResponse = await this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, 1);
 
                 if (!pmResponse.isSuccess) {
