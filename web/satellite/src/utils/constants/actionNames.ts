@@ -71,3 +71,9 @@ export const PROJECT_USAGE_ACTIONS = {
     FETCH: 'fetchProjectUsage',
     CLEAR: 'clearProjectUsage',
 };
+
+export const BUCKET_USAGE_ACTIONS = {
+    FETCH: 'fetchBucketUsages',
+    SET_SEARCH: 'setSearchBucketUsage',
+    CLEAR: 'clearBucketUsages'
+};
