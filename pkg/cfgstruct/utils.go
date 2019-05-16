@@ -128,10 +128,6 @@ func PromptForEncryptionKey() (string, error) {
 		return "", err
 	}
 
-	if len(encKey) == 0 {
-		return "", errs.New("Encryption passphrase cannot be empty")
-	}
-
 	_, err = fmt.Print("Enter your encryption passphrase again: ")
 	if err != nil {
 		return "", err
@@ -147,6 +143,13 @@ func PromptForEncryptionKey() (string, error) {
 
 	if !bytes.Equal(encKey, repeatedEncKey) {
 		return "", errs.New("encryption passphrases doesn't match")
+	}
+
+	if len(encKey) == 0 {
+		_, err = fmt.Println("Warning: Encryption passphrase is empty!")
+		if err != nil {
+			return "", err
+		}
 	}
 
 	return string(encKey), nil
