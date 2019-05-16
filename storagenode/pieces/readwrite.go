@@ -69,7 +69,7 @@ func (w *Writer) Cancel() error {
 	return Error.Wrap(w.blob.Cancel())
 }
 
-// Reader implements a piece writer that writes content to blob store and calculates a hash.
+// Reader implements a piece reader that reads content from blob store.
 type Reader struct {
 	buf  bufio.Reader
 	blob storage.BlobReader
