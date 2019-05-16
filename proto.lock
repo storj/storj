@@ -1,99 +1,6 @@
 {
   "definitions": [
     {
-      "protopath": "pkg:/:macaroon:/:types.proto",
-      "def": {
-        "messages": [
-          {
-            "name": "Caveat",
-            "fields": [
-              {
-                "id": 1,
-                "name": "disallow_reads",
-                "type": "bool"
-              },
-              {
-                "id": 2,
-                "name": "disallow_writes",
-                "type": "bool"
-              },
-              {
-                "id": 3,
-                "name": "disallow_lists",
-                "type": "bool"
-              },
-              {
-                "id": 4,
-                "name": "disallow_deletes",
-                "type": "bool"
-              },
-              {
-                "id": 10,
-                "name": "allowed_paths",
-                "type": "Path",
-                "is_repeated": true
-              },
-              {
-                "id": 20,
-                "name": "not_after",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  }
-                ]
-              },
-              {
-                "id": 21,
-                "name": "not_before",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  }
-                ]
-              },
-              {
-                "id": 30,
-                "name": "nonce",
-                "type": "bytes"
-              }
-            ],
-            "messages": [
-              {
-                "name": "Path",
-                "fields": [
-                  {
-                    "id": 1,
-                    "name": "bucket",
-                    "type": "bytes"
-                  },
-                  {
-                    "id": 2,
-                    "name": "encrypted_path_prefix",
-                    "type": "bytes"
-                  }
-                ]
-              }
-            ]
-          }
-        ],
-        "imports": [
-          {
-            "path": "gogo.proto"
-          },
-          {
-            "path": "google/protobuf/timestamp.proto"
-          }
-        ],
-        "package": {
-          "name": "macaroon"
-        }
-      }
-    },
-    {
       "protopath": "pkg:/:pb:/:bandwidth.proto",
       "def": {
         "enums": [
@@ -177,13 +84,7 @@
         ],
         "package": {
           "name": "bandwidth"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -236,13 +137,7 @@
         ],
         "package": {
           "name": "node"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -268,13 +163,7 @@
         ],
         "package": {
           "name": "repair"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -694,21 +583,7 @@
         ],
         "package": {
           "name": "gogoproto"
-        },
-        "options": [
-          {
-            "name": "java_package",
-            "value": "com.google.protobuf"
-          },
-          {
-            "name": "java_outer_classname",
-            "value": "GoGoProtos"
-          },
-          {
-            "name": "go_package",
-            "value": "github.com/gogo/protobuf/gogoproto"
-          }
-        ]
+        }
       }
     },
     {
@@ -871,54 +746,6 @@
           },
           {
             "name": "CountNodesRequest"
-          },
-          {
-            "name": "GetBucketListRequest"
-          },
-          {
-            "name": "GetBucketListResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "buckets",
-                "type": "Bucket",
-                "is_repeated": true
-              }
-            ],
-            "messages": [
-              {
-                "name": "Bucket",
-                "fields": [
-                  {
-                    "id": 1,
-                    "name": "bucket_id",
-                    "type": "bytes",
-                    "options": [
-                      {
-                        "name": "(gogoproto.customtype)",
-                        "value": "NodeID"
-                      },
-                      {
-                        "name": "(gogoproto.nullable)",
-                        "value": "false"
-                      }
-                    ]
-                  },
-                  {
-                    "id": 2,
-                    "name": "routing_nodes",
-                    "type": "node.Node",
-                    "is_repeated": true
-                  },
-                  {
-                    "id": 3,
-                    "name": "cached_nodes",
-                    "type": "node.Node",
-                    "is_repeated": true
-                  }
-                ]
-              }
-            ]
           },
           {
             "name": "GetBucketsRequest"
@@ -1120,11 +947,6 @@
                 "id": 3,
                 "name": "capacity",
                 "type": "node.NodeCapacity"
-              },
-              {
-                "id": 4,
-                "name": "version",
-                "type": "node.NodeVersion"
               }
             ]
           },
@@ -1293,112 +1115,6 @@
                 "type": "google.protobuf.Timestamp"
               }
             ]
-          },
-          {
-            "name": "SegmentHealthRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "bucket",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "encrypted_path",
-                "type": "bytes"
-              },
-              {
-                "id": 3,
-                "name": "segment_index",
-                "type": "int64"
-              },
-              {
-                "id": 4,
-                "name": "project_id",
-                "type": "bytes"
-              }
-            ]
-          },
-          {
-            "name": "SegmentHealth",
-            "fields": [
-              {
-                "id": 1,
-                "name": "online_nodes",
-                "type": "int32"
-              },
-              {
-                "id": 2,
-                "name": "segment",
-                "type": "bytes"
-              }
-            ]
-          },
-          {
-            "name": "SegmentHealthResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "health",
-                "type": "SegmentHealth"
-              },
-              {
-                "id": 2,
-                "name": "redundancy",
-                "type": "pointerdb.RedundancyScheme"
-              }
-            ]
-          },
-          {
-            "name": "ObjectHealthRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "encrypted_path",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "bucket",
-                "type": "bytes"
-              },
-              {
-                "id": 3,
-                "name": "project_id",
-                "type": "bytes"
-              },
-              {
-                "id": 4,
-                "name": "start_after_segment",
-                "type": "int64"
-              },
-              {
-                "id": 5,
-                "name": "end_before_segment",
-                "type": "int64"
-              },
-              {
-                "id": 6,
-                "name": "limit",
-                "type": "int32"
-              }
-            ]
-          },
-          {
-            "name": "ObjectHealthResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "segments",
-                "type": "SegmentHealth",
-                "is_repeated": true
-              },
-              {
-                "id": 2,
-                "name": "redundancy",
-                "type": "pointerdb.RedundancyScheme"
-              }
-            ]
           }
         ],
         "services": [
@@ -1434,11 +1150,6 @@
                 "name": "DumpNodes",
                 "in_type": "DumpNodesRequest",
                 "out_type": "DumpNodesResponse"
-              },
-              {
-                "name": "GetBucketList",
-                "in_type": "GetBucketListRequest",
-                "out_type": "GetBucketListResponse"
               }
             ]
           },
@@ -1491,21 +1202,6 @@
                 "out_type": "ListIrreparableSegmentsResponse"
               }
             ]
-          },
-          {
-            "name": "HealthInspector",
-            "rpcs": [
-              {
-                "name": "ObjectHealth",
-                "in_type": "ObjectHealthRequest",
-                "out_type": "ObjectHealthResponse"
-              },
-              {
-                "name": "SegmentHealth",
-                "in_type": "SegmentHealthRequest",
-                "out_type": "SegmentHealthResponse"
-              }
-            ]
           }
         ],
         "imports": [
@@ -1527,13 +1223,7 @@
         ],
         "package": {
           "name": "inspector"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -1563,13 +1253,7 @@
         ],
         "package": {
           "name": "objects"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -1925,13 +1609,7 @@
         ],
         "package": {
           "name": "metainfo"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -1994,33 +1672,58 @@
                 "id": 2,
                 "name": "address",
                 "type": "NodeAddress"
+              },
+              {
+                "id": 3,
+                "name": "type",
+                "type": "NodeType"
+              },
+              {
+                "id": 4,
+                "name": "restrictions",
+                "type": "NodeRestrictions"
+              },
+              {
+                "id": 5,
+                "name": "reputation",
+                "type": "NodeStats"
+              },
+              {
+                "id": 6,
+                "name": "metadata",
+                "type": "NodeMetadata"
+              },
+              {
+                "id": 7,
+                "name": "latency_list",
+                "type": "int64",
+                "is_repeated": true
+              },
+              {
+                "id": 8,
+                "name": "audit_success",
+                "type": "bool"
+              },
+              {
+                "id": 9,
+                "name": "is_up",
+                "type": "bool"
+              },
+              {
+                "id": 10,
+                "name": "update_latency",
+                "type": "bool"
+              },
+              {
+                "id": 11,
+                "name": "update_audit_success",
+                "type": "bool"
+              },
+              {
+                "id": 12,
+                "name": "update_uptime",
+                "type": "bool"
               }
-            ],
-            "reserved_ids": [
-              3,
-              4,
-              5,
-              6,
-              7,
-              8,
-              9,
-              10,
-              11,
-              12,
-              13
-            ],
-            "reserved_names": [
-              "type",
-              "restrictions",
-              "reputation",
-              "metadata",
-              "latency_list",
-              "audit_success",
-              "is_up",
-              "update_latency",
-              "update_audit_success",
-              "update_uptime",
-              "version"
             ]
           },
           {
@@ -2090,16 +1793,6 @@
                 "id": 8,
                 "name": "uptime_success_count",
                 "type": "int64"
-              },
-              {
-                "id": 9,
-                "name": "last_contact_success",
-                "type": "google.protobuf.Timestamp"
-              },
-              {
-                "id": 10,
-                "name": "last_contact_failure",
-                "type": "google.protobuf.Timestamp"
               }
             ]
           },
@@ -2162,50 +1855,16 @@
                 "type": "int64"
               }
             ]
-          },
-          {
-            "name": "NodeVersion",
-            "fields": [
-              {
-                "id": 1,
-                "name": "version",
-                "type": "string"
-              },
-              {
-                "id": 2,
-                "name": "commit_hash",
-                "type": "string"
-              },
-              {
-                "id": 3,
-                "name": "timestamp",
-                "type": "google.protobuf.Timestamp"
-              },
-              {
-                "id": 4,
-                "name": "release",
-                "type": "bool"
-              }
-            ]
           }
         ],
         "imports": [
           {
             "path": "gogo.proto"
-          },
-          {
-            "path": "google/protobuf/timestamp.proto"
           }
         ],
         "package": {
           "name": "node"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -2492,13 +2151,7 @@
         ],
         "package": {
           "name": "orders"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -2610,11 +2263,6 @@
                 "id": 4,
                 "name": "capacity",
                 "type": "node.NodeCapacity"
-              },
-              {
-                "id": 5,
-                "name": "version",
-                "type": "node.NodeVersion"
               }
             ]
           },
@@ -2671,13 +2319,7 @@
         ],
         "package": {
           "name": "overlay"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -2880,13 +2522,7 @@
         ],
         "package": {
           "name": "piecestoreroutes"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -3058,13 +2694,7 @@
         ],
         "package": {
           "name": "piecestore"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -3292,13 +2922,7 @@
         ],
         "package": {
           "name": "pointerdb"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -3373,13 +2997,7 @@
         ],
         "package": {
           "name": "streams"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     }
   ]
