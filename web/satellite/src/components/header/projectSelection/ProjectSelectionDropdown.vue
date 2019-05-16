@@ -20,7 +20,15 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import { APP_STATE_ACTIONS, PROJETS_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS, API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
+import {
+    APP_STATE_ACTIONS,
+    PROJETS_ACTIONS,
+    NOTIFICATION_ACTIONS,
+    PM_ACTIONS,
+    API_KEYS_ACTIONS,
+    PROJECT_USAGE_ACTIONS,
+    BUCKET_USAGE_ACTIONS
+} from '@/utils/constants/actionNames';
 
 @Component(
     {
@@ -37,6 +45,8 @@ import { APP_STATE_ACTIONS, PROJETS_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS, A
 
                 const pmResponse = await this.$store.dispatch(PM_ACTIONS.FETCH);
                 const keysResponse = await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
+                const usageResponse = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
+                const bucketsResponse = await this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, 1);
 
                 if (!pmResponse.isSuccess) {
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
@@ -44,6 +54,14 @@ import { APP_STATE_ACTIONS, PROJETS_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS, A
 
                 if (!keysResponse.isSuccess) {
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch api keys');
+                }
+
+                if (!usageResponse.isSuccess) {
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
+                }
+
+                if (!bucketsResponse.isSuccess) {
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + bucketsResponse.errorMessage);
                 }
             }
         },

@@ -37,7 +37,7 @@
 				</div>
 			</div>
 			<div class="usage-report-container__main-area__footer">
-				<p>Current Roll Up Period <b>{{dateRange.startDate.toLocaleDateString("en-US")}}</b> to <b>{{dateRange.endDate.toLocaleDateString("en-US")}}</b></p>
+				<p>Current Roll Up Period <b>{{toLocaleDateString(startDate)}}</b> to <b>{{toLocaleDateString(endDate)}}</b></p>
 				<div class="usage-report-container__main-area__footer__report-area">
 					<p>Download Advanced Report</p>
 					<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" @click.prevent="onReportClick">
@@ -70,30 +70,15 @@ import { toUnixTimestamp } from '@/utils/time';
                     startTime: {
                         time: '',
                     },
-                    dateRange: {
-                        startDate: '',
-                        endDate: '',
-                    },
                 };
             },
             components: {
                 Datepicker,
             },
             beforeMount: function() {
-                const currentDate = new Date();
-                const previousDate = new Date();
-                previousDate.setDate(1);
-
-                this.$data.dateRange.startDate = previousDate;
-                this.$data.dateRange.endDate = currentDate;
             },
             beforeRouteLeave: function(to, from, next) {
-                const currentDate = new Date();
-                const previousDate = new Date();
-                previousDate.setDate(1);
-
-                this.$data.dateRange.startDate = previousDate;
-                this.$data.dateRange.endDate = currentDate;
+            	this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP, this.$data.dateRange);
 
                 const buttons = [...(document as any).querySelectorAll('.usage-report-container__options-area__option')];
                 buttons.forEach(option => {
@@ -105,13 +90,25 @@ import { toUnixTimestamp } from '@/utils/time';
             },
             methods: {
                 getDates: async function(datesArray: string[]) {
+                	const now = new Date();
                     const firstDate = new Date(datesArray[0]);
                     const secondDate = new Date(datesArray[1]);
-                    const isInverted = firstDate > secondDate;
-                    this.$data.dateRange.startDate = isInverted ? secondDate : firstDate;
-                    this.$data.dateRange.endDate = isInverted ? firstDate : secondDate;
 
-                    const response = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, this.$data.dateRange);
+                    const isInverted = firstDate > secondDate;
+
+                    let startDate = isInverted ? secondDate : firstDate;
+                    let endDate = isInverted ? firstDate : secondDate;
+
+                    endDate = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate(), 23, 59, 59));
+
+                    if (now.getUTCFullYear() === endDate.getUTCFullYear()
+							&& now.getUTCMonth() === endDate.getUTCMonth()
+							&& now.getUTCDate() === endDate.getUTCDate()
+					) {
+						endDate = now;
+					}
+
+                    const response = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, {startDate, endDate});
                     if (!response.isSuccess) {
                         this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
                     }
@@ -120,29 +117,17 @@ import { toUnixTimestamp } from '@/utils/time';
                     this.$router.push(ROUTES.PROJECT_OVERVIEW);
                 },
                 onCurrentRollupClick: async function (event: any) {
-                    const currentDate = new Date();
-                    const previousDate = new Date();
-                    previousDate.setDate(1);
-
-                    this.$data.dateRange.startDate = previousDate;
-                    this.$data.dateRange.endDate = currentDate;
                     (this as any).onButtonClickAction(event);
 
-                    const response = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, this.$data.dateRange);
+                    const response = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
                     if (!response.isSuccess) {
                         this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
                     }
                 },
                 onPreviousRollupClick: async function (event: any) {
-                    const date = new Date();
-                    const previousDate = new Date(date.getFullYear(), date.getMonth() - 1, 1);
-                    const currentDate = new Date(date.getFullYear(), date.getMonth(), 0);
-
-                    this.$data.dateRange.startDate = previousDate;
-                    this.$data.dateRange.endDate = currentDate;
                     (this as any).onButtonClickAction(event);
 
-                    const response = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, this.$data.dateRange);
+                    const response = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_PREVIOUS_ROLLUP);
                     if (!response.isSuccess) {
                         this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
                     }
@@ -170,7 +155,7 @@ import { toUnixTimestamp } from '@/utils/time';
                     target.classList.add('active');
                 },
                 removeActiveClass: function(): void {
-                    const buttons = [...(document as any).querySelectorAll('.usage-report-container__header__options-area__option')];
+                    const buttons = [...(document as any).querySelectorAll('.usage-report-container__options-area__option')];
                     buttons.forEach(option => {
                         option.classList.remove('active');
                     });
@@ -186,8 +171,17 @@ import { toUnixTimestamp } from '@/utils/time';
 
                     window.open(url.href, '_blank');
                 },
+				toLocaleDateString: function (d: Date): string {
+					return d.toLocaleDateString("en-US", {timeZone: "UTC"});
+				}
             },
             computed: {
+            	startDate: function (): Date {
+					return this.$store.state.usageModule.startDate;
+				},
+				endDate: function (): Date {
+					return this.$store.state.usageModule.endDate;
+				},
                 storage: function (): string {
                     return this.$store.state.usageModule.projectUsage.storage.toPrecision(5);
                 },
