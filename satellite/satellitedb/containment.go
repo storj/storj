@@ -24,7 +24,7 @@ func (containment *containment) Get(ctx context.Context, id pb.NodeID) (*audit.P
 		return &audit.PendingAudit{}, audit.ContainError.New("node ID empty")
 	}
 
-	pending, err := containment.db.Get_PendingAudits_By_NodeId(ctx, dbx.Node_Id(id.Bytes()))
+	pending, err := containment.db.Get_PendingAudits_By_NodeId(ctx, dbx.PendingAudits_NodeId(id.Bytes()))
 	if err == sql.ErrNoRows {
 		return &audit.PendingAudit{}, audit.ErrContainedNotFound.New(id.String())
 	}
@@ -57,9 +57,12 @@ func (containment *containment) Delete(ctx context.Context, id pb.NodeID) error 
 	if id.IsZero() {
 		return audit.ContainError.New("node ID empty")
 	}
-	err := containment.db.Delete_PendingAudits_By_NodeId(ctx, dbx.Node_Id(id.Bytes()))
+	isDeleted, err := containment.db.Delete_PendingAudits_By_NodeId(ctx, dbx.PendingAudits_NodeId(id.Bytes()))
 	if err == sql.ErrNoRows {
 		return audit.ErrContainedNotFound.New(id.String())
+	}
+	if !isDeleted {
+		return audit.ErrContainDelete.New(id.String(), err)
 	}
 	if err != nil {
 		return err
@@ -68,23 +71,28 @@ func (containment *containment) Delete(ctx context.Context, id pb.NodeID) error 
 	return nil
 }
 
-func convertDBPending(info *dbx.PendingAudit) (*audit.PendingAudit, error) {
+func convertDBPending(info *dbx.PendingAudits) (*audit.PendingAudit, error) {
 	if info == nil {
 		return nil, Error.New("missing info")
 	}
 
-	id, err := storj.NodeIDFromBytes(info.Node_Id)
+	nodeID, err := storj.NodeIDFromBytes(info.NodeId)
+	if err != nil {
+		return nil, err
+	}
+
+	pieceID, err := storj.PieceIDFromBytes(info.PieceId)
 	if err != nil {
 		return nil, err
 	}
 
 	pending := &audit.PendingAudit{
-		NodeID:            info.Node_Id,
-		PieceID:           info.Piece_Id,
-		StripeIndex:       info.Stripe_Index,
-		ShareSize:         info.Share_Size,
-		ExpectedShareHash: info.Expected_Share_Hash,
-		ReverifyCount:     info.Reverify_Count,
+		NodeID:            nodeID,
+		PieceID:           pieceID,
+		StripeIndex:       int(info.StripeIndex),
+		ShareSize:         info.ShareSize,
+		ExpectedShareHash: info.ExpectedShareHash,
+		ReverifyCount:     int(info.ReverifyCount),
 	}
 	return pending, nil
 }
