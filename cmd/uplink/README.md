@@ -16,8 +16,8 @@ go install storj.io/storj/cmd/uplink
 uplink setup
 ```
 
-You can edit `~/.storj/uplink/config.yaml` to your liking. Then run it!
+You can edit `:~/.local/share/storj/uplink/config.yaml` to your liking. Then run it!
 
 ```
-uplink run
+uplink ls
 ```

@@ -7,8 +7,7 @@ import (
 	"crypto/rand"
 )
 
-// NewCaveat returns a Caveat with a nonce initialized to the current timestamp
-// in nanoseconds.
+// NewCaveat returns a Caveat with a random generated nonce.
 func NewCaveat() (Caveat, error) {
 	var buf [8]byte
 	_, err := rand.Read(buf[:])
