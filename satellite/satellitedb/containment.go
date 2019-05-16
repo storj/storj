@@ -7,11 +7,10 @@ import (
 	"context"
 	"database/sql"
 
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
-
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
 type containment struct {
