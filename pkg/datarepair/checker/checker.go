@@ -129,7 +129,7 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 				remoteSegmentsChecked++
 				numHealthy := int32(len(pieces) - len(missingPieces))
 				redundancy := pointer.Remote.Redundancy
-				if numHealthy >= redundancy.MinReq && numHealthy <= redundancy.RepairThreshold && redundancy.MinReq != redundancy.RepairThreshold {
+				if numHealthy >= redundancy.MinReq && numHealthy <= redundancy.RepairThreshold && redundancy.Total != redundancy.RepairThreshold {
 					remoteSegmentsNeedingRepair++
 					err = checker.repairQueue.Insert(ctx, &pb.InjuredSegment{
 						Path:       string(item.Key),
