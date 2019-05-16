@@ -221,7 +221,7 @@ message SegmentCommitRequest {
 }
 
 message SegmentCommitResponse {
-    bytes segment_id;
+    bytes segment_id; // <stream_id, part_number, index>
 }
 
 
