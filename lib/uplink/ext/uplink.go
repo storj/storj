@@ -50,7 +50,6 @@ func OpenProject(cUplink C.UplinkRef, satelliteAddr *C.char, cAPIKey C.APIKeyRef
 	goUplink, ok := structRefMap.Get(token(cUplink)).(uplink.Uplink)
 	if !ok {
 		*cErr = C.CString("invalid uplink")
-		fmt.Println(cErr, err.Error())
 		return cProject	}
 
 	opts := new(uplink.ProjectOptions)
