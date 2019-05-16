@@ -5,8 +5,8 @@ package main
 
 // #cgo CFLAGS: -g -Wall
 // #include <stdlib.h>
-// #ifndef UPLINK_HEADERS
-//   #define UPLINK_HEADERS
+// #ifndef STORJ_HEADERS
+//   #define STORJ_HEADERS
 //   #include "c/headers/main.h"
 // #endif
 import "C"

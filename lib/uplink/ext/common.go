@@ -5,8 +5,8 @@ package main
 
 // #cgo CFLAGS: -g -Wall
 // #include <stdlib.h>
-// #ifndef UPLINK_HEADERS
-//   #define UPLINK_HEADERS
+// #ifndef STORJ_HEADERS
+//   #define STORJ_HEADERS
 //   #include "c/headers/main.h"
 // #endif
 import "C"
@@ -15,12 +15,10 @@ import (
 	"unsafe"
 
 	"github.com/gogo/protobuf/proto"
-
-	"storj.io/storj/lib/uplink/ext/pb"
-
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/lib/uplink/ext/pb"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -42,7 +40,7 @@ var (
 	redundancyAlgorithmType = reflect.TypeOf(storj.RedundancyAlgorithm(0))
 	keyPtrType              = reflect.TypeOf(new(C.Key))
 	goValueType             = reflect.TypeOf(C.struct_GoValue{})
-	cGoUintptrType           = reflect.TypeOf(C.GoUintptr(0))
+	cGoUintptrType          = reflect.TypeOf(C.GoUintptr(0))
 
 	ErrConvert  = errs.Class("struct conversion error")
 	ErrSnapshot = errs.Class("unable to snapshot value")

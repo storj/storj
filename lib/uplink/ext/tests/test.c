@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// gcc -o cgo-test-bin lib/uplink/ext/C/src/*.c lib/uplink/ext/C/pb/*.c lib/uplink/ext/tests/{test,unity,*_test}.c lib/uplink/ext/C/headers/uplink-cgo.so
+// gcc -o cgo-test-bin lib/uplink/ext/c/src/*.c lib/uplink/ext/c/pb/*.c lib/uplink/ext/tests/{test,unity,*_test}.c lib/uplink/ext/c/headers/uplink-cgo.so
 
 #include <stdio.h>
 #include <unistd.h>

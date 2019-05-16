@@ -28,5 +28,4 @@ typedef struct GoValue gvAPIKey;
 typedef GoUintptr IDVersionRef;
 typedef struct GoValue gvIDVersion;
 
-void Unpack(struct GoValue *, char **);
 void *ConvertValue(struct GoValue *, char **);

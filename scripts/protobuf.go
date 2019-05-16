@@ -154,7 +154,8 @@ func generateGo(dir string, dirs []string, files []string) error {
 }
 
 func generateC(dir string, dirs []string, files []string) error {
-	args := []string{"--c_out=../C/pb", "--lint_out=."}
+	// TODO: make this an argument or something
+	args := []string{"--c_out=../c/pb", "--lint_out=."}
 	return generate(dir, dirs, files, args)
 }
 
