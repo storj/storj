@@ -23,6 +23,7 @@ import (
 )
 
 func TestGraphqlQuery(t *testing.T) {
+	t.Skip("flaky")
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
