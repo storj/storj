@@ -299,10 +299,6 @@ func (s *Service) Token(ctx context.Context, email, password string) (token stri
 // GetUser returns User by id
 func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = GetAuth(ctx)
-	if err != nil {
-		return nil, err
-	}
 
 	user, err := s.store.Users().Get(ctx, id)
 	if err != nil {
