@@ -188,13 +188,13 @@ import { toUnixTimestamp } from '@/utils/time';
                 },
             },
             computed: {
-                storage: function () {
+                storage: function (): string {
                     return this.$store.state.usageModule.projectUsage.storage.toPrecision(5);
                 },
-                egress: function () {
+                egress: function (): string {
                     return this.$store.state.usageModule.projectUsage.egress.toPrecision(5);
                 },
-                objectsCount: function () {
+                objectsCount: function (): string {
                     return this.$store.state.usageModule.projectUsage.objectCount.toPrecision(5);
                 }
             }
