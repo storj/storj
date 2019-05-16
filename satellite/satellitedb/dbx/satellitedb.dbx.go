@@ -417,13 +417,6 @@ CREATE TABLE reset_password_tokens (
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
 );
-CREATE TABLE revocations (
-	id bigserial NOT NULL,
-	head bytea NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( head )
-);
 CREATE TABLE serial_numbers (
 	id serial NOT NULL,
 	serial_number bytea NOT NULL,
@@ -691,13 +684,6 @@ CREATE TABLE reset_password_tokens (
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
-);
-CREATE TABLE revocations (
-	id INTEGER NOT NULL,
-	head BLOB NOT NULL,
-	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( head )
 );
 CREATE TABLE serial_numbers (
 	id INTEGER NOT NULL,
@@ -3026,74 +3012,6 @@ func (f ResetPasswordToken_CreatedAt_Field) value() interface{} {
 
 func (ResetPasswordToken_CreatedAt_Field) _Column() string { return "created_at" }
 
-type Revocation struct {
-	Id        int64
-	Head      []byte
-	CreatedAt time.Time
-}
-
-func (Revocation) _Table() string { return "revocations" }
-
-type Revocation_Update_Fields struct {
-}
-
-type Revocation_Id_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func Revocation_Id(v int64) Revocation_Id_Field {
-	return Revocation_Id_Field{_set: true, _value: v}
-}
-
-func (f Revocation_Id_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Revocation_Id_Field) _Column() string { return "id" }
-
-type Revocation_Head_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func Revocation_Head(v []byte) Revocation_Head_Field {
-	return Revocation_Head_Field{_set: true, _value: v}
-}
-
-func (f Revocation_Head_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Revocation_Head_Field) _Column() string { return "head" }
-
-type Revocation_CreatedAt_Field struct {
-	_set   bool
-	_null  bool
-	_value time.Time
-}
-
-func Revocation_CreatedAt(v time.Time) Revocation_CreatedAt_Field {
-	return Revocation_CreatedAt_Field{_set: true, _value: v}
-}
-
-func (f Revocation_CreatedAt_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Revocation_CreatedAt_Field) _Column() string { return "created_at" }
-
 type SerialNumber struct {
 	Id           int
 	SerialNumber []byte
@@ -4329,27 +4247,6 @@ func (obj *postgresImpl) Create_ApiKey(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) CreateNoReturn_Revocation(ctx context.Context,
-	revocation_head Revocation_Head_Field) (
-	err error) {
-
-	__now := obj.db.Hooks.Now().UTC()
-	__head_val := revocation_head.value()
-	__created_at_val := __now
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO revocations ( head, created_at ) VALUES ( ?, ? )")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __head_val, __created_at_val)
-
-	_, err = obj.driver.Exec(__stmt, __head_val, __created_at_val)
-	if err != nil {
-		return obj.makeErr(err)
-	}
-	return nil
-
-}
-
 func (obj *postgresImpl) Create_BucketUsage(ctx context.Context,
 	bucket_usage_id BucketUsage_Id_Field,
 	bucket_usage_bucket_id BucketUsage_BucketId_Field,
@@ -5097,59 +4994,6 @@ func (obj *postgresImpl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Co
 			return nil, obj.makeErr(err)
 		}
 		rows = append(rows, api_key)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *postgresImpl) Has_Revocation_By_Head(ctx context.Context,
-	revocation_head Revocation_Head_Field) (
-	has bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT EXISTS( SELECT 1 FROM revocations WHERE revocations.head = ? )")
-
-	var __values []interface{}
-	__values = append(__values, revocation_head.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&has)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-	return has, nil
-
-}
-
-func (obj *postgresImpl) All_Revocation_By_ApiKey_ProjectId(ctx context.Context,
-	api_key_project_id ApiKey_ProjectId_Field) (
-	rows []*Revocation, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT revocations.id, revocations.head, revocations.created_at FROM revocations  JOIN api_keys ON revocations.head = api_keys.head WHERE api_keys.project_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, api_key_project_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		revocation := &Revocation{}
-		err = __rows.Scan(&revocation.Id, &revocation.Head, &revocation.CreatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, revocation)
 	}
 	if err := __rows.Err(); err != nil {
 		return nil, obj.makeErr(err)
@@ -6364,32 +6208,6 @@ func (obj *postgresImpl) Delete_ApiKey_By_Id(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Delete_Revocation_By_Head(ctx context.Context,
-	revocation_head Revocation_Head_Field) (
-	deleted bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM revocations WHERE revocations.head = ?")
-
-	var __values []interface{}
-	__values = append(__values, revocation_head.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
 func (obj *postgresImpl) Delete_BucketUsage_By_Id(ctx context.Context,
 	bucket_usage_id BucketUsage_Id_Field) (
 	deleted bool, err error) {
@@ -6594,16 +6412,6 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM serial_numbers;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM revocations;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -7072,27 +6880,6 @@ func (obj *sqlite3Impl) Create_ApiKey(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return obj.getLastApiKey(ctx, __pk)
-
-}
-
-func (obj *sqlite3Impl) CreateNoReturn_Revocation(ctx context.Context,
-	revocation_head Revocation_Head_Field) (
-	err error) {
-
-	__now := obj.db.Hooks.Now().UTC()
-	__head_val := revocation_head.value()
-	__created_at_val := __now
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO revocations ( head, created_at ) VALUES ( ?, ? )")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __head_val, __created_at_val)
-
-	_, err = obj.driver.Exec(__stmt, __head_val, __created_at_val)
-	if err != nil {
-		return obj.makeErr(err)
-	}
-	return nil
 
 }
 
@@ -7867,59 +7654,6 @@ func (obj *sqlite3Impl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Con
 			return nil, obj.makeErr(err)
 		}
 		rows = append(rows, api_key)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) Has_Revocation_By_Head(ctx context.Context,
-	revocation_head Revocation_Head_Field) (
-	has bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT EXISTS( SELECT 1 FROM revocations WHERE revocations.head = ? )")
-
-	var __values []interface{}
-	__values = append(__values, revocation_head.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&has)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-	return has, nil
-
-}
-
-func (obj *sqlite3Impl) All_Revocation_By_ApiKey_ProjectId(ctx context.Context,
-	api_key_project_id ApiKey_ProjectId_Field) (
-	rows []*Revocation, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT revocations.id, revocations.head, revocations.created_at FROM revocations  JOIN api_keys ON revocations.head = api_keys.head WHERE api_keys.project_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, api_key_project_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		revocation := &Revocation{}
-		err = __rows.Scan(&revocation.Id, &revocation.Head, &revocation.CreatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, revocation)
 	}
 	if err := __rows.Err(); err != nil {
 		return nil, obj.makeErr(err)
@@ -9224,32 +8958,6 @@ func (obj *sqlite3Impl) Delete_ApiKey_By_Id(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Delete_Revocation_By_Head(ctx context.Context,
-	revocation_head Revocation_Head_Field) (
-	deleted bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM revocations WHERE revocations.head = ?")
-
-	var __values []interface{}
-	__values = append(__values, revocation_head.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
 func (obj *sqlite3Impl) Delete_BucketUsage_By_Id(ctx context.Context,
 	bucket_usage_id BucketUsage_Id_Field) (
 	deleted bool, err error) {
@@ -9542,24 +9250,6 @@ func (obj *sqlite3Impl) getLastApiKey(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) getLastRevocation(ctx context.Context,
-	pk int64) (
-	revocation *Revocation, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT revocations.id, revocations.head, revocations.created_at FROM revocations WHERE _rowid_ = ?")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, pk)
-
-	revocation = &Revocation{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&revocation.Id, &revocation.Head, &revocation.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return revocation, nil
-
-}
-
 func (obj *sqlite3Impl) getLastBucketUsage(ctx context.Context,
 	pk int64) (
 	bucket_usage *BucketUsage, err error) {
@@ -9783,16 +9473,6 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM serial_numbers;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM revocations;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -10060,16 +9740,6 @@ func (rx *Rx) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Project_Name(ctx
 	return tx.All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Project_Name(ctx, project_member_member_id)
 }
 
-func (rx *Rx) All_Revocation_By_ApiKey_ProjectId(ctx context.Context,
-	api_key_project_id ApiKey_ProjectId_Field) (
-	rows []*Revocation, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.All_Revocation_By_ApiKey_ProjectId(ctx, api_key_project_id)
-}
-
 func (rx *Rx) All_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx context.Context,
 	storagenode_bandwidth_rollup_interval_start_greater_or_equal StoragenodeBandwidthRollup_IntervalStart_Field) (
 	rows []*StoragenodeBandwidthRollup, err error) {
@@ -10097,17 +9767,6 @@ func (rx *Rx) All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqual(ctx 
 		return
 	}
 	return tx.All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqual(ctx, storagenode_storage_tally_interval_end_time_greater_or_equal)
-}
-
-func (rx *Rx) CreateNoReturn_Revocation(ctx context.Context,
-	revocation_head Revocation_Head_Field) (
-	err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.CreateNoReturn_Revocation(ctx, revocation_head)
-
 }
 
 func (rx *Rx) Create_AccountingRollup(ctx context.Context,
@@ -10477,16 +10136,6 @@ func (rx *Rx) Delete_ResetPasswordToken_By_Secret(ctx context.Context,
 	return tx.Delete_ResetPasswordToken_By_Secret(ctx, reset_password_token_secret)
 }
 
-func (rx *Rx) Delete_Revocation_By_Head(ctx context.Context,
-	revocation_head Revocation_Head_Field) (
-	deleted bool, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Delete_Revocation_By_Head(ctx, revocation_head)
-}
-
 func (rx *Rx) Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx context.Context,
 	serial_number_expires_at_less_or_equal SerialNumber_ExpiresAt_Field) (
 	count int64, err error) {
@@ -10733,16 +10382,6 @@ func (rx *Rx) Get_User_By_Id(ctx context.Context,
 	return tx.Get_User_By_Id(ctx, user_id)
 }
 
-func (rx *Rx) Has_Revocation_By_Head(ctx context.Context,
-	revocation_head Revocation_Head_Field) (
-	has bool, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Has_Revocation_By_Head(ctx, revocation_head)
-}
-
 func (rx *Rx) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Asc_RollupEndTime(ctx context.Context,
 	bucket_usage_bucket_id BucketUsage_BucketId_Field,
 	bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
@@ -10930,10 +10569,6 @@ type Methods interface {
 		project_member_member_id ProjectMember_MemberId_Field) (
 		rows []*Project, err error)
 
-	All_Revocation_By_ApiKey_ProjectId(ctx context.Context,
-		api_key_project_id ApiKey_ProjectId_Field) (
-		rows []*Revocation, err error)
-
 	All_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx context.Context,
 		storagenode_bandwidth_rollup_interval_start_greater_or_equal StoragenodeBandwidthRollup_IntervalStart_Field) (
 		rows []*StoragenodeBandwidthRollup, err error)
@@ -10944,10 +10579,6 @@ type Methods interface {
 	All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqual(ctx context.Context,
 		storagenode_storage_tally_interval_end_time_greater_or_equal StoragenodeStorageTally_IntervalEndTime_Field) (
 		rows []*StoragenodeStorageTally, err error)
-
-	CreateNoReturn_Revocation(ctx context.Context,
-		revocation_head Revocation_Head_Field) (
-		err error)
 
 	Create_AccountingRollup(ctx context.Context,
 		accounting_rollup_node_id AccountingRollup_NodeId_Field,
@@ -11137,10 +10768,6 @@ type Methods interface {
 		reset_password_token_secret ResetPasswordToken_Secret_Field) (
 		deleted bool, err error)
 
-	Delete_Revocation_By_Head(ctx context.Context,
-		revocation_head Revocation_Head_Field) (
-		deleted bool, err error)
-
 	Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx context.Context,
 		serial_number_expires_at_less_or_equal SerialNumber_ExpiresAt_Field) (
 		count int64, err error)
@@ -11241,10 +10868,6 @@ type Methods interface {
 	Get_User_By_Id(ctx context.Context,
 		user_id User_Id_Field) (
 		user *User, err error)
-
-	Has_Revocation_By_Head(ctx context.Context,
-		revocation_head Revocation_Head_Field) (
-		has bool, err error)
 
 	Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Asc_RollupEndTime(ctx context.Context,
 		bucket_usage_bucket_id BucketUsage_BucketId_Field,

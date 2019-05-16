@@ -284,34 +284,6 @@ read all (
     orderby asc api_key.name
 )
 
-//-----revocations----//
-
-model revocation (
-	key    id
-	unique head
-
-	field id         serial64
-	field head       blob
-	field created_at timestamp ( autoinsert )
-)
-
-create revocation ( noreturn )
-
-delete revocation (
-	where revocation.head = ?
-)
-
-read has (
-	select revocation
-	where  revocation.head = ?
-)
-
-read all (
-	select revocation
-	join   revocation.head    = api_key.head
-	where  api_key.project_id = ?
-)
-
 //-----bucket_usage----//
 
 model bucket_usage (

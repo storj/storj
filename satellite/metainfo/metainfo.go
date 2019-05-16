@@ -55,7 +55,6 @@ type Endpoint struct {
 	orders                  *orders.Service
 	cache                   *overlay.Cache
 	apiKeys                 APIKeys
-	revocations             Revocations
 	storagenodeAccountingDB accounting.StoragenodeAccounting
 	projectAccountingDB     accounting.ProjectAccounting
 	liveAccounting          live.Service
@@ -64,7 +63,7 @@ type Endpoint struct {
 
 // NewEndpoint creates new metainfo endpoint instance
 func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache,
-	apiKeys APIKeys, revocations Revocations, sdb accounting.StoragenodeAccounting,
+	apiKeys APIKeys, sdb accounting.StoragenodeAccounting,
 	pdb accounting.ProjectAccounting, liveAccounting live.Service,
 	maxAlphaUsage memory.Size) *Endpoint {
 
@@ -75,7 +74,6 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cac
 		orders:                  orders,
 		cache:                   cache,
 		apiKeys:                 apiKeys,
-		revocations:             revocations,
 		storagenodeAccountingDB: sdb,
 		projectAccountingDB:     pdb,
 		liveAccounting:          liveAccounting,
@@ -105,13 +103,8 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context, action macaroon.Acti
 		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
 	}
 
-	revocations, err := endpoint.revocations.GetByProjectID(ctx, keyInfo.ProjectID)
-	if err != nil {
-		endpoint.log.Error("unauthorized request", zap.Error(status.Errorf(codes.Unauthenticated, err.Error())))
-		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
-	}
-
-	err = key.Check(keyInfo.Secret, action, revocations)
+	// Revocations are currently handled by just deleting the key.
+	err = key.Check(keyInfo.Secret, action, nil)
 	if err != nil {
 		endpoint.log.Error("unauthorized request", zap.Error(status.Errorf(codes.Unauthenticated, err.Error())))
 		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")

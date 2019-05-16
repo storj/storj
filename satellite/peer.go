@@ -356,7 +356,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Orders.Service,
 			peer.Overlay.Service,
 			peer.DB.Console().APIKeys(),
-			peer.DB.Console().Revocations(),
 			peer.DB.StoragenodeAccounting(),
 			peer.DB.ProjectAccounting(),
 			peer.LiveAccounting.Service,

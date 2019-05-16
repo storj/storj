@@ -145,13 +145,6 @@ CREATE TABLE reset_password_tokens (
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
 );
-CREATE TABLE revocations (
-	id INTEGER NOT NULL,
-	head BLOB NOT NULL,
-	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( head )
-);
 CREATE TABLE serial_numbers (
 	id INTEGER NOT NULL,
 	serial_number BLOB NOT NULL,
