@@ -71,10 +71,11 @@ func BenchmarkOffline(b *testing.B) {
 			var id storj.NodeID
 			_, _ = rand.Read(id[:]) // math/rand never returns error
 
-			overlaydb.UpdateAddress(ctx, &pb.Node{
+			err := overlaydb.UpdateAddress(ctx, &pb.Node{
 				Id: id,
 			})
-			
+			require.NoError(b, err)
+
 			if i < OnlineCount {
 				check = append(check, id)
 			}
