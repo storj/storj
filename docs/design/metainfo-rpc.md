@@ -210,9 +210,7 @@ message AddressedOrderLimit {
 }
 
 message SegmentCommitRequest {
-    bytes stream_id;
-    int32 part_number;
-    int32 index;
+    bytes segment_id;
 
     bytes encrypted_key_nonce;
     bytes encrypted_key;
@@ -222,7 +220,9 @@ message SegmentCommitRequest {
     repeated orders.PieceHash signed_piece_hashes; // TODO: add encrypted_segment_size to piece hash
 }
 
-message SegmentCommitResponse {}
+message SegmentCommitResponse {
+    bytes segment_id;
+}
 
 
 message SegmentContinueRequest {
