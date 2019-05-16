@@ -289,3 +289,10 @@ func CToGoStruct(fromVar, toPtr interface{}) error {
 		return ErrConvert.New("unsupported type %s", fromType)
 	}
 }
+
+func CToGoGoValue(fromVar C.struct_GoValue) (goValue GoValue, err error) {
+	return GoValue{
+		ptr:      uintptr(fromVar.Ptr),
+		_type:    uint(fromVar.Type),
+	}, nil
+}
