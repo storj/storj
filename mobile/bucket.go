@@ -337,8 +337,9 @@ func (bucket *Bucket) NewReader(path storj.Path, options *ReaderOptions) (*Reade
 }
 
 func (r *Reader) Read(data []byte) (int32, error) {
-	// TODO add validation for int vs int32
 	n, err := r.reader.Read(data)
+
+	// TODO this logic needs to be more complex because n > 0 is possible even with error
 	if err == io.EOF {
 		return -1, nil
 	}
