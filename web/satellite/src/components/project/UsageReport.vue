@@ -32,7 +32,7 @@
 					<h2>{{egress}}</h2>
 				</div>
 				<div class="usage-report-container__main-area__info-area__item">
-					<h1>Objects per Hour</h1>
+					<h1>Object Hours</h1>
 					<h2>{{objectsCount}}</h2>
 				</div>
 			</div>
@@ -188,13 +188,13 @@ import { toUnixTimestamp } from '@/utils/time';
                 },
             },
             computed: {
-                storage: function () {
+                storage: function (): string {
                     return this.$store.state.usageModule.projectUsage.storage.toPrecision(5);
                 },
-                egress: function () {
+                egress: function (): string {
                     return this.$store.state.usageModule.projectUsage.egress.toPrecision(5);
                 },
-                objectsCount: function () {
+                objectsCount: function (): string {
                     return this.$store.state.usageModule.projectUsage.objectCount.toPrecision(5);
                 }
             }
