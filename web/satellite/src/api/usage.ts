@@ -39,11 +39,6 @@ export async function fetchProjectUsage(projectID: string, since: Date, before: 
         result.data = response.data.project.usage;
     }
 
-    console.log("prev: ", since.toString());
-    console.log("curr: ", before.toString());
-    console.log();
-    console.log("prev: ", since.toUTCString());
-    console.log("curr: ", before.toUTCString());
     return result;
 }
 
