@@ -115,7 +115,7 @@ func (dr *decodedReader) Close() error {
 		dr.closeErr = errs.Combine(allErrors...)
 	})
 	// TODO this is workaround, we need reorganize to return multiple errors or divide into fatal, non fatal
-	if errorThreshold <= 0 {
+	if errorThreshold < 0 {
 		return dr.closeErr
 	}
 	if dr.closeErr != nil {
