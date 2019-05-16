@@ -115,16 +115,16 @@ CREATE TABLE nodes (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE offers (
-	id BLOB NOT NULL,
+	id INTEGER NOT NULL,
 	name TEXT NOT NULL,
 	description TEXT NOT NULL,
 	type INTEGER NOT NULL,
 	credit INTEGER NOT NULL,
-	award_credit_duration INTEGER NOT NULL,
-	invitee_credit_duration INTEGER NOT NULL,
+	award_credit_duration_days INTEGER NOT NULL,
+	invitee_credit_duration_days INTEGER NOT NULL,
 	redeemable_cap INTEGER NOT NULL,
 	num_redeemed INTEGER NOT NULL,
-	offer_duration INTEGER NOT NULL,
+	offer_duration_days INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	status INTEGER NOT NULL,
 	PRIMARY KEY ( id )

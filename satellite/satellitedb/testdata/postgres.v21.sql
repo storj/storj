@@ -1,4 +1,19 @@
 -- Copied from the corresponding version of dbx generated schema
+CREATE TABLE offers (
+	id bytea NOT NULL,
+	name text NOT NULL,
+	description text NOT NULL,
+	type integer NOT NULL,
+	credit integer NOT NULL,
+	award_credit_duration_days integer NOT NULL,
+	invitee_credit_duration_days integer NOT NULL,
+	redeemable_cap integer NOT NULL,
+	num_redeemed integer NOT NULL,
+	offer_duration_days integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	status integer NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE pending_audits (
 	node_id bytea NOT NULL,
 	piece_id bytea NOT NULL,
@@ -253,18 +268,4 @@ INSERT INTO "pending_audits" ("node_id", "piece_id", "stripe_index", "share_size
 
 -- NEW DATA --
 
-CREATE TABLE offers (
-	id bytea NOT NULL,
-	name text NOT NULL,
-	description text NOT NULL,
-	type integer NOT NULL,
-	credit integer NOT NULL,
-	award_credit_duration integer NOT NULL,
-	invitee_credit_duration integer NOT NULL,
-	redeemable_cap integer NOT NULL,
-	num_redeemed integer NOT NULL,
-	offer_duration integer NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	status integer NOT NULL,
-	PRIMARY KEY ( id )
-);
+INSERT INTO "offers" ("id", "name", "description", "type", "credit", "award_credit_duration_days", "invitee_credit_duration_days", "redeemable_cap", "num_redeemed", "offer_duration_days", "created_at", "status") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, 'testOffer', 'Test offer 1', 0, 10, 14, 14, 50, 0, 10, '2019-02-14 08:28:24.636949+00', 0);

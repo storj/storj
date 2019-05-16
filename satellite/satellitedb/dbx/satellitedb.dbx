@@ -571,19 +571,19 @@ delete reset_password_token ( where reset_password_token.secret = ? )
 model offer (
 	key id
 	
-	field id blob
+	field id	serial 
 	field name text ( updatable )
 	field description text ( updatable )
 	field type int ( updatable )
 	
 	field credit int ( updatable ) 
-	field award_credit_duration int ( updatable )
-	field invitee_credit_duration int (updatable)
+	field award_credit_duration_days int ( updatable )
+	field invitee_credit_duration_days int (updatable)
 
 	field redeemable_cap int ( updatable )
 	field num_redeemed int (updatable)
 
-	field offer_duration int ( updatable)
+	field offer_duration_days int ( updatable)
 	field created_at timestamp (autoinsert)
 
 	field status int ( updatable )
@@ -599,10 +599,6 @@ read all ( select offer )
 read all (
 	select offer
 	where offer.status = ?
-)
-
-read all (
-	select offer
 	where offer.type = ?
 )
 
