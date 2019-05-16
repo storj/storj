@@ -56,7 +56,7 @@ The credit is automatically applied to the account and will have a max limit tha
 **Referrer Award Credit**:
   - This is the credit awarded to the Referrer once the Invitee has created a *paid* account and has successfully paid their second invoice. This credit can have a different expiration date than the awarded Invitee Credit and the Default Free Credit.
 
-[Offer Types Table](https://docs.google.com/spreadsheets/d/1I3Do-HMNkpUpJAsebtl1NXw6-PlkoVaFKCP9e-TTgHA/edit?zx=aqgnyh2ltfad#gid=0&range=A3:E13)
+[Offer Types Table](https://docs.google.com/spreadsheets/d/1I3Do-HMNkpUpJAsebtl1NXw6-PlkoVaFKCP9e-TTgHA/edit?usp=sharing)
 
 ## Design
 
@@ -64,29 +64,31 @@ The credit is automatically applied to the account and will have a max limit tha
 
 **offer  table**
 ```sql
-    Id - bytea
+    Id - int
     Name -  text
     Description - text  
     Credits - integer
     redeemable_cap - integer
     Num_redeemed - integer
     Created_at - timestamp
-    offer_expiration - int
-    award_credit_expiration - int
-    Invitee_credit_expiration - int
+    offer_duration_days - int
+    award_credit_duration_days - int
+    Invitee_credit_duration_days - int
     type - enum[FREE_TIER, REFERRAL]
     status - enum[ON_GOING, DEFAULT, EXPIRED, NO_STATUS]
     PRIMARY KEY (id)
 ```
 
-**user_credit_stats table**
+**user_credit table**
 ```sql
     User_id - bytea
-    offer_id - bytea
+    offer_id - int
     credits_earned - float
     Credit_type - enum[AWARD, INVITEE, NO_TYPE]
-    Is_expired - bool
+    expires_at - timestamp
     Created_at - timestamp
+    referred_by - bytea (nullable)
+    FOREIGN KEY (offer_id)
     PRIMARY KEY (user_id)
 ```
 
@@ -111,7 +113,7 @@ type Offers interface {
 ```
 
 **satellite/console/credit.go**
-- Create a user_credit_stats interface to interact with the user_credit_stats  table
+- Create a user_credit interface to interact with the user_credit table
 
 ```golang
 type Credits interface {
@@ -163,7 +165,7 @@ peer.Offer.Endpoint = offerweb.NewServer(logger, config, service, listener)
 ### Referral Links
 
 The referral link url will be a static url that contains userid as the unique identifier
-Exp: `https://mars.tardigrade.io/ref/?uuid=<userid>`
+Exp: `https://mars.tardigrade.io/?uuid=<userid>`
 
 ### Segment.io service
 
@@ -231,7 +233,7 @@ Due to the limitation of the customer.io API, we can’t create a new campaign t
 **src/components/account/AccountArea.vue**
 - Add display for user’s referral link and copy to clipboard button using vue-clipboard2
 
-**https://github.com/storj/tardigrade-satellite-theme
+**github.com/storj/tardigrade-satellite-theme**
 - Add `.env` file that stores segment tracking id for each satellite 
 
 ### Admin GUI
@@ -243,20 +245,9 @@ we will be using go template for the UI
 
 As if the current user_credit table design, we will have a new entry each time when a user earns a credit. The reason why we designed this way is due to the starting date for the expiration date of credits. Each credit will be expired at a different time based on the duration we set for a particular offer and the date the credit is awarded to a user.
 
-Disadvantage:
-
-- The table will grow very quickly as the user base grows.
-- Each time when we want to retrieve a user's available credits, we will need to access two tables, offer and user_credit_stats, to update the is_expired value for all available credits to make sure it's up-to-date.
-- Foreign key relationship between user_credits_stats table, offer table, and user table
-
-Advantages:
-We will update the is_expired flag each time when we retrieve a user’s available credits. Therefore, except the first time, it will only retrieve the credits that are not expired
-
-Other approaches:
-We can have a running process to update the is_expired value for each credits on a daily basis
+We will check against the credit duration interval when inserting a new row into the user_credit table and update the expires_at for each entry accordingly.
 
 ## Open issues (if applicable)
 
-1. Is there a better way to design the tables so that we don't have to have the foreign key relationship for user_credit_stats table?
-2. Should we have a running process to loop through the user_credit table to check which credit is expired on a daily basis?
-3. We will have other marketing programs, for example, open source partner program. Should we create a top level system for all the marketing related services since we will probably be using the same private port and admin GUI for the marketing team to manage configurations for all the programs?
+1. We will have other marketing programs, for example, open source partner program. Should we create a top level system for all the marketing related services since we will probably be using the same private port and admin GUI for the marketing team to manage configurations for all the programs? (marketing service)
+2. sync up with the Matt and Egon about how are we going to restrict ppl from accessing the private port? Only allow local access or restricting people through firewall?
