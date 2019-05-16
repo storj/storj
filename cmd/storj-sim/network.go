@@ -408,11 +408,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			Address:    net.JoinHostPort(host, port(storagenodePeer, i, publicGRPC)),
 		})
 
-		// storage node must wait for bootstrap and satellites to start
+		// storage node must wait for bootstrap to start
 		process.WaitForStart(bootstrap)
-		for _, satellite := range satellites {
-			process.WaitForStart(satellite)
-		}
 
 		process.Arguments = withCommon(process.Directory, Arguments{
 			"setup": {
