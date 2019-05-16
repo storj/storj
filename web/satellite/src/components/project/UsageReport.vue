@@ -93,7 +93,7 @@ import { toUnixTimestamp } from '@/utils/time';
 
             	this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, this.$data.dateRange);
 
-                const buttons = [...(document as any).querySelectorAll('.usage-report-container__header__options-area__option')];
+                const buttons = [...(document as any).querySelectorAll('.usage-report-container__options-area__option')];
                 buttons.forEach(option => {
                     option.classList.remove('active');
                 });
@@ -166,7 +166,7 @@ import { toUnixTimestamp } from '@/utils/time';
                     target.classList.add('active');
                 },
                 removeActiveClass: function(): void {
-                    const buttons = [...(document as any).querySelectorAll('.usage-report-container__header__options-area__option')];
+                    const buttons = [...(document as any).querySelectorAll('.usage-report-container__options-area__option')];
                     buttons.forEach(option => {
                         option.classList.remove('active');
                     });

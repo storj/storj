@@ -35,7 +35,7 @@ export const usageModule = {
     }
 };
 
-const bucketPageLimit = 12;
+const bucketPageLimit = 6;
 const firstPage = 1;
 
 export const bucketUsageModule = {
