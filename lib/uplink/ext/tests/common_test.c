@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include "unity.h"
-#include "../uplink-cgo.h"
+#include "../c/headers/uplink-cgo.h"
 
 void TestGetIDVersion(void)
 {
@@ -15,12 +15,9 @@ void TestGetIDVersion(void)
     gvIDVersion idVersionValue = GetIDVersion(idVersionNumber, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
-    IDVersion *idVersion = (IDVersion*)(ConvertValue(&idVersionValue, err));
+    IDVersion *idVersion = (IDVersion *)(ConvertValue(&idVersionValue, err));
     TEST_ASSERT_EQUAL_STRING("", *err);
     TEST_ASSERT_NOT_NULL(idVersion);
-
-//    // TODO: use ConvertValue
-//    IDVersion *idVersion = storj__libuplink__idversion__unpack(NULL, idVersionValue.Size, idVersionValue.Snapshot);
 
     TEST_ASSERT_EQUAL(0, idVersion->number);
 }

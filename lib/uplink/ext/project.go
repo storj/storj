@@ -6,7 +6,7 @@ package main
 // #cgo CFLAGS: -g -Wall
 // #ifndef UPLINK_HEADERS
 //   #define UPLINK_HEADERS
-//   #include "headers/main.h"
+//   #include "c/headers/main.h"
 // #endif
 import "C"
 import (

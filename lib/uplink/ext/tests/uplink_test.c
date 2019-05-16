@@ -6,9 +6,7 @@
 #include <signal.h>
 #include <string.h>
 #include "unity.h"
-#include "../uplink-cgo.h"
-
-extern void *ConvertValue(struct GoValue *, char **);
+#include "../c/headers/uplink-cgo.h"
 
 void TestNewUplink_config(void)
 {

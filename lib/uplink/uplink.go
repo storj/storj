@@ -3,13 +3,6 @@
 
 package uplink
 
-// #cgo CFLAGS: -g -Wall
-// #include <stdlib.h>
-// #ifndef UPLINK_HEADERS
-//   #define UPLINK_HEADERS
-//   #include "ext/headers/main.h"
-// #endif
-import "C"
 import (
 	"context"
 
@@ -73,7 +66,6 @@ type Volatile struct {
 }
 
 // Config represents configuration options for an Uplink
-// CExport Config
 type Config struct {
 	Volatile
 }
@@ -98,7 +90,6 @@ func (cfg *Config) setDefaults(ctx context.Context) error {
 // Uplink represents the main entrypoint to Storj V3. An Uplink connects to
 // a specific Satellite and caches connections and resources, allowing one to
 // create sessions delineated by specific access controls.
-// CExport Uplink
 type Uplink struct {
 	ident *identity.FullIdentity
 	tc    transport.Client
@@ -142,7 +133,6 @@ func NewUplink(ctx context.Context, cfg *Config) (*Uplink, error) {
 }
 
 // ProjectOptions allows configuration of various project options during opening
-// CExport ProjectOptions
 type ProjectOptions struct {
 	Volatile struct {
 		EncryptionKey *storj.Key
@@ -200,4 +190,3 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey A
 func (u *Uplink) Close() error {
 	return nil
 }
-
