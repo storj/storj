@@ -35,6 +35,7 @@ import {AppState} from "../utils/constants/appStateEnum";
         PROJETS_ACTIONS,
         USER_ACTIONS,
         PROJECT_USAGE_ACTIONS,
+        BUCKET_USAGE_ACTIONS
     } from '@/utils/constants/actionNames';
     import ROUTES from '@/utils/constants/routerConstants';
     import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuccessPopup.vue';
@@ -81,6 +82,11 @@ import {AppState} from "../utils/constants/appStateEnum";
             const usageResponse = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, {startDate: previousDate, endDate: currentDate});
             if (!usageResponse.isSuccess) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
+            }
+
+            const bucketsResponse = await this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, 1);
+            if (!bucketsResponse.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + bucketsResponse.errorMessage);
             }
 
             this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
