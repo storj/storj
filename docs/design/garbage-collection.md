@@ -21,7 +21,19 @@ In these cases, unneeded data is considered garbage.
 - Uplink uploads data without committing it
 The garbage collection process should not depend on how garbage is created.
 
+
 ## Design
+What could be sent to the node:
+- list of useless pieces for a storage node
+    - would mean the satellite has to keep track of these useless pieces. 
+    - This list of pieces id would probably be smaller than the list of useful pieces if the storage node and the uplink are trustworthy.
+- list of useful pieces for a storage node
+    - no need for the satellite to track deleted pieces for each storage node (except for audit purposes) 
+    - More robust against nodes and uplinks that are not trustworthy
+    - possibility to use a probabilistic data structure such as Bloom filter
+- We also had the idea of using two bloom filters (one containing pieces that should be deleted, one for pieces that should not be deleted), but that could potentially give us a false positive for deleting a piece. We definitely shouldn't delete useful pieces, so this would be too risky.
+
+
 ### Approach from the whitepaper
 - The uplink makes a request to the satellite 
 - The satellite replies with a hash of the pieces the storage node should be holding
@@ -52,29 +64,23 @@ message DeleteRequest {
     Filter filter = 1;
 }
 ```
-### Probabilistic data set
+### Probabilistic data structures
+ Probabilistic data structures use hash functions to randomize and compactly represent a set of items. Membership querying can raise false positives, but no false negatives. We consider two type of filters for now: Bloom filter and cuckoo filter.
+
 ```go
 type ProbabilisticSet interface {
-    inSet(pieceId storj.PieceID) bool
+    contains(pieceId storj.PieceID) bool
     add(piecesId storj.PieceID)
 }
 ``` 
 
-#### Bloom filter
-A bloom filter is a probabilistic data structure used to test if an element belongs to a set. It can raise false positives, but no false negatives. 
-A Bloom filter is an array of *m* bits, and a set of *k* hash functions that return an integer between 0 and *m-1* . To add an element, it has to be fed to the different hash functions and the bits at the resulting positions are set to 1. 
+In our implementation, the satellite should create a new probabilistic data structure (Bloom filter or cuckoo filter) for every storage node that includes all piece IDs that the storage node should have.
 
-The probability of having a false positive depends on the size of the Bloom filter, the hash functions used and the number of elements in the set.
+Some probabilistic data structures allow for data removal (cuckoo for instance), but it would make garbage collection depends on how garbage is generated. 
 
-----
-
-In our implementation, the satellite should create a new Bloom filter (or cuckoo filter) for every storage node that includes all piece IDs that the storage node should have.
-
-We also can't remove entries from a Bloom filter, only add, meaning that the Satellite will need to frequently regenerate the Bloom filters.
+An advantage of using a probabilistic data structure is that it knows which pieces a storage node should hold. We don't have to care about how the garbage was created. Otherwise, if we do garbage collecting in a different way for specific scenarios (such as those listed under "Ways to create garbage data"), we would need to make sure we cover each case.
 
 Since currently the repair checker considers every piece id and node id anyway, we will integrate storage node garbage collection in the checker loop for the short term, but more long-term, we should have the Bloom filter generation run off of a snapshot of the database in a separate server. It doesn't need to necessarily run every day, but perhaps once a week.
-
-An advantage of using the Bloom filter is that it knows which pieces a storage node should hold. We don't have to care about how the garbage was created. Otherwise, if we do garbage collecting in a different way for specific scenarios (such as those listed under "Ways to create garbage data"), we would need to make sure we cover each case.
 
 Previously we'd planned on building reverse index functionality for pointerdb, but doing so would require storing tons of data. This would cause RAM issues eventually. In the case of the Bloom filter, RAM becomes less of an issue, but compute time becomes more of one.
 
@@ -83,26 +89,12 @@ Whether we use Bloom filters, cuckoo filters, or another data structure for addi
 
 ## Rationale
 
-### Bloom filters vs. cuckoo filters
+### Bloom filters
+A bloom filter is a probabilistic data structure used to test if an element belongs to a set. It can raise false positives, but no false negatives. 
+A Bloom filter is an array of *m* bits, and a set of *k* hash functions that return an integer between 0 and *m-1* . To add an element, it has to be fed to the different hash functions and the bits at the resulting positions are set to 1. 
 
-### Interesting figures
-- piece id size: currently 32 bytes
-- size of piece: s_max, s_min
-- minimum number of pieces id for a storage node storing x bytes of data: d/s_max
-- packet size?
+The probability of having a false positive depends on the size of the Bloom filter, the hash functions used and the number of elements in the set.
 
-### Thoughts
-What could we send the node:
-- list of useless pieces for a storage node
-    - would mean the satellite has to keep track of these useless pieces. 
-    - This list of pieces id would probably be smaller than the list of useful pieces if the storage node and the uplink are trustworthy.
-- list of useful pieces for a storage node
-    - no need for the satellite to track deleted pieces for each storage node (except for audit purposes) 
-    - More robust against nodes and uplinks that are not trustworthy
-    - possibility to use a Bloom filter
-- We also had the idea of using two bloom filters (one containing pieces that should be deleted, one for pieces that should not be deleted), but that could potentially give us a false positive for deleting a piece. We definitely shouldn't delete useful pieces, so this would be too risky.
-
-### Bloom filter
 - **n**: number of elements in the set
 - **m**: size of the Bloom filter array
 - **k**: number of hash functions used
@@ -146,11 +138,10 @@ see: [Bloom filter math](http://pages.cs.wisc.edu/~cao/papers/summary-cache/node
 
 ## Implementation
 - Determine if a Bloom filter or cuckoo filter would make the most sense for associating nodes with pieces that need to be deleted
+    - We will first use a Bloom filter
 - The data repair checker should create a filter for each storage node that it checks, and its piece IDs
 - Implement the garbage collection service defined by the interface
     - Satellite should be able to send a Delete request to a storage node
     - Storage node should be able to receive a Delete request from a Satellite
 - Storage node should use the filter from the Delete request to decide which pieces to delete, then delete them
 - Eventually, this service should iterate over a db snapshot instead of being integrated with the data repair checker
-
-## Open issues
