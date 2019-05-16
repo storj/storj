@@ -5,11 +5,17 @@
 # * go
 # * gospace
 
-OUTPUT_DIR=${1:-"."}
+if [ -z "$ANDROID_HOME" ]
+then
+      echo "\$ANDROID_HOME is not set"
+      exit 1
+fi
+
+OUTPUT_DIR=${1:-$PWD}
 OUTPUT_AAR="libuplink-android.aar"
 OUTPUT_JAVA_PACKAGE="io.storj.libuplink"
 
-STORJ_PATH=~/storj
+STORJ_PATH=~/storj2
 
 # set go modules to default behavior
 export GO111MODULE=auto
@@ -27,7 +33,7 @@ export GOSPACE_PKG=storj.io/storj
 # set the where the repository is located
 export GOSPACE_REPO=git@github.com:storj/storj.git
 
-gospace setup
+# gospace setup
 
 export PATH=$PATH:$GOPATH/bin
 
