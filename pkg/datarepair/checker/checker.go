@@ -142,7 +142,7 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 					if err != nil {
 						return Error.New("error adding injured segment to queue %s", err)
 					}
-				} else if int32(numHealthy) < pointer.Remote.Redundancy.MinReq {
+				} else if numHealthy < pointer.Remote.Redundancy.MinReq {
 					pathElements := storj.SplitPath(storj.Path(item.Key))
 					// check to make sure there are at least *4* path elements. the first three
 					// are project, segment, and bucket name, but we want to make sure we're talking
