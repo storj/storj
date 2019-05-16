@@ -308,3 +308,24 @@ func (cache *Cache) ConnSuccess(ctx context.Context, node *pb.Node) {
 		zap.L().Debug("error updating node connection info", zap.Error(err))
 	}
 }
+
+// GetMissingPieces returns the list of offline nodes
+func (cache *Cache) GetMissingPieces(ctx context.Context, pieces []*pb.RemotePiece) (missingPieces []int32, err error) {
+	var nodeIDs storj.NodeIDList
+	for _, p := range pieces {
+		nodeIDs = append(nodeIDs, p.NodeId)
+	}
+	badNodeIDs, err := cache.KnownUnreliableOrOffline(ctx, nodeIDs)
+	if err != nil {
+		return nil, Error.New("error getting nodes %s", err)
+	}
+
+	for _, p := range pieces {
+		for _, nodeID := range badNodeIDs {
+			if nodeID == p.NodeId {
+				missingPieces = append(missingPieces, p.GetPieceNum())
+			}
+		}
+	}
+	return missingPieces, nil
+}
