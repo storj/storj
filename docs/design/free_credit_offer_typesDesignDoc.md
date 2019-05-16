@@ -170,6 +170,7 @@ Exp: `https://mars.tardigrade.io/ref/?uuid=<userid>`
 **pkg/analytics/analytics.go**
 
 - For email service, we will design several event triggers in customer.io using their event triggered campaign. We will be using analytics-go package for back-end server and analytics.js for Satellite GUI from segment.io to send our trigger event to customer.io We will create a new package in storj/pkg for analytics that will check DNT first before sending data to customer.io
+- We will add a new configuration for storing segment tracking Id specifically for tardigrade branded satellite
 
 ```golang
 client := analytics.New()
@@ -230,8 +231,8 @@ Due to the limitation of the customer.io API, we can’t create a new campaign t
 **src/components/account/AccountArea.vue**
 - Add display for user’s referral link and copy to clipboard button using vue-clipboard2
 
-**src/plugins/analytics**
-- Create a customized plugin for analytics.js and check user’s tracking preference setting
+**https://github.com/storj/tardigrade-satellite-theme
+- Add `.env` file that stores segment tracking id for each satellite 
 
 ### Admin GUI
 
