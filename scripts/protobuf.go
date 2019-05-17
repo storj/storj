@@ -200,7 +200,17 @@ func checklock(dir string, dirs []string, files []string) error {
 		_ = os.RemoveAll(tmpdir)
 	}()
 
-	cmd := exec.Command("protolock", "init", "--lockdir", tmpdir)
+	original, err := ioutil.ReadFile(filepath.Join(protolockdir, "proto.lock"))
+	if err != nil {
+		return fmt.Errorf("unable to read proto.lock: %v", err)
+	}
+
+	err = ioutil.WriteFile(filepath.Join(tmpdir, "proto.lock"), original, 0755)
+	if err != nil {
+		return fmt.Errorf("unable to read proto.lock: %v", err)
+	}
+
+	cmd := exec.Command("protolock", "commit", "-lockdir", tmpdir)
 	cmd.Dir = protolockdir
 	out, err := cmd.CombinedOutput()
 	if len(out) > 0 {
@@ -210,19 +220,14 @@ func checklock(dir string, dirs []string, files []string) error {
 		return err
 	}
 
-	original, err := ioutil.ReadFile(filepath.Join(protolockdir, "proto.lock"))
-	if err != nil {
-		return fmt.Errorf("unable to read proto.lock: %v", err)
-	}
-
-	newlock, err := ioutil.ReadFile(filepath.Join(tmpdir, "proto.lock"))
+	changed, err := ioutil.ReadFile(filepath.Join(tmpdir, "proto.lock"))
 	if err != nil {
 		return fmt.Errorf("unable to read new proto.lock: %v", err)
 	}
 
-	if !bytes.Equal(original, newlock) {
-		diff, _ := difflines(string(original), string(newlock))
-		return fmt.Errorf("clean protolock is not the same as old: %v", diff)
+	if !bytes.Equal(original, changed) {
+		diff, _ := difflines(string(original), string(changed))
+		return fmt.Errorf("protolock is not up to date: %v", diff)
 	}
 
 	return nil
