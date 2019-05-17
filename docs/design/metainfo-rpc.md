@@ -26,87 +26,227 @@ The following is a proto file for just the rpc portion to create segments. The r
 With this design, streams will be created that contain multiple parts. There were already RPCs to finalize individual segments, but each segment was not logically associated with a part, but instead just the specific object.
 
 ```protobuf
-message AddressedOrderLimit {
-    orders.OrderLimit2 limit = 1;
-    node.NodeAddress storage_node_address = 2;
-}
-
 service Metainfo {
-    rpc StartStreamAndStartSegment(StartStreamAndStartSegmentRequest) returns (StartStreamAndStartSegmentResponse);
-    rpc CommitSegmentAndStartSegment(CommitSegmentAndStartSegmentRequest) returns (CommitSegmentAndStartSegmentResponse);
-    rpc CommitSegmentAndCommitStream(CommitSegmentAndCommitStreamRequest) returns (CommitSegmentAndCommitStreamResponse);
+    rpc CreateBucket(BucketCreateRequest) returns (BucketCreateResponse);
+    rpc GetBucket(BucketGetRequest) returns (BucketGetResponse);
+    rpc DeleteBucket(BucketDeleteRequest) returns (BucketDeleteResponse);
+    rpc ListBuckets(BucketListRequest) returns (BucketListResponse);
 
-    // reads / deletes
+    rpc CreateObject(ObjectCreateRequest) returns (ObjectCreateResponse);
+    rpc CommitObject(ObjectCommitRequest) returns (ObjectCommitResponse);
+    rpc ListObjects(ObjectListRequest) returns (ObjectListResponse);
+
+    rpc DeleteObject(ObjectDeleteRequest) returns (ObjectDeleteResponse);
+    rpc FinishDeleteObject(ObjectDeleteRequest) returns (ObjectDeleteResponse);
+
+    rpc CreateSegment(SegmentCreateRequest) returns (SegmentCreateResponse);
+    rpc AbortSegment(SegmentAbortRequest) returns (SegmentAbortResponse);
+    rpc CommitSegment(SegmentCommitRequest) returns (SegmentCommitResponse);
+    rpc MakeInlineSegment(SegmentMakeInlineRequest) returns (SegmentMakeInlineResponse);
+
+    rpc Batch(BatchRequest) returns (BatchResponse);
+
+    rpc ListSegments(SegmentListRequest) returns (SegmentListResponse);
+    rpc DownloadSegment(SegmentDownloadRequest) returns (SegmentDownloadResponse);
 }
 
-message StartStreamAndStartSegmentRequest {
-    // Start Stream
-    bytes bucket = 1;
-    bytes path = 2;
-    int64 stream_id = 3; // version, etc. -1 for server to pick.
+message Bucket {
+    bytes        name = 1;
+    CipherSuite  path_cipher = 2;
+    bytes        attribution_id = 3;
 
-    // Start Segment
-    int64 segment_index = 4;
-    int64 part_number = 5;
-
-    // the following copied from an earlier version of these requests
-    pointerdb.RedundancyScheme redundancy = 6;
-    int64 max_encrypted_segment_size = 7;
-    google.protobuf.Timestamp expiration = 8;
+    google.protobuf.Timestamp created_at = 4;
+    
+    int64                default_segment_size = 5;
+    RedundancyScheme     default_redundancy_scheme = 6;
+    EncryptionParameters default_encryption_parameters = 7;
 }
 
-message CommitSegmentAndStartSegmentRequest {
-    // Commit Segment
-    bytes segment_upload_id = 1;
-    pointerdb.Pointer pointer = 2;
-    repeated orders.OrderLimit2 original_limits = 3;
-
-    // Start Segment
-    bytes stream_upload_id = 4;
-    int64 segment_index = 5;
-    int64 part_number = 6;
-
-    // The following copied from an earlier version of these requests
-    pointerdb.RedundancyScheme redundancy = 7;
-    int64 max_encrypted_segment_size = 8;
-    google.protobuf.Timestamp expiration = 9;
+message BucketCreateRequest {
+    Bucket bucket = 1; // ignores created_at
 }
 
-message CommitSegmentAndCommitStreamRequest {
-    // Commit Segment
-    bytes segment_upload_id = 1;
-    pointerdb.Pointer pointer = 2;
-    repeated orders.OrderLimit2 original_limits = 3;
+message BucketCreateResponse {}
 
-    // Commit Stream
-    bytes stream_upload_id = 4;
+message BucketGetRequest {
+    bytes name = 1;
 }
 
-message StartStreamAndStartSegmentResponse {
-    // Start Stream
-    bytes stream_upload_id = 1;
-
-    // Start Segment
-    bytes segment_upload_id = 2;
-    repeated AddressedOrderLimit addressed_limits = 3;
-    bytes root_piece_id = 4 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
+message BucketGetResponse {
+    Bucket bucket = 1;
 }
 
-message CommitSegmentAndStartSegmentResponse {
-    // Commit Segment
-    pointerdb.Pointer pointer = 1;
+message BucketDeleteRequest {
+    bytes name = 1;
+}
+message BucketDeleteResponse {}
 
-    // Start Segment
-    bytes segment_upload_id = 2;
-    repeated AddressedOrderLimit addressed_limits = 3;
-    bytes root_piece_id = 4 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
+message BucketListRequest {
+    bytes     cursor    = 1;
+    Direction direction = 2;
+    int32     limit     = 3;
 }
 
-message CommitSegmentAndCommitStreamResponse {
-    // Commit Segment
-    pointerdb.Pointer pointer = 1;
+message BucketListResponse {
+    repeated Bucket items = 1;
+    bool            more  = 2;
+}
 
-    // Commit Stream
+message Object {
+    enum Status {
+        UPLOADING;
+        COMMITTING;
+        COMMITTED;
+        DELETING;
+    }
+
+    bytes  bucket;
+    bytes  encrypted_path;
+    int32  version;
+    Status status;
+
+    bytes  stream_id;
+
+    google.protobuf.Timestamp created_at;
+    google.protobuf.Timestamp status_at;
+    google.protobuf.Timestamp expires_at;
+
+    bytes  encrypted_metadata_nonce;
+    bytes  encrypted_metadata;
+
+    int64                fixed_segment_size;
+    RedundancyScheme     redundancy_scheme;
+    EncryptionParameters encryption_parameters;
+
+    int64 total_size;
+    int64 inline_size;
+    int64 remote_size;
+}
+
+message ObjectCreateRequest {
+    bytes  bucket = 1;
+    bytes  encrypted_path = 2;
+    int32  version = 3;
+}
+
+message ObjectCreateResponse {
+    bytes  bucket;
+    bytes  encrypted_path;
+    int32  version;
+
+    bytes  stream_id;
+
+    google.protobuf.Timestamp expires_at;
+
+    bytes  encrypted_metadata_nonce;
+    bytes  encrypted_metadata;
+
+    RedundancyScheme     redundancy_scheme;
+    EncryptionParameters encryption_parameters;
+}
+
+message ObjectCommitRequest {
+    bytes  bucket = 1;
+    bytes  encrypted_path = 2;
+    int32  version = 3;
+}
+
+message ObjectCommitResponse {
+    Object object = 1;
+}
+
+message ObjectListRequest {
+    bytes     bucket = 1;
+    bytes     encrypted_prefix = 2;
+    bytes     encrypted_cursor = 3;
+    Direction direction = 4;
+    int32     limit = 5;
+    bool      recursive = 6;
+
+    fixed32   meta_flags = 7;
+    bool      include_partial = 8;
+    bool      include_all_versions = 9;
+}
+
+message ObjectListResponse {
+    repeated Object items = 1;
+    bool more = 2;
+}
+
+message ObjectDeleteRequest {
+    bytes  bucket;
+    bytes  encrypted_path;
+    int32  version;
+}
+
+message ObjectDeleteResponse {
+    ???
+}
+
+message ObjectFinishDeleteRequest {
+    bytes  bucket;
+    bytes  encrypted_path;
+    int32  version;
+}
+
+message ObjectFinishDeleteResponse {}
+
+
+message SegmentCreateRequest {
+    bytes stream_id;
+    int32 part_number;
+    int32 index;
+
+    int64 max_encrypted_segment_size;
+}
+
+message SegmentCreateResponse {
+    repeated AddressedOrderLimit addressed_limits;
+}
+
+message AddressedOrderLimit {
+    orders.OrderLimit2 limit   = 1;
+    node.NodeAddress   address = 2;
+}
+
+message SegmentCommitRequest {
+    bytes segment_id;
+
+    bytes encrypted_key_nonce;
+    bytes encrypted_key;
+
+    bytes encrypted_data_checksum;
+
+    repeated orders.PieceHash signed_piece_hashes; // TODO: add encrypted_segment_size to piece hash
+}
+
+message SegmentCommitResponse {
+    bytes segment_id; // <stream_id, part_number, index>
+}
+
+
+message BatchRequest {
+    message Request {
+        ObjectCreateRequest object_create;
+        ObjectCommitRequest object_commit;
+
+        SegmentCreateRequest     segment_create;
+        SegmentCommitRequest     segment_commit;
+        SegmentMakeInlineRequest segment_inline;
+    }
+    repeated Request requests;
+}
+
+message BatchResponse {
+    message Response {
+        ObjectCreateResponse object_create;
+        ObjectCommitResponse object_commit;
+
+        SegmentCreateResponse     segment_create;
+        SegmentCommitResponse     segment_commit;
+        SegmentMakeInlineResponse segment_inline;
+    }
+    repeated Response responses;
 }
 ```
 
