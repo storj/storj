@@ -271,8 +271,8 @@ test-docker-clean: ## Clean up Docker environment used in test-docker target
 
 ##@ Tooling
 
-.PHONY: update-satellite-cfg-lock
-update-satellite-cfg-lock: ## Update the satellite config lock file
+.PHONY: update-satellite-config-lock
+update-satellite-config-lock: ## Update the satellite config lock file
 	@docker run -ti --rm \
 		-v ${GOPATH}/pkg/mod:/go/pkg/mod \
 		-v $(shell pwd):/storj \
@@ -280,4 +280,4 @@ update-satellite-cfg-lock: ## Update the satellite config lock file
 		-e "GOCACHE=/go-cache" \
 		-u root:root \
 		golang:${GO_VERSION} \
-		/bin/bash -c "cd /storj/scripts; ./update-satellite-cfg-lock.sh"
+		/bin/bash -c "cd /storj/scripts; ./update-satellite-config-lock.sh"
