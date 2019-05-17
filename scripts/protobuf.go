@@ -59,7 +59,7 @@ func run(command, root string) error {
 			"github.com/ckaznocha/protoc-gen-lint@68a05858965b31eb872cbeb8d027507a94011acc",
 			// See https://github.com/gogo/protobuf#most-speed-and-most-customization
 			"github.com/gogo/protobuf/protoc-gen-gogo@"+gogoVersion,
-			"github.com/nilslice/protolock/cmd/protolock",
+			"github.com/nilslice/protolock/cmd/protolock@v0.12.0",
 		)
 	case "generate":
 		return walkdirs(root, generate)
