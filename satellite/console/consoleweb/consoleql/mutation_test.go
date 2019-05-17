@@ -60,6 +60,7 @@ func TestGrapqhlMutation(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		defer ctx.Check(mailService.Close)
 
 		rootObject := make(map[string]interface{})
 		rootObject["origin"] = "http://doesntmatter.com/"
