@@ -16,11 +16,13 @@
 				<PaginationArea />
 			</div>
 			<EmptyState
+                class="empty-container"
                 v-if="pages === 0 && search && search.length > 0"
                 mainTitle="Nothing found :("
                 :imageSource="emptyImage" />
 		</div>
 		<EmptyState
+			class="empty-container"
 			v-if="pages === 0 && !search"
 			mainTitle="You have no Buckets yet"
 			:imageSource="emptyImage" />
@@ -99,6 +101,12 @@
 		.buckets-overflow {
 			overflow-y: scroll;
 			height: 600px;
+		}
+		.empty-container {
+			position: absolute;
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%);
 		}
 	}
 

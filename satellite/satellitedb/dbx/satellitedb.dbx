@@ -1,5 +1,25 @@
 // dbx.v1 golang satellitedb.dbx .
 
+//--- containment ---//
+model pending_audits (
+	key node_id
+
+	field node_id             blob
+	field piece_id            blob
+	field stripe_index        int64
+	field share_size          int64
+	field expected_share_hash blob
+	field reverify_count      int64 ( updatable )
+)
+
+create pending_audits ( )
+update pending_audits ( where pending_audits.node_id = ? )
+delete pending_audits ( where pending_audits.node_id = ? )
+read one (
+	select pending_audits
+	where  pending_audits.node_id = ?
+)
+
 //--- bwagreement ---//
 
 model bwagreement (
@@ -119,6 +139,8 @@ model node (
 	field updated_at           timestamp ( autoinsert, autoupdate )
 	field last_contact_success timestamp ( updatable )
 	field last_contact_failure timestamp ( updatable )
+
+	field contained bool ( updatable )
 )
 
 create node ( )
