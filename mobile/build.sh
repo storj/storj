@@ -34,7 +34,6 @@ export GOSPACE_PKG=storj.io/storj
 # set the where the repository is located
 export GOSPACE_REPO=git@github.com:storj/storj.git
 
-# TODO add check if STORJ_PATH exists do only update
 gospace setup
 
 export PATH=$PATH:$GOPATH/bin
@@ -49,4 +48,6 @@ go get golang.org/x/mobile/cmd/gomobile
 
 gomobile init
 
-gomobile bind -v -target android -o $OUTPUT_DIR/libuplink-android.aar -javapkg $OUTPUT_JAVA_PACKAGE storj.io/storj/mobile
+echo -e "\nbuilding aar"
+gomobile bind -target android -o $OUTPUT_DIR/libuplink-android.aar -javapkg $OUTPUT_JAVA_PACKAGE storj.io/storj/mobile
+echo "output aar: $OUTPUT_DIR/libuplink-android.aar"
