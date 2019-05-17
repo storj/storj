@@ -120,7 +120,7 @@ extern void Unpack(gvUplink* p0, char** p1);
 
 extern struct Bucket CreateBucket(GoUintptr p0, char* p1, struct BucketConfig p2, char** p3);
 
-extern gvUplink NewUplink(struct Config p0, char** p1);
+extern gvUplink NewUplink(gvUplink p0, char** p1);
 
 extern Project OpenProject(UplinkRef p0, char* p1, APIKeyRef p2, struct ProjectOptions p3, char** p4);
 

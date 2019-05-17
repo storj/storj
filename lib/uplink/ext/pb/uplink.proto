@@ -10,3 +10,16 @@ message IDVersion {
     uint32 number = 1;
     uint64 new_private_key = 2;
 }
+
+message TLSConfig {
+    bool skip_peer_ca_whitelist = 1;
+    string peer_ca_whitelist_path = 2;
+}
+
+message UplinkConfig {
+    TLSConfig tls = 1;
+    IDVersion identity_version = 2;
+    string peer_id_version = 3;
+    int64 max_inline_size = 4;
+    int64 max_memory = 5;
+}

@@ -18,20 +18,23 @@ void TestNewUplink_config(void)
     gvIDVersion idVersionValue = GetIDVersion(idVersionNumber, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
-    IDVersion *idVersion = (IDVersion *)(ConvertValue(&idVersionValue, err));
+    IDVersion *idVersion = (IDVersion *)(UnpackValue(&idVersionValue, err));
     TEST_ASSERT_EQUAL_STRING("", *err);
     TEST_ASSERT_NOT_NULL(idVersion);
 
     TEST_ASSERT_EQUAL(idVersionNumber, idVersion->number);
 
-    struct Config testUplinkConfig = {
+    UplinkConfig uplinkConfig = {
         {{true, "/whitelist.pem"},
-         idVersionValue.Ptr,
+         *idVersion,
          "latest",
          1,
          2}};
 
-    struct GoValue uplinkValue = NewUplink(testUplinkConfig, err);
+    gvUplinkConfig *uplinkConfigValue = MoveToGo(uplinkConfig, err);
+    TEST_ASSERT_EQUAL_STRING("", *err);
+
+    gvUplink uplinkValue = NewUplink(uplinkConfigValue.Ptr, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
     TEST_ASSERT_NOT_EQUAL(0, uplinkValue.Ptr);
 }

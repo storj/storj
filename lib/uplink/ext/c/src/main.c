@@ -5,10 +5,10 @@
 #include "../../uplink-cgo.h"
 
 //extern void Unpack(struct GoValue *, char **);
-//void *ConvertValue(struct GoValue *, char **);
+//void *UnpackValue(struct GoValue *, char **);
 
 // TODO: move into go?
-void *ConvertValue(struct GoValue *val, char **err)
+void *UnpackValue(struct GoValue *val, char **err)
 {
     switch (val->Type)
     {

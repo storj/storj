@@ -10,6 +10,7 @@ enum ValueType
 {
     IDVersionType,
     APIKeyType,
+    UplinkConfigType,
     UplinkType,
     ProjectType,
     BucketType
@@ -28,4 +29,4 @@ typedef struct GoValue gvAPIKey;
 typedef GoUintptr IDVersionRef;
 typedef struct GoValue gvIDVersion;
 
-void *ConvertValue(struct GoValue *, char **);
+void *UnpackValue(struct GoValue *, char **);

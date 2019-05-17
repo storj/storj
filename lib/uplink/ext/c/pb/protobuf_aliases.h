@@ -4,3 +4,5 @@
 #include "uplink.pb-c.h"
 
 typedef Storj__Libuplink__IDVersion IDVersion;
+typedef Storj__Libuplink__UplinkConfig UplinkConfig;
+//typedef struct Storj__Libuplink__ ;

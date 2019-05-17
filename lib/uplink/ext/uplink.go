@@ -21,16 +21,16 @@ import (
 var mon = monkit.Package()
 
 //export NewUplink
-func NewUplink(cConfig C.struct_Config, cErr **C.char) (cUplink C.gvUplink) {
+func NewUplink(cConfig C.struct_GoValue, cErr **C.char) (cUplink C.gvUplink) {
+	//cGoValue := C.PackValue(cConfig)
 	goConfig := new(uplink.Config)
-	if err := CToGoStruct(cConfig, goConfig); err != nil {
-		*cErr = C.CString(err.Error())
-		return cUplink
-	}
+	//if err := CToGoStruct(cConfig, goConfig); err != nil {
+	//	*cErr = C.CString(err.Error())
+	//	return cUplink
+	//}
 
 	goUplink, err := uplink.NewUplink(context.Background(), goConfig)
 	if err != nil {
-		fmt.Printf("NewUplink go err: %s\n", err)
 		*cErr = C.CString(err.Error())
 		return cUplink
 	}
@@ -47,7 +47,7 @@ func OpenProject(cUplink C.UplinkRef, satelliteAddr *C.char, cAPIKey C.APIKeyRef
 	ctx := context.Background()
 	defer mon.Task()(&ctx)(&err)
 
-	goUplink, ok := structRefMap.Get(token(cUplink)).(uplink.Uplink)
+	goUplink, ok := structRefMap.Get(token(cUplink)).(*uplink.Uplink)
 	if !ok {
 		*cErr = C.CString("invalid uplink")
 		return cProject	}

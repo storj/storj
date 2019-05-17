@@ -96,28 +96,11 @@ func (val GoValue) Snapshot() (data []byte, _ error) {
 
 //export Unpack
 func Unpack(cValue *C.struct_GoValue, cErr **C.char) {
-	// TODO: use mapping instead
-	value := new(GoValue)
-	//value := GoValue{}
-	err := CToGoStruct(*cValue, value)
+	value := CToGoGoValue(*cValue)
+
+	var err error
+	*cValue, err = value.GoToCGoValue()
 	if err != nil {
-		*cErr = C.CString(err.Error())
-		return
-	}
-	data, err := value.Snapshot()
-	if err != nil {
-		*cErr = C.CString(err.Error())
-		return
-	}
-
-	value.size = uintptr(len(data))
-
-	value.snapshot = data
-	//value.snapshot = CMalloc(uintptr(len(data)))
-	//copy(*(*[]byte)(unsafe.Pointer(value.snapshot)), data)
-	//snapshotBytes := C.GoBytes(unsafe.Pointer(fromValue.Interface().(*C.Key)), 32)
-
-	if err := GoToCStruct(*value, cValue); err != nil {
 		*cErr = C.CString(err.Error())
 		return
 	}
@@ -290,9 +273,29 @@ func CToGoStruct(fromVar, toPtr interface{}) error {
 	}
 }
 
-func CToGoGoValue(fromVar C.struct_GoValue) (goValue GoValue, err error) {
+func CToGoGoValue(cVal C.struct_GoValue) GoValue {
 	return GoValue{
-		ptr:      uintptr(fromVar.Ptr),
-		_type:    uint(fromVar.Type),
+		ptr:   uintptr(cVal.Ptr),
+		_type: uint(cVal.Type),
+	}
+}
+
+func (gv GoValue) GoToCGoValue() (cVal C.struct_GoValue, err error) {
+	size := uintptr(len(gv.snapshot))
+	ptr := CMalloc(size)
+
+	data, err := gv.Snapshot()
+	if err != nil {
+		return cVal, err
+	}
+
+	mem := (*[]byte)(unsafe.Pointer(ptr))
+	copy(*mem, data)
+
+	return C.struct_GoValue{
+		Ptr:      C.GoUintptr(gv.ptr),
+		Type:     C.enum_ValueType(gv._type),
+		Snapshot: (*C.uchar)(unsafe.Pointer(ptr)),
+		Size:     C.GoUintptr(size),
 	}, nil
 }
