@@ -178,6 +178,7 @@ func (b *Bucket) NewWriter(ctx context.Context, path storj.Path, opts *UploadOpt
 	return upload, nil
 }
 
+// ReadSeekCloser combines interfaces io.Reader, io.Seeker, io.Closer
 type ReadSeekCloser interface {
 	io.Reader
 	io.Seeker

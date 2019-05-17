@@ -189,7 +189,7 @@ func newStorjEncryptionParameters(ec *EncryptionParameters) storj.EncryptionPara
 type ListOptions struct {
 	Prefix    string
 	Cursor    string // Cursor is relative to Prefix, full path is Prefix + Cursor
-	Delimiter string
+	Delimiter int32
 	Recursive bool
 	Direction int
 	Limit     int
@@ -204,7 +204,7 @@ func (bucket *Bucket) ListObjects(options *ListOptions) (*ObjectList, error) {
 		opts.Prefix = options.Prefix
 		opts.Cursor = options.Cursor
 		opts.Direction = storj.ListDirection(options.Direction)
-		// opts.Delimiter = options.Delimiter
+		opts.Delimiter = options.Delimiter
 		opts.Recursive = options.Recursive
 		opts.Limit = options.Limit
 	}
@@ -361,7 +361,7 @@ func (r *Reader) Read(data []byte) (n int32, err error) {
 	if err == io.EOF {
 		return -1, nil
 	}
-	return int32(n), err
+	return n, err
 }
 
 // Cancel cancels read operation

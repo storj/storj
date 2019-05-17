@@ -74,7 +74,7 @@ func (bl *ObjectList) More() bool {
 
 // Prefix prefix for objects from list
 func (bl *ObjectList) Prefix() string {
-	return string(bl.list.Prefix)
+	return bl.list.Prefix
 }
 
 // Bucket returns bucket name
