@@ -43,7 +43,6 @@ type Verifier struct {
 	auditor           *identity.PeerIdentity
 	transport         transport.Client
 	overlay           *overlay.Cache
-	maxRetries        int
 	minBytesPerSecond memory.Size
 }
 
