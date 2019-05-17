@@ -55,7 +55,7 @@ require (
 	github.com/jtolds/monkit-hw v0.0.0-20190108155550-0f753668cf20
 	github.com/klauspost/cpuid v0.0.0-20180405133222-e7e905edc00e // indirect
 	github.com/klauspost/reedsolomon v0.0.0-20180704173009-925cb01d6510 // indirect
-	github.com/lib/pq v1.0.0
+	github.com/lib/pq v1.1.1
 	github.com/loov/hrtime v0.0.0-20181214195526-37a208e8344e
 	github.com/loov/plot v0.0.0-20180510142208-e59891ae1271
 	github.com/mattn/go-isatty v0.0.4 // indirect

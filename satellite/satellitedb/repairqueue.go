@@ -12,6 +12,7 @@ import (
 	"github.com/lib/pq"
 	sqlite3 "github.com/mattn/go-sqlite3"
 
+	"storj.io/storj/internal/dbutil/conndebug"
 	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/internal/dbutil/sqliteutil"
 	"storj.io/storj/pkg/pb"
@@ -83,6 +84,8 @@ func (r *repairQueue) Select(ctx context.Context) (seg *pb.InjuredSegment, err e
 	case *sqlite3.SQLiteDriver:
 		return r.sqliteSelect(ctx)
 	case *pq.Driver:
+		return r.postgresSelect(ctx)
+	case *conndebug.Driver:
 		return r.postgresSelect(ctx)
 	default:
 		return seg, fmt.Errorf("Unsupported database %t", t)

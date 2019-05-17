@@ -10945,7 +10945,7 @@ type dbMethods interface {
 }
 
 func openpostgres(source string) (*sql.DB, error) {
-	return sql.Open("postgres", source)
+	return sql.Open("postgres-debug", source)
 }
 
 var sqlite3DriverName = func() string {

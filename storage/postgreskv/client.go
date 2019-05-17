@@ -27,7 +27,7 @@ type Client struct {
 
 // New instantiates a new postgreskv client given db URL
 func New(dbURL string) (*Client, error) {
-	pgConn, err := sql.Open("postgres", dbURL)
+	pgConn, err := sql.Open("postgres-debug", dbURL)
 	if err != nil {
 		return nil, err
 	}
