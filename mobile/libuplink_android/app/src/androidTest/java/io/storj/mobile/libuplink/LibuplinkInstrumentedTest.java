@@ -241,17 +241,10 @@ public class LibuplinkInstrumentedTest {
                 byte[] expectedData = new byte[1024 * 100];
                 Random random = new Random();
                 random.nextBytes(expectedData);
-//                InputStream stream = new ByteArrayInputStream(expectedData);
                 {
-//                    System.out.println(expectedData.length);
                     Writer writer = bucket.newWriter("object/path", new WriterOptions());
                     try {
-//                        byte[] buf = new byte[4096];
-//                        int read = 0;
-//                        while ((read = stream.read(buf)) != -1) {
                         writer.write(expectedData, 0, expectedData.length);
-//                          assertEquals(n, buf.length);
-//                        }
                     } finally {
                         writer.close();
                     }
