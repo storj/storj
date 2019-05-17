@@ -39,7 +39,7 @@ pipeline {
                         sh 'bash ./scripts/check-dbx-version.sh'
                         sh 'golangci-lint -j=4 run'
                         sh 'go run scripts/check-mod-tidy.go -mod .build/go.mod.orig'
-                        sh 'make test-satellite-flag-change'
+                        sh 'make test-satellite-config-change'
                     }
                 }
 
