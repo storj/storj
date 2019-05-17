@@ -318,7 +318,8 @@ type ReaderOptions struct {
 
 type Reader struct {
 	scope
-	reader interface {
+	readError error
+	reader    interface {
 		io.Reader
 		io.Seeker
 		io.Closer
@@ -333,13 +334,26 @@ func (bucket *Bucket) NewReader(path storj.Path, options *ReaderOptions) (*Reade
 	if err != nil {
 		return nil, err
 	}
-	return &Reader{scope, reader}, nil
+	return &Reader{
+		scope:  scope,
+		reader: reader,
+	}, nil
 }
 
-func (r *Reader) Read(data []byte) (int32, error) {
-	n, err := r.reader.Read(data)
+func (r *Reader) Read(data []byte) (n int32, err error) {
+	if r.readError != nil {
+		err = r.readError
+	} else {
+		var read int
+		read, err = r.reader.Read(data)
+		n = int32(read)
+	}
 
-	// TODO this logic needs to be more complex because n > 0 is possible even with error
+	if n > 0 && err != nil {
+		r.readError = err
+		err = nil
+	}
+
 	if err == io.EOF {
 		return -1, nil
 	}

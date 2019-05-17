@@ -23,8 +23,6 @@ type ObjectInfo struct {
 	Expires     int64
 
 	metadata map[string]string
-
-	// object storj.Object
 }
 
 func newObjectInfoFromObject(object storj.Object) *ObjectInfo {

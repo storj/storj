@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# This script will build libuplink-android.aar library from scratch
 # Required:
 # * ANDROID_HOME set with NDK available
 # * go
@@ -15,7 +16,7 @@ OUTPUT_DIR=${1:-$PWD}
 OUTPUT_AAR="libuplink-android.aar"
 OUTPUT_JAVA_PACKAGE="io.storj.libuplink"
 
-STORJ_PATH=~/storj2
+STORJ_PATH=~/storj-for-android
 
 # set go modules to default behavior
 export GO111MODULE=auto
@@ -33,7 +34,7 @@ export GOSPACE_PKG=storj.io/storj
 # set the where the repository is located
 export GOSPACE_REPO=git@github.com:storj/storj.git
 
-# gospace setup
+gospace setup
 
 export PATH=$PATH:$GOPATH/bin
 
