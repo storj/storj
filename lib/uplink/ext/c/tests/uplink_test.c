@@ -8,11 +8,9 @@
 #include "unity.h"
 #include "../../uplink-cgo.h"
 
-void TestNewUplink_config(void)
+gvUplinkConfig *NewTestConfig(char **err)
 {
     uint8_t idVersionNumber = 0;
-    char *_err = "";
-    char **err = &_err;
 
     // NB: ensure we get a valid ID version
     gvIDVersion idVersionValue = GetIDVersion(idVersionNumber, err);
@@ -39,26 +37,30 @@ void TestNewUplink_config(void)
     pack_value((void *)&uplinkConfig, UplinkConfigType, uplinkConfigValue, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
-    gvUplink uplinkValue = NewUplink(uplinkConfigValue->Ptr, err);
-    TEST_ASSERT_EQUAL_STRING("", *err);
-    TEST_ASSERT_NOT_EQUAL(0, uplinkValue.Ptr);
+    return uplinkConfigValue;
 }
 
 gvUplink *NewTestUplink(char **err)
 {
-    uint8_t idVersionNumber = 0;
-    gvIDVersion version = GetIDVersion(idVersionNumber, err);
-
-    struct Config testUplinkConfig = {
-        {{true, "/whitelist.pem"},
-         version.Ptr,
-         "latest",
-         1,
-         2}};
+    gvUplinkConfig *uplinkConfigValue = NewTestConfig(err);
+    TEST_ASSERT_EQUAL_STRING("", *err);
 
     gvUplink *uplink = malloc(sizeof(gvUplink));
-    *uplink = NewUplink(testUplinkConfig, err);
+    *uplink = NewUplink(uplinkConfigValue->Ptr, err);
     return uplink;
+}
+
+void TestNewUplink_config(void)
+{
+    char *_err = "";
+    char **err = &_err;
+
+    gvUplinkConfig *uplinkConfigValue = NewTestConfig(err);
+    TEST_ASSERT_EQUAL_STRING("", *err);
+
+    gvUplink uplinkValue = NewUplink(uplinkConfigValue->Ptr, err);
+    TEST_ASSERT_EQUAL_STRING("", *err);
+    TEST_ASSERT_NOT_EQUAL(0, uplinkValue.Ptr);
 }
 
 void TestOpenProject(void)

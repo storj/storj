@@ -34,7 +34,7 @@ func init() {
 // TODO: split c test up into multiple suites, each of which gets a go test function.
 func TestAllCTests(t *testing.T) {
 	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	// defer ctx.Cleanup()
 
 	planet, err := testplanet.NewWithLogger(zap.NewNop(), 1, 8, 0)
 	if err != nil {
