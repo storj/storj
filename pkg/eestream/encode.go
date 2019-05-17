@@ -12,6 +12,7 @@ import (
 	"github.com/vivint/infectious"
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/fpath"
 	"storj.io/storj/internal/readcloser"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/encryption"
@@ -123,32 +124,20 @@ type encodedReader struct {
 
 // EncodeReader takes a Reader and a RedundancyStrategy and returns a slice of
 // io.ReadClosers.
-func EncodeReader(ctx context.Context, r io.Reader, rs RedundancyStrategy) (_ []io.ReadCloser, err error) {
+func EncodeReader(ctx context.Context, r io.Reader, rs RedundancyStrategy) ([]io.ReadCloser, error) {
 	er := &encodedReader{
 		rs:     rs,
 		pieces: make(map[int]*encodedPiece, rs.TotalCount()),
 	}
 
-	var tmpDir string
-	value := ctx.Value("writableDir")
-	if value == nil {
-		tmpDir = os.TempDir()
-	} else {
-		tmpDir = value.(string)
+	tempDir, ok := fpath.GetTempDir(ctx)
+	if !ok || tempDir == "" {
+		tempDir = os.TempDir()
 	}
 
-	var pipeReaders []sync2.PipeReader
-	var pipeWriter sync2.PipeWriter
-	if tmpDir == "inmemory" {
-		pipeReaders, pipeWriter, err = sync2.NewTeeInmemory(rs.TotalCount())
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		pipeReaders, pipeWriter, err = sync2.NewTeeFile(rs.TotalCount(), tmpDir)
-		if err != nil {
-			return nil, err
-		}
+	pipeReaders, pipeWriter, err := sync2.NewTeeFile(rs.TotalCount(), tempDir)
+	if err != nil {
+		return nil, err
 	}
 
 	readers := make([]io.ReadCloser, 0, rs.TotalCount())

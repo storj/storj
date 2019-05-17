@@ -39,9 +39,10 @@ type Uplink struct {
 }
 
 // NewUplink creates a new Uplink. This is the first step to create an uplink
-// session with a user specified config or with default config, if nil config
-func NewUplink(config *Config, writableDir string) (*Uplink, error) {
-	scope := rootScope(writableDir)
+// session with a user specified config or with default config, if nil config.
+// Uplink needs also writable temporary directory.
+func NewUplink(config *Config, tempDir string) (*Uplink, error) {
+	scope := rootScope(tempDir)
 
 	cfg := &libuplink.Config{}
 	if config != nil {
