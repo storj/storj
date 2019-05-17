@@ -25,9 +25,9 @@ func NewUplink(conf Config) (Client, error) {
 	client := &Uplink{conf}
 
 	cmd := client.cmd("setup",
-		"--overwrite",
+		"--non-interactive", "true",
 		"--api-key", client.conf.APIKey,
-		"--enc-key", client.conf.EncryptionKey,
+		"--enc.key", client.conf.EncryptionKey,
 		"--satellite-addr", client.conf.Satellite)
 
 	_, err := cmd.Output()
