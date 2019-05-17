@@ -7,9 +7,9 @@ import (
 	"context"
 	"time"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"github.com/zeebo/errs"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
