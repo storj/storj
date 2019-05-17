@@ -4,6 +4,8 @@
 package mobile
 
 import (
+	"fmt"
+
 	"storj.io/storj/internal/memory"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/storj"
@@ -50,7 +52,7 @@ func NewUplink(config *Config, writableDir string) (*Uplink, error) {
 
 	lib, err := libuplink.NewUplink(scope.ctx, cfg)
 	if err != nil {
-		return nil, err
+		return nil, safeError(err)
 	}
 	return &Uplink{scope, lib}, nil
 }
@@ -60,7 +62,7 @@ func NewUplink(config *Config, writableDir string) (*Uplink, error) {
 // objects using this Uplink should be used after calling Close.
 func (uplink *Uplink) Close() error {
 	uplink.cancel()
-	return uplink.lib.Close()
+	return safeError(uplink.lib.Close())
 }
 
 // ProjectOptions allows configuration of various project options during opening
@@ -86,12 +88,12 @@ func (uplink *Uplink) OpenProject(satellite string, apikey string, options *Proj
 
 	key, err := libuplink.ParseAPIKey(apikey)
 	if err != nil {
-		return nil, err
+		return nil, safeError(err)
 	}
 
 	project, err := uplink.lib.OpenProject(scope.ctx, satellite, key, &opts)
 	if err != nil {
-		return nil, err
+		return nil, safeError(err)
 	}
 
 	return &Project{scope, project}, nil
@@ -100,7 +102,7 @@ func (uplink *Uplink) OpenProject(satellite string, apikey string, options *Proj
 // Close closes the Project
 func (project *Project) Close() error {
 	defer project.cancel()
-	return project.lib.Close()
+	return safeError(project.lib.Close())
 }
 
 // CreateBucket creates buckets in project
@@ -117,7 +119,7 @@ func (project *Project) CreateBucket(bucketName string, opts *BucketConfig) (*Bu
 
 	bucket, err := project.lib.CreateBucket(scope.ctx, bucketName, &cfg)
 	if err != nil {
-		return nil, err
+		return nil, safeError(err)
 	}
 
 	return newBucketInfo(bucket), nil
@@ -136,7 +138,7 @@ func (project *Project) OpenBucket(bucketName string, options *BucketAccess) (*B
 
 	bucket, err := project.lib.OpenBucket(scope.ctx, bucketName, &opts)
 	if err != nil {
-		return nil, err
+		return nil, safeError(err)
 	}
 
 	return &Bucket{bucket.Name, scope, bucket}, nil
@@ -148,7 +150,7 @@ func (project *Project) GetBucketInfo(bucketName string) (*BucketInfo, error) {
 
 	bucket, _, err := project.lib.GetBucketInfo(scope.ctx, bucketName)
 	if err != nil {
-		return nil, err
+		return nil, safeError(err)
 	}
 
 	return newBucketInfo(bucket), nil
@@ -164,7 +166,7 @@ func (project *Project) ListBuckets(cursor string, direction, limit int) (*Bucke
 	}
 	list, err := project.lib.ListBuckets(scope.ctx, &opts)
 	if err != nil {
-		return nil, err
+		return nil, safeError(err)
 	}
 
 	return &BucketList{list}, nil
@@ -176,9 +178,13 @@ func (project *Project) DeleteBucket(bucketName string) error {
 	scope := project.scope.child()
 
 	err := project.lib.DeleteBucket(scope.ctx, bucketName)
-	if err != nil {
-		return err
-	}
+	return safeError(err)
+}
 
-	return nil
+func safeError(err error) error {
+	// workaround to avoid gomobile panic because of "hash of unhashable type errs.combinedError"
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("%v", err.Error())
 }

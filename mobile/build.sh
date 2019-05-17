@@ -34,6 +34,7 @@ export GOSPACE_PKG=storj.io/storj
 # set the where the repository is located
 export GOSPACE_REPO=git@github.com:storj/storj.git
 
+# TODO add check if STORJ_PATH exists do only update
 gospace setup
 
 export PATH=$PATH:$GOPATH/bin

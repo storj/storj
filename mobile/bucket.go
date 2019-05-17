@@ -211,7 +211,7 @@ func (bucket *Bucket) ListObjects(options *ListOptions) (*ObjectList, error) {
 
 	list, err := bucket.lib.ListObjects(scope.ctx, opts)
 	if err != nil {
-		return nil, err
+		return nil, safeError(err)
 	}
 	return &ObjectList{list}, nil
 }
@@ -221,7 +221,7 @@ func (bucket *Bucket) OpenObject(objectPath string) (*ObjectInfo, error) {
 	scope := bucket.scope.child()
 	object, err := bucket.lib.OpenObject(scope.ctx, objectPath)
 	if err != nil {
-		return nil, err
+		return nil, safeError(err)
 	}
 	return newObjectInfoFromObjectMeta(object.Meta), nil
 }
@@ -229,13 +229,13 @@ func (bucket *Bucket) OpenObject(objectPath string) (*ObjectInfo, error) {
 // DeleteObject removes an object, if authorized.
 func (bucket *Bucket) DeleteObject(objectPath string) error {
 	scope := bucket.scope.child()
-	return bucket.lib.DeleteObject(scope.ctx, objectPath)
+	return safeError(bucket.lib.DeleteObject(scope.ctx, objectPath))
 }
 
 // Close closes the Bucket session.
 func (bucket *Bucket) Close() error {
 	defer bucket.cancel()
-	return bucket.lib.Close()
+	return safeError(bucket.lib.Close())
 }
 
 // WriterOptions controls options about writing a new Object
@@ -291,7 +291,7 @@ func (bucket *Bucket) NewWriter(path storj.Path, options *WriterOptions) (*Write
 
 	writer, err := bucket.lib.NewWriter(scope.ctx, path, opts)
 	if err != nil {
-		return nil, err
+		return nil, safeError(err)
 	}
 	return &Writer{scope, writer}, nil
 }
@@ -300,7 +300,7 @@ func (bucket *Bucket) NewWriter(path storj.Path, options *WriterOptions) (*Write
 func (w *Writer) Write(data []byte, offset, length int32) (int32, error) {
 	// in Java byte array size is max int32
 	n, err := w.writer.Write(data[offset:length])
-	return int32(n), err
+	return int32(n), safeError(err)
 }
 
 // Cancel cancels writing operation
@@ -311,11 +311,7 @@ func (w *Writer) Cancel() {
 // Close closes writer
 func (w *Writer) Close() error {
 	defer w.cancel()
-	err := w.writer.Close()
-	if err != nil {
-		return fmt.Errorf("%v", err.Error())
-	}
-	return nil
+	return safeError(w.writer.Close())
 }
 
 // ReaderOptions options for reading
@@ -339,7 +335,7 @@ func (bucket *Bucket) NewReader(path storj.Path, options *ReaderOptions) (*Reade
 
 	reader, err := bucket.lib.NewReader(scope.ctx, path)
 	if err != nil {
-		return nil, err
+		return nil, safeError(err)
 	}
 	return &Reader{
 		scope:  scope,
@@ -365,7 +361,7 @@ func (r *Reader) Read(data []byte) (n int32, err error) {
 	if err == io.EOF {
 		return -1, nil
 	}
-	return n, err
+	return n, safeError(err)
 }
 
 // Cancel cancels read operation
@@ -376,9 +372,5 @@ func (r *Reader) Cancel() {
 // Close closes reader
 func (r *Reader) Close() error {
 	defer r.cancel()
-	err := r.reader.Close()
-	if err != nil {
-		return fmt.Errorf("%v", err.Error())
-	}
-	return nil
+	return safeError(r.reader.Close())
 }
