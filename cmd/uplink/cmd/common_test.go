@@ -74,7 +74,11 @@ func TestUsOrLoadEncryptionKeyIntoEncryptionAccess(t *testing.T) {
 	})
 
 	t.Run("error", func(t *testing.T) {
-		_, err := useOrLoadEncryptionAccess("", "")
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+		filename := ctx.File("encryption.key")
+
+		_, err := useOrLoadEncryptionAccess("", filename)
 		require.Error(t, err)
 	})
 }

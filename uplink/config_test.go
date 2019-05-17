@@ -28,7 +28,7 @@ func TestLoadEncryptionKey(t *testing.T) {
 		return filename, ctx.Cleanup
 	}
 
-	t.Run("ok", func(t *testing.T) {
+	t.Run("ok: reading from file", func(t *testing.T) {
 		passphrase := make([]byte, rand.Intn(100)+1)
 		_, err := rand.Read(passphrase)
 		require.NoError(t, err)
@@ -43,9 +43,10 @@ func TestLoadEncryptionKey(t *testing.T) {
 		require.Equal(t, expectedKey, key)
 	})
 
-	t.Run("error: empty filepath", func(t *testing.T) {
-		_, err := uplink.LoadEncryptionKey("")
-		require.Error(t, err)
+	t.Run("ok: empty filepath", func(t *testing.T) {
+		key, err := uplink.LoadEncryptionKey("")
+		require.NoError(t, err)
+		require.Equal(t, &storj.Key{}, key)
 	})
 
 	t.Run("error: file not found", func(t *testing.T) {
@@ -96,7 +97,11 @@ func TestUseOrLoadEncryptionKey(t *testing.T) {
 	})
 
 	t.Run("error", func(t *testing.T) {
-		_, err := uplink.UseOrLoadEncryptionKey("", "")
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+		filename := ctx.File("encryption.key")
+
+		_, err := uplink.UseOrLoadEncryptionKey("", filename)
 		require.Error(t, err)
 	})
 }

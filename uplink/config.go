@@ -160,11 +160,10 @@ func (c Config) GetEncryptionScheme() storj.EncryptionScheme {
 // LoadEncryptionKey loads the encryption key stored in the file pointed by
 // filepath.
 //
-// An error is returned if filepath is empty, file is not found or there is an
-// I/O error.
+// An error is file is not found or there is an I/O error.
 func LoadEncryptionKey(filepath string) (key *storj.Key, error error) {
 	if filepath == "" {
-		return nil, errors.New("filepath cannot be empty")
+		return &storj.Key{}, nil
 	}
 
 	file, err := os.Open(filepath)
