@@ -5,7 +5,6 @@ package satellitedb
 
 import (
 	"database/sql/driver"
-	"encoding/hex"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
@@ -29,6 +28,8 @@ type nodeIDsArray storj.NodeIDList
 
 // Value converts a NodeIDList to a postgres array
 func (nodes nodeIDsArray) Value() (driver.Value, error) {
+	const hextable = "0123456789abcdef"
+
 	if nodes == nil {
 		return nil, nil
 	}
@@ -43,8 +44,12 @@ func (nodes nodeIDsArray) Value() (driver.Value, error) {
 	wp += x
 
 	for i := range nodes {
-		x = hex.Encode(out[wp:], nodes[i].Bytes())
-		wp += x
+		for _, v := range nodes[i] {
+			out[wp] = hextable[v>>4]
+			out[wp+1] = hextable[v&0xf]
+			wp += 2
+		}
+
 		if i+1 < len(nodes) {
 			x = copy(out[wp:], []byte(`","\\x`))
 			wp += x
