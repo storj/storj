@@ -103,7 +103,6 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 		}(i, addressedLimit)
 	}
 
-	var uploadErrs errs.Group
 	successfulNodes = make([]*pb.Node, len(limits))
 	successfulHashes = make([]*pb.PieceHash, len(limits))
 	var successfulCount int32
@@ -118,7 +117,6 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 
 		if info.err != nil {
 			zap.S().Debugf("Upload to storage node %s failed: %v", limits[info.i].GetLimit().StorageNodeId, info.err)
-			uploadErrs.Add(info.err)
 			continue
 		}
 
@@ -168,7 +166,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 	}()
 
 	if int(atomic.LoadInt32(&successfulCount)) < rs.RepairThreshold() {
-		return nil, nil, Error.New("successful puts (%d) less than repair threshold (%d): %v", successfulCount, rs.RepairThreshold(), uploadErrs.Err())
+		return nil, nil, Error.New("successful puts (%d) less than repair threshold (%d)", successfulCount, rs.RepairThreshold())
 	}
 
 	return successfulNodes, successfulHashes, nil
