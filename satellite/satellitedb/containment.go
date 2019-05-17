@@ -28,7 +28,7 @@ func (containment *containment) Get(ctx context.Context, id pb.NodeID) (*audit.P
 		return nil, audit.ErrContainedNotFound.New(id.String())
 	}
 	if err != nil {
-		return nil, err
+		return nil, audit.ContainError.Wrap(err)
 	}
 
 	return convertDBPending(pending)
@@ -46,7 +46,7 @@ func (containment *containment) IncrementPending(ctx context.Context, pendingAud
 		pendingAudit.NodeID.Bytes(), pendingAudit.PieceID.Bytes(), pendingAudit.StripeIndex, pendingAudit.ShareSize, pendingAudit.ExpectedShareHash, pendingAudit.ReverifyCount,
 	)
 	if err != nil {
-		return err
+		return audit.ContainError.Wrap(err)
 	}
 	return nil
 }
@@ -60,11 +60,11 @@ func (containment *containment) Delete(ctx context.Context, id pb.NodeID) error 
 	if err == sql.ErrNoRows {
 		return audit.ErrContainedNotFound.New(id.String())
 	}
-	if !isDeleted {
-		return audit.ErrContainDelete.New(id.String(), err)
-	}
 	if err != nil {
-		return err
+		return audit.ContainError.Wrap(err)
+	}
+	if !isDeleted {
+		return audit.ErrContainDelete.New(id.String(), audit.ContainError.Wrap(err))
 	}
 
 	return nil
@@ -77,12 +77,12 @@ func convertDBPending(info *dbx.PendingAudits) (*audit.PendingAudit, error) {
 
 	nodeID, err := storj.NodeIDFromBytes(info.NodeId)
 	if err != nil {
-		return nil, err
+		return nil, audit.ContainError.Wrap(err)
 	}
 
 	pieceID, err := storj.PieceIDFromBytes(info.PieceId)
 	if err != nil {
-		return nil, err
+		return nil, audit.ContainError.Wrap(err)
 	}
 
 	pending := &audit.PendingAudit{

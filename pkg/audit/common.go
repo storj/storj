@@ -9,12 +9,3 @@ import (
 
 // Error is the default audit errs class
 var Error = errs.Class("audit error")
-
-// ContainError is the containment errs class
-var ContainError = errs.Class("containment error")
-
-// ErrContainedNotFound is the errs class for when a pending audit isn't found
-var ErrContainedNotFound = errs.Class("pending audit not found")
-
-// ErrContainDelete is the errs class for when a pending audit isn't found
-var ErrContainDelete = errs.Class("unable to delete pending audit")

@@ -6,10 +6,22 @@ package audit
 import (
 	"context"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+)
+
+var (
+	// ContainError is the containment errs class
+	ContainError = errs.Class("containment error")
+
+	// ErrContainedNotFound is the errs class for when a pending audit isn't found
+	ErrContainedNotFound = errs.Class("pending audit not found")
+
+	// ErrContainDelete is the errs class for when a pending audit can't be deleted
+	ErrContainDelete = errs.Class("unable to delete pending audit")
 )
 
 // PendingAudit contains info needed for retrying an audit for a contained node
@@ -43,7 +55,7 @@ func NewContainment(log *zap.Logger, db DB) *Containment {
 	}
 }
 
-// Get will get pending audit info from the db
+// Get gets pending audit info from the db
 func (containment *Containment) Get(ctx context.Context, nodeID pb.NodeID) (*PendingAudit, error) {
 	pendingAudit, err := containment.db.Get(ctx, nodeID)
 	if err != nil {
@@ -52,7 +64,7 @@ func (containment *Containment) Get(ctx context.Context, nodeID pb.NodeID) (*Pen
 	return pendingAudit, nil
 }
 
-// IncrementPending will either create a new entry for a pending audit or update an existing pending audit's reverify count
+// IncrementPending either creates a new entry for a pending audit or updates an existing pending audit's reverify count
 func (containment *Containment) IncrementPending(ctx context.Context, pending *PendingAudit) error {
 	err := containment.db.IncrementPending(ctx, pending)
 	if err != nil {
@@ -61,7 +73,7 @@ func (containment *Containment) IncrementPending(ctx context.Context, pending *P
 	return nil
 }
 
-// Delete will delete pending audit info from the db
+// Delete deletes pending audit info from the db
 func (containment *Containment) Delete(ctx context.Context, nodeID pb.NodeID) error {
 	err := containment.db.Delete(ctx, nodeID)
 	if err != nil {
