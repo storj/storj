@@ -23,18 +23,22 @@ void *unpack_value(struct GoValue *val, char **err)
 
 void pack_value(void *proto_msg, enum ValueType value_type, struct GoValue *value, char **err)
 {
+
     switch (value_type)
     {
-    case IDVersionType:
-        value->Size = storj__libuplink__idversion__pack((IDVersion *)proto_msg, value->Snapshot);
     case UplinkConfigType:
-        value->Size = storj__libuplink__uplink_config__pack((UplinkConfig *)proto_msg, value->Snapshot);
+        value->Size = storj__libuplink__uplink_config__get_packed_size((UplinkConfig *)proto_msg);
+        value->Snapshot = malloc(value->Size);
+        storj__libuplink__uplink_config__pack((UplinkConfig *)proto_msg, value->Snapshot);
+        printf("value->Snapshot: %p\n", value->Snapshot);
+        printf("value->Snapshot: %d\n", value->Snapshot[0]);
+        break;
     default:
         *err = "unknown type";
         return;
     }
 
-    Pack(value, err);
+    SendToGo(value, err);
     if (strcmp("", *err) != 0) {
         return;
     }

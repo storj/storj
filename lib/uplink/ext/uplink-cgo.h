@@ -118,7 +118,11 @@ extern gvUplink GetIDVersion(unsigned int p0, char** p1);
 
 extern void Unpack(gvUplink* p0, char** p1);
 
-extern void Pack(gvUplink* p0, char** p1);
+// SendToGo takes a GoValue containing a serialized protobuf snapshot and deserializes
+// it into a struct in go memory. Then that struct is put in the struct reference map
+// and the GoValue ptr field is updated accordingly.
+
+extern void SendToGo(gvUplink* p0, char** p1);
 
 extern struct Bucket CreateBucket(GoUintptr p0, char* p1, struct BucketConfig p2, char** p3);
 

@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -34,7 +35,7 @@ func init() {
 // TODO: split c test up into multiple suites, each of which gets a go test function.
 func TestAllCTests(t *testing.T) {
 	ctx := testcontext.New(t)
-	// defer ctx.Cleanup()
+	defer ctx.Cleanup()
 
 	planet, err := testplanet.NewWithLogger(zap.NewNop(), 1, 8, 0)
 	if err != nil {
@@ -68,15 +69,21 @@ func TestAllCTests(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	fmt.Printf("libuplink: %s\n", libuplink)
 	testBinPath := ctx.CompileC(
 		libuplink,
 		filepath.Join(cSrcDir, "*.c"),
 		filepath.Join(cLibDir, "pb", "*.c"),
 		filepath.Join(cLibDir, "tests", "*.c"),
 	)
+	commandPath := testBinPath
 
-	cmd := exec.Command(testBinPath)
+
+	if path, ok := os.LookupEnv("STORJ_DEBUG"); ok {
+		err := copyFile(testBinPath, path)
+		require.NoError(t, err)
+	}
+
+	cmd := exec.Command(commandPath)
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("SATELLITEADDR=%s", planet.Satellites[0].Addr()),
 		fmt.Sprintf("APIKEY=%s", APIKey.String()),
@@ -85,4 +92,17 @@ func TestAllCTests(t *testing.T) {
 	out, err := cmd.CombinedOutput()
 	assert.NoError(t, err)
 	t.Log(string(out))
+}
+
+func copyFile(src, dest string) error {
+	input, err := ioutil.ReadFile(src)
+	if err != nil {
+		return err
+	}
+
+	err = ioutil.WriteFile(dest, input, 0644)
+	if err != nil {
+		return err
+	}
+	return nil
 }

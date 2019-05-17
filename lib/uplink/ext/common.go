@@ -11,6 +11,7 @@ package main
 // #endif
 import "C"
 import (
+	"fmt"
 	"reflect"
 	"unsafe"
 
@@ -106,20 +107,29 @@ func Unpack(cValue *C.struct_GoValue, cErr **C.char) {
 	}
 }
 
-//export Pack
-func Pack(cVal *C.struct_GoValue, cErr **C.char) {
+// SendToGo takes a GoValue containing a serialized protobuf snapshot and deserializes
+// it into a struct in go memory. Then that struct is put in the struct reference map
+// and the GoValue ptr field is updated accordingly.
+//export SendToGo
+func SendToGo(cVal *C.struct_GoValue, cErr **C.char) {
+	fmt.Printf("cVal.snapshot: %x\n", *(*[]byte)(unsafe.Pointer(cVal.Snapshot)))
 	var msg proto.Message
-	var data []byte
 
 	switch cVal.Type {
 	case C.UplinkConfigType:
 		msg = &pb.UplinkConfig{}
+	default:
+		*cErr = C.CString(errs.New("unsupported type").Error())
 	}
 
-	if err := proto.Unmarshal(data, msg); err != nil {
+	value := CToGoGoValue(*cVal)
+	fmt.Printf("value.snapshot: %x\n", value.snapshot)
+	if err := proto.Unmarshal(value.snapshot, msg); err != nil {
 		*cErr = C.CString(err.Error())
 		return
 	}
+
+	value.ptr = uintptr(structRefMap.Add(value))
 }
 
 func CMalloc(size uintptr) uintptr {
