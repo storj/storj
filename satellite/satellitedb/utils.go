@@ -24,10 +24,10 @@ func bytesToUUID(data []byte) (uuid.UUID, error) {
 	return id, nil
 }
 
-type nodeIDsArray storj.NodeIDList
+type postgresNodeIDList storj.NodeIDList
 
 // Value converts a NodeIDList to a postgres array
-func (nodes nodeIDsArray) Value() (driver.Value, error) {
+func (nodes postgresNodeIDList) Value() (driver.Value, error) {
 	const hextable = "0123456789abcdef"
 
 	if nodes == nil {

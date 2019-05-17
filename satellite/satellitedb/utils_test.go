@@ -36,13 +36,13 @@ func TestBytesToUUID(t *testing.T) {
 	})
 }
 
-func TestNodeIDsArray(t *testing.T) {
+func TestPostgresNodeIDsArray(t *testing.T) {
 	ids := make(storj.NodeIDList, 10)
 	for i := range ids {
 		_, _ = rand.Read(ids[i][:])
 	}
 
-	got, err := nodeIDsArray(ids).Value() // returns a []byte
+	got, err := postgresNodeIDList(ids).Value() // returns a []byte
 	require.NoError(t, err)
 
 	expected, err := pq.ByteaArray(ids.Bytes()).Value() // returns a string

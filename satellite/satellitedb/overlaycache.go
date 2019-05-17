@@ -185,7 +185,7 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 				WHERE id = any($1::bytea[])
 				AND audit_success_ratio >= $2 AND uptime_ratio >= $3
 				AND last_contact_success > $4 AND last_contact_success > last_contact_failure
-			`, nodeIDsArray(nodeIds),
+			`, postgresNodeIDList(nodeIds),
 			criteria.AuditSuccessRatio, criteria.UptimeSuccessRatio,
 			time.Now().Add(-criteria.OnlineWindow),
 		)
