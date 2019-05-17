@@ -100,10 +100,8 @@ public class LibuplinkInstrumentedTest {
             ProjectOptions options = new ProjectOptions();
             options.setEncryptionKey("TestEncryptionKey".getBytes());
 
-            Project project = null;
+            Project project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY, options);
             try {
-                project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY, options);
-
                 BucketConfig bucketConfig = new BucketConfig();
                 Set<String> expectedBuckets = new HashSet<>();
                 for (int i = 0; i < 10; i++) {
@@ -129,9 +127,7 @@ public class LibuplinkInstrumentedTest {
                 assertEquals(false, bucketList.more());
                 assertEquals(0, bucketList.length());
             } finally {
-                if (project != null) {
-                    project.close();
-                }
+                project.close();
             }
         } finally {
             uplink.close();
@@ -147,10 +143,8 @@ public class LibuplinkInstrumentedTest {
             ProjectOptions options = new ProjectOptions();
             options.setEncryptionKey("TestEncryptionKey".getBytes());
 
-            Project project = null;
+            Project project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY, options);
             try {
-                project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY, options);
-
                 BucketAccess access = new BucketAccess();
                 access.setPathEncryptionKey("TestEncryptionKey".getBytes());
 
@@ -175,8 +169,6 @@ public class LibuplinkInstrumentedTest {
                     Writer writer = bucket.newWriter("object/path", new WriterOptions());
                     try {
                         writer.write(expectedData,0, expectedData.length);
-                    } catch (Exception e) {
-                        e.printStackTrace();
                     } finally {
                         writer.close();
                     }
@@ -197,11 +189,11 @@ public class LibuplinkInstrumentedTest {
                     }
                 }
 
+                bucket.close();
+
                 project.deleteBucket("test");
             } finally {
-                if (project != null) {
-                    project.close();
-                }
+                project.close();
             }
         } finally {
             uplink.close();
@@ -218,10 +210,8 @@ public class LibuplinkInstrumentedTest {
             ProjectOptions options = new ProjectOptions();
             options.setEncryptionKey("TestEncryptionKey".getBytes());
 
-            Project project = null;
+            Project project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY, options);
             try {
-                project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY, options);
-
                 BucketAccess access = new BucketAccess();
                 access.setPathEncryptionKey("TestEncryptionKey".getBytes());
 
@@ -265,6 +255,8 @@ public class LibuplinkInstrumentedTest {
                     }
                 }
 
+                bucket.close();
+
                 bucket.deleteObject("object/path");
 
                 try {
@@ -275,9 +267,7 @@ public class LibuplinkInstrumentedTest {
 
                 project.deleteBucket("test");
             } finally {
-                if (project != null) {
-                    project.close();
-                }
+                project.close();
             }
         } finally {
             uplink.close();
@@ -293,10 +283,8 @@ public class LibuplinkInstrumentedTest {
             ProjectOptions options = new ProjectOptions();
             options.setEncryptionKey("TestEncryptionKey".getBytes());
 
-            Project project = null;
+            Project project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY, options);
             try {
-                project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY, options);
-
                 BucketAccess access = new BucketAccess();
                 access.setPathEncryptionKey("TestEncryptionKey".getBytes());
 
@@ -337,11 +325,11 @@ public class LibuplinkInstrumentedTest {
                     bucket.deleteObject("path" + i);
                 }
 
+                bucket.close();
+
                 project.deleteBucket("testBucket");
             } finally {
-                if (project != null) {
-                    project.close();
-                }
+                project.close();
             }
         } finally {
             uplink.close();
