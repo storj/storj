@@ -68,6 +68,5 @@ func TestVerifierHappyPath(t *testing.T) {
 
 		require.Len(t, verifiedNodes.SuccessNodeIDs, 4)
 		require.Len(t, verifiedNodes.FailNodeIDs, 0)
-		require.Len(t, verifiedNodes.OfflineNodeIDs, 0)
 	})
 }
