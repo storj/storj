@@ -599,6 +599,10 @@ func (peer *Peer) Close() error {
 		}
 	}
 
+	if peer.Mail.Service != nil {
+		errlist.Add(peer.Mail.Service.Close())
+	}
+
 	// close services in reverse initialization order
 	if peer.Repair.Repairer != nil {
 		errlist.Add(peer.Repair.Repairer.Close())
