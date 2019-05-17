@@ -121,7 +121,7 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 					continue
 				}
 
-				missingPieces, err := checker.getMissingPieces(ctx, pieces)
+				missingPieces, err := checker.overlay.GetMissingPieces(ctx, pieces)
 				if err != nil {
 					return Error.New("error getting missing pieces %s", err)
 				}
@@ -182,26 +182,6 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 	mon.IntVal("remote_files_lost").Observe(int64(len(remoteSegmentInfo)))
 
 	return nil
-}
-
-func (checker *Checker) getMissingPieces(ctx context.Context, pieces []*pb.RemotePiece) (missingPieces []int32, err error) {
-	var nodeIDs storj.NodeIDList
-	for _, p := range pieces {
-		nodeIDs = append(nodeIDs, p.NodeId)
-	}
-	badNodeIDs, err := checker.overlay.KnownUnreliableOrOffline(ctx, nodeIDs)
-	if err != nil {
-		return nil, Error.New("error getting nodes %s", err)
-	}
-
-	for _, p := range pieces {
-		for _, nodeID := range badNodeIDs {
-			if nodeID == p.NodeId {
-				missingPieces = append(missingPieces, p.GetPieceNum())
-			}
-		}
-	}
-	return missingPieces, nil
 }
 
 // checks for a string in slice

@@ -11,6 +11,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite/console"
@@ -23,6 +24,16 @@ var ErrMigrate = errs.Class("migrate")
 func (db *DB) CreateTables() error {
 	switch db.driver {
 	case "postgres":
+		schema, err := pgutil.ParseSchemaFromConnstr(db.source)
+		if err != nil {
+			return errs.New("error parsing schema: %+v", err)
+		}
+		if schema != "" {
+			err = db.CreateSchema(schema)
+			if err != nil {
+				return errs.New("error creating schema: %+v", err)
+			}
+		}
 		migration := db.PostgresMigration()
 		return migration.Run(db.log.Named("migrate"), db.db)
 	default:
@@ -630,6 +641,25 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						created_at timestamp with time zone NOT NULL,
 						PRIMARY KEY ( secret ),
 						UNIQUE ( owner_id )
+					);`,
+				},
+			},
+			{
+				Description: "Adds pending_audits table, adds 'contained' column to nodes table",
+				Version:     20,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD contained boolean;
+					UPDATE nodes SET contained = false;
+					ALTER TABLE nodes ALTER COLUMN contained SET NOT NULL;`,
+
+					`CREATE TABLE pending_audits (
+						node_id bytea NOT NULL,
+						piece_id bytea NOT NULL,
+						stripe_index bigint NOT NULL,
+						share_size bigint NOT NULL,
+						expected_share_hash bytea NOT NULL,
+						reverify_count bigint NOT NULL,
+						PRIMARY KEY ( node_id )
 					);`,
 				},
 			},

@@ -153,6 +153,8 @@ func Ctx(cmd *cobra.Command) context.Context {
 	return ctx
 }
 
+var traceOut = flag.String("debug.trace-out", "", "If set, a path to write a process trace SVG to")
+
 func cleanup(cmd *cobra.Command) {
 	for _, ccmd := range cmd.Commands() {
 		cleanup(ccmd)
@@ -164,8 +166,6 @@ func cleanup(cmd *cobra.Command) {
 	if internalRun == nil {
 		return
 	}
-
-	traceOut := cmd.Flags().String("debug.trace-out", "", "If set, a path to write a process trace SVG to")
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) (err error) {
 		ctx := context.Background()
@@ -200,14 +200,22 @@ func cleanup(cmd *cobra.Command) {
 				// flag couldn't be found
 				brokenKeys = append(brokenKeys, key)
 			} else {
-				oldChanged := cmd.Flag(key).Changed
-				err := cmd.Flags().Set(key, vip.GetString(key))
-				if err != nil {
-					// flag couldn't be set
-					brokenVals = append(brokenVals, key)
+				flag := cmd.Flag(key)
+				// It's very hard to support string arrays from pflag
+				// because there's no way to unset some value. For now
+				// skip them. They can't be set from viper.
+				if flag.Value.Type() != "stringArray" {
+					oldChanged := flag.Changed
+
+					err := cmd.Flags().Set(key, vip.GetString(key))
+					if err != nil {
+						// flag couldn't be set
+						brokenVals = append(brokenVals, key)
+					}
+
+					// revert Changed value
+					flag.Changed = oldChanged
 				}
-				// revert Changed value
-				cmd.Flag(key).Changed = oldChanged
 			}
 		}
 

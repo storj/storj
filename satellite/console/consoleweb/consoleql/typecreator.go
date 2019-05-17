@@ -18,15 +18,18 @@ type TypeCreator struct {
 
 	token *graphql.Object
 
-	user          *graphql.Object
-	project       *graphql.Object
-	projectUsage  *graphql.Object
-	projectMember *graphql.Object
-	apiKeyInfo    *graphql.Object
-	createAPIKey  *graphql.Object
+	user            *graphql.Object
+	project         *graphql.Object
+	projectUsage    *graphql.Object
+	bucketUsage     *graphql.Object
+	bucketUsagePage *graphql.Object
+	projectMember   *graphql.Object
+	apiKeyInfo      *graphql.Object
+	createAPIKey    *graphql.Object
 
-	userInput    *graphql.InputObject
-	projectInput *graphql.InputObject
+	userInput         *graphql.InputObject
+	projectInput      *graphql.InputObject
+	bucketUsageCursor *graphql.InputObject
 }
 
 // Create create types and check for error
@@ -42,6 +45,11 @@ func (c *TypeCreator) Create(log *zap.Logger, service *console.Service, mailServ
 		return err
 	}
 
+	c.bucketUsageCursor = graphqlBucketUsageCursor()
+	if err := c.bucketUsageCursor.Error(); err != nil {
+		return err
+	}
+
 	// entities
 	c.user = graphqlUser()
 	if err := c.user.Error(); err != nil {
@@ -50,6 +58,16 @@ func (c *TypeCreator) Create(log *zap.Logger, service *console.Service, mailServ
 
 	c.projectUsage = graphqlProjectUsage()
 	if err := c.projectUsage.Error(); err != nil {
+		return err
+	}
+
+	c.bucketUsage = graphqlBucketUsage()
+	if err := c.bucketUsage.Error(); err != nil {
+		return err
+	}
+
+	c.bucketUsagePage = graphqlBucketUsagePage(c)
+	if err := c.bucketUsagePage.Error(); err != nil {
 		return err
 	}
 
