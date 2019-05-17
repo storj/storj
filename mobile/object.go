@@ -11,6 +11,7 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+// ObjectInfo object metadata
 type ObjectInfo struct {
 	Version     int32
 	Bucket      string
@@ -56,10 +57,12 @@ func newObjectInfoFromObjectMeta(objectMeta libuplink.ObjectMeta) *ObjectInfo {
 	}
 }
 
+// GetMetadata gets objects custom metadata
 func (bl *ObjectInfo) GetMetadata(key string) string {
 	return bl.metadata[key]
 }
 
+// ObjectList represents list of objects
 type ObjectList struct {
 	list storj.ObjectList
 }
@@ -69,7 +72,7 @@ func (bl *ObjectList) More() bool {
 	return bl.list.More
 }
 
-// Prefix
+// Prefix prefix for objects from list
 func (bl *ObjectList) Prefix() string {
 	return string(bl.list.Prefix)
 }

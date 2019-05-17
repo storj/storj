@@ -24,16 +24,17 @@ const (
 	// by the NaCl cryptography library under the name "Secretbox".
 	CipherSuiteEncSecretBox = byte(storj.EncSecretBox)
 
-	// DirectionAfter
+	// DirectionAfter lists forwards from cursor, without cursor
 	DirectionAfter = int(storj.After)
-	// DirectionForward
+	// DirectionForward lists forwards from cursor, including cursor
 	DirectionForward = int(storj.Forward)
-	// DirectionBackward
+	// DirectionBackward lists backwards from cursor, including cursor
 	DirectionBackward = int(storj.Backward)
-	// DirectionBefore
+	// DirectionBefore lists backwards from cursor, without cursor
 	DirectionBefore = int(storj.Before)
 )
 
+// Bucket represents operations you can perform on a bucket
 type Bucket struct {
 	Name string
 
@@ -41,49 +42,44 @@ type Bucket struct {
 	lib *libuplink.Bucket
 }
 
+// BucketAccess defines access to bucket
 type BucketAccess struct {
 	PathEncryptionKey   []byte
 	EncryptedPathPrefix storj.Path
 }
 
+// BucketInfo bucket meta struct
 type BucketInfo struct {
-	bucket storj.Bucket
+	Name                 string
+	Created              int64
+	PathCipher           byte
+	SegmentsSize         int64
+	RedundancyScheme     *RedundancyScheme
+	EncryptionParameters *EncryptionParameters
 }
 
-func (bi *BucketInfo) GetName() string {
-	return bi.bucket.Name
-}
-
-func (bi *BucketInfo) GetCreated() int64 {
-	return bi.bucket.Created.UTC().UnixNano() / int64(time.Millisecond)
-}
-
-func (bi *BucketInfo) GetRedundancyScheme() *RedundancyScheme {
-	return &RedundancyScheme{
-		Algorithm:      byte(bi.bucket.RedundancyScheme.Algorithm),
-		ShareSize:      bi.bucket.RedundancyScheme.ShareSize,
-		RequiredShares: bi.bucket.RedundancyScheme.RequiredShares,
-		RepairShares:   bi.bucket.RedundancyScheme.RepairShares,
-		OptimalShares:  bi.bucket.RedundancyScheme.OptimalShares,
-		TotalShares:    bi.bucket.RedundancyScheme.TotalShares,
+func newBucketInfo(bucket storj.Bucket) *BucketInfo {
+	return &BucketInfo{
+		Name:         bucket.Name,
+		Created:      bucket.Created.UTC().UnixNano() / int64(time.Millisecond),
+		PathCipher:   byte(bucket.PathCipher),
+		SegmentsSize: bucket.SegmentsSize,
+		RedundancyScheme: &RedundancyScheme{
+			Algorithm:      byte(bucket.RedundancyScheme.Algorithm),
+			ShareSize:      bucket.RedundancyScheme.ShareSize,
+			RequiredShares: bucket.RedundancyScheme.RequiredShares,
+			RepairShares:   bucket.RedundancyScheme.RepairShares,
+			OptimalShares:  bucket.RedundancyScheme.OptimalShares,
+			TotalShares:    bucket.RedundancyScheme.TotalShares,
+		},
+		EncryptionParameters: &EncryptionParameters{
+			CipherSuite: byte(bucket.EncryptionParameters.CipherSuite),
+			BlockSize:   bucket.EncryptionParameters.BlockSize,
+		},
 	}
 }
 
-func (bi *BucketInfo) GetSegmentsSize() int64 {
-	return bi.bucket.SegmentsSize
-}
-
-func (bi *BucketInfo) GetPathCipher() byte {
-	return byte(bi.bucket.PathCipher)
-}
-
-func (bi *BucketInfo) GetEncryptionParameters() *EncryptionParameters {
-	return &EncryptionParameters{
-		CipherSuite: byte(bi.bucket.EncryptionParameters.CipherSuite),
-		BlockSize:   bi.bucket.EncryptionParameters.BlockSize,
-	}
-}
-
+// BucketConfig bucket configuration
 type BucketConfig struct {
 	// PathCipher indicates which cipher suite is to be used for path
 	// encryption within the new Bucket. If not set, AES-GCM encryption
@@ -123,7 +119,7 @@ func (bl *BucketList) Item(index int) (*BucketInfo, error) {
 	if index < 0 && index >= len(bl.list.Items) {
 		return nil, fmt.Errorf("index out of range")
 	}
-	return &BucketInfo{bl.list.Items[index]}, nil
+	return newBucketInfo(bl.list.Items[index]), nil
 }
 
 // RedundancyScheme specifies the parameters and the algorithm for redundancy
@@ -189,7 +185,7 @@ func newStorjEncryptionParameters(ec *EncryptionParameters) storj.EncryptionPara
 	}
 }
 
-// ListOptions lists objects
+// ListOptions options for listing objects
 type ListOptions struct {
 	Prefix    string
 	Cursor    string // Cursor is relative to Prefix, full path is Prefix + Cursor
@@ -220,6 +216,7 @@ func (bucket *Bucket) ListObjects(options *ListOptions) (*ObjectList, error) {
 	return &ObjectList{list}, nil
 }
 
+// OpenObject returns an Object handle, if authorized.
 func (bucket *Bucket) OpenObject(objectPath string) (*ObjectInfo, error) {
 	scope := bucket.scope.child()
 	object, err := bucket.lib.OpenObject(scope.ctx, objectPath)
@@ -241,6 +238,7 @@ func (bucket *Bucket) Close() error {
 	return bucket.lib.Close()
 }
 
+// WriterOptions controls options about writing a new Object
 type WriterOptions struct {
 	// ContentType, if set, gives a MIME content-type for the Object.
 	ContentType string
@@ -265,10 +263,12 @@ type WriterOptions struct {
 	RedundancyScheme *RedundancyScheme
 }
 
+// NewWriterOptions creates writer options
 func NewWriterOptions() *WriterOptions {
 	return &WriterOptions{}
 }
 
+// Writer writes data into object
 type Writer struct {
 	scope
 	writer io.WriteCloser
@@ -303,6 +303,7 @@ func (w *Writer) Write(data []byte, offset, length int32) (int32, error) {
 	return int32(n), err
 }
 
+// Cancel cancels writing operation
 func (w *Writer) Cancel() {
 	w.cancel()
 }
@@ -313,9 +314,11 @@ func (w *Writer) Close() error {
 	return w.writer.Close()
 }
 
+// ReaderOptions options for reading
 type ReaderOptions struct {
 }
 
+// Reader reader for downloading object
 type Reader struct {
 	scope
 	readError error
@@ -340,6 +343,7 @@ func (bucket *Bucket) NewReader(path storj.Path, options *ReaderOptions) (*Reade
 	}, nil
 }
 
+// Read reads data into byte array
 func (r *Reader) Read(data []byte) (n int32, err error) {
 	if r.readError != nil {
 		err = r.readError
@@ -360,10 +364,12 @@ func (r *Reader) Read(data []byte) (n int32, err error) {
 	return int32(n), err
 }
 
+// Cancel cancels read operation
 func (r *Reader) Cancel() {
 	r.cancel()
 }
 
+// Close closes reader
 func (r *Reader) Close() error {
 	defer r.cancel()
 	return r.reader.Close()
