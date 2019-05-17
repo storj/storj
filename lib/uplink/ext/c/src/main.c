@@ -2,13 +2,11 @@
 // See LICENSE for copying information.
 
 #include <stdlib.h>
+#include <string.h>
 #include "../../uplink-cgo.h"
 
-//extern void Unpack(struct GoValue *, char **);
-//void *UnpackValue(struct GoValue *, char **);
-
 // TODO: move into go?
-void *UnpackValue(struct GoValue *val, char **err)
+void *unpack_value(struct GoValue *val, char **err)
 {
     switch (val->Type)
     {
@@ -21,4 +19,25 @@ void *UnpackValue(struct GoValue *val, char **err)
     }
 
     return NULL;
+}
+
+void pack_value(void *proto_msg, enum ValueType value_type, struct GoValue *value, char **err)
+{
+    switch (value_type)
+    {
+    case IDVersionType:
+        value->Size = storj__libuplink__idversion__pack((IDVersion *)proto_msg, value->Snapshot);
+    case UplinkConfigType:
+        value->Size = storj__libuplink__uplink_config__pack((UplinkConfig *)proto_msg, value->Snapshot);
+    default:
+        *err = "unknown type";
+        return;
+    }
+
+    Pack(value, err);
+    if (strcmp("", *err) != 0) {
+        return;
+    }
+
+    return;
 }

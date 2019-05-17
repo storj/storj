@@ -106,6 +106,22 @@ func Unpack(cValue *C.struct_GoValue, cErr **C.char) {
 	}
 }
 
+//export Pack
+func Pack(cVal *C.struct_GoValue, cErr **C.char) {
+	var msg proto.Message
+	var data []byte
+
+	switch cVal.Type {
+	case C.UplinkConfigType:
+		msg = &pb.UplinkConfig{}
+	}
+
+	if err := proto.Unmarshal(data, msg); err != nil {
+		*cErr = C.CString(err.Error())
+		return
+	}
+}
+
 func CMalloc(size uintptr) uintptr {
 	CMem := C.malloc(C.ulong(size))
 	return uintptr(CMem)

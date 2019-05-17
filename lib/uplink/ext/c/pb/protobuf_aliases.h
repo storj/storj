@@ -5,4 +5,5 @@
 
 typedef Storj__Libuplink__IDVersion IDVersion;
 typedef Storj__Libuplink__UplinkConfig UplinkConfig;
+typedef Storj__Libuplink__TLSConfig TLSConfig;
 //typedef struct Storj__Libuplink__ ;

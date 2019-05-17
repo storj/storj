@@ -18,23 +18,28 @@ void TestNewUplink_config(void)
     gvIDVersion idVersionValue = GetIDVersion(idVersionNumber, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
-    IDVersion *idVersion = (IDVersion *)(UnpackValue(&idVersionValue, err));
+    IDVersion *idVersion = (IDVersion *)(unpack_value(&idVersionValue, err));
     TEST_ASSERT_EQUAL_STRING("", *err);
     TEST_ASSERT_NOT_NULL(idVersion);
 
     TEST_ASSERT_EQUAL(idVersionNumber, idVersion->number);
 
-    UplinkConfig uplinkConfig = {
-        {{true, "/whitelist.pem"},
-         *idVersion,
-         "latest",
-         1,
-         2}};
+    TLSConfig tlsConfig = STORJ__LIBUPLINK__TLSCONFIG__INIT;
+    tlsConfig.skip_peer_ca_whitelist = 1;
+    tlsConfig.peer_ca_whitelist_path = "/whitelist.pem";
 
-    gvUplinkConfig *uplinkConfigValue = MoveToGo(uplinkConfig, err);
+    UplinkConfig uplinkConfig = STORJ__LIBUPLINK__UPLINK_CONFIG__INIT;
+    uplinkConfig.tls = &tlsConfig;
+    uplinkConfig.identity_version = idVersion;
+    uplinkConfig.peer_id_version = "latest";
+    uplinkConfig.max_inline_size = 1;
+    uplinkConfig.max_memory = 2;
+
+    gvUplinkConfig *uplinkConfigValue;
+    pack_value((void *)&uplinkConfig, UplinkConfigType, uplinkConfigValue, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
-    gvUplink uplinkValue = NewUplink(uplinkConfigValue.Ptr, err);
+    gvUplink uplinkValue = NewUplink(uplinkConfigValue->Ptr, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
     TEST_ASSERT_NOT_EQUAL(0, uplinkValue.Ptr);
 }

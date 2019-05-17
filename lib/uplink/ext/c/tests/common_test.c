@@ -15,7 +15,7 @@ void TestGetIDVersion(void)
     gvIDVersion idVersionValue = GetIDVersion(idVersionNumber, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
-    IDVersion *idVersion = (IDVersion *)(UnpackValue(&idVersionValue, err));
+    IDVersion *idVersion = (IDVersion *)(unpack_value(&idVersionValue, err));
     TEST_ASSERT_EQUAL_STRING("", *err);
     TEST_ASSERT_NOT_NULL(idVersion);
 

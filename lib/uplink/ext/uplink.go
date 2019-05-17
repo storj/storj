@@ -22,7 +22,7 @@ var mon = monkit.Package()
 
 //export NewUplink
 func NewUplink(cConfig C.struct_GoValue, cErr **C.char) (cUplink C.gvUplink) {
-	//cGoValue := C.PackValue(cConfig)
+	//cGoValue := C.pack_value(cConfig)
 	goConfig := new(uplink.Config)
 	//if err := CToGoStruct(cConfig, goConfig); err != nil {
 	//	*cErr = C.CString(err.Error())

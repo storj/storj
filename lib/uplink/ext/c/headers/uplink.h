@@ -5,7 +5,9 @@
 #include <stdint.h>
 
 typedef GoUintptr UplinkRef;
+typedef GoUintptr UplinkConfigRef;
 typedef struct GoValue gvUplink;
+typedef struct GoValue gvUplinkConfig;
 
 struct Config
 {
