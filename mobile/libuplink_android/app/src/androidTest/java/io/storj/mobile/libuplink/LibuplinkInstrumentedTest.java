@@ -255,8 +255,6 @@ public class LibuplinkInstrumentedTest {
                     }
                 }
 
-                bucket.close();
-
                 bucket.deleteObject("object/path");
 
                 try {
@@ -264,6 +262,8 @@ public class LibuplinkInstrumentedTest {
                 } catch (Exception e) {
                     assertTrue(e.getMessage().startsWith("object not found"));
                 }
+
+                bucket.close();
 
                 project.deleteBucket("test");
             } finally {
