@@ -311,7 +311,11 @@ func (w *Writer) Cancel() {
 // Close closes writer
 func (w *Writer) Close() error {
 	defer w.cancel()
-	return w.writer.Close()
+	err := w.writer.Close()
+	if err != nil {
+		return fmt.Errorf("%v", err.Error())
+	}
+	return nil
 }
 
 // ReaderOptions options for reading
