@@ -372,5 +372,9 @@ func (r *Reader) Cancel() {
 // Close closes reader
 func (r *Reader) Close() error {
 	defer r.cancel()
-	return r.reader.Close()
+	err := r.reader.Close()
+	if err != nil {
+		return fmt.Errorf("%v", err.Error())
+	}
+	return nil
 }
