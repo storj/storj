@@ -4,8 +4,8 @@
 package storj_test
 
 import (
-	"testing"
 	"encoding/json"
+	"testing"
 
 	"github.com/stretchr/testify/assert"
 
