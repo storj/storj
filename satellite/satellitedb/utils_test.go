@@ -4,10 +4,15 @@
 package satellitedb
 
 import (
+	"crypto/rand"
 	"testing"
 
+	"github.com/lib/pq"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"storj.io/storj/pkg/storj"
 )
 
 func TestBytesToUUID(t *testing.T) {
@@ -29,4 +34,19 @@ func TestBytesToUUID(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, result, *id)
 	})
+}
+
+func TestPostgresNodeIDsArray(t *testing.T) {
+	ids := make(storj.NodeIDList, 10)
+	for i := range ids {
+		_, _ = rand.Read(ids[i][:])
+	}
+
+	got, err := postgresNodeIDList(ids).Value() // returns a []byte
+	require.NoError(t, err)
+
+	expected, err := pq.ByteaArray(ids.Bytes()).Value() // returns a string
+	require.NoError(t, err)
+
+	assert.Equal(t, expected.(string), string(got.([]byte)))
 }
