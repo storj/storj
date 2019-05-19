@@ -30,7 +30,7 @@ var mon = monkit.Package()
 // Client defines an interface for storing erasure coded data to piece store nodes
 type Client interface {
 	Put(ctx context.Context, limits []*pb.AddressedOrderLimit, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error)
-	Repair(ctx context.Context, limits []*pb.AddressedOrderLimit, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time, timeout time.Duration) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error)
+	Repair(ctx context.Context, limits []*pb.AddressedOrderLimit, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time, timeout time.Duration, path storj.Path) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error)
 	Get(ctx context.Context, limits []*pb.AddressedOrderLimit, es eestream.ErasureScheme, size int64) (ranger.Ranger, error)
 	Delete(ctx context.Context, limits []*pb.AddressedOrderLimit) error
 }
@@ -172,7 +172,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 	return successfulNodes, successfulHashes, nil
 }
 
-func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time, timeout time.Duration) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error) {
+func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time, timeout time.Duration, path storj.Path) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(limits) != rs.TotalCount() {
@@ -213,12 +213,12 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 	// how many nodes must be repaired to reach the success threshold: o - (n - r)
 	optimalCount := rs.OptimalThreshold() - (rs.TotalCount() - nonNilCount(limits))
 
-	zap.S().Infof("Starting a timer for %s for repairing to %d nodes to reach the success threshold (%d nodes)...",
-		timeout, optimalCount, rs.OptimalThreshold())
+	zap.S().Infof("Starting a timer for %s for repairing %v to %d nodes to reach the success threshold (%d nodes)...",
+		timeout, path, optimalCount, rs.OptimalThreshold())
 
 	timer := time.AfterFunc(timeout, func() {
 		if ctx.Err() != context.Canceled {
-			zap.S().Infof("Timer expired. Successfully repaired to %d nodes. Canceling the long tail...", atomic.LoadInt32(&successfulCount))
+			zap.S().Infof("Timer expired. Successfully repaired %v to %d nodes. Canceling the long tail...", path, atomic.LoadInt32(&successfulCount))
 			cancel()
 		}
 	})
@@ -231,7 +231,7 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 		}
 
 		if info.err != nil {
-			zap.S().Debugf("Repair to storage node %s failed: %v", limits[info.i].GetLimit().StorageNodeId, info.err)
+			zap.S().Debugf("Repair %v to storage node %s failed: %v", path, limits[info.i].GetLimit().StorageNodeId, info.err)
 			continue
 		}
 
@@ -242,8 +242,8 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 		successfulHashes[info.i] = info.hash
 
 		if int(atomic.AddInt32(&successfulCount, 1)) == optimalCount {
-			zap.S().Infof("Success threshold (%d nodes) reached by repairing to %d nodes. Canceling the long tail...",
-				rs.OptimalThreshold(), optimalCount)
+			zap.S().Infof("Success threshold (%d nodes) reached for %v by repairing to %d nodes. Canceling the long tail...",
+				rs.OptimalThreshold(), path, optimalCount)
 			timer.Stop()
 			cancel()
 		}
@@ -268,7 +268,7 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 	}()
 
 	if successfulCount < int32(optimalCount) {
-		return nil, nil, Error.New("successful nodes count (%d) does not match optimal count (%d) of erasure scheme", successfulCount, optimalCount)
+		return nil, nil, Error.New("successful nodes count (%d) for %v does not match optimal count (%d) of erasure scheme", successfulCount, path, optimalCount)
 	}
 
 	return successfulNodes, successfulHashes, nil
