@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
+	"github.com/lib/pq"
+	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -159,18 +161,38 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 	if len(nodeIds) == 0 {
 		return nil, Error.New("no ids provided")
 	}
-	args := make([]interface{}, len(nodeIds))
-	for i, id := range nodeIds {
-		args[i] = id.Bytes()
-	}
-	args = append(args, criteria.AuditSuccessRatio, criteria.UptimeSuccessRatio, time.Now().Add(-criteria.OnlineWindow))
 
 	// get reliable and online nodes
-	rows, err := cache.db.Query(cache.db.Rebind(`
-		SELECT id FROM nodes
-		WHERE id IN (?`+strings.Repeat(", ?", len(nodeIds)-1)+`)
-		AND audit_success_ratio >= ? AND uptime_ratio >= ? 
-		AND last_contact_success > ? AND last_contact_success > last_contact_failure`), args...)
+	var rows *sql.Rows
+	switch t := cache.db.Driver().(type) {
+	case *sqlite3.SQLiteDriver:
+		args := make([]interface{}, 0, len(nodeIds)+3)
+		for i := range nodeIds {
+			args = append(args, nodeIds[i].Bytes())
+		}
+		args = append(args, criteria.AuditSuccessRatio, criteria.UptimeSuccessRatio, time.Now().Add(-criteria.OnlineWindow))
+
+		rows, err = cache.db.Query(cache.db.Rebind(`
+			SELECT id FROM nodes
+			WHERE id IN (?`+strings.Repeat(", ?", len(nodeIds)-1)+`)
+			AND audit_success_ratio >= ? AND uptime_ratio >= ?
+			AND last_contact_success > ? AND last_contact_success > last_contact_failure
+		`), args...)
+
+	case *pq.Driver:
+		rows, err = cache.db.Query(`
+			SELECT id FROM nodes
+				WHERE id = any($1::bytea[])
+				AND audit_success_ratio >= $2 AND uptime_ratio >= $3
+				AND last_contact_success > $4 AND last_contact_success > last_contact_failure
+			`, postgresNodeIDList(nodeIds),
+			criteria.AuditSuccessRatio, criteria.UptimeSuccessRatio,
+			time.Now().Add(-criteria.OnlineWindow),
+		)
+	default:
+		return nil, Error.New("Unsupported database %t", t)
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -178,17 +200,17 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 		err = errs.Combine(err, rows.Close())
 	}()
 
-	goodNodesMap := make(map[storj.NodeID]bool)
+	goodNodes := make(map[storj.NodeID]struct{}, len(nodeIds))
 	for rows.Next() {
 		var id storj.NodeID
 		err = rows.Scan(&id)
 		if err != nil {
 			return nil, err
 		}
-		goodNodesMap[id] = true
+		goodNodes[id] = struct{}{}
 	}
 	for _, id := range nodeIds {
-		if !goodNodesMap[id] {
+		if _, ok := goodNodes[id]; !ok {
 			badNodes = append(badNodes, id)
 		}
 	}
