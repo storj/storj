@@ -78,7 +78,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 	}
 
 	// repair not needed
-	if (int32(numHealthy) >= pointer.Remote.Redundancy.MinReq) && (int32(numHealthy) > pointer.Remote.Redundancy.RepairThreshold) {
+	if int32(numHealthy) > pointer.Remote.Redundancy.RepairThreshold {
 		return nil
 	}
 
