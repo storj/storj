@@ -74,12 +74,12 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 	numHealthy := len(pieces) - len(missingPieces)
 	// irreparable piece
 	if int32(numHealthy) < pointer.Remote.Redundancy.MinReq {
-		return Error.New("piece cannot be repaired")
+		return Error.New("piece %v cannot be repaired", path)
 	}
 
 	// repair not needed
 	if (int32(numHealthy) >= pointer.Remote.Redundancy.MinReq) && (int32(numHealthy) > pointer.Remote.Redundancy.RepairThreshold) {
-		return nil
+		return Error.New("piece %v with %d pieces above repiar threshold %d", path, numHealthy, pointer.Remote.Redundancy.RepairThreshold)
 	}
 
 	lostPiecesSet := sliceToSet(missingPieces)
