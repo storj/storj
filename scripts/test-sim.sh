@@ -16,14 +16,20 @@ trap cleanup EXIT
 export STORJ_NETWORK_DIR=$TMP
 
 STORJ_NETWORK_HOST4=${STORJ_NETWORK_HOST4:-127.0.0.1}
+STORJ_SIM_POSTGRES=${STORJ_SIM_POSTGRES:-""}
 
 # setup the network
-storj-sim -x --host $STORJ_NETWORK_HOST4 network setup
+# if postgres connection string is set as STORJ_SIM_POSTGRES then use that for testing
+if [ -z ${STORJ_SIM_POSTGRES} ]; then
+	storj-sim -x --satellites 2 --host $STORJ_NETWORK_HOST4 network setup
+else
+	storj-sim -x --satellites 2 --host $STORJ_NETWORK_HOST4 network --postgres=$STORJ_SIM_POSTGRES setup
+fi
 
 # run aws-cli tests
-storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-sim-aws.sh
-storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-uplink.sh
-storj-sim -x --host $STORJ_NETWORK_HOST4 network destroy
+storj-sim -x --satellites 2 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-sim-aws.sh
+storj-sim -x --satellites 2 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-uplink.sh
+storj-sim -x --satellites 2 --host $STORJ_NETWORK_HOST4 network destroy
 
 # setup the network with ipv6
 #storj-sim -x --host "::1" network setup

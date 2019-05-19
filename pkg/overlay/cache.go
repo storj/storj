@@ -41,7 +41,6 @@ type DB interface {
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
 	// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
-	// Note that KnownUnreliableOrOffline will not return node ids which are not in the database at all
 	KnownUnreliableOrOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
 	// Paginate will page through the database nodes
 	Paginate(ctx context.Context, offset int64, limit int) ([]*NodeDossier, bool, error)
@@ -96,6 +95,7 @@ type NodeDossier struct {
 	Capacity   pb.NodeCapacity
 	Reputation NodeStats
 	Version    pb.NodeVersion
+	Contained  bool
 }
 
 // NodeStats contains statistics about a node.
@@ -227,8 +227,7 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 	return nodes, nil
 }
 
-// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
-// Note that KnownUnreliableOrOffline will not return node ids which are not in the database at all
+// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new.
 func (cache *Cache) KnownUnreliableOrOffline(ctx context.Context, nodeIds storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	criteria := &NodeCriteria{
@@ -307,4 +306,25 @@ func (cache *Cache) ConnSuccess(ctx context.Context, node *pb.Node) {
 	if err != nil {
 		zap.L().Debug("error updating node connection info", zap.Error(err))
 	}
+}
+
+// GetMissingPieces returns the list of offline nodes
+func (cache *Cache) GetMissingPieces(ctx context.Context, pieces []*pb.RemotePiece) (missingPieces []int32, err error) {
+	var nodeIDs storj.NodeIDList
+	for _, p := range pieces {
+		nodeIDs = append(nodeIDs, p.NodeId)
+	}
+	badNodeIDs, err := cache.KnownUnreliableOrOffline(ctx, nodeIDs)
+	if err != nil {
+		return nil, Error.New("error getting nodes %s", err)
+	}
+
+	for _, p := range pieces {
+		for _, nodeID := range badNodeIDs {
+			if nodeID == p.NodeId {
+				missingPieces = append(missingPieces, p.GetPieceNum())
+			}
+		}
+	}
+	return missingPieces, nil
 }

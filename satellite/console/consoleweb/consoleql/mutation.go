@@ -86,7 +86,6 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					if err != nil {
 						return nil, err
 					}
-
 					log.Error("register: failed to create account",
 						zap.String("rawSecret", secretInput),
 						zap.Error(err))
@@ -109,17 +108,14 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 						userName = user.FullName
 					}
 
-					// TODO: think of a better solution
-					go func() {
-						_ = mailService.SendRendered(
-							p.Context,
-							[]post.Address{{Address: user.Email, Name: userName}},
-							&AccountActivationEmail{
-								Origin:         origin,
-								ActivationLink: link,
-							},
-						)
-					}()
+					mailService.SendRenderedAsync(
+						p.Context,
+						[]post.Address{{Address: user.Email, Name: userName}},
+						&AccountActivationEmail{
+							Origin:         origin,
+							ActivationLink: link,
+						},
+					)
 
 					return user, nil
 				},
@@ -302,26 +298,23 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					origin := rootObject["origin"].(string)
 					signIn := origin + rootObject[SignInPath].(string)
 
-					// TODO: think of a better solution
-					go func() {
-						for _, user := range users {
-							userName := user.ShortName
-							if user.ShortName == "" {
-								userName = user.FullName
-							}
-
-							_ = mailService.SendRendered(
-								p.Context,
-								[]post.Address{{Address: user.Email, Name: userName}},
-								&ProjectInvitationEmail{
-									Origin:      origin,
-									UserName:    userName,
-									ProjectName: project.Name,
-									SignInLink:  signIn,
-								},
-							)
+					for _, user := range users {
+						userName := user.ShortName
+						if user.ShortName == "" {
+							userName = user.FullName
 						}
-					}()
+
+						mailService.SendRenderedAsync(
+							p.Context,
+							[]post.Address{{Address: user.Email, Name: userName}},
+							&ProjectInvitationEmail{
+								Origin:      origin,
+								UserName:    userName,
+								ProjectName: project.Name,
+								SignInLink:  signIn,
+							},
+						)
+					}
 
 					return project, nil
 				},

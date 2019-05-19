@@ -33,6 +33,7 @@ type DB struct {
 	log    *zap.Logger
 	db     *dbx.DB
 	driver string
+	source string
 }
 
 // New creates instance of database (supports: postgres, sqlite3)
@@ -49,8 +50,9 @@ func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
 		return nil, Error.New("failed opening database %q, %q: %v",
 			driver, source, err)
 	}
+	log.Debug("Connected to:", zap.String("db source", source))
 
-	core := &DB{log: log, db: db, driver: driver}
+	core := &DB{log: log, db: db, driver: driver, source: source}
 	if driver == "sqlite3" {
 		return newLocked(core), nil
 	}
@@ -114,9 +116,14 @@ func (db *DB) RepairQueue() queue.RepairQueue {
 	return &repairQueue{db: db.db}
 }
 
-// Accounting returns database for tracking bandwidth agreements over time
-func (db *DB) Accounting() accounting.DB {
-	return &accountingDB{db: db.db}
+// StoragenodeAccounting returns database for tracking storagenode usage
+func (db *DB) StoragenodeAccounting() accounting.StoragenodeAccounting {
+	return &StoragenodeAccounting{db: db.db}
+}
+
+// ProjectAccounting returns database for tracking project data use
+func (db *DB) ProjectAccounting() accounting.ProjectAccounting {
+	return &ProjectAccounting{db: db.db}
 }
 
 // Irreparable returns database for storing segments that failed repair

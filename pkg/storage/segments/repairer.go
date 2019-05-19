@@ -42,7 +42,7 @@ func NewSegmentRepairer(metainfo *metainfo.Service, orders *orders.Service, cach
 }
 
 // Repair retrieves an at-risk segment and repairs and stores lost pieces on new nodes
-func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPieces []int32) (err error) {
+func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// Read the segment pointer from the metainfo
@@ -65,7 +65,24 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path, lostPiece
 
 	var excludeNodeIDs storj.NodeIDList
 	var healthyPieces []*pb.RemotePiece
-	lostPiecesSet := sliceToSet(lostPieces)
+	pieces := pointer.GetRemote().GetRemotePieces()
+	missingPieces, err := repairer.cache.GetMissingPieces(ctx, pieces)
+	if err != nil {
+		return Error.New("error getting missing pieces %s", err)
+	}
+
+	numHealthy := len(pieces) - len(missingPieces)
+	// irreparable piece
+	if int32(numHealthy) < pointer.Remote.Redundancy.MinReq {
+		return Error.New("piece cannot be repaired")
+	}
+
+	// repair not needed
+	if (int32(numHealthy) >= pointer.Remote.Redundancy.MinReq) && (int32(numHealthy) > pointer.Remote.Redundancy.RepairThreshold) {
+		return nil
+	}
+
+	lostPiecesSet := sliceToSet(missingPieces)
 
 	// Populate healthyPieces with all pieces from the pointer except those correlating to indices in lostPieces
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {

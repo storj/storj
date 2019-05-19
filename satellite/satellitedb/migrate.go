@@ -11,6 +11,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite/console"
@@ -23,6 +24,16 @@ var ErrMigrate = errs.Class("migrate")
 func (db *DB) CreateTables() error {
 	switch db.driver {
 	case "postgres":
+		schema, err := pgutil.ParseSchemaFromConnstr(db.source)
+		if err != nil {
+			return errs.New("error parsing schema: %+v", err)
+		}
+		if schema != "" {
+			err = db.CreateSchema(schema)
+			if err != nil {
+				return errs.New("error creating schema: %+v", err)
+			}
+		}
 		migration := db.PostgresMigration()
 		return migration.Run(db.log.Named("migrate"), db.db)
 	default:
@@ -608,6 +619,48 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Action: migrate.SQL{`
 					UPDATE nodes SET audit_success_ratio = 1 WHERE total_audit_count = 0;
 					UPDATE nodes SET uptime_ratio = 1 WHERE total_uptime_count = 0;`,
+				},
+			},
+			{
+				Description: "Drops storagenode_storage_tally table, Renames accounting_raws to storagenode_storage_tally, and Drops data_type and created_at columns",
+				Version:     18,
+				Action: migrate.SQL{
+					`DROP TABLE storagenode_storage_tallies CASCADE`,
+					`ALTER TABLE accounting_raws RENAME TO storagenode_storage_tallies`,
+					`ALTER TABLE storagenode_storage_tallies DROP COLUMN data_type`,
+					`ALTER TABLE storagenode_storage_tallies DROP COLUMN created_at`,
+				},
+			},
+			{
+				Description: "Added new table to store reset password tokens",
+				Version:     19,
+				Action: migrate.SQL{`
+					CREATE TABLE reset_password_tokens (
+						secret bytea NOT NULL,
+						owner_id bytea NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( secret ),
+						UNIQUE ( owner_id )
+					);`,
+				},
+			},
+			{
+				Description: "Adds pending_audits table, adds 'contained' column to nodes table",
+				Version:     20,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD contained boolean;
+					UPDATE nodes SET contained = false;
+					ALTER TABLE nodes ALTER COLUMN contained SET NOT NULL;`,
+
+					`CREATE TABLE pending_audits (
+						node_id bytea NOT NULL,
+						piece_id bytea NOT NULL,
+						stripe_index bigint NOT NULL,
+						share_size bigint NOT NULL,
+						expected_share_hash bytea NOT NULL,
+						reverify_count bigint NOT NULL,
+						PRIMARY KEY ( node_id )
+					);`,
 				},
 			},
 		},

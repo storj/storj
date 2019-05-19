@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
+	"github.com/lib/pq"
+	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -155,37 +157,64 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (*overlay.N
 }
 
 // KnownUnreliableOrOffline filters a set of nodes to unreliable or offlines node, independent of new
-// Note that KnownUnreliableOrOffline will not return node ids which are not in the database at all
-func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIds storj.NodeIDList) (goodNodes storj.NodeIDList, err error) {
+func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIds storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
 	if len(nodeIds) == 0 {
 		return nil, Error.New("no ids provided")
 	}
-	args := make([]interface{}, len(nodeIds))
-	for i, id := range nodeIds {
-		args[i] = id.Bytes()
-	}
-	args = append(args, criteria.AuditSuccessRatio, criteria.UptimeSuccessRatio, time.Now().Add(-criteria.OnlineWindow))
 
-	rows, err := cache.db.Query(cache.db.Rebind(`
-		SELECT id FROM nodes
-		WHERE id IN (?`+strings.Repeat(", ?", len(nodeIds)-1)+`)
-		AND ( audit_success_ratio < ? OR uptime_ratio < ? 
-			OR last_contact_success <= ? OR last_contact_success <= last_contact_failure )`), args...)
+	// get reliable and online nodes
+	var rows *sql.Rows
+	switch t := cache.db.Driver().(type) {
+	case *sqlite3.SQLiteDriver:
+		args := make([]interface{}, 0, len(nodeIds)+3)
+		for i := range nodeIds {
+			args = append(args, nodeIds[i].Bytes())
+		}
+		args = append(args, criteria.AuditSuccessRatio, criteria.UptimeSuccessRatio, time.Now().Add(-criteria.OnlineWindow))
+
+		rows, err = cache.db.Query(cache.db.Rebind(`
+			SELECT id FROM nodes
+			WHERE id IN (?`+strings.Repeat(", ?", len(nodeIds)-1)+`)
+			AND audit_success_ratio >= ? AND uptime_ratio >= ?
+			AND last_contact_success > ? AND last_contact_success > last_contact_failure
+		`), args...)
+
+	case *pq.Driver:
+		rows, err = cache.db.Query(`
+			SELECT id FROM nodes
+				WHERE id = any($1::bytea[])
+				AND audit_success_ratio >= $2 AND uptime_ratio >= $3
+				AND last_contact_success > $4 AND last_contact_success > last_contact_failure
+			`, postgresNodeIDList(nodeIds),
+			criteria.AuditSuccessRatio, criteria.UptimeSuccessRatio,
+			time.Now().Add(-criteria.OnlineWindow),
+		)
+	default:
+		return nil, Error.New("Unsupported database %t", t)
+	}
+
 	if err != nil {
 		return nil, err
 	}
 	defer func() {
 		err = errs.Combine(err, rows.Close())
 	}()
+
+	goodNodes := make(map[storj.NodeID]struct{}, len(nodeIds))
 	for rows.Next() {
 		var id storj.NodeID
 		err = rows.Scan(&id)
 		if err != nil {
 			return nil, err
 		}
-		goodNodes = append(goodNodes, id)
+		goodNodes[id] = struct{}{}
 	}
-	return goodNodes, nil
+	for _, id := range nodeIds {
+		if _, ok := goodNodes[id]; !ok {
+			badNodes = append(badNodes, id)
+		}
+	}
+	return badNodes, nil
 }
 
 // Paginate will run through
@@ -263,6 +292,7 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node) (er
 			dbx.Node_UptimeRatio(1),
 			dbx.Node_LastContactSuccess(time.Now()),
 			dbx.Node_LastContactFailure(time.Time{}),
+			dbx.Node_Contained(false),
 		)
 		if err != nil {
 			return Error.Wrap(errs.Combine(err, tx.Rollback()))
@@ -540,6 +570,7 @@ func convertDBNode(info *dbx.Node) (*overlay.NodeDossier, error) {
 			Timestamp:  pbts,
 			Release:    info.Release,
 		},
+		Contained: info.Contained,
 	}
 
 	return node, nil
