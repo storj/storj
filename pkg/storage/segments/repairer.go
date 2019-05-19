@@ -134,7 +134,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 	defer func() { err = errs.Combine(err, r.Close()) }()
 
 	// Upload the repaired pieces
-	successfulNodes, hashes, err := repairer.ec.Repair(ctx, putLimits, redundancy, r, convertTime(expiration), repairer.timeout)
+	successfulNodes, hashes, err := repairer.ec.Repair(ctx, putLimits, redundancy, r, convertTime(expiration), repairer.timeout, path)
 	if err != nil {
 		return Error.Wrap(err)
 	}
