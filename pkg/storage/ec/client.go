@@ -260,8 +260,8 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 		}
 	}()
 
-	if successfulCount < int32(optimalCount) {
-		return nil, nil, Error.New("successful nodes count (%d) does not match optimal count (%d) of erasure scheme", successfulCount, optimalCount)
+	if successfulCount > 0 {
+		return nil, nil, Error.New("successful nodes count %d", successfulCount)
 	}
 
 	return successfulNodes, successfulHashes, nil
