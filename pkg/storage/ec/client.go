@@ -218,7 +218,7 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 
 	timer := time.AfterFunc(timeout, func() {
 		if ctx.Err() != context.Canceled {
-			zap.S().Infof("Timer expired. Successfully repaired to %d nodes. Canceling the long tail...", atomic.LoadInt32(&successfulCount))
+			zap.S().Infof("Timer expired. Successfully repaired to %d nodes.", atomic.LoadInt32(&successfulCount))
 			cancel()
 		}
 	})
@@ -240,13 +240,6 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 			Address: limits[info.i].GetStorageNodeAddress(),
 		}
 		successfulHashes[info.i] = info.hash
-
-		if int(atomic.AddInt32(&successfulCount, 1)) == optimalCount {
-			zap.S().Infof("Success threshold (%d nodes) reached by repairing to %d nodes. Canceling the long tail...",
-				rs.OptimalThreshold(), optimalCount)
-			timer.Stop()
-			cancel()
-		}
 	}
 
 	// Ensure timer is stopped in the case the success threshold is not reached
