@@ -213,12 +213,12 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 	// how many nodes must be repaired to reach the success threshold: o - (n - r)
 	optimalCount := rs.OptimalThreshold() - (rs.TotalCount() - nonNilCount(limits))
 
-	zap.S().Infof("Starting a timer for %s for repairing %v to %d nodes to reach the success threshold (%d nodes)...",
+	zap.S().Infof("Starting a timer for %s for repairing %s to %d nodes to reach the success threshold (%d nodes)...",
 		timeout, path, optimalCount, rs.OptimalThreshold())
 
 	timer := time.AfterFunc(timeout, func() {
 		if ctx.Err() != context.Canceled {
-			zap.S().Infof("Timer expired. Successfully repaired %v to %d nodes. Canceling the long tail...", path, atomic.LoadInt32(&successfulCount))
+			zap.S().Infof("Timer expired. Successfully repaired %s to %d nodes. Canceling the long tail...", path, atomic.LoadInt32(&successfulCount))
 			cancel()
 		}
 	})
@@ -231,7 +231,7 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 		}
 
 		if info.err != nil {
-			zap.S().Debugf("Repair %v to storage node %s failed: %v", path, limits[info.i].GetLimit().StorageNodeId, info.err)
+			zap.S().Debugf("Repair %s to storage node %s failed: %v", path, limits[info.i].GetLimit().StorageNodeId, info.err)
 			continue
 		}
 
@@ -242,7 +242,7 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 		successfulHashes[info.i] = info.hash
 
 		if int(atomic.AddInt32(&successfulCount, 1)) == optimalCount {
-			zap.S().Infof("Success threshold (%d nodes) reached for %v by repairing to %d nodes. Canceling the long tail...",
+			zap.S().Infof("Success threshold (%d nodes) reached for %s by repairing to %d nodes. Canceling the long tail...",
 				rs.OptimalThreshold(), path, optimalCount)
 			timer.Stop()
 			cancel()
@@ -268,7 +268,7 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 	}()
 
 	if successfulCount < int32(optimalCount) {
-		return nil, nil, Error.New("successful nodes count (%d) for %v does not match optimal count (%d) of erasure scheme", successfulCount, path, optimalCount)
+		return nil, nil, Error.New("successful nodes count (%d) for %s does not match optimal count (%d) of erasure scheme", successfulCount, path, optimalCount)
 	}
 
 	return successfulNodes, successfulHashes, nil
