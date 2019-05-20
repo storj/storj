@@ -21,18 +21,17 @@ void *get_snapshot(struct GoValue *val, char **err)
     return NULL;
 }
 
-// protoToGoValue will t
+// protoToGoValue takes a protobuf, serializes it, sends it to go code, the go code converts that into a go struct and stores it
 void protoToGoValue(void *proto_msg, enum ValueType value_type, struct GoValue *value, char **err)
 {
-
     // Serialize the protobuf into the value
     switch (value_type)
     {
     case UplinkConfigType:
-        value->Size = storj__libuplink__uplink_config__get_packed_size((UplinkConfig *)proto_msg);
+        value->Size = storj__libuplink__uplink_config__get_packed_size((pbUplinkConfig *)proto_msg);
         value->Snapshot = malloc(value->Size);
         value->Type = value_type;
-        storj__libuplink__uplink_config__pack((UplinkConfig *)proto_msg, value->Snapshot);
+        storj__libuplink__uplink_config__pack((pbUplinkConfig *)proto_msg, value->Snapshot);
         break;
     default:
         *err = "unknown type";

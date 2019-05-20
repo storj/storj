@@ -16,17 +16,17 @@ gvUplinkConfig *NewTestConfig(char **err)
     gvIDVersion idVersionValue = GetIDVersion(idVersionNumber, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
-    IDVersion *idVersion = (IDVersion *)(get_snapshot(&idVersionValue, err));
+    pbIDVersion *idVersion = (pbIDVersion *)(get_snapshot(&idVersionValue, err));
     TEST_ASSERT_EQUAL_STRING("", *err);
     TEST_ASSERT_NOT_NULL(idVersion);
 
     TEST_ASSERT_EQUAL(idVersionNumber, idVersion->number);
 
-    TLSConfig tlsConfig = STORJ__LIBUPLINK__TLSCONFIG__INIT;
+    pbTLSConfig tlsConfig = STORJ__LIBUPLINK__TLSCONFIG__INIT;
     tlsConfig.skip_peer_ca_whitelist = 1;
     tlsConfig.peer_ca_whitelist_path = "/whitelist.pem";
 
-    UplinkConfig uplinkConfig = STORJ__LIBUPLINK__UPLINK_CONFIG__INIT;
+    pbUplinkConfig uplinkConfig = STORJ__LIBUPLINK__UPLINK_CONFIG__INIT;
     uplinkConfig.tls = &tlsConfig;
     uplinkConfig.identity_version = idVersion;
     uplinkConfig.peer_id_version = "latest";

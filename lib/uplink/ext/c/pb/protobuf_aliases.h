@@ -3,7 +3,7 @@
 
 #include "uplink.pb-c.h"
 
-typedef Storj__Libuplink__IDVersion IDVersion;
-typedef Storj__Libuplink__UplinkConfig UplinkConfig;
-typedef Storj__Libuplink__TLSConfig TLSConfig;
+typedef Storj__Libuplink__IDVersion pbIDVersion;
+typedef Storj__Libuplink__UplinkConfig pbUplinkConfig;
+typedef Storj__Libuplink__TLSConfig pbTLSConfig;
 //typedef struct Storj__Libuplink__ ;
