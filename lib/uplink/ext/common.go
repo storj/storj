@@ -87,8 +87,10 @@ func (val GoValue) Snapshot() (data []byte, _ error) {
 		idVersionPb := &pb.IDVersion{
 			Number: uint32(idVersion.Number),
 		}
-		data, err := proto.Marshal(idVersionPb)
-		return data, err
+		return proto.Marshal(idVersionPb)
+	case C.UplinkConfigType:
+		config := structRefMap.Get(token(val.ptr)).(*pb.UplinkConfig)
+		return proto.Marshal(config)
 	default:
 		// TODO: rename `ErrConvert` to `ErrValue` or something and change message accordingly
 		return nil, ErrSnapshot.New("type %s", val._type)
@@ -96,14 +98,20 @@ func (val GoValue) Snapshot() (data []byte, _ error) {
 }
 
 // GetSnapshot will take a C GoValue struct and populate the snapshot
-//export GetSnapshot
-func GetSnapshot(cValue *C.struct_GoValue, cErr **C.char) {
+//export CGetSnapshot
+func CGetSnapshot(cValue *C.struct_GoValue, cErr **C.char) {
 	govalue := CToGoGoValue(*cValue)
 
-	data, err := govalue.Snapshot()
-	if err != nil {
+	if err := govalue.GetSnapshot(); err != nil {
 		*cErr = C.CString(err.Error())
-		return 
+		return
+	}
+}
+
+func (gv GoValue) GetSnapshot() error {
+	data, err := gv.Snapshot()
+	if err != nil {
+		return err
 	}
 
 	size := uintptr(len(data))
@@ -113,14 +121,9 @@ func GetSnapshot(cValue *C.struct_GoValue, cErr **C.char) {
 	if size > 0 {
 		copy(*mem, data)
 	}
-	govalue.snapshot = *mem
+	gv.snapshot = *mem
 
-
-	*cValue, err = govalue.GoToCGoValue()
-	if err != nil {
-		*cErr = C.CString(err.Error())
-		return
-	}
+	return nil
 }
 
 // SendToGo takes a GoValue containing a serialized protobuf snapshot and deserializes
@@ -139,12 +142,17 @@ func SendToGo(cVal *C.struct_GoValue, cErr **C.char) {
 	}
 
 	value := CToGoGoValue(*cVal)
+	if err := value.GetSnapshot(); err != nil {
+		*cErr = C.CString(err.Error())
+		return
+	}
+
 	if err := proto.Unmarshal(value.snapshot, msg); err != nil {
 		*cErr = C.CString(err.Error())
 		return
 	}
 
-	cVal.Ptr = C.GoUintptr(uintptr(structRefMap.Add(msg)))
+	cVal.Ptr = C.GoUintptr(structRefMap.Add(msg))
 }
 
 func CMalloc(size uintptr) uintptr {

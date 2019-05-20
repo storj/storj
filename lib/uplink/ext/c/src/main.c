@@ -11,7 +11,7 @@ void *get_snapshot(struct GoValue *val, char **err)
     switch (val->Type)
     {
     case IDVersionType:
-        GetSnapshot(val, err);
+        CGetSnapshot(val, err);
         return (void *)storj__libuplink__idversion__unpack(NULL, val->Size, val->Snapshot);
     default:
         *err = "unknown type";

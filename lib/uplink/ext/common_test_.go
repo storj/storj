@@ -210,23 +210,53 @@ func TestCToGoGoValue(t *testing.T) {
 }
 
 func TestMapping_Add(t *testing.T) {
-	testMap := newMapping()
+	{
+		t.Info("string")
+		testMap := newMapping()
 
-	str := "testing 123"
-	strToken := testMap.Add(str)
+		str := "testing 123"
+		strToken := testMap.Add(str)
 
-	gotStr, ok := testMap.values[strToken]
-	require.True(t, ok)
-	assert.Equal(t, str, gotStr)
+		gotStr, ok := testMap.values[strToken]
+		require.True(t, ok)
+		assert.Equal(t, str, gotStr)
+	}
+
+	{
+		t.Info("pointer")
+		testMap := newMapping()
+
+		str := "testing 123"
+		strToken := testMap.Add(&str)
+
+		gotStr, ok := testMap.values[strToken]
+		require.True(t, ok)
+		assert.Equal(t, str, *gotStr.(*string))
+	}
 }
 
 func TestMapping_Get(t *testing.T) {
-	testMap := newMapping()
+	{
+		t.Info("string")
+		testMap := newMapping()
 
-	str := "testing 123"
-	strToken := token(1)
-	testMap.values[strToken] = str
+		str := "testing 123"
+		strToken := token(1)
+		testMap.values[strToken] = str
 
-	gotStr := testMap.Get(strToken)
-	assert.Equal(t, str, gotStr)
+		gotStr := testMap.Get(strToken)
+		assert.Equal(t, str, gotStr)
+	}
+
+	{
+		t.Info("pointer")
+		testMap := newMapping()
+
+		str := "testing 123"
+		strToken := token(1)
+		testMap.values[strToken] = &str
+
+		gotStr := testMap.Get(strToken)
+		assert.Equal(t, str, *gotStr.(*string))
+	}
 }
