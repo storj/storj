@@ -84,6 +84,7 @@ The credit is automatically applied to the account and will have a max limit tha
     user_id - bytea
     offer_id - int
     credits_earned - float
+    credits_used - float
     credit_type - enum[AWARD, INVITEE, NO_TYPE]
     expires_at - timestamp
     created_at - timestamp
@@ -99,7 +100,7 @@ The credit is automatically applied to the account and will have a max limit tha
 
 ### Offer Program Service
 
-**satellite/marketing/offer/offer.go**
+**satellite/marketing/offers.go**
 - Create offers interface to interact with offer table
 
 ```golang
@@ -110,7 +111,13 @@ type DB interface {
   Delete(ctx context.Context, offerId Offer.ID)
   Create(ctx context.Context, offer *Offer)
 }
+
+func (offer *Offer) IsUpdatable() bool {
+  return offer.Status == NO_STATUS
+}
 ```
+
+
 
 **satellite/console/credit.go**
 - Create a user_credit interface to interact with the user_credit table
