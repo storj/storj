@@ -79,7 +79,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 
 	// repair not needed
 	if int32(numHealthy) > pointer.Remote.Redundancy.RepairThreshold {
-		return Error.New("piece %v with %d pieces above repiar threshold %d", path, numHealthy, pointer.Remote.Redundancy.RepairThreshold)
+		return Error.New("piece %v with %d pieces above repair threshold %d", path, numHealthy, pointer.Remote.Redundancy.RepairThreshold)
 	}
 
 	lostPiecesSet := sliceToSet(missingPieces)
