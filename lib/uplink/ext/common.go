@@ -84,10 +84,11 @@ func (val GoValue) Snapshot() (data []byte, _ error) {
 	switch val._type {
 	case C.IDVersionType:
 		idVersion := structRefMap.Get(token(val.ptr)).(storj.IDVersion)
-		idVersionPb := pb.IDVersion{
+		idVersionPb := &pb.IDVersion{
 			Number: uint32(idVersion.Number),
 		}
-		return proto.Marshal(&idVersionPb)
+		data, err := proto.Marshal(idVersionPb)
+		return data, err
 	default:
 		// TODO: rename `ErrConvert` to `ErrValue` or something and change message accordingly
 		return nil, ErrSnapshot.New("type %s", val._type)
@@ -107,9 +108,13 @@ func GetSnapshot(cValue *C.struct_GoValue, cErr **C.char) {
 
 	size := uintptr(len(data))
 	ptr := CMalloc(size)
-
 	mem := (*[]byte)(unsafe.Pointer(ptr))
-	copy(*mem, data)
+	// data will be empty if govalue only has defaults
+	if size > 0 {
+		copy(*mem, data)
+	}
+	govalue.snapshot = *mem
+
 
 	*cValue, err = govalue.GoToCGoValue()
 	if err != nil {

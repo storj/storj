@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// TODO: (turn back on) go:generate go test ./main_test.go
+//go:generate go test ./main_test.go
 //go:generate go run .
 
 package main
