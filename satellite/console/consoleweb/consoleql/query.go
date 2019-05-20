@@ -28,6 +28,8 @@ const (
 	TokenQuery = "token"
 	// ForgotPasswordQuery is a query name for password recovery request
 	ForgotPasswordQuery = "forgotPassword"
+	// ResendAccountActivationEmailQuery is a query name for password recovery request
+	ResendAccountActivationEmailQuery = "resendAccountActivationEmail"
 )
 
 // rootQuery creates query for graphql populated by AccountsClient
@@ -44,6 +46,10 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					id, err := uuidIDAuthFallback(p, FieldID)
+					if err != nil {
+						return nil, err
+					}
+					_, err = console.GetAuth(p.Context)
 					if err != nil {
 						return nil, err
 					}
@@ -126,19 +132,62 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 						userName = user.FullName
 					}
 
+					mailService.SendRenderedAsync(
+						p.Context,
+						[]post.Address{{Address: user.Email, Name: userName}},
+						&ForgotPasswordEmail{
+							Origin:                     origin,
+							ResetLink:                  passwordRecoveryLink,
+							CancelPasswordRecoveryLink: cancelPasswordRecoveryLink,
+							UserName:                   userName,
+						},
+					)
+
+					return true, nil
+				},
+			},
+			ResendAccountActivationEmailQuery: &graphql.Field{
+				Type: graphql.Boolean,
+				Args: graphql.FieldConfigArgument{
+					FieldID: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					id, _ := p.Args[FieldID].(string)
+
+					userID, err := uuid.Parse(id)
+					if err != nil {
+						return false, err
+					}
+
+					user, err := service.GetUser(p.Context, *userID)
+					if err != nil {
+						return false, err
+					}
+
+					token, err := service.GenerateActivationToken(p.Context, user.ID, user.Email)
+					if err != nil {
+						return false, err
+					}
+
+					rootObject := p.Info.RootValue.(map[string]interface{})
+					origin := rootObject["origin"].(string)
+					link := origin + rootObject[ActivationPath].(string) + token
+					userName := user.ShortName
+					if user.ShortName == "" {
+						userName = user.FullName
+					}
+
 					// TODO: think of a better solution
-					go func() {
-						_ = mailService.SendRendered(
-							p.Context,
-							[]post.Address{{Address: user.Email, Name: userName}},
-							&ForgotPasswordEmail{
-								Origin:                     origin,
-								ResetLink:                  passwordRecoveryLink,
-								CancelPasswordRecoveryLink: cancelPasswordRecoveryLink,
-								UserName:                   userName,
-							},
-						)
-					}()
+					mailService.SendRenderedAsync(
+						p.Context,
+						[]post.Address{{Address: user.Email, Name: userName}},
+						&AccountActivationEmail{
+							Origin:         origin,
+							ActivationLink: link,
+						},
+					)
 
 					return true, nil
 				},
