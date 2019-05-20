@@ -10,7 +10,7 @@ package main
 import "C"
 import (
 	"encoding/json"
-	"reflect"
+	"github.com/nsf/jsondiff"
 	"unsafe"
 
 	"github.com/gogo/protobuf/proto"
@@ -172,25 +172,16 @@ func TestSendToGo_success(t *testing.T) {
 		//require.Equal(t, uintptr(cVal.Ptr), value.ptr)
 		endConfig := structRefMap.Get(token(cVal.Ptr))
 
-		startJSON, err := json.MarshalIndent(startConfig, "", "  ")
+		startJSON, err := json.Marshal(startConfig)
 		require.NoError(t, err)
 
-		endJSON, err := json.MarshalIndent(endConfig, "", "  ")
+		endJSON, err := json.Marshal(endConfig)
 		require.NoError(t, err)
 
-		//_, diff := jsondiff.Compare(startJSON, endJSON, nil)
-		//t.Debug("", zap.String("diff", diff))
-		t.Info("", zap.String("startConfig", string(startJSON)))
-		//t.Info("",
-		//	zap.Any("value.Ptr", value.ptr),
-		//	//zap.Uintptr("unsafe", unsafe.Pointer(value.ptr)),
-		//	zap.Any("get", structRefMap.Get(token(value.ptr))),
-		//	zap.Any("cast", (structRefMap.Get(token(value.ptr))).(*pb.UplinkConfig)),
-		//)
-		t.Info("", zap.String("endConfig", string(endJSON)))
-		assert.True(t, reflect.DeepEqual(startConfig, endConfig))
-		//assert.Equal(t, *(startConfig.Tls), *(endConfig.Tls))
-		//assert.Equal(t, *(startConfig.IdentityVersion), *(endConfig.IdentityVersion))
+		match, diffStr := jsondiff.Compare(startJSON, endJSON, &jsondiff.Options{})
+		if !assert.Equal(t, jsondiff.FullMatch, match) {
+			t.Error("config JSON diff:", zap.String("", diffStr))
+		}
 	}
 
 	// TODO: other types
