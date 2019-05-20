@@ -156,8 +156,31 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (*overlay.N
 	return convertDBNode(node)
 }
 
-// KnownUnreliableOrOffline filters a set of nodes to unreliable or offlines node, independent of new
-func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIds storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
+// AllUnreliableOrOffline returns all unreliable or offlines node, independent of new
+func (cache *overlaycache) AllUnreliableOrOffline(ctx context.Context, criteria *overlay.NodeCriteria) (badNodes map[storj.NodeID]struct{}, err error) {
+	badNodes = make(map[storj.NodeID]struct{})
+	rows, err := cache.db.Query(`SELECT id FROM nodes
+		WHERE audit_success_ratio < $2 OR uptime_ratio < $3
+		OR last_contact_success <= $4 OR last_contact_success <= last_contact_failure
+		`, criteria.AuditSuccessRatio, criteria.UptimeSuccessRatio, time.Now().Add(-criteria.OnlineWindow))
+	if err != nil {
+		return badNodes, err
+	}
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+	for rows.Next() {
+		var id storj.NodeID
+		err = rows.Scan(&id)
+		if err != nil {
+			return badNodes, err
+		}
+		badNodes[id] = struct{}{}
+	}
+	return badNodes, err
+}
+// UnreliableOrOffline filters a set of nodes to unreliable or offlines node, independent of new
+func (cache *overlaycache) UnreliableOrOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIds storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
 	if len(nodeIds) == 0 {
 		return nil, Error.New("no ids provided")
 	}

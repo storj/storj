@@ -87,6 +87,11 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 	var remoteSegmentsLost int64
 	var remoteSegmentInfo []string
 
+	allBadNodes, err := checker.overlay.AllUnreliableOrOffline(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
 	err = checker.metainfo.Iterate("", checker.lastChecked, true, false,
 		func(it storage.Iterator) error {
 			var item storage.ListItem
@@ -121,9 +126,11 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 					continue
 				}
 
-				missingPieces, err := checker.overlay.GetMissingPieces(ctx, pieces)
-				if err != nil {
-					return Error.New("error getting missing pieces %s", err)
+				missingPieces := []int32{}
+				for _, p := range pieces {
+					if _, isMissing := allBadNodes[p.NodeId]; isMissing{
+						missingPieces = append(missingPieces, p.GetPieceNum())
+					}
 				}
 
 				remoteSegmentsChecked++

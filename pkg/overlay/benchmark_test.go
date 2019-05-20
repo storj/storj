@@ -53,7 +53,7 @@ func BenchmarkOverlay(b *testing.B) {
 			check = append(check, id)
 		}
 
-		b.Run("KnownUnreliableOrOffline", func(b *testing.B) {
+		b.Run("UnreliableOrOffline", func(b *testing.B) {
 			criteria := &overlay.NodeCriteria{
 				AuditCount:         0,
 				AuditSuccessRatio:  0.5,
@@ -62,7 +62,7 @@ func BenchmarkOverlay(b *testing.B) {
 				UptimeSuccessRatio: 0.5,
 			}
 			for i := 0; i < b.N; i++ {
-				badNodes, err := overlaydb.KnownUnreliableOrOffline(ctx, criteria, check)
+				badNodes, err := overlaydb.UnreliableOrOffline(ctx, criteria, check)
 				require.NoError(b, err)
 				require.Len(b, badNodes, OfflineCount)
 			}

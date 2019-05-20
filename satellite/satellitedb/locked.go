@@ -653,11 +653,18 @@ func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*ove
 	return m.db.Get(ctx, nodeID)
 }
 
-// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
-func (m *lockedOverlayCache) KnownUnreliableOrOffline(ctx context.Context, a1 *overlay.NodeCriteria, a2 storj.NodeIDList) (storj.NodeIDList, error) {
+// AllUnreliableOrOffline returns all unreliable or offlines node, independent of new
+func (m *lockedOverlayCache) AllUnreliableOrOffline(ctx context.Context, criteria *overlay.NodeCriteria) (badNodes map[storj.NodeID]struct{}, err error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.KnownUnreliableOrOffline(ctx, a1, a2)
+	return m.db.AllUnreliableOrOffline(ctx, criteria)
+}
+
+// UnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
+func (m *lockedOverlayCache) UnreliableOrOffline(ctx context.Context, a1 *overlay.NodeCriteria, a2 storj.NodeIDList) (storj.NodeIDList, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UnreliableOrOffline(ctx, a1, a2)
 }
 
 // Paginate will page through the database nodes
