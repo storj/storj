@@ -99,7 +99,7 @@ The credit is automatically applied to the account and will have a max limit tha
 
 ### Offer Program Service
 
-**satellite/offer/offer.go**
+**satellite/marketing/offer/offer.go**
 - Create offers interface to interact with offer table
 
 ```golang
@@ -151,8 +151,9 @@ type DB interface {
 }
 ```
 
-**satellite/offer/offerweb/server.go**
-- Open a new private port on the satellite for admin users to manage referral offer configuration
+**satellite/marketing/server.go**
+- Open a new private port on the satellite for admin users to manage referral offer configuration and other marketing configuration for various programs on our satellites
+- For right now, we will rely on our VPN to restrict access to the admin GUI. Only people who are on our VPN will have access to this page.
 
 ```golang
 // NewServer creates a new instance of offerweb server
@@ -246,8 +247,4 @@ we will be using go template for the UI
 As if the current user_credit table design, we will have a new entry each time when a user earns a credit. The reason why we designed this way is due to the starting date for the expiration date of credits. Each credit will be expired at a different time based on the duration we set for a particular offer and the date the credit is awarded to a user.
 
 We will check against the credit duration interval when inserting a new row into the user_credit table and update the expires_at for each entry accordingly.
-
 ## Open issues (if applicable)
-
-1. We will have other marketing programs, for example, open source partner program. Should we create a top level system for all the marketing related services since we will probably be using the same private port and admin GUI for the marketing team to manage configurations for all the programs? (marketing service)
-2. sync up with the Matt and Egon about how are we going to restrict ppl from accessing the private port? Only allow local access or restricting people through firewall?
