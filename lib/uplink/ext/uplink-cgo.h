@@ -116,7 +116,9 @@ extern char* Serialize(APIKeyRef p0);
 
 extern gvUplink GetIDVersion(unsigned int p0, char** p1);
 
-extern void Unpack(gvUplink* p0, char** p1);
+// GetSnapshot will take a C GoValue struct and populate the snapshot
+
+extern void GetSnapshot(gvUplink* p0, char** p1);
 
 // SendToGo takes a GoValue containing a serialized protobuf snapshot and deserializes
 // it into a struct in go memory. Then that struct is put in the struct reference map

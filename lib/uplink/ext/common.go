@@ -111,7 +111,6 @@ func GetSnapshot(cValue *C.struct_GoValue, cErr **C.char) {
 	mem := (*[]byte)(unsafe.Pointer(ptr))
 	copy(*mem, data)
 
-	var err error
 	*cValue, err = govalue.GoToCGoValue()
 	if err != nil {
 		*cErr = C.CString(err.Error())
