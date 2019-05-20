@@ -688,6 +688,13 @@ func (m *lockedOverlayCache) UpdateAddress(ctx context.Context, value *pb.Node) 
 	return m.db.UpdateAddress(ctx, value)
 }
 
+// UpdateContained updates node's contained status in node dossier
+func (m *lockedOverlayCache) UpdateContained(ctx context.Context, nodeID storj.NodeID, isContained bool) (err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateContained(ctx, nodeID, isContained)
+}
+
 // UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
 func (m *lockedOverlayCache) UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *overlay.NodeDossier, err error) {
 	m.Lock()

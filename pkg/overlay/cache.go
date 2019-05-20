@@ -53,6 +53,8 @@ type DB interface {
 	UpdateStats(ctx context.Context, request *UpdateRequest) (stats *NodeStats, err error)
 	// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
 	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *NodeDossier, err error)
+	// UpdateContained updates node's contained status in node dossier
+	UpdateContained(ctx context.Context, nodeID storj.NodeID, isContained bool) (err error)
 	// UpdateUptime updates a single storagenode's uptime stats.
 	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error)
 }
@@ -271,6 +273,12 @@ func (cache *Cache) UpdateStats(ctx context.Context, request *UpdateRequest) (st
 func (cache *Cache) UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return cache.db.UpdateNodeInfo(ctx, node, nodeInfo)
+}
+
+// UpdateContained updates node's contained status in node dossier
+func (cache *Cache) UpdateContained(ctx context.Context, nodeID storj.NodeID, isContained bool) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return cache.db.UpdateContained(ctx, nodeID, isContained)
 }
 
 // UpdateUptime updates a single storagenode's uptime stats.

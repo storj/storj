@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -92,6 +93,42 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		assert.NotNil(t, more)
 		assert.NotEqual(t, len(zero), 0)
 	}
+}
+
+func TestUpdateContained(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+
+		cache := planet.Satellites[0].DB.OverlayCache()
+
+		nodeID0 := planet.StorageNodes[0].ID()
+		nodeID1 := planet.StorageNodes[1].ID()
+
+		// check that contained default is false
+		node0, err := cache.Get(ctx, nodeID0)
+		require.NoError(t, err)
+		require.False(t, node0.Contained)
+
+		err = cache.UpdateContained(ctx, nodeID0, true)
+		require.NoError(t, err)
+
+		node0, err = cache.Get(ctx, nodeID0)
+		require.NoError(t, err)
+		require.True(t, node0.Contained)
+
+		// sets to true when it's already true
+		err = cache.UpdateContained(ctx, nodeID0, true)
+		require.NoError(t, err)
+
+		// sets to false when it's already false
+		err = cache.UpdateContained(ctx, nodeID1, false)
+		require.NoError(t, err)
+
+		node1, err := cache.Get(ctx, nodeID1)
+		require.NoError(t, err)
+		require.False(t, node1.Contained)
+	})
 }
 
 func TestRandomizedSelection(t *testing.T) {

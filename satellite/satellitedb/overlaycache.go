@@ -467,6 +467,18 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 	return convertDBNode(updatedDBNode)
 }
 
+// UpdateContained updates node's contained status in node dossier
+func (cache *overlaycache) UpdateContained(ctx context.Context, nodeID storj.NodeID, isContained bool) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	updateField := dbx.Node_Update_Fields{
+		Contained: dbx.Node_Contained(isContained),
+	}
+
+	_, err = cache.db.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateField)
+	return Error.Wrap(err)
+}
+
 // UpdateUptime updates a single storagenode's uptime stats in the db
 func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *overlay.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
