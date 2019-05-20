@@ -121,14 +121,21 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 					continue
 				}
 
-				missingPieces, err := checker.getMissingPieces(ctx, pieces)
+				missingPieces, err := checker.overlay.GetMissingPieces(ctx, pieces)
 				if err != nil {
 					return Error.New("error getting missing pieces %s", err)
 				}
 
 				remoteSegmentsChecked++
-				numHealthy := len(pieces) - len(missingPieces)
-				if (int32(numHealthy) >= pointer.Remote.Redundancy.MinReq) && (int32(numHealthy) <= pointer.Remote.Redundancy.RepairThreshold) {
+				numHealthy := int32(len(pieces) - len(missingPieces))
+				redundancy := pointer.Remote.Redundancy
+				// we repair when the number of healthy files is less than or equal to the repair threshold
+				// except for the case when the repair and success thresholds are the same (a case usually seen during testing)
+				if numHealthy >= redundancy.MinReq && numHealthy <= redundancy.RepairThreshold && redundancy.RepairThreshold != redundancy.SuccessThreshold {
+					if len(missingPieces) == 0 {
+						checker.logger.Warn("Missing pieces is zero in checker, but this should be impossible -- bad redundancy scheme.")
+						continue
+					}
 					remoteSegmentsNeedingRepair++
 					err = checker.repairQueue.Insert(ctx, &pb.InjuredSegment{
 						Path:       string(item.Key),
@@ -137,7 +144,7 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 					if err != nil {
 						return Error.New("error adding injured segment to queue %s", err)
 					}
-				} else if int32(numHealthy) < pointer.Remote.Redundancy.MinReq {
+				} else if numHealthy < redundancy.MinReq {
 					pathElements := storj.SplitPath(storj.Path(item.Key))
 					// check to make sure there are at least *4* path elements. the first three
 					// are project, segment, and bucket name, but we want to make sure we're talking
@@ -182,26 +189,6 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 	mon.IntVal("remote_files_lost").Observe(int64(len(remoteSegmentInfo)))
 
 	return nil
-}
-
-func (checker *Checker) getMissingPieces(ctx context.Context, pieces []*pb.RemotePiece) (missingPieces []int32, err error) {
-	var nodeIDs storj.NodeIDList
-	for _, p := range pieces {
-		nodeIDs = append(nodeIDs, p.NodeId)
-	}
-	badNodeIDs, err := checker.overlay.KnownUnreliableOrOffline(ctx, nodeIDs)
-	if err != nil {
-		return nil, Error.New("error getting nodes %s", err)
-	}
-
-	for _, p := range pieces {
-		for _, nodeID := range badNodeIDs {
-			if nodeID == p.NodeId {
-				missingPieces = append(missingPieces, p.GetPieceNum())
-			}
-		}
-	}
-	return missingPieces, nil
 }
 
 // checks for a string in slice

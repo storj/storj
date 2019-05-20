@@ -5,22 +5,39 @@
 	<tr class="sort-header-container">
 		<th class="sort-header-container__item">
 			<div class="row">
-				<p>Bucket Name</p>
+				<p>Invoice</p>
+				<div class="sort-header-container__item__arrows">
+					<span v-html="arrowUp"></span>
+					<span class="selected" v-html="arrowDown"></span>
+				</div>
 			</div>
 		</th>
 		<th class="sort-header-container__item">
 			<div class="row">
-				<p>Storage Used</p>
+				<p>Billing Period</p>
+				<div class="sort-header-container__item__arrows">
+					<span v-html="arrowUp"></span>
+					<span v-html="arrowDown"></span>
+				</div>
 			</div>
 		</th>
 		<th class="sort-header-container__item">
 			<div class="row">
-				<p>Egress Used</p>
+				<p>Payment method</p>
 			</div>
 		</th>
 		<th class="sort-header-container__item">
 			<div class="row">
-				<p>Objects Stored</p>
+				<p>Status</p>
+			</div>
+		</th>
+		<th class="sort-header-container__item">
+			<div class="row">
+				<p>Amount</p>
+				<div class="sort-header-container__item__arrows">
+					<span v-html="arrowUp"></span>
+					<span v-html="arrowDown"></span>
+				</div>
 			</div>
 		</th>
 	</tr>
@@ -28,9 +45,15 @@
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
-
-    @Component({})
-
+    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+    @Component({
+        data: function() {
+            return {
+                arrowUp: EMPTY_STATE_IMAGES.ARROW_UP,
+                arrowDown: EMPTY_STATE_IMAGES.ARROW_DOWN,
+            };
+        }
+    })
     export default class SortBucketsHeader extends Vue {
     }
 </script>

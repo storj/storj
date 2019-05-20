@@ -69,5 +69,13 @@ export const API_KEYS_ACTIONS = {
 
 export const PROJECT_USAGE_ACTIONS = {
     FETCH: 'fetchProjectUsage',
+    FETCH_CURRENT_ROLLUP: 'fetchCurrentProjectUsage',
+    FETCH_PREVIOUS_ROLLUP: 'fetchPreviousProjectUsage',
     CLEAR: 'clearProjectUsage',
+};
+
+export const BUCKET_USAGE_ACTIONS = {
+    FETCH: 'fetchBucketUsages',
+    SET_SEARCH: 'setSearchBucketUsage',
+    CLEAR: 'clearBucketUsages'
 };

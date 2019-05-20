@@ -132,19 +132,16 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 						userName = user.FullName
 					}
 
-					// TODO: think of a better solution
-					go func() {
-						_ = mailService.SendRendered(
-							p.Context,
-							[]post.Address{{Address: user.Email, Name: userName}},
-							&ForgotPasswordEmail{
-								Origin:                     origin,
-								ResetLink:                  passwordRecoveryLink,
-								CancelPasswordRecoveryLink: cancelPasswordRecoveryLink,
-								UserName:                   userName,
-							},
-						)
-					}()
+					mailService.SendRenderedAsync(
+						p.Context,
+						[]post.Address{{Address: user.Email, Name: userName}},
+						&ForgotPasswordEmail{
+							Origin:                     origin,
+							ResetLink:                  passwordRecoveryLink,
+							CancelPasswordRecoveryLink: cancelPasswordRecoveryLink,
+							UserName:                   userName,
+						},
+					)
 
 					return true, nil
 				},
@@ -183,16 +180,14 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 					}
 
 					// TODO: think of a better solution
-					go func() {
-						_ = mailService.SendRendered(
-							p.Context,
-							[]post.Address{{Address: user.Email, Name: userName}},
-							&AccountActivationEmail{
-								Origin:         origin,
-								ActivationLink: link,
-							},
-						)
-					}()
+					mailService.SendRenderedAsync(
+						p.Context,
+						[]post.Address{{Address: user.Email, Name: userName}},
+						&AccountActivationEmail{
+							Origin:         origin,
+							ActivationLink: link,
+						},
+					)
 
 					return true, nil
 				},
