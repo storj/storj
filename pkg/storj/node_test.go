@@ -153,9 +153,7 @@ func TestNodeID_MarshalJSON(t *testing.T) {
 func TestNodeID_UnmarshalJSON(t *testing.T) {
 	var nodeID storj.NodeID
 	err := json.Unmarshal([]byte(`"12vha9oTFnerxYRgeQ2BZqoFrLrnmmf5UWTCY2jA77dF3YvWew7"`), &nodeID)
-	if !assert.NoError(t, err) {
-		t.Fatal()
-	}
+	require.NoError(t, err)
 	assert.Equal(t, nodeID.String(), "12vha9oTFnerxYRgeQ2BZqoFrLrnmmf5UWTCY2jA77dF3YvWew7")
 }
 

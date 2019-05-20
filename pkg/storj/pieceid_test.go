@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/storj"
@@ -64,9 +65,7 @@ func TestPieceID_Derive(t *testing.T) {
 func TestPieceID_MarshalJSON(t *testing.T) {
 	pieceid := storj.NewPieceID()
 	buf, err := json.Marshal(pieceid)
-	if !assert.NoError(t, err) {
-		t.Fatal()
-	}
+	require.NoError(t, err)
 	assert.Equal(t, string(buf), `"`+pieceid.String()+`"`)
 }
 
@@ -74,8 +73,6 @@ func TestPieceID_UnmarshalJSON(t *testing.T) {
 	originalPieceID := storj.NewPieceID()
 	var pieceid storj.PieceID
 	err := json.Unmarshal([]byte(`"`+originalPieceID.String()+`"`), &pieceid)
-	if !assert.NoError(t, err) {
-		t.Fatal()
-	}
+	require.NoError(t, err)
 	assert.Equal(t, pieceid.String(), originalPieceID.String())
 }
