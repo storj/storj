@@ -239,19 +239,15 @@ func (flags GatewayFlags) NewGateway(ctx context.Context, ident *identity.FullId
 		return nil, err
 	}
 
-	project, err := uplink.OpenProject(ctx, flags.Client.SatelliteAddr, apiKey, nil)
+	project, err := uplink.OpenProject(ctx, flags.Client.SatelliteAddr, apiKey)
 	if err != nil {
 		return nil, err
 	}
 
-	encKey := new(storj.Key)
-	copy(encKey[:], flags.Enc.Key)
-
 	return miniogw.NewStorjGateway(
 		project,
-		encKey,
-		storj.Cipher(flags.Enc.PathType).ToCipherSuite(),
-		flags.GetEncryptionScheme().ToEncryptionParameters(),
+		storj.Cipher(flags.Enc.PathType).ToCipherSuite(), //{do i need to remove these?}
+		flags.GetEncryptionScheme().ToEncryptionParameters(), //{maybe these should point to object flags, rather than bucket}
 		flags.GetRedundancyScheme(),
 		flags.Client.SegmentSize,
 	), nil
