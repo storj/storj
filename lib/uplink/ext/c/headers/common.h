@@ -30,4 +30,4 @@ typedef GoUintptr IDVersionRef;
 typedef struct GoValue gvIDVersion;
 
 void *get_snapshot(struct GoValue *, char **);
-void pack_value(void*, enum ValueType, struct GoValue*, char**);
+void protoToGoValue(void *, enum ValueType, struct GoValue *, char **);

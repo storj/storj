@@ -34,7 +34,7 @@ gvUplinkConfig *NewTestConfig(char **err)
     uplinkConfig.max_memory = 2;
 
     gvUplinkConfig *uplinkConfigValue = malloc(sizeof(gvUplinkConfig));
-    pack_value((void *)&uplinkConfig, UplinkConfigType, uplinkConfigValue, err);
+    protoToGoValue((void *)&uplinkConfig, UplinkConfigType, uplinkConfigValue, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     return uplinkConfigValue;
