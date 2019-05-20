@@ -261,7 +261,7 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 	}()
 
 	if successfulCount == 0 {
-		return nil, nil, Error.New("successful nodes count %d", successfulCount)
+		return nil, nil, Error.New("repair to all nodes failed")
 	}
 
 	return successfulNodes, successfulHashes, nil
