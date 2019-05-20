@@ -245,7 +245,7 @@ func TestDistinctIPs(t *testing.T) {
 				duplicateCount: 7,
 				requestCount:   4,
 				preferences: overlay.NodeSelectionConfig{
-					AuditCount:        8,
+					AuditCount:        1,
 					NewNodePercentage: 0.5,
 					OnlineWindow:      time.Hour,
 					DistinctIP:        true,
@@ -284,16 +284,14 @@ func TestDistinctIPs(t *testing.T) {
 			},
 		}
 
-		// This sets a reputable audit count for a certain number of nodes.
-		for i, node := range planet.StorageNodes {
-			for k := 0; k < i; k++ {
-				_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
-					NodeID:       node.ID(),
-					IsUp:         true,
-					AuditSuccess: true,
-				})
-				assert.NoError(t, err)
-			}
+		// This sets a reputable audit count for nodes[8] and nodes[9].
+		for i := 9; i > 7; i-- {
+			_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
+				NodeID:       planet.StorageNodes[i].ID(),
+				IsUp:         true,
+				AuditSuccess: true,
+			})
+			assert.NoError(t, err)
 		}
 
 		for _, tt := range tests {
