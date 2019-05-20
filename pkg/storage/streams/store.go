@@ -67,23 +67,23 @@ type streamStore struct {
 }
 
 // NewStreamStore stuff
-func NewStreamStore(segments segments.Store, segmentSize int64, rootKey *storj.Key, encBlockSize int, cipher storj.Cipher) (Store, error) {
+func NewStreamStore(segments segments.Store, segmentSize int64, rootKey *storj.Key) (Store, error) {
 	if segmentSize <= 0 {
 		return nil, errs.New("segment size must be larger than 0")
 	}
 	if rootKey == nil {
 		return nil, errs.New("encryption key must not be empty")
 	}
-	if encBlockSize <= 0 {
-		return nil, errs.New("encryption block size must be larger than 0")
-	}
+	// if encBlockSize <= 0 {
+	// 	return nil, errs.New("encryption block size must be larger than 0")
+	// }
 
 	return &streamStore{
 		segments:     segments,
 		segmentSize:  segmentSize,
 		rootKey:      rootKey,
-		encBlockSize: encBlockSize,
-		cipher:       cipher,
+		// encBlockSize: encBlockSize,
+		// cipher:       cipher,
 	}, nil
 }
 

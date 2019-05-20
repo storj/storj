@@ -17,10 +17,9 @@ type Project struct {
 }
 
 // NewProject constructs a *Project
-func NewProject(buckets buckets.Store, encryptedBlockSize int32, redundancy eestream.RedundancyStrategy, segmentsSize int64) *Project {
+func NewProject(buckets buckets.Store, redundancy eestream.RedundancyStrategy, segmentsSize int64) *Project {
 	return &Project{
 		buckets:            buckets,
-		encryptedBlockSize: encryptedBlockSize,
 		redundancy:         redundancy,
 		segmentsSize:       segmentsSize,
 	}

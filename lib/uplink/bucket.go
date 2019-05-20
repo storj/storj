@@ -81,8 +81,7 @@ type UploadOptions struct {
 	// or go away entirely between releases. Be careful when using them!
 	Volatile struct {
 		// EncryptionParameters determines the cipher suite to use for
-		// the Object's data encryption. If not set, the Bucket's
-		// defaults will be used.
+		// the Object's data encryption. Must be set, there is no longer a bucket default
 		EncryptionParameters storj.EncryptionParameters
 
 		// RedundancyScheme determines the Reed-Solomon and/or Forward
@@ -118,12 +117,7 @@ func (b *Bucket) UploadObject(ctx context.Context, path storj.Path, data io.Read
 	if opts.Volatile.RedundancyScheme.TotalShares == 0 {
 		opts.Volatile.RedundancyScheme.TotalShares = b.Volatile.RedundancyScheme.TotalShares
 	}
-	if opts.Volatile.EncryptionParameters.CipherSuite == storj.EncUnspecified {
-		opts.Volatile.EncryptionParameters.CipherSuite = b.EncryptionParameters.CipherSuite
-	}
-	if opts.Volatile.EncryptionParameters.BlockSize == 0 {
-		opts.Volatile.EncryptionParameters.BlockSize = b.EncryptionParameters.BlockSize
-	}
+
 	createInfo := storj.CreateObject{
 		ContentType:      opts.ContentType,
 		Metadata:         opts.Metadata,

@@ -42,7 +42,7 @@ func testPlanetWithLibUplink(t *testing.T, cfg testConfig, encKey *storj.Key,
 			t.Fatalf("could not create new Uplink object: %v", err)
 		}
 		defer ctx.Check(uplink.Close)
-		
+
 		proj, err := uplink.OpenProject(ctx, satellite.Addr(), apiKey)
 		if err != nil {
 			t.Fatalf("could not open project from libuplink under testplanet: %v", err)
@@ -64,11 +64,6 @@ func TestBucketAttrs(t *testing.T) {
 		access         = simpleEncryptionAccess("voxmachina")
 		bucketName     = "mightynein"
 		inBucketConfig = BucketConfig{
-			PathCipher: storj.EncSecretBox,
-			EncryptionParameters: storj.EncryptionParameters{
-				CipherSuite: storj.EncAESGCM,
-				BlockSize:   512,
-			},
 			Volatile: struct {
 				RedundancyScheme storj.RedundancyScheme
 				SegmentsSize     memory.Size
@@ -100,8 +95,6 @@ func TestBucketAttrs(t *testing.T) {
 			defer ctx.Check(got.Close)
 
 			assert.Equal(t, bucketName, got.Name)
-			assert.Equal(t, inBucketConfig.PathCipher, got.PathCipher)
-			assert.Equal(t, inBucketConfig.EncryptionParameters, got.EncryptionParameters)
 			assert.Equal(t, inBucketConfig.Volatile.RedundancyScheme, got.Volatile.RedundancyScheme)
 			assert.Equal(t, inBucketConfig.Volatile.SegmentsSize, got.Volatile.SegmentsSize)
 
@@ -120,11 +113,6 @@ func TestBucketAttrsApply(t *testing.T) {
 		objectPath1    = "vax/vex/vox"
 		objectContents = "Willingham,Ray,Jaffe,Johnson,Riegel,O'Brien,Bailey,Mercer"
 		inBucketConfig = BucketConfig{
-			PathCipher: storj.EncSecretBox,
-			EncryptionParameters: storj.EncryptionParameters{
-				CipherSuite: storj.EncSecretBox,
-				BlockSize:   768,
-			},
 			Volatile: struct {
 				RedundancyScheme storj.RedundancyScheme
 				SegmentsSize     memory.Size
@@ -164,7 +152,6 @@ func TestBucketAttrsApply(t *testing.T) {
 			require.NoError(t, err)
 			defer ctx.Check(readBack.Close)
 
-			assert.Equal(t, inBucketConfig.EncryptionParameters, readBack.Meta.Volatile.EncryptionParameters)
 			assert.Equal(t, inBucketConfig.Volatile.RedundancyScheme, readBack.Meta.Volatile.RedundancyScheme)
 			assert.Equal(t, inBucketConfig.Volatile.SegmentsSize.Int64(), readBack.Meta.Volatile.SegmentsSize)
 

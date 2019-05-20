@@ -14,7 +14,6 @@ import (
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/eestream"
-	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/peertls/tlsopts"
@@ -104,11 +103,11 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, Error.New("failed to create redundancy strategy: %v", err)
 	}
 
-	maxEncryptedSegmentSize, err := encryption.CalcEncryptedSize(c.Client.SegmentSize.Int64(), c.GetEncryptionScheme())
-	if err != nil {
-		return nil, nil, Error.New("failed to calculate max encrypted segment size: %v", err)
-	}
-	segments := segments.NewSegmentStore(metainfo, ec, rs, c.Client.MaxInlineSize.Int(), maxEncryptedSegmentSize)
+	// maxEncryptedSegmentSize, err := encryption.CalcEncryptedSize(c.Client.SegmentSize.Int64(), c.GetEncryptionScheme())
+	// if err != nil {
+	// 	return nil, nil, Error.New("failed to calculate max encrypted segment size: %v", err)
+	// }
+	segments := segments.NewSegmentStore(metainfo, ec, rs, c.Client.MaxInlineSize.Int())
 
 	if c.RS.ErasureShareSize.Int()*c.RS.MinThreshold%c.Enc.BlockSize.Int() != 0 {
 		err = Error.New("EncryptionBlockSize must be a multiple of ErasureShareSize * RS MinThreshold")
@@ -118,14 +117,14 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 	key := new(storj.Key)
 	copy(key[:], c.Enc.Key)
 
-	streams, err := streams.NewStreamStore(segments, c.Client.SegmentSize.Int64(), key, c.Enc.BlockSize.Int(), storj.Cipher(c.Enc.DataType))
+	streams, err := streams.NewStreamStore(segments, c.Client.SegmentSize.Int64(), key)
 	if err != nil {
 		return nil, nil, Error.New("failed to create stream store: %v", err)
 	}
 
 	buckets := buckets.NewStore(streams)
 
-	return kvmetainfo.New(metainfo, buckets, streams, segments, key, c.Enc.BlockSize.Int32(), rs, c.Client.SegmentSize.Int64()), streams, nil
+	return kvmetainfo.New(metainfo, buckets, streams, segments, key, rs, c.Client.SegmentSize.Int64()), streams, nil
 }
 
 // GetRedundancyScheme returns the configured redundancy scheme for new uploads

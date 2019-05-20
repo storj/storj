@@ -61,13 +61,12 @@ type segmentStore struct {
 }
 
 // NewSegmentStore creates a new instance of segmentStore
-func NewSegmentStore(metainfo metainfo.Client, ec ecclient.Client, rs eestream.RedundancyStrategy, threshold int, maxEncryptedSegmentSize int64) Store {
+func NewSegmentStore(metainfo metainfo.Client, ec ecclient.Client, rs eestream.RedundancyStrategy, threshold int) Store {
 	return &segmentStore{
 		metainfo:                metainfo,
 		ec:                      ec,
 		rs:                      rs,
 		thresholdSize:           threshold,
-		maxEncryptedSegmentSize: maxEncryptedSegmentSize,
 	}
 }
 
