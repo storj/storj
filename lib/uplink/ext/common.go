@@ -318,8 +318,8 @@ func CToGoStruct(fromVar, toPtr interface{}) error {
 
 // CToGoGoValue will create a Golang GoValue struct from a C GoValue Struct
 func CToGoGoValue(cVal C.struct_GoValue) GoValue {
-	snapshot := &[]byte{0}
-	if uintptr(unsafe.Pointer(cVal.Snapshot)) != 0 {
+	snapshot := &[]byte{}
+	if len (*snapshot) != 0 {
 		snapshot = (*[]byte)(unsafe.Pointer(cVal.Snapshot))
 	}
 
