@@ -125,14 +125,15 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		return nil, err
 	}
 
+	// clean up user on error
 	defer func() {
 		if err != nil {
 			u = nil
 		}
 	}()
 
-	cb := func(tx DBTx) error {
-		u, err := tx.Users().Insert(ctx,
+	err = withTx(tx, func(tx DBTx) error {
+		u, err = tx.Users().Insert(ctx,
 			&User{
 				Email:        user.Email,
 				FullName:     user.FullName,
@@ -169,9 +170,9 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		)
 
 		return err
-	}
+	})
 
-	return u, withTx(tx, cb)
+	return u, err
 }
 
 // GenerateActivationToken - is a method for generating activation token
@@ -478,39 +479,45 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		return
 	}
 
-	project := &Project{
-		Description: projectInfo.Description,
-		Name:        projectInfo.Name,
-	}
-
-	transaction, err := s.store.BeginTx(ctx)
+	tx, err := s.store.BeginTx(ctx)
 	if err != nil {
 		return nil, errs.New(internalErrMsg)
 	}
 
+	// clean up project on error
 	defer func() {
 		if err != nil {
-			err = errs.Combine(err, transaction.Rollback())
-			return
-		}
-
-		err = transaction.Commit()
-		if err != nil {
-			err = errs.New(internalErrMsg)
+			p = nil
 		}
 	}()
 
-	prj, err := transaction.Projects().Insert(ctx, project)
-	if err != nil {
-		return nil, errs.New(internalErrMsg)
-	}
+	err = withTx(tx, func(tx DBTx) (err error) {
+		p, err = tx.Projects().Insert(ctx,
+			&Project{
+				Description: projectInfo.Description,
+				Name:        projectInfo.Name,
+			},
+		)
+		if err != nil {
+			return errs.New(internalErrMsg)
+		}
 
-	_, err = transaction.ProjectMembers().Insert(ctx, auth.User.ID, prj.ID)
-	if err != nil {
-		return nil, errs.New(internalErrMsg)
-	}
+		_, err = tx.ProjectMembers().Insert(ctx, auth.User.ID, p.ID)
+		if err != nil {
+			return errs.New(internalErrMsg)
+		}
 
-	return prj, nil
+		_, err = tx.ProjectPaymentInfos().Create(ctx,
+			ProjectPaymentInfo{
+				ProjectID: p.ID,
+				PayerID:   auth.User.ID,
+			},
+		)
+
+		return err
+	})
+
+	return p, err
 }
 
 // DeleteProject is a method for deleting project by id
@@ -624,6 +631,11 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 		return ErrUnauthorized.Wrap(err)
 	}
 
+	projectPaymentInfo, err := s.store.ProjectPaymentInfos().GetByProjectID(ctx, projectID)
+	if err != nil {
+		return err
+	}
+
 	var userIDs []uuid.UUID
 	var userErr errs.Group
 
@@ -634,6 +646,12 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 		if err != nil {
 			userErr.Add(err)
 			continue
+		}
+
+		// abort if one of the members payment info
+		// atached to this project
+		if projectPaymentInfo.PayerID == user.ID {
+			return errs.New("member with atached payment can't be deleted")
 		}
 
 		userIDs = append(userIDs, user.ID)

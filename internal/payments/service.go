@@ -1,9 +1,13 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package payments
 
 import (
 	"github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/client"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 )
 
 // Service is interfaces that defines behavior for working with payments
@@ -13,6 +17,7 @@ type Service interface {
 
 // StripeService works with stripe network through stripe-go client
 type StripeService struct {
+	log    *zap.Logger
 	client *client.API
 }
 
@@ -25,11 +30,14 @@ type CustomerParams struct {
 }
 
 // NewService creates new instance of StripeService initialized with API key
-func NewService(apiKey string) *StripeService {
-	sc := &client.API{}
+func NewService(log *zap.Logger, apiKey string) *StripeService {
+	stripe.DefaultLeveledLogger = wrapLogger(log)
+
+	sc := new(client.API)
 	sc.Init(apiKey, nil)
 
 	return &StripeService{
+		log:    log,
 		client: sc,
 	}
 }

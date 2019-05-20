@@ -66,6 +66,11 @@ func (db *ConsoleDB) UserPaymentInfos() console.UserPaymentInfos {
 	return &userpaymentinfos{db.methods}
 }
 
+// ProjectPaymentInfos is a getter for console.ProjectPaymentInfos repository
+func (db *ConsoleDB) ProjectPaymentInfos() console.ProjectPaymentInfos {
+	return &projectpaymentinfos{db.methods}
+}
+
 // BeginTx is a method for opening transaction
 func (db *ConsoleDB) BeginTx(ctx context.Context) (console.DBTx, error) {
 	if db.db == nil {

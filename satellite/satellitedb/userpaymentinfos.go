@@ -1,3 +1,6 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package satellitedb
 
 import (
@@ -9,7 +12,8 @@ import (
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
-// userpaymentinfos allows to work with user payment info storage
+// userpaymentinfos is the an implementation of console.UserPaymentInfos.
+// Allows to work with user payment info storage
 type userpaymentinfos struct {
 	db dbx.Methods
 }

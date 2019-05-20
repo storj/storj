@@ -516,6 +516,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		}
 	}
 
+	{ // setup stripe payments
+		// TODO: move apiKey to config
+		peer.Stripe.Service = payments.NewService(peer.Log.Named("stripe:service"),
+			"sk_test_QleT6Q6AHMe264PlGtJcBfB0006Qe2yaCJ")
+	}
+
 	{ // setup console
 		log.Debug("Setting up console")
 		consoleConfig := config.Console

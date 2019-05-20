@@ -267,6 +267,37 @@ func (m *lockedProjectMembers) Insert(ctx context.Context, memberID uuid.UUID, p
 	return m.db.Insert(ctx, memberID, projectID)
 }
 
+// ProjectPaymentInfos is a getter for ProjectPaymentInfos
+func (m *lockedConsole) ProjectPaymentInfos() console.ProjectPaymentInfos {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedProjectPaymentInfos{m.Locker, m.db.ProjectPaymentInfos()}
+}
+
+// lockedProjectPaymentInfos implements locking wrapper for console.ProjectPaymentInfos
+type lockedProjectPaymentInfos struct {
+	sync.Locker
+	db console.ProjectPaymentInfos
+}
+
+func (m *lockedProjectPaymentInfos) Create(ctx context.Context, info console.ProjectPaymentInfo) (*console.ProjectPaymentInfo, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Create(ctx, info)
+}
+
+func (m *lockedProjectPaymentInfos) GetByPayerID(ctx context.Context, payerID uuid.UUID) (*console.ProjectPaymentInfo, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetByPayerID(ctx, payerID)
+}
+
+func (m *lockedProjectPaymentInfos) GetByProjectID(ctx context.Context, projectID uuid.UUID) (*console.ProjectPaymentInfo, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetByProjectID(ctx, projectID)
+}
+
 // Projects is a getter for Projects repository
 func (m *lockedConsole) Projects() console.Projects {
 	m.Lock()

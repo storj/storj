@@ -29,6 +29,8 @@ type DB interface {
 	UsageRollups() UsageRollups
 	// UserPaymentInfos is a getter for UserPaymentInfos
 	UserPaymentInfos() UserPaymentInfos
+	// ProjectPaymentInfos is a getter for ProjectPaymentInfos
+	ProjectPaymentInfos() ProjectPaymentInfos
 
 	// BeginTransaction is a method for opening transaction
 	BeginTx(ctx context.Context) (DBTx, error)

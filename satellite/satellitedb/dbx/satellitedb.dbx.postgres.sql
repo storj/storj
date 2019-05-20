@@ -223,6 +223,12 @@ CREATE TABLE user_payment_infos (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( user_id )
 );
+CREATE TABLE project_payment_infos (
+	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	payer_id bytea NOT NULL REFERENCES user_payment_infos( user_id ) ON DELETE CASCADE,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( project_id )
+);
 CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
 CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
 CREATE INDEX node_last_ip ON nodes ( last_ip );
