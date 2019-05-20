@@ -144,9 +144,7 @@ func TestNodeID_String_Version(t *testing.T) {
 func TestNodeID_MarshalJSON(t *testing.T) {
 	nodeID, _ := storj.NodeIDFromString("12vha9oTFnerxYRgeQ2BZqoFrLrnmmf5UWTCY2jA77dF3YvWew7")
 	buf, err := json.Marshal(nodeID)
-	if !assert.NoError(t, err) {
-		t.Fatal()
-	}
+	require.NoError(t, err)
 	assert.Equal(t, string(buf), `"12vha9oTFnerxYRgeQ2BZqoFrLrnmmf5UWTCY2jA77dF3YvWew7"`)
 }
 
