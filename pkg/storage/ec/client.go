@@ -264,6 +264,8 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 		return nil, nil, Error.New("repair to all nodes failed")
 	}
 
+	zap.S().Infof("Successfully repaired %s to %d nodes.", path, atomic.LoadInt32(&successfulCount))
+
 	return successfulNodes, successfulHashes, nil
 }
 
