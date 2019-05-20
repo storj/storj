@@ -24,10 +24,10 @@ func (containment *containment) Get(ctx context.Context, id pb.NodeID) (*audit.P
 	}
 
 	pending, err := containment.db.Get_PendingAudits_By_NodeId(ctx, dbx.PendingAudits_NodeId(id.Bytes()))
-	if err == sql.ErrNoRows {
-		return nil, audit.ErrContainedNotFound.New(id.String())
-	}
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, audit.ErrContainedNotFound.New(id.String())
+		}
 		return nil, audit.ContainError.Wrap(err)
 	}
 
