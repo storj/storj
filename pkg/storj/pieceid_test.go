@@ -4,9 +4,11 @@
 package storj_test
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/storj"
@@ -58,4 +60,19 @@ func TestPieceID_Derive(t *testing.T) {
 
 	assert.Equal(t, b.Derive(n0), b.Derive(n0), "b(n0)")
 	assert.Equal(t, b.Derive(n1), b.Derive(n1), "b(n1)")
+}
+
+func TestPieceID_MarshalJSON(t *testing.T) {
+	pieceid := storj.NewPieceID()
+	buf, err := json.Marshal(pieceid)
+	require.NoError(t, err)
+	assert.Equal(t, string(buf), `"`+pieceid.String()+`"`)
+}
+
+func TestPieceID_UnmarshalJSON(t *testing.T) {
+	originalPieceID := storj.NewPieceID()
+	var pieceid storj.PieceID
+	err := json.Unmarshal([]byte(`"`+originalPieceID.String()+`"`), &pieceid)
+	require.NoError(t, err)
+	assert.Equal(t, pieceid.String(), originalPieceID.String())
 }
