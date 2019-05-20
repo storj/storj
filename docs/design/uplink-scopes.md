@@ -18,7 +18,7 @@ Uplink will operate on a set of "scopes". Each scope contains an API key, a sate
 type Scope struct {
     APIKey        string // Or perhaps uplink.APIKey
     SatelliteURL  string
-    ProjectKey    *string
+    ProjectKey    []byte
     BucketShares  []BucketShare
 }
 ```
@@ -52,7 +52,7 @@ Note that the encrypted path does not need to match the unencrypted path, and th
 
 ## Rationale
 
-This proposal is not a radical departure of the current method, just an extension to allowing a collection of paths to compose a bucket at any unencrypted spot. Thus, it shoudn't require any changes on the server side, reducing risk and allowing for earlier shipping. For example, any current configuration
+This proposal is not a radical departure of the current method, just an extension to allowing a collection of paths to compose a bucket at any unencrypted spot. Thus, it shoudn't require any changes on the server side, reducing risk and allowing for earlier shipping. For example, any current configuration can be represented as a scope with a default project key and no bucket shares.
 
 Longest matching begs a question about consistency. In principle, it's possible to derive `"key1"` from the information provided by `"key2"`. If they disagree, an error could be thrown. Consistency does mean that you can't have differently keyed paths as part of your bucket, which may be useful. Inconsistency means that a bucket or project could contain objects that are invisible or undecryptable by clients. This design makes no requirement for consistency, and chooses to hide and warn about paths that cannot decrypt.
 
