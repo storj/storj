@@ -11,7 +11,6 @@ package main
 // #endif
 import "C"
 import (
-	"fmt"
 	"reflect"
 	"unsafe"
 
@@ -112,24 +111,23 @@ func Unpack(cValue *C.struct_GoValue, cErr **C.char) {
 // and the GoValue ptr field is updated accordingly.
 //export SendToGo
 func SendToGo(cVal *C.struct_GoValue, cErr **C.char) {
-	fmt.Printf("cVal.snapshot: %x\n", *(*[]byte)(unsafe.Pointer(cVal.Snapshot)))
 	var msg proto.Message
 
 	switch cVal.Type {
 	case C.UplinkConfigType:
-		msg = &pb.UplinkConfig{}
+		msg = &pb.UplinkConfig{MaxMemory: 100}
 	default:
 		*cErr = C.CString(errs.New("unsupported type").Error())
+		return
 	}
 
 	value := CToGoGoValue(*cVal)
-	fmt.Printf("value.snapshot: %x\n", value.snapshot)
 	if err := proto.Unmarshal(value.snapshot, msg); err != nil {
 		*cErr = C.CString(err.Error())
 		return
 	}
 
-	value.ptr = uintptr(structRefMap.Add(value))
+	cVal.Ptr = C.GoUintptr(uintptr(structRefMap.Add(msg)))
 }
 
 func CMalloc(size uintptr) uintptr {

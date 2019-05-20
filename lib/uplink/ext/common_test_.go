@@ -127,10 +127,19 @@ func TestSendToGo_success(t *testing.T) {
 	{
 		t.Info("uplink config")
 
-		msg := &pb.UplinkConfig{
+		startConfig := &pb.UplinkConfig{
 			// -- WIP | TODO
+			Tls: &pb.TLSConfig{
+				SkipPeerCaWhitelist: true,
+				PeerCaWhitelistPath: "/whitelist.pem",
+			},
+			IdentityVersion: &pb.IDVersion{
+				Number: 0,
+			},
+			MaxInlineSize: 1,
+			MaxMemory: 2,
 		}
-		snapshot, err := proto.Marshal(msg)
+		snapshot, err := proto.Marshal(startConfig)
 		require.NoError(t, err)
 		require.NotEmpty(t, snapshot)
 
@@ -143,8 +152,39 @@ func TestSendToGo_success(t *testing.T) {
 			Snapshot:  (*C.uchar)(unsafe.Pointer(&snapshot)),
 			Size:      C.ulong(size),
 		}
+		assert.Zero(t, cVal.Ptr)
+
 		cErr := C.CString("")
 		SendToGo(cVal, &cErr)
+		require.Empty(t, C.GoString(cErr))
+
+		assert.NotZero(t, uintptr(cVal.Ptr))
+		assert.NotZero(t, cVal.Type)
+
+
+		//value := CToGoGoValue(*cVal)
+		//endConfig := structRefMap.Get(token(value.ptr))
+		////endConfig := (*pb.UplinkConfig)(unsafe.Pointer(value.ptr))
+		//
+		//startJSON, err := json.MarshalIndent(startConfig, "", "  ")
+		//require.NoError(t, err)
+		//
+		//endJSON, err := json.MarshalIndent(endConfig, "", "  ")
+		//require.NoError(t, err)
+
+		//_, diff := jsondiff.Compare(startJSON, endJSON, nil)
+		//t.Debug("", zap.String("diff", diff))
+		//t.Info("", zap.String("startConfig", string(startJSON)))
+		//t.Info("",
+		//	zap.Any("value.Ptr", value.ptr),
+		//	//zap.Uintptr("unsafe", unsafe.Pointer(value.ptr)),
+		//	zap.Any("get", structRefMap.Get(token(value.ptr))),
+		//	zap.Any("cast", (structRefMap.Get(token(value.ptr))).(*pb.UplinkConfig)),
+		//)
+		//t.Info("", zap.String("endConfig", string(endJSON)))
+		//assert.True(t, reflect.DeepEqual(startConfig, endConfig))
+		//assert.Equal(t, *(startConfig.Tls), *(endConfig.Tls))
+		//assert.Equal(t, *(startConfig.IdentityVersion), *(endConfig.IdentityVersion))
 	}
 
 	// TODO: other types
@@ -152,4 +192,43 @@ func TestSendToGo_success(t *testing.T) {
 
 func TestSendToGo_error(t *testing.T) {
 	// TODO
+}
+
+func TestCToGoGoValue(t *testing.T) {
+	//str := "test string 123"
+	//cVal := C.struct_GoValue{
+	//	Ptr: C.GoUintptr(uintptr(unsafe.Pointer(&str))),
+	//	// NB: arbitrary type
+	//	Type: C.APIKeyType,
+	//}
+	//
+	//value := CToGoGoValue(cVal)
+	//assert.Equal(t, uint(cVal.Type), value._type)
+	//assert.NotZero(t, value.ptr)
+	//
+	//strPtr, ok := structRefMap.Get(token(value.ptr)).(*string)
+	//require.True(t, ok)
+	//assert.Equal(t, str, *strPtr)
+}
+
+func TestMapping_Add(t *testing.T) {
+	testMap := newMapping()
+
+	str := "testing 123"
+	strToken := testMap.Add(str)
+
+	gotStr, ok := testMap.values[strToken]
+	require.True(t, ok)
+	assert.Equal(t, str, gotStr)
+}
+
+func TestMapping_Get(t *testing.T) {
+	testMap := newMapping()
+
+	str := "testing 123"
+	strToken := token(1)
+	testMap.values[strToken] = str
+
+	gotStr := testMap.Get(strToken)
+	assert.Equal(t, str, gotStr)
 }
