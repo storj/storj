@@ -10,6 +10,9 @@ import (
 	"go.uber.org/zap"
 )
 
+// StripeErr is an error for stripe errors
+var StripeErr = errs.Class("stripe error")
+
 // Service is interfaces that defines behavior for working with payments
 type Service interface {
 	CreateCustomer(params CustomerParams) (*stripe.Customer, error)
@@ -55,14 +58,14 @@ func (s *StripeService) CreateCustomer(params CustomerParams) (*stripe.Customer,
 	//if params.SourceToken != "" {
 	//	err := cparams.SetSource(params.SourceToken)
 	//	if err != nil {
-	//		return nil, errs.New("stripe error: %s", err)
+	//		return nil, StripeErr.Wrap(err)
 	//	}
 	//}
 
 	// TODO: delete after migrating from test environment
 	err := cparams.SetSource("tok_visa")
 	if err != nil {
-		return nil, errs.New("stripe error: %s", err)
+		return nil, StripeErr.Wrap(err)
 	}
 
 	return s.client.Customers.New(cparams)
