@@ -64,16 +64,16 @@ The credit is automatically applied to the account and will have a max limit tha
 
 **offer  table**
 ```sql
-    Id - int
-    Name -  text
-    Description - text  
-    Credits - integer
+    id - int
+    name -  text
+    description - text  
+    credits - integer
     redeemable_cap - integer
-    Num_redeemed - integer
-    Created_at - timestamp
+    num_redeemed - integer
+    created_at - timestamp
     offer_duration_days - int
     award_credit_duration_days - int
-    Invitee_credit_duration_days - int
+    invitee_credit_duration_days - int
     type - enum[FREE_TIER, REFERRAL]
     status - enum[ON_GOING, DEFAULT, EXPIRED, NO_STATUS]
     PRIMARY KEY (id)
@@ -81,12 +81,12 @@ The credit is automatically applied to the account and will have a max limit tha
 
 **user_credit table**
 ```sql
-    User_id - bytea
+    user_id - bytea
     offer_id - int
     credits_earned - float
-    Credit_type - enum[AWARD, INVITEE, NO_TYPE]
+    credit_type - enum[AWARD, INVITEE, NO_TYPE]
     expires_at - timestamp
-    Created_at - timestamp
+    created_at - timestamp
     referred_by - bytea (nullable)
     FOREIGN KEY (offer_id)
     PRIMARY KEY (user_id)
@@ -103,11 +103,11 @@ The credit is automatically applied to the account and will have a max limit tha
 - Create offers interface to interact with offer table
 
 ```golang
-type Offers interface {
+type DB interface {
   ListAllOffers(ctx context.Context) ([]Offer, error)
-  GetOfferById(ctx context.Context, offerId []byte) (Offer, error)
+  GetOfferById(ctx context.Context, offerId Offer.ID) (Offer, error)
   Update(ctx context.Context, offer *Offer) (*Offer, error)
-  Delete(ctx context.Context, offerId []byte)
+  Delete(ctx context.Context, offerId Offer.ID)
   Create(ctx context.Context, offer *Offer)
 }
 ```
@@ -116,7 +116,7 @@ type Offers interface {
 - Create a user_credit interface to interact with the user_credit table
 
 ```golang
-type Credits interface {
+type DB interface {
   AvailableCredits(ctx context.Context, userId uuid.UUID) (int, error)
   ListByCreditType(ctx context.Context, userId uuid.UUID, creditType Credit.Type) ([]Credit, error)
   Update(ctx context.Context, credit *Credit) (*Credit, error)
@@ -165,7 +165,7 @@ peer.Offer.Endpoint = offerweb.NewServer(logger, config, service, listener)
 ### Referral Links
 
 The referral link url will be a static url that contains userid as the unique identifier
-Exp: `https://mars.tardigrade.io/?uuid=<userid>`
+Exp: `https://mars.tardigrade.io/register?uuid=<userid>`
 
 ### Segment.io service
 
