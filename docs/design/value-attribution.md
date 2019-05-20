@@ -68,7 +68,7 @@ The attribution table will consist of data that allows for ease of calculating t
 | bucket_id (pk) | uuid  | 
 | user_id  | uuid  |
 | partner_id  | uuid  |
-| total_data | text  |
+| total_data | integer  |
 | last_updated | timestamp  |
 
 ### Reporting
