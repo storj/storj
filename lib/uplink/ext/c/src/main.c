@@ -6,12 +6,12 @@
 #include "../../uplink-cgo.h"
 
 // TODO: move into go?
-void *unpack_value(struct GoValue *val, char **err)
+void *get_snapshot(struct GoValue *val, char **err)
 {
     switch (val->Type)
     {
     case IDVersionType:
-        Unpack(val, err);
+        GetSnapshot(val, err);
         return (void *)storj__libuplink__idversion__unpack(NULL, val->Size, val->Snapshot);
     default:
         *err = "unknown type";
@@ -39,7 +39,8 @@ void pack_value(void *proto_msg, enum ValueType value_type, struct GoValue *valu
     }
 
     SendToGo(value, err);
-    if (strcmp("", *err) != 0) {
+    if (strcmp("", *err) != 0)
+    {
         return;
     }
 

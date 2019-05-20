@@ -16,7 +16,7 @@ gvUplinkConfig *NewTestConfig(char **err)
     gvIDVersion idVersionValue = GetIDVersion(idVersionNumber, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
-    IDVersion *idVersion = (IDVersion *)(unpack_value(&idVersionValue, err));
+    IDVersion *idVersion = (IDVersion *)(get_snapshot(&idVersionValue, err));
     TEST_ASSERT_EQUAL_STRING("", *err);
     TEST_ASSERT_NOT_NULL(idVersion);
 
@@ -36,8 +36,8 @@ gvUplinkConfig *NewTestConfig(char **err)
     gvUplinkConfig *uplinkConfigValue = malloc(sizeof(gvUplinkConfig));
     pack_value((void *)&uplinkConfig, UplinkConfigType, uplinkConfigValue, err);
     // TODO: try this? --v
-//    void *uplinkConfigValue = malloc(sizeof(gvUplinkConfig));
-//    pack_value(uplinkConfig, UplinkConfigType, uplinkConfigValue, err);
+    //    void *uplinkConfigValue = malloc(sizeof(gvUplinkConfig));
+    //    pack_value(uplinkConfig, UplinkConfigType, uplinkConfigValue, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     return uplinkConfigValue;

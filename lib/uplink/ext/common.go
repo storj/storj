@@ -78,6 +78,7 @@ type GoValue struct {
 	size     uintptr
 }
 
+// Snapshot will look up a struct in the structRefMap, convert it to a protobuf value, and serialize that data into the govalue
 func (val GoValue) Snapshot() (data []byte, _ error) {
 	// TODO: do this using reflect?
 	switch val._type {
@@ -93,12 +94,25 @@ func (val GoValue) Snapshot() (data []byte, _ error) {
 	}
 }
 
-//export Unpack
-func Unpack(cValue *C.struct_GoValue, cErr **C.char) {
-	value := CToGoGoValue(*cValue)
+// GetSnapshot will take a C GoValue struct and populate the snapshot
+//export GetSnapshot
+func GetSnapshot(cValue *C.struct_GoValue, cErr **C.char) {
+	govalue := CToGoGoValue(*cValue)
+
+	data, err := govalue.Snapshot()
+	if err != nil {
+		*cErr = C.CString(err.Error())
+		return 
+	}
+
+	size := uintptr(len(data))
+	ptr := CMalloc(size)
+
+	mem := (*[]byte)(unsafe.Pointer(ptr))
+	copy(*mem, data)
 
 	var err error
-	*cValue, err = value.GoToCGoValue()
+	*cValue, err = govalue.GoToCGoValue()
 	if err != nil {
 		*cErr = C.CString(err.Error())
 		return
@@ -296,31 +310,20 @@ func CToGoStruct(fromVar, toPtr interface{}) error {
 	}
 }
 
+// CToGoGoValue will create a Golang GoValue struct from a C GoValue Struct
 func CToGoGoValue(cVal C.struct_GoValue) GoValue {
 	return GoValue{
 		ptr:   uintptr(cVal.Ptr),
 		_type: uint(cVal.Type),
-		snapshot: *(*[]byte)(unsafe.Pointer(cVal.Snapshot)),
-		size: uintptr(cVal.Size),
 	}
 }
 
+// GoToCGoValue will return a C equivalent of a go value struct with a populated snapshot
 func (gv GoValue) GoToCGoValue() (cVal C.struct_GoValue, err error) {
-	size := uintptr(len(gv.snapshot))
-	ptr := CMalloc(size)
-
-	data, err := gv.Snapshot()
-	if err != nil {
-		return cVal, err
-	}
-
-	mem := (*[]byte)(unsafe.Pointer(ptr))
-	copy(*mem, data)
-
 	return C.struct_GoValue{
 		Ptr:      C.GoUintptr(gv.ptr),
 		Type:     C.enum_ValueType(gv._type),
-		Snapshot: (*C.uchar)(unsafe.Pointer(ptr)),
-		Size:     C.GoUintptr(size),
+		Snapshot: (*C.uchar)(gv.snapshot),
+		Size:     C.GoUintptr(gv.size),
 	}, nil
 }
