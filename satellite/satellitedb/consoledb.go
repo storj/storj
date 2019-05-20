@@ -61,6 +61,11 @@ func (db *ConsoleDB) UsageRollups() console.UsageRollups {
 	return &usagerollups{db.db}
 }
 
+// UserPaymentInfos is a getter for console.UserPaymentInfos repository
+func (db *ConsoleDB) UserPaymentInfos() console.UserPaymentInfos {
+	return &userpaymentinfos{db.methods}
+}
+
 // BeginTx is a method for opening transaction
 func (db *ConsoleDB) BeginTx(ctx context.Context) (console.DBTx, error) {
 	if db.db == nil {

@@ -12,11 +12,11 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-	import { BUCKET_USAGE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { Component, Vue } from 'vue-property-decorator';
+       import { BUCKET_USAGE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
     @Component({
-		methods: {
+        methods: {
             fetch: async function() {
                 const bucketsResponse = await this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, 1);
                 if (!bucketsResponse.isSuccess) {
@@ -24,17 +24,17 @@
                 }
             }
         },
-		computed: {
-			search: {
-				get: function (): string {
-					return this.$store.state.bucketUsageModule.cursor.search;
-				},
-				set: function (search: string) {
-					this.$store.dispatch(BUCKET_USAGE_ACTIONS.SET_SEARCH, search)
-				}
-			}
-		}
-	})
+        computed: {
+            search: {
+                get: function (): string {
+                    return this.$store.state.bucketUsageModule.cursor.search;
+                },
+                set: function (search: string) {
+                    this.$store.dispatch(BUCKET_USAGE_ACTIONS.SET_SEARCH, search);
+                }
+            }
+        }
+    })
 
     export default class SearchArea extends Vue {}
 </script>

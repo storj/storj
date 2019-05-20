@@ -435,6 +435,31 @@ func (m *lockedUsageRollups) GetProjectTotal(ctx context.Context, projectID uuid
 	return m.db.GetProjectTotal(ctx, projectID, since, before)
 }
 
+// UserPaymentInfos is a getter for UserPaymentInfos
+func (m *lockedConsole) UserPaymentInfos() console.UserPaymentInfos {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedUserPaymentInfos{m.Locker, m.db.UserPaymentInfos()}
+}
+
+// lockedUserPaymentInfos implements locking wrapper for console.UserPaymentInfos
+type lockedUserPaymentInfos struct {
+	sync.Locker
+	db console.UserPaymentInfos
+}
+
+func (m *lockedUserPaymentInfos) Create(ctx context.Context, info console.UserPaymentInfo) (*console.UserPaymentInfo, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Create(ctx, info)
+}
+
+func (m *lockedUserPaymentInfos) Get(ctx context.Context, userID uuid.UUID) (*console.UserPaymentInfo, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Get(ctx, userID)
+}
+
 // Users is a getter for Users repository
 func (m *lockedConsole) Users() console.Users {
 	m.Lock()

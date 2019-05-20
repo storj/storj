@@ -27,6 +27,8 @@ type DB interface {
 	ResetPasswordTokens() ResetPasswordTokens
 	// UsageRollups is a getter for UsageRollups repository
 	UsageRollups() UsageRollups
+	// UserPaymentInfos is a getter for UserPaymentInfos
+	UserPaymentInfos() UserPaymentInfos
 
 	// BeginTransaction is a method for opening transaction
 	BeginTx(ctx context.Context) (DBTx, error)

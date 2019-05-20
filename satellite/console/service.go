@@ -14,6 +14,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/payments"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/satellite/console/consoleauth"
@@ -55,37 +56,36 @@ const (
 
 // Service is handling accounts related logic
 type Service struct {
-	Signer
+	log *zap.Logger
 
-	store DB
-	log   *zap.Logger
+	Signer
+	store         DB
+	stripeService payments.Service
 
 	passwordCost int
 }
 
 // NewService returns new instance of Service
-func NewService(log *zap.Logger, signer Signer, store DB, passwordCost int) (*Service, error) {
+func NewService(log *zap.Logger, signer Signer, store DB, stripeService payments.Service, passwordCost int) (*Service, error) {
 	if signer == nil {
 		return nil, errs.New("signer can't be nil")
 	}
-
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
-
 	if log == nil {
 		return nil, errs.New("log can't be nil")
 	}
-
 	if passwordCost == 0 {
 		passwordCost = bcrypt.DefaultCost
 	}
 
 	return &Service{
-		Signer:       signer,
-		store:        store,
-		log:          log,
-		passwordCost: passwordCost,
+		log:           log,
+		Signer:        signer,
+		store:         store,
+		stripeService: stripeService,
+		passwordCost:  passwordCost,
 	}, nil
 }
 
@@ -119,22 +119,59 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		return nil, errs.New(internalErrMsg)
 	}
 
-	u, err = s.store.Users().Insert(ctx, &User{
-		Email:        user.Email,
-		FullName:     user.FullName,
-		ShortName:    user.ShortName,
-		PasswordHash: hash,
-	})
+	// store data
+	tx, err := s.store.BeginTx(ctx)
 	if err != nil {
-		return nil, errs.New(internalErrMsg)
+		return nil, err
 	}
 
-	err = s.store.RegistrationTokens().UpdateOwner(ctx, registrationToken.Secret, u.ID)
-	if err != nil {
-		return nil, errs.New(internalErrMsg)
+	defer func() {
+		if err != nil {
+			u = nil
+		}
+	}()
+
+	cb := func(tx DBTx) error {
+		u, err := tx.Users().Insert(ctx,
+			&User{
+				Email:        user.Email,
+				FullName:     user.FullName,
+				ShortName:    user.ShortName,
+				PasswordHash: hash,
+			},
+		)
+		if err != nil {
+			return errs.New(internalErrMsg)
+		}
+
+		err = tx.RegistrationTokens().UpdateOwner(ctx, registrationToken.Secret, u.ID)
+		if err != nil {
+			return errs.New(internalErrMsg)
+		}
+
+		// create payment customer
+		cus, err := s.stripeService.CreateCustomer(
+			payments.CustomerParams{
+				Email:       user.Email,
+				Name:        user.FullName,
+				Description: "",
+			},
+		)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.UserPaymentInfos().Create(ctx,
+			UserPaymentInfo{
+				UserID:     u.ID,
+				CustomerID: cus.ID,
+			},
+		)
+
+		return err
 	}
 
-	return u, nil
+	return u, withTx(tx, cb)
 }
 
 // GenerateActivationToken - is a method for generating activation token
@@ -984,4 +1021,19 @@ func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, project
 	}
 
 	return isProjectMember{}, ErrNoMembership.New(unauthorizedErrMsg)
+}
+
+// withTx is a helper function for executing db operations
+// in transaction scope
+func withTx(tx DBTx, cb func(tx DBTx) error) (err error) {
+	defer func() {
+		if err != nil {
+			err = errs.Combine(err, tx.Rollback())
+			return
+		}
+
+		err = tx.Commit()
+	}()
+
+	return cb(tx)
 }

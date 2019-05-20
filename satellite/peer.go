@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"storj.io/storj/internal/payments"
+
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -189,6 +191,10 @@ type Peer struct {
 
 	Mail struct {
 		Service *mailservice.Service
+	}
+
+	Stripe struct {
+		Service payments.Service
 	}
 
 	Console struct {
@@ -519,6 +525,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			return nil, errs.Combine(err, peer.Close())
 		}
 
+		peer.Stripe.Service = payments.NewService("sk_test_QleT6Q6AHMe264PlGtJcBfB0006Qe2yaCJ")
+
 		if consoleConfig.AuthTokenSecret == "" {
 			return nil, errs.New("Auth token secret required")
 		}
@@ -527,6 +535,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Log.Named("console:service"),
 			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
+			peer.Stripe.Service,
 			consoleConfig.PasswordCost,
 		)
 

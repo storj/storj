@@ -30,7 +30,7 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
     import EmptyState from '@/components/common/EmptyStateArea.vue';
     import SearchArea from '@/components/buckets/SearchArea.vue';
     import BucketItem from '@/components/buckets/BucketItem.vue';
@@ -51,17 +51,17 @@
             BucketItem,
             PaginationArea,
         },
-		computed: {
-        	buckets: function (): BucketUsage[] {
-				return this.$store.state.bucketUsageModule.page.bucketUsages;
-			},
-			pages: function (): number {
-        		return this.$store.state.bucketUsageModule.page.pageCount;
-			},
-			search: function (): string {
-				return this.$store.state.bucketUsageModule.cursor.search;
-			}
-		}
+        computed: {
+            buckets: function (): BucketUsage[] {
+                return this.$store.state.bucketUsageModule.page.bucketUsages;
+            },
+            pages: function (): number {
+                return this.$store.state.bucketUsageModule.page.pageCount;
+            },
+            search: function (): string {
+                return this.$store.state.bucketUsageModule.cursor.search;
+            }
+        }
     })
     export default class BucketArea extends Vue {}
 </script>

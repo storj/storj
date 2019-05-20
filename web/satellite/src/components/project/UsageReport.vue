@@ -78,38 +78,38 @@ import { toUnixTimestamp } from '@/utils/time';
             beforeMount: function() {
             },
             beforeRouteLeave: function(to, from, next) {
-            	this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP, this.$data.dateRange);
+                this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP, this.$data.dateRange);
 
-                const buttons = [...(document as any).querySelectorAll('.usage-report-container__options-area__option')];
-                buttons.forEach(option => {
+             const buttons = [...(document as any).querySelectorAll('.usage-report-container__options-area__option')];
+             buttons.forEach(option => {
                     option.classList.remove('active');
                 });
-                buttons[0].classList.add('active');
+             buttons[0].classList.add('active');
 
-                next();
+             next();
             },
             methods: {
                 getDates: async function(datesArray: string[]) {
-                	const now = new Date();
-                    const firstDate = new Date(datesArray[0]);
-                    const secondDate = new Date(datesArray[1]);
+                    const now = new Date();
+                 const firstDate = new Date(datesArray[0]);
+                 const secondDate = new Date(datesArray[1]);
 
-                    const isInverted = firstDate > secondDate;
+                 const isInverted = firstDate > secondDate;
 
-                    let startDate = isInverted ? secondDate : firstDate;
-                    let endDate = isInverted ? firstDate : secondDate;
+                 let startDate = isInverted ? secondDate : firstDate;
+                 let endDate = isInverted ? firstDate : secondDate;
 
-                    endDate = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate(), 23, 59, 59));
+                 endDate = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate(), 23, 59, 59));
 
-                    if (now.getUTCFullYear() === endDate.getUTCFullYear()
-							&& now.getUTCMonth() === endDate.getUTCMonth()
-							&& now.getUTCDate() === endDate.getUTCDate()
-					) {
-						endDate = now;
-					}
+                 if (now.getUTCFullYear() === endDate.getUTCFullYear()
+                            && now.getUTCMonth() === endDate.getUTCMonth()
+                            && now.getUTCDate() === endDate.getUTCDate()
+                    ) {
+                        endDate = now;
+                    }
 
-                    const response = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, {startDate, endDate});
-                    if (!response.isSuccess) {
+                 const response = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, {startDate, endDate});
+                 if (!response.isSuccess) {
                         this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
                     }
                 },
@@ -173,17 +173,17 @@ import { toUnixTimestamp } from '@/utils/time';
 
                     window.open(url.href, '_blank');
                 },
-				toLocaleDateString: function (d: Date): string {
-					return d.toLocaleDateString("en-US", {timeZone: "UTC"});
-				}
+                toLocaleDateString: function (d: Date): string {
+                    return d.toLocaleDateString('en-US', {timeZone: 'UTC'});
+                }
             },
             computed: {
-            	startDate: function (): Date {
-					return this.$store.state.usageModule.startDate;
-				},
-				endDate: function (): Date {
-					return this.$store.state.usageModule.endDate;
-				},
+                startDate: function (): Date {
+                    return this.$store.state.usageModule.startDate;
+                },
+                endDate: function (): Date {
+                    return this.$store.state.usageModule.endDate;
+                },
                 storage: function (): string {
                     return this.$store.state.usageModule.projectUsage.storage.toPrecision(5);
                 },

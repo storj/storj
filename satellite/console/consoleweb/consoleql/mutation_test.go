@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/storj/internal/payments/paymentstest"
 	"storj.io/storj/internal/post"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/auth"
@@ -50,6 +51,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			log,
 			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 			db.Console(),
+			&paymentstest.MockService{},
 			console.TestPasswordCost,
 		)
 		require.NoError(t, err)

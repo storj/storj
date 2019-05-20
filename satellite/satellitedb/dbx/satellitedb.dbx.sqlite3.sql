@@ -187,9 +187,9 @@ CREATE TABLE storagenode_storage_tallies (
 );
 CREATE TABLE users (
 	id BLOB NOT NULL,
+	email TEXT NOT NULL,
 	full_name TEXT NOT NULL,
 	short_name TEXT,
-	email TEXT NOT NULL,
 	password_hash BLOB NOT NULL,
 	status INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
@@ -216,6 +216,12 @@ CREATE TABLE used_serials (
 	serial_number_id INTEGER NOT NULL REFERENCES serial_numbers( id ) ON DELETE CASCADE,
 	storage_node_id BLOB NOT NULL,
 	PRIMARY KEY ( serial_number_id, storage_node_id )
+);
+CREATE TABLE user_payment_infos (
+	user_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
+	customer_id TEXT NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( user_id )
 );
 CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
 CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );

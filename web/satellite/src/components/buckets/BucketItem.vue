@@ -11,24 +11,24 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
 
     @Component({
-		props: {
-			bucket: Object
-		},
-		computed: {
-			storage: function (): string {
+        props: {
+            bucket: Object
+        },
+        computed: {
+            storage: function (): string {
                 return (this as any).bucket.storage.toFixed(4);
             },
-			egress: function (): string {
-				return (this as any).bucket.egress.toFixed(4);
-			},
-			objectCount: function (): string {
-				return (this as any).bucket.objectCount.toFixed(4);
-			}
-		}
-	})
+            egress: function (): string {
+                return (this as any).bucket.egress.toFixed(4);
+            },
+            objectCount: function (): string {
+                return (this as any).bucket.objectCount.toFixed(4);
+            }
+        }
+    })
 
     export default class BucketItem extends Vue {}
 </script>

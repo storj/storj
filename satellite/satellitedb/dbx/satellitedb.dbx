@@ -185,10 +185,9 @@ model user (
     key id
 
     field id               blob
+    field email            text      ( updatable )
     field full_name        text      ( updatable )
     field short_name       text      ( updatable, nullable )
-
-    field email            text      ( updatable )
     field password_hash    blob      ( updatable )
 
     field status           int       ( updatable, autoinsert )
@@ -208,6 +207,22 @@ create user ( )
 update user ( where user.id = ? )
 delete user ( where user.id = ? )
 
+
+model user_payment_info (
+    key user_id
+
+    field user_id       user.id   cascade
+    field customer_id   text
+
+    field created_at    timestamp ( autoinsert )
+)
+
+create user_payment_info ( )
+
+read one (
+    select user_payment_info
+    where  user_payment_info.user_id = ?
+)
 
 model project (
     key id
