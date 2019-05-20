@@ -80,10 +80,9 @@ type GoValue struct {
 
 func (val GoValue) Snapshot() (data []byte, _ error) {
 	// TODO: do this using reflect?
-	// TODO: use mapping instead of uintptr
 	switch val._type {
 	case C.IDVersionType:
-		idVersion := (*storj.IDVersion)(unsafe.Pointer(val.ptr))
+		idVersion := structRefMap.Get(token(val.ptr)).(storj.IDVersion)
 		idVersionPb := pb.IDVersion{
 			Number: uint32(idVersion.Number),
 		}
@@ -301,6 +300,8 @@ func CToGoGoValue(cVal C.struct_GoValue) GoValue {
 	return GoValue{
 		ptr:   uintptr(cVal.Ptr),
 		_type: uint(cVal.Type),
+		snapshot: *(*[]byte)(unsafe.Pointer(cVal.Snapshot)),
+		size: uintptr(cVal.Size),
 	}
 }
 
