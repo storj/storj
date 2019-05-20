@@ -115,7 +115,7 @@ func SendToGo(cVal *C.struct_GoValue, cErr **C.char) {
 
 	switch cVal.Type {
 	case C.UplinkConfigType:
-		msg = &pb.UplinkConfig{MaxMemory: 100}
+		msg = &pb.UplinkConfig{}
 	default:
 		*cErr = C.CString(errs.New("unsupported type").Error())
 		return

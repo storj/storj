@@ -9,11 +9,14 @@ package main
 // #include "c/headers/main.h"
 import "C"
 import (
+	"encoding/json"
+	"reflect"
 	"unsafe"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/storj/lib/uplink/ext/pb"
 	"storj.io/storj/lib/uplink/ext/testing"
@@ -137,7 +140,7 @@ func TestSendToGo_success(t *testing.T) {
 				Number: 0,
 			},
 			MaxInlineSize: 1,
-			MaxMemory: 2,
+			MaxMemory:     2,
 		}
 		snapshot, err := proto.Marshal(startConfig)
 		require.NoError(t, err)
@@ -146,43 +149,46 @@ func TestSendToGo_success(t *testing.T) {
 		// NB/TODO: I don't think this is exactly right but might work
 		size := uintptr(len(snapshot))
 
+		t.Info("", zap.ByteString("snapshot 1", snapshot))
 		cVal := &C.struct_GoValue{
 			//Ptr: (0 by default),
-			Type: C.UplinkConfigType,
-			Snapshot:  (*C.uchar)(unsafe.Pointer(&snapshot)),
-			Size:      C.ulong(size),
+			Type:     C.UplinkConfigType,
+			Snapshot: (*C.uchar)(unsafe.Pointer(&snapshot)),
+			Size:     C.ulong(size),
 		}
+		t.Info("", zap.ByteString("snapshot 2", *(*[]byte)(unsafe.Pointer(cVal.Snapshot))))
 		assert.Zero(t, cVal.Ptr)
 
 		cErr := C.CString("")
 		SendToGo(cVal, &cErr)
+		//t.Info("", zap.ByteString("snapshot 3", *(*[]byte)(unsafe.Pointer(cVal.Snapshot))))
 		require.Empty(t, C.GoString(cErr))
 
 		assert.NotZero(t, uintptr(cVal.Ptr))
 		assert.NotZero(t, cVal.Type)
 
-
 		//value := CToGoGoValue(*cVal)
 		//endConfig := structRefMap.Get(token(value.ptr))
-		////endConfig := (*pb.UplinkConfig)(unsafe.Pointer(value.ptr))
-		//
-		//startJSON, err := json.MarshalIndent(startConfig, "", "  ")
-		//require.NoError(t, err)
-		//
-		//endJSON, err := json.MarshalIndent(endConfig, "", "  ")
-		//require.NoError(t, err)
+		//require.Equal(t, uintptr(cVal.Ptr), value.ptr)
+		endConfig := structRefMap.Get(token(cVal.Ptr))
+
+		startJSON, err := json.MarshalIndent(startConfig, "", "  ")
+		require.NoError(t, err)
+
+		endJSON, err := json.MarshalIndent(endConfig, "", "  ")
+		require.NoError(t, err)
 
 		//_, diff := jsondiff.Compare(startJSON, endJSON, nil)
 		//t.Debug("", zap.String("diff", diff))
-		//t.Info("", zap.String("startConfig", string(startJSON)))
+		t.Info("", zap.String("startConfig", string(startJSON)))
 		//t.Info("",
 		//	zap.Any("value.Ptr", value.ptr),
 		//	//zap.Uintptr("unsafe", unsafe.Pointer(value.ptr)),
 		//	zap.Any("get", structRefMap.Get(token(value.ptr))),
 		//	zap.Any("cast", (structRefMap.Get(token(value.ptr))).(*pb.UplinkConfig)),
 		//)
-		//t.Info("", zap.String("endConfig", string(endJSON)))
-		//assert.True(t, reflect.DeepEqual(startConfig, endConfig))
+		t.Info("", zap.String("endConfig", string(endJSON)))
+		assert.True(t, reflect.DeepEqual(startConfig, endConfig))
 		//assert.Equal(t, *(startConfig.Tls), *(endConfig.Tls))
 		//assert.Equal(t, *(startConfig.IdentityVersion), *(endConfig.IdentityVersion))
 	}
@@ -195,20 +201,21 @@ func TestSendToGo_error(t *testing.T) {
 }
 
 func TestCToGoGoValue(t *testing.T) {
-	//str := "test string 123"
-	//cVal := C.struct_GoValue{
-	//	Ptr: C.GoUintptr(uintptr(unsafe.Pointer(&str))),
-	//	// NB: arbitrary type
-	//	Type: C.APIKeyType,
-	//}
-	//
-	//value := CToGoGoValue(cVal)
-	//assert.Equal(t, uint(cVal.Type), value._type)
-	//assert.NotZero(t, value.ptr)
-	//
-	//strPtr, ok := structRefMap.Get(token(value.ptr)).(*string)
-	//require.True(t, ok)
-	//assert.Equal(t, str, *strPtr)
+	testMap := newMapping()
+	str := "test string 123"
+	strToken := testMap.Add(str)
+	cVal := C.struct_GoValue{
+		Ptr: C.GoUintptr(strToken),
+		// NB: arbitrary type
+		Type: C.APIKeyType,
+	}
+
+	value := CToGoGoValue(cVal)
+	assert.Equal(t, uint(cVal.Type), value._type)
+	assert.NotZero(t, value.ptr)
+
+	gotStr := testMap.Get(token(value.ptr))
+	assert.Equal(t, str, gotStr)
 }
 
 func TestMapping_Add(t *testing.T) {

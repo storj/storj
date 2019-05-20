@@ -27,13 +27,13 @@ func init() {
 	AllTests.Register(
 		testing.NewTest("TestGoToCStruct_success", TestGoToCStruct_success),
 		testing.NewTest("TestGoToCStruct_error", TestGoToCStruct_error),
-		testing.NewTest("TestCToGoStruct_success", TestCToGoStruct_success),
-		testing.NewTest("TestCToGoStruct_error", TestCToGoStruct_error),
-		testing.NewTest("TestSendToGo_success", TestSendToGo_success),
 		testing.NewTest("TestSendToGo_error", TestSendToGo_error),
 		testing.NewTest("TestCToGoGoValue", TestCToGoGoValue),
 		testing.NewTest("TestMapping_Add", TestMapping_Add),
 		testing.NewTest("TestMapping_Get", TestMapping_Get),
+		testing.NewTest("TestCToGoStruct_success", TestCToGoStruct_success),
+		testing.NewTest("TestCToGoStruct_error", TestCToGoStruct_error),
+		testing.NewTest("TestSendToGo_success", TestSendToGo_success),
 	)
 }
 
