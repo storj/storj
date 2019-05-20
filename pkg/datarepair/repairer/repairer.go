@@ -129,12 +129,11 @@ func (service *Service) process(ctx context.Context) error {
 			err := service.repairer.Repair(ctx, seg.GetPath())
 			if err != nil {
 				zap.L().Error("repair failed", zap.Error(err))
-			} else {
-				zap.L().Info("Deleting segment from repair queue", zap.String("segment", seg.GetPath()))
-				err = service.queue.Delete(ctx, seg)
-				if err != nil {
-					zap.L().Error("repair delete failed", zap.Error(err))
-				}
+			}
+			zap.L().Info("Deleting segment from repair queue", zap.String("segment", seg.GetPath()))
+			err = service.queue.Delete(ctx, seg)
+			if err != nil {
+				zap.L().Error("repair delete failed", zap.Error(err))
 			}
 		})
 	}
