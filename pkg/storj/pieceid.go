@@ -9,6 +9,7 @@ import (
 	"crypto/sha512"
 	"database/sql/driver"
 	"encoding/base32"
+	"strings"
 
 	"github.com/zeebo/errs"
 )
@@ -106,7 +107,7 @@ func (id PieceID) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON deserializes a json string (as bytes) to a piece ID
 func (id *PieceID) UnmarshalJSON(data []byte) error {
 	var err error
-	*id, err = PieceIDFromString(string(data))
+	*id, err = PieceIDFromString(strings.Trim(string(data), `"`))
 	if err != nil {
 		return err
 	}
