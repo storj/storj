@@ -495,7 +495,7 @@ type lockedContainment struct {
 	db audit.DB
 }
 
-func (m *lockedContainment) Delete(ctx context.Context, nodeID storj.NodeID) error {
+func (m *lockedContainment) Delete(ctx context.Context, nodeID storj.NodeID) (bool, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Delete(ctx, nodeID)

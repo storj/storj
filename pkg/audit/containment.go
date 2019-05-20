@@ -38,10 +38,10 @@ type PendingAudit struct {
 type DB interface {
 	Get(ctx context.Context, nodeID pb.NodeID) (*PendingAudit, error)
 	IncrementPending(ctx context.Context, pendingAudit *PendingAudit) error
-	Delete(ctx context.Context, nodeID pb.NodeID) error
+	Delete(ctx context.Context, nodeID pb.NodeID) (bool, error)
 }
 
-// Containment allows access to pending audit info in the db
+// Containment allows the audit verifier to access pending audit info in the db (once it's added to the verifier struct)
 type Containment struct {
 	log *zap.Logger
 	db  DB
@@ -58,26 +58,17 @@ func NewContainment(log *zap.Logger, db DB) *Containment {
 // Get gets pending audit info from the db
 func (containment *Containment) Get(ctx context.Context, nodeID pb.NodeID) (*PendingAudit, error) {
 	pendingAudit, err := containment.db.Get(ctx, nodeID)
-	if err != nil {
-		return nil, ContainError.Wrap(err)
-	}
-	return pendingAudit, nil
+	return pendingAudit, ContainError.Wrap(err)
 }
 
 // IncrementPending either creates a new entry for a pending audit or updates an existing pending audit's reverify count
 func (containment *Containment) IncrementPending(ctx context.Context, pending *PendingAudit) error {
 	err := containment.db.IncrementPending(ctx, pending)
-	if err != nil {
-		return ContainError.Wrap(err)
-	}
-	return nil
+	return ContainError.Wrap(err)
 }
 
 // Delete deletes pending audit info from the db
-func (containment *Containment) Delete(ctx context.Context, nodeID pb.NodeID) error {
-	err := containment.db.Delete(ctx, nodeID)
-	if err != nil {
-		return ContainError.Wrap(err)
-	}
-	return nil
+func (containment *Containment) Delete(ctx context.Context, nodeID pb.NodeID) (bool, error) {
+	isDeleted, err := containment.db.Delete(ctx, nodeID)
+	return isDeleted, ContainError.Wrap(err)
 }

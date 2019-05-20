@@ -34,7 +34,7 @@ func (containment *containment) Get(ctx context.Context, id pb.NodeID) (*audit.P
 	return convertDBPending(pending)
 }
 
-// IncrementPending will create a new pending audit entry, or increase its reverify count if it already exists
+// IncrementPending creates a new pending audit entry, or increases its reverify count if it already exists
 func (containment *containment) IncrementPending(ctx context.Context, pendingAudit *audit.PendingAudit) error {
 	statement := containment.db.Rebind(
 		`INSERT INTO pending_audits (node_id, piece_id, stripe_index, share_size, expected_share_hash, reverify_count)
@@ -45,29 +45,16 @@ func (containment *containment) IncrementPending(ctx context.Context, pendingAud
 	_, err := containment.db.ExecContext(ctx, statement,
 		pendingAudit.NodeID.Bytes(), pendingAudit.PieceID.Bytes(), pendingAudit.StripeIndex, pendingAudit.ShareSize, pendingAudit.ExpectedShareHash, pendingAudit.ReverifyCount,
 	)
-	if err != nil {
-		return audit.ContainError.Wrap(err)
-	}
-	return nil
+	return audit.ContainError.Wrap(err)
 }
 
 // Delete deletes the pending audit
-func (containment *containment) Delete(ctx context.Context, id pb.NodeID) error {
+func (containment *containment) Delete(ctx context.Context, id pb.NodeID) (bool, error) {
 	if id.IsZero() {
-		return audit.ContainError.New("node ID empty")
+		return false, audit.ContainError.New("node ID empty")
 	}
 	isDeleted, err := containment.db.Delete_PendingAudits_By_NodeId(ctx, dbx.PendingAudits_NodeId(id.Bytes()))
-	if err == sql.ErrNoRows {
-		return audit.ErrContainedNotFound.New(id.String())
-	}
-	if err != nil {
-		return audit.ContainError.Wrap(err)
-	}
-	if !isDeleted {
-		return audit.ErrContainDelete.New(id.String(), audit.ContainError.Wrap(err))
-	}
-
-	return nil
+	return isDeleted, audit.ContainError.Wrap(err)
 }
 
 func convertDBPending(info *dbx.PendingAudits) (*audit.PendingAudit, error) {
