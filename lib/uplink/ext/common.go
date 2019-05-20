@@ -11,6 +11,7 @@ package main
 // #endif
 import "C"
 import (
+	"fmt"
 	"reflect"
 	"unsafe"
 
@@ -130,6 +131,7 @@ func GetSnapshot(cValue *C.struct_GoValue, cErr **C.char) {
 func SendToGo(cVal *C.struct_GoValue, cErr **C.char) {
 	var msg proto.Message
 
+	fmt.Println(cVal.Type)
 	switch cVal.Type {
 	case C.UplinkConfigType:
 		msg = &pb.UplinkConfig{}

@@ -29,9 +29,10 @@ void pack_value(void *proto_msg, enum ValueType value_type, struct GoValue *valu
     case UplinkConfigType:
         value->Size = storj__libuplink__uplink_config__get_packed_size((UplinkConfig *)proto_msg);
         value->Snapshot = malloc(value->Size);
+        value->Type = value_type;
         storj__libuplink__uplink_config__pack((UplinkConfig *)proto_msg, value->Snapshot);
-        printf("value->Snapshot: %p\n", value->Snapshot);
-        printf("value->Snapshot: %d\n", value->Snapshot[0]);
+//        printf("value->Snapshot: %p\n", value->Snapshot);
+//        printf("value->Snapshot: %d\n", value->Snapshot[0]);
         break;
     default:
         *err = "unknown type";

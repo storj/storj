@@ -35,9 +35,6 @@ gvUplinkConfig *NewTestConfig(char **err)
 
     gvUplinkConfig *uplinkConfigValue = malloc(sizeof(gvUplinkConfig));
     pack_value((void *)&uplinkConfig, UplinkConfigType, uplinkConfigValue, err);
-    // TODO: try this? --v
-    //    void *uplinkConfigValue = malloc(sizeof(gvUplinkConfig));
-    //    pack_value(uplinkConfig, UplinkConfigType, uplinkConfigValue, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     return uplinkConfigValue;
