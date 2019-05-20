@@ -194,9 +194,7 @@ func runGateway(ctx context.Context, gwCfg config, uplinkCfg uplink.Config, log 
 	encKey := new(storj.Key)
 	copy(encKey[:], uplinkCfg.Enc.Key)
 
-	var projectOptions libuplink.ProjectOptions
-	projectOptions.Volatile.EncryptionKey = encKey
-	project, err := uplink.OpenProject(ctx, uplinkCfg.Client.SatelliteAddr, apiKey, &projectOptions)
+	project, err := uplink.OpenProject(ctx, uplinkCfg.Client.SatelliteAddr, apiKey)
 	if err != nil {
 		return err
 	}

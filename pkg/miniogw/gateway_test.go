@@ -728,9 +728,7 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 		return nil, nil, nil, err
 	}
 
-	var projectOptions libuplink.ProjectOptions
-	projectOptions.Volatile.EncryptionKey = encKey
-	proj, err := uplink.OpenProject(ctx, planet.Satellites[0].Addr(), parsedAPIKey, &projectOptions)
+	proj, err := uplink.OpenProject(ctx, planet.Satellites[0].Addr(), parsedAPIKey)
 	if err != nil {
 		return nil, nil, nil, err
 	}
