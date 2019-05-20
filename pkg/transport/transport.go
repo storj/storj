@@ -105,7 +105,7 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 		return nil, Error.Wrap(err)
 	}
 
-	ipAddr, err := GetIP(conn.Target())
+	ipAddr, err := getIP(conn.Target())
 	if err != nil {
 		return nil, err
 	}
@@ -160,8 +160,7 @@ func (transport *Transport) WithObservers(obs ...Observer) Client {
 	return tr
 }
 
-// GetIP is a helper function to get resolved IP address from node address
-func GetIP(target string) (string, error) {
+func getIP(target string) (string, error) {
 	host, _, err := net.SplitHostPort(target)
 	if err != nil {
 		return "", err
