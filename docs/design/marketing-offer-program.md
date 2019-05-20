@@ -1,4 +1,4 @@
-# Free Credit Offer Types Design Document
+# Marketing Offer Program Design Document
 
 ## Abstract
 
@@ -151,16 +151,16 @@ type DB interface {
 }
 ```
 
-**satellite/marketing/server.go**
+**satellite/marketing/marketingweb/server.go**
 - Open a new private port on the satellite for admin users to manage referral offer configuration and other marketing configuration for various programs on our satellites
 - For right now, we will rely on our VPN to restrict access to the admin GUI. Only people who are on our VPN will have access to this page.
 
 ```golang
-// NewServer creates a new instance of offerweb server
-Func NewServer(logger *zap.Logger, config Config, service *offer.Service, listener net.Listener) *Server {}
+// NewServer creates a new instance of marketingweb server
+Func NewServer(logger *zap.Logger, config Config, service *marketing.Service, listener net.Listener) *Server {}
 
-// Register offerweb server onto satellite
-peer.Offer.Endpoint = offerweb.NewServer(logger, config, service, listener)
+// Register marketingweb server onto satellite
+peer.Offer.Endpoint = marketingweb.NewServer(logger, config, service, listener)
 ```
 
 ### Referral Links
