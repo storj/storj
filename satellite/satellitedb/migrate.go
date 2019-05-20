@@ -645,8 +645,27 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				Description: "Add last_ip column and index",
+				Description: "Adds pending_audits table, adds 'contained' column to nodes table",
 				Version:     20,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD contained boolean;
+					UPDATE nodes SET contained = false;
+					ALTER TABLE nodes ALTER COLUMN contained SET NOT NULL;`,
+
+					`CREATE TABLE pending_audits (
+						node_id bytea NOT NULL,
+						piece_id bytea NOT NULL,
+						stripe_index bigint NOT NULL,
+						share_size bigint NOT NULL,
+						expected_share_hash bytea NOT NULL,
+						reverify_count bigint NOT NULL,
+						PRIMARY KEY ( node_id )
+					);`,
+				},
+			},
+			{
+				Description: "Add last_ip column and index",
+				Version:     21,
 				Action: migrate.SQL{
 					`ALTER TABLE nodes ADD last_ip TEXT;
 					UPDATE nodes SET last_ip = '';
