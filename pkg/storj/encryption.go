@@ -4,12 +4,7 @@
 package storj
 
 import (
-	"crypto/sha256"
-
 	"github.com/zeebo/errs"
-	"golang.org/x/crypto/pbkdf2"
-
-	"storj.io/storj/pkg/pkcrypto"
 )
 
 // ErrKey is used when something goes wrong a key.
@@ -143,17 +138,14 @@ const (
 	NonceSize = 24
 )
 
-// NewKey creates a new key from a passphrase
-func NewKey(passphrase []byte) (*Key, error) {
-	salt, err := pkcrypto.GenerateSalt(8)
-	if err != nil {
-		return nil, ErrKey.Wrap(err)
-	}
-
-	keyVal := pbkdf2.Key(passphrase, salt, 4096, KeySize, sha256.New)
+// NewKey creates a new Storj key from humanReadableKey.
+func NewKey(humanReadableKey []byte) (*Key, error) {
 	var key Key
-	copy(key[:], keyVal)
 
+	// Because of backward compatibility the key is filled with 0 or truncated if
+	// humanReadableKey isn't of the same size that KeySize.
+	// See https://github.com/storj/storj/pull/1967#discussion_r285544849
+	copy(key[:], humanReadableKey)
 	return &key, nil
 }
 

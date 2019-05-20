@@ -13,62 +13,72 @@ import (
 )
 
 func TestNewKey(t *testing.T) {
-	t.Run("nil passphrase", func(t *testing.T) {
+	t.Run("nil humanReadableKey", func(t *testing.T) {
 		t.Parallel()
 
 		key, err := storj.NewKey(nil)
 		require.NoError(t, err)
-		require.False(t, key.IsZero(), "key is zero value")
+		require.True(t, key.IsZero(), "key isn't zero value")
 	})
 
-	t.Run("empty passphrase", func(t *testing.T) {
+	t.Run("empty humanReadableKey", func(t *testing.T) {
 		t.Parallel()
 
 		key, err := storj.NewKey([]byte{})
 		require.NoError(t, err)
-		require.False(t, key.IsZero(), "key is zero value")
+		require.True(t, key.IsZero(), "key isn't zero value")
 	})
 
-	t.Run("passphrase length less than or equal KeySize", func(t *testing.T) {
+	t.Run("humanReadableKey is of KeySize length", func(t *testing.T) {
 		t.Parallel()
 
-		passphrase := make([]byte, rand.Intn(storj.KeySize)+1)
-		_, err := rand.Read(passphrase)
+		humanReadableKey := make([]byte, storj.KeySize)
+		_, err := rand.Read(humanReadableKey)
 		require.NoError(t, err)
 
-		key, err := storj.NewKey(passphrase)
+		key, err := storj.NewKey(humanReadableKey)
 		require.NoError(t, err)
-		require.False(t, key.IsZero(), "key is zero value")
-		require.NotEqual(t, passphrase, key[:len(passphrase)])
+		require.Equal(t, humanReadableKey, key[:])
 	})
 
-	t.Run("passphrase length greater than KeySize", func(t *testing.T) {
+	t.Run("humanReadableKey is shorter than KeySize", func(t *testing.T) {
 		t.Parallel()
 
-		passphrase := make([]byte, rand.Intn(10)+storj.KeySize+1)
-		_, err := rand.Read(passphrase)
+		humanReadableKey := make([]byte, rand.Intn(storj.KeySize))
+		_, err := rand.Read(humanReadableKey)
 		require.NoError(t, err)
 
-		key, err := storj.NewKey(passphrase)
+		key, err := storj.NewKey(humanReadableKey)
 		require.NoError(t, err)
-		require.False(t, key.IsZero(), "key is zero value")
-		assert.NotEqual(t, passphrase[:storj.KeySize], key[:])
+		require.Equal(t, humanReadableKey, key[:len(humanReadableKey)])
 	})
 
-	t.Run("same passphrase different key", func(t *testing.T) {
+	t.Run("humanReadableKey is larger than KeySize", func(t *testing.T) {
 		t.Parallel()
 
-		passphrase := make([]byte, rand.Intn(storj.KeySize)+1)
-		_, err := rand.Read(passphrase)
+		humanReadableKey := make([]byte, rand.Intn(10)+storj.KeySize+1)
+		_, err := rand.Read(humanReadableKey)
 		require.NoError(t, err)
 
-		key1, err := storj.NewKey(passphrase)
+		key, err := storj.NewKey(humanReadableKey)
+		require.NoError(t, err)
+		assert.Equal(t, humanReadableKey[:storj.KeySize], key[:])
+	})
+
+	t.Run("same human readable key produce the same key", func(t *testing.T) {
+		t.Parallel()
+
+		humanReadableKey := make([]byte, rand.Intn(storj.KeySize)+10)
+		_, err := rand.Read(humanReadableKey)
 		require.NoError(t, err)
 
-		key2, err := storj.NewKey(passphrase)
+		key1, err := storj.NewKey(humanReadableKey)
 		require.NoError(t, err)
 
-		assert.NotEqual(t, key1, key2, "keys are equal")
+		key2, err := storj.NewKey(humanReadableKey)
+		require.NoError(t, err)
+
+		assert.Equal(t, key1, key2, "keys are equal")
 	})
 }
 
