@@ -2,14 +2,20 @@
 // See LICENSE for copying information.
 
 package main
+
 // #cgo CFLAGS: -g -Wall
 // #include <stdbool.h>
 // #include "c/tests/test.h"
+// #include "c/headers/main.h"
 import "C"
 import (
+	"unsafe"
+
+	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/storj/lib/uplink/ext/pb"
 	"storj.io/storj/lib/uplink/ext/testing"
 )
 
@@ -117,6 +123,33 @@ func TestCToGoStruct_error(t *testing.T) {
 	// TODO
 }
 
-//func TestValueType_String(t *testing.T) {
-//
-//}
+func TestSendToGo_success(t *testing.T) {
+	{
+		t.Info("uplink config")
+
+		msg := &pb.UplinkConfig{
+			// -- WIP | TODO
+		}
+		snapshot, err := proto.Marshal(msg)
+		require.NoError(t, err)
+		require.NotEmpty(t, snapshot)
+
+		// NB/TODO: I don't think this is exactly right but might work
+		size := uintptr(len(snapshot))
+
+		cVal := &C.struct_GoValue{
+			//Ptr: (0 by default),
+			Type: C.UplinkConfigType,
+			Snapshot:  (*C.uchar)(unsafe.Pointer(&snapshot)),
+			Size:      C.ulong(size),
+		}
+		cErr := C.CString("")
+		SendToGo(cVal, &cErr)
+	}
+
+	// TODO: other types
+}
+
+func TestSendToGo_error(t *testing.T) {
+	// TODO
+}
