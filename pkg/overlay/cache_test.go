@@ -121,6 +121,10 @@ func TestUpdateContained(t *testing.T) {
 		err = cache.UpdateContained(ctx, nodeID0, true)
 		require.NoError(t, err)
 
+		node0, err = cache.Get(ctx, nodeID0)
+		require.NoError(t, err)
+		require.True(t, node0.Contained)
+
 		// sets to false when it's already false
 		err = cache.UpdateContained(ctx, nodeID1, false)
 		require.NoError(t, err)
