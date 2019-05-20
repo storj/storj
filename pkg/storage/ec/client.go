@@ -240,13 +240,6 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 			Address: limits[info.i].GetStorageNodeAddress(),
 		}
 		successfulHashes[info.i] = info.hash
-
-		if int(atomic.AddInt32(&successfulCount, 1)) == optimalCount {
-			zap.S().Infof("Success threshold (%d nodes) reached for %s by repairing to %d nodes. Canceling the long tail...",
-				rs.OptimalThreshold(), path, optimalCount)
-			timer.Stop()
-			cancel()
-		}
 	}
 
 	// Ensure timer is stopped in the case the success threshold is not reached
@@ -267,9 +260,11 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 		}
 	}()
 
-	if successfulCount < int32(optimalCount) {
-		return nil, nil, Error.New("successful nodes count (%d) for %s does not match optimal count (%d) of erasure scheme", successfulCount, path, optimalCount)
+	if successfulCount == 0 {
+		return nil, nil, Error.New("repair to all nodes failed")
 	}
+
+	zap.S().Infof("Successfully repaired %s to %d nodes.", path, atomic.LoadInt32(&successfulCount))
 
 	return successfulNodes, successfulHashes, nil
 }
