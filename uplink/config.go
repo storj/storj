@@ -177,8 +177,6 @@ func LoadEncryptionKey(filepath string) (key *storj.Key, error error) {
 
 	defer func() { err = errs.Combine(err, file.Close()) }()
 
-	// TODO: if/v3-1541#3 should we check if the file contains a values of length
-	// storj.KeySize??
 	key = &storj.Key{}
 	if _, err := file.Read(key[:]); err != nil && err != io.EOF {
 		return nil, err
