@@ -92,7 +92,7 @@ func TestContainIncrementPendingEntryExists(t *testing.T) {
 		pending, err := planet.Satellites[0].DB.Containment().Get(ctx, info1.NodeID)
 		require.NoError(t, err)
 
-		require.Equal(t, 1, pending.ReverifyCount)
+		require.Equal(t, int32(1), pending.ReverifyCount)
 
 		// Even though info2 had different pending audit info,
 		// we only need to save the original pending audit info
