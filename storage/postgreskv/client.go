@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	defaultBatchSize = 1000
+	defaultBatchSize = 10000
 	defaultBucket    = ""
 )
 
