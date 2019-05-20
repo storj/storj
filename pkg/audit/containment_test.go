@@ -46,6 +46,7 @@ func TestContainIncrementAndGet(t *testing.T) {
 		nodeID1 := planet.StorageNodes[1].ID()
 		_, err = planet.Satellites[0].DB.Containment().Get(ctx, nodeID1)
 		require.Error(t, err, audit.ErrContainedNotFound.New(nodeID1.String()))
+		require.True(t, audit.ErrContainedNotFound.Has(err))
 	})
 }
 
@@ -128,6 +129,7 @@ func TestContainDelete(t *testing.T) {
 
 		_, err = planet.Satellites[0].DB.Containment().Get(ctx, info1.NodeID)
 		require.Error(t, err, audit.ErrContainedNotFound.New(info1.NodeID.String()))
+		require.True(t, audit.ErrContainedNotFound.Has(err))
 
 		isDeleted, err = planet.Satellites[0].DB.Containment().Delete(ctx, info1.NodeID)
 		require.NoError(t, err)
