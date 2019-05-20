@@ -5,7 +5,7 @@
 #include <string.h>
 #include "../../uplink-cgo.h"
 
-// TODO: move into go?
+// get_snapshot gets the values from the GoValue->Ptr struct and convert them into a protobuf for C code to read
 void *get_snapshot(struct GoValue *val, char **err)
 {
     switch (val->Type)
@@ -21,9 +21,11 @@ void *get_snapshot(struct GoValue *val, char **err)
     return NULL;
 }
 
+// protoToGoValue will t
 void protoToGoValue(void *proto_msg, enum ValueType value_type, struct GoValue *value, char **err)
 {
 
+    // Serialize the protobuf into the value
     switch (value_type)
     {
     case UplinkConfigType:
@@ -31,8 +33,6 @@ void protoToGoValue(void *proto_msg, enum ValueType value_type, struct GoValue *
         value->Snapshot = malloc(value->Size);
         value->Type = value_type;
         storj__libuplink__uplink_config__pack((UplinkConfig *)proto_msg, value->Snapshot);
-        //        printf("value->Snapshot: %p\n", value->Snapshot);
-        //        printf("value->Snapshot: %d\n", value->Snapshot[0]);
         break;
     default:
         *err = "unknown type";
@@ -40,10 +40,5 @@ void protoToGoValue(void *proto_msg, enum ValueType value_type, struct GoValue *
     }
 
     SendToGo(value, err);
-    if (strcmp("", *err) != 0)
-    {
-        return;
-    }
-
     return;
 }
