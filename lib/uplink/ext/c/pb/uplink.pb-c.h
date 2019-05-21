@@ -18,6 +18,7 @@ PROTOBUF_C__BEGIN_DECLS
 typedef struct _Storj__Libuplink__IDVersion Storj__Libuplink__IDVersion;
 typedef struct _Storj__Libuplink__TLSConfig Storj__Libuplink__TLSConfig;
 typedef struct _Storj__Libuplink__UplinkConfig Storj__Libuplink__UplinkConfig;
+typedef struct _Storj__Libuplink__ProjectOptions Storj__Libuplink__ProjectOptions;
 typedef struct _Storj__Libuplink__EncryptionParameters Storj__Libuplink__EncryptionParameters;
 typedef struct _Storj__Libuplink__RedundancyScheme Storj__Libuplink__RedundancyScheme;
 typedef struct _Storj__Libuplink__BucketConfig Storj__Libuplink__BucketConfig;
@@ -62,6 +63,16 @@ struct  _Storj__Libuplink__UplinkConfig
 #define STORJ__LIBUPLINK__UPLINK_CONFIG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&storj__libuplink__uplink_config__descriptor) \
     , NULL, NULL, (char *)protobuf_c_empty_string, 0, 0 }
+
+
+struct  _Storj__Libuplink__ProjectOptions
+{
+  ProtobufCMessage base;
+  ProtobufCBinaryData encryption_key;
+};
+#define STORJ__LIBUPLINK__PROJECT_OPTIONS__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&storj__libuplink__project_options__descriptor) \
+    , {0,NULL} }
 
 
 struct  _Storj__Libuplink__EncryptionParameters
@@ -159,6 +170,25 @@ Storj__Libuplink__UplinkConfig *
 void   storj__libuplink__uplink_config__free_unpacked
                      (Storj__Libuplink__UplinkConfig *message,
                       ProtobufCAllocator *allocator);
+/* Storj__Libuplink__ProjectOptions methods */
+void   storj__libuplink__project_options__init
+                     (Storj__Libuplink__ProjectOptions         *message);
+size_t storj__libuplink__project_options__get_packed_size
+                     (const Storj__Libuplink__ProjectOptions   *message);
+size_t storj__libuplink__project_options__pack
+                     (const Storj__Libuplink__ProjectOptions   *message,
+                      uint8_t             *out);
+size_t storj__libuplink__project_options__pack_to_buffer
+                     (const Storj__Libuplink__ProjectOptions   *message,
+                      ProtobufCBuffer     *buffer);
+Storj__Libuplink__ProjectOptions *
+       storj__libuplink__project_options__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   storj__libuplink__project_options__free_unpacked
+                     (Storj__Libuplink__ProjectOptions *message,
+                      ProtobufCAllocator *allocator);
 /* Storj__Libuplink__EncryptionParameters methods */
 void   storj__libuplink__encryption_parameters__init
                      (Storj__Libuplink__EncryptionParameters         *message);
@@ -227,6 +257,9 @@ typedef void (*Storj__Libuplink__TLSConfig_Closure)
 typedef void (*Storj__Libuplink__UplinkConfig_Closure)
                  (const Storj__Libuplink__UplinkConfig *message,
                   void *closure_data);
+typedef void (*Storj__Libuplink__ProjectOptions_Closure)
+                 (const Storj__Libuplink__ProjectOptions *message,
+                  void *closure_data);
 typedef void (*Storj__Libuplink__EncryptionParameters_Closure)
                  (const Storj__Libuplink__EncryptionParameters *message,
                   void *closure_data);
@@ -245,6 +278,7 @@ typedef void (*Storj__Libuplink__BucketConfig_Closure)
 extern const ProtobufCMessageDescriptor storj__libuplink__idversion__descriptor;
 extern const ProtobufCMessageDescriptor storj__libuplink__tlsconfig__descriptor;
 extern const ProtobufCMessageDescriptor storj__libuplink__uplink_config__descriptor;
+extern const ProtobufCMessageDescriptor storj__libuplink__project_options__descriptor;
 extern const ProtobufCMessageDescriptor storj__libuplink__encryption_parameters__descriptor;
 extern const ProtobufCMessageDescriptor storj__libuplink__redundancy_scheme__descriptor;
 extern const ProtobufCMessageDescriptor storj__libuplink__bucket_config__descriptor;
