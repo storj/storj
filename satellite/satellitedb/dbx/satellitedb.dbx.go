@@ -4736,9 +4736,7 @@ func (obj *postgresImpl) Create_Offer(ctx context.Context,
 	offer_award_credit_duration_days Offer_AwardCreditDurationDays_Field,
 	offer_invitee_credit_duration_days Offer_InviteeCreditDurationDays_Field,
 	offer_redeemable_cap Offer_RedeemableCap_Field,
-	offer_num_redeemed Offer_NumRedeemed_Field,
-	offer_offer_duration_days Offer_OfferDurationDays_Field,
-	offer_status Offer_Status_Field) (
+	offer_offer_duration_days Offer_OfferDurationDays_Field) (
 	offer *Offer, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
@@ -4749,10 +4747,10 @@ func (obj *postgresImpl) Create_Offer(ctx context.Context,
 	__award_credit_duration_days_val := offer_award_credit_duration_days.value()
 	__invitee_credit_duration_days_val := offer_invitee_credit_duration_days.value()
 	__redeemable_cap_val := offer_redeemable_cap.value()
-	__num_redeemed_val := offer_num_redeemed.value()
+	__num_redeemed_val := int(0)
 	__offer_duration_days_val := offer_offer_duration_days.value()
 	__created_at_val := __now
-	__status_val := offer_status.value()
+	__status_val := int(0)
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO offers ( name, description, type, credit, award_credit_duration_days, invitee_credit_duration_days, redeemable_cap, num_redeemed, offer_duration_days, created_at, status ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING offers.id, offers.name, offers.description, offers.type, offers.credit, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.num_redeemed, offers.offer_duration_days, offers.created_at, offers.status")
 
@@ -7643,9 +7641,7 @@ func (obj *sqlite3Impl) Create_Offer(ctx context.Context,
 	offer_award_credit_duration_days Offer_AwardCreditDurationDays_Field,
 	offer_invitee_credit_duration_days Offer_InviteeCreditDurationDays_Field,
 	offer_redeemable_cap Offer_RedeemableCap_Field,
-	offer_num_redeemed Offer_NumRedeemed_Field,
-	offer_offer_duration_days Offer_OfferDurationDays_Field,
-	offer_status Offer_Status_Field) (
+	offer_offer_duration_days Offer_OfferDurationDays_Field) (
 	offer *Offer, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
@@ -7656,10 +7652,10 @@ func (obj *sqlite3Impl) Create_Offer(ctx context.Context,
 	__award_credit_duration_days_val := offer_award_credit_duration_days.value()
 	__invitee_credit_duration_days_val := offer_invitee_credit_duration_days.value()
 	__redeemable_cap_val := offer_redeemable_cap.value()
-	__num_redeemed_val := offer_num_redeemed.value()
+	__num_redeemed_val := int(0)
 	__offer_duration_days_val := offer_offer_duration_days.value()
 	__created_at_val := __now
-	__status_val := offer_status.value()
+	__status_val := int(0)
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO offers ( name, description, type, credit, award_credit_duration_days, invitee_credit_duration_days, redeemable_cap, num_redeemed, offer_duration_days, created_at, status ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
 
@@ -10734,15 +10730,13 @@ func (rx *Rx) Create_Offer(ctx context.Context,
 	offer_award_credit_duration_days Offer_AwardCreditDurationDays_Field,
 	offer_invitee_credit_duration_days Offer_InviteeCreditDurationDays_Field,
 	offer_redeemable_cap Offer_RedeemableCap_Field,
-	offer_num_redeemed Offer_NumRedeemed_Field,
-	offer_offer_duration_days Offer_OfferDurationDays_Field,
-	offer_status Offer_Status_Field) (
+	offer_offer_duration_days Offer_OfferDurationDays_Field) (
 	offer *Offer, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_Offer(ctx, offer_name, offer_description, offer_type, offer_credit, offer_award_credit_duration_days, offer_invitee_credit_duration_days, offer_redeemable_cap, offer_num_redeemed, offer_offer_duration_days, offer_status)
+	return tx.Create_Offer(ctx, offer_name, offer_description, offer_type, offer_credit, offer_award_credit_duration_days, offer_invitee_credit_duration_days, offer_redeemable_cap, offer_offer_duration_days)
 
 }
 
@@ -11548,9 +11542,7 @@ type Methods interface {
 		offer_award_credit_duration_days Offer_AwardCreditDurationDays_Field,
 		offer_invitee_credit_duration_days Offer_InviteeCreditDurationDays_Field,
 		offer_redeemable_cap Offer_RedeemableCap_Field,
-		offer_num_redeemed Offer_NumRedeemed_Field,
-		offer_offer_duration_days Offer_OfferDurationDays_Field,
-		offer_status Offer_Status_Field) (
+		offer_offer_duration_days Offer_OfferDurationDays_Field) (
 		offer *Offer, err error)
 
 	Create_PendingAudits(ctx context.Context,
