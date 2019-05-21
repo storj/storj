@@ -34,8 +34,7 @@ func TestDataRepair(t *testing.T) {
 		satellite.Discovery.Service.Graveyard.Stop()
 
 		satellite.Repair.Checker.Loop.Pause()
-		satellite.Repair.Repairer.RepairLoop.Pause()
-		satellite.Repair.Repairer.IrrepairLoop.Pause()
+		satellite.Repair.Repairer.Loop.Pause()
 
 		testData := make([]byte, 1*memory.MiB)
 		_, err := rand.Read(testData)
@@ -101,12 +100,9 @@ func TestDataRepair(t *testing.T) {
 		satellite.Repair.Checker.Loop.Restart()
 		satellite.Repair.Checker.Loop.TriggerWait()
 		satellite.Repair.Checker.Loop.Pause()
-		satellite.Repair.Repairer.RepairLoop.Restart()
-		satellite.Repair.Repairer.RepairLoop.TriggerWait()
-		satellite.Repair.Repairer.RepairLoop.Pause()
-		satellite.Repair.Repairer.IrrepairLoop.Restart()
-		satellite.Repair.Repairer.IrrepairLoop.TriggerWait()
-		satellite.Repair.Repairer.IrrepairLoop.Pause()
+		satellite.Repair.Repairer.Loop.Restart()
+		satellite.Repair.Repairer.Loop.TriggerWait()
+		satellite.Repair.Repairer.Loop.Pause()
 		satellite.Repair.Repairer.Limiter.Wait()
 
 		// kill nodes kept alive to ensure repair worked

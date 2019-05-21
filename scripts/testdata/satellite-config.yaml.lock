@@ -10,6 +10,12 @@
 # how frequently checker should audit segments
 # checker.interval: 30s
 
+# how frequently irrepair checker should audit segments
+# checker.irrepair-interval: 15s
+
+# maximum segments that can be repaired concurrently
+# checker.max-repair: 5
+
 # server address of the graphql api gateway and frontend app
 # console.address: "127.0.0.1:8081"
 
@@ -193,17 +199,14 @@ kademlia.operator.wallet: ""
 # a node's ratio of being up/online vs. down/offline
 # overlay.node.uptime-ratio: 0.9
 
-# how frequently irrepair checker should audit segments
-# repairer.irrepair-interval: 30m0s
+# how frequently checker should audit segments
+# repairer.interval: 1h0m0s
 
 # maximum buffer memory (in bytes) to be allocated for read buffers
 # repairer.max-buffer-mem: 4.0 MB
 
 # maximum segments that can be repaired concurrently
 # repairer.max-repair: 5
-
-# how frequently repair checker should audit segments
-# repairer.repair-interval: 1h0m0s
 
 # time limit for uploading repaired pieces to new storage nodes
 # repairer.timeout: 10m0s

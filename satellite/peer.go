@@ -390,14 +390,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.DB.RepairQueue(),
 			peer.Overlay.Service, peer.DB.Irreparable(),
 			0, peer.Log.Named("checker"),
-			config.Checker.Interval)
+			config.Checker.Interval,
+			config.Checker.IrrepairInterval,
+			config.Checker.MaxRepair)
 
 		peer.Repair.Repairer = repairer.NewService(
 			peer.DB.RepairQueue(),
-			peer.DB.Irreparable(),
 			&config.Repairer,
-			config.Repairer.RepairInterval,
-			config.Repairer.IrrepairInterval,
+			config.Repairer.Interval,
 			config.Repairer.MaxRepair,
 			peer.Transport,
 			peer.Metainfo.Service,
