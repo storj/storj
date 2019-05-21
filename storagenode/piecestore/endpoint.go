@@ -44,7 +44,6 @@ type OldConfig struct {
 
 	WhitelistedSatelliteIDs string `help:"a comma-separated list of approved satellite node ids" devDefault:"" releaseDefault:"
 		12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S,
-		1Vrf9xmmHw6KaVFMcfR2YPt8YpVVoQZGTUJyjYc6CajeYrAqrB,
 		118UWpMCHzs6CvSgWd9BfFVjw5K9pZbJjkfZJexMtSkmKxvvAW,
 		121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6,
 		12L9ZFwhzVpuEKMUNUqkaTLGzwY9G24tbiigLiXpmZWKwmcNDDs"`
