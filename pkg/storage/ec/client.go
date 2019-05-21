@@ -240,6 +240,7 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 			Address: limits[info.i].GetStorageNodeAddress(),
 		}
 		successfulHashes[info.i] = info.hash
+		atomic.AddInt32(&successfulCount, 1)
 	}
 
 	// Ensure timer is stopped in the case the success threshold is not reached
