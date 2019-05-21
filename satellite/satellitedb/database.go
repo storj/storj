@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"storj.io/storj/satellite/marketing"
 
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/dbutil/pgutil"
@@ -135,6 +136,14 @@ func (db *DB) Irreparable() irreparable.DB {
 // Console returns database for storing users, projects and api keys
 func (db *DB) Console() console.DB {
 	return &ConsoleDB{
+		db:      db.db,
+		methods: db.db,
+	}
+}
+
+// Marketing returns database for storing offers and credits
+func (db *DB) Marketing() marketing.DB {
+	return &MarketingDB{
 		db:      db.db,
 		methods: db.db,
 	}

@@ -37,7 +37,7 @@ func NewService(log *zap.Logger, db DB) (*Service, error) {
 func (s *Service) ListAllOffers(ctx context.Context) (offers []Offer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	offers, err = s.db.Offers().GetAllOffers(ctx)
+	offers, err = s.db.Offers().ListAllOffers(ctx)
 	if err != nil {
 		return offers, Error.Wrap(err)
 	}
