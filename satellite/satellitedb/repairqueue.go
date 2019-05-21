@@ -35,9 +35,9 @@ func (r *repairQueue) Insert(ctx context.Context, seg *pb.InjuredSegment) error 
 
 func (r *repairQueue) postgresSelect(ctx context.Context) (seg *pb.InjuredSegment, err error) {
 	err = r.db.QueryRowContext(ctx, `
-	UPDATE injuredsegments SET attempted = now() WHERE path = (
+	UPDATE injuredsegments SET attempted = timezone('utc', now()) WHERE path = (
 		SELECT path FROM injuredsegments
-		WHERE attempted IS NULL OR attempted < now() - interval '1 hour'
+		WHERE attempted IS NULL OR attempted < timezone('utc', now()) - interval '1 hour'
 		ORDER BY path FOR UPDATE SKIP LOCKED LIMIT 1
 	) RETURNING data`).Scan(&seg)
 	if err == sql.ErrNoRows {
