@@ -34,7 +34,8 @@ When deriving a root key from an api key, password, optional bucket name and opt
 
 ```
 saltEntropy = GetSaltEntropy(bucketName or None)
-salt        = hmac(hash:sha256, secret:hmac(hash:sha256, secret:password, data:saltEntropy), data:encryptedPath or "")
+mixedSalt   = hmac(hash:sha256, secret:password, data:saltEntropy)
+pathSalt    = hmac(hash:sha256, secret:mixedSalt, data:encryptedPath or "")
 rootKey     = argon2id(salt:salt, password:password)
 ```
 
