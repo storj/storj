@@ -16,9 +16,9 @@ Uplink will operate on a set of "scopes". Each scope contains an API key, a sate
 
 ```go
 type Scope struct {
-    APIKey               *storj.Key // or something else
+    APIKey               *uplink.APIKey
     SatelliteURL         string
-    ProjectEncryptionKey []byte
+    ProjectEncryptionKey *storj.Key
     BucketShares         []BucketShare
 }
 ```
@@ -28,9 +28,9 @@ A bucket share contains an encrypted path, the matching unencrypted path, the ke
 ```go
 type BucketShare struct {
     Bucket          string
-    EncryptedPath   string
-    UnencryptedPath string
-    EncryptionKey   []byte
+    EncryptedPath   storj.Path
+    UnencryptedPath storj.Path
+    EncryptionKey   *storj.Key
 }
 ```
 
