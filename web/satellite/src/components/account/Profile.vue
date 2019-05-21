@@ -70,21 +70,13 @@
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
     import Button from '@/components/common/Button.vue';
-    import TabNavigation from '@/components/navigation/TabNavigation.vue';
     import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
     import DeleteAccountPopup from '@/components/account/DeleteAccountPopup.vue';
     import ChangePasswordPopup from '@/components/account/ChangePasswordPopup.vue';
     import EditProfilePopup from '@/components/account/EditProfilePopup.vue';
-    import { ACCOUNT_ROUTES } from '@/utils/constants/tabNavigation';
 
     @Component(
         {
-            data: function () {
-                return {
-                    email: this.$store.getters.user.email,
-                    navigation: ACCOUNT_ROUTES,
-                };
-            },
             methods: {
                 toggleDeleteAccountPopup: function(): void {
                     this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_ACCOUNT);
@@ -122,7 +114,6 @@
                 DeleteAccountPopup,
                 ChangePasswordPopup,
                 EditProfilePopup,
-                TabNavigation,
             },
         }
     )
