@@ -50,7 +50,7 @@ func (c Config) GetSegmentRepairer(ctx context.Context, tc transport.Client, met
 
 // SegmentRepairer is a repairer for segments
 type SegmentRepairer interface {
-	Repair(ctx context.Context, path storj.Path, lostPieces []int32) (err error)
+	Repair(ctx context.Context, path storj.Path) (err error)
 }
 
 // Service contains the information needed to run the repair service
@@ -116,6 +116,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 func (service *Service) process(ctx context.Context) error {
 	for {
 		seg, err := service.queue.Select(ctx)
+		zap.L().Info("Dequeued segment from repair queue", zap.String("segment", seg.GetPath()))
 		if err != nil {
 			if storage.ErrEmptyQueue.Has(err) {
 				return nil
@@ -124,10 +125,12 @@ func (service *Service) process(ctx context.Context) error {
 		}
 
 		service.Limiter.Go(ctx, func() {
-			err := service.repairer.Repair(ctx, seg.GetPath(), seg.GetLostPieces())
+			zap.L().Info("Limiter running repair on segment", zap.String("segment", seg.GetPath()))
+			err := service.repairer.Repair(ctx, seg.GetPath())
 			if err != nil {
 				zap.L().Error("repair failed", zap.Error(err))
 			}
+			zap.L().Info("Deleting segment from repair queue", zap.String("segment", seg.GetPath()))
 			err = service.queue.Delete(ctx, seg)
 			if err != nil {
 				zap.L().Error("repair delete failed", zap.Error(err))

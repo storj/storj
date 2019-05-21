@@ -44,28 +44,30 @@ type APIKeys interface {
 
 // Endpoint metainfo endpoint
 type Endpoint struct {
-	log            *zap.Logger
-	metainfo       *Service
-	orders         *orders.Service
-	cache          *overlay.Cache
-	apiKeys        APIKeys
-	accountingDB   accounting.DB
-	liveAccounting live.Service
-	maxAlphaUsage  memory.Size
+	log                     *zap.Logger
+	metainfo                *Service
+	orders                  *orders.Service
+	cache                   *overlay.Cache
+	apiKeys                 APIKeys
+	storagenodeAccountingDB accounting.StoragenodeAccounting
+	projectAccountingDB     accounting.ProjectAccounting
+	liveAccounting          live.Service
+	maxAlphaUsage           memory.Size
 }
 
 // NewEndpoint creates new metainfo endpoint instance
-func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, apiKeys APIKeys, acctDB accounting.DB, liveAccounting live.Service, maxAlphaUsage memory.Size) *Endpoint {
+func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, apiKeys APIKeys, sdb accounting.StoragenodeAccounting, pdb accounting.ProjectAccounting, liveAccounting live.Service, maxAlphaUsage memory.Size) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
-		log:            log,
-		metainfo:       metainfo,
-		orders:         orders,
-		cache:          cache,
-		apiKeys:        apiKeys,
-		accountingDB:   acctDB,
-		liveAccounting: liveAccounting,
-		maxAlphaUsage:  maxAlphaUsage,
+		log:                     log,
+		metainfo:                metainfo,
+		orders:                  orders,
+		cache:                   cache,
+		apiKeys:                 apiKeys,
+		storagenodeAccountingDB: sdb,
+		projectAccountingDB:     pdb,
+		liveAccounting:          liveAccounting,
+		maxAlphaUsage:           maxAlphaUsage,
 	}
 }
 
@@ -150,6 +152,7 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 	inlineTotal, remoteTotal, err := endpoint.getProjectStorageTotals(ctx, keyInfo.ProjectID)
 	if err != nil {
 		endpoint.log.Error("retrieving project storage totals", zap.Error(err))
+
 	}
 	exceeded, resource := accounting.ExceedsAlphaUsage(0, inlineTotal, remoteTotal, endpoint.maxAlphaUsage)
 	if exceeded {
@@ -192,7 +195,7 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 }
 
 func (endpoint *Endpoint) getProjectStorageTotals(ctx context.Context, projectID uuid.UUID) (int64, int64, error) {
-	lastCountInline, lastCountRemote, err := endpoint.accountingDB.ProjectStorageTotals(ctx, projectID)
+	lastCountInline, lastCountRemote, err := endpoint.projectAccountingDB.GetStorageTotals(ctx, projectID)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -296,7 +299,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	// Ref: https://storjlabs.atlassian.net/browse/V3-1274
 	bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
 	from := time.Now().AddDate(0, 0, -accounting.AverageDaysInMonth) // past 30 days
-	bandwidthTotal, err := endpoint.accountingDB.ProjectAllocatedBandwidthTotal(ctx, bucketID, from)
+	bandwidthTotal, err := endpoint.projectAccountingDB.GetAllocatedBandwidthTotal(ctx, bucketID, from)
 	if err != nil {
 		endpoint.log.Error("retrieving ProjectBandwidthTotal", zap.Error(err))
 	}
@@ -454,8 +457,10 @@ func (endpoint *Endpoint) filterValidPieces(pointer *pb.Pointer) error {
 			remotePieces = append(remotePieces, piece)
 		}
 
-		if int32(len(remotePieces)) < remote.Redundancy.RepairThreshold {
-			return Error.New("Number of valid pieces is lower then repair threshold: %v < %v",
+		// we repair when the number of healthy files is less than or equal to the repair threshold
+		// except for the case when the repair and success thresholds are the same (a case usually seen during testing)
+		if int32(len(remotePieces)) <= remote.Redundancy.RepairThreshold && remote.Redundancy.RepairThreshold != remote.Redundancy.SuccessThreshold {
+			return Error.New("Number of valid pieces is less than or equal to the repair threshold: %v < %v",
 				len(remotePieces),
 				remote.Redundancy.RepairThreshold,
 			)

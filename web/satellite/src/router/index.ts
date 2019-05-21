@@ -9,11 +9,14 @@ import Register from '@/views/register/Register.vue';
 import ForgotPassword from '@/views/forgotPassword/ForgotPassword.vue';
 import Dashboard from '@/views/Dashboard.vue';
 import AccountArea from '@/components/account/AccountArea.vue';
-import ProjectDetailsArea from '@/components/project/ProjectDetailsArea.vue';
+import ProjectOverviewArea from '@/components/project/ProjectOverviewArea.vue';
 import TeamArea from '@/components/team/TeamArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
 import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
 import UsageReport from '@/components/project/UsageReport.vue';
+import ProjectDetails from '@/components/project/ProjectDetails.vue';
+import BillingHistory from '@/components/project/billing/BillingArea.vue';
+import PaymentMethods from '@/components/project/PaymentMethods.vue';
 import BucketArea from '@/components/buckets/BucketArea.vue';
 import { getToken } from '@/utils/tokenManager';
 import store from '@/store';
@@ -51,15 +54,42 @@ let router = new Router({
                     component: AccountArea
                 },
                 {
-                    path: ROUTES.PROJECT_DETAILS.path,
-                    name: ROUTES.PROJECT_DETAILS.name,
-                    component: ProjectDetailsArea
+                    path: ROUTES.PROJECT_OVERVIEW.path,
+                    name: ROUTES.PROJECT_OVERVIEW.name,
+                    component: ProjectOverviewArea,
+                    children: [
+                        {
+                            path: ROUTES.USAGE_REPORT.path,
+                            name: ROUTES.USAGE_REPORT.name,
+                            component: UsageReport,
+                        },
+                        {
+                            path: '',
+                            name: ROUTES.PROJECT_DETAILS.name,
+                            component: ProjectDetails
+                        },
+                        {
+                            path: ROUTES.PROJECT_DETAILS.path,
+                            name: ROUTES.PROJECT_DETAILS.name,
+                            component: ProjectDetails
+                        },
+                        {
+                            path: ROUTES.BILLING_HISTORY.path,
+                            name: ROUTES.BILLING_HISTORY.name,
+                            component: BillingHistory
+                        },
+                        {
+                            path: ROUTES.PAYMENT_METHODS.path,
+                            name: ROUTES.PAYMENT_METHODS.name,
+                            component: PaymentMethods
+                        },
+                    ]
                 },
                 // Remove when dashboard will be created
                 {
                     path: '/',
                     name: 'default',
-                    component: ProjectDetailsArea
+                    component: ProjectOverviewArea
                 },
                 {
                     path: ROUTES.TEAM.path,
@@ -72,9 +102,9 @@ let router = new Router({
                     component: ApiKeysArea
                 },
                 {
-                    path: ROUTES.USAGE_REPORT.path,
-                    name: ROUTES.USAGE_REPORT.name,
-                    component: UsageReport,
+                    path: ROUTES.BUCKETS.path,
+                    name: ROUTES.BUCKETS.name,
+                    component: BucketArea
                 },
                 // {
                 //     path: ROUTES.BUCKETS.path,
@@ -100,7 +130,7 @@ let router = new Router({
 // and if we are able to navigate to page without existing project
 router.beforeEach((to, from, next) => {
     if (isUnavailablePageWithoutProject(to.name as string)) {
-        next(ROUTES.PROJECT_DETAILS);
+        next(ROUTES.PROJECT_OVERVIEW + '/' + ROUTES.PROJECT_DETAILS);
 
         return;
     }
