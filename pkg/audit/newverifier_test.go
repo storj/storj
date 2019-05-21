@@ -78,6 +78,19 @@ func TestVerifierHappyPath(t *testing.T) {
 		_, err = planet.Satellites[0].Overlay.Service.UpdateUptime(ctx, planet.StorageNodes[1].ID(), false)
 		require.NoError(t, err)
 
+		// get nodes from overlay to see if they're marked as offline
+		node0, err := planet.Satellites[0].Overlay.Service.Get(ctx, planet.StorageNodes[0].ID())
+		require.NoError(t, err)
+
+		isOnline := planet.Satellites[0].Overlay.Service.IsOnline(node0)
+		fmt.Println(planet.StorageNodes[0].ID(), "online:", isOnline)
+
+		node1, err := planet.Satellites[0].Overlay.Service.Get(ctx, planet.StorageNodes[1].ID())
+		require.NoError(t, err)
+
+		isOnline = planet.Satellites[0].Overlay.Service.IsOnline(node1)
+		fmt.Println(planet.StorageNodes[1].ID(), "online:", isOnline)
+
 		verifiedNodes, err := verifier.Verify(ctx, stripe)
 		require.NoError(t, err)
 
