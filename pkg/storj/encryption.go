@@ -3,13 +3,6 @@
 
 package storj
 
-import (
-	"github.com/zeebo/errs"
-)
-
-// ErrKey is used when something goes wrong a key.
-var ErrKey = errs.Class("key")
-
 // EncryptionScheme is the scheme and parameters used for encryption.
 // Use the similar EncryptionParameters struct instead, if possible.
 type EncryptionScheme struct {
