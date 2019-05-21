@@ -53,6 +53,8 @@ func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
 	}
 	log.Debug("Connected to:", zap.String("db source", source))
 
+	db.SetMaxIdleConns(dbutil.DefaultMaxIdleConns)
+
 	core := &DB{log: log, db: db, driver: driver, source: source}
 	if driver == "sqlite3" {
 		return newLocked(core), nil
