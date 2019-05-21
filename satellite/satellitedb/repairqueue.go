@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"time"
 
 	"github.com/lib/pq"
 	sqlite3 "github.com/mattn/go-sqlite3"
@@ -35,13 +34,12 @@ func (r *repairQueue) Insert(ctx context.Context, seg *pb.InjuredSegment) error 
 }
 
 func (r *repairQueue) postgresSelect(ctx context.Context) (seg *pb.InjuredSegment, err error) {
-	err = r.db.QueryRowContext(ctx, r.db.Rebind(`
-	UPDATE injuredsegments SET attempted = ? WHERE path = (
+	err = r.db.QueryRowContext(ctx, `
+	UPDATE injuredsegments SET attempted = now() WHERE path = (
 		SELECT path FROM injuredsegments
-		WHERE attempted IS NULL
-		OR attempted < now() - interval '1 hour'
+		WHERE attempted IS NULL OR attempted < now() - interval '1 hour'
 		ORDER BY path FOR UPDATE SKIP LOCKED LIMIT 1
-	) RETURNING data`), time.Now().UTC()).Scan(&seg)
+	) RETURNING data`).Scan(&seg)
 	if err == sql.ErrNoRows {
 		err = storage.ErrEmptyQueue.New("")
 	}
@@ -59,7 +57,7 @@ func (r *repairQueue) sqliteSelect(ctx context.Context) (seg *pb.InjuredSegment,
 		if err != nil {
 			return err
 		}
-		res, err := tx.Tx.ExecContext(ctx, r.db.Rebind(`UPDATE injuredsegments SET attempted = ? WHERE path = ?`), time.Now().UTC(), path)
+		res, err := tx.Tx.ExecContext(ctx, r.db.Rebind(`UPDATE injuredsegments SET attempted = datetime('now') WHERE path = ?`), path)
 		if err != nil {
 			return err
 		}
