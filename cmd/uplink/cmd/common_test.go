@@ -44,7 +44,7 @@ func TestLoadEncryptionKeyIntoEncryptionAccess(t *testing.T) {
 	})
 }
 
-func TestUsOrLoadEncryptionKeyIntoEncryptionAccess(t *testing.T) {
+func TestUseOrLoadEncryptionKeyIntoEncryptionAccess(t *testing.T) {
 	t.Run("ok: load", func(t *testing.T) {
 		passphrase := make([]byte, rand.Intn(100)+1)
 		_, err := rand.Read(passphrase)
