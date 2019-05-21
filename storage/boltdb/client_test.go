@@ -18,6 +18,7 @@ import (
 )
 
 func TestSuite(t *testing.T) {
+	t.Skip()
 	tempdir, err := ioutil.TempDir("", "storj-bolt")
 	if err != nil {
 		t.Fatal(err)
