@@ -131,12 +131,8 @@ func NewUplink(ctx context.Context, cfg *Config) (_ *Uplink, err error) {
 	}, nil
 }
 
-// ProjectOptions allows configuration of various project options during opening
-type ProjectOptions struct {
-}
-
 // OpenProject returns a Project handle with the given APIKey
-func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey APIKey, opts *ProjectOptions) (p *Project, err error) {
+func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey APIKey) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	metainfo, err := metainfo.NewClient(ctx, u.tc, satelliteAddr, apiKey.Serialize())
@@ -145,20 +141,16 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey A
 	}
 
 	// // TODO: we shouldn't really need encoding parameters to manage buckets.
-	// whoCares := 1
-	// fc, err := infectious.NewFEC(whoCares, whoCares)
-	// if err != nil {
-	// 	return nil, Error.New("failed to create erasure coding client: %v", err)
-	// }
-	// rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, whoCares), whoCares, whoCares)
-	// if err != nil {
-	// 	return nil, Error.New("failed to create redundancy strategy: %v", err)
-	// }
-	segments := segments.NewSegmentStoreUnencrypted(metainfo, nil, maxBucketMetaSize.Int())
-	// volatile warning: we're setting an encryption key of all zeros, but there
-	// just shouldn't be an encryption key here at all.
-	// TODO: fix before the final alpha network wipe
-	// encryptionKey := new(storj.Key)
+	whoCares := 1
+	fc, err := infectious.NewFEC(whoCares, whoCares)
+	if err != nil {
+		return nil, Error.New("failed to create erasure coding client: %v", err)
+	}
+	rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, whoCares), whoCares, whoCares)
+	if err != nil {
+		return nil, Error.New("failed to create redundancy strategy: %v", err)
+	}
+	segments := segments.NewSegmentStoreUnencrypted(metainfo, nil, rs, maxBucketMetaSize.Int())
 	streams, err := streams.NewStreamStoreUnencrypted(segments, maxBucketMetaSize.Int64(), memory.KiB.Int(), storj.AESGCM)
 	if err != nil {
 		return nil, Error.New("failed to create stream store: %v", err)
@@ -170,7 +162,6 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey A
 		metainfo:      metainfo,
 		project:       kvmetainfo.NewProject(buckets.NewStore(streams), memory.KiB.Int32(), rs, 64*memory.MiB.Int64()),
 		maxInlineSize: u.cfg.Volatile.MaxInlineSize,
-		// encryptionKey: encryptionKey,
 	}, nil
 }
 

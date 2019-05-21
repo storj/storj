@@ -59,6 +59,7 @@ func (db *Project) CreateBucket(ctx context.Context, bucketName string, info *st
 		RedundancyScheme:   info.RedundancyScheme,
 		EncryptionScheme:   info.EncryptionParameters.ToEncryptionScheme(),
 	})
+
 	if err != nil {
 		return storj.Bucket{}, err
 	}

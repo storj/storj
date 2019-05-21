@@ -104,16 +104,13 @@ func (b *BucketStore) Get(ctx context.Context, bucket string) (meta Meta, err er
 // in the bucket's object Pointer. Note that the Meta.Created field is ignored.
 func (b *BucketStore) Put(ctx context.Context, bucketName string, inMeta Meta) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
-
 	if bucketName == "" {
 		return Meta{}, storj.ErrNoBucket.New("")
 	}
-
 	pathCipher := inMeta.PathEncryptionType
 	if pathCipher < storj.Unencrypted || pathCipher > storj.SecretBox {
 		return Meta{}, encryption.ErrInvalidConfig.New("encryption type %d is not supported", pathCipher)
 	}
-
 	r := bytes.NewReader(nil)
 	userMeta := map[string]string{
 		"path-enc-type":     strconv.Itoa(int(pathCipher)),
@@ -136,6 +133,7 @@ func (b *BucketStore) Put(ctx context.Context, bucketName string, inMeta Meta) (
 	// just to get back to what should be the same contents we already
 	// have. the only change ought to be the modified time.
 	inMeta.Created = m.Modified
+
 	return inMeta, nil
 }
 

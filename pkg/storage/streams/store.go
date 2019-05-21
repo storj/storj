@@ -100,14 +100,13 @@ func NewStreamStoreUnencrypted(segments segments.Store, segmentSize int64, encBl
 	}
 
 	return &streamStore{
-		segments:     segments,
-		segmentSize:  segmentSize,
-		// rootKey:      rootKey,
+		segments:    segments,
+		segmentSize: segmentSize,
+		rootKey:      nil,
 		encBlockSize: encBlockSize,
 		cipher:       cipher,
 	}, nil
 }
-
 
 // Put breaks up data as it comes in into s.segmentSize length pieces, then
 // store the first piece at s0/<path>, second piece at s1/<path>, and the
@@ -116,7 +115,9 @@ func NewStreamStoreUnencrypted(segments segments.Store, segmentSize int64, encBl
 func (s *streamStore) Put(ctx context.Context, path storj.Path, pathCipher storj.Cipher, data io.Reader, metadata []byte, expiration time.Time) (m Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 	// previously file uploaded?
+
 	err = s.Delete(ctx, path, pathCipher)
+
 	if err != nil && !storage.ErrKeyNotFound.Has(err) {
 		//something wrong happened checking for an existing
 		//file with the same name
@@ -124,6 +125,7 @@ func (s *streamStore) Put(ctx context.Context, path storj.Path, pathCipher storj
 	}
 
 	m, lastSegment, err := s.upload(ctx, path, pathCipher, data, metadata, expiration)
+
 	if err != nil {
 		s.cancelHandler(context.Background(), lastSegment, path, pathCipher)
 	}
