@@ -12,7 +12,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console/consoleauth"
@@ -299,10 +299,6 @@ func (s *Service) Token(ctx context.Context, email, password string) (token stri
 // GetUser returns User by id
 func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = GetAuth(ctx)
-	if err != nil {
-		return nil, err
-	}
 
 	user, err := s.store.Users().Get(ctx, id)
 	if err != nil {
@@ -808,6 +804,24 @@ func (s *Service) GetProjectUsage(ctx context.Context, projectID uuid.UUID, sinc
 	}
 
 	return projectUsage, nil
+}
+
+// GetBucketTotals retrieves paged bucket total usages since project creation
+func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor BucketUsageCursor, before time.Time) (*BucketUsagePage, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	isMember, err := s.isProjectMember(ctx, auth.User.ID, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.store.UsageRollups().GetBucketTotals(ctx, projectID, cursor, isMember.project.CreatedAt, before)
 }
 
 // GetBucketUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period

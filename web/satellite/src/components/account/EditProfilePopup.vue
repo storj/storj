@@ -11,23 +11,23 @@
 					</div>
 					<h2 class="edit-profile-popup__form-container__main-label-text">Edit profile</h2>
 				</div>
-				<HeaderlessInput
-						class="full-input"
-						label="Full name"
-						placeholder="Enter Full Name"
-						width="100%"
-						ref="fullNameInput"
-						:error="fullNameError"
-						:initValue="originalFullName"
-						@setData="setFullName" />
-				<HeaderlessInput
-						class="full-input"
-						label="Short Name"
-						placeholder="Enter Short Name"
-						width="100%"
-						ref="shortNameInput"
-						:initValue="originalShortName"
-						@setData="setShortName"/>
+				<HeaderedInput
+					class="full-input"
+					label="Full name"
+					placeholder="Enter Full Name"
+					width="100%"
+					ref="fullNameInput"
+					:error="fullNameError"
+					:initValue="originalFullName"
+					@setData="setFullName" />
+				<HeaderedInput
+					class="full-input"
+					label="Short Name"
+					placeholder="Enter Short Name"
+					width="100%"
+					ref="shortNameInput"
+					:initValue="originalShortName"
+					@setData="setShortName"/>
 				<div class="edit-profile-popup__form-container__button-container">
 					<Button label="Cancel" width="205px" height="48px" :onPress="onCloseClick" isWhite />
 					<Button label="Update" width="205px" height="48px" :onPress="onUpdateClick" />
@@ -44,7 +44,7 @@
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
-    import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+    import HeaderedInput from '@/components/common/HeaderedInput.vue';
     import Button from '@/components/common/Button.vue';
     import { USER_ACTIONS, NOTIFICATION_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
@@ -116,7 +116,7 @@
                 },
             },
             components: {
-                HeaderlessInput,
+                HeaderedInput,
                 Button,
             }
         }
