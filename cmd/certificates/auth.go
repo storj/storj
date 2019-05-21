@@ -181,10 +181,8 @@ func writeTokenInfo(claimed, open certificates.Authorizations, w io.Writer) erro
 					return err
 				}
 			}
-		} else {
-			if _, err := fmt.Fprintln(w, "\t\tnone"); err != nil {
-				return err
-			}
+		} else if _, err := fmt.Fprintln(w, "\t\tnone"); err != nil {
+			return err
 		}
 	}
 	return nil

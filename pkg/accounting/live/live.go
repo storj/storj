@@ -36,8 +36,7 @@ func New(log *zap.Logger, config Config) (Service, error) {
 	} else {
 		backendType = parts[0]
 	}
-	switch backendType {
-	case "plainmemory":
+	if backendType == "plainmemory" {
 		return newPlainMemoryLiveAccounting(log)
 	}
 	return nil, errs.New("unrecognized live accounting backend specifier %q", backendType)

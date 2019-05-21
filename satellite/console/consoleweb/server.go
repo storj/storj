@@ -80,7 +80,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 
 	if server.config.ExternalAddress != "" {
 		if !strings.HasSuffix(server.config.ExternalAddress, "/") {
-			server.config.ExternalAddress = server.config.ExternalAddress + "/"
+			server.config.ExternalAddress += "/"
 		}
 	} else {
 		server.config.ExternalAddress = "http://" + server.listener.Addr().String() + "/"

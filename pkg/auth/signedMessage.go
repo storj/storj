@@ -48,7 +48,7 @@ type SignableMessage interface {
 }
 
 //SignMessage adds the crypto-related aspects of signed message
-func SignMessage(msg SignableMessage, ID identity.FullIdentity) error {
+func SignMessage(msg SignableMessage, id identity.FullIdentity) error {
 	if msg == nil {
 		return ErrMissing.New("message")
 	}
@@ -58,12 +58,12 @@ func SignMessage(msg SignableMessage, ID identity.FullIdentity) error {
 	if err != nil {
 		return ErrMarshal.Wrap(err)
 	}
-	signature, err := pkcrypto.HashAndSign(ID.Key, msgBytes)
+	signature, err := pkcrypto.HashAndSign(id.Key, msgBytes)
 	if err != nil {
 		return ErrSign.Wrap(err)
 	}
 	msg.SetSignature(signature)
-	msg.SetCerts(ID.RawChain())
+	msg.SetCerts(id.RawChain())
 	return nil
 }
 
