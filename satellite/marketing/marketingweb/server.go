@@ -67,11 +67,11 @@ func (s *Server) Run(ctx context.Context) error {
 	var group errgroup.Group
 	group.Go(func() error {
 		<-ctx.Done()
-		return s.server.Shutdown(nil)
+		return Error.Wrap(s.server.Shutdown(nil))
 	})
 	group.Go(func() error {
 		defer cancel()
-		return s.server.Serve(s.listener)
+		return Error.Wrap(s.server.Serve(s.listener))
 	})
 
 	return group.Wait()
@@ -79,5 +79,5 @@ func (s *Server) Run(ctx context.Context) error {
 
 // Close closes server and underlying listener
 func (s *Server) Close() error {
-	return s.server.Close()
+	return Error.Wrap(s.server.Close())
 }
