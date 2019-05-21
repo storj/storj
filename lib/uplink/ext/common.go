@@ -100,12 +100,12 @@ func ToProtoStruct(structRef token, valtype C.enum_ValueType) (protoStruct proto
 	case C.UplinkConfigType:
 		uplinkStruct := structRefMap.Get(structRef).(uplink.Config)
 
-		return &pb.UplinkConfig {
+		return &pb.UplinkConfig{
 			Tls: &pb.TLSConfig{
 				SkipPeerCaWhitelist: uplinkStruct.Volatile.TLS.SkipPeerCAWhitelist,
 				PeerCaWhitelistPath: uplinkStruct.Volatile.TLS.PeerCAWhitelistPath,
 			},
-			IdentityVersion: &pb.IDVersion {
+			IdentityVersion: &pb.IDVersion{
 				Number: uint32(uplinkStruct.Volatile.IdentityVersion.Number),
 			},
 			MaxInlineSize: int64(uplinkStruct.Volatile.MaxInlineSize),
@@ -156,27 +156,37 @@ func SendToGo(cVal *C.struct_GoValue, cErr **C.char) {
 	switch cVal.Type {
 	case C.UplinkConfigType:
 		msg = &pb.UplinkConfig{}
+
+		if err := unmarshalCSnapshot(cVal, msg); err != nil {
+			*cErr = C.CString(err.Error())
+			return
+		}
+
+		pbConfig := msg.(*pb.UplinkConfig)
+		idVersion, err := storj.GetIDVersion(storj.IDVersionNumber(pbConfig.IdentityVersion.Number))
+		if err != nil {
+			*cErr = C.CString(err.Error())
+			return
+		}
+
+		cVal.Ptr = C.ulong(structRefMap.Add(&uplink.Config{
+			Volatile: uplink.Volatile{
+				TLS: struct{
+					SkipPeerCAWhitelist bool
+					PeerCAWhitelistPath string
+				}{
+					SkipPeerCAWhitelist: pbConfig.Tls.SkipPeerCaWhitelist,
+					PeerCAWhitelistPath: pbConfig.Tls.PeerCaWhitelistPath,
+				},
+				IdentityVersion: idVersion,
+				MaxInlineSize: memory.Size(pbConfig.MaxInlineSize),
+				MaxMemory: memory.Size(pbConfig.MaxMemory),
+			},
+		}))
 	default:
-		*cErr = C.CString(errs.New("unsupported type").Error())
+		*cErr = C.CString(errs.New("unsupported protobuf type").Error())
 		return
 	}
-
-	snapshot := make([]byte, int(cVal.Size))
-	// TODO: Clean this
-	cursor := uintptr(unsafe.Pointer(cVal.Snapshot))
-	for i := 0; i < int(cVal.Size); i++ {
-		address := cursor + uintptr(i)
-		snapshot[i] = *(*byte)(unsafe.Pointer(address))
-	}
-
-	if err := proto.Unmarshal(snapshot, msg); err != nil {
-		*cErr = C.CString(err.Error())
-		return
-	}
-
-	fmt.Println(msg)
-
-	cVal.Ptr = C.GoUintptr(structRefMap.Add(msg))
 }
 
 func CMalloc(size uintptr) uintptr {
@@ -192,10 +202,10 @@ func CToGoGoValue(cVal C.struct_GoValue) GoValue {
 	}
 
 	return GoValue{
-		ptr:   token(cVal.Ptr),
-		_type: uint32(cVal.Type),
+		ptr:      token(cVal.Ptr),
+		_type:    uint32(cVal.Type),
 		snapshot: *snapshot,
-		size: uintptr(cVal.Size),
+		size:     uintptr(cVal.Size),
 	}
 }
 
@@ -207,4 +217,19 @@ func (gv GoValue) GoToCGoValue() (cVal C.struct_GoValue, err error) {
 		Snapshot: (*C.uchar)(unsafe.Pointer(&gv.snapshot)),
 		Size:     C.GoUintptr(gv.size),
 	}, nil
+}
+
+func unmarshalCSnapshot(cVal *C.struct_GoValue, msg proto.Message) error {
+	snapshot := make([]byte, int(cVal.Size))
+	// TODO: Clean this
+	cursor := uintptr(unsafe.Pointer(cVal.Snapshot))
+	for i := 0; i < int(cVal.Size); i++ {
+		address := cursor + uintptr(i)
+		snapshot[i] = *(*byte)(unsafe.Pointer(address))
+	}
+
+	if err := proto.Unmarshal(snapshot, msg); err != nil {
+		return err
+	}
+	return nil
 }
