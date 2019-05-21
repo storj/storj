@@ -34,9 +34,9 @@ When deriving a root key from an api key, password, optional bucket name and opt
 
 ```
 saltEntropy = GetSaltEntropy(bucketName or None)
-mixedSalt   = hmac(hash:sha256, secret:password, data:saltEntropy)
-pathSalt    = hmac(hash:sha256, secret:mixedSalt, data:encryptedPath or "")
-rootKey     = argon2id(salt:salt, password:password)
+mixedSalt   = hmac(hash=sha256, secret=password, data=saltEntropy)
+pathSalt    = hmac(hash=sha256, secret=mixedSalt, data=encryptedPath or "")
+rootKey     = argon2id(salt=pathSalt, password=password)
 ```
 
 In the terminology of section 4.11 in the [whitepaper](https://storj.io/storjv3.pdf), the algorithm above describes how to derive s<sub>0</sub>. Subsequent secrets are derived using the unencrypted path components and will end up encrypted as described in the whitepaper and appended to the base encrypted path used when deriving s<sub>0</sub>.
