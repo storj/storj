@@ -41,36 +41,36 @@ func NewUplink(configRef C.UplinkConfigRef, cErr **C.char) (cUplink C.gvUplink) 
 
 //export OpenProject
 func OpenProject(cUplink C.UplinkRef, satelliteAddr *C.char, cAPIKey C.APIKeyRef, cOpts C.struct_ProjectOptions, cErr **C.char) (cProject C.Project) {
-	// var err error
-	// ctx := context.Background()
-	// defer mon.Task()(&ctx)(&err)
+	var err error
+	ctx := context.Background()
+	defer mon.Task()(&ctx)(&err)
 
-	// goUplink, ok := structRefMap.Get(token(cUplink)).(*uplink.Uplink)
-	// if !ok {
-	// 	*cErr = C.CString("invalid uplink")
-	// 	return cProject	}
+	goUplink, ok := structRefMap.Get(token(cUplink)).(*uplink.Uplink)
+	if !ok {
+		*cErr = C.CString("invalid uplink")
+		return cProject	}
 
-	// opts := new(uplink.ProjectOptions)
-	// err = CToGoStruct(cOpts, opts)
-	// if err != nil {
-	// 	*cErr = C.CString(err.Error())
-	// 	fmt.Println(cErr, err.Error())
-	// 	return cProject
-	// }
+	opts := new(uplink.ProjectOptions)
+	err = CToGoStruct(cOpts, opts)
+	if err != nil {
+		*cErr = C.CString(err.Error())
+		fmt.Println(cErr, err.Error())
+		return cProject
+	}
 
-	// apiKey, ok := structRefMap.Get(token(cAPIKey)).(uplink.APIKey)
-	// if !ok {
-	// 	*cErr = C.CString("invalid API Key")
-	// 	fmt.Println(cErr, err.Error())
-	// 	return cProject
-	// }
+	apiKey, ok := structRefMap.Get(token(cAPIKey)).(uplink.APIKey)
+	if !ok {
+		*cErr = C.CString("invalid API Key")
+		fmt.Println(cErr, err.Error())
+		return cProject
+	}
 
-	// project, err := goUplink.OpenProject(ctx, C.GoString(satelliteAddr), apiKey, opts)
-	// if err != nil {
-	// 	*cErr = C.CString(err.Error())
-	// 	fmt.Println(cErr, err.Error())
-	// 	return cProject
-	// }
-	// return cPointerFromGoStruct(project)
+	project, err := goUplink.OpenProject(ctx, C.GoString(satelliteAddr), apiKey, opts)
+	if err != nil {
+		*cErr = C.CString(err.Error())
+		fmt.Println(cErr, err.Error())
+		return cProject
+	}
+	return cPointerFromGoStruct(project)
 	return cProject
 }

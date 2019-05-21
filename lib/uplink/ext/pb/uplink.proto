@@ -24,6 +24,10 @@ message UplinkConfig {
     int64 max_memory = 5;
 }
 
+message ProjectOptions {
+    bytes encryption_key = 1;
+}
+
 message EncryptionParameters {
     bytes cipher_suite = 1;
     int32 block_size = 2;
