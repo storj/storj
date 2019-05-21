@@ -677,7 +677,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						invitee_credit_duration_days integer NOT NULL,
 						redeemable_cap integer NOT NULL,
 						num_redeemed integer NOT NULL,
-						offer_duration_days integer NOT NULL,
+						expires_at timestamp with time zone,
 						created_at timestamp with time zone NOT NULL,
 						status integer NOT NULL,
 						PRIMARY KEY ( id )
