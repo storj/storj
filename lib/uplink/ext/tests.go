@@ -25,10 +25,10 @@ var AllTests testing.Tests
 
 func init() {
 	AllTests.Register(
-		testing.NewTest("TestSendToGo_error", TestSendToGo_error),
 		testing.NewTest("TestMapping_Add", TestMapping_Add),
 		testing.NewTest("TestMapping_Get", TestMapping_Get),
-		testing.NewTest("TestSendToGo_success", TestSendToGo_success),
+		//testing.NewTest("TestSendToGo_success", TestSendToGo_success),
+		//testing.NewTest("TestSendToGo_error", TestSendToGo_error),
 	)
 }
 
