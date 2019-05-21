@@ -603,5 +603,8 @@ read all (
 )
 
 create offer ( )
-update offer ( where offer.id = ? )
+update offer (
+	where offer.id = ?
+	where offer.status = ?
+)
 delete offer ( where offer.id = ? )

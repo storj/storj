@@ -6390,13 +6390,14 @@ func (obj *postgresImpl) Update_RegistrationToken_By_Secret(ctx context.Context,
 	return registration_token, nil
 }
 
-func (obj *postgresImpl) Update_Offer_By_Id(ctx context.Context,
+func (obj *postgresImpl) Update_Offer_By_Id_And_Status(ctx context.Context,
 	offer_id Offer_Id_Field,
+	offer_status Offer_Status_Field,
 	update Offer_Update_Fields) (
 	offer *Offer, err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE offers SET "), __sets, __sqlbundle_Literal(" WHERE offers.id = ? RETURNING offers.id, offers.name, offers.description, offers.type, offers.credit, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.num_redeemed, offers.offer_duration_days, offers.created_at, offers.status")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE offers SET "), __sets, __sqlbundle_Literal(" WHERE offers.id = ? AND offers.status = ? RETURNING offers.id, offers.name, offers.description, offers.type, offers.credit, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.num_redeemed, offers.offer_duration_days, offers.created_at, offers.status")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -6456,7 +6457,7 @@ func (obj *postgresImpl) Update_Offer_By_Id(ctx context.Context,
 		return nil, emptyUpdate()
 	}
 
-	__args = append(__args, offer_id.value())
+	__args = append(__args, offer_id.value(), offer_status.value())
 
 	__values = append(__values, __args...)
 	__sets.SQL = __sets_sql
@@ -9389,13 +9390,14 @@ func (obj *sqlite3Impl) Update_RegistrationToken_By_Secret(ctx context.Context,
 	return registration_token, nil
 }
 
-func (obj *sqlite3Impl) Update_Offer_By_Id(ctx context.Context,
+func (obj *sqlite3Impl) Update_Offer_By_Id_And_Status(ctx context.Context,
 	offer_id Offer_Id_Field,
+	offer_status Offer_Status_Field,
 	update Offer_Update_Fields) (
 	offer *Offer, err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE offers SET "), __sets, __sqlbundle_Literal(" WHERE offers.id = ?")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE offers SET "), __sets, __sqlbundle_Literal(" WHERE offers.id = ? AND offers.status = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -9455,7 +9457,7 @@ func (obj *sqlite3Impl) Update_Offer_By_Id(ctx context.Context,
 		return nil, emptyUpdate()
 	}
 
-	__args = append(__args, offer_id.value())
+	__args = append(__args, offer_id.value(), offer_status.value())
 
 	__values = append(__values, __args...)
 	__sets.SQL = __sets_sql
@@ -9469,7 +9471,7 @@ func (obj *sqlite3Impl) Update_Offer_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT offers.id, offers.name, offers.description, offers.type, offers.credit, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.num_redeemed, offers.offer_duration_days, offers.created_at, offers.status FROM offers WHERE offers.id = ?")
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT offers.id, offers.name, offers.description, offers.type, offers.credit, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.num_redeemed, offers.offer_duration_days, offers.created_at, offers.status FROM offers WHERE offers.id = ? AND offers.status = ?")
 
 	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
 	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
@@ -11343,15 +11345,16 @@ func (rx *Rx) Update_Node_By_Id(ctx context.Context,
 	return tx.Update_Node_By_Id(ctx, node_id, update)
 }
 
-func (rx *Rx) Update_Offer_By_Id(ctx context.Context,
+func (rx *Rx) Update_Offer_By_Id_And_Status(ctx context.Context,
 	offer_id Offer_Id_Field,
+	offer_status Offer_Status_Field,
 	update Offer_Update_Fields) (
 	offer *Offer, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Update_Offer_By_Id(ctx, offer_id, update)
+	return tx.Update_Offer_By_Id_And_Status(ctx, offer_id, offer_status, update)
 }
 
 func (rx *Rx) Update_PendingAudits_By_NodeId(ctx context.Context,
@@ -11809,8 +11812,9 @@ type Methods interface {
 		update Node_Update_Fields) (
 		node *Node, err error)
 
-	Update_Offer_By_Id(ctx context.Context,
+	Update_Offer_By_Id_And_Status(ctx context.Context,
 		offer_id Offer_Id_Field,
+		offer_status Offer_Status_Field,
 		update Offer_Update_Fields) (
 		offer *Offer, err error)
 
