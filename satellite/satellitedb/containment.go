@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/zeebo/errs"
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -51,7 +52,7 @@ func (containment *containment) IncrementPending(ctx context.Context, pendingAud
 		pendingAudit.NodeID.Bytes(), pendingAudit.PieceID.Bytes(), pendingAudit.StripeIndex, pendingAudit.ShareSize, pendingAudit.ExpectedShareHash, pendingAudit.ReverifyCount,
 	)
 	if err != nil {
-		return audit.ContainError.Wrap(err)
+		return audit.ContainError.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 
 	updateContained := dbx.Node_Update_Fields{
@@ -60,7 +61,7 @@ func (containment *containment) IncrementPending(ctx context.Context, pendingAud
 
 	_, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(pendingAudit.NodeID.Bytes()), updateContained)
 	if err != nil {
-		return audit.ContainError.Wrap(err)
+		return audit.ContainError.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 	return audit.ContainError.Wrap(tx.Commit())
 }
@@ -78,7 +79,7 @@ func (containment *containment) Delete(ctx context.Context, id pb.NodeID) (bool,
 
 	isDeleted, err := tx.Delete_PendingAudits_By_NodeId(ctx, dbx.PendingAudits_NodeId(id.Bytes()))
 	if err != nil {
-		return isDeleted, audit.ContainError.Wrap(err)
+		return isDeleted, audit.ContainError.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 
 	updateContained := dbx.Node_Update_Fields{
@@ -87,7 +88,7 @@ func (containment *containment) Delete(ctx context.Context, id pb.NodeID) (bool,
 
 	_, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(id.Bytes()), updateContained)
 	if err != nil {
-		return isDeleted, audit.ContainError.Wrap(err)
+		return isDeleted, audit.ContainError.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 	return isDeleted, audit.ContainError.Wrap(tx.Commit())
 }
