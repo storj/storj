@@ -17,22 +17,25 @@ import (
 )
 
 func TestSaveEncryptionKey(t *testing.T) {
-	var expectedKey *storj.Key
-	{
-		inputKey := make([]byte, rand.Intn(20)+1)
+	generateInputKey := func(minSize, maxSize int) []byte {
+		inputKey := make([]byte, rand.Intn(maxSize)+minSize)
+		if len(inputKey) > maxSize {
+			inputKey = inputKey[:maxSize]
+		}
+
 		_, err := rand.Read(inputKey)
 		require.NoError(t, err)
 
-		expectedKey, err = storj.NewKey(inputKey)
-		require.NoError(t, err)
+		return inputKey
 	}
 
-	t.Run("ok", func(t *testing.T) {
+	t.Run("ok: key length shorter or equal than storj.KeySize", func(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
+		inputKey := generateInputKey(1, storj.KeySize)
 		filename := ctx.File("storj-test-cmd-uplink", "encryption.key")
-		err := saveEncryptionKey(expectedKey, filename)
+		err := saveEncryptionKey(inputKey, filename)
 		require.NoError(t, err)
 
 		var key *storj.Key
@@ -44,7 +47,28 @@ func TestSaveEncryptionKey(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		assert.Equal(t, expectedKey, key)
+		assert.Equal(t, inputKey, key[:len(inputKey)])
+	})
+
+	t.Run("ok: key length larger than storj.KeySize", func(t *testing.T) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		inputKey := generateInputKey(storj.KeySize+1, storj.KeySize*2)
+		filename := ctx.File("storj-test-cmd-uplink", "encryption.key")
+		err := saveEncryptionKey(inputKey, filename)
+		require.NoError(t, err)
+
+		var key *storj.Key
+		{
+			rawKey, err := ioutil.ReadFile(filename)
+			require.NoError(t, err)
+
+			key, err = storj.NewKey(rawKey)
+			require.NoError(t, err)
+		}
+
+		assert.Equal(t, inputKey[:storj.KeySize], key[:])
 	})
 
 	t.Run("error: unexisting dir", func(t *testing.T) {
@@ -54,8 +78,9 @@ func TestSaveEncryptionKey(t *testing.T) {
 		dir := ctx.Dir("storj-test-cmd-uplink")
 		ctx.Cleanup()
 
+		inputKey := generateInputKey(1, storj.KeySize)
 		filename := filepath.Join(dir, "enc.key")
-		err := saveEncryptionKey(expectedKey, filename)
+		err := saveEncryptionKey(inputKey, filename)
 		require.Errorf(t, err, "directory path doesn't exist")
 	})
 
@@ -63,10 +88,11 @@ func TestSaveEncryptionKey(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
+		inputKey := generateInputKey(1, storj.KeySize)
 		filename := ctx.File("encryption.key")
 		require.NoError(t, ioutil.WriteFile(filename, nil, os.FileMode(0600)))
 
-		err := saveEncryptionKey(expectedKey, filename)
+		err := saveEncryptionKey(inputKey, filename)
 		require.Errorf(t, err, "file key already exists")
 	})
 }

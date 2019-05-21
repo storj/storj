@@ -148,11 +148,11 @@ Please enter numeric choice or enter satellite address manually [1]: `)
 		return errs.New("API key cannot be empty")
 	}
 
-	_, err = fmt.Print("Enter your encryption passphrase: ")
+	_, err = fmt.Print("Enter your encryption key: ")
 	if err != nil {
 		return err
 	}
-	passphrase, err := terminal.ReadPassword(int(os.Stdin.Fd()))
+	humanReadableKey, err := terminal.ReadPassword(int(os.Stdin.Fd()))
 	if err != nil {
 		return err
 	}
@@ -162,15 +162,15 @@ Please enter numeric choice or enter satellite address manually [1]: `)
 		return err
 	}
 
-	if len(passphrase) == 0 {
-		return errs.New("Encryption passphrase cannot be empty")
+	if len(humanReadableKey) == 0 {
+		return errs.New("Encryption key cannot be empty")
 	}
 
-	_, err = fmt.Print("Enter your encryption passphrase again: ")
+	_, err = fmt.Print("Enter your encryption key again: ")
 	if err != nil {
 		return err
 	}
-	repeatedPassphrase, err := terminal.ReadPassword(int(os.Stdin.Fd()))
+	repeatedHumanReadableKey, err := terminal.ReadPassword(int(os.Stdin.Fd()))
 	if err != nil {
 		return err
 	}
@@ -179,16 +179,11 @@ Please enter numeric choice or enter satellite address manually [1]: `)
 		return err
 	}
 
-	if !bytes.Equal(passphrase, repeatedPassphrase) {
-		return errs.New("encryption passphrases doesn't match")
+	if !bytes.Equal(humanReadableKey, repeatedHumanReadableKey) {
+		return errs.New("encryption keys don't match")
 	}
 
-	key, err := storj.NewKey(passphrase)
-	if err != nil {
-		return err
-	}
-
-	err = saveEncryptionKey(key, usedEncryptionKeyFilepath)
+	err = saveEncryptionKey(humanReadableKey, usedEncryptionKeyFilepath)
 	if err != nil {
 		return err
 	}
@@ -278,15 +273,16 @@ func ApplyDefaultHostAndPortToAddr(address, defaultAddress string) (string, erro
 	return net.JoinHostPort(addressParts[0], defaultPort), nil
 }
 
-// saveEncryptionKey saves the encryption key into a new file created in
-// filepath.
-func saveEncryptionKey(key *storj.Key, filepath string) error {
+// saveEncryptionKey generates a Storj key from the inputKey and save it into a
+// new file created in filepath.
+func saveEncryptionKey(inputKey []byte, filepath string) error {
 	if filepath == "" {
 		return Error.New("filepath is empty")
 	}
 
-	if key.IsZero() {
-		return Error.New("key cannot be nil or zero value")
+	key, err := storj.NewKey(inputKey)
+	if err != nil {
+		return Error.Wrap(err)
 	}
 
 	file, err := os.OpenFile(filepath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)

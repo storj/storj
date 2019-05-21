@@ -84,13 +84,10 @@ func TestUseOrLoadEncryptionKeyIntoEncryptionAccess(t *testing.T) {
 }
 
 func TestSaveLoadEncryptionKey(t *testing.T) {
-	var expectedKey *storj.Key
+	var inputKey []byte
 	{
-		inputKey := make([]byte, rand.Intn(20)+1)
+		inputKey = make([]byte, rand.Intn(storj.KeySize)+1)
 		_, err := rand.Read(inputKey)
-		require.NoError(t, err)
-
-		expectedKey, err = storj.NewKey(inputKey)
 		require.NoError(t, err)
 	}
 
@@ -98,10 +95,10 @@ func TestSaveLoadEncryptionKey(t *testing.T) {
 	defer ctx.Cleanup()
 
 	filename := ctx.File("storj-test-cmd-uplink", "encryption.key")
-	err := saveEncryptionKey(expectedKey, filename)
+	err := saveEncryptionKey(inputKey, filename)
 	require.NoError(t, err)
 
 	access, err := useOrLoadEncryptionAccess("", filename)
 	require.NoError(t, err)
-	require.Equal(t, *expectedKey, access.Key)
+	require.Equal(t, inputKey, access.Key[:len(inputKey)])
 }
