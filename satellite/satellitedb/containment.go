@@ -8,6 +8,7 @@ import (
 	"database/sql"
 
 	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
