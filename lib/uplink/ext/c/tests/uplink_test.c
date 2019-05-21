@@ -71,14 +71,18 @@ void TestOpenProject(void)
     gvAPIKey apiKey = ParseAPIKey(getenv("APIKEY"), err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
+    pbProjectOptions opts = STORJ__LIBUPLINK__PROJECT_OPTIONS__INIT;
     uint8_t encryptionKey[32];
-    struct ProjectOptions opts = {
-        {&encryptionKey}};
+    memcpy(&opts.encryption_key, encryptionKey, 32);
+
+    gvProjectOptions *optsValue = malloc(sizeof(gvProjectOptions));
+    protoToGoValue((void *)&opts, ProjectOptionsType, optsValue, err);
+    TEST_ASSERT_EQUAL_STRING("", *err);
 
     gvUplink *uplink = NewTestUplink(err);
     TEST_ASSERT_EQUAL_STRING("", *err);
     TEST_ASSERT_NOT_NULL(uplink);
 
-    OpenProject(uplink->Ptr, satelliteAddr, apiKey.Ptr, opts, err);
+    OpenProject(uplink->Ptr, satelliteAddr, apiKey.Ptr, *optsValue, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 }

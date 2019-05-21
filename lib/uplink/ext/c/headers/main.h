@@ -15,6 +15,7 @@ enum ValueType
     UplinkConfigType,
     UplinkType,
     ProjectType,
+    ProjectOptionsType,
     BucketType
 };
 
@@ -30,6 +31,8 @@ typedef GoUintptr APIKeyRef;
 typedef GoUintptr IDVersionRef;
 typedef GoUintptr UplinkRef;
 typedef GoUintptr UplinkConfigRef;
+typedef GoUintptr ProjectRef;
+typedef GoUintptr BucketRef;
 
 
 // GoValue type aliases
@@ -37,11 +40,15 @@ typedef struct GoValue gvAPIKey;
 typedef struct GoValue gvIDVersion;
 typedef struct GoValue gvUplink;
 typedef struct GoValue gvUplinkConfig;
+typedef struct GoValue gvProjectOptions;
+typedef struct GoValue gvBucket;
+typedef struct GoValue gvBucketConfig;
 
 // Protobuf aliases
 typedef Storj__Libuplink__IDVersion pbIDVersion;
 typedef Storj__Libuplink__UplinkConfig pbUplinkConfig;
 typedef Storj__Libuplink__TLSConfig pbTLSConfig;
+typedef Storj__Libuplink__ProjectOptions pbProjectOptions;
 typedef Storj__Libuplink__BucketConfig pbBucketConfig;
 
 void *get_snapshot(struct GoValue *, char **);

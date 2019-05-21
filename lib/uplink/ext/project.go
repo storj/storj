@@ -16,7 +16,7 @@ import (
 )
 
 //export CreateBucket
-func CreateBucket(cProject C.GoUintptr, name *C.char, cCfg C.struct_BucketConfig, cErr **C.char) (cBucket C.struct_Bucket) {
+func CreateBucket(cProject C.ProjectRef, name *C.char, cCfg C.gvBucketConfig, cErr **C.char) (cBucket C.gvBucket) {
 	// ctx := context.Background()
 	// project := (*uplink.Project)(goPointerFromCGoUintptr(cProject))
 

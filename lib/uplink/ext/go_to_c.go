@@ -27,10 +27,6 @@ var (
 
 type GoValue struct {
 	ptr      token
-	SerialProto
-}
-
-type SerialProto struct {
 	_type    uint32
 	snapshot []byte
 	size     uintptr

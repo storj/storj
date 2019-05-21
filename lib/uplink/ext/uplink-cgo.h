@@ -146,11 +146,11 @@ extern gvUplink GetIDVersion(unsigned int p0, char** p1);
 
 extern void CGetSnapshot(gvUplink* p0, char** p1);
 
-extern struct Bucket CreateBucket(GoUintptr p0, char* p1, struct BucketConfig p2, char** p3);
+extern gvUplink CreateBucket(ProjectRef p0, char* p1, gvUplink p2, char** p3);
 
 extern gvUplink NewUplink(UplinkConfigRef p0, char** p1);
 
-extern Project OpenProject(UplinkRef p0, char* p1, APIKeyRef p2, struct ProjectOptions p3, char** p4);
+extern ProjectRef OpenProject(UplinkRef p0, char* p1, APIKeyRef p2, gvUplink p3, char** p4);
 
 #ifdef __cplusplus
 }
