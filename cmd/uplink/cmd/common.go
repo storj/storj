@@ -27,11 +27,13 @@ func loadEncryptionAccess(filepath string) (libuplink.EncryptionAccess, error) {
 // filepath and creates an EnryptionAccess with it.
 func useOrLoadEncryptionAccess(humanReadableKey string, filepath string) (libuplink.EncryptionAccess, error) {
 	if humanReadableKey != "" {
-		var key storj.Key
-		copy(key[:], humanReadableKey)
+		key, err := storj.NewKey([]byte(humanReadableKey))
+		if err != nil {
+			return libuplink.EncryptionAccess{}, err
+		}
 
 		return libuplink.EncryptionAccess{
-			Key: key,
+			Key: *key,
 		}, nil
 	}
 

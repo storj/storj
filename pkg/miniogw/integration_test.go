@@ -204,14 +204,17 @@ func runGateway(ctx context.Context, gwCfg config, uplinkCfg uplink.Config, log 
 		return err
 	}
 
-	encKey := new(storj.Key)
+	var encKey *storj.Key
 	{
-		k, err := ioutil.ReadFile(uplinkCfg.Enc.KeyFilepath)
+		rawKey, err := ioutil.ReadFile(uplinkCfg.Enc.KeyFilepath)
 		if err != nil {
 			return err
 		}
 
-		copy(encKey[:], k)
+		encKey, err = storj.NewKey(rawKey)
+		if err != nil {
+			return err
+		}
 	}
 
 	var projectOptions libuplink.ProjectOptions

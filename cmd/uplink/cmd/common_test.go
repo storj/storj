@@ -84,13 +84,14 @@ func TestUsOrLoadEncryptionKeyIntoEncryptionAccess(t *testing.T) {
 }
 
 func TestSaveLoadEncryptionKey(t *testing.T) {
-	var expectedKey = &storj.Key{}
+	var expectedKey *storj.Key
 	{
-		key := make([]byte, rand.Intn(20)+1)
-		_, err := rand.Read(key)
+		inputKey := make([]byte, rand.Intn(20)+1)
+		_, err := rand.Read(inputKey)
 		require.NoError(t, err)
 
-		copy(expectedKey[:], key)
+		expectedKey, err = storj.NewKey(inputKey)
+		require.NoError(t, err)
 	}
 
 	ctx := testcontext.New(t)

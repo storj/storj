@@ -17,13 +17,14 @@ import (
 )
 
 func TestSaveEncryptionKey(t *testing.T) {
-	var expectedKey = &storj.Key{}
+	var expectedKey *storj.Key
 	{
-		key := make([]byte, rand.Intn(20)+1)
-		_, err := rand.Read(key)
+		inputKey := make([]byte, rand.Intn(20)+1)
+		_, err := rand.Read(inputKey)
 		require.NoError(t, err)
 
-		copy(expectedKey[:], key)
+		expectedKey, err = storj.NewKey(inputKey)
+		require.NoError(t, err)
 	}
 
 	t.Run("ok", func(t *testing.T) {
@@ -34,11 +35,13 @@ func TestSaveEncryptionKey(t *testing.T) {
 		err := saveEncryptionKey(expectedKey, filename)
 		require.NoError(t, err)
 
-		var key = &storj.Key{}
+		var key *storj.Key
 		{
 			rawKey, err := ioutil.ReadFile(filename)
 			require.NoError(t, err)
-			copy(key[:], rawKey)
+
+			key, err = storj.NewKey(rawKey)
+			require.NoError(t, err)
 		}
 
 		assert.Equal(t, expectedKey, key)

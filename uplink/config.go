@@ -190,10 +190,12 @@ func LoadEncryptionKey(filepath string) (key *storj.Key, error error) {
 // filepath calling LoadEncryptionKey function.
 func UseOrLoadEncryptionKey(humanReadableKey string, filepath string) (*storj.Key, error) {
 	if humanReadableKey != "" {
-		var key storj.Key
-		copy(key[:], humanReadableKey)
+		key, err := storj.NewKey([]byte(humanReadableKey))
+		if err != nil {
+			return nil, err
+		}
 
-		return &key, nil
+		return key, nil
 	}
 
 	return LoadEncryptionKey(filepath)
