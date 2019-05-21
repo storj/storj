@@ -213,16 +213,19 @@ func (checker *Checker) checkSegmentStatus(ctx context.Context, pointer *pb.Poin
 			return nil
 		}
 		rmtSegInfo.remoteSegmentsNeedingRepair++
-		err = checker.repairQueue.Insert(ctx, &pb.InjuredSegment{
-			Path:       path,
-			LostPieces: missingPieces,
-		})
-		if err != nil {
-			return Error.New("error adding injured segment to queue %s", err)
-		}
-		err = checker.irrdb.Delete(ctx, []byte(path))
-		if err != nil {
-			return Error.New("repair delete failed %s", err)
+		if _, err = checker.irrdb.Get(ctx, []byte(path)); err != nil {
+			err = checker.repairQueue.Insert(ctx, &pb.InjuredSegment{
+				Path:       path,
+				LostPieces: missingPieces,
+			})
+			if err != nil {
+				return Error.New("error adding injured segment to queue %s", err)
+			}
+		} else {
+			err = checker.irrdb.Delete(ctx, []byte(path))
+			if err != nil {
+				zap.L().Error("repair delete failed", zap.Error(err))
+			}
 		}
 	} else if numHealthy < redundancy.MinReq {
 		pathElements := storj.SplitPath(path)
@@ -279,10 +282,6 @@ func (checker *Checker) irrepairProcess(ctx context.Context) (err error) {
 			err := checker.checkSegmentStatus(ctx, seg[0].GetSegmentDetail(), string(seg[0].GetPath()), &rmtSegInfo)
 			if err != nil {
 				zap.L().Error("repair failed", zap.Error(err))
-			}
-			err = checker.irrdb.Delete(ctx, seg[0].GetPath())
-			if err != nil {
-				zap.L().Error("repair delete failed", zap.Error(err))
 			}
 			offset++
 		})
