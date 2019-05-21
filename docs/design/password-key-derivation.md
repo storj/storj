@@ -19,7 +19,7 @@ This design accomodates more requirements that allow for additional features:
 
 3. A root key can be derived for any path in a bucket.
 4. Buckets root keys should not depend on the name of the bucket.
-5. A table of keys for low entropy passwords should not exist.
+5. A table of keys for low entropy passwords should not be possible. In other words, an attacker with knowledge of the algorithm should not be able to use a dictionary of common passwords and pre-compute what keys to check in the event of a data breach.
 6. There is a default that allows deriving keys for buckets when no bucket specific secret is provided.
 
 The third requirement allows having multiple encrypted domains to exist within a single bucket, allowing delegation of encryption. The fourth requirement allows renaming buckets without having to re-encrypt all of the paths inside of a bucket. The fifth requirement enhances security if a satellite breach happens. This is usually accomplished with [salting](https://en.wikipedia.org/wiki/Salt_(cryptography)). The sixth requirement allows providing a finite amount of information to a third party that allows them access to the keys for any bucket created in the future.
