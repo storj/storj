@@ -53,6 +53,7 @@ func NewPool(kademlia *kademlia.Kademlia, trustAll bool, trustedSatelliteIDs str
 	trusted := make(map[storj.NodeID]*satelliteInfoCache)
 
 	for _, s := range strings.Split(trustedSatelliteIDs, ",") {
+		s = strings.TrimSpace(s)
 		if s == "" {
 			continue
 		}
