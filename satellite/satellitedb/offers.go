@@ -17,7 +17,7 @@ type offersDB struct {
 func (o *offersDB) GetAllOffers(ctx context.Context) ([]marketing.Offer, error) {
 	offersDbx, err := o.db.All_Offer(ctx)
 	if err != nil {
-		return nil, marketing.ErrOffers.Wrap(err)
+		return nil, marketing.OffersErr.Wrap(err)
 	}
 
 	return offersFromDbx(offersDbx)
@@ -30,10 +30,10 @@ func (o *offersDB) GetOfferByStatusAndType(ctx context.Context, offerStatus mark
 
 	offer, err := o.db.Get_Offer_By_Status_And_Type(ctx, dbx.Offer_Status(int(offerStatus)), dbx.Offer_Type(int(offerType)))
 	if err == sql.ErrNoRows {
-		return nil, marketing.ErrOffers.New("not found %v", offerStatus)
+		return nil, marketing.OffersErr.New("not found %v", offerStatus)
 	}
 	if err != nil {
-		return nil, marketing.ErrOffers.Wrap(err)
+		return nil, marketing.OffersErr.Wrap(err)
 	}
 
 	return convertDBOffer(offer)
@@ -55,7 +55,7 @@ func (o *offersDB) Create(ctx context.Context, offer *marketing.Offer) (*marketi
 	)
 
 	if err != nil {
-		return nil, marketing.ErrOffers.Wrap(err)
+		return nil, marketing.OffersErr.Wrap(err)
 	}
 
 	return convertDBOffer(createdOffer)
@@ -80,7 +80,7 @@ func (o *offersDB) Update(ctx context.Context, offer *marketing.Offer) error {
 
 	_, err := o.db.Update_Offer_By_Id(ctx, offerId, updateFields)
 
-	return marketing.ErrOffers.Wrap(err)
+	return marketing.OffersErr.Wrap(err)
 
 }
 
@@ -88,7 +88,7 @@ func (o *offersDB) Update(ctx context.Context, offer *marketing.Offer) error {
 func (o *offersDB) Delete(ctx context.Context, id int) error {
 	_, err := o.db.Delete_Offer_By_Id(ctx, dbx.Offer_Id(id))
 
-	return marketing.ErrOffers.Wrap(err)
+	return marketing.OffersErr.Wrap(err)
 }
 
 func offersFromDbx(offersDbx []*dbx.Offer) ([]marketing.Offer, error) {
@@ -110,7 +110,7 @@ func offersFromDbx(offersDbx []*dbx.Offer) ([]marketing.Offer, error) {
 
 func convertDBOffer(offerDbx *dbx.Offer) (*marketing.Offer, error) {
 	if offerDbx == nil {
-		return nil, marketing.ErrOffers.New("offerDbx parameter is nil")
+		return nil, marketing.OffersErr.New("offerDbx parameter is nil")
 	}
 
 	o := marketing.Offer{
