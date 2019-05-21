@@ -177,12 +177,12 @@ func LoadEncryptionKey(filepath string) (key *storj.Key, error error) {
 
 	defer func() { err = errs.Combine(err, file.Close()) }()
 
-	key = &storj.Key{}
-	if _, err := file.Read(key[:]); err != nil && err != io.EOF {
+	rawKey := make([]byte, 1024)
+	if _, err := file.Read(rawKey); err != nil && err != io.EOF {
 		return nil, err
 	}
 
-	return key, nil
+	return storj.NewKey(rawKey)
 }
 
 // UseOrLoadEncryptionKey return an encryption key from humanReadableKey when
