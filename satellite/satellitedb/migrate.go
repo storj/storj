@@ -668,7 +668,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Version:     21,
 				Action: migrate.SQL{`
 					CREATE TABLE offers (
-						id bytea NOT NULL,
+						id serial NOT NULL,
 						name text NOT NULL,
 						description text NOT NULL,
 						type integer NOT NULL,
