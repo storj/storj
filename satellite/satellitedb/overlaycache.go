@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strings"
 	"time"
 
@@ -470,6 +471,7 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 // UpdateUptime updates a single storagenode's uptime stats in the db
 func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *overlay.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
+	fmt.Println("entering updateuptime", nodeID, isUp)
 
 	tx, err := cache.db.Open(ctx)
 	if err != nil {
@@ -497,8 +499,10 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 	updateFields.UptimeRatio = dbx.Node_UptimeRatio(uptimeRatio)
 
 	if isUp {
+		fmt.Println(nodeID, "online:", isUp, "last contact success now")
 		updateFields.LastContactSuccess = dbx.Node_LastContactSuccess(time.Now())
 	} else {
+		fmt.Println(nodeID, "online:", isUp, "last contact failure now")
 		updateFields.LastContactFailure = dbx.Node_LastContactFailure(time.Now())
 	}
 
