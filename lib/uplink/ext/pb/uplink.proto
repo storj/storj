@@ -23,3 +23,10 @@ message UplinkConfig {
     int64 max_inline_size = 4;
     int64 max_memory = 5;
 }
+
+message BucketConfig {
+    bytes path_cipher = 1;
+    EncryptionParameters encryption_parameters = 2;
+    RedundancyScheme reduncancy_scheme = 3;
+    uint64 segment_size = 4;
+}

@@ -27,24 +27,39 @@ var (
 
 type GoValue struct {
 	ptr      token
+	SerialProto
+}
+
+type SerialProto struct {
 	_type    uint32
 	snapshot []byte
 	size     uintptr
+}
+
+// GetSnapshot will take a C GoValue struct that was created in go and populate the snapshot
+//export CGetSnapshot
+func CGetSnapshot(cValue *C.struct_GoValue, cErr **C.char) {
+	govalue := CToGoGoValue(*cValue)
+
+	if err := govalue.GetSnapshot(); err != nil {
+		*cErr = C.CString(err.Error())
+		return
+	}
 }
 
 // Snapshot
 // 	look up a struct in the structRefMap
 // 	convert it to a protobuf value
 // 	serialize that data into the govalue
-func (val GoValue) Snapshot() (data []byte, _ error) {
-	switch val._type {
+func (gv GoValue) Snapshot() (data []byte, _ error) {
+	switch gv._type {
 	case C.IDVersionType:
-		uplinkStruct := structRefMap.Get(val.ptr).(storj.IDVersion)
+		uplinkStruct := structRefMap.Get(gv.ptr).(storj.IDVersion)
 		return proto.Marshal(&pb.IDVersion{
 			Number: uint32(uplinkStruct.Number),
 		})
 	case C.UplinkConfigType:
-		uplinkStruct := structRefMap.Get(val.ptr).(uplink.Config)
+		uplinkStruct := structRefMap.Get(gv.ptr).(uplink.Config)
 
 		return proto.Marshal(&pb.UplinkConfig {
 			Tls: &pb.TLSConfig{
@@ -58,7 +73,7 @@ func (val GoValue) Snapshot() (data []byte, _ error) {
 			MaxMemory:     int64(uplinkStruct.Volatile.MaxMemory),
 		})
 	default:
-		return nil, ErrSnapshot.New("type", val._type)
+		return nil, ErrSnapshot.New("type", gv._type)
 	}
 }
 
@@ -88,15 +103,4 @@ func (gv GoValue) GoToCGoValue() (cVal C.struct_GoValue, err error) {
 		Snapshot: (*C.uchar)(unsafe.Pointer(&gv.snapshot)),
 		Size:     C.GoUintptr(gv.size),
 	}, nil
-}
-
-// GetSnapshot will take a C GoValue struct that was created in go and populate the snapshot
-//export CGetSnapshot
-func CGetSnapshot(cValue *C.struct_GoValue, cErr **C.char) {
-	govalue := CToGoGoValue(*cValue)
-
-	if err := govalue.GetSnapshot(); err != nil {
-		*cErr = C.CString(err.Error())
-		return
-	}
 }
