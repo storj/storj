@@ -118,10 +118,9 @@ func (offer *Offer) IsUpdatable() bool {
 }
 ```
 
-
-
 **satellite/console/credit.go**
 - Create a user_credit interface to interact with the user_credit table
+- Credits will be stored in cents as its unit.
 
 ```golang
 type DB interface {
