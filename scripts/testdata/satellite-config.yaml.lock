@@ -233,7 +233,7 @@ server.private-address: "127.0.0.1:7778"
 # server.revocation-dburl: "bolt://testdata/revocations.db"
 
 # if true, uses peer ca whitelist checking
-# server.use-peer-ca-whitelist: false
+# server.use-peer-ca-whitelist: true
 
 # how frequently the tally service should run
 # tally.interval: 1h0m0s
