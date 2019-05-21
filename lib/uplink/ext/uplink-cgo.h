@@ -116,7 +116,7 @@ extern char* Serialize(APIKeyRef p0);
 
 extern gvUplink GetIDVersion(unsigned int p0, char** p1);
 
-// GetSnapshot will take a C GoValue struct and populate the snapshot
+// GetSnapshot will take a C GoValue struct that was created in go and populate the snapshot
 
 extern void CGetSnapshot(gvUplink* p0, char** p1);
 

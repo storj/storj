@@ -8,6 +8,12 @@
 // get_snapshot gets the values from the GoValue->Ptr struct and convert them into a protobuf for C code to read
 void *get_snapshot(struct GoValue *val, char **err)
 {
+    if (val->Ptr == 0)
+    {
+        *err = "empty ptr error: go value was created in C";
+        return NULL;
+    }
+
     switch (val->Type)
     {
     case IDVersionType:

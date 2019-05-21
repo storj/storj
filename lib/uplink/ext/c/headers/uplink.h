@@ -8,19 +8,3 @@ typedef GoUintptr UplinkRef;
 typedef GoUintptr UplinkConfigRef;
 typedef struct GoValue gvUplink;
 typedef struct GoValue gvUplinkConfig;
-
-struct Config
-{
-    struct
-    {
-        struct
-        {
-            bool SkipPeerCAWhitelist;
-            char *PeerCAWhitelistPath;
-        } TLS;
-        IDVersionRef IdentityVersion;
-        char *PeerIDVersion;
-        Size MaxInlineSize;
-        Size MaxMemory;
-    } Volatile;
-};
