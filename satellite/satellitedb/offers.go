@@ -9,13 +9,13 @@ import (
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
-type offersDB struct {
+type offers struct {
 	db dbx.Methods
 }
 
-// GetAllOffers returns all offers from the db
-func (o *offersDB) GetAllOffers(ctx context.Context) ([]marketing.Offer, error) {
-	offersDbx, err := o.db.All_Offer(ctx)
+// ListAllOffers returns all offers from the db
+func (offers *offers) ListAllOffers(ctx context.Context) ([]marketing.Offer, error) {
+	offersDbx, err := offers.db.All_Offer(ctx)
 	if err != nil {
 		return nil, marketing.OffersErr.Wrap(err)
 	}
@@ -23,12 +23,12 @@ func (o *offersDB) GetAllOffers(ctx context.Context) ([]marketing.Offer, error) 
 	return offersFromDbx(offersDbx)
 }
 
-func (o *offersDB) GetOfferByStatusAndType(ctx context.Context, offerStatus marketing.OfferStatus, offerType marketing.OfferType) (*marketing.Offer, error) {
+func (offers *offers) GetOfferByStatusAndType(ctx context.Context, offerStatus marketing.OfferStatus, offerType marketing.OfferType) (*marketing.Offer, error) {
 	if offerStatus == 0 || offerType == 0 {
 		return nil, errs.New("offer status or type can't be nil")
 	}
 
-	offer, err := o.db.Get_Offer_By_Status_And_Type(ctx, dbx.Offer_Status(int(offerStatus)), dbx.Offer_Type(int(offerType)))
+	offer, err := offers.db.Get_Offer_By_Status_And_Type(ctx, dbx.Offer_Status(int(offerStatus)), dbx.Offer_Type(int(offerType)))
 	if err == sql.ErrNoRows {
 		return nil, marketing.OffersErr.New("not found %v", offerStatus)
 	}
@@ -40,8 +40,8 @@ func (o *offersDB) GetOfferByStatusAndType(ctx context.Context, offerStatus mark
 }
 
 // Create insert a new offer into the db
-func (o *offersDB) Create(ctx context.Context, offer *marketing.Offer) (*marketing.Offer, error) {
-	createdOffer, err := o.db.Create_Offer(ctx,
+func (offers *offers) Create(ctx context.Context, offer *marketing.Offer) (*marketing.Offer, error) {
+	createdOffer, err := offers.db.Create_Offer(ctx,
 		dbx.Offer_Name(offer.Name),
 		dbx.Offer_Description(offer.Description),
 		dbx.Offer_Type(int(offer.Type)),
@@ -62,7 +62,7 @@ func (o *offersDB) Create(ctx context.Context, offer *marketing.Offer) (*marketi
 }
 
 // Update modifies an existing offer
-func (o *offersDB) Update(ctx context.Context, offer *marketing.Offer) error {
+func (offers *offers) Update(ctx context.Context, offer *marketing.Offer) error {
 	updateFields := dbx.Offer_Update_Fields{
 		Name:                      dbx.Offer_Name(offer.Name),
 		Description:               dbx.Offer_Description(offer.Description),
@@ -78,15 +78,15 @@ func (o *offersDB) Update(ctx context.Context, offer *marketing.Offer) error {
 
 	offerId := dbx.Offer_Id(offer.ID)
 
-	_, err := o.db.Update_Offer_By_Id(ctx, offerId, updateFields)
+	_, err := offers.db.Update_Offer_By_Id(ctx, offerId, updateFields)
 
 	return marketing.OffersErr.Wrap(err)
 
 }
 
 // Delete is a method for deleting offer by Id from the database.
-func (o *offersDB) Delete(ctx context.Context, id int) error {
-	_, err := o.db.Delete_Offer_By_Id(ctx, dbx.Offer_Id(id))
+func (offers *offers) Delete(ctx context.Context, id int) error {
+	_, err := offers.db.Delete_Offer_By_Id(ctx, dbx.Offer_Id(id))
 
 	return marketing.OffersErr.Wrap(err)
 }

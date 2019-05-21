@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/marketing"
 	"storj.io/storj/satellite/orders"
 )
 
@@ -574,6 +575,61 @@ func (m *lockedIrreparable) IncrementRepairAttempts(ctx context.Context, segment
 	m.Lock()
 	defer m.Unlock()
 	return m.db.IncrementRepairAttempts(ctx, segmentInfo)
+}
+
+// Marketing returns database for marketing admin GUI
+func (m *locked) Marketing() marketing.DB {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedMarketing{m.Locker, m.db.Marketing()}
+}
+
+// lockedMarketing implements locking wrapper for marketing.DB
+type lockedMarketing struct {
+	sync.Locker
+	db marketing.DB
+}
+
+func (m *lockedMarketing) Offers() marketing.Offers {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedOffers{m.Locker, m.db.Offers()}
+}
+
+// lockedOffers implements locking wrapper for marketing.Offers
+type lockedOffers struct {
+	sync.Locker
+	db marketing.Offers
+}
+
+func (m *lockedOffers) Create(ctx context.Context, offer *marketing.Offer) (*marketing.Offer, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Create(ctx, offer)
+}
+
+func (m *lockedOffers) Delete(ctx context.Context, id int) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Delete(ctx, id)
+}
+
+func (m *lockedOffers) GetOfferByStatusAndType(ctx context.Context, offerStatus marketing.OfferStatus, offerType marketing.OfferType) (*marketing.Offer, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetOfferByStatusAndType(ctx, offerStatus, offerType)
+}
+
+func (m *lockedOffers) ListAllOffers(ctx context.Context) ([]marketing.Offer, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.ListAllOffers(ctx)
+}
+
+func (m *lockedOffers) Update(ctx context.Context, offer *marketing.Offer) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Update(ctx, offer)
 }
 
 // Orders returns database for orders

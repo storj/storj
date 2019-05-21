@@ -52,7 +52,7 @@ func main() {
 		Mode: packages.LoadAllSyntax,
 	}
 	code.Wrapped = map[string]bool{}
-	code.AdditionalNesting = map[string]int{"Console": 1}
+	code.AdditionalNesting = map[string]int{"Console": 1, "Marketing": 1}
 
 	// e.g. storj.io/storj/satellite.DB
 	p := strings.LastIndexByte(typeFullyQualifedName, '.')
