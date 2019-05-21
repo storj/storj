@@ -89,3 +89,14 @@ func (gv GoValue) GoToCGoValue() (cVal C.struct_GoValue, err error) {
 		Size:     C.GoUintptr(gv.size),
 	}, nil
 }
+
+// GetSnapshot will take a C GoValue struct that was created in go and populate the snapshot
+//export CGetSnapshot
+func CGetSnapshot(cValue *C.struct_GoValue, cErr **C.char) {
+	govalue := CToGoGoValue(*cValue)
+
+	if err := govalue.GetSnapshot(); err != nil {
+		*cErr = C.CString(err.Error())
+		return
+	}
+}
