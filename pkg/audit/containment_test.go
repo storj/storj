@@ -43,6 +43,11 @@ func TestContainIncrementAndGet(t *testing.T) {
 
 		require.Equal(t, input, output)
 
+		// check contained flag set to true
+		node, err := planet.Satellites[0].DB.OverlayCache().Get(ctx, input.NodeID)
+		require.NoError(t, err)
+		require.True(t, node.Contained)
+
 		nodeID1 := planet.StorageNodes[1].ID()
 		_, err = planet.Satellites[0].DB.Containment().Get(ctx, nodeID1)
 		require.Error(t, err, audit.ErrContainedNotFound.New(nodeID1.String()))
@@ -123,14 +128,26 @@ func TestContainDelete(t *testing.T) {
 		err = planet.Satellites[0].DB.Containment().IncrementPending(ctx, info1)
 		require.NoError(t, err)
 
+		// check contained flag set to true
+		node, err := planet.Satellites[0].DB.OverlayCache().Get(ctx, info1.NodeID)
+		require.NoError(t, err)
+		require.True(t, node.Contained)
+
 		isDeleted, err := planet.Satellites[0].DB.Containment().Delete(ctx, info1.NodeID)
 		require.NoError(t, err)
 		require.True(t, isDeleted)
 
+		// check contained flag set to false
+		node, err = planet.Satellites[0].DB.OverlayCache().Get(ctx, info1.NodeID)
+		require.NoError(t, err)
+		require.False(t, node.Contained)
+
+		// get pending audit that doesn't exist
 		_, err = planet.Satellites[0].DB.Containment().Get(ctx, info1.NodeID)
 		require.Error(t, err, audit.ErrContainedNotFound.New(info1.NodeID.String()))
 		require.True(t, audit.ErrContainedNotFound.Has(err))
 
+		// delete pending audit that doesn't exist
 		isDeleted, err = planet.Satellites[0].DB.Containment().Delete(ctx, info1.NodeID)
 		require.NoError(t, err)
 		require.False(t, isDeleted)
