@@ -28,10 +28,10 @@ var (
 type PendingAudit struct {
 	NodeID            storj.NodeID
 	PieceID           storj.PieceID
-	StripeIndex       int32
+	StripeIndex       uint32
 	ShareSize         int64
 	ExpectedShareHash []byte
-	ReverifyCount     int32
+	ReverifyCount     uint32
 }
 
 // DB holds information about pending audits for contained nodes
