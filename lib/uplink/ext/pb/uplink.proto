@@ -32,7 +32,7 @@ message EncryptionParameters {
 message RedundancyScheme {
     bytes algorithm = 1;
     int32 share_size = 2;
-    int32 requried_shares = 3;
+    int32 required_shares = 3;
     int32 optimal_shares = 4;
     int32 total_shares = 5;
 }
@@ -40,6 +40,6 @@ message RedundancyScheme {
 message BucketConfig {
     bytes path_cipher = 1;
     EncryptionParameters encryption_parameters = 2;
-    RedundancyScheme reduncancy_scheme = 3;
+    RedundancyScheme redundancy_scheme = 3;
     uint64 segment_size = 4;
 }

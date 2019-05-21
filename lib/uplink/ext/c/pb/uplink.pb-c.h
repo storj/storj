@@ -18,6 +18,9 @@ PROTOBUF_C__BEGIN_DECLS
 typedef struct _Storj__Libuplink__IDVersion Storj__Libuplink__IDVersion;
 typedef struct _Storj__Libuplink__TLSConfig Storj__Libuplink__TLSConfig;
 typedef struct _Storj__Libuplink__UplinkConfig Storj__Libuplink__UplinkConfig;
+typedef struct _Storj__Libuplink__EncryptionParameters Storj__Libuplink__EncryptionParameters;
+typedef struct _Storj__Libuplink__RedundancyScheme Storj__Libuplink__RedundancyScheme;
+typedef struct _Storj__Libuplink__BucketConfig Storj__Libuplink__BucketConfig;
 
 
 /* --- enums --- */
@@ -59,6 +62,44 @@ struct  _Storj__Libuplink__UplinkConfig
 #define STORJ__LIBUPLINK__UPLINK_CONFIG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&storj__libuplink__uplink_config__descriptor) \
     , NULL, NULL, (char *)protobuf_c_empty_string, 0, 0 }
+
+
+struct  _Storj__Libuplink__EncryptionParameters
+{
+  ProtobufCMessage base;
+  ProtobufCBinaryData cipher_suite;
+  int32_t block_size;
+};
+#define STORJ__LIBUPLINK__ENCRYPTION_PARAMETERS__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&storj__libuplink__encryption_parameters__descriptor) \
+    , {0,NULL}, 0 }
+
+
+struct  _Storj__Libuplink__RedundancyScheme
+{
+  ProtobufCMessage base;
+  ProtobufCBinaryData algorithm;
+  int32_t share_size;
+  int32_t required_shares;
+  int32_t optimal_shares;
+  int32_t total_shares;
+};
+#define STORJ__LIBUPLINK__REDUNDANCY_SCHEME__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&storj__libuplink__redundancy_scheme__descriptor) \
+    , {0,NULL}, 0, 0, 0, 0 }
+
+
+struct  _Storj__Libuplink__BucketConfig
+{
+  ProtobufCMessage base;
+  ProtobufCBinaryData path_cipher;
+  Storj__Libuplink__EncryptionParameters *encryption_parameters;
+  Storj__Libuplink__RedundancyScheme *redundancy_scheme;
+  uint64_t segment_size;
+};
+#define STORJ__LIBUPLINK__BUCKET_CONFIG__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&storj__libuplink__bucket_config__descriptor) \
+    , {0,NULL}, NULL, NULL, 0 }
 
 
 /* Storj__Libuplink__IDVersion methods */
@@ -118,6 +159,63 @@ Storj__Libuplink__UplinkConfig *
 void   storj__libuplink__uplink_config__free_unpacked
                      (Storj__Libuplink__UplinkConfig *message,
                       ProtobufCAllocator *allocator);
+/* Storj__Libuplink__EncryptionParameters methods */
+void   storj__libuplink__encryption_parameters__init
+                     (Storj__Libuplink__EncryptionParameters         *message);
+size_t storj__libuplink__encryption_parameters__get_packed_size
+                     (const Storj__Libuplink__EncryptionParameters   *message);
+size_t storj__libuplink__encryption_parameters__pack
+                     (const Storj__Libuplink__EncryptionParameters   *message,
+                      uint8_t             *out);
+size_t storj__libuplink__encryption_parameters__pack_to_buffer
+                     (const Storj__Libuplink__EncryptionParameters   *message,
+                      ProtobufCBuffer     *buffer);
+Storj__Libuplink__EncryptionParameters *
+       storj__libuplink__encryption_parameters__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   storj__libuplink__encryption_parameters__free_unpacked
+                     (Storj__Libuplink__EncryptionParameters *message,
+                      ProtobufCAllocator *allocator);
+/* Storj__Libuplink__RedundancyScheme methods */
+void   storj__libuplink__redundancy_scheme__init
+                     (Storj__Libuplink__RedundancyScheme         *message);
+size_t storj__libuplink__redundancy_scheme__get_packed_size
+                     (const Storj__Libuplink__RedundancyScheme   *message);
+size_t storj__libuplink__redundancy_scheme__pack
+                     (const Storj__Libuplink__RedundancyScheme   *message,
+                      uint8_t             *out);
+size_t storj__libuplink__redundancy_scheme__pack_to_buffer
+                     (const Storj__Libuplink__RedundancyScheme   *message,
+                      ProtobufCBuffer     *buffer);
+Storj__Libuplink__RedundancyScheme *
+       storj__libuplink__redundancy_scheme__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   storj__libuplink__redundancy_scheme__free_unpacked
+                     (Storj__Libuplink__RedundancyScheme *message,
+                      ProtobufCAllocator *allocator);
+/* Storj__Libuplink__BucketConfig methods */
+void   storj__libuplink__bucket_config__init
+                     (Storj__Libuplink__BucketConfig         *message);
+size_t storj__libuplink__bucket_config__get_packed_size
+                     (const Storj__Libuplink__BucketConfig   *message);
+size_t storj__libuplink__bucket_config__pack
+                     (const Storj__Libuplink__BucketConfig   *message,
+                      uint8_t             *out);
+size_t storj__libuplink__bucket_config__pack_to_buffer
+                     (const Storj__Libuplink__BucketConfig   *message,
+                      ProtobufCBuffer     *buffer);
+Storj__Libuplink__BucketConfig *
+       storj__libuplink__bucket_config__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   storj__libuplink__bucket_config__free_unpacked
+                     (Storj__Libuplink__BucketConfig *message,
+                      ProtobufCAllocator *allocator);
 /* --- per-message closures --- */
 
 typedef void (*Storj__Libuplink__IDVersion_Closure)
@@ -129,6 +227,15 @@ typedef void (*Storj__Libuplink__TLSConfig_Closure)
 typedef void (*Storj__Libuplink__UplinkConfig_Closure)
                  (const Storj__Libuplink__UplinkConfig *message,
                   void *closure_data);
+typedef void (*Storj__Libuplink__EncryptionParameters_Closure)
+                 (const Storj__Libuplink__EncryptionParameters *message,
+                  void *closure_data);
+typedef void (*Storj__Libuplink__RedundancyScheme_Closure)
+                 (const Storj__Libuplink__RedundancyScheme *message,
+                  void *closure_data);
+typedef void (*Storj__Libuplink__BucketConfig_Closure)
+                 (const Storj__Libuplink__BucketConfig *message,
+                  void *closure_data);
 
 /* --- services --- */
 
@@ -138,6 +245,9 @@ typedef void (*Storj__Libuplink__UplinkConfig_Closure)
 extern const ProtobufCMessageDescriptor storj__libuplink__idversion__descriptor;
 extern const ProtobufCMessageDescriptor storj__libuplink__tlsconfig__descriptor;
 extern const ProtobufCMessageDescriptor storj__libuplink__uplink_config__descriptor;
+extern const ProtobufCMessageDescriptor storj__libuplink__encryption_parameters__descriptor;
+extern const ProtobufCMessageDescriptor storj__libuplink__redundancy_scheme__descriptor;
+extern const ProtobufCMessageDescriptor storj__libuplink__bucket_config__descriptor;
 
 PROTOBUF_C__END_DECLS
 
