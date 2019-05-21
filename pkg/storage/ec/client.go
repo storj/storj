@@ -235,6 +235,8 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 			continue
 		}
 
+		atomic.AddInt32(&successfulCount, 1)
+
 		successfulNodes[info.i] = &pb.Node{
 			Id:      limits[info.i].GetLimit().StorageNodeId,
 			Address: limits[info.i].GetStorageNodeAddress(),
@@ -260,7 +262,7 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 		}
 	}()
 
-	if successfulCount == 0 {
+	if atomic.LoadInt32(&successfulCount) == 0 {
 		return nil, nil, Error.New("repair to all nodes failed")
 	}
 
