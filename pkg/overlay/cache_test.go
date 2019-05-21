@@ -103,7 +103,6 @@ func TestUpdateContained(t *testing.T) {
 		cache := planet.Satellites[0].DB.OverlayCache()
 
 		nodeID0 := planet.StorageNodes[0].ID()
-		nodeID1 := planet.StorageNodes[1].ID()
 
 		// check that contained default is false
 		node0, err := cache.Get(ctx, nodeID0)
@@ -124,6 +123,8 @@ func TestUpdateContained(t *testing.T) {
 		node0, err = cache.Get(ctx, nodeID0)
 		require.NoError(t, err)
 		require.True(t, node0.Contained)
+
+		nodeID1 := planet.StorageNodes[1].ID()
 
 		// sets to false when it's already false
 		err = cache.UpdateContained(ctx, nodeID1, false)
