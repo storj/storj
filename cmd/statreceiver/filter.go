@@ -5,29 +5,56 @@ package main
 
 import (
 	"regexp"
+	"sync"
 	"time"
+
+	"github.com/zeebo/admission/admproto"
 )
 
-// PacketFilter is used during Packet parsing to determine if the Packet should
-// continue to be parsed.
+// PacketFilter inspects a packet header to determine if it should be passed
+// through
 type PacketFilter struct {
 	application *regexp.Regexp
 	instance    *regexp.Regexp
+	dest        PacketDest
+	scratch     sync.Pool
 }
 
-// NewPacketFilter creates a PacketFilter. It takes an application regular
-// expression and an instance regular expression. If the regular expression
-// is matched, the packet will be parsed.
-func NewPacketFilter(applicationRegex, instanceRegex string) *PacketFilter {
+// NewPacketFilter creates a PacketFilter. It takes a packet destination,
+// an application regular expression, and an instance regular expression.
+// If the regular expression is matched, the packet will be passed through.
+func NewPacketFilter(applicationRegex, instanceRegex string, dest PacketDest) *PacketFilter {
 	return &PacketFilter{
 		application: regexp.MustCompile(applicationRegex),
 		instance:    regexp.MustCompile(instanceRegex),
+		dest:        dest,
+		scratch: sync.Pool{
+			New: func() interface{} {
+				var x [10 * kb]byte
+				return &x
+			},
+		},
 	}
 }
 
-// Filter returns true if the application and instance match the filter.
-func (a *PacketFilter) Filter(application, instance string) bool {
-	return a.application.MatchString(application) && a.instance.MatchString(instance)
+// Packet passes the packet along to the given destination if the regexes pass
+func (a *PacketFilter) Packet(data []byte, ts time.Time) error {
+	cdata, err := admproto.CheckChecksum(data)
+	if err != nil {
+		return err
+	}
+	scratch := a.scratch.Get().(*[10 * kb]byte)
+	defer a.scratch.Put(scratch)
+
+	r := admproto.NewReaderWith((*scratch)[:])
+	_, application, instance, err := r.Begin(cdata)
+	if err != nil {
+		return err
+	}
+	if a.application.Match(application) && a.instance.Match(instance) {
+		return a.dest.Packet(data, ts)
+	}
+	return nil
 }
 
 // KeyFilter is a MetricDest that only passes along metrics that pass the key

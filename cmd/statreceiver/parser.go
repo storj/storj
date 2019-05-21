@@ -54,12 +54,6 @@ func (p *Parser) Packet(data []byte, ts time.Time) (err error) {
 	}
 
 	app, inst := string(appb), string(instb)
-	for _, filter := range p.filters {
-		if !filter.Filter(app, inst) {
-			return nil
-		}
-	}
-
 	var key []byte
 	var value float64
 	for len(data) > 0 {

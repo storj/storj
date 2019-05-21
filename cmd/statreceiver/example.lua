@@ -33,12 +33,7 @@ metric_handlers = mcopy(
 
 -- create a metric parser.
 metric_parser =
-  parse(  -- parse takes one or two arguments. the first argument is
-          -- a metric handler, the remaining one is a per-packet application or
-          -- instance filter. each filter is a regex. all packets must
-          -- match all packet filters.
-    sanitize(metric_handlers), -- sanitize converts weird chars to underscores
-    packetfilter("storagenode-prod|satellite-prod|uplink-prod", ""))
+  parse(sanitize(metric_handlers)) -- sanitize converts weird chars to underscores
 
 -- pcopy forks data to multiple outputs
 -- output types include parse, fileout, and udpout
@@ -50,7 +45,8 @@ destination = pcopy(
   udpout("localhost:9001"),
 
   -- rothko
-  udpout("localhost:9002"))
+  packetfilter("storagenode-prod|satellite-prod|uplink-prod", "",
+    udpout("localhost:9002")))
 
 -- tie the source to the destination
 deliver(source, destination)
