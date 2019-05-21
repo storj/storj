@@ -7,8 +7,8 @@ import (
 	"github.com/zeebo/errs"
 )
 
-// ErrOffers creates offer error class
-var ErrOffers = errs.Class("offers")
+// OffersErr creates offer error class
+var OffersErr = errs.Class("offers error")
 
 // Offers holds information about offer
 type Offers interface {
