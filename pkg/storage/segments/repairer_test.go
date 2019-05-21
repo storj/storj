@@ -75,13 +75,12 @@ func TestSegmentStoreRepair(t *testing.T) {
 		nodesToKill := make(map[storj.NodeID]bool)
 		nodesToKeepAlive := make(map[storj.NodeID]bool)
 		for i, piece := range remotePieces {
-			if i < toKill {
-				nodesToKill[piece.NodeId] = true
-				lostPieces = append(lostPieces, piece.GetPieceNum())
+			if i >= toKill {
+				nodesToKeepAlive[piece.NodeId] = true
 				continue
 			}
-
-			nodesToKeepAlive[piece.NodeId] = true
+			nodesToKill[piece.NodeId] = true
+			lostPieces = append(lostPieces, piece.GetPieceNum())
 		}
 		for _, node := range planet.StorageNodes {
 			if nodesToKill[node.ID()] {
