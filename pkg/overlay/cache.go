@@ -75,7 +75,8 @@ type NodeCriteria struct {
 	AuditSuccessRatio  float64
 	UptimeCount        int64
 	UptimeSuccessRatio float64
-	Exclude            Exclude
+	ExcludedNodes      []storj.NodeID
+	ExcludedIPs        []string
 	MinimumVersion     string // semver or empty
 	OnlineWindow       time.Duration
 	DistinctIP         bool
@@ -110,12 +111,6 @@ type NodeStats struct {
 	UptimeCount        int64
 	LastContactSuccess time.Time
 	LastContactFailure time.Time
-}
-
-// Exclude contains node IDs and IPs to exclude from node selection
-type Exclude struct {
-	Nodes []storj.NodeID
-	IPs   []string
 }
 
 // Cache is used to store and handle node information
@@ -180,8 +175,7 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 		reputableNodeCount = req.RequestedCount
 	}
 
-	var exclude Exclude
-	exclude.Nodes = req.ExcludedNodes
+	excludedNodes := req.ExcludedNodes
 
 	newNodeCount := 0
 	if preferences.NewNodePercentage > 0 {
@@ -195,7 +189,7 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 			FreeDisk:          req.FreeDisk,
 			AuditCount:        preferences.AuditCount,
 			AuditSuccessRatio: preferences.AuditSuccessRatio,
-			Exclude:           exclude,
+			ExcludedNodes:     excludedNodes,
 			MinimumVersion:    preferences.MinimumVersion,
 			OnlineWindow:      preferences.OnlineWindow,
 			DistinctIP:        preferences.DistinctIP,
@@ -205,11 +199,12 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 		}
 	}
 
+	var excludedIPs []string
 	// add selected new nodes and their IPs to the excluded lists for reputable node selection
 	for _, newNode := range newNodes {
-		exclude.Nodes = append(exclude.Nodes, newNode.Id)
+		excludedNodes = append(excludedNodes, newNode.Id)
 		if preferences.DistinctIP {
-			exclude.IPs = append(exclude.IPs, newNode.LastIp)
+			excludedIPs = append(excludedIPs, newNode.LastIp)
 		}
 	}
 
@@ -220,7 +215,8 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 		AuditSuccessRatio:  preferences.AuditSuccessRatio,
 		UptimeCount:        preferences.UptimeCount,
 		UptimeSuccessRatio: preferences.UptimeRatio,
-		Exclude:            exclude,
+		ExcludedNodes:      excludedNodes,
+		ExcludedIPs:        excludedIPs,
 		MinimumVersion:     preferences.MinimumVersion,
 		OnlineWindow:       preferences.OnlineWindow,
 		DistinctIP:         preferences.DistinctIP,
