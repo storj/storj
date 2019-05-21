@@ -10,11 +10,8 @@
 # how frequently checker should audit segments
 # checker.interval: 30s
 
-# how frequently irrepair checker should audit segments
-# checker.irrepair-interval: 15s
-
-# maximum segments that can be repaired concurrently
-# checker.max-repair: 5
+# how frequently irrepairable checker should audit segments
+# checker.irrdb-interval: 15s
 
 # server address of the graphql api gateway and frontend app
 # console.address: "127.0.0.1:8081"

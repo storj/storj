@@ -30,9 +30,8 @@ var (
 
 // Config contains configurable values for checker
 type Config struct {
-	MaxRepair        int           `help:"maximum segments that can be repaired concurrently" releaseDefault:"5" devDefault:"1"`
-	Interval         time.Duration `help:"how frequently checker should audit segments" releaseDefault:"30s" devDefault:"0h0m10s"`
-	IrrepairInterval time.Duration `help:"how frequently irrepair checker should audit segments" releaseDefault:"15s" devDefault:"0h0m5s"`
+	Interval      time.Duration `help:"how frequently checker should audit segments" releaseDefault:"30s" devDefault:"0h0m10s"`
+	IrrdbInterval time.Duration `help:"how frequently irrepairable checker should audit segments" releaseDefault:"15s" devDefault:"0h0m5s"`
 }
 
 // remoteSegmentInfo remote segment information
@@ -51,13 +50,12 @@ type Checker struct {
 	overlay      *overlay.Cache
 	irrdb        irreparable.DB
 	logger       *zap.Logger
-	Limiter      *sync2.Limiter
 	Loop         sync2.Cycle
 	IrrepairLoop sync2.Cycle
 }
 
 // NewChecker creates a new instance of checker
-func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overlay *overlay.Cache, irrdb irreparable.DB, limit int, logger *zap.Logger, repairInterval, irrepairInterval time.Duration, concurrency int) *Checker {
+func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overlay *overlay.Cache, irrdb irreparable.DB, limit int, logger *zap.Logger, repairInterval, irrepairInterval time.Duration) *Checker {
 	// TODO: reorder arguments
 	checker := &Checker{
 		metainfo:     metainfo,
@@ -66,7 +64,6 @@ func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overl
 		overlay:      overlay,
 		irrdb:        irrdb,
 		logger:       logger,
-		Limiter:      sync2.NewLimiter(concurrency),
 		Loop:         *sync2.NewCycle(repairInterval),
 		IrrepairLoop: *sync2.NewCycle(irrepairInterval),
 	}
@@ -77,8 +74,6 @@ func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overl
 func (checker *Checker) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// wait for all repairs to complete
-	defer checker.Limiter.Wait()
 	c := make(chan error)
 
 	go func() {
@@ -212,16 +207,19 @@ func (checker *Checker) checkSegmentStatus(ctx context.Context, pointer *pb.Poin
 			checker.logger.Warn("Missing pieces is zero in checker, but this should be impossible -- bad redundancy scheme.")
 			return nil
 		}
+
+		// segment needs repair
 		rmtSegInfo.remoteSegmentsNeedingRepair++
-		if _, err = checker.irrdb.Get(ctx, []byte(path)); err != nil {
-			err = checker.repairQueue.Insert(ctx, &pb.InjuredSegment{
-				Path:       path,
-				LostPieces: missingPieces,
-			})
-			if err != nil {
-				return Error.New("error adding injured segment to queue %s", err)
-			}
-		} else {
+		err = checker.repairQueue.Insert(ctx, &pb.InjuredSegment{
+			Path:       path,
+			LostPieces: missingPieces,
+		})
+		if err != nil {
+			return Error.New("error adding injured segment to queue %s", err)
+		}
+
+		// if same segment previously was irreparable
+		if _, err = checker.irrdb.Get(ctx, []byte(path)); err == nil {
 			err = checker.irrdb.Delete(ctx, []byte(path))
 			if err != nil {
 				zap.L().Error("repair delete failed", zap.Error(err))
@@ -278,13 +276,11 @@ func (checker *Checker) irrepairProcess(ctx context.Context) (err error) {
 			break
 		}
 
-		checker.Limiter.Go(ctx, func() {
-			err := checker.checkSegmentStatus(ctx, seg[0].GetSegmentDetail(), string(seg[0].GetPath()), &rmtSegInfo)
-			if err != nil {
-				zap.L().Error("repair failed", zap.Error(err))
-			}
-			offset++
-		})
+		err = checker.checkSegmentStatus(ctx, seg[0].GetSegmentDetail(), string(seg[0].GetPath()), &rmtSegInfo)
+		if err != nil {
+			zap.L().Error("repair failed", zap.Error(err))
+		}
+		offset++
 	}
 
 	mon.IntVal("irreparable_segments_checked").Observe(rmtSegInfo.remoteSegmentsChecked)
