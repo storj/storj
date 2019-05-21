@@ -276,7 +276,10 @@ func ApplyDefaultHostAndPortToAddr(address, defaultAddress string) (string, erro
 // saveEncryptionKey generates a Storj key from the inputKey and save it into a
 // new file created in filepath.
 func saveEncryptionKey(inputKey []byte, filepath string) error {
-	if filepath == "" {
+	switch {
+	case len(inputKey) == 0:
+		return Error.New("inputKey is empty")
+	case filepath == "":
 		return Error.New("filepath is empty")
 	}
 

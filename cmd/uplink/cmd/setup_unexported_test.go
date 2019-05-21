@@ -71,6 +71,26 @@ func TestSaveEncryptionKey(t *testing.T) {
 		assert.Equal(t, inputKey[:storj.KeySize], key[:])
 	})
 
+	t.Run("error: empty input key", func(t *testing.T) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		filename := ctx.File("storj-test-cmd-uplink", "encryption.key")
+
+		err := saveEncryptionKey(nil, filename)
+		require.Error(t, err)
+
+		err = saveEncryptionKey([]byte{}, filename)
+		require.Error(t, err)
+	})
+
+	t.Run("error: empty filepath", func(t *testing.T) {
+		inputKey := generateInputKey(1, storj.KeySize+1)
+
+		err := saveEncryptionKey(inputKey, "")
+		require.Error(t, err)
+	})
+
 	t.Run("error: unexisting dir", func(t *testing.T) {
 		// Create a directory and remove it for making sure that the path doesn't
 		// exist
