@@ -10,6 +10,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/dbutil/dbschema"
 	"storj.io/storj/internal/errs2"
 )
@@ -28,6 +29,8 @@ func Open(connstr string, schemaPrefix string) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	db.SetMaxIdleConns(dbutil.DefaultMaxIdleConns)
 
 	err = CreateSchema(db, schemaName)
 	if err != nil {
