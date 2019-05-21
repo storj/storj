@@ -159,7 +159,7 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey A
 	// just shouldn't be an encryption key here at all.
 	// TODO: fix before the final alpha network wipe
 	// encryptionKey := new(storj.Key)
-	streams, err := streams.NewStreamStore(segments, maxBucketMetaSize.Int64(), memory.KiB.Int(), storj.AESGCM)
+	streams, err := streams.NewStreamStoreUnencrypted(segments, maxBucketMetaSize.Int64(), memory.KiB.Int(), storj.AESGCM)
 	if err != nil {
 		return nil, Error.New("failed to create stream store: %v", err)
 	}
