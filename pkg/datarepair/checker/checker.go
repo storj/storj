@@ -176,7 +176,6 @@ func (checker *Checker) checkSegmentStatus(ctx context.Context, pointer *pb.Poin
 	if remote == nil {
 		return nil
 	}
-
 	pieces := remote.GetRemotePieces()
 	if pieces == nil {
 		checker.logger.Debug("no pieces on remote segment")
