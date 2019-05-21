@@ -59,6 +59,9 @@ func (containment *containment) IncrementPending(ctx context.Context, pendingAud
 	}
 
 	_, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(pendingAudit.NodeID.Bytes()), updateContained)
+	if err != nil {
+		return audit.ContainError.Wrap(err)
+	}
 	return audit.ContainError.Wrap(tx.Commit())
 }
 
