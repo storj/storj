@@ -44,10 +44,10 @@ echo $storjSimApiKey
 
 # run benchmark tests normally
 echo
-echo "Executing benchmark tests locally with no latency..."
+echo "Executing benchmark tests locally"
 go test -bench . -benchmem ./cmd/uplink/cmd/
 
-# TODO(jg): run benchmark tests with latency
-
 # run s3-benchmark with uplink
+echo
+echo "Executing s3-benchmark tests with uplink client..."
 s3-benchmark --client=uplink --apikey=$storjSimApiKey --satellite=$satellitePublicGRPC

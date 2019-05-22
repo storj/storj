@@ -117,6 +117,9 @@ func BenchmarkDownload(b *testing.B) {
 
 func createRandomBytes(filesize memory.Size) []byte {
 	buf := make([]byte, filesize)
-	rand.Read(buf)
+	_, err := rand.Read(buf)
+	if err != nil {
+		log.Fatalf("failed to read random bytes: %+v\n", err)
+	}
 	return buf
 }
