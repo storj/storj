@@ -4,17 +4,20 @@
 package overlay_test
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite"
 )
 
 func TestOffline(t *testing.T) {
@@ -213,6 +216,120 @@ func TestNodeSelection(t *testing.T) {
 			}
 
 			assert.Equal(t, tt.ExpectedCount, len(response))
+		}
+	})
+}
+
+func TestDistinctIPs(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Discovery.RefreshInterval = 60 * time.Second
+				config.Discovery.DiscoveryInterval = 60 * time.Second
+				config.Discovery.GraveyardInterval = 60 * time.Second
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		var err error
+		satellite := planet.Satellites[0]
+		service := satellite.Overlay.Service
+		tests := []struct {
+			nodeCount      int
+			duplicateCount int
+			requestCount   int
+			preferences    overlay.NodeSelectionConfig
+			shouldFailWith *errs.Class
+		}{
+			{ // test only distinct IPs with half new nodes
+				duplicateCount: 7,
+				requestCount:   4,
+				preferences: overlay.NodeSelectionConfig{
+					AuditCount:        1,
+					NewNodePercentage: 0.5,
+					OnlineWindow:      time.Hour,
+					DistinctIP:        true,
+				},
+			},
+			{
+				duplicateCount: 9,
+				requestCount:   2,
+				preferences: overlay.NodeSelectionConfig{
+					AuditCount:        0,
+					NewNodePercentage: 0,
+					OnlineWindow:      time.Hour,
+					DistinctIP:        true,
+				},
+			},
+			{ // test not enough distinct IPs
+				duplicateCount: 7,
+				requestCount:   7,
+				preferences: overlay.NodeSelectionConfig{
+					AuditCount:        0,
+					NewNodePercentage: 0,
+					OnlineWindow:      time.Hour,
+					DistinctIP:        true,
+				},
+				shouldFailWith: &overlay.ErrNotEnoughNodes,
+			},
+			{ // test distinct flag false allows duplicates
+				duplicateCount: 10,
+				requestCount:   5,
+				preferences: overlay.NodeSelectionConfig{
+					AuditCount:        0,
+					NewNodePercentage: 0.5,
+					OnlineWindow:      time.Hour,
+					DistinctIP:        false,
+				},
+			},
+		}
+
+		// This sets a reputable audit count for nodes[8] and nodes[9].
+		for i := 9; i > 7; i-- {
+			_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
+				NodeID:       planet.StorageNodes[i].ID(),
+				IsUp:         true,
+				AuditSuccess: true,
+			})
+			assert.NoError(t, err)
+		}
+
+		for _, tt := range tests {
+			// update node last IPs
+			for i := 0; i < 10; i++ {
+				node := planet.StorageNodes[i].Local().Node
+				if i < tt.duplicateCount {
+					node.LastIp = "01.23.45.67"
+				} else {
+					node.LastIp = strconv.Itoa(i)
+				}
+				err = service.Put(ctx, planet.StorageNodes[i].ID(), node)
+				require.NoError(t, err)
+			}
+
+			response, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
+				FreeBandwidth:  0,
+				FreeDisk:       0,
+				RequestedCount: tt.requestCount,
+			}, &tt.preferences)
+			if tt.shouldFailWith != nil {
+				assert.Error(t, err)
+				assert.True(t, tt.shouldFailWith.Has(err))
+				continue
+			} else {
+				require.NoError(t, err)
+			}
+
+			// assert all IPs are unique
+			if tt.preferences.DistinctIP {
+				ips := make(map[string]bool)
+				for _, n := range response {
+					assert.False(t, ips[n.LastIp])
+					ips[n.LastIp] = true
+				}
+			}
+
+			assert.Equal(t, tt.requestCount, len(response))
 		}
 	})
 }

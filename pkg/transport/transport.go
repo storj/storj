@@ -105,6 +105,12 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 		return nil, Error.Wrap(err)
 	}
 
+	ipAddr, err := getIP(conn.Target())
+	if err != nil {
+		return nil, err
+	}
+	node.LastIp = ipAddr
+
 	alertSuccess(timedCtx, transport.observers, node)
 
 	return conn, nil
@@ -152,6 +158,18 @@ func (transport *Transport) WithObservers(obs ...Observer) Client {
 	tr.observers = append(tr.observers, transport.observers...)
 	tr.observers = append(tr.observers, obs...)
 	return tr
+}
+
+func getIP(target string) (string, error) {
+	host, _, err := net.SplitHostPort(target)
+	if err != nil {
+		return "", err
+	}
+	ipAddr, err := net.ResolveIPAddr("ip", host)
+	if err != nil {
+		return "", err
+	}
+	return ipAddr.String(), nil
 }
 
 func alertFail(ctx context.Context, obs []Observer, node *pb.Node, err error) {
