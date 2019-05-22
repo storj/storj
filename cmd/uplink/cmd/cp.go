@@ -82,8 +82,10 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 		return fmt.Errorf("source cannot be a directory: %s", src)
 	}
 
-	var access libuplink.EncryptionAccess
-	copy(access.Key[:], []byte(cfg.Enc.Key))
+	access, err := useOrLoadEncryptionAccess(cfg.Enc.EncryptionKey, cfg.Enc.KeyFilepath)
+	if err != nil {
+		return err
+	}
 
 	project, bucket, err := cfg.GetProjectAndBucket(ctx, dst.Bucket(), access)
 	if err != nil {
@@ -132,8 +134,10 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 		return fmt.Errorf("destination must be local path: %s", dst)
 	}
 
-	var access libuplink.EncryptionAccess
-	copy(access.Key[:], []byte(cfg.Enc.Key))
+	access, err := useOrLoadEncryptionAccess(cfg.Enc.EncryptionKey, cfg.Enc.KeyFilepath)
+	if err != nil {
+		return err
+	}
 
 	project, bucket, err := cfg.GetProjectAndBucket(ctx, src.Bucket(), access)
 	if err != nil {
@@ -208,8 +212,10 @@ func copyObject(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err erro
 		return fmt.Errorf("destination must be Storj URL: %s", dst)
 	}
 
-	var access libuplink.EncryptionAccess
-	copy(access.Key[:], []byte(cfg.Enc.Key))
+	access, err := useOrLoadEncryptionAccess(cfg.Enc.EncryptionKey, cfg.Enc.KeyFilepath)
+	if err != nil {
+		return err
+	}
 
 	project, bucket, err := cfg.GetProjectAndBucket(ctx, dst.Bucket(), access)
 	if err != nil {
