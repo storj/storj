@@ -13,8 +13,8 @@ var OffersErr = errs.Class("offers error")
 // Offers holds information about offer
 type Offers interface {
 	ListAllOffers(ctx context.Context) ([]Offer, error)
-	GetOfferByStatusAndType(ctx context.Context, offerStatus OfferStatus, offerType OfferType) (*Offer, error)
-	Create(ctx context.Context, offer *Offer) (*Offer, error)
+	GetNoExpiredOffer(ctx context.Context, offerStatus OfferStatus, offerType OfferType) (*Offer, error)
+	Create(ctx context.Context, offer *NewOffer) (*Offer, error)
 	Update(ctx context.Context, offer *Offer) error
 	Delete(ctx context.Context, id int) error
 }
@@ -24,11 +24,10 @@ type NewOffer struct {
 	Name        string
 	Description string
 
-	Credit int
+	CreditInCents int
 
 	RedeemableCap int
 
-	OfferDurationDays         int
 	AwardCreditDurationDays   int
 	InviteeCreditDurationDays int
 	Type                      OfferType
@@ -63,15 +62,17 @@ type Offer struct {
 	Name        string
 	Description string
 
-	Credit int
+	CreditInCents int
 
 	RedeemableCap int
 	NumRedeemed   int
 
-	OfferDurationDays         int
 	AwardCreditDurationDays   int
 	InviteeCreditDurationDays int
-	CreatedAt                 time.Time
-	Status                    OfferStatus
-	Type                      OfferType
+
+	ExpiresAt time.Time
+	CreatedAt time.Time
+
+	Status OfferStatus
+	Type   OfferType
 }
