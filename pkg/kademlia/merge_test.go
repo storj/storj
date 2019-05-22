@@ -88,12 +88,12 @@ func TestMergePlanets(t *testing.T) {
 	}
 
 	sumAA := test("A-A", alpha.Satellites, alpha.StorageNodes)
-	sumAB := test("A-B", alpha.Satellites, beta.StorageNodes)
-	sumBB := test("B-B", beta.Satellites, beta.StorageNodes)
-	sumBA := test("B-A", beta.Satellites, alpha.StorageNodes)
+	// sumAB := test("A-B", alpha.Satellites, beta.StorageNodes)
+	// sumBB := test("B-B", beta.Satellites, beta.StorageNodes)
+	// sumBA := test("B-A", beta.Satellites, alpha.StorageNodes)
 
 	t.Log(sumAA)
-	t.Log(sumAB)
-	t.Log(sumBB)
-	t.Log(sumBA)
+	// t.Log(sumAB)
+	// t.Log(sumBB)
+	// t.Log(sumBA)
 }

@@ -295,17 +295,6 @@ func (cache *Cache) ConnFailure(ctx context.Context, node *pb.Node, failureError
 
 // ConnSuccess implements the Transport Observer `ConnSuccess` function
 func (cache *Cache) ConnSuccess(ctx context.Context, node *pb.Node) {
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	err = cache.Put(ctx, node.Id, *node)
-	if err != nil {
-		zap.L().Debug("error updating uptime for node", zap.Error(err))
-	}
-	_, err = cache.db.UpdateUptime(ctx, node.Id, true)
-	if err != nil {
-		zap.L().Debug("error updating node connection info", zap.Error(err))
-	}
 }
 
 // GetMissingPieces returns the list of offline nodes
