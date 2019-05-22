@@ -84,14 +84,14 @@ func TestContainIncrementPendingEntryExists(t *testing.T) {
 
 		info2 := &audit.PendingAudit{
 			NodeID:            info1.NodeID,
-			PieceID:           storj.PieceID{1}, // different pieceID
+			PieceID:           storj.PieceID{},
 			StripeIndex:       1,
 			ShareSize:         1,
 			ExpectedShareHash: hash2,
 			ReverifyCount:     0,
 		}
 
-		// expect failure when an entry with the same nodeID but different pieceID already exists
+		// expect failure when an entry with the same nodeID but different expected share data already exists
 		err = planet.Satellites[0].DB.Containment().IncrementPending(ctx, info2)
 		require.Error(t, err)
 		require.True(t, audit.ContainError.Has(err))

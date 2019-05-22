@@ -4,6 +4,7 @@
 package satellitedb
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 
@@ -56,11 +57,7 @@ func (containment *containment) IncrementPending(ctx context.Context, pendingAud
 			return audit.ContainError.Wrap(errs.Combine(err, tx.Rollback()))
 		}
 	} else if err == nil {
-		existingPieceID, err := storj.PieceIDFromBytes(existingAudit.PieceId)
-		if err != nil {
-			return audit.ContainError.Wrap(errs.Combine(err, tx.Rollback()))
-		}
-		if existingPieceID != pendingAudit.PieceID {
+		if !bytes.Equal(existingAudit.ExpectedShareHash, pendingAudit.ExpectedShareHash) {
 			return audit.ContainError.Wrap(errs.Combine(Error.New("pending audit already exists for nodeID %s", pendingAudit.NodeID), tx.Rollback()))
 		}
 		statement := containment.db.Rebind(
