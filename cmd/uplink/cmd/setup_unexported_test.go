@@ -17,58 +17,27 @@ import (
 )
 
 func TestSaveEncryptionKey(t *testing.T) {
-	generateInputKey := func(minSize, maxSize int) []byte {
-		inputKey := make([]byte, rand.Intn(maxSize)+minSize)
-		if len(inputKey) > maxSize {
-			inputKey = inputKey[:maxSize]
-		}
-
+	generateInputKey := func() []byte {
+		inputKey := make([]byte, rand.Intn(storj.KeySize*3)+1)
 		_, err := rand.Read(inputKey)
 		require.NoError(t, err)
 
 		return inputKey
 	}
 
-	t.Run("ok: key length shorter or equal than storj.KeySize", func(t *testing.T) {
+	t.Run("ok", func(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		inputKey := generateInputKey(1, storj.KeySize)
+		inputKey := generateInputKey()
 		filename := ctx.File("storj-test-cmd-uplink", "encryption.key")
 		err := saveEncryptionKey(inputKey, filename)
 		require.NoError(t, err)
 
-		var key *storj.Key
-		{
-			rawKey, err := ioutil.ReadFile(filename)
-			require.NoError(t, err)
-
-			key, err = storj.NewKey(rawKey)
-			require.NoError(t, err)
-		}
-
-		assert.Equal(t, inputKey, key[:len(inputKey)])
-	})
-
-	t.Run("ok: key length larger than storj.KeySize", func(t *testing.T) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
-		inputKey := generateInputKey(storj.KeySize+1, storj.KeySize*2)
-		filename := ctx.File("storj-test-cmd-uplink", "encryption.key")
-		err := saveEncryptionKey(inputKey, filename)
+		savedKey, err := ioutil.ReadFile(filename)
 		require.NoError(t, err)
 
-		var key *storj.Key
-		{
-			rawKey, err := ioutil.ReadFile(filename)
-			require.NoError(t, err)
-
-			key, err = storj.NewKey(rawKey)
-			require.NoError(t, err)
-		}
-
-		assert.Equal(t, inputKey[:storj.KeySize], key[:])
+		assert.Equal(t, inputKey, savedKey)
 	})
 
 	t.Run("error: empty input key", func(t *testing.T) {
@@ -85,7 +54,7 @@ func TestSaveEncryptionKey(t *testing.T) {
 	})
 
 	t.Run("error: empty filepath", func(t *testing.T) {
-		inputKey := generateInputKey(1, storj.KeySize+1)
+		inputKey := generateInputKey()
 
 		err := saveEncryptionKey(inputKey, "")
 		require.Error(t, err)
@@ -98,7 +67,7 @@ func TestSaveEncryptionKey(t *testing.T) {
 		dir := ctx.Dir("storj-test-cmd-uplink")
 		ctx.Cleanup()
 
-		inputKey := generateInputKey(1, storj.KeySize)
+		inputKey := generateInputKey()
 		filename := filepath.Join(dir, "enc.key")
 		err := saveEncryptionKey(inputKey, filename)
 		require.Errorf(t, err, "directory path doesn't exist")
@@ -108,7 +77,7 @@ func TestSaveEncryptionKey(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		inputKey := generateInputKey(1, storj.KeySize)
+		inputKey := generateInputKey()
 		filename := ctx.File("encryption.key")
 		require.NoError(t, ioutil.WriteFile(filename, nil, os.FileMode(0600)))
 

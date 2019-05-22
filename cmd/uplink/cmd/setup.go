@@ -19,7 +19,6 @@ import (
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/storj"
 )
 
 var (
@@ -283,11 +282,6 @@ func saveEncryptionKey(inputKey []byte, filepath string) error {
 		return Error.New("filepath is empty")
 	}
 
-	key, err := storj.NewKey(inputKey)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
 	file, err := os.OpenFile(filepath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -305,6 +299,6 @@ func saveEncryptionKey(inputKey []byte, filepath string) error {
 		err = Error.Wrap(errs.Combine(err, file.Close()))
 	}()
 
-	_, err = file.Write(key[:])
+	_, err = file.Write(inputKey)
 	return err
 }
