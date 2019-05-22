@@ -5,6 +5,8 @@ package storagenode
 
 import (
 	"context"
+	"fmt"
+	"os"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -51,6 +53,11 @@ type DB interface {
 	RoutingTable() (kdb, ndb storage.KeyValueStore)
 }
 
+// StartUpConfig specifies the pipe to notify when gRPC started
+type StartUpConfig struct {
+	Pipename string `help:"help" releaseDefault:"" devDefault:""`
+}
+
 // Config is all the configuration parameters for a Storage Node
 type Config struct {
 	Identity identity.Config
@@ -64,6 +71,8 @@ type Config struct {
 	Collector collector.Config
 
 	Version version.Config
+
+	StartUpConfig StartUpConfig
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
@@ -83,6 +92,8 @@ type Peer struct {
 	Server *server.Server
 
 	Version *version.Service
+
+	StartUpConfig StartUpConfig
 
 	// services and endpoints
 	// TODO: similar grouping to satellite.Peer
@@ -114,6 +125,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		DB:       db,
 	}
 
+	peer.StartUpConfig = config.StartUpConfig
 	var err error
 
 	{
@@ -252,6 +264,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 func (peer *Peer) Run(ctx context.Context) error {
 	group, ctx := errgroup.WithContext(ctx)
 
+	sendStartedSignal := (peer.StartUpConfig.Pipename != "")
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Version.Run(ctx))
 	})
@@ -279,6 +292,10 @@ func (peer *Peer) Run(ctx context.Context) error {
 		peer.Log.Sugar().Infof("Node %s started", peer.Identity.ID)
 		peer.Log.Sugar().Infof("Public server started on %s", peer.Addr())
 		peer.Log.Sugar().Infof("Private server started on %s", peer.PrivateAddr())
+
+		if sendStartedSignal {
+			peer.sendNetworkStartedSignal()
+		}
 		return errs2.IgnoreCanceled(peer.Server.Run(ctx))
 	})
 
@@ -329,3 +346,11 @@ func (peer *Peer) Addr() string { return peer.Server.Addr().String() }
 
 // PrivateAddr returns the private address.
 func (peer *Peer) PrivateAddr() string { return peer.Server.PrivateAddr().String() }
+
+func (peer *Peer) sendNetworkStartedSignal() {
+	pipe, _ := os.OpenFile(peer.StartUpConfig.Pipename, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0777)
+	defer pipe.Close()
+	fmt.Println("Sending started signal on pipe ", peer.StartUpConfig.Pipename)
+	pipe.Write([]byte(`ok`))
+
+}

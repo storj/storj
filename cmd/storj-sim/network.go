@@ -239,6 +239,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		return nil, fmt.Errorf("exceeded the max instance count of %d with Satellite count of %d", maxInstanceCount, flags.SatelliteCount)
 	}
 
+	pipename := "sat2snPipe"
 	var satellites []*Process
 	for i := 0; i < flags.SatelliteCount; i++ {
 		process := processes.New(Info{
@@ -283,7 +284,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
 				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugHTTP)),
 			},
-			"run": {},
+			"run": {"--start-up-config.pipename", pipename,
+				"--start-up-config.number-of-signals", fmt.Sprintf("%d", flags.StorageNodeCount),
+			},
 		})
 
 		if flags.Postgres != "" {
@@ -311,6 +314,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		// gateway must wait for the corresponding satellite to start up
 		process.WaitForStart(satellite)
+
 		process.Arguments = withCommon(process.Directory, Arguments{
 			"setup": {
 				"--non-interactive=true",
@@ -408,8 +412,12 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			Address:    net.JoinHostPort(host, port(storagenodePeer, i, publicGRPC)),
 		})
 
-		// storage node must wait for bootstrap to start
+		// storage node must wait for bootstrap and satellites to start
 		process.WaitForStart(bootstrap)
+
+		for _, satellite := range satellites {
+			process.WaitForStart(satellite)
+		}
 
 		process.Arguments = withCommon(process.Directory, Arguments{
 			"setup": {
@@ -428,7 +436,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
 				"--debug.addr", net.JoinHostPort(host, port(storagenodePeer, i, debugHTTP)),
 			},
-			"run": {},
+			"run": {"--start-up-config.pipename", pipename},
 		})
 
 		process.ExecBefore["run"] = func(process *Process) error {

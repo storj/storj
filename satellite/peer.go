@@ -11,6 +11,7 @@ import (
 	"net/smtp"
 	"os"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -87,6 +88,13 @@ type DB interface {
 	Orders() orders.DB
 }
 
+// StartUpConfig indicates if we should wait for a signal on the specified pipe fd
+// before starting the checker, repairer and audit loops
+type StartUpConfig struct {
+	Pipename        string `help:"help" releaseDefault:"" devDefault:""`
+	NumberOfSignals int    `help:"help" default:"0"`
+}
+
 // Config is the global config satellite
 type Config struct {
 	Identity identity.Config
@@ -113,6 +121,8 @@ type Config struct {
 	Console consoleweb.Config
 
 	Version version.Config
+
+	StartUpConfig StartUpConfig
 }
 
 // Peer is the satellite
@@ -193,6 +203,8 @@ type Peer struct {
 		Service  *console.Service
 		Endpoint *consoleweb.Server
 	}
+
+	StartUpConfig StartUpConfig
 }
 
 // New creates a new satellite
@@ -202,6 +214,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		Identity: full,
 		DB:       db,
 	}
+	// setup startup config
+	peer.StartUpConfig = config.StartUpConfig
 
 	var err error
 
@@ -536,6 +550,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 func (peer *Peer) Run(ctx context.Context) error {
 	group, ctx := errgroup.WithContext(ctx)
 
+	waitForSignals := (peer.StartUpConfig.Pipename != "")
+	var wait <-chan struct{}
+	if waitForSignals {
+		wait = waitForPipeSignals(peer.StartUpConfig.Pipename, peer.StartUpConfig.NumberOfSignals)
+	}
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Version.Run(ctx))
 	})
@@ -549,9 +568,16 @@ func (peer *Peer) Run(ctx context.Context) error {
 		return errs2.IgnoreCanceled(peer.Discovery.Service.Run(ctx))
 	})
 	group.Go(func() error {
+		if waitForSignals {
+			<-wait
+		}
+		fmt.Println("CHECKER STARTING !!!!!!!")
 		return errs2.IgnoreCanceled(peer.Repair.Checker.Run(ctx))
 	})
 	group.Go(func() error {
+		if waitForSignals {
+			<-wait
+		}
 		return errs2.IgnoreCanceled(peer.Repair.Repairer.Run(ctx))
 	})
 	group.Go(func() error {
@@ -561,6 +587,9 @@ func (peer *Peer) Run(ctx context.Context) error {
 		return errs2.IgnoreCanceled(peer.Accounting.Rollup.Run(ctx))
 	})
 	group.Go(func() error {
+		if waitForSignals {
+			<-wait
+		}
 		return errs2.IgnoreCanceled(peer.Audit.Service.Run(ctx))
 	})
 	group.Go(func() error {
@@ -652,3 +681,24 @@ func (peer *Peer) Addr() string { return peer.Server.Addr().String() }
 
 // PrivateAddr returns the private address.
 func (peer *Peer) PrivateAddr() string { return peer.Server.PrivateAddr().String() }
+
+func waitForPipeSignals(pipename string, nbSignals int) (wait <-chan struct{}) {
+
+	ch := make(chan struct{})
+	go func() {
+		syscall.Mkfifo(pipename, 0666)
+		// seems necessary to open the pipe in write mode so that it won't send a EOF
+		writeModePipe, _ := os.OpenFile(pipename, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0777)
+		readModePipe, _ := os.OpenFile(pipename, os.O_CREATE|os.O_RDONLY, os.ModeNamedPipe)
+		defer readModePipe.Close()
+		defer writeModePipe.Close()
+		nbReceivedSignals := 0
+		for nbReceivedSignals < nbSignals {
+			data := make([]byte, 5)
+			readModePipe.Read(data)
+			nbReceivedSignals++
+		}
+		close(ch)
+	}()
+	return ch
+}
