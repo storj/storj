@@ -19,8 +19,11 @@ void *get_snapshot(struct GoValue *val, char **err)
     case IDVersionType:
         CGetSnapshot(val, err);
         return (void *)storj__libuplink__idversion__unpack(NULL, val->Size, val->Snapshot);
+    case BucketType:
+        CGetSnapshot(val, err);
+        return (void *)storj__libuplink__bucket__unpack(NULL, val->Size, val->Snapshot);
     default:
-        *err = "unknown value type";
+        *err = "unknown value type getting snapshot";
         return NULL;
     }
 
@@ -43,8 +46,13 @@ void protoToGoValue(void *proto_msg, struct GoValue *value, char **err)
         value->Snapshot = malloc(value->Size);
         storj__libuplink__project_options__pack((pbProjectOptions *)proto_msg, value->Snapshot);
         break;
+    case BucketConfigType:
+         value->Size = storj__libuplink__bucket_config__get_packed_size((pbBucketConfig *)proto_msg);
+         value->Snapshot = malloc(value->Size);
+         storj__libuplink__bucket_config__pack((pbBucketConfig *)proto_msg, value->Snapshot);
+         break;
     default:
-        *err = "unknown value type";
+        *err = "unknown value type converting from proto to Go value";
         return;
     }
 

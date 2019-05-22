@@ -69,7 +69,7 @@ func (gv GoValue) Snapshot() (data []byte, _ error) {
 			MaxMemory:     int64(uplinkConfigStruct.Volatile.MaxMemory),
 		})
 	case C.BucketType:
-		bucketStruct := structRefMap.Get(gv.ptr).(uplink.Bucket)
+		bucketStruct := structRefMap.Get(gv.ptr).(*uplink.Bucket)
 
 		return proto.Marshal(&pb.Bucket {
 			BucketConfig: &pb.BucketConfig{

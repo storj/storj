@@ -16,7 +16,7 @@ import (
 )
 
 //export CreateBucket
-func CreateBucket(cProject C.ProjectRef, name *C.char, bucketConfigRef C.BucketConfigRef, cErr **C.char) (cBucket C.gvBucket) {
+func CreateBucket(cProject C.ProjectRef, name *C.char, bucketConfigRef C.BucketConfigRef, cErr **C.char) (cBucket C.BucketRef) {
 	ctx := context.Background()
 	project, ok := structRefMap.Get(token(cProject)).(*uplink.Project)
 	if !ok {
@@ -32,8 +32,5 @@ func CreateBucket(cProject C.ProjectRef, name *C.char, bucketConfigRef C.BucketC
 		return cBucket
 	}
 
-	return C.gvBucket {
-		Ptr: C.GoUintptr(structRefMap.Add(&bucket)),
-		Type: C.BucketType,
-	}
+	return C.GoUintptr(structRefMap.Add(&bucket))
 }

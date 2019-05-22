@@ -62,12 +62,6 @@ void TestCreateBucket(void)
 
     char *bucket_name = "testbucket";
 
-    gvBucket *bucket_value = CreateBucket(projectRef, bucket_name, gv_bucket_cfg->Ptr, err);
+    BucketRef bucket_ref = CreateBucket(projectRef, bucket_name, gv_bucket_cfg->Ptr, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
-
-    pbBucket *bucket = (pbBucket *)(get_snapshot(bucket_value, err));
-    TEST_ASSERT_EQUAL_STRING("", *err);
-    TEST_ASSERT_NOT_NULL(bucket);
-
-    TEST_ASSERT_EQUAL_STRING(bucket_name, bucket->name);
 }
