@@ -968,7 +968,8 @@ func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, project
 		return result, errs.New(internalErrMsg)
 	}
 
-	for _, membership := range memberships {
+	for _, projectMembership := range memberships {
+		membership := projectMembership
 		if membership.ProjectID == projectID {
 			result.membership = &membership
 			result.project = project

@@ -63,7 +63,8 @@ func TestBasic(t *testing.T) {
 
 func BenchmarkCreate(b *testing.B) {
 	storageNodes := []int{4, 10, 100}
-	for _, count := range storageNodes {
+	for _, storageNodeCount := range storageNodes {
+		count := storageNodeCount
 		b.Run(strconv.Itoa(count), func(b *testing.B) {
 			ctx := context.Background()
 			for i := 0; i < b.N; i++ {

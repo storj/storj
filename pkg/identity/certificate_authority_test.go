@@ -135,8 +135,10 @@ func TestFullCAConfig_Load_extensions(t *testing.T) {
 
 func BenchmarkNewCA(b *testing.B) {
 	ctx := context.Background()
-	for _, difficulty := range []uint16{8, 12} {
-		for _, concurrency := range []uint{1, 2, 5, 10} {
+	for _, testDifficulty := range []uint16{8, 12} {
+		difficulty := testDifficulty
+		for _, testConcurrency := range []uint{1, 2, 5, 10} {
+			concurrency := testConcurrency
 			test := fmt.Sprintf("%d/%d", difficulty, concurrency)
 			b.Run(test, func(b *testing.B) {
 				for i := 0; i < b.N; i++ {

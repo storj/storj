@@ -158,7 +158,8 @@ func populateTestData(t *testing.T, planet *testplanet.Planet, expiration *times
 
 	// put 10 pointers in db with expirations
 	t.Run("putToDB", func(t *testing.T) {
-		for _, tt := range tests {
+		for _, test := range tests {
+			tt := test
 			t.Run(tt.bm, func(t *testing.T) {
 				pointer := makePointer(tt.path, expiration)
 				require.NoError(t, metainfo.Put(tt.path, pointer))

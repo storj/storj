@@ -582,7 +582,8 @@ func BenchmarkReedSolomonErasureScheme(b *testing.B) {
 		}
 	}
 
-	for _, conf := range confs {
+	for _, configuration := range confs {
+		conf := configuration
 		confname := fmt.Sprintf("r%dt%d/", conf.required, conf.total)
 		for _, expDataSize := range dataSizes {
 			dataSize := (expDataSize / conf.required) * conf.required

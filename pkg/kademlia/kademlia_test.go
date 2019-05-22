@@ -273,7 +273,8 @@ func TestFindNear(t *testing.T) {
 	}{
 		{testID: "three", target: nodeIDA.Id, limit: 4, expected: nodes, restrictions: []pb.Restriction{}},
 	}
-	for _, c := range cases {
+	for _, testCase := range cases {
+		c := testCase
 		t.Run(c.testID, func(t *testing.T) {
 
 			ns, err := k.FindNear(ctx, c.target, c.limit)

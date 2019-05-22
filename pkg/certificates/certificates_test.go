@@ -101,7 +101,8 @@ func TestAuthorizationDB_Create(t *testing.T) {
 		},
 	}
 
-	for _, c := range cases {
+	for _, testCase := range cases {
+		c := testCase
 		t.Run(c.testID, func(t *testing.T) {
 			emailKey := storage.Key(c.email)
 
@@ -181,7 +182,8 @@ func TestAuthorizationDB_Get(t *testing.T) {
 		},
 	}
 
-	for _, c := range cases {
+	for _, testCase := range cases {
+		c := testCase
 		t.Run(c.testID, func(t *testing.T) {
 			auths, err := authDB.Get(c.email)
 			require.NoError(t, err)
@@ -504,7 +506,8 @@ func TestParseToken_Valid(t *testing.T) {
 		},
 	}
 
-	for _, c := range cases {
+	for _, testCase := range cases {
+		c := testCase
 		t.Run(c.testID, func(t *testing.T) {
 			b58Data := base58.CheckEncode(data[:], tokenVersion)
 			tokenString := c.userID + tokenDelimiter + b58Data
@@ -548,7 +551,8 @@ func TestParseToken_Invalid(t *testing.T) {
 		},
 	}
 
-	for _, c := range cases {
+	for _, testCase := range cases {
+		c := testCase
 		t.Run(c.testID, func(t *testing.T) {
 			token, err := ParseToken(c.tokenString)
 			assert.Nil(t, token)

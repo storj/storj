@@ -202,7 +202,8 @@ func TestAddNode(t *testing.T) {
 			nodeIDs: [][]string{{"9O", ":O", ";O", "=O", ">O", "?O"}, {"@O"}, {"JO", "KO", "LO", "MO", "NO", "OO"}, {"PO", "QO", "SO", "]O", "^O", "_O"}, {}, {}},
 		},
 	}
-	for _, c := range cases {
+	for _, testCase := range cases {
+		c := testCase
 		t.Run(c.testID, func(t *testing.T) {
 			ok, err := rt.addNode(c.node)
 			require.NoError(t, err)
@@ -347,7 +348,8 @@ func TestWouldBeInNearestK(t *testing.T) {
 			closest: false,
 		},
 	}
-	for _, c := range cases {
+	for _, testCase := range cases {
+		c := testCase
 		t.Run(c.testID, func(t *testing.T) {
 			result, err := rt.wouldBeInNearestK(c.nodeID)
 			assert.NoError(t, err)
@@ -436,7 +438,8 @@ func TestGetNodeIDsWithinKBucket(t *testing.T) {
 			expected: storage.Keys{nodeIDC.Bytes(), nodeIDB.Bytes()},
 		},
 	}
-	for _, c := range cases {
+	for _, testCase := range cases {
+		c := testCase
 		t.Run(c.testID, func(t *testing.T) {
 			n, err := rt.getNodeIDsWithinKBucket(c.kadID)
 			assert.NoError(t, err)
@@ -555,7 +558,8 @@ func TestGetKBucketRange(t *testing.T) {
 			expected: storage.Keys{zeroBID[:], idC.Bytes()},
 		},
 	}
-	for _, c := range cases {
+	for _, testCase := range cases {
+		c := testCase
 		t.Run(c.testID, func(t *testing.T) {
 			ep, err := rt.getKBucketRange(keyToBucketID(c.id.Bytes()))
 			assert.NoError(t, err)
@@ -623,7 +627,8 @@ func TestDetermineLeafDepth(t *testing.T) {
 			addNode: func() {},
 		},
 	}
-	for _, c := range cases {
+	for _, testCase := range cases {
+		c := testCase
 		t.Run(c.testID, func(t *testing.T) {
 			c.addNode()
 			d, err := rt.determineLeafDepth(c.id)
@@ -675,7 +680,8 @@ func TestSplitBucket(t *testing.T) {
 			depth: 3,
 		},
 	}
-	for _, c := range cases {
+	for _, testCase := range cases {
+		c := testCase
 		t.Run(c.testID, func(t *testing.T) {
 			newID := rt.splitBucket(keyToBucketID(c.idA), c.depth)
 			assert.Equal(t, c.idB, newID[:2])

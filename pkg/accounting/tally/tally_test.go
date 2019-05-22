@@ -35,7 +35,8 @@ func TestDeleteTalliesBefore(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
+	for _, test := range tests {
+		tt := test
 		testplanet.Run(t, testplanet.Config{
 			SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {

@@ -46,7 +46,8 @@ func TestProjectUsageStorage(t *testing.T) {
 		projectID := projects[0].ID
 		require.NoError(t, err)
 
-		for _, tt := range cases {
+		for _, testCase := range cases {
+			tt := testCase
 			t.Run(tt.name, func(t *testing.T) {
 
 				// Setup: create BucketStorageTally records to test exceeding storage project limit
@@ -106,7 +107,8 @@ func TestProjectUsageBandwidth(t *testing.T) {
 		bucketName := "testbucket"
 		bucketID := createBucketID(projectID, []byte(bucketName))
 
-		for _, tt := range cases {
+		for _, testCase := range cases {
+			tt := testCase
 			t.Run(tt.name, func(t *testing.T) {
 
 				// Setup: create a BucketBandwidthRollup record to test exceeding bandwidth project limit

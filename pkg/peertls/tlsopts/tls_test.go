@@ -58,7 +58,8 @@ func TestVerifyIdentity_error(t *testing.T) {
 		{"wrong node ID", identTheftVictim.ID},
 	}
 
-	for _, c := range cases {
+	for _, testCase := range cases {
+		c := testCase
 		t.Run(c.test, func(t *testing.T) {
 			err := tlsopts.VerifyIdentity(c.nodeID)(nil, identity.ToChains(ident.Chain()))
 			assert.Error(t, err)

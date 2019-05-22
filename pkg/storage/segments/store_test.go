@@ -32,7 +32,7 @@ import (
 )
 
 func TestSegmentStoreMeta(t *testing.T) {
-	for i, tt := range []struct {
+	for i, test := range []struct {
 		path       string
 		data       []byte
 		metadata   []byte
@@ -43,6 +43,7 @@ func TestSegmentStoreMeta(t *testing.T) {
 		{"l/not_exists_path/1/2/3", []byte{}, []byte{}, time.Now(), "key not found"},
 		{"", []byte{}, []byte{}, time.Now(), "invalid segment component"},
 	} {
+		tt := test
 		t.Run("#"+strconv.Itoa(i), func(t *testing.T) {
 			runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
 				expectedSize := int64(len(tt.data))
@@ -76,7 +77,7 @@ func TestSegmentStoreMeta(t *testing.T) {
 }
 
 func TestSegmentStorePutGet(t *testing.T) {
-	for _, tt := range []struct {
+	for _, test := range []struct {
 		name       string
 		path       string
 		metadata   []byte
@@ -86,6 +87,7 @@ func TestSegmentStorePutGet(t *testing.T) {
 		{"test inline put/get", "l/path/1", []byte("metadata-intline"), time.Time{}, createTestData(t, 2*memory.KiB.Int64())},
 		{"test remote put/get", "s0/test_bucket/mypath/1", []byte("metadata-remote"), time.Time{}, createTestData(t, 100*memory.KiB.Int64())},
 	} {
+		tt := test
 		runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
 			metadata, err := segmentStore.Put(ctx, bytes.NewReader(tt.content), tt.expiration, func() (storj.Path, []byte, error) {
 				return tt.path, tt.metadata, nil
@@ -109,7 +111,7 @@ func TestSegmentStorePutGet(t *testing.T) {
 }
 
 func TestSegmentStoreDelete(t *testing.T) {
-	for _, tt := range []struct {
+	for _, test := range []struct {
 		name       string
 		path       string
 		metadata   []byte
@@ -119,6 +121,7 @@ func TestSegmentStoreDelete(t *testing.T) {
 		{"test inline delete", "l/path/1", []byte("metadata"), time.Time{}, createTestData(t, 2*memory.KiB.Int64())},
 		{"test remote delete", "s0/test_bucket/mypath/1", []byte("metadata"), time.Time{}, createTestData(t, 100*memory.KiB.Int64())},
 	} {
+		tt := test
 		runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
 			_, err := segmentStore.Put(ctx, bytes.NewReader(tt.content), tt.expiration, func() (storj.Path, []byte, error) {
 				return tt.path, tt.metadata, nil
@@ -158,7 +161,8 @@ func TestSegmentStoreList(t *testing.T) {
 			{"l/BBBB/bfile2", []byte("content")},
 			{"l/BBBB/bfolder/file1", []byte("content")},
 		}
-		for _, segment := range segments {
+		for _, testSegment := range segments {
+			segment := testSegment
 			_, err := segmentStore.Put(ctx, bytes.NewReader(segment.content), expiration, func() (storj.Path, []byte, error) {
 				return segment.path, []byte{}, nil
 			})

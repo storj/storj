@@ -22,7 +22,8 @@ func testParallel(t *testing.T, store storage.KeyValueStore) {
 	defer cleanupItems(store, items)
 
 	for i := range items {
-		item := items[i]
+		index := i
+		item := items[index]
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			t.Parallel()
 			// Put
@@ -47,7 +48,7 @@ func testParallel(t *testing.T, store storage.KeyValueStore) {
 			}
 
 			if !bytes.Equal([]byte(values[0]), []byte(item.Value)) {
-				t.Fatalf("invalid GetAll %q = %v: got %v", item.Key, item.Value, values[i])
+				t.Fatalf("invalid GetAll %q = %v: got %v", item.Key, item.Value, values[index])
 			}
 
 			// Update value

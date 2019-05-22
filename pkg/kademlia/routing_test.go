@@ -127,10 +127,12 @@ func TestKademliaFindNear(t *testing.T) {
 			require.Equal(t, (*result).Id.String(), expectedIDs[i].String(), fmt.Sprintf("item %d", i))
 		}
 	}
-	for _, testNodeCount := range []int{0, 1, 10, 100} {
+	for _, nodeodeCount := range []int{0, 1, 10, 100} {
+		testNodeCount := nodeodeCount
 		for _, limit := range []int{0, 1, 10, 100} {
-			t.Run(fmt.Sprintf("test %d %d", testNodeCount, limit),
-				func(t *testing.T) { testFunc(t, testNodeCount, limit) })
+			l := limit
+			t.Run(fmt.Sprintf("test %d %d", testNodeCount, l),
+				func(t *testing.T) { testFunc(t, testNodeCount, l) })
 		}
 	}
 }
@@ -164,7 +166,8 @@ func TestConnectionSuccess(t *testing.T) {
 			address: address2,
 		},
 	}
-	for _, c := range cases {
+	for _, testCase := range cases {
+		c := testCase
 		t.Run(c.testID, func(t *testing.T) {
 			err := rt.ConnectionSuccess(c.node)
 			assert.NoError(t, err)

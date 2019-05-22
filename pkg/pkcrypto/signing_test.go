@@ -18,7 +18,8 @@ func TestSigningAndVerifyingECDSA(t *testing.T) {
 		{"single byte", "C"},
 		{"longnulls", string(make([]byte, 2000))},
 	}
-	for _, tt := range tests {
+	for _, test := range tests {
+		tt := test
 		t.Run(tt.name, func(t *testing.T) {
 			privKey, err := GeneratePrivateECDSAKey(authECCurve)
 			assert.NoError(t, err)
@@ -52,7 +53,8 @@ func TestSigningAndVerifyingRSA(t *testing.T) {
 		{"single byte", "C"},
 		{"longnulls", string(make([]byte, 2000))},
 	}
-	for _, tt := range tests {
+	for _, test := range tests {
+		tt := test
 		t.Run(tt.name, func(t *testing.T) {
 			// test signing and verifying a hash of the data
 			sig, err := HashAndSign(privKey, []byte(tt.data))

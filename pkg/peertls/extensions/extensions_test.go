@@ -37,22 +37,23 @@ func TestHandlers_Register(t *testing.T) {
 		require.NoError(t, err)
 		chains = append(chains, identity.ToChains(chain))
 
+		index := i
 		testHandler := extensions.NewHandlerFactory(
-			ids[i],
+			ids[index],
 			func(opt *extensions.Options) extensions.HandlerFunc {
-				assert.Equal(t, opts[i], opt)
+				assert.Equal(t, opts[index], opt)
 				assert.NotNil(t, opt)
 
 				return func(ext pkix.Extension, chain [][]*x509.Certificate) error {
 					assert.NotNil(t, ext)
-					assert.Equal(t, exts[i], ext)
+					assert.Equal(t, exts[index], ext)
 
 					assert.NotNil(t, ext.Id)
-					assert.Equal(t, *ids[i], ext.Id)
+					assert.Equal(t, *ids[index], ext.Id)
 
 					assert.NotNil(t, chain)
-					assert.Equal(t, chains[i], chain)
-					return errs.New(strconv.Itoa(i))
+					assert.Equal(t, chains[index], chain)
+					return errs.New(strconv.Itoa(index))
 				}
 			},
 		)
@@ -88,22 +89,23 @@ func TestHandlers_WithOptions(t *testing.T) {
 		require.NoError(t, err)
 		chains = append(chains, identity.ToChains(chain))
 
+		index := i
 		testHandler := extensions.NewHandlerFactory(
-			ids[i],
+			ids[index],
 			func(opt *extensions.Options) extensions.HandlerFunc {
-				assert.Equal(t, opts[i], opt)
+				assert.Equal(t, opts[index], opt)
 				assert.NotNil(t, opt)
 
 				return func(ext pkix.Extension, chain [][]*x509.Certificate) error {
 					assert.NotNil(t, ext)
-					assert.Equal(t, exts[i], ext)
+					assert.Equal(t, exts[index], ext)
 
 					assert.NotNil(t, ext.Id)
-					assert.Equal(t, *ids[i], ext.Id)
+					assert.Equal(t, *ids[index], ext.Id)
 
 					assert.NotNil(t, chain)
-					assert.Equal(t, chains[i], chain)
-					return errs.New(strconv.Itoa(i))
+					assert.Equal(t, chains[index], chain)
+					return errs.New(strconv.Itoa(index))
 				}
 			},
 		)

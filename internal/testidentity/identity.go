@@ -45,11 +45,13 @@ func NewTestCA(ctx context.Context) (*identity.FullCertificateAuthority, error) 
 // version, with an unsigned identity.
 func IdentityVersionsTest(t *testing.T, test IdentityTest) {
 	for versionNumber, version := range storj.IDVersions {
-		t.Run(fmt.Sprintf("identity version %d", versionNumber), func(t *testing.T) {
-			ident, err := IdentityVersions[versionNumber].NewIdentity()
+		vn := versionNumber
+		v := version
+		t.Run(fmt.Sprintf("identity version %d", vn), func(t *testing.T) {
+			ident, err := IdentityVersions[vn].NewIdentity()
 			require.NoError(t, err)
 
-			test(t, version, ident)
+			test(t, v, ident)
 		})
 	}
 }
@@ -58,11 +60,13 @@ func IdentityVersionsTest(t *testing.T, test IdentityTest) {
 // version, with an signed identity.
 func SignedIdentityVersionsTest(t *testing.T, test IdentityTest) {
 	for versionNumber, version := range storj.IDVersions {
-		t.Run(fmt.Sprintf("identity version %d", versionNumber), func(t *testing.T) {
-			ident, err := SignedIdentityVersions[versionNumber].NewIdentity()
+		vn := versionNumber
+		v := version
+		t.Run(fmt.Sprintf("identity version %d", vn), func(t *testing.T) {
+			ident, err := SignedIdentityVersions[vn].NewIdentity()
 			require.NoError(t, err)
 
-			test(t, version, ident)
+			test(t, v, ident)
 		})
 	}
 }
@@ -83,10 +87,12 @@ func CompleteIdentityVersionsTest(t *testing.T, test IdentityTest) {
 // respective signer used to sign pregenerated, signed  identities.
 func SignerVersionsTest(t *testing.T, test SignerTest) {
 	for versionNumber, version := range storj.IDVersions {
-		t.Run(fmt.Sprintf("identity version %d", versionNumber), func(t *testing.T) {
-			ca := SignerVersions[versionNumber]
+		vn := versionNumber
+		v := version
+		t.Run(fmt.Sprintf("identity version %d", vn), func(t *testing.T) {
+			ca := SignerVersions[vn]
 
-			test(t, version, ca)
+			test(t, v, ca)
 		})
 	}
 }
