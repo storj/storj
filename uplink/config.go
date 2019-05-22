@@ -6,9 +6,7 @@ package uplink
 import (
 	"context"
 	"errors"
-	"fmt"
-	"io"
-	"os"
+	"io/ioutil"
 	"time"
 
 	"github.com/vivint/infectious"
@@ -166,19 +164,8 @@ func LoadEncryptionKey(filepath string) (key *storj.Key, error error) {
 		return &storj.Key{}, nil
 	}
 
-	file, err := os.Open(filepath)
+	rawKey, err := ioutil.ReadFile(filepath)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("not found key file %q", filepath)
-		}
-
-		return nil, err
-	}
-
-	defer func() { err = errs.Combine(err, file.Close()) }()
-
-	rawKey := make([]byte, 1024)
-	if _, err := file.Read(rawKey); err != nil && err != io.EOF {
 		return nil, err
 	}
 
