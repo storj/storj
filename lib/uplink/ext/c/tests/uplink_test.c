@@ -35,7 +35,7 @@ gvUplinkConfig *NewTestConfig(char **err)
 
     gvUplinkConfig *uplinkConfigValue = malloc(sizeof(gvUplinkConfig));
     uplinkConfigValue->Type = UplinkConfigType;
-    protoToGoValue((void *)&uplinkConfig, uplinkConfigValue, err);
+    protoToGoValue(&uplinkConfig, uplinkConfigValue, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     return uplinkConfigValue;
@@ -78,7 +78,7 @@ void TestOpenProject(void)
 
     gvProjectOptions *optsValue = malloc(sizeof(gvProjectOptions));
     optsValue->Type = ProjectOptionsType;
-    protoToGoValue((void *)&opts, optsValue, err);
+    protoToGoValue(&opts, optsValue, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     gvUplink *uplink = NewTestUplink(err);
