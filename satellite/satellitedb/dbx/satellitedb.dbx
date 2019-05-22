@@ -585,7 +585,7 @@ model offer (
 	field redeemable_cap int ( updatable )
 	field num_redeemed int ( updatable, autoinsert )
 
-	field expires_at timestamp ( updatable, nullable )
+	field expires_at timestamp ( updatable, autoinsert, nullable )
 	field created_at timestamp ( autoinsert )
 
 	// status has three possible value: NoStatus=0, OnGoing=1, Expired=2.
@@ -600,13 +600,8 @@ read one (
 read one (
 	select offer
 	where offer.status = ?
-	where offer.expires_at >= ?
-)
-
-read one (
-	select offer
-	where offer.status = ?
 	where offer.type = ?
+	where offer.expires_at >= ?
 )
 
 read all ( select offer )
@@ -616,7 +611,7 @@ create offer ( )
 update offer (
 	where offer.id = ?
 	where offer.status = 0
-	where offer.expires_at > offer.created_at
+	where offer.expires_at >= offer.created_at
 )
 
 delete offer ( where offer.id = ? )
