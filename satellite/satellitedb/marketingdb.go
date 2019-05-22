@@ -14,5 +14,5 @@ type MarketingDB struct {
 
 // Offers returns access to offers table
 func (db *MarketingDB) Offers() marketing.Offers {
-	return &offers{db.methods}
+	return &offers{db.db}
 }

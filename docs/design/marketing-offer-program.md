@@ -67,7 +67,7 @@ The credit is automatically applied to the account and will have a max limit tha
     id - int
     name -  text
     description - text  
-    credits - integer
+    credit_in_cents - integer
     redeemable_cap - integer
     num_redeemed - integer
     created_at - timestamp
