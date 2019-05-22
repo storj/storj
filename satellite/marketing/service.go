@@ -2,6 +2,7 @@ package marketing
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -49,7 +50,13 @@ func (s *Service) ListAllOffers(ctx context.Context) (offers []Offer, err error)
 func (s *Service) GetCurrentOfferByType(ctx context.Context, offerType OfferType) (offer *Offer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	offer, err = s.db.Offers().GetOfferByStatusAndType(ctx, OnGoing, offerType)
+	offer, err = s.db.Offers().GetNoExpiredOffer(ctx, OnGoing, offerType)
+	if err == sql.ErrNoRows && offerType == Referral {
+		offer, err = s.db.Offers().GetNoExpiredOffer(ctx, OnGoing, offerType)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+	}
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -58,7 +65,7 @@ func (s *Service) GetCurrentOfferByType(ctx context.Context, offerType OfferType
 }
 
 // InsertNewOffer inserts a new offer into the db
-func (s *Service) InsertNewOffer(ctx context.Context, offer *Offer) (o *Offer, err error) {
+func (s *Service) InsertNewOffer(ctx context.Context, offer *NewOffer) (o *Offer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	o, err = s.db.Offers().Create(ctx, offer)
@@ -72,10 +79,6 @@ func (s *Service) InsertNewOffer(ctx context.Context, offer *Offer) (o *Offer, e
 // UpdateOffer modifies an existing offer in the db when the offer status is set to NoStatus
 func (s *Service) UpdateOffer(ctx context.Context, offer *Offer) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	if offer.Status != NoStatus {
-		return Error.New("can't update on going offer: %s", offer.Name)
-	}
 
 	err = s.db.Offers().Update(ctx, offer)
 	if err != nil {

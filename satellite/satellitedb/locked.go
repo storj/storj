@@ -602,7 +602,7 @@ type lockedOffers struct {
 	db marketing.Offers
 }
 
-func (m *lockedOffers) Create(ctx context.Context, offer *marketing.Offer) (*marketing.Offer, error) {
+func (m *lockedOffers) Create(ctx context.Context, offer *marketing.NewOffer) (*marketing.Offer, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Create(ctx, offer)
@@ -614,10 +614,10 @@ func (m *lockedOffers) Delete(ctx context.Context, id int) error {
 	return m.db.Delete(ctx, id)
 }
 
-func (m *lockedOffers) GetOfferByStatusAndType(ctx context.Context, offerStatus marketing.OfferStatus, offerType marketing.OfferType) (*marketing.Offer, error) {
+func (m *lockedOffers) GetNoExpiredOffer(ctx context.Context, offerStatus marketing.OfferStatus, offerType marketing.OfferType) (*marketing.Offer, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetOfferByStatusAndType(ctx, offerStatus, offerType)
+	return m.db.GetNoExpiredOffer(ctx, offerStatus, offerType)
 }
 
 func (m *lockedOffers) ListAllOffers(ctx context.Context) ([]marketing.Offer, error) {
