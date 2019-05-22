@@ -6048,13 +6048,16 @@ func (obj *postgresImpl) Update_PendingAudits_By_NodeId(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) All_Offer(ctx context.Context) (
-	rows []*Offer, err error) {
+func (obj *postgresImpl) Get_Offer_By_Status_And_Type_And_ExpiresAt_GreaterOrEqual(ctx context.Context,
+	offer_status Offer_Status_Field,
+	offer_type Offer_Type_Field,
+	offer_expires_at_greater_or_equal Offer_ExpiresAt_Field) (
+	offer *Offer, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT offers.id, offers.name, offers.description, offers.type, offers.credit, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.num_redeemed, offers.offer_duration_days, offers.created_at, offers.status FROM offers")
+	var __embed_stmt = __sqlbundle_Literal("SELECT offers.id, offers.name, offers.description, offers.type, offers.credit_in_cents, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.num_redeemed, offers.expires_at, offers.created_at, offers.status FROM offers WHERE offers.status = ? AND offers.type = ? AND offers.expires_at >= ? LIMIT 2")
 
 	var __values []interface{}
-	__values = append(__values)
+	__values = append(__values, offer_status.value(), offer_type.value(), offer_expires_at_greater_or_equal.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -6065,18 +6068,28 @@ func (obj *postgresImpl) All_Offer(ctx context.Context) (
 	}
 	defer __rows.Close()
 
-	for __rows.Next() {
-		offer := &Offer{}
-		err = __rows.Scan(&offer.Id, &offer.Name, &offer.Description, &offer.Type, &offer.Credit, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.NumRedeemed, &offer.OfferDurationDays, &offer.CreatedAt, &offer.Status)
-		if err != nil {
+	if !__rows.Next() {
+		if err := __rows.Err(); err != nil {
 			return nil, obj.makeErr(err)
 		}
-		rows = append(rows, offer)
+		return nil, makeErr(sql.ErrNoRows)
 	}
+
+	offer = &Offer{}
+	err = __rows.Scan(&offer.Id, &offer.Name, &offer.Description, &offer.Type, &offer.CreditInCents, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.NumRedeemed, &offer.ExpiresAt, &offer.CreatedAt, &offer.Status)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	if __rows.Next() {
+		return nil, tooManyRows("Offer_By_Status_And_Type_And_ExpiresAt_GreaterOrEqual")
+	}
+
 	if err := __rows.Err(); err != nil {
 		return nil, obj.makeErr(err)
 	}
-	return rows, nil
+
+	return offer, nil
 
 }
 
@@ -6085,7 +6098,7 @@ func (obj *postgresImpl) Get_Offer_By_Status_And_Type(ctx context.Context,
 	offer_type Offer_Type_Field) (
 	offer *Offer, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT offers.id, offers.name, offers.description, offers.type, offers.credit, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.num_redeemed, offers.offer_duration_days, offers.created_at, offers.status FROM offers WHERE offers.status = ? AND offers.type = ? LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT offers.id, offers.name, offers.description, offers.type, offers.credit_in_cents, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.num_redeemed, offers.expires_at, offers.created_at, offers.status FROM offers WHERE offers.status = ? AND offers.type = ? LIMIT 2")
 
 	var __values []interface{}
 	__values = append(__values, offer_status.value(), offer_type.value())
@@ -6107,7 +6120,7 @@ func (obj *postgresImpl) Get_Offer_By_Status_And_Type(ctx context.Context,
 	}
 
 	offer = &Offer{}
-	err = __rows.Scan(&offer.Id, &offer.Name, &offer.Description, &offer.Type, &offer.Credit, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.NumRedeemed, &offer.OfferDurationDays, &offer.CreatedAt, &offer.Status)
+	err = __rows.Scan(&offer.Id, &offer.Name, &offer.Description, &offer.Type, &offer.CreditInCents, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.NumRedeemed, &offer.ExpiresAt, &offer.CreatedAt, &offer.Status)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -6121,6 +6134,38 @@ func (obj *postgresImpl) Get_Offer_By_Status_And_Type(ctx context.Context,
 	}
 
 	return offer, nil
+
+}
+
+func (obj *postgresImpl) All_Offer(ctx context.Context) (
+	rows []*Offer, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT offers.id, offers.name, offers.description, offers.type, offers.credit_in_cents, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.num_redeemed, offers.expires_at, offers.created_at, offers.status FROM offers")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		offer := &Offer{}
+		err = __rows.Scan(&offer.Id, &offer.Name, &offer.Description, &offer.Type, &offer.CreditInCents, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.NumRedeemed, &offer.ExpiresAt, &offer.CreatedAt, &offer.Status)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, offer)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
 
 }
 
@@ -9044,7 +9089,7 @@ func (obj *sqlite3Impl) All_Offer(ctx context.Context) (
 	obj.logStmt(__stmt, __values...)
 
 	offer = &Offer{}
-	err = __rows.Scan(&offer.Id, &offer.Name, &offer.Description, &offer.Type, &offer.Credit, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.NumRedeemed, &offer.OfferDurationDays, &offer.CreatedAt, &offer.Status)
+	err = __rows.Scan(&offer.Id, &offer.Name, &offer.Description, &offer.Type, &offer.CreditInCents, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.NumRedeemed, &offer.ExpiresAt, &offer.CreatedAt, &offer.Status)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9063,6 +9108,38 @@ func (obj *sqlite3Impl) All_Offer(ctx context.Context) (
 	}
 
 	return offer, nil
+
+}
+
+func (obj *sqlite3Impl) All_Offer(ctx context.Context) (
+	rows []*Offer, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT offers.id, offers.name, offers.description, offers.type, offers.credit_in_cents, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.num_redeemed, offers.expires_at, offers.created_at, offers.status FROM offers")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		offer := &Offer{}
+		err = __rows.Scan(&offer.Id, &offer.Name, &offer.Description, &offer.Type, &offer.CreditInCents, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.NumRedeemed, &offer.ExpiresAt, &offer.CreatedAt, &offer.Status)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, offer)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
 
 }
 
@@ -11021,19 +11098,16 @@ func (rx *Rx) Create_Offer(ctx context.Context,
 	offer_name Offer_Name_Field,
 	offer_description Offer_Description_Field,
 	offer_type Offer_Type_Field,
-	offer_credit Offer_Credit_Field,
+	offer_credit_in_cents Offer_CreditInCents_Field,
 	offer_award_credit_duration_days Offer_AwardCreditDurationDays_Field,
 	offer_invitee_credit_duration_days Offer_InviteeCreditDurationDays_Field,
-	offer_redeemable_cap Offer_RedeemableCap_Field,
-	offer_num_redeemed Offer_NumRedeemed_Field,
-	offer_offer_duration_days Offer_OfferDurationDays_Field,
-	offer_status Offer_Status_Field) (
+	offer_redeemable_cap Offer_RedeemableCap_Field) (
 	offer *Offer, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_Offer(ctx, offer_name, offer_description, offer_type, offer_credit, offer_award_credit_duration_days, offer_invitee_credit_duration_days, offer_redeemable_cap, offer_num_redeemed, offer_offer_duration_days, offer_status)
+	return tx.Create_Offer(ctx, offer_name, offer_description, offer_type, offer_credit_in_cents, offer_award_credit_duration_days, offer_invitee_credit_duration_days, offer_redeemable_cap)
 
 }
 
@@ -11432,6 +11506,18 @@ func (rx *Rx) Get_Offer_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Get_Offer_By_Id(ctx, offer_id)
+}
+
+func (rx *Rx) Get_Offer_By_Status_And_Type_And_ExpiresAt_GreaterOrEqual(ctx context.Context,
+	offer_status Offer_Status_Field,
+	offer_type Offer_Type_Field,
+	offer_expires_at_greater_or_equal Offer_ExpiresAt_Field) (
+	offer *Offer, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_Offer_By_Status_And_Type_And_ExpiresAt_GreaterOrEqual(ctx, offer_status, offer_type, offer_expires_at_greater_or_equal)
 }
 
 func (rx *Rx) Get_Offer_By_Status_And_Type_And_ExpiresAt_GreaterOrEqual(ctx context.Context,
@@ -12020,6 +12106,12 @@ type Methods interface {
 
 	Get_Offer_By_Id(ctx context.Context,
 		offer_id Offer_Id_Field) (
+		offer *Offer, err error)
+
+	Get_Offer_By_Status_And_Type_And_ExpiresAt_GreaterOrEqual(ctx context.Context,
+		offer_status Offer_Status_Field,
+		offer_type Offer_Type_Field,
+		offer_expires_at_greater_or_equal Offer_ExpiresAt_Field) (
 		offer *Offer, err error)
 
 	Get_Offer_By_Status_And_Type_And_ExpiresAt_GreaterOrEqual(ctx context.Context,
