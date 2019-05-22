@@ -2,16 +2,16 @@ GO_VERSION ?= 1.12.5
 GOOS ?= linux
 GOARCH ?= amd64
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
-BRANCH := $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
-ifeq (${BRANCH},master)
+BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
+ifeq (${BRANCH_NAME},master)
 TAG    := $(shell git rev-parse --short HEAD)-go${GO_VERSION}
 TRACKED_BRANCH := true
 LATEST_TAG := latest
 else
-TAG    := $(shell git rev-parse --short HEAD)-${BRANCH}-go${GO_VERSION}
-ifneq (,$(findstring release-,$(BRANCH)))
+TAG    := $(shell git rev-parse --short HEAD)-${BRANCH_NAME}-go${GO_VERSION}
+ifneq (,$(findstring release-,$(BRANCH_NAME)))
 TRACKED_BRANCH := true
-LATEST_TAG := ${BRANCH}-latest
+LATEST_TAG := ${BRANCH_NAME}-latest
 endif
 endif
 CUSTOMTAG ?=
