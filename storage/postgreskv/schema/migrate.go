@@ -19,10 +19,7 @@ import (
 // PrepareDB applies schema migrations as necessary to the given database to
 // get it up to date.
 func PrepareDB(db *sql.DB, dbURL string) error {
-	srcDriver, err := bindata.WithInstance(bindata.Resource(AssetNames(),
-		func(name string) ([]byte, error) {
-			return Asset(name)
-		}))
+	srcDriver, err := bindata.WithInstance(bindata.Resource(AssetNames(), Asset))
 	if err != nil {
 		return err
 	}

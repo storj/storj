@@ -70,11 +70,12 @@ func SignMessage(msg SignableMessage, id identity.FullIdentity) error {
 //VerifyMsg checks the crypto-related aspects of signed message
 func VerifyMsg(msg SignableMessage, signer storj.NodeID) error {
 	//setup
-	if msg == nil {
+	switch {
+	case msg == nil:
 		return ErrMissing.New("message")
-	} else if msg.GetSignature() == nil {
+	case msg.GetSignature() == nil:
 		return ErrMissing.New("message signature")
-	} else if msg.GetCerts() == nil {
+	case msg.GetCerts() == nil:
 		return ErrMissing.New("message certificates")
 	}
 	signature := msg.GetSignature()
