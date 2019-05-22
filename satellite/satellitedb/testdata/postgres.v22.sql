@@ -1,13 +1,4 @@
 -- Copied from the corresponding version of dbx generated schema
-CREATE TABLE pending_audits (
-	node_id bytea NOT NULL,
-	piece_id bytea NOT NULL,
-	stripe_index bigint NOT NULL,
-	share_size bigint NOT NULL,
-	expected_share_hash bytea NOT NULL,
-	reverify_count bigint NOT NULL,
-	PRIMARY KEY ( node_id )
-);
 CREATE TABLE accounting_rollups (
 	id bigserial NOT NULL,
 	node_id bytea NOT NULL,
@@ -96,7 +87,7 @@ CREATE TABLE irreparabledbs (
 CREATE TABLE nodes (
 	id bytea NOT NULL,
 	address text NOT NULL,
-    last_ip text NOT NULL,
+	last_ip text NOT NULL,
 	protocol integer NOT NULL,
 	type integer NOT NULL,
 	email text NOT NULL,
@@ -123,6 +114,30 @@ CREATE TABLE nodes (
 	contained boolean NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE offers (
+	id serial NOT NULL,
+	name text NOT NULL,
+	description text NOT NULL,
+	type integer NOT NULL,
+	credit_in_cents integer NOT NULL,
+	award_credit_duration_days integer NOT NULL,
+	invitee_credit_duration_days integer NOT NULL,
+	redeemable_cap integer NOT NULL,
+	num_redeemed integer NOT NULL,
+	expires_at timestamp with time zone,
+	created_at timestamp with time zone NOT NULL,
+	status integer NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE pending_audits (
+	node_id bytea NOT NULL,
+	piece_id bytea NOT NULL,
+	stripe_index bigint NOT NULL,
+	share_size bigint NOT NULL,
+	expected_share_hash bytea NOT NULL,
+	reverify_count bigint NOT NULL,
+	PRIMARY KEY ( node_id )
+);
 CREATE TABLE projects (
 	id bytea NOT NULL,
 	name text NOT NULL,
@@ -134,6 +149,13 @@ CREATE TABLE registration_tokens (
 	secret bytea NOT NULL,
 	owner_id bytea,
 	project_limit integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( secret ),
+	UNIQUE ( owner_id )
+);
+CREATE TABLE reset_password_tokens (
+	secret bytea NOT NULL,
+	owner_id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
@@ -192,15 +214,9 @@ CREATE TABLE used_serials (
 	storage_node_id bytea NOT NULL,
 	PRIMARY KEY ( serial_number_id, storage_node_id )
 );
-CREATE TABLE reset_password_tokens (
-  secret bytea NOT NULL,
-  owner_id bytea NOT NULL,
-  created_at timestamp with time zone NOT NULL,
-  PRIMARY KEY ( secret ),
-  UNIQUE ( owner_id )
-);
 CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
 CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
+CREATE INDEX node_last_ip ON nodes ( last_ip );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
 CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );
