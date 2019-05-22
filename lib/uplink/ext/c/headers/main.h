@@ -52,4 +52,4 @@ typedef Storj__Libuplink__ProjectOptions pbProjectOptions;
 typedef Storj__Libuplink__BucketConfig pbBucketConfig;
 
 void *get_snapshot(struct GoValue *, char **);
-void protoToGoValue(void *, enum ValueType, struct GoValue *, char **);
+void protoToGoValue(void *, struct GoValue *, char **);

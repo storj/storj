@@ -20,7 +20,7 @@ void *get_snapshot(struct GoValue *val, char **err)
         CGetSnapshot(val, err);
         return (void *)storj__libuplink__idversion__unpack(NULL, val->Size, val->Snapshot);
     default:
-        *err = "unknown type";
+        *err = "unknown value type";
         return NULL;
     }
 
@@ -28,19 +28,23 @@ void *get_snapshot(struct GoValue *val, char **err)
 }
 
 // protoToGoValue takes a protobuf, serializes it, sends it to go code, the go code converts that into a go struct and stores it
-void protoToGoValue(void *proto_msg, enum ValueType value_type, struct GoValue *value, char **err)
+void protoToGoValue(void *proto_msg, struct GoValue *value, char **err)
 {
     // Serialize the protobuf into the value
-    switch (value_type)
+    switch (value->Type)
     {
     case UplinkConfigType:
         value->Size = storj__libuplink__uplink_config__get_packed_size((pbUplinkConfig *)proto_msg);
         value->Snapshot = malloc(value->Size);
-        value->Type = value_type;
         storj__libuplink__uplink_config__pack((pbUplinkConfig *)proto_msg, value->Snapshot);
         break;
+    case ProjectOptionsType:
+        value->Size = storj__libuplink__project_options__get_packed_size((pbProjectOptions *)proto_msg);
+        value->Snapshot = malloc(value->Size);
+        storj__libuplink__project_options__pack((pbProjectOptions *)proto_msg, value->Snapshot);
+        break;
     default:
-        *err = "unknown type";
+        *err = "unknown value type";
         return;
     }
 

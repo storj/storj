@@ -34,7 +34,8 @@ gvUplinkConfig *NewTestConfig(char **err)
     uplinkConfig.max_memory = 2;
 
     gvUplinkConfig *uplinkConfigValue = malloc(sizeof(gvUplinkConfig));
-    protoToGoValue((void *)&uplinkConfig, UplinkConfigType, uplinkConfigValue, err);
+    uplinkConfigValue->Type = UplinkConfigType;
+    protoToGoValue((void *)&uplinkConfig, uplinkConfigValue, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     return uplinkConfigValue;
@@ -76,7 +77,8 @@ void TestOpenProject(void)
     memcpy(&opts.encryption_key, encryptionKey, 32);
 
     gvProjectOptions *optsValue = malloc(sizeof(gvProjectOptions));
-    protoToGoValue((void *)&opts, ProjectOptionsType, optsValue, err);
+    optsValue->Type = ProjectOptionsType;
+    protoToGoValue((void *)&opts, optsValue, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     gvUplink *uplink = NewTestUplink(err);

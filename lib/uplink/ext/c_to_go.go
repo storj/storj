@@ -59,6 +59,25 @@ func SendToGo(cVal *C.struct_GoValue, cErr **C.char) {
 				MaxMemory: memory.Size(pbConfig.MaxMemory),
 			},
 		}))
+	case C.ProjectOptionsType:
+		msg = &pb.ProjectOptions{}
+
+		if err := unmarshalCSnapshot(cVal, msg); err != nil {
+			*cErr = C.CString(err.Error())
+			return
+		}
+
+		pbOpts := msg.(*pb.ProjectOptions)
+		key := new(storj.Key)
+		copy((*key)[:], pbOpts.EncryptionKey)
+
+		cVal.Ptr = C.ulong(structRefMap.Add(&uplink.ProjectOptions{
+			Volatile: struct {
+				EncryptionKey *storj.Key
+			} {
+				EncryptionKey: key,
+			},
+		}))
 	default:
 		*cErr = C.CString(errs.New("unsupported protobuf type").Error())
 		return
