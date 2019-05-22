@@ -13,6 +13,7 @@ extern void TestAPIKey(void);
 extern void TestNewUplink_config(void);
 extern void TestOpenProject(void);
 extern void TestCreateBucket(void);
+extern void TestOpenBucket(void);
 extern void TestValue(void);
 
 int main(int argc, char *argv[])
@@ -21,8 +22,11 @@ int main(int argc, char *argv[])
     RUN_TEST(TestAPIKey);
     RUN_TEST(TestGetIDVersion);
     RUN_TEST(TestNewUplink_config);
+
+    RUN_TEST(TestOpenProject);
+    RUN_TEST(TestCreateBucket);
+    RUN_TEST(TestOpenBucket);
+
     // RUN_TEST(TestValue);
-     RUN_TEST(TestOpenProject);
-     RUN_TEST(TestCreateBucket);
     return UNITY_END();
 }

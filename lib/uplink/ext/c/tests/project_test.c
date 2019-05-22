@@ -20,7 +20,9 @@ void TestCreateBucket(void)
     pbProjectOptions projectOpts = STORJ__LIBUPLINK__PROJECT_OPTIONS__INIT;
     // NB: empty encryption key
     uint8_t encryptionKey[32];
-    memcpy(&projectOpts.encryption_key, &encryptionKey, 32);
+    memset(encryptionKey, '\0', sizeof(encryptionKey));
+    projectOpts.encryption_key.data = encryptionKey;
+    projectOpts.encryption_key.len = sizeof(encryptionKey);
 
     gvProjectOptions *optsValue = malloc(sizeof(gvProjectOptions));
     optsValue->Type = ProjectOptionsType;

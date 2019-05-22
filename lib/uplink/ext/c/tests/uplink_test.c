@@ -73,7 +73,9 @@ void TestOpenProject(void)
     pbProjectOptions opts = STORJ__LIBUPLINK__PROJECT_OPTIONS__INIT;
     // NB: empty encryption key
     uint8_t encryptionKey[32];
-    memcpy(&opts.encryption_key, &encryptionKey, 32);
+    memset(encryptionKey, '\0', sizeof(encryptionKey));
+    opts.encryption_key.data = encryptionKey;
+    opts.encryption_key.len = sizeof(encryptionKey);
 
     gvProjectOptions *optsValue = malloc(sizeof(gvProjectOptions));
     optsValue->Type = ProjectOptionsType;
