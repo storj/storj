@@ -35,7 +35,7 @@ type overlaycache struct {
 	db *dbx.DB
 }
 
-func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) ([]*pb.Node, error) {
+func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) (nodes []*pb.Node, err error) {
 	nodeType := int(pb.NodeType_STORAGE)
 
 	safeQuery := `
@@ -62,26 +62,32 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 		args = append(args, v.Major, v.Major, v.Minor, v.Minor, v.Patch)
 	}
 
-	var totalNodes []*pb.Node
-	for i := 0; i < 3; i++ {
-		nodes, err := cache.queryFilteredNodes(ctx, criteria.ExcludedNodes, criteria.ExcludedIPs, count-len(totalNodes), safeQuery, criteria.DistinctIP, args...)
+	if criteria.DistinctIP {
+		for i := 0; i < 3; i++ {
+			moreNodes, err := cache.queryNodesDistinct(ctx, criteria.ExcludedNodes, criteria.ExcludedIPs, count-len(nodes), safeQuery, criteria.DistinctIP, args...)
+			if err != nil {
+				return nil, err
+			}
+			for _, n := range moreNodes {
+				nodes = append(nodes, n)
+				criteria.ExcludedNodes = append(criteria.ExcludedNodes, n.Id)
+				criteria.ExcludedIPs = append(criteria.ExcludedIPs, n.LastIp)
+			}
+			if len(nodes) == count {
+				break
+			}
+		}
+	} else {
+		nodes, err = cache.queryNodes(ctx, criteria.ExcludedNodes, count, safeQuery, args...)
 		if err != nil {
 			return nil, err
 		}
-		for _, n := range nodes {
-			totalNodes = append(totalNodes, n)
-			criteria.ExcludedNodes = append(criteria.ExcludedNodes, n.Id)
-			criteria.ExcludedIPs = append(criteria.ExcludedIPs, n.LastIp)
-		}
-		if len(totalNodes) == count {
-			break
-		}
 	}
 
-	return totalNodes, nil
+	return nodes, nil
 }
 
-func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) ([]*pb.Node, error) {
+func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) (nodes []*pb.Node, err error) {
 	nodeType := int(pb.NodeType_STORAGE)
 
 	safeQuery := `
@@ -103,36 +109,32 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 		args = append(args, v.Major, v.Major, v.Minor, v.Minor, v.Patch)
 	}
 
-	var totalNodes []*pb.Node
-	for i := 0; i < 3; i++ {
-		nodes, err := cache.queryFilteredNodes(ctx, criteria.ExcludedNodes, criteria.ExcludedIPs, count-len(totalNodes), safeQuery, criteria.DistinctIP, args...)
+	if criteria.DistinctIP {
+		for i := 0; i < 3; i++ {
+			moreNodes, err := cache.queryNodesDistinct(ctx, criteria.ExcludedNodes, criteria.ExcludedIPs, count-len(nodes), safeQuery, criteria.DistinctIP, args...)
+			if err != nil {
+				return nil, err
+			}
+			for _, n := range moreNodes {
+				nodes = append(nodes, n)
+				criteria.ExcludedNodes = append(criteria.ExcludedNodes, n.Id)
+				criteria.ExcludedIPs = append(criteria.ExcludedIPs, n.LastIp)
+			}
+			if len(nodes) == count {
+				break
+			}
+		}
+	} else {
+		nodes, err = cache.queryNodes(ctx, criteria.ExcludedNodes, count, safeQuery, args...)
 		if err != nil {
 			return nil, err
 		}
-		for _, n := range nodes {
-			totalNodes = append(totalNodes, n)
-			criteria.ExcludedNodes = append(criteria.ExcludedNodes, n.Id)
-			criteria.ExcludedIPs = append(criteria.ExcludedIPs, n.LastIp)
-		}
-		if len(totalNodes) == count {
-			break
-		}
 	}
-	return totalNodes, nil
+
+	return nodes, nil
 }
 
-func (cache *overlaycache) queryFilteredNodes(ctx context.Context, excludedNodes []storj.NodeID, excludedIPs []string, count int, safeQuery string, distinctIP bool, args ...interface{}) (_ []*pb.Node, err error) {
-	switch t := cache.db.DB.Driver().(type) {
-	case *sqlite3.SQLiteDriver:
-		return cache.sqliteQueryNodes(ctx, excludedNodes, excludedIPs, count, safeQuery, distinctIP, args...)
-	case *pq.Driver:
-		return cache.postgresQueryNodes(ctx, excludedNodes, excludedIPs, count, safeQuery, distinctIP, args...)
-	default:
-		return []*pb.Node{}, Error.New("Unsupported database %t", t)
-	}
-}
-
-func (cache *overlaycache) sqliteQueryNodes(ctx context.Context, excludedNodes []storj.NodeID, excludedIPs []string, count int, safeQuery string, distinctIP bool, args ...interface{}) (_ []*pb.Node, err error) {
+func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj.NodeID, count int, safeQuery string, args ...interface{}) (_ []*pb.Node, err error) {
 	if count == 0 {
 		return nil, nil
 	}
@@ -145,40 +147,18 @@ func (cache *overlaycache) sqliteQueryNodes(ctx context.Context, excludedNodes [
 		}
 	}
 
-	safeExcludeIPs := ""
-	if len(excludedIPs) > 0 {
-		safeExcludeIPs = ` AND last_ip NOT IN (?` + strings.Repeat(", ?", len(excludedIPs)-1) + `)`
-		for _, ip := range excludedIPs {
-			args = append(args, ip)
-		}
-	}
-
 	args = append(args, count)
 
 	var rows *sql.Rows
-	if distinctIP {
-		rows, err = cache.db.Query(cache.db.Rebind(`SELECT id,
-		type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
-		uptime_ratio, total_audit_count, audit_success_count, total_uptime_count,
-		uptime_success_count
-		FROM (SELECT id, type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
-			uptime_ratio, total_audit_count, audit_success_count, total_uptime_count, uptime_success_count,
-			Row_number() OVER(PARTITION BY last_ip ORDER BY RANDOM()) rn
-			FROM nodes
-			`+safeQuery+safeExcludeNodes+safeExcludeIPs+`) n
-		WHERE rn = 1
-		ORDER BY RANDOM()
-		LIMIT ?`), args...)
-	} else {
-		rows, err = cache.db.Query(cache.db.Rebind(`SELECT id,
-		type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
-		uptime_ratio, total_audit_count, audit_success_count, total_uptime_count,
-		uptime_success_count
-		FROM nodes
-		`+safeQuery+safeExcludeNodes+safeExcludeIPs+`
-		ORDER BY RANDOM()
-		LIMIT ?`), args...)
-	}
+	rows, err = cache.db.Query(cache.db.Rebind(`SELECT id,
+	type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
+	uptime_ratio, total_audit_count, audit_success_count, total_uptime_count,
+	uptime_success_count
+	FROM nodes
+	`+safeQuery+safeExcludeNodes+`
+	ORDER BY RANDOM()
+	LIMIT ?`), args...)
+
 	if err != nil {
 		return nil, err
 	}
@@ -205,7 +185,80 @@ func (cache *overlaycache) sqliteQueryNodes(ctx context.Context, excludedNodes [
 	return nodes, rows.Err()
 }
 
-func (cache *overlaycache) postgresQueryNodes(ctx context.Context, excludedNodes []storj.NodeID, excludedIPs []string, count int, safeQuery string, distinctIP bool, args ...interface{}) (_ []*pb.Node, err error) {
+func (cache *overlaycache) queryNodesDistinct(ctx context.Context, excludedNodes []storj.NodeID, excludedIPs []string, count int, safeQuery string, distinctIP bool, args ...interface{}) (_ []*pb.Node, err error) {
+	switch t := cache.db.DB.Driver().(type) {
+	case *sqlite3.SQLiteDriver:
+		return cache.sqliteQueryNodesDistinct(ctx, excludedNodes, excludedIPs, count, safeQuery, distinctIP, args...)
+	case *pq.Driver:
+		return cache.postgresQueryNodesDistinct(ctx, excludedNodes, excludedIPs, count, safeQuery, distinctIP, args...)
+	default:
+		return []*pb.Node{}, Error.New("Unsupported database %t", t)
+	}
+}
+
+func (cache *overlaycache) sqliteQueryNodesDistinct(ctx context.Context, excludedNodes []storj.NodeID, excludedIPs []string, count int, safeQuery string, distinctIP bool, args ...interface{}) (_ []*pb.Node, err error) {
+	if count == 0 {
+		return nil, nil
+	}
+
+	safeExcludeNodes := ""
+	if len(excludedNodes) > 0 {
+		safeExcludeNodes = ` AND id NOT IN (?` + strings.Repeat(", ?", len(excludedNodes)-1) + `)`
+		for _, id := range excludedNodes {
+			args = append(args, id.Bytes())
+		}
+	}
+
+	safeExcludeIPs := ""
+	if len(excludedIPs) > 0 {
+		safeExcludeIPs = ` AND last_ip NOT IN (?` + strings.Repeat(", ?", len(excludedIPs)-1) + `)`
+		for _, ip := range excludedIPs {
+			args = append(args, ip)
+		}
+	}
+
+	args = append(args, count)
+
+	rows, err := cache.db.Query(cache.db.Rebind(`SELECT id,
+	type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
+	uptime_ratio, total_audit_count, audit_success_count, total_uptime_count,
+	uptime_success_count
+	FROM (SELECT id, type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
+		uptime_ratio, total_audit_count, audit_success_count, total_uptime_count, uptime_success_count,
+		Row_number() OVER(PARTITION BY last_ip ORDER BY RANDOM()) rn
+		FROM nodes
+		`+safeQuery+safeExcludeNodes+safeExcludeIPs+`) n
+	WHERE rn = 1
+	ORDER BY RANDOM()
+	LIMIT ?`), args...)
+
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+	var nodes []*pb.Node
+	for rows.Next() {
+		dbNode := &dbx.Node{}
+		err = rows.Scan(&dbNode.Id, &dbNode.Type,
+			&dbNode.Address, &dbNode.LastIp, &dbNode.FreeBandwidth, &dbNode.FreeDisk,
+			&dbNode.AuditSuccessRatio, &dbNode.UptimeRatio,
+			&dbNode.TotalAuditCount, &dbNode.AuditSuccessCount,
+			&dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount)
+		if err != nil {
+			return nil, err
+		}
+
+		dossier, err := convertDBNode(dbNode)
+		if err != nil {
+			return nil, err
+		}
+		nodes = append(nodes, &dossier.Node)
+	}
+
+	return nodes, rows.Err()
+}
+
+func (cache *overlaycache) postgresQueryNodesDistinct(ctx context.Context, excludedNodes []storj.NodeID, excludedIPs []string, count int, safeQuery string, distinctIP bool, args ...interface{}) (_ []*pb.Node, err error) {
 	if count == 0 {
 		return nil, nil
 	}
@@ -227,30 +280,19 @@ func (cache *overlaycache) postgresQueryNodes(ctx context.Context, excludedNodes
 	}
 	args = append(args, count)
 
-	var rows *sql.Rows
-	if distinctIP {
-		rows, err = cache.db.Query(cache.db.Rebind(`SELECT DISTINCT ON (last_ip) id,
-		type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
-		uptime_ratio, total_audit_count, audit_success_count, total_uptime_count,
-		uptime_success_count
-		FROM (SELECT id,
-			type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
-			uptime_ratio, total_audit_count, audit_success_count, total_uptime_count,
-			uptime_success_count
-			FROM nodes
-			`+safeQuery+safeExcludeNodes+safeExcludeIPs+`
-			ORDER BY RANDOM()
-			LIMIT ?) n`), args...)
-	} else {
-		rows, err = cache.db.Query(cache.db.Rebind(`SELECT id,
+	rows, err := cache.db.Query(cache.db.Rebind(`SELECT DISTINCT ON (last_ip) id,
+	type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
+	uptime_ratio, total_audit_count, audit_success_count, total_uptime_count,
+	uptime_success_count
+	FROM (SELECT id,
 		type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
 		uptime_ratio, total_audit_count, audit_success_count, total_uptime_count,
 		uptime_success_count
 		FROM nodes
 		`+safeQuery+safeExcludeNodes+safeExcludeIPs+`
 		ORDER BY RANDOM()
-		LIMIT ?`), args...)
-	}
+		LIMIT ?) n`), args...)
+
 	if err != nil {
 		return nil, err
 	}
