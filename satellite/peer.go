@@ -85,6 +85,8 @@ type DB interface {
 	Console() console.DB
 	// Orders returns database for orders
 	Orders() orders.DB
+	// Containment returns database for containment
+	Containment() audit.DB
 }
 
 // Config is the global config satellite
