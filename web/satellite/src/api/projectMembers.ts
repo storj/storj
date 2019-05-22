@@ -117,7 +117,6 @@ export async function fetchProjectMembersRequest(projectID: string, cursor: Proj
         }
     );
 
-    console.log(response)
     if (response.errors) {
         result.errorMessage = response.errors[0].message;
     } else {
