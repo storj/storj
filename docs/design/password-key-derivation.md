@@ -63,7 +63,7 @@ This design accomplishes all of the requirements listed above.
 
 Some other points of consideration include
 
-- Clients can ignore the salt entropy if they wish and know they have a strong password. Indeed, they can ignore all of this and do their own key derivation.
+- Clients can ignore the salt entropy if they wish and know they have a strong password. Indeed, they can ignore all of this and do their own key derivation. At a minimum, we allow the user to specify an already-formed encryption key in their configuration if they don't want one derived from a passphrase.
 - The entropy is not blindly trusted from the satellite, and is mixed with the secret in an HMAC step that ensures a hostile satellite cannot predict what the salt will be.
 - HMAC provides security against forgeries without knowing the secret, which implies that sharing the output of a HMAC does not leak information about the secret, even under attacker provided data, so I believe the usage of HMAC is safe.
 - The entropy can be used for other purposes in the future if necessary.
