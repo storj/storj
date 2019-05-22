@@ -16,6 +16,7 @@ message Node {
     bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
     NodeAddress address = 2;
     reserved 3 to 13;
+    string last_ip = 14;
     reserved "type", "restrictions", "reputation", "metadata", "latency_list", "audit_success", "is_up", "update_latency", "update_audit_success", "update_uptime", "version";
 }
 
