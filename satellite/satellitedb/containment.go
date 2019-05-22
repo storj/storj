@@ -58,7 +58,7 @@ func (containment *containment) IncrementPending(ctx context.Context, pendingAud
 		}
 	} else if err == nil {
 		if !bytes.Equal(existingAudit.ExpectedShareHash, pendingAudit.ExpectedShareHash) {
-			return audit.ContainError.Wrap(errs.Combine(Error.New("pending audit already exists for nodeID %s", pendingAudit.NodeID), tx.Rollback()))
+			return audit.ContainError.Wrap(errs.Combine(audit.ErrAlreadyExists.New(pendingAudit.NodeID.String()), tx.Rollback()))
 		}
 		statement := containment.db.Rebind(
 			`UPDATE pending_audits SET reverify_count = pending_audits.reverify_count + 1

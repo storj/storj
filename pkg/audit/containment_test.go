@@ -94,7 +94,7 @@ func TestContainIncrementPendingEntryExists(t *testing.T) {
 		// expect failure when an entry with the same nodeID but different expected share data already exists
 		err = planet.Satellites[0].DB.Containment().IncrementPending(ctx, info2)
 		require.Error(t, err)
-		require.True(t, audit.ContainError.Has(err))
+		require.True(t, audit.ErrAlreadyExists.Has(err))
 
 		// expect reverify count for an entry to be 0 after first IncrementPending call
 		pending, err := planet.Satellites[0].DB.Containment().Get(ctx, info1.NodeID)
