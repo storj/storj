@@ -10,7 +10,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-
 	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/pb"
@@ -678,13 +677,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						PRIMARY KEY ( id ),
 						UNIQUE ( head ),
 						UNIQUE ( name, project_id )
-					);`,
-					`CREATE TABLE revocations (
-						id bigserial NOT NULL,
-						head bytea NOT NULL,
-						created_at timestamp with time zone NOT NULL,
-						PRIMARY KEY ( id ),
-						UNIQUE ( head )
 					);`,
 				},
 			},
