@@ -10,6 +10,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+
 	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/pb"
