@@ -30,21 +30,29 @@ type DB struct {
 	*Project
 
 	metainfo metainfo.Client
-
+	buckets  buckets.Store
 	streams  streams.Store
 	segments segments.Store
 
 	rootKey *storj.Key
+
+	encryptedBlockSize int32
+	redundancy         eestream.RedundancyStrategy
+	segmentsSize       int64
 }
 
 // New creates a new metainfo database
 func New(metainfo metainfo.Client, buckets buckets.Store, streams streams.Store, segments segments.Store, rootKey *storj.Key, encryptedBlockSize int32, redundancy eestream.RedundancyStrategy, segmentsSize int64) *DB {
 	return &DB{
-		Project:  NewProject(metainfo),
-		metainfo: metainfo,
-		streams:  streams,
-		segments: segments,
-		rootKey:  rootKey,
+		Project:            NewProject(metainfo),
+		metainfo:           metainfo,
+		buckets:            buckets,
+		streams:            streams,
+		segments:           segments,
+		rootKey:            rootKey,
+		encryptedBlockSize: encryptedBlockSize,
+		redundancy:         redundancy,
+		segmentsSize:       segmentsSize,
 	}
 }
 
