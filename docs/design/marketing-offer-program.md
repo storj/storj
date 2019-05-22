@@ -83,8 +83,8 @@ The credit is automatically applied to the account and will have a max limit tha
 ```sql
     user_id - bytea
     offer_id - int
-    credits_earned - int
-    credits_used - int
+    credits_earned_cents - int
+    credits_used_cents - int
     credit_type - enum[AWARD, INVITEE, NO_TYPE]
     expires_at - timestamp
     created_at - timestamp

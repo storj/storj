@@ -73,7 +73,7 @@ type Offer struct {
 	AwardCreditDurationDays   int
 	InviteeCreditDurationDays int
 
-	ExpiresAt time.Time
+	ExpiresAt *time.Time
 	CreatedAt time.Time
 
 	Status OfferStatus

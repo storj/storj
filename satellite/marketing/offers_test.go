@@ -21,11 +21,10 @@ func TestCreateAndListAllOffers(t *testing.T) {
 			Name:                      "test",
 			Description:               "test offer",
 			Type:                      marketing.Referral,
-			Credit:                    100,
+			CreditInCents:             100,
 			AwardCreditDurationDays:   60,
 			InviteeCreditDurationDays: 30,
 			RedeemableCap:             50,
-			OfferDurationDays:         70,
 		}
 		createdOffer, err := planet.Satellites[0].DB.Marketing().Offers().Create(ctx, newOffer)
 		require.NoError(t, err)
