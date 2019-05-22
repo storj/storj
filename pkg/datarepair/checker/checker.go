@@ -103,12 +103,13 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 				if nextItem.Key.String() == item.Key.String() {
 					checker.lastChecked = ""
 
-					// TODO send stats via monkit
+					// send durability stats
 					mon.IntVal("remote_segments_checked").Observe(checker.durabilityStats.remoteSegmentsChecked)
 					mon.IntVal("remote_segments_needing_repair").Observe(checker.durabilityStats.remoteSegmentsNeedingRepair)
 					mon.IntVal("remote_segments_lost").Observe(checker.durabilityStats.remoteSegmentsLost)
 					mon.IntVal("remote_files_lost").Observe(int64(len(checker.durabilityStats.remoteSegmentInfo)))
 
+					// reset durability stats
 					checker.durabilityStats.remoteSegmentsChecked = 0
 					checker.durabilityStats.remoteSegmentsNeedingRepair = 0
 					checker.durabilityStats.remoteSegmentsLost = 0
