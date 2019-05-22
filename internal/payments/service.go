@@ -10,7 +10,6 @@ import (
 
 	"github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/client"
-	"github.com/stripe/stripe-go/invoice"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 )
@@ -105,7 +104,8 @@ func (s *StripeService) CreateProjectInvoice(ctx context.Context, params CreateP
 		Customer:    stripe.String(params.CustomerID),
 		Description: stripe.String("Storage"),
 		Quantity:    stripe.Int64(int64(params.Storage)),
-		UnitAmount:  stripe.Int64(1),
+		UnitAmount:  stripe.Int64(100),
+		Currency:    stripe.String(string(stripe.CurrencyUSD)),
 	})
 	if err != nil {
 		return nil, err
@@ -115,7 +115,8 @@ func (s *StripeService) CreateProjectInvoice(ctx context.Context, params CreateP
 		Customer:    stripe.String(params.CustomerID),
 		Description: stripe.String("Egress"),
 		Quantity:    stripe.Int64(int64(params.Egress)),
-		UnitAmount:  stripe.Int64(1),
+		UnitAmount:  stripe.Int64(100),
+		Currency:    stripe.String(string(stripe.CurrencyUSD)),
 	})
 	if err != nil {
 		return nil, err
@@ -125,15 +126,18 @@ func (s *StripeService) CreateProjectInvoice(ctx context.Context, params CreateP
 		Customer:    stripe.String(params.CustomerID),
 		Description: stripe.String("ObjectsCount"),
 		Quantity:    stripe.Int64(int64(params.Egress)),
-		UnitAmount:  stripe.Int64(1),
+		UnitAmount:  stripe.Int64(100),
+		Currency:    stripe.String(string(stripe.CurrencyUSD)),
 	})
 	if err != nil {
 		return nil, err
 	}
 
+	// TODO: fetch card info manually?
 	// create invoice
 	invoiceParams := &stripe.InvoiceParams{
-		Customer: stripe.String(params.CustomerID),
+		Customer:    stripe.String(params.CustomerID),
+		Description: stripe.String(fmt.Sprintf("Invoice for usage of %s", params.ProjectName)),
 		CustomFields: []*stripe.InvoiceCustomFieldParams{
 			{
 				Name:  stripe.String("Billing period"),
@@ -147,7 +151,7 @@ func (s *StripeService) CreateProjectInvoice(ctx context.Context, params CreateP
 		AutoAdvance: stripe.Bool(true),
 	}
 
-	return invoice.New(invoiceParams)
+	return s.client.Invoices.New(invoiceParams)
 }
 
 // GetInvoice retrieves an invoice from stripe network by invoiceID
@@ -157,5 +161,7 @@ func (s *StripeService) GetInvoice(invoiceID string) (*stripe.Invoice, error) {
 
 // timeRangeString helper function to create string representation of time range
 func timeRangeString(start, end time.Time) string {
-	return fmt.Sprintf("%s - %s", start.UTC().Format(time.RFC822), end.UTC().Format(time.RFC822))
+	return fmt.Sprintf("%d/%d/%d - %d/%d/%d",
+		start.UTC().Month(), start.UTC().Day(), start.UTC().Year(),
+		end.UTC().Month(), end.UTC().Day(), end.UTC().Year())
 }

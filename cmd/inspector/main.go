@@ -16,10 +16,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 	prompt "github.com/segmentio/go-prompt"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"

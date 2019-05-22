@@ -27,7 +27,8 @@ import {
     PM_ACTIONS,
     API_KEYS_ACTIONS,
     PROJECT_USAGE_ACTIONS,
-    BUCKET_USAGE_ACTIONS
+    BUCKET_USAGE_ACTIONS,
+    PROJECT_INVOICE_ACTIONS
 } from '@/utils/constants/actionNames';
 
 @Component(
@@ -47,6 +48,7 @@ import {
                 const keysResponse = await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
                 const usageResponse = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
                 const bucketsResponse = await this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, 1);
+                const projectInvoicesResponse = await this.$store.dispatch(PROJECT_INVOICE_ACTIONS.FETCH);
 
                 if (!pmResponse.isSuccess) {
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
@@ -62,6 +64,10 @@ import {
 
                 if (!bucketsResponse.isSuccess) {
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + bucketsResponse.errorMessage);
+                }
+
+                if (!projectInvoicesResponse.isSuccess) {
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project invoices: ' + projectInvoicesResponse.errorMessage);
                 }
             }
         },

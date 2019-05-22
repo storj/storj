@@ -917,9 +917,15 @@ func (s *Service) CreateMonthlyProjectInvoices(ctx context.Context, date time.Ti
 	//if err != nil {
 	//	return err
 	//}
+
 	utc := date.UTC()
 	startDate := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
 	endDate := time.Date(utc.Year(), utc.Month()+1, 1, 0, 0, 0, -1, time.UTC)
+
+	// disallow invoice generation for future periods
+	if endDate.After(time.Now()) {
+		return errs.New("can't create invoices for future periods")
+	}
 
 	projects, err := s.store.Projects().GetAll(ctx)
 	if err != nil {
@@ -928,13 +934,19 @@ func (s *Service) CreateMonthlyProjectInvoices(ctx context.Context, date time.Ti
 
 	var invoiceError errs.Group
 	for _, proj := range projects {
+		// skip projects that were created before startDate
+		if proj.CreatedAt.After(startDate) {
+			s.log.Info(fmt.Sprintf("skipping project %s during invoice generation, created after start of the period", proj.ID))
+			continue
+		}
+
 		// check if there is entry in the db for selected project and date
 		// range, if so skip project as invoice has allready been created
 		// this way we can run this function for the second time to generate
 		// invoices only for project that failed before
 		_, err := s.store.ProjectInvoiceStamps().GetByProjectIDStartDate(ctx, proj.ID, startDate)
 		if err == nil {
-			s.log.Info(fmt.Sprintf("skipping project %s during invoice generation", proj.ID))
+			s.log.Info(fmt.Sprintf("skipping project %s during invoice generation, invoice stamp allready exists", proj.ID))
 			continue
 		}
 
@@ -1023,7 +1035,7 @@ func (s *Service) GetProjectInvoices(ctx context.Context, projectID uuid.UUID) (
 		// assuming default source is card only
 		if inv.DefaultSource != nil {
 			invoice.PaymentMethod = PaymentMethod{
-				Brand: string(inv.DefaultSource.Card.Brand),
+				Brand:    string(inv.DefaultSource.Card.Brand),
 				LastFour: inv.DefaultSource.Card.Last4,
 			}
 		}

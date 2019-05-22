@@ -3,16 +3,17 @@
 
 <template>
 	<div>
-		<div v-if="billing > 0" class="billing-overflow">
+		<div v-if="invoices.length > 0" class="billing-overflow">
 			<div class="billing-header">
 				<p>Billing</p>
 			</div>
 			<div class="billing-container">
 				<table class="billing-container__table">
 					<SortingHeader />
-					<BucketItem />
+					<BucketItem v-for="invoice in invoices" :invoice="invoice" :key="invoice.invoiceID"/>
 				</table>
-				<PaginationArea />
+                <!-- TODO: uncomment if pagination will be available -->
+				<!--<PaginationArea />-->
 			</div>
 		</div>
 	</div>
@@ -26,11 +27,11 @@
     import SortingHeader from '@/components/project/billing/SortingHeader.vue';
 
     @Component({
-        data: function () {
-            return {
-                billing: 1,
-            };
-        },
+		computed: {
+        	invoices: function (): ProjectInvoice[] {
+				return this.$store.state.projectInvoicesModule.invoices;
+			},
+		},
         components: {
             EmptyState,
             SortingHeader,
