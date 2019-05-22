@@ -62,25 +62,27 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 		args = append(args, v.Major, v.Major, v.Minor, v.Minor, v.Patch)
 	}
 
-	if criteria.DistinctIP {
-		for i := 0; i < 3; i++ {
-			moreNodes, err := cache.queryNodesDistinct(ctx, criteria.ExcludedNodes, criteria.ExcludedIPs, count-len(nodes), safeQuery, criteria.DistinctIP, args...)
-			if err != nil {
-				return nil, err
-			}
-			for _, n := range moreNodes {
-				nodes = append(nodes, n)
-				criteria.ExcludedNodes = append(criteria.ExcludedNodes, n.Id)
-				criteria.ExcludedIPs = append(criteria.ExcludedIPs, n.LastIp)
-			}
-			if len(nodes) == count {
-				break
-			}
-		}
-	} else {
+	if !criteria.DistinctIP {
 		nodes, err = cache.queryNodes(ctx, criteria.ExcludedNodes, count, safeQuery, args...)
 		if err != nil {
 			return nil, err
+		}
+		return nodes, nil
+	}
+
+	// query for distinct IPs
+	for i := 0; i < 3; i++ {
+		moreNodes, err := cache.queryNodesDistinct(ctx, criteria.ExcludedNodes, criteria.ExcludedIPs, count-len(nodes), safeQuery, criteria.DistinctIP, args...)
+		if err != nil {
+			return nil, err
+		}
+		for _, n := range moreNodes {
+			nodes = append(nodes, n)
+			criteria.ExcludedNodes = append(criteria.ExcludedNodes, n.Id)
+			criteria.ExcludedIPs = append(criteria.ExcludedIPs, n.LastIp)
+		}
+		if len(nodes) == count {
+			break
 		}
 	}
 
@@ -109,25 +111,27 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 		args = append(args, v.Major, v.Major, v.Minor, v.Minor, v.Patch)
 	}
 
-	if criteria.DistinctIP {
-		for i := 0; i < 3; i++ {
-			moreNodes, err := cache.queryNodesDistinct(ctx, criteria.ExcludedNodes, criteria.ExcludedIPs, count-len(nodes), safeQuery, criteria.DistinctIP, args...)
-			if err != nil {
-				return nil, err
-			}
-			for _, n := range moreNodes {
-				nodes = append(nodes, n)
-				criteria.ExcludedNodes = append(criteria.ExcludedNodes, n.Id)
-				criteria.ExcludedIPs = append(criteria.ExcludedIPs, n.LastIp)
-			}
-			if len(nodes) == count {
-				break
-			}
-		}
-	} else {
+	if !criteria.DistinctIP {
 		nodes, err = cache.queryNodes(ctx, criteria.ExcludedNodes, count, safeQuery, args...)
 		if err != nil {
 			return nil, err
+		}
+		return nodes, nil
+	}
+
+	// query for distinct IPs
+	for i := 0; i < 3; i++ {
+		moreNodes, err := cache.queryNodesDistinct(ctx, criteria.ExcludedNodes, criteria.ExcludedIPs, count-len(nodes), safeQuery, criteria.DistinctIP, args...)
+		if err != nil {
+			return nil, err
+		}
+		for _, n := range moreNodes {
+			nodes = append(nodes, n)
+			criteria.ExcludedNodes = append(criteria.ExcludedNodes, n.Id)
+			criteria.ExcludedIPs = append(criteria.ExcludedIPs, n.LastIp)
+		}
+		if len(nodes) == count {
+			break
 		}
 	}
 
