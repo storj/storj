@@ -14,6 +14,9 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/golang/protobuf/ptypes"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
@@ -49,6 +52,9 @@ var (
 	// ErrIdentity is for errors during identity creation for this CLI
 	ErrIdentity = errs.Class("error creating identity:")
 
+	// ErrInvoices is for error during project invoice generation
+	ErrInvoices = errs.Class("error generating invoices:")
+
 	// ErrArgs throws when there are errors with CLI args
 	ErrArgs = errs.Class("error with CLI args:")
 
@@ -70,6 +76,10 @@ var (
 	healthCmd = &cobra.Command{
 		Use:   "health",
 		Short: "commands for querying health of a stored data",
+	}
+	paymentsCmd = &cobra.Command{
+		Use:   "payments",
+		Short: "commands for console payments",
 	}
 	irreparableCmd = &cobra.Command{
 		Use:   "irreparable",
@@ -147,15 +157,22 @@ var (
 		Args:  cobra.MinimumNArgs(4),
 		RunE:  SegmentHealth,
 	}
+	projectInvoicesCmd = &cobra.Command{
+		Use:   "create-invoices <base-date>",
+		Short: fmt.Sprintf("Create invoices for all projects. Base date is format in RFC822(%s)", time.RFC822),
+		Args:  cobra.MinimumNArgs(1),
+		RunE:  CreateMonthlyProjectInvoices,
+	}
 )
 
 // Inspector gives access to kademlia, overlay cache
 type Inspector struct {
-	identity      *identity.FullIdentity
-	kadclient     pb.KadInspectorClient
-	overlayclient pb.OverlayInspectorClient
-	irrdbclient   pb.IrreparableInspectorClient
-	healthclient  pb.HealthInspectorClient
+	identity       *identity.FullIdentity
+	kadclient      pb.KadInspectorClient
+	overlayclient  pb.OverlayInspectorClient
+	irrdbclient    pb.IrreparableInspectorClient
+	healthclient   pb.HealthInspectorClient
+	paymentsclient pb.PaymentInspectorClient
 }
 
 // NewInspector creates a new gRPC inspector client for access to kad,
@@ -177,12 +194,35 @@ func NewInspector(address, path string) (*Inspector, error) {
 	}
 
 	return &Inspector{
-		identity:      id,
-		kadclient:     pb.NewKadInspectorClient(conn),
-		overlayclient: pb.NewOverlayInspectorClient(conn),
-		irrdbclient:   pb.NewIrreparableInspectorClient(conn),
-		healthclient:  pb.NewHealthInspectorClient(conn),
+		identity:       id,
+		kadclient:      pb.NewKadInspectorClient(conn),
+		overlayclient:  pb.NewOverlayInspectorClient(conn),
+		irrdbclient:    pb.NewIrreparableInspectorClient(conn),
+		healthclient:   pb.NewHealthInspectorClient(conn),
+		paymentsclient: pb.NewPaymentInspectorClient(conn),
 	}, nil
+}
+
+// CreateMonthlyProjectInvoices creates invoices for all projects on the satellite
+// on a monthly basis, month edge are derived from base date
+func CreateMonthlyProjectInvoices(cmd *cobra.Command, args []string) (err error) {
+	baseDate, err := time.Parse(time.RFC822, args[0])
+	if err != nil {
+		return ErrInvoices.Wrap(err)
+	}
+
+	baseDateProto, err := ptypes.TimestampProto(baseDate)
+	if err != nil {
+		return ErrInvoices.Wrap(err)
+	}
+
+	i, err := NewInspector(*Addr, *IdentityPath)
+	if err != nil {
+		return ErrInspectorDial.Wrap(err)
+	}
+
+	_, err = i.paymentsclient.CreateInvoices(context.Background(), &pb.CreateInvoicesRequest{BaseDate: baseDateProto})
+	return ErrInvoices.Wrap(err)
 }
 
 // CountNodes returns the number of nodes in kademlia
@@ -752,6 +792,7 @@ func init() {
 	rootCmd.AddCommand(statsCmd)
 	rootCmd.AddCommand(irreparableCmd)
 	rootCmd.AddCommand(healthCmd)
+	rootCmd.AddCommand(paymentsCmd)
 
 	kadCmd.AddCommand(countNodeCmd)
 	kadCmd.AddCommand(pingNodeCmd)
@@ -767,6 +808,8 @@ func init() {
 
 	healthCmd.AddCommand(objectHealthCmd)
 	healthCmd.AddCommand(segmentHealthCmd)
+
+	paymentsCmd.AddCommand(projectInvoicesCmd)
 
 	objectHealthCmd.Flags().StringVar(&CSVPath, "csv-path", "stdout", "csv path where command output is written")
 
