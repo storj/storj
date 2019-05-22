@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div>
+    <div class="footer">
         <!-- if selection mode -->
         <DeleteUserArea />
         <!-- approval after delete click -->
@@ -27,5 +27,9 @@ export default class TeamFooter extends Vue {
 </script>
 
 <style scoped lang="scss">
+
+    .footer {
+        z-index: 99;
+    }
 
 </style>

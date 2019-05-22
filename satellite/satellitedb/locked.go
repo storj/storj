@@ -271,6 +271,13 @@ func (m *lockedProjectMembers) GetByProjectID(ctx context.Context, projectID uui
 	return m.db.GetByProjectID(ctx, projectID, pagination)
 }
 
+// GetByProjectIDTotal is a method for querying project members from the database by projectID and cursor.
+func (m *lockedProjectMembers) GetByProjectIDTotal(ctx context.Context, projectID uuid.UUID, cursor console.ProjectMembersCursor) (*console.ProjectMembersPage, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetByProjectIDTotal(ctx, projectID, cursor)
+}
+
 // Insert is a method for inserting project member into the database.
 func (m *lockedProjectMembers) Insert(ctx context.Context, memberID uuid.UUID, projectID uuid.UUID) (*console.ProjectMember, error) {
 	m.Lock()

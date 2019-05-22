@@ -18,19 +18,21 @@ type TypeCreator struct {
 
 	token *graphql.Object
 
-	user            *graphql.Object
+	user              *graphql.Object
 	creditUsage     *graphql.Object
-	project         *graphql.Object
-	projectUsage    *graphql.Object
-	bucketUsage     *graphql.Object
-	bucketUsagePage *graphql.Object
-	projectMember   *graphql.Object
-	apiKeyInfo      *graphql.Object
-	createAPIKey    *graphql.Object
+	project           *graphql.Object
+	projectUsage      *graphql.Object
+	bucketUsage       *graphql.Object
+	bucketUsagePage   *graphql.Object
+	projectMember     *graphql.Object
+	projectMemberPage *graphql.Object
+	apiKeyInfo        *graphql.Object
+	createAPIKey      *graphql.Object
 
-	userInput         *graphql.InputObject
-	projectInput      *graphql.InputObject
-	bucketUsageCursor *graphql.InputObject
+	userInput            *graphql.InputObject
+	projectInput         *graphql.InputObject
+	bucketUsageCursor    *graphql.InputObject
+	projectMembersCursor *graphql.InputObject
 }
 
 // Create create types and check for error
@@ -48,6 +50,11 @@ func (c *TypeCreator) Create(log *zap.Logger, service *console.Service, mailServ
 
 	c.bucketUsageCursor = graphqlBucketUsageCursor()
 	if err := c.bucketUsageCursor.Error(); err != nil {
+		return err
+	}
+
+	c.projectMembersCursor = graphqlProjectMembersCursor()
+	if err := c.projectMembersCursor.Error(); err != nil {
 		return err
 	}
 
@@ -89,6 +96,11 @@ func (c *TypeCreator) Create(log *zap.Logger, service *console.Service, mailServ
 
 	c.projectMember = graphqlProjectMember(service, c)
 	if err := c.projectMember.Error(); err != nil {
+		return err
+	}
+
+	c.projectMemberPage = graphqlProjectMembersPage(c)
+	if err := c.projectMemberPage.Error(); err != nil {
 		return err
 	}
 

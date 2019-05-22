@@ -2,6 +2,8 @@
 // See LICENSE for copying information.
 
 // Project is a type, used for creating new project in backend
+import { ProjectMemberSortByEnum } from '@/utils/constants/ProjectMemberSortEnum';
+
 declare type Project = {
     id: string,
 
@@ -28,3 +30,21 @@ declare type TeamMemberModel = {
     }
     joinedAt: string,
 };
+
+declare type ProjectMemberCursor = {
+    search: string,
+    limit: number,
+    page: number
+    order: ProjectMemberSortByEnum,
+}
+
+declare type ProjectMembersPage = {
+    projectMembers: TeamMemberModel[],
+    search: string,
+    order: ProjectMemberSortByEnum,
+    limit: number,
+    offset: number,
+    pageCount: number,
+    currentPage: number,
+    totalCount: number,
+}

@@ -29,7 +29,7 @@
         methods: {
             processSearchQuery: async function () {
                 this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, this.$data.searchQuery);
-                const response = await this.$store.dispatch(PM_ACTIONS.FETCH);
+                const response = await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
 
                 if (!response.isSuccess) {
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');

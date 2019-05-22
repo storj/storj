@@ -25,6 +25,10 @@ const (
 	BucketUsageType = "bucketUsage"
 	// BucketUsagePageType is a field name for bucket usage page
 	BucketUsagePageType = "bucketUsagePage"
+	// ProjectMembersPageType is a field name for project members page
+	ProjectMembersPageType = "projectMembersPage"
+	// ProjectMembersCursorInputType is a graphql type name for project members
+	ProjectMembersCursorInputType = "projectMembersCursor"
 	// FieldName is a field name for "name"
 	FieldName = "name"
 	// FieldBucketName is a field name for "bucket name"
@@ -51,6 +55,8 @@ const (
 	FieldCurrentPage = "currentPage"
 	// FieldTotalCount is a field name for bucket usage count total
 	FieldTotalCount = "totalCount"
+	// FieldProjectMembers is a field name for project members
+	FieldProjectMembers = "projectMembers"
 	// CursorArg is an argument name for cursor
 	CursorArg = "cursor"
 	// PageArg ia an argument name for page number
@@ -87,48 +93,24 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 				Type: graphql.DateTime,
 			},
 			FieldMembers: &graphql.Field{
-				Type: graphql.NewList(types.projectMember),
+				Type: types.projectMemberPage,
 				Args: graphql.FieldConfigArgument{
-					OffsetArg: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.Int),
-					},
-					LimitArg: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.Int),
-					},
-					SearchArg: &graphql.ArgumentConfig{
-						Type: graphql.String,
-					},
-					OrderArg: &graphql.ArgumentConfig{
-						Type: graphql.Int,
+					CursorArg: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(types.projectMembersCursor),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					project, _ := p.Source.(*console.Project)
 
-					offs, _ := p.Args[OffsetArg].(int)
-					lim, _ := p.Args[LimitArg].(int)
-					search, _ := p.Args[SearchArg].(string)
-					order, _ := p.Args[OrderArg].(int)
-
-					pagination := console.Pagination{
-						Limit:  lim,
-						Offset: int64(offs),
-						Search: search,
-						Order:  console.ProjectMemberOrder(order),
-					}
-
-					members, err := service.GetProjectMembers(p.Context, project.ID, pagination)
+					_, err := console.GetAuth(p.Context)
 					if err != nil {
 						return nil, err
 					}
 
-					_, err = console.GetAuth(p.Context)
-					if err != nil {
-						return nil, err
-					}
-
+					cursor := fromMapProjectMembersCursor(p.Args[CursorArg].(map[string]interface{}))
+					members, err := service.GetProjectMembers1(p.Context, project.ID, cursor)
 					var users []projectMember
-					for _, member := range members {
+					for _, member := range members.ProjectMembers {
 						user, err := service.GetUser(p.Context, member.MemberID)
 						if err != nil {
 							return nil, err
@@ -139,8 +121,17 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 							JoinedAt: member.CreatedAt,
 						})
 					}
-
-					return users, nil
+					page := projectMembersPage{
+						ProjectMembers: users,
+						TotalCount:     members.TotalCount,
+						Offset:         members.Offset,
+						Limit:          members.Limit,
+						Order:          int(members.Order),
+						Search:         members.Search,
+						CurrentPage:    members.CurrentPage,
+						PageCount:      members.PageCount,
+					}
+					return page, nil
 				},
 			},
 			FieldAPIKeys: &graphql.Field{
@@ -323,5 +314,18 @@ func fromMapBucketUsageCursor(args map[string]interface{}) (cursor console.Bucke
 	cursor.Limit = uint(limit)
 	cursor.Page = uint(page)
 	cursor.Search, _ = args[SearchArg].(string)
+	return
+}
+
+func fromMapProjectMembersCursor(args map[string]interface{}) (cursor console.ProjectMembersCursor) {
+	limit, _ := args[LimitArg].(int)
+	page, _ := args[PageArg].(int)
+	order, _ := args[OrderArg].(int)
+
+	cursor.Limit = uint(limit)
+	cursor.Page = uint(page)
+	cursor.Order = console.ProjectMemberOrder(order)
+	cursor.Search, _ = args[SearchArg].(string)
+
 	return
 }

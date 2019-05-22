@@ -4,6 +4,7 @@
 import apollo from '@/utils/apolloManager';
 import gql from 'graphql-tag';
 import { ProjectMemberSortByEnum } from '@/utils/constants/ProjectMemberSortEnum';
+import { ProjectMemberCursor, ProjectMembersPage, TeamMemberModel } from '@/types/projects';
 
 // Performs graqhQL request.
 export async function addProjectMembersRequest(projectID: string, emails: string[]): Promise<RequestResponse<null>> {
@@ -64,6 +65,62 @@ export async function deleteProjectMembersRequest(projectID: string, emails: str
         result.errorMessage = response.errors[0].message;
     } else {
         result.isSuccess = true;
+    }
+
+    return result;
+}
+
+export async function fetchProjectMembersRequest1(projectID: string, cursor: ProjectMemberCursor): Promise<RequestResponse<ProjectMembersPage>> {
+    let result: RequestResponse<ProjectMembersPage> = {
+        errorMessage: '',
+        isSuccess: false,
+        data: {} as ProjectMembersPage
+    };
+    let response: any = await apollo.query(
+        {
+            query: gql(
+                `
+                query {
+                    project(id: "${projectID}") {
+                        members(
+                            cursor: {
+                                limit: ${cursor.limit}, 
+                                search: "${cursor.search}",
+                                page: ${cursor.page},
+                                order: ${cursor.order}
+                            }
+                        ) {
+                            projectMembers{
+                                user {
+                                    id,
+                                    fullName,
+                                    shortName,
+                                    email
+                                },
+                                joinedAt
+                            },
+                            search, 
+                            limit, 
+                            order,
+                            offset, 
+                            pageCount, 
+                            currentPage,
+                            totalCount
+                        }
+                    }
+                }
+            `
+            ),
+            fetchPolicy: 'no-cache',
+            errorPolicy: 'all',
+        }
+    );
+
+    if (response.errors) {
+        result.errorMessage = response.errors[0].message;
+    } else {
+        result.isSuccess = true;
+        result.data = response.data.project.members;
     }
 
     return result;

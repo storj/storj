@@ -20,6 +20,120 @@ type projectMembers struct {
 	db      *dbx.DB
 }
 
+func (pm *projectMembers) GetByProjectIDTotal(ctx context.Context, projectID uuid.UUID, cursor console.ProjectMembersCursor) (*console.ProjectMembersPage, error) {
+	search:= "%" + strings.Replace(cursor.Search, " ", "%", -1) + "%"
+
+	if cursor.Limit > 50 {
+		cursor.Limit = 50
+	}
+
+	if cursor.Page == 0 {
+		return nil, errs.New("page cannot be 0")
+	}
+
+	page := &console.ProjectMembersPage{
+		Search: cursor.Search,
+		Limit:  cursor.Limit,
+		Offset: uint64((cursor.Page - 1) * cursor.Limit),
+	}
+
+	countQuery := pm.db.Rebind(`
+		SELECT COUNT(*)
+		FROM project_members pm 
+		INNER JOIN users u ON pm.member_id = u.id
+			WHERE pm.project_id = ?
+			AND ( u.email LIKE ? OR 
+				  u.full_name LIKE ? OR
+				  u.short_name LIKE ? 
+			)`)
+
+	countRow := pm.db.QueryRowContext(ctx,
+		countQuery,
+		projectID[:],
+		search,
+		search,
+		search)
+
+	err := countRow.Scan(&page.TotalCount)
+	if err != nil {
+		return nil, err
+	}
+	if page.TotalCount == 0 {
+		return page, nil
+	}
+	if page.Offset > page.TotalCount - 1 {
+		return nil, errs.New("page is out of range")
+	}
+	// TODO: LIKE is case-sensitive postgres, however this should be case-insensitive and possibly allow typos
+	reboundQuery := pm.db.Rebind(`
+		SELECT pm.*
+			FROM project_members pm
+				INNER JOIN users u ON pm.member_id = u.id
+					WHERE pm.project_id = ?
+					AND ( u.email LIKE ? OR 
+						  u.full_name LIKE ? OR
+						  u.short_name LIKE ? )
+						ORDER BY ` + sanitizedOrderColumnName(cursor.Order) + ` ASC
+						LIMIT ? OFFSET ?
+					`)
+
+	rows, err := pm.db.QueryContext(ctx,
+		reboundQuery,
+		projectID[:],
+		search,
+		search,
+		search,
+		page.Limit,
+		page.Offset)
+
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+
+	if err != nil {
+		return nil, err
+	}
+
+	var projectMembers []console.ProjectMember
+	for rows.Next() {
+		pm := console.ProjectMember{}
+		var memberIDBytes, projectIDBytes []uint8
+		var memberID, projectID uuid.UUID
+
+		err = rows.Scan(&memberIDBytes, &projectIDBytes, &pm.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+
+		memberID, err := bytesToUUID(memberIDBytes)
+		if err != nil {
+			return nil, err
+		}
+
+		projectID, err = bytesToUUID(projectIDBytes)
+		if err != nil {
+			return nil, err
+		}
+
+		pm.ProjectID = projectID
+		pm.MemberID = memberID
+
+		projectMembers = append(projectMembers, pm)
+	}
+
+	page.ProjectMembers = projectMembers
+	page.Order = cursor.Order
+
+	page.PageCount = uint(page.TotalCount / uint64(cursor.Limit))
+	if page.TotalCount % uint64(cursor.Limit) != 0 {
+		page.PageCount++
+	}
+
+	page.CurrentPage = cursor.Page
+
+	return page, err
+}
+
 // GetByMemberID is a method for querying project member from the database by memberID.
 func (pm *projectMembers) GetByMemberID(ctx context.Context, memberID uuid.UUID) (_ []console.ProjectMember, err error) {
 	defer mon.Task()(&ctx)(&err)

@@ -44,7 +44,7 @@ import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/con
                 this.$store.dispatch(PM_ACTIONS.SET_SORT_BY, sortBy);
                 this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SORT_PM_BY_DROPDOWN);
 
-                const response = await this.$store.dispatch(PM_ACTIONS.FETCH);
+                const response = await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
                 if (response.isSuccess) return;
 
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');

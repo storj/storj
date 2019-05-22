@@ -697,6 +697,30 @@ func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, pa
 	return
 }
 
+func (s *Service) GetProjectMembers1(ctx context.Context, projectID uuid.UUID, cursor ProjectMembersCursor) (pmp *ProjectMembersPage, err error){
+	defer mon.Task()(&ctx)(&err)
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = s.isProjectMember(ctx, auth.User.ID, projectID)
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	if cursor.Limit > maxLimit {
+		cursor.Limit = maxLimit
+	}
+
+	pmp, err = s.store.ProjectMembers().GetByProjectIDTotal(ctx, projectID, cursor)
+	if err != nil {
+		return nil, errs.New(internalErrMsg)
+	}
+
+	return
+}
+
 // CreateAPIKey creates new api key
 func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name string) (_ *APIKeyInfo, _ *macaroon.APIKey, err error) {
 	defer mon.Task()(&ctx)(&err)

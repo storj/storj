@@ -40,6 +40,7 @@ import {AppState} from "../utils/constants/appStateEnum";
     import ROUTES from '@/utils/constants/routerConstants';
     import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuccessPopup.vue';
     import { AppState } from '../utils/constants/appStateEnum';
+    import { Project } from '@/types/projects';
 
     @Component({
     mounted: async function() {

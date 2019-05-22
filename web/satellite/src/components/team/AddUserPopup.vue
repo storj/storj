@@ -143,7 +143,7 @@ import ROUTES from '@/utils/constants/routerConstants';
                     return;
                 }
 
-                const response = await this.$store.dispatch(PM_ACTIONS.FETCH, { limit: 20, offset: 0 });
+                const response = await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
 
                 if (!response.isSuccess) {
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');

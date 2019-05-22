@@ -38,8 +38,73 @@ func graphqlProjectMember(service *console.Service, types *TypeCreator) *graphql
 	})
 }
 
+func graphqlProjectMembersCursor() *graphql.InputObject {
+	return graphql.NewInputObject(graphql.InputObjectConfig{
+		Name: ProjectMembersCursorInputType,
+		Fields: graphql.InputObjectConfigFieldMap{
+			SearchArg: &graphql.InputObjectFieldConfig{
+				Type: graphql.NewNonNull(graphql.String),
+			},
+			LimitArg: &graphql.InputObjectFieldConfig{
+				Type: graphql.NewNonNull(graphql.Int),
+			},
+			PageArg: &graphql.InputObjectFieldConfig{
+				Type: graphql.NewNonNull(graphql.Int),
+			},
+			OrderArg: &graphql.InputObjectFieldConfig{
+				Type: graphql.NewNonNull(graphql.Int),
+			},
+		},
+	})
+}
+
+func graphqlProjectMembersPage(types *TypeCreator) *graphql.Object {
+	return graphql.NewObject(graphql.ObjectConfig{
+		Name: ProjectMembersPageType,
+		Fields: graphql.Fields{
+			FieldProjectMembers: &graphql.Field{
+				Type: graphql.NewList(types.projectMember),
+			},
+			SearchArg: &graphql.Field{
+				Type: graphql.String,
+			},
+			LimitArg: &graphql.Field{
+				Type: graphql.Int,
+			},
+			OrderArg: &graphql.Field{
+				Type: graphql.Int,
+			},
+			OffsetArg: &graphql.Field{
+				Type: graphql.Int,
+			},
+			FieldPageCount: &graphql.Field{
+				Type: graphql.Int,
+			},
+			FieldCurrentPage: &graphql.Field{
+				Type: graphql.Int,
+			},
+			FieldTotalCount: &graphql.Field{
+				Type: graphql.Int,
+			},
+		},
+	})
+}
+
 // projectMember encapsulates User and joinedAt
 type projectMember struct {
 	User     *console.User
 	JoinedAt time.Time
+}
+
+type projectMembersPage struct {
+	ProjectMembers []projectMember
+
+	Search string
+	Limit  uint
+	Order  int
+	Offset uint64
+
+	PageCount   uint
+	CurrentPage uint
+	TotalCount  uint64
 }

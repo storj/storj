@@ -3,6 +3,7 @@
 
 import { PROJECTS_MUTATIONS } from '../mutationConstants';
 import { createProjectRequest, deleteProjectRequest, fetchProjectsRequest, updateProjectRequest } from '@/api/projects';
+import { Project, UpdateProjectModel } from '@/types/projects';
 
 let defaultSelectedProject: Project = {
     name: '',

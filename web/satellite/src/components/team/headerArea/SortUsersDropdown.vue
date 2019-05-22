@@ -36,12 +36,13 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
         },
         computed: mapState({
             sortOption: (state: any) => {
-                switch (state.projectMembersModule.searchParameters.sortBy) {
+                switch (state.projectMembersModule.cursor.order) {
                     case ProjectMemberSortByEnum.EMAIL:
                         return 'email';
 
                     case ProjectMemberSortByEnum.CREATED_AT:
                         return 'date';
+
                     default: // ProjectMemberSortByEnum.NAME
                         return 'name';
                 }

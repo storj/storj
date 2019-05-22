@@ -6,7 +6,7 @@
         <div class="team-header">
             <HeaderArea/>
         </div>
-        <div id="scrollable_team_container" v-if="projectMembers.length > 0 || projectMembersCount > 0" v-on:scroll="handleScroll" class="team-container">
+        <div id="scrollable_team_container" v-if="projectMembers.length > 0 || projectMembersCount > 0" class="team-container">
             <div class="team-container__content">
                 <div v-for="member in projectMembers" v-on:click="onMemberClick(member)" v-bind:key="member.id">
                     <TeamMemberItem
@@ -16,7 +16,8 @@
                 </div>
             </div>
             <!-- only when selecting team members -->
-            <div v-if="selectedProjectMembers.length > 0" >
+            <TeamMemberPaginationArea class="team-container__pagination"/>
+            <div class="team-container__footer" v-if="selectedProjectMembers.length > 0" >
                 <Footer/>
             </div>
         </div>
@@ -34,6 +35,7 @@ import HeaderArea from '@/components/team/headerArea/HeaderArea.vue';
 import Footer from '@/components/team/footerArea/Footer.vue';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+import TeamMemberPaginationArea from '@/components/team/footerArea/TeamMemberPaginationArea.vue';
 
 @Component({
     data: function () {
@@ -46,39 +48,20 @@ import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames'
         onMemberClick: function (member: any) {
             this.$store.dispatch(PM_ACTIONS.TOGGLE_SELECTION, member.user.id);
         },
-        handleScroll: async function () {
-            const documentElement = document.getElementById('scrollable_team_container');
-            if (!documentElement) {
-                return;
-            }
-
-            const isAtBottom = documentElement.scrollTop + documentElement.clientHeight === documentElement.scrollHeight;
-
-            if (!isAtBottom || this.$data.isFetchInProgress) return;
-
-            this.$data.isFetchInProgress = true;
-
-            const response = await this.$store.dispatch(PM_ACTIONS.FETCH);
-
-            this.$data.isFetchInProgress = false;
-
-            if (response.isSuccess) return;
-
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
-        },
     },
     computed: {
         projectMembers: function () {
-            return this.$store.getters.projectMembers;
+            return this.$store.state.projectMembersModule.page.projectMembers;
         },
         projectMembersCount: function () {
-            return this.$store.getters.projectMembersCountGetter;
+            return this.$store.state.projectMembersModule.page.totalCount;
         },
         selectedProjectMembers: function () {
             return this.$store.getters.selectedProjectMembers;
         },
     },
     components: {
+        TeamMemberPaginationArea,
         TeamMemberItem,
         HeaderArea,
         Footer,
@@ -120,6 +103,15 @@ export default class TeamArea extends Vue {
             margin-top: 150px;
             margin-bottom: 100px;
        }
+        &__footer {
+            z-index: 99;
+         }
+
+        &__pagination {
+             position: absolute;
+             bottom: 0;
+             width: calc(100% - 94px);
+         }
    }
 
     .user-container {
