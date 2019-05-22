@@ -43,16 +43,34 @@ func (containment *containment) IncrementPending(ctx context.Context, pendingAud
 		return audit.ContainError.Wrap(err)
 	}
 
-	statement := containment.db.Rebind(
-		`INSERT INTO pending_audits (node_id, piece_id, stripe_index, share_size, expected_share_hash, reverify_count)
-		VALUES (?, ?, ?, ?, ?, ?)
-		ON CONFLICT(node_id)
-		DO UPDATE SET reverify_count = pending_audits.reverify_count + 1`,
-	)
-	_, err = tx.Tx.ExecContext(ctx, statement,
-		pendingAudit.NodeID.Bytes(), pendingAudit.PieceID.Bytes(), pendingAudit.StripeIndex, pendingAudit.ShareSize, pendingAudit.ExpectedShareHash, pendingAudit.ReverifyCount,
-	)
-	if err != nil {
+	existingAudit, err := tx.Get_PendingAudits_By_NodeId(ctx, dbx.PendingAudits_NodeId(pendingAudit.NodeID.Bytes()))
+	if err == sql.ErrNoRows {
+		statement := containment.db.Rebind(
+			`INSERT INTO pending_audits (node_id, piece_id, stripe_index, share_size, expected_share_hash, reverify_count)
+			VALUES (?, ?, ?, ?, ?, ?)`,
+		)
+		_, err = tx.Tx.ExecContext(ctx, statement,
+			pendingAudit.NodeID.Bytes(), pendingAudit.PieceID.Bytes(), pendingAudit.StripeIndex, pendingAudit.ShareSize, pendingAudit.ExpectedShareHash, pendingAudit.ReverifyCount,
+		)
+		if err != nil {
+			return audit.ContainError.Wrap(errs.Combine(err, tx.Rollback()))
+		}
+	} else if err == nil {
+		existingPieceID, err := storj.PieceIDFromBytes(existingAudit.PieceId)
+		if err != nil {
+			return audit.ContainError.Wrap(errs.Combine(err, tx.Rollback()))
+		}
+		if existingPieceID != pendingAudit.PieceID {
+			return audit.ContainError.Wrap(errs.Combine(Error.New("pending audit already exists for nodeID %s", pendingAudit.NodeID), tx.Rollback()))
+		}
+		statement := containment.db.Rebind(
+			`UPDATE pending_audits SET reverify_count = pending_audits.reverify_count + 1`,
+		)
+		_, err = tx.Tx.ExecContext(ctx, statement, pendingAudit.NodeID.Bytes())
+		if err != nil {
+			return audit.ContainError.Wrap(errs.Combine(err, tx.Rollback()))
+		}
+	} else {
 		return audit.ContainError.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 

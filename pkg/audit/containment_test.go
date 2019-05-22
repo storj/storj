@@ -83,26 +83,30 @@ func TestContainIncrementPendingEntryExists(t *testing.T) {
 		hash2 := pkcrypto.SHA256Hash(randBytes)
 
 		info2 := &audit.PendingAudit{
-			NodeID:            planet.StorageNodes[0].ID(),
-			PieceID:           storj.PieceID{},
+			NodeID:            info1.NodeID,
+			PieceID:           storj.PieceID{1}, // different pieceID
 			StripeIndex:       1,
 			ShareSize:         1,
 			ExpectedShareHash: hash2,
 			ReverifyCount:     0,
 		}
 
+		// expect failure when an entry with the same nodeID but different pieceID already exists
 		err = planet.Satellites[0].DB.Containment().IncrementPending(ctx, info2)
-		require.NoError(t, err)
+		require.Error(t, err)
+		require.True(t, audit.ContainError.Has(err))
 
+		// expect reverify count for an entry to be 0 after first IncrementPending call
 		pending, err := planet.Satellites[0].DB.Containment().Get(ctx, info1.NodeID)
 		require.NoError(t, err)
+		require.Equal(t, uint32(0), pending.ReverifyCount)
 
+		// expect reverify count to be 1 after second IncrementPending call
+		err = planet.Satellites[0].DB.Containment().IncrementPending(ctx, info1)
+		require.NoError(t, err)
+		pending, err = planet.Satellites[0].DB.Containment().Get(ctx, info1.NodeID)
+		require.NoError(t, err)
 		require.Equal(t, uint32(1), pending.ReverifyCount)
-
-		// Even though info2 had different pending audit info,
-		// we only need to save the original pending audit info
-		// since the node ID is the same.
-		require.Equal(t, info1.ExpectedShareHash, pending.ExpectedShareHash)
 	})
 }
 
