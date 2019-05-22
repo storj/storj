@@ -3,6 +3,7 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/zeebo/errs"
 	"storj.io/storj/satellite/marketing"
@@ -39,13 +40,31 @@ func (offers *offers) GetOfferByStatusAndType(ctx context.Context, offerStatus m
 	return convertDBOffer(offer)
 }
 
+func (offers *offers) GetValidOffer(ctx context.Context, offerStatus marketing.OfferStatus, offerType marketing.OfferType) (*marketing.Offer, error) {
+	if offerStatus == 0 || offerType == 0 {
+		return nil, errs.New("offer status or type can't be nil")
+	}
+
+	offer, err := offers.db.Get_Offer_By_Status_And_Type_And_ExpiresAt_GreaterOrEqual(ctx, dbx.Offer_Status(int(offerStatus)), dbx.Offer_Type(int(offerType)), dbx.Offer_ExpiresAt(time.Now()))
+	if err == sql.ErrNoRows {
+		return nil, marketing.OffersErr.New("offer not found %i", offerStatus)
+	}
+	if err != nil {
+		return nil, marketing.OffersErr.Wrap(err)
+	}
+
+	return convertDBOffer(offer)
+}
+
+func (offers *offers) 
+
 // Create insert a new offer into the db
 func (offers *offers) Create(ctx context.Context, offer *marketing.Offer) (*marketing.Offer, error) {
 	createdOffer, err := offers.db.Create_Offer(ctx,
 		dbx.Offer_Name(offer.Name),
 		dbx.Offer_Description(offer.Description),
 		dbx.Offer_Type(int(offer.Type)),
-		dbx.Offer_Credit(offer.Credit),
+		dbx.Offer_Credit_In_Cents(offer.Credit),
 		dbx.Offer_AwardCreditDurationDays(offer.AwardCreditDurationDays),
 		dbx.Offer_InviteeCreditDurationDays(offer.InviteeCreditDurationDays),
 		dbx.Offer_RedeemableCap(offer.RedeemableCap),
@@ -67,7 +86,7 @@ func (offers *offers) Update(ctx context.Context, offer *marketing.Offer) error 
 		Name:                      dbx.Offer_Name(offer.Name),
 		Description:               dbx.Offer_Description(offer.Description),
 		Type:                      dbx.Offer_Type(int(offer.Type)),
-		Credit:                    dbx.Offer_Credit(offer.Credit),
+		Credit:                    dbx.Offer_Credit_In_Cents(offer.Credit),
 		AwardCreditDurationDays:   dbx.Offer_AwardCreditDurationDays(offer.AwardCreditDurationDays),
 		InviteeCreditDurationDays: dbx.Offer_InviteeCreditDurationDays(offer.InviteeCreditDurationDays),
 		RedeemableCap:             dbx.Offer_RedeemableCap(offer.RedeemableCap),
