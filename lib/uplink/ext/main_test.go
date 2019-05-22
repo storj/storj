@@ -90,9 +90,7 @@ func TestAllCTests(t *testing.T) {
 	)
 
 	out, err := cmd.CombinedOutput()
-	if !assert.NoError(t, err) {
-		t.Log(err)
-	}
+	assert.NoError(t, err)
 	t.Log(string(out))
 }
 
