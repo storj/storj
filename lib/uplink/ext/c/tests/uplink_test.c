@@ -41,14 +41,12 @@ gvUplinkConfig *NewTestConfig(char **err)
     return uplinkConfigValue;
 }
 
-gvUplink *NewTestUplink(char **err)
+UplinkRef NewTestUplink(char **err)
 {
     gvUplinkConfig *uplinkConfigValue = NewTestConfig(err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
-    gvUplink *uplink = malloc(sizeof(gvUplink));
-    *uplink = NewUplink(uplinkConfigValue->Ptr, err);
-    return uplink;
+    return NewUplink(uplinkConfigValue->Ptr, err);
 }
 
 void TestNewUplink_config(void)
@@ -59,9 +57,9 @@ void TestNewUplink_config(void)
     gvUplinkConfig *uplinkConfigValue = NewTestConfig(err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
-    gvUplink uplinkValue = NewUplink(uplinkConfigValue->Ptr, err);
+    UplinkRef uplinkRef = NewUplink(uplinkConfigValue->Ptr, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
-    TEST_ASSERT_NOT_EQUAL(0, uplinkValue.Ptr);
+    TEST_ASSERT_NOT_EQUAL(0, uplinkRef);
 }
 
 void TestOpenProject(void)
@@ -73,6 +71,7 @@ void TestOpenProject(void)
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     pbProjectOptions opts = STORJ__LIBUPLINK__PROJECT_OPTIONS__INIT;
+    // NB: empty encryption key
     uint8_t encryptionKey[32];
     memcpy(&opts.encryption_key, encryptionKey, 32);
 
@@ -81,10 +80,10 @@ void TestOpenProject(void)
     protoToGoValue(&opts, optsValue, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
-    gvUplink *uplink = NewTestUplink(err);
+    UplinkRef uplinkRef = NewTestUplink(err);
     TEST_ASSERT_EQUAL_STRING("", *err);
-    TEST_ASSERT_NOT_NULL(uplink);
+    TEST_ASSERT_NOT_EQUAL(0, uplinkRef);
 
-    OpenProject(uplink->Ptr, satelliteAddr, apiKey.Ptr, *optsValue, err);
+    OpenProject(uplinkRef, satelliteAddr, apiKey.Ptr, *optsValue, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 }
