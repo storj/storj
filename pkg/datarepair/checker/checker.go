@@ -46,6 +46,7 @@ type Checker struct {
 }
 
 type durabilityStats struct {
+	remoteFilesChecked          int64
 	remoteSegmentsChecked       int64
 	remoteSegmentsNeedingRepair int64
 	remoteSegmentsLost          int64
@@ -104,12 +105,14 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 					checker.lastChecked = ""
 
 					// send durability stats
+					mon.IntVal("remote_files_checked").Observe(checker.durabilityStats.remoteFilesChecked)
 					mon.IntVal("remote_segments_checked").Observe(checker.durabilityStats.remoteSegmentsChecked)
 					mon.IntVal("remote_segments_needing_repair").Observe(checker.durabilityStats.remoteSegmentsNeedingRepair)
 					mon.IntVal("remote_segments_lost").Observe(checker.durabilityStats.remoteSegmentsLost)
 					mon.IntVal("remote_files_lost").Observe(int64(len(checker.durabilityStats.remoteSegmentInfo)))
 
 					// reset durability stats
+					checker.durabilityStats.remoteFilesChecked = 0
 					checker.durabilityStats.remoteSegmentsChecked = 0
 					checker.durabilityStats.remoteSegmentsNeedingRepair = 0
 					checker.durabilityStats.remoteSegmentsLost = 0
@@ -142,6 +145,11 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 				}
 
 				checker.durabilityStats.remoteSegmentsChecked++
+				pathElements := storj.SplitPath(storj.Path(item.Key))
+				if len(pathElements) >= 2 && pathElements[1] == "l" {
+					checker.durabilityStats.remoteFilesChecked++
+				}
+
 				numHealthy := int32(len(pieces) - len(missingPieces))
 				redundancy := pointer.Remote.Redundancy
 				// we repair when the number of healthy files is less than or equal to the repair threshold
@@ -160,7 +168,6 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 						return Error.New("error adding injured segment to queue %s", err)
 					}
 				} else if numHealthy < redundancy.MinReq {
-					pathElements := storj.SplitPath(storj.Path(item.Key))
 					// check to make sure there are at least *4* path elements. the first three
 					// are project, segment, and bucket name, but we want to make sure we're talking
 					// about an actual object, and that there's an object name specified
