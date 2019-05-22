@@ -36,7 +36,7 @@ metric_parser =
   parse(sanitize(metric_handlers)) -- sanitize converts weird chars to underscores
 
 -- pcopy forks data to multiple outputs
--- output types include parse, fileout, and udpout
+-- output types include parse, fileout, packetfilter, and udpout
 destination = pcopy(
   fileout("dump.out"),
   metric_parser,

@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/zeebo/admission/admproto"
+
+	"storj.io/storj/internal/memory"
 )
 
 // PacketFilter inspects a packet header to determine if it should be passed
@@ -30,7 +32,7 @@ func NewPacketFilter(applicationRegex, instanceRegex string, dest PacketDest) *P
 		dest:        dest,
 		scratch: sync.Pool{
 			New: func() interface{} {
-				var x [10 * kb]byte
+				var x [10 * memory.KB]byte
 				return &x
 			},
 		},
@@ -43,7 +45,7 @@ func (a *PacketFilter) Packet(data []byte, ts time.Time) error {
 	if err != nil {
 		return err
 	}
-	scratch := a.scratch.Get().(*[10 * kb]byte)
+	scratch := a.scratch.Get().(*[10 * memory.KB]byte)
 	defer a.scratch.Put(scratch)
 
 	r := admproto.NewReaderWith((*scratch)[:])
