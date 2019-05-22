@@ -37,9 +37,6 @@ defaults: "release"
 # the interval at which the satellite attempts to find new nodes via random node ID lookups
 # discovery.discovery-interval: 1s
 
-# the interval at which the the graveyard tries to resurrect nodes
-# discovery.graveyard-interval: 30s
-
 # the interval at which the cache refreshes itself in seconds
 # discovery.refresh-interval: 1s
 
