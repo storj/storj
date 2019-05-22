@@ -6,9 +6,11 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/zeebo/errs"
+
 	"storj.io/storj/satellite/marketing"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -32,9 +34,9 @@ func (offers *offers) GetNoExpiredOffer(ctx context.Context, offerStatus marketi
 		return nil, errs.New("offer status or type can't be nil")
 	}
 
-	offer, err := offers.db.Get_Offer_By_Status_And_Type_And_ExpiresAt_GreaterOrEqual(ctx, dbx.Offer_Status(int(offerStatus)), dbx.Offer_Type(int(offerType)), dbx.Offer_ExpiresAt(time.Now()))
+	offer, err := offers.db.Get_Offer_By_Status_And_ExpiresAt_GreaterOrEqual(ctx, dbx.Offer_Status(int(offerStatus)), dbx.Offer_ExpiresAt(time.Now()))
 	if err == sql.ErrNoRows {
-		return nil, marketing.OffersErr.New("offer not found %i", offerStatus)
+		return nil, marketing.OffersErr.New("offer not found %v", offerStatus)
 	}
 	if err != nil {
 		return nil, marketing.OffersErr.Wrap(err)
@@ -44,15 +46,15 @@ func (offers *offers) GetNoExpiredOffer(ctx context.Context, offerStatus marketi
 }
 
 // Create insert a new offer into the db
-func (offers *offers) Create(ctx context.Context, offer *marketing.NewOffer) (*marketing.Offer, error) {
+func (offers *offers) Create(ctx context.Context, offer *marketing.Offer) (*marketing.Offer, error) {
 	createdOffer, err := offers.db.Create_Offer(ctx,
 		dbx.Offer_Name(offer.Name),
 		dbx.Offer_Description(offer.Description),
-		dbx.Offer_Type(int(offer.Type)),
 		dbx.Offer_CreditInCents(offer.CreditInCents),
 		dbx.Offer_AwardCreditDurationDays(offer.AwardCreditDurationDays),
 		dbx.Offer_InviteeCreditDurationDays(offer.InviteeCreditDurationDays),
 		dbx.Offer_RedeemableCap(offer.RedeemableCap),
+		dbx.Offer_Create_Fields{dbx.Offer_ExpiresAt(offer.ExpiresAt)},
 	)
 
 	if err != nil {
@@ -67,11 +69,11 @@ func (offers *offers) Update(ctx context.Context, offer *marketing.Offer) error 
 	updateFields := dbx.Offer_Update_Fields{
 		Name:                      dbx.Offer_Name(offer.Name),
 		Description:               dbx.Offer_Description(offer.Description),
-		Type:                      dbx.Offer_Type(int(offer.Type)),
 		CreditInCents:             dbx.Offer_CreditInCents(offer.CreditInCents),
 		AwardCreditDurationDays:   dbx.Offer_AwardCreditDurationDays(offer.AwardCreditDurationDays),
 		InviteeCreditDurationDays: dbx.Offer_InviteeCreditDurationDays(offer.InviteeCreditDurationDays),
 		RedeemableCap:             dbx.Offer_RedeemableCap(offer.RedeemableCap),
+		ExpiresAt:                 dbx.Offer_ExpiresAt(offer.ExpiresAt),
 	}
 
 	offerId := dbx.Offer_Id(offer.ID)
@@ -81,7 +83,7 @@ func (offers *offers) Update(ctx context.Context, offer *marketing.Offer) error 
 		return marketing.OffersErr.Wrap(err)
 	}
 
-	currentOffer, err := tx.Get_Offer_By_Status_And_Type_And_ExpiresAt_GreaterOrEqual(ctx, updateFields.Status, updateFields.Type, dbx.Offer_ExpiresAt(time.Now()))
+	currentOffer, err := tx.Get_Offer_By_Status_And_ExpiresAt_GreaterOrEqual(ctx, updateFields.Status, dbx.Offer_ExpiresAt(time.Now()))
 	if err == nil {
 		statement := offers.db.Rebind(
 			`UPDATE offers SET expires_at = NOW() WHERE offers.id=?`,
@@ -96,7 +98,7 @@ func (offers *offers) Update(ctx context.Context, offer *marketing.Offer) error 
 		return marketing.OffersErr.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 
-	_, err = tx.Update_Offer_By_Id_And_Status_Equal_Number_And_ExpiresAt_GreaterOrEqual_CreatedAt(ctx, offerId, updateFields)
+	_, err = tx.Update_Offer_By_Id_And_Status_Equal_Number(ctx, offerId, updateFields)
 	if err != nil {
 		return marketing.OffersErr.Wrap(errs.Combine(err, tx.Rollback()))
 	}
@@ -132,6 +134,8 @@ func convertDBOffer(offerDbx *dbx.Offer) (*marketing.Offer, error) {
 	if offerDbx == nil {
 		return nil, marketing.OffersErr.New("offerDbx parameter is nil")
 	}
+
+	fmt.Printf("offer: %+v", offerDbx)
 
 	o := marketing.Offer{
 		ID:                        offerDbx.Id,

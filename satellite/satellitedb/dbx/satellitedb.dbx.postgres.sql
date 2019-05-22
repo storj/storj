@@ -119,7 +119,6 @@ CREATE TABLE offers (
 	id serial NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
-	type integer NOT NULL,
 	credit_in_cents integer NOT NULL,
 	award_credit_duration_days integer NOT NULL,
 	invitee_credit_duration_days integer NOT NULL,

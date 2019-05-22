@@ -6,7 +6,6 @@ package satellitedb
 import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"storj.io/storj/satellite/marketing"
 
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/dbutil/pgutil"
@@ -19,6 +18,7 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/marketing"
 	"storj.io/storj/satellite/orders"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
