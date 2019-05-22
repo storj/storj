@@ -8,6 +8,7 @@ import (
 	"context"
 	htmltemplate "html/template"
 	"path/filepath"
+	"sync"
 
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
@@ -53,6 +54,8 @@ type Service struct {
 	html *htmltemplate.Template
 	// TODO(yar): prepare plain text version
 	//text *texttemplate.Template
+
+	sending sync.WaitGroup
 }
 
 // New creates new service
@@ -74,10 +77,26 @@ func New(log *zap.Logger, sender Sender, templatePath string) (*Service, error) 
 	return service, nil
 }
 
+// Close closes and waits for any pending actions.
+func (service *Service) Close() error {
+	service.sending.Wait()
+	return nil
+}
+
 // Send is generalized method for sending custom email message
 func (service *Service) Send(ctx context.Context, msg *post.Message) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return service.sender.SendEmail(msg)
+}
+
+// SendRenderedAsync renders content from htmltemplate and texttemplate templates then sends it asynchronously
+func (service *Service) SendRenderedAsync(ctx context.Context, to []post.Address, msg Message) {
+	// TODO: think of a better solution
+	service.sending.Add(1)
+	go func() {
+		defer service.sending.Done()
+		_ = service.SendRendered(ctx, to, msg)
+	}()
 }
 
 // SendRendered renders content from htmltemplate and texttemplate templates then sends it

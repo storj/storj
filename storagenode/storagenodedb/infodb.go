@@ -12,6 +12,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/migrate"
 )
 
@@ -35,6 +36,8 @@ func newInfo(path string) (*InfoDB, error) {
 		return nil, ErrInfo.Wrap(err)
 	}
 
+	db.SetMaxIdleConns(dbutil.DefaultMaxIdleConns)
+
 	return &InfoDB{db: db}, nil
 }
 
@@ -44,6 +47,8 @@ func NewInfoInMemory() (*InfoDB, error) {
 	if err != nil {
 		return nil, ErrInfo.Wrap(err)
 	}
+
+	db.SetMaxIdleConns(dbutil.DefaultMaxIdleConns)
 
 	return &InfoDB{db: db}, nil
 }

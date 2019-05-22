@@ -85,6 +85,8 @@ type DB interface {
 	Console() console.DB
 	// Orders returns database for orders
 	Orders() orders.DB
+	// Containment returns database for containment
+	Containment() audit.DB
 }
 
 // Config is the global config satellite
@@ -595,6 +597,10 @@ func (peer *Peer) Close() error {
 		if peer.Console.Listener != nil {
 			errlist.Add(peer.Console.Listener.Close())
 		}
+	}
+
+	if peer.Mail.Service != nil {
+		errlist.Add(peer.Mail.Service.Close())
 	}
 
 	// close services in reverse initialization order

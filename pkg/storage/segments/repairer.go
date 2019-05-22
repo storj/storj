@@ -74,18 +74,18 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 	numHealthy := len(pieces) - len(missingPieces)
 	// irreparable piece
 	if int32(numHealthy) < pointer.Remote.Redundancy.MinReq {
-		return Error.New("piece cannot be repaired")
+		return Error.New("piece %v cannot be repaired", path)
 	}
 
 	// repair not needed
-	if (int32(numHealthy) >= pointer.Remote.Redundancy.MinReq) && (int32(numHealthy) > pointer.Remote.Redundancy.RepairThreshold) {
-		return nil
+	if int32(numHealthy) > pointer.Remote.Redundancy.RepairThreshold {
+		return Error.New("piece %v with %d pieces above repair threshold %d", path, numHealthy, pointer.Remote.Redundancy.RepairThreshold)
 	}
 
 	lostPiecesSet := sliceToSet(missingPieces)
 
 	// Populate healthyPieces with all pieces from the pointer except those correlating to indices in lostPieces
-	for _, piece := range pointer.GetRemote().GetRemotePieces() {
+	for _, piece := range pieces {
 		excludeNodeIDs = append(excludeNodeIDs, piece.NodeId)
 		if _, ok := lostPiecesSet[piece.GetPieceNum()]; !ok {
 			healthyPieces = append(healthyPieces, piece)
@@ -134,7 +134,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 	defer func() { err = errs.Combine(err, r.Close()) }()
 
 	// Upload the repaired pieces
-	successfulNodes, hashes, err := repairer.ec.Repair(ctx, putLimits, redundancy, r, convertTime(expiration), repairer.timeout)
+	successfulNodes, hashes, err := repairer.ec.Repair(ctx, putLimits, redundancy, r, convertTime(expiration), repairer.timeout, path)
 	if err != nil {
 		return Error.Wrap(err)
 	}
