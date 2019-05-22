@@ -50,6 +50,8 @@ typedef Storj__Libuplink__UplinkConfig pbUplinkConfig;
 typedef Storj__Libuplink__TLSConfig pbTLSConfig;
 typedef Storj__Libuplink__ProjectOptions pbProjectOptions;
 typedef Storj__Libuplink__BucketConfig pbBucketConfig;
+typedef Storj__Libuplink__RedundancyScheme pbRedundancyScheme;
+typedef Storj__Libuplink__EncryptionParameters pbEncryptionParameters;
 
 void *get_snapshot(struct GoValue *, char **);
 void protoToGoValue(void *, struct GoValue *, char **);

@@ -10,32 +10,34 @@ package main
 // #endif
 import "C"
 import (
-	// "context"
+	"context"
 
-	// "storj.io/storj/lib/uplink"
+	"storj.io/storj/lib/uplink"
 )
 
 //export CreateBucket
 func CreateBucket(cProject C.ProjectRef, name *C.char, cCfg C.gvBucketConfig, cErr **C.char) (cBucket C.gvBucket) {
-	// ctx := context.Background()
-	// project := (*uplink.Project)(goPointerFromCGoUintptr(cProject))
+	ctx := context.Background()
+	//project := (*uplink.Project)(goPointerFromCGoUintptr(cProject))
+	project, ok := structRefMap.Get(token(cProject)).(*uplink.Project)
+	if !ok {
+		*cErr = C.CString("invalid project")
+		return cBucket
+	}
 
-	// cfg := new(uplink.BucketConfig)
-	// if err := CToGoStruct(cCfg, cfg); err != nil {
-	// 	*cErr = C.CString(err.Error())
-	// 	return cBucket
-	// }
+	//cfg := new(uplink.BucketConfig)
+	cfgValue := CToGoGoValue(cCfg)
 
-	// bucket, err := project.CreateBucket(ctx, C.GoString(name), cfg)
-	// if err != nil {
-	// 	*cErr = C.CString(err.Error())
-	// 	return cBucket
-	// }
+	bucketCfg, ok := structRefMap.Get(token(cfgValue.ptr)).(*uplink.BucketConfig)
 
-	// if err := CToGoStruct(cBucket, bucket); err != nil {
-	// 	*cErr = C.CString(err.Error())
-	// 	return cBucket
-	// }
+	bucket, err := project.CreateBucket(ctx, C.GoString(name), bucketCfg)
+	if err != nil {
+		*cErr = C.CString(err.Error())
+		return cBucket
+	}
 
-	return cBucket
+	return C.gvBucket {
+		Ptr: C.GoUintptr(structRefMap.Add(&bucket)),
+		Type: C.BucketType,
+	}
 }

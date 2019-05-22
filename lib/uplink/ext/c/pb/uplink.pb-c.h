@@ -78,18 +78,18 @@ struct  _Storj__Libuplink__ProjectOptions
 struct  _Storj__Libuplink__EncryptionParameters
 {
   ProtobufCMessage base;
-  ProtobufCBinaryData cipher_suite;
+  uint32_t cipher_suite;
   int32_t block_size;
 };
 #define STORJ__LIBUPLINK__ENCRYPTION_PARAMETERS__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&storj__libuplink__encryption_parameters__descriptor) \
-    , {0,NULL}, 0 }
+    , 0, 0 }
 
 
 struct  _Storj__Libuplink__RedundancyScheme
 {
   ProtobufCMessage base;
-  ProtobufCBinaryData algorithm;
+  uint32_t algorithm;
   int32_t share_size;
   int32_t required_shares;
   int32_t optimal_shares;
@@ -97,20 +97,20 @@ struct  _Storj__Libuplink__RedundancyScheme
 };
 #define STORJ__LIBUPLINK__REDUNDANCY_SCHEME__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&storj__libuplink__redundancy_scheme__descriptor) \
-    , {0,NULL}, 0, 0, 0, 0 }
+    , 0, 0, 0, 0, 0 }
 
 
 struct  _Storj__Libuplink__BucketConfig
 {
   ProtobufCMessage base;
-  ProtobufCBinaryData path_cipher;
+  uint32_t path_cipher;
   Storj__Libuplink__EncryptionParameters *encryption_parameters;
   Storj__Libuplink__RedundancyScheme *redundancy_scheme;
-  uint64_t segment_size;
+  int64_t segment_size;
 };
 #define STORJ__LIBUPLINK__BUCKET_CONFIG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&storj__libuplink__bucket_config__descriptor) \
-    , {0,NULL}, NULL, NULL, 0 }
+    , 0, NULL, NULL, 0 }
 
 
 /* Storj__Libuplink__IDVersion methods */

@@ -128,7 +128,7 @@ extern "C" {
 
 // ParseAPIKey parses an API Key
 
-extern gvUplink ParseAPIKey(char* p0, char** p1);
+extern gvProjectOptions ParseAPIKey(char* p0, char** p1);
 
 // Serialize serializes the API Key to a string
 
@@ -138,19 +138,19 @@ extern char* Serialize(APIKeyRef p0);
 // it into a struct in go memory. Then that struct is put in the struct reference map
 // and the GoValue ptr field is updated accordingly.
 
-extern void SendToGo(gvUplink* p0, char** p1);
+extern void SendToGo(gvProjectOptions* p0, char** p1);
 
-extern gvUplink GetIDVersion(unsigned int p0, char** p1);
+extern gvProjectOptions GetIDVersion(unsigned int p0, char** p1);
 
 // GetSnapshot will take a C GoValue struct that was created in go and populate the snapshot
 
-extern void CGetSnapshot(gvUplink* p0, char** p1);
+extern void CGetSnapshot(gvProjectOptions* p0, char** p1);
 
-extern gvUplink CreateBucket(ProjectRef p0, char* p1, gvUplink p2, char** p3);
+extern gvProjectOptions CreateBucket(ProjectRef p0, char* p1, gvProjectOptions p2, char** p3);
 
-extern gvUplink NewUplink(UplinkConfigRef p0, char** p1);
+extern UplinkRef NewUplink(UplinkConfigRef p0, char** p1);
 
-extern ProjectRef OpenProject(UplinkRef p0, char* p1, APIKeyRef p2, gvUplink p3, char** p4);
+extern ProjectRef OpenProject(UplinkRef p0, char* p1, APIKeyRef p2, gvProjectOptions p3, char** p4);
 
 #ifdef __cplusplus
 }

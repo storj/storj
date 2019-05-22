@@ -23,6 +23,6 @@ int main(int argc, char *argv[])
     RUN_TEST(TestNewUplink_config);
     // RUN_TEST(TestValue);
      RUN_TEST(TestOpenProject);
-//     RUN_TEST(TestCreateBucket);
+     RUN_TEST(TestCreateBucket);
     return UNITY_END();
 }

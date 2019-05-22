@@ -558,7 +558,7 @@ static const ProtobufCFieldDescriptor storj__libuplink__encryption_parameters__f
     "cipher_suite",
     1,
     PROTOBUF_C_LABEL_NONE,
-    PROTOBUF_C_TYPE_BYTES,
+    PROTOBUF_C_TYPE_UINT32,
     0,   /* quantifier_offset */
     offsetof(Storj__Libuplink__EncryptionParameters, cipher_suite),
     NULL,
@@ -609,7 +609,7 @@ static const ProtobufCFieldDescriptor storj__libuplink__redundancy_scheme__field
     "algorithm",
     1,
     PROTOBUF_C_LABEL_NONE,
-    PROTOBUF_C_TYPE_BYTES,
+    PROTOBUF_C_TYPE_UINT32,
     0,   /* quantifier_offset */
     offsetof(Storj__Libuplink__RedundancyScheme, algorithm),
     NULL,
@@ -699,7 +699,7 @@ static const ProtobufCFieldDescriptor storj__libuplink__bucket_config__field_des
     "path_cipher",
     1,
     PROTOBUF_C_LABEL_NONE,
-    PROTOBUF_C_TYPE_BYTES,
+    PROTOBUF_C_TYPE_UINT32,
     0,   /* quantifier_offset */
     offsetof(Storj__Libuplink__BucketConfig, path_cipher),
     NULL,
@@ -735,7 +735,7 @@ static const ProtobufCFieldDescriptor storj__libuplink__bucket_config__field_des
     "segment_size",
     4,
     PROTOBUF_C_LABEL_NONE,
-    PROTOBUF_C_TYPE_UINT64,
+    PROTOBUF_C_TYPE_INT64,
     0,   /* quantifier_offset */
     offsetof(Storj__Libuplink__BucketConfig, segment_size),
     NULL,
