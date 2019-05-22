@@ -45,7 +45,8 @@ func (containment *containment) IncrementPending(ctx context.Context, pendingAud
 	}
 
 	existingAudit, err := tx.Get_PendingAudits_By_NodeId(ctx, dbx.PendingAudits_NodeId(pendingAudit.NodeID.Bytes()))
-	if err == sql.ErrNoRows {
+	switch err {
+	case sql.ErrNoRows:
 		statement := containment.db.Rebind(
 			`INSERT INTO pending_audits (node_id, piece_id, stripe_index, share_size, expected_share_hash, reverify_count)
 			VALUES (?, ?, ?, ?, ?, ?)`,
@@ -56,7 +57,7 @@ func (containment *containment) IncrementPending(ctx context.Context, pendingAud
 		if err != nil {
 			return audit.ContainError.Wrap(errs.Combine(err, tx.Rollback()))
 		}
-	} else if err == nil {
+	case nil:
 		if !bytes.Equal(existingAudit.ExpectedShareHash, pendingAudit.ExpectedShareHash) {
 			return audit.ContainError.Wrap(errs.Combine(audit.ErrAlreadyExists.New(pendingAudit.NodeID.String()), tx.Rollback()))
 		}
@@ -68,7 +69,7 @@ func (containment *containment) IncrementPending(ctx context.Context, pendingAud
 		if err != nil {
 			return audit.ContainError.Wrap(errs.Combine(err, tx.Rollback()))
 		}
-	} else {
+	default:
 		return audit.ContainError.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 
