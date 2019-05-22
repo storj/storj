@@ -673,31 +673,7 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 }
 
 // GetProjectMembers returns ProjectMembers for given Project
-func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, pagination Pagination) (pm []ProjectMember, err error) {
-	defer mon.Task()(&ctx)(&err)
-	auth, err := GetAuth(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = s.isProjectMember(ctx, auth.User.ID, projectID)
-	if err != nil {
-		return nil, ErrUnauthorized.Wrap(err)
-	}
-
-	if pagination.Limit > maxLimit {
-		pagination.Limit = maxLimit
-	}
-
-	pm, err = s.store.ProjectMembers().GetByProjectID(ctx, projectID, pagination)
-	if err != nil {
-		return nil, errs.New(internalErrMsg)
-	}
-
-	return
-}
-
-func (s *Service) GetProjectMembers1(ctx context.Context, projectID uuid.UUID, cursor ProjectMembersCursor) (pmp *ProjectMembersPage, err error){
+func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, cursor ProjectMembersCursor) (pmp *ProjectMembersPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 	auth, err := GetAuth(ctx)
 	if err != nil {

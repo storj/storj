@@ -65,6 +65,7 @@ export async function fetchProjectsRequest(): Promise<RequestResponse<Project[]>
         }
     );
 
+    console.log(response)
     if (response.errors) {
         result.errorMessage = response.errors[0].message;
     } else {

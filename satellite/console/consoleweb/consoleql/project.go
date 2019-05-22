@@ -108,7 +108,10 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 					}
 
 					cursor := fromMapProjectMembersCursor(p.Args[CursorArg].(map[string]interface{}))
-					members, err := service.GetProjectMembers1(p.Context, project.ID, cursor)
+					members, err := service.GetProjectMembers(p.Context, project.ID, cursor)
+					if err != nil {
+						return nil, err
+					}
 					var users []projectMember
 					for _, member := range members.ProjectMembers {
 						user, err := service.GetUser(p.Context, member.MemberID)

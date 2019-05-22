@@ -16,8 +16,6 @@ type ProjectMembers interface {
 	GetByMemberID(ctx context.Context, memberID uuid.UUID) ([]ProjectMember, error)
 	// GetByProjectIDTotal is a method for querying project members from the database by projectID and cursor.
 	GetByProjectIDTotal(ctx context.Context, projectID uuid.UUID, cursor ProjectMembersCursor) (*ProjectMembersPage, error)
-	// GetByProjectID is a method for querying project members from the database by projectID, offset and limit.
-	GetByProjectID(ctx context.Context, projectID uuid.UUID, pagination Pagination) ([]ProjectMember, error)
 	// Insert is a method for inserting project member into the database.
 	Insert(ctx context.Context, memberID, projectID uuid.UUID) (*ProjectMember, error)
 	// Delete is a method for deleting project member by memberID and projectID from the database.
@@ -54,14 +52,6 @@ type ProjectMembersPage struct {
 	PageCount   uint
 	CurrentPage uint
 	TotalCount  uint64
-}
-
-// Pagination defines pagination, filtering and sorting rules
-type Pagination struct {
-	Limit  int
-	Offset int64
-	Search string
-	Order  ProjectMemberOrder
 }
 
 // ProjectMemberOrder is used for querying project members in specified order

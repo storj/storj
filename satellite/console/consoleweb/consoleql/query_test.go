@@ -237,17 +237,21 @@ func TestGraphqlQuery(t *testing.T) {
 
 		t.Run("Project query team members", func(t *testing.T) {
 			query := fmt.Sprintf(
-				"query {project(id:\"%s\"){members(offset:0, limit:50){user{id,fullName,shortName,email,createdAt}}}}",
+				"query {project(id: \"%s\") {members( cursor: { limit: %d, search: \"%s\", page: %d, order: %d } ) { projectMembers{ user { id, fullName, shortName, email, createdAt }, joinedAt }, search, limit, order, offset, pageCount, currentPage, totalCount } } }",
 				createdProject.ID.String(),
-			)
+				5,
+				"",
+				1,
+				1)
 
 			result := testQuery(t, query)
 
 			data := result.(map[string]interface{})
 			project := data[consoleql.ProjectQuery].(map[string]interface{})
-			members := project[consoleql.FieldMembers].([]interface{})
+			members := project[consoleql.FieldMembers].(map[string]interface{})
+			projectMembers := members[consoleql.FieldProjectMembers].([]interface{})
 
-			assert.Equal(t, 3, len(members))
+			assert.Equal(t, 3, len(projectMembers))
 
 			testUser := func(t *testing.T, actual map[string]interface{}, expected *console.User) {
 				assert.Equal(t, expected.Email, actual[consoleql.FieldEmail])
@@ -263,7 +267,7 @@ func TestGraphqlQuery(t *testing.T) {
 
 			var foundRoot, foundU1, foundU2 bool
 
-			for _, entry := range members {
+			for _, entry := range projectMembers {
 				member := entry.(map[string]interface{})
 				user := member[consoleql.UserType].(map[string]interface{})
 

@@ -21,7 +21,7 @@ type projectMembers struct {
 }
 
 func (pm *projectMembers) GetByProjectIDTotal(ctx context.Context, projectID uuid.UUID, cursor console.ProjectMembersCursor) (*console.ProjectMembersPage, error) {
-	search:= "%" + strings.Replace(cursor.Search, " ", "%", -1) + "%"
+	search := "%" + strings.Replace(cursor.Search, " ", "%", -1) + "%"
 
 	if cursor.Limit > 50 {
 		cursor.Limit = 50
@@ -143,69 +143,6 @@ func (pm *projectMembers) GetByMemberID(ctx context.Context, memberID uuid.UUID)
 	}
 
 	return projectMembersFromDbxSlice(ctx, projectMembersDbx)
-}
-
-// GetByProjectID is a method for querying project members from the database by projectID, offset and limit.
-func (pm *projectMembers) GetByProjectID(ctx context.Context, projectID uuid.UUID, pagination console.Pagination) (_ []console.ProjectMember, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if pagination.Limit < 0 || pagination.Offset < 0 {
-		return nil, errs.New("invalid pagination argument")
-	}
-
-	var projectMembers []console.ProjectMember
-	searchSubQuery := "%" + strings.Replace(pagination.Search, " ", "%", -1) + "%"
-	//`+getOrder(pagination.Order)+`
-
-	// TODO: LIKE is case-sensitive postgres, however this should be case-insensitive and possibly allow typos
-	reboundQuery := pm.db.Rebind(`
-		SELECT pm.*
-			FROM project_members pm
-				INNER JOIN users u ON pm.member_id = u.id
-					WHERE pm.project_id = ?
-					AND ( u.email LIKE ? OR
-						  u.full_name LIKE ? OR
-						  u.short_name LIKE ? )
-						ORDER BY ` + sanitizedOrderColumnName(pagination.Order) + ` ASC
-						LIMIT ? OFFSET ?
-					`)
-
-	rows, err := pm.db.Query(reboundQuery, projectID[:], searchSubQuery, searchSubQuery, searchSubQuery, pagination.Limit, pagination.Offset)
-
-	defer func() {
-		err = errs.Combine(err, rows.Close())
-	}()
-
-	if err != nil {
-		return nil, err
-	}
-
-	for rows.Next() {
-		pm := console.ProjectMember{}
-		var memberIDBytes, projectIDBytes []uint8
-		var memberID, projectID uuid.UUID
-
-		err = rows.Scan(&memberIDBytes, &projectIDBytes, &pm.CreatedAt)
-		if err != nil {
-			return nil, err
-		}
-
-		memberID, err := bytesToUUID(memberIDBytes)
-		if err != nil {
-			return nil, err
-		}
-
-		projectID, err = bytesToUUID(projectIDBytes)
-		if err != nil {
-			return nil, err
-		}
-
-		pm.ProjectID = projectID
-		pm.MemberID = memberID
-
-		projectMembers = append(projectMembers, pm)
-	}
-
-	return projectMembers, err
 }
 
 // Insert is a method for inserting project member into the database.

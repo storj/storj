@@ -85,40 +85,45 @@ func TestProjectMembersRepository(t *testing.T) {
 
 		t.Run("Get paged", func(t *testing.T) {
 			// sql injection test. F.E '%SomeText%' = > ''%SomeText%' OR 'x' != '%'' will be true
-			members, err := projectMembers.GetByProjectID(ctx, createdProjects[0].ID, console.Pagination{Limit: 6, Offset: 0, Search: "son%' OR 'x' != '", Order: 2})
-			assert.NoError(t, err)
-			assert.Nil(t, members)
-			assert.Equal(t, 0, len(members))
-
-			members, err = projectMembers.GetByProjectID(ctx, createdProjects[0].ID, console.Pagination{Limit: 3, Offset: 0, Search: "", Order: 1})
+			members, err := projectMembers.GetByProjectIDTotal(ctx, createdProjects[0].ID, console.ProjectMembersCursor{Limit: 6, Search: "son%' OR 'x' != '", Order: 2, Page: 1})
 			assert.NoError(t, err)
 			assert.NotNil(t, members)
-			assert.Equal(t, 3, len(members))
+			assert.Equal(t, uint64(0), members.TotalCount)
+			assert.Equal(t, uint(0), members.CurrentPage)
+			assert.Equal(t, uint(0), members.PageCount)
+			assert.Equal(t, 0, len(members.ProjectMembers))
 
-			members, err = projectMembers.GetByProjectID(ctx, createdProjects[0].ID, console.Pagination{Limit: 2, Offset: 0, Search: "iam", Order: 2}) // TODO: fix case sensitity issues and change back to "Liam"
+			members, err = projectMembers.GetByProjectIDTotal(ctx, createdProjects[0].ID, console.ProjectMembersCursor{Limit: 3, Search: "", Order: 1, Page: 1})
 			assert.NoError(t, err)
 			assert.NotNil(t, members)
-			assert.Equal(t, 2, len(members))
+			assert.Equal(t, uint64(5), members.TotalCount)
+			assert.Equal(t, uint(1), members.CurrentPage)
+			assert.Equal(t, uint(2), members.PageCount)
+			assert.Equal(t, 3, len(members.ProjectMembers))
 
-			members, err = projectMembers.GetByProjectID(ctx, createdProjects[0].ID, console.Pagination{Limit: 2, Offset: 0, Search: "iam", Order: 1}) // TODO: fix case sensitity issues and change back to "Liam"
+			members, err = projectMembers.GetByProjectIDTotal(ctx, createdProjects[0].ID, console.ProjectMembersCursor{Limit: 2, Search: "iam", Order: 2, Page: 1}) // TODO: fix case sensitity issues and change back to "Liam"
 			assert.NoError(t, err)
 			assert.NotNil(t, members)
-			assert.Equal(t, 2, len(members))
+			assert.Equal(t, uint64(2), members.TotalCount)
+			assert.Equal(t, 2, len(members.ProjectMembers))
 
-			members, err = projectMembers.GetByProjectID(ctx, createdProjects[0].ID, console.Pagination{Limit: 6, Offset: 0, Search: "son", Order: 123})
+			members, err = projectMembers.GetByProjectIDTotal(ctx, createdProjects[0].ID, console.ProjectMembersCursor{Limit: 2, Search: "iam", Order: 1, Page: 1}) // TODO: fix case sensitity issues and change back to "Liam"
 			assert.NoError(t, err)
 			assert.NotNil(t, members)
-			assert.Equal(t, 5, len(members))
+			assert.Equal(t, uint64(2), members.TotalCount)
+			assert.Equal(t, 2, len(members.ProjectMembers))
 
-			members, err = projectMembers.GetByProjectID(ctx, createdProjects[0].ID, console.Pagination{Limit: 6, Offset: 3, Search: "son", Order: 2})
+			members, err = projectMembers.GetByProjectIDTotal(ctx, createdProjects[0].ID, console.ProjectMembersCursor{Limit: 6, Search: "son", Order: 123, Page: 1})
 			assert.NoError(t, err)
 			assert.NotNil(t, members)
-			assert.Equal(t, 2, len(members))
+			assert.Equal(t, uint64(5), members.TotalCount)
+			assert.Equal(t, 5, len(members.ProjectMembers))
 
-			members, err = projectMembers.GetByProjectID(ctx, createdProjects[0].ID, console.Pagination{Limit: -123, Offset: -14, Search: "son", Order: 2})
-			assert.Error(t, err)
-			assert.Nil(t, members)
-			assert.Equal(t, 0, len(members))
+			members, err = projectMembers.GetByProjectIDTotal(ctx, createdProjects[0].ID, console.ProjectMembersCursor{Limit: 6, Search: "son", Order: 2, Page: 1})
+			assert.NoError(t, err)
+			assert.NotNil(t, members)
+			assert.Equal(t, uint64(5), members.TotalCount)
+			assert.Equal(t, 5, len(members.ProjectMembers))
 		})
 
 		t.Run("Get member by memberID success", func(t *testing.T) {
@@ -141,15 +146,15 @@ func TestProjectMembersRepository(t *testing.T) {
 			err := projectMembers.Delete(ctx, createdUsers[0].ID, createdProjects[0].ID)
 			assert.NoError(t, err)
 
-			projMembers, err := projectMembers.GetByProjectID(ctx, createdProjects[0].ID, console.Pagination{
+			projMembers, err := projectMembers.GetByProjectIDTotal(ctx, createdProjects[0].ID, console.ProjectMembersCursor{
 				Order:  1,
 				Search: "",
-				Offset: 0,
 				Limit:  100,
+				Page:   1,
 			})
 			assert.NoError(t, err)
 			assert.NotNil(t, projectMembers)
-			assert.Equal(t, len(projMembers), 4)
+			assert.Equal(t, len(projMembers.ProjectMembers), 4)
 		})
 	})
 }

@@ -143,19 +143,10 @@ import ROUTES from '@/utils/constants/routerConstants';
                     return;
                 }
 
-                const response = await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
-
-                if (!response.isSuccess) {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
-                    this.$data.isLoading = false;
-
-                    return;
-                }
-
                 this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Members successfully added to project!');
                 this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
-                const fetchMembersResponse = await this.$store.dispatch(PM_ACTIONS.FETCH);
+                const fetchMembersResponse = await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
                 if (!fetchMembersResponse.isSuccess) {
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
                 }

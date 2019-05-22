@@ -70,7 +70,8 @@ export async function deleteProjectMembersRequest(projectID: string, emails: str
     return result;
 }
 
-export async function fetchProjectMembersRequest1(projectID: string, cursor: ProjectMemberCursor): Promise<RequestResponse<ProjectMembersPage>> {
+// Performs graqhQL request.
+export async function fetchProjectMembersRequest(projectID: string, cursor: ProjectMemberCursor): Promise<RequestResponse<ProjectMembersPage>> {
     let result: RequestResponse<ProjectMembersPage> = {
         errorMessage: '',
         isSuccess: false,
@@ -116,48 +117,7 @@ export async function fetchProjectMembersRequest1(projectID: string, cursor: Pro
         }
     );
 
-    if (response.errors) {
-        result.errorMessage = response.errors[0].message;
-    } else {
-        result.isSuccess = true;
-        result.data = response.data.project.members;
-    }
-
-    return result;
-}
-
-// Performs graqhQL request.
-export async function fetchProjectMembersRequest(projectID: string, limit: string, offset: string, sortBy: ProjectMemberSortByEnum, searchQuery: string): Promise<RequestResponse<TeamMemberModel[]>> {
-    let result: RequestResponse<TeamMemberModel[]> = {
-        errorMessage: '',
-        isSuccess: false,
-        data: []
-    };
-
-    let response: any = await apollo.query(
-        {
-            query: gql(`
-            query {
-                project(
-                    id: "${projectID}",
-                ) {
-                    members(limit: ${limit}, offset: ${offset}, order: ${sortBy}, search: "${searchQuery}") {
-                        user {
-                            id,
-                            fullName,
-                            shortName,
-                            email
-                        },
-                        joinedAt
-                    }
-                }
-            }`
-            ),
-            fetchPolicy: 'no-cache',
-            errorPolicy: 'all',
-        }
-    );
-
+    console.log(response)
     if (response.errors) {
         result.errorMessage = response.errors[0].message;
     } else {
