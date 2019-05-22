@@ -120,7 +120,6 @@ CREATE TABLE offers (
 	id INTEGER NOT NULL,
 	name TEXT NOT NULL,
 	description TEXT NOT NULL,
-	type INTEGER NOT NULL,
 	credit_in_cents INTEGER NOT NULL,
 	award_credit_duration_days INTEGER NOT NULL,
 	invitee_credit_duration_days INTEGER NOT NULL,

@@ -580,9 +580,6 @@ model offer (
 	field id	serial 
 	field name text ( updatable )
 	field description text ( updatable )
-
-	// type has two possible value: FreeTier=1, Referral=2.
-	field type int ( updatable )
 	
 	field credit_in_cents int ( updatable ) 
 	field award_credit_duration_days int ( updatable )
@@ -591,10 +588,10 @@ model offer (
 	field redeemable_cap int ( updatable )
 	field num_redeemed int ( updatable, autoinsert )
 
-	field expires_at timestamp ( updatable, autoinsert, nullable )
+	field expires_at timestamp ( updatable )
 	field created_at timestamp ( autoinsert )
 
-	// status has three possible value: NoStatus=0, OnGoing=1, Expired=2.
+	// status has three possible value: Active=0, Default=1.
 	field status int ( updatable, autoinsert )
 )
 
@@ -606,18 +603,11 @@ read one (
 read one (
 	select offer
 	where offer.status = ?
-	where offer.type = ?
 	where offer.expires_at >= ?
 )
 
 read all ( select offer )
 
 create offer ( )
-
-update offer (
-	where offer.id = ?
-	where offer.status = 0
-	where offer.expires_at >= offer.created_at
-)
 
 delete offer ( where offer.id = ? )
