@@ -194,6 +194,11 @@ model user (
 
     field created_at       timestamp ( autoinsert )
 )
+
+create user ( )
+update user ( where user.id = ? )
+delete user ( where user.id = ? )
+
 read one (
     select user
     where user.email = ?
@@ -203,13 +208,11 @@ read one (
     select user
     where user.id = ?
 )
-create user ( )
-update user ( where user.id = ? )
-delete user ( where user.id = ? )
 
 // add payment method id to indentify if it has been set up
 model user_payment_info (
-    key user_id
+    key    user_id
+    unique customer_id
 
     field user_id       user.id   cascade
     field customer_id   text
@@ -235,21 +238,24 @@ model project (
 
     field created_at     timestamp ( autoinsert )
 )
-read all ( select project)
+
+create project ( )
+update project ( where project.id = ? )
+delete project ( where project.id = ? )
+
 read one (
     select project
     where project.id = ?
 )
-
+read all (
+    select project
+)
 read all (
     select project
     join project.id = project_member.project_id
     where project_member.member_id = ?
     orderby asc project.name
 )
-create project ( )
-update project ( where project.id = ? )
-delete project ( where project.id = ? )
 
 // add is default, make composite key
 model project_payment_info (
@@ -272,6 +278,31 @@ read one (
     where project_payment_info.payer_id = ?
 )
 
+model project_invoice_stamp (
+    key    project_id start_date end_date
+    unique invoice_id
+
+    field  project_id project.id  cascade
+    field  invoice_id text
+
+    field  start_date timestamp
+    field  end_date   timestamp
+
+    field  created_at timestamp
+)
+
+create project_invoice_stamp ( )
+
+read one (
+    select project_invoice_stamp
+    where  project_invoice_stamp.project_id = ?
+    where  project_invoice_stamp.start_date = ?
+)
+// pagination ?
+read all (
+    select project_invoice_stamp
+    where  project_invoice_stamp.project_id = ?
+)
 
 model project_member (
     key member_id project_id
@@ -282,17 +313,18 @@ model project_member (
     field created_at           timestamp ( autoinsert )
 )
 
+create project_member ( )
+delete project_member (
+    where project_member.member_id = ?
+    where project_member.project_id = ?
+)
+
 read all (
     select project_member
     where project_member.member_id = ?
 )
 read limitoffset (
     select project_member
-    where project_member.project_id = ?
-)
-create project_member ( )
-delete project_member (
-    where project_member.member_id = ?
     where project_member.project_id = ?
 )
 
@@ -360,7 +392,6 @@ read one (
     select bucket_usage
     where  bucket_usage.id = ?
 )
-
 read limitoffset (
     select bucket_usage
     where bucket_usage.bucket_id = ?
@@ -368,7 +399,6 @@ read limitoffset (
     where bucket_usage.rollup_end_time <= ?
     orderby asc bucket_usage.rollup_end_time
 )
-
 read limitoffset (
     select bucket_usage
     where bucket_usage.bucket_id = ?

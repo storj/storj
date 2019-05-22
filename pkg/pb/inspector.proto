@@ -59,6 +59,19 @@ service HealthInspector {
   rpc SegmentHealth(SegmentHealthRequest) returns (SegmentHealthResponse) {}
 }
 
+service PaymentInspector {
+  // create invoices for all projects, if selectedProjectIDs length > 0
+  // creates invoices only for those projects in the list
+  rpc CreateInvoices(CreateInvoicesRequest) returns (CreateInvoicesResponse) {}
+}
+
+
+message CreateInvoicesRequest {
+  google.protobuf.Timestamp base_date = 1;
+}
+
+message CreateInvoicesResponse {
+}
 
 // ListSegments
 message ListIrreparableSegmentsRequest {

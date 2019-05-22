@@ -6,7 +6,10 @@ package console
 import (
 	"context"
 	"crypto/subtle"
+	"fmt"
 	"time"
+
+	"storj.io/storj/internal/payments"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
@@ -14,7 +17,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/payments"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/satellite/console/consoleauth"
@@ -151,8 +153,8 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		}
 
 		// create payment customer
-		cus, err := s.stripeService.CreateCustomer(
-			payments.CustomerParams{
+		cus, err := s.stripeService.CreateCustomer(ctx,
+			payments.CreateCustomerParams{
 				Email:       user.Email,
 				Name:        user.FullName,
 				Description: "",
@@ -902,6 +904,134 @@ func (s *Service) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID
 	}
 
 	return s.store.UsageRollups().GetBucketUsageRollups(ctx, projectID, since, before)
+}
+
+// CreateMonthlyProjectInvoices creates invoices for all created projects on monthly basis.
+// Edge Dates are derived from the date parameter taking UTC year and month, then adding first
+// and last date of the month accordingly
+func (s *Service) CreateMonthlyProjectInvoices(ctx context.Context, date time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// TODO: do we need auth here?
+	//auth, err := GetAuth(ctx)
+	//if err != nil {
+	//	return err
+	//}
+	utc := date.UTC()
+	startDate := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
+	endDate := time.Date(utc.Year(), utc.Month()+1, 1, 0, 0, 0, -1, time.UTC)
+
+	projects, err := s.store.Projects().GetAll(ctx)
+	if err != nil {
+		return
+	}
+
+	var invoiceError errs.Group
+	for _, proj := range projects {
+		// check if there is entry in the db for selected project and date
+		// range, if so skip project as invoice has allready been created
+		// this way we can run this function for the second time to generate
+		// invoices only for project that failed before
+		_, err := s.store.ProjectInvoiceStamps().GetByProjectIDStartDate(ctx, proj.ID, startDate)
+		if err == nil {
+			s.log.Info(fmt.Sprintf("skipping project %s during invoice generation", proj.ID))
+			continue
+		}
+
+		paymentInfo, err := s.store.ProjectPaymentInfos().GetByProjectID(ctx, proj.ID)
+		if err != nil {
+			invoiceError.Add(err)
+			continue
+		}
+
+		payerInfo, err := s.store.UserPaymentInfos().Get(ctx, paymentInfo.PayerID)
+		if err != nil {
+			invoiceError.Add(err)
+			continue
+		}
+
+		totals, err := s.store.UsageRollups().GetProjectTotal(ctx, proj.ID, startDate, endDate)
+		if err != nil {
+			invoiceError.Add(err)
+			continue
+		}
+
+		inv, err := s.stripeService.CreateProjectInvoice(ctx,
+			payments.CreateProjectInvoiceParams{
+				ProjectName: proj.Name,
+				CustomerID:  payerInfo.CustomerID,
+				Storage:     totals.Storage,
+				Egress:      totals.Egress,
+				ObjectCount: totals.ObjectCount,
+				StartDate:   startDate,
+				EndDate:     endDate,
+			},
+		)
+		if err != nil {
+			invoiceError.Add(err)
+			continue
+		}
+
+		_, err = s.store.ProjectInvoiceStamps().Create(ctx,
+			ProjectInvoiceStamp{
+				ProjectID: proj.ID,
+				InvoiceID: inv.ID,
+				StartDate: startDate,
+				EndDate:   endDate,
+				CreatedAt: time.Unix(inv.Created, 0),
+			},
+		)
+		invoiceError.Add(err)
+	}
+
+	return invoiceError.Err()
+}
+
+// GetProjectInvoices receives all invoices for given projectID
+func (s *Service) GetProjectInvoices(ctx context.Context, projectID uuid.UUID) ([]ProjectInvoice, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	invoiceStamps, err := s.store.ProjectInvoiceStamps().GetAll(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var invoices []ProjectInvoice
+	for _, stamp := range invoiceStamps {
+		invoice := ProjectInvoice{
+			ProjectID: stamp.ProjectID,
+			CreatedAt: stamp.CreatedAt,
+			InvoiceID: stamp.InvoiceID,
+			StartDate: stamp.StartDate,
+			EndDate:   stamp.EndDate,
+		}
+
+		inv, err := s.stripeService.GetInvoice(stamp.InvoiceID)
+		if err != nil {
+			return nil, err
+		}
+
+		invoice.Status = string(inv.Status)
+		invoice.Amount = inv.AmountDue
+		invoice.DownloadLink = inv.InvoicePDF
+		// assuming default source is card only
+		if inv.DefaultSource != nil {
+			invoice.PaymentMethod = PaymentMethod{
+				Brand: string(inv.DefaultSource.Card.Brand),
+				LastFour: inv.DefaultSource.Card.Last4,
+			}
+		}
+
+		invoices = append(invoices, invoice)
+	}
+
+	return invoices, nil
 }
 
 // Authorize validates token from context and returns authorized Authorization

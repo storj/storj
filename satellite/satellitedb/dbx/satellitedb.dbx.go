@@ -478,6 +478,15 @@ CREATE TABLE api_keys (
 	UNIQUE ( head ),
 	UNIQUE ( name, project_id )
 );
+CREATE TABLE project_invoice_stamps (
+	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	invoice_id text NOT NULL,
+	start_date timestamp with time zone NOT NULL,
+	end_date timestamp with time zone NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( project_id, start_date, end_date ),
+	UNIQUE ( invoice_id )
+);
 CREATE TABLE project_members (
 	member_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
@@ -493,7 +502,8 @@ CREATE TABLE user_payment_infos (
 	user_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	customer_id text NOT NULL,
 	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( user_id )
+	PRIMARY KEY ( user_id ),
+	UNIQUE ( customer_id )
 );
 CREATE TABLE project_payment_infos (
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
@@ -776,6 +786,15 @@ CREATE TABLE api_keys (
 	UNIQUE ( head ),
 	UNIQUE ( name, project_id )
 );
+CREATE TABLE project_invoice_stamps (
+	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	invoice_id TEXT NOT NULL,
+	start_date TIMESTAMP NOT NULL,
+	end_date TIMESTAMP NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( project_id, start_date, end_date ),
+	UNIQUE ( invoice_id )
+);
 CREATE TABLE project_members (
 	member_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
@@ -791,7 +810,8 @@ CREATE TABLE user_payment_infos (
 	user_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	customer_id TEXT NOT NULL,
 	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( user_id )
+	PRIMARY KEY ( user_id ),
+	UNIQUE ( customer_id )
 );
 CREATE TABLE project_payment_infos (
 	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
@@ -3992,6 +4012,114 @@ func (f ApiKey_CreatedAt_Field) value() interface{} {
 
 func (ApiKey_CreatedAt_Field) _Column() string { return "created_at" }
 
+type ProjectInvoiceStamp struct {
+	ProjectId []byte
+	InvoiceId string
+	StartDate time.Time
+	EndDate   time.Time
+	CreatedAt time.Time
+}
+
+func (ProjectInvoiceStamp) _Table() string { return "project_invoice_stamps" }
+
+type ProjectInvoiceStamp_Update_Fields struct {
+}
+
+type ProjectInvoiceStamp_ProjectId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ProjectInvoiceStamp_ProjectId(v []byte) ProjectInvoiceStamp_ProjectId_Field {
+	return ProjectInvoiceStamp_ProjectId_Field{_set: true, _value: v}
+}
+
+func (f ProjectInvoiceStamp_ProjectId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ProjectInvoiceStamp_ProjectId_Field) _Column() string { return "project_id" }
+
+type ProjectInvoiceStamp_InvoiceId_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func ProjectInvoiceStamp_InvoiceId(v string) ProjectInvoiceStamp_InvoiceId_Field {
+	return ProjectInvoiceStamp_InvoiceId_Field{_set: true, _value: v}
+}
+
+func (f ProjectInvoiceStamp_InvoiceId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ProjectInvoiceStamp_InvoiceId_Field) _Column() string { return "invoice_id" }
+
+type ProjectInvoiceStamp_StartDate_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func ProjectInvoiceStamp_StartDate(v time.Time) ProjectInvoiceStamp_StartDate_Field {
+	return ProjectInvoiceStamp_StartDate_Field{_set: true, _value: v}
+}
+
+func (f ProjectInvoiceStamp_StartDate_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ProjectInvoiceStamp_StartDate_Field) _Column() string { return "start_date" }
+
+type ProjectInvoiceStamp_EndDate_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func ProjectInvoiceStamp_EndDate(v time.Time) ProjectInvoiceStamp_EndDate_Field {
+	return ProjectInvoiceStamp_EndDate_Field{_set: true, _value: v}
+}
+
+func (f ProjectInvoiceStamp_EndDate_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ProjectInvoiceStamp_EndDate_Field) _Column() string { return "end_date" }
+
+type ProjectInvoiceStamp_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func ProjectInvoiceStamp_CreatedAt(v time.Time) ProjectInvoiceStamp_CreatedAt_Field {
+	return ProjectInvoiceStamp_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f ProjectInvoiceStamp_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ProjectInvoiceStamp_CreatedAt_Field) _Column() string { return "created_at" }
+
 type ProjectMember struct {
 	MemberId  []byte
 	ProjectId []byte
@@ -4754,6 +4882,33 @@ func (obj *postgresImpl) Create_ProjectPaymentInfo(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Create_ProjectInvoiceStamp(ctx context.Context,
+	project_invoice_stamp_project_id ProjectInvoiceStamp_ProjectId_Field,
+	project_invoice_stamp_invoice_id ProjectInvoiceStamp_InvoiceId_Field,
+	project_invoice_stamp_start_date ProjectInvoiceStamp_StartDate_Field,
+	project_invoice_stamp_end_date ProjectInvoiceStamp_EndDate_Field,
+	project_invoice_stamp_created_at ProjectInvoiceStamp_CreatedAt_Field) (
+	project_invoice_stamp *ProjectInvoiceStamp, err error) {
+	__project_id_val := project_invoice_stamp_project_id.value()
+	__invoice_id_val := project_invoice_stamp_invoice_id.value()
+	__start_date_val := project_invoice_stamp_start_date.value()
+	__end_date_val := project_invoice_stamp_end_date.value()
+	__created_at_val := project_invoice_stamp_created_at.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO project_invoice_stamps ( project_id, invoice_id, start_date, end_date, created_at ) VALUES ( ?, ?, ?, ?, ? ) RETURNING project_invoice_stamps.project_id, project_invoice_stamps.invoice_id, project_invoice_stamps.start_date, project_invoice_stamps.end_date, project_invoice_stamps.created_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __project_id_val, __invoice_id_val, __start_date_val, __end_date_val, __created_at_val)
+
+	project_invoice_stamp = &ProjectInvoiceStamp{}
+	err = obj.driver.QueryRow(__stmt, __project_id_val, __invoice_id_val, __start_date_val, __end_date_val, __created_at_val).Scan(&project_invoice_stamp.ProjectId, &project_invoice_stamp.InvoiceId, &project_invoice_stamp.StartDate, &project_invoice_stamp.EndDate, &project_invoice_stamp.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return project_invoice_stamp, nil
+
+}
+
 func (obj *postgresImpl) Create_ProjectMember(ctx context.Context,
 	project_member_member_id ProjectMember_MemberId_Field,
 	project_member_project_id ProjectMember_ProjectId_Field) (
@@ -5391,6 +5546,27 @@ func (obj *postgresImpl) Get_UserPaymentInfo_By_UserId(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Get_Project_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	project *Project, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.created_at FROM projects WHERE projects.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project = &Project{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return project, nil
+
+}
+
 func (obj *postgresImpl) All_Project(ctx context.Context) (
 	rows []*Project, err error) {
 
@@ -5420,27 +5596,6 @@ func (obj *postgresImpl) All_Project(ctx context.Context) (
 		return nil, obj.makeErr(err)
 	}
 	return rows, nil
-
-}
-
-func (obj *postgresImpl) Get_Project_By_Id(ctx context.Context,
-	project_id Project_Id_Field) (
-	project *Project, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.created_at FROM projects WHERE projects.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, project_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	project = &Project{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return project, nil
 
 }
 
@@ -5538,6 +5693,83 @@ func (obj *postgresImpl) Get_ProjectPaymentInfo_By_PayerId(ctx context.Context,
 	}
 
 	return project_payment_info, nil
+
+}
+
+func (obj *postgresImpl) Get_ProjectInvoiceStamp_By_ProjectId_And_StartDate(ctx context.Context,
+	project_invoice_stamp_project_id ProjectInvoiceStamp_ProjectId_Field,
+	project_invoice_stamp_start_date ProjectInvoiceStamp_StartDate_Field) (
+	project_invoice_stamp *ProjectInvoiceStamp, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_invoice_stamps.project_id, project_invoice_stamps.invoice_id, project_invoice_stamps.start_date, project_invoice_stamps.end_date, project_invoice_stamps.created_at FROM project_invoice_stamps WHERE project_invoice_stamps.project_id = ? AND project_invoice_stamps.start_date = ? LIMIT 2")
+
+	var __values []interface{}
+	__values = append(__values, project_invoice_stamp_project_id.value(), project_invoice_stamp_start_date.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	if !__rows.Next() {
+		if err := __rows.Err(); err != nil {
+			return nil, obj.makeErr(err)
+		}
+		return nil, makeErr(sql.ErrNoRows)
+	}
+
+	project_invoice_stamp = &ProjectInvoiceStamp{}
+	err = __rows.Scan(&project_invoice_stamp.ProjectId, &project_invoice_stamp.InvoiceId, &project_invoice_stamp.StartDate, &project_invoice_stamp.EndDate, &project_invoice_stamp.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	if __rows.Next() {
+		return nil, tooManyRows("ProjectInvoiceStamp_By_ProjectId_And_StartDate")
+	}
+
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	return project_invoice_stamp, nil
+
+}
+
+func (obj *postgresImpl) All_ProjectInvoiceStamp_By_ProjectId(ctx context.Context,
+	project_invoice_stamp_project_id ProjectInvoiceStamp_ProjectId_Field) (
+	rows []*ProjectInvoiceStamp, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_invoice_stamps.project_id, project_invoice_stamps.invoice_id, project_invoice_stamps.start_date, project_invoice_stamps.end_date, project_invoice_stamps.created_at FROM project_invoice_stamps WHERE project_invoice_stamps.project_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_invoice_stamp_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		project_invoice_stamp := &ProjectInvoiceStamp{}
+		err = __rows.Scan(&project_invoice_stamp.ProjectId, &project_invoice_stamp.InvoiceId, &project_invoice_stamp.StartDate, &project_invoice_stamp.EndDate, &project_invoice_stamp.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, project_invoice_stamp)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
 
 }
 
@@ -7293,6 +7525,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM project_invoice_stamps;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM api_keys;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -7810,6 +8052,36 @@ func (obj *sqlite3Impl) Create_ProjectPaymentInfo(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return obj.getLastProjectPaymentInfo(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_ProjectInvoiceStamp(ctx context.Context,
+	project_invoice_stamp_project_id ProjectInvoiceStamp_ProjectId_Field,
+	project_invoice_stamp_invoice_id ProjectInvoiceStamp_InvoiceId_Field,
+	project_invoice_stamp_start_date ProjectInvoiceStamp_StartDate_Field,
+	project_invoice_stamp_end_date ProjectInvoiceStamp_EndDate_Field,
+	project_invoice_stamp_created_at ProjectInvoiceStamp_CreatedAt_Field) (
+	project_invoice_stamp *ProjectInvoiceStamp, err error) {
+	__project_id_val := project_invoice_stamp_project_id.value()
+	__invoice_id_val := project_invoice_stamp_invoice_id.value()
+	__start_date_val := project_invoice_stamp_start_date.value()
+	__end_date_val := project_invoice_stamp_end_date.value()
+	__created_at_val := project_invoice_stamp_created_at.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO project_invoice_stamps ( project_id, invoice_id, start_date, end_date, created_at ) VALUES ( ?, ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __project_id_val, __invoice_id_val, __start_date_val, __end_date_val, __created_at_val)
+
+	__res, err := obj.driver.Exec(__stmt, __project_id_val, __invoice_id_val, __start_date_val, __end_date_val, __created_at_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastProjectInvoiceStamp(ctx, __pk)
 
 }
 
@@ -8483,6 +8755,27 @@ func (obj *sqlite3Impl) Get_UserPaymentInfo_By_UserId(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Get_Project_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	project *Project, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.created_at FROM projects WHERE projects.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project = &Project{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return project, nil
+
+}
+
 func (obj *sqlite3Impl) All_Project(ctx context.Context) (
 	rows []*Project, err error) {
 
@@ -8512,27 +8805,6 @@ func (obj *sqlite3Impl) All_Project(ctx context.Context) (
 		return nil, obj.makeErr(err)
 	}
 	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) Get_Project_By_Id(ctx context.Context,
-	project_id Project_Id_Field) (
-	project *Project, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.created_at FROM projects WHERE projects.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, project_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	project = &Project{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return project, nil
 
 }
 
@@ -8630,6 +8902,83 @@ func (obj *sqlite3Impl) Get_ProjectPaymentInfo_By_PayerId(ctx context.Context,
 	}
 
 	return project_payment_info, nil
+
+}
+
+func (obj *sqlite3Impl) Get_ProjectInvoiceStamp_By_ProjectId_And_StartDate(ctx context.Context,
+	project_invoice_stamp_project_id ProjectInvoiceStamp_ProjectId_Field,
+	project_invoice_stamp_start_date ProjectInvoiceStamp_StartDate_Field) (
+	project_invoice_stamp *ProjectInvoiceStamp, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_invoice_stamps.project_id, project_invoice_stamps.invoice_id, project_invoice_stamps.start_date, project_invoice_stamps.end_date, project_invoice_stamps.created_at FROM project_invoice_stamps WHERE project_invoice_stamps.project_id = ? AND project_invoice_stamps.start_date = ? LIMIT 2")
+
+	var __values []interface{}
+	__values = append(__values, project_invoice_stamp_project_id.value(), project_invoice_stamp_start_date.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	if !__rows.Next() {
+		if err := __rows.Err(); err != nil {
+			return nil, obj.makeErr(err)
+		}
+		return nil, makeErr(sql.ErrNoRows)
+	}
+
+	project_invoice_stamp = &ProjectInvoiceStamp{}
+	err = __rows.Scan(&project_invoice_stamp.ProjectId, &project_invoice_stamp.InvoiceId, &project_invoice_stamp.StartDate, &project_invoice_stamp.EndDate, &project_invoice_stamp.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	if __rows.Next() {
+		return nil, tooManyRows("ProjectInvoiceStamp_By_ProjectId_And_StartDate")
+	}
+
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	return project_invoice_stamp, nil
+
+}
+
+func (obj *sqlite3Impl) All_ProjectInvoiceStamp_By_ProjectId(ctx context.Context,
+	project_invoice_stamp_project_id ProjectInvoiceStamp_ProjectId_Field) (
+	rows []*ProjectInvoiceStamp, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_invoice_stamps.project_id, project_invoice_stamps.invoice_id, project_invoice_stamps.start_date, project_invoice_stamps.end_date, project_invoice_stamps.created_at FROM project_invoice_stamps WHERE project_invoice_stamps.project_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_invoice_stamp_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		project_invoice_stamp := &ProjectInvoiceStamp{}
+		err = __rows.Scan(&project_invoice_stamp.ProjectId, &project_invoice_stamp.InvoiceId, &project_invoice_stamp.StartDate, &project_invoice_stamp.EndDate, &project_invoice_stamp.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, project_invoice_stamp)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
 
 }
 
@@ -10594,6 +10943,24 @@ func (obj *sqlite3Impl) getLastProjectPaymentInfo(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) getLastProjectInvoiceStamp(ctx context.Context,
+	pk int64) (
+	project_invoice_stamp *ProjectInvoiceStamp, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_invoice_stamps.project_id, project_invoice_stamps.invoice_id, project_invoice_stamps.start_date, project_invoice_stamps.end_date, project_invoice_stamps.created_at FROM project_invoice_stamps WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	project_invoice_stamp = &ProjectInvoiceStamp{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&project_invoice_stamp.ProjectId, &project_invoice_stamp.InvoiceId, &project_invoice_stamp.StartDate, &project_invoice_stamp.EndDate, &project_invoice_stamp.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return project_invoice_stamp, nil
+
+}
+
 func (obj *sqlite3Impl) getLastProjectMember(ctx context.Context,
 	pk int64) (
 	project_member *ProjectMember, err error) {
@@ -10841,6 +11208,16 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM project_members;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM project_invoice_stamps;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -11157,6 +11534,16 @@ func (rx *Rx) All_Project(ctx context.Context) (
 	return tx.All_Project(ctx)
 }
 
+func (rx *Rx) All_ProjectInvoiceStamp_By_ProjectId(ctx context.Context,
+	project_invoice_stamp_project_id ProjectInvoiceStamp_ProjectId_Field) (
+	rows []*ProjectInvoiceStamp, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_ProjectInvoiceStamp_By_ProjectId(ctx, project_invoice_stamp_project_id)
+}
+
 func (rx *Rx) All_ProjectMember_By_MemberId(ctx context.Context,
 	project_member_member_id ProjectMember_MemberId_Field) (
 	rows []*ProjectMember, err error) {
@@ -11398,6 +11785,21 @@ func (rx *Rx) Create_Project(ctx context.Context,
 		return
 	}
 	return tx.Create_Project(ctx, project_id, project_name, project_description, project_usage_limit)
+
+}
+
+func (rx *Rx) Create_ProjectInvoiceStamp(ctx context.Context,
+	project_invoice_stamp_project_id ProjectInvoiceStamp_ProjectId_Field,
+	project_invoice_stamp_invoice_id ProjectInvoiceStamp_InvoiceId_Field,
+	project_invoice_stamp_start_date ProjectInvoiceStamp_StartDate_Field,
+	project_invoice_stamp_end_date ProjectInvoiceStamp_EndDate_Field,
+	project_invoice_stamp_created_at ProjectInvoiceStamp_CreatedAt_Field) (
+	project_invoice_stamp *ProjectInvoiceStamp, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_ProjectInvoiceStamp(ctx, project_invoice_stamp_project_id, project_invoice_stamp_invoice_id, project_invoice_stamp_start_date, project_invoice_stamp_end_date, project_invoice_stamp_created_at)
 
 }
 
@@ -11814,6 +12216,17 @@ func (rx *Rx) Get_PendingAudits_By_NodeId(ctx context.Context,
 	return tx.Get_PendingAudits_By_NodeId(ctx, pending_audits_node_id)
 }
 
+func (rx *Rx) Get_ProjectInvoiceStamp_By_ProjectId_And_StartDate(ctx context.Context,
+	project_invoice_stamp_project_id ProjectInvoiceStamp_ProjectId_Field,
+	project_invoice_stamp_start_date ProjectInvoiceStamp_StartDate_Field) (
+	project_invoice_stamp *ProjectInvoiceStamp, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_ProjectInvoiceStamp_By_ProjectId_And_StartDate(ctx, project_invoice_stamp_project_id, project_invoice_stamp_start_date)
+}
+
 func (rx *Rx) Get_ProjectPaymentInfo_By_PayerId(ctx context.Context,
 	project_payment_info_payer_id ProjectPaymentInfo_PayerId_Field) (
 	project_payment_info *ProjectPaymentInfo, err error) {
@@ -12117,6 +12530,10 @@ type Methods interface {
 	All_Project(ctx context.Context) (
 		rows []*Project, err error)
 
+	All_ProjectInvoiceStamp_By_ProjectId(ctx context.Context,
+		project_invoice_stamp_project_id ProjectInvoiceStamp_ProjectId_Field) (
+		rows []*ProjectInvoiceStamp, err error)
+
 	All_ProjectMember_By_MemberId(ctx context.Context,
 		project_member_member_id ProjectMember_MemberId_Field) (
 		rows []*ProjectMember, err error)
@@ -12253,6 +12670,14 @@ type Methods interface {
 		project_description Project_Description_Field,
 		project_usage_limit Project_UsageLimit_Field) (
 		project *Project, err error)
+
+	Create_ProjectInvoiceStamp(ctx context.Context,
+		project_invoice_stamp_project_id ProjectInvoiceStamp_ProjectId_Field,
+		project_invoice_stamp_invoice_id ProjectInvoiceStamp_InvoiceId_Field,
+		project_invoice_stamp_start_date ProjectInvoiceStamp_StartDate_Field,
+		project_invoice_stamp_end_date ProjectInvoiceStamp_EndDate_Field,
+		project_invoice_stamp_created_at ProjectInvoiceStamp_CreatedAt_Field) (
+		project_invoice_stamp *ProjectInvoiceStamp, err error)
 
 	Create_ProjectMember(ctx context.Context,
 		project_member_member_id ProjectMember_MemberId_Field,
@@ -12428,6 +12853,11 @@ type Methods interface {
 	Get_PendingAudits_By_NodeId(ctx context.Context,
 		pending_audits_node_id PendingAudits_NodeId_Field) (
 		pending_audits *PendingAudits, err error)
+
+	Get_ProjectInvoiceStamp_By_ProjectId_And_StartDate(ctx context.Context,
+		project_invoice_stamp_project_id ProjectInvoiceStamp_ProjectId_Field,
+		project_invoice_stamp_start_date ProjectInvoiceStamp_StartDate_Field) (
+		project_invoice_stamp *ProjectInvoiceStamp, err error)
 
 	Get_ProjectPaymentInfo_By_PayerId(ctx context.Context,
 		project_payment_info_payer_id ProjectPaymentInfo_PayerId_Field) (

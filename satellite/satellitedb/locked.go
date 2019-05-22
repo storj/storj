@@ -226,6 +226,37 @@ func (m *lockedBucketUsage) GetPaged(ctx context.Context, cursor *accounting.Buc
 	return m.db.GetPaged(ctx, cursor)
 }
 
+// ProjectInvoiceStamps is a getter for ProjectPaymentInfos
+func (m *lockedConsole) ProjectInvoiceStamps() console.ProjectInvoiceStamps {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedProjectInvoiceStamps{m.Locker, m.db.ProjectInvoiceStamps()}
+}
+
+// lockedProjectInvoiceStamps implements locking wrapper for console.ProjectInvoiceStamps
+type lockedProjectInvoiceStamps struct {
+	sync.Locker
+	db console.ProjectInvoiceStamps
+}
+
+func (m *lockedProjectInvoiceStamps) Create(ctx context.Context, stamp console.ProjectInvoiceStamp) (*console.ProjectInvoiceStamp, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Create(ctx, stamp)
+}
+
+func (m *lockedProjectInvoiceStamps) GetAll(ctx context.Context, projectID uuid.UUID) ([]console.ProjectInvoiceStamp, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetAll(ctx, projectID)
+}
+
+func (m *lockedProjectInvoiceStamps) GetByProjectIDStartDate(ctx context.Context, projectID uuid.UUID, startDate time.Time) (*console.ProjectInvoiceStamp, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetByProjectIDStartDate(ctx, projectID, startDate)
+}
+
 // ProjectMembers is a getter for ProjectMembers repository
 func (m *lockedConsole) ProjectMembers() console.ProjectMembers {
 	m.Lock()

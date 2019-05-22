@@ -206,6 +206,15 @@ CREATE TABLE api_keys (
 	UNIQUE ( head ),
 	UNIQUE ( name, project_id )
 );
+CREATE TABLE project_invoice_stamps (
+	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	invoice_id text NOT NULL,
+	start_date timestamp with time zone NOT NULL,
+	end_date timestamp with time zone NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( project_id, start_date, end_date ),
+	UNIQUE ( invoice_id )
+);
 CREATE TABLE project_members (
 	member_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
@@ -221,7 +230,8 @@ CREATE TABLE user_payment_infos (
 	user_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	customer_id text NOT NULL,
 	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( user_id )
+	PRIMARY KEY ( user_id ),
+	UNIQUE ( customer_id )
 );
 CREATE TABLE project_payment_infos (
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,

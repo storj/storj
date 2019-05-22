@@ -13,13 +13,12 @@ import (
 	"path/filepath"
 	"time"
 
-	"storj.io/storj/internal/payments"
-
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/internal/errs2"
+	"storj.io/storj/internal/payments"
 	"storj.io/storj/internal/post"
 	"storj.io/storj/internal/post/oauth2"
 	"storj.io/storj/internal/version"
@@ -193,14 +192,11 @@ type Peer struct {
 		Service *mailservice.Service
 	}
 
-	Stripe struct {
-		Service payments.Service
-	}
-
 	Console struct {
-		Listener net.Listener
-		Service  *console.Service
-		Endpoint *consoleweb.Server
+		Listener          net.Listener
+		Service           *console.Service
+		Endpoint          *consoleweb.Server
+		PaymentsInspector *inspector.PaymentsEndpoint
 	}
 }
 
@@ -516,12 +512,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		}
 	}
 
-	{ // setup stripe payments
-		// TODO: move apiKey to config
-		peer.Stripe.Service = payments.NewService(peer.Log.Named("stripe:service"),
-			"sk_test_QleT6Q6AHMe264PlGtJcBfB0006Qe2yaCJ")
-	}
-
 	{ // setup console
 		log.Debug("Setting up console")
 		consoleConfig := config.Console
@@ -541,7 +531,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Log.Named("console:service"),
 			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
-			peer.Stripe.Service,
+			payments.NewService(peer.Log.Named("stripe:service"), "sk_test_QleT6Q6AHMe264PlGtJcBfB0006Qe2yaCJ"),
 			consoleConfig.PasswordCost,
 		)
 
@@ -556,6 +546,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Mail.Service,
 			peer.Console.Listener,
 		)
+
+		// payments inspector
+		peer.Console.PaymentsInspector = inspector.NewPaymentsEndpoint(
+			peer.Log.Named("inspector: payments"),
+			peer.Console.Service)
+
+		pb.RegisterPaymentInspectorServer(peer.Server.PrivateGRPC(), peer.Console.PaymentsInspector)
 	}
 
 	return peer, nil

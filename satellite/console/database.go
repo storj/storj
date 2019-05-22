@@ -31,6 +31,8 @@ type DB interface {
 	UserPaymentInfos() UserPaymentInfos
 	// ProjectPaymentInfos is a getter for ProjectPaymentInfos
 	ProjectPaymentInfos() ProjectPaymentInfos
+	// ProjectInvoiceStamps is a getter for ProjectPaymentInfos
+	ProjectInvoiceStamps() ProjectInvoiceStamps
 
 	// BeginTransaction is a method for opening transaction
 	BeginTx(ctx context.Context) (DBTx, error)

@@ -4,8 +4,13 @@
 package payments
 
 import (
+	"context"
+	"fmt"
+	"time"
+
 	"github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/client"
+	"github.com/stripe/stripe-go/invoice"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 )
@@ -15,9 +20,12 @@ var StripeErr = errs.Class("stripe error")
 
 // Service is interfaces that defines behavior for working with payments
 type Service interface {
-	CreateCustomer(params CustomerParams) (*stripe.Customer, error)
+	CreateCustomer(ctx context.Context, params CreateCustomerParams) (*stripe.Customer, error)
+	CreateProjectInvoice(ctx context.Context, params CreateProjectInvoiceParams) (*stripe.Invoice, error)
+	GetInvoice(invoiceID string) (*stripe.Invoice, error)
 }
 
+// TODO: better error handling
 // StripeService works with stripe network through stripe-go client
 type StripeService struct {
 	log    *zap.Logger
@@ -25,11 +33,24 @@ type StripeService struct {
 }
 
 // CustomerParams contains info neede to create new stripe customer
-type CustomerParams struct {
+type CreateCustomerParams struct {
 	Email       string
 	Name        string
 	Description string
 	SourceToken string
+}
+
+// CreateInvoiceParams
+type CreateProjectInvoiceParams struct {
+	ProjectName string
+	CustomerID  string
+
+	Storage     float64
+	Egress      float64
+	ObjectCount float64
+
+	StartDate time.Time
+	EndDate   time.Time
 }
 
 // NewService creates new instance of StripeService initialized with API key
@@ -47,7 +68,7 @@ func NewService(log *zap.Logger, apiKey string) *StripeService {
 
 // CreateCustomer creates new customer from CustomerParams struct
 // sets default payment to one of the predefined testing VISA credit cards
-func (s *StripeService) CreateCustomer(params CustomerParams) (*stripe.Customer, error) {
+func (s *StripeService) CreateCustomer(ctx context.Context, params CreateCustomerParams) (*stripe.Customer, error) {
 	cparams := &stripe.CustomerParams{
 		Email:       stripe.String(params.Email),
 		Name:        stripe.String(params.Name),
@@ -69,4 +90,72 @@ func (s *StripeService) CreateCustomer(params CustomerParams) (*stripe.Customer,
 	}
 
 	return s.client.Customers.New(cparams)
+}
+
+// CreateInvoice creates new project invoice on stripe network from input params.
+// Included line items:
+// - Storage
+// - Egress
+// - ObjectsCount
+// Created invoice has AutoAdvance property set to true, so it will be finalized
+// (no further editing) in 1 hour after creation
+func (s *StripeService) CreateProjectInvoice(ctx context.Context, params CreateProjectInvoiceParams) (*stripe.Invoice, error) {
+	// create line items
+	_, err := s.client.InvoiceItems.New(&stripe.InvoiceItemParams{
+		Customer:    stripe.String(params.CustomerID),
+		Description: stripe.String("Storage"),
+		Quantity:    stripe.Int64(int64(params.Storage)),
+		UnitAmount:  stripe.Int64(1),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = s.client.InvoiceItems.New(&stripe.InvoiceItemParams{
+		Customer:    stripe.String(params.CustomerID),
+		Description: stripe.String("Egress"),
+		Quantity:    stripe.Int64(int64(params.Egress)),
+		UnitAmount:  stripe.Int64(1),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = s.client.InvoiceItems.New(&stripe.InvoiceItemParams{
+		Customer:    stripe.String(params.CustomerID),
+		Description: stripe.String("ObjectsCount"),
+		Quantity:    stripe.Int64(int64(params.Egress)),
+		UnitAmount:  stripe.Int64(1),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// create invoice
+	invoiceParams := &stripe.InvoiceParams{
+		Customer: stripe.String(params.CustomerID),
+		CustomFields: []*stripe.InvoiceCustomFieldParams{
+			{
+				Name:  stripe.String("Billing period"),
+				Value: stripe.String(timeRangeString(params.StartDate, params.EndDate)),
+			},
+			{
+				Name:  stripe.String("Project Name"),
+				Value: stripe.String(params.ProjectName),
+			},
+		},
+		AutoAdvance: stripe.Bool(true),
+	}
+
+	return invoice.New(invoiceParams)
+}
+
+// GetInvoice retrieves an invoice from stripe network by invoiceID
+func (s *StripeService) GetInvoice(invoiceID string) (*stripe.Invoice, error) {
+	return s.client.Invoices.Get(invoiceID, nil)
+}
+
+// timeRangeString helper function to create string representation of time range
+func timeRangeString(start, end time.Time) string {
+	return fmt.Sprintf("%s - %s", start.UTC().Format(time.RFC822), end.UTC().Format(time.RFC822))
 }
