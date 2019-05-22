@@ -24,9 +24,6 @@ func (db *Project) CreateBucket(ctx context.Context, bucketName string, info *st
 	if info.EncryptionParameters.CipherSuite == storj.EncUnspecified {
 		info.EncryptionParameters.CipherSuite = storj.EncAESGCM
 	}
-	if info.EncryptionParameters.BlockSize == 0 {
-		info.EncryptionParameters.BlockSize = db.encryptedBlockSize
-	}
 	if info.RedundancyScheme.Algorithm == storj.InvalidRedundancyAlgorithm {
 		info.RedundancyScheme.Algorithm = storj.ReedSolomon
 	}
@@ -97,16 +94,13 @@ func (db *Project) DeleteBucket(ctx context.Context, bucketName string) (err err
 // GetBucket gets bucket information
 func (db *Project) GetBucket(ctx context.Context, bucketName string) (bucketInfo storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
-
 	if bucketName == "" {
 		return storj.Bucket{}, storj.ErrNoBucket.New("")
 	}
-
 	meta, err := db.buckets.Get(ctx, bucketName)
 	if err != nil {
 		return storj.Bucket{}, err
 	}
-
 	return bucketFromMeta(bucketName, meta), nil
 }
 

@@ -71,17 +71,6 @@ func NewSegmentStore(metainfo metainfo.Client, ec ecclient.Client, rs eestream.R
 	}
 }
 
-// NewSegmentStoreUnencrypted creates a new instance of segmentStore without encryption parameters
-func NewSegmentStoreUnencrypted(metainfo metainfo.Client, ec ecclient.Client, rs eestream.RedundancyStrategy, threshold int) Store {
-	return &segmentStore{
-		metainfo:      metainfo,
-		ec:            ec,
-		rs:            rs,
-		thresholdSize: threshold,
-		maxEncryptedSegmentSize: 0,
-	}
-}
-
 // Meta retrieves the metadata of the segment
 func (s *segmentStore) Meta(ctx context.Context, path storj.Path) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)

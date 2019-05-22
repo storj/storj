@@ -16,7 +16,6 @@ import (
 	"storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/uplink/metainfo"
 )
@@ -131,36 +130,23 @@ func NewUplink(ctx context.Context, cfg *Config) (_ *Uplink, err error) {
 	}, nil
 }
 
+// ProjectOptions allows configuration of various project options during opening	
+type ProjectOptions struct {}
+
 // OpenProject returns a Project handle with the given APIKey
-func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey APIKey) (p *Project, err error) {
+func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey APIKey, opts *ProjectOptions) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	metainfo, err := metainfo.NewClient(ctx, u.tc, satelliteAddr, apiKey.Serialize())
 	if err != nil {
 		return nil, err
 	}
-
-	// // TODO: we shouldn't really need encoding parameters to manage buckets.
-	whoCares := 1
-	fc, err := infectious.NewFEC(whoCares, whoCares)
-	if err != nil {
-		return nil, Error.New("failed to create erasure coding client: %v", err)
-	}
-	rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, whoCares), whoCares, whoCares)
-	if err != nil {
-		return nil, Error.New("failed to create redundancy strategy: %v", err)
-	}
-	segments := segments.NewSegmentStoreUnencrypted(metainfo, nil, rs, maxBucketMetaSize.Int())
-	streams, err := streams.NewStreamStoreUnencrypted(segments, maxBucketMetaSize.Int64(), memory.KiB.Int(), storj.AESGCM)
-	if err != nil {
-		return nil, Error.New("failed to create stream store: %v", err)
-	}
-
+	
 	return &Project{
 		uplinkCfg:     u.cfg,
 		tc:            u.tc,
 		metainfo:      metainfo,
-		project:       kvmetainfo.NewProject(buckets.NewStore(streams), memory.KiB.Int32(), rs, 64*memory.MiB.Int64()),
+		project:       kvmetainfo.NewProject(metainfo),
 		maxInlineSize: u.cfg.Volatile.MaxInlineSize,
 	}, nil
 }

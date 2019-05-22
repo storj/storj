@@ -89,25 +89,6 @@ func NewStreamStore(segments segments.Store, segmentSize int64, rootKey *storj.K
 	}, nil
 }
 
-// NewStreamStoreUnencrypted stuff
-func NewStreamStoreUnencrypted(segments segments.Store, segmentSize int64, encBlockSize int, cipher storj.Cipher) (Store, error) {
-	if segmentSize <= 0 {
-		return nil, errs.New("segment size must be larger than 0")
-	}
-
-	if encBlockSize <= 0 {
-		return nil, errs.New("encryption block size must be larger than 0")
-	}
-
-	return &streamStore{
-		segments:    segments,
-		segmentSize: segmentSize,
-		rootKey:      nil,
-		encBlockSize: encBlockSize,
-		cipher:       cipher,
-	}, nil
-}
-
 // Put breaks up data as it comes in into s.segmentSize length pieces, then
 // store the first piece at s0/<path>, second piece at s1/<path>, and the
 // *last* piece at l/<path>. Store the given metadata, along with the number
