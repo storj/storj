@@ -101,8 +101,12 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 	caveat.NotAfter = notAfter
 
 	var project *libuplink.Project
-	var access libuplink.EncryptionAccess
-	copy(access.Key[:], []byte(cfg.Enc.Key))
+
+	access, err := useOrLoadEncryptionAccess(cfg.Enc.EncryptionKey, cfg.Enc.KeyFilepath)
+	if err != nil {
+		return err
+	}
+
 	cache := make(map[string]*libuplink.BucketConfig)
 
 	for _, path := range shareCfg.AllowedPathPrefix {
