@@ -16,19 +16,15 @@ import (
 )
 
 //export CreateBucket
-func CreateBucket(cProject C.ProjectRef, name *C.char, cCfg C.gvBucketConfig, cErr **C.char) (cBucket C.gvBucket) {
+func CreateBucket(cProject C.ProjectRef, name *C.char, bucketConfigRef C.BucketConfigRef, cErr **C.char) (cBucket C.gvBucket) {
 	ctx := context.Background()
-	//project := (*uplink.Project)(goPointerFromCGoUintptr(cProject))
 	project, ok := structRefMap.Get(token(cProject)).(*uplink.Project)
 	if !ok {
 		*cErr = C.CString("invalid project")
 		return cBucket
 	}
 
-	//cfg := new(uplink.BucketConfig)
-	cfgValue := CToGoGoValue(cCfg)
-
-	bucketCfg, ok := structRefMap.Get(token(cfgValue.ptr)).(*uplink.BucketConfig)
+	bucketCfg, ok := structRefMap.Get(token(bucketConfigRef)).(*uplink.BucketConfig)
 
 	bucket, err := project.CreateBucket(ctx, C.GoString(name), bucketCfg)
 	if err != nil {

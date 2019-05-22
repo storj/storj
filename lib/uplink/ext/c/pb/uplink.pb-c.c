@@ -322,6 +322,51 @@ void   storj__libuplink__bucket_config__free_unpacked
   assert(message->base.descriptor == &storj__libuplink__bucket_config__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
+void   storj__libuplink__bucket__init
+                     (Storj__Libuplink__Bucket         *message)
+{
+  static const Storj__Libuplink__Bucket init_value = STORJ__LIBUPLINK__BUCKET__INIT;
+  *message = init_value;
+}
+size_t storj__libuplink__bucket__get_packed_size
+                     (const Storj__Libuplink__Bucket *message)
+{
+  assert(message->base.descriptor == &storj__libuplink__bucket__descriptor);
+  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
+}
+size_t storj__libuplink__bucket__pack
+                     (const Storj__Libuplink__Bucket *message,
+                      uint8_t       *out)
+{
+  assert(message->base.descriptor == &storj__libuplink__bucket__descriptor);
+  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
+}
+size_t storj__libuplink__bucket__pack_to_buffer
+                     (const Storj__Libuplink__Bucket *message,
+                      ProtobufCBuffer *buffer)
+{
+  assert(message->base.descriptor == &storj__libuplink__bucket__descriptor);
+  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
+}
+Storj__Libuplink__Bucket *
+       storj__libuplink__bucket__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data)
+{
+  return (Storj__Libuplink__Bucket *)
+     protobuf_c_message_unpack (&storj__libuplink__bucket__descriptor,
+                                allocator, len, data);
+}
+void   storj__libuplink__bucket__free_unpacked
+                     (Storj__Libuplink__Bucket *message,
+                      ProtobufCAllocator *allocator)
+{
+  if(!message)
+    return;
+  assert(message->base.descriptor == &storj__libuplink__bucket__descriptor);
+  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
+}
 static const ProtobufCFieldDescriptor storj__libuplink__idversion__field_descriptors[2] =
 {
   {
@@ -603,7 +648,7 @@ const ProtobufCMessageDescriptor storj__libuplink__encryption_parameters__descri
   (ProtobufCMessageInit) storj__libuplink__encryption_parameters__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor storj__libuplink__redundancy_scheme__field_descriptors[5] =
+static const ProtobufCFieldDescriptor storj__libuplink__redundancy_scheme__field_descriptors[6] =
 {
   {
     "algorithm",
@@ -642,8 +687,20 @@ static const ProtobufCFieldDescriptor storj__libuplink__redundancy_scheme__field
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "optimal_shares",
+    "repair_shares",
     4,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_INT32,
+    0,   /* quantifier_offset */
+    offsetof(Storj__Libuplink__RedundancyScheme, repair_shares),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "optimal_shares",
+    5,
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_INT32,
     0,   /* quantifier_offset */
@@ -655,7 +712,7 @@ static const ProtobufCFieldDescriptor storj__libuplink__redundancy_scheme__field
   },
   {
     "total_shares",
-    5,
+    6,
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_INT32,
     0,   /* quantifier_offset */
@@ -668,15 +725,16 @@ static const ProtobufCFieldDescriptor storj__libuplink__redundancy_scheme__field
 };
 static const unsigned storj__libuplink__redundancy_scheme__field_indices_by_name[] = {
   0,   /* field[0] = algorithm */
-  3,   /* field[3] = optimal_shares */
+  4,   /* field[4] = optimal_shares */
+  3,   /* field[3] = repair_shares */
   2,   /* field[2] = required_shares */
   1,   /* field[1] = share_size */
-  4,   /* field[4] = total_shares */
+  5,   /* field[5] = total_shares */
 };
 static const ProtobufCIntRange storj__libuplink__redundancy_scheme__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 0, 5 }
+  { 0, 6 }
 };
 const ProtobufCMessageDescriptor storj__libuplink__redundancy_scheme__descriptor =
 {
@@ -686,7 +744,7 @@ const ProtobufCMessageDescriptor storj__libuplink__redundancy_scheme__descriptor
   "Storj__Libuplink__RedundancyScheme",
   "storj.libuplink",
   sizeof(Storj__Libuplink__RedundancyScheme),
-  5,
+  6,
   storj__libuplink__redundancy_scheme__field_descriptors,
   storj__libuplink__redundancy_scheme__field_indices_by_name,
   1,  storj__libuplink__redundancy_scheme__number_ranges,
@@ -768,5 +826,69 @@ const ProtobufCMessageDescriptor storj__libuplink__bucket_config__descriptor =
   storj__libuplink__bucket_config__field_indices_by_name,
   1,  storj__libuplink__bucket_config__number_ranges,
   (ProtobufCMessageInit) storj__libuplink__bucket_config__init,
+  NULL,NULL,NULL    /* reserved[123] */
+};
+static const ProtobufCFieldDescriptor storj__libuplink__bucket__field_descriptors[3] =
+{
+  {
+    "bucket_config",
+    1,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_MESSAGE,
+    0,   /* quantifier_offset */
+    offsetof(Storj__Libuplink__Bucket, bucket_config),
+    &storj__libuplink__bucket_config__descriptor,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "name",
+    2,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_STRING,
+    0,   /* quantifier_offset */
+    offsetof(Storj__Libuplink__Bucket, name),
+    NULL,
+    &protobuf_c_empty_string,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "created",
+    3,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_UINT64,
+    0,   /* quantifier_offset */
+    offsetof(Storj__Libuplink__Bucket, created),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+};
+static const unsigned storj__libuplink__bucket__field_indices_by_name[] = {
+  0,   /* field[0] = bucket_config */
+  2,   /* field[2] = created */
+  1,   /* field[1] = name */
+};
+static const ProtobufCIntRange storj__libuplink__bucket__number_ranges[1 + 1] =
+{
+  { 1, 0 },
+  { 0, 3 }
+};
+const ProtobufCMessageDescriptor storj__libuplink__bucket__descriptor =
+{
+  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
+  "storj.libuplink.Bucket",
+  "Bucket",
+  "Storj__Libuplink__Bucket",
+  "storj.libuplink",
+  sizeof(Storj__Libuplink__Bucket),
+  3,
+  storj__libuplink__bucket__field_descriptors,
+  storj__libuplink__bucket__field_indices_by_name,
+  1,  storj__libuplink__bucket__number_ranges,
+  (ProtobufCMessageInit) storj__libuplink__bucket__init,
   NULL,NULL,NULL    /* reserved[123] */
 };

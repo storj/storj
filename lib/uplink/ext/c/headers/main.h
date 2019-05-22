@@ -16,7 +16,8 @@ enum ValueType
     UplinkType,
     ProjectType,
     ProjectOptionsType,
-    BucketType
+    BucketType,
+    BucketConfigType
 };
 
 struct GoValue
@@ -33,6 +34,7 @@ typedef GoUintptr UplinkRef;
 typedef GoUintptr UplinkConfigRef;
 typedef GoUintptr ProjectRef;
 typedef GoUintptr BucketRef;
+typedef GoUintptr BucketConfigRef;
 
 
 // GoValue type aliases
@@ -52,6 +54,7 @@ typedef Storj__Libuplink__ProjectOptions pbProjectOptions;
 typedef Storj__Libuplink__BucketConfig pbBucketConfig;
 typedef Storj__Libuplink__RedundancyScheme pbRedundancyScheme;
 typedef Storj__Libuplink__EncryptionParameters pbEncryptionParameters;
+typedef Storj__Libuplink__Bucket pbBucket;
 
 void *get_snapshot(struct GoValue *, char **);
 void protoToGoValue(void *, struct GoValue *, char **);

@@ -146,7 +146,7 @@ extern gvProjectOptions GetIDVersion(unsigned int p0, char** p1);
 
 extern void CGetSnapshot(gvProjectOptions* p0, char** p1);
 
-extern gvProjectOptions CreateBucket(ProjectRef p0, char* p1, gvProjectOptions p2, char** p3);
+extern gvProjectOptions CreateBucket(ProjectRef p0, char* p1, BucketConfigRef p2, char** p3);
 
 extern UplinkRef NewUplink(UplinkConfigRef p0, char** p1);
 

@@ -36,20 +36,38 @@ void TestCreateBucket(void)
     ProjectRef projectRef = OpenProject(uplinkRef, satelliteAddr, apiKey.Ptr, *optsValue, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
-    pbBucketConfig bucketCfg = STORJ__LIBUPLINK__BUCKET_CONFIG__INIT;
-    bucketCfg.path_cipher = 0;
-//    bucketCfg.encryption_parameters = ;
-//    bucketCfg.redundancy_scheme = ;
-    bucketCfg.segment_size = 1024;
+    pbEncryptionParameters encParam = STORJ__LIBUPLINK__ENCRYPTION_PARAMETERS__INIT;
+    encParam.cipher_suite = 0;
+    encParam.block_size = 1024;
 
     // NB: dev defaults (maybe factor out into a lib helper)
     pbRedundancyScheme scheme = STORJ__LIBUPLINK__REDUNDANCY_SCHEME__INIT;
     scheme.algorithm = 1;
     scheme.share_size = 1024;
     scheme.required_shares = 4;
+    scheme.repair_shares = 6;
     scheme.optimal_shares = 8;
     scheme.total_shares = 10;
 
-//    TEST_ASSERT_EQUAL_STRING("", *err);
-//    TEST_ASSERT_EQUAL_STRING("testbucket", bucket.Name);
+    pbBucketConfig bucket_cfg = STORJ__LIBUPLINK__BUCKET_CONFIG__INIT;
+    bucket_cfg.path_cipher = 0;
+    bucket_cfg.encryption_parameters = &encParam;
+    bucket_cfg.redundancy_scheme = &scheme;
+    bucket_cfg.segment_size = 1024;
+
+    gvBucketConfig *gv_bucket_cfg = malloc(sizeof(gvBucketConfig));
+    gv_bucket_cfg->Type = BucketConfigType;
+    protoToGoValue(&bucket_cfg, gv_bucket_cfg, err);
+    TEST_ASSERT_EQUAL_STRING("", *err);
+
+    char *bucket_name = "testbucket";
+
+    gvBucket *bucket_value = CreateBucket(projectRef, bucket_name, gv_bucket_cfg->Ptr, err);
+    TEST_ASSERT_EQUAL_STRING("", *err);
+
+    pbBucket *bucket = (pbBucket *)(get_snapshot(bucket_value, err));
+    TEST_ASSERT_EQUAL_STRING("", *err);
+    TEST_ASSERT_NOT_NULL(bucket);
+
+    TEST_ASSERT_EQUAL_STRING(bucket_name, bucket->name);
 }

@@ -22,6 +22,7 @@ typedef struct _Storj__Libuplink__ProjectOptions Storj__Libuplink__ProjectOption
 typedef struct _Storj__Libuplink__EncryptionParameters Storj__Libuplink__EncryptionParameters;
 typedef struct _Storj__Libuplink__RedundancyScheme Storj__Libuplink__RedundancyScheme;
 typedef struct _Storj__Libuplink__BucketConfig Storj__Libuplink__BucketConfig;
+typedef struct _Storj__Libuplink__Bucket Storj__Libuplink__Bucket;
 
 
 /* --- enums --- */
@@ -92,12 +93,13 @@ struct  _Storj__Libuplink__RedundancyScheme
   uint32_t algorithm;
   int32_t share_size;
   int32_t required_shares;
+  int32_t repair_shares;
   int32_t optimal_shares;
   int32_t total_shares;
 };
 #define STORJ__LIBUPLINK__REDUNDANCY_SCHEME__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&storj__libuplink__redundancy_scheme__descriptor) \
-    , 0, 0, 0, 0, 0 }
+    , 0, 0, 0, 0, 0, 0 }
 
 
 struct  _Storj__Libuplink__BucketConfig
@@ -111,6 +113,18 @@ struct  _Storj__Libuplink__BucketConfig
 #define STORJ__LIBUPLINK__BUCKET_CONFIG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&storj__libuplink__bucket_config__descriptor) \
     , 0, NULL, NULL, 0 }
+
+
+struct  _Storj__Libuplink__Bucket
+{
+  ProtobufCMessage base;
+  Storj__Libuplink__BucketConfig *bucket_config;
+  char *name;
+  uint64_t created;
+};
+#define STORJ__LIBUPLINK__BUCKET__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&storj__libuplink__bucket__descriptor) \
+    , NULL, (char *)protobuf_c_empty_string, 0 }
 
 
 /* Storj__Libuplink__IDVersion methods */
@@ -246,6 +260,25 @@ Storj__Libuplink__BucketConfig *
 void   storj__libuplink__bucket_config__free_unpacked
                      (Storj__Libuplink__BucketConfig *message,
                       ProtobufCAllocator *allocator);
+/* Storj__Libuplink__Bucket methods */
+void   storj__libuplink__bucket__init
+                     (Storj__Libuplink__Bucket         *message);
+size_t storj__libuplink__bucket__get_packed_size
+                     (const Storj__Libuplink__Bucket   *message);
+size_t storj__libuplink__bucket__pack
+                     (const Storj__Libuplink__Bucket   *message,
+                      uint8_t             *out);
+size_t storj__libuplink__bucket__pack_to_buffer
+                     (const Storj__Libuplink__Bucket   *message,
+                      ProtobufCBuffer     *buffer);
+Storj__Libuplink__Bucket *
+       storj__libuplink__bucket__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   storj__libuplink__bucket__free_unpacked
+                     (Storj__Libuplink__Bucket *message,
+                      ProtobufCAllocator *allocator);
 /* --- per-message closures --- */
 
 typedef void (*Storj__Libuplink__IDVersion_Closure)
@@ -269,6 +302,9 @@ typedef void (*Storj__Libuplink__RedundancyScheme_Closure)
 typedef void (*Storj__Libuplink__BucketConfig_Closure)
                  (const Storj__Libuplink__BucketConfig *message,
                   void *closure_data);
+typedef void (*Storj__Libuplink__Bucket_Closure)
+                 (const Storj__Libuplink__Bucket *message,
+                  void *closure_data);
 
 /* --- services --- */
 
@@ -282,6 +318,7 @@ extern const ProtobufCMessageDescriptor storj__libuplink__project_options__descr
 extern const ProtobufCMessageDescriptor storj__libuplink__encryption_parameters__descriptor;
 extern const ProtobufCMessageDescriptor storj__libuplink__redundancy_scheme__descriptor;
 extern const ProtobufCMessageDescriptor storj__libuplink__bucket_config__descriptor;
+extern const ProtobufCMessageDescriptor storj__libuplink__bucket__descriptor;
 
 PROTOBUF_C__END_DECLS
 

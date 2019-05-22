@@ -78,6 +78,39 @@ func SendToGo(cVal *C.struct_GoValue, cErr **C.char) {
 				EncryptionKey: key,
 			},
 		}))
+	case C.BucketConfigType:
+		msg = &pb.BucketConfig{}
+
+		if err := unmarshalCSnapshot(cVal, msg); err != nil {
+			*cErr = C.CString(err.Error())
+			return
+		}
+
+		pbConfig := msg.(*pb.BucketConfig)
+
+		cVal.Ptr = C.ulong(structRefMap.Add(&uplink.BucketConfig{
+			PathCipher: storj.CipherSuite(pbConfig.PathCipher),
+
+			EncryptionParameters: storj.EncryptionParameters{
+				BlockSize: pbConfig.EncryptionParameters.BlockSize,
+				CipherSuite: storj.CipherSuite(pbConfig.EncryptionParameters.CipherSuite),
+			},
+
+			Volatile: struct {
+				RedundancyScheme storj.RedundancyScheme
+				SegmentsSize memory.Size
+			} {
+				RedundancyScheme: storj.RedundancyScheme{
+					Algorithm: storj.RedundancyAlgorithm(pbConfig.RedundancyScheme.Algorithm),
+					OptimalShares: int16(pbConfig.RedundancyScheme.OptimalShares),
+					RepairShares: int16(pbConfig.RedundancyScheme.RepairShares),
+					RequiredShares: int16(pbConfig.RedundancyScheme.RequiredShares),
+					ShareSize: pbConfig.RedundancyScheme.ShareSize,
+					TotalShares: int16(pbConfig.RedundancyScheme.TotalShares),
+				},
+				SegmentsSize: memory.Size(pbConfig.SegmentSize),
+			},
+		}))
 	default:
 		*cErr = C.CString(errs.New("unsupported protobuf type").Error())
 		return

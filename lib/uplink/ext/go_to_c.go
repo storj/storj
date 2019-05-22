@@ -55,18 +55,41 @@ func (gv GoValue) Snapshot() (data []byte, _ error) {
 			Number: uint32(uplinkStruct.Number),
 		})
 	case C.UplinkConfigType:
-		uplinkStruct := structRefMap.Get(gv.ptr).(uplink.Config)
+		uplinkConfigStruct := structRefMap.Get(gv.ptr).(uplink.Config)
 
 		return proto.Marshal(&pb.UplinkConfig {
 			Tls: &pb.TLSConfig{
-				SkipPeerCaWhitelist: uplinkStruct.Volatile.TLS.SkipPeerCAWhitelist,
-				PeerCaWhitelistPath: uplinkStruct.Volatile.TLS.PeerCAWhitelistPath,
+				SkipPeerCaWhitelist: uplinkConfigStruct.Volatile.TLS.SkipPeerCAWhitelist,
+				PeerCaWhitelistPath: uplinkConfigStruct.Volatile.TLS.PeerCAWhitelistPath,
 			},
 			IdentityVersion: &pb.IDVersion {
-				Number: uint32(uplinkStruct.Volatile.IdentityVersion.Number),
+				Number: uint32(uplinkConfigStruct.Volatile.IdentityVersion.Number),
 			},
-			MaxInlineSize: int64(uplinkStruct.Volatile.MaxInlineSize),
-			MaxMemory:     int64(uplinkStruct.Volatile.MaxMemory),
+			MaxInlineSize: int64(uplinkConfigStruct.Volatile.MaxInlineSize),
+			MaxMemory:     int64(uplinkConfigStruct.Volatile.MaxMemory),
+		})
+	case C.BucketType:
+		bucketStruct := structRefMap.Get(gv.ptr).(uplink.Bucket)
+
+		return proto.Marshal(&pb.Bucket {
+			BucketConfig: &pb.BucketConfig{
+				RedundancyScheme: &pb.RedundancyScheme{
+					Algorithm: uint32(bucketStruct.BucketConfig.Volatile.RedundancyScheme.Algorithm),
+					TotalShares: int32(bucketStruct.BucketConfig.Volatile.RedundancyScheme.TotalShares),
+					ShareSize: bucketStruct.BucketConfig.Volatile.RedundancyScheme.ShareSize,
+					RequiredShares: int32(bucketStruct.BucketConfig.Volatile.RedundancyScheme.RequiredShares),
+					RepairShares: int32(bucketStruct.BucketConfig.Volatile.RedundancyScheme.RepairShares),
+					OptimalShares: int32(bucketStruct.BucketConfig.Volatile.RedundancyScheme.OptimalShares),
+				},
+				SegmentSize: int64(bucketStruct.BucketConfig.Volatile.SegmentsSize),
+				EncryptionParameters: &pb.EncryptionParameters{
+					CipherSuite: uint32(bucketStruct.BucketConfig.EncryptionParameters.CipherSuite),
+					BlockSize: bucketStruct.BucketConfig.EncryptionParameters.BlockSize,
+				},
+				PathCipher: uint32(bucketStruct.BucketConfig.PathCipher),
+			},
+			Name: bucketStruct.Name,
+			Created: uint64(bucketStruct.Created.Unix()),
 		})
 	default:
 		return nil, ErrSnapshot.New("type", gv._type)
