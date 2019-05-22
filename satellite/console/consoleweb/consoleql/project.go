@@ -25,6 +25,10 @@ const (
 	BucketUsageType = "bucketUsage"
 	// BucketUsagePageType is a field name for bucket usage page
 	BucketUsagePageType = "bucketUsagePage"
+	// PaymentMethodType is a field name for payment method
+	PaymentMethodType = "paymentMethod"
+	// InvoiceType is a field name for invoice
+	InvoiceType = "invoice"
 	// FieldName is a field name for "name"
 	FieldName = "name"
 	// FieldBucketName is a field name for "bucket name"
@@ -39,6 +43,8 @@ const (
 	FieldUsage = "usage"
 	// FieldBucketUsages is a field name for bucket usages
 	FieldBucketUsages = "bucketUsages"
+	// FieldInvoices is a field name for invoices
+	FieldInvoices = "invoices"
 	// FieldStorage is a field name for storage total
 	FieldStorage = "storage"
 	// FieldEgress is a field name for egress total
@@ -51,6 +57,22 @@ const (
 	FieldCurrentPage = "currentPage"
 	// FieldTotalCount is a field name for bucket usage count total
 	FieldTotalCount = "totalCount"
+	// FieldInvoiceID is a field name for invoice id
+	FieldInvoiceID = "invoiceID"
+	// FieldStatus is a field name for status
+	FieldStatus = "status"
+	// FieldAmount is a field name for amount
+	FieldAmount = "amount"
+	// FieldStartDate is a field name for start date
+	FieldStartDate = "startDate"
+	// FieldEndDate is a field name for end date
+	FieldEndDate = "endDate"
+	// FieldDownloadLink is a field name for invoice download link
+	FieldDownloadLink = "downloadLink"
+	// FieldCardBrand is a field name for credit card bard
+	FieldCardBrand = "brand"
+	// FieldCardLastFour is a field name for credit card last four digits
+	FieldCardLastFour = "lastFour"
 	// CursorArg is an argument name for cursor
 	CursorArg = "cursor"
 	// PageArg ia an argument name for page number
@@ -189,6 +211,14 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 					return service.GetBucketTotals(p.Context, project.ID, cursor, before)
 				},
 			},
+			FieldInvoices: &graphql.Field{
+				Type: graphql.NewList(types.invoice),
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					project, _ := p.Source.(*console.Project)
+
+					return service.GetProjectInvoices(p.Context, project.ID)
+				},
+			},
 		},
 	})
 }
@@ -301,6 +331,57 @@ func graphqlProjectUsage() *graphql.Object {
 				Type: graphql.DateTime,
 			},
 			BeforeArg: &graphql.Field{
+				Type: graphql.DateTime,
+			},
+		},
+	})
+}
+
+// graphqlPaymentMethod creates invoice payment method graphql type
+func graphqlPaymentMethod() *graphql.Object {
+	return graphql.NewObject(graphql.ObjectConfig{
+		Name: PaymentMethodType,
+		Fields: graphql.Fields{
+			FieldCardBrand: &graphql.Field{
+				Type: graphql.String,
+			},
+			FieldCardLastFour: &graphql.Field{
+				Type: graphql.String,
+			},
+		},
+	})
+}
+
+// graphqlInvoice creates project invoice graphql type
+func graphqlInvoice(types *TypeCreator) *graphql.Object {
+	return graphql.NewObject(graphql.ObjectConfig{
+		Name: InvoiceType,
+		Fields: graphql.Fields{
+			FieldProjectID: &graphql.Field{
+				Type: graphql.String,
+			},
+			FieldInvoiceID: &graphql.Field{
+				Type: graphql.String,
+			},
+			FieldStatus: &graphql.Field{
+				Type: graphql.String,
+			},
+			FieldAmount: &graphql.Field{
+				Type: graphql.Int,
+			},
+			PaymentMethodType: &graphql.Field{
+				Type: types.paymentmethod,
+			},
+			FieldStartDate: &graphql.Field{
+				Type: graphql.DateTime,
+			},
+			FieldEndDate: &graphql.Field{
+				Type: graphql.DateTime,
+			},
+			FieldDownloadLink: &graphql.Field{
+				Type: graphql.String,
+			},
+			FieldCreatedAt: &graphql.Field{
 				Type: graphql.DateTime,
 			},
 		},
