@@ -23,7 +23,7 @@ type Reporter struct {
 	maxRetries  int
 }
 
-// Report contains result lists of nodes that succeeded, failed, were offline, or have pending audits
+// Report contains audit result lists for nodes that succeeded, failed, were offline, or have pending audits
 type Report struct {
 	Successes     storj.NodeIDList
 	Fails         storj.NodeIDList
