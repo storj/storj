@@ -28,9 +28,6 @@ import (
 
 var (
 	mon = monkit.Package()
-
-	// ErrDownloadTimeout is the err class for when an audit takes too long to download
-	ErrDownloadTimeout = errs.Class("audit download timeout")
 )
 
 // Share represents required information about an audited share
@@ -90,7 +87,7 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe) (verifiedN
 
 	for pieceNum, share := range shares {
 		if shares[pieceNum].Error != nil {
-			if shares[pieceNum].Error == context.DeadlineExceeded || !transport.Error.Has(shares[pieceNum].Error) {
+			if shares[pieceNum].Error == context.DeadlineExceeded || !transport.Error.Has(shares[pieceNum].Error) || ContainError.Has(shares[pieceNum].Error) {
 				failedNodes = append(failedNodes, nodes[pieceNum])
 			} else {
 				offlineNodes = append(offlineNodes, nodes[pieceNum])
@@ -141,6 +138,8 @@ func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.Addre
 			continue
 		}
 
+		var share Share
+
 		node, err := verifier.overlay.Get(ctx, limit.Limit.StorageNodeId)
 		if err != nil {
 			return nil, nil, Error.Wrap(err)
@@ -152,19 +151,22 @@ func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.Addre
 			}
 			if !isVerified {
 				// if contained nodes don't pass reverification, then we don't audit them for other data
-				continue
+				share = Share{
+					Error:    ContainError.New("did not pass reverification"),
+					PieceNum: i,
+					Data:     nil,
+				}
+			}
+		} else {
+			share, err = verifier.getShare(ctx, limit, stripeIndex, shareSize, i)
+			if err != nil {
+				share = Share{
+					Error:    err,
+					PieceNum: i,
+					Data:     nil,
+				}
 			}
 		}
-
-		share, err := verifier.getShare(ctx, limit, stripeIndex, shareSize, i)
-		if err != nil {
-			share = Share{
-				Error:    err,
-				PieceNum: i,
-				Data:     nil,
-			}
-		}
-
 		shares[share.PieceNum] = share
 		nodes[share.PieceNum] = limit.GetLimit().StorageNodeId
 	}
