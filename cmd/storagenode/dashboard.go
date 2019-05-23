@@ -78,6 +78,7 @@ func cmdDashboard(cmd *cobra.Command, args []string) (err error) {
 
 func printDashboard(data *pb.DashboardResponse) error {
 	clearScreen()
+	var warnFlag bool
 	color.NoColor = !useColor
 
 	heading := color.New(color.FgGreen, color.Bold)
@@ -121,8 +122,13 @@ func printDashboard(data *pb.DashboardResponse) error {
 
 	stats := data.GetStats()
 	if stats != nil {
-		availableBandwidth := color.WhiteString(memory.Size(stats.GetAvailableBandwidth()).Base10String())
+		availBW := memory.Size(stats.GetAvailableBandwidth())
 		usedBandwidth := color.WhiteString(memory.Size(stats.GetUsedBandwidth()).Base10String())
+		if availBW < 0 {
+			warnFlag = true
+			availBW = 0
+		}
+		availableBandwidth := color.WhiteString((availBW).Base10String())
 		availableSpace := color.WhiteString(memory.Size(stats.GetAvailableSpace()).Base10String())
 		usedSpace := color.WhiteString(memory.Size(stats.GetUsedSpace()).Base10String())
 		usedEgress := color.WhiteString(memory.Size(stats.GetUsedEgress()).Base10String())
@@ -148,6 +154,10 @@ func printDashboard(data *pb.DashboardResponse) error {
 	fmt.Fprintf(w, "\nNeighborhood Size %+v\n", whiteInt(data.GetNodeConnections()))
 	if err = w.Flush(); err != nil {
 		return err
+	}
+
+	if warnFlag {
+		fmt.Fprintf(w, "\nWARNING!!!!! %s\n", color.WhiteString("Increase your bandwidth"))
 	}
 
 	return nil
