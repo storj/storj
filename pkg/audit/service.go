@@ -100,7 +100,7 @@ func (service *Service) process(ctx context.Context) error {
 	// TODO(moby) we need to decide if we want to do something with nodes that the reporter failed to update
 	_, reporterErr := service.Reporter.RecordAudits(ctx, verifiedNodes)
 	if reporterErr != nil {
-		return errs.Combine(reporterErr, reporterErr)
+		return errs.Combine(verifierErr, reporterErr)
 	}
 
 	return nil
