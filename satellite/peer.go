@@ -86,7 +86,7 @@ type DB interface {
 	// Orders returns database for orders
 	Orders() orders.DB
 	// Containment returns database for containment
-	Containment() audit.DB
+	Containment() audit.Containment
 }
 
 // Config is the global config satellite
