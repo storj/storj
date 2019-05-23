@@ -663,6 +663,37 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				Description: "Add last_ip column and index",
+				Version:     21,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD last_ip TEXT;
+					UPDATE nodes SET last_ip = '';
+					ALTER TABLE nodes ALTER COLUMN last_ip SET NOT NULL;
+					CREATE INDEX IF NOT EXISTS node_last_ip ON nodes (last_ip)`,
+				},
+			},
+			{
+				Description: "Create new tables for free credits program",
+				Version:     22,
+				Action: migrate.SQL{`
+					CREATE TABLE offers (
+						id serial NOT NULL,
+						name text NOT NULL,
+						description text NOT NULL,
+						type integer NOT NULL,
+						credit_in_cents integer NOT NULL,
+						award_credit_duration_days integer NOT NULL,
+						invitee_credit_duration_days integer NOT NULL,
+						redeemable_cap integer NOT NULL,
+						num_redeemed integer NOT NULL,
+						expires_at timestamp with time zone,
+						created_at timestamp with time zone NOT NULL,
+						status integer NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+				},
+			},
 		},
 	}
 }

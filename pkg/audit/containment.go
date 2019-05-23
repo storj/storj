@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -37,41 +36,9 @@ type PendingAudit struct {
 	ReverifyCount     int32
 }
 
-// DB holds information about pending audits for contained nodes
-type DB interface {
+// Containment holds information about pending audits for contained nodes
+type Containment interface {
 	Get(ctx context.Context, nodeID pb.NodeID) (*PendingAudit, error)
 	IncrementPending(ctx context.Context, pendingAudit *PendingAudit) error
 	Delete(ctx context.Context, nodeID pb.NodeID) (bool, error)
-}
-
-// Containment allows the audit verifier to access pending audit info in the db (once it's added to the verifier struct)
-type Containment struct {
-	log *zap.Logger
-	db  DB
-}
-
-// NewContainment creates a new containment db
-func NewContainment(log *zap.Logger, db DB) *Containment {
-	return &Containment{
-		log: log,
-		db:  db,
-	}
-}
-
-// Get gets pending audit info from the db
-func (containment *Containment) Get(ctx context.Context, nodeID pb.NodeID) (*PendingAudit, error) {
-	pendingAudit, err := containment.db.Get(ctx, nodeID)
-	return pendingAudit, ContainError.Wrap(err)
-}
-
-// IncrementPending either creates a new entry for a pending audit or updates an existing pending audit's reverify count
-func (containment *Containment) IncrementPending(ctx context.Context, pending *PendingAudit) error {
-	err := containment.db.IncrementPending(ctx, pending)
-	return ContainError.Wrap(err)
-}
-
-// Delete deletes pending audit info from the db
-func (containment *Containment) Delete(ctx context.Context, nodeID pb.NodeID) (bool, error) {
-	isDeleted, err := containment.db.Delete(ctx, nodeID)
-	return isDeleted, ContainError.Wrap(err)
 }
