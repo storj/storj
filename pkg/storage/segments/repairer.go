@@ -55,6 +55,8 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 		return Error.New("cannot repair inline segment %s", path)
 	}
 
+	mon.Counter("repair_attempts").Inc(1)
+
 	redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
 	if err != nil {
 		return Error.Wrap(err)
@@ -74,13 +76,17 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 	numHealthy := len(pieces) - len(missingPieces)
 	// irreparable piece
 	if int32(numHealthy) < pointer.Remote.Redundancy.MinReq {
+		mon.Counter("repair_below_min_thresh").Inc(1)
 		return Error.New("piece %v cannot be repaired", path)
 	}
 
 	// repair not needed
 	if int32(numHealthy) > pointer.Remote.Redundancy.RepairThreshold {
+		mon.Counter("repair_unneeded_repair").Inc(1)
 		return Error.New("piece %v with %d pieces above repair threshold %d", path, numHealthy, pointer.Remote.Redundancy.RepairThreshold)
 	}
+
+	mon.IntVal("healthy_before_repair").Observe(int64(numHealthy))
 
 	lostPiecesSet := sliceToSet(missingPieces)
 
@@ -153,6 +159,13 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 
 	// Update the remote pieces in the pointer
 	pointer.GetRemote().RemotePieces = healthyPieces
+
+	if int32(len(healthyPieces)) >= pointer.Remote.Redundancy.RepairThreshold {
+		mon.Counter("repair_successes").Inc(1)
+	} else {
+		mon.Counter("repair_partial").Inc(1)
+	}
+	mon.IntVal("healthy_after_repair").Observe(int64(len(healthyPieces)))
 
 	// Update the segment pointer in the metainfo
 	return repairer.metainfo.Put(path, pointer)
