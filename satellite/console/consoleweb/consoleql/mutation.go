@@ -75,20 +75,21 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 
 					secret, err := console.RegistrationSecretFromBase64(secretInput)
 					if err != nil {
+						log.Error("register: failed to parse secret",
+							zap.String("rawSecret", secretInput),
+							zap.Error(err))
+
 						return nil, err
 					}
-
-					log.Error("register: failed to parse secret",
-						zap.String("rawSecret", secretInput),
-						zap.Error(err))
 
 					user, err := service.CreateUser(p.Context, createUser, secret)
 					if err != nil {
+						log.Error("register: failed to create account",
+							zap.String("rawSecret", secretInput),
+							zap.Error(err))
+
 						return nil, err
 					}
-					log.Error("register: failed to create account",
-						zap.String("rawSecret", secretInput),
-						zap.Error(err))
 
 					token, err := service.GenerateActivationToken(p.Context, user.ID, user.Email)
 					if err != nil {

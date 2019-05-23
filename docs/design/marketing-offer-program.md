@@ -71,7 +71,7 @@ The credit is automatically applied to the account and will have a max limit tha
     redeemable_cap - integer
     num_redeemed - integer
     created_at - timestamp
-    offer_duration_days - int
+    expires_at - timestamp
     award_credit_duration_days - int
     invitee_credit_duration_days - int
     type - enum[FREE_TIER, REFERRAL]

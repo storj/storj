@@ -674,8 +674,29 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				Description: "Drops and recreates api key table to handle macaroons and adds revocation table",
+				Description: "Create new tables for free credits program",
 				Version:     22,
+				Action: migrate.SQL{`
+					CREATE TABLE offers (
+						id serial NOT NULL,
+						name text NOT NULL,
+						description text NOT NULL,
+						type integer NOT NULL,
+						credit_in_cents integer NOT NULL,
+						award_credit_duration_days integer NOT NULL,
+						invitee_credit_duration_days integer NOT NULL,
+						redeemable_cap integer NOT NULL,
+						num_redeemed integer NOT NULL,
+						expires_at timestamp with time zone,
+						created_at timestamp with time zone NOT NULL,
+						status integer NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+				},
+			},
+			{
+				Description: "Drops and recreates api key table to handle macaroons and adds revocation table",
+				Version:     23,
 				Action: migrate.SQL{
 					`DROP TABLE api_keys CASCADE`,
 					`CREATE TABLE api_keys (
