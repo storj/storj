@@ -6,6 +6,7 @@ package audit
 import (
 	"context"
 
+	"github.com/zeebo/errs"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/storj"
 )
@@ -93,8 +94,7 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req *RecordAuditsInf
 
 // recordAuditFailStatus updates nodeIDs in overlay with isup=true, auditsuccess=false
 func (reporter *Reporter) recordAuditFailStatus(ctx context.Context, failedAuditNodeIDs storj.NodeIDList) (failed storj.NodeIDList, err error) {
-	failedIDs := storj.NodeIDList{}
-
+	var errlist errs.Group
 	for _, nodeID := range failedAuditNodeIDs {
 		_, err := reporter.overlay.UpdateStats(ctx, &overlay.UpdateRequest{
 			NodeID:       nodeID,
@@ -102,36 +102,35 @@ func (reporter *Reporter) recordAuditFailStatus(ctx context.Context, failedAudit
 			AuditSuccess: false,
 		})
 		if err != nil {
-			failedIDs = append(failedIDs, nodeID)
+			failed = append(failed, nodeID)
+			errlist.Add(err)
 		}
 	}
-	if len(failedIDs) > 0 {
-		return failedIDs, Error.New("failed to record some audit fail statuses in overlay")
+	if len(failed) > 0 {
+		return failed, errs.Combine(Error.New("failed to record some audit fail statuses in overlay"), errlist.Err())
 	}
 	return nil, nil
 }
 
 // recordOfflineStatus updates nodeIDs in overlay with isup=false
-// TODO: offline nodes should maybe be marked as failing the audit in the future
 func (reporter *Reporter) recordOfflineStatus(ctx context.Context, offlineNodeIDs storj.NodeIDList) (failed storj.NodeIDList, err error) {
-	failedIDs := storj.NodeIDList{}
-
+	var errlist errs.Group
 	for _, nodeID := range offlineNodeIDs {
 		_, err := reporter.overlay.UpdateUptime(ctx, nodeID, false)
 		if err != nil {
-			failedIDs = append(failedIDs, nodeID)
+			failed = append(failed, nodeID)
+			errlist.Add(err)
 		}
 	}
-	if len(failedIDs) > 0 {
-		return failedIDs, Error.New("failed to record some audit offline statuses in overlay")
+	if len(failed) > 0 {
+		return failed, errs.Combine(Error.New("failed to record some audit offline statuses in overlay"), errlist.Err())
 	}
 	return nil, nil
 }
 
 // recordAuditSuccessStatus updates nodeIDs in overlay with isup=true, auditsuccess=true
 func (reporter *Reporter) recordAuditSuccessStatus(ctx context.Context, successNodeIDs storj.NodeIDList) (failed storj.NodeIDList, err error) {
-	failedIDs := storj.NodeIDList{}
-
+	var errlist errs.Group
 	for _, nodeID := range successNodeIDs {
 		_, err := reporter.overlay.UpdateStats(ctx, &overlay.UpdateRequest{
 			NodeID:       nodeID,
@@ -139,25 +138,28 @@ func (reporter *Reporter) recordAuditSuccessStatus(ctx context.Context, successN
 			AuditSuccess: true,
 		})
 		if err != nil {
-			failedIDs = append(failedIDs, nodeID)
+			failed = append(failed, nodeID)
+			errlist.Add(err)
 		}
 	}
-	if len(failedIDs) > 0 {
-		return failedIDs, Error.New("failed to record some audit success statuses in overlay")
+	if len(failed) > 0 {
+		return failed, errs.Combine(Error.New("failed to record some audit success statuses in overlay"), errlist.Err())
 	}
 	return nil, nil
 }
 
 // recordPendingAudits updates the containment status of nodes with pending audits
 func (reporter *Reporter) recordPendingAudits(ctx context.Context, pendingAudits []*PendingAudit) (failed []*PendingAudit, err error) {
+	var errlist errs.Group
 	for _, pendingAudit := range pendingAudits {
-		err = reporter.containment.IncrementPending(ctx, pendingAudit)
+		err := reporter.containment.IncrementPending(ctx, pendingAudit)
 		if err != nil {
 			failed = append(failed, pendingAudit)
+			errlist.Add(err)
 		}
 	}
 	if len(failed) > 0 {
-		return failed, Error.New("failed to record some pending audits")
+		return failed, errs.Combine(Error.New("failed to record some pending audits"), errlist.Err())
 	}
 	return nil, nil
 }
