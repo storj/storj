@@ -70,29 +70,6 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe) (verifiedN
 		return nil, err
 	}
 
-	var contained storj.NodeIDList
-
-	for i, limit := range orderLimits {
-		if limit == nil {
-			continue
-		}
-		// todo: make this happen in a go routine
-		node, err := verifier.overlay.Get(ctx, limit.Limit.StorageNodeId)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-		if node.Contained {
-			isVerified, err := verifier.Reverify(ctx, node.Id, limit, i)
-			if err != nil {
-				return nil, Error.Wrap(err)
-			}
-			if !isVerified {
-				contained = append(contained, node.Id)
-			}
-		}
-	}
-
-	// todo(nat): edit so we did not re-download from reverified nodes!
 	shares, nodes, err := verifier.DownloadShares(ctx, orderLimits, stripe.Index, shareSize)
 	if err != nil {
 		return nil, err
@@ -196,6 +173,21 @@ func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.Addre
 	for i, limit := range limits {
 		if limit == nil {
 			continue
+		}
+
+		node, err := verifier.overlay.Get(ctx, limit.Limit.StorageNodeId)
+		if err != nil {
+			return nil, nil, Error.Wrap(err)
+		}
+		if node.Contained {
+			isVerified, err := verifier.Reverify(ctx, node.Id, limit, i)
+			if err != nil {
+				return nil, nil, Error.Wrap(err)
+			}
+			if !isVerified {
+				// if contained nodes don't pass reverification, then we don't audit them for other data
+				continue
+			}
 		}
 
 		share, err := verifier.getShare(ctx, limit, stripeIndex, shareSize, i)
