@@ -62,7 +62,8 @@ func TestGetShareTimeout(t *testing.T) {
 		minBytesPerSecond := 110 * memory.KB
 		orders := planet.Satellites[0].Orders.Service
 		containment := planet.Satellites[0].DB.Containment()
-		verifier := audit.NewVerifier(zap.L(), slowClient, overlay, containment, orders, planet.Satellites[0].Identity, minBytesPerSecond)
+		reporter := audit.NewReporter(overlay, 1)
+		verifier := audit.NewVerifier(zap.L(), reporter, slowClient, overlay, containment, orders, planet.Satellites[0].Identity, minBytesPerSecond)
 		require.NotNil(t, verifier)
 
 		// stop some storage nodes to ensure audit can deal with it

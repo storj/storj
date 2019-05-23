@@ -44,12 +44,14 @@ type Service struct {
 func NewService(log *zap.Logger, config Config, metainfo *metainfo.Service,
 	orders *orders.Service, transport transport.Client, overlay *overlay.Cache,
 	containment Containment, identity *identity.FullIdentity) (service *Service, err error) {
+
+	reporter := NewReporter(overlay, config.MaxRetriesStatDB)
 	return &Service{
 		log: log,
 
 		Cursor:   NewCursor(metainfo),
-		Verifier: NewVerifier(log.Named("audit:verifier"), transport, overlay, containment, orders, identity, config.MinBytesPerSecond),
-		Reporter: NewReporter(overlay, config.MaxRetriesStatDB),
+		Verifier: NewVerifier(log.Named("audit:verifier"), reporter, transport, overlay, containment, orders, identity, config.MinBytesPerSecond),
+		Reporter: reporter,
 
 		Loop: *sync2.NewCycle(config.Interval),
 	}, nil

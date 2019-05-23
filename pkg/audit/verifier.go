@@ -53,8 +53,17 @@ type Verifier struct {
 }
 
 // NewVerifier creates a Verifier
-func NewVerifier(log *zap.Logger, transport transport.Client, overlay *overlay.Cache, containment Containment, orders *orders.Service, id *identity.FullIdentity, minBytesPerSecond memory.Size) *Verifier {
-	return &Verifier{log: log, orders: orders, auditor: id.PeerIdentity(), transport: transport, overlay: overlay, containment: containment, minBytesPerSecond: minBytesPerSecond}
+func NewVerifier(log *zap.Logger, reporter reporter, transport transport.Client, overlay *overlay.Cache, containment Containment, orders *orders.Service, id *identity.FullIdentity, minBytesPerSecond memory.Size) *Verifier {
+	return &Verifier{
+		log:               log,
+		reporter:          reporter,
+		orders:            orders,
+		auditor:           id.PeerIdentity(),
+		transport:         transport,
+		overlay:           overlay,
+		containment:       containment,
+		minBytesPerSecond: minBytesPerSecond,
+	}
 }
 
 // Verify downloads shares then verifies the data correctness at the given stripe
@@ -182,7 +191,11 @@ func (verifier *Verifier) Reverify(ctx context.Context, id storj.NodeID, limit *
 		return false, Error.Wrap(err)
 	}
 
-	var auditRecords *RecordAuditsInfo
+	auditRecords := &RecordAuditsInfo{
+		SuccessNodeIDs: []storj.NodeID{},
+		FailNodeIDs:    []storj.NodeID{},
+	}
+
 	downloadedHash := pkcrypto.SHA256Hash(share.Data)
 
 	if bytes.Equal(downloadedHash, pendingAudit.ExpectedShareHash) {
@@ -201,7 +214,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, id storj.NodeID, limit *
 		return false, Error.Wrap(err)
 	}
 	if !isDeleted {
-		return true, Error.New("failed to deleted pending audit %s", id)
+		return true, ErrContainDelete.New(id.String())
 	}
 	return true, nil
 }

@@ -8,13 +8,79 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/uplink"
 )
+
+func TestReverifyContainedNodes(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		err := planet.Satellites[0].Audit.Service.Close()
+		require.NoError(t, err)
+
+		ul := planet.Uplinks[0]
+		testData := make([]byte, 1*memory.MiB)
+		_, err = rand.Read(testData)
+		require.NoError(t, err)
+
+		err = ul.UploadWithConfig(ctx, planet.Satellites[0], &uplink.RSConfig{
+			MinThreshold:     4,
+			RepairThreshold:  5,
+			SuccessThreshold: 6,
+			MaxThreshold:     6,
+		}, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		randBytes := make([]byte, 10)
+		_, err = rand.Read(randBytes)
+		require.NoError(t, err)
+		someHash := pkcrypto.SHA256Hash(randBytes)
+
+		for _, node := range planet.StorageNodes {
+			pending := &audit.PendingAudit{
+				NodeID:            node.ID(),
+				PieceID:           storj.PieceID{},
+				StripeIndex:       0,
+				ShareSize:         0,
+				ExpectedShareHash: someHash,
+				ReverifyCount:     0,
+			}
+
+			err = planet.Satellites[0].DB.Containment().IncrementPending(ctx, pending)
+			require.NoError(t, err)
+		}
+
+		metainfo := planet.Satellites[0].Metainfo.Service
+		overlay := planet.Satellites[0].Overlay.Service
+		cursor := audit.NewCursor(metainfo)
+
+		var stripe *audit.Stripe
+		stripe, _, err = cursor.NextStripe(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, stripe)
+
+		transport := planet.Satellites[0].Transport
+		orders := planet.Satellites[0].Orders.Service
+		containment := planet.Satellites[0].DB.Containment()
+		minBytesPerSecond := 128 * memory.B
+		reporter := audit.NewReporter(overlay, 1)
+		verifier := audit.NewVerifier(zap.L(), reporter, transport, overlay, containment, orders, planet.Satellites[0].Identity, minBytesPerSecond)
+		require.NotNil(t, verifier)
+
+		// expect all nodes to fail reverification since their expected share hashes are random bytes
+		verified, err := verifier.Verify(ctx, stripe)
+		require.NoError(t, err)
+		require.Len(t, verified.FailNodeIDs, len(planet.StorageNodes))
+	})
+}
 
 func TestContainIncrementAndGet(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
