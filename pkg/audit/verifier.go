@@ -195,7 +195,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, id storj.NodeID, limit *
 		return false, Error.Wrap(err)
 	}
 
-	share, err := verifier.getShare(ctx, limit, int64(pendingAudit.StripeIndex), int32(pendingAudit.ShareSize), pieceNum)
+	share, err := verifier.getShare(ctx, limit, pendingAudit.StripeIndex, pendingAudit.ShareSize, pieceNum)
 	if err != nil {
 		// todo: make more specific for contained cases
 		if err == context.DeadlineExceeded || !transport.Error.Has(err) {
