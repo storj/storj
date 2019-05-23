@@ -131,6 +131,21 @@ func (m *marketing) StopOffer(ctx context.Context, offerId Offer.ID) error {
 
   return nil
 }
+
+func (m *marketing) Create(ctx context.Context, offer Offer) error {
+  if offer.Status == Default {
+    offer.ExpiresAt = time.Now().AddDate(100, 0, 0)
+  }
+
+  err := m.db.Marketing().Offers().Create_Offer(ctx, offer)
+  if err != nil {
+    return Error.Wrap(err)
+  }
+
+  return nil
+}
+
+func (m *marketing) ListAllOffers(ctx context.Context) ([]Offers, error)
 ```
 
 **satellite/marketing/offers.go**
@@ -156,8 +171,41 @@ type UpdateOffer struct {
 
 **satellite/satellitedb/offers.go**
 ```golang
-func (db *offersDB) Create(ctx context.Context, offer *marketing.Offer) (*marketing.Offer, error) {
-  
+func (o *offersDB) Create(ctx context.Context, offer *marketing.Offer) error {
+  tx, err := o.db.Open(ctx)
+  if err != nil {
+    return marketing.OfferError.Wrap(err)
+  }
+
+  _, err := tx.Get_Offer_By_Status(ctx, dbx.Offer_Status(offer.Status))
+  if err == sql.ErrNoRows {
+    _, err := o.db.Create_Offer(ctx, offerDbx)
+    if err != nil {
+      return Error.Wrap(errs.Combine(err, tx.Rollback()))
+    }
+
+    return nil
+  }
+
+  if err != nil {
+    return Error.Wrap(errs.Combine(err, tx.Rollback()))
+  }
+
+  updateOffer := marketing.UpdateOffer{
+    Status: Done,
+    ExpiresAt: time.Now(),
+  }
+  _, err := tx.Update_Offer_By_Status(ctx, dbx.Offer_Status(offer.Status), updateOffer)
+  if err != nil {
+    return Error.Wrap(err)
+  }
+
+  _, err := o.db.Create_Offer(ctx, offerDbx)
+  if err != nil {
+    return Error.Wrap(errs.Combine(err, tx.Rollback()))
+  }
+
+  return nil
 }
 ```
 
