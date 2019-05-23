@@ -19,7 +19,7 @@ type reporter interface {
 // Reporter records audit reports in overlay and implements the reporter interface
 type Reporter struct {
 	overlay     *overlay.Cache
-	containment *Containment
+	containment Containment
 	maxRetries  int
 }
 
@@ -32,7 +32,7 @@ type RecordAuditsInfo struct {
 }
 
 // NewReporter instantiates a reporter
-func NewReporter(overlay *overlay.Cache, containment *Containment, maxRetries int) *Reporter {
+func NewReporter(overlay *overlay.Cache, containment Containment, maxRetries int) *Reporter {
 	return &Reporter{overlay: overlay, containment: containment, maxRetries: maxRetries}
 }
 

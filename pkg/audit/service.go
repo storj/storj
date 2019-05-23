@@ -44,7 +44,7 @@ type Service struct {
 func NewService(log *zap.Logger, config Config, metainfo *metainfo.Service,
 	orders *orders.Service, transport transport.Client, overlay *overlay.Cache,
 	identity *identity.FullIdentity) (service *Service, err error) {
-	var containment *Containment // TODO(kaloyan): we need to wire this
+	var containment Containment // TODO(kaloyan): we need to wire this
 	return &Service{
 		log: log,
 
