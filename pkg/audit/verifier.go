@@ -72,17 +72,14 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe) (verifiedN
 
 	var offlineNodes storj.NodeIDList
 	var failedNodes storj.NodeIDList
-	var containedNodes storj.NodeIDList
-	var containedPieceNums []int
-
+	containedNodes := make(map[int]storj.NodeID)
 	sharesToAudit := make(map[int]Share)
 
 	for pieceNum, share := range shares {
 		if shares[pieceNum].Error != nil {
 			// TODO(kaloyan): we need to check the logic here if we correctly identify offline nodes from those that didn't respond.
 			if shares[pieceNum].Error == context.DeadlineExceeded || !transport.Error.Has(shares[pieceNum].Error) {
-				containedNodes = append(containedNodes, nodes[pieceNum])
-				containedPieceNums = append(containedPieceNums, pieceNum)
+				containedNodes[pieceNum] = nodes[pieceNum]
 			} else {
 				offlineNodes = append(offlineNodes, nodes[pieceNum])
 			}
@@ -111,7 +108,7 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe) (verifiedN
 
 	successNodes := getSuccessNodes(ctx, nodes, failedNodes, offlineNodes, containedNodes)
 
-	pendingAudits, err := createPendingAudits(containedNodes, containedPieceNums, correctedShares, stripe)
+	pendingAudits, err := createPendingAudits(containedNodes, correctedShares, stripe)
 	if err != nil {
 		// TODO return the RecordAuditsInfo that was built so far
 		return nil, err
@@ -255,7 +252,7 @@ func makeCopies(ctx context.Context, originals map[int]Share) (copies []infectio
 }
 
 // getSuccessNodes uses the failed nodes, offline nodes and contained nodes arrays to determine which nodes passed the audit
-func getSuccessNodes(ctx context.Context, nodes map[int]storj.NodeID, failedNodes, offlineNodes, containedNodes storj.NodeIDList) (successNodes storj.NodeIDList) {
+func getSuccessNodes(ctx context.Context, nodes map[int]storj.NodeID, failedNodes, offlineNodes storj.NodeIDList, containedNodes map[int]storj.NodeID) (successNodes storj.NodeIDList) {
 	fails := make(map[storj.NodeID]bool)
 	for _, fail := range failedNodes {
 		fails[fail] = true
@@ -285,7 +282,7 @@ func createBucketID(path storj.Path) []byte {
 	return []byte(storj.JoinPaths(comps[0], comps[2]))
 }
 
-func createPendingAudits(containedNodes storj.NodeIDList, containedPieceNums []int, correctedShares []infectious.Share, stripe *Stripe) ([]*PendingAudit, error) {
+func createPendingAudits(containedNodes map[int]storj.NodeID, correctedShares []infectious.Share, stripe *Stripe) ([]*PendingAudit, error) {
 	if len(containedNodes) > 0 {
 		return nil, nil
 	}
@@ -303,14 +300,14 @@ func createPendingAudits(containedNodes storj.NodeIDList, containedPieceNums []i
 	stripeData := rebuildStripe(fec, correctedShares, int(shareSize))
 
 	var pendingAudits []*PendingAudit
-	for i, contained := range containedNodes {
+	for pieceNum, nodeID := range containedNodes {
 		share := make([]byte, shareSize)
-		err = fec.EncodeSingle(stripeData, share, containedPieceNums[i])
+		err = fec.EncodeSingle(stripeData, share, pieceNum)
 		if err != nil {
 			return nil, err
 		}
 		pendingAudits = append(pendingAudits, &PendingAudit{
-			NodeID:            contained,
+			NodeID:            nodeID,
 			PieceID:           stripe.Segment.GetRemote().RootPieceId,
 			StripeIndex:       stripe.Index,
 			ShareSize:         shareSize,
