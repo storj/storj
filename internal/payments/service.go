@@ -28,14 +28,13 @@ type Service interface {
 	GetInvoice(ctx context.Context, invoiceID string) (*stripe.Invoice, error)
 }
 
-// TODO: better error handling
 // StripeService works with stripe network through stripe-go client
 type StripeService struct {
 	log    *zap.Logger
 	client *client.API
 }
 
-// CustomerParams contains info needed to create new stripe customer
+// CreateCustomerParams contains info needed to create new stripe customer
 type CreateCustomerParams struct {
 	Email       string
 	Name        string
@@ -43,7 +42,7 @@ type CreateCustomerParams struct {
 	SourceToken string
 }
 
-// CreateInvoiceParams contains info needed to create project invoice
+// CreateProjectInvoiceParams contains info needed to create project invoice
 type CreateProjectInvoiceParams struct {
 	ProjectName     string
 	CustomerID      string
@@ -136,18 +135,19 @@ func (s *StripeService) GetCustomerPaymentsMethods(ctx context.Context, customer
 
 	return paymentMethods, nil
 }
+
 // GetPaymentMethod retrieve payment method object from stripe network
 func (s *StripeService) GetPaymentMethod(ctx context.Context, id string) (*stripe.PaymentMethod, error) {
 	return s.client.PaymentMethods.Get(id, nil)
 }
 
-// CreateInvoice creates new project invoice on stripe network from input params.
+// CreateProjectInvoice creates new project invoice on stripe network from input params.
 // Included line items:
 // - Storage
 // - Egress
 // - ObjectsCount
 // Created invoice has AutoAdvance property set to true, so it will be finalized
-// (no further editing) and attempted to be payed in 1 hour after creation
+// (no further editing) and attempted to be paid in 1 hour after creation
 func (s *StripeService) CreateProjectInvoice(ctx context.Context, params CreateProjectInvoiceParams) (*stripe.Invoice, error) {
 	// create line items
 	_, err := s.client.InvoiceItems.New(&stripe.InvoiceItemParams{

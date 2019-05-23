@@ -956,7 +956,7 @@ func (s *Service) CreateMonthlyProjectInvoices(ctx context.Context, date time.Ti
 		}
 
 		// check if there is entry in the db for selected project and date
-		// range, if so skip project as invoice has allready been created
+		// range, if so skip project as invoice has already been created
 		// this way we can run this function for the second time to generate
 		// invoices only for project that failed before
 		_, err := s.store.ProjectInvoiceStamps().GetByProjectIDStartDate(ctx, proj.ID, startDate)

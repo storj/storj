@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/satellite/payments/paymentstest"
+	"storj.io/storj/internal/payments/paymentstest"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite"

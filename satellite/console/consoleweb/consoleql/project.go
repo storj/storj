@@ -57,7 +57,7 @@ const (
 	FieldCurrentPage = "currentPage"
 	// FieldTotalCount is a field name for bucket usage count total
 	FieldTotalCount = "totalCount"
-	// FieldInvoiceID is a field name for invoice id
+	// FieldInvoiceNumber is a field name for invoice id
 	FieldInvoiceNumber = "number"
 	// FieldStatus is a field name for status
 	FieldStatus = "status"

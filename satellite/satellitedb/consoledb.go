@@ -71,7 +71,7 @@ func (db *ConsoleDB) ProjectPaymentInfos() console.ProjectPaymentInfos {
 	return &projectpaymentinfos{db.methods}
 }
 
-// ProjectPaymentInfos is a getter for console.ProjectPaymentInfos repository
+// ProjectInvoiceStamps is a getter for console.ProjectInvoiceStamps repository
 func (db *ConsoleDB) ProjectInvoiceStamps() console.ProjectInvoiceStamps {
 	return &projectinvoicestamps{db.methods}
 }

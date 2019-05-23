@@ -13,11 +13,13 @@ import (
 	"storj.io/storj/satellite/console"
 )
 
+// PaymentsEndpoint for creating project invoices
 type PaymentsEndpoint struct {
 	log     *zap.Logger
 	console *console.Service
 }
 
+// NewPaymentsEndpoint creates new instance of PaymentsEndpoint
 func NewPaymentsEndpoint(log *zap.Logger, console *console.Service) *PaymentsEndpoint {
 	return &PaymentsEndpoint{
 		log:     log,
@@ -25,6 +27,8 @@ func NewPaymentsEndpoint(log *zap.Logger, console *console.Service) *PaymentsEnd
 	}
 }
 
+// CreateInvoices create monthly project invoices on the satellite, data range is month edges
+// derived from base date
 func (srv *PaymentsEndpoint) CreateInvoices(ctx context.Context, req *pb.CreateInvoicesRequest) (*pb.CreateInvoicesResponse, error) {
 	baseDate, err := ptypes.Timestamp(req.GetBaseDate())
 	if err != nil {
