@@ -13,7 +13,7 @@ import (
 )
 
 type reporter interface {
-	RecordAudits(ctx context.Context, req *RecordAuditsInfo) (failed *RecordAuditsInfo, err error)
+	RecordAudits(ctx context.Context, req *Report) (failed *Report, err error)
 }
 
 // Reporter records audit reports in overlay and implements the reporter interface
@@ -23,12 +23,12 @@ type Reporter struct {
 	maxRetries  int
 }
 
-// RecordAuditsInfo is a struct containing arguments/return values for RecordAudits()
-type RecordAuditsInfo struct {
-	SuccessNodeIDs storj.NodeIDList
-	FailNodeIDs    storj.NodeIDList
-	OfflineNodeIDs storj.NodeIDList
-	PendingAudits  []*PendingAudit
+// Report contains result lists of nodes that succeeded, failed, were offline, or have pending audits
+type Report struct {
+	Successes     storj.NodeIDList
+	Fails         storj.NodeIDList
+	Offlines      storj.NodeIDList
+	PendingAudits []*PendingAudit
 }
 
 // NewReporter instantiates a reporter
@@ -36,37 +36,37 @@ func NewReporter(overlay *overlay.Cache, containment Containment, maxRetries int
 	return &Reporter{overlay: overlay, containment: containment, maxRetries: maxRetries}
 }
 
-// RecordAudits saves failed audit details to overlay
-func (reporter *Reporter) RecordAudits(ctx context.Context, req *RecordAuditsInfo) (failed *RecordAuditsInfo, err error) {
-	successNodeIDs := req.SuccessNodeIDs
-	failNodeIDs := req.FailNodeIDs
-	offlineNodeIDs := req.OfflineNodeIDs
+// RecordAudits saves audit details to overlay
+func (reporter *Reporter) RecordAudits(ctx context.Context, req *Report) (failed *Report, err error) {
+	successes := req.Successes
+	fails := req.Fails
+	offlines := req.Offlines
 	pendingAudits := req.PendingAudits
 
 	var errlist errs.Group
 
 	retries := 0
 	for retries < reporter.maxRetries {
-		if len(successNodeIDs) == 0 && len(failNodeIDs) == 0 && len(offlineNodeIDs) == 0 {
+		if len(successes) == 0 && len(fails) == 0 && len(offlines) == 0 {
 			return nil, nil
 		}
 
 		errlist = errs.Group{}
 
-		if len(successNodeIDs) > 0 {
-			successNodeIDs, err = reporter.recordAuditSuccessStatus(ctx, successNodeIDs)
+		if len(successes) > 0 {
+			successes, err = reporter.recordAuditSuccessStatus(ctx, successes)
 			if err != nil {
 				errlist.Add(err)
 			}
 		}
-		if len(failNodeIDs) > 0 {
-			failNodeIDs, err = reporter.recordAuditFailStatus(ctx, failNodeIDs)
+		if len(fails) > 0 {
+			fails, err = reporter.recordAuditFailStatus(ctx, fails)
 			if err != nil {
 				errlist.Add(err)
 			}
 		}
-		if len(offlineNodeIDs) > 0 {
-			offlineNodeIDs, err = reporter.recordOfflineStatus(ctx, offlineNodeIDs)
+		if len(offlines) > 0 {
+			offlines, err = reporter.recordOfflineStatus(ctx, offlines)
 			if err != nil {
 				errlist.Add(err)
 			}
@@ -83,11 +83,11 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req *RecordAuditsInf
 
 	err = errlist.Err()
 	if retries >= reporter.maxRetries && err != nil {
-		return &RecordAuditsInfo{
-			SuccessNodeIDs: successNodeIDs,
-			FailNodeIDs:    failNodeIDs,
-			OfflineNodeIDs: offlineNodeIDs,
-			PendingAudits:  pendingAudits,
+		return &Report{
+			Successes:     successes,
+			Fails:         fails,
+			Offlines:      offlines,
+			PendingAudits: pendingAudits,
 		}, errs.Combine(Error.New("some nodes failed to be updated in overlay"), err)
 	}
 	return nil, nil
