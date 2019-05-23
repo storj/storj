@@ -43,13 +43,13 @@ type Service struct {
 // NewService instantiates a Service with access to a Cursor and Verifier
 func NewService(log *zap.Logger, config Config, metainfo *metainfo.Service,
 	orders *orders.Service, transport transport.Client, overlay *overlay.Cache,
-	identity *identity.FullIdentity) (service *Service, err error) {
+	containment Containment, identity *identity.FullIdentity) (service *Service, err error) {
 	return &Service{
 		log: log,
 
 		Cursor:   NewCursor(metainfo),
 		Verifier: NewVerifier(log.Named("audit:verifier"), transport, overlay, orders, identity, config.MinBytesPerSecond),
-		Reporter: NewReporter(overlay, config.MaxRetriesStatDB),
+		Reporter: NewReporter(overlay, containment, config.MaxRetriesStatDB),
 
 		Loop: *sync2.NewCycle(config.Interval),
 	}, nil
@@ -92,15 +92,15 @@ func (service *Service) process(ctx context.Context) error {
 		}
 	}
 
-	verifiedNodes, err := service.Verifier.Verify(ctx, stripe)
-	if err != nil {
-		return err
+	verifiedNodes, verifierErr := service.Verifier.Verify(ctx, stripe)
+	if verifierErr != nil && verifiedNodes == nil {
+		return verifierErr
 	}
 
 	// TODO(moby) we need to decide if we want to do something with nodes that the reporter failed to update
-	_, err = service.Reporter.RecordAudits(ctx, verifiedNodes)
-	if err != nil {
-		return err
+	_, reporterErr := service.Reporter.RecordAudits(ctx, verifiedNodes)
+	if reporterErr != nil {
+		return errs.Combine(verifierErr, reporterErr)
 	}
 
 	return nil

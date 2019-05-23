@@ -86,7 +86,7 @@ type DB interface {
 	// Orders returns database for orders
 	Orders() orders.DB
 	// Containment returns database for containment
-	Containment() audit.DB
+	Containment() audit.Containment
 }
 
 // Config is the global config satellite
@@ -409,6 +409,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Orders.Service,
 			peer.Transport,
 			peer.Overlay.Service,
+			peer.DB.Containment(),
 			peer.Identity,
 		)
 		if err != nil {
