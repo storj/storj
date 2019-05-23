@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/orders"
@@ -27,6 +28,9 @@ import (
 
 var (
 	mon = monkit.Package()
+
+	// ErrDownloadTimeout is the err class for when an audit takes too long to download
+	ErrDownloadTimeout = errs.Class("audit download timeout")
 )
 
 // Share represents required information about an audited share
@@ -43,12 +47,14 @@ type Verifier struct {
 	auditor           *identity.PeerIdentity
 	transport         transport.Client
 	overlay           *overlay.Cache
+	containment       Containment
+	reporter          reporter
 	minBytesPerSecond memory.Size
 }
 
 // NewVerifier creates a Verifier
-func NewVerifier(log *zap.Logger, transport transport.Client, overlay *overlay.Cache, orders *orders.Service, id *identity.FullIdentity, minBytesPerSecond memory.Size) *Verifier {
-	return &Verifier{log: log, orders: orders, auditor: id.PeerIdentity(), transport: transport, overlay: overlay, minBytesPerSecond: minBytesPerSecond}
+func NewVerifier(log *zap.Logger, transport transport.Client, overlay *overlay.Cache, containment Containment, orders *orders.Service, id *identity.FullIdentity, minBytesPerSecond memory.Size) *Verifier {
+	return &Verifier{log: log, orders: orders, auditor: id.PeerIdentity(), transport: transport, overlay: overlay, containment: containment, minBytesPerSecond: minBytesPerSecond}
 }
 
 // Verify downloads shares then verifies the data correctness at the given stripe
@@ -64,6 +70,29 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe) (verifiedN
 		return nil, err
 	}
 
+	var contained storj.NodeIDList
+
+	for i, limit := range orderLimits {
+		if limit == nil {
+			continue
+		}
+		// todo: make this happen in a go routine
+		node, err := verifier.overlay.Get(ctx, limit.Limit.StorageNodeId)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		if node.Contained {
+			isVerified, err := verifier.Reverify(ctx, node.Id, limit, i)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+			if !isVerified {
+				contained = append(contained, node.Id)
+			}
+		}
+	}
+
+	// todo(nat): edit so we did not re-download from reverified nodes!
 	shares, nodes, err := verifier.DownloadShares(ctx, orderLimits, stripe.Index, shareSize)
 	if err != nil {
 		return nil, err
@@ -112,6 +141,49 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe) (verifiedN
 		FailNodeIDs:    failedNodes,
 		OfflineNodeIDs: offlineNodes,
 	}, nil
+}
+
+// Reverify verifies that a node has an erasure share that it was contained for not verifying previously
+func (verifier *Verifier) Reverify(ctx context.Context, id storj.NodeID, limit *pb.AddressedOrderLimit, pieceNum int) (isVerified bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	pendingAudit, err := verifier.containment.Get(ctx, id)
+	if err != nil {
+		return false, Error.Wrap(err)
+	}
+
+	share, err := verifier.getShare(ctx, limit, int64(pendingAudit.StripeIndex), int32(pendingAudit.ShareSize), pieceNum)
+	if err != nil {
+		// todo: make more specific for contained cases
+		if err == context.DeadlineExceeded || !transport.Error.Has(err) {
+			err := verifier.containment.IncrementPending(ctx, pendingAudit)
+			return false, Error.Wrap(err)
+		}
+		return false, Error.Wrap(err)
+	}
+
+	var auditRecords *RecordAuditsInfo
+	downloadedHash := pkcrypto.SHA256Hash(share.Data)
+
+	if bytes.Equal(downloadedHash, pendingAudit.ExpectedShareHash) {
+		auditRecords.SuccessNodeIDs = []storj.NodeID{pendingAudit.NodeID}
+	} else {
+		auditRecords.FailNodeIDs = []storj.NodeID{pendingAudit.NodeID}
+	}
+
+	_, err = verifier.reporter.RecordAudits(ctx, auditRecords)
+	if err != nil {
+		return false, Error.Wrap(err)
+	}
+
+	isDeleted, err := verifier.containment.Delete(ctx, id)
+	if err != nil {
+		return false, Error.Wrap(err)
+	}
+	if !isDeleted {
+		return true, Error.New("failed to deleted pending audit %s", id)
+	}
+	return true, nil
 }
 
 // DownloadShares downloads shares from the nodes where remote pieces are located

@@ -43,12 +43,12 @@ type Service struct {
 // NewService instantiates a Service with access to a Cursor and Verifier
 func NewService(log *zap.Logger, config Config, metainfo *metainfo.Service,
 	orders *orders.Service, transport transport.Client, overlay *overlay.Cache,
-	identity *identity.FullIdentity) (service *Service, err error) {
+	containment Containment, identity *identity.FullIdentity) (service *Service, err error) {
 	return &Service{
 		log: log,
 
 		Cursor:   NewCursor(metainfo),
-		Verifier: NewVerifier(log.Named("audit:verifier"), transport, overlay, orders, identity, config.MinBytesPerSecond),
+		Verifier: NewVerifier(log.Named("audit:verifier"), transport, overlay, containment, orders, identity, config.MinBytesPerSecond),
 		Reporter: NewReporter(overlay, config.MaxRetriesStatDB),
 
 		Loop: *sync2.NewCycle(config.Interval),
