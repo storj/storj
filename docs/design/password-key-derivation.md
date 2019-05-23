@@ -26,9 +26,7 @@ The third requirement allows having multiple encrypted domains to exist within a
 
 ## Design
 
-First, a **root key** is defined to be a key for some bucket and encrypted path.
-
-In the terminology of section 4.11 in the [whitepaper](https://storj.io/storjv3.pdf), a **root key** is the same as s<sub>0</sub>. Subsequent secrets are derived using the unencrypted path components and will end up encrypted as described in the whitepaper and appended to the base encrypted path used when creating s<sub>0</sub>. This means that the root key for a bucket and encrypted path may not match the derived key from a root key for a bucket and empty encrypted path, and then deriving a key using path segments to match that encrypted path.
+First, a **root key** is defined to be, in the terminology of section 4.11 in the [whitepaper](https://storj.io/storjv3.pdf), the same as s<sub>0</sub>. Any number of root keys can be created for any bucket and (possibly empty) encrypted path. Subsequent secrets are derived using the unencrypted path components and will end up encrypted as described in the whitepaper and appended to the encrypted path used when the root key was created. This means that the root key for a bucket and encrypted path may not match the derived key from a root key for a bucket and empty encrypted path, and then deriving a key using path segments to match that encrypted path.
 
 In other words, `rootKey(bucket, encryptedPath) != deriveKey(rootKey(bucket, ""), encryptedPath)`.
 
