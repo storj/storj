@@ -10,6 +10,7 @@ import (
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/datarepair/irreparable"
@@ -51,6 +52,8 @@ func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
 			driver, source, err)
 	}
 	log.Debug("Connected to:", zap.String("db source", source))
+
+	db.SetMaxIdleConns(dbutil.DefaultMaxIdleConns)
 
 	core := &DB{log: log, db: db, driver: driver, source: source}
 	if driver == "sqlite3" {
@@ -142,4 +145,9 @@ func (db *DB) Console() console.DB {
 // Orders returns database for storing orders
 func (db *DB) Orders() orders.DB {
 	return &ordersDB{db: db.db}
+}
+
+// Containment returns database for storing pending audit info
+func (db *DB) Containment() audit.DB {
+	return &containment{db: db.db}
 }
