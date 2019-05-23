@@ -694,6 +694,13 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				Description: "Add usage_limit column to projects table",
+				Version:     23,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD usage_limit bigint NOT NULL DEFAULT 0;`,
+				},
+			},
 		},
 	}
 }

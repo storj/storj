@@ -216,6 +216,7 @@ model project (
 
     field name           text
     field description    text      ( updatable )
+	field usage_limit	 int64
 
     field created_at     timestamp ( autoinsert )
 )

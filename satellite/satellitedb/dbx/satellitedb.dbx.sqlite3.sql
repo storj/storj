@@ -143,6 +143,7 @@ CREATE TABLE projects (
 	id BLOB NOT NULL,
 	name TEXT NOT NULL,
 	description TEXT NOT NULL,
+	usage_limit INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );

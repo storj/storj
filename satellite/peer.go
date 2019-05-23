@@ -153,6 +153,9 @@ type Peer struct {
 		Database  storage.KeyValueStore // TODO: move into pointerDB
 		Service   *metainfo.Service
 		Endpoint2 *metainfo.Endpoint
+
+		// TODO(michal) most probably not best place
+		ProjectUsage *accounting.ProjectUsage
 	}
 
 	Inspector struct {
@@ -352,6 +355,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		peer.Metainfo.Database = db // for logging: storelogger.New(peer.Log.Named("pdb"), db)
 		peer.Metainfo.Service = metainfo.NewService(peer.Log.Named("metainfo:service"), peer.Metainfo.Database)
 
+		peer.Metainfo.ProjectUsage = accounting.NewProjectUsage(
+			peer.DB.ProjectAccounting(),
+			peer.LiveAccounting.Service,
+			config.Rollup.MaxAlphaUsage,
+		)
 		peer.Metainfo.Endpoint2 = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),
 			peer.Metainfo.Service,
@@ -359,9 +367,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Overlay.Service,
 			peer.DB.Console().APIKeys(),
 			peer.DB.StoragenodeAccounting(),
-			peer.DB.ProjectAccounting(),
+			peer.Metainfo.ProjectUsage,
 			peer.LiveAccounting.Service,
-			config.Rollup.MaxAlphaUsage,
 		)
 
 		pb.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)
