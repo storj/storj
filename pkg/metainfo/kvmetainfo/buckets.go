@@ -105,7 +105,7 @@ func (db *Project) GetBucket(ctx context.Context, bucketName string) (bucketInfo
 	if err != nil {
 		return storj.Bucket{}, err
 	}
-	
+
 	return bucketFromMeta(bucketName, meta), nil
 }
 
