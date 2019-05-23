@@ -29,10 +29,9 @@ var (
 		Annotations: map[string]string{"type": "setup"},
 	}
 
-	setupCfg              UplinkFlags
-	confDir               string
-	encryptionKeyFilepath string
-	defaults              cfgstruct.BindOpt
+	setupCfg UplinkFlags
+	confDir  string
+	defaults cfgstruct.BindOpt
 
 	// Error is the default uplink setup errs class
 	Error = errs.Class("uplink setup error")
@@ -44,9 +43,6 @@ func init() {
 	defaults = cfgstruct.DefaultsFlag(RootCmd)
 	RootCmd.AddCommand(setupCmd)
 	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, defaults, cfgstruct.ConfDir(confDir))
-
-	defaultEncryptionKeyFilepath := filepath.Join(defaultConfDir, ".encryption.key")
-	cfgstruct.SetupFlag(zap.L(), setupCmd, &encryptionKeyFilepath, "enc.key-filepath", defaultEncryptionKeyFilepath, "path to the file which contains the encryption key")
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
@@ -76,10 +72,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	// value in the config file but commented out.
 	usedEncryptionKeyFilepath := setupCfg.Enc.KeyFilepath
 	if usedEncryptionKeyFilepath == "" {
-		usedEncryptionKeyFilepath, err = filepath.Abs(encryptionKeyFilepath)
-		if err != nil {
-			return err
-		}
+		usedEncryptionKeyFilepath = filepath.Join(setupDir, ".encryption.key")
 	}
 
 	if setupCfg.NonInteractive {
