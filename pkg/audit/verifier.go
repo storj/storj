@@ -195,7 +195,7 @@ func (verifier *Verifier) getShare(ctx context.Context, limit *pb.AddressedOrder
 		}
 	}()
 
-	offset := int64(shareSize) * int64(stripeIndex)
+	offset := int64(shareSize) * stripeIndex
 
 	downloader, err := ps.Download(timedCtx, limit.GetLimit(), offset, int64(shareSize))
 	if err != nil {
@@ -302,7 +302,10 @@ func createPendingAudits(containedNodes map[int]storj.NodeID, correctedShares []
 		return nil, err
 	}
 
-	stripeData := rebuildStripe(fec, correctedShares, int(shareSize))
+	stripeData, err := rebuildStripe(fec, correctedShares, int(shareSize))
+	if err != nil {
+		return nil, err
+	}
 
 	var pendingAudits []*PendingAudit
 	for pieceNum, nodeID := range containedNodes {
@@ -323,10 +326,13 @@ func createPendingAudits(containedNodes map[int]storj.NodeID, correctedShares []
 	return pendingAudits, nil
 }
 
-func rebuildStripe(fec *infectious.FEC, corrected []infectious.Share, shareSize int) []byte {
+func rebuildStripe(fec *infectious.FEC, corrected []infectious.Share, shareSize int) ([]byte, error) {
 	stripe := make([]byte, fec.Required()*shareSize)
-	fec.Rebuild(corrected, func(share infectious.Share) {
+	err := fec.Rebuild(corrected, func(share infectious.Share) {
 		copy(stripe[share.Number*shareSize:], share.Data)
 	})
-	return stripe
+	if err != nil {
+		return nil, err
+	}
+	return stripe, nil
 }
