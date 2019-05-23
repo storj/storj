@@ -14,6 +14,7 @@ export const APP_STATE_ACTIONS = {
     TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP: 'toggleSuccessfulProjectCreationPopup',
     TOGGLE_EDIT_PROFILE_POPUP: 'toggleEditProfilePopup',
     TOGGLE_CHANGE_PASSWORD_POPUP: 'toggleChangePasswordPopup',
+    TOGGLE_ADD_NEW_PAYMENT_METHOD_POPUP: 'toggleAddNewPaymentMethodPopup',
     CLOSE_POPUPS: 'closePopups',
     CHANGE_STATE: 'changeFetchState',
 };

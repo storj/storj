@@ -41,6 +41,7 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
                 }
                 target = target.parentNode;
             }
+
             this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
         }
     }

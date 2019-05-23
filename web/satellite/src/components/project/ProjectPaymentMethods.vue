@@ -4,18 +4,18 @@
 <template>
 	<div class="payment-methods-container">
 		<p class="payment-methods-container__title">Credit or Debit Cards</p>
-		<div class="payment-methods-container__card-container">
+		<div v-for="pm in paymentMethods" class="payment-methods-container__card-container">
 			<div class="payment-methods-container__card-container__info-area">
 				<img class="payment-methods-container__card-container__info-area__card-logo" src="../../../static/images/Logo.svg">
 				<div class="payment-methods-container__card-container__info-area__info-container">
-					<h1>xxxx 0000</h1>
-					<h2>Shawn Wilkinson</h2>
+					<h1>xxxx {{pm.lastFour}}</h1>
+					<h2>{{pm.holderName}}</h2>
 				</div>
 				<div class="payment-methods-container__card-container__info-area__expire-container">
 					<h2>Expires</h2>
-					<h1>12/2020</h1>
+					<h1>{{pm.expMonth}}/{{pm.expYear}}</h1>
 				</div>
-				<h3 class="payment-methods-container__card-container__info-area__added-text">Added on 29 May 2019</h3>
+				<h3 class="payment-methods-container__card-container__info-area__added-text">Added on {{formatDate(pm.addedAt)}}</h3>
 			</div>
 			<div class="payment-methods-container__card-container__default-button" v-if="true">
 				<p class="payment-methods-container__card-container__default-button__label">Default</p>
@@ -40,20 +40,40 @@
 			label="Add Card"
 			width="140px"
 			height="48px"
-			isDisabled />
+			:on-press="onAddPaymentMethodClick"/>
+		<NewPaymentMethodPopup v-if="isAddNewPaymentPopupShown"/>
 	</div>
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import Button from '@/components/common/Button.vue';
+import { Component, Vue } from 'vue-property-decorator';
+import Button from '@/components/common/Button.vue';
+import NewPaymentMethodPopup from '@/components/project/NewPaymentMethodPopup.vue';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
-    @Component({
-        components: {
-            Button,
+@Component({
+    methods: {
+        onAddPaymentMethodClick: function () {
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ADD_NEW_PAYMENT_METHOD_POPUP);
+        },
+        formatDate: function (d: string): string {
+            return new Date(d).toLocaleDateString('en-US', {timeZone: 'UTC'})
+        },
+	},
+	computed: {
+        isAddNewPaymentPopupShown: function (): boolean {
+            return this.$store.state.appStateModule.appState.isAddNewPaymentMethodPopupShown;
+        },
+        paymentMethods: function () : PaymentMethod[] {
+            return this.$store.state.projectPaymentsMethodsModule.paymentMethods;
         }
-    })
-    export default class ProjectPaymentMethods extends Vue {}
+	},
+    components: {
+        Button,
+		NewPaymentMethodPopup,
+    }
+})
+export default class PaymentMethods extends Vue {}
 </script>
 
 <style scoped lang="scss">

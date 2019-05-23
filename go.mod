@@ -25,6 +25,7 @@ require (
 	github.com/cheggaaa/pb v1.0.5-0.20160713104425-73ae1d68fe0b
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/djherbis/atime v1.0.0 // indirect
+	github.com/docker/distribution v0.0.0-20180720172123-0dae0957e5fe
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/eapache/go-resiliency v1.1.0 // indirect
 	github.com/eapache/go-xerial-snappy v0.0.0-20180814174437-776d5712da21 // indirect
