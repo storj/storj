@@ -67,31 +67,32 @@ The credit is automatically applied to the account and will have a max limit tha
     id - int
     name -  text
     description - text  
-    credits - integer
+    award_credits_in_cents - integer
+    invitee_credits_in_cents - integer
     redeemable_cap - integer
     num_redeemed - integer
     created_at - timestamp
     expires_at - timestamp
-    award_credit_duration_days - int
+    award_credit_duration_months - int
     invitee_credit_duration_days - int
-    type - enum[FREE_TIER, REFERRAL]
-    status - enum[ON_GOING, DEFAULT, EXPIRED, NO_STATUS]
+    status - enum[ACTIVE, DEFAULT, DONE]
     PRIMARY KEY (id)
 ```
 
 **user_credit table**
 ```sql
+    id - int
     user_id - bytea
     offer_id - int
-    credits_earned - int
-    credits_used - int
+    credits_earned_in_cents - int
+    credits_used_in_cents - int
     credit_type - enum[AWARD, INVITEE, NO_TYPE]
     expires_at - timestamp
     created_at - timestamp
     referred_by - bytea (nullable)
     FOREIGN KEY (offer_id)
     FOREIGN KEY (referred_by)
-    PRIMARY KEY (user_id)
+    FOREIGN KEY (user_id)
 ```
 
 **user table**
@@ -99,22 +100,64 @@ The credit is automatically applied to the account and will have a max limit tha
     total_Referred - int
 ```
 
-### Offer Program Service
+### Marketing Service
+
+**satellite/marketing/service.go**
+```golang
+func (m *marketing) GetCurrentOffer(ctx context.Context, offerStatus OfferStatus) (*Offer, error) {
+  offer, err := m.db.Marketing().Offers().Get_Offer_By_Status(ctx, offerStatus)
+  if err == sql.ErrNoRows && offerStatus == Active {
+    offer, err = m.db.Marketing().Offers().Get_Offer_By_Status(ctx, Default)
+    if err != nil {
+      return nil, Error.Wrap(err)
+    }
+  }
+  if err != nil {
+    return nil, Error.Wrap(err)
+  }
+
+  return offer, nil
+}
+
+func (m *marketing) StopOffer(ctx context.Context, offerId Offer.ID) error {
+  o := UpdateOffer{
+    Status: Done,
+    ExpiresAt: time.Now(),
+  }
+  err := m.db.Marketing().Offers().Update_Offer_By_ID(ctx, offerId, o)
+  if err != nil {
+    return Error.Wrap(err)
+  }
+
+  return nil
+}
+```
 
 **satellite/marketing/offers.go**
-- Create offers interface to interact with offer table
-
 ```golang
-type DB interface {
+type Offers interface {
   ListAllOffers(ctx context.Context) ([]Offer, error)
-  GetOfferById(ctx context.Context, offerId Offer.ID) (Offer, error)
-  Update(ctx context.Context, offer *Offer) (*Offer, error)
-  Delete(ctx context.Context, offerId Offer.ID)
+  GetCurrentOffer(ctx context.Context, offerId Offer.ID) (Offer, error)
   Create(ctx context.Context, offer *Offer)
 }
 
-func (offer *Offer) IsUpdatable() bool {
-  return offer.Status == NO_STATUS
+type OfferStatus int
+const (
+  Done OfferStatus = 0
+  Active OfferStatus = 1
+  Default OfferStatus = 2
+)
+
+type UpdateOffer struct {
+  Status OfferStatus
+  ExpiresAt time.time
+}
+```
+
+**satellite/satellitedb/offers.go**
+```golang
+func (db *offersDB) Create(ctx context.Context, offer *marketing.Offer) (*marketing.Offer, error) {
+  
 }
 ```
 
@@ -123,7 +166,7 @@ func (offer *Offer) IsUpdatable() bool {
 - Credits will be stored in cents as its unit.
 
 ```golang
-type DB interface {
+type Credit interface {
   AvailableCredits(ctx context.Context, userId uuid.UUID) (int, error)
   ListByCreditType(ctx context.Context, userId uuid.UUID, creditType Credit.Type) ([]Credit, error)
   Update(ctx context.Context, credit *Credit) (*Credit, error)
