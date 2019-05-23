@@ -120,49 +120,6 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe) (verifiedN
 	}, nil
 }
 
-// Reverify verifies that a node has an erasure share that it was contained for not verifying previously
-func (verifier *Verifier) Reverify(ctx context.Context, id storj.NodeID, limit *pb.AddressedOrderLimit, pieceNum int) (isVerified bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	pendingAudit, err := verifier.containment.Get(ctx, id)
-	if err != nil {
-		return false, Error.Wrap(err)
-	}
-
-	share, err := verifier.getShare(ctx, limit, int64(pendingAudit.StripeIndex), int32(pendingAudit.ShareSize), pieceNum)
-	if err != nil {
-		// todo: make more specific for contained cases
-		if err == context.DeadlineExceeded || !transport.Error.Has(err) {
-			err := verifier.containment.IncrementPending(ctx, pendingAudit)
-			return false, Error.Wrap(err)
-		}
-		return false, Error.Wrap(err)
-	}
-
-	var auditRecords *RecordAuditsInfo
-	downloadedHash := pkcrypto.SHA256Hash(share.Data)
-
-	if bytes.Equal(downloadedHash, pendingAudit.ExpectedShareHash) {
-		auditRecords.SuccessNodeIDs = []storj.NodeID{pendingAudit.NodeID}
-	} else {
-		auditRecords.FailNodeIDs = []storj.NodeID{pendingAudit.NodeID}
-	}
-
-	_, err = verifier.reporter.RecordAudits(ctx, auditRecords)
-	if err != nil {
-		return false, Error.Wrap(err)
-	}
-
-	isDeleted, err := verifier.containment.Delete(ctx, id)
-	if err != nil {
-		return false, Error.Wrap(err)
-	}
-	if !isDeleted {
-		return true, Error.New("failed to deleted pending audit %s", id)
-	}
-	return true, nil
-}
-
 // DownloadShares downloads shares from the nodes where remote pieces are located
 func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.AddressedOrderLimit, stripeIndex int64, shareSize int32) (shares map[int]Share, nodes map[int]storj.NodeID, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -204,6 +161,49 @@ func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.Addre
 	}
 
 	return shares, nodes, nil
+}
+
+// Reverify verifies that a node has an erasure share that it was contained for not verifying previously
+func (verifier *Verifier) Reverify(ctx context.Context, id storj.NodeID, limit *pb.AddressedOrderLimit, pieceNum int) (isVerified bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	pendingAudit, err := verifier.containment.Get(ctx, id)
+	if err != nil {
+		return false, Error.Wrap(err)
+	}
+
+	share, err := verifier.getShare(ctx, limit, int64(pendingAudit.StripeIndex), int32(pendingAudit.ShareSize), pieceNum)
+	if err != nil {
+		// todo: make more specific for contained cases
+		if err == context.DeadlineExceeded || !transport.Error.Has(err) {
+			err := verifier.containment.IncrementPending(ctx, pendingAudit)
+			return false, Error.Wrap(err)
+		}
+		return false, Error.Wrap(err)
+	}
+
+	var auditRecords *RecordAuditsInfo
+	downloadedHash := pkcrypto.SHA256Hash(share.Data)
+
+	if bytes.Equal(downloadedHash, pendingAudit.ExpectedShareHash) {
+		auditRecords.SuccessNodeIDs = []storj.NodeID{pendingAudit.NodeID}
+	} else {
+		auditRecords.FailNodeIDs = []storj.NodeID{pendingAudit.NodeID}
+	}
+
+	_, err = verifier.reporter.RecordAudits(ctx, auditRecords)
+	if err != nil {
+		return false, Error.Wrap(err)
+	}
+
+	isDeleted, err := verifier.containment.Delete(ctx, id)
+	if err != nil {
+		return false, Error.Wrap(err)
+	}
+	if !isDeleted {
+		return true, Error.New("failed to deleted pending audit %s", id)
+	}
+	return true, nil
 }
 
 // getShare use piece store client to download shares from nodes
