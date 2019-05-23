@@ -10,7 +10,7 @@ declare type PaymentMethod = {
 // ProjectInvoice holds information about project invoice
 declare type ProjectInvoice = {
     projectID: string,
-    invoiceID: string,
+    number: string,
     status: string,
     amount: number,
     paymentMethod: PaymentMethod,

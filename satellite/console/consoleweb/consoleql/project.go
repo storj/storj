@@ -58,7 +58,7 @@ const (
 	// FieldTotalCount is a field name for bucket usage count total
 	FieldTotalCount = "totalCount"
 	// FieldInvoiceID is a field name for invoice id
-	FieldInvoiceID = "invoiceID"
+	FieldInvoiceNumber = "number"
 	// FieldStatus is a field name for status
 	FieldStatus = "status"
 	// FieldAmount is a field name for amount
@@ -360,7 +360,7 @@ func graphqlInvoice(types *TypeCreator) *graphql.Object {
 			FieldProjectID: &graphql.Field{
 				Type: graphql.String,
 			},
-			FieldInvoiceID: &graphql.Field{
+			FieldInvoiceNumber: &graphql.Field{
 				Type: graphql.String,
 			},
 			FieldStatus: &graphql.Field{

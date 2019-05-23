@@ -3,7 +3,7 @@
 
 <template>
 	<tr class="container">
-		<td class="container__item bold">{{invoiceID}}</td>
+		<td class="container__item bold">{{invoice.number}}</td>
 		<td class="container__item">{{billingPeriod}}</td>
 		<td class="container__item">
 			<div class="row justify-start">
@@ -16,16 +16,18 @@
 		</td>
 		<td class="container__item">
 			<div class="row justify-start">
-				<svg width="16" height="12" viewBox="0 0 16 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-					<path d="M13.3333 0H2.66667C1.19418 0 0 1.15147 0 2.57131V9.42869C0 10.8485 1.19418 12 2.66667 12H13.3333C14.8058 12 16 10.8485 16 9.42869V2.57131C16 1.15147 14.8058 0 13.3333 0ZM11.1383 8.1165C11.2642 8.23703 11.335 8.40095 11.335 8.57209C11.335 8.74244 11.265 8.90636 11.14 9.02769C11.0142 9.14822 10.8442 9.21571 10.6675 9.21571C10.49 9.21571 10.32 9.14742 10.195 9.02608L8.00004 6.90876L5.80506 9.02608C5.54422 9.27517 5.12339 9.27437 4.86338 9.02448C4.60423 8.77376 4.60337 8.36799 4.86172 8.11647L7.05756 5.99997L4.86172 3.88348C4.60339 3.63196 4.60422 3.22619 4.86338 2.97547C5.12339 2.72558 5.54422 2.72476 5.80506 2.97387L8.00004 5.09119L10.195 2.97469V2.97389C10.4559 2.7248 10.8767 2.7256 11.1367 2.97549C11.3959 3.22621 11.3967 3.63198 11.1384 3.8835L8.94253 5.99999L11.1383 8.1165Z" fill="#EB001B"/>
-				</svg>
-				<p>{{status}}</p>
+				<div :if="invoice.status === 'uncollectible'">
+					<svg width="16" height="12" viewBox="0 0 16 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+						<path d="M13.3333 0H2.66667C1.19418 0 0 1.15147 0 2.57131V9.42869C0 10.8485 1.19418 12 2.66667 12H13.3333C14.8058 12 16 10.8485 16 9.42869V2.57131C16 1.15147 14.8058 0 13.3333 0ZM11.1383 8.1165C11.2642 8.23703 11.335 8.40095 11.335 8.57209C11.335 8.74244 11.265 8.90636 11.14 9.02769C11.0142 9.14822 10.8442 9.21571 10.6675 9.21571C10.49 9.21571 10.32 9.14742 10.195 9.02608L8.00004 6.90876L5.80506 9.02608C5.54422 9.27517 5.12339 9.27437 4.86338 9.02448C4.60423 8.77376 4.60337 8.36799 4.86172 8.11647L7.05756 5.99997L4.86172 3.88348C4.60339 3.63196 4.60422 3.22619 4.86338 2.97547C5.12339 2.72558 5.54422 2.72476 5.80506 2.97387L8.00004 5.09119L10.195 2.97469V2.97389C10.4559 2.7248 10.8767 2.7256 11.1367 2.97549C11.3959 3.22621 11.3967 3.63198 11.1384 3.8835L8.94253 5.99999L11.1383 8.1165Z" fill="#EB001B"/>
+					</svg>
+				</div>
+				<p>{{invoice.status}}</p>
 			</div>
 		</td>
 		<td class="container__item bold">
 			<div class="row">
-				<p>{{amount}}</p>
-				<a :href="downloadLink">
+				<p>{{invoice.amount}}</p>
+				<a :disabled="!invoice.downloadLink" :href="invoice.downloadLink" targe="_blank">
 					<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
 						<rect class="background" width="40" height="40" rx="4" fill="#E2ECF7"/>
 						<path class="blue" d="M25.6491 19.2809L21.2192 23.5281C20.891 23.8427 20.3988 24 20.0707 24C19.7425 24 19.2503 23.8427 19.0862 23.5281L14.4922 19.2809C13.8359 18.6517 13.8359 17.8652 14.4922 17.236C14.8204 16.9213 15.1485 16.9213 15.6407 16.9213C15.9689 16.9213 16.4611 17.0787 16.6252 17.3933L18.594 19.1236L18.594 11.4157C18.594 10.6292 19.2503 10 20.0707 10C20.891 10 21.5473 10.6292 21.5473 11.4157L21.5473 19.1236L23.5162 17.236C23.6803 16.9213 24.1725 16.9213 24.5006 16.9213C24.8288 16.9213 25.321 17.0787 25.4851 17.3933C26.1414 17.8652 26.1414 18.809 25.6491 19.2809Z" fill="#2683FF"/>
@@ -50,9 +52,6 @@
 			}
 		},
 		computed: {
-			invoiceID: function(): string {
-				return (this as any).invoice.invoiceID;
-			},
 			billingPeriod: function(): string {
 			    // TODO: deal with wrong type conversion in apollo
 				let startDate = (this as any).toLocaleDateString(new Date((this as any).invoice.startDate));
@@ -65,15 +64,6 @@
 			},
 			lastFour: function () : string {
 				return (this as any).invoice.paymentMethod.lastFour;
-			},
-			status: function (): string {
-				return (this as any).invoice.status;
-			},
-			amount: function (): string {
-				return (this as any).invoice.amount;
-			},
-            downloadLink: function () : string {
-				return (this as any).invoice.downloadLink;
 			}
 		},
 	})

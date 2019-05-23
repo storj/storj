@@ -261,10 +261,11 @@ read all (
 model project_payment_info (
     key project_id
 
-    field project_id  project.id                   cascade
-    field payer_id    user_payment_info.user_id    cascade
+    field project_id        project.id                   cascade
+    field payer_id          user_payment_info.user_id    cascade
+    field payment_method_id text
 
-    field created_at  timestamp  ( autoinsert )
+    field created_at        timestamp  ( autoinsert )
 )
 
 create project_payment_info ( )
@@ -302,6 +303,7 @@ read one (
 read all (
     select project_invoice_stamp
     where  project_invoice_stamp.project_id = ?
+    orderby desc project_invoice_stamp.start_date
 )
 
 model project_member (

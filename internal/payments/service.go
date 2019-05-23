@@ -20,8 +20,12 @@ var StripeErr = errs.Class("stripe error")
 // Service is interfaces that defines behavior for working with payments
 type Service interface {
 	CreateCustomer(ctx context.Context, params CreateCustomerParams) (*stripe.Customer, error)
+	GetCustomer(ctx context.Context, customerID string) (*stripe.Customer, error)
+	GetCustomerDefaultPaymentMethod(ctx context.Context, customerID string) (*stripe.PaymentMethod, error)
+	GetCustomerPaymentsMethods(ctx context.Context, customerID string) ([]*stripe.PaymentMethod, error)
+	GetPaymentMethod(ctx context.Context, id string) (*stripe.PaymentMethod, error)
 	CreateProjectInvoice(ctx context.Context, params CreateProjectInvoiceParams) (*stripe.Invoice, error)
-	GetInvoice(invoiceID string) (*stripe.Invoice, error)
+	GetInvoice(ctx context.Context, invoiceID string) (*stripe.Invoice, error)
 }
 
 // TODO: better error handling
@@ -31,7 +35,7 @@ type StripeService struct {
 	client *client.API
 }
 
-// CustomerParams contains info neede to create new stripe customer
+// CustomerParams contains info needed to create new stripe customer
 type CreateCustomerParams struct {
 	Email       string
 	Name        string
@@ -39,10 +43,11 @@ type CreateCustomerParams struct {
 	SourceToken string
 }
 
-// CreateInvoiceParams
+// CreateInvoiceParams contains info needed to create project invoice
 type CreateProjectInvoiceParams struct {
-	ProjectName string
-	CustomerID  string
+	ProjectName     string
+	CustomerID      string
+	PaymentMethodID string
 
 	Storage     float64
 	Egress      float64
@@ -85,10 +90,55 @@ func (s *StripeService) CreateCustomer(ctx context.Context, params CreateCustome
 	// TODO: delete after migrating from test environment
 	err := cparams.SetSource("tok_visa")
 	if err != nil {
-		return nil, StripeErr.Wrap(err)
+		return nil, err
 	}
 
 	return s.client.Customers.New(cparams)
+}
+
+// GetCustomer retrieves customer object from stripe network
+func (s *StripeService) GetCustomer(ctx context.Context, id string) (*stripe.Customer, error) {
+	return s.client.Customers.Get(id, nil)
+}
+
+// GetCustomerDefaultPaymentMethod retrieves customer default payment method from stripe network
+func (s *StripeService) GetCustomerDefaultPaymentMethod(ctx context.Context, customerID string) (*stripe.PaymentMethod, error) {
+	cus, err := s.client.Customers.Get(customerID, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if cus.DefaultSource == nil {
+		return nil, StripeErr.New("no default payment method attached to customer")
+	}
+
+	return s.client.PaymentMethods.Get(cus.DefaultSource.ID, nil)
+}
+
+// GetCustomerPaymentsMethods retrieves all payments method attached to particular customer
+func (s *StripeService) GetCustomerPaymentsMethods(ctx context.Context, customerID string) ([]*stripe.PaymentMethod, error) {
+	var err error
+
+	pmparams := &stripe.PaymentMethodListParams{}
+	pmparams.Filters.AddFilter("customer", "", customerID)
+	pmparams.Filters.AddFilter("type", "", "card")
+
+	iterator := s.client.PaymentMethods.List(pmparams)
+	if err = iterator.Err(); err != nil {
+		return nil, err
+	}
+
+	var paymentMethods []*stripe.PaymentMethod
+	for iterator.Next() {
+		pm := iterator.PaymentMethod()
+		paymentMethods = append(paymentMethods, pm)
+	}
+
+	return paymentMethods, nil
+}
+// GetPaymentMethod retrieve payment method object from stripe network
+func (s *StripeService) GetPaymentMethod(ctx context.Context, id string) (*stripe.PaymentMethod, error) {
+	return s.client.PaymentMethods.Get(id, nil)
 }
 
 // CreateInvoice creates new project invoice on stripe network from input params.
@@ -97,7 +147,7 @@ func (s *StripeService) CreateCustomer(ctx context.Context, params CreateCustome
 // - Egress
 // - ObjectsCount
 // Created invoice has AutoAdvance property set to true, so it will be finalized
-// (no further editing) in 1 hour after creation
+// (no further editing) and attempted to be payed in 1 hour after creation
 func (s *StripeService) CreateProjectInvoice(ctx context.Context, params CreateProjectInvoiceParams) (*stripe.Invoice, error) {
 	// create line items
 	_, err := s.client.InvoiceItems.New(&stripe.InvoiceItemParams{
@@ -136,8 +186,9 @@ func (s *StripeService) CreateProjectInvoice(ctx context.Context, params CreateP
 	// TODO: fetch card info manually?
 	// create invoice
 	invoiceParams := &stripe.InvoiceParams{
-		Customer:    stripe.String(params.CustomerID),
-		Description: stripe.String(fmt.Sprintf("Invoice for usage of %s", params.ProjectName)),
+		Customer:             stripe.String(params.CustomerID),
+		DefaultPaymentMethod: stripe.String(params.PaymentMethodID),
+		Description:          stripe.String(fmt.Sprintf("Invoice for usage of %s", params.ProjectName)),
 		CustomFields: []*stripe.InvoiceCustomFieldParams{
 			{
 				Name:  stripe.String("Billing period"),
@@ -155,7 +206,7 @@ func (s *StripeService) CreateProjectInvoice(ctx context.Context, params CreateP
 }
 
 // GetInvoice retrieves an invoice from stripe network by invoiceID
-func (s *StripeService) GetInvoice(invoiceID string) (*stripe.Invoice, error) {
+func (s *StripeService) GetInvoice(ctx context.Context, invoiceID string) (*stripe.Invoice, error) {
 	return s.client.Invoices.Get(invoiceID, nil)
 }
 

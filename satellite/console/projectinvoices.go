@@ -9,14 +9,16 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 )
 
+// PaymentMethod holds credit card display information
 type PaymentMethod struct {
-	Brand      string
-	LastFour   string
+	Brand    string
+	LastFour string
 }
 
+// ProjectInvoice holds invoice general information
 type ProjectInvoice struct {
+	Number    string
 	ProjectID uuid.UUID
-	InvoiceID string
 
 	Status        string
 	Amount        int64

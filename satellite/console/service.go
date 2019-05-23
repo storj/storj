@@ -481,6 +481,20 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		return
 	}
 
+	payInfo, err := s.store.UserPaymentInfos().Get(ctx, auth.User.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	cus, err := s.stripeService.GetCustomer(ctx, payInfo.CustomerID)
+	if err != nil {
+		return nil, err
+	}
+	// don't let user to create project if there is no attached payment method
+	if cus.DefaultSource == nil {
+		return nil, errs.New("user without attached payment method are not allowed to create project")
+	}
+
 	tx, err := s.store.BeginTx(ctx)
 	if err != nil {
 		return nil, errs.New(internalErrMsg)
@@ -511,8 +525,9 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 
 		_, err = tx.ProjectPaymentInfos().Create(ctx,
 			ProjectPaymentInfo{
-				ProjectID: p.ID,
-				PayerID:   auth.User.ID,
+				ProjectID:       p.ID,
+				PayerID:         auth.User.ID,
+				PaymentMethodID: cus.DefaultSource.ID,
 			},
 		)
 
@@ -934,8 +949,8 @@ func (s *Service) CreateMonthlyProjectInvoices(ctx context.Context, date time.Ti
 
 	var invoiceError errs.Group
 	for _, proj := range projects {
-		// skip projects that were created before startDate
-		if proj.CreatedAt.After(startDate) {
+		// skip projects that were created after endDate
+		if proj.CreatedAt.After(endDate) {
 			s.log.Info(fmt.Sprintf("skipping project %s during invoice generation, created after start of the period", proj.ID))
 			continue
 		}
@@ -970,13 +985,14 @@ func (s *Service) CreateMonthlyProjectInvoices(ctx context.Context, date time.Ti
 
 		inv, err := s.stripeService.CreateProjectInvoice(ctx,
 			payments.CreateProjectInvoiceParams{
-				ProjectName: proj.Name,
-				CustomerID:  payerInfo.CustomerID,
-				Storage:     totals.Storage,
-				Egress:      totals.Egress,
-				ObjectCount: totals.ObjectCount,
-				StartDate:   startDate,
-				EndDate:     endDate,
+				ProjectName:     proj.Name,
+				CustomerID:      payerInfo.CustomerID,
+				PaymentMethodID: paymentInfo.PaymentMethodID,
+				Storage:         totals.Storage,
+				Egress:          totals.Egress,
+				ObjectCount:     totals.ObjectCount,
+				StartDate:       startDate,
+				EndDate:         endDate,
 			},
 		)
 		if err != nil {
@@ -1019,25 +1035,30 @@ func (s *Service) GetProjectInvoices(ctx context.Context, projectID uuid.UUID) (
 		invoice := ProjectInvoice{
 			ProjectID: stamp.ProjectID,
 			CreatedAt: stamp.CreatedAt,
-			InvoiceID: stamp.InvoiceID,
 			StartDate: stamp.StartDate,
 			EndDate:   stamp.EndDate,
 		}
 
-		inv, err := s.stripeService.GetInvoice(stamp.InvoiceID)
+		inv, err := s.stripeService.GetInvoice(ctx, stamp.InvoiceID)
+		if err != nil {
+			return nil, err
+		}
+		if inv.DefaultPaymentMethod == nil {
+			return nil, errs.New("can't retireve invoice payment info, invoiceID: %s", inv.ID)
+		}
+
+		pm, err := s.stripeService.GetPaymentMethod(ctx, inv.DefaultPaymentMethod.ID)
 		if err != nil {
 			return nil, err
 		}
 
+		invoice.Number = inv.Number
 		invoice.Status = string(inv.Status)
 		invoice.Amount = inv.AmountDue
 		invoice.DownloadLink = inv.InvoicePDF
-		// assuming default source is card only
-		if inv.DefaultSource != nil {
-			invoice.PaymentMethod = PaymentMethod{
-				Brand:    string(inv.DefaultSource.Card.Brand),
-				LastFour: inv.DefaultSource.Card.Last4,
-			}
+		invoice.PaymentMethod = PaymentMethod{
+			Brand:    string(pm.Card.Brand),
+			LastFour: pm.Card.Last4,
 		}
 
 		invoices = append(invoices, invoice)

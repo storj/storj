@@ -22,5 +22,7 @@ type ProjectPaymentInfo struct {
 	ProjectID uuid.UUID
 	PayerID   uuid.UUID
 
+	PaymentMethodID string
+
 	CreatedAt time.Time
 }

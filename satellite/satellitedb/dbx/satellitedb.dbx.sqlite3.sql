@@ -236,6 +236,7 @@ CREATE TABLE user_payment_infos (
 CREATE TABLE project_payment_infos (
 	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
 	payer_id BLOB NOT NULL REFERENCES user_payment_infos( user_id ) ON DELETE CASCADE,
+	payment_method_id TEXT NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( project_id )
 );

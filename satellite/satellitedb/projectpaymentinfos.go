@@ -22,7 +22,8 @@ type projectpaymentinfos struct {
 func (infos *projectpaymentinfos) Create(ctx context.Context, info console.ProjectPaymentInfo) (*console.ProjectPaymentInfo, error) {
 	dbxInfo, err := infos.db.Create_ProjectPaymentInfo(ctx,
 		dbx.ProjectPaymentInfo_ProjectId(info.ProjectID[:]),
-		dbx.ProjectPaymentInfo_PayerId(info.PayerID[:]))
+		dbx.ProjectPaymentInfo_PayerId(info.PayerID[:]),
+		dbx.ProjectPaymentInfo_PaymentMethodId(info.PaymentMethodID))
 
 	if err != nil {
 		return nil, err
@@ -64,8 +65,9 @@ func fromDBXProjectPaymentInfo(dbxInfo *dbx.ProjectPaymentInfo) (*console.Projec
 	}
 
 	return &console.ProjectPaymentInfo{
-		ProjectID: projectID,
-		PayerID:   payerID,
-		CreatedAt: dbxInfo.CreatedAt,
+		ProjectID:       projectID,
+		PayerID:         payerID,
+		PaymentMethodID: dbxInfo.PaymentMethodId,
+		CreatedAt:       dbxInfo.CreatedAt,
 	}, nil
 }

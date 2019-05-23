@@ -39,6 +39,26 @@ func (mock *MockService) CreateProjectInvoice(ctx context.Context, params paymen
 }
 
 // GetInvoice mock implementation of payments.Service GetInvoice
-func (mock *MockService) GetInvoice(invoiceID string) (*stripe.Invoice, error) {
+func (mock *MockService) GetInvoice(ctx context.Context, invoiceID string) (*stripe.Invoice, error) {
+	panic("implement me")
+}
+
+// GetCustomer mock implementation of payments.Service GetCustomer
+func (mock *MockService) GetCustomer(ctx context.Context, customerID string) (*stripe.Customer, error) {
+	panic("implement me")
+}
+
+// GetCustomerDefaultPaymentMethod mock implementation of payments.Service GetCustomerDefaultPaymentMethod
+func (mock *MockService) GetCustomerDefaultPaymentMethod(ctx context.Context, customerID string) (*stripe.PaymentMethod, error) {
+	panic("implement me")
+}
+
+// GetCustomerPaymentsMethods mock implementation of payments.Service GetCustomerPaymentsMethods
+func (mock *MockService) GetCustomerPaymentsMethods(ctx context.Context, customerID string) ([]*stripe.PaymentMethod, error) {
+	panic("implement me")
+}
+
+// GetPaymentMethod mock implementation of payments.Service GetPaymentMethod
+func (mock *MockService) GetPaymentMethod(ctx context.Context, id string) (*stripe.PaymentMethod, error) {
 	panic("implement me")
 }

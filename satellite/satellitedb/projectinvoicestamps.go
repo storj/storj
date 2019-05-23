@@ -45,7 +45,7 @@ func (db *projectinvoicestamps) GetByProjectIDStartDate(ctx context.Context, pro
 }
 
 func (db *projectinvoicestamps) GetAll(ctx context.Context, projectID uuid.UUID) ([]console.ProjectInvoiceStamp, error) {
-	dbxStamps, err := db.db.All_ProjectInvoiceStamp_By_ProjectId(ctx, dbx.ProjectInvoiceStamp_ProjectId(projectID[:]))
+	dbxStamps, err := db.db.All_ProjectInvoiceStamp_By_ProjectId_OrderBy_Desc_StartDate(ctx, dbx.ProjectInvoiceStamp_ProjectId(projectID[:]))
 	if err != nil {
 		return nil, err
 	}

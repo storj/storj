@@ -19,7 +19,7 @@ export async function fetchProjectInvoices(projectID: string): Promise<RequestRe
                     project(id: "${projectID}") {
                         invoices {
                             projectID,
-                            invoiceID,
+                            number,
                             status,
                             amount,
                             paymentMethod{
