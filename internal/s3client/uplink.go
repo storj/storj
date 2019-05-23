@@ -37,6 +37,15 @@ func NewUplink(conf Config) (Client, error) {
 
 	// uplink configuration doesn't exists
 	if validForSetup {
+		fmt.Printf(`No existing uplink configuration located at (%v)...
+		Creating uplink configuration with the following settings:
+	"--non-interactive: true",
+	"--api-key: %s",
+	"--enc.key: %s",
+	"--satellite-addr: %s
+	`,
+			setupDir, client.conf.APIKey, client.conf.EncryptionKey, client.conf.Satellite,
+		)
 		cmd := client.cmd("setup",
 			"--non-interactive", "true",
 			"--api-key", client.conf.APIKey,
