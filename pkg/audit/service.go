@@ -43,8 +43,7 @@ type Service struct {
 // NewService instantiates a Service with access to a Cursor and Verifier
 func NewService(log *zap.Logger, config Config, metainfo *metainfo.Service,
 	orders *orders.Service, transport transport.Client, overlay *overlay.Cache,
-	identity *identity.FullIdentity) (service *Service, err error) {
-	var containment Containment // TODO(kaloyan): we need to wire this
+	containment Containment, identity *identity.FullIdentity) (service *Service, err error) {
 	return &Service{
 		log: log,
 
