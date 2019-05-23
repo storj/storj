@@ -50,7 +50,7 @@ func TestVerifierHappyPath(t *testing.T) {
 		containment := planet.Satellites[0].DB.Containment()
 		minBytesPerSecond := 128 * memory.B
 
-		reporter := audit.NewReporter(overlay, 1)
+		reporter := audit.NewReporter(overlay, containment, 1)
 		verifier := audit.NewVerifier(zap.L(), reporter, transport, overlay, containment, orders, planet.Satellites[0].Identity, minBytesPerSecond)
 		require.NotNil(t, verifier)
 

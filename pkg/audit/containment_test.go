@@ -71,7 +71,7 @@ func TestReverifyContainedNodes(t *testing.T) {
 		orders := planet.Satellites[0].Orders.Service
 		containment := planet.Satellites[0].DB.Containment()
 		minBytesPerSecond := 128 * memory.B
-		reporter := audit.NewReporter(overlay, 1)
+		reporter := audit.NewReporter(overlay, containment, 1)
 		verifier := audit.NewVerifier(zap.L(), reporter, transport, overlay, containment, orders, planet.Satellites[0].Identity, minBytesPerSecond)
 		require.NotNil(t, verifier)
 
@@ -165,14 +165,14 @@ func TestContainIncrementPendingEntryExists(t *testing.T) {
 		// expect reverify count for an entry to be 0 after first IncrementPending call
 		pending, err := planet.Satellites[0].DB.Containment().Get(ctx, info1.NodeID)
 		require.NoError(t, err)
-		require.Equal(t, uint32(0), pending.ReverifyCount)
+		require.EqualValues(t, 0, pending.ReverifyCount)
 
 		// expect reverify count to be 1 after second IncrementPending call
 		err = planet.Satellites[0].DB.Containment().IncrementPending(ctx, info1)
 		require.NoError(t, err)
 		pending, err = planet.Satellites[0].DB.Containment().Get(ctx, info1.NodeID)
 		require.NoError(t, err)
-		require.Equal(t, uint32(1), pending.ReverifyCount)
+		require.EqualValues(t, 1, pending.ReverifyCount)
 	})
 }
 
