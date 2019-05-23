@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include "../../uplink-cgo.h"
 
@@ -14,14 +15,18 @@ void *get_snapshot(struct GoValue *val, char **err)
         return NULL;
     }
 
+    CGetSnapshot(val, err);
+    printf("size: %d\n", val->Size);
+
     switch (val->Type)
     {
     case IDVersionType:
-        CGetSnapshot(val, err);
         return (void *)storj__libuplink__idversion__unpack(NULL, val->Size, val->Snapshot);
     case BucketType:
-        CGetSnapshot(val, err);
-        return (void *)storj__libuplink__bucket__unpack(NULL, val->Size, val->Snapshot);
+        return storj__libuplink__bucket__unpack(NULL, val->Size, val->Snapshot);
+    case UplinkConfigType:
+        return (void *)storj__libuplink__uplink_config__unpack(NULL, val->Size, val->Snapshot);
+        break;
     default:
         *err = "unknown value type getting snapshot";
         return NULL;

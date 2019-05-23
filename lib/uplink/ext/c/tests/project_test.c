@@ -65,8 +65,15 @@ void TestCreateBucket(void)
     gvBucket bucketValue = CreateBucket(projectRef, bucket_name, gv_bucket_cfg->Ptr, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
+    printf("snapshot: %p\n", bucketValue.Snapshot);
+//    CGetSnapshot(&bucketValue, err);
+//    TEST_ASSERT_EQUAL_STRING("", *err);
+
     pbBucket *bucket = (pbBucket *)(get_snapshot(&bucketValue, err));
+    printf("snapshot: %p\n", bucketValue.Snapshot);
+    printf("snapshot: %d\n", *bucketValue.Snapshot);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
-    TEST_ASSERT_EQUAL_STRING(bucket_name, bucket->name);
+    TEST_ASSERT_TRUE(0);
+//    TEST_ASSERT_EQUAL_STRING(bucket_name, bucket->name);
 }

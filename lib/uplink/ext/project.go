@@ -11,7 +11,6 @@ package main
 import "C"
 import (
 	"context"
-
 	"storj.io/storj/lib/uplink"
 )
 

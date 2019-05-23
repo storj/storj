@@ -38,6 +38,16 @@ gvUplinkConfig *NewTestConfig(char **err)
     protoToGoValue(&uplinkConfig, uplinkConfigValue, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
+//    pbUplinkConfig *uplinkConfig2 = (get_snapshot(uplinkConfigValue, err));
+//    TEST_ASSERT_EQUAL_STRING("", *err);
+
+    pbUplinkConfig *uplinkConfig2 = storj__libuplink__uplink_config__unpack(NULL, uplinkConfigValue->Size, uplinkConfigValue->Snapshot);
+    TEST_ASSERT_EQUAL_STRING("", *err);
+//    printf("")
+    TEST_ASSERT_EQUAL_STRING(uplinkConfig.peer_id_version, uplinkConfig2->peer_id_version);
+    TEST_ASSERT_EQUAL(uplinkConfig.max_inline_size, uplinkConfig2->max_inline_size);
+    TEST_ASSERT_EQUAL(uplinkConfig.max_memory, uplinkConfig2->max_memory);
+
     return uplinkConfigValue;
 }
 
