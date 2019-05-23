@@ -24,9 +24,9 @@ func (db *Project) CreateBucket(ctx context.Context, bucketName string, info *st
 	if info.EncryptionParameters.CipherSuite == storj.EncUnspecified {
 		info.EncryptionParameters.CipherSuite = storj.EncAESGCM
 	}
-	// if info.EncryptionParameters.BlockSize == 0 {
-	// 	info.EncryptionParameters.BlockSize = db.encryptedBlockSize
-	// }
+	if info.EncryptionParameters.BlockSize == 0 {
+		info.EncryptionParameters.BlockSize = db.encryptedBlockSize
+	}
 	if info.RedundancyScheme.Algorithm == storj.InvalidRedundancyAlgorithm {
 		info.RedundancyScheme.Algorithm = storj.ReedSolomon
 	}

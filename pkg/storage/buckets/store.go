@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
+	"storj.io/storj/uplink/metainfo"
 )
 
 var mon = monkit.Package()
@@ -40,8 +41,9 @@ type ListItem struct {
 
 // BucketStore contains objects store
 type BucketStore struct {
-	store  objects.Store
-	stream streams.Store
+	metainfoClient metainfo.Client
+	// store  objects.Store
+	// stream streams.Store
 }
 
 // Meta is the bucket metadata struct
@@ -54,11 +56,16 @@ type Meta struct {
 }
 
 // NewStore instantiates BucketStore
-func NewStore(stream streams.Store) Store {
-	// root object store for storing the buckets with unencrypted names
-	store := objects.NewStore(stream, storj.Unencrypted)
-	return &BucketStore{store: store, stream: stream}
+func NewStore(client metainfo.Client) Store {
+	return &BucketStore{metainfoClient: client}
 }
+
+// // NewStore instantiates BucketStore
+// func NewStore(stream streams.Store) Store {
+// 	// root object store for storing the buckets with unencrypted names
+// 	store := objects.NewStore(stream, storj.Unencrypted)
+// 	return &BucketStore{store: store, stream: stream}
+// }
 
 // GetObjectStore returns an implementation of objects.Store
 func (b *BucketStore) GetObjectStore(ctx context.Context, bucket string) (_ objects.Store, err error) {
@@ -104,13 +111,16 @@ func (b *BucketStore) Get(ctx context.Context, bucket string) (meta Meta, err er
 // in the bucket's object Pointer. Note that the Meta.Created field is ignored.
 func (b *BucketStore) Put(ctx context.Context, bucketName string, inMeta Meta) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
+	
 	if bucketName == "" {
 		return Meta{}, storj.ErrNoBucket.New("")
 	}
+
 	pathCipher := inMeta.PathEncryptionType
 	if pathCipher < storj.Unencrypted || pathCipher > storj.SecretBox {
 		return Meta{}, encryption.ErrInvalidConfig.New("encryption type %d is not supported", pathCipher)
 	}
+
 	r := bytes.NewReader(nil)
 	userMeta := map[string]string{
 		"path-enc-type":     strconv.Itoa(int(pathCipher)),
@@ -133,7 +143,6 @@ func (b *BucketStore) Put(ctx context.Context, bucketName string, inMeta Meta) (
 	// just to get back to what should be the same contents we already
 	// have. the only change ought to be the modified time.
 	inMeta.Created = m.Modified
-
 	return inMeta, nil
 }
 

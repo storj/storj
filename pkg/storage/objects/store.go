@@ -103,7 +103,6 @@ func (o *objStore) Put(ctx context.Context, path storj.Path, data io.Reader, met
 	if err != nil {
 		return Meta{}, err
 	}
-
 	m, err := o.store.Put(ctx, path, o.pathCipher, data, b, expiration)
 	return convertMeta(m), err
 }
