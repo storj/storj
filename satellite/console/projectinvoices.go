@@ -11,8 +11,12 @@ import (
 
 // PaymentMethod holds credit card display information
 type PaymentMethod struct {
-	Brand    string
-	LastFour string
+	ExpYear    uint64
+	ExpMonth   uint64
+	Brand      string
+	LastFour   string
+	HolderName string
+	AddedAt    time.Time
 }
 
 // ProjectInvoice holds invoice general information

@@ -36,7 +36,8 @@ import {AppState} from "../utils/constants/appStateEnum";
         USER_ACTIONS,
         PROJECT_USAGE_ACTIONS,
         BUCKET_USAGE_ACTIONS,
-        PROJECT_INVOICE_ACTIONS
+        PROJECT_INVOICE_ACTIONS,
+        PROJECT_PAYMENT_METHODS_ACTIONS
     } from '@/utils/constants/actionNames';
     import ROUTES from '@/utils/constants/routerConstants';
     import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuccessPopup.vue';
@@ -89,6 +90,11 @@ import {AppState} from "../utils/constants/appStateEnum";
             const projectInvoicesResponse = await this.$store.dispatch(PROJECT_INVOICE_ACTIONS.FETCH);
             if (!projectInvoicesResponse.isSuccess) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project invoices: ' + projectInvoicesResponse.errorMessage);
+            }
+
+            const projectPayMethodsResponse = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
+            if (!projectPayMethodsResponse.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project payment methods: ' + projectPayMethodsResponse.errorMessage);
             }
 
             this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);

@@ -45,6 +45,8 @@ const (
 	FieldBucketUsages = "bucketUsages"
 	// FieldInvoices is a field name for invoices
 	FieldInvoices = "invoices"
+	// FieldPaymentMethods is a field name for payments methods
+	FieldPaymentMethods = "paymentMethods"
 	// FieldStorage is a field name for storage total
 	FieldStorage = "storage"
 	// FieldEgress is a field name for egress total
@@ -219,6 +221,14 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 					return service.GetProjectInvoices(p.Context, project.ID)
 				},
 			},
+			FieldPaymentMethods: &graphql.Field{
+				Type: graphql.NewList(types.paymentmethod),
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					project, _ := p.Source.(*console.Project)
+
+					return service.GetProjectPaymentMethods(p.Context, project.ID)
+				},
+			},
 		},
 	})
 }
@@ -337,16 +347,39 @@ func graphqlProjectUsage() *graphql.Object {
 	})
 }
 
+const (
+	// FieldExpirationYear is field name for expiration year
+	FieldExpirationYear = "expYear"
+	// FieldExpirationMonth is field name for expiration month
+	FieldExpirationMonth = "expMonth"
+	// FieldHolderName is field name for holder name
+	FieldHolderName = "holderName"
+	// FieldAddedAt is field name for added at date
+	FieldAddedAt = "addedAt"
+)
+
 // graphqlPaymentMethod creates invoice payment method graphql type
 func graphqlPaymentMethod() *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: PaymentMethodType,
 		Fields: graphql.Fields{
+			FieldExpirationYear: &graphql.Field{
+				Type: graphql.Int,
+			},
+			FieldExpirationMonth: &graphql.Field{
+				Type: graphql.Int,
+			},
 			FieldCardBrand: &graphql.Field{
 				Type: graphql.String,
 			},
 			FieldCardLastFour: &graphql.Field{
 				Type: graphql.String,
+			},
+			FieldHolderName: &graphql.Field{
+				Type: graphql.String,
+			},
+			FieldAddedAt: &graphql.Field{
+				Type: graphql.DateTime,
 			},
 		},
 	})

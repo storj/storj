@@ -9,14 +9,13 @@ import (
 	"fmt"
 	"time"
 
-	"storj.io/storj/internal/payments"
-
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/payments"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/satellite/console/consoleauth"
@@ -1039,6 +1038,11 @@ func (s *Service) GetProjectInvoices(ctx context.Context, projectID uuid.UUID) (
 			EndDate:   stamp.EndDate,
 		}
 
+		paymentInfo, err := s.store.ProjectPaymentInfos().GetByProjectID(ctx, stamp.ProjectID)
+		if err != nil {
+			return nil, err
+		}
+
 		inv, err := s.stripeService.GetInvoice(ctx, stamp.InvoiceID)
 		if err != nil {
 			return nil, err
@@ -1052,19 +1056,67 @@ func (s *Service) GetProjectInvoices(ctx context.Context, projectID uuid.UUID) (
 			return nil, err
 		}
 
+		cus, err := s.stripeService.GetCustomer(ctx, pm.Customer.ID)
+		if err != nil {
+			return nil, err
+		}
+
 		invoice.Number = inv.Number
 		invoice.Status = string(inv.Status)
 		invoice.Amount = inv.AmountDue
 		invoice.DownloadLink = inv.InvoicePDF
 		invoice.PaymentMethod = PaymentMethod{
-			Brand:    string(pm.Card.Brand),
-			LastFour: pm.Card.Last4,
+			ExpYear:    pm.Card.ExpYear,
+			ExpMonth:   pm.Card.ExpMonth,
+			Brand:      string(pm.Card.Brand),
+			LastFour:   pm.Card.Last4,
+			HolderName: cus.Name,
+			AddedAt:    paymentInfo.CreatedAt,
 		}
 
 		invoices = append(invoices, invoice)
 	}
 
 	return invoices, nil
+}
+
+// GetProjectPaymentMethods retrieves project payment methods
+func (s *Service) GetProjectPaymentMethods(ctx context.Context, projectID uuid.UUID) ([]PaymentMethod, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: make more multiple payment infos allowed
+	paymentInfo, err := s.store.ProjectPaymentInfos().GetByProjectID(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	pm, err := s.stripeService.GetPaymentMethod(ctx, paymentInfo.PaymentMethodID)
+	if err != nil {
+		return nil, err
+	}
+
+	cus, err := s.stripeService.GetCustomer(ctx, pm.Customer.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	paymentMethod := PaymentMethod{
+		ExpYear:    pm.Card.ExpYear,
+		ExpMonth:   pm.Card.ExpMonth,
+		Brand:      string(pm.Card.Brand),
+		LastFour:   pm.Card.Last4,
+		HolderName: cus.Name,
+		AddedAt:    paymentInfo.CreatedAt,
+	}
+
+	paymentMethods := []PaymentMethod{paymentMethod}
+	return paymentMethods, nil
 }
 
 // Authorize validates token from context and returns authorized Authorization

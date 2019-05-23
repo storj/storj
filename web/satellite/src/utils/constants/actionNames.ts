@@ -84,3 +84,8 @@ export const PROJECT_INVOICE_ACTIONS = {
     FETCH: 'fetchProjectInvoices',
     CLEAR: 'clearProjectInvoices'
 };
+
+export const PROJECT_PAYMENT_METHODS_ACTIONS = {
+    FETCH: 'fetchProjectPaymentMethods',
+    CLEAR: 'clearProjectPaymentMethods'
+};

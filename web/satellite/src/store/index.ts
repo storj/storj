@@ -13,6 +13,7 @@ import { appStateModule } from '@/store/modules/appState';
 import { apiKeysModule } from '@/store/modules/apiKeys';
 import { bucketUsageModule, usageModule } from '@/store/modules/usage';
 import { projectInvoicesModule } from '@/store/modules/invoices';
+import { projectPaymentsMethodsModule } from '@/store/modules/paymentMethods';
 
 Vue.use(Vuex);
 
@@ -28,6 +29,7 @@ const store = new Vuex.Store({
         usageModule,
         bucketUsageModule,
         projectInvoicesModule,
+        projectPaymentsMethodsModule,
     }
 });
 

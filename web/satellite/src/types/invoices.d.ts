@@ -3,8 +3,12 @@
 
 // PaymentMethod holds card information to display
 declare type PaymentMethod = {
+    expYear: number,
+    expMonth: number,
     brand: string,
     lastFour: string,
+    holderName: string,
+    addedAt: Date,
 }
 
 // ProjectInvoice holds information about project invoice
