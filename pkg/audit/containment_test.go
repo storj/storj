@@ -75,10 +75,8 @@ func TestReverifyContainedNodes(t *testing.T) {
 		verifier := audit.NewVerifier(zap.L(), reporter, transport, overlay, containment, orders, planet.Satellites[0].Identity, minBytesPerSecond)
 		require.NotNil(t, verifier)
 
-		// expect all nodes to fail reverification since their expected share hashes are random bytes
-		verified, err := verifier.Verify(ctx, stripe)
-		require.NoError(t, err)
-		require.Len(t, verified.FailNodeIDs, len(planet.StorageNodes))
+		_, err = verifier.Verify(ctx, stripe)
+		require.True(t, audit.ErrNotEnoughShares.Has(err))
 	})
 }
 

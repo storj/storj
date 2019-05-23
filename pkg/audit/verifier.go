@@ -28,6 +28,9 @@ import (
 
 var (
 	mon = monkit.Package()
+
+	// ErrNotEnoughShares is the errs class for when not enough shares are available to do an audit
+	ErrNotEnoughShares = errs.Class("not enough shares for successful audit")
 )
 
 // Share represents required information about an audited share
@@ -105,7 +108,7 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe) (verifiedN
 	if len(sharesToAudit) < required {
 		return &RecordAuditsInfo{
 			OfflineNodeIDs: offlineNodes,
-		}, Error.New("not enough shares for successful audit: got %d, required %d", len(sharesToAudit), required)
+		}, ErrNotEnoughShares.New("got %d, required %d", len(sharesToAudit), required)
 	}
 
 	pieceNums, correctedShares, err := auditShares(ctx, required, total, sharesToAudit)
