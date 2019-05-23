@@ -8,43 +8,13 @@
 typedef __SIZE_TYPE__ GoUintptr;
 typedef int64_t Size;
 
-enum ValueType
-{
-    IDVersionType,
-    APIKeyType,
-    UplinkConfigType,
-    UplinkType,
-    ProjectType,
-    ProjectOptionsType,
-    BucketType,
-    BucketConfigType
-};
-
-struct GoValue
-{
-    GoUintptr Ptr;
-    enum ValueType Type;
-    uint8_t *Snapshot;
-    GoUintptr Size;
-};
-
-typedef GoUintptr APIKeyRef;
+typedef GoUintptr API_Key_Ref;
 typedef GoUintptr IDVersionRef;
 typedef GoUintptr UplinkRef;
 typedef GoUintptr UplinkConfigRef;
 typedef GoUintptr ProjectRef;
 typedef GoUintptr BucketRef;
 typedef GoUintptr BucketConfigRef;
-
-
-// GoValue type aliases
-typedef struct GoValue gvAPIKey;
-typedef struct GoValue gvIDVersion;
-typedef struct GoValue gvUplink;
-typedef struct GoValue gvUplinkConfig;
-typedef struct GoValue gvProjectOptions;
-typedef struct GoValue gvBucket;
-typedef struct GoValue gvBucketConfig;
 
 // Protobuf aliases
 typedef Storj__Libuplink__IDVersion pbIDVersion;

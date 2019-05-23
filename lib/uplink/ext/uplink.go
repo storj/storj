@@ -20,14 +20,8 @@ import (
 var mon = monkit.Package()
 
 //export NewUplink
-func NewUplink(configRef C.UplinkConfigRef, cErr **C.char) (cUplink C.UplinkRef) {
-	config, ok := structRefMap.Get(token(configRef)).(*uplink.Config)
-	if !ok {
-		*cErr = C.CString("invalid config")
-		return cUplink
-	}
-
-	goUplink, err := uplink.NewUplink(context.Background(), config)
+func NewUplink(cErr **C.char) (cUplink C.UplinkRef) {
+	goUplink, err := uplink.NewUplink(context.Background(), &uplink.Config{})
 	if err != nil {
 		*cErr = C.CString(err.Error())
 		return cUplink

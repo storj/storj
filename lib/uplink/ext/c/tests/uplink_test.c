@@ -8,17 +8,13 @@
 #include "unity.h"
 #include "../../uplink-cgo.h"
 
-gvUplinkConfig *NewTestConfig(char **err)
+pbUplinkConfig *NewTestConfig(char **err)
 {
     uint8_t idVersionNumber = 0;
 
     // NB: ensure we get a valid ID version
-    gvIDVersion idVersionValue = GetIDVersion(idVersionNumber, err);
+    pbIDVersion idVersion = GetIDVersion(idVersionNumber, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
-
-    pbIDVersion *idVersion = (pbIDVersion *)(get_snapshot(&idVersionValue, err));
-    TEST_ASSERT_EQUAL_STRING("", *err);
-    TEST_ASSERT_NOT_NULL(idVersion);
 
     TEST_ASSERT_EQUAL(idVersionNumber, idVersion->number);
 
@@ -33,29 +29,16 @@ gvUplinkConfig *NewTestConfig(char **err)
     uplinkConfig.max_inline_size = 1;
     uplinkConfig.max_memory = 2;
 
-    gvUplinkConfig *uplinkConfigValue = malloc(sizeof(gvUplinkConfig));
-    uplinkConfigValue->Type = UplinkConfigType;
-    protoToGoValue(&uplinkConfig, uplinkConfigValue, err);
-    TEST_ASSERT_EQUAL_STRING("", *err);
-
-    pbUplinkConfig *uplinkConfig2 = (get_snapshot(uplinkConfigValue, err));
-    TEST_ASSERT_EQUAL_STRING("", *err);
-
-//    pbUplinkConfig *uplinkConfig2 = storj__libuplink__uplink_config__unpack(NULL, uplinkConfigValue->Size, uplinkConfigValue->Snapshot);
-//    TEST_ASSERT_EQUAL_STRING("", *err);
-    TEST_ASSERT_EQUAL_STRING(uplinkConfig.peer_id_version, uplinkConfig2->peer_id_version);
-    TEST_ASSERT_EQUAL(uplinkConfig.max_inline_size, uplinkConfig2->max_inline_size);
-    TEST_ASSERT_EQUAL(uplinkConfig.max_memory, uplinkConfig2->max_memory);
-
-    return uplinkConfigValue;
+    return &uplinkConfig;
 }
 
 UplinkRef NewTestUplink(char **err)
 {
-    gvUplinkConfig *uplinkConfigValue = NewTestConfig(err);
+    pbUplinkConfig *uplinkConfig = NewTestConfig(err);
     TEST_ASSERT_EQUAL_STRING("", *err);
+    TEST_ASSERT_NOT_NULL(uplinkConfig);
 
-    return NewUplink(uplinkConfigValue->Ptr, err);
+    return NewUplink(uplinkConfig, err);
 }
 
 void TestNewUplink_config(void)
@@ -63,10 +46,11 @@ void TestNewUplink_config(void)
     char *_err = "";
     char **err = &_err;
 
-    gvUplinkConfig *uplinkConfigValue = NewTestConfig(err);
+    pbUplinkConfig *uplinkConfig = NewTestConfig(err);
     TEST_ASSERT_EQUAL_STRING("", *err);
+    TEST_ASSERT_NOT_NULL(uplinkConfig);
 
-    UplinkRef uplinkRef = NewUplink(uplinkConfigValue->Ptr, err);
+    UplinkRef uplinkRef = NewUplink(uplinkConfig, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
     TEST_ASSERT_NOT_EQUAL(0, uplinkRef);
 }
@@ -76,7 +60,7 @@ void TestOpenProject(void)
     char *_err = "";
     char **err = &_err;
     char *satelliteAddr = getenv("SATELLITEADDR");
-    gvAPIKey apiKey = ParseAPIKey(getenv("APIKEY"), err);
+    APIKeyRef apiKey = ParseAPIKey(getenv("APIKEY"), err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     pbProjectOptions opts = STORJ__LIBUPLINK__PROJECT_OPTIONS__INIT;
@@ -86,15 +70,10 @@ void TestOpenProject(void)
     opts.encryption_key.data = encryptionKey;
     opts.encryption_key.len = sizeof(encryptionKey);
 
-    gvProjectOptions *optsValue = malloc(sizeof(gvProjectOptions));
-    optsValue->Type = ProjectOptionsType;
-    protoToGoValue(&opts, optsValue, err);
+    UplinkRef uplink = NewTestUplink(err);
     TEST_ASSERT_EQUAL_STRING("", *err);
+    TEST_ASSERT_NOT_EQUAL(0, uplink);
 
-    UplinkRef uplinkRef = NewTestUplink(err);
-    TEST_ASSERT_EQUAL_STRING("", *err);
-    TEST_ASSERT_NOT_EQUAL(0, uplinkRef);
-
-    OpenProject(uplinkRef, satelliteAddr, apiKey.Ptr, *optsValue, err);
+    OpenProject(ref_uplink, satellite_addr, ref_apiKey, pb_opts, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 }

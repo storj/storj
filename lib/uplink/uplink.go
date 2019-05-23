@@ -25,25 +25,26 @@ var (
 	maxBucketMetaSize = 10 * memory.MiB
 )
 
-// Volatile groups config values that are likely to change semantics
-// or go away entirely between releases. Be careful when using them!
-// CExport Volatile
-type Volatile struct {
-	// TLS defines options that affect TLS negotiation for outbound
-	// connections initiated by this uplink.
-	TLS struct {
-		// SkipPeerCAWhitelist determines whether to require all
-		// remote hosts to have identity certificates signed by
-		// Certificate Authorities in the default whitelist. If
-		// set to true, the whitelist will be ignored.
-		SkipPeerCAWhitelist bool
+// Config represents configuration options for an Uplink
+type Config struct {
+	// Volatile groups config values that are likely to change semantics
+	// or go away entirely between releases. Be careful when using them!
+	Volatile struct {
+		// TLS defines options that affect TLS negotiation for outbound
+		// connections initiated by this uplink.
+		TLS struct {
+			// SkipPeerCAWhitelist determines whether to require all
+			// remote hosts to have identity certificates signed by
+			// Certificate Authorities in the default whitelist. If
+			// set to true, the whitelist will be ignored.
+			SkipPeerCAWhitelist bool
 
-		// PeerCAWhitelistPath gives the path to a CA cert
-		// whitelist file. It is ignored if SkipPeerCAWhitelist
-		// is set. If empty, the internal default peer whitelist
-		// is used.
-		PeerCAWhitelistPath string
-	}
+			// PeerCAWhitelistPath gives the path to a CA cert
+			// whitelist file. It is ignored if SkipPeerCAWhitelist
+			// is set. If empty, the internal default peer whitelist
+			// is used.
+			PeerCAWhitelistPath string
+		}
 
 		// PeerIDVersion is the identity versions remote peers to this node
 		// will be supported by this node.
@@ -56,18 +57,14 @@ type Volatile struct {
 		// the inline storage and require remote storage, still.)
 		MaxInlineSize memory.Size
 
-	// MaxMemory is the default maximum amount of memory to be
-	// allocated for read buffers while performing decodes of
-	// objects. (This option is overrideable per Bucket if the user
-	// so desires.) If set to zero, the library default (4 MiB) will
-	// be used. If set to a negative value, the system will use the
-	// smallest amount of memory it can.
-	MaxMemory memory.Size
-}
-
-// Config represents configuration options for an Uplink
-type Config struct {
-	Volatile
+		// MaxMemory is the default maximum amount of memory to be
+		// allocated for read buffers while performing decodes of
+		// objects. (This option is overrideable per Bucket if the user
+		// so desires.) If set to zero, the library default (4 MiB) will
+		// be used. If set to a negative value, the system will use the
+		// smallest amount of memory it can.
+		MaxMemory memory.Size
+	}
 }
 
 func (cfg *Config) clone() *Config {
