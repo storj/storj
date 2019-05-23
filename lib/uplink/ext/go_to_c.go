@@ -11,14 +11,13 @@ package main
 // #endif
 import "C"
 import (
-	"unsafe"
-
+	"fmt"
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
-
 	"storj.io/storj/lib/uplink"
 	"storj.io/storj/lib/uplink/ext/pb"
 	"storj.io/storj/pkg/storj"
+	"unsafe"
 )
 
 var (
@@ -46,6 +45,9 @@ func CGetSnapshot(cValue *C.struct_GoValue, cErr **C.char) {
 		*cErr = C.CString(err.Error())
 		return
 	}
+
+	fmt.Println(value)
+	fmt.Println(cValue)
 }
 
 // Snapshot
@@ -111,7 +113,16 @@ func (gv *GoValue) Snapshot() (err error) {
 func (gv *GoValue) GoToCGoValue(cVal *C.struct_GoValue) error {
 	cVal.Ptr = C.GoUintptr(gv.ptr)
 	cVal.Type = C.enum_ValueType(gv._type)
-	cVal.Snapshot = (*C.uchar)(unsafe.Pointer(&gv.snapshot))
 	cVal.Size = C.GoUintptr(gv.size)
+
+	ptr := CMalloc(gv.size)
+	mem := (*[]byte)(unsafe.Pointer(ptr))
+	// data will be empty if govalue only has defaults
+	if gv.size > 0 {
+		copy(*mem, gv.snapshot)
+	}
+
+	cVal.Snapshot = (*C.uchar)(unsafe.Pointer(mem))
+
 	return nil
 }
