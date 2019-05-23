@@ -53,7 +53,7 @@ func NewVerifier(log *zap.Logger, transport transport.Client, overlay *overlay.C
 }
 
 // Verify downloads shares then verifies the data correctness at the given stripe
-func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe) (verifiedNodes *RecordAuditsInfo, err error) {
+func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe) (verifiedNodes *Report, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	pointer := stripe.Segment
@@ -92,15 +92,15 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe) (verifiedN
 	total := int(pointer.Remote.Redundancy.GetTotal())
 
 	if len(sharesToAudit) < required {
-		return &RecordAuditsInfo{
-			OfflineNodeIDs: offlineNodes,
+		return &Report{
+			Offlines: offlineNodes,
 		}, Error.New("not enough shares for successful audit: got %d, required %d", len(sharesToAudit), required)
 	}
 
 	pieceNums, correctedShares, err := auditShares(ctx, required, total, sharesToAudit)
 	if err != nil {
-		return &RecordAuditsInfo{
-			OfflineNodeIDs: offlineNodes,
+		return &Report{
+			Offlines: offlineNodes,
 		}, err
 	}
 
@@ -112,18 +112,18 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe) (verifiedN
 
 	pendingAudits, err := createPendingAudits(containedNodes, correctedShares, stripe)
 	if err != nil {
-		return &RecordAuditsInfo{
-			SuccessNodeIDs: successNodes,
-			FailNodeIDs:    failedNodes,
-			OfflineNodeIDs: offlineNodes,
+		return &Report{
+			Successes: successNodes,
+			Fails:     failedNodes,
+			Offlines:  offlineNodes,
 		}, err
 	}
 
-	return &RecordAuditsInfo{
-		SuccessNodeIDs: successNodes,
-		FailNodeIDs:    failedNodes,
-		OfflineNodeIDs: offlineNodes,
-		PendingAudits:  pendingAudits,
+	return &Report{
+		Successes:     successNodes,
+		Fails:         failedNodes,
+		Offlines:      offlineNodes,
+		PendingAudits: pendingAudits,
 	}, nil
 }
 
