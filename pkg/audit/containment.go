@@ -36,8 +36,8 @@ type PendingAudit struct {
 	ReverifyCount     uint32
 }
 
-// DB holds information about pending audits for contained nodes
-type DB interface {
+// Containment holds information about pending audits for contained nodes
+type Containment interface {
 	Get(ctx context.Context, nodeID pb.NodeID) (*PendingAudit, error)
 	IncrementPending(ctx context.Context, pendingAudit *PendingAudit) error
 	Delete(ctx context.Context, nodeID pb.NodeID) (bool, error)
