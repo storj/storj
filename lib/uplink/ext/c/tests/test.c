@@ -24,8 +24,8 @@ int main(int argc, char *argv[])
     RUN_TEST(TestNewUplink_config);
 
     RUN_TEST(TestOpenProject);
-    RUN_TEST(TestCreateBucket);
-    RUN_TEST(TestOpenBucket);
+//    RUN_TEST(TestCreateBucket);
+//    RUN_TEST(TestOpenBucket);
 
     // RUN_TEST(TestValue);
     return UNITY_END();

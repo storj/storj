@@ -12,7 +12,7 @@ package main
 import "C"
 import (
 	"unsafe"
-	
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 

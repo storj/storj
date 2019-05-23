@@ -37,7 +37,7 @@ type GoValue struct {
 func CGetSnapshot(cValue *C.struct_GoValue, cErr **C.char) {
 	value := CToGoGoValue(*cValue)
 
-	if err := value.GetSnapshot(); err != nil {
+	if err := value.Snapshot(); err != nil {
 		*cErr = C.CString(err.Error())
 		return
 	}
@@ -46,25 +46,25 @@ func CGetSnapshot(cValue *C.struct_GoValue, cErr **C.char) {
 		*cErr = C.CString(err.Error())
 		return
 	}
-	//cValue.Size = C.GoUintptr(value.size)
-	//cValue.Snapshot = (*C.uchar)(unsafe.Pointer(&value.snapshot))
 }
 
 // Snapshot
 // 	look up a struct in the structRefMap
 // 	convert it to a protobuf value
 // 	serialize that data into the govalue
-func (gv *GoValue) Snapshot() (data []byte, _ error) {
+func (gv *GoValue) Snapshot() (err error) {
+	var data []byte
 	switch gv._type {
 	case C.IDVersionType:
 		uplinkStruct := structRefMap.Get(gv.ptr).(storj.IDVersion)
-		return proto.Marshal(&pb.IDVersion{
+		data, err = proto.Marshal(&pb.IDVersion{
 			Number: uint32(uplinkStruct.Number),
 		})
+		break
 	case C.UplinkConfigType:
 		uplinkConfigStruct := structRefMap.Get(gv.ptr).(*uplink.Config)
 
-		return proto.Marshal(&pb.UplinkConfig{
+		data, err = proto.Marshal(&pb.UplinkConfig{
 			Tls: &pb.TLSConfig{
 				SkipPeerCaWhitelist: uplinkConfigStruct.Volatile.TLS.SkipPeerCAWhitelist,
 				PeerCaWhitelistPath: uplinkConfigStruct.Volatile.TLS.PeerCAWhitelistPath,
@@ -75,10 +75,11 @@ func (gv *GoValue) Snapshot() (data []byte, _ error) {
 			MaxInlineSize: int64(uplinkConfigStruct.Volatile.MaxInlineSize),
 			MaxMemory:     int64(uplinkConfigStruct.Volatile.MaxMemory),
 		})
+		break
 	case C.BucketType:
 		bucketStruct := structRefMap.Get(gv.ptr).(*storj.Bucket)
 
-		return proto.Marshal(&pb.Bucket{
+		data, err = proto.Marshal(&pb.Bucket{
 			Name: bucketStruct.Name,
 			RedundancyScheme: &pb.RedundancyScheme{
 				Algorithm:      uint32(bucketStruct.RedundancyScheme.Algorithm),
@@ -95,40 +96,22 @@ func (gv *GoValue) Snapshot() (data []byte, _ error) {
 			},
 			PathCipher: uint32(bucketStruct.PathCipher), Created: uint64(bucketStruct.Created.Unix()),
 		})
+		break
 	default:
-		return nil, ErrSnapshot.New("type", gv._type)
-	}
-}
-
-func (gv *GoValue) GetSnapshot() error {
-	data, err := gv.Snapshot()
-	if err != nil {
-		return err
+		return ErrSnapshot.New("type", gv._type)
 	}
 
 	gv.size = uintptr(len(data))
-	ptr := CMalloc(gv.size)
-	mem := (*[]byte)(unsafe.Pointer(ptr))
-	// data will be empty if govalue only has defaults
-	if gv.size > 0 {
-		copy(*mem, data)
-	}
-	gv.snapshot = *mem
-	//if gv._type == C.BucketType {
-	//	fmt.Printf("size: %d; gv.size: %d; len(data): %d; data:\n%x\n", gv.size, gv.size, len(data), data)
-	//	//fmt.Printf("size")
-	//}
+	gv.snapshot = data
 
 	return nil
 }
 
 // GoToCGoValue will return a C equivalent of a go value struct with a populated snapshot
 func (gv *GoValue) GoToCGoValue(cVal *C.struct_GoValue) error {
-	*cVal = C.struct_GoValue{
-		Ptr:      C.GoUintptr(gv.ptr),
-		Type:     C.enum_ValueType(gv._type),
-		Snapshot: (*C.uchar)(unsafe.Pointer(&gv.snapshot)),
-		Size:     C.GoUintptr(gv.size),
-	}
+	cVal.Ptr = C.GoUintptr(gv.ptr)
+	cVal.Type = C.enum_ValueType(gv._type)
+	cVal.Snapshot = (*C.uchar)(unsafe.Pointer(&gv.snapshot))
+	cVal.Size = C.GoUintptr(gv.size)
 	return nil
 }
