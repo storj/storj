@@ -93,15 +93,15 @@ func (service *Service) process(ctx context.Context) error {
 		}
 	}
 
-	verifiedNodes, err := service.Verifier.Verify(ctx, stripe)
-	if err != nil {
-		return err
+	verifiedNodes, verifierErr := service.Verifier.Verify(ctx, stripe)
+	if verifierErr != nil && verifiedNodes == nil {
+		return verifierErr
 	}
 
 	// TODO(moby) we need to decide if we want to do something with nodes that the reporter failed to update
-	_, err = service.Reporter.RecordAudits(ctx, verifiedNodes)
-	if err != nil {
-		return err
+	_, reporterErr := service.Reporter.RecordAudits(ctx, verifiedNodes)
+	if reporterErr != nil {
+		return errs.Combine(reporterErr, reporterErr)
 	}
 
 	return nil

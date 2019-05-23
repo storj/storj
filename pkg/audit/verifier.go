@@ -93,13 +93,16 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe) (verifiedN
 
 	if len(sharesToAudit) < required {
 		return &RecordAuditsInfo{
+			// TODO return the RecordAuditsInfo that was built so far
 			OfflineNodeIDs: offlineNodes,
-		}, nil
+		}, Error.New("not enough shares for successful audit: required %d, available %d", required, sharesToAudit)
 	}
 
 	pieceNums, correctedShares, err := auditShares(ctx, required, total, sharesToAudit)
 	if err != nil {
-		return nil, err
+		return &RecordAuditsInfo{
+			OfflineNodeIDs: offlineNodes,
+		}, err
 	}
 
 	for _, pieceNum := range pieceNums {
@@ -110,8 +113,11 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe) (verifiedN
 
 	pendingAudits, err := createPendingAudits(containedNodes, correctedShares, stripe)
 	if err != nil {
-		// TODO return the RecordAuditsInfo that was built so far
-		return nil, err
+		return &RecordAuditsInfo{
+			SuccessNodeIDs: successNodes,
+			FailNodeIDs:    failedNodes,
+			OfflineNodeIDs: offlineNodes,
+		}, err
 	}
 
 	return &RecordAuditsInfo{
