@@ -249,3 +249,4 @@ server.private-address: "127.0.0.1:7778"
 
 # number of days before a voucher expires
 # vouchers.expiration: 30
+
