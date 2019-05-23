@@ -72,7 +72,9 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req *RecordAuditsInf
 		if len(pendingAudits) > 0 {
 			pendingAudits, err = reporter.recordPendingAudits(ctx, pendingAudits)
 			if err != nil {
-				errNodeIDs = append(errNodeIDs, offlineNodeIDs...)
+				for _, pendingAudit := range pendingAudits {
+					errNodeIDs = append(errNodeIDs, pendingAudit.NodeID)
+				}
 			}
 		}
 
