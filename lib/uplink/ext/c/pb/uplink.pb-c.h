@@ -105,26 +105,29 @@ struct  _Storj__Libuplink__RedundancyScheme
 struct  _Storj__Libuplink__BucketConfig
 {
   ProtobufCMessage base;
-  uint32_t path_cipher;
   Storj__Libuplink__EncryptionParameters *encryption_parameters;
   Storj__Libuplink__RedundancyScheme *redundancy_scheme;
+  uint32_t path_cipher;
   int64_t segment_size;
 };
 #define STORJ__LIBUPLINK__BUCKET_CONFIG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&storj__libuplink__bucket_config__descriptor) \
-    , 0, NULL, NULL, 0 }
+    , NULL, NULL, 0, 0 }
 
 
 struct  _Storj__Libuplink__Bucket
 {
   ProtobufCMessage base;
-  Storj__Libuplink__BucketConfig *bucket_config;
+  Storj__Libuplink__EncryptionParameters *encryption_parameters;
+  Storj__Libuplink__RedundancyScheme *redundancy_scheme;
   char *name;
   uint64_t created;
+  uint32_t path_cipher;
+  int64_t segment_size;
 };
 #define STORJ__LIBUPLINK__BUCKET__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&storj__libuplink__bucket__descriptor) \
-    , NULL, (char *)protobuf_c_empty_string, 0 }
+    , NULL, NULL, (char *)protobuf_c_empty_string, 0, 0, 0 }
 
 
 /* Storj__Libuplink__IDVersion methods */

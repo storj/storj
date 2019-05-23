@@ -43,14 +43,17 @@ message RedundancyScheme {
 }
 
 message BucketConfig {
-    uint32 path_cipher = 1;
-    EncryptionParameters encryption_parameters = 2;
-    RedundancyScheme redundancy_scheme = 3;
+    EncryptionParameters encryption_parameters = 1;
+    RedundancyScheme redundancy_scheme = 2;
+    uint32 path_cipher = 3;
     int64 segment_size = 4;
 }
 
 message Bucket {
-	BucketConfig bucket_config = 1;
-	string name = 2;
-	uint64 created = 3;
+    EncryptionParameters encryption_parameters = 1;
+    RedundancyScheme redundancy_scheme = 2;
+	string name = 3;
+	uint64 created = 4;
+    uint32 path_cipher = 5;
+    int64 segment_size = 6;
 }
