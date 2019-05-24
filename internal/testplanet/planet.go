@@ -472,8 +472,8 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			},
 			BwAgreement: bwagreement.Config{},
 			Checker: checker.Config{
-				Interval:      30 * time.Second,
-				IrrdbInterval: 15 * time.Second,
+				Interval:            30 * time.Second,
+				IrreparableInterval: 15 * time.Second,
 			},
 			Repairer: repairer.Config{
 				MaxRepair:    10,

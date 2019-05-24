@@ -10,8 +10,8 @@
 # how frequently checker should audit segments
 # checker.interval: 30s
 
-# how frequently irrepairable checker should audit segments
-# checker.irrdb-interval: 15s
+# how frequently irrepairable checker should check for lost pieces
+# checker.irreparable-interval: 15s
 
 # server address of the graphql api gateway and frontend app
 # console.address: "127.0.0.1:8081"

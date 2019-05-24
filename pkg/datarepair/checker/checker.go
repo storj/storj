@@ -30,8 +30,8 @@ var (
 
 // Config contains configurable values for checker
 type Config struct {
-	Interval      time.Duration `help:"how frequently checker should audit segments" releaseDefault:"30s" devDefault:"0h0m10s"`
-	IrrdbInterval time.Duration `help:"how frequently irrepairable checker should audit segments" releaseDefault:"15s" devDefault:"0h0m5s"`
+	Interval            time.Duration `help:"how frequently checker should audit segments" releaseDefault:"30s" devDefault:"0h0m10s"`
+	IrreparableInterval time.Duration `help:"how frequently irrepairable checker should check for lost pieces" releaseDefault:"15s" devDefault:"0h0m5s"`
 }
 
 // durabilityStats remote segment information
@@ -45,28 +45,28 @@ type durabilityStats struct {
 
 // Checker contains the information needed to do checks for missing pieces
 type Checker struct {
-	metainfo     *metainfo.Service
-	lastChecked  string
-	repairQueue  queue.RepairQueue
-	overlay      *overlay.Cache
-	irrdb        irreparable.DB
-	logger       *zap.Logger
-	Loop         sync2.Cycle
-	IrrepairLoop sync2.Cycle
+	metainfo        *metainfo.Service
+	lastChecked     string
+	repairQueue     queue.RepairQueue
+	overlay         *overlay.Cache
+	irrdb           irreparable.DB
+	logger          *zap.Logger
+	Loop            sync2.Cycle
+	IrreparableLoop sync2.Cycle
 }
 
 // NewChecker creates a new instance of checker
-func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overlay *overlay.Cache, irrdb irreparable.DB, limit int, logger *zap.Logger, repairInterval, irrepairInterval time.Duration) *Checker {
+func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overlay *overlay.Cache, irrdb irreparable.DB, limit int, logger *zap.Logger, repairInterval, irreparableInterval time.Duration) *Checker {
 	// TODO: reorder arguments
 	checker := &Checker{
-		metainfo:     metainfo,
-		lastChecked:  "",
-		repairQueue:  repairQueue,
-		overlay:      overlay,
-		irrdb:        irrdb,
-		logger:       logger,
-		Loop:         *sync2.NewCycle(repairInterval),
-		IrrepairLoop: *sync2.NewCycle(irrepairInterval),
+		metainfo:        metainfo,
+		lastChecked:     "",
+		repairQueue:     repairQueue,
+		overlay:         overlay,
+		irrdb:           irrdb,
+		logger:          logger,
+		Loop:            *sync2.NewCycle(repairInterval),
+		IrreparableLoop: *sync2.NewCycle(irreparableInterval),
 	}
 	return checker
 }
@@ -88,10 +88,10 @@ func (checker *Checker) Run(ctx context.Context) (err error) {
 	}()
 
 	go func() {
-		c <- checker.IrrepairLoop.Run(ctx, func(ctx context.Context) error {
-			err := checker.irrepairProcess(ctx)
+		c <- checker.IrreparableLoop.Run(ctx, func(ctx context.Context) error {
+			err := checker.IrreparableProcess(ctx)
 			if err != nil {
-				checker.logger.Error("process", zap.Error(err))
+				checker.logger.Error("error with irreparable segments identification", zap.Error(err))
 			}
 			return nil
 		})
@@ -142,7 +142,8 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 
 				err = proto.Unmarshal(item.Value, pointer)
 				if err != nil {
-					return Error.New("error unmarshalling pointer %s", err)
+					checker.logger.Error("error unmarshalling pointer: ", zap.Error(err))
+					return err
 				}
 
 				err = checker.checkSegmentStatus(ctx, pointer, item.Key.String(), &monStats)
@@ -184,7 +185,8 @@ func (checker *Checker) checkSegmentStatus(ctx context.Context, pointer *pb.Poin
 
 	missingPieces, err := checker.overlay.GetMissingPieces(ctx, pieces)
 	if err != nil {
-		return Error.New("error getting missing pieces %s", err)
+		checker.logger.Error("error getting missing pieces: ", zap.Error(err))
+		return err
 	}
 
 	monStats.remoteSegmentsChecked++
@@ -208,14 +210,14 @@ func (checker *Checker) checkSegmentStatus(ctx context.Context, pointer *pb.Poin
 			LostPieces: missingPieces,
 		})
 		if err != nil {
-			return Error.New("error adding injured segment to queue %s", err)
+			return err
 		}
 
 		// if same segment previously was irreparable
 		if _, err = checker.irrdb.Get(ctx, []byte(path)); err == nil {
 			err = checker.irrdb.Delete(ctx, []byte(path))
 			if err != nil {
-				zap.L().Error("repair delete failed", zap.Error(err))
+				checker.logger.Error("irrepairable segment delete failed", zap.Error(err))
 			}
 		}
 	} else if numHealthy < redundancy.MinReq {
@@ -243,14 +245,15 @@ func (checker *Checker) checkSegmentStatus(ctx context.Context, pointer *pb.Poin
 		// add the entry if new or update attempt count if already exists
 		err := checker.irrdb.IncrementRepairAttempts(ctx, segmentInfo)
 		if err != nil {
-			return Error.New("error handling irreparable segment to queue %s", err)
+			checker.logger.Error("error handling irreparable segment to queue: ", zap.Error(err))
+			return err
 		}
 	}
 	return nil
 }
 
-// irrepairProcess picks items from irrepairabledb and spawns a repair worker
-func (checker *Checker) irrepairProcess(ctx context.Context) (err error) {
+// IrreparableProcess picks items from irrepairabledb and spawns a repair worker
+func (checker *Checker) IrreparableProcess(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	limit := 1
@@ -270,7 +273,7 @@ func (checker *Checker) irrepairProcess(ctx context.Context) (err error) {
 
 		err = checker.checkSegmentStatus(ctx, seg[0].GetSegmentDetail(), string(seg[0].GetPath()), &monStats)
 		if err != nil {
-			zap.L().Error("repair failed", zap.Error(err))
+			checker.logger.Error("irrepair segment checker failed: ", zap.Error(err))
 		}
 		offset++
 	}

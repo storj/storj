@@ -132,6 +132,29 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		// check if repair attempt count was incremented
 		require.Equal(t, 2, int(remoteSegmentInfo.RepairAttemptCount))
 		require.True(t, firstRepair < remoteSegmentInfo.LastRepairAttempt)
+
+		// make the  pointer repairable
+		pointer = &pb.Pointer{
+			Remote: &pb.RemoteSegment{
+				Redundancy: &pb.RedundancyScheme{
+					MinReq:          int32(3),
+					RepairThreshold: int32(8),
+				},
+				RootPieceId:  teststorj.PieceIDFromString("fake-piece-id"),
+				RemotePieces: pieces,
+			},
+		}
+		// put test pointer to db
+		metainfo = planet.Satellites[0].Metainfo.Service
+		err = metainfo.Put("fake-piece-id", pointer)
+		require.NoError(t, err)
+
+		// this deletes the previously entered irreparable pointer from irrdb
+		err = checker.IdentifyInjuredSegments(ctx)
+		require.NoError(t, err)
+
+		remoteSegmentInfo, err = irreparable.Get(ctx, []byte("fake-piece-id"))
+		require.Error(t, err)
 	})
 }
 
