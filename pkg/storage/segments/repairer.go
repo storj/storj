@@ -55,7 +55,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 		return Error.New("cannot repair inline segment %s", path)
 	}
 
-	mon.Counter("repair_attempts").Inc(1)
+	mon.Meter("repair_attempts").Mark(1)
 
 	redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
 	if err != nil {
