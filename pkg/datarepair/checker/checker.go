@@ -35,13 +35,22 @@ type Config struct {
 
 // Checker contains the information needed to do checks for missing pieces
 type Checker struct {
-	metainfo    *metainfo.Service
-	lastChecked string
-	repairQueue queue.RepairQueue
-	overlay     *overlay.Cache
-	irrdb       irreparable.DB
-	logger      *zap.Logger
-	Loop        sync2.Cycle
+	metainfo        *metainfo.Service
+	lastChecked     string
+	repairQueue     queue.RepairQueue
+	overlay         *overlay.Cache
+	irrdb           irreparable.DB
+	logger          *zap.Logger
+	Loop            sync2.Cycle
+	durabilityStats durabilityStats
+}
+
+type durabilityStats struct {
+	remoteFilesChecked          int64
+	remoteSegmentsChecked       int64
+	remoteSegmentsNeedingRepair int64
+	remoteSegmentsLost          int64
+	remoteSegmentInfo           []string
 }
 
 // NewChecker creates a new instance of checker
@@ -82,11 +91,6 @@ func (checker *Checker) Close() error {
 func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var remoteSegmentsChecked int64
-	var remoteSegmentsNeedingRepair int64
-	var remoteSegmentsLost int64
-	var remoteSegmentInfo []string
-
 	err = checker.metainfo.Iterate("", checker.lastChecked, true, false,
 		func(it storage.Iterator) error {
 			var item storage.ListItem
@@ -96,9 +100,22 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 				it.Next(&nextItem)
 				// start at the next item in the next call
 				checker.lastChecked = nextItem.Key.String()
-				// if keys are equal, start from the beginning in the next call
-				if nextItem.Key.String() == item.Key.String() {
-					checker.lastChecked = ""
+
+				// if we have finished iterating, send and reset durability stats
+				if checker.lastChecked == "" {
+					// send durability stats
+					mon.IntVal("remote_files_checked").Observe(checker.durabilityStats.remoteFilesChecked)
+					mon.IntVal("remote_segments_checked").Observe(checker.durabilityStats.remoteSegmentsChecked)
+					mon.IntVal("remote_segments_needing_repair").Observe(checker.durabilityStats.remoteSegmentsNeedingRepair)
+					mon.IntVal("remote_segments_lost").Observe(checker.durabilityStats.remoteSegmentsLost)
+					mon.IntVal("remote_files_lost").Observe(int64(len(checker.durabilityStats.remoteSegmentInfo)))
+
+					// reset durability stats
+					checker.durabilityStats.remoteFilesChecked = 0
+					checker.durabilityStats.remoteSegmentsChecked = 0
+					checker.durabilityStats.remoteSegmentsNeedingRepair = 0
+					checker.durabilityStats.remoteSegmentsLost = 0
+					checker.durabilityStats.remoteSegmentInfo = []string{}
 				}
 			}()
 
@@ -126,10 +143,22 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 					return Error.New("error getting missing pieces %s", err)
 				}
 
-				remoteSegmentsChecked++
-				numHealthy := len(pieces) - len(missingPieces)
-				if (int32(numHealthy) >= pointer.Remote.Redundancy.MinReq) && (int32(numHealthy) <= pointer.Remote.Redundancy.RepairThreshold) {
-					remoteSegmentsNeedingRepair++
+				checker.durabilityStats.remoteSegmentsChecked++
+				pathElements := storj.SplitPath(storj.Path(item.Key))
+				if len(pathElements) >= 2 && pathElements[1] == "l" {
+					checker.durabilityStats.remoteFilesChecked++
+				}
+
+				numHealthy := int32(len(pieces) - len(missingPieces))
+				redundancy := pointer.Remote.Redundancy
+				// we repair when the number of healthy files is less than or equal to the repair threshold
+				// except for the case when the repair and success thresholds are the same (a case usually seen during testing)
+				if numHealthy >= redundancy.MinReq && numHealthy <= redundancy.RepairThreshold && redundancy.RepairThreshold != redundancy.SuccessThreshold {
+					if len(missingPieces) == 0 {
+						checker.logger.Warn("Missing pieces is zero in checker, but this should be impossible -- bad redundancy scheme.")
+						continue
+					}
+					checker.durabilityStats.remoteSegmentsNeedingRepair++
 					err = checker.repairQueue.Insert(ctx, &pb.InjuredSegment{
 						Path:       string(item.Key),
 						LostPieces: missingPieces,
@@ -137,23 +166,22 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 					if err != nil {
 						return Error.New("error adding injured segment to queue %s", err)
 					}
-				} else if int32(numHealthy) < pointer.Remote.Redundancy.MinReq {
-					pathElements := storj.SplitPath(storj.Path(item.Key))
+				} else if numHealthy < redundancy.MinReq {
 					// check to make sure there are at least *4* path elements. the first three
 					// are project, segment, and bucket name, but we want to make sure we're talking
 					// about an actual object, and that there's an object name specified
 					if len(pathElements) >= 4 {
 						project, bucketName, segmentpath := pathElements[0], pathElements[2], pathElements[3]
 						lostSegInfo := storj.JoinPaths(project, bucketName, segmentpath)
-						if contains(remoteSegmentInfo, lostSegInfo) == false {
-							remoteSegmentInfo = append(remoteSegmentInfo, lostSegInfo)
+						if contains(checker.durabilityStats.remoteSegmentInfo, lostSegInfo) == false {
+							checker.durabilityStats.remoteSegmentInfo = append(checker.durabilityStats.remoteSegmentInfo, lostSegInfo)
 						}
 					}
 
 					// TODO: irreparable segment should be using storj.NodeID or something, since at the point of repair
 					//       it may have been already repaired once.
 
-					remoteSegmentsLost++
+					checker.durabilityStats.remoteSegmentsLost++
 					// make an entry in to the irreparable table
 					segmentInfo := &pb.IrreparableSegment{
 						Path:               item.Key,
@@ -176,10 +204,6 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 	if err != nil {
 		return err
 	}
-	mon.IntVal("remote_segments_checked").Observe(remoteSegmentsChecked)
-	mon.IntVal("remote_segments_needing_repair").Observe(remoteSegmentsNeedingRepair)
-	mon.IntVal("remote_segments_lost").Observe(remoteSegmentsLost)
-	mon.IntVal("remote_files_lost").Observe(int64(len(remoteSegmentInfo)))
 
 	return nil
 }
