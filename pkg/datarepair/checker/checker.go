@@ -100,10 +100,9 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 				it.Next(&nextItem)
 				// start at the next item in the next call
 				checker.lastChecked = nextItem.Key.String()
-				// if keys are equal, start from the beginning in the next call
-				if nextItem.Key.String() == item.Key.String() {
-					checker.lastChecked = ""
 
+				// if we have finished iterating, send and reset durability stats
+				if checker.lastChecked == "" {
 					// send durability stats
 					mon.IntVal("remote_files_checked").Observe(checker.durabilityStats.remoteFilesChecked)
 					mon.IntVal("remote_segments_checked").Observe(checker.durabilityStats.remoteSegmentsChecked)
