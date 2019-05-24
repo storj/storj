@@ -191,7 +191,7 @@ func (reporter *Reporter) recordPendingAudits(ctx context.Context, pendingAudits
 				failed = append(failed, pendingAudit)
 				errlist.Add(err)
 			}
-	
+
 			// TODO(kaloyan): Perhaps, this should be executed in the same Tx as overlay.UpdateStats above
 			_, err = reporter.containment.Delete(ctx, pendingAudit.NodeID)
 			if err != nil {

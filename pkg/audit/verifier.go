@@ -164,7 +164,7 @@ func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.Addre
 				Data:     nil,
 			}
 		}
-		
+
 		shares[share.PieceNum] = share
 		nodes[share.PieceNum] = limit.GetLimit().StorageNodeId
 	}
@@ -177,7 +177,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 	defer mon.Task()(&ctx)(&err)
 
 	// result status enum
-	const(
+	const (
 		skipped = iota
 		success
 		offline
@@ -187,10 +187,10 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 	)
 
 	type result struct {
-		nodeID storj.NodeID
-		status int
+		nodeID       storj.NodeID
+		status       int
 		pendingAudit *PendingAudit
-		err error
+		err          error
 	}
 
 	pieces := stripe.Segment.GetRemote().GetRemotePieces()
@@ -250,7 +250,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 			report.Fails = append(report.Fails, result.nodeID)
 		case contained:
 			report.PendingAudits = append(report.PendingAudits, result.pendingAudit)
-		case erred: 
+		case erred:
 			err = errs.Combine(err, result.err)
 		}
 	}
