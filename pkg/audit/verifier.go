@@ -92,9 +92,9 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 	sharesToAudit := make(map[int]Share)
 
 	for pieceNum, share := range shares {
-		if shares[pieceNum].Error != nil {
+		if share.Error != nil {
 			// TODO(kaloyan): we need to check the logic here if we correctly identify offline nodes from those that didn't respond.
-			if shares[pieceNum].Error == context.DeadlineExceeded || !transport.Error.Has(shares[pieceNum].Error) || ContainError.Has(shares[pieceNum].Error) {
+			if share.Error == context.DeadlineExceeded || !transport.Error.Has(share.Error) || ContainError.Has(share.Error) {
 				containedNodes[pieceNum] = nodes[pieceNum]
 			} else {
 				offlineNodes = append(offlineNodes, nodes[pieceNum])
