@@ -37,7 +37,15 @@ func TestAllCTests(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.NewWithLogger(zap.NewNop(), 1, 8, 0)
+	planet, err := testplanet.NewCustom(
+		zap.NewNop(),
+		testplanet.Config{
+			SatelliteCount: 1,
+			StorageNodeCount: 8,
+			UplinkCount: 0,
+			UsePeerCAWhitelist: false,
+		},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +84,6 @@ func TestAllCTests(t *testing.T) {
 		filepath.Join(cLibDir, "tests", "*.c"),
 	)
 	commandPath := testBinPath
-
 
 	if path, ok := os.LookupEnv("STORJ_DEBUG"); ok {
 		err := copyFile(testBinPath, path)

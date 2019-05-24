@@ -16,6 +16,12 @@ import (
 
 var structRefMap = newMapping()
 
+//CMalloc allocates C memory
+func CMalloc(size uintptr) uintptr {
+	CMem := C.malloc(C.size_t(size))
+	return uintptr(CMem)
+}
+
 //export GetIDVersion
 func GetIDVersion(number C.uint, cErr **C.char) (cIDVersion C.IDVersion_t) {
 	goIDVersion, err := storj.GetIDVersion(storj.IDVersionNumber(number))

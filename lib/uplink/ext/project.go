@@ -13,6 +13,7 @@ import (
 	"context"
 	"storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/storj"
+	"unsafe"
 )
 
 //export CreateBucket
@@ -38,23 +39,30 @@ func CreateBucket(cProject C.ProjectRef_t, name *C.char, cBucketCfg C.BucketConf
 		return cBucket
 	}
 
-	// TODO: allocate the memory for these pointers in c?
+	encParamsPtr := CMalloc(unsafe.Sizeof(C.EncryptionParameters_t{}))
+	encParams := (*C.EncryptionParameters_t)(unsafe.Pointer(encParamsPtr))
+	*encParams = C.EncryptionParameters_t{
+		cipher_suite: C.uint32_t(bucket.EncryptionParameters.CipherSuite),
+		block_size:   C.int32_t(bucket.EncryptionParameters.BlockSize),
+	}
+
+	redundancySchemePtr := CMalloc(unsafe.Sizeof(C.RedundancyScheme_t{}))
+	redundancyScheme := (*C.RedundancyScheme_t)(unsafe.Pointer(redundancySchemePtr))
+	*redundancyScheme = C.RedundancyScheme_t{
+		algorithm:       C.uint32_t(bucket.RedundancyScheme.Algorithm),
+		share_size:      C.int32_t(bucket.RedundancyScheme.ShareSize),
+		required_shares: C.int32_t(bucket.RedundancyScheme.RequiredShares),
+		repair_shares:   C.int32_t(bucket.RedundancyScheme.RepairShares),
+		optimal_shares:  C.int32_t(bucket.RedundancyScheme.OptimalShares),
+		total_shares:    C.int32_t(bucket.RedundancyScheme.TotalShares),
+	}
+
 	return C.Bucket_t{
-		encryption_parameters: &C.EncryptionParameters_t{
-			cipher_suite: C.uint32_t(bucket.EncryptionParameters.CipherSuite),
-			block_size:   C.int32_t(bucket.EncryptionParameters.BlockSize),
-		},
-		redundancy_scheme: &C.RedundancyScheme_t{
-			algorithm:       C.uint32_t(bucket.RedundancyScheme.Algorithm),
-			share_size:      C.int32_t(bucket.RedundancyScheme.ShareSize),
-			required_shares: C.int32_t(bucket.RedundancyScheme.RequiredShares),
-			repair_shares:   C.int32_t(bucket.RedundancyScheme.RepairShares),
-			optimal_shares:  C.int32_t(bucket.RedundancyScheme.OptimalShares),
-			total_shares:    C.int32_t(bucket.RedundancyScheme.TotalShares),
-		},
-		name: C.CString(bucket.Name),
-		created: C.int64_t(bucket.Created.Unix()),
-		path_cipher: C.uint32_t(bucket.PathCipher),
-		segment_size: C.int64_t(bucket.SegmentsSize),
+		encryption_parameters: encParams,
+		redundancy_scheme:     redundancyScheme,
+		name:                  C.CString(bucket.Name),
+		created:               C.int64_t(bucket.Created.Unix()),
+		path_cipher:           C.uint32_t(bucket.PathCipher),
+		segment_size:          C.int64_t(bucket.SegmentsSize),
 	}
 }
