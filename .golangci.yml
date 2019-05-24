@@ -112,7 +112,8 @@ linters-settings:
     for-loops: false # Report preallocation suggestions on for loops, false by default
   gocritic:
     disabled-checks:
-    #  - appendAssign
+    # Disabling appendAssign b/c it reports false positives
+      - appendAssign
 
 issues:
   max-per-linter: 0
