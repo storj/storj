@@ -34,8 +34,9 @@ type Config struct {
 	IrrdbInterval time.Duration `help:"how frequently irrepairable checker should audit segments" releaseDefault:"15s" devDefault:"0h0m5s"`
 }
 
-// remoteSegmentInfo remote segment information
-type remoteSegmentInfo struct {
+// durabilityStats remote segment information
+type durabilityStats struct {
+	remoteFilesChecked          int64
 	remoteSegmentsChecked       int64
 	remoteSegmentsNeedingRepair int64
 	remoteSegmentsLost          int64
@@ -114,7 +115,7 @@ func (checker *Checker) Close() error {
 func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var rmtSegInfo remoteSegmentInfo
+	var monStats durabilityStats
 
 	err = checker.metainfo.Iterate("", checker.lastChecked, true, false,
 		func(it storage.Iterator) error {
@@ -125,22 +126,14 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 				it.Next(&nextItem)
 				// start at the next item in the next call
 				checker.lastChecked = nextItem.Key.String()
-
 				// if we have finished iterating, send and reset durability stats
 				if checker.lastChecked == "" {
 					// send durability stats
-					mon.IntVal("remote_files_checked").Observe(checker.durabilityStats.remoteFilesChecked)
-					mon.IntVal("remote_segments_checked").Observe(checker.durabilityStats.remoteSegmentsChecked)
-					mon.IntVal("remote_segments_needing_repair").Observe(checker.durabilityStats.remoteSegmentsNeedingRepair)
-					mon.IntVal("remote_segments_lost").Observe(checker.durabilityStats.remoteSegmentsLost)
-					mon.IntVal("remote_files_lost").Observe(int64(len(checker.durabilityStats.remoteSegmentInfo)))
-
-					// reset durability stats
-					checker.durabilityStats.remoteFilesChecked = 0
-					checker.durabilityStats.remoteSegmentsChecked = 0
-					checker.durabilityStats.remoteSegmentsNeedingRepair = 0
-					checker.durabilityStats.remoteSegmentsLost = 0
-					checker.durabilityStats.remoteSegmentInfo = []string{}
+					mon.IntVal("remote_files_checked").Observe(monStats.remoteFilesChecked)
+					mon.IntVal("remote_segments_checked").Observe(monStats.remoteSegmentsChecked)
+					mon.IntVal("remote_segments_needing_repair").Observe(monStats.remoteSegmentsNeedingRepair)
+					mon.IntVal("remote_segments_lost").Observe(monStats.remoteSegmentsLost)
+					mon.IntVal("remote_files_lost").Observe(int64(len(monStats.remoteSegmentInfo)))
 				}
 			}()
 
@@ -152,7 +145,7 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 					return Error.New("error unmarshalling pointer %s", err)
 				}
 
-				err = checker.checkSegmentStatus(ctx, pointer, item.Key.String(), &rmtSegInfo)
+				err = checker.checkSegmentStatus(ctx, pointer, item.Key.String(), &monStats)
 				if err != nil {
 					return err
 				}
@@ -163,10 +156,6 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 	if err != nil {
 		return err
 	}
-	mon.IntVal("remote_segments_checked").Observe(rmtSegInfo.remoteSegmentsChecked)
-	mon.IntVal("remote_segments_needing_repair").Observe(rmtSegInfo.remoteSegmentsNeedingRepair)
-	mon.IntVal("remote_segments_lost").Observe(rmtSegInfo.remoteSegmentsLost)
-	mon.IntVal("remote_files_lost").Observe(int64(len(rmtSegInfo.remoteSegmentInfo)))
 
 	return nil
 }
@@ -181,11 +170,12 @@ func contains(a []string, x string) bool {
 	return false
 }
 
-func (checker *Checker) checkSegmentStatus(ctx context.Context, pointer *pb.Pointer, path string, rmtSegInfo *remoteSegmentInfo) (err error) {
+func (checker *Checker) checkSegmentStatus(ctx context.Context, pointer *pb.Pointer, path string, monStats *durabilityStats) (err error) {
 	remote := pointer.GetRemote()
 	if remote == nil {
 		return nil
 	}
+
 	pieces := remote.GetRemotePieces()
 	if pieces == nil {
 		checker.logger.Debug("no pieces on remote segment")
@@ -197,7 +187,12 @@ func (checker *Checker) checkSegmentStatus(ctx context.Context, pointer *pb.Poin
 		return Error.New("error getting missing pieces %s", err)
 	}
 
-	rmtSegInfo.remoteSegmentsChecked++
+	monStats.remoteSegmentsChecked++
+	pathElements := storj.SplitPath(path)
+	if len(pathElements) >= 2 && pathElements[1] == "l" {
+		monStats.remoteFilesChecked++
+	}
+
 	numHealthy := int32(len(pieces) - len(missingPieces))
 	redundancy := pointer.Remote.Redundancy
 	// we repair when the number of healthy files is less than or equal to the repair threshold
@@ -207,9 +202,7 @@ func (checker *Checker) checkSegmentStatus(ctx context.Context, pointer *pb.Poin
 			checker.logger.Warn("Missing pieces is zero in checker, but this should be impossible -- bad redundancy scheme.")
 			return nil
 		}
-
-		// segment needs repair
-		rmtSegInfo.remoteSegmentsNeedingRepair++
+		monStats.remoteSegmentsNeedingRepair++
 		err = checker.repairQueue.Insert(ctx, &pb.InjuredSegment{
 			Path:       path,
 			LostPieces: missingPieces,
@@ -226,19 +219,18 @@ func (checker *Checker) checkSegmentStatus(ctx context.Context, pointer *pb.Poin
 			}
 		}
 	} else if numHealthy < redundancy.MinReq {
-		pathElements := storj.SplitPath(path)
 		// check to make sure there are at least *4* path elements. the first three
 		// are project, segment, and bucket name, but we want to make sure we're talking
 		// about an actual object, and that there's an object name specified
 		if len(pathElements) >= 4 {
 			project, bucketName, segmentpath := pathElements[0], pathElements[2], pathElements[3]
 			lostSegInfo := storj.JoinPaths(project, bucketName, segmentpath)
-			if contains(rmtSegInfo.remoteSegmentInfo, lostSegInfo) == false {
-				rmtSegInfo.remoteSegmentInfo = append(rmtSegInfo.remoteSegmentInfo, lostSegInfo)
+			if contains(monStats.remoteSegmentInfo, lostSegInfo) == false {
+				monStats.remoteSegmentInfo = append(monStats.remoteSegmentInfo, lostSegInfo)
 			}
 		}
 
-		rmtSegInfo.remoteSegmentsLost++
+		monStats.remoteSegmentsLost++
 		// make an entry in to the irreparable table
 		segmentInfo := &pb.IrreparableSegment{
 			Path:               []byte(path),
@@ -263,7 +255,7 @@ func (checker *Checker) irrepairProcess(ctx context.Context) (err error) {
 
 	limit := 1
 	var offset int64
-	var rmtSegInfo remoteSegmentInfo
+	var monStats durabilityStats
 
 	for {
 		seg, err := checker.irrdb.GetLimited(ctx, limit, offset)
@@ -276,17 +268,18 @@ func (checker *Checker) irrepairProcess(ctx context.Context) (err error) {
 			break
 		}
 
-		err = checker.checkSegmentStatus(ctx, seg[0].GetSegmentDetail(), string(seg[0].GetPath()), &rmtSegInfo)
+		err = checker.checkSegmentStatus(ctx, seg[0].GetSegmentDetail(), string(seg[0].GetPath()), &monStats)
 		if err != nil {
 			zap.L().Error("repair failed", zap.Error(err))
 		}
 		offset++
 	}
-
-	mon.IntVal("irreparable_segments_checked").Observe(rmtSegInfo.remoteSegmentsChecked)
-	mon.IntVal("irreparable_segments_needing_repair").Observe(rmtSegInfo.remoteSegmentsNeedingRepair)
-	mon.IntVal("irreparable_segments_lost").Observe(rmtSegInfo.remoteSegmentsLost)
-	mon.IntVal("irreparable_files_lost").Observe(int64(len(rmtSegInfo.remoteSegmentInfo)))
+	// send durability stats
+	mon.IntVal("remote_files_checked").Observe(monStats.remoteFilesChecked)
+	mon.IntVal("remote_segments_checked").Observe(monStats.remoteSegmentsChecked)
+	mon.IntVal("remote_segments_needing_repair").Observe(monStats.remoteSegmentsNeedingRepair)
+	mon.IntVal("remote_segments_lost").Observe(monStats.remoteSegmentsLost)
+	mon.IntVal("remote_files_lost").Observe(int64(len(monStats.remoteSegmentInfo)))
 
 	return nil
 }
