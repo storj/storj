@@ -379,7 +379,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					}
 
 					return createAPIKey{
-						Key:     key,
+						Key:     key.Serialize(),
 						KeyInfo: info,
 					}, nil
 				},
