@@ -409,6 +409,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Orders.Service,
 			peer.Transport,
 			peer.Overlay.Service,
+			peer.DB.Containment(),
 			peer.Identity,
 		)
 		if err != nil {

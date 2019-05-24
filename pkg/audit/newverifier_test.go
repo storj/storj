@@ -66,7 +66,7 @@ func TestVerifierHappyPath(t *testing.T) {
 		verifiedNodes, err := verifier.Verify(ctx, stripe)
 		require.NoError(t, err)
 
-		require.Len(t, verifiedNodes.SuccessNodeIDs, 4)
-		require.Len(t, verifiedNodes.FailNodeIDs, 0)
+		require.Len(t, verifiedNodes.Successes, 4)
+		require.Len(t, verifiedNodes.Fails, 0)
 	})
 }
