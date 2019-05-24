@@ -115,7 +115,7 @@ func (reporter *Reporter) recordAuditFailStatus(ctx context.Context, failedAudit
 		}
 
 		// TODO(kaloyan): Perhaps, this should be executed in the same Tx as overlay.UpdateStats above
-		reporter.containment.Delete(ctx, nodeID)
+		_, err = reporter.containment.Delete(ctx, nodeID)
 		if err != nil {
 			failed = append(failed, nodeID)
 			errlist.Add(err)
@@ -158,7 +158,7 @@ func (reporter *Reporter) recordAuditSuccessStatus(ctx context.Context, successN
 		}
 
 		// TODO(kaloyan): Perhaps, this should be executed in the same Tx as overlay.UpdateStats above
-		reporter.containment.Delete(ctx, nodeID)
+		_, err = reporter.containment.Delete(ctx, nodeID)
 		if err != nil {
 			failed = append(failed, nodeID)
 			errlist.Add(err)
@@ -193,7 +193,7 @@ func (reporter *Reporter) recordPendingAudits(ctx context.Context, pendingAudits
 			}
 	
 			// TODO(kaloyan): Perhaps, this should be executed in the same Tx as overlay.UpdateStats above
-			reporter.containment.Delete(ctx, pendingAudit.NodeID)
+			_, err = reporter.containment.Delete(ctx, pendingAudit.NodeID)
 			if err != nil {
 				failed = append(failed, pendingAudit)
 				errlist.Add(err)
