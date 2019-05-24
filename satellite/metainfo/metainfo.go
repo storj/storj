@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/accounting/live"
+	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
@@ -48,6 +50,7 @@ type Endpoint struct {
 	metainfo                *Service
 	orders                  *orders.Service
 	cache                   *overlay.Cache
+	containment             *audit.Containment
 	apiKeys                 APIKeys
 	storagenodeAccountingDB accounting.StoragenodeAccounting
 	projectAccountingDB     accounting.ProjectAccounting
@@ -377,6 +380,7 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 	}
 
 	err = endpoint.metainfo.Delete(path)
+
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
@@ -385,6 +389,10 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 		uplinkIdentity, err := identity.PeerIdentityFromContext(ctx)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
+		}
+
+		for _, piece := range pointer.GetRemote().GetRemotePieces() {
+			containment.Delete(ctx, piece.NodeId)
 		}
 
 		bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
