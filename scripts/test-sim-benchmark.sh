@@ -11,6 +11,7 @@ set -ueo pipefail
 SATELLITE_0_ADDR=${SATELLITE_0_ADDR:-127.0.0.1}
 
 apiKey=$(storj-sim network env GATEWAY_0_API_KEY)
+export apiKey=$(storj-sim network env GATEWAY_0_API_KEY)
 echo "apiKey:"
 echo "$apiKey"
 
