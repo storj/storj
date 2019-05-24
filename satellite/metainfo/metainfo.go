@@ -396,7 +396,10 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 		}
 
 		for _, piece := range pointer.GetRemote().GetRemotePieces() {
-			endpoint.containment.Delete(ctx, piece.NodeId)
+			_, err := endpoint.containment.Delete(ctx, piece.NodeId)
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, err.Error())
+			}
 		}
 
 		bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
