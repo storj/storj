@@ -16,23 +16,23 @@ import (
 
 //export ParseAPIKey
 // ParseAPIKey parses an API Key
-func ParseAPIKey(val *C.char, cErr **C.char) (cApiKey C.APIKeyRef) {
+func ParseAPIKey(val *C.char, cErr **C.char) (cApiKey C.APIKeyRef_t) {
 	goApiKeyStruct, err := uplink.ParseAPIKey(C.GoString(val))
 	if err != nil {
 		*cErr = C.CString(err.Error())
 		return cApiKey
 	}
 
-	return C.APIKeyRef(structRefMap.Add(goApiKeyStruct))
+	return C.APIKeyRef_t(structRefMap.Add(goApiKeyStruct))
 }
 
 //export Serialize
 // Serialize serializes the API Key to a string
-func Serialize(CApiKey C.APIKeyRef) *C.char {
-	goApiKeyStruct, ok := structRefMap.Get(token(CApiKey)).(uplink.APIKey)
+func Serialize(cApiKey C.APIKeyRef_t) *C.char {
+	goApiKey, ok := structRefMap.Get(token(cApiKey)).(uplink.APIKey)
 	if !ok {
 		return C.CString("")
 	}
 
-	return C.CString(goApiKeyStruct.Serialize())
+	return C.CString(goApiKey.Serialize())
 }

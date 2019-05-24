@@ -24,10 +24,6 @@ message UplinkConfig {
     int64 max_memory = 5;
 }
 
-message ProjectOptions {
-    bytes encryption_key = 1;
-}
-
 message EncryptionParameters {
     uint32 cipher_suite = 1;
     int32 block_size = 2;
@@ -44,16 +40,14 @@ message RedundancyScheme {
 
 message BucketConfig {
     EncryptionParameters encryption_parameters = 1;
-    RedundancyScheme redundancy_scheme = 2;
     uint32 path_cipher = 3;
-    int64 segment_size = 4;
 }
 
 message Bucket {
     EncryptionParameters encryption_parameters = 1;
     RedundancyScheme redundancy_scheme = 2;
 	string name = 3;
-	uint64 created = 4;
+	int64 created = 4;
     uint32 path_cipher = 5;
     int64 segment_size = 6;
 }

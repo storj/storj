@@ -29,27 +29,7 @@ typedef struct { const char *p; ptrdiff_t n; } _GoString_;
 
 #line 1 "cgo-generated-wrapper"
 
-#line 6 "c_to_go.go"
-
- #include <stdlib.h>
- #ifndef STORJ_HEADERS
-   #define STORJ_HEADERS
-   #include "c/headers/main.h"
- #endif
-
-#line 1 "cgo-generated-wrapper"
-
 #line 6 "common.go"
-
- #include <stdlib.h>
- #ifndef STORJ_HEADERS
-   #define STORJ_HEADERS
-   #include "c/headers/main.h"
- #endif
-
-#line 1 "cgo-generated-wrapper"
-
-#line 6 "go_to_c.go"
 
  #include <stdlib.h>
  #ifndef STORJ_HEADERS
@@ -128,29 +108,19 @@ extern "C" {
 
 // ParseAPIKey parses an API Key
 
-extern gvProjectOptions ParseAPIKey(char* p0, char** p1);
+extern APIKeyRef_t ParseAPIKey(char* p0, char** p1);
 
 // Serialize serializes the API Key to a string
 
-extern char* Serialize(APIKeyRef p0);
+extern char* Serialize(APIKeyRef_t p0);
 
-// SendToGo takes a GoValue containing a serialized protobuf snapshot and deserializes
-// it into a struct in go memory. Then that struct is put in the struct reference map
-// and the GoValue ptr field is updated accordingly.
+extern IDVersion_t GetIDVersion(unsigned int p0, char** p1);
 
-extern void SendToGo(gvProjectOptions* p0, char** p1);
+extern Bucket_t CreateBucket(ProjectRef_t p0, char* p1, BucketConfig_t p2, char** p3);
 
-extern gvProjectOptions GetIDVersion(unsigned int p0, char** p1);
+extern UplinkRef_t NewUplink(char** p0);
 
-// GetSnapshot will take a C GoValue struct that was created in go and populate the snapshot
-
-extern void CGetSnapshot(gvProjectOptions* p0, char** p1);
-
-extern gvProjectOptions CreateBucket(ProjectRef p0, char* p1, BucketConfigRef p2, char** p3);
-
-extern UplinkRef NewUplink(UplinkConfigRef p0, char** p1);
-
-extern ProjectRef OpenProject(UplinkRef p0, char* p1, APIKeyRef p2, gvProjectOptions p3, char** p4);
+extern ProjectRef_t OpenProject(UplinkRef_t p0, char* p1, APIKeyRef_t p2, char** p3);
 
 #ifdef __cplusplus
 }

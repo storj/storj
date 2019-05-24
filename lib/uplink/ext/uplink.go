@@ -20,18 +20,18 @@ import (
 var mon = monkit.Package()
 
 //export NewUplink
-func NewUplink(cErr **C.char) (cUplink C.UplinkRef) {
+func NewUplink(cErr **C.char) (cUplink C.UplinkRef_t) {
 	goUplink, err := uplink.NewUplink(context.Background(), &uplink.Config{})
 	if err != nil {
 		*cErr = C.CString(err.Error())
 		return cUplink
 	}
 
-	return C.UplinkRef(structRefMap.Add(goUplink))
+	return C.UplinkRef_t(structRefMap.Add(goUplink))
 }
 
 //export OpenProject
-func OpenProject(cUplink C.UplinkRef, satelliteAddr *C.char, cAPIKey C.APIKeyRef, cOpts C.gvProjectOptions, cErr **C.char) (cProject C.ProjectRef) {
+func OpenProject(cUplink C.UplinkRef_t, satelliteAddr *C.char, cAPIKey C.APIKeyRef_t, cErr **C.char) (cProject C.ProjectRef_t) {
 	var err error
 	ctx := context.Background()
 	defer mon.Task()(&ctx)(&err)
@@ -42,18 +42,17 @@ func OpenProject(cUplink C.UplinkRef, satelliteAddr *C.char, cAPIKey C.APIKeyRef
 		return cProject
 	}
 
-	opts := new(uplink.ProjectOptions)
-
 	apiKey, ok := structRefMap.Get(token(cAPIKey)).(uplink.APIKey)
 	if !ok {
 		*cErr = C.CString("invalid API Key")
 		return cProject
 	}
 
-	project, err := goUplink.OpenProject(ctx, C.GoString(satelliteAddr), apiKey, opts)
+	// TODO: add project options argument
+	project, err := goUplink.OpenProject(ctx, C.GoString(satelliteAddr), apiKey, nil)
 	if err != nil {
 		*cErr = C.CString(err.Error())
 		return cProject
 	}
-	return C.ProjectRef(structRefMap.Add(project))
+	return C.ProjectRef_t(structRefMap.Add(project))
 }

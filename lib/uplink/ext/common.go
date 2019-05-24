@@ -14,26 +14,17 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-var (
-	structRefMap = newMapping()
-)
-
-//CMalloc allocates C memory
-func CMalloc(size uintptr) uintptr {
-	CMem := C.malloc(C.ulong(size))
-	return uintptr(CMem)
-}
+var structRefMap = newMapping()
 
 //export GetIDVersion
-func GetIDVersion(number C.uint, cErr **C.char) (cIDVersion C.gvIDVersion) {
+func GetIDVersion(number C.uint, cErr **C.char) (cIDVersion C.IDVersion_t) {
 	goIDVersion, err := storj.GetIDVersion(storj.IDVersionNumber(number))
 	if err != nil {
 		*cErr = C.CString(err.Error())
 		return cIDVersion
 	}
 
-	return C.gvIDVersion{
-		Ptr:  C.IDVersionRef(structRefMap.Add(goIDVersion)),
-		Type: C.IDVersionType,
+	return C.IDVersion_t{
+		number: C.uint32_t(goIDVersion.Number),
 	}
 }

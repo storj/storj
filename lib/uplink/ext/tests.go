@@ -10,25 +10,12 @@ package main
 
 import "storj.io/storj/lib/uplink/ext/testing"
 
-type simple struct {
-	Str1  string
-	Int2  int
-	Uint3 uint
-}
-
-type nested struct {
-	Simple simple
-	Int4   int
-}
-
 var AllTests testing.Tests
 
 func init() {
 	AllTests.Register(
 		testing.NewTest("TestMapping_Add", TestMapping_Add),
 		testing.NewTest("TestMapping_Get", TestMapping_Get),
-		//testing.NewTest("TestSendToGo_success", TestSendToGo_success),
-		//testing.NewTest("TestSendToGo_error", TestSendToGo_error),
 	)
 }
 

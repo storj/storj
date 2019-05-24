@@ -8,40 +8,28 @@
 #include "unity.h"
 #include "../../uplink-cgo.h"
 
-UplinkRef NewTestUplink(char **);
+UplinkRef_t NewTestUplink(char **);
 
 void TestCreateBucket(void)
 {
     char *_err = "";
     char **err = &_err;
-    char *satelliteAddr = getenv("SATELLITEADDR");
-    gvAPIKey apiKey = ParseAPIKey(getenv("APIKEY"), err);
+    char *satellite_addr = getenv("SATELLITEADDR");
+    APIKeyRef_t ref_apikey = ParseAPIKey(getenv("APIKEY"), err);
 
-    pbProjectOptions projectOpts = STORJ__LIBUPLINK__PROJECT_OPTIONS__INIT;
-    // NB: empty encryption key
-    uint8_t encryptionKey[32];
-    memset(encryptionKey, '\0', sizeof(encryptionKey));
-    projectOpts.encryption_key.data = encryptionKey;
-    projectOpts.encryption_key.len = sizeof(encryptionKey);
+    UplinkRef_t ref_uplink = NewUplink(err);
+    TEST_ASSERT_EQUAL_STRING("", *err);
+    TEST_ASSERT_NOT_EQUAL(0, ref_uplink);
 
-    gvProjectOptions *optsValue = malloc(sizeof(gvProjectOptions));
-    optsValue->Type = ProjectOptionsType;
-    protoToGoValue(&projectOpts, optsValue, err);
+    ProjectRef_t ref_project = OpenProject(ref_uplink, satellite_addr, ref_apikey, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
-    UplinkRef uplinkRef = NewTestUplink(err);
-    TEST_ASSERT_EQUAL_STRING("", *err);
-    TEST_ASSERT_NOT_EQUAL(0, uplinkRef);
-
-    ProjectRef projectRef = OpenProject(uplinkRef, satelliteAddr, apiKey.Ptr, *optsValue, err);
-    TEST_ASSERT_EQUAL_STRING("", *err);
-
-    pbEncryptionParameters encParam = STORJ__LIBUPLINK__ENCRYPTION_PARAMETERS__INIT;
-    encParam.cipher_suite = 0;
-    encParam.block_size = 1024;
+    EncryptionParameters_t enc_param = STORJ__LIBUPLINK__ENCRYPTION_PARAMETERS__INIT;
+    enc_param.cipher_suite = 0;
+    enc_param.block_size = 1024;
 
     // NB: dev defaults (maybe factor out into a lib helper)
-    pbRedundancyScheme scheme = STORJ__LIBUPLINK__REDUNDANCY_SCHEME__INIT;
+    RedundancyScheme_t scheme = STORJ__LIBUPLINK__REDUNDANCY_SCHEME__INIT;
     scheme.algorithm = 1;
     scheme.share_size = 1024;
     scheme.required_shares = 4;
@@ -49,24 +37,14 @@ void TestCreateBucket(void)
     scheme.optimal_shares = 8;
     scheme.total_shares = 10;
 
-    pbBucketConfig bucket_cfg = STORJ__LIBUPLINK__BUCKET_CONFIG__INIT;
+    BucketConfig_t bucket_cfg = STORJ__LIBUPLINK__BUCKET_CONFIG__INIT;
     bucket_cfg.path_cipher = 0;
-    bucket_cfg.encryption_parameters = &encParam;
-    bucket_cfg.redundancy_scheme = &scheme;
-    bucket_cfg.segment_size = 1024;
-
-    gvBucketConfig *gv_bucket_cfg = malloc(sizeof(gvBucketConfig));
-    gv_bucket_cfg->Type = BucketConfigType;
-    protoToGoValue(&bucket_cfg, gv_bucket_cfg, err);
-    TEST_ASSERT_EQUAL_STRING("", *err);
+    bucket_cfg.encryption_parameters = &enc_param;
 
     char *bucket_name = "testbucket";
 
-    gvBucket bucketValue = CreateBucket(projectRef, bucket_name, gv_bucket_cfg->Ptr, err);
+    Bucket_t bucket = CreateBucket(ref_project, bucket_name, bucket_cfg, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
-    pbBucket *bucket = (pbBucket *)(get_snapshot(&bucketValue, err));
-    TEST_ASSERT_EQUAL_STRING("", *err);
-
-//    TEST_ASSERT_EQUAL_STRING(bucket_name, bucket->name);
+    TEST_ASSERT_EQUAL_STRING(bucket_name, bucket.name);
 }

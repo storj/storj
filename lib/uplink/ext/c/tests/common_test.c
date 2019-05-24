@@ -10,22 +10,22 @@ void TestGetIDVersion(void)
 {
     char *_err = "";
     char **err = &_err;
-    uint8_t idVersionNumber = 0;
+    uint8_t id_version_number = 0;
 
-    pbIDVersion idVersion = GetIDVersion(idVersionNumber, err);
+    IDVersion_t id_version = GetIDVersion(id_version_number, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
-    TEST_ASSERT_EQUAL(0, idVersion->number);
+    TEST_ASSERT_EQUAL(0, id_version.number);
 }
 
 void TestAPIKey(void)
 {
     char *_err = "";
     char **err = &_err;
-    char *keyStr = "HiBryanIDidIt";
-    gvAPIKey apikey = ParseAPIKey(keyStr, err);
-    char *resultKey = Serialize(apikey.Ptr);
+    char *key_str = "test apikey";
+    APIKeyRef_t ref_apikey = ParseAPIKey(key_str, err);
+    char *result_key = Serialize(ref_apikey);
 
     TEST_ASSERT_EQUAL_STRING("", *err);
-    TEST_ASSERT_EQUAL_STRING(keyStr, resultKey);
+    TEST_ASSERT_EQUAL_STRING(key_str, result_key);
 }
