@@ -44,6 +44,26 @@ func TestUploadDownload(t *testing.T) {
 	})
 }
 
+func TestMultipleUploadDownload(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		for index := 0; index < 10; index++ {
+			expectedData := make([]byte, 50*memory.KiB)
+			_, err := rand.Read(expectedData)
+			require.NoError(t, err)
+
+			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
+			require.NoError(t, err)
+
+			data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path")
+			require.NoError(t, err)
+
+			require.Equal(t, expectedData, data)
+		}
+	})
+}
+
 func TestDownloadWithSomeNodesOffline(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
