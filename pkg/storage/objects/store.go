@@ -69,7 +69,7 @@ func (o *objStore) Meta(ctx context.Context, path storj.Path) (meta Meta, err er
 		err = storj.ErrObjectNotFound.Wrap(err)
 	}
 
-	return convertMeta(m), err
+	return ConvertMeta(m), err
 }
 
 func (o *objStore) Get(ctx context.Context, path storj.Path) (
@@ -86,7 +86,7 @@ func (o *objStore) Get(ctx context.Context, path storj.Path) (
 		err = storj.ErrObjectNotFound.Wrap(err)
 	}
 
-	return rr, convertMeta(m), err
+	return rr, ConvertMeta(m), err
 }
 
 func (o *objStore) Put(ctx context.Context, path storj.Path, data io.Reader, metadata pb.SerializableMeta, expiration time.Time) (meta Meta, err error) {
@@ -104,7 +104,7 @@ func (o *objStore) Put(ctx context.Context, path storj.Path, data io.Reader, met
 		return Meta{}, err
 	}
 	m, err := o.store.Put(ctx, path, o.pathCipher, data, b, expiration)
-	return convertMeta(m), err
+	return ConvertMeta(m), err
 }
 
 func (o *objStore) Delete(ctx context.Context, path storj.Path) (err error) {
@@ -136,7 +136,7 @@ func (o *objStore) List(ctx context.Context, prefix, startAfter, endBefore storj
 	for i, itm := range strItems {
 		items[i] = ListItem{
 			Path:     itm.Path,
-			Meta:     convertMeta(itm.Meta),
+			Meta:     ConvertMeta(itm.Meta),
 			IsPrefix: itm.IsPrefix,
 		}
 	}
@@ -144,8 +144,8 @@ func (o *objStore) List(ctx context.Context, prefix, startAfter, endBefore storj
 	return items, more, nil
 }
 
-// convertMeta converts stream metadata to object metadata
-func convertMeta(m streams.Meta) Meta {
+// ConvertMeta converts stream metadata to object metadata
+func ConvertMeta(m streams.Meta) Meta {
 	ser := pb.SerializableMeta{}
 	err := proto.Unmarshal(m.Data, &ser)
 	if err != nil {

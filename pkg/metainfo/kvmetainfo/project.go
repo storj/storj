@@ -11,17 +11,17 @@ import (
 // Project implements project management operations
 type Project struct {
 	buckets            buckets.Store
-	encryptedBlockSize int32
-	redundancy         eestream.RedundancyStrategy
-	segmentsSize       int64
+	// encryptedBlockSize int32
+	// redundancy         eestream.RedundancyStrategy
+	// segmentsSize       int64
 }
 
 // NewProject constructs a *Project
 func NewProject(buckets buckets.Store) *Project {
 	return &Project{
 		buckets:            buckets,
-		encryptedBlockSize: encryptedBlockSize,
-		redundancy:         redundancy,
-		segmentsSize:       segmentsSize,
+		// encryptedBlockSize: encryptedBlockSize,
+		// redundancy:         redundancy,
+		// segmentsSize:       segmentsSize,
 	}
 }

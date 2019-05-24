@@ -75,7 +75,7 @@ func NewSegmentStore(metainfo metainfo.Client, ec ecclient.Client, rs eestream.R
 func (s *segmentStore) Meta(ctx context.Context, path storj.Path) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	bucket, objectPath, segmentIndex, err := splitPathFragments(path)
+	bucket, objectPath, segmentIndex, err := SplitPathFragments(path)
 	if err != nil {
 		return Meta{}, err
 	}
@@ -85,7 +85,7 @@ func (s *segmentStore) Meta(ctx context.Context, path storj.Path) (meta Meta, er
 		return Meta{}, Error.Wrap(err)
 	}
 
-	return convertMeta(pointer), nil
+	return ConvertMeta(pointer), nil
 }
 
 // Put uploads a segment to an erasure code client
@@ -138,7 +138,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
-		bucket, _, _, err := splitPathFragments(p)
+		bucket, _, _, err := SplitPathFragments(p)
 		if err != nil {
 			return Meta{}, err
 		}
@@ -173,7 +173,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		}
 	}
 
-	bucket, objectPath, segmentIndex, err := splitPathFragments(path)
+	bucket, objectPath, segmentIndex, err := SplitPathFragments(path)
 	if err != nil {
 		return Meta{}, err
 	}
@@ -183,14 +183,14 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		return Meta{}, Error.Wrap(err)
 	}
 
-	return convertMeta(savedPointer), nil
+	return ConvertMeta(savedPointer), nil
 }
 
 // Get requests the satellite to read a segment and downloaded the pieces from the storage nodes
 func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Ranger, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	bucket, objectPath, segmentIndex, err := splitPathFragments(path)
+	bucket, objectPath, segmentIndex, err := SplitPathFragments(path)
 	if err != nil {
 		return nil, Meta{}, err
 	}
@@ -202,7 +202,7 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 
 	switch pointer.GetType() {
 	case pb.Pointer_INLINE:
-		return ranger.ByteRanger(pointer.InlineSegment), convertMeta(pointer), nil
+		return ranger.ByteRanger(pointer.InlineSegment), ConvertMeta(pointer), nil
 	case pb.Pointer_REMOTE:
 		needed := CalcNeededNodes(pointer.GetRemote().GetRedundancy())
 		selected := make([]*pb.AddressedOrderLimit, len(limits))
@@ -231,7 +231,7 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 			return nil, Meta{}, Error.Wrap(err)
 		}
 
-		return rr, convertMeta(pointer), nil
+		return rr, ConvertMeta(pointer), nil
 	default:
 		return nil, Meta{}, Error.New("unsupported pointer type: %d", pointer.GetType())
 	}
@@ -281,7 +281,7 @@ func makeRemotePointer(nodes []*pb.Node, hashes []*pb.PieceHash, rs eestream.Red
 func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	bucket, objectPath, segmentIndex, err := splitPathFragments(path)
+	bucket, objectPath, segmentIndex, err := SplitPathFragments(path)
 	if err != nil {
 		return err
 	}
@@ -309,7 +309,7 @@ func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) 
 func (s *segmentStore) List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	bucket, strippedPrefix, _, err := splitPathFragments(prefix)
+	bucket, strippedPrefix, _, err := SplitPathFragments(prefix)
 	if err != nil {
 		return nil, false, Error.Wrap(err)
 	}
@@ -323,7 +323,7 @@ func (s *segmentStore) List(ctx context.Context, prefix, startAfter, endBefore s
 	for i, itm := range list {
 		items[i] = ListItem{
 			Path:     itm.Path,
-			Meta:     convertMeta(itm.Pointer),
+			Meta:     ConvertMeta(itm.Pointer),
 			IsPrefix: itm.IsPrefix,
 		}
 	}
@@ -353,8 +353,8 @@ func CalcNeededNodes(rs *pb.RedundancyScheme) int32 {
 	return needed
 }
 
-// convertMeta converts pointer to segment metadata
-func convertMeta(pr *pb.Pointer) Meta {
+// ConvertMeta converts pointer to segment metadata
+func ConvertMeta(pr *pb.Pointer) Meta {
 	return Meta{
 		Modified:   convertTime(pr.GetCreationDate()),
 		Expiration: convertTime(pr.GetExpirationDate()),
@@ -375,7 +375,8 @@ func convertTime(ts *timestamp.Timestamp) time.Time {
 	return t
 }
 
-func splitPathFragments(path storj.Path) (bucket string, objectPath storj.Path, segmentIndex int64, err error) {
+// SplitPathFragments ...
+func SplitPathFragments(path storj.Path) (bucket string, objectPath storj.Path, segmentIndex int64, err error) {
 	components := storj.SplitPath(path)
 	if len(components) < 1 {
 		return "", "", -2, Error.New("empty path")
@@ -393,6 +394,7 @@ func splitPathFragments(path storj.Path) (bucket string, objectPath storj.Path, 
 
 	return bucket, objectPath, segmentIndex, nil
 }
+
 
 func convertSegmentIndex(segmentComp string) (segmentIndex int64, err error) {
 	switch {

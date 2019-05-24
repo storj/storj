@@ -38,8 +38,8 @@ type Meta struct {
 	Data       []byte
 }
 
-// convertMeta converts segment metadata to stream metadata
-func convertMeta(lastSegmentMeta segments.Meta, stream pb.StreamInfo, streamMeta pb.StreamMeta) Meta {
+// ConvertMeta converts segment metadata to stream metadata
+func ConvertMeta(lastSegmentMeta segments.Meta, stream pb.StreamInfo, streamMeta pb.StreamMeta) Meta {
 	return Meta{
 		Modified:   lastSegmentMeta.Modified,
 		Expiration: lastSegmentMeta.Expiration,
@@ -356,7 +356,7 @@ func (s *streamStore) Get(ctx context.Context, path storj.Path, pathCipher storj
 
 	rangers = append(rangers, decryptedLastSegmentRanger)
 	catRangers := ranger.Concat(rangers...)
-	meta = convertMeta(lastSegmentMeta, stream, streamMeta)
+	meta = ConvertMeta(lastSegmentMeta, stream, streamMeta)
 	return catRangers, meta, nil
 }
 
@@ -383,7 +383,7 @@ func (s *streamStore) Meta(ctx context.Context, path storj.Path, pathCipher stor
 		return Meta{}, err
 	}
 
-	return convertMeta(lastSegmentMeta, stream, streamMeta), nil
+	return ConvertMeta(lastSegmentMeta, stream, streamMeta), nil
 }
 
 // Delete all the segments, with the last one last
@@ -483,7 +483,7 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore st
 			return nil, false, err
 		}
 
-		newMeta := convertMeta(item.Meta, stream, streamMeta)
+		newMeta := ConvertMeta(item.Meta, stream, streamMeta)
 		items[i] = ListItem{Path: path, Meta: newMeta, IsPrefix: item.IsPrefix}
 	}
 
