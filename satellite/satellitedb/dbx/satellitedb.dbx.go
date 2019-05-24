@@ -3086,6 +3086,7 @@ func (Project) _Table() string { return "projects" }
 
 type Project_Update_Fields struct {
 	Description Project_Description_Field
+	UsageLimit  Project_UsageLimit_Field
 }
 
 type Project_Id_Field struct {
@@ -6328,6 +6329,11 @@ func (obj *postgresImpl) Update_Project_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("description = ?"))
 	}
 
+	if update.UsageLimit._set {
+		__values = append(__values, update.UsageLimit.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("usage_limit = ?"))
+	}
+
 	if len(__sets_sql.SQLs) == 0 {
 		return nil, emptyUpdate()
 	}
@@ -9302,6 +9308,11 @@ func (obj *sqlite3Impl) Update_Project_By_Id(ctx context.Context,
 	if update.Description._set {
 		__values = append(__values, update.Description.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("description = ?"))
+	}
+
+	if update.UsageLimit._set {
+		__values = append(__values, update.UsageLimit.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("usage_limit = ?"))
 	}
 
 	if len(__sets_sql.SQLs) == 0 {

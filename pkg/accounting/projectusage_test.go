@@ -43,8 +43,8 @@ func TestProjectUsageStorage(t *testing.T) {
 
 		// Setup: create a new project to use the projectID
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
-		projectID := projects[0].ID
 		require.NoError(t, err)
+		projectID := projects[0].ID
 
 		projectUsage := planet.Satellites[0].Metainfo.ProjectUsage
 
@@ -58,7 +58,7 @@ func TestProjectUsageStorage(t *testing.T) {
 					require.NoError(t, err)
 				}
 
-				actualExceeded, _, err := projectUsage.ExceedsStorageUsage(ctx, projectID) //accounting.ExceedsAlphaUsage(0, inlineTotal, remoteTotal, maxAlphaUsage)
+				actualExceeded, _, err := projectUsage.ExceedsStorageUsage(ctx, projectID)
 				require.NoError(t, err)
 				require.Equal(t, tt.expectedExceeded, actualExceeded)
 
@@ -99,8 +99,8 @@ func TestProjectUsageBandwidth(t *testing.T) {
 
 		// Setup: get projectID and create bucketID
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
-		projectID := projects[0].ID
 		require.NoError(t, err)
+		projectID := projects[0].ID
 		bucketName := "testbucket"
 		bucketID := createBucketID(projectID, []byte(bucketName))
 
@@ -123,7 +123,7 @@ func TestProjectUsageBandwidth(t *testing.T) {
 				err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, "test/path", expectedData)
 				require.NoError(t, err)
 
-				actualExceeded, _, err := projectUsage.ExceedsBandwidthUsage(ctx, projectID, bucketID) //accounting.ExceedsAlphaUsage(bandwidthTotal, 0, 0, maxAlphaUsage)
+				actualExceeded, _, err := projectUsage.ExceedsBandwidthUsage(ctx, projectID, bucketID)
 				require.NoError(t, err)
 				require.Equal(t, tt.expectedExceeded, actualExceeded)
 
@@ -253,4 +253,44 @@ func setUpBucketBandwidthAllocations(ctx *testcontext.Context, projectID uuid.UU
 		}
 	}
 	return nil
+}
+
+func TestProjectUsageCustomLimit(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satDB := planet.Satellites[0].DB
+		acctDB := satDB.ProjectAccounting()
+
+		projectsDB := satDB.Console().Projects()
+		projects, err := projectsDB.GetAll(ctx)
+		require.NoError(t, err)
+
+		project := projects[0]
+		// set custom usage limit for project
+		project.UsageLimit = memory.GiB.Int64() * 10
+		err = projectsDB.Update(ctx, &project)
+		require.NoError(t, err)
+
+		projectUsage := planet.Satellites[0].Metainfo.ProjectUsage
+
+		// Setup: create BucketStorageTally records to test exceeding storage project limit
+		now := time.Now()
+		err = setUpStorageTallies(ctx, project.ID, acctDB, now)
+		require.NoError(t, err)
+
+		actualExceeded, limit, err := projectUsage.ExceedsStorageUsage(ctx, project.ID)
+		require.NoError(t, err)
+		require.True(t, actualExceeded)
+		require.Equal(t, project.UsageLimit, limit.Int64())
+
+		// Setup: create some bytes for the uplink to upload
+		expectedData := make([]byte, 50*memory.KiB)
+		_, err = rand.Read(expectedData)
+		require.NoError(t, err)
+
+		// Execute test: check that the uplink gets an error when they have exceeded storage limits and try to upload a file
+		actualErr := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
+		assert.Error(t, actualErr)
+	})
 }
