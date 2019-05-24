@@ -108,7 +108,7 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe) (verifiedN
 	if len(sharesToAudit) < required {
 		return &Report{
 			Offlines: offlineNodes,
-		}, ErrNOtEnoughShares.New("got %d, required %d", len(sharesToAudit), required)
+		}, ErrNotEnoughShares.New("got %d, required %d", len(sharesToAudit), required)
 	}
 
 	pieceNums, correctedShares, err := auditShares(ctx, required, total, sharesToAudit)
