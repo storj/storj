@@ -56,6 +56,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 	}
 
 	mon.Meter("repair_attempts").Mark(1)
+	mon.IntVal("repair_segment_size").Observe(pointer.GetSegmentSize())
 
 	redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
 	if err != nil {
