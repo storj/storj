@@ -23,17 +23,19 @@ import (
 	"storj.io/storj/uplink"
 )
 
-// This is a bulky test but all it's doing is:
-// - uploading random data
-// - using the cursor to get a stripe
-// - creating pending audits for all nodes holding pieces for that stripe
-//     - the actual shares are downloaded to make sure ExpectedShareHash is correct
-// - calling reverify on that same stripe
-// - expect all six storage nodes to be marked as successes in the audit report
 func TestReverifySuccess(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+
+		// This is a bulky test but all it's doing is:
+		// - uploads random data
+		// - uses the cursor to get a stripe
+		// - creates pending audits for all nodes holding pieces for that stripe
+		//     - the actual shares are downloaded to make sure ExpectedShareHash is correct
+		// - calls reverify on that same stripe
+		// - expects all six storage nodes to be marked as successes in the audit report
+
 		err := planet.Satellites[0].Audit.Service.Close()
 		require.NoError(t, err)
 
@@ -126,6 +128,86 @@ func TestReverifySuccess(t *testing.T) {
 
 		for _, piece := range stripe.Segment.GetRemote().GetRemotePieces() {
 			require.True(t, successes[piece.NodeId.String()])
+		}
+	})
+}
+
+func TestReverifyFail(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+
+		// - uploads random data
+		// - uses the cursor to get a stripe
+		// - creates pending audits for all nodes holding pieces for that stripe
+		// - makes ExpectedShareHash have random data
+		// - calls reverify on that same stripe
+		// - expects all six storage nodes to be marked as fails in the audit report
+
+		err := planet.Satellites[0].Audit.Service.Close()
+		require.NoError(t, err)
+
+		ul := planet.Uplinks[0]
+		testData := make([]byte, 1*memory.MiB)
+		_, err = rand.Read(testData)
+		require.NoError(t, err)
+
+		err = ul.UploadWithConfig(ctx, planet.Satellites[0], &uplink.RSConfig{
+			MinThreshold:     4,
+			RepairThreshold:  5,
+			SuccessThreshold: 6,
+			MaxThreshold:     6,
+		}, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		metainfo := planet.Satellites[0].Metainfo.Service
+		cursor := audit.NewCursor(metainfo)
+
+		var stripe *audit.Stripe
+		stripe, _, err = cursor.NextStripe(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, stripe)
+
+		overlay := planet.Satellites[0].Overlay.Service
+		transport := planet.Satellites[0].Transport
+		orders := planet.Satellites[0].Orders.Service
+		containment := planet.Satellites[0].DB.Containment()
+		minBytesPerSecond := 128 * memory.B
+		reporter := audit.NewReporter(overlay, containment, 1)
+		verifier := audit.NewVerifier(zap.L(), reporter, transport, overlay, containment, orders, planet.Satellites[0].Identity, minBytesPerSecond)
+		require.NotNil(t, verifier)
+
+		for _, piece := range stripe.Segment.GetRemote().GetRemotePieces() {
+			rootPieceID := stripe.Segment.GetRemote().RootPieceId
+			redundancy := stripe.Segment.GetRemote().GetRedundancy()
+
+			randBytes := make([]byte, 10)
+			_, err := rand.Read(randBytes)
+			require.NoError(t, err)
+
+			pending := &audit.PendingAudit{
+				NodeID:            piece.NodeId,
+				PieceID:           rootPieceID,
+				StripeIndex:       stripe.Index,
+				ShareSize:         redundancy.ErasureShareSize,
+				ExpectedShareHash: pkcrypto.SHA256Hash(randBytes),
+				ReverifyCount:     0,
+			}
+
+			err = planet.Satellites[0].DB.Containment().IncrementPending(ctx, pending)
+			require.NoError(t, err)
+		}
+
+		report, err := verifier.Reverify(ctx, stripe)
+		require.NoError(t, err)
+
+		fails := make(map[string]bool)
+		for _, nodeID := range report.Fails {
+			fails[nodeID.String()] = true
+		}
+
+		for _, piece := range stripe.Segment.GetRemote().GetRemotePieces() {
+			require.True(t, fails[piece.NodeId.String()])
 		}
 	})
 }
