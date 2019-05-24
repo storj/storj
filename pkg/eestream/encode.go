@@ -131,17 +131,17 @@ func EncodeReader(ctx context.Context, r io.Reader, rs RedundancyStrategy) (_ []
 		pieces: make(map[int]*encodedPiece, rs.TotalCount()),
 	}
 
-	tempDir, ok := fpath.GetTempDir(ctx)
-	if !ok || tempDir == "" {
-		tempDir = os.TempDir()
-	}
-
 	var pipeReaders []sync2.PipeReader
 	var pipeWriter sync2.PipeWriter
-	if tempDir == "inmemory" {
-		// TODO what default for inmemory size will be enough
+
+	tempDir, inmemory, _ := fpath.GetTempData(ctx)
+	if inmemory {
+		// TODO what default inmemory size will be enough
 		pipeReaders, pipeWriter, err = sync2.NewTeeInmemory(rs.TotalCount(), memory.MiB.Int64())
 	} else {
+		if tempDir == "" {
+			tempDir = os.TempDir()
+		}
 		pipeReaders, pipeWriter, err = sync2.NewTeeFile(rs.TotalCount(), tempDir)
 	}
 	if err != nil {

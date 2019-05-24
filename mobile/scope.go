@@ -15,7 +15,12 @@ type scope struct {
 }
 
 func rootScope(tempDir string) scope {
-	ctx := fpath.WithTempDir(context.Background(), tempDir)
+	ctx := context.Background()
+	if tempDir == "inmemory" {
+		ctx = fpath.WithTempData(ctx, "", true)
+	} else {
+		ctx = fpath.WithTempData(ctx, tempDir, false)
+	}
 	ctx, cancel := context.WithCancel(ctx)
 	return scope{ctx, cancel}
 }
