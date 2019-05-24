@@ -28,12 +28,14 @@ var (
 	ErrProjectUsage = errs.Class("project usage error")
 )
 
+// ProjectUsage defines project usage
 type ProjectUsage struct {
 	projectAccountingDB ProjectAccounting
 	liveAccounting      live.Service
 	maxAlphaUsage       memory.Size
 }
 
+// NewProjectUsage created new instance of project usage service
 func NewProjectUsage(projectAccountingDB ProjectAccounting, liveAccounting live.Service, maxAlphaUsage memory.Size) *ProjectUsage {
 	return &ProjectUsage{
 		projectAccountingDB: projectAccountingDB,
@@ -43,8 +45,8 @@ func NewProjectUsage(projectAccountingDB ProjectAccounting, liveAccounting live.
 }
 
 // ExceedsBandwidthUsage returns true if the bandwidth usage limits have been exceeded
-// for a project in the past month (30 days). The usage limit is 25GB multiplied by the redundancy
-// expansion factor, so that the uplinks have a raw limit of 25GB.
+// for a project in the past month (30 days). The usage limit is (e.g 25GB) multiplied by the redundancy
+// expansion factor, so that the uplinks have a raw limit.
 // TODO(jg): remove this code once we no longer need usage limiting for alpha release
 // Ref: https://storjlabs.atlassian.net/browse/V3-1274
 func (usage *ProjectUsage) ExceedsBandwidthUsage(ctx context.Context, projectID uuid.UUID, bucketID []byte) (_ bool, limit memory.Size, err error) {
@@ -56,6 +58,7 @@ func (usage *ProjectUsage) ExceedsBandwidthUsage(ctx context.Context, projectID 
 	var bandwidthGetTotal int64
 	limit = usage.maxAlphaUsage
 	group.Go(func() error {
+		// TODO should we ignore err and use default limit?
 		projectLimit, err := usage.projectAccountingDB.GetProjectUsageLimits(ctx, projectID)
 		if projectLimit > 0 {
 			limit = projectLimit
@@ -83,8 +86,8 @@ func (usage *ProjectUsage) ExceedsBandwidthUsage(ctx context.Context, projectID 
 }
 
 // ExceedsStorageUsage returns true if the storage usage limits have been exceeded
-// for a project in the past month (30 days). The usage limit is 25GB multiplied by the redundancy
-// expansion factor, so that the uplinks have a raw limit of 25GB.
+// for a project in the past month (30 days). The usage limit is (e.g. 25GB) multiplied by the redundancy
+// expansion factor, so that the uplinks have a raw limit.
 // TODO(jg): remove this code once we no longer need usage limiting for alpha release
 // Ref: https://storjlabs.atlassian.net/browse/V3-1274
 func (usage *ProjectUsage) ExceedsStorageUsage(ctx context.Context, projectID uuid.UUID) (_ bool, limit memory.Size, err error) {
@@ -96,6 +99,7 @@ func (usage *ProjectUsage) ExceedsStorageUsage(ctx context.Context, projectID uu
 	var inlineTotal, remoteTotal int64
 	limit = usage.maxAlphaUsage
 	group.Go(func() error {
+		// TODO should we ignore err and use default limit?
 		projectLimit, err := usage.projectAccountingDB.GetProjectUsageLimits(ctx, projectID)
 		if projectLimit > 0 {
 			limit = projectLimit
