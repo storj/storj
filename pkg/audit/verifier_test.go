@@ -7,7 +7,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/vivint/infectious"
 )
 
@@ -66,7 +66,7 @@ func TestFailingAudit(t *testing.T) {
 		}
 	}
 
-	assert.Equal(t, shares, correctedShares)
+	require.Equal(t, shares, correctedShares)
 }
 
 func TestNotEnoughShares(t *testing.T) {
@@ -101,5 +101,5 @@ func TestNotEnoughShares(t *testing.T) {
 		}
 	}
 	_, _, err = auditShares(ctx, 20, 40, auditPkgShares)
-	assert.Contains(t, err.Error(), "infectious: must specify at least the number of required shares")
+	require.Contains(t, err.Error(), "infectious: must specify at least the number of required shares")
 }
