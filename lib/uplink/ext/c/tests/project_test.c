@@ -24,12 +24,12 @@ void TestCreateBucket(void)
     ProjectRef_t ref_project = OpenProject(ref_uplink, satellite_addr, ref_apikey, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
-    EncryptionParameters_t enc_param = STORJ__LIBUPLINK__ENCRYPTION_PARAMETERS__INIT;
+    EncryptionParameters_t enc_param;
     enc_param.cipher_suite = 0;
     enc_param.block_size = 1024;
 
     // NB: dev defaults (maybe factor out into a lib helper)
-    RedundancyScheme_t scheme = STORJ__LIBUPLINK__REDUNDANCY_SCHEME__INIT;
+    RedundancyScheme_t scheme;
     scheme.algorithm = 1;
     scheme.share_size = 1024;
     scheme.required_shares = 4;
@@ -37,7 +37,7 @@ void TestCreateBucket(void)
     scheme.optimal_shares = 8;
     scheme.total_shares = 10;
 
-    BucketConfig_t bucket_cfg = STORJ__LIBUPLINK__BUCKET_CONFIG__INIT;
+    BucketConfig_t bucket_cfg;
     bucket_cfg.path_cipher = 0;
     bucket_cfg.encryption_parameters = &enc_param;
 

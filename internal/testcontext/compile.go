@@ -45,7 +45,7 @@ func (ctx *Context) CompileC(srcGlobs ...string) string {
 		files = append(files, newFiles...)
 	}
 
-	cmdString := append(append([]string{"-ggdb"}, files...), "-o", exe, "-l", "protobuf-c")
+	cmdString := append(append([]string{"-ggdb"}, files...), "-o", exe)
 	cmd := exec.Command("gcc", cmdString...)
 
 	out, err := cmd.CombinedOutput()

@@ -31,6 +31,6 @@ func GetIDVersion(number C.uint, cErr **C.char) (cIDVersion C.IDVersion_t) {
 	}
 
 	return C.IDVersion_t{
-		number: C.uint32_t(goIDVersion.Number),
+		number: C.uint16_t(goIDVersion.Number),
 	}
 }

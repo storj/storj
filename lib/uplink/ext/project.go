@@ -42,19 +42,19 @@ func CreateBucket(cProject C.ProjectRef_t, name *C.char, cBucketCfg C.BucketConf
 	encParamsPtr := CMalloc(unsafe.Sizeof(C.EncryptionParameters_t{}))
 	encParams := (*C.EncryptionParameters_t)(unsafe.Pointer(encParamsPtr))
 	*encParams = C.EncryptionParameters_t{
-		cipher_suite: C.uint32_t(bucket.EncryptionParameters.CipherSuite),
+		cipher_suite: C.uint8_t(bucket.EncryptionParameters.CipherSuite),
 		block_size:   C.int32_t(bucket.EncryptionParameters.BlockSize),
 	}
 
 	redundancySchemePtr := CMalloc(unsafe.Sizeof(C.RedundancyScheme_t{}))
 	redundancyScheme := (*C.RedundancyScheme_t)(unsafe.Pointer(redundancySchemePtr))
 	*redundancyScheme = C.RedundancyScheme_t{
-		algorithm:       C.uint32_t(bucket.RedundancyScheme.Algorithm),
+		algorithm:       C.uint8_t(bucket.RedundancyScheme.Algorithm),
 		share_size:      C.int32_t(bucket.RedundancyScheme.ShareSize),
-		required_shares: C.int32_t(bucket.RedundancyScheme.RequiredShares),
-		repair_shares:   C.int32_t(bucket.RedundancyScheme.RepairShares),
-		optimal_shares:  C.int32_t(bucket.RedundancyScheme.OptimalShares),
-		total_shares:    C.int32_t(bucket.RedundancyScheme.TotalShares),
+		required_shares: C.int16_t(bucket.RedundancyScheme.RequiredShares),
+		repair_shares:   C.int16_t(bucket.RedundancyScheme.RepairShares),
+		optimal_shares:  C.int16_t(bucket.RedundancyScheme.OptimalShares),
+		total_shares:    C.int16_t(bucket.RedundancyScheme.TotalShares),
 	}
 
 	return C.Bucket_t{
@@ -62,7 +62,7 @@ func CreateBucket(cProject C.ProjectRef_t, name *C.char, cBucketCfg C.BucketConf
 		redundancy_scheme:     redundancyScheme,
 		name:                  C.CString(bucket.Name),
 		created:               C.int64_t(bucket.Created.Unix()),
-		path_cipher:           C.uint32_t(bucket.PathCipher),
+		path_cipher:           C.uint8_t(bucket.PathCipher),
 		segment_size:          C.int64_t(bucket.SegmentsSize),
 	}
 }
