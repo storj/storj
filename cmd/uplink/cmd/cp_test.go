@@ -95,7 +95,7 @@ func BenchmarkUpload(b *testing.B) {
 
 	for _, bm := range benchmarkCases {
 		b.Run(bm.name, func(b *testing.B) {
-			b.SetBytes(1)
+			b.SetBytes(bm.objectsize.Int64())
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				// make some random bytes so the objectPath is unique
@@ -143,7 +143,7 @@ func BenchmarkDownload(b *testing.B) {
 	for _, bm := range benchmarkCases {
 		b.Run(bm.name, func(b *testing.B) {
 			buf := make([]byte, bm.objectsize)
-			b.SetBytes(1)
+			b.SetBytes(bm.objectsize.Int64())
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				objectName := "folder/data_" + bm.name
