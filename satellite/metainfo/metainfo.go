@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"strconv"
 	"time"
 
@@ -21,7 +20,6 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/accounting/live"
-	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
@@ -44,13 +42,18 @@ type APIKeys interface {
 	GetByKey(ctx context.Context, key console.APIKey) (*console.APIKeyInfo, error)
 }
 
+// Containment is a copy/paste of containment interface to avoid import cycle error
+type Containment interface {
+	Delete(ctx context.Context, nodeID pb.NodeID) (bool, error)
+}
+
 // Endpoint metainfo endpoint
 type Endpoint struct {
 	log                     *zap.Logger
 	metainfo                *Service
 	orders                  *orders.Service
 	cache                   *overlay.Cache
-	containment             *audit.Containment
+	containment             Containment
 	apiKeys                 APIKeys
 	storagenodeAccountingDB accounting.StoragenodeAccounting
 	projectAccountingDB     accounting.ProjectAccounting
@@ -59,13 +62,14 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates new metainfo endpoint instance
-func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, apiKeys APIKeys, sdb accounting.StoragenodeAccounting, pdb accounting.ProjectAccounting, liveAccounting live.Service, maxAlphaUsage memory.Size) *Endpoint {
+func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, containment Containment, apiKeys APIKeys, sdb accounting.StoragenodeAccounting, pdb accounting.ProjectAccounting, liveAccounting live.Service, maxAlphaUsage memory.Size) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
 		log:                     log,
 		metainfo:                metainfo,
 		orders:                  orders,
 		cache:                   cache,
+		containment:             containment,
 		apiKeys:                 apiKeys,
 		storagenodeAccountingDB: sdb,
 		projectAccountingDB:     pdb,
@@ -392,7 +396,7 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 		}
 
 		for _, piece := range pointer.GetRemote().GetRemotePieces() {
-			containment.Delete(ctx, piece.NodeId)
+			endpoint.containment.Delete(ctx, piece.NodeId)
 		}
 
 		bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
