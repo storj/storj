@@ -86,7 +86,7 @@ func main() {
 	cfgstruct.Bind(authInfoCmd.Flags(), &config, defaults, cfgstruct.ConfDir(confDir))
 	cfgstruct.Bind(authExportCmd.Flags(), &config, defaults, cfgstruct.ConfDir(confDir))
 	cfgstruct.Bind(runCmd.Flags(), &config, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	cfgstruct.BindSetup(setupCmd.Flags(), &config, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	cfgstruct.Bind(setupCmd.Flags(), &config, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	cfgstruct.Bind(signCmd.Flags(), &signCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	cfgstruct.Bind(verifyCmd.Flags(), &verifyCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	cfgstruct.Bind(claimsExportCmd.Flags(), &claimsExportCfg, defaults, cfgstruct.ConfDir(confDir))
