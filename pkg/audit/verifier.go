@@ -156,7 +156,7 @@ func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.Addre
 		}
 
 		// TODO(kaloyan): execute in goroutine for better performance
-		share, err := verifier.getShare(ctx, limit, stripeIndex, shareSize, i)
+		share, err := verifier.GetShare(ctx, limit, stripeIndex, shareSize, i)
 		if err != nil {
 			share = Share{
 				Error:    err,
@@ -218,7 +218,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 				return
 			}
 
-			share, err := verifier.getShare(ctx, limit, pending.StripeIndex, pending.ShareSize, int(piece.PieceNum))
+			share, err := verifier.GetShare(ctx, limit, pending.StripeIndex, pending.ShareSize, int(piece.PieceNum))
 			if err != nil {
 				// TODO(kaloyan): we need to check the logic here if we correctly identify offline nodes from those that didn't respond.
 				if err == context.DeadlineExceeded || !transport.Error.Has(err) {
@@ -258,8 +258,8 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 	return report, err
 }
 
-// getShare use piece store client to download shares from nodes
-func (verifier *Verifier) getShare(ctx context.Context, limit *pb.AddressedOrderLimit, stripeIndex int64, shareSize int32, pieceNum int) (share Share, err error) {
+// GetShare use piece store client to download shares from nodes
+func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrderLimit, stripeIndex int64, shareSize int32, pieceNum int) (share Share, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	bandwidthMsgSize := shareSize
@@ -402,12 +402,12 @@ func createPendingAudits(containedNodes map[int]storj.NodeID, correctedShares []
 
 	fec, err := infectious.NewFEC(required, total)
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 
 	stripeData, err := rebuildStripe(fec, correctedShares, int(shareSize))
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 
 	var pendingAudits []*PendingAudit
@@ -415,7 +415,7 @@ func createPendingAudits(containedNodes map[int]storj.NodeID, correctedShares []
 		share := make([]byte, shareSize)
 		err = fec.EncodeSingle(stripeData, share, pieceNum)
 		if err != nil {
-			return nil, err
+			return nil, Error.Wrap(err)
 		}
 		pendingAudits = append(pendingAudits, &PendingAudit{
 			NodeID:            nodeID,
