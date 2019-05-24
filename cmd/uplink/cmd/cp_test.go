@@ -169,7 +169,7 @@ func uploadTestObjects(client s3client.Client) {
 }
 
 func teardownTestObjects(client s3client.Client) {
-	for name, _ := range testObjects {
+	for name := range testObjects {
 		objectName := "folder/data_" + name
 		err := client.Delete(bucket, objectName)
 		if err != nil {
