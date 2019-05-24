@@ -74,6 +74,8 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 	shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
 	bucketID := createBucketID(stripe.SegmentPath)
 
+	// TODO(kaloyan): CreateAuditOrderLimits checks overlay cache if nodes are online and won't return
+	// order limits for offline node. So we miss to record them as offline during the audit
 	orderLimits, err := verifier.orders.CreateAuditOrderLimits(ctx, verifier.auditor, bucketID, pointer, skip)
 	if err != nil {
 		return nil, err
