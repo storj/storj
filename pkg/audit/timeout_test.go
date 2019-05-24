@@ -80,7 +80,7 @@ func TestGetShareTimeout(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		verifiedNodes, err := verifier.Verify(ctx, stripe)
+		verifiedNodes, err := verifier.Verify(ctx, stripe, nil)
 		assert.Error(t, err)
 		assert.NotNil(t, verifiedNodes)
 		for i := 0; i < k; i++ {

@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
@@ -92,16 +93,46 @@ func (service *Service) process(ctx context.Context) error {
 		}
 	}
 
-	verifiedNodes, verifierErr := service.Verifier.Verify(ctx, stripe)
-	if verifierErr != nil && verifiedNodes == nil {
-		return verifierErr
+	var errlist errs.Group
+
+	report, err := service.Verifier.Reverify(ctx, stripe)
+	if err != nil {
+		errlist.Add(err)
 	}
 
 	// TODO(moby) we need to decide if we want to do something with nodes that the reporter failed to update
-	_, reporterErr := service.Reporter.RecordAudits(ctx, verifiedNodes)
-	if reporterErr != nil {
-		return errs.Combine(verifierErr, reporterErr)
+	_, err = service.Reporter.RecordAudits(ctx, report)
+	if err != nil {
+		errlist.Add(err)
 	}
 
-	return nil
+	// skip all reverified nodes in the next Verify step
+	skip := make(map[storj.NodeID]bool)
+	if report != nil {
+		for _, nodeID := range report.Successes {
+			skip[nodeID] = true
+		}
+		for _, nodeID := range report.Offlines {
+			skip[nodeID] = true
+		}
+		for _, nodeID := range report.Fails {
+			skip[nodeID] = true
+		}
+		for _, pending := range report.PendingAudits {
+			skip[pending.NodeID] = true
+		}
+	}
+
+	report, err = service.Verifier.Verify(ctx, stripe, skip)
+	if err != nil {
+		errlist.Add(err)
+	}
+
+	// TODO(moby) we need to decide if we want to do something with nodes that the reporter failed to update
+	_, err = service.Reporter.RecordAudits(ctx, report)
+	if err != nil {
+		errlist.Add(err)
+	}
+
+	return errlist.Err()
 }

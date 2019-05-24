@@ -67,14 +67,14 @@ func NewVerifier(log *zap.Logger, reporter reporter, transport transport.Client,
 }
 
 // Verify downloads shares then verifies the data correctness at the given stripe
-func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe) (verifiedNodes *Report, err error) {
+func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[storj.NodeID]bool) (report *Report, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	pointer := stripe.Segment
 	shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
 	bucketID := createBucketID(stripe.SegmentPath)
 
-	orderLimits, err := verifier.orders.CreateAuditOrderLimits(ctx, verifier.auditor, bucketID, pointer)
+	orderLimits, err := verifier.orders.CreateAuditOrderLimits(ctx, verifier.auditor, bucketID, pointer, skip)
 	if err != nil {
 		return nil, err
 	}
@@ -153,35 +153,16 @@ func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.Addre
 			continue
 		}
 
-		var share Share
-
-		node, err := verifier.overlay.Get(ctx, limit.Limit.StorageNodeId)
+		// TODO(kaloyan): execute in goroutine for better performance
+		share, err := verifier.getShare(ctx, limit, stripeIndex, shareSize, i)
 		if err != nil {
-			return nil, nil, Error.Wrap(err)
-		}
-		if node.Contained {
-			isVerified, err := verifier.Reverify(ctx, node.Id, limit, i)
-			if err != nil {
-				return nil, nil, Error.Wrap(err)
-			}
-			if !isVerified {
-				// if contained nodes don't pass reverification, then we don't audit them for other data
-				share = Share{
-					Error:    ContainError.New("did not pass reverification"),
-					PieceNum: i,
-					Data:     nil,
-				}
-			}
-		} else {
-			share, err = verifier.getShare(ctx, limit, stripeIndex, shareSize, i)
-			if err != nil {
-				share = Share{
-					Error:    err,
-					PieceNum: i,
-					Data:     nil,
-				}
+			share = Share{
+				Error:    err,
+				PieceNum: i,
+				Data:     nil,
 			}
 		}
+		
 		shares[share.PieceNum] = share
 		nodes[share.PieceNum] = limit.GetLimit().StorageNodeId
 	}
@@ -189,51 +170,90 @@ func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.Addre
 	return shares, nodes, nil
 }
 
-// Reverify verifies that a node has an erasure share that it was contained for not verifying previously
-func (verifier *Verifier) Reverify(ctx context.Context, id storj.NodeID, limit *pb.AddressedOrderLimit, pieceNum int) (isVerified bool, err error) {
+// Reverify reverifies the contained nodes in the stripe
+func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report *Report, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pendingAudit, err := verifier.containment.Get(ctx, id)
-	if err != nil {
-		return false, Error.Wrap(err)
+	// result status enum
+	const(
+		skipped = iota
+		success
+		offline
+		failed
+		contained
+		erred
+	)
+
+	type result struct {
+		nodeID storj.NodeID
+		status int
+		pendingAudit *PendingAudit
+		err error
 	}
 
-	share, err := verifier.getShare(ctx, limit, pendingAudit.StripeIndex, pendingAudit.ShareSize, pieceNum)
-	if err != nil {
-		// todo: make more specific for contained cases
-		if err == context.DeadlineExceeded || !transport.Error.Has(err) {
-			err := verifier.containment.IncrementPending(ctx, pendingAudit)
-			return false, Error.Wrap(err)
+	pieces := stripe.Segment.GetRemote().GetRemotePieces()
+	ch := make(chan result, len(pieces))
+
+	for _, piece := range pieces {
+		pending, err := verifier.containment.Get(ctx, piece.NodeId)
+		if err != nil {
+			if ErrContainedNotFound.Has(err) {
+				ch <- result{nodeID: piece.NodeId, status: skipped}
+				continue
+			}
+			ch <- result{nodeID: piece.NodeId, status: erred, err: err}
+			continue
 		}
-		return false, Error.Wrap(err)
+
+		go func(pending *PendingAudit, piece *pb.RemotePiece) {
+			limit, err := verifier.orders.CreateAuditOrderLimit(ctx, verifier.auditor, createBucketID(stripe.SegmentPath), pending.NodeID, pending.PieceID, pending.ShareSize)
+			if err != nil {
+				if overlay.ErrNodeOffline.Has(err) {
+					ch <- result{nodeID: piece.NodeId, status: offline}
+					return
+				}
+				ch <- result{nodeID: piece.NodeId, status: erred, err: err}
+				return
+			}
+
+			share, err := verifier.getShare(ctx, limit, pending.StripeIndex, pending.ShareSize, int(piece.PieceNum))
+			if err != nil {
+				// TODO(kaloyan): we need to check the logic here if we correctly identify offline nodes from those that didn't respond.
+				if err == context.DeadlineExceeded || !transport.Error.Has(err) {
+					ch <- result{nodeID: piece.NodeId, status: contained}
+				} else {
+					ch <- result{nodeID: piece.NodeId, status: offline}
+				}
+				return
+			}
+
+			downloadedHash := pkcrypto.SHA256Hash(share.Data)
+			if bytes.Equal(downloadedHash, pending.ExpectedShareHash) {
+				ch <- result{nodeID: piece.NodeId, status: success}
+			} else {
+				ch <- result{nodeID: piece.NodeId, status: failed}
+			}
+		}(pending, piece)
 	}
 
-	auditRecords := &RecordAuditsInfo{
-		SuccessNodeIDs: []storj.NodeID{},
-		FailNodeIDs:    []storj.NodeID{},
+	report = &Report{}
+	for range pieces {
+		result := <-ch
+		switch result.status {
+		case success:
+			report.Successes = append(report.Successes, result.nodeID)
+		case offline:
+			report.Offlines = append(report.Offlines, result.nodeID)
+		case failed:
+			report.Fails = append(report.Fails, result.nodeID)
+		case contained:
+			report.PendingAudits = append(report.PendingAudits, result.pendingAudit)
+		case erred: 
+			err = errs.Combine(err, result.err)
+		}
 	}
 
-	downloadedHash := pkcrypto.SHA256Hash(share.Data)
-
-	if bytes.Equal(downloadedHash, pendingAudit.ExpectedShareHash) {
-		auditRecords.SuccessNodeIDs = []storj.NodeID{pendingAudit.NodeID}
-	} else {
-		auditRecords.FailNodeIDs = []storj.NodeID{pendingAudit.NodeID}
-	}
-
-	_, err = verifier.reporter.RecordAudits(ctx, auditRecords)
-	if err != nil {
-		return false, Error.Wrap(err)
-	}
-
-	isDeleted, err := verifier.containment.Delete(ctx, id)
-	if err != nil {
-		return false, Error.Wrap(err)
-	}
-	if !isDeleted {
-		return true, ErrContainDelete.New(id.String())
-	}
-	return true, nil
+	return report, err
 }
 
 // getShare use piece store client to download shares from nodes

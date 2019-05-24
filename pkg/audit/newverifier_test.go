@@ -66,7 +66,7 @@ func TestVerifierHappyPath(t *testing.T) {
 		_, err = planet.Satellites[0].Overlay.Service.UpdateUptime(ctx, planet.StorageNodes[1].ID(), false)
 		require.NoError(t, err)
 
-		verifiedNodes, err := verifier.Verify(ctx, stripe)
+		verifiedNodes, err := verifier.Verify(ctx, stripe, nil)
 		require.NoError(t, err)
 
 		require.Len(t, verifiedNodes.Successes, 4)
