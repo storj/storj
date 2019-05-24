@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/storage/streams"
@@ -82,7 +83,10 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 		consoleDB := satellite.DB.Console()
 
 		projectName := fmt.Sprintf("%s_%d", name, j)
-		key := console.APIKeyFromBytes([]byte(projectName))
+		key, err := macaroon.NewAPIKey([]byte("testSecret"))
+		if err != nil {
+			return nil, err
+		}
 
 		project, err := consoleDB.Projects().Insert(
 			context.Background(),
@@ -96,17 +100,18 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 
 		_, err = consoleDB.APIKeys().Create(
 			context.Background(),
-			*key,
+			key.Head(),
 			console.APIKeyInfo{
 				Name:      "root",
 				ProjectID: project.ID,
+				Secret:    []byte("testSecret"),
 			},
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		apiKeys[satellite.ID()] = key.String()
+		apiKeys[satellite.ID()] = key.Serialize()
 	}
 
 	uplink.APIKey = apiKeys

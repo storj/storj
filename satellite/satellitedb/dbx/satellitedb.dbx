@@ -262,16 +262,14 @@ delete project_member (
 
 model api_key (
     key    id
-    unique key
+    unique head
     unique name project_id
 
     field  id          blob
     field  project_id  project.id cascade
-
-    field  key         blob
-
+    field  head        blob
     field  name        text       (updatable)
-
+    field  secret      blob
     field  created_at  timestamp  (autoinsert)
 )
 
@@ -285,7 +283,7 @@ read one (
 )
 read one (
     select api_key
-    where api_key.key = ?
+    where api_key.head = ?
 )
 read all (
     select api_key
@@ -484,7 +482,7 @@ read all (
 
 model storagenode_storage_tally (
 	key   id
-	
+
 	field id								serial64
 	field node_id						blob
 	field interval_end_time	timestamp

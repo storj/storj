@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"strconv"
+	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
@@ -21,6 +22,7 @@ import (
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -37,7 +39,12 @@ var (
 
 // APIKeys is api keys store methods used by endpoint
 type APIKeys interface {
-	GetByKey(ctx context.Context, key console.APIKey) (*console.APIKeyInfo, error)
+	GetByHead(ctx context.Context, head []byte) (*console.APIKeyInfo, error)
+}
+
+// Revocations is the revocations store methods used by the endpoint
+type Revocations interface {
+	GetByProjectID(ctx context.Context, projectID uuid.UUID) ([][]byte, error)
 }
 
 // Endpoint metainfo endpoint
@@ -70,22 +77,29 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cac
 // Close closes resources
 func (endpoint *Endpoint) Close() error { return nil }
 
-func (endpoint *Endpoint) validateAuth(ctx context.Context) (*console.APIKeyInfo, error) {
-	APIKey, ok := auth.GetAPIKey(ctx)
+func (endpoint *Endpoint) validateAuth(ctx context.Context, action macaroon.Action) (*console.APIKeyInfo, error) {
+	keyData, ok := auth.GetAPIKey(ctx)
 	if !ok {
-		endpoint.log.Error("unauthorized request: ", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
+		endpoint.log.Error("unauthorized request", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
 		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
 	}
 
-	key, err := console.APIKeyFromBase32(string(APIKey))
+	key, err := macaroon.ParseAPIKey(string(keyData))
 	if err != nil {
-		endpoint.log.Error("unauthorized request: ", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
+		endpoint.log.Error("unauthorized request", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
 		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
 	}
 
-	keyInfo, err := endpoint.apiKeys.GetByKey(ctx, *key)
+	keyInfo, err := endpoint.apiKeys.GetByHead(ctx, key.Head())
 	if err != nil {
-		endpoint.log.Error("unauthorized request: ", zap.Error(status.Errorf(codes.Unauthenticated, err.Error())))
+		endpoint.log.Error("unauthorized request", zap.Error(status.Errorf(codes.Unauthenticated, err.Error())))
+		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
+	}
+
+	// Revocations are currently handled by just deleting the key.
+	err = key.Check(keyInfo.Secret, action, nil)
+	if err != nil {
+		endpoint.log.Error("unauthorized request", zap.Error(status.Errorf(codes.Unauthenticated, err.Error())))
 		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
 	}
 
@@ -96,7 +110,12 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context) (*console.APIKeyInfo
 func (endpoint *Endpoint) SegmentInfo(ctx context.Context, req *pb.SegmentInfoRequest) (resp *pb.SegmentInfoResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx)
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+		Op:            macaroon.ActionRead,
+		Bucket:        req.Bucket,
+		EncryptedPath: req.Path,
+		Time:          time.Now(),
+	})
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
@@ -127,7 +146,12 @@ func (endpoint *Endpoint) SegmentInfo(ctx context.Context, req *pb.SegmentInfoRe
 func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWriteRequest) (resp *pb.SegmentWriteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx)
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+		Op:            macaroon.ActionWrite,
+		Bucket:        req.Bucket,
+		EncryptedPath: req.Path,
+		Time:          time.Now(),
+	})
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
@@ -204,7 +228,12 @@ func calculateSpaceUsed(ptr *pb.Pointer) (inlineSpace, remoteSpace int64) {
 func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentCommitRequest) (resp *pb.SegmentCommitResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx)
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+		Op:            macaroon.ActionWrite,
+		Bucket:        req.Bucket,
+		EncryptedPath: req.Path,
+		Time:          time.Now(),
+	})
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
@@ -262,7 +291,12 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDownloadRequest) (resp *pb.SegmentDownloadResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx)
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+		Op:            macaroon.ActionRead,
+		Bucket:        req.Bucket,
+		EncryptedPath: req.Path,
+		Time:          time.Now(),
+	})
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
@@ -326,7 +360,12 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDeleteRequest) (resp *pb.SegmentDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx)
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+		Op:            macaroon.ActionDelete,
+		Bucket:        req.Bucket,
+		EncryptedPath: req.Path,
+		Time:          time.Now(),
+	})
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
@@ -377,7 +416,12 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.ListSegmentsRequest) (resp *pb.ListSegmentsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx)
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+		Op:            macaroon.ActionList,
+		Bucket:        req.Bucket,
+		EncryptedPath: req.Prefix,
+		Time:          time.Now(),
+	})
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
