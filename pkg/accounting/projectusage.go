@@ -57,6 +57,8 @@ func (usage *ProjectUsage) ExceedsBandwidthUsage(ctx context.Context, projectID 
 	var group errgroup.Group
 	var bandwidthGetTotal int64
 	limit = usage.maxAlphaUsage
+
+	// TODO maybe project limit cache expiration time?
 	group.Go(func() error {
 		// TODO should we ignore err and use default limit?
 		projectLimit, err := usage.projectAccountingDB.GetProjectUsageLimits(ctx, projectID)
@@ -98,6 +100,8 @@ func (usage *ProjectUsage) ExceedsStorageUsage(ctx context.Context, projectID uu
 	var group errgroup.Group
 	var inlineTotal, remoteTotal int64
 	limit = usage.maxAlphaUsage
+
+	// TODO maybe project limit cache expiration time?
 	group.Go(func() error {
 		// TODO should we ignore err and use default limit?
 		projectLimit, err := usage.projectAccountingDB.GetProjectUsageLimits(ctx, projectID)
