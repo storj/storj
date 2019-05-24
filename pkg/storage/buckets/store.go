@@ -16,7 +16,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/objects"
-	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 	"storj.io/storj/uplink/metainfo"
@@ -42,8 +41,6 @@ type ListItem struct {
 // BucketStore contains objects store
 type BucketStore struct {
 	metainfoClient metainfo.Client
-	// store  objects.Store
-	// stream streams.Store
 }
 
 // Meta is the bucket metadata struct
@@ -60,13 +57,6 @@ func NewStore(client metainfo.Client) Store {
 	return &BucketStore{metainfoClient: client}
 }
 
-// // NewStore instantiates BucketStore
-// func NewStore(stream streams.Store) Store {
-// 	// root object store for storing the buckets with unencrypted names
-// 	store := objects.NewStore(stream, storj.Unencrypted)
-// 	return &BucketStore{store: store, stream: stream}
-// }
-
 // GetObjectStore returns an implementation of objects.Store
 func (b *BucketStore) GetObjectStore(ctx context.Context, bucket string) (_ objects.Store, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -81,11 +71,13 @@ func (b *BucketStore) GetObjectStore(ctx context.Context, bucket string) (_ obje
 		}
 		return nil, err
 	}
+	//--- UPDATE
 	prefixed := prefixedObjStore{
 		store:  objects.NewStore(b.stream, m.PathEncryptionType),
 		prefix: bucket,
 	}
 	return &prefixed, nil
+	//---
 }
 
 // Get calls objects store Get
@@ -95,7 +87,7 @@ func (b *BucketStore) Get(ctx context.Context, bucket string) (meta Meta, err er
 	if bucket == "" {
 		return Meta{}, storj.ErrNoBucket.New("")
 	}
-
+	//--- UPDATE
 	objMeta, err := b.store.Meta(ctx, bucket)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
@@ -111,7 +103,7 @@ func (b *BucketStore) Get(ctx context.Context, bucket string) (meta Meta, err er
 // in the bucket's object Pointer. Note that the Meta.Created field is ignored.
 func (b *BucketStore) Put(ctx context.Context, bucketName string, inMeta Meta) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
-	
+
 	if bucketName == "" {
 		return Meta{}, storj.ErrNoBucket.New("")
 	}
@@ -135,7 +127,9 @@ func (b *BucketStore) Put(ctx context.Context, bucketName string, inMeta Meta) (
 		"default-rs-total":  strconv.Itoa(int(inMeta.RedundancyScheme.TotalShares)),
 	}
 	var exp time.Time
+	//--- UPDATE
 	m, err := b.store.Put(ctx, bucketName, r, pb.SerializableMeta{UserDefined: userMeta}, exp)
+	//---
 	if err != nil {
 		return Meta{}, err
 	}
@@ -153,9 +147,9 @@ func (b *BucketStore) Delete(ctx context.Context, bucket string) (err error) {
 	if bucket == "" {
 		return storj.ErrNoBucket.New("")
 	}
-
+	//--- UPDATE
 	err = b.store.Delete(ctx, bucket)
-
+	//---
 	if storage.ErrKeyNotFound.Has(err) {
 		err = storj.ErrBucketNotFound.Wrap(err)
 	}
@@ -166,8 +160,9 @@ func (b *BucketStore) Delete(ctx context.Context, bucket string) (err error) {
 // List calls objects store List
 func (b *BucketStore) List(ctx context.Context, startAfter, endBefore string, limit int) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
-
+	//--- UPDATE
 	objItems, more, err := b.store.List(ctx, "", startAfter, endBefore, false, limit, meta.Modified)
+	//---
 	if err != nil {
 		return items, more, err
 	}

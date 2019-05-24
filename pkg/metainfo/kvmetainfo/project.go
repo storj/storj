@@ -5,21 +5,23 @@ package kvmetainfo
 
 import (
 	"storj.io/storj/pkg/eestream"
-	"storj.io/storj/uplink/metainfo"
+	"storj.io/storj/pkg/storage/buckets"
 )
 
 // Project implements project management operations
 type Project struct {
-	metainfoClient metainfo.Client
-	redundancy     eestream.RedundancyStrategy
-	segmentsSize   int64
+	buckets            buckets.Store
+	encryptedBlockSize int32
+	redundancy         eestream.RedundancyStrategy
+	segmentsSize       int64
 }
 
 // NewProject constructs a *Project
-func NewProject(client metainfo.Client, redundancy eestream.RedundancyStrategy, segmentsSize int64) *Project {
+func NewProject(buckets buckets.Store) *Project {
 	return &Project{
-		metainfoClient: client,
-		redundancy:     redundancy,
-		segmentsSize:   segmentsSize,
+		buckets:            buckets,
+		encryptedBlockSize: encryptedBlockSize,
+		redundancy:         redundancy,
+		segmentsSize:       segmentsSize,
 	}
 }
