@@ -147,7 +147,7 @@ func (b *BucketStore) Put(ctx context.Context, bucketName string, inMeta Meta) (
 	m, err := b.Get(ctx, bucketName)
 	if err == nil {
 		//bucket exists
-		
+
 	}
 	//*** check if bucket exists?
 
@@ -209,14 +209,22 @@ func (b *BucketStore) Delete(ctx context.Context, bucket string) (err error) {
 	if bucket == "" {
 		return storj.ErrNoBucket.New("")
 	}
-	//--- UPDATE
-	err = b.store.Delete(ctx, bucket)
-	//---
-	if storage.ErrKeyNotFound.Has(err) {
-		err = storj.ErrBucketNotFound.Wrap(err)
+
+	bb, objectPath, segmentIndex, err := segments.SplitPathFragments(bucket)
+	if err != nil {
+		return err
 	}
 
-	return err
+	limits, err := b.metainfo.DeleteSegment(ctx, bb, objectPath, segmentIndex)
+	if err != nil {
+		return err
+	}
+
+	if len(limits) != 0 {
+		return errs.New("bucket segment should be inline, something went wrong")
+	}
+	
+	return nil
 }
 
 // List calls objects store List
