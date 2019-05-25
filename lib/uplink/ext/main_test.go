@@ -13,7 +13,6 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
@@ -25,6 +24,7 @@ import (
 var cLibDir, cSrcDir, cHeadersDir, libuplink string
 
 func init() {
+	// TODO: is there a cleaner way to do this?
 	_, thisFile, _, _ := runtime.Caller(0)
 	cLibDir = filepath.Join(filepath.Dir(thisFile), "c")
 	cSrcDir = filepath.Join(cLibDir, "src")
@@ -32,31 +32,45 @@ func init() {
 	libuplink = filepath.Join(cLibDir, "..", "uplink-cgo.so")
 }
 
-// TODO: split c test up into multiple suites, each of which gets a go test function.
 func TestCCommonTest(t *testing.T) {
-	runCTest(t, "common_test.c")
-}
-
-func TestCUplinkTest(t *testing.T) {
-	runCTest(t, "uplink_test.c")
-}
-
-func TestCProjectTest(t *testing.T) {
-	runCTest(t, "project_test.c")
-}
-
-//func TestCBucketTest(t *testing.T) {
-//	runCTest(t, "bucket_test.c")
-//}
-
-func runCTest(t *testing.T, filename string) {
-	runCTests(t, filepath.Join(cLibDir, "tests", filename))
-}
-
-func runCTests(t *testing.T, srcGlobs ...string) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
+	planet := runCTest(t, ctx, "common_test.c")
+	defer ctx.Check(planet.Shutdown)
+}
+
+func TestCUplinkTest(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	planet := runCTest(t, ctx, "uplink_test.c")
+	defer ctx.Check(planet.Shutdown)
+}
+
+func TestCProjectTest(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	planet := runCTest(t, ctx, "project_test.c")
+	defer ctx.Check(planet.Shutdown)
+	// TODO: add assertions for expected side-effects in services/dbs on the network (planet)
+}
+
+//func TestCBucketTest(t *testing.T) {
+//	ctx := testcontext.New(t)
+//	defer ctx.Cleanup()
+//
+//	_, err := runCTest(t, ctx, "bucket_test.c")
+//	require.NoError(t, err)
+//	// TODO: add assertions for expected side-effects in services/dbs on the network (planet)
+//}
+
+func runCTest(t *testing.T, ctx *testcontext.Context, filename string) *testplanet.Planet {
+	return runCTests(t, ctx, filepath.Join(cLibDir, "tests", filename))
+}
+
+func runCTests(t *testing.T, ctx *testcontext.Context, srcGlobs ...string) *testplanet.Planet {
 	planet, err := testplanet.NewCustom(
 		zap.NewNop(),
 		testplanet.Config{
@@ -66,10 +80,7 @@ func runCTests(t *testing.T, srcGlobs ...string) {
 			UsePeerCAWhitelist: false,
 		},
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ctx.Check(planet.Shutdown)
+	require.NoError(t, err)
 
 	planet.Start(ctx)
 
@@ -100,7 +111,6 @@ func runCTests(t *testing.T, srcGlobs ...string) {
 	srcGlobs = append([]string{
 		libuplink,
 		filepath.Join(cLibDir, "tests", "unity.*"),
-		//filepath.Join(cLibDir, "tests", "*.c"),
 		filepath.Join(cSrcDir, "*.c"),
 	}, srcGlobs...)
 	testBinPath := ctx.CompileC(srcGlobs...)
@@ -118,8 +128,9 @@ func runCTests(t *testing.T, srcGlobs ...string) {
 	)
 
 	out, err := cmd.CombinedOutput()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	t.Log(string(out))
+	return planet
 }
 
 func copyFile(src, dest string) error {
@@ -128,7 +139,7 @@ func copyFile(src, dest string) error {
 		return err
 	}
 
-	err = ioutil.WriteFile(dest, input, 0644)
+	err = ioutil.WriteFile(dest, input, 0755)
 	if err != nil {
 		return err
 	}
