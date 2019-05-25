@@ -25,17 +25,18 @@ void TestCreateBucket(void)
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     EncryptionParameters_t enc_param;
-    enc_param.cipher_suite = 0;
+    enc_param.cipher_suite = 1;
     enc_param.block_size = 1024;
 
-    // NB: dev defaults (maybe factor out into a lib helper)
+    // NB: release defaults (maybe factor out into a lib helper)
     RedundancyScheme_t scheme;
     scheme.algorithm = 1;
     scheme.share_size = 1024;
-    scheme.required_shares = 4;
-    scheme.repair_shares = 6;
-    scheme.optimal_shares = 8;
-    scheme.total_shares = 10;
+    // TODO: we probably want to use dev defaults instead
+    scheme.required_shares = 29;
+    scheme.repair_shares = 35;
+    scheme.optimal_shares = 80;
+    scheme.total_shares = 95;
 
     BucketConfig_t bucket_cfg;
     bucket_cfg.path_cipher = 0;
@@ -46,5 +47,22 @@ void TestCreateBucket(void)
     Bucket_t bucket = CreateBucket(ref_project, bucket_name, bucket_cfg, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
+    TEST_ASSERT_NOT_NULL(bucket.encryption_parameters);
+    TEST_ASSERT_EQUAL(enc_param.cipher_suite, bucket.encryption_parameters->cipher_suite);
+    TEST_ASSERT_EQUAL(enc_param.block_size, bucket.encryption_parameters->block_size);
+
+    TEST_ASSERT_NOT_NULL(bucket.redundancy_scheme);
+    TEST_ASSERT_EQUAL(scheme.algorithm, bucket.redundancy_scheme->algorithm);
+    TEST_ASSERT_EQUAL(scheme.share_size, bucket.redundancy_scheme->share_size);
+    TEST_ASSERT_EQUAL(scheme.required_shares, bucket.redundancy_scheme->required_shares);
+    TEST_ASSERT_EQUAL(scheme.repair_shares, bucket.redundancy_scheme->repair_shares);
+    TEST_ASSERT_EQUAL(scheme.optimal_shares, bucket.redundancy_scheme->optimal_shares);
+    TEST_ASSERT_EQUAL(scheme.total_shares, bucket.redundancy_scheme->total_shares);
+
     TEST_ASSERT_EQUAL_STRING(bucket_name, bucket.name);
+    TEST_ASSERT_NOT_EQUAL(0, bucket.created);
+    // TODO: what is expected here (bucket.path_cipher is 1 when bucket_cfg.path_cipher is 0 and vice-versa)?
+//    TEST_ASSERT_EQUAL(bucket_cfg.path_cipher, bucket.path_cipher);
+    // TODO: what is expected here (bucket.segment_size is 67108864)?
+//    TEST_ASSERT_EQUAL(1024, bucket.segment_size);
 }
