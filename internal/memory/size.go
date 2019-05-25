@@ -107,17 +107,17 @@ func (size Size) Base2String() string {
 	}
 
 	switch {
-	case math.Abs(size) >= EiB*2/3:
+	case math.Abs(size.Float64()) >= EiB.Float64()*2/3:
 		return fmt.Sprintf("%.1f EiB", size.EiB())
-	case math.Abs(size) >= PiB*2/3:
+	case math.Abs(size.Float64()) >= PiB.Float64()*2/3:
 		return fmt.Sprintf("%.1f PiB", size.PiB())
-	case math.Abs(size) >= TiB*2/3:
+	case math.Abs(size.Float64()) >= TiB.Float64()*2/3:
 		return fmt.Sprintf("%.1f TiB", size.TiB())
-	case math.Abs(size) >= GiB*2/3:
+	case math.Abs(size.Float64()) >= GiB.Float64()*2/3:
 		return fmt.Sprintf("%.1f GiB", size.GiB())
-	case math.Abs(size) >= MiB*2/3:
+	case math.Abs(size.Float64()) >= MiB.Float64()*2/3:
 		return fmt.Sprintf("%.1f MiB", size.MiB())
-	case math.Abs(size) >= KiB*2/3:
+	case math.Abs(size.Float64()) >= KiB.Float64()*2/3:
 		return fmt.Sprintf("%.1f KiB", size.KiB())
 	}
 
@@ -131,17 +131,17 @@ func (size Size) Base10String() string {
 	}
 
 	switch {
-	case math.Abs(size) >= EB*2/3:
+	case math.Abs(size.Float64()) >= EB.Float64()*2/3:
 		return fmt.Sprintf("%.1f EB", size.EB())
-	case math.Abs(size) >= PB*2/3:
+	case math.Abs(size.Float64()) >= PB.Float64()*2/3:
 		return fmt.Sprintf("%.1f PB", size.PB())
-	case math.Abs(size) >= TB*2/3:
+	case math.Abs(size.Float64()) >= TB.Float64()*2/3:
 		return fmt.Sprintf("%.1f TB", size.TB())
-	case math.Abs(size) >= GB*2/3:
+	case math.Abs(size.Float64()) >= GB.Float64()*2/3:
 		return fmt.Sprintf("%.1f GB", size.GB())
-	case math.Abs(size) >= MB*2/3:
+	case math.Abs(size.Float64()) >= MB.Float64()*2/3:
 		return fmt.Sprintf("%.1f MB", size.MB())
-	case math.Abs(size) >= KB*2/3:
+	case math.Abs(size.Float64()) >= KB.Float64()*2/3:
 		return fmt.Sprintf("%.1f KB", size.KB())
 	}
 
