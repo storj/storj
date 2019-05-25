@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"math"
 )
 
 // base 2 and base 10 sizes
