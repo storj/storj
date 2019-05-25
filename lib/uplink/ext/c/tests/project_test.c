@@ -17,7 +17,7 @@ void TestCreateBucket(void)
     char *satellite_addr = getenv("SATELLITEADDR");
     APIKeyRef_t ref_apikey = ParseAPIKey(getenv("APIKEY"), err);
 
-    UplinkRef_t ref_uplink = NewUplink(err);
+    UplinkRef_t ref_uplink = NewUplinkInsecure(err);
     TEST_ASSERT_EQUAL_STRING("", *err);
     TEST_ASSERT_NOT_EQUAL(0, ref_uplink);
 

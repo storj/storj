@@ -120,6 +120,8 @@ extern Bucket_t CreateBucket(ProjectRef_t p0, char* p1, BucketConfig_t p2, char*
 
 extern UplinkRef_t NewUplink(char** p0);
 
+extern UplinkRef_t NewUplinkInsecure(char** p0);
+
 extern ProjectRef_t OpenProject(UplinkRef_t p0, char* p1, APIKeyRef_t p2, char** p3);
 
 #ifdef __cplusplus

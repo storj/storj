@@ -11,7 +11,6 @@ package main
 import "C"
 import (
 	"context"
-
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/lib/uplink"
@@ -22,6 +21,19 @@ var mon = monkit.Package()
 //export NewUplink
 func NewUplink(cErr **C.char) (cUplink C.UplinkRef_t) {
 	goUplink, err := uplink.NewUplink(context.Background(), &uplink.Config{})
+	if err != nil {
+		*cErr = C.CString(err.Error())
+		return cUplink
+	}
+
+	return C.UplinkRef_t(structRefMap.Add(goUplink))
+}
+
+//export NewUplinkInsecure
+func NewUplinkInsecure(cErr **C.char) (cUplink C.UplinkRef_t) {
+	insecureConfig := &uplink.Config{}
+	insecureConfig.Volatile.TLS.SkipPeerCAWhitelist = true
+	goUplink, err := uplink.NewUplink(context.Background(), insecureConfig)
 	if err != nil {
 		*cErr = C.CString(err.Error())
 		return cUplink
