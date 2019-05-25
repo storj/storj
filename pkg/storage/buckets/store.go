@@ -223,46 +223,62 @@ func (b *BucketStore) Delete(ctx context.Context, bucket string) (err error) {
 	if len(limits) != 0 {
 		return errs.New("bucket segment should be inline, something went wrong")
 	}
-	
+
 	return nil
 }
 
 // List calls objects store List
 func (b *BucketStore) List(ctx context.Context, startAfter, endBefore string, limit int) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
-	//--- UPDATE
-	objItems, more, err := b.store.List(ctx, "", startAfter, endBefore, false, limit, meta.Modified)
-	//---
+	// objItems, more, err := b.store.List(ctx, "", startAfter, endBefore, false, limit, meta.Modified)
+
+	bb, strippedPrefix, _, err := segments.SplitPathFragments("")
 	if err != nil {
-		return items, more, err
+		return nil, false, err
+	}
+
+	list, more, err := b.metainfo.ListSegments(ctx, bb, strippedPrefix, startAfter, endBefore, false, int32(limit), meta.Modified)
+	if err != nil {
+		return nil, false, err
+	}
+
+	objItems := make([]segments.ListItem, len(list))
+	for i, itm := range list {
+		objItems[i] = segments.ListItem{
+			Path:     itm.Path,
+			Meta:     segments.ConvertMeta(itm.Pointer),
+			IsPrefix: itm.IsPrefix,
+		}
 	}
 
 	items = make([]ListItem, 0, len(objItems))
-	for _, itm := range objItems {
-		if itm.IsPrefix {
+	for _, objItem := range objItems {
+		if objItem.IsPrefix {
 			continue
 		}
-		m, err := convertMeta(ctx, itm.Meta)
-		if err != nil {
-			return items, more, err
+		streamInfo := pb.StreamInfo{
+			NumberOfSegments: 1,
+			SegmentsSize:     objItem.Meta.Size,
+			LastSegmentSize:  objItem.Meta.Size,
+			Metadata:         objItem.Meta.Data,
 		}
+
+		object := objects.ConvertMeta(streams.ConvertMeta(objItem.Meta, streamInfo, pb.StreamMeta{}))
+
+		m, err := convertMeta(object)
+
 		items = append(items, ListItem{
-			Bucket: itm.Path,
+			Bucket: objItem.Path,
 			Meta:   m,
 		})
 	}
 	return items, more, nil
 }
 
-<<<<<<< HEAD
 // convertMeta converts stream metadata to object metadata
 func convertMeta(ctx context.Context, m objects.Meta) (out Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-=======
-// convertMeta converts object metadata to bucket metadata
-func convertMeta(m objects.Meta) (out Meta, err error) {
->>>>>>> 8dc6eeb88... idk if this will work but it's a start
 	out.Created = m.Modified
 	// backwards compatibility for old buckets
 	out.PathEncryptionType = storj.AESGCM
