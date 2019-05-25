@@ -87,7 +87,7 @@ func TestUseOrLoadEncryptionKey(t *testing.T) {
 	})
 
 	t.Run("ok: use", func(t *testing.T) {
-		rawKey := make([]byte, rand.Intn(100)+1)
+		rawKey := make([]byte, storj.KeySize+rand.Intn(50))
 		_, err := rand.Read(rawKey)
 		require.NoError(t, err)
 
