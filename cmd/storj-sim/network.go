@@ -325,8 +325,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 				"--satellite-addr", satellite.Address,
 
-				"--enc.key=TestEncryptionKey",
-
 				"--rs.min-threshold", strconv.Itoa(1 * flags.StorageNodeCount / 5),
 				"--rs.repair-threshold", strconv.Itoa(2 * flags.StorageNodeCount / 5),
 				"--rs.success-threshold", strconv.Itoa(3 * flags.StorageNodeCount / 5),
@@ -337,7 +335,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 				"--debug.addr", net.JoinHostPort(host, port(gatewayPeer, i, debugHTTP)),
 			},
-			"run": {},
+			"run": {
+				"--enc.encryption-key=TestEncryptionKey",
+			},
 		})
 
 		process.ExecBefore["run"] = func(process *Process) error {
