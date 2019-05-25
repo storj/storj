@@ -29,3 +29,11 @@ void TestAPIKey(void)
     TEST_ASSERT_EQUAL_STRING("", *err);
     TEST_ASSERT_EQUAL_STRING(key_str, result_key);
 }
+
+int main(int argc, char *argv[])
+{
+    UNITY_BEGIN();
+    RUN_TEST(TestAPIKey);
+    RUN_TEST(TestGetIDVersion);
+    return UNITY_END();
+}

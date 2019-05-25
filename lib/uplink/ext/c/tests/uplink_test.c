@@ -33,3 +33,11 @@ void TestOpenProject(void)
     OpenProject(ref_uplink, satellite_addr, ref_apikey, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 }
+
+int main(int argc, char *argv[])
+{
+    UNITY_BEGIN();
+    RUN_TEST(TestNewUplink);
+    RUN_TEST(TestOpenProject);
+    return UNITY_END();
+}

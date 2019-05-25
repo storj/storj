@@ -66,3 +66,11 @@ void TestCreateBucket(void)
     // TODO: what is expected here (bucket.segment_size is 67108864)?
 //    TEST_ASSERT_EQUAL(1024, bucket.segment_size);
 }
+
+int main(int argc, char *argv[])
+{
+    UNITY_BEGIN();
+    RUN_TEST(TestCreateBucket);
+//    RUN_TEST(TestOpenBucket);
+    return UNITY_END();
+}

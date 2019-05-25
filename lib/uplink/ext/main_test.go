@@ -33,16 +33,36 @@ func init() {
 }
 
 // TODO: split c test up into multiple suites, each of which gets a go test function.
-func TestAllCTests(t *testing.T) {
+func TestCCommonTest(t *testing.T) {
+	runCTest(t, "common_test.c")
+}
+
+func TestCUplinkTest(t *testing.T) {
+	runCTest(t, "uplink_test.c")
+}
+
+func TestCProjectTest(t *testing.T) {
+	runCTest(t, "project_test.c")
+}
+
+//func TestCBucketTest(t *testing.T) {
+//	runCTest(t, "bucket_test.c")
+//}
+
+func runCTest(t *testing.T, filename string) {
+	runCTests(t, filepath.Join(cLibDir, "tests", filename))
+}
+
+func runCTests(t *testing.T, srcGlobs ...string) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
 	planet, err := testplanet.NewCustom(
 		zap.NewNop(),
 		testplanet.Config{
-			SatelliteCount: 1,
-			StorageNodeCount: 8,
-			UplinkCount: 0,
+			SatelliteCount:     1,
+			StorageNodeCount:   8,
+			UplinkCount:        0,
 			UsePeerCAWhitelist: false,
 		},
 	)
@@ -77,12 +97,13 @@ func TestAllCTests(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	testBinPath := ctx.CompileC(
+	srcGlobs = append([]string{
 		libuplink,
+		filepath.Join(cLibDir, "tests", "unity.*"),
+		//filepath.Join(cLibDir, "tests", "*.c"),
 		filepath.Join(cSrcDir, "*.c"),
-		filepath.Join(cLibDir, "pb", "*.c"),
-		filepath.Join(cLibDir, "tests", "*.c"),
-	)
+	}, srcGlobs...)
+	testBinPath := ctx.CompileC(srcGlobs...)
 	commandPath := testBinPath
 
 	if path, ok := os.LookupEnv("STORJ_DEBUG"); ok {
