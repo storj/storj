@@ -10,18 +10,25 @@
 
 UplinkRef_t NewTestUplink(char **);
 
-void TestCreateBucket(void)
+ProjectRef_t OpenTestProject(char **err)
 {
-    char *_err = "";
-    char **err = &_err;
     char *satellite_addr = getenv("SATELLITE_ADDR");
     APIKeyRef_t ref_apikey = ParseAPIKey(getenv("APIKEY"), err);
+    TEST_ASSERT_EQUAL_STRING("", *err);
 
     UplinkRef_t ref_uplink = NewUplinkInsecure(err);
     TEST_ASSERT_EQUAL_STRING("", *err);
     TEST_ASSERT_NOT_EQUAL(0, ref_uplink);
 
-    ProjectRef_t ref_project = OpenProject(ref_uplink, satellite_addr, ref_apikey, err);
+    return OpenProject(ref_uplink, satellite_addr, ref_apikey, err);
+}
+
+void TestCreateBucket(void)
+{
+    char *_err = "";
+    char **err = &_err;
+
+    ProjectRef_t ref_project = OpenTestProject(err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     EncryptionParameters_t enc_param;
@@ -42,7 +49,7 @@ void TestCreateBucket(void)
     bucket_cfg.path_cipher = 0;
     bucket_cfg.encryption_parameters = &enc_param;
 
-    char *bucket_name = getenv("BUCKET_NAME");
+    char *bucket_name = getenv("CREATE_BUCKET_NAME");
 
     Bucket_t bucket = CreateBucket(ref_project, bucket_name, bucket_cfg, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
@@ -67,10 +74,25 @@ void TestCreateBucket(void)
 //    TEST_ASSERT_EQUAL(1024, bucket.segment_size);
 }
 
+void TestDeleteBucket(void)
+{
+    char *_err = "";
+    char **err = &_err;
+
+    ProjectRef_t ref_project = OpenTestProject(err);
+    TEST_ASSERT_EQUAL_STRING("", *err);
+
+    char *bucket_name = getenv("DELETE_BUCKET_NAME");
+
+    DeleteBucket(ref_project, bucket_name, err);
+    TEST_ASSERT_EQUAL_STRING("", *err);
+}
+
 int main(int argc, char *argv[])
 {
     UNITY_BEGIN();
     RUN_TEST(TestCreateBucket);
+    RUN_TEST(TestDeleteBucket);
 //    RUN_TEST(TestOpenBucket);
     return UNITY_END();
 }

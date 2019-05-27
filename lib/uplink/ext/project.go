@@ -66,3 +66,18 @@ func CreateBucket(cProject C.ProjectRef_t, name *C.char, cBucketCfg C.BucketConf
 		segment_size:          C.int64_t(bucket.SegmentsSize),
 	}
 }
+
+//export DeleteBucket
+func DeleteBucket(cProject C.ProjectRef_t, bucketName *C.char, cErr **C.char) {
+	ctx := context.Background()
+	project, ok := structRefMap.Get(token(cProject)).(*uplink.Project)
+	if !ok {
+		*cErr = C.CString("invalid project")
+		return
+	}
+
+	if err := project.DeleteBucket(ctx, C.GoString(bucketName)); err != nil {
+		*cErr = C.CString(err.Error())
+		return
+	}
+}
