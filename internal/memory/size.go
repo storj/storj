@@ -6,6 +6,7 @@ package memory
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 )
@@ -102,21 +103,21 @@ func countZeros(num, base int64) (count int) {
 // Base2String converts size to a string using base-2 prefixes
 func (size Size) Base2String() string {
 	if size == 0 {
-		return "0"
+		return "0 B"
 	}
 
 	switch {
-	case size >= EiB*2/3:
+	case math.Abs(size.Float64()) >= EiB.Float64()*2/3:
 		return fmt.Sprintf("%.1f EiB", size.EiB())
-	case size >= PiB*2/3:
+	case math.Abs(size.Float64()) >= PiB.Float64()*2/3:
 		return fmt.Sprintf("%.1f PiB", size.PiB())
-	case size >= TiB*2/3:
+	case math.Abs(size.Float64()) >= TiB.Float64()*2/3:
 		return fmt.Sprintf("%.1f TiB", size.TiB())
-	case size >= GiB*2/3:
+	case math.Abs(size.Float64()) >= GiB.Float64()*2/3:
 		return fmt.Sprintf("%.1f GiB", size.GiB())
-	case size >= MiB*2/3:
+	case math.Abs(size.Float64()) >= MiB.Float64()*2/3:
 		return fmt.Sprintf("%.1f MiB", size.MiB())
-	case size >= KiB*2/3:
+	case math.Abs(size.Float64()) >= KiB.Float64()*2/3:
 		return fmt.Sprintf("%.1f KiB", size.KiB())
 	}
 
@@ -126,21 +127,21 @@ func (size Size) Base2String() string {
 // Base10String converts size to a string using base-10 prefixes
 func (size Size) Base10String() string {
 	if size == 0 {
-		return "0"
+		return "0 B"
 	}
 
 	switch {
-	case size >= EB*2/3:
+	case math.Abs(size.Float64()) >= EB.Float64()*2/3:
 		return fmt.Sprintf("%.1f EB", size.EB())
-	case size >= PB*2/3:
+	case math.Abs(size.Float64()) >= PB.Float64()*2/3:
 		return fmt.Sprintf("%.1f PB", size.PB())
-	case size >= TB*2/3:
+	case math.Abs(size.Float64()) >= TB.Float64()*2/3:
 		return fmt.Sprintf("%.1f TB", size.TB())
-	case size >= GB*2/3:
+	case math.Abs(size.Float64()) >= GB.Float64()*2/3:
 		return fmt.Sprintf("%.1f GB", size.GB())
-	case size >= MB*2/3:
+	case math.Abs(size.Float64()) >= MB.Float64()*2/3:
 		return fmt.Sprintf("%.1f MB", size.MB())
-	case size >= KB*2/3:
+	case math.Abs(size.Float64()) >= KB.Float64()*2/3:
 		return fmt.Sprintf("%.1f KB", size.KB())
 	}
 
