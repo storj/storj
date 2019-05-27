@@ -13,6 +13,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/metainfo"
@@ -42,13 +43,13 @@ type Service struct {
 
 // NewService instantiates a Service with access to a Cursor and Verifier
 func NewService(log *zap.Logger, config Config, metainfo *metainfo.Service,
-	orders *orders.Service, transport transport.Client, overlay *overlay.Cache,
+	orders *orders.Service, transport transport.Client, overlay *overlay.Cache, k *kademlia.Kademlia,
 	containment Containment, identity *identity.FullIdentity) (service *Service, err error) {
 	return &Service{
 		log: log,
 
 		Cursor:   NewCursor(metainfo),
-		Verifier: NewVerifier(log.Named("audit:verifier"), transport, overlay, orders, identity, config.MinBytesPerSecond),
+		Verifier: NewVerifier(log.Named("audit:verifier"), transport, overlay, k, orders, identity, config.MinBytesPerSecond),
 		Reporter: NewReporter(overlay, containment, config.MaxRetriesStatDB),
 
 		Loop: *sync2.NewCycle(config.Interval),

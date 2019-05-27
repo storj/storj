@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pkcrypto"
@@ -44,12 +45,13 @@ type Verifier struct {
 	auditor           *identity.PeerIdentity
 	transport         transport.Client
 	overlay           *overlay.Cache
+	k                 *kademlia.Kademlia
 	minBytesPerSecond memory.Size
 }
 
 // NewVerifier creates a Verifier
-func NewVerifier(log *zap.Logger, transport transport.Client, overlay *overlay.Cache, orders *orders.Service, id *identity.FullIdentity, minBytesPerSecond memory.Size) *Verifier {
-	return &Verifier{log: log, orders: orders, auditor: id.PeerIdentity(), transport: transport, overlay: overlay, minBytesPerSecond: minBytesPerSecond}
+func NewVerifier(log *zap.Logger, transport transport.Client, overlay *overlay.Cache, k *kademlia.Kademlia, orders *orders.Service, id *identity.FullIdentity, minBytesPerSecond memory.Size) *Verifier {
+	return &Verifier{log: log, orders: orders, auditor: id.PeerIdentity(), transport: transport, overlay: overlay, k: k, minBytesPerSecond: minBytesPerSecond}
 }
 
 // Verify downloads shares then verifies the data correctness at the given stripe
@@ -81,7 +83,11 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe) (verifiedN
 			if share.Error == context.DeadlineExceeded || !transport.Error.Has(share.Error) {
 				containedNodes[pieceNum] = nodes[pieceNum]
 			} else {
-				offlineNodes = append(offlineNodes, nodes[pieceNum])
+				//If a node appears offline, the audit service should attempt a new Kad lookup
+				_, err := verifier.k.FindNode(ctx, nodes[pieceNum])
+				if err != nil { // TODO should check error type
+					offlineNodes = append(offlineNodes, nodes[pieceNum])
+				}
 			}
 		} else {
 			sharesToAudit[pieceNum] = share
