@@ -66,8 +66,9 @@ func TestReverifySuccess(t *testing.T) {
 		require.NotNil(t, verifier)
 
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
-		projectID := projects[0].ID
-		bucketID := []byte(storj.JoinPaths(projectID.String(), "testbucket"))
+		require.NoError(t, err)
+
+		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
 		shareSize := stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize()
 
 		for _, piece := range stripe.Segment.GetRemote().GetRemotePieces() {
