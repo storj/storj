@@ -18,7 +18,6 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/accounting"
-	"storj.io/storj/pkg/accounting/live"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
@@ -62,13 +61,12 @@ type Endpoint struct {
 	containment             Containment
 	apiKeys                 APIKeys
 	storagenodeAccountingDB accounting.StoragenodeAccounting
-	liveAccounting          live.Service
 }
 
 // NewEndpoint creates new metainfo endpoint instance
 func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, containment Containment,
 	apiKeys APIKeys, sdb accounting.StoragenodeAccounting,
-	projectUsage *accounting.ProjectUsage, liveAccounting live.Service) *Endpoint {
+	projectUsage *accounting.ProjectUsage) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
 		log:                     log,
@@ -79,7 +77,6 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cac
 		apiKeys:                 apiKeys,
 		storagenodeAccountingDB: sdb,
 		projectUsage:            projectUsage,
-		liveAccounting:          liveAccounting,
 	}
 }
 
@@ -268,7 +265,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	}
 
 	inlineUsed, remoteUsed := calculateSpaceUsed(req.Pointer)
-	if err := endpoint.liveAccounting.AddProjectStorageUsage(ctx, keyInfo.ProjectID, inlineUsed, remoteUsed); err != nil {
+	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, keyInfo.ProjectID, inlineUsed, remoteUsed); err != nil {
 		endpoint.log.Sugar().Errorf("Could not track new storage usage by project %v: %v", keyInfo.ProjectID, err)
 		// but continue. it's most likely our own fault that we couldn't track it, and the only thing
 		// that will be affected is our per-project bandwidth and storage limits.

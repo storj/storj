@@ -47,20 +47,14 @@ func NewProjectUsage(projectAccountingDB ProjectAccounting, liveAccounting live.
 // ExceedsBandwidthUsage returns true if the bandwidth usage limits have been exceeded
 // for a project in the past month (30 days). The usage limit is (e.g 25GB) multiplied by the redundancy
 // expansion factor, so that the uplinks have a raw limit.
-// TODO(jg): remove this code once we no longer need usage limiting for alpha release
 // Ref: https://storjlabs.atlassian.net/browse/V3-1274
 func (usage *ProjectUsage) ExceedsBandwidthUsage(ctx context.Context, projectID uuid.UUID, bucketID []byte) (_ bool, limit memory.Size, err error) {
-	// Check if this projectID has exceeded alpha usage limits for bandwidth or storage used in the past month
-	// TODO: remove this code once we no longer need usage limiting for alpha release
-	// Ref: https://storjlabs.atlassian.net/browse/V3-1274
-
 	var group errgroup.Group
 	var bandwidthGetTotal int64
 	limit = usage.maxAlphaUsage
 
-	// TODO maybe project limit cache expiration time?
+	// TODO(michal): to reduce db load, consider using a cache to retrieve the project.UsageLimit value if needed
 	group.Go(func() error {
-		// TODO should we ignore err and use default limit?
 		projectLimit, err := usage.projectAccountingDB.GetProjectUsageLimits(ctx, projectID)
 		if projectLimit > 0 {
 			limit = projectLimit
@@ -90,20 +84,14 @@ func (usage *ProjectUsage) ExceedsBandwidthUsage(ctx context.Context, projectID 
 // ExceedsStorageUsage returns true if the storage usage limits have been exceeded
 // for a project in the past month (30 days). The usage limit is (e.g. 25GB) multiplied by the redundancy
 // expansion factor, so that the uplinks have a raw limit.
-// TODO(jg): remove this code once we no longer need usage limiting for alpha release
 // Ref: https://storjlabs.atlassian.net/browse/V3-1274
 func (usage *ProjectUsage) ExceedsStorageUsage(ctx context.Context, projectID uuid.UUID) (_ bool, limit memory.Size, err error) {
-	// Check if this projectID has exceeded alpha usage limits, i.e. 25GB of bandwidth or storage used in the past month
-	// TODO: remove this code once we no longer need usage limiting for alpha release
-	// Ref: https://storjlabs.atlassian.net/browse/V3-1274
-
 	var group errgroup.Group
 	var inlineTotal, remoteTotal int64
 	limit = usage.maxAlphaUsage
 
-	// TODO maybe project limit cache expiration time?
+	// TODO(michal): to reduce db load, consider using a cache to retrieve the project.UsageLimit value if needed
 	group.Go(func() error {
-		// TODO should we ignore err and use default limit?
 		projectLimit, err := usage.projectAccountingDB.GetProjectUsageLimits(ctx, projectID)
 		if projectLimit > 0 {
 			limit = projectLimit
@@ -138,4 +126,11 @@ func (usage *ProjectUsage) getProjectStorageTotals(ctx context.Context, projectI
 		return 0, 0, err
 	}
 	return lastCountInline + rtInline, lastCountRemote + rtRemote, nil
+}
+
+// AddProjectStorageUsage lets the live accounting know that the given
+// project has just added inlineSpaceUsed bytes of inline space usage
+// and remoteSpaceUsed bytes of remote space usage.
+func (usage *ProjectUsage) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) error {
+	return usage.liveAccounting.AddProjectStorageUsage(ctx, projectID, inlineSpaceUsed, remoteSpaceUsed)
 }
