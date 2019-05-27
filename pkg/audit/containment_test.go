@@ -6,9 +6,7 @@ package audit_test
 import (
 	"crypto/rand"
 	"testing"
-	"time"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
@@ -16,8 +14,6 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/audit"
-	"storj.io/storj/pkg/auth/signing"
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink"
@@ -69,52 +65,29 @@ func TestReverifySuccess(t *testing.T) {
 		verifier := audit.NewVerifier(zap.L(), reporter, transport, overlay, containment, orders, planet.Satellites[0].Identity, minBytesPerSecond)
 		require.NotNil(t, verifier)
 
+		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
+		projectID := projects[0].ID
+		bucketID := []byte(storj.JoinPaths(projectID.String(), "testbucket"))
+		shareSize := stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize()
+
 		for _, piece := range stripe.Segment.GetRemote().GetRemotePieces() {
 			rootPieceID := stripe.Segment.GetRemote().RootPieceId
-			redundancy := stripe.Segment.GetRemote().GetRedundancy()
-
-			orderLimit, err := signing.SignOrderLimit(signing.SignerFromFullIdentity(planet.Satellites[0].Identity), &pb.OrderLimit2{
-				SerialNumber:    storj.SerialNumber{},
-				SatelliteId:     planet.Satellites[0].ID(),
-				UplinkId:        ul.ID(),
-				StorageNodeId:   piece.NodeId,
-				PieceId:         rootPieceID.Derive(piece.NodeId),
-				Action:          pb.PieceAction_GET_AUDIT,
-				Limit:           int64(redundancy.ErasureShareSize),
-				PieceExpiration: &timestamp.Timestamp{Seconds: time.Now().Unix() + 3000},
-				OrderExpiration: &timestamp.Timestamp{Seconds: time.Now().Unix() + 3000},
-			})
+			limit, err := orders.CreateAuditOrderLimit(ctx, planet.Satellites[0].Identity.PeerIdentity(), bucketID, piece.NodeId, rootPieceID, shareSize)
 			require.NoError(t, err)
 
-			var nodeAddr *pb.NodeAddress
-
-			for i := range planet.StorageNodes {
-				if planet.StorageNodes[i].ID() == piece.NodeId {
-					nodeAddr = &pb.NodeAddress{
-						Address:   planet.StorageNodes[i].Addr(),
-						Transport: pb.NodeTransport_TCP_TLS_GRPC,
-					}
-				}
-			}
-
-			limit := &pb.AddressedOrderLimit{
-				Limit:              orderLimit,
-				StorageNodeAddress: nodeAddr,
-			}
-
-			share, err := verifier.GetShare(ctx, limit, stripe.Index, redundancy.ErasureShareSize, int(piece.PieceNum))
+			share, err := verifier.GetShare(ctx, limit, stripe.Index, shareSize, int(piece.PieceNum))
 			require.NoError(t, err)
 
 			pending := &audit.PendingAudit{
 				NodeID:            piece.NodeId,
-				PieceID:           stripe.Segment.GetRemote().RootPieceId,
+				PieceID:           rootPieceID,
 				StripeIndex:       stripe.Index,
-				ShareSize:         stripe.Segment.GetRemote().GetRedundancy().ErasureShareSize,
+				ShareSize:         shareSize,
 				ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
 				ReverifyCount:     0,
 			}
 
-			err = planet.Satellites[0].DB.Containment().IncrementPending(ctx, pending)
+			err = containment.IncrementPending(ctx, pending)
 			require.NoError(t, err)
 		}
 
