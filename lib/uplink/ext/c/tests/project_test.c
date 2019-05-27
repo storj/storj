@@ -14,7 +14,7 @@ void TestCreateBucket(void)
 {
     char *_err = "";
     char **err = &_err;
-    char *satellite_addr = getenv("SATELLITEADDR");
+    char *satellite_addr = getenv("SATELLITE_ADDR");
     APIKeyRef_t ref_apikey = ParseAPIKey(getenv("APIKEY"), err);
 
     UplinkRef_t ref_uplink = NewUplinkInsecure(err);
@@ -42,7 +42,7 @@ void TestCreateBucket(void)
     bucket_cfg.path_cipher = 0;
     bucket_cfg.encryption_parameters = &enc_param;
 
-    char *bucket_name = "testbucket";
+    char *bucket_name = getenv("BUCKET_NAME");
 
     Bucket_t bucket = CreateBucket(ref_project, bucket_name, bucket_cfg, err);
     TEST_ASSERT_EQUAL_STRING("", *err);

@@ -22,7 +22,7 @@ void TestOpenProject(void)
 {
     char *_err = "";
     char **err = &_err;
-    char *satellite_addr = getenv("SATELLITEADDR");
+    char *satellite_addr = getenv("SATELLITE_ADDR");
     APIKeyRef_t ref_apikey = ParseAPIKey(getenv("APIKEY"), err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 

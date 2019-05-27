@@ -5,7 +5,6 @@ package main
 
 // #cgo CFLAGS: -g -Wall
 // #include <stdbool.h>
-// #include "c/tests/test.h"
 // #include "c/headers/main.h"
 import "C"
 import (
