@@ -293,12 +293,16 @@ func (peer *Peer) Run(ctx context.Context) error {
 		peer.Log.Sugar().Infof("Public server started on %s", peer.Addr())
 		peer.Log.Sugar().Infof("Private server started on %s", peer.PrivateAddr())
 
-		if sendStartedSignal {
-			peer.sendNetworkStartedSignal()
-		}
 		return errs2.IgnoreCanceled(peer.Server.Run(ctx))
 	})
 
+	if sendStartedSignal {
+		group.Go(func() error {
+			peer.Kademlia.Service.WaitForBootstrap()
+			peer.sendNetworkStartedSignal()
+			return nil
+		})
+	}
 	return group.Wait()
 }
 
