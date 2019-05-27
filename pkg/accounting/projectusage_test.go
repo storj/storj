@@ -80,7 +80,6 @@ func TestProjectUsageStorage(t *testing.T) {
 }
 
 func TestProjectUsageBandwidth(t *testing.T) {
-	t.Skip("flaky")
 	cases := []struct {
 		name             string
 		expectedExceeded bool
@@ -91,23 +90,22 @@ func TestProjectUsageBandwidth(t *testing.T) {
 		{name: "exceeds bandwidth project limit", expectedExceeded: true, expectedResource: "bandwidth", expectedErrMsg: "segment error: metainfo error: rpc error: code = ResourceExhausted desc = Exceeded Alpha Usage Limit"},
 	}
 
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		saDB := planet.Satellites[0].DB
-		orderDB := saDB.Orders()
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			testplanet.Run(t, testplanet.Config{
+				SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+			}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+				saDB := planet.Satellites[0].DB
+				orderDB := saDB.Orders()
 
-		// Setup: get projectID and create bucketID
-		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-		projectID := projects[0].ID
-		bucketName := "testbucket"
-		bucketID := createBucketID(projectID, []byte(bucketName))
+				// Setup: get projectID and create bucketID
+				projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
+				projectID := projects[0].ID
+				require.NoError(t, err)
+				bucketName := "testbucket"
+				bucketID := createBucketID(projectID, []byte(bucketName))
 
-		projectUsage := planet.Satellites[0].Metainfo.ProjectUsage
-
-		for _, tt := range cases {
-			t.Run(tt.name, func(t *testing.T) {
+				projectUsage := planet.Satellites[0].Metainfo.ProjectUsage
 
 				// Setup: create a BucketBandwidthRollup record to test exceeding bandwidth project limit
 				if tt.expectedResource == "bandwidth" {
@@ -120,7 +118,9 @@ func TestProjectUsageBandwidth(t *testing.T) {
 				expectedData := make([]byte, 50*memory.KiB)
 				_, err = rand.Read(expectedData)
 				require.NoError(t, err)
-				err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, "test/path", expectedData)
+
+				filePath := "test/path"
+				err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, filePath, expectedData)
 				require.NoError(t, err)
 
 				actualExceeded, _, err := projectUsage.ExceedsBandwidthUsage(ctx, projectID, bucketID)
@@ -128,16 +128,15 @@ func TestProjectUsageBandwidth(t *testing.T) {
 				require.Equal(t, tt.expectedExceeded, actualExceeded)
 
 				// Execute test: check that the uplink gets an error when they have exceeded bandwidth limits and try to download a file
-				_, actualErr := planet.Uplinks[0].Download(ctx, planet.Satellites[0], bucketName, "test/path")
+				_, actualErr := planet.Uplinks[0].Download(ctx, planet.Satellites[0], bucketName, filePath)
 				if tt.expectedResource == "bandwidth" {
 					assert.EqualError(t, actualErr, tt.expectedErrMsg)
 				} else {
 					require.NoError(t, actualErr)
 				}
-
 			})
-		}
-	})
+		})
+	}
 }
 
 func createBucketID(projectID uuid.UUID, bucket []byte) []byte {
