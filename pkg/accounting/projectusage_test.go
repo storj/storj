@@ -46,7 +46,7 @@ func TestProjectUsageStorage(t *testing.T) {
 		require.NoError(t, err)
 		projectID := projects[0].ID
 
-		projectUsage := planet.Satellites[0].Metainfo.ProjectUsage
+		projectUsage := planet.Satellites[0].Accounting.ProjectUsage
 
 		for _, tt := range cases {
 			t.Run(tt.name, func(t *testing.T) {
@@ -105,7 +105,7 @@ func TestProjectUsageBandwidth(t *testing.T) {
 				bucketName := "testbucket"
 				bucketID := createBucketID(projectID, []byte(bucketName))
 
-				projectUsage := planet.Satellites[0].Metainfo.ProjectUsage
+				projectUsage := planet.Satellites[0].Accounting.ProjectUsage
 
 				// Setup: create a BucketBandwidthRollup record to test exceeding bandwidth project limit
 				if tt.expectedResource == "bandwidth" {
@@ -271,7 +271,7 @@ func TestProjectUsageCustomLimit(t *testing.T) {
 		err = projectsDB.Update(ctx, &project)
 		require.NoError(t, err)
 
-		projectUsage := planet.Satellites[0].Metainfo.ProjectUsage
+		projectUsage := planet.Satellites[0].Accounting.ProjectUsage
 
 		// Setup: create BucketStorageTally records to test exceeding storage project limit
 		now := time.Now()
