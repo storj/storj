@@ -11,6 +11,13 @@ aws configure set aws_access_key_id     "$AWS_ACCESS_KEY_ID"
 aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY"
 aws configure set default.region        us-east-1
 
+
+# run aws s3 benchmark tests
+echo
+echo "Executing upload/download benchmark tests for aws s3..."
+go test -bench=S3 -benchmem ./cmd/uplink/cmd/
+
+
 # run s3-benchmark with aws s3
 echo
 echo "Executing s3-benchmark tests with aws s3 client..."
