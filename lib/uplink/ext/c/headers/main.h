@@ -51,3 +51,17 @@ struct Bucket {
     int64_t segment_size;
 };
 typedef struct Bucket Bucket_t;
+
+struct BucketListOptions {
+    char *cursor;
+    int8_t direction;
+    int64_t limit;
+};
+typedef struct BucketListOptions BucketListOptions_t;
+
+struct BucketList {
+    bool more;
+    Bucket_t *items;
+    int32_t length;
+};
+typedef struct BucketList BucketList_t;

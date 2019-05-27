@@ -120,6 +120,8 @@ extern Bucket_t CreateBucket(ProjectRef_t p0, char* p1, BucketConfig_t p2, char*
 
 extern void DeleteBucket(ProjectRef_t p0, char* p1, char** p2);
 
+extern BucketList_t ListBuckets(ProjectRef_t p0, BucketListOptions_t* p1, char** p2);
+
 extern UplinkRef_t NewUplink(char** p0);
 
 extern UplinkRef_t NewUplinkInsecure(char** p0);

@@ -39,6 +39,65 @@ func CreateBucket(cProject C.ProjectRef_t, name *C.char, cBucketCfg C.BucketConf
 		return cBucket
 	}
 
+	return bucketToCBucket(&bucket)
+}
+
+//export DeleteBucket
+func DeleteBucket(cProject C.ProjectRef_t, bucketName *C.char, cErr **C.char) {
+	ctx := context.Background()
+	project, ok := structRefMap.Get(token(cProject)).(*uplink.Project)
+	if !ok {
+		*cErr = C.CString("invalid project")
+		return
+	}
+
+	if err := project.DeleteBucket(ctx, C.GoString(bucketName)); err != nil {
+		*cErr = C.CString(err.Error())
+		return
+	}
+}
+
+//export ListBuckets
+func ListBuckets(cProject C.ProjectRef_t, cOpts *C.BucketListOptions_t, cErr **C.char) (cBucketList C.BucketList_t) {
+	ctx := context.Background()
+	project, ok := structRefMap.Get(token(cProject)).(*uplink.Project)
+	if !ok {
+		*cErr = C.CString("invalid project")
+		return
+	}
+
+	var opts *uplink.BucketListOptions
+	if cOpts != nil {
+		opts = &uplink.BucketListOptions{
+			Cursor:    C.GoString(cOpts.cursor),
+			Direction: storj.ListDirection(cOpts.direction),
+			Limit:     int(cOpts.limit),
+		}
+	}
+
+	bucketList, err := project.ListBuckets(ctx, opts)
+	if err != nil {
+		*cErr = C.CString(err.Error())
+		return cBucketList
+	}
+	bucketListLen := len(bucketList.Items)
+
+	bucketSize := int(unsafe.Sizeof(C.Bucket_t{}))
+	cBucketsPtr := CMalloc(uintptr((bucketListLen - 1) * bucketSize))
+
+	for i, bucket := range bucketList.Items {
+		cBucket := (*C.Bucket_t)(unsafe.Pointer(uintptr(int(cBucketsPtr) + (i * bucketSize))))
+		*cBucket = bucketToCBucket(&bucket)
+	}
+
+	return C.BucketList_t{
+		more:   C.bool(bucketList.More),
+		items:  (*C.Bucket_t)(unsafe.Pointer(cBucketsPtr)),
+		length: C.int32_t(bucketListLen),
+	}
+}
+
+func bucketToCBucket(bucket *storj.Bucket) C.Bucket_t {
 	encParamsPtr := CMalloc(unsafe.Sizeof(C.EncryptionParameters_t{}))
 	encParams := (*C.EncryptionParameters_t)(unsafe.Pointer(encParamsPtr))
 	*encParams = C.EncryptionParameters_t{
@@ -64,20 +123,5 @@ func CreateBucket(cProject C.ProjectRef_t, name *C.char, cBucketCfg C.BucketConf
 		created:               C.int64_t(bucket.Created.Unix()),
 		path_cipher:           C.uint8_t(bucket.PathCipher),
 		segment_size:          C.int64_t(bucket.SegmentsSize),
-	}
-}
-
-//export DeleteBucket
-func DeleteBucket(cProject C.ProjectRef_t, bucketName *C.char, cErr **C.char) {
-	ctx := context.Background()
-	project, ok := structRefMap.Get(token(cProject)).(*uplink.Project)
-	if !ok {
-		*cErr = C.CString("invalid project")
-		return
-	}
-
-	if err := project.DeleteBucket(ctx, C.GoString(bucketName)); err != nil {
-		*cErr = C.CString(err.Error())
-		return
 	}
 }

@@ -3,7 +3,6 @@
 
 #include <stdio.h>
 #include <unistd.h>
-#include <signal.h>
 #include <string.h>
 #include "unity.h"
 #include "../../uplink-cgo.h"
@@ -88,11 +87,40 @@ void TestDeleteBucket(void)
     TEST_ASSERT_EQUAL_STRING("", *err);
 }
 
+void TestListBuckets(void)
+{
+    char *_err = "";
+    char **err = &_err;
+
+    ProjectRef_t ref_project = OpenTestProject(err);
+    TEST_ASSERT_EQUAL_STRING("", *err);
+
+    // TODO: test BucketListOptions_t
+    BucketList_t bucket_list = ListBuckets(ref_project, NULL, err);
+    TEST_ASSERT_EQUAL_STRING("", *err);
+    TEST_ASSERT_FALSE(bucket_list.more);
+    TEST_ASSERT_EQUAL(2, bucket_list.length);
+    TEST_ASSERT_NOT_NULL(bucket_list.items);
+
+    Bucket_t bucket;
+    bucket = bucket_list.items[0];
+
+    char *create_bucket_name = getenv("CREATE_BUCKET_NAME");
+    TEST_ASSERT_EQUAL_STRING(create_bucket_name, bucket.name);
+    TEST_ASSERT_NOT_EQUAL(0, bucket.created);
+
+    bucket = bucket_list.items[1];
+
+    char *delete_bucket_name = getenv("DELETE_BUCKET_NAME");
+    TEST_ASSERT_EQUAL_STRING(delete_bucket_name, bucket.name);
+    TEST_ASSERT_NOT_EQUAL(0, bucket.created);
+}
+
 int main(int argc, char *argv[])
 {
     UNITY_BEGIN();
     RUN_TEST(TestCreateBucket);
+    RUN_TEST(TestListBuckets);
     RUN_TEST(TestDeleteBucket);
-//    RUN_TEST(TestOpenBucket);
     return UNITY_END();
 }

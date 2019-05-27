@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package main
+package main_test
 
 import (
 	"context"
@@ -13,7 +13,6 @@ import (
 	"testing"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
@@ -41,87 +40,6 @@ func init() {
 	testConfig.Volatile.TLS.SkipPeerCAWhitelist = true
 }
 
-func TestCCommonTests(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	planet := startTestPlanet(t, ctx)
-	defer ctx.Check(planet.Shutdown)
-
-	runCTest(t, ctx, "common_test.c")
-}
-
-func TestCUplinkTests(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	planet := startTestPlanet(t, ctx)
-	defer ctx.Check(planet.Shutdown)
-
-	project := newProject(t, planet)
-	apikeyStr := newAPIKey(t, ctx, planet, project.ID)
-	satelliteAddr := planet.Satellites[0].Addr()
-
-	envVars := []string{
-		"SATELLITE_ADDR=" + satelliteAddr,
-		"APIKEY=" + apikeyStr,
-	}
-
-	runCTest(t, ctx, "uplink_test.c", envVars...)
-}
-
-func TestCProjectTests(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	planet := startTestPlanet(t, ctx)
-	defer ctx.Check(planet.Shutdown)
-
-	createBucketName := "create-bucket-" + t.Name()
-	deleteBucketName := "delete-Bucket-" + t.Name()
-	project := newProject(t, planet)
-	apikey := newAPIKey(t, ctx, planet, project.ID)
-	satelliteAddr := planet.Satellites[0].Addr()
-
-	envVars := []string{
-		"CREATE_BUCKET_NAME=" + createBucketName,
-		"DELETE_BUCKET_NAME=" + deleteBucketName,
-		"SATELLITE_ADDR=" + satelliteAddr,
-		"APIKEY=" + apikey,
-	}
-
-	{
-		u, err := uplink.NewUplink(ctx, testConfig)
-		require.NoError(t, err)
-
-		apikey, err := uplink.ParseAPIKey(apikey)
-		require.NoError(t, err)
-
-		project, err := u.OpenProject(ctx, satelliteAddr, apikey, nil)
-		require.NoError(t, err)
-
-		deleteBucket, err := project.CreateBucket(ctx, deleteBucketName, nil)
-		require.NoError(t, err)
-		require.NotNil(t, deleteBucket)
-
-		buckets, err := project.ListBuckets(ctx, nil)
-		require.NoError(t, err)
-		require.NotNil(t, buckets)
-		require.NotEmpty(t, buckets.Items)
-		assert.Len(t, buckets.Items, 1)
-
-		runCTest(t, ctx, "project_test.c", envVars...)
-
-		// TODO: why does this error when opts is nil?
-		buckets, err = project.ListBuckets(ctx, nil)
-		require.NoError(t, err)
-		require.NotNil(t, buckets)
-		require.NotEmpty(t, buckets.Items)
-		assert.Len(t, buckets.Items, 1)
-		assert.Equal(t, createBucketName, buckets.Items[0].Name)
-	}
-}
-
 //func TestCBucketTest(t *testing.T) {
 //	ctx := testcontext.New(t)
 //	defer ctx.Cleanup()
@@ -144,8 +62,8 @@ func runCTests(t *testing.T, ctx *testcontext.Context, envVars []string, srcGlob
 	testBinPath := ctx.CompileC(srcGlobs...)
 	commandPath := testBinPath
 
-	if path, ok := os.LookupEnv("STORJ_DEBUG"); ok {
-		err := copyFile(testBinPath, path)
+	if dir, ok := os.LookupEnv("STORJ_DEBUG"); ok {
+		err := copyFile(testBinPath, filepath.Join(dir, t.Name()))
 		require.NoError(t, err)
 	}
 
