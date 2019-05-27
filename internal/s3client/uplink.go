@@ -29,8 +29,8 @@ var configDir = fpath.ApplicationDir("storj", "s3-client", "uplink")
 func NewUplink(conf Config) (Client, error) {
 	client := &Uplink{conf}
 
-	// remove existing s3clinet uplink config so that
-	// we can create a new one with up to date settings
+	// remove existing s3client uplink config so that
+	// we can create a new one with up-to-date settings
 	err := os.RemoveAll(configDir)
 	if err != nil {
 		return nil, UplinkError.Wrap(fullExitError(err))
