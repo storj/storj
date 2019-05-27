@@ -23,29 +23,34 @@ type Uplink struct {
 	conf Config
 }
 
-var configDir = fpath.ApplicationDir("storj", "s3-client", "uplink")
-
 // NewUplink creates new Client
 func NewUplink(conf Config) (Client, error) {
 	client := &Uplink{conf}
 
+	if client.conf.ConfigDir != "" {
+		fmt.Printf("Using existing uplink config at %s\n", client.conf.ConfigDir)
+		return client, nil
+	}
+
+	client.conf.ConfigDir = fpath.ApplicationDir("storj", "s3-client", "uplink")
+
 	// remove existing s3client uplink config so that
 	// we can create a new one with up-to-date settings
-	err := os.RemoveAll(configDir)
+	err := os.RemoveAll(client.conf.ConfigDir)
 	if err != nil {
 		return nil, UplinkError.Wrap(fullExitError(err))
 	}
 
 	fmt.Printf(`Creating uplink configuration with the following settings:
-	"--config-dir: %s"
+	"--config-dir: %s,"
 	"--non-interactive: true",
 	"--api-key: %s",
 	"--enc.encryption-key: %s",
-	"--satellite-addr: %s
+	"--satellite-addr: %s,
 	`,
-		configDir, client.conf.APIKey, client.conf.EncryptionKey, client.conf.Satellite,
+		client.conf.ConfigDir, client.conf.APIKey, client.conf.EncryptionKey, client.conf.Satellite,
 	)
-	cmd := client.cmd("--config-dir", configDir,
+	cmd := client.cmd("--config-dir", client.conf.ConfigDir,
 		"setup",
 		"--non-interactive", "true",
 		"--api-key", client.conf.APIKey,
@@ -64,7 +69,7 @@ func NewUplink(conf Config) (Client, error) {
 func (client *Uplink) cmd(subargs ...string) *exec.Cmd {
 	args := []string{}
 
-	configArgs := []string{"--config-dir", configDir}
+	configArgs := []string{"--config-dir", client.conf.ConfigDir}
 	args = append(args, configArgs...)
 	args = append(args, subargs...)
 
