@@ -6,6 +6,7 @@ package overlay
 import (
 	"context"
 	"errors"
+	"net"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -261,6 +262,11 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 	if nodeID != value.Id {
 		return errors.New("invalid request")
 	}
+	//Resolve IP Address to ensure it is set
+	value.LastIp, err = getIP(value.Address.Address)
+	if err != nil {
+		return err
+	}
 	return cache.db.UpdateAddress(ctx, &value)
 }
 
@@ -336,4 +342,16 @@ func (cache *Cache) GetMissingPieces(ctx context.Context, pieces []*pb.RemotePie
 		}
 	}
 	return missingPieces, nil
+}
+
+func getIP(target string) (string, error) {
+	host, _, err := net.SplitHostPort(target)
+	if err != nil {
+		return "", err
+	}
+	ipAddr, err := net.ResolveIPAddr("ip", host)
+	if err != nil {
+		return "", err
+	}
+	return ipAddr.String(), nil
 }
