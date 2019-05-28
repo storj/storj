@@ -13,14 +13,13 @@ import (
 	"path/filepath"
 	"time"
 
-	"storj.io/storj/internal/payments/paymentstest"
-
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/payments"
+	"storj.io/storj/internal/payments/paymentstest"
 	"storj.io/storj/internal/post"
 	"storj.io/storj/internal/post/oauth2"
 	"storj.io/storj/internal/version"
