@@ -178,8 +178,9 @@ type Peer struct {
 	}
 
 	Accounting struct {
-		Tally  *tally.Service
-		Rollup *rollup.Service
+		Tally        *tally.Service
+		Rollup       *rollup.Service
+		ProjectUsage *accounting.ProjectUsage
 	}
 
 	LiveAccounting struct {
@@ -322,6 +323,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		peer.LiveAccounting.Service = liveAccountingService
 	}
 
+	{ // setup accounting project usage
+		log.Debug("Setting up accounting project usage")
+		peer.Accounting.ProjectUsage = accounting.NewProjectUsage(
+			peer.DB.ProjectAccounting(),
+			peer.LiveAccounting.Service,
+			config.Rollup.MaxAlphaUsage,
+		)
+	}
+
 	{ // setup orders
 		log.Debug("Setting up orders")
 		satelliteSignee := signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity())
@@ -360,9 +370,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.DB.Containment(),
 			peer.DB.Console().APIKeys(),
 			peer.DB.StoragenodeAccounting(),
-			peer.DB.ProjectAccounting(),
-			peer.LiveAccounting.Service,
-			config.Rollup.MaxAlphaUsage,
+			peer.Accounting.ProjectUsage,
 		)
 
 		pb.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)
