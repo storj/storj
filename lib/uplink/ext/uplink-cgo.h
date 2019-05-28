@@ -122,6 +122,8 @@ extern void DeleteBucket(ProjectRef_t p0, char* p1, char** p2);
 
 extern BucketList_t ListBuckets(ProjectRef_t p0, BucketListOptions_t* p1, char** p2);
 
+extern BucketInfo_t GetBucketInfo(ProjectRef_t p0, char* p1, char** p2);
+
 extern void CloseProject(ProjectRef_t p0, char** p1);
 
 extern UplinkRef_t NewUplink(char** p0);

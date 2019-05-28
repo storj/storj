@@ -118,6 +118,31 @@ func ListBuckets(cProject C.ProjectRef_t, cOpts *C.BucketListOptions_t, cErr **C
 	}
 }
 
+//export GetBucketInfo
+func GetBucketInfo(cProject C.ProjectRef_t, bucketName *C.char, cErr **C.char) (cBucketInfo C.BucketInfo_t) {
+	ctx := context.Background()
+
+	project, ok := structRefMap.Get(token(cProject)).(*uplink.Project)
+	if !ok {
+		*cErr = C.CString("invalid project")
+		return cBucketInfo
+	}
+
+	bucket, cfg, err := project.GetBucketInfo(ctx, C.GoString(bucketName))
+	if err != nil {
+		*cErr = C.CString(err.Error())
+		return cBucketInfo
+	}
+
+	return C.BucketInfo_t{
+		bucket: bucketToCBucket(&bucket),
+		config: C.BucketConfig_t{
+			path_cipher:           C.uint8_t(cfg.PathCipher),
+			encryption_parameters: encParamsToCEncParams(cfg.EncryptionParameters),
+		},
+	}
+}
+
 //export CloseProject
 func CloseProject(cProject C.ProjectRef_t, cErr **C.char) {
 	project, ok := structRefMap.Get(token(cProject)).(*uplink.Project)
@@ -133,12 +158,7 @@ func CloseProject(cProject C.ProjectRef_t, cErr **C.char) {
 }
 
 func bucketToCBucket(bucket *storj.Bucket) C.Bucket_t {
-	encParamsPtr := CMalloc(unsafe.Sizeof(C.EncryptionParameters_t{}))
-	encParams := (*C.EncryptionParameters_t)(unsafe.Pointer(encParamsPtr))
-	*encParams = C.EncryptionParameters_t{
-		cipher_suite: C.uint8_t(bucket.EncryptionParameters.CipherSuite),
-		block_size:   C.int32_t(bucket.EncryptionParameters.BlockSize),
-	}
+	encParamsPtr := encParamsToCEncParams(bucket.EncryptionParameters)
 
 	redundancySchemePtr := CMalloc(unsafe.Sizeof(C.RedundancyScheme_t{}))
 	redundancyScheme := (*C.RedundancyScheme_t)(unsafe.Pointer(redundancySchemePtr))
@@ -152,11 +172,21 @@ func bucketToCBucket(bucket *storj.Bucket) C.Bucket_t {
 	}
 
 	return C.Bucket_t{
-		encryption_parameters: encParams,
+		encryption_parameters: encParamsPtr,
 		redundancy_scheme:     redundancyScheme,
 		name:                  C.CString(bucket.Name),
 		created:               C.int64_t(bucket.Created.Unix()),
 		path_cipher:           C.uint8_t(bucket.PathCipher),
 		segment_size:          C.int64_t(bucket.SegmentsSize),
 	}
+}
+
+func encParamsToCEncParams(params storj.EncryptionParameters) *C.EncryptionParameters_t {
+	ptr := CMalloc(unsafe.Sizeof(C.EncryptionParameters_t{}))
+	cParams := (*C.EncryptionParameters_t)(unsafe.Pointer(ptr))
+	*cParams = C.EncryptionParameters_t{
+		cipher_suite: C.uint8_t(params.CipherSuite),
+		block_size:   C.int32_t(params.BlockSize),
+	}
+	return cParams
 }

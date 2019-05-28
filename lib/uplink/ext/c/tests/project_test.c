@@ -103,10 +103,18 @@ void TestProject(void)
     TEST_ASSERT_NOT_NULL(bucket_list.items);
 
     for (int i=0; i < num_of_buckets; i++) {
-        Bucket_t *listed_bucket;
-        listed_bucket = &bucket_list.items[i];
-        TEST_ASSERT_EQUAL_STRING(bucket_names[i], listed_bucket->name);
-        TEST_ASSERT_NOT_EQUAL(0, listed_bucket->created);
+        Bucket_t *bucket = &bucket_list.items[i];
+        TEST_ASSERT_EQUAL_STRING(bucket_names[i], bucket->name);
+        TEST_ASSERT_NOT_EQUAL(0, bucket->created);
+
+        // Get bucket info
+        BucketInfo_t bucket_info = GetBucketInfo(ref_project, bucket->name, err);
+        TEST_ASSERT_EQUAL_STRING("", *err);
+        TEST_ASSERT_EQUAL_STRING(bucket->name, bucket_info.bucket.name);
+        TEST_ASSERT_NOT_EQUAL(0, bucket_info.bucket.created);
+
+        // TODO: add assertions for the rest of bucket_info's nested fields (here and in go)
+        // in a way that doesn't involve a refactor that offends alex's delicate sensibilities.
     }
 
     // Delete Buckets

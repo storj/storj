@@ -29,11 +29,6 @@ typedef struct EncryptionParameters {
     int32_t block_size;
 } EncryptionParameters_t;
 
-typedef struct BucketConfig {
-    EncryptionParameters_t *encryption_parameters;
-    uint8_t path_cipher;
-} BucketConfig_t;
-
 typedef struct RedundancyScheme {
     uint8_t algorithm;
     int32_t share_size;
@@ -51,6 +46,16 @@ typedef struct Bucket {
     uint8_t path_cipher;
     int64_t segment_size;
 } Bucket_t;
+
+typedef struct BucketConfig {
+    EncryptionParameters_t *encryption_parameters;
+    uint8_t path_cipher;
+} BucketConfig_t;
+
+typedef struct BucketInfo {
+    Bucket_t bucket;
+    BucketConfig_t config;
+} BucketInfo_t;
 
 typedef struct BucketListOptions {
     char *cursor;
