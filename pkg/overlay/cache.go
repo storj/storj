@@ -22,6 +22,9 @@ var ErrEmptyNode = errs.New("empty node ID")
 // ErrNodeNotFound is returned if a node does not exist in database
 var ErrNodeNotFound = errs.Class("node not found")
 
+// ErrNodeOffline is returned if a nodes is offline
+var ErrNodeOffline = errs.Class("node is offline")
+
 // ErrBucketNotFound is returned if a bucket is unable to be found in the routing table
 var ErrBucketNotFound = errs.New("bucket not found")
 
@@ -75,9 +78,11 @@ type NodeCriteria struct {
 	AuditSuccessRatio  float64
 	UptimeCount        int64
 	UptimeSuccessRatio float64
-	Excluded           []storj.NodeID
+	ExcludedNodes      []storj.NodeID
+	ExcludedIPs        []string
 	MinimumVersion     string // semver or empty
 	OnlineWindow       time.Duration
+	DistinctIP         bool
 }
 
 // UpdateRequest is used to update a node status.
@@ -173,7 +178,7 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 		reputableNodeCount = req.RequestedCount
 	}
 
-	excluded := req.ExcludedNodes
+	excludedNodes := req.ExcludedNodes
 
 	newNodeCount := 0
 	if preferences.NewNodePercentage > 0 {
@@ -187,18 +192,23 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 			FreeDisk:          req.FreeDisk,
 			AuditCount:        preferences.AuditCount,
 			AuditSuccessRatio: preferences.AuditSuccessRatio,
-			Excluded:          excluded,
+			ExcludedNodes:     excludedNodes,
 			MinimumVersion:    preferences.MinimumVersion,
 			OnlineWindow:      preferences.OnlineWindow,
+			DistinctIP:        preferences.DistinctIP,
 		})
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	// add selected new nodes to the excluded list for reputable node selection
+	var excludedIPs []string
+	// add selected new nodes and their IPs to the excluded lists for reputable node selection
 	for _, newNode := range newNodes {
-		excluded = append(excluded, newNode.Id)
+		excludedNodes = append(excludedNodes, newNode.Id)
+		if preferences.DistinctIP {
+			excludedIPs = append(excludedIPs, newNode.LastIp)
+		}
 	}
 
 	criteria := NodeCriteria{
@@ -208,9 +218,11 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 		AuditSuccessRatio:  preferences.AuditSuccessRatio,
 		UptimeCount:        preferences.UptimeCount,
 		UptimeSuccessRatio: preferences.UptimeRatio,
-		Excluded:           excluded,
+		ExcludedNodes:      excludedNodes,
+		ExcludedIPs:        excludedIPs,
 		MinimumVersion:     preferences.MinimumVersion,
 		OnlineWindow:       preferences.OnlineWindow,
+		DistinctIP:         preferences.DistinctIP,
 	}
 	reputableNodes, err := cache.db.SelectStorageNodes(ctx, reputableNodeCount-len(newNodes), &criteria)
 	if err != nil {

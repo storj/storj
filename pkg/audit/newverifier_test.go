@@ -47,8 +47,11 @@ func TestVerifierHappyPath(t *testing.T) {
 
 		transport := planet.Satellites[0].Transport
 		orders := planet.Satellites[0].Orders.Service
+		containment := planet.Satellites[0].DB.Containment()
 		minBytesPerSecond := 128 * memory.B
-		verifier := audit.NewVerifier(zap.L(), transport, overlay, orders, planet.Satellites[0].Identity, minBytesPerSecond)
+
+		reporter := audit.NewReporter(overlay, containment, 1)
+		verifier := audit.NewVerifier(zap.L(), reporter, transport, overlay, containment, orders, planet.Satellites[0].Identity, minBytesPerSecond)
 		require.NotNil(t, verifier)
 
 		// stop some storage nodes to ensure audit can deal with it
@@ -63,10 +66,10 @@ func TestVerifierHappyPath(t *testing.T) {
 		_, err = planet.Satellites[0].Overlay.Service.UpdateUptime(ctx, planet.StorageNodes[1].ID(), false)
 		require.NoError(t, err)
 
-		verifiedNodes, err := verifier.Verify(ctx, stripe)
+		verifiedNodes, err := verifier.Verify(ctx, stripe, nil)
 		require.NoError(t, err)
 
-		require.Len(t, verifiedNodes.SuccessNodeIDs, 4)
-		require.Len(t, verifiedNodes.FailNodeIDs, 0)
+		require.Len(t, verifiedNodes.Successes, 4)
+		require.Len(t, verifiedNodes.Fails, 0)
 	})
 }

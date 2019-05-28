@@ -111,8 +111,14 @@ read all (
 model node (
 	key id
 
+	index ( 
+		name node_last_ip
+		fields last_ip 
+	)
+
 	field id             blob
 	field address        text  ( updatable ) // TODO: use compressed format
+	field last_ip        text  ( updatable )
 	field protocol       int   ( updatable )
 	field type           int   ( updatable )
 	field email          text  ( updatable )
@@ -255,16 +261,14 @@ delete project_member (
 
 model api_key (
     key    id
-    unique key
+    unique head
     unique name project_id
 
     field  id          blob
     field  project_id  project.id cascade
-
-    field  key         blob
-
+    field  head        blob
     field  name        text       (updatable)
-
+    field  secret      blob
     field  created_at  timestamp  (autoinsert)
 )
 
@@ -278,7 +282,7 @@ read one (
 )
 read one (
     select api_key
-    where api_key.key = ?
+    where api_key.head = ?
 )
 read all (
     select api_key
@@ -477,7 +481,7 @@ read all (
 
 model storagenode_storage_tally (
 	key   id
-	
+
 	field id								serial64
 	field node_id						blob
 	field interval_end_time	timestamp
@@ -564,3 +568,54 @@ read one (
     where reset_password_token.owner_id = ?
 )
 delete reset_password_token ( where reset_password_token.secret = ? )
+
+
+//--- offer table ---//
+
+model offer (
+	key id
+	
+	field id	serial 
+	field name text ( updatable )
+	field description text ( updatable )
+
+	// type has two possible value: FreeTier=1, Referral=2.
+	field type int ( updatable )
+	
+	field credit_in_cents int ( updatable ) 
+	field award_credit_duration_days int ( updatable )
+	field invitee_credit_duration_days int ( updatable )
+
+	field redeemable_cap int ( updatable )
+	field num_redeemed int ( updatable, autoinsert )
+
+	field expires_at timestamp ( updatable, autoinsert, nullable )
+	field created_at timestamp ( autoinsert )
+
+	// status has three possible value: NoStatus=0, OnGoing=1, Expired=2.
+	field status int ( updatable, autoinsert )
+)
+
+read one (
+    select offer
+    where offer.id = ?
+)
+
+read one (
+	select offer
+	where offer.status = ?
+	where offer.type = ?
+	where offer.expires_at >= ?
+)
+
+read all ( select offer )
+
+create offer ( )
+
+update offer (
+	where offer.id = ?
+	where offer.status = 0
+	where offer.expires_at >= offer.created_at
+)
+
+delete offer ( where offer.id = ? )
