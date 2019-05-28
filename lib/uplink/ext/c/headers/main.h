@@ -15,53 +15,46 @@ typedef GoUintptr ProjectRef_t;
 typedef GoUintptr BucketRef_t;
 typedef GoUintptr BucketConfigRef_t;
 
-struct IDVersion {
+typedef struct IDVersion {
     uint16_t number;
-};
-typedef struct IDVersion IDVersion_t;
+} IDVersion_t;
 
-struct EncryptionParameters {
+typedef struct EncryptionParameters {
     uint8_t cipher_suite;
     int32_t block_size;
-};
-typedef struct EncryptionParameters EncryptionParameters_t;
+} EncryptionParameters_t;
 
-struct BucketConfig {
+typedef struct BucketConfig {
     EncryptionParameters_t *encryption_parameters;
     uint8_t path_cipher;
-};
-typedef struct BucketConfig BucketConfig_t;
+} BucketConfig_t;
 
-struct RedundancyScheme {
+typedef struct RedundancyScheme {
     uint8_t algorithm;
     int32_t share_size;
     int16_t required_shares;
     int16_t repair_shares;
     int16_t optimal_shares;
     int16_t total_shares;
-};
-typedef struct RedundancyScheme RedundancyScheme_t;
+} RedundancyScheme_t;
 
-struct Bucket {
+typedef struct Bucket {
     EncryptionParameters_t *encryption_parameters;
     RedundancyScheme_t *redundancy_scheme;
     char *name;
     int64_t created;
     uint8_t path_cipher;
     int64_t segment_size;
-};
-typedef struct Bucket Bucket_t;
+} Bucket_t;
 
-struct BucketListOptions {
+typedef struct BucketListOptions {
     char *cursor;
     int8_t direction;
     int64_t limit;
-};
-typedef struct BucketListOptions BucketListOptions_t;
+} BucketListOptions_t;
 
-struct BucketList {
+typedef struct BucketList {
     bool more;
     Bucket_t *items;
     int32_t length;
-};
-typedef struct BucketList BucketList_t;
+} BucketList_t;

@@ -122,11 +122,15 @@ extern void DeleteBucket(ProjectRef_t p0, char* p1, char** p2);
 
 extern BucketList_t ListBuckets(ProjectRef_t p0, BucketListOptions_t* p1, char** p2);
 
+extern void CloseProject(ProjectRef_t p0, char** p1);
+
 extern UplinkRef_t NewUplink(char** p0);
 
 extern UplinkRef_t NewUplinkInsecure(char** p0);
 
 extern ProjectRef_t OpenProject(UplinkRef_t p0, char* p1, APIKeyRef_t p2, char** p3);
+
+extern void CloseUplink(UplinkRef_t p0, char** p1);
 
 #ifdef __cplusplus
 }
