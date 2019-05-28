@@ -82,7 +82,7 @@ func TestGetShareTimeout(t *testing.T) {
 		assert.Error(t, err)
 		assert.NotNil(t, verifiedNodes)
 		for i := 0; i < k; i++ {
-			assert.True(t, contains(verifiedNodes.Offlines, pieces[i].NodeId))
+			assert.True(t, contains(verifiedNodes.OfflineNodeIDs, pieces[i].NodeId))
 		}
 	})
 }
