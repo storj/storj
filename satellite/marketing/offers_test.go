@@ -5,6 +5,7 @@ package marketing_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -20,16 +21,18 @@ func TestCreateAndListAllOffers(t *testing.T) {
 		newOffer := &marketing.NewOffer{
 			Name:                      "test",
 			Description:               "test offer",
-			Type:                      marketing.Referral,
-			CreditInCents:             100,
+			AwardCreditInCents:        100,
+			InviteeCreditInCents:      50,
 			AwardCreditDurationDays:   60,
 			InviteeCreditDurationDays: 30,
 			RedeemableCap:             50,
+			Status:                    marketing.Active,
+			ExpiresAt:                 time.Now().Add(time.Hour * 1),
 		}
 		createdOffer, err := planet.Satellites[0].DB.Marketing().Offers().Create(ctx, newOffer)
 		require.NoError(t, err)
 		require.Equal(t, newOffer, createdOffer)
-		output, err := planet.Satellites[0].DB.Marketing().Offers().ListAllOffers(ctx)
+		output, err := planet.Satellites[0].DB.Marketing().Offers().ListAll(ctx)
 		require.Contains(t, output, newOffer)
 		require.NoError(t, err)
 	})

@@ -581,7 +581,9 @@ model offer (
 	field name text ( updatable )
 	field description text ( updatable )
 	
-	field credit_in_cents int ( updatable ) 
+	field award_credit_in_cents int ( updatable ) 
+	field invitee_credit_in_cents int ( updatable )
+
 	field award_credit_duration_days int ( updatable )
 	field invitee_credit_duration_days int ( updatable )
 
@@ -591,8 +593,8 @@ model offer (
 	field expires_at timestamp ( updatable )
 	field created_at timestamp ( autoinsert )
 
-	// status has three possible value: Active=0, Default=1.
-	field status int ( updatable, autoinsert )
+	// status has three possible value: Done=0, Default=1, Active=2.
+	field status int ( updatable )
 )
 
 read one (
@@ -600,14 +602,10 @@ read one (
     where offer.id = ?
 )
 
-read one (
-	select offer
-	where offer.status = ?
-	where offer.expires_at >= ?
-)
-
 read all ( select offer )
 
-create offer ( )
+update offer (
+	where offer.id = ?
+)
 
-delete offer ( where offer.id = ? )
+create offer ( )

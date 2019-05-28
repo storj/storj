@@ -608,28 +608,22 @@ func (m *lockedOffers) Create(ctx context.Context, offer *marketing.NewOffer) (*
 	return m.db.Create(ctx, offer)
 }
 
-func (m *lockedOffers) Delete(ctx context.Context, id int) error {
+func (m *lockedOffers) GetCurrent(ctx context.Context) (*marketing.Offer, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Delete(ctx, id)
+	return m.db.GetCurrent(ctx)
 }
 
-func (m *lockedOffers) GetNoExpiredOffer(ctx context.Context, offerStatus marketing.OfferStatus, offerType marketing.OfferType) (*marketing.Offer, error) {
+func (m *lockedOffers) ListAll(ctx context.Context) ([]marketing.Offer, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetNoExpiredOffer(ctx, offerStatus, offerType)
+	return m.db.ListAll(ctx)
 }
 
-func (m *lockedOffers) ListAllOffers(ctx context.Context) ([]marketing.Offer, error) {
+func (m *lockedOffers) Update(ctx context.Context, id int, offer *marketing.UpdateOffer) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.ListAllOffers(ctx)
-}
-
-func (m *lockedOffers) Update(ctx context.Context, offer *marketing.Offer) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Update(ctx, offer)
+	return m.db.Update(ctx, id, offer)
 }
 
 // Orders returns database for orders

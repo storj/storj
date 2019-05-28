@@ -6,8 +6,6 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
-	"fmt"
-	"time"
 
 	"github.com/zeebo/errs"
 
@@ -19,8 +17,8 @@ type offers struct {
 	db *dbx.DB
 }
 
-// ListAllOffers returns all offers from the db
-func (offers *offers) ListAllOffers(ctx context.Context) ([]marketing.Offer, error) {
+// ListAll returns all offers from the db
+func (offers *offers) ListAll(ctx context.Context) ([]marketing.Offer, error) {
 	offersDbx, err := offers.db.All_Offer(ctx)
 	if err != nil {
 		return nil, marketing.OffersErr.Wrap(err)
@@ -29,88 +27,91 @@ func (offers *offers) ListAllOffers(ctx context.Context) ([]marketing.Offer, err
 	return offersFromDbx(offersDbx)
 }
 
-func (offers *offers) GetNoExpiredOffer(ctx context.Context, offerStatus marketing.OfferStatus, offerType marketing.OfferType) (*marketing.Offer, error) {
-	if offerStatus == 0 || offerType == 0 {
-		return nil, errs.New("offer status or type can't be nil")
-	}
+// GetCurrent returns an offer that has not expired based on offer status
+func (offers *offers) GetCurrent(ctx context.Context) (*marketing.Offer, error) {
+	statement := offers.db.Rebind(
+		`WITH o AS (
+			SELECT * FROM offers WHERE offers.status=? AND offers.expires_at>NOW()
+		  )
+		  SELECT * FROM o
+		  UNION ALL
+		  SELECT * FROM offers
+		  WHERE offers.status=?
+		  AND NOT EXISTS (
+			SELECT * FROM o
+		  ) order by offers.created_at desc;`)
 
-	offer, err := offers.db.Get_Offer_By_Status_And_ExpiresAt_GreaterOrEqual(ctx, dbx.Offer_Status(int(offerStatus)), dbx.Offer_ExpiresAt(time.Now()))
+	rows, err := offers.db.DB.QueryContext(ctx, statement, marketing.Active, marketing.Default)
 	if err == sql.ErrNoRows {
-		return nil, marketing.OffersErr.New("offer not found %v", offerStatus)
+		return nil, marketing.OffersErr.New("no current offer")
 	}
 	if err != nil {
 		return nil, marketing.OffersErr.Wrap(err)
 	}
 
-	return convertDBOffer(offer)
-}
-
-// Create insert a new offer into the db
-func (offers *offers) Create(ctx context.Context, offer *marketing.Offer) (*marketing.Offer, error) {
-	createdOffer, err := offers.db.Create_Offer(ctx,
-		dbx.Offer_Name(offer.Name),
-		dbx.Offer_Description(offer.Description),
-		dbx.Offer_CreditInCents(offer.CreditInCents),
-		dbx.Offer_AwardCreditDurationDays(offer.AwardCreditDurationDays),
-		dbx.Offer_InviteeCreditDurationDays(offer.InviteeCreditDurationDays),
-		dbx.Offer_RedeemableCap(offer.RedeemableCap),
-		dbx.Offer_Create_Fields{dbx.Offer_ExpiresAt(offer.ExpiresAt)},
-	)
-
+	o := marketing.Offer{}
+	err = rows.Scan(&o)
 	if err != nil {
-		return nil, marketing.OffersErr.Wrap(err)
+		return nil, errs.Combine(marketing.OffersErr.Wrap(err), rows.Close())
 	}
-
-	return convertDBOffer(createdOffer)
+	return &o, nil
 }
 
-// Update modifies an existing offer
-func (offers *offers) Update(ctx context.Context, offer *marketing.Offer) error {
-	updateFields := dbx.Offer_Update_Fields{
-		Name:                      dbx.Offer_Name(offer.Name),
-		Description:               dbx.Offer_Description(offer.Description),
-		CreditInCents:             dbx.Offer_CreditInCents(offer.CreditInCents),
-		AwardCreditDurationDays:   dbx.Offer_AwardCreditDurationDays(offer.AwardCreditDurationDays),
-		InviteeCreditDurationDays: dbx.Offer_InviteeCreditDurationDays(offer.InviteeCreditDurationDays),
-		RedeemableCap:             dbx.Offer_RedeemableCap(offer.RedeemableCap),
-		ExpiresAt:                 dbx.Offer_ExpiresAt(offer.ExpiresAt),
-	}
-
-	offerId := dbx.Offer_Id(offer.ID)
-
+// Create inserts a new offer into the db
+func (offers *offers) Create(ctx context.Context, o *marketing.NewOffer) (*marketing.Offer, error) {
 	tx, err := offers.db.Open(ctx)
+	if err != nil {
+		return nil, marketing.OffersErr.Wrap(err)
+	}
+
+	statement := offers.db.Rebind(`
+		UPDATE offers SET offers.status=?, offers.expires_at=NOW()
+		WHERE offers.status=? AND expires_at>NOW();
+	`)
+	_, err = tx.Tx.ExecContext(ctx, statement, marketing.Done, o.Status)
+	if err != nil {
+		return nil, marketing.OffersErr.Wrap(errs.Combine(err, tx.Rollback()))
+	}
+
+	offerDbx, err := tx.Create_Offer(ctx,
+		dbx.Offer_Name(o.Name),
+		dbx.Offer_Description(o.Description),
+		dbx.Offer_AwardCreditInCents(o.AwardCreditInCents),
+		dbx.Offer_InviteeCreditInCents(o.InviteeCreditInCents),
+		dbx.Offer_AwardCreditDurationDays(o.AwardCreditDurationDays),
+		dbx.Offer_InviteeCreditDurationDays(o.InviteeCreditDurationDays),
+		dbx.Offer_RedeemableCap(o.RedeemableCap),
+		dbx.Offer_ExpiresAt(o.ExpiresAt),
+		dbx.Offer_Status(int(o.Status)),
+	)
+	if err != nil {
+		return nil, marketing.OffersErr.Wrap(errs.Combine(err, tx.Rollback()))
+	}
+
+	newOffer, err := convertDBOffer(offerDbx)
+	if err != nil {
+		return nil, marketing.OffersErr.Wrap(errs.Combine(err, tx.Rollback()))
+	}
+
+	return newOffer, marketing.OffersErr.Wrap(tx.Commit())
+}
+
+// Update modifies an offer entry's status and amount of offers redeemed based on offer id
+func (offers *offers) Update(ctx context.Context, id int, o *marketing.UpdateOffer) error {
+	updateFields := dbx.Offer_Update_Fields{
+		Status:      dbx.Offer_Status(int(o.Status)),
+		NumRedeemed: dbx.Offer_NumRedeemed(o.NumRedeemed),
+		ExpiresAt:   dbx.Offer_ExpiresAt(o.ExpiresAt),
+	}
+
+	offerId := dbx.Offer_Id(id)
+
+	_, err := offers.db.Update_Offer_By_Id(ctx, offerId, updateFields)
 	if err != nil {
 		return marketing.OffersErr.Wrap(err)
 	}
 
-	currentOffer, err := tx.Get_Offer_By_Status_And_ExpiresAt_GreaterOrEqual(ctx, updateFields.Status, dbx.Offer_ExpiresAt(time.Now()))
-	if err == nil {
-		statement := offers.db.Rebind(
-			`UPDATE offers SET expires_at = NOW() WHERE offers.id=?`,
-		)
-		_, err = tx.Tx.ExecContext(ctx, statement, currentOffer.Id)
-		if err != nil {
-			return marketing.OffersErr.Wrap(errs.Combine(err, tx.Rollback()))
-		}
-	}
-
-	if err != nil && err != sql.ErrNoRows {
-		return marketing.OffersErr.Wrap(errs.Combine(err, tx.Rollback()))
-	}
-
-	_, err = tx.Update_Offer_By_Id_And_Status_Equal_Number(ctx, offerId, updateFields)
-	if err != nil {
-		return marketing.OffersErr.Wrap(errs.Combine(err, tx.Rollback()))
-	}
-
-	return marketing.OffersErr.Wrap(tx.Commit())
-}
-
-// Delete is a method for deleting offer by Id from the database.
-func (offers *offers) Delete(ctx context.Context, id int) error {
-	_, err := offers.db.Delete_Offer_By_Id(ctx, dbx.Offer_Id(id))
-
-	return marketing.OffersErr.Wrap(err)
+	return nil
 }
 
 func offersFromDbx(offersDbx []*dbx.Offer) ([]marketing.Offer, error) {
@@ -135,21 +136,19 @@ func convertDBOffer(offerDbx *dbx.Offer) (*marketing.Offer, error) {
 		return nil, marketing.OffersErr.New("offerDbx parameter is nil")
 	}
 
-	fmt.Printf("offer: %+v", offerDbx)
-
 	o := marketing.Offer{
 		ID:                        offerDbx.Id,
 		Name:                      offerDbx.Name,
 		Description:               offerDbx.Description,
-		CreditInCents:             offerDbx.CreditInCents,
+		AwardCreditInCents:        offerDbx.AwardCreditInCents,
+		InviteeCreditInCents:      offerDbx.InviteeCreditInCents,
 		RedeemableCap:             offerDbx.RedeemableCap,
 		NumRedeemed:               offerDbx.NumRedeemed,
-		ExpiresAt:                 *offerDbx.ExpiresAt,
+		ExpiresAt:                 offerDbx.ExpiresAt,
 		AwardCreditDurationDays:   offerDbx.AwardCreditDurationDays,
 		InviteeCreditDurationDays: offerDbx.InviteeCreditDurationDays,
 		CreatedAt:                 offerDbx.CreatedAt,
 		Status:                    marketing.OfferStatus(offerDbx.Status),
-		Type:                      marketing.OfferType(offerDbx.Type),
 	}
 
 	return &o, nil
