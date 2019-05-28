@@ -66,9 +66,9 @@ The attribution table will consist of data that allows for ease of calculating t
 | bucket_id (pk) | uuid  | 
 | user_id  | uuid  |
 | partner_id  | uuid  |
-| at_rest_data | text  |
-| egress_data | text  |
-| ingress_data | text  |
+| at_rest_data | integet  |
+| egress_data | integer  |
+| ingress_data | integer  |
 | last_updated | timestamp  |
 
 ### Reporting
