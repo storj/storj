@@ -73,7 +73,7 @@ The credit is automatically applied to the account and will have a max limit tha
     num_redeemed - integer
     created_at - timestamp
     expires_at - timestamp
-    award_credit_duration_months - int
+    award_credit_duration_days - int
     invitee_credit_duration_days - int
     status - enum[ACTIVE, DEFAULT, DONE]
     PRIMARY KEY (id)
@@ -93,6 +93,7 @@ The credit is automatically applied to the account and will have a max limit tha
     FOREIGN KEY (offer_id)
     FOREIGN KEY (referred_by)
     FOREIGN KEY (user_id)
+    PRIMARY KEY (id)
 ```
 
 **user table**
