@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
@@ -61,7 +62,9 @@ func TestGetShareTimeout(t *testing.T) {
 		// downloading from new nodes.
 		minBytesPerSecond := 110 * memory.KB
 		orders := planet.Satellites[0].Orders.Service
-		verifier := audit.NewVerifier(zap.L(), slowClient, overlay, orders, planet.Satellites[0].Identity, minBytesPerSecond)
+		containment := planet.Satellites[0].DB.Containment()
+		reporter := audit.NewReporter(overlay, containment, 1)
+		verifier := audit.NewVerifier(zap.L(), reporter, slowClient, overlay, containment, orders, planet.Satellites[0].Identity, minBytesPerSecond)
 		require.NotNil(t, verifier)
 
 		// stop some storage nodes to ensure audit can deal with it
@@ -77,8 +80,12 @@ func TestGetShareTimeout(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		_, err = verifier.Verify(ctx, stripe)
-		require.NoError(t, err)
+		verifiedNodes, err := verifier.Verify(ctx, stripe, nil)
+		assert.Error(t, err)
+		assert.NotNil(t, verifiedNodes)
+		for i := 0; i < k; i++ {
+			assert.True(t, contains(verifiedNodes.Offlines, pieces[i].NodeId))
+		}
 	})
 }
 
@@ -89,4 +96,13 @@ func stopStorageNode(planet *testplanet.Planet, nodeID storj.NodeID) error {
 		}
 	}
 	return fmt.Errorf("no such node: %s", nodeID.String())
+}
+
+func contains(nodes storj.NodeIDList, nodeID storj.NodeID) bool {
+	for _, n := range nodes {
+		if n == nodeID {
+			return true
+		}
+	}
+	return false
 }

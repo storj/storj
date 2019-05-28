@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/audit"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink"
 )
 
@@ -58,8 +59,11 @@ func TestVerifierHappyPath(t *testing.T) {
 
 		transport := planet.Satellites[0].Transport
 		orders := planet.Satellites[0].Orders.Service
+		containment := planet.Satellites[0].DB.Containment()
 		minBytesPerSecond := 128 * memory.B
-		verifier := audit.NewVerifier(zap.L(), transport, overlay, orders, planet.Satellites[0].Identity, minBytesPerSecond)
+
+		reporter := audit.NewReporter(overlay, containment, 1)
+		verifier := audit.NewVerifier(zap.L(), reporter, transport, overlay, containment, orders, planet.Satellites[0].Identity, minBytesPerSecond)
 		require.NotNil(t, verifier)
 
 		// stop some storage nodes to ensure audit can deal with it
@@ -91,21 +95,22 @@ func TestVerifierHappyPath(t *testing.T) {
 		isOnline = planet.Satellites[0].Overlay.Service.IsOnline(node1)
 		fmt.Println(planet.StorageNodes[1].ID(), "online:", isOnline)
 
-		verifiedNodes, err := verifier.Verify(ctx, stripe)
+		skip := make(map[storj.NodeID]bool)
+		verifiedNodes, err := verifier.Verify(ctx, stripe, skip)
 		require.NoError(t, err)
 
-		require.Len(t, verifiedNodes.SuccessNodeIDs, 4)
-		require.Len(t, verifiedNodes.FailNodeIDs, 0)
+		require.Len(t, verifiedNodes.Successes, 4)
+		require.Len(t, verifiedNodes.Fails, 0)
 
 		fmt.Println("success nodes:")
-		for _, id := range verifiedNodes.SuccessNodeIDs {
+		for _, id := range verifiedNodes.Successes {
 			fmt.Println(id)
 		}
 
 		fmt.Println("offline nodes:")
-		for _, id := range verifiedNodes.OfflineNodeIDs {
+		for _, id := range verifiedNodes.Offlines {
 			fmt.Println(id)
 		}
-		require.Len(t, verifiedNodes.OfflineNodeIDs, 0)
+		require.Len(t, verifiedNodes.Offlines, 0)
 	})
 }

@@ -147,10 +147,10 @@ type lockedAPIKeys struct {
 }
 
 // Create creates and stores new APIKeyInfo
-func (m *lockedAPIKeys) Create(ctx context.Context, key console.APIKey, info console.APIKeyInfo) (*console.APIKeyInfo, error) {
+func (m *lockedAPIKeys) Create(ctx context.Context, head []byte, info console.APIKeyInfo) (*console.APIKeyInfo, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Create(ctx, key, info)
+	return m.db.Create(ctx, head, info)
 }
 
 // Delete deletes APIKeyInfo from store
@@ -167,11 +167,11 @@ func (m *lockedAPIKeys) Get(ctx context.Context, id uuid.UUID) (*console.APIKeyI
 	return m.db.Get(ctx, id)
 }
 
-// GetByKey retrieves APIKeyInfo for given key
-func (m *lockedAPIKeys) GetByKey(ctx context.Context, key console.APIKey) (*console.APIKeyInfo, error) {
+// GetByHead retrieves APIKeyInfo for given key head
+func (m *lockedAPIKeys) GetByHead(ctx context.Context, head []byte) (*console.APIKeyInfo, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetByKey(ctx, key)
+	return m.db.GetByHead(ctx, head)
 }
 
 // GetByProjectID retrieves list of APIKeys for given projectID
@@ -483,16 +483,16 @@ func (m *lockedUsers) Update(ctx context.Context, user *console.User) error {
 }
 
 // Containment returns database for containment
-func (m *locked) Containment() audit.DB {
+func (m *locked) Containment() audit.Containment {
 	m.Lock()
 	defer m.Unlock()
 	return &lockedContainment{m.Locker, m.db.Containment()}
 }
 
-// lockedContainment implements locking wrapper for audit.DB
+// lockedContainment implements locking wrapper for audit.Containment
 type lockedContainment struct {
 	sync.Locker
-	db audit.DB
+	db audit.Containment
 }
 
 func (m *lockedContainment) Delete(ctx context.Context, nodeID storj.NodeID) (bool, error) {

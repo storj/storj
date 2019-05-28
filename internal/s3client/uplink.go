@@ -5,11 +5,15 @@ package s3client
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/zeebo/errs"
+
+	"storj.io/storj/internal/fpath"
 )
 
 // UplinkError is class for minio errors
@@ -24,15 +28,37 @@ type Uplink struct {
 func NewUplink(conf Config) (Client, error) {
 	client := &Uplink{conf}
 
-	cmd := client.cmd("setup",
-		"--overwrite",
-		"--api-key", client.conf.APIKey,
-		"--enc-key", client.conf.EncryptionKey,
-		"--satellite-addr", client.conf.Satellite)
-
-	_, err := cmd.Output()
+	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
+	setupDir, err := filepath.Abs(defaultConfDir)
 	if err != nil {
 		return nil, UplinkError.Wrap(fullExitError(err))
+	}
+	validForSetup, _ := fpath.IsValidSetupDir(setupDir)
+
+	// uplink configuration doesn't exists
+	if validForSetup {
+		fmt.Printf(`No existing uplink configuration located at (%v)...
+		Creating uplink configuration with the following settings:
+	"--non-interactive: true",
+	"--api-key: %s",
+	"--enc.key: %s",
+	"--satellite-addr: %s
+	`,
+			setupDir, client.conf.APIKey, client.conf.EncryptionKey, client.conf.Satellite,
+		)
+		cmd := client.cmd("setup",
+			"--non-interactive", "true",
+			"--api-key", client.conf.APIKey,
+			"--enc.key", client.conf.EncryptionKey,
+			"--satellite-addr", client.conf.Satellite)
+
+		_, err := cmd.Output()
+		if err != nil {
+			return nil, UplinkError.Wrap(fullExitError(err))
+		}
+	} else {
+		// if uplink config file already exists, use the current config
+		fmt.Printf("Using existing uplink configuration from (%v). To pass in new settings, delete existing configs first\n", setupDir)
 	}
 
 	return client, nil
