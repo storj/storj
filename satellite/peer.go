@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"storj.io/storj/internal/payments/paymentstest"
+
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -521,17 +523,22 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Stripe.Service = payments.NewService("sk_test_QleT6Q6AHMe264PlGtJcBfB0006Qe2yaCJ")
-
 		if consoleConfig.AuthTokenSecret == "" {
 			return nil, errs.New("Auth token secret required")
+		}
+
+		var pmService payments.Service
+		if consoleConfig.StripeKey != "" {
+			pmService = payments.NewService(peer.Log.Named("stripe:service"), consoleConfig.StripeKey)
+		} else {
+			pmService = &paymentstest.MockService{}
 		}
 
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
 			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
-			payments.NewService(peer.Log.Named("stripe:service"), "sk_test_QleT6Q6AHMe264PlGtJcBfB0006Qe2yaCJ"),
+			pmService,
 			consoleConfig.PasswordCost,
 		)
 

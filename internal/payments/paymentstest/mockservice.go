@@ -35,30 +35,30 @@ func (mock *MockService) CreateCustomer(ctx context.Context, params payments.Cre
 
 // CreateProjectInvoice mock implementation of payments.Service CreateProjectInvoice
 func (mock *MockService) CreateProjectInvoice(ctx context.Context, params payments.CreateProjectInvoiceParams) (*stripe.Invoice, error) {
-	panic("implement me")
+	return &stripe.Invoice{ID: "invoice_id"}, nil
 }
 
 // GetInvoice mock implementation of payments.Service GetInvoice
 func (mock *MockService) GetInvoice(ctx context.Context, invoiceID string) (*stripe.Invoice, error) {
-	panic("implement me")
+	return &stripe.Invoice{ID: "invoice_id", Customer: &stripe.Customer{ID: "customer_id"}}, nil
 }
 
 // GetCustomer mock implementation of payments.Service GetCustomer
 func (mock *MockService) GetCustomer(ctx context.Context, customerID string) (*stripe.Customer, error) {
-	panic("implement me")
+	return &stripe.Customer{ID: customerID}, nil
 }
 
 // GetCustomerDefaultPaymentMethod mock implementation of payments.Service GetCustomerDefaultPaymentMethod
 func (mock *MockService) GetCustomerDefaultPaymentMethod(ctx context.Context, customerID string) (*stripe.PaymentMethod, error) {
-	panic("implement me")
+	return &stripe.PaymentMethod{ID: "pm_id", Customer: &stripe.Customer{ID: customerID}}, nil
 }
 
 // GetCustomerPaymentsMethods mock implementation of payments.Service GetCustomerPaymentsMethods
 func (mock *MockService) GetCustomerPaymentsMethods(ctx context.Context, customerID string) ([]*stripe.PaymentMethod, error) {
-	panic("implement me")
+	return []*stripe.PaymentMethod{{ID: "pm_id", Customer: &stripe.Customer{ID: customerID}}}, nil
 }
 
 // GetPaymentMethod mock implementation of payments.Service GetPaymentMethod
 func (mock *MockService) GetPaymentMethod(ctx context.Context, id string) (*stripe.PaymentMethod, error) {
-	panic("implement me")
+	return &stripe.PaymentMethod{ID: "pm_id"}, nil
 }
