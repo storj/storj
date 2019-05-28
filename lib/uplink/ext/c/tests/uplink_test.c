@@ -8,31 +8,7 @@
 #include "unity.h"
 #include "../../uplink-cgo.h"
 
-void TestNewUplink(void)
-{
-    char *_err = "";
-    char **err = &_err;
-
-    UplinkRef_t ref_uplink = NewUplink(err);
-    TEST_ASSERT_EQUAL_STRING("", *err);
-    TEST_ASSERT_NOT_EQUAL(0, ref_uplink);
-}
-
-
-void TestCloseUplink(void)
-{
-    char *_err = "";
-    char **err = &_err;
-
-    UplinkRef_t ref_uplink = NewUplink(err);
-    TEST_ASSERT_EQUAL_STRING("", *err);
-    TEST_ASSERT_NOT_EQUAL(0, ref_uplink);
-
-    CloseUplink(ref_uplink, err);
-    TEST_ASSERT_EQUAL_STRING("", *err);
-}
-
-void TestOpenProject(void)
+void TestUplink(void)
 {
     char *_err = "";
     char **err = &_err;
@@ -40,18 +16,31 @@ void TestOpenProject(void)
     APIKeyRef_t ref_apikey = ParseAPIKey(getenv("APIKEY"), err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
-    UplinkRef_t ref_uplink = NewUplinkInsecure(err);
+    // New uplink
+    UplinkRef_t ref_uplink = NewUplink(err);
     TEST_ASSERT_EQUAL_STRING("", *err);
     TEST_ASSERT_NOT_EQUAL(0, ref_uplink);
 
-    OpenProject(ref_uplink, satellite_addr, ref_apikey, err);
+    // New insecure uplink
+    UplinkRef_t ref_test_uplink = NewUplinkInsecure(err);
+    TEST_ASSERT_EQUAL_STRING("", *err);
+    TEST_ASSERT_NOT_EQUAL(0, ref_test_uplink);
+
+    // OpenProject
+    OpenProject(ref_test_uplink, satellite_addr, ref_apikey, err);
+    TEST_ASSERT_EQUAL_STRING("", *err);
+
+    // Close uplinks
+    CloseUplink(ref_test_uplink, err);
+    TEST_ASSERT_EQUAL_STRING("", *err);
+
+    CloseUplink(ref_test_uplink, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 }
 
 int main(int argc, char *argv[])
 {
     UNITY_BEGIN();
-    RUN_TEST(TestNewUplink);
-    RUN_TEST(TestOpenProject);
+    RUN_TEST(TestUplink);
     return UNITY_END();
 }

@@ -82,11 +82,8 @@ void TestProject(void)
     // Create Project
     ProjectRef_t ref_project = OpenTestProject(err);
     TEST_ASSERT_EQUAL_STRING("", *err);
-    if (strcmp(*err, "") != 0) {
-        goto end_project_test;
-    }
 
-    char *bucket_names[] = {"TestBucket1","bryansboringbucket"};
+    char *bucket_names[] = {"TestBucket1","TestBucket2"};
     int num_of_buckets = sizeof(bucket_names) / sizeof(bucket_names[0]);
 
     // Create buckets
@@ -94,9 +91,6 @@ void TestProject(void)
         Bucket_t *bucket = malloc(sizeof(Bucket_t));
         create_test_bucket(ref_project, bucket_names[i], bucket, err);
         TEST_ASSERT_EQUAL_STRING("", *err);
-        if (strcmp(*err, "") != 0) {
-            goto end_project_test;
-        }
         free(bucket);
     }
 
@@ -119,12 +113,8 @@ void TestProject(void)
     for (int i=0; i < num_of_buckets; i++) {
         DeleteBucket(ref_project, bucket_names[i], err);
         TEST_ASSERT_EQUAL_STRING("", *err);
-        if (strcmp(*err, "") != 0) {
-            goto end_project_test;
-        }
     }
 
-end_project_test:
     // Close Project
     CloseProject(ref_project, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
