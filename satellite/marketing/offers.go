@@ -16,7 +16,7 @@ var OffersErr = errs.Class("offers error")
 // Offers holds information about offer
 type Offers interface {
 	ListAll(ctx context.Context) ([]Offer, error)
-	GetCurrent(ctx context.Context) (*Offer, error)
+	GetCurrent(ctx context.Context, isDefault bool) (*Offer, error)
 	Create(ctx context.Context, offer *NewOffer) (*Offer, error)
 	Update(ctx context.Context, id int, offer *UpdateOffer) error
 }
