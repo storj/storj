@@ -9,4 +9,4 @@ EXPOSE 2003
 #9001,9002,2003,5432,42441
 WORKDIR /app
 COPY release/${TAG}/statreceiver_linux_${GOARCH:-amd64} /app/statreceiver
-ENTRYPOINT ["/app/statreceiver", "--input", "/app/config.lua"]
+ENTRYPOINT ["/app/statreceiver", "--input", "/app/config/config.lua"]
