@@ -32,7 +32,7 @@ func TestProjectUsageStorage(t *testing.T) {
 		expectedErrMsg   string
 	}{
 		{name: "doesn't exceed storage or bandwidth project limit", expectedExceeded: false, expectedErrMsg: ""},
-		{name: "exceeds storage project limit", expectedExceeded: true, expectedResource: "storage", expectedErrMsg: "segment error: metainfo error: rpc error: code = ResourceExhausted desc = Exceeded Alpha Usage Limit; segment error: metainfo error: rpc error: code = ResourceExhausted desc = Exceeded Alpha Usage Limit"},
+		{name: "exceeds storage project limit", expectedExceeded: true, expectedResource: "storage", expectedErrMsg: "segment error: metainfo error: rpc error: code = ResourceExhausted desc = Exceeded Usage Limit; segment error: metainfo error: rpc error: code = ResourceExhausted desc = Exceeded Usage Limit"},
 	}
 
 	testplanet.Run(t, testplanet.Config{
@@ -54,7 +54,7 @@ func TestProjectUsageStorage(t *testing.T) {
 				// Setup: create BucketStorageTally records to test exceeding storage project limit
 				if tt.expectedResource == "storage" {
 					now := time.Now()
-					err := setUpStorageTallies(ctx, projectID, acctDB, now)
+					err := setUpStorageTallies(ctx, projectID, acctDB, 25, now)
 					require.NoError(t, err)
 				}
 
@@ -87,7 +87,7 @@ func TestProjectUsageBandwidth(t *testing.T) {
 		expectedErrMsg   string
 	}{
 		{name: "doesn't exceed storage or bandwidth project limit", expectedExceeded: false, expectedErrMsg: ""},
-		{name: "exceeds bandwidth project limit", expectedExceeded: true, expectedResource: "bandwidth", expectedErrMsg: "segment error: metainfo error: rpc error: code = ResourceExhausted desc = Exceeded Alpha Usage Limit"},
+		{name: "exceeds bandwidth project limit", expectedExceeded: true, expectedResource: "bandwidth", expectedErrMsg: "segment error: metainfo error: rpc error: code = ResourceExhausted desc = Exceeded Usage Limit"},
 	}
 
 	for _, tt := range cases {
@@ -146,10 +146,10 @@ func createBucketID(projectID uuid.UUID, bucket []byte) []byte {
 	return []byte(storj.JoinPaths(entries...))
 }
 
-func setUpStorageTallies(ctx *testcontext.Context, projectID uuid.UUID, acctDB accounting.ProjectAccounting, time time.Time) error {
+func setUpStorageTallies(ctx *testcontext.Context, projectID uuid.UUID, acctDB accounting.ProjectAccounting, numberOfGB int, time time.Time) error {
 
 	// Create many records that sum greater than project usage limit of 25GB
-	for i := 0; i < 4; i++ {
+	for i := 0; i < numberOfGB; i++ {
 		bucketName := fmt.Sprintf("%s%d", "testbucket", i)
 		tally := accounting.BucketStorageTally{
 			BucketName:    bucketName,
@@ -158,7 +158,7 @@ func setUpStorageTallies(ctx *testcontext.Context, projectID uuid.UUID, acctDB a
 
 			// In order to exceed the project limits, create storage tally records
 			// that sum greater than the maxAlphaUsage * expansionFactor
-			RemoteBytes: 10 * memory.GB.Int64() * accounting.ExpansionFactor,
+			RemoteBytes: memory.GB.Int64() * accounting.ExpansionFactor,
 		}
 		err := acctDB.CreateStorageTally(ctx, tally)
 		if err != nil {
@@ -275,7 +275,7 @@ func TestProjectUsageCustomLimit(t *testing.T) {
 
 		// Setup: create BucketStorageTally records to test exceeding storage project limit
 		now := time.Now()
-		err = setUpStorageTallies(ctx, project.ID, acctDB, now)
+		err = setUpStorageTallies(ctx, project.ID, acctDB, 11, now)
 		require.NoError(t, err)
 
 		actualExceeded, limit, err := projectUsage.ExceedsStorageUsage(ctx, project.ID)

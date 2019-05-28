@@ -180,7 +180,7 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 		endpoint.log.Sugar().Errorf("monthly project limits are %s of storage and bandwidth usage. This limit has been exceeded for storage for projectID %s",
 			limit, keyInfo.ProjectID,
 		)
-		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Alpha Usage Limit")
+		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Usage Limit")
 	}
 
 	redundancy, err := eestream.NewRedundancyStrategyFromProto(req.GetRedundancy())
@@ -322,7 +322,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		endpoint.log.Sugar().Errorf("monthly project limits are %s of storage and bandwidth usage. This limit has been exceeded for bandwidth for projectID %s.",
 			limit, keyInfo.ProjectID,
 		)
-		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Alpha Usage Limit")
+		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Usage Limit")
 	}
 
 	path, err := CreatePath(keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
