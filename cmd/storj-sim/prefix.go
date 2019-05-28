@@ -84,7 +84,7 @@ func (writer *prefixWriter) Write(data []byte) (int, error) {
 
 	// buffer everything that hasn't been written yet
 	if len(writer.buffer) > 0 {
-		buffer = append(writer.buffer, data...)
+		buffer = append(writer.buffer, data...) //nolint
 		defer func() {
 			writer.buffer = buffer
 		}()

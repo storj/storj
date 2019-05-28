@@ -110,10 +110,6 @@ linters-settings:
     simple: true
     range-loops: true # Report preallocation suggestions on range loops, true by default
     for-loops: false # Report preallocation suggestions on for loops, false by default
-  gocritic:
-    disabled-checks:
-    # Disabling appendAssign b/c it reports false positives
-      - appendAssign
 
 issues:
   max-per-linter: 0
