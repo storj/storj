@@ -483,16 +483,16 @@ func (m *lockedUsers) Update(ctx context.Context, user *console.User) error {
 }
 
 // Containment returns database for containment
-func (m *locked) Containment() audit.Containment {
+func (m *locked) Containment() audit.DB {
 	m.Lock()
 	defer m.Unlock()
 	return &lockedContainment{m.Locker, m.db.Containment()}
 }
 
-// lockedContainment implements locking wrapper for audit.Containment
+// lockedContainment implements locking wrapper for audit.DB
 type lockedContainment struct {
 	sync.Locker
-	db audit.Containment
+	db audit.DB
 }
 
 func (m *lockedContainment) Delete(ctx context.Context, nodeID storj.NodeID) (bool, error) {
