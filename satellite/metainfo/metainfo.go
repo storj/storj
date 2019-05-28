@@ -48,18 +48,12 @@ type Revocations interface {
 	GetByProjectID(ctx context.Context, projectID uuid.UUID) ([][]byte, error)
 }
 
-// Containment is a copy/paste of containment interface to avoid import cycle error
-type Containment interface {
-	Delete(ctx context.Context, nodeID pb.NodeID) (bool, error)
-}
-
 // Endpoint metainfo endpoint
 type Endpoint struct {
 	log                     *zap.Logger
 	metainfo                *Service
 	orders                  *orders.Service
 	cache                   *overlay.Cache
-	containment             Containment
 	apiKeys                 APIKeys
 	storagenodeAccountingDB accounting.StoragenodeAccounting
 	projectAccountingDB     accounting.ProjectAccounting
@@ -68,17 +62,17 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates new metainfo endpoint instance
-func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, containment Containment,
+func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache,
 	apiKeys APIKeys, sdb accounting.StoragenodeAccounting,
 	pdb accounting.ProjectAccounting, liveAccounting live.Service,
 	maxAlphaUsage memory.Size) *Endpoint {
+
 	// TODO do something with too many params
 	return &Endpoint{
 		log:                     log,
 		metainfo:                metainfo,
 		orders:                  orders,
 		cache:                   cache,
-		containment:             containment,
 		apiKeys:                 apiKeys,
 		storagenodeAccountingDB: sdb,
 		projectAccountingDB:     pdb,
@@ -425,7 +419,6 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 	}
 
 	err = endpoint.metainfo.Delete(path)
-
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
@@ -434,13 +427,6 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 		uplinkIdentity, err := identity.PeerIdentityFromContext(ctx)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
-		}
-
-		for _, piece := range pointer.GetRemote().GetRemotePieces() {
-			_, err := endpoint.containment.Delete(ctx, piece.NodeId)
-			if err != nil {
-				return nil, status.Errorf(codes.Internal, err.Error())
-			}
 		}
 
 		bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
