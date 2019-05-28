@@ -499,8 +499,9 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				AuthType:          "simulate",
 			},
 			Console: consoleweb.Config{
-				Address:      "127.0.0.1:0",
-				PasswordCost: console.TestPasswordCost,
+				Address:         "127.0.0.1:0",
+				PasswordCost:    console.TestPasswordCost,
+				AuthTokenSecret: "my-suppa-secret-key",
 			},
 			Version: planet.NewVersionConfig(),
 		}
