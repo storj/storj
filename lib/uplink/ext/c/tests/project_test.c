@@ -127,6 +127,8 @@ void TestProject(void)
     BucketRef_t opened_bucket = OpenBucket(ref_project, bucket_names[0], &access, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
+    // TODO: exercise functions that operate on an open bucket to add assertions
+
     // Delete Buckets
     for (int i=0; i < num_of_buckets; i++) {
         if (i%2 == 0) {
