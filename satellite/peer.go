@@ -16,6 +16,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/post"
@@ -227,7 +228,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 		peer.Transport = transport.NewClient(options)
 
-		peer.Server, err = server.New(options, sc.Address, sc.PrivateAddress, grpcauth.NewAPIKeyInterceptor())
+		unaryInterceptor := grpcauth.NewAPIKeyInterceptor()
+		var streamInterceptor grpc.StreamServerInterceptor
+		if sc.DebugLogTraffic {
+			unaryInterceptor = server.WithUnaryLoggingInterceptor(log, unaryInterceptor)
+			streamInterceptor = server.WithStreamLoggingInterceptor(log)
+		}
+		peer.Server, err = server.New(options, sc.Address, sc.PrivateAddress, unaryInterceptor, streamInterceptor)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}

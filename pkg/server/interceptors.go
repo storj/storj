@@ -7,6 +7,9 @@ import (
 	"context"
 	"io"
 
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
+	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -15,7 +18,7 @@ import (
 	"storj.io/storj/storage"
 )
 
-func streamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
+func logOnErrorStreamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
 	err = handler(srv, ss)
 	if err != nil {
 		// no zap errors for canceled or wrong file downloads
@@ -30,7 +33,7 @@ func streamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamS
 	return err
 }
 
-func unaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{},
+func logOnErrorUnaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{},
 	err error) {
 	resp, err = handler(ctx, req)
 	if err != nil {
@@ -43,12 +46,27 @@ func unaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServ
 	return resp, err
 }
 
-func combineInterceptors(a, b grpc.UnaryServerInterceptor) grpc.UnaryServerInterceptor {
-	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-		return a(ctx, req, info, func(actx context.Context, areq interface{}) (interface{}, error) {
-			return b(actx, areq, info, func(bctx context.Context, breq interface{}) (interface{}, error) {
-				return handler(bctx, breq)
-			})
-		})
-	}
+// the always-yes logging decider function (because grpc_zap requires a decider function)
+func yesLogIt(ctx context.Context, fullMethodName string, servingObject interface{}) bool {
+	return true
+}
+
+// WithUnaryLoggingInterceptor combines interceptors for logging all GRPC unary calls with the
+// given other unary interceptors.
+func WithUnaryLoggingInterceptor(log *zap.Logger, otherInterceptors ...grpc.UnaryServerInterceptor) grpc.UnaryServerInterceptor {
+	interceptors := append([]grpc.UnaryServerInterceptor{
+		grpc_ctxtags.UnaryServerInterceptor(),
+		grpc_zap.PayloadUnaryServerInterceptor(log, yesLogIt),
+	}, otherInterceptors...)
+	return grpc_middleware.ChainUnaryServer(interceptors...)
+}
+
+// WithStreamLoggingInterceptor combines interceptors for logging all GRPC streaming calls with the
+// given other stream interceptors.
+func WithStreamLoggingInterceptor(log *zap.Logger, otherInterceptors ...grpc.StreamServerInterceptor) grpc.StreamServerInterceptor {
+	interceptors := append([]grpc.StreamServerInterceptor{
+		grpc_ctxtags.StreamServerInterceptor(),
+		grpc_zap.PayloadStreamServerInterceptor(log, yesLogIt),
+	}, otherInterceptors...)
+	return grpc_middleware.ChainStreamServer(interceptors...)
 }

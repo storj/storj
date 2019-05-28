@@ -17,8 +17,9 @@ import (
 // Config holds server specific configuration parameters
 type Config struct {
 	tlsopts.Config
-	Address        string `user:"true" help:"public address to listen on" default:":7777"`
-	PrivateAddress string `user:"true" help:"private address to listen on" default:"127.0.0.1:7778"`
+	Address         string `user:"true" help:"public address to listen on" default:":7777"`
+	PrivateAddress  string `user:"true" help:"private address to listen on" default:"127.0.0.1:7778"`
+	DebugLogTraffic bool   `user:"true" help:"log all GRPC traffic to zap logger" default:"false"`
 }
 
 // Run will run the given responsibilities with the configured identity.
@@ -31,7 +32,7 @@ func (sc Config) Run(ctx context.Context, identity *identity.FullIdentity, inter
 	}
 	defer func() { err = errs.Combine(err, opts.RevDB.Close()) }()
 
-	server, err := New(opts, sc.Address, sc.PrivateAddress, interceptor, services...)
+	server, err := New(opts, sc.Address, sc.PrivateAddress, interceptor, nil, services...)
 	if err != nil {
 		return err
 	}
