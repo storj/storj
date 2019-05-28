@@ -42,6 +42,7 @@ func CreateBucket(cProject C.ProjectRef_t, name *C.char, cBucketCfg C.BucketConf
 	return bucketToCBucket(&bucket)
 }
 
+//export OpenBucket
 func OpenBucket(cProject C.ProjectRef_t, name *C.char, cAccess *C.EncryptionAccess_t, cErr **C.char) (bucketRef C.BucketRef_t) {
 	ctx := context.Background()
 	project, ok := structRefMap.Get(token(cProject)).(*uplink.Project)

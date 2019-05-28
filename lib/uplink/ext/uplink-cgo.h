@@ -118,6 +118,8 @@ extern IDVersion_t GetIDVersion(unsigned int p0, char** p1);
 
 extern Bucket_t CreateBucket(ProjectRef_t p0, char* p1, BucketConfig_t p2, char** p3);
 
+extern BucketRef_t OpenBucket(ProjectRef_t p0, char* p1, EncryptionAccess_t* p2, char** p3);
+
 extern void DeleteBucket(ProjectRef_t p0, char* p1, char** p2);
 
 extern BucketList_t ListBuckets(ProjectRef_t p0, BucketListOptions_t* p1, char** p2);

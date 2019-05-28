@@ -117,6 +117,16 @@ void TestProject(void)
         // in a way that doesn't involve a refactor that offends alex's delicate sensibilities.
     }
 
+    uint8_t *enc_key = "bryanssecretkey";
+    Bytes_t key;
+    key.bytes = enc_key;
+    key.length = strlen((const char *)enc_key);
+    EncryptionAccess_t access;
+    access.Key = &key;
+
+    BucketRef_t opened_bucket = OpenBucket(ref_project, bucket_names[0], &access, err);
+    TEST_ASSERT_EQUAL_STRING("", *err);
+
     // Delete Buckets
     for (int i=0; i < num_of_buckets; i++) {
         if (i%2 == 0) {
