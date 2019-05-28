@@ -48,7 +48,7 @@ type Config struct {
 
 	// TODO: remove after Vanguard release
 	AuthToken       string `help:"auth token needed for access to registration token creation endpoint" default:""`
-	AuthTokenSecret string `help:"secret used to sign auth tokens" default:""`
+	AuthTokenSecret string `help:"secret used to sign auth tokens" releaseDefault:"" devDefault:"my-suppa-secret-key"`
 
 	PasswordCost int `internal:"true" help:"password hashing cost (0=automatic)" default:"0"`
 }
