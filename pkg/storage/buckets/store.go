@@ -146,10 +146,9 @@ func (b *BucketStore) Put(ctx context.Context, bucketName string, inMeta Meta) (
 	// m, err := b.store.Put(ctx, bucketName, r, pb.SerializableMeta{UserDefined: userMeta}, exp)
 	m, err := b.Get(ctx, bucketName)
 	if err == nil {
-		//bucket exists
-
+		//bucket exists, add meta to existing entry
 	}
-	//*** check if bucket exists?
+
 
 	//*** - prefix the bucket path with `l/` before storing in pointerdb
 	// lastSegmentPath := storj.JoinPaths("l", encPath)
