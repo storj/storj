@@ -15,11 +15,6 @@ import (
 	"storj.io/storj/internal/s3client"
 )
 
-const (
-	// bucket is a unique bucket name
-	bucket = "testbucket3bgdp2xbkkflxc2tallstvh6pb824r7zc"
-)
-
 var benchmarkCases = []struct {
 	name       string
 	objectsize memory.Size
@@ -49,7 +44,7 @@ func createObjects() map[string][]byte {
 }
 
 // uplinkSetup setups an uplink to use for testing uploads/downloads
-func uplinkSetup() s3client.Client {
+func uplinkSetup(bucket string) s3client.Client {
 	conf, err := setupConfig()
 	if err != nil {
 		log.Fatalf("failed to setup s3client config: %+v\n", err)
@@ -88,18 +83,19 @@ func getEnvOrDefault(key, fallback string) string {
 }
 
 func BenchmarkUpload_Uplink(b *testing.B) {
-	client := uplinkSetup()
+	bucket := "testbucket"
+	client := uplinkSetup(bucket)
 
 	// uploadedObjects is used to store the names of all objects that are uploaded
 	// so that we can make sure to delete them all during cleanup
 	var uploadedObjects = map[string][]string{}
 
-	uploadedObjects = benchmarkUpload(b, client, uploadedObjects)
+	uploadedObjects = benchmarkUpload(b, client, bucket, uploadedObjects)
 
-	teardown(client, uploadedObjects)
+	teardown(client, bucket, uploadedObjects)
 }
 
-func teardown(client s3client.Client, uploadedObjects map[string][]string) {
+func teardown(client s3client.Client, bucket string, uploadedObjects map[string][]string) {
 	for _, bm := range benchmarkCases {
 		for _, objectPath := range uploadedObjects[bm.name] {
 			err := client.Delete(bucket, objectPath)
@@ -116,17 +112,18 @@ func teardown(client s3client.Client, uploadedObjects map[string][]string) {
 }
 
 func BenchmarkDownload_Uplink(b *testing.B) {
-	var client = uplinkSetup()
+	bucket := "testbucket"
+	client := uplinkSetup(bucket)
 
 	// upload some test objects so that there is something to download
-	uploadTestObjects(client)
+	uploadTestObjects(client, bucket)
 
-	benchmarkDownload(b, client)
+	benchmarkDownload(b, bucket, client)
 
-	teardownTestObjects(client)
+	teardownTestObjects(client, bucket)
 }
 
-func uploadTestObjects(client s3client.Client) {
+func uploadTestObjects(client s3client.Client, bucket string) {
 	for name, data := range testObjects {
 		objectName := "folder/data_" + name
 		err := client.Upload(bucket, objectName, data)
@@ -136,7 +133,7 @@ func uploadTestObjects(client s3client.Client) {
 	}
 }
 
-func teardownTestObjects(client s3client.Client) {
+func teardownTestObjects(client s3client.Client, bucket string) {
 	for name := range testObjects {
 		objectName := "folder/data_" + name
 		err := client.Delete(bucket, objectName)
@@ -150,7 +147,7 @@ func teardownTestObjects(client s3client.Client) {
 	}
 }
 
-func benchmarkUpload(b *testing.B, client s3client.Client, uploadedObjects map[string][]string) map[string][]string {
+func benchmarkUpload(b *testing.B, client s3client.Client, bucket string, uploadedObjects map[string][]string) map[string][]string {
 	for _, bm := range benchmarkCases {
 		b.Run(bm.name, func(b *testing.B) {
 			b.SetBytes(bm.objectsize.Int64())
@@ -175,7 +172,7 @@ func benchmarkUpload(b *testing.B, client s3client.Client, uploadedObjects map[s
 	return uploadedObjects
 }
 
-func benchmarkDownload(b *testing.B, client s3client.Client) {
+func benchmarkDownload(b *testing.B, bucket string, client s3client.Client) {
 	for _, bm := range benchmarkCases {
 		b.Run(bm.name, func(b *testing.B) {
 			buf := make([]byte, bm.objectsize)
@@ -199,7 +196,7 @@ func benchmarkDownload(b *testing.B, client s3client.Client) {
 	}
 }
 
-func s3ClientSetup() s3client.Client {
+func s3ClientSetup(bucket string) s3client.Client {
 	conf, err := s3ClientConfigSetup()
 	if err != nil {
 		log.Fatalf("failed to setup s3client config: %+v\n", err)
@@ -229,24 +226,26 @@ func s3ClientConfigSetup() (s3client.Config, error) {
 }
 
 func BenchmarkUpload_S3(b *testing.B) {
-	var client = s3ClientSetup()
+	bucket := "testbucket3bgdp2xbkkflxc2tallstvh6pb824r"
+	var client = s3ClientSetup(bucket)
 
 	// uploadedObjects is used to store the names of all objects that are uploaded
 	// so that we can make sure to delete them all during cleanup
 	var uploadedObjects = map[string][]string{}
 
-	uploadedObjects = benchmarkUpload(b, client, uploadedObjects)
+	uploadedObjects = benchmarkUpload(b, client, bucket, uploadedObjects)
 
-	teardown(client, uploadedObjects)
+	teardown(client, bucket, uploadedObjects)
 }
 
 func BenchmarkDownload_S3(b *testing.B) {
-	var client = s3ClientSetup()
+	bucket := "testbucket3bgdp2xbkkflxc2tallstvh6pb826a"
+	var client = s3ClientSetup(bucket)
 
 	// upload some test objects so that there is something to download
-	uploadTestObjects(client)
+	uploadTestObjects(client, bucket)
 
-	benchmarkDownload(b, client)
+	benchmarkDownload(b, bucket, client)
 
-	teardownTestObjects(client)
+	teardownTestObjects(client, bucket)
 }
