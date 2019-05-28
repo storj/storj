@@ -187,7 +187,7 @@ func benchmarkDownload(b *testing.B, bucket string, client s3client.Client) {
 				expectedBytes := bm.objectsize.Int()
 				actualBytes := len(out)
 				if actualBytes != expectedBytes {
-					log.Fatalf("err downloading object %q: Excepted %d bytes, but got actual bytes: %d\n",
+					log.Fatalf("err downloading object %q: Expected %d bytes, but got actual bytes: %d\n",
 						objectName, expectedBytes, actualBytes,
 					)
 				}

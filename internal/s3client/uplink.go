@@ -41,15 +41,6 @@ func NewUplink(conf Config) (Client, error) {
 		return nil, UplinkError.Wrap(fullExitError(err))
 	}
 
-	fmt.Printf(`Creating uplink configuration with the following settings:
-	"--config-dir: %s,"
-	"--non-interactive: true",
-	"--api-key: %s",
-	"--enc.encryption-key: %s",
-	"--satellite-addr: %s,
-	`,
-		client.conf.ConfigDir, client.conf.APIKey, client.conf.EncryptionKey, client.conf.Satellite,
-	)
 	cmd := client.cmd("--config-dir", client.conf.ConfigDir,
 		"setup",
 		"--non-interactive", "true",
