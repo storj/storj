@@ -96,6 +96,7 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 			// TODO(kaloyan): we need to check the logic here if we correctly identify offline nodes from those that didn't respond.
 			if share.Error == context.DeadlineExceeded || !transport.Error.Has(share.Error) || ContainError.Has(share.Error) {
 				containedNodes[pieceNum] = nodes[pieceNum]
+				failedNodes = append(failedNodes, nodes[pieceNum])
 			} else {
 				offlineNodes = append(offlineNodes, nodes[pieceNum])
 			}
