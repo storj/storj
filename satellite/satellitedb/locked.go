@@ -13,6 +13,7 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/bwagreement"
@@ -766,6 +767,13 @@ func (m *lockedProjectAccounting) GetAllocatedBandwidthTotal(ctx context.Context
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetAllocatedBandwidthTotal(ctx, bucketID, from)
+}
+
+// GetProjectUsageLimits
+func (m *lockedProjectAccounting) GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID) (memory.Size, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetProjectUsageLimits(ctx, projectID)
 }
 
 // GetStorageTotals returns the current inline and remote storage usage for a projectID
