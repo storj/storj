@@ -22,6 +22,19 @@ ProjectRef_t OpenTestProject(char **err)
     return OpenProject(ref_uplink, satellite_addr, ref_apikey, err);
 }
 
+void TestCloseProject(void)
+{
+    char *_err = "";
+    char **err = &_err;
+
+    ProjectRef_t ref_project = OpenTestProject(err);
+    TEST_ASSERT_EQUAL_STRING("", *err);
+    TEST_ASSERT_NOT_EQUAL(0, ref_project);
+
+    CloseProject(ref_project, err);
+    TEST_ASSERT_EQUAL_STRING("", *err);
+}
+
 void TestCreateBucket(void)
 {
     char *_err = "";

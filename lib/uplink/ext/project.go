@@ -125,3 +125,17 @@ func bucketToCBucket(bucket *storj.Bucket) C.Bucket_t {
 		segment_size:          C.int64_t(bucket.SegmentsSize),
 	}
 }
+
+//export CloseProject
+func CloseProject(cProject C.ProjectRef_t, cErr **C.char) {
+	project, ok := structRefMap.Get(token(cProject)).(*uplink.Project)
+	if !ok {
+		*cErr = C.CString("invalid project")
+		return
+	}
+
+	if err := project.Close(); err != nil {
+		*cErr = C.CString(err.Error())
+		return
+	}
+}

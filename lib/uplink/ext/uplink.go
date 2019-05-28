@@ -68,3 +68,17 @@ func OpenProject(cUplink C.UplinkRef_t, satelliteAddr *C.char, cAPIKey C.APIKeyR
 	}
 	return C.ProjectRef_t(structRefMap.Add(project))
 }
+
+//export CloseUplink
+func CloseUplink(cUplink C.UplinkRef_t, cErr **C.char) {
+	goUplink, ok := structRefMap.Get(token(cUplink)).(*uplink.Uplink)
+	if !ok {
+		*cErr = C.CString("invalid uplink")
+		return
+	}
+
+	if err := goUplink.Close(); err != nil {
+		*cErr = C.CString(err.Error())
+		return
+	}
+}

@@ -40,15 +40,6 @@ func init() {
 	testConfig.Volatile.TLS.SkipPeerCAWhitelist = true
 }
 
-//func TestCBucketTest(t *testing.T) {
-//	ctx := testcontext.New(t)
-//	defer ctx.Cleanup()
-//
-//	_, err := runCTest(t, ctx, "bucket_test.c")
-//	require.NoError(t, err)
-//	// TODO: add assertions for expected side-effects in services/dbs on the network (planet)
-//}
-
 func runCTest(t *testing.T, ctx *testcontext.Context, filename string, envVars ...string) {
 	runCTests(t, ctx, envVars, filepath.Join(cLibDir, "tests", filename))
 }

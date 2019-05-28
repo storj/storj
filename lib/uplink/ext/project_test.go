@@ -31,13 +31,13 @@ func TestCProjectTests(t *testing.T) {
 	}
 
 	{
-		u, err := uplink.NewUplink(ctx, testConfig)
+		goUplink, err := uplink.NewUplink(ctx, testConfig)
 		require.NoError(t, err)
 
 		apikey, err := uplink.ParseAPIKey(apikey)
 		require.NoError(t, err)
 
-		project, err := u.OpenProject(ctx, satelliteAddr, apikey, nil)
+		project, err := goUplink.OpenProject(ctx, satelliteAddr, apikey, nil)
 		require.NoError(t, err)
 
 		deleteBucket, err := project.CreateBucket(ctx, deleteBucketName, nil)
