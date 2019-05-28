@@ -42,6 +42,27 @@ func CreateBucket(cProject C.ProjectRef_t, name *C.char, cBucketCfg C.BucketConf
 	return bucketToCBucket(&bucket)
 }
 
+func OpenBucket(cProject C.ProjectRef_t, name *C.char, cAccess *C.EncryptionAccess_t, cErr **C.char) (bucketRef C.BucketRef_t) {
+	ctx := context.Background()
+	project, ok := structRefMap.Get(token(cProject)).(*uplink.Project)
+	if !ok {
+		*cErr = C.CString("invalid project")
+		return bucketRef
+	}
+
+	var access uplink.EncryptionAccess
+	bytes := C.GoBytes(unsafe.Pointer(cAccess.Key.bytes), cAccess.Key.length)
+	copy(access.Key[:], bytes)
+
+	bucket, err := project.OpenBucket(ctx, C.GoString(name), &access)
+	if err != nil {
+		*cErr = C.CString(err.Error())
+		return bucketRef
+	}
+
+	return C.BucketRef_t(structRefMap.Add(bucket))
+}
+
 //export DeleteBucket
 func DeleteBucket(cProject C.ProjectRef_t, bucketName *C.char, cErr **C.char) {
 	ctx := context.Background()

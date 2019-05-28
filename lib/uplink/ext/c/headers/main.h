@@ -15,6 +15,11 @@ typedef GoUintptr ProjectRef_t;
 typedef GoUintptr BucketRef_t;
 typedef GoUintptr BucketConfigRef_t;
 
+typedef struct Bytes {
+    uint8_t *bytes;
+    int32_t length;
+} Bytes_t;
+
 typedef struct IDVersion {
     uint16_t number;
 } IDVersion_t;
@@ -58,3 +63,7 @@ typedef struct BucketList {
     Bucket_t *items;
     int32_t length;
 } BucketList_t;
+
+typedef struct EncryptionAccess {
+    Bytes_t *Key;
+} EncryptionAccess_t;
